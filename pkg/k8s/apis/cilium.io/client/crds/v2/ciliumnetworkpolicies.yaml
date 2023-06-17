@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.7.0
+    controller-gen.kubebuilder.io/version: v0.11.4
   creationTimestamp: null
   name: ciliumnetworkpolicies.cilium.io
 spec:
@@ -78,20 +78,20 @@ spec:
                     ToGroups are     mutually exclusive. Only one of these members
                     may be present within an     individual rule."
                   properties:
-                    auth:
-                      description: Auth is the required authentication type for the
-                        allowed traffic, if any.
+                    authentication:
+                      description: Authentication is the required authentication type
+                        for the allowed traffic, if any.
                       properties:
-                        type:
-                          description: Type is the required authentication type for
+                        mode:
+                          description: Mode is the required authentication mode for
                             the allowed traffic, if any.
                           enum:
-                          - "null"
-                          - mtls-spiffe
-                          - always-fail
+                          - disabled
+                          - required
+                          - test-always-fail
                           type: string
                       required:
-                      - type
+                      - mode
                       type: object
                     icmps:
                       description: "ICMPs is a list of ICMP rule identified by type
@@ -1466,20 +1466,20 @@ spec:
                     Only one of these members may be present within an individual
                     \    rule."
                   properties:
-                    auth:
-                      description: Auth is the required authentication type for the
-                        allowed traffic, if any.
+                    authentication:
+                      description: Authentication is the required authentication type
+                        for the allowed traffic, if any.
                       properties:
-                        type:
-                          description: Type is the required authentication type for
+                        mode:
+                          description: Mode is the required authentication mode for
                             the allowed traffic, if any.
                           enum:
-                          - "null"
-                          - mtls-spiffe
-                          - always-fail
+                          - disabled
+                          - required
+                          - test-always-fail
                           type: string
                       required:
-                      - type
+                      - mode
                       type: object
                     fromCIDR:
                       description: "FromCIDR is a list of IP blocks which the endpoint
@@ -2619,20 +2619,20 @@ spec:
                       Only one of these members may be present within an     individual
                       rule."
                     properties:
-                      auth:
-                        description: Auth is the required authentication type for
-                          the allowed traffic, if any.
+                      authentication:
+                        description: Authentication is the required authentication
+                          type for the allowed traffic, if any.
                         properties:
-                          type:
-                            description: Type is the required authentication type
+                          mode:
+                            description: Mode is the required authentication mode
                               for the allowed traffic, if any.
                             enum:
-                            - "null"
-                            - mtls-spiffe
-                            - always-fail
+                            - disabled
+                            - required
+                            - test-always-fail
                             type: string
                         required:
-                        - type
+                        - mode
                         type: object
                       icmps:
                         description: "ICMPs is a list of ICMP rule identified by type
@@ -4031,20 +4031,20 @@ spec:
                       are mutually     exclusive. Only one of these members may be
                       present within an individual     rule."
                     properties:
-                      auth:
-                        description: Auth is the required authentication type for
-                          the allowed traffic, if any.
+                      authentication:
+                        description: Authentication is the required authentication
+                          type for the allowed traffic, if any.
                         properties:
-                          type:
-                            description: Type is the required authentication type
+                          mode:
+                            description: Mode is the required authentication mode
                               for the allowed traffic, if any.
                             enum:
-                            - "null"
-                            - mtls-spiffe
-                            - always-fail
+                            - disabled
+                            - required
+                            - test-always-fail
                             type: string
                         required:
-                        - type
+                        - mode
                         type: object
                       fromCIDR:
                         description: "FromCIDR is a list of IP blocks which the endpoint

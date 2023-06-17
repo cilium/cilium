@@ -11,10 +11,10 @@ import (
 	"runtime"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/node"
@@ -23,23 +23,22 @@ import (
 )
 
 type DevicesSuite struct {
-	currentNetNS                  netns.NsHandle
-	prevConfigDevices             []string
-	prevConfigDirectRoutingDevice string
-	prevConfigIPv6MCastDevice     string
-	prevConfigEnableIPv4          bool
-	prevConfigEnableIPv6          bool
-	prevConfigEnableNodePort      bool
-	prevConfigRoutingMode         string
-	prevConfigEnableIPv6NDP       bool
-	prevK8sNodeIP                 net.IP
-	prevK8sNodeIPv6               net.IP
+	currentNetNS                   netns.NsHandle
+	prevConfigDevices              []string
+	prevConfigDirectRoutingDevice  string
+	prevConfigIPv6MCastDevice      string
+	prevConfigEnableIPv4           bool
+	prevConfigEnableIPv6           bool
+	prevConfigEnableNodePort       bool
+	prevConfigNodePortAcceleration string
+	prevConfigRoutingMode          string
+	prevConfigEnableIPv6NDP        bool
 }
 
 var _ = Suite(&DevicesSuite{})
 
 func (s *DevicesSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	var err error
 
@@ -48,13 +47,18 @@ func (s *DevicesSuite) SetUpSuite(c *C) {
 	s.prevConfigEnableIPv4 = option.Config.EnableIPv4
 	s.prevConfigEnableIPv6 = option.Config.EnableIPv6
 	s.prevConfigEnableNodePort = option.Config.EnableNodePort
+	s.prevConfigNodePortAcceleration = option.Config.NodePortAcceleration
 	s.prevConfigRoutingMode = option.Config.RoutingMode
 	s.prevConfigEnableIPv6NDP = option.Config.EnableIPv6NDP
 	s.prevConfigIPv6MCastDevice = option.Config.IPv6MCastDevice
-	s.prevK8sNodeIP = node.GetIPv4()
-	s.prevK8sNodeIPv6 = node.GetIPv6()
 	s.currentNetNS, err = netns.Get()
 	c.Assert(err, IsNil)
+}
+
+func nodeSetIP(ip net.IP) {
+	node.UpdateLocalNodeInTest(func(n *node.LocalNode) {
+		n.SetNodeInternalIP(ip)
+	})
 }
 
 func (s *DevicesSuite) TearDownTest(c *C) {
@@ -63,30 +67,30 @@ func (s *DevicesSuite) TearDownTest(c *C) {
 	option.Config.EnableIPv4 = s.prevConfigEnableIPv4
 	option.Config.EnableIPv6 = s.prevConfigEnableIPv6
 	option.Config.EnableNodePort = s.prevConfigEnableNodePort
+	option.Config.NodePortAcceleration = s.prevConfigNodePortAcceleration
 	option.Config.RoutingMode = s.prevConfigRoutingMode
 	option.Config.EnableIPv6NDP = s.prevConfigEnableIPv6NDP
 	option.Config.IPv6MCastDevice = s.prevConfigIPv6MCastDevice
-	node.SetIPv4(s.prevK8sNodeIP)
-	node.SetIPv6(s.prevK8sNodeIPv6)
 }
 
 func (s *DevicesSuite) TestDetect(c *C) {
-	s.withFreshNetNS(c, func() {
+	s.withFixture(c, func() {
 		dm, err := NewDeviceManager()
 		c.Assert(err, IsNil)
 
 		option.Config.SetDevices([]string{})
 		option.Config.DirectRoutingDevice = ""
+		option.Config.NodePortAcceleration = option.NodePortAccelerationDisabled
 
-		// 1. No devices, nothing to detect.
+		// No devices, nothing to detect.
 		devices, err := dm.Detect(false)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{})
 
-		// 2. Node IP not set, can still detect. Direct routing device shouldn't be detected.
+		// Node IP not set, can still detect. Direct routing device shouldn't be detected.
 		option.Config.EnableNodePort = true
 		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
-		node.SetIPv4(nil)
+		nodeSetIP(nil)
 
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
@@ -94,9 +98,9 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "")
 
-		// 3. Manually specified devices, no detection is performed
+		// Manually specified devices, no detection is performed
 		option.Config.EnableNodePort = true
-		node.SetIPv4(net.ParseIP("192.168.0.1"))
+		nodeSetIP(net.ParseIP("192.168.0.1"))
 		c.Assert(createDummy("dummy1", "192.168.1.1/24", false), IsNil)
 		option.Config.SetDevices([]string{"dummy0"})
 
@@ -107,12 +111,12 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "")
 		option.Config.SetDevices([]string{})
 
-		// 4. Direct routing mode, should find all devices and set direct
+		// Direct routing mode, should find all devices and set direct
 		// routing device to the one with k8s node ip.
 		c.Assert(createDummy("dummy2", "192.168.2.1/24", false), IsNil)
 		c.Assert(createDummy("dummy3", "192.168.3.1/24", false), IsNil)
 		c.Assert(delRoutes("dummy3"), IsNil) // Delete routes so it won't be detected
-		node.SetIPv4(net.ParseIP("192.168.1.1"))
+		nodeSetIP(net.ParseIP("192.168.1.1"))
 		option.Config.EnableIPv4 = true
 		option.Config.EnableIPv6 = false
 		option.Config.RoutingMode = option.RoutingModeNative
@@ -124,13 +128,33 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		option.Config.DirectRoutingDevice = ""
 		option.Config.SetDevices([]string{})
 
-		// 5. Use IPv6 node IP and enable IPv6NDP and check that multicast device is detected.
+		// Tunnel routing mode with XDP, should find all devices and set direct
+		// routing device to the one with k8s node ip.
+		nodeSetIP(net.ParseIP("192.168.1.1"))
+		option.Config.EnableIPv4 = true
+		option.Config.EnableIPv6 = false
+		option.Config.RoutingMode = option.RoutingModeTunnel
+		option.Config.EnableNodePort = true
+		option.Config.NodePortAcceleration = option.NodePortAccelerationNative
+
+		devices, err = dm.Detect(true)
+		c.Assert(err, IsNil)
+		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2"})
+		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
+		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy1")
+
+		option.Config.DirectRoutingDevice = ""
+		option.Config.SetDevices([]string{})
+		option.Config.NodePortAcceleration = option.NodePortAccelerationDisabled
+		option.Config.RoutingMode = option.RoutingModeNative
+
+		// Use IPv6 node IP and enable IPv6NDP and check that multicast device is detected.
 		// Use an excluded device name to verify that device with NodeIP is still picked.
 		option.Config.EnableIPv6 = true
 		option.Config.EnableIPv6NDP = true
 		c.Assert(createDummy("cilium_foo", "2001:db8::face/64", true), IsNil)
-		node.SetIPv4(nil)
-		node.SetIPv6(net.ParseIP("2001:db8::face"))
+		nodeSetIP(nil)
+		nodeSetIP(net.ParseIP("2001:db8::face"))
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2"})
@@ -140,7 +164,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		option.Config.DirectRoutingDevice = ""
 		option.Config.SetDevices([]string{})
 
-		// 6. Only consider veth devices if they have a default route.
+		// Only consider veth devices if they have a default route.
 		c.Assert(createVeth("veth0", "192.168.4.1/24", false), IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
@@ -155,7 +179,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		option.Config.SetDevices([]string{})
 
-		// 7. Detect devices that only have routes in non-main tables
+		// Detect devices that only have routes in non-main tables
 		c.Assert(addRoute(addRouteParams{iface: "dummy3", dst: "192.168.3.1/24", scope: unix.RT_SCOPE_LINK, table: 11}), IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
@@ -163,7 +187,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		option.Config.SetDevices([]string{})
 
-		// 8. Skip bridge devices, and devices added to the bridge
+		// Skip bridge devices, and devices added to the bridge
 		c.Assert(createBridge("br0", "192.168.5.1/24", false), IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
@@ -178,7 +202,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		option.Config.SetDevices([]string{})
 
-		// 9. Don't skip bond devices, but do skip bond slaves.
+		// Don't skip bond devices, but do skip bond slaves.
 		c.Assert(createBond("bond0", "192.168.6.1/24", false), IsNil)
 		c.Assert(setBondMaster("dummy2", "bond0"), IsNil)
 		devices, err = dm.Detect(true)
@@ -189,7 +213,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 }
 
 func (s *DevicesSuite) TestExpandDevices(c *C) {
-	s.withFreshNetNS(c, func() {
+	s.withFixture(c, func() {
 		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
 		c.Assert(createDummy("dummy1", "192.168.1.2/24", false), IsNil)
 		c.Assert(createDummy("other0", "192.168.2.3/24", false), IsNil)
@@ -211,7 +235,7 @@ func (s *DevicesSuite) TestExpandDevices(c *C) {
 }
 
 func (s *DevicesSuite) TestExpandDirectRoutingDevice(c *C) {
-	s.withFreshNetNS(c, func() {
+	s.withFixture(c, func() {
 		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
 		c.Assert(createDummy("dummy1", "192.168.1.2/24", false), IsNil)
 		c.Assert(createDummy("unmatched", "192.168.4.5/24", false), IsNil)
@@ -231,7 +255,7 @@ func (s *DevicesSuite) TestExpandDirectRoutingDevice(c *C) {
 }
 
 func (s *DevicesSuite) TestListenForNewDevices(c *C) {
-	s.withFreshNetNS(c, func() {
+	s.withFixture(c, func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -290,7 +314,7 @@ func (s *DevicesSuite) TestListenForNewDevices(c *C) {
 }
 
 func (s *DevicesSuite) TestListenForNewDevicesFiltered(c *C) {
-	s.withFreshNetNS(c, func() {
+	s.withFixture(c, func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -325,7 +349,7 @@ func (s *DevicesSuite) TestListenForNewDevicesFiltered(c *C) {
 }
 
 func (s *DevicesSuite) TestListenAfterDelete(c *C) {
-	s.withFreshNetNS(c, func() {
+	s.withFixture(c, func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -366,7 +390,7 @@ func (s *DevicesSuite) TestListenAfterDelete(c *C) {
 	})
 }
 
-func (s *DevicesSuite) withFreshNetNS(c *C, test func()) {
+func (s *DevicesSuite) withFixture(c *C, test func()) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -375,7 +399,7 @@ func (s *DevicesSuite) withFreshNetNS(c *C, test func()) {
 	defer func() { c.Assert(testNetNS.Close(), IsNil) }()
 	defer func() { c.Assert(netns.Set(s.currentNetNS), IsNil) }()
 
-	test()
+	node.WithTestLocalNodeStore(test)
 }
 
 func createLink(linkTemplate netlink.Link, iface, ipAddr string, flagMulticast bool) error {
@@ -537,9 +561,6 @@ func delRoutes(iface string) error {
 	}
 
 	for _, r := range routes {
-		if r.Table == unix.RT_TABLE_LOCAL {
-			continue
-		}
 		if err := netlink.RouteDel(&r); err != nil {
 			return err
 		}

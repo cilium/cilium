@@ -6,7 +6,7 @@ package r2d2
 import (
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/proxylib/accesslog"
 	"github.com/cilium/cilium/proxylib/proxylib"

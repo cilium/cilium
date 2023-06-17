@@ -25,12 +25,15 @@ const (
 
 type translator struct {
 	secretsNamespace string
+
+	idleTimeoutSeconds int
 }
 
 // NewTranslator returns a new translator for Gateway API.
-func NewTranslator(secretsNamespace string) translation.Translator {
+func NewTranslator(secretsNamespace string, idleTimeoutSeconds int) translation.Translator {
 	return &translator{
-		secretsNamespace: secretsNamespace,
+		secretsNamespace:   secretsNamespace,
+		idleTimeoutSeconds: idleTimeoutSeconds,
 	}
 }
 
@@ -52,7 +55,8 @@ func (t *translator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *co
 		return nil, nil, nil, fmt.Errorf("model source name can't be empty")
 	}
 
-	cec, _, _, err := translation.NewTranslator(ciliumGatewayPrefix+source.Name, source.Namespace, t.secretsNamespace, false, true).Translate(m)
+	trans := translation.NewTranslator(ciliumGatewayPrefix+source.Name, source.Namespace, t.secretsNamespace, false, true, t.idleTimeoutSeconds)
+	cec, _, _, err := trans.Translate(m)
 	if err != nil {
 		return nil, nil, nil, err
 	}

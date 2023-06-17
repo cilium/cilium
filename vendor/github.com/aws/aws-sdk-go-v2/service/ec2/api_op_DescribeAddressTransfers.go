@@ -13,9 +13,15 @@ import (
 )
 
 // Describes an Elastic IP address transfer. For more information, see Transfer
-// Elastic IP addresses
-// (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-eips.html#transfer-EIPs-intro)
-// in the Amazon Virtual Private Cloud User Guide.
+// Elastic IP addresses (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-eips.html#transfer-EIPs-intro)
+// in the Amazon Virtual Private Cloud User Guide. When you transfer an Elastic IP
+// address, there is a two-step handshake between the source and transfer Amazon
+// Web Services accounts. When the source account starts the transfer, the transfer
+// account has seven days to accept the Elastic IP address transfer. During those
+// seven days, the source account can view the pending transfer by using this
+// action. After seven days, the transfer expires and ownership of the Elastic IP
+// address returns to the source account. Accepted transfers are visible to the
+// source account for three days after the transfers have been accepted.
 func (c *Client) DescribeAddressTransfers(ctx context.Context, params *DescribeAddressTransfersInput, optFns ...func(*Options)) (*DescribeAddressTransfersOutput, error) {
 	if params == nil {
 		params = &DescribeAddressTransfersInput{}
@@ -38,8 +44,8 @@ type DescribeAddressTransfersInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The maximum number of address transfers to return in one page of results.
@@ -113,6 +119,9 @@ func (c *Client) addOperationDescribeAddressTransfersMiddlewares(stack *middlewa
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeAddressTransfers(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

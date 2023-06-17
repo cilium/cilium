@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/proxylib/accesslog"

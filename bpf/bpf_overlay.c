@@ -50,13 +50,14 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	struct bpf_tunnel_key key = {};
 	struct endpoint_info *ep;
 	bool decrypted;
+	__u32 key_size;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
-		ret = nodeport_lb6(ctx, *identity, ext_err);
+		ret = nodeport_lb6(ctx, ip6, *identity, ext_err);
 		if (ret < 0)
 			return ret;
 	}
@@ -76,7 +77,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		if (info)
 			*identity = key.tunnel_id = info->sec_identity;
 	} else {
-		if (unlikely(ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0))
+		key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
+		if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
 		*identity = key.tunnel_id;
 
@@ -286,6 +288,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 				       __s8 *ext_err __maybe_unused)
 {
 	struct remote_endpoint_info *info;
+	__u32 key_size __maybe_unused;
 	void *data_end, *data;
 	struct iphdr *ip4;
 	struct endpoint_info *ep;
@@ -307,7 +310,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 
 #ifdef ENABLE_NODEPORT
 	if (!ctx_skip_nodeport(ctx)) {
-		int ret = nodeport_lb4(ctx, *identity, ext_err);
+		int ret = nodeport_lb4(ctx, ip4, ETH_HLEN, *identity, ext_err);
 
 		if (ret < 0)
 			return ret;
@@ -327,9 +330,14 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		if (info)
 			*identity = key.tunnel_id = info->sec_identity;
 	} else {
-		if (unlikely(ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0))
+#ifdef ENABLE_HIGH_SCALE_IPCACHE
+		key.tunnel_id = *identity;
+#else
+		key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
+		if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
 		*identity = key.tunnel_id;
+#endif /* ENABLE_HIGH_SCALE_IPCACHE */
 
 		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
@@ -434,8 +442,14 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
 	__u32 src_sec_identity = 0;
 	__s8 ext_err = 0;
-	int ret = handle_ipv4(ctx, &src_sec_identity, &ext_err);
+	int ret;
 
+#ifdef ENABLE_HIGH_SCALE_IPCACHE
+	src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
+#endif
+
+	ret = handle_ipv4(ctx, &src_sec_identity, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_INGRESS);
@@ -462,8 +476,10 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	struct bpf_tunnel_key key = {};
 	struct vtep_key vkey = {};
 	struct vtep_value *info;
+	__u32 key_size;
 
-	if (unlikely(ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0))
+	key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
+	if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
 		return send_drop_notify_error(ctx, 0, DROP_NO_TUNNEL_KEY, CTX_ACT_DROP,
 										METRIC_INGRESS);
 
@@ -478,7 +494,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 	if (unlikely(ret != 0))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 	if (info->tunnel_endpoint) {
-		ret = __encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
+		ret = __encap_and_redirect_with_nodeid(ctx, 0, info->tunnel_endpoint,
 						       LOCAL_NODE_ID, WORLD_ID,
 						       WORLD_ID, &trace);
 		if (IS_ERR(ret))
@@ -540,7 +556,6 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	__u16 proto;
 	int ret;
 
-	bpf_clear_meta(ctx);
 	ctx_skip_nodeport_clear(ctx);
 
 	if (!validate_ethertype(ctx, &proto)) {
@@ -602,6 +617,30 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 
 	case bpf_htons(ETH_P_IP):
 #ifdef ENABLE_IPV4
+# ifdef ENABLE_HIGH_SCALE_IPCACHE
+#  if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+		if (ctx_load_meta(ctx, CB_HSIPC_ADDR_V4)) {
+			struct geneve_dsr_opt4 dsr_opt;
+			struct bpf_tunnel_key key = {};
+
+			set_geneve_dsr_opt4((__be16)ctx_load_meta(ctx, CB_HSIPC_PORT),
+					    ctx_load_meta(ctx, CB_HSIPC_ADDR_V4),
+					    &dsr_opt);
+
+			/* Needed to create the metadata_dst for storing tunnel opts: */
+			if (ctx_set_tunnel_key(ctx, &key, sizeof(key), BPF_F_ZERO_CSUM_TX) < 0) {
+				ret = DROP_WRITE_ERROR;
+				goto out;
+			}
+
+			if (ctx_set_tunnel_opt(ctx, &dsr_opt, sizeof(dsr_opt)) < 0) {
+				ret = DROP_WRITE_ERROR;
+				goto out;
+			}
+		}
+#  endif
+# endif
+
 		ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_OVERLAY);
 		ret = DROP_MISSED_TAIL_CALL;
 #else

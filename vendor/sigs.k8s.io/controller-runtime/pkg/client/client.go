@@ -20,11 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -35,6 +35,28 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+// Options are creation options for a Client.
+type Options struct {
+	// HTTPClient is the HTTP client to use for requests.
+	HTTPClient *http.Client
+
+	// Scheme, if provided, will be used to map go structs to GroupVersionKinds
+	Scheme *runtime.Scheme
+
+	// Mapper, if provided, will be used to map GroupVersionKinds to Resources
+	Mapper meta.RESTMapper
+
+	// Cache, if provided, is used to read objects from the cache.
+	Cache *CacheOptions
+
+	// WarningHandler is used to configure the warning handler responsible for
+	// surfacing and handling warnings messages sent by the API server.
+	WarningHandler WarningHandlerOptions
+
+	// DryRun instructs the client to only perform dry run requests.
+	DryRun *bool
+}
 
 // WarningHandlerOptions are options for configuring a
 // warning handler for the client which is responsible
@@ -50,18 +72,20 @@ type WarningHandlerOptions struct {
 	AllowDuplicateLogs bool
 }
 
-// Options are creation options for a Client.
-type Options struct {
-	// Scheme, if provided, will be used to map go structs to GroupVersionKinds
-	Scheme *runtime.Scheme
-
-	// Mapper, if provided, will be used to map GroupVersionKinds to Resources
-	Mapper meta.RESTMapper
-
-	// Opts is used to configure the warning handler responsible for
-	// surfacing and handling warnings messages sent by the API server.
-	Opts WarningHandlerOptions
+// CacheOptions are options for creating a cache-backed client.
+type CacheOptions struct {
+	// Reader is a cache-backed reader that will be used to read objects from the cache.
+	// +required
+	Reader Reader
+	// DisableFor is a list of objects that should not be read from the cache.
+	DisableFor []Object
+	// Unstructured is a flag that indicates whether the cache-backed client should
+	// read unstructured objects or lists from the cache.
+	Unstructured bool
 }
+
+// NewClientFunc allows a user to define how to create a client.
+type NewClientFunc func(config *rest.Config, options Options) (Client, error)
 
 // New returns a new Client using the provided config and Options.
 // The returned client reads *and* writes directly from the server
@@ -73,8 +97,12 @@ type Options struct {
 // corresponding group, version, and kind for the given type.  In the
 // case of unstructured types, the group, version, and kind will be extracted
 // from the corresponding fields on the object.
-func New(config *rest.Config, options Options) (Client, error) {
-	return newClient(config, options)
+func New(config *rest.Config, options Options) (c Client, err error) {
+	c, err = newClient(config, options)
+	if err == nil && options.DryRun != nil && *options.DryRun {
+		c = NewDryRunClient(c)
+	}
+	return c, err
 }
 
 func newClient(config *rest.Config, options Options) (*client, error) {
@@ -82,7 +110,7 @@ func newClient(config *rest.Config, options Options) (*client, error) {
 		return nil, fmt.Errorf("must provide non-nil rest.Config to client.New")
 	}
 
-	if !options.Opts.SuppressWarnings {
+	if !options.WarningHandler.SuppressWarnings {
 		// surface warnings
 		logger := log.Log.WithName("KubeAPIWarningLogger")
 		// Set a WarningHandler, the default WarningHandler
@@ -93,9 +121,18 @@ func newClient(config *rest.Config, options Options) (*client, error) {
 		config.WarningHandler = log.NewKubeAPIWarningLogger(
 			logger,
 			log.KubeAPIWarningLoggerOptions{
-				Deduplicate: !options.Opts.AllowDuplicateLogs,
+				Deduplicate: !options.WarningHandler.AllowDuplicateLogs,
 			},
 		)
+	}
+
+	// Use the rest HTTP client for the provided config if unset
+	if options.HTTPClient == nil {
+		var err error
+		options.HTTPClient, err = rest.HTTPClientFor(config)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Init a scheme if none provided
@@ -106,34 +143,35 @@ func newClient(config *rest.Config, options Options) (*client, error) {
 	// Init a Mapper if none provided
 	if options.Mapper == nil {
 		var err error
-		options.Mapper, err = apiutil.NewDynamicRESTMapper(config)
+		options.Mapper, err = apiutil.NewDynamicRESTMapper(config, options.HTTPClient)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	clientcache := &clientCache{
-		config: config,
-		scheme: options.Scheme,
-		mapper: options.Mapper,
-		codecs: serializer.NewCodecFactory(options.Scheme),
+	resources := &clientRestResources{
+		httpClient: options.HTTPClient,
+		config:     config,
+		scheme:     options.Scheme,
+		mapper:     options.Mapper,
+		codecs:     serializer.NewCodecFactory(options.Scheme),
 
 		structuredResourceByType:   make(map[schema.GroupVersionKind]*resourceMeta),
 		unstructuredResourceByType: make(map[schema.GroupVersionKind]*resourceMeta),
 	}
 
-	rawMetaClient, err := metadata.NewForConfig(config)
+	rawMetaClient, err := metadata.NewForConfigAndClient(config, options.HTTPClient)
 	if err != nil {
 		return nil, fmt.Errorf("unable to construct metadata-only client for use as part of client: %w", err)
 	}
 
 	c := &client{
 		typedClient: typedClient{
-			cache:      clientcache,
+			resources:  resources,
 			paramCodec: runtime.NewParameterCodec(options.Scheme),
 		},
 		unstructuredClient: unstructuredClient{
-			cache:      clientcache,
+			resources:  resources,
 			paramCodec: noConversionParamCodec{},
 		},
 		metadataClient: metadataClient{
@@ -143,20 +181,65 @@ func newClient(config *rest.Config, options Options) (*client, error) {
 		scheme: options.Scheme,
 		mapper: options.Mapper,
 	}
+	if options.Cache == nil || options.Cache.Reader == nil {
+		return c, nil
+	}
 
+	// We want a cache if we're here.
+	// Set the cache.
+	c.cache = options.Cache.Reader
+
+	// Load uncached GVKs.
+	c.cacheUnstructured = options.Cache.Unstructured
+	c.uncachedGVKs = map[schema.GroupVersionKind]struct{}{}
+	for _, obj := range options.Cache.DisableFor {
+		gvk, err := c.GroupVersionKindFor(obj)
+		if err != nil {
+			return nil, err
+		}
+		c.uncachedGVKs[gvk] = struct{}{}
+	}
 	return c, nil
 }
 
 var _ Client = &client{}
 
-// client is a client.Client that reads and writes directly from/to an API server.  It lazily initializes
-// new clients at the time they are used, and caches the client.
+// client is a client.Client that reads and writes directly from/to an API server.
+// It lazily initializes new clients at the time they are used.
 type client struct {
 	typedClient        typedClient
 	unstructuredClient unstructuredClient
 	metadataClient     metadataClient
 	scheme             *runtime.Scheme
 	mapper             meta.RESTMapper
+
+	cache             Reader
+	uncachedGVKs      map[schema.GroupVersionKind]struct{}
+	cacheUnstructured bool
+}
+
+func (c *client) shouldBypassCache(obj runtime.Object) (bool, error) {
+	if c.cache == nil {
+		return true, nil
+	}
+
+	gvk, err := c.GroupVersionKindFor(obj)
+	if err != nil {
+		return false, err
+	}
+	// TODO: this is producing unsafe guesses that don't actually work,
+	// but it matches ~99% of the cases out there.
+	if meta.IsListType(obj) {
+		gvk.Kind = strings.TrimSuffix(gvk.Kind, "List")
+	}
+	if _, isUncached := c.uncachedGVKs[gvk]; isUncached {
+		return true, nil
+	}
+	if !c.cacheUnstructured {
+		_, isUnstructured := obj.(runtime.Unstructured)
+		return isUnstructured, nil
+	}
+	return false, nil
 }
 
 // resetGroupVersionKind is a helper function to restore and preserve GroupVersionKind on an object.
@@ -166,6 +249,16 @@ func (c *client) resetGroupVersionKind(obj runtime.Object, gvk schema.GroupVersi
 			v.SetGroupVersionKind(gvk)
 		}
 	}
+}
+
+// GroupVersionKindFor returns the GroupVersionKind for the given object.
+func (c *client) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
+	return apiutil.GVKForObject(obj, c.scheme)
+}
+
+// IsObjectNamespaced returns true if the GroupVersionKind of the object is namespaced.
+func (c *client) IsObjectNamespaced(obj runtime.Object) (bool, error) {
+	return apiutil.IsObjectNamespaced(obj, c.scheme, c.mapper)
 }
 
 // Scheme returns the scheme this client is using.
@@ -181,7 +274,7 @@ func (c *client) RESTMapper() meta.RESTMapper {
 // Create implements client.Client.
 func (c *client) Create(ctx context.Context, obj Object, opts ...CreateOption) error {
 	switch obj.(type) {
-	case *unstructured.Unstructured:
+	case runtime.Unstructured:
 		return c.unstructuredClient.Create(ctx, obj, opts...)
 	case *metav1.PartialObjectMetadata:
 		return fmt.Errorf("cannot create using only metadata")
@@ -194,7 +287,7 @@ func (c *client) Create(ctx context.Context, obj Object, opts ...CreateOption) e
 func (c *client) Update(ctx context.Context, obj Object, opts ...UpdateOption) error {
 	defer c.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
 	switch obj.(type) {
-	case *unstructured.Unstructured:
+	case runtime.Unstructured:
 		return c.unstructuredClient.Update(ctx, obj, opts...)
 	case *metav1.PartialObjectMetadata:
 		return fmt.Errorf("cannot update using only metadata -- did you mean to patch?")
@@ -206,7 +299,7 @@ func (c *client) Update(ctx context.Context, obj Object, opts ...UpdateOption) e
 // Delete implements client.Client.
 func (c *client) Delete(ctx context.Context, obj Object, opts ...DeleteOption) error {
 	switch obj.(type) {
-	case *unstructured.Unstructured:
+	case runtime.Unstructured:
 		return c.unstructuredClient.Delete(ctx, obj, opts...)
 	case *metav1.PartialObjectMetadata:
 		return c.metadataClient.Delete(ctx, obj, opts...)
@@ -218,7 +311,7 @@ func (c *client) Delete(ctx context.Context, obj Object, opts ...DeleteOption) e
 // DeleteAllOf implements client.Client.
 func (c *client) DeleteAllOf(ctx context.Context, obj Object, opts ...DeleteAllOfOption) error {
 	switch obj.(type) {
-	case *unstructured.Unstructured:
+	case runtime.Unstructured:
 		return c.unstructuredClient.DeleteAllOf(ctx, obj, opts...)
 	case *metav1.PartialObjectMetadata:
 		return c.metadataClient.DeleteAllOf(ctx, obj, opts...)
@@ -231,7 +324,7 @@ func (c *client) DeleteAllOf(ctx context.Context, obj Object, opts ...DeleteAllO
 func (c *client) Patch(ctx context.Context, obj Object, patch Patch, opts ...PatchOption) error {
 	defer c.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
 	switch obj.(type) {
-	case *unstructured.Unstructured:
+	case runtime.Unstructured:
 		return c.unstructuredClient.Patch(ctx, obj, patch, opts...)
 	case *metav1.PartialObjectMetadata:
 		return c.metadataClient.Patch(ctx, obj, patch, opts...)
@@ -242,8 +335,14 @@ func (c *client) Patch(ctx context.Context, obj Object, patch Patch, opts ...Pat
 
 // Get implements client.Client.
 func (c *client) Get(ctx context.Context, key ObjectKey, obj Object, opts ...GetOption) error {
+	if isUncached, err := c.shouldBypassCache(obj); err != nil {
+		return err
+	} else if !isUncached {
+		return c.cache.Get(ctx, key, obj, opts...)
+	}
+
 	switch obj.(type) {
-	case *unstructured.Unstructured:
+	case runtime.Unstructured:
 		return c.unstructuredClient.Get(ctx, key, obj, opts...)
 	case *metav1.PartialObjectMetadata:
 		// Metadata only object should always preserve the GVK coming in from the caller.
@@ -256,8 +355,14 @@ func (c *client) Get(ctx context.Context, key ObjectKey, obj Object, opts ...Get
 
 // List implements client.Client.
 func (c *client) List(ctx context.Context, obj ObjectList, opts ...ListOption) error {
+	if isUncached, err := c.shouldBypassCache(obj); err != nil {
+		return err
+	} else if !isUncached {
+		return c.cache.List(ctx, obj, opts...)
+	}
+
 	switch x := obj.(type) {
-	case *unstructured.UnstructuredList:
+	case runtime.Unstructured:
 		return c.unstructuredClient.List(ctx, obj, opts...)
 	case *metav1.PartialObjectMetadataList:
 		// Metadata only object should always preserve the GVK.
@@ -431,7 +536,7 @@ func (po *SubResourcePatchOptions) ApplyToSubResourcePatch(o *SubResourcePatchOp
 
 func (sc *subResourceClient) Get(ctx context.Context, obj Object, subResource Object, opts ...SubResourceGetOption) error {
 	switch obj.(type) {
-	case *unstructured.Unstructured:
+	case runtime.Unstructured:
 		return sc.client.unstructuredClient.GetSubResource(ctx, obj, subResource, sc.subResource, opts...)
 	case *metav1.PartialObjectMetadata:
 		return errors.New("can not get subresource using only metadata")
@@ -446,7 +551,7 @@ func (sc *subResourceClient) Create(ctx context.Context, obj Object, subResource
 	defer sc.client.resetGroupVersionKind(subResource, subResource.GetObjectKind().GroupVersionKind())
 
 	switch obj.(type) {
-	case *unstructured.Unstructured:
+	case runtime.Unstructured:
 		return sc.client.unstructuredClient.CreateSubResource(ctx, obj, subResource, sc.subResource, opts...)
 	case *metav1.PartialObjectMetadata:
 		return fmt.Errorf("cannot update status using only metadata -- did you mean to patch?")
@@ -459,7 +564,7 @@ func (sc *subResourceClient) Create(ctx context.Context, obj Object, subResource
 func (sc *subResourceClient) Update(ctx context.Context, obj Object, opts ...SubResourceUpdateOption) error {
 	defer sc.client.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
 	switch obj.(type) {
-	case *unstructured.Unstructured:
+	case runtime.Unstructured:
 		return sc.client.unstructuredClient.UpdateSubResource(ctx, obj, sc.subResource, opts...)
 	case *metav1.PartialObjectMetadata:
 		return fmt.Errorf("cannot update status using only metadata -- did you mean to patch?")
@@ -472,7 +577,7 @@ func (sc *subResourceClient) Update(ctx context.Context, obj Object, opts ...Sub
 func (sc *subResourceClient) Patch(ctx context.Context, obj Object, patch Patch, opts ...SubResourcePatchOption) error {
 	defer sc.client.resetGroupVersionKind(obj, obj.GetObjectKind().GroupVersionKind())
 	switch obj.(type) {
-	case *unstructured.Unstructured:
+	case runtime.Unstructured:
 		return sc.client.unstructuredClient.PatchSubResource(ctx, obj, sc.subResource, patch, opts...)
 	case *metav1.PartialObjectMetadata:
 		return sc.client.metadataClient.PatchSubResource(ctx, obj, sc.subResource, patch, opts...)

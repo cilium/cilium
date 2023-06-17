@@ -4,7 +4,9 @@
 package metrics
 
 import (
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
+
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func (s *MetricsSuite) TestGaugeWithThreshold(c *C) {
@@ -21,36 +23,40 @@ func (s *MetricsSuite) TestGaugeWithThreshold(c *C) {
 		threshold,
 	)
 
-	metrics, err := registry.Gather()
+	reg := NewRegistry(RegistryParams{
+		DaemonConfig: &option.DaemonConfig{},
+	})
+
+	metrics, err := reg.inner.Gather()
 	c.Assert(err, IsNil)
 	initMetricLen := len(metrics)
 
 	gauge.Set(underThreshold)
-	metrics, err = registry.Gather()
+	metrics, err = reg.inner.Gather()
 	c.Assert(err, IsNil)
 	c.Assert(metrics, HasLen, initMetricLen)
 	c.Assert(GetGaugeValue(gauge.gauge), Equals, underThreshold)
 
 	gauge.Set(overThreshold)
-	metrics, err = registry.Gather()
+	metrics, err = reg.inner.Gather()
 	c.Assert(err, IsNil)
 	c.Assert(metrics, HasLen, initMetricLen+1)
 	c.Assert(GetGaugeValue(gauge.gauge), Equals, overThreshold)
 
 	gauge.Set(threshold)
-	metrics, err = registry.Gather()
+	metrics, err = reg.inner.Gather()
 	c.Assert(err, IsNil)
 	c.Assert(metrics, HasLen, initMetricLen)
 	c.Assert(GetGaugeValue(gauge.gauge), Equals, threshold)
 
 	gauge.Set(overThreshold)
-	metrics, err = registry.Gather()
+	metrics, err = reg.inner.Gather()
 	c.Assert(err, IsNil)
 	c.Assert(metrics, HasLen, initMetricLen+1)
 	c.Assert(GetGaugeValue(gauge.gauge), Equals, overThreshold)
 
 	gauge.Set(underThreshold)
-	metrics, err = registry.Gather()
+	metrics, err = reg.inner.Gather()
 	c.Assert(err, IsNil)
 	c.Assert(metrics, HasLen, initMetricLen)
 	c.Assert(GetGaugeValue(gauge.gauge), Equals, underThreshold)

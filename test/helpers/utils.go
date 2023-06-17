@@ -417,7 +417,7 @@ func getK8sSupportedConstraints(ciliumVersion string) (semver.Range, error) {
 	}
 	switch {
 	case IsCiliumV1_14(cst):
-		return versioncheck.MustCompile(">=1.16.0 <1.27.0"), nil
+		return versioncheck.MustCompile(">=1.16.0 <1.28.0"), nil
 	case IsCiliumV1_13(cst):
 		return versioncheck.MustCompile(">=1.16.0 <1.27.0"), nil
 	case IsCiliumV1_12(cst):
@@ -792,4 +792,33 @@ func CiliumEndpointSliceFeatureEnabled() bool {
 	}
 	return k8sVersionGreaterEqual121(k8sVersion) && (GetCurrentIntegration() == "" ||
 		IsIntegration(CIIntegrationKind))
+}
+
+// SupportIPv6Connectivity returns true if the CI environment supports IPv6
+// connectivity across pods.
+func SupportIPv6Connectivity() bool {
+	supportedVersions := versioncheck.MustCompile(">=1.20.0")
+	k8sVersion, err := versioncheck.Version(GetCurrentK8SEnv())
+	if err != nil {
+		return false
+	}
+
+	if supportedVersions(k8sVersion) {
+		return true
+	}
+
+	if IsIntegration(CIIntegrationKind) {
+		return false
+	}
+
+	return true
+}
+
+// SupportIPv6ToOutside returns true if the CI environment supports IPv6
+// connectivity to the outside world.
+func SupportIPv6ToOutside() bool {
+	if os.Getenv("CILIUM_NO_IPV6_OUTSIDE") != "" {
+		return false
+	}
+	return true
 }

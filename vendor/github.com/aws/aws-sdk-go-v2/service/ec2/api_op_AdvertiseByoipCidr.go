@@ -22,7 +22,7 @@ import (
 // advertising it through Amazon Web Services. It can take a few minutes before
 // traffic to the specified addresses starts routing to Amazon Web Services because
 // of BGP propagation delays. To stop advertising the BYOIP CIDR, use
-// WithdrawByoipCidr.
+// WithdrawByoipCidr .
 func (c *Client) AdvertiseByoipCidr(ctx context.Context, params *AdvertiseByoipCidrInput, optFns ...func(*Options)) (*AdvertiseByoipCidrOutput, error) {
 	if params == nil {
 		params = &AdvertiseByoipCidrInput{}
@@ -48,8 +48,8 @@ type AdvertiseByoipCidrInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -115,6 +115,9 @@ func (c *Client) addOperationAdvertiseByoipCidrMiddlewares(stack *middleware.Sta
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAdvertiseByoipCidr(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

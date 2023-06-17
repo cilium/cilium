@@ -4,27 +4,49 @@
 package ethtool
 
 import (
-	"errors"
+	"runtime"
 	"testing"
 
 	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
+	"github.com/vishvananda/netns"
+
+	"github.com/cilium/cilium/pkg/testutils"
 )
 
 func TestIsVirtualDriver(t *testing.T) {
-	links, err := netlink.LinkList()
-	if err != nil {
-		t.Fatalf("failed to get link list: %v", err)
-	}
+	testutils.PrivilegedTest(t)
 
-	for _, link := range links {
-		name := link.Attrs().Name
-		isVirtual, err := IsVirtualDriver(name)
-		if errors.Is(err, unix.EOPNOTSUPP) {
-			continue
-		} else if err != nil {
-			t.Fatalf("failed to check for veth driver for %q: %v", name, err)
-		}
-		t.Logf("IsVirtualDriver(%q) = %t", name, isVirtual)
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	oldns, err := netns.Get()
+	if err != nil {
+		t.Fatalf("failed to get current netns: %v", err)
+	}
+	defer oldns.Close()
+
+	newns, err := netns.New()
+	if err != nil {
+		t.Fatalf("failed to create new netns: %v", err)
+	}
+	defer newns.Close()
+	defer netns.Set(oldns)
+
+	name := "veth0"
+	veth := &netlink.Veth{
+		LinkAttrs: netlink.LinkAttrs{Name: name},
+		PeerName:  "veth1",
+	}
+	err = netlink.LinkAdd(veth)
+	if err != nil {
+		t.Fatalf("failed to create veth link: %v", err)
+	}
+	defer netlink.LinkDel(veth)
+
+	isVirtual, err := IsVirtualDriver(name)
+	if err != nil {
+		t.Fatalf("error checking veth link %q: %v", name, err)
+	} else if !isVirtual {
+		t.Errorf("IsVirtualDriver(%q) = %t, want true", name, isVirtual)
 	}
 }

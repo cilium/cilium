@@ -12,13 +12,13 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
@@ -41,8 +41,8 @@ const (
 )
 
 var (
-	DeferredCompletion error = errors.New("Deferred completion")
-	nodes                    = map[string]*envoy_config_core.Node{
+	DeferredCompletion = errors.New("Deferred completion")
+	nodes              = map[string]*envoy_config_core.Node{
 		node0: {Id: "sidecar~10.0.0.0~node0~bar"},
 		node1: {Id: "sidecar~10.0.0.1~node1~bar"},
 		node2: {Id: "sidecar~10.0.0.2~node2~bar"},

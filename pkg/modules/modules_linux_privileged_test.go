@@ -8,7 +8,7 @@ package modules
 import (
 	"github.com/cilium/cilium/pkg/testutils"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 type ModulesPrivilegedTestSuite struct{}
@@ -16,7 +16,7 @@ type ModulesPrivilegedTestSuite struct{}
 var _ = Suite(&ModulesPrivilegedTestSuite{})
 
 func (s *ModulesPrivilegedTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 func (s *ModulesPrivilegedTestSuite) TestFindOrLoadModules(c *C) {

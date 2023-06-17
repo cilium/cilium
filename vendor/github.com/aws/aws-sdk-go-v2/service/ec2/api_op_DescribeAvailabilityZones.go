@@ -15,8 +15,7 @@ import (
 // available to you. If there is an event impacting a zone, you can use this
 // request to view the state and any provided messages for that zone. For more
 // information about Availability Zones, Local Zones, and Wavelength Zones, see
-// Regions and zones
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)
+// Regions and zones (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DescribeAvailabilityZones(ctx context.Context, params *DescribeAvailabilityZonesInput, optFns ...func(*Options)) (*DescribeAvailabilityZonesOutput, error) {
 	if params == nil {
@@ -42,50 +41,33 @@ type DescribeAvailabilityZonesInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The filters.
-	//
-	// * group-name - For Availability Zones, use the Region name. For
-	// Local Zones, use the name of the group associated with the Local Zone (for
-	// example, us-west-2-lax-1) For Wavelength Zones, use the name of the group
-	// associated with the Wavelength Zone (for example, us-east-1-wl1-bos-wlz-1).
-	//
-	// *
-	// message - The Zone message.
-	//
-	// * opt-in-status - The opt-in status (opted-in, and
-	// not-opted-in | opt-in-not-required).
-	//
-	// * parent-zoneID - The ID of the zone that
-	// handles some of the Local Zone and Wavelength Zone control plane operations,
-	// such as API calls.
-	//
-	// * parent-zoneName - The ID of the zone that handles some of
-	// the Local Zone and Wavelength Zone control plane operations, such as API
-	// calls.
-	//
-	// * region-name - The name of the Region for the Zone (for example,
-	// us-east-1).
-	//
-	// * state - The state of the Availability Zone, the Local Zone, or
-	// the Wavelength Zone (available).
-	//
-	// * zone-id - The ID of the Availability Zone
-	// (for example, use1-az1), the Local Zone (for example, usw2-lax1-az1), or the
-	// Wavelength Zone (for example, us-east-1-wl1-bos-wlz-1).
-	//
-	// * zone-type - The type
-	// of zone, for example, local-zone.
-	//
-	// * zone-name - The name of the Availability
-	// Zone (for example, us-east-1a), the Local Zone (for example, us-west-2-lax-1a),
-	// or the Wavelength Zone (for example, us-east-1-wl1-bos-wlz-1).
-	//
-	// * zone-type -
-	// The type of zone, for example, local-zone.
+	//   - group-name - For Availability Zones, use the Region name. For Local Zones,
+	//   use the name of the group associated with the Local Zone (for example,
+	//   us-west-2-lax-1 ) For Wavelength Zones, use the name of the group associated
+	//   with the Wavelength Zone (for example, us-east-1-wl1-bos-wlz-1 ).
+	//   - message - The Zone message.
+	//   - opt-in-status - The opt-in status ( opted-in | not-opted-in |
+	//   opt-in-not-required ).
+	//   - parent-zoneID - The ID of the zone that handles some of the Local Zone and
+	//   Wavelength Zone control plane operations, such as API calls.
+	//   - parent-zoneName - The ID of the zone that handles some of the Local Zone and
+	//   Wavelength Zone control plane operations, such as API calls.
+	//   - region-name - The name of the Region for the Zone (for example, us-east-1 ).
+	//   - state - The state of the Availability Zone, the Local Zone, or the
+	//   Wavelength Zone ( available ).
+	//   - zone-id - The ID of the Availability Zone (for example, use1-az1 ), the
+	//   Local Zone (for example, usw2-lax1-az1 ), or the Wavelength Zone (for example,
+	//   us-east-1-wl1-bos-wlz-1 ).
+	//   - zone-name - The name of the Availability Zone (for example, us-east-1a ),
+	//   the Local Zone (for example, us-west-2-lax-1a ), or the Wavelength Zone (for
+	//   example, us-east-1-wl1-bos-wlz-1 ).
+	//   - zone-type - The type of zone ( availability-zone | local-zone |
+	//   wavelength-zone ).
 	Filters []types.Filter
 
 	// The IDs of the Availability Zones, Local Zones, and Wavelength Zones.
@@ -154,6 +136,9 @@ func (c *Client) addOperationDescribeAvailabilityZonesMiddlewares(stack *middlew
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeAvailabilityZones(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

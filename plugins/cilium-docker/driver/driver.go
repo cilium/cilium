@@ -397,7 +397,9 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	switch driver.conf.DatapathMode {
 	case datapathOption.DatapathModeVeth:
 		var veth *netlink.Veth
-		veth, _, _, err = connector.SetupVeth(create.EndpointID, int(driver.conf.DeviceMTU), int(driver.conf.GROMaxSize), int(driver.conf.GSOMaxSize), endpoint)
+		veth, _, _, err = connector.SetupVeth(create.EndpointID, int(driver.conf.DeviceMTU),
+			int(driver.conf.GROMaxSize), int(driver.conf.GSOMaxSize),
+			int(driver.conf.GROIPV4MaxSize), int(driver.conf.GSOIPV4MaxSize), endpoint)
 		defer removeLinkOnErr(veth)
 	}
 	if err != nil {

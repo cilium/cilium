@@ -43,13 +43,7 @@ CRD Registration
 The default behavior of the Cilium Operator is to register the CRDs used by
 Cilium. The following custom resources are registered by the Cilium Operator:
 
--  :ref:`CiliumNetworkPolicy`
--  :ref:`CiliumClusterwideNetworkPolicy`
--  :ref:`CiliumEndpoint <CiliumEndpoint>`
--  CiliumNode
--  CiliumExternalWorkload
--  CiliumIdentity
--  CiliumLocalRedirectPolicy
+.. include:: ../crdlist.rst
 
 IPAM
 ~~~~
@@ -76,6 +70,12 @@ mode:
 - AWS - ``cilium-operator-aws``
 
 For more information on IPAM visit :ref:`address_management`.
+
+Load Balancer IP Address Management
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When :ref:`lb_ipam` is used, Cilium Operator manages IP address
+for ``type: LoadBalancer`` services.
 
 KVStore operations
 ~~~~~~~~~~~~~~~~~~

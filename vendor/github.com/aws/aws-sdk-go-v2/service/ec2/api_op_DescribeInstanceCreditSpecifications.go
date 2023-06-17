@@ -12,23 +12,22 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Describes the credit option for CPU usage of the specified burstable performance
-// instances. The credit options are standard and unlimited. If you do not specify
-// an instance ID, Amazon EC2 returns burstable performance instances with the
-// unlimited credit option, as well as instances that were previously configured as
-// T2, T3, and T3a with the unlimited credit option. For example, if you resize a
-// T2 instance, while it is configured as unlimited, to an M4 instance, Amazon EC2
-// returns the M4 instance. If you specify one or more instance IDs, Amazon EC2
-// returns the credit option (standard or unlimited) of those instances. If you
-// specify an instance ID that is not valid, such as an instance that is not a
-// burstable performance instance, an error is returned. Recently terminated
-// instances might appear in the returned results. This interval is usually less
-// than one hour. If an Availability Zone is experiencing a service disruption and
-// you specify instance IDs in the affected zone, or do not specify any instance
-// IDs at all, the call fails. If you specify only instance IDs in an unaffected
-// zone, the call works normally. For more information, see Burstable performance
-// instances
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html)
+// Describes the credit option for CPU usage of the specified burstable
+// performance instances. The credit options are standard and unlimited . If you do
+// not specify an instance ID, Amazon EC2 returns burstable performance instances
+// with the unlimited credit option, as well as instances that were previously
+// configured as T2, T3, and T3a with the unlimited credit option. For example, if
+// you resize a T2 instance, while it is configured as unlimited , to an M4
+// instance, Amazon EC2 returns the M4 instance. If you specify one or more
+// instance IDs, Amazon EC2 returns the credit option ( standard or unlimited ) of
+// those instances. If you specify an instance ID that is not valid, such as an
+// instance that is not a burstable performance instance, an error is returned.
+// Recently terminated instances might appear in the returned results. This
+// interval is usually less than one hour. If an Availability Zone is experiencing
+// a service disruption and you specify instance IDs in the affected zone, or do
+// not specify any instance IDs at all, the call fails. If you specify only
+// instance IDs in an unaffected zone, the call works normally. For more
+// information, see Burstable performance instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html)
 // in the Amazon EC2 User Guide.
 func (c *Client) DescribeInstanceCreditSpecifications(ctx context.Context, params *DescribeInstanceCreditSpecificationsInput, optFns ...func(*Options)) (*DescribeInstanceCreditSpecificationsOutput, error) {
 	if params == nil {
@@ -49,26 +48,27 @@ type DescribeInstanceCreditSpecificationsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The filters.
-	//
-	// * instance-id - The ID of the instance.
+	//   - instance-id - The ID of the instance.
 	Filters []types.Filter
 
 	// The instance IDs. Default: Describes all your instances. Constraints: Maximum
 	// 1000 explicitly specified instance IDs.
 	InstanceIds []string
 
-	// The maximum number of results to return in a single call. To retrieve the
-	// remaining results, make another call with the returned NextToken value. This
-	// value can be between 5 and 1000. You cannot specify this parameter and the
-	// instance IDs parameter in the same call.
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// . You cannot specify this parameter and the instance IDs parameter in the same
+	// call.
 	MaxResults *int32
 
-	// The token to retrieve the next page of results.
+	// The token returned from a previous paginated request. Pagination continues from
+	// the end of the items returned by the previous request.
 	NextToken *string
 
 	noSmithyDocumentSerde
@@ -79,8 +79,8 @@ type DescribeInstanceCreditSpecificationsOutput struct {
 	// Information about the credit option for CPU usage of an instance.
 	InstanceCreditSpecifications []types.InstanceCreditSpecification
 
-	// The token to use to retrieve the next page of results. This value is null when
-	// there are no more results to return.
+	// The token to include in another request to get the next page of items. This
+	// value is null when there are no more items to return.
 	NextToken *string
 
 	// Metadata pertaining to the operation's result.
@@ -137,6 +137,9 @@ func (c *Client) addOperationDescribeInstanceCreditSpecificationsMiddlewares(sta
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeInstanceCreditSpecifications(options.Region), middleware.Before); err != nil {
 		return err
 	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+		return err
+	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
 		return err
 	}
@@ -160,10 +163,11 @@ var _ DescribeInstanceCreditSpecificationsAPIClient = (*Client)(nil)
 // DescribeInstanceCreditSpecificationsPaginatorOptions is the paginator options
 // for DescribeInstanceCreditSpecifications
 type DescribeInstanceCreditSpecificationsPaginatorOptions struct {
-	// The maximum number of results to return in a single call. To retrieve the
-	// remaining results, make another call with the returned NextToken value. This
-	// value can be between 5 and 1000. You cannot specify this parameter and the
-	// instance IDs parameter in the same call.
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// . You cannot specify this parameter and the instance IDs parameter in the same
+	// call.
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

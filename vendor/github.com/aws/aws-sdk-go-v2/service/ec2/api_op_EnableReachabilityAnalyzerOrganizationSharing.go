@@ -10,6 +10,11 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
+// Establishes a trust relationship between Reachability Analyzer and
+// Organizations. This operation must be performed by the management account for
+// the organization. After you establish a trust relationship, a user in the
+// management account or a delegated administrator account can run a cross-account
+// analysis using resources from the member accounts.
 func (c *Client) EnableReachabilityAnalyzerOrganizationSharing(ctx context.Context, params *EnableReachabilityAnalyzerOrganizationSharingInput, optFns ...func(*Options)) (*EnableReachabilityAnalyzerOrganizationSharingOutput, error) {
 	if params == nil {
 		params = &EnableReachabilityAnalyzerOrganizationSharingInput{}
@@ -26,12 +31,19 @@ func (c *Client) EnableReachabilityAnalyzerOrganizationSharing(ctx context.Conte
 }
 
 type EnableReachabilityAnalyzerOrganizationSharingInput struct {
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have the
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
 }
 
 type EnableReachabilityAnalyzerOrganizationSharingOutput struct {
+
+	// Returns true if the request succeeds; otherwise, returns an error.
 	ReturnValue *bool
 
 	// Metadata pertaining to the operation's result.
@@ -86,6 +98,9 @@ func (c *Client) addOperationEnableReachabilityAnalyzerOrganizationSharingMiddle
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opEnableReachabilityAnalyzerOrganizationSharing(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

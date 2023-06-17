@@ -16,31 +16,31 @@ import (
 type reconcileDiff struct {
 	// incoming CiliumBGPVirtualRouter configs mapped by their
 	// local ASN.
-	seen map[int]*v2alpha1api.CiliumBGPVirtualRouter
+	seen map[int64]*v2alpha1api.CiliumBGPVirtualRouter
 	// the state of the bgp control plane at the time of this reconcileDiff's
 	// creation.
 	state *agent.ControlPlaneState
 	// Local ASNs which BgpServers must be instantiated, configured,
 	// and added to the manager. Intended key for `seen` map.
-	register []int
+	register []int64
 	// Local ASNs which BgpServers exist for but current policy has marked
 	// for removal. Intended key for Manager's LocalASNMap.
-	withdraw []int
+	withdraw []int64
 	// Local ASNs which BgpServers exist for but policy associated with server
 	// may have been updated and needs further reconciliation.
 	// Intended key for 'seen' map.
-	reconcile []int
+	reconcile []int64
 }
 
 // newReconcileDiff constructs a new *reconcileDiff with all internal instructures
 // initialized.
 func newReconcileDiff(state *agent.ControlPlaneState) *reconcileDiff {
 	return &reconcileDiff{
-		seen:      make(map[int]*v2alpha1api.CiliumBGPVirtualRouter),
+		seen:      make(map[int64]*v2alpha1api.CiliumBGPVirtualRouter),
 		state:     state,
-		register:  []int{},
-		withdraw:  []int{},
-		reconcile: []int{},
+		register:  []int64{},
+		withdraw:  []int64{},
+		reconcile: []int64{},
 	}
 }
 

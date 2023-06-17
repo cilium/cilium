@@ -54,6 +54,9 @@
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
 {{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement $defaultKubeProxyReplacement) -}}
+{{- if and (ne $kubeProxyReplacement "disabled") (ne $kubeProxyReplacement "partial") (ne $kubeProxyReplacement "strict") }}
+  {{ fail "kubeproxyReplacement must be explicitly set to a valid value (disabled, partial, or strict) to continue." }}
+{{- end }}
 {{- $azureUsePrimaryAddress = (coalesce .Values.azure.usePrimaryAddress $azureUsePrimaryAddress) -}}
 {{- $socketLB := (coalesce .Values.socketLB .Values.hostServices) -}}
 
@@ -128,9 +131,9 @@ data:
   skip-cnp-status-startup-clean: "{{ .Values.operator.skipCNPStatusStartupClean }}"
 {{- end }}
 
-{{- if hasKey .Values "disableEndpointCRD" }}
+{{- if eq .Values.disableEndpointCRD true }}
   # Disable the usage of CiliumEndpoint CRD
-  disable-endpoint-crd: "{{ .Values.disableEndpointCRD }}"
+  disable-endpoint-crd: "true"
 {{- end }}
 
 {{- if .Values.identityChangeGracePeriod }}
@@ -211,8 +214,11 @@ data:
   skip-crd-creation: "true"
 {{- end }}
 
-{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled (and (hasKey .Values "loadBalancer") (eq .Values.loadBalancer.l7.backend "envoy")) }}
+{{- if or .Values.envoyConfig.enabled .Values.ingressController.enabled .Values.gatewayAPI.enabled (and (hasKey .Values "loadBalancer") (eq .Values.loadBalancer.l7.backend "envoy")) }}
   enable-envoy-config: "true"
+  {{- if .Values.envoyConfig.enabled }}
+  envoy-secrets-namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
+  {{- end }}
 {{- end }}
 
 {{- if .Values.ingressController.enabled }}
@@ -223,6 +229,10 @@ data:
   ingress-lb-annotation-prefixes: {{ .Values.ingressController.ingressLBAnnotationPrefixes | join " " | quote }}
   ingress-default-lb-mode: {{ .Values.ingressController.loadbalancerMode }}
   ingress-shared-lb-service-name: {{ .Values.ingressController.service.name }}
+  {{- if and .Values.ingressController.defaultSecretNamespace .Values.ingressController.defaultSecretName }}
+  ingress-default-secret-namespace: {{ .Values.ingressController.defaultSecretNamespace | quote }}
+  ingress-default-secret-name: {{ .Values.ingressController.defaultSecretName | quote }}
+  {{- end }}
 {{- end }}
 
 {{- if .Values.gatewayAPI.enabled }}
@@ -516,6 +526,7 @@ data:
 {{- end }}
 
   enable-ipv4-masquerade: {{ .Values.enableIPv4Masquerade | quote }}
+  enable-ipv4-big-tcp: {{ .Values.enableIPv4BIGTCP | quote }}
   enable-ipv6-big-tcp: {{ .Values.enableIPv6BIGTCP | quote }}
   enable-ipv6-masquerade: {{ .Values.enableIPv6Masquerade | quote }}
 
@@ -544,6 +555,12 @@ data:
   encrypt-interface: {{ .Values.encryption.ipsec.interface }}
     {{- else if .Values.encryption.interface }}
   encrypt-interface: {{ .Values.encryption.interface }}
+    {{- end }}
+    {{- if hasKey .Values.encryption.ipsec "keyWatcher" }}
+  enable-ipsec-key-watcher: {{ .Values.encryption.ipsec.keyWatcher | quote }}
+    {{- end }}
+    {{- if .Values.encryption.ipsec.keyRotationDuration }}
+  ipsec-key-rotation-duration: {{ include "validateDuration" .Values.encryption.ipsec.keyRotationDuration | quote }}
     {{- end }}
   {{- else if eq .Values.encryption.type "wireguard" }}
   enable-wireguard: {{ .Values.encryption.enabled | quote }}
@@ -650,7 +667,7 @@ data:
   enable-node-port: {{ .Values.nodePort.enabled | quote }}
 {{- end }}
 {{- if hasKey .Values.nodePort "range" }}
-  node-port-range: {{ .Values.nodePort.range | quote }}
+  node-port-range: {{ get .Values.nodePort "range" | quote }}
 {{- end }}
 {{- if hasKey .Values.nodePort "directRoutingDevice" }}
   direct-routing-device: {{ .Values.nodePort.directRoutingDevice | quote }}
@@ -813,6 +830,12 @@ data:
 {{- end }}
   enable-hubble-open-metrics: {{ .Values.hubble.metrics.enableOpenMetrics | quote }}
 {{- end }}
+{{- if .Values.hubble.redact }}
+  # A space separated list of redact options for Hubble.
+  hubble-redact: {{- range .Values.hubble.redact }}
+    {{.}}
+{{- end }}
+{{- end }}
 {{- if hasKey .Values.hubble "listenAddress" }}
   # An additional address for Hubble server to listen to (e.g. ":4244").
   hubble-listen-address: {{ .Values.hubble.listenAddress | quote }}
@@ -866,19 +889,19 @@ data:
 {{- end }}
 {{- if (eq $ipam "multi-pool") }}
   {{- $pools := list }}
-  {{- range $pool, $cidrs := .Values.ipam.operator.multiPoolMap }}
+  {{- range $pool, $spec := .Values.ipam.operator.autoCreateCiliumPodIPPools }}
     {{- $attrs := list }}
-    {{- if hasKey $cidrs "ipv4CIDRs" }}
-    {{- $attrs = append $attrs (printf "ipv4-cidrs:%s" (join "," $cidrs.ipv4CIDRs)) }}
-    {{- $attrs = append $attrs (printf "ipv4-mask-size:%s" (toString $cidrs.ipv4MaskSize)) }}
+    {{- if hasKey $spec "ipv4" }}
+    {{- $attrs = append $attrs (printf "ipv4-cidrs:%s" (join "," $spec.ipv4.cidrs)) }}
+    {{- $attrs = append $attrs (printf "ipv4-mask-size:%s" (toString $spec.ipv4.maskSize)) }}
     {{- end }}
-    {{- if hasKey $cidrs "ipv6CIDRs" }}
-    {{- $attrs = append $attrs (printf "ipv6-cidrs:%s" (join "," $cidrs.ipv6CIDRs)) }}
-    {{- $attrs = append $attrs (printf "ipv6-mask-size:%s" (toString $cidrs.ipv6MaskSize)) }}
+    {{- if hasKey $spec "ipv6" }}
+    {{- $attrs = append $attrs (printf "ipv6-cidrs:%s" (join "," $spec.ipv6.cidrs)) }}
+    {{- $attrs = append $attrs (printf "ipv6-mask-size:%s" (toString $spec.ipv6.maskSize)) }}
     {{- end }}
     {{- $pools = append $pools (printf "%s=%s" $pool (join ";" $attrs)) }}
   {{- end }}
-  multi-pool-map: {{ join "," $pools | quote }}
+  auto-create-cilium-pod-ip-pools: {{ join "," $pools | quote }}
 {{- end }}
 
 {{- if .Values.ipam.operator.externalAPILimitBurstSize }}
@@ -941,6 +964,25 @@ data:
 {{- if and .Values.customCalls .Values.customCalls.enabled }}
   # Enable tail call hooks for custom eBPF programs.
   enable-custom-calls: {{ .Values.customCalls.enabled | quote }}
+{{- end }}
+
+{{- if .Values.l2announcements.enabled }}
+  # Enable L2 announcements
+  enable-l2-announcements: {{ .Values.l2announcements.enabled | quote }}
+  {{- if .Values.l2announcements.leaseDuration }}
+  l2-announcements-lease-duration: {{ .Values.l2announcements.leaseDuration | quote }}
+  {{- end}}
+  {{- if .Values.l2announcements.leaseRenewDeadline }}
+  l2-announcements-renew-deadline: {{ .Values.l2announcements.leaseRenewDeadline | quote }}
+  {{- end}}
+  {{- if .Values.l2announcements.leaseRetryPeriod }}
+  l2-announcements-retry-period: {{ .Values.l2announcements.leaseRetryPeriod | quote }}
+  {{- end}}
+{{- end}}
+
+{{- if .Values.l2podAnnouncements.enabled }}
+  enable-l2-pod-announcements: {{ .Values.l2podAnnouncements.enabled | quote }}
+  l2-pod-announcements-interface: {{ .Values.l2podAnnouncements.interface | quote }}
 {{- end }}
 
 {{- if and .Values.bgp.enabled (and (not .Values.bgp.announce.loadbalancerIP) (not .Values.bgp.announce.podCIDR)) }}
@@ -1063,14 +1105,23 @@ data:
   agent-not-ready-taint-key: {{ .Values.agentNotReadyTaintKey | quote }}
 {{- end }}
 
-{{- if .Values.auth.mTLS.spire.enabled }}
-  mesh-auth-mtls-enabled: "true"
-  mesh-auth-mtls-listener-port: {{ .Values.auth.mTLS.port | quote }}
-  mesh-auth-spire-agent-socket: {{ .Values.auth.mTLS.spire.agentSocketPath | quote }}
-  mesh-auth-spire-server-address: {{ .Values.auth.mTLS.spire.serverAddress | quote }}
-  mesh-auth-spire-server-connection-timeout: {{ .Values.auth.mTLS.spire.connectionTimeout }}
-  mesh-auth-spire-admin-socket: {{ .Values.auth.mTLS.spire.adminSocketPath | quote }}
-  mesh-auth-spiffe-trust-domain: {{ .Values.auth.mTLS.spire.trustDomain | quote }}
+  mesh-auth-enabled: {{ .Values.authentication.enabled | quote }}
+  mesh-auth-queue-size: {{ .Values.authentication.queueSize | quote }}
+  mesh-auth-rotated-identities-queue-size: {{ .Values.authentication.rotatedIdentitiesQueueSize | quote }}
+  mesh-auth-expired-gc-interval: {{ include "validateDuration" .Values.authentication.expiredGCInterval | quote }}
+
+{{- if .Values.authentication.mutual.spire.enabled }}
+  mesh-auth-mutual-enabled: "true"
+  mesh-auth-mutual-listener-port: {{ .Values.authentication.mutual.port | quote }}
+  mesh-auth-spire-agent-socket: {{ .Values.authentication.mutual.spire.agentSocketPath | quote }}
+  {{- if .Values.authentication.mutual.spire.serverAddress }}
+  mesh-auth-spire-server-address: {{ .Values.authentication.mutual.spire.serverAddress | quote }}
+  {{- else }}
+  mesh-auth-spire-server-address: "spire-server.{{ .Values.authentication.mutual.spire.install.namespace}}.svc:8081"
+  {{- end }}
+  mesh-auth-spire-server-connection-timeout: {{ .Values.authentication.mutual.spire.connectionTimeout }}
+  mesh-auth-spire-admin-socket: {{ .Values.authentication.mutual.spire.adminSocketPath | quote }}
+  mesh-auth-spiffe-trust-domain: {{ .Values.authentication.mutual.spire.trustDomain | quote }}
 {{- end }}
 
   proxy-connect-timeout: {{ .Values.envoy.connectTimeoutSeconds | quote }}

@@ -8,8 +8,8 @@ import (
 	"path"
 	"testing"
 
+	check "github.com/cilium/checkmate"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
-	"gopkg.in/check.v1"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	azureTypes "github.com/cilium/cilium/pkg/azure/types"

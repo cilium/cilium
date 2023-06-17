@@ -110,6 +110,26 @@ func (m *validateOpAcceptVpcEndpointConnections) HandleInitialize(ctx context.Co
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpAcceptVpcPeeringConnection struct {
+}
+
+func (*validateOpAcceptVpcPeeringConnection) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpAcceptVpcPeeringConnection) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*AcceptVpcPeeringConnectionInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpAcceptVpcPeeringConnectionInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpAdvertiseByoipCidr struct {
 }
 
@@ -230,6 +250,26 @@ func (m *validateOpAssignPrivateIpAddresses) HandleInitialize(ctx context.Contex
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpAssignPrivateNatGatewayAddress struct {
+}
+
+func (*validateOpAssignPrivateNatGatewayAddress) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpAssignPrivateNatGatewayAddress) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*AssignPrivateNatGatewayAddressInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpAssignPrivateNatGatewayAddressInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpAssociateClientVpnTargetNetwork struct {
 }
 
@@ -265,6 +305,26 @@ func (m *validateOpAssociateDhcpOptions) HandleInitialize(ctx context.Context, i
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpAssociateDhcpOptionsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpAssociateEnclaveCertificateIamRole struct {
+}
+
+func (*validateOpAssociateEnclaveCertificateIamRole) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpAssociateEnclaveCertificateIamRole) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*AssociateEnclaveCertificateIamRoleInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpAssociateEnclaveCertificateIamRoleInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -310,6 +370,46 @@ func (m *validateOpAssociateInstanceEventWindow) HandleInitialize(ctx context.Co
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpAssociateIpamResourceDiscovery struct {
+}
+
+func (*validateOpAssociateIpamResourceDiscovery) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpAssociateIpamResourceDiscovery) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*AssociateIpamResourceDiscoveryInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpAssociateIpamResourceDiscoveryInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpAssociateNatGatewayAddress struct {
+}
+
+func (*validateOpAssociateNatGatewayAddress) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpAssociateNatGatewayAddress) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*AssociateNatGatewayAddressInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpAssociateNatGatewayAddressInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpAssociateRouteTable struct {
 }
 
@@ -345,6 +445,26 @@ func (m *validateOpAssociateSubnetCidrBlock) HandleInitialize(ctx context.Contex
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpAssociateSubnetCidrBlockInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpAssociateTransitGatewayMulticastDomain struct {
+}
+
+func (*validateOpAssociateTransitGatewayMulticastDomain) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpAssociateTransitGatewayMulticastDomain) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*AssociateTransitGatewayMulticastDomainInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpAssociateTransitGatewayMulticastDomainInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -1165,6 +1285,26 @@ func (m *validateOpCreateImage) HandleInitialize(ctx context.Context, in middlew
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpCreateImageInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpCreateInstanceConnectEndpoint struct {
+}
+
+func (*validateOpCreateInstanceConnectEndpoint) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateInstanceConnectEndpoint) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateInstanceConnectEndpointInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateInstanceConnectEndpointInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -2150,6 +2290,26 @@ func (m *validateOpCreateVpcEndpoint) HandleInitialize(ctx context.Context, in m
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpCreateVpcPeeringConnection struct {
+}
+
+func (*validateOpCreateVpcPeeringConnection) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateVpcPeeringConnection) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateVpcPeeringConnectionInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateVpcPeeringConnectionInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpCreateVpnConnection struct {
 }
 
@@ -2430,6 +2590,26 @@ func (m *validateOpDeleteFpgaImage) HandleInitialize(ctx context.Context, in mid
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDeleteInstanceConnectEndpoint struct {
+}
+
+func (*validateOpDeleteInstanceConnectEndpoint) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDeleteInstanceConnectEndpoint) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DeleteInstanceConnectEndpointInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDeleteInstanceConnectEndpointInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDeleteInstanceEventWindow struct {
 }
 
@@ -2505,6 +2685,26 @@ func (m *validateOpDeleteIpamPool) HandleInitialize(ctx context.Context, in midd
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpDeleteIpamPoolInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpDeleteIpamResourceDiscovery struct {
+}
+
+func (*validateOpDeleteIpamResourceDiscovery) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDeleteIpamResourceDiscovery) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DeleteIpamResourceDiscoveryInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDeleteIpamResourceDiscoveryInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -3650,6 +3850,26 @@ func (m *validateOpDeregisterImage) HandleInitialize(ctx context.Context, in mid
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDeregisterInstanceEventNotificationAttributes struct {
+}
+
+func (*validateOpDeregisterInstanceEventNotificationAttributes) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDeregisterInstanceEventNotificationAttributes) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DeregisterInstanceEventNotificationAttributesInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDeregisterInstanceEventNotificationAttributesInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDescribeByoipCidrs struct {
 }
 
@@ -4370,6 +4590,26 @@ func (m *validateOpDisassociateClientVpnTargetNetwork) HandleInitialize(ctx cont
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDisassociateEnclaveCertificateIamRole struct {
+}
+
+func (*validateOpDisassociateEnclaveCertificateIamRole) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDisassociateEnclaveCertificateIamRole) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DisassociateEnclaveCertificateIamRoleInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDisassociateEnclaveCertificateIamRoleInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDisassociateIamInstanceProfile struct {
 }
 
@@ -4410,6 +4650,46 @@ func (m *validateOpDisassociateInstanceEventWindow) HandleInitialize(ctx context
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpDisassociateIpamResourceDiscovery struct {
+}
+
+func (*validateOpDisassociateIpamResourceDiscovery) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDisassociateIpamResourceDiscovery) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DisassociateIpamResourceDiscoveryInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDisassociateIpamResourceDiscoveryInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpDisassociateNatGatewayAddress struct {
+}
+
+func (*validateOpDisassociateNatGatewayAddress) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDisassociateNatGatewayAddress) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DisassociateNatGatewayAddressInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDisassociateNatGatewayAddressInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpDisassociateRouteTable struct {
 }
 
@@ -4445,6 +4725,26 @@ func (m *validateOpDisassociateSubnetCidrBlock) HandleInitialize(ctx context.Con
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpDisassociateSubnetCidrBlockInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpDisassociateTransitGatewayMulticastDomain struct {
+}
+
+func (*validateOpDisassociateTransitGatewayMulticastDomain) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpDisassociateTransitGatewayMulticastDomain) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*DisassociateTransitGatewayMulticastDomainInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpDisassociateTransitGatewayMulticastDomainInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -4790,6 +5090,26 @@ func (m *validateOpExportTransitGatewayRoutes) HandleInitialize(ctx context.Cont
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpGetAssociatedEnclaveCertificateIamRoles struct {
+}
+
+func (*validateOpGetAssociatedEnclaveCertificateIamRoles) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetAssociatedEnclaveCertificateIamRoles) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetAssociatedEnclaveCertificateIamRolesInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetAssociatedEnclaveCertificateIamRolesInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpGetAssociatedIpv6PoolCidrs struct {
 }
 
@@ -5025,6 +5345,46 @@ func (m *validateOpGetIpamAddressHistory) HandleInitialize(ctx context.Context, 
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpGetIpamAddressHistoryInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpGetIpamDiscoveredAccounts struct {
+}
+
+func (*validateOpGetIpamDiscoveredAccounts) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetIpamDiscoveredAccounts) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetIpamDiscoveredAccountsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetIpamDiscoveredAccountsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpGetIpamDiscoveredResourceCidrs struct {
+}
+
+func (*validateOpGetIpamDiscoveredResourceCidrs) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetIpamDiscoveredResourceCidrs) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetIpamDiscoveredResourceCidrsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetIpamDiscoveredResourceCidrsInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -5290,6 +5650,26 @@ func (m *validateOpGetTransitGatewayAttachmentPropagations) HandleInitialize(ctx
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpGetTransitGatewayMulticastDomainAssociations struct {
+}
+
+func (*validateOpGetTransitGatewayMulticastDomainAssociations) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetTransitGatewayMulticastDomainAssociations) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetTransitGatewayMulticastDomainAssociationsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetTransitGatewayMulticastDomainAssociationsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpGetTransitGatewayPolicyTableAssociations struct {
 }
 
@@ -5445,6 +5825,26 @@ func (m *validateOpGetVpnConnectionDeviceSampleConfiguration) HandleInitialize(c
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpGetVpnConnectionDeviceSampleConfigurationInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpGetVpnTunnelReplacementStatus struct {
+}
+
+func (*validateOpGetVpnTunnelReplacementStatus) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpGetVpnTunnelReplacementStatus) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*GetVpnTunnelReplacementStatusInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpGetVpnTunnelReplacementStatusInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -6010,6 +6410,26 @@ func (m *validateOpModifyIpamResourceCidr) HandleInitialize(ctx context.Context,
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpModifyIpamResourceDiscovery struct {
+}
+
+func (*validateOpModifyIpamResourceDiscovery) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpModifyIpamResourceDiscovery) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ModifyIpamResourceDiscoveryInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpModifyIpamResourceDiscoveryInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpModifyIpamScope struct {
 }
 
@@ -6085,6 +6505,26 @@ func (m *validateOpModifyNetworkInterfaceAttribute) HandleInitialize(ctx context
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpModifyNetworkInterfaceAttributeInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpModifyPrivateDnsNameOptions struct {
+}
+
+func (*validateOpModifyPrivateDnsNameOptions) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpModifyPrivateDnsNameOptions) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ModifyPrivateDnsNameOptionsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpModifyPrivateDnsNameOptionsInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -6970,6 +7410,66 @@ func (m *validateOpRegisterImage) HandleInitialize(ctx context.Context, in middl
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpRegisterInstanceEventNotificationAttributes struct {
+}
+
+func (*validateOpRegisterInstanceEventNotificationAttributes) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpRegisterInstanceEventNotificationAttributes) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*RegisterInstanceEventNotificationAttributesInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpRegisterInstanceEventNotificationAttributesInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpRegisterTransitGatewayMulticastGroupMembers struct {
+}
+
+func (*validateOpRegisterTransitGatewayMulticastGroupMembers) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpRegisterTransitGatewayMulticastGroupMembers) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*RegisterTransitGatewayMulticastGroupMembersInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpRegisterTransitGatewayMulticastGroupMembersInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpRegisterTransitGatewayMulticastGroupSources struct {
+}
+
+func (*validateOpRegisterTransitGatewayMulticastGroupSources) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpRegisterTransitGatewayMulticastGroupSources) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*RegisterTransitGatewayMulticastGroupSourcesInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpRegisterTransitGatewayMulticastGroupSourcesInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpRejectTransitGatewayPeeringAttachment struct {
 }
 
@@ -7205,6 +7705,26 @@ func (m *validateOpReplaceTransitGatewayRoute) HandleInitialize(ctx context.Cont
 		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
 	}
 	if err := validateOpReplaceTransitGatewayRouteInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
+type validateOpReplaceVpnTunnel struct {
+}
+
+func (*validateOpReplaceVpnTunnel) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpReplaceVpnTunnel) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*ReplaceVpnTunnelInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpReplaceVpnTunnelInput(input); err != nil {
 		return out, metadata, err
 	}
 	return next.HandleInitialize(ctx, in)
@@ -7590,6 +8110,26 @@ func (m *validateOpSearchLocalGatewayRoutes) HandleInitialize(ctx context.Contex
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpSearchTransitGatewayMulticastGroups struct {
+}
+
+func (*validateOpSearchTransitGatewayMulticastGroups) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpSearchTransitGatewayMulticastGroups) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*SearchTransitGatewayMulticastGroupsInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpSearchTransitGatewayMulticastGroupsInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpSearchTransitGatewayRoutes struct {
 }
 
@@ -7810,6 +8350,26 @@ func (m *validateOpUnassignPrivateIpAddresses) HandleInitialize(ctx context.Cont
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpUnassignPrivateNatGatewayAddress struct {
+}
+
+func (*validateOpUnassignPrivateNatGatewayAddress) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpUnassignPrivateNatGatewayAddress) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*UnassignPrivateNatGatewayAddressInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpUnassignPrivateNatGatewayAddressInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpUnmonitorInstances struct {
 }
 
@@ -7870,6 +8430,10 @@ func addOpAcceptVpcEndpointConnectionsValidationMiddleware(stack *middleware.Sta
 	return stack.Initialize.Add(&validateOpAcceptVpcEndpointConnections{}, middleware.After)
 }
 
+func addOpAcceptVpcPeeringConnectionValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpAcceptVpcPeeringConnection{}, middleware.After)
+}
+
 func addOpAdvertiseByoipCidrValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpAdvertiseByoipCidr{}, middleware.After)
 }
@@ -7894,12 +8458,20 @@ func addOpAssignPrivateIpAddressesValidationMiddleware(stack *middleware.Stack) 
 	return stack.Initialize.Add(&validateOpAssignPrivateIpAddresses{}, middleware.After)
 }
 
+func addOpAssignPrivateNatGatewayAddressValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpAssignPrivateNatGatewayAddress{}, middleware.After)
+}
+
 func addOpAssociateClientVpnTargetNetworkValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpAssociateClientVpnTargetNetwork{}, middleware.After)
 }
 
 func addOpAssociateDhcpOptionsValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpAssociateDhcpOptions{}, middleware.After)
+}
+
+func addOpAssociateEnclaveCertificateIamRoleValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpAssociateEnclaveCertificateIamRole{}, middleware.After)
 }
 
 func addOpAssociateIamInstanceProfileValidationMiddleware(stack *middleware.Stack) error {
@@ -7910,12 +8482,24 @@ func addOpAssociateInstanceEventWindowValidationMiddleware(stack *middleware.Sta
 	return stack.Initialize.Add(&validateOpAssociateInstanceEventWindow{}, middleware.After)
 }
 
+func addOpAssociateIpamResourceDiscoveryValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpAssociateIpamResourceDiscovery{}, middleware.After)
+}
+
+func addOpAssociateNatGatewayAddressValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpAssociateNatGatewayAddress{}, middleware.After)
+}
+
 func addOpAssociateRouteTableValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpAssociateRouteTable{}, middleware.After)
 }
 
 func addOpAssociateSubnetCidrBlockValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpAssociateSubnetCidrBlock{}, middleware.After)
+}
+
+func addOpAssociateTransitGatewayMulticastDomainValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpAssociateTransitGatewayMulticastDomain{}, middleware.After)
 }
 
 func addOpAssociateTransitGatewayPolicyTableValidationMiddleware(stack *middleware.Stack) error {
@@ -8080,6 +8664,10 @@ func addOpCreateFpgaImageValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpCreateImageValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateImage{}, middleware.After)
+}
+
+func addOpCreateInstanceConnectEndpointValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateInstanceConnectEndpoint{}, middleware.After)
 }
 
 func addOpCreateInstanceExportTaskValidationMiddleware(stack *middleware.Stack) error {
@@ -8278,6 +8866,10 @@ func addOpCreateVpcEndpointValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateVpcEndpoint{}, middleware.After)
 }
 
+func addOpCreateVpcPeeringConnectionValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateVpcPeeringConnection{}, middleware.After)
+}
+
 func addOpCreateVpnConnectionValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateVpnConnection{}, middleware.After)
 }
@@ -8334,6 +8926,10 @@ func addOpDeleteFpgaImageValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteFpgaImage{}, middleware.After)
 }
 
+func addOpDeleteInstanceConnectEndpointValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDeleteInstanceConnectEndpoint{}, middleware.After)
+}
+
 func addOpDeleteInstanceEventWindowValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteInstanceEventWindow{}, middleware.After)
 }
@@ -8348,6 +8944,10 @@ func addOpDeleteIpamValidationMiddleware(stack *middleware.Stack) error {
 
 func addOpDeleteIpamPoolValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeleteIpamPool{}, middleware.After)
+}
+
+func addOpDeleteIpamResourceDiscoveryValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDeleteIpamResourceDiscovery{}, middleware.After)
 }
 
 func addOpDeleteIpamScopeValidationMiddleware(stack *middleware.Stack) error {
@@ -8578,6 +9178,10 @@ func addOpDeregisterImageValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDeregisterImage{}, middleware.After)
 }
 
+func addOpDeregisterInstanceEventNotificationAttributesValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDeregisterInstanceEventNotificationAttributes{}, middleware.After)
+}
+
 func addOpDescribeByoipCidrsValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDescribeByoipCidrs{}, middleware.After)
 }
@@ -8722,6 +9326,10 @@ func addOpDisassociateClientVpnTargetNetworkValidationMiddleware(stack *middlewa
 	return stack.Initialize.Add(&validateOpDisassociateClientVpnTargetNetwork{}, middleware.After)
 }
 
+func addOpDisassociateEnclaveCertificateIamRoleValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDisassociateEnclaveCertificateIamRole{}, middleware.After)
+}
+
 func addOpDisassociateIamInstanceProfileValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDisassociateIamInstanceProfile{}, middleware.After)
 }
@@ -8730,12 +9338,24 @@ func addOpDisassociateInstanceEventWindowValidationMiddleware(stack *middleware.
 	return stack.Initialize.Add(&validateOpDisassociateInstanceEventWindow{}, middleware.After)
 }
 
+func addOpDisassociateIpamResourceDiscoveryValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDisassociateIpamResourceDiscovery{}, middleware.After)
+}
+
+func addOpDisassociateNatGatewayAddressValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDisassociateNatGatewayAddress{}, middleware.After)
+}
+
 func addOpDisassociateRouteTableValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDisassociateRouteTable{}, middleware.After)
 }
 
 func addOpDisassociateSubnetCidrBlockValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpDisassociateSubnetCidrBlock{}, middleware.After)
+}
+
+func addOpDisassociateTransitGatewayMulticastDomainValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpDisassociateTransitGatewayMulticastDomain{}, middleware.After)
 }
 
 func addOpDisassociateTransitGatewayPolicyTableValidationMiddleware(stack *middleware.Stack) error {
@@ -8806,6 +9426,10 @@ func addOpExportTransitGatewayRoutesValidationMiddleware(stack *middleware.Stack
 	return stack.Initialize.Add(&validateOpExportTransitGatewayRoutes{}, middleware.After)
 }
 
+func addOpGetAssociatedEnclaveCertificateIamRolesValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetAssociatedEnclaveCertificateIamRoles{}, middleware.After)
+}
+
 func addOpGetAssociatedIpv6PoolCidrsValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpGetAssociatedIpv6PoolCidrs{}, middleware.After)
 }
@@ -8852,6 +9476,14 @@ func addOpGetInstanceUefiDataValidationMiddleware(stack *middleware.Stack) error
 
 func addOpGetIpamAddressHistoryValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpGetIpamAddressHistory{}, middleware.After)
+}
+
+func addOpGetIpamDiscoveredAccountsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetIpamDiscoveredAccounts{}, middleware.After)
+}
+
+func addOpGetIpamDiscoveredResourceCidrsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetIpamDiscoveredResourceCidrs{}, middleware.After)
 }
 
 func addOpGetIpamPoolAllocationsValidationMiddleware(stack *middleware.Stack) error {
@@ -8906,6 +9538,10 @@ func addOpGetTransitGatewayAttachmentPropagationsValidationMiddleware(stack *mid
 	return stack.Initialize.Add(&validateOpGetTransitGatewayAttachmentPropagations{}, middleware.After)
 }
 
+func addOpGetTransitGatewayMulticastDomainAssociationsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetTransitGatewayMulticastDomainAssociations{}, middleware.After)
+}
+
 func addOpGetTransitGatewayPolicyTableAssociationsValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpGetTransitGatewayPolicyTableAssociations{}, middleware.After)
 }
@@ -8936,6 +9572,10 @@ func addOpGetVerifiedAccessGroupPolicyValidationMiddleware(stack *middleware.Sta
 
 func addOpGetVpnConnectionDeviceSampleConfigurationValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpGetVpnConnectionDeviceSampleConfiguration{}, middleware.After)
+}
+
+func addOpGetVpnTunnelReplacementStatusValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpGetVpnTunnelReplacementStatus{}, middleware.After)
 }
 
 func addOpImportClientVpnClientCertificateRevocationListValidationMiddleware(stack *middleware.Stack) error {
@@ -9050,6 +9690,10 @@ func addOpModifyIpamResourceCidrValidationMiddleware(stack *middleware.Stack) er
 	return stack.Initialize.Add(&validateOpModifyIpamResourceCidr{}, middleware.After)
 }
 
+func addOpModifyIpamResourceDiscoveryValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpModifyIpamResourceDiscovery{}, middleware.After)
+}
+
 func addOpModifyIpamScopeValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpModifyIpamScope{}, middleware.After)
 }
@@ -9064,6 +9708,10 @@ func addOpModifyManagedPrefixListValidationMiddleware(stack *middleware.Stack) e
 
 func addOpModifyNetworkInterfaceAttributeValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpModifyNetworkInterfaceAttribute{}, middleware.After)
+}
+
+func addOpModifyPrivateDnsNameOptionsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpModifyPrivateDnsNameOptions{}, middleware.After)
 }
 
 func addOpModifyReservedInstancesValidationMiddleware(stack *middleware.Stack) error {
@@ -9242,6 +9890,18 @@ func addOpRegisterImageValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpRegisterImage{}, middleware.After)
 }
 
+func addOpRegisterInstanceEventNotificationAttributesValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpRegisterInstanceEventNotificationAttributes{}, middleware.After)
+}
+
+func addOpRegisterTransitGatewayMulticastGroupMembersValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpRegisterTransitGatewayMulticastGroupMembers{}, middleware.After)
+}
+
+func addOpRegisterTransitGatewayMulticastGroupSourcesValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpRegisterTransitGatewayMulticastGroupSources{}, middleware.After)
+}
+
 func addOpRejectTransitGatewayPeeringAttachmentValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpRejectTransitGatewayPeeringAttachment{}, middleware.After)
 }
@@ -9288,6 +9948,10 @@ func addOpReplaceRouteTableAssociationValidationMiddleware(stack *middleware.Sta
 
 func addOpReplaceTransitGatewayRouteValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpReplaceTransitGatewayRoute{}, middleware.After)
+}
+
+func addOpReplaceVpnTunnelValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpReplaceVpnTunnel{}, middleware.After)
 }
 
 func addOpReportInstanceStatusValidationMiddleware(stack *middleware.Stack) error {
@@ -9366,6 +10030,10 @@ func addOpSearchLocalGatewayRoutesValidationMiddleware(stack *middleware.Stack) 
 	return stack.Initialize.Add(&validateOpSearchLocalGatewayRoutes{}, middleware.After)
 }
 
+func addOpSearchTransitGatewayMulticastGroupsValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpSearchTransitGatewayMulticastGroups{}, middleware.After)
+}
+
 func addOpSearchTransitGatewayRoutesValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpSearchTransitGatewayRoutes{}, middleware.After)
 }
@@ -9408,6 +10076,10 @@ func addOpUnassignIpv6AddressesValidationMiddleware(stack *middleware.Stack) err
 
 func addOpUnassignPrivateIpAddressesValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpUnassignPrivateIpAddresses{}, middleware.After)
+}
+
+func addOpUnassignPrivateNatGatewayAddressValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpUnassignPrivateNatGatewayAddress{}, middleware.After)
 }
 
 func addOpUnmonitorInstancesValidationMiddleware(stack *middleware.Stack) error {
@@ -9772,6 +10444,38 @@ func validateFleetLaunchTemplateOverridesRequest(v *types.FleetLaunchTemplateOve
 	}
 }
 
+func validateInstanceCreditSpecificationListRequest(v []types.InstanceCreditSpecificationRequest) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "InstanceCreditSpecificationListRequest"}
+	for i := range v {
+		if err := validateInstanceCreditSpecificationRequest(&v[i]); err != nil {
+			invalidParams.AddNested(fmt.Sprintf("[%d]", i), err.(smithy.InvalidParamsError))
+		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateInstanceCreditSpecificationRequest(v *types.InstanceCreditSpecificationRequest) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "InstanceCreditSpecificationRequest"}
+	if v.InstanceId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateInstanceRequirementsRequest(v *types.InstanceRequirementsRequest) error {
 	if v == nil {
 		return nil
@@ -9807,6 +10511,21 @@ func validateInstanceRequirementsWithMetadataRequest(v *types.InstanceRequiremen
 		if err := validateInstanceRequirementsRequest(v.InstanceRequirements); err != nil {
 			invalidParams.AddNested("InstanceRequirements", err.(smithy.InvalidParamsError))
 		}
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateInstanceSpecification(v *types.InstanceSpecification) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "InstanceSpecification"}
+	if v.InstanceId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceId"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -10017,6 +10736,38 @@ func validateScheduledInstancesLaunchSpecification(v *types.ScheduledInstancesLa
 	invalidParams := smithy.InvalidParamsError{Context: "ScheduledInstancesLaunchSpecification"}
 	if v.ImageId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("ImageId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateSecurityGroupRuleUpdate(v *types.SecurityGroupRuleUpdate) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "SecurityGroupRuleUpdate"}
+	if v.SecurityGroupRuleId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SecurityGroupRuleId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateSecurityGroupRuleUpdateList(v []types.SecurityGroupRuleUpdate) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "SecurityGroupRuleUpdateList"}
+	for i := range v {
+		if err := validateSecurityGroupRuleUpdate(&v[i]); err != nil {
+			invalidParams.AddNested(fmt.Sprintf("[%d]", i), err.(smithy.InvalidParamsError))
+		}
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -10293,6 +11044,21 @@ func validateOpAcceptVpcEndpointConnectionsInput(v *AcceptVpcEndpointConnections
 	}
 }
 
+func validateOpAcceptVpcPeeringConnectionInput(v *AcceptVpcPeeringConnectionInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AcceptVpcPeeringConnectionInput"}
+	if v.VpcPeeringConnectionId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VpcPeeringConnectionId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpAdvertiseByoipCidrInput(v *AdvertiseByoipCidrInput) error {
 	if v == nil {
 		return nil
@@ -10392,6 +11158,21 @@ func validateOpAssignPrivateIpAddressesInput(v *AssignPrivateIpAddressesInput) e
 	}
 }
 
+func validateOpAssignPrivateNatGatewayAddressInput(v *AssignPrivateNatGatewayAddressInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AssignPrivateNatGatewayAddressInput"}
+	if v.NatGatewayId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("NatGatewayId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpAssociateClientVpnTargetNetworkInput(v *AssociateClientVpnTargetNetworkInput) error {
 	if v == nil {
 		return nil
@@ -10420,6 +11201,24 @@ func validateOpAssociateDhcpOptionsInput(v *AssociateDhcpOptionsInput) error {
 	}
 	if v.VpcId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("VpcId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpAssociateEnclaveCertificateIamRoleInput(v *AssociateEnclaveCertificateIamRoleInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AssociateEnclaveCertificateIamRoleInput"}
+	if v.CertificateArn == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CertificateArn"))
+	}
+	if v.RoleArn == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("RoleArn"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -10464,6 +11263,42 @@ func validateOpAssociateInstanceEventWindowInput(v *AssociateInstanceEventWindow
 	}
 }
 
+func validateOpAssociateIpamResourceDiscoveryInput(v *AssociateIpamResourceDiscoveryInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AssociateIpamResourceDiscoveryInput"}
+	if v.IpamId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("IpamId"))
+	}
+	if v.IpamResourceDiscoveryId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("IpamResourceDiscoveryId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpAssociateNatGatewayAddressInput(v *AssociateNatGatewayAddressInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AssociateNatGatewayAddressInput"}
+	if v.NatGatewayId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("NatGatewayId"))
+	}
+	if v.AllocationIds == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("AllocationIds"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpAssociateRouteTableInput(v *AssociateRouteTableInput) error {
 	if v == nil {
 		return nil
@@ -10489,6 +11324,27 @@ func validateOpAssociateSubnetCidrBlockInput(v *AssociateSubnetCidrBlockInput) e
 	}
 	if v.SubnetId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("SubnetId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpAssociateTransitGatewayMulticastDomainInput(v *AssociateTransitGatewayMulticastDomainInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "AssociateTransitGatewayMulticastDomainInput"}
+	if v.TransitGatewayMulticastDomainId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayMulticastDomainId"))
+	}
+	if v.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+	if v.SubnetIds == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SubnetIds"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -11084,9 +11940,6 @@ func validateOpCreateCustomerGatewayInput(v *CreateCustomerGatewayInput) error {
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "CreateCustomerGatewayInput"}
-	if v.BgpAsn == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("BgpAsn"))
-	}
 	if len(v.Type) == 0 {
 		invalidParams.Add(smithy.NewErrParamRequired("Type"))
 	}
@@ -11219,6 +12072,21 @@ func validateOpCreateImageInput(v *CreateImageInput) error {
 	}
 }
 
+func validateOpCreateInstanceConnectEndpointInput(v *CreateInstanceConnectEndpointInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateInstanceConnectEndpointInput"}
+	if v.SubnetId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SubnetId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpCreateInstanceExportTaskInput(v *CreateInstanceExportTaskInput) error {
 	if v == nil {
 		return nil
@@ -11334,9 +12202,6 @@ func validateOpCreateLocalGatewayRouteInput(v *CreateLocalGatewayRouteInput) err
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "CreateLocalGatewayRouteInput"}
-	if v.DestinationCidrBlock == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("DestinationCidrBlock"))
-	}
 	if v.LocalGatewayRouteTableId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("LocalGatewayRouteTableId"))
 	}
@@ -11503,9 +12368,6 @@ func validateOpCreateNetworkInsightsPathInput(v *CreateNetworkInsightsPathInput)
 	invalidParams := smithy.InvalidParamsError{Context: "CreateNetworkInsightsPathInput"}
 	if v.Source == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("Source"))
-	}
-	if v.Destination == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("Destination"))
 	}
 	if len(v.Protocol) == 0 {
 		invalidParams.Add(smithy.NewErrParamRequired("Protocol"))
@@ -11680,6 +12542,10 @@ func validateOpCreateSnapshotsInput(v *CreateSnapshotsInput) error {
 	invalidParams := smithy.InvalidParamsError{Context: "CreateSnapshotsInput"}
 	if v.InstanceSpecification == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("InstanceSpecification"))
+	} else if v.InstanceSpecification != nil {
+		if err := validateInstanceSpecification(v.InstanceSpecification); err != nil {
+			invalidParams.AddNested("InstanceSpecification", err.(smithy.InvalidParamsError))
+		}
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -12130,6 +12996,21 @@ func validateOpCreateVpcEndpointInput(v *CreateVpcEndpointInput) error {
 	}
 }
 
+func validateOpCreateVpcPeeringConnectionInput(v *CreateVpcPeeringConnectionInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateVpcPeeringConnectionInput"}
+	if v.VpcId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VpcId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpCreateVpnConnectionInput(v *CreateVpnConnectionInput) error {
 	if v == nil {
 		return nil
@@ -12355,6 +13236,21 @@ func validateOpDeleteFpgaImageInput(v *DeleteFpgaImageInput) error {
 	}
 }
 
+func validateOpDeleteInstanceConnectEndpointInput(v *DeleteInstanceConnectEndpointInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DeleteInstanceConnectEndpointInput"}
+	if v.InstanceConnectEndpointId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceConnectEndpointId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDeleteInstanceEventWindowInput(v *DeleteInstanceEventWindowInput) error {
 	if v == nil {
 		return nil
@@ -12415,6 +13311,21 @@ func validateOpDeleteIpamPoolInput(v *DeleteIpamPoolInput) error {
 	}
 }
 
+func validateOpDeleteIpamResourceDiscoveryInput(v *DeleteIpamResourceDiscoveryInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DeleteIpamResourceDiscoveryInput"}
+	if v.IpamResourceDiscoveryId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("IpamResourceDiscoveryId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDeleteIpamScopeInput(v *DeleteIpamScopeInput) error {
 	if v == nil {
 		return nil
@@ -12450,9 +13361,6 @@ func validateOpDeleteLocalGatewayRouteInput(v *DeleteLocalGatewayRouteInput) err
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "DeleteLocalGatewayRouteInput"}
-	if v.DestinationCidrBlock == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("DestinationCidrBlock"))
-	}
 	if v.LocalGatewayRouteTableId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("LocalGatewayRouteTableId"))
 	}
@@ -13291,6 +14199,21 @@ func validateOpDeregisterImageInput(v *DeregisterImageInput) error {
 	}
 }
 
+func validateOpDeregisterInstanceEventNotificationAttributesInput(v *DeregisterInstanceEventNotificationAttributesInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DeregisterInstanceEventNotificationAttributesInput"}
+	if v.InstanceTagAttribute == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceTagAttribute"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDescribeByoipCidrsInput(v *DescribeByoipCidrsInput) error {
 	if v == nil {
 		return nil
@@ -13883,6 +14806,24 @@ func validateOpDisassociateClientVpnTargetNetworkInput(v *DisassociateClientVpnT
 	}
 }
 
+func validateOpDisassociateEnclaveCertificateIamRoleInput(v *DisassociateEnclaveCertificateIamRoleInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DisassociateEnclaveCertificateIamRoleInput"}
+	if v.CertificateArn == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CertificateArn"))
+	}
+	if v.RoleArn == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("RoleArn"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDisassociateIamInstanceProfileInput(v *DisassociateIamInstanceProfileInput) error {
 	if v == nil {
 		return nil
@@ -13916,6 +14857,39 @@ func validateOpDisassociateInstanceEventWindowInput(v *DisassociateInstanceEvent
 	}
 }
 
+func validateOpDisassociateIpamResourceDiscoveryInput(v *DisassociateIpamResourceDiscoveryInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DisassociateIpamResourceDiscoveryInput"}
+	if v.IpamResourceDiscoveryAssociationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("IpamResourceDiscoveryAssociationId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpDisassociateNatGatewayAddressInput(v *DisassociateNatGatewayAddressInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DisassociateNatGatewayAddressInput"}
+	if v.NatGatewayId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("NatGatewayId"))
+	}
+	if v.AssociationIds == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("AssociationIds"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpDisassociateRouteTableInput(v *DisassociateRouteTableInput) error {
 	if v == nil {
 		return nil
@@ -13938,6 +14912,27 @@ func validateOpDisassociateSubnetCidrBlockInput(v *DisassociateSubnetCidrBlockIn
 	invalidParams := smithy.InvalidParamsError{Context: "DisassociateSubnetCidrBlockInput"}
 	if v.AssociationId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("AssociationId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpDisassociateTransitGatewayMulticastDomainInput(v *DisassociateTransitGatewayMulticastDomainInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "DisassociateTransitGatewayMulticastDomainInput"}
+	if v.TransitGatewayMulticastDomainId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayMulticastDomainId"))
+	}
+	if v.TransitGatewayAttachmentId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayAttachmentId"))
+	}
+	if v.SubnetIds == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("SubnetIds"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -14237,6 +15232,21 @@ func validateOpExportTransitGatewayRoutesInput(v *ExportTransitGatewayRoutesInpu
 	}
 }
 
+func validateOpGetAssociatedEnclaveCertificateIamRolesInput(v *GetAssociatedEnclaveCertificateIamRolesInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetAssociatedEnclaveCertificateIamRolesInput"}
+	if v.CertificateArn == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CertificateArn"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpGetAssociatedIpv6PoolCidrsInput(v *GetAssociatedIpv6PoolCidrsInput) error {
 	if v == nil {
 		return nil
@@ -14435,6 +15445,42 @@ func validateOpGetIpamAddressHistoryInput(v *GetIpamAddressHistoryInput) error {
 	}
 	if v.IpamScopeId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("IpamScopeId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpGetIpamDiscoveredAccountsInput(v *GetIpamDiscoveredAccountsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetIpamDiscoveredAccountsInput"}
+	if v.IpamResourceDiscoveryId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("IpamResourceDiscoveryId"))
+	}
+	if v.DiscoveryRegion == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("DiscoveryRegion"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpGetIpamDiscoveredResourceCidrsInput(v *GetIpamDiscoveredResourceCidrsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetIpamDiscoveredResourceCidrsInput"}
+	if v.IpamResourceDiscoveryId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("IpamResourceDiscoveryId"))
+	}
+	if v.ResourceRegion == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("ResourceRegion"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -14648,6 +15694,21 @@ func validateOpGetTransitGatewayAttachmentPropagationsInput(v *GetTransitGateway
 	}
 }
 
+func validateOpGetTransitGatewayMulticastDomainAssociationsInput(v *GetTransitGatewayMulticastDomainAssociationsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetTransitGatewayMulticastDomainAssociationsInput"}
+	if v.TransitGatewayMulticastDomainId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayMulticastDomainId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpGetTransitGatewayPolicyTableAssociationsInput(v *GetTransitGatewayPolicyTableAssociationsInput) error {
 	if v == nil {
 		return nil
@@ -14763,6 +15824,24 @@ func validateOpGetVpnConnectionDeviceSampleConfigurationInput(v *GetVpnConnectio
 	}
 	if v.VpnConnectionDeviceTypeId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("VpnConnectionDeviceTypeId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpGetVpnTunnelReplacementStatusInput(v *GetVpnTunnelReplacementStatusInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "GetVpnTunnelReplacementStatusInput"}
+	if v.VpnConnectionId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VpnConnectionId"))
+	}
+	if v.VpnTunnelOutsideIpAddress == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VpnTunnelOutsideIpAddress"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -15116,6 +16195,10 @@ func validateOpModifyInstanceCreditSpecificationInput(v *ModifyInstanceCreditSpe
 	invalidParams := smithy.InvalidParamsError{Context: "ModifyInstanceCreditSpecificationInput"}
 	if v.InstanceCreditSpecifications == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("InstanceCreditSpecifications"))
+	} else if v.InstanceCreditSpecifications != nil {
+		if err := validateInstanceCreditSpecificationListRequest(v.InstanceCreditSpecifications); err != nil {
+			invalidParams.AddNested("InstanceCreditSpecifications", err.(smithy.InvalidParamsError))
+		}
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -15262,6 +16345,21 @@ func validateOpModifyIpamResourceCidrInput(v *ModifyIpamResourceCidrInput) error
 	}
 }
 
+func validateOpModifyIpamResourceDiscoveryInput(v *ModifyIpamResourceDiscoveryInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ModifyIpamResourceDiscoveryInput"}
+	if v.IpamResourceDiscoveryId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("IpamResourceDiscoveryId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpModifyIpamScopeInput(v *ModifyIpamScopeInput) error {
 	if v == nil {
 		return nil
@@ -15282,9 +16380,6 @@ func validateOpModifyLocalGatewayRouteInput(v *ModifyLocalGatewayRouteInput) err
 		return nil
 	}
 	invalidParams := smithy.InvalidParamsError{Context: "ModifyLocalGatewayRouteInput"}
-	if v.DestinationCidrBlock == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("DestinationCidrBlock"))
-	}
 	if v.LocalGatewayRouteTableId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("LocalGatewayRouteTableId"))
 	}
@@ -15335,6 +16430,21 @@ func validateOpModifyNetworkInterfaceAttributeInput(v *ModifyNetworkInterfaceAtt
 	}
 }
 
+func validateOpModifyPrivateDnsNameOptionsInput(v *ModifyPrivateDnsNameOptionsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ModifyPrivateDnsNameOptionsInput"}
+	if v.InstanceId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpModifyReservedInstancesInput(v *ModifyReservedInstancesInput) error {
 	if v == nil {
 		return nil
@@ -15363,6 +16473,10 @@ func validateOpModifySecurityGroupRulesInput(v *ModifySecurityGroupRulesInput) e
 	}
 	if v.SecurityGroupRules == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("SecurityGroupRules"))
+	} else if v.SecurityGroupRules != nil {
+		if err := validateSecurityGroupRuleUpdateList(v.SecurityGroupRules); err != nil {
+			invalidParams.AddNested("SecurityGroupRules", err.(smithy.InvalidParamsError))
+		}
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -16059,6 +17173,57 @@ func validateOpRegisterImageInput(v *RegisterImageInput) error {
 	}
 }
 
+func validateOpRegisterInstanceEventNotificationAttributesInput(v *RegisterInstanceEventNotificationAttributesInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "RegisterInstanceEventNotificationAttributesInput"}
+	if v.InstanceTagAttribute == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("InstanceTagAttribute"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpRegisterTransitGatewayMulticastGroupMembersInput(v *RegisterTransitGatewayMulticastGroupMembersInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "RegisterTransitGatewayMulticastGroupMembersInput"}
+	if v.TransitGatewayMulticastDomainId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayMulticastDomainId"))
+	}
+	if v.NetworkInterfaceIds == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("NetworkInterfaceIds"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpRegisterTransitGatewayMulticastGroupSourcesInput(v *RegisterTransitGatewayMulticastGroupSourcesInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "RegisterTransitGatewayMulticastGroupSourcesInput"}
+	if v.TransitGatewayMulticastDomainId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayMulticastDomainId"))
+	}
+	if v.NetworkInterfaceIds == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("NetworkInterfaceIds"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpRejectTransitGatewayPeeringAttachmentInput(v *RejectTransitGatewayPeeringAttachmentInput) error {
 	if v == nil {
 		return nil
@@ -16264,6 +17429,24 @@ func validateOpReplaceTransitGatewayRouteInput(v *ReplaceTransitGatewayRouteInpu
 	}
 	if v.TransitGatewayRouteTableId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayRouteTableId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpReplaceVpnTunnelInput(v *ReplaceVpnTunnelInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "ReplaceVpnTunnelInput"}
+	if v.VpnConnectionId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VpnConnectionId"))
+	}
+	if v.VpnTunnelOutsideIpAddress == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("VpnTunnelOutsideIpAddress"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -16620,6 +17803,21 @@ func validateOpSearchLocalGatewayRoutesInput(v *SearchLocalGatewayRoutesInput) e
 	}
 }
 
+func validateOpSearchTransitGatewayMulticastGroupsInput(v *SearchTransitGatewayMulticastGroupsInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "SearchTransitGatewayMulticastGroupsInput"}
+	if v.TransitGatewayMulticastDomainId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("TransitGatewayMulticastDomainId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
 func validateOpSearchTransitGatewayRoutesInput(v *SearchTransitGatewayRoutesInput) error {
 	if v == nil {
 		return nil
@@ -16786,6 +17984,24 @@ func validateOpUnassignPrivateIpAddressesInput(v *UnassignPrivateIpAddressesInpu
 	invalidParams := smithy.InvalidParamsError{Context: "UnassignPrivateIpAddressesInput"}
 	if v.NetworkInterfaceId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("NetworkInterfaceId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpUnassignPrivateNatGatewayAddressInput(v *UnassignPrivateNatGatewayAddressInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "UnassignPrivateNatGatewayAddressInput"}
+	if v.NatGatewayId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("NatGatewayId"))
+	}
+	if v.PrivateIpAddresses == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("PrivateIpAddresses"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

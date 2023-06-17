@@ -60,6 +60,25 @@ const (
 	CCGPluralName     = "ciliumcidrgroups"
 	CCGKindDefinition = "CiliumCIDRGroup"
 	CCGName           = CCGPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium L2 Announcement policy
+
+	// L2AnnouncementSingularName is the singular name ofCilium L2 announcement policy
+	L2AnnouncementSingularName = "ciliuml2announcementpolicy"
+
+	// L2AnnouncementPluralName is the plural name of Cilium L2 announcement policy
+	L2AnnouncementPluralName = "ciliuml2announcementpolicies"
+
+	// L2AnnouncementKindDefinition is the kind name of Cilium L2 announcement policy
+	L2AnnouncementKindDefinition = "CiliumL2AnnouncementPolicy"
+
+	// L2AnnouncementName is the full name of Cilium L2 announcement policy
+	L2AnnouncementName = L2AnnouncementPluralName + "." + CustomResourceDefinitionGroup
+
+	// CiliumPodIPPool (CPIP)
+	CPIPPluralName     = "ciliumpodippools"
+	CPIPKindDefinition = "CiliumPodIPPool"
+	CPIPName           = CPIPPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -113,6 +132,10 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumNodeConfigList{},
 		&CiliumCIDRGroup{},
 		&CiliumCIDRGroupList{},
+		&CiliumL2AnnouncementPolicy{},
+		&CiliumL2AnnouncementPolicyList{},
+		&CiliumPodIPPool{},
+		&CiliumPodIPPoolList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

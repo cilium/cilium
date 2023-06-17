@@ -5,7 +5,7 @@ package types
 
 import (
 	"context"
-	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/api/v1/models"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -25,15 +25,15 @@ type RouteSelectionOptions struct {
 	AdvertiseInactiveRoutes bool
 }
 
-// Advertisement is a container object which associates a net.IPNet
+// Advertisement is a container object which associates a netip.Prefix
 //
-// The `Net` field makes comparing this Advertisement with another IPNet encoded
+// The `Prefix` field makes comparing this Advertisement with another Prefix encoded
 // prefixes simple.
 //
 // The `GoBGPPathUUID` field is a gobgp.AddPathResponse.Uuid object which can be forwarded to gobgp's
 // WithdrawPath method, making withdrawing an advertised route simple.
 type Advertisement struct {
-	Net           *net.IPNet
+	Prefix        netip.Prefix
 	GoBGPPathUUID []byte // path identifier in underlying implementation
 }
 
@@ -74,6 +74,9 @@ type Router interface {
 
 	// AddNeighbor configures BGP peer
 	AddNeighbor(ctx context.Context, n NeighborRequest) error
+
+	// UpdateNeighbor updates BGP peer
+	UpdateNeighbor(ctx context.Context, n NeighborRequest) error
 
 	// RemoveNeighbor removes BGP peer
 	RemoveNeighbor(ctx context.Context, n NeighborRequest) error

@@ -6,7 +6,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"net"
 	"strings"
 	"time"
 
@@ -26,13 +25,11 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	ipmasqmap "github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
-	"github.com/cilium/cilium/pkg/maps/signalmap"
 	tunnelmap "github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -148,6 +145,14 @@ func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 func (d *Daemon) getIPV6BigTCPStatus() *models.IPV6BigTCP {
 	s := &models.IPV6BigTCP{
 		Enabled: option.Config.EnableIPv6BIGTCP,
+	}
+
+	return s
+}
+
+func (d *Daemon) getIPV4BigTCPStatus() *models.IPV4BigTCP {
+	s := &models.IPV4BigTCP{
+		Enabled: option.Config.EnableIPv4BIGTCP,
 	}
 
 	return s
@@ -331,16 +336,16 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 				Size: int64(lxcmap.MaxEntries),
 			},
 			{
-				Name: "Events",
-				Size: int64(eventsmap.MaxEntries),
-			},
-			{
 				Name: "IP cache",
 				Size: int64(ipcachemap.MaxEntries),
 			},
 			{
-				Name: "IP masquerading agent",
-				Size: int64(ipmasqmap.MaxEntries),
+				Name: "IPv4 masquerading agent",
+				Size: int64(ipmasqmap.MaxEntriesIPv4),
+			},
+			{
+				Name: "IPv6 masquerading agent",
+				Size: int64(ipmasqmap.MaxEntriesIPv6),
 			},
 			{
 				Name: "IPv4 fragmentation",
@@ -389,10 +394,6 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 			{
 				Name: "Session affinity",
 				Size: int64(lbmap.AffinityMapMaxEntries),
-			},
-			{
-				Name: "Signal",
-				Size: int64(signalmap.MaxEntries),
 			},
 			{
 				Name: "Sock reverse NAT",
@@ -510,36 +511,6 @@ func (c *clusterNodesClient) NodeValidateImplementation(node nodeTypes.Node) err
 func (c *clusterNodesClient) NodeConfigurationChanged(config datapath.LocalNodeConfiguration) error {
 	// no-op
 	return nil
-}
-
-func (c *clusterNodesClient) NodeNeighDiscoveryEnabled() bool {
-	// no-op
-	return false
-}
-
-func (c *clusterNodesClient) NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node) {
-	// no-op
-	return
-}
-
-func (c *clusterNodesClient) NodeCleanNeighbors(migrateOnly bool) {
-	// no-op
-	return
-}
-
-func (c *clusterNodesClient) AllocateNodeID(_ net.IP) uint16 {
-	// no-op
-	return 0
-}
-
-func (c *clusterNodesClient) DumpNodeIDs() []*models.NodeID {
-	// no-op
-	return nil
-}
-
-func (c *clusterNodesClient) RestoreNodeIDs() {
-	// no-op
-	return
 }
 
 func (h *getNodes) cleanupClients() {
@@ -1041,6 +1012,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
 	d.statusResponse.IPV6BigTCP = d.getIPV6BigTCPStatus()
+	d.statusResponse.IPV4BigTCP = d.getIPV4BigTCPStatus()
 	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
 	d.statusResponse.HostFirewall = d.getHostFirewallStatus()
 	d.statusResponse.HostRouting = d.getHostRoutingStatus()

@@ -14,25 +14,30 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 // TODO(https://github.com/cilium/cilium/issues/25130): turn this into a generic checker that can be used for all route types
-type backendValidationFunc func(ctx context.Context, log *logrus.Entry, c client.Client, tr *gatewayv1alpha2.TLSRoute) (ctrl.Result, bool, error)
+type backendValidationFunc func(ctx context.Context, log *logrus.Entry, c client.Client, grants *gatewayv1beta1.ReferenceGrantList, tr *gatewayv1alpha2.TLSRoute) (ctrl.Result, bool, error)
 
-func checkAgainstCrossNamespaceReferences(ctx context.Context, log *logrus.Entry, c client.Client, tr *gatewayv1alpha2.TLSRoute) (ctrl.Result, bool, error) {
+func checkAgainstCrossNamespaceReferences(ctx context.Context, log *logrus.Entry, c client.Client, grants *gatewayv1beta1.ReferenceGrantList, tr *gatewayv1alpha2.TLSRoute) (ctrl.Result, bool, error) {
 	continueChecks := true
 
 	for _, rule := range tr.Spec.Rules {
 		for _, be := range rule.BackendRefs {
-			ns := namespaceDerefOr(be.Namespace, tr.GetNamespace())
-			if ns != tr.GetNamespace() {
+			ns := helpers.NamespaceDerefOr(be.Namespace, tr.GetNamespace())
+
+			if ns != tr.GetNamespace() && !helpers.IsBackendReferenceAllowed(tr.GetNamespace(), be, gatewayv1alpha2.SchemeGroupVersion.WithKind("TLSRoute"), grants.Items) {
+				// no reference grants, update the status for all the parents
 				for _, parent := range tr.Spec.ParentRefs {
 					mergeTLSRouteStatusConditions(tr, parent, []metav1.Condition{
 						tlsRefNotPermittedRouteCondition(tr, "Cross namespace references are not allowed"),
 					})
 				}
+
 				continueChecks = false
 			}
 		}
@@ -40,7 +45,7 @@ func checkAgainstCrossNamespaceReferences(ctx context.Context, log *logrus.Entry
 	return ctrl.Result{}, continueChecks, nil
 }
 
-func checkBackendIsService(ctx context.Context, log *logrus.Entry, c client.Client, tr *gatewayv1alpha2.TLSRoute) (ctrl.Result, bool, error) {
+func checkBackendIsService(ctx context.Context, log *logrus.Entry, c client.Client, grants *gatewayv1beta1.ReferenceGrantList, tr *gatewayv1alpha2.TLSRoute) (ctrl.Result, bool, error) {
 	continueChecks := true
 
 	for _, rule := range tr.Spec.Rules {
@@ -60,7 +65,7 @@ func checkBackendIsService(ctx context.Context, log *logrus.Entry, c client.Clie
 	return ctrl.Result{}, continueChecks, nil
 }
 
-func checkBackendIsExistingService(ctx context.Context, log *logrus.Entry, c client.Client, tr *gatewayv1alpha2.TLSRoute) (ctrl.Result, bool, error) {
+func checkBackendIsExistingService(ctx context.Context, log *logrus.Entry, c client.Client, grants *gatewayv1beta1.ReferenceGrantList, tr *gatewayv1alpha2.TLSRoute) (ctrl.Result, bool, error) {
 	continueChecks := true
 
 	for _, rule := range tr.Spec.Rules {

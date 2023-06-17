@@ -29,7 +29,7 @@ to your preferences:
   connections may be briefly disrupted and loadbalancing decisions will be
   lost, so active connections via the loadbalancer will break. All eBPF state
   will be reconstructed from their original sources (for example, from
-  kubernetes or the kvstore). This may be used to mitigate serious issues
+  Kubernetes or the kvstore). This may be used to mitigate serious issues
   regarding eBPF maps. This option should be turned off again after restarting
   the daemon.
 
@@ -227,8 +227,6 @@ use of this feature and no additional flag is required.
 To verify that the CNP resource definition contains the validation schema, run
 the following command:
 
-``kubectl get crd ciliumnetworkpolicies.cilium.io -o json``
-
 .. code-block:: shell-session
 
     $ kubectl get crd ciliumnetworkpolicies.cilium.io -o json | grep -A 12 openAPIV3Schema
@@ -323,13 +321,13 @@ Container Runtimes
 CRIO
 ----
 
-If you want to use CRIO, generate the YAML using:
+If you want to use CRIO, use the instructions below.
 
 .. include:: ../../installation/k8s-install-download-release.rst
 
 .. note::
 
-   The helm ``--set bpf.autoMount.enabled=false`` might not be
+   The Helm flag ``--set bpf.autoMount.enabled=false`` might not be
    required for your setup. For more info see :ref:`crio-known-issues`.
 
 .. parsed-literal::
@@ -342,7 +340,7 @@ Since CRI-O does not automatically detect that a new CNI plugin has been
 installed, you will need to restart the CRI-O daemon for it to pick up the
 Cilium CNI configuration.
 
-First make sure cilium is running:
+First make sure Cilium is running:
 
 .. code-block:: shell-session
 
@@ -377,4 +375,4 @@ Cilium to print the following message::
 
 If you see this warning in the Cilium pod logs with your CRI-O environment,
 please remove the flag ``--set bpf.autoMount.enabled=false`` from
-your helm setup and redeploy Cilium.
+your Helm setup and redeploy Cilium.

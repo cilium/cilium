@@ -6,7 +6,7 @@ package idallocator
 import (
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 // Hook up gocheck into the "go test" runner.

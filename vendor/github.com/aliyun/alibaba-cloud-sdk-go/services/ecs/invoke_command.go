@@ -73,6 +73,7 @@ type InvokeCommandRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer          `position:"Query" name:"ResourceOwnerId"`
 	ContainerName        string                    `position:"Query" name:"ContainerName"`
+	ClientToken          string                    `position:"Query" name:"ClientToken"`
 	SystemTag            *[]InvokeCommandSystemTag `position:"Query" name:"SystemTag"  type:"Repeated"`
 	CommandId            string                    `position:"Query" name:"CommandId"`
 	Timeout              requests.Integer          `position:"Query" name:"Timeout"`

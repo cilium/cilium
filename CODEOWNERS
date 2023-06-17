@@ -46,6 +46,9 @@
 #   code owner is not expected to validate the technical correctness of
 #   submissions. Correctness is typically handled by another code owner group
 #   which is also assigned to any given piece of documentation.
+# - @cilium/sig-foundations:
+#   Review changes to the core libraries and provide guidance to overall
+#   software architecture.
 # - @cilium/github-sec:
 #   Responsible for maintaining the security of repositories in the Cilium
 #   project by maintaining best practices for workflow usage, for instance
@@ -107,7 +110,6 @@
 # - @cilium/ebpf-lib-maintainers
 # - @cilium/hubble-maintainers
 # - @cilium/image-tools-maintainers
-# - @cilium/iproute2-maintainers
 # - @cilium/metallb-maintainers
 # - @cilium/openshift-terraform-maintainers
 # - @cilium/proxy-maintainers
@@ -267,8 +269,8 @@ Makefile* @cilium/build
 /daemon/cmd/metrics.go @cilium/metrics
 /daemon/cmd/policy* @cilium/sig-policy
 /daemon/cmd/prefilter.go @cilium/sig-datapath
-/daemon/cmd/proxy.go @cilium/proxy
 /daemon/cmd/state.go @cilium/endpoint
+/daemon/cmd/cells*.go @cilium/sig-foundations
 /Documentation/ @cilium/docs-structure
 /Documentation/_static/ @cilium/docs-structure
 /Documentation/api.rst @cilium/sig-agent @cilium/docs-structure
@@ -288,6 +290,7 @@ Makefile* @cilium/build
 /Documentation/conf.py @cilium/docs-structure
 /Documentation/configuration/index.rst @cilium/docs-structure
 /Documentation/contributing/ @cilium/contributing @cilium/docs-structure
+/Documentation/crdlist.rst
 /Documentation/Dockerfile @cilium/docs-structure
 /Documentation/gettingstarted/demo.rst @cilium/docs-structure
 /Documentation/gettingstarted/gettinghelp.rst @cilium/contributing @cilium/docs-structure
@@ -357,6 +360,7 @@ Makefile* @cilium/build
 /install/kubernetes/ @cilium/sig-k8s @cilium/helm
 /install/kubernetes/cilium/templates/hubble* @cilium/sig-k8s @cilium/helm @cilium/sig-hubble
 jenkinsfiles @cilium/ci-structure
+/kvstoremesh @cilium/sig-clustermesh
 /LICENSE @cilium/tophat
 /MAINTAINERS.md @cilium/contributing
 /netlify.toml @cilium/ci-structure
@@ -379,7 +383,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/bandwidth/ @cilium/sig-datapath
 /pkg/bgp/ @cilium/sig-bgp
 /pkg/bgpv1/ @cilium/sig-bgp
-/pkg/bpf/ @cilium/sig-datapath
+/pkg/bpf/ @cilium/loader
 /pkg/byteorder/ @cilium/sig-datapath @cilium/api
 /pkg/cgroups/ @cilium/sig-datapath
 /pkg/checker/ @cilium/ci-structure
@@ -414,7 +418,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/fqdn/ @cilium/sig-agent @cilium/proxy
 /pkg/fswatcher/ @cilium/sig-datapath @cilium/sig-hubble
 /pkg/health/ @cilium/sig-agent
-/pkg/hive/ @cilium/sig-agent
+/pkg/hive/ @cilium/sig-foundations
 /pkg/hubble/ @cilium/sig-hubble
 /pkg/hubble/metrics @cilium/sig-hubble @cilium/sig-hubble-api
 /pkg/identity @cilium/sig-policy
@@ -434,6 +438,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/k8s/apis/cilium.io/v2/ @cilium/api @cilium/sig-k8s
 /pkg/kafka/ @cilium/proxy
 /pkg/kvstore/ @cilium/kvstore
+/pkg/l2announcer/ @cilium/sig-agent
 /pkg/labels @cilium/sig-policy @cilium/api
 /pkg/labelsfilter @cilium/sig-policy
 /pkg/launcher @cilium/sig-agent
@@ -461,14 +466,20 @@ jenkinsfiles @cilium/ci-structure
 /pkg/policy @cilium/sig-policy
 /pkg/policy/api/ @cilium/api
 /pkg/policy/groups/aws/ @cilium/sig-policy @cilium/aws
+/pkg/promise @cilium/sig-foundations
 /pkg/proxy/ @cilium/proxy
 /pkg/proxy/accesslog @cilium/api
+/pkg/rate/metrics @cilium/metrics
+/pkg/recorder @cilium/sig-datapath
 /pkg/redirectpolicy @cilium/sig-lb
 /pkg/safeio @cilium/sig-agent
 /pkg/serializer @cilium/sig-agent
 /pkg/service @cilium/sig-lb
+/pkg/slices @cilium/sig-foundations
 /pkg/source @cilium/ipcache
 /pkg/status/ @cilium/sig-agent
+/pkg/statedb @cilium/sig-foundations
+/pkg/stream @cilium/sig-foundations
 /pkg/sysctl @cilium/sig-datapath
 /pkg/testutils/ @cilium/ci-structure
 /pkg/tuple @cilium/sig-datapath
@@ -524,3 +535,4 @@ Vagrantfile @cilium/ci-structure
 /vagrant_box_defaults.rb @cilium/ci-structure
 /vendor/ @cilium/vendor
 /VERSION @cilium/tophat
+/.clang-format @cilium/contributing

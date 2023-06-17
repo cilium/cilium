@@ -3,9 +3,7 @@
 
 package ipam
 
-import (
-	"gopkg.in/check.v1"
-)
+import check "github.com/cilium/checkmate"
 
 type testNeededDef struct {
 	available   int

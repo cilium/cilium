@@ -6,8 +6,8 @@ package metrics
 import (
 	"strings"
 
+	. "github.com/cilium/checkmate"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/health/client/connectivity"

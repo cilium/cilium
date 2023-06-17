@@ -16,8 +16,11 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/ebpf"
+
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -77,6 +80,10 @@ const (
 	// MaxTime specifies the last possible time for GCFilter.Time
 	MaxTime = math.MaxUint32
 
+	// The BPF CT implementation stores jiffies right-shifted by this value. Must
+	// correspond to BPF_MONO_SCALER in the datapath.
+	bpfMonoScaler = 8
+
 	metricsAlive   = "alive"
 	metricsDeleted = "deleted"
 
@@ -100,7 +107,6 @@ type mapAttributes struct {
 	mapValue   bpf.MapValue
 	valueSize  int
 	maxEntries int
-	parser     bpf.DumpParser
 	bpfDefine  string
 	natMapLock *lock.Mutex // Serializes concurrent accesses to natMap
 	natMap     *nat.Map
@@ -133,7 +139,6 @@ func setupMapInfo(m mapType, define string, mapKey bpf.MapKey, keySize int, maxE
 		mapValue:   &CtEntry{},
 		valueSize:  SizeofCtEntry,
 		maxEntries: maxEntries,
-		parser:     bpf.ConvertKeyValue,
 		natMapLock: natMapsLock[m],
 		natMap:     nat,
 	}
@@ -247,6 +252,17 @@ type GCFilter struct {
 // EmitCTEntryCBFunc is the type used for the EmitCTEntryCB callback in GCFilter
 type EmitCTEntryCBFunc func(srcIP, dstIP netip.Addr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry)
 
+// scaledJiffies returns the kernel's current jiffies, right-shifted by a
+// monotonic scaler value.
+func scaledJiffies() (uint64, error) {
+	j, err := probes.Jiffies()
+	if err != nil {
+		return 0, err
+	}
+
+	return j >> bpfMonoScaler, nil
+}
+
 // DumpEntriesWithTimeDiff iterates through Map m and writes the values of the
 // ct entries in m to a string. If clockSource is not nil, it uses it to
 // compute the time difference of each entry from now and prints that too.
@@ -266,7 +282,7 @@ func DumpEntriesWithTimeDiff(m CtMap, clockSource *models.ClockSource) (string, 
 			return fmt.Sprintf("remaining: %d sec(s)", diff)
 		}
 	} else if clockSource.Mode == models.ClockSourceModeJiffies {
-		now, err := bpf.GetJtime()
+		now, err := scaledJiffies()
 		if err != nil {
 			return "", err
 		}
@@ -317,14 +333,11 @@ func (m *Map) DumpEntries() (string, error) {
 func newMap(mapName string, m mapType) *Map {
 	result := &Map{
 		Map: *bpf.NewMap(mapName,
-			bpf.MapTypeLRUHash,
+			ebpf.LRUHash,
 			mapInfo[m].mapKey,
-			mapInfo[m].keySize,
 			mapInfo[m].mapValue,
-			mapInfo[m].valueSize,
 			mapInfo[m].maxEntries,
-			0, 0,
-			mapInfo[m].parser,
+			0,
 		),
 		mapType: m,
 		define:  mapInfo[m].bpfDefine,
@@ -580,7 +593,7 @@ func GC(m *Map, filter *GCFilter) int {
 			t, _ = bpf.GetMtime()
 			t = t / 1000000000
 		} else {
-			t, _ = bpf.GetJtime()
+			t, _ = scaledJiffies()
 		}
 		filter.Time = uint32(t)
 	}
@@ -710,15 +723,19 @@ func DeleteIfUpgradeNeeded(e CtEndpoint) {
 			continue
 		}
 		scopedLog := log.WithField(logfields.Path, path)
-		oldMap, err := bpf.OpenMap(path)
+
+		// Pass nil key and value types since we're not intending on accessing the
+		// map's contents.
+		oldMap, err := bpf.OpenMap(path, nil, nil)
 		if err != nil {
 			scopedLog.WithError(err).Debug("Couldn't open CT map for upgrade")
 			continue
 		}
-		if oldMap.CheckAndUpgrade(&newMap.Map.MapInfo) {
+		defer oldMap.Close()
+
+		if oldMap.CheckAndUpgrade(&newMap.Map) {
 			scopedLog.Warning("CT Map upgraded, expect brief disruption of ongoing connections")
 		}
-		oldMap.Close()
 	}
 }
 

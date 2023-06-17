@@ -6,7 +6,7 @@ set -o pipefail
 _goroot=$(${GO:-go} env GOROOT)
 
 diff="$(find . ! \( -path './contrib' -prune \) \
-        ! \( -path './vendor' -prune \) \
+        ! \( -regex '.*/vendor/.*' -prune \) \
         ! \( -path './_build' -prune \) \
         ! \( -path './.git' -prune \) \
         ! \( -path '*.validate.go' -prune \) \

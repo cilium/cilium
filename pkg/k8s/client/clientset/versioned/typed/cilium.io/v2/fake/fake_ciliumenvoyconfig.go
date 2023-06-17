@@ -11,7 +11,6 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -23,9 +22,9 @@ type FakeCiliumEnvoyConfigs struct {
 	ns   string
 }
 
-var ciliumenvoyconfigsResource = schema.GroupVersionResource{Group: "cilium.io", Version: "v2", Resource: "ciliumenvoyconfigs"}
+var ciliumenvoyconfigsResource = v2.SchemeGroupVersion.WithResource("ciliumenvoyconfigs")
 
-var ciliumenvoyconfigsKind = schema.GroupVersionKind{Group: "cilium.io", Version: "v2", Kind: "CiliumEnvoyConfig"}
+var ciliumenvoyconfigsKind = v2.SchemeGroupVersion.WithKind("CiliumEnvoyConfig")
 
 // Get takes name of the ciliumEnvoyConfig, and returns the corresponding ciliumEnvoyConfig object, and an error if there is any.
 func (c *FakeCiliumEnvoyConfigs) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumEnvoyConfig, err error) {

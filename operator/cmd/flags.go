@@ -39,10 +39,11 @@ func init() {
 		"EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag")
 	option.BindEnv(Vp, operatorOption.IPAMInstanceTags)
 
-	flags.Var(option.NewNamedMapOptions(operatorOption.IPAMMultiPoolMap, &operatorOption.Config.IPAMMultiPoolMap, nil), operatorOption.IPAMMultiPoolMap,
-		"IP pool definitions in the form <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)")
-	flags.MarkHidden(operatorOption.IPAMMultiPoolMap)
-	option.BindEnv(Vp, operatorOption.IPAMMultiPoolMap)
+	flags.Var(option.NewNamedMapOptions(operatorOption.IPAMAutoCreateCiliumPodIPPools, &operatorOption.Config.IPAMAutoCreateCiliumPodIPPools, nil),
+		operatorOption.IPAMAutoCreateCiliumPodIPPools,
+		"Automatically create CiliumPodIPPool resources on startup. "+
+			"Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size> (multiple pools can also be passed by repeating the CLI flag)")
+	option.BindEnv(Vp, operatorOption.IPAMAutoCreateCiliumPodIPPools)
 
 	flags.Int64(operatorOption.ParallelAllocWorkers, defaults.ParallelAllocWorkers, "Maximum number of parallel IPAM workers")
 	option.BindEnv(Vp, operatorOption.ParallelAllocWorkers)
@@ -61,14 +62,16 @@ func init() {
 	flags.String(option.ConfigDir, "", `Configuration directory that contains a file for each option`)
 	option.BindEnv(Vp, option.ConfigDir)
 
-	flags.Bool(option.DisableCNPStatusUpdates, false, `Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc-interval=0" in cilium-operator)`)
-	flags.MarkHidden(option.DisableCNPStatusUpdates)
+	flags.Bool(option.DisableCNPStatusUpdates, true, `Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc-interval=0" in cilium-operator)`)
+	flags.MarkDeprecated(option.DisableCNPStatusUpdates, "This option will be removed in v1.15 (disabled CNP Status Updates by default)")
 	option.BindEnv(Vp, option.DisableCNPStatusUpdates)
 
 	flags.Bool(option.K8sEventHandover, defaults.K8sEventHandover, "Enable k8s event handover to kvstore for improved scalability")
+	flags.MarkDeprecated(option.K8sEventHandover, "This option will be removed in v1.15 (disabled CNP Status Updates by default)")
 	option.BindEnv(Vp, option.K8sEventHandover)
 
 	flags.Duration(operatorOption.CNPNodeStatusGCInterval, 2*time.Minute, "GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status")
+	flags.MarkDeprecated(operatorOption.CNPNodeStatusGCInterval, "This option will be removed in v1.15 (disabled by default)")
 	option.BindEnv(Vp, operatorOption.CNPNodeStatusGCInterval)
 
 	flags.Bool(operatorOption.SkipCNPStatusStartupClean, false, `If set to true, the operator will not clean up CNP node status updates at startup`)
@@ -200,14 +203,14 @@ func init() {
 	option.BindEnv(Vp, option.EnableIPv4Name)
 
 	flags.StringSlice(operatorOption.ClusterPoolIPv4CIDR, []string{},
-		fmt.Sprintf("IPv4 CIDR Range for Pods in cluster. Requires '%s=%s|%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2,
+		fmt.Sprintf("IPv4 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv4Name, "true"))
 	option.BindEnv(Vp, operatorOption.ClusterPoolIPv4CIDR)
 
 	flags.Int(operatorOption.NodeCIDRMaskSizeIPv4, 24,
-		fmt.Sprintf("Mask size for each IPv4 podCIDR per node. Requires '%s=%s|%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2,
+		fmt.Sprintf("Mask size for each IPv4 podCIDR per node. Requires '%s=%s' and '%s=%s'",
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv4Name, "true"))
 	option.BindEnv(Vp, operatorOption.NodeCIDRMaskSizeIPv4)
 
@@ -215,14 +218,14 @@ func init() {
 	option.BindEnv(Vp, option.EnableIPv6Name)
 
 	flags.StringSlice(operatorOption.ClusterPoolIPv6CIDR, []string{},
-		fmt.Sprintf("IPv6 CIDR Range for Pods in cluster. Requires '%s=%s|%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2,
+		fmt.Sprintf("IPv6 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv6Name, "true"))
 	option.BindEnv(Vp, operatorOption.ClusterPoolIPv6CIDR)
 
 	flags.Int(operatorOption.NodeCIDRMaskSizeIPv6, 112,
-		fmt.Sprintf("Mask size for each IPv6 podCIDR per node. Requires '%s=%s|%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2,
+		fmt.Sprintf("Mask size for each IPv6 podCIDR per node. Requires '%s=%s' and '%s=%s'",
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv6Name, "true"))
 	option.BindEnv(Vp, operatorOption.NodeCIDRMaskSizeIPv6)
 

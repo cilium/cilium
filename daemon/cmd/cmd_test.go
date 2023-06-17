@@ -6,7 +6,7 @@ package cmd
 import (
 	"testing"
 
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 )
 
 func Test(t *testing.T) { check.TestingT(t) }

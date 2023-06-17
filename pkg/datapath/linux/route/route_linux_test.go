@@ -7,11 +7,11 @@ import (
 	"net"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	"github.com/google/go-cmp/cmp"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -21,7 +21,7 @@ type RouteSuitePrivileged struct{}
 var _ = Suite(&RouteSuitePrivileged{})
 
 func (s *RouteSuitePrivileged) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 func testReplaceNexthopRoute(c *C, link netlink.Link, routerNet *net.IPNet) {
@@ -112,7 +112,7 @@ func testReplaceRule(c *C, mark int, from, to *net.IPNet, table int) {
 	rule := Rule{Mark: mark, From: from, To: to, Table: table}
 
 	// delete rule in case it exists from a previous failed run
-	DeleteRule(rule)
+	DeleteRule(netlink.FAMILY_V4, rule)
 
 	rule.Priority = 1
 	err := ReplaceRule(rule)
@@ -122,7 +122,7 @@ func testReplaceRule(c *C, mark int, from, to *net.IPNet, table int) {
 	c.Assert(err, IsNil)
 	c.Assert(exists, Equals, true)
 
-	err = DeleteRule(rule)
+	err = DeleteRule(netlink.FAMILY_V4, rule)
 	c.Assert(err, IsNil)
 
 	exists, err = lookupRule(rule, netlink.FAMILY_V4)
@@ -134,7 +134,7 @@ func testReplaceRuleIPv6(c *C, mark int, from, to *net.IPNet, table int) {
 	rule := Rule{Mark: mark, From: from, To: to, Table: table}
 
 	// delete rule in case it exists from a previous failed run
-	DeleteRuleIPv6(rule)
+	DeleteRule(netlink.FAMILY_V6, rule)
 
 	rule.Priority = 1
 	err := ReplaceRuleIPv6(rule)
@@ -144,7 +144,7 @@ func testReplaceRuleIPv6(c *C, mark int, from, to *net.IPNet, table int) {
 	c.Assert(err, IsNil)
 	c.Assert(exists, Equals, true)
 
-	err = DeleteRuleIPv6(rule)
+	err = DeleteRule(netlink.FAMILY_V6, rule)
 	c.Assert(err, IsNil)
 
 	exists, err = lookupRule(rule, netlink.FAMILY_V6)
@@ -185,21 +185,21 @@ func (p *RouteSuitePrivileged) TestRule_String(c *C) {
 				From: fakeIP,
 				To:   fakeIP2,
 			},
-			wantStr: "0: from 10.10.10.10/32 to 1.1.1.1/32 lookup 0",
+			wantStr: "0: from 10.10.10.10/32 to 1.1.1.1/32 lookup 0 proto unspec",
 		},
 		{
 			name: "contains priority",
 			rule: Rule{
 				Priority: 1,
 			},
-			wantStr: "1: from all to all lookup 0",
+			wantStr: "1: from all to all lookup 0 proto unspec",
 		},
 		{
 			name: "contains table",
 			rule: Rule{
 				Table: 1,
 			},
-			wantStr: "0: from all to all lookup 1",
+			wantStr: "0: from all to all lookup 1 proto unspec",
 		},
 		{
 			name: "contains mark and mask",
@@ -207,14 +207,14 @@ func (p *RouteSuitePrivileged) TestRule_String(c *C) {
 				Mark: 1,
 				Mask: 1,
 			},
-			wantStr: "0: from all to all lookup 0 mark 0x1 mask 0x1",
+			wantStr: "0: from all to all lookup 0 mark 0x1 mask 0x1 proto unspec",
 		},
 		{
 			name: "main table",
 			rule: Rule{
 				Table: unix.RT_TABLE_MAIN,
 			},
-			wantStr: "0: from all to all lookup main",
+			wantStr: "0: from all to all lookup main proto unspec",
 		},
 	}
 	for _, tt := range tests {

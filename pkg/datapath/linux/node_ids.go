@@ -33,16 +33,11 @@ func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
 		return 0
 	}
 
-	// Don't allocate a node ID for the local node.
-	localNode := node.GetIPv4()
-	if localNode.Equal(nodeIP) {
-		return 0
-	}
-
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
-	if nodeID, exists := n.nodeIDsByIPs[nodeIP.String()]; exists {
+	if nodeID, exists := n.getNodeIDForIP(nodeIP); exists {
+		// Don't allocate a node ID if one already exists.
 		return nodeID
 	}
 
@@ -65,19 +60,58 @@ func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
 	return nodeID
 }
 
-// allocateIDForNode allocates a new ID for the given node if one hasn't already
-// been assigned. If any of the node IPs have an ID associated, then all other
-// node IPs receive the same. This might happen if we allocated a node ID from
-// the ipcache, where we don't have all node IPs but only one.
-func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
-	nodeID := uint16(0)
+func (n *linuxNodeHandler) GetNodeIP(nodeID uint16) string {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
 
-	// Did we already allocate a node ID for any IP of that node?
+	// Check for local node ID explicitly as local node IPs are not in our maps!
+	if nodeID == 0 {
+		// Returns local node's IPv4 address if available, IPv6 address otherwise.
+		return node.GetCiliumEndpointNodeIP()
+	}
+	return n.nodeIPsByIDs[nodeID]
+}
+
+func (n *linuxNodeHandler) GetNodeID(nodeIP net.IP) (uint16, bool) {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
+	return n.getNodeIDForIP(nodeIP)
+}
+
+func (n *linuxNodeHandler) getNodeIDForIP(nodeIP net.IP) (uint16, bool) {
+	localNodeV4 := node.GetIPv4()
+	localNodeV6 := node.GetIPv6()
+	if localNodeV4.Equal(nodeIP) || localNodeV6.Equal(nodeIP) {
+		return 0, true
+	}
+
+	if nodeID, exists := n.nodeIDsByIPs[nodeIP.String()]; exists {
+		return nodeID, true
+	}
+
+	return 0, false
+}
+
+// getNodeIDForNode gets the node ID for the given node if one was allocated
+// for any of the node IP addresses. If none is found, 0 is returned.
+func (n *linuxNodeHandler) getNodeIDForNode(node *nodeTypes.Node) uint16 {
+	nodeID := uint16(0)
 	for _, addr := range node.IPAddresses {
 		if id, exists := n.nodeIDsByIPs[addr.IP.String()]; exists {
 			nodeID = id
 		}
 	}
+	return nodeID
+}
+
+// allocateIDForNode allocates a new ID for the given node if one hasn't already
+// been assigned. If any of the node IPs have an ID associated, then all other
+// node IPs receive the same. This might happen if we allocated a node ID from
+// the ipcache, where we don't have all node IPs but only one.
+func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
+	// Did we already allocate a node ID for any IP of that node?
+	nodeID := n.getNodeIDForNode(node)
 
 	if nodeID == 0 {
 		nodeID = uint16(n.nodeIDs.AllocateID())
@@ -160,13 +194,15 @@ func (n *linuxNodeHandler) mapNodeID(ip string, id uint16) error {
 		return fmt.Errorf("invalid node IP %s", ip)
 	}
 
-	if err := nodemap.NodeMap().Update(nodeIP, id); err != nil {
+	if err := n.nodeMap.Update(nodeIP, id); err != nil {
 		return err
 	}
 
 	// We only add the IP <> ID mapping in memory once we are sure it was
 	// successfully added to the BPF map.
 	n.nodeIDsByIPs[ip] = id
+	n.nodeIPsByIDs[id] = ip
+
 	return nil
 }
 
@@ -183,11 +219,13 @@ func (n *linuxNodeHandler) unmapNodeID(ip string) error {
 		return fmt.Errorf("invalid node IP %s", ip)
 	}
 
-	if err := nodemap.NodeMap().Delete(nodeIP); err != nil {
+	if err := n.nodeMap.Delete(nodeIP); err != nil {
 		return err
 	}
-
-	delete(n.nodeIDsByIPs, ip)
+	if id, exists := n.nodeIDsByIPs[ip]; exists {
+		delete(n.nodeIDsByIPs, ip)
+		delete(n.nodeIPsByIDs, id)
+	}
 
 	return nil
 }
@@ -230,7 +268,7 @@ func (n *linuxNodeHandler) RestoreNodeIDs() {
 		}
 		nodeIDs[address] = val.NodeID
 	}
-	if err := nodemap.NodeMap().IterateWithCallback(parse); err != nil {
+	if err := n.nodeMap.IterateWithCallback(parse); err != nil {
 		log.WithError(err).Error("Failed to dump content of node map")
 		return
 	}
@@ -252,11 +290,12 @@ func (n *linuxNodeHandler) registerNodeIDAllocations(allocatedNodeIDs map[string
 	// The node manager holds both a map of nodeIP=>nodeID and a pool of ID for
 	// the allocation of node IDs. Not only do we need to update the map,
 	n.nodeIDsByIPs = allocatedNodeIDs
-
+	n.nodeIPsByIDs = map[uint16]string{}
 	// ...but we also need to remove any restored nodeID from the pool of IDs
 	// available for allocation.
 	nodeIDs := make(map[uint16]struct{})
-	for _, id := range allocatedNodeIDs {
+	for ip, id := range allocatedNodeIDs {
+		n.nodeIPsByIDs[id] = ip // reverse mapping for all ip, id pairs
 		if _, exists := nodeIDs[id]; !exists {
 			nodeIDs[id] = struct{}{}
 			if !n.nodeIDs.Remove(idpool.ID(id)) {

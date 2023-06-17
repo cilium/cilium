@@ -64,11 +64,13 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # renovate: datasource=github-releases depName=kubernetes-sigs/kind
   kind_version: v0.17.0
   k8s_version: v1.27.1
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.2
+  cilium_cli_version: v0.14.7
   cilium_cli_ci_version:
+  CILIUM_CLI_MODE: helm
   clusterName1: cluster1-${{ github.run_id }}
   clusterName2: cluster2-${{ github.run_id }}
   contextName1: kind-cluster1-${{ github.run_id }}
@@ -92,7 +94,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
@@ -165,8 +167,8 @@ jobs:
   # This job is skipped when the workflow was triggered with the generic `/test`
   # trigger if the only modified files were under `test/` or `Documentation/`.
   installation-and-connectivity:
+    name: "Installation and Connectivity Test"
     needs: setup-report
-    name: Setup & Test
     if: |
       ((github.event_name == 'issue_comment' &&
         ((github.event.comment.body == '/ci-multicluster') ||
@@ -175,6 +177,8 @@ jobs:
       github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      job_name: "Installation and Connectivity Test"
 
     strategy:
       fail-fast: false
@@ -248,7 +252,7 @@ jobs:
 
     steps:
     - name: Checkout GitHub main
-      uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       with:
         ref: ${{ github.event.repository.default_branch }}
         persist-credentials: false
@@ -271,9 +275,15 @@ jobs:
           --helm-set=operator.image.tag=${SHA} \
           --helm-set=operator.image.useDigest=false \
           --helm-set=bpf.masquerade=false \
-          --config monitor-aggregation=none \
-          --rollback=false \
-          --version="
+          --helm-set=bpf.monitorAggregation=none \
+          --helm-set=hubble.enabled=true \
+          --helm-set=hubble.relay.enabled=true \
+          --helm-set=hubble.relay.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
+          --helm-set=hubble.relay.image.useDigest=false \
+          --helm-set=clustermesh.useAPIServer=true \
+          --helm-set=clustermesh.apiserver.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci:${SHA} \
+          --helm-set=clustermesh.apiserver.image.useDigest=false \
+          "
 
         CILIUM_INSTALL_TUNNEL="--helm-set=tunnel=vxlan"
         if [ "${{ matrix.tunnel }}" == "disabled" ]; then
@@ -310,11 +320,11 @@ jobs:
             ;;
         esac
 
-        HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-          --helm-set=hubble.relay.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
-          --helm-set=hubble.relay.image.useDigest=false"
-        CLUSTERMESH_ENABLE_DEFAULTS="--apiserver-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
-          --apiserver-version=${SHA} --service-type=NodePort"
+        CILIUM_INSTALL_ENCRYPTION=""
+        if [ "${{ matrix.encryption }}" != "none" ]; then
+          CILIUM_INSTALL_ENCRYPTION="--helm-set=encryption.enabled=true \
+            --helm-set=encryption.type=${{ matrix.encryption }}"
+        fi
 
         CONNECTIVITY_TEST_DEFAULTS="--hubble=false \
           --flow-validation=disabled \
@@ -330,10 +340,9 @@ jobs:
             --test='!/pod-to-cidr'"
         fi
 
-        echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL} ${CILIUM_INSTALL_IPFAMILY}" >> $GITHUB_OUTPUT
-        echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
+        echo cilium_install_defaults="${CILIUM_INSTALL_DEFAULTS} ${CILIUM_INSTALL_TUNNEL} \
+          ${CILIUM_INSTALL_IPFAMILY} ${CILIUM_INSTALL_ENCRYPTION}" >> $GITHUB_OUTPUT
         echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
-        echo clustermesh_enable_defaults=${CLUSTERMESH_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
 
         echo kind_pod_cidr_1=${KIND_POD_CIDR_1} >> $GITHUB_OUTPUT
         echo kind_svc_cidr_1=${KIND_SVC_CIDR_1} >> $GITHUB_OUTPUT
@@ -341,7 +350,7 @@ jobs:
         echo kind_svc_cidr_2=${KIND_SVC_CIDR_2} >> $GITHUB_OUTPUT
 
     - name: Install Cilium CLI
-      uses: cilium/cilium-cli@207512ce9e729d9b3cc1a59e92af5c8d50ce37c4 # v0.14.2
+      uses: cilium/cilium-cli@9fcfef089e5b7dd3212f2eac21ba8cfae6f05cca # v0.14.7
       with:
         release-version: ${{ env.cilium_cli_version }}
         ci-version: ${{ env.cilium_cli_ci_version }}
@@ -363,7 +372,7 @@ jobs:
           envsubst < ./.github/kind-config.yaml.tmpl > ./.github/kind-config-cluster2.yaml
 
     - name: Create Kind cluster 1
-      uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00 # v1.5.0
+      uses: helm/kind-action@fa81e57adff234b2908110485695db0f181f3c67 # v1.7.0
       with:
         cluster_name: ${{ env.clusterName1 }}
         version: ${{ env.kind_version }}
@@ -372,7 +381,7 @@ jobs:
         wait: 0 # The control-plane never becomes ready, since no CNI is present
 
     - name: Create Kind cluster 2
-      uses: helm/kind-action@d8ccf8fb623ce1bb360ae2f45f323d9d5c5e9f00 # v1.5.0
+      uses: helm/kind-action@fa81e57adff234b2908110485695db0f181f3c67 # v1.7.0
       with:
         cluster_name: ${{ env.clusterName2 }}
         version: ${{ env.kind_version }}
@@ -414,49 +423,42 @@ jobs:
     # in a Kubernetes cluster, so it won't have access to the privileged
     # environment from there.
     - name: Checkout SHA
-      uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       with:
         ref: ${{ needs.setup-report.outputs.sha }}
         persist-credentials: false
 
-    - name: Install Cilium in cluster1
-      run: |
-        # Using the deprecated flag --cluster-name due to cilium/cilium-cli#1347
-        # --helm-set cluster.name ${{ env.clusterName1 }}
-        cilium --context ${{ env.contextName1 }} install \
-          ${{ steps.vars.outputs.cilium_install_defaults }} \
-          --encryption ${{ matrix.encryption }} \
-          --cluster-name ${{ env.clusterName1 }} \
-          --helm-set cluster.id=1
-
-    - name: Copy the IPsec secret to cluster2, as they must match
+    - name: Create the IPSec secret in both clusters
       if: matrix.encryption == 'ipsec'
       run: |
-        kubectl --context ${{ env.contextName1 }} get secret -n kube-system cilium-ipsec-keys -o yaml |
+        SECRET="3 rfc4106(gcm(aes)) $(openssl rand -hex 20) 128"
+        kubectl --context ${{ env.contextName1 }} create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
+        kubectl --context ${{ env.contextName2 }} create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
+
+    - name: Install Cilium in cluster1
+      run: |
+        # Explicitly configure the NodePort to make sure that it is different in
+        # each cluster, to workaround #24692
+        cilium --context ${{ env.contextName1 }} install \
+          ${{ steps.vars.outputs.cilium_install_defaults }} \
+          --helm-set cluster.name=${{ env.clusterName1 }} \
+          --helm-set cluster.id=1 \
+          --helm-set clustermesh.apiserver.service.nodePort=32379
+
+    - name: Copy the Cilium CA secret to cluster2, as they must match
+      run: |
+        kubectl --context ${{ env.contextName1 }} get secret -n kube-system cilium-ca -o yaml |
           kubectl --context ${{ env.contextName2 }} create -f -
 
     - name: Install Cilium in cluster2
       run: |
-        # Using the deprecated form --cluster-name due to cilium/cilium-cli#1347
-        # --helm-set cluster.name ${{ env.clusterName2 }}
+        # Explicitly configure the NodePort to make sure that it is different in
+        # each cluster, to workaround #24692
         cilium --context ${{ env.contextName2 }} install \
           ${{ steps.vars.outputs.cilium_install_defaults }} \
-          --encryption ${{ matrix.encryption }} \
-          --cluster-name ${{ env.clusterName2 }} \
+          --helm-set cluster.name=${{ env.clusterName2 }} \
           --helm-set cluster.id=255 \
-          --inherit-ca ${{ env.contextName1 }}
-
-    - name: Enable Hubble
-      run: |
-        cilium --context ${{ env.contextName1 }} hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }} --wait=false
-        cilium --context ${{ env.contextName2 }} hubble enable ${{ steps.vars.outputs.hubble_enable_defaults }} --wait=false --relay=false
-        cilium --context ${{ env.contextName1 }} status --wait
-        cilium --context ${{ env.contextName2 }} status --wait
-
-    - name: Enable Cluster Mesh
-      run: |
-        cilium --context ${{ env.contextName1 }} clustermesh enable ${{ steps.vars.outputs.clustermesh_enable_defaults }}
-        cilium --context ${{ env.contextName2 }} clustermesh enable ${{ steps.vars.outputs.clustermesh_enable_defaults }}
+          --helm-set clustermesh.apiserver.service.nodePort=32380
 
     - name: Wait for cluster mesh status to be ready
       run: |
@@ -482,9 +484,15 @@ jobs:
         sleep 10s
         [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
-    - name: Run connectivity test
+    - name: Make JUnit report directory
       run: |
-        cilium --context ${{ env.contextName1 }} connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }}
+        mkdir -p cilium-junits
+
+    - name: Run connectivity test (${{ join(matrix.*, ', ') }})
+      run: |
+        cilium --context ${{ env.contextName1 }} connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
+        --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+        --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
     - name: Post-test information gathering
       if: ${{ !success() }}
@@ -510,6 +518,21 @@ jobs:
         name: cilium-sysdumps-${{ matrix.name }}
         path: cilium-sysdump-*.zip
         retention-days: 5
+
+    - name: Upload JUnits [junit]
+      if: ${{ always() }}
+      uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+      with:
+        name: cilium-junits
+        path: cilium-junits/*.xml
+        retention-days: 2
+
+    - name: Publish Test Results As GitHub Summary
+      if: ${{ always() }}
+      uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+      with:
+        junit-directory: "cilium-junits"
+
 
   report-success:
     runs-on: ubuntu-latest

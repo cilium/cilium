@@ -34,7 +34,10 @@ func init() {
 var GatewayInvalidRouteKind = suite.ConformanceTest{
 	ShortName:   "GatewayInvalidRouteKind",
 	Description: "A Gateway in the gateway-conformance-infra namespace should fail to become ready an invalid Route kind is specified.",
-	Manifests:   []string{"tests/gateway-invalid-route-kind.yaml"},
+	Features: []suite.SupportedFeature{
+		suite.SupportGateway,
+	},
+	Manifests: []string{"tests/gateway-invalid-route-kind.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		t.Run("Gateway listener should have a false ResolvedRefs condition with reason InvalidRouteKinds and no supportedKinds", func(t *testing.T) {
 			gwNN := types.NamespacedName{Name: "gateway-only-invalid-route-kind", Namespace: "gateway-conformance-infra"}
@@ -46,6 +49,7 @@ var GatewayInvalidRouteKind = suite.ConformanceTest{
 					Status: metav1.ConditionFalse,
 					Reason: string(v1beta1.ListenerReasonInvalidRouteKinds),
 				}},
+				AttachedRoutes: 0,
 			}}
 
 			kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, gwNN, listeners)
@@ -64,6 +68,7 @@ var GatewayInvalidRouteKind = suite.ConformanceTest{
 					Status: metav1.ConditionFalse,
 					Reason: string(v1beta1.ListenerReasonInvalidRouteKinds),
 				}},
+				AttachedRoutes: 0,
 			}}
 
 			kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, gwNN, listeners)

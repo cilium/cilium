@@ -2,7 +2,10 @@ package nl
 
 import (
 	"encoding/binary"
+	"fmt"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 // LinkLayer
@@ -42,7 +45,14 @@ const (
 	TCA_FCNT
 	TCA_STATS2
 	TCA_STAB
-	TCA_MAX = TCA_STAB
+	TCA_PAD
+	TCA_DUMP_INVISIBLE
+	TCA_CHAIN
+	TCA_HW_OFFLOAD
+	TCA_INGRESS_BLOCK
+	TCA_EGRESS_BLOCK
+	TCA_DUMP_FLAGS
+	TCA_MAX = TCA_DUMP_FLAGS
 )
 
 const (
@@ -56,6 +66,12 @@ const (
 	TCA_ACT_OPTIONS
 	TCA_ACT_INDEX
 	TCA_ACT_STATS
+	TCA_ACT_PAD
+	TCA_ACT_COOKIE
+	TCA_ACT_FLAGS
+	TCA_ACT_HW_STATS
+	TCA_ACT_USED_HW_STATS
+	TCA_ACT_IN_HW_COUNT
 	TCA_ACT_MAX
 )
 
@@ -88,7 +104,7 @@ const (
 	SizeofTcHtbGlob      = 0x14
 	SizeofTcU32Key       = 0x10
 	SizeofTcU32Sel       = 0x10 // without keys
-	SizeofTcGen          = 0x14
+	SizeofTcGen          = 0x16
 	SizeofTcConnmark     = SizeofTcGen + 0x04
 	SizeofTcCsum         = SizeofTcGen + 0x04
 	SizeofTcMirred       = SizeofTcGen + 0x08
@@ -98,6 +114,7 @@ const (
 	SizeofTcSfqQopt      = 0x0b
 	SizeofTcSfqRedStats  = 0x18
 	SizeofTcSfqQoptV1    = SizeofTcSfqQopt + SizeofTcSfqRedStats + 0x1c
+	SizeofUint32Bitfield = 0x8
 )
 
 // struct tcmsg {
@@ -804,7 +821,8 @@ const (
 	TCA_SKBEDIT_MARK
 	TCA_SKBEDIT_PAD
 	TCA_SKBEDIT_PTYPE
-	TCA_SKBEDIT_MAX = TCA_SKBEDIT_MARK
+	TCA_SKBEDIT_MASK
+	TCA_SKBEDIT_MAX
 )
 
 type TcSkbEdit struct {
@@ -1022,6 +1040,9 @@ const (
 	__TCA_FLOWER_MAX
 )
 
+const TCA_CLS_FLAGS_SKIP_HW = 1 << 0 /* don't offload filter to HW */
+const TCA_CLS_FLAGS_SKIP_SW = 1 << 1 /* don't use filter in SW */
+
 // struct tc_sfq_qopt {
 // 	unsigned	quantum;	/* Bytes per round allocated to flow */
 // 	int		perturb_period;	/* Period of hash perturbation */
@@ -1120,4 +1141,37 @@ func DeserializeTcSfqQoptV1(b []byte) *TcSfqQoptV1 {
 
 func (x *TcSfqQoptV1) Serialize() []byte {
 	return (*(*[SizeofTcSfqQoptV1]byte)(unsafe.Pointer(x)))[:]
+}
+
+// IPProto represents Flower ip_proto attribute
+type IPProto uint8
+
+const (
+	IPPROTO_TCP    IPProto = unix.IPPROTO_TCP
+	IPPROTO_UDP    IPProto = unix.IPPROTO_UDP
+	IPPROTO_SCTP   IPProto = unix.IPPROTO_SCTP
+	IPPROTO_ICMP   IPProto = unix.IPPROTO_ICMP
+	IPPROTO_ICMPV6 IPProto = unix.IPPROTO_ICMPV6
+)
+
+func (i IPProto) Serialize() []byte {
+	arr := make([]byte, 1)
+	arr[0] = byte(i)
+	return arr
+}
+
+func (i IPProto) String() string {
+	switch i {
+	case IPPROTO_TCP:
+		return "tcp"
+	case IPPROTO_UDP:
+		return "udp"
+	case IPPROTO_SCTP:
+		return "sctp"
+	case IPPROTO_ICMP:
+		return "icmp"
+	case IPPROTO_ICMPV6:
+		return "icmpv6"
+	}
+	return fmt.Sprintf("%d", i)
 }

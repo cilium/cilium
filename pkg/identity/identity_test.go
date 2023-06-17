@@ -8,8 +8,8 @@ import (
 	"net/netip"
 	"testing"
 
+	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"

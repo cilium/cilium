@@ -10,9 +10,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Modifies the ID format for the specified resource on a per-Region basis. You can
-// specify that resources should receive longer IDs (17-character IDs) when they
-// are created. This request can only be used to modify longer ID settings for
+// Modifies the ID format for the specified resource on a per-Region basis. You
+// can specify that resources should receive longer IDs (17-character IDs) when
+// they are created. This request can only be used to modify longer ID settings for
 // resource types that are within the opt-in period. Resources currently in their
 // opt-in period include: bundle | conversion-task | customer-gateway |
 // dhcp-options | elastic-ip-allocation | elastic-ip-association | export-task |
@@ -20,17 +20,16 @@ import (
 // network-acl-association | network-interface | network-interface-attachment |
 // prefix-list | route-table | route-table-association | security-group | subnet |
 // subnet-cidr-block-association | vpc | vpc-cidr-block-association | vpc-endpoint
-// | vpc-peering-connection | vpn-connection | vpn-gateway. This setting applies to
-// the IAM user who makes the request; it does not apply to the entire Amazon Web
-// Services account. By default, an IAM user defaults to the same settings as the
-// root user. If you're using this action as the root user, then these settings
+// | vpc-peering-connection | vpn-connection | vpn-gateway . This setting applies
+// to the IAM user who makes the request; it does not apply to the entire Amazon
+// Web Services account. By default, an IAM user defaults to the same settings as
+// the root user. If you're using this action as the root user, then these settings
 // apply to the entire account, unless an IAM user explicitly overrides these
-// settings for themselves. For more information, see Resource IDs
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/resource-ids.html) in the
-// Amazon Elastic Compute Cloud User Guide. Resources created with longer IDs are
-// visible to all IAM roles and users, regardless of these settings and provided
-// that they have permission to use the relevant Describe command for the resource
-// type.
+// settings for themselves. For more information, see Resource IDs (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/resource-ids.html)
+// in the Amazon Elastic Compute Cloud User Guide. Resources created with longer
+// IDs are visible to all IAM roles and users, regardless of these settings and
+// provided that they have permission to use the relevant Describe command for the
+// resource type.
 func (c *Client) ModifyIdFormat(ctx context.Context, params *ModifyIdFormatInput, optFns ...func(*Options)) (*ModifyIdFormatOutput, error) {
 	if params == nil {
 		params = &ModifyIdFormatInput{}
@@ -50,11 +49,11 @@ type ModifyIdFormatInput struct {
 
 	// The type of resource: bundle | conversion-task | customer-gateway | dhcp-options
 	// | elastic-ip-allocation | elastic-ip-association | export-task | flow-log |
-	// image | import-task | internet-gateway | network-acl | network-acl-association |
-	// network-interface | network-interface-attachment | prefix-list | route-table |
-	// route-table-association | security-group | subnet |
+	// image | import-task | internet-gateway | network-acl | network-acl-association
+	// | network-interface | network-interface-attachment | prefix-list | route-table
+	// | route-table-association | security-group | subnet |
 	// subnet-cidr-block-association | vpc | vpc-cidr-block-association | vpc-endpoint
-	// | vpc-peering-connection | vpn-connection | vpn-gateway. Alternatively, use the
+	// | vpc-peering-connection | vpn-connection | vpn-gateway . Alternatively, use the
 	// all-current option to include all resource types that are currently within their
 	// opt-in period for longer IDs.
 	//
@@ -125,6 +124,9 @@ func (c *Client) addOperationModifyIdFormatMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyIdFormat(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

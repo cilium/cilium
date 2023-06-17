@@ -6,7 +6,6 @@ package manager
 import (
 	"context"
 	"fmt"
-	"net"
 	"sort"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -35,7 +34,7 @@ var (
 
 // LocalASNMap maps local ASNs to their associated BgpServers and server
 // configuration info.
-type LocalASNMap map[int]*ServerWithConfig
+type LocalASNMap map[int64]*ServerWithConfig
 
 type bgpRouterManagerParams struct {
 	cell.In
@@ -43,7 +42,7 @@ type bgpRouterManagerParams struct {
 	Reconcilers []ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
-// BGPRouterManager implements the pkg.bgpv1.manager.BGPRouterManager interface.
+// BGPRouterManager implements the pkg.bgpv1.agent.BGPRouterManager interface.
 //
 // Logically, this manager views each CiliumBGPVirtualRouter within a
 // CiliumBGPPeeringPolicy as a BGP router instantiated on its host.
@@ -80,7 +79,7 @@ type BGPRouterManager struct {
 
 // NewBGPRouterManager constructs a GoBGP-backed BGPRouterManager.
 //
-// See NewBGPRouterManager for details.
+// See BGPRouterManager for details.
 func NewBGPRouterManager(params bgpRouterManagerParams) agent.BGPRouterManager {
 	for i := len(params.Reconcilers) - 1; i >= 0; i-- {
 		if params.Reconcilers[i] == nil {
@@ -211,22 +210,9 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context, c *v2alpha1api
 		}
 	}
 
-	// resolve router ID, if we have an annotation and it can be parsed into
-	// a valid ipv4 address use this,
-	//
-	// if not determine if Cilium is configured with an IPv4 address, if so use
-	// this.
-	//
-	// if neither, return an error, we cannot assign an router ID.
-	var routerID string
-	_, ok := cstate.Annotations[c.LocalASN]
-	switch {
-	case ok && !net.ParseIP(cstate.Annotations[c.LocalASN].RouterID).IsUnspecified():
-		routerID = cstate.Annotations[c.LocalASN].RouterID
-	case !cstate.IPv4.IsUnspecified():
-		routerID = cstate.IPv4.String()
-	default:
-		return fmt.Errorf("router id not specified by annotation and no IPv4 address assigned by cilium, cannot resolve router id for virtual router with local ASN %v", c.LocalASN)
+	routerID, err := cstate.ResolveRouterID(c.LocalASN)
+	if err != nil {
+		return err
 	}
 
 	globalConfig := types.ServerParameters{
@@ -375,4 +361,16 @@ func (m *BGPRouterManager) GetPeers(ctx context.Context) ([]*models.BgpPeer, err
 		res = append(res, getPeerResp.Peers...)
 	}
 	return res, nil
+}
+
+// Stop cleans up all servers, should be called at shutdown
+func (m *BGPRouterManager) Stop() {
+	m.Lock()
+	defer m.Unlock()
+
+	for _, s := range m.Servers {
+		s.Server.Stop()
+	}
+
+	m.Servers = make(LocalASNMap)
 }

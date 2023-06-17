@@ -16,7 +16,7 @@ ecosystem.
 A small collection of Go and eBPF programs that serve as examples for building
 your own tools can be found under [examples/](examples/).
 
-Contributions are highly encouraged, as they highlight certain use cases of
+[Contributions](CONTRIBUTING.md) are highly encouraged, as they highlight certain use cases of
 eBPF and the library, and help shape the future of the project.
 
 ## Getting Help
@@ -53,6 +53,7 @@ This library includes the following packages:
   of `bpftool feature probe` for discovering BPF-related kernel features using native Go.
 * [rlimit](https://pkg.go.dev/github.com/cilium/ebpf/rlimit) provides a convenient API to lift
   the `RLIMIT_MEMLOCK` constraint on kernels before 5.11.
+* [btf](https://pkg.go.dev/github.com/cilium/ebpf/btf) allows reading the BPF Type Format.
 
 ## Requirements
 

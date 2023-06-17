@@ -6,7 +6,7 @@
 package idpool
 
 import (
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 func (s *IDPoolTestSuite) TestAllocateID(c *C) {

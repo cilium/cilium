@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/auth"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -46,9 +46,7 @@ import (
 )
 
 // initPolicy initializes the core policy components of the daemon.
-func (d *Daemon) initPolicy(
-	authManager auth.Manager,
-) error {
+func (d *Daemon) initPolicy() error {
 	// Reuse policy.TriggerMetrics and PolicyTriggerInterval here since
 	// this is only triggered by agent configuration changes for now and
 	// should be counted in pol.TriggerMetrics.
@@ -63,7 +61,6 @@ func (d *Daemon) initPolicy(
 	}
 	d.datapathRegenTrigger = rt
 
-	d.monitorAgent.RegisterNewConsumer(authManager)
 	return nil
 }
 
@@ -83,6 +80,7 @@ type policyOut struct {
 
 	IdentityAllocator      CachingIdentityAllocator
 	CacheIdentityAllocator cache.IdentityAllocator
+	RemoteIdentityWatcher  clustermesh.RemoteIdentityWatcher
 	Repository             *policy.Repository
 	Updater                *policy.Updater
 	IPCache                *ipcache.IPCache
@@ -120,7 +118,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 		IdentityAllocator: idAlloc,
 		PolicyHandler:     iao.policy.GetSelectorCache(),
 		DatapathHandler:   params.EndpointManager,
-		NodeHandler:       params.Datapath.Node(),
+		NodeIDHandler:     params.Datapath.NodeIDs(),
 		CacheStatus:       params.CacheStatus,
 	})
 	idAlloc.ipcache = ipc
@@ -146,6 +144,7 @@ func newPolicyTrifecta(params policyParams) (policyOut, error) {
 	return policyOut{
 		IdentityAllocator:      idAlloc,
 		CacheIdentityAllocator: idAlloc,
+		RemoteIdentityWatcher:  idAlloc,
 		Repository:             iao.policy,
 		Updater:                policyUpdater,
 		IPCache:                ipc,
@@ -421,7 +420,7 @@ func (r *PolicyReactionEvent) Handle(res chan interface{}) {
 //   - regenerate all endpoints in epsToRegen
 //   - bump the policy revision of all endpoints not in epsToRegen, but which are
 //     in allEps, to revision rev.
-//   - wait for the regenerations to be finished
+//   - wait for the all endpoint regenerations to be _queued_.
 //   - upsert or delete CIDR identities to the ipcache, as needed.
 func (r *PolicyReactionEvent) reactToRuleUpdates(epsToBumpRevision, epsToRegen *policy.EndpointSet, rev uint64, upsertPrefixes, releasePrefixes []netip.Prefix) {
 	var enqueueWaitGroup sync.WaitGroup

@@ -33,13 +33,19 @@ func init() {
 var HTTPRouteMatchingAcrossRoutes = suite.ConformanceTest{
 	ShortName:   "HTTPRouteMatchingAcrossRoutes",
 	Description: "Two HTTPRoutes with path matching for different backends",
-	Manifests:   []string{"tests/httproute-matching-across-routes.yaml"},
+	Features: []suite.SupportedFeature{
+		suite.SupportGateway,
+		suite.SupportHTTPRoute,
+	},
+	Manifests: []string{"tests/httproute-matching-across-routes.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"
 		routeNN1 := types.NamespacedName{Name: "matching-part1", Namespace: ns}
 		routeNN2 := types.NamespacedName{Name: "matching-part2", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN1, routeNN2)
+		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN1, gwNN)
+		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN2, gwNN)
 
 		testCases := []http.ExpectedResponse{{
 			Request: http.Request{

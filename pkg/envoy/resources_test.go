@@ -4,8 +4,8 @@
 package envoy
 
 import (
+	. "github.com/cilium/checkmate"
 	envoyAPI "github.com/cilium/proxy/go/cilium/api"
-	. "gopkg.in/check.v1"
 )
 
 type ResourcesSuite struct{}

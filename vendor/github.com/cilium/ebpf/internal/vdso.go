@@ -120,7 +120,7 @@ func vdsoLinuxVersionCode(r io.ReaderAt) (uint32, error) {
 			var name string
 			if n.NameSize > 0 {
 				// Read the note name, aligned to 4 bytes.
-				buf := make([]byte, Align(int(n.NameSize), 4))
+				buf := make([]byte, Align(n.NameSize, 4))
 				if err := binary.Read(sr, hdr.ByteOrder, &buf); err != nil {
 					return 0, fmt.Errorf("reading note name: %w", err)
 				}
@@ -142,7 +142,7 @@ func vdsoLinuxVersionCode(r io.ReaderAt) (uint32, error) {
 				}
 
 				// Discard the note descriptor if it exists but we're not interested in it.
-				if _, err := io.CopyN(io.Discard, sr, int64(Align(int(n.DescSize), 4))); err != nil {
+				if _, err := io.CopyN(io.Discard, sr, int64(Align(n.DescSize, 4))); err != nil {
 					return 0, err
 				}
 			}

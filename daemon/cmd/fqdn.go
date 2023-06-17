@@ -211,12 +211,12 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 			endpoints := d.endpointManager.GetEndpoints()
 			for _, ep := range endpoints {
 				epID := ep.StringID()
-				if option.Config.MetricsConfig.FQDNActiveNames || option.Config.MetricsConfig.FQDNActiveIPs {
+				if metrics.FQDNActiveNames.IsEnabled() || metrics.FQDNActiveIPs.IsEnabled() {
 					countFQDNs, countIPs := ep.DNSHistory.Count()
-					if option.Config.MetricsConfig.FQDNActiveNames {
+					if metrics.FQDNActiveNames.IsEnabled() {
 						metrics.FQDNActiveNames.WithLabelValues(epID).Set(float64(countFQDNs))
 					}
-					if option.Config.MetricsConfig.FQDNActiveIPs {
+					if metrics.FQDNActiveIPs.IsEnabled() {
 						metrics.FQDNActiveIPs.WithLabelValues(epID).Set(float64(countIPs))
 					}
 				}
@@ -227,7 +227,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 					}
 				}
 				alive, dead := ep.DNSZombies.GC()
-				if option.Config.MetricsConfig.FQDNActiveZombiesConnections {
+				if metrics.FQDNAliveZombieConnections.IsEnabled() {
 					metrics.FQDNAliveZombieConnections.WithLabelValues(epID).Set(float64(len(alive)))
 				}
 
@@ -363,8 +363,12 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	if option.Config.ToFQDNsProxyPort != 0 {
 		port = uint16(option.Config.ToFQDNsProxyPort)
 	} else if port == 0 {
-		// Try locate old DNS proxy port number from the datapath
-		port = d.datapath.GetProxyPort(proxy.DNSProxyName)
+		// Try locate old DNS proxy port number from the datapath, and reuse it if it's not open
+		oldPort := d.datapath.GetProxyPort(proxy.DNSProxyName)
+		openLocalPorts := proxy.OpenLocalPorts()
+		if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
+			port = oldPort
+		}
 	}
 	if err := re.InitRegexCompileLRU(option.Config.FQDNRegexCompileLRUSize); err != nil {
 		return fmt.Errorf("could not initialize regex LRU cache: %w", err)

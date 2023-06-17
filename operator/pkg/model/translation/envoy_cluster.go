@@ -57,10 +57,30 @@ func WithConnectionTimeout(seconds int) ClusterMutator {
 	}
 }
 
+// WithIdleTimeout sets the cluster's connection idle timeout.
+func WithIdleTimeout(seconds int) ClusterMutator {
+	return func(cluster *envoy_config_cluster_v3.Cluster) *envoy_config_cluster_v3.Cluster {
+		if cluster == nil {
+			return cluster
+		}
+		a := cluster.TypedExtensionProtocolOptions[httpProtocolOptionsType]
+		opts := &envoy_upstreams_http_v3.HttpProtocolOptions{}
+		if err := a.UnmarshalTo(opts); err != nil {
+			return cluster
+		}
+		opts.CommonHttpProtocolOptions = &envoy_config_core_v3.HttpProtocolOptions{
+			IdleTimeout: &durationpb.Duration{Seconds: int64(seconds)},
+		}
+		cluster.TypedExtensionProtocolOptions[httpProtocolOptionsType] = toAny(opts)
+		return cluster
+	}
+}
+
 // NewClusterWithDefaults same as NewHTTPCluster but has default mutation functions applied.
 func NewHTTPClusterWithDefaults(name string, mutationFunc ...ClusterMutator) (ciliumv2.XDSResource, error) {
 	fns := append(mutationFunc,
 		WithConnectionTimeout(5),
+		WithIdleTimeout(60),
 		WithClusterLbPolicy(int32(envoy_config_cluster_v3.Cluster_ROUND_ROBIN)),
 		WithOutlierDetection(true),
 	)

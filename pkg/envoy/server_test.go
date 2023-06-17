@@ -7,12 +7,12 @@ import (
 	"reflect"
 	"testing"
 
+	. "github.com/cilium/checkmate"
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
@@ -21,8 +21,8 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/api/kafka"
-	"github.com/cilium/cilium/pkg/proxy/logger"
-	"github.com/cilium/cilium/pkg/proxy/logger/test"
+	"github.com/cilium/cilium/pkg/proxy/endpoint"
+	"github.com/cilium/cilium/pkg/proxy/endpoint/test"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -39,7 +39,7 @@ var (
 	IPv4Addr = "10.1.1.1"
 	Identity = identity.NumericIdentity(123)
 
-	ep logger.EndpointUpdater = &test.ProxyUpdaterMock{
+	ep endpoint.EndpointUpdater = &test.ProxyUpdaterMock{
 		Id:       1000,
 		Ipv4:     "10.0.0.1",
 		Ipv6:     "f00d::1",

@@ -35,12 +35,10 @@ Clone and Provision Environment
 #. Fork the Cilium repository to your GitHub user or organization.
 #. Turn off GitHub actions for your fork as described in the `GitHub Docs <https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#managing-github-actions-permissions-for-your-repository>`_.
    This is recommended to avoid unnecessary CI notification failures on the fork.
-#. Clone your ``${YOUR_GITHUB_USERNAME_OR_ORG}/cilium`` fork into your ``GOPATH``, and setup the base repository as ``upstream`` remote:
+#. Clone your ``${YOUR_GITHUB_USERNAME_OR_ORG}/cilium`` fork and setup the base repository as ``upstream`` remote:
 
    .. code-block:: shell-session
 
-      mkdir -p "${GOPATH}/src/github.com/cilium"
-      cd "${GOPATH}/src/github.com/cilium"
       git clone https://github.com/${YOUR_GITHUB_USERNAME_OR_ORG}/cilium.git
       cd cilium
       git remote add upstream https://github.com/cilium/cilium.git

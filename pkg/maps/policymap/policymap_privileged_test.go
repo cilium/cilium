@@ -7,8 +7,8 @@ import (
 	"errors"
 	"os"
 
+	. "github.com/cilium/checkmate"
 	"golang.org/x/sys/unix"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/checker"
@@ -28,7 +28,7 @@ type PolicyMapPrivilegedTestSuite struct {
 var _ = Suite(&PolicyMapPrivilegedTestSuite{})
 
 func (pm *PolicyMapPrivilegedTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	bpf.CheckOrMountFS("")
 
@@ -37,8 +37,7 @@ func (pm *PolicyMapPrivilegedTestSuite) SetUpSuite(c *C) {
 	}
 
 	_ = os.RemoveAll(bpf.MapPath("cilium_policy_test"))
-	_, err := testMap.OpenOrCreate()
-	if err != nil {
+	if err := testMap.OpenOrCreate(); err != nil {
 		c.Fatal("Failed to create map:", err)
 	}
 

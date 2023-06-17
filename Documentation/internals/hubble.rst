@@ -49,11 +49,13 @@ as well as being exposed as a Kubernetes Service when enabled via TCP.
 The Observer service
 ^^^^^^^^^^^^^^^^^^^^
 
-The Observer service is the principal service. It provides three RPC endpoints:
-``GetFlows``, ``GetNodes`` and ``ServerStatus``.  While ``ServerStatus`` and
-``GetNodes`` endpoints are pretty straightforward (they provides metrics and
-other information related to the running instance(s)), ``GetFlows`` is far more
-sophisticated and the more important one.
+The Observer service is the principal service. It provides four RPC endpoints:
+``GetFlows``, ``GetNodes``, ``GetNamespaces``  and ``ServerStatus``.
+
+* ``GetNodes`` returns a list of metrics and other information related to each Hubble instance
+* ``ServerStatus`` returns a summary the information in ``GetNodes``
+* ``GetNamespaces`` returns a list of namespaces that had network flows within the last one hour
+* ``GetFlows`` returns a stream of flow related events
 
 Using ``GetFlows``, callers get a stream of payloads. Request parameters allow
 callers to specify filters in the form of allow lists and deny lists to allow

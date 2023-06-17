@@ -33,9 +33,17 @@ jobs:
 
           - name: clustermesh-apiserver
 
+          - name: kvstoremesh
+
           - name: docker-plugin
 
     steps:
+      # Fetch the source code so that we can get the right cache key
+      - name: Checkout Source Code
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          persist-credentials: false
+
       # Load Golang cache build from GitHub
       - name: Load ${{ matrix.name }} Golang cache build from GitHub
         uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1

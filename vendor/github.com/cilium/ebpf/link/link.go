@@ -46,6 +46,18 @@ type Link interface {
 	isLink()
 }
 
+// NewLinkFromFD creates a link from a raw fd.
+//
+// You should not use fd after calling this function.
+func NewLinkFromFD(fd int) (Link, error) {
+	sysFD, err := sys.NewFD(fd)
+	if err != nil {
+		return nil, err
+	}
+
+	return wrapRawLink(&RawLink{fd: sysFD})
+}
+
 // LoadPinnedLink loads a link that was persisted into a bpffs.
 func LoadPinnedLink(fileName string, opts *ebpf.LoadPinOptions) (Link, error) {
 	raw, err := loadPinnedRawLink(fileName, opts)
@@ -59,10 +71,15 @@ func LoadPinnedLink(fileName string, opts *ebpf.LoadPinOptions) (Link, error) {
 // wrap a RawLink in a more specific type if possible.
 //
 // The function takes ownership of raw and closes it on error.
-func wrapRawLink(raw *RawLink) (Link, error) {
+func wrapRawLink(raw *RawLink) (_ Link, err error) {
+	defer func() {
+		if err != nil {
+			raw.Close()
+		}
+	}()
+
 	info, err := raw.Info()
 	if err != nil {
-		raw.Close()
 		return nil, err
 	}
 
@@ -77,6 +94,10 @@ func wrapRawLink(raw *RawLink) (Link, error) {
 		return &Iter{*raw}, nil
 	case NetNsType:
 		return &NetNsLink{*raw}, nil
+	case KprobeMultiType:
+		return &kprobeMultiLink{*raw}, nil
+	case PerfEventType:
+		return nil, fmt.Errorf("recovering perf event fd: %w", ErrNotSupported)
 	default:
 		return raw, nil
 	}
@@ -172,7 +193,7 @@ func AttachRawLink(opts RawLinkOptions) (*RawLink, error) {
 		TargetFd:    uint32(opts.Target),
 		ProgFd:      uint32(progFd),
 		AttachType:  sys.AttachType(opts.Attach),
-		TargetBtfId: uint32(opts.BTF),
+		TargetBtfId: opts.BTF,
 		Flags:       opts.Flags,
 	}
 	fd, err := sys.LinkCreate(&attr)

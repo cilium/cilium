@@ -29,20 +29,22 @@ func (c *Client) DeleteLocalGatewayRoute(ctx context.Context, params *DeleteLoca
 
 type DeleteLocalGatewayRouteInput struct {
 
-	// The CIDR range for the route. This must match the CIDR for the route exactly.
-	//
-	// This member is required.
-	DestinationCidrBlock *string
-
 	// The ID of the local gateway route table.
 	//
 	// This member is required.
 	LocalGatewayRouteTableId *string
 
+	// The CIDR range for the route. This must match the CIDR for the route exactly.
+	DestinationCidrBlock *string
+
+	// Use a prefix list in place of DestinationCidrBlock . You cannot use
+	// DestinationPrefixListId and DestinationCidrBlock in the same request.
+	DestinationPrefixListId *string
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -108,6 +110,9 @@ func (c *Client) addOperationDeleteLocalGatewayRouteMiddlewares(stack *middlewar
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteLocalGatewayRoute(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

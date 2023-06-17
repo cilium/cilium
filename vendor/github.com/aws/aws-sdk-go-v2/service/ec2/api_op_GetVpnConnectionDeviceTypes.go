@@ -15,9 +15,8 @@ import (
 // Obtain a list of customer gateway devices for which sample configuration files
 // can be provided. The request has no additional parameters. You can also see the
 // list of device types with sample configuration files available under Your
-// customer gateway device
-// (https://docs.aws.amazon.com/vpn/latest/s2svpn/your-cgw.html) in the Amazon Web
-// Services Site-to-Site VPN User Guide.
+// customer gateway device (https://docs.aws.amazon.com/vpn/latest/s2svpn/your-cgw.html)
+// in the Amazon Web Services Site-to-Site VPN User Guide.
 func (c *Client) GetVpnConnectionDeviceTypes(ctx context.Context, params *GetVpnConnectionDeviceTypesInput, optFns ...func(*Options)) (*GetVpnConnectionDeviceTypesOutput, error) {
 	if params == nil {
 		params = &GetVpnConnectionDeviceTypesInput{}
@@ -37,8 +36,8 @@ type GetVpnConnectionDeviceTypesInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The maximum number of results returned by GetVpnConnectionDeviceTypes in
@@ -63,13 +62,13 @@ type GetVpnConnectionDeviceTypesInput struct {
 type GetVpnConnectionDeviceTypesOutput struct {
 
 	// The NextToken value to include in a future GetVpnConnectionDeviceTypes request.
-	// When the results of a GetVpnConnectionDeviceTypes request exceed MaxResults,
+	// When the results of a GetVpnConnectionDeviceTypes request exceed MaxResults ,
 	// this value can be used to retrieve the next page of results. This value is null
 	// when there are no more results to return.
 	NextToken *string
 
-	// List of customer gateway devices that have a sample configuration file available
-	// for use.
+	// List of customer gateway devices that have a sample configuration file
+	// available for use.
 	VpnConnectionDeviceTypes []types.VpnConnectionDeviceType
 
 	// Metadata pertaining to the operation's result.
@@ -124,6 +123,9 @@ func (c *Client) addOperationGetVpnConnectionDeviceTypesMiddlewares(stack *middl
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetVpnConnectionDeviceTypes(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

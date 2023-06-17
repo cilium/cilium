@@ -85,6 +85,7 @@ type CreateRouterInterfaceRequest struct {
 	InstanceChargeType       string           `position:"Query" name:"InstanceChargeType"`
 	Period                   requests.Integer `position:"Query" name:"Period"`
 	AutoPay                  requests.Boolean `position:"Query" name:"AutoPay"`
+	PromotionOptionNo        string           `position:"Query" name:"PromotionOptionNo"`
 	AvailableZoneId          string           `position:"Query" name:"AvailableZoneId"`
 	ResourceOwnerAccount     string           `position:"Query" name:"ResourceOwnerAccount"`
 	OppositeRegionId         string           `position:"Query" name:"OppositeRegionId"`
@@ -92,6 +93,7 @@ type CreateRouterInterfaceRequest struct {
 	OwnerId                  requests.Integer `position:"Query" name:"OwnerId"`
 	OppositeInterfaceOwnerId string           `position:"Query" name:"OppositeInterfaceOwnerId"`
 	RouterType               string           `position:"Query" name:"RouterType"`
+	AutoRenew                requests.Boolean `position:"Query" name:"AutoRenew"`
 	HealthCheckSourceIp      string           `position:"Query" name:"HealthCheckSourceIp"`
 	RouterId                 string           `position:"Query" name:"RouterId"`
 	OppositeRouterType       string           `position:"Query" name:"OppositeRouterType"`

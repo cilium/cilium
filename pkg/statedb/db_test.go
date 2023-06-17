@@ -38,12 +38,28 @@ var fooTableSchema = &memdb.TableSchema{
 	},
 }
 
+type Baz struct {
+	UUID UUID
+}
+
+func (b *Baz) DeepCopy() *Baz {
+	return &Baz{UUID: b.UUID}
+}
+
+var bazTableSchema = &memdb.TableSchema{
+	Name: "bazs",
+	Indexes: map[string]*memdb.IndexSchema{
+		"id": UUIDIndexSchema,
+	},
+}
+
 func TestDB(t *testing.T) {
 	hive := hive.New(
 		cell.Provide(func() *testing.T { return t }),
 
 		Cell,
 		NewTableCell[*Foo](fooTableSchema),
+		NewTableCell[*Baz](bazTableSchema),
 
 		cell.Invoke(runTest),
 	)
@@ -56,6 +72,7 @@ type testParams struct {
 
 	DB   DB
 	Foos Table[*Foo]
+	Bazs Table[*Baz]
 }
 
 func runTest(t *testing.T, p testParams) {
@@ -181,6 +198,13 @@ func runTest(t *testing.T, p testParams) {
 	assert.NoError(t, err)
 	assert.Equal(t, Length[*Foo](it), 3)
 
+	// Insert something into the Bazs table as well to test WriteJSON
+	// with multiple tables.
+	tx5 := db.WriteTxn()
+	err = p.Bazs.Writer(tx5).Insert(&Baz{UUID: NewUUID()})
+	assert.NoError(t, err)
+	tx5.Commit()
+
 	// Validate that WriteJSON does something useful.
 	buf := new(bytes.Buffer)
 	err = db.WriteJSON(buf)
@@ -191,10 +215,13 @@ func runTest(t *testing.T, p testParams) {
 	err = json.Unmarshal(out, &result)
 	assert.NoError(t, err, "WriteJSON output should be valid JSON")
 	foos, ok := result[fooTableSchema.Name]
-	assert.True(t, ok, "There should be a 'foos' table")
-	assert.Len(t, foos, 3)
-	assert.True(t, foos[0].Num > 0)
-	assert.True(t, len(foos[0].UUID) > 0)
+	if assert.True(t, ok, "There should be a 'foos' table") {
+		assert.Len(t, foos, 3)
+		assert.True(t, foos[0].Num > 0)
+		assert.True(t, len(foos[0].UUID) > 0)
+	}
+	_, ok = result[bazTableSchema.Name]
+	assert.True(t, ok, "There should be a 'bazs' table")
 }
 
 // Benchmark how many insertions per second can be performed on a table with UUID primary

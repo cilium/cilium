@@ -410,13 +410,17 @@ var _ = SkipDescribeIf(func() bool {
 			)
 
 			BeforeAll(func() {
-				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
-					map[string]string{
-						"routingMode":          "native",
-						"autoDirectNodeRoutes": "true",
+				opts := map[string]string{
+					"routingMode":          "native",
+					"autoDirectNodeRoutes": "true",
 
-						"hostFirewall.enabled": "true",
-					})
+					"hostFirewall.enabled": "true",
+				}
+				if helpers.RunsWithKubeProxyReplacement() {
+					// BPF IPv6 masquerade not currently supported with host firewall - GH-26074
+					opts["enableIPv6Masquerade"] = "false"
+				}
+				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg, opts)
 
 				By("Retrieving backend pod and outside node IP addresses")
 				outsideNodeName, outsideIP = kubectl.GetNodeInfo(kubectl.GetFirstNodeWithoutCiliumLabel())
@@ -695,10 +699,11 @@ var _ = SkipDescribeIf(func() bool {
 				// Masquerade function should be disabled
 				// because the request will fail if the reply packet's source address is rewritten
 				// when sending a request directly to the Pod from outside the cluster.
-				By("Reconfiguring Cilium to disable ipv4 masquerade")
+				By("Reconfiguring Cilium to disable masquerade")
 				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 					map[string]string{
 						"enableIPv4Masquerade": "false",
+						"enableIPv6Masquerade": "false",
 					})
 
 			})
@@ -776,6 +781,7 @@ var _ = SkipDescribeIf(func() bool {
 						map[string]string{
 							"remoteNodeIdentity":   "false",
 							"enableIPv4Masquerade": "false",
+							"enableIPv6Masquerade": "false",
 						})
 				})
 
@@ -796,6 +802,7 @@ var _ = SkipDescribeIf(func() bool {
 						map[string]string{
 							"remoteNodeIdentity":   "true",
 							"enableIPv4Masquerade": "false",
+							"enableIPv6Masquerade": "false",
 						})
 				})
 

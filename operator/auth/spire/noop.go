@@ -15,3 +15,7 @@ func (n noopClient) Upsert(_ context.Context, _ string) error {
 func (n noopClient) Delete(_ context.Context, _ string) error {
 	return nil
 }
+
+func (n noopClient) List(_ context.Context) ([]string, error) {
+	return nil, nil
+}

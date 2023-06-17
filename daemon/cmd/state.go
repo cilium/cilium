@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipam"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
@@ -185,7 +186,7 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) er
 	log.Info("Restoring endpoints...")
 
 	var (
-		existingEndpoints map[string]*lxcmap.EndpointInfo
+		existingEndpoints map[string]lxcmap.EndpointInfo
 		err               error
 	)
 
@@ -304,7 +305,39 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 		}
 	}
 
+	if option.Config.EnableIPSec &&
+		(option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure) {
+		// If IPsec is enabled on EKS or AKS, we need to restore the host
+		// endpoint before any other endpoint, to ensure a dropless upgrade.
+		// This code can be removed in v1.15.
+		// This is necessary because we changed how the IPsec encapsulation is
+		// done. In older version, bpf_lxc would pass the outer destination IP
+		// via skb->cb to bpf_host which would write it to the outer header.
+		// In newer versions, the header is written by the kernel XFRM
+		// subsystem and bpf_host must therefore not write it. To allow for a
+		// smooth upgrade, bpf_host has been updated to handle both cases. But
+		// for that to succeed, it must be reloaded first, before the bpf_lxc
+		// programs stop writing the IP into skb->cb.
+		for _, ep := range state.restored {
+			if ep.IsHost() {
+				log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
+				if err := ep.RegenerateAfterRestore(); err != nil {
+					log.WithField(logfields.EndpointID, ep.ID).WithError(err).Debug("error regenerating restored host endpoint")
+					epRegenerated <- false
+				} else {
+					epRegenerated <- true
+				}
+				break
+			}
+		}
+	}
+
 	for _, ep := range state.restored {
+		if ep.IsHost() && option.Config.EnableIPSec &&
+			(option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure) {
+			// The host endpoint was handled above.
+			continue
+		}
 		log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
 			if err := ep.RegenerateAfterRestore(); err != nil {
@@ -359,24 +392,24 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 	return
 }
 
-func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
-	var err error
-
+func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
 	if option.Config.EnableIPv6 && ep.IPv6.IsValid() {
-		_, err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv6.AsSlice(), ep.HumanStringLocked()+" [restored]", ipam.PoolDefault)
+		ipv6Pool := ipam.PoolOrDefault(ep.IPv6IPAMPool)
+		_, err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv6.AsSlice(), ep.HumanStringLocked()+" [restored]", ipv6Pool)
 		if err != nil {
 			return fmt.Errorf("unable to reallocate %s IPv6 address: %w", ep.IPv6, err)
 		}
 
 		defer func() {
 			if err != nil {
-				d.ipam.ReleaseIP(ep.IPv6.AsSlice(), ipam.PoolDefault)
+				d.ipam.ReleaseIP(ep.IPv6.AsSlice(), ipv6Pool)
 			}
 		}()
 	}
 
 	if option.Config.EnableIPv4 && ep.IPv4.IsValid() {
-		_, err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv4.AsSlice(), ep.HumanStringLocked()+" [restored]", ipam.PoolDefault)
+		ipv4Pool := ipam.PoolOrDefault(ep.IPv4IPAMPool)
+		_, err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv4.AsSlice(), ep.HumanStringLocked()+" [restored]", ipv4Pool)
 		switch {
 		// We only check for BypassIPAllocUponRestore for IPv4 because we
 		// assume that this flag is only turned on for IPv4-only IPAM modes
@@ -416,7 +449,6 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 		restoreComplete = d.regenerateRestoredEndpoints(restoredEndpoints)
 		go func() {
 			<-restoreComplete
-			endParallelMapMode()
 		}()
 
 		go func() {
@@ -449,9 +481,6 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 		}()
 	} else {
 		log.Info("State restore is disabled. Existing endpoints on node are ignored")
-
-		// No restore happened, end parallel map mode immediately
-		endParallelMapMode()
 	}
 	bootstrapStats.restore.End(true)
 

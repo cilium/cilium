@@ -10,24 +10,18 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Releases the specified Elastic IP address. [EC2-Classic, default VPC] Releasing
-// an Elastic IP address automatically disassociates it from any instance that it's
-// associated with. To disassociate an Elastic IP address without releasing it, use
-// DisassociateAddress. We are retiring EC2-Classic. We recommend that you migrate
-// from EC2-Classic to a VPC. For more information, see Migrate from EC2-Classic to
-// a VPC (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in
-// the Amazon Elastic Compute Cloud User Guide. [Nondefault VPC] You must use
-// DisassociateAddress to disassociate the Elastic IP address before you can
-// release it. Otherwise, Amazon EC2 returns an error (InvalidIPAddress.InUse).
-// After releasing an Elastic IP address, it is released to the IP address pool. Be
-// sure to update your DNS records and any servers or devices that communicate with
-// the address. If you attempt to release an Elastic IP address that you already
-// released, you'll get an AuthFailure error if the address is already allocated to
-// another Amazon Web Services account. [EC2-VPC] After you release an Elastic IP
-// address for use in a VPC, you might be able to recover it. For more information,
-// see AllocateAddress. For more information, see Elastic IP Addresses
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html)
-// in the Amazon Elastic Compute Cloud User Guide.
+// Releases the specified Elastic IP address. [Default VPC] Releasing an Elastic
+// IP address automatically disassociates it from any instance that it's associated
+// with. To disassociate an Elastic IP address without releasing it, use
+// DisassociateAddress . [Nondefault VPC] You must use DisassociateAddress to
+// disassociate the Elastic IP address before you can release it. Otherwise, Amazon
+// EC2 returns an error ( InvalidIPAddress.InUse ). After releasing an Elastic IP
+// address, it is released to the IP address pool. Be sure to update your DNS
+// records and any servers or devices that communicate with the address. If you
+// attempt to release an Elastic IP address that you already released, you'll get
+// an AuthFailure error if the address is already allocated to another Amazon Web
+// Services account. After you release an Elastic IP address, you might be able to
+// recover it. For more information, see AllocateAddress .
 func (c *Client) ReleaseAddress(ctx context.Context, params *ReleaseAddressInput, optFns ...func(*Options)) (*ReleaseAddressOutput, error) {
 	if params == nil {
 		params = &ReleaseAddressInput{}
@@ -45,13 +39,13 @@ func (c *Client) ReleaseAddress(ctx context.Context, params *ReleaseAddressInput
 
 type ReleaseAddressInput struct {
 
-	// [EC2-VPC] The allocation ID. Required for EC2-VPC.
+	// The allocation ID. This parameter is required.
 	AllocationId *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The set of Availability Zones, Local Zones, or Wavelength Zones from which
@@ -61,7 +55,7 @@ type ReleaseAddressInput struct {
 	// classic, you receive an InvalidParameterCombination error.
 	NetworkBorderGroup *string
 
-	// [EC2-Classic] The Elastic IP address. Required for EC2-Classic.
+	// Deprecated.
 	PublicIp *string
 
 	noSmithyDocumentSerde
@@ -120,6 +114,9 @@ func (c *Client) addOperationReleaseAddressMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opReleaseAddress(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

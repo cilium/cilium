@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/workerpool"
 	"github.com/sirupsen/logrus"
 
+	authIdentity "github.com/cilium/cilium/operator/auth/identity"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/hive"
@@ -30,8 +31,9 @@ type params struct {
 	Logger    logrus.FieldLogger
 	Lifecycle hive.Lifecycle
 
-	Clientset k8sClient.Clientset
-	Identity  resource.Resource[*v2.CiliumIdentity]
+	Clientset          k8sClient.Clientset
+	Identity           resource.Resource[*v2.CiliumIdentity]
+	AuthIdentityClient authIdentity.Provider
 
 	Cfg       Config
 	SharedCfg SharedConfig
@@ -41,8 +43,9 @@ type params struct {
 type GC struct {
 	logger logrus.FieldLogger
 
-	clientset ciliumV2.CiliumIdentityInterface
-	identity  resource.Resource[*v2.CiliumIdentity]
+	clientset          ciliumV2.CiliumIdentityInterface
+	identity           resource.Resource[*v2.CiliumIdentity]
+	authIdentityClient authIdentity.Provider
 
 	allocationMode string
 
@@ -82,14 +85,15 @@ func registerGC(p params) {
 	}
 
 	gc := &GC{
-		logger:           p.Logger,
-		clientset:        p.Clientset.CiliumV2().CiliumIdentities(),
-		identity:         p.Identity,
-		allocationMode:   p.SharedCfg.IdentityAllocationMode,
-		gcInterval:       p.Cfg.Interval,
-		heartbeatTimeout: p.Cfg.HeartbeatTimeout,
-		gcRateInterval:   p.Cfg.RateInterval,
-		gcRateLimit:      p.Cfg.RateLimit,
+		logger:             p.Logger,
+		clientset:          p.Clientset.CiliumV2().CiliumIdentities(),
+		identity:           p.Identity,
+		authIdentityClient: p.AuthIdentityClient,
+		allocationMode:     p.SharedCfg.IdentityAllocationMode,
+		gcInterval:         p.Cfg.Interval,
+		heartbeatTimeout:   p.Cfg.HeartbeatTimeout,
+		gcRateInterval:     p.Cfg.RateInterval,
+		gcRateLimit:        p.Cfg.RateLimit,
 		heartbeatStore: newHeartbeatStore(
 			p.Cfg.HeartbeatTimeout,
 		),

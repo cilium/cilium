@@ -549,7 +549,7 @@ func (c *consulClient) getPrefix(ctx context.Context, prefix string) (k string, 
 	return pairs[0].Key, pairs[0].Value, nil
 }
 
-// UpdateIfLocked atomically creates a key or fails if it already exists if the client is still holding the given lock.
+// UpdateIfLocked updates a key if the client is still holding the given lock.
 func (c *consulClient) UpdateIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) error {
 	return c.Update(ctx, key, value, lease)
 }
@@ -771,6 +771,9 @@ func (c *consulClient) ListAndWatch(ctx context.Context, name, prefix string, ch
 func (c *consulClient) StatusCheckErrors() <-chan error {
 	return c.statusCheckErrors
 }
+
+// RegisterLeaseExpiredObserver is not implemented for the consul backend
+func (c *consulClient) RegisterLeaseExpiredObserver(prefix string, fn func(key string)) {}
 
 // UserEnforcePresence is not implemented for the consul backend
 func (c *consulClient) UserEnforcePresence(ctx context.Context, name string, roles []string) error {

@@ -16,11 +16,12 @@ var helloHandlerCell = cell.Module(
 	cell.Provide(newHelloHandler),
 )
 
-func newHelloHandler() HTTPHandlerOut {
+func newHelloHandler(ExampleMetrics exampleMetrics) HTTPHandlerOut {
 	return HTTPHandlerOut{
 		HTTPHandler: HTTPHandler{
 			Path: "/hello",
 			Handler: func(w http.ResponseWriter, req *http.Request) {
+				ExampleMetrics.ExampleCounter.Inc()
 				w.Write([]byte("Hello\n"))
 			},
 		},

@@ -80,6 +80,7 @@ type DescribeAccessPointsRequest struct {
 	Filter               *[]DescribeAccessPointsFilter `position:"Query" name:"Filter"  type:"Repeated"`
 	HostOperator         string                        `position:"Query" name:"HostOperator"`
 	Name                 string                        `position:"Query" name:"Name"`
+	AcceptLanguage       string                        `position:"Query" name:"AcceptLanguage"`
 }
 
 // DescribeAccessPointsFilter is a repeated param struct in DescribeAccessPointsRequest

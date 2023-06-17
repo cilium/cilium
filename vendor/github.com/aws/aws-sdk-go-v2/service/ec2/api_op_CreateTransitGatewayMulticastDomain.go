@@ -13,8 +13,7 @@ import (
 
 // Creates a multicast domain using the specified transit gateway. The transit
 // gateway must be in the available state before you create a domain. Use
-// DescribeTransitGateways
-// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeTransitGateways.html)
+// DescribeTransitGateways (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeTransitGateways.html)
 // to see the state of transit gateway.
 func (c *Client) CreateTransitGatewayMulticastDomain(ctx context.Context, params *CreateTransitGatewayMulticastDomainInput, optFns ...func(*Options)) (*CreateTransitGatewayMulticastDomainOutput, error) {
 	if params == nil {
@@ -40,8 +39,8 @@ type CreateTransitGatewayMulticastDomainInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The options for the transit gateway multicast domain.
@@ -113,6 +112,9 @@ func (c *Client) addOperationCreateTransitGatewayMulticastDomainMiddlewares(stac
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateTransitGatewayMulticastDomain(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

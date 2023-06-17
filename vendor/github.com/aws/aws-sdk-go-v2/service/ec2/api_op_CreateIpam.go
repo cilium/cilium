@@ -16,9 +16,8 @@ import (
 // can use to automate your IP address management workflows including assigning,
 // tracking, troubleshooting, and auditing IP addresses across Amazon Web Services
 // Regions and accounts throughout your Amazon Web Services Organization. For more
-// information, see Create an IPAM
-// (https://docs.aws.amazon.com/vpc/latest/ipam/create-ipam.html) in the Amazon VPC
-// IPAM User Guide.
+// information, see Create an IPAM (https://docs.aws.amazon.com/vpc/latest/ipam/create-ipam.html)
+// in the Amazon VPC IPAM User Guide.
 func (c *Client) CreateIpam(ctx context.Context, params *CreateIpamInput, optFns ...func(*Options)) (*CreateIpamOutput, error) {
 	if params == nil {
 		params = &CreateIpamInput{}
@@ -37,8 +36,8 @@ func (c *Client) CreateIpam(ctx context.Context, params *CreateIpamInput, optFns
 type CreateIpamInput struct {
 
 	// A unique, case-sensitive identifier that you provide to ensure the idempotency
-	// of the request. For more information, see Ensuring Idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	// of the request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
 	// A description for the IPAM.
@@ -46,8 +45,8 @@ type CreateIpamInput struct {
 
 	// A check for whether you have the required permissions for the action without
 	// actually making the request and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The operating Regions for the IPAM. Operating Regions are Amazon Web Services
@@ -60,7 +59,7 @@ type CreateIpamInput struct {
 
 	// The key/value combination of a tag assigned to the resource. Use the tag key in
 	// the filter name and the tag value as the filter value. For example, to find all
-	// resources that have a tag with the key Owner and the value TeamA, specify
+	// resources that have a tag with the key Owner and the value TeamA , specify
 	// tag:Owner for the filter name and TeamA for the filter value.
 	TagSpecifications []types.TagSpecification
 
@@ -127,6 +126,9 @@ func (c *Client) addOperationCreateIpamMiddlewares(stack *middleware.Stack, opti
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateIpam(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

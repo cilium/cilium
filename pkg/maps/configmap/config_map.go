@@ -5,9 +5,9 @@ package configmap
 
 import (
 	"fmt"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/ebpf"
 )
 
 const (
@@ -28,51 +28,39 @@ type Index uint32
 // Must be in sync with RUNTIME_CONFIG_ enum in bpf/lib/common.h
 const (
 	UTimeOffset Index = iota
-	UsedEntries
+	AgentLiveness
 )
+
+// String pretty print the Index
+func (r Index) String() string {
+	switch r {
+	case UTimeOffset:
+		return "UTimeOffset"
+	case AgentLiveness:
+		return "AgentLiveness"
+	default:
+		return "Unknown"
+	}
+}
 
 // Value is the generic datapath runtime config value.
 type Value uint64
 
-// String pretty print the Index
-func (k *Index) String() string {
-	return fmt.Sprintf("%d", uint32(*k))
-}
-
-// GetKeyPtr returns the unsafe pointer to the BPF key
-func (k *Index) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// NewValue returns a new empty instance of the structure representing the BPF
-// map value
-func (k *Index) NewValue() bpf.MapValue {
-	var value Value
-	return &value
-}
-
-// DeepCopyMapKey returns a deep copy of the map key
-func (k *Index) DeepCopyMapKey() bpf.MapKey {
-	index := *k
-	return &index
-}
+func (k *Index) New() bpf.MapKey { return new(Index) }
 
 // String pretty print the config Value.
 func (v *Value) String() string {
 	return fmt.Sprintf("%d", uint64(*v))
 }
 
-// GetValuePtr returns the unsafe pointer to the BPF value.
-func (v *Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-
-// DeepCopyMapValue returns a deep copy of the map value
-func (v *Value) DeepCopyMapValue() bpf.MapValue {
-	value := *v
-	return &value
-}
+func (v *Value) New() bpf.MapValue { return new(Value) }
 
 // Map provides access to the eBPF map configmap.
 type Map interface {
 	// Update writes the given uint64 value to the bpf map at the given index.
 	Update(index Index, val uint64) error
+
+	Get(index Index) (uint64, error)
 }
 
 type configMap struct {
@@ -85,20 +73,32 @@ func newConfigMap() *configMap {
 
 	return &configMap{
 		bpfMap: bpf.NewMap(MapName,
-			bpf.MapTypeArray,
+			ebpf.Array,
 			&index,
-			int(unsafe.Sizeof(index)),
 			&value,
-			int(unsafe.Sizeof(value)),
 			MaxEntries,
-			0, 0,
-			bpf.ConvertKeyValue,
+			0,
 		),
 	}
 }
 
+// LoadMap loads the pre-initialized config map for access.
+// This should only be used from components which aren't capable of using hive - mainly the Cilium CLI.
+// It needs to initialized beforehand via the Cilium Agent.
+func LoadMap() (Map, error) {
+	var index Index
+	var value Value
+
+	m, err := bpf.OpenMap(bpf.MapPath(MapName), &index, &value)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load bpf map: %w", err)
+	}
+
+	return &configMap{bpfMap: m}, nil
+}
+
 func (m *configMap) init() error {
-	if _, err := m.bpfMap.OpenOrCreate(); err != nil {
+	if err := m.bpfMap.OpenOrCreate(); err != nil {
 		return fmt.Errorf("failed to init bpf map: %w", err)
 	}
 
@@ -111,6 +111,20 @@ func (m *configMap) close() error {
 	}
 
 	return nil
+}
+
+func (m *configMap) Get(index Index) (uint64, error) {
+	v, err := m.bpfMap.Lookup(&index)
+	if err != nil {
+		return 0, fmt.Errorf("failed to lookup entry: %w", err)
+	}
+
+	mapValue, ok := v.(*Value)
+	if !ok {
+		return 0, fmt.Errorf("wrong config map value: %w", err)
+	}
+
+	return uint64(*mapValue), nil
 }
 
 func (m *configMap) Update(index Index, val uint64) error {

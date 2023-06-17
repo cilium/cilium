@@ -8,9 +8,9 @@ import (
 	"reflect"
 	"regexp"
 
+	check "github.com/cilium/checkmate"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/comparator"
 )

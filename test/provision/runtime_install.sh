@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 if ! [[ -z $DOCKER_LOGIN && -z $DOCKER_PASSWORD ]]; then

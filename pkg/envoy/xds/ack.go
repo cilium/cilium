@@ -26,7 +26,7 @@ func (pe *ProxyError) Error() string {
 }
 
 var (
-	ErrNackReceived error = errors.New("NACK received")
+	ErrNackReceived = errors.New("NACK received")
 )
 
 // ResourceVersionAckObserver defines the HandleResourceVersionAck method

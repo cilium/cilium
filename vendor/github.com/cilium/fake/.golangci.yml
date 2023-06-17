@@ -1,0 +1,103 @@
+# See https://golangci-lint.run/usage/configuration/ for available options.
+# Also https://github.com/cilium/cilium/blob/master/.golangci.yaml as a
+# reference.
+run:
+  go: '1.20'
+linters:
+  disable-all: true
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - containedctx
+    - contextcheck
+    - decorder
+    - dogsled
+    - dupl
+    - dupword
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - exportloopref
+    - forcetypeassert
+    - gocheckcompilerdirectives
+    - gocognit
+    - goconst
+    - gocritic
+    - godot
+    - goerr113
+    - gofmt
+    - goheader
+    - goimports
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - grouper
+    - ineffassign
+    - interfacebloat
+    - makezero
+    - misspell
+    - musttag
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnil
+    - noctx
+    - nosprintfhostport
+    - prealloc
+    - predeclared
+    - reassign
+    - revive
+    - rowserrcheck
+    - staticcheck
+    - tenv
+    - thelper
+    - tparallel
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - wastedassign
+linters-settings:
+  goheader:
+    template: |-
+      SPDX-License-Identifier: Apache-2.0
+      Copyright Authors of Cilium
+  gosec:
+    # available rules: https://github.com/securego/gosec#available-rules
+    includes: [] # include all available rules
+    excludes:
+      - G104 # Audit errors not checked
+      - G307 # Deferring a method which returns an error
+  govet:
+    enable-all: true
+    disable: fieldalignment
+  revive:
+    rules:
+      - name: package-comments
+        disabled: true
+  staticcheck:
+    checks: ["all"]
+issues:
+  # Default rules exclude Go doc comments check, which is rather unfortunate.
+  # In order to enable Go doc checks, defaults rules have to be disabled.
+  # See https://github.com/golangci/golangci-lint/issues/456 for details.
+  exclude-use-default: false
+  exclude-rules:
+    - linters: [errcheck]
+      text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print(f|ln)?|os\.(Un)?Setenv). is not checked
+    - linters: [goerr113]
+      text: "do not define dynamic errors, use wrapped static errors instead"
+    - linters: [gosec]
+      text: "G404" # Use of weak random number generator (math/rand instead of crypto/rand)
+    # TODO: remove the staticcheck exceptions below once we have switched to
+    # using crypto/rand instead of math/rand
+    - linters: [staticcheck]
+      text: "SA1019: rand.Read has been deprecated since Go 1.20 because it shouldn't be used"
+    - linters: [staticcheck]
+      text: "SA1019: rand.Seed has been deprecated since Go 1.20 and an alternative has been available since Go 1.0"

@@ -67,6 +67,7 @@ type FakeObserverClient struct {
 	OnGetAgentEvents func(ctx context.Context, in *observerpb.GetAgentEventsRequest, opts ...grpc.CallOption) (observerpb.Observer_GetAgentEventsClient, error)
 	OnGetDebugEvents func(ctx context.Context, in *observerpb.GetDebugEventsRequest, opts ...grpc.CallOption) (observerpb.Observer_GetDebugEventsClient, error)
 	OnGetNodes       func(ctx context.Context, in *observerpb.GetNodesRequest, opts ...grpc.CallOption) (*observerpb.GetNodesResponse, error)
+	OnGetNamespaces  func(ctx context.Context, in *observerpb.GetNamespacesRequest, opts ...grpc.CallOption) (*observerpb.GetNamespacesResponse, error)
 	OnServerStatus   func(ctx context.Context, in *observerpb.ServerStatusRequest, opts ...grpc.CallOption) (*observerpb.ServerStatusResponse, error)
 }
 
@@ -100,6 +101,14 @@ func (c *FakeObserverClient) GetNodes(ctx context.Context, in *observerpb.GetNod
 		return c.OnGetNodes(ctx, in, opts...)
 	}
 	panic("OnGetNodes not set")
+}
+
+// GetNamespaces implements observerpb.ObserverClient.GetNamespaces.
+func (c *FakeObserverClient) GetNamespaces(ctx context.Context, in *observerpb.GetNamespacesRequest, opts ...grpc.CallOption) (*observerpb.GetNamespacesResponse, error) {
+	if c.OnGetNamespaces != nil {
+		return c.OnGetNamespaces(ctx, in, opts...)
+	}
+	panic("OnGetNamespaces not set")
 }
 
 // ServerStatus implements observerpb.ObserverClient.ServerStatus.

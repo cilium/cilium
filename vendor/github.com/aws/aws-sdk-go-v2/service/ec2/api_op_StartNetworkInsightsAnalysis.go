@@ -32,8 +32,8 @@ func (c *Client) StartNetworkInsightsAnalysis(ctx context.Context, params *Start
 type StartNetworkInsightsAnalysisInput struct {
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	//
 	// This member is required.
 	ClientToken *string
@@ -43,12 +43,13 @@ type StartNetworkInsightsAnalysisInput struct {
 	// This member is required.
 	NetworkInsightsPathId *string
 
+	// The member accounts that contain resources that the path can traverse.
 	AdditionalAccounts []string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The Amazon Resource Names (ARN) of the resources that the path must traverse.
@@ -123,6 +124,9 @@ func (c *Client) addOperationStartNetworkInsightsAnalysisMiddlewares(stack *midd
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opStartNetworkInsightsAnalysis(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

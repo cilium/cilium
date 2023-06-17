@@ -1,16 +1,16 @@
-{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled -}}
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled -}}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: spire-server
-  namespace: {{ .Values.auth.mTLS.spire.install.namespace }}
-  {{- with .Values.auth.mTLS.spire.install.server.annotations }}
+  namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+  {{- with .Values.authentication.mutual.spire.install.server.annotations }}
   annotations:
     {{- toYaml . | nindent 8 }}
   {{- end }}
   labels:
     app: spire-server
-  {{- with .Values.auth.mTLS.spire.install.server.labels }}
+  {{- with .Values.authentication.mutual.spire.install.server.labels }}
     {{- toYaml . | nindent 8 }}
   {{- end }}
 spec:
@@ -24,11 +24,11 @@ spec:
       labels:
         app: spire-server
     spec:
-      serviceAccountName: {{ .Values.auth.mTLS.spire.install.server.serviceAccount.name }}
+      serviceAccountName: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}
       shareProcessNamespace: true
-      {{- if gt (len .Values.auth.mTLS.spire.install.server.initContainers) 0 }}
+      {{- if gt (len .Values.authentication.mutual.spire.install.server.initContainers) 0 }}
       initContainers:
-        {{- toYaml .Values.auth.mTLS.spire.install.server.initContainers | nindent 8 }}
+        {{- toYaml .Values.authentication.mutual.spire.install.server.initContainers | nindent 8 }}
       {{- end }}
       containers:
       - name: cilium-init
@@ -50,7 +50,7 @@ spec:
         - name: spire-config
           mountPath: /run/spire/config
           readOnly: true
-        {{- if .Values.auth.mTLS.spire.install.server.dataStorage.enabled }}
+        {{- if .Values.authentication.mutual.spire.install.server.dataStorage.enabled }}
         - name: spire-data
           mountPath: /run/spire/data
           readOnly: false
@@ -80,16 +80,16 @@ spec:
         hostPath:
           path: /var/run/spire-server/sockets
           type: DirectoryOrCreate
-  {{- if .Values.auth.mTLS.spire.install.server.dataStorage.enabled }}
+  {{- if .Values.authentication.mutual.spire.install.server.dataStorage.enabled }}
   volumeClaimTemplates:
   - metadata:
       name: spire-data
     spec:
       accessModes:
-      - {{ .Values.auth.mTLS.spire.install.server.dataStorage.accessMode | default "ReadWriteOnce" }}
+      - {{ .Values.authentication.mutual.spire.install.server.dataStorage.accessMode | default "ReadWriteOnce" }}
       resources:
         requests:
-          storage: {{ .Values.auth.mTLS.spire.install.server.dataStorage.size }}
-      storageClassName: {{ .Values.auth.mTLS.spire.install.server.dataStorage.storageClass }}
+          storage: {{ .Values.authentication.mutual.spire.install.server.dataStorage.size }}
+      storageClassName: {{ .Values.authentication.mutual.spire.install.server.dataStorage.storageClass }}
   {{- end }}
 {{- end }}

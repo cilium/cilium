@@ -114,14 +114,13 @@ func listenConfig(mark int, ipv4, ipv6 bool) *net.ListenConfig {
 		}}
 }
 
-func bindUDP(addr string, ipv4, ipv6 bool) *net.IPConn {
+func bindUDP(addr string, ipv4, ipv6 bool) (*net.IPConn, error) {
 	// Mark outgoing packets as proxy egress return traffic (0x0b00)
 	conn, err := listenConfig(0xb00, ipv4, ipv6).ListenPacket(context.Background(), "ip:udp", addr)
 	if err != nil {
-		log.WithError(err).Errorf("bindUDP failed for address %s", addr)
-		return nil
+		return nil, fmt.Errorf("failed to bind UDP for address %s: %w", addr, err)
 	}
-	return conn.(*net.IPConn)
+	return conn.(*net.IPConn), nil
 }
 
 // NOTE: udpOnce is used in SetSocketOptions below, but assumes we have a
@@ -141,16 +140,23 @@ func (f *sessionUDPFactory) SetSocketOptions(conn *net.UDPConn) error {
 	//   v4 address from a socket bound to "::1" does not work due to kernel
 	//   checking that a route exists from the source address before
 	//   the source address is replaced with the (transparently) changed one
+	var err error
 	udpOnce.Do(func() {
 		if f.ipv4Enabled {
-			rawconn4 = bindUDP("127.0.0.1", f.ipv4Enabled, false) // raw socket for sending IPv4
+			rawconn4, err = bindUDP("127.0.0.1", true, false) // raw socket for sending IPv4
+			if err != nil {
+				return
+			}
 		}
 		if f.ipv6Enabled {
-			rawconn6 = bindUDP("::1", false, f.ipv6Enabled) // raw socket for sending IPv6
+			rawconn6, err = bindUDP("::1", false, true) // raw socket for sending IPv6
+			if err != nil {
+				return
+			}
 		}
 	})
-	if (f.ipv4Enabled && rawconn4 == nil) || (f.ipv6Enabled && rawconn6 == nil) {
-		return fmt.Errorf("Unable to open raw UDP sockets for DNS Proxy")
+	if err != nil {
+		return fmt.Errorf("failed to open raw UDP sockets for DNS Proxy: %w", err)
 	}
 	return nil
 }

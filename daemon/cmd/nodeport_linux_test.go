@@ -8,7 +8,7 @@ package cmd
 import (
 	"fmt"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
@@ -23,7 +23,7 @@ type NodePortSuite struct {
 var _ = Suite(&NodePortSuite{})
 
 func (s *NodePortSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 func (s *NodePortSuite) SetUpTest(c *C) {

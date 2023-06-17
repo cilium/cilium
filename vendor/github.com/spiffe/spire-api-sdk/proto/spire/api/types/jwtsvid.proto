@@ -18,4 +18,10 @@ message JWTSVID {
 
     // Issuance timestamp (seconds since Unix epoch).
     int64 issued_at = 4;
+
+    // Optional. An operator-specified string used to provide guidance on how this
+    // identity should be used by a workload when more than one SVID is returned.
+    // For example, `internal` and `external` to indicate an SVID for internal or
+    // external use, respectively.
+    string hint = 5;
 }

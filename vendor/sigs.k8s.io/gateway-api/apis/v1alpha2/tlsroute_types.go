@@ -112,6 +112,8 @@ type TLSRouteRule struct {
 	//
 	// Support: Core for Kubernetes Service
 	//
+	// Support: Extended for Kubernetes ServiceImport
+	//
 	// Support: Implementation-specific for any other resource
 	//
 	// Support for weight: Extended

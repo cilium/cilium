@@ -13,8 +13,7 @@ import (
 )
 
 // Describes the specified EC2 Fleets or all of your EC2 Fleets. For more
-// information, see Monitor your EC2 Fleet
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#monitor-ec2-fleet)
+// information, see Monitor your EC2 Fleet (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#monitor-ec2-fleet)
 // in the Amazon EC2 User Guide.
 func (c *Client) DescribeFleets(ctx context.Context, params *DescribeFleetsInput, optFns ...func(*Options)) (*DescribeFleetsOutput, error) {
 	if params == nil {
@@ -35,41 +34,35 @@ type DescribeFleetsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The filters.
-	//
-	// * activity-status - The progress of the EC2 Fleet ( error |
-	// pending-fulfillment | pending-termination | fulfilled).
-	//
-	// *
-	// excess-capacity-termination-policy - Indicates whether to terminate running
-	// instances if the target capacity is decreased below the current EC2 Fleet size
-	// (true | false).
-	//
-	// * fleet-state - The state of the EC2 Fleet (submitted | active
-	// | deleted | failed | deleted-running | deleted-terminating | modifying).
-	//
-	// *
-	// replace-unhealthy-instances - Indicates whether EC2 Fleet should replace
-	// unhealthy instances (true | false).
-	//
-	// * type - The type of request (instant |
-	// request | maintain).
+	//   - activity-status - The progress of the EC2 Fleet ( error |
+	//   pending-fulfillment | pending-termination | fulfilled ).
+	//   - excess-capacity-termination-policy - Indicates whether to terminate running
+	//   instances if the target capacity is decreased below the current EC2 Fleet size (
+	//   true | false ).
+	//   - fleet-state - The state of the EC2 Fleet ( submitted | active | deleted |
+	//   failed | deleted-running | deleted-terminating | modifying ).
+	//   - replace-unhealthy-instances - Indicates whether EC2 Fleet should replace
+	//   unhealthy instances ( true | false ).
+	//   - type - The type of request ( instant | request | maintain ).
 	Filters []types.Filter
 
-	// The IDs of the EC2 Fleets. If a fleet is of type instant, you must specify the
+	// The IDs of the EC2 Fleets. If a fleet is of type instant , you must specify the
 	// fleet ID, otherwise it does not appear in the response.
 	FleetIds []string
 
-	// The maximum number of results to return in a single call. Specify a value
-	// between 1 and 1000. The default value is 1000. To retrieve the remaining
-	// results, make another call with the returned NextToken value.
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
 	MaxResults *int32
 
-	// The token for the next set of results.
+	// The token returned from a previous paginated request. Pagination continues from
+	// the end of the items returned by the previous request.
 	NextToken *string
 
 	noSmithyDocumentSerde
@@ -80,7 +73,8 @@ type DescribeFleetsOutput struct {
 	// Information about the EC2 Fleets.
 	Fleets []types.FleetData
 
-	// The token for the next set of results.
+	// The token to include in another request to get the next page of items. This
+	// value is null when there are no more items to return.
 	NextToken *string
 
 	// Metadata pertaining to the operation's result.
@@ -137,6 +131,9 @@ func (c *Client) addOperationDescribeFleetsMiddlewares(stack *middleware.Stack, 
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeFleets(options.Region), middleware.Before); err != nil {
 		return err
 	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+		return err
+	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
 		return err
 	}
@@ -159,9 +156,10 @@ var _ DescribeFleetsAPIClient = (*Client)(nil)
 
 // DescribeFleetsPaginatorOptions is the paginator options for DescribeFleets
 type DescribeFleetsPaginatorOptions struct {
-	// The maximum number of results to return in a single call. Specify a value
-	// between 1 and 1000. The default value is 1000. To retrieve the remaining
-	// results, make another call with the returned NextToken value.
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

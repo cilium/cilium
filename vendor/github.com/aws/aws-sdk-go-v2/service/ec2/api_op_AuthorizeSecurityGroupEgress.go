@@ -15,15 +15,15 @@ import (
 // use with a VPC. An outbound rule permits instances to send traffic to the
 // specified IPv4 or IPv6 CIDR address ranges, or to the instances that are
 // associated with the specified source security groups. When specifying an
-// outbound rule for your security group in a VPC, the IpPermissions must include a
-// destination for the traffic. You specify a protocol for each rule (for example,
-// TCP). For the TCP and UDP protocols, you must also specify the destination port
-// or port range. For the ICMP protocol, you must also specify the ICMP type and
-// code. You can use -1 for the type or code to mean all types or all codes. Rule
-// changes are propagated to affected instances as quickly as possible. However, a
-// small delay might occur. For information about VPC security group quotas, see
-// Amazon VPC quotas
-// (https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html).
+// outbound rule for your security group in a VPC, the IpPermissions must include
+// a destination for the traffic. You specify a protocol for each rule (for
+// example, TCP). For the TCP and UDP protocols, you must also specify the
+// destination port or port range. For the ICMP protocol, you must also specify the
+// ICMP type and code. You can use -1 for the type or code to mean all types or all
+// codes. Rule changes are propagated to affected instances as quickly as possible.
+// However, a small delay might occur. For information about VPC security group
+// quotas, see Amazon VPC quotas (https://docs.aws.amazon.com/vpc/latest/userguide/amazon-vpc-limits.html)
+// .
 func (c *Client) AuthorizeSecurityGroupEgress(ctx context.Context, params *AuthorizeSecurityGroupEgressInput, optFns ...func(*Options)) (*AuthorizeSecurityGroupEgressOutput, error) {
 	if params == nil {
 		params = &AuthorizeSecurityGroupEgressInput{}
@@ -51,15 +51,15 @@ type AuthorizeSecurityGroupEgressInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// Not supported. Use a set of IP permissions to specify the port.
 	FromPort *int32
 
-	// The sets of IP permissions. You can't specify a destination security group and a
-	// CIDR IP address range in the same set of permissions.
+	// The sets of IP permissions. You can't specify a destination security group and
+	// a CIDR IP address range in the same set of permissions.
 	IpPermissions []types.IpPermission
 
 	// Not supported. Use a set of IP permissions to specify the protocol name or
@@ -146,6 +146,9 @@ func (c *Client) addOperationAuthorizeSecurityGroupEgressMiddlewares(stack *midd
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAuthorizeSecurityGroupEgress(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

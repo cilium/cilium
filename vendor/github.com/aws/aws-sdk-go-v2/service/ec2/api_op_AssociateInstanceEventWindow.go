@@ -13,9 +13,8 @@ import (
 
 // Associates one or more targets with an event window. Only one type of target
 // (instance IDs, Dedicated Host IDs, or tags) can be specified with an event
-// window. For more information, see Define event windows for scheduled events
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/event-windows.html) in the
-// Amazon EC2 User Guide.
+// window. For more information, see Define event windows for scheduled events (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/event-windows.html)
+// in the Amazon EC2 User Guide.
 func (c *Client) AssociateInstanceEventWindow(ctx context.Context, params *AssociateInstanceEventWindowInput, optFns ...func(*Options)) (*AssociateInstanceEventWindowOutput, error) {
 	if params == nil {
 		params = &AssociateInstanceEventWindowInput{}
@@ -45,8 +44,8 @@ type AssociateInstanceEventWindowInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -112,6 +111,9 @@ func (c *Client) addOperationAssociateInstanceEventWindowMiddlewares(stack *midd
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAssociateInstanceEventWindow(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -31,6 +31,42 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
+  name: same-namespace-with-http-listener-on-8080
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: http
+    port: 8080
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: same-namespace-with-https-listener
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: https
+    port: 443
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: Same
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: tls-validity-checks-certificate
+        namespace: gateway-conformance-infra
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
   name: all-namespaces
   namespace: gateway-conformance-infra
 spec:
@@ -70,9 +106,9 @@ spec:
   selector:
     app: infra-backend-v1
   ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 3000
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -117,9 +153,9 @@ spec:
   selector:
     app: infra-backend-v2
   ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 3000
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -163,9 +199,9 @@ spec:
   selector:
     app: infra-backend-v3
   ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 3000
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -209,9 +245,9 @@ spec:
   selector:
     app: tls-backend
   ports:
-    - protocol: TCP
-      port: 443
-      targetPort: 8443
+  - protocol: TCP
+    port: 443
+    targetPort: 8443
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -237,18 +273,18 @@ spec:
         - name: secret-volume
           mountPath: /etc/secret-volume
         env:
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: TLS_SERVER_CERT
-            value: /etc/secret-volume/crt
-          - name: TLS_SERVER_PRIVKEY
-            value: /etc/secret-volume/key
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: TLS_SERVER_CERT
+          value: /etc/secret-volume/crt
+        - name: TLS_SERVER_PRIVKEY
+          value: /etc/secret-volume/key
         resources:
           requests:
             cpu: 10m
@@ -278,9 +314,9 @@ spec:
   selector:
     app: app-backend-v1
   ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 3000
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -324,9 +360,9 @@ spec:
   selector:
     app: app-backend-v2
   ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 3000
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -377,9 +413,9 @@ spec:
   selector:
     app: web-backend
   ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 3000
+  - protocol: TCP
+    port: 8080
+    targetPort: 3000
 ---
 apiVersion: apps/v1
 kind: Deployment

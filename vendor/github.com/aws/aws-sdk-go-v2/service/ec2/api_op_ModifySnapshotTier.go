@@ -12,12 +12,11 @@ import (
 	"time"
 )
 
-// Archives an Amazon EBS snapshot. When you archive a snapshot, it is converted to
-// a full snapshot that includes all of the blocks of data that were written to the
-// volume at the time the snapshot was created, and moved from the standard tier to
-// the archive tier. For more information, see Archive Amazon EBS snapshots
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshot-archive.html) in
-// the Amazon Elastic Compute Cloud User Guide.
+// Archives an Amazon EBS snapshot. When you archive a snapshot, it is converted
+// to a full snapshot that includes all of the blocks of data that were written to
+// the volume at the time the snapshot was created, and moved from the standard
+// tier to the archive tier. For more information, see Archive Amazon EBS snapshots (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/snapshot-archive.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) ModifySnapshotTier(ctx context.Context, params *ModifySnapshotTierInput, optFns ...func(*Options)) (*ModifySnapshotTierOutput, error) {
 	if params == nil {
 		params = &ModifySnapshotTierInput{}
@@ -42,11 +41,11 @@ type ModifySnapshotTierInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The name of the storage tier. You must specify archive.
+	// The name of the storage tier. You must specify archive .
 	StorageTier types.TargetStorageTier
 
 	noSmithyDocumentSerde
@@ -115,6 +114,9 @@ func (c *Client) addOperationModifySnapshotTierMiddlewares(stack *middleware.Sta
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifySnapshotTier(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -11,6 +11,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -38,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
@@ -59,65 +61,45 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-func (k *K8sWatcher) createPodController(slimClient slimclientset.Interface, fieldSelector fields.Selector) (cache.Store, cache.Controller) {
-	apiGroup := resources.K8sAPIGroupPodV1Core
+const podApiGroup = resources.K8sAPIGroupPodV1Core
+
+// createAllPodsController is used in the rare configurations where CiliumEndpointCRD is disabled.
+// If kvstore and K8sEventHandover is enabled then we fall back to watching only local pods when
+// kvstore connects.
+func (k *K8sWatcher) createAllPodsController(slimClient slimclientset.Interface) (cache.Store, cache.Controller) {
 	return informer.NewInformer(
 		k8sUtils.ListerWatcherWithFields(
 			k8sUtils.ListerWatcherFromTyped[*slim_corev1.PodList](slimClient.CoreV1().Pods("")),
-			fieldSelector),
+			fields.Everything()),
 		&slim_corev1.Pod{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				var valid bool
 				if pod := k8s.ObjTov1Pod(obj); pod != nil {
-					valid = true
-					podNSName := k8sUtils.GetObjNamespaceName(&pod.ObjectMeta)
-					// If ep is not nil then we have received the CNI event
-					// first and the k8s event afterwards, if this happens it's
-					// likely the Kube API Server is getting behind the event
-					// handling.
-					if ep := k.endpointManager.LookupPodName(podNSName); ep != nil {
-						epCreatedAt := ep.GetCreatedAt()
-						timeSinceEpCreated := time.Since(epCreatedAt)
-						if timeSinceEpCreated <= 0 {
-							metrics.EventLagK8s.Set(0)
-						} else {
-							metrics.EventLagK8s.Set(timeSinceEpCreated.Round(time.Second).Seconds())
-						}
-					} else {
-						// If the ep is nil then we reset to zero, otherwise
-						// the previous value set is kept forever.
-						metrics.EventLagK8s.Set(0)
-					}
-					err := k.addK8sPodV1(pod)
-					k.K8sEventProcessed(metricPod, resources.MetricCreate, err == nil)
+					k.addK8sPodV1(pod)
+				} else {
+					k.K8sEventReceived(podApiGroup, metricPod, resources.MetricCreate, false, false)
 				}
-				k.K8sEventReceived(apiGroup, metricPod, resources.MetricCreate, valid, false)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				var valid, equal bool
 				if oldPod := k8s.ObjTov1Pod(oldObj); oldPod != nil {
 					if newPod := k8s.ObjTov1Pod(newObj); newPod != nil {
-						valid = true
 						if oldPod.DeepEqual(newPod) {
-							equal = true
+							k.K8sEventReceived(podApiGroup, metricPod, resources.MetricUpdate, false, true)
 						} else {
-							err := k.updateK8sPodV1(oldPod, newPod)
-							k.K8sEventProcessed(metricPod, resources.MetricUpdate, err == nil)
+							k.updateK8sPodV1(oldPod, newPod)
 						}
 					}
+				} else {
+					k.K8sEventReceived(podApiGroup, metricPod, resources.MetricUpdate, false, false)
 				}
-				k.K8sEventReceived(apiGroup, metricPod, resources.MetricUpdate, valid, equal)
 			},
 			DeleteFunc: func(obj interface{}) {
-				var valid bool
 				if pod := k8s.ObjTov1Pod(obj); pod != nil {
-					valid = true
-					err := k.deleteK8sPodV1(pod)
-					k.K8sEventProcessed(metricPod, resources.MetricDelete, err == nil)
+					k.deleteK8sPodV1(pod)
+				} else {
+					k.K8sEventReceived(podApiGroup, metricPod, resources.MetricDelete, false, false)
 				}
-				k.K8sEventReceived(apiGroup, metricPod, resources.MetricDelete, valid, false)
 			},
 		},
 		nil,
@@ -126,26 +108,50 @@ func (k *K8sWatcher) createPodController(slimClient slimclientset.Interface, fie
 
 func (k *K8sWatcher) podsInit(slimClient slimclientset.Interface, asyncControllers *sync.WaitGroup) {
 	var once sync.Once
-	watchNodePods := func() chan struct{} {
-		// Only watch for pod events for our node.
-		podStore, podController := k.createPodController(
-			slimClient,
-			fields.ParseSelectorOrDie("spec.nodeName="+nodeTypes.GetName()))
-		isConnected := make(chan struct{})
-		k.podStoreMU.Lock()
-		k.podStore = podStore
-		k.podStoreMU.Unlock()
-		k.podStoreOnce.Do(func() {
-			close(k.podStoreSet)
-		})
+	watchNodePods := func() context.CancelFunc {
+		ctx, cancel := context.WithCancel(context.Background())
+		var synced atomic.Bool
+		go func() {
+			pods := make(map[resource.Key]*slim_corev1.Pod)
+			for ev := range k.resources.LocalPods.Events(ctx) {
+				switch ev.Kind {
+				case resource.Sync:
+					// Set the pod store now that resource has synchronized. Only
+					// error expected is if we're being stopped (context cancelled).
+					podStore, err := k.resources.LocalPods.Store(ctx)
+					if err == nil {
+						k.podStoreMU.Lock()
+						k.podStore = podStore.CacheStore()
+						k.podStoreMU.Unlock()
+						k.podStoreOnce.Do(func() {
+							close(k.podStoreSet)
+						})
+					}
+					synced.Store(true)
+				case resource.Upsert:
+					newPod := ev.Object
+					oldPod := pods[ev.Key]
+					if oldPod == nil {
+						k.addK8sPodV1(newPod)
+					} else {
+						k.updateK8sPodV1(oldPod, newPod)
+					}
+					pods[ev.Key] = newPod
+				case resource.Delete:
+					k.deleteK8sPodV1(ev.Object)
+					delete(pods, ev.Key)
+				}
 
-		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, resources.K8sAPIGroupPodV1Core)
+				ev.Done(nil)
+			}
+		}()
+
+		k.blockWaitGroupToSyncResources(ctx.Done(), nil, synced.Load, resources.K8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
 			k.k8sAPIGroups.AddAPI(resources.K8sAPIGroupPodV1Core)
 		})
-		go podController.Run(isConnected)
-		return isConnected
+		return cancel
 	}
 
 	// Disable watching pods if we are in high-scale mode. We don't need to
@@ -168,9 +174,7 @@ func (k *K8sWatcher) podsInit(slimClient slimclientset.Interface, asyncControlle
 	// and then watching on the pods created for this node if the
 	// K8sEventHandover is enabled.
 	for {
-		podStore, podController := k.createPodController(
-			slimClient,
-			fields.Everything())
+		podStore, podController := k.createAllPodsController(slimClient)
 
 		isConnected := make(chan struct{})
 		// once isConnected is closed, it will stop waiting on caches to be
@@ -199,17 +203,23 @@ func (k *K8sWatcher) podsInit(slimClient slimclientset.Interface, asyncControlle
 		close(isConnected)
 
 		log.WithField(logfields.Node, nodeTypes.GetName()).Info("Connected to KVStore, watching for pod events on node")
-		isConnected = watchNodePods()
+		cancelWatchNodePods := watchNodePods()
 
 		// Create a new pod controller when we are disconnected with the
 		// kvstore
 		<-kvstore.Client().Disconnected()
-		close(isConnected)
+		cancelWatchNodePods()
 		log.Info("Disconnected from KVStore, watching for pod events all nodes")
 	}
 }
 
-func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
+func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) {
+	var err error
+	defer func() {
+		k.K8sEventProcessed(metricPod, resources.MetricCreate, err == nil)
+		k.K8sEventReceived(podApiGroup, metricPod, resources.MetricCreate, true, false)
+	}()
+
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
@@ -218,6 +228,25 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 		"hostIP":               pod.Status.HostIP,
 	})
 
+	podNSName := k8sUtils.GetObjNamespaceName(&pod.ObjectMeta)
+
+	// If ep is not nil then we have received the CNI event
+	// first and the k8s event afterwards, if this happens it's
+	// likely the Kube API Server is getting behind the event
+	// handling.
+	if ep := k.endpointManager.LookupPodName(podNSName); ep != nil {
+		epCreatedAt := ep.GetCreatedAt()
+		timeSinceEpCreated := time.Since(epCreatedAt)
+		if timeSinceEpCreated <= 0 {
+			metrics.EventLagK8s.Set(0)
+		} else {
+			metrics.EventLagK8s.Set(timeSinceEpCreated.Round(time.Second).Seconds())
+		}
+	} else {
+		// If the ep is nil then we reset to zero, otherwise
+		// the previous value set is kept forever.
+		metrics.EventLagK8s.Set(0)
+	}
 	// In Kubernetes Jobs, Pods can be left in Kubernetes until the Job
 	// is deleted. If the Job is never deleted, Cilium will never receive a Pod
 	// delete event, causing the IP to be left in the ipcache.
@@ -225,15 +254,15 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 	// status is either PodFailed or PodSucceeded as it means the IP address
 	// is no longer in use.
 	if !k8sUtils.IsPodRunning(pod.Status) {
-		return k.deleteK8sPodV1(pod)
+		err = k.deleteK8sPodV1(pod)
+		return
 	}
 
 	if pod.Spec.HostNetwork && !option.Config.EnableLocalRedirectPolicy {
 		logger.Debug("Skip pod event using host networking")
-		return nil
+		return
 	}
 
-	var err error
 	podIPs := k8sUtils.ValidIPs(pod.Status)
 	if len(podIPs) > 0 {
 		err = k.updatePodHostData(nil, pod, nil, podIPs)
@@ -247,15 +276,19 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 
 	if err != nil {
 		logger.WithError(err).Warning("Unable to update ipcache map entry on pod add")
-		return err
 	}
 	logger.Debug("Updated ipcache map entry on pod add")
-	return nil
 }
 
-func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error {
+func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) {
+	var err error
+	defer func() {
+		k.K8sEventProcessed(metricPod, resources.MetricUpdate, err == nil)
+		k.K8sEventReceived(podApiGroup, metricPod, resources.MetricUpdate, true, false)
+	}()
+
 	if oldK8sPod == nil || newK8sPod == nil {
-		return nil
+		return
 	}
 
 	logger := log.WithFields(logrus.Fields{
@@ -276,24 +309,25 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	// status is either PodFailed or PodSucceeded as it means the IP address
 	// is no longer in use.
 	if !k8sUtils.IsPodRunning(newK8sPod.Status) {
-		return k.deleteK8sPodV1(newK8sPod)
+		err = k.deleteK8sPodV1(newK8sPod)
+		return
 	}
 
 	if newK8sPod.Spec.HostNetwork && !option.Config.EnableLocalRedirectPolicy &&
 		!option.Config.EnableSocketLBTracing {
 		logger.Debug("Skip pod event using host networking")
-		return nil
+		return
 	}
 
 	k.cgroupManager.OnUpdatePod(oldK8sPod, newK8sPod)
 
 	oldPodIPs := k8sUtils.ValidIPs(oldK8sPod.Status)
 	newPodIPs := k8sUtils.ValidIPs(newK8sPod.Status)
-	err := k.updatePodHostData(oldK8sPod, newK8sPod, oldPodIPs, newPodIPs)
+	err = k.updatePodHostData(oldK8sPod, newK8sPod, oldPodIPs, newPodIPs)
 
 	if err != nil {
 		logger.WithError(err).Warning("Unable to update ipcache map entry on pod update")
-		return err
+		return
 	}
 
 	// Check annotation updates.
@@ -337,7 +371,7 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 
 	// Nothing changed.
 	if !annotationsChanged && !labelsChanged {
-		return nil
+		return
 	}
 
 	podNSName := k8sUtils.GetObjNamespaceName(&newK8sPod.ObjectMeta)
@@ -345,13 +379,13 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	podEP := k.endpointManager.LookupPodName(podNSName)
 	if podEP == nil {
 		log.WithField("pod", podNSName).Debugf("Endpoint not found running for the given pod")
-		return nil
+		return
 	}
 
 	if labelsChanged {
 		err := updateEndpointLabels(podEP, oldPodLabels, newPodLabels)
 		if err != nil {
-			return err
+			return
 		}
 
 		// Synchronize Pod labels with CiliumEndpoint labels if there is a change.
@@ -390,7 +424,6 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 		}
 		realizePodAnnotationUpdate(podEP)
 	}
-	return nil
 }
 
 func realizePodAnnotationUpdate(podEP *endpoint.Endpoint) {
@@ -470,6 +503,12 @@ func updateEndpointLabels(ep *endpoint.Endpoint, oldLbls, newLbls map[string]str
 }
 
 func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
+	var err error
+	defer func() {
+		k.K8sEventProcessed(metricPod, resources.MetricDelete, err == nil)
+		k.K8sEventReceived(podApiGroup, metricPod, resources.MetricDelete, true, false)
+	}()
+
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,

@@ -66,6 +66,31 @@ func (o *PutServiceIDCreated) WriteResponse(rw http.ResponseWriter, producer run
 	rw.WriteHeader(201)
 }
 
+// PutServiceIDForbiddenCode is the HTTP code returned for type PutServiceIDForbidden
+const PutServiceIDForbiddenCode int = 403
+
+/*
+PutServiceIDForbidden Forbidden
+
+swagger:response putServiceIdForbidden
+*/
+type PutServiceIDForbidden struct {
+}
+
+// NewPutServiceIDForbidden creates PutServiceIDForbidden with default headers values
+func NewPutServiceIDForbidden() *PutServiceIDForbidden {
+
+	return &PutServiceIDForbidden{}
+}
+
+// WriteResponse to the client
+func (o *PutServiceIDForbidden) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
+
+	rw.WriteHeader(403)
+}
+
 // PutServiceIDInvalidFrontendCode is the HTTP code returned for type PutServiceIDInvalidFrontend
 const PutServiceIDInvalidFrontendCode int = 460
 

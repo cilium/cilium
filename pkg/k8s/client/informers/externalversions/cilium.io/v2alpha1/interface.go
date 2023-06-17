@@ -17,10 +17,14 @@ type Interface interface {
 	CiliumCIDRGroups() CiliumCIDRGroupInformer
 	// CiliumEndpointSlices returns a CiliumEndpointSliceInformer.
 	CiliumEndpointSlices() CiliumEndpointSliceInformer
+	// CiliumL2AnnouncementPolicies returns a CiliumL2AnnouncementPolicyInformer.
+	CiliumL2AnnouncementPolicies() CiliumL2AnnouncementPolicyInformer
 	// CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
 	CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer
 	// CiliumNodeConfigs returns a CiliumNodeConfigInformer.
 	CiliumNodeConfigs() CiliumNodeConfigInformer
+	// CiliumPodIPPools returns a CiliumPodIPPoolInformer.
+	CiliumPodIPPools() CiliumPodIPPoolInformer
 }
 
 type version struct {
@@ -49,6 +53,11 @@ func (v *version) CiliumEndpointSlices() CiliumEndpointSliceInformer {
 	return &ciliumEndpointSliceInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// CiliumL2AnnouncementPolicies returns a CiliumL2AnnouncementPolicyInformer.
+func (v *version) CiliumL2AnnouncementPolicies() CiliumL2AnnouncementPolicyInformer {
+	return &ciliumL2AnnouncementPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // CiliumLoadBalancerIPPools returns a CiliumLoadBalancerIPPoolInformer.
 func (v *version) CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer {
 	return &ciliumLoadBalancerIPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
@@ -57,4 +66,9 @@ func (v *version) CiliumLoadBalancerIPPools() CiliumLoadBalancerIPPoolInformer {
 // CiliumNodeConfigs returns a CiliumNodeConfigInformer.
 func (v *version) CiliumNodeConfigs() CiliumNodeConfigInformer {
 	return &ciliumNodeConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumPodIPPools returns a CiliumPodIPPoolInformer.
+func (v *version) CiliumPodIPPools() CiliumPodIPPoolInformer {
+	return &ciliumPodIPPoolInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

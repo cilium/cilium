@@ -8,8 +8,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/testutils"
 
+	. "github.com/cilium/checkmate"
 	"github.com/vishvananda/netlink"
-	. "gopkg.in/check.v1"
 )
 
 type LinkSuite struct{}
@@ -17,7 +17,7 @@ type LinkSuite struct{}
 var _ = Suite(&LinkSuite{})
 
 func (s *LinkSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 func Test(t *testing.T) {

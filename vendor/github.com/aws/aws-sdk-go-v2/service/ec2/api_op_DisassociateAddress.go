@@ -11,15 +11,8 @@ import (
 )
 
 // Disassociates an Elastic IP address from the instance or network interface it's
-// associated with. An Elastic IP address is for use in either the EC2-Classic
-// platform or in a VPC. For more information, see Elastic IP Addresses
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html)
-// in the Amazon Elastic Compute Cloud User Guide. We are retiring EC2-Classic. We
-// recommend that you migrate from EC2-Classic to a VPC. For more information, see
-// Migrate from EC2-Classic to a VPC
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
-// Amazon Elastic Compute Cloud User Guide. This is an idempotent operation. If you
-// perform the operation more than once, Amazon EC2 doesn't return an error.
+// associated with. This is an idempotent operation. If you perform the operation
+// more than once, Amazon EC2 doesn't return an error.
 func (c *Client) DisassociateAddress(ctx context.Context, params *DisassociateAddressInput, optFns ...func(*Options)) (*DisassociateAddressOutput, error) {
 	if params == nil {
 		params = &DisassociateAddressInput{}
@@ -37,16 +30,16 @@ func (c *Client) DisassociateAddress(ctx context.Context, params *DisassociateAd
 
 type DisassociateAddressInput struct {
 
-	// [EC2-VPC] The association ID. Required for EC2-VPC.
+	// The association ID. This parameter is required.
 	AssociationId *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
-	// [EC2-Classic] The Elastic IP address. Required for EC2-Classic.
+	// Deprecated.
 	PublicIp *string
 
 	noSmithyDocumentSerde
@@ -105,6 +98,9 @@ func (c *Client) addOperationDisassociateAddressMiddlewares(stack *middleware.St
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDisassociateAddress(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

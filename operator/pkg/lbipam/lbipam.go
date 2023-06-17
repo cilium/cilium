@@ -356,12 +356,9 @@ func (ipam *LBIPAM) svcOnUpsert(ctx context.Context, k resource.Key, svc *slim_c
 func (ipam *LBIPAM) svcOnDelete(ctx context.Context, k resource.Key, svc *slim_core_v1.Service) error {
 	ipam.logger.Debugf("Deleted service '%s/%s'", svc.GetNamespace(), svc.GetName())
 
-	err := ipam.handleDeletedService(svc)
-	if err != nil {
-		return fmt.Errorf("handleDeletedService: %w", err)
-	}
+	ipam.handleDeletedService(svc)
 
-	err = ipam.satisfyAndUpdateCounts(ctx)
+	err := ipam.satisfyAndUpdateCounts(ctx)
 	if err != nil {
 		return fmt.Errorf("satisfyAndUpdateCounts: %w", err)
 	}
@@ -403,10 +400,7 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 
 		// Release allocations
 		for _, alloc := range sv.AllocatedIPs {
-			err := alloc.Origin.allocRange.Release(alloc.IP)
-			if err != nil {
-				return fmt.Errorf("alloc range release: %w", err)
-			}
+			alloc.Origin.allocRange.Release(alloc.IP)
 		}
 		ipam.serviceStore.Delete(sv.Key)
 
@@ -481,10 +475,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 
 		releaseAllocIP := func() error {
 			ipam.logger.Debugf("removing allocation '%s' from '%s'", alloc.IP.String(), sv.Key.String())
-			err := alloc.Origin.allocRange.Release(alloc.IP)
-			if err != nil {
-				return fmt.Errorf("Error while releasing '%s' from '%s': %w", alloc.IP, alloc.Origin.String(), err)
-			}
+			alloc.Origin.allocRange.Release(alloc.IP)
 
 			sv.AllocatedIPs = slices.Delete(sv.AllocatedIPs, allocIdx, allocIdx+1)
 			return nil
@@ -690,23 +681,18 @@ func getSVCRequestedIPs(svc *slim_core_v1.Service) []net.IP {
 	})
 }
 
-func (ipam *LBIPAM) handleDeletedService(svc *slim_core_v1.Service) error {
+func (ipam *LBIPAM) handleDeletedService(svc *slim_core_v1.Service) {
 	key := resource.NewKey(svc)
 	sv, found, _ := ipam.serviceStore.GetService(key)
 	if !found {
-		return nil
+		return
 	}
 
 	for _, alloc := range sv.AllocatedIPs {
-		err := alloc.Origin.allocRange.Release(alloc.IP)
-		if err != nil {
-			return fmt.Errorf("alloc range release: %w", err)
-		}
+		alloc.Origin.allocRange.Release(alloc.IP)
 	}
 
 	ipam.serviceStore.Delete(key)
-
-	return nil
 }
 
 // satisfyServices attempts to satisfy all unsatisfied services by allocating and assigning IP addresses

@@ -6,8 +6,10 @@ package agent_test
 import (
 	"context"
 	"errors"
-	"net"
+	"net/netip"
 	"testing"
+
+	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/mock"
@@ -20,7 +22,7 @@ import (
 var (
 	// the standard node name we'll use throughout our tests.
 	nodeName = "node-under-test-01"
-	nodeIPv4 = net.ParseIP("192.168.0.1")
+	nodeIPv4 = netip.MustParseAddr("192.168.0.1")
 )
 
 // a mock agent.nodeSpecer implementation.
@@ -42,6 +44,10 @@ func (f *fakeNodeSpecer) Labels() (map[string]string, error) {
 
 func (f *fakeNodeSpecer) Annotations() (map[string]string, error) {
 	return f.Annotations_()
+}
+
+func (f *fakeNodeSpecer) CurrentNodeName() (string, error) {
+	return nodeName, nil
 }
 
 // TestControllerSanity ensures that the controller calls the correct methods,
@@ -88,12 +94,60 @@ func TestControllerSanity(t *testing.T) {
 				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}, nil
 			},
 			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, c *agent.ControlPlaneState) error {
-				// pointer check, not deep equal
-				if p != wantPolicy {
+				if !p.DeepEqual(wantPolicy) {
 					t.Fatalf("got: %+v, want: %+v", p, wantPolicy)
 				}
-				if !c.IPv4.Equal(nodeIPv4) {
+				if c.IPv4 != nodeIPv4 {
 					t.Fatalf("got: %v, want: %v", c.IPv4, nodeIPv4)
+				}
+				return nil
+			},
+			err: nil,
+		},
+		// test policy defaulting
+		{
+			name: "policy defaulting on successful reconcile",
+			labels: func() (map[string]string, error) {
+				return map[string]string{
+					"bgp-policy": "a",
+				}, nil
+			},
+			annotations: func() (map[string]string, error) {
+				return map[string]string{}, nil
+			},
+			podCIDRs: func() ([]string, error) {
+				return []string{}, nil
+			},
+			plist: func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+				p := wantPolicy.DeepCopy()
+				p.Spec.VirtualRouters = []v2alpha1api.CiliumBGPVirtualRouter{
+					{
+						LocalASN: 65001,
+						Neighbors: []v2alpha1api.CiliumBGPNeighbor{
+							{
+								PeerASN:     65000,
+								PeerAddress: "172.0.0.1/32",
+								GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
+									Enabled: true,
+								},
+							},
+						},
+					},
+				}
+				return []*v2alpha1api.CiliumBGPPeeringPolicy{p}, nil
+			},
+			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, c *agent.ControlPlaneState) error {
+				for _, r := range p.Spec.VirtualRouters {
+					for _, n := range r.Neighbors {
+						if n.PeerPort == nil ||
+							n.EBGPMultihopTTL == nil ||
+							n.ConnectRetryTimeSeconds == nil ||
+							n.HoldTimeSeconds == nil ||
+							n.KeepAliveTimeSeconds == nil ||
+							n.GracefulRestart.RestartTimeSeconds == nil {
+							t.Fatalf("policy: %v not defaulted properly", p)
+						}
+					}
 				}
 				return nil
 			},
@@ -179,31 +233,69 @@ func TestControllerSanity(t *testing.T) {
 			},
 			err: errors.New(""),
 		},
+		{
+			name: "timer validation error",
+			plist: func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
+				p := wantPolicy.DeepCopy()
+				p.Spec.VirtualRouters = []v2alpha1api.CiliumBGPVirtualRouter{
+					{
+						LocalASN: 65001,
+						Neighbors: []v2alpha1api.CiliumBGPNeighbor{
+							{
+								PeerASN:     65000,
+								PeerAddress: "172.0.0.1/32",
+								// KeepAliveTimeSeconds larger than HoldTimeSeconds = error
+								KeepAliveTimeSeconds: pointer.Int32(10),
+								HoldTimeSeconds:      pointer.Int32(5),
+							},
+						},
+					},
+				}
+				return []*v2alpha1api.CiliumBGPPeeringPolicy{p}, nil
+			},
+			labels: func() (map[string]string, error) {
+				return map[string]string{
+					"bgp-policy": "a",
+				}, nil
+			},
+			annotations: func() (map[string]string, error) {
+				return map[string]string{}, nil
+			},
+			podCIDRs: func() ([]string, error) {
+				return []string{}, nil
+			},
+			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, c *agent.ControlPlaneState) error {
+				return nil
+			},
+			err: errors.New(""),
+		},
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			nodeaddr.SetIPv4(nodeIPv4)
-			nodetypes.SetName(nodeName)
-			nodeSpecer := &fakeNodeSpecer{
-				Annotations_: tt.annotations,
-				Labels_:      tt.labels,
-				PodCIDRs_:    tt.podCIDRs,
-			}
-			policyLister := &agent.MockCiliumBGPPeeringPolicyLister{
-				List_: tt.plist,
-			}
-			rtmgr := &mock.MockBGPRouterManager{
-				ConfigurePeers_: tt.configurePeers,
-			}
-			c := agent.Controller{
-				NodeSpec:     nodeSpecer,
-				PolicyLister: policyLister,
-				BGPMgr:       rtmgr,
-			}
-			err := c.Reconcile(context.Background())
-			if (tt.err == nil) != (err == nil) {
-				t.Fatalf("wanted error: %v", tt.err == nil)
-			}
+			nodeaddr.WithTestLocalNodeStore(func() {
+				nodeaddr.UpdateLocalNodeInTest(func(n *nodeaddr.LocalNode) { n.SetNodeInternalIP(nodeIPv4.AsSlice()) })
+				nodetypes.SetName(nodeName)
+				nodeSpecer := &fakeNodeSpecer{
+					Annotations_: tt.annotations,
+					Labels_:      tt.labels,
+					PodCIDRs_:    tt.podCIDRs,
+				}
+				policyLister := &agent.MockCiliumBGPPeeringPolicyLister{
+					List_: tt.plist,
+				}
+				rtmgr := &mock.MockBGPRouterManager{
+					ConfigurePeers_: tt.configurePeers,
+				}
+				c := agent.Controller{
+					NodeSpec:     nodeSpecer,
+					PolicyLister: policyLister,
+					BGPMgr:       rtmgr,
+				}
+				err := c.Reconcile(context.Background())
+				if (tt.err == nil) != (err == nil) {
+					t.Fatalf("want: %v, got: %v", tt.err, err)
+				}
+			})
 		})
 	}
 }
@@ -351,31 +443,33 @@ func TestPolicySelection(t *testing.T) {
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			// expand anon policies into CiliumBGPPeeringPolicy, make note of wanted
-			var policies []*v2alpha1api.CiliumBGPPeeringPolicy
-			var want *v2alpha1api.CiliumBGPPeeringPolicy
-			for _, p := range tt.policies {
-				policy := &v2alpha1api.CiliumBGPPeeringPolicy{
-					Spec: v2alpha1api.CiliumBGPPeeringPolicySpec{
-						NodeSelector: p.selector,
-					},
+			nodeaddr.WithTestLocalNodeStore(func() {
+				// expand anon policies into CiliumBGPPeeringPolicy, make note of wanted
+				var policies []*v2alpha1api.CiliumBGPPeeringPolicy
+				var want *v2alpha1api.CiliumBGPPeeringPolicy
+				for _, p := range tt.policies {
+					policy := &v2alpha1api.CiliumBGPPeeringPolicy{
+						Spec: v2alpha1api.CiliumBGPPeeringPolicySpec{
+							NodeSelector: p.selector,
+						},
+					}
+					policies = append(policies, policy)
+					if p.want {
+						want = policy
+					}
 				}
-				policies = append(policies, policy)
-				if p.want {
-					want = policy
+				// call function under test
+				policy, err := agent.PolicySelection(context.Background(), tt.nodeLabels, policies)
+				if (tt.err == nil) != (err == nil) {
+					t.Fatalf("expected err: %v", (tt.err == nil))
 				}
-			}
-			// call function under test
-			policy, err := agent.PolicySelection(context.Background(), tt.nodeLabels, policies)
-			if (tt.err == nil) != (err == nil) {
-				t.Fatalf("expected err: %v", (tt.err == nil))
-			}
-			if want != nil {
-				// pointer comparison, not a deep equal.
-				if policy != want {
-					t.Fatalf("got: %+v, want: %+v", *policy, *want)
+				if want != nil {
+					// pointer comparison, not a deep equal.
+					if policy != want {
+						t.Fatalf("got: %+v, want: %+v", *policy, *want)
+					}
 				}
-			}
+			})
 		})
 	}
 }

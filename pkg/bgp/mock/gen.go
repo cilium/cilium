@@ -30,11 +30,11 @@ import (
 // to simulate it being the node the Cilium agent is running on.
 //
 // See definition for details.
-func GenTestNodeAndAdvertisements() (v1.Node, []*metallbbgp.Advertisement) {
+func GenTestNodeAndAdvertisements() (slim_corev1.Node, []*metallbbgp.Advertisement) {
 	const (
 		CIDR = "1.1.0.0/16"
 	)
-	meta := metav1.ObjectMeta{
+	meta := slim_metav1.ObjectMeta{
 		Name:      nodetypes.GetName(),
 		Namespace: "TestNamespace",
 		Labels: map[string]string{
@@ -42,11 +42,11 @@ func GenTestNodeAndAdvertisements() (v1.Node, []*metallbbgp.Advertisement) {
 		},
 		ResourceVersion: "1",
 	}
-	spec := v1.NodeSpec{
+	spec := slim_corev1.NodeSpec{
 		PodCIDR:  CIDR,
 		PodCIDRs: []string{CIDR},
 	}
-	node := v1.Node{
+	node := slim_corev1.Node{
 		ObjectMeta: meta,
 		Spec:       spec,
 	}
@@ -177,7 +177,7 @@ func GenTestServicePairs() (slim_corev1.Service, v1.Service, metallbspr.Service,
 //
 // Since the conversion are hardcoded, the returned types are useful for testing
 // any code which transforms one data structure to the other.
-func GenTestEndpointsPairs() (k8s.Endpoints, slim_corev1.Endpoints, metallbspr.Endpoints) {
+func GenTestEndpointsPairs() (k8s.Endpoints, metallbspr.Endpoints) {
 	const (
 		IP       = "1.1.1.1"
 		NodeName = "TestNode"
@@ -193,16 +193,13 @@ func GenTestEndpointsPairs() (k8s.Endpoints, slim_corev1.Endpoints, metallbspr.E
 	backends := map[cmtypes.AddrCluster]*k8s.Backend{
 		cmtypes.MustParseAddrCluster(IP): &backend,
 	}
-	endpoints := k8s.Endpoints{Backends: backends}
-	slimEndpoints := slim_corev1.Endpoints{
+	endpoints := k8s.Endpoints{
 		ObjectMeta: meta,
-		Subsets: []slim_corev1.EndpointSubset{
-			{
-				Addresses: []slim_corev1.EndpointAddress{
-					{IP: IP, NodeName: &(backend.NodeName)},
-				},
-			},
+		EndpointSliceID: k8s.EndpointSliceID{
+			ServiceID:         k8s.ServiceID{Name: meta.Name, Namespace: meta.Namespace},
+			EndpointSliceName: meta.Name,
 		},
+		Backends: backends,
 	}
 	metallbEndpoints := metallbspr.Endpoints{
 		Ready: []metallbspr.Endpoint{
@@ -212,5 +209,5 @@ func GenTestEndpointsPairs() (k8s.Endpoints, slim_corev1.Endpoints, metallbspr.E
 			},
 		},
 	}
-	return endpoints, slimEndpoints, metallbEndpoints
+	return endpoints, metallbEndpoints
 }

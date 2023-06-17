@@ -4,7 +4,7 @@
 package eni
 
 import (
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/aws/eni/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"

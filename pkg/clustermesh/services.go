@@ -4,13 +4,12 @@
 package clustermesh
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
@@ -33,31 +32,18 @@ func newGlobalService() *globalService {
 }
 
 type globalServiceCache struct {
-	clusterName string
-	nodeName    string
-
 	mutex  lock.RWMutex
 	byName map[string]*globalService
 
 	// metricTotalGlobalServices is the gauge metric for total of global services
-	metricTotalGlobalServices *prometheus.GaugeVec
+	metricTotalGlobalServices metric.Gauge
 }
 
-func newGlobalServiceCache(clusterName, nodeName string) *globalServiceCache {
-	gsc := &globalServiceCache{
-		clusterName: clusterName,
-		nodeName:    nodeName,
-		byName:      map[string]*globalService{},
-		metricTotalGlobalServices: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: metrics.Namespace,
-			Subsystem: subsystem,
-			Name:      "global_services",
-			Help:      "The total number of global services in the cluster mesh",
-		}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName}),
+func newGlobalServiceCache(metricTotalGlobalServices metric.Gauge) *globalServiceCache {
+	return &globalServiceCache{
+		byName:                    map[string]*globalService{},
+		metricTotalGlobalServices: metricTotalGlobalServices,
 	}
-
-	_ = metrics.Register(gsc.metricTotalGlobalServices)
-	return gsc
 }
 
 // has returns whether a given service is present in the cache.
@@ -87,7 +73,7 @@ func (c *globalServiceCache) onUpdate(svc *serviceStore.ClusterService) {
 		globalSvc = newGlobalService()
 		c.byName[svc.NamespaceServiceName()] = globalSvc
 		scopedLog.Debugf("Created global service %s", svc.NamespaceServiceName())
-		c.metricTotalGlobalServices.WithLabelValues(c.clusterName, c.nodeName).Set(float64(len(c.byName)))
+		c.metricTotalGlobalServices.Set(float64(len(c.byName)))
 	}
 
 	scopedLog.Debugf("Updated service definition of remote cluster %#v", svc)
@@ -116,7 +102,7 @@ func (c *globalServiceCache) delete(globalService *globalService, clusterName, s
 	if len(globalService.clusterServices) == 0 {
 		scopedLog.Debugf("Deleted global service %s", serviceName)
 		delete(c.byName, serviceName)
-		c.metricTotalGlobalServices.WithLabelValues(c.clusterName, c.nodeName).Set(float64(len(c.byName)))
+		c.metricTotalGlobalServices.Set(float64(len(c.byName)))
 	}
 
 	return true

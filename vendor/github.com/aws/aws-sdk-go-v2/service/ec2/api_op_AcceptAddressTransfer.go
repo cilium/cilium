@@ -12,8 +12,7 @@ import (
 )
 
 // Accepts an Elastic IP address transfer. For more information, see Accept a
-// transferred Elastic IP address
-// (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-eips.html#using-instance-addressing-eips-transfer-accept)
+// transferred Elastic IP address (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-eips.html#using-instance-addressing-eips-transfer-accept)
 // in the Amazon Virtual Private Cloud User Guide.
 func (c *Client) AcceptAddressTransfer(ctx context.Context, params *AcceptAddressTransferInput, optFns ...func(*Options)) (*AcceptAddressTransferOutput, error) {
 	if params == nil {
@@ -39,13 +38,13 @@ type AcceptAddressTransferInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
-	// tag: - The key/value combination of a tag assigned to the resource. Use the tag
+	// tag : - The key/value combination of a tag assigned to the resource. Use the tag
 	// key in the filter name and the tag value as the filter value. For example, to
-	// find all resources that have a tag with the key Owner and the value TeamA,
+	// find all resources that have a tag with the key Owner and the value TeamA ,
 	// specify tag:Owner for the filter name and TeamA for the filter value.
 	TagSpecifications []types.TagSpecification
 
@@ -112,6 +111,9 @@ func (c *Client) addOperationAcceptAddressTransferMiddlewares(stack *middleware.
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAcceptAddressTransfer(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -45,7 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/api/kafka"
-	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -142,7 +142,7 @@ type XDSServer struct {
 
 	// networkPolicyEndpoints maps endpoint IP to the info on the local endpoint.
 	// mutex must be held when accessing this.
-	networkPolicyEndpoints map[string]logger.EndpointUpdater
+	networkPolicyEndpoints map[string]endpoint.EndpointUpdater
 
 	// stopServer stops the xDS gRPC server.
 	stopServer context.CancelFunc
@@ -157,19 +157,19 @@ func toAny(pb proto.Message) *anypb.Any {
 }
 
 // StartXDSServer configures and starts the xDS GRPC server.
-func StartXDSServer(ipcache IPCacheEventSource, envoySocketDir string) *XDSServer {
+func StartXDSServer(ipcache IPCacheEventSource, envoySocketDir string) (*XDSServer, error) {
 	xdsSocketPath := getXDSSocketPath(envoySocketDir)
 
 	os.Remove(xdsSocketPath)
 	socketListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: xdsSocketPath, Net: "unix"})
 	if err != nil {
-		log.WithError(err).Fatalf("Envoy: Failed to open xDS listen socket at %s", xdsSocketPath)
+		return nil, fmt.Errorf("failed to open xDS listen socket at %s: %w", xdsSocketPath, err)
 	}
 
 	// Make the socket accessible by owner and group only. Group access is needed for Istio
 	// sidecar proxies.
 	if err = os.Chmod(xdsSocketPath, 0660); err != nil {
-		log.WithError(err).Fatalf("Envoy: Failed to change mode of xDS listen socket at %s", xdsSocketPath)
+		return nil, fmt.Errorf("failed to change mode of xDS listen socket at %s: %w", xdsSocketPath, err)
 	}
 	// Change the group to ProxyGID allowing access from any process from that group.
 	if err = os.Chown(xdsSocketPath, -1, option.Config.ProxyGID); err != nil {
@@ -245,9 +245,9 @@ func StartXDSServer(ipcache IPCacheEventSource, envoySocketDir string) *XDSServe
 		secretMutator:          sdsMutator,
 		networkPolicyCache:     npdsCache,
 		NetworkPolicyMutator:   npdsMutator,
-		networkPolicyEndpoints: make(map[string]logger.EndpointUpdater),
+		networkPolicyEndpoints: make(map[string]endpoint.EndpointUpdater),
 		stopServer:             stopServer,
-	}
+	}, nil
 }
 
 func getCiliumHttpFilter() *envoy_config_http.HttpFilter {
@@ -270,7 +270,9 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 	retryTimeout := int64(option.Config.HTTPRetryTimeout) //seconds
 
 	hcmConfig := &envoy_config_http.HttpConnectionManager{
-		StatPrefix: "proxy",
+		StatPrefix:       "proxy",
+		UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
+		SkipXffAppend:    true,
 		HttpFilters: []*envoy_config_http.HttpFilter{
 			getCiliumHttpFilter(),
 			{
@@ -525,7 +527,9 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 
 	s.addListener(metricsListenerName, func() *envoy_config_listener.Listener {
 		hcmConfig := &envoy_config_http.HttpConnectionManager{
-			StatPrefix: metricsListenerName,
+			StatPrefix:       metricsListenerName,
+			UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
+			SkipXffAppend:    true,
 			HttpFilters: []*envoy_config_http.HttpFilter{{
 				Name: "envoy.filters.http.router",
 				ConfigType: &envoy_config_http.HttpFilter_TypedConfig{
@@ -899,7 +903,7 @@ func (s *XDSServer) removeListener(name string, wg *completion.WaitGroup, isProx
 	}
 }
 
-func (s *XDSServer) stop() {
+func (s *XDSServer) Stop() {
 	s.stopServer()
 	os.Remove(s.socketPath)
 }
@@ -1388,7 +1392,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 	}
 }
 
-func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, vis policy.DirectionalVisibilityPolicy, dir string) []*cilium.PortNetworkPolicy {
+func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, vis policy.DirectionalVisibilityPolicy, dir string) []*cilium.PortNetworkPolicy {
 	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
 		PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis))
@@ -1522,7 +1526,7 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
-func getNetworkPolicy(ep logger.EndpointUpdater, vis *policy.VisibilityPolicy, ips []string, l4Policy *policy.L4Policy,
+func getNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, ips []string, l4Policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
 		EndpointIps:      ips,
@@ -1544,7 +1548,7 @@ func getNetworkPolicy(ep logger.EndpointUpdater, vis *policy.VisibilityPolicy, i
 }
 
 // return the Envoy proxy node IDs that need to ACK the policy.
-func getNodeIDs(ep logger.EndpointUpdater, policy *policy.L4Policy) []string {
+func getNodeIDs(ep endpoint.EndpointUpdater, policy *policy.L4Policy) []string {
 	nodeIDs := make([]string, 0, 1)
 	if ep.HasSidecarProxy() {
 		// Istio sidecars have the Cilium bpf metadata filter
@@ -1576,7 +1580,7 @@ func getNodeIDs(ep logger.EndpointUpdater, policy *policy.L4Policy) []string {
 // to L7 proxies.
 // When the proxy acknowledges the network policy update, it will result in
 // a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
-func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy,
+func (s *XDSServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -1632,7 +1636,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, vis *policy.V
 	epID := ep.GetID()
 	resourceName := strconv.FormatUint(epID, 10)
 	revertFunc := s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
-	revertUpdatedNetworkPolicyEndpoints := make(map[string]logger.EndpointUpdater, len(ips))
+	revertUpdatedNetworkPolicyEndpoints := make(map[string]endpoint.EndpointUpdater, len(ips))
 	for _, ip := range ips {
 		revertUpdatedNetworkPolicyEndpoints[ip] = s.networkPolicyEndpoints[ip]
 		s.networkPolicyEndpoints[ip] = ep
@@ -1665,7 +1669,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, vis *policy.V
 // RemoveNetworkPolicy removes network policies relevant to the specified
 // endpoint from the set published to L7 proxies, and stops listening for
 // acks for policies on this endpoint.
-func (s *XDSServer) RemoveNetworkPolicy(ep logger.EndpointInfoSource) {
+func (s *XDSServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -1713,7 +1717,7 @@ func (s *XDSServer) GetNetworkPolicies(resourceNames []string) (map[string]*cili
 
 // getLocalEndpoint returns the endpoint info for the local endpoint on which
 // the network policy of the given name if enforced, or nil if not found.
-func (s *XDSServer) getLocalEndpoint(endpointIP string) logger.EndpointUpdater {
+func (s *XDSServer) getLocalEndpoint(endpointIP string) endpoint.EndpointUpdater {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 

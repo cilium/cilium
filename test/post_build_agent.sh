@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo "output of following commands are ran on the Jenkins agent itself"
 echo "output of: \"ps -ef | grep -i vbox\" "

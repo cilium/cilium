@@ -48,8 +48,6 @@ static int BPF_STUB(xdp_set_tunnel_key, struct xdp_md *xdp,
 		    __u32 flags);
 static int BPF_STUB(xdp_get_tunnel_opt, struct xdp_md *xdp, void *opt,
 		    __u32 size);
-static int BPF_STUB(xdp_set_tunnel_opt, struct xdp_md *xdp, void *opt,
-		    __u32 size);
 
 /* Events for user space */
 static int BPF_FUNC_REMAP(xdp_event_output, struct xdp_md *xdp, void *map,

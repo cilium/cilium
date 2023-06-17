@@ -85,6 +85,8 @@ paths:
           description: Bad configuration parameters
           schema:
             "$ref": "#/definitions/Error"
+        '403':
+          description: Forbidden
         '500':
           description: Recompilation failed
           x-go-name: Failure
@@ -130,6 +132,8 @@ paths:
           x-go-name: Invalid
           schema:
             "$ref": "#/definitions/Error"
+        '403':
+          description: Forbidden
         '409':
           description: Endpoint already exists
           x-go-name: Exists
@@ -158,6 +162,8 @@ paths:
           x-go-name: Invalid
           schema:
             "$ref": "#/definitions/Error"
+        '403':
+          description: Forbidden
         '404':
           description: Endpoint does not exist
         '500':
@@ -198,6 +204,8 @@ paths:
           x-go-name: Invalid
           schema:
             "$ref": "#/definitions/Error"
+        '403':
+          description: Forbidden
         '404':
           description: Endpoint not found
         '429':
@@ -260,6 +268,8 @@ paths:
         '400':
           description: Invalid configuration request
           x-go-name: Invalid
+        '403':
+          description: Forbidden
         '404':
           description: Endpoint not found
         '500':
@@ -302,6 +312,8 @@ paths:
       responses:
         '200':
           description: Success
+        '403':
+          description: Forbidden
         '404':
           description: Endpoint not found
         '500':
@@ -433,6 +445,8 @@ paths:
           description: Success
           schema:
             "$ref": "#/definitions/IPAMResponse"
+        '403':
+          description: Forbidden
         '502':
           description: Allocation failure
           x-go-name: Failure
@@ -453,6 +467,8 @@ paths:
         '400':
           description: Invalid IP address
           x-go-name: Invalid
+        '403':
+          description: Forbidden
         '409':
           description: IP already allocated
           x-go-name: Exists
@@ -469,7 +485,7 @@ paths:
       tags:
       - ipam
       parameters:
-      - "$ref": "#/parameters/ipam-release-arg"
+      - "$ref": "#/parameters/ipam-ip"
       - "$ref": "#/parameters/ipam-pool"
       responses:
         '200':
@@ -477,6 +493,8 @@ paths:
         '400':
           description: Invalid IP address
           x-go-name: Invalid
+        '403':
+          description: Forbidden
         '404':
           description: IP address not found
         '500':
@@ -522,6 +540,8 @@ paths:
           x-go-name: InvalidPolicy
           schema:
             "$ref": "#/definitions/Error"
+        '403':
+          description: Forbidden
         '460':
           description: Invalid path
           x-go-name: InvalidPath
@@ -552,6 +572,8 @@ paths:
           x-go-name: Invalid
           schema:
             "$ref": "#/definitions/Error"
+        '403':
+          description: Forbidden
         '404':
           description: Policy not found
         '500':
@@ -619,6 +641,8 @@ paths:
           description: Updated
         '201':
           description: Created
+        '403':
+          description: Forbidden
         '460':
           description: Invalid frontend in service configuration
           x-go-name: InvalidFrontend
@@ -648,6 +672,8 @@ paths:
       responses:
         '200':
           description: Success
+        '403':
+          description: Forbidden
         '404':
           description: Service not found
         '500':
@@ -705,6 +731,8 @@ paths:
           description: Updated
         '201':
           description: Created
+        '403':
+          description: Forbidden
         '500':
           description: Error while creating recorder
           x-go-name: Failure
@@ -719,6 +747,8 @@ paths:
       responses:
         '200':
           description: Success
+        '403':
+          description: Forbidden
         '404':
           description: Recorder not found
         '500':
@@ -752,6 +782,8 @@ paths:
           description: Updated
           schema:
             "$ref": "#/definitions/Prefilter"
+        '403':
+          description: Forbidden
         '461':
           description: Invalid CIDR prefix
           x-go-name: InvalidCIDR
@@ -773,6 +805,8 @@ paths:
           description: Deleted
           schema:
             "$ref": "#/definitions/Prefilter"
+        '403':
+          description: Forbidden
         '461':
           description: Invalid CIDR prefix
           x-go-name: InvalidCIDR
@@ -907,6 +941,8 @@ paths:
       responses:
         '200':
           description: Success
+        '403':
+          description: Forbidden
         '400':
           description: Invalid request (error parsing parameters)
           schema:
@@ -1112,12 +1148,6 @@ parameters:
   ipam-ip:
     name: ip
     description: IP address
-    in: path
-    required: true
-    type: string
-  ipam-release-arg:
-    name: ip
-    description: IP address or owner name
     in: path
     required: true
     type: string
@@ -1686,11 +1716,17 @@ definitions:
       ipv4-expiration-uuid:
         description: UUID of IPv4 expiration timer
         type: string
+      ipv4-pool-name:
+        description: IPAM pool from which this IPv4 address was allocated
+        type: string
       ipv6:
         description: IPv6 address
         type: string
       ipv6-expiration-uuid:
         description: UUID of IPv6 expiration timer
+        type: string
+      ipv6-pool-name:
+        description: IPAM pool from which this IPv6 address was allocated
         type: string
   Address:
     description: IP address
@@ -1869,6 +1905,9 @@ definitions:
       ipv6-big-tcp:
         description: Status of IPv6 BIG TCP
         "$ref": "#/definitions/IPV6BigTCP"
+      ipv4-big-tcp:
+        description: Status of IPv4 BIG TCP
+        "$ref": "#/definitions/IPV4BigTCP"
       bandwidth-manager:
         description: Status of bandwidth manager
         "$ref": "#/definitions/BandwidthManager"
@@ -2409,10 +2448,16 @@ definitions:
         additionalProperties:
           type: object
       GSOMaxSize:
-        description: Maximum GSO size on workload facing devices
+        description: Maximum IPv6 GSO size on workload facing devices
         type: integer
       GROMaxSize:
-        description: Maximum GRO size on workload facing devices
+        description: Maximum IPv6 GRO size on workload facing devices
+        type: integer
+      GSOIPv4MaxSize:
+        description: Maximum IPv4 GSO size on workload facing devices
+        type: integer
+      GROIPv4MaxSize:
+        description: Maximum IPv4 GRO size on workload facing devices
         type: integer
   DatapathMode:
     description: Datapath mode
@@ -3001,6 +3046,16 @@ definitions:
       enabled:
         description: Is IPv6 BIG TCP enabled
         type: boolean
+  IPV4BigTCP:
+    description: |-
+      Status of IPv4 BIG TCP
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      enabled:
+        description: Is IPv4 BIG TCP enabled
+        type: boolean
   BandwidthManager:
     description: |-
       Status of bandwidth manager
@@ -3493,6 +3548,16 @@ definitions:
       peer-address:
         description: IP Address of peer
         type: string
+      ebgp-multihop-ttl:
+        description: |
+          Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.
+          1 implies that eBGP multi-hop feature is disabled (only a single hop is allowed).
+        type: integer
+      peer-port:
+        description: TCP port number of peer
+        type: integer
+        minimum: 1
+        maximum: 65535
       session-state:
         description: |
           BGP peer operational state as described here
@@ -3501,11 +3566,37 @@ definitions:
       uptime-nanoseconds:
         description: BGP peer connection uptime in nano seconds.
         type: integer
+      graceful-restart:
+        description: Graceful restart capability
+        "$ref": "#/definitions/BgpGracefulRestart"
       families:
         description: BGP peer address family state
         type: array
         items:
           "$ref": "#/definitions/BgpPeerFamilies"
+      connect-retry-time-seconds:
+        description: Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8) in seconds
+        type: integer
+      configured-hold-time-seconds:
+        description: |
+          Configured initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.
+          The configured value will be used for negotiation with the peer during the BGP session establishment.
+        type: integer
+      applied-hold-time-seconds:
+        description: |
+          Applied initial value for the BGP HoldTimer (RFC 4271, Section 4.2) in seconds.
+          The applied value holds the value that is in effect on the current BGP session.
+        type: integer
+      configured-keep-alive-time-seconds:
+        description: |
+          Configured initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.
+          The applied value may be different than the configured value, as it depends on the negotiated hold time interval.
+        type: integer
+      applied-keep-alive-time-seconds:
+        description: |
+          Applied initial value for the BGP KeepaliveTimer (RFC 4271, Section 8) in seconds.
+          The applied value holds the value that is in effect on the current BGP session.
+        type: integer
   BgpPeerFamilies:
     description: |-
       BGP AFI SAFI state of the peer
@@ -3526,4 +3617,21 @@ definitions:
         type: integer
       advertised:
         description: Number of routes advertised of this address family to the peer
+        type: integer
+  BgpGracefulRestart:
+    description: |-
+      BGP graceful restart parameters negotiated with the peer.
+
+      +k8s:deepcopy-gen=true
+    properties:
+      enabled:
+        description: |-
+          When set, graceful restart capability is negotiated for all AFI/SAFIs of 
+          this peer.
+        type: boolean
+      restart-time-seconds:
+        description: |-
+          This is the time advertised to peer for the BGP session to be re-established 
+          after a restart. After this period, peer will remove stale routes. 
+          (RFC 4724 section 4.2)
         type: integer

@@ -12,9 +12,8 @@ import (
 )
 
 // Deletes the specified event window. For more information, see Define event
-// windows for scheduled events
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/event-windows.html) in the
-// Amazon EC2 User Guide.
+// windows for scheduled events (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/event-windows.html)
+// in the Amazon EC2 User Guide.
 func (c *Client) DeleteInstanceEventWindow(ctx context.Context, params *DeleteInstanceEventWindowInput, optFns ...func(*Options)) (*DeleteInstanceEventWindowOutput, error) {
 	if params == nil {
 		params = &DeleteInstanceEventWindowInput{}
@@ -39,12 +38,12 @@ type DeleteInstanceEventWindowInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
-	// Specify true to force delete the event window. Use the force delete parameter if
-	// the event window is currently associated with targets.
+	// Specify true to force delete the event window. Use the force delete parameter
+	// if the event window is currently associated with targets.
 	ForceDelete *bool
 
 	noSmithyDocumentSerde
@@ -110,6 +109,9 @@ func (c *Client) addOperationDeleteInstanceEventWindowMiddlewares(stack *middlew
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteInstanceEventWindow(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

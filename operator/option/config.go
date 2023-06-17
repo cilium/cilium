@@ -43,6 +43,9 @@ const (
 
 	// PprofPortOperator is the default value for pprof in the operator
 	PprofPortOperator = 6061
+
+	// DefaultProxyIdleTimeoutSeconds is the default value for the proxy idle timeout
+	DefaultProxyIdleTimeoutSeconds = 60
 )
 
 const (
@@ -117,8 +120,8 @@ const (
 	// IPAMInstanceTagFilter are optional tags used to filter instances for ENI discovery ; only used with AWS IPAM mode for now
 	IPAMInstanceTags = "instance-tags-filter"
 
-	// IPAMMultiPoolMap are IP pool definitions used for the multi-pool IPAM mode.
-	IPAMMultiPoolMap = "multi-pool-map"
+	// IPAMAutoCreateCiliumPodIPPools contains pre-defined IP pools to be auto-created on startup.
+	IPAMAutoCreateCiliumPodIPPools = "auto-create-cilium-pod-ip-pools"
 
 	// ClusterPoolIPv4CIDR is the cluster's IPv4 CIDR to allocate
 	// individual PodCIDR ranges from when using the ClusterPool ipam mode.
@@ -262,6 +265,9 @@ const (
 	// GatewayAPISecretsNamespace is the namespace having tls secrets used by GatewayAPI and CEC.
 	GatewayAPISecretsNamespace = "gateway-api-secrets-namespace"
 
+	// ProxyIdleTimeoutSeconds is the idle timeout for proxy connections to upstream clusters
+	ProxyIdleTimeoutSeconds = "proxy-idle-timeout-seconds"
+
 	// EnableGatewayAPI enables support of Gateway API
 	// This must be enabled along with enable-envoy-config in cilium agent.
 	EnableGatewayAPI = "enable-gateway-api"
@@ -295,6 +301,12 @@ const (
 	// IngressDefaultLoadbalancerMode is the default loadbalancer mode for Ingress.
 	// Applicable values: dedicated, shared
 	IngressDefaultLoadbalancerMode = "ingress-default-lb-mode"
+
+	// IngressDefaultSecretNamespace is the default secret namespace for Ingress.
+	IngressDefaultSecretNamespace = "ingress-default-secret-namespace"
+
+	// IngressDefaultSecretName is the default secret name for Ingress.
+	IngressDefaultSecretName = "ingress-default-secret-name"
 
 	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
 	// default values: k8s-app=kube-dns
@@ -402,8 +414,8 @@ type OperatorConfig struct {
 	// per node.
 	NodeCIDRMaskSizeIPv6 int
 
-	// IPAMMultiPoolMap are IP pool definitions used for the multi-pool IPAM mode.
-	IPAMMultiPoolMap map[string]string
+	// IPAMAutoCreateCiliumPodIPPools contains pre-defined IP pools to be auto-created on startup.
+	IPAMAutoCreateCiliumPodIPPools map[string]string
 
 	// AWS options
 
@@ -518,6 +530,9 @@ type OperatorConfig struct {
 	// GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC for Gateway API.
 	GatewayAPISecretsNamespace string
 
+	// ProxyIdleTimeoutSeconds is the idle timeout for the proxy to upstream cluster
+	ProxyIdleTimeoutSeconds int
+
 	// CiliumK8sNamespace is the namespace where Cilium pods are running.
 	CiliumK8sNamespace string
 
@@ -547,6 +562,12 @@ type OperatorConfig struct {
 	// IngressDefaultLoadbalancerMode is the default loadbalancer mode for Ingress.
 	// Applicable values: dedicated, shared
 	IngressDefaultLoadbalancerMode string
+
+	// IngressDefaultLSecretNamespace is the default secret namespace for Ingress.
+	IngressDefaultSecretNamespace string
+
+	// IngressDefaultLSecretName is the default secret name for Ingress.
+	IngressDefaultSecretName string
 
 	// PodRestartSelector specify the labels contained in the pod that needs to be restarted before the node can be de-stained
 	PodRestartSelector string
@@ -583,6 +604,10 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.EnforceIngressHTTPS = vp.GetBool(EnforceIngressHttps)
 	c.IngressSecretsNamespace = vp.GetString(IngressSecretsNamespace)
 	c.GatewayAPISecretsNamespace = vp.GetString(GatewayAPISecretsNamespace)
+	c.ProxyIdleTimeoutSeconds = vp.GetInt(ProxyIdleTimeoutSeconds)
+	if c.ProxyIdleTimeoutSeconds == 0 {
+		c.ProxyIdleTimeoutSeconds = DefaultProxyIdleTimeoutSeconds
+	}
 	c.EnableIngressSecretsSync = vp.GetBool(EnableIngressSecretsSync)
 	c.EnableGatewayAPISecretsSync = vp.GetBool(EnableGatewayAPISecretsSync)
 	c.CiliumPodLabels = vp.GetString(CiliumPodLabels)
@@ -592,6 +617,8 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.IngressLBAnnotationPrefixes = vp.GetStringSlice(IngressLBAnnotationPrefixes)
 	c.IngressSharedLBServiceName = vp.GetString(IngressSharedLBServiceName)
 	c.IngressDefaultLoadbalancerMode = vp.GetString(IngressDefaultLoadbalancerMode)
+	c.IngressDefaultSecretNamespace = vp.GetString(IngressDefaultSecretNamespace)
+	c.IngressDefaultSecretName = vp.GetString(IngressDefaultSecretName)
 	c.PodRestartSelector = vp.GetString(PodRestartSelector)
 
 	c.CiliumK8sNamespace = vp.GetString(CiliumK8sNamespace)
@@ -678,20 +705,20 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 		c.ENIGarbageCollectionTags = m
 	}
 
-	if m, err := command.GetStringMapStringE(vp, IPAMMultiPoolMap); err != nil {
-		log.Fatalf("unable to parse %s: %s", IPAMMultiPoolMap, err)
+	if m, err := command.GetStringMapStringE(vp, IPAMAutoCreateCiliumPodIPPools); err != nil {
+		log.Fatalf("unable to parse %s: %s", IPAMAutoCreateCiliumPodIPPools, err)
 	} else {
-		c.IPAMMultiPoolMap = m
+		c.IPAMAutoCreateCiliumPodIPPools = m
 	}
 }
 
 // Config represents the operator configuration.
 var Config = &OperatorConfig{
-	IPAMSubnetsIDs:           make([]string, 0),
-	IPAMSubnetsTags:          make(map[string]string),
-	IPAMInstanceTags:         make(map[string]string),
-	IPAMMultiPoolMap:         make(map[string]string),
-	AWSInstanceLimitMapping:  make(map[string]string),
-	ENITags:                  make(map[string]string),
-	ENIGarbageCollectionTags: make(map[string]string),
+	IPAMSubnetsIDs:                 make([]string, 0),
+	IPAMSubnetsTags:                make(map[string]string),
+	IPAMInstanceTags:               make(map[string]string),
+	IPAMAutoCreateCiliumPodIPPools: make(map[string]string),
+	AWSInstanceLimitMapping:        make(map[string]string),
+	ENITags:                        make(map[string]string),
+	ENIGarbageCollectionTags:       make(map[string]string),
 }

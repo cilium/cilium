@@ -7,7 +7,7 @@ import (
 	"context"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -36,12 +36,12 @@ type IdentityCacheTestSuite struct{}
 var _ = Suite(&IdentityCacheTestSuite{})
 
 func (s *IdentityCacheTestSuite) SetUpSuite(c *C) {
-	testutils.IntegrationCheck(c)
+	testutils.IntegrationTest(c)
 }
 
 func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
 	mgr := NewCachingIdentityAllocator(newDummyOwner())
-	<-mgr.InitIdentityAllocator(nil, nil)
+	<-mgr.InitIdentityAllocator(nil)
 
 	hostID := identity.GetReservedID("host")
 	c.Assert(mgr.LookupIdentityByID(context.TODO(), hostID), Not(IsNil))

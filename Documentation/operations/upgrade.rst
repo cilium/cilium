@@ -327,7 +327,21 @@ Annotations:
 * Egress Gateway policies now drop matching traffic when no
   gateway nodes can be found. Previously, traffic would be allowed without
   being rerouted towards an Egress Gateway.
-
+* If Gateway API feature is enabled, please upgrade related CRDs to v0.6.x. This is
+  mainly for ReferenceGrant resource version change (i.e. from v1alpha2 to v1beta1).
+* The attribute ``auth.type`` is renamed to ``authentication.mode`` in both Ingress and
+  Egress rules in CiliumNetworkPolicy CRD. The old attribute name is no longer supported,
+  please update your CiliumNetworkPolicy CRD accordingly. Also applicable values for this
+  attribute are changed to ``disabled``, ``required`` and ``test-always-fail``.
+* Cilium agents now automatically clean up possible stale information about meshed
+  clusters after reconnecting to the corresponding remote kvstores (see :gh-issue:`24740`
+  for the rationale behind this change). This might lead to brief connectivity disruptions
+  towards remote pods and global services when v1.14 Cilium agents connect to older
+  versions of the *clustermesh-apiserver*, and the *clustermesh-apiserver* is restarted.
+  Please upgrade the *clustermesh-apiserver* in all clusters before the Cilium agents
+  to prevent the possibility of connectivity disruptions. Note: this issue does not
+  affect setups using a persistent etcd cluster instead of the ephemeral one bundled
+  with the *clustermesh-apiserver*.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -350,6 +364,18 @@ Deprecated Options
   native-routing mode, set ``routing-mode=native`` (previously
   ``tunnel=disabled``). To configure the tunneling protocol, set
   ``tunnel-protocol=geneve`` (previously ``tunnel=geneve``).
+* The ``disable-cnp-status-updates``, ``cnp-node-status-gc-interval duration`` and ``enable-k8s-event-handover``
+  options are deprecated and will be removed in v1.15. There is no replacement for these
+  flags as enabling them causes scalability and performance issues even in small clusters.
+* The ``cluster-pool-v2beta`` IPAM mode is deprecated and will be removed in v1.15.
+  The functionality to dynamically allocate Pod CIDRs is now provided  by the
+  more flexible ``multi-pool`` IPAM mode.
+
+Deprecated Commands
+~~~~~~~~~~~~~~~~~~~
+
+* The ``cilium endpoint regenerate`` command is deprecated and will be removed
+  in v1.15.
 
 Added Metrics
 ~~~~~~~~~~~~~
@@ -360,6 +386,14 @@ Added Metrics
 * ``cilium_operator_ipam_available_ips``
 * ``cilium_operator_ipam_used_ips``
 * ``cilium_operator_ipam_needed_ips``
+* ``kvstore_sync_queue_size``
+* ``kvstore_initial_sync_completed``
+
+You can now additionally configure the *clustermesh-apiserver* to expose a set
+of metrics about the synchronization process, kvstore operations, and the sidecar
+etcd instance. Please refer to :ref:`clustermesh_apiserver_metrics` and
+:ref:`the clustermesh-apiserver metrics reference<clustermesh_apiserver_metrics_reference>`
+for more information.
 
 Deprecated Metrics
 ~~~~~~~~~~~~~~~~~~
@@ -387,6 +421,11 @@ Helm Options
 * Following the deprecation of the ``tunnel`` agent flag, ``tunnel`` is being
   deprecated in favor of ``routingMode`` and ``tunnelProtocol`` and will be
   removed in v1.15.
+* Following the deprecation of the ``disable-cnp-status-updates``,
+  ``cnp-node-status-gc-interval duration`` and ``enable-k8s-event-handover`` options,
+  corresponding helm values ``enableCnpStatusUpdates``, ``enableK8sEventHandover``
+  are being deprecated and will be removed in 1.15. There is no replacement for these
+  values as enabling them causes scalability and performance issues even in small clusters.
 * Values ``encryption.keyFile``, ``encryption.mountPath``,
   ``encryption.secretName`` and ``encryption.interface`` are deprecated in
   favor of their ``encryption.ipsec.*`` counterparts and will be removed in
@@ -412,6 +451,9 @@ Helm Options
   will be removed in v1.15.
 * Values ``proxy.prometheus.enabled`` and ``proxy.prometheus.port`` are deprecated in favor of
   their ``envoy.prometheus.*`` counterparts.
+* Value ``disableEndpointCRD`` is now a boolean type instead of a string. Instead of using "true"
+  or "false" as values, you should remove the quotes. For example in helm command, instead of
+  ``--set-string disableEndpointCRD="true"``, it should be replaced by ``--set disableEndpointCRD=true``.
 
 .. _earlier_upgrade_notes:
 

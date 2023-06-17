@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [ "$#" != 1 ]; then
     >&2 printf "Illegal number of parameters\n"

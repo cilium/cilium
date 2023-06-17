@@ -6,7 +6,6 @@ package tuple
 import (
 	"fmt"
 	"strings"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -17,8 +16,6 @@ import (
 // TupleKey4 represents the key for IPv4 entries in the local BPF conntrack map.
 // Address field names are correct for return traffic, i.e., they are reversed
 // compared to the original direction traffic.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type TupleKey4 struct {
 	DestAddr   types.IPv4      `align:"daddr"`
 	SourceAddr types.IPv4      `align:"saddr"`
@@ -27,12 +24,6 @@ type TupleKey4 struct {
 	NextHeader u8proto.U8proto `align:"nexthdr"`
 	Flags      uint8           `align:"flags"`
 }
-
-// GetKeyPtr returns the unsafe.Pointer for k.
-func (k *TupleKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-// NewValue creates a new bpf.MapValue.
-func (k *TupleKey4) NewValue() bpf.MapValue { return &TupleValStub{} }
 
 // ToNetwork converts TupleKey4 ports to network byte order.
 func (k *TupleKey4) ToNetwork() TupleKey {
@@ -59,6 +50,8 @@ func (k *TupleKey4) GetFlags() uint8 {
 func (k *TupleKey4) String() string {
 	return fmt.Sprintf("%s:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
 }
+
+func (k *TupleKey4) New() bpf.MapKey { return &TupleKey4{} }
 
 // Dump writes the contents of key to sb and returns true if the value for next
 // header in the key is nonzero.
@@ -108,8 +101,6 @@ func (t *TupleKey4) SwapAddresses() {
 
 // TupleKey4Global represents the key for IPv4 entries in the global BPF
 // conntrack map.
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type TupleKey4Global struct {
 	TupleKey4
 }

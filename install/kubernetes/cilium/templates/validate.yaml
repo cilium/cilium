@@ -18,7 +18,9 @@
 {{/* validate service monitoring CRDs */}}
 {{- if or (and .Values.prometheus.enabled .Values.prometheus.serviceMonitor.enabled) (and .Values.operator.prometheus.enabled .Values.operator.prometheus.serviceMonitor.enabled) (and .Values.proxy.prometheus.enabled .Values.envoy.prometheus.enabled .Values.envoy.prometheus.serviceMonitor.enabled) (and .Values.proxy.prometheus.enabled .Values.hubble.relay.prometheus.enabled .Values.hubble.relay.prometheus.serviceMonitor.enabled) }}
   {{- if not (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
-      {{ fail "Service Monitor requires monitoring.coreos.com/v1 CRDs. Please refer to https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml" }}
+      {{- if not .Values.prometheus.serviceMonitor.trustCRDsExist }}
+          {{ fail "Service Monitor requires monitoring.coreos.com/v1 CRDs. Please refer to https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml or set .Values.prometheus.serviceMonitor.trustCRDsExist=true" }}
+      {{- end }}
   {{- end }}
 {{- end }}
 
@@ -47,9 +49,9 @@
 {{- end }}
 
 {{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
-  {{- if hasKey .Values "l7proxy" }}
-    {{- if not .Values.l7proxy }}
-      {{ fail "Ingress or Gateway API controller requires .Values.l7proxy to be set to 'true'" }}
+  {{- if hasKey .Values "l7Proxy" }}
+    {{- if not .Values.l7Proxy }}
+      {{ fail "Ingress or Gateway API controller requires .Values.l7Proxy to be set to 'true'" }}
     {{- end }}
   {{- end }}
 {{- end }}
@@ -64,8 +66,21 @@
   {{- end }}
 {{- end }}
 
-{{- if .Values.auth.mTLS.spire.install.enabled }}
-  {{- if not .Values.auth.mTLS.spire.enabled }}
-    {{ fail "SPIRE installation requires .Values.auth.mTLS.enabled=true and .Values.auth.mTLS.spire.enabled=true" }}
+{{- if .Values.authentication.mutual.spire.enabled }}
+  {{- if not .Values.authentication.enabled }}
+    {{ fail "SPIRE integration requires .Values.authentication.enabled=true and .Values.authentication.mutual.spire.enabled=true" }}
+  {{- end }}
+{{- end }}
+
+{{- if .Values.authentication.mutual.spire.install.enabled }}
+  {{- if not .Values.authentication.mutual.spire.enabled }}
+    {{ fail "SPIRE installation requires .Values.authentication.mutual.enabled=true and .Values.authentication.mutual.spire.enabled=true" }}
+  {{- end }}
+{{- end }}
+
+{{/* validate Cilium operator */}}
+{{- if eq .Values.enableCiliumEndpointSlice true }}
+  {{- if eq .Values.disableEndpointCRD true }}
+    {{ fail "if Cilium Endpoint Slice is enabled (.Values.enableCiliumEndpointSlice=true), it requires .Values.disableEndpointCRD=false" }}
   {{- end }}
 {{- end }}

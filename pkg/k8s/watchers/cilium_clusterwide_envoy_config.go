@@ -66,7 +66,7 @@ func (k *K8sWatcher) ciliumClusterwideEnvoyConfigInit(ctx context.Context, clien
 				k.K8sEventProcessed(metricCCEC, resources.MetricDelete, err == nil)
 			},
 		},
-		k8s.ConvertToCiliumClusterwideEnvoyConfig,
+		k8s.TransformToCiliumClusterwideEnvoyConfig,
 	)
 
 	k.blockWaitGroupToSyncResources(

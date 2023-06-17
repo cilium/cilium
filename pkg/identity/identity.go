@@ -4,6 +4,7 @@
 package identity
 
 import (
+	"encoding/json"
 	"net"
 	"strconv"
 
@@ -62,6 +63,23 @@ type IPIdentityPair struct {
 	K8sNamespace string          `json:"K8sNamespace,omitempty"`
 	K8sPodName   string          `json:"K8sPodName,omitempty"`
 	NamedPorts   []NamedPort     `json:"NamedPorts,omitempty"`
+}
+
+// GetKeyName returns the kvstore key to be used for the IPIdentityPair
+func (pair *IPIdentityPair) GetKeyName() string { return pair.PrefixString() }
+
+// Marshal returns the IPIdentityPair object as JSON byte slice
+func (pair *IPIdentityPair) Marshal() ([]byte, error) { return json.Marshal(pair) }
+
+// Unmarshal parses the JSON byte slice and updates the IPIdentityPair receiver
+func (pair *IPIdentityPair) Unmarshal(_ string, data []byte) error {
+	newPair := IPIdentityPair{}
+	if err := json.Unmarshal(data, &newPair); err != nil {
+		return err
+	}
+
+	*pair = newPair
+	return nil
 }
 
 // NamedPort is a mapping from a port name to a port number and protocol.

@@ -6,7 +6,7 @@ package manager
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 
 	"github.com/sirupsen/logrus"
 
@@ -24,12 +24,12 @@ type advertisementsReconcilerParams struct {
 	newc *v2alpha1api.CiliumBGPVirtualRouter
 
 	currentAdvertisements []types.Advertisement
-	toAdvertise           []*net.IPNet
+	toAdvertise           []netip.Prefix
 }
 
 // exportAdvertisementsReconciler reconciles the state of the BGP advertisements
-// with the provided toAdvertise list of IPNets and returns a list of the
-// advertisements currently being announced.
+// with the provided toAdvertise list and returns a list of the advertisements
+// currently being announced.
 func exportAdvertisementsReconciler(params *advertisementsReconcilerParams) ([]types.Advertisement, error) {
 	var (
 		l = log.WithFields(
@@ -55,7 +55,7 @@ func exportAdvertisementsReconciler(params *advertisementsReconcilerParams) ([]t
 		l.Debugf("%s advertisements disabled for virtual router with local ASN %v", params.name, params.newc.LocalASN)
 
 		for _, advrt := range params.currentAdvertisements {
-			l.Debugf("Withdrawing %s advertisement %v for local ASN %v", params.name, advrt.Net.String(), params.newc.LocalASN)
+			l.Debugf("Withdrawing %s advertisement %v for local ASN %v", params.name, advrt.Prefix.String(), params.newc.LocalASN)
 			if err := params.sc.Server.WithdrawPath(params.ctx, types.PathRequest{Advert: advrt}); err != nil {
 				return nil, err
 			}
@@ -74,18 +74,18 @@ func exportAdvertisementsReconciler(params *advertisementsReconcilerParams) ([]t
 	aset := map[string]*member{}
 
 	// populate the advrts that must be present, universe a
-	for _, ipNet := range params.toAdvertise {
+	for _, prefix := range params.toAdvertise {
 		var (
 			m  *member
 			ok bool
 		)
 
-		key := ipNet.String()
+		key := prefix.String()
 		if m, ok = aset[key]; !ok {
 			aset[key] = &member{
 				a: true,
 				advrt: &types.Advertisement{
-					Net: ipNet,
+					Prefix: prefix,
 				},
 			}
 			continue
@@ -99,12 +99,12 @@ func exportAdvertisementsReconciler(params *advertisementsReconcilerParams) ([]t
 			m  *member
 			ok bool
 		)
-		key := advrt.Net.String()
+		key := advrt.Prefix.String()
 		if m, ok = aset[key]; !ok {
 			aset[key] = &member{
 				b: true,
 				advrt: &types.Advertisement{
-					Net:           advrt.Net,
+					Prefix:        advrt.Prefix,
 					GoBGPPathUUID: advrt.GoBGPPathUUID,
 				},
 			}
@@ -138,17 +138,17 @@ func exportAdvertisementsReconciler(params *advertisementsReconcilerParams) ([]t
 
 	// create new adverts
 	for _, advrt := range toAdvertise {
-		l.Debugf("Advertising %s %v for policy with local ASN: %v", params.name, advrt.Net.String(), params.newc.LocalASN)
+		l.Debugf("Advertising %s %v for policy with local ASN: %v", params.name, advrt.Prefix.String(), params.newc.LocalASN)
 		advrtResp, err := params.sc.Server.AdvertisePath(params.ctx, types.PathRequest{Advert: advrt})
 		if err != nil {
-			return nil, fmt.Errorf("failed to advertise %s prefix %v: %w", params.name, advrt.Net, err)
+			return nil, fmt.Errorf("failed to advertise %s prefix %v: %w", params.name, advrt.Prefix, err)
 		}
 		newAdverts = append(newAdverts, advrtResp.Advert)
 	}
 
 	// withdraw uneeded adverts
 	for _, advrt := range toWithdraw {
-		l.Debugf("Withdrawing %s %v for policy with local ASN: %v", params.name, advrt.Net, params.newc.LocalASN)
+		l.Debugf("Withdrawing %s %v for policy with local ASN: %v", params.name, advrt.Prefix, params.newc.LocalASN)
 		if err := params.sc.Server.WithdrawPath(params.ctx, types.PathRequest{Advert: advrt}); err != nil {
 			return nil, err
 		}

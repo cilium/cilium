@@ -11,12 +11,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/metrics"
+	"github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/controller"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/identitybackend"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 func (igc *GC) startCRDModeGC(ctx context.Context) error {
@@ -75,14 +77,27 @@ func (igc *GC) gc(ctx context.Context) error {
 		igc.logger.WithError(err).Error("unable to get Cilium identities from local store")
 		return err
 	}
+
+	var idsInCESs map[string]bool
+	cesEnabled := option.Config.EnableCiliumEndpointSlice
+	if cesEnabled {
+		idsInCESs = ciliumendpointslice.UsedIdentitiesInCESs()
+	}
+
 	identities := identitiesStore.List()
 	totalEntries := len(identities)
 	deletedEntries := 0
 
 	timeNow := time.Now()
 	for _, identity := range identities {
-		// The identity is definitely alive if there's a CE using it.
-		if watchers.HasCEWithIdentity(identity.Name) {
+		foundInCES := false
+		if cesEnabled {
+			_, foundInCES = idsInCESs[identity.Name]
+		}
+		// The identity is definitely alive if there's a CE or CES using it.
+		alive := foundInCES || watchers.HasCEWithIdentity(identity.Name)
+
+		if alive {
 			igc.heartbeatStore.markAlive(identity.Name, timeNow)
 			continue
 		}
@@ -155,6 +170,11 @@ func (igc *GC) gc(ctx context.Context) error {
 func (igc *GC) deleteIdentity(ctx context.Context, identity *v2.CiliumIdentity) error {
 	// Wait until we can delete an identity
 	if err := igc.rateLimiter.Wait(ctx); err != nil {
+		return err
+	}
+
+	// Delete the identity from the auth identity store
+	if err := igc.authIdentityClient.Delete(ctx, identity.Name); err != nil {
 		return err
 	}
 

@@ -11,9 +11,9 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Modifies a launch template. You can specify which version of the launch template
-// to set as the default version. When launching an instance, the default version
-// applies when a launch template version is not specified.
+// Modifies a launch template. You can specify which version of the launch
+// template to set as the default version. When launching an instance, the default
+// version applies when a launch template version is not specified.
 func (c *Client) ModifyLaunchTemplate(ctx context.Context, params *ModifyLaunchTemplateInput, optFns ...func(*Options)) (*ModifyLaunchTemplateOutput, error) {
 	if params == nil {
 		params = &ModifyLaunchTemplateInput{}
@@ -32,9 +32,8 @@ func (c *Client) ModifyLaunchTemplate(ctx context.Context, params *ModifyLaunchT
 type ModifyLaunchTemplateInput struct {
 
 	// Unique, case-sensitive identifier you provide to ensure the idempotency of the
-	// request. For more information, see Ensuring idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
-	// Constraint: Maximum 128 ASCII characters.
+	// request. For more information, see Ensuring idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// . Constraint: Maximum 128 ASCII characters.
 	ClientToken *string
 
 	// The version number of the launch template to set as the default version.
@@ -42,16 +41,16 @@ type ModifyLaunchTemplateInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The ID of the launch template. You must specify either the LaunchTemplateId or
-	// the LaunchTemplateName, but not both.
+	// the LaunchTemplateName , but not both.
 	LaunchTemplateId *string
 
 	// The name of the launch template. You must specify either the LaunchTemplateName
-	// or the LaunchTemplateId, but not both.
+	// or the LaunchTemplateId , but not both.
 	LaunchTemplateName *string
 
 	noSmithyDocumentSerde
@@ -114,6 +113,9 @@ func (c *Client) addOperationModifyLaunchTemplateMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyLaunchTemplate(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

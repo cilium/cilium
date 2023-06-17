@@ -17,5 +17,6 @@ package ecs
 
 // Account is a nested struct in ecs response
 type Account struct {
-	AliyunId string `json:"AliyunId" xml:"AliyunId"`
+	AliyunId   string `json:"AliyunId" xml:"AliyunId"`
+	SharedTime string `json:"SharedTime" xml:"SharedTime"`
 }

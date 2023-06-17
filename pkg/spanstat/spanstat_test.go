@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
-	. "gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) {

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 K8S_NODES="${K8S_NODES:-2}"
 

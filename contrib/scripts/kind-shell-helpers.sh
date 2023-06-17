@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Here are a set of functions designed to be sourced into your shell.
 # They implement commands which build, push, and install the Cilium agent and

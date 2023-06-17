@@ -49,6 +49,9 @@ repository in the Cilium project:
   code owner is not expected to validate the technical correctness of
   submissions. Correctness is typically handled by another code owner group
   which is also assigned to any given piece of documentation.
+- `@cilium/sig-foundations <https://github.com/orgs/cilium/teams/sig-foundations>`__:
+  Review changes to the core libraries and provide guidance to overall
+  software architecture.
 - `@cilium/github-sec <https://github.com/orgs/cilium/teams/github-sec>`__:
   Responsible for maintaining the security of repositories in the Cilium
   project by maintaining best practices for workflow usage, for instance
@@ -110,7 +113,6 @@ the CODEOWNERS file in the corresponding repository.
 - `@cilium/ebpf-lib-maintainers <https://github.com/orgs/cilium/teams/ebpf-lib-maintainers>`__
 - `@cilium/hubble-maintainers <https://github.com/orgs/cilium/teams/hubble-maintainers>`__
 - `@cilium/image-tools-maintainers <https://github.com/orgs/cilium/teams/image-tools-maintainers>`__
-- `@cilium/iproute2-maintainers <https://github.com/orgs/cilium/teams/iproute2-maintainers>`__
 - `@cilium/metallb-maintainers <https://github.com/orgs/cilium/teams/metallb-maintainers>`__
 - `@cilium/openshift-terraform-maintainers <https://github.com/orgs/cilium/teams/openshift-terraform-maintainers>`__
 - `@cilium/proxy-maintainers <https://github.com/orgs/cilium/teams/proxy-maintainers>`__

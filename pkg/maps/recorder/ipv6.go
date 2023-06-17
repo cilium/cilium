@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -29,22 +29,7 @@ type CaptureWcard6 struct {
 
 type CaptureRule6 CaptureRule
 
-func (k *CaptureWcard6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-
-func (k *CaptureWcard6) NewValue() bpf.MapValue { return &CaptureRule6{} }
-
-func (k *CaptureWcard6) DeepCopyMapKey() bpf.MapKey {
-	return &CaptureWcard6{
-		DestAddr: k.DestAddr,
-		SrcAddr:  k.SrcAddr,
-		DestPort: k.DestPort,
-		SrcPort:  k.SrcPort,
-		NextHdr:  k.NextHdr,
-		DestMask: k.DestMask,
-		SrcMask:  k.SrcMask,
-		Flags:    k.Flags,
-	}
-}
+func (k *CaptureWcard6) New() bpf.MapKey { return &CaptureWcard6{} }
 
 func (k *CaptureWcard6) Dump(sb *strings.Builder) {
 	sb.WriteString(fmt.Sprintf("[%s/%d]:%d -> [%s/%d]:%d %s ",
@@ -75,15 +60,7 @@ func (k *CaptureWcard6) Map() *bpf.Map {
 	return &CaptureMap6().Map
 }
 
-func (v *CaptureRule6) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-
-func (v *CaptureRule6) DeepCopyMapValue() bpf.MapValue {
-	return &CaptureRule6{
-		RuleId:   v.RuleId,
-		Reserved: v.Reserved,
-		CapLen:   v.CapLen,
-	}
-}
+func (v *CaptureRule6) New() bpf.MapValue { return &CaptureRule6{} }
 
 func (v *CaptureRule6) Dump(sb *strings.Builder) {
 	sb.WriteString(fmt.Sprintf("ID:%d CapLen:%d\n",
@@ -108,12 +85,11 @@ func CaptureMap6() *Map {
 		captureMap6 = &Map{
 			Map: *bpf.NewMap(
 				MapNameWcard6,
-				bpf.MapTypeHash,
-				&CaptureWcard6{}, int(unsafe.Sizeof(CaptureWcard6{})),
-				&CaptureRule6{}, int(unsafe.Sizeof(CaptureRule6{})),
+				ebpf.Hash,
+				&CaptureWcard6{},
+				&CaptureRule6{},
 				MapSize,
-				bpf.BPF_F_NO_PREALLOC, 0,
-				bpf.ConvertKeyValue,
+				bpf.BPF_F_NO_PREALLOC,
 			).WithCache().WithEvents(option.Config.GetEventBufferConfig(MapNameWcard6)),
 			v4: false,
 		}

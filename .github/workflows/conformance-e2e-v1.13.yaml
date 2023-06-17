@@ -66,7 +66,7 @@ concurrency:
 env:
   # renovate is disabled in this workflow until https://github.com/cilium/cilium-cli/issues/1627 is resolved.
   # renovate_disabled: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.13.2
+  cilium_cli_version: v0.14.5
   cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -88,7 +88,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
@@ -172,33 +172,35 @@ jobs:
       )) ||
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
+    env:
+      job_name: "Setup & Test"
     strategy:
       fail-fast: false
-      max-parallel: 8
+      max-parallel: 16
       matrix:
         include:
           # See https://github.com/cilium/cilium/issues/20606 for configuration table
           - name: '1'
-            kernel: '4.19-main'
+            kernel: '4.19-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'vxlan'
 
           - name: '2'
-            kernel: '5.4-main'
+            kernel: '5.4-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
 
           - name: '3'
-            kernel: '5.10-main'
+            kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
             endpoint-routes: 'true'
 
           - name: '4'
-            kernel: '5.10-main'
+            kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'vxlan'
@@ -207,7 +209,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '5'
-            kernel: '5.15-main'
+            kernel: '5.15-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'disabled'
@@ -217,7 +219,7 @@ jobs:
             host-fw: 'true'
 
           - name: '6'
-            kernel: '6.0-main'
+            kernel: '6.0-20230420.212204'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'vxlan'
@@ -227,7 +229,7 @@ jobs:
             lb-acceleration: 'testing-only'
 
           - name: '7'
-            kernel: 'bpf-next-main'
+            kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'none'
             kpr: 'strict'
             tunnel: 'disabled'
@@ -236,14 +238,14 @@ jobs:
             lb-acceleration: 'testing-only'
 
           - name: '8'
-            kernel: 'bpf-next-main'
+            kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'geneve'
             endpoint-routes: 'true'
 
           - name: '9'
-            kernel: '4.19-main'
+            kernel: '4.19-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'vxlan'
@@ -252,7 +254,7 @@ jobs:
             ipv6: 'false' # https://github.com/cilium/cilium/issues/23461
 
           - name: '10'
-            kernel: '5.4-main'
+            kernel: '5.4-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
@@ -260,7 +262,7 @@ jobs:
             encryption-node: 'false'
 
           - name: '11'
-            kernel: '5.10-main'
+            kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
@@ -269,7 +271,7 @@ jobs:
             endpoint-routes: 'true'
 
           - name: '12'
-            kernel: '5.10-main'
+            kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'vxlan'
@@ -280,7 +282,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '13'
-            kernel: '5.15-main'
+            kernel: '5.15-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'strict'
             tunnel: 'disabled'
@@ -291,7 +293,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '14'
-            kernel: 'bpf-next-main'
+            kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'geneve'
@@ -302,7 +304,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout main branch to access local actions
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -324,8 +326,8 @@ jobs:
             --helm-set=operator.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
-            --rollback=false \
-            --config monitor-aggregation=none \
+            --helm-set=hubble.eventBufferCapacity=65535 \
+            --helm-set=bpf.monitorAggregation=none \
             --nodes-without-cilium=kind-worker3 \
             --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
           TUNNEL="--helm-set-string=tunnel=${{ matrix.tunnel }}"
@@ -362,9 +364,9 @@ jobs:
 
           ENCRYPT=""
           if [ "${{ matrix.encryption }}" != "" ]; then
-            ENCRYPT="--encryption=${{ matrix.encryption }}"
+            ENCRYPT="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ matrix.encryption }}"
             if [ "${{ matrix.encryption-node }}" != "" ]; then
-              ENCRYPT+=" --node-encryption=${{ matrix.encryption-node }}"
+              ENCRYPT+=" --helm-set=encryption.nodeEncryption=${{ matrix.encryption-node }}"
             fi
           fi
 
@@ -381,14 +383,28 @@ jobs:
           CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION} ${L7}"
           echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
 
+          JUNIT=""
+          for NAME in ${{ matrix.kube-proxy }} ${{ matrix.tunnel }} ${{ matrix.lb-mode }} ${{ matrix.encryption }} ${{ matrix.endpoint-routes }}; do
+            if [[ "${NAME}" != "" ]] && [[ "${NAME}" != "disabled" ]] && [[ "${NAME}" != "none" ]]; then
+              if [[ "${JUNIT}" != "" ]]; then
+                JUNIT+="-"
+              fi
+              if [[ "${NAME}" == "true" ]];then
+                NAME="endpoint-routes"
+              fi
+              JUNIT+="${NAME}"
+            fi
+          done
+          echo junit_type="${JUNIT}" >> $GITHUB_OUTPUT
+
       - name: Checkout pull request for Helm chart
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ needs.setup-report.outputs.sha }}
           persist-credentials: false
 
       - name: Install Cilium CLI-cli
-        uses: cilium/cilium-cli@207512ce9e729d9b3cc1a59e92af5c8d50ce37c4 # v0.14.2
+        uses: cilium/cilium-cli@9fcfef089e5b7dd3212f2eac21ba8cfae6f05cca # v0.14.7
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
@@ -396,7 +412,7 @@ jobs:
           binary-dir: ./
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        uses: cilium/little-vm-helper@af4173a4a1c9132b7fb0a02dba74cd6233a175b5 # v0.0.6
         with:
           test-name: e2e-conformance
           image-version: ${{ matrix.kernel }}
@@ -415,27 +431,38 @@ jobs:
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ needs.setup-report.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
-      - name: Run tests
-        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+      - name: Run tests (${{ join(matrix.*, ', ') }})
+        uses: cilium/little-vm-helper@af4173a4a1c9132b7fb0a02dba74cd6233a175b5 # v0.0.6
         with:
           provision: 'false'
           cmd: |
             cd /host/
             ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
-            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+            kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+            if [ "${{ matrix.encryption }}" == "ipsec" ]; then
+              kubectl create -n kube-system secret generic cilium-ipsec-keys \
+                --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+            fi
+
+            CILIUM_CLI_MODE=helm ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
 
             ./cilium-cli status --wait
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-            ./cilium-cli connectivity test --datapath --collect-sysdump-on-failure \
-              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
-            ./cilium-cli connectivity test --collect-sysdump-on-failure \
-              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>"
+            mkdir -p cilium-junits
+
+            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+              --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})"
+
             ./contrib/scripts/kind-down.sh
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@0b7d7157dae56a44dc531c852e7756dc671071af # v0.0.3
+        uses: cilium/little-vm-helper@af4173a4a1c9132b7fb0a02dba74cd6233a175b5 # v0.0.6
         with:
           provision: 'false'
           cmd: |
@@ -452,6 +479,20 @@ jobs:
           name: cilium-sysdumps
           path: cilium-sysdump-*.zip
           retention-days: 5
+
+      - name: Upload JUnits [junit]
+        if: ${{ always() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: cilium-junits
+          path: cilium-junits/*.xml
+          retention-days: 2
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
 
   report-success:
     runs-on: ubuntu-latest

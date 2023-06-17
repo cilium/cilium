@@ -9,8 +9,8 @@ import (
 	"net"
 	"os/exec"
 
+	. "github.com/cilium/checkmate"
 	"github.com/vishvananda/netlink"
-	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -38,7 +38,7 @@ type MigrateSuite struct {
 }
 
 func (s *MigrateSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 // n is the number of devices, routes, and rules that will be created in

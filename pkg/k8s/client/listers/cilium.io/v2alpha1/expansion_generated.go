@@ -17,6 +17,10 @@ type CiliumCIDRGroupListerExpansion interface{}
 // CiliumEndpointSliceLister.
 type CiliumEndpointSliceListerExpansion interface{}
 
+// CiliumL2AnnouncementPolicyListerExpansion allows custom methods to be added to
+// CiliumL2AnnouncementPolicyLister.
+type CiliumL2AnnouncementPolicyListerExpansion interface{}
+
 // CiliumLoadBalancerIPPoolListerExpansion allows custom methods to be added to
 // CiliumLoadBalancerIPPoolLister.
 type CiliumLoadBalancerIPPoolListerExpansion interface{}
@@ -28,3 +32,7 @@ type CiliumNodeConfigListerExpansion interface{}
 // CiliumNodeConfigNamespaceListerExpansion allows custom methods to be added to
 // CiliumNodeConfigNamespaceLister.
 type CiliumNodeConfigNamespaceListerExpansion interface{}
+
+// CiliumPodIPPoolListerExpansion allows custom methods to be added to
+// CiliumPodIPPoolLister.
+type CiliumPodIPPoolListerExpansion interface{}

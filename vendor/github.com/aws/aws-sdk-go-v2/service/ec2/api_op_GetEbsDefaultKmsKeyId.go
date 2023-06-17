@@ -12,10 +12,9 @@ import (
 
 // Describes the default KMS key for EBS encryption by default for your account in
 // this Region. You can change the default KMS key for encryption by default using
-// ModifyEbsDefaultKmsKeyId or ResetEbsDefaultKmsKeyId. For more information, see
-// Amazon EBS encryption
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// ModifyEbsDefaultKmsKeyId or ResetEbsDefaultKmsKeyId . For more information, see
+// Amazon EBS encryption (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) GetEbsDefaultKmsKeyId(ctx context.Context, params *GetEbsDefaultKmsKeyIdInput, optFns ...func(*Options)) (*GetEbsDefaultKmsKeyIdOutput, error) {
 	if params == nil {
 		params = &GetEbsDefaultKmsKeyIdInput{}
@@ -35,8 +34,8 @@ type GetEbsDefaultKmsKeyIdInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -99,6 +98,9 @@ func (c *Client) addOperationGetEbsDefaultKmsKeyIdMiddlewares(stack *middleware.
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetEbsDefaultKmsKeyId(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

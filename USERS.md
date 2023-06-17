@@ -183,7 +183,13 @@ Users (Alphabetically)
       U: Networking (CNI), Transparent Encryption (WG), 
       L: https://docs.edgeless.systems/constellation/architecture/networking
       Q: @m1ghtym0
- 
+
+    * N: Eficode
+      D: As a cloud-native and devops consulting firm, we have implemented Cilium on customer engagements
+      U: CNI, CiliumNetworkPolicy at L7, Hubble
+      L: https://eficode.com/
+      Q: @Andy Allred
+
     * N: Elastic Path
       D: Elastic Path is using Cilium in their CloudOps for Kubernetes production clusters
       U: CNI
@@ -344,7 +350,12 @@ Users (Alphabetically)
       D: Meltwater is using Cilium in AWS on self-hosted multi-tenant k8s clusters as the CNI plugin
       U: ENI Networking, Encryption, Monitoring via Prometheus metrics & Hubble
       Q: @recollir, @dezmodue
-      
+
+    * N: Microsoft
+      D: Microsoft is using Cilium in "Azure CNI powered by Cilium" AKS (Azure Kubernetes Services) clusters
+      L: https://techcommunity.microsoft.com/t5/azure-networking-blog/azure-cni-powered-by-cilium-for-azure-kubernetes-service-aks/ba-p/3662341
+      Q: @tamilmani1989 @chandanAggarwal
+
     * N: Mobilab
       D: Mobilab uses Cilium as the CNI for its internal cloud
       U: CNI
@@ -499,6 +510,12 @@ Users (Alphabetically)
       L: https://schubergphilis.com/en
       Q: @stimmerman @shoekstra @mbaumann
 
+    * N: SIGHUP
+      D: SIGHUP integrated Cilium as a supported CNI for KFD (Kubernetes Fury Distribution), our enterprise-grade OSS reference architecture
+      U: Available supported CNI
+      L: https://sighup.io, https://github.com/sighupio/fury-kubernetes-networking
+      Q: @jnardiello @nutellino
+
     * N: SmileDirectClub
       D: SmileDirectClub is using Cilium in manufacturing clusters (self-hosted on vSphere and AWS EC2)
       U: CNI
@@ -608,3 +625,8 @@ Users (Alphabetically)
     * N: Yahoo!
       D: Yahoo is using Cilium for L4 North-South Load Balancing for Kubernetes Services
       L: https://www.youtube.com/watch?v=-C86fBMcp5Q
+    
+    * N: ZeroHash 
+      D: Zero Hash is using Cilium as CNI for networking, security and monitoring features for Kubernetes clusters 
+      U: CNI/ENI Networking, Network policies, Hubble
+      Q: @eugenestarchenko

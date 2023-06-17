@@ -5,29 +5,24 @@ package clustermesh
 
 import (
 	"context"
-	"fmt"
 	"path"
-	"time"
-
-	"github.com/go-openapi/strfmt"
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
+	"github.com/cilium/cilium/pkg/clustermesh/internal"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/defaults"
+	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/metrics"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
-// remoteCluster represents another cluster other than the cluster the agent is
-// running in
+// remoteCluster implements the clustermesh business logic on top of
+// internal.RemoteCluster.
 type remoteCluster struct {
 	// name is the name of the cluster
 	name string
@@ -36,37 +31,21 @@ type remoteCluster struct {
 	// from remote kvstore.
 	config *cmtypes.CiliumClusterConfig
 
-	// configPath is the path to the etcd configuration to be used to
-	// connect to the etcd cluster of the remote cluster
-	configPath string
-
-	// changed receives an event when the remote cluster configuration has
-	// changed and is closed when the configuration file was removed
-	changed chan bool
-
 	// mesh is the cluster mesh this remote cluster belongs to
 	mesh *ClusterMesh
 
-	controllers *controller.Manager
+	usedIDs *ClusterMeshUsedIDs
 
-	// remoteConnectionControllerName is the name of the backing controller
-	// that maintains the remote connection
-	remoteConnectionControllerName string
-
-	// mutex protects the following variables
-	// - backend
-	// - store
-	// - remoteNodes
-	// - ipCacheWatcher
+	// mutex protects the following variables:
 	// - remoteIdentityCache
 	mutex lock.RWMutex
 
 	// store is the shared store representing all nodes in the remote cluster
-	remoteNodes *store.SharedStore
+	remoteNodes store.WatchStore
 
 	// remoteServices is the shared store representing services in remote
 	// clusters
-	remoteServices *store.SharedStore
+	remoteServices store.WatchStore
 
 	// ipCacheWatcher is the watcher that notifies about IP<->identity
 	// changes in the remote cluster
@@ -76,319 +55,118 @@ type remoteCluster struct {
 	// allocations in the remote cluster
 	remoteIdentityCache *allocator.RemoteCache
 
-	// backend is the kvstore backend being used
-	backend kvstore.BackendOperations
+	// status is the function which fills the internal part of the status.
+	status internal.StatusFunc
 
 	swg *lock.StoppableWaitGroup
-
-	// failures is the number of observed failures
-	failures int
-
-	// lastFailure is the timestamp of the last failure
-	lastFailure time.Time
 }
 
-var (
-	// skipKvstoreConnection skips the etcd connection, used for testing
-	skipKvstoreConnection bool
-)
-
-func (rc *remoteCluster) getLogger() *logrus.Entry {
-	var (
-		status string
-		err    error
-	)
-
-	if rc.backend != nil {
-		status, err = rc.backend.Status()
-	}
-
-	return log.WithFields(logrus.Fields{
-		fieldClusterName:   rc.name,
-		fieldConfig:        rc.configPath,
-		fieldKVStoreStatus: status,
-		fieldKVStoreErr:    err,
-	})
-}
-
-// releaseOldConnection releases the etcd connection to a remote cluster
-func (rc *remoteCluster) releaseOldConnection() {
-	rc.mutex.Lock()
-	ipCacheWatcher := rc.ipCacheWatcher
-	rc.ipCacheWatcher = nil
-
-	remoteNodes := rc.remoteNodes
-	rc.remoteNodes = nil
-
-	remoteIdentityCache := rc.remoteIdentityCache
-	rc.remoteIdentityCache = nil
-
-	remoteServices := rc.remoteServices
-	rc.remoteServices = nil
-
-	backend := rc.backend
-	rc.backend = nil
-
-	rc.config = nil
-
-	rc.mesh.metricTotalNodes.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(0.0)
-	rc.mesh.metricReadinessStatus.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(metrics.BoolToFloat64(rc.isReadyLocked()))
-
-	rc.mutex.Unlock()
-
-	// Release resources asynchronously in the background. Many of these
-	// operations may time out if the connection was closed due to an error
-	// condition.
-	go func() {
-		if ipCacheWatcher != nil {
-			ipCacheWatcher.Close()
-		}
-		if remoteNodes != nil {
-			remoteNodes.Close(context.TODO())
-		}
-		if remoteIdentityCache != nil {
-			remoteIdentityCache.Close()
-		}
-		if remoteServices != nil {
-			remoteServices.Close(context.TODO())
-		}
-		if backend != nil {
-			backend.Close(context.TODO())
-		}
-	}()
-}
-
-func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher) {
-	rc.controllers.UpdateController(rc.remoteConnectionControllerName,
-		controller.ControllerParams{
-			DoFunc: func(ctx context.Context) error {
-				rc.releaseOldConnection()
-
-				extraOpts := rc.makeExtraOpts()
-
-				backend, errChan := kvstore.NewClient(ctx, kvstore.EtcdBackendName,
-					map[string]string{
-						kvstore.EtcdOptionConfig: rc.configPath,
-					}, &extraOpts)
-
-				// Block until either an error is returned or
-				// the channel is closed due to success of the
-				// connection
-				rc.getLogger().Debugf("Waiting for connection to be established")
-				err, isErr := <-errChan
-				if isErr {
-					if backend != nil {
-						backend.Close(ctx)
-					}
-					rc.getLogger().WithError(err).Warning("Unable to establish etcd connection to remote cluster")
-					return err
-				}
-
-				rc.getLogger().Info("Connection to remote cluster established")
-
-				config, err := GetClusterConfig(rc.name, backend)
-				if err == nil && config == nil {
-					rc.getLogger().Warning("Remote cluster doesn't have cluster configuration, falling back to the old behavior. This is expected when connecting to the old cluster running Cilium without cluster configuration feature.")
-				} else if err == nil {
-					rc.getLogger().Info("Found remote cluster configuration")
-				} else {
-					rc.getLogger().WithError(err).Warning("Unable to get remote cluster configuration")
-					backend.Close(ctx)
-					return err
-				}
-
-				if err := rc.mesh.canConnect(rc.name, config); err != nil {
-					rc.getLogger().WithError(err).Error("Unable to connect to the remote cluster")
-					backend.Close(ctx)
-					return err
-				}
-
-				remoteNodes, err := store.JoinSharedStore(store.Configuration{
-					Prefix:                  path.Join(nodeStore.NodeStorePrefix, rc.name),
-					KeyCreator:              rc.mesh.conf.NodeKeyCreator,
-					SynchronizationInterval: time.Minute,
-					SharedKeyDeleteDelay:    defaults.NodeDeleteDelay,
-					Backend:                 backend,
-					Observer:                rc.mesh.conf.NodeObserver(),
-				})
-				if err != nil {
-					backend.Close(ctx)
-					return err
-				}
-
-				remoteServices, err := store.JoinSharedStore(store.Configuration{
-					Prefix: path.Join(serviceStore.ServiceStorePrefix, rc.name),
-					KeyCreator: func() store.Key {
-						svc := serviceStore.ClusterService{}
-						return &svc
-					},
-					SynchronizationInterval: time.Minute,
-					Backend:                 backend,
-					Observer: &remoteServiceObserver{
-						remoteCluster: rc,
-						swg:           rc.swg,
-					},
-				})
-				if err != nil {
-					remoteNodes.Close(ctx)
-					backend.Close(ctx)
-					return err
-				}
-				rc.swg.Stop()
-
-				remoteIdentityCache, err := allocator.WatchRemoteIdentities(rc.name, backend)
-				if err != nil {
-					remoteServices.Close(ctx)
-					remoteNodes.Close(ctx)
-					backend.Close(ctx)
-					return err
-				}
-
-				ipCacheWatcher := ipcache.NewIPIdentityWatcher(rc.mesh.ipcache, backend)
-				go ipCacheWatcher.Watch(ctx)
-
-				rc.mutex.Lock()
-				rc.remoteNodes = remoteNodes
-				rc.remoteServices = remoteServices
-				rc.backend = backend
-				rc.config = config
-				rc.ipCacheWatcher = ipCacheWatcher
-				rc.remoteIdentityCache = remoteIdentityCache
-				rc.mesh.metricTotalNodes.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(float64(rc.remoteNodes.NumEntries()))
-				rc.mesh.metricReadinessStatus.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(metrics.BoolToFloat64(rc.isReadyLocked()))
-				rc.mutex.Unlock()
-
-				rc.getLogger().Info("Established connection to remote etcd")
-
-				return nil
-			},
-			StopFunc: func(ctx context.Context) error {
-				rc.releaseOldConnection()
-				rc.mesh.metricTotalNodes.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(float64(rc.remoteNodes.NumEntries()))
-				rc.mesh.metricReadinessStatus.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(metrics.BoolToFloat64(rc.isReadyLocked()))
-				allocator.RemoveRemoteIdentities(rc.name)
-				rc.getLogger().Info("All resources of remote cluster cleaned up")
-				return nil
-			},
-			CancelDoFuncOnUpdate: true,
-		},
-	)
-}
-
-func (rc *remoteCluster) makeExtraOpts() kvstore.ExtraOptions {
-	extraOpts := kvstore.ExtraOptions{
-		NoLockQuorumCheck: true,
-		ClusterName:       rc.name,
-	}
-	if rc.mesh.conf.NodeManager != nil {
-		extraOpts.ClusterSizeDependantInterval = rc.mesh.conf.NodeManager.ClusterSizeDependantInterval
-	}
-	return extraOpts
-}
-
-func (rc *remoteCluster) onInsert(allocator RemoteIdentityWatcher) {
-	rc.getLogger().Info("New remote cluster configuration")
-
-	if skipKvstoreConnection {
+func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config *cmtypes.CiliumClusterConfig, ready chan<- error) {
+	if err := config.Validate(); err != nil {
+		ready <- err
+		close(ready)
 		return
 	}
 
-	rc.remoteConnectionControllerName = fmt.Sprintf("remote-etcd-%s", rc.name)
-	rc.restartRemoteConnection(allocator)
+	if err := rc.onUpdateConfig(config); err != nil {
+		ready <- err
+		close(ready)
+		return
+	}
 
-	go func() {
-		for {
-			val := <-rc.changed
-			if val {
-				rc.getLogger().Info("etcd configuration has changed, re-creating connection")
-				rc.restartRemoteConnection(allocator)
-			} else {
-				rc.getLogger().Info("Closing connection to remote etcd")
-				return
-			}
-		}
-	}()
+	var capabilities types.CiliumClusterConfigCapabilities
+	if config != nil {
+		capabilities = config.Capabilities
+	}
 
-	go func() {
-		for {
-			select {
-			// terminate routine when remote cluster is removed
-			case _, ok := <-rc.changed:
-				if !ok {
-					return
-				}
-			default:
-			}
+	remoteIdentityCache, err := rc.mesh.conf.RemoteIdentityWatcher.WatchRemoteIdentities(rc.name, backend, capabilities.Cached)
+	if err != nil {
+		ready <- err
+		close(ready)
+		return
+	}
 
-			// wait for backend to appear
-			rc.mutex.RLock()
-			if rc.backend == nil {
-				rc.mutex.RUnlock()
-				time.Sleep(10 * time.Millisecond)
-				continue
-			}
-			statusCheckErrors := rc.backend.StatusCheckErrors()
-			rc.mutex.RUnlock()
+	rc.mutex.Lock()
+	rc.remoteIdentityCache = remoteIdentityCache
+	rc.mutex.Unlock()
 
-			err, ok := <-statusCheckErrors
-			if ok && err != nil {
-				rc.getLogger().WithError(err).Warning("Error observed on etcd connection, reconnecting etcd")
-				rc.mutex.Lock()
-				rc.failures++
-				rc.lastFailure = time.Now()
-				rc.mesh.metricLastFailureTimestamp.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).SetToCurrentTime()
-				rc.mesh.metricTotalFailures.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(float64(rc.failures))
-				rc.mesh.metricTotalNodes.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(float64(rc.remoteNodes.NumEntries()))
-				rc.mesh.metricReadinessStatus.WithLabelValues(rc.mesh.conf.Name, rc.mesh.conf.NodeName, rc.name).Set(metrics.BoolToFloat64(rc.isReadyLocked()))
-				rc.mutex.Unlock()
-				rc.restartRemoteConnection(allocator)
-			}
-		}
-	}()
+	var mgr store.WatchStoreManager
+	if capabilities.SyncedCanaries {
+		mgr = store.NewWatchStoreManagerSync(backend, rc.name)
+	} else {
+		mgr = store.NewWatchStoreManagerImmediate(rc.name)
+	}
 
+	adapter := func(prefix string) string { return prefix }
+	if capabilities.Cached {
+		adapter = kvstore.StateToCachePrefix
+	}
+
+	mgr.Register(adapter(nodeStore.NodeStorePrefix), func(ctx context.Context) {
+		rc.remoteNodes.Watch(ctx, backend, path.Join(adapter(nodeStore.NodeStorePrefix), rc.name))
+	})
+
+	mgr.Register(adapter(serviceStore.ServiceStorePrefix), func(ctx context.Context) {
+		rc.remoteServices.Watch(ctx, backend, path.Join(adapter(serviceStore.ServiceStorePrefix), rc.name))
+	})
+
+	mgr.Register(adapter(ipcache.IPIdentitiesPath), func(ctx context.Context) {
+		rc.ipCacheWatcher.Watch(ctx, backend, ipcache.WithCachedPrefix(capabilities.Cached))
+	})
+
+	mgr.Register(adapter(identityCache.IdentitiesPath), func(ctx context.Context) {
+		rc.remoteIdentityCache.Watch(ctx)
+	})
+
+	close(ready)
+	mgr.Run(ctx)
 }
 
-func (rc *remoteCluster) onRemove() {
-	rc.controllers.RemoveAllAndWait()
-	close(rc.changed)
+func (rc *remoteCluster) Stop() {}
 
-	rc.getLogger().Info("Remote cluster disconnected")
+func (rc *remoteCluster) Remove() {
+	// Draining shall occur only when the configuration for the remote cluster
+	// is removed, and not in case the agent is shutting down, otherwise we
+	// would break existing connections on restart.
+	rc.remoteNodes.Drain()
+	rc.remoteServices.Drain()
+	rc.ipCacheWatcher.Drain()
+
+	rc.mesh.conf.RemoteIdentityWatcher.RemoveRemoteIdentities(rc.name)
+	rc.mesh.globalServices.onClusterDelete(rc.name)
+
+	if rc.config != nil {
+		rc.usedIDs.releaseClusterID(rc.config.ID)
+	}
 }
 
-func (rc *remoteCluster) isReady() bool {
+func (rc *remoteCluster) Status() *models.RemoteCluster {
+	status := rc.status()
+
 	rc.mutex.RLock()
 	defer rc.mutex.RUnlock()
 
-	return rc.isReadyLocked()
+	status.NumNodes = int64(rc.remoteNodes.NumEntries())
+	status.NumSharedServices = int64(rc.remoteServices.NumEntries())
+	status.NumIdentities = int64(rc.remoteIdentityCache.NumEntries())
+	return status
 }
 
-func (rc *remoteCluster) isReadyLocked() bool {
-	return rc.backend != nil && rc.remoteNodes != nil && rc.ipCacheWatcher != nil
-}
+func (rc *remoteCluster) onUpdateConfig(newConfig *cmtypes.CiliumClusterConfig) error {
+	oldConfig := rc.config
 
-func (rc *remoteCluster) status() *models.RemoteCluster {
-	rc.mutex.RLock()
-	defer rc.mutex.RUnlock()
-
-	// This can happen when the controller in restartRemoteConnection is waiting
-	// for the first connection to succeed.
-	var backendStatus = "Waiting for initial connection to be established"
-	if rc.backend != nil {
-		var backendError error
-		backendStatus, backendError = rc.backend.Status()
-		if backendError != nil {
-			backendStatus = backendError.Error()
+	if newConfig != nil && oldConfig != nil && newConfig.ID == oldConfig.ID {
+		return nil
+	}
+	if newConfig != nil {
+		if err := rc.usedIDs.reserveClusterID(newConfig.ID); err != nil {
+			return err
 		}
 	}
-
-	return &models.RemoteCluster{
-		Name:              rc.name,
-		Ready:             rc.isReadyLocked(),
-		NumNodes:          int64(rc.remoteNodes.NumEntries()),
-		NumSharedServices: int64(rc.remoteServices.NumEntries()),
-		NumIdentities:     int64(rc.remoteIdentityCache.NumEntries()),
-		Status:            backendStatus,
-		NumFailures:       int64(rc.failures),
-		LastFailure:       strfmt.DateTime(rc.lastFailure),
+	if oldConfig != nil {
+		rc.usedIDs.releaseClusterID(oldConfig.ID)
 	}
+	rc.config = newConfig
+
+	return nil
 }

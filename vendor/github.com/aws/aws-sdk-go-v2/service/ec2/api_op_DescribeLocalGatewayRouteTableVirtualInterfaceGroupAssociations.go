@@ -33,33 +33,22 @@ type DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociationsInput struct
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// One or more filters.
-	//
-	// * local-gateway-id - The ID of a local gateway.
-	//
-	// *
-	// local-gateway-route-table-arn - The Amazon Resource Name (ARN) of the local
-	// gateway route table for the virtual interface group.
-	//
-	// *
-	// local-gateway-route-table-id - The ID of the local gateway route table.
-	//
-	// *
-	// local-gateway-route-table-virtual-interface-group-association-id - The ID of the
-	// association.
-	//
-	// * local-gateway-route-table-virtual-interface-group-id - The ID of
-	// the virtual interface group.
-	//
-	// * owner-id - The ID of the Amazon Web Services
-	// account that owns the local gateway virtual interface group association.
-	//
-	// *
-	// state - The state of the association.
+	//   - local-gateway-id - The ID of a local gateway.
+	//   - local-gateway-route-table-arn - The Amazon Resource Name (ARN) of the local
+	//   gateway route table for the virtual interface group.
+	//   - local-gateway-route-table-id - The ID of the local gateway route table.
+	//   - local-gateway-route-table-virtual-interface-group-association-id - The ID of
+	//   the association.
+	//   - local-gateway-route-table-virtual-interface-group-id - The ID of the virtual
+	//   interface group.
+	//   - owner-id - The ID of the Amazon Web Services account that owns the local
+	//   gateway virtual interface group association.
+	//   - state - The state of the association.
 	Filters []types.Filter
 
 	// The IDs of the associations.
@@ -136,6 +125,9 @@ func (c *Client) addOperationDescribeLocalGatewayRouteTableVirtualInterfaceGroup
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociations(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

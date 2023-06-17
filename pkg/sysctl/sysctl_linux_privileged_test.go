@@ -8,7 +8,7 @@ package sysctl
 import (
 	"github.com/cilium/cilium/pkg/testutils"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 type SysctlLinuxPrivilegedTestSuite struct{}
@@ -16,7 +16,7 @@ type SysctlLinuxPrivilegedTestSuite struct{}
 var _ = Suite(&SysctlLinuxPrivilegedTestSuite{})
 
 func (s *SysctlLinuxPrivilegedTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 }
 
 func (s *SysctlLinuxPrivilegedTestSuite) TestWriteSysctl(c *C) {

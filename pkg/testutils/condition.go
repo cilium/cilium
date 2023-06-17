@@ -15,7 +15,6 @@ type ConditionFunc func() bool
 // WaitUntil evaluates the condition every 10 milliseconds and waits for the
 // condition to be met. The function will time out and return an error after
 // timeout
-
 func WaitUntil(condition ConditionFunc, timeout time.Duration) error {
 	return WaitUntilWithSleep(condition, timeout, 10*time.Millisecond)
 }

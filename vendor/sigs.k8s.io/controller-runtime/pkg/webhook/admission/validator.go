@@ -18,7 +18,8 @@ package admission
 
 import (
 	"context"
-	goerrors "errors"
+	"errors"
+	"fmt"
 	"net/http"
 
 	v1 "k8s.io/api/admission/v1"
@@ -26,18 +27,35 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// Warnings represents warning messages.
+type Warnings []string
+
 // Validator defines functions for validating an operation.
+// The custom resource kind which implements this interface can validate itself.
+// To validate the custom resource with another specific struct, use CustomValidator instead.
 type Validator interface {
 	runtime.Object
-	ValidateCreate() error
-	ValidateUpdate(old runtime.Object) error
-	ValidateDelete() error
+
+	// ValidateCreate validates the object on creation.
+	// The optional warnings will be added to the response as warning messages.
+	// Return an error if the object is invalid.
+	ValidateCreate() (warnings Warnings, err error)
+
+	// ValidateUpdate validates the object on update. The oldObj is the object before the update.
+	// The optional warnings will be added to the response as warning messages.
+	// Return an error if the object is invalid.
+	ValidateUpdate(old runtime.Object) (warnings Warnings, err error)
+
+	// ValidateDelete validates the object on deletion.
+	// The optional warnings will be added to the response as warning messages.
+	// Return an error if the object is invalid.
+	ValidateDelete() (warnings Warnings, err error)
 }
 
 // ValidatingWebhookFor creates a new Webhook for validating the provided type.
-func ValidatingWebhookFor(validator Validator) *Webhook {
+func ValidatingWebhookFor(scheme *runtime.Scheme, validator Validator) *Webhook {
 	return &Webhook{
-		Handler: &validatingHandler{validator: validator},
+		Handler: &validatingHandler{validator: validator, decoder: NewDecoder(scheme)},
 	}
 }
 
@@ -46,42 +64,34 @@ type validatingHandler struct {
 	decoder   *Decoder
 }
 
-var _ DecoderInjector = &validatingHandler{}
-
-// InjectDecoder injects the decoder into a validatingHandler.
-func (h *validatingHandler) InjectDecoder(d *Decoder) error {
-	h.decoder = d
-	return nil
-}
-
 // Handle handles admission requests.
 func (h *validatingHandler) Handle(ctx context.Context, req Request) Response {
+	if h.decoder == nil {
+		panic("decoder should never be nil")
+	}
 	if h.validator == nil {
 		panic("validator should never be nil")
 	}
-
 	// Get the object in the request
 	obj := h.validator.DeepCopyObject().(Validator)
-	if req.Operation == v1.Create {
-		err := h.decoder.Decode(req, obj)
-		if err != nil {
+
+	var err error
+	var warnings []string
+
+	switch req.Operation {
+	case v1.Connect:
+		// No validation for connect requests.
+		// TODO(vincepri): Should we validate CONNECT requests? In what cases?
+	case v1.Create:
+		if err = h.decoder.Decode(req, obj); err != nil {
 			return Errored(http.StatusBadRequest, err)
 		}
 
-		err = obj.ValidateCreate()
-		if err != nil {
-			var apiStatus apierrors.APIStatus
-			if goerrors.As(err, &apiStatus) {
-				return validationResponseFromStatus(false, apiStatus.Status())
-			}
-			return Denied(err.Error())
-		}
-	}
-
-	if req.Operation == v1.Update {
+		warnings, err = obj.ValidateCreate()
+	case v1.Update:
 		oldObj := obj.DeepCopyObject()
 
-		err := h.decoder.DecodeRaw(req.Object, obj)
+		err = h.decoder.DecodeRaw(req.Object, obj)
 		if err != nil {
 			return Errored(http.StatusBadRequest, err)
 		}
@@ -90,33 +100,26 @@ func (h *validatingHandler) Handle(ctx context.Context, req Request) Response {
 			return Errored(http.StatusBadRequest, err)
 		}
 
-		err = obj.ValidateUpdate(oldObj)
-		if err != nil {
-			var apiStatus apierrors.APIStatus
-			if goerrors.As(err, &apiStatus) {
-				return validationResponseFromStatus(false, apiStatus.Status())
-			}
-			return Denied(err.Error())
-		}
-	}
-
-	if req.Operation == v1.Delete {
+		warnings, err = obj.ValidateUpdate(oldObj)
+	case v1.Delete:
 		// In reference to PR: https://github.com/kubernetes/kubernetes/pull/76346
 		// OldObject contains the object being deleted
-		err := h.decoder.DecodeRaw(req.OldObject, obj)
+		err = h.decoder.DecodeRaw(req.OldObject, obj)
 		if err != nil {
 			return Errored(http.StatusBadRequest, err)
 		}
 
-		err = obj.ValidateDelete()
-		if err != nil {
-			var apiStatus apierrors.APIStatus
-			if goerrors.As(err, &apiStatus) {
-				return validationResponseFromStatus(false, apiStatus.Status())
-			}
-			return Denied(err.Error())
-		}
+		warnings, err = obj.ValidateDelete()
+	default:
+		return Errored(http.StatusBadRequest, fmt.Errorf("unknown operation %q", req.Operation))
 	}
 
-	return Allowed("")
+	if err != nil {
+		var apiStatus apierrors.APIStatus
+		if errors.As(err, &apiStatus) {
+			return validationResponseFromStatus(false, apiStatus.Status()).WithWarnings(warnings...)
+		}
+		return Denied(err.Error()).WithWarnings(warnings...)
+	}
+	return Allowed("").WithWarnings(warnings...)
 }

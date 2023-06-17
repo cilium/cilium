@@ -166,8 +166,14 @@ type Endpoint struct {
 	// IPv6 is the IPv6 address of the endpoint
 	IPv6 netip.Addr
 
+	// IPv6IPAMPool is the IPAM address pool from which the IPv6 address has been allocated from
+	IPv6IPAMPool string
+
 	// IPv4 is the IPv4 address of the endpoint
 	IPv4 netip.Addr
+
+	// IPv4IPAMPool is the IPAM address pool from which the IPv4 address has been allocated from
+	IPv4IPAMPool string
 
 	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
 	nodeMAC mac.MAC
@@ -2139,7 +2145,6 @@ func (e *Endpoint) SyncEndpointHeaderFile() {
 // * removal from the endpointmanager, resulting in new events not taking effect
 // on this endpoint
 // * cleanup of datapath state (BPF maps, proxy configuration, directories)
-// * releasing IP addresses allocated for the endpoint
 // * releasing of the reference to its allocated security identity
 func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	errs := []error{}

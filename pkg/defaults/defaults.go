@@ -26,6 +26,9 @@ const (
 	// GopsPortApiserver is the default value for option.GopsPort in the apiserver
 	GopsPortApiserver = 9892
 
+	// GopsPortKVStoreMesh is the default value for option.GopsPort in kvstoremesh
+	GopsPortKVStoreMesh = 9894
+
 	// IPv6ClusterAllocCIDR is the default value for option.IPv6ClusterAllocCIDR
 	IPv6ClusterAllocCIDR = IPv6ClusterAllocCIDRBase + "/64"
 
@@ -220,6 +223,10 @@ const (
 	// the IPsec key is changing.
 	IPsecKeyRotationDuration = 5 * time.Minute
 
+	// Enable watcher for IPsec key. If disabled, a restart of the agent will
+	// be necessary on key rotations.
+	EnableIPsecKeyWatcher = true
+
 	// EncryptNode enables encrypting traffic from host networking applications
 	// which are not part of Cilium manged pods.
 	EncryptNode = false
@@ -365,6 +372,10 @@ const (
 	// IPAMPreAllocation is the default value for
 	// CiliumNode.Spec.IPAM.PreAllocate if no value is set
 	IPAMPreAllocation = 8
+
+	// IPAMMultiPoolPreAllocation is the default value for multi-pool IPAM
+	// pre-allocations
+	IPAMMultiPoolPreAllocation = "default=8"
 
 	// ENIFirstInterfaceIndex is the default value for
 	// CiliumNode.Spec.ENI.FirstInterfaceIndex if no value is set.
@@ -512,6 +523,9 @@ const (
 
 	// TunnelProtocol is the default tunneling protocol
 	TunnelProtocol = "vxlan"
+
+	// Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation.
+	UseCiliumInternalIPForIPsec = false
 
 	// TunnelPortVXLAN is the default VXLAN port
 	TunnelPortVXLAN = 8472

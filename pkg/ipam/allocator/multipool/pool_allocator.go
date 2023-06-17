@@ -17,16 +17,15 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-clusterpool-v2")
-
 type cidrPool struct {
-	v4 []cidralloc.CIDRAllocator
-	v6 []cidralloc.CIDRAllocator
+	v4         []cidralloc.CIDRAllocator
+	v6         []cidralloc.CIDRAllocator
+	v4MaskSize int
+	v6MaskSize int
 }
 
 type cidrSet map[netip.Prefix]struct{}
@@ -83,6 +82,7 @@ func addrsInPrefix(p netip.Prefix) *big.Int {
 }
 
 type PoolAllocator struct {
+	mutex lock.RWMutex
 	pools map[string]cidrPool    // poolName -> pool
 	nodes map[string]poolToCIDRs // nodeName -> pool -> cidrs
 	ready bool
@@ -96,14 +96,12 @@ func NewPoolAllocator() *PoolAllocator {
 }
 
 func (p *PoolAllocator) RestoreFinished() {
+	p.mutex.Lock()
 	p.ready = true
+	p.mutex.Unlock()
 }
 
-func (p *PoolAllocator) AddPool(poolName string, ipv4CIDRs []string, ipv4MaskSize int, ipv6CIDRs []string, ipv6MaskSize int) error {
-	if _, ok := p.pools[poolName]; ok {
-		return fmt.Errorf("pool %q already exists", poolName)
-	}
-
+func (p *PoolAllocator) addPool(poolName string, ipv4CIDRs []string, ipv4MaskSize int, ipv6CIDRs []string, ipv6MaskSize int) error {
 	v4, err := cidralloc.NewCIDRSets(false, ipv4CIDRs, ipv4MaskSize)
 	if err != nil {
 		return err
@@ -115,14 +113,165 @@ func (p *PoolAllocator) AddPool(poolName string, ipv4CIDRs []string, ipv4MaskSiz
 	}
 
 	p.pools[poolName] = cidrPool{
-		v4: v4,
-		v6: v6,
+		v4:         v4,
+		v6:         v6,
+		v4MaskSize: ipv4MaskSize,
+		v6MaskSize: ipv6MaskSize,
 	}
 
 	return nil
 }
 
+func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAllocator, newCIDRs []netip.Prefix, maskSize int) ([]cidralloc.CIDRAllocator, error) {
+	var newCIDRSets []cidralloc.CIDRAllocator
+	var alloc []string
+
+	// allocate new CIDR set for each CIDR not yet in the pool
+	for _, cidr := range newCIDRs {
+		if !hasCIDR(cidrSets, cidr) {
+			alloc = append(alloc, cidr.String())
+		}
+	}
+	if len(alloc) > 0 {
+		var err error
+		newCIDRSets, err = cidralloc.NewCIDRSets(isV6, alloc, maskSize)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// delete CIDR set for CIDRs not present in the new CIDRs
+	for i, oldCIDR := range cidrSets {
+		exists := false
+		for _, cidr := range newCIDRs {
+			if oldCIDR.IsClusterCIDR(cidr) {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			cidrSets[i] = nil
+			cidrSets = slices.Delete(cidrSets, i, i+1)
+
+			prefix := oldCIDR.Prefix()
+
+			for node, pools := range p.nodes {
+				for pool, allocatedCIDRSets := range pools {
+					if isV6 {
+						if _, ok := allocatedCIDRSets.v6[prefix]; ok {
+							log.WithFields(logrus.Fields{
+								"cidr": prefix.String(),
+								"pool": pool,
+								"node": node,
+							}).Warn("CIDR from pool still in use by node")
+							delete(p.nodes[node][pool].v6, prefix)
+						}
+					} else {
+						if _, ok := allocatedCIDRSets.v4[prefix]; ok {
+							log.WithFields(logrus.Fields{
+								"cidr": prefix.String(),
+								"pool": pool,
+								"node": node,
+							}).Warn("CIDR from pool still in use by node")
+							delete(p.nodes[node][pool].v4, prefix)
+						}
+					}
+				}
+			}
+		}
+	}
+	cidrSets = append(cidrSets, newCIDRSets...)
+	return cidrSets, nil
+}
+
+func parseCIDRStrings(cidrStrs []string) ([]netip.Prefix, error) {
+	prefixes := make([]netip.Prefix, 0, len(cidrStrs))
+	for _, cidrStr := range cidrStrs {
+		prefix, err := netip.ParsePrefix(cidrStr)
+		if err != nil {
+			return nil, err
+		}
+		prefixes = append(prefixes, prefix)
+	}
+	return prefixes, nil
+}
+
+func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []string, ipv4MaskSize int, ipv6CIDRs []string, ipv6MaskSize int) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	pool, exists := p.pools[poolName]
+	if !exists {
+		return p.addPool(poolName, ipv4CIDRs, ipv4MaskSize, ipv6CIDRs, ipv6MaskSize)
+	}
+
+	if ipv4MaskSize != pool.v4MaskSize {
+		return fmt.Errorf("cannot change IPv4 mask size in existing pool %q", poolName)
+	}
+	if ipv6MaskSize != pool.v6MaskSize {
+		return fmt.Errorf("cannot change IPv6 mask size in existing pool %q", poolName)
+	}
+
+	ipv4Prefixes, err := parseCIDRStrings(ipv4CIDRs)
+	if err != nil {
+		return fmt.Errorf("invalid IPv4 CIDR: %w", err)
+	}
+	ipv6Prefixes, err := parseCIDRStrings(ipv6CIDRs)
+	if err != nil {
+		return fmt.Errorf("invalid IPv6 CIDR: %w", err)
+	}
+
+	v4, err := p.updateCIDRSets(false, pool.v4, ipv4Prefixes, ipv4MaskSize)
+	if err != nil {
+		return err
+	}
+
+	v6, err := p.updateCIDRSets(true, pool.v6, ipv6Prefixes, ipv6MaskSize)
+	if err != nil {
+		return err
+	}
+
+	p.pools[poolName] = cidrPool{
+		v4:         v4,
+		v6:         v6,
+		v4MaskSize: ipv4MaskSize,
+		v6MaskSize: ipv6MaskSize,
+	}
+	return nil
+}
+
+// DeletePool deletes a pool from p. No new allocations to nodes will be made
+// from the pool and all internal bookkeeping is removed. However, nodes will
+// still retain their in-flight CIDRs until next time the respective CiliumNode
+// is updated.
+func (p *PoolAllocator) DeletePool(poolName string) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if _, exists := p.pools[poolName]; !exists {
+		return fmt.Errorf("pool %q requested for deletion doesn't exist", poolName)
+	}
+
+	for node, pools := range p.nodes {
+		for pool := range pools {
+			if pool == poolName {
+				log.WithFields(logrus.Fields{
+					"pool": poolName,
+					"node": node,
+				}).Warn("pool still in use by node")
+				delete(p.nodes[node], poolName)
+			}
+		}
+	}
+
+	delete(p.pools, poolName)
+	return nil
+}
+
 func (p *PoolAllocator) AllocateToNode(cn *v2.CiliumNode) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	// We first need to check for CIDRs which we want to occupy, i.e. mark as
 	// allocated to the node. This needs to happen before allocations, to avoid
 	// handing out the same CIDR twice.
@@ -194,6 +343,9 @@ func (p *PoolAllocator) AllocateToNode(cn *v2.CiliumNode) error {
 }
 
 func (p *PoolAllocator) ReleaseNode(nodeName string) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	// Release CIDRs back into pools
 	var err error
 	for poolName, cidrs := range p.nodes[nodeName] {
@@ -219,6 +371,9 @@ func (p *PoolAllocator) ReleaseNode(nodeName string) error {
 }
 
 func (p *PoolAllocator) AllocatedPools(targetNode string) (pools []types.IPAMPoolAllocation) {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+
 	for poolName, cidrs := range p.nodes[targetNode] {
 		v4CIDRs := cidrs.v4.PodCIDRSlice()
 		v6CIDRs := cidrs.v6.PodCIDRSlice()

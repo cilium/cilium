@@ -36,10 +36,9 @@ type ModifyIpamPoolInput struct {
 	// This member is required.
 	IpamPoolId *string
 
-	// Add tag allocation rules to a pool. For more information about allocation rules,
-	// see Create a top-level pool
-	// (https://docs.aws.amazon.com/vpc/latest/ipam/create-top-ipam.html) in the Amazon
-	// VPC IPAM User Guide.
+	// Add tag allocation rules to a pool. For more information about allocation
+	// rules, see Create a top-level pool (https://docs.aws.amazon.com/vpc/latest/ipam/create-top-ipam.html)
+	// in the Amazon VPC IPAM User Guide.
 	AddAllocationResourceTags []types.RequestIpamResourceTag
 
 	// The default netmask length for allocations added to this pool. If, for example,
@@ -47,27 +46,27 @@ type ModifyIpamPoolInput struct {
 	// allocations will default to 10.0.0.0/16.
 	AllocationDefaultNetmaskLength *int32
 
-	// The maximum netmask length possible for CIDR allocations in this IPAM pool to be
-	// compliant. Possible netmask lengths for IPv4 addresses are 0 - 32. Possible
+	// The maximum netmask length possible for CIDR allocations in this IPAM pool to
+	// be compliant. Possible netmask lengths for IPv4 addresses are 0 - 32. Possible
 	// netmask lengths for IPv6 addresses are 0 - 128.The maximum netmask length must
 	// be greater than the minimum netmask length.
 	AllocationMaxNetmaskLength *int32
 
-	// The minimum netmask length required for CIDR allocations in this IPAM pool to be
-	// compliant. Possible netmask lengths for IPv4 addresses are 0 - 32. Possible
+	// The minimum netmask length required for CIDR allocations in this IPAM pool to
+	// be compliant. Possible netmask lengths for IPv4 addresses are 0 - 32. Possible
 	// netmask lengths for IPv6 addresses are 0 - 128. The minimum netmask length must
 	// be less than the maximum netmask length.
 	AllocationMinNetmaskLength *int32
 
-	// If true, IPAM will continuously look for resources within the CIDR range of this
-	// pool and automatically import them as allocations into your IPAM. The CIDRs that
-	// will be allocated for these resources must not already be allocated to other
-	// resources in order for the import to succeed. IPAM will import a CIDR regardless
-	// of its compliance with the pool's allocation rules, so a resource might be
-	// imported and subsequently marked as noncompliant. If IPAM discovers multiple
-	// CIDRs that overlap, IPAM will import the largest CIDR only. If IPAM discovers
-	// multiple CIDRs with matching CIDRs, IPAM will randomly import one of them only.
-	// A locale must be set on the pool for this feature to work.
+	// If true, IPAM will continuously look for resources within the CIDR range of
+	// this pool and automatically import them as allocations into your IPAM. The CIDRs
+	// that will be allocated for these resources must not already be allocated to
+	// other resources in order for the import to succeed. IPAM will import a CIDR
+	// regardless of its compliance with the pool's allocation rules, so a resource
+	// might be imported and subsequently marked as noncompliant. If IPAM discovers
+	// multiple CIDRs that overlap, IPAM will import the largest CIDR only. If IPAM
+	// discovers multiple CIDRs with matching CIDRs, IPAM will randomly import one of
+	// them only. A locale must be set on the pool for this feature to work.
 	AutoImport *bool
 
 	// Clear the default netmask length allocation rule for this pool.
@@ -78,8 +77,8 @@ type ModifyIpamPoolInput struct {
 
 	// A check for whether you have the required permissions for the action without
 	// actually making the request and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// Remove tag allocation rules from a pool.
@@ -148,6 +147,9 @@ func (c *Client) addOperationModifyIpamPoolMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyIpamPool(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

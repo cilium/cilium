@@ -48,7 +48,7 @@ type GetHostReservationPurchasePreviewInput struct {
 type GetHostReservationPurchasePreviewOutput struct {
 
 	// The currency in which the totalUpfrontPrice and totalHourlyPrice amounts are
-	// specified. At this time, the only supported currency is USD.
+	// specified. At this time, the only supported currency is USD .
 	CurrencyCode types.CurrencyCodeValues
 
 	// The purchase information of the Dedicated Host reservation and the Dedicated
@@ -116,6 +116,9 @@ func (c *Client) addOperationGetHostReservationPurchasePreviewMiddlewares(stack 
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetHostReservationPurchasePreview(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -147,7 +147,7 @@ int ipv6_with_hop_auth_tcp_pktgen(struct __ctx_buff *ctx)
 	memcpy(&l3->saddr, (__u8 *)v6_node_one, sizeof(l3->saddr));
 	memcpy(&l3->daddr, (__u8 *)v6_node_two, sizeof(l3->daddr));
 
-	l3_next = pktgen__append_ipv6_extension_header(&builder, NEXTHDR_AUTH);
+	l3_next = pktgen__append_ipv6_extension_header(&builder, NEXTHDR_AUTH, 0);
 	if (!l3_next)
 		return TEST_ERROR;
 
@@ -158,7 +158,7 @@ int ipv6_with_hop_auth_tcp_pktgen(struct __ctx_buff *ctx)
 	authhdr->spi = 0x222;
 	authhdr->seq = 1;
 
-	l3_next = pktgen__append_ipv6_extension_header(&builder, NEXTHDR_HOP);
+	l3_next = pktgen__append_ipv6_extension_header(&builder, NEXTHDR_HOP, 0);
 	if (!l3_next)
 		return TEST_ERROR;
 

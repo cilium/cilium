@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"reflect"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -17,7 +18,6 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/dig"
 	"go.uber.org/multierr"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
@@ -85,6 +85,20 @@ func New(cells ...cell.Cell) *Hive {
 
 	if err := h.provideDefaults(); err != nil {
 		log.WithError(err).Fatal("Failed to provide default objects")
+	}
+
+	// Use a single health provider for all cells, which is used to create
+	// module scoped health reporters.
+	if err := h.container.Provide(func(lc Lifecycle) cell.Health {
+		hp := cell.NewHealthProvider()
+		lc.Append(Hook{
+			OnStop: func(ctx HookContext) error {
+				return hp.Stop(ctx)
+			},
+		})
+		return hp
+	}); err != nil {
+		log.WithError(err).Fatal("Failed to provide health provider")
 	}
 
 	// Apply all cells to the container. This registers all constructors
@@ -199,7 +213,7 @@ func (h *Hive) Run() error {
 func (h *Hive) waitForSignalOrShutdown() error {
 	signals := make(chan os.Signal, 1)
 	defer signal.Stop(signals)
-	signal.Notify(signals, os.Interrupt, unix.SIGINT, unix.SIGTERM)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	select {
 	case sig := <-signals:
 		log.WithField("signal", sig).Info("Signal received")

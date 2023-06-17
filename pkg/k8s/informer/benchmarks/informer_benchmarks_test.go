@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -466,7 +466,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(ctx context.Context, nCycles int
 					wg.Done()
 				},
 			},
-			k8s.ConvertToNode,
+			k8s.TransformToNode,
 		)
 		go controller.Run(ctx.Done())
 	} else {

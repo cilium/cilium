@@ -8,7 +8,7 @@ import (
 	"net"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/ebpf/rlimit"
@@ -119,7 +119,7 @@ func Test(t *testing.T) {
 }
 
 func (k *EgressGatewayTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	bpf.CheckOrMountFS("")
 	err := rlimit.RemoveMemlock()

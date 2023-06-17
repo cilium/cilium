@@ -7,8 +7,8 @@ import (
 	"net"
 	"testing"
 
+	. "github.com/cilium/checkmate"
 	"github.com/cilium/ebpf/rlimit"
-	. "gopkg.in/check.v1"
 
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -30,7 +30,7 @@ type MaglevSuite struct {
 var _ = Suite(&MaglevSuite{})
 
 func (s *MaglevSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedCheck(c)
+	testutils.PrivilegedTest(c)
 
 	vsn, err := version.GetKernelVersion()
 	c.Assert(err, IsNil)

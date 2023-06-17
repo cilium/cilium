@@ -11,8 +11,8 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// [VPC only] Describes the VPCs on the other side of a VPC peering connection that
-// are referencing the security groups you've specified in this request.
+// [VPC only] Describes the VPCs on the other side of a VPC peering connection
+// that are referencing the security groups you've specified in this request.
 func (c *Client) DescribeSecurityGroupReferences(ctx context.Context, params *DescribeSecurityGroupReferencesInput, optFns ...func(*Options)) (*DescribeSecurityGroupReferencesOutput, error) {
 	if params == nil {
 		params = &DescribeSecurityGroupReferencesInput{}
@@ -37,8 +37,8 @@ type DescribeSecurityGroupReferencesInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -104,6 +104,9 @@ func (c *Client) addOperationDescribeSecurityGroupReferencesMiddlewares(stack *m
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeSecurityGroupReferences(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

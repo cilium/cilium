@@ -6,11 +6,11 @@ package lbmap
 import (
 	"fmt"
 	"net"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -37,8 +37,6 @@ type SourceRangeKey interface {
 var _ SourceRangeKey = (*SourceRangeKey4)(nil)
 var _ SourceRangeKey = (*SourceRangeKey6)(nil)
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type SourceRangeKey4 struct {
 	PrefixLen uint32     `align:"lpm_key"`
 	RevNATID  uint16     `align:"rev_nat_id"`
@@ -46,12 +44,13 @@ type SourceRangeKey4 struct {
 	Address   types.IPv4 `align:"addr"`
 }
 
-func (k *SourceRangeKey4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *SourceRangeKey4) NewValue() bpf.MapValue    { return &SourceRangeValue{} }
 func (k *SourceRangeKey4) String() string {
 	kHost := k.ToHost().(*SourceRangeKey4)
 	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
 }
+
+func (k *SourceRangeKey4) New() bpf.MapKey { return &SourceRangeKey4{} }
+
 func (k *SourceRangeKey4) ToNetwork() SourceRangeKey {
 	n := *k
 	// For some reasons rev_nat_index is stored in network byte order in
@@ -81,8 +80,6 @@ func (k *SourceRangeKey4) GetRevNATID() uint16 {
 	return k.RevNATID
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type SourceRangeKey6 struct {
 	PrefixLen uint32     `align:"lpm_key"`
 	RevNATID  uint16     `align:"rev_nat_id"`
@@ -90,12 +87,13 @@ type SourceRangeKey6 struct {
 	Address   types.IPv6 `align:"addr"`
 }
 
-func (k *SourceRangeKey6) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *SourceRangeKey6) NewValue() bpf.MapValue    { return &SourceRangeValue{} }
 func (k *SourceRangeKey6) String() string {
 	kHost := k.ToHost().(*SourceRangeKey6)
 	return fmt.Sprintf("%s (%d)", kHost.GetCIDR().String(), kHost.GetRevNATID())
 }
+
+func (k *SourceRangeKey6) New() bpf.MapKey { return &SourceRangeKey6{} }
+
 func (k *SourceRangeKey6) ToNetwork() SourceRangeKey {
 	n := *k
 	// For some reasons rev_nat_index is stored in network byte order in
@@ -125,14 +123,12 @@ func (k *SourceRangeKey6) GetRevNATID() uint16 {
 	return k.RevNATID
 }
 
-// +k8s:deepcopy-gen=true
-// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type SourceRangeValue struct {
 	Pad uint8 // not used
 }
 
-func (v *SourceRangeValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-func (v *SourceRangeValue) String() string              { return "" }
+func (v *SourceRangeValue) String() string    { return "" }
+func (v *SourceRangeValue) New() bpf.MapValue { return &SourceRangeValue{} }
 
 var (
 	// SourceRange4Map is the BPF map for storing IPv4 service source ranges to
@@ -151,12 +147,11 @@ func initSourceRange(params InitParams) {
 	if params.IPv4 {
 		SourceRange4Map = bpf.NewMap(
 			SourceRange4MapName,
-			bpf.MapTypeLPMTrie,
-			&SourceRangeKey4{}, int(unsafe.Sizeof(SourceRangeKey4{})),
-			&SourceRangeValue{}, int(unsafe.Sizeof(SourceRangeValue{})),
+			ebpf.LPMTrie,
+			&SourceRangeKey4{},
+			&SourceRangeValue{},
 			SourceRangeMapMaxEntries,
-			bpf.BPF_F_NO_PREALLOC, 0,
-			bpf.ConvertKeyValue,
+			bpf.BPF_F_NO_PREALLOC,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(SourceRange4MapName))
 	}
@@ -164,12 +159,11 @@ func initSourceRange(params InitParams) {
 	if params.IPv6 {
 		SourceRange6Map = bpf.NewMap(
 			SourceRange6MapName,
-			bpf.MapTypeLPMTrie,
-			&SourceRangeKey6{}, int(unsafe.Sizeof(SourceRangeKey6{})),
-			&SourceRangeValue{}, int(unsafe.Sizeof(SourceRangeValue{})),
+			ebpf.LPMTrie,
+			&SourceRangeKey6{},
+			&SourceRangeValue{},
 			SourceRangeMapMaxEntries,
-			bpf.BPF_F_NO_PREALLOC, 0,
-			bpf.ConvertKeyValue,
+			bpf.BPF_F_NO_PREALLOC,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(SourceRange6MapName))
 	}

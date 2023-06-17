@@ -5,6 +5,7 @@ package gateway_api
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -16,6 +17,7 @@ import (
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -53,20 +55,15 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}()
 
-	// backend validators
-	for _, fn := range []backendValidationFunc{
-		checkAgainstCrossNamespaceReferences,
-		checkBackendIsService,
-		checkBackendIsExistingService,
-	} {
-		if res, continueCheck, err := fn(ctx, scopedLog.WithField(logfields.Resource, tr), r.Client, tr); err != nil || !continueCheck {
-			return res, err
-		}
+	// check if this cert is allowed to be used by this gateway
+	grants := &gatewayv1beta1.ReferenceGrantList{}
+	if err := r.Client.List(ctx, grants); err != nil {
+		return fail(fmt.Errorf("failed to retrieve reference grants: %w", err))
 	}
 
 	// gateway validators
 	for _, parent := range tr.Spec.ParentRefs {
-		ns := namespaceDerefOr(parent.Namespace, tr.GetNamespace())
+		ns := helpers.NamespaceDerefOr(parent.Namespace, tr.GetNamespace())
 		gw := &gatewayv1beta1.Gateway{}
 
 		if err := r.Client.Get(ctx, client.ObjectKey{Namespace: ns, Name: string(parent.Name)}, gw); err != nil {
@@ -101,6 +98,25 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		mergeTLSRouteStatusConditions(tr, parent, []metav1.Condition{
 			tlsRouteAcceptedCondition(tr, true, tlsRouteAcceptedMessage),
 		})
+	}
+
+	// backend validators
+
+	// set status to okay, this wil be overwritten in checks if needed
+	for _, parent := range tr.Spec.ParentRefs {
+		mergeTLSRouteStatusConditions(tr, parent, []metav1.Condition{
+			tlsRouteResolvedRefsOkayCondition(tr, "Service reference is valid"),
+		})
+	}
+
+	for _, fn := range []backendValidationFunc{
+		checkAgainstCrossNamespaceReferences,
+		checkBackendIsService,
+		checkBackendIsExistingService,
+	} {
+		if res, continueCheck, err := fn(ctx, scopedLog.WithField(logfields.Resource, tr), r.Client, grants, tr); err != nil || !continueCheck {
+			return res, err
+		}
 	}
 
 	scopedLog.Info("Successfully reconciled TLSRoute")

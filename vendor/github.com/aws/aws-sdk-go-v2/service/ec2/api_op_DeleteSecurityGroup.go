@@ -12,8 +12,8 @@ import (
 
 // Deletes a security group. If you attempt to delete a security group that is
 // associated with an instance, or is referenced by another security group, the
-// operation fails with InvalidGroup.InUse in EC2-Classic or DependencyViolation in
-// EC2-VPC. We are retiring EC2-Classic. We recommend that you migrate from
+// operation fails with InvalidGroup.InUse in EC2-Classic or DependencyViolation
+// in EC2-VPC. We are retiring EC2-Classic. We recommend that you migrate from
 // EC2-Classic to a VPC. For more information, see Migrate from EC2-Classic to a
 // VPC (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in
 // the Amazon Elastic Compute Cloud User Guide.
@@ -36,8 +36,8 @@ type DeleteSecurityGroupInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The ID of the security group. Required for a nondefault VPC.
@@ -104,6 +104,9 @@ func (c *Client) addOperationDeleteSecurityGroupMiddlewares(stack *middleware.St
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteSecurityGroup(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

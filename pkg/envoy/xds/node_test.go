@@ -4,7 +4,7 @@
 package xds
 
 import (
-	. "gopkg.in/check.v1"
+	. "github.com/cilium/checkmate"
 )
 
 type NodeSuite struct{}

@@ -1,6 +1,6 @@
-{{- if and .Values.auth.mTLS.spire.enabled .Values.auth.mTLS.spire.install.enabled -}}
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled -}}
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{ .Values.auth.mTLS.spire.install.namespace }}
+  name: {{ .Values.authentication.mutual.spire.install.namespace }}
 {{- end }}

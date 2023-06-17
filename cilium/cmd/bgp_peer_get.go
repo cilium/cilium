@@ -50,7 +50,7 @@ func printSummary(peers []*models.BgpPeer) {
 	for _, peer := range peers {
 		fmt.Fprintf(w, "%d\t", peer.LocalAsn)
 		fmt.Fprintf(w, "%d\t", peer.PeerAsn)
-		fmt.Fprintf(w, "%s\t", peer.PeerAddress)
+		fmt.Fprintf(w, "%s:%d\t", peer.PeerAddress, peer.PeerPort)
 		fmt.Fprintf(w, "%s\t", peer.SessionState)
 
 		// Time is rounded to nearest second

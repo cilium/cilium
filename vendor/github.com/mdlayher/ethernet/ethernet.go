@@ -19,17 +19,13 @@ const (
 	minPayload = 46
 )
 
-var (
-	// Broadcast is a special hardware address which indicates a Frame should
-	// be sent to every device on a given LAN segment.
-	Broadcast = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
-)
+// Broadcast is a special hardware address which indicates a Frame should
+// be sent to every device on a given LAN segment.
+var Broadcast = net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
-var (
-	// ErrInvalidFCS is returned when Frame.UnmarshalFCS detects an incorrect
-	// Ethernet frame check sequence in a byte slice for a Frame.
-	ErrInvalidFCS = errors.New("invalid frame check sequence")
-)
+// ErrInvalidFCS is returned when Frame.UnmarshalFCS detects an incorrect
+// Ethernet frame check sequence in a byte slice for a Frame.
+var ErrInvalidFCS = errors.New("invalid frame check sequence")
 
 // An EtherType is a value used to identify an upper layer protocol
 // encapsulated in a Frame.

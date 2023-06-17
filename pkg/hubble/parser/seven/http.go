@@ -10,10 +10,11 @@ import (
 	"time"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
-func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP) *flowpb.Layer7_Http {
+func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts *options.Options) *flowpb.Layer7_Http {
 	var headers []*flowpb.HTTPHeader
 	keys := make([]string, 0, len(http.Headers))
 	for key := range http.Headers {
@@ -25,15 +26,20 @@ func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP) *flo
 			headers = append(headers, &flowpb.HTTPHeader{Key: key, Value: value})
 		}
 	}
+	uri, _ := url.Parse(http.URL.String())
 	var urlString string
-	if http.URL != nil {
-		if http.URL.User != nil {
+	if uri != nil {
+		if uri.User != nil {
 			// Don't include the password in the flow.
-			if _, ok := http.URL.User.Password(); ok {
-				http.URL.User = url.UserPassword(http.URL.User.Username(), "HUBBLE_REDACTED")
+			if _, ok := uri.User.Password(); ok {
+				uri.User = url.UserPassword(uri.User.Username(), "HUBBLE_REDACTED")
 			}
 		}
-		urlString = http.URL.String()
+		if opts.RedactHTTPQuery {
+			uri.RawQuery = ""
+			uri.Fragment = ""
+		}
+		urlString = uri.String()
 	}
 	if flowType == accesslog.TypeRequest {
 		// Set only fields that are relevant for requests.

@@ -13,6 +13,8 @@ import (
 	"io"
 	"net"
 	"sort"
+	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/sirupsen/logrus"
@@ -40,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
+	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
@@ -52,13 +55,22 @@ import (
 	"github.com/cilium/cilium/pkg/maps/srv6map"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
+	"github.com/cilium/cilium/pkg/maps/worldcidrsmap"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/sysctl"
 	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-linux-config")
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-linux-config")
+
+	tunnelProtocols = map[string]int{
+		option.TunnelVXLAN:  1,
+		option.TunnelGeneve: 2,
+	}
+)
 
 // HeaderfileWriter is a wrapper type which implements datapath.ConfigWriter.
 // It manages writing of configuration of datapath program headerfiles.
@@ -124,6 +136,20 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		fw.WriteString(defineIPv6("HOST_IP", hostIP))
 	}
 
+	for t, id := range tunnelProtocols {
+		macroName := fmt.Sprintf("TUNNEL_PROTOCOL_%s", strings.ToUpper(t))
+		cDefinesMap[macroName] = fmt.Sprintf("%d", id)
+	}
+
+	encapProto := option.Config.TunnelProtocol
+	if !option.Config.TunnelingEnabled() &&
+		option.Config.EnableNodePort &&
+		option.Config.NodePortMode != option.NodePortModeSNAT &&
+		option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve {
+		encapProto = option.TunnelGeneve
+	}
+
+	cDefinesMap["TUNNEL_PROTOCOL"] = fmt.Sprintf("%d", tunnelProtocols[encapProto])
 	cDefinesMap["TUNNEL_PORT"] = fmt.Sprintf("%d", option.Config.TunnelPort)
 
 	cDefinesMap["HOST_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHost))
@@ -168,8 +194,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["SRV6_POLICY_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxPolicyEntries)
 	cDefinesMap["SRV6_SID_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxSIDEntries)
 	cDefinesMap["SRV6_STATE_MAP_SIZE"] = fmt.Sprintf("%d", srv6map.MaxStateEntries)
+	cDefinesMap["WORLD_CIDRS4_MAP"] = worldcidrsmap.MapName4
+	cDefinesMap["WORLD_CIDRS4_MAP_SIZE"] = fmt.Sprintf("%d", worldcidrsmap.MapMaxEntries)
 	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.PolicyCallMaxEntries)
+	cDefinesMap["L2_RESPONSER_MAP4_SIZE"] = fmt.Sprintf("%d", l2respondermap.DefaultMaxEntries)
 	cDefinesMap["ENCRYPT_MAP"] = encrypt.MapName
+	cDefinesMap["L2_RESPONDER_MAP4"] = l2respondermap.MapName
 	cDefinesMap["CT_CONNECTION_LIFETIME_TCP"] = fmt.Sprintf("%d", int64(option.Config.CTMapEntriesTimeoutTCP.Seconds()))
 	cDefinesMap["CT_CONNECTION_LIFETIME_NONTCP"] = fmt.Sprintf("%d", int64(option.Config.CTMapEntriesTimeoutAny.Seconds()))
 	cDefinesMap["CT_SERVICE_LIFETIME_TCP"] = fmt.Sprintf("%d", int64(option.Config.CTMapEntriesTimeoutSVCTCP.Seconds()))
@@ -257,6 +287,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EncryptNode {
 			cDefinesMap["ENABLE_NODE_ENCRYPTION"] = "1"
 		}
+	}
+
+	if option.Config.EnableL2Announcements {
+		cDefinesMap["ENABLE_L2_ANNOUNCEMENTS"] = "1"
+		// If the agent is down for longer than the lease duration, stop responding
+		cDefinesMap["L2_ANNOUNCEMENTS_MAX_LIVENESS"] = fmt.Sprintf("%dULL", option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 	}
 
 	if option.Config.EnableBPFTProxy {
@@ -435,12 +471,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			if option.Config.EnableIPv4 {
 				cDefinesMap["LB4_SRC_RANGE_MAP"] = lbmap.SourceRange4MapName
 				cDefinesMap["LB4_SRC_RANGE_MAP_SIZE"] =
-					fmt.Sprintf("%d", lbmap.SourceRange4Map.MapInfo.MaxEntries)
+					fmt.Sprintf("%d", lbmap.SourceRange4Map.MaxEntries())
 			}
 			if option.Config.EnableIPv6 {
 				cDefinesMap["LB6_SRC_RANGE_MAP"] = lbmap.SourceRange6MapName
 				cDefinesMap["LB6_SRC_RANGE_MAP_SIZE"] =
-					fmt.Sprintf("%d", lbmap.SourceRange6Map.MapInfo.MaxEntries)
+					fmt.Sprintf("%d", lbmap.SourceRange6Map.MaxEntries())
 			}
 		}
 
@@ -561,18 +597,34 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
 		}
 
-		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
-			cDefinesMap["ENABLE_MASQUERADE"] = "1"
-			cidr := datapath.RemoteSNATDstAddrExclusionCIDRv4()
-			cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] =
-				fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(cidr.IP))
-			ones, _ := cidr.Mask.Size()
-			cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = fmt.Sprintf("%d", ones)
+		if option.Config.EnableBPFMasquerade {
+			if option.Config.EnableIPv4Masquerade {
+				cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
+				cidr := datapath.RemoteSNATDstAddrExclusionCIDRv4()
+				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] =
+					fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(cidr.IP))
+				ones, _ := cidr.Mask.Size()
+				cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = fmt.Sprintf("%d", ones)
 
-			// ip-masq-agent depends on bpf-masq
-			if option.Config.EnableIPMasqAgent {
-				cDefinesMap["ENABLE_IP_MASQ_AGENT"] = "1"
-				cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapName
+				// ip-masq-agent depends on bpf-masq
+				if option.Config.EnableIPMasqAgent {
+					if option.Config.EnableIPv4 {
+						cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
+						cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapNameIPv4
+					}
+					if option.Config.EnableIPv6 {
+						cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV6"] = "1"
+						cDefinesMap["IP_MASQ_AGENT_IPV6"] = ipmasq.MapNameIPv6
+					}
+				}
+			}
+			if option.Config.EnableIPv6Masquerade {
+				cDefinesMap["ENABLE_MASQUERADE_IPV6"] = "1"
+				cidr := datapath.RemoteSNATDstAddrExclusionCIDRv6()
+				extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR"] = cidr.IP.String()
+				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR", cidr.IP))
+				extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR_MASK"] = cidr.Mask.String()
+				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR_MASK", cidr.Mask))
 			}
 		}
 
@@ -620,6 +672,30 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["CIDR_IDENTITY_RANGE_START"] = fmt.Sprintf("%d", identity.MinLocalIdentity)
 	cDefinesMap["CIDR_IDENTITY_RANGE_END"] = fmt.Sprintf("%d", identity.MaxLocalIdentity)
 
+	if option.Config.TunnelingEnabled() {
+		cDefinesMap["TUNNEL_MODE"] = "1"
+	}
+
+	ciliumNetLink, err := netlink.LinkByName(defaults.SecondHostDevice)
+	if err != nil {
+		return err
+	}
+	cDefinesMap["CILIUM_NET_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumNetLink.Attrs().HardwareAddr))
+	cDefinesMap["HOST_IFINDEX"] = fmt.Sprintf("%d", ciliumNetLink.Attrs().Index)
+
+	ciliumHostLink, err := netlink.LinkByName(defaults.HostDevice)
+	if err != nil {
+		return err
+	}
+	cDefinesMap["HOST_IFINDEX_MAC"] = fmt.Sprintf("{.addr=%s}", mac.CArrayString(ciliumHostLink.Attrs().HardwareAddr))
+	cDefinesMap["CILIUM_IFINDEX"] = fmt.Sprintf("%d", ciliumHostLink.Attrs().Index)
+
+	ephemeralMin, err := getEphemeralPortRangeMin()
+	if err != nil {
+		return err
+	}
+	cDefinesMap["EPHEMERAL_MIN"] = fmt.Sprintf("%d", ephemeralMin)
+
 	// Since golang maps are unordered, we sort the keys in the map
 	// to get a consistent written format to the writer. This maintains
 	// the consistency when we try to calculate hash for a datapath after
@@ -652,6 +728,24 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 
 	return fw.Flush()
+}
+
+func getEphemeralPortRangeMin() (int, error) {
+	ephemeralPortRangeStr, err := sysctl.Read("net.ipv4.ip_local_port_range")
+	if err != nil {
+		return 0, fmt.Errorf("unable to read net.ipv4.ip_local_port_range: %w", err)
+	}
+	ephemeralPortRange := strings.Split(ephemeralPortRangeStr, "\t")
+	if len(ephemeralPortRange) != 2 {
+		return 0, fmt.Errorf("invalid ephemeral port range: %s", ephemeralPortRangeStr)
+	}
+	ephemeralPortMin, err := strconv.Atoi(ephemeralPortRange[0])
+	if err != nil {
+		return 0, fmt.Errorf("unable to parse min port value %s for ephemeral range: %w",
+			ephemeralPortRange[0], err)
+	}
+
+	return ephemeralPortMin, nil
 }
 
 // vlanFilterMacros generates VLAN_FILTER macros which
@@ -809,10 +903,17 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 			fmt.Fprint(fw, defineUint32("NATIVE_DEV_IFINDEX", 1))
 			fmt.Fprint(fw, "\n")
 		}
-		if option.Config.EnableIPv4Masquerade && option.Config.EnableBPFMasquerade {
-			// NodePort comment above applies to IPV4_MASQUERADE too
-			placeholderIPv4 := []byte{1, 1, 1, 1}
-			fmt.Fprint(fw, defineIPv4("IPV4_MASQUERADE", placeholderIPv4))
+		if option.Config.EnableBPFMasquerade {
+			if option.Config.EnableIPv4Masquerade {
+				// NodePort comment above applies to IPV4_MASQUERADE too
+				placeholderIPv4 := []byte{1, 1, 1, 1}
+				fmt.Fprint(fw, defineIPv4("IPV4_MASQUERADE", placeholderIPv4))
+			}
+			if option.Config.EnableIPv6Masquerade {
+				// NodePort comment above applies to IPV6_MASQUERADE too
+				placeholderIPv6 := []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+				fmt.Fprint(fw, defineIPv6("IPV6_MASQUERADE", placeholderIPv6))
+			}
 		}
 		// Dummy value to avoid being optimized when 0
 		fmt.Fprint(fw, defineUint32("SECCTX_FROM_IPCACHE", 1))

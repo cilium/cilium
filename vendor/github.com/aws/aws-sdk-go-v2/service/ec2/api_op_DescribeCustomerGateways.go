@@ -17,9 +17,8 @@ import (
 )
 
 // Describes one or more of your VPN customer gateways. For more information, see
-// Amazon Web Services Site-to-Site VPN
-// (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html) in the Amazon Web
-// Services Site-to-Site VPN User Guide.
+// Amazon Web Services Site-to-Site VPN (https://docs.aws.amazon.com/vpn/latest/s2svpn/VPC_VPN.html)
+// in the Amazon Web Services Site-to-Site VPN User Guide.
 func (c *Client) DescribeCustomerGateways(ctx context.Context, params *DescribeCustomerGatewaysInput, optFns ...func(*Options)) (*DescribeCustomerGatewaysOutput, error) {
 	if params == nil {
 		params = &DescribeCustomerGatewaysInput{}
@@ -43,36 +42,26 @@ type DescribeCustomerGatewaysInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// One or more filters.
-	//
-	// * bgp-asn - The customer gateway's Border Gateway Protocol
-	// (BGP) Autonomous System Number (ASN).
-	//
-	// * customer-gateway-id - The ID of the
-	// customer gateway.
-	//
-	// * ip-address - The IP address of the customer gateway
-	// device's external interface.
-	//
-	// * state - The state of the customer gateway
-	// (pending | available | deleting | deleted).
-	//
-	// * type - The type of customer
-	// gateway. Currently, the only supported type is ipsec.1.
-	//
-	// * tag: - The key/value
-	// combination of a tag assigned to the resource. Use the tag key in the filter
-	// name and the tag value as the filter value. For example, to find all resources
-	// that have a tag with the key Owner and the value TeamA, specify tag:Owner for
-	// the filter name and TeamA for the filter value.
-	//
-	// * tag-key - The key of a tag
-	// assigned to the resource. Use this filter to find all resources assigned a tag
-	// with a specific key, regardless of the tag value.
+	//   - bgp-asn - The customer gateway's Border Gateway Protocol (BGP) Autonomous
+	//   System Number (ASN).
+	//   - customer-gateway-id - The ID of the customer gateway.
+	//   - ip-address - The IP address of the customer gateway device's external
+	//   interface.
+	//   - state - The state of the customer gateway ( pending | available | deleting |
+	//   deleted ).
+	//   - type - The type of customer gateway. Currently, the only supported type is
+	//   ipsec.1 .
+	//   - tag : - The key/value combination of a tag assigned to the resource. Use the
+	//   tag key in the filter name and the tag value as the filter value. For example,
+	//   to find all resources that have a tag with the key Owner and the value TeamA ,
+	//   specify tag:Owner for the filter name and TeamA for the filter value.
+	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
+	//   all resources assigned a tag with a specific key, regardless of the tag value.
 	Filters []types.Filter
 
 	noSmithyDocumentSerde
@@ -138,6 +127,9 @@ func (c *Client) addOperationDescribeCustomerGatewaysMiddlewares(stack *middlewa
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeCustomerGateways(options.Region), middleware.Before); err != nil {
 		return err
 	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
+		return err
+	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
 		return err
 	}
@@ -172,8 +164,8 @@ type CustomerGatewayAvailableWaiterOptions struct {
 	// Note that MinDelay must resolve to a value lesser than or equal to the MaxDelay.
 	MinDelay time.Duration
 
-	// MaxDelay is the maximum amount of time to delay between retries. If unset or set
-	// to zero, CustomerGatewayAvailableWaiter will use default max delay of 120
+	// MaxDelay is the maximum amount of time to delay between retries. If unset or
+	// set to zero, CustomerGatewayAvailableWaiter will use default max delay of 120
 	// seconds. Note that MaxDelay must resolve to value greater than or equal to the
 	// MinDelay.
 	MaxDelay time.Duration

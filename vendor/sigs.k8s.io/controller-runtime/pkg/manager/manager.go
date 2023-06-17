@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
+
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
@@ -44,7 +45,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/recorder"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/inject"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
@@ -55,8 +55,7 @@ type Manager interface {
 	cluster.Cluster
 
 	// Add will set requested dependencies on the component, and cause the component to be
-	// started when Start is called.  Add will inject any dependencies for which the argument
-	// implements the inject interface - e.g. inject.Client.
+	// started when Start is called.
 	// Depending on if a Runnable implements LeaderElectionRunnable interface, a Runnable can be run in either
 	// non-leaderelection mode (always running) or leader election mode (managed by leader election if enabled).
 	Add(Runnable) error
@@ -88,13 +87,13 @@ type Manager interface {
 	Start(ctx context.Context) error
 
 	// GetWebhookServer returns a webhook.Server
-	GetWebhookServer() *webhook.Server
+	GetWebhookServer() webhook.Server
 
 	// GetLogger returns this manager's logger.
 	GetLogger() logr.Logger
 
 	// GetControllerOptions returns controller global configuration options.
-	GetControllerOptions() v1alpha1.ControllerConfigurationSpec
+	GetControllerOptions() config.Controller
 }
 
 // Options are the arguments for creating a new Manager.
@@ -102,10 +101,44 @@ type Options struct {
 	// Scheme is the scheme used to resolve runtime.Objects to GroupVersionKinds / Resources.
 	// Defaults to the kubernetes/client-go scheme.Scheme, but it's almost always better
 	// to pass your own scheme in. See the documentation in pkg/scheme for more information.
+	//
+	// If set, the Scheme will be used to create the default Client and Cache.
 	Scheme *runtime.Scheme
 
-	// MapperProvider provides the rest mapper used to map go types to Kubernetes APIs
-	MapperProvider func(c *rest.Config) (meta.RESTMapper, error)
+	// MapperProvider provides the rest mapper used to map go types to Kubernetes APIs.
+	//
+	// If set, the RESTMapper returned by this function is used to create the RESTMapper
+	// used by the Client and Cache.
+	MapperProvider func(c *rest.Config, httpClient *http.Client) (meta.RESTMapper, error)
+
+	// Cache is the cache.Options that will be used to create the default Cache.
+	// By default, the cache will watch and list requested objects in all namespaces.
+	Cache cache.Options
+
+	// NewCache is the function that will create the cache to be used
+	// by the manager. If not set this will use the default new cache function.
+	//
+	// When using a custom NewCache, the Cache options will be passed to the
+	// NewCache function.
+	//
+	// NOTE: LOW LEVEL PRIMITIVE!
+	// Only use a custom NewCache if you know what you are doing.
+	NewCache cache.NewCacheFunc
+
+	// Client is the client.Options that will be used to create the default Client.
+	// By default, the client will use the cache for reads and direct calls for writes.
+	Client client.Options
+
+	// NewClient is the func that creates the client to be used by the manager.
+	// If not set this will create a Client backed by a Cache for read operations
+	// and a direct Client for write operations.
+	//
+	// When using a custom NewClient, the Client options will be passed to the
+	// NewClient function.
+	//
+	// NOTE: LOW LEVEL PRIMITIVE!
+	// Only use a custom NewClient if you know what you are doing.
+	NewClient client.NewClientFunc
 
 	// SyncPeriod determines the minimum frequency at which watched resources are
 	// reconciled. A lower period will correct entropy more quickly, but reduce
@@ -132,6 +165,8 @@ type Options struct {
 	// is "done" with an object, and would otherwise not requeue it, i.e., we
 	// recommend the `Reconcile` function return `reconcile.Result{RequeueAfter: t}`,
 	// instead of `reconcile.Result{}`.
+	//
+	// Deprecated: Use Cache.SyncPeriod instead.
 	SyncPeriod *time.Duration
 
 	// Logger is the logger that should be used by this manager.
@@ -217,6 +252,8 @@ type Options struct {
 	// Note: If a namespace is specified, controllers can still Watch for a
 	// cluster-scoped resource (e.g Node). For namespaced resources, the cache
 	// will only hold objects from the desired namespace.
+	//
+	// Deprecated: Use Cache.Namespaces instead.
 	Namespace string
 
 	// MetricsBindAddress is the TCP address that the controller should bind to
@@ -235,11 +272,22 @@ type Options struct {
 	// Liveness probe endpoint name, defaults to "healthz"
 	LivenessEndpointName string
 
+	// PprofBindAddress is the TCP address that the controller should bind to
+	// for serving pprof.
+	// It can be set to "" or "0" to disable the pprof serving.
+	// Since pprof may contain sensitive information, make sure to protect it
+	// before exposing it to public.
+	PprofBindAddress string
+
 	// Port is the port that the webhook server serves at.
 	// It is used to set webhook.Server.Port if WebhookServer is not set.
+	//
+	// Deprecated: Use WebhookServer instead. A WebhookServer can be created via webhook.NewServer.
 	Port int
 	// Host is the hostname that the webhook server binds to.
 	// It is used to set webhook.Server.Host if WebhookServer is not set.
+	//
+	// Deprecated: Use WebhookServer instead. A WebhookServer can be created via webhook.NewServer.
 	Host string
 
 	// CertDir is the directory that contains the server key and certificate.
@@ -247,26 +295,19 @@ type Options struct {
 	// {TempDir}/k8s-webhook-server/serving-certs. The server key and certificate
 	// must be named tls.key and tls.crt, respectively.
 	// It is used to set webhook.Server.CertDir if WebhookServer is not set.
+	//
+	// Deprecated: Use WebhookServer instead. A WebhookServer can be created via webhook.NewServer.
 	CertDir string
 
 	// TLSOpts is used to allow configuring the TLS config used for the webhook server.
+	//
+	// Deprecated: Use WebhookServer instead. A WebhookServer can be created via webhook.NewServer.
 	TLSOpts []func(*tls.Config)
 
 	// WebhookServer is an externally configured webhook.Server. By default,
 	// a Manager will create a default server using Port, Host, and CertDir;
 	// if this is set, the Manager will use this server instead.
-	WebhookServer *webhook.Server
-
-	// Functions to allow for a user to customize values that will be injected.
-
-	// NewCache is the function that will create the cache to be used
-	// by the manager. If not set this will use the default new cache function.
-	NewCache cache.NewCacheFunc
-
-	// NewClient is the func that creates the client to be used by the manager.
-	// If not set this will create the default DelegatingClient that will
-	// use the cache for reads and the client for writes.
-	NewClient cluster.NewClientFunc
+	WebhookServer webhook.Server
 
 	// BaseContext is the function that provides Context values to Runnables
 	// managed by the Manager. If a BaseContext function isn't provided, Runnables
@@ -275,10 +316,14 @@ type Options struct {
 
 	// ClientDisableCacheFor tells the client that, if any cache is used, to bypass it
 	// for the given objects.
+	//
+	// Deprecated: Use Client.Cache.DisableCacheFor instead.
 	ClientDisableCacheFor []client.Object
 
 	// DryRunClient specifies whether the client should be configured to enforce
 	// dryRun mode.
+	//
+	// Deprecated: Use Client.DryRun instead.
 	DryRunClient bool
 
 	// EventBroadcaster records Events emitted by the manager and sends them to the Kubernetes API
@@ -297,7 +342,7 @@ type Options struct {
 	// Controller contains global configuration options for controllers
 	// registered within this manager.
 	// +optional
-	Controller v1alpha1.ControllerConfigurationSpec
+	Controller config.Controller
 
 	// makeBroadcaster allows deferring the creation of the broadcaster to
 	// avoid leaking goroutines if we never call Start on this manager.  It also
@@ -306,10 +351,11 @@ type Options struct {
 	makeBroadcaster intrec.EventBroadcasterProducer
 
 	// Dependency injection for testing
-	newRecorderProvider    func(config *rest.Config, scheme *runtime.Scheme, logger logr.Logger, makeBroadcaster intrec.EventBroadcasterProducer) (*intrec.Provider, error)
+	newRecorderProvider    func(config *rest.Config, httpClient *http.Client, scheme *runtime.Scheme, logger logr.Logger, makeBroadcaster intrec.EventBroadcasterProducer) (*intrec.Provider, error)
 	newResourceLock        func(config *rest.Config, recorderProvider recorder.Provider, options leaderelection.Options) (resourcelock.Interface, error)
 	newMetricsListener     func(addr string) (net.Listener, error)
 	newHealthProbeListener func(addr string) (net.Listener, error)
+	newPprofListener       func(addr string) (net.Listener, error)
 }
 
 // BaseContextFunc is a function used to provide a base Context to Runnables
@@ -353,12 +399,14 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		clusterOptions.MapperProvider = options.MapperProvider
 		clusterOptions.Logger = options.Logger
 		clusterOptions.SyncPeriod = options.SyncPeriod
-		clusterOptions.Namespace = options.Namespace
 		clusterOptions.NewCache = options.NewCache
 		clusterOptions.NewClient = options.NewClient
-		clusterOptions.ClientDisableCacheFor = options.ClientDisableCacheFor
-		clusterOptions.DryRunClient = options.DryRunClient
-		clusterOptions.EventBroadcaster = options.EventBroadcaster //nolint:staticcheck
+		clusterOptions.Cache = options.Cache
+		clusterOptions.Client = options.Client
+		clusterOptions.Namespace = options.Namespace                         //nolint:staticcheck
+		clusterOptions.ClientDisableCacheFor = options.ClientDisableCacheFor //nolint:staticcheck
+		clusterOptions.DryRunClient = options.DryRunClient                   //nolint:staticcheck
+		clusterOptions.EventBroadcaster = options.EventBroadcaster           //nolint:staticcheck
 	})
 	if err != nil {
 		return nil, err
@@ -367,7 +415,7 @@ func New(config *rest.Config, options Options) (Manager, error) {
 	// Create the recorder provider to inject event recorders for the components.
 	// TODO(directxman12): the log for the event provider should have a context (name, tags, etc) specific
 	// to the particular controller that it's being injected into, rather than a generic one like is here.
-	recorderProvider, err := options.newRecorderProvider(config, cluster.GetScheme(), options.Logger.WithName("events"), options.makeBroadcaster)
+	recorderProvider, err := options.newRecorderProvider(config, cluster.GetHTTPClient(), cluster.GetScheme(), options.Logger.WithName("events"), options.makeBroadcaster)
 	if err != nil {
 		return nil, err
 	}
@@ -381,7 +429,7 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		leaderRecorderProvider = recorderProvider
 	} else {
 		leaderConfig = rest.CopyConfig(options.LeaderElectionConfig)
-		leaderRecorderProvider, err = options.newRecorderProvider(leaderConfig, cluster.GetScheme(), options.Logger.WithName("events"), options.makeBroadcaster)
+		leaderRecorderProvider, err = options.newRecorderProvider(leaderConfig, cluster.GetHTTPClient(), cluster.GetScheme(), options.Logger.WithName("events"), options.makeBroadcaster)
 		if err != nil {
 			return nil, err
 		}
@@ -419,6 +467,13 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		return nil, err
 	}
 
+	// Create pprof listener. This will throw an error if the bind
+	// address is invalid or already in use.
+	pprofListener, err := options.newPprofListener(options.PprofBindAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to new pprof listener: %w", err)
+	}
+
 	errChan := make(chan error)
 	runnables := newRunnables(options.BaseContext, errChan)
 
@@ -431,13 +486,9 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		resourceLock:                  resourceLock,
 		metricsListener:               metricsListener,
 		metricsExtraHandlers:          metricsExtraHandlers,
-		controllerOptions:             options.Controller,
+		controllerConfig:              options.Controller,
 		logger:                        options.Logger,
 		elected:                       make(chan struct{}),
-		port:                          options.Port,
-		host:                          options.Host,
-		certDir:                       options.CertDir,
-		tlsOpts:                       options.TLSOpts,
 		webhookServer:                 options.WebhookServer,
 		leaderElectionID:              options.LeaderElectionID,
 		leaseDuration:                 *options.LeaseDuration,
@@ -446,6 +497,7 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		healthProbeListener:           healthProbeListener,
 		readinessEndpointName:         options.ReadinessEndpointName,
 		livenessEndpointName:          options.LivenessEndpointName,
+		pprofListener:                 pprofListener,
 		gracefulShutdownTimeout:       *options.GracefulShutdownTimeout,
 		internalProceduresStop:        make(chan struct{}),
 		leaderElectionStopped:         make(chan struct{}),
@@ -456,14 +508,14 @@ func New(config *rest.Config, options Options) (Manager, error) {
 // AndFrom will use a supplied type and convert to Options
 // any options already set on Options will be ignored, this is used to allow
 // cli flags to override anything specified in the config file.
+//
+// Deprecated: This function has been deprecated and will be removed in a future release,
+// The Component Configuration package has been unmaintained for over a year and is no longer
+// actively developed. Users should migrate to their own configuration format
+// and configure Manager.Options directly.
+// See https://github.com/kubernetes-sigs/controller-runtime/issues/895
+// for more information, feedback, and comments.
 func (o Options) AndFrom(loader config.ControllerManagerConfiguration) (Options, error) {
-	if inj, wantsScheme := loader.(inject.Scheme); wantsScheme {
-		err := inj.InjectScheme(o.Scheme)
-		if err != nil {
-			return o, err
-		}
-	}
-
 	newObj, err := loader.Complete()
 	if err != nil {
 		return o, err
@@ -498,18 +550,23 @@ func (o Options) AndFrom(loader config.ControllerManagerConfiguration) (Options,
 	if o.Port == 0 && newObj.Webhook.Port != nil {
 		o.Port = *newObj.Webhook.Port
 	}
-
 	if o.Host == "" && newObj.Webhook.Host != "" {
 		o.Host = newObj.Webhook.Host
 	}
-
 	if o.CertDir == "" && newObj.Webhook.CertDir != "" {
 		o.CertDir = newObj.Webhook.CertDir
 	}
+	if o.WebhookServer == nil {
+		o.WebhookServer = webhook.NewServer(webhook.Options{
+			Port:    o.Port,
+			Host:    o.Host,
+			CertDir: o.CertDir,
+		})
+	}
 
 	if newObj.Controller != nil {
-		if o.Controller.CacheSyncTimeout == nil && newObj.Controller.CacheSyncTimeout != nil {
-			o.Controller.CacheSyncTimeout = newObj.Controller.CacheSyncTimeout
+		if o.Controller.CacheSyncTimeout == 0 && newObj.Controller.CacheSyncTimeout != nil {
+			o.Controller.CacheSyncTimeout = *newObj.Controller.CacheSyncTimeout
 		}
 
 		if len(o.Controller.GroupKindConcurrency) == 0 && len(newObj.Controller.GroupKindConcurrency) > 0 {
@@ -521,6 +578,13 @@ func (o Options) AndFrom(loader config.ControllerManagerConfiguration) (Options,
 }
 
 // AndFromOrDie will use options.AndFrom() and will panic if there are errors.
+//
+// Deprecated: This function has been deprecated and will be removed in a future release,
+// The Component Configuration package has been unmaintained for over a year and is no longer
+// actively developed. Users should migrate to their own configuration format
+// and configure Manager.Options directly.
+// See https://github.com/kubernetes-sigs/controller-runtime/issues/895
+// for more information, feedback, and comments.
 func (o Options) AndFromOrDie(loader config.ControllerManagerConfiguration) Options {
 	o, err := o.AndFrom(loader)
 	if err != nil {
@@ -568,6 +632,19 @@ func (o Options) setLeaderElectionConfig(obj v1alpha1.ControllerManagerConfigura
 
 // defaultHealthProbeListener creates the default health probes listener bound to the given address.
 func defaultHealthProbeListener(addr string) (net.Listener, error) {
+	if addr == "" || addr == "0" {
+		return nil, nil
+	}
+
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("error listening on %s: %w", addr, err)
+	}
+	return ln, nil
+}
+
+// defaultPprofListener creates the default pprof listener bound to the given address.
+func defaultPprofListener(addr string) (net.Listener, error) {
 	if addr == "" || addr == "0" {
 		return nil, nil
 	}
@@ -639,6 +716,10 @@ func setOptionsDefaults(options Options) Options {
 		options.newHealthProbeListener = defaultHealthProbeListener
 	}
 
+	if options.newPprofListener == nil {
+		options.newPprofListener = defaultPprofListener
+	}
+
 	if options.GracefulShutdownTimeout == nil {
 		gracefulShutdownTimeout := defaultGracefulShutdownPeriod
 		options.GracefulShutdownTimeout = &gracefulShutdownTimeout
@@ -650,6 +731,15 @@ func setOptionsDefaults(options Options) Options {
 
 	if options.BaseContext == nil {
 		options.BaseContext = defaultBaseContext
+	}
+
+	if options.WebhookServer == nil {
+		options.WebhookServer = webhook.NewServer(webhook.Options{
+			Host:    options.Host,
+			Port:    options.Port,
+			CertDir: options.CertDir,
+			TLSOpts: options.TLSOpts,
+		})
 	}
 
 	return options

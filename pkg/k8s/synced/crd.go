@@ -45,6 +45,7 @@ func agentCRDResourceNames() []string {
 		CRDResourceName(v2.CIDName),
 		CRDResourceName(v2alpha1.CNCName),
 		CRDResourceName(v2alpha1.CCGName),
+		CRDResourceName(v2alpha1.CPIPName),
 	}
 
 	if !option.Config.DisableCiliumEndpointCRD {
@@ -68,7 +69,10 @@ func agentCRDResourceNames() []string {
 		result = append(result, CRDResourceName(v2alpha1.BGPPName))
 	}
 
-	result = append(result, CRDResourceName(v2alpha1.LBIPPoolName))
+	result = append(result,
+		CRDResourceName(v2alpha1.LBIPPoolName),
+		CRDResourceName(v2alpha1.L2AnnouncementName),
+	)
 
 	return result
 }
@@ -79,8 +83,20 @@ func AgentCRDResourceNames() []string {
 	return agentCRDResourceNames()
 }
 
+// ClusterMeshAPIServerResourceNames returns a list of all CRD resource names the
+// clustermesh-apiserver needs to wait to be registered before initializing any
+// k8s watchers.
+func ClusterMeshAPIServerResourceNames() []string {
+	return []string{
+		CRDResourceName(v2.CNName),
+		CRDResourceName(v2.CIDName),
+		CRDResourceName(v2.CEPName),
+		CRDResourceName(v2.CEWName),
+	}
+}
+
 // AllCiliumCRDResourceNames returns a list of all Cilium CRD resource names
-// that the clustermesh-apiserver or testsuite may register.
+// that the cilium operator or testsuite may register.
 func AllCiliumCRDResourceNames() []string {
 	return append(
 		AgentCRDResourceNames(),

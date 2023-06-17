@@ -156,9 +156,12 @@ type HTTPRouteRule struct {
 	// ties. Across all rules specified on applicable Routes, precedence must be
 	// given to the match with the largest number of:
 	//
-	// * Characters in a matching path.
+	// * Characters in a matching "Exact" path match
+	// * Characters in a matching "Prefix" path match
 	// * Header matches.
 	// * Query param matches.
+	//
+	// Note: The precedence of RegularExpression path matches are implementation-specific.
 	//
 	// If ties still exist across multiple Routes, matching precedence MUST be
 	// determined in order of the following criteria, continuing on ties:
@@ -231,6 +234,8 @@ type HTTPRouteRule struct {
 	// choose how that 50 percent is determined.
 	//
 	// Support: Core for Kubernetes Service
+	//
+	// Support: Extended for Kubernetes ServiceImport
 	//
 	// Support: Implementation-specific for any other resource
 	//
@@ -343,12 +348,8 @@ const (
 //
 //   - ":method" - ":" is an invalid character. This means that HTTP/2 pseudo
 //     headers are not currently supported by this type.
-//   - "/invalid" - "/" is an invalid character
-//
-// +kubebuilder:validation:MinLength=1
-// +kubebuilder:validation:MaxLength=256
-// +kubebuilder:validation:Pattern=`^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$`
-type HTTPHeaderName string
+//   - "/invalid" - "/ " is an invalid character
+type HTTPHeaderName HeaderName
 
 // HTTPHeaderMatch describes how to select a HTTP route by matching HTTP request
 // headers.
@@ -449,10 +450,7 @@ type HTTPQueryParamMatch struct {
 	//
 	// Users SHOULD NOT route traffic based on repeated query params to guard
 	// themselves against potential differences in the implementations.
-	//
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=256
-	Name string `json:"name"`
+	Name HTTPHeaderName `json:"name"`
 
 	// Value is the value of HTTP query param to be matched.
 	//
@@ -587,8 +585,7 @@ type HTTPRouteFilter struct {
 	// Reason of `UnsupportedValue`.
 	//
 	// +unionDiscriminator
-	// +kubebuilder:validation:Enum=RequestHeaderModifier;RequestMirror;RequestRedirect;ExtensionRef
-	// <gateway:experimental:validation:Enum=RequestHeaderModifier;ResponseHeaderModifier;RequestMirror;RequestRedirect;URLRewrite;ExtensionRef>
+	// +kubebuilder:validation:Enum=RequestHeaderModifier;ResponseHeaderModifier;RequestMirror;RequestRedirect;URLRewrite;ExtensionRef
 	Type HTTPRouteFilterType `json:"type"`
 
 	// RequestHeaderModifier defines a schema for a filter that modifies request
@@ -605,7 +602,6 @@ type HTTPRouteFilter struct {
 	// Support: Extended
 	//
 	// +optional
-	// <gateway:experimental>
 	ResponseHeaderModifier *HTTPHeaderFilter `json:"responseHeaderModifier,omitempty"`
 
 	// RequestMirror defines a schema for a filter that mirrors requests.
@@ -629,7 +625,6 @@ type HTTPRouteFilter struct {
 	//
 	// Support: Extended
 	//
-	// <gateway:experimental>
 	// +optional
 	URLRewrite *HTTPURLRewriteFilter `json:"urlRewrite,omitempty"`
 
@@ -662,7 +657,6 @@ const (
 	// Support in HTTPRouteRule: Extended
 	//
 	// Support in HTTPBackendRef: Extended
-	// <gateway:experimental>
 	HTTPRouteFilterResponseHeaderModifier HTTPRouteFilterType = "ResponseHeaderModifier"
 
 	// HTTPRouteFilterRequestRedirect can be used to redirect a request to
@@ -683,8 +677,6 @@ const (
 	// Support in HTTPRouteRule: Extended
 	//
 	// Support in HTTPBackendRef: Extended
-	//
-	// <gateway:experimental>
 	HTTPRouteFilterURLRewrite HTTPRouteFilterType = "URLRewrite"
 
 	// HTTPRouteFilterRequestMirror can be used to mirror HTTP requests to a
@@ -821,7 +813,6 @@ const (
 )
 
 // HTTPPathModifier defines configuration for path modifiers.
-// <gateway:experimental>
 type HTTPPathModifier struct {
 	// Type defines the type of path modifier. Additional types may be
 	// added in a future release of the API.
@@ -833,14 +824,12 @@ type HTTPPathModifier struct {
 	// Accepted Condition for the Route to `status: False`, with a
 	// Reason of `UnsupportedValue`.
 	//
-	// <gateway:experimental>
 	// +kubebuilder:validation:Enum=ReplaceFullPath;ReplacePrefixMatch
 	Type HTTPPathModifierType `json:"type"`
 
 	// ReplaceFullPath specifies the value with which to replace the full path
 	// of a request during a rewrite or redirect.
 	//
-	// <gateway:experimental>
 	// +kubebuilder:validation:MaxLength=1024
 	// +optional
 	ReplaceFullPath *string `json:"replaceFullPath,omitempty"`
@@ -855,7 +844,6 @@ type HTTPPathModifier struct {
 	// ignored. For example, the paths `/abc`, `/abc/`, and `/abc/def` would all
 	// match the prefix `/abc`, but the path `/abcd` would not.
 	//
-	// <gateway:experimental>
 	// +kubebuilder:validation:MaxLength=1024
 	// +optional
 	ReplacePrefixMatch *string `json:"replacePrefixMatch,omitempty"`
@@ -866,6 +854,9 @@ type HTTPPathModifier struct {
 type HTTPRequestRedirectFilter struct {
 	// Scheme is the scheme to be used in the value of the `Location` header in
 	// the response. When empty, the scheme of the request is used.
+	//
+	// Scheme redirects can affect the port of the redirect, for more information,
+	// refer to the documentation for the port field of this filter.
 	//
 	// Note that values may be added to this enum, implementations
 	// must ensure that unknown values will not cause a crash.
@@ -882,7 +873,7 @@ type HTTPRequestRedirectFilter struct {
 
 	// Hostname is the hostname to be used in the value of the `Location`
 	// header in the response.
-	// When empty, the hostname of the request is used.
+	// When empty, the hostname in the `Host` header of the request is used.
 	//
 	// Support: Core
 	//
@@ -895,13 +886,29 @@ type HTTPRequestRedirectFilter struct {
 	//
 	// Support: Extended
 	//
-	// <gateway:experimental>
 	// +optional
 	Path *HTTPPathModifier `json:"path,omitempty"`
 
 	// Port is the port to be used in the value of the `Location`
 	// header in the response.
-	// When empty, port (if specified) of the request is used.
+	//
+	// If no port is specified, the redirect port MUST be derived using the
+	// following rules:
+	//
+	// * If redirect scheme is not-empty, the redirect port MUST be the well-known
+	//   port associated with the redirect scheme. Specifically "http" to port 80
+	//   and "https" to port 443. If the redirect scheme does not have a
+	//   well-known port, the listener port of the Gateway SHOULD be used.
+	// * If redirect scheme is empty, the redirect port MUST be the Gateway
+	//   Listener port.
+	//
+	// Implementations SHOULD NOT add the port number in the 'Location'
+	// header in the following cases:
+	//
+	// * A Location header that will use HTTP (whether that is determined via
+	//   the Listener protocol or the Scheme field) _and_ use port 80.
+	// * A Location header that will use HTTPS (whether that is determined via
+	//   the Listener protocol or the Scheme field) _and_ use port 443.
 	//
 	// Support: Extended
 	//
@@ -930,15 +937,12 @@ type HTTPRequestRedirectFilter struct {
 // MUST NOT be used on the same Route rule as a HTTPRequestRedirect filter.
 //
 // Support: Extended
-//
-// <gateway:experimental>
 type HTTPURLRewriteFilter struct {
 	// Hostname is the value to be used to replace the Host header value during
 	// forwarding.
 	//
 	// Support: Extended
 	//
-	// <gateway:experimental>
 	// +optional
 	Hostname *PreciseHostname `json:"hostname,omitempty"`
 
@@ -946,7 +950,6 @@ type HTTPURLRewriteFilter struct {
 	//
 	// Support: Extended
 	//
-	// <gateway:experimental>
 	// +optional
 	Path *HTTPPathModifier `json:"path,omitempty"`
 }

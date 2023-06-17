@@ -72,27 +72,28 @@ func (client *Client) RunCommandWithCallback(request *RunCommandRequest, callbac
 type RunCommandRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer       `position:"Query" name:"ResourceOwnerId"`
-	ContainerName        string                 `position:"Query" name:"ContainerName"`
 	WorkingDir           string                 `position:"Query" name:"WorkingDir"`
-	Description          string                 `position:"Query" name:"Description"`
 	Type                 string                 `position:"Query" name:"Type"`
-	CommandContent       string                 `position:"Query" name:"CommandContent"`
-	Timeout              requests.Integer       `position:"Query" name:"Timeout"`
 	Frequency            string                 `position:"Query" name:"Frequency"`
 	ResourceGroupId      string                 `position:"Query" name:"ResourceGroupId"`
-	ContentEncoding      string                 `position:"Query" name:"ContentEncoding"`
 	RepeatMode           string                 `position:"Query" name:"RepeatMode"`
-	WindowsPasswordName  string                 `position:"Query" name:"WindowsPasswordName"`
 	Tag                  *[]RunCommandTag       `position:"Query" name:"Tag"  type:"Repeated"`
 	KeepCommand          requests.Boolean       `position:"Query" name:"KeepCommand"`
 	Timed                requests.Boolean       `position:"Query" name:"Timed"`
-	ResourceOwnerAccount string                 `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string                 `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer       `position:"Query" name:"OwnerId"`
 	InstanceId           *[]string              `position:"Query" name:"InstanceId"  type:"Repeated"`
 	Name                 string                 `position:"Query" name:"Name"`
 	ContainerId          string                 `position:"Query" name:"ContainerId"`
 	Parameters           map[string]interface{} `position:"Query" name:"Parameters"`
+	ContainerName        string                 `position:"Query" name:"ContainerName"`
+	ClientToken          string                 `position:"Query" name:"ClientToken"`
+	Description          string                 `position:"Query" name:"Description"`
+	CommandContent       string                 `position:"Query" name:"CommandContent"`
+	Timeout              requests.Integer       `position:"Query" name:"Timeout"`
+	ContentEncoding      string                 `position:"Query" name:"ContentEncoding"`
+	WindowsPasswordName  string                 `position:"Query" name:"WindowsPasswordName"`
+	ResourceOwnerAccount string                 `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                 `position:"Query" name:"OwnerAccount"`
 	EnableParameter      requests.Boolean       `position:"Query" name:"EnableParameter"`
 	Username             string                 `position:"Query" name:"Username"`
 }

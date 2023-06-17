@@ -38,37 +38,30 @@ type ModifyClientVpnEndpointInput struct {
 	// The options for managing connection authorization for new client connections.
 	ClientConnectOptions *types.ClientConnectOptions
 
-	// Options for enabling a customizable text banner that will be displayed on Amazon
-	// Web Services provided clients when a VPN session is established.
+	// Options for enabling a customizable text banner that will be displayed on
+	// Amazon Web Services provided clients when a VPN session is established.
 	ClientLoginBannerOptions *types.ClientLoginBannerOptions
 
 	// Information about the client connection logging options. If you enable client
 	// connection logging, data about client connections is sent to a Cloudwatch Logs
 	// log stream. The following information is logged:
-	//
-	// * Client connection
-	// requests
-	//
-	// * Client connection results (successful and unsuccessful)
-	//
-	// * Reasons
-	// for unsuccessful client connection requests
-	//
-	// * Client connection termination
-	// time
+	//   - Client connection requests
+	//   - Client connection results (successful and unsuccessful)
+	//   - Reasons for unsuccessful client connection requests
+	//   - Client connection termination time
 	ConnectionLogOptions *types.ConnectionLogOptions
 
 	// A brief description of the Client VPN endpoint.
 	Description *string
 
-	// Information about the DNS servers to be used by Client VPN connections. A Client
-	// VPN endpoint can have up to two DNS servers.
+	// Information about the DNS servers to be used by Client VPN connections. A
+	// Client VPN endpoint can have up to two DNS servers.
 	DnsServers *types.DnsServersOptionsModifyStructure
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The IDs of one or more security groups to apply to the target network.
@@ -86,8 +79,7 @@ type ModifyClientVpnEndpointInput struct {
 	SessionTimeoutHours *int32
 
 	// Indicates whether the VPN is split-tunnel. For information about split-tunnel
-	// VPN endpoints, see Split-tunnel Client VPN endpoint
-	// (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/split-tunnel-vpn.html)
+	// VPN endpoints, see Split-tunnel Client VPN endpoint (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/split-tunnel-vpn.html)
 	// in the Client VPN Administrator Guide.
 	SplitTunnel *bool
 
@@ -161,6 +153,9 @@ func (c *Client) addOperationModifyClientVpnEndpointMiddlewares(stack *middlewar
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyClientVpnEndpoint(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

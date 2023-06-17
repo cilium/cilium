@@ -11,11 +11,12 @@ import (
 )
 
 //
-// Sinks: operators that "sink" the observable into something.
+// Sinks: operators that consume the observable to produce a value.
 //
 
 // First returns the first item from 'src' observable and then cancels
-// the subscription. If the observable completes without emitting items
+// the subscription. Blocks until first item is observed or the stream
+// is completed. If the observable completes without emitting items
 // then io.EOF error is returned.
 func First[T any](ctx context.Context, src Observable[T]) (item T, err error) {
 	subCtx, cancel := context.WithCancel(ctx)
@@ -47,7 +48,9 @@ func First[T any](ctx context.Context, src Observable[T]) (item T, err error) {
 	return
 }
 
-// Last returns the last item from 'src' observable.
+// Last returns the last item from 'src' observable. Blocks until
+// the stream has been completed. If no items are observed then
+// io.EOF error is returned.
 func Last[T any](ctx context.Context, src Observable[T]) (item T, err error) {
 	errs := make(chan error)
 	taken := uint32(0)
@@ -74,6 +77,9 @@ func Last[T any](ctx context.Context, src Observable[T]) (item T, err error) {
 }
 
 // ToSlice converts an Observable into a slice.
+//
+//	ToSlice(ctx, Range(1,4))
+//	  => ([]int{1,2,3}, nil)
 func ToSlice[T any](ctx context.Context, src Observable[T]) (items []T, err error) {
 	errs := make(chan error)
 	items = make([]T, 0)
@@ -111,6 +117,15 @@ func WithErrorChan(errCh chan error) ToChannelOpt {
 }
 
 // ToChannel converts an observable into a channel.
+// When the provided context is cancelled the underlying subscription is cancelled
+// and the channel is closed. To receive completion errors use [WithErrorChan].
+//
+//	items <- ToChannel(ctx, Range(1,4))
+//	a := <- items
+//	b := <- items
+//	c := <- items
+//	_, ok := <- items
+//	  => a=1, b=2, c=3, ok=false
 func ToChannel[T any](ctx context.Context, src Observable[T], opts ...ToChannelOpt) <-chan T {
 	var o toChannelOpts
 	for _, opt := range opts {

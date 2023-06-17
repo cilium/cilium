@@ -13,7 +13,7 @@ spec:
         namespaces:
           from: All
         kinds:
-        - kind: InvalidRoute
+          - kind: InvalidRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -30,5 +30,5 @@ spec:
         namespaces:
           from: All
         kinds:
-        - kind: InvalidRoute
-        - kind: HTTPRoute
+          - kind: InvalidRoute
+          - kind: HTTPRoute

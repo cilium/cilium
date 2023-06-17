@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -30,10 +30,8 @@ type EdtId struct {
 	Id uint64 `align:"id"`
 }
 
-func (k *EdtId) GetKeyPtr() unsafe.Pointer  { return unsafe.Pointer(k) }
-func (k *EdtId) NewValue() bpf.MapValue     { return &EdtInfo{} }
-func (k *EdtId) String() string             { return fmt.Sprintf("%d", int(k.Id)) }
-func (k *EdtId) DeepCopyMapKey() bpf.MapKey { return &EdtId{k.Id} }
+func (k *EdtId) String() string  { return fmt.Sprintf("%d", int(k.Id)) }
+func (k *EdtId) New() bpf.MapKey { return &EdtId{} }
 
 type EdtInfo struct {
 	Bps             uint64    `align:"bps"`
@@ -42,11 +40,8 @@ type EdtInfo struct {
 	Pad             [4]uint64 `align:"pad"`
 }
 
-func (v *EdtInfo) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-func (v *EdtInfo) String() string              { return fmt.Sprintf("%d", int(v.Bps)) }
-func (v *EdtInfo) DeepCopyMapValue() bpf.MapValue {
-	return &EdtInfo{v.Bps, v.TimeLast, v.TimeHorizonDrop, v.Pad}
-}
+func (v *EdtInfo) String() string    { return fmt.Sprintf("%d", int(v.Bps)) }
+func (v *EdtInfo) New() bpf.MapValue { return &EdtInfo{} }
 
 var (
 	throttleMap     *bpf.Map
@@ -57,12 +52,11 @@ func ThrottleMap() *bpf.Map {
 	throttleMapInit.Do(func() {
 		throttleMap = bpf.NewMap(
 			MapName,
-			bpf.MapTypeHash,
-			&EdtId{}, int(unsafe.Sizeof(EdtId{})),
-			&EdtInfo{}, int(unsafe.Sizeof(EdtInfo{})),
+			ebpf.Hash,
+			&EdtId{},
+			&EdtInfo{},
 			MapSize,
-			bpf.BPF_F_NO_PREALLOC, 0,
-			bpf.ConvertKeyValue,
+			bpf.BPF_F_NO_PREALLOC,
 		).WithCache().WithPressureMetric().
 			WithEvents(option.Config.GetEventBufferConfig(MapName))
 	})

@@ -4,6 +4,7 @@
 package slices
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"strconv"
@@ -59,6 +60,20 @@ func TestUnique(t *testing.T) {
 	}
 }
 
+func TestUniqueFunc(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := UniqueFunc(
+				tc.input,
+				func(i int) int {
+					return tc.input[i]
+				},
+			)
+			assert.ElementsMatch(t, tc.expected, got)
+		})
+	}
+}
+
 func TestSortedUnique(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -106,6 +121,183 @@ func TestUniqueKeepOrdering(t *testing.T) {
 	}
 }
 
+func TestDiff(t *testing.T) {
+	testCases := []struct {
+		name     string
+		a        []string
+		b        []string
+		expected []string
+	}{
+		{
+			name:     "empty second slice",
+			a:        []string{"foo"},
+			b:        []string{},
+			expected: []string{"foo"},
+		},
+		{
+			name:     "empty first slice",
+			a:        []string{},
+			b:        []string{"foo"},
+			expected: nil,
+		},
+		{
+			name:     "both empty",
+			a:        []string{},
+			b:        []string{},
+			expected: nil,
+		},
+		{
+			name:     "both nil",
+			a:        nil,
+			b:        nil,
+			expected: nil,
+		},
+		{
+			name:     "subset",
+			a:        []string{"foo", "bar"},
+			b:        []string{"foo", "bar", "baz"},
+			expected: nil,
+		},
+		{
+			name:     "equal",
+			a:        []string{"foo", "bar"},
+			b:        []string{"foo", "bar"},
+			expected: nil,
+		},
+		{
+			name:     "same size not equal",
+			a:        []string{"foo", "bar"},
+			b:        []string{"foo", "baz"},
+			expected: []string{"bar"},
+		},
+		{
+			name:     "smaller size",
+			a:        []string{"baz"},
+			b:        []string{"foo", "bar"},
+			expected: []string{"baz"},
+		},
+		{
+			name:     "larger size",
+			a:        []string{"foo", "bar", "fizz"},
+			b:        []string{"fizz", "buzz"},
+			expected: []string{"foo", "bar"},
+		},
+		{
+			name:     "subset with duplicates",
+			a:        []string{"foo", "foo", "bar"},
+			b:        []string{"foo", "bar"},
+			expected: nil,
+		},
+		{
+			name:     "subset with more duplicates",
+			a:        []string{"foo", "foo", "foo", "bar", "bar"},
+			b:        []string{"foo", "foo", "bar"},
+			expected: nil,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			diff := Diff(tc.a, tc.b)
+			assert.Equal(t, tc.expected, diff)
+		})
+	}
+}
+
+func TestSubsetOf(t *testing.T) {
+	testCases := []struct {
+		name     string
+		a        []string
+		b        []string
+		isSubset bool
+		diff     []string
+	}{
+		{
+			name:     "empty second slice",
+			a:        []string{"foo"},
+			b:        []string{},
+			isSubset: false,
+			diff:     []string{"foo"},
+		},
+		{
+			name:     "empty first slice",
+			a:        []string{},
+			b:        []string{"foo"},
+			isSubset: true,
+			diff:     nil,
+		},
+		{
+			name:     "both empty",
+			a:        []string{},
+			b:        []string{},
+			isSubset: true,
+			diff:     nil,
+		},
+		{
+			name:     "both nil",
+			a:        nil,
+			b:        nil,
+			isSubset: true,
+			diff:     nil,
+		},
+		{
+			name:     "subset",
+			a:        []string{"foo", "bar"},
+			b:        []string{"foo", "bar", "baz"},
+			isSubset: true,
+			diff:     nil,
+		},
+		{
+			name:     "equal",
+			a:        []string{"foo", "bar"},
+			b:        []string{"foo", "bar"},
+			isSubset: true,
+			diff:     nil,
+		},
+		{
+			name:     "same size not equal",
+			a:        []string{"foo", "bar"},
+			b:        []string{"foo", "baz"},
+			isSubset: false,
+			diff:     []string{"bar"},
+		},
+		{
+			name:     "smaller size",
+			a:        []string{"baz"},
+			b:        []string{"foo", "bar"},
+			isSubset: false,
+			diff:     []string{"baz"},
+		},
+		{
+			name:     "larger size",
+			a:        []string{"foo", "bar", "fizz"},
+			b:        []string{"fizz", "buzz"},
+			isSubset: false,
+			diff:     []string{"foo", "bar"},
+		},
+		{
+			name:     "subset with duplicates",
+			a:        []string{"foo", "foo", "bar"},
+			b:        []string{"foo", "bar"},
+			isSubset: true,
+			diff:     nil,
+		},
+		{
+			name:     "subset with more duplicates",
+			a:        []string{"foo", "foo", "foo", "bar", "bar"},
+			b:        []string{"foo", "foo", "bar"},
+			isSubset: true,
+			diff:     nil,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			isSubset, diff := SubsetOf(tc.a, tc.b)
+			assert.Equal(t, tc.isSubset, isSubset)
+			assert.Equal(t, tc.diff, diff)
+		})
+	}
+}
+
 // BenchmarkUnique runs the Unique function on a slice of size elements, where each element
 // has a probability of 20% of being a duplicate.
 // At each iteration the slice is restored to its original status and reshuffled, in order
@@ -143,6 +335,14 @@ func TestUniqueKeepOrdering(t *testing.T) {
 // The relevant differences between the two approaches in terms of memory are shown in the previous
 // two columns.
 func BenchmarkUnique(b *testing.B) {
+	benchmarkUnique(b, false)
+}
+
+func BenchmarkUniqueFunc(b *testing.B) {
+	benchmarkUnique(b, true)
+}
+
+func benchmarkUnique(b *testing.B, benchUniqueFunc bool) {
 	var benchCases = [...]int{96, 128, 160, 192, 256, 512, 1024}
 
 	r := rand.New(rand.NewSource(time.Now().Unix()))
@@ -162,6 +362,11 @@ func BenchmarkUnique(b *testing.B) {
 				orig = append(orig, next)
 			}
 			values := make([]int, len(orig))
+
+			key := func(i int) int {
+				return values[i]
+			}
+
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
@@ -171,10 +376,51 @@ func BenchmarkUnique(b *testing.B) {
 				rand.Shuffle(len(orig), func(i, j int) {
 					orig[i], orig[j] = orig[j], orig[i]
 				})
-				b.StartTimer()
-
-				Unique(values)
+				if benchUniqueFunc {
+					b.StartTimer()
+					UniqueFunc(values, key)
+				} else {
+					b.StartTimer()
+					Unique(values)
+				}
 			}
 		})
+	}
+}
+
+func BenchmarkSubsetOf(b *testing.B) {
+	var benchCases = [...]struct {
+		subsetSz   int
+		supersetSz int
+	}{
+		{64, 512}, {128, 512},
+		{256, 2048}, {512, 2048},
+		{1024, 8192}, {2048, 8192},
+	}
+
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	for _, bc := range benchCases {
+		b.Run(
+			fmt.Sprintf("%d-%d", bc.subsetSz, bc.supersetSz),
+			func(b *testing.B) {
+				b.ReportAllocs()
+
+				subset := make([]string, 0, bc.subsetSz)
+				for i := 0; i < bc.subsetSz; i++ {
+					subset = append(subset, strconv.Itoa(r.Intn(bc.subsetSz)))
+				}
+
+				superset := make([]string, 0, bc.supersetSz)
+				for i := 0; i < bc.supersetSz; i++ {
+					superset = append(superset, strconv.Itoa(r.Intn(bc.subsetSz)))
+				}
+
+				b.ResetTimer()
+
+				for i := 0; i < b.N; i++ {
+					_, _ = SubsetOf(subset, superset)
+				}
+			},
+		)
 	}
 }

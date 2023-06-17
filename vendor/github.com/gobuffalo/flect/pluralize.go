@@ -43,6 +43,9 @@ func (i Ident) Pluralize() Ident {
 		return i
 	}
 	if p, ok := singleToPlural[ls]; ok {
+		if s == Capitalize(s) {
+			p = Capitalize(p)
+		}
 		return i.ReplaceSuffix(s, p)
 	}
 	for _, r := range pluralRules {

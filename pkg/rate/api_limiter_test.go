@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	check "github.com/cilium/checkmate"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
-	"gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils"

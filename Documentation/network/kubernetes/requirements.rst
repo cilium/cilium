@@ -18,9 +18,6 @@ with this Cilium version. Older Kubernetes versions not listed here do not have
 Cilium support. Newer Kubernetes versions, while not listed, will depend on the
 backward compatibility offered by Kubernetes.
 
-* 1.16
-* 1.17
-* 1.18
 * 1.19
 * 1.20
 * 1.21
@@ -29,6 +26,7 @@ backward compatibility offered by Kubernetes.
 * 1.24
 * 1.25
 * 1.26
+* 1.27
 
 System Requirements
 ===================

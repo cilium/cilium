@@ -9,9 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/cilium/cilium/pkg/metrics/metric"
+
+	. "github.com/cilium/checkmate"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	. "gopkg.in/check.v1"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -35,8 +36,8 @@ func (s *MetricsSuite) TestAPIEventsTSHelperMiddleware(c *C) {
 	} {
 		req, err := http.NewRequest(http.MethodGet, test.url, nil)
 		c.Assert(err, Equals, nil)
-		gauge := prometheus.NewGaugeVec(prometheus.GaugeOpts{}, []string{LabelEventSource, LabelScope, LabelAction})
-		hist := prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "test_api_hist"}, []string{LabelEventSource, LabelScope, LabelAction})
+		gauge := metric.NewGaugeVec(metric.GaugeOpts{}, []string{LabelEventSource, LabelScope, LabelAction})
+		hist := metric.NewHistogramVec(metric.HistogramOpts{Name: "test_api_hist"}, []string{LabelEventSource, LabelScope, LabelAction})
 		middleware := &APIEventTSHelper{
 			Next:      http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(test.statusCode) }),
 			TSGauge:   gauge,

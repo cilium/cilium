@@ -87,6 +87,9 @@ func init() {
               "$ref": "#/definitions/HealthStatusResponse"
             }
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "500": {
             "description": "Internal error occurred while conducting connectivity probe",
             "schema": {
@@ -333,6 +336,9 @@ func init() {
             "schema": {
               "$ref": "#/definitions/HealthStatusResponse"
             }
+          },
+          "403": {
+            "description": "Forbidden"
           },
           "500": {
             "description": "Internal error occurred while conducting connectivity probe",

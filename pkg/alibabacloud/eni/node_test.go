@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"gopkg.in/check.v1"
+	check "github.com/cilium/checkmate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/alibabacloud/api/mock"
@@ -64,8 +64,8 @@ func (e *ENISuite) TestCreateInterface(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	mngr.Update(newCiliumNode("node1", "i-1", "ecs.g7ne.large", "cn-hangzhou-i", "vpc-1"))
-	mngr.Update(newCiliumNode("node2", "i-2", "ecs.g7ne.large", "cn-hangzhou-h", "vpc-1"))
+	mngr.Upsert(newCiliumNode("node1", "i-1", "ecs.g7ne.large", "cn-hangzhou-i", "vpc-1"))
+	mngr.Upsert(newCiliumNode("node2", "i-2", "ecs.g7ne.large", "cn-hangzhou-h", "vpc-1"))
 	names := mngr.GetNames()
 	c.Assert(len(names), check.Equals, 2)
 
@@ -113,7 +113,7 @@ func (e *ENISuite) TestCandidateAndEmtpyInterfaces(c *check.C) {
 	// Set PreAllocate as 1
 	cn := newCiliumNodeWithIpamParams("node3", "i-3", "ecs.g8m.small", "cn-hangzhou-h", "vpc-1", 1, 0, 0)
 	cn.Spec.AlibabaCloud.VSwitches = []string{"vsw-2"}
-	mngr.Update(cn)
+	mngr.Upsert(cn)
 
 	n := &Node{}
 	n.k8sObj = cn
@@ -140,7 +140,7 @@ func (e *ENISuite) TestPrepareIPAllocation(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	mngr.Update(newCiliumNode("node1", "i-1", "ecs.g7ne.large", "cn-hangzhou-i", "vpc-1"))
+	mngr.Upsert(newCiliumNode("node1", "i-1", "ecs.g7ne.large", "cn-hangzhou-i", "vpc-1"))
 	a, err := mngr.Get("node1").Ops().PrepareIPAllocation(log)
 	c.Assert(err, check.IsNil)
 	c.Assert(a.EmptyInterfaceSlots+a.InterfaceCandidates, check.Equals, 2)

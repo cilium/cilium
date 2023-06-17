@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 # Copyright Authors of Cilium
 
@@ -12,7 +12,7 @@ for l in rand\.NewSource; do
 	  -not -path "./_build/*" \
 	  -not -path "./contrib/*" \
 	  -not -path "./pkg/rand/*" \
-	  -not -path "./vendor/*" \
+	  -not -regex ".*/vendor/.*" \
 	  -not -path "./test/*" \
 	  -print0 \
 	  | xargs -0 grep --exclude NewSafeSource "$l")

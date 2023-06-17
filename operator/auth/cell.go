@@ -11,12 +11,12 @@ import (
 )
 
 const (
-	MTLSEnabled = "mesh-auth-mtls-enabled"
+	mutualAuthEnabled = "mesh-auth-mutual-enabled"
 )
 
 var Cell = cell.Module(
 	"auth-identity",
-	"Cilium mTLS Identity management",
+	"Cilium Mutual Authentication Identity management",
 	spire.Cell,
 	cell.Config(Config{}),
 	cell.Invoke(registerIdentityWatcher),
@@ -24,10 +24,10 @@ var Cell = cell.Module(
 
 // Config contains the configuration for the identity-gc.
 type Config struct {
-	Enabled bool `mapstructure:"mesh-auth-mtls-enabled"`
+	Enabled bool `mapstructure:"mesh-auth-mutual-enabled"`
 }
 
 // Flags implements cell.Flagger interface.
 func (cfg Config) Flags(flags *pflag.FlagSet) {
-	flags.Bool(MTLSEnabled, cfg.Enabled, "Enable mTLS authentication in Cilium")
+	flags.Bool(mutualAuthEnabled, cfg.Enabled, "Enable mutual authentication in Cilium")
 }

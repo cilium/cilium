@@ -6,16 +6,18 @@ package manager
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/k8s"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	ciliumslices "github.com/cilium/cilium/pkg/slices"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
@@ -118,22 +120,9 @@ func preflightReconciler(
 		}
 	}
 
-	// resolve router ID, if we have an annotation and it can be parsed into
-	// a valid ipv4 address use this,
-	//
-	// if not determine if Cilium is configured with an IPv4 address, if so use
-	// this.
-	//
-	// if neither, return an error, we cannot assign an router ID.
-	var routerID string
-	_, ok := cstate.Annotations[newc.LocalASN]
-	switch {
-	case ok && !net.ParseIP(cstate.Annotations[newc.LocalASN].RouterID).IsUnspecified():
-		routerID = cstate.Annotations[newc.LocalASN].RouterID
-	case !cstate.IPv4.IsUnspecified():
-		routerID = cstate.IPv4.String()
-	default:
-		return fmt.Errorf("router id not specified by annotation and no IPv4 address assigned by cilium, cannot resolve router id for virtual router with local ASN %v", newc.LocalASN)
+	routerID, err := cstate.ResolveRouterID(newc.LocalASN)
+	if err != nil {
+		return err
 	}
 
 	var shouldRecreate bool
@@ -200,8 +189,12 @@ func NewNeighborReconciler() NeighborReconcilerOut {
 	}
 }
 
+// Priority of neighbor reconciler is higher than pod/service announcements.
+// This is important for graceful restart case, where all expected routes are pushed
+// into gobgp RIB before neighbors are added. So, gobgp can send out all prefixes
+// within initial update message exchange with neighbors before sending EOR marker.
 func (r *NeighborReconciler) Priority() int {
-	return 20
+	return 60
 }
 
 func (r *NeighborReconciler) Reconcile(ctx context.Context, params ReconcileParams) error {
@@ -230,6 +223,7 @@ func neighborReconciler(
 		)
 		toCreate []*v2alpha1api.CiliumBGPNeighbor
 		toRemove []*v2alpha1api.CiliumBGPNeighbor
+		toUpdate []*v2alpha1api.CiliumBGPNeighbor
 		curNeigh []v2alpha1api.CiliumBGPNeighbor = nil
 	)
 	newNeigh := newc.Neighbors
@@ -242,14 +236,13 @@ func neighborReconciler(
 
 	// an nset member which book keeps which universe it exists in.
 	type member struct {
-		a bool
-		b bool
-		n *v2alpha1api.CiliumBGPNeighbor
+		new *v2alpha1api.CiliumBGPNeighbor
+		cur *v2alpha1api.CiliumBGPNeighbor
 	}
 
 	nset := map[string]*member{}
 
-	// populate set from universe a, new neighbors
+	// populate set from universe of new neighbors
 	for i, n := range newNeigh {
 		var (
 			key = fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)
@@ -258,15 +251,14 @@ func neighborReconciler(
 		)
 		if h, ok = nset[key]; !ok {
 			nset[key] = &member{
-				a: true,
-				n: &newNeigh[i],
+				new: &newNeigh[i],
 			}
 			continue
 		}
-		h.a = true
+		h.new = &newNeigh[i]
 	}
 
-	// populate set from universe b, current neighbors
+	// populate set from universe of current neighbors
 	for i, n := range curNeigh {
 		var (
 			key = fmt.Sprintf("%s%d", n.PeerAddress, n.PeerASN)
@@ -275,26 +267,31 @@ func neighborReconciler(
 		)
 		if h, ok = nset[key]; !ok {
 			nset[key] = &member{
-				b: true,
-				n: &curNeigh[i],
+				cur: &curNeigh[i],
 			}
 			continue
 		}
-		h.b = true
+		h.cur = &curNeigh[i]
 	}
 
 	for _, m := range nset {
-		// present in new neighbors (set a) but not in current neighbors (set b)
-		if m.a && !m.b {
-			toCreate = append(toCreate, m.n)
+		// present in new neighbors (set new) but not in current neighbors (set cur)
+		if m.new != nil && m.cur == nil {
+			toCreate = append(toCreate, m.new)
 		}
-		// present in current neighbors (set b) but not in new neighbors (set a)
-		if m.b && !m.a {
-			toRemove = append(toRemove, m.n)
+		// present in current neighbors (set cur) but not in new neighbors (set new)
+		if m.cur != nil && m.new == nil {
+			toRemove = append(toRemove, m.cur)
+		}
+		// present in both new neighbors (set new) and current neighbors (set cur), update if they are not equal
+		if m.cur != nil && m.new != nil {
+			if !m.cur.DeepEqual(m.new) {
+				toUpdate = append(toUpdate, m.new)
+			}
 		}
 	}
 
-	if len(toCreate) > 0 || len(toRemove) > 0 {
+	if len(toCreate) > 0 || len(toRemove) > 0 || len(toUpdate) > 0 {
 		l.Infof("Reconciling peers for virtual router with local ASN %v", newc.LocalASN)
 	} else {
 		l.Debugf("No peer changes necessary for virtual router with local ASN %v", newc.LocalASN)
@@ -308,9 +305,17 @@ func neighborReconciler(
 		}
 	}
 
+	// update neighbors
+	for _, n := range toUpdate {
+		l.Infof("Updating peer %v %v in local ASN %v", n.PeerAddress, n.PeerASN, newc.LocalASN)
+		if err := sc.Server.UpdateNeighbor(ctx, types.NeighborRequest{Neighbor: n}); err != nil {
+			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
+		}
+	}
+
 	// remove neighbors
 	for _, n := range toRemove {
-		l.Infof("Removing peer %v %v to local ASN %v", n.PeerAddress, n.PeerASN, newc.LocalASN)
+		l.Infof("Removing peer %v %v from local ASN %v", n.PeerAddress, n.PeerASN, newc.LocalASN)
 		if err := sc.Server.RemoveNeighbor(ctx, types.NeighborRequest{Neighbor: n}); err != nil {
 			return fmt.Errorf("failed while reconciling neighbor %v %v: %w", n.PeerAddress, n.PeerASN, err)
 		}
@@ -360,20 +365,20 @@ func exportPodCIDRReconciler(
 		return fmt.Errorf("attempted pod CIDR advertisements reconciliation with nil ControlPlaneState")
 	}
 
-	toAdvertise := []*net.IPNet{}
+	toAdvertise := []netip.Prefix{}
 	for _, cidr := range cstate.PodCIDRs {
-		_, ipNet, err := net.ParseCIDR(cidr)
+		prefix, err := netip.ParsePrefix(cidr)
 		if err != nil {
-			return fmt.Errorf("failed to parse cidr %s: %w", cidr, err)
+			return fmt.Errorf("failed to parse prefix %s: %w", cidr, err)
 		}
-		toAdvertise = append(toAdvertise, ipNet)
+		toAdvertise = append(toAdvertise, prefix)
 	}
 
 	advertisements, err := exportAdvertisementsReconciler(&advertisementsReconcilerParams{
 		ctx:       ctx,
 		name:      "pod CIDR",
 		component: "manager.exportPodCIDRReconciler",
-		enabled:   newc.ExportPodCIDR,
+		enabled:   *newc.ExportPodCIDR,
 
 		sc:   sc,
 		newc: newc,
@@ -399,17 +404,21 @@ type LBServiceReconcilerOut struct {
 }
 
 type LBServiceReconciler struct {
-	diffStore DiffStore[*slim_corev1.Service]
+	diffStore   DiffStore[*slim_corev1.Service]
+	epDiffStore DiffStore[*k8s.Endpoints]
 }
 
-func NewLBServiceReconciler(diffStore DiffStore[*slim_corev1.Service]) LBServiceReconcilerOut {
+type localServices map[k8s.ServiceID]struct{}
+
+func NewLBServiceReconciler(diffStore DiffStore[*slim_corev1.Service], epDiffStore DiffStore[*k8s.Endpoints]) LBServiceReconcilerOut {
 	if diffStore == nil {
 		return LBServiceReconcilerOut{}
 	}
 
 	return LBServiceReconcilerOut{
 		Reconciler: &LBServiceReconciler{
-			diffStore: diffStore,
+			diffStore:   diffStore,
+			epDiffStore: epDiffStore,
 		},
 	}
 }
@@ -420,6 +429,53 @@ func (r *LBServiceReconciler) Priority() int {
 
 func (r *LBServiceReconciler) Reconcile(ctx context.Context, params ReconcileParams) error {
 	return r.lbServiceReconciler(ctx, params.Server, params.NewC, params.CState)
+}
+
+func (r *LBServiceReconciler) resolveSvcFromEndpoints(eps *k8s.Endpoints) (*slim_corev1.Service, bool, error) {
+	k := resource.Key{
+		Name:      eps.ServiceID.Name,
+		Namespace: eps.ServiceID.Namespace,
+	}
+	return r.diffStore.GetByKey(k)
+}
+
+// Populate locally available services used for externalTrafficPolicy=local handling
+func (r *LBServiceReconciler) populateLocalServices(localNodeName string) localServices {
+	ls := make(localServices)
+
+endpointsLoop:
+	for _, eps := range r.epDiffStore.List() {
+		svc, exists, err := r.resolveSvcFromEndpoints(eps)
+		if err != nil {
+			// Cannot resolve service from endpoints. We have nothing to do here.
+			continue
+		}
+
+		if !exists {
+			// No service associated with this endpoint. We're not interested in this.
+			continue
+		}
+
+		// We only need Endpoints tracking for externalTrafficPolicy=Local
+		if svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
+			continue
+		}
+
+		svcID := eps.ServiceID
+
+		for _, be := range eps.Backends {
+			if be.NodeName == localNodeName {
+				// At least one endpoint is available on this node. We
+				// can make unavailable to available.
+				if _, found := ls[svcID]; !found {
+					ls[svcID] = struct{}{}
+				}
+				continue endpointsLoop
+			}
+		}
+	}
+
+	return ls
 }
 
 func (r *LBServiceReconciler) lbServiceReconciler(
@@ -433,29 +489,36 @@ func (r *LBServiceReconciler) lbServiceReconciler(
 		existingSelector = sc.Config.ServiceSelector
 	}
 
+	ls := r.populateLocalServices(cstate.CurrentNodeName)
+
 	// If the existing selector was updated, went from nil to something or something to nil, we need to perform full
 	// reconciliation and check if every existing announcement's service still matches the selector.
 	changed := (existingSelector != nil && newc.ServiceSelector != nil && !newc.ServiceSelector.DeepEqual(existingSelector)) ||
 		((existingSelector == nil) != (newc.ServiceSelector == nil))
 
 	if changed {
-		if err := r.fullReconciliation(ctx, sc, newc, cstate); err != nil {
+		if err := r.fullReconciliation(ctx, sc, newc, cstate, ls); err != nil {
 			return fmt.Errorf("full reconciliation: %w", err)
 		}
 
 		return nil
 	}
 
-	if err := r.svcDiffReconciliation(ctx, sc, newc, cstate); err != nil {
+	if err := r.svcDiffReconciliation(ctx, sc, newc, cstate, ls); err != nil {
 		return fmt.Errorf("svc Diff reconciliation: %w", err)
 	}
 
 	return nil
 }
 
+func hasLocalEndpoints(svc *slim_corev1.Service, ls localServices) bool {
+	_, found := ls[k8s.ServiceID{Name: svc.GetName(), Namespace: svc.GetNamespace()}]
+	return found
+}
+
 // fullReconciliation reconciles all services, this is a heavy operation due to the potential amount of services and
 // thus should be avoided if partial reconciliation is an option.
-func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
+func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState, ls localServices) error {
 	// Loop over all existing announcements, delete announcements for services which no longer exist
 	for svcKey := range sc.ServiceAnnouncements {
 		_, found, err := r.diffStore.GetByKey(svcKey)
@@ -487,21 +550,64 @@ func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *Server
 			continue
 		}
 
-		r.reconcileService(ctx, sc, newc, svc)
+		r.reconcileService(ctx, sc, newc, svc, ls)
 	}
 	return nil
 }
 
 // svcDiffReconciliation performs reconciliation, only on services which have been created, updated or deleted since
 // the last diff reconciliation.
-func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState) error {
+func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, cstate *agent.ControlPlaneState, ls localServices) error {
 	upserted, deleted, err := r.diffStore.Diff()
 	if err != nil {
 		return fmt.Errorf("svc store diff: %w", err)
 	}
 
-	for _, svc := range upserted {
-		if err := r.reconcileService(ctx, sc, newc, svc); err != nil {
+	// For externalTrafficPolicy=local, we need to take care of
+	// the endpoint changes in addition to the service changes.
+	// Take a diff of the endpoints and get affected services.
+	// We don't handle service deletion here since we only see
+	// the key, we cannot resolve associated service, so we have
+	// nothing to do.
+	epsUpserted, _, err := r.epDiffStore.Diff()
+	if err != nil {
+		return fmt.Errorf("endpoints store diff: %w", err)
+	}
+
+	for _, eps := range epsUpserted {
+		svc, exists, err := r.resolveSvcFromEndpoints(eps)
+		if err != nil {
+			// Cannot resolve service from endpoints. We have nothing to do here.
+			continue
+		}
+
+		if !exists {
+			// No service associated with this endpoint. We're not interested in this.
+			continue
+		}
+
+		// We only need Endpoints tracking for externalTrafficPolicy=Local
+		if svc.Spec.ExternalTrafficPolicy != slim_corev1.ServiceExternalTrafficPolicyLocal {
+			continue
+		}
+
+		upserted = append(upserted, svc)
+	}
+
+	// We may have duplicated services that changes happened for both of
+	// service and associated endpoints.
+	deduped := ciliumslices.UniqueFunc(
+		upserted,
+		func(i int) resource.Key {
+			return resource.Key{
+				Name:      upserted[i].GetName(),
+				Namespace: upserted[i].GetNamespace(),
+			}
+		},
+	)
+
+	for _, svc := range deduped {
+		if err := r.reconcileService(ctx, sc, newc, svc, ls); err != nil {
 			return fmt.Errorf("reconcile service: %w", err)
 		}
 	}
@@ -518,7 +624,7 @@ func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *Ser
 
 // svcDesiredRoutes determines which, if any routes should be announced for the given service. This determines the
 // desired state.
-func (r *LBServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service) ([]*net.IPNet, error) {
+func (r *LBServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service, ls localServices) ([]netip.Prefix, error) {
 	if newc.ServiceSelector == nil {
 		// If the vRouter has no service selector, there are no desired routes
 		return nil, nil
@@ -539,22 +645,24 @@ func (r *LBServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtua
 		return nil, nil
 	}
 
-	var desiredRoutes []*net.IPNet
+	// Ignore externalTrafficPolicy == Local && no local endpoints
+	if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal &&
+		!hasLocalEndpoints(svc, ls) {
+		return nil, nil
+	}
+
+	var desiredRoutes []netip.Prefix
 	for _, ingress := range svc.Status.LoadBalancer.Ingress {
 		if ingress.IP == "" {
 			continue
 		}
 
-		cidr := &net.IPNet{
-			IP: net.ParseIP(ingress.IP),
-		}
-		if cidr.IP.To4() == nil {
-			cidr.Mask = net.CIDRMask(128, 128)
-		} else {
-			cidr.Mask = net.CIDRMask(32, 32)
+		addr, err := netip.ParseAddr(ingress.IP)
+		if err != nil {
+			continue
 		}
 
-		desiredRoutes = append(desiredRoutes, cidr)
+		desiredRoutes = append(desiredRoutes, netip.PrefixFrom(addr, addr.BitLen()))
 	}
 
 	return desiredRoutes, err
@@ -562,10 +670,10 @@ func (r *LBServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtua
 
 // reconcileService gets the desired routes of a given service and makes sure that is what is being announced.
 // Adding missing announcements or withdrawing unwanted ones.
-func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service) error {
+func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service, ls localServices) error {
 	svcKey := resource.NewKey(svc)
 
-	desiredCidrs, err := r.svcDesiredRoutes(newc, svc)
+	desiredCidrs, err := r.svcDesiredRoutes(newc, svc, ls)
 	if err != nil {
 		return fmt.Errorf("svcDesiredRoutes(): %w", err)
 	}
@@ -573,7 +681,7 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 	for _, desiredCidr := range desiredCidrs {
 		// If this route has already been announced, don't add it again
 		if slices.IndexFunc(sc.ServiceAnnouncements[svcKey], func(existing types.Advertisement) bool {
-			return cidrEqual(desiredCidr, existing.Net)
+			return desiredCidr == existing.Prefix
 		}) != -1 {
 			continue
 		}
@@ -581,7 +689,7 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 		// Advertise the new cidr
 		advertPathResp, err := sc.Server.AdvertisePath(ctx, types.PathRequest{
 			Advert: types.Advertisement{
-				Net: desiredCidr,
+				Prefix: desiredCidr,
 			},
 		})
 		if err != nil {
@@ -594,8 +702,8 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 	for i := len(sc.ServiceAnnouncements[svcKey]) - 1; i >= 0; i-- {
 		announcement := sc.ServiceAnnouncements[svcKey][i]
 		// If the announcement is within the list of desired routes, don't remove it
-		if slices.IndexFunc(desiredCidrs, func(existing *net.IPNet) bool {
-			return cidrEqual(existing, announcement.Net)
+		if slices.IndexFunc(desiredCidrs, func(existing netip.Prefix) bool {
+			return existing == announcement.Prefix
 		}) != -1 {
 			continue
 		}
@@ -620,7 +728,7 @@ func (r *LBServiceReconciler) withdrawService(ctx context.Context, sc *ServerWit
 		if err := sc.Server.WithdrawPath(ctx, types.PathRequest{Advert: advertisement}); err != nil {
 			// Persist remaining advertisements
 			sc.ServiceAnnouncements[key] = advertisements
-			return fmt.Errorf("failed to withdraw deleted service route: %v: %w", advertisement.Net, err)
+			return fmt.Errorf("failed to withdraw deleted service route: %v: %w", advertisement.Prefix, err)
 		}
 
 		// Delete the advertisement after each withdraw in case we error half way through
@@ -631,12 +739,6 @@ func (r *LBServiceReconciler) withdrawService(ctx context.Context, sc *ServerWit
 	delete(sc.ServiceAnnouncements, key)
 
 	return nil
-}
-
-func cidrEqual(a, b *net.IPNet) bool {
-	aOnes, aSize := a.Mask.Size()
-	bOnes, bSize := b.Mask.Size()
-	return a.IP.Equal(b.IP) && aOnes == bOnes && aSize == bSize
 }
 
 func serviceLabelSet(svc *slim_corev1.Service) labels.Labels {

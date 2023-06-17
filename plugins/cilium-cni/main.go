@@ -119,9 +119,8 @@ func getConfigFromCiliumAgent(client *client.Client) (*models.DaemonConfiguratio
 
 func allocateIPsWithCiliumAgent(client *client.Client, cniArgs types.ArgsSpec) (*models.IPAMResponse, func(context.Context), error) {
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
-	// TODO: this will be configurable e.g. by pod annotations when using multi-homing
-	pool := ""
-	ipam, err := client.IPAMAllocate("", podName, pool, true)
+
+	ipam, err := client.IPAMAllocate("", podName, "", true)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to allocate IP via local cilium agent: %w", err)
 	}
@@ -132,8 +131,8 @@ func allocateIPsWithCiliumAgent(client *client.Client, cniArgs types.ArgsSpec) (
 
 	releaseFunc := func(context.Context) {
 		if ipam.Address != nil {
-			releaseIP(client, ipam.Address.IPV4, pool)
-			releaseIP(client, ipam.Address.IPV6, pool)
+			releaseIP(client, ipam.Address.IPV4, ipam.Address.IPV4PoolName)
+			releaseIP(client, ipam.Address.IPV6, ipam.Address.IPV6PoolName)
 		}
 	}
 
@@ -506,7 +505,9 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			peer      netlink.Link
 			tmpIfName string
 		)
-		veth, peer, tmpIfName, err = connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU), int(conf.GROMaxSize), int(conf.GSOMaxSize), ep)
+		veth, peer, tmpIfName, err = connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU),
+			int(conf.GROMaxSize), int(conf.GSOMaxSize),
+			int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep)
 		if err != nil {
 			err = fmt.Errorf("unable to set up veth on host side: %s", err)
 			return err
@@ -546,6 +547,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	if ipv6IsEnabled(ipam) {
 		ep.Addressing.IPV6 = ipam.Address.IPV6
+		ep.Addressing.IPV6PoolName = ipam.Address.IPV6PoolName
 		ep.Addressing.IPV6ExpirationUUID = ipam.IPV6.ExpirationUUID
 
 		ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, &state, int(conf.RouteMTU))
@@ -559,6 +561,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	if ipv4IsEnabled(ipam) {
 		ep.Addressing.IPV4 = ipam.Address.IPV4
+		ep.Addressing.IPV4PoolName = ipam.Address.IPV4PoolName
 		ep.Addressing.IPV4ExpirationUUID = ipam.IPV4.ExpirationUUID
 
 		ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, &state, int(conf.RouteMTU))

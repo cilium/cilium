@@ -15,7 +15,7 @@ rules:
   - list
   - watch
 {{- if hasKey .Values "disableEndpointCRD" }}
-{{- if (eq (.Values.disableEndpointCRD | quote ) ( "false" | quote )) }}
+{{- if not .Values.disableEndpointCRD }}
 {{- if (and .Values.operator.unmanagedPodWatcher.restart (ne (.Values.operator.unmanagedPodWatcher.intervalSeconds | int64) 0 ) ) }}
   # to automatically delete [core|kube]dns pods so that are starting to being
   # managed by Cilium
@@ -196,14 +196,23 @@ rules:
   - ciliumnodes.cilium.io
   - ciliumnodeconfigs.cilium.io
   - ciliumcidrgroups.cilium.io
+  - ciliuml2announcementpolicies.cilium.io
+  - ciliumpodippools.cilium.io
 - apiGroups:
   - cilium.io
   resources:
   - ciliumloadbalancerippools
+  - ciliumpodippools
   verbs:
   - get
   - list
   - watch
+- apiGroups:
+    - cilium.io
+  resources:
+    - ciliumpodippools
+  verbs:
+    - create
 - apiGroups:
   - cilium.io
   resources:

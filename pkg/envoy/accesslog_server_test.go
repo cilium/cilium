@@ -6,9 +6,10 @@ package envoy
 import (
 	"encoding/json"
 
+	. "github.com/cilium/checkmate"
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	. "gopkg.in/check.v1"
 
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 )
 
@@ -54,54 +55,60 @@ func (n *testNotifier) NewProxyLogRecord(l *logger.LogRecord) error {
 }
 
 func (k *AccessLogServerSuite) TestKafkaLogNoTopic(c *C) {
-	notifier := &testNotifier{}
-	logger.SetNotifier(notifier)
-	logRecord(&cilium.LogEntry{
-		L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
-			CorrelationId: 76541,
-			ErrorCode:     42,
-			ApiVersion:    3,
-			ApiKey:        1,
-		}},
-	})
+	node.WithTestLocalNodeStore(func() {
+		notifier := &testNotifier{}
+		logger.SetNotifier(notifier)
+		logRecord(&cilium.LogEntry{
+			L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
+				CorrelationId: 76541,
+				ErrorCode:     42,
+				ApiVersion:    3,
+				ApiKey:        1,
+			}},
+		})
 
-	c.Assert(notifier.kafka, HasLen, 1)
-	c.Assert(notifier.kafka[0], Equals, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{}}`)
+		c.Assert(notifier.kafka, HasLen, 1)
+		c.Assert(notifier.kafka[0], Equals, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{}}`)
+	})
 }
 
 func (k *AccessLogServerSuite) TestKafkaLogSingleTopic(c *C) {
-	notifier := &testNotifier{}
-	logger.SetNotifier(notifier)
-	logRecord(&cilium.LogEntry{
-		L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
-			CorrelationId: 76541,
-			ErrorCode:     42,
-			ApiVersion:    3,
-			ApiKey:        1,
-			Topics:        []string{"topic 1"},
-		}},
-	})
+	node.WithTestLocalNodeStore(func() {
+		notifier := &testNotifier{}
+		logger.SetNotifier(notifier)
+		logRecord(&cilium.LogEntry{
+			L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
+				CorrelationId: 76541,
+				ErrorCode:     42,
+				ApiVersion:    3,
+				ApiKey:        1,
+				Topics:        []string{"topic 1"},
+			}},
+		})
 
-	c.Assert(notifier.kafka, HasLen, 1)
-	c.Assert(notifier.kafka[0], Equals, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 1"}}`)
+		c.Assert(notifier.kafka, HasLen, 1)
+		c.Assert(notifier.kafka[0], Equals, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 1"}}`)
+	})
 }
 
 // TestKafkaLogMultipleTopics checks that a cilium.KafkaLogEntry with
 // multiple topics is split into multiple log messages, one per topic
 func (k *AccessLogServerSuite) TestKafkaLogMultipleTopics(c *C) {
-	notifier := &testNotifier{}
-	logger.SetNotifier(notifier)
-	logRecord(&cilium.LogEntry{
-		L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
-			CorrelationId: 76541,
-			ErrorCode:     42,
-			ApiVersion:    3,
-			ApiKey:        1,
-			Topics:        []string{"topic 1", "topic 2"},
-		}},
-	})
+	node.WithTestLocalNodeStore(func() {
+		notifier := &testNotifier{}
+		logger.SetNotifier(notifier)
+		logRecord(&cilium.LogEntry{
+			L7: &cilium.LogEntry_Kafka{Kafka: &cilium.KafkaLogEntry{
+				CorrelationId: 76541,
+				ErrorCode:     42,
+				ApiVersion:    3,
+				ApiKey:        1,
+				Topics:        []string{"topic 1", "topic 2"},
+			}},
+		})
 
-	c.Assert(notifier.kafka, HasLen, 2)
-	c.Assert(notifier.kafka[0], Equals, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 1"}}`)
-	c.Assert(notifier.kafka[1], Equals, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 2"}}`)
+		c.Assert(notifier.kafka, HasLen, 2)
+		c.Assert(notifier.kafka[0], Equals, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 1"}}`)
+		c.Assert(notifier.kafka[1], Equals, `{"ErrorCode":42,"APIVersion":3,"APIKey":"fetch","CorrelationID":76541,"Topic":{"Topic":"topic 2"}}`)
+	})
 }

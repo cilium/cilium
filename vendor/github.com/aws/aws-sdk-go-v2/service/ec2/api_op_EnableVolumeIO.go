@@ -10,8 +10,8 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Enables I/O operations for a volume that had I/O operations disabled because the
-// data on the volume was potentially inconsistent.
+// Enables I/O operations for a volume that had I/O operations disabled because
+// the data on the volume was potentially inconsistent.
 func (c *Client) EnableVolumeIO(ctx context.Context, params *EnableVolumeIOInput, optFns ...func(*Options)) (*EnableVolumeIOOutput, error) {
 	if params == nil {
 		params = &EnableVolumeIOInput{}
@@ -36,8 +36,8 @@ type EnableVolumeIOInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -99,6 +99,9 @@ func (c *Client) addOperationEnableVolumeIOMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opEnableVolumeIO(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

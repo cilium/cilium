@@ -34,7 +34,10 @@ func init() {
 var GatewayInvalidTLSConfiguration = suite.ConformanceTest{
 	ShortName:   "GatewayInvalidTLSConfiguration",
 	Description: "A Gateway should fail to become ready if the Gateway has an invalid TLS configuration",
-	Manifests:   []string{"tests/gateway-invalid-tls-certificateref.yaml"},
+	Features: []suite.SupportedFeature{
+		suite.SupportGateway,
+	},
+	Manifests: []string{"tests/gateway-invalid-tls-certificateref.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		listeners := []v1beta1.ListenerStatus{{
 			Name: v1beta1.SectionName("https"),
@@ -47,6 +50,7 @@ var GatewayInvalidTLSConfiguration = suite.ConformanceTest{
 				Status: metav1.ConditionFalse,
 				Reason: string(v1beta1.ListenerReasonInvalidCertificateRef),
 			}},
+			AttachedRoutes: 0,
 		}}
 
 		testCases := []struct {

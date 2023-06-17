@@ -24,4 +24,12 @@ var (
 		Unique:       false,
 		Indexer:      &memdb.UintFieldIndex{Field: "Revision"},
 	}
+
+	IPIndex  = Index("ip")
+	IPSchema = &memdb.IndexSchema{
+		Name:         string(IPIndex),
+		AllowMissing: false,
+		Unique:       false,
+		Indexer:      &IPIndexer{Field: "IP"},
+	}
 )
