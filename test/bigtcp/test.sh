@@ -43,7 +43,7 @@ helm install cilium ${HELM_CHART_DIR} \
 kubectl -n kube-system rollout status ds/cilium --timeout=5m
 
 # check if BIG TCP is initialized
-kubectl -n kube-system logs ds/cilium 2>&1 | grep "Setting up IPv6 BIG TCP"
+kubectl -n kube-system logs ds/cilium 2>&1 | grep "Setting up BIG TCP"
 
 # verify workers' gso_max_size
 gsoSize=`docker exec kind-worker ip -d -j link show dev eth0 | jq -c '.[0].gso_max_size'`
