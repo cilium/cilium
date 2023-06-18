@@ -47,7 +47,7 @@ func FuzzDenyPreferredInsert(f *testing.F) {
 		ff.GenerateStruct(&keys)
 		ff.GenerateStruct(&key)
 		ff.GenerateStruct(&entry)
-		keys.denyPreferredInsert(key, entry, nil)
+		keys.denyPreferredInsert(key, entry, allFeatures, nil)
 	})
 }
 
