@@ -450,6 +450,17 @@ Name                                        Labels                              
 ``k8s_terminating_endpoints_events_total``                                                     Enabled    Number of terminating endpoint events received from Kubernetes
 =========================================== ================================================== ========== ========================================================
 
+Kubernetes Rest Client
+~~~~~~~~~~~~~~~~~~~~~~
+
+============================================= ============================================= ========== ===========================================================
+Name                                          Labels                                        Default    Description
+============================================= ============================================= ========== ===========================================================
+``k8s_client_api_latency_time_seconds``       ``path``, ``method``                          Enabled    Duration of processed API calls labeled by path and method
+``k8s_client_rate_limiter_duration_seconds``  ``path``, ``method``                          Enabled    Kubernetes client rate limiter latency in seconds. Broken down by path and method
+``k8s_client_api_calls_total``                ``host``, ``method``, ``return_code``         Enabled    Number of API calls made to kube-apiserver labeled by host, method and return code
+============================================= ============================================= ========== ===========================================================
+
 IPAM
 ~~~~
 
