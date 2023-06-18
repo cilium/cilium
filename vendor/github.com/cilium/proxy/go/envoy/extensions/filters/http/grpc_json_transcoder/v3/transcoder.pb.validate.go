@@ -140,6 +140,36 @@ func (m *GrpcJsonTranscoder) validate(all bool) error {
 
 	// no validation rules for CaseInsensitiveEnumParsing
 
+	if wrapper := m.GetMaxRequestBodySize(); wrapper != nil {
+
+		if wrapper.GetValue() <= 0 {
+			err := GrpcJsonTranscoderValidationError{
+				field:  "MaxRequestBodySize",
+				reason: "value must be greater than 0",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
+	if wrapper := m.GetMaxResponseBodySize(); wrapper != nil {
+
+		if wrapper.GetValue() <= 0 {
+			err := GrpcJsonTranscoderValidationError{
+				field:  "MaxResponseBodySize",
+				reason: "value must be greater than 0",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	switch m.DescriptorSet.(type) {
 
 	case *GrpcJsonTranscoder_ProtoDescriptor:

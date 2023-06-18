@@ -358,6 +358,35 @@ func (m *DownstreamTlsContext) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	if all {
+		switch v := interface{}(m.GetFullScanCertsOnSniMismatch()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, DownstreamTlsContextValidationError{
+					field:  "FullScanCertsOnSniMismatch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, DownstreamTlsContextValidationError{
+					field:  "FullScanCertsOnSniMismatch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetFullScanCertsOnSniMismatch()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return DownstreamTlsContextValidationError{
+				field:  "FullScanCertsOnSniMismatch",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	switch m.SessionTicketKeysType.(type) {
 
 	case *DownstreamTlsContext_SessionTicketKeys:
@@ -766,17 +795,6 @@ func (m *CommonTlsContext) validate(all bool) error {
 			}
 		}
 
-	}
-
-	if len(m.GetTlsCertificateSdsSecretConfigs()) > 2 {
-		err := CommonTlsContextValidationError{
-			field:  "TlsCertificateSdsSecretConfigs",
-			reason: "value must contain no more than 2 item(s)",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
 	}
 
 	for idx, item := range m.GetTlsCertificateSdsSecretConfigs() {

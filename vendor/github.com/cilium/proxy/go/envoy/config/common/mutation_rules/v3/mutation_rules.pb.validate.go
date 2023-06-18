@@ -338,3 +338,162 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = HeaderMutationRulesValidationError{}
+
+// Validate checks the field values on HeaderMutation with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *HeaderMutation) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on HeaderMutation with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in HeaderMutationMultiError,
+// or nil if none found.
+func (m *HeaderMutation) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *HeaderMutation) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	switch m.Action.(type) {
+
+	case *HeaderMutation_Remove:
+
+		if !_HeaderMutation_Remove_Pattern.MatchString(m.GetRemove()) {
+			err := HeaderMutationValidationError{
+				field:  "Remove",
+				reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	case *HeaderMutation_Append:
+
+		if all {
+			switch v := interface{}(m.GetAppend()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, HeaderMutationValidationError{
+						field:  "Append",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, HeaderMutationValidationError{
+						field:  "Append",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetAppend()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return HeaderMutationValidationError{
+					field:  "Append",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		err := HeaderMutationValidationError{
+			field:  "Action",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+
+	}
+
+	if len(errors) > 0 {
+		return HeaderMutationMultiError(errors)
+	}
+	return nil
+}
+
+// HeaderMutationMultiError is an error wrapping multiple validation errors
+// returned by HeaderMutation.ValidateAll() if the designated constraints
+// aren't met.
+type HeaderMutationMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m HeaderMutationMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m HeaderMutationMultiError) AllErrors() []error { return m }
+
+// HeaderMutationValidationError is the validation error returned by
+// HeaderMutation.Validate if the designated constraints aren't met.
+type HeaderMutationValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e HeaderMutationValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e HeaderMutationValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e HeaderMutationValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e HeaderMutationValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e HeaderMutationValidationError) ErrorName() string { return "HeaderMutationValidationError" }
+
+// Error satisfies the builtin error interface
+func (e HeaderMutationValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sHeaderMutation.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = HeaderMutationValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = HeaderMutationValidationError{}
+
+var _HeaderMutation_Remove_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")

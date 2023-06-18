@@ -206,7 +206,16 @@ func (m *AsyncFileManagerConfig_ThreadPool) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for ThreadCount
+	if m.GetThreadCount() > 1024 {
+		err := AsyncFileManagerConfig_ThreadPoolValidationError{
+			field:  "ThreadCount",
+			reason: "value must be less than or equal to 1024",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if len(errors) > 0 {
 		return AsyncFileManagerConfig_ThreadPoolMultiError(errors)

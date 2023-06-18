@@ -424,6 +424,10 @@ func (m *TLSContext) validate(all bool) error {
 
 	// no validation rules for PrivateKey
 
+	// no validation rules for ValidationContextSdsSecret
+
+	// no validation rules for TlsSdsSecret
+
 	if len(errors) > 0 {
 		return TLSContextMultiError(errors)
 	}
@@ -965,6 +969,8 @@ func (m *HeaderMatch) validate(all bool) error {
 	// no validation rules for MatchAction
 
 	// no validation rules for MismatchAction
+
+	// no validation rules for ValueSdsSecret
 
 	if len(errors) > 0 {
 		return HeaderMatchMultiError(errors)
