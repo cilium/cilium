@@ -962,7 +962,7 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithChanges(c *check.
 		for k, v := range tt.keys {
 			keys[k] = v
 		}
-		keys.denyPreferredInsertWithChanges(tt.args.key, tt.args.entry, adds, deletes, old, nil)
+		keys.denyPreferredInsertWithChanges(tt.args.key, tt.args.entry, denyRules, adds, deletes, old, nil)
 		keys.validatePortProto(c)
 		c.Assert(keys, checker.DeepEquals, tt.want, check.Commentf("%s: MapState mismatch", tt.name))
 		c.Assert(adds, checker.DeepEquals, tt.wantAdds, check.Commentf("%s: Adds mismatch", tt.name))
@@ -1380,7 +1380,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			}
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, AuthTypeDisabled, nil)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState, nil)
+		adds, deletes := policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
 		policyMapState.validatePortProto(c)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
 		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
@@ -1596,7 +1596,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			}
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, x.authType, nil)
 		}
-		adds, deletes := policyMaps.consumeMapChanges(policyMapState, nil)
+		adds, deletes := policyMaps.consumeMapChanges(policyMapState, policyFeatures(0), nil)
 		policyMapState.validatePortProto(c)
 		c.Assert(policyMapState, checker.DeepEquals, tt.state, check.Commentf(tt.name+" (MapState)"))
 		c.Assert(adds, checker.DeepEquals, tt.adds, check.Commentf(tt.name+" (adds)"))
@@ -2156,7 +2156,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			}
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, AuthTypeDisabled, nil)
 		}
-		adds, deletes = policyMaps.consumeMapChanges(policyMapState, nil)
+		adds, deletes = policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
 		// Visibilty redirects need to be re-applied after consumeMapChanges()
 		visOld = make(MapState)
 		for _, arg := range tt.visArgs {
@@ -2278,8 +2278,8 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithSubnets(c *check.
 			expectedKeys[bKeyWithBProto] = bEntryCpy
 		}
 		outcomeKeys := MapState{}
-		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache)
-		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache)
+		outcomeKeys.denyPreferredInsert(aKey, aEntry, allFeatures, selectorCache)
+		outcomeKeys.denyPreferredInsert(bKey, bEntry, allFeatures, selectorCache)
 		outcomeKeys.validatePortProto(c)
 		c.Assert(outcomeKeys, checker.DeepEquals, expectedKeys, check.Commentf(tt.name))
 	}
@@ -2295,8 +2295,8 @@ func (ds *PolicyTestSuite) TestMapState_denyPreferredInsertWithSubnets(c *check.
 		expectedKeys[aKey] = aEntry
 		expectedKeys[bKey] = bEntry
 		outcomeKeys := MapState{}
-		outcomeKeys.denyPreferredInsert(aKey, aEntry, selectorCache)
-		outcomeKeys.denyPreferredInsert(bKey, bEntry, selectorCache)
+		outcomeKeys.denyPreferredInsert(aKey, aEntry, allFeatures, selectorCache)
+		outcomeKeys.denyPreferredInsert(bKey, bEntry, allFeatures, selectorCache)
 		outcomeKeys.validatePortProto(c)
 		c.Assert(outcomeKeys, checker.DeepEquals, expectedKeys, check.Commentf("different traffic directions %s", tt.name))
 	}
