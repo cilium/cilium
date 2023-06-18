@@ -170,7 +170,7 @@ func (l4policy L4DirectionPolicy) toMapState(p *EndpointPolicy) {
 	for _, l4 := range l4policy.PortRules {
 		lookupDone := false
 		proxyport := uint16(0)
-		l4.toMapState(p, p.SelectorCache, func(keyFromFilter Key, entry *MapStateEntry) bool {
+		l4.toMapState(p, p.SelectorCache, l4policy.features, func(keyFromFilter Key, entry *MapStateEntry) bool {
 			// Fix up the proxy port for entries that need proxy redirection
 			if entry.IsRedirectEntry() {
 				if !lookupDone {
@@ -219,8 +219,8 @@ func (p *EndpointPolicy) UpdateRedirects(ingress bool, identities Identities, ge
 func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, identities Identities, getProxyPort getProxyPortFunc, adds Keys, updated MapState) {
 	for _, l4 := range l4policy.PortRules {
 		if l4.IsRedirect() {
-			// Check if we are denying this specific L4 first regardless the L3
-			if p.PolicyMapState.deniesL4(p.PolicyOwner, l4) {
+			// Check if we are denying this specific L4 first regardless the L3, if there are any deny policies
+			if l4policy.features.contains(denyRules) && p.PolicyMapState.deniesL4(p.PolicyOwner, l4) {
 				continue
 			}
 
@@ -230,7 +230,7 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, identities 
 			}
 
 			// Set the proxy port in the policy map.
-			l4.toMapState(p, identities, func(_ Key, entry *MapStateEntry) bool {
+			l4.toMapState(p, identities, l4policy.features, func(_ Key, entry *MapStateEntry) bool {
 				if entry.IsRedirectEntry() {
 					entry.ProxyPort = redirectPort
 				}
@@ -247,7 +247,11 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, identities 
 func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
 	p.selectorPolicy.SelectorCache.mutex.Lock()
 	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
-	return p.policyMapChanges.consumeMapChanges(p.PolicyMapState, p.SelectorCache)
+	features := allFeatures
+	if p.selectorPolicy.L4Policy != nil {
+		features = p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features
+	}
+	return p.policyMapChanges.consumeMapChanges(p.PolicyMapState, features, p.SelectorCache)
 }
 
 // AllowsIdentity returns whether the specified policy allows

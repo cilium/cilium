@@ -1034,6 +1034,8 @@ func Test_MergeRules(t *testing.T) {
 				mapstate[k] = v
 			}
 			if equal, err := checker.ExportedEqual(mapstate, expectedMapState[tt.test]); !equal {
+				t.Logf("Rules:\n%s\n\n", tt.rules.String())
+				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy obtained didn't match expected for endpoint:\n%s", err)
 			}
 			if equal, err := checker.ExportedEqual(generatedRule, tt.rules); !equal {
