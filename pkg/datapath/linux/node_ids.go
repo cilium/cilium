@@ -250,9 +250,9 @@ func (n *linuxNodeHandler) mapNodeID(ip string, id uint16, source nodeIDSource) 
 		refcnt: 1,
 		source: source,
 	}
-	if err := nodemap.NodeMap().Update(nodeIP, id); err != nil {
-		return err
-	}
+	//if err := nodemap.NodeMap().Update(nodeIP, id); err != nil {
+	//	return err
+	//}
 
 	// We only add the IP <> ID mapping in memory once we are sure it was
 	// successfully added to the BPF map.
@@ -273,9 +273,9 @@ func (n *linuxNodeHandler) unmapNodeID(ip string) error {
 		return fmt.Errorf("invalid node IP %s", ip)
 	}
 
-	if err := nodemap.NodeMap().Delete(nodeIP); err != nil {
-		return err
-	}
+//	if err := nodemap.NodeMap().Delete(nodeIP); err != nil {
+//		return err
+//	}
 
 	delete(n.nodeIDsByIPs, ip)
 
