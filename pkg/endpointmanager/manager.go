@@ -19,6 +19,7 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
@@ -82,6 +83,8 @@ type endpointManager struct {
 
 	// controllers associated with the endpoint manager.
 	controllers *controller.Manager
+
+	healthReporter cell.HealthReporter
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
@@ -592,6 +595,19 @@ func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
 	mgr.RunK8sCiliumEndpointSync(ep, option.Config)
 
 	return nil
+}
+
+func (mgr *endpointManager) updateHealth() {
+	for _, status := range mgr.controllers.GetStatusModel() {
+		if time.Time(status.Status.LastFailureTimestamp).
+			After(time.Time(status.Status.LastSuccessTimestamp)) {
+			mgr.healthReporter.Degraded(
+				fmt.Sprintf(""),
+				// TODO: Get real error here?
+				fmt.Errorf(status.Status.LastFailureMsg),
+			)
+		}
+	}
 }
 
 // RestoreEndpoint exposes the specified endpoint to other subsystems via the
