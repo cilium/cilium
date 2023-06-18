@@ -489,7 +489,6 @@ jenkinsfiles @cilium/ci-structure
 /pkg/versioncheck/ @cilium/sig-agent
 /plugins/cilium-cni/ @cilium/sig-k8s
 /plugins/cilium-docker/ @cilium/docker
-/proxylib/ @cilium/proxy
 /README.rst @cilium/docs-structure
 /SECURITY.md @cilium/contributing
 /stable.txt @cilium/tophat
