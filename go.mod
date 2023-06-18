@@ -23,8 +23,9 @@ require (
 	github.com/cilium/dns v1.1.51-0.20231120140355-729345173dc3
 	github.com/cilium/ebpf v0.9.4-0.20221102092914-a9cf21df64c2
 	github.com/cilium/ipam v0.0.0-20220824141044-46ef3d556735
+	github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 	github.com/cilium/lumberjack/v2 v2.2.2
-	github.com/cilium/proxy v0.0.0-20230709104538-6aa1c739866f
+	github.com/cilium/proxy v0.0.0-20230623092907-8fddead4e52c
 	github.com/cilium/workerpool v1.1.3
 	github.com/containernetworking/cni v1.1.2
 	github.com/containernetworking/plugins v1.1.1
@@ -62,7 +63,6 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.24.1
-	github.com/optiopay/kafka v0.0.0-00010101000000-000000000000
 	github.com/osrg/gobgp/v3 v3.5.0
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/prometheus/client_golang v1.14.0
@@ -113,7 +113,7 @@ require (
 	k8s.io/apimachinery v0.26.9
 	k8s.io/client-go v0.26.9
 	k8s.io/code-generator v0.26.9
-	k8s.io/klog/v2 v2.80.1
+	k8s.io/klog/v2 v2.100.1
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280
 	k8s.io/utils v0.0.0-20221107191617-1a15be271d1d
 	sigs.k8s.io/controller-runtime v0.13.1-0.20221201045826-d9912251cd81
@@ -247,8 +247,6 @@ require (
 )
 
 replace (
-	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
-
 	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
 
 	// Using fork of client-go.

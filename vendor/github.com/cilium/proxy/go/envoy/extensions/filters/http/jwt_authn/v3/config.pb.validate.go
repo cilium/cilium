@@ -143,6 +143,40 @@ func (m *JwtProvider) validate(all bool) error {
 		}
 	}
 
+	for idx, item := range m.GetClaimToHeaders() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, JwtProviderValidationError{
+						field:  fmt.Sprintf("ClaimToHeaders[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, JwtProviderValidationError{
+						field:  fmt.Sprintf("ClaimToHeaders[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return JwtProviderValidationError{
+					field:  fmt.Sprintf("ClaimToHeaders[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	switch m.JwksSourceSpecifier.(type) {
 
 	case *JwtProvider_RemoteJwks:
@@ -635,6 +669,35 @@ func (m *JwksAsyncFetch) validate(all bool) error {
 	var errors []error
 
 	// no validation rules for FastListener
+
+	if all {
+		switch v := interface{}(m.GetFailedRefetchDuration()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, JwksAsyncFetchValidationError{
+					field:  "FailedRefetchDuration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, JwksAsyncFetchValidationError{
+					field:  "FailedRefetchDuration",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetFailedRefetchDuration()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return JwksAsyncFetchValidationError{
+				field:  "FailedRefetchDuration",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	if len(errors) > 0 {
 		return JwksAsyncFetchMultiError(errors)
@@ -2243,3 +2306,137 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = PerRouteConfigValidationError{}
+
+// Validate checks the field values on JwtClaimToHeader with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
+func (m *JwtClaimToHeader) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on JwtClaimToHeader with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// JwtClaimToHeaderMultiError, or nil if none found.
+func (m *JwtClaimToHeader) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *JwtClaimToHeader) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetHeaderName()) < 1 {
+		err := JwtClaimToHeaderValidationError{
+			field:  "HeaderName",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if !_JwtClaimToHeader_HeaderName_Pattern.MatchString(m.GetHeaderName()) {
+		err := JwtClaimToHeaderValidationError{
+			field:  "HeaderName",
+			reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if utf8.RuneCountInString(m.GetClaimName()) < 1 {
+		err := JwtClaimToHeaderValidationError{
+			field:  "ClaimName",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return JwtClaimToHeaderMultiError(errors)
+	}
+	return nil
+}
+
+// JwtClaimToHeaderMultiError is an error wrapping multiple validation errors
+// returned by JwtClaimToHeader.ValidateAll() if the designated constraints
+// aren't met.
+type JwtClaimToHeaderMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m JwtClaimToHeaderMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m JwtClaimToHeaderMultiError) AllErrors() []error { return m }
+
+// JwtClaimToHeaderValidationError is the validation error returned by
+// JwtClaimToHeader.Validate if the designated constraints aren't met.
+type JwtClaimToHeaderValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e JwtClaimToHeaderValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e JwtClaimToHeaderValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e JwtClaimToHeaderValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e JwtClaimToHeaderValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e JwtClaimToHeaderValidationError) ErrorName() string { return "JwtClaimToHeaderValidationError" }
+
+// Error satisfies the builtin error interface
+func (e JwtClaimToHeaderValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sJwtClaimToHeader.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = JwtClaimToHeaderValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = JwtClaimToHeaderValidationError{}
+
+var _JwtClaimToHeader_HeaderName_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")

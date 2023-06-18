@@ -1079,6 +1079,139 @@ var _ interface {
 	ErrorName() string
 } = EndpointsConfigDumpValidationError{}
 
+// Validate checks the field values on EcdsConfigDump with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *EcdsConfigDump) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on EcdsConfigDump with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in EcdsConfigDumpMultiError,
+// or nil if none found.
+func (m *EcdsConfigDump) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *EcdsConfigDump) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetEcdsFilters() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, EcdsConfigDumpValidationError{
+						field:  fmt.Sprintf("EcdsFilters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, EcdsConfigDumpValidationError{
+						field:  fmt.Sprintf("EcdsFilters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return EcdsConfigDumpValidationError{
+					field:  fmt.Sprintf("EcdsFilters[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return EcdsConfigDumpMultiError(errors)
+	}
+	return nil
+}
+
+// EcdsConfigDumpMultiError is an error wrapping multiple validation errors
+// returned by EcdsConfigDump.ValidateAll() if the designated constraints
+// aren't met.
+type EcdsConfigDumpMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m EcdsConfigDumpMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m EcdsConfigDumpMultiError) AllErrors() []error { return m }
+
+// EcdsConfigDumpValidationError is the validation error returned by
+// EcdsConfigDump.Validate if the designated constraints aren't met.
+type EcdsConfigDumpValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e EcdsConfigDumpValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e EcdsConfigDumpValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e EcdsConfigDumpValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e EcdsConfigDumpValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e EcdsConfigDumpValidationError) ErrorName() string { return "EcdsConfigDumpValidationError" }
+
+// Error satisfies the builtin error interface
+func (e EcdsConfigDumpValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sEcdsConfigDump.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = EcdsConfigDumpValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = EcdsConfigDumpValidationError{}
+
 // Validate checks the field values on ListenersConfigDump_StaticListener with
 // the rules defined in the proto definition for this message. If any rules
 // are violated, the first error encountered is returned, or nil if there are
@@ -3087,3 +3220,196 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = EndpointsConfigDump_DynamicEndpointConfigValidationError{}
+
+// Validate checks the field values on EcdsConfigDump_EcdsFilterConfig with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *EcdsConfigDump_EcdsFilterConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on EcdsConfigDump_EcdsFilterConfig with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// EcdsConfigDump_EcdsFilterConfigMultiError, or nil if none found.
+func (m *EcdsConfigDump_EcdsFilterConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *EcdsConfigDump_EcdsFilterConfig) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for VersionInfo
+
+	if all {
+		switch v := interface{}(m.GetEcdsFilter()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, EcdsConfigDump_EcdsFilterConfigValidationError{
+					field:  "EcdsFilter",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, EcdsConfigDump_EcdsFilterConfigValidationError{
+					field:  "EcdsFilter",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetEcdsFilter()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return EcdsConfigDump_EcdsFilterConfigValidationError{
+				field:  "EcdsFilter",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetLastUpdated()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, EcdsConfigDump_EcdsFilterConfigValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, EcdsConfigDump_EcdsFilterConfigValidationError{
+					field:  "LastUpdated",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetLastUpdated()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return EcdsConfigDump_EcdsFilterConfigValidationError{
+				field:  "LastUpdated",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetErrorState()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, EcdsConfigDump_EcdsFilterConfigValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, EcdsConfigDump_EcdsFilterConfigValidationError{
+					field:  "ErrorState",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetErrorState()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return EcdsConfigDump_EcdsFilterConfigValidationError{
+				field:  "ErrorState",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for ClientStatus
+
+	if len(errors) > 0 {
+		return EcdsConfigDump_EcdsFilterConfigMultiError(errors)
+	}
+	return nil
+}
+
+// EcdsConfigDump_EcdsFilterConfigMultiError is an error wrapping multiple
+// validation errors returned by EcdsConfigDump_EcdsFilterConfig.ValidateAll()
+// if the designated constraints aren't met.
+type EcdsConfigDump_EcdsFilterConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m EcdsConfigDump_EcdsFilterConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m EcdsConfigDump_EcdsFilterConfigMultiError) AllErrors() []error { return m }
+
+// EcdsConfigDump_EcdsFilterConfigValidationError is the validation error
+// returned by EcdsConfigDump_EcdsFilterConfig.Validate if the designated
+// constraints aren't met.
+type EcdsConfigDump_EcdsFilterConfigValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e EcdsConfigDump_EcdsFilterConfigValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e EcdsConfigDump_EcdsFilterConfigValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e EcdsConfigDump_EcdsFilterConfigValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e EcdsConfigDump_EcdsFilterConfigValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e EcdsConfigDump_EcdsFilterConfigValidationError) ErrorName() string {
+	return "EcdsConfigDump_EcdsFilterConfigValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e EcdsConfigDump_EcdsFilterConfigValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sEcdsConfigDump_EcdsFilterConfig.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = EcdsConfigDump_EcdsFilterConfigValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = EcdsConfigDump_EcdsFilterConfigValidationError{}

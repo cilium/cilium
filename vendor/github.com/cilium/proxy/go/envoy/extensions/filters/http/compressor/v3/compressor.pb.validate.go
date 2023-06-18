@@ -295,6 +295,396 @@ var _ interface {
 	ErrorName() string
 } = CompressorValidationError{}
 
+// Validate checks the field values on ResponseDirectionOverrides with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ResponseDirectionOverrides) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ResponseDirectionOverrides with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ResponseDirectionOverridesMultiError, or nil if none found.
+func (m *ResponseDirectionOverrides) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ResponseDirectionOverrides) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if len(errors) > 0 {
+		return ResponseDirectionOverridesMultiError(errors)
+	}
+	return nil
+}
+
+// ResponseDirectionOverridesMultiError is an error wrapping multiple
+// validation errors returned by ResponseDirectionOverrides.ValidateAll() if
+// the designated constraints aren't met.
+type ResponseDirectionOverridesMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ResponseDirectionOverridesMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ResponseDirectionOverridesMultiError) AllErrors() []error { return m }
+
+// ResponseDirectionOverridesValidationError is the validation error returned
+// by ResponseDirectionOverrides.Validate if the designated constraints aren't met.
+type ResponseDirectionOverridesValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ResponseDirectionOverridesValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ResponseDirectionOverridesValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ResponseDirectionOverridesValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ResponseDirectionOverridesValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ResponseDirectionOverridesValidationError) ErrorName() string {
+	return "ResponseDirectionOverridesValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ResponseDirectionOverridesValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sResponseDirectionOverrides.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ResponseDirectionOverridesValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ResponseDirectionOverridesValidationError{}
+
+// Validate checks the field values on CompressorOverrides with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *CompressorOverrides) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CompressorOverrides with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CompressorOverridesMultiError, or nil if none found.
+func (m *CompressorOverrides) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CompressorOverrides) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetResponseDirectionConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CompressorOverridesValidationError{
+					field:  "ResponseDirectionConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CompressorOverridesValidationError{
+					field:  "ResponseDirectionConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetResponseDirectionConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CompressorOverridesValidationError{
+				field:  "ResponseDirectionConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return CompressorOverridesMultiError(errors)
+	}
+	return nil
+}
+
+// CompressorOverridesMultiError is an error wrapping multiple validation
+// errors returned by CompressorOverrides.ValidateAll() if the designated
+// constraints aren't met.
+type CompressorOverridesMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CompressorOverridesMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CompressorOverridesMultiError) AllErrors() []error { return m }
+
+// CompressorOverridesValidationError is the validation error returned by
+// CompressorOverrides.Validate if the designated constraints aren't met.
+type CompressorOverridesValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CompressorOverridesValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CompressorOverridesValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CompressorOverridesValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CompressorOverridesValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CompressorOverridesValidationError) ErrorName() string {
+	return "CompressorOverridesValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e CompressorOverridesValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCompressorOverrides.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CompressorOverridesValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CompressorOverridesValidationError{}
+
+// Validate checks the field values on CompressorPerRoute with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *CompressorPerRoute) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CompressorPerRoute with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CompressorPerRouteMultiError, or nil if none found.
+func (m *CompressorPerRoute) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CompressorPerRoute) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	switch m.Override.(type) {
+
+	case *CompressorPerRoute_Disabled:
+
+		if m.GetDisabled() != true {
+			err := CompressorPerRouteValidationError{
+				field:  "Disabled",
+				reason: "value must equal true",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	case *CompressorPerRoute_Overrides:
+
+		if all {
+			switch v := interface{}(m.GetOverrides()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CompressorPerRouteValidationError{
+						field:  "Overrides",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CompressorPerRouteValidationError{
+						field:  "Overrides",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetOverrides()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CompressorPerRouteValidationError{
+					field:  "Overrides",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		err := CompressorPerRouteValidationError{
+			field:  "Override",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+
+	}
+
+	if len(errors) > 0 {
+		return CompressorPerRouteMultiError(errors)
+	}
+	return nil
+}
+
+// CompressorPerRouteMultiError is an error wrapping multiple validation errors
+// returned by CompressorPerRoute.ValidateAll() if the designated constraints
+// aren't met.
+type CompressorPerRouteMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CompressorPerRouteMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CompressorPerRouteMultiError) AllErrors() []error { return m }
+
+// CompressorPerRouteValidationError is the validation error returned by
+// CompressorPerRoute.Validate if the designated constraints aren't met.
+type CompressorPerRouteValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CompressorPerRouteValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CompressorPerRouteValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CompressorPerRouteValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CompressorPerRouteValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CompressorPerRouteValidationError) ErrorName() string {
+	return "CompressorPerRouteValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e CompressorPerRouteValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCompressorPerRoute.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CompressorPerRouteValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CompressorPerRouteValidationError{}
+
 // Validate checks the field values on Compressor_CommonDirectionConfig with
 // the rules defined in the proto definition for this message. If any rules
 // are violated, the first error encountered is returned, or nil if there are
