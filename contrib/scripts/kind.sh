@@ -11,6 +11,7 @@ default_image=""
 default_kubeproxy_mode="iptables"
 default_ipfamily="ipv4"
 default_network="kind-cilium"
+secondary_network="${default_network}-secondary"
 
 PROG=${0}
 
@@ -23,6 +24,13 @@ if [ "${1:-}" = "--xdp" ]; then
 fi
 readonly xdp
 
+secondary_network_flag=false
+if [ "${1:-}" = "--secondary-network" ]; then
+  secondary_network_flag=true
+  shift
+fi
+readonly secondary_network_flag
+
 controlplanes="${1:-${CONTROLPLANES:=${default_controlplanes}}}"
 workers="${2:-${WORKERS:=${default_workers}}}"
 cluster_name="${3:-${CLUSTER_NAME:=${default_cluster_name}}}"
@@ -32,11 +40,13 @@ kubeproxy_mode="${5:-${KUBEPROXY_MODE:=${default_kubeproxy_mode}}}"
 ipfamily="${6:-${IPFAMILY:=${default_ipfamily}}}"
 
 bridge_dev="br-${default_network}"
+bridge_dev_secondary="${bridge_dev}2"
 v6_prefix="fc00:c111::/64"
+v6_prefix_secondary="fc00:c112::/64"
 CILIUM_ROOT="$(git rev-parse --show-toplevel)"
 
 usage() {
-  echo "Usage: ${PROG} [--xdp] [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode] [ip-family]"
+  echo "Usage: ${PROG} [--xdp] [--secondary-network] [control-plane node count] [worker node count] [cluster-name] [node image] [kube-proxy mode] [ip-family]"
 }
 
 have_kind() {
@@ -145,6 +155,21 @@ containerdConfigPatches:
     endpoint = ["http://${reg_name}:${reg_port}"]
 EOF
 
+if [ "${secondary_network_flag}" = true ]; then
+  if ! docker network inspect "${secondary_network}" >/dev/null 2>&1; then
+    docker network create -d=bridge \
+      -o "com.docker.network.bridge.enable_ip_masquerade=false" \
+      -o "com.docker.network.bridge.name=${bridge_dev_secondary}" \
+      --ipv6 --subnet "${v6_prefix_secondary}" \
+      "${secondary_network}"
+  fi
+
+  nodes=$(docker ps -a --filter label=io.x-k8s.kind.cluster=${cluster_name:-kind} --format {{.Names}})
+  for node in $nodes; do
+    docker network connect ${secondary_network} $node
+  done
+fi
+
 if [ "${xdp}" = true ]; then
   if ! [ -f "${CILIUM_ROOT}/test/l4lb/bpf_xdp_veth_host.o" ]; then
     pushd "${CILIUM_ROOT}/test/l4lb/" > /dev/null
@@ -152,8 +177,8 @@ if [ "${xdp}" = true ]; then
     popd > /dev/null
   fi
 
-  for ifc in /sys/class/net/"${bridge_dev}"/brif/*; do
-    ifc="${ifc#"/sys/class/net/${bridge_dev}/brif/"}"
+  for ifc in /sys/class/net/"${bridge_dev}"*/brif/*; do
+    ifc=$(echo $ifc | "${SED}" "s,/sys/class/net/${bridge_dev}.*/brif/,,")
 
     # Attach a dummy XDP prog to the host side of the veth so that XDP_TX in the
     # pod side works.
