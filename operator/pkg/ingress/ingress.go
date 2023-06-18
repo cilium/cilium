@@ -246,6 +246,14 @@ func getIngressAllowHTTP(ingress *slim_networkingv1.Ingress) bool {
 	return true
 }
 
+func getForceSSLRedirect(ingress *slim_networkingv1.Ingress) bool {
+	annotations := ingress.GetAnnotations()
+	if forceSSL, ok := annotations["ingress.kubernetes.io/force-ssl-redirect"]; ok && forceSSL == "true" {
+		return true
+	}
+
+	return false
+}
 
 func hasEmptyIngressClass(ingress *slim_networkingv1.Ingress) bool {
 	className := getIngressClassName(ingress)
