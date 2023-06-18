@@ -68,6 +68,7 @@ env:
   cilium_cli_version: v0.14.7
   cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  cilium_latest_stable: 1.13.4
 
 jobs:
   check_changes:
@@ -176,7 +177,6 @@ jobs:
       matrix:
         include:
           # See https://github.com/cilium/cilium/issues/20606 for configuration table
-
           - name: '1'
             kernel: '4.19-20230420.212204'
             kube-proxy: 'iptables'
@@ -248,6 +248,7 @@ jobs:
             tunnel: 'vxlan'
             encryption: 'ipsec'
             encryption-node: 'false'
+            test-upgrade: 'true'
 
           - name: '10'
             kernel: '5.4-20230420.212204'
@@ -256,6 +257,7 @@ jobs:
             tunnel: 'disabled'
             encryption: 'ipsec'
             encryption-node: 'false'
+            test-upgrade: 'true'
 
           - name: '11'
             kernel: '5.10-20230420.212204'
@@ -265,6 +267,7 @@ jobs:
             encryption: 'ipsec'
             encryption-node: 'false'
             endpoint-routes: 'true'
+            test-upgrade: 'true'
 
           - name: '12'
             kernel: '5.10-20230420.212204'
@@ -316,6 +319,7 @@ jobs:
             encryption: 'ipsec'
             encryption-node: 'false'
             endpoint-routes: 'true'
+            test-upgrade: 'true'
 
     timeout-minutes: 60
     steps:
@@ -331,8 +335,7 @@ jobs:
         id: vars
         run: |
           SHA="${{ needs.setup-report.outputs.sha }}"
-          CILIUM_INSTALL_DEFAULTS="--wait \
-            --chart-directory=./install/kubernetes/cilium \
+          CILIUM_MAIN_IMAGE_SETTINGS="--chart-directory=./install/kubernetes/cilium \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
             --helm-set=image.tag=${SHA} \
@@ -340,7 +343,11 @@ jobs:
             --helm-set=operator.image.suffix=-ci \
             --helm-set=operator.image.tag=${SHA} \
             --helm-set=operator.image.useDigest=false \
-            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci"
+          echo "cilium_main_image_settings=${CILIUM_MAIN_IMAGE_SETTINGS}" >> $GITHUB_OUTPUT
+
+          CILIUM_INSTALL_DEFAULTS="--wait \
+            --helm-set=cluster.name=default \
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set=hubble.eventBufferCapacity=65535 \
             --helm-set=bpf.monitorAggregation=none \
@@ -348,6 +355,7 @@ jobs:
             --helm-set=authentication.mutual.spire.install.enabled=true \
             --nodes-without-cilium=kind-worker3 \
             --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
+
           TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
             TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16 --helm-set-string=tunnel=disabled"
@@ -447,8 +455,9 @@ jobs:
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ needs.setup-report.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
-      - name: Run tests (${{ join(matrix.*, ', ') }})
+      - name: Run e2e tests (${{ join(matrix.*, ', ') }})
         uses: cilium/little-vm-helper@af4173a4a1c9132b7fb0a02dba74cd6233a175b5 # v0.0.6
+        if:  ${{ matrix.test-upgrade != 'true' }} # connectivity will be checked by upgrade tests
         with:
           provision: 'false'
           cmd: |
@@ -461,7 +470,10 @@ jobs:
                 --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
             fi
 
-            CILIUM_CLI_MODE=helm ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
+            CILIUM_CLI_MODE=helm ./cilium-cli install \
+              ${{ steps.vars.outputs.cilium_main_image_settings }} \
+              ${{ steps.vars.outputs.cilium_install_defaults }}
+
             kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
             kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
@@ -476,6 +488,86 @@ jobs:
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
               --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})"
+
+            ./contrib/scripts/kind-down.sh
+
+      - name: Run upgrade tests (${{ join(matrix.*, ', ') }})
+        if:  ${{ matrix.test-upgrade == 'true' }}
+        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/
+            ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
+
+            kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+            if [ "${{ matrix.encryption }}" == "ipsec" ]; then
+              kubectl create -n kube-system secret generic cilium-ipsec-keys \
+                --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+            fi
+
+            mkdir -p cilium-junits
+
+            # Install latest stable release (v1.13)
+
+            EXTRAS_V13=""
+            if [ "${{ matrix.encryption }}" == "wireguard" ]; then
+              EXTRAS_V13=" --helm-set=l7Proxy=false"
+            fi
+            if [ "${{ matrix.kpr }}" == "strict" ]; then
+              # BPF IPv6 masquerade is not supported in < v1.14
+              EXTRAS_V13+=" --helm-set=enableIPv6Masquerade=false"
+            fi
+
+            CILIUM_CLI_MODE=helm ./cilium-cli install \
+              --version ${{ env.cilium_latest_stable }} \
+              --repository oci://quay.io/cilium-charts-dev/cilium \
+              ${{ steps.vars.outputs.cilium_install_defaults }} \
+              \$EXTRAS_V13
+
+            ./cilium-cli status --wait
+            kubectl get pods --all-namespaces -o wide
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+              --junit-property github_job_step="Run tests upgrade 1 (${{ join(matrix.*, ', ') }})"
+
+            # Upgrade to the main
+
+            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+              ${{ steps.vars.outputs.cilium_main_image_settings }} \
+              ${{ steps.vars.outputs.cilium_install_defaults }}
+
+            ./cilium-cli status --wait
+            kubectl get pods --all-namespaces -o wide
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+              --junit-property github_job_step="Run tests upgrade 2 (${{ join(matrix.*, ', ') }})"
+
+            # Dowgrade to the latest stable (v1.13)
+
+            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+              --version ${{ env.cilium_latest_stable }} \
+              --repository oci://quay.io/cilium-charts-dev/cilium \
+              ${{ steps.vars.outputs.cilium_install_defaults }} \
+              \$EXTRAS_V13
+
+            ./cilium-cli status --wait
+            kubectl get pods --all-namespaces -o wide
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+              --junit-property github_job_step="Run tests upgrade 3 (${{ join(matrix.*, ', ') }})"
 
             ./contrib/scripts/kind-down.sh
 
