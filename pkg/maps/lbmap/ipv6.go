@@ -444,7 +444,7 @@ type SockRevNat6Key struct {
 	cookie  uint64     `align:"cookie"`
 	address types.IPv6 `align:"address"`
 	port    int16      `align:"port"`
-	_       int16
+	_       [6]byte
 }
 
 // SizeofSockRevNat6Key is the size of type SockRevNat6Key.
