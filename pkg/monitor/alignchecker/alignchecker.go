@@ -4,8 +4,6 @@
 package alignchecker
 
 import (
-	"reflect"
-
 	check "github.com/cilium/cilium/pkg/alignchecker"
 	"github.com/cilium/cilium/pkg/monitor"
 )
@@ -14,13 +12,13 @@ import (
 // comment.
 func CheckStructAlignments(path string) error {
 	// Validate alignments of C and Go equivalent structs
-	toCheck := map[string][]reflect.Type{
-		"trace_notify":          {reflect.TypeOf(monitor.TraceNotify{})},
-		"drop_notify":           {reflect.TypeOf(monitor.DropNotify{})},
-		"debug_msg":             {reflect.TypeOf(monitor.DebugMsg{})},
-		"debug_capture_msg":     {reflect.TypeOf(monitor.DebugCapture{})},
-		"policy_verdict_notify": {reflect.TypeOf(monitor.PolicyVerdictNotify{})},
-		"trace_sock_notify":     {reflect.TypeOf(monitor.TraceSockNotify{})},
+	toCheck := map[string][]any{
+		"trace_notify":          {monitor.TraceNotify{}},
+		"drop_notify":           {monitor.DropNotify{}},
+		"debug_msg":             {monitor.DebugMsg{}},
+		"debug_capture_msg":     {monitor.DebugCapture{}},
+		"policy_verdict_notify": {monitor.PolicyVerdictNotify{}},
+		"trace_sock_notify":     {monitor.TraceSockNotify{}},
 	}
 	return check.CheckStructAlignments(path, toCheck, true)
 }

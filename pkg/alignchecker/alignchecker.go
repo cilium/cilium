@@ -4,6 +4,7 @@
 package alignchecker
 
 import (
+	"encoding/binary"
 	"fmt"
 	"reflect"
 
@@ -11,8 +12,8 @@ import (
 )
 
 // CheckStructAlignments checks whether size and offsets match of the given
-// C and Go structs which are listed in the given toCheck map (C struct name =>
-// Go struct []reflect.Type).
+// C and Go structs which are listed in the given toCheck map (C type name =>
+// Go type).
 //
 // C struct layout is extracted from the given ELF object file's BTF info.
 //
@@ -20,7 +21,7 @@ import (
 // `align:"field_name_in_c_struct". In the case of unnamed union field, such
 // union fields can be referred with special tags - `align:"$union0"`,
 // `align:"$union1"`, etc.
-func CheckStructAlignments(pathToObj string, toCheck map[string][]reflect.Type, checkOffsets bool) error {
+func CheckStructAlignments(pathToObj string, toCheck map[string][]any, checkOffsets bool) error {
 	spec, err := btf.LoadSpec(pathToObj)
 	if err != nil {
 		return fmt.Errorf("cannot parse BTF debug info %s: %s", pathToObj, err)
@@ -44,7 +45,7 @@ type structInfo struct {
 	fieldOffsets map[string]uint32
 }
 
-func getStructInfosFromBTF(types *btf.Spec, toCheck map[string][]reflect.Type) (map[string]*structInfo, error) {
+func getStructInfosFromBTF(types *btf.Spec, toCheck map[string][]any) (map[string]*structInfo, error) {
 	structs := make(map[string]*structInfo)
 	for name := range toCheck {
 		t, err := types.AnyTypeByName(name)
@@ -132,11 +133,25 @@ func memberOffsets(members []btf.Member) map[string]uint32 {
 	return offsets
 }
 
-func check(name string, toCheck []reflect.Type, structs map[string]*structInfo, checkOffsets bool) error {
-	for _, g := range toCheck {
+func check(name string, toCheck []any, structs map[string]*structInfo, checkOffsets bool) error {
+	for _, i := range toCheck {
 		c, found := structs[name]
 		if !found {
 			return fmt.Errorf("could not find C struct %s", name)
+		}
+
+		g := reflect.TypeOf(i)
+		if g == nil {
+			return fmt.Errorf("nil interface passed for type %s", name)
+		}
+
+		// Input type must be a struct.
+		if g.Kind() != reflect.Struct {
+			return fmt.Errorf("type %s is not a struct", name)
+		}
+
+		if bs, rs := binary.Size(i), int(g.Size()); bs != rs {
+			return fmt.Errorf("type %s's binary.Size (%d) does not equal its unsafe.Sizeof (%d) size (struct with implicit trailing padding?)", g.Name(), bs, rs)
 		}
 
 		if c.size != uint32(g.Size()) {
