@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/cilium/proxy/pkg/policy/api/kafka"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
@@ -19,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/api/kafka"
 )
 
 func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
