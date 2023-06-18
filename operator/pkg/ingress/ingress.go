@@ -237,6 +237,16 @@ func getIngressClassName(ingress *slim_networkingv1.Ingress) *string {
 	return ingress.Spec.IngressClassName
 }
 
+func getIngressAllowHTTP(ingress *slim_networkingv1.Ingress) bool {
+	annotations := ingress.GetAnnotations()
+	if allowHTTP, ok := annotations["kubernetes.io/ingress.allow-http"]; ok && allowHTTP == "false" {
+		return false
+	}
+
+	return true
+}
+
+
 func hasEmptyIngressClass(ingress *slim_networkingv1.Ingress) bool {
 	className := getIngressClassName(ingress)
 
