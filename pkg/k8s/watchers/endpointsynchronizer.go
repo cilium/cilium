@@ -52,16 +52,12 @@ type EndpointSynchronizer struct {
 	syncCallback func(error)
 }
 
-func (epSync *EndpointSynchronizer) withSyncCallback(cb func(error)) {
-	epSync.syncCallback = cb
-}
-
 // RunK8sCiliumEndpointSync starts a controller that synchronizes the endpoint
 // to the corresponding k8s CiliumEndpoint CRD. It is expected that each CEP
 // has 1 controller that updates it, and a local copy is retained and only
 // updates are pushed up.
 // CiliumEndpoint objects have the same name as the pod they represent.
-func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration) {
+func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration, cbs ...func(error)) {
 	var (
 		endpointID     = e.ID
 		controllerName = endpoint.EndpointSyncControllerName(endpointID)
@@ -97,7 +93,15 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 		controller.ControllerParams{
 			RunInterval: 10 * time.Second,
 			DoFunc: func(ctx context.Context) error {
-				return syncEpFn(ctx)
+				if err := syncEpFn(ctx); err != nil {
+					if len(cbs) > 0 {
+						for _, cb := range cbs {
+							go cb(err)
+						}
+					}
+					return err
+				}
+				return nil
 			},
 			StopFunc: func(ctx context.Context) error {
 				return deleteCEP(ctx, scopedLog, ciliumClient, e)

@@ -90,7 +90,7 @@ type endpointManager struct {
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
 // resources with Kubernetes.
 type EndpointResourceSynchronizer interface {
-	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration)
+	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration, callbacks ...func(error))
 	DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint)
 }
 
