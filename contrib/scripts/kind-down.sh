@@ -16,3 +16,8 @@ fi
 
 kind delete clusters kind && \
     docker network rm kind-cilium
+
+secondary_network="kind-cilium-secondary"
+if docker network inspect "${secondary_network}" >/dev/null 2>&1; then
+  docker network rm ${secondary_network}
+fi
