@@ -491,7 +491,7 @@ type mapStateEntryCallback func(key Key, value *MapStateEntry) bool
 // using denyPreferredInsertWithChanges().
 // Keys of any added or deleted entries are added to 'adds' or 'deletes', respectively, if not nil.
 // PolicyOwner (aka Endpoint) is locked during this call.
-func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, entryCb mapStateEntryCallback, adds, deletes Keys, old MapState) {
+func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, features policyFeatures, entryCb mapStateEntryCallback, adds, deletes Keys, old MapState) {
 	port := uint16(l4Filter.Port)
 	proto := uint8(l4Filter.U8Proto)
 
@@ -553,7 +553,7 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, e
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			if entryCb(keyToAdd, &entry) {
-				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, adds, deletes, old, identities)
+				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, features, adds, deletes, old, identities)
 
 				if port == 0 {
 					// Allow-all
@@ -583,7 +583,7 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, e
 		for _, id := range idents {
 			keyToAdd.Identity = id.Uint32()
 			if entryCb(keyToAdd, &entry) {
-				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, adds, deletes, old, identities)
+				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, features, adds, deletes, old, identities)
 			}
 		}
 	}
@@ -843,43 +843,50 @@ func (l4 *L4Filter) removeSelectors(selectorCache *SelectorCache) {
 // L4Filter may still be accessed concurrently after it has been detached.
 func (l4 *L4Filter) detach(selectorCache *SelectorCache) {
 	l4.removeSelectors(selectorCache)
-	l4.attach(nil, nil)
+	l4.policy.Store(nil)
 }
 
 // attach signifies that the L4Filter is ready and reacheable for updates
 // from SelectorCache. L4Filter (and L4Policy) is read-only after this is called,
 // multiple goroutines will be reading the fields from that point on.
-func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
+func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures {
 	// All rules have been added to the L4Filter at this point.
 	// Sort the rules label array list for more efficient equality comparison.
 	for _, labels := range l4.RuleOrigin {
 		labels.Sort()
 	}
 
-	// Compute Envoy policies when a policy is ready to be used
-	if ctx != nil {
-		for cs, l7policy := range l4.PerSelectorPolicies {
-			if l7policy != nil {
-				if len(l7policy.L7Rules.HTTP) > 0 {
-					l7policy.EnvoyHTTPRules, l7policy.CanShortCircuit = ctx.GetEnvoyHTTPRules(&l7policy.L7Rules)
-				}
+	var features policyFeatures
+	for cs, cp := range l4.PerSelectorPolicies {
+		if cp != nil {
+			if cp.IsDeny {
+				features.setFeature(denyRules)
+			}
+			if cp.Authentication != nil {
+				features.setFeature(authRules)
+			}
 
-				if authType := l7policy.GetAuthType(); authType != AuthTypeDisabled {
-					if l4Policy.AuthMap == nil {
-						l4Policy.AuthMap = make(AuthMap, 1)
-					}
-					authTypes := l4Policy.AuthMap[cs]
-					if authTypes == nil {
-						authTypes = make(AuthTypes, 1)
-					}
-					authTypes[authType] = struct{}{}
-					l4Policy.AuthMap[cs] = authTypes
+			if authType := cp.GetAuthType(); authType != AuthTypeDisabled {
+				if l4Policy.AuthMap == nil {
+					l4Policy.AuthMap = make(AuthMap, 1)
 				}
+				authTypes := l4Policy.AuthMap[cs]
+				if authTypes == nil {
+					authTypes = make(AuthTypes, 1)
+				}
+				authTypes[authType] = struct{}{}
+				l4Policy.AuthMap[cs] = authTypes
+			}
+
+			// Compute Envoy policies when a policy is ready to be used
+			if len(cp.L7Rules.HTTP) > 0 {
+				cp.EnvoyHTTPRules, cp.CanShortCircuit = ctx.GetEnvoyHTTPRules(&cp.L7Rules)
 			}
 		}
 	}
 
 	l4.policy.Store(l4Policy)
+	return features
 }
 
 // createL4IngressFilter creates a filter for L4 policy that applies to the
@@ -1025,8 +1032,28 @@ func addL4Filter(policyCtx PolicyContext,
 // key format: "port/proto"
 type L4PolicyMap map[string]*L4Filter
 
+type policyFeatures uint8
+
+const (
+	denyRules policyFeatures = 1 << iota
+	authRules
+
+	allFeatures policyFeatures = ^policyFeatures(0)
+)
+
+func (pf *policyFeatures) setFeature(feature policyFeatures) {
+	*pf |= feature
+}
+
+func (pf policyFeatures) contains(feature policyFeatures) bool {
+	return pf&feature != 0
+}
+
 type L4DirectionPolicy struct {
 	PortRules L4PolicyMap
+
+	// features tracks properties of PortRules to skip code when features are not used
+	features policyFeatures
 }
 
 func newL4DirectionPolicy() L4DirectionPolicy {
@@ -1052,12 +1079,14 @@ func (l4 L4PolicyMap) Detach(selectorCache *SelectorCache) {
 // Attach makes all the L4Filters to point back to the L4Policy that contains them.
 // This is done before the L4PolicyMap is exposed to concurrent access.
 // Returns the bitmask of all redirect types for this policymap.
-func (l4 L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy) redirectTypes {
+func (l4 *L4DirectionPolicy) attach(ctx PolicyContext, l4Policy *L4Policy) redirectTypes {
 	var redirectTypes redirectTypes
+	var features policyFeatures
 	for _, f := range l4.PortRules {
-		f.attach(ctx, l4Policy)
+		features |= f.attach(ctx, l4Policy)
 		redirectTypes |= f.redirectType()
 	}
+	l4.features = features
 	return redirectTypes
 }
 
