@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	maxPorts      = 40
+	maxPorts      = 100
 	maxICMPFields = 40
 )
 
