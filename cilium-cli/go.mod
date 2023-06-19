@@ -11,11 +11,11 @@ replace (
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cilium/charts v0.0.0-20230601164911-0a270e4bf15f
+	github.com/cilium/charts v0.0.0-20230616201641-91a44e07622e
 	github.com/cilium/cilium v1.14.0-snapshot.4
 	github.com/cilium/hubble v0.11.6
 	github.com/cilium/proxy v0.0.0-20230605062141-384b5008dce4
-	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230607130945-72fafb31bba4
+	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230619094252-e60ba99096db
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.4
 	github.com/go-openapi/strfmt v0.21.7
