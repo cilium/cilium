@@ -561,17 +561,19 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 
 	for nRetry := 0; nRetry < redirectCreationAttempts; nRetry++ {
 		if nRetry > 0 {
-			// an error occurred and we can retry
+			// an error occurred and we are retrying
 			scopedLog.WithError(err).Warningf("Unable to create %s proxy, retrying", ppName)
-			// Do not increment port for DNS when the port is set in config
-			if pp.proxyType != ProxyTypeDNS || option.Config.ToFQDNsProxyPort == 0 {
+		}
+		if !pp.configured {
+			if nRetry > 0 {
+				// Retry with a new proxy port in case there was a conflict with the
+				// previous one when the port has not been `configured` yet.
+				// The incremented port number here is just a hint to allocatePort()
+				// below, it will check if it is available for use.
 				pp.proxyPort++
 			}
-		}
 
-		if !pp.configured {
-			// Try allocate (the configured) port, but only if the proxy has not
-			// been already configured.
+			// Check if pp.proxyPort is available and find an another available proxy port if not.
 			pp.proxyPort, err = allocatePort(pp.proxyPort, p.rangeMin, p.rangeMax)
 			if err != nil {
 				return 0, err, nil, nil
