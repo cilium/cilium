@@ -18,7 +18,6 @@
 #define ENCAP_IFINDEX		42
 
 #define CLIENT_IP		v4_pod_one
-#define CLIENT_PORT		__bpf_htons(111)
 #define CLIENT_NODE_IP		v4_node_two
 
 #define EXTERNAL_SVC_IP		v4_ext_one
@@ -36,6 +35,14 @@ static volatile const __u8 *ext_svc_mac = mac_two;
 #define ctx_redirect mock_ctx_redirect
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
+		  int ifindex __maybe_unused, __u32 flags __maybe_unused);
+
+#include "bpf_host.c"
+
+#include "lib/egressgw.h"
+
+static __always_inline __maybe_unused int
+mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
 {
 	if (ifindex == ENCAP_IFINDEX)
@@ -43,8 +50,6 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 	return CTX_ACT_DROP;
 }
-
-#include "bpf_host.c"
 
 #define TO_NETDEV 0
 #define FROM_NETDEV 1
@@ -61,7 +66,8 @@ struct {
 	},
 };
 
-static __always_inline int egressgw_snat_pktgen(struct __ctx_buff *ctx, bool reply)
+static __always_inline int egressgw_snat_pktgen(struct __ctx_buff *ctx, enum egressgw_test t,
+						bool reply)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
@@ -106,7 +112,7 @@ static __always_inline int egressgw_snat_pktgen(struct __ctx_buff *ctx, bool rep
 			.saddr   = CLIENT_IP,
 			.daddr   = EXTERNAL_SVC_IP,
 			.dport   = EXTERNAL_SVC_PORT,
-			.sport   = CLIENT_PORT,
+			.sport   = client_port(t),
 			.nexthdr = IPPROTO_TCP,
 		};
 		struct ipv4_nat_entry *nat_entry = __snat_lookup(&SNAT_MAPPING_IPV4, &tuple);
@@ -116,7 +122,7 @@ static __always_inline int egressgw_snat_pktgen(struct __ctx_buff *ctx, bool rep
 		l4->source = EXTERNAL_SVC_PORT;
 		l4->dest = nat_entry->to_sport;
 	} else {
-		l4->source = CLIENT_PORT;
+		l4->source = client_port(t);
 		l4->dest = EXTERNAL_SVC_PORT;
 	}
 
@@ -130,7 +136,8 @@ static __always_inline int egressgw_snat_pktgen(struct __ctx_buff *ctx, bool rep
 	return 0;
 }
 
-static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, bool reply,
+static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, enum egressgw_test t,
+					       bool reply,
 					       __u64 tx_packets, __u64 rx_packets,
 					       __u32 status_code)
 {
@@ -192,7 +199,7 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, boo
 		.daddr   = CLIENT_IP,
 		.saddr   = EXTERNAL_SVC_IP,
 		.dport   = EXTERNAL_SVC_PORT,
-		.sport   = CLIENT_PORT,
+		.sport   = client_port(t),
 		.nexthdr = IPPROTO_TCP,
 		.flags = TUPLE_F_OUT,
 	};
@@ -220,7 +227,7 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, boo
 		if (l4->source != EXTERNAL_SVC_PORT)
 			test_fatal("src port has changed");
 
-		if (l4->dest != CLIENT_PORT)
+		if (l4->dest != client_port(t))
 			test_fatal("dst TCP port hasn't been revSNATed to client port");
 	} else {
 		if (l4->source != nat_entry->to_sport)
@@ -239,7 +246,7 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, boo
 PKTGEN("tc", "tc_egressgw_snat1")
 int egressgw_snat1_pktgen(struct __ctx_buff *ctx)
 {
-	return egressgw_snat_pktgen(ctx, false);
+	return egressgw_snat_pktgen(ctx, TEST_SNAT1, false);
 }
 
 SETUP("tc", "tc_egressgw_snat1")
@@ -267,7 +274,7 @@ int egressgw_snat1_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_egressgw_snat1")
 int egressgw_snat1_check(const struct __ctx_buff *ctx)
 {
-	return egressgw_snat_check(ctx, false, 1, 0, CTX_ACT_OK);
+	return egressgw_snat_check(ctx, TEST_SNAT1, false, 1, 0, CTX_ACT_OK);
 }
 
 /* Test that a packet matching an egress gateway policy on the from-netdev program
@@ -276,7 +283,7 @@ int egressgw_snat1_check(const struct __ctx_buff *ctx)
 PKTGEN("tc", "tc_egressgw_snat1_2_reply")
 int egressgw_snat1_2_reply_pktgen(struct __ctx_buff *ctx)
 {
-	return egressgw_snat_pktgen(ctx, true);
+	return egressgw_snat_pktgen(ctx, TEST_SNAT1, true);
 }
 
 SETUP("tc", "tc_egressgw_snat1_2_reply")
@@ -302,13 +309,13 @@ int egressgw_snat1_2_reply_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_egressgw_snat1_2_reply")
 int egressgw_snat1_2_reply_check(const struct __ctx_buff *ctx)
 {
-	return egressgw_snat_check(ctx, true, 1, 1, CTX_ACT_REDIRECT);
+	return egressgw_snat_check(ctx, TEST_SNAT1, true, 1, 1, CTX_ACT_REDIRECT);
 }
 
 PKTGEN("tc", "tc_egressgw_snat2")
 int egressgw_snat2_pktgen(struct __ctx_buff *ctx)
 {
-	return egressgw_snat_pktgen(ctx, false);
+	return egressgw_snat_pktgen(ctx, TEST_SNAT2, false);
 }
 
 SETUP("tc", "tc_egressgw_snat2")
@@ -323,7 +330,7 @@ int egressgw_snat2_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_egressgw_snat2")
 int egressgw_snat2_check(struct __ctx_buff *ctx)
 {
-	int ret = egressgw_snat_check(ctx, false, 2, 1, CTX_ACT_OK);
+	int ret = egressgw_snat_check(ctx, TEST_SNAT2, false, 1, 0, CTX_ACT_OK);
 
 	struct egress_gw_policy_key in_key = {
 		.lpm_key = { EGRESS_PREFIX_LEN(24), {} },
@@ -343,7 +350,7 @@ int egressgw_snat2_check(struct __ctx_buff *ctx)
 PKTGEN("tc", "tc_egressgw_skip_excluded_cidr_snat")
 int egressgw_skip_excluded_cidr_snat_pktgen(struct __ctx_buff *ctx)
 {
-	return egressgw_snat_pktgen(ctx, false);
+	return egressgw_snat_pktgen(ctx, TEST_SNAT_EXCL_CIDR, false);
 }
 
 SETUP("tc", "tc_egressgw_skip_excluded_cidr_snat")
@@ -425,7 +432,7 @@ int egressgw_skip_excluded_cidr_snat_check(const struct __ctx_buff *ctx)
 	if (l3->daddr != EXTERNAL_SVC_IP)
 		test_fatal("dst IP has changed");
 
-	if (l4->source != CLIENT_PORT)
+	if (l4->source != client_port(TEST_SNAT_EXCL_CIDR))
 		test_fatal("src TCP port has changed");
 
 	if (l4->dest != EXTERNAL_SVC_PORT)

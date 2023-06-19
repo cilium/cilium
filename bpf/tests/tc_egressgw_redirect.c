@@ -20,7 +20,6 @@
 #define ENCAP_IFINDEX 0
 
 #define CLIENT_IP		v4_pod_one
-#define CLIENT_PORT		__bpf_htons(111)
 
 #define EXTERNAL_SVC_IP		v4_ext_one
 #define EXTERNAL_SVC_PORT	__bpf_htons(1234)
@@ -33,6 +32,8 @@ static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *ext_svc_mac = mac_two;
 
 #include "bpf_lxc.c"
+
+#include "lib/egressgw.h"
 
 #define FROM_CONTAINER 0
 
@@ -82,7 +83,7 @@ int egressgw_redirect_pktgen(struct __ctx_buff *ctx)
 	if (!l4)
 		return TEST_ERROR;
 
-	l4->source = CLIENT_PORT;
+	l4->source = client_port(TEST_REDIRECT);
 	l4->dest = EXTERNAL_SVC_PORT;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
@@ -182,7 +183,7 @@ int egressgw_skip_excluded_cidr_redirect_pktgen(struct __ctx_buff *ctx)
 	if (!l4)
 		return TEST_ERROR;
 
-	l4->source = CLIENT_PORT;
+	l4->source = client_port(TEST_REDIRECT_EXCL_CIDR);
 	l4->dest = EXTERNAL_SVC_PORT;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
@@ -306,7 +307,7 @@ int egressgw_skip_no_gateway_redirect_pktgen(struct __ctx_buff *ctx)
 	if (!l4)
 		return TEST_ERROR;
 
-	l4->source = CLIENT_PORT;
+	l4->source = client_port(TEST_REDIRECT_SKIP_NO_GATEWAY);
 	l4->dest = EXTERNAL_SVC_PORT;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
