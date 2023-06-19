@@ -699,33 +699,50 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		ec.RWMutex.Lock()
 		ec.sessionErr = err
 		ec.RWMutex.Unlock()
+
+		ec.statusLock.Lock()
+		ec.latestStatusSnapshot = "Failed to establish initial connection"
+		ec.latestErrorStatus = err
+		ec.statusLock.Unlock()
+
 		errChan <- err
+		ec.statusCheckErrors <- err
 	}
 
 	// wait for session to be created also in parallel
 	go func() {
-		defer close(errChan)
-		defer close(ec.firstSession)
-
-		select {
-		case err = <-errorChan:
-			if err != nil {
-				handleSessionError(err)
-				return
+		err := func() (err error) {
+			select {
+			case err = <-errorChan:
+				if err != nil {
+					return err
+				}
+			case <-time.After(initialConnectionTimeout):
+				return fmt.Errorf("timed out while waiting for etcd session. Ensure that etcd is running on %s", config.Endpoints)
 			}
-		case <-time.After(initialConnectionTimeout):
-			handleSessionError(fmt.Errorf("timed out while waiting for etcd session. Ensure that etcd is running on %s", config.Endpoints))
+
+			ec.getLogger().Info("Initial etcd session established")
+
+			if err = ec.checkMinVersion(ctx, versionCheckTimeout); err != nil {
+				return fmt.Errorf("unable to validate etcd version: %s", err)
+			}
+
+			return nil
+		}()
+
+		if err != nil {
+			handleSessionError(err)
+			close(errChan)
+			close(ec.firstSession)
+			close(ec.statusCheckErrors)
 			return
 		}
 
-		ec.getLogger().Info("Initial etcd session established")
+		close(errChan)
+		close(ec.firstSession)
 
-		if err := ec.checkMinVersion(ctx, versionCheckTimeout); err != nil {
-			handleSessionError(fmt.Errorf("unable to validate etcd version: %s", err))
-		}
-	}()
+		go ec.statusChecker()
 
-	go func() {
 		watcher := ec.ListAndWatch(ctx, HeartbeatPath, HeartbeatPath, 128)
 
 		for {
@@ -752,8 +769,6 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 			}
 		}
 	}()
-
-	go ec.statusChecker()
 
 	ec.controllers.UpdateController(makeSessionName(etcdLockSessionRenewNamePrefix, opts),
 		controller.ControllerParams{
