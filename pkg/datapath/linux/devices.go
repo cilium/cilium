@@ -18,6 +18,7 @@ import (
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
@@ -257,6 +258,22 @@ type linkInfo struct {
 	hasDefaultRoute bool
 }
 
+func genZeroNet(family int) *net.IPNet {
+	switch family {
+	case netlink.FAMILY_V4:
+		return &net.IPNet{
+			IP:   net.IPv4zero,
+			Mask: net.CIDRMask(0, 8*net.IPv4len),
+		}
+	case netlink.FAMILY_V6:
+		return &net.IPNet{
+			IP:   net.IPv6zero,
+			Mask: net.CIDRMask(0, 8*net.IPv6len),
+		}
+	}
+	return nil
+}
+
 // updateDevicesFromRoutes processes a batch of routes and updates the set of
 // devices. Returns true if devices changed.
 func (dm *DeviceManager) updateDevicesFromRoutes(l3DevOK bool, routes []netlink.Route) bool {
@@ -266,11 +283,11 @@ func (dm *DeviceManager) updateDevicesFromRoutes(l3DevOK bool, routes []netlink.
 	for _, route := range routes {
 		// Only consider devices that have global unicast routes,
 		// e.g. skip loopback, multicast.
-		if route.Dst != nil && !route.Dst.IP.IsGlobalUnicast() {
+		if !cidr.Equal(route.Dst, genZeroNet(route.Family)) && !route.Dst.IP.IsGlobalUnicast() {
 			continue
 		}
 		linkInfo := linkInfos[route.LinkIndex]
-		linkInfo.hasDefaultRoute = linkInfo.hasDefaultRoute || route.Dst == nil
+		linkInfo.hasDefaultRoute = linkInfo.hasDefaultRoute || cidr.Equal(route.Dst, genZeroNet(route.Family))
 		linkInfos[route.LinkIndex] = linkInfo
 	}
 
