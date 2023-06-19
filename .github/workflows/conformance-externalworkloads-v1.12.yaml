@@ -66,9 +66,7 @@ concurrency:
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-vm
   vmName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-vm
-  zone: us-west2-a
   vmStartupScript: .github/gcp-vm-startup.sh
-  k8s_version: 1.24
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.14.7
   cilium_cli_ci_version:
@@ -114,31 +112,14 @@ jobs:
             src:
               - '!(test|Documentation)/**'
 
-  # This job is skipped when the workflow was triggered with the generic `/test`
-  # trigger if the only modified files were under `test/` or `Documentation/`.
-  installation-and-connectivity:
-    name: "Installation and Connectivity Test"
-    needs: check_changes
-    if: |
-      (github.event_name == 'issue_comment' && (
-        github.event.comment.body == '/ci-external-workloads-v1.12' ||
-        (github.event.comment.body == '/test-backport-1.12' && needs.check_changes.outputs.tested == 'true')
-      )) ||
-      github.event_name == 'schedule' ||
-      github.event_name == 'pull_request'
+  setup-report:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      job_name: "Installation and Connectivity Test"
+    needs: check_changes
+    name: Set commit status
+    outputs:
+      sha: ${{ steps.vars.outputs.sha }}
+      owner: ${{ steps.vars.outputs.owner }}
     steps:
-      - name: Checkout main branch to access local actions
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          persist-credentials: false
-      - name: Set Environment Variables
-        uses: ./.github/actions/set-env-variables
-
       - name: Set up job variables
         id: vars
         run: |
@@ -157,7 +138,105 @@ jobs:
             SHA=${{ github.sha }}
             OWNER=${{ github.sha }}
           fi
+          echo sha=${SHA} >> $GITHUB_OUTPUT
+          echo owner=${OWNER} >> $GITHUB_OUTPUT
 
+      - name: Set commit status to pending
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ steps.vars.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test in progress...
+          state: pending
+          target_url: ${{ env.check_url }}
+
+  skip-test-run:
+    # If the modified files are not relevant for this test then we can skip
+    # this test and mark it as successful.
+    if: github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'false'
+    runs-on: ubuntu-latest
+    needs: setup-report
+    name: Set commit status to success (skipped)
+    steps:
+      - name: Set commit status to success
+        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ needs.setup-report.outputs.sha }}
+          context: ${{ github.workflow }}
+          description: Connectivity test skipped
+          state: success
+          target_url: ${{ env.check_url }}
+
+  generate-matrix:
+    runs-on: ubuntu-latest
+    needs: setup-report
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        with:
+          ref: ${{ needs.setup-report.outputs.sha }}
+          persist-credentials: false
+
+      - name: Convert YAML to JSON
+        run: |
+          work_dir=".github/actions/gke"
+          destination_directory="/tmp/generated/gke"
+          mkdir -p "${destination_directory}"
+
+          yq -o=json ${work_dir}/k8s-versions.yaml | jq . > "${destination_directory}/gke.json"
+
+      - name: Generate Matrix
+        id: set-matrix
+        run: |
+          cd /tmp/generated/gke
+
+          if [ "${{ github.event_name }}" == "schedule" ];then
+            jq '{ "include": [ .k8s[] ] }' gke.json > /tmp/matrix.json
+          else
+            jq '{ "include": [ .k8s[] | select(.default) ] }' gke.json > /tmp/matrix.json
+          fi
+
+          echo "Generated matrix:"
+          cat /tmp/matrix.json
+          echo "matrix=$(jq -c . < /tmp/matrix.json)" >> $GITHUB_OUTPUT
+
+  # This job is skipped when the workflow was triggered with the generic `/test`
+  # trigger if the only modified files were under `test/` or `Documentation/`.
+  installation-and-connectivity:
+    name: "Installation and Connectivity Test"
+    needs: [check_changes, setup-report, generate-matrix]
+    if: |
+      (github.event_name == 'issue_comment' && (
+        github.event.comment.body == '/ci-external-workloads-v1.12' ||
+        (github.event.comment.body == '/test-backport-1.12' && needs.check_changes.outputs.tested == 'true')
+      )) ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      job_name: "Installation and Connectivity Test"
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
+
+    steps:
+      - name: Checkout main branch to access local actions
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          SHA="${{ needs.setup-report.outputs.sha }}"
           CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }} \
             --datapath-mode=tunnel \
             --chart-directory=install/kubernetes/cilium \
@@ -189,23 +268,11 @@ jobs:
           echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo clustermesh_enable_defaults=${CLUSTERMESH_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
-          echo sha=${SHA} >> $GITHUB_OUTPUT
-          echo owner=${OWNER} >> $GITHUB_OUTPUT
-
-      - name: Set commit status to pending
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
-        with:
-          authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
-          context: ${{ github.workflow }}
-          description: Connectivity test in progress...
-          state: pending
-          target_url: ${{ env.check_url }}
 
       - name: Checkout code
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
-          ref: ${{ steps.vars.outputs.sha }}
+          ref: ${{ needs.setup-report.outputs.sha }}
           persist-credentials: false
 
       - name: Install Cilium CLI
@@ -241,24 +308,24 @@ jobs:
           timeout_minutes: 1
           max_attempts: 10
           command: |
-            gcloud compute instances create ${{ env.vmName }} \
-              --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
-              --zone ${{ env.zone }} \
+            gcloud compute instances create ${{ env.vmName }}-${{ matrix.vmIndex }} \
+              --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ needs.check_changes.outputs.owner }}" \
+              --zone ${{ matrix.zone }} \
               --machine-type e2-custom-2-4096 \
               --boot-disk-type pd-standard \
               --boot-disk-size 10GB \
               --preemptible \
               --image-project ubuntu-os-cloud \
               --image-family ubuntu-2004-lts \
-              --metadata hostname=${{ env.vmName }} \
+              --metadata hostname=${{ env.vmName }}-${{ matrix.vmIndex }} \
               --metadata-from-file startup-script=${{ env.vmStartupScript}}
 
       - name: Create GKE cluster
         run: |
           gcloud container clusters create ${{ env.clusterName }} \
-            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ steps.vars.outputs.owner }}" \
-            --zone ${{ env.zone }} \
-            --cluster-version ${{ env.k8s_version }} \
+            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ needs.check_changes.outputs.owner }}" \
+            --zone ${{ matrix.zone }} \
+            --cluster-version ${{ matrix.version }} \
             --enable-ip-alias \
             --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
             --cluster-ipv4-cidr="/21" \
@@ -272,14 +339,14 @@ jobs:
 
       - name: Get cluster credentials
         run: |
-          gcloud container clusters get-credentials ${{ env.clusterName }} --zone ${{ env.zone }}
+          gcloud container clusters get-credentials ${{ env.clusterName }} --zone ${{ matrix.zone }}
 
       - name: Wait for images to be available
         timeout-minutes: 10
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci hubble-relay-ci clustermesh-apiserver-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ needs.setup-report.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
       - name: Install Cilium in cluster
@@ -296,38 +363,39 @@ jobs:
 
       - name: Add VM to cluster mesh
         run: |
-          cilium clustermesh vm create ${{ env.vmName }} -n default --ipv4-alloc-cidr 10.192.1.0/30
+          cilium clustermesh vm create ${{ env.vmName }}-${{ matrix.vmIndex }} -n default --ipv4-alloc-cidr 10.192.1.0/30
           cilium clustermesh vm status
 
       - name: Install Cilium on VM
         run: |
           cilium clustermesh vm install install-external-workload.sh --config debug
-          gcloud compute scp install-external-workload.sh ${{ env.vmName }}:~/ --zone ${{ env.zone }}
-          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
+          gcloud compute scp install-external-workload.sh ${{ env.vmName }}-${{ matrix.vmIndex }}:~/ --zone ${{ matrix.zone }}
+          gcloud compute ssh ${{ env.vmName }}-${{ matrix.vmIndex }} --zone ${{ matrix.zone }} \
             --command "~/install-external-workload.sh"
           sleep 5s
-          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
+          gcloud compute ssh ${{ env.vmName }}-${{ matrix.vmIndex }} --zone ${{ matrix.zone }} \
             --command "sudo cilium status"
 
       - name: Verify cluster DNS on VM
         # Limit nslookup to the first (global) DNS server setting
         run: |
-          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
+          gcloud compute ssh ${{ env.vmName }}-${{ matrix.vmIndex }} --zone ${{ matrix.zone }} \
             --command "nslookup -d2 -retry=10 -timeout=5 -norecurse clustermesh-apiserver.kube-system.svc.cluster.local \$(systemd-resolve --status | grep -m 1 \"Current DNS Server:\" | cut -d':' -f2)"
 
       - name: Ping clustermesh-apiserver from VM
         run: |
-          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} \
+          gcloud compute ssh ${{ env.vmName }}-${{ matrix.vmIndex }} --zone ${{ matrix.zone }} \
             --command "ping -c 3 \$(sudo cilium service list get -o jsonpath='{[?(@.spec.flags.name==\"clustermesh-apiserver\")].spec.backend-addresses[0].ip}')"
 
       - name: Make JUnit report directory
         run: |
           mkdir -p cilium-junits
 
-      - name: Run connectivity test
+      - name: Run connectivity test (${{ join(matrix.*, ', ') }})
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-          --junit-file "cilium-junits/${{ env.job_name }}.xml" --junit-property github_job_step="Run connectivity test"
+          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+          --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
       - name: Post-test information gathering
         if: ${{ !success() }}
@@ -338,19 +406,19 @@ jobs:
           cilium status
           cilium clustermesh status
           cilium clustermesh vm status
-          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo cilium status"
-          gcloud compute ssh ${{ env.vmName }} --zone ${{ env.zone }} --command "sudo docker logs cilium --timestamps"
+          gcloud compute ssh ${{ env.vmName }}-${{ matrix.vmIndex }} --zone ${{ matrix.zone }} --command "sudo cilium status"
+          gcloud compute ssh ${{ env.vmName }}-${{ matrix.vmIndex }} --zone ${{ matrix.zone }} --command "sudo docker logs cilium --timestamps"
           cilium sysdump --output-filename cilium-sysdump-final
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up GKE cluster and VM
         if: ${{ always() }}
         run: |
-          while [ "$(gcloud container operations list --filter="status=RUNNING AND targetLink~${{ env.clusterName }}" --format="value(name)")" ];do
+          while [ "$(gcloud container operations list --zone ${{ matrix.zone }} --filter="status=RUNNING AND targetLink~${{ env.clusterName }}" --format="value(name)")" ];do
             echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
           done
-          gcloud container clusters delete ${{ env.clusterName }} --zone ${{ env.zone }} --quiet --async
-          gcloud compute instances delete ${{ env.vmName }} --zone ${{ env.zone }} --quiet
+          gcloud container clusters delete ${{ env.clusterName }} --zone ${{ matrix.zone }} --quiet --async
+          gcloud compute instances delete ${{ env.vmName }}-${{ matrix.vmIndex }} --zone ${{ matrix.zone }} --quiet
         shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
       - name: Upload artifacts
@@ -375,34 +443,46 @@ jobs:
         with:
           junit-directory: "cilium-junits"
 
-      - name: Set commit status to success
-        if: ${{ success() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  report-success:
+    runs-on: ubuntu-latest
+    needs: [setup-report, installation-and-connectivity]
+    name: Set commit status to success
+    if: ${{ success() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.setup-report.outputs.sha }}
           context: ${{ github.workflow }}
           description: Connectivity test successful
           state: success
           target_url: ${{ env.check_url }}
 
-      - name: Set commit status to failure
-        if: ${{ failure() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  report-failure:
+    runs-on: ubuntu-latest
+    needs: [setup-report, installation-and-connectivity]
+    name: Set commit status to failure
+    if: ${{ failure() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.setup-report.outputs.sha }}
           context: ${{ github.workflow }}
           description: Connectivity test failed
           state: failure
           target_url: ${{ env.check_url }}
 
-      - name: Set commit status to cancelled
-        if: ${{ cancelled() }}
-        uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
+  report-cancelled:
+    runs-on: ubuntu-latest
+    needs: [setup-report, installation-and-connectivity]
+    name: Set commit status to cancelled
+    if: ${{ cancelled() }}
+    steps:
+      - uses: Sibz/github-status-action@650dd1a882a76dbbbc4576fb5974b8d22f29847f # v1.1.6
         with:
           authToken: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ steps.vars.outputs.sha }}
+          sha: ${{ needs.setup-report.outputs.sha }}
           context: ${{ github.workflow }}
           description: Connectivity test cancelled
           state: error
