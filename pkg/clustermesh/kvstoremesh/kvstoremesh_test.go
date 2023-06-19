@@ -84,13 +84,10 @@ func TestRemoteClusterRun(t *testing.T) {
 	t.Skip("Skip: it appears to badly interact with the other clustermesh tests")
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummyWithConfigOpts("etcd",
+	kvstore.SetupDummyWithConfigOpts(t, "etcd",
 		// Explicitly set higher QPS than the default to speedup the test
 		map[string]string{kvstore.EtcdRateLimitOption: "100"},
 	)
-	t.Cleanup(func() {
-		kvstore.Client().Close(context.Background())
-	})
 
 	tests := []struct {
 		name   string

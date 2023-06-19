@@ -142,7 +142,7 @@ func NewCachingIdentityAllocator(owner cache.IdentityAllocatorOwner) fakeIdentit
 
 func (s *EndpointSuite) SetUpTest(c *C) {
 	/* Required to test endpoint CEP policy model */
-	kvstore.SetupDummy("etcd")
+	kvstore.SetupDummy(c, "etcd")
 	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
@@ -153,7 +153,6 @@ func (s *EndpointSuite) SetUpTest(c *C) {
 
 func (s *EndpointSuite) TearDownTest(c *C) {
 	s.mgr.Close()
-	kvstore.Client().Close(context.TODO())
 	node.UnsetTestLocalNodeStore()
 }
 

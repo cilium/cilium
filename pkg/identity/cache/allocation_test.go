@@ -94,11 +94,7 @@ func (e *IdentityAllocatorEtcdSuite) SetUpSuite(c *C) {
 }
 
 func (e *IdentityAllocatorEtcdSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy("etcd")
-}
-
-func (e *IdentityAllocatorEtcdSuite) TearDownTest(c *C) {
-	kvstore.Client().Close(context.TODO())
+	kvstore.SetupDummy(c, "etcd")
 }
 
 type IdentityAllocatorConsulSuite struct {
@@ -112,11 +108,7 @@ func (e *IdentityAllocatorConsulSuite) SetUpSuite(c *C) {
 }
 
 func (e *IdentityAllocatorConsulSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy("consul")
-}
-
-func (e *IdentityAllocatorConsulSuite) TearDownTest(c *C) {
-	kvstore.Client().Close(context.TODO())
+	kvstore.SetupDummy(c, "consul")
 }
 
 type dummyOwner struct {

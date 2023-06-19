@@ -3,19 +3,32 @@
 
 package kvstore
 
-import "context"
+import (
+	"context"
+	"testing"
+	"time"
 
-// SetupDummy sets up kvstore for tests
-func SetupDummy(dummyBackend string) {
-	SetupDummyWithConfigOpts(dummyBackend, nil)
+	"github.com/cilium/cilium/pkg/inctimer"
+)
+
+// SetupDummy sets up kvstore for tests. A lock mechanism it used to prevent
+// the creation of two clients at the same time, to avoid interferences in case
+// different tests are run in parallel. A cleanup function is automatically
+// registered to delete all keys and close the client when the test terminates.
+func SetupDummy(tb testing.TB, dummyBackend string) {
+	SetupDummyWithConfigOpts(tb, dummyBackend, nil)
 }
 
 // SetupDummyWithConfigOpts sets up the dummy kvstore for tests but also
-// configures the module with the provided opts.
-func SetupDummyWithConfigOpts(dummyBackend string, opts map[string]string) {
+// configures the module with the provided opts. A lock mechanism it used to
+// prevent the creation of two clients at the same time, to avoid interferences
+// in case different tests are run in parallel. A cleanup function is
+// automatically registered to delete all keys and close the client when the
+// test terminates.
+func SetupDummyWithConfigOpts(tb testing.TB, dummyBackend string, opts map[string]string) {
 	module := getBackend(dummyBackend)
 	if module == nil {
-		log.Panicf("Unknown dummy kvstore backend %s", dummyBackend)
+		tb.Fatalf("Unknown dummy kvstore backend %s", dummyBackend)
 	}
 
 	module.setConfigDummy()
@@ -23,11 +36,48 @@ func SetupDummyWithConfigOpts(dummyBackend string, opts map[string]string) {
 	if opts != nil {
 		err := module.setConfig(opts)
 		if err != nil {
-			log.WithError(err).Panic("Unable to set config options for kvstore backend module")
+			tb.Fatalf("Unable to set config options for kvstore backend module: %v", err)
 		}
 	}
 
-	if err := initClient(context.TODO(), module, nil); err != nil {
-		log.WithError(err).Panic("Unable to initialize kvstore client")
+	if err := initClient(context.Background(), module, nil); err != nil {
+		tb.Fatalf("Unable to initialize kvstore client: %v", err)
+	}
+
+	tb.Cleanup(func() {
+		if err := Client().DeletePrefix(context.Background(), ""); err != nil {
+			tb.Fatalf("Unable to delete all kvstore keys: %v", err)
+		}
+
+		Client().Close(context.Background())
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	timer, done := inctimer.New()
+	defer done()
+
+	// Multiple tests might be running in parallel by go test if they are part of
+	// different packages. Let's implement a locking mechanism to ensure that only
+	// one at a time can access the kvstore, to prevent that they interact with
+	// each other. Locking is implemented through CreateOnly (rather than using
+	// the locking abstraction), so that we can release it in the same atomic
+	// transaction that also removes all the other keys.
+	for {
+		succeeded, err := Client().CreateOnly(ctx, ".lock", []byte(""), true)
+		if err != nil {
+			tb.Fatalf("Unable to acquire the kvstore lock: %v", err)
+		}
+
+		if succeeded {
+			return
+		}
+
+		select {
+		case <-timer.After(100 * time.Millisecond):
+		case <-ctx.Done():
+			tb.Fatal("Timed out waiting to acquire the kvstore lock")
+		}
 	}
 }

@@ -100,11 +100,7 @@ func (s *ClusterMeshTestSuite) TestClusterMesh(c *C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	kvstore.SetupDummy("etcd")
-	defer func() {
-		kvstore.Client().DeletePrefix(context.TODO(), kvstore.BaseKeyPrefix)
-		kvstore.Client().Close(ctx)
-	}()
+	kvstore.SetupDummy(c, "etcd")
 
 	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
