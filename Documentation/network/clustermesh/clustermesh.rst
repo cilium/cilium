@@ -171,6 +171,16 @@ You should be seeing output similar to the following:
     🔮 Auto-exposing service within GCP VPC (cloud.google.com/load-balancer-type=internal)
 
 
+.. note::
+
+   You can additionally opt in to :ref:`kvstoremesh` (beta feature) when enabling
+   Cluster Mesh. Make sure to configure the Cilium CLI in *helm* mode and run:
+
+   .. code-block:: shell-session
+
+     cilium clustermesh enable --context $CLUSTER1 --enable-kvstoremesh
+     cilium clustermesh enable --context $CLUSTER2 --enable-kvstoremesh
+
 .. important::
 
    In some cases, the service type cannot be automatically detected and you need to specify it manually. This
