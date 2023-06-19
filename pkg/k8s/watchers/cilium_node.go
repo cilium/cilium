@@ -114,7 +114,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 					k.nodeDiscoverManager.NodeDeleted(n)
 				},
 			},
-			k8s.TransformToCiliumNode,
+			nil,
 		)
 		isConnected := make(chan struct{})
 		// once isConnected is closed, it will stop waiting on caches to be
