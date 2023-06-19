@@ -19,17 +19,7 @@
 #define ENABLE_MASQUERADE_IPV4
 #define ENCAP_IFINDEX 0
 
-#define CLIENT_IP		v4_pod_one
-
-#define EXTERNAL_SVC_IP		v4_ext_one
-#define EXTERNAL_SVC_PORT	__bpf_htons(1234)
-
-#define NODE_IP			v4_node_one
-
 #define SECCTX_FROM_IPCACHE 1
-
-static volatile const __u8 *client_mac = mac_one;
-static volatile const __u8 *ext_svc_mac = mac_two;
 
 #include "bpf_lxc.c"
 
@@ -54,52 +44,15 @@ struct {
 PKTGEN("tc", "tc_egressgw_redirect")
 int egressgw_redirect_pktgen(struct __ctx_buff *ctx)
 {
-	struct pktgen builder;
-	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
-	void *data;
-
-	/* Init packet builder */
-	pktgen__init(&builder, ctx);
-
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)ext_svc_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = CLIENT_IP;
-	l3->daddr = EXTERNAL_SVC_IP;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
-	if (!l4)
-		return TEST_ERROR;
-
-	l4->source = client_port(TEST_REDIRECT);
-	l4->dest = EXTERNAL_SVC_PORT;
-
-	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
-	if (!data)
-		return TEST_ERROR;
-
-	/* Calc lengths, set protocol fields and calc checksums */
-	pktgen__finish(&builder);
-
-	return 0;
+	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_REDIRECT,
+		});
 }
 
 SETUP("tc", "tc_egressgw_redirect")
 int egressgw_redirect_setup(struct __ctx_buff *ctx)
 {
-	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, NODE_IP, 0);
+	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP, 0);
 
 	/* Avoid policy drop */
 	add_allow_all_egress_policy();
@@ -139,52 +92,15 @@ int egressgw_redirect_check(const struct __ctx_buff *ctx)
 PKTGEN("tc", "tc_egressgw_skip_excluded_cidr_redirect")
 int egressgw_skip_excluded_cidr_redirect_pktgen(struct __ctx_buff *ctx)
 {
-	struct pktgen builder;
-	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
-	void *data;
-
-	/* Init packet builder */
-	pktgen__init(&builder, ctx);
-
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)ext_svc_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = CLIENT_IP;
-	l3->daddr = EXTERNAL_SVC_IP;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
-	if (!l4)
-		return TEST_ERROR;
-
-	l4->source = client_port(TEST_REDIRECT_EXCL_CIDR);
-	l4->dest = EXTERNAL_SVC_PORT;
-
-	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
-	if (!data)
-		return TEST_ERROR;
-
-	/* Calc lengths, set protocol fields and calc checksums */
-	pktgen__finish(&builder);
-
-	return 0;
+	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_REDIRECT,
+		});
 }
 
 SETUP("tc", "tc_egressgw_skip_excluded_cidr_redirect")
 int egressgw_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 {
-	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, NODE_IP, 0);
+	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP, 0);
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_EXCLUDED_CIDR, 0);
 
 	/* Avoid policy drop */
@@ -226,46 +142,10 @@ int egressgw_skip_excluded_cidr_redirect_check(const struct __ctx_buff *ctx)
 PKTGEN("tc", "tc_egressgw_skip_no_gateway_redirect")
 int egressgw_skip_no_gateway_redirect_pktgen(struct __ctx_buff *ctx)
 {
-	struct pktgen builder;
-	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
-	void *data;
 
-	/* Init packet builder */
-	pktgen__init(&builder, ctx);
-
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)ext_svc_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = CLIENT_IP;
-	l3->daddr = EXTERNAL_SVC_IP;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
-	if (!l4)
-		return TEST_ERROR;
-
-	l4->source = client_port(TEST_REDIRECT_SKIP_NO_GATEWAY);
-	l4->dest = EXTERNAL_SVC_PORT;
-
-	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
-	if (!data)
-		return TEST_ERROR;
-
-	/* Calc lengths, set protocol fields and calc checksums */
-	pktgen__finish(&builder);
-
-	return 0;
+	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_REDIRECT_SKIP_NO_GATEWAY,
+		});
 }
 
 SETUP("tc", "tc_egressgw_skip_no_gateway_redirect")
