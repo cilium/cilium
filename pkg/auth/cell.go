@@ -161,13 +161,7 @@ func registerGCJobs(jobGroup job.Group, mapGC *authMapGarbageCollector, params a
 		jobGroup.Add(job.Observer[resource.Event[*ciliumv2.CiliumNode]]("auth nodes gc events", mapGC.handleCiliumNodeEvent, params.CiliumNodes))
 	}
 
-	jobGroup.Add(job.Timer("auth policies gc", mapGC.cleanupEntriesWithoutAuthPolicy, params.Config.MeshAuthGCInterval))
-
-	jobGroup.Add(job.Timer("auth expiration gc", mapGC.cleanupExpiredEntries, params.Config.MeshAuthGCInterval))
-
-	jobGroup.Add(job.Timer("auth identities gc", mapGC.cleanupIdentities, params.Config.MeshAuthGCInterval))
-
-	jobGroup.Add(job.Timer("auth nodes gc", mapGC.cleanupNodes, params.Config.MeshAuthGCInterval))
+	jobGroup.Add(job.Timer("auth gc", mapGC.cleanup, params.Config.MeshAuthGCInterval))
 }
 
 type authHandlerResult struct {
