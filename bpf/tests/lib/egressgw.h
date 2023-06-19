@@ -262,3 +262,21 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
 
 	test_finish();
 }
+
+static __always_inline int egressgw_status_check(const struct __ctx_buff *ctx,
+						 struct egressgw_test_ctx test_ctx)
+{
+	void *data, *data_end;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	assert(*(__u32 *)data == test_ctx.status_code);
+
+	test_finish();
+}

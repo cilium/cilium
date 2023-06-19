@@ -66,24 +66,14 @@ int egressgw_redirect_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_egressgw_redirect")
 int egressgw_redirect_check(const struct __ctx_buff *ctx)
 {
-	void *data, *data_end;
-	__u32 *status_code;
-
-	test_init();
-
-	data = (void *)(long)ctx_data(ctx);
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
+			.status_code = TC_ACT_REDIRECT,
+	});
 
 	del_allow_all_egress_policy();
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
 
-	test_finish();
+	return ret;
 }
 
 /* Test that a packet matching an excluded CIDR egress gateway policy on the
@@ -115,25 +105,15 @@ int egressgw_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_egressgw_skip_excluded_cidr_redirect")
 int egressgw_skip_excluded_cidr_redirect_check(const struct __ctx_buff *ctx)
 {
-	void *data, *data_end;
-	__u32 *status_code;
-
-	test_init();
-
-	data = (void *)(long)ctx_data(ctx);
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_OK);
+	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
+			.status_code = TC_ACT_OK,
+	});
 
 	del_allow_all_egress_policy();
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32);
 
-	test_finish();
+	return ret;
 }
 
 /* Test that a packet matching an egress gateway policy without a gateway on the
@@ -165,22 +145,16 @@ int egressgw_skip_no_gateway_redirect_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_egressgw_skip_no_gateway_redirect")
 int egressgw_skip_no_gateway_redirect_check(const struct __ctx_buff *ctx)
 {
-	void *data, *data_end;
-	__u32 *status_code;
-
 	struct metrics_value *entry = NULL;
 	struct metrics_key key = {};
 
+	int ret = egressgw_status_check(ctx, (struct egressgw_test_ctx) {
+			.status_code = CTX_ACT_DROP,
+	});
+	if (ret != TEST_PASS)
+		return ret;
+
 	test_init();
-
-	data = (void *)(long)ctx_data(ctx);
-	data_end = (void *)(long)ctx->data_end;
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-	assert(*status_code == CTX_ACT_DROP);
 
 	key.reason = (__u8)-DROP_NO_EGRESS_GATEWAY;
 	key.dir = METRIC_EGRESS;
