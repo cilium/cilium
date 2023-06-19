@@ -37,7 +37,17 @@ when to use a kvstore:
 
 .. include:: requirements-intro.rst
 
-You will also need an external etcd version 3.1.0 or higher.
+You will also need an external etcd version 3.4.0 or higher.
+
+Kvstore and Cilium dependency
+=============================
+When using an external kvstore, it's important to break the circular dependency between Cilium and kvstore.
+If kvstore pods are running within the same cluster and are using a pod network then kvstore relies on Cilium.
+However, Cilium also relies on the kvstore, which creates a circular dependency.
+There are two recommended ways of breaking this dependency:
+
+ * Deploy kvstore outside of cluster or on separately managed cluster.
+ * Deploy kvstore pods with a host network, by specifying ``hostNetwork: true`` in the pod spec.
 
 Configure Cilium
 ===========================
