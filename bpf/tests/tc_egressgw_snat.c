@@ -131,11 +131,10 @@ static __always_inline int egressgw_snat_pktgen(struct __ctx_buff *ctx, bool rep
 }
 
 static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, bool reply,
-					       __u64 tx_packets, __u64 rx_packets)
+					       __u64 tx_packets, __u64 rx_packets,
+					       __u32 status_code)
 {
-	__u32 status_result = reply ? CTX_ACT_REDIRECT : CTX_ACT_OK;
 	void *data, *data_end;
-	__u32 *status_code;
 	struct tcphdr *l4;
 	struct ethhdr *l2;
 	struct iphdr *l3;
@@ -148,8 +147,7 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, boo
 	if (data + sizeof(__u32) > data_end)
 		test_fatal("status code out of bounds");
 
-	status_code = data;
-	assert(*status_code == status_result);
+	assert(*(__u32 *)data == status_code);
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -269,7 +267,7 @@ int egressgw_snat1_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_egressgw_snat1")
 int egressgw_snat1_check(const struct __ctx_buff *ctx)
 {
-	return egressgw_snat_check(ctx, false, 1, 0);
+	return egressgw_snat_check(ctx, false, 1, 0, CTX_ACT_OK);
 }
 
 /* Test that a packet matching an egress gateway policy on the from-netdev program
@@ -304,7 +302,7 @@ int egressgw_snat1_2_reply_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_egressgw_snat1_2_reply")
 int egressgw_snat1_2_reply_check(const struct __ctx_buff *ctx)
 {
-	return egressgw_snat_check(ctx, true, 1, 1);
+	return egressgw_snat_check(ctx, true, 1, 1, CTX_ACT_REDIRECT);
 }
 
 PKTGEN("tc", "tc_egressgw_snat2")
@@ -325,7 +323,7 @@ int egressgw_snat2_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_egressgw_snat2")
 int egressgw_snat2_check(struct __ctx_buff *ctx)
 {
-	int ret = egressgw_snat_check(ctx, false, 2, 1);
+	int ret = egressgw_snat_check(ctx, false, 2, 1, CTX_ACT_OK);
 
 	struct egress_gw_policy_key in_key = {
 		.lpm_key = { EGRESS_PREFIX_LEN(24), {} },
