@@ -181,6 +181,16 @@ func (c *TwoQueueCache[K, V]) Keys() []K {
 	return append(k1, k2...)
 }
 
+// Values returns a slice of the values in the cache.
+// The frequently used values are first in the returned slice.
+func (c *TwoQueueCache[K, V]) Values() []V {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	v1 := c.frequent.Values()
+	v2 := c.recent.Values()
+	return append(v1, v2...)
+}
+
 // Remove removes the provided key from the cache.
 func (c *TwoQueueCache[K, V]) Remove(key K) {
 	c.lock.Lock()

@@ -129,6 +129,17 @@ func (c *LRU[K, V]) Keys() []K {
 	return keys
 }
 
+// Values returns a slice of the values in the cache, from oldest to newest.
+func (c *LRU[K, V]) Values() []V {
+	values := make([]V, len(c.items))
+	i := 0
+	for ent := c.evictList.back(); ent != nil; ent = ent.prevEntry() {
+		values[i] = ent.value
+		i++
+	}
+	return values
+}
+
 // Len returns the number of items in the cache.
 func (c *LRU[K, V]) Len() int {
 	return c.evictList.length()

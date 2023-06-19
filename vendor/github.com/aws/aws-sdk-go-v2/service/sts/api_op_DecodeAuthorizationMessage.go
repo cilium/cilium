@@ -22,27 +22,17 @@ import (
 // encoded because the details of the authorization status can contain privileged
 // information that the user who requested the operation should not see. To decode
 // an authorization status message, a user must be granted permissions through an
-// IAM policy
-// (https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html) to
-// request the DecodeAuthorizationMessage (sts:DecodeAuthorizationMessage) action.
-// The decoded message includes the following type of information:
-//
-// * Whether the
-// request was denied due to an explicit deny or due to the absence of an explicit
-// allow. For more information, see Determining Whether a Request is Allowed or
-// Denied
-// (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html#policy-eval-denyallow)
-// in the IAM User Guide.
-//
-// * The principal who made the request.
-//
-// * The requested
-// action.
-//
-// * The requested resource.
-//
-// * The values of condition keys in the
-// context of the user's request.
+// IAM policy (https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html)
+// to request the DecodeAuthorizationMessage ( sts:DecodeAuthorizationMessage )
+// action. The decoded message includes the following type of information:
+//   - Whether the request was denied due to an explicit deny or due to the
+//     absence of an explicit allow. For more information, see Determining Whether a
+//     Request is Allowed or Denied (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html#policy-eval-denyallow)
+//     in the IAM User Guide.
+//   - The principal who made the request.
+//   - The requested action.
+//   - The requested resource.
+//   - The values of condition keys in the context of the user's request.
 func (c *Client) DecodeAuthorizationMessage(ctx context.Context, params *DecodeAuthorizationMessageInput, optFns ...func(*Options)) (*DecodeAuthorizationMessageOutput, error) {
 	if params == nil {
 		params = &DecodeAuthorizationMessageInput{}
@@ -131,6 +121,9 @@ func (c *Client) addOperationDecodeAuthorizationMessageMiddlewares(stack *middle
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDecodeAuthorizationMessage(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

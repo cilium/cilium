@@ -71,66 +71,68 @@ func (client *Client) CreateAutoProvisioningGroupWithCallback(request *CreateAut
 // CreateAutoProvisioningGroupRequest is the request struct for api CreateAutoProvisioningGroup
 type CreateAutoProvisioningGroupRequest struct {
 	*requests.RpcRequest
-	LaunchConfigurationDataDisk                    *[]CreateAutoProvisioningGroupLaunchConfigurationDataDisk `position:"Query" name:"LaunchConfiguration.DataDisk"  type:"Repeated"`
-	ResourceOwnerId                                requests.Integer                                          `position:"Query" name:"ResourceOwnerId"`
-	LaunchConfigurationSystemDiskCategory          string                                                    `position:"Query" name:"LaunchConfiguration.SystemDiskCategory"`
-	AutoProvisioningGroupType                      string                                                    `position:"Query" name:"AutoProvisioningGroupType"`
-	LaunchConfigurationSystemDiskPerformanceLevel  string                                                    `position:"Query" name:"LaunchConfiguration.SystemDiskPerformanceLevel"`
-	LaunchConfigurationHostNames                   *[]string                                                 `position:"Query" name:"LaunchConfiguration.HostNames"  type:"Repeated"`
-	LaunchConfigurationSecurityGroupIds            *[]string                                                 `position:"Query" name:"LaunchConfiguration.SecurityGroupIds"  type:"Repeated"`
-	ResourceGroupId                                string                                                    `position:"Query" name:"ResourceGroupId"`
-	LaunchConfigurationImageId                     string                                                    `position:"Query" name:"LaunchConfiguration.ImageId"`
-	LaunchConfigurationResourceGroupId             string                                                    `position:"Query" name:"LaunchConfiguration.ResourceGroupId"`
-	LaunchConfigurationPassword                    string                                                    `position:"Query" name:"LaunchConfiguration.Password"`
-	LaunchConfigurationAutoReleaseTime             string                                                    `position:"Query" name:"LaunchConfiguration.AutoReleaseTime"`
-	PayAsYouGoAllocationStrategy                   string                                                    `position:"Query" name:"PayAsYouGoAllocationStrategy"`
-	DefaultTargetCapacityType                      string                                                    `position:"Query" name:"DefaultTargetCapacityType"`
-	LaunchConfigurationKeyPairName                 string                                                    `position:"Query" name:"LaunchConfiguration.KeyPairName"`
-	SystemDiskConfig                               *[]CreateAutoProvisioningGroupSystemDiskConfig            `position:"Query" name:"SystemDiskConfig"  type:"Repeated"`
-	DataDiskConfig                                 *[]CreateAutoProvisioningGroupDataDiskConfig              `position:"Query" name:"DataDiskConfig"  type:"Repeated"`
-	ValidUntil                                     string                                                    `position:"Query" name:"ValidUntil"`
-	LaunchTemplateId                               string                                                    `position:"Query" name:"LaunchTemplateId"`
-	OwnerId                                        requests.Integer                                          `position:"Query" name:"OwnerId"`
-	LaunchConfigurationSystemDiskSize              requests.Integer                                          `position:"Query" name:"LaunchConfiguration.SystemDiskSize"`
-	LaunchConfigurationInternetMaxBandwidthOut     requests.Integer                                          `position:"Query" name:"LaunchConfiguration.InternetMaxBandwidthOut"`
-	LaunchConfigurationHostName                    string                                                    `position:"Query" name:"LaunchConfiguration.HostName"`
-	MinTargetCapacity                              string                                                    `position:"Query" name:"MinTargetCapacity"`
-	MaxSpotPrice                                   requests.Float                                            `position:"Query" name:"MaxSpotPrice"`
-	LaunchConfigurationArn                         *[]CreateAutoProvisioningGroupLaunchConfigurationArn      `position:"Query" name:"LaunchConfiguration.Arn"  type:"Repeated"`
-	LaunchConfigurationPasswordInherit             requests.Boolean                                          `position:"Query" name:"LaunchConfiguration.PasswordInherit"`
-	ClientToken                                    string                                                    `position:"Query" name:"ClientToken"`
-	LaunchConfigurationSecurityGroupId             string                                                    `position:"Query" name:"LaunchConfiguration.SecurityGroupId"`
-	Description                                    string                                                    `position:"Query" name:"Description"`
-	TerminateInstancesWithExpiration               requests.Boolean                                          `position:"Query" name:"TerminateInstancesWithExpiration"`
-	LaunchConfigurationUserData                    string                                                    `position:"Query" name:"LaunchConfiguration.UserData"`
-	LaunchConfigurationCreditSpecification         string                                                    `position:"Query" name:"LaunchConfiguration.CreditSpecification"`
-	LaunchConfigurationSystemDisk                  CreateAutoProvisioningGroupLaunchConfigurationSystemDisk  `position:"Query" name:"LaunchConfiguration.SystemDisk"  type:"Struct"`
-	LaunchConfigurationInstanceName                string                                                    `position:"Query" name:"LaunchConfiguration.InstanceName"`
-	LaunchConfigurationInstanceDescription         string                                                    `position:"Query" name:"LaunchConfiguration.InstanceDescription"`
-	SpotAllocationStrategy                         string                                                    `position:"Query" name:"SpotAllocationStrategy"`
-	TerminateInstances                             requests.Boolean                                          `position:"Query" name:"TerminateInstances"`
-	LaunchConfigurationSystemDiskName              string                                                    `position:"Query" name:"LaunchConfiguration.SystemDiskName"`
-	LaunchConfigurationSystemDiskDescription       string                                                    `position:"Query" name:"LaunchConfiguration.SystemDiskDescription"`
-	ExcessCapacityTerminationPolicy                string                                                    `position:"Query" name:"ExcessCapacityTerminationPolicy"`
-	LaunchTemplateConfig                           *[]CreateAutoProvisioningGroupLaunchTemplateConfig        `position:"Query" name:"LaunchTemplateConfig"  type:"Repeated"`
-	LaunchConfigurationRamRoleName                 string                                                    `position:"Query" name:"LaunchConfiguration.RamRoleName"`
-	LaunchConfigurationInternetMaxBandwidthIn      requests.Integer                                          `position:"Query" name:"LaunchConfiguration.InternetMaxBandwidthIn"`
-	SpotInstanceInterruptionBehavior               string                                                    `position:"Query" name:"SpotInstanceInterruptionBehavior"`
-	LaunchConfigurationSecurityEnhancementStrategy string                                                    `position:"Query" name:"LaunchConfiguration.SecurityEnhancementStrategy"`
-	LaunchConfigurationTag                         *[]CreateAutoProvisioningGroupLaunchConfigurationTag      `position:"Query" name:"LaunchConfiguration.Tag"  type:"Repeated"`
-	LaunchConfigurationDeploymentSetId             string                                                    `position:"Query" name:"LaunchConfiguration.DeploymentSetId"`
-	ResourceOwnerAccount                           string                                                    `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount                                   string                                                    `position:"Query" name:"OwnerAccount"`
-	SpotInstancePoolsToUseCount                    requests.Integer                                          `position:"Query" name:"SpotInstancePoolsToUseCount"`
-	LaunchConfigurationInternetChargeType          string                                                    `position:"Query" name:"LaunchConfiguration.InternetChargeType"`
-	LaunchTemplateVersion                          string                                                    `position:"Query" name:"LaunchTemplateVersion"`
-	LaunchConfigurationIoOptimized                 string                                                    `position:"Query" name:"LaunchConfiguration.IoOptimized"`
-	PayAsYouGoTargetCapacity                       string                                                    `position:"Query" name:"PayAsYouGoTargetCapacity"`
-	HibernationOptionsConfigured                   requests.Boolean                                          `position:"Query" name:"HibernationOptionsConfigured"`
-	TotalTargetCapacity                            string                                                    `position:"Query" name:"TotalTargetCapacity"`
-	SpotTargetCapacity                             string                                                    `position:"Query" name:"SpotTargetCapacity"`
-	ValidFrom                                      string                                                    `position:"Query" name:"ValidFrom"`
-	AutoProvisioningGroupName                      string                                                    `position:"Query" name:"AutoProvisioningGroupName"`
+	LaunchConfigurationDataDisk                    *[]CreateAutoProvisioningGroupLaunchConfigurationDataDisk         `position:"Query" name:"LaunchConfiguration.DataDisk"  type:"Repeated"`
+	ResourceOwnerId                                requests.Integer                                                  `position:"Query" name:"ResourceOwnerId"`
+	LaunchConfigurationSystemDiskCategory          string                                                            `position:"Query" name:"LaunchConfiguration.SystemDiskCategory"`
+	AutoProvisioningGroupType                      string                                                            `position:"Query" name:"AutoProvisioningGroupType"`
+	LaunchConfigurationSystemDiskPerformanceLevel  string                                                            `position:"Query" name:"LaunchConfiguration.SystemDiskPerformanceLevel"`
+	LaunchConfigurationHostNames                   *[]string                                                         `position:"Query" name:"LaunchConfiguration.HostNames"  type:"Repeated"`
+	LaunchConfigurationSecurityGroupIds            *[]string                                                         `position:"Query" name:"LaunchConfiguration.SecurityGroupIds"  type:"Repeated"`
+	ResourceGroupId                                string                                                            `position:"Query" name:"ResourceGroupId"`
+	LaunchConfigurationImageId                     string                                                            `position:"Query" name:"LaunchConfiguration.ImageId"`
+	LaunchConfigurationResourceGroupId             string                                                            `position:"Query" name:"LaunchConfiguration.ResourceGroupId"`
+	ResourcePlanningOnly                           requests.Boolean                                                  `position:"Query" name:"ResourcePlanningOnly"`
+	LaunchConfigurationPassword                    string                                                            `position:"Query" name:"LaunchConfiguration.Password"`
+	LaunchConfigurationAutoReleaseTime             string                                                            `position:"Query" name:"LaunchConfiguration.AutoReleaseTime"`
+	PayAsYouGoAllocationStrategy                   string                                                            `position:"Query" name:"PayAsYouGoAllocationStrategy"`
+	DefaultTargetCapacityType                      string                                                            `position:"Query" name:"DefaultTargetCapacityType"`
+	LaunchConfigurationKeyPairName                 string                                                            `position:"Query" name:"LaunchConfiguration.KeyPairName"`
+	SystemDiskConfig                               *[]CreateAutoProvisioningGroupSystemDiskConfig                    `position:"Query" name:"SystemDiskConfig"  type:"Repeated"`
+	DataDiskConfig                                 *[]CreateAutoProvisioningGroupDataDiskConfig                      `position:"Query" name:"DataDiskConfig"  type:"Repeated"`
+	ValidUntil                                     string                                                            `position:"Query" name:"ValidUntil"`
+	LaunchTemplateId                               string                                                            `position:"Query" name:"LaunchTemplateId"`
+	OwnerId                                        requests.Integer                                                  `position:"Query" name:"OwnerId"`
+	LaunchConfigurationSystemDiskSize              requests.Integer                                                  `position:"Query" name:"LaunchConfiguration.SystemDiskSize"`
+	LaunchConfigurationInternetMaxBandwidthOut     requests.Integer                                                  `position:"Query" name:"LaunchConfiguration.InternetMaxBandwidthOut"`
+	LaunchConfigurationHostName                    string                                                            `position:"Query" name:"LaunchConfiguration.HostName"`
+	MinTargetCapacity                              string                                                            `position:"Query" name:"MinTargetCapacity"`
+	MaxSpotPrice                                   requests.Float                                                    `position:"Query" name:"MaxSpotPrice"`
+	LaunchConfigurationArn                         *[]CreateAutoProvisioningGroupLaunchConfigurationArn              `position:"Query" name:"LaunchConfiguration.Arn"  type:"Repeated"`
+	LaunchConfigurationPasswordInherit             requests.Boolean                                                  `position:"Query" name:"LaunchConfiguration.PasswordInherit"`
+	ClientToken                                    string                                                            `position:"Query" name:"ClientToken"`
+	LaunchConfigurationSecurityGroupId             string                                                            `position:"Query" name:"LaunchConfiguration.SecurityGroupId"`
+	Description                                    string                                                            `position:"Query" name:"Description"`
+	TerminateInstancesWithExpiration               requests.Boolean                                                  `position:"Query" name:"TerminateInstancesWithExpiration"`
+	LaunchConfigurationUserData                    string                                                            `position:"Query" name:"LaunchConfiguration.UserData"`
+	LaunchConfigurationCreditSpecification         string                                                            `position:"Query" name:"LaunchConfiguration.CreditSpecification"`
+	LaunchConfigurationSystemDisk                  CreateAutoProvisioningGroupLaunchConfigurationSystemDisk          `position:"Query" name:"LaunchConfiguration.SystemDisk"  type:"Struct"`
+	LaunchConfigurationInstanceName                string                                                            `position:"Query" name:"LaunchConfiguration.InstanceName"`
+	LaunchConfigurationInstanceDescription         string                                                            `position:"Query" name:"LaunchConfiguration.InstanceDescription"`
+	SpotAllocationStrategy                         string                                                            `position:"Query" name:"SpotAllocationStrategy"`
+	TerminateInstances                             requests.Boolean                                                  `position:"Query" name:"TerminateInstances"`
+	LaunchConfigurationSystemDiskName              string                                                            `position:"Query" name:"LaunchConfiguration.SystemDiskName"`
+	LaunchConfigurationSystemDiskDescription       string                                                            `position:"Query" name:"LaunchConfiguration.SystemDiskDescription"`
+	ExcessCapacityTerminationPolicy                string                                                            `position:"Query" name:"ExcessCapacityTerminationPolicy"`
+	LaunchTemplateConfig                           *[]CreateAutoProvisioningGroupLaunchTemplateConfig                `position:"Query" name:"LaunchTemplateConfig"  type:"Repeated"`
+	LaunchConfigurationRamRoleName                 string                                                            `position:"Query" name:"LaunchConfiguration.RamRoleName"`
+	LaunchConfigurationInternetMaxBandwidthIn      requests.Integer                                                  `position:"Query" name:"LaunchConfiguration.InternetMaxBandwidthIn"`
+	SpotInstanceInterruptionBehavior               string                                                            `position:"Query" name:"SpotInstanceInterruptionBehavior"`
+	LaunchConfigurationSecurityEnhancementStrategy string                                                            `position:"Query" name:"LaunchConfiguration.SecurityEnhancementStrategy"`
+	LaunchConfigurationTag                         *[]CreateAutoProvisioningGroupLaunchConfigurationTag              `position:"Query" name:"LaunchConfiguration.Tag"  type:"Repeated"`
+	LaunchConfigurationDeploymentSetId             string                                                            `position:"Query" name:"LaunchConfiguration.DeploymentSetId"`
+	ResourceOwnerAccount                           string                                                            `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount                                   string                                                            `position:"Query" name:"OwnerAccount"`
+	SpotInstancePoolsToUseCount                    requests.Integer                                                  `position:"Query" name:"SpotInstancePoolsToUseCount"`
+	LaunchConfigurationInternetChargeType          string                                                            `position:"Query" name:"LaunchConfiguration.InternetChargeType"`
+	LaunchTemplateVersion                          string                                                            `position:"Query" name:"LaunchTemplateVersion"`
+	LaunchConfigurationIoOptimized                 string                                                            `position:"Query" name:"LaunchConfiguration.IoOptimized"`
+	PayAsYouGoTargetCapacity                       string                                                            `position:"Query" name:"PayAsYouGoTargetCapacity"`
+	HibernationOptionsConfigured                   requests.Boolean                                                  `position:"Query" name:"HibernationOptionsConfigured"`
+	TotalTargetCapacity                            string                                                            `position:"Query" name:"TotalTargetCapacity"`
+	SpotTargetCapacity                             string                                                            `position:"Query" name:"SpotTargetCapacity"`
+	LaunchConfigurationNetworkInterface            *[]CreateAutoProvisioningGroupLaunchConfigurationNetworkInterface `position:"Query" name:"LaunchConfiguration.NetworkInterface"  type:"Repeated"`
+	ValidFrom                                      string                                                            `position:"Query" name:"ValidFrom"`
+	AutoProvisioningGroupName                      string                                                            `position:"Query" name:"AutoProvisioningGroupName"`
 }
 
 // CreateAutoProvisioningGroupLaunchConfigurationDataDisk is a repeated param struct in CreateAutoProvisioningGroupRequest
@@ -173,24 +175,37 @@ type CreateAutoProvisioningGroupLaunchConfigurationSystemDisk struct {
 
 // CreateAutoProvisioningGroupLaunchTemplateConfig is a repeated param struct in CreateAutoProvisioningGroupRequest
 type CreateAutoProvisioningGroupLaunchTemplateConfig struct {
-	VSwitchId             string    `name:"VSwitchId"`
-	MaxPrice              string    `name:"MaxPrice"`
-	Priority              string    `name:"Priority"`
-	InstanceType          string    `name:"InstanceType"`
-	WeightedCapacity      string    `name:"WeightedCapacity"`
-	MaxQuantity           string    `name:"MaxQuantity"`
-	Cores                 *[]string `name:"Cores" type:"Repeated"`
-	Memories              *[]string `name:"Memories" type:"Repeated"`
-	InstanceFamilyLevel   string    `name:"InstanceFamilyLevel"`
-	ExcludedInstanceTypes *[]string `name:"ExcludedInstanceTypes" type:"Repeated"`
-	Architectures         *[]string `name:"Architectures" type:"Repeated"`
-	BurstablePerformance  string    `name:"BurstablePerformance"`
+	VSwitchId                 string                                                                      `name:"VSwitchId"`
+	MaxPrice                  string                                                                      `name:"MaxPrice"`
+	Priority                  string                                                                      `name:"Priority"`
+	InstanceType              string                                                                      `name:"InstanceType"`
+	WeightedCapacity          string                                                                      `name:"WeightedCapacity"`
+	MaxQuantity               string                                                                      `name:"MaxQuantity"`
+	Cores                     *[]string                                                                   `name:"Cores" type:"Repeated"`
+	Memories                  *[]string                                                                   `name:"Memories" type:"Repeated"`
+	InstanceFamilyLevel       string                                                                      `name:"InstanceFamilyLevel"`
+	ExcludedInstanceTypes     *[]string                                                                   `name:"ExcludedInstanceTypes" type:"Repeated"`
+	Architectures             *[]string                                                                   `name:"Architectures" type:"Repeated"`
+	BurstablePerformance      string                                                                      `name:"BurstablePerformance"`
+	SecondaryNetworkInterface *[]CreateAutoProvisioningGroupLaunchTemplateConfigSecondaryNetworkInterface `name:"SecondaryNetworkInterface" type:"Repeated"`
 }
 
 // CreateAutoProvisioningGroupLaunchConfigurationTag is a repeated param struct in CreateAutoProvisioningGroupRequest
 type CreateAutoProvisioningGroupLaunchConfigurationTag struct {
 	Key   string `name:"Key"`
 	Value string `name:"Value"`
+}
+
+// CreateAutoProvisioningGroupLaunchConfigurationNetworkInterface is a repeated param struct in CreateAutoProvisioningGroupRequest
+type CreateAutoProvisioningGroupLaunchConfigurationNetworkInterface struct {
+	SecurityGroupId  string    `name:"SecurityGroupId"`
+	SecurityGroupIds *[]string `name:"SecurityGroupIds" type:"Repeated"`
+	InstanceType     string    `name:"InstanceType"`
+}
+
+// CreateAutoProvisioningGroupLaunchTemplateConfigSecondaryNetworkInterface is a repeated param struct in CreateAutoProvisioningGroupRequest
+type CreateAutoProvisioningGroupLaunchTemplateConfigSecondaryNetworkInterface struct {
+	VSwitchId string `name:"VSwitchId"`
 }
 
 // CreateAutoProvisioningGroupResponse is the response struct for api CreateAutoProvisioningGroup

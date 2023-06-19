@@ -22,5 +22,6 @@ type LaunchResult struct {
 	InstanceType string                                   `json:"InstanceType" xml:"InstanceType"`
 	ErrorCode    string                                   `json:"ErrorCode" xml:"ErrorCode"`
 	SpotStrategy string                                   `json:"SpotStrategy" xml:"SpotStrategy"`
+	Amount       int                                      `json:"Amount" xml:"Amount"`
 	InstanceIds  InstanceIdsInCreateAutoProvisioningGroup `json:"InstanceIds" xml:"InstanceIds"`
 }

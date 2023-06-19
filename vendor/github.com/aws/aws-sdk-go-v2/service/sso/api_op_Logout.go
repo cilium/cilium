@@ -19,9 +19,8 @@ import (
 // temporary AWS credentials are returned to the client. After user logout, any
 // existing IAM role sessions that were created by using IAM Identity Center
 // permission sets continue based on the duration configured in the permission set.
-// For more information, see User authentications
-// (https://docs.aws.amazon.com/singlesignon/latest/userguide/authconcept.html) in
-// the IAM Identity Center User Guide.
+// For more information, see User authentications (https://docs.aws.amazon.com/singlesignon/latest/userguide/authconcept.html)
+// in the IAM Identity Center User Guide.
 func (c *Client) Logout(ctx context.Context, params *LogoutInput, optFns ...func(*Options)) (*LogoutOutput, error) {
 	if params == nil {
 		params = &LogoutInput{}
@@ -40,8 +39,7 @@ func (c *Client) Logout(ctx context.Context, params *LogoutInput, optFns ...func
 type LogoutInput struct {
 
 	// The token issued by the CreateToken API call. For more information, see
-	// CreateToken
-	// (https://docs.aws.amazon.com/singlesignon/latest/OIDCAPIReference/API_CreateToken.html)
+	// CreateToken (https://docs.aws.amazon.com/singlesignon/latest/OIDCAPIReference/API_CreateToken.html)
 	// in the IAM Identity Center OIDC API Reference Guide.
 	//
 	// This member is required.
@@ -100,6 +98,9 @@ func (c *Client) addOperationLogoutMiddlewares(stack *middleware.Stack, options 
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opLogout(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

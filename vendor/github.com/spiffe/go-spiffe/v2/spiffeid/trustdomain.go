@@ -50,7 +50,12 @@ func TrustDomainFromURI(uri *url.URL) (TrustDomain, error) {
 	return id.TrustDomain(), nil
 }
 
-// String returns the trust domain as a string, e.g. example.org.
+// Name returns the trust domain name as a string, e.g. example.org.
+func (td TrustDomain) Name() string {
+	return td.name
+}
+
+// String returns the trust domain name as a string, e.g. example.org.
 func (td TrustDomain) String() string {
 	return td.name
 }
