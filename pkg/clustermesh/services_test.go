@@ -62,7 +62,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	kvstore.SetupDummy("etcd")
+	kvstore.SetupDummy(c, "etcd")
 
 	s.randomName = rand.RandomString()
 	clusterName1 := s.randomName + "1"
@@ -121,8 +121,6 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 
 func (s *ClusterMeshServicesTestSuite) TearDownTest(c *C) {
 	os.RemoveAll(s.testDir)
-	kvstore.Client().DeletePrefix(context.TODO(), kvstore.BaseKeyPrefix)
-	kvstore.Client().Close(context.TODO())
 }
 
 func (s *ClusterMeshServicesTestSuite) expectEvent(c *C, action k8s.CacheAction, id k8s.ServiceID, fn func(event k8s.ServiceEvent) bool) {

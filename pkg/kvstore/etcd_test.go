@@ -33,11 +33,7 @@ func (e *EtcdSuite) SetUpSuite(c *C) {
 }
 
 func (e *EtcdSuite) SetUpTest(c *C) {
-	SetupDummy("etcd")
-}
-
-func (e *EtcdSuite) TearDownTest(c *C) {
-	Client().Close(context.TODO())
+	SetupDummy(c, "etcd")
 }
 
 type MaintenanceMocker struct {
@@ -344,7 +340,7 @@ var _ = Suite(&EtcdLockedSuite{})
 func (e *EtcdLockedSuite) SetUpSuite(c *C) {
 	testutils.IntegrationTest(c)
 
-	SetupDummy("etcd")
+	SetupDummy(c, "etcd")
 
 	// setup client
 	cfg := etcdAPI.Config{}
@@ -353,14 +349,6 @@ func (e *EtcdLockedSuite) SetUpSuite(c *C) {
 	cli, err := etcdAPI.New(cfg)
 	c.Assert(err, IsNil)
 	e.etcdClient = cli
-}
-
-func (e *EtcdLockedSuite) TearDownSuite(c *C) {
-	testutils.IntegrationTest(c)
-
-	err := e.etcdClient.Close()
-	c.Assert(err, IsNil)
-	Client().Close(context.TODO())
 }
 
 func (e *EtcdLockedSuite) TestGetIfLocked(c *C) {
@@ -1875,12 +1863,8 @@ func testEtcdRateLimiter(t *testing.T, qps, count int, cmp func(require.TestingT
 				err      error
 			)
 
-			SetupDummyWithConfigOpts("etcd", map[string]string{
+			SetupDummyWithConfigOpts(t, "etcd", map[string]string{
 				EtcdRateLimitOption: fmt.Sprintf("%d", qps),
-			})
-			t.Cleanup(func() {
-				client.Delete(ctx, "", etcdAPI.WithPrefix())
-				Client().Close(ctx)
 			})
 
 			if tt.populateKVPairs {

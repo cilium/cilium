@@ -58,13 +58,10 @@ func (f *fakeIPCache) Upsert(string, net.IP, uint8, *ipcache.K8sMetadata, ipcach
 func TestRemoteClusterRun(t *testing.T) {
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummyWithConfigOpts("etcd",
+	kvstore.SetupDummyWithConfigOpts(t, "etcd",
 		// Explicitly set higher QPS than the default to speedup the test
 		map[string]string{kvstore.EtcdRateLimitOption: "100"},
 	)
-	t.Cleanup(func() {
-		kvstore.Client().Close(context.Background())
-	})
 
 	tests := []struct {
 		name   string

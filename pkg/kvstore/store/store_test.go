@@ -46,12 +46,7 @@ func (e *StoreEtcdSuite) SetUpSuite(c *C) {
 }
 
 func (e *StoreEtcdSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy("etcd")
-}
-
-func (e *StoreEtcdSuite) TearDownTest(c *C) {
-	kvstore.Client().DeletePrefix(context.TODO(), testPrefix)
-	kvstore.Client().Close(context.TODO())
+	kvstore.SetupDummy(c, "etcd")
 }
 
 type StoreConsulSuite struct {
@@ -65,13 +60,7 @@ func (e *StoreConsulSuite) SetUpSuite(c *C) {
 }
 
 func (e *StoreConsulSuite) SetUpTest(c *C) {
-	kvstore.SetupDummy("consul")
-}
-
-func (e *StoreConsulSuite) TearDownTest(c *C) {
-	kvstore.Client().DeletePrefix(context.TODO(), testPrefix)
-	kvstore.Client().Close(context.TODO())
-	time.Sleep(sharedKeyDeleteDelay + 5*time.Second)
+	kvstore.SetupDummy(c, "consul")
 }
 
 type TestType struct {

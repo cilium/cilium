@@ -131,8 +131,7 @@ func (d *DummyOwner) UpdateIdentities(added, deleted cache.IdentityCache) {}
 
 func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	// Setup dependencies for endpoint.
-	kvstore.SetupDummy("etcd")
-	defer kvstore.Client().Close(context.TODO())
+	kvstore.SetupDummy(c, "etcd")
 
 	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 	idAllocatorOwner := &DummyIdentityAllocatorOwner{}
