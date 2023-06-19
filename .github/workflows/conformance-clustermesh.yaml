@@ -322,7 +322,7 @@ jobs:
         esac
 
         CILIUM_INSTALL_ENCRYPTION=""
-        if [ "${{ matrix.encryption }}" != "none" ]; then
+        if [ "${{ matrix.encryption }}" != "disabled" ]; then
           CILIUM_INSTALL_ENCRYPTION="--helm-set=encryption.enabled=true \
             --helm-set=encryption.type=${{ matrix.encryption }}"
         fi
