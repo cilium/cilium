@@ -255,6 +255,10 @@ func (c *fakeClient) ListCiliumNodeConfigs(_ context.Context, _ string, _ metav1
 	panic("implement me")
 }
 
+func (c *fakeClient) ListCiliumPodIPPools(_ context.Context, _ metav1.ListOptions) (*ciliumv2alpha1.CiliumPodIPPoolList, error) {
+	panic("implement me")
+}
+
 func (c *fakeClient) ListCiliumClusterwideEnvoyConfigs(_ context.Context, _ metav1.ListOptions) (*ciliumv2.CiliumClusterwideEnvoyConfigList, error) {
 	panic("implement me")
 }
