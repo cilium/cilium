@@ -25,27 +25,24 @@
 /* Skip ingress policy checks, not needed to validate hairpin flow */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 
-#define CLIENT_IP		v4_pod_one
-#define CLIENT_NODE_IP		v4_node_one
-
-#define EXTERNAL_SVC_IP		v4_ext_one
-#define EXTERNAL_SVC_PORT	__bpf_htons(1234)
-
-#define GATEWAY_NODE_IP		v4_node_two
-#define IPV4_DIRECT_ROUTING	GATEWAY_NODE_IP
-
-#define MASQ_IP			GATEWAY_NODE_IP
+#define IPV4_DIRECT_ROUTING	v4_node_one /* gateway node */
 #define MASQ_PORT		__bpf_htons(NODEPORT_PORT_MIN_NAT + 1)
-
 #define DIRECT_ROUTING_IFINDEX	25
 
-#define fib_lookup mock_fib_lookup
-
-static volatile const __u8 *client_node_mac = mac_one;
-/* this matches the default node_config.h: */
-static volatile const __u8 gateway_node_mac[ETH_ALEN]	= { 0xce, 0x72, 0xa7, 0x03, 0x88, 0x56 };
-
 #define ctx_redirect mock_ctx_redirect
+static __always_inline __maybe_unused int
+mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
+		  __u32 flags __maybe_unused);
+
+#define fib_lookup mock_fib_lookup
+static __always_inline __maybe_unused long
+mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
+		__maybe_unused int plen, __maybe_unused __u32 flags);
+
+#include <bpf_xdp.c>
+
+#include "lib/egressgw.h"
+
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
 		  __u32 flags __maybe_unused)
@@ -56,24 +53,21 @@ mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __may
 	return CTX_ACT_REDIRECT;
 }
 
-long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
-		     __maybe_unused int plen, __maybe_unused __u32 flags)
+static __always_inline __maybe_unused long
+mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
+		__maybe_unused int plen, __maybe_unused __u32 flags)
 {
 	params->ifindex = DIRECT_ROUTING_IFINDEX;
 
 	if (params->ipv4_dst == CLIENT_NODE_IP) {
-		__bpf_memcpy_builtin(params->smac, (__u8 *)gateway_node_mac, ETH_ALEN);
-		__bpf_memcpy_builtin(params->dmac, (__u8 *)client_node_mac, ETH_ALEN);
+		__bpf_memcpy_builtin(params->smac, (__u8 *)gateway_mac, ETH_ALEN);
+		__bpf_memcpy_builtin(params->dmac, (__u8 *)client_mac, ETH_ALEN);
 	} else {
 		return CTX_ACT_DROP;
 	}
 
 	return 0;
 }
-
-#include <bpf_xdp.c>
-
-#include "lib/egressgw.h"
 
 #define FROM_NETDEV	0
 
@@ -94,44 +88,26 @@ struct {
 PKTGEN("xdp", "xdp_egressgw_reply")
 int egressgw_reply_pktgen(struct __ctx_buff *ctx)
 {
-	struct pktgen builder;
-	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
-	void *data;
+	/* Add a new NAT entry so that pktgen can figure out the correct destination port */
+	struct ipv4_ct_tuple tuple = {
+		.saddr   = CLIENT_IP,
+		.daddr   = EXTERNAL_SVC_IP,
+		.dport   = EXTERNAL_SVC_PORT,
+		.sport   = client_port(TEST_XDP_REPLY),
+		.nexthdr = IPPROTO_TCP,
+	};
 
-	/* Init packet builder */
-	pktgen__init(&builder, ctx);
+	struct ipv4_nat_entry nat_entry = {
+		.to_saddr = EGRESS_IP,
+		.to_sport = MASQ_PORT,
+	};
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
+	map_update_elem(&SNAT_MAPPING_IPV4, &tuple, &nat_entry, BPF_ANY);
 
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = EXTERNAL_SVC_IP;
-	l3->daddr = MASQ_IP;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
-	if (!l4)
-		return TEST_ERROR;
-
-	l4->source = EXTERNAL_SVC_PORT;
-	l4->dest = MASQ_PORT;
-
-	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
-	if (!data)
-		return TEST_ERROR;
-
-	/* Calc lengths, set protocol fields and calc checksums */
-	pktgen__finish(&builder);
-
-	return 0;
+	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_XDP_REPLY,
+			.dir = CT_INGRESS,
+		});
 }
 
 SETUP("xdp", "xdp_egressgw_reply")
@@ -142,7 +118,7 @@ int egressgw_reply_setup(struct __ctx_buff *ctx)
 
 	/* install RevSNAT entry */
 	struct ipv4_ct_tuple snat_tuple = {
-		.daddr   = MASQ_IP,
+		.daddr   = EGRESS_IP,
 		.saddr   = EXTERNAL_SVC_IP,
 		.dport   = MASQ_PORT,
 		.sport   = EXTERNAL_SVC_PORT,
@@ -225,9 +201,9 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 	if ((void *)inner_l4 + sizeof(*inner_l4) > data_end)
 		test_fatal("inner l4 out of bounds");
 
-	if (memcmp(l2->h_source, (__u8 *)gateway_node_mac, ETH_ALEN) != 0)
+	if (memcmp(l2->h_source, (__u8 *)gateway_mac, ETH_ALEN) != 0)
 		test_fatal("src MAC is not the gateway MAC")
-	if (memcmp(l2->h_dest, (__u8 *)client_node_mac, ETH_ALEN) != 0)
+	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
 		test_fatal("dst MAC is not the client node MAC")
 
 	if (l2->h_proto != bpf_htons(ETH_P_IP))
