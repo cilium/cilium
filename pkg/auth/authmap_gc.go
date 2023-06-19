@@ -58,6 +58,26 @@ func newAuthMapGC(logger logrus.FieldLogger, authmap authMap, ipCache ipCache, p
 	}
 }
 
+func (r *authMapGarbageCollector) cleanup(ctx context.Context) error {
+	if err := r.cleanupExpiredEntries(ctx); err != nil {
+		return err
+	}
+
+	if err := r.cleanupNodes(ctx); err != nil {
+		return err
+	}
+
+	if err := r.cleanupIdentities(ctx); err != nil {
+		return err
+	}
+
+	if err := r.cleanupEntriesWithoutAuthPolicy(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Nodes
 
 func (r *authMapGarbageCollector) handleCiliumNodeEvent(_ context.Context, e resource.Event[*ciliumv2.CiliumNode]) (err error) {
@@ -97,6 +117,8 @@ func (r *authMapGarbageCollector) handleCiliumNodeEvent(_ context.Context, e res
 func (r *authMapGarbageCollector) cleanupNodes(_ context.Context) error {
 	r.ciliumNodesMutex.Lock()
 	defer r.ciliumNodesMutex.Unlock()
+
+	r.logger.Debug("Cleaning up entries which belong to deleted nodes")
 
 	if !r.ciliumNodesSynced {
 		r.logger.Debug("Skipping nodes cleanup - not synced yet")
@@ -217,6 +239,8 @@ func (r *authMapGarbageCollector) handleIdentityChange(_ context.Context, e cach
 func (r *authMapGarbageCollector) cleanupIdentities(_ context.Context) error {
 	r.ciliumIdentitiesMutex.Lock()
 	defer r.ciliumIdentitiesMutex.Unlock()
+
+	r.logger.Debug("Cleaning up entries which belong to deleted identities")
 
 	if !r.ciliumIdentitiesSynced {
 		r.logger.Debug("Skipping identities cleanup - not synced yet")
