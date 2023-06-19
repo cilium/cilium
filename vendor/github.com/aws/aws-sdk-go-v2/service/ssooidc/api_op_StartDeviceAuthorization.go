@@ -28,9 +28,9 @@ func (c *Client) StartDeviceAuthorization(ctx context.Context, params *StartDevi
 
 type StartDeviceAuthorizationInput struct {
 
-	// The unique identifier string for the client that is registered with IAM Identity
-	// Center. This value should come from the persisted result of the RegisterClient
-	// API operation.
+	// The unique identifier string for the client that is registered with IAM
+	// Identity Center. This value should come from the persisted result of the
+	// RegisterClient API operation.
 	//
 	// This member is required.
 	ClientId *string
@@ -42,8 +42,7 @@ type StartDeviceAuthorizationInput struct {
 	ClientSecret *string
 
 	// The URL for the AWS access portal. For more information, see Using the AWS
-	// access portal
-	// (https://docs.aws.amazon.com/singlesignon/latest/userguide/using-the-portal.html)
+	// access portal (https://docs.aws.amazon.com/singlesignon/latest/userguide/using-the-portal.html)
 	// in the IAM Identity Center User Guide.
 	//
 	// This member is required.
@@ -73,9 +72,9 @@ type StartDeviceAuthorizationOutput struct {
 	// device.
 	VerificationUri *string
 
-	// An alternate URL that the client can use to automatically launch a browser. This
-	// process skips the manual step in which the user visits the verification page and
-	// enters their code.
+	// An alternate URL that the client can use to automatically launch a browser.
+	// This process skips the manual step in which the user visits the verification
+	// page and enters their code.
 	VerificationUriComplete *string
 
 	// Metadata pertaining to the operation's result.
@@ -127,6 +126,9 @@ func (c *Client) addOperationStartDeviceAuthorizationMiddlewares(stack *middlewa
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opStartDeviceAuthorization(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -1,3 +1,96 @@
+# v1.13.26 (2023-06-15)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.25 (2023-06-13)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.24 (2023-05-09)
+
+* No change notes available for this release.
+
+# v1.13.23 (2023-05-08)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.22 (2023-05-04)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.21 (2023-04-24)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.20 (2023-04-10)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.19 (2023-04-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.18 (2023-03-21)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.17 (2023-03-14)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.16 (2023-03-10)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.15 (2023-02-22)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.14 (2023-02-20)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.13 (2023-02-15)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.12 (2023-02-03)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.11 (2023-02-01)
+
+* No change notes available for this release.
+
+# v1.13.10 (2023-01-25)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.9 (2023-01-23)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.8 (2023-01-05)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.7 (2022-12-20)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.6 (2022-12-19)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.5 (2022-12-15)
+
+* **Bug Fix**: Unify logic between shared config and in finding home directory
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.13.4 (2022-12-02)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.13.3 (2022-11-22)
 
 * **Dependency Update**: Updated to the latest SDK module versions
