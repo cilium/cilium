@@ -66,8 +66,8 @@ struct {
 	},
 };
 
-static __always_inline int egressgw_snat_pktgen(struct __ctx_buff *ctx, enum egressgw_test t,
-						bool reply)
+static __always_inline int egressgw_snat_pktgen(struct __ctx_buff *ctx,
+						struct egressgw_test_ctx test_ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
@@ -83,7 +83,7 @@ static __always_inline int egressgw_snat_pktgen(struct __ctx_buff *ctx, enum egr
 	if (!l2)
 		return TEST_ERROR;
 
-	if (reply)
+	if (test_ctx.reply)
 		ethhdr__set_macs(l2, (__u8 *)ext_svc_mac, (__u8 *)client_mac);
 	else
 		ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)ext_svc_mac);
@@ -93,7 +93,7 @@ static __always_inline int egressgw_snat_pktgen(struct __ctx_buff *ctx, enum egr
 	if (!l3)
 		return TEST_ERROR;
 
-	if (reply) {
+	if (test_ctx.reply) {
 		l3->saddr = EXTERNAL_SVC_IP;
 		l3->daddr = EGRESS_IP;
 	} else {
@@ -106,13 +106,13 @@ static __always_inline int egressgw_snat_pktgen(struct __ctx_buff *ctx, enum egr
 	if (!l4)
 		return TEST_ERROR;
 
-	if (reply) {
+	if (test_ctx.reply) {
 		/* Get the destination port from the NAT entry. */
 		struct ipv4_ct_tuple tuple = {
 			.saddr   = CLIENT_IP,
 			.daddr   = EXTERNAL_SVC_IP,
 			.dport   = EXTERNAL_SVC_PORT,
-			.sport   = client_port(t),
+			.sport   = client_port(test_ctx.test),
 			.nexthdr = IPPROTO_TCP,
 		};
 		struct ipv4_nat_entry *nat_entry = __snat_lookup(&SNAT_MAPPING_IPV4, &tuple);
@@ -122,7 +122,7 @@ static __always_inline int egressgw_snat_pktgen(struct __ctx_buff *ctx, enum egr
 		l4->source = EXTERNAL_SVC_PORT;
 		l4->dest = nat_entry->to_sport;
 	} else {
-		l4->source = client_port(t);
+		l4->source = client_port(test_ctx.test);
 		l4->dest = EXTERNAL_SVC_PORT;
 	}
 
@@ -136,10 +136,8 @@ static __always_inline int egressgw_snat_pktgen(struct __ctx_buff *ctx, enum egr
 	return 0;
 }
 
-static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, enum egressgw_test t,
-					       bool reply,
-					       __u64 tx_packets, __u64 rx_packets,
-					       __u32 status_code)
+static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
+					       struct egressgw_test_ctx test_ctx)
 {
 	void *data, *data_end;
 	struct tcphdr *l4;
@@ -154,7 +152,7 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, enu
 	if (data + sizeof(__u32) > data_end)
 		test_fatal("status code out of bounds");
 
-	assert(*(__u32 *)data == status_code);
+	assert(*(__u32 *)data == test_ctx.status_code);
 
 	l2 = data + sizeof(__u32);
 	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
@@ -168,7 +166,7 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, enu
 	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
 		test_fatal("l4 out of bounds");
 
-	if (reply) {
+	if (test_ctx.reply) {
 		if (memcmp(l2->h_source, (__u8 *)ext_svc_mac, ETH_ALEN) != 0)
 			test_fatal("src MAC is not the external svc MAC")
 
@@ -199,7 +197,7 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, enu
 		.daddr   = CLIENT_IP,
 		.saddr   = EXTERNAL_SVC_IP,
 		.dport   = EXTERNAL_SVC_PORT,
-		.sport   = client_port(t),
+		.sport   = client_port(test_ctx.test),
 		.nexthdr = IPPROTO_TCP,
 		.flags = TUPLE_F_OUT,
 	};
@@ -208,12 +206,12 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, enu
 	if (!ct_entry)
 		test_fatal("no CT entry found");
 
-	if (ct_entry->tx_packets != tx_packets)
+	if (ct_entry->tx_packets != test_ctx.tx_packets)
 		test_fatal("bad TX packet count (expected %u, actual %u)",
-			   tx_packets, ct_entry->tx_packets)
-	if (ct_entry->rx_packets != rx_packets)
+			   test_ctx.tx_packets, ct_entry->tx_packets)
+	if (ct_entry->rx_packets != test_ctx.rx_packets)
 		test_fatal("bad RX packet count (expected %u, actual %u)",
-			   rx_packets, ct_entry->rx_packets)
+			   test_ctx.rx_packets, ct_entry->rx_packets)
 
 	tuple.saddr = CLIENT_IP;
 	tuple.daddr = EXTERNAL_SVC_IP;
@@ -223,11 +221,11 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, enu
 	if (!nat_entry)
 		test_fatal("could not find a NAT entry for the packet");
 
-	if (reply) {
+	if (test_ctx.reply) {
 		if (l4->source != EXTERNAL_SVC_PORT)
 			test_fatal("src port has changed");
 
-		if (l4->dest != client_port(t))
+		if (l4->dest != client_port(test_ctx.test))
 			test_fatal("dst TCP port hasn't been revSNATed to client port");
 	} else {
 		if (l4->source != nat_entry->to_sport)
@@ -246,7 +244,9 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx, enu
 PKTGEN("tc", "tc_egressgw_snat1")
 int egressgw_snat1_pktgen(struct __ctx_buff *ctx)
 {
-	return egressgw_snat_pktgen(ctx, TEST_SNAT1, false);
+	return egressgw_snat_pktgen(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT1,
+		});
 }
 
 SETUP("tc", "tc_egressgw_snat1")
@@ -263,7 +263,12 @@ int egressgw_snat1_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_egressgw_snat1")
 int egressgw_snat1_check(const struct __ctx_buff *ctx)
 {
-	return egressgw_snat_check(ctx, TEST_SNAT1, false, 1, 0, CTX_ACT_OK);
+	return egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT1,
+			.tx_packets = 1,
+			.rx_packets = 0,
+			.status_code = CTX_ACT_OK
+		});
 }
 
 /* Test that a packet matching an egress gateway policy on the from-netdev program
@@ -272,7 +277,10 @@ int egressgw_snat1_check(const struct __ctx_buff *ctx)
 PKTGEN("tc", "tc_egressgw_snat1_2_reply")
 int egressgw_snat1_2_reply_pktgen(struct __ctx_buff *ctx)
 {
-	return egressgw_snat_pktgen(ctx, TEST_SNAT1, true);
+	return egressgw_snat_pktgen(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT1,
+			.reply = true,
+		});
 }
 
 SETUP("tc", "tc_egressgw_snat1_2_reply")
@@ -298,13 +306,21 @@ int egressgw_snat1_2_reply_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_egressgw_snat1_2_reply")
 int egressgw_snat1_2_reply_check(const struct __ctx_buff *ctx)
 {
-	return egressgw_snat_check(ctx, TEST_SNAT1, true, 1, 1, CTX_ACT_REDIRECT);
+	return egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT1,
+			.reply = true,
+			.tx_packets = 1,
+			.rx_packets = 1,
+			.status_code = CTX_ACT_REDIRECT,
+		});
 }
 
 PKTGEN("tc", "tc_egressgw_snat2")
 int egressgw_snat2_pktgen(struct __ctx_buff *ctx)
 {
-	return egressgw_snat_pktgen(ctx, TEST_SNAT2, false);
+	return egressgw_snat_pktgen(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT2,
+		});
 }
 
 SETUP("tc", "tc_egressgw_snat2")
@@ -319,7 +335,12 @@ int egressgw_snat2_setup(struct __ctx_buff *ctx)
 CHECK("tc", "tc_egressgw_snat2")
 int egressgw_snat2_check(struct __ctx_buff *ctx)
 {
-	int ret = egressgw_snat_check(ctx, TEST_SNAT2, false, 1, 0, CTX_ACT_OK);
+	int ret = egressgw_snat_check(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT2,
+			.tx_packets = 1,
+			.rx_packets = 0,
+			.status_code = CTX_ACT_OK
+		});
 
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0Xffffff, 24);
 
@@ -332,7 +353,9 @@ int egressgw_snat2_check(struct __ctx_buff *ctx)
 PKTGEN("tc", "tc_egressgw_skip_excluded_cidr_snat")
 int egressgw_skip_excluded_cidr_snat_pktgen(struct __ctx_buff *ctx)
 {
-	return egressgw_snat_pktgen(ctx, TEST_SNAT_EXCL_CIDR, false);
+	return egressgw_snat_pktgen(ctx, (struct egressgw_test_ctx) {
+			.test = TEST_SNAT_EXCL_CIDR,
+		});
 }
 
 SETUP("tc", "tc_egressgw_skip_excluded_cidr_snat")
