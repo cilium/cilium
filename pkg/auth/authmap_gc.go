@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/policy"
@@ -26,8 +27,12 @@ type authMapGarbageCollector struct {
 	ipCache    ipCache
 	policyRepo policyRepository
 
-	discoveredCiliumNodeIDs    map[uint16]struct{}
-	discoveredCiliumIdentities map[identity.NumericIdentity]struct{}
+	discoveredCiliumNodeIDs map[uint16]struct{}
+
+	ciliumIdentitiesMutex      lock.Mutex
+	ciliumIdentitiesDiscovered map[identity.NumericIdentity]struct{}
+	ciliumIdentitiesSynced     bool
+	ciliumIdentitiesDeleted    map[identity.NumericIdentity]struct{}
 }
 
 type policyRepository interface {
@@ -44,7 +49,8 @@ func newAuthMapGC(logger logrus.FieldLogger, authmap authMap, ipCache ipCache, p
 		discoveredCiliumNodeIDs: map[uint16]struct{}{
 			0: {}, // Local node 0 is always available
 		},
-		discoveredCiliumIdentities: map[identity.NumericIdentity]struct{}{},
+		ciliumIdentitiesDiscovered: map[identity.NumericIdentity]struct{}{},
+		ciliumIdentitiesDeleted:    map[identity.NumericIdentity]struct{}{},
 	}
 }
 
@@ -80,29 +86,29 @@ func (r *authMapGarbageCollector) handleCiliumNodeEvent(_ context.Context, e res
 }
 
 func (r *authMapGarbageCollector) handleIdentityChange(_ context.Context, e cache.IdentityChange) (err error) {
+	r.ciliumIdentitiesMutex.Lock()
+	defer r.ciliumIdentitiesMutex.Unlock()
+
 	switch e.Kind {
 	case cache.IdentityChangeUpsert:
-		if r.discoveredCiliumIdentities != nil {
+		// Upsert events need to be caputured as long as the first GC run uses them
+		// and resets ciliumIdentitiesDiscovered to nil
+		if r.ciliumIdentitiesDiscovered != nil {
 			r.logger.
 				WithField(logfields.Identity, e.ID).
 				WithField(logfields.Labels, e.Labels).
-				Debug("Identity discovered")
-			r.discoveredCiliumIdentities[e.ID] = struct{}{}
+				Debug("Identity discovered - mark to keep")
+			r.ciliumIdentitiesDiscovered[e.ID] = struct{}{}
 		}
 	case cache.IdentityChangeSync:
-		r.logger.Debug("Identities synced - cleaning up missing identities")
-		if err = r.cleanupMissingIdentities(); err != nil {
-			return fmt.Errorf("failed to cleanup missing identities: %w", err)
-		}
-		r.discoveredCiliumIdentities = nil
+		r.logger.Debug("Identities synced")
+		r.ciliumIdentitiesSynced = true
 	case cache.IdentityChangeDelete:
 		r.logger.
 			WithField(logfields.Identity, e.ID).
 			WithField(logfields.Labels, e.Labels).
-			Debug("Identity deleted - cleaning up")
-		if err = r.cleanupDeletedIdentity(e.ID); err != nil {
-			return fmt.Errorf("failed to cleanup deleted identity: %w", err)
-		}
+			Debug("Identity deleted - mark for deletion")
+		r.ciliumIdentitiesDeleted[e.ID] = struct{}{}
 	}
 	return nil
 }
@@ -120,14 +126,18 @@ func (r *authMapGarbageCollector) cleanupMissingNodes() error {
 }
 
 func (r *authMapGarbageCollector) cleanupMissingIdentities() error {
-	return r.authmap.DeleteIf(func(key authKey, info authInfo) bool {
-		if _, ok := r.discoveredCiliumIdentities[key.localIdentity]; !ok {
+	if r.ciliumIdentitiesDiscovered == nil {
+		return nil
+	}
+
+	err := r.authmap.DeleteIf(func(key authKey, info authInfo) bool {
+		if _, ok := r.ciliumIdentitiesDiscovered[key.localIdentity]; !ok {
 			r.logger.
 				WithField("local_identity", key.localIdentity).
 				Debug("Deleting entry due to removed local identity")
 			return true
 		}
-		if _, ok := r.discoveredCiliumIdentities[key.remoteIdentity]; !ok {
+		if _, ok := r.ciliumIdentitiesDiscovered[key.remoteIdentity]; !ok {
 			r.logger.
 				WithField("remote_identity", key.remoteIdentity).
 				Debug("Deleting entry due to removed remote identity")
@@ -135,6 +145,26 @@ func (r *authMapGarbageCollector) cleanupMissingIdentities() error {
 		}
 		return false
 	})
+
+	if err != nil {
+		return err
+	}
+
+	r.ciliumIdentitiesDiscovered = nil
+
+	return nil
+}
+
+func (r *authMapGarbageCollector) cleanupDeletedIdentities() error {
+	for id := range r.ciliumIdentitiesDeleted {
+		if err := r.cleanupDeletedIdentity(id); err != nil {
+			// keep entry and try to delete it during the next gc execution
+			return fmt.Errorf("failed to cleanup deleted identity: %w", err)
+		}
+		delete(r.ciliumIdentitiesDeleted, id)
+	}
+
+	return nil
 }
 
 func (r *authMapGarbageCollector) cleanupDeletedNode(node *ciliumv2.CiliumNode) error {
@@ -226,4 +256,24 @@ func (r *authMapGarbageCollector) remoteNodeIDs(node *ciliumv2.CiliumNode) []uin
 	}
 
 	return remoteNodeIDs
+}
+
+func (r *authMapGarbageCollector) cleanupIdentities(_ context.Context) error {
+	r.ciliumIdentitiesMutex.Lock()
+	defer r.ciliumIdentitiesMutex.Unlock()
+
+	if !r.ciliumIdentitiesSynced {
+		r.logger.Debug("Skipping identities cleanup - not synced yet")
+		return nil
+	}
+
+	if err := r.cleanupMissingIdentities(); err != nil {
+		return fmt.Errorf("failed to cleanup missing identities: %w", err)
+	}
+
+	if err := r.cleanupDeletedIdentities(); err != nil {
+		return fmt.Errorf("failed to cleanup deleted identities: %w", err)
+	}
+
+	return nil
 }

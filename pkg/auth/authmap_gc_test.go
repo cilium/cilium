@@ -36,7 +36,8 @@ func Test_authMapGarbageCollector_initialSync(t *testing.T) {
 	}), nil)
 
 	assert.Len(t, am.discoveredCiliumNodeIDs, 1) // local node 0
-	assert.Empty(t, am.discoveredCiliumIdentities)
+	assert.Empty(t, am.ciliumIdentitiesDiscovered)
+	assert.False(t, am.ciliumIdentitiesSynced)
 
 	err := am.handleCiliumNodeEvent(ctx, ciliumNodeEvent(resource.Upsert, "172.18.0.3"))
 	assert.NoError(t, err)
@@ -50,18 +51,30 @@ func Test_authMapGarbageCollector_initialSync(t *testing.T) {
 
 	err = am.handleIdentityChange(ctx, ciliumIdentityEvent(cache.IdentityChangeUpsert, 11))
 	assert.NoError(t, err)
-	assert.Len(t, authMap.entries, 3) // no modification at upsert
-	assert.Len(t, am.discoveredCiliumIdentities, 1)
+	assert.Len(t, authMap.entries, 3)
+	assert.Len(t, am.ciliumIdentitiesDiscovered, 1)
 
 	err = am.handleIdentityChange(ctx, ciliumIdentityEvent(cache.IdentityChangeUpsert, 10))
 	assert.NoError(t, err)
-	assert.Len(t, authMap.entries, 3) // no modification at upsert
-	assert.Len(t, am.discoveredCiliumIdentities, 2)
+	assert.Len(t, authMap.entries, 3)
+	assert.Len(t, am.ciliumIdentitiesDiscovered, 2)
 
 	err = am.handleIdentityChange(ctx, ciliumIdentityEvent(cache.IdentityChangeSync, 0))
 	assert.NoError(t, err)
-	assert.Len(t, authMap.entries, 1) // deleted all entries where local and remote identity are no longer existing
-	assert.Nil(t, am.discoveredCiliumIdentities)
+	assert.Len(t, authMap.entries, 3)
+	assert.True(t, am.ciliumIdentitiesSynced)
+
+	err = am.handleIdentityChange(ctx, ciliumIdentityEvent(cache.IdentityChangeUpsert, 12))
+	assert.NoError(t, err)
+	assert.Len(t, authMap.entries, 3)
+	assert.Len(t, am.ciliumIdentitiesDiscovered, 3) // Keep collecting upserts until reset
+
+	am.ciliumIdentitiesDiscovered = nil // Reset
+
+	err = am.handleIdentityChange(ctx, ciliumIdentityEvent(cache.IdentityChangeUpsert, 13))
+	assert.NoError(t, err)
+	assert.Len(t, authMap.entries, 3)
+	assert.Nil(t, am.ciliumIdentitiesDiscovered)
 }
 
 func Test_authMapGarbageCollector_gc(t *testing.T) {
@@ -76,7 +89,7 @@ func Test_authMapGarbageCollector_gc(t *testing.T) {
 		},
 	}
 
-	am := newAuthMapGC(logrus.New(), authMap,
+	gc := newAuthMapGC(logrus.New(), authMap,
 		newFakeIPCache(map[uint16]string{
 			10: "172.18.0.3",
 		}),
@@ -106,25 +119,33 @@ func Test_authMapGarbageCollector_gc(t *testing.T) {
 
 	assert.Len(t, authMap.entries, 6)
 
-	err := am.cleanupExpiredEntries(context.Background())
+	err := gc.cleanupExpiredEntries(context.Background())
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 5)
 
-	err = am.cleanupEntriesWithoutAuthPolicy(context.Background())
+	err = gc.cleanupEntriesWithoutAuthPolicy(context.Background())
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 3)
 
-	err = am.handleCiliumNodeEvent(context.Background(), ciliumNodeEvent(resource.Delete, "172.18.0.3"))
+	err = gc.handleCiliumNodeEvent(context.Background(), ciliumNodeEvent(resource.Delete, "172.18.0.3"))
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 2)
 
-	err = am.handleIdentityChange(context.Background(), ciliumIdentityEvent(cache.IdentityChangeDelete, 4))
+	err = gc.handleIdentityChange(context.Background(), ciliumIdentityEvent(cache.IdentityChangeDelete, 4))
 	assert.NoError(t, err)
-	assert.Len(t, authMap.entries, 1)
+	assert.Len(t, authMap.entries, 2)
+	assert.Len(t, gc.ciliumIdentitiesDeleted, 1)
 
-	err = am.handleIdentityChange(context.Background(), ciliumIdentityEvent(cache.IdentityChangeDelete, 10))
+	err = gc.handleIdentityChange(context.Background(), ciliumIdentityEvent(cache.IdentityChangeDelete, 10))
+	assert.NoError(t, err)
+	assert.Len(t, authMap.entries, 2)
+	assert.Len(t, gc.ciliumIdentitiesDeleted, 2)
+
+	gc.ciliumIdentitiesSynced = true
+	err = gc.cleanupIdentities(context.Background())
 	assert.NoError(t, err)
 	assert.Empty(t, authMap.entries)
+	assert.Empty(t, gc.ciliumIdentitiesDeleted)
 }
 
 func Test_authMapGarbageCollector_HandleNodeEventError(t *testing.T) {
@@ -149,10 +170,15 @@ func Test_authMapGarbageCollector_HandleIdentityEventError(t *testing.T) {
 		entries:    map[authKey]authInfo{},
 		failDelete: true,
 	}
-	am := newAuthMapGC(logrus.New(), authMap, newFakeIPCache(map[uint16]string{}), nil)
+	gc := newAuthMapGC(logrus.New(), authMap, newFakeIPCache(map[uint16]string{}), nil)
 
 	event := ciliumIdentityEvent(cache.IdentityChangeDelete, 4)
-	err := am.handleIdentityChange(context.Background(), event)
+	err := gc.handleIdentityChange(context.Background(), event)
+	assert.NoError(t, err)
+
+	gc.ciliumIdentitiesSynced = true
+	gc.ciliumIdentitiesDiscovered = nil
+	err = gc.cleanupIdentities(context.Background())
 	assert.ErrorContains(t, err, "failed to cleanup deleted identity: failed to delete entry")
 }
 

@@ -154,8 +154,7 @@ func registerSignalAuthenticationJob(jobGroup job.Group, mgr *authManager, sm si
 }
 
 func registerGCJobs(jobGroup job.Group, mapGC *authMapGarbageCollector, params authManagerParams) {
-	// FIXME: errors from handleIdentityChange not retried!
-	jobGroup.Add(job.Observer("auth identities gc", mapGC.handleIdentityChange, params.IdentityChanges))
+	jobGroup.Add(job.Observer("auth identities gc events", mapGC.handleIdentityChange, params.IdentityChanges))
 
 	// Add node based auth gc if k8s client is enabled
 	if params.CiliumNodes != nil {
@@ -165,6 +164,8 @@ func registerGCJobs(jobGroup job.Group, mapGC *authMapGarbageCollector, params a
 	jobGroup.Add(job.Timer("auth policies gc", mapGC.cleanupEntriesWithoutAuthPolicy, params.Config.MeshAuthGCInterval))
 
 	jobGroup.Add(job.Timer("auth expiration gc", mapGC.cleanupExpiredEntries, params.Config.MeshAuthGCInterval))
+
+	jobGroup.Add(job.Timer("auth identities gc", mapGC.cleanupIdentities, params.Config.MeshAuthGCInterval))
 }
 
 type authHandlerResult struct {
