@@ -71,7 +71,7 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ctx context.Context, ciliumNPClient c
 				k.K8sEventProcessed(metricCEC, resources.MetricDelete, err == nil)
 			},
 		},
-		k8s.TransformToCiliumEnvoyConfig,
+		nil,
 	)
 
 	k.blockWaitGroupToSyncResources(
