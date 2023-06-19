@@ -133,6 +133,9 @@ $(eval $(call DOCKER_IMAGE_TEMPLATE,docker-plugin-image,images/cilium-docker-plu
 # docker-hubble-relay-image
 $(eval $(call DOCKER_IMAGE_TEMPLATE,docker-hubble-relay-image,images/hubble-relay/Dockerfile,hubble-relay,$(DOCKER_IMAGE_TAG),release))
 
+# docker-etcd-init-image
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-etcd-init-image,images/etcd-init/Dockerfile,etcd-init,$(DOCKER_IMAGE_TAG),release))
+
 # docker-clustermesh-apiserver-image
 $(eval $(call DOCKER_IMAGE_TEMPLATE,docker-clustermesh-apiserver-image,images/clustermesh-apiserver/Dockerfile,clustermesh-apiserver,$(DOCKER_IMAGE_TAG),release))
 
@@ -149,9 +152,9 @@ $(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-opera%-image-debug,images/operato
 #
 # docker-*-all targets are mainly used from the CI
 #
-docker-images-all: docker-cilium-image docker-plugin-image docker-hubble-relay-image docker-clustermesh-apiserver-image docker-kvstoremesh-image docker-operator-images-all ## Build all Cilium related docker images.
+docker-images-all: docker-cilium-image docker-plugin-image docker-hubble-relay-image docker-etcd-init-image docker-clustermesh-apiserver-image docker-kvstoremesh-image docker-operator-images-all ## Build all Cilium related docker images.
 
-docker-images-all-unstripped: docker-cilium-image-unstripped docker-plugin-image-unstripped docker-hubble-relay-image-unstripped docker-clustermesh-apiserver-image-unstripped docker-kvstoremesh-image-unstripped docker-operator-images-all-unstripped ## Build all Cilium related unstripped docker images.
+docker-images-all-unstripped: docker-cilium-image-unstripped docker-plugin-image-unstripped docker-hubble-relay-image-unstripped docker-etcd-init-image-unstripped docker-clustermesh-apiserver-image-unstripped docker-kvstoremesh-image-unstripped docker-operator-images-all-unstripped ## Build all Cilium related unstripped docker images.
 
 docker-operator-images-all: docker-operator-image docker-operator-aws-image docker-operator-azure-image docker-operator-alibabacloud-image docker-operator-generic-image ## Build all variants of cilium-operator images.
 

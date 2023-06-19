@@ -18,7 +18,7 @@ SUBDIR_OPERATOR_CONTAINER := operator
 # Add the ability to override variables
 -include Makefile.override
 
-SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) $(SUBDIR_OPERATOR_CONTAINER) plugins tools hubble-relay
+SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) $(SUBDIR_OPERATOR_CONTAINER) plugins tools hubble-relay etcd-init
 
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-cni
 ifdef LIBNETWORK_PLUGIN
@@ -731,10 +731,11 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"dev-docker-image","Build cilium-agent development docker image")
 	$(call print_help_line,"docker-plugin-image","Build cilium-docker plugin image")
 	$(call print_help_line,"docker-hubble-relay-image","Build hubble-relay docker image")
+	$(call print_help_line,"docker-etcd-init-image","Build etcd-init docker image")
 	$(call print_help_line,"docker-clustermesh-apiserver-image","Build docker image for Cilium clustermesh APIServer")
 	$(call print_help_line,"docker-operator-image","Build cilium-operator docker image")
 	$(call print_help_line,"docker-operator-*-image","Build platform specific cilium-operator images(alibabacloud, aws, azure, generic)")
-	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, operator etc.)")
+	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, etcd-init, operator etc.)")
 
 .PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-hubble-api install licenses-all veryclean check-sources
 force :;

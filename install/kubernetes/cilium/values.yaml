@@ -2665,8 +2665,8 @@ clustermesh:
       image:
         override: ~
         repository: "quay.io/coreos/etcd"
-        tag: "v3.5.4"
-        digest: "sha256:795d8660c48c439a7c3764c2330ed9222ab5db5bb524d8d0607cac76f7ba82a3"
+        tag: "v3.5.9"
+        digest: "sha256:18ca110b5ce9a177bb80d6b4a08d73bda54b549d7a0eb6f66e6da69bf919c63f"
         useDigest: true
         pullPolicy: "Always"
 
@@ -2685,6 +2685,13 @@ clustermesh:
       init:
         # -- Specifies the resources for etcd init container in the apiserver
         resources: {}
+        image:
+          override: ~
+          repository: "quay.io/cilium/etcd-init"
+          tag: "latest"
+          digest: ""
+          useDigest: false
+          pullPolicy: "Always"
         #   requests:
         #     cpu: 100m
         #     memory: 100Mi

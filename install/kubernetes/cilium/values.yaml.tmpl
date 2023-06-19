@@ -2682,6 +2682,13 @@ clustermesh:
       init:
         # -- Specifies the resources for etcd init container in the apiserver
         resources: {}
+        image:
+          override: ~
+          repository: "${ETCD_INIT_REPO}"
+          tag: "${CILIUM_VERSION}"
+          digest: "${ETCD_INIT_DIGEST}"
+          useDigest: true
+          pullPolicy: "${PULL_POLICY}"
         #   requests:
         #     cpu: 100m
         #     memory: 100Mi

@@ -42,6 +42,9 @@ jobs:
           - name: hubble-relay
             dockerfile: ./images/hubble-relay/Dockerfile
 
+          - name: etcd-init
+            dockerfile: ./images/etcd-init/Dockerfile
+
           - name: clustermesh-apiserver
             dockerfile: ./images/clustermesh-apiserver/Dockerfile
 
