@@ -26,7 +26,6 @@
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
 
 #define CLIENT_IP		v4_pod_one
-#define CLIENT_PORT		__bpf_htons(111)
 #define CLIENT_NODE_IP		v4_node_one
 
 #define EXTERNAL_SVC_IP		v4_ext_one
@@ -73,6 +72,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 }
 
 #include <bpf_xdp.c>
+
+#include "lib/egressgw.h"
 
 #define FROM_NETDEV	0
 
@@ -162,7 +163,7 @@ int egressgw_reply_setup(struct __ctx_buff *ctx)
 
 	struct ipv4_nat_entry snat_entry = {
 		.to_daddr = CLIENT_IP,
-		.to_dport = CLIENT_PORT,
+		.to_dport = client_port(TEST_XDP_REPLY),
 	};
 
 	map_update_elem(&SNAT_MAPPING_IPV4, &snat_tuple, &snat_entry, BPF_ANY);
@@ -270,7 +271,7 @@ int egressgw_reply_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (inner_l4->source != EXTERNAL_SVC_PORT)
 		test_fatal("innerSrcPort is not the external SVC port");
 
-	if (inner_l4->dest != CLIENT_PORT)
+	if (inner_l4->dest != client_port(TEST_XDP_REPLY))
 		test_fatal("innerDstPort hasn't been revNATed to client port");
 
 	test_finish();
