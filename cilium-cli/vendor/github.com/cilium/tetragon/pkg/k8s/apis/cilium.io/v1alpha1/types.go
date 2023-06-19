@@ -120,6 +120,9 @@ type KProbeSpec struct {
 	// +kubebuilder:validation:Optional
 	// A return argument to include in the trace output.
 	ReturnArg KProbeArg `json:"returnArg"`
+	// +kubebuilder:validation:Enum=Post;TrackSock;UntrackSock
+	// An action to perform on the return argument.
+	ReturnArgAction string `json:"returnArgAction"`
 	// +kubebuilder:validation:Optional
 	// Selectors to apply before producing trace output. Selectors are ORed.
 	Selectors []KProbeSelector `json:"selectors"`
@@ -129,7 +132,7 @@ type KProbeArg struct {
 	// +kubebuilder:validation:Minimum=0
 	// Position of the argument.
 	Index uint32 `json:"index"`
-	// +kubebuilder:validation:Enum=int;uint32;int32;uint64;int64;char_buf;char_iovec;size_t;skb;sock;string;fd;file;filename;path;nop;bpf_attr;perf_event;bpf_map;user_namespace;capability;
+	// +kubebuilder:validation:Enum=int;uint32;int32;uint64;int64;char_buf;char_iovec;size_t;skb;sock;string;fd;file;filename;path;nop;bpf_attr;perf_event;bpf_map;user_namespace;capability;kiocb;iov_iter;
 	// Argument type.
 	Type string `json:"type"`
 	// +kubebuilder:validation:Optional
@@ -261,7 +264,7 @@ type ArgSelector struct {
 }
 
 type ActionSelector struct {
-	// +kubebuilder:validation:Enum=Post;FollowFD;UnfollowFD;Sigkill;CopyFD;Override;GetUrl;DnsLookup;NoPost
+	// +kubebuilder:validation:Enum=Post;FollowFD;UnfollowFD;Sigkill;CopyFD;Override;GetUrl;DnsLookup;NoPost;TrackSock;UntrackSock
 	// Action to execute.
 	Action string `json:"action"`
 	// +kubebuilder:validation:Optional
@@ -282,6 +285,9 @@ type ActionSelector struct {
 	// +kubebuilder:validation:Optional
 	// A signal number for signal action
 	ArgSig uint32 `json:"argSig"`
+	// +kubebuilder:validation:Optional
+	// An arg index for the sock for trackSock and untrackSock actions
+	ArgSock uint32 `json:"argSock"`
 	// +kubebuilder:validation:Optional
 	// A time period within which repeated messages will not be posted. Can be specified in seconds (default or with
 	// 's' suffix), minutes ('m' suffix) or hours ('h' suffix).
