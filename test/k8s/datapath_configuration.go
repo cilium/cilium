@@ -450,7 +450,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 
-			prepareHostPolicyEnforcement(kubectl)
+			prepareHostPolicyEnforcement(kubectl, "host-policies.yaml")
 		})
 
 		AfterAll(func() {
@@ -666,8 +666,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 // case, we remove the policies to allow everything through and enable proper
 // termination of those connections.
 // This function implements that process.
-func prepareHostPolicyEnforcement(kubectl *helpers.Kubectl) {
-	demoHostPolicies := helpers.ManifestGet(kubectl.BasePath(), "host-policies.yaml")
+func prepareHostPolicyEnforcement(kubectl *helpers.Kubectl, hostPolicy string) {
+	demoHostPolicies := helpers.ManifestGet(kubectl.BasePath(), hostPolicy)
 	By(fmt.Sprintf("Applying policies %s for 1min", demoHostPolicies))
 	_, err := kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlApply, helpers.HelperTimeout)
 	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", demoHostPolicies, err))
