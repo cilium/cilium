@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/types"
-	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -28,32 +27,20 @@ func (k *K8sWatcher) onUpsertCIDRGroup(
 	cs client.Clientset,
 	apiGroup, metricLabel string,
 ) error {
-	var (
-		equal  bool
-		action string
-	)
 
-	// wrap k.K8sEventReceived call into a naked func() to capture equal in the closure
 	defer func() {
-		k.K8sEventReceived(apiGroup, metricLabel, action, true, equal)
+		k.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
 
 	oldCidrGroup, ok := cidrGroupCache[cidrGroup.Name]
 	if ok && oldCidrGroup.Spec.DeepEqual(&cidrGroup.Spec) {
-		equal = true
 		return nil
-	} else if ok {
-		action = resources.MetricUpdate
-	} else {
-		action = resources.MetricCreate
 	}
 
 	cidrGroupCpy := cidrGroup.DeepCopy()
 	cidrGroupCache[cidrGroup.Name] = cidrGroupCpy
 
 	err := k.updateCIDRGroupRefPolicies(cidrGroup.Name, cidrGroupCache, cnpCache, cs)
-
-	k.K8sEventProcessed(metricLabel, action, err == nil)
 
 	return err
 }
@@ -69,8 +56,7 @@ func (k *K8sWatcher) onDeleteCIDRGroup(
 
 	err := k.updateCIDRGroupRefPolicies(cidrGroupName, cidrGroupCache, cnpCache, cs)
 
-	k.K8sEventProcessed(metricLabel, resources.MetricDelete, err == nil)
-	k.K8sEventReceived(apiGroup, metricLabel, resources.MetricDelete, true, true)
+	k.k8sResourceSynced.SetEventTimestamp(apiGroup)
 
 	return err
 }
