@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
@@ -221,6 +222,10 @@ type fakeAuthMap struct {
 func (r *fakeAuthMap) Delete(key authKey) error {
 	if r.failDelete {
 		return errors.New("failed to delete entry")
+	}
+
+	if _, ok := r.entries[key]; !ok {
+		return ebpf.ErrKeyNotExist
 	}
 
 	delete(r.entries, key)
