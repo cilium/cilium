@@ -330,6 +330,73 @@ func TestPolicySelection(t *testing.T) {
 			err: nil,
 		},
 		{
+			name: "nil MatchExpression for node label selector",
+			nodeLabels: map[string]string{
+				"bgp-peering-policy": "a",
+			},
+			policies: []struct {
+				want     bool
+				selector *v1.LabelSelector
+			}{
+				{
+					want: false,
+					selector: &v1.LabelSelector{
+						MatchLabels:      map[string]string{},
+						MatchExpressions: nil,
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "nil values in MatchExpressions for node label selector",
+			nodeLabels: map[string]string{
+				"bgp-peering-policy": "a",
+			},
+			policies: []struct {
+				want     bool
+				selector *v1.LabelSelector
+			}{
+				{
+					want: false,
+					selector: &v1.LabelSelector{
+						MatchExpressions: []v1.LabelSelectorRequirement{
+							{
+								Key:      "bgp-peering-policy",
+								Operator: "In",
+								Values:   nil,
+							},
+						},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "valid value in MatchExpressions for node label selector",
+			nodeLabels: map[string]string{
+				"bgp-peering-policy": "a",
+			},
+			policies: []struct {
+				want     bool
+				selector *v1.LabelSelector
+			}{
+				{
+					want: true,
+					selector: &v1.LabelSelector{
+						MatchExpressions: []v1.LabelSelectorRequirement{
+							{
+								Key:      "bgp-peering-policy",
+								Operator: "In",
+								Values:   []string{"a"},
+							},
+						},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
 			// expect first policy returned, error nil
 			name: "policy match",
 			nodeLabels: map[string]string{
@@ -464,6 +531,10 @@ func TestPolicySelection(t *testing.T) {
 					t.Fatalf("expected err: %v", (tt.err == nil))
 				}
 				if want != nil {
+					if policy == nil {
+						t.Fatalf("got: <nil>, want: %+v", *want)
+					}
+
 					// pointer comparison, not a deep equal.
 					if policy != want {
 						t.Fatalf("got: %+v, want: %+v", *policy, *want)

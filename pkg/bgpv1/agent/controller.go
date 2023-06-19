@@ -303,6 +303,7 @@ func PolicySelection(ctx context.Context, labels map[string]string, policies []*
 		nodeSelector, err := slimmetav1.LabelSelectorAsSelector(policy.Spec.NodeSelector)
 		if err != nil {
 			l.WithError(err).Error("Failed to convert CiliumBGPPeeringPolicy's NodeSelector to a label.Selector interface")
+			continue
 		}
 		l.WithFields(logrus.Fields{
 			"policyNodeSelector": nodeSelector.String(),
