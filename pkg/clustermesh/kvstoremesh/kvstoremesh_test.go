@@ -81,7 +81,6 @@ func (w *remoteEtcdClientWrapper) ListAndWatch(ctx context.Context, name, prefix
 }
 
 func TestRemoteClusterRun(t *testing.T) {
-	t.Skip("Skip: it appears to badly interact with the other clustermesh tests")
 	testutils.IntegrationTest(t)
 
 	kvstore.SetupDummyWithConfigOpts(t, "etcd",
