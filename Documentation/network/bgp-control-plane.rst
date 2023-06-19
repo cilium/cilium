@@ -281,7 +281,58 @@ values, graceful restart configuration and others.
 
    Change of an existing neighbor configuration can cause reset of the existing BGP
    peering connection, which results in route flaps and transient packet loss while
-   the session reestablishes and peers exchange their routes.
+   the session reestablishes and peers exchange their routes. To prevent packet loss,
+   it is recommended to configure BGP graceful restart.
+
+Graceful Restart
+''''''''''''''''
+The Cilium BGP control plane can be configured to act as a graceful restart 
+``Restarting Speaker``. When you enable graceful restart, the BGP session will restart
+and the "graceful restart" capability will be advertised in the BGP OPEN message.
+
+In the event of a Cilium Agent restart, the peering BGP router does not withdraw 
+routes received from the Cilium BGP control plane immediately. The datapath
+continues to forward traffic during Agent restart, so there is no traffic
+disruption. 
+
+Configure graceful restart on per-neighbor basis, as follows:
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   #[...]
+   virtualRouters: # []CiliumBGPVirtualRouter
+    - localASN: 64512
+      # [...]
+      neighbors: # []CiliumBGPNeighbor
+       - peerAddress: 'fc00:f853:ccd:e793::50/128'
+         # [...]
+         gracefulRestart:
+           enabled: true
+           restartTimeSeconds: 120
+
+.. note::
+
+   When enabled, graceful restart capability is advertised for IPv4 and IPv6 address families.
+
+Optionally, you can use the ``RestartTime`` parameter. ``RestartTime`` is the time
+advertised to the peer within which Cilium BGP control plane is expected to re-establish
+the BGP session after a restart. On expiration of ``RestartTime``, the peer removes 
+the routes previously advertised by the Cilium BGP control plane.
+
+When the Cilium Agent restarts, it closes the BGP TCP socket, causing the emission of a
+TCP FIN packet. On receiving this TCP FIN, the peer changes its BGP state to ``Idle`` and
+starts its ``RestartTime`` timer.
+
+The Cilium agent boot up time varies depending on the deployment. If using ``RestartTime``,
+you should set it to a duration greater than the time taken by the Cilium Agent to boot up.
+
+Default value of ``RestartTime`` is 120 seconds. More details on graceful restart and 
+``RestartTime`` can be found in `RFC-4724`_ and `RFC-8538`_. 
+
+.. _RFC-4724 : https://www.rfc-editor.org/rfc/rfc4724.html
+.. _RFC-8538 : https://www.rfc-editor.org/rfc/rfc8538.html
 
 Service announcements
 ---------------------
