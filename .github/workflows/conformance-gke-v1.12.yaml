@@ -65,8 +65,6 @@ concurrency:
 
 env:
   clusterName: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
-  zone: us-west2-a
-  k8s_version: 1.24
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.14.7
   cilium_cli_ci_version:
@@ -169,11 +167,53 @@ jobs:
           state: success
           target_url: ${{ env.check_url }}
 
+  generate-matrix:
+    runs-on: ubuntu-latest
+    needs: setup-report
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        with:
+          ref: ${{ needs.setup-report.outputs.sha }}
+          persist-credentials: false
+
+      - name: Convert YAML to JSON
+        run: |
+          work_dir=".github/actions/gke"
+          destination_directory="/tmp/generated/gke"
+          mkdir -p "${destination_directory}"
+
+          ls ${work_dir}/*.yaml | grep -v 'schema\|helm' | while read file;do
+            filename=$(basename "$file")
+            new_filename="${filename%.yaml}.json"
+            yq -o=json "${file}" | jq . > "${destination_directory}/${new_filename}"
+          done
+          
+          # Merge 2 files into one
+          jq -s "add" ${destination_directory}/*.json > "${destination_directory}/gke.json"
+
+      - name: Generate Matrix
+        id: set-matrix
+        run: |
+          cd /tmp/generated/gke
+
+          if [ "${{ github.event_name }}" == "schedule" ];then
+            cp gke.json /tmp/matrix.json
+          else
+            jq '{ "k8s": [ .k8s[] | select(.default) ], "config": .config}' gke.json > /tmp/matrix.json
+          fi
+
+          echo "Generated matrix:"
+          cat /tmp/matrix.json
+          echo "matrix=$(jq -c . < /tmp/matrix.json)" >> $GITHUB_OUTPUT
+
   # This job is skipped when the workflow was triggered with the generic `/test`
   # trigger if the only modified files were under `test/` or `Documentation/`.
   installation-and-connectivity:
-    name: "Installation and Connectivity Test"
-    needs: [check_changes, setup-report]
+    name: "Installation and Connectivity Test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})"
+    needs: [check_changes, setup-report, generate-matrix]
     if: |
       (github.event_name == 'issue_comment' && (
         github.event.comment.body == '/ci-gke-1.12' ||
@@ -186,20 +226,8 @@ jobs:
     env:
       job_name: "Installation and Connectivity Test"
     strategy:
-      matrix:
-        include:
-        - type: "no-tunnel"
-          index: "1"
-          cilium-install-opts: ""
-        - type: "tunnel"
-          index: "2"
-          cilium-install-opts: "--datapath-mode=tunnel"
-        - type: "ipsec"
-          index: "3"
-          cilium-install-opts: "--encryption=ipsec"
-        - type: "tunnel-ipsec"
-          index: "4"
-          cilium-install-opts: "--encryption=ipsec --datapath-mode=tunnel"
+      fail-fast: false
+      matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
 
     steps:
       - name: Checkout main branch to access local actions
@@ -214,7 +242,7 @@ jobs:
         id: vars
         run: |
           SHA="${{ needs.setup-report.outputs.sha }}"
-          CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }}-${{ matrix.index }} \
+          CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }}-${{ matrix.config.index }} \
             --chart-directory=install/kubernetes/cilium \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
@@ -276,10 +304,10 @@ jobs:
 
       - name: Create GKE cluster
         run: |
-          gcloud container clusters create ${{ env.clusterName }}-${{ matrix.index }} \
+          gcloud container clusters create ${{ env.clusterName }}-${{ matrix.config.index }} \
             --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ needs.setup-report.outputs.owner }}" \
-            --zone ${{ env.zone }} \
-            --cluster-version ${{ env.k8s_version }} \
+            --zone ${{ matrix.k8s.zone }} \
+            --cluster-version ${{ matrix.k8s.version }} \
             --enable-ip-alias \
             --create-subnetwork="range=/26" \
             --cluster-ipv4-cidr="/21" \
@@ -294,7 +322,7 @@ jobs:
 
       - name: Get cluster credentials
         run: |
-          gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.zone }}
+          gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }}
 
       - name: Wait for images to be available
         timeout-minutes: 10
@@ -305,13 +333,13 @@ jobs:
           done
 
       - name: Create custom IPsec secret
-        if: ${{ matrix.type == 'ipsec' || matrix.type == 'tunnel-ipsec' }}
+        if: ${{ matrix.config.type == 'ipsec' || matrix.config.type == 'tunnel-ipsec' }}
         run: |
           kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="15 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
       - name: Install Cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ matrix.cilium-install-opts }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ matrix.config.cilium-install-opts }}
 
       - name: Enable Relay
         run: |
@@ -331,11 +359,11 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
-      - name:  Run connectivity test (${{ matrix.index }}, ${{ matrix.type }})
+      - name: Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-          --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.index }}, ${{ matrix.type }}).xml" \
-          --junit-property github_job_step="Run connectivity test (${{ matrix.index }}, ${{ matrix.type }})"
+          --junit-file "cilium-junits/${{ env.job_name }} (${{matrix.k8s.version}}, ${{matrix.config.index}}, ${{matrix.config.type}}).xml" \
+          --junit-property github_job_step="Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})"
 
       - name: Post-test information gathering
         if: ${{ !success() }}
@@ -348,10 +376,10 @@ jobs:
       - name: Clean up GKE
         if: ${{ always() }}
         run: |
-          while [ "$(gcloud container operations list --filter="status=RUNNING AND targetLink~${{ env.clusterName }}-${{ matrix.index }}" --format="value(name)")" ];do
+          while [ "$(gcloud container operations list --zone ${{ matrix.k8s.zone }} --filter="status=RUNNING AND targetLink~${{ env.clusterName }}-${{ matrix.config.index }}" --format="value(name)")" ];do
             echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
           done
-          gcloud container clusters delete ${{ env.clusterName }}-${{ matrix.index }} --zone ${{ env.zone }} --quiet --async
+          gcloud container clusters delete ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }} --quiet --async
         shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
 
       - name: Upload artifacts
