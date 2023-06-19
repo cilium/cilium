@@ -42,7 +42,7 @@ func testValue(i int) string {
 
 func (s *BaseTests) TestGetSet(c *C) {
 	prefix := "unit-test/"
-	maxID := 256
+	maxID := 8
 
 	Client().DeletePrefix(context.TODO(), prefix)
 	defer Client().DeletePrefix(context.TODO(), prefix)
@@ -68,8 +68,9 @@ func (s *BaseTests) TestGetSet(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(string(val), checker.DeepEquals, testValue(i))
 
-		val, err = Client().Get(context.TODO(), testKey(prefix, i))
+		key, val, err = Client().GetPrefix(context.TODO(), testKey(prefix, i))
 		c.Assert(err, IsNil)
+		c.Assert(key, checker.DeepEquals, testKey(prefix, i))
 		c.Assert(string(val), checker.DeepEquals, testValue(i))
 	}
 
