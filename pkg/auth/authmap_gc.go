@@ -315,7 +315,7 @@ func (r *authMapGarbageCollector) cleanupDeletedIdentity(id identity.NumericIden
 // Policies
 
 func (r *authMapGarbageCollector) cleanupEntriesWithoutAuthPolicy(_ context.Context) error {
-	r.logger.Debug("Cleaning up expired entries")
+	r.logger.Debug("Cleaning up entries which no longer require authentication by a policy")
 
 	err := r.authmap.DeleteIf(func(key authKey, info authInfo) bool {
 		authTypes := r.policyRepo.GetAuthTypes(key.localIdentity, key.remoteIdentity)
@@ -339,11 +339,14 @@ func (r *authMapGarbageCollector) cleanupEntriesWithoutAuthPolicy(_ context.Cont
 // Expired
 
 func (r *authMapGarbageCollector) cleanupExpiredEntries(_ context.Context) error {
-	r.logger.Debug("auth: cleaning up expired entries")
 	now := time.Now()
+	r.logger.
+		WithField("gc_time", now).
+		Debug("Cleaning up expired entries")
 	err := r.authmap.DeleteIf(func(key authKey, info authInfo) bool {
 		if info.expiration.Before(now) {
 			r.logger.
+				WithField("gc_time", now).
 				WithField("expiration", info.expiration).
 				Debug("Deleting entry due to expiration")
 			return true
