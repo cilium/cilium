@@ -15,7 +15,7 @@ enum egressgw_test {
 
 struct egressgw_test_ctx {
 	enum egressgw_test test;
-	bool reply;
+	enum ct_dir dir;
 	__u64 tx_packets;
 	__u64 rx_packets;
 	__u32 status_code;
