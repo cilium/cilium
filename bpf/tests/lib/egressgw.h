@@ -10,6 +10,14 @@ enum egressgw_test {
 	TEST_REDIRECT_SKIP_NO_GATEWAY = 3,
 };
 
+struct egressgw_test_ctx {
+	enum egressgw_test test;
+	bool reply;
+	__u64 tx_packets;
+	__u64 rx_packets;
+	__u32 status_code;
+};
+
 static __always_inline __be16 client_port(enum egressgw_test t)
 {
 	return CLIENT_PORT + (__be16)t;
