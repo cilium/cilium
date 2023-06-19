@@ -59,6 +59,7 @@ const (
 	ciliumNodesFileName                      = "ciliumnodes-<ts>.yaml"
 	ciliumNodeConfigsFileName                = "ciliumnodeconfigs-<ts>.yaml"
 	ciliumOperatorDeploymentFileName         = "cilium-operator-deployment-<ts>.yaml"
+	ciliumPodIPPoolsFileName                 = "ciliumpodippools-<ts>.yaml"
 	clustermeshApiserverDeploymentFileName   = "clustermesh-apiserver-deployment-<ts>.yaml"
 	cniConfigMapFileName                     = "cni-configmap-<ts>.yaml"
 	cniConfigFileName                        = "cniconf-%s-%s-<ts>.txt"

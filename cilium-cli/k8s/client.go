@@ -850,6 +850,10 @@ func (c *Client) ListCiliumNodeConfigs(ctx context.Context, namespace string, op
 	return c.CiliumClientset.CiliumV2alpha1().CiliumNodeConfigs(namespace).List(ctx, opts)
 }
 
+func (c *Client) ListCiliumPodIPPools(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumPodIPPoolList, error) {
+	return c.CiliumClientset.CiliumV2alpha1().CiliumPodIPPools().List(ctx, opts)
+}
+
 func (c *Client) GetLogs(ctx context.Context, namespace, name, container string, sinceTime time.Time, limitBytes int64, previous bool) (string, error) {
 	t := metav1.NewTime(sinceTime)
 	o := corev1.PodLogOptions{

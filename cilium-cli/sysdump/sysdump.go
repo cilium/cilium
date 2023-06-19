@@ -655,6 +655,20 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
+			Description: "Collecting Cilium Pod IP Pools",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumPodIPPools(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Cilium Pod IP pools: %w", err)
+				}
+				if err := c.WriteYAML(ciliumPodIPPoolsFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Cilium Pod IP pools: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: fmt.Sprintf("Checking if %s exists in %s namespace", ciliumEtcdSecretsSecretName, c.Options.CiliumNamespace),
 			Quick:       true,
 			Task: func(ctx context.Context) error {
