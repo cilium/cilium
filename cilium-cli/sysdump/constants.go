@@ -43,6 +43,8 @@ const (
 	ciliumDaemonSetFileName                  = "cilium-daemonset-<ts>.yaml"
 	ciliumEnvoyDaemonsetFileName             = "cilium-envoy-daemonset-<ts>.yaml"
 	ciliumEnvoyConfigMapFileName             = "cilium-envoy-configmap-<ts>.yaml"
+	ciliumSPIREAgentDaemonsetFileName        = "cilium-spire-agent-daemonset-<ts>.yaml"
+	ciliumSPIREServerStatefulSetFileName     = "cilium-spire-server-statefulset-<ts>.yaml"
 	ciliumIngressesFileName                  = "ciliumingresses-<ts>.yaml"
 	ciliumEgressNATPoliciesFileName          = "ciliumegressnatpolicies-<ts>.yaml"
 	ciliumEgressGatewayPoliciesFileName      = "ciliumegressgatewaypolicies-<ts>.yaml"
