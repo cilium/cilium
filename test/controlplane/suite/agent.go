@@ -97,6 +97,11 @@ func startCiliumAgent(t *testing.T, clientset k8sClient.Clientset, extraCell cel
 		}),
 	)
 
+	// Unlike global configuration options, cell-specific configuration options
+	// (i.e. the ones defined through cell.Config(...)) must be set to the *viper.Viper
+	// object bound to the test hive.
+	handle.hive.Viper().Set(option.EndpointGCInterval, 0)
+
 	if err := handle.hive.Start(context.TODO()); err != nil {
 		return nil, agentHandle{}, err
 	}
