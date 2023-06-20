@@ -5,10 +5,12 @@ package tests
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium-cli/defaults"
 )
 
 // NoErrorsInLogs checks whether there are no error messages in cilium-agent
@@ -35,6 +37,48 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 			t.Fatalf("Error reading Cilium logs: %s", err)
 		}
 		checkErrorsInLogs(logs, t)
+	}
+
+}
+
+// NoMissedTailCalls checks whether there were no drops due to missed (BPF)
+// tail calls.
+func NoMissedTailCalls() check.Scenario {
+	return &noMissedTailCalls{}
+}
+
+type noMissedTailCalls struct{}
+
+func (n *noMissedTailCalls) Name() string {
+	return "no-missed-tail-calls"
+}
+
+func (n *noMissedTailCalls) Run(ctx context.Context, t *check.Test) {
+	ct := t.Context()
+	cmd := []string{
+		"/bin/sh", "-c",
+		"cilium metrics list -o json | jq '.[] | select( .name == \"cilium_drop_count_total\" and .labels.reason == \"Missed tail call\" ).value'",
+	}
+
+	for _, pod := range ct.CiliumPods() {
+		pod := pod
+		stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
+		if err != nil {
+			t.Fatalf("Error fetching missed tail call drop counts: %s", err)
+		}
+		countStr := stdout.String()
+		if countStr == "" {
+			return
+		}
+
+		count, err := strconv.Atoi(countStr)
+		if err != nil {
+			t.Fatalf("Failed to convert missed tail call drops %q to int: %s", countStr, err)
+		}
+
+		if count != 0 {
+			t.Fatalf("Detected drops due to missed tail calls: %d", count)
+		}
 	}
 
 }
