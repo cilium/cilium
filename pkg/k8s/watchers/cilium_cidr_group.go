@@ -188,21 +188,17 @@ func cidrGroupRefsToCIDRsSets(cidrGroupRefs []string, cache map[string]*cilium_v
 	var errs []error
 	cidrsSet := make(map[string][]api.CIDR)
 	for _, cidrGroupRef := range cidrGroupRefs {
-		var found bool
-		for cidrGroupName, cidrGroup := range cache {
-			if cidrGroupName == cidrGroupRef {
-				cidrs := make([]api.CIDR, 0, len(cidrGroup.Spec.ExternalCIDRs))
-				for _, cidr := range cidrGroup.Spec.ExternalCIDRs {
-					cidrs = append(cidrs, api.CIDR(cidr))
-				}
-				cidrsSet[cidrGroupRef] = cidrs
-				found = true
-				break
-			}
-		}
+		cidrGroup, found := cache[cidrGroupRef]
 		if !found {
 			errs = append(errs, fmt.Errorf("cidr group %q not found, skipping translation", cidrGroupRef))
+			continue
 		}
+
+		cidrs := make([]api.CIDR, 0, len(cidrGroup.Spec.ExternalCIDRs))
+		for _, cidr := range cidrGroup.Spec.ExternalCIDRs {
+			cidrs = append(cidrs, api.CIDR(cidr))
+		}
+		cidrsSet[cidrGroupRef] = cidrs
 	}
 	return cidrsSet, errors.Join(errs...)
 }
