@@ -530,6 +530,7 @@ jobs:
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --flush-ct \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
@@ -546,6 +547,7 @@ jobs:
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --flush-ct \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
@@ -564,6 +566,7 @@ jobs:
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --flush-ct \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
