@@ -1,0 +1,10 @@
+# List of k8s version for AKS tests
+---
+include:
+  - version: "1.24"
+    location: westeurope
+  - version: "1.25"
+    location: westus
+    default: true
+  - version: "1.26"
+    location: australiaeast
