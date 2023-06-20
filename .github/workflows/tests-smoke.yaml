@@ -18,6 +18,7 @@ env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.14.7
   cilium_cli_ci_version:
+  CILIUM_CLI_MODE: helm
   KIND_VERSION: v0.17.0
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
@@ -84,19 +85,50 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Set ref
+        id: ref
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo ref="${{ github.ref }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo ref="${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
+          else
+            echo "Invalid event type ${{ github.event_name }}"
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
+          # checkout pull request head ref so that print-chart-version.sh prints the correct chart version.
+          ref: ${{ steps.ref.outputs.ref }}
+          # required for git describe
+          fetch-depth: 0
           persist-credentials: false
 
-      - name: Set image tag
-        id: sha
+      - name: Set up install variables
+        id: vars
         run: |
-          if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
-            echo tag=${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
-          else
-            echo tag=${{ github.sha }} >> $GITHUB_OUTPUT
-          fi
+          version=$(bash contrib/scripts/print-chart-version.sh)
+          echo "version=${version}" >> $GITHUB_OUTPUT
+          echo "repo=oci://quay.io/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium" >> $GITHUB_OUTPUT
+          CILIUM_INSTALL_DEFAULTS="--repository=${repo} \
+             --version ${version} \
+             --helm-set nodeinit.enabled=true \
+             --helm-set kubeProxyReplacement=partial \
+             --helm-set socketLB.enabled=false \
+             --helm-set externalIPs.enabled=true \
+             --helm-set nodePort.enabled=true \
+             --helm-set hostPort.enabled=true \
+             --helm-set bpf.masquerade=false \
+             --helm-set ipam.mode=kubernetes \
+             --helm-set hubble.relay.enabled=true \
+             --helm-set prometheus.enabled=true \
+             --helm-set operator.prometheus.enabled=true \
+             --helm-set hubble.enabled=true \
+             --helm-set=hubble.metrics.enabled=\"{dns,drop,tcp,flow,port-distribution,icmp,http}\" \
+             --helm-set ingressController.enabled=true"
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
       - name: Precheck generated connectivity manifest files
         run: |
@@ -110,48 +142,6 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
 
-      - name: Wait for images to be available
-        timeout-minutes: 30
-        shell: bash
-        run: |
-          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.sha.outputs.tag }} &> /dev/null; do sleep 45s; done
-          done
-
-      - name: Set up install variables
-        id: vars
-        run: |
-          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-             --helm-set nodeinit.enabled=true \
-             --helm-set kubeProxyReplacement=partial \
-             --helm-set socketLB.enabled=false \
-             --helm-set externalIPs.enabled=true \
-             --helm-set nodePort.enabled=true \
-             --helm-set hostPort.enabled=true \
-             --helm-set bpf.masquerade=false \
-             --helm-set ipam.mode=kubernetes \
-             --helm-set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-             --helm-set image.tag=${{ steps.sha.outputs.tag }} \
-             --helm-set image.pullPolicy=IfNotPresent \
-             --helm-set image.useDigest=false \
-             --helm-set hubble.relay.enabled=true \
-             --helm-set hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-             --helm-set hubble.relay.image.tag=${{ steps.sha.outputs.tag }} \
-             --helm-set hubble.relay.image.pullPolicy=IfNotPresent \
-             --helm-set hubble.relay.image.useDigest=false \
-             --helm-set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-             --helm-set operator.image.suffix=-ci \
-             --helm-set operator.image.tag=${{ steps.sha.outputs.tag }} \
-             --helm-set operator.image.pullPolicy=IfNotPresent \
-             --helm-set operator.image.useDigest=false \
-             --helm-set prometheus.enabled=true \
-             --helm-set operator.prometheus.enabled=true \
-             --helm-set hubble.enabled=true \
-             --helm-set=hubble.metrics.enabled=\"{dns,drop,tcp,flow,port-distribution,icmp,http}\" \
-             --helm-set ingressController.enabled=true"
-
-          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
-
       - name: Install Cilium CLI
         run: |
           curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
@@ -160,9 +150,15 @@ jobs:
           rm cilium-linux-amd64.tar.gz{,.sha256sum}
           cilium version
 
+      - name: Wait for Helm dev chart to become available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          until helm pull ${{ steps.vars.outputs.repo }} --version ${{ steps.vars.outputs.version }} &> /dev/null; do sleep 30s; done
+
       - name: Install Cilium
         run: |
-          CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for Cilium status to be ready
         run: |
