@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/cilium/lumberjack/v2"
 	"github.com/sirupsen/logrus"
@@ -15,17 +16,23 @@ import (
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
+	"github.com/cilium/cilium/pkg/hubble/filters"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
 // exporter is an implementation of OnDecodedEvent interface that writes Hubble events to a file.
 type exporter struct {
+	ctx     context.Context
 	logger  logrus.FieldLogger
 	encoder *json.Encoder
+	writer  io.WriteCloser
+
+	opts exporteroption.Options
 }
 
 // NewExporter initializes an exporter.
 func NewExporter(
+	ctx context.Context,
 	logger logrus.FieldLogger,
 	options ...exporteroption.Option) (*exporter, error) {
 	opts := exporteroption.Default // start with defaults
@@ -35,20 +42,25 @@ func NewExporter(
 		}
 	}
 	logger.WithField("options", opts).Info("Configuring Hubble event exporter")
-	encoder := json.NewEncoder(&lumberjack.Logger{
+	writer := &lumberjack.Logger{
 		Filename:   opts.Path,
 		MaxSize:    opts.MaxSizeMB,
 		MaxBackups: opts.MaxBackups,
 		Compress:   opts.Compress,
-	})
-	return newExporter(logger, encoder), nil
+	}
+	return newExporter(ctx, logger, writer, opts)
 }
 
-func newExporter(logger logrus.FieldLogger, encoder *json.Encoder) *exporter {
+// newExporter let's you supply your own WriteCloser for tests.
+func newExporter(ctx context.Context, logger logrus.FieldLogger, writer io.WriteCloser, opts exporteroption.Options) (*exporter, error) {
+	encoder := json.NewEncoder(writer)
 	return &exporter{
+		ctx:     ctx,
 		logger:  logger,
 		encoder: encoder,
-	}
+		writer:  writer,
+		opts:    opts,
+	}, nil
 }
 
 // eventToExportEvent converts Event to ExportEvent.
@@ -91,8 +103,27 @@ func eventToExportEvent(e *v1.Event) *observerpb.ExportEvent {
 	}
 }
 
-// Start calls GetFlows and writes responses to a file.
+func (e *exporter) Stop() error {
+	if e.writer == nil {
+		// Already stoppped
+		return nil
+	}
+	err := e.writer.Close()
+	e.writer = nil
+	return err
+}
+
+// OnDecodedEvent checks if the event passes the filter.
+// If context was cancelled, it calls Stop() and stops processing events.
 func (e *exporter) OnDecodedEvent(_ context.Context, ev *v1.Event) (bool, error) {
+	select {
+	case <-e.ctx.Done():
+		return false, e.Stop()
+	default:
+	}
+	if !filters.Apply(e.opts.AllowList, e.opts.DenyList, ev) {
+		return false, nil
+	}
 	res := eventToExportEvent(ev)
 	if res == nil {
 		return false, nil

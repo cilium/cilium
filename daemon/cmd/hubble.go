@@ -169,7 +169,7 @@ func (d *Daemon) launchHubble() {
 		if option.Config.HubbleExportFileCompress {
 			exporterOpts = append(exporterOpts, exporteroption.WithCompress())
 		}
-		hubbleExporter, err := exporter.NewExporter(logger, exporterOpts...)
+		hubbleExporter, err := exporter.NewExporter(d.ctx, logger, exporterOpts...)
 		if err != nil {
 			logger.WithError(err).Error("Failed to configure Hubble export")
 		} else {
