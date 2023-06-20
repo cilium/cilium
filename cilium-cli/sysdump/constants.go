@@ -21,6 +21,8 @@ const (
 	ciliumOperatorDeploymentName       = defaults.OperatorDeploymentName
 	ciliumSPIREServerStatefulSetName   = defaults.SPIREServerStatefulSetName
 	ciliumSPIREAgentDaemonSetName      = defaults.SPIREAgentDaemonSetName
+	ciliumSPIREServerConfigMapName     = defaults.SPIREServerConfigMapName
+	ciliumSPIREAgentConfigMapName      = defaults.SPIREAgentConfigMapName
 	clustermeshApiserverDeploymentName = defaults.ClusterMeshDeploymentName
 	hubbleContainerName                = "hubble"
 	hubbleDaemonSetName                = "hubble"
@@ -44,7 +46,9 @@ const (
 	ciliumEnvoyDaemonsetFileName             = "cilium-envoy-daemonset-<ts>.yaml"
 	ciliumEnvoyConfigMapFileName             = "cilium-envoy-configmap-<ts>.yaml"
 	ciliumSPIREAgentDaemonsetFileName        = "cilium-spire-agent-daemonset-<ts>.yaml"
+	ciliumSPIREAgentConfigMapFileName        = "cilium-spire-agent-configmap-<ts>.yaml"
 	ciliumSPIREServerStatefulSetFileName     = "cilium-spire-server-statefulset-<ts>.yaml"
+	ciliumSPIREServerConfigMapFileName       = "cilium-spire-server-configmap-<ts>.yaml"
 	ciliumIngressesFileName                  = "ciliumingresses-<ts>.yaml"
 	ciliumEgressNATPoliciesFileName          = "ciliumegressnatpolicies-<ts>.yaml"
 	ciliumEgressGatewayPoliciesFileName      = "ciliumegressgatewaypolicies-<ts>.yaml"
