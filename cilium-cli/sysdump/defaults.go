@@ -64,4 +64,8 @@ var (
 	// DefaultCiliumNamespaces will be used to attempt to autodetect what namespace Cilium is installed in
 	// unless otherwise specified.
 	DefaultCiliumNamespaces = []string{"kube-system", "cilium"}
+
+	// DefaultCiliumSPIRENamespaces will be used to attempt to autodetect what namespace Cilium SPIRE is installed in
+	// unless otherwise specified.
+	DefaultCiliumSPIRENamespaces = []string{"kube-system", "cilium", "cilium-spire"}
 )

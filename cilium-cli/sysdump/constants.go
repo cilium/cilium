@@ -19,6 +19,8 @@ const (
 	ciliumConfigMapName                = defaults.ConfigMapName
 	ciliumEtcdSecretsSecretName        = "cilium-etcd-secrets"
 	ciliumOperatorDeploymentName       = defaults.OperatorDeploymentName
+	ciliumSPIREServerStatefulSetName   = defaults.SPIREServerStatefulSetName
+	ciliumSPIREAgentDaemonSetName      = defaults.SPIREAgentDaemonSetName
 	clustermeshApiserverDeploymentName = defaults.ClusterMeshDeploymentName
 	hubbleContainerName                = "hubble"
 	hubbleDaemonSetName                = "hubble"
