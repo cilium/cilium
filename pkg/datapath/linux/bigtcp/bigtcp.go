@@ -7,6 +7,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -137,6 +138,22 @@ func haveIPv6MaxSize() bool {
 	return false
 }
 
+func probeTSOMaxSize() int {
+	maxSize := math.IntMin(bigTCPGSOMaxSize, bigTCPGROMaxSize)
+	for _, device := range option.Config.GetDevices() {
+		link, err := netlink.LinkByName(device)
+		if err == nil {
+			tso := link.Attrs().TSOMaxSize
+			tsoMax := int(tso)
+			if tsoMax > defaultGSOMaxSize && tsoMax < maxSize {
+				log.WithField("device", device).Infof("Lowering GRO/GSO max size from %d to %d", maxSize, tsoMax)
+				maxSize = tsoMax
+			}
+		}
+	}
+	return maxSize
+}
+
 func InitBIGTCP(bigTCPConfig *Configuration) {
 	var err error
 
@@ -199,13 +216,14 @@ func InitBIGTCP(bigTCPConfig *Configuration) {
 		}
 
 		log.Infof("Setting up BIG TCP")
+		tsoMax := probeTSOMaxSize()
 		if option.Config.EnableIPv4BIGTCP && haveIPv4 {
-			bigTCPConfig.groIPv4MaxSize = bigTCPGROMaxSize
-			bigTCPConfig.gsoIPv4MaxSize = bigTCPGSOMaxSize
+			bigTCPConfig.groIPv4MaxSize = tsoMax
+			bigTCPConfig.gsoIPv4MaxSize = tsoMax
 		}
 		if option.Config.EnableIPv6BIGTCP && haveIPv6 {
-			bigTCPConfig.groIPv6MaxSize = bigTCPGROMaxSize
-			bigTCPConfig.gsoIPv6MaxSize = bigTCPGSOMaxSize
+			bigTCPConfig.groIPv6MaxSize = tsoMax
+			bigTCPConfig.gsoIPv6MaxSize = tsoMax
 		}
 		disableMsg = ", disabling BIG TCP"
 	}
