@@ -59,8 +59,8 @@ func (c *Configuration) GetGSOIPv4MaxSize() int {
 	return c.gsoIPv4MaxSize
 }
 
-// if an error is returned the caller is responsible for rolling back
-// any partial changes
+// If an error is returned the caller is responsible for rolling back
+// any partial changes.
 func setGROGSOIPv6MaxSize(device string, GROMaxSize, GSOMaxSize int) error {
 	link, err := netlink.LinkByName(device)
 	if err != nil {
@@ -69,9 +69,9 @@ func setGROGSOIPv6MaxSize(device string, GROMaxSize, GSOMaxSize int) error {
 	}
 
 	attrs := link.Attrs()
-	// the check below is needed to avoid trying to change GSO/GRO max sizes
+	// The check below is needed to avoid trying to change GSO/GRO max sizes
 	// when that is not necessary (e.g. BIG TCP was never enabled or current
-	// size matches the target size we need)
+	// size matches the target size we need).
 	if (int(attrs.GROMaxSize) == GROMaxSize && int(attrs.GSOMaxSize) == GSOMaxSize) ||
 		(!option.Config.EnableIPv6BIGTCP &&
 			int(attrs.GROMaxSize) <= GROMaxSize &&
@@ -87,8 +87,8 @@ func setGROGSOIPv6MaxSize(device string, GROMaxSize, GSOMaxSize int) error {
 	return netlink.LinkSetGSOMaxSize(link, GSOMaxSize)
 }
 
-// if an error is returned the caller is responsible for rolling back
-// any partial changes
+// If an error is returned the caller is responsible for rolling back
+// any partial changes.
 func setGROGSOIPv4MaxSize(device string, GROMaxSize, GSOMaxSize int) error {
 	link, err := netlink.LinkByName(device)
 	if err != nil {
@@ -97,9 +97,9 @@ func setGROGSOIPv4MaxSize(device string, GROMaxSize, GSOMaxSize int) error {
 	}
 
 	attrs := link.Attrs()
-	// the check below is needed to avoid trying to change GSO/GRO max sizes
+	// The check below is needed to avoid trying to change GSO/GRO max sizes
 	// when that is not necessary (e.g. BIG TCP was never enabled or current
-	// size matches the target size we need)
+	// size matches the target size we need).
 	if (int(attrs.GROIPv4MaxSize) == GROMaxSize && int(attrs.GSOIPv4MaxSize) == GSOMaxSize) ||
 		(!option.Config.EnableIPv4BIGTCP &&
 			int(attrs.GROIPv4MaxSize) <= GROMaxSize &&
@@ -215,13 +215,14 @@ func InitBIGTCP(bigTCPConfig *Configuration) {
 
 	modifiedDevices := []string{}
 	for _, device := range option.Config.GetDevices() {
-		// we always add the device because we might do only a partial
+		// We always add the device because we might do only a partial
 		// modification and end up with an error, so best to be conservative
-		// and always reset all on error
+		// and always reset all on error.
 		modifiedDevices = append(modifiedDevices, device)
-		// For compatibility, the Kernel will also update the net device's "gso/gro_ipv4_max_size",
-		// if the new size of "gso/gro_max_size" isn't greater than 64KB.
-		// So it needs to set the IPv6 firstly, otherwide, the IPv4 BIG TCP value will be reset.
+		// For compatibility, the kernel will also update the net device's
+		// {gso,gro}_ipv4_max_size, if the new size of {gso,gro}_max_size
+		// isn't greater than 64KB. So it needs to set the IPv6 one first
+		// as otherwise the IPv4 BIG TCP value will be reset.
 		if haveIPv6 {
 			err = setGROGSOIPv6MaxSize(device,
 				bigTCPConfig.groIPv6MaxSize, bigTCPConfig.gsoIPv6MaxSize)
