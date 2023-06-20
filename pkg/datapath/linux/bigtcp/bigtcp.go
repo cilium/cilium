@@ -219,19 +219,9 @@ func InitBIGTCP(bigTCPConfig *Configuration) {
 		// modification and end up with an error, so best to be conservative
 		// and always reset all on error
 		modifiedDevices = append(modifiedDevices, device)
-		if haveIPv4 {
-			err = setGROGSOIPv4MaxSize(device,
-				bigTCPConfig.groIPv4MaxSize, bigTCPConfig.gsoIPv4MaxSize)
-			if err != nil {
-				log.WithError(err).WithField("device", device).Warnf("Could not modify IPv4 gro_max_size and gso_max_size%s",
-					disableMsg)
-				option.Config.EnableIPv4BIGTCP = false
-				option.Config.EnableIPv6BIGTCP = false
-				break
-			}
-			log.WithField("device", device).Infof("Setting IPv4 gso_max_size to %d and gro_max_size to %d",
-				bigTCPConfig.gsoIPv4MaxSize, bigTCPConfig.groIPv4MaxSize)
-		}
+		// For compatibility, the Kernel will also update the net device's "gso/gro_ipv4_max_size",
+		// if the new size of "gso/gro_max_size" isn't greater than 64KB.
+		// So it needs to set the IPv6 firstly, otherwide, the IPv4 BIG TCP value will be reset.
 		if haveIPv6 {
 			err = setGROGSOIPv6MaxSize(device,
 				bigTCPConfig.groIPv6MaxSize, bigTCPConfig.gsoIPv6MaxSize)
@@ -244,6 +234,19 @@ func InitBIGTCP(bigTCPConfig *Configuration) {
 			}
 			log.WithField("device", device).Infof("Setting IPv6 gso_max_size to %d and gro_max_size to %d",
 				bigTCPConfig.gsoIPv6MaxSize, bigTCPConfig.groIPv6MaxSize)
+		}
+		if haveIPv4 {
+			err = setGROGSOIPv4MaxSize(device,
+				bigTCPConfig.groIPv4MaxSize, bigTCPConfig.gsoIPv4MaxSize)
+			if err != nil {
+				log.WithError(err).WithField("device", device).Warnf("Could not modify IPv4 gro_max_size and gso_max_size%s",
+					disableMsg)
+				option.Config.EnableIPv4BIGTCP = false
+				option.Config.EnableIPv6BIGTCP = false
+				break
+			}
+			log.WithField("device", device).Infof("Setting IPv4 gso_max_size to %d and gro_max_size to %d",
+				bigTCPConfig.gsoIPv4MaxSize, bigTCPConfig.groIPv4MaxSize)
 		}
 	}
 
