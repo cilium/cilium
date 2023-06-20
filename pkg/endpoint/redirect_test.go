@@ -8,8 +8,10 @@ package endpoint
 import (
 	"context"
 
+	"github.com/sirupsen/logrus"
 	"gopkg.in/check.v1"
 
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -21,8 +23,10 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/option"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
@@ -46,7 +50,7 @@ type RedirectSuiteProxy struct {
 // ProxyPolicy parameter.
 func (r *RedirectSuiteProxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, localEndpoint logger.EndpointUpdater, wg *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 	pp := r.parserProxyPortMap[l4.GetL7Parser()]
-	return pp, nil, nil, nil
+	return pp, nil, func() { log.Infof("FINALIZER CALLED") }, nil
 }
 
 // RemoveRedirect does nothing.
@@ -266,4 +270,205 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	c.Assert(err, check.IsNil)
 	ep.removeOldRedirects(d, cmp)
 	c.Assert(len(ep.realizedRedirects), check.Equals, 0)
+}
+
+var (
+	// Identity, labels, selectors for an endpoint named "foo"
+	identityFoo = uint32(100)
+	labelsFoo   = labels.ParseSelectLabelArray("foo", "red")
+	selectFoo_  = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
+	denyFooL3__ = selectFoo_
+
+	identityBar = uint32(200)
+
+	labelsBar  = labels.ParseSelectLabelArray("bar", "blue")
+	selectBar_ = api.NewESFromLabels(labels.ParseSelectLabel("bar"))
+
+	denyAllL4_ []api.PortDenyRule
+
+	allowPort80 = []api.PortRule{{
+		Ports: []api.PortProtocol{
+			{Port: "80", Protocol: api.ProtoTCP},
+		},
+	}}
+	allowHTTPRoot = &api.L7Rules{
+		HTTP: []api.PortRuleHTTP{
+			{Method: "GET", Path: "/"},
+		},
+		L7Proto: policy.ParserTypeHTTP.String(),
+	}
+
+	lblsL3DenyFoo = labels.ParseLabelArray("l3-deny")
+	ruleL3DenyFoo = api.NewRule().
+			WithLabels(lblsL3DenyFoo).
+			WithIngressDenyRules([]api.IngressDenyRule{{
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{denyFooL3__},
+			},
+			ToPorts: denyAllL4_,
+		}})
+	lblsL4L7Allow = labels.ParseLabelArray("l4l7-allow")
+	ruleL4L7Allow = api.NewRule().
+			WithLabels(lblsL4L7Allow).
+			WithIngressRules([]api.IngressRule{{
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{},
+			},
+			ToPorts: combineL4L7(allowPort80, allowHTTPRoot),
+		}})
+
+	AllowAnyEgressLabels = labels.LabelArray{labels.NewLabel(policy.LabelKeyPolicyDerivedFrom,
+		policy.LabelAllowAnyEgress,
+		labels.LabelSourceReserved)}
+
+	dirIngress      = trafficdirection.Ingress.Uint8()
+	dirEgress       = trafficdirection.Egress.Uint8()
+	mapKeyAllL7     = policy.Key{Identity: 0, DestPort: 80, Nexthdr: 6, TrafficDirection: dirIngress}
+	mapKeyFoo       = policy.Key{Identity: identityFoo, DestPort: 0, Nexthdr: 0, TrafficDirection: dirIngress}
+	mapKeyFooL7     = policy.Key{Identity: identityFoo, DestPort: 80, Nexthdr: 6, TrafficDirection: dirIngress}
+	mapKeyAllowAllE = policy.Key{Identity: 0, DestPort: 0, Nexthdr: 0, TrafficDirection: dirEgress}
+)
+
+// combineL4L7 returns a new PortRule that refers to the specified l4 ports and
+// l7 rules.
+func combineL4L7(l4 []api.PortRule, l7 *api.L7Rules) []api.PortRule {
+	result := make([]api.PortRule, 0, len(l4))
+	for _, pr := range l4 {
+		result = append(result, api.PortRule{
+			Ports: pr.Ports,
+			Rules: l7,
+		})
+	}
+	return result
+}
+
+func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
+	// Setup dependencies for endpoint.
+	kvstore.SetupDummy("etcd")
+
+	oldPolicyEnable := policy.GetPolicyEnabled()
+	defer policy.SetPolicyEnabled(oldPolicyEnable)
+	policy.SetPolicyEnabled(option.DefaultEnforcement)
+
+	identity.InitWellKnownIdentities(&fakeConfig.Config{})
+	idAllocatorOwner := &DummyIdentityAllocatorOwner{}
+
+	mgr := NewCachingIdentityAllocator(idAllocatorOwner)
+	<-mgr.InitIdentityAllocator(nil, nil)
+	defer mgr.Close()
+
+	identityCache := cache.IdentityCache{
+		identity.NumericIdentity(identityFoo): labelsFoo,
+		identity.NumericIdentity(identityBar): labelsBar,
+	}
+
+	do := &DummyOwner{
+		repo: policy.NewPolicyRepository(mgr, identityCache, nil),
+	}
+	identitymanager.Subscribe(do.repo)
+
+	httpPort := uint16(19001)
+	dnsPort := uint16(19002)
+	kafkaPort := uint16(19003)
+
+	rsp := &RedirectSuiteProxy{
+		parserProxyPortMap: map[policy.L7ParserType]uint16{
+			policy.ParserTypeHTTP:  httpPort,
+			policy.ParserTypeDNS:   dnsPort,
+			policy.ParserTypeKafka: kafkaPort,
+		},
+		redirectPortUserMap: make(map[uint16][]string),
+	}
+
+	ep := NewEndpointWithState(do, do, ipcache.NewIPCache(nil), rsp, mgr, 12345, StateRegenerating)
+
+	epIdentity, _, err := mgr.AllocateIdentity(context.Background(), labelsBar.Labels(),
+		true, identity.NumericIdentity(identityBar))
+	c.Assert(err, check.IsNil)
+	ep.SetIdentity(epIdentity, true)
+
+	// Policy denies anything to "foo"
+	rules := api.Rules{
+		ruleL3DenyFoo.WithEndpointSelector(selectBar_),
+		ruleL4L7Allow.WithEndpointSelector(selectBar_),
+	}
+	do.repo.AddList(rules)
+
+	err = ep.regeneratePolicy()
+	c.Assert(err, check.IsNil)
+
+	expected := policy.MapState{
+		mapKeyAllowAllE: policy.MapStateEntry{
+			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
+		},
+		mapKeyFoo: policy.MapStateEntry{
+			IsDeny:           true,
+			DerivedFromRules: labels.LabelArrayList{lblsL3DenyFoo},
+		},
+	}
+
+	equal, errStr := checker.ExportedEqual(ep.desiredPolicy.PolicyMapState, expected)
+	c.Assert(errStr, check.Equals, "")
+	c.Assert(equal, check.Equals, true)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmp := completion.NewWaitGroup(ctx)
+
+	logger := ep.getLogger().Logger
+	oldLogLevel := logger.GetLevel()
+	logger.SetLevel(logrus.DebugLevel)
+	defer logger.SetLevel(oldLogLevel)
+
+	desiredRedirects, err, finalizeFunc, revertFunc := ep.addNewRedirects(cmp)
+	c.Assert(err, check.IsNil)
+	finalizeFunc()
+
+	// Redirect is still created, even if all MapState entries may have been overridden by a
+	// deny entry.  A new FQDN redirect may have no MapState entries as the associated CIDR
+	// identities may match no numeric IDs yet, so we can not count the number of added MapState
+	// entries and make any conclusions from it.
+	c.Assert(len(desiredRedirects), check.Equals, 1)
+
+	expected2 := policy.MapState{
+		mapKeyAllowAllE: policy.MapStateEntry{
+			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
+		},
+		mapKeyAllL7: policy.MapStateEntry{
+			IsDeny:           false,
+			ProxyPort:        httpPort,
+			DerivedFromRules: labels.LabelArrayList{lblsL4L7Allow},
+		},
+		mapKeyFoo: policy.MapStateEntry{
+			IsDeny:           true,
+			DerivedFromRules: labels.LabelArrayList{lblsL3DenyFoo},
+		},
+		mapKeyFooL7: policy.MapStateEntry{
+			IsDeny:           true,
+			DerivedFromRules: labels.LabelArrayList{lblsL3DenyFoo},
+		},
+	}
+
+	// Redirect for the HTTP port should have been added, but there should be a deny for Foo on
+	// that port, as it is shadowed by the deny rule
+	equal, errStr = checker.ExportedEqual(ep.desiredPolicy.PolicyMapState, expected2)
+	c.Assert(errStr, check.Equals, "")
+	c.Assert(equal, check.Equals, true)
+
+	// Keep only desired redirects
+	ep.removeOldRedirects(desiredRedirects, cmp)
+
+	// Check that the redirect is still realized
+	c.Assert(len(ep.realizedRedirects), check.Equals, 1)
+	c.Assert(len(ep.desiredPolicy.PolicyMapState), check.Equals, 4)
+
+	// Pretend that something failed and revert the changes
+	revertFunc()
+
+	// Check that the state before addRedirects is restored
+	equal, errStr = checker.ExportedEqual(ep.desiredPolicy.PolicyMapState, expected)
+	c.Assert(errStr, check.Equals, "")
+	c.Assert(equal, check.Equals, true)
+	c.Assert(len(ep.realizedRedirects), check.Equals, 0)
+	c.Assert(len(ep.desiredPolicy.PolicyMapState), check.Equals, 2)
 }
