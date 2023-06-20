@@ -70,7 +70,9 @@ const (
 	ClusterMeshExternalWorkloadSecretName = "clustermesh-apiserver-external-workload-cert"
 
 	SPIREServerStatefulSetName = "spire-server"
+	SPIREServerConfigMapName   = "spire-server"
 	SPIREAgentDaemonSetName    = "spire-agent"
+	SPIREAgentConfigMapName    = "spire-agent"
 
 	ConnectivityCheckNamespace = "cilium-test"
 
