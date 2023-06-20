@@ -28,7 +28,7 @@ env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
   kind_version: v0.20.0
   kind_config: .github/kind-config.yaml
-  gateway_api_version: v0.6.1
+  gateway_api_version: v0.7.0
   metallb_version: 0.12.1
   timeout: 5m
 
@@ -36,6 +36,12 @@ jobs:
   gateway-api-conformance-test:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - crd-channel: experimental
+        - crd-channel: standard
     steps:
       - name: Checkout main branch to access local actions
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
@@ -60,6 +66,14 @@ jobs:
             SHA=${{ github.sha }}
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
+          
+          SUPPORTED_FEATURES="ReferenceGrant,HTTPRoute,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,GatewayClassObservedGenerationBump"
+          if [ ${{ matrix.crd-channel }} == "experimental" ]; then
+            SUPPORTED_FEATURES+=",HTTPResponseHeaderModification,RouteDestinationPortMatching"
+          fi
+          
+          # Enable HTTPRouteRedirectHostAndStatus once https://github.com/kubernetes-sigs/gateway-api/issues/1805 is fixed upstream
+          SKIPPED_TESTS="TestConformance/HTTPRouteRedirectHostAndStatus"
 
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --helm-set=debug.enabled=true \
@@ -76,6 +90,8 @@ jobs:
             --helm-set=gatewayAPI.enabled=true"
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo skipped_tests=${SKIPPED_TESTS} >> $GITHUB_OUTPUT
+          echo supported_features=${SUPPORTED_FEATURES} >> $GITHUB_OUTPUT
 
       - name: Checkout
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
@@ -106,11 +122,12 @@ jobs:
       - name: Install Gateway API CRDs
         run: |
           # Install Gateway CRDs
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_gatewayclasses.yaml
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_gateways.yaml
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_httproutes.yaml
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_gatewayclasses.yaml
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_gateways.yaml
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_httproutes.yaml
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_referencegrants.yaml
+          ## TLSRoute is only available in experimental channel in v0.7.0
           kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
-          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_referencegrants.yaml
 
           # To make sure that Gateway API CRs are available
           kubectl wait --for condition=Established crd/gatewayclasses.gateway.networking.k8s.io --timeout=${{ env.timeout }}
@@ -170,10 +187,9 @@ jobs:
             -p 4 \
             -v ./operator/pkg/gateway-api \
             --gateway-class cilium \
-            --supported-features ReferenceGrant,HTTPRoute,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,RouteDestinationPortMatching,GatewayClassObservedGenerationBump,HTTPResponseHeaderModification \
+            --supported-features "${{ steps.vars.outputs.supported_features }}" \
             -test.run "TestConformance" \
-            -test.skip "TestConformance/HTTPRouteRedirectHostAndStatus" 
-            # Enable HTTPRouteRedirectHostAndStatus once https://github.com/kubernetes-sigs/gateway-api/issues/1805 is fixed upstream
+            -test.skip "${{ steps.vars.outputs.skipped_tests }}"
 
       - name: Post-test information gathering
         if: ${{ !success() }}
