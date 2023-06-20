@@ -65,8 +65,8 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.7
-  cilium_cli_ci_version:
+  cilium_cli_version:
+  cilium_cli_ci_version: latest
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   cilium_latest_stable: 1.13.4
 
@@ -188,6 +188,8 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
+            test-upgrade: 'true'
+            test-flow-interrupts: 'true'
 
           - name: '3'
             kernel: '5.10-20230420.212204'
@@ -204,6 +206,8 @@ jobs:
             lb-mode: 'snat'
             endpoint-routes: 'true'
             egress-gateway: 'true'
+            test-upgrade: 'true'
+            test-flow-interrupts: 'true'
 
           - name: '5'
             kernel: '5.15-20230420.212204'
@@ -536,6 +540,15 @@ jobs:
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
               --junit-property github_job_step="Run tests upgrade 1 (${{ join(matrix.*, ', ') }})"
 
+            EXTRA_CONNECTIVITY_TEST=""
+            if [ "${{ matrix.test-flow-interrupts }}" == "true" ]; then
+              # Create pods which establish long lived connections. It will be used by
+              # subsequent connectivity tests with --include-upgrade-test to catch any
+              # interruption in such flows.
+              ./cilium-cli connectivity test --include-upgrade-test --upgrade-test-setup
+              EXTRA_CONNECTIVITY_TEST=" --include-upgrade-test"
+            fi
+
             # Upgrade to the main
 
             CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
@@ -547,11 +560,15 @@ jobs:
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              \$EXTRA_CONNECTIVITY_TEST \
               --flush-ct \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
               --junit-property github_job_step="Run tests upgrade 2 (${{ join(matrix.*, ', ') }})"
+
+            # --flush-ct interrupts the flows, so we need to set up again.
+            ./cilium-cli connectivity test --include-upgrade-test --upgrade-test-setup
 
             # Dowgrade to the latest stable (v1.13)
 
@@ -566,6 +583,7 @@ jobs:
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              \$EXTRA_CONNECTIVITY_TEST \
               --flush-ct \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
