@@ -3,12 +3,21 @@
 
 package exporteroption
 
+import (
+	"context"
+
+	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/filters"
+)
+
 // Options stores all the configurations values for Hubble exporter.
 type Options struct {
 	Path       string
 	MaxSizeMB  int
 	MaxBackups int
 	Compress   bool
+
+	AllowList, DenyList filters.FilterFuncs
 }
 
 // Option customizes the configuration of the hubble server.
@@ -43,6 +52,30 @@ func WithMaxBackups(backups int) Option {
 func WithCompress() Option {
 	return func(o *Options) error {
 		o.Compress = true
+		return nil
+	}
+}
+
+// WithAllowListFilter sets allowlist filter for the exporter.
+func WithAllowList(f []*flowpb.FlowFilter) Option {
+	return func(o *Options) error {
+		filterList, err := filters.BuildFilterList(context.Background(), f, filters.DefaultFilters)
+		if err != nil {
+			return err
+		}
+		o.AllowList = filterList
+		return nil
+	}
+}
+
+// WithDenyListFilter sets denylist filter for the exporter.
+func WithDenyList(f []*flowpb.FlowFilter) Option {
+	return func(o *Options) error {
+		filterList, err := filters.BuildFilterList(context.Background(), f, filters.DefaultFilters)
+		if err != nil {
+			return err
+		}
+		o.DenyList = filterList
 		return nil
 	}
 }
