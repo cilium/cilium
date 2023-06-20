@@ -1200,6 +1200,42 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
+			Description: "Collecting the Cilium SPIRE agent configuration",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetConfigMap(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREAgentConfigMapName, metav1.GetOptions{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						c.logWarn("ConfigMap %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREAgentConfigMapName, c.Options.CiliumSPIRENamespace)
+						return nil
+					}
+					return fmt.Errorf("failed to collect the Cilium SPIRE agent configuration: %w", err)
+				}
+				if err := c.WriteYAML(ciliumSPIREAgentConfigMapFileName, v); err != nil {
+					return fmt.Errorf("failed to collect the Cilium SPIRE agent configuration: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting the Cilium SPIRE server configuration",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetConfigMap(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREServerConfigMapName, metav1.GetOptions{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						c.logWarn("ConfigMap %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREServerConfigMapName, c.Options.CiliumSPIRENamespace)
+						return nil
+					}
+					return fmt.Errorf("failed to collect the Cilium SPIRE server configuration: %w", err)
+				}
+				if err := c.WriteYAML(ciliumSPIREServerConfigMapFileName, v); err != nil {
+					return fmt.Errorf("failed to collect the Cilium SPIRE server configuration: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			CreatesSubtasks: true,
 			Description:     "Collecting platform-specific data",
 			Quick:           true,
