@@ -76,7 +76,7 @@ func (k *K8sWatcher) createAllPodsController(slimClient slimclientset.Interface)
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				if pod := k8s.ObjTov1Pod(obj); pod != nil {
+				if pod := k8s.CastInformerEvent[slim_corev1.Pod](obj); pod != nil {
 					err := k.addK8sPodV1(pod)
 					k.K8sEventProcessed(metricPod, resources.MetricCreate, err == nil)
 					k.K8sEventReceived(podApiGroup, metricPod, resources.MetricCreate, true, false)
@@ -85,8 +85,8 @@ func (k *K8sWatcher) createAllPodsController(slimClient slimclientset.Interface)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if oldPod := k8s.ObjTov1Pod(oldObj); oldPod != nil {
-					if newPod := k8s.ObjTov1Pod(newObj); newPod != nil {
+				if oldPod := k8s.CastInformerEvent[slim_corev1.Pod](oldObj); oldPod != nil {
+					if newPod := k8s.CastInformerEvent[slim_corev1.Pod](newObj); newPod != nil {
 						if oldPod.DeepEqual(newPod) {
 							k.K8sEventReceived(podApiGroup, metricPod, resources.MetricUpdate, false, true)
 						} else {
@@ -100,7 +100,7 @@ func (k *K8sWatcher) createAllPodsController(slimClient slimclientset.Interface)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				if pod := k8s.ObjTov1Pod(obj); pod != nil {
+				if pod := k8s.CastInformerEvent[slim_corev1.Pod](obj); pod != nil {
 					err := k.deleteK8sPodV1(pod)
 					k.K8sEventProcessed(metricPod, resources.MetricDelete, err == nil)
 					k.K8sEventReceived(podApiGroup, metricPod, resources.MetricDelete, true, false)

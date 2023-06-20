@@ -200,7 +200,7 @@ func SyncCRDs(ctx context.Context, clientset client.Clientset, crdNames []string
 }
 
 func (s *crdState) add(obj interface{}) {
-	if pom := k8s.ObjToV1PartialObjectMetadata(obj); pom != nil {
+	if pom := k8s.CastInformerEvent[slim_metav1.PartialObjectMetadata](obj); pom != nil {
 		s.Lock()
 		s.m[CRDResourceName(pom.GetName())] = true
 		s.Unlock()
@@ -208,7 +208,7 @@ func (s *crdState) add(obj interface{}) {
 }
 
 func (s *crdState) remove(obj interface{}) {
-	if pom := k8s.ObjToV1PartialObjectMetadata(obj); pom != nil {
+	if pom := k8s.CastInformerEvent[slim_metav1.PartialObjectMetadata](obj); pom != nil {
 		s.Lock()
 		s.m[CRDResourceName(pom.GetName())] = false
 		s.Unlock()

@@ -46,6 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
@@ -549,7 +550,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 									logfields.ServiceNamespace: k8sSvc.Namespace,
 								}).Error("Failed to transform k8s service")
 							} else {
-								slimSvc := k8s.ObjToV1Services(slimSvcObj)
+								slimSvc := k8s.CastInformerEvent[slim_corev1.Service](slimSvcObj)
 								if slimSvc == nil {
 									// This will never happen but still log it
 									scopedLog.WithFields(logrus.Fields{
