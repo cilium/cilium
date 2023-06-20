@@ -326,6 +326,10 @@ func (c *fakeClient) GetDaemonSet(_ context.Context, _, _ string, _ metav1.GetOp
 	return nil, nil
 }
 
+func (c *fakeClient) GetStatefulSet(_ context.Context, _, _ string, _ metav1.GetOptions) (*appsv1.StatefulSet, error) {
+	return nil, nil
+}
+
 func (c *fakeClient) GetDeployment(_ context.Context, _, _ string, _ metav1.GetOptions) (*appsv1.Deployment, error) {
 	return nil, nil
 }
