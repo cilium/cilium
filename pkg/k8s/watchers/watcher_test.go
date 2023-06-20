@@ -4,16 +4,21 @@
 package watchers
 
 import (
+	"fmt"
 	"sort"
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
@@ -136,6 +141,99 @@ func (f *fakeSvcManager) RemoveL7LBService(serviceName, resourceName loadbalance
 	return nil
 }
 
+type fakeFlowLoggingManager struct {
+	OnStart func(uid, name string, opts []exporteroption.Option) error
+	OnStop  func(uid string) error
+}
+
+func (f *fakeFlowLoggingManager) Start(uid, name string, opts []exporteroption.Option) error {
+	return f.OnStart(uid, name, opts)
+}
+
+func (f *fakeFlowLoggingManager) Stop(uid string) error {
+	return f.OnStop(uid)
+}
+
+func (s *K8sWatcherSuite) TestFlowLoggingManager(c *C) {
+	fakeFlowLoggingManager := &fakeFlowLoggingManager{
+		OnStart: func(uid string, name string, opts []exporteroption.Option) error {
+			c.Assert(uid, Equals, "test-uid")
+			c.Assert(name, Equals, "test-name")
+			c.Assert(opts, HasLen, 0)
+			return nil
+		},
+		OnStop: func(uid string) error {
+			c.Assert(uid, Equals, "test-uid")
+			return nil
+		},
+	}
+
+	w := NewK8sWatcher(
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		fakeFlowLoggingManager,
+		&fakeWatcherConfiguration{},
+		testipcache.NewMockIPCache(),
+		nil,
+		emptyResources,
+		nil,
+	)
+
+	err := w.addCiliumFlowLogging(&v2alpha1.CiliumFlowLogging{
+		ObjectMeta: v1.ObjectMeta{
+			UID:  "test-uid",
+			Name: "test-name",
+		},
+	})
+	c.Assert(err, IsNil)
+
+	err = w.deleteCiliumFlowLogging(&v2alpha1.CiliumFlowLogging{
+		ObjectMeta: v1.ObjectMeta{
+			UID:  "test-uid",
+			Name: "test-name",
+		},
+	})
+	c.Assert(err, IsNil)
+
+	fakeErr := fmt.Errorf("fake error")
+	fakeFlowLoggingManager.OnStart = func(uid string, name string, opts []exporteroption.Option) error {
+		c.Assert(uid, Equals, "test-uid")
+		c.Assert(name, Equals, "test-name")
+		c.Assert(opts, HasLen, 2)
+		var execOpts exporteroption.Options
+		for _, opt := range opts {
+			err := opt(&execOpts)
+			c.Assert(err, IsNil)
+		}
+		c.Assert(execOpts.FieldMask, HasLen, 1)
+		c.Assert(execOpts.AllowList, HasLen, 1)
+		c.Assert(execOpts.DenyList, HasLen, 0)
+		return fakeErr
+	}
+	err = w.addCiliumFlowLogging(&v2alpha1.CiliumFlowLogging{
+		ObjectMeta: v1.ObjectMeta{
+			UID:  "test-uid",
+			Name: "test-name",
+		},
+		Spec: v2alpha1.FlowLoggingSpec{
+			FieldMask: []string{"source"},
+			AllowList: []*flowpb.FlowFilter{
+				{SourcePod: []string{"araara"}},
+			},
+		},
+	})
+	c.Assert(err, Equals, fakeErr)
+}
+
 func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 	ep1stApply := &slim_corev1.Endpoints{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -197,6 +295,7 @@ func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 		policyRepository,
 		nil,
 		dp,
+		nil,
 		nil,
 		nil,
 		nil,
@@ -526,6 +625,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 		nil,
 		nil,
 		nil,
+		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
@@ -676,6 +776,7 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 		policyRepository,
 		svcManager,
 		dp,
+		nil,
 		nil,
 		nil,
 		nil,
@@ -1163,6 +1264,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		nil,
 		nil,
 		nil,
+		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
@@ -1480,6 +1582,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		nil,
 		nil,
 		nil,
+		nil,
 		&fakeWatcherConfiguration{},
 		testipcache.NewMockIPCache(),
 		nil,
@@ -1786,6 +1889,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		policyRepository,
 		svcManager,
 		dp,
+		nil,
 		nil,
 		nil,
 		nil,
@@ -2710,6 +2814,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		policyRepository,
 		svcManager,
 		dp,
+		nil,
 		nil,
 		nil,
 		nil,

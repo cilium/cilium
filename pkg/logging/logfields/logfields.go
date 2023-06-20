@@ -641,6 +641,9 @@ const (
 	// CESName is the name of the CiliumEndpointSlice.
 	CESName = "ciliumEndpointSliceName"
 
+	// CFLName is the name of the CiliumFlowLogging.
+	CFLName = "ciliumFlowLoggingName"
+
 	// WorkQueueQPSLimit is the QPS limit for WorkQueues.
 	WorkQueueQPSLimit = "workQueueQPSLimit"
 

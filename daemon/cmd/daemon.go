@@ -654,6 +654,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.bgpSpeaker,
 		egressGatewayWatcher,
 		d.l7Proxy,
+		nil,
 		option.Config,
 		d.ipcache,
 		d.cgroupManager,

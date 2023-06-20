@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
+	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -71,6 +72,7 @@ const (
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	k8sAPIGroupCiliumEgressGatewayPolicyV2      = "cilium/v2::CiliumEgressGatewayPolicy"
 	k8sAPIGroupCiliumEndpointSliceV2Alpha1      = "cilium/v2alpha1::CiliumEndpointSlice"
+	k8sAPIGroupCiliumFlowLoggingV2Alpha1        = "cilium/v2alpha1::CiliumFlowLogging"
 	k8sAPIGroupCiliumClusterwideEnvoyConfigV2   = "cilium/v2::CiliumClusterwideEnvoyConfig"
 	k8sAPIGroupCiliumEnvoyConfigV2              = "cilium/v2::CiliumEnvoyConfig"
 
@@ -82,6 +84,7 @@ const (
 	metricCLRP           = "CiliumLocalRedirectPolicy"
 	metricCEGP           = "CiliumEgressGatewayPolicy"
 	metricCCEC           = "CiliumClusterwideEnvoyConfig"
+	metricCFL            = "CiliumFlowLogging"
 	metricCEC            = "CiliumEnvoyConfig"
 	metricPod            = "Pod"
 	metricNode           = "Node"
@@ -203,6 +206,11 @@ type ipcacheManager interface {
 	DeleteOnMetadataMatch(IP string, source source.Source, namespace, name string) (namedPortsChanged bool)
 }
 
+type FlowLoggingManager interface {
+	Start(uid, name string, opts []exporteroption.Option) error
+	Stop(uid string) error
+}
+
 type K8sWatcher struct {
 	clientset client.Clientset
 
@@ -242,6 +250,7 @@ type K8sWatcher struct {
 	ipcache               ipcacheManager
 	envoyConfigManager    envoyConfigManager
 	cgroupManager         cgroupManager
+	flowLoggingManager    FlowLoggingManager
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -295,6 +304,7 @@ func NewK8sWatcher(
 	bgpSpeakerManager bgpSpeakerManager,
 	egressGatewayManager EgressGatewayManager,
 	envoyConfigManager envoyConfigManager,
+	flowLoggingManager FlowLoggingManager,
 	cfg WatcherConfiguration,
 	ipcache ipcacheManager,
 	cgroupManager cgroupManager,
@@ -319,6 +329,7 @@ func NewK8sWatcher(
 		bgpSpeakerManager:       bgpSpeakerManager,
 		egressGatewayManager:    egressGatewayManager,
 		cgroupManager:           cgroupManager,
+		flowLoggingManager:      flowLoggingManager,
 		NodeChain:               subscriber.NewNodeChain(),
 		CiliumNodeChain:         subscriber.NewCiliumNodeChain(),
 		envoyConfigManager:      envoyConfigManager,
@@ -430,6 +441,7 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2.CEWName):                  {skip, ""}, // Handled in clustermesh-apiserver/
 	synced.CRDResourceName(v2.CEGPName):                 {start, k8sAPIGroupCiliumEgressGatewayPolicyV2},
 	synced.CRDResourceName(v2alpha1.CESName):            {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
+	synced.CRDResourceName(v2alpha1.CFLName):            {start, k8sAPIGroupCiliumFlowLoggingV2Alpha1},
 	synced.CRDResourceName(v2.CCECName):                 {afterNodeInit, k8sAPIGroupCiliumClusterwideEnvoyConfigV2},
 	synced.CRDResourceName(v2.CECName):                  {afterNodeInit, k8sAPIGroupCiliumEnvoyConfigV2},
 	synced.CRDResourceName(v2alpha1.BGPPName):           {skip, ""}, // Handled in BGP control plane
@@ -579,6 +591,8 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			k.initCiliumEndpointOrSlices(k.clientset, asyncControllers)
 		case k8sAPIGroupCiliumEndpointSliceV2Alpha1:
 			// no-op; handled in k8sAPIGroupCiliumEndpointV2
+		case k8sAPIGroupCiliumFlowLoggingV2Alpha1:
+			k.ciliumFlowLoggingInit(ctx, k.clientset)
 		case k8sAPIGroupCiliumLocalRedirectPolicyV2:
 			k.ciliumLocalRedirectPolicyInit(k.clientset)
 		case k8sAPIGroupCiliumEgressGatewayPolicyV2:
