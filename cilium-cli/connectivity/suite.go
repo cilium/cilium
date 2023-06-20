@@ -217,6 +217,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 			// include --include-upgrade-tests"
 			return ct.Run(ctx)
 		}
+
+		ct.NewTest("no-missed-tail-calls").WithScenarios(tests.NoMissedTailCalls())
 	}
 
 	// Run all tests without any policies in place.
