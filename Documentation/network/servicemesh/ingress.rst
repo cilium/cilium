@@ -58,39 +58,52 @@ Supported Ingress Annotations
 #############################
 
 .. list-table::
-   :widths: 25 25 50
    :header-rows: 1
 
    * - Name
      - Description
      - Default Value
    * - ``ingress.cilium.io/loadbalancer-mode``
-     - The loadbalancer mode for the ingress. Applicable values are ``dedicated`` and ``shared``.
-     - Defaults to Helm option ``ingressController.loadbalancerMode`` value.
+     - | The loadbalancer mode for the ingress.
+       | Allows a per ingress override
+       | of the default set in the Helm value
+       | ``ingressController.loadbalancerMode``.
+       | Applicable values are ``dedicated`` and
+       | ``shared``.
+     - | ``dedicated``
+       | (from Helm chart)
    * - ``ingress.cilium.io/service-type``
-     - The Service type for dedicated Ingress. Applicable values are ``LoadBalancer`` and ``NodePort``.
-     - Defaults to ``LoadBalancer`` if unspecified.
+     - | The Service type for dedicated Ingress.
+       | Applicable values are ``LoadBalancer``
+       | and ``NodePort``.
+     - ``LoadBalancer``
    * - ``ingress.cilium.io/insecure-node-port``
-     - The NodePort to use for the HTTP Ingress. Applicable only if ``ingress.cilium.io/service-type`` is ``NodePort``.
-     - If unspecified, a random NodePort will be allocated by kubernetes.
+     - | The NodePort to use for the HTTP Ingress.
+       | Applicable only if ``ingress.cilium.io/service-type`` is ``NodePort``. If unspecified, a random
+       | NodePort will be allocated by kubernetes.
+     - unspecified
    * - ``ingress.cilium.io/secure-node-port``
-     - The NodePort to use for the HTTPS Ingress. Applicable only if ``ingress.cilium.io/service-type`` is ``NodePort``.
-     - If unspecified, a random NodePort will be allocated by kubernetes.
+     - | The NodePort to use for the HTTPS Ingress.
+       | Applicable only if ``ingress.cilium.io/service-type`` is ``NodePort``. If unspecified, a random
+       | NodePort will be allocated by kubernetes.
+     - unspecified
    * - ``ingress.cilium.io/tcp-keep-alive``
-     - Enable TCP keep-alive
-     - 1 (enabled)
+     - | Enable TCP keep-alive. Applicable values
+       | are ``enabled`` and ``disabled``.
+     - ``enabled``
    * - ``ingress.cilium.io/tcp-keep-alive-idle``
      - TCP keep-alive idle time (in seconds)
-     - 10s
+     - ``10``
    * - ``ingress.cilium.io/tcp-keep-alive-probe-interval``
      - TCP keep-alive probe intervals (in seconds)
-     - 5s
+     - ``5``
    * - ``ingress.cilium.io/tcp-keep-alive-probe-max-failures``
      - TCP keep-alive probe max failures
-     - 10
+     - ``10``
    * - ``ingress.cilium.io/websocket``
-     - Enable websocket
-     - disabled
+     - | Enable websocket passthrough support.
+       | Applicable values are ``enabled`` and ``disabled``.
+     - ``disabled``
 
 Additionally, cloud-provider specific annotations for the LoadBalancer service
 are supported. Please refer to the `Kubernetes documentation <https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer>`_
