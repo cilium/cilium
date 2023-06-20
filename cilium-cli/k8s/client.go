@@ -496,6 +496,10 @@ func (c *Client) DeleteDaemonSet(ctx context.Context, namespace, name string, op
 	return c.Clientset.AppsV1().DaemonSets(namespace).Delete(ctx, name, opts)
 }
 
+func (c *Client) GetStatefulSet(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*appsv1.StatefulSet, error) {
+	return c.Clientset.AppsV1().StatefulSets(namespace).Get(ctx, name, opts)
+}
+
 func (c *Client) GetCRD(ctx context.Context, name string, opts metav1.GetOptions) (*apiextensions.CustomResourceDefinition, error) {
 	return c.ExtensionClientset.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, name, opts)
 }

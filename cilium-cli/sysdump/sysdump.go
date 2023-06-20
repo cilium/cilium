@@ -1164,6 +1164,42 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
+			Description: "Collecting the Cilium SPIRE server statefulset",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetStatefulSet(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREServerStatefulSetName, metav1.GetOptions{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						c.logWarn("StatefulSet %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREServerStatefulSetName, c.Options.CiliumSPIRENamespace)
+						return nil
+					}
+					return fmt.Errorf("failed to collect the Cilium SPIRE server statefulset: %w", err)
+				}
+				if err := c.WriteYAML(ciliumSPIREServerStatefulSetFileName, v); err != nil {
+					return fmt.Errorf("failed to collect the Cilium SPIRE server statefulset: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting the Cilium SPIRE agent daemonset",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetDaemonSet(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREAgentDaemonSetName, metav1.GetOptions{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						c.logWarn("Daemonset %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREAgentDaemonSetName, c.Options.CiliumSPIRENamespace)
+						return nil
+					}
+					return fmt.Errorf("failed to collect the Cilium SPIRE agent daemonset: %w", err)
+				}
+				if err := c.WriteYAML(ciliumSPIREAgentDaemonsetFileName, v); err != nil {
+					return fmt.Errorf("failed to collect the Cilium SPIRE agent daemonset: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			CreatesSubtasks: true,
 			Description:     "Collecting platform-specific data",
 			Quick:           true,
