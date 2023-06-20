@@ -40,6 +40,8 @@ type Options struct {
 	CiliumNamespace string
 	// The namespace Cilium operator is running in.
 	CiliumOperatorNamespace string
+	// The namespace Cilium SPIRE installation is running in.
+	CiliumSPIRENamespace string
 	// The labels used to target Cilium daemon set. Usually, this label is same as CiliumLabelSelector.
 	CiliumDaemonSetSelector string
 	// The labels used to target Cilium Envoy pods.
@@ -48,6 +50,10 @@ type Options struct {
 	CiliumOperatorLabelSelector string
 	// The labels used to target 'clustermesh-apiserver' pods.
 	ClustermeshApiserverLabelSelector string
+	// The labels used to target Cilium SPIRE server pods.
+	CiliumSPIREServerLabelSelector string
+	// The labels used to target Cilium SPIRE agent pods.
+	CiliumSPIREAgentLabelSelector string
 	// Whether to enable debug logging.
 	Debug bool
 	// Whether to enable scraping profiling data.
@@ -179,6 +185,19 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 		c.Options.CiliumOperatorNamespace = ns
 	} else {
 		c.log("ℹ️  Cilium operator namespace: %s", c.Options.CiliumOperatorNamespace)
+	}
+
+	if c.Options.CiliumSPIRENamespace == "" {
+		if ns, err := detectCiliumSPIRENamespace(k); err != nil {
+			c.logDebug("Failed to detect Cilium SPIRE installation: %v", err)
+			c.log("ℹ️ Failed to detect Cilium SPIRE installation - using Cilium namespace as Cilium SPIRE namespace: %s", c.Options.CiliumOperatorNamespace)
+			c.Options.CiliumSPIRENamespace = c.Options.CiliumOperatorNamespace
+		} else {
+			c.log("🔮 Detected Cilium SPIRE installation in namespace %q", ns)
+			c.Options.CiliumSPIRENamespace = ns
+		}
+	} else {
+		c.log("ℹ️  Cilium SPIRE namespace: %s", c.Options.CiliumSPIRENamespace)
 	}
 
 	// Grab the Kubernetes nodes for the target cluster.
@@ -1112,6 +1131,40 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
+			Description:     "Collecting logs from Cilium SPIRE server pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.CiliumSPIRENamespace, metav1.ListOptions{
+					LabelSelector: c.Options.CiliumSPIREServerLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get logs from Cilium SPIRE server pods")
+				}
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+					return fmt.Errorf("failed to collect logs from Cilium SPIRE server pods")
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting logs from Cilium SPIRE agent pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.CiliumSPIRENamespace, metav1.ListOptions{
+					LabelSelector: c.Options.CiliumSPIREAgentLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get logs from Cilium SPIRE agent pods")
+				}
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+					return fmt.Errorf("failed to collect logs from Cilium SPIRE agent pods")
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
 			Description:     "Collecting platform-specific data",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
@@ -2007,4 +2060,27 @@ func detectCiliumOperatorNamespace(k KubernetesClient) (string, error) {
 		return ns.Name, nil
 	}
 	return "", fmt.Errorf("failed to detect Cilium operator namespace, could not find Cilium installation in namespaces: %v", DefaultCiliumNamespaces)
+}
+
+func detectCiliumSPIRENamespace(k KubernetesClient) (string, error) {
+	for _, ns := range DefaultCiliumSPIRENamespaces {
+		ctx := context.Background()
+		ns, err := k.GetNamespace(ctx, ns, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return "", fmt.Errorf("failed to detect Cilium SPIRE namespace: %w", err)
+		}
+
+		_, err = k.GetDaemonSet(ctx, ns.Name, ciliumSPIREAgentDaemonSetName, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return "", fmt.Errorf("failed to check for Cilium SPIRE agent DaemonSet: %w", err)
+		}
+		return ns.Name, nil
+	}
+	return "", fmt.Errorf("failed to detect Cilium SPIRE namespace, could not find Cilium SPIRE installation in namespaces: %v", DefaultCiliumSPIRENamespaces)
 }

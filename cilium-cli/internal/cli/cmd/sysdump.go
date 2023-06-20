@@ -65,6 +65,9 @@ func initSysdumpFlags(cmd *cobra.Command, options *sysdump.Options, optionPrefix
 	cmd.Flags().StringVar(&options.CiliumOperatorNamespace,
 		optionPrefix+"cilium-operator-namespace", "",
 		"The namespace Cilium operator is running in")
+	cmd.Flags().StringVar(&options.CiliumSPIRENamespace,
+		optionPrefix+"cilium-spire-namespace", "",
+		"The namespace Cilium SPIRE installation is running in")
 	cmd.Flags().StringVar(&options.CiliumDaemonSetSelector,
 		optionPrefix+"cilium-daemon-set-label-selector", sysdump.DefaultCiliumLabelSelector,
 		"The labels used to target Cilium daemon set")

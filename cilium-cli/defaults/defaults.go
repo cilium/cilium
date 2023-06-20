@@ -69,6 +69,9 @@ const (
 	ClusterMeshRemoteSecretName           = "clustermesh-apiserver-remote-cert"
 	ClusterMeshExternalWorkloadSecretName = "clustermesh-apiserver-external-workload-cert"
 
+	SPIREServerStatefulSetName = "spire-server"
+	SPIREAgentDaemonSetName    = "spire-agent"
+
 	ConnectivityCheckNamespace = "cilium-test"
 
 	// renovate: datasource=docker
