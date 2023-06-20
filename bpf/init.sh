@@ -319,6 +319,3 @@ for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep 
 	done
 done
 
-if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
-	tc filter del dev $HOST_DEV2 "egress" 2> /dev/null || true
-fi
