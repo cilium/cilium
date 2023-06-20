@@ -57,6 +57,7 @@ type EndpointSynchronizer struct {
 // has 1 controller that updates it, and a local copy is retained and only
 // updates are pushed up.
 // CiliumEndpoint objects have the same name as the pod they represent.
+// Passed callback functions are invoked after completion of endpoint sync attempt.
 func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration, cbs ...func(error)) {
 	var (
 		endpointID     = e.ID
