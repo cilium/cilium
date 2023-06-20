@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"testing"
 	"time"
 
 	. "github.com/cilium/checkmate"
@@ -36,6 +37,10 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
+
+func Test(t *testing.T) {
+	TestingT(t)
+}
 
 var etcdConfig = []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
 
