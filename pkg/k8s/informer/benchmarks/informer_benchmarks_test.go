@@ -440,8 +440,8 @@ func (k *K8sIntegrationSuite) benchmarkInformer(ctx context.Context, nCycles int
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {},
 				UpdateFunc: func(oldObj, newObj interface{}) {
-					if oldK8sNP := k8s.ObjToV1Node(oldObj); oldK8sNP != nil {
-						if newK8sNP := k8s.ObjToV1Node(newObj); newK8sNP != nil {
+					if oldK8sNP := k8s.CastInformerEvent[v1.Node](oldObj); oldK8sNP != nil {
+						if newK8sNP := k8s.CastInformerEvent[v1.Node](newObj); newK8sNP != nil {
 							if reflect.DeepEqual(oldK8sNP, newK8sNP) {
 								return
 							}
@@ -449,7 +449,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(ctx context.Context, nCycles int
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
-					k8sNP := k8s.ObjToV1Node(obj)
+					k8sNP := k8s.CastInformerEvent[v1.Node](obj)
 					if k8sNP == nil {
 						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 						if !ok {
@@ -458,7 +458,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(ctx context.Context, nCycles int
 						// Delete was not observed by the watcher but is
 						// removed from kube-apiserver. This is the last
 						// known state and the object no longer exists.
-						k8sNP = k8s.ObjToV1Node(deletedObj.Obj)
+						k8sNP = k8s.CastInformerEvent[v1.Node](deletedObj.Obj)
 						if k8sNP == nil {
 							return
 						}

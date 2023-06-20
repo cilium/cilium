@@ -58,13 +58,13 @@ func (k *K8sWatcher) ciliumEndpointSliceInit(client client.Clientset, asyncContr
 			0,
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {
-					if ces := k8s.ObjToCiliumEndpointSlice(obj); ces != nil {
+					if ces := k8s.CastInformerEvent[capi_v2a1.CiliumEndpointSlice](obj); ces != nil {
 						cesNotify.NotifyAdd(ces)
 					}
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
-					if oldCES := k8s.ObjToCiliumEndpointSlice(oldObj); oldCES != nil {
-						if newCES := k8s.ObjToCiliumEndpointSlice(newObj); newCES != nil {
+					if oldCES := k8s.CastInformerEvent[capi_v2a1.CiliumEndpointSlice](oldObj); oldCES != nil {
+						if newCES := k8s.CastInformerEvent[capi_v2a1.CiliumEndpointSlice](newObj); newCES != nil {
 							if oldCES.DeepEqual(newCES) {
 								return
 							}
@@ -73,7 +73,7 @@ func (k *K8sWatcher) ciliumEndpointSliceInit(client client.Clientset, asyncContr
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
-					if ces := k8s.ObjToCiliumEndpointSlice(obj); ces != nil {
+					if ces := k8s.CastInformerEvent[capi_v2a1.CiliumEndpointSlice](obj); ces != nil {
 						cesNotify.NotifyDelete(ces)
 					}
 				},

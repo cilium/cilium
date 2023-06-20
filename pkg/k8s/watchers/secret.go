@@ -49,7 +49,7 @@ func (k *K8sWatcher) tlsSecretInit(slimClient slimclientset.Interface, namespace
 					defer func() {
 						k.K8sEventReceived(apiGroup, metricSecret, resources.MetricCreate, valid, equal)
 					}()
-					if k8sSecret := k8s.ObjToV1Secret(obj); k8sSecret != nil {
+					if k8sSecret := k8s.CastInformerEvent[slim_corev1.Secret](obj); k8sSecret != nil {
 						valid = true
 						err := k.addK8sSecretV1(k8sSecret)
 						k.K8sEventProcessed(metricSecret, resources.MetricCreate, err == nil)
@@ -58,8 +58,8 @@ func (k *K8sWatcher) tlsSecretInit(slimClient slimclientset.Interface, namespace
 				UpdateFunc: func(oldObj, newObj interface{}) {
 					var valid, equal bool
 					defer func() { k.K8sEventReceived(apiGroup, metricSecret, resources.MetricUpdate, valid, equal) }()
-					if oldSecret := k8s.ObjToV1Secret(oldObj); oldSecret != nil {
-						if newSecret := k8s.ObjToV1Secret(newObj); newSecret != nil {
+					if oldSecret := k8s.CastInformerEvent[slim_corev1.Secret](oldObj); oldSecret != nil {
+						if newSecret := k8s.CastInformerEvent[slim_corev1.Secret](newObj); newSecret != nil {
 							valid = true
 							if oldSecret.DeepEqual(newSecret) {
 								equal = true
@@ -75,7 +75,7 @@ func (k *K8sWatcher) tlsSecretInit(slimClient slimclientset.Interface, namespace
 					defer func() {
 						k.K8sEventReceived(apiGroup, metricSecret, resources.MetricDelete, valid, equal)
 					}()
-					k8sSecret := k8s.ObjToV1Secret(obj)
+					k8sSecret := k8s.CastInformerEvent[slim_corev1.Secret](obj)
 					if k8sSecret == nil {
 						return
 					}

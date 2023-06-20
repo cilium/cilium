@@ -47,7 +47,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 				AddFunc: func(obj interface{}) {
 					var valid, equal bool
 					defer func() { k.K8sEventReceived(apiGroup, metricCiliumNode, resources.MetricCreate, valid, equal) }()
-					if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
+					if ciliumNode := k8s.CastInformerEvent[cilium_v2.CiliumNode](obj); ciliumNode != nil {
 						valid = true
 						n := nodeTypes.ParseCiliumNode(ciliumNode)
 						errs := k.CiliumNodeChain.OnAddCiliumNode(ciliumNode, swgNodes)
@@ -64,8 +64,8 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 				UpdateFunc: func(oldObj, newObj interface{}) {
 					var valid, equal bool
 					defer func() { k.K8sEventReceived(apiGroup, metricCiliumNode, resources.MetricUpdate, valid, equal) }()
-					if oldCN := k8s.ObjToCiliumNode(oldObj); oldCN != nil {
-						if ciliumNode := k8s.ObjToCiliumNode(newObj); ciliumNode != nil {
+					if oldCN := k8s.CastInformerEvent[cilium_v2.CiliumNode](oldObj); oldCN != nil {
+						if ciliumNode := k8s.CastInformerEvent[cilium_v2.CiliumNode](newObj); ciliumNode != nil {
 							valid = true
 							isLocal := k8s.IsLocalCiliumNode(ciliumNode)
 							// Comparing Annotations here since wg-pub-key annotation is used to exchange rotated Wireguard keys.
@@ -98,7 +98,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 				DeleteFunc: func(obj interface{}) {
 					var valid, equal bool
 					defer func() { k.K8sEventReceived(apiGroup, metricCiliumNode, resources.MetricDelete, valid, equal) }()
-					ciliumNode := k8s.ObjToCiliumNode(obj)
+					ciliumNode := k8s.CastInformerEvent[cilium_v2.CiliumNode](obj)
 					if ciliumNode == nil {
 						return
 					}

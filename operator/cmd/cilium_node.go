@@ -182,8 +182,8 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if oldNode := k8s.ObjToCiliumNode(oldObj); oldNode != nil {
-					if newNode := k8s.ObjToCiliumNode(newObj); newNode != nil {
+				if oldNode := k8s.CastInformerEvent[cilium_v2.CiliumNode](oldObj); oldNode != nil {
+					if newNode := k8s.CastInformerEvent[cilium_v2.CiliumNode](newObj); newNode != nil {
 						if oldNode.DeepEqual(newNode) {
 							return
 						}
