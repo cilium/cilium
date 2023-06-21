@@ -27,6 +27,7 @@ env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.14.7
   cilium_cli_ci_version:
+  CILIUM_CLI_MODE: helm
 
 jobs:
   installation-and-connectivity:
@@ -75,8 +76,7 @@ jobs:
             --helm-set=tls.secretsBackend=k8s \
             --helm-set=envoy.enabled=true \
             --helm-set=bpf.monitorAggregation="none" \
-            --wait=false \
-            --version="
+            --wait=false"
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
@@ -110,7 +110,7 @@ jobs:
 
       - name: Install Cilium
         run: |
-          CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for Cilium status to be ready
         run: |
