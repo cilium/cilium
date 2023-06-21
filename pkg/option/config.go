@@ -1976,7 +1976,7 @@ type DaemonConfig struct {
 	NodePortAlg string
 
 	// LoadBalancerDSRDispatch indicates the method for pushing packets to
-	// backends under DSR ("opt" or "ipip")
+	// backends under DSR ("opt", "ipip" or "geneve")
 	LoadBalancerDSRDispatch string
 
 	// LoadBalancerDSRL4Xlate indicates the method for L4 DNAT translation
