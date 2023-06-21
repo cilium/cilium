@@ -93,13 +93,8 @@ func init() {
 		k8s.K8sErrorHandler,
 	}
 
-	k8s_metrics.Register(k8s_metrics.RegisterOpts{
-		ClientCertExpiry:      nil,
-		ClientCertRotationAge: nil,
-		RequestLatency:        &k8sMetrics{},
-		RateLimiterLatency:    nil,
-		RequestResult:         &k8sMetrics{},
-	})
+	k8s_metrics.RequestLatency = &k8sMetrics{}
+	k8s_metrics.RequestResult = &k8sMetrics{}
 }
 
 var (
