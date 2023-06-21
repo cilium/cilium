@@ -145,6 +145,8 @@ func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 func (d *Daemon) getIPV6BigTCPStatus() *models.IPV6BigTCP {
 	s := &models.IPV6BigTCP{
 		Enabled: option.Config.EnableIPv6BIGTCP,
+		MaxGRO:  int64(d.bigTCPConfig.GetGROIPv6MaxSize()),
+		MaxGSO:  int64(d.bigTCPConfig.GetGSOIPv6MaxSize()),
 	}
 
 	return s
@@ -153,6 +155,8 @@ func (d *Daemon) getIPV6BigTCPStatus() *models.IPV6BigTCP {
 func (d *Daemon) getIPV4BigTCPStatus() *models.IPV4BigTCP {
 	s := &models.IPV4BigTCP{
 		Enabled: option.Config.EnableIPv4BIGTCP,
+		MaxGRO:  int64(d.bigTCPConfig.GetGROIPv4MaxSize()),
+		MaxGSO:  int64(d.bigTCPConfig.GetGSOIPv4MaxSize()),
 	}
 
 	return s
