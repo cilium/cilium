@@ -68,7 +68,8 @@ env:
   cilium_cli_version:
   cilium_cli_ci_version: 03b67f7b6a192aa0cccb55603bac6cceeb87b417
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  cilium_latest_stable: 1.13.4
+  upgrade_cilium_from_vsn: 1.13.3
+  upgrade_cilium_to_vsn: 1.13.4 # empty = the PR version
 
 jobs:
   check_changes:
@@ -512,7 +513,7 @@ jobs:
 
             mkdir -p cilium-junits
 
-            # Install latest stable release (v1.13)
+            # Install
 
             EXTRAS_V13=""
             if [ "${{ matrix.encryption }}" == "wireguard" ]; then
@@ -524,7 +525,7 @@ jobs:
             fi
 
             CILIUM_CLI_MODE=helm ./cilium-cli install \
-              --version ${{ env.cilium_latest_stable }} \
+              --version ${{ env.upgrade_cilium_from_vsn }} \
               --repository oci://quay.io/cilium-charts-dev/cilium \
               ${{ steps.vars.outputs.cilium_install_defaults }} \
               \$EXTRAS_V13
@@ -549,11 +550,17 @@ jobs:
               EXTRA_CONNECTIVITY_TEST=" --include-upgrade-test"
             fi
 
-            # Upgrade to the main
+            # Upgrade
 
-            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
-              ${{ steps.vars.outputs.cilium_main_image_settings }} \
-              ${{ steps.vars.outputs.cilium_install_defaults }}
+            if [ -z "${{ env.upgrade_cilium_to_vsn }}" ]; then
+              CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+                ${{ steps.vars.outputs.cilium_main_image_settings }} \
+                ${{ steps.vars.outputs.cilium_install_defaults }}
+            else
+              CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+                --version ${{ env.upgrade_cilium_to_vsn }} \
+                ${{ steps.vars.outputs.cilium_install_defaults }}
+            fi
 
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
@@ -570,10 +577,10 @@ jobs:
             # --flush-ct interrupts the flows, so we need to set up again.
             ./cilium-cli connectivity test --include-upgrade-test --upgrade-test-setup
 
-            # Dowgrade to the latest stable (v1.13)
+            # Dowgrade
 
             CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
-              --version ${{ env.cilium_latest_stable }} \
+              --version ${{ env.upgrade_cilium_from_vsn }} \
               --repository oci://quay.io/cilium-charts-dev/cilium \
               ${{ steps.vars.outputs.cilium_install_defaults }} \
               \$EXTRAS_V13
