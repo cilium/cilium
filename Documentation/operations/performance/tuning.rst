@@ -72,7 +72,7 @@ BIG TCP doesn't require network interface MTU changes.
 * eBPF-based kube-proxy replacement
 * eBPF-based masquerading
 * Tunneling and encryption disabled
-* Supported NICs: mlx4, mlx5
+* Supported NICs: mlx4, mlx5, ice
 
 To enable IPv6 BIG TCP:
 
@@ -129,7 +129,7 @@ BIG TCP doesn't require network interface MTU changes.
 * eBPF-based kube-proxy replacement
 * eBPF-based masquerading
 * Tunneling and encryption disabled
-* Supported NICs: mlx4, mlx5
+* Supported NICs: mlx4, mlx5, ice
 
 To enable IPv4 BIG TCP:
 
