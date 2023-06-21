@@ -71,7 +71,6 @@ type Configuration interface {
 	TunnelingEnabled() bool
 	RemoteNodeIdentitiesEnabled() bool
 	NodeEncryptionEnabled() bool
-	EncryptionEnabled() bool
 }
 
 var _ Notifier = (*manager)(nil)
@@ -324,11 +323,6 @@ func (m *manager) legacyNodeIpBehavior() bool {
 	if m.conf.NodeEncryptionEnabled() {
 		return false
 	}
-	// Needed to store the tunnel endpoint for pod->remote node in the
-	// ipcache so that this traffic goes through the tunnel.
-	if m.conf.EncryptionEnabled() && m.conf.TunnelingEnabled() {
-		return false
-	}
 	return true
 }
 
@@ -337,7 +331,7 @@ func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
 	// through the tunnel to preserve the source identity as part of the
 	// encapsulation. In encryption case we also want to use vxlan device
 	// to create symmetric traffic when sending nodeIP->pod and pod->nodeIP.
-	return address.Type == addressing.NodeCiliumInternalIP || m.conf.EncryptionEnabled() ||
+	return address.Type == addressing.NodeCiliumInternalIP || m.conf.NodeEncryptionEnabled() ||
 		option.Config.EnableHostFirewall || option.Config.JoinCluster
 }
 
