@@ -245,12 +245,13 @@ func addCommonUninstallFlags(cmd *cobra.Command, params *install.UninstallParame
 // flags are likely to be removed in the future.
 func addCommonHelmFlags(cmd *cobra.Command, params *install.Parameters) {
 	cmd.Flags().StringVar(&params.HelmChartDirectory, "chart-directory", "", "Helm chart directory")
-	cmd.Flags().StringSliceVar(&params.HelmOpts.ValueFiles, "helm-values", []string{}, "Specify helm values in a YAML file or a URL (can specify multiple)")
+	cmd.Flags().StringSliceVarP(&params.HelmOpts.ValueFiles, "helm-values", "f", []string{}, "Specify helm values in a YAML file or a URL (can specify multiple)")
 	cmd.Flags().StringArrayVar(&params.HelmOpts.Values, "helm-set", []string{}, "Set helm values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	cmd.Flags().StringArrayVar(&params.HelmOpts.StringValues, "helm-set-string", []string{}, "Set helm STRING values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2)")
 	cmd.Flags().StringArrayVar(&params.HelmOpts.FileValues, "helm-set-file", []string{}, "Set helm values from respective files specified via the command line (can specify multiple or separate values with commas: key1=path1,key2=path2)")
 	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait for helm install to finish")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", defaults.StatusWaitDuration, "Maximum time to wait for status")
+	cmd.Flags().SetNormalizeFunc(normalizeFlags)
 }
 
 func newCmdInstallWithHelm() *cobra.Command {
@@ -377,4 +378,18 @@ cilium upgrade --helm-set cluster.id=1 --helm-set cluster.name=cluster1
 		"Write non-default Helm values to stdout; without performing the actual upgrade")
 	cmd.Flags().StringVar(&params.HelmRepository, "repository", defaults.HelmRepository, "Helm chart repository to download Cilium charts from")
 	return cmd
+}
+
+func normalizeFlags(_ *pflag.FlagSet, name string) pflag.NormalizedName {
+	switch name {
+	case "helm-set":
+		name = "set"
+	case "helm-set-file":
+		name = "set-file"
+	case "helm-set-string":
+		name = "set-string"
+	case "helm-values":
+		name = "values"
+	}
+	return pflag.NormalizedName(name)
 }
