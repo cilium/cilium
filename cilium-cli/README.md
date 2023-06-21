@@ -43,7 +43,7 @@ binary releases.
 
 | Release                                                              | Maintained | Supported Cilium Versions |
 |----------------------------------------------------------------------|------------|---------------------------|
-| [v0.14.7](https://github.com/cilium/cilium-cli/releases/tag/v0.14.7) | Yes        | Cilium 1.11 and newer     |
+| [v0.14.8](https://github.com/cilium/cilium-cli/releases/tag/v0.14.8) | Yes        | Cilium 1.11 and newer     |
 | [v0.10.7](https://github.com/cilium/cilium-cli/releases/tag/v0.10.7) | No         | Cilium 1.10               |
 
 Please see [Experimental `helm` installation mode](#experimental-helm-installation-mode)
@@ -440,9 +440,9 @@ Helm value if you need to override the cilium-agent container image. For example
 Please see Cilium's [Helm Reference](https://docs.cilium.io/en/stable/helm-reference/) for the
 complete list of Helm values.
 
-### Supported commands as of v0.14
+### Supported commands as of v0.14.8
 
-- [ ] `clustermesh`
+- [x] `clustermesh`
 - [x] `completion`
 - [x] `config`
 - [x] `connectivity`
