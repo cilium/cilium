@@ -84,7 +84,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.14.4
 	github.com/tidwall/sjson v1.2.5
-	github.com/vishvananda/netlink v1.2.1-beta.2.0.20230616155239-a8a91c050431
+	github.com/vishvananda/netlink v1.2.1-beta.2.0.20230621221334-77712cff8739
 	github.com/vishvananda/netns v0.0.4
 	go.etcd.io/etcd/api/v3 v3.5.9
 	go.etcd.io/etcd/client/pkg/v3 v3.5.9
@@ -101,7 +101,7 @@ require (
 	golang.org/x/mod v0.11.0
 	golang.org/x/net v0.11.0
 	golang.org/x/sync v0.3.0
-	golang.org/x/sys v0.9.0
+	golang.org/x/sys v0.9.1-0.20230616193735-e0c3b6e6ae3b
 	golang.org/x/term v0.9.0
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.10.0
