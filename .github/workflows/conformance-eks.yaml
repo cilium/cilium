@@ -68,6 +68,7 @@ env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.14.7
   cilium_cli_ci_version:
+  CILIUM_CLI_MODE: helm
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   eksctl_version: v0.143.0
   kubectl_version: v1.27.2
@@ -314,7 +315,7 @@ jobs:
 
       - name: Install Cilium
         run: |
-          CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for Cilium to be ready
         run: |
@@ -340,7 +341,7 @@ jobs:
       - name: Clean up Cilium
         run: |
           pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
-          cilium uninstall --chart-directory=install/kubernetes/cilium --wait
+          cilium uninstall --wait
 
       - name: Create custom IPsec secret
         run: |
@@ -349,7 +350,8 @@ jobs:
       - name: Install Cilium with encryption
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }} \
-            --encryption=ipsec
+            --helm-set encryption.enabled=true \
+            --helm-set encryption.type=ipsec
 
       - name: Wait for Cilium to be ready
         run: |

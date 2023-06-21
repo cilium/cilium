@@ -461,7 +461,8 @@ jobs:
                 --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
             fi
 
-            CILIUM_CLI_MODE=helm ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
+            export CILIUM_CLI_MODE=helm
+            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
             kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
             kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
