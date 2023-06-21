@@ -65,15 +65,7 @@ jobs:
       - name: Set NODES_WITHOUT_CILIUM
         run: |
           # To add more elements, keep it comma-separated.
-          echo "NODES_WITHOUT_CILIUM=chart-testing-worker2" >> $GITHUB_ENV
-
-      - name: Label nodes
-        if: ${{ matrix.mode == 'helm' }}
-        run: |
-          IFS=',' read -ra nodes <<< "$NODES_WITHOUT_CILIUM"
-          for node in "${nodes[@]}"; do
-            kubectl label nodes "${node}" cilium.io/no-schedule=true
-          done
+          echo "NODES_WITHOUT_CILIUM=chart-testing-worker2,chart-testing-worker3" >> $GITHUB_ENV
 
       # Install Cilium with HostPort support and enables Prometheus for extended connectivity test.
       - name: Install Cilium
@@ -99,13 +91,36 @@ jobs:
           sleep 10s
           [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
 
+      - name: Set up external targets
+        id: external_targets
+        run: |
+          export worker2_ip=$(kubectl get nodes chart-testing-worker2 -o=jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
+          export worker3_ip=$(kubectl get nodes chart-testing-worker3 -o=jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
+          echo "worker2_ip=${worker2_ip}" >> $GITHUB_OUTPUT
+          echo "worker3_ip=${worker3_ip}" >> $GITHUB_OUTPUT
+          kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.12.0/cert-manager.yaml
+          kubectl rollout status -n cert-manager deployment.apps/cert-manager
+          kubectl rollout status -n cert-manager deployment.apps/cert-manager-webhook
+          kubectl create ns external-targets
+          cat .github/external-targets/certs.yaml | envsubst | kubectl apply -n external-targets -f -
+          until kubectl get secret -n external-targets external-target-cert &> /dev/null; do sleep 1s; done
+          kubectl apply -n external-targets -f .github/external-targets/nginx.yaml
+          kubectl rollout status -n external-targets ds/nginx
+
       - name: Connectivity Test
         run: |
           # Run the connectivity test in non-default namespace (i.e. not cilium-test)
           cilium connectivity test --debug --all-flows --test-namespace test-namespace \
             --include-unsafe-tests \
             --collect-sysdump-on-failure --junit-file cilium-junit-${{ matrix.mode }}-1.xml \
-            --junit-property mode=${{ matrix.mode }} --junit-property type=no-tunnel
+            --junit-property mode=${{ matrix.mode }} --junit-property type=no-tunnel \
+            --curl-insecure \
+            --external-target chart-testing-worker2 \
+            --external-target-ca-namespace=external-targets \
+            --external-target-ca-name=ca \
+            --external-cidr 172.18.0.0/16 \
+            --external-ip ${{ steps.external_targets.outputs.worker2_ip }} \
+            --external-other-ip ${{ steps.external_targets.outputs.worker3_ip }}
 
       - name: Uninstall cilium
         run: |
@@ -149,7 +164,14 @@ jobs:
           cilium connectivity test --debug --force-deploy --all-flows --test-namespace test-namespace \
             --include-unsafe-tests \
             --collect-sysdump-on-failure --junit-file cilium-junit-${{ matrix.mode }}-2.xml \
-            --junit-property mode=${{ matrix.mode }} --junit-property type=ipsec
+            --junit-property mode=${{ matrix.mode }} --junit-property type=ipsec \
+            --curl-insecure \
+            --external-target chart-testing-worker2 \
+            --external-target-ca-namespace=external-targets \
+            --external-target-ca-name=ca \
+            --external-cidr 172.18.0.0/16 \
+            --external-ip ${{ steps.external_targets.outputs.worker2_ip }} \
+            --external-other-ip ${{ steps.external_targets.outputs.worker3_ip }}
 
       - name: Upload JUnit
         if: ${{ always() }}

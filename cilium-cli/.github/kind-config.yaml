@@ -1,5 +1,6 @@
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+name: chart-testing
 nodes:
   - role: control-plane
     image: kindest/node:v1.19.11
@@ -13,8 +14,15 @@ nodes:
           taints: []
   - role: worker
     image: kindest/node:v1.19.11
+  # Two extra nodes without Cilium to use for --external-ip and --external-other-ip.
   - role: worker
     image: kindest/node:v1.19.11
+    labels:
+      cilium.io/no-schedule: "true"
+  - role: worker
+    image: kindest/node:v1.19.11
+    labels:
+      cilium.io/no-schedule: "true"
 networking:
   disableDefaultCNI: true
   podSubnet: "10.244.0.0/16"
