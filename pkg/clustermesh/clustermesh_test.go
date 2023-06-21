@@ -95,7 +95,7 @@ func TestClusterMesh(t *testing.T) {
 		wg.Wait()
 	}()
 
-	kvstore.SetupDummy(c, "etcd")
+	kvstore.SetupDummy(t, "etcd")
 
 	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
