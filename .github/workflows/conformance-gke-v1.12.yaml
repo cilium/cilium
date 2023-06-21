@@ -370,7 +370,7 @@ jobs:
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status
-          cilium sysdump --output-filename cilium-sysdump-final
+          cilium sysdump --output-filename cilium-sysdump-final-${{ matrix.k8s.version }}-${{ matrix.config.index }}-${{ matrix.config.type }}
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up GKE

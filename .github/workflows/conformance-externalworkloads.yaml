@@ -403,7 +403,7 @@ jobs:
           cilium clustermesh vm status
           gcloud compute ssh ${{ env.vmName }}-${{ matrix.vmIndex }} --zone ${{ matrix.zone }} --command "sudo cilium status"
           gcloud compute ssh ${{ env.vmName }}-${{ matrix.vmIndex }} --zone ${{ matrix.zone }} --command "sudo docker logs cilium --timestamps"
-          cilium sysdump --output-filename cilium-sysdump-final
+          cilium sysdump --output-filename cilium-sysdump-final-${{ join(matrix.*, '-') }}
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Clean up GKE cluster and VM
