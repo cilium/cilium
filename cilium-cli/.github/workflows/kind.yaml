@@ -107,7 +107,7 @@ jobs:
 
       - name: Uninstall cilium
         run: |
-          pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay"
+          pkill -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" || test $? -eq 1
           cilium uninstall --wait
 
       - name: Install Cilium with IPsec Encryption
