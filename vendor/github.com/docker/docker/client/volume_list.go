@@ -10,13 +10,13 @@ import (
 )
 
 // VolumeList returns the volumes configured in the docker host.
-func (cli *Client) VolumeList(ctx context.Context, options volume.ListOptions) (volume.ListResponse, error) {
+func (cli *Client) VolumeList(ctx context.Context, filter filters.Args) (volume.ListResponse, error) {
 	var volumes volume.ListResponse
 	query := url.Values{}
 
-	if options.Filters.Len() > 0 {
+	if filter.Len() > 0 {
 		//nolint:staticcheck // ignore SA1019 for old code
-		filterJSON, err := filters.ToParamWithVersion(cli.version, options.Filters)
+		filterJSON, err := filters.ToParamWithVersion(cli.version, filter)
 		if err != nil {
 			return volumes, err
 		}

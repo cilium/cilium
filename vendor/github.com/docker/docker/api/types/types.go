@@ -123,8 +123,9 @@ type ImageInspect struct {
 	// store images self-contained, and no longer use a parent-chain, making
 	// this field an equivalent of the Size field.
 	//
-	// Deprecated: Unused in API 1.43 and up, but kept for backward compatibility with older API versions.
-	VirtualSize int64 `json:"VirtualSize,omitempty"`
+	// This field is kept for backward compatibility, but may be removed in
+	// a future version of the API.
+	VirtualSize int64 // TODO(thaJeztah): deprecate this field
 
 	// GraphDriver holds information about the storage driver used to store the
 	// container's and image's filesystem.
@@ -296,6 +297,8 @@ type Info struct {
 	Labels             []string
 	ExperimentalBuild  bool
 	ServerVersion      string
+	ClusterStore       string `json:",omitempty"` // Deprecated: host-discovery and overlay networks with external k/v stores are deprecated
+	ClusterAdvertise   string `json:",omitempty"` // Deprecated: host-discovery and overlay networks with external k/v stores are deprecated
 	Runtimes           map[string]Runtime
 	DefaultRuntime     string
 	Swarm              swarm.Info
@@ -347,19 +350,20 @@ func DecodeSecurityOptions(opts []string) ([]SecurityOpt, error) {
 			continue
 		}
 		secopt := SecurityOpt{}
-		for _, s := range strings.Split(opt, ",") {
-			k, v, ok := strings.Cut(s, "=")
-			if !ok {
+		split := strings.Split(opt, ",")
+		for _, s := range split {
+			kv := strings.SplitN(s, "=", 2)
+			if len(kv) != 2 {
 				return nil, fmt.Errorf("invalid security option %q", s)
 			}
-			if k == "" || v == "" {
+			if kv[0] == "" || kv[1] == "" {
 				return nil, errors.New("invalid empty security option")
 			}
-			if k == "name" {
-				secopt.Name = v
+			if kv[0] == "name" {
+				secopt.Name = kv[1]
 				continue
 			}
-			secopt.Options = append(secopt.Options, KeyValue{Key: k, Value: v})
+			secopt.Options = append(secopt.Options, KeyValue{Key: kv[0], Value: kv[1]})
 		}
 		so = append(so, secopt)
 	}
@@ -652,18 +656,12 @@ type Checkpoint struct {
 
 // Runtime describes an OCI runtime
 type Runtime struct {
-	// "Legacy" runtime configuration for runc-compatible runtimes.
-
-	Path string   `json:"path,omitempty"`
+	Path string   `json:"path"`
 	Args []string `json:"runtimeArgs,omitempty"`
 
-	// Shimv2 runtime configuration. Mutually exclusive with the legacy config above.
-
-	Type    string                 `json:"runtimeType,omitempty"`
-	Options map[string]interface{} `json:"options,omitempty"`
-
 	// This is exposed here only for internal use
-	ShimConfig *ShimConfig `json:"-"`
+	// It is not currently supported to specify custom shim configs
+	Shim *ShimConfig `json:"-"`
 }
 
 // ShimConfig is used by runtime to configure containerd shims

@@ -201,7 +201,7 @@ func load(name string) (*Plugin, error) {
 }
 
 func loadWithRetry(name string, retry bool) (*Plugin, error) {
-	registry := NewLocalRegistry()
+	registry := newLocalRegistry()
 	start := time.Now()
 
 	var retries int
@@ -293,8 +293,8 @@ func Handle(iface string, fn func(string, *Client)) {
 }
 
 // GetAll returns all the plugins for the specified implementation
-func (l *LocalRegistry) GetAll(imp string) ([]*Plugin, error) {
-	pluginNames, err := l.Scan()
+func GetAll(imp string) ([]*Plugin, error) {
+	pluginNames, err := Scan()
 	if err != nil {
 		return nil, err
 	}

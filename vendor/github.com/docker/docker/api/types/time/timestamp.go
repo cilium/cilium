@@ -95,37 +95,37 @@ func GetTimestamp(value string, reference time.Time) (string, error) {
 	return fmt.Sprintf("%d.%09d", t.Unix(), int64(t.Nanosecond())), nil
 }
 
-// ParseTimestamps returns seconds and nanoseconds from a timestamp that has
-// the format ("%d.%09d", time.Unix(), int64(time.Nanosecond())).
-// If the incoming nanosecond portion is longer than 9 digits it is truncated.
-// The expectation is that the seconds and nanoseconds will be used to create a
-// time variable.  For example:
+// ParseTimestamps returns seconds and nanoseconds from a timestamp that has the
+// format "%d.%09d", time.Unix(), int64(time.Nanosecond()))
+// if the incoming nanosecond portion is longer or shorter than 9 digits it is
+// converted to nanoseconds.  The expectation is that the seconds and
+// seconds will be used to create a time variable.  For example:
 //
-//	seconds, nanoseconds, _ := ParseTimestamp("1136073600.000000001",0)
-//	since := time.Unix(seconds, nanoseconds)
+//	seconds, nanoseconds, err := ParseTimestamp("1136073600.000000001",0)
+//	if err == nil since := time.Unix(seconds, nanoseconds)
 //
-// returns seconds as defaultSeconds if value == ""
-func ParseTimestamps(value string, defaultSeconds int64) (seconds int64, nanoseconds int64, err error) {
+// returns seconds as def(aultSeconds) if value == ""
+func ParseTimestamps(value string, def int64) (int64, int64, error) {
 	if value == "" {
-		return defaultSeconds, 0, nil
+		return def, 0, nil
 	}
 	return parseTimestamp(value)
 }
 
-func parseTimestamp(value string) (sec int64, nsec int64, err error) {
-	s, n, ok := strings.Cut(value, ".")
-	sec, err = strconv.ParseInt(s, 10, 64)
+func parseTimestamp(value string) (int64, int64, error) {
+	sa := strings.SplitN(value, ".", 2)
+	s, err := strconv.ParseInt(sa[0], 10, 64)
 	if err != nil {
-		return sec, 0, err
+		return s, 0, err
 	}
-	if !ok {
-		return sec, 0, nil
+	if len(sa) != 2 {
+		return s, 0, nil
 	}
-	nsec, err = strconv.ParseInt(n, 10, 64)
+	n, err := strconv.ParseInt(sa[1], 10, 64)
 	if err != nil {
-		return sec, nsec, err
+		return s, n, err
 	}
 	// should already be in nanoseconds but just in case convert n to nanoseconds
-	nsec = int64(float64(nsec) * math.Pow(float64(10), float64(9-len(n))))
-	return sec, nsec, nil
+	n = int64(float64(n) * math.Pow(float64(10), float64(9-len(sa[1]))))
+	return s, n, nil
 }

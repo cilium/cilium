@@ -9,13 +9,18 @@ import (
 	"github.com/docker/docker/pkg/rootless"
 )
 
+const globalConfigPluginsPath = "/etc/docker/plugins"
+const globalLibPluginsPath = "/usr/lib/docker/plugins"
+
+var globalSpecsPaths = []string{globalConfigPluginsPath, globalLibPluginsPath}
+
 func rootlessConfigPluginsPath() string {
 	configHome, err := homedir.GetConfigHome()
 	if err == nil {
 		return filepath.Join(configHome, "docker/plugins")
 	}
 
-	return "/etc/docker/plugins"
+	return globalConfigPluginsPath
 }
 
 func rootlessLibPluginsPath() string {
@@ -24,7 +29,7 @@ func rootlessLibPluginsPath() string {
 		return filepath.Join(libHome, "docker/plugins")
 	}
 
-	return "/usr/lib/docker/plugins"
+	return globalLibPluginsPath
 }
 
 // SpecsPaths returns
@@ -37,5 +42,5 @@ func SpecsPaths() []string {
 		return []string{rootlessConfigPluginsPath(), rootlessLibPluginsPath()}
 	}
 
-	return []string{"/etc/docker/plugins", "/usr/lib/docker/plugins"}
+	return globalSpecsPaths
 }

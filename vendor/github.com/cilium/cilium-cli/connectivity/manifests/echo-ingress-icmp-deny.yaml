@@ -1,0 +1,19 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-ingress-from-other-client-icmp-deny
+spec:
+  description: "Deny other client to contact another client via ICMP"
+  endpointSelector:
+    matchLabels:
+      kind: client
+  ingressDeny:
+  - fromEndpoints:
+    - matchLabels:
+        other: client
+    icmps:
+    - fields:
+      - family: IPv4
+        type: 8
+      - family: IPv6
+        type: 128
