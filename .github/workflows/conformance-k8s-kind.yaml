@@ -22,7 +22,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-  kind_version: v0.19.0
+  kind_version: v0.20.0
   cluster_name: cilium-testing
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.14.7
