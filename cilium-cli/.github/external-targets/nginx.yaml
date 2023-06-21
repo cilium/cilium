@@ -1,0 +1,67 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf
+data:
+  nginx.conf: |
+    server {
+        listen       80;
+        listen       443 ssl;
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+        }
+        ssl_certificate     /etc/cert/tls.crt;
+        ssl_certificate_key /etc/cert/tls.key;
+    }
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: cilium.io/no-schedule
+                operator: In
+                values:
+                - "true"
+      hostNetwork: true
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/conf.d/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+            - name: cert
+              mountPath: "/etc/cert/"
+              readOnly: true
+      tolerations:
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+      volumes:
+      - name: nginx-conf
+        configMap:
+          name: nginx-conf
+          items:
+            - key: nginx.conf
+              path: nginx.conf
+      - name: cert
+        secret:
+          secretName: external-target-cert
