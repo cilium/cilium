@@ -26,3 +26,5 @@ cilium-sysdump-*.zip
 .vscode/
 .idea/
 
+# Direnv
+.envrc
