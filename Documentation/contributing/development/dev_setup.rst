@@ -610,7 +610,6 @@ Minor version
 
 #. Update documentation files:
    - Documentation/contributing/testing/e2e.rst
-   - Documentation/network/istio.rst
    - Documentation/network/kubernetes/compatibility.rst
    - Documentation/network/kubernetes/requirements.rst
 
