@@ -66,7 +66,7 @@ concurrency:
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version:
-  cilium_cli_ci_version: 03b67f7b6a192aa0cccb55603bac6cceeb87b417
+  cilium_cli_ci_version: 3f13fb8c969465aeaed420672d78d2fcda6bf9ac
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   upgrade_cilium_from_vsn: 1.13.3
   upgrade_cilium_to_vsn: 1.13.4 # empty = the PR version
