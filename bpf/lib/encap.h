@@ -127,12 +127,12 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 						seclabel);
 #endif
 
-#if !defined(ENABLE_NODEPORT) && (defined(ENABLE_IPSEC) || defined(ENABLE_HOST_FIREWALL))
-	/* For IPSec and the host firewall, traffic from a pod to a remote node
-	 * is sent through the tunnel. In the case of node --> VIP@remote pod,
-	 * packets may be DNATed when they enter the remote node. If kube-proxy
-	 * is used, the response needs to go through the stack on the way to
-	 * the tunnel, to apply the correct reverse DNAT.
+#if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
+	/* For the host firewall, traffic from a pod to a remote node is sent
+	 * through the tunnel. In the case of node --> VIP@remote pod, packets may
+	 * be DNATed when they enter the remote node. If kube-proxy is used, the
+	 * response needs to go through the stack on the way to the tunnel, to
+	 * apply the correct reverse DNAT.
 	 * See #14674 for details.
 	 */
 	ret = __encap_with_nodeid(ctx, 0, 0, tunnel_endpoint, seclabel, dstid,
@@ -146,7 +146,7 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 #else
 	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel_endpoint,
 						seclabel, dstid, NOT_VTEP_DST, trace);
-#endif /* !ENABLE_NODEPORT && (ENABLE_IPSEC || ENABLE_HOST_FIREWALL) */
+#endif /* !ENABLE_NODEPORT && ENABLE_HOST_FIREWALL */
 }
 
 #if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
