@@ -1053,11 +1053,10 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, zeroMark boo
 				upsertIPsecLog(err, "out IPv4", wildcardCIDR, cidr, spi)
 			}
 		} else {
-			localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
 			remoteCIDR := newNode.IPv4AllocCIDR.IPNet
 			n.replaceNodeIPSecOutRoute(new4Net)
-			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)
-			upsertIPsecLog(err, "out IPv4", localCIDR, remoteCIDR, spi)
+			spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)
+			upsertIPsecLog(err, "out IPv4", wildcardCIDR, remoteCIDR, spi)
 		}
 	}
 }
@@ -1127,11 +1126,10 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, zeroMark boo
 				upsertIPsecLog(err, "out IPv6", wildcardCIDR, cidr, spi)
 			}
 		} else {
-			localCIDR := &net.IPNet{IP: localIP, Mask: net.CIDRMask(0, 0)}
 			remoteCIDR := newNode.IPv6AllocCIDR.IPNet
 			n.replaceNodeIPSecOutRoute(new6Net)
-			spi, err := ipsec.UpsertIPsecEndpoint(localCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)
-			upsertIPsecLog(err, "out IPv6", localCIDR, remoteCIDR, spi)
+			spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)
+			upsertIPsecLog(err, "out IPv6", wildcardCIDR, remoteCIDR, spi)
 		}
 	}
 }
