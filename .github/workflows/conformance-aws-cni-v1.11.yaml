@@ -1,4 +1,4 @@
-name: ConformanceGKE (ci-gke-1.11)
+name: Conformance AWS-CNI (ci-awscni-1.11)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -7,7 +7,7 @@ on:
 #      - created
 #  # Run once a day
 #  schedule:
-#    - cron:  '0 3 * * *'
+#    - cron:  '0 16 * * *'
   ### FOR TESTING PURPOSES
   # This workflow runs in the context of `main`, and ignores changes to
   # workflow files in PRs. For testing changes to this workflow from a PR:
@@ -56,7 +56,7 @@ concurrency:
     ${{
       (github.event_name == 'schedule' && github.sha) ||
       (github.event_name == 'issue_comment' && (
-        github.event.comment.body == '/ci-gke-1.11' ||
+        github.event.comment.body == '/ci-awscni-1.11' ||
         github.event.comment.body == '/test-backport-1.11'
       ) && github.event.issue.number) ||
       (github.event_name == 'pull_request' && github.event.pull_request.number)
@@ -69,14 +69,15 @@ env:
   cilium_cli_version: v0.14.7
   cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  USE_GKE_GCLOUD_AUTH_PLUGIN: True
+  eksctl_version: v0.143.0
+  kubectl_version: v1.27.2
 
 jobs:
   check_changes:
     name: Deduce required tests from code changes
     if: |
       (github.event_name == 'issue_comment' && (
-        github.event.comment.body == '/ci-gke-1.11' ||
+        github.event.comment.body == '/ci-awscni-1.11' ||
         github.event.comment.body == '/test-backport-1.11'
       )) ||
       github.event_name == 'schedule' ||
@@ -152,7 +153,7 @@ jobs:
   skip-test-run:
     # If the modified files are not relevant for this test then we can skip
     # this test and mark it as successful.
-    if: github.event.comment.body == '/test-backport-1.11' && needs.check_changes.outputs.tested == 'false'
+    if: github.event.comment.body == '/test' && needs.check_changes.outputs.tested == 'false'
     runs-on: ubuntu-latest
     needs: setup-report
     name: Set commit status to success (skipped)
@@ -181,28 +182,21 @@ jobs:
 
       - name: Convert YAML to JSON
         run: |
-          work_dir=".github/actions/gke"
-          destination_directory="/tmp/generated/gke"
+          work_dir=".github/actions/aws"
+          destination_directory="/tmp/generated/aws"
           mkdir -p "${destination_directory}"
 
-          ls ${work_dir}/*.yaml | grep -v 'schema\|helm' | while read file;do
-            filename=$(basename "$file")
-            new_filename="${filename%.yaml}.json"
-            yq -o=json "${file}" | jq . > "${destination_directory}/${new_filename}"
-          done
-          
-          # Merge 2 files into one
-          jq -s "add" ${destination_directory}/*.json > "${destination_directory}/gke.json"
+          yq -o=json "${work_dir}/k8s-versions.yaml" | jq . > "${destination_directory}/aws.json"
 
       - name: Generate Matrix
         id: set-matrix
         run: |
-          cd /tmp/generated/gke
+          cd /tmp/generated/aws
 
           if [ "${{ github.event_name }}" == "schedule" ];then
-            cp gke.json /tmp/matrix.json
+            cp aws.json /tmp/matrix.json
           else
-            jq '{ "k8s": [ .k8s[] | select(.default) ], "config": .config}' gke.json > /tmp/matrix.json
+            jq '{ "include": [ .include[] | select(.default) ] }' aws.json > /tmp/matrix.json
           fi
 
           echo "Generated matrix:"
@@ -212,17 +206,17 @@ jobs:
   # This job is skipped when the workflow was triggered with the generic `/test`
   # trigger if the only modified files were under `test/` or `Documentation/`.
   installation-and-connectivity:
-    name: "Installation and Connectivity Test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})"
+    name: "Installation and Connectivity Test"
     needs: [check_changes, setup-report, generate-matrix]
     if: |
       (github.event_name == 'issue_comment' && (
-        github.event.comment.body == '/ci-gke-1.11' ||
+        github.event.comment.body == '/ci-awscni-1.11' ||
         (github.event.comment.body == '/test-backport-1.11' && needs.check_changes.outputs.tested == 'true')
       )) ||
       github.event_name == 'schedule' ||
       github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
     env:
       job_name: "Installation and Connectivity Test"
     strategy:
@@ -231,7 +225,7 @@ jobs:
 
     steps:
       - name: Checkout main branch to access local actions
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -242,7 +236,10 @@ jobs:
         id: vars
         run: |
           SHA="${{ needs.setup-report.outputs.sha }}"
-          CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }}-${{ matrix.config.index }} \
+          # Set ipam.mode=cluster-pool to overwrite the ipam value set by the
+          # cilium-cli which is setting it to 'eni' because it auto-detects
+          # the cluster as being EKS.
+          CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }} \
             --chart-directory=install/kubernetes/cilium \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
@@ -256,6 +253,12 @@ jobs:
             --helm-set=clustermesh.apiserver.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=enableIPv4Masquerade=false \
+            --helm-set=cni.chainingMode=aws-cni \
+            --helm-set=eni.enabled=false \
+            --helm-set=ipam.mode=cluster-pool \
+            --helm-set=tunnel=disabled \
+            --helm-set=bandwidthManager=false \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
@@ -263,18 +266,12 @@ jobs:
           HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
             --relay-version=${SHA}"
+          # L7 policies are not supported in chaining mode.
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
-            --external-target google.com --external-cidr 8.0.0.0/8 --external-ip 8.8.8.8 --external-other-ip 8.8.4.4"
+            --test '!fqdn,!l7' --external-target amazon.com --external-ip 1.0.0.1 --external-other-ip 1.1.1.1"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
-
-      # Checkout source code to install Cilium using local Helm chart.
-      - name: Checkout code
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
-        with:
-          ref: ${{ needs.setup-report.outputs.sha }}
-          persist-credentials: false
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@9fcfef089e5b7dd3212f2eac21ba8cfae6f05cca # v0.14.7
@@ -282,47 +279,38 @@ jobs:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
 
-      - name: Set up gcloud credentials
-        id: 'auth'
-        uses: google-github-actions/auth@35b0e87d162680511bf346c299f71c9c5c379033 # v1.1.1
+      - name: Install kubectl
+        run: |
+          curl -sLO "https://dl.k8s.io/release/${{ env.kubectl_version }}/bin/linux/amd64/kubectl"
+          curl -sLO "https://dl.k8s.io/${{ env.kubectl_version }}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+          kubectl version --client
+
+      - name: Install eksctl CLI
+        run: |
+          curl -LO "https://github.com/weaveworks/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
+          sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
+          rm eksctl_$(uname -s)_amd64.tar.gz
+
+      - name: Set up AWS CLI credentials
+        uses: aws-actions/configure-aws-credentials@5727f247b64f324ec403ac56ae05e220fd02b65f # v2.1.0
         with:
-          credentials_json: '${{ secrets.GCP_PR_SA_KEY }}'
+          aws-access-key-id: ${{ secrets.AWS_PR_SA_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_PR_SA_KEY }}
+          aws-region: ${{ matrix.region }}
 
-      - name: Set up gcloud CLI
-        uses: google-github-actions/setup-gcloud@e30db14379863a8c79331b04a9969f4c1e225e0b # v1.1.1
+      - name: Create EKS cluster
+        uses: ./.github/actions/setup-eks-cluster
         with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          version: "405.0.0"
+          cluster_name: ${{ env.clusterName }}
+          region: ${{ matrix.region }}
+          owner: "${{ needs.setup-report.outputs.owner }}"
+          version: ${{ matrix.version }}
 
-      - name: Install gke-gcloud-auth-plugin
+      - name: Update AWS VPC CNI plugin
         run: |
-          gcloud components install gke-gcloud-auth-plugin
-
-      - name: Display gcloud CLI info
-        run: |
-          gcloud info
-
-      - name: Create GKE cluster
-        run: |
-          gcloud container clusters create ${{ env.clusterName }}-${{ matrix.config.index }} \
-            --labels "usage=${{ github.repository_owner }}-${{ github.event.repository.name }},owner=${{ needs.setup-report.outputs.owner }}" \
-            --zone ${{ matrix.k8s.zone }} \
-            --cluster-version ${{ matrix.k8s.version }} \
-            --enable-ip-alias \
-            --create-subnetwork="range=/26" \
-            --cluster-ipv4-cidr="/21" \
-            --services-ipv4-cidr="/24" \
-            --image-type COS_CONTAINERD \
-            --num-nodes 2 \
-            --machine-type e2-custom-2-4096 \
-            --disk-type pd-standard \
-            --disk-size 10GB \
-            --node-taints node.cilium.io/agent-not-ready=true:NoExecute \
-            --preemptible
-
-      - name: Get cluster credentials
-        run: |
-          gcloud container clusters get-credentials ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }}
+          kubectl apply -f https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/release-1.11/config/master/aws-k8s-cni.yaml
 
       - name: Wait for images to be available
         timeout-minutes: 10
@@ -332,14 +320,16 @@ jobs:
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ needs.setup-report.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
-      - name: Create custom IPsec secret
-        if: ${{ matrix.config.type == 'ipsec' || matrix.config.type == 'tunnel-ipsec' }}
-        run: |
-          kubectl create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="15 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+      # Checkout source code to install Cilium using local Helm chart.
+      - name: Checkout code
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          ref: ${{ needs.setup-report.outputs.sha }}
+          persist-credentials: false
 
       - name: Install Cilium
         run: |
-          cilium install ${{ steps.vars.outputs.cilium_install_defaults }} ${{ matrix.config.cilium-install-opts }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Enable Relay
         run: |
@@ -359,28 +349,25 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
-      - name: Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})
+      - name: Run connectivity test (${{ join(matrix.*, ', ') }})
         run: |
           cilium connectivity test ${{ steps.vars.outputs.connectivity_test_defaults }} \
-          --junit-file "cilium-junits/${{ env.job_name }} (${{matrix.k8s.version}}, ${{matrix.config.index}}, ${{matrix.config.type}}).xml" \
-          --junit-property github_job_step="Run connectivity test (${{ matrix.k8s.version }}, ${{ matrix.config.index }}, ${{ matrix.config.type }})"
+          --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+          --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
       - name: Post-test information gathering
         if: ${{ !success() }}
         run: |
+          echo "=== Retrieve cluster state ==="
           kubectl get pods --all-namespaces -o wide
           cilium status
           cilium sysdump --output-filename cilium-sysdump-final
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
-      - name: Clean up GKE
+      - name: Clean up EKS
         if: ${{ always() }}
         run: |
-          while [ "$(gcloud container operations list --zone ${{ matrix.k8s.zone }} --filter="status=RUNNING AND targetLink~${{ env.clusterName }}-${{ matrix.config.index }}" --format="value(name)")" ];do
-            echo "cluster has an ongoing operation, waiting for all operations to finish"; sleep 15
-          done
-          gcloud container clusters delete ${{ env.clusterName }}-${{ matrix.config.index }} --zone ${{ matrix.k8s.zone }} --quiet --async
-        shell: bash {0} # Disable default fail-fast behavior so that all commands run independently
+          eksctl delete cluster --name ${{ env.clusterName }} --region ${{ matrix.region }}
 
       - name: Upload artifacts
         if: ${{ !success() }}
