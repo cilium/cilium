@@ -18,6 +18,7 @@ env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.14.7
   cilium_cli_ci_version:
+  CILIUM_CLI_MODE: helm
   KIND_VERSION: v0.17.0
   KIND_CONFIG: .github/kind-config-ipv6.yaml
   # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action
@@ -134,8 +135,7 @@ jobs:
             --helm-set autoDirectNodeRoutes=true \
             --helm-set ipv6NativeRoutingCIDR=2001:db8:1::/64 \
             --helm-set ingressController.enabled=true \
-            --helm-set bpf.monitorAggregation=none \
-            --version="
+            --helm-set bpf.monitorAggregation=none"
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
@@ -149,7 +149,7 @@ jobs:
 
       - name: Install Cilium
         run: |
-          CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for Cilium status to be ready
         run: |
