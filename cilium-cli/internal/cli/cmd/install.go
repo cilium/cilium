@@ -146,7 +146,7 @@ func newCmdUninstall() *cobra.Command {
 				Writer:          os.Stdout,
 			}, version)
 			if err != nil {
-				fmt.Printf("⚠ ️ Failed to initialize connectivity test uninstaller: %s", err)
+				fmt.Printf("⚠ ️ Failed to initialize connectivity test uninstaller: %s\n", err)
 			} else {
 				cc.UninstallResources(ctx, params.Wait)
 			}
@@ -160,9 +160,9 @@ func newCmdUninstall() *cobra.Command {
 					HelmChartDirectory:   params.HelmChartDirectory,
 				})
 			if err != nil {
-				fmt.Printf("⚠ ️ Failed to initialize Hubble uninstaller: %s", err)
+				fmt.Printf("⚠ ️ Failed to initialize Hubble uninstaller: %s\n", err)
 			} else if h.Disable(ctx, true) != nil {
-				fmt.Printf("ℹ️  Failed to disable Hubble. This is expected if Hubble is not enabled: %s", err)
+				fmt.Printf("ℹ️  Failed to disable Hubble. This is expected if Hubble is not enabled: %s\n", err)
 			}
 			uninstaller := install.NewK8sUninstaller(k8sClient, params)
 			if err := uninstaller.Uninstall(context.Background()); err != nil {
@@ -314,7 +314,7 @@ func newCmdUninstallWithHelm() *cobra.Command {
 				Writer:          os.Stdout,
 			}, version)
 			if err != nil {
-				fmt.Printf("⚠ ️ Failed to initialize connectivity test uninstaller: %s", err)
+				fmt.Printf("⚠ ️ Failed to initialize connectivity test uninstaller: %s\n", err)
 			} else {
 				cc.UninstallResources(ctx, params.Wait)
 			}
