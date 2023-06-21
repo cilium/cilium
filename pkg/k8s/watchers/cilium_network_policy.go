@@ -252,9 +252,11 @@ func (k *K8sWatcher) onUpsert(
 		return nil
 	}
 
-	// check if this cnp was referencing or is now referencing a
+	// check if this cnp was referencing or is now referencing at least one non-empty
 	// CiliumCIDRGroup and update the relevant metric accordingly.
-	if len(getCIDRGroupRefs(cnp)) > 0 {
+	cidrGroupRefs := getCIDRGroupRefs(cnp)
+	cidrsSets, _ := cidrGroupRefsToCIDRsSets(cidrGroupRefs, cidrGroupCache)
+	if len(cidrsSets) > 0 {
 		cidrGroupPolicies[key] = struct{}{}
 	} else {
 		delete(cidrGroupPolicies, key)
