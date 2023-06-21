@@ -314,6 +314,7 @@ var (
 	CIDRGroupTranslationTimeStats = NoOpHistogram
 
 	// CIDRGroupPolicies is the number of CNPs and CCNPs referencing at least one CiliumCIDRGroup.
+	// CNPs with empty or non-existing CIDRGroupRefs are not considered
 	CIDRGroupPolicies = NoOpGauge
 
 	// Identity
