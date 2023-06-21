@@ -1030,7 +1030,7 @@ func (h *Handle) LinkSetGSOIPv4MaxSize(link Link, maxSize int) error {
 	b := make([]byte, 4)
 	native.PutUint32(b, uint32(maxSize))
 
-	data := nl.NewRtAttr(nl.IFLA_GSO_IPV4_MAX_SIZE, b)
+	data := nl.NewRtAttr(unix.IFLA_GSO_IPV4_MAX_SIZE, b)
 	req.AddData(data)
 
 	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
@@ -1057,7 +1057,7 @@ func (h *Handle) LinkSetGROIPv4MaxSize(link Link, maxSize int) error {
 	b := make([]byte, 4)
 	native.PutUint32(b, uint32(maxSize))
 
-	data := nl.NewRtAttr(nl.IFLA_GRO_IPV4_MAX_SIZE, b)
+	data := nl.NewRtAttr(unix.IFLA_GRO_IPV4_MAX_SIZE, b)
 	req.AddData(data)
 
 	_, err := req.Execute(unix.NETLINK_ROUTE, 0)
@@ -1525,12 +1525,12 @@ func (h *Handle) linkModify(link Link, flags int) error {
 	}
 
 	if base.GSOIPv4MaxSize > 0 {
-		gsoAttr := nl.NewRtAttr(nl.IFLA_GSO_IPV4_MAX_SIZE, nl.Uint32Attr(base.GSOIPv4MaxSize))
+		gsoAttr := nl.NewRtAttr(unix.IFLA_GSO_IPV4_MAX_SIZE, nl.Uint32Attr(base.GSOIPv4MaxSize))
 		req.AddData(gsoAttr)
 	}
 
 	if base.GROIPv4MaxSize > 0 {
-		groAttr := nl.NewRtAttr(nl.IFLA_GRO_IPV4_MAX_SIZE, nl.Uint32Attr(base.GROIPv4MaxSize))
+		groAttr := nl.NewRtAttr(unix.IFLA_GRO_IPV4_MAX_SIZE, nl.Uint32Attr(base.GROIPv4MaxSize))
 		req.AddData(groAttr)
 	}
 
@@ -2080,9 +2080,9 @@ func LinkDeserialize(hdr *unix.NlMsghdr, m []byte) (Link, error) {
 			base.GSOMaxSize = native.Uint32(attr.Value[0:4])
 		case unix.IFLA_GRO_MAX_SIZE:
 			base.GROMaxSize = native.Uint32(attr.Value[0:4])
-		case nl.IFLA_GSO_IPV4_MAX_SIZE:
+		case unix.IFLA_GSO_IPV4_MAX_SIZE:
 			base.GSOIPv4MaxSize = native.Uint32(attr.Value[0:4])
-		case nl.IFLA_GRO_IPV4_MAX_SIZE:
+		case unix.IFLA_GRO_IPV4_MAX_SIZE:
 			base.GROIPv4MaxSize = native.Uint32(attr.Value[0:4])
 		case unix.IFLA_VFINFO_LIST:
 			data, err := nl.ParseRouteAttr(attr.Value)

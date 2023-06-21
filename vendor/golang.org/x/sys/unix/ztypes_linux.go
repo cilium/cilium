@@ -1538,6 +1538,10 @@ const (
 	IFLA_GRO_MAX_SIZE                          = 0x3a
 	IFLA_TSO_MAX_SIZE                          = 0x3b
 	IFLA_TSO_MAX_SEGS                          = 0x3c
+	IFLA_ALLMULTI                              = 0x3d
+	IFLA_DEVLINK_PORT                          = 0x3e
+	IFLA_GSO_IPV4_MAX_SIZE                     = 0x3f
+	IFLA_GRO_IPV4_MAX_SIZE                     = 0x40
 	IFLA_PROTO_DOWN_REASON_UNSPEC              = 0x0
 	IFLA_PROTO_DOWN_REASON_MASK                = 0x1
 	IFLA_PROTO_DOWN_REASON_VALUE               = 0x2
@@ -1968,7 +1972,7 @@ const (
 	NFT_MSG_GETFLOWTABLE              = 0x17
 	NFT_MSG_DELFLOWTABLE              = 0x18
 	NFT_MSG_GETRULE_RESET             = 0x19
-	NFT_MSG_MAX                       = 0x1a
+	NFT_MSG_MAX                       = 0x21
 	NFTA_LIST_UNSPEC                  = 0x0
 	NFTA_LIST_ELEM                    = 0x1
 	NFTA_HOOK_UNSPEC                  = 0x0
@@ -3651,7 +3655,7 @@ const (
 	ETHTOOL_MSG_PSE_GET                       = 0x24
 	ETHTOOL_MSG_PSE_SET                       = 0x25
 	ETHTOOL_MSG_RSS_GET                       = 0x26
-	ETHTOOL_MSG_USER_MAX                      = 0x26
+	ETHTOOL_MSG_USER_MAX                      = 0x2b
 	ETHTOOL_MSG_KERNEL_NONE                   = 0x0
 	ETHTOOL_MSG_STRSET_GET_REPLY              = 0x1
 	ETHTOOL_MSG_LINKINFO_GET_REPLY            = 0x2
@@ -3691,7 +3695,7 @@ const (
 	ETHTOOL_MSG_MODULE_NTF                    = 0x24
 	ETHTOOL_MSG_PSE_GET_REPLY                 = 0x25
 	ETHTOOL_MSG_RSS_GET_REPLY                 = 0x26
-	ETHTOOL_MSG_KERNEL_MAX                    = 0x26
+	ETHTOOL_MSG_KERNEL_MAX                    = 0x2b
 	ETHTOOL_A_HEADER_UNSPEC                   = 0x0
 	ETHTOOL_A_HEADER_DEV_INDEX                = 0x1
 	ETHTOOL_A_HEADER_DEV_NAME                 = 0x2
@@ -3795,7 +3799,7 @@ const (
 	ETHTOOL_A_RINGS_TCP_DATA_SPLIT            = 0xb
 	ETHTOOL_A_RINGS_CQE_SIZE                  = 0xc
 	ETHTOOL_A_RINGS_TX_PUSH                   = 0xd
-	ETHTOOL_A_RINGS_MAX                       = 0xd
+	ETHTOOL_A_RINGS_MAX                       = 0xe
 	ETHTOOL_A_CHANNELS_UNSPEC                 = 0x0
 	ETHTOOL_A_CHANNELS_HEADER                 = 0x1
 	ETHTOOL_A_CHANNELS_RX_MAX                 = 0x2
@@ -3833,14 +3837,14 @@ const (
 	ETHTOOL_A_COALESCE_RATE_SAMPLE_INTERVAL   = 0x17
 	ETHTOOL_A_COALESCE_USE_CQE_MODE_TX        = 0x18
 	ETHTOOL_A_COALESCE_USE_CQE_MODE_RX        = 0x19
-	ETHTOOL_A_COALESCE_MAX                    = 0x19
+	ETHTOOL_A_COALESCE_MAX                    = 0x1c
 	ETHTOOL_A_PAUSE_UNSPEC                    = 0x0
 	ETHTOOL_A_PAUSE_HEADER                    = 0x1
 	ETHTOOL_A_PAUSE_AUTONEG                   = 0x2
 	ETHTOOL_A_PAUSE_RX                        = 0x3
 	ETHTOOL_A_PAUSE_TX                        = 0x4
 	ETHTOOL_A_PAUSE_STATS                     = 0x5
-	ETHTOOL_A_PAUSE_MAX                       = 0x5
+	ETHTOOL_A_PAUSE_MAX                       = 0x6
 	ETHTOOL_A_PAUSE_STAT_UNSPEC               = 0x0
 	ETHTOOL_A_PAUSE_STAT_PAD                  = 0x1
 	ETHTOOL_A_PAUSE_STAT_TX_FRAMES            = 0x2
@@ -4490,7 +4494,7 @@ const (
 	NL80211_ATTR_MAC_HINT                                   = 0xc8
 	NL80211_ATTR_MAC_MASK                                   = 0xd7
 	NL80211_ATTR_MAX_AP_ASSOC_STA                           = 0xca
-	NL80211_ATTR_MAX                                        = 0x141
+	NL80211_ATTR_MAX                                        = 0x142
 	NL80211_ATTR_MAX_CRIT_PROT_DURATION                     = 0xb4
 	NL80211_ATTR_MAX_CSA_COUNTERS                           = 0xce
 	NL80211_ATTR_MAX_MATCH_SETS                             = 0x85
