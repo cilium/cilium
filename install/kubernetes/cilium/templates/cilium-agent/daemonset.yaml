@@ -434,6 +434,9 @@ spec:
         - name: KUBERNETES_SERVICE_PORT
           value: {{ .Values.k8sServicePort | quote }}
         {{- end }}
+        {{- with .Values.extraEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
         volumeMounts:
         - name: tmp
           mountPath: /tmp
