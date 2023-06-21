@@ -642,7 +642,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			testIPv4FragmentSupport(kubectl, ni)
 		})
 
-		SkipContextIf(func() bool { return helpers.RunsOnGKE() || helpers.SkipQuarantined() }, "With host policy", func() {
+		SkipContextIf(helpers.RunsOnGKE, "With host policy", func() {
 			hostPolicyFilename := "ccnp-host-policy-nodeport-tests.yaml"
 			var ccnpHostPolicy string
 
