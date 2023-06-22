@@ -51,7 +51,12 @@ func NodeResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.L
 	return resource.New[*slim_corev1.Node](lc, lw, resource.WithMetric("Node")), nil
 }
 
-func CiliumNodeResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNode], error) {
+func CiliumNodeResource(
+	lc hive.Lifecycle, cs client.Clientset,
+	sourceObj func() k8sRuntime.Object,
+	transform cache.TransformFunc,
+	opts ...func(*metav1.ListOptions),
+) (resource.Resource[*cilium_api_v2.CiliumNode], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
@@ -59,7 +64,11 @@ func CiliumNodeResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*me
 		utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](cs.CiliumV2().CiliumNodes()),
 		opts...,
 	)
-	return resource.New[*cilium_api_v2.CiliumNode](lc, lw, resource.WithMetric("CiliumNode")), nil
+	storeOpts := []resource.ResourceOption{
+		resource.WithLazyTransform(sourceObj, transform),
+		resource.WithMetric("CiliumNode"),
+	}
+	return resource.New[*cilium_api_v2.CiliumNode](lc, lw, storeOpts...), nil
 }
 
 func PodResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Pod], error) {

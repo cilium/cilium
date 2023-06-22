@@ -6,6 +6,7 @@ package k8s
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -44,6 +45,10 @@ var (
 			func(lc hive.Lifecycle, cs client.Clientset) (LocalCiliumNodeResource, error) {
 				return k8s.CiliumNodeResource(
 					lc, cs,
+					func() runtime.Object {
+						return &cilium_api_v2.CiliumNode{}
+					},
+					nil,
 					func(opts *metav1.ListOptions) {
 						opts.FieldSelector = fields.ParseSelectorOrDie("metadata.name=" + nodeTypes.GetName()).String()
 					},

@@ -30,7 +30,9 @@ var (
 		cell.Provide(
 			k8s.ServiceResource,
 			k8s.EndpointsResource,
-			k8s.CiliumNodeResource,
+			func(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNode], error) {
+				return k8s.CiliumNodeResource(lc, cs, func() runtime.Object { return &cilium_api_v2.CiliumNode{} }, nil, opts...)
+			},
 			k8s.CiliumIdentityResource,
 
 			func(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*types.CiliumEndpoint], error) {
