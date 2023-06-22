@@ -86,18 +86,28 @@ type IPMasqBPFMap struct{}
 
 func (*IPMasqBPFMap) Update(cidr net.IPNet) error {
 	if ip.IsIPv4(cidr.IP) {
-		return IPMasq4Map().Update(keyIPv4(cidr), &Value{})
+		if option.Config.EnableIPv4Masquerade {
+			return IPMasq4Map().Update(keyIPv4(cidr), &Value{})
+		}
 	} else {
-		return IPMasq6Map().Update(keyIPv6(cidr), &Value{})
+		if option.Config.EnableIPv6Masquerade {
+			return IPMasq6Map().Update(keyIPv6(cidr), &Value{})
+		}
 	}
+	return nil
 }
 
 func (*IPMasqBPFMap) Delete(cidr net.IPNet) error {
 	if ip.IsIPv4(cidr.IP) {
-		return IPMasq4Map().Delete(keyIPv4(cidr))
+		if option.Config.EnableIPv4Masquerade {
+			return IPMasq4Map().Delete(keyIPv4(cidr))
+		}
 	} else {
-		return IPMasq6Map().Delete(keyIPv6(cidr))
+		if option.Config.EnableIPv6Masquerade {
+			return IPMasq6Map().Delete(keyIPv6(cidr))
+		}
 	}
+	return nil
 }
 
 func (*IPMasqBPFMap) Dump() ([]net.IPNet, error) {
