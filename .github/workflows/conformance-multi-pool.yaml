@@ -25,7 +25,7 @@ env:
   cilium_cli_version: v0.14.8
   cilium_cli_ci_version:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-  kind_version: v0.19.0
+  kind_version: v0.20.0
   kind_config: .github/kind-config.yaml
   timeout: 5m
 
