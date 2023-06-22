@@ -364,7 +364,7 @@ and the `2-Clause BSD License <bsd-license_>`__
     :alt: GPL licensed
     :target: gpl-license_
 
-.. |slack| image:: https://cilium.herokuapp.com/badge.svg
+.. |slack| image:: https://img.shields.io/badge/slack-cilium-brightgreen.svg?logo=slack
     :alt: Join the Cilium slack channel
     :target: https://cilium.herokuapp.com/
 
