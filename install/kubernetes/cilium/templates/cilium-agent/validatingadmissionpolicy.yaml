@@ -1,0 +1,24 @@
+{{- if and .Values.agent (not .Values.preflight.enabled) }}
+---
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "http-tcp"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   ["cilium.io"]
+        apiVersions: ["v2"]
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["ciliumnetworkpolicies"]
+  validations:
+    - expression:
+        (has( object.spec.ingress[0].toPorts[0].rules.http) &&
+        object.spec.ingress[0].toPorts[0].ports[0].protocol == 'TCP') ||
+        (has(object.spec.ingress[0].toPorts[0].rules.kafka) && object.spec.ingress[0].toPorts[0].ports[0].protocol == 'TCP') ||
+        (has( object.spec.egress[0].toPorts[0].rules.http) && object.spec.egress[0].toPorts[0].ports[0].protocol == 'TCP')||
+        (has( object.spec.egress[0].toPorts[0].rules.kafka) && object.spec.egress[0].toPorts[0].ports[0].protocol == 'TCP') ||
+        has(object.spec.egress[0].toPorts[0].rules.dns)
+      message: "L7 rules can only apply to TCP (not UDP) except for egress DNS rules"
+{{- end }}
