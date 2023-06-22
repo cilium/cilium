@@ -414,14 +414,16 @@ func (d *Daemon) initMaps() error {
 		datapathIpcache.NewListener(d, d, d.ipcache),
 	})
 
-	if option.Config.EnableIPv4 && option.Config.EnableIPMasqAgent {
-		if err := ipmasq.IPMasq4Map().OpenOrCreate(); err != nil {
-			return fmt.Errorf("initializing IPv4 masquerading map: %w", err)
+	if option.Config.EnableIPMasqAgent {
+		if option.Config.EnableIPv4Masquerade {
+			if err := ipmasq.IPMasq4Map().OpenOrCreate(); err != nil {
+				return fmt.Errorf("initializing IPv4 masquerading map: %w", err)
+			}
 		}
-	}
-	if option.Config.EnableIPv6 && option.Config.EnableIPMasqAgent {
-		if err := ipmasq.IPMasq6Map().OpenOrCreate(); err != nil {
-			return fmt.Errorf("initializing IPv6 masquerading map: %w", err)
+		if option.Config.EnableIPv6Masquerade {
+			if err := ipmasq.IPMasq6Map().OpenOrCreate(); err != nil {
+				return fmt.Errorf("initializing IPv6 masquerading map: %w", err)
+			}
 		}
 	}
 
