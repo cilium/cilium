@@ -11,6 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
+	"k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -316,6 +317,14 @@ func (c *CiliumEndpointSliceController) handleErr(err error, key interface{}) {
 	// Increment error count for sync errors
 	if operatorOption.Config.EnableMetrics {
 		metrics.CiliumEndpointSliceSyncErrors.Inc()
+	}
+
+	if errors.IsConflict(err) {
+		// Update metadata of the object from store on conflict
+		obj, exists, err := c.ciliumEndpointSliceStore.GetByKey(key.(string))
+		if err == nil && exists {
+			c.Manager.updateCESInCache(obj.(*v2alpha1.CiliumEndpointSlice), false)
+		}
 	}
 
 	if c.queue.NumRequeues(key) < maxRetries {
