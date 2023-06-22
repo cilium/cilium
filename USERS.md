@@ -94,6 +94,12 @@ Users (Alphabetically)
       U: Hubble for Visibility, Cilium as Mesh between Services
       L: https://www.ayedo.de/
 
+    * N: Back Market
+      D: Back Market is using Cilium as CNI in all their clusters and environments (kOps + EKS in AWS)
+      U: CNI, Network Policies, Transparent Encryption (WG), Hubble
+      Q: @nitrikx
+      L: https://www.backmarket.com/
+
     * N: ByteDance
       D: ByteDance is using Cilium as CNI plug-in for self-hosted Kubernetes.
       U: CNI, Networking
