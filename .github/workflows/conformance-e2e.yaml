@@ -187,6 +187,11 @@ jobs:
 
     timeout-minutes: 60
     steps:
+      - uses: actions/checkout@v3
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        with:
+          detached: true
       - name: Checkout main branch to access local actions
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
