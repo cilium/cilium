@@ -140,6 +140,7 @@
       "matchPackagePatterns": [
         // Once we decide to spend cycles on ginkgo v2 we should update the
         // dependency manually.
+        "github.com/onsi/ginkgo",
         "github.com/onsi/gomega/*",
         // k8s dependencies will be updated manually along with tests
         "k8s.io/*",
