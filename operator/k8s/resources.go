@@ -4,6 +4,7 @@
 package k8s
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
@@ -49,6 +50,9 @@ var (
 					opts...,
 				)
 			},
+			func(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNode], error) {
+				return k8s.CiliumNodeResource(lc, cs, func() runtime.Object { return &cilium_api_v2.CiliumNode{} }, nil, opts...)
+			},
 		),
 	)
 )
@@ -64,4 +68,5 @@ type Resources struct {
 	Identities       resource.Resource[*cilium_api_v2.CiliumIdentity]
 	CiliumPodIPPools resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool]
 	CiliumEndpoints  resource.Resource[*cilium_api_v2.CiliumEndpoint]
+	CiliumNodes      resource.Resource[*cilium_api_v2.CiliumNode]
 }
