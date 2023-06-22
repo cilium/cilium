@@ -608,14 +608,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 				// ip-masq-agent depends on bpf-masq
 				if option.Config.EnableIPMasqAgent {
-					if option.Config.EnableIPv4 {
-						cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
-						cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapNameIPv4
-					}
-					if option.Config.EnableIPv6 {
-						cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV6"] = "1"
-						cDefinesMap["IP_MASQ_AGENT_IPV6"] = ipmasq.MapNameIPv6
-					}
+					cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
+					cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapNameIPv4
 				}
 			}
 			if option.Config.EnableIPv6Masquerade {
@@ -625,6 +619,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR", cidr.IP))
 				extraMacrosMap["IPV6_SNAT_EXCLUSION_DST_CIDR_MASK"] = cidr.Mask.String()
 				fw.WriteString(FmtDefineAddress("IPV6_SNAT_EXCLUSION_DST_CIDR_MASK", cidr.Mask))
+
+				if option.Config.EnableIPMasqAgent {
+					cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV6"] = "1"
+					cDefinesMap["IP_MASQ_AGENT_IPV6"] = ipmasq.MapNameIPv6
+				}
 			}
 		}
 
