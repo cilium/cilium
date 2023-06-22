@@ -21,9 +21,9 @@ import (
 // The test case consists of three steps:
 //
 // 1. Deploying pods and a service which establish the long-lived connections
-// (done by "--upgrade-test-setup"). The client pods ("migrate-svc-client")
-// establish connections via ClusterIP ("migrate-svc") to server pods
-// ("migrate-svc-server"). As there former pods come first before the latter,
+// (done by "--upgrade-test-setup"). The client pods ("test-conn-disrupt-client")
+// establish connections via ClusterIP ("test-conn-disrupt") to server pods
+// ("test-conn-disrupt-server"). As there former pods come first before the latter,
 // the former pods can crash which increases the pod restart counter. The step
 // is responsible for storing the restart counter too.
 // 2. Do Cilium upgrade.
@@ -44,12 +44,12 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
 	client := ct.K8sClient()
-	pods, err := client.ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + check.KindMigrateSvc})
+	pods, err := client.ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + check.KindTestConnDisrupt})
 	if err != nil {
-		t.Fatalf("Unable to list migrate-svc pods: %s", err)
+		t.Fatalf("Unable to list test-conn-disrupt pods: %s", err)
 	}
 	if len(pods.Items) == 0 {
-		t.Fatal("No migrate-svc-{client,server} pods found")
+		t.Fatal("No test-conn-disrupt-{client,server} pods found")
 	}
 
 	restartCount := make(map[string]string)
