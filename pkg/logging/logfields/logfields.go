@@ -629,6 +629,9 @@ const (
 	// Hint helps nudge the user in the right direction when troubleshooting.
 	Hint = "hint"
 
+	// CNName is the name of the CiliumNode.
+	CNName = "ciliumNodeName"
+
 	// CEPName is the name of the CiliumEndpoint.
 	CEPName = "ciliumEndpointName"
 
