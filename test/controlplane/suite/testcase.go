@@ -44,23 +44,20 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 )
 
-const (
-	validationTimeout = 10 * time.Second
-)
-
 type trackerAndDecoder struct {
 	tracker k8sTesting.ObjectTracker
 	decoder k8sRuntime.Decoder
 }
 
 type ControlPlaneTest struct {
-	t              *testing.T
-	nodeName       string
-	clients        *k8sClient.FakeClientset
-	trackers       []trackerAndDecoder
-	agentHandle    *agentHandle
-	operatorHandle *operatorHandle
-	Datapath       *fakeDatapath.FakeDatapath
+	t                 *testing.T
+	validationTimeout time.Duration
+	nodeName          string
+	clients           *k8sClient.FakeClientset
+	trackers          []trackerAndDecoder
+	agentHandle       *agentHandle
+	operatorHandle    *operatorHandle
+	Datapath          *fakeDatapath.FakeDatapath
 }
 
 func NewControlPlaneTest(t *testing.T, nodeName string, k8sVersion string) *ControlPlaneTest {
@@ -297,8 +294,13 @@ func (cpt *ControlPlaneTest) DeleteObjects(objs ...k8sRuntime.Object) *ControlPl
 	return cpt
 }
 
+func (cpt *ControlPlaneTest) WithValidationTimeout(d time.Duration) *ControlPlaneTest {
+	cpt.validationTimeout = d
+	return cpt
+}
+
 func (cpt *ControlPlaneTest) Eventually(check func() error) *ControlPlaneTest {
-	if err := retryUptoDuration(check, validationTimeout); err != nil {
+	if err := cpt.retry(check); err != nil {
 		cpt.t.Fatal(err)
 	}
 	return cpt
@@ -311,19 +313,30 @@ func (cpt *ControlPlaneTest) Execute(task func() error) *ControlPlaneTest {
 	return cpt
 }
 
-func retryUptoDuration(act func() error, maxDuration time.Duration) error {
+func (cpt *ControlPlaneTest) retry(act func() error) error {
 	wait := 50 * time.Millisecond
-	end := time.Now().Add(maxDuration)
+	end := time.Now().Add(cpt.validationTimeout)
 
-	for time.Now().Add(wait).Before(end) {
+	// With validationTimeout set to 0, act will be retried without enforcing any timeout.
+	// This is useful to reduce controlplane tests flakyness in CI environment.
+	// Use WithValidationTimeout to set a custom timeout for local development.
+	for cpt.validationTimeout == 0 || time.Now().Add(wait).Before(end) {
 		time.Sleep(wait)
-		if err := act(); err == nil {
+
+		err := act()
+		if err == nil {
 			return nil
 		}
+		cpt.t.Logf("validation failed: %s", err)
+
 		wait *= 2
+		if wait > time.Second {
+			wait = time.Second
+		}
+		cpt.t.Logf("going to retry after %s...", wait)
 	}
 
-	time.Sleep(end.Sub(time.Now()))
+	time.Sleep(time.Until(end))
 	return act()
 }
 
