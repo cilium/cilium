@@ -37,8 +37,9 @@ var Cell = cell.Module(
 
 	spire.Cell,
 
-	// The manager is the main entry point which gets registered to signal map and receives auth requests.
-	cell.Invoke(newManager),
+	// The auth manager is the main entry point which gets registered to signal map and receives auth requests.
+	// In addition, it handles re-authentication and auth map garbage collection.
+	cell.Invoke(registerAuthManager),
 	cell.ProvidePrivate(
 		// Null auth handler provides support for auth type "null" - which always succeeds.
 		newMutualAuthHandler,
@@ -74,27 +75,40 @@ func (r config) Flags(flags *pflag.FlagSet) {
 type authManagerParams struct {
 	cell.In
 
-	Logger          logrus.FieldLogger
-	Lifecycle       hive.Lifecycle
-	JobRegistry     job.Registry
-	Config          config
-	IPCache         *ipcache.IPCache
-	AuthHandlers    []authHandler `group:"authHandlers"`
-	AuthMap         authmap.Map
+	Logger      logrus.FieldLogger
+	Lifecycle   hive.Lifecycle
+	JobRegistry job.Registry
+
+	Config       config
+	AuthMap      authmap.Map
+	AuthHandlers []authHandler `group:"authHandlers"`
+
 	SignalManager   signal.SignalManager
+	IPCache         *ipcache.IPCache
 	IdentityChanges stream.Observable[cache.IdentityChange]
 	CiliumNodes     resource.Resource[*ciliumv2.CiliumNode]
 	PolicyRepo      *policy.Repository
 }
 
-func newManager(params authManagerParams) error {
+func registerAuthManager(params authManagerParams) error {
 	if !params.Config.MeshAuthEnabled {
 		params.Logger.Info("Authentication processing is disabled")
 		return nil
 	}
 
+	// Instantiate & wire auth components
+
 	mapWriter := newAuthMapWriter(params.Logger, params.AuthMap)
 	mapCache := newAuthMapCache(params.Logger, mapWriter)
+
+	mgr, err := newAuthManager(params.Logger, params.AuthHandlers, mapCache, params.IPCache)
+	if err != nil {
+		return fmt.Errorf("failed to create auth manager: %w", err)
+	}
+
+	mapGC := newAuthMapGC(params.Logger, mapCache, params.IPCache, params.PolicyRepo)
+
+	// Register auth components to lifecycle hooks & jobs
 
 	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(hookContext hive.HookContext) error {
@@ -110,23 +124,13 @@ func newManager(params authManagerParams) error {
 		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "auth")),
 	)
-
-	mgr, err := newAuthManager(params.Logger, params.AuthHandlers, mapCache, params.IPCache)
-	if err != nil {
-		return fmt.Errorf("failed to create auth manager: %w", err)
-	}
+	params.Lifecycle.Append(jobGroup)
 
 	if err := registerSignalAuthenticationJob(jobGroup, mgr, params.SignalManager, params.Config); err != nil {
 		return fmt.Errorf("failed to register signal authentication job: %w", err)
 	}
-
 	registerReAuthenticationJob(jobGroup, mgr, params.AuthHandlers)
-
-	mapGC := newAuthMapGC(params.Logger, mapCache, params.IPCache, params.PolicyRepo)
-
-	registerGCJobs(jobGroup, mapGC, params)
-
-	params.Lifecycle.Append(jobGroup)
+	registerGCJobs(jobGroup, mapGC, params.Config, params.CiliumNodes, params.IdentityChanges)
 
 	return nil
 }
@@ -148,20 +152,20 @@ func registerSignalAuthenticationJob(jobGroup job.Group, mgr *authManager, sm si
 		return fmt.Errorf("failed to set up signal channel for datapath authentication required events: %w", err)
 	}
 
-	jobGroup.Add(job.Observer("auth request processing", mgr.handleAuthRequest, stream.FromChannel(signalChannel)))
+	jobGroup.Add(job.Observer("auth request-authentication", mgr.handleAuthRequest, stream.FromChannel(signalChannel)))
 
 	return nil
 }
 
-func registerGCJobs(jobGroup job.Group, mapGC *authMapGarbageCollector, params authManagerParams) {
-	jobGroup.Add(job.Observer("auth identities gc events", mapGC.handleIdentityChange, params.IdentityChanges))
+func registerGCJobs(jobGroup job.Group, mapGC *authMapGarbageCollector, cfg config, nodeChanges resource.Resource[*ciliumv2.CiliumNode], identityChanges stream.Observable[cache.IdentityChange]) {
+	jobGroup.Add(job.Observer("auth gc-identity-events", mapGC.handleIdentityChange, identityChanges))
 
 	// Add node based auth gc if k8s client is enabled
-	if params.CiliumNodes != nil {
-		jobGroup.Add(job.Observer[resource.Event[*ciliumv2.CiliumNode]]("auth nodes gc events", mapGC.handleCiliumNodeEvent, params.CiliumNodes))
+	if nodeChanges != nil {
+		jobGroup.Add(job.Observer[resource.Event[*ciliumv2.CiliumNode]]("auth gc-node-events", mapGC.handleCiliumNodeEvent, nodeChanges))
 	}
 
-	jobGroup.Add(job.Timer("auth gc", mapGC.cleanup, params.Config.MeshAuthGCInterval))
+	jobGroup.Add(job.Timer("auth gc-cleanup", mapGC.cleanup, cfg.MeshAuthGCInterval))
 }
 
 type authHandlerResult struct {
