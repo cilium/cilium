@@ -1003,3 +1003,45 @@ func TestCluster(t *testing.T) {
 		})
 	}
 }
+
+func TestCELExpression(t *testing.T) {
+	tt := []struct {
+		name    string
+		flags   []string
+		filters []*flowpb.FlowFilter
+		err     string
+	}{
+		{
+			name:  "Single CEL expression filter",
+			flags: []string{"--cel-expression", "_flow.verdict == Verdict.FORWARDED || _flow.verdict == Verdict.TRANSLATED"},
+			filters: []*flowpb.FlowFilter{
+				{Experimental: &flowpb.FlowFilter_Experimental{CelExpression: []string{"_flow.verdict == Verdict.FORWARDED || _flow.verdict == Verdict.TRANSLATED"}}},
+			},
+		},
+		{
+			name:  "Multiple CEL expression filter",
+			flags: []string{"--cel-expression", "_flow.verdict == Verdict.FORWARDED", "--cel-expression", "_flow.verdict == Verdict.TRANSLATED"},
+			filters: []*flowpb.FlowFilter{
+				{Experimental: &flowpb.FlowFilter_Experimental{CelExpression: []string{"_flow.verdict == Verdict.FORWARDED", "_flow.verdict == Verdict.TRANSLATED"}}},
+			},
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFlowFilter()
+			cmd := newFlowsCmdWithFilter(viper.New(), f)
+			err := cmd.Flags().Parse(tc.flags)
+			if tc.err != "" {
+				require.Errorf(t, err, tc.err)
+				return
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Nil(t, f.blacklist)
+			diff := cmp.Diff(tc.filters, f.whitelist.flowFilters(), cmpopts.IgnoreUnexported(flowpb.FlowFilter{}, flowpb.FlowFilter_Experimental{}))
+			if diff != "" {
+				t.Errorf("mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

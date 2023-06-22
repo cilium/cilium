@@ -212,6 +212,7 @@ func newFlowFilter() *flowFilter {
 			{"tcp-flags"},
 			{"uuid"},
 			{"traffic-direction"},
+			{"cel-expression"},
 		},
 	}
 }
@@ -719,6 +720,14 @@ func (of *flowFilter) set(f *filterTracker, name, val string, track bool) error 
 		default:
 			return fmt.Errorf("%s: invalid traffic direction, expected ingress or egress", td)
 		}
+
+	case "cel-expression":
+		f.apply(func(f *flowpb.FlowFilter) {
+			if f.GetExperimental() == nil {
+				f.Experimental = &flowpb.FlowFilter_Experimental{}
+			}
+			f.Experimental.CelExpression = append(f.Experimental.CelExpression, val)
+		})
 	}
 
 	if err := f.checkNamespaceConflicts(f.left); err != nil {
