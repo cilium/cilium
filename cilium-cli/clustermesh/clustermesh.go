@@ -2020,21 +2020,12 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 		k.Log("❌ Unable to find Helm release for the target cluster")
 		return err
 	}
-	version := localRelease.Chart.AppVersion()
-	semv, err := utils.ParseCiliumVersion(version)
+
+	ok, err := k.needsClassicMode(localRelease)
 	if err != nil {
-		return fmt.Errorf("failed to parse Cilium version: %w", err)
+		return err
 	}
-
-	v := fmt.Sprintf("%d.%d.%d", semv.Major, semv.Minor, semv.Patch)
-	k.Log("✅ Detected Helm release with Cilium version %s", v)
-
-	if v < "1.14.0" {
-		// Helm-based clustermesh enable is only supported on Cilium
-		// v1.14+ due to a lack of support in earlier versions for
-		// autoconfigured certificates (tls.{crt,key}) for cluster
-		// members when running in certgen (cronJob) PKI mode
-		k.Log("⚠️ Cilium Version is less than 1.14.0. Continuing in classic mode.")
+	if ok {
 		return k.Connect(ctx)
 	}
 
@@ -2111,30 +2102,43 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 	return nil
 }
 
+// Helm-based clustermesh connect/disconnect is only supported on Cilium
+// v1.14+ due to a lack of support in earlier versions for
+// autoconfigured certificates (tls.{crt,key}) for cluster
+// members when running in certgen (cronJob) PKI mode
+func (k *K8sClusterMesh) needsClassicMode(r *release.Release) (bool, error) {
+	if r == nil {
+		return false, fmt.Errorf("needs a valid helm release. got nil")
+	}
+
+	version := r.Chart.AppVersion()
+	semv, err := utils.ParseCiliumVersion(version)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse Cilium version: %w", err)
+	}
+	k.Log("✅ Detected Helm release with Cilium version %s", semv)
+
+	const ciliumHelmMinRev = "1.14.0"
+	cv := semver.MustParse(ciliumHelmMinRev)
+	if semv.Major == cv.Major && semv.Minor < cv.Minor {
+		k.Log("⚠️ Cilium Version is less than %s. Continuing in classic mode.", ciliumHelmMinRev)
+		return true, nil
+	}
+
+	return false, nil
+}
+
 func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
 	localRelease, err := getRelease(k.client.(*k8s.Client), k.params.Namespace)
 	if err != nil {
 		k.Log("❌ Unable to find Helm release for the target cluster")
 		return err
 	}
-	version := localRelease.Chart.AppVersion()
-	semv, err := utils.ParseCiliumVersion(version)
+	ok, err := k.needsClassicMode(localRelease)
 	if err != nil {
-		return fmt.Errorf("failed to parse Cilium version: %w", err)
+		return err
 	}
-	k.Log("✅ Detected Helm release with Cilium version %s", semv)
-
-	const minCiliumHelmRev = "1.14.0"
-	cv, err := semver.Parse(minCiliumHelmRev)
-	if err != nil {
-		return fmt.Errorf("failed to parse Cilium version: %w", err)
-	}
-	if cv.Compare(semv) < 0 {
-		// Helm-based clustermesh enable is only supported on Cilium
-		// v1.14+ due to a lack of support in earlier versions for
-		// autoconfigured certificates (tls.{crt,key}) for cluster
-		// members when running in certgen (cronJob) PKI mode
-		k.Log("⚠️ Cilium Version is less than 1.14.0. Continuing in classic mode.")
+	if ok {
 		return k.Disconnect(ctx)
 	}
 
@@ -2150,7 +2154,6 @@ func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
 	if err = k.validateInfoForConnect(aiLocal, aiRemote); err != nil {
 		return err
 	}

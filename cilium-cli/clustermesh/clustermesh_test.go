@@ -5,7 +5,84 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/release"
 )
+
+func TestNeedClassicMode(t *testing.T) {
+	uu := map[string]struct {
+		r   release.Release
+		err error
+		e   bool
+	}{
+		"blank": {
+			r: release.Release{
+				Chart: &chart.Chart{},
+			},
+			err: errors.New(`failed to parse Cilium version: strconv.ParseUint: parsing "": invalid syntax`),
+		},
+		"1.13.1": {
+			r: release.Release{
+				Chart: &chart.Chart{
+					Metadata: &chart.Metadata{AppVersion: "1.13.1"},
+				},
+			},
+			e: true,
+		},
+		"v1.13.1": {
+			r: release.Release{
+				Chart: &chart.Chart{
+					Metadata: &chart.Metadata{AppVersion: "v1.13.1"},
+				},
+			},
+			e: true,
+		},
+		"v1.13.1-pre.2": {
+			r: release.Release{
+				Chart: &chart.Chart{
+					Metadata: &chart.Metadata{AppVersion: "v1.13.1-pre.2"},
+				},
+			},
+			e: true,
+		},
+		"v1.14.0": {
+			r: release.Release{
+				Chart: &chart.Chart{
+					Metadata: &chart.Metadata{AppVersion: "v1.14.0"},
+				},
+			},
+		},
+		"v1.14.0-snapshot.2": {
+			r: release.Release{
+				Chart: &chart.Chart{
+					Metadata: &chart.Metadata{AppVersion: "v1.14.0-snapshot.2"},
+				},
+			},
+		},
+		"v1.14.10": {
+			r: release.Release{
+				Chart: &chart.Chart{
+					Metadata: &chart.Metadata{AppVersion: "v1.14.10"},
+				},
+			},
+		},
+	}
+
+	c := K8sClusterMesh{
+		params: Parameters{Writer: noOptWriter{}},
+	}
+	for k := range uu {
+		u := uu[k]
+		t.Run(k, func(t *testing.T) {
+			ok, err := c.needsClassicMode(&u.r)
+			if err != nil {
+				assert.Equal(t, u.err.Error(), err.Error())
+				return
+			}
+			assert.Equal(t, u.e, ok)
+		})
+	}
+}
 
 func TestRemoveFromClustermeshConfig(t *testing.T) {
 	uu := map[string]struct {
