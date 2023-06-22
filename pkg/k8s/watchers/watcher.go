@@ -94,13 +94,26 @@ func init() {
 		k8s.K8sErrorHandler,
 	}
 
-	k8s_metrics.Register(k8s_metrics.RegisterOpts{
+	// The client-go Register function can be called only once,
+	// but controller-runtime also calls it in its init function
+	// because there's an indirect dependency on controller-runtime.
+	// The metrics of one who called the init first will take effect,
+	// and which one wins depends on the order of package initialization.
+	// Given the possibility that controller-runtime wins, we should set
+	// the adapters directly to override the metrics registration of
+	// controller-runtime as well as calling Register function.
+	// Without calling Register function here, controller-runtime will have
+	// a chance to override our metrics registration.
+	registerOps := k8s_metrics.RegisterOpts{
 		ClientCertExpiry:      nil,
 		ClientCertRotationAge: nil,
 		RequestLatency:        &k8sMetrics{},
 		RateLimiterLatency:    nil,
 		RequestResult:         &k8sMetrics{},
-	})
+	}
+	k8s_metrics.Register(registerOps)
+	k8s_metrics.RequestLatency = registerOps.RequestLatency
+	k8s_metrics.RequestResult = registerOps.RequestResult
 }
 
 var (
