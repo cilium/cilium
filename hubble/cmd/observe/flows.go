@@ -523,6 +523,9 @@ func newFlowsCmdHelper(usage cmdUsage, vp *viper.Viper, ofilter *flowFilter) *co
 	filterFlags.Var(filterVar(
 		"traffic-direction", ofilter,
 		"Show all flows in the given traffic direction (either ingress or egress)"))
+	filterFlags.Var(filterVar(
+		"cel-expression", ofilter,
+		"Filter flows using the given CEL expression"))
 
 	rawFilterFlags.StringArray(allowlistFlag, []string{}, "Specify allowlist as JSON encoded FlowFilters")
 	rawFilterFlags.StringArray(denylistFlag, []string{}, "Specify denylist as JSON encoded FlowFilters")
