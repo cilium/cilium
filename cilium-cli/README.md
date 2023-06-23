@@ -344,7 +344,7 @@ Install a Cilium in a cluster and enable encryption with IPsec
     🚀 Creating Operator Deployment...
     ⌛ Waiting for Cilium to be installed...
 
-## Experimental `helm` installation mode
+## `helm` installation mode
 
 `cilium-cli` v0.14 introduces a new `helm` installation mode. In the current installation mode
 (we now call it `classic` mode), `cilium-cli` directly calls Kubernetes APIs to manage resources
@@ -353,17 +353,15 @@ management to Helm. This enables you to use `cilium-cli` and `helm` interchangea
 Cilium installation, while taking advantage of `cilium-cli`'s advanced features such as Cilium
 configuration auto-detection.
 
-Our current plan is to:
+In `cilium-cli` v0.15, the `helm` mode is the default installation mode, and the `classic` mode is
+deprecated. To use the `classic` mode, set `CILIUM_CLI_MODE` environment variable to `classic`:
 
-- v0.14: Introduce the `helm` installation mode as an opt-in feature.
-- v0.15: Enable the `helm` installation mode by default, and deprecate the `classic` installation mode.
-- v1.0: Remove the `classic` installation mode.
+    export CILIUM_CLI_MODE=classic
+
+> **Warning**
+> The `classic` installation mode will be removed after v0.15 release.
 
 ### Examples
-
-To opt in to use the `helm` installation mode:
-
-    export CILIUM_CLI_MODE=helm
 
 #### `install` examples
 
@@ -439,19 +437,3 @@ Helm value if you need to override the cilium-agent container image. For example
 
 Please see Cilium's [Helm Reference](https://docs.cilium.io/en/stable/helm-reference/) for the
 complete list of Helm values.
-
-### Supported commands as of v0.14.8
-
-- [x] `clustermesh`
-- [x] `completion`
-- [x] `config`
-- [x] `connectivity`
-- [x] `context`
-- [x] `help`
-- [x] `hubble`
-- [x] `install`
-- [x] `status`
-- [x] `sysdump`
-- [x] `uninstall`
-- [x] `upgrade`
-- [x] `version`
