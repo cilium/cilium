@@ -1253,6 +1253,21 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		if err := WaitForService(ctx, ct, *client, s); err != nil {
 			return err
 		}
+
+		// Wait until the service is propagated to the cilium agents
+		// running on the nodes hosting the client pods.
+		nodes := make(map[string]struct{})
+		for _, client := range ct.ClientPods() {
+			nodes[client.NodeName()] = struct{}{}
+		}
+
+		for _, agent := range ct.CiliumPods() {
+			if _, ok := nodes[agent.NodeName()]; ok {
+				if err := WaitForServiceEndpoints(ctx, ct, agent, s, 1); err != nil {
+					return err
+				}
+			}
+		}
 	}
 
 	if ct.Features[FeatureIngressController].Enabled {

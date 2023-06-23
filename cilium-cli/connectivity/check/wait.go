@@ -6,11 +6,13 @@ package check
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -165,6 +167,69 @@ func WaitForService(ctx context.Context, log Logger, client Pod, service Service
 			return fmt.Errorf("timeout reached waiting for service %s (last error: %w)", service.Name(), err)
 		}
 	}
+}
+
+// WaitForServiceEndpoints waits until the expected number of service backends
+// are reported by the given agent.
+func WaitForServiceEndpoints(ctx context.Context, log Logger, agent Pod, service Service, backends uint) error {
+	log.Logf("⌛ [%s] Waiting for Service %s to be synchronized by Cilium pod %s",
+		agent.K8sClient.ClusterName(), service.Name(), agent.Name())
+
+	ctx, cancel := context.WithTimeout(ctx, ShortTimeout)
+	defer cancel()
+
+	for {
+		err := checkServiceEndpoints(ctx, agent, service, backends)
+		if err == nil {
+			return nil
+		}
+
+		log.Debugf("[%s] Service %s not yet correctly synchronized by Cilium pod %s: %s",
+			agent.K8sClient.ClusterName(), service.Name(), agent.Name(), err)
+
+		select {
+		case <-time.After(PollInterval):
+		case <-ctx.Done():
+			return fmt.Errorf("timeout reached waiting for service %s to appear in Cilium pod %s (last error: %w)",
+				service.Name(), agent.Name(), err)
+		}
+	}
+}
+
+func checkServiceEndpoints(ctx context.Context, agent Pod, service Service, backends uint) error {
+	buffer, err := agent.K8sClient.ExecInPod(ctx, agent.Namespace(), agent.NameWithoutNamespace(),
+		defaults.AgentContainerName, []string{"cilium", "service", "list", "--output=json"})
+	if err != nil {
+		return fmt.Errorf("failed to query service list: %w", err)
+	}
+
+	var services []*models.Service
+	if err := json.Unmarshal(buffer.Bytes(), &services); err != nil {
+		return fmt.Errorf("failed to unmarshal service list output: %w", err)
+	}
+
+	type l3n4 struct {
+		addr string
+		port uint16
+	}
+
+	found := make(map[l3n4]uint)
+	for _, svc := range services {
+		found[l3n4{
+			addr: svc.Spec.FrontendAddress.IP,
+			port: svc.Spec.FrontendAddress.Port,
+		}] = uint(len(svc.Spec.BackendAddresses))
+	}
+
+	for _, ip := range service.Service.Spec.ClusterIPs {
+		for _, port := range service.Service.Spec.Ports {
+			if found[l3n4{addr: ip, port: uint16(port.Port)}] < backends {
+				return errors.New("service not yet synchronized")
+			}
+		}
+	}
+
+	return nil
 }
 
 // WaitForNodePorts waits until all the nodeports in a service are available on a given node.
