@@ -58,7 +58,6 @@ Known Limitations
 =================
 
 - Due to Pod-to-Pod communication with the Cilium Agent via UNIX domain sockets, Envoy DaemonSet isn't supported with SELinux enabled on the host. This is the default for Red Hat OpenShift.
-- Go Extensions (ProxyLib) aren't supported yet.
 
 *************
 Go Extensions
