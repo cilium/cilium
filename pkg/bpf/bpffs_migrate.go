@@ -91,22 +91,35 @@ func repinMap(bpffsPath string, name string, spec *ebpf.MapSpec) error {
 		return fmt.Errorf("map not found at path %s: %v", name, err)
 	}
 
-	if pinned.Type() == spec.Type &&
-		pinned.KeySize() == spec.KeySize &&
-		pinned.ValueSize() == spec.ValueSize &&
-		pinned.Flags() == spec.Flags &&
-		pinned.MaxEntries() == spec.MaxEntries {
+	dest := file + bpffsPending
+
+	switch err := spec.Compatible(pinned); {
+	// Unconditionally re-pin Program Arrays since their contents cannot be
+	// atomically updated. A new version of an ELF may have some behaviour moved
+	// from one tail call to another, potentially leading to unexpected packet
+	// drops or a security bypass during the re-population of the array. It is
+	// generally not safe to manipulate a program array of bpf program attached to
+	// a live endpoint.
+	case spec.Type == ebpf.ProgramArray:
+		log.WithFields(logrus.Fields{
+			logfields.BPFMapName: name,
+			logfields.BPFMapPath: file,
+		}).Infof("Re-pinning program array to '%s'", dest)
+
+	// Incoming MapSpec is incompatible with existing pinned map.
+	case err != nil:
+		// err contains the (first) reason the map is considered incompatible.
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.BPFMapName: name,
+			logfields.BPFMapPath: file,
+		}).Infof("Re-pinning to '%s'", dest)
+
+	// Map does not need to be re-pinned.
+	default:
 		return nil
 	}
 
-	dest := file + bpffsPending
-
-	log.WithFields(logrus.Fields{
-		logfields.BPFMapName: name,
-		logfields.BPFMapPath: file,
-	}).Infof("New version of map has different properties, re-pinning with '%s' suffix", bpffsPending)
-
-	// Atomically re-pin the map to the its new path.
+	// Atomically re-pin the map to its new path.
 	if err := pinned.Pin(dest); err != nil {
 		return err
 	}
