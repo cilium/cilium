@@ -35,8 +35,7 @@ The Cilium community maintains minor stable releases for the last three minor
 Cilium versions. Older Cilium stable versions from minor releases prior to that
 are considered EOL.
 
-For upgrades to new minor releases please consult the `Cilium Upgrade Guide
-<https://docs.cilium.io/en/stable/operations/upgrade/>`_.
+For upgrades to new minor releases please consult the `Cilium Upgrade Guide`_.
 
 Listed below are the actively maintained release branches along with their latest
 patch release, corresponding image pull tags and their release notes:
@@ -73,7 +72,7 @@ branch <https://github.com/cilium/cilium/commits/main>`_. These images are
 not for use in production.
 
 For testing upgrades to new development releases please consult the latest
-development build of the `Cilium Upgrade Guide <https://docs.cilium.io/en/latest/operations/upgrade/>`_.
+development build of the `Cilium Upgrade Guide`_.
 
 Listed below are branches for testing along with their snapshots or RC releases,
 corresponding image pull tags and their release notes where applicable:
@@ -294,8 +293,8 @@ The Cilium developer community hangs out on Zoom to chat. Everybody is welcome.
 
 * Weekly, Wednesday,
   5:00 pm `Europe/Zurich time <https://time.is/Canton_of_Zurich>`__ (CET/CEST),
-  usually equivalent to 8:00 am PT, or 11:00 am ET. `Join zoom <https://zoom.us/j/596609673>`_
-* Third Wednesday of each month, 9:00 am `Japan time <https://time.is/Tokyo>`__ (JST). `Join zoom <https://zoom.us/j/596609673>`_
+  usually equivalent to 8:00 am PT, or 11:00 am ET. `Join Zoom`_
+* Third Wednesday of each month, 9:00 am `Japan time <https://time.is/Tokyo>`__ (JST). `Join Zoom`_
 
 eBPF & Cilium Office Hours livestream
 -------------------------------------
@@ -329,6 +328,7 @@ The BPF code templates are dual-licensed under the
 and the `2-Clause BSD License <bsd-license_>`__
 (you can use the terms of either license, at your option).
 
+.. _`Cilium Upgrade Guide`: https://docs.cilium.io/en/stable/operations/upgrade/
 .. _`Why Cilium?`: https://docs.cilium.io/en/stable/overview/intro
 .. _`Getting Started`: https://docs.cilium.io/en/stable/#getting-started
 .. _`Architecture and Concepts`: https://docs.cilium.io/en/stable/overview/component-overview/
@@ -339,6 +339,7 @@ and the `2-Clause BSD License <bsd-license_>`__
 .. _`BPF and XDP Reference Guide`: https://docs.cilium.io/en/stable/bpf/
 .. _`eBPF`: https://ebpf.io
 .. _`eBPF.io`: https://ebpf.io
+.. _`Join Zoom`: https://zoom.us/j/596609673
 
 .. |go-report| image:: https://goreportcard.com/badge/github.com/cilium/cilium
     :alt: Go Report Card
