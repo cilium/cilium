@@ -213,13 +213,14 @@ func (h *httpHealthServer) shutdown() {
 func (h *httpHealthServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Use headers and JSON output compatible with kube-proxy
 	svc := h.loadService()
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+
 	if svc.LocalEndpoints == 0 {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	} else {
 		w.WriteHeader(http.StatusOK)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
 	if err := json.NewEncoder(w).Encode(&svc); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
