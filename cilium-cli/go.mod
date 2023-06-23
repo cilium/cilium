@@ -14,7 +14,7 @@ require (
 	github.com/cilium/charts v0.0.0-20230616201641-91a44e07622e
 	github.com/cilium/cilium v1.14.0-snapshot.4
 	github.com/cilium/hubble v0.11.6
-	github.com/cilium/proxy v0.0.0-20230605062141-384b5008dce4
+	github.com/cilium/proxy v0.0.0-20230623092907-8fddead4e52c
 	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230623074329-a1bca948bc02
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.4
