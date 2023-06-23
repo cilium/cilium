@@ -97,6 +97,7 @@ func MapFromID(id int) (*Map, error) {
 
 // OpenOrCreate tries to open or create the eBPF map identified by the spec in
 // the Map object.
+// TODO: Jack-R-latner ISSUE-20691
 func (m *Map) OpenOrCreate() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
