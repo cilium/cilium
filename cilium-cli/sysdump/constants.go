@@ -27,6 +27,7 @@ const (
 	hubbleContainerName                = "hubble"
 	hubbleDaemonSetName                = "hubble"
 	ciliumEnvoyDaemonSetName           = "cilium-envoy"
+	ciliumNodeInitDaemonSetName        = "cilium-node-init"
 	ciliumEnvoyConfigMapName           = defaults.EnvoyConfigMapName
 	hubbleRelayConfigMapName           = defaults.RelayConfigMapName
 	hubbleRelayContainerName           = defaults.RelayContainerName
@@ -44,6 +45,7 @@ const (
 	ciliumConfigMapFileName                  = "cilium-configmap-<ts>.yaml"
 	ciliumDaemonSetFileName                  = "cilium-daemonset-<ts>.yaml"
 	ciliumEnvoyDaemonsetFileName             = "cilium-envoy-daemonset-<ts>.yaml"
+	ciliumNodeInitDaemonsetFileName          = "cilium-node-init-daemonset-<ts>.yaml"
 	ciliumEnvoyConfigMapFileName             = "cilium-envoy-configmap-<ts>.yaml"
 	ciliumSPIREAgentDaemonsetFileName        = "cilium-spire-agent-daemonset-<ts>.yaml"
 	ciliumSPIREAgentConfigMapFileName        = "cilium-spire-agent-configmap-<ts>.yaml"

@@ -46,6 +46,10 @@ type Options struct {
 	CiliumDaemonSetSelector string
 	// The labels used to target Cilium Envoy pods.
 	CiliumEnvoyLabelSelector string
+	// The labels used to target Cilium Node Init daemon set. Usually, this label is same as CiliumNodeInitLabelSelector.
+	CiliumNodeInitDaemonSetSelector string
+	// The labels used to target Cilium Node Init pods.
+	CiliumNodeInitLabelSelector string
 	// The labels used to target Cilium operator pods.
 	CiliumOperatorLabelSelector string
 	// The labels used to target 'clustermesh-apiserver' pods.
@@ -744,6 +748,24 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
+			Description: "Collecting the Cilium Node Init daemonset",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetDaemonSet(ctx, c.Options.CiliumNamespace, ciliumNodeInitDaemonSetName, metav1.GetOptions{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						c.logWarn("Daemonset %q not found in namespace %q - this is expected if Node Init DaemonSet is not enabled", ciliumNodeInitDaemonSetName, c.Options.CiliumNamespace)
+						return nil
+					}
+					return fmt.Errorf("failed to collect the Cilium Node Init daemonset: %w", err)
+				}
+				if err := c.WriteYAML(ciliumNodeInitDaemonsetFileName, v); err != nil {
+					return fmt.Errorf("could not write Cilium Node Init daemonset YAML to file: %w", err)
+				}
+				return nil
+			},
+		},
+		{
 			Description: "Collecting the Cilium Envoy configuration",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
@@ -1028,6 +1050,23 @@ func (c *Collector) Run() error {
 				}
 				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium Envoy pods")
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting logs from Cilium Node Init pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.CiliumNodeInitLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to list Cilium Node Init pods")
+				}
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+					return fmt.Errorf("failed to collect logs from Cilium Node Init pods")
 				}
 				return nil
 			},
