@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/cilium/checkmate"
 )
 
@@ -90,12 +91,20 @@ func (s *ServiceHealthServerSuite) Test_httpHealthServer_ServeHTTP(c *C) {
 	resp, err := http.Get(ts.URL)
 	c.Assert(err, IsNil)
 	c.Assert(resp.StatusCode, Equals, http.StatusOK)
+	assertRespHeader(c, resp, "Content-Type", "application/json")
+	assertRespHeader(c, resp, "X-Content-Type-Options", "nosniff")
 	resp.Body.Close()
-
+	
 	// Remove local endpoints, server must respond with HTTP 503
 	h.updateService(NewService("default", "svc", 0))
 	resp, err = http.Get(ts.URL)
 	c.Assert(err, IsNil)
 	c.Assert(resp.StatusCode, Equals, http.StatusServiceUnavailable)
 	resp.Body.Close()
+}
+
+func assertRespHeader(c *C, resp *http.Response, key, val string) {
+	if !cmp.Equal(resp.Header[key], []string{val}) {
+		c.Errorf("Want response header: %q: %q, got: %q, %q,", key, []string{val}, key, resp.Header[key])
+	}
 }
