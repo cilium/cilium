@@ -34,7 +34,6 @@ cilium-agent hive [flags]
       --enable-monitor                                            Enable the monitor unix domain socket server (default true)
       --gops-port uint16                                          Port for gops server to listen on (default 9890)
   -h, --help                                                      help for hive
-      --install-egress-gateway-routes                             Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface
       --k8s-api-server string                                     Kubernetes API server URL
       --k8s-client-burst int                                      Burst value allowed for the K8s client
       --k8s-client-qps float32                                    Queries per second limit for the K8s client
