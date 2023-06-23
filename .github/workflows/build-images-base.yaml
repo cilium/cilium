@@ -180,7 +180,7 @@ jobs:
       - name: Get token
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' || steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
         id: get_token
-        uses: cilium/actions-app-token@350a14155dd9be79227f081310f4d77fdf792e76 # v0.21.0
+        uses: cilium/actions-app-token@61a6271ce92ba02f49bf81c755685d59fb25a59a # v0.21.1
         with:
           APP_PEM: ${{ secrets.AUTO_COMMITTER_PEM }}
           APP_ID: ${{ secrets.AUTO_COMMITTER_APP_ID }}
