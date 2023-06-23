@@ -15,6 +15,7 @@ env:
   KIND_CONFIG: .github/kind-config.yaml
   TIMEOUT: 2m
   LOG_TIME: 30m
+  # renovate: datasource=github-releases depName=cilium/cilium
   cilium_version: v1.13.3
   kubectl_version: v1.23.6
 
