@@ -1033,8 +1033,10 @@ func (ac *addrConn) updateAddrs(addrs []resolver.Address) {
 
 	// We have to defer here because GracefulClose => Close => onClose, which
 	// requires locking ac.mu.
-	defer ac.transport.GracefulClose()
-	ac.transport = nil
+	if ac.transport != nil {
+		defer ac.transport.GracefulClose()
+		ac.transport = nil
+	}
 
 	if len(addrs) == 0 {
 		ac.updateConnectivityState(connectivity.Idle, nil)
