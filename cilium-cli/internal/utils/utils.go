@@ -177,5 +177,5 @@ func Contains(l []string, v string) bool {
 
 // IsInHelmMode returns true if cilium-cli is in "helm" mode. Otherwise, it returns false.
 func IsInHelmMode() bool {
-	return os.Getenv(CLIModeVariableName) == "helm"
+	return os.Getenv(CLIModeVariableName) != "classic"
 }
