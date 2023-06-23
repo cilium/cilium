@@ -5,13 +5,11 @@ package check
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
+	"golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -1083,13 +1081,14 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	ct.Debug("Validating Deployments...")
 
 	srcDeployments, dstDeployments := ct.deploymentList()
-	if len(srcDeployments) > 0 {
-		if err := ct.waitForDeployments(ctx, ct.clients.src, srcDeployments); err != nil {
+	for _, name := range srcDeployments {
+		if err := WaitForDeployment(ctx, ct, ct.clients.src, ct.Params().TestNamespace, name); err != nil {
 			return err
 		}
 	}
-	if len(dstDeployments) > 0 {
-		if err := ct.waitForDeployments(ctx, ct.clients.dst, dstDeployments); err != nil {
+
+	for _, name := range dstDeployments {
+		if err := WaitForDeployment(ctx, ct, ct.clients.dst, ct.Params().TestNamespace, name); err != nil {
 			return err
 		}
 	}
@@ -1107,9 +1106,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 
 			// Individual endpoints will not be created for pods using node's network stack
 			if !ct.params.PerfHostNet {
-				ctx, cancel := context.WithTimeout(ctx, ct.params.ciliumEndpointTimeout())
-				defer cancel()
-				if err := ct.waitForCiliumEndpoint(ctx, ct.clients.src, ct.params.TestNamespace, perfPod.Name); err != nil {
+				if err := WaitForCiliumEndpoint(ctx, ct, ct.clients.src, ct.Params().TestNamespace, perfPod.Name); err != nil {
 					return err
 				}
 			}
@@ -1136,9 +1133,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	}
 
 	for _, pod := range clientPods.Items {
-		ctx, cancel := context.WithTimeout(ctx, ct.params.ciliumEndpointTimeout())
-		defer cancel()
-		if err := ct.waitForCiliumEndpoint(ctx, ct.clients.src, ct.params.TestNamespace, pod.Name); err != nil {
+		if err := WaitForCiliumEndpoint(ctx, ct, ct.clients.src, ct.Params().TestNamespace, pod.Name); err != nil {
 			return err
 		}
 
@@ -1159,10 +1154,8 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		Pod: sameNodePods.Items[0].DeepCopy(),
 	}
 
-	sameNodeDNSCtx, sameNodeDNSCancel := context.WithTimeout(ctx, ct.params.ipCacheTimeout())
-	defer sameNodeDNSCancel()
 	for _, cp := range ct.clientPods {
-		err := ct.waitForPodDNS(sameNodeDNSCtx, cp, sameNodePod)
+		err := WaitForPodDNS(ctx, ct, cp, sameNodePod)
 		if err != nil {
 			return err
 		}
@@ -1180,11 +1173,8 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			Pod: otherNodePods.Items[0].DeepCopy(),
 		}
 
-		otherNodeDNSCtx, otherNodeDNSCancel := context.WithTimeout(ctx, ct.params.ipCacheTimeout())
-		defer otherNodeDNSCancel()
 		for _, cp := range ct.clientPods {
-			err := ct.waitForPodDNS(otherNodeDNSCtx, cp, otherNodePod)
-			if err != nil {
+			if err := WaitForPodDNS(ctx, ct, cp, otherNodePod); err != nil {
 				return err
 			}
 		}
@@ -1206,11 +1196,8 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
-	svcDNSCtx, svcDNSCancel := context.WithTimeout(ctx, ct.params.ipCacheTimeout())
-	defer svcDNSCancel()
 	for _, cp := range ct.clientPods {
-		err := ct.waitForServiceDNS(svcDNSCtx, cp)
-		if err != nil {
+		if err := WaitForCoreDNS(ctx, ct, cp); err != nil {
 			return err
 		}
 	}
@@ -1221,9 +1208,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			return fmt.Errorf("unable to list echo pods: %w", err)
 		}
 		for _, echoPod := range echoPods.Items {
-			ctx, cancel := context.WithTimeout(ctx, ct.params.ciliumEndpointTimeout())
-			defer cancel()
-			if err := ct.waitForCiliumEndpoint(ctx, client, ct.params.TestNamespace, echoPod.Name); err != nil {
+			if err := WaitForCiliumEndpoint(ctx, ct, client, echoPod.GetNamespace(), echoPod.GetName()); err != nil {
 				return err
 			}
 
@@ -1260,7 +1245,12 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	}
 
 	for _, s := range ct.echoServices {
-		if err := ct.waitForService(ctx, s); err != nil {
+		client := ct.RandomClientPod()
+		if client == nil {
+			return fmt.Errorf("no client pod available")
+		}
+
+		if err := WaitForService(ctx, ct, *client, s); err != nil {
 			return err
 		}
 	}
@@ -1279,10 +1269,15 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	}
 
 	if ct.params.MultiCluster == "" {
+		client := ct.RandomClientPod()
+		if client == nil {
+			return fmt.Errorf("no client pod available")
+		}
+
 		for _, ciliumPod := range ct.ciliumPods {
 			hostIP := ciliumPod.Pod.Status.HostIP
 			for _, s := range ct.echoServices {
-				if err := ct.waitForNodePorts(ctx, hostIP, s); err != nil {
+				if err := WaitForNodePorts(ctx, ct, *client, hostIP, s); err != nil {
 					return err
 				}
 			}
@@ -1327,264 +1322,14 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	if ct.params.SkipIPCacheCheck {
 		ct.Infof("Skipping IPCache check")
 	} else {
+		pods := append(maps.Values(ct.clientPods), maps.Values(ct.echoPods)...)
 		// Set the timeout for all IP cache lookup retries
-		ipCacheCtx, cancel := context.WithTimeout(ctx, ct.params.ipCacheTimeout())
-		defer cancel()
 		for _, cp := range ct.ciliumPods {
-			if err := ct.waitForIPCache(ipCacheCtx, cp); err != nil {
+			if err := WaitForIPCache(ctx, ct, cp, pods); err != nil {
 				return err
 			}
 		}
 	}
 
 	return nil
-}
-
-// Validate that srcPod can query the DNS server on dstPod successfully
-func (ct *ConnectivityTest) waitForPodDNS(ctx context.Context, srcPod, dstPod Pod) error {
-	ct.Logf("⌛ [%s] Waiting for pod %s to reach DNS server on %s pod...", ct.client.ClusterName(), srcPod.Name(), dstPod.Name())
-
-	for {
-		// Don't retry lookups more often than once per second.
-		r := time.After(time.Second)
-
-		// We don't care about the actual response content, we just want to check the DNS operativity.
-		// Since the coreDNS test server has been deployed with the "local" plugin enabled,
-		// we query it with a so-called "local request" (e.g. "localhost") to get a response.
-		// See https://coredns.io/plugins/local/ for more info.
-		target := "localhost"
-		stdout, err := srcPod.K8sClient.ExecInPod(ctx, srcPod.Pod.Namespace, srcPod.Pod.Name,
-			"", []string{"nslookup", target, dstPod.Address(IPFamilyAny)})
-
-		if err == nil {
-			return nil
-		}
-
-		ct.Debugf("Error looking up %s from pod %s to server on pod %s: %s: %s", target, srcPod.Name(), dstPod.Name(), err, stdout.String())
-
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting lookup for %s from pod %s to server on pod %s to succeed (last error: %w)",
-				target, srcPod.Name(), dstPod.Name(), err,
-			)
-		default:
-		}
-
-		// Wait for the pace timer to avoid busy polling.
-		<-r
-	}
-}
-
-// Validate that kube-dns responds and knows about cluster services
-func (ct *ConnectivityTest) waitForServiceDNS(ctx context.Context, pod Pod) error {
-	ct.Logf("⌛ [%s] Waiting for pod %s to reach default/kubernetes service...", ct.client.ClusterName(), pod.Name())
-
-	for {
-		// Don't retry lookups more often than once per second.
-		r := time.After(time.Second)
-
-		target := "kubernetes.default"
-		stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name,
-			"", []string{"nslookup", target})
-		if err == nil {
-			return nil
-		}
-
-		ct.Debugf("Error looking up %s from pod %s: %s: %s", target, pod.Name(), err, stdout.String())
-
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting lookup for %s from pod %s to succeed (last error: %w)", target, pod.Name(), err)
-		default:
-		}
-
-		// Wait for the pace timer to avoid busy polling.
-		<-r
-	}
-}
-
-func (ct *ConnectivityTest) waitForIPCache(ctx context.Context, pod Pod) error {
-	ct.Logf("⌛ [%s] Waiting for Cilium pod %s to have all the pod IPs in eBPF ipcache...", ct.client.ClusterName(), pod.Name())
-
-	for {
-		// Don't retry lookups more often than once per second.
-		r := time.After(time.Second)
-
-		err := ct.validateIPCache(ctx, pod)
-		if err == nil {
-			ct.Debug("Successfully validated all podIDs in ipcache")
-			return nil
-		}
-
-		ct.Debugf("Error validating all podIDs in ipcache: %s, retrying...", err)
-
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting for pod IDs in ipcache of Cilium pod %s (last error: %w)", pod.Name(), err)
-		default:
-		}
-
-		// Wait for the pace timer to avoid busy polling.
-		<-r
-	}
-}
-
-func (ct *ConnectivityTest) validateIPCache(ctx context.Context, agentPod Pod) error {
-	stdout, err := agentPod.K8sClient.ExecInPod(ctx, agentPod.Pod.Namespace, agentPod.Pod.Name,
-		defaults.AgentContainerName, []string{"cilium", "bpf", "ipcache", "list", "-o", "json"})
-	if err != nil {
-		return fmt.Errorf("failed to list ipcache bpf map: %w", err)
-	}
-
-	var ic ipCache
-
-	if err := json.Unmarshal(stdout.Bytes(), &ic); err != nil {
-		return fmt.Errorf("failed to unmarshal Cilium ipcache stdout json: %w", err)
-	}
-
-	for _, p := range ct.clientPods {
-		if _, err := ic.findPodID(p); err != nil {
-			return fmt.Errorf("couldn't find client Pod %v in ipcache: %w", p, err)
-		}
-	}
-
-	for _, p := range ct.echoPods {
-		if _, err := ic.findPodID(p); err != nil {
-			return fmt.Errorf("couldn't find echo Pod %v in ipcache: %w", p, err)
-		}
-	}
-
-	return nil
-}
-
-func (ct *ConnectivityTest) waitForDeployments(ctx context.Context, client *k8s.Client, deployments []string) error {
-	ct.Logf("⌛ [%s] Waiting for deployments %s to become ready...", client.ClusterName(), deployments)
-
-	ctx, cancel := context.WithTimeout(ctx, ct.params.podReadyTimeout())
-	defer cancel()
-	for _, name := range deployments {
-		for {
-			err := client.CheckDeploymentStatus(ctx, ct.params.TestNamespace, name)
-			if err == nil {
-				break
-			}
-			select {
-			case <-time.After(time.Second):
-			case <-ctx.Done():
-				return fmt.Errorf("waiting for deployment %s to become ready has been interrupted: %w (last error: %s)", name, ctx.Err(), err)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (ct *ConnectivityTest) waitForService(ctx context.Context, service Service) error {
-	ct.Logf("⌛ [%s] Waiting for Service %s to become ready...", ct.client.ClusterName(), service.Name())
-
-	// Retry the service lookup for the duration of the ready context.
-	ctx, cancel := context.WithTimeout(ctx, ct.params.serviceReadyTimeout())
-	defer cancel()
-
-	pod := ct.RandomClientPod()
-	if pod == nil {
-		return fmt.Errorf("no client pod available")
-	}
-
-	for {
-		// Don't retry lookups more often than once per second.
-		r := time.After(time.Second)
-
-		stdout, err := ct.client.ExecInPod(ctx,
-			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"],
-			[]string{"nslookup", service.Service.Name}) // BusyBox nslookup doesn't support any arguments.
-
-		// Lookup successful.
-		if err == nil {
-			svcIP := ""
-			switch service.Service.Spec.Type {
-			case corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort:
-				svcIP = service.Service.Spec.ClusterIP
-			case corev1.ServiceTypeLoadBalancer:
-				if len(service.Service.Status.LoadBalancer.Ingress) > 0 {
-					svcIP = service.Service.Status.LoadBalancer.Ingress[0].IP
-				}
-			}
-			if svcIP == "" {
-				return nil
-			}
-
-			nslookupStr := strings.ReplaceAll(stdout.String(), "\r\n", "\n")
-			if strings.Contains(nslookupStr, "Address: "+svcIP+"\n") {
-				return nil
-			}
-			err = fmt.Errorf("Service IP %q not found in nslookup output %q", svcIP, nslookupStr)
-		}
-
-		ct.Debugf("Error waiting for service %s: %s: %s", service.Name(), err, stdout.String())
-
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timeout reached waiting for service %s (last error: %w)", service.Name(), err)
-		default:
-		}
-
-		// Wait for the pace timer to avoid busy polling.
-		<-r
-	}
-}
-
-// waitForNodePorts waits until all the nodeports in a service are available on a given node.
-func (ct *ConnectivityTest) waitForNodePorts(ctx context.Context, nodeIP string, service Service) error {
-	pod := ct.RandomClientPod()
-	if pod == nil {
-		return fmt.Errorf("no client pod available")
-	}
-	ctx, cancel := context.WithTimeout(ctx, ct.params.serviceReadyTimeout())
-	defer cancel()
-
-	for _, port := range service.Service.Spec.Ports {
-		nodePort := port.NodePort
-		if nodePort == 0 {
-			continue
-		}
-		ct.Logf("⌛ [%s] Waiting for NodePort %s:%d (%s) to become ready...",
-			ct.client.ClusterName(), nodeIP, nodePort, service.Name())
-		for {
-			e, err := ct.client.ExecInPod(ctx,
-				pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"],
-				[]string{"nc", "-w", "3", "-z", nodeIP, strconv.Itoa(int(nodePort))})
-			if err == nil {
-				break
-			}
-
-			ct.Debugf("Error waiting for NodePort %s:%d (%s): %s: %s", nodeIP, nodePort, service.Name(), err, e.String())
-
-			select {
-			case <-ctx.Done():
-				return fmt.Errorf("timeout reached waiting for NodePort %s:%d (%s) (last error: %w)", nodeIP, nodePort, service.Name(), err)
-			case <-time.After(time.Second):
-			}
-		}
-	}
-	return nil
-}
-
-func (ct *ConnectivityTest) waitForCiliumEndpoint(ctx context.Context, client *k8s.Client, namespace, name string) error {
-	ct.Logf("⌛ [%s] Waiting for CiliumEndpoint for pod %s/%s to appear...", client.ClusterName(), namespace, name)
-	for {
-		_, err := client.GetCiliumEndpoint(ctx, ct.params.TestNamespace, name, metav1.GetOptions{})
-		if err == nil {
-			return nil
-		}
-
-		ct.Debugf("[%s] Error getting CiliumEndpoint for pod %s/%s: %s", client.ClusterName(), namespace, name, err)
-
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("aborted waiting for CiliumEndpoint for pod %s to appear: %w (last error: %s)", name, ctx.Err(), err)
-		case <-time.After(2 * time.Second):
-			continue
-		}
-	}
 }
