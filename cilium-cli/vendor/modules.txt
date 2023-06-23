@@ -135,18 +135,39 @@ github.com/cilium/cilium/pkg/versioncheck
 # github.com/cilium/hubble v0.11.6
 ## explicit; go 1.19
 github.com/cilium/hubble/pkg/printer
-# github.com/cilium/proxy v0.0.0-20230605062141-384b5008dce4
-## explicit; go 1.13
+# github.com/cilium/proxy v0.0.0-20230623092907-8fddead4e52c
+## explicit; go 1.20
 github.com/cilium/proxy/go/envoy/annotations
 github.com/cilium/proxy/go/envoy/config/accesslog/v3
 github.com/cilium/proxy/go/envoy/config/cluster/v3
+github.com/cilium/proxy/go/envoy/config/common/key_value/v3
 github.com/cilium/proxy/go/envoy/config/core/v3
 github.com/cilium/proxy/go/envoy/config/endpoint/v3
 github.com/cilium/proxy/go/envoy/config/listener/v3
+github.com/cilium/proxy/go/envoy/config/ratelimit/v3
 github.com/cilium/proxy/go/envoy/config/route/v3
 github.com/cilium/proxy/go/envoy/config/trace/v3
+github.com/cilium/proxy/go/envoy/extensions/clusters/dynamic_forward_proxy/v3
+github.com/cilium/proxy/go/envoy/extensions/common/dynamic_forward_proxy/v3
+github.com/cilium/proxy/go/envoy/extensions/common/ratelimit/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/http/dynamic_forward_proxy/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/http/ext_authz/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/http/local_ratelimit/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/http/ratelimit/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/http/set_metadata/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/network/connection_limit/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/network/ext_authz/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/network/local_ratelimit/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/network/ratelimit/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_cluster/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_dynamic_forward_proxy/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3
+github.com/cilium/proxy/go/envoy/extensions/upstreams/http/http/v3
+github.com/cilium/proxy/go/envoy/extensions/upstreams/http/tcp/v3
 github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3
 github.com/cilium/proxy/go/envoy/type/http/v3
 github.com/cilium/proxy/go/envoy/type/matcher/v3
