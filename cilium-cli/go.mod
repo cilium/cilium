@@ -15,7 +15,7 @@ require (
 	github.com/cilium/cilium v1.14.0-snapshot.4
 	github.com/cilium/hubble v0.11.6
 	github.com/cilium/proxy v0.0.0-20230605062141-384b5008dce4
-	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230620174403-dbf8f0cfaa52
+	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230623074329-a1bca948bc02
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.4
 	github.com/go-openapi/strfmt v0.21.7
