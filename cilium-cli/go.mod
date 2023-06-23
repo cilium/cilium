@@ -15,7 +15,7 @@ require (
 	github.com/cilium/cilium v1.14.0-snapshot.4
 	github.com/cilium/hubble v0.11.6
 	github.com/cilium/proxy v0.0.0-20230605062141-384b5008dce4
-	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230619094252-e60ba99096db
+	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230620174403-dbf8f0cfaa52
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.4
 	github.com/go-openapi/strfmt v0.21.7
@@ -168,7 +168,7 @@ require (
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
 	github.com/shirou/gopsutil/v3 v3.23.5 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
-	github.com/sirupsen/logrus v1.9.2 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
