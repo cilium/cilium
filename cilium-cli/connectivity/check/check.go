@@ -192,22 +192,6 @@ func (a *annotationsMap) Match(name string) annotations {
 	return longestMatch
 }
 
-func (p Parameters) ciliumEndpointTimeout() time.Duration {
-	return 5 * time.Minute
-}
-
-func (p Parameters) podReadyTimeout() time.Duration {
-	return 5 * time.Minute
-}
-
-func (p Parameters) serviceReadyTimeout() time.Duration {
-	return 30 * time.Second
-}
-
-func (p Parameters) ipCacheTimeout() time.Duration {
-	return 20 * time.Second
-}
-
 func (p Parameters) validate() error {
 	switch p.FlowValidation {
 	case FlowValidationModeDisabled, FlowValidationModeWarning, FlowValidationModeStrict:
