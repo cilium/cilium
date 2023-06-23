@@ -216,5 +216,5 @@ func TestIsInHelmMode(t *testing.T) {
 	assert.NoError(t, os.Setenv(CLIModeVariableName, "classic"))
 	assert.False(t, IsInHelmMode())
 	assert.NoError(t, os.Setenv(CLIModeVariableName, "random"))
-	assert.False(t, IsInHelmMode())
+	assert.True(t, IsInHelmMode())
 }
