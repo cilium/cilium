@@ -135,6 +135,14 @@
       "matchDepNames": [
         "golangci/golangci-lint"
       ]
+    },
+    {
+      // Group cilium updates to overrule grouping of version updates in the GHA files.
+      // Without this, cilium updates are not in sync for GHA files and other usages.
+      "groupName": "cilium",
+      "matchDepNames": [
+        "cilium/cilium"
+      ]
     }
   ],
   "regexManagers": [
@@ -168,7 +176,8 @@
       // similar to the examples shown here:
       //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
       "matchStrings": [
-        "\/\/ renovate: datasource=(?<datasource>.*?)\\s+.+Image = \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\""
+        "\/\/ renovate: datasource=(?<datasource>.*?)\\s+.+Image = \"(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)\"",
+        "\/\/ renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+Version = \"(?<currentValue>.*)\""
       ]
     }
   ]

@@ -6,6 +6,9 @@ package defaults
 import "time"
 
 const (
+	// renovate: datasource=github-releases depName=cilium/cilium
+	Version = "v1.13.3"
+
 	AgentContainerName      = "cilium-agent"
 	AgentServiceAccountName = "cilium"
 	AgentClusterRoleName    = "cilium"
@@ -86,7 +89,6 @@ const (
 	ConnectivityDNSTestServerImage = "docker.io/coredns/coredns:1.10.1@sha256:a0ead06651cf580044aeb0a0feba63591858fb2e43ade8c9dea45a6a89ae7e5e"
 
 	ConfigMapName = "cilium-config"
-	Version       = "v1.13.3"
 
 	StatusWaitDuration = 5 * time.Minute
 
