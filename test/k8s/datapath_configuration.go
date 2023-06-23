@@ -361,6 +361,18 @@ var _ = Describe("K8sDatapathConfig", func() {
 			testIPMasqAgent()
 		})
 
+		It("DirectRouting, IPv4 only", func() {
+			deploymentManager.DeployCilium(map[string]string{
+				"ipMasqAgent.enabled":                   "true",
+				"routingMode":                           "native",
+				"autoDirectNodeRoutes":                  "true",
+				"ipMasqAgent.config.nonMasqueradeCIDRs": fmt.Sprintf("{%s/32}", nodeIP),
+				"ipv6.enabled":                          "false",
+			}, DeployCiliumOptionsAndDNS)
+
+			testIPMasqAgent()
+		})
+
 		It("VXLAN", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"ipMasqAgent.enabled":                   "true",
