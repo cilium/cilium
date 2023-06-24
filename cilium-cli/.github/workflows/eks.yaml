@@ -191,7 +191,8 @@ jobs:
             --set tag=${{ steps.vars.outputs.sha }} \
             --set cluster_name=${{ env.clusterName }} \
             --set job_name=cilium-cli-uninstall \
-            --set test_script_cm=cilium-cli-test-script-uninstall
+            --set test_script_cm=cilium-cli-test-script-uninstall \
+            --set cilium_cli_mode=${{ matrix.mode }}
 
           # Background wait for job to complete or timeout
           kubectl -n kube-system wait job/cilium-cli-uninstall --for=condition=complete --timeout=${{ env.timeout }} &
