@@ -21,28 +21,12 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/completion"
+	_ "github.com/cilium/cilium/pkg/envoy/resource"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	// Imports for Envoy extensions not used directly from Cilium Agent, but that we want to
-	// be registered for use in Cilium Envoy Config CRDs:
-	_ "github.com/cilium/proxy/go/envoy/extensions/clusters/dynamic_forward_proxy/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/dynamic_forward_proxy/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/ext_authz/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/local_ratelimit/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/ratelimit/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/set_metadata/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/connection_limit/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/ext_authz/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/local_ratelimit/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/ratelimit/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_cluster/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_dynamic_forward_proxy/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/http/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/tcp/v3"
 )
 
 const anyPort = "*"
