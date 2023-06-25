@@ -319,7 +319,7 @@ func newCmdUninstallWithHelm() *cobra.Command {
 				cc.UninstallResources(ctx, params.Wait)
 			}
 			uninstaller := install.NewK8sUninstaller(k8sClient, params)
-			if err := uninstaller.UninstallWithHelm(k8sClient.RESTClientGetter); err != nil {
+			if err := uninstaller.UninstallWithHelm(ctx, k8sClient.RESTClientGetter); err != nil {
 				fatalf("Unable to uninstall Cilium:  %s", err)
 			}
 			return nil

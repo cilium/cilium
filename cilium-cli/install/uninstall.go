@@ -70,7 +70,7 @@ func (k *K8sUninstaller) Log(format string, a ...interface{}) {
 	fmt.Fprintf(k.params.Writer, format+"\n", a...)
 }
 
-func (k *K8sUninstaller) UninstallWithHelm(k8sClient genericclioptions.RESTClientGetter) error {
+func (k *K8sUninstaller) UninstallWithHelm(ctx context.Context, k8sClient genericclioptions.RESTClientGetter) error {
 	actionConfig := action.Configuration{}
 	// Use the default Helm driver (Kubernetes secret).
 	helmDriver := ""
@@ -82,7 +82,23 @@ func (k *K8sUninstaller) UninstallWithHelm(k8sClient genericclioptions.RESTClien
 	helmClient := action.NewUninstall(&actionConfig)
 	helmClient.Wait = k.params.Wait
 	helmClient.Timeout = k.params.Timeout
-	_, err := helmClient.Run(defaults.HelmReleaseName)
+	if _, err := helmClient.Run(defaults.HelmReleaseName); err != nil {
+		return err
+	}
+	// If aws-node daemonset exists, remove io.cilium/aws-node-enabled node selector.
+	if _, err := k.client.GetDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, metav1.GetOptions{}); err != nil {
+		return nil
+	}
+	return k.undoAwsNodeNodeSelector(ctx)
+}
+
+func (k *K8sUninstaller) undoAwsNodeNodeSelector(ctx context.Context) error {
+	bytes := []byte(fmt.Sprintf(`[{"op":"remove","path":"/spec/template/spec/nodeSelector/%s"}]`, strings.ReplaceAll(AwsNodeDaemonSetNodeSelectorKey, "/", "~1")))
+	k.Log("⏪ Undoing the changes to the %q DaemonSet...", AwsNodeDaemonSetName)
+	_, err := k.client.PatchDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, types.JSONPatchType, bytes, metav1.PatchOptions{})
+	if err != nil {
+		k.Log("❌ Failed to patch the %q DaemonSet, please remove it's node selector manually", AwsNodeDaemonSetName)
+	}
 	return err
 }
 
@@ -142,11 +158,7 @@ func (k *K8sUninstaller) Uninstall(ctx context.Context) error {
 
 	switch k.flavor.Kind {
 	case k8s.KindEKS:
-		bytes := []byte(fmt.Sprintf(`[{"op":"remove","path":"/spec/template/spec/nodeSelector/%s"}]`, strings.ReplaceAll(AwsNodeDaemonSetNodeSelectorKey, "/", "~1")))
-		k.Log("⏪ Undoing the changes to the %q DaemonSet...", AwsNodeDaemonSetName)
-		if _, err := k.client.PatchDaemonSet(ctx, AwsNodeDaemonSetNamespace, AwsNodeDaemonSetName, types.JSONPatchType, bytes, metav1.PatchOptions{}); err != nil {
-			k.Log("❌ Failed to patch the %q DaemonSet, please remove it's node selector manually", AwsNodeDaemonSetName)
-		}
+		k.undoAwsNodeNodeSelector(ctx)
 	case k8s.KindGKE:
 		k.Log("🔥 Deleting resource quotas...")
 		k.client.DeleteResourceQuota(ctx, k.params.Namespace, defaults.AgentResourceQuota, metav1.DeleteOptions{})
