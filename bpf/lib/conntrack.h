@@ -497,7 +497,7 @@ static __always_inline int ct_lookup6(const void *map,
 		return DROP_CT_UNKNOWN_PROTO;
 	}
 
-	return __ct_lookup6(map, tuple, ctx, action, l4_off, dir, ct_state, monitor);
+	return __ct_lookup6(map, tuple, ctx, l4_off, action, dir, ct_state, monitor);
 }
 
 static __always_inline int
