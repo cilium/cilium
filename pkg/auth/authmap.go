@@ -18,6 +18,7 @@ type authMap interface {
 	DeleteIf(predicate func(key authKey, info authInfo) bool) error
 	Get(key authKey) (authInfo, error)
 	All() (map[authKey]authInfo, error)
+	MaxEntries() uint32
 }
 
 type authMapCacher interface {
