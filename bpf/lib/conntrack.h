@@ -570,7 +570,7 @@ static __always_inline int ct_lookup6(const void *map,
 	if (action < 0)
 		return action;
 
-	return __ct_lookup6(map, tuple, ctx, action, l4_off, dir, SCOPE_BIDIR,
+	return __ct_lookup6(map, tuple, ctx, l4_off, action, dir, SCOPE_BIDIR,
 			    ct_state, monitor);
 }
 
