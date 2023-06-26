@@ -550,12 +550,7 @@ const LookupLock MapLookupFlags = 4
 //
 // Returns an error if the key doesn't exist, see ErrKeyNotExist.
 func (m *Map) Lookup(key, valueOut interface{}) error {
-	valuePtr, valueBytes := makeBuffer(valueOut, m.fullValueSize)
-	if err := m.lookup(key, valuePtr, 0); err != nil {
-		return err
-	}
-
-	return m.unmarshalValue(valueOut, valueBytes)
+	return m.LookupWithFlags(key, valueOut, 0)
 }
 
 // LookupWithFlags retrieves a value from a Map with flags.
@@ -569,6 +564,10 @@ func (m *Map) Lookup(key, valueOut interface{}) error {
 //
 // Returns an error if the key doesn't exist, see ErrKeyNotExist.
 func (m *Map) LookupWithFlags(key, valueOut interface{}, flags MapLookupFlags) error {
+	if m.typ.hasPerCPUValue() {
+		return m.lookupPerCPU(key, valueOut, flags)
+	}
+
 	valuePtr, valueBytes := makeBuffer(valueOut, m.fullValueSize)
 	if err := m.lookup(key, valuePtr, flags); err != nil {
 		return err
@@ -581,7 +580,7 @@ func (m *Map) LookupWithFlags(key, valueOut interface{}, flags MapLookupFlags) e
 //
 // Returns ErrKeyNotExist if the key doesn't exist.
 func (m *Map) LookupAndDelete(key, valueOut interface{}) error {
-	return m.lookupAndDelete(key, valueOut, 0)
+	return m.LookupAndDeleteWithFlags(key, valueOut, 0)
 }
 
 // LookupAndDeleteWithFlags retrieves and deletes a value from a Map.
@@ -592,7 +591,15 @@ func (m *Map) LookupAndDelete(key, valueOut interface{}) error {
 //
 // Returns ErrKeyNotExist if the key doesn't exist.
 func (m *Map) LookupAndDeleteWithFlags(key, valueOut interface{}, flags MapLookupFlags) error {
-	return m.lookupAndDelete(key, valueOut, flags)
+	if m.typ.hasPerCPUValue() {
+		return m.lookupAndDeletePerCPU(key, valueOut, flags)
+	}
+
+	valuePtr, valueBytes := makeBuffer(valueOut, m.fullValueSize)
+	if err := m.lookupAndDelete(key, valuePtr, flags); err != nil {
+		return err
+	}
+	return m.unmarshalValue(valueOut, valueBytes)
 }
 
 // LookupBytes gets a value from Map.
@@ -608,6 +615,14 @@ func (m *Map) LookupBytes(key interface{}) ([]byte, error) {
 	}
 
 	return valueBytes, err
+}
+
+func (m *Map) lookupPerCPU(key, valueOut any, flags MapLookupFlags) error {
+	valueBytes := make([]byte, m.fullValueSize)
+	if err := m.lookup(key, sys.NewSlicePointer(valueBytes), flags); err != nil {
+		return err
+	}
+	return unmarshalPerCPUValue(valueOut, int(m.valueSize), valueBytes)
 }
 
 func (m *Map) lookup(key interface{}, valueOut sys.Pointer, flags MapLookupFlags) error {
@@ -629,9 +644,15 @@ func (m *Map) lookup(key interface{}, valueOut sys.Pointer, flags MapLookupFlags
 	return nil
 }
 
-func (m *Map) lookupAndDelete(key, valueOut interface{}, flags MapLookupFlags) error {
-	valuePtr, valueBytes := makeBuffer(valueOut, m.fullValueSize)
+func (m *Map) lookupAndDeletePerCPU(key, valueOut any, flags MapLookupFlags) error {
+	valueBytes := make([]byte, m.fullValueSize)
+	if err := m.lookupAndDelete(key, sys.NewSlicePointer(valueBytes), flags); err != nil {
+		return err
+	}
+	return unmarshalPerCPUValue(valueOut, int(m.valueSize), valueBytes)
+}
 
+func (m *Map) lookupAndDelete(key any, valuePtr sys.Pointer, flags MapLookupFlags) error {
 	keyPtr, err := m.marshalKey(key)
 	if err != nil {
 		return fmt.Errorf("can't marshal key: %w", err)
@@ -648,7 +669,7 @@ func (m *Map) lookupAndDelete(key, valueOut interface{}, flags MapLookupFlags) e
 		return fmt.Errorf("lookup and delete: %w", wrapMapError(err))
 	}
 
-	return m.unmarshalValue(valueOut, valueBytes)
+	return nil
 }
 
 // MapUpdateFlags controls the behaviour of the Map.Update call.
@@ -675,15 +696,32 @@ func (m *Map) Put(key, value interface{}) error {
 }
 
 // Update changes the value of a key.
-func (m *Map) Update(key, value interface{}, flags MapUpdateFlags) error {
-	keyPtr, err := m.marshalKey(key)
-	if err != nil {
-		return fmt.Errorf("can't marshal key: %w", err)
+func (m *Map) Update(key, value any, flags MapUpdateFlags) error {
+	if m.typ.hasPerCPUValue() {
+		return m.updatePerCPU(key, value, flags)
 	}
 
 	valuePtr, err := m.marshalValue(value)
 	if err != nil {
-		return fmt.Errorf("can't marshal value: %w", err)
+		return fmt.Errorf("marshal value: %w", err)
+	}
+
+	return m.update(key, valuePtr, flags)
+}
+
+func (m *Map) updatePerCPU(key, value any, flags MapUpdateFlags) error {
+	valuePtr, err := marshalPerCPUValue(value, int(m.valueSize))
+	if err != nil {
+		return fmt.Errorf("marshal value: %w", err)
+	}
+
+	return m.update(key, valuePtr, flags)
+}
+
+func (m *Map) update(key any, valuePtr sys.Pointer, flags MapUpdateFlags) error {
+	keyPtr, err := m.marshalKey(key)
+	if err != nil {
+		return fmt.Errorf("marshal key: %w", err)
 	}
 
 	attr := sys.MapUpdateElemAttr{
@@ -1192,10 +1230,6 @@ func (m *Map) unmarshalKey(data interface{}, buf []byte) error {
 }
 
 func (m *Map) marshalValue(data interface{}) (sys.Pointer, error) {
-	if m.typ.hasPerCPUValue() {
-		return marshalPerCPUValue(data, int(m.valueSize))
-	}
-
 	var (
 		buf []byte
 		err error

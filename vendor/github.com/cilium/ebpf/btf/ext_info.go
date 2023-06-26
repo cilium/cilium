@@ -153,8 +153,7 @@ func MarshalExtInfos(insns asm.Instructions) (_ *Handle, funcInfos, lineInfos []
 	return nil, nil, nil, nil
 
 marshal:
-	stb := newStringTableBuilder(0)
-	spec := NewSpec()
+	var b Builder
 	var fiBuf, liBuf bytes.Buffer
 	for {
 		if fn := FuncMetadata(iter.Ins); fn != nil {
@@ -162,7 +161,7 @@ marshal:
 				fn:     fn,
 				offset: iter.Offset,
 			}
-			if err := fi.marshal(&fiBuf, spec); err != nil {
+			if err := fi.marshal(&fiBuf, &b); err != nil {
 				return nil, nil, nil, fmt.Errorf("write func info: %w", err)
 			}
 		}
@@ -172,7 +171,7 @@ marshal:
 				line:   line,
 				offset: iter.Offset,
 			}
-			if err := li.marshal(&liBuf, stb); err != nil {
+			if err := li.marshal(&liBuf, &b); err != nil {
 				return nil, nil, nil, fmt.Errorf("write line info: %w", err)
 			}
 		}
@@ -182,14 +181,7 @@ marshal:
 		}
 	}
 
-	buf := getBuffer()
-	defer putBuffer(buf)
-
-	if err := marshalTypes(buf, spec.types, stb, kernelMarshalOptions()); err != nil {
-		return nil, nil, nil, fmt.Errorf("marshal BTF: %w", err)
-	}
-
-	handle, err := newHandleFromRawBTF(buf.Bytes())
+	handle, err := NewHandle(&b)
 	return handle, fiBuf.Bytes(), liBuf.Bytes(), err
 }
 
@@ -383,8 +375,8 @@ func newFuncInfos(bfis []bpfFuncInfo, spec *Spec) ([]funcInfo, error) {
 }
 
 // marshal into the BTF wire format.
-func (fi *funcInfo) marshal(w *bytes.Buffer, spec *Spec) error {
-	id, err := spec.Add(fi.fn)
+func (fi *funcInfo) marshal(w *bytes.Buffer, b *Builder) error {
+	id, err := b.Add(fi.fn)
 	if err != nil {
 		return err
 	}
@@ -549,7 +541,7 @@ func newLineInfos(blis []bpfLineInfo, strings *stringTable) ([]lineInfo, error) 
 }
 
 // marshal writes the binary representation of the LineInfo to w.
-func (li *lineInfo) marshal(w *bytes.Buffer, stb *stringTableBuilder) error {
+func (li *lineInfo) marshal(w *bytes.Buffer, b *Builder) error {
 	line := li.line
 	if line.lineNumber > bpfLineMax {
 		return fmt.Errorf("line %d exceeds %d", line.lineNumber, bpfLineMax)
@@ -559,12 +551,12 @@ func (li *lineInfo) marshal(w *bytes.Buffer, stb *stringTableBuilder) error {
 		return fmt.Errorf("column %d exceeds %d", line.lineColumn, bpfColumnMax)
 	}
 
-	fileNameOff, err := stb.Add(line.fileName)
+	fileNameOff, err := b.addString(line.fileName)
 	if err != nil {
 		return fmt.Errorf("file name %q: %w", line.fileName, err)
 	}
 
-	lineOff, err := stb.Add(line.line)
+	lineOff, err := b.addString(line.line)
 	if err != nil {
 		return fmt.Errorf("line %q: %w", line.line, err)
 	}

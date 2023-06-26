@@ -1991,7 +1991,9 @@ type ConversionTask struct {
 // The CPU options for the instance.
 type CpuOptions struct {
 
-	// Indicates whether the instance is enabled for AMD SEV-SNP.
+	// Indicates whether the instance is enabled for AMD SEV-SNP. For more
+	// information, see AMD SEV-SNP (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sev-snp.html)
+	// .
 	AmdSevSnp AmdSevSnpSpecification
 
 	// The number of CPU cores for the instance.
@@ -2008,7 +2010,8 @@ type CpuOptions struct {
 type CpuOptionsRequest struct {
 
 	// Indicates whether to enable the instance for AMD SEV-SNP. AMD SEV-SNP is
-	// supported with M6a, R6a, and C6a instance types only.
+	// supported with M6a, R6a, and C6a instance types only. For more information, see
+	// AMD SEV-SNP (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sev-snp.html) .
 	AmdSevSnp AmdSevSnpSpecification
 
 	// The number of CPU cores for the instance.
@@ -4160,8 +4163,9 @@ type FleetLaunchTemplateOverrides struct {
 	// The Availability Zone in which to launch the instances.
 	AvailabilityZone *string
 
-	// The ID of the AMI. An AMI is required to launch an instance. The AMI ID must be
-	// specified here or in the launch template.
+	// The ID of the AMI. An AMI is required to launch an instance. This parameter is
+	// only available for fleets of type instant . For fleets of type maintain and
+	// request , you must specify the AMI ID in the launch template.
 	ImageId *string
 
 	// The attributes for the instance types. When you specify instance attributes,
@@ -4210,8 +4214,9 @@ type FleetLaunchTemplateOverridesRequest struct {
 	// The Availability Zone in which to launch the instances.
 	AvailabilityZone *string
 
-	// The ID of the AMI. An AMI is required to launch an instance. The AMI ID must be
-	// specified here or in the launch template.
+	// The ID of the AMI. An AMI is required to launch an instance. This parameter is
+	// only available for fleets of type instant . For fleets of type maintain and
+	// request , you must specify the AMI ID in the launch template.
 	ImageId *string
 
 	// The attributes for the instance types. When you specify instance attributes,
@@ -4704,6 +4709,9 @@ type Host struct {
 	// instance types in the instance family. If the value is off , the Dedicated Host
 	// supports a single instance type only.
 	AllowsMultipleInstanceTypes AllowsMultipleInstanceTypes
+
+	// The ID of the Outpost hardware asset on which the Dedicated Host is allocated.
+	AssetId *string
 
 	// Whether auto-placement is on or off.
 	AutoPlacement AutoPlacement
@@ -8099,7 +8107,9 @@ type LaunchTemplateCapacityReservationSpecificationResponse struct {
 // Describes a launch template and overrides.
 type LaunchTemplateConfig struct {
 
-	// The launch template.
+	// The launch template to use. Make sure that the launch template does not contain
+	// the NetworkInterfaceId parameter because you can't specify a network interface
+	// ID in a Spot Fleet.
 	LaunchTemplateSpecification *FleetLaunchTemplateSpecification
 
 	// Any parameters that you specify override the same parameters in the launch
@@ -11186,6 +11196,8 @@ type ProcessorInfo struct {
 
 	// Indicates whether the instance type supports AMD SEV-SNP. If the request
 	// returns amd-sev-snp , AMD SEV-SNP is supported. Otherwise, it is not supported.
+	// For more information, see AMD SEV-SNP (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sev-snp.html)
+	// .
 	SupportedFeatures []SupportedAdditionalProcessorFeature
 
 	// The speed of the processor, in GHz.
@@ -16498,14 +16510,20 @@ type VerifiedAccessLogKinesisDataFirehoseDestinationOptions struct {
 	noSmithyDocumentSerde
 }
 
-// Describes the destinations for Verified Access logs.
+// Options for Verified Access logs.
 type VerifiedAccessLogOptions struct {
 
 	// Sends Verified Access logs to CloudWatch Logs.
 	CloudWatchLogs *VerifiedAccessLogCloudWatchLogsDestinationOptions
 
+	// Include trust data sent by trust providers into the logs.
+	IncludeTrustContext *bool
+
 	// Sends Verified Access logs to Kinesis.
 	KinesisDataFirehose *VerifiedAccessLogKinesisDataFirehoseDestinationOptions
+
+	// The logging version to use. Valid values: ocsf-0.1 | ocsf-1.0.0-rc.2
+	LogVersion *string
 
 	// Sends Verified Access logs to Amazon S3.
 	S3 *VerifiedAccessLogS3DestinationOptions
@@ -16513,14 +16531,20 @@ type VerifiedAccessLogOptions struct {
 	noSmithyDocumentSerde
 }
 
-// Describes the destinations for Verified Access logs.
+// Describes the options for Verified Access logs.
 type VerifiedAccessLogs struct {
 
 	// CloudWatch Logs logging destination.
 	CloudWatchLogs *VerifiedAccessLogCloudWatchLogsDestination
 
+	// Describes current setting for including trust data into the logs.
+	IncludeTrustContext *bool
+
 	// Kinesis logging destination.
 	KinesisDataFirehose *VerifiedAccessLogKinesisDataFirehoseDestination
+
+	// Describes current setting for the logging version.
+	LogVersion *string
 
 	// Amazon S3 logging options.
 	S3 *VerifiedAccessLogS3Destination

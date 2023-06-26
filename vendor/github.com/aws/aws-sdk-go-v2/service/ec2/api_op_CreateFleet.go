@@ -12,9 +12,11 @@ import (
 	"time"
 )
 
-// Launches an EC2 Fleet. You can create a single EC2 Fleet that includes multiple
-// launch specifications that vary by instance type, AMI, Availability Zone, or
-// subnet. For more information, see EC2 Fleet (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet.html)
+// Creates an EC2 Fleet that contains the configuration information for On-Demand
+// Instances and Spot Instances. Instances are launched immediately if there is
+// available capacity. A single EC2 Fleet can include multiple launch
+// specifications that vary by instance type, AMI, Availability Zone, or subnet.
+// For more information, see EC2 Fleet (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet.html)
 // in the Amazon EC2 User Guide.
 func (c *Client) CreateFleet(ctx context.Context, params *CreateFleetInput, optFns ...func(*Options)) (*CreateFleetOutput, error) {
 	if params == nil {

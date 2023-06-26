@@ -109,6 +109,8 @@ type DescribeInstanceTypesInput struct {
 	//   - processor-info.supported-architecture - The CPU architecture ( arm64 | i386
 	//   | x86_64 ).
 	//   - processor-info.sustained-clock-speed-in-ghz - The CPU clock speed, in GHz.
+	//   - processor-info.supported-features - The supported CPU features ( amd-sev-snp
+	//   ).
 	//   - supported-boot-mode - The boot mode ( legacy-bios | uefi ).
 	//   - supported-root-device-type - The root device type ( ebs | instance-store ).
 	//   - supported-usage-class - The usage class ( on-demand | spot ).
@@ -144,6 +146,11 @@ type DescribeInstanceTypesInput struct {
 type DescribeInstanceTypesOutput struct {
 
 	// The instance type. For more information, see Instance types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html)
+	// in the Amazon EC2 User Guide. When you change your EBS-backed instance type,
+	// instance restart or replacement behavior depends on the instance type
+	// compatibility between the old and new types. An instance that's backed by an
+	// instance store volume is always replaced. For more information, see Change the
+	// instance type (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-resize.html)
 	// in the Amazon EC2 User Guide.
 	InstanceTypes []types.InstanceTypeInfo
 

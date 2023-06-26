@@ -106,7 +106,19 @@ type Statfs_t struct {
 	Spare   [4]int64
 }
 
-type Stat_t struct{}
+type Stat_t struct {
+	Dev     uint64
+	Ino     uint64
+	Nlink   uint64
+	Mode    uint32
+	Uid     uint32
+	Gid     uint32
+	_       int32
+	Rdev    uint64
+	Size    int64
+	Blksize int64
+	Blocks  int64
+}
 
 type Rlimit struct {
 	Cur uint64
@@ -274,5 +286,9 @@ func Open(path string, mode int, perm uint32) (int, error) {
 }
 
 func Fstat(fd int, stat *Stat_t) error {
+	return errNonLinux
+}
+
+func SetsockoptInt(fd, level, opt, value int) error {
 	return errNonLinux
 }

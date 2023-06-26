@@ -36,10 +36,16 @@ type AllocateHostsInput struct {
 	// This member is required.
 	AvailabilityZone *string
 
-	// The number of Dedicated Hosts to allocate to your account with these parameters.
-	//
-	// This member is required.
-	Quantity *int32
+	// The IDs of the Outpost hardware assets on which to allocate the Dedicated
+	// Hosts. Targeting specific hardware assets on an Outpost can help to minimize
+	// latency between your workloads. This parameter is supported only if you specify
+	// OutpostArn. If you are allocating the Dedicated Hosts in a Region, omit this
+	// parameter.
+	//   - If you specify this parameter, you can omit Quantity. In this case, Amazon
+	//   EC2 allocates a Dedicated Host on each specified hardware asset.
+	//   - If you specify both AssetIds and Quantity, then the value for Quantity must
+	//   be equal to the number of asset IDs specified.
+	AssetIds []string
 
 	// Indicates whether the host accepts any untargeted instance launches that match
 	// its instance type configuration, or if it only accepts Host tenancy instance
@@ -79,8 +85,18 @@ type AllocateHostsInput struct {
 	InstanceType *string
 
 	// The Amazon Resource Name (ARN) of the Amazon Web Services Outpost on which to
-	// allocate the Dedicated Host.
+	// allocate the Dedicated Host. If you specify OutpostArn, you can optionally
+	// specify AssetIds. If you are allocating the Dedicated Host in a Region, omit
+	// this parameter.
 	OutpostArn *string
+
+	// The number of Dedicated Hosts to allocate to your account with these
+	// parameters. If you are allocating the Dedicated Hosts on an Outpost, and you
+	// specify AssetIds, you can omit this parameter. In this case, Amazon EC2
+	// allocates a Dedicated Host on each specified hardware asset. If you specify both
+	// AssetIds and Quantity, then the value that you specify for Quantity must be
+	// equal to the number of asset IDs specified.
+	Quantity *int32
 
 	// The tags to apply to the Dedicated Host during creation.
 	TagSpecifications []types.TagSpecification

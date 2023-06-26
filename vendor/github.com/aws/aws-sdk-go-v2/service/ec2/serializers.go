@@ -38283,6 +38283,16 @@ func awsEc2query_serializeDocumentArnList(v []string, value query.Value) error {
 	return nil
 }
 
+func awsEc2query_serializeDocumentAssetIdList(v []string, value query.Value) error {
+	array := value.Array("Member")
+
+	for i := range v {
+		av := array.Value()
+		av.String(v[i])
+	}
+	return nil
+}
+
 func awsEc2query_serializeDocumentAssociationIdList(v []string, value query.Value) error {
 	array := value.Array("AssociationId")
 
@@ -46459,11 +46469,21 @@ func awsEc2query_serializeDocumentVerifiedAccessLogOptions(v *types.VerifiedAcce
 		}
 	}
 
+	if v.IncludeTrustContext != nil {
+		objectKey := object.Key("IncludeTrustContext")
+		objectKey.Boolean(*v.IncludeTrustContext)
+	}
+
 	if v.KinesisDataFirehose != nil {
 		objectKey := object.Key("KinesisDataFirehose")
 		if err := awsEc2query_serializeDocumentVerifiedAccessLogKinesisDataFirehoseDestinationOptions(v.KinesisDataFirehose, objectKey); err != nil {
 			return err
 		}
+	}
+
+	if v.LogVersion != nil {
+		objectKey := object.Key("LogVersion")
+		objectKey.String(*v.LogVersion)
 	}
 
 	if v.S3 != nil {
@@ -47101,6 +47121,13 @@ func awsEc2query_serializeOpDocumentAllocateAddressInput(v *AllocateAddressInput
 func awsEc2query_serializeOpDocumentAllocateHostsInput(v *AllocateHostsInput, value query.Value) error {
 	object := value.Object()
 	_ = object
+
+	if v.AssetIds != nil {
+		objectKey := object.FlatKey("AssetId")
+		if err := awsEc2query_serializeDocumentAssetIdList(v.AssetIds, objectKey); err != nil {
+			return err
+		}
+	}
 
 	if len(v.AutoPlacement) > 0 {
 		objectKey := object.Key("AutoPlacement")

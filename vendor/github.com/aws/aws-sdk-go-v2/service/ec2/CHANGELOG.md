@@ -1,3 +1,11 @@
+# v1.102.0 (2023-06-20)
+
+* **Feature**: Adds support for targeting Dedicated Host allocations by assetIds in AWS Outposts
+
+# v1.101.0 (2023-06-19)
+
+* **Feature**: API changes to AWS Verified Access to include data from trust providers in logs
+
 # v1.100.1 (2023-06-15)
 
 * No change notes available for this release.
