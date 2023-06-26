@@ -148,7 +148,6 @@ jobs:
             --helm-set=cni.chainingMode=portmap \
             --helm-set=kubeProxyReplacement=true \
             --helm-set=sessionAffinity=true \
-            --helm-set=identityChangeGracePeriod="0s" \
             --rollback=false \
             --config monitor-aggregation=none \
             --version="
