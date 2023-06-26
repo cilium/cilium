@@ -20,10 +20,13 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	v3rpcErrors "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
+	"go.etcd.io/etcd/client/pkg/v3/logutil"
 	"go.etcd.io/etcd/client/pkg/v3/tlsutil"
 	client "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 	clientyaml "go.etcd.io/etcd/client/v3/yaml"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/time/rate"
 	"sigs.k8s.io/yaml"
 
@@ -102,6 +105,11 @@ var (
 	etcdDummyAddress = "http://127.0.0.1:4002"
 
 	etcdInstance = newEtcdModule()
+
+	// etcd3ClientLogger is the logger used for the underlying etcd clients. We
+	// explicitly initialize a logger and propagate it to prevent each client from
+	// automatically creating a new one, which comes with a significant memory cost.
+	etcd3ClientLogger *zap.Logger
 )
 
 func EtcdDummyAddress() string {
@@ -301,6 +309,30 @@ func init() {
 			statusCheckTimeout = timeout
 		}
 	}
+
+	// Initialize the etcd client logger.
+	l, err := logutil.CreateDefaultZapLogger(etcdClientDebugLevel())
+	if err != nil {
+		log.WithError(err).Warning("Failed to initialize etcd client logger")
+		l = zap.NewNop()
+	}
+	etcd3ClientLogger = l.Named("etcd-client")
+}
+
+// etcdClientDebugLevel translates ETCD_CLIENT_DEBUG into zap log level.
+// This is a copy of a private etcd client function:
+// https://github.com/etcd-io/etcd/blob/v3.5.9/client/v3/logger.go#L47-L59
+func etcdClientDebugLevel() zapcore.Level {
+	envLevel := os.Getenv("ETCD_CLIENT_DEBUG")
+	if envLevel == "" || envLevel == "true" {
+		return zapcore.InfoLevel
+	}
+	var l zapcore.Level
+	if err := l.Set(envLevel); err != nil {
+		log.Warning("Invalid value for environment variable 'ETCD_CLIENT_DEBUG'. Using default level: 'info'")
+		return zapcore.InfoLevel
+	}
+	return l
 }
 
 // Hint tries to improve the error message displayed to te user.
@@ -637,6 +669,10 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	// Timeout if the server does not reply within 15 seconds and close the
 	// connection. Ideally it should be lower than staleLockTimeout
 	config.DialKeepAliveTimeout = clientOptions.KeepAliveTimeout
+
+	// Use the shared etcd client logger to prevent unnecessary allocations.
+	config.Logger = etcd3ClientLogger
+
 	c, err := client.New(*config)
 	if err != nil {
 		return nil, err
