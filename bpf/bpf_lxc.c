@@ -532,15 +532,7 @@ ct_recreate6:
 			return DROP_MISSED_TAIL_CALL;
 		}
 #endif /* ENABLE_NODEPORT */
-
-		if (ct_state->rev_nat_index) {
-			ret = lb6_rev_nat(ctx, l4_off,
-					  ct_state->rev_nat_index, tuple, 0);
-			if (IS_ERR(ret))
-				return ret;
-		}
 		break;
-
 	default:
 		return DROP_UNKNOWN_CT;
 	}
@@ -973,6 +965,7 @@ ct_recreate4:
 
 #endif /* ENABLE_NODEPORT */
 
+		/* RevNAT for replies on a loopback connection: */
 		if (ct_state->rev_nat_index) {
 			ret = lb4_rev_nat(ctx, ETH_HLEN, l4_off,
 					  ct_state->rev_nat_index,
