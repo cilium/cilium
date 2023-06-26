@@ -47,3 +47,7 @@ func (f fakeAuthMap) IterateWithCallback(cb authmap.IterateCallback) error {
 	}
 	return nil
 }
+
+func (f fakeAuthMap) MaxEntries() uint32 {
+	return 1 << 8
+}

@@ -12,6 +12,8 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/maps/authmap"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 type authMapCache struct {
@@ -19,13 +21,15 @@ type authMapCache struct {
 	authmap           authMap
 	cacheEntries      map[authKey]authInfo
 	cacheEntriesMutex lock.RWMutex
+	pressureGauge     *metrics.GaugeWithThreshold
 }
 
-func newAuthMapCache(logger logrus.FieldLogger, authmap authMap) *authMapCache {
+func newAuthMapCache(logger logrus.FieldLogger, authMap authMap) *authMapCache {
 	return &authMapCache{
-		logger:       logger,
-		authmap:      authmap,
-		cacheEntries: map[authKey]authInfo{},
+		logger:        logger,
+		authmap:       authMap,
+		cacheEntries:  map[authKey]authInfo{},
+		pressureGauge: metrics.NewBPFMapPressureGauge(authmap.MapName, 0),
 	}
 }
 
@@ -60,7 +64,7 @@ func (r *authMapCache) Update(key authKey, info authInfo) error {
 	}
 
 	r.cacheEntries[key] = info
-
+	r.updatePressureMetric()
 	return nil
 }
 
@@ -79,8 +83,12 @@ func (r *authMapCache) Delete(key authKey) error {
 	}
 
 	delete(r.cacheEntries, key)
-
+	r.updatePressureMetric()
 	return nil
+}
+
+func (r *authMapCache) MaxEntries() uint32 {
+	return r.authmap.MaxEntries()
 }
 
 func (r *authMapCache) DeleteIf(predicate func(key authKey, info authInfo) bool) error {
@@ -102,7 +110,7 @@ func (r *authMapCache) DeleteIf(predicate func(key authKey, info authInfo) bool)
 			delete(r.cacheEntries, k)
 		}
 	}
-
+	r.updatePressureMetric()
 	return nil
 }
 
@@ -117,8 +125,20 @@ func (r *authMapCache) restoreCache() error {
 		r.cacheEntries[k] = v
 	}
 
+	r.updatePressureMetric()
 	r.logger.
 		WithField("cached_entries", len(r.cacheEntries)).
 		Debug("Restored entries")
 	return nil
+}
+
+func (r *authMapCache) updatePressureMetric() {
+	if r.pressureGauge == nil {
+		return
+	}
+	if !metrics.BPFMapPressure {
+		r.pressureGauge = nil
+		return
+	}
+	r.pressureGauge.Set(float64(len(r.cacheEntries)) / float64(r.authmap.MaxEntries()))
 }
