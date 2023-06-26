@@ -238,6 +238,32 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context, subnets ipamType
 	return result, nil
 }
 
+// describeNetworkInterfacesByInstance gets ENIs on the given instance
+func (c *Client) describeNetworkInterfacesByInstance(ctx context.Context, instanceID string) ([]ec2_types.NetworkInterface, error) {
+	var result []ec2_types.NetworkInterface
+
+	input := &ec2.DescribeNetworkInterfacesInput{
+		Filters: []ec2_types.Filter{
+			{
+				Name:   aws.String("attachment.instance-id"),
+				Values: []string{instanceID},
+			},
+		},
+	}
+	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
+	for paginator.HasMorePages() {
+		c.limiter.Limit(ctx, "DescribeNetworkInterfaces")
+		sinceStart := spanstat.Start()
+		output, err := paginator.NextPage(ctx)
+		c.metricsAPI.ObserveAPICall("DescribeNetworkInterfaces", deriveStatus(err), sinceStart.Seconds())
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.NetworkInterfaces...)
+	}
+	return result, nil
+}
+
 // describeNetworkInterfacesFromInstances lists all ENIs matching filtered EC2 instances
 func (c *Client) describeNetworkInterfacesFromInstances(ctx context.Context) ([]ec2_types.NetworkInterface, error) {
 	enisFromInstances := make(map[string]struct{})
@@ -388,6 +414,33 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 	}
 
 	return
+}
+
+// GetInstance returns the instance including its ENIs by the given instanceID
+func (c *Client) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error) {
+	instance := ipamTypes.Instance{}
+	instance.Interfaces = map[string]ipamTypes.InterfaceRevision{}
+
+	var networkInterfaces []ec2_types.NetworkInterface
+	var err error
+
+	networkInterfaces, err = c.describeNetworkInterfacesByInstance(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, iface := range networkInterfaces {
+		ifId := *iface.NetworkInterfaceId
+		_, eni, err := parseENI(&iface, vpcs, subnets, c.usePrimary)
+		if err != nil {
+			return nil, err
+		}
+
+		instance.Interfaces[ifId] = ipamTypes.InterfaceRevision{
+			Resource: eni,
+		}
+	}
+	return &instance, nil
 }
 
 // GetInstances returns the list of all instances including their ENIs as
