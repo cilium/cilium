@@ -189,7 +189,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@af4173a4a1c9132b7fb0a02dba74cd6233a175b5 # v0.0.6
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           test-name: runtime-tests
           install-dependencies: true
@@ -215,7 +215,7 @@ jobs:
 
       - name: Setup runtime
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@af4173a4a1c9132b7fb0a02dba74cd6233a175b5 # v0.0.6
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           provision: 'false'
           cmd: |
@@ -269,7 +269,7 @@ jobs:
       - name: Runtime privileged tests
         if: ${{ matrix.focus == 'privileged' }}
         timeout-minutes: 20
-        uses: cilium/little-vm-helper@af4173a4a1c9132b7fb0a02dba74cd6233a175b5 # v0.0.6
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           provision: 'false'
           cmd: |
@@ -285,7 +285,7 @@ jobs:
         # which is 'agent' and 'datapath' focus.
         if:  ${{ !success() && (matrix.focus == 'agent' || matrix.focus == 'datapath') }}
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@af4173a4a1c9132b7fb0a02dba74cd6233a175b5 # v0.0.6
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           provision: 'false'
           cmd: |
