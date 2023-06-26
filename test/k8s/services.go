@@ -656,8 +656,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				}
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 
-				prepareHostPolicyEnforcement(kubectl, hostPolicyFilename)
-
 				originalCCNPHostPolicy := helpers.ManifestGet(kubectl.BasePath(), hostPolicyFilename)
 				res := kubectl.ExecMiddle("mktemp")
 				res.ExpectSuccess()
@@ -666,6 +664,8 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				Expect(err).Should(BeNil())
 				kubectl.ExecMiddle(fmt.Sprintf("sed 's/NODE_WITHOUT_CILIUM_IP/%s/' %s > %s",
 					nodeIP, originalCCNPHostPolicy, ccnpHostPolicy)).ExpectSuccess()
+
+				prepareHostPolicyEnforcement(kubectl, ccnpHostPolicy)
 
 				_, err = kubectl.CiliumClusterwidePolicyAction(ccnpHostPolicy,
 					helpers.KubectlApply, helpers.HelperTimeout)

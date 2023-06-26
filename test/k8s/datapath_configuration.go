@@ -462,7 +462,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 
-			prepareHostPolicyEnforcement(kubectl, "host-policies.yaml")
+			hostPolicy := helpers.ManifestGet(kubectl.BasePath(), "host-policies.yaml")
+			prepareHostPolicyEnforcement(kubectl, hostPolicy)
 		})
 
 		AfterAll(func() {
@@ -678,16 +679,15 @@ var _ = Describe("K8sDatapathConfig", func() {
 // case, we remove the policies to allow everything through and enable proper
 // termination of those connections.
 // This function implements that process.
-func prepareHostPolicyEnforcement(kubectl *helpers.Kubectl, hostPolicy string) {
-	demoHostPolicies := helpers.ManifestGet(kubectl.BasePath(), hostPolicy)
-	By(fmt.Sprintf("Applying policies %s for 1min", demoHostPolicies))
-	_, err := kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlApply, helpers.HelperTimeout)
-	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", demoHostPolicies, err))
+func prepareHostPolicyEnforcement(kubectl *helpers.Kubectl, policy string) {
+	By(fmt.Sprintf("Applying policies %s for 1min", policy))
+	_, err := kubectl.CiliumClusterwidePolicyAction(policy, helpers.KubectlApply, helpers.HelperTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", policy, err))
 
 	time.Sleep(1 * time.Minute)
 
-	_, err = kubectl.CiliumClusterwidePolicyAction(demoHostPolicies, helpers.KubectlDelete, helpers.HelperTimeout)
-	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", demoHostPolicies, err))
+	_, err = kubectl.CiliumClusterwidePolicyAction(policy, helpers.KubectlDelete, helpers.HelperTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error deleting resource %s: %s", policy, err))
 
 	By("Deleted the policies, waiting for connection terminations")
 	time.Sleep(30 * time.Second)
