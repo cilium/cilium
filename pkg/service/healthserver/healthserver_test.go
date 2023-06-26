@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	. "github.com/cilium/checkmate"
+	"github.com/google/go-cmp/cmp"
 )
 
 type ServiceHealthServerSuite struct{}
@@ -94,7 +94,7 @@ func (s *ServiceHealthServerSuite) Test_httpHealthServer_ServeHTTP(c *C) {
 	assertRespHeader(c, resp, "Content-Type", "application/json")
 	assertRespHeader(c, resp, "X-Content-Type-Options", "nosniff")
 	resp.Body.Close()
-	
+
 	// Remove local endpoints, server must respond with HTTP 503
 	h.updateService(NewService("default", "svc", 0))
 	resp, err = http.Get(ts.URL)
