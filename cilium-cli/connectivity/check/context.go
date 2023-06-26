@@ -42,7 +42,7 @@ type ConnectivityTest struct {
 	// CiliumVersion is the detected or assumed version of the Cilium agent
 	CiliumVersion semver.Version
 
-	features FeatureSet
+	Features FeatureSet
 
 	// Parameters to the test suite, specified by the CLI user.
 	params Parameters
@@ -283,14 +283,14 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context) error {
 	}
 
 	if ct.debug() {
-		fs := make([]Feature, 0, len(ct.features))
-		for f := range ct.features {
+		fs := make([]Feature, 0, len(ct.Features))
+		for f := range ct.Features {
 			fs = append(fs, f)
 		}
 		slices.Sort(fs)
 		ct.Debug("Detected features:")
 		for _, f := range fs {
-			ct.Debugf("  %s: %s", f, ct.features[f])
+			ct.Debugf("  %s: %s", f, ct.Features[f])
 		}
 	}
 
@@ -309,7 +309,7 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context) error {
 			return fmt.Errorf("unable to create hubble client: %s", err)
 		}
 	}
-	if ct.features.MatchRequirements(RequireFeatureEnabled(FeatureNodeWithoutCilium)) {
+	if ct.Features.MatchRequirements(RequireFeatureEnabled(FeatureNodeWithoutCilium)) {
 		if err := ct.detectPodCIDRs(ctx); err != nil {
 			return fmt.Errorf("unable to detect pod CIDRs: %w", err)
 		}
@@ -914,7 +914,7 @@ func (ct *ConnectivityTest) AllFlows() bool {
 }
 
 func (ct *ConnectivityTest) FlowAggregation() bool {
-	return ct.features[FeatureMonitorAggregation].Enabled
+	return ct.Features[FeatureMonitorAggregation].Enabled
 }
 
 func (ct *ConnectivityTest) PostTestSleepDuration() time.Duration {
@@ -930,7 +930,7 @@ func (ct *ConnectivityTest) NodesWithoutCilium() []string {
 }
 
 func (ct *ConnectivityTest) Feature(f Feature) (FeatureStatus, bool) {
-	s, ok := ct.features[f]
+	s, ok := ct.Features[f]
 	return s, ok
 }
 

@@ -461,7 +461,7 @@ func (ct *ConnectivityTest) extractFeaturesFromCRDs(ctx context.Context, result 
 
 func (ct *ConnectivityTest) validateFeatureSet(other FeatureSet, source string) {
 	for key, found := range other {
-		expected, ok := ct.features[key]
+		expected, ok := ct.Features[key]
 		if !ok {
 			ct.Warnf("Cilium feature %q found in pod %s, but not in reference set", key, source)
 		} else {
@@ -471,7 +471,7 @@ func (ct *ConnectivityTest) validateFeatureSet(other FeatureSet, source string) 
 		}
 	}
 
-	for key := range ct.features {
+	for key := range ct.Features {
 		if _, ok := other[key]; !ok {
 			ct.Warnf("Cilium feature %q not found in pod %s", key, source)
 		}
@@ -536,7 +536,7 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 		if initialized {
 			ct.validateFeatureSet(features, ciliumPod.Name())
 		} else {
-			ct.features = features
+			ct.Features = features
 			initialized = true
 		}
 	}
@@ -545,11 +545,11 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 }
 
 func (ct *ConnectivityTest) UpdateFeaturesFromNodes(ctx context.Context) error {
-	return ct.extractFeaturesFromNodes(ctx, ct.client, ct.features)
+	return ct.extractFeaturesFromNodes(ctx, ct.client, ct.Features)
 }
 
 func (ct *ConnectivityTest) ForceDisableFeature(feature Feature) {
-	ct.features[feature] = FeatureStatus{Enabled: false}
+	ct.Features[feature] = FeatureStatus{Enabled: false}
 }
 
 // isFeatureKNPEnabled checks if the Kubernetes Network Policy feature is enabled from the configuration.
