@@ -316,6 +316,10 @@ func (r *fakeAuthMap) Update(key authKey, info authInfo) error {
 	return nil
 }
 
+func (r *fakeAuthMap) MaxEntries() uint32 {
+	return 1 << 8
+}
+
 func assertErrorString(errString string) assert.ErrorAssertionFunc {
 	return func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool {
 		return assert.EqualError(t, err, errString, msgAndArgs)

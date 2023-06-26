@@ -35,6 +35,9 @@ type Map interface {
 	// IterateWithCallback iterates through all the keys/values of an auth map,
 	// passing each key/value pair to the cb callback.
 	IterateWithCallback(cb IterateCallback) error
+
+	// MaxEntries returns the maximum number of entries the auth map can hold.
+	MaxEntries() uint32
 }
 
 type authMap struct {
@@ -111,6 +114,10 @@ func (m *authMap) IterateWithCallback(cb IterateCallback) error {
 			cb(key, value)
 		},
 	)
+}
+
+func (m *authMap) MaxEntries() uint32 {
+	return m.bpfMap.MaxEntries()
 }
 
 // AuthKey implements the bpf.MapKey interface.
