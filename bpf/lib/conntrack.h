@@ -291,6 +291,24 @@ ct_new: __maybe_unused;
 	return CT_NEW;
 }
 
+static __always_inline __u8
+ct_lookup_select_tuple_type(enum ct_dir dir, enum ct_scope scope)
+{
+	if (dir == CT_SERVICE)
+		return TUPLE_F_SERVICE;
+
+	switch (scope) {
+	case SCOPE_FORWARD:
+		return (dir == CT_EGRESS) ? TUPLE_F_OUT : TUPLE_F_IN;
+	case SCOPE_BIDIR:
+		/* Due to policy requirements, RELATED or REPLY state takes
+		 * precedence over ESTABLISHED. So lookup in reverse direction first:
+		 */
+	case SCOPE_REVERSE:
+		return (dir == CT_EGRESS) ? TUPLE_F_IN : TUPLE_F_OUT;
+	}
+}
+
 /* The function determines whether an egress flow identified by the given
  * tuple is a reply.
  *
@@ -504,9 +522,12 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 			goto out;
 
 		/* now lookup in forward direction: */
+		ipv6_ct_tuple_reverse(tuple);
 		fallthrough;
 	case SCOPE_FORWARD:
-		ipv6_ct_tuple_reverse(tuple);
+		if (scope == SCOPE_FORWARD)
+			__ipv6_ct_tuple_reverse(tuple);
+
 		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state,
 				  is_tcp, tcp_flags, monitor);
 	}
@@ -523,21 +544,7 @@ ct_lazy_lookup6(const void *map, struct ipv6_ct_tuple *tuple,
 		enum ct_dir dir, enum ct_scope scope, struct ct_state *ct_state,
 		__u32 *monitor)
 {
-	/* The tuple is created in reverse order initially to find a
-	 * potential reverse flow. This is required because the RELATED
-	 * or REPLY state takes precedence over ESTABLISHED due to
-	 * policy requirements.
-	 *
-	 * tuple->flags separates entries that could otherwise be overlapping.
-	 */
-	if (dir == CT_INGRESS)
-		tuple->flags = TUPLE_F_OUT;
-	else if (dir == CT_EGRESS)
-		tuple->flags = TUPLE_F_IN;
-	else if (dir == CT_SERVICE)
-		tuple->flags = TUPLE_F_SERVICE;
-	else
-		return DROP_CT_INVALID_HDR;
+	tuple->flags = ct_lookup_select_tuple_type(dir, scope);
 
 	return __ct_lookup6(map, tuple, ctx, l4_off, action, dir, scope,
 			    ct_state, monitor);
@@ -552,21 +559,7 @@ static __always_inline int ct_lookup6(const void *map,
 {
 	int action;
 
-	/* The tuple is created in reverse order initially to find a
-	 * potential reverse flow. This is required because the RELATED
-	 * or REPLY state takes precedence over ESTABLISHED due to
-	 * policy requirements.
-	 *
-	 * tuple->flags separates entries that could otherwise be overlapping.
-	 */
-	if (dir == CT_INGRESS)
-		tuple->flags = TUPLE_F_OUT;
-	else if (dir == CT_EGRESS)
-		tuple->flags = TUPLE_F_IN;
-	else if (dir == CT_SERVICE)
-		tuple->flags = TUPLE_F_SERVICE;
-	else
-		return DROP_CT_INVALID_HDR;
+	tuple->flags = ct_lookup_select_tuple_type(dir, SCOPE_BIDIR);
 
 	action = ct_extract_ports6(ctx, l4_off, dir, tuple, NULL);
 	if (action < 0)
@@ -792,9 +785,12 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 			goto out;
 
 		/* now lookup in forward direction: */
+		ipv4_ct_tuple_reverse(tuple);
 		fallthrough;
 	case SCOPE_FORWARD:
-		ipv4_ct_tuple_reverse(tuple);
+		if (scope == SCOPE_FORWARD)
+			__ipv4_ct_tuple_reverse(tuple);
+
 		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state,
 				  is_tcp, tcp_flags, monitor);
 	}
@@ -830,21 +826,7 @@ ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple,
 		enum ct_action action, enum ct_dir dir, enum ct_scope scope,
 		struct ct_state *ct_state, __u32 *monitor)
 {
-	/* The tuple is created in reverse order initially to find a
-	 * potential reverse flow. This is required because the RELATED
-	 * or REPLY state takes precedence over ESTABLISHED due to
-	 * policy requirements.
-	 *
-	 * tuple->flags separates entries that could otherwise be overlapping.
-	 */
-	if (dir == CT_INGRESS)
-		tuple->flags = TUPLE_F_OUT;
-	else if (dir == CT_EGRESS)
-		tuple->flags = TUPLE_F_IN;
-	else if (dir == CT_SERVICE)
-		tuple->flags = TUPLE_F_SERVICE;
-	else
-		return DROP_CT_INVALID_HDR;
+	tuple->flags = ct_lookup_select_tuple_type(dir, scope);
 
 	return __ct_lookup4(map, tuple, ctx, l4_off, has_l4_header,
 			    action, dir, scope, ct_state, monitor);
@@ -859,21 +841,7 @@ static __always_inline int ct_lookup4(const void *map,
 	int action;
 	bool has_l4_header = true;
 
-	/* The tuple is created in reverse order initially to find a
-	 * potential reverse flow. This is required because the RELATED
-	 * or REPLY state takes precedence over ESTABLISHED due to
-	 * policy requirements.
-	 *
-	 * tuple->flags separates entries that could otherwise be overlapping.
-	 */
-	if (dir == CT_INGRESS)
-		tuple->flags = TUPLE_F_OUT;
-	else if (dir == CT_EGRESS)
-		tuple->flags = TUPLE_F_IN;
-	else if (dir == CT_SERVICE)
-		tuple->flags = TUPLE_F_SERVICE;
-	else
-		return DROP_CT_INVALID_HDR;
+	tuple->flags = ct_lookup_select_tuple_type(dir, SCOPE_BIDIR);
 
 	action = ct_extract_ports4(ctx, off, dir, tuple, &has_l4_header);
 	if (action < 0)
