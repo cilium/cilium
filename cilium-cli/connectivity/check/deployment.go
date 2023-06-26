@@ -711,7 +711,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	}
 
 	hostPort := 0
-	if ct.features[FeatureHostPort].Enabled {
+	if ct.Features[FeatureHostPort].Enabled {
 		hostPort = EchoServerHostPort
 	}
 	dnsConfigMap := &corev1.ConfigMap{
@@ -979,7 +979,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	}
 
 	// Create one Ingress service for echo deployment
-	if ct.features[FeatureIngressController].Enabled {
+	if ct.Features[FeatureIngressController].Enabled {
 		_, err = ct.clients.src.GetIngress(ctx, ct.params.TestNamespace, IngressServiceName, metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Deploying Ingress resource...", ct.clients.src.ClusterName())
@@ -1036,7 +1036,7 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 		dstList = append(dstList, echoOtherNodeDeploymentName)
 	}
 
-	if ct.features[FeatureNodeWithoutCilium].Enabled {
+	if ct.Features[FeatureNodeWithoutCilium].Enabled {
 		dstList = append(dstList, echoExternalNodeDeploymentName)
 	}
 
@@ -1190,7 +1190,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
-	if ct.features[FeatureNodeWithoutCilium].Enabled {
+	if ct.Features[FeatureNodeWithoutCilium].Enabled {
 		echoExternalNodePods, err := ct.clients.dst.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "name=" + echoExternalNodeDeploymentName})
 		if err != nil {
 			return fmt.Errorf("unable to list other node pods: %w", err)
@@ -1265,7 +1265,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
-	if ct.features[FeatureIngressController].Enabled {
+	if ct.Features[FeatureIngressController].Enabled {
 		ingressServices, err := ct.clients.src.ListServices(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "cilium.io/ingress=true"})
 		if err != nil {
 			return fmt.Errorf("unable to list ingress services: %w", err)

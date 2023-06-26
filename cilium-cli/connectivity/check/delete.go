@@ -104,14 +104,14 @@ func (ct *ConnectivityTest) deleteCiliumPods(ctx context.Context) error {
 
 	debugLogFeatures := func(header string) {
 		if ct.debug() {
-			fs := make([]Feature, 0, len(ct.features))
-			for f := range ct.features {
+			fs := make([]Feature, 0, len(ct.Features))
+			for f := range ct.Features {
 				fs = append(fs, f)
 			}
 			slices.Sort(fs)
 			ct.Debug(header)
 			for _, f := range fs {
-				ct.Debugf("  %s: %s", f, ct.features[f])
+				ct.Debugf("  %s: %s", f, ct.Features[f])
 			}
 		}
 	}
