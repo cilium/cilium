@@ -53,8 +53,8 @@ func (mgr *endpointManager) OnAddNode(newNode *slim_corev1.Node,
 }
 
 // OnUpdateNode implements the endpointManager's logic for reacting to updated
-// nodes in K8s. It is currently not implemented as the endpointManager has not
-// need for it. This adheres to the subscriber.NodeHandler interface.
+// nodes in K8s.
+// This adheres to the subscriber.NodeHandler interface.
 func (mgr *endpointManager) OnUpdateNode(oldNode, newNode *slim_corev1.Node,
 	swg *lock.StoppableWaitGroup) error {
 
