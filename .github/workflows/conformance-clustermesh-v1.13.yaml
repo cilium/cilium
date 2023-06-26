@@ -68,7 +68,7 @@ env:
   kind_version: v0.20.0
   k8s_version: v1.24.12
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.7
+  cilium_cli_version: v0.14.8
   cilium_cli_ci_version:
   clusterName1: cluster1-${{ github.run_id }}
   clusterName2: cluster2-${{ github.run_id }}
@@ -354,7 +354,7 @@ jobs:
         echo kind_svc_cidr_2=${KIND_SVC_CIDR_2} >> $GITHUB_OUTPUT
 
     - name: Install Cilium CLI
-      uses: cilium/cilium-cli@9fcfef089e5b7dd3212f2eac21ba8cfae6f05cca # v0.14.7
+      uses: cilium/cilium-cli@5362f383942260c0aed4f3876e09c3452435577a # v0.14.8
       with:
         release-version: ${{ env.cilium_cli_version }}
         ci-version: ${{ env.cilium_cli_ci_version }}
