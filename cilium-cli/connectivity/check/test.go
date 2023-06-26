@@ -146,7 +146,7 @@ func (t *Test) scenarioEnabled(s Scenario) bool {
 	}
 
 	return t.Context().params.testEnabled(t.scenarioName(s)) &&
-		t.Context().features.MatchRequirements(reqs...)
+		t.Context().Features.MatchRequirements(reqs...)
 }
 
 // Context returns the enclosing context of the Test.
@@ -195,7 +195,7 @@ func (t *Test) skip(s Scenario) {
 func (t *Test) willRun() bool {
 	var sc int
 
-	if !t.Context().features.MatchRequirements(t.requirements...) {
+	if !t.Context().Features.MatchRequirements(t.requirements...) {
 		return false
 	}
 
@@ -738,12 +738,12 @@ func (t *Test) ForEachIPFamily(do func(IPFamily)) {
 	for _, ipFam := range ipFams {
 		switch ipFam {
 		case IPFamilyV4:
-			if f, ok := t.ctx.features[FeatureIPv4]; ok && f.Enabled {
+			if f, ok := t.ctx.Features[FeatureIPv4]; ok && f.Enabled {
 				do(ipFam)
 			}
 
 		case IPFamilyV6:
-			if f, ok := t.ctx.features[FeatureIPv6]; ok && f.Enabled {
+			if f, ok := t.ctx.Features[FeatureIPv6]; ok && f.Enabled {
 				do(ipFam)
 			}
 		}
