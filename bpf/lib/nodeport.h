@@ -438,6 +438,12 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 	return 0;
 }
 
+static __always_inline struct ipv6_nat_entry *
+nodeport_dsr_lookup_v6_nat_entry(const struct ipv6_ct_tuple *nat_tuple)
+{
+	return snat_v6_lookup(nat_tuple);
+}
+
 static __always_inline int xlate_dsr_v6(struct __ctx_buff *ctx,
 					const struct ipv6_ct_tuple *tuple,
 					int l4_off)
@@ -449,7 +455,7 @@ static __always_inline int xlate_dsr_v6(struct __ctx_buff *ctx,
 	nat_tup.sport = tuple->dport;
 	nat_tup.dport = tuple->sport;
 
-	entry = snat_v6_lookup(&nat_tup);
+	entry = nodeport_dsr_lookup_v6_nat_entry(&nat_tup);
 	if (!entry)
 		return 0;
 
@@ -718,6 +724,50 @@ drop_err:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_INGRESS);
 }
 #endif /* ENABLE_DSR */
+
+static __always_inline bool
+nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
+				struct ipv6_ct_tuple *tuple,
+				struct lb6_reverse_nat *nat_info)
+{
+	struct ipv6_nat_entry *dsr_entry __maybe_unused;
+	struct ipv6_ct_tuple dsr_tuple __maybe_unused;
+	__u16 rev_nat_index = 0;
+
+	if (!ct_has_nodeport_egress_entry6(get_ct_map6(tuple), tuple,
+					   &rev_nat_index, is_defined(ENABLE_DSR)))
+		return false;
+
+	if (rev_nat_index) {
+		struct lb6_reverse_nat *rev_nat_entry;
+
+		rev_nat_entry = lb6_lookup_rev_nat_entry(ctx, rev_nat_index);
+		if (rev_nat_entry) {
+			memcpy(nat_info, rev_nat_entry, sizeof(*rev_nat_entry));
+			return true;
+		}
+
+		return false;
+	}
+
+#ifdef ENABLE_DSR
+	dsr_tuple = *tuple;
+
+	dsr_tuple.flags = NAT_DIR_EGRESS;
+	dsr_tuple.sport = tuple->dport;
+	dsr_tuple.dport = tuple->sport;
+
+	dsr_entry = nodeport_dsr_lookup_v6_nat_entry(&dsr_tuple);
+	if (dsr_entry) {
+		nat_info->address = dsr_entry->to_saddr;
+		nat_info->port = dsr_entry->to_sport;
+
+		return true;
+	}
+#endif
+
+	return false;
+}
 
 #ifdef ENABLE_NAT_46X64_GATEWAY
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV46_RFC8215)
@@ -1159,7 +1209,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 	}
 
 	if (!ct_has_nodeport_egress_entry6(get_ct_map6(&tuple), &tuple,
-					   is_defined(ENABLE_DSR)))
+					   NULL, is_defined(ENABLE_DSR)))
 		return CTX_ACT_OK;
 
 	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
@@ -1222,7 +1272,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 		return ret;
 	}
 
-	if (!ct_has_nodeport_egress_entry6(get_ct_map6(&tuple), &tuple, false))
+	if (!ct_has_nodeport_egress_entry6(get_ct_map6(&tuple), &tuple, NULL, false))
 		goto out;
 
 	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
@@ -1827,6 +1877,12 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 	return 0;
 }
 
+static __always_inline struct ipv4_nat_entry *
+nodeport_dsr_lookup_v4_nat_entry(const struct ipv4_ct_tuple *nat_tuple)
+{
+	return snat_v4_lookup(nat_tuple);
+}
+
 static __always_inline int xlate_dsr_v4(struct __ctx_buff *ctx,
 					const struct ipv4_ct_tuple *tuple,
 					int l4_off, bool has_l4_header)
@@ -1838,7 +1894,7 @@ static __always_inline int xlate_dsr_v4(struct __ctx_buff *ctx,
 	nat_tup.sport = tuple->dport;
 	nat_tup.dport = tuple->sport;
 
-	entry = snat_v4_lookup(&nat_tup);
+	entry = nodeport_dsr_lookup_v4_nat_entry(&nat_tup);
 	if (!entry)
 		return 0;
 
@@ -2113,6 +2169,50 @@ drop_err:
 	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP, METRIC_INGRESS);
 }
 #endif /* ENABLE_DSR */
+
+static __always_inline bool
+nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
+				struct ipv4_ct_tuple *tuple,
+				struct lb4_reverse_nat *nat_info)
+{
+	struct ipv4_nat_entry *dsr_entry __maybe_unused;
+	struct ipv4_ct_tuple dsr_tuple __maybe_unused;
+	__u16 rev_nat_index = 0;
+
+	if (!ct_has_nodeport_egress_entry4(get_ct_map4(tuple), tuple,
+					   &rev_nat_index, is_defined(ENABLE_DSR)))
+		return false;
+
+	if (rev_nat_index) {
+		struct lb4_reverse_nat *rev_nat_entry;
+
+		rev_nat_entry = lb4_lookup_rev_nat_entry(ctx, rev_nat_index);
+		if (rev_nat_entry) {
+			memcpy(nat_info, rev_nat_entry, sizeof(*rev_nat_entry));
+			return true;
+		}
+
+		return false;
+	}
+
+#ifdef ENABLE_DSR
+	dsr_tuple = *tuple;
+
+	dsr_tuple.flags = NAT_DIR_EGRESS;
+	dsr_tuple.sport = tuple->dport;
+	dsr_tuple.dport = tuple->sport;
+
+	dsr_entry = nodeport_dsr_lookup_v4_nat_entry(&dsr_tuple);
+	if (dsr_entry) {
+		nat_info->address = dsr_entry->to_saddr;
+		nat_info->port = dsr_entry->to_sport;
+
+		return true;
+	}
+#endif
+
+	return false;
+}
 
 declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS)
 int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
@@ -2518,7 +2618,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 	}
 
 	if (!ct_has_nodeport_egress_entry4(get_ct_map4(&tuple), &tuple,
-					   is_defined(ENABLE_DSR)))
+					   NULL, is_defined(ENABLE_DSR)))
 		return CTX_ACT_OK;
 
 	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
@@ -2623,7 +2723,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 	if (!check_revdnat)
 		goto out;
 
-	if (!ct_has_nodeport_egress_entry4(get_ct_map4(&tuple), &tuple, false))
+	if (!ct_has_nodeport_egress_entry4(get_ct_map4(&tuple), &tuple, NULL, false))
 		goto out;
 
 	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,

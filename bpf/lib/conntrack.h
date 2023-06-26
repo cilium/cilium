@@ -1066,7 +1066,7 @@ err_ct_fill_up:
 static __always_inline bool
 ct_has_nodeport_egress_entry4(const void *map,
 			      struct ipv4_ct_tuple *ingress_tuple,
-			      bool check_dsr)
+			      __u16 *rev_nat_index, bool check_dsr)
 {
 	__u8 prev_flags = ingress_tuple->flags;
 	struct ct_entry *entry;
@@ -1075,10 +1075,19 @@ ct_has_nodeport_egress_entry4(const void *map,
 	entry = map_lookup_elem(map, ingress_tuple);
 	ingress_tuple->flags = prev_flags;
 
-	if (entry)
-		return entry->node_port || (check_dsr && entry->dsr);
+	if (!entry)
+		return false;
 
-	return 0;
+	if (entry->node_port) {
+		if (rev_nat_index)
+			*rev_nat_index = entry->rev_nat_index;
+		return true;
+	}
+
+	if (check_dsr && entry->dsr)
+		return true;
+
+	return false;
 }
 
 static __always_inline bool
@@ -1100,7 +1109,7 @@ ct_has_dsr_egress_entry4(const void *map, struct ipv4_ct_tuple *ingress_tuple)
 static __always_inline bool
 ct_has_nodeport_egress_entry6(const void *map,
 			      struct ipv6_ct_tuple *ingress_tuple,
-			      bool check_dsr)
+			      __u16 *rev_nat_index, bool check_dsr)
 {
 	__u8 prev_flags = ingress_tuple->flags;
 	struct ct_entry *entry;
@@ -1109,10 +1118,19 @@ ct_has_nodeport_egress_entry6(const void *map,
 	entry = map_lookup_elem(map, ingress_tuple);
 	ingress_tuple->flags = prev_flags;
 
-	if (entry)
-		return entry->node_port || (check_dsr && entry->dsr);
+	if (!entry)
+		return false;
 
-	return 0;
+	if (entry->node_port) {
+		if (rev_nat_index)
+			*rev_nat_index = entry->rev_nat_index;
+		return true;
+	}
+
+	if (check_dsr && entry->dsr)
+		return true;
+
+	return false;
 }
 
 static __always_inline bool

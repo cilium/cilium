@@ -461,6 +461,14 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	return 0;
 }
 
+static __always_inline struct lb6_reverse_nat *
+lb6_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
+{
+	cilium_dbg_lb(ctx, DBG_LB6_REVERSE_NAT_LOOKUP, index, 0);
+
+	return map_lookup_elem(&LB6_REVERSE_NAT_MAP, &index);
+}
+
 /** Perform IPv6 reverse NAT based on reverse NAT index
  * @arg ctx		packet
  * @arg l4_off		offset to L4
@@ -473,8 +481,7 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 {
 	struct lb6_reverse_nat *nat;
 
-	cilium_dbg_lb(ctx, DBG_LB6_REVERSE_NAT_LOOKUP, index, 0);
-	nat = map_lookup_elem(&LB6_REVERSE_NAT_MAP, &index);
+	nat = lb6_lookup_rev_nat_entry(ctx, index);
 	if (nat == NULL)
 		return 0;
 
@@ -1104,6 +1111,13 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 	return 0;
 }
 
+static __always_inline struct lb4_reverse_nat *
+lb4_lookup_rev_nat_entry(struct __ctx_buff *ctx __maybe_unused, __u16 index)
+{
+	cilium_dbg_lb(ctx, DBG_LB4_REVERSE_NAT_LOOKUP, index, 0);
+
+	return map_lookup_elem(&LB4_REVERSE_NAT_MAP, &index);
+}
 
 /** Perform IPv4 reverse NAT based on reverse NAT index
  * @arg ctx		packet
@@ -1118,8 +1132,7 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 {
 	struct lb4_reverse_nat *nat;
 
-	cilium_dbg_lb(ctx, DBG_LB4_REVERSE_NAT_LOOKUP, ct_state->rev_nat_index, 0);
-	nat = map_lookup_elem(&LB4_REVERSE_NAT_MAP, &ct_state->rev_nat_index);
+	nat = lb4_lookup_rev_nat_entry(ctx, ct_state->rev_nat_index);
 	if (nat == NULL)
 		return 0;
 

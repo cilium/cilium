@@ -1285,7 +1285,7 @@ get_cluster_snat_map_v6(__u32 cluster_id __maybe_unused)
 }
 
 static __always_inline
-struct ipv6_nat_entry *snat_v6_lookup(struct ipv6_ct_tuple *tuple)
+struct ipv6_nat_entry *snat_v6_lookup(const struct ipv6_ct_tuple *tuple)
 {
 	return __snat_lookup(&SNAT_MAPPING_IPV6, tuple);
 }
