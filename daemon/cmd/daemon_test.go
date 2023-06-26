@@ -118,7 +118,7 @@ func TestMain(m *testing.M) {
 	// Disable the replacement, as its initialization function execs bpftool
 	// which requires root privileges. This would require marking the test suite
 	// as privileged.
-	option.Config.KubeProxyReplacement = option.KubeProxyReplacementFalse
+	option.Config.KubeProxyReplacement = option.KubeProxyReplacementDisabled
 
 	time.Local = time.UTC
 
