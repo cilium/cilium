@@ -8,7 +8,7 @@
   {{- $defaultKeepDeprecatedProbes = false -}}
 {{- end -}}
 
-{{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement "false") -}}
+{{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement "disabled") -}}
 
 ---
 apiVersion: apps/v1
