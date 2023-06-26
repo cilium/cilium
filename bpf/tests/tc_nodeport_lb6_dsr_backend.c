@@ -17,6 +17,7 @@
 #define ENABLE_HOST_ROUTING
 
 #define DISABLE_LOOPBACK_LB
+#define ENABLE_SKIP_FIB		1
 
 /* Skip ingress policy checks, not needed to validate hairpin flow */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
