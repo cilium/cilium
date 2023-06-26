@@ -245,7 +245,7 @@ func (keys MapState) RemoveDependent(owner Key, dependent Key, old MapState) {
 	}
 }
 
-// MergeReferences adds owners and dependents from entry 'entry' to 'e'. 'entry' is not modified.
+// MergeReferences adds owners, dependents, and DerivedFromRules from entry 'entry' to 'e'. 'entry' is not modified.
 func (e *MapStateEntry) MergeReferences(entry *MapStateEntry) {
 	if e.owners == nil && len(entry.owners) > 0 {
 		e.owners = make(map[MapStateOwner]struct{}, len(entry.owners))
@@ -257,6 +257,11 @@ func (e *MapStateEntry) MergeReferences(entry *MapStateEntry) {
 	// merge dependents
 	for k := range entry.dependents {
 		e.AddDependent(k)
+	}
+
+	// merge DerivedFromRules
+	if len(entry.DerivedFromRules) > 0 {
+		e.DerivedFromRules.MergeSorted(entry.DerivedFromRules)
 	}
 }
 
@@ -314,7 +319,7 @@ func (e *MapStateEntry) DeepEqual(o *MapStateEntry) bool {
 
 // String returns a string representation of the MapStateEntry
 func (e MapStateEntry) String() string {
-	return fmt.Sprintf("ProxyPort=%d,IsDeny=%t,AuthType=%s", e.ProxyPort, e.IsDeny, e.AuthType.String())
+	return fmt.Sprintf("ProxyPort=%d,IsDeny=%t,AuthType=%s,DerivedFromRules=%v", e.ProxyPort, e.IsDeny, e.AuthType.String(), e.DerivedFromRules)
 }
 
 // denyPreferredInsert inserts a key and entry into the map by given preference
@@ -345,7 +350,6 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, delet
 		updatedEntry.owners = make(map[MapStateOwner]struct{}, len(entry.owners))
 	}
 
-	// TODO: Do we need to merge labels as well?
 	// Merge new owner to the updated entry without modifying 'entry' as it is being reused by the caller
 	updatedEntry.MergeReferences(&entry)
 	// Update (or insert) the entry
