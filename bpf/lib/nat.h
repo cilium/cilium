@@ -83,6 +83,7 @@ __snat_update(const void *map, const void *otuple, const void *ostate,
 struct ipv4_nat_entry {
 	struct nat_entry common;
 	union {
+		struct lb4_reverse_nat nat_info;
 		struct {
 			__be32 to_saddr;
 			__be16 to_sport;
@@ -1212,6 +1213,7 @@ int snat_v4_rev_nat(struct __ctx_buff *ctx __maybe_unused,
 struct ipv6_nat_entry {
 	struct nat_entry common;
 	union {
+		struct lb6_reverse_nat nat_info;
 		struct {
 			union v6addr to_saddr;
 			__be16       to_sport;
@@ -1279,7 +1281,7 @@ get_cluster_snat_map_v6(__u32 cluster_id __maybe_unused)
 }
 
 static __always_inline
-struct ipv6_nat_entry *snat_v6_lookup(struct ipv6_ct_tuple *tuple)
+struct ipv6_nat_entry *snat_v6_lookup(const struct ipv6_ct_tuple *tuple)
 {
 	return __snat_lookup(&SNAT_MAPPING_IPV6, tuple);
 }
