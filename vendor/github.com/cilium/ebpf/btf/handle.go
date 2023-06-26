@@ -22,38 +22,25 @@ type Handle struct {
 	needsKernelBase bool
 }
 
-// NewHandle loads BTF into the kernel.
+// NewHandle loads the contents of a [Builder] into the kernel.
 //
-// Returns ErrNotSupported if BTF is not supported.
-func NewHandle(spec *Spec) (*Handle, error) {
-	if spec.byteOrder != nil && spec.byteOrder != internal.NativeEndian {
-		return nil, fmt.Errorf("can't load %s BTF on %s", spec.byteOrder, internal.NativeEndian)
-	}
+// Returns an error wrapping ErrNotSupported if the kernel doesn't support BTF.
+func NewHandle(b *Builder) (*Handle, error) {
+	small := getByteSlice()
+	defer putByteSlice(small)
 
-	if spec.firstTypeID != 0 {
-		return nil, fmt.Errorf("split BTF can't be loaded into the kernel")
-	}
-
-	buf := getBuffer()
-	defer putBuffer(buf)
-
-	var stb *stringTableBuilder
-	if spec.strings != nil {
-		// Use the ELF string table as an estimate of the final
-		// string table size. We don't use the ELF string
-		// table since the types may have been changed in the meantime.
-		stb = newStringTableBuilder(spec.strings.Num())
-	}
-
-	err := marshalTypes(buf, spec.types, stb, kernelMarshalOptions())
+	buf, err := b.Marshal(*small, KernelMarshalOptions())
 	if err != nil {
 		return nil, fmt.Errorf("marshal BTF: %w", err)
 	}
 
-	return newHandleFromRawBTF(buf.Bytes())
+	return NewHandleFromRawBTF(buf)
 }
 
-func newHandleFromRawBTF(btf []byte) (*Handle, error) {
+// NewHandleFromRawBTF loads raw BTF into the kernel.
+//
+// Returns an error wrapping ErrNotSupported if the kernel doesn't support BTF.
+func NewHandleFromRawBTF(btf []byte) (*Handle, error) {
 	if uint64(len(btf)) > math.MaxUint32 {
 		return nil, errors.New("BTF exceeds the maximum size")
 	}

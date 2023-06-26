@@ -33,12 +33,6 @@ func marshalPtr(data interface{}, length int) (sys.Pointer, error) {
 	return sys.NewSlicePointer(buf), nil
 }
 
-var bytesBufferPool = sync.Pool{
-	New: func() interface{} {
-		return new(bytes.Buffer)
-	},
-}
-
 // marshalBytes converts an arbitrary value into a byte buffer.
 //
 // Prefer using Map.marshalKey and Map.marshalValue if possible, since
@@ -63,13 +57,8 @@ func marshalBytes(data interface{}, length int) (buf []byte, err error) {
 	case Map, *Map, Program, *Program:
 		err = fmt.Errorf("can't marshal %T", value)
 	default:
-		wr := bytesBufferPool.Get().(*bytes.Buffer)
-		defer bytesBufferPool.Put(wr)
-
-		// Reinitialize the Buffer with a new backing slice since it is returned to
-		// the caller by wr.Bytes() below. Pooling is faster despite calling
-		// NewBuffer. The pooled alloc is still reused, it only needs to be zeroed.
-		*wr = *bytes.NewBuffer(make([]byte, 0, length))
+		wr := internal.NewBuffer(make([]byte, 0, length))
+		defer internal.PutBuffer(wr)
 
 		err = binary.Write(wr, internal.NativeEndian, value)
 		if err != nil {

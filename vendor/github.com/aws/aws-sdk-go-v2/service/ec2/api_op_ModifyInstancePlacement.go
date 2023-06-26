@@ -66,16 +66,18 @@ type ModifyInstancePlacementInput struct {
 	// The ID of the Dedicated Host with which to associate the instance.
 	HostId *string
 
-	// The ARN of the host resource group in which to place the instance.
+	// The ARN of the host resource group in which to place the instance. The instance
+	// must have a tenancy of host to specify this parameter.
 	HostResourceGroupArn *string
 
 	// The number of the partition in which to place the instance. Valid only if the
 	// placement group strategy is set to partition .
 	PartitionNumber *int32
 
-	// The tenancy for the instance. For T3 instances, you can't change the tenancy
-	// from dedicated to host , or from host to dedicated . Attempting to make one of
-	// these unsupported tenancy changes results in the InvalidTenancy error code.
+	// The tenancy for the instance. For T3 instances, you must launch the instance on
+	// a Dedicated Host to use a tenancy of host . You can't change the tenancy from
+	// host to dedicated or default . Attempting to make one of these unsupported
+	// tenancy changes results in an InvalidRequest error code.
 	Tenancy types.HostTenancy
 
 	noSmithyDocumentSerde

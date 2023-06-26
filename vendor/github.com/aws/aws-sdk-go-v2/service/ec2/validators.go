@@ -11082,9 +11082,6 @@ func validateOpAllocateHostsInput(v *AllocateHostsInput) error {
 	if v.AvailabilityZone == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("AvailabilityZone"))
 	}
-	if v.Quantity == nil {
-		invalidParams.Add(smithy.NewErrParamRequired("Quantity"))
-	}
 	if invalidParams.Len() > 0 {
 		return invalidParams
 	} else {
