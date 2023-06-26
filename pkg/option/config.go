@@ -1325,12 +1325,6 @@ const (
 	// replacement
 	KubeProxyReplacementDisabled = "disabled"
 
-	// KubeProxyReplacementTrue has the same meaning as previous "strict".
-	KubeProxyReplacementTrue = "true"
-
-	// KubeProxyReplacementTrue has the same meaning as previous "partial".
-	KubeProxyReplacementFalse = "false"
-
 	// KubeProxyReplacement healthz server bind address
 	KubeProxyReplacementHealthzBindAddr = "kube-proxy-replacement-healthz-bind-address"
 
@@ -3183,7 +3177,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	if c.TunnelPort == 0 {
 		// manually pick port for native-routing and DSR with Geneve dispatch:
 		if !c.TunnelingEnabled() &&
-			(c.EnableNodePort || (c.KubeProxyReplacement == KubeProxyReplacementStrict || c.KubeProxyReplacement == KubeProxyReplacementTrue)) &&
+			(c.EnableNodePort || c.KubeProxyReplacement == KubeProxyReplacementStrict) &&
 			c.NodePortMode != NodePortModeSNAT &&
 			c.LoadBalancerDSRDispatch == DSRDispatchGeneve {
 			c.TunnelPort = defaults.TunnelPortGeneve

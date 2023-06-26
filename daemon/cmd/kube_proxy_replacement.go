@@ -45,19 +45,10 @@ import (
 func initKubeProxyReplacementOptions() error {
 	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementStrict &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementPartial &&
-		option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled &&
-		option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue &&
-		option.Config.KubeProxyReplacement != option.KubeProxyReplacementFalse {
+		option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled {
 		return fmt.Errorf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
 	}
 
-	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementStrict ||
-		option.Config.KubeProxyReplacement == option.KubeProxyReplacementPartial ||
-		option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
-		log.Warnf("Deprecated value for --%s: %s (use either \"true\", or \"false\")", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
-	}
-
-	// This will be removed in v1.15
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
 		log.Infof("Auto-disabling %q, %q, %q, %q features and falling back to %q",
 			option.EnableNodePort, option.EnableExternalIPs,
@@ -71,9 +62,7 @@ func initKubeProxyReplacementOptions() error {
 		return nil
 	}
 
-	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementStrict ||
-		option.Config.KubeProxyReplacement == option.KubeProxyReplacementTrue {
-
+	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementStrict {
 		log.Infof("Auto-enabling %q, %q, %q, %q, %q features",
 			option.EnableNodePort, option.EnableExternalIPs,
 			option.EnableSocketLB, option.EnableHostPort,
@@ -253,7 +242,7 @@ func initKubeProxyReplacementOptions() error {
 		// required for NAT operations
 		if !option.Config.KubeProxyReplacementFullyEnabled() {
 			return fmt.Errorf("%s requires the agent to run with %s=%s.",
-				option.InstallNoConntrackIptRules, option.KubeProxyReplacement, option.KubeProxyReplacementTrue)
+				option.InstallNoConntrackIptRules, option.KubeProxyReplacement, option.KubeProxyReplacementStrict)
 		}
 
 		if option.Config.MasqueradingEnabled() && !option.Config.EnableBPFMasquerade {
@@ -424,8 +413,8 @@ func finishKubeProxyReplacementInit() error {
 		case option.Config.IptablesMasqueradingEnabled():
 			msg = fmt.Sprintf("BPF host routing requires %s.", option.EnableBPFMasquerade)
 		// KPR=strict is needed or we might rely on netfilter.
-		case option.Config.KubeProxyReplacement != option.KubeProxyReplacementStrict && option.Config.KubeProxyReplacement != option.KubeProxyReplacementTrue:
-			msg = fmt.Sprintf("BPF host routing requires %s=%s.", option.KubeProxyReplacement, option.KubeProxyReplacementTrue)
+		case option.Config.KubeProxyReplacement != option.KubeProxyReplacementStrict:
+			msg = fmt.Sprintf("BPF host routing requires %s=%s.", option.KubeProxyReplacement, option.KubeProxyReplacementStrict)
 		default:
 			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
 				probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
