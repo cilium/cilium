@@ -105,3 +105,7 @@ func (r *authMapWriter) DeleteIf(predicate func(key authKey, info authInfo) bool
 
 	return nil
 }
+
+func (r *authMapWriter) MaxEntries() uint32 {
+	return r.authMap.MaxEntries()
+}
