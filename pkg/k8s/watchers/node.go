@@ -127,11 +127,8 @@ func NewCiliumNodeUpdater(kvStoreNodeUpdater NodeUpdate) *ciliumNodeUpdater {
 }
 
 func (u *ciliumNodeUpdater) OnAddNode(newNode *slim_corev1.Node, swg *lock.StoppableWaitGroup) error {
-	// We don't need to run OnAddNode because Cilium will fetch the state from
-	// k8s upon initialization and will populate the KVStore [1] node with this
-	// information or create a Cilium Node CR [2].
-	// [1] https://github.com/cilium/cilium/blob/2bea69a54a00f10bec093347900cc66395269154/daemon/cmd/daemon.go#L1102
-	// [2] https://github.com/cilium/cilium/blob/2bea69a54a00f10bec093347900cc66395269154/daemon/cmd/daemon.go#L864-L868
+	u.updateCiliumNode(newNode)
+
 	return nil
 }
 
