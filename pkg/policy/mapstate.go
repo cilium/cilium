@@ -116,6 +116,7 @@ type MapStateEntry struct {
 	AuthType AuthType
 
 	// DerivedFromRules tracks the policy rules this entry derives from
+	// In sorted order.
 	DerivedFromRules labels.LabelArrayList
 
 	// Owners collects the keys in the map and selectors in the policy that require this key to be present.
@@ -689,7 +690,7 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 		oldValues.insertIfNotExists(key, l4Only)
 
 		l4Only.ProxyPort = redirectPort
-		l4Only.DerivedFromRules = append(l4Only.DerivedFromRules, visibilityDerivedFromLabels)
+		l4Only.DerivedFromRules.MergeSorted(visibilityDerivedFrom)
 		keys[key] = l4Only
 		adds[key] = struct{}{}
 	}
@@ -723,7 +724,7 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 				oldValues.insertIfNotExists(k, v)
 
 				v.ProxyPort = redirectPort
-				v.DerivedFromRules = append(v.DerivedFromRules, visibilityDerivedFromLabels)
+				v.DerivedFromRules.MergeSorted(visibilityDerivedFrom)
 				e.PolicyDebug(logrus.Fields{
 					logfields.BPFMapKey:   k,
 					logfields.BPFMapValue: v,
@@ -743,7 +744,8 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 				//    ALLOW redirect if no L3/L4 key already exists and no
 				//    L4-only key already exists and one is not added.
 				if _, ok := keys[k2]; !ok {
-					d2 := append(labels.LabelArrayList{visibilityDerivedFromLabels}, v.DerivedFromRules...)
+					d2 := labels.LabelArrayList{visibilityDerivedFromLabels}
+					d2.MergeSorted(v.DerivedFromRules)
 					v2 := NewMapStateEntry(k, d2, true, false, v.AuthType)
 					v2.ProxyPort = redirectPort
 					e.PolicyDebug(logrus.Fields{

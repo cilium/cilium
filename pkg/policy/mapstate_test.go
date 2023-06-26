@@ -1654,7 +1654,7 @@ func (ds *PolicyTestSuite) TestMapState_AddVisibilityKeys(c *check.C) {
 				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
 			want: MapState{
-				HttpIngressKey(0): allowEntryD(12345, labels.LabelArrayList{testLabels, visibilityDerivedFromLabels}),
+				HttpIngressKey(0): allowEntryD(12345, labels.LabelArrayList{visibilityDerivedFromLabels, testLabels}),
 			},
 		},
 		{
@@ -1667,7 +1667,7 @@ func (ds *PolicyTestSuite) TestMapState_AddVisibilityKeys(c *check.C) {
 				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
 			want: MapState{
-				HttpIngressKey(123): allowEntryD(12345, labels.LabelArrayList{testLabels, visibilityDerivedFromLabels}, csBar),
+				HttpIngressKey(123): allowEntryD(12345, labels.LabelArrayList{visibilityDerivedFromLabels, testLabels}, csBar),
 			},
 		},
 		{
