@@ -124,6 +124,29 @@ static __always_inline bool dsr_is_too_big(struct __ctx_buff *ctx __maybe_unused
 	return false;
 }
 
+static __always_inline int
+nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
+				 struct bpf_fib_lookup_padded *fib_params,
+				 __s8 *ext_err)
+{
+	int oif = NATIVE_DEV_IFINDEX;
+	int ret;
+
+	ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
+	*ext_err = (__s8)ret;
+
+	switch (ret) {
+	case BPF_FIB_LKUP_RET_SUCCESS:
+	case BPF_FIB_LKUP_RET_NO_NEIGH:
+		if ((__u32)oif == fib_params->l.ifindex)
+			return CTX_ACT_OK;
+
+		return fib_do_redirect(ctx, true, fib_params, ext_err, &oif);
+	default:
+		return DROP_NO_FIB;
+	}
+}
+
 #ifdef ENABLE_IPV6
 static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple)
 {
@@ -1269,8 +1292,10 @@ redo:
 }
 
 static __always_inline int
-nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
+nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
+			   __s8 *ext_err __maybe_unused)
 {
+	struct bpf_fib_lookup_padded fib_params __maybe_unused = {};
 	struct lb6_reverse_nat *nat_info;
 	struct ipv6_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
@@ -1291,6 +1316,19 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 	nat_info = nodeport_rev_dnat_get_info_ipv6(ctx, &tuple);
 	if (!nat_info)
 		return CTX_ACT_OK;
+
+#if defined(IS_BPF_HOST) && !defined(ENABLE_SKIP_FIB)
+	fib_params.l.family = AF_INET6;
+	fib_params.l.ifindex = ctx_get_ifindex(ctx);
+	ipv6_addr_copy((union v6addr *)fib_params.l.ipv6_src,
+		       &nat_info->address);
+	ipv6_addr_copy((union v6addr *)fib_params.l.ipv6_dst,
+		       &tuple.daddr);
+
+	ret = nodeport_fib_lookup_and_redirect(ctx, &fib_params, ext_err);
+	if (ret != CTX_ACT_OK)
+		return ret;
+#endif
 
 	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
 			      CT_INGRESS, SCOPE_REVERSE, &ct_state, &trace->monitor);
@@ -1484,12 +1522,13 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 }
 
 static __always_inline int
-__handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
+__handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
+		      __s8 *ext_err)
 {
 	int ret;
 
-	ret = nodeport_rev_dnat_fwd_ipv6(ctx, trace);
-	if (IS_ERR(ret))
+	ret = nodeport_rev_dnat_fwd_ipv6(ctx, trace, ext_err);
+	if (ret != CTX_ACT_OK)
 		return ret;
 
 #if !defined(ENABLE_DSR) ||						\
@@ -1507,8 +1546,9 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 static __always_inline int handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 {
 	struct trace_ctx trace;
+	__s8 ext_err = 0;
 
-	return __handle_nat_fwd_ipv6(ctx, &trace);
+	return __handle_nat_fwd_ipv6(ctx, &trace, &ext_err);
 }
 
 declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
@@ -1524,6 +1564,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	};
 	int ret;
 	enum trace_point obs_point;
+	__s8 ext_err = 0;
 
 #ifdef IS_BPF_OVERLAY
 	obs_point = TRACE_TO_OVERLAY;
@@ -1531,12 +1572,14 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = __handle_nat_fwd_ipv6(ctx, &trace);
+	ret = __handle_nat_fwd_ipv6(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_EGRESS);
 
-	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason,
-			  trace.monitor);
+	if (ret == CTX_ACT_OK)
+		send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason,
+				  trace.monitor);
 
 	return ret;
 }
@@ -2708,8 +2751,10 @@ redo:
 }
 
 static __always_inline int
-nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
+nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
+			   __s8 *ext_err __maybe_unused)
 {
+	struct bpf_fib_lookup_padded fib_params __maybe_unused = {};
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct lb4_reverse_nat *nat_info;
 	struct ipv4_ct_tuple tuple = {};
@@ -2734,6 +2779,20 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 	nat_info = nodeport_rev_dnat_get_info_ipv4(ctx, &tuple);
 	if (!nat_info)
 		return CTX_ACT_OK;
+
+#if defined(IS_BPF_HOST) && !defined(ENABLE_SKIP_FIB)
+	/* Perform FIB lookup with post-RevDNAT src IP, and redirect
+	 * packet to the correct egress interface:
+	 */
+	fib_params.l.family = AF_INET;
+	fib_params.l.ifindex = ctx_get_ifindex(ctx);
+	fib_params.l.ipv4_src = nat_info->address;
+	fib_params.l.ipv4_dst = tuple.daddr;
+
+	ret = nodeport_fib_lookup_and_redirect(ctx, &fib_params, ext_err);
+	if (ret != CTX_ACT_OK)
+		return ret;
+#endif
 
 	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
 			      ACTION_CREATE, CT_INGRESS, SCOPE_REVERSE, &ct_state,
@@ -2953,12 +3012,12 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 
 static __always_inline int
 __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
-		      struct trace_ctx *trace)
+		      struct trace_ctx *trace, __s8 *ext_err)
 {
 	int ret;
 
-	ret = nodeport_rev_dnat_fwd_ipv4(ctx, trace);
-	if (IS_ERR(ret))
+	ret = nodeport_rev_dnat_fwd_ipv4(ctx, trace, ext_err);
+	if (ret != CTX_ACT_OK)
 		return ret;
 
 #if !defined(ENABLE_DSR) ||						\
@@ -2979,10 +3038,11 @@ static __always_inline int handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 {
 	struct trace_ctx trace;
 	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
+	__s8 ext_err = 0;
 
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
 
-	return __handle_nat_fwd_ipv4(ctx, cluster_id, &trace);
+	return __handle_nat_fwd_ipv4(ctx, cluster_id, &trace, &ext_err);
 }
 
 declare_tailcall_if(__or4(__and(is_defined(ENABLE_IPV4),
@@ -3003,6 +3063,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	int ret;
 	enum trace_point obs_point;
 	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
+	__s8 ext_err = 0;
 
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
 
@@ -3012,12 +3073,14 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = __handle_nat_fwd_ipv4(ctx, cluster_id, &trace);
+	ret = __handle_nat_fwd_ipv4(ctx, cluster_id, &trace, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_EGRESS);
 
-	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason,
-			  trace.monitor);
+	if (ret == CTX_ACT_OK)
+		send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason,
+				  trace.monitor);
 
 	return ret;
 }
