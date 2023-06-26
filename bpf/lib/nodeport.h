@@ -2666,8 +2666,8 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 
 		/* Reply by local backend: */
 		if (ct_state.node_port && ct_state.rev_nat_index) {
-			ret = lb4_rev_nat(ctx, l3_off, l4_off, &ct_state,
-					  &tuple, REV_NAT_F_TUPLE_SADDR,
+			ret = lb4_rev_nat(ctx, l3_off, l4_off, ct_state.rev_nat_index,
+					  false, &tuple, REV_NAT_F_TUPLE_SADDR,
 					  has_l4_header);
 			if (IS_ERR(ret))
 				return ret;
@@ -2774,8 +2774,8 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 			      ACTION_CREATE, CT_INGRESS, SCOPE_REVERSE, &ct_state, &monitor);
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		reason = TRACE_REASON_CT_REPLY;
-		ret = lb4_rev_nat(ctx, l3_off, l4_off, &ct_state, &tuple,
-				  REV_NAT_F_TUPLE_SADDR, has_l4_header);
+		ret = lb4_rev_nat(ctx, l3_off, l4_off, ct_state.rev_nat_index, false,
+				  &tuple, REV_NAT_F_TUPLE_SADDR, has_l4_header);
 		if (IS_ERR(ret))
 			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
