@@ -47,6 +47,17 @@ struct ct_buffer6 {
 };
 #endif
 
+static __always_inline enum ct_action ct_tcp_select_action(union tcp_flags flags)
+{
+	if (unlikely(flags.value & (TCP_FLAG_RST | TCP_FLAG_FIN)))
+		return ACTION_CLOSE;
+
+	if (unlikely(flags.value & TCP_FLAG_SYN))
+		return ACTION_CREATE;
+
+	return ACTION_UNSPEC;
+}
+
 static __always_inline bool ct_entry_seen_both_syns(const struct ct_entry *entry)
 {
 	bool rx_syn = entry->rx_flags_seen & TCP_FLAG_SYN;
@@ -249,7 +260,7 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 #endif
 		switch (action) {
 		case ACTION_CREATE:
-			if (unlikely(syn && ct_entry_closing(entry))) {
+			if (unlikely(ct_entry_closing(entry))) {
 				ct_reset_closing(entry);
 				*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 				return CT_REOPENED;
@@ -495,8 +506,9 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
 			return DROP_CT_INVALID_HDR;
 
-		if (unlikely(tcp_flags.value & (TCP_FLAG_RST | TCP_FLAG_FIN)))
-			action = ACTION_CLOSE;
+		action = ct_tcp_select_action(tcp_flags);
+	} else {
+		action = ACTION_UNSPEC;
 	}
 
 	cilium_dbg3(ctx, DBG_CT_LOOKUP6_1, (__u32)tuple->saddr.p4, (__u32)tuple->daddr.p4,
@@ -746,8 +758,9 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
 			return DROP_CT_INVALID_HDR;
 
-		if (unlikely(tcp_flags.value & (TCP_FLAG_RST | TCP_FLAG_FIN)))
-			action = ACTION_CLOSE;
+		action = ct_tcp_select_action(tcp_flags);
+	} else {
+		action = ACTION_UNSPEC;
 	}
 
 #ifndef QUIET_CT
