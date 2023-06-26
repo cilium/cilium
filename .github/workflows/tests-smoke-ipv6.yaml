@@ -112,7 +112,7 @@ jobs:
         run: |
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
             --helm-set nodeinit.enabled=true \
-            --helm-set kubeProxyReplacement=true \
+            --helm-set kubeProxyReplacement=strict \
             --helm-set ipam.mode=kubernetes \
             --helm-set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set image.tag=${{ steps.sha.outputs.tag }} \
