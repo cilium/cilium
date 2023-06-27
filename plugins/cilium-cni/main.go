@@ -447,8 +447,6 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			args.IfName, args.Netns, err)
 	}
 
-	addLabels := models.Labels{}
-
 	conf, err = getConfigFromCiliumAgent(c)
 	if err != nil {
 		return err
@@ -478,7 +476,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	ep := &models.EndpointChangeRequest{
 		ContainerID:           args.ContainerID,
-		Labels:                addLabels,
+		Labels:                models.Labels{},
 		State:                 models.EndpointStateWaitingDashForDashIdentity.Pointer(),
 		Addressing:            &models.AddressPair{},
 		K8sPodName:            string(cniArgs.K8S_POD_NAME),
