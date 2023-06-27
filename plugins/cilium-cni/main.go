@@ -63,7 +63,6 @@ func init() {
 }
 
 type CmdState struct {
-	Endpoint  *models.EndpointChangeRequest
 	IP6       netip.Addr
 	IP6routes []route.Route
 	IP4       netip.Addr
@@ -512,7 +511,6 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	state := CmdState{
-		Endpoint: ep,
 		Client:   c,
 		HostAddr: ipam.HostAddressing,
 	}
