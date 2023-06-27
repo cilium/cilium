@@ -600,6 +600,9 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Labels:   map[string]string{"app": "test-conn-disrupt-server"},
 				Command:  []string{"tcd-server", "8000"},
 				Port:     8000,
+				Tolerations: []corev1.Toleration{
+					{Operator: corev1.TolerationOpExists},
+				},
 			})
 			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(testConnDisruptServerDeploymentName), metav1.CreateOptions{})
 			if err != nil {
@@ -646,6 +649,9 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 					fmt.Sprintf("test-conn-disrupt.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
 				},
 				ReadinessProbe: readinessProbe,
+				Tolerations: []corev1.Toleration{
+					{Operator: corev1.TolerationOpExists},
+				},
 			})
 
 			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(testConnDisruptClientDeploymentName), metav1.CreateOptions{})
