@@ -137,7 +137,13 @@ func (k *K8sInstaller) azureRetrieveAKSClusterInfo() error {
 		return err
 	}
 	if k.params.Azure.ResourceGroupName == "" {
-		k.Log("❌ Azure resource group is required, please specify --azure-resource-group or azure.resourceGroup Helm value")
+		var requiredFlagsNote string
+		if utils.IsInHelmMode() {
+			requiredFlagsNote = "azure.resourceGroup Helm value"
+		} else {
+			requiredFlagsNote = "--azure-resource-group or azure.resourceGroup Helm value"
+		}
+		k.Log("❌ Azure resource group is required, please specify %s", requiredFlagsNote)
 		return fmt.Errorf("missing Azure resource group name")
 	}
 
