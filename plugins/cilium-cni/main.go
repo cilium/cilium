@@ -358,17 +358,7 @@ func setupLogging(n *types.NetConf) error {
 }
 
 func cmdAdd(args *skel.CmdArgs) (err error) {
-	var (
-		ipConfig *cniTypesV1.IPConfig
-		routes   []*cniTypes.Route
-		ipam     *models.IPAMResponse
-		n        *types.NetConf
-		c        *client.Client
-		netNs    ns.NetNS
-		conf     *models.DaemonConfigurationStatus
-	)
-
-	n, err = types.LoadNetConf(args.StdinData)
+	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
 		return fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
 	}
@@ -399,7 +389,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 	logger.Debugf("CNI Args: %#v", cniArgs)
 
-	c, err = client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
+	c, err := client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", client.Hint(err))
 	}
@@ -436,7 +426,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		}
 	}
 
-	netNs, err = ns.GetNS(args.Netns)
+	netNs, err := ns.GetNS(args.Netns)
 	if err != nil {
 		return fmt.Errorf("failed to open netns %q: %s", args.Netns, err)
 	}
@@ -447,11 +437,12 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			args.IfName, args.Netns, err)
 	}
 
-	conf, err = getConfigFromCiliumAgent(c)
+	conf, err := getConfigFromCiliumAgent(c)
 	if err != nil {
 		return err
 	}
 
+	var ipam *models.IPAMResponse
 	var releaseIPsFunc func(context.Context)
 	if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
 		ipam, releaseIPsFunc, err = allocateIPsWithDelegatedPlugin(context.TODO(), conf, n, args.StdinData)
@@ -532,6 +523,10 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		return fmt.Errorf("IPAM did not provide IPv4 or IPv6 address")
 	}
 
+	var (
+		ipConfig *cniTypesV1.IPConfig
+		routes   []*cniTypes.Route
+	)
 	if ipv6IsEnabled(ipam) {
 		ep.Addressing.IPV6 = ipam.Address.IPV6
 		ep.Addressing.IPV6PoolName = ipam.Address.IPV6PoolName
