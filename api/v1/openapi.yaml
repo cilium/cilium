@@ -2076,6 +2076,8 @@ definitions:
         - Strict
         - Probe
         - Partial
+        - 'True'
+        - 'False'
       devices:
         type: array
         items:
