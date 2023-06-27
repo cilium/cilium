@@ -316,23 +316,6 @@ If the installation fails for some reason, run ``cilium status`` to retrieve
 the overall status of the Cilium deployment and inspect the logs of whatever
 pods are failing to be deployed.
 
-.. tip::
-
-   You may be seeing ``cilium install`` print something like this:
-
-   .. code-block:: shell-session
-
-       ♻️  Restarted unmanaged pod kube-system/event-exporter-gke-564fb97f9-rv8hg
-       ♻️  Restarted unmanaged pod kube-system/kube-dns-6465f78586-hlcrz
-       ♻️  Restarted unmanaged pod kube-system/kube-dns-autoscaler-7f89fb6b79-fsmsg
-       ♻️  Restarted unmanaged pod kube-system/l7-default-backend-7fd66b8b88-qqhh5
-       ♻️  Restarted unmanaged pod kube-system/metrics-server-v0.3.6-7b5cdbcbb8-kjl65
-       ♻️  Restarted unmanaged pod kube-system/stackdriver-metadata-agent-cluster-level-6cc964cddf-8n2rt
-
-   This indicates that your cluster was already running some pods before Cilium
-   was deployed and the installer has automatically restarted them to ensure
-   all pods get networking provided by Cilium.
-
 Validate the Installation
 =========================
 
