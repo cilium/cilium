@@ -45,6 +45,7 @@
   "pruneStaleBranches": true,
   "baseBranches": [
     "main",
+    "v1.14",
     "v1.13",
     "v1.12",
     "v1.11"
@@ -113,6 +114,7 @@
         "go.sum"
       ],
       matchBaseBranches: [
+        "v1.14",
         "v1.13",
         "v1.12",
         "v1.11"
@@ -191,6 +193,7 @@
       "allowedVersions": "22.04",
       "matchBaseBranches": [
         "main",
+        "v1.14",
         "v1.13"
       ]
     },
@@ -212,6 +215,16 @@
       "matchPaths": [
         "install/kubernetes/cilium/templates/spire/**"
       ],
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/golang",
+        "go"
+      ],
+      "allowedVersions": "<1.21",
+      "matchBaseBranches": [
+        "v1.14"
+      ]
     },
     {
       "matchPackageNames": [
@@ -243,6 +256,15 @@
       "allowedVersions": "<1.18",
       "matchBaseBranches": [
         "v1.11"
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
+      "allowedVersions": "<3.19",
+      "matchBaseBranches": [
+        "v1.14",
       ]
     },
     {
@@ -310,6 +332,7 @@
         "golangci/golangci-lint"
       ],
       "matchBaseBranches": [
+        "v1.14",
         "v1.13",
         "v1.12",
         "v1.11"
