@@ -370,13 +370,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	n, err = types.LoadNetConf(args.StdinData)
 	if err != nil {
-		err = fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
-		return
+		return fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
 	}
 
-	if innerErr := setupLogging(n); innerErr != nil {
-		err = fmt.Errorf("unable to setup logging: %w", innerErr)
-		return
+	if err = setupLogging(n); err != nil {
+		return fmt.Errorf("unable to setup logging: %w", err)
 	}
 
 	logger := log.WithField("eventUUID", uuid.New())
@@ -397,15 +395,13 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	cniArgs := types.ArgsSpec{}
 	if err = cniTypes.LoadArgs(args.Args, &cniArgs); err != nil {
-		err = fmt.Errorf("unable to extract CNI arguments: %s", err)
-		return
+		return fmt.Errorf("unable to extract CNI arguments: %s", err)
 	}
 	logger.Debugf("CNI Args: %#v", cniArgs)
 
 	c, err = client.NewDefaultClientWithTimeout(defaults.ClientConnectTimeout)
 	if err != nil {
-		err = fmt.Errorf("unable to connect to Cilium daemon: %s", client.Hint(err))
-		return
+		return fmt.Errorf("unable to connect to Cilium daemon: %s", client.Hint(err))
 	}
 
 	// If CNI ADD gives us a PrevResult, we're a chained plugin and *must* detect a
@@ -442,22 +438,20 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	netNs, err = ns.GetNS(args.Netns)
 	if err != nil {
-		err = fmt.Errorf("failed to open netns %q: %s", args.Netns, err)
-		return
+		return fmt.Errorf("failed to open netns %q: %s", args.Netns, err)
 	}
 	defer netNs.Close()
 
 	if err = netns.RemoveIfFromNetNSIfExists(netNs, args.IfName); err != nil {
-		err = fmt.Errorf("failed removing interface %q from namespace %q: %s",
+		return fmt.Errorf("failed removing interface %q from namespace %q: %s",
 			args.IfName, args.Netns, err)
-		return
 	}
 
 	addLabels := models.Labels{}
 
 	conf, err = getConfigFromCiliumAgent(c)
 	if err != nil {
-		return
+		return err
 	}
 
 	var releaseIPsFunc func(context.Context)
@@ -475,12 +469,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}()
 
 	if err != nil {
-		return
+		return err
 	}
 
 	if err = connector.SufficientAddressing(ipam.HostAddressing); err != nil {
-		err = fmt.Errorf("IP allocation addressing in insufficient: %s", err)
-		return
+		return fmt.Errorf("IP allocation addressing in insufficient: %s", err)
 	}
 
 	ep := &models.EndpointChangeRequest{
@@ -509,8 +502,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			int(conf.GROMaxSize), int(conf.GSOMaxSize),
 			int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep)
 		if err != nil {
-			err = fmt.Errorf("unable to set up veth on host side: %s", err)
-			return err
+			return fmt.Errorf("unable to set up veth on host side: %s", err)
 		}
 		defer func() {
 			if err != nil {
@@ -521,14 +513,12 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		}()
 
 		if err = netlink.LinkSetNsFd(peer, int(netNs.Fd())); err != nil {
-			err = fmt.Errorf("unable to move veth pair '%v' to netns: %s", peer, err)
-			return
+			return fmt.Errorf("unable to move veth pair '%v' to netns: %s", peer, err)
 		}
 
 		_, _, err = connector.SetupVethRemoteNs(netNs, tmpIfName, args.IfName)
 		if err != nil {
-			err = fmt.Errorf("unable to set up veth on container side: %s", err)
-			return
+			return fmt.Errorf("unable to set up veth on container side: %s", err)
 		}
 	}
 
@@ -541,8 +531,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	res := &cniTypesV1.Result{}
 
 	if !ipv6IsEnabled(ipam) && !ipv4IsEnabled(ipam) {
-		err = fmt.Errorf("IPAM did not provide IPv4 or IPv6 address")
-		return
+		return fmt.Errorf("IPAM did not provide IPv4 or IPv6 address")
 	}
 
 	if ipv6IsEnabled(ipam) {
@@ -552,8 +541,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 		ipConfig, routes, err = prepareIP(ep.Addressing.IPV6, &state, int(conf.RouteMTU))
 		if err != nil {
-			err = fmt.Errorf("unable to prepare IP addressing for '%s': %s", ep.Addressing.IPV6, err)
-			return
+			return fmt.Errorf("unable to prepare IP addressing for '%s': %s", ep.Addressing.IPV6, err)
 		}
 		res.IPs = append(res.IPs, ipConfig)
 		res.Routes = append(res.Routes, routes...)
@@ -566,8 +554,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 		ipConfig, routes, err = prepareIP(ep.Addressing.IPV4, &state, int(conf.RouteMTU))
 		if err != nil {
-			err = fmt.Errorf("unable to prepare IP addressing for '%s': %s", ep.Addressing.IPV4, err)
-			return
+			return fmt.Errorf("unable to prepare IP addressing for '%s': %s", ep.Addressing.IPV4, err)
 		}
 		res.IPs = append(res.IPs, ipConfig)
 		res.Routes = append(res.Routes, routes...)
@@ -577,8 +564,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	case ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		err = interfaceAdd(ipConfig, ipam.IPV4, conf)
 		if err != nil {
-			err = fmt.Errorf("unable to setup interface datapath: %s", err)
-			return
+			return fmt.Errorf("unable to setup interface datapath: %s", err)
 		}
 	}
 
@@ -592,8 +578,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		macAddrStr, err = configureIface(ipam, args.IfName, &state)
 		return err
 	}); err != nil {
-		err = fmt.Errorf("unable to configure interfaces in container namespace: %s", err)
-		return
+		return fmt.Errorf("unable to configure interfaces in container namespace: %s", err)
 	}
 
 	res.Interfaces = append(res.Interfaces, &cniTypesV1.Interface{
@@ -612,8 +597,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	if err = c.EndpointCreate(ep); err != nil {
 		logger.WithError(err).WithFields(logrus.Fields{
 			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
-		err = fmt.Errorf("unable to create endpoint: %s", err)
-		return
+		return fmt.Errorf("unable to create endpoint: %s", err)
 	}
 
 	logger.WithFields(logrus.Fields{
@@ -631,8 +615,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	// are guaranteed to be recoverable.
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
-		err = fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
-		return err
+		return fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
 	}
 
 	if err := setupLogging(n); err != nil {
