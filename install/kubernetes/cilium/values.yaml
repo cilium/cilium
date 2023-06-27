@@ -745,6 +745,9 @@ ingressController:
     loadBalancerClass: ~
     # -- Configure a specific loadBalancerIP on the shared LB service
     loadBalancerIP : ~
+    # -- Configure if node port allocation is required for LB service
+    # ref: https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-nodeport-allocation
+    allocateLoadBalancerNodePorts: ~
 
 gatewayAPI:
   # -- Enable support for Gateway API in cilium
