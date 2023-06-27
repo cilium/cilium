@@ -41,7 +41,7 @@ type KubeProxyReplacement struct {
 	Features *KubeProxyReplacementFeatures `json:"features,omitempty"`
 
 	// mode
-	// Enum: [Disabled Strict Probe Partial]
+	// Enum: [Disabled Strict Probe Partial True False]
 	Mode string `json:"mode,omitempty"`
 }
 
@@ -116,7 +116,7 @@ var kubeProxyReplacementTypeModePropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["Disabled","Strict","Probe","Partial"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["Disabled","Strict","Probe","Partial","True","False"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -137,6 +137,12 @@ const (
 
 	// KubeProxyReplacementModePartial captures enum value "Partial"
 	KubeProxyReplacementModePartial string = "Partial"
+
+	// KubeProxyReplacementModeTrue captures enum value "True"
+	KubeProxyReplacementModeTrue string = "True"
+
+	// KubeProxyReplacementModeFalse captures enum value "False"
+	KubeProxyReplacementModeFalse string = "False"
 )
 
 // prop value enum
