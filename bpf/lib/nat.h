@@ -1691,7 +1691,7 @@ snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 {
 	union v6addr masq_addr __maybe_unused, router_ip __maybe_unused;
 	const union v6addr dr_addr __maybe_unused = IPV6_DIRECT_ROUTING;
-	struct remote_endpoint_info *remote_ep;
+	struct remote_endpoint_info *remote_ep __maybe_unused;
 	struct endpoint_info *local_ep;
 	bool is_reply = false;
 	void *data, *data_end;
