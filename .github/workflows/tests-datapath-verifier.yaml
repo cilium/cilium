@@ -191,6 +191,7 @@ jobs:
         uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           test-name: datapath-bpf-complexity
+          image: 'complexity-test'
           image-version: ${{ matrix.kernel }}
           host-mount: ./
           cpu: 4
@@ -207,13 +208,7 @@ jobs:
           cmd: |
             cd /host/
             # Run with cgo disabled, LVH images don't ship with gcc.
-            CGO_ENABLED=0 go test -c ./test/verifier
-            docker run -t --privileged \
-              -v /sys/fs/bpf:/sys/fs/bpf \
-              -v "\$PWD:/cilium" \
-              -w "/cilium/test/verifier" \
-              quay.io/cilium/test-verifier:2ecf56b4ea57576e9d92d34407898e5d14e80aa3@sha256:62396cedb4f15477f0084d7dfc92de55ac9ab8531021b7ac5f56220c35f2cb64 \
-              /cilium/verifier.test -test.v -test.parallel=1 -cilium-base-path /cilium -ci-kernel-version ${{ matrix.ci-kernel }}
+            CGO_ENABLED=0 go test -v -parallel=1 ./test/verifier -cilium-base-path /host -ci-kernel-version ${{ matrix.ci-kernel }}
 
       - name: Fetch artifacts
         if: ${{ !success() }}
