@@ -17,12 +17,13 @@ package vpc
 
 // VpnPbrRouteEntry is a nested struct in vpc response
 type VpnPbrRouteEntry struct {
-	NextHop       string `json:"NextHop" xml:"NextHop"`
-	Weight        int    `json:"Weight" xml:"Weight"`
-	RouteDest     string `json:"RouteDest" xml:"RouteDest"`
-	State         string `json:"State" xml:"State"`
-	CreateTime    int64  `json:"CreateTime" xml:"CreateTime"`
-	VpnInstanceId string `json:"VpnInstanceId" xml:"VpnInstanceId"`
-	RouteSource   string `json:"RouteSource" xml:"RouteSource"`
-	Priority      int    `json:"Priority" xml:"Priority"`
+	NextHop         string `json:"NextHop" xml:"NextHop"`
+	Weight          int    `json:"Weight" xml:"Weight"`
+	RouteDest       string `json:"RouteDest" xml:"RouteDest"`
+	State           string `json:"State" xml:"State"`
+	CreateTime      int64  `json:"CreateTime" xml:"CreateTime"`
+	VpnInstanceId   string `json:"VpnInstanceId" xml:"VpnInstanceId"`
+	RouteSource     string `json:"RouteSource" xml:"RouteSource"`
+	Priority        int    `json:"Priority" xml:"Priority"`
+	NextHopTunnelId string `json:"NextHopTunnelId" xml:"NextHopTunnelId"`
 }

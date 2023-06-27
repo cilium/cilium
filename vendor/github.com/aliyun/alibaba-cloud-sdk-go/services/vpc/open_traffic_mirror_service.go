@@ -71,14 +71,19 @@ func (client *Client) OpenTrafficMirrorServiceWithCallback(request *OpenTrafficM
 // OpenTrafficMirrorServiceRequest is the request struct for api OpenTrafficMirrorService
 type OpenTrafficMirrorServiceRequest struct {
 	*requests.RpcRequest
-	OwnerId requests.Integer `position:"Query" name:"OwnerId"`
+	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string           `position:"Query" name:"ClientToken"`
+	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 }
 
 // OpenTrafficMirrorServiceResponse is the response struct for api OpenTrafficMirrorService
 type OpenTrafficMirrorServiceResponse struct {
 	*responses.BaseResponse
-	OrderId   string `json:"OrderId" xml:"OrderId"`
 	RequestId string `json:"RequestId" xml:"RequestId"`
+	Code      string `json:"Code" xml:"Code"`
+	Message   string `json:"Message" xml:"Message"`
 }
 
 // CreateOpenTrafficMirrorServiceRequest creates a request to invoke OpenTrafficMirrorService API

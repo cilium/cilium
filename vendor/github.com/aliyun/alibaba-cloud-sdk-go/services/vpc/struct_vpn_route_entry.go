@@ -17,14 +17,15 @@ package vpc
 
 // VpnRouteEntry is a nested struct in vpc response
 type VpnRouteEntry struct {
-	RouteEntryType string `json:"RouteEntryType" xml:"RouteEntryType"`
-	NextHop        string `json:"NextHop" xml:"NextHop"`
-	Weight         int    `json:"Weight" xml:"Weight"`
-	RouteDest      string `json:"RouteDest" xml:"RouteDest"`
-	AsPath         string `json:"AsPath" xml:"AsPath"`
-	State          string `json:"State" xml:"State"`
-	CreateTime     int64  `json:"CreateTime" xml:"CreateTime"`
-	Community      string `json:"Community" xml:"Community"`
-	Source         string `json:"Source" xml:"Source"`
-	VpnInstanceId  string `json:"VpnInstanceId" xml:"VpnInstanceId"`
+	RouteEntryType  string `json:"RouteEntryType" xml:"RouteEntryType"`
+	NextHop         string `json:"NextHop" xml:"NextHop"`
+	Weight          int    `json:"Weight" xml:"Weight"`
+	RouteDest       string `json:"RouteDest" xml:"RouteDest"`
+	AsPath          string `json:"AsPath" xml:"AsPath"`
+	State           string `json:"State" xml:"State"`
+	CreateTime      int64  `json:"CreateTime" xml:"CreateTime"`
+	Community       string `json:"Community" xml:"Community"`
+	Source          string `json:"Source" xml:"Source"`
+	VpnInstanceId   string `json:"VpnInstanceId" xml:"VpnInstanceId"`
+	NextHopTunnelId string `json:"NextHopTunnelId" xml:"NextHopTunnelId"`
 }
