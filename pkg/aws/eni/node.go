@@ -347,6 +347,7 @@ func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.ENISpec
 			for _, secGroup := range securityGroups {
 				groups = append(groups, secGroup.ID)
 			}
+			slices.Sort(groups)
 			return groups, nil
 		}
 	}
@@ -366,6 +367,8 @@ func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec eniTypes.ENISpec
 	if securityGroups == nil {
 		return nil, errors.New("failed to get security group ids")
 	}
+
+	slices.Sort(securityGroups)
 
 	return securityGroups, nil
 }
