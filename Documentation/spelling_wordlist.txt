@@ -175,6 +175,7 @@ agentNotReadyTaintKey
 agentSocketPath
 aksbyocni
 alibabacloud
+allocateLoadBalancerNodePorts
 allocator
 allocators
 allowedConfigOverrides
