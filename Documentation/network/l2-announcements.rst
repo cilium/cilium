@@ -330,3 +330,39 @@ has been reached.
 .. note::
    Since this feature has no IPv6 support yet, only ARP messages are sent, no 
    Unsolicited Neighbor Advertisements are sent.
+
+.. _l2_pod_announcements:
+
+L2 Pod Announcements
+####################
+
+L2 Pod Announcements announce Pod IP addresses on the L2 network using
+Gratuitous ARP replies. When enabled, the node transmits Gratuitous ARP
+replies for every locally created pod, on the configured network
+interface. This feature is enabled separately from the above L2
+announcements feature.
+
+To enable L2 Pod Announcements, set the following:
+
+.. tabs::
+    .. group-tab:: Helm
+
+        .. parsed-literal::
+
+            $ helm upgrade cilium |CHART_RELEASE| \\
+               --namespace kube-system \\
+               --reuse-values \\
+               --set l2podAnnouncements.enabled=true \\
+               --set l2podAnnouncements.interface=eth0
+
+
+    .. group-tab:: ConfigMap
+
+        .. code-block:: yaml
+
+            enable-l2-pod-announcements: true
+            l2-pod-announcements-interface: eth0
+
+.. note::
+   Since this feature has no IPv6 support yet, only ARP messages are
+   sent, no Unsolicited Neighbor Advertisements are sent.
