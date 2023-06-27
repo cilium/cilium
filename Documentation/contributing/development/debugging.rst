@@ -4,10 +4,79 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+.. _gs_debugging:
+
 #########
 Debugging
 #########
 
+Attaching a Debugger
+--------------------
+
+Cilium comes with a set of Makefile targets for quickly deploying development
+builds to a local :ref:`Kind <gs_kind>` cluster. One of these targets is
+``kind-debug-agent``, which generates a container image that wraps the Cilium
+agent with a `Delve (dlv) <https://github.com/go-delve/delve>`_ invocation. This
+causes the agent process to listen for connections from a debugger front-end on
+port 2345.
+
+To build and push a debug image to your local Kind cluster, run:
+
+.. code-block:: shell-session
+
+    $ make kind-debug-agent
+
+.. note::
+      The image is automatically pushed to the Kind nodes, but running Cilium
+      Pods are not restarted. To do so, run:
+
+      .. code-block:: shell-session
+        
+        $ kubectl delete pods -n kube-system -l app.kubernetes.io/name=cilium-agent
+
+If your Kind cluster was set up using ``make kind``, it will automatically
+be configured using with the following port mappings:
+
+- ``23401``: ``kind-control-plane-1``
+- ``2340*``: Subsequent ``kind-control-plane-*`` nodes, if defined
+- ``23411``: ``kind-worker-1``
+- ``2341*``: Subsequent ``kind-worker-*`` nodes, if defined
+
+The Delve listener supports multiple debugging protocols, so any IDEs or
+debugger front-ends that understand either the `Debug Adapter Protocol
+<https://microsoft.github.io/debug-adapter-protocol>`_ or Delve API v2 are
+supported.
+
+~~~~~~~~~~~~~~~~~~
+Visual Studio Code
+~~~~~~~~~~~~~~~~~~
+
+The Cilium repository contains a VS Code launch configuration
+(``.vscode/launch.json``) that includes debug targets for the Kind control
+plane, the first two ``kind-worker`` nodes and the :ref:`Cilium Operator
+<cilium_operator_internals>`.
+
+.. image:: _static/vscode-run-and-debug.png
+    :align: center
+
+|
+
+The preceding screenshot is taken from the 'Run And Debug' section in VS Code.
+The default shortcut to access this section is ``Shift+Ctrl+D``. Select a target
+to attach to, start the debug session and set a breakpoint to halt the agent or
+operator on a specific code statement. This only works for Go code, BPF C code
+cannot be debugged this way.
+
+See `the VS Code debugging guide <https://code.visualstudio.com/docs/editor/debugging>`_
+for more details.
+
+~~~~~~
+Neovim
+~~~~~~
+
+The Cilium repository contains a `.nvim directory
+<https://github.com/cilium/cilium/tree/main/.nvim>`_ containing a DAP
+configuration as well as a README on how to configure ``nvim-dap``.
 
 toFQDNs and DNS Debugging
 -------------------------

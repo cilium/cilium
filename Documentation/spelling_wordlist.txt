@@ -74,6 +74,7 @@ MiB
 Monnet
 Mythbusters
 NDP
+Neovim
 Netronome
 NewProto
 Nic

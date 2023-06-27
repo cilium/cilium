@@ -101,9 +101,11 @@ Cilium images:
   into the cluster.
 * ``make kind-image-operator``: Builds the Cilium Operator (generic) image only
   and loads it into the cluster.
-* ``make kind-image-debug``: Builds all Cilium images with optimizations
-  disabled and ``dlv`` embedded for live debugging enabled and loads the images
-  into the cluster.
+* ``make kind-debug``: Builds all Cilium images with optimizations disabled and
+  ``dlv`` embedded for live debugging enabled and loads the images into the
+  cluster.
+* ``make kind-debug-agent``: Like ``kind-debug``, but for the agent image only.
+  Use if only the agent image needs to be rebuilt for faster iteration.
 * ``make kind-install-cilium``: Installs Cilium into the cluster using the
   Cilium CLI.
 * ``make kind-down``: Tears down and deletes the cluster.
