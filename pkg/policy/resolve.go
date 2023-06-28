@@ -22,7 +22,7 @@ type selectorPolicy struct {
 	SelectorCache *SelectorCache
 
 	// L4Policy contains the computed L4 and L7 policy.
-	L4Policy *L4Policy
+	L4Policy L4Policy
 
 	// IngressPolicyEnabled specifies whether this policy contains any policy
 	// at ingress.
@@ -34,9 +34,7 @@ type selectorPolicy struct {
 }
 
 func (p *selectorPolicy) Attach(ctx PolicyContext) {
-	if p.L4Policy != nil {
-		p.L4Policy.Attach(ctx)
-	}
+	p.L4Policy.Attach(ctx)
 }
 
 // EndpointPolicy is a structure which contains the resolved policy across all
@@ -72,36 +70,31 @@ type PolicyOwner interface {
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.
-func newSelectorPolicy(revision uint64, selectorCache *SelectorCache) *selectorPolicy {
+func newSelectorPolicy(selectorCache *SelectorCache) *selectorPolicy {
 	return &selectorPolicy{
-		Revision:      revision,
+		Revision:      0,
 		SelectorCache: selectorCache,
+		L4Policy:      NewL4Policy(0),
 	}
 }
 
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be fowarded.
 func (p *selectorPolicy) insertUser(user *EndpointPolicy) {
-	if p.L4Policy != nil {
-		p.L4Policy.insertUser(user)
-	}
+	p.L4Policy.insertUser(user)
 }
 
 // removeUser removes a user from the L4Policy so the EndpointPolicy
 // can be freed when not needed any more
 func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
-	if p.L4Policy != nil {
-		p.L4Policy.removeUser(user)
-	}
+	p.L4Policy.removeUser(user)
 }
 
 // Detach releases resources held by a selectorPolicy to enable
 // successful eventual GC.  Note that the selectorPolicy itself if not
 // modified in any way, so that it can be used concurrently.
 func (p *selectorPolicy) Detach() {
-	if p.L4Policy != nil {
-		p.L4Policy.Detach(p.SelectorCache)
-	}
+	p.L4Policy.Detach(p.SelectorCache)
 }
 
 // DistillPolicy filters down the specified selectorPolicy (which acts
@@ -158,9 +151,6 @@ func (p *EndpointPolicy) Detach() {
 // the datapath-friendly format inside EndpointPolicy.PolicyMapState.
 // Called with selectorcache locked for reading
 func (p *EndpointPolicy) toMapState() {
-	if p.L4Policy == nil {
-		return
-	}
 	p.L4Policy.Ingress.toMapState(p)
 	p.L4Policy.Egress.toMapState(p)
 }
@@ -200,11 +190,6 @@ type getProxyPortFunc func(*L4Filter) (proxyPort uint16, ok bool)
 // function to obtain a proxy port number to use. Changes to 'p.PolicyMapState' are collected in
 // 'adds' and 'updated' so that they can be reverted when needed.
 func (p *EndpointPolicy) UpdateRedirects(ingress bool, identities Identities, getProxyPort getProxyPortFunc, adds Keys, updated MapState) {
-	// Nothing to do if L4Policy does not exist
-	if p.L4Policy == nil {
-		return
-	}
-
 	l4policy := &p.L4Policy.Ingress
 	if ingress {
 		l4policy = &p.L4Policy.Egress
@@ -247,10 +232,7 @@ func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, identities 
 func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
 	p.selectorPolicy.SelectorCache.mutex.Lock()
 	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
-	features := allFeatures
-	if p.selectorPolicy.L4Policy != nil {
-		features = p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features
-	}
+	features := p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features
 	return p.policyMapChanges.consumeMapChanges(p.PolicyMapState, features, p.SelectorCache)
 }
 
@@ -288,6 +270,6 @@ func (p *EndpointPolicy) AllowsIdentity(identity identity.NumericIdentity) (ingr
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
 func NewEndpointPolicy(repo *Repository) *EndpointPolicy {
 	return &EndpointPolicy{
-		selectorPolicy: newSelectorPolicy(0, repo.GetSelectorCache()),
+		selectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
 	}
 }

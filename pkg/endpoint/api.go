@@ -386,7 +386,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		realizedL4Policy *policy.L4Policy
 	)
 	if e.realizedPolicy != nil {
-		realizedL4Policy = e.realizedPolicy.L4Policy
+		realizedL4Policy = &e.realizedPolicy.L4Policy
 	}
 
 	mdl := &models.EndpointPolicy{
@@ -406,7 +406,7 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		desiredL4Policy *policy.L4Policy
 	)
 	if e.desiredPolicy != nil {
-		desiredL4Policy = e.desiredPolicy.L4Policy
+		desiredL4Policy = &e.desiredPolicy.L4Policy
 	}
 
 	desiredMdl := &models.EndpointPolicy{
