@@ -104,11 +104,10 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
-	int ret = CTX_ACT_OK;
-	bool snat_needed;
+	int ret;
 
-	snat_needed = snat_v6_prepare_state(ctx, &target);
-	if (snat_needed)
+	ret = snat_v6_prepare_state(ctx, &target);
+	if (ret == NAT_NEEDED)
 		ret = snat_v6_nat(ctx, &target, ext_err);
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
@@ -1437,11 +1436,10 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 		.cluster_id = cluster_id,
 #endif
 	};
-	int ret = CTX_ACT_OK;
-	bool snat_needed;
+	int ret;
 
-	snat_needed = snat_v4_prepare_state(ctx, &target);
-	if (snat_needed)
+	ret = snat_v4_prepare_state(ctx, &target);
+	if (ret == NAT_NEEDED)
 		ret = snat_v4_nat(ctx, &target, ext_err);
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;

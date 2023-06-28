@@ -711,11 +711,12 @@ static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
  * - target->egress_gateway to true if the packet should be SNAT-ed because of
  *   an egress gateway policy
  *
- * The function will return true if the packet should be SNAT-ed, false
- * otherwise.
+ * On success, the function returns NAT_NEEDED if the packet should be SNAT-ed,
+ * or NAT_PUNT_TO_STACK if it should not. On failure, it returns a negative
+ * error code (distinct from NAT_PUNT_TO_STACK).
  */
-static __always_inline bool snat_v4_prepare_state(struct __ctx_buff *ctx,
-						  struct ipv4_nat_target *target)
+static __always_inline int
+snat_v4_prepare_state(struct __ctx_buff *ctx, struct ipv4_nat_target *target)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -725,7 +726,7 @@ static __always_inline bool snat_v4_prepare_state(struct __ctx_buff *ctx,
 	bool is_reply = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return false;
+		return DROP_INVALID;
 
 	/* Basic minimum is to only NAT when there is a potential of
 	 * overlapping tuples, e.g. applications in hostns reusing
@@ -734,14 +735,14 @@ static __always_inline bool snat_v4_prepare_state(struct __ctx_buff *ctx,
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 	if (ip4->saddr == IPV4_GATEWAY) {
 		target->addr = IPV4_GATEWAY;
-		return true;
+		return NAT_NEEDED;
 	}
 
 # if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 	if (target->cluster_id != 0 &&
 	    target->cluster_id != CLUSTER_ID) {
 		target->addr = IPV4_INTER_CLUSTER_SNAT;
-		return true;
+		return NAT_NEEDED;
 	}
 # endif
 #else
@@ -752,12 +753,12 @@ static __always_inline bool snat_v4_prepare_state(struct __ctx_buff *ctx,
 	if (DIRECT_ROUTING_DEV_IFINDEX == NATIVE_DEV_IFINDEX &&
 	    ip4->saddr == IPV4_DIRECT_ROUTING) {
 		target->addr = IPV4_DIRECT_ROUTING;
-		return true;
+		return NAT_NEEDED;
 	}
 # ifdef ENABLE_MASQUERADE_IPV4
 	if (ip4->saddr == IPV4_MASQUERADE) {
 		target->addr = IPV4_MASQUERADE;
-		return true;
+		return NAT_NEEDED;
 	}
 # endif /* ENABLE_MASQUERADE_IPV4 */
 #endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
@@ -778,11 +779,14 @@ static __always_inline bool snat_v4_prepare_state(struct __ctx_buff *ctx,
 			.daddr = ip4->daddr,
 			.saddr = ip4->saddr
 		};
+		int err;
 
 		target->from_local_endpoint = true;
 
-		ct_is_reply4(get_ct_map4(&tuple), ctx, ETH_HLEN +
-			     ipv4_hdrlen(ip4), &tuple, &is_reply);
+		err = ct_is_reply4(get_ct_map4(&tuple), ctx, ETH_HLEN +
+				   ipv4_hdrlen(ip4), &tuple, &is_reply);
+		if (IS_ERR(err))
+			return err;
 	}
 
 #ifdef ENABLE_MASQUERADE_IPV4 /* SNAT local pod to world packets */
@@ -791,7 +795,7 @@ static __always_inline bool snat_v4_prepare_state(struct __ctx_buff *ctx,
 	 * (IS_BPF_OVERLAY denotes this fact). Otherwise, a packet will
 	 * be SNAT'd to cilium_host IP addr.
 	 */
-	return false;
+	return NAT_PUNT_TO_STACK;
 # endif
 
 /* Check if the packet matches an egress NAT policy and so needs to be SNAT'ed.
@@ -818,7 +822,7 @@ static __always_inline bool snat_v4_prepare_state(struct __ctx_buff *ctx,
 	if (egress_gw_snat_needed(ip4, &target->addr)) {
 		target->egress_gateway = true;
 
-		return true;
+		return NAT_NEEDED;
 	}
 skip_egress_gateway:
 #endif
@@ -832,12 +836,12 @@ skip_egress_gateway:
 	 */
 	if (ipv4_is_in_subnet(ip4->daddr, IPV4_SNAT_EXCLUSION_DST_CIDR,
 			      IPV4_SNAT_EXCLUSION_DST_CIDR_LEN))
-		return false;
+		return NAT_PUNT_TO_STACK;
 #endif
 
 	/* if this is a localhost endpoint, no SNAT is needed */
 	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
-		return false;
+		return NAT_PUNT_TO_STACK;
 
 	if (remote_ep) {
 #ifdef ENABLE_IP_MASQ_AGENT_IPV4
@@ -849,7 +853,7 @@ skip_egress_gateway:
 		pfx.lpm.prefixlen = 32;
 		memcpy(pfx.lpm.data, &ip4->daddr, sizeof(pfx.addr));
 		if (map_lookup_elem(&IP_MASQ_AGENT_IPV4, &pfx))
-			return false;
+			return NAT_PUNT_TO_STACK;
 #endif
 #ifndef TUNNEL_MODE
 		/* In the tunnel mode, a packet from a local ep
@@ -862,7 +866,7 @@ skip_egress_gateway:
 		 * rp_filter=1.
 		 */
 		if (identity_is_remote_node(remote_ep->sec_identity))
-			return false;
+			return NAT_PUNT_TO_STACK;
 #endif
 
 		/* If the packet is a reply it means that outside has
@@ -871,12 +875,12 @@ skip_egress_gateway:
 		 */
 		if (!is_reply && local_ep) {
 			target->addr = IPV4_MASQUERADE;
-			return true;
+			return NAT_NEEDED;
 		}
 	}
 #endif /*ENABLE_MASQUERADE_IPV4 */
 
-	return false;
+	return NAT_PUNT_TO_STACK;
 }
 
 static __always_inline __maybe_unused int
@@ -1686,7 +1690,7 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 	tuple->flags = dir;
 }
 
-static __always_inline bool
+static __always_inline int
 snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 {
 	union v6addr masq_addr __maybe_unused, router_ip __maybe_unused;
@@ -1698,26 +1702,26 @@ snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 	struct ipv6hdr *ip6;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return false;
+		return DROP_INVALID;
 
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 	BPF_V6(router_ip, ROUTER_IP);
 	if (ipv6_addr_equals((union v6addr *)&ip6->saddr, &router_ip)) {
 		ipv6_addr_copy(&target->addr, &router_ip);
-		return true;
+		return NAT_NEEDED;
 	}
 #else
 	/* See comment in snat_v4_prepare_state(). */
 	if (DIRECT_ROUTING_DEV_IFINDEX == NATIVE_DEV_IFINDEX &&
 	    ipv6_addr_equals((union v6addr *)&ip6->saddr, &dr_addr)) {
 		ipv6_addr_copy(&target->addr, &dr_addr);
-		return true;
+		return NAT_NEEDED;
 	}
 # ifdef ENABLE_MASQUERADE_IPV6 /* SNAT local pod to world packets */
 	BPF_V6(masq_addr, IPV6_MASQUERADE);
 	if (ipv6_addr_equals((union v6addr *)&ip6->saddr, &masq_addr)) {
 		ipv6_addr_copy(&target->addr, &masq_addr);
-		return true;
+		return NAT_NEEDED;
 	}
 # endif /* ENABLE_MASQUERADE_IPV6 */
 #endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
@@ -1728,7 +1732,7 @@ snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 	/* See comment in snat_v4_prepare_state(). */
 	if (local_ep) {
 		struct ipv6_ct_tuple tuple = {};
-		int l4_off;
+		int l4_off, err;
 
 		tuple.nexthdr = ip6->nexthdr;
 		ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
@@ -1745,17 +1749,20 @@ snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 		 * snat_v4_prepare_state().
 		 */
 		l4_off = ipv6_hdrlen(ctx, &tuple.nexthdr);
-		if (l4_off >= 0) {
-			l4_off += ETH_HLEN;
-			ct_is_reply6(get_ct_map6(&tuple), ctx, l4_off, &tuple,
-				     &is_reply);
-		}
+		if (IS_ERR(l4_off))
+			return l4_off;
+
+		l4_off += ETH_HLEN;
+		err = ct_is_reply6(get_ct_map6(&tuple), ctx, l4_off, &tuple,
+				   &is_reply);
+		if (IS_ERR(err))
+			return err;
 	}
 
 #ifdef ENABLE_MASQUERADE_IPV6
 # ifdef IS_BPF_OVERLAY
 	/* See comment in snat_v4_prepare_state(). */
-	return false;
+	return NAT_PUNT_TO_STACK;
 # endif /* IS_BPF_OVERLAY */
 
 # ifdef IPV6_SNAT_EXCLUSION_DST_CIDR
@@ -1766,13 +1773,13 @@ snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 		/* See comment in snat_v4_prepare_state(). */
 		if (ipv6_addr_in_net((union v6addr *)&ip6->daddr, &excl_cidr,
 				     &excl_cidr_mask))
-			return false;
+			return NAT_PUNT_TO_STACK;
 	}
 # endif /* IPV6_SNAT_EXCLUSION_DST_CIDR */
 
 	/* if this is a localhost endpoint, no SNAT is needed */
 	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
-		return false;
+		return NAT_PUNT_TO_STACK;
 
 	if (remote_ep) {
 #ifdef ENABLE_IP_MASQ_AGENT_IPV6
@@ -1788,24 +1795,24 @@ snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 		memcpy(pfx.lpm.data + 4, (__u8 *)&ip6->daddr + 4, 8);
 		memcpy(pfx.lpm.data + 12, (__u8 *)&ip6->daddr + 12, 4);
 		if (map_lookup_elem(&IP_MASQ_AGENT_IPV6, &pfx))
-			return false;
+			return NAT_PUNT_TO_STACK;
 #endif
 
 # ifndef TUNNEL_MODE
 		/* See comment in snat_v4_prepare_state(). */
 		if (identity_is_remote_node(remote_ep->sec_identity))
-			return false;
+			return NAT_PUNT_TO_STACK;
 # endif /* TUNNEL_MODE */
 
 		/* See comment in snat_v4_prepare_state(). */
 		if (!is_reply && local_ep) {
 			ipv6_addr_copy(&target->addr, &masq_addr);
-			return true;
+			return NAT_NEEDED;
 		}
 	}
 #endif /* ENABLE_MASQUERADE_IPV6 */
 
-	return false;
+	return NAT_PUNT_TO_STACK;
 }
 
 static __always_inline __maybe_unused int

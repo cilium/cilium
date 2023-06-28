@@ -612,6 +612,7 @@ enum {
 #define DROP_NO_EGRESS_GATEWAY	-194
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
+#define NAT_NEEDED		CTX_ACT_OK
 #define NAT_46X64_RECIRC	100
 
 /* Cilium metrics reasons for forwarding packets and other stats.
