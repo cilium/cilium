@@ -10,6 +10,8 @@ import (
 	"net"
 	"testing"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -19,6 +21,36 @@ import (
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/testutils"
 )
+
+func mustTCProgram(t *testing.T) *ebpf.Program {
+	p, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+		Type: ebpf.SchedCLS,
+		Instructions: asm.Instructions{
+			asm.Mov.Imm(asm.R0, 0),
+			asm.Return(),
+		},
+		License: "Apache-2.0",
+	})
+	if err != nil {
+		t.Skipf("tc programs not supported: %s", err)
+	}
+	return p
+}
+
+func mustXDPProgram(t *testing.T) *ebpf.Program {
+	p, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+		Type: ebpf.XDP,
+		Instructions: asm.Instructions{
+			asm.Mov.Imm(asm.R0, 0),
+			asm.Return(),
+		},
+		License: "Apache-2.0",
+	})
+	if err != nil {
+		t.Skipf("xdp programs not supported: %s", err)
+	}
+	return p
+}
 
 func TestSetupDev(t *testing.T) {
 	testutils.PrivilegedTest(t)
@@ -124,6 +156,116 @@ func TestAddHostDeviceAddr(t *testing.T) {
 		}
 		require.Equal(t, foundIPv4, true)
 		require.Equal(t, foundIPv6, true)
+
+		err = netlink.LinkDel(dummy)
+		require.NoError(t, err)
+
+		return nil
+	})
+}
+
+func TestAttachProgram(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	netnsName := "test-attach-program"
+	netns0, err := netns.ReplaceNetNSWithName(netnsName)
+	require.NoError(t, err)
+	require.NotNil(t, netns0)
+	t.Cleanup(func() {
+		netns0.Close()
+		netns.RemoveNetNSWithName(netnsName)
+	})
+
+	t.Run("TC", func(t *testing.T) {
+		netns0.Do(func(_ ns.NetNS) error {
+			ifName := "dummy0"
+			dummy := &netlink.Dummy{
+				LinkAttrs: netlink.LinkAttrs{
+					Name: ifName,
+				},
+			}
+			err := netlink.LinkAdd(dummy)
+			require.NoError(t, err)
+
+			prog := mustTCProgram(t)
+
+			err = attachProgram(dummy, prog, "test", directionToParent(dirEgress), 0)
+			require.NoError(t, err)
+
+			filters, err := netlink.FilterList(dummy, directionToParent(dirEgress))
+			require.NoError(t, err)
+			require.NotEmpty(t, filters)
+
+			err = netlink.LinkDel(dummy)
+			require.NoError(t, err)
+
+			return nil
+		})
+
+	})
+
+	t.Run("XDP", func(t *testing.T) {
+		netns0.Do(func(_ ns.NetNS) error {
+			veth := &netlink.Veth{
+				LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
+				PeerName:  "veth1",
+			}
+			err := netlink.LinkAdd(veth)
+			require.NoError(t, err)
+
+			prog := mustXDPProgram(t)
+
+			err = attachProgram(veth, prog, "test", 0, xdpModeToFlag(option.XDPModeLinkDriver))
+			require.NoError(t, err)
+
+			link, err := netlink.LinkByName("veth0")
+			require.NoError(t, err)
+			require.NotNil(t, link.Attrs().Xdp)
+			require.True(t, link.Attrs().Xdp.Attached)
+
+			err = netlink.LinkDel(veth)
+			require.NoError(t, err)
+
+			return nil
+		})
+
+	})
+
+}
+
+func TestRemoveTCPrograms(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	netnsName := "test-remove-programs"
+	netns0, err := netns.ReplaceNetNSWithName(netnsName)
+	require.NoError(t, err)
+	require.NotNil(t, netns0)
+	t.Cleanup(func() {
+		netns0.Close()
+		netns.RemoveNetNSWithName(netnsName)
+	})
+
+	netns0.Do(func(_ ns.NetNS) error {
+		ifName := "dummy"
+		dummy := &netlink.Dummy{
+			LinkAttrs: netlink.LinkAttrs{
+				Name: ifName,
+			},
+		}
+		err := netlink.LinkAdd(dummy)
+		require.NoError(t, err)
+
+		prog := mustTCProgram(t)
+
+		err = attachProgram(dummy, prog, "test", directionToParent(dirEgress), 0)
+		require.NoError(t, err)
+
+		err = RemoveTCFilters(dummy.Attrs().Name, directionToParent(dirEgress))
+		require.NoError(t, err)
+
+		filters, err := netlink.FilterList(dummy, directionToParent(dirEgress))
+		require.NoError(t, err)
+		require.Empty(t, filters)
 
 		err = netlink.LinkDel(dummy)
 		require.NoError(t, err)
