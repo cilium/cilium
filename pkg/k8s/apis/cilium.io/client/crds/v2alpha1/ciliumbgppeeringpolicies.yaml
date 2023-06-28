@@ -133,7 +133,7 @@ spec:
                               value for the BGP ConnectRetryTimer (RFC 4271, Section
                               8).
                             format: int32
-                            maximum: 2147483647
+                            maximum: 65535
                             minimum: 1
                             type: integer
                           eBGPMultihopTTL:
@@ -165,7 +165,7 @@ spec:
                                   will remove stale routes. This is described RFC
                                   4724 section 4.2.
                                 format: int32
-                                maximum: 2147483647
+                                maximum: 4095
                                 minimum: 1
                                 type: integer
                             required:
@@ -177,7 +177,7 @@ spec:
                               for the BGP HoldTimer (RFC 4271, Section 4.2). Updating
                               this value will cause a session reset.
                             format: int32
-                            maximum: 2147483647
+                            maximum: 65535
                             minimum: 3
                             type: integer
                           keepAliveTimeSeconds:
@@ -187,7 +187,7 @@ spec:
                               8). It can not be larger than HoldTimeSeconds. Updating
                               this value will cause a session reset.
                             format: int32
-                            maximum: 2147483647
+                            maximum: 65535
                             minimum: 1
                             type: integer
                           peerASN:
