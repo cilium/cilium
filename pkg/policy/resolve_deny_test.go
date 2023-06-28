@@ -143,7 +143,7 @@ func (ds *PolicyTestSuite) TestL3WithIngressDenyWildcard(c *C) {
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
-			L4Policy: &L4Policy{
+			L4Policy: L4Policy{
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
 					"80/TCP": {
@@ -228,7 +228,7 @@ func (ds *PolicyTestSuite) TestL3WithLocalHostWildcardd(c *C) {
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
-			L4Policy: &L4Policy{
+			L4Policy: L4Policy{
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
 					"80/TCP": {
@@ -312,7 +312,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
-			L4Policy: &L4Policy{
+			L4Policy: L4Policy{
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
 					"80/TCP": {
@@ -452,7 +452,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
-			L4Policy: &L4Policy{
+			L4Policy: L4Policy{
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
 					"80/TCP": {
