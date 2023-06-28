@@ -67,7 +67,6 @@ type CmdState struct {
 	IP6routes []route.Route
 	IP4       netip.Addr
 	IP4routes []route.Route
-	Client    *client.Client
 	HostAddr  *models.NodeAddressing
 }
 
@@ -511,7 +510,6 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	state := CmdState{
-		Client:   c,
 		HostAddr: ipam.HostAddressing,
 	}
 
