@@ -5,6 +5,6 @@ include:
     location: westeurope
   - version: "1.25"
     location: westus
-    default: true
   - version: "1.26"
-    location: australiaeast
+    location: eastasia
+    default: true
