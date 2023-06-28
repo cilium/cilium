@@ -22,7 +22,6 @@ require (
 	github.com/cilium/deepequal-gen v0.0.0-20230330134849-754271daeec2
 	github.com/cilium/ebpf v0.10.1-0.20230626090016-654491c8a500
 	github.com/cilium/fake v0.4.0
-	github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 	github.com/cilium/lumberjack/v2 v2.3.0
 	github.com/cilium/proxy v0.0.0-20230623092907-8fddead4e52c
 	github.com/cilium/workerpool v1.2.0
@@ -178,7 +177,6 @@ require (
 	github.com/gobuffalo/flect v0.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect

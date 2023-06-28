@@ -436,7 +436,6 @@ jenkinsfiles @cilium/ci-structure
 /pkg/k8s/watchers/cilium_cidr_group_test.go @cilium/sig-policy
 /pkg/k8s/apis/cilium.io/client/crds/v2/ @cilium/sig-k8s
 /pkg/k8s/apis/cilium.io/v2/ @cilium/api @cilium/sig-k8s
-/pkg/kafka/ @cilium/proxy
 /pkg/kvstore/ @cilium/kvstore
 /pkg/l2announcer/ @cilium/sig-agent
 /pkg/labels @cilium/sig-policy @cilium/api

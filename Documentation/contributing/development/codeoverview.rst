@@ -186,9 +186,6 @@ pkg/ipcache
 pkg/k8s
   All interactions with Kubernetes
 
-pkg/kafka
-  Kafka protocol proxy and policy implementation
-
 pkg/kvstore
   Key-value store abstraction layer with backends for etcd
 
