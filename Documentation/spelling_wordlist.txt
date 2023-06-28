@@ -390,6 +390,7 @@ disableEnvoyVersionCheck
 disableIptablesFeederRules
 disassembly
 discoverable
+disjunct
 distro
 distros
 dmesg
