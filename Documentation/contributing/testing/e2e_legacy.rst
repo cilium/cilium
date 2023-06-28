@@ -62,6 +62,10 @@ The following example will provide the steps to run one of the tests of the
 focus ``f09-datapath-misc-2`` on Kubernetes ``1.27`` with the kernel ``net-next``
 for the commit SHA ``7b368923823e63c9824ea2b5ee4dc026bc4d5cd8``.
 
+You can also perform these steps automatically using the script
+``contrib/scripts/run-gh-ginkgo-workflow.sh``. Run this script with ``-h`` for
+usage information.
+
 #. Download dependencies locally (``helm``, ``ginkgo``).
 
    For ``helm``, the instructions can be found `here <https://helm.sh/docs/intro/install/>`_
