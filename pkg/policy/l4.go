@@ -1180,8 +1180,8 @@ type L4Policy struct {
 }
 
 // NewL4Policy creates a new L4Policy
-func NewL4Policy(revision uint64) *L4Policy {
-	return &L4Policy{
+func NewL4Policy(revision uint64) L4Policy {
+	return L4Policy{
 		Ingress:  newL4DirectionPolicy(),
 		Egress:   newL4DirectionPolicy(),
 		Revision: revision,
