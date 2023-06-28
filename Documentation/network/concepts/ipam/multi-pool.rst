@@ -150,11 +150,12 @@ Multi-Pool IPAM mode:
      of endpoints by way of the IPCache.
    - Multi-Pool IPAM does not support local node routes (``enable-local-node-route``) and
      requires the use of per-endpoint routes (see :ref:`native_routing`) instead.
-   - iptables-based masquerading (see masquerading :ref:`masq_modes` for details) is not supported,
-     due to an implementation bug which assumes a single PodCIDR per node (:gh-issue:`22273`).
-     Use eBPF-based masquerading instead. Also note that if the used IPAM pools do not share a single
-     native-routing CIDR, you may want to use ``ip-masq-agent`` instead.
-     See :ref:`concepts_masquerading` for details on how to exclude more than one CIDR from
-     masquerading.
+   - iptables-based masquerading requires ``egressMasqueradeInterfaces`` to be set
+     (see masquerading :ref:`masq_modes` and :gh-issue:`22273` for details).
+     Alternatively, eBPF-based masquerading is fully supported and may be used instead.
+     Note that if the used IPAM pools do not belong to a common native-routing CIDR,
+     you may want to use ``ip-masq-agent``, which allows multiple disjunct non-masquerading
+     CIDRs to be defined. See :ref:`concepts_masquerading` for details on how to use the
+     ``ip-masq-agent`` feature.
    - Announcing PodCIDRs by way of the built-in :ref:`bgp` mode is not yet
      supported.  Use ``auto-direct-node-routes`` instead.
