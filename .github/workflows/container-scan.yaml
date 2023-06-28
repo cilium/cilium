@@ -21,13 +21,20 @@ jobs:
           {name: kvstoremesh, dockerfile: ./images/kvstoremesh/Dockerfile},
           {name: operator-generic, dockerfile: ./images/operator/Dockerfile},
         ]
-        branch: [v1.11, v1.12, v1.13] 
+        branch: [v1.11, v1.12, v1.13, v1.14]
+        exclude:
+          - image: {name: kvstoremesh, dockerfile: ./images/kvstoremesh/Dockerfile}
+            branch: v1.11
+          - image: {name: kvstoremesh, dockerfile: ./images/kvstoremesh/Dockerfile}
+            branch: v1.12
+          - image: {name: kvstoremesh, dockerfile: ./images/kvstoremesh/Dockerfile}
+            branch: v1.13
     steps:
       - name: Checkout
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
-        ref: ${{ matrix.branch }}
-      - name: Set environment variables
-        uses: ./.github/actions/set-env-variables
+        with:
+          ref: ${{ matrix.branch }}
+          persist-credentials: false
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4b4e9c3e2d4531116a6f8ba8e71fc6e2cb6e6c8c # v2.5.0
       - name: Build local container
