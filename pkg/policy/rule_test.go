@@ -118,7 +118,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(res.Egress, Not(IsNil))
 
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(&res, checker.Equals, &expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 1)
 
@@ -244,7 +244,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	c.Assert(res.Egress, Not(IsNil))
 
 	c.Assert(len(res.Ingress.PortRules), Equals, 1)
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(&res, checker.Equals, &expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 1)
 
@@ -1137,7 +1137,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(res.Egress, Not(IsNil))
 
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(&res, checker.Equals, &expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 1)
 	c.Assert(egressState.selectedRules, Equals, 1)
@@ -1198,7 +1198,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(res.Ingress, Not(IsNil))
 
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(&res, checker.Equals, &expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 1)
 
@@ -1242,7 +1242,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(res.Ingress, Not(IsNil))
 
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(&res, checker.Equals, &expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 1)
 }
