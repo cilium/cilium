@@ -304,7 +304,6 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 			return nil, nil, err
 		}
 		routes = state.IP6routes
-		ip = state.IP6
 		gw = connector.IPv6Gateway(state.HostAddr)
 	} else {
 		state.IP4 = ip
@@ -312,7 +311,6 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 			return nil, nil, err
 		}
 		routes = state.IP4routes
-		ip = state.IP4
 		gw = connector.IPv4Gateway(state.HostAddr)
 	}
 
