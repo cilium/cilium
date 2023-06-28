@@ -300,18 +300,22 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 
 	if ip.Is6() {
 		state.IP6 = ip
-		if state.IP6routes, err = connector.IPv6Routes(state.HostAddr, mtu); err != nil {
-			return nil, nil, err
+		if state.HostAddr != nil {
+			if state.IP6routes, err = connector.IPv6Routes(state.HostAddr, mtu); err != nil {
+				return nil, nil, err
+			}
+			routes = state.IP6routes
+			gw = connector.IPv6Gateway(state.HostAddr)
 		}
-		routes = state.IP6routes
-		gw = connector.IPv6Gateway(state.HostAddr)
 	} else {
 		state.IP4 = ip
-		if state.IP4routes, err = connector.IPv4Routes(state.HostAddr, mtu); err != nil {
-			return nil, nil, err
+		if state.HostAddr != nil {
+			if state.IP4routes, err = connector.IPv4Routes(state.HostAddr, mtu); err != nil {
+				return nil, nil, err
+			}
+			routes = state.IP4routes
+			gw = connector.IPv4Gateway(state.HostAddr)
 		}
-		routes = state.IP4routes
-		gw = connector.IPv4Gateway(state.HostAddr)
 	}
 
 	rt := make([]*cniTypes.Route, 0, len(routes))
@@ -319,9 +323,12 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 		rt = append(rt, newCNIRoute(r))
 	}
 
-	gwIP := net.ParseIP(gw)
-	if gwIP == nil {
-		return nil, nil, fmt.Errorf("invalid gateway address: %s", gw)
+	var gwIP net.IP
+	if gw != "" {
+		gwIP = net.ParseIP(gw)
+		if gwIP == nil {
+			return nil, nil, fmt.Errorf("invalid gateway address: %s", gw)
+		}
 	}
 
 	return &cniTypesV1.IPConfig{
