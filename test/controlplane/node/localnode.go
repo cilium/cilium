@@ -5,10 +5,10 @@ package node
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
-	"go.uber.org/multierr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -59,7 +59,7 @@ type errorer struct {
 }
 
 func (e *errorer) Errorf(format string, args ...interface{}) {
-	e.err = multierr.Append(e.err, fmt.Errorf(format, args...))
+	e.err = errors.Join(e.err, fmt.Errorf(format, args...))
 }
 
 func validateLocalNodeInit(lns *node.LocalNodeStore) error {

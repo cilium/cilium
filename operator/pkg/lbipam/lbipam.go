@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -468,7 +467,7 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 }
 
 func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
-	var errors []error
+	var errs error
 	// Remove bad allocations which are no longer valid
 	for allocIdx := len(sv.AllocatedIPs) - 1; allocIdx >= 0; allocIdx-- {
 		alloc := sv.AllocatedIPs[allocIdx]
@@ -484,10 +483,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 		// If origin pool no longer exists, remove allocation
 		pool, found := ipam.pools[alloc.Origin.originPool]
 		if !found {
-			err := releaseAllocIP()
-			if err != nil {
-				errors = append(errors, err)
-			}
+			errs = errors.Join(errs, releaseAllocIP())
 			continue
 		}
 
@@ -495,15 +491,12 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 		if pool.Spec.ServiceSelector != nil {
 			selector, err := slim_meta_v1.LabelSelectorAsSelector(pool.Spec.ServiceSelector)
 			if err != nil {
-				errors = append(errors, fmt.Errorf("Making selector from pool '%s' label selector", pool.Name))
+				errs = errors.Join(errs, fmt.Errorf("Making selector from pool '%s' label selector", pool.Name))
 				continue
 			}
 
 			if !selector.Matches(sv.Labels) {
-				err := releaseAllocIP()
-				if err != nil {
-					errors = append(errors, err)
-				}
+				errs = errors.Join(errs, releaseAllocIP())
 				continue
 			}
 		}
@@ -519,10 +512,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 			}
 			// If allocated IP has not been requested, remove it
 			if !found {
-				err := releaseAllocIP()
-				if err != nil {
-					errors = append(errors, err)
-				}
+				errs = errors.Join(errs, releaseAllocIP())
 				continue
 			}
 		} else {
@@ -531,31 +521,20 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 			if isIPv6(alloc.IP) {
 				// Service has an IPv6 address, but its spec doesn't request it anymore, so take it away
 				if !sv.RequestedFamilies.IPv6 {
-					err := releaseAllocIP()
-					if err != nil {
-						errors = append(errors, err)
-					}
+					errs = errors.Join(errs, releaseAllocIP())
 					continue
 				}
 
 			} else {
 				// Service has an IPv4 address, but its spec doesn't request it anymore, so take it away
 				if !sv.RequestedFamilies.IPv4 {
-					err := releaseAllocIP()
-					if err != nil {
-						errors = append(errors, err)
-					}
+					errs = errors.Join(errs, releaseAllocIP())
 					continue
 				}
 			}
 		}
 	}
-
-	if len(errors) > 0 {
-		return multierr.Combine(errors...)
-	}
-
-	return nil
+	return errs
 }
 
 func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool, err error) {

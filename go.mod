@@ -92,7 +92,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.16.0
 	go.uber.org/dig v1.17.0
 	go.uber.org/goleak v1.2.1
-	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.24.0
 	go.universe.tf/metallb v0.11.0
 	go4.org/netipx v0.0.0-20230303233057-f1b76eb4bb35
@@ -239,6 +238,7 @@ require (
 	go.mongodb.org/mongo-driver v1.11.3 // indirect
 	go.opentelemetry.io/otel/metric v1.16.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/oauth2 v0.7.0 // indirect
 	golang.org/x/text v0.10.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
