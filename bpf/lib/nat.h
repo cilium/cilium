@@ -775,6 +775,10 @@ snat_v4_prepare_state(struct __ctx_buff *ctx __maybe_unused, struct iphdr *ip4,
 		};
 		int err;
 
+		/* if this is a localhost endpoint, no SNAT is needed */
+		if (local_ep->flags & ENDPOINT_F_HOST)
+			return NAT_PUNT_TO_STACK;
+
 		target->from_local_endpoint = true;
 
 		err = ct_is_reply4(get_ct_map4(&tuple), ctx, ETH_HLEN +
@@ -820,10 +824,6 @@ skip_egress_gateway:
 			      IPV4_SNAT_EXCLUSION_DST_CIDR_LEN))
 		return NAT_PUNT_TO_STACK;
 #endif
-
-	/* if this is a localhost endpoint, no SNAT is needed */
-	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
-		return NAT_PUNT_TO_STACK;
 
 	if (remote_ep) {
 #ifdef ENABLE_IP_MASQ_AGENT_IPV4
@@ -1731,6 +1731,10 @@ snat_v6_prepare_state(struct __ctx_buff *ctx __maybe_unused, struct ipv6hdr *ip6
 
 		target->from_local_endpoint = true;
 
+		/* if this is a localhost endpoint, no SNAT is needed */
+		if (local_ep->flags & ENDPOINT_F_HOST)
+			return NAT_PUNT_TO_STACK;
+
 		/* ipv6_hdrlen() can return an error. If it does, it makes no
 		 * sense marking this packet as a reply based on a wrong offset.
 		 *
@@ -1761,10 +1765,6 @@ snat_v6_prepare_state(struct __ctx_buff *ctx __maybe_unused, struct ipv6hdr *ip6
 			return NAT_PUNT_TO_STACK;
 	}
 # endif /* IPV6_SNAT_EXCLUSION_DST_CIDR */
-
-	/* if this is a localhost endpoint, no SNAT is needed */
-	if (local_ep && (local_ep->flags & ENDPOINT_F_HOST))
-		return NAT_PUNT_TO_STACK;
 
 	if (remote_ep) {
 #ifdef ENABLE_IP_MASQ_AGENT_IPV6
