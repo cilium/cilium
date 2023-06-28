@@ -143,10 +143,9 @@ for the commit SHA ``7b368923823e63c9824ea2b5ee4dc026bc4d5cd8``.
    .. code-block:: shell-session
 
       $ ssh -p 2222 -o "StrictHostKeyChecking=no" root@localhost
-      # cd /host
       # echo "nameserver 8.8.8.8" > /etc/resolv.conf
       # git config --global --add safe.directory /host
-      # cp ./helm /usr/bin
+      # cp /host/helm /usr/bin
 
    .. _install_kind:
 
@@ -174,7 +173,7 @@ for the commit SHA ``7b368923823e63c9824ea2b5ee4dc026bc4d5cd8``.
       ## Some tests using demo-customcalls.yaml are mounting this directoy
       # mkdir -p /home/vagrant/go/src/github.com/cilium
       # ln -s /host /home/vagrant/go/src/github.com/cilium/cilium
-      # git config --add safe.directory /cilium
+      # git config --global --add safe.directory /cilium
 
    Verify that kind is running inside the VM:
 
@@ -218,7 +217,7 @@ for the commit SHA ``7b368923823e63c9824ea2b5ee4dc026bc4d5cd8``.
       #
       # if [[ "${kernel_tag}" == bpf-next-* ]]; then
       #    export KERNEL=net-next
-          export NETNEXT=1
+      #    export NETNEXT=1
       #    export KUBEPROXY=0
       #    export K8S_NODES=3
       #    export NO_CILIUM_ON_NODES=kind-worker2
@@ -268,8 +267,7 @@ for the commit SHA ``7b368923823e63c9824ea2b5ee4dc026bc4d5cd8``.
 
 #. Clean up.
 
-   Once tests are performed, qemu can be terminated by checking the PID and
-   terminate the process.
+   Once tests are performed, terminate qemu to halt the VM:
 
    .. code-block:: shell-session
 
