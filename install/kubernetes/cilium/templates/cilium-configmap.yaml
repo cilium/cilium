@@ -59,8 +59,12 @@
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
-{{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement $defaultKubeProxyReplacement) -}}
-{{- if and (ne (toString $kubeProxyReplacement) "disabled") (ne (toString $kubeProxyReplacement) "partial") (ne (toString $kubeProxyReplacement) "strict") (ne (toString $kubeProxyReplacement) "true") (ne (toString $kubeProxyReplacement) "false") }}
+{{- $stringValueKPR := (toString .Values.kubeProxyReplacement) -}}
+{{- if (eq $stringValueKPR "<nil>") }}
+  {{- $stringValueKPR = "" -}}
+{{- end}}
+{{- $kubeProxyReplacement := (coalesce $stringValueKPR $defaultKubeProxyReplacement) -}}
+{{- if and (ne $kubeProxyReplacement "disabled") (ne $kubeProxyReplacement "partial") (ne $kubeProxyReplacement "strict") (ne $kubeProxyReplacement "true") (ne $kubeProxyReplacement "false") }}
   {{ fail "kubeProxyReplacement must be explicitly set to a valid value (true, false, disabled (deprecated), partial (deprecated), or strict (deprecated)) to continue." }}
 {{- end }}
 {{- $azureUsePrimaryAddress = (coalesce .Values.azure.usePrimaryAddress $azureUsePrimaryAddress) -}}
@@ -645,7 +649,7 @@ data:
 
   kube-proxy-replacement: {{ $kubeProxyReplacement | quote }}
 
-{{- if ne (toString $kubeProxyReplacement) "disabled" }}
+{{- if ne $kubeProxyReplacement "disabled" }}
   kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
 {{- end }}
 
@@ -659,17 +663,17 @@ data:
 {{- end }}
 
 {{- if hasKey .Values "hostPort" }}
-{{- if or (eq (toString $kubeProxyReplacement) "partial") (eq (toString $kubeProxyReplacement) "false") }}
+{{- if or (eq $kubeProxyReplacement "partial") (eq $kubeProxyReplacement "false") }}
   enable-host-port: {{ .Values.hostPort.enabled | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "externalIPs" }}
-{{- if or (eq (toString $kubeProxyReplacement) "partial") (eq (toString $kubeProxyReplacement) "false") }}
+{{- if or (eq $kubeProxyReplacement "partial") (eq $kubeProxyReplacement "false") }}
   enable-external-ips: {{ .Values.externalIPs.enabled | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "nodePort" }}
-{{- if or (eq (toString $kubeProxyReplacement) "partial") (eq (toString $kubeProxyReplacement) "false") }}
+{{- if or (eq $kubeProxyReplacement "partial") (eq $kubeProxyReplacement "false") }}
   enable-node-port: {{ .Values.nodePort.enabled | quote }}
 {{- end }}
 {{- if hasKey .Values.nodePort "range" }}
