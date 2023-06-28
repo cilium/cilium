@@ -22,16 +22,17 @@ import (
 // NetConf is the Cilium specific CNI network configuration
 type NetConf struct {
 	cniTypes.NetConf
-	MTU          int                    `json:"mtu"`
-	Args         Args                   `json:"args"`
-	ENI          eniTypes.ENISpec       `json:"eni,omitempty"`
-	Azure        azureTypes.AzureSpec   `json:"azure,omitempty"`
-	IPAM         IPAM                   `json:"ipam,omitempty"` // Shadows the JSON field "ipam" in cniTypes.NetConf.
-	AlibabaCloud alibabaCloudTypes.Spec `json:"alibaba-cloud,omitempty"`
-	EnableDebug  bool                   `json:"enable-debug"`
-	LogFormat    string                 `json:"log-format"`
-	LogFile      string                 `json:"log-file"`
-	ChainingMode string                 `json:"chaining-mode"`
+	MTU            int                    `json:"mtu"`
+	Args           Args                   `json:"args"`
+	EnableRouteMTU bool                   `json:"enable-route-mtu"`
+	ENI            eniTypes.ENISpec       `json:"eni,omitempty"`
+	Azure          azureTypes.AzureSpec   `json:"azure,omitempty"`
+	IPAM           IPAM                   `json:"ipam,omitempty"` // Shadows the JSON field "ipam" in cniTypes.NetConf.
+	AlibabaCloud   alibabaCloudTypes.Spec `json:"alibaba-cloud,omitempty"`
+	EnableDebug    bool                   `json:"enable-debug"`
+	LogFormat      string                 `json:"log-format"`
+	LogFile        string                 `json:"log-file"`
+	ChainingMode   string                 `json:"chaining-mode"`
 }
 
 // IPAM is the Cilium specific CNI IPAM configuration

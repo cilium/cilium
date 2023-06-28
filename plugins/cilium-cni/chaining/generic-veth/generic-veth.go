@@ -67,6 +67,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			return err
 		}
 
+		linkFound := false
 		for _, link := range links {
 			pluginCtx.Logger.Debugf("Found interface in container %+v", link.Attrs())
 
@@ -102,10 +103,49 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 					logfields.Interface: link.Attrs().Name}).Warn("No valid IPv6 address found")
 			}
 
-			return nil
+			linkFound = true
+			break
 		}
 
-		return fmt.Errorf("no link found inside container")
+		if !linkFound {
+			return fmt.Errorf("no link found inside container")
+		}
+
+		if pluginCtx.NetConf.EnableRouteMTU {
+			routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
+			if err != nil {
+				err = fmt.Errorf("unable to list the IPv4 routes: %s", err.Error())
+				return err
+			}
+			for _, rt := range routes {
+				if rt.MTU != int(pluginCtx.CiliumConf.RouteMTU) {
+					rt.MTU = int(pluginCtx.CiliumConf.RouteMTU)
+					err = netlink.RouteReplace(&rt)
+					if err != nil {
+						err = fmt.Errorf("unable to replace the mtu %d for the route %s: %s", rt.MTU, rt.String(), err.Error())
+						return err
+					}
+				}
+			}
+
+			routes, err = netlink.RouteList(nil, netlink.FAMILY_V6)
+			if err != nil {
+				err = fmt.Errorf("unable to list the IPv6 routes: %s", err.Error())
+				return err
+			}
+			for _, rt := range routes {
+				if rt.MTU != int(pluginCtx.CiliumConf.RouteMTU) {
+					rt.MTU = int(pluginCtx.CiliumConf.RouteMTU)
+					err = netlink.RouteReplace(&rt)
+					if err != nil {
+						err = fmt.Errorf("unable to replace the mtu %d for the route %s: %s", rt.MTU, rt.String(), err.Error())
+						return err
+					}
+				}
+			}
+		}
+
+		return nil
 	}); err != nil {
 		return
 	}
