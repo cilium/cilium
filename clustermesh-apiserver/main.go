@@ -526,7 +526,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, backe
 	}).Info("Starting clustermesh-apiserver...")
 
 	if mockFile == "" {
-		synced.SyncCRDs(startCtx, clientset, synced.AllCiliumCRDResourceNames(), &synced.Resources{}, &synced.APIGroups{})
+		synced.SyncCRDs(startCtx, clientset, synced.ClusterMeshAPIServerResourceNames(), &synced.Resources{}, &synced.APIGroups{})
 	}
 
 	var err error

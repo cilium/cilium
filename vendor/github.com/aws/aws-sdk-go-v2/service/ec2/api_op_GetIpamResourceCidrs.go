@@ -12,7 +12,11 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Get information about the resources in a scope.
+// Returns resource CIDRs managed by IPAM in a given scope. If an IPAM is
+// associated with more than one resource discovery, the resource CIDRs across all
+// of the resource discoveries is returned. A resource discovery is an IPAM
+// component that enables IPAM to manage and monitor resources that belong to the
+// owning account.
 func (c *Client) GetIpamResourceCidrs(ctx context.Context, params *GetIpamResourceCidrsInput, optFns ...func(*Options)) (*GetIpamResourceCidrsOutput, error) {
 	if params == nil {
 		params = &GetIpamResourceCidrsInput{}
@@ -37,13 +41,13 @@ type GetIpamResourceCidrsInput struct {
 
 	// A check for whether you have the required permissions for the action without
 	// actually making the request and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// One or more filters for the request. For more information about filtering, see
-	// Filtering CLI output
-	// (https://docs.aws.amazon.com/cli/latest/userguide/cli-usage-filter.html).
+	// Filtering CLI output (https://docs.aws.amazon.com/cli/latest/userguide/cli-usage-filter.html)
+	// .
 	Filters []types.Filter
 
 	// The ID of the IPAM pool that the resource is in.
@@ -134,6 +138,9 @@ func (c *Client) addOperationGetIpamResourceCidrsMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetIpamResourceCidrs(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

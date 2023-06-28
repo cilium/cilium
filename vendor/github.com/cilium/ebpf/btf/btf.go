@@ -79,8 +79,8 @@ func (h *btfHeader) stringStart() int64 {
 	return int64(h.HdrLen + h.StringOff)
 }
 
-// NewSpec creates a Spec containing only Void.
-func NewSpec() *Spec {
+// newSpec creates a Spec containing only Void.
+func newSpec() *Spec {
 	return &Spec{
 		[]Type{(*Void)(nil)},
 		map[Type]TypeID{(*Void)(nil): 0},
@@ -493,35 +493,6 @@ func (sw sliceWriter) Write(p []byte) (int, error) {
 	return copy(sw, p), nil
 }
 
-// Add a Type to the Spec, making it queryable via [TypeByName], etc.
-//
-// Adding the identical Type multiple times is valid and will return a stable ID.
-//
-// See [Type] for details on identity.
-func (s *Spec) Add(typ Type) (TypeID, error) {
-	if typ == nil {
-		return 0, fmt.Errorf("can't add nil Type")
-	}
-
-	if id, err := s.TypeID(typ); err == nil {
-		return id, nil
-	}
-
-	id, err := s.nextTypeID()
-	if err != nil {
-		return 0, err
-	}
-
-	s.typeIDs[typ] = id
-	s.types = append(s.types, typ)
-
-	if name := newEssentialName(typ.TypeName()); name != "" {
-		s.namedTypes[name] = append(s.namedTypes[name], typ)
-	}
-
-	return id, nil
-}
-
 // nextTypeID returns the next unallocated type ID or an error if there are no
 // more type IDs.
 func (s *Spec) nextTypeID() (TypeID, error) {
@@ -773,16 +744,19 @@ var haveFuncLinkage = internal.NewFeatureTest("BTF func linkage", "5.6", func() 
 })
 
 func probeBTF(typ Type) error {
-	buf := getBuffer()
-	defer putBuffer(buf)
+	b, err := NewBuilder([]Type{typ})
+	if err != nil {
+		return err
+	}
 
-	if err := marshalTypes(buf, []Type{&Void{}, typ}, nil, nil); err != nil {
+	buf, err := b.Marshal(nil, nil)
+	if err != nil {
 		return err
 	}
 
 	fd, err := sys.BtfLoad(&sys.BtfLoadAttr{
-		Btf:     sys.NewSlicePointer(buf.Bytes()),
-		BtfSize: uint32(buf.Len()),
+		Btf:     sys.NewSlicePointer(buf),
+		BtfSize: uint32(len(buf)),
 	})
 
 	if err == nil {

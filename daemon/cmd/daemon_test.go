@@ -57,8 +57,6 @@ type DaemonSuite struct {
 	// as returned by policy.GetPolicyEnabled().
 	oldPolicyEnabled string
 
-	kvstoreInit bool
-
 	// Owners interface mock
 	OnGetPolicyRepository  func() *policy.Repository
 	OnGetNamedPorts        func() (npm types.NamedPortMultiMap)
@@ -120,7 +118,7 @@ func TestMain(m *testing.M) {
 	// Disable the replacement, as its initialization function execs bpftool
 	// which requires root privileges. This would require marking the test suite
 	// as privileged.
-	option.Config.KubeProxyReplacement = option.KubeProxyReplacementDisabled
+	option.Config.KubeProxyReplacement = option.KubeProxyReplacementFalse
 
 	time.Local = time.UTC
 
@@ -208,11 +206,6 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 		os.RemoveAll(option.Config.RunDir)
 	}
 
-	if ds.kvstoreInit {
-		kvstore.Client().DeletePrefix(ctx, kvstore.OperationalPath)
-		kvstore.Client().DeletePrefix(ctx, kvstore.BaseKeyPrefix)
-	}
-
 	// Restore the policy enforcement mode.
 	policy.SetPolicyEnabled(ds.oldPolicyEnabled)
 
@@ -230,12 +223,10 @@ var _ = Suite(&DaemonEtcdSuite{})
 
 func (e *DaemonEtcdSuite) SetUpSuite(c *C) {
 	testutils.IntegrationTest(c)
-
-	kvstore.SetupDummy("etcd")
-	e.DaemonSuite.kvstoreInit = true
 }
 
 func (e *DaemonEtcdSuite) SetUpTest(c *C) {
+	kvstore.SetupDummy(c, "etcd")
 	e.DaemonSuite.SetUpTest(c)
 }
 
@@ -251,12 +242,10 @@ var _ = Suite(&DaemonConsulSuite{})
 
 func (e *DaemonConsulSuite) SetUpSuite(c *C) {
 	testutils.IntegrationTest(c)
-
-	kvstore.SetupDummy("consul")
-	e.DaemonSuite.kvstoreInit = true
 }
 
 func (e *DaemonConsulSuite) SetUpTest(c *C) {
+	kvstore.SetupDummy(c, "consul")
 	e.DaemonSuite.SetUpTest(c)
 }
 

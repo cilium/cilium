@@ -16,7 +16,7 @@ import (
 // check the output logs. An AFI contains the FPGA bitstream that is ready to
 // download to an FPGA. You can securely deploy an AFI on multiple FPGA-accelerated
 // instances. For more information, see the Amazon Web Services FPGA Hardware
-// Development Kit (https://github.com/aws/aws-fpga/).
+// Development Kit (https://github.com/aws/aws-fpga/) .
 func (c *Client) CreateFpgaImage(ctx context.Context, params *CreateFpgaImageInput, optFns ...func(*Options)) (*CreateFpgaImageOutput, error) {
 	if params == nil {
 		params = &CreateFpgaImageInput{}
@@ -41,8 +41,8 @@ type CreateFpgaImageInput struct {
 	InputStorageLocation *types.StorageLocation
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see Ensuring Idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html).
+	// the request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
 	// A description for the AFI.
@@ -50,8 +50,8 @@ type CreateFpgaImageInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The location in Amazon S3 for the output logs.
@@ -129,6 +129,9 @@ func (c *Client) addOperationCreateFpgaImageMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateFpgaImage(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

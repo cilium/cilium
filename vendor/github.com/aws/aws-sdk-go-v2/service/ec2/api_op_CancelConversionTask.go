@@ -15,8 +15,8 @@ import (
 // partially uploaded volume or instance. If the conversion is complete or is in
 // the process of transferring the final disk image, the command fails and returns
 // an exception. For more information, see Importing a Virtual Machine Using the
-// Amazon EC2 CLI
-// (https://docs.aws.amazon.com/AWSEC2/latest/CommandLineReference/ec2-cli-vmimport-export.html).
+// Amazon EC2 CLI (https://docs.aws.amazon.com/AWSEC2/latest/CommandLineReference/ec2-cli-vmimport-export.html)
+// .
 func (c *Client) CancelConversionTask(ctx context.Context, params *CancelConversionTaskInput, optFns ...func(*Options)) (*CancelConversionTaskOutput, error) {
 	if params == nil {
 		params = &CancelConversionTaskInput{}
@@ -41,8 +41,8 @@ type CancelConversionTaskInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The reason for canceling the conversion task.
@@ -107,6 +107,9 @@ func (c *Client) addOperationCancelConversionTaskMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCancelConversionTask(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -643,6 +643,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 		})
 
 		SkipContextIf(func() bool { return helpers.RunsOnGKE() || helpers.SkipQuarantined() }, "With host policy", func() {
+			hostPolicyFilename := "ccnp-host-policy-nodeport-tests.yaml"
 			var ccnpHostPolicy string
 
 			BeforeAll(func() {
@@ -655,9 +656,9 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				}
 				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 
-				prepareHostPolicyEnforcement(kubectl)
+				prepareHostPolicyEnforcement(kubectl, hostPolicyFilename)
 
-				originalCCNPHostPolicy := helpers.ManifestGet(kubectl.BasePath(), "ccnp-host-policy-nodeport-tests.yaml")
+				originalCCNPHostPolicy := helpers.ManifestGet(kubectl.BasePath(), hostPolicyFilename)
 				res := kubectl.ExecMiddle("mktemp")
 				res.ExpectSuccess()
 				ccnpHostPolicy = strings.Trim(res.Stdout(), "\n")

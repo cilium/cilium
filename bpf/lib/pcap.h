@@ -98,7 +98,7 @@ static __always_inline void __cilium_capture_out(struct __ctx_buff *ctx,
  * below is a fallback definition for when the templating var is not defined.
  */
 #ifndef capture_enabled
-# define capture_enabled (__ctx_is == __ctx_xdp)
+# define capture_enabled (ctx_is_xdp())
 #endif /* capture_enabled */
 
 struct capture_cache {

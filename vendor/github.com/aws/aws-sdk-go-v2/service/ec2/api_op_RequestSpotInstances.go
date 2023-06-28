@@ -13,18 +13,12 @@ import (
 )
 
 // Creates a Spot Instance request. For more information, see Spot Instance
-// requests
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-requests.html) in the
-// Amazon EC2 User Guide for Linux Instances. We strongly discourage using the
-// RequestSpotInstances API because it is a legacy API with no planned investment.
-// For options for requesting Spot Instances, see Which is the best Spot request
-// method to use?
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-best-practices.html#which-spot-request-method-to-use)
-// in the Amazon EC2 User Guide for Linux Instances. We are retiring EC2-Classic.
-// We recommend that you migrate from EC2-Classic to a VPC. For more information,
-// see Migrate from EC2-Classic to a VPC
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
-// Amazon EC2 User Guide for Linux Instances.
+// requests (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-requests.html)
+// in the Amazon EC2 User Guide for Linux Instances. We strongly discourage using
+// the RequestSpotInstances API because it is a legacy API with no planned
+// investment. For options for requesting Spot Instances, see Which is the best
+// Spot request method to use? (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-best-practices.html#which-spot-request-method-to-use)
+// in the Amazon EC2 User Guide for Linux Instances.
 func (c *Client) RequestSpotInstances(ctx context.Context, params *RequestSpotInstancesInput, optFns ...func(*Options)) (*RequestSpotInstancesOutput, error) {
 	if params == nil {
 		params = &RequestSpotInstancesInput{}
@@ -65,43 +59,42 @@ type RequestSpotInstancesInput struct {
 	BlockDurationMinutes *int32
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to Ensure Idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html)
+	// the request. For more information, see How to Ensure Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html)
 	// in the Amazon EC2 User Guide for Linux Instances.
 	ClientToken *string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The maximum number of Spot Instances to launch. Default: 1
 	InstanceCount *int32
 
-	// The behavior when a Spot Instance is interrupted. The default is terminate.
+	// The behavior when a Spot Instance is interrupted. The default is terminate .
 	InstanceInterruptionBehavior types.InstanceInterruptionBehavior
 
-	// The instance launch group. Launch groups are Spot Instances that launch together
-	// and terminate together. Default: Instances are launched and terminated
+	// The instance launch group. Launch groups are Spot Instances that launch
+	// together and terminate together. Default: Instances are launched and terminated
 	// individually
 	LaunchGroup *string
 
 	// The launch specification.
 	LaunchSpecification *types.RequestSpotLaunchSpecification
 
-	// The maximum price per unit hour that you are willing to pay for a Spot Instance.
-	// We do not recommend using this parameter because it can lead to increased
-	// interruptions. If you do not specify this parameter, you will pay the current
-	// Spot price. If you specify a maximum price, your instances will be interrupted
-	// more frequently than if you do not specify this parameter.
+	// The maximum price per unit hour that you are willing to pay for a Spot
+	// Instance. We do not recommend using this parameter because it can lead to
+	// increased interruptions. If you do not specify this parameter, you will pay the
+	// current Spot price. If you specify a maximum price, your instances will be
+	// interrupted more frequently than if you do not specify this parameter.
 	SpotPrice *string
 
 	// The key-value pair for tagging the Spot Instance request on creation. The value
-	// for ResourceType must be spot-instances-request, otherwise the Spot Instance
+	// for ResourceType must be spot-instances-request , otherwise the Spot Instance
 	// request fails. To tag the Spot Instance request after it has been created, see
-	// CreateTags
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html).
+	// CreateTags (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html)
+	// .
 	TagSpecifications []types.TagSpecification
 
 	// The Spot Instance request type. Default: one-time
@@ -117,15 +110,13 @@ type RequestSpotInstancesInput struct {
 	ValidFrom *time.Time
 
 	// The end date of the request, in UTC format (YYYY-MM-DDTHH:MM:SSZ).
-	//
-	// * For a
-	// persistent request, the request remains active until the ValidUntil date and
-	// time is reached. Otherwise, the request remains active until you cancel it.
-	//
-	// *
-	// For a one-time request, the request remains active until all instances launch,
-	// the request is canceled, or the ValidUntil date and time is reached. By default,
-	// the request is valid for 7 days from the date the request was created.
+	//   - For a persistent request, the request remains active until the ValidUntil
+	//   date and time is reached. Otherwise, the request remains active until you cancel
+	//   it.
+	//   - For a one-time request, the request remains active until all instances
+	//   launch, the request is canceled, or the ValidUntil date and time is reached.
+	//   By default, the request is valid for 7 days from the date the request was
+	//   created.
 	ValidUntil *time.Time
 
 	noSmithyDocumentSerde
@@ -134,7 +125,7 @@ type RequestSpotInstancesInput struct {
 // Contains the output of RequestSpotInstances.
 type RequestSpotInstancesOutput struct {
 
-	// One or more Spot Instance requests.
+	// The Spot Instance requests.
 	SpotInstanceRequests []types.SpotInstanceRequest
 
 	// Metadata pertaining to the operation's result.
@@ -192,6 +183,9 @@ func (c *Client) addOperationRequestSpotInstancesMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opRequestSpotInstances(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -189,7 +189,8 @@ int test_nat4_icmp_error_tcp(__maybe_unused struct __ctx_buff *ctx)
 	struct ipv4_nat_entry state;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
-				  snat_v4_needs_ct(&tuple, &target));
+				  snat_v4_needs_ct(&tuple, &target),
+				  NULL);
 	assert(ret == 0);
 
 	/* This is the entry-point of the test, calling
@@ -298,7 +299,8 @@ int test_nat4_icmp_error_udp(__maybe_unused struct __ctx_buff *ctx)
 	struct ipv4_nat_entry state;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
-				  snat_v4_needs_ct(&tuple, &target));
+				  snat_v4_needs_ct(&tuple, &target),
+				  NULL);
 	assert(ret == 0);
 
 	/* This is the entry-point of the test, calling
@@ -406,7 +408,8 @@ int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 	struct ipv4_nat_entry state;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
-				  snat_v4_needs_ct(&tuple, &target));
+				  snat_v4_needs_ct(&tuple, &target),
+				  NULL);
 	assert(ret == 0);
 
 	/* This is the entry-point of the test, calling
@@ -503,7 +506,8 @@ int test_nat4_icmp_error_sctp(__maybe_unused struct __ctx_buff *ctx)
 	struct ipv4_nat_entry state;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
-				  snat_v4_needs_ct(&tuple, &target));
+				  snat_v4_needs_ct(&tuple, &target),
+				  NULL);
 	assert(ret == 0);
 
 	/* This is the entry-point of the test, calling
@@ -564,7 +568,8 @@ int test_nat4_icmp_error_tcp_egress(__maybe_unused struct __ctx_buff *ctx)
 	struct ipv4_nat_entry state;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
-				  snat_v4_needs_ct(&tuple, &target));
+				  snat_v4_needs_ct(&tuple, &target),
+				  NULL);
 	assert(ret == 0);
 
 	/* This is the entry-point of the test, calling
@@ -673,7 +678,8 @@ int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 	struct ipv4_nat_entry state;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
-				  snat_v4_needs_ct(&tuple, &target));
+				  snat_v4_needs_ct(&tuple, &target),
+				  NULL);
 	assert(ret == 0);
 
 	/* This is the entry-point of the test, calling
@@ -781,7 +787,8 @@ int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 	struct ipv4_nat_entry state;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
-				  snat_v4_needs_ct(&tuple, &target));
+				  snat_v4_needs_ct(&tuple, &target),
+				  NULL);
 	assert(ret == 0);
 
 	/* This is the entry-point of the test, calling
@@ -878,7 +885,8 @@ int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 	struct ipv4_nat_entry state;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
-				  snat_v4_needs_ct(&tuple, &target));
+				  snat_v4_needs_ct(&tuple, &target),
+				  NULL);
 	assert(ret == 0);
 
 	/* This is the entry-point of the test, calling

@@ -13,12 +13,14 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -26,7 +28,9 @@ import (
 )
 
 type RemoteCluster interface {
-	Run(ctx context.Context, backend kvstore.BackendOperations, config *types.CiliumClusterConfig) error
+	// Run implements the actual business logic once the connection to the remote cluster has been established.
+	// The ready channel shall be closed when the initialization tasks completed, possibly returning an error.
+	Run(ctx context.Context, backend kvstore.BackendOperations, config *types.CiliumClusterConfig, ready chan<- error)
 
 	Stop()
 	Remove()
@@ -47,11 +51,18 @@ type remoteCluster struct {
 	// clusterSizeDependantInterval allows to calculate intervals based on cluster size.
 	clusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
 
+	// serviceIPGetter, if not nil, is used to create a custom dialer for service resolution.
+	serviceIPGetter k8s.ServiceIPGetter
+
 	// changed receives an event when the remote cluster configuration has
 	// changed and is closed when the configuration file was removed
 	changed chan bool
 
 	controllers *controller.Manager
+
+	// wg is used to wait for the termination of the goroutines spawned by the
+	// controller upon reconnection for long running background tasks.
+	wg sync.WaitGroup
 
 	// remoteConnectionControllerName is the name of the backing controller
 	// that maintains the remote connection
@@ -102,6 +113,11 @@ func (rc *remoteCluster) getLogger() *logrus.Entry {
 
 // releaseOldConnection releases the etcd connection to a remote cluster
 func (rc *remoteCluster) releaseOldConnection() {
+	rc.metricReadinessStatus.Set(metrics.BoolToFloat64(false))
+
+	// Make sure that all child goroutines terminated before performing cleanup.
+	rc.wg.Wait()
+
 	rc.mutex.Lock()
 	backend := rc.backend
 	rc.backend = nil
@@ -158,28 +174,32 @@ func (rc *remoteCluster) restartRemoteConnection() {
 				rc.backend = backend
 				rc.mutex.Unlock()
 
-				rc.metricReadinessStatus.Set(metrics.BoolToFloat64(true))
-				defer rc.metricReadinessStatus.Set(metrics.BoolToFloat64(false))
-
 				ctx, cancel := context.WithCancel(ctx)
-				var wg sync.WaitGroup
-				wg.Add(1)
-
+				rc.wg.Add(1)
 				go func() {
 					rc.watchdog(ctx, backend)
-					wg.Done()
+					rc.wg.Done()
 				}()
 
-				defer func() {
+				ready := make(chan error)
+
+				// Let's execute the long running logic in background. This allows
+				// to return early from the controller body, so that the statistics
+				// are updated correctly. Instead, blocking until rc.Run terminates
+				// would prevent a previous failure from being cleared out.
+				rc.wg.Add(1)
+				go func() {
+					rc.Run(ctx, backend, config, ready)
 					cancel()
-					wg.Wait()
+					rc.wg.Done()
 				}()
 
-				if err := rc.Run(ctx, backend, config); err != nil {
-					rc.getLogger().WithError(err).Error("Connection to remote cluster failed")
+				if <-ready != nil {
+					rc.getLogger().WithError(err).Warning("Connection to remote cluster failed")
 					return err
 				}
 
+				rc.metricReadinessStatus.Set(metrics.BoolToFloat64(true))
 				return nil
 			},
 			StopFunc: func(ctx context.Context) error {
@@ -287,10 +307,18 @@ func (rc *remoteCluster) makeEtcdOpts() map[string]string {
 }
 
 func (rc *remoteCluster) makeExtraOpts() kvstore.ExtraOptions {
+	var dialOpts []grpc.DialOption
+	if rc.serviceIPGetter != nil {
+		// Allow to resolve service names without depending on the DNS. This prevents the need
+		// for setting the DNSPolicy to ClusterFirstWithHostNet when running in host network.
+		dialOpts = append(dialOpts, grpc.WithContextDialer(k8s.CreateCustomDialer(rc.serviceIPGetter, rc.getLogger())))
+	}
+
 	return kvstore.ExtraOptions{
 		NoLockQuorumCheck:            true,
 		ClusterName:                  rc.name,
 		ClusterSizeDependantInterval: rc.clusterSizeDependantInterval,
+		DialOption:                   dialOpts,
 	}
 }
 

@@ -35,65 +35,43 @@ type DescribeLaunchTemplateVersionsInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// One or more filters.
-	//
-	// * create-time - The time the launch template version was
-	// created.
-	//
-	// * ebs-optimized - A boolean that indicates whether the instance is
-	// optimized for Amazon EBS I/O.
-	//
-	// * http-endpoint - Indicates whether the HTTP
-	// metadata endpoint on your instances is enabled (enabled | disabled).
-	//
-	// *
-	// http-protocol-ipv4 - Indicates whether the IPv4 endpoint for the instance
-	// metadata service is enabled (enabled | disabled).
-	//
-	// * host-resource-group-arn -
-	// The ARN of the host resource group in which to launch the instances.
-	//
-	// *
-	// http-tokens - The state of token usage for your instance metadata requests
-	// (optional | required).
-	//
-	// * iam-instance-profile - The ARN of the IAM instance
-	// profile.
-	//
-	// * image-id - The ID of the AMI.
-	//
-	// * instance-type - The instance
-	// type.
-	//
-	// * is-default-version - A boolean that indicates whether the launch
-	// template version is the default version.
-	//
-	// * kernel-id - The kernel ID.
-	//
-	// *
-	// license-configuration-arn - The ARN of the license configuration.
-	//
-	// *
-	// network-card-index - The index of the network card.
-	//
-	// * ram-disk-id - The RAM
-	// disk ID.
+	//   - create-time - The time the launch template version was created.
+	//   - ebs-optimized - A boolean that indicates whether the instance is optimized
+	//   for Amazon EBS I/O.
+	//   - http-endpoint - Indicates whether the HTTP metadata endpoint on your
+	//   instances is enabled ( enabled | disabled ).
+	//   - http-protocol-ipv4 - Indicates whether the IPv4 endpoint for the instance
+	//   metadata service is enabled ( enabled | disabled ).
+	//   - host-resource-group-arn - The ARN of the host resource group in which to
+	//   launch the instances.
+	//   - http-tokens - The state of token usage for your instance metadata requests (
+	//   optional | required ).
+	//   - iam-instance-profile - The ARN of the IAM instance profile.
+	//   - image-id - The ID of the AMI.
+	//   - instance-type - The instance type.
+	//   - is-default-version - A boolean that indicates whether the launch template
+	//   version is the default version.
+	//   - kernel-id - The kernel ID.
+	//   - license-configuration-arn - The ARN of the license configuration.
+	//   - network-card-index - The index of the network card.
+	//   - ram-disk-id - The RAM disk ID.
 	Filters []types.Filter
 
 	// The ID of the launch template. To describe one or more versions of a specified
 	// launch template, you must specify either the LaunchTemplateId or the
-	// LaunchTemplateName, but not both. To describe all the latest or default launch
+	// LaunchTemplateName , but not both. To describe all the latest or default launch
 	// template versions in your account, you must omit this parameter.
 	LaunchTemplateId *string
 
-	// The name of the launch template. To describe one or more versions of a specified
-	// launch template, you must specify either the LaunchTemplateName or the
-	// LaunchTemplateId, but not both. To describe all the latest or default launch
-	// template versions in your account, you must omit this parameter.
+	// The name of the launch template. To describe one or more versions of a
+	// specified launch template, you must specify either the LaunchTemplateName or
+	// the LaunchTemplateId , but not both. To describe all the latest or default
+	// launch template versions in your account, you must omit this parameter.
 	LaunchTemplateName *string
 
 	// The maximum number of results to return in a single call. To retrieve the
@@ -110,14 +88,22 @@ type DescribeLaunchTemplateVersionsInput struct {
 	// The token to request the next page of results.
 	NextToken *string
 
+	// If true , and if a Systems Manager parameter is specified for ImageId , the AMI
+	// ID is displayed in the response for imageId . If false , and if a Systems
+	// Manager parameter is specified for ImageId , the parameter is displayed in the
+	// response for imageId . For more information, see Use a Systems Manager
+	// parameter instead of an AMI ID (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#use-an-ssm-parameter-instead-of-an-ami-id)
+	// in the Amazon Elastic Compute Cloud User Guide. Default: false
+	ResolveAlias *bool
+
 	// One or more versions of the launch template. Valid values depend on whether you
 	// are describing a specified launch template (by ID or name) or all launch
 	// templates in your account. To describe one or more versions of a specified
-	// launch template, valid values are $Latest, $Default, and numbers. To describe
+	// launch template, valid values are $Latest , $Default , and numbers. To describe
 	// all launch templates in your account that are defined as the latest version, the
-	// valid value is $Latest. To describe all launch templates in your account that
-	// are defined as the default version, the valid value is $Default. You can specify
-	// $Latest and $Default in the same request. You cannot specify numbers.
+	// valid value is $Latest . To describe all launch templates in your account that
+	// are defined as the default version, the valid value is $Default . You can
+	// specify $Latest and $Default in the same request. You cannot specify numbers.
 	Versions []string
 
 	noSmithyDocumentSerde
@@ -184,6 +170,9 @@ func (c *Client) addOperationDescribeLaunchTemplateVersionsMiddlewares(stack *mi
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeLaunchTemplateVersions(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

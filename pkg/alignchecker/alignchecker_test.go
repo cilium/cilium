@@ -4,9 +4,9 @@
 package alignchecker
 
 import (
-	"reflect"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAlignChecker(t *testing.T) {
@@ -41,11 +41,11 @@ func TestAlignChecker(t *testing.T) {
 		_ uint16 `align:"pad5"`
 	}
 
-	type fooInvalidSize struct {
+	type invalidSize struct {
 		_ uint32
 	}
 
-	type fooInvalidOffset struct {
+	type invalidOffset struct {
 		_ [4]uint32 `align:"$union0"`
 		_ uint32    `align:"$union1"`
 		_ uint16    `align:"family"`
@@ -53,83 +53,76 @@ func TestAlignChecker(t *testing.T) {
 		_ uint8     `align:"pad5"`
 	}
 
-	type toCheck map[string][]reflect.Type
+	// Struct alignment value is 16 bits, so this will carry 8 bits of trailing
+	// padding.
+	type trailingPadding struct {
+		_ uint16
+		_ uint8
+		// _ uint8 implicit padding
+	}
+
+	type toCheck map[string][]any
 
 	testCases := []struct {
 		cName   string
-		goTypes []reflect.Type
+		goTypes []any
 		err     string
 	}{
 		{
 			"foo",
-			[]reflect.Type{
-				reflect.TypeOf(foo{}),
-			},
+			[]any{foo{}},
 			"",
 		},
 		{
 			"foo",
-			[]reflect.Type{
-				reflect.TypeOf(foo2{}),
-			},
+			[]any{foo2{}},
 			"",
 		},
 		{
 			"foo",
-			[]reflect.Type{
-				reflect.TypeOf(foo{}),
-				reflect.TypeOf(foo2{}),
-			},
+			[]any{foo{}, foo2{}},
 			"",
 		},
 		{
 			"foo",
-			[]reflect.Type{
-				reflect.TypeOf(foo3{}),
-			},
+			[]any{foo3{}},
 			"",
 		},
 		{
 			"foo",
-			[]reflect.Type{
-				reflect.TypeOf(foo4{}),
-			},
+			[]any{foo4{}},
 			"",
 		},
 		{
 			"foo",
-			[]reflect.Type{
-				reflect.TypeOf(fooInvalidSize{}),
-			},
-			"fooInvalidSize(4) size does not match foo(24)",
+			[]any{invalidSize{}},
+			"invalidSize(4) size does not match foo(24)",
 		},
 		{
 			"foo",
-			[]reflect.Type{
-				reflect.TypeOf(fooInvalidOffset{}),
-			},
-			"fooInvalidOffset.pad4 offset(22) does not match foo.pad4(21)",
+			[]any{invalidOffset{}},
+			"offset(22) does not match foo.pad4(21)",
 		},
 		{
 			"bar",
-			[]reflect.Type{
-				reflect.TypeOf(foo{}),
-			},
-			"could not find C struct bar",
+			[]any{foo{}},
+			"not found",
+		},
+		{
+			"foo",
+			[]any{trailingPadding{}},
+			"implicit trailing padding",
 		},
 	}
 
 	for _, tt := range testCases {
 		err := CheckStructAlignments("testdata/bpf_foo.o", toCheck{tt.cName: tt.goTypes}, true)
 		if tt.err != "" {
-			if !strings.Contains(err.Error(), tt.err) {
-				t.Fatalf("error '%s' did not contain string '%s'", err, tt.err)
-			}
-			return
+			assert.NotNil(t, err)
+			assert.Contains(t, err.Error(), tt.err)
+			continue
 		}
 
-		if err != nil {
-			t.Fatalf("unexpected error checking %s: %s", tt.cName, err)
-		}
+		assert.Nil(t, err)
 	}
 }

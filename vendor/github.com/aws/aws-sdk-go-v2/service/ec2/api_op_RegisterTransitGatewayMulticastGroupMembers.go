@@ -11,14 +11,12 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Registers members (network interfaces) with the transit gateway multicast group.
-// A member is a network interface associated with a supported EC2 instance that
-// receives multicast traffic. For information about supported instances, see
-// Multicast Consideration
-// (https://docs.aws.amazon.com/vpc/latest/tgw/transit-gateway-limits.html#multicast-limits)
+// Registers members (network interfaces) with the transit gateway multicast
+// group. A member is a network interface associated with a supported EC2 instance
+// that receives multicast traffic. For information about supported instances, see
+// Multicast Consideration (https://docs.aws.amazon.com/vpc/latest/tgw/transit-gateway-limits.html#multicast-limits)
 // in Amazon VPC Transit Gateways. After you add the members, use
-// SearchTransitGatewayMulticastGroups
-// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SearchTransitGatewayMulticastGroups.html)
+// SearchTransitGatewayMulticastGroups (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SearchTransitGatewayMulticastGroups.html)
 // to verify that the members were added to the transit gateway multicast group.
 func (c *Client) RegisterTransitGatewayMulticastGroupMembers(ctx context.Context, params *RegisterTransitGatewayMulticastGroupMembersInput, optFns ...func(*Options)) (*RegisterTransitGatewayMulticastGroupMembersOutput, error) {
 	if params == nil {
@@ -37,21 +35,25 @@ func (c *Client) RegisterTransitGatewayMulticastGroupMembers(ctx context.Context
 
 type RegisterTransitGatewayMulticastGroupMembersInput struct {
 
+	// The group members' network interface IDs to register with the transit gateway
+	// multicast group.
+	//
+	// This member is required.
+	NetworkInterfaceIds []string
+
+	// The ID of the transit gateway multicast domain.
+	//
+	// This member is required.
+	TransitGatewayMulticastDomainId *string
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The IP address assigned to the transit gateway multicast group.
 	GroupIpAddress *string
-
-	// The group members' network interface IDs to register with the transit gateway
-	// multicast group.
-	NetworkInterfaceIds []string
-
-	// The ID of the transit gateway multicast domain.
-	TransitGatewayMulticastDomainId *string
 
 	noSmithyDocumentSerde
 }
@@ -112,7 +114,13 @@ func (c *Client) addOperationRegisterTransitGatewayMulticastGroupMembersMiddlewa
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addOpRegisterTransitGatewayMulticastGroupMembersValidationMiddleware(stack); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opRegisterTransitGatewayMulticastGroupMembers(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

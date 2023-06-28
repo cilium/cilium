@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"testing"
 	"time"
 
 	. "github.com/cilium/checkmate"
@@ -29,12 +30,17 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/rand"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
+
+func Test(t *testing.T) {
+	TestingT(t)
+}
 
 var etcdConfig = []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
 
@@ -61,7 +67,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	kvstore.SetupDummy("etcd")
+	kvstore.SetupDummy(c, "etcd")
 
 	s.randomName = rand.RandomString()
 	clusterName1 := s.randomName + "1"
@@ -80,7 +86,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 
 	for i, cluster := range []string{clusterName1, clusterName2} {
 		config := cmtypes.CiliumClusterConfig{
-			ID: uint32(i),
+			ID: uint32(i + 1),
 		}
 		err := cmutils.SetClusterConfig(ctx, cluster, &config, kvstore.Client())
 		c.Assert(err, IsNil)
@@ -120,8 +126,6 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 
 func (s *ClusterMeshServicesTestSuite) TearDownTest(c *C) {
 	os.RemoveAll(s.testDir)
-	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
-	kvstore.Client().Close(context.TODO())
 }
 
 func (s *ClusterMeshServicesTestSuite) expectEvent(c *C, action k8s.CacheAction, id k8s.ServiceID, fn func(event k8s.ServiceEvent) bool) {
@@ -352,7 +356,7 @@ func (f *fakeServiceMerger) MergeExternalServiceDelete(service *serviceStore.Clu
 func (s *ClusterMeshServicesTestSuite) TestRemoteServiceObserver(c *C) {
 	svc1 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name", IncludeExternal: false, Shared: true}
 	svc2 := serviceStore.ClusterService{Cluster: "remote", Namespace: "namespace", Name: "name"}
-	cache := newGlobalServiceCache("cluster", "node")
+	cache := newGlobalServiceCache(metrics.NoOpGauge)
 	merger := fakeServiceMerger{}
 
 	observer := remoteServiceObserver{

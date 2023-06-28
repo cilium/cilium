@@ -17,9 +17,8 @@ import (
 // for a single network. The private scope is intended for all private IP address
 // space. The public scope is intended for all public IP address space. Scopes
 // enable you to reuse IP addresses across multiple unconnected networks without
-// causing IP address overlap or conflict. For more information, see Add a scope
-// (https://docs.aws.amazon.com/vpc/latest/ipam/add-scope-ipam.html) in the Amazon
-// VPC IPAM User Guide.
+// causing IP address overlap or conflict. For more information, see Add a scope (https://docs.aws.amazon.com/vpc/latest/ipam/add-scope-ipam.html)
+// in the Amazon VPC IPAM User Guide.
 func (c *Client) CreateIpamScope(ctx context.Context, params *CreateIpamScopeInput, optFns ...func(*Options)) (*CreateIpamScopeOutput, error) {
 	if params == nil {
 		params = &CreateIpamScopeInput{}
@@ -43,8 +42,8 @@ type CreateIpamScopeInput struct {
 	IpamId *string
 
 	// A unique, case-sensitive identifier that you provide to ensure the idempotency
-	// of the request. For more information, see Ensuring Idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	// of the request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
 	// A description for the scope you're creating.
@@ -52,13 +51,13 @@ type CreateIpamScopeInput struct {
 
 	// A check for whether you have the required permissions for the action without
 	// actually making the request and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The key/value combination of a tag assigned to the resource. Use the tag key in
 	// the filter name and the tag value as the filter value. For example, to find all
-	// resources that have a tag with the key Owner and the value TeamA, specify
+	// resources that have a tag with the key Owner and the value TeamA , specify
 	// tag:Owner for the filter name and TeamA for the filter value.
 	TagSpecifications []types.TagSpecification
 
@@ -128,6 +127,9 @@ func (c *Client) addOperationCreateIpamScopeMiddlewares(stack *middleware.Stack,
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateIpamScope(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

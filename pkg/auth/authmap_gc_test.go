@@ -28,11 +28,9 @@ func Test_authMapGarbageCollector_initialSync(t *testing.T) {
 			{localIdentity: identity.NumericIdentity(2), remoteIdentity: identity.NumericIdentity(3), remoteNodeID: 11, authType: policy.AuthTypeDisabled}:  {expiration: time.Now().Add(-5 * time.Minute)},
 		},
 	}
-	am := newAuthMapGC(logrus.New(), authMap,
-		newFakeIPCache(map[uint16]string{
-			10: "172.18.0.3",
-		}),
-	)
+	am := newAuthMapGC(logrus.New(), authMap, newFakeIPCache(map[uint16]string{
+		10: "172.18.0.3",
+	}), nil)
 
 	assert.Len(t, am.discoveredCiliumNodeIDs, 1) // local node 0
 	assert.Empty(t, am.discoveredCiliumIdentities)
@@ -66,10 +64,12 @@ func Test_authMapGarbageCollector_initialSync(t *testing.T) {
 func Test_authMapGarbageCollector_gc(t *testing.T) {
 	authMap := &fakeAuthMap{
 		entries: map[authKey]authInfo{
-			{localIdentity: identity.NumericIdentity(1), remoteIdentity: identity.NumericIdentity(2), remoteNodeID: 10, authType: policy.AuthTypeDisabled}:  {expiration: time.Now().Add(5 * time.Minute)},  // deleted remote node
-			{localIdentity: identity.NumericIdentity(2), remoteIdentity: identity.NumericIdentity(4), remoteNodeID: 0, authType: policy.AuthTypeDisabled}:   {expiration: time.Now().Add(5 * time.Minute)},  // deleted remote id
-			{localIdentity: identity.NumericIdentity(10), remoteIdentity: identity.NumericIdentity(11), remoteNodeID: 0, authType: policy.AuthTypeDisabled}: {expiration: time.Now().Add(5 * time.Minute)},  // deleted local id
-			{localIdentity: identity.NumericIdentity(2), remoteIdentity: identity.NumericIdentity(3), remoteNodeID: 11, authType: policy.AuthTypeDisabled}:  {expiration: time.Now().Add(-5 * time.Minute)}, // expired
+			{localIdentity: identity.NumericIdentity(1), remoteIdentity: identity.NumericIdentity(2), remoteNodeID: 10, authType: policy.AuthTypeSpire}:      {expiration: time.Now().Add(5 * time.Minute)},  // deleted remote node
+			{localIdentity: identity.NumericIdentity(2), remoteIdentity: identity.NumericIdentity(4), remoteNodeID: 0, authType: policy.AuthTypeSpire}:       {expiration: time.Now().Add(5 * time.Minute)},  // deleted remote id
+			{localIdentity: identity.NumericIdentity(10), remoteIdentity: identity.NumericIdentity(11), remoteNodeID: 0, authType: policy.AuthTypeSpire}:     {expiration: time.Now().Add(5 * time.Minute)},  // deleted local id
+			{localIdentity: identity.NumericIdentity(5), remoteIdentity: identity.NumericIdentity(6), remoteNodeID: 12, authType: policy.AuthTypeSpire}:      {expiration: time.Now().Add(5 * time.Minute)},  // no policy present which enforces auth between identities
+			{localIdentity: identity.NumericIdentity(2), remoteIdentity: identity.NumericIdentity(3), remoteNodeID: 12, authType: policy.AuthTypeAlwaysFail}: {expiration: time.Now().Add(5 * time.Minute)},  // no policy present which enforces specific auth type
+			{localIdentity: identity.NumericIdentity(2), remoteIdentity: identity.NumericIdentity(3), remoteNodeID: 11, authType: policy.AuthTypeSpire}:      {expiration: time.Now().Add(-5 * time.Minute)}, // expired
 		},
 	}
 
@@ -77,23 +77,49 @@ func Test_authMapGarbageCollector_gc(t *testing.T) {
 		newFakeIPCache(map[uint16]string{
 			10: "172.18.0.3",
 		}),
+		&fakePolicyRepository{
+			needsAuth: map[identity.NumericIdentity]map[identity.NumericIdentity]policy.AuthTypes{
+				identity.NumericIdentity(1): {
+					identity.NumericIdentity(2): map[policy.AuthType]struct{}{
+						policy.AuthTypeSpire: {},
+					},
+				},
+				identity.NumericIdentity(2): {
+					identity.NumericIdentity(3): map[policy.AuthType]struct{}{
+						policy.AuthTypeSpire: {},
+					},
+					identity.NumericIdentity(4): map[policy.AuthType]struct{}{
+						policy.AuthTypeSpire: {},
+					},
+				},
+				identity.NumericIdentity(10): {
+					identity.NumericIdentity(11): map[policy.AuthType]struct{}{
+						policy.AuthTypeSpire: {},
+					},
+				},
+			},
+		},
 	)
 
-	assert.Len(t, authMap.entries, 4)
+	assert.Len(t, authMap.entries, 6)
 
-	err := am.handleCiliumNodeEvent(context.Background(), ciliumNodeEvent(resource.Delete, "172.18.0.3"))
+	err := am.cleanupExpiredEntries(context.Background())
+	assert.NoError(t, err)
+	assert.Len(t, authMap.entries, 5)
+
+	err = am.cleanupEntriesWithoutAuthPolicy(context.Background())
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 3)
 
-	err = am.handleCiliumIdentityEvent(context.Background(), ciliumIdentityEvent(resource.Delete, "4"))
+	err = am.handleCiliumNodeEvent(context.Background(), ciliumNodeEvent(resource.Delete, "172.18.0.3"))
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 2)
 
-	err = am.handleCiliumIdentityEvent(context.Background(), ciliumIdentityEvent(resource.Delete, "10"))
+	err = am.handleCiliumIdentityEvent(context.Background(), ciliumIdentityEvent(resource.Delete, "4"))
 	assert.NoError(t, err)
 	assert.Len(t, authMap.entries, 1)
 
-	err = am.CleanupExpiredEntries(context.Background())
+	err = am.handleCiliumIdentityEvent(context.Background(), ciliumIdentityEvent(resource.Delete, "10"))
 	assert.NoError(t, err)
 	assert.Empty(t, authMap.entries)
 }
@@ -103,7 +129,7 @@ func Test_authMapGarbageCollector_HandleNodeEventError(t *testing.T) {
 		entries:    map[authKey]authInfo{},
 		failDelete: true,
 	}
-	am := newAuthMapGC(logrus.New(), authMap, newFakeIPCache(map[uint16]string{}))
+	am := newAuthMapGC(logrus.New(), authMap, newFakeIPCache(map[uint16]string{}), nil)
 
 	event := ciliumNodeEvent(resource.Delete, "172.18.0.3")
 	var eventErr error
@@ -120,7 +146,7 @@ func Test_authMapGarbageCollector_HandleIdentityEventError(t *testing.T) {
 		entries:    map[authKey]authInfo{},
 		failDelete: true,
 	}
-	am := newAuthMapGC(logrus.New(), authMap, newFakeIPCache(map[uint16]string{}))
+	am := newAuthMapGC(logrus.New(), authMap, newFakeIPCache(map[uint16]string{}), nil)
 
 	event := ciliumIdentityEvent(resource.Delete, "4")
 	var eventErr error
@@ -166,4 +192,20 @@ func ciliumIdentityEvent(eventType resource.EventKind, id string) resource.Event
 		},
 		Key: resource.Key{Namespace: "test-ns", Name: id},
 	}
+}
+
+// Fake policyRepository
+
+type fakePolicyRepository struct {
+	needsAuth map[identity.NumericIdentity]map[identity.NumericIdentity]policy.AuthTypes
+}
+
+func (r *fakePolicyRepository) GetAuthTypes(localID, remoteID identity.NumericIdentity) policy.AuthTypes {
+	if remotes, localPresent := r.needsAuth[localID]; localPresent {
+		if authTypes, remotePresent := remotes[remoteID]; remotePresent {
+			return authTypes
+		}
+	}
+
+	return nil
 }

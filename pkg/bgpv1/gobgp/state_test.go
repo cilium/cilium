@@ -7,114 +7,120 @@ import (
 	"context"
 	"net/netip"
 	"testing"
-	"time"
-
-	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-test")
 
 	neighbor64125 = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:          64125,
-		PeerAddress:      "192.168.0.1/32",
-		PeerPort:         pointer.Int(types.DefaultPeerPort),
-		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
-		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
-		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+		PeerASN:                 64125,
+		PeerAddress:             "192.168.0.1/32",
+		PeerPort:                pointer.Int32(v2alpha1api.DefaultBGPPeerPort),
+		EBGPMultihopTTL:         pointer.Int32(1),
+		ConnectRetryTimeSeconds: pointer.Int32(99),
+		HoldTimeSeconds:         pointer.Int32(9),
+		KeepAliveTimeSeconds:    pointer.Int32(3),
 	}
 
 	// changed ConnectRetryTime
 	neighbor64125Update = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:          64125,
-		PeerAddress:      "192.168.0.1/32",
-		PeerPort:         pointer.Int(types.DefaultPeerPort),
-		ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
-		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
-		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+		PeerASN:                 64125,
+		PeerAddress:             "192.168.0.1/32",
+		PeerPort:                pointer.Int32(v2alpha1api.DefaultBGPPeerPort),
+		EBGPMultihopTTL:         pointer.Int32(1),
+		ConnectRetryTimeSeconds: pointer.Int32(101),
+		HoldTimeSeconds:         pointer.Int32(9),
+		KeepAliveTimeSeconds:    pointer.Int32(3),
 	}
 
 	// enabled graceful restart
 	neighbor64125UpdateGR = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:          64125,
-		PeerAddress:      "192.168.0.1/32",
-		PeerPort:         pointer.Int(types.DefaultPeerPort),
-		ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
-		HoldTime:         metav1.Duration{Duration: 30 * time.Second},
-		KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
-		GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
-			Enabled:     true,
-			RestartTime: metav1.Duration{Duration: 120 * time.Second},
+		PeerASN:                 64125,
+		PeerAddress:             "192.168.0.1/32",
+		PeerPort:                pointer.Int32(v2alpha1api.DefaultBGPPeerPort),
+		EBGPMultihopTTL:         pointer.Int32(1),
+		ConnectRetryTimeSeconds: pointer.Int32(99),
+		HoldTimeSeconds:         pointer.Int32(9),
+		KeepAliveTimeSeconds:    pointer.Int32(3),
+		GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
+			Enabled:            true,
+			RestartTimeSeconds: pointer.Int32(120),
 		},
 	}
 
 	// enabled graceful restart - updated restart time
 	neighbor64125UpdateGRTimer = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:          64125,
-		PeerAddress:      "192.168.0.1/32",
-		PeerPort:         pointer.Int(types.DefaultPeerPort),
-		ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
-		HoldTime:         metav1.Duration{Duration: 30 * time.Second},
-		KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
-		GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
-			Enabled:     true,
-			RestartTime: metav1.Duration{Duration: 20 * time.Second},
+		PeerASN:                 64125,
+		PeerAddress:             "192.168.0.1/32",
+		PeerPort:                pointer.Int32(v2alpha1api.DefaultBGPPeerPort),
+		EBGPMultihopTTL:         pointer.Int32(1),
+		ConnectRetryTimeSeconds: pointer.Int32(99),
+		HoldTimeSeconds:         pointer.Int32(9),
+		KeepAliveTimeSeconds:    pointer.Int32(3),
+		GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
+			Enabled:            true,
+			RestartTimeSeconds: pointer.Int32(20),
 		},
 	}
 
 	neighbor64126 = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:          64126,
-		PeerAddress:      "192.168.66.1/32",
-		PeerPort:         pointer.Int(types.DefaultPeerPort),
-		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
-		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
-		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+		PeerASN:                 64126,
+		PeerAddress:             "192.168.66.1/32",
+		PeerPort:                pointer.Int32(v2alpha1api.DefaultBGPPeerPort),
+		EBGPMultihopTTL:         pointer.Int32(1),
+		ConnectRetryTimeSeconds: pointer.Int32(99),
+		HoldTimeSeconds:         pointer.Int32(9),
+		KeepAliveTimeSeconds:    pointer.Int32(3),
 	}
 
 	// changed HoldTime & KeepAliveTime
 	neighbor64126Update = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:          64126,
-		PeerAddress:      "192.168.66.1/32",
-		PeerPort:         pointer.Int(types.DefaultPeerPort),
-		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
-		HoldTime:         metav1.Duration{Duration: 12 * time.Second},
-		KeepAliveTime:    metav1.Duration{Duration: 4 * time.Second},
+		PeerASN:                 64126,
+		PeerAddress:             "192.168.66.1/32",
+		PeerPort:                pointer.Int32(v2alpha1api.DefaultBGPPeerPort),
+		EBGPMultihopTTL:         pointer.Int32(1),
+		ConnectRetryTimeSeconds: pointer.Int32(99),
+		HoldTimeSeconds:         pointer.Int32(12),
+		KeepAliveTimeSeconds:    pointer.Int32(4),
 	}
 
 	neighbor64127 = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:          64127,
-		PeerAddress:      "192.168.88.1/32",
-		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
-		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
-		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+		PeerASN:                 64127,
+		PeerAddress:             "192.168.88.1/32",
+		EBGPMultihopTTL:         pointer.Int32(1),
+		ConnectRetryTimeSeconds: pointer.Int32(99),
+		HoldTimeSeconds:         pointer.Int32(9),
+		KeepAliveTimeSeconds:    pointer.Int32(3),
 	}
 
 	// changed EBGPMultihopTTL
 	neighbor64127Update = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:          64127,
-		PeerAddress:      "192.168.88.1/32",
-		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
-		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
-		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
-		EBGPMultihopTTL:  10,
+		PeerASN:                 64127,
+		PeerAddress:             "192.168.88.1/32",
+		EBGPMultihopTTL:         pointer.Int32(10),
+		ConnectRetryTimeSeconds: pointer.Int32(99),
+		HoldTimeSeconds:         pointer.Int32(9),
+		KeepAliveTimeSeconds:    pointer.Int32(3),
 	}
 
 	neighbor64128 = &v2alpha1api.CiliumBGPNeighbor{
-		PeerASN:          64128,
-		PeerAddress:      "192.168.77.1/32",
-		PeerPort:         pointer.Int(types.DefaultPeerPort),
-		ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
-		HoldTime:         metav1.Duration{Duration: 9 * time.Second},
-		KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+		PeerASN:                 64128,
+		PeerAddress:             "192.168.77.1/32",
+		PeerPort:                pointer.Int32(v2alpha1api.DefaultBGPPeerPort),
+		EBGPMultihopTTL:         pointer.Int32(1),
+		ConnectRetryTimeSeconds: pointer.Int32(99),
+		HoldTimeSeconds:         pointer.Int32(9),
+		KeepAliveTimeSeconds:    pointer.Int32(3),
 	}
 )
 
@@ -144,12 +150,12 @@ func TestGetPeerState(t *testing.T) {
 			name: "test add neighbor with port",
 			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
 				{
-					PeerASN:          64125,
-					PeerAddress:      "192.168.0.1/32",
-					PeerPort:         pointer.Int(175),
-					ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second},
-					HoldTime:         metav1.Duration{Duration: 9 * time.Second},
-					KeepAliveTime:    metav1.Duration{Duration: 3 * time.Second},
+					PeerASN:                 64125,
+					PeerAddress:             "192.168.0.1/32",
+					PeerPort:                pointer.Int32(175),
+					ConnectRetryTimeSeconds: pointer.Int32(99),
+					HoldTimeSeconds:         pointer.Int32(9),
+					KeepAliveTimeSeconds:    pointer.Int32(3),
 				},
 			},
 			localASN: 64124,
@@ -205,11 +211,11 @@ func TestGetPeerState(t *testing.T) {
 			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
 				// invalid PeerAddress
 				{
-					PeerASN:          64125,
-					PeerAddress:      "192.168.0.XYZ",
-					ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
-					HoldTime:         metav1.Duration{Duration: 30 * time.Second},
-					KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
+					PeerASN:                 64125,
+					PeerAddress:             "192.168.0.XYZ",
+					ConnectRetryTimeSeconds: pointer.Int32(101),
+					HoldTimeSeconds:         pointer.Int32(30),
+					KeepAliveTimeSeconds:    pointer.Int32(10),
 				},
 			},
 			localASN: 64124,
@@ -219,21 +225,21 @@ func TestGetPeerState(t *testing.T) {
 			name: "test invalid neighbor update",
 			neighbors: []*v2alpha1api.CiliumBGPNeighbor{
 				{
-					PeerASN:          64125,
-					PeerAddress:      "192.168.0.1/32",
-					ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
-					HoldTime:         metav1.Duration{Duration: 30 * time.Second},
-					KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
+					PeerASN:                 64125,
+					PeerAddress:             "192.168.0.1/32",
+					ConnectRetryTimeSeconds: pointer.Int32(101),
+					HoldTimeSeconds:         pointer.Int32(30),
+					KeepAliveTimeSeconds:    pointer.Int32(10),
 				},
 			},
 			neighborsAfterUpdate: []*v2alpha1api.CiliumBGPNeighbor{
 				// different ASN
 				{
-					PeerASN:          64999,
-					PeerAddress:      "192.168.0.1/32",
-					ConnectRetryTime: metav1.Duration{Duration: 101 * time.Second},
-					HoldTime:         metav1.Duration{Duration: 30 * time.Second},
-					KeepAliveTime:    metav1.Duration{Duration: 10 * time.Second},
+					PeerASN:                 64999,
+					PeerAddress:             "192.168.0.1/32",
+					ConnectRetryTimeSeconds: pointer.Int32(101),
+					HoldTimeSeconds:         pointer.Int32(30),
+					KeepAliveTimeSeconds:    pointer.Int32(10),
 				},
 			},
 			localASN:     64124,
@@ -250,17 +256,29 @@ func TestGetPeerState(t *testing.T) {
 			},
 		}
 		t.Run(tt.name, func(t *testing.T) {
-			testSC, err := NewGoBGPServerWithConfig(context.Background(), log, srvParams)
+			testSC, err := NewGoBGPServerWithConfig(context.Background(), log, srvParams, &agent.ControlPlaneState{})
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
 				testSC.Stop()
 			})
+			// create current vRouter config and add neighbors
+			router := &v2alpha1api.CiliumBGPVirtualRouter{
+				LocalASN:  int64(tt.localASN),
+				Neighbors: []v2alpha1api.CiliumBGPNeighbor{},
+			}
 
 			// add neighbours
 			for _, n := range tt.neighbors {
+				n.SetDefaults()
+
+				router.Neighbors = append(router.Neighbors, v2alpha1api.CiliumBGPNeighbor{
+					PeerAddress: n.PeerAddress,
+					PeerASN:     n.PeerASN,
+				})
 				err = testSC.AddNeighbor(context.Background(), types.NeighborRequest{
 					Neighbor: n,
+					VR:       router,
 				})
 				if tt.errStr != "" {
 					require.EqualError(t, err, tt.errStr)
@@ -281,8 +299,10 @@ func TestGetPeerState(t *testing.T) {
 
 			// update neighbours
 			for _, n := range tt.neighborsAfterUpdate {
+				n.SetDefaults()
 				err = testSC.UpdateNeighbor(context.Background(), types.NeighborRequest{
 					Neighbor: n,
+					VR:       router,
 				})
 				if tt.updateErrStr != "" {
 					require.EqualError(t, err, tt.updateErrStr)
@@ -309,15 +329,24 @@ func validatePeers(t *testing.T, localASN uint32, neighbors []*v2alpha1api.Ciliu
 
 		// validate basic data is returned correctly
 		require.Equal(t, int64(localASN), p.LocalAsn)
-		require.EqualValues(t, n.ConnectRetryTime.Seconds(), p.ConnectRetryTimeSeconds)
-		require.EqualValues(t, n.HoldTime.Seconds(), p.ConfiguredHoldTimeSeconds)
-		require.EqualValues(t, n.KeepAliveTime.Seconds(), p.ConfiguredKeepAliveTimeSeconds)
 
-		require.EqualValues(t, n.GracefulRestart.Enabled, p.GracefulRestart.Enabled)
-		require.EqualValues(t, n.GracefulRestart.RestartTime.Seconds(), p.GracefulRestart.RestartTimeSeconds)
+		expConnectRetry := pointer.Int32Deref(n.ConnectRetryTimeSeconds, v2alpha1api.DefaultBGPConnectRetryTimeSeconds)
+		expHoldTime := pointer.Int32Deref(n.HoldTimeSeconds, v2alpha1api.DefaultBGPHoldTimeSeconds)
+		expKeepAlive := pointer.Int32Deref(n.KeepAliveTimeSeconds, pointer.Int32Deref(n.KeepAliveTimeSeconds, v2alpha1api.DefaultBGPKeepAliveTimeSeconds))
+		require.EqualValues(t, expConnectRetry, p.ConnectRetryTimeSeconds)
+		require.EqualValues(t, expHoldTime, p.ConfiguredHoldTimeSeconds)
+		require.EqualValues(t, expKeepAlive, p.ConfiguredKeepAliveTimeSeconds)
 
-		if n.EBGPMultihopTTL > 0 {
-			require.EqualValues(t, n.EBGPMultihopTTL, p.EbgpMultihopTTL)
+		if n.GracefulRestart != nil {
+			require.EqualValues(t, n.GracefulRestart.Enabled, p.GracefulRestart.Enabled)
+			expGRRestartTime := pointer.Int32Deref(n.GracefulRestart.RestartTimeSeconds, v2alpha1api.DefaultBGPGRRestartTimeSeconds)
+			require.EqualValues(t, expGRRestartTime, p.GracefulRestart.RestartTimeSeconds)
+		} else {
+			require.False(t, p.GracefulRestart.Enabled)
+		}
+
+		if n.EBGPMultihopTTL != nil && *n.EBGPMultihopTTL > 0 {
+			require.EqualValues(t, *n.EBGPMultihopTTL, p.EbgpMultihopTTL)
 		}
 
 		// since there is no real neighbor, bgp session state will be either idle or active.

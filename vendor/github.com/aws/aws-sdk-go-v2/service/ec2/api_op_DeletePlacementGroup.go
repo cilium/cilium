@@ -12,9 +12,8 @@ import (
 
 // Deletes the specified placement group. You must terminate all instances in the
 // placement group before you can delete the placement group. For more information,
-// see Placement groups
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html) in
-// the Amazon EC2 User Guide.
+// see Placement groups (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html)
+// in the Amazon EC2 User Guide.
 func (c *Client) DeletePlacementGroup(ctx context.Context, params *DeletePlacementGroupInput, optFns ...func(*Options)) (*DeletePlacementGroupOutput, error) {
 	if params == nil {
 		params = &DeletePlacementGroupInput{}
@@ -39,8 +38,8 @@ type DeletePlacementGroupInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -102,6 +101,9 @@ func (c *Client) addOperationDeletePlacementGroupMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeletePlacementGroup(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -10,8 +10,8 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Modifies a connection notification for VPC endpoint or VPC endpoint service. You
-// can change the SNS topic for the notification, or the events for which to be
+// Modifies a connection notification for VPC endpoint or VPC endpoint service.
+// You can change the SNS topic for the notification, or the events for which to be
 // notified.
 func (c *Client) ModifyVpcEndpointConnectionNotification(ctx context.Context, params *ModifyVpcEndpointConnectionNotificationInput, optFns ...func(*Options)) (*ModifyVpcEndpointConnectionNotificationOutput, error) {
 	if params == nil {
@@ -35,8 +35,8 @@ type ModifyVpcEndpointConnectionNotificationInput struct {
 	// This member is required.
 	ConnectionNotificationId *string
 
-	// One or more events for the endpoint. Valid values are Accept, Connect, Delete,
-	// and Reject.
+	// The events for the endpoint. Valid values are Accept , Connect , Delete , and
+	// Reject .
 	ConnectionEvents []string
 
 	// The ARN for the SNS topic for the notification.
@@ -44,8 +44,8 @@ type ModifyVpcEndpointConnectionNotificationInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -111,6 +111,9 @@ func (c *Client) addOperationModifyVpcEndpointConnectionNotificationMiddlewares(
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyVpcEndpointConnectionNotification(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

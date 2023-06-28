@@ -33,16 +33,11 @@ func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
 		return 0
 	}
 
-	// Don't allocate a node ID for the local node.
-	localNode := node.GetIPv4()
-	if localNode.Equal(nodeIP) {
-		return 0
-	}
-
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
-	if nodeID, exists := n.nodeIDsByIPs[nodeIP.String()]; exists {
+	if nodeID, exists := n.getNodeIDForIP(nodeIP); exists {
+		// Don't allocate a node ID if one already exists.
 		return nodeID
 	}
 
@@ -66,8 +61,8 @@ func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
 }
 
 func (n *linuxNodeHandler) GetNodeIP(nodeID uint16) string {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
 
 	// Check for local node ID explicitly as local node IPs are not in our maps!
 	if nodeID == 0 {
@@ -77,8 +72,29 @@ func (n *linuxNodeHandler) GetNodeIP(nodeID uint16) string {
 	return n.nodeIPsByIDs[nodeID]
 }
 
+func (n *linuxNodeHandler) GetNodeID(nodeIP net.IP) (uint16, bool) {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
+	return n.getNodeIDForIP(nodeIP)
+}
+
+func (n *linuxNodeHandler) getNodeIDForIP(nodeIP net.IP) (uint16, bool) {
+	localNodeV4 := node.GetIPv4()
+	localNodeV6 := node.GetIPv6()
+	if localNodeV4.Equal(nodeIP) || localNodeV6.Equal(nodeIP) {
+		return 0, true
+	}
+
+	if nodeID, exists := n.nodeIDsByIPs[nodeIP.String()]; exists {
+		return nodeID, true
+	}
+
+	return 0, false
+}
+
 // getNodeIDForNode gets the node ID for the given node if one was allocated
-// for any of the node IP addresses. If none if found, 0 is returned.
+// for any of the node IP addresses. If none is found, 0 is returned.
 func (n *linuxNodeHandler) getNodeIDForNode(node *nodeTypes.Node) uint16 {
 	nodeID := uint16(0)
 	for _, addr := range node.IPAddresses {
@@ -126,7 +142,8 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 
 // deallocateIDForNode deallocates the node ID for the given node, if it was allocated.
 func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
-	nodeID := n.nodeIDsByIPs[oldNode.IPAddresses[0].IP.String()]
+	nodeID := n.getNodeIDForNode(oldNode)
+
 	for _, addr := range oldNode.IPAddresses {
 		id := n.nodeIDsByIPs[addr.IP.String()]
 		if nodeID != id {

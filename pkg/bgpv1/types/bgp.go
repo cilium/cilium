@@ -6,21 +6,9 @@ package types
 import (
 	"context"
 	"net/netip"
-	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-)
-
-const (
-	// DefaultBGPConnectRetryTime defines the default initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8).
-	DefaultBGPConnectRetryTime = 120 * time.Second
-	// DefaultBGPHoldTime defines the default initial value for the BGP HoldTimer (RFC 4271, Section 4.2).
-	DefaultBGPHoldTime = 90 * time.Second
-	// DefaultGRRestartTime defines default Restart Time for graceful restart (RFC 4724, section 4.2)
-	DefaultGRRestartTime = 120 * time.Second
-	// DefaultPeerPort is the TCP port number of a CiliumBGPNeighbor when PeerPort is unspecified.
-	DefaultPeerPort = 179
 )
 
 // BGPGlobal contains high level BGP configuration for given instance.
@@ -52,6 +40,7 @@ type Advertisement struct {
 // NeighborRequest contains neighbor parameters used when enabling or disabling peer
 type NeighborRequest struct {
 	Neighbor *v2alpha1api.CiliumBGPNeighbor
+	VR       *v2alpha1api.CiliumBGPVirtualRouter
 }
 
 // PathRequest contains parameters for advertising or withdrawing routes

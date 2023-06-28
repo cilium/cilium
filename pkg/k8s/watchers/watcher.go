@@ -96,9 +96,9 @@ func init() {
 	k8s_metrics.Register(k8s_metrics.RegisterOpts{
 		ClientCertExpiry:      nil,
 		ClientCertRotationAge: nil,
-		RequestLatency:        &k8sMetrics{},
-		RateLimiterLatency:    nil,
-		RequestResult:         &k8sMetrics{},
+		RequestLatency:        &requestLatencyAdapter{},
+		RateLimiterLatency:    &rateLimiterLatencyAdapter{},
+		RequestResult:         &resultAdapter{},
 	})
 }
 
@@ -320,15 +320,24 @@ func NewK8sWatcher(
 	}
 }
 
-// k8sMetrics implements the LatencyMetric and ResultMetric interface from
-// k8s client-go package
-type k8sMetrics struct{}
+// requestLatencyAdapter implements the LatencyMetric interface from k8s client-go package
+type requestLatencyAdapter struct{}
 
-func (*k8sMetrics) Observe(_ context.Context, verb string, u url.URL, latency time.Duration) {
+func (*requestLatencyAdapter) Observe(_ context.Context, verb string, u url.URL, latency time.Duration) {
 	metrics.KubernetesAPIInteractions.WithLabelValues(u.Path, verb).Observe(latency.Seconds())
 }
 
-func (*k8sMetrics) Increment(_ context.Context, code string, method string, host string) {
+// rateLimiterLatencyAdapter implements the LatencyMetric interface from k8s client-go package
+type rateLimiterLatencyAdapter struct{}
+
+func (c *rateLimiterLatencyAdapter) Observe(_ context.Context, verb string, u url.URL, latency time.Duration) {
+	metrics.KubernetesAPIRateLimiterLatency.WithLabelValues(u.Path, verb).Observe(latency.Seconds())
+}
+
+// resultAdapter implements the ResultMetric interface from k8s client-go package
+type resultAdapter struct{}
+
+func (r *resultAdapter) Increment(_ context.Context, code, method, host string) {
 	metrics.KubernetesAPICallsTotal.WithLabelValues(host, method, code).Inc()
 	// The 'code' is set to '<error>' in case an error is returned from k8s
 	// more info:
@@ -608,7 +617,14 @@ func (k *K8sWatcher) k8sServiceHandler() {
 				scopedLog.WithError(err).Error("Unable to add/update service to implement k8s event")
 			}
 
-			if !svc.IsExternal() {
+			// Normally, only services without a label selector (i.e. "bottomless" or empty services)
+			// are allowed as targets of a toServices rule.
+			// This is to minimize the chances of a pod IP being selected by this rule, which might
+			// cause conflicting entries in the ipcache.
+			//
+			// This requirement, however, is dropped for HighScale IPCache mode, because pod IPs are
+			// normally excluded from the ipcache regardless.
+			if !option.Config.EnableHighScaleIPcache && !svc.IsExternal() {
 				return
 			}
 
@@ -638,7 +654,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 				scopedLog.WithError(err).Error("Unable to delete service to implement k8s event")
 			}
 
-			if !svc.IsExternal() {
+			if !option.Config.EnableHighScaleIPcache && !svc.IsExternal() {
 				return
 			}
 

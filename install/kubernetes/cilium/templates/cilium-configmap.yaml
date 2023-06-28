@@ -11,7 +11,7 @@
 {{- $defaultBpfCtAnyMax := 262144 -}}
 {{- $enableIdentityMark := "true" -}}
 {{- $fragmentTracking := "true" -}}
-{{- $defaultKubeProxyReplacement := "disabled" -}}
+{{- $defaultKubeProxyReplacement := "false" -}}
 {{- $azureUsePrimaryAddress := "true" -}}
 
 {{- /* Default values when 1.8 was initially deployed */ -}}
@@ -54,8 +54,8 @@
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
 {{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement $defaultKubeProxyReplacement) -}}
-{{- if and (ne $kubeProxyReplacement "disabled") (ne $kubeProxyReplacement "partial") (ne $kubeProxyReplacement "strict") }}
-  {{ fail "kubeproxyReplacement must be explicitly set to a valid value (disabled, partial, or strict) to continue." }}
+{{- if and (ne (toString $kubeProxyReplacement) "disabled") (ne (toString $kubeProxyReplacement) "partial") (ne (toString $kubeProxyReplacement) "strict") (ne (toString $kubeProxyReplacement) "true") (ne (toString $kubeProxyReplacement) "false") }}
+  {{ fail "kubeProxyReplacement must be explicitly set to a valid value (true, false, disabled (deprecated), partial (deprecated), or strict (deprecated)) to continue." }}
 {{- end }}
 {{- $azureUsePrimaryAddress = (coalesce .Values.azure.usePrimaryAddress $azureUsePrimaryAddress) -}}
 {{- $socketLB := (coalesce .Values.socketLB .Values.hostServices) -}}
@@ -214,8 +214,11 @@ data:
   skip-crd-creation: "true"
 {{- end }}
 
-{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled (and (hasKey .Values "loadBalancer") (eq .Values.loadBalancer.l7.backend "envoy")) }}
+{{- if or .Values.envoyConfig.enabled .Values.ingressController.enabled .Values.gatewayAPI.enabled (and (hasKey .Values "loadBalancer") (eq .Values.loadBalancer.l7.backend "envoy")) }}
   enable-envoy-config: "true"
+  {{- if .Values.envoyConfig.enabled }}
+  envoy-secrets-namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
+  {{- end }}
 {{- end }}
 
 {{- if .Values.ingressController.enabled }}
@@ -523,6 +526,7 @@ data:
 {{- end }}
 
   enable-ipv4-masquerade: {{ .Values.enableIPv4Masquerade | quote }}
+  enable-ipv4-big-tcp: {{ .Values.enableIPv4BIGTCP | quote }}
   enable-ipv6-big-tcp: {{ .Values.enableIPv6BIGTCP | quote }}
   enable-ipv6-masquerade: {{ .Values.enableIPv6Masquerade | quote }}
 
@@ -635,7 +639,7 @@ data:
 
   kube-proxy-replacement: {{ $kubeProxyReplacement | quote }}
 
-{{- if ne $kubeProxyReplacement "disabled" }}
+{{- if ne (toString $kubeProxyReplacement) "disabled" }}
   kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
 {{- end }}
 
@@ -649,17 +653,17 @@ data:
 {{- end }}
 
 {{- if hasKey .Values "hostPort" }}
-{{- if eq $kubeProxyReplacement "partial" }}
+{{- if or (eq (toString $kubeProxyReplacement) "partial") (eq (toString $kubeProxyReplacement) "false") }}
   enable-host-port: {{ .Values.hostPort.enabled | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "externalIPs" }}
-{{- if eq $kubeProxyReplacement "partial" }}
+{{- if or (eq (toString $kubeProxyReplacement) "partial") (eq (toString $kubeProxyReplacement) "false") }}
   enable-external-ips: {{ .Values.externalIPs.enabled | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "nodePort" }}
-{{- if eq $kubeProxyReplacement "partial" }}
+{{- if or (eq (toString $kubeProxyReplacement) "partial") (eq (toString $kubeProxyReplacement) "false") }}
   enable-node-port: {{ .Values.nodePort.enabled | quote }}
 {{- end }}
 {{- if hasKey .Values.nodePort "range" }}
@@ -826,6 +830,12 @@ data:
 {{- end }}
   enable-hubble-open-metrics: {{ .Values.hubble.metrics.enableOpenMetrics | quote }}
 {{- end }}
+{{- if .Values.hubble.redact }}
+  # A space separated list of redact options for Hubble.
+  hubble-redact: {{- range .Values.hubble.redact }}
+    {{.}}
+{{- end }}
+{{- end }}
 {{- if hasKey .Values.hubble "listenAddress" }}
   # An additional address for Hubble server to listen to (e.g. ":4244").
   hubble-listen-address: {{ .Values.hubble.listenAddress | quote }}
@@ -970,6 +980,11 @@ data:
   {{- end}}
 {{- end}}
 
+{{- if .Values.l2podAnnouncements.enabled }}
+  enable-l2-pod-announcements: {{ .Values.l2podAnnouncements.enabled | quote }}
+  l2-pod-announcements-interface: {{ .Values.l2podAnnouncements.interface | quote }}
+{{- end }}
+
 {{- if and .Values.bgp.enabled (and (not .Values.bgp.announce.loadbalancerIP) (not .Values.bgp.announce.podCIDR)) }}
   {{ fail "BGP was enabled, but no announcements were enabled. Please enable one or more announcements." }}
 {{- end }}
@@ -1090,6 +1105,7 @@ data:
   agent-not-ready-taint-key: {{ .Values.agentNotReadyTaintKey | quote }}
 {{- end }}
 
+  mesh-auth-enabled: {{ .Values.authentication.enabled | quote }}
   mesh-auth-queue-size: {{ .Values.authentication.queueSize | quote }}
   mesh-auth-rotated-identities-queue-size: {{ .Values.authentication.rotatedIdentitiesQueueSize | quote }}
   mesh-auth-expired-gc-interval: {{ include "validateDuration" .Values.authentication.expiredGCInterval | quote }}

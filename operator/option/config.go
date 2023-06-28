@@ -32,6 +32,20 @@ const (
 	// CESSlicingModeDefault is default method for grouping CEP in a CES.
 	CESSlicingModeDefault = "cesSliceModeIdentity"
 
+	// CESWriteQPSLimitDefault is the default rate limit for the CES work queue.
+	CESWriteQPSLimitDefault = 10
+
+	// CESWriteQPSLimitMax is the maximum rate limit for the CES work queue.
+	// CES work queue QPS limit cannot exceed this value, regardless of other config.
+	CESWriteQPSLimitMax = 50
+
+	// CESWriteQPSBurstDefault is the default burst rate for the CES work queue.
+	CESWriteQPSBurstDefault = 20
+
+	// CESWriteQPSBurstMax is the maximum burst rate for the CES work queue.
+	// CES work queue QPS burst cannot exceed this value, regardless of other config.
+	CESWriteQPSBurstMax = 100
+
 	// CNPStatusCleanupQPSDefault is the default rate for the CNP NodeStatus updates GC.
 	CNPStatusCleanupQPSDefault = 10
 
@@ -233,6 +247,16 @@ const (
 
 	// CESSlicingMode instructs how CEPs are grouped in a CES.
 	CESSlicingMode = "ces-slice-mode"
+
+	// CESWriteQPSLimit is the rate limit per second for the CES work queue to
+	// process  CES events that result in CES write (Create, Update, Delete)
+	// requests to the kube-apiserver.
+	CESWriteQPSLimit = "ces-write-qps-limit"
+
+	// CESWriteQPSBurst is the burst rate per second used with CESWriteQPSLimit
+	// for the CES work queue to process CES events that result in CES write
+	// (Create, Update, Delete) requests to the kube-apiserver.
+	CESWriteQPSBurst = "ces-write-qps-burst"
 
 	// LoadBalancerL7 enables loadbalancer capabilities for services via envoy proxy
 	LoadBalancerL7 = "loadbalancer-l7"
@@ -500,6 +524,16 @@ type OperatorConfig struct {
 	// CESSlicingMode instructs how CEPs are grouped in a CES.
 	CESSlicingMode string
 
+	// CESWriteQPSLimit is the rate limit per second for the CES work queue to
+	// process  CES events that result in CES write (Create, Update, Delete)
+	// requests to the kube-apiserver.
+	CESWriteQPSLimit float64
+
+	// CESWriteQPSBurst is the burst rate per second used with CESWriteQPSLimit
+	// for the CES work queue to process CES events that result in CES write
+	// (Create, Update, Delete) requests to the kube-apiserver.
+	CESWriteQPSBurst int
+
 	// LoadBalancerL7 enables loadbalancer capabilities for services.
 	LoadBalancerL7 string
 
@@ -668,6 +702,8 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	// CiliumEndpointSlice options
 	c.CESMaxCEPsInCES = vp.GetInt(CESMaxCEPsInCES)
 	c.CESSlicingMode = vp.GetString(CESSlicingMode)
+	c.CESWriteQPSLimit = vp.GetFloat64(CESWriteQPSLimit)
+	c.CESWriteQPSBurst = vp.GetInt(CESWriteQPSBurst)
 
 	// Option maps and slices
 

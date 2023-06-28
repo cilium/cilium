@@ -21,11 +21,13 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  kind_version: v0.17.0
+  # renovate: datasource=github-releases depName=kubernetes-sigs/kind
+  kind_version: v0.20.0
   kind_config: .github/kind-config.yaml
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.7
+  cilium_cli_version: v0.14.8
   cilium_cli_ci_version:
+  CILIUM_CLI_MODE: helm
 
 jobs:
   installation-and-connectivity:
@@ -36,7 +38,7 @@ jobs:
       job_name: "Installation and Connectivity Test"
     steps:
       - name: Checkout main branch to access local actions
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -65,30 +67,29 @@ jobs:
             --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
             --helm-set=clustermesh.apiserver.image.tag=${SHA} \
             --helm-set=clustermesh.apiserver.image.useDigest=false \
-            --helm-set hubble.relay.enabled=true \
+            --helm-set=hubble.relay.enabled=true \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
-            --helm-set cni.chainingMode=portmap \
-            --helm-set loadBalancer.l7.backend=envoy \
-            --helm-set tls.secretsBackend=k8s \
-            --helm-set envoy.enabled=true \
-            --helm-set bpf.monitorAggregation="none" \
-            --wait=false \
-            --version="
-          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure \
-            --external-target bing.com --external-cidr 8.0.0.0/8 --external-ip 8.8.8.8 --external-other-ip 8.8.4.4"
+            --helm-set=cni.chainingMode=portmap \
+            --helm-set-string=kubeProxyReplacement=strict \
+            --helm-set=loadBalancer.l7.backend=envoy \
+            --helm-set=tls.secretsBackend=k8s \
+            --helm-set=envoy.enabled=true \
+            --helm-set=bpf.monitorAggregation="none" \
+            --wait=false"
+          CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@9fcfef089e5b7dd3212f2eac21ba8cfae6f05cca # v0.14.7
+        uses: cilium/cilium-cli@5362f383942260c0aed4f3876e09c3452435577a # v0.14.8
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Checkout code
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -109,7 +110,7 @@ jobs:
 
       - name: Install Cilium
         run: |
-          CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for Cilium status to be ready
         run: |

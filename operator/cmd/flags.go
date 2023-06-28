@@ -288,16 +288,32 @@ func init() {
 	flags.String(option.BGPConfigPath, "/var/lib/cilium/bgp/config.yaml", "Path to file containing the BGP configuration")
 	option.BindEnv(Vp, option.BGPConfigPath)
 
-	flags.Bool(option.EnableCiliumEndpointSlice, false, "If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.")
+	enableCES := flags.Bool(option.EnableCiliumEndpointSlice, false, "If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.")
 	option.BindEnv(Vp, option.EnableCiliumEndpointSlice)
 
 	flags.Int(operatorOption.CESMaxCEPsInCES, operatorOption.CESMaxCEPsInCESDefault, "Maximum number of CiliumEndpoints allowed in a CES")
-	flags.MarkHidden(operatorOption.CESMaxCEPsInCES)
+	if *enableCES {
+		flags.MarkHidden(operatorOption.CESMaxCEPsInCES)
+	}
 	option.BindEnv(Vp, operatorOption.CESMaxCEPsInCES)
 
 	flags.String(operatorOption.CESSlicingMode, operatorOption.CESSlicingModeDefault, "Slicing mode define how ceps are grouped into a CES")
-	flags.MarkHidden(operatorOption.CESSlicingMode)
+	if *enableCES {
+		flags.MarkHidden(operatorOption.CESSlicingMode)
+	}
 	option.BindEnv(Vp, operatorOption.CESSlicingMode)
+
+	flags.Float64(operatorOption.CESWriteQPSLimit, operatorOption.CESWriteQPSLimitDefault, "CES work queue rate limit")
+	if *enableCES {
+		flags.MarkHidden(operatorOption.CESWriteQPSLimit)
+	}
+	option.BindEnv(Vp, operatorOption.CESWriteQPSLimit)
+
+	flags.Int(operatorOption.CESWriteQPSBurst, operatorOption.CESWriteQPSBurstDefault, "CES work queue burst rate")
+	if *enableCES {
+		flags.MarkHidden(operatorOption.CESWriteQPSBurst)
+	}
+	option.BindEnv(Vp, operatorOption.CESWriteQPSBurst)
 
 	flags.String(operatorOption.CiliumK8sNamespace, "", fmt.Sprintf("Name of the Kubernetes namespace in which Cilium is deployed in. Defaults to the same namespace defined in %s", option.K8sNamespaceName))
 	option.BindEnv(Vp, operatorOption.CiliumK8sNamespace)

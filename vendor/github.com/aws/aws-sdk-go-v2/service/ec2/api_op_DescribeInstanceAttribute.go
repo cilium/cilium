@@ -46,8 +46,8 @@ type DescribeInstanceAttributeInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -60,10 +60,10 @@ type DescribeInstanceAttributeOutput struct {
 	BlockDeviceMappings []types.InstanceBlockDeviceMapping
 
 	// To enable the instance for Amazon Web Services Stop Protection, set this
-	// parameter to true; otherwise, set it to false.
+	// parameter to true ; otherwise, set it to false .
 	DisableApiStop *types.AttributeBooleanValue
 
-	// If the value is true, you can't terminate the instance through the Amazon EC2
+	// If the value is true , you can't terminate the instance through the Amazon EC2
 	// console, CLI, or API; otherwise, you can.
 	DisableApiTermination *types.AttributeBooleanValue
 
@@ -74,7 +74,7 @@ type DescribeInstanceAttributeOutput struct {
 	EnaSupport *types.AttributeBooleanValue
 
 	// To enable the instance for Amazon Web Services Nitro Enclaves, set this
-	// parameter to true; otherwise, set it to false.
+	// parameter to true ; otherwise, set it to false .
 	EnclaveOptions *types.EnclaveOptions
 
 	// The security groups associated with the instance.
@@ -99,13 +99,13 @@ type DescribeInstanceAttributeOutput struct {
 	// The RAM disk ID.
 	RamdiskId *types.AttributeValue
 
-	// The device name of the root device volume (for example, /dev/sda1).
+	// The device name of the root device volume (for example, /dev/sda1 ).
 	RootDeviceName *types.AttributeValue
 
 	// Enable or disable source/destination checks, which ensure that the instance is
 	// either the source or the destination of any traffic that it receives. If the
-	// value is true, source/destination checks are enabled; otherwise, they are
-	// disabled. The default value is true. You must disable source/destination checks
+	// value is true , source/destination checks are enabled; otherwise, they are
+	// disabled. The default value is true . You must disable source/destination checks
 	// if the instance runs services such as network address translation, routing, or
 	// firewalls.
 	SourceDestCheck *types.AttributeBooleanValue
@@ -172,6 +172,9 @@ func (c *Client) addOperationDescribeInstanceAttributeMiddlewares(stack *middlew
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeInstanceAttribute(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

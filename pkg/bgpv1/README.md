@@ -1,5 +1,14 @@
 # Cilium BGP Control Plane
 
+BGP Control Plane provides a way for Cilium to advertise routes to connected routers by using the
+[Border Gateway Protocol][] (BGP). BGP Control Plane makes Pod networks and/or Services of type
+`LoadBalancer` reachable from outside the cluster for environments that support BGP. Because BGP
+Control Plane does not program the [datapath][], do not use it to establish reachability within
+the cluster.
+
+[Border Gateway Protocol]: https://datatracker.ietf.org/doc/html/rfc4271
+[datapath]: https://docs.cilium.io/en/latest/network/ebpf/
+
 ## Usage
 
 Currently a single flag in the `Cilium Agent` exists to turn on the `BGP Control Plane` feature set.
@@ -39,6 +48,13 @@ spec: # CiliumBGPPeeringPolicySpec
    neighbors: # []CiliumBGPNeighbor
     - peerAddress: 'fc00:f853:ccd:e793::50/128'
       peerASN: 64512
+      eBGPMultihopTTL: 10
+      connectRetryTimeSeconds: 120
+      holdTimeSeconds: 90
+      keepAliveTimeSeconds: 30
+      gracefulRestart:
+        enabled: true
+        restartTimeSeconds: 120
 ```
 
 #### Fields
@@ -55,6 +71,12 @@ nodeSelector: Nodes which are selected by this label selector will apply the giv
 		neighbors[*].peerAddress: The address of the peer neighbor
 		neighbors[*].peerPort: Optional TCP port number of the neighbor. 1-65535 are valid values and defaults to 179 when unspecified.
 		neighbors[*].peerASN: The ASN of the peer	
+		neighbors[*].eBGPMultihopTTL: Time To Live (TTL) value used in BGP packets. The value 1 implies that eBGP multi-hop feature is disabled.
+		neighbors[*].connectRetryTimeSeconds: Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8). Defaults to 120 seconds.
+		neighbors[*].holdTimeSeconds: Initial value for the BGP HoldTimer (RFC 4271, Section 4.2). Defaults to 90 seconds.
+		neighbors[*].keepAliveTimeSeconds: Initial value for the BGP KeepaliveTimer (RFC 4271, Section 8). Defaults to 30 seconds.
+		neighbors[*].gracefulRestart.enabled: The flag to enable graceful restart capability.
+		neighbors[*].gracefulRestart.restartTimeSeconds: The restart time advertised to the peer (RFC 4724 section 4.2).
 ```
 
 *Note*: *Setting unique configuration details of a particular instantiated virtual router on a particular Cilium node is explained in [Virtual Router Attributes](#Virtual Router Attributes)*

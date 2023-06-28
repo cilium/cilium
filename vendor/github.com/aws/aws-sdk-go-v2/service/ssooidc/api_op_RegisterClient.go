@@ -40,8 +40,8 @@ type RegisterClientInput struct {
 	// This member is required.
 	ClientType *string
 
-	// The list of scopes that are defined by the client. Upon authorization, this list
-	// is used to restrict permissions when granting an access token.
+	// The list of scopes that are defined by the client. Upon authorization, this
+	// list is used to restrict permissions when granting an access token.
 	Scopes []string
 
 	noSmithyDocumentSerde
@@ -59,8 +59,8 @@ type RegisterClientOutput struct {
 	// Indicates the time at which the clientId and clientSecret were issued.
 	ClientIdIssuedAt int64
 
-	// A secret string generated for the client. The client will use this string to get
-	// authenticated by the service in subsequent calls.
+	// A secret string generated for the client. The client will use this string to
+	// get authenticated by the service in subsequent calls.
 	ClientSecret *string
 
 	// Indicates the time at which the clientId and clientSecret will become invalid.
@@ -118,6 +118,9 @@ func (c *Client) addOperationRegisterClientMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opRegisterClient(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

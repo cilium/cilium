@@ -2,11 +2,14 @@
 {{- $cluster := index . 0 -}}
 {{- $domain := index . 1 -}}
 {{- $hasCustomCACert := index . 2 -}}
+{{- $override := index . 3 -}}
 {{- /* The parenthesis around $cluster.tls are required, since it can be null: https://stackoverflow.com/a/68807258 */}}
 {{- $prefix := ternary "common-" (printf "%s." $cluster.name) (or (empty ($cluster.tls).cert) (empty ($cluster.tls).key)) -}}
 
 endpoints:
-{{- if $cluster.ips }}
+{{- if $override }}
+- {{ $override }}
+{{- else if $cluster.ips }}
 - https://{{ $cluster.name }}.{{ $domain }}:{{ $cluster.port }}
 {{- else }}
 - https://{{ $cluster.address | required "missing clustermesh.apiserver.config.clusters.address" }}:{{ $cluster.port }}

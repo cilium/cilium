@@ -633,8 +633,8 @@ func (client *Client) DoActionWithSigner(request requests.AcsRequest, response r
 		span = tracer.StartSpan(
 			httpRequest.URL.RequestURI(),
 			opentracing.ChildOf(rootCtx),
-			opentracing.Tag{string(ext.Component), "aliyunApi"},
-			opentracing.Tag{"actionName", request.GetActionName()})
+			opentracing.Tag{Key: string(ext.Component), Value: "aliyunApi"},
+			opentracing.Tag{Key: "actionName", Value: request.GetActionName()})
 
 		defer span.Finish()
 		tracer.Inject(
@@ -771,11 +771,11 @@ func isServerError(httpResponse *http.Response) bool {
 	return httpResponse.StatusCode >= http.StatusInternalServerError
 }
 
-/**
-only block when any one of the following occurs:
-1. the asyncTaskQueue is full, increase the queue size to avoid this
-2. Shutdown() in progressing, the client is being closed
-**/
+/*
+ * only block when any one of the following occurs:
+ * 1. the asyncTaskQueue is full, increase the queue size to avoid this
+ * 2. Shutdown() in progressing, the client is being closed
+ */
 func (client *Client) AddAsyncTask(task func()) (err error) {
 	if client.asyncTaskQueue != nil {
 		if client.isOpenAsync {

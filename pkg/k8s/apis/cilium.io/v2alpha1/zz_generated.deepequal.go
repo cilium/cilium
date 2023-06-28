@@ -29,23 +29,44 @@ func (in *CiliumBGPNeighbor) DeepEqual(other *CiliumBGPNeighbor) bool {
 	if in.PeerASN != other.PeerASN {
 		return false
 	}
-	if in.EBGPMultihopTTL != other.EBGPMultihopTTL {
+	if (in.EBGPMultihopTTL == nil) != (other.EBGPMultihopTTL == nil) {
 		return false
-	}
-	if in.ConnectRetryTime != other.ConnectRetryTime {
-		return false
-	}
-
-	if in.HoldTime != other.HoldTime {
-		return false
+	} else if in.EBGPMultihopTTL != nil {
+		if *in.EBGPMultihopTTL != *other.EBGPMultihopTTL {
+			return false
+		}
 	}
 
-	if in.KeepAliveTime != other.KeepAliveTime {
+	if (in.ConnectRetryTimeSeconds == nil) != (other.ConnectRetryTimeSeconds == nil) {
 		return false
+	} else if in.ConnectRetryTimeSeconds != nil {
+		if *in.ConnectRetryTimeSeconds != *other.ConnectRetryTimeSeconds {
+			return false
+		}
 	}
 
-	if in.GracefulRestart != other.GracefulRestart {
+	if (in.HoldTimeSeconds == nil) != (other.HoldTimeSeconds == nil) {
 		return false
+	} else if in.HoldTimeSeconds != nil {
+		if *in.HoldTimeSeconds != *other.HoldTimeSeconds {
+			return false
+		}
+	}
+
+	if (in.KeepAliveTimeSeconds == nil) != (other.KeepAliveTimeSeconds == nil) {
+		return false
+	} else if in.KeepAliveTimeSeconds != nil {
+		if *in.KeepAliveTimeSeconds != *other.KeepAliveTimeSeconds {
+			return false
+		}
+	}
+
+	if (in.GracefulRestart == nil) != (other.GracefulRestart == nil) {
+		return false
+	} else if in.GracefulRestart != nil {
+		if !in.GracefulRestart.DeepEqual(other.GracefulRestart) {
+			return false
+		}
 	}
 
 	return true
@@ -61,8 +82,12 @@ func (in *CiliumBGPNeighborGracefulRestart) DeepEqual(other *CiliumBGPNeighborGr
 	if in.Enabled != other.Enabled {
 		return false
 	}
-	if in.RestartTime != other.RestartTime {
+	if (in.RestartTimeSeconds == nil) != (other.RestartTimeSeconds == nil) {
 		return false
+	} else if in.RestartTimeSeconds != nil {
+		if *in.RestartTimeSeconds != *other.RestartTimeSeconds {
+			return false
+		}
 	}
 
 	return true
@@ -127,9 +152,14 @@ func (in *CiliumBGPVirtualRouter) DeepEqual(other *CiliumBGPVirtualRouter) bool 
 	if in.LocalASN != other.LocalASN {
 		return false
 	}
-	if in.ExportPodCIDR != other.ExportPodCIDR {
+	if (in.ExportPodCIDR == nil) != (other.ExportPodCIDR == nil) {
 		return false
+	} else if in.ExportPodCIDR != nil {
+		if *in.ExportPodCIDR != *other.ExportPodCIDR {
+			return false
+		}
 	}
+
 	if (in.ServiceSelector == nil) != (other.ServiceSelector == nil) {
 		return false
 	} else if in.ServiceSelector != nil {

@@ -304,8 +304,8 @@ have ``external:yes`` set as the label.
 Limitations
 ~~~~~~~~~~~
 
-``toServices`` statements cannot be combined with ``toPorts`` statements in the
-same rule.
+``toServices`` statements must not be combined with ``toPorts`` statements in the
+same rule. If a rule combines both these statements, the policy is rejected.
 
 .. _Entities based:
 
@@ -518,13 +518,18 @@ provided in DNS responses are allowed by Cilium in a similar manner to IPs in
 or are not know a priori, or when DNS is more convenient. To enforce policy on
 DNS requests themselves, see `Layer 7 Examples`_.
 
-IP information is captured from DNS responses per-Endpoint via a `DNS Proxy`_.
+.. note::
+
+	In order to associate domain names with IP addresses, Cilium intercepts
+	DNS responses per-Endpoint using a `DNS Proxy`_. This requires Cilium
+	to be configured with ``--enable-l7-proxy=true`` and an L7 policy allowing
+	DNS requests. For more details, see :ref:`DNS Obtaining Data`.
+
 An L3 `CIDR based`_ rule is generated for every ``toFQDNs``
 rule and applies to the same endpoints. The IP information is selected for
 insertion by ``matchName`` or ``matchPattern`` rules, and is collected from all
 DNS responses seen by Cilium on the node. Multiple selectors may be included in
-a single egress rule. See :ref:`DNS Obtaining Data` for information on
-collecting this IP data.
+a single egress rule.
 
 .. note:: The DNS Proxy is provided in each Cilium agent.
    As a result, DNS requests targeted by policies depend on the availability
@@ -859,10 +864,10 @@ Headers
 Allow GET /public
 ~~~~~~~~~~~~~~~~~
 
-The following example allows ``GET`` requests to the URL ``/public`` to be
-allowed to endpoints with the labels ``env:prod``, but requests to any other
-URL, or using another method, will be rejected. Requests on ports other than
-port 80 will be dropped.
+The following example allows ``GET`` requests to the URL ``/public`` from the
+endpoints with the labels ``env=prod`` to endpoints with the labels 
+``app=service``, but requests to any other URL, or using another method, will
+be rejected. Requests on ports other than port 80 will be dropped.
 
 .. only:: html
 

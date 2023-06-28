@@ -65,7 +65,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.7
+  cilium_cli_version: v0.14.8
   cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -87,7 +87,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
@@ -180,26 +180,26 @@ jobs:
           - name: '1'
             kernel: '4.19-20230420.212204'
             kube-proxy: 'iptables'
-            kpr: 'disabled'
+            kpr: 'false'
             tunnel: 'vxlan'
 
           - name: '2'
             kernel: '5.4-20230420.212204'
             kube-proxy: 'iptables'
-            kpr: 'disabled'
+            kpr: 'false'
             tunnel: 'disabled'
 
           - name: '3'
             kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
-            kpr: 'disabled'
+            kpr: 'false'
             tunnel: 'disabled'
             endpoint-routes: 'true'
 
           - name: '4'
             kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
-            kpr: 'strict'
+            kpr: 'true'
             tunnel: 'vxlan'
             lb-mode: 'snat'
             endpoint-routes: 'true'
@@ -208,7 +208,7 @@ jobs:
           - name: '5'
             kernel: '5.15-20230420.212204'
             kube-proxy: 'iptables'
-            kpr: 'strict'
+            kpr: 'true'
             tunnel: 'disabled'
             lb-mode: 'dsr'
             endpoint-routes: 'true'
@@ -218,7 +218,7 @@ jobs:
           - name: '6'
             kernel: '6.0-20230420.212204'
             kube-proxy: 'none'
-            kpr: 'strict'
+            kpr: 'true'
             tunnel: 'vxlan'
             lb-mode: 'snat'
             egress-gateway: 'true'
@@ -228,7 +228,7 @@ jobs:
           - name: '7'
             kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'none'
-            kpr: 'strict'
+            kpr: 'true'
             tunnel: 'disabled'
             lb-mode: 'snat'
             egress-gateway: 'true'
@@ -237,14 +237,14 @@ jobs:
           - name: '8'
             kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'iptables'
-            kpr: 'disabled'
+            kpr: 'false'
             tunnel: 'geneve'
             endpoint-routes: 'true'
 
           - name: '9'
             kernel: '4.19-20230420.212204'
             kube-proxy: 'iptables'
-            kpr: 'disabled'
+            kpr: 'false'
             tunnel: 'vxlan'
             encryption: 'ipsec'
             encryption-node: 'false'
@@ -252,7 +252,7 @@ jobs:
           - name: '10'
             kernel: '5.4-20230420.212204'
             kube-proxy: 'iptables'
-            kpr: 'disabled'
+            kpr: 'false'
             tunnel: 'disabled'
             encryption: 'ipsec'
             encryption-node: 'false'
@@ -260,7 +260,7 @@ jobs:
           - name: '11'
             kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
-            kpr: 'disabled'
+            kpr: 'false'
             tunnel: 'disabled'
             encryption: 'ipsec'
             encryption-node: 'false'
@@ -269,7 +269,7 @@ jobs:
           - name: '12'
             kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
-            kpr: 'strict'
+            kpr: 'true'
             tunnel: 'vxlan'
             encryption: 'wireguard'
             encryption-node: 'false'
@@ -280,7 +280,7 @@ jobs:
           - name: '13'
             kernel: '5.15-20230420.212204'
             kube-proxy: 'iptables'
-            kpr: 'strict'
+            kpr: 'true'
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'false'
@@ -291,7 +291,7 @@ jobs:
           - name: '14'
             kernel: '6.0-20230420.212204'
             kube-proxy: 'none'
-            kpr: 'strict'
+            kpr: 'true'
             tunnel: 'vxlan'
             encryption: 'wireguard'
             encryption-node: 'true'
@@ -301,7 +301,7 @@ jobs:
           - name: '15'
             kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'none'
-            kpr: 'strict'
+            kpr: 'true'
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'true'
@@ -311,7 +311,7 @@ jobs:
           - name: '16'
             kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'iptables'
-            kpr: 'disabled'
+            kpr: 'false'
             tunnel: 'geneve'
             encryption: 'ipsec'
             encryption-node: 'false'
@@ -320,7 +320,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout main branch to access local actions
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -366,8 +366,8 @@ jobs:
             IPV6="--helm-set=ipv6.enabled=true"
           fi
           MASQ=""
-          if [ "${{ matrix.kpr }}" == "strict" ]; then
-            # BPF-masq requires KPR=strict.
+          if [ "${{ matrix.kpr }}" == "true" ]; then
+            # BPF-masq requires KPR=true.
             MASQ="--helm-set=bpf.masquerade=true"
             if [ "${{ matrix.host-fw }}" == "true" ]; then
               # BPF IPv6 masquerade not currently supported with host firewall - GH-26074
@@ -414,13 +414,13 @@ jobs:
           echo junit_type="${JUNIT}" >> $GITHUB_OUTPUT
 
       - name: Checkout pull request for Helm chart
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ needs.setup-report.outputs.sha }}
           persist-credentials: false
 
       - name: Install Cilium CLI-cli
-        uses: cilium/cilium-cli@9fcfef089e5b7dd3212f2eac21ba8cfae6f05cca # v0.14.7
+        uses: cilium/cilium-cli@5362f383942260c0aed4f3876e09c3452435577a # v0.14.8
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
@@ -428,7 +428,7 @@ jobs:
           binary-dir: ./
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           test-name: e2e-conformance
           image-version: ${{ matrix.kernel }}
@@ -448,7 +448,7 @@ jobs:
           done
 
       - name: Run tests (${{ join(matrix.*, ', ') }})
-        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           provision: 'false'
           cmd: |
@@ -461,7 +461,8 @@ jobs:
                 --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
             fi
 
-            CILIUM_CLI_MODE=helm ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
+            export CILIUM_CLI_MODE=helm
+            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
             kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
             kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
@@ -481,7 +482,7 @@ jobs:
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           provision: 'false'
           cmd: |

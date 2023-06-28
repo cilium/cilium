@@ -11,7 +11,7 @@ import (
 )
 
 // Cancels the specified Capacity Reservation, releases the reserved capacity, and
-// changes the Capacity Reservation's state to cancelled. Instances running in the
+// changes the Capacity Reservation's state to cancelled . Instances running in the
 // reserved capacity continue running until you stop them. Stopped instances that
 // target the Capacity Reservation can no longer launch. Modify these instances to
 // either target a different Capacity Reservation, launch On-Demand Instance
@@ -41,8 +41,8 @@ type CancelCapacityReservationInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -108,6 +108,9 @@ func (c *Client) addOperationCancelCapacityReservationMiddlewares(stack *middlew
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCancelCapacityReservation(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

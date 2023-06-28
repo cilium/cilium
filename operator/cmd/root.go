@@ -405,8 +405,8 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			legacy.clientset,
 			operatorOption.Config.CESMaxCEPsInCES,
 			operatorOption.Config.CESSlicingMode,
-			float64(legacy.clientset.Config().K8sClientQPS),
-			legacy.clientset.Config().K8sClientBurst)
+			operatorOption.Config.CESWriteQPSLimit,
+			operatorOption.Config.CESWriteQPSBurst)
 		// Start CEP watcher
 		operatorWatchers.CiliumEndpointsSliceInit(legacy.ctx, &legacy.wg, legacy.clientset, cesController)
 		// Start the CES controller, after current CEPs are synced locally in cache.

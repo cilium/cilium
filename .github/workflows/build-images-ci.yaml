@@ -59,12 +59,15 @@ jobs:
           - name: clustermesh-apiserver
             dockerfile: ./images/clustermesh-apiserver/Dockerfile
 
+          - name: kvstoremesh
+            dockerfile: ./images/kvstoremesh/Dockerfile
+
           - name: docker-plugin
             dockerfile: ./images/cilium-docker-plugin/Dockerfile
 
     steps:
       - name: Checkout main branch to access local actions
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -73,10 +76,10 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4b4e9c3e2d4531116a6f8ba8e71fc6e2cb6e6c8c # v2.5.0
+        uses: docker/setup-buildx-action@ecf95283f03858871ff00b787d79c419715afc34 # v2.7.0
 
       - name: Login to quay.io for CI
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a # v2.1.0
+        uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME_CI }}
@@ -92,7 +95,7 @@ jobs:
           fi
 
       - name: Checkout Source Code
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           persist-credentials: false
           ref: ${{ steps.tag.outputs.tag }}
@@ -117,7 +120,7 @@ jobs:
 
       # Import GitHub's cache build to docker cache
       - name: Copy ${{ matrix.name }} Golang cache to docker cache
-        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
+        uses: docker/build-push-action@2eb1c1961a95fc15694676618e422e8ba1d63825 # v4.1.1
         with:
           provenance: false
           context: /tmp/.cache/${{ matrix.name }}
@@ -142,7 +145,7 @@ jobs:
       # main branch pushes
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
+        uses: docker/build-push-action@2eb1c1961a95fc15694676618e422e8ba1d63825 # v4.1.1
         id: docker_build_ci_main
         with:
           provenance: false
@@ -162,7 +165,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
+        uses: docker/build-push-action@2eb1c1961a95fc15694676618e422e8ba1d63825 # v4.1.1
         id: docker_build_ci_main_detect_race_condition
         with:
           provenance: false
@@ -178,14 +181,14 @@ jobs:
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:9f2b76d362eac281864fd9d54a5716103fe68d3e@sha256:b6a6186fa1f9129cc50bebfab3ed7f7fe7ccdf946f096b989b30140878eeaf6b
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:872b2f51be25274a0ce2261d05a5191cf17ecef7@sha256:8cbbfbf0d754a855e3e6836d9856c6b402d531395fb758f15d141f2de1ebed11
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
+        uses: docker/build-push-action@2eb1c1961a95fc15694676618e422e8ba1d63825 # v4.1.1
         id: docker_build_ci_main_unstripped
         with:
           provenance: false
@@ -264,7 +267,7 @@ jobs:
       # PR updates
       - name: CI Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
+        uses: docker/build-push-action@2eb1c1961a95fc15694676618e422e8ba1d63825 # v4.1.1
         id: docker_build_ci_pr
         with:
           provenance: false
@@ -280,7 +283,7 @@ jobs:
 
       - name: CI race detection Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
+        uses: docker/build-push-action@2eb1c1961a95fc15694676618e422e8ba1d63825 # v4.1.1
         id: docker_build_ci_pr_detect_race_condition
         with:
           provenance: false
@@ -292,14 +295,14 @@ jobs:
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:9f2b76d362eac281864fd9d54a5716103fe68d3e@sha256:b6a6186fa1f9129cc50bebfab3ed7f7fe7ccdf946f096b989b30140878eeaf6b
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:872b2f51be25274a0ce2261d05a5191cf17ecef7@sha256:8cbbfbf0d754a855e3e6836d9856c6b402d531395fb758f15d141f2de1ebed11
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: CI Unstripped Binaries Build ${{ matrix.name }}
         if: ${{ github.event_name == 'pull_request_target' }}
-        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
+        uses: docker/build-push-action@2eb1c1961a95fc15694676618e422e8ba1d63825 # v4.1.1
         id: docker_build_ci_pr_unstripped
         with:
           provenance: false
@@ -379,7 +382,7 @@ jobs:
       # Store docker's golang's cache build locally only on the main branch
       - name: Store ${{ matrix.name }} Golang cache build locally
         if: ${{ github.event_name != 'pull_request_target' && steps.cache.outputs.cache-hit != 'true' }}
-        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671 # v4.0.0
+        uses: docker/build-push-action@2eb1c1961a95fc15694676618e422e8ba1d63825 # v4.1.1
         with:
           provenance: false
           context: .

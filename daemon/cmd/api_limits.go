@@ -25,8 +25,9 @@ var apiRateLimitDefaults = map[string]rate.APILimiterParameters{
 		RateLimit:                   0.5,
 		RateBurst:                   4,
 		ParallelRequests:            4,
+		MinParallelRequests:         2,
 		SkipInitial:                 4,
-		MaxWaitDuration:             15 * time.Second,
+		MaxWaitDuration:             60 * time.Second, // Kubelet has a PodSandbox creation timeout of 4 minutes, in total.
 		Log:                         false,
 	},
 	// DELETE /endpoint/{id}

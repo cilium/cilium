@@ -319,53 +319,66 @@ const (
 func subTest(progSet programSet, resultMap *ebpf.Map, skbMdMap *ebpf.Map) func(t *testing.T) {
 	return func(t *testing.T) {
 		// create ctx with the max allowed size(4k - head room - tailroom)
-		ctx := make([]byte, 4096-256-320)
+		data := make([]byte, 4096-256-320)
 
+		// ctx is only used for tc programs
+		// non-empty ctx passed to non-tc programs will cause error: invalid argument
+		ctx := make([]byte, 0)
+		if progSet.checkProg.Type() == ebpf.SchedCLS {
+			// sizeof(struct __sk_buff) < 256, let's make it 256
+			ctx = make([]byte, 256)
+		}
+
+		var (
+			statusCode uint32
+			err        error
+		)
 		if progSet.pktgenProg != nil {
-			statusCode, result, err := progSet.pktgenProg.Test(ctx)
-			if err != nil {
+			if statusCode, data, ctx, err = runBpfProgram(progSet.pktgenProg, data, ctx); err != nil {
 				t.Fatalf("error while running pktgen prog: %s", err)
 			}
 
 			if *dumpCtx {
 				t.Log("Pktgen returned status: ")
 				t.Log(statusCode)
-				t.Log("Ctx after pktgen: ")
-				t.Log(spew.Sdump(result))
+				t.Log("data after pktgen: ")
+				t.Log(spew.Sdump(data))
+				t.Log("ctx after pktgen: ")
+				t.Log(spew.Sdump(ctx))
 			}
-
-			ctx = result
 		}
 
 		if progSet.setupProg != nil {
-			statusCode, result, err := progSet.setupProg.Test(ctx)
-			if err != nil {
+			if statusCode, data, ctx, err = runBpfProgram(progSet.setupProg, data, ctx); err != nil {
 				t.Fatalf("error while running setup prog: %s", err)
 			}
 
 			if *dumpCtx {
 				t.Log("Setup returned status: ")
 				t.Log(statusCode)
-				t.Log("Ctx after setup: ")
-				t.Log(spew.Sdump(result))
+				t.Log("data after setup: ")
+				t.Log(spew.Sdump(data))
+				t.Log("ctx after setup: ")
+				t.Log(spew.Sdump(ctx))
 			}
 
-			ctx = make([]byte, len(result)+4)
-			nl.NativeEndian().PutUint32(ctx, statusCode)
-			copy(ctx[4:], result)
+			status := make([]byte, 4)
+			nl.NativeEndian().PutUint32(status, statusCode)
+			data = append(status, data...)
 		}
 
 		// Run test, input a
-		statusCode, ctxOut, err := progSet.checkProg.Test(ctx)
-		if err != nil {
+		if statusCode, data, ctx, err = runBpfProgram(progSet.checkProg, data, ctx); err != nil {
 			t.Fatal("error while running check program:", err)
 		}
 
 		if *dumpCtx {
 			t.Log("Check returned status: ")
 			t.Log(statusCode)
-			t.Log("Ctx after check: ")
-			t.Log(spew.Sdump(ctxOut))
+			t.Logf("data after check: %d", len(data))
+			t.Log(spew.Sdump(data))
+			t.Log("ctx after check: ")
+			t.Log(spew.Sdump(ctx))
 		}
 
 		// Clear map value after each test
@@ -540,4 +553,22 @@ func (l *Log) FmtString() string {
 	}
 
 	return sb.String()
+}
+
+func runBpfProgram(prog *ebpf.Program, data, ctx []byte) (statusCode uint32, dataOut, ctxOut []byte, err error) {
+	dataOut = make([]byte, len(data))
+	if len(dataOut) > 0 {
+		// See comments at https://github.com/cilium/ebpf/blob/20c4d8896bdde990ce6b80d59a4262aa3ccb891d/prog.go#L563-L567
+		dataOut = make([]byte, len(data)+256+2)
+	}
+	ctxOut = make([]byte, len(ctx))
+	opts := &ebpf.RunOptions{
+		Data:       data,
+		DataOut:    dataOut,
+		Context:    ctx,
+		ContextOut: ctxOut,
+		Repeat:     1,
+	}
+	ret, err := prog.Run(opts)
+	return ret, opts.DataOut, ctxOut, err
 }

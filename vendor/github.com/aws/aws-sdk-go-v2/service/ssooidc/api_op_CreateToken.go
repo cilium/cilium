@@ -43,7 +43,7 @@ type CreateTokenInput struct {
 
 	// Supports grant types for the authorization code, refresh token, and device code
 	// request. For device code requests, specify the following value:
-	// urn:ietf:params:oauth:grant-type:device_code  For information about how to
+	// urn:ietf:params:oauth:grant-type:device_code For information about how to
 	// obtain the device code, see the StartDeviceAuthorization topic.
 	//
 	// This member is required.
@@ -65,9 +65,8 @@ type CreateTokenInput struct {
 	// Currently, refreshToken is not yet implemented and is not supported. For more
 	// information about the features and limitations of the current IAM Identity
 	// Center OIDC implementation, see Considerations for Using this Guide in the IAM
-	// Identity Center OIDC API Reference
-	// (https://docs.aws.amazon.com/singlesignon/latest/OIDCAPIReference/Welcome.html).
-	// The token used to obtain an access token in the event that the access token is
+	// Identity Center OIDC API Reference (https://docs.aws.amazon.com/singlesignon/latest/OIDCAPIReference/Welcome.html)
+	// . The token used to obtain an access token in the event that the access token is
 	// invalid or expired.
 	RefreshToken *string
 
@@ -89,22 +88,20 @@ type CreateTokenOutput struct {
 	// Currently, idToken is not yet implemented and is not supported. For more
 	// information about the features and limitations of the current IAM Identity
 	// Center OIDC implementation, see Considerations for Using this Guide in the IAM
-	// Identity Center OIDC API Reference
-	// (https://docs.aws.amazon.com/singlesignon/latest/OIDCAPIReference/Welcome.html).
-	// The identifier of the user that associated with the access token, if present.
+	// Identity Center OIDC API Reference (https://docs.aws.amazon.com/singlesignon/latest/OIDCAPIReference/Welcome.html)
+	// . The identifier of the user that associated with the access token, if present.
 	IdToken *string
 
 	// Currently, refreshToken is not yet implemented and is not supported. For more
 	// information about the features and limitations of the current IAM Identity
 	// Center OIDC implementation, see Considerations for Using this Guide in the IAM
-	// Identity Center OIDC API Reference
-	// (https://docs.aws.amazon.com/singlesignon/latest/OIDCAPIReference/Welcome.html).
-	// A token that, if present, can be used to refresh a previously issued access
+	// Identity Center OIDC API Reference (https://docs.aws.amazon.com/singlesignon/latest/OIDCAPIReference/Welcome.html)
+	// . A token that, if present, can be used to refresh a previously issued access
 	// token that might have expired.
 	RefreshToken *string
 
 	// Used to notify the client that the returned token is an access token. The
-	// supported type is BearerToken.
+	// supported type is BearerToken .
 	TokenType *string
 
 	// Metadata pertaining to the operation's result.
@@ -156,6 +153,9 @@ func (c *Client) addOperationCreateTokenMiddlewares(stack *middleware.Stack, opt
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateToken(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -45,15 +45,15 @@ type ModifyManagedPrefixListInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The maximum number of entries for the prefix list. You cannot modify the entries
-	// of a prefix list and modify the size of a prefix list at the same time. If any
-	// of the resources that reference the prefix list cannot support the new maximum
-	// size, the modify operation fails. Check the state message for the IDs of the
-	// first ten resources that do not support the new maximum size.
+	// The maximum number of entries for the prefix list. You cannot modify the
+	// entries of a prefix list and modify the size of a prefix list at the same time.
+	// If any of the resources that reference the prefix list cannot support the new
+	// maximum size, the modify operation fails. Check the state message for the IDs of
+	// the first ten resources that do not support the new maximum size.
 	MaxEntries *int32
 
 	// A name for the prefix list.
@@ -125,6 +125,9 @@ func (c *Client) addOperationModifyManagedPrefixListMiddlewares(stack *middlewar
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyManagedPrefixList(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -443,6 +443,7 @@ endpointmanager
 enforceHttps
 eni
 eniTags
+envoyConfig
 envoySecretNamespace
 etcd
 ethernet
@@ -520,6 +521,7 @@ goroutines
 grafana
 graphviz
 grep
+gve
 hairpinned
 hairpinning
 hardcode
@@ -552,6 +554,7 @@ hostonlyifs
 hostport
 hostscope
 hq
+http
 httpd
 https
 hubble
@@ -664,12 +667,14 @@ kubernetes
 kubespray
 kvstore
 kvstoremesh
+kvstores
 labelsContext
 latencies
 lbExternalClusterIP
 lbIPAM
 lbMapMax
 leia
+len
 libbpf
 libc
 libceph
@@ -839,6 +844,7 @@ pmdabcc
 pmtuDiscovery
 png
 podAnnotations
+podAnnouncements
 podCIDR
 podDisruptionBudget
 podLabels
@@ -1013,6 +1019,7 @@ starfighter
 starfighters
 startup
 startupProbe
+statedb
 stateful
 statefulset
 statelessNat
@@ -1120,6 +1127,7 @@ uptime
 uretprobes
 url
 useAPIServer
+useSecret
 username
 userspace
 userspaceFallback
@@ -1152,6 +1160,7 @@ waker
 wakeup
 walkthrough
 webhook
+webhooks
 webservice
 websocket
 wellKnownIdentities

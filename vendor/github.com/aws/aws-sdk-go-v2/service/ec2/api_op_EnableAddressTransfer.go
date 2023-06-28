@@ -12,8 +12,7 @@ import (
 )
 
 // Enables Elastic IP address transfer. For more information, see Transfer Elastic
-// IP addresses
-// (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-eips.html#transfer-EIPs-intro)
+// IP addresses (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-eips.html#transfer-EIPs-intro)
 // in the Amazon Virtual Private Cloud User Guide.
 func (c *Client) EnableAddressTransfer(ctx context.Context, params *EnableAddressTransferInput, optFns ...func(*Options)) (*EnableAddressTransferOutput, error) {
 	if params == nil {
@@ -44,8 +43,8 @@ type EnableAddressTransferInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -111,6 +110,9 @@ func (c *Client) addOperationEnableAddressTransferMiddlewares(stack *middleware.
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opEnableAddressTransfer(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

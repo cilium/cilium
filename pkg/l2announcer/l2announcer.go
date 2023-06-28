@@ -58,7 +58,7 @@ func l2AnnouncementPolicyResource(lc hive.Lifecycle, cs client.Clientset) (resou
 	lw := utils.ListerWatcherFromTyped[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicyList](
 		cs.CiliumV2alpha1().CiliumL2AnnouncementPolicies(),
 	)
-	return resource.New[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy](lc, lw), nil
+	return resource.New[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy](lc, lw, resource.WithMetric("CiliumL2AnnouncementPolicy")), nil
 }
 
 type l2AnnouncerParams struct {
@@ -1022,6 +1022,10 @@ const (
 
 func svcAndMetaLabels(svc *slim_corev1.Service) labels.Set {
 	labels := maps.Clone(svc.GetLabels())
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
 	labels[serviceNamespaceLabel] = svc.Namespace
 	labels[serviceNameLabel] = svc.Name
 	return labels

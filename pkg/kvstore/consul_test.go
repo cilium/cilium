@@ -28,11 +28,7 @@ func (e *ConsulSuite) SetUpSuite(c *C) {
 }
 
 func (e *ConsulSuite) SetUpTest(c *C) {
-	SetupDummy("consul")
-}
-
-func (e *ConsulSuite) TearDownTest(c *C) {
-	Client().Close(context.TODO())
+	SetupDummy(c, "consul")
 }
 
 var handler http.HandlerFunc

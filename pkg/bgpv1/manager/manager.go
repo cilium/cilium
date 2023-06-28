@@ -34,7 +34,7 @@ var (
 
 // LocalASNMap maps local ASNs to their associated BgpServers and server
 // configuration info.
-type LocalASNMap map[int]*ServerWithConfig
+type LocalASNMap map[int64]*ServerWithConfig
 
 type bgpRouterManagerParams struct {
 	cell.In
@@ -226,7 +226,7 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context, c *v2alpha1api
 		},
 	}
 
-	if s, err = NewServerWithConfig(ctx, globalConfig); err != nil {
+	if s, err = NewServerWithConfig(ctx, globalConfig, cstate); err != nil {
 		return fmt.Errorf("failed to start BGP server for config with local ASN %v: %w", c.LocalASN, err)
 	}
 

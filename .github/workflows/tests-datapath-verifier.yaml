@@ -84,7 +84,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
@@ -182,15 +182,16 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout pull request
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ needs.setup-report.outputs.sha }}
           persist-credentials: false
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           test-name: datapath-bpf-complexity
+          image: 'complexity-test'
           image-version: ${{ matrix.kernel }}
           host-mount: ./
           cpu: 4
@@ -201,23 +202,17 @@ jobs:
             uname -a
 
       - name: Run verifier tests
-        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           provision: 'false'
           cmd: |
             cd /host/
             # Run with cgo disabled, LVH images don't ship with gcc.
-            CGO_ENABLED=0 go test -c ./test/verifier
-            docker run -t --privileged \
-              -v /sys/fs/bpf:/sys/fs/bpf \
-              -v "\$PWD:/cilium" \
-              -w "/cilium/test/verifier" \
-              quay.io/cilium/test-verifier:2ecf56b4ea57576e9d92d34407898e5d14e80aa3@sha256:62396cedb4f15477f0084d7dfc92de55ac9ab8531021b7ac5f56220c35f2cb64 \
-              /cilium/verifier.test -test.v -test.parallel=1 -cilium-base-path /cilium -ci-kernel-version ${{ matrix.ci-kernel }}
+            CGO_ENABLED=0 go test -v -parallel=1 ./test/verifier -cilium-base-path /host -ci-kernel-version ${{ matrix.ci-kernel }}
 
       - name: Fetch artifacts
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           provision: 'false'
           cmd: |

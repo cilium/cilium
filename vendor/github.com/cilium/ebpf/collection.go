@@ -638,7 +638,12 @@ func resolveKconfig(m *MapSpec) error {
 		}
 		defer f.Close()
 
-		kernelConfig, err := kconfig.Parse(f)
+		filter := make(map[string]struct{}, len(configs))
+		for config := range configs {
+			filter[config] = struct{}{}
+		}
+
+		kernelConfig, err := kconfig.Parse(f, filter)
 		if err != nil {
 			return fmt.Errorf("cannot parse kconfig file: %w", err)
 		}

@@ -7,14 +7,11 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
-	"time"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/utils/pointer"
 
 	"github.com/cilium/workerpool"
 
-	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ip"
@@ -27,9 +24,6 @@ import (
 	nodeaddr "github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
-
-// minHoldTime represents the minimal BGP hold time duration
-const minHoldTime = 3 * time.Second
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-control-plane")
@@ -103,7 +97,7 @@ type ControlPlaneState struct {
 // parsed into a valid ipv4 address use it. If not, determine if Cilium is
 // configured with an IPv4 address, if so use it. If neither, return an error,
 // we cannot assign an router ID.
-func (cstate *ControlPlaneState) ResolveRouterID(localASN int) (string, error) {
+func (cstate *ControlPlaneState) ResolveRouterID(localASN int64) (string, error) {
 	if _, ok := cstate.Annotations[localASN]; ok {
 		if parsed, err := netip.ParseAddr(cstate.Annotations[localASN].RouterID); err == nil && !parsed.IsUnspecified() {
 			return parsed.String(), nil
@@ -309,6 +303,7 @@ func PolicySelection(ctx context.Context, labels map[string]string, policies []*
 		nodeSelector, err := slimmetav1.LabelSelectorAsSelector(policy.Spec.NodeSelector)
 		if err != nil {
 			l.WithError(err).Error("Failed to convert CiliumBGPPeeringPolicy's NodeSelector to a label.Selector interface")
+			continue
 		}
 		l.WithFields(logrus.Fields{
 			"policyNodeSelector": nodeSelector.String(),
@@ -371,7 +366,8 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	}
 
 	// apply policy defaults to have consistent default config across sub-systems
-	policy = c.applyPolicyDefaults(policy)
+	policy = policy.DeepCopy() // deepcopy to not modify the policy object in store
+	policy.SetDefaults()
 
 	err = c.validatePolicy(policy)
 	if err != nil {
@@ -430,63 +426,16 @@ func (c *Controller) FullWithdrawal(ctx context.Context) {
 	_ = c.BGPMgr.ConfigurePeers(ctx, nil, nil) // cannot fail, no need for error handling
 }
 
-// applyPolicyDefaults applies default values on the CiliumBGPPeeringPolicy.
-func (c *Controller) applyPolicyDefaults(policy *v2alpha1api.CiliumBGPPeeringPolicy) *v2alpha1api.CiliumBGPPeeringPolicy {
-	p := policy.DeepCopy() // deepcopy to not modify the policy object in store
-	for _, r := range p.Spec.VirtualRouters {
-		for j := range r.Neighbors {
-			n := &r.Neighbors[j]
-			// Set neighbor default port for peering if unspecified. This is done by kube-apiserver
-			// but added here for non-k8s environments, tests, etc.
-			setDefaultPeerPort(n)
-			if n.ConnectRetryTime.Duration == 0 {
-				n.ConnectRetryTime.Duration = types.DefaultBGPConnectRetryTime
-			}
-			if n.HoldTime.Duration == 0 {
-				// RFC4271 Sec 4.4 says that hold time can be 0 and has a special meaning that disables keepalive.
-				// However, as GoBGP defaults the hold time for 0 value, it cannot be 0 in our case.
-				n.HoldTime.Duration = types.DefaultBGPHoldTime
-			}
-			if n.KeepAliveTime.Duration == 0 {
-				n.KeepAliveTime.Duration = n.HoldTime.Duration / 3
-			}
-
-			// apply graceful restart defaults
-			if n.GracefulRestart.Enabled && n.GracefulRestart.RestartTime.Duration == 0 {
-				n.GracefulRestart.RestartTime.Duration = types.DefaultGRRestartTime
-			}
-		}
-	}
-	return p
-}
-
 // validatePolicy validates the CiliumBGPPeeringPolicy.
+// The validation is normally done by kube-apiserver (based on CRD validation markers),
+// this validates only those constraints that cannot be enforced by them.
 func (c *Controller) validatePolicy(policy *v2alpha1api.CiliumBGPPeeringPolicy) error {
 	for _, r := range policy.Spec.VirtualRouters {
 		for _, n := range r.Neighbors {
-			if n.ConnectRetryTime.Duration < 0 {
-				return fmt.Errorf("connectRetryTime is negative for peer ASN %d, IP %s", n.PeerASN, n.PeerAddress)
-			}
-			if n.HoldTime.Duration < minHoldTime {
-				// RFC4271 Sec 4.2 says that the hold time MUST be zero or at least 3 seconds.
-				// However, as GoBGP defaults the hold time for 0 value, it cannot be 0 in our case.
-				return fmt.Errorf("holdTime is lower than %v for peer ASN %d, IP %s", minHoldTime, n.PeerASN, n.PeerAddress)
-			}
-			if n.KeepAliveTime.Duration < 0 {
-				return fmt.Errorf("keepAliveTime is negative for peer ASN %d, IP %s", n.PeerASN, n.PeerAddress)
-			}
-			if n.KeepAliveTime.Duration > n.HoldTime.Duration {
-				return fmt.Errorf("keepAliveTime time larger than holdTime for peer ASN %d, IP %s", n.PeerASN, n.PeerAddress)
+			if err := n.Validate(); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
-}
-
-// setDefaultPeerPort sets the PeerPort of the provided neighbor
-// to defaultPeerPort (179) if unset.
-func setDefaultPeerPort(n *v2alpha1api.CiliumBGPNeighbor) {
-	if n.PeerPort == nil {
-		n.PeerPort = pointer.Int(types.DefaultPeerPort)
-	}
 }

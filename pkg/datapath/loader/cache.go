@@ -68,12 +68,8 @@ var ignoredELFPrefixes = []string{
 	"cilium_per_cluster_ct",      // Global
 	"cilium_world_cidrs4",        // Global
 	"cilium_l2_responder_v4",     // Global
-	"from-container",             // Prog name
-	"to-container",               // Prog name
-	"from-netdev",                // Prog name
-	"from-host",                  // Prog name
-	"to-netdev",                  // Prog name
-	"to-host",                    // Prog name
+	"tc",                         // Program Section
+	"xdp",                        // Program Section
 	".BTF",                       // Debug
 	".BTF.ext",                   // Debug
 	".debug_ranges",              // Debug

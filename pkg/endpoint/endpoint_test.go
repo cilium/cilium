@@ -14,6 +14,7 @@ import (
 
 	. "github.com/cilium/checkmate"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -141,7 +142,7 @@ func NewCachingIdentityAllocator(owner cache.IdentityAllocatorOwner) fakeIdentit
 
 func (s *EndpointSuite) SetUpTest(c *C) {
 	/* Required to test endpoint CEP policy model */
-	kvstore.SetupDummy("etcd")
+	kvstore.SetupDummy(c, "etcd")
 	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
@@ -152,7 +153,6 @@ func (s *EndpointSuite) SetUpTest(c *C) {
 
 func (s *EndpointSuite) TearDownTest(c *C) {
 	s.mgr.Close()
-	kvstore.Client().Close(context.TODO())
 	node.UnsetTestLocalNodeStore()
 }
 
@@ -253,6 +253,16 @@ func (s *EndpointSuite) TestEndpointStatus(c *C) {
 	}
 	eps.addStatusLog(sts)
 	c.Assert(eps.String(), Equals, "OK")
+}
+
+func (s *EndpointSuite) TestEndpointDatapathOptions(c *C) {
+	e, err := NewEndpointFromChangeModel(context.TODO(), s, s, testipcache.NewMockIPCache(), &FakeEndpointProxy{}, s.mgr, &models.EndpointChangeRequest{
+		DatapathConfiguration: &models.EndpointDatapathConfiguration{
+			DisableSipVerification: true,
+		},
+	})
+	c.Assert(err, IsNil)
+	c.Assert(e.Options.GetValue(option.SourceIPVerification), Equals, option.OptionDisabled)
 }
 
 func (s *EndpointSuite) TestEndpointUpdateLabels(c *C) {

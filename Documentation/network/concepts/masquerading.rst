@@ -42,6 +42,12 @@ Implementation Modes
 eBPF-based
 **********
 
+.. note::
+
+   **IPv6** BPF masquerading is a beta feature. Please provide feedback and
+   file a GitHub issue if you experience any problems. IPv4 BPF masquerading is
+   production-ready.
+
 The eBPF-based implementation is the most efficient
 implementation. It requires Linux kernel 4.19 and can be enabled with
 the ``bpf.masquerade=true`` helm option.

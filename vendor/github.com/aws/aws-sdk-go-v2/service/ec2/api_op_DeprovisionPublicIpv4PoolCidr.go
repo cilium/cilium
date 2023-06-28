@@ -28,7 +28,10 @@ func (c *Client) DeprovisionPublicIpv4PoolCidr(ctx context.Context, params *Depr
 
 type DeprovisionPublicIpv4PoolCidrInput struct {
 
-	// The CIDR you want to deprovision from the pool.
+	// The CIDR you want to deprovision from the pool. Enter the CIDR you want to
+	// deprovision with a netmask of /32 . You must rerun this command for each IP
+	// address in the CIDR range. If your CIDR is a /24 , you will have to run this
+	// command to deprovision each of the 256 IP addresses in the /24 CIDR.
 	//
 	// This member is required.
 	Cidr *string
@@ -40,8 +43,8 @@ type DeprovisionPublicIpv4PoolCidrInput struct {
 
 	// A check for whether you have the required permissions for the action without
 	// actually making the request and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -110,6 +113,9 @@ func (c *Client) addOperationDeprovisionPublicIpv4PoolCidrMiddlewares(stack *mid
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeprovisionPublicIpv4PoolCidr(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

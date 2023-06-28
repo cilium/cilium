@@ -729,4 +729,7 @@ const (
 
 	// Value identifies a generic value (e.g., of a key/value pair).
 	Value = "value"
+
+	// State is the state of an individual component (apiserver, kvstore etc)
+	State = "state"
 )

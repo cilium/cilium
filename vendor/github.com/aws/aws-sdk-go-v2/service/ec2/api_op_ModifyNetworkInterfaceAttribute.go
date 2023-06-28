@@ -46,24 +46,24 @@ type ModifyNetworkInterfaceAttributeInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// Updates the ENA Express configuration for the network interface that’s attached
 	// to the instance.
 	EnaSrdSpecification *types.EnaSrdSpecification
 
-	// Changes the security groups for the network interface. The new set of groups you
-	// specify replaces the current set. You must specify at least one group, even if
-	// it's just the default security group in the VPC. You must specify the ID of the
-	// security group, not the name.
+	// Changes the security groups for the network interface. The new set of groups
+	// you specify replaces the current set. You must specify at least one group, even
+	// if it's just the default security group in the VPC. You must specify the ID of
+	// the security group, not the name.
 	Groups []string
 
 	// Enable or disable source/destination checks, which ensure that the instance is
 	// either the source or the destination of any traffic that it receives. If the
-	// value is true, source/destination checks are enabled; otherwise, they are
-	// disabled. The default value is true. You must disable source/destination checks
+	// value is true , source/destination checks are enabled; otherwise, they are
+	// disabled. The default value is true . You must disable source/destination checks
 	// if the instance runs services such as network address translation, routing, or
 	// firewalls.
 	SourceDestCheck *types.AttributeBooleanValue
@@ -127,6 +127,9 @@ func (c *Client) addOperationModifyNetworkInterfaceAttributeMiddlewares(stack *m
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyNetworkInterfaceAttribute(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

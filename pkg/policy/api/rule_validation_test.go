@@ -7,11 +7,11 @@ import (
 	"fmt"
 
 	. "github.com/cilium/checkmate"
+	"github.com/cilium/proxy/pkg/policy/api/kafka"
 
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy/api/kafka"
 )
 
 // This test ensures that only PortRules which have L7Rules associated with them
@@ -627,7 +627,7 @@ func (s *PolicyAPITestSuite) TestToServicesSanitize(c *C) {
 	}
 
 	err := toServicesL3L4.Sanitize()
-	c.Assert(err, IsNil)
+	c.Assert(err, NotNil)
 
 }
 

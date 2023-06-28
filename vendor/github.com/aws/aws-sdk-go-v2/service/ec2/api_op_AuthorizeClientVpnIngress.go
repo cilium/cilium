@@ -45,8 +45,8 @@ type AuthorizeClientVpnIngressInput struct {
 	TargetNetworkCidr *string
 
 	// The ID of the group to grant access to, for example, the Active Directory group
-	// or identity provider (IdP) group. Required if AuthorizeAllGroups is false or not
-	// specified.
+	// or identity provider (IdP) group. Required if AuthorizeAllGroups is false or
+	// not specified.
 	AccessGroupId *string
 
 	// Indicates whether to grant access to all clients. Specify true to grant all
@@ -55,8 +55,8 @@ type AuthorizeClientVpnIngressInput struct {
 	AuthorizeAllGroups *bool
 
 	// Unique, case-sensitive identifier that you provide to ensure the idempotency of
-	// the request. For more information, see How to ensure idempotency
-	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	// the request. For more information, see How to ensure idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
 	// A brief description of the authorization rule.
@@ -64,8 +64,8 @@ type AuthorizeClientVpnIngressInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -134,6 +134,9 @@ func (c *Client) addOperationAuthorizeClientVpnIngressMiddlewares(stack *middlew
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAuthorizeClientVpnIngress(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

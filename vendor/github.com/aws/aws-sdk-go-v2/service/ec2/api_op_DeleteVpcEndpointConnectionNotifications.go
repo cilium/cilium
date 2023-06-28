@@ -11,7 +11,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deletes one or more VPC endpoint connection notifications.
+// Deletes the specified VPC endpoint connection notifications.
 func (c *Client) DeleteVpcEndpointConnectionNotifications(ctx context.Context, params *DeleteVpcEndpointConnectionNotificationsInput, optFns ...func(*Options)) (*DeleteVpcEndpointConnectionNotificationsOutput, error) {
 	if params == nil {
 		params = &DeleteVpcEndpointConnectionNotificationsInput{}
@@ -29,15 +29,15 @@ func (c *Client) DeleteVpcEndpointConnectionNotifications(ctx context.Context, p
 
 type DeleteVpcEndpointConnectionNotificationsInput struct {
 
-	// One or more notification IDs.
+	// The IDs of the notifications.
 	//
 	// This member is required.
 	ConnectionNotificationIds []string
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -103,6 +103,9 @@ func (c *Client) addOperationDeleteVpcEndpointConnectionNotificationsMiddlewares
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteVpcEndpointConnectionNotifications(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

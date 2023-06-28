@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
@@ -184,14 +185,14 @@ func (r *fakeIPCache) GetNodeIP(id uint16) string {
 	return r.nodeIdMappings[id]
 }
 
-func (r *fakeIPCache) AllocateNodeID(hostIP net.IP) uint16 {
+func (r *fakeIPCache) GetNodeID(nodeIP net.IP) (uint16, bool) {
 	for id, ip := range r.nodeIdMappings {
-		if ip == hostIP.String() {
-			return id
+		if ip == nodeIP.String() {
+			return id, true
 		}
 	}
 
-	return 9999
+	return 0, false
 }
 
 // Fake AuthHandler
@@ -221,6 +222,10 @@ type fakeAuthMap struct {
 func (r *fakeAuthMap) Delete(key authKey) error {
 	if r.failDelete {
 		return errors.New("failed to delete entry")
+	}
+
+	if _, ok := r.entries[key]; !ok {
+		return ebpf.ErrKeyNotExist
 	}
 
 	delete(r.entries, key)

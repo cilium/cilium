@@ -25,10 +25,9 @@ import (
 // attempt to start a T3 instance with host tenancy and the unlimted CPU credit
 // option, the request fails. The unlimited CPU credit option is not supported on
 // Dedicated Hosts. Before you start the instance, either change its CPU credit
-// option to standard, or change its tenancy to default or dedicated. For more
-// information, see Stop and start your instance
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html) in the
-// Amazon EC2 User Guide.
+// option to standard , or change its tenancy to default or dedicated . For more
+// information, see Stop and start your instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html)
+// in the Amazon EC2 User Guide.
 func (c *Client) StartInstances(ctx context.Context, params *StartInstancesInput, optFns ...func(*Options)) (*StartInstancesOutput, error) {
 	if params == nil {
 		params = &StartInstancesInput{}
@@ -56,8 +55,8 @@ type StartInstancesInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -123,6 +122,9 @@ func (c *Client) addOperationStartInstancesMiddlewares(stack *middleware.Stack, 
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opStartInstances(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

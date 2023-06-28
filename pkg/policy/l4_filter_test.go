@@ -10,6 +10,7 @@ import (
 
 	. "github.com/cilium/checkmate"
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	"github.com/cilium/proxy/pkg/policy/api/kafka"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -18,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/api/kafka"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 

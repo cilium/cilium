@@ -85,6 +85,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/agent"
@@ -328,7 +329,7 @@ func initializeFlags() {
 	flags.String(option.EnablePolicy, option.DefaultEnforcement, "Enable policy enforcement")
 	option.BindEnv(Vp, option.EnablePolicy)
 
-	flags.Bool(option.EnableExternalIPs, defaults.EnableExternalIPs, fmt.Sprintf("Enable k8s service externalIPs feature (requires enabling %s)", option.EnableNodePort))
+	flags.Bool(option.EnableExternalIPs, false, fmt.Sprintf("Enable k8s service externalIPs feature (requires enabling %s)", option.EnableNodePort))
 	option.BindEnv(Vp, option.EnableExternalIPs)
 
 	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, "Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it")
@@ -522,18 +523,16 @@ func initializeFlags() {
 	flags.StringSlice(option.Labels, []string{}, "List of label prefixes used to determine identity of an endpoint")
 	option.BindEnv(Vp, option.Labels)
 
-	flags.String(option.KubeProxyReplacement, option.KubeProxyReplacementPartial, fmt.Sprintf(
+	flags.String(option.KubeProxyReplacement, option.KubeProxyReplacementFalse, fmt.Sprintf(
 		"Enable only selected features (will panic if any selected feature cannot be enabled) (%q), "+
-			"or enable all features (will panic if any feature cannot be enabled) (%q), "+
-			"or completely disable it (ignores any selected feature) (%q)",
-		option.KubeProxyReplacementPartial, option.KubeProxyReplacementStrict,
-		option.KubeProxyReplacementDisabled))
+			"or enable all features (will panic if any feature cannot be enabled) (%q)",
+		option.KubeProxyReplacementFalse, option.KubeProxyReplacementTrue))
 	option.BindEnv(Vp, option.KubeProxyReplacement)
 
 	flags.String(option.KubeProxyReplacementHealthzBindAddr, defaults.KubeProxyReplacementHealthzBindAddr, "The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.")
 	option.BindEnv(Vp, option.KubeProxyReplacementHealthzBindAddr)
 
-	flags.Bool(option.EnableHostPort, true, fmt.Sprintf("Enable k8s hostPort mapping feature (requires enabling %s)", option.EnableNodePort))
+	flags.Bool(option.EnableHostPort, false, fmt.Sprintf("Enable k8s hostPort mapping feature (requires enabling %s)", option.EnableNodePort))
 	option.BindEnv(Vp, option.EnableHostPort)
 
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium")
@@ -680,8 +679,11 @@ func initializeFlags() {
 	flags.Bool(option.EnableIPMasqAgent, false, "Enable BPF ip-masq-agent")
 	option.BindEnv(Vp, option.EnableIPMasqAgent)
 
-	flags.Bool(option.EnableIPv6BIGTCP, false, "Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits")
+	flags.Bool(option.EnableIPv6BIGTCP, false, "Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6")
 	option.BindEnv(Vp, option.EnableIPv6BIGTCP)
+
+	flags.Bool(option.EnableIPv4BIGTCP, false, "Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4")
+	option.BindEnv(Vp, option.EnableIPv4BIGTCP)
 
 	flags.Bool(option.EnableIPv4EgressGateway, false, "Enable egress gateway for IPv4")
 	option.BindEnv(Vp, option.EnableIPv4EgressGateway)
@@ -967,6 +969,9 @@ func initializeFlags() {
 		),
 	)
 	option.BindEnv(Vp, option.HubbleMonitorEvents)
+
+	flags.StringSlice(option.HubbleRedact, []string{}, "List of Hubble redact options")
+	option.BindEnv(Vp, option.HubbleRedact)
 
 	flags.StringSlice(option.DisableIptablesFeederRules, []string{}, "Chains to ignore when installing feeder rules.")
 	option.BindEnv(Vp, option.DisableIptablesFeederRules)
@@ -1321,7 +1326,7 @@ func initEnv() {
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 			option.Config.EnablePMTUDiscovery = true
 		}
-		option.Config.KubeProxyReplacement = option.KubeProxyReplacementPartial
+		option.Config.KubeProxyReplacement = option.KubeProxyReplacementFalse
 		option.Config.EnableSocketLB = true
 		// Socket-LB tracing relies on metadata that's retrieved from Kubernetes.
 		option.Config.EnableSocketLBTracing = false
@@ -1614,6 +1619,7 @@ type daemonParams struct {
 	MonitorAgent         monitorAgent.Agent
 	L2Announcer          *l2announcer.L2Announcer
 	L7Proxy              *proxy.Proxy
+	DB                   statedb.DB
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
@@ -1992,6 +1998,9 @@ func (d *Daemon) instantiateAPI(swaggerSpec *server.Spec) *restapi.CiliumAPIAPI 
 
 	// /bgp/peers
 	restAPI.BgpGetBgpPeersHandler = NewGetBGPHandler(d.bgpControlPlaneController)
+
+	// /statedb/dump
+	restAPI.StatedbGetStatedbDumpHandler = &getStateDBDump{d.db}
 
 	msg := "Required API option %s is disabled. This may prevent Cilium from operating correctly"
 	hint := "Consider enabling this API in " + server.AdminEnableFlag

@@ -12,9 +12,9 @@ import (
 )
 
 // Creates an internet gateway for use with a VPC. After creating the internet
-// gateway, you attach it to a VPC using AttachInternetGateway. For more
+// gateway, you attach it to a VPC using AttachInternetGateway . For more
 // information about your VPC and internet gateway, see the Amazon Virtual Private
-// Cloud User Guide (https://docs.aws.amazon.com/vpc/latest/userguide/).
+// Cloud User Guide (https://docs.aws.amazon.com/vpc/latest/userguide/) .
 func (c *Client) CreateInternetGateway(ctx context.Context, params *CreateInternetGatewayInput, optFns ...func(*Options)) (*CreateInternetGatewayOutput, error) {
 	if params == nil {
 		params = &CreateInternetGatewayInput{}
@@ -34,8 +34,8 @@ type CreateInternetGatewayInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The tags to assign to the internet gateway.
@@ -101,6 +101,9 @@ func (c *Client) addOperationCreateInternetGatewayMiddlewares(stack *middleware.
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateInternetGateway(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

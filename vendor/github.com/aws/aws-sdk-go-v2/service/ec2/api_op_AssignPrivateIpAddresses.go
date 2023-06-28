@@ -16,11 +16,9 @@ import (
 // can specify the number of secondary IP addresses to be automatically assigned
 // within the subnet's CIDR block range. The number of secondary IP addresses that
 // you can assign to an instance varies by instance type. For information about
-// instance types, see Instance Types
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html) in the
-// Amazon Elastic Compute Cloud User Guide. For more information about Elastic IP
-// addresses, see Elastic IP Addresses
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html)
+// instance types, see Instance Types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html)
+// in the Amazon Elastic Compute Cloud User Guide. For more information about
+// Elastic IP addresses, see Elastic IP Addresses (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html)
 // in the Amazon Elastic Compute Cloud User Guide. When you move a secondary
 // private IP address to another network interface, any Elastic IP address that is
 // associated with the IP address is also moved. Remapping an IP address is an
@@ -30,9 +28,8 @@ import (
 // IP addresses or the IP address count in the request. You can optionally use
 // Prefix Delegation on the network interface. You must specify either the IPv4
 // Prefix Delegation prefixes, or the IPv4 Prefix Delegation count. For
-// information, see  Assigning prefixes to Amazon EC2 network interfaces
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// information, see Assigning prefixes to Amazon EC2 network interfaces (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) AssignPrivateIpAddresses(ctx context.Context, params *AssignPrivateIpAddressesInput, optFns ...func(*Options)) (*AssignPrivateIpAddressesOutput, error) {
 	if params == nil {
 		params = &AssignPrivateIpAddressesInput{}
@@ -66,13 +63,13 @@ type AssignPrivateIpAddressesInput struct {
 	// option.
 	Ipv4PrefixCount *int32
 
-	// One or more IPv4 prefixes assigned to the network interface. You cannot use this
-	// option if you use the Ipv4PrefixCount option.
+	// One or more IPv4 prefixes assigned to the network interface. You cannot use
+	// this option if you use the Ipv4PrefixCount option.
 	Ipv4Prefixes []string
 
-	// The IP addresses to be assigned as a secondary private IP address to the network
-	// interface. You can't specify this parameter when also specifying a number of
-	// secondary IP addresses. If you don't specify an IP address, Amazon EC2
+	// The IP addresses to be assigned as a secondary private IP address to the
+	// network interface. You can't specify this parameter when also specifying a
+	// number of secondary IP addresses. If you don't specify an IP address, Amazon EC2
 	// automatically selects an IP address within the subnet range.
 	PrivateIpAddresses []string
 
@@ -149,6 +146,9 @@ func (c *Client) addOperationAssignPrivateIpAddressesMiddlewares(stack *middlewa
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAssignPrivateIpAddresses(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

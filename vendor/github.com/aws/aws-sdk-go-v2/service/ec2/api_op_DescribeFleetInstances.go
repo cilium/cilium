@@ -12,8 +12,7 @@ import (
 )
 
 // Describes the running instances for the specified EC2 Fleet. For more
-// information, see Monitor your EC2 Fleet
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#monitor-ec2-fleet)
+// information, see Monitor your EC2 Fleet (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-ec2-fleet.html#monitor-ec2-fleet)
 // in the Amazon EC2 User Guide.
 func (c *Client) DescribeFleetInstances(ctx context.Context, params *DescribeFleetInstancesInput, optFns ...func(*Options)) (*DescribeFleetInstancesOutput, error) {
 	if params == nil {
@@ -39,21 +38,22 @@ type DescribeFleetInstancesInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The filters.
-	//
-	// * instance-type - The instance type.
+	//   - instance-type - The instance type.
 	Filters []types.Filter
 
-	// The maximum number of results to return in a single call. Specify a value
-	// between 1 and 1000. The default value is 1000. To retrieve the remaining
-	// results, make another call with the returned NextToken value.
+	// The maximum number of items to return for this request. To get the next page of
+	// items, make another request with the token returned in the output. For more
+	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
+	// .
 	MaxResults *int32
 
-	// The token for the next set of results.
+	// The token returned from a previous paginated request. Pagination continues from
+	// the end of the items returned by the previous request.
 	NextToken *string
 
 	noSmithyDocumentSerde
@@ -68,7 +68,8 @@ type DescribeFleetInstancesOutput struct {
 	// The ID of the EC2 Fleet.
 	FleetId *string
 
-	// The token for the next set of results.
+	// The token to include in another request to get the next page of items. This
+	// value is null when there are no more items to return.
 	NextToken *string
 
 	// Metadata pertaining to the operation's result.
@@ -126,6 +127,9 @@ func (c *Client) addOperationDescribeFleetInstancesMiddlewares(stack *middleware
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeFleetInstances(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

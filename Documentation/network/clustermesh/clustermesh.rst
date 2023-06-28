@@ -69,6 +69,24 @@ Install the Cilium CLI
 
 .. include:: ../../installation/cli-download.rst
 
+Starting from v0.14.8, the Cilium CLI supports configuring Cilium Cluster Mesh
+using Helm. To opt in to use the new *helm* configuration mode export the
+``CILIUM_CLI_MODE`` variable:
+
+.. code-block:: shell-session
+
+  export CILIUM_CLI_MODE=helm
+
+Always prefer the Cilium CLI *helm* mode for new Cluster Mesh installations, as
+it supports more advanced functionalities and configuration options. It also enables
+you to use the Cilium CLI and Helm interchangeably to manage your Cilium installation.
+
+.. warning::
+
+  Don't use the Cilium CLI *helm* mode to enable Cluster Mesh or connect clusters
+  configured using the Cilium CLI operating in *classic* mode, as the two modes are
+  not compatible with each other.
+
 Prepare the Clusters
 ####################
 
@@ -86,7 +104,9 @@ time of Cilium:
 
  * ConfigMap options ``cluster-name`` and ``cluster-id``
  * Helm options ``cluster.name`` and ``cluster.id``
- * ``cilium install`` options ``--cluster-name`` and ``--cluster-id``
+ * Cilium CLI install options (*helm* mode) ``--helm-set cluster.name`` and ``--helm-set cluster.id``
+ * Cilium CLI install options (*classic* mode) ``--cluster-name`` and ``--cluster-id``
+   (`GitHub issue <https://github.com/cilium/cilium-cli/issues/1347>`__)
 
 .. important::
 
@@ -102,15 +122,25 @@ If you are planning to run Hubble Relay across clusters, it is best to share a
 certificate authority (CA) between the clusters as it will enable mTLS across
 clusters to just work.
 
-The easiest way to establish this is to pass ``--inherit-ca`` to the
-``install`` command when installing additional clusters:
+.. tabs::
+  .. group-tab:: Cilium CLI (*helm* mode)
 
-.. code-block:: shell-session
+    You can propagate the CA copying the Kubernetes secret containing the CA
+    from one cluster to another:
 
-   cilium install --context $CLUSTER2 [...] --inherit-ca $CLUSTER1
+    .. code-block:: shell-session
 
-If you are not using ``cilium install`` for the installation, simply propagate
-the Kubernetes secret containing the CA from one cluster to the other.
+      kubectl --context=$CLUSTER1 get secret -n kube-system cilium-ca -o yaml | \
+        kubectl --context $CLUSTER2 create -f -
+
+  .. group-tab:: Cilium CLI (*classic* mode)
+
+    You can propagate the CA passing ``--inherit-ca`` to the
+    ``install`` command when installing additional clusters:
+
+    .. code-block:: shell-session
+
+      cilium install --context $CLUSTER2 [...] --inherit-ca $CLUSTER1
 
 .. _enable_clustermesh:
 
@@ -137,24 +167,19 @@ You should be seeing output similar to the following:
     ✅ Valid cluster identification found: name="gke-cilium-dev-us-west2-a-test-cluster1" id="1"
     🔑 Found existing CA in secret cilium-ca
     🔑 Generating certificates for ClusterMesh...
-    2021/01/08 23:11:48 [INFO] generate received request
-    2021/01/08 23:11:48 [INFO] received CSR
-    2021/01/08 23:11:48 [INFO] generating key: ecdsa-256
-    2021/01/08 23:11:48 [INFO] encoded CSR
-    2021/01/08 23:11:48 [INFO] signed certificate with serial number 670714666407590575359066679305478681356106905869
-    2021/01/08 23:11:48 [INFO] generate received request
-    2021/01/08 23:11:48 [INFO] received CSR
-    2021/01/08 23:11:48 [INFO] generating key: ecdsa-256
-    2021/01/08 23:11:49 [INFO] encoded CSR
-    2021/01/08 23:11:49 [INFO] signed certificate with serial number 591065363597916136413807294935737333774847803115
-    2021/01/08 23:11:49 [INFO] generate received request
-    2021/01/08 23:11:49 [INFO] received CSR
-    2021/01/08 23:11:49 [INFO] generating key: ecdsa-256
-    2021/01/08 23:11:49 [INFO] encoded CSR
-    2021/01/08 23:11:49 [INFO] signed certificate with serial number 212022707754116737648249489711560171325685820957
     ✨ Deploying clustermesh-apiserver...
     🔮 Auto-exposing service within GCP VPC (cloud.google.com/load-balancer-type=internal)
 
+
+.. note::
+
+   You can additionally opt in to :ref:`kvstoremesh` (beta feature) when enabling
+   Cluster Mesh. Make sure to configure the Cilium CLI in *helm* mode and run:
+
+   .. code-block:: shell-session
+
+     cilium clustermesh enable --context $CLUSTER1 --enable-kvstoremesh
+     cilium clustermesh enable --context $CLUSTER2 --enable-kvstoremesh
 
 .. important::
 

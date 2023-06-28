@@ -56,10 +56,12 @@ func (s *garpSuite) TestGARPCell(c *C) {
 	h := hive.New(cell.Module(
 		"test-garp-cell",
 		"TestGARPCell",
-		Cell,
+
+		cell.Config(Config{}),
+		cell.Provide(newGARPSender),
 		cell.Invoke(testGARPCell),
 	))
-	hive.AddConfigOverride(h, func(cfg *Config) { cfg.GARPInterface = testIfaceName })
+	hive.AddConfigOverride(h, func(cfg *Config) { cfg.L2PodAnnouncementsInterface = testIfaceName })
 
 	if err := h.Populate(); err != nil {
 		c.Fatalf("Failed to populate: %s", err)

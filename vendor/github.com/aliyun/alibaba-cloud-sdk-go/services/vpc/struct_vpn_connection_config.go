@@ -17,10 +17,11 @@ package vpc
 
 // VpnConnectionConfig is a nested struct in vpc response
 type VpnConnectionConfig struct {
-	Remote       string      `json:"Remote" xml:"Remote"`
-	Local        string      `json:"Local" xml:"Local"`
-	RemoteSubnet string      `json:"RemoteSubnet" xml:"RemoteSubnet"`
-	LocalSubnet  string      `json:"LocalSubnet" xml:"LocalSubnet"`
-	IkeConfig    IkeConfig   `json:"IkeConfig" xml:"IkeConfig"`
-	IpsecConfig  IpsecConfig `json:"IpsecConfig" xml:"IpsecConfig"`
+	Remote        string        `json:"Remote" xml:"Remote"`
+	Local         string        `json:"Local" xml:"Local"`
+	RemoteSubnet  string        `json:"RemoteSubnet" xml:"RemoteSubnet"`
+	LocalSubnet   string        `json:"LocalSubnet" xml:"LocalSubnet"`
+	IkeConfig     IkeConfig     `json:"IkeConfig" xml:"IkeConfig"`
+	IpsecConfig   IpsecConfig   `json:"IpsecConfig" xml:"IpsecConfig"`
+	TunnelsConfig TunnelsConfig `json:"TunnelsConfig" xml:"TunnelsConfig"`
 }

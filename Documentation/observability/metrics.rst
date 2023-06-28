@@ -176,6 +176,8 @@ so this functionality is currently opt-in, though we believe all of the Hubble
 metrics conform to the OpenMetrics requirements.
 
 
+.. _clustermesh_apiserver_metrics:
+
 Cluster Mesh API Server Metrics
 ===============================
 
@@ -190,10 +192,12 @@ Prometheus namespace. Etcd metrics are exported under the ``etcd_`` Prometheus n
 Installation
 ------------
 
-You can enable metrics for ``clustermesh-apiserver`` with the Helm value
-``clustermesh.apiserver.metrics.enabled=true``.
-To enable metrics for the sidecar etcd instance, use
-``clustermesh.apiserver.metrics.etcd.enabled=true``.
+You can enable the metrics for different Cluster Mesh API Server components by
+setting the following values:
+
+* clustermesh-apiserver: ``clustermesh.apiserver.metrics.enabled=true``
+* kvstoremesh: ``clustermesh.apiserver.metrics.kvstoremesh.enabled=true``
+* sidecar etcd instance: ``clustermesh.apiserver.metrics.etcd.enabled=true``
 
 .. parsed-literal::
 
@@ -201,9 +205,11 @@ To enable metrics for the sidecar etcd instance, use
      --namespace kube-system \\
      --set clustermesh.useAPIServer=true \\
      --set clustermesh.apiserver.metrics.enabled=true \\
+     --set clustermesh.apiserver.metrics.kvstoremesh.enabled=true \\
      --set clustermesh.apiserver.metrics.etcd.enabled=true
 
-The ports can be configured via ``clustermesh.apiserver.metrics.port`` and
+You can figure the ports by way of ``clustermesh.apiserver.metrics.port``,
+``clustermesh.apiserver.metrics.kvstoremesh.port`` and
 ``clustermesh.apiserver.metrics.etcd.port`` respectively.
 
 You can automatically create a
@@ -444,6 +450,17 @@ Name                                        Labels                              
 ``k8s_terminating_endpoints_events_total``                                                     Enabled    Number of terminating endpoint events received from Kubernetes
 =========================================== ================================================== ========== ========================================================
 
+Kubernetes Rest Client
+~~~~~~~~~~~~~~~~~~~~~~
+
+============================================= ============================================= ========== ===========================================================
+Name                                          Labels                                        Default    Description
+============================================= ============================================= ========== ===========================================================
+``k8s_client_api_latency_time_seconds``       ``path``, ``method``                          Enabled    Duration of processed API calls labeled by path and method
+``k8s_client_rate_limiter_duration_seconds``  ``path``, ``method``                          Enabled    Kubernetes client rate limiter latency in seconds. Broken down by path and method
+``k8s_client_api_calls_total``                ``host``, ``method``, ``return_code``         Enabled    Number of API calls made to kube-apiserver labeled by host, method and return code
+============================================= ============================================= ========== ===========================================================
+
 IPAM
 ~~~~
 
@@ -599,7 +616,6 @@ Option Value          Description
 ``identity``          All Cilium security identity labels
 ``namespace``         Kubernetes namespace name
 ``pod``               Kubernetes pod name and namespace name in the form of ``namespace/pod``.
-``pod-short``         Deprecated, will be removed in Cilium 1.14 - use ``workload-name|pod-name`` instead. Short version of the Kubernetes pod name. Typically the deployment/replicaset name.
 ``pod-name``          Kubernetes pod name.
 ``dns``               All known DNS names of the source or destination (comma-separated)
 ``ip``                The IPv4 or IPv6 address
@@ -893,6 +909,8 @@ Options
 
 This metric supports :ref:`Context Options<hubble_context_options>`.
 
+.. _clustermesh_apiserver_metrics_reference:
+
 clustermesh-apiserver
 ---------------------
 
@@ -922,6 +940,19 @@ Name                                     Labels                                 
 ``kvstore_sync_queue_size``              ``scope``, ``source_cluster``                Number of elements queued for synchronization in the kvstore
 ``kvstore_initial_sync_completed``       ``scope``, ``source_cluster``, ``action``    Whether the initial synchronization from/to the kvstore has completed
 ======================================== ============================================ ========================================================
+
+API Rate Limiting
+~~~~~~~~~~~~~~~~~
+
+============================================== ================================ ========================================================
+Name                                           Labels                           Description
+============================================== ================================ ========================================================
+``api_limiter_processed_requests_total``       ``api_call``, ``outcome``        Total number of API requests processed
+``api_limiter_processing_duration_seconds``    ``api_call``, ``value``          Mean and estimated processing duration in seconds
+``api_limiter_rate_limit``                     ``api_call``, ``value``          Current rate limiting configuration (limit and burst)
+``api_limiter_requests_in_flight``             ``api_call``  ``value``          Current and maximum allowed number of requests in flight
+``api_limiter_wait_duration_seconds``          ``api_call``, ``value``          Mean, min, and max wait duration
+============================================== ================================ ========================================================
 
 .. _kvstoremesh_metrics_reference:
 

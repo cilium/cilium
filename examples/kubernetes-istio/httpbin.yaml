@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin
+spec:
+  type: ClusterIP
+  selector:
+    app: httpbin
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpbin
+  labels:
+    app: httpbin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: httpbin
+  template:
+    metadata:
+      labels:
+        app: httpbin
+    spec:
+      containers:
+      - name: httpbin
+        image: kennethreitz/httpbin

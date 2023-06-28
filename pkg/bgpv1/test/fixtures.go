@@ -10,6 +10,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
@@ -71,7 +72,7 @@ var (
 		nodeSelector: labels,
 		virtualRouters: []cilium_api_v2alpha1.CiliumBGPVirtualRouter{
 			{
-				LocalASN: int(ciliumASN),
+				LocalASN: int64(ciliumASN),
 			},
 		},
 	}
@@ -170,12 +171,12 @@ func newFixture(conf fixtureConfig) *fixture {
 func setupSingleNeighbor(ctx context.Context, f *fixture) error {
 	bgpPolicy := baseBGPPolicy
 	bgpPolicy.virtualRouters[0] = cilium_api_v2alpha1.CiliumBGPVirtualRouter{
-		LocalASN:      int(ciliumASN),
-		ExportPodCIDR: true,
+		LocalASN:      int64(ciliumASN),
+		ExportPodCIDR: pointer.Bool(true),
 		Neighbors: []cilium_api_v2alpha1.CiliumBGPNeighbor{
 			{
 				PeerAddress: dummies[instance1Link].ipv4.String(),
-				PeerASN:     int(gobgpASN),
+				PeerASN:     int64(gobgpASN),
 			},
 		},
 	}

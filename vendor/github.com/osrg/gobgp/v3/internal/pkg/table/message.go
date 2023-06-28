@@ -240,6 +240,8 @@ func UpdatePathAggregator4ByteAs(msg *bgp.BGPUpdate) error {
 			if attr.Value.Askind == reflect.Uint16 {
 				aggAttr = attr
 				aggAttr.Value.Askind = reflect.Uint32
+			} else if attr.Value.Askind == reflect.Uint32 {
+				aggAttr = attr
 			}
 		case *bgp.PathAttributeAs4Aggregator:
 			agg4Attr = agg

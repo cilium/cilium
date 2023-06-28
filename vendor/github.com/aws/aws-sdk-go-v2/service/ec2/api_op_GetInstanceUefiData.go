@@ -12,16 +12,15 @@ import (
 
 // A binary representation of the UEFI variable store. Only non-volatile variables
 // are stored. This is a base64 encoded and zlib compressed binary value that must
-// be properly encoded. When you use register-image
-// (https://docs.aws.amazon.com/cli/latest/reference/ec2/register-image.html) to
-// create an AMI, you can create an exact copy of your variable store by passing
+// be properly encoded. When you use register-image (https://docs.aws.amazon.com/cli/latest/reference/ec2/register-image.html)
+// to create an AMI, you can create an exact copy of your variable store by passing
 // the UEFI data in the UefiData parameter. You can modify the UEFI data by using
-// the python-uefivars tool (https://github.com/awslabs/python-uefivars) on GitHub.
-// You can use the tool to convert the UEFI data into a human-readable format
-// (JSON), which you can inspect and modify, and then convert back into the binary
-// format to use with register-image. For more information, see UEFI Secure Boot
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/uefi-secure-boot.html) in
-// the Amazon EC2 User Guide.
+// the python-uefivars tool (https://github.com/awslabs/python-uefivars) on
+// GitHub. You can use the tool to convert the UEFI data into a human-readable
+// format (JSON), which you can inspect and modify, and then convert back into the
+// binary format to use with register-image. For more information, see UEFI Secure
+// Boot (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/uefi-secure-boot.html)
+// in the Amazon EC2 User Guide.
 func (c *Client) GetInstanceUefiData(ctx context.Context, params *GetInstanceUefiDataInput, optFns ...func(*Options)) (*GetInstanceUefiDataOutput, error) {
 	if params == nil {
 		params = &GetInstanceUefiDataInput{}
@@ -46,8 +45,8 @@ type GetInstanceUefiDataInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -116,6 +115,9 @@ func (c *Client) addOperationGetInstanceUefiDataMiddlewares(stack *middleware.St
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetInstanceUefiData(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

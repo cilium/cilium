@@ -40,6 +40,10 @@
      - Annotate k8s node upon initialization with Cilium's metadata.
      - bool
      - ``false``
+   * - authentication.enabled
+     - Enable authentication processing and garbage collection. Note that if disabled, policy enforcement will still block requests that require authentication. But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed.
+     - bool
+     - ``true``
    * - authentication.expiredGCInterval
      - Interval for garbage collection of expired auth map entries.
      - string
@@ -388,10 +392,38 @@
      - Clustermesh API server image.
      - object
      - ``{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/clustermesh-apiserver-ci","tag":"latest","useDigest":false}``
+   * - clustermesh.apiserver.kvstoremesh.enabled
+     - Enable KVStoreMesh. KVStoreMesh caches the information retrieved from the remote clusters in the local etcd instance.
+     - bool
+     - ``false``
+   * - clustermesh.apiserver.kvstoremesh.extraArgs
+     - Additional KVStoreMesh arguments.
+     - list
+     - ``[]``
+   * - clustermesh.apiserver.kvstoremesh.extraEnv
+     - Additional KVStoreMesh environment variables.
+     - list
+     - ``[]``
+   * - clustermesh.apiserver.kvstoremesh.extraVolumeMounts
+     - Additional KVStoreMesh volumeMounts.
+     - list
+     - ``[]``
+   * - clustermesh.apiserver.kvstoremesh.image
+     - KVStoreMesh image.
+     - object
+     - ``{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/kvstoremesh-ci","tag":"latest","useDigest":false}``
+   * - clustermesh.apiserver.kvstoremesh.resources
+     - Resource requests and limits for the KVStoreMesh container
+     - object
+     - ``{}``
+   * - clustermesh.apiserver.kvstoremesh.securityContext
+     - KVStoreMesh Security context
+     - object
+     - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
    * - clustermesh.apiserver.metrics.enabled
      - Enables exporting apiserver metrics in OpenMetrics format.
      - bool
-     - ``false``
+     - ``true``
    * - clustermesh.apiserver.metrics.etcd.enabled
      - Enables exporting etcd metrics in OpenMetrics format.
      - bool
@@ -404,6 +436,14 @@
      - Configure the port the etcd metric server listens on.
      - int
      - ``9963``
+   * - clustermesh.apiserver.metrics.kvstoremesh.enabled
+     - Enables exporting KVStoreMesh metrics in OpenMetrics format.
+     - bool
+     - ``true``
+   * - clustermesh.apiserver.metrics.kvstoremesh.port
+     - Configure the port the KVStoreMesh metric server listens on.
+     - int
+     - ``9964``
    * - clustermesh.apiserver.metrics.port
      - Configure the port the apiserver metric server listens on.
      - int
@@ -432,6 +472,18 @@
      - Interval for scrape metrics (apiserver metrics)
      - string
      - ``"10s"``
+   * - clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.interval
+     - Interval for scrape metrics (KVStoreMesh metrics)
+     - string
+     - ``"10s"``
+   * - clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.metricRelabelings
+     - Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (KVStoreMesh metrics)
+     - string
+     - ``nil``
+   * - clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.relabelings
+     - Relabeling configs for the ServiceMonitor clustermesh-apiserver (KVStoreMesh metrics)
+     - string
+     - ``nil``
    * - clustermesh.apiserver.metrics.serviceMonitor.labels
      - Labels to add to ServiceMonitor clustermesh-apiserver
      - object
@@ -760,12 +812,16 @@
      - Explicitly enable or disable priority class. .Capabilities.KubeVersion is unsettable in ``helm template`` calls, it depends on k8s libraries version that Helm was compiled against. This option allows to explicitly disable setting the priority class, which is useful for rendering charts for gke clusters in advance.
      - bool
      - ``true``
+   * - enableIPv4BIGTCP
+     - Enables IPv4 BIG TCP support which increases maximum IPv4 GSO/GRO limits for nodes and pods
+     - bool
+     - ``false``
    * - enableIPv4Masquerade
      - Enables masquerading of IPv4 traffic leaving the node from endpoints.
      - bool
      - ``true``
    * - enableIPv6BIGTCP
-     - Enables IPv6 BIG TCP support which increases maximum GSO/GRO limits for nodes and pods
+     - Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
      - bool
      - ``false``
    * - enableIPv6Masquerade
@@ -955,7 +1011,7 @@
    * - envoy.image
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:f165787c05050a4d57c5940dcd59de03cafecff9c02965a1d076c2b2935505d8","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.25.7-384b5008dce426eba89af8ef17f52e4fb066ff40","useDigest":true}``
+     - ``{"digest":"sha256:7edab48930186cc988baa6fb2ef6c352325306f0d6a0c89e43bef28941189095","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.25.7-8fddead4e52c704a6b189e3f80a69403c6cdc997","useDigest":true}``
    * - envoy.livenessProbe.failureThreshold
      - failure threshold of liveness probe
      - int
@@ -1080,6 +1136,22 @@
      - cilium-envoy update strategy ref: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/#updating-a-daemonset
      - object
      - ``{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}``
+   * - envoyConfig.enabled
+     - Enable CiliumEnvoyConfig CRD CiliumEnvoyConfig CRD can also be implicitly enabled by other options.
+     - bool
+     - ``false``
+   * - envoyConfig.secretsNamespace
+     - SecretsNamespace is the namespace in which envoy SDS will retrieve secrets from.
+     - object
+     - ``{"create":true,"name":"cilium-secrets"}``
+   * - envoyConfig.secretsNamespace.create
+     - Create secrets namespace for CiliumEnvoyConfig CRDs.
+     - bool
+     - ``true``
+   * - envoyConfig.secretsNamespace.name
+     - The name of the secret namespace to which Cilium agents are given read access.
+     - string
+     - ``"cilium-secrets"``
    * - etcd.clusterDomain
      - Cluster domain for cilium-etcd-operator.
      - string
@@ -1281,7 +1353,7 @@
      - bool
      - ``false``
    * - hubble.metrics.enabled
-     - Configures the list of metrics to collect. If empty or null, metrics are disabled. Example:    enabled:   - dns:query;ignoreAAAA   - drop   - tcp   - flow   - icmp   - http  You can specify the list of metrics from the helm CLI:    --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
+     - Configures the list of metrics to collect. If empty or null, metrics are disabled. Example:    enabled:   - dns:query;ignoreAAAA   - drop   - tcp   - flow   - icmp   - http  You can specify the list of metrics from the helm CLI:    --set hubble.metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
      - string
      - ``nil``
    * - hubble.metrics.port
@@ -1328,6 +1400,10 @@
      - Whether Hubble should prefer to announce IPv6 or IPv4 addresses if both are available.
      - bool
      - ``false``
+   * - hubble.redact
+     - Configures the list of redact options for Hubble. Example:    redact:   - http-url-query  You can specify the list of options from the helm CLI:    --set hubble.redact="{http-url-query}"
+     - string
+     - ``nil``
    * - hubble.relay.affinity
      - Affinity for hubble-replay
      - object
@@ -1916,6 +1992,18 @@
      - Enable L2 announcements
      - bool
      - ``false``
+   * - l2podAnnouncements
+     - Configure L2 pod announcements
+     - object
+     - ``{"enabled":false,"interface":"eth0"}``
+   * - l2podAnnouncements.enabled
+     - Enable L2 pod announcements
+     - bool
+     - ``false``
+   * - l2podAnnouncements.interface
+     - Interface used for sending Gratuitous ARP pod announcements
+     - string
+     - ``"eth0"``
    * - l7Proxy
      - Enable Layer 7 network policy.
      - bool
@@ -1941,7 +2029,7 @@
      - string
      - ``"round_robin"``
    * - loadBalancer.l7.backend
-     - Enable L7 service load balancing via envoy proxy. The request to a k8s service, which has specific annotation e.g. service.cilium.io/lb-l7, will be forwarded to the local backend proxy to be load balanced to the service endpoints. Please refer to docs for supported annotations for more configuration.  Applicable values:   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.   - disabled: Disable L7 load balancing.
+     - Enable L7 service load balancing via envoy proxy. The request to a k8s service, which has specific annotation e.g. service.cilium.io/lb-l7, will be forwarded to the local backend proxy to be load balanced to the service endpoints. Please refer to docs for supported annotations for more configuration.  Applicable values:   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.   - disabled: Disable L7 load balancing by way of service annotation.
      - string
      - ``"disabled"``
    * - loadBalancer.l7.ports
@@ -2543,7 +2631,7 @@
    * - tls
      - Configure TLS configuration in the agent.
      - object
-     - ``{"ca":{"cert":"","certValidityDuration":1095,"key":""},"caBundle":{"enabled":false,"key":"ca.crt","name":"cilium-root-ca.crt"},"secretsBackend":"local"}``
+     - ``{"ca":{"cert":"","certValidityDuration":1095,"key":""},"caBundle":{"enabled":false,"key":"ca.crt","name":"cilium-root-ca.crt","useSecret":false},"secretsBackend":"local"}``
    * - tls.ca
      - Base64 encoded PEM values for the CA certificate and private key. This can be used as common CA to generate certificates used by hubble and clustermesh components. It is neither required nor used when cert-manager is used to generate the certificates.
      - object
@@ -2563,7 +2651,7 @@
    * - tls.caBundle
      - Configure the CA trust bundle used for the validation of the certificates leveraged by hubble and clustermesh. When enabled, it overrides the content of the 'ca.crt' field of the respective certificates, allowing for CA rotation with no down-time.
      - object
-     - ``{"enabled":false,"key":"ca.crt","name":"cilium-root-ca.crt"}``
+     - ``{"enabled":false,"key":"ca.crt","name":"cilium-root-ca.crt","useSecret":false}``
    * - tls.caBundle.enabled
      - Enable the use of the CA trust bundle.
      - bool
@@ -2576,6 +2664,10 @@
      - Name of the ConfigMap containing the CA trust bundle.
      - string
      - ``"cilium-root-ca.crt"``
+   * - tls.caBundle.useSecret
+     - Use a Secret instead of a ConfigMap.
+     - bool
+     - ``false``
    * - tls.secretsBackend
      - This configures how the Cilium agent loads the secrets used TLS-aware CiliumNetworkPolicies (namely the secrets referenced by terminatingTLS and originatingTLS). Possible values:   - local   - k8s
      - string

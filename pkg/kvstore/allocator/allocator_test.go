@@ -50,12 +50,7 @@ func (e *AllocatorEtcdSuite) SetUpSuite(c *C) {
 
 func (e *AllocatorEtcdSuite) SetUpTest(c *C) {
 	e.backend = "etcd"
-	kvstore.SetupDummy("etcd")
-}
-
-func (e *AllocatorEtcdSuite) TearDownTest(c *C) {
-	kvstore.Client().DeletePrefix(context.TODO(), testPrefix)
-	kvstore.Client().Close(context.TODO())
+	kvstore.SetupDummy(c, "etcd")
 }
 
 type AllocatorConsulSuite struct {
@@ -70,12 +65,7 @@ func (e *AllocatorConsulSuite) SetUpSuite(c *C) {
 
 func (e *AllocatorConsulSuite) SetUpTest(c *C) {
 	e.backend = "consul"
-	kvstore.SetupDummy("consul")
-}
-
-func (e *AllocatorConsulSuite) TearDownTest(c *C) {
-	kvstore.Client().DeletePrefix(context.TODO(), testPrefix)
-	kvstore.Client().Close(context.TODO())
+	kvstore.SetupDummy(c, "consul")
 }
 
 // FIXME: this should be named better, it implements pkg/allocator.Backend

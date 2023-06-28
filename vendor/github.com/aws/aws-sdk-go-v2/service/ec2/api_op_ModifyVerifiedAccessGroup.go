@@ -12,6 +12,7 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
+// Modifies the specified Amazon Web Services Verified Access group configuration.
 func (c *Client) ModifyVerifiedAccessGroup(ctx context.Context, params *ModifyVerifiedAccessGroupInput, optFns ...func(*Options)) (*ModifyVerifiedAccessGroupOutput, error) {
 	if params == nil {
 		params = &ModifyVerifiedAccessGroupInput{}
@@ -29,21 +30,34 @@ func (c *Client) ModifyVerifiedAccessGroup(ctx context.Context, params *ModifyVe
 
 type ModifyVerifiedAccessGroupInput struct {
 
+	// The ID of the Verified Access group.
+	//
 	// This member is required.
 	VerifiedAccessGroupId *string
 
+	// A unique, case-sensitive token that you provide to ensure idempotency of your
+	// modification request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
+	// .
 	ClientToken *string
 
+	// A description for the Verified Access group.
 	Description *string
 
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have the
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
+	// The ID of the Verified Access instance.
 	VerifiedAccessInstanceId *string
 
 	noSmithyDocumentSerde
 }
 
 type ModifyVerifiedAccessGroupOutput struct {
+
+	// Details of Verified Access group.
 	VerifiedAccessGroup *types.VerifiedAccessGroup
 
 	// Metadata pertaining to the operation's result.
@@ -104,6 +118,9 @@ func (c *Client) addOperationModifyVerifiedAccessGroupMiddlewares(stack *middlew
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opModifyVerifiedAccessGroup(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

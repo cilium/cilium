@@ -62,6 +62,7 @@ func NewKey(ip net.IP) Key {
 type VtepEndpointInfo struct {
 	VtepMAC        mac.Uint64MAC `align:"vtep_mac"`
 	TunnelEndpoint types.IPv4    `align:"tunnel_endpoint"`
+	_              [4]byte
 }
 
 func (v *VtepEndpointInfo) String() string {

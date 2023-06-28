@@ -199,8 +199,10 @@ func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
 			IPV6: option.Config.EnableIPv6Masquerade,
 		},
 		EgressMultiHomeIPRuleCompat: option.Config.EgressMultiHomeIPRuleCompat,
-		GROMaxSize:                  int64(d.bigTCPConfig.GetGROMaxSize()),
-		GSOMaxSize:                  int64(d.bigTCPConfig.GetGSOMaxSize()),
+		GROMaxSize:                  int64(d.bigTCPConfig.GetGROIPv6MaxSize()),
+		GSOMaxSize:                  int64(d.bigTCPConfig.GetGSOIPv6MaxSize()),
+		GROIPV4MaxSize:              int64(d.bigTCPConfig.GetGROIPv4MaxSize()),
+		GSOIPV4MaxSize:              int64(d.bigTCPConfig.GetGSOIPv4MaxSize()),
 	}
 
 	cfg := &models.DaemonConfiguration{

@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -116,6 +117,11 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 
 	if base.DatapathConfiguration != nil {
 		ep.DatapathConfiguration = *base.DatapathConfiguration
+		// We need to make sure DatapathConfiguration.DisableSipVerification value
+		// overrides the value of SourceIPVerification runtime option of the endpoint.
+		if ep.DatapathConfiguration.DisableSipVerification {
+			ep.updateAndOverrideEndpointOptions(option.OptionMap{option.SourceIPVerification: option.OptionDisabled})
+		}
 	}
 
 	if base.Labels != nil {
@@ -138,7 +144,7 @@ func (e *Endpoint) getModelEndpointIdentitiersRLocked() *models.EndpointIdentifi
 		ContainerName:    e.containerName,
 		DockerEndpointID: e.dockerEndpointID,
 		DockerNetworkID:  e.dockerNetworkID,
-		PodName:          e.getK8sNamespaceAndPodName(),
+		PodName:          e.GetK8sNamespaceAndPodName(),
 		K8sPodName:       e.K8sPodName,
 		K8sNamespace:     e.K8sNamespace,
 	}
@@ -293,10 +299,12 @@ func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
 }
 
 // getNamedPortsModel returns the endpoint's NamedPorts object.
-//
-// Must be called with e.mutex RLock()ed.
 func (e *Endpoint) getNamedPortsModel() (np models.NamedPorts) {
-	k8sPorts := e.k8sPorts
+	var k8sPorts types.NamedPortMap
+	if p := e.k8sPorts.Load(); p != nil {
+		k8sPorts = *p
+	}
+
 	// keep named ports ordered to avoid the unnecessary updates to
 	// kube-apiserver
 	names := make([]string, 0, len(k8sPorts))
@@ -456,6 +464,9 @@ func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 // purposes should a caller choose to try to regenerate this endpoint, as well
 // as an error if the Endpoint is being deleted, since there is no point in
 // changing an Endpoint if it is going to be deleted.
+//
+// Before adding any new fields here, check to see if they are assumed to be mutable after
+// endpoint creation!
 func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionState bool) (string, error) {
 	var (
 		changed bool

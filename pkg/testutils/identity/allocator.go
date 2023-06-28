@@ -104,6 +104,7 @@ func (f *MockIdentityAllocator) AllocateIdentity(_ context.Context, lbls labels.
 		Labels:         lbls,
 		ReferenceCount: 1,
 	}
+	realID.Sanitize() // copy Labels to LabelArray
 	f.idToIdentity[id] = realID
 
 	return realID, true, nil
@@ -184,4 +185,8 @@ func (f *MockIdentityAllocator) ReleaseCIDRIdentitiesByID(ctx context.Context, i
 // GetIdentityCache returns the identity cache.
 func (f *MockIdentityAllocator) GetIdentityCache() cache.IdentityCache {
 	return f.IdentityCache
+}
+
+func (f *MockIdentityAllocator) Observe(ctx context.Context, next func(cache.IdentityChange), complete func(error)) {
+	go complete(nil)
 }

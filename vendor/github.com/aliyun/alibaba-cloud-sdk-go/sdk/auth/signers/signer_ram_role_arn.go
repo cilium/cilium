@@ -127,6 +127,9 @@ func (signer *RamRoleArnSigner) buildCommonRequest() (request *requests.CommonRe
 	if signer.credential.Policy != "" {
 		request.QueryParams["Policy"] = signer.credential.Policy
 	}
+	if signer.credential.ExternalId != "" {
+		request.QueryParams["ExternalId"] = signer.credential.ExternalId
+	}
 	request.QueryParams["RoleSessionName"] = signer.credential.RoleSessionName
 	request.QueryParams["DurationSeconds"] = strconv.Itoa(signer.credentialExpiration)
 	return

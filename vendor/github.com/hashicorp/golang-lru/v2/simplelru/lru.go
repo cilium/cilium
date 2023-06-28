@@ -49,6 +49,9 @@ func (c *LRU[K, V]) Add(key K, value V) (evicted bool) {
 	// Check for existing item
 	if ent, ok := c.items[key]; ok {
 		c.evictList.moveToFront(ent)
+		if c.onEvict != nil {
+			c.onEvict(key, ent.value)
+		}
 		ent.value = value
 		return false
 	}
@@ -127,6 +130,17 @@ func (c *LRU[K, V]) Keys() []K {
 		i++
 	}
 	return keys
+}
+
+// Values returns a slice of the values in the cache, from oldest to newest.
+func (c *LRU[K, V]) Values() []V {
+	values := make([]V, len(c.items))
+	i := 0
+	for ent := c.evictList.back(); ent != nil; ent = ent.prevEntry() {
+		values[i] = ent.value
+		i++
+	}
+	return values
 }
 
 // Len returns the number of items in the cache.

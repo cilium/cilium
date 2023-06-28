@@ -11,9 +11,8 @@ import (
 )
 
 // Cancels the deprecation of the specified AMI. For more information, see
-// Deprecate an AMI
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-deprecate.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// Deprecate an AMI (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-deprecate.html)
+// in the Amazon EC2 User Guide.
 func (c *Client) DisableImageDeprecation(ctx context.Context, params *DisableImageDeprecationInput, optFns ...func(*Options)) (*DisableImageDeprecationOutput, error) {
 	if params == nil {
 		params = &DisableImageDeprecationInput{}
@@ -38,8 +37,8 @@ type DisableImageDeprecationInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -105,6 +104,9 @@ func (c *Client) addOperationDisableImageDeprecationMiddlewares(stack *middlewar
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDisableImageDeprecation(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -198,11 +198,11 @@ func (e *MapStateEntry) getNets(identities Identities, ident uint32) []*net.IPNe
 		}
 		return e.cachedNets
 	}
-	if identities == nil {
+	// CIDR identities have a local scope, so we can skip the rest if id is not of local scope.
+	if !id.HasLocalScope() || identities == nil {
 		return nil
 	}
 	lbls := identities.GetLabels(id)
-	nets := make([]*net.IPNet, 0, 1)
 	var (
 		maskSize         int
 		mostSpecificCidr *net.IPNet
@@ -219,10 +219,10 @@ func (e *MapStateEntry) getNets(identities Identities, ident uint32) []*net.IPNe
 		}
 	}
 	if mostSpecificCidr != nil {
-		nets = append(nets, mostSpecificCidr)
+		e.cachedNets = []*net.IPNet{mostSpecificCidr}
+		return e.cachedNets
 	}
-	e.cachedNets = nets
-	return nets
+	return nil
 }
 
 // AddDependent adds 'key' to the set of dependent keys.
@@ -775,7 +775,7 @@ func (keys MapState) AllowsL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 
 	// resolve named port
 	if port == 0 && l4.PortName != "" {
-		port = policyOwner.GetNamedPortLocked(l4.Ingress, l4.PortName, proto)
+		port = policyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
 		if port == 0 {
 			return false
 		}

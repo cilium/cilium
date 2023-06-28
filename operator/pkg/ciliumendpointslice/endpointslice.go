@@ -113,10 +113,14 @@ func NewCESController(
 ) *CiliumEndpointSliceController {
 	if qpsLimit == 0 {
 		qpsLimit = CESControllerWorkQueueQPSLimit
+	} else if qpsLimit > operatorOption.CESWriteQPSLimitMax {
+		qpsLimit = operatorOption.CESWriteQPSLimitMax
 	}
 
 	if burstLimit == 0 {
 		burstLimit = CESControllerWorkQueueBurstLimit
+	} else if burstLimit > operatorOption.CESWriteQPSBurstMax {
+		burstLimit = operatorOption.CESWriteQPSBurstMax
 	}
 
 	log.WithFields(logrus.Fields{

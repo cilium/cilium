@@ -743,7 +743,6 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ret;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -751,11 +750,8 @@ static __always_inline int __tail_handle_ipv6(struct __ctx_buff *ctx,
 	/* Handle special ICMPv6 NDP messages, and all remaining packets
 	 * are subjected to forwarding into the container.
 	 */
-	if (unlikely(is_icmp6_ndp(ctx, ip6, ETH_HLEN))) {
-		ret = icmp6_ndp_handle(ctx, ETH_HLEN, METRIC_EGRESS);
-		if (IS_ERR(ret))
-			return ret;
-	}
+	if (unlikely(is_icmp6_ndp(ctx, ip6, ETH_HLEN)))
+		return icmp6_ndp_handle(ctx, ETH_HLEN, METRIC_EGRESS);
 
 	if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
@@ -1356,7 +1352,7 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 /* Attachment/entry point is ingress for veth.
  * It corresponds to packets leaving the container.
  */
-__section("from-container")
+__section_entry
 int cil_from_container(struct __ctx_buff *ctx)
 {
 	__u16 proto;
@@ -1636,6 +1632,11 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
+		goto out;
+	}
+
+	if (unlikely(is_icmp6_ndp(ctx, ip6, ETH_HLEN))) {
+		ret = CTX_ACT_OK;
 		goto out;
 	}
 
@@ -2149,7 +2150,7 @@ out:
 /* Attached to the lxc device on the way to the container, only if endpoint
  * routes are enabled.
  */
-__section("to-container")
+__section_entry
 int cil_to_container(struct __ctx_buff *ctx)
 {
 	enum trace_point trace = TRACE_FROM_STACK;

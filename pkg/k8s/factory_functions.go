@@ -472,11 +472,13 @@ func ConvertToSlimIngressLoadBalancerStatus(slimLBStatus *slim_corev1.LoadBalanc
 	}
 }
 
-// TransformToK8sService transforms a *v1.Service into a
-// *slim_corev1.Service or a cache.DeletedFinalStateUnknown into
-// a cache.DeletedFinalStateUnknown with a *slim_corev1.Service in its Obj.
-// If the given obj can't be cast into either *slim_corev1.Service
-// nor cache.DeletedFinalStateUnknown, an error is returned.
+// TransformToK8sService transforms a *v1.Service into a *slim_corev1.Service
+// or a cache.DeletedFinalStateUnknown into a cache.DeletedFinalStateUnknown
+// with a *slim_corev1.Service in its Obj. If obj is a *slim_corev1.Service
+// or a cache.DeletedFinalStateUnknown with a *slim_corev1.Service in its Obj,
+// obj is returned without any transformations. If the given obj can't be cast
+// into either *slim_corev1.Service nor cache.DeletedFinalStateUnknown, an error
+// is returned.
 func TransformToK8sService(obj interface{}) (interface{}, error) {
 	switch concreteObj := obj.(type) {
 	case *v1.Service:
@@ -511,7 +513,12 @@ func TransformToK8sService(obj interface{}) (interface{}, error) {
 				},
 			},
 		}, nil
+	case *slim_corev1.Service:
+		return obj, nil
 	case cache.DeletedFinalStateUnknown:
+		if _, ok := concreteObj.Obj.(*slim_corev1.Service); ok {
+			return obj, nil
+		}
 		svc, ok := concreteObj.Obj.(*v1.Service)
 		if !ok {
 			return nil, fmt.Errorf("unknown object type %T", concreteObj.Obj)
@@ -559,8 +566,10 @@ func TransformToK8sService(obj interface{}) (interface{}, error) {
 // *types.SlimCNP without the Status field of the given CNP, or a
 // cache.DeletedFinalStateUnknown into a cache.DeletedFinalStateUnknown with a
 // *types.SlimCNP, also without the Status field of the given CNP, in its Obj.
-// If the given obj can't be cast into either *cilium_v2.CiliumClusterwideNetworkPolicy
-// nor cache.DeletedFinalStateUnknown, an error is returned.
+// If obj is a *types.SlimCNP or a cache.DeletedFinalStateUnknown with a *types.SlimCNP
+// in its Obj, obj is returned without any transformations. If the given obj can't be
+// cast into either *cilium_v2.CiliumClusterwideNetworkPolicy nor
+// cache.DeletedFinalStateUnknown, an error is returned.
 func TransformToCCNP(obj interface{}) (interface{}, error) {
 	switch concreteObj := obj.(type) {
 	case *cilium_v2.CiliumClusterwideNetworkPolicy:
@@ -572,7 +581,12 @@ func TransformToCCNP(obj interface{}) (interface{}, error) {
 				Specs:      concreteObj.Specs,
 			},
 		}, nil
+	case *types.SlimCNP:
+		return obj, nil
 	case cache.DeletedFinalStateUnknown:
+		if _, ok := concreteObj.Obj.(*types.SlimCNP); ok {
+			return obj, nil
+		}
 		ccnp, ok := concreteObj.Obj.(*cilium_v2.CiliumClusterwideNetworkPolicy)
 		if !ok {
 			return nil, fmt.Errorf("unknown object type %T", concreteObj.Obj)
@@ -600,6 +614,8 @@ func TransformToCCNP(obj interface{}) (interface{}, error) {
 // *types.SlimCNP without the Status field of the given CNP, or a
 // cache.DeletedFinalStateUnknown into a cache.DeletedFinalStateUnknown with a
 // *types.SlimCNP, also without the Status field of the given CNP, in its Obj.
+// If obj is a *types.SlimCNP or a cache.DeletedFinalStateUnknown with a
+// *types.SlimCNP in its Obj, obj is returned without any transformations.
 // If the given obj can't be cast into either *cilium_v2.CiliumNetworkPolicy
 // nor cache.DeletedFinalStateUnknown, an error is returned.
 func TransformToCNP(obj interface{}) (interface{}, error) {
@@ -613,7 +629,12 @@ func TransformToCNP(obj interface{}) (interface{}, error) {
 				Specs:      concreteObj.Specs,
 			},
 		}, nil
+	case *types.SlimCNP:
+		return obj, nil
 	case cache.DeletedFinalStateUnknown:
+		if _, ok := concreteObj.Obj.(*types.SlimCNP); ok {
+			return obj, nil
+		}
 		cnp, ok := concreteObj.Obj.(*cilium_v2.CiliumNetworkPolicy)
 		if !ok {
 			return nil, fmt.Errorf("unknown object type %T", concreteObj.Obj)
@@ -679,7 +700,9 @@ func convertToTaints(v1Taints []v1.Taint) []slim_corev1.Taint {
 
 // TransformToNode transforms a *v1.Node into a *types.Node or a
 // cache.DeletedFinalStateUnknown into a cache.DeletedFinalStateUnknown
-// with a *types.Node in its Obj. If the given obj can't be cast into
+// with a *types.Node in its Obj. If obj is a *slim_corev1.Node or a
+// cache.DeletedFinalStateUnknown with a *slim_corev1.Node in its Obj, obj
+// is returned without any transformations. If the given obj can't be cast into
 // either *v1.Node nor cache.DeletedFinalStateUnknown, an error is returned.
 func TransformToNode(obj interface{}) (interface{}, error) {
 	switch concreteObj := obj.(type) {
@@ -706,7 +729,12 @@ func TransformToNode(obj interface{}) (interface{}, error) {
 				Addresses: convertToAddress(concreteObj.Status.Addresses),
 			},
 		}, nil
+	case *slim_corev1.Node:
+		return obj, nil
 	case cache.DeletedFinalStateUnknown:
+		if _, ok := concreteObj.Obj.(*slim_corev1.Node); ok {
+			return obj, nil
+		}
 		node, ok := concreteObj.Obj.(*v1.Node)
 		if !ok {
 			return nil, fmt.Errorf("unknown object type %T", concreteObj.Obj)
@@ -908,6 +936,8 @@ func ObjToCiliumNode(obj interface{}) *cilium_v2.CiliumNode {
 // TransformToCiliumEndpoint transforms a *cilium_v2.CiliumEndpoint into a
 // *types.CiliumEndpoint or a cache.DeletedFinalStateUnknown into a
 // cache.DeletedFinalStateUnknown with a *types.CiliumEndpoint in its Obj.
+// If obj is a *types.CiliumEndpoint or a cache.DeletedFinalStateUnknown with
+// a *types.CiliumEndpoint in its Obj, obj is returned without any transformations.
 // If the given obj can't be cast into either *cilium_v2.CiliumEndpoint nor
 // cache.DeletedFinalStateUnknown, an error is returned.
 func TransformToCiliumEndpoint(obj interface{}) (interface{}, error) {
@@ -936,7 +966,12 @@ func TransformToCiliumEndpoint(obj interface{}) (interface{}, error) {
 			Networking: concreteObj.Status.Networking,
 			NamedPorts: concreteObj.Status.NamedPorts,
 		}, nil
+	case *types.CiliumEndpoint:
+		return obj, nil
 	case cache.DeletedFinalStateUnknown:
+		if _, ok := concreteObj.Obj.(*types.CiliumEndpoint); ok {
+			return obj, nil
+		}
 		ciliumEndpoint, ok := concreteObj.Obj.(*cilium_v2.CiliumEndpoint)
 		if !ok {
 			return nil, fmt.Errorf("unknown object type %T", concreteObj.Obj)

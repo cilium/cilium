@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/internal/ini"
+	"github.com/aws/aws-sdk-go-v2/internal/shareddefaults"
 	"github.com/aws/smithy-go/logging"
 )
 
@@ -108,7 +108,7 @@ var defaultSharedConfigProfile = DefaultSharedConfigProfile
 //   - Linux/Unix: $HOME/.aws/credentials
 //   - Windows: %USERPROFILE%\.aws\credentials
 func DefaultSharedCredentialsFilename() string {
-	return filepath.Join(userHomeDir(), ".aws", "credentials")
+	return filepath.Join(shareddefaults.UserHomeDir(), ".aws", "credentials")
 }
 
 // DefaultSharedConfigFilename returns the SDK's default file path for
@@ -119,7 +119,7 @@ func DefaultSharedCredentialsFilename() string {
 //   - Linux/Unix: $HOME/.aws/config
 //   - Windows: %USERPROFILE%\.aws\config
 func DefaultSharedConfigFilename() string {
-	return filepath.Join(userHomeDir(), ".aws", "config")
+	return filepath.Join(shareddefaults.UserHomeDir(), ".aws", "config")
 }
 
 // DefaultSharedConfigFiles is a slice of the default shared config files that
@@ -1266,22 +1266,6 @@ func (e CredentialRequiresARNError) Error() string {
 		"credential type %s requires role_arn, profile %s",
 		e.Type, e.Profile,
 	)
-}
-
-func userHomeDir() string {
-	// Ignore errors since we only care about Windows and *nix.
-	home, _ := os.UserHomeDir()
-
-	if len(home) > 0 {
-		return home
-	}
-
-	currUser, _ := user.Current()
-	if currUser != nil {
-		home = currUser.HomeDir
-	}
-
-	return home
 }
 
 func oneOrNone(bs ...bool) bool {

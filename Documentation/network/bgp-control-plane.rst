@@ -9,6 +9,14 @@
 Cilium BGP Control Plane
 ========================
 
+BGP Control Plane provides a way for Cilium to advertise routes to connected routers by using the
+`Border Gateway Protocol`_ (BGP). BGP Control Plane makes Pod networks and/or Services of type
+``LoadBalancer`` reachable from outside the cluster for environments that support BGP. Because BGP
+Control Plane does not program the :ref:`datapath <ebpf_datapath>`, do not use it to establish
+reachability within the cluster.
+
+.. _Border Gateway Protocol: https://datatracker.ietf.org/doc/html/rfc4271
+
 Usage
 -----
 
@@ -38,7 +46,7 @@ instantiated and will begin listening for ``CiliumBGPPeeringPolicy``
 events.
 
 Currently, the ``BGP Control Plane`` will only work when IPAM mode is set to
-"cluster-pool", "cluster-pool-v2beta", and "kubernetes"
+"cluster-pool" or "kubernetes".
 
 CiliumBGPPeeringPolicy CRD
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -78,12 +86,12 @@ The policy in ``yaml`` form is defined below:
        - peerAddress: 'fc00:f853:ccd:e793::50/128'
          peerASN: 64512
          eBGPMultihopTTL: 10
-         connectRetryTime: "120s"
-         holdTime: "90s"
-         keepAliveTime: "30s"
+         connectRetryTimeSeconds: 120
+         holdTimeSeconds: 90
+         keepAliveTimeSeconds: 30
          gracefulRestart:
-            enabled: true
-            restartTime: "20s"
+           enabled: true
+           restartTimeSeconds: 120
 
 Fields
 ^^^^^^
@@ -104,12 +112,12 @@ Fields
            neighbors[*].peerAddress: The address of the peer neighbor
            neighbors[*].peerPort: Optional TCP port number of the neighbor. 1-65535 are valid values and defaults to 179 when unspecified.
            neighbors[*].peerASN: The ASN of the peer
-           neighbors[*].eBGPMultihopTTL: (optional) Time To Live (TTL) value used in BGP packets. 0 if eBGP multi-hop feature is disabled.
-           neighbors[*].connectRetryTime: Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8). Defaults to 120 seconds.
-           neighbors[*].holdTime: Initial value for the BGP HoldTimer (RFC 4271, Section 4.2). Defaults to 90 seconds.
-           neighbors[*].keepAliveTime: Initial value for the BGP KeepaliveTimer (RFC 4271, Section 8). Defaults to 1/3 of the HoldTime.
+           neighbors[*].eBGPMultihopTTL: Time To Live (TTL) value used in BGP packets. The value 1 implies that eBGP multi-hop feature is disabled.
+           neighbors[*].connectRetryTimeSeconds: Initial value for the BGP ConnectRetryTimer (RFC 4271, Section 8). Defaults to 120 seconds.
+           neighbors[*].holdTimeSeconds: Initial value for the BGP HoldTimer (RFC 4271, Section 4.2). Defaults to 90 seconds.
+           neighbors[*].keepAliveTimeSeconds: Initial value for the BGP KeepaliveTimer (RFC 4271, Section 8). Defaults to 30 seconds.
            neighbors[*].gracefulRestart.enabled: The flag to enable graceful restart capability.
-           neighbors[*].gracefulRestart.restartTime: The restart time advertised to the peer (RFC 4724 section 4.2).
+           neighbors[*].gracefulRestart.restartTimeSeconds: The restart time advertised to the peer (RFC 4724 section 4.2).
 
 .. note::
 
@@ -281,7 +289,58 @@ values, graceful restart configuration and others.
 
    Change of an existing neighbor configuration can cause reset of the existing BGP
    peering connection, which results in route flaps and transient packet loss while
-   the session reestablishes and peers exchange their routes.
+   the session reestablishes and peers exchange their routes. To prevent packet loss,
+   it is recommended to configure BGP graceful restart.
+
+Graceful Restart
+''''''''''''''''
+The Cilium BGP control plane can be configured to act as a graceful restart 
+``Restarting Speaker``. When you enable graceful restart, the BGP session will restart
+and the "graceful restart" capability will be advertised in the BGP OPEN message.
+
+In the event of a Cilium Agent restart, the peering BGP router does not withdraw 
+routes received from the Cilium BGP control plane immediately. The datapath
+continues to forward traffic during Agent restart, so there is no traffic
+disruption. 
+
+Configure graceful restart on per-neighbor basis, as follows:
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   #[...]
+   virtualRouters: # []CiliumBGPVirtualRouter
+    - localASN: 64512
+      # [...]
+      neighbors: # []CiliumBGPNeighbor
+       - peerAddress: 'fc00:f853:ccd:e793::50/128'
+         # [...]
+         gracefulRestart:
+           enabled: true
+           restartTimeSeconds: 120
+
+.. note::
+
+   When enabled, graceful restart capability is advertised for IPv4 and IPv6 address families.
+
+Optionally, you can use the ``RestartTime`` parameter. ``RestartTime`` is the time
+advertised to the peer within which Cilium BGP control plane is expected to re-establish
+the BGP session after a restart. On expiration of ``RestartTime``, the peer removes 
+the routes previously advertised by the Cilium BGP control plane.
+
+When the Cilium Agent restarts, it closes the BGP TCP socket, causing the emission of a
+TCP FIN packet. On receiving this TCP FIN, the peer changes its BGP state to ``Idle`` and
+starts its ``RestartTime`` timer.
+
+The Cilium agent boot up time varies depending on the deployment. If using ``RestartTime``,
+you should set it to a duration greater than the time taken by the Cilium Agent to boot up.
+
+Default value of ``RestartTime`` is 120 seconds. More details on graceful restart and 
+``RestartTime`` can be found in `RFC-4724`_ and `RFC-8538`_. 
+
+.. _RFC-4724 : https://www.rfc-editor.org/rfc/rfc4724.html
+.. _RFC-8538 : https://www.rfc-editor.org/rfc/rfc8538.html
 
 Service announcements
 ---------------------
@@ -321,6 +380,63 @@ Semantics of the externalTrafficPolicy: Local
 When the service has ``externalTrafficPolicy: Local``, ``BGP Control Plane`` keeps track
 of the endpoints for the service on the local node and stops advertisement when there's
 no local endpoint.
+
+CLI
+---
+
+There are two CLIs available to view cilium BGP peering state. One CLI is present
+inside Cilium Agent. The second CLI is the cluster-wide `Cilium CLI <https://github.com/cilium/cilium-cli>`_.
+
+.. warning::
+
+   The Cilium CLI is experimental. Consider carefully before using it in production environments!
+
+Cilium Agent CLI
+~~~~~~~~~~~~~~~~
+
+The following command shows peering status:
+
+.. code-block:: shell-session
+
+   cilium# cilium bgp peers -h
+   List state of all peers defined in CiliumBGPPeeringPolicy
+
+   Usage:
+     cilium bgp peers [flags]
+
+   Flags:
+     -h, --help            help for peers
+     -o, --output string   json| yaml| jsonpath='{}'
+
+   Global Flags:
+         --config string   Config file (default is $HOME/.cilium.yaml)
+     -D, --debug           Enable debug messages
+     -H, --host string     URI to server-side API
+
+
+Cilium-CLI
+~~~~~~~~~~
+
+Cilium CLI displays the BGP peering status of all nodes.
+
+.. code-block:: shell-session
+
+   # cilium-cli bgp peers -h
+   Gets BGP peering status from all nodes in the cluster
+
+   Usage:
+     cilium bgp peers [flags]
+
+   Flags:
+         --agent-pod-selector string   Label on cilium-agent pods to select with (default "k8s-app=cilium")
+     -h, --help                        help for peers
+         --node string                 Node from which BGP status will be fetched, omit to select all nodes
+     -o, --output string               Output format. One of: json, summary (default "summary")
+         --wait-duration duration      Maximum time to wait for result, default 1 minute (default 1m0s)
+
+   Global Flags:
+         --context string     Kubernetes configuration context
+     -n, --namespace string   Namespace Cilium is running in (default "kube-system")
 
 Architecture
 ------------

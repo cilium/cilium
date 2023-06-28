@@ -1,7 +1,9 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-include ../Makefile.defs
+ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+
+include ${ROOT_DIR}/../Makefile.defs
 
 TARGETS := cilium-operator cilium-operator-generic cilium-operator-aws cilium-operator-azure cilium-operator-alibabacloud
 
@@ -31,3 +33,19 @@ clean:
 install:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(foreach target,$(TARGETS), $(QUIET)$(INSTALL) -m 0755 $(target) $(DESTDIR)$(BINDIR);)
+
+install-generic:
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 cilium-operator-generic $(DESTDIR)$(BINDIR)
+
+install-aws:
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 cilium-operator-aws $(DESTDIR)$(BINDIR)
+
+install-azure:
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 cilium-operator-azure $(DESTDIR)$(BINDIR)
+
+install-alibabacloud:
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 cilium-operator-alibabacloud $(DESTDIR)$(BINDIR)

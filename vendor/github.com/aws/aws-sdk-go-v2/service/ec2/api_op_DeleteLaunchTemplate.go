@@ -32,16 +32,16 @@ type DeleteLaunchTemplateInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The ID of the launch template. You must specify either the LaunchTemplateId or
-	// the LaunchTemplateName, but not both.
+	// the LaunchTemplateName , but not both.
 	LaunchTemplateId *string
 
 	// The name of the launch template. You must specify either the LaunchTemplateName
-	// or the LaunchTemplateId, but not both.
+	// or the LaunchTemplateId , but not both.
 	LaunchTemplateName *string
 
 	noSmithyDocumentSerde
@@ -104,6 +104,9 @@ func (c *Client) addOperationDeleteLaunchTemplateMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteLaunchTemplate(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

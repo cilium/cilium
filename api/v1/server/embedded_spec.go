@@ -1601,6 +1601,26 @@ func init() {
           }
         }
       }
+    },
+    "/statedb/dump": {
+      "get": {
+        "produces": [
+          "application/octet-stream"
+        ],
+        "tags": [
+          "statedb"
+        ],
+        "summary": "Dump StateDB contents",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "string",
+              "format": "binary"
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -1835,7 +1855,7 @@ func init() {
           "type": "integer"
         },
         "ebgp-multihop-ttl": {
-          "description": "Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.\n0 if eBGP multi-hop feature is disabled.\n",
+          "description": "Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.\n1 implies that eBGP multi-hop feature is disabled (only a single hop is allowed).\n",
           "type": "integer"
         },
         "families": {
@@ -2254,12 +2274,20 @@ func init() {
       "description": "Response to a daemon configuration request. Contains the addressing\ninformation, k8s, node monitor and immutable and mutable configuration\nsettings.\n",
       "type": "object",
       "properties": {
+        "GROIPv4MaxSize": {
+          "description": "Maximum IPv4 GRO size on workload facing devices",
+          "type": "integer"
+        },
         "GROMaxSize": {
-          "description": "Maximum GRO size on workload facing devices",
+          "description": "Maximum IPv6 GRO size on workload facing devices",
+          "type": "integer"
+        },
+        "GSOIPv4MaxSize": {
+          "description": "Maximum IPv4 GSO size on workload facing devices",
           "type": "integer"
         },
         "GSOMaxSize": {
-          "description": "Maximum GSO size on workload facing devices",
+          "description": "Maximum IPv6 GSO size on workload facing devices",
           "type": "integer"
         },
         "addressing": {
@@ -3139,6 +3167,24 @@ func init() {
         }
       }
     },
+    "IPV4BigTCP": {
+      "description": "Status of IPv4 BIG TCP\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Is IPv4 BIG TCP enabled",
+          "type": "boolean"
+        },
+        "maxGRO": {
+          "description": "Maximum IPv4 GRO size",
+          "type": "integer"
+        },
+        "maxGSO": {
+          "description": "Maximum IPv4 GSO size",
+          "type": "integer"
+        }
+      }
+    },
     "IPV6BigTCP": {
       "description": "Status of IPv6 BIG TCP\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -3146,6 +3192,14 @@ func init() {
         "enabled": {
           "description": "Is IPv6 BIG TCP enabled",
           "type": "boolean"
+        },
+        "maxGRO": {
+          "description": "Maximum IPv6 GRO size",
+          "type": "integer"
+        },
+        "maxGSO": {
+          "description": "Maximum IPv6 GSO size",
+          "type": "integer"
         }
       }
     },
@@ -3428,7 +3482,9 @@ func init() {
             "Disabled",
             "Strict",
             "Probe",
-            "Partial"
+            "Partial",
+            "True",
+            "False"
           ]
         }
       }
@@ -4456,6 +4512,10 @@ func init() {
         "ipam": {
           "description": "Status of IP address management",
           "$ref": "#/definitions/IPAMStatus"
+        },
+        "ipv4-big-tcp": {
+          "description": "Status of IPv4 BIG TCP",
+          "$ref": "#/definitions/IPV4BigTCP"
         },
         "ipv6-big-tcp": {
           "description": "Status of IPv6 BIG TCP",
@@ -6548,6 +6608,26 @@ func init() {
           }
         }
       }
+    },
+    "/statedb/dump": {
+      "get": {
+        "produces": [
+          "application/octet-stream"
+        ],
+        "tags": [
+          "statedb"
+        ],
+        "summary": "Dump StateDB contents",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "string",
+              "format": "binary"
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -6782,7 +6862,7 @@ func init() {
           "type": "integer"
         },
         "ebgp-multihop-ttl": {
-          "description": "Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.\n0 if eBGP multi-hop feature is disabled.\n",
+          "description": "Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.\n1 implies that eBGP multi-hop feature is disabled (only a single hop is allowed).\n",
           "type": "integer"
         },
         "families": {
@@ -7253,12 +7333,20 @@ func init() {
       "description": "Response to a daemon configuration request. Contains the addressing\ninformation, k8s, node monitor and immutable and mutable configuration\nsettings.\n",
       "type": "object",
       "properties": {
+        "GROIPv4MaxSize": {
+          "description": "Maximum IPv4 GRO size on workload facing devices",
+          "type": "integer"
+        },
         "GROMaxSize": {
-          "description": "Maximum GRO size on workload facing devices",
+          "description": "Maximum IPv6 GRO size on workload facing devices",
+          "type": "integer"
+        },
+        "GSOIPv4MaxSize": {
+          "description": "Maximum IPv4 GSO size on workload facing devices",
           "type": "integer"
         },
         "GSOMaxSize": {
-          "description": "Maximum GSO size on workload facing devices",
+          "description": "Maximum IPv6 GSO size on workload facing devices",
           "type": "integer"
         },
         "addressing": {
@@ -8200,6 +8288,24 @@ func init() {
         }
       }
     },
+    "IPV4BigTCP": {
+      "description": "Status of IPv4 BIG TCP\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Is IPv4 BIG TCP enabled",
+          "type": "boolean"
+        },
+        "maxGRO": {
+          "description": "Maximum IPv4 GRO size",
+          "type": "integer"
+        },
+        "maxGSO": {
+          "description": "Maximum IPv4 GSO size",
+          "type": "integer"
+        }
+      }
+    },
     "IPV6BigTCP": {
       "description": "Status of IPv6 BIG TCP\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -8207,6 +8313,14 @@ func init() {
         "enabled": {
           "description": "Is IPv6 BIG TCP enabled",
           "type": "boolean"
+        },
+        "maxGRO": {
+          "description": "Maximum IPv6 GRO size",
+          "type": "integer"
+        },
+        "maxGSO": {
+          "description": "Maximum IPv6 GSO size",
+          "type": "integer"
         }
       }
     },
@@ -8476,7 +8590,9 @@ func init() {
             "Disabled",
             "Strict",
             "Probe",
-            "Partial"
+            "Partial",
+            "True",
+            "False"
           ]
         }
       }
@@ -9922,6 +10038,10 @@ func init() {
         "ipam": {
           "description": "Status of IP address management",
           "$ref": "#/definitions/IPAMStatus"
+        },
+        "ipv4-big-tcp": {
+          "description": "Status of IPv4 BIG TCP",
+          "$ref": "#/definitions/IPV4BigTCP"
         },
         "ipv6-big-tcp": {
           "description": "Status of IPv6 BIG TCP",

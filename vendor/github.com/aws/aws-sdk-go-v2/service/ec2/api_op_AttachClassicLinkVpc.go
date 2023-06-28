@@ -10,11 +10,10 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// We are retiring EC2-Classic. We recommend that you migrate from EC2-Classic to a
-// VPC. For more information, see Migrate from EC2-Classic to a VPC
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html) in the
-// Amazon Elastic Compute Cloud User Guide. Links an EC2-Classic instance to a
-// ClassicLink-enabled VPC through one or more of the VPC's security groups. You
+// We are retiring EC2-Classic. We recommend that you migrate from EC2-Classic to
+// a VPC. For more information, see Migrate from EC2-Classic to a VPC (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html)
+// in the Amazon Elastic Compute Cloud User Guide. Links an EC2-Classic instance to
+// a ClassicLink-enabled VPC through one or more of the VPC's security groups. You
 // cannot link an EC2-Classic instance to more than one VPC at a time. You can only
 // link an instance that's in the running state. An instance is automatically
 // unlinked from a VPC when it's stopped - you can link it to the VPC again when
@@ -57,8 +56,8 @@ type AttachClassicLinkVpcInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -124,6 +123,9 @@ func (c *Client) addOperationAttachClassicLinkVpcMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opAttachClassicLinkVpc(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -47,16 +47,23 @@ IPv6 BIG TCP
 IPv6 BIG TCP allows the network stack to prepare larger GSO (transmit) and GRO
 (receive) packets to reduce the number of times the stack is traversed which
 improves performance and latency. It reduces the CPU load and helps achieve
-higher speeds (i.e. 100Gbit/s and beyond). To pass such packets through the stack
-BIG TCP adds a temporary Hop-By-Hop header after the IPv6 one which is stripped
-before transmitting the packet over the wire. BIG TCP can operate in a DualStack
-setup, IPv4 packets will use the old lower limits (64k) and IPv6 packets will
-use the new larger ones (192k). Note that Cilium assumes the default kernel values
-for GSO and GRO maximum sizes are 64k and adjusts them only when necessary, i.e. if
-BIG TCP is enabled and the current GSO/GRO maximum sizes are less than 192k it
-will try to increase them, respectively when BIG TCP is disabled and the current
-maximum values are more than 64k it will try to decrease them. BIG TCP doesn't
-require network interface MTU changes.
+higher speeds (i.e. 100Gbit/s and beyond).
+
+To pass such packets through the stack BIG TCP adds a temporary Hop-By-Hop header
+after the IPv6 one which is stripped before transmitting the packet over the wire.
+
+BIG TCP can operate in a DualStack setup, IPv4 packets will use the old lower
+limits (64k) if IPv4 BIG TCP is not enabled, and IPv6 packets will use the new
+larger ones (192k). Both IPv4 BIG TCP and IPv6 BIG TCP can be enabled so that
+both use the larger one (192k).
+
+Note that Cilium assumes the default kernel values for GSO and GRO maximum sizes
+are 64k and adjusts them only when necessary, i.e. if BIG TCP is enabled and the
+current GSO/GRO maximum sizes are less than 192k it will try to increase them,
+respectively when BIG TCP is disabled and the current maximum values are more
+than 64k it will try to decrease them.
+
+BIG TCP doesn't require network interface MTU changes.
 
 **Requirements:**
 
@@ -65,7 +72,7 @@ require network interface MTU changes.
 * eBPF-based kube-proxy replacement
 * eBPF-based masquerading
 * Tunneling and encryption disabled
-* Supported NICs: mlx4, mlx5
+* Supported NICs: mlx4, mlx5, ice
 
 To enable IPv6 BIG TCP:
 
@@ -80,7 +87,6 @@ To enable IPv6 BIG TCP:
              --set routingMode=native \\
              --set bpf.masquerade=true \\
              --set ipv6.enabled=true \\
-             --set enableIPv6Masquerade=false \\
              --set enableIPv6BIGTCP=true \\
              --set kubeProxyReplacement=strict
 
@@ -90,6 +96,63 @@ restarted for the changes to take effect.
 To validate whether your installation is running with IPv6 BIG TCP,
 run ``cilium status`` in any of the Cilium pods and look for the line
 reporting the status for "IPv6 BIG TCP" which should state "enabled".
+
+IPv4 BIG TCP
+============
+
+Similar to IPv6 BIG TCP, IPv4 BIG TCP allows the network stack to prepare larger
+GSO (transmit) and GRO (receive) packets to reduce the number of times the stack
+is traversed which improves performance and latency. It reduces the CPU load and
+helps achieve higher speeds (i.e. 100Gbit/s and beyond).
+
+To pass such packets through the stack BIG TCP sets IPv4 tot_len to 0 and uses
+skb->len as the real IPv4 total length. The proper IPv4 tot_len is set before
+transmitting the packet over the wire.
+
+BIG TCP can operate in a DualStack setup, IPv6 packets will use the old lower
+limits (64k) if IPv6 BIG TCP is not enabled, and IPv4 packets will use the new
+larger ones (192k). Both IPv4 BIG TCP and IPv6 BIG TCP can be enabled so that
+both use the larger one (192k).
+
+Note that Cilium assumes the default kernel values for GSO and GRO maximum sizes
+are 64k and adjusts them only when necessary, i.e. if BIG TCP is enabled and the
+current GSO/GRO maximum sizes are less than 192k it will try to increase them,
+respectively when BIG TCP is disabled and the current maximum values are more
+than 64k it will try to decrease them.
+
+BIG TCP doesn't require network interface MTU changes.
+
+**Requirements:**
+
+* Kernel >= 6.3
+* eBPF Host-Routing
+* eBPF-based kube-proxy replacement
+* eBPF-based masquerading
+* Tunneling and encryption disabled
+* Supported NICs: mlx4, mlx5, ice
+
+To enable IPv4 BIG TCP:
+
+.. tabs::
+
+    .. group-tab:: Helm
+
+       .. parsed-literal::
+
+           helm install cilium |CHART_RELEASE| \\
+             --namespace kube-system \\
+             --set routingMode=native \\
+             --set bpf.masquerade=true \\
+             --set ipv4.enabled=true \\
+             --set enableIPv4BIGTCP=true \\
+             --set kubeProxyReplacement=strict
+
+Note that after toggling the IPv4 BIG TCP option the Kubernetes Pods
+must be restarted for the changes to take effect.
+
+To validate whether your installation is running with IPv4 BIG TCP,
+run ``cilium status`` in any of the Cilium pods and look for the line
+reporting the status for "IPv4 BIG TCP" which should state "enabled".
 
 Bypass iptables Connection Tracking
 ===================================

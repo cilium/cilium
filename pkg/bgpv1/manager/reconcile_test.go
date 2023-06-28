@@ -7,12 +7,9 @@ import (
 	"context"
 	"net/netip"
 	"testing"
-	"time"
-
-	"k8s.io/utils/pointer"
 
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
@@ -46,9 +43,9 @@ func TestPreflightReconciler(t *testing.T) {
 		// routerID to reconcile
 		newRouterID string
 		// local listen port of original server
-		localPort int
+		localPort int32
 		// local listen port to reconcile
-		newLocalPort int
+		newLocalPort int32
 		// virtual router configuration to reconcile, used mostly for pointer
 		// comparison
 		config *v2alpha1api.CiliumBGPVirtualRouter
@@ -105,10 +102,10 @@ func TestPreflightReconciler(t *testing.T) {
 				Global: types.BGPGlobal{
 					ASN:        64125,
 					RouterID:   tt.routerID,
-					ListenPort: int32(tt.localPort),
+					ListenPort: tt.localPort,
 				},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams)
+			testSC, err := NewServerWithConfig(context.Background(), srvParams, &agent.ControlPlaneState{})
 			if err != nil {
 				t.Fatalf("failed to create test BgpServer: %v", err)
 			}
@@ -188,20 +185,20 @@ func TestNeighborReconciler(t *testing.T) {
 				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int(types.DefaultPeerPort)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int(types.DefaultPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
 			},
 			err: nil,
 		},
 		{
 			name: "neighbor with peer port",
 			neighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int(42424)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(42424)},
 				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int(42424)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int(types.DefaultPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(42424)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
 			},
 			err: nil,
 		},
@@ -212,9 +209,9 @@ func TestNeighborReconciler(t *testing.T) {
 				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int(types.DefaultPeerPort)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int(types.DefaultPeerPort)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", PeerPort: pointer.Int(types.DefaultPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
 			},
 			err: nil,
 		},
@@ -226,22 +223,22 @@ func TestNeighborReconciler(t *testing.T) {
 				{PeerASN: 64124, PeerAddress: "192.168.0.3/32"},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int(types.DefaultPeerPort)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int(types.DefaultPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
 			},
 			err: nil,
 		},
 		{
 			name: "update neighbor",
 			neighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
-				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", ConnectRetryTimeSeconds: pointer.Int32(120)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", ConnectRetryTimeSeconds: pointer.Int32(120)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", ConnectRetryTimeSeconds: pointer.Int32(120)},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int(types.DefaultPeerPort), ConnectRetryTime: metav1.Duration{Duration: 99 * time.Second}},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int(types.DefaultPeerPort), ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
-				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", PeerPort: pointer.Int(types.DefaultPeerPort), ConnectRetryTime: metav1.Duration{Duration: 120 * time.Second}},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), ConnectRetryTimeSeconds: pointer.Int32(99)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), ConnectRetryTimeSeconds: pointer.Int32(120)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), ConnectRetryTimeSeconds: pointer.Int32(120)},
 			},
 			checks: checkTimers{
 				connectRetryTimer: true,
@@ -251,31 +248,31 @@ func TestNeighborReconciler(t *testing.T) {
 		{
 			name: "update neighbor - graceful restart",
 			neighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
-					Enabled:     true,
-					RestartTime: metav1.Duration{Duration: types.DefaultGRRestartTime},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
+					Enabled:            true,
+					RestartTimeSeconds: pointer.Int32(v2alpha1api.DefaultBGPGRRestartTimeSeconds),
 				}},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
-					Enabled:     true,
-					RestartTime: metav1.Duration{Duration: types.DefaultGRRestartTime},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
+					Enabled:            true,
+					RestartTimeSeconds: pointer.Int32(v2alpha1api.DefaultBGPGRRestartTimeSeconds),
 				}},
-				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
-					Enabled:     true,
-					RestartTime: metav1.Duration{Duration: types.DefaultGRRestartTime},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
+					Enabled:            true,
+					RestartTimeSeconds: pointer.Int32(v2alpha1api.DefaultBGPGRRestartTimeSeconds),
 				}},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int(types.DefaultPeerPort), GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
-					Enabled:     false,
-					RestartTime: metav1.Duration{Duration: 0},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
+					Enabled:            false,
+					RestartTimeSeconds: pointer.Int32(0),
 				}},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int(types.DefaultPeerPort), GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
-					Enabled:     true,
-					RestartTime: metav1.Duration{Duration: types.DefaultGRRestartTime},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
+					Enabled:            true,
+					RestartTimeSeconds: pointer.Int32(v2alpha1api.DefaultBGPGRRestartTimeSeconds),
 				}},
-				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", PeerPort: pointer.Int(types.DefaultPeerPort), GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
-					Enabled:     true,
-					RestartTime: metav1.Duration{Duration: types.DefaultGRRestartTime},
+				{PeerASN: 64124, PeerAddress: "192.168.0.3/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
+					Enabled:            true,
+					RestartTimeSeconds: pointer.Int32(v2alpha1api.DefaultBGPGRRestartTimeSeconds),
 				}},
 			},
 			checks: checkTimers{
@@ -286,12 +283,12 @@ func TestNeighborReconciler(t *testing.T) {
 		{
 			name: "update neighbor port",
 			neighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int(types.DefaultPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
 				{PeerASN: 64124, PeerAddress: "192.168.0.2/32"},
 			},
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
-				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int(42424)},
-				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int(types.DefaultPeerPort)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(42424)},
+				{PeerASN: 64124, PeerAddress: "192.168.0.2/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
 			},
 			err: nil,
 		},
@@ -316,7 +313,7 @@ func TestNeighborReconciler(t *testing.T) {
 					ListenPort: -1,
 				},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams)
+			testSC, err := NewServerWithConfig(context.Background(), srvParams, &agent.ControlPlaneState{})
 			if err != nil {
 				t.Fatalf("failed to create test BgpServer: %v", err)
 			}
@@ -329,9 +326,11 @@ func TestNeighborReconciler(t *testing.T) {
 				Neighbors: []v2alpha1api.CiliumBGPNeighbor{},
 			}
 			for _, n := range tt.neighbors {
+				n.SetDefaults()
 				oldc.Neighbors = append(oldc.Neighbors, n)
 				testSC.Server.AddNeighbor(context.Background(), types.NeighborRequest{
 					Neighbor: &n,
+					VR:       oldc,
 				})
 			}
 			testSC.Config = oldc
@@ -342,6 +341,7 @@ func TestNeighborReconciler(t *testing.T) {
 				Neighbors: []v2alpha1api.CiliumBGPNeighbor{},
 			}
 			newc.Neighbors = append(newc.Neighbors, tt.newNeighbors...)
+			newc.SetDefaults()
 
 			err = neighborReconciler(context.Background(), testSC, newc, nil)
 			if (tt.err == nil) != (err == nil) {
@@ -359,32 +359,26 @@ func TestNeighborReconciler(t *testing.T) {
 			for _, peer := range getPeerResp.Peers {
 				toCiliumPeer := v2alpha1api.CiliumBGPNeighbor{
 					PeerAddress: toHostPrefix(peer.PeerAddress),
-					PeerPort:    pointer.Int(int(peer.PeerPort)),
-					PeerASN:     int(peer.PeerAsn),
+					PeerPort:    pointer.Int32(int32(peer.PeerPort)),
+					PeerASN:     peer.PeerAsn,
 				}
 
 				if tt.checks.holdTimer {
-					toCiliumPeer.HoldTime = metav1.Duration{
-						Duration: time.Duration(peer.ConfiguredHoldTimeSeconds) * time.Second,
-					}
+					toCiliumPeer.HoldTimeSeconds = pointer.Int32(int32(peer.ConfiguredHoldTimeSeconds))
 				}
 
 				if tt.checks.connectRetryTimer {
-					toCiliumPeer.ConnectRetryTime = metav1.Duration{
-						Duration: time.Duration(peer.ConnectRetryTimeSeconds) * time.Second,
-					}
+					toCiliumPeer.ConnectRetryTimeSeconds = pointer.Int32(int32(peer.ConnectRetryTimeSeconds))
 				}
 
 				if tt.checks.keepaliveTimer {
-					toCiliumPeer.KeepAliveTime = metav1.Duration{
-						Duration: time.Duration(peer.ConfiguredKeepAliveTimeSeconds) * time.Second,
-					}
+					toCiliumPeer.KeepAliveTimeSeconds = pointer.Int32(int32(peer.ConfiguredKeepAliveTimeSeconds))
 				}
 
 				if tt.checks.grRestartTime {
-					toCiliumPeer.GracefulRestart.Enabled = peer.GracefulRestart.Enabled
-					toCiliumPeer.GracefulRestart.RestartTime = metav1.Duration{
-						Duration: time.Duration(peer.GracefulRestart.RestartTimeSeconds) * time.Second,
+					toCiliumPeer.GracefulRestart = &v2alpha1api.CiliumBGPNeighborGracefulRestart{
+						Enabled:            peer.GracefulRestart.Enabled,
+						RestartTimeSeconds: pointer.Int32(int32(peer.GracefulRestart.RestartTimeSeconds)),
 					}
 				}
 
@@ -472,10 +466,10 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			}
 			oldc := &v2alpha1api.CiliumBGPVirtualRouter{
 				LocalASN:      64125,
-				ExportPodCIDR: tt.enabled,
+				ExportPodCIDR: pointer.Bool(tt.enabled),
 				Neighbors:     []v2alpha1api.CiliumBGPNeighbor{},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams)
+			testSC, err := NewServerWithConfig(context.Background(), srvParams, &agent.ControlPlaneState{})
 			if err != nil {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}
@@ -494,7 +488,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 
 			newc := &v2alpha1api.CiliumBGPVirtualRouter{
 				LocalASN:      64125,
-				ExportPodCIDR: tt.shouldEnable,
+				ExportPodCIDR: pointer.Bool(tt.shouldEnable),
 				Neighbors:     []v2alpha1api.CiliumBGPNeighbor{},
 			}
 			newcstate := agent.ControlPlaneState{
@@ -1062,7 +1056,7 @@ func TestLBServiceReconciler(t *testing.T) {
 				Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
 				ServiceSelector: tt.oldServiceSelector,
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams)
+			testSC, err := NewServerWithConfig(context.Background(), srvParams, &agent.ControlPlaneState{})
 			if err != nil {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}
@@ -1167,8 +1161,8 @@ func TestLBServiceReconciler(t *testing.T) {
 func TestReconcileAfterServerReinit(t *testing.T) {
 	var (
 		routerID        = "192.168.0.1"
-		localPort       = localListenPort
-		localASN        = 64125
+		localPort       = int32(localListenPort)
+		localASN        = int64(64125)
 		newRouterID     = "192.168.0.2"
 		diffstore       = newFakeDiffStore[*slim_corev1.Service]()
 		epDiffStore     = newFakeDiffStore[*k8s.Endpoints]()
@@ -1205,7 +1199,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 		},
 	}
 
-	testSC, err := NewServerWithConfig(context.Background(), srvParams)
+	testSC, err := NewServerWithConfig(context.Background(), srvParams, &agent.ControlPlaneState{})
 	require.NoError(t, err)
 
 	originalServer := testSC.Server
@@ -1217,7 +1211,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 	// Validate pod CIDR and service announcements work as expected
 	newc := &v2alpha1api.CiliumBGPVirtualRouter{
 		LocalASN:        localASN,
-		ExportPodCIDR:   true,
+		ExportPodCIDR:   pointer.Bool(true),
 		Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
 		ServiceSelector: serviceSelector,
 	}

@@ -10,14 +10,15 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Release an allocation within an IPAM pool. You can only use this action to
-// release manual allocations. To remove an allocation for a resource without
-// deleting the resource, set its monitored state to false using
-// ModifyIpamResourceCidr
-// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyIpamResourceCidr.html).
-// For more information, see Release an allocation
-// (https://docs.aws.amazon.com/vpc/latest/ipam/release-pool-alloc-ipam.html) in
-// the Amazon VPC IPAM User Guide.
+// Release an allocation within an IPAM pool. The Region you use should be the
+// IPAM pool locale. The locale is the Amazon Web Services Region where this IPAM
+// pool is available for allocations. You can only use this action to release
+// manual allocations. To remove an allocation for a resource without deleting the
+// resource, set its monitored state to false using ModifyIpamResourceCidr (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyIpamResourceCidr.html)
+// . For more information, see Release an allocation (https://docs.aws.amazon.com/vpc/latest/ipam/release-pool-alloc-ipam.html)
+// in the Amazon VPC IPAM User Guide. All EC2 API actions follow an eventual
+// consistency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/query-api-troubleshooting.html#eventual-consistency)
+// model.
 func (c *Client) ReleaseIpamPoolAllocation(ctx context.Context, params *ReleaseIpamPoolAllocationInput, optFns ...func(*Options)) (*ReleaseIpamPoolAllocationOutput, error) {
 	if params == nil {
 		params = &ReleaseIpamPoolAllocationInput{}
@@ -52,8 +53,8 @@ type ReleaseIpamPoolAllocationInput struct {
 
 	// A check for whether you have the required permissions for the action without
 	// actually making the request and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -119,6 +120,9 @@ func (c *Client) addOperationReleaseIpamPoolAllocationMiddlewares(stack *middlew
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opReleaseIpamPoolAllocation(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

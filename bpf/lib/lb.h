@@ -428,8 +428,6 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 {
 	struct csum_offset csum_off = {};
 	union v6addr old_saddr;
-	union v6addr tmp;
-	__u8 *new_saddr;
 	__be32 sum;
 	int ret;
 
@@ -446,20 +444,16 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	if (flags & REV_NAT_F_TUPLE_SADDR) {
 		ipv6_addr_copy(&old_saddr, &tuple->saddr);
 		ipv6_addr_copy(&tuple->saddr, &nat->address);
-		new_saddr = tuple->saddr.addr;
 	} else {
 		if (ipv6_load_saddr(ctx, ETH_HLEN, &old_saddr) < 0)
 			return DROP_INVALID;
-
-		ipv6_addr_copy(&tmp, &nat->address);
-		new_saddr = tmp.addr;
 	}
 
-	ret = ipv6_store_saddr(ctx, new_saddr, ETH_HLEN);
+	ret = ipv6_store_saddr(ctx, nat->address.addr, ETH_HLEN);
 	if (IS_ERR(ret))
 		return DROP_WRITE_ERROR;
 
-	sum = csum_diff(old_saddr.addr, 16, new_saddr, 16, 0);
+	sum = csum_diff(old_saddr.addr, 16, nat->address.addr, 16, 0);
 	if (csum_off.offset &&
 	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
@@ -923,7 +917,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			 */
 			if (backend && !state->syn)
 				break;
-			key->backend_slot = 0;
+
 			svc = lb6_lookup_service(key, false, true);
 			if (!svc)
 				goto drop_no_service;
@@ -1040,30 +1034,18 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 					 const struct ct_state *ct_state __maybe_unused,
 					 bool has_l4_header)
 {
-	struct csum_offset csum_off = {};
-	__be32 old_sip, new_sip, sum = 0;
+	__be32 old_sip, sum = 0;
 	int ret;
 
 	cilium_dbg_lb(ctx, DBG_LB4_REVERSE_NAT, nat->address, nat->port);
 
-	if (has_l4_header)
-		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
-
-	if (nat->port && has_l4_header) {
-		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, &csum_off);
-		if (IS_ERR(ret))
-			return ret;
-	}
-
 	if (flags & REV_NAT_F_TUPLE_SADDR) {
 		old_sip = tuple->saddr;
-		tuple->saddr = new_sip = nat->address;
+		tuple->saddr = nat->address;
 	} else {
 		ret = ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, saddr), &old_sip, 4);
 		if (IS_ERR(ret))
 			return ret;
-
-		new_sip = nat->address;
 	}
 
 #ifndef DISABLE_LOOPBACK_LB
@@ -1094,17 +1076,30 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 #endif
 
 	ret = ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, saddr),
-			      &new_sip, 4, 0);
+			      &nat->address, 4, 0);
 	if (IS_ERR(ret))
 		return DROP_WRITE_ERROR;
 
-	sum = csum_diff(&old_sip, 4, &new_sip, 4, sum);
+	sum = csum_diff(&old_sip, 4, &nat->address, 4, sum);
 	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
 		return DROP_CSUM_L3;
 
-	if (csum_off.offset &&
-	    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
-		return DROP_CSUM_L4;
+	if (has_l4_header) {
+		struct csum_offset csum_off = {};
+
+		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
+
+		if (nat->port) {
+			ret = reverse_map_l4_port(ctx, tuple->nexthdr,
+						  nat->port, l4_off, &csum_off);
+			if (IS_ERR(ret))
+				return ret;
+		}
+
+		if (csum_off.offset &&
+		    csum_l4_replace(ctx, l4_off, &csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+			return DROP_CSUM_L4;
+	}
 
 	return 0;
 }
@@ -1612,7 +1607,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			 */
 			if (backend && !state->syn)
 				break;
-			key->backend_slot = 0;
+
 			svc = lb4_lookup_service(key, false, true);
 			if (!svc)
 				goto drop_no_service;

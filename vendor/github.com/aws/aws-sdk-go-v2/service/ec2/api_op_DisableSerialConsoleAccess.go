@@ -12,8 +12,7 @@ import (
 
 // Disables access to the EC2 serial console of all instances for your account. By
 // default, access to the EC2 serial console is disabled for your account. For more
-// information, see Manage account access to the EC2 serial console
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configure-access-to-serial-console.html#serial-console-account-access)
+// information, see Manage account access to the EC2 serial console (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configure-access-to-serial-console.html#serial-console-account-access)
 // in the Amazon EC2 User Guide.
 func (c *Client) DisableSerialConsoleAccess(ctx context.Context, params *DisableSerialConsoleAccessInput, optFns ...func(*Options)) (*DisableSerialConsoleAccessOutput, error) {
 	if params == nil {
@@ -34,8 +33,8 @@ type DisableSerialConsoleAccessInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -43,9 +42,9 @@ type DisableSerialConsoleAccessInput struct {
 
 type DisableSerialConsoleAccessOutput struct {
 
-	// If true, access to the EC2 serial console of all instances is enabled for your
-	// account. If false, access to the EC2 serial console of all instances is disabled
-	// for your account.
+	// If true , access to the EC2 serial console of all instances is enabled for your
+	// account. If false , access to the EC2 serial console of all instances is
+	// disabled for your account.
 	SerialConsoleAccessEnabled *bool
 
 	// Metadata pertaining to the operation's result.
@@ -100,6 +99,9 @@ func (c *Client) addOperationDisableSerialConsoleAccessMiddlewares(stack *middle
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDisableSerialConsoleAccess(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

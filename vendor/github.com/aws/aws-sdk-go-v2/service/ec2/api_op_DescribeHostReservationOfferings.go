@@ -18,8 +18,7 @@ import (
 // Hosts. When purchasing an offering, ensure that the instance family and Region
 // of the offering matches that of the Dedicated Hosts with which it is to be
 // associated. For more information about supported instance types, see Dedicated
-// Hosts
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-hosts-overview.html)
+// Hosts (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/dedicated-hosts-overview.html)
 // in the Amazon EC2 User Guide.
 func (c *Client) DescribeHostReservationOfferings(ctx context.Context, params *DescribeHostReservationOfferingsInput, optFns ...func(*Options)) (*DescribeHostReservationOfferingsOutput, error) {
 	if params == nil {
@@ -39,12 +38,9 @@ func (c *Client) DescribeHostReservationOfferings(ctx context.Context, params *D
 type DescribeHostReservationOfferingsInput struct {
 
 	// The filters.
-	//
-	// * instance-family - The instance family of the offering (for
-	// example, m4).
-	//
-	// * payment-option - The payment option (NoUpfront | PartialUpfront
-	// | AllUpfront).
+	//   - instance-family - The instance family of the offering (for example, m4 ).
+	//   - payment-option - The payment option ( NoUpfront | PartialUpfront |
+	//   AllUpfront ).
 	Filter []types.Filter
 
 	// This is the maximum duration of the reservation to purchase, specified in
@@ -137,6 +133,9 @@ func (c *Client) addOperationDescribeHostReservationOfferingsMiddlewares(stack *
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeHostReservationOfferings(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

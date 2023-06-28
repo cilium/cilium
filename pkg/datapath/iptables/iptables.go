@@ -1193,13 +1193,26 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 			return err
 		}
 
-		if err := prog.runProg([]string{
+		progArgs := []string{
 			"-t", "nat",
 			"-A", ciliumPostNatChain,
-			"-s", allocRange,
+		}
+
+		// If EgressMasqueradeInterfaces is set, we need to mirror base condition
+		// of the "cilium masquerade non-cluster" rule below, as the allocRange might
+		// not be valid in such setups (e.g. in ENI mode).
+		if option.Config.EgressMasqueradeInterfaces != "" {
+			progArgs = append(progArgs, "-o", option.Config.EgressMasqueradeInterfaces)
+		} else {
+			progArgs = append(progArgs, "-s", allocRange)
+		}
+
+		progArgs = append(progArgs,
 			"-m", "set", "--match-set", prog.getIpset(), "dst",
 			"-m", "comment", "--comment", "exclude traffic to cluster nodes from masquerade",
-			"-j", "ACCEPT"}); err != nil {
+			"-j", "ACCEPT",
+		)
+		if err := prog.runProg(progArgs); err != nil {
 			return err
 		}
 	}

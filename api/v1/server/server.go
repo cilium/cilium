@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
 	"github.com/cilium/cilium/api/v1/server/restapi/recorder"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
+	"github.com/cilium/cilium/api/v1/server/restapi/statedb"
 
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/hive"
@@ -98,6 +99,7 @@ type serverParams struct {
 	RecorderGetRecorderMasksHandler      recorder.GetRecorderMasksHandler
 	ServiceGetServiceHandler             service.GetServiceHandler
 	ServiceGetServiceIDHandler           service.GetServiceIDHandler
+	StatedbGetStatedbDumpHandler         statedb.GetStatedbDumpHandler
 	DaemonPatchConfigHandler             daemon.PatchConfigHandler
 	EndpointPatchEndpointIDHandler       endpoint.PatchEndpointIDHandler
 	EndpointPatchEndpointIDConfigHandler endpoint.PatchEndpointIDConfigHandler
@@ -156,6 +158,7 @@ func newForCell(p serverParams) (*Server, error) {
 	api.RecorderGetRecorderMasksHandler = p.RecorderGetRecorderMasksHandler
 	api.ServiceGetServiceHandler = p.ServiceGetServiceHandler
 	api.ServiceGetServiceIDHandler = p.ServiceGetServiceIDHandler
+	api.StatedbGetStatedbDumpHandler = p.StatedbGetStatedbDumpHandler
 	api.DaemonPatchConfigHandler = p.DaemonPatchConfigHandler
 	api.EndpointPatchEndpointIDHandler = p.EndpointPatchEndpointIDHandler
 	api.EndpointPatchEndpointIDConfigHandler = p.EndpointPatchEndpointIDConfigHandler

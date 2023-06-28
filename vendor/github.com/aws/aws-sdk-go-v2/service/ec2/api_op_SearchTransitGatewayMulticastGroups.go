@@ -31,39 +31,30 @@ func (c *Client) SearchTransitGatewayMulticastGroups(ctx context.Context, params
 
 type SearchTransitGatewayMulticastGroupsInput struct {
 
+	// The ID of the transit gateway multicast domain.
+	//
+	// This member is required.
+	TransitGatewayMulticastDomainId *string
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// One or more filters. The possible values are:
-	//
-	// * group-ip-address - The IP
-	// address of the transit gateway multicast group.
-	//
-	// * is-group-member - The
-	// resource is a group member. Valid values are true | false.
-	//
-	// * is-group-source -
-	// The resource is a group source. Valid values are true | false.
-	//
-	// * member-type -
-	// The member type. Valid values are igmp | static.
-	//
-	// * resource-id - The ID of the
-	// resource.
-	//
-	// * resource-type - The type of resource. Valid values are vpc | vpn |
-	// direct-connect-gateway | tgw-peering.
-	//
-	// * source-type - The source type. Valid
-	// values are igmp | static.
-	//
-	// * subnet-id - The ID of the subnet.
-	//
-	// *
-	// transit-gateway-attachment-id - The id of the transit gateway attachment.
+	//   - group-ip-address - The IP address of the transit gateway multicast group.
+	//   - is-group-member - The resource is a group member. Valid values are true |
+	//   false .
+	//   - is-group-source - The resource is a group source. Valid values are true |
+	//   false .
+	//   - member-type - The member type. Valid values are igmp | static .
+	//   - resource-id - The ID of the resource.
+	//   - resource-type - The type of resource. Valid values are vpc | vpn |
+	//   direct-connect-gateway | tgw-peering .
+	//   - source-type - The source type. Valid values are igmp | static .
+	//   - subnet-id - The ID of the subnet.
+	//   - transit-gateway-attachment-id - The id of the transit gateway attachment.
 	Filters []types.Filter
 
 	// The maximum number of results to return with a single call. To retrieve the
@@ -72,9 +63,6 @@ type SearchTransitGatewayMulticastGroupsInput struct {
 
 	// The token for the next page of results.
 	NextToken *string
-
-	// The ID of the transit gateway multicast domain.
-	TransitGatewayMulticastDomainId *string
 
 	noSmithyDocumentSerde
 }
@@ -139,7 +127,13 @@ func (c *Client) addOperationSearchTransitGatewayMulticastGroupsMiddlewares(stac
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
+	if err = addOpSearchTransitGatewayMulticastGroupsValidationMiddleware(stack); err != nil {
+		return err
+	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opSearchTransitGatewayMulticastGroups(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {
@@ -162,8 +156,8 @@ type SearchTransitGatewayMulticastGroupsAPIClient interface {
 
 var _ SearchTransitGatewayMulticastGroupsAPIClient = (*Client)(nil)
 
-// SearchTransitGatewayMulticastGroupsPaginatorOptions is the paginator options for
-// SearchTransitGatewayMulticastGroups
+// SearchTransitGatewayMulticastGroupsPaginatorOptions is the paginator options
+// for SearchTransitGatewayMulticastGroups
 type SearchTransitGatewayMulticastGroupsPaginatorOptions struct {
 	// The maximum number of results to return with a single call. To retrieve the
 	// remaining results, make another call with the returned nextToken value.

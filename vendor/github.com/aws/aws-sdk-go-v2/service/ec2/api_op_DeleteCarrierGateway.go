@@ -13,8 +13,8 @@ import (
 
 // Deletes a carrier gateway. If you do not delete the route that contains the
 // carrier gateway as the Target, the route is a blackhole route. For information
-// about how to delete a route, see DeleteRoute
-// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeleteRoute.html).
+// about how to delete a route, see DeleteRoute (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DeleteRoute.html)
+// .
 func (c *Client) DeleteCarrierGateway(ctx context.Context, params *DeleteCarrierGatewayInput, optFns ...func(*Options)) (*DeleteCarrierGatewayOutput, error) {
 	if params == nil {
 		params = &DeleteCarrierGatewayInput{}
@@ -39,8 +39,8 @@ type DeleteCarrierGatewayInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -106,6 +106,9 @@ func (c *Client) addOperationDeleteCarrierGatewayMiddlewares(stack *middleware.S
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDeleteCarrierGateway(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

@@ -8,13 +8,11 @@ import (
 	"errors"
 	"net/netip"
 	"testing"
-	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/mock"
-	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	nodeaddr "github.com/cilium/cilium/pkg/node"
@@ -129,7 +127,7 @@ func TestControllerSanity(t *testing.T) {
 							{
 								PeerASN:     65000,
 								PeerAddress: "172.0.0.1/32",
-								GracefulRestart: v2alpha1api.CiliumBGPNeighborGracefulRestart{
+								GracefulRestart: &v2alpha1api.CiliumBGPNeighborGracefulRestart{
 									Enabled: true,
 								},
 							},
@@ -139,22 +137,17 @@ func TestControllerSanity(t *testing.T) {
 				return []*v2alpha1api.CiliumBGPPeeringPolicy{p}, nil
 			},
 			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, c *agent.ControlPlaneState) error {
-				defaulted := false
 				for _, r := range p.Spec.VirtualRouters {
 					for _, n := range r.Neighbors {
-						if n.PeerPort != nil &&
-							*n.PeerPort == types.DefaultPeerPort &&
-							n.ConnectRetryTime.Duration != 0 &&
-							n.HoldTime.Duration != 0 &&
-							n.KeepAliveTime.Duration != 0 &&
-							n.GracefulRestart.RestartTime.Duration != 0 {
-
-							defaulted = true
+						if n.PeerPort == nil ||
+							n.EBGPMultihopTTL == nil ||
+							n.ConnectRetryTimeSeconds == nil ||
+							n.HoldTimeSeconds == nil ||
+							n.KeepAliveTimeSeconds == nil ||
+							n.GracefulRestart.RestartTimeSeconds == nil {
+							t.Fatalf("policy: %v not defaulted properly", p)
 						}
 					}
-				}
-				if !defaulted {
-					t.Fatalf("policy: %v not defaulted properly", p)
 				}
 				return nil
 			},
@@ -241,41 +234,7 @@ func TestControllerSanity(t *testing.T) {
 			err: errors.New(""),
 		},
 		{
-			name: "connect retry time validation error",
-			plist: func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
-				p := wantPolicy.DeepCopy()
-				p.Spec.VirtualRouters = []v2alpha1api.CiliumBGPVirtualRouter{
-					{
-						LocalASN: 65001,
-						Neighbors: []v2alpha1api.CiliumBGPNeighbor{
-							{
-								PeerASN:          65000,
-								PeerAddress:      "172.0.0.1/32",
-								ConnectRetryTime: metav1.Duration{Duration: -1 * time.Second},
-							},
-						},
-					},
-				}
-				return []*v2alpha1api.CiliumBGPPeeringPolicy{p}, nil
-			},
-			labels: func() (map[string]string, error) {
-				return map[string]string{
-					"bgp-policy": "a",
-				}, nil
-			},
-			annotations: func() (map[string]string, error) {
-				return map[string]string{}, nil
-			},
-			podCIDRs: func() ([]string, error) {
-				return []string{}, nil
-			},
-			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, c *agent.ControlPlaneState) error {
-				return nil
-			},
-			err: errors.New(""),
-		},
-		{
-			name: "hold time validation error",
+			name: "timer validation error",
 			plist: func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
 				p := wantPolicy.DeepCopy()
 				p.Spec.VirtualRouters = []v2alpha1api.CiliumBGPVirtualRouter{
@@ -285,7 +244,9 @@ func TestControllerSanity(t *testing.T) {
 							{
 								PeerASN:     65000,
 								PeerAddress: "172.0.0.1/32",
-								HoldTime:    metav1.Duration{Duration: 1 * time.Second},
+								// KeepAliveTimeSeconds larger than HoldTimeSeconds = error
+								KeepAliveTimeSeconds: pointer.Int32(10),
+								HoldTimeSeconds:      pointer.Int32(5),
 							},
 						},
 					},
@@ -366,6 +327,73 @@ func TestPolicySelection(t *testing.T) {
 				want     bool
 				selector *v1.LabelSelector
 			}{},
+			err: nil,
+		},
+		{
+			name: "nil MatchExpression for node label selector",
+			nodeLabels: map[string]string{
+				"bgp-peering-policy": "a",
+			},
+			policies: []struct {
+				want     bool
+				selector *v1.LabelSelector
+			}{
+				{
+					want: false,
+					selector: &v1.LabelSelector{
+						MatchLabels:      map[string]string{},
+						MatchExpressions: nil,
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "nil values in MatchExpressions for node label selector",
+			nodeLabels: map[string]string{
+				"bgp-peering-policy": "a",
+			},
+			policies: []struct {
+				want     bool
+				selector *v1.LabelSelector
+			}{
+				{
+					want: false,
+					selector: &v1.LabelSelector{
+						MatchExpressions: []v1.LabelSelectorRequirement{
+							{
+								Key:      "bgp-peering-policy",
+								Operator: "In",
+								Values:   nil,
+							},
+						},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "valid value in MatchExpressions for node label selector",
+			nodeLabels: map[string]string{
+				"bgp-peering-policy": "a",
+			},
+			policies: []struct {
+				want     bool
+				selector *v1.LabelSelector
+			}{
+				{
+					want: true,
+					selector: &v1.LabelSelector{
+						MatchExpressions: []v1.LabelSelectorRequirement{
+							{
+								Key:      "bgp-peering-policy",
+								Operator: "In",
+								Values:   []string{"a"},
+							},
+						},
+					},
+				},
+			},
 			err: nil,
 		},
 		{
@@ -503,6 +531,10 @@ func TestPolicySelection(t *testing.T) {
 					t.Fatalf("expected err: %v", (tt.err == nil))
 				}
 				if want != nil {
+					if policy == nil {
+						t.Fatalf("got: <nil>, want: %+v", *want)
+					}
+
 					// pointer comparison, not a deep equal.
 					if policy != want {
 						t.Fatalf("got: %+v, want: %+v", *policy, *want)

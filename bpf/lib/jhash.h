@@ -59,20 +59,21 @@ static __always_inline __u32 jhash(const void *key, __u32 length,
 	}
 
 	switch (length) {
-	case 12: c += (__u32)k[11] << 24;
-	case 11: c += (__u32)k[10] << 16;
-	case 10: c +=  (__u32)k[9] <<  8;
-	case 9:  c +=  (__u32)k[8];
-	case 8:  b +=  (__u32)k[7] << 24;
-	case 7:  b +=  (__u32)k[6] << 16;
-	case 6:  b +=  (__u32)k[5] <<  8;
-	case 5:  b +=  (__u32)k[4];
-	case 4:  a +=  (__u32)k[3] << 24;
-	case 3:  a +=  (__u32)k[2] << 16;
-	case 2:  a +=  (__u32)k[1] <<  8;
+	case 12: c += (__u32)k[11] << 24; fallthrough;
+	case 11: c += (__u32)k[10] << 16; fallthrough;
+	case 10: c +=  (__u32)k[9] <<  8; fallthrough;
+	case 9:  c +=  (__u32)k[8];       fallthrough;
+	case 8:  b +=  (__u32)k[7] << 24; fallthrough;
+	case 7:  b +=  (__u32)k[6] << 16; fallthrough;
+	case 6:  b +=  (__u32)k[5] <<  8; fallthrough;
+	case 5:  b +=  (__u32)k[4];       fallthrough;
+	case 4:  a +=  (__u32)k[3] << 24; fallthrough;
+	case 3:  a +=  (__u32)k[2] << 16; fallthrough;
+	case 2:  a +=  (__u32)k[1] <<  8; fallthrough;
 	case 1:  a +=  (__u32)k[0];
 
 		__jhash_final(a, b, c);
+		break;
 	case 0: /* Nothing left to add */
 		break;
 	}

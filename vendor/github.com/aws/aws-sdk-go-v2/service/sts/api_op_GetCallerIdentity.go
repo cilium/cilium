@@ -12,12 +12,11 @@ import (
 
 // Returns details about the IAM user or role whose credentials are used to call
 // the operation. No permissions are required to perform this operation. If an
-// administrator adds a policy to your IAM user or role that explicitly denies
-// access to the sts:GetCallerIdentity action, you can still perform this
-// operation. Permissions are not required because the same information is returned
-// when an IAM user or role is denied access. To view an example response, see I Am
-// Not Authorized to Perform: iam:DeleteVirtualMFADevice
-// (https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_access-denied-delete-mfa)
+// administrator attaches a policy to your identity that explicitly denies access
+// to the sts:GetCallerIdentity action, you can still perform this operation.
+// Permissions are not required because the same information is returned when
+// access is denied. To view an example response, see I Am Not Authorized to
+// Perform: iam:DeleteVirtualMFADevice (https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_general.html#troubleshoot_general_access-denied-delete-mfa)
 // in the IAM User Guide.
 func (c *Client) GetCallerIdentity(ctx context.Context, params *GetCallerIdentityInput, optFns ...func(*Options)) (*GetCallerIdentityOutput, error) {
 	if params == nil {
@@ -49,10 +48,9 @@ type GetCallerIdentityOutput struct {
 	// The Amazon Web Services ARN associated with the calling entity.
 	Arn *string
 
-	// The unique identifier of the calling entity. The exact value depends on the type
-	// of entity that is making the call. The values returned are those listed in the
-	// aws:userid column in the Principal table
-	// (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html#principaltable)
+	// The unique identifier of the calling entity. The exact value depends on the
+	// type of entity that is making the call. The values returned are those listed in
+	// the aws:userid column in the Principal table (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_variables.html#principaltable)
 	// found on the Policy Variables reference page in the IAM User Guide.
 	UserId *string
 
@@ -108,6 +106,9 @@ func (c *Client) addOperationGetCallerIdentityMiddlewares(stack *middleware.Stac
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetCallerIdentity(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

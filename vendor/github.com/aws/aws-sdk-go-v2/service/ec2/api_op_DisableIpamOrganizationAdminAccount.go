@@ -11,9 +11,8 @@ import (
 )
 
 // Disable the IPAM account. For more information, see Enable integration with
-// Organizations
-// (https://docs.aws.amazon.com/vpc/latest/ipam/enable-integ-ipam.html) in the
-// Amazon VPC IPAM User Guide.
+// Organizations (https://docs.aws.amazon.com/vpc/latest/ipam/enable-integ-ipam.html)
+// in the Amazon VPC IPAM User Guide.
 func (c *Client) DisableIpamOrganizationAdminAccount(ctx context.Context, params *DisableIpamOrganizationAdminAccountInput, optFns ...func(*Options)) (*DisableIpamOrganizationAdminAccountOutput, error) {
 	if params == nil {
 		params = &DisableIpamOrganizationAdminAccountInput{}
@@ -38,8 +37,8 @@ type DisableIpamOrganizationAdminAccountInput struct {
 
 	// A check for whether you have the required permissions for the action without
 	// actually making the request and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -105,6 +104,9 @@ func (c *Client) addOperationDisableIpamOrganizationAdminAccountMiddlewares(stac
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDisableIpamOrganizationAdminAccount(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

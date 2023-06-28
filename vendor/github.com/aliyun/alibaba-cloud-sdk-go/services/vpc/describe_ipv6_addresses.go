@@ -74,6 +74,7 @@ type DescribeIpv6AddressesRequest struct {
 	ResourceOwnerId         requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	Ipv6InternetBandwidthId string           `position:"Query" name:"Ipv6InternetBandwidthId"`
 	NetworkType             string           `position:"Query" name:"NetworkType"`
+	IncludeReservationData  requests.Boolean `position:"Query" name:"IncludeReservationData"`
 	PageNumber              requests.Integer `position:"Query" name:"PageNumber"`
 	AssociatedInstanceType  string           `position:"Query" name:"AssociatedInstanceType"`
 	PageSize                requests.Integer `position:"Query" name:"PageSize"`

@@ -71,8 +71,8 @@ func TestRegister(t *testing.T) {
 		L7: &pb.Layer7{
 			Record: &pb.Layer7_Http{Http: &pb.HTTP{}},
 		},
-		Source:      &pb.Endpoint{Namespace: "foo", PodName: "foo-123"},
-		Destination: &pb.Endpoint{Namespace: "bar", PodName: "bar-123"},
+		Source:      &pb.Endpoint{Namespace: "foo", PodName: "foo-123", Workloads: []*pb.Workload{{Name: "worker"}}},
+		Destination: &pb.Endpoint{Namespace: "bar", PodName: "bar-123", Workloads: []*pb.Workload{{Name: "api"}}},
 		Verdict:     pb.Verdict_FORWARDED,
 	}
 
@@ -81,8 +81,8 @@ func TestRegister(t *testing.T) {
 		L7: &pb.Layer7{
 			Record: &pb.Layer7_Http{Http: &pb.HTTP{}},
 		},
-		Source:      &pb.Endpoint{Namespace: "abc", PodName: "abc-456"},
-		Destination: &pb.Endpoint{Namespace: "bar", PodName: "bar-123"},
+		Source:      &pb.Endpoint{Namespace: "abc", PodName: "abc-456", Workloads: []*pb.Workload{{Name: "worker"}}},
+		Destination: &pb.Endpoint{Namespace: "bar", PodName: "bar-123", Workloads: []*pb.Workload{{Name: "api"}}},
 		Verdict:     pb.Verdict_FORWARDED,
 	}
 	log := logrus.New()
@@ -141,17 +141,17 @@ func TestRegister(t *testing.T) {
 		verifyMetricSeriesNotExists(t, promRegistry)
 	})
 
-	t.Run("Should not remove metrics series with ContextPodShort", func(t *testing.T) {
+	t.Run("Should not remove metrics series with ContextWorkloadName", func(t *testing.T) {
 
 		promRegistry := prometheus.NewRegistry()
-		opts, _ := ParseContextOptions(Options{"sourceContext": "pod-short", "destinationContext": "pod-short"})
+		opts, _ := ParseContextOptions(Options{"sourceContext": "workload-name", "destinationContext": "workload-name"})
 		handlers := initHandlers(t, opts, promRegistry, log)
 
 		handlers.ProcessFlow(context.TODO(), flow1)
 		handlers.ProcessFlow(context.TODO(), flow2)
 		assert.EqualValues(t, handlers.handlers[0].(*testHandler).ProcessCalled, 2)
 
-		verifyMetricSeriesExists(t, promRegistry, 2)
+		verifyMetricSeriesExists(t, promRegistry, 1)
 
 		handlers.ProcessPodDeletion(&slim_corev1.Pod{
 			ObjectMeta: slim_metav1.ObjectMeta{
@@ -161,7 +161,7 @@ func TestRegister(t *testing.T) {
 		})
 		assert.EqualValues(t, handlers.handlers[0].(*testHandler).ListMetricCalled, 1)
 
-		verifyMetricSeriesExists(t, promRegistry, 2)
+		verifyMetricSeriesExists(t, promRegistry, 1)
 
 		handlers.ProcessPodDeletion(&slim_corev1.Pod{
 			ObjectMeta: slim_metav1.ObjectMeta{
@@ -171,7 +171,7 @@ func TestRegister(t *testing.T) {
 		})
 		assert.EqualValues(t, handlers.handlers[0].(*testHandler).ListMetricCalled, 2)
 
-		verifyMetricSeriesExists(t, promRegistry, 2)
+		verifyMetricSeriesExists(t, promRegistry, 1)
 	})
 
 	t.Run("Should remove metrics series with LabelsContext", func(t *testing.T) {

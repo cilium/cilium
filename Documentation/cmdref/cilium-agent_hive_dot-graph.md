@@ -29,6 +29,7 @@ cilium-agent hive dot-graph [flags]
       --enable-cilium-health-api-server-access strings   List of cilium health API APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-k8s                                       Enable the k8s clientset (default true)
       --enable-k8s-api-discovery                         Enable discovery of Kubernetes API groups and resources with the discovery API
+      --enable-l2-pod-announcements                      Enable announcing Pod IPs with Gratuitous ARP
       --enable-monitor                                   Enable the monitor unix domain socket server (default true)
       --gops-port uint16                                 Port for gops server to listen on (default 9890)
       --install-egress-gateway-routes                    Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface
@@ -37,6 +38,8 @@ cilium-agent hive dot-graph [flags]
       --k8s-client-qps float32                           Queries per second limit for the K8s client
       --k8s-heartbeat-timeout duration                   Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                       Absolute path of the kubernetes kubeconfig file
+      --l2-pod-announcements-interface string            Interface used for sending gratuitous arp messages
+      --mesh-auth-enabled                                Enable authentication processing & garbage collection (default true)
       --mesh-auth-expired-gc-interval duration           Interval in which expired auth entries are attempted to be garbage collected (default 15m0s)
       --mesh-auth-mutual-listener-port int               Port on which the Cilium Agent will perform mutual authentication handshakes between other Agents
       --mesh-auth-queue-size int                         Queue size for the auth manager (default 1024)

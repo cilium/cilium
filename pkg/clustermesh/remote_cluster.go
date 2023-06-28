@@ -34,8 +34,9 @@ type remoteCluster struct {
 	// mesh is the cluster mesh this remote cluster belongs to
 	mesh *ClusterMesh
 
+	usedIDs *ClusterMeshUsedIDs
+
 	// mutex protects the following variables:
-	// - config
 	// - remoteIdentityCache
 	mutex lock.RWMutex
 
@@ -60,9 +61,17 @@ type remoteCluster struct {
 	swg *lock.StoppableWaitGroup
 }
 
-func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config *cmtypes.CiliumClusterConfig) error {
-	if err := rc.mesh.canConnect(rc.name, config); err != nil {
-		return err
+func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config *cmtypes.CiliumClusterConfig, ready chan<- error) {
+	if err := config.Validate(); err != nil {
+		ready <- err
+		close(ready)
+		return
+	}
+
+	if err := rc.onUpdateConfig(config); err != nil {
+		ready <- err
+		close(ready)
+		return
 	}
 
 	var capabilities types.CiliumClusterConfigCapabilities
@@ -70,13 +79,14 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		capabilities = config.Capabilities
 	}
 
-	remoteIdentityCache, err := rc.mesh.conf.RemoteIdentityWatcher.WatchRemoteIdentities(rc.name, backend)
+	remoteIdentityCache, err := rc.mesh.conf.RemoteIdentityWatcher.WatchRemoteIdentities(rc.name, backend, capabilities.Cached)
 	if err != nil {
-		return err
+		ready <- err
+		close(ready)
+		return
 	}
 
 	rc.mutex.Lock()
-	rc.config = config
 	rc.remoteIdentityCache = remoteIdentityCache
 	rc.mutex.Unlock()
 
@@ -87,24 +97,29 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		mgr = store.NewWatchStoreManagerImmediate(rc.name)
 	}
 
-	mgr.Register(nodeStore.NodeStorePrefix, func(ctx context.Context) {
-		rc.remoteNodes.Watch(ctx, backend, path.Join(nodeStore.NodeStorePrefix, rc.name))
+	adapter := func(prefix string) string { return prefix }
+	if capabilities.Cached {
+		adapter = kvstore.StateToCachePrefix
+	}
+
+	mgr.Register(adapter(nodeStore.NodeStorePrefix), func(ctx context.Context) {
+		rc.remoteNodes.Watch(ctx, backend, path.Join(adapter(nodeStore.NodeStorePrefix), rc.name))
 	})
 
-	mgr.Register(serviceStore.ServiceStorePrefix, func(ctx context.Context) {
-		rc.remoteServices.Watch(ctx, backend, path.Join(serviceStore.ServiceStorePrefix, rc.name))
+	mgr.Register(adapter(serviceStore.ServiceStorePrefix), func(ctx context.Context) {
+		rc.remoteServices.Watch(ctx, backend, path.Join(adapter(serviceStore.ServiceStorePrefix), rc.name))
 	})
 
-	mgr.Register(ipcache.IPIdentitiesPath, func(ctx context.Context) {
-		rc.ipCacheWatcher.Watch(ctx, backend)
+	mgr.Register(adapter(ipcache.IPIdentitiesPath), func(ctx context.Context) {
+		rc.ipCacheWatcher.Watch(ctx, backend, ipcache.WithCachedPrefix(capabilities.Cached))
 	})
 
-	mgr.Register(identityCache.IdentitiesPath, func(ctx context.Context) {
+	mgr.Register(adapter(identityCache.IdentitiesPath), func(ctx context.Context) {
 		rc.remoteIdentityCache.Watch(ctx)
 	})
 
+	close(ready)
 	mgr.Run(ctx)
-	return nil
 }
 
 func (rc *remoteCluster) Stop() {}
@@ -119,6 +134,10 @@ func (rc *remoteCluster) Remove() {
 
 	rc.mesh.conf.RemoteIdentityWatcher.RemoveRemoteIdentities(rc.name)
 	rc.mesh.globalServices.onClusterDelete(rc.name)
+
+	if rc.config != nil {
+		rc.usedIDs.releaseClusterID(rc.config.ID)
+	}
 }
 
 func (rc *remoteCluster) Status() *models.RemoteCluster {
@@ -131,4 +150,23 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 	status.NumSharedServices = int64(rc.remoteServices.NumEntries())
 	status.NumIdentities = int64(rc.remoteIdentityCache.NumEntries())
 	return status
+}
+
+func (rc *remoteCluster) onUpdateConfig(newConfig *cmtypes.CiliumClusterConfig) error {
+	oldConfig := rc.config
+
+	if newConfig != nil && oldConfig != nil && newConfig.ID == oldConfig.ID {
+		return nil
+	}
+	if newConfig != nil {
+		if err := rc.usedIDs.reserveClusterID(newConfig.ID); err != nil {
+			return err
+		}
+	}
+	if oldConfig != nil {
+		rc.usedIDs.releaseClusterID(oldConfig.ID)
+	}
+	rc.config = newConfig
+
+	return nil
 }

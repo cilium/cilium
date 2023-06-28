@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -42,6 +43,10 @@ func (d *Daemon) startAgentHealthHTTPService() {
 		statusCode := http.StatusOK
 		sr := d.getStatus(true)
 		if isUnhealthy(&sr) {
+			log.WithError(errors.New(sr.Cilium.Msg)).WithFields(logrus.Fields{
+				logfields.State: sr.Cilium.State,
+			},
+			).Warn("/healthz returning unhealthy")
 			statusCode = http.StatusServiceUnavailable
 		}
 

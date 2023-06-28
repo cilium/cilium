@@ -8,7 +8,11 @@
 #include "dbg.h"
 #include "trace.h"
 #include "l3.h"
+
+#if defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb
 #include "lib/wireguard.h"
+#endif /* defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb */
+
 #include "high_scale_ipcache.h"
 
 #ifdef HAVE_ENCAP
@@ -65,7 +69,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_un
 	int ifindex;
 	int ret = 0;
 
-#ifdef ENABLE_WIREGUARD
+#if defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb
 	/* Redirect the packet to the WireGuard tunnel device for encryption
 	 * if needed.
 	 *
@@ -78,7 +82,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_un
 	ret = wg_maybe_redirect_to_encrypt(ctx);
 	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 		return ret;
-#endif /* ENABLE_WIREGUARD */
+#endif /* defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb */
 
 	ret = __encap_with_nodeid(ctx, src_ip, 0, tunnel_endpoint, seclabel, dstid,
 				  vni, trace->reason, trace->monitor,
@@ -212,21 +216,25 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 }
 #endif /* TUNNEL_MODE || ENABLE_HIGH_SCALE_IPCACHE */
 
-static __always_inline __be16 tunnel_gen_src_port_v4(void)
+static __always_inline __be16
+tunnel_gen_src_port_v4(struct ipv4_ct_tuple *tuple __maybe_unused)
 {
 #if __ctx_is == __ctx_xdp
-	/* TODO hash, based on CT tuple */
-	return bpf_htons(TUNNEL_PORT);
+	__be32 hash = hash_from_tuple_v4(tuple);
+
+	return (hash >> 16)  ^ (__be16)hash;
 #else
 	return 0;
 #endif
 }
 
-static __always_inline __be16 tunnel_gen_src_port_v6(void)
+static __always_inline __be16
+tunnel_gen_src_port_v6(struct ipv6_ct_tuple *tuple __maybe_unused)
 {
 #if __ctx_is == __ctx_xdp
-	/* TODO hash, based on CT tuple */
-	return bpf_htons(TUNNEL_PORT);
+	__be32 hash = hash_from_tuple_v6(tuple);
+
+	return (hash >> 16)  ^ (__be16)hash;
 #else
 	return 0;
 #endif
@@ -280,7 +288,7 @@ set_geneve_dsr_opt6(__be16 port, const union v6addr *addr,
 	gopt->hdr.opt_class = bpf_htons(DSR_GENEVE_OPT_CLASS);
 	gopt->hdr.type = DSR_GENEVE_OPT_TYPE;
 	gopt->hdr.length = DSR_IPV6_GENEVE_OPT_LEN;
-	ipv6_addr_copy(&gopt->addr, addr);
+	ipv6_addr_copy((union v6addr *)&gopt->addr, addr);
 	gopt->port = port;
 }
 #endif

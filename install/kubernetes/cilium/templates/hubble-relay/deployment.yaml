@@ -143,7 +143,7 @@ spec:
                 - key: ca.crt
                   path: hubble-server-ca.crt
           {{- else }}
-          - configMap:
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
               name: {{ .Values.tls.caBundle.name }}
               items:
                 - key: {{ .Values.tls.caBundle.key }}

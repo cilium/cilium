@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
+	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/l2responder"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -64,6 +65,9 @@ var Cell = cell.Module(
 	// This cell defines StateDB tables and their schemas for tables which are used to transfer information
 	// between datapath components and more high-level components.
 	tables.Cell,
+
+	// Gratuitous ARP event processor emits GARP packets on k8s pod creation events.
+	garp.Cell,
 
 	cell.Provide(func(dp types.Datapath) ipcache.NodeIDHandler {
 		return dp.NodeIDs()

@@ -1,6 +1,6 @@
 {{- if and
   (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer)
-  (or .Values.clustermesh.apiserver.metrics.enabled .Values.clustermesh.apiserver.metrics.etcd.enabled)
+  (or .Values.clustermesh.apiserver.metrics.enabled .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled .Values.clustermesh.apiserver.metrics.etcd.enabled)
   .Values.clustermesh.apiserver.metrics.serviceMonitor.enabled }}
 ---
 apiVersion: monitoring.coreos.com/v1
@@ -36,6 +36,20 @@ spec:
     {{- toYaml . | nindent 4 }}
     {{- end }}
     {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.metricRelabelings }}
+    metricRelabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+  {{- if .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled }}
+  - port: kvmesh-metrics
+    interval: {{ .Values.clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.interval | quote }}
+    honorLabels: true
+    path: /metrics
+    {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.relabelings }}
+    relabelings:
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.kvstoremesh.metricRelabelings }}
     metricRelabelings:
     {{- toYaml . | nindent 4 }}
     {{- end }}

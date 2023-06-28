@@ -44,7 +44,7 @@ Envoy extensions available in the Envoy code base.
 
 To see which Envoy extensions are available, please have a look at
 the `Envoy extensions configuration
-file <https://github.com/cilium/proxy/blob/master/envoy_build_config/extensions_build_config.bzl>`_.
+file <https://github.com/cilium/proxy/blob/main/envoy_build_config/extensions_build_config.bzl>`_.
 Only the extensions that have not been commented out with ``#`` are
 built in to the Cilium Envoy image. Currently this contains the
 following extensions:

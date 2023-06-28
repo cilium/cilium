@@ -64,10 +64,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  kind_version: v0.17.0
+  # renovate: datasource=github-releases depName=kubernetes-sigs/kind
+  kind_version: v0.20.0
   k8s_version: v1.27.1
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.7
+  cilium_cli_version: v0.14.8
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
   clusterName1: cluster1-${{ github.run_id }}
@@ -93,7 +94,7 @@ jobs:
       # paths-filter to work.
       - name: Checkout code
         if: ${{ github.event.issue.pull_request }}
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           persist-credentials: false
       - name: Retrieve pull request's base and head
@@ -188,12 +189,18 @@ jobs:
             ipfamily: 'ipv4'
             encryption: 'disabled'
             kube-proxy: 'iptables'
+            kvstoremesh: true
+            cm-auth-mode-1: 'legacy'
+            cm-auth-mode-2: 'legacy'
 
           - name: '2'
             tunnel: 'disabled'
             ipfamily: 'ipv4'
             encryption: 'wireguard'
             kube-proxy: 'none'
+            kvstoremesh: false
+            cm-auth-mode-1: 'migration'
+            cm-auth-mode-2: 'migration'
 
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '3'
@@ -201,6 +208,9 @@ jobs:
             ipfamily: 'ipv4'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
+            kvstoremesh: true
+            cm-auth-mode-1: 'cluster'
+            cm-auth-mode-2: 'cluster'
 
           # IPsec encryption is currently not supported in case of ipv6-only clusters (#23553)
           # Wireguard encryption is currently affected by a bug in case of ipv6-only clusters (#23917)
@@ -209,6 +219,9 @@ jobs:
             ipfamily: 'ipv6'
             encryption: 'disabled'
             kube-proxy: 'none'
+            kvstoremesh: false
+            cm-auth-mode-1: 'legacy'
+            cm-auth-mode-2: 'migration'
 
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '5'
@@ -216,18 +229,27 @@ jobs:
             ipfamily: 'dual'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
+            kvstoremesh: true
+            cm-auth-mode-1: 'migration'
+            cm-auth-mode-2: 'cluster'
 
           - name: '6'
             tunnel: 'vxlan'
             ipfamily: 'ipv4'
             encryption: 'disabled'
             kube-proxy: 'none'
+            kvstoremesh: false
+            cm-auth-mode-1: 'cluster'
+            cm-auth-mode-2: 'cluster'
 
           - name: '7'
             tunnel: 'vxlan'
             ipfamily: 'ipv4'
             encryption: 'wireguard'
             kube-proxy: 'iptables'
+            kvstoremesh: true
+            cm-auth-mode-1: 'cluster'
+            cm-auth-mode-2: 'cluster'
 
           # IPsec encryption cannot be used with BPF NodePort.
           - name: '8'
@@ -235,6 +257,9 @@ jobs:
             ipfamily: 'ipv4'
             encryption: 'ipsec'
             kube-proxy: 'iptables'
+            kvstoremesh: false
+            cm-auth-mode-1: 'cluster'
+            cm-auth-mode-2: 'cluster'
 
         # Tunneling is currently not supported in case of ipv6-only clusters (#17240)
         #  - name: '9'
@@ -242,16 +267,22 @@ jobs:
         #    ipfamily: 'ipv6'
         #    encryption: 'disabled'
         #    kube-proxy: 'none'
+        #    kvstoremesh: true
+        #    cm-auth-mode-1: 'cluster'
+        #    cm-auth-mode-2: 'cluster'
 
           - name: '10'
             tunnel: 'vxlan'
             ipfamily: 'dual'
             encryption: 'wireguard'
             kube-proxy: 'iptables'
+            kvstoremesh: false
+            cm-auth-mode-1: 'cluster'
+            cm-auth-mode-2: 'cluster'
 
     steps:
     - name: Checkout GitHub main
-      uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       with:
         ref: ${{ github.event.repository.default_branch }}
         persist-credentials: false
@@ -266,6 +297,7 @@ jobs:
 
         # bpf.masquerade is disabled due to #23283
         CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+          --helm-set=debug.enabled=true \
           --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
           --helm-set=image.useDigest=false \
           --helm-set=image.tag=${SHA} \
@@ -280,8 +312,11 @@ jobs:
           --helm-set=hubble.relay.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
           --helm-set=hubble.relay.image.useDigest=false \
           --helm-set=clustermesh.useAPIServer=true \
+          --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.kvstoremesh }} \
           --helm-set=clustermesh.apiserver.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci:${SHA} \
           --helm-set=clustermesh.apiserver.image.useDigest=false \
+          --helm-set=clustermesh.apiserver.kvstoremesh.image.override=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/kvstoremesh-ci:${SHA} \
+          --helm-set=clustermesh.apiserver.kvstoremesh.image.useDigest=false \
           "
 
         CILIUM_INSTALL_TUNNEL="--helm-set=tunnel=vxlan"
@@ -320,7 +355,7 @@ jobs:
         esac
 
         CILIUM_INSTALL_ENCRYPTION=""
-        if [ "${{ matrix.encryption }}" != "none" ]; then
+        if [ "${{ matrix.encryption }}" != "disabled" ]; then
           CILIUM_INSTALL_ENCRYPTION="--helm-set=encryption.enabled=true \
             --helm-set=encryption.type=${{ matrix.encryption }}"
         fi
@@ -349,7 +384,7 @@ jobs:
         echo kind_svc_cidr_2=${KIND_SVC_CIDR_2} >> $GITHUB_OUTPUT
 
     - name: Install Cilium CLI
-      uses: cilium/cilium-cli@9fcfef089e5b7dd3212f2eac21ba8cfae6f05cca # v0.14.7
+      uses: cilium/cilium-cli@5362f383942260c0aed4f3876e09c3452435577a # v0.14.8
       with:
         release-version: ${{ env.cilium_cli_version }}
         ci-version: ${{ env.cilium_cli_ci_version }}
@@ -422,7 +457,7 @@ jobs:
     # in a Kubernetes cluster, so it won't have access to the privileged
     # environment from there.
     - name: Checkout SHA
-      uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       with:
         ref: ${{ needs.setup-report.outputs.sha }}
         persist-credentials: false
@@ -442,7 +477,8 @@ jobs:
           ${{ steps.vars.outputs.cilium_install_defaults }} \
           --helm-set cluster.name=${{ env.clusterName1 }} \
           --helm-set cluster.id=1 \
-          --helm-set clustermesh.apiserver.service.nodePort=32379
+          --helm-set clustermesh.apiserver.service.nodePort=32379 \
+          --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-1 }}
 
     - name: Copy the Cilium CA secret to cluster2, as they must match
       run: |
@@ -457,7 +493,8 @@ jobs:
           ${{ steps.vars.outputs.cilium_install_defaults }} \
           --helm-set cluster.name=${{ env.clusterName2 }} \
           --helm-set cluster.id=255 \
-          --helm-set clustermesh.apiserver.service.nodePort=32380
+          --helm-set clustermesh.apiserver.service.nodePort=32380 \
+          --helm-set clustermesh.apiserver.tls.authMode=${{ matrix.cm-auth-mode-2 }}
 
     - name: Wait for cluster mesh status to be ready
       run: |
@@ -503,18 +540,18 @@ jobs:
 
         kubectl config use-context ${{ env.contextName1 }}
         kubectl get pods --all-namespaces -o wide
-        cilium sysdump --output-filename cilium-sysdump-context1-final
+        cilium sysdump --output-filename cilium-sysdump-context1-final-${{ join(matrix.*, '-') }}
 
         kubectl config use-context ${{ env.contextName2 }}
         kubectl get pods --all-namespaces -o wide
-        cilium sysdump --output-filename cilium-sysdump-context2-final
+        cilium sysdump --output-filename cilium-sysdump-context2-final-${{ join(matrix.*, '-') }}
       shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
     - name: Upload artifacts
       if: ${{ !success() }}
       uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
       with:
-        name: cilium-sysdumps-${{ matrix.name }}
+        name: cilium-sysdumps
         path: cilium-sysdump-*.zip
         retention-days: 5
 

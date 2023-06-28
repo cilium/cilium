@@ -83,13 +83,10 @@ func (w *remoteEtcdClientWrapper) ListAndWatch(ctx context.Context, name, prefix
 func TestRemoteClusterRun(t *testing.T) {
 	testutils.IntegrationTest(t)
 
-	kvstore.SetupDummyWithConfigOpts("etcd",
+	kvstore.SetupDummyWithConfigOpts(t, "etcd",
 		// Explicitly set higher QPS than the default to speedup the test
 		map[string]string{kvstore.EtcdRateLimitOption: "100"},
 	)
-	t.Cleanup(func() {
-		kvstore.Client().Close(context.Background())
-	})
 
 	tests := []struct {
 		name   string
@@ -189,7 +186,7 @@ func TestRemoteClusterRun(t *testing.T) {
 				cancel()
 				wg.Wait()
 
-				require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), "cilium/"))
+				require.NoError(t, kvstore.Client().DeletePrefix(context.Background(), kvstore.BaseKeyPrefix))
 			})
 
 			remoteClient := &remoteEtcdClientWrapper{
@@ -201,13 +198,16 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			km := KVStoreMesh{backend: kvstore.Client()}
 			rc := km.newRemoteCluster("foo", nil)
+			ready := make(chan error)
 
 			wg.Add(1)
 			go func() {
-				rc.Run(ctx, remoteClient, tt.srccfg)
+				rc.Run(ctx, remoteClient, tt.srccfg, ready)
 				rc.Stop()
 				wg.Done()
 			}()
+
+			require.NoError(t, <-ready, "rc.Run() failed")
 
 			// Assert that the cluster config got properly propagated
 			require.EventuallyWithT(t, func(c *assert.CollectT) {

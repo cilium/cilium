@@ -13,9 +13,8 @@ import (
 
 // Describes the specified attribute of the specified snapshot. You can specify
 // only one attribute at a time. For more information about EBS snapshots, see
-// Amazon EBS snapshots
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSSnapshots.html) in the
-// Amazon Elastic Compute Cloud User Guide.
+// Amazon EBS snapshots (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSSnapshots.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) DescribeSnapshotAttribute(ctx context.Context, params *DescribeSnapshotAttributeInput, optFns ...func(*Options)) (*DescribeSnapshotAttributeOutput, error) {
 	if params == nil {
 		params = &DescribeSnapshotAttributeInput{}
@@ -45,8 +44,8 @@ type DescribeSnapshotAttributeInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -119,6 +118,9 @@ func (c *Client) addOperationDescribeSnapshotAttributeMiddlewares(stack *middlew
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeSnapshotAttribute(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

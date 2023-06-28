@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 var (
@@ -54,14 +55,16 @@ func Test_NeighborAddDel(t *testing.T) {
 			description: "add two neighbors",
 			neighbors: []cilium_api_v2alpha1.CiliumBGPNeighbor{
 				{
-					PeerAddress: dummies[instance1Link].ipv4.String(),
-					PeerASN:     int(gobgpASN),
-					HoldTime:    meta_v1.Duration{Duration: 9 * time.Second}, // must be lower than default (90s) to be applied on the peer
+					PeerAddress:          dummies[instance1Link].ipv4.String(),
+					PeerASN:              int64(gobgpASN),
+					HoldTimeSeconds:      pointer.Int32(9), // must be lower than default (90s) to be applied on the peer
+					KeepAliveTimeSeconds: pointer.Int32(1), // must be lower than HoldTime
 				},
 				{
-					PeerAddress: dummies[instance2Link].ipv4.String(),
-					PeerASN:     int(gobgpASN2),
-					HoldTime:    meta_v1.Duration{Duration: 6 * time.Second}, // must be lower than default (90s) to be applied on the peer
+					PeerAddress:          dummies[instance2Link].ipv4.String(),
+					PeerASN:              int64(gobgpASN2),
+					HoldTimeSeconds:      pointer.Int32(6), // must be lower than default (90s) to be applied on the peer
+					KeepAliveTimeSeconds: pointer.Int32(1), // must be lower than HoldTime
 				},
 			},
 			waitState: []string{"ESTABLISHED"},
@@ -84,14 +87,16 @@ func Test_NeighborAddDel(t *testing.T) {
 			description: "update both neighbors",
 			neighbors: []cilium_api_v2alpha1.CiliumBGPNeighbor{
 				{
-					PeerAddress: dummies[instance1Link].ipv4.String(),
-					PeerASN:     int(gobgpASN),
-					HoldTime:    meta_v1.Duration{Duration: 6 * time.Second}, // updated, must be lower than the previous value to be applied on the peer
+					PeerAddress:          dummies[instance1Link].ipv4.String(),
+					PeerASN:              int64(gobgpASN),
+					HoldTimeSeconds:      pointer.Int32(6), // updated, must be lower than the previous value to be applied on the peer
+					KeepAliveTimeSeconds: pointer.Int32(1), // must be lower than HoldTime
 				},
 				{
-					PeerAddress: dummies[instance2Link].ipv4.String(),
-					PeerASN:     int(gobgpASN2),
-					HoldTime:    meta_v1.Duration{Duration: 3 * time.Second}, // updated, must be lower than the previous value to be applied on the peer
+					PeerAddress:          dummies[instance2Link].ipv4.String(),
+					PeerASN:              int64(gobgpASN2),
+					HoldTimeSeconds:      pointer.Int32(3), // updated, must be lower than the previous value to be applied on the peer
+					KeepAliveTimeSeconds: pointer.Int32(1), // must be lower than HoldTime
 				},
 			},
 			waitState: []string{"ESTABLISHED"},
@@ -134,8 +139,8 @@ func Test_NeighborAddDel(t *testing.T) {
 				nodeSelector: labels,
 				virtualRouters: []cilium_api_v2alpha1.CiliumBGPVirtualRouter{
 					{
-						LocalASN:      int(ciliumASN),
-						ExportPodCIDR: true,
+						LocalASN:      int64(ciliumASN),
+						ExportPodCIDR: pointer.Bool(true),
 						Neighbors:     step.neighbors,
 					},
 				},
@@ -197,7 +202,7 @@ func Test_NeighborGracefulRestart(t *testing.T) {
 			description: "add neighbor with defaults",
 			neighbor: cilium_api_v2alpha1.CiliumBGPNeighbor{
 				PeerAddress: dummies[instance1Link].ipv4.String(),
-				PeerASN:     int(gobgpASN),
+				PeerASN:     int64(gobgpASN),
 			},
 			waitState: []string{"ESTABLISHED"},
 			expectedPeerState: peeringState{
@@ -210,8 +215,8 @@ func Test_NeighborGracefulRestart(t *testing.T) {
 			description: "update graceful restart with defaults",
 			neighbor: cilium_api_v2alpha1.CiliumBGPNeighbor{
 				PeerAddress: dummies[instance1Link].ipv4.String(),
-				PeerASN:     int(gobgpASN),
-				GracefulRestart: cilium_api_v2alpha1.CiliumBGPNeighborGracefulRestart{
+				PeerASN:     int64(gobgpASN),
+				GracefulRestart: &cilium_api_v2alpha1.CiliumBGPNeighborGracefulRestart{
 					Enabled: true,
 				},
 			},
@@ -221,17 +226,17 @@ func Test_NeighborGracefulRestart(t *testing.T) {
 				peerAddr:               dummies[instance1Link].ipv4.Addr().String(),
 				peerSession:            types.SessionEstablished.String(),
 				gracefulRestartEnabled: true,
-				gracefulRestartTime:    int64(types.DefaultGRRestartTime.Seconds()),
+				gracefulRestartTime:    int64(cilium_api_v2alpha1.DefaultBGPGRRestartTimeSeconds),
 			},
 		},
 		{
 			description: "update graceful restart, restart time",
 			neighbor: cilium_api_v2alpha1.CiliumBGPNeighbor{
 				PeerAddress: dummies[instance1Link].ipv4.String(),
-				PeerASN:     int(gobgpASN),
-				GracefulRestart: cilium_api_v2alpha1.CiliumBGPNeighborGracefulRestart{
-					Enabled:     true,
-					RestartTime: meta_v1.Duration{Duration: 20 * time.Second},
+				PeerASN:     int64(gobgpASN),
+				GracefulRestart: &cilium_api_v2alpha1.CiliumBGPNeighborGracefulRestart{
+					Enabled:            true,
+					RestartTimeSeconds: pointer.Int32(20),
 				},
 			},
 			waitState: []string{"ESTABLISHED"},
@@ -247,8 +252,8 @@ func Test_NeighborGracefulRestart(t *testing.T) {
 			description: "disable graceful restart",
 			neighbor: cilium_api_v2alpha1.CiliumBGPNeighbor{
 				PeerAddress: dummies[instance1Link].ipv4.String(),
-				PeerASN:     int(gobgpASN),
-				GracefulRestart: cilium_api_v2alpha1.CiliumBGPNeighborGracefulRestart{
+				PeerASN:     int64(gobgpASN),
+				GracefulRestart: &cilium_api_v2alpha1.CiliumBGPNeighborGracefulRestart{
 					Enabled: false,
 				},
 			},
@@ -279,8 +284,8 @@ func Test_NeighborGracefulRestart(t *testing.T) {
 				nodeSelector: labels,
 				virtualRouters: []cilium_api_v2alpha1.CiliumBGPVirtualRouter{
 					{
-						LocalASN:      int(ciliumASN),
-						ExportPodCIDR: true,
+						LocalASN:      int64(ciliumASN),
+						ExportPodCIDR: pointer.Bool(true),
 						Neighbors:     []cilium_api_v2alpha1.CiliumBGPNeighbor{step.neighbor},
 					},
 				},

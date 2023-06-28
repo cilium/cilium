@@ -8,7 +8,7 @@
   {{- $defaultKeepDeprecatedProbes = false -}}
 {{- end -}}
 
-{{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement "disabled") -}}
+{{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement "false") -}}
 
 ---
 apiVersion: apps/v1
@@ -664,6 +664,7 @@ spec:
             done
         terminationMessagePolicy: FallbackToLogsOnError
       {{- end }} # wait-for-kube-proxy
+      {{- if .Values.cni.install }}
       # Install the CNI binaries in an InitContainer so we don't have a writable host mount in the agent
       - name: install-cni-binaries
         image: {{ include "cilium.image" .Values.image | quote }}
@@ -690,6 +691,7 @@ spec:
         volumeMounts:
           - name: cni-path
             mountPath: /host/opt/cni/bin
+      {{- end }} # .Values.cni.install
       restartPolicy: Always
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.priorityClassName "system-node-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.cilium.name | quote }}
@@ -716,7 +718,7 @@ spec:
       tolerations:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}
-      {{- if and .Values.clustermesh.useAPIServer .Values.clustermesh.config.enabled }}
+      {{- if and .Values.clustermesh.useAPIServer .Values.clustermesh.config.enabled (not .Values.clustermesh.apiserver.kvstoremesh.enabled) }}
       hostAliases:
       {{- range $cluster := .Values.clustermesh.config.clusters }}
       {{- range $ip := $cluster.ips }}
@@ -843,7 +845,7 @@ spec:
               - key: ca.crt
                 path: common-etcd-client-ca.crt
           {{- else }}
-          - configMap:
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
               name: {{ .Values.tls.caBundle.name }}
               optional: true
               items:
@@ -902,7 +904,7 @@ spec:
               - key: ca.crt
                 path: client-ca.crt
           {{- else }}
-          - configMap:
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
               name: {{ .Values.tls.caBundle.name }}
               optional: true
               items:

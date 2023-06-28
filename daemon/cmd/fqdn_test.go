@@ -113,7 +113,7 @@ func (f *FakeRefcountingIdentityAllocator) Close() {
 func (f *FakeRefcountingIdentityAllocator) InitIdentityAllocator(versioned.Interface) <-chan struct{} {
 	return nil
 }
-func (f *FakeRefcountingIdentityAllocator) WatchRemoteIdentities(string, kvstore.BackendOperations) (*allocator.RemoteCache, error) {
+func (f *FakeRefcountingIdentityAllocator) WatchRemoteIdentities(string, kvstore.BackendOperations, bool) (*allocator.RemoteCache, error) {
 	return nil, nil
 }
 

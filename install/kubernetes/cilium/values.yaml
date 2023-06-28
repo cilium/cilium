@@ -370,6 +370,13 @@ l2announcements:
   # -- The timeout between retries if renewal fails
   # leaseRetryPeriod: 2s
 
+# -- Configure L2 pod announcements
+l2podAnnouncements:
+  # -- Enable L2 pod announcements
+  enabled: false
+  # -- Interface used for sending Gratuitous ARP pod announcements
+  interface: "eth0"
+
 # -- Configure BGP
 bgp:
   # -- Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside
@@ -652,6 +659,19 @@ enableK8sEventHandover: false
 
 # -- Enable CiliumEndpointSlice feature.
 enableCiliumEndpointSlice: false
+
+envoyConfig:
+  # -- Enable CiliumEnvoyConfig CRD
+  # CiliumEnvoyConfig CRD can also be implicitly enabled by other options.
+  enabled: false
+
+  # -- SecretsNamespace is the namespace in which envoy SDS will retrieve secrets from.
+  secretsNamespace:
+    # -- Create secrets namespace for CiliumEnvoyConfig CRDs.
+    create: true
+
+    # -- The name of the secret namespace to which Cilium agents are given read access.
+    name: cilium-secrets
 
 ingressController:
   # -- Enable cilium ingress controller
@@ -947,7 +967,7 @@ hubble:
     #
     # You can specify the list of metrics from the helm CLI:
     #
-    #   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
+    #   --set hubble.metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
     #
     enabled: ~
     # -- Enables exporting hubble metrics in OpenMetrics format.
@@ -987,6 +1007,18 @@ hubble:
 
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
+
+  # -- Configures the list of redact options for Hubble.
+  # Example:
+  #
+  #   redact:
+  #   - http-url-query
+  #
+  # You can specify the list of options from the helm CLI:
+  #
+  #   --set hubble.redact="{http-url-query}"
+  #
+  redact: ~
 
   # -- An additional address for Hubble to listen to.
   # Set this field ":4244" if you are enabling Hubble Relay, as it assumes that
@@ -1534,9 +1566,9 @@ readinessProbe:
   periodSeconds: 30
 
 # -- Configure the kube-proxy replacement in Cilium BPF datapath
-# Valid options are "disabled", "partial", "strict".
+# Valid options are "true", "false", "disabled" (deprecated), "partial" (deprecated), "strict" (deprecated).
 # ref: https://docs.cilium.io/en/stable/network/kubernetes/kubeproxy-free/
-#kubeProxyReplacement: "disabled"
+#kubeProxyReplacement: "false"
 
 # -- healthz server bind address for the kube-proxy replacement.
 # To enable set the value to '0.0.0.0:10256' for all ipv4
@@ -1578,8 +1610,11 @@ maglev: {}
 # -- Enables masquerading of IPv4 traffic leaving the node from endpoints.
 enableIPv4Masquerade: true
 
-# -- Enables IPv6 BIG TCP support which increases maximum GSO/GRO limits for nodes and pods
+# -- Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
 enableIPv6BIGTCP: false
+
+# -- Enables IPv4 BIG TCP support which increases maximum IPv4 GSO/GRO limits for nodes and pods
+enableIPv4BIGTCP: false
 
 # -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
 enableIPv6Masquerade: true
@@ -1672,7 +1707,7 @@ loadBalancer:
     #
     # Applicable values:
     #   - envoy: Enable L7 load balancing via envoy proxy. This will automatically set enable-envoy-config as well.
-    #   - disabled: Disable L7 load balancing.
+    #   - disabled: Disable L7 load balancing by way of service annotation.
     backend: disabled
     # -- List of ports from service to be automatically redirected to above backend.
     # Any service exposing one of these ports will be automatically redirected.
@@ -1798,9 +1833,9 @@ envoy:
   image:
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.25.7-384b5008dce426eba89af8ef17f52e4fb066ff40"
+    tag: "v1.25.7-8fddead4e52c704a6b189e3f80a69403c6cdc997"
     pullPolicy: "Always"
-    digest: "sha256:f165787c05050a4d57c5940dcd59de03cafecff9c02965a1d076c2b2935505d8"
+    digest: "sha256:7edab48930186cc988baa6fb2ef6c352325306f0d6a0c89e43bef28941189095"
     useDigest: true
 
   # -- Additional containers added to the cilium Envoy DaemonSet.
@@ -2028,6 +2063,9 @@ tls:
 
     # -- Entry of the ConfigMap containing the CA trust bundle.
     key: ca.crt
+
+    # -- Use a Secret instead of a ConfigMap.
+    useSecret: false
 
     # If uncommented, creates the ConfigMap and fills it with the specified content.
     # Otherwise, the ConfigMap is assumed to be already present in .Release.Namespace.
@@ -2657,6 +2695,46 @@ clustermesh:
         #     cpu: 100m
         #     memory: 100Mi
 
+    kvstoremesh:
+      # -- Enable KVStoreMesh. KVStoreMesh caches the information retrieved
+      # from the remote clusters in the local etcd instance.
+      enabled: false
+
+      # -- KVStoreMesh image.
+      image:
+        override: ~
+        repository: "quay.io/cilium/kvstoremesh-ci"
+        tag: "latest"
+        # kvstoremesh-digest
+        digest: ""
+        useDigest: false
+        pullPolicy: "Always"
+
+      # -- Additional KVStoreMesh arguments.
+      extraArgs: []
+
+      # -- Additional KVStoreMesh environment variables.
+      extraEnv: []
+
+      # -- Resource requests and limits for the KVStoreMesh container
+      resources: {}
+        # requests:
+        #   cpu: 100m
+        #   memory: 64Mi
+        # limits:
+        #   cpu: 1000m
+        #   memory: 1024M
+
+      # -- Additional KVStoreMesh volumeMounts.
+      extraVolumeMounts: []
+
+      # -- KVStoreMesh Security context
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+
     service:
       # -- The type of service used for apiserver access.
       type: NodePort
@@ -2868,9 +2946,15 @@ clustermesh:
     # clustermesh-apiserver Prometheus metrics configuration
     metrics:
       # -- Enables exporting apiserver metrics in OpenMetrics format.
-      enabled: false
+      enabled: true
       # -- Configure the port the apiserver metric server listens on.
       port: 9962
+
+      kvstoremesh:
+        # -- Enables exporting KVStoreMesh metrics in OpenMetrics format.
+        enabled: true
+         # -- Configure the port the KVStoreMesh metric server listens on.
+        port: 9964
 
       etcd:
         # -- Enables exporting etcd metrics in OpenMetrics format.
@@ -2898,6 +2982,14 @@ clustermesh:
         relabelings: ~
         # -- Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (apiserver metrics)
         metricRelabelings: ~
+
+        kvstoremesh:
+          # -- Interval for scrape metrics (KVStoreMesh metrics)
+          interval: "10s"
+          # -- Relabeling configs for the ServiceMonitor clustermesh-apiserver (KVStoreMesh metrics)
+          relabelings: ~
+          # -- Metrics relabeling configs for the ServiceMonitor clustermesh-apiserver (KVStoreMesh metrics)
+          metricRelabelings: ~
 
         etcd:
           # -- Interval for scrape metrics (etcd metrics)
@@ -2974,6 +3066,10 @@ sctp:
 
 # Configuration for types of authentication for Cilium
 authentication:
+  # -- Enable authentication processing and garbage collection.
+  # Note that if disabled, policy enforcement will still block requests that require authentication.
+  # But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed.
+  enabled: true
   # -- Buffer size of the channel Cilium uses to receive authentication events from the signal map.
   queueSize: 1024
   # -- Buffer size of the channel Cilium uses to receive certificate expiration events from auth handlers.

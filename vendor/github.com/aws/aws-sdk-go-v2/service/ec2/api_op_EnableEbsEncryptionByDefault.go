@@ -13,15 +13,14 @@ import (
 // Enables EBS encryption by default for your account in the current Region. After
 // you enable encryption by default, the EBS volumes that you create are always
 // encrypted, either using the default KMS key or the KMS key that you specified
-// when you created each volume. For more information, see Amazon EBS encryption
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html) in the
-// Amazon Elastic Compute Cloud User Guide. You can specify the default KMS key for
-// encryption by default using ModifyEbsDefaultKmsKeyId or ResetEbsDefaultKmsKeyId.
-// Enabling encryption by default has no effect on the encryption status of your
-// existing volumes. After you enable encryption by default, you can no longer
-// launch instances using instance types that do not support encryption. For more
-// information, see Supported instance types
-// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html#EBSEncryption_supported_instances).
+// when you created each volume. For more information, see Amazon EBS encryption (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html)
+// in the Amazon Elastic Compute Cloud User Guide. You can specify the default KMS
+// key for encryption by default using ModifyEbsDefaultKmsKeyId or
+// ResetEbsDefaultKmsKeyId . Enabling encryption by default has no effect on the
+// encryption status of your existing volumes. After you enable encryption by
+// default, you can no longer launch instances using instance types that do not
+// support encryption. For more information, see Supported instance types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html#EBSEncryption_supported_instances)
+// .
 func (c *Client) EnableEbsEncryptionByDefault(ctx context.Context, params *EnableEbsEncryptionByDefaultInput, optFns ...func(*Options)) (*EnableEbsEncryptionByDefaultOutput, error) {
 	if params == nil {
 		params = &EnableEbsEncryptionByDefaultInput{}
@@ -41,8 +40,8 @@ type EnableEbsEncryptionByDefaultInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	noSmithyDocumentSerde
@@ -105,6 +104,9 @@ func (c *Client) addOperationEnableEbsEncryptionByDefaultMiddlewares(stack *midd
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opEnableEbsEncryptionByDefault(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

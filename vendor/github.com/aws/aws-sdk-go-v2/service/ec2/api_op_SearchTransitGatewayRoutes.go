@@ -30,39 +30,23 @@ func (c *Client) SearchTransitGatewayRoutes(ctx context.Context, params *SearchT
 type SearchTransitGatewayRoutesInput struct {
 
 	// One or more filters. The possible values are:
-	//
-	// *
-	// attachment.transit-gateway-attachment-id- The id of the transit gateway
-	// attachment.
-	//
-	// * attachment.resource-id - The resource id of the transit gateway
-	// attachment.
-	//
-	// * attachment.resource-type - The attachment resource type. Valid
-	// values are vpc | vpn | direct-connect-gateway | peering | connect.
-	//
-	// *
-	// prefix-list-id - The ID of the prefix list.
-	//
-	// * route-search.exact-match - The
-	// exact match of the specified filter.
-	//
-	// * route-search.longest-prefix-match - The
-	// longest prefix that matches the route.
-	//
-	// * route-search.subnet-of-match - The
-	// routes with a subnet that match the specified CIDR filter.
-	//
-	// *
-	// route-search.supernet-of-match - The routes with a CIDR that encompass the CIDR
-	// filter. For example, if you have 10.0.1.0/29 and 10.0.1.0/31 routes in your
-	// route table and you specify supernet-of-match as 10.0.1.0/30, then the result
-	// returns 10.0.1.0/29.
-	//
-	// * state - The state of the route (active | blackhole).
-	//
-	// *
-	// type - The type of route (propagated | static).
+	//   - attachment.transit-gateway-attachment-id - The id of the transit gateway
+	//   attachment.
+	//   - attachment.resource-id - The resource id of the transit gateway attachment.
+	//   - attachment.resource-type - The attachment resource type. Valid values are
+	//   vpc | vpn | direct-connect-gateway | peering | connect .
+	//   - prefix-list-id - The ID of the prefix list.
+	//   - route-search.exact-match - The exact match of the specified filter.
+	//   - route-search.longest-prefix-match - The longest prefix that matches the
+	//   route.
+	//   - route-search.subnet-of-match - The routes with a subnet that match the
+	//   specified CIDR filter.
+	//   - route-search.supernet-of-match - The routes with a CIDR that encompass the
+	//   CIDR filter. For example, if you have 10.0.1.0/29 and 10.0.1.0/31 routes in your
+	//   route table and you specify supernet-of-match as 10.0.1.0/30, then the result
+	//   returns 10.0.1.0/29.
+	//   - state - The state of the route ( active | blackhole ).
+	//   - type - The type of route ( propagated | static ).
 	//
 	// This member is required.
 	Filters []types.Filter
@@ -74,8 +58,8 @@ type SearchTransitGatewayRoutesInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
-	// required permissions, the error response is DryRunOperation. Otherwise, it is
-	// UnauthorizedOperation.
+	// required permissions, the error response is DryRunOperation . Otherwise, it is
+	// UnauthorizedOperation .
 	DryRun *bool
 
 	// The maximum number of routes to return.
@@ -147,6 +131,9 @@ func (c *Client) addOperationSearchTransitGatewayRoutesMiddlewares(stack *middle
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opSearchTransitGatewayRoutes(options.Region), middleware.Before); err != nil {
+		return err
+	}
+	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
 		return err
 	}
 	if err = addRequestIDRetrieverMiddleware(stack); err != nil {

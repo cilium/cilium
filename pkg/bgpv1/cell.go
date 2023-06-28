@@ -55,5 +55,5 @@ func newBGPPeeringPolicyResource(lc hive.Lifecycle, c client.Clientset, dc *opti
 	return resource.New[*v2alpha1api.CiliumBGPPeeringPolicy](
 		lc, utils.ListerWatcherFromTyped[*v2alpha1api.CiliumBGPPeeringPolicyList](
 			c.CiliumV2alpha1().CiliumBGPPeeringPolicies(),
-		))
+		), resource.WithMetric("CiliumBGPPeeringPolicy"))
 }
