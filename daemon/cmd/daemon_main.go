@@ -292,7 +292,7 @@ func initializeFlags() {
 
 	flags.Var(option.NewNamedMapOptions(option.IPAMMultiPoolPreAllocation, &option.Config.IPAMMultiPoolPreAllocation, nil),
 		option.IPAMMultiPoolPreAllocation,
-		fmt.Sprintf("Defines how the minimum number of IPs a node should pre-allocate from each pool (default %s)", defaults.IPAMMultiPoolPreAllocation))
+		fmt.Sprintf("Defines the minimum number of IPs a node should pre-allocate from each pool (default %s)", defaults.IPAMMultiPoolPreAllocation))
 	Vp.SetDefault(option.IPAMMultiPoolPreAllocation, defaults.IPAMMultiPoolPreAllocation)
 	option.BindEnv(Vp, option.IPAMMultiPoolPreAllocation)
 
