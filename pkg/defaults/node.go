@@ -52,4 +52,13 @@ var (
 
 	// IPv4DefaultRoute is the default IPv4 route.
 	IPv4DefaultRoute = net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)}
+
+	// ExcludedDevicePrefixes are prefixes that we don't consider during automatic device detection.
+	ExcludedDevicePrefixes = []string{
+		"cilium_",
+		"lo",
+		"lxc",
+		"cni",
+		"docker",
+	}
 )
