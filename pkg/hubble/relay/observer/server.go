@@ -263,7 +263,9 @@ func (s *Server) GetNamespaces(ctx context.Context, req *observerpb.GetNamespace
 				}).Warning("Failed to retrieve namespaces")
 				return nil
 			}
-			namespaceManager.AddNamespace(nsResp.GetNamespaces()...)
+			for _, ns := range nsResp.GetNamespaces() {
+				namespaceManager.AddNamespace(ns)
+			}
 			return nil
 		})
 	}

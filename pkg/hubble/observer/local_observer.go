@@ -623,20 +623,18 @@ func (r *eventsReader) Next(ctx context.Context) (*v1.Event, error) {
 
 func (s *LocalObserverServer) trackNamespaces(flow *flowpb.Flow) {
 	// track namespaces seen.
-	var namespaces []*observerpb.Namespace
 	if srcNs := flow.GetSource().GetNamespace(); srcNs != "" {
-		namespaces = append(namespaces, &observerpb.Namespace{
+		s.namespaceManager.AddNamespace(&observerpb.Namespace{
 			Namespace: srcNs,
 			Cluster:   nodeTypes.GetClusterName(),
 		})
 	}
 	if dstNs := flow.GetDestination().GetNamespace(); dstNs != "" {
-		namespaces = append(namespaces, &observerpb.Namespace{
+		s.namespaceManager.AddNamespace(&observerpb.Namespace{
 			Namespace: dstNs,
 			Cluster:   nodeTypes.GetClusterName(),
 		})
 	}
-	s.namespaceManager.AddNamespace(namespaces...)
 }
 
 func validateRequest(req genericRequest) error {

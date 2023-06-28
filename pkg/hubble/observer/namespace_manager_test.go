@@ -32,11 +32,10 @@ func TestNamespaceManager(t *testing.T) {
 	assert.Equal(t, expected, mgr.GetNamespaces())
 
 	// add a few namespaces
-	nses1 := []*observerpb.Namespace{
-		{Namespace: "ns-2"},
-		{Namespace: "ns-1"}, // out of order, we'll verify it's sorted when we call GetNamespaces later
-	}
-	mgr.AddNamespace(nses1...)
+
+	// out of order, we'll verify it's sorted when we call GetNamespaces later
+	mgr.AddNamespace(&observerpb.Namespace{Namespace: "ns-2"})
+	mgr.AddNamespace(&observerpb.Namespace{Namespace: "ns-1"})
 
 	// namespaces that we added should be returned, sorted
 	expected = []*observerpb.Namespace{
@@ -50,13 +49,9 @@ func TestNamespaceManager(t *testing.T) {
 	assert.Equal(t, expected, mgr.GetNamespaces())
 
 	// add more namespaces now that the clock has been advanced
-	nses2 := []*observerpb.Namespace{
-		// ns-1 was in the original set, adding it again here to verify it's TTL gets renewed
-		{Namespace: "ns-1"},
-		{Namespace: "ns-3"},
-		{Namespace: "ns-4"},
-	}
-	mgr.AddNamespace(nses2...)
+	mgr.AddNamespace(&observerpb.Namespace{Namespace: "ns-1"})
+	mgr.AddNamespace(&observerpb.Namespace{Namespace: "ns-3"})
+	mgr.AddNamespace(&observerpb.Namespace{Namespace: "ns-4"})
 
 	// we expect all namespaces to exist, the first 2 are 30 minutes old, and the
 	// next two are 0 minutes old
