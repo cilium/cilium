@@ -289,7 +289,6 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 	defer repo.Mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	c.Assert(err, IsNil)
-	c.Assert(selPolicy.L4Policy, NotNil)
 	c.Assert(selPolicy.L4Policy.redirectTypes, Equals, redirectTypeEnvoy)
 
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
@@ -298,7 +297,7 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
-			L4Policy: &L4Policy{
+			L4Policy: L4Policy{
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
 					"80/TCP": {
@@ -394,7 +393,7 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
-			L4Policy: &L4Policy{
+			L4Policy: L4Policy{
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
 					"80/TCP": {
@@ -486,7 +485,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
-			L4Policy: &L4Policy{
+			L4Policy: L4Policy{
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
 					"80/TCP": {
@@ -628,7 +627,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 		selectorPolicy: &selectorPolicy{
 			Revision:      repo.GetRevision(),
 			SelectorCache: repo.GetSelectorCache(),
-			L4Policy: &L4Policy{
+			L4Policy: L4Policy{
 				Revision: repo.GetRevision(),
 				Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
 					"80/TCP": {
