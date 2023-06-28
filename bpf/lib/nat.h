@@ -821,9 +821,6 @@ skip_egress_gateway:
 #ifdef IPV4_SNAT_EXCLUSION_DST_CIDR
 	/* Do not MASQ if a dst IP belongs to a pods CIDR
 	 * (ipv4-native-routing-cidr if specified, otherwise local pod CIDR).
-	 * The check is performed before we determine that a packet is
-	 * sent from a local pod, as this check is cheaper than
-	 * the map lookup done in the latter check.
 	 */
 	if (ipv4_is_in_subnet(ip4->daddr, IPV4_SNAT_EXCLUSION_DST_CIDR,
 			      IPV4_SNAT_EXCLUSION_DST_CIDR_LEN))
