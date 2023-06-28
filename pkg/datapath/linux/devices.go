@@ -29,14 +29,6 @@ import (
 )
 
 var (
-	excludedDevicePrefixes = []string{
-		"cilium_",
-		"lo",
-		"lxc",
-		"cni",
-		"docker",
-	}
-
 	// Route filter to look at all routing tables.
 	routeFilter = netlink.Route{
 		Table: unix.RT_TABLE_UNSPEC,
@@ -190,7 +182,7 @@ func (dm *DeviceManager) isViableDevice(l3DevOK, hasDefaultRoute bool, link netl
 	name := link.Attrs().Name
 
 	// Do not consider any of the excluded devices.
-	for _, p := range excludedDevicePrefixes {
+	for _, p := range defaults.ExcludedDevicePrefixes {
 		if strings.HasPrefix(name, p) {
 			log.WithField(logfields.Device, name).
 				Debugf("Skipping device as it has excluded prefix '%s'", p)

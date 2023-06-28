@@ -296,26 +296,3 @@ else
 		rm $FILE
 	fi
 fi
-
-# Remove bpf_host.o from previously used devices
-for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep -v cilium); do
-	found=false
-	for NATIVE_DEV in ${NATIVE_DEVS//;/ }; do
-		if [ "${iface}" == "$NATIVE_DEV" ]; then
-			found=true
-			break
-		fi
-	done
-	$found && continue
-	for where in ingress egress; do
-		# iproute2 uses the filename and section (bpf_overlay.o:[from-overlay]) as
-		# the filter name. Filters created by the Go bpf loader contain the bpf
-		# function and interface name, like cil_from_netdev-eth0.
-		# Only detach programs known to be attached to 'physical' network devices.
-		if tc filter show dev "$iface" "$where" | grep -qE "\b(bpf_host|cil_from_netdev|cil_to_netdev)"; then
-			echo "Removing $where TC filter from interface $iface"
-			tc filter del dev "$iface" "$where" || true
-		fi
-	done
-done
-
