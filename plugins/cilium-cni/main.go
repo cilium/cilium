@@ -397,6 +397,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", client.Hint(err))
 	}
 
+	conf, err := getConfigFromCiliumAgent(c)
+	if err != nil {
+		return err
+	}
+
 	// If CNI ADD gives us a PrevResult, we're a chained plugin and *must* detect a
 	// valid chained mode. If no chained mode we understand is specified, error out.
 	// Otherwise, continue with normal plugin execution.
@@ -405,10 +410,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			var (
 				res *cniTypesV1.Result
 				ctx = chainingapi.PluginContext{
-					Logger:  logger,
-					Args:    args,
-					CniArgs: cniArgs,
-					NetConf: n,
+					Logger:     logger,
+					Args:       args,
+					CniArgs:    cniArgs,
+					NetConf:    n,
+					CiliumConf: conf,
 				}
 			)
 
@@ -438,11 +444,6 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	if err = netns.RemoveIfFromNetNSIfExists(netNs, args.IfName); err != nil {
 		return fmt.Errorf("failed removing interface %q from namespace %q: %s",
 			args.IfName, args.Netns, err)
-	}
-
-	conf, err := getConfigFromCiliumAgent(c)
-	if err != nil {
-		return err
 	}
 
 	var ipam *models.IPAMResponse
