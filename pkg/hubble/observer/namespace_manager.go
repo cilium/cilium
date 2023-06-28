@@ -22,7 +22,7 @@ const (
 
 type NamespaceManager interface {
 	GetNamespaces() []*observerpb.Namespace
-	AddNamespace(...*observerpb.Namespace)
+	AddNamespace(*observerpb.Namespace)
 }
 
 type namespaceRecord struct {
@@ -85,11 +85,10 @@ func (m *namespaceManager) GetNamespaces() []*observerpb.Namespace {
 	return namespaces
 }
 
-func (m *namespaceManager) AddNamespace(namespaces ...*observerpb.Namespace) {
+func (m *namespaceManager) AddNamespace(ns *observerpb.Namespace) {
 	m.mu.Lock()
-	for _, ns := range namespaces {
-		key := ns.GetCluster() + "/" + ns.GetNamespace()
-		m.namespaces[key] = namespaceRecord{namespace: ns, added: m.nowFunc()}
-	}
-	m.mu.Unlock()
+	defer m.mu.Unlock()
+
+	key := ns.GetCluster() + "/" + ns.GetNamespace()
+	m.namespaces[key] = namespaceRecord{namespace: ns, added: m.nowFunc()}
 }
