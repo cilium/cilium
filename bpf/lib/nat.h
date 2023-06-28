@@ -752,15 +752,14 @@ snat_v4_prepare_state(struct __ctx_buff *ctx, struct ipv4_nat_target *target)
 		target->addr = IPV4_DIRECT_ROUTING;
 		return NAT_NEEDED;
 	}
-# ifdef ENABLE_MASQUERADE_IPV4
+#endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
+
+#if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
 	if (ip4->saddr == IPV4_MASQUERADE) {
 		target->addr = IPV4_MASQUERADE;
 		return NAT_NEEDED;
 	}
-# endif /* ENABLE_MASQUERADE_IPV4 */
-#endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
 
-#if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
 	local_ep = __lookup_ip4_endpoint(ip4->saddr);
 	remote_ep = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 
@@ -1716,16 +1715,15 @@ snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 		ipv6_addr_copy(&target->addr, &dr_addr);
 		return NAT_NEEDED;
 	}
-# ifdef ENABLE_MASQUERADE_IPV6 /* SNAT local pod to world packets */
+#endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
+
+#if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
 	BPF_V6(masq_addr, IPV6_MASQUERADE);
 	if (ipv6_addr_equals((union v6addr *)&ip6->saddr, &masq_addr)) {
 		ipv6_addr_copy(&target->addr, &masq_addr);
 		return NAT_NEEDED;
 	}
-# endif /* ENABLE_MASQUERADE_IPV6 */
-#endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
 
-#if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
 	local_ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
 	remote_ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
 
