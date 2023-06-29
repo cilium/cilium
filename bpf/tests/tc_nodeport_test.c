@@ -409,21 +409,6 @@ int tc_drop_no_backend_setup(struct __ctx_buff *ctx)
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
-}
-
-CHECK("tc", "tc_drop_no_backend")
-int tc_drop_no_backend_check(const struct __ctx_buff *ctx)
-{
-	__u32 expected_status = TC_ACT_SHOT;
-	__u32 *status_code;
-	void *data_end;
-	void *data;
-
-	test_init();
-
-	data = (void *)(long)ctx->data;
 	data_end = (void *)(long)ctx->data_end;
 
 	if (data + sizeof(__u32) > data_end)

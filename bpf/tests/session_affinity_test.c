@@ -93,6 +93,7 @@ static __always_inline int craft_packet(struct __ctx_buff *ctx)
 	{								\
 		.key = {.address = FRONTEND_IP,				\
 			.dport = FRONTEND_PORT,				\
+			.proto = IPPROTO_TCP,				\
 			.scope = (_scope),				\
 			.backend_slot = (_beslot)},			\
 		.value = {						\

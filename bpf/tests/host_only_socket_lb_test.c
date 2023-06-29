@@ -37,6 +37,7 @@ int my_get_netns_cookie(__maybe_unused const struct bpf_sock_addr *addr)
 	.key = { \
 		.address = v4_svc_one, \
 		.dport = (_port), \
+		.proto = IPPROTO_TCP, \
 		.scope = (_scope), \
 		.backend_slot = (_beslot) \
 	}, \

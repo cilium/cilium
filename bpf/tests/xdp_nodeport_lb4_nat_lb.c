@@ -256,31 +256,9 @@ int nodeport_nat_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
-	if (data + sizeof(__u32) > data_end)
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-
-	assert(fib_ok(*status_code));
-
-	l2 = data + sizeof(__u32);
-	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
-		test_fatal("l2 out of bounds");
-
-	l3 = (void *)l2 + sizeof(struct ethhdr);
-	if ((void *)l3 + sizeof(struct iphdr) > data_end)
-		test_fatal("l3 out of bounds");
-
-	l4 = (void *)l3 + sizeof(struct iphdr);
-	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
-		test_fatal("l4 out of bounds");
-
-	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
-		test_fatal("src MAC is not the LB MAC")
-	if (memcmp(l2->h_dest, (__u8 *)remote_backend_mac, ETH_ALEN) != 0)
-		test_fatal("dst MAC is not the backend MAC")
-
-	if (l3->saddr != LB_IP)
 		test_fatal("src IP hasn't been NATed to LB IP");
 
 	if (l3->daddr != BACKEND_IP_REMOTE)

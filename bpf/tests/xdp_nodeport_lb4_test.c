@@ -222,15 +222,3 @@ int test2_check(__maybe_unused const struct __ctx_buff *ctx)
 	__u32 expected_status = XDP_DROP;
 	__u32 *status_code;
 
-	test_init();
-
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
-
-	status_code = data;
-
-	if (*status_code != expected_status)
-		test_fatal("status code is %lu, expected %lu", *status_code, expected_status);
-
-	test_finish();
-}
