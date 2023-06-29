@@ -12,7 +12,7 @@ FLAGS_CLANG += -Wno-gnu-variable-sized-type-not-at-end
 FLAGS_CLANG += -Wdeclaration-after-statement
 FLAGS_CLANG += -g
 
-BPF_CC_FLAGS := ${FLAGS} -target bpf -std=gnu89 -nostdinc -emit-llvm
+BPF_CC_FLAGS := ${FLAGS} --target=bpf -std=gnu89 -nostdinc -emit-llvm
 BPF_LLC_FLAGS := -march=bpf -mcpu=probe -filetype=obj
 
 LIB := $(shell find ../../bpf/ -name '*.h')

@@ -153,7 +153,7 @@ EOF
 if [ "${xdp}" = true ]; then
   if ! [ -f "${CILIUM_ROOT}/test/l4lb/bpf_xdp_veth_host.o" ]; then
     pushd "${CILIUM_ROOT}/test/l4lb/" > /dev/null
-    clang -O2 -Wall -target bpf -c bpf_xdp_veth_host.c -o bpf_xdp_veth_host.o
+    clang -O2 -Wall --target=bpf -c bpf_xdp_veth_host.c -o bpf_xdp_veth_host.o
     popd > /dev/null
   fi
 
