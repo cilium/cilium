@@ -133,7 +133,7 @@ spec:
                               value for the BGP ConnectRetryTimer (RFC 4271, Section
                               8).
                             format: int32
-                            maximum: 65535
+                            maximum: 2147483647
                             minimum: 1
                             type: integer
                           eBGPMultihopTTL:
