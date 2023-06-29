@@ -95,7 +95,7 @@ type directoryInfo struct {
 }
 
 var (
-	standardCFlags = []string{"-O2", "-target", "bpf", "-std=gnu89",
+	standardCFlags = []string{"-O2", "--target=bpf", "-std=gnu89",
 		"-nostdinc", fmt.Sprintf("-D__NR_CPUS__=%d", common.GetNumPossibleCPUs(log)),
 		"-Wall", "-Wextra", "-Werror", "-Wshadow",
 		"-Wno-address-of-packed-member",
