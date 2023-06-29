@@ -97,7 +97,6 @@ struct ipv4_nat_target {
 	__be32 addr;
 	const __u16 min_port; /* host endianness */
 	const __u16 max_port; /* host endianness */
-	bool src_from_world;
 	bool from_local_endpoint;
 	bool egress_gateway; /* NAT is needed because of an egress gateway policy */
 	__u32 cluster_id;
@@ -646,8 +645,7 @@ snat_v4_nat_can_skip(const struct ipv4_nat_target *target, const struct ipv4_ct_
 		return false;
 #endif
 
-	return (!target->from_local_endpoint && !target->src_from_world &&
-		sport < NAT_MIN_EGRESS) ||
+	return (!target->from_local_endpoint && sport < NAT_MIN_EGRESS) ||
 		icmp_echoreply;
 }
 
@@ -1231,7 +1229,6 @@ struct ipv6_nat_target {
 	union v6addr addr;
 	const __u16 min_port; /* host endianness */
 	const __u16 max_port; /* host endianness */
-	bool src_from_world;
 	bool from_local_endpoint;
 };
 
@@ -1644,8 +1641,7 @@ snat_v6_nat_can_skip(const struct ipv6_nat_target *target, const struct ipv6_ct_
 {
 	__u16 sport = bpf_ntohs(tuple->sport);
 
-	return (!target->from_local_endpoint && !target->src_from_world &&
-		sport < NAT_MIN_EGRESS) ||
+	return (!target->from_local_endpoint && sport < NAT_MIN_EGRESS) ||
 		icmp_echoreply;
 }
 
