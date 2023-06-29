@@ -19,14 +19,14 @@ IMG_TAG=${2:-latest}
 # attach the dummy program.
 apt-get update
 apt-get install -y gcc-multilib libbpf-dev
-clang -O2 -Wall -target bpf -c bpf_xdp_veth_host.c -o bpf_xdp_veth_host.o
+clang -O2 -Wall --target=bpf -c bpf_xdp_veth_host.c -o bpf_xdp_veth_host.o
 
 # The worker (aka backend node) will receive IPIP packets from the LB node.
 # To decapsulate the packets instead of creating an ipip dev which would
 # complicate network setup, we will attach the following program which
 # terminates the tunnel.
 # The program is taken from the Linux kernel selftests.
-clang -O2 -Wall -target bpf -c test_tc_tunnel.c -o test_tc_tunnel.o
+clang -O2 -Wall --target=bpf -c test_tc_tunnel.c -o test_tc_tunnel.o
 
 # With Docker-in-Docker we create two nodes:
 #
