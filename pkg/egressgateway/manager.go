@@ -8,11 +8,14 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/vishvananda/netlink"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/hive"
@@ -101,6 +104,17 @@ type Manager struct {
 	// epDataStore stores endpointId to endpoint metadata mapping
 	epDataStore map[endpointID]*endpointMetadata
 
+	// pendingEndpointEvents stores the k8s CiliumEndpoint add/update events
+	// which still need to be processed by the manager, either because we
+	// just received the event, or because the processing failed due to the
+	// manager being unable to resolve the endpoint identity to a set of
+	// labels
+	pendingEndpointEvents map[endpointID]*k8sTypes.CiliumEndpoint
+
+	// endpointEventsQueue is a workqueue of CiliumEndpoint IDs that need to
+	// be processed by the manager
+	endpointEventsQueue workqueue.RateLimitingInterface
+
 	// identityAllocator is used to fetch identity labels for endpoint updates
 	identityAllocator identityCache.IdentityAllocator
 
@@ -130,16 +144,27 @@ func NewEgressGatewayManager(p Params) *Manager {
 		return nil
 	}
 
+	// here we try to mimic the same exponential backoff retry logic used by
+	// the identity allocator, where the minimum retry timeout is set to 20
+	// milliseconds and the max number of attempts is 16 (so 20ms * 2^16 ==
+	// ~20 minutes)
+	rateLimiter := workqueue.NewItemExponentialFailureRateLimiter(time.Millisecond*20, time.Minute*20)
+	endpointEventRetryQueue := workqueue.NewRateLimitingQueueWithConfig(rateLimiter, workqueue.RateLimitingQueueConfig{})
+
 	manager := &Manager{
 		cacheStatus:             p.CacheStatus,
 		nodeDataStore:           make(map[string]nodeTypes.Node),
 		policyConfigs:           make(map[policyID]*PolicyConfig),
 		policyConfigsBySourceIP: make(map[string][]*PolicyConfig),
 		epDataStore:             make(map[endpointID]*endpointMetadata),
+		pendingEndpointEvents:   make(map[endpointID]*k8sTypes.CiliumEndpoint),
+		endpointEventsQueue:     endpointEventRetryQueue,
 		identityAllocator:       p.IdentityAllocator,
 		installRoutes:           p.Config.InstallEgressGatewayRoutes,
 		policyMap:               p.PolicyMap,
 	}
+
+	var wg sync.WaitGroup
 
 	ctx, cancel := context.WithCancel(context.Background())
 	p.Lifecycle.Append(hive.Hook{
@@ -149,10 +174,13 @@ func NewEgressGatewayManager(p Params) *Manager {
 			}
 
 			manager.runReconciliationAfterK8sSync(ctx)
+			manager.processCiliumEndpoints(ctx, &wg)
 			return nil
 		},
 		OnStop: func(hc hive.HookContext) error {
 			cancel()
+
+			wg.Wait()
 			return nil
 		},
 	})
@@ -186,6 +214,51 @@ func (manager *Manager) runReconciliationAfterK8sSync(ctx context.Context) {
 			manager.reconcile(eventK8sSyncDone)
 			manager.Unlock()
 		case <-ctx.Done():
+		}
+	}()
+}
+
+// processCiliumEndpoints spawns a goroutine that:
+//   - consumes the endpoint IDs returned by the endpointEventsQueue workqueue
+//   - processes the CiliumEndpoints stored in pendingEndpointEvents for these
+//     endpoint IDs
+//   - in case the endpoint ID -> labels resolution fails, it adds back the
+//     event to the workqueue so that it can be retried with an exponential
+//     backoff
+func (manager *Manager) processCiliumEndpoints(ctx context.Context, wg *sync.WaitGroup) {
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		retryQueue := manager.endpointEventsQueue
+		go func() {
+			select {
+			case <-ctx.Done():
+				retryQueue.ShutDown()
+			}
+		}()
+
+		for {
+			item, shutdown := retryQueue.Get()
+			if shutdown {
+				break
+			}
+			endpointID := item.(types.NamespacedName)
+
+			manager.addEndpoint(endpointID)
+
+			if manager.endpointEventIsPending(endpointID) {
+				// if the endpoint event is still pending it means the manager
+				// failed to resolve the endpoint ID to a set of labels, so add back
+				// the item to the queue
+				manager.endpointEventsQueue.AddRateLimited(endpointID)
+			} else {
+				// otherwise just remove it
+				manager.endpointEventsQueue.Forget(endpointID)
+			}
+
+			manager.endpointEventsQueue.Done(endpointID)
 		}
 	}()
 }
@@ -233,8 +306,15 @@ func (manager *Manager) OnDeleteEgressPolicy(configID policyID) {
 	manager.reconcile(eventDeletePolicy)
 }
 
-// OnUpdateEndpoint is the event handler for endpoint additions and updates.
-func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
+func (manager *Manager) endpointEventIsPending(id types.NamespacedName) bool {
+	manager.Lock()
+	defer manager.Unlock()
+
+	_, ok := manager.pendingEndpointEvents[id]
+	return ok
+}
+
+func (manager *Manager) addEndpoint(id types.NamespacedName) {
 	var epData *endpointMetadata
 	var err error
 	var identityLabels labels.Labels
@@ -242,20 +322,33 @@ func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	manager.Lock()
 	defer manager.Unlock()
 
+	endpoint, ok := manager.pendingEndpointEvents[id]
+	if !ok {
+		// the endpoint event has been already processed (for example we
+		// received an updated endpoint object or a delete event),
+		// nothing to do
+		return
+	}
+
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sEndpointName: endpoint.Name,
 		logfields.K8sNamespace:    endpoint.Namespace,
 	})
 
-	if len(endpoint.Networking.Addressing) == 0 {
+	if identityLabels, err = manager.getIdentityLabels(uint32(endpoint.Identity.ID)); err != nil {
 		logger.WithError(err).
-			Error("Failed to get valid endpoint IPs, skipping update to egress policy.")
+			Warning("Failed to get identity labels for endpoint")
 		return
 	}
 
-	if identityLabels, err = manager.getIdentityLabels(uint32(endpoint.Identity.ID)); err != nil {
+	// delete the endpoint from pendingEndpointEvent, from now on if we
+	// encounter a failure it cannot be retried
+	delete(manager.pendingEndpointEvents, id)
+
+	if len(endpoint.Networking.Addressing) == 0 {
 		logger.WithError(err).
-			Error("Failed to get identity labels for endpoint, skipping update to egress policy.")
+			Error("Failed to get valid endpoint IPs, skipping update to egress policy.")
+
 		return
 	}
 
@@ -265,9 +358,29 @@ func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 		return
 	}
 
+	if _, ok := manager.epDataStore[epData.id]; ok {
+		logger.Debug("Updated CiliumEndpoint")
+	} else {
+		logger.Debug("Added CiliumEndpoint")
+	}
+
 	manager.epDataStore[epData.id] = epData
 
 	manager.reconcile(eventUpdateEndpoint)
+}
+
+// OnUpdateEndpoint is the event handler for endpoint additions and updates.
+func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
+	id := types.NamespacedName{
+		Name:      endpoint.GetName(),
+		Namespace: endpoint.GetNamespace(),
+	}
+
+	manager.Lock()
+	defer manager.Unlock()
+
+	manager.pendingEndpointEvents[id] = endpoint
+	manager.endpointEventsQueue.Add(id)
 }
 
 // OnDeleteEndpoint is the event handler for endpoint deletions.
@@ -275,12 +388,20 @@ func (manager *Manager) OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	manager.Lock()
 	defer manager.Unlock()
 
+	logger := log.WithFields(logrus.Fields{
+		logfields.K8sEndpointName: endpoint.Name,
+		logfields.K8sNamespace:    endpoint.Namespace,
+	})
+
 	id := types.NamespacedName{
 		Name:      endpoint.GetName(),
 		Namespace: endpoint.GetNamespace(),
 	}
 
 	delete(manager.epDataStore, id)
+	delete(manager.pendingEndpointEvents, id)
+
+	logger.Debug("Deleted CiliumEndpoint")
 
 	manager.reconcile(eventDeleteEndpoint)
 }
