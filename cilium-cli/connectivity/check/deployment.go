@@ -624,7 +624,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 
 		_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, testConnDisruptServiceName, metav1.GetOptions{})
 		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), testConnDisruptServiceName)
+			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.dst.ClusterName(), testConnDisruptServiceName)
 			svc := newService(testConnDisruptServiceName, map[string]string{"app": "test-conn-disrupt-server"}, nil, "http", 8000)
 			_, err = ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
 			if err != nil {
@@ -632,9 +632,9 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 		}
 
-		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientDeploymentName, metav1.GetOptions{})
+		_, err = ct.clients.dst.GetDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientDeploymentName, metav1.GetOptions{})
 		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), testConnDisruptClientDeploymentName)
+			ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.dst.ClusterName(), testConnDisruptClientDeploymentName)
 			readinessProbe := &corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					Exec: &corev1.ExecAction{
@@ -659,11 +659,11 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				ReadinessProbe: readinessProbe,
 			})
 
-			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(testConnDisruptClientDeploymentName), metav1.CreateOptions{})
+			_, err = ct.clients.dst.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(testConnDisruptClientDeploymentName), metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to create service account %s: %w", testConnDisruptClientDeploymentName, err)
 			}
-			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientDeployment, metav1.CreateOptions{})
+			_, err = ct.clients.dst.CreateDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientDeployment, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to create deployment %s: %w", testConnDisruptClientDeployment, err)
 			}
