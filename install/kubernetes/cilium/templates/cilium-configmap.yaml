@@ -50,6 +50,12 @@
   {{- $defaultKubeProxyReplacement = "disabled" -}}
 {{- end -}}
 
+{{- /* Default values when 1.14 was initially deployed */ -}}
+{{- if semverCompare ">=1.14" (default "1.14" .Values.upgradeCompatibility) -}}
+  {{- /* KPR default for 1.14 needed to override earlier version defaults set above when upgradeCompatibility is not specified */ -}}
+  {{- $defaultKubeProxyReplacement = "false" -}}
+{{- end -}}
+
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
