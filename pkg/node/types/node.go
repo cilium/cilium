@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -615,7 +616,23 @@ func (n *Node) Unmarshal(_ string, data []byte) error {
 		return err
 	}
 
+	if err := newNode.validate(); err != nil {
+		return err
+	}
+
 	*n = newNode
+
+	return nil
+}
+
+func (n *Node) validate() error {
+	// Skip the ClusterID check if it matches the local one, as we assume that
+	// it has already been validated, and to allow it to be zero.
+	if n.ClusterID != option.Config.ClusterID {
+		if err := cmtypes.ValidateClusterID(n.ClusterID); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
