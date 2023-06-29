@@ -167,22 +167,24 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 
 	if c.Options.CiliumNamespace == "" {
 		ns, err := detectCiliumNamespace(k)
-		if err != nil {
-			return nil, err
+		if err == nil {
+			c.log("🔮 Detected Cilium installation in namespace %q", ns)
+			c.Options.CiliumNamespace = ns
+		} else {
+			c.log("ℹ️ Failed to detect Cilium installation")
 		}
-		c.log("🔮 Detected Cilium installation in namespace %q", ns)
-		c.Options.CiliumNamespace = ns
 	} else {
 		c.log("ℹ️  Cilium namespace: %s", c.Options.CiliumNamespace)
 	}
 
 	if c.Options.CiliumOperatorNamespace == "" {
 		ns, err := detectCiliumOperatorNamespace(k)
-		if err != nil {
-			return nil, err
+		if err == nil {
+			c.log("🔮 Detected Cilium operator in namespace %q", ns)
+			c.Options.CiliumOperatorNamespace = ns
+		} else {
+			c.log("ℹ️ Failed to detect Cilium  operator ")
 		}
-		c.log("🔮 Detected Cilium operator in namespace %q", ns)
-		c.Options.CiliumOperatorNamespace = ns
 	} else {
 		c.log("ℹ️  Cilium operator namespace: %s", c.Options.CiliumOperatorNamespace)
 	}
@@ -190,8 +192,10 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 	if c.Options.CiliumSPIRENamespace == "" {
 		if ns, err := detectCiliumSPIRENamespace(k); err != nil {
 			c.logDebug("Failed to detect Cilium SPIRE installation: %v", err)
-			c.log("ℹ️ Failed to detect Cilium SPIRE installation - using Cilium namespace as Cilium SPIRE namespace: %s", c.Options.CiliumOperatorNamespace)
-			c.Options.CiliumSPIRENamespace = c.Options.CiliumOperatorNamespace
+			if c.Options.CiliumOperatorNamespace != "" {
+				c.log("ℹ️ Failed to detect Cilium SPIRE installation - using Cilium namespace as Cilium SPIRE namespace: %s", c.Options.CiliumOperatorNamespace)
+				c.Options.CiliumSPIRENamespace = c.Options.CiliumOperatorNamespace
+			}
 		} else {
 			c.log("🔮 Detected Cilium SPIRE installation in namespace %q", ns)
 			c.Options.CiliumSPIRENamespace = ns
@@ -429,6 +433,9 @@ func (c *Collector) Run() error {
 				return nil
 			},
 		},
+	}
+
+	ciliumTasks := []Task{
 		{
 			Description: "Collecting Cilium network policies",
 			Quick:       true,
@@ -1112,25 +1119,6 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
-			Description:     "Collecting bugtool output from Tetragon pods",
-			Quick:           false,
-			Task: func(ctx context.Context) error {
-				p, err := c.Client.ListPods(ctx, c.Options.TetragonNamespace, metav1.ListOptions{
-					LabelSelector: c.Options.TetragonLabelSelector,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to get Tetragon pods: %w", err)
-				}
-				if err := c.SubmitTetragonBugtoolTasks(FilterPods(p, c.NodeList),
-					DefaultTetragonAgentContainerName, DefaultTetragonBugtoolPrefix,
-					DefaultTetragonCLICommand); err != nil {
-					return fmt.Errorf("failed to collect 'tetragon-bugtool': %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			CreatesSubtasks: true,
 			Description:     "Collecting logs from Cilium SPIRE server pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
@@ -1281,29 +1269,6 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
-			Description:     "Collecting Tetragon tracing policies",
-			Quick:           true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListTetragonTracingPolicies(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Tetragon tracing policies: %w", err)
-				}
-				if err := c.WriteYAML(DefaultTetragonTracingPolicy, v); err != nil {
-					return fmt.Errorf("failed to collect Tetragon tracing policies: %w", err)
-				}
-
-				vn, err := c.Client.ListTetragonTracingPoliciesNamespaced(ctx, corev1.NamespaceAll, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Tetragon namespaced tracing policies: %w", err)
-				}
-				if err := c.WriteYAML(DefaultTetragonTracingPolicyNamespaced, vn); err != nil {
-					return fmt.Errorf("failed to collect Tetragon tracing policies: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			CreatesSubtasks: true,
 			Description:     "Collecting Cilium external workloads",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
@@ -1438,6 +1403,78 @@ func (c *Collector) Run() error {
 			},
 		},
 	}
+
+	if c.Options.HubbleFlowsCount > 0 {
+		ciliumTasks = append(ciliumTasks, Task{
+			CreatesSubtasks: true,
+			Description:     "Collecting Hubble flows from Cilium pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.CiliumLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get Cilium pods: %w", err)
+				}
+				if err := c.submitHubbleFlowsTasks(ctx, FilterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
+					return fmt.Errorf("failed to collect hubble flows: %w", err)
+				}
+				return nil
+			},
+		})
+	}
+
+	if c.Options.CiliumNamespace != "" && c.Options.CiliumOperatorNamespace != "" {
+		tasks = append(tasks, ciliumTasks...)
+	}
+
+	tetragonTasks := []Task{
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting bugtool output from Tetragon pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.TetragonNamespace, metav1.ListOptions{
+					LabelSelector: c.Options.TetragonLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get Tetragon pods: %w", err)
+				}
+				if err := c.SubmitTetragonBugtoolTasks(FilterPods(p, c.NodeList),
+					DefaultTetragonAgentContainerName, DefaultTetragonBugtoolPrefix,
+					DefaultTetragonCLICommand); err != nil {
+					return fmt.Errorf("failed to collect 'tetragon-bugtool': %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting Tetragon tracing policies",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListTetragonTracingPolicies(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Tetragon tracing policies: %w", err)
+				}
+				if err := c.WriteYAML(DefaultTetragonTracingPolicy, v); err != nil {
+					return fmt.Errorf("failed to collect Tetragon tracing policies: %w", err)
+				}
+
+				vn, err := c.Client.ListTetragonTracingPoliciesNamespaced(ctx, corev1.NamespaceAll, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Tetragon namespaced tracing policies: %w", err)
+				}
+				if err := c.WriteYAML(DefaultTetragonTracingPolicyNamespaced, vn); err != nil {
+					return fmt.Errorf("failed to collect Tetragon tracing policies: %w", err)
+				}
+				return nil
+			},
+		},
+	}
+
+	tasks = append(tasks, tetragonTasks...)
+
 	for _, selector := range c.Options.ExtraLabelSelectors {
 		tasks = append(tasks, Task{
 			CreatesSubtasks: true,
@@ -1452,25 +1489,6 @@ func (c *Collector) Run() error {
 				}
 				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from pods matching selector %q", selector)
-				}
-				return nil
-			},
-		})
-	}
-	if c.Options.HubbleFlowsCount > 0 {
-		tasks = append(tasks, Task{
-			CreatesSubtasks: true,
-			Description:     "Collecting Hubble flows from Cilium pods",
-			Quick:           false,
-			Task: func(ctx context.Context) error {
-				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
-					LabelSelector: c.Options.CiliumLabelSelector,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to get Cilium pods: %w", err)
-				}
-				if err := c.submitHubbleFlowsTasks(ctx, FilterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
-					return fmt.Errorf("failed to collect hubble flows: %w", err)
 				}
 				return nil
 			},
