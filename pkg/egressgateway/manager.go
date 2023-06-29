@@ -345,13 +345,6 @@ func (manager *Manager) addEndpoint(id types.NamespacedName) {
 	// encounter a failure it cannot be retried
 	delete(manager.pendingEndpointEvents, id)
 
-	if len(endpoint.Networking.Addressing) == 0 {
-		logger.WithError(err).
-			Error("Failed to get valid endpoint IPs, skipping update to egress policy.")
-
-		return
-	}
-
 	if epData, err = getEndpointMetadata(endpoint, identityLabels); err != nil {
 		logger.WithError(err).
 			Error("Failed to get valid endpoint metadata, skipping update to egress policy.")
