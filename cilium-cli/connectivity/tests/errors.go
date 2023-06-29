@@ -66,7 +66,7 @@ func (n *noMissedTailCalls) Run(ctx context.Context, t *check.Test) {
 		if err != nil {
 			t.Fatalf("Error fetching missed tail call drop counts: %s", err)
 		}
-		countStr := stdout.String()
+		countStr := strings.TrimSpace(stdout.String())
 		if countStr == "" {
 			return
 		}
