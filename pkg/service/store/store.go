@@ -5,13 +5,16 @@ package store
 
 import (
 	"encoding/json"
+	"net/netip"
 	"path"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -111,7 +114,35 @@ func (s *ClusterService) Unmarshal(_ string, data []byte) error {
 		return err
 	}
 
+	if err := newService.validate(); err != nil {
+		return err
+	}
+
 	*s = newService
+
+	return nil
+}
+
+func (s *ClusterService) validate() error {
+	// Skip the ClusterID check if it matches the local one, as we assume that
+	// it has already been validated, and to allow it to be zero.
+	if s.ClusterID != option.Config.ClusterID {
+		if err := cmtypes.ValidateClusterID(s.ClusterID); err != nil {
+			return err
+		}
+	}
+
+	for address := range s.Frontends {
+		if _, err := netip.ParseAddr(address); err != nil {
+			return err
+		}
+	}
+
+	for address := range s.Backends {
+		if _, err := netip.ParseAddr(address); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
