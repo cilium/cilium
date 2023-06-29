@@ -38,6 +38,10 @@ func getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint, identityLabels label
 		return nil, fmt.Errorf("endpoint has no networking metadata")
 	}
 
+	if len(endpoint.Networking.Addressing) == 0 {
+		return nil, fmt.Errorf("failed to get valid endpoint IPs")
+	}
+
 	for _, pair := range endpoint.Networking.Addressing {
 		if pair.IPV4 != "" {
 			ipv4s = append(ipv4s, net.ParseIP(pair.IPV4).To4())
