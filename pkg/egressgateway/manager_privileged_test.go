@@ -5,8 +5,10 @@ package egressgateway
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
+	"time"
 
 	. "github.com/cilium/checkmate"
 	"k8s.io/apimachinery/pkg/types"
@@ -528,6 +530,18 @@ func parseIPRule(sourceIP, destCIDR, egressIP string, ifaceIndex int) parsedIPRu
 }
 
 func assertIPRules(c *C, rules []ipRule) {
+	var err error
+	for i := 0; i < 10; i++ {
+		if err = tryAssertIPRules(rules); err == nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	c.Assert(err, IsNil)
+}
+
+func tryAssertIPRules(rules []ipRule) error {
 	parsedRules := []parsedIPRule{}
 	for _, r := range rules {
 		parsedRules = append(parsedRules, parseIPRule(r.sourceIP, r.destCIDR, r.egressIP, r.ifaceIndex))
@@ -544,12 +558,15 @@ nextRule:
 			if rule.sourceIP.Equal(installedRule.Src.IP) && rule.destCIDR.String() == installedRule.Dst.String() &&
 				rule.ifaceIndex == installedRule.Table-linux_defaults.RouteTableEgressGatewayInterfacesOffset {
 
-				assertIPRoutes(c, rule.egressIP, rule.ifaceIndex)
+				if err := tryAssertIPRoutes(rule.egressIP, rule.ifaceIndex); err != nil {
+					return err
+				}
+
 				continue nextRule
 			}
 		}
 
-		c.Fatal("Missing IP rule")
+		return fmt.Errorf("Missing IP rule")
 	}
 
 nextInstalledRule:
@@ -561,11 +578,13 @@ nextInstalledRule:
 			}
 		}
 
-		c.Fatal("Untracked IP rule")
+		return fmt.Errorf("Untracked IP rule")
 	}
+
+	return nil
 }
 
-func assertIPRoutes(c *C, egressIP net.IPNet, ifaceIndex int) {
+func tryAssertIPRoutes(egressIP net.IPNet, ifaceIndex int) error {
 	eniGatewayIP := getFirstIPInHostRange(egressIP)
 	routingTableIdx := egressGatewayRoutingTableIdx(ifaceIndex)
 
@@ -577,7 +596,7 @@ func assertIPRoutes(c *C, egressIP net.IPNet, ifaceIndex int) {
 	}, netlink.RT_FILTER_OIF|netlink.RT_FILTER_DST|netlink.RT_FILTER_SCOPE|netlink.RT_FILTER_TABLE)
 
 	if err != nil || route == nil {
-		c.Fatal("Cannot find nexthop route to the VPC subnet:", err)
+		return fmt.Errorf("Cannot find nexthop route to the VPC subnet: %s", err)
 	}
 
 	route, err = netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
@@ -586,8 +605,10 @@ func assertIPRoutes(c *C, egressIP net.IPNet, ifaceIndex int) {
 	}, netlink.RT_FILTER_DST|netlink.RT_FILTER_TABLE|netlink.RT_FILTER_GW)
 
 	if err != nil || route == nil {
-		c.Fatal("Cannot find default route to the VPC:", err)
+		return fmt.Errorf("Cannot find default route to the VPC: %s", err)
 	}
+
+	return nil
 }
 
 func parseEgressRule(sourceIP, destCIDR, egressIP, gatewayIP string) parsedEgressRule {
@@ -620,6 +641,18 @@ func parseEgressRule(sourceIP, destCIDR, egressIP, gatewayIP string) parsedEgres
 }
 
 func assertEgressRules(c *C, policyMap egressmap.PolicyMap, rules []egressRule) {
+	var err error
+	for i := 0; i < 10; i++ {
+		if err = tryAssertEgressRules(policyMap, rules); err == nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	c.Assert(err, IsNil)
+}
+
+func tryAssertEgressRules(policyMap egressmap.PolicyMap, rules []egressRule) error {
 	parsedRules := []parsedEgressRule{}
 	for _, r := range rules {
 		parsedRules = append(parsedRules, parseEgressRule(r.sourceIP, r.destCIDR, r.egressIP, r.gatewayIP))
@@ -627,12 +660,20 @@ func assertEgressRules(c *C, policyMap egressmap.PolicyMap, rules []egressRule) 
 
 	for _, r := range parsedRules {
 		policyVal, err := policyMap.Lookup(r.sourceIP, r.destCIDR)
-		c.Assert(err, IsNil)
+		if err != nil {
+			return fmt.Errorf("cannot lookup policy entry: %w", err)
+		}
 
-		c.Assert(policyVal.GetEgressIP().Equal(r.egressIP), Equals, true)
-		c.Assert(policyVal.GetGatewayIP().Equal(r.gatewayIP), Equals, true)
+		if !policyVal.GetEgressIP().Equal(r.egressIP) {
+			return fmt.Errorf("mismatched egress IP")
+		}
+
+		if !policyVal.GetGatewayIP().Equal(r.gatewayIP) {
+			return fmt.Errorf("mismatched gateway IP")
+		}
 	}
 
+	untrackedRule := false
 	policyMap.IterateWithCallback(
 		func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
 			for _, r := range parsedRules {
@@ -641,6 +682,13 @@ func assertEgressRules(c *C, policyMap egressmap.PolicyMap, rules []egressRule) 
 				}
 			}
 
-			c.Fatal("Untracked egress policy")
+			untrackedRule = true
+			return
 		})
+
+	if untrackedRule {
+		return fmt.Errorf("Untracked egress policy")
+	}
+
+	return nil
 }
