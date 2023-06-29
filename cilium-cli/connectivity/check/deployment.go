@@ -592,14 +592,25 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, testConnDisruptServerDeploymentName, metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), testConnDisruptServerDeploymentName)
+			readinessProbe := &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					Exec: &corev1.ExecAction{
+						Command: []string{"cat", "/tmp/server-ready"},
+					},
+				},
+				PeriodSeconds:       int32(3),
+				InitialDelaySeconds: int32(1),
+				FailureThreshold:    int32(20),
+			}
 			testConnDisruptServerDeployment := newDeployment(deploymentParameters{
-				Name:     testConnDisruptServerDeploymentName,
-				Kind:     KindTestConnDisrupt,
-				Image:    "quay.io/cilium/test-connection-disruption:v0.0.1",
-				Replicas: 3,
-				Labels:   map[string]string{"app": "test-conn-disrupt-server"},
-				Command:  []string{"tcd-server", "8000"},
-				Port:     8000,
+				Name:           testConnDisruptServerDeploymentName,
+				Kind:           KindTestConnDisrupt,
+				Image:          "quay.io/cilium/test-connection-disruption:v0.0.2",
+				Replicas:       3,
+				Labels:         map[string]string{"app": "test-conn-disrupt-server"},
+				Command:        []string{"tcd-server", "8000"},
+				Port:           8000,
+				ReadinessProbe: readinessProbe,
 			})
 			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(testConnDisruptServerDeploymentName), metav1.CreateOptions{})
 			if err != nil {
@@ -637,7 +648,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			testConnDisruptClientDeployment := newDeployment(deploymentParameters{
 				Name:     testConnDisruptClientDeploymentName,
 				Kind:     KindTestConnDisrupt,
-				Image:    "quay.io/cilium/test-connection-disruption:v0.0.1",
+				Image:    "quay.io/cilium/test-connection-disruption:v0.0.2",
 				Replicas: 5,
 				Labels:   map[string]string{"app": "test-conn-disrupt-client"},
 				Port:     8000,
