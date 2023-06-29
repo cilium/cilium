@@ -559,7 +559,14 @@ func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterSer
 		scopedLog.Debugf("Updating backends to %+v", service.Backends)
 		backends := map[cmtypes.AddrCluster]*Backend{}
 		for ipString, portConfig := range service.Backends {
-			backends[cmtypes.MustParseAddrCluster(ipString)] = &Backend{Ports: portConfig}
+			addr, err := cmtypes.ParseAddrCluster(ipString)
+			if err != nil {
+				scopedLog.WithField(logfields.IPAddr, ipString).
+					Error("Skipping service backend due to invalid IP address")
+				continue
+			}
+
+			backends[addr] = &Backend{Ports: portConfig}
 		}
 		externalEndpoints.endpoints[service.Cluster] = &Endpoints{
 			Backends: backends,
