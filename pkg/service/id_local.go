@@ -51,6 +51,7 @@ func NewIDAllocator(nextID uint32, maxID uint32) *IDAllocator {
 	}
 }
 
+// addID assumes the lock is held
 func (alloc *IDAllocator) addID(svc loadbalancer.L3n4Addr, id uint32) *loadbalancer.L3n4AddrID {
 	svcID := newID(svc, id)
 	alloc.entitiesID[id] = svcID
