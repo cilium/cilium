@@ -10,7 +10,7 @@ LLC   ?= llc
 
 FLAGS := -I$(ROOT_DIR)/bpf/include -I$(ROOT_DIR)/bpf -D__NR_CPUS__=$(shell nproc --all) -O2 -g
 
-CLANG_FLAGS := ${FLAGS} -target bpf -std=gnu99 -nostdinc -emit-llvm
+CLANG_FLAGS := ${FLAGS} --target=bpf -std=gnu99 -nostdinc -emit-llvm
 # eBPF verifier enforces unaligned access checks where necessary, so don't
 # let clang complain too early.
 CLANG_FLAGS += -Wall -Wextra -Werror -Wshadow
