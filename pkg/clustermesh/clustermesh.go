@@ -61,6 +61,10 @@ type Configuration struct {
 	// ServiceIPGetter, if not nil, is used to create a custom dialer for service resolution.
 	ServiceIPGetter k8s.ServiceIPGetter
 
+	// ConfigValidationMode defines whether the CiliumClusterConfig is always
+	// expected to be exposed by remote clusters.
+	ConfigValidationMode types.ValidationMode `optional:"true"`
+
 	// IPCacheWatcherExtraOpts returns extra options for watching ipcache entries.
 	IPCacheWatcherExtraOpts IPCacheWatcherOptsFn `optional:"true"`
 

@@ -32,6 +32,10 @@ type RemoteCluster interface {
 	// The ready channel shall be closed when the initialization tasks completed, possibly returning an error.
 	Run(ctx context.Context, backend kvstore.BackendOperations, config *types.CiliumClusterConfig, ready chan<- error)
 
+	// ClusterConfigRequired returns whether the CiliumClusterConfig is always
+	// expected to be exposed by remote clusters.
+	ClusterConfigRequired() bool
+
 	Stop()
 	Remove()
 }
@@ -168,7 +172,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 
 				rc.getLogger().Info("Connection to remote cluster established")
 
-				config, err := rc.getClusterConfig(ctx, backend, false)
+				config, err := rc.getClusterConfig(ctx, backend, rc.ClusterConfigRequired())
 				if err == nil && config == nil {
 					rc.getLogger().Warning("Remote cluster doesn't have cluster configuration, falling back to the old behavior. This is expected when connecting to the old cluster running Cilium without cluster configuration feature.")
 				} else if err == nil {
