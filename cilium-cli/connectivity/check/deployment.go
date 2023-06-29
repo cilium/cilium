@@ -622,6 +622,12 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 		}
 
+		// Make sure that the server deployment is ready to spread client connections
+		err := WaitForDeployment(ctx, ct, ct.clients.src, ct.params.TestNamespace, testConnDisruptServerDeploymentName)
+		if err != nil {
+			ct.Failf("%s deployment is not ready: %s", testConnDisruptServerDeploymentName, err)
+		}
+
 		_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, testConnDisruptServiceName, metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.dst.ClusterName(), testConnDisruptServiceName)
