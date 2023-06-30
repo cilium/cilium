@@ -1,0 +1,53 @@
+triggers:
+  /test-backport-1.13:
+    workflows:
+    - conformance-aks.yaml
+    - conformance-aws-cni.yaml
+    - conformance-clustermesh.yaml
+    - conformance-e2e.yaml
+    - conformance-eks.yaml
+    - conformance-externalworkloads.yaml    
+    - conformance-gke.yaml
+    - tests-l4lb.yaml
+  /ci-aks:
+    workflows:
+    - conformance-aks.yaml
+  /ci-awscni:
+    workflows:
+    - conformance-aws-cni.yaml
+  /ci-multicluster:
+    workflows:
+    - conformance-clustermesh.yaml
+  /ci-e2e:
+    workflows:
+    - conformance-e2e.yaml
+  /ci-eks:
+    workflows:
+    - conformance-eks.yaml
+  /ci-external-workloads:
+    workflows:
+    - conformance-externalworkloads.yaml
+  /ci-gke:
+    workflows:
+    - conformance-gke.yaml
+  /ci-l4lb:
+    workflows:
+    - tests-l4lb.yaml
+
+workflows:
+  conformance-aks.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-aws-cni.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-clustermesh.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-e2e.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-eks.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-externalworkloads.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-gke.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  tests-l4lb.yaml:
+    paths-regex: (pkg|daemon|bpf|test/l4lb|images)/
