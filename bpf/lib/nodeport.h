@@ -1038,7 +1038,7 @@ skip_service_lookup:
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
 	(!defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
-		if (nodeport_uses_dsr6(&tuple)) {
+		if (is_svc_proto && nodeport_uses_dsr6(&tuple)) {
 			bool dsr = false;
 
 			ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off,
@@ -2368,7 +2368,7 @@ skip_service_lookup:
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
 	(!defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
-		if (nodeport_uses_dsr4(&tuple)) {
+		if (is_svc_proto && nodeport_uses_dsr4(&tuple)) {
 			bool dsr = false;
 
 			/* Check if packet has embedded DSR info, or belongs to
