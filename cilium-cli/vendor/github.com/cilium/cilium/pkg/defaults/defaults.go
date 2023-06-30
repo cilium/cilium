@@ -207,9 +207,6 @@ const (
 	// EnableHostLegacyRouting is the default value for using the old routing path via stack.
 	EnableHostLegacyRouting = false
 
-	// EnableExternalIPs is the default value for k8s service with externalIPs feature.
-	EnableExternalIPs = true
-
 	// K8sEnableEndpointSlice is the default value for k8s EndpointSlice feature.
 	K8sEnableEndpointSlice = true
 
