@@ -28,7 +28,7 @@ Manual Verification of Setup
         ...
         KVStore:                 Ok   Disabled
         Kubernetes:              Ok   1.23 (v1.23.6) [linux/amd64]
-        KubeProxyReplacement:    Strict   [eth0 192.168.49.2]
+        KubeProxyReplacement:    True   [eth0 192.168.49.2]
 
  #. Validate that runtime the values of ``enable-envoy-config`` and ``enable-ingress-controller``
     are true. Ingress controller flag is optional if customer only uses ``CiliumEnvoyConfig`` or
