@@ -415,6 +415,13 @@ Deprecated Options
    * ``tls-client-key-file`` (replaced with ``tls-hubble-client-key-file``).
    * ``tls-server-cert-file`` (replaced with ``tls-relay-server-cert-file``).
    * ``tls-server-key-file`` (replaced with ``tls-relay-server-key-file``).
+* The ``kube-proxy-replacement`` option's values ``strict``, ``partial`` and
+  ``disabled`` are deprecated and will be removed in v1.15. They are replaced
+  by ``true`` and ``false``. ``true`` corresponds to ``strict``, i.e. enables
+  all kube-proxy replacement features. ``false`` disables kube-proxy
+  replacement but allows users to selectively enable each kube-proxy replacement
+  feature individually.
+
 
 Deprecated Commands
 ~~~~~~~~~~~~~~~~~~~
