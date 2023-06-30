@@ -411,12 +411,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		e.proxyStatisticsMutex.Unlock()
 
 		// Restore the desired policy map state.
-		for k := range adds {
-			delete(e.desiredPolicy.PolicyMapState, k)
-		}
-		for k, v := range oldValues {
-			e.desiredPolicy.PolicyMapState[k] = v
-		}
+		e.desiredPolicy.PolicyMapState.RevertChanges(adds, oldValues)
 		return nil
 	})
 
