@@ -5,6 +5,7 @@ This repository holds helm templates for the following Cilium releases:
 * [v1.14.0-snapshot.2](https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.2) (_[source](https://github.com/cilium/cilium/tree/v1.14.0-snapshot.2/install/kubernetes/cilium)_)
 * [v1.14.0-snapshot.1](https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.1) (_[source](https://github.com/cilium/cilium/tree/v1.14.0-snapshot.1/install/kubernetes/cilium)_)
 * [v1.14.0-snapshot.0](https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.0) (_[source](https://github.com/cilium/cilium/tree/v1.14.0-snapshot.0/install/kubernetes/cilium)_)
+* [v1.14.0-rc.0](https://github.com/cilium/cilium/releases/tag/v1.14.0-rc.0) (_[source](https://github.com/cilium/cilium/tree/v1.14.0-rc.0/install/kubernetes/cilium)_)
 * [v1.13.4](https://github.com/cilium/cilium/releases/tag/v1.13.4) (_[source](https://github.com/cilium/cilium/tree/v1.13.4/install/kubernetes/cilium)_)
 * [v1.13.3](https://github.com/cilium/cilium/releases/tag/v1.13.3) (_[source](https://github.com/cilium/cilium/tree/v1.13.3/install/kubernetes/cilium)_)
 * [v1.13.2](https://github.com/cilium/cilium/releases/tag/v1.13.2) (_[source](https://github.com/cilium/cilium/tree/v1.13.2/install/kubernetes/cilium)_)
