@@ -802,7 +802,7 @@ func testCaseToMapState(t generatedBPFKey) MapState {
 	denyL3L4, denyL3L4exists := m[mapKeyDeny_FooL4]
 	allowL4, allowL4exists := m[mapKeyAllow___L4]
 	if allowL4exists && !allowL4.IsDeny && denyL3exists && denyL3.IsDeny && denyL3L4exists && denyL3L4.IsDeny {
-		mapKeyDeny_Foo__.AddDependent(m, mapKeyDeny_FooL4)
+		m.AddDependent(mapKeyDeny_Foo__, mapKeyDeny_FooL4, nil)
 	}
 	return m
 }
