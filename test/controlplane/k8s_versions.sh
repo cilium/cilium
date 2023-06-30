@@ -18,7 +18,7 @@ function update-kind-config() {
     for version in ${versions[*]}; do
        while read file;do
          local file_sha=$(md5sum "${file}")
-         sed -i "s+kindest/node:v${version}.*+kindest/node:v${k8s_patch_versions[${i}]}+" "${file}"
+         sed -i "s+kindest/node:v${version}.*+kindest/node:${k8s_patch_versions[${i}]}+" "${file}"
          if [ "${file_sha}" != "$(md5sum "${file}")" ]; then
             find "$(dirname $(dirname "${file}"))" -type d -regextype posix-extended -regex ".*/v${version}" | xargs rm -r 2>/dev/null
          fi
