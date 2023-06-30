@@ -44,7 +44,8 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 			    sizeof(struct icmp6hdr) > data_end)
 				return DROP_INVALID;
 
-			if (icmp6_load_type(ctx, ETH_HLEN, &icmp_type) < 0)
+			if (icmp6_load_type(ctx, ETH_HLEN + sizeof(struct ipv6hdr),
+					    &icmp_type) < 0)
 				return DROP_INVALID;
 
 			if (icmp_type == ICMP6_NA_MSG_TYPE)
