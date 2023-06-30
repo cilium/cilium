@@ -1362,8 +1362,7 @@ func marshalMap(m *Map, length int) ([]byte, error) {
 // See Map.Iterate.
 type MapIterator struct {
 	target            *Map
-	prevKey           interface{}
-	prevBytes         []byte
+	curKey            []byte
 	count, maxEntries uint32
 	done              bool
 	err               error
@@ -1373,7 +1372,6 @@ func newMapIterator(target *Map) *MapIterator {
 	return &MapIterator{
 		target:     target,
 		maxEntries: target.maxEntries,
-		prevBytes:  make([]byte, target.keySize),
 	}
 }
 
@@ -1395,26 +1393,35 @@ func (mi *MapIterator) Next(keyOut, valueOut interface{}) bool {
 	// For array-like maps NextKeyBytes returns nil only on after maxEntries
 	// iterations.
 	for mi.count <= mi.maxEntries {
-		var nextBytes []byte
-		nextBytes, mi.err = mi.target.NextKeyBytes(mi.prevKey)
+		var nextKey []byte
+		if mi.curKey == nil {
+			// Pass nil interface to NextKeyBytes to make sure the Map's first key
+			// is returned. If we pass an uninitialized []byte instead, it'll see a
+			// non-nil interface and try to marshal it.
+			nextKey, mi.err = mi.target.NextKeyBytes(nil)
+
+			mi.curKey = make([]byte, mi.target.keySize)
+		} else {
+			nextKey, mi.err = mi.target.NextKeyBytes(mi.curKey)
+		}
 		if mi.err != nil {
+			mi.err = fmt.Errorf("get next key: %w", mi.err)
 			return false
 		}
 
-		if nextBytes == nil {
+		if nextKey == nil {
 			mi.done = true
 			return false
 		}
 
-		// The user can get access to nextBytes since unmarshalBytes
+		// The user can get access to nextKey since unmarshalBytes
 		// does not copy when unmarshaling into a []byte.
 		// Make a copy to prevent accidental corruption of
 		// iterator state.
-		copy(mi.prevBytes, nextBytes)
-		mi.prevKey = mi.prevBytes
+		copy(mi.curKey, nextKey)
 
 		mi.count++
-		mi.err = mi.target.Lookup(nextBytes, valueOut)
+		mi.err = mi.target.Lookup(nextKey, valueOut)
 		if errors.Is(mi.err, ErrKeyNotExist) {
 			// Even though the key should be valid, we couldn't look up
 			// its value. If we're iterating a hash map this is probably
@@ -1427,10 +1434,11 @@ func (mi *MapIterator) Next(keyOut, valueOut interface{}) bool {
 			continue
 		}
 		if mi.err != nil {
+			mi.err = fmt.Errorf("look up next key: %w", mi.err)
 			return false
 		}
 
-		mi.err = mi.target.unmarshalKey(keyOut, nextBytes)
+		mi.err = mi.target.unmarshalKey(keyOut, nextKey)
 		return mi.err == nil
 	}
 
