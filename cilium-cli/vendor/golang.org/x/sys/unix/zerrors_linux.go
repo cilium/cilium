@@ -493,6 +493,7 @@ const (
 	BPF_F_TEST_RUN_ON_CPU                       = 0x1
 	BPF_F_TEST_STATE_FREQ                       = 0x8
 	BPF_F_TEST_XDP_LIVE_FRAMES                  = 0x2
+	BPF_F_XDP_DEV_BOUND_ONLY                    = 0x40
 	BPF_F_XDP_HAS_FRAGS                         = 0x20
 	BPF_H                                       = 0x8
 	BPF_IMM                                     = 0x0
@@ -1197,6 +1198,7 @@ const (
 	FAN_EVENT_METADATA_LEN                      = 0x18
 	FAN_EVENT_ON_CHILD                          = 0x8000000
 	FAN_FS_ERROR                                = 0x8000
+	FAN_INFO                                    = 0x20
 	FAN_MARK_ADD                                = 0x1
 	FAN_MARK_DONT_FOLLOW                        = 0x4
 	FAN_MARK_EVICTABLE                          = 0x200
@@ -1233,6 +1235,8 @@ const (
 	FAN_REPORT_PIDFD                            = 0x80
 	FAN_REPORT_TARGET_FID                       = 0x1000
 	FAN_REPORT_TID                              = 0x100
+	FAN_RESPONSE_INFO_AUDIT_RULE                = 0x1
+	FAN_RESPONSE_INFO_NONE                      = 0x0
 	FAN_UNLIMITED_MARKS                         = 0x20
 	FAN_UNLIMITED_QUEUE                         = 0x10
 	FD_CLOEXEC                                  = 0x1
@@ -1860,6 +1864,7 @@ const (
 	MEMWRITEOOB64                               = 0xc0184d15
 	MFD_ALLOW_SEALING                           = 0x2
 	MFD_CLOEXEC                                 = 0x1
+	MFD_EXEC                                    = 0x10
 	MFD_HUGETLB                                 = 0x4
 	MFD_HUGE_16GB                               = 0x88000000
 	MFD_HUGE_16MB                               = 0x60000000
@@ -1875,6 +1880,7 @@ const (
 	MFD_HUGE_8MB                                = 0x5c000000
 	MFD_HUGE_MASK                               = 0x3f
 	MFD_HUGE_SHIFT                              = 0x1a
+	MFD_NOEXEC_SEAL                             = 0x8
 	MINIX2_SUPER_MAGIC                          = 0x2468
 	MINIX2_SUPER_MAGIC2                         = 0x2478
 	MINIX3_SUPER_MAGIC                          = 0x4d5a
@@ -1898,6 +1904,9 @@ const (
 	MOUNT_ATTR_SIZE_VER0                        = 0x20
 	MOUNT_ATTR_STRICTATIME                      = 0x20
 	MOUNT_ATTR__ATIME                           = 0x70
+	MREMAP_DONTUNMAP                            = 0x4
+	MREMAP_FIXED                                = 0x2
+	MREMAP_MAYMOVE                              = 0x1
 	MSDOS_SUPER_MAGIC                           = 0x4d44
 	MSG_BATCH                                   = 0x40000
 	MSG_CMSG_CLOEXEC                            = 0x40000000
@@ -2221,6 +2230,7 @@ const (
 	PERF_ATTR_SIZE_VER5                         = 0x70
 	PERF_ATTR_SIZE_VER6                         = 0x78
 	PERF_ATTR_SIZE_VER7                         = 0x80
+	PERF_ATTR_SIZE_VER8                         = 0x88
 	PERF_AUX_FLAG_COLLISION                     = 0x8
 	PERF_AUX_FLAG_CORESIGHT_FORMAT_CORESIGHT    = 0x0
 	PERF_AUX_FLAG_CORESIGHT_FORMAT_RAW          = 0x100
@@ -2369,6 +2379,7 @@ const (
 	PR_GET_FP_MODE                              = 0x2e
 	PR_GET_IO_FLUSHER                           = 0x3a
 	PR_GET_KEEPCAPS                             = 0x7
+	PR_GET_MDWE                                 = 0x42
 	PR_GET_NAME                                 = 0x10
 	PR_GET_NO_NEW_PRIVS                         = 0x27
 	PR_GET_PDEATHSIG                            = 0x2
@@ -2389,6 +2400,7 @@ const (
 	PR_MCE_KILL_GET                             = 0x22
 	PR_MCE_KILL_LATE                            = 0x0
 	PR_MCE_KILL_SET                             = 0x1
+	PR_MDWE_REFUSE_EXEC_GAIN                    = 0x1
 	PR_MPX_DISABLE_MANAGEMENT                   = 0x2c
 	PR_MPX_ENABLE_MANAGEMENT                    = 0x2b
 	PR_MTE_TAG_MASK                             = 0x7fff8
@@ -2423,6 +2435,7 @@ const (
 	PR_SET_FP_MODE                              = 0x2d
 	PR_SET_IO_FLUSHER                           = 0x39
 	PR_SET_KEEPCAPS                             = 0x8
+	PR_SET_MDWE                                 = 0x41
 	PR_SET_MM                                   = 0x23
 	PR_SET_MM_ARG_END                           = 0x9
 	PR_SET_MM_ARG_START                         = 0x8
@@ -3238,6 +3251,7 @@ const (
 	TP_STATUS_COPY                              = 0x2
 	TP_STATUS_CSUMNOTREADY                      = 0x8
 	TP_STATUS_CSUM_VALID                        = 0x80
+	TP_STATUS_GSO_TCP                           = 0x100
 	TP_STATUS_KERNEL                            = 0x0
 	TP_STATUS_LOSING                            = 0x4
 	TP_STATUS_SENDING                           = 0x2

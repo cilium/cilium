@@ -24,6 +24,12 @@ type IPV4BigTCP struct {
 
 	// Is IPv4 BIG TCP enabled
 	Enabled bool `json:"enabled,omitempty"`
+
+	// Maximum IPv4 GRO size
+	MaxGRO int64 `json:"maxGRO,omitempty"`
+
+	// Maximum IPv4 GSO size
+	MaxGSO int64 `json:"maxGSO,omitempty"`
 }
 
 // Validate validates this IP v4 big TCP

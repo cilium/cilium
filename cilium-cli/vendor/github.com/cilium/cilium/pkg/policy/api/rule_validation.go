@@ -190,7 +190,7 @@ func (e *EgressRule) sanitize() error {
 		"ToCIDRSet":   true,
 		"ToEndpoints": true,
 		"ToEntities":  true,
-		"ToServices":  true,
+		"ToServices":  false, // see https://github.com/cilium/cilium/issues/20067
 		"ToFQDNs":     true,
 		"ToGroups":    true,
 	}
