@@ -1,0 +1,62 @@
+name: Create an EKS cluster
+description: Create an EKS cluster
+inputs:
+  cluster_name:
+    description: ''
+    required: true
+  region:
+    description: ''
+    required: true
+  owner:
+    description: ''
+    required: true
+  version:
+    description: ''
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Create EKS cluster
+      shell: bash
+      run: |
+        cat <<EOF > eks-config.yaml
+        apiVersion: eksctl.io/v1alpha5
+        kind: ClusterConfig
+
+        metadata:
+          name: ${{ inputs.cluster_name }}
+          region: ${{ inputs.region }}
+          version: "${{ inputs.version }}"
+          tags:
+           usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
+           owner: "${{ inputs.owner }}"
+
+        managedNodeGroups:
+        - name: ng-amd64
+          instanceTypes:
+           - t3.medium
+          desiredCapacity: 1
+          spot: true
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 10
+          taints:
+           - key: "node.cilium.io/agent-not-ready"
+             value: "true"
+             effect: "NoExecute"
+        - name: ng-arm64
+          instanceTypes:
+           - t4g.medium
+          desiredCapacity: 1
+          spot: true
+          privateNetworking: true
+          volumeType: "gp3"
+          volumeSize: 10
+          taints:
+           - key: "node.cilium.io/agent-not-ready"
+             value: "true"
+             effect: "NoExecute"
+        EOF
+
+        eksctl create cluster -f ./eks-config.yaml
