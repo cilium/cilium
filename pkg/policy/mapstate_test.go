@@ -5,8 +5,10 @@ package policy
 
 import (
 	"fmt"
+	"testing"
 
 	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
@@ -15,6 +17,84 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
+
+func Test_IsSuperSetOf(t *testing.T) {
+	tests := []struct {
+		superSet Key
+		subSet   Key
+		res      int
+	}{
+		{Key{}, Key{}, 0},
+		{Key{0, 0, 0, 0}, Key{42, 0, 6, 0}, 1},
+		{Key{0, 0, 0, 0}, Key{42, 80, 6, 0}, 1},
+		{Key{0, 0, 0, 0}, Key{42, 0, 0, 0}, 1},
+		{Key{0, 0, 6, 0}, Key{42, 0, 6, 0}, 2},
+		{Key{0, 0, 6, 0}, Key{42, 80, 6, 0}, 2},
+		{Key{0, 80, 6, 0}, Key{42, 80, 6, 0}, 3},
+		{Key{0, 80, 6, 0}, Key{42, 80, 17, 0}, 0},  // proto is different
+		{Key{2, 80, 6, 0}, Key{42, 80, 6, 0}, 0},   // id is different
+		{Key{0, 8080, 6, 0}, Key{42, 80, 6, 0}, 0}, // port is different
+		{Key{42, 0, 0, 0}, Key{42, 0, 0, 0}, 0},    // same key
+		{Key{42, 0, 0, 0}, Key{42, 0, 6, 0}, 4},
+		{Key{42, 0, 0, 0}, Key{42, 80, 6, 0}, 4},
+		{Key{42, 0, 0, 0}, Key{42, 0, 17, 0}, 4},
+		{Key{42, 0, 0, 0}, Key{42, 80, 17, 0}, 4},
+		{Key{42, 0, 6, 0}, Key{42, 0, 6, 0}, 0}, // same key
+		{Key{42, 0, 6, 0}, Key{42, 80, 6, 0}, 5},
+		{Key{42, 0, 6, 0}, Key{42, 8080, 6, 0}, 5},
+		{Key{42, 80, 6, 0}, Key{42, 80, 6, 0}, 0},    // same key
+		{Key{42, 80, 6, 0}, Key{42, 8080, 6, 0}, 0},  // different port
+		{Key{42, 80, 6, 0}, Key{42, 80, 17, 0}, 0},   // different proto
+		{Key{42, 80, 6, 0}, Key{42, 8080, 17, 0}, 0}, // different port and proto
+
+		// increasing specificity for a L3/L4 key
+		{Key{0, 0, 0, 0}, Key{42, 80, 6, 0}, 1},
+		{Key{0, 0, 6, 0}, Key{42, 80, 6, 0}, 2},
+		{Key{0, 80, 6, 0}, Key{42, 80, 6, 0}, 3},
+		{Key{42, 0, 0, 0}, Key{42, 80, 6, 0}, 4},
+		{Key{42, 0, 6, 0}, Key{42, 80, 6, 0}, 5},
+		{Key{42, 80, 6, 0}, Key{42, 80, 6, 0}, 0}, // same key
+
+		// increasing specificity for a L3-only key
+		{Key{0, 0, 0, 0}, Key{42, 0, 0, 0}, 1},
+		{Key{0, 0, 6, 0}, Key{42, 0, 0, 0}, 0},   // not a superset
+		{Key{0, 80, 6, 0}, Key{42, 0, 0, 0}, 0},  // not a superset
+		{Key{42, 0, 0, 0}, Key{42, 0, 0, 0}, 0},  // same key
+		{Key{42, 0, 6, 0}, Key{42, 0, 0, 0}, 0},  // not a superset
+		{Key{42, 80, 6, 0}, Key{42, 0, 0, 0}, 0}, // not a superset
+
+		// increasing specificity for a L3/proto key
+		{Key{0, 0, 0, 0}, Key{42, 0, 6, 0}, 1},
+		{Key{0, 0, 6, 0}, Key{42, 0, 6, 0}, 2},
+		{Key{0, 80, 6, 0}, Key{42, 0, 6, 0}, 0}, // not a superset
+		{Key{42, 0, 0, 0}, Key{42, 0, 6, 0}, 4},
+		{Key{42, 0, 6, 0}, Key{42, 0, 6, 0}, 0},  // same key
+		{Key{42, 80, 6, 0}, Key{42, 0, 6, 0}, 0}, // not a superset
+
+		// increasing specificity for a proto-only key
+		{Key{0, 0, 0, 0}, Key{0, 0, 6, 0}, 1},
+		{Key{0, 0, 6, 0}, Key{0, 0, 6, 0}, 0},   // same key
+		{Key{0, 80, 6, 0}, Key{0, 0, 6, 0}, 0},  // not a superset
+		{Key{42, 0, 0, 0}, Key{0, 0, 6, 0}, 0},  // not a superset
+		{Key{42, 0, 6, 0}, Key{0, 0, 6, 0}, 0},  // not a superset
+		{Key{42, 80, 6, 0}, Key{0, 0, 6, 0}, 0}, // not a superset
+
+		// increasing specificity for a L4-only key
+		{Key{0, 0, 0, 0}, Key{0, 80, 6, 0}, 1},
+		{Key{0, 0, 6, 0}, Key{0, 80, 6, 0}, 2},
+		{Key{0, 80, 6, 0}, Key{0, 80, 6, 0}, 0},  // same key
+		{Key{42, 0, 0, 0}, Key{0, 80, 6, 0}, 0},  // not a superset
+		{Key{42, 0, 6, 0}, Key{0, 80, 6, 0}, 0},  // not a superset
+		{Key{42, 80, 6, 0}, Key{0, 80, 6, 0}, 0}, // not a superset
+
+	}
+	for i, tt := range tests {
+		assert.Equal(t, tt.res, tt.superSet.IsSuperSetOf(tt.subSet), fmt.Sprintf("IsSuperSetOf failed on round %d", i+1))
+		if tt.res != 0 {
+			assert.Equal(t, 0, tt.subSet.IsSuperSetOf(tt.superSet), fmt.Sprintf("Reverse IsSuperSetOf succeeded on round %d", i+1))
+		}
+	}
+}
 
 // WithOwners replaces owners of 'e' with 'owners'.
 // No owners is represented with a 'nil' map.
@@ -28,6 +108,7 @@ func (e MapStateEntry) WithOwners(owners ...MapStateOwner) MapStateEntry {
 
 // WithAuthType sets auth type field as indicated.
 func (e MapStateEntry) WithAuthType(authType AuthType) MapStateEntry {
+	e.hasAuthType = ExplicitAuthType
 	e.AuthType = authType
 	return e
 }
@@ -1378,7 +1459,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			if x.cs != nil {
 				cs = x.cs
 			}
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, AuthTypeDisabled, nil)
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, DefaultAuthType, AuthTypeDisabled, nil)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
 		policyMapState.validatePortProto(c)
@@ -1401,6 +1482,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 		ingress  bool
 		redirect bool
 		deny     bool
+		hasAuth  HasAuthType
 		authType AuthType
 	}
 	tests := []struct {
@@ -1594,7 +1676,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			if x.cs != nil {
 				cs = x.cs
 			}
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, x.authType, nil)
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, x.hasAuth, x.authType, nil)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState, policyFeatures(0), nil)
 		policyMapState.validatePortProto(c)
@@ -2154,7 +2236,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			if x.cs != nil {
 				cs = x.cs
 			}
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, AuthTypeDisabled, nil)
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, DefaultAuthType, AuthTypeDisabled, nil)
 		}
 		adds, deletes = policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
 		// Visibilty redirects need to be re-applied after consumeMapChanges()
