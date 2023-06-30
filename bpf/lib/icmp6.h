@@ -11,7 +11,7 @@
 #include "drop.h"
 #include "eps.h"
 
-#define ICMP6_TYPE_OFFSET (sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_type))
+#define ICMP6_TYPE_OFFSET offsetof(struct icmp6hdr, icmp6_type)
 #define ICMP6_CSUM_OFFSET (sizeof(struct ipv6hdr) + offsetof(struct icmp6hdr, icmp6_cksum))
 #define ICMP6_ND_TARGET_OFFSET (sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr))
 #define ICMP6_ND_OPTS (sizeof(struct ipv6hdr) + sizeof(struct icmp6hdr) + sizeof(struct in6_addr))
@@ -40,9 +40,9 @@
 #define ACTION_UNKNOWN_ICMP6_NS DROP_UNKNOWN_TARGET
 #endif
 
-static __always_inline int icmp6_load_type(struct __ctx_buff *ctx, int nh_off, __u8 *type)
+static __always_inline int icmp6_load_type(struct __ctx_buff *ctx, int l4_off, __u8 *type)
 {
-	return ctx_load_bytes(ctx, nh_off + ICMP6_TYPE_OFFSET, type, sizeof(*type));
+	return ctx_load_bytes(ctx, l4_off + ICMP6_TYPE_OFFSET, type, sizeof(*type));
 }
 
 static __always_inline int icmp6_send_reply(struct __ctx_buff *ctx, int nh_off)
@@ -369,7 +369,7 @@ is_icmp6_ndp(struct __ctx_buff *ctx, const struct ipv6hdr *ip6, int nh_off)
 {
 	__u8 type;
 
-	if (icmp6_load_type(ctx, nh_off, &type) < 0)
+	if (icmp6_load_type(ctx, nh_off + sizeof(struct ipv6hdr), &type) < 0)
 		return false;
 
 	return ip6->nexthdr == IPPROTO_ICMPV6 &&
@@ -381,7 +381,7 @@ static __always_inline int icmp6_ndp_handle(struct __ctx_buff *ctx, int nh_off,
 {
 	__u8 type;
 
-	if (icmp6_load_type(ctx, nh_off, &type) < 0)
+	if (icmp6_load_type(ctx, nh_off + sizeof(struct ipv6hdr), &type) < 0)
 		return DROP_INVALID;
 
 	cilium_dbg(ctx, DBG_ICMP6_HANDLE, type, 0);
@@ -395,11 +395,11 @@ static __always_inline int icmp6_ndp_handle(struct __ctx_buff *ctx, int nh_off,
 }
 
 static __always_inline int
-icmp6_host_handle(struct __ctx_buff *ctx __maybe_unused)
+icmp6_host_handle(struct __ctx_buff *ctx, int l4_off)
 {
 	__u8 type;
 
-	if (icmp6_load_type(ctx, ETH_HLEN, &type) < 0)
+	if (icmp6_load_type(ctx, l4_off, &type) < 0)
 		return DROP_INVALID;
 
 	/* When the host firewall is enabled, we drop and allow ICMPv6 messages
