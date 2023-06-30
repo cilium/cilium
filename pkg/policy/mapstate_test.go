@@ -1736,7 +1736,7 @@ func (ds *PolicyTestSuite) TestMapState_AddVisibilityKeys(c *check.C) {
 				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
 			want: MapState{
-				HttpIngressKey(0): allowEntryD(12345, labels.LabelArrayList{visibilityDerivedFromLabels, testLabels}),
+				HttpIngressKey(0): allowEntryD(12345, labels.LabelArrayList{visibilityDerivedFromLabels, testLabels}, nil),
 			},
 		},
 		{
@@ -1863,15 +1863,12 @@ func (ds *PolicyTestSuite) TestMapState_AddVisibilityKeys(c *check.C) {
 		for k, v := range tt.keys {
 			if v2, ok := old[k]; ok {
 				if equals, _ := checker.DeepEqual(v2, v); !equals {
-					wantAdds[k] = struct{}{}
 					wantOld[k] = v2
 				}
 			} else {
 				wantAdds[k] = struct{}{}
 			}
 		}
-		fmt.Printf("Adds: %v\n", adds)
-		fmt.Printf("wantAdds: %v\n", wantAdds)
 		c.Assert(adds, checker.DeepEquals, wantAdds, check.Commentf(tt.name))
 		c.Assert(visOld, checker.DeepEquals, wantOld, check.Commentf(tt.name))
 	}
@@ -1917,9 +1914,8 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		visAdds: Keys{
-			HttpIngressKey(0):         {},
-			testIngressKey(234, 0, 0): {}, // dependents changed
-			HttpIngressKey(234):       {},
+			HttpIngressKey(0):   {},
+			HttpIngressKey(234): {},
 		},
 		visOld: MapState{
 			testIngressKey(234, 0, 0): denyEntry(0, csFoo),
@@ -2110,7 +2106,6 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		},
 		visAdds: Keys{
 			HttpIngressKey(0): {},
-			HttpEgressKey(0):  {},
 		},
 		visOld: MapState{
 			// Old value for the modified entry
@@ -2126,7 +2121,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			// Entry added solely due to visibility annotation has a 'nil' owner
 			HttpIngressKey(0): allowEntryD(12345, visibilityDerivedFrom).WithOwners(nil),
 			// Entries modified due to visibility annotation keep their existing owners (here none)
-			HttpEgressKey(0):    allowEntryD(12346, visibilityDerivedFrom),
+			HttpEgressKey(0):    allowEntryD(12346, visibilityDerivedFrom, nil),
 			DNSUDPEgressKey(42): allowEntryD(12347, visibilityDerivedFrom, csBar),
 			DNSTCPEgressKey(42): allowEntry(0, csBar),
 		},
@@ -2162,7 +2157,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			AnyIngressKey():     allowEntry(0),
 			HostIngressKey():    allowEntry(0),
 			HttpIngressKey(0):   allowEntryD(12345, visibilityDerivedFrom).WithOwners(nil),
-			HttpEgressKey(0):    allowEntryD(12346, visibilityDerivedFrom),
+			HttpEgressKey(0):    allowEntryD(12346, visibilityDerivedFrom, nil),
 			DNSUDPEgressKey(42): allowEntryD(12347, visibilityDerivedFrom, csBar),
 			DNSTCPEgressKey(42): allowEntry(0, csBar),
 			// Redirect entries are not modified by visibility annotations
