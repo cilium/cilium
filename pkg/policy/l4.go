@@ -235,18 +235,36 @@ const (
 	AuthTypeAlwaysFail
 )
 
+type HasAuthType bool
+
+const (
+	DefaultAuthType  HasAuthType = false
+	ExplicitAuthType HasAuthType = true
+)
+
 // GetAuthType returns the AuthType of the L4Filter.
-func (a *PerSelectorPolicy) GetAuthType() AuthType {
-	if a == nil || a.Authentication == nil {
-		return AuthTypeDisabled
+func (a *PerSelectorPolicy) GetAuthType() (HasAuthType, AuthType) {
+	if a == nil {
+		return DefaultAuthType, AuthTypeDisabled
 	}
-	switch a.Authentication.Mode {
+	return GetAuthType(a.Authentication)
+}
+
+// GetAuthType returns boolean HasAuthType and AuthType for the api.Authentication
+// If there is no explicit auth type, (DefaultAuthType, AuthTypeDisabled) is returned
+func GetAuthType(auth *api.Authentication) (HasAuthType, AuthType) {
+	if auth == nil {
+		return DefaultAuthType, AuthTypeDisabled
+	}
+	switch auth.Mode {
+	case api.AuthenticationModeDisabled:
+		return ExplicitAuthType, AuthTypeDisabled
 	case api.AuthenticationModeRequired:
-		return AuthTypeSpire
+		return ExplicitAuthType, AuthTypeSpire
 	case api.AuthenticationModeAlwaysFail:
-		return AuthTypeAlwaysFail
+		return ExplicitAuthType, AuthTypeAlwaysFail
 	default:
-		return AuthTypeDisabled
+		return DefaultAuthType, AuthTypeDisabled
 	}
 }
 
@@ -551,7 +569,8 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, f
 			}
 		}
 
-		entry := NewMapStateEntry(cs, l4Filter.RuleOrigin[cs], currentRule.IsRedirect(), isDenyRule, currentRule.GetAuthType())
+		_, authType := currentRule.GetAuthType()
+		entry := NewMapStateEntry(cs, l4Filter.RuleOrigin[cs], currentRule.IsRedirect(), isDenyRule, authType)
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			if entryCb(keyToAdd, &entry) {
@@ -623,7 +642,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, added, del
 		}
 		perSelectorPolicy := l4.PerSelectorPolicies[selector]
 		isRedirect := perSelectorPolicy.IsRedirect()
-		authType := perSelectorPolicy.GetAuthType()
+		_, authType := perSelectorPolicy.GetAuthType()
 		isDeny := perSelectorPolicy != nil && perSelectorPolicy.IsDeny
 		l4Policy.AccumulateMapChanges(selector, added, deleted, l4, direction, isRedirect, isDeny, authType)
 	}
@@ -864,20 +883,22 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) policyFeatures
 			if cp.IsDeny {
 				features.setFeature(denyRules)
 			}
-			if cp.Authentication != nil {
-				features.setFeature(authRules)
-			}
 
-			if authType := cp.GetAuthType(); authType != AuthTypeDisabled {
-				if l4Policy.AuthMap == nil {
-					l4Policy.AuthMap = make(AuthMap, 1)
+			hasAuth, authType := GetAuthType(cp.Authentication)
+			if hasAuth {
+				features.setFeature(authRules)
+
+				if authType != AuthTypeDisabled {
+					if l4Policy.AuthMap == nil {
+						l4Policy.AuthMap = make(AuthMap, 1)
+					}
+					authTypes := l4Policy.AuthMap[cs]
+					if authTypes == nil {
+						authTypes = make(AuthTypes, 1)
+					}
+					authTypes[authType] = struct{}{}
+					l4Policy.AuthMap[cs] = authTypes
 				}
-				authTypes := l4Policy.AuthMap[cs]
-				if authTypes == nil {
-					authTypes = make(AuthTypes, 1)
-				}
-				authTypes[authType] = struct{}{}
-				l4Policy.AuthMap[cs] = authTypes
 			}
 
 			// Compute Envoy policies when a policy is ready to be used
