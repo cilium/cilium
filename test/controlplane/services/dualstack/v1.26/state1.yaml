@@ -6,16 +6,49 @@ items:
     annotations:
       kubectl.kubernetes.io/last-applied-configuration: |
         {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"echo-dualstack","namespace":"default"},"spec":{"ipFamilies":["IPv4","IPv6"],"ipFamilyPolicy":"RequireDualStack","ports":[{"name":"http","port":80,"protocol":"TCP"},{"name":"tftp","port":69,"protocol":"UDP"}],"selector":{"name":"echo"},"type":"NodePort"}}
-    creationTimestamp: "2022-09-12T22:10:09Z"
+    creationTimestamp: "2023-06-30T19:38:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:kubectl.kubernetes.io/last-applied-configuration: {}
+        f:spec:
+          f:externalTrafficPolicy: {}
+          f:internalTrafficPolicy: {}
+          f:ipFamilies: {}
+          f:ipFamilyPolicy: {}
+          f:ports:
+            .: {}
+            k:{"port":69,"protocol":"UDP"}:
+              .: {}
+              f:name: {}
+              f:port: {}
+              f:protocol: {}
+              f:targetPort: {}
+            k:{"port":80,"protocol":"TCP"}:
+              .: {}
+              f:name: {}
+              f:port: {}
+              f:protocol: {}
+              f:targetPort: {}
+          f:selector: {}
+          f:sessionAffinity: {}
+          f:type: {}
+      manager: kubectl
+      operation: Update
+      time: "2023-06-30T19:38:27Z"
     name: echo-dualstack
     namespace: default
-    resourceVersion: "729"
-    uid: c553a001-13a3-4f61-896c-ff40ddfd0e85
+    resourceVersion: "881"
+    uid: b40c5004-3e7b-4514-962e-92fc2fe198ca
   spec:
-    clusterIP: 10.96.207.99
+    clusterIP: 10.96.164.78
     clusterIPs:
-    - 10.96.207.99
-    - fd00:10:96::b050
+    - 10.96.164.78
+    - fd00:10:96::5a5c
     externalTrafficPolicy: Cluster
     internalTrafficPolicy: Cluster
     ipFamilies:
@@ -24,12 +57,12 @@ items:
     ipFamilyPolicy: RequireDualStack
     ports:
     - name: http
-      nodePort: 30181
+      nodePort: 32150
       port: 80
       protocol: TCP
       targetPort: 80
     - name: tftp
-      nodePort: 32757
+      nodePort: 30784
       port: 69
       protocol: UDP
       targetPort: 69
@@ -42,14 +75,40 @@ items:
 - apiVersion: v1
   kind: Service
   metadata:
-    creationTimestamp: "2022-09-12T22:09:11Z"
+    creationTimestamp: "2023-06-30T19:36:35Z"
     labels:
       component: apiserver
       provider: kubernetes
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:labels:
+            .: {}
+            f:component: {}
+            f:provider: {}
+        f:spec:
+          f:clusterIP: {}
+          f:internalTrafficPolicy: {}
+          f:ipFamilyPolicy: {}
+          f:ports:
+            .: {}
+            k:{"port":443,"protocol":"TCP"}:
+              .: {}
+              f:name: {}
+              f:port: {}
+              f:protocol: {}
+              f:targetPort: {}
+          f:sessionAffinity: {}
+          f:type: {}
+      manager: kube-apiserver
+      operation: Update
+      time: "2023-06-30T19:36:35Z"
     name: kubernetes
     namespace: default
-    resourceVersion: "202"
-    uid: b3860398-9b81-4180-a244-53a4fc9f707f
+    resourceVersion: "194"
+    uid: 6e0c394b-e62b-453d-a0f7-d0c2c4c66efb
   spec:
     clusterIP: 10.96.0.1
     clusterIPs:
@@ -71,28 +130,40 @@ items:
   kind: Endpoints
   metadata:
     annotations:
-      endpoints.kubernetes.io/last-change-trigger-time: "2022-09-12T22:10:24Z"
-    creationTimestamp: "2022-09-12T22:10:09Z"
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-06-30T19:38:57Z"
+    creationTimestamp: "2023-06-30T19:38:27Z"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+        f:subsets: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-06-30T19:38:57Z"
     name: echo-dualstack
     namespace: default
-    resourceVersion: "795"
-    uid: 253192ee-d1cb-4ff0-965f-278f0733ab86
+    resourceVersion: "982"
+    uid: 334c79fb-510b-4bda-aad6-217258210020
   subsets:
   - addresses:
-    - ip: 10.244.1.54
+    - ip: 10.244.1.231
       nodeName: dual-stack-worker
       targetRef:
         kind: Pod
-        name: echo-bc5cf6ffb-xwqcn
+        name: echo-85bb976686-lsjqp
         namespace: default
-        uid: 12e35b98-cb02-4207-8efc-f1390443759f
-    - ip: 10.244.2.9
+        uid: 4d045c6e-e2df-4758-b7b7-c85afb75b874
+    - ip: 10.244.2.162
       nodeName: dual-stack-worker2
       targetRef:
         kind: Pod
-        name: echo-bc5cf6ffb-d8f2v
+        name: echo-85bb976686-46x59
         namespace: default
-        uid: 232e759a-ea90-47bb-861c-f8219b94d336
+        uid: 89ffc028-7af8-4082-8dd2-c4998544dacc
     ports:
     - name: http
       port: 80
@@ -103,16 +174,28 @@ items:
 - apiVersion: v1
   kind: Endpoints
   metadata:
-    creationTimestamp: "2022-09-12T22:09:11Z"
+    creationTimestamp: "2023-06-30T19:36:35Z"
     labels:
       endpointslice.kubernetes.io/skip-mirror: "true"
+    managedFields:
+    - apiVersion: v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:metadata:
+          f:labels:
+            .: {}
+            f:endpointslice.kubernetes.io/skip-mirror: {}
+        f:subsets: {}
+      manager: kube-apiserver
+      operation: Update
+      time: "2023-06-30T19:36:35Z"
     name: kubernetes
     namespace: default
-    resourceVersion: "208"
-    uid: 83072892-a4d1-4cb7-a0ea-4337e6efa48c
+    resourceVersion: "196"
+    uid: 9407dbc9-9480-4355-af12-34b6fafb273b
   subsets:
   - addresses:
-    - ip: 172.18.0.3
+    - ip: 172.18.0.7
     ports:
     - name: https
       port: 6443
@@ -121,7 +204,7 @@ items:
   apiVersion: discovery.k8s.io/v1
   endpoints:
   - addresses:
-    - 10.244.2.9
+    - 10.244.2.162
     conditions:
       ready: true
       serving: true
@@ -129,11 +212,11 @@ items:
     nodeName: dual-stack-worker2
     targetRef:
       kind: Pod
-      name: echo-bc5cf6ffb-d8f2v
+      name: echo-85bb976686-46x59
       namespace: default
-      uid: 232e759a-ea90-47bb-861c-f8219b94d336
+      uid: 89ffc028-7af8-4082-8dd2-c4998544dacc
   - addresses:
-    - 10.244.1.54
+    - 10.244.1.231
     conditions:
       ready: true
       serving: true
@@ -141,20 +224,42 @@ items:
     nodeName: dual-stack-worker
     targetRef:
       kind: Pod
-      name: echo-bc5cf6ffb-xwqcn
+      name: echo-85bb976686-lsjqp
       namespace: default
-      uid: 12e35b98-cb02-4207-8efc-f1390443759f
+      uid: 4d045c6e-e2df-4758-b7b7-c85afb75b874
   kind: EndpointSlice
   metadata:
     annotations:
-      endpoints.kubernetes.io/last-change-trigger-time: "2022-09-12T22:10:24Z"
-    creationTimestamp: "2022-09-12T22:10:09Z"
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-06-30T19:38:57Z"
+    creationTimestamp: "2023-06-30T19:38:27Z"
     generateName: echo-dualstack-
     generation: 5
     labels:
       endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
       kubernetes.io/service-name: echo-dualstack
-    name: echo-dualstack-bhgnn
+    managedFields:
+    - apiVersion: discovery.k8s.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:addressType: {}
+        f:endpoints: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:endpointslice.kubernetes.io/managed-by: {}
+            f:kubernetes.io/service-name: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"b40c5004-3e7b-4514-962e-92fc2fe198ca"}: {}
+        f:ports: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-06-30T19:38:57Z"
+    name: echo-dualstack-lnfnx
     namespace: default
     ownerReferences:
     - apiVersion: v1
@@ -162,9 +267,9 @@ items:
       controller: true
       kind: Service
       name: echo-dualstack
-      uid: c553a001-13a3-4f61-896c-ff40ddfd0e85
-    resourceVersion: "796"
-    uid: 2b61d540-6676-4a24-b1eb-7827a63fb641
+      uid: b40c5004-3e7b-4514-962e-92fc2fe198ca
+    resourceVersion: "981"
+    uid: b18d82bb-9073-4615-bbb0-37f89519ad17
   ports:
   - name: http
     port: 80
@@ -176,7 +281,7 @@ items:
   apiVersion: discovery.k8s.io/v1
   endpoints:
   - addresses:
-    - fd00:10:244:2::a314
+    - fd00:10:244:2::143d
     conditions:
       ready: true
       serving: true
@@ -184,11 +289,11 @@ items:
     nodeName: dual-stack-worker2
     targetRef:
       kind: Pod
-      name: echo-bc5cf6ffb-d8f2v
+      name: echo-85bb976686-46x59
       namespace: default
-      uid: 232e759a-ea90-47bb-861c-f8219b94d336
+      uid: 89ffc028-7af8-4082-8dd2-c4998544dacc
   - addresses:
-    - fd00:10:244:1::247e
+    - fd00:10:244:1::4021
     conditions:
       ready: true
       serving: true
@@ -196,20 +301,42 @@ items:
     nodeName: dual-stack-worker
     targetRef:
       kind: Pod
-      name: echo-bc5cf6ffb-xwqcn
+      name: echo-85bb976686-lsjqp
       namespace: default
-      uid: 12e35b98-cb02-4207-8efc-f1390443759f
+      uid: 4d045c6e-e2df-4758-b7b7-c85afb75b874
   kind: EndpointSlice
   metadata:
     annotations:
-      endpoints.kubernetes.io/last-change-trigger-time: "2022-09-12T22:10:24Z"
-    creationTimestamp: "2022-09-12T22:10:09Z"
+      endpoints.kubernetes.io/last-change-trigger-time: "2023-06-30T19:38:57Z"
+    creationTimestamp: "2023-06-30T19:38:27Z"
     generateName: echo-dualstack-
     generation: 5
     labels:
       endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
       kubernetes.io/service-name: echo-dualstack
-    name: echo-dualstack-mchrt
+    managedFields:
+    - apiVersion: discovery.k8s.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:addressType: {}
+        f:endpoints: {}
+        f:metadata:
+          f:annotations:
+            .: {}
+            f:endpoints.kubernetes.io/last-change-trigger-time: {}
+          f:generateName: {}
+          f:labels:
+            .: {}
+            f:endpointslice.kubernetes.io/managed-by: {}
+            f:kubernetes.io/service-name: {}
+          f:ownerReferences:
+            .: {}
+            k:{"uid":"b40c5004-3e7b-4514-962e-92fc2fe198ca"}: {}
+        f:ports: {}
+      manager: kube-controller-manager
+      operation: Update
+      time: "2023-06-30T19:38:57Z"
+    name: echo-dualstack-vdb5z
     namespace: default
     ownerReferences:
     - apiVersion: v1
@@ -217,9 +344,9 @@ items:
       controller: true
       kind: Service
       name: echo-dualstack
-      uid: c553a001-13a3-4f61-896c-ff40ddfd0e85
-    resourceVersion: "798"
-    uid: 0a1e19ff-848a-40f2-af03-0624513d6ca4
+      uid: b40c5004-3e7b-4514-962e-92fc2fe198ca
+    resourceVersion: "984"
+    uid: 79e3ccf8-6f12-480f-b713-d9c73d52a873
   ports:
   - name: http
     port: 80
@@ -231,19 +358,33 @@ items:
   apiVersion: discovery.k8s.io/v1
   endpoints:
   - addresses:
-    - 172.18.0.3
+    - 172.18.0.7
     conditions:
       ready: true
   kind: EndpointSlice
   metadata:
-    creationTimestamp: "2022-09-12T22:09:11Z"
+    creationTimestamp: "2023-06-30T19:36:35Z"
     generation: 1
     labels:
       kubernetes.io/service-name: kubernetes
+    managedFields:
+    - apiVersion: discovery.k8s.io/v1
+      fieldsType: FieldsV1
+      fieldsV1:
+        f:addressType: {}
+        f:endpoints: {}
+        f:metadata:
+          f:labels:
+            .: {}
+            f:kubernetes.io/service-name: {}
+        f:ports: {}
+      manager: kube-apiserver
+      operation: Update
+      time: "2023-06-30T19:36:35Z"
     name: kubernetes
     namespace: default
-    resourceVersion: "210"
-    uid: 459fe6d1-d0ea-47c2-939a-3cbaee503bc0
+    resourceVersion: "198"
+    uid: 73330cd2-3a58-4bed-9929-81229e1a6fd2
   ports:
   - name: https
     port: 6443
@@ -251,3 +392,4 @@ items:
 kind: List
 metadata:
   resourceVersion: ""
+  selfLink: ""

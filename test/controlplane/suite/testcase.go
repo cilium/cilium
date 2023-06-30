@@ -391,18 +391,17 @@ var (
 	// This is mostly relevant for the feature detection at pkg/k8s/version/version.go.
 	// The lists here are currently not exhaustive and expanded on need-by-need basis.
 	apiResources = map[string][]*metav1.APIResourceList{
-		"1.24": {
-			corev1APIResources,
-			discoveryV1APIResources,
-			discoveryV1beta1APIResources,
-			ciliumv2APIResources,
-		},
 		"1.25": {
 			corev1APIResources,
 			discoveryV1APIResources,
 			ciliumv2APIResources,
 		},
 		"1.26": {
+			corev1APIResources,
+			discoveryV1APIResources,
+			ciliumv2APIResources,
+		},
+		"1.27": {
 			corev1APIResources,
 			discoveryV1APIResources,
 			ciliumv2APIResources,
