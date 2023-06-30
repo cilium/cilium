@@ -102,7 +102,7 @@ Therefore, the Cilium agent needs to be made aware of this information with the 
     API_SERVER_PORT=<your_api_server_port>
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set kubeProxyReplacement=strict \\
+        --set kubeProxyReplacement=true \\
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
@@ -137,10 +137,10 @@ is ready to operate:
     cilium-mkcmb        1/1       Running   0          10m
 
 Note, in above Helm configuration, the ``kubeProxyReplacement`` has been set to
-``strict`` mode. This means that the Cilium agent will bail out in case the
+``true`` mode. This means that the Cilium agent will bail out in case the
 underlying Linux kernel support is missing.
 
-By default, Helm sets ``kubeProxyReplacement=disabled``, which only enables
+By default, Helm sets ``kubeProxyReplacement=false``, which only enables
 per-packet in-cluster load-balancing of ClusterIP services.
 
 Cilium's eBPF kube-proxy replacement is supported in direct routing as well as in
@@ -155,7 +155,7 @@ the Cilium agent is running in the desired mode:
 .. code-block:: shell-session
 
     $ kubectl -n kube-system exec ds/cilium -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict	[eth0 (Direct Routing), eth1]
+    KubeProxyReplacement:   True	[eth0 (Direct Routing), eth1]
 
 Use ``--verbose`` for full details:
 
@@ -164,7 +164,7 @@ Use ``--verbose`` for full details:
     $ kubectl -n kube-system exec ds/cilium -- cilium status --verbose
     [...]
     KubeProxyReplacement Details:
-      Status:                Strict
+      Status:                True
       Socket LB:             Enabled
       Protocols:             TCP, UDP
       Devices:               eth0 (Direct Routing), eth1
@@ -380,7 +380,7 @@ Maglev hashing for services load balancing can be enabled by setting ``loadBalan
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set kubeProxyReplacement=strict \\
+        --set kubeProxyReplacement=true \\
         --set loadBalancer.algorithm=maglev \\
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
@@ -444,7 +444,7 @@ given service (with the property of at most 1% difference on backend reassignmen
     SEED=$(head -c12 /dev/urandom | base64 -w0)
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set kubeProxyReplacement=strict \\
+        --set kubeProxyReplacement=true \\
         --set loadBalancer.algorithm=maglev \\
         --set maglev.tableSize=65521 \\
         --set maglev.hashSeed=$SEED \\
@@ -516,7 +516,7 @@ enabled would look as follows:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set routingMode=native \\
-        --set kubeProxyReplacement=strict \\
+        --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=dsr \\
         --set loadBalancer.dsrDispatch=opt \\
         --set k8sServiceHost=${API_SERVER_IP} \\
@@ -547,7 +547,7 @@ Geneve dispatch enabled would look as follows:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set tunnel=disabled \\
-        --set kubeProxyReplacement=strict \\
+        --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=dsr \\
         --set loadBalancer.dsrDispatch=geneve \\
         --set k8sServiceHost=${API_SERVER_IP} \\
@@ -563,7 +563,7 @@ The example configuration in DSR with Geneve dispatch and tunneling mode is as f
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set tunnel=geneve \\
-        --set kubeProxyReplacement=strict \\
+        --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=dsr \\
         --set loadBalancer.dsrDispatch=geneve \\
         --set k8sServiceHost=${API_SERVER_IP} \\
@@ -592,7 +592,7 @@ mode would look as follows:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set routingMode=native \\
-        --set kubeProxyReplacement=strict \\
+        --set kubeProxyReplacement=true \\
         --set loadBalancer.mode=hybrid \\
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
@@ -628,7 +628,7 @@ looks as follows:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set routingMode=native \\
-        --set kubeProxyReplacement=strict \\
+        --set kubeProxyReplacement=true \\
         --set socketLB.hostNamespaceOnly=true
 
 .. _XDP acceleration:
@@ -664,7 +664,7 @@ modes and can be enabled as follows for ``loadBalancer.mode=hybrid`` in this exa
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set routingMode=native \\
-        --set kubeProxyReplacement=strict \\
+        --set kubeProxyReplacement=true \\
         --set loadBalancer.acceleration=native \\
         --set loadBalancer.mode=hybrid \\
         --set k8sServiceHost=${API_SERVER_IP} \\
@@ -805,7 +805,7 @@ Finally, the deployment can be upgraded and later rolled-out with the
   helm upgrade cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --reuse-values \\
-        --set kubeProxyReplacement=strict \\
+        --set kubeProxyReplacement=true \\
         --set loadBalancer.acceleration=native \\
         --set loadBalancer.mode=snat \\
         --set k8sServiceHost=${API_SERVER_IP} \\
@@ -866,7 +866,7 @@ will automatically configure your virtual network to route pod traffic correctly
      --set routingMode=native \\
      --set enableIPv4Masquerade=false \\
      --set devices=eth0 \\
-     --set kubeProxyReplacement=strict \\
+     --set kubeProxyReplacement=true \\
      --set loadBalancer.acceleration=native \\
      --set loadBalancer.mode=hybrid \\
      --set k8sServiceHost=${API_SERVER_IP} \\
@@ -959,7 +959,7 @@ The default value of this LB map size is 65536.
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set kubeProxyReplacement=strict \\
+        --set kubeProxyReplacement=true \\
         --set bpf.lbMapMax=131072
 
 .. _kubeproxyfree_hostport:
@@ -971,7 +971,7 @@ Although not part of kube-proxy, Cilium's eBPF kube-proxy replacement also
 natively supports ``hostPort`` service mapping without having to use the
 Helm CNI chaining option of ``cni.chainingMode=portmap``.
 
-By specifying ``kubeProxyReplacement=strict`` the native hostPort support is
+By specifying ``kubeProxyReplacement=true`` the native hostPort support is
 automatically enabled and therefore no further action is required. Otherwise
 ``hostPort.enabled=true`` can be used to enable the setting.
 
@@ -993,7 +993,7 @@ as in the earlier getting started deployment:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set kubeProxyReplacement=strict \\
+        --set kubeProxyReplacement=true \\
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
@@ -1108,9 +1108,9 @@ underlying Linux kernel requirements do not support a full kube-proxy replacemen
    spawned up node/cluster which does not yet serve user traffic, then this is not an
    issue.
 
-This section elaborates on the various ``kubeProxyReplacement`` options:
+This section elaborates on the ``kubeProxyReplacement`` options:
 
-- ``kubeProxyReplacement=strict``: When using this option, it's highly recommended
+- ``kubeProxyReplacement=true``: When using this option, it's highly recommended
   to run a kube-proxy-free Kubernetes setup where Cilium is expected to fully replace
   all kube-proxy functionality. However, if it's not possible to remove kube-proxy for
   specific reasons (e.g. Kubernetes distribution limitations), it's also acceptable to
@@ -1122,13 +1122,16 @@ This section elaborates on the various ``kubeProxyReplacement`` options:
   (see :ref:`kubeproxy-free` note), then the Cilium agent will bail out on start-up
   with an error message.
 
-- ``kubeProxyReplacement=partial``: This option is intended for a hybrid setup,
-  that is, kube-proxy is running in the Kubernetes cluster where Cilium
-  partially replaces and optimizes kube-proxy functionality. The ``partial``
+- ``kubeProxyReplacement=false``: This option is used to disable any Kubernetes service
+  handling by fully relying on kube-proxy instead, except for ClusterIP services
+  accessed from pods (pre-v1.6 behavior), or for a hybrid setup. That is,
+  kube-proxy is running in the Kubernetes cluster where Cilium
+  partially replaces and optimizes kube-proxy functionality. The ``false``
   option requires the user to manually specify which components for the eBPF
   kube-proxy replacement should be used.
-  Similarly to ``strict`` mode, the Cilium agent will bail out on start-up with
-  an error message if the underlying kernel requirements are not met. For
+  Similarly to ``true`` mode, the Cilium agent will bail out on start-up with
+  an error message if the underlying kernel requirements are not met when components
+  are manually enabled. For
   fine-grained configuration, ``socketLB.enabled``, ``nodePort.enabled``,
   ``externalIPs.enabled`` and ``hostPort.enabled`` can be set to ``true``. By
   default all four options are set to ``false``.
@@ -1137,23 +1140,23 @@ This section elaborates on the various ``kubeProxyReplacement`` options:
   start the NodePort health check server (``kube-proxy`` will also attempt to start
   this server, and there would otherwise be a clash when cilium attempts to bind its server to the
   same port). A few example configurations
-  for the ``partial`` option are provided below.
+  for the ``false`` option are provided below.
 
 .. note::
 
-    Switching from the ``strict`` to ``disabled`` mode, or vice versa can break
+    Switching from the ``true`` to ``false`` mode, or vice versa can break
     existing connections to services in a cluster. The same goes for enabling, or
     disabling ``socketLB``. It is recommended to drain all the workloads before
     performing such configuration changes.
 
-  The following Helm setup below would be equivalent to ``kubeProxyReplacement=strict``
+  The following Helm setup below would be equivalent to ``kubeProxyReplacement=true``
   in a kube-proxy-free environment:
 
   .. parsed-literal::
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set kubeProxyReplacement=partial \\
+        --set kubeProxyReplacement=false \\
         --set socketLB.enabled=true \\
         --set nodePort.enabled=true \\
         --set externalIPs.enabled=true \\
@@ -1170,7 +1173,7 @@ This section elaborates on the various ``kubeProxyReplacement`` options:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set kubeProxyReplacement=partial
+        --set kubeProxyReplacement=false
 
   The following Helm setup below would optimize Cilium's NodePort, LoadBalancer and services
   with externalIPs handling for external traffic ingressing into the Cilium managed node in
@@ -1180,15 +1183,11 @@ This section elaborates on the various ``kubeProxyReplacement`` options:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set kubeProxyReplacement=partial \\
+        --set kubeProxyReplacement=false \\
         --set nodePort.enabled=true \\
         --set externalIPs.enabled=true
 
-- ``kubeProxyReplacement=disabled``: This option disables any Kubernetes service
-  handling by fully relying on kube-proxy instead, except for ClusterIP services
-  accessed from pods (pre-v1.6 behavior).
-
-In Cilium's Helm chart, the default mode is ``kubeProxyReplacement=disabled`` for
+In Cilium's Helm chart, the default mode is ``kubeProxyReplacement=false`` for
 new deployments.
 
 The current Cilium kube-proxy replacement mode can also be introspected through the
@@ -1197,7 +1196,7 @@ The current Cilium kube-proxy replacement mode can also be introspected through 
 .. code-block:: shell-session
 
     $ kubectl -n kube-system exec ds/cilium -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict	[eth0 (DR)]
+    KubeProxyReplacement:   True	[eth0 (DR)]
 
 Graceful Termination
 ********************
