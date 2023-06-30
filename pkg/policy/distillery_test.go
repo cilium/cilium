@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -142,7 +143,7 @@ func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
 var (
 	// Identity, labels, selectors for an endpoint named "foo"
 	identityFoo = uint32(100)
-	labelsFoo   = labels.ParseSelectLabelArray("foo", "red")
+	labelsFoo   = labels.ParseSelectLabelArray("foo", "blue")
 	selectFoo_  = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 	allowFooL3_ = selectFoo_
 	denyFooL3__ = selectFoo_
@@ -257,17 +258,36 @@ var (
 				WithIngressRules([]api.IngressRule{{
 			ToPorts: combineL4L7(allowNamedPort80, allowHTTPRoot),
 		}})
-	lbls__L3AllowFoo = labels.ParseLabelArray("l3-allow-foo")
-	rule__L3AllowFoo = api.NewRule().
-				WithLabels(lbls__L3AllowFoo).
+	lblsL3__AllowFoo = labels.ParseLabelArray("l3-allow-foo")
+	ruleL3__AllowFoo = api.NewRule().
+				WithLabels(lblsL3__AllowFoo).
 				WithIngressRules([]api.IngressRule{{
 			IngressCommonRule: api.IngressCommonRule{
 				FromEndpoints: []api.EndpointSelector{allowFooL3_},
 			},
 		}})
-	lbls__L3AllowBar     = labels.ParseLabelArray("l3-allow-bar")
-	rule__L3AllowBarAuth = api.NewRule().
-				WithLabels(lbls__L3AllowBar).
+	lblsL3__AllowBar = labels.ParseLabelArray("l3-allow-bar")
+	ruleL3__AllowBar = api.NewRule().
+				WithLabels(lblsL3__AllowBar).
+				WithIngressRules([]api.IngressRule{{
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{allowBarL3_},
+			},
+		}})
+	lblsL3L4AllowBar     = labels.ParseLabelArray("l3l4-allow-bar")
+	ruleL3L4AllowBarAuth = api.NewRule().
+				WithLabels(lblsL3L4AllowBar).
+				WithIngressRules([]api.IngressRule{{
+			ToPorts: allowPort80,
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{allowBarL3_},
+			},
+			Authentication: &api.Authentication{
+				Mode: api.AuthenticationModeAlwaysFail,
+			},
+		}})
+	ruleL3__AllowBarAuth = api.NewRule().
+				WithLabels(lblsL3__AllowBar).
 				WithIngressRules([]api.IngressRule{{
 			IngressCommonRule: api.IngressCommonRule{
 				FromEndpoints: []api.EndpointSelector{allowBarL3_},
@@ -282,6 +302,16 @@ var (
 				WithIngressRules([]api.IngressRule{{
 			IngressCommonRule: api.IngressCommonRule{
 				FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+			},
+		}})
+	rule____AllowAllAuth = api.NewRule().
+				WithLabels(lbls____AllowAll).
+				WithIngressRules([]api.IngressRule{{
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+			},
+			Authentication: &api.Authentication{
+				Mode: api.AuthenticationModeRequired,
 			},
 		}})
 	lblsAllowAllIngress = labels.LabelArray{
@@ -326,6 +356,7 @@ var (
 	// Desired map keys for L3, L3-dependent L4, L4
 	mapKeyAllowFoo__ = Key{identityFoo, 0, 0, dirIngress}
 	mapKeyAllowBar__ = Key{identityBar, 0, 0, dirIngress}
+	mapKeyAllowBarL4 = Key{identityBar, 80, 6, dirIngress}
 	mapKeyAllowFooL4 = Key{identityFoo, 80, 6, dirIngress}
 	mapKeyDeny_Foo__ = mapKeyAllowFoo__
 	mapKeyDeny_FooL4 = mapKeyAllowFooL4
@@ -335,16 +366,16 @@ var (
 	mapKeyAllowAllE_ = Key{0, 0, 0, dirEgress}
 	// Desired map entries for no L7 redirect / redirect to Proxy
 	mapEntryL7None_ = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, false, AuthTypeDisabled).WithOwners()
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, false, DefaultAuthType, AuthTypeDisabled).WithOwners()
 	}
 	mapEntryL7Auth_ = func(at AuthType, lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, false, at).WithOwners()
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, false, ExplicitAuthType, at).WithOwners()
 	}
 	mapEntryL7Deny_ = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, true, AuthTypeDisabled).WithOwners()
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, true, DefaultAuthType, AuthTypeDisabled).WithOwners()
 	}
 	mapEntryL7Proxy = func(lbls ...labels.LabelArray) MapStateEntry {
-		entry := NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), true, false, AuthTypeDisabled).WithOwners()
+		entry := NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), true, false, DefaultAuthType, AuthTypeDisabled).WithOwners()
 		entry.ProxyPort = 4242
 		return entry
 	}
@@ -405,6 +436,39 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 	return epp.PolicyMapState, nil
 }
 
+// Perm calls f with each permutation of a.
+func Perm[X any](a []X, f func([]X)) {
+	perm(a, f, 0)
+}
+
+// Permute the values at index i to len(a)-1.
+func perm[X any](a []X, f func([]X), i int) {
+	if i > len(a) {
+		f(a)
+		return
+	}
+	perm(a, f, i+1)
+	for j := i + 1; j < len(a); j++ {
+		a[i], a[j] = a[j], a[i]
+		perm(a, f, i+1)
+		a[i], a[j] = a[j], a[i]
+	}
+}
+
+func Test_Perm(t *testing.T) {
+	var res []string
+	expected := []string{
+		"abc",
+		"acb",
+		"bac",
+		"bca",
+		"cba",
+		"cab",
+	}
+	Perm([]rune("abc"), func(x []rune) { res = append(res, string(x)) })
+	assert.Equal(t, res, expected, "invalid permutations")
+}
+
 func Test_MergeL3(t *testing.T) {
 	// Cache policy enforcement value from when test was ran to avoid pollution
 	// across tests.
@@ -428,11 +492,47 @@ func Test_MergeL3(t *testing.T) {
 	}{
 		{
 			0,
-			api.Rules{rule__L3AllowFoo, rule__L3AllowBarAuth, rule__L4__AllowAuth},
+			api.Rules{ruleL3__AllowFoo, ruleL3__AllowBar},
+			MapState{
+				mapKeyAllowFoo__: mapEntryL7None_(lblsL3__AllowFoo),
+				mapKeyAllowBar__: mapEntryL7None_(lblsL3__AllowBar),
+			},
+			authResult{
+				identity.NumericIdentity(identityBar): AuthTypes{},
+				identity.NumericIdentity(identityFoo): AuthTypes{},
+			},
+		},
+		{
+			1,
+			api.Rules{ruleL3__AllowFoo, ruleL3L4__Allow},
+			MapState{
+				mapKeyAllowFoo__: mapEntryL7None_(lblsL3__AllowFoo),
+				mapKeyAllowFooL4: mapEntryL7None_(lblsL3L4__Allow),
+			},
+			authResult{
+				identity.NumericIdentity(identityBar): AuthTypes{},
+				identity.NumericIdentity(identityFoo): AuthTypes{},
+			},
+		},
+		{
+			2,
+			api.Rules{ruleL3__AllowFoo, ruleL3__AllowBarAuth},
+			MapState{
+				mapKeyAllowFoo__: mapEntryL7None_(lblsL3__AllowFoo),
+				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
+			},
+			authResult{
+				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeAlwaysFail: struct{}{}},
+				identity.NumericIdentity(identityFoo): AuthTypes{},
+			},
+		},
+		{
+			3,
+			api.Rules{ruleL3__AllowFoo, ruleL3__AllowBarAuth, rule__L4__AllowAuth},
 			MapState{
 				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeSpire, lbls__L4__Allow),
-				mapKeyAllowFoo__: mapEntryL7None_(lbls__L3AllowFoo),
-				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lbls__L3AllowBar),
+				mapKeyAllowFoo__: mapEntryL7None_(lblsL3__AllowFoo),
+				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
 			},
 			authResult{
 				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeAlwaysFail: struct{}{}, AuthTypeSpire: struct{}{}},
@@ -440,11 +540,92 @@ func Test_MergeL3(t *testing.T) {
 			},
 		},
 		{
-			1,
-			api.Rules{rule__L3AllowFoo, ruleL3L4__Allow},
-			MapState{mapKeyAllowFoo__: mapEntryL7None_(lbls__L3AllowFoo), mapKeyAllowFooL4: mapEntryL7None_(lblsL3L4__Allow)},
+			4,
+			api.Rules{rule____AllowAll, ruleL3__AllowBarAuth},
+			MapState{
+				mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll),
+				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
+			},
+			authResult{
+				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeAlwaysFail: struct{}{}},
+				identity.NumericIdentity(identityFoo): AuthTypes{},
+			},
+		},
+		{
+			5,
+			api.Rules{rule____AllowAllAuth, ruleL3__AllowBar},
+			MapState{
+				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeSpire, lbls____AllowAll),
+				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeSpire, lblsL3__AllowBar),
+			},
+			authResult{
+				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeSpire: struct{}{}},
+				identity.NumericIdentity(identityFoo): AuthTypes{AuthTypeSpire: struct{}{}},
+			},
+		},
+		{
+			6,
+			api.Rules{rule____AllowAllAuth, rule__L4__Allow},
+			MapState{
+				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeSpire, lbls____AllowAll),
+				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeSpire, lbls__L4__Allow),
+			},
+			authResult{
+				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeSpire: struct{}{}},
+				identity.NumericIdentity(identityFoo): AuthTypes{AuthTypeSpire: struct{}{}},
+			},
+		},
+		{
+			7,
+			api.Rules{rule____AllowAllAuth, ruleL3__AllowBar, rule__L4__Allow},
+			MapState{
+				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeSpire, lbls____AllowAll),
+				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeSpire, lbls__L4__Allow),
+				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeSpire, lblsL3__AllowBar),
+			},
+			authResult{
+				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeSpire: struct{}{}},
+				identity.NumericIdentity(identityFoo): AuthTypes{AuthTypeSpire: struct{}{}},
+			},
+		},
+		{
+			8,
+			api.Rules{rule____AllowAll, ruleL3__AllowBar, rule__L4__Allow},
+			MapState{
+				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeDisabled, lbls____AllowAll),
+				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeDisabled, lbls__L4__Allow),
+				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeDisabled, lblsL3__AllowBar),
+			},
 			authResult{
 				identity.NumericIdentity(identityBar): AuthTypes{},
+				identity.NumericIdentity(identityFoo): AuthTypes{},
+			},
+		},
+		{
+			9,
+			api.Rules{rule____AllowAll, rule__L4__Allow, ruleL3__AllowBarAuth},
+			MapState{
+				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeDisabled, lbls____AllowAll),
+				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeDisabled, lbls__L4__Allow),
+				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
+				mapKeyAllowBarL4: mapEntryL7Auth_(AuthTypeAlwaysFail, lbls__L4__Allow, lblsL3__AllowBar),
+			},
+			authResult{
+				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeAlwaysFail: struct{}{}},
+				identity.NumericIdentity(identityFoo): AuthTypes{},
+			},
+		},
+		{
+			10, // Same as 9, but the L3L4 entry is created by an explicit rule.
+			api.Rules{rule____AllowAll, rule__L4__Allow, ruleL3__AllowBarAuth, ruleL3L4AllowBarAuth},
+			MapState{
+				mapKeyAllowAll__: mapEntryL7Auth_(AuthTypeDisabled, lbls____AllowAll),
+				mapKeyAllow___L4: mapEntryL7Auth_(AuthTypeDisabled, lbls__L4__Allow),
+				mapKeyAllowBar__: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3__AllowBar),
+				mapKeyAllowBarL4: mapEntryL7Auth_(AuthTypeAlwaysFail, lblsL3L4AllowBar, lbls__L4__Allow, lblsL3__AllowBar),
+			},
+			authResult{
+				identity.NumericIdentity(identityBar): AuthTypes{AuthTypeAlwaysFail: struct{}{}},
 				identity.NumericIdentity(identityFoo): AuthTypes{},
 			},
 		},
@@ -452,31 +633,36 @@ func Test_MergeL3(t *testing.T) {
 
 	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
 	for _, tt := range tests {
-		repo := newPolicyDistillery(selectorCache)
-		for _, r := range tt.rules {
-			if r != nil {
-				rule := r.WithEndpointSelector(selectFoo_)
-				_, _ = repo.AddList(api.Rules{rule})
-			}
+		for i, r := range tt.rules {
+			tt.rules[i] = r.WithEndpointSelector(selectFoo_)
 		}
-		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
-			logBuffer := new(bytes.Buffer)
-			repo = repo.WithLogBuffer(logBuffer)
-			mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo, identity)
-			if err != nil {
-				t.Errorf("Policy resolution failure: %s", err)
-			}
-			if equal, err := checker.ExportedEqual(mapstate, tt.result); !equal {
-				t.Logf("Rules:\n%s\n\n", tt.rules.String())
-				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
-				t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, err)
-			}
-			for remoteID, expectedAuthTypes := range tt.auths {
-				authTypes := repo.GetAuthTypes(identity.ID, remoteID)
-				if !maps.Equal(authTypes, expectedAuthTypes) {
-					t.Errorf("Incorrect AuthTypes result for remote ID %d: obtained %v, expected %v", remoteID, authTypes, expectedAuthTypes)
+
+		round := 0
+		Perm(tt.rules, func(rules []*api.Rule) {
+			round++
+
+			repo := newPolicyDistillery(selectorCache)
+			_, _ = repo.AddList(rules)
+
+			t.Run(fmt.Sprintf("permutation_%d-%d", tt.test, round), func(t *testing.T) {
+				logBuffer := new(bytes.Buffer)
+				repo = repo.WithLogBuffer(logBuffer)
+				mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo, identity)
+				if err != nil {
+					t.Errorf("Policy resolution failure: %s", err)
 				}
-			}
+				if equal, err := checker.ExportedEqual(mapstate, tt.result); !equal {
+					t.Logf("Rules:\n%s\n\n", api.Rules(rules).String())
+					t.Logf("Policy Trace: \n%s\n", logBuffer.String())
+					t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s\nObtained: %v\nExpected: %v", labelsFoo, err, mapstate, tt.result)
+				}
+				for remoteID, expectedAuthTypes := range tt.auths {
+					authTypes := repo.GetAuthTypes(identity.ID, remoteID)
+					if !maps.Equal(authTypes, expectedAuthTypes) {
+						t.Errorf("Incorrect AuthTypes result for remote ID %d: obtained %v, expected %v", remoteID, authTypes, expectedAuthTypes)
+					}
+				}
+			})
 		})
 	}
 }
