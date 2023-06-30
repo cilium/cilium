@@ -171,15 +171,6 @@ struct ipv4_nat_entry *snat_v4_lookup(const struct ipv4_ct_tuple *tuple)
 	return __snat_lookup(&SNAT_MAPPING_IPV4, tuple);
 }
 
-static __always_inline int snat_v4_update(const struct ipv4_ct_tuple *otuple,
-					  const struct ipv4_nat_entry *ostate,
-					  const struct ipv4_ct_tuple *rtuple,
-					  const struct ipv4_nat_entry *rstate)
-{
-	return __snat_update(&SNAT_MAPPING_IPV4, otuple, ostate,
-			     rtuple, rstate);
-}
-
 static __always_inline void snat_v4_swap_tuple(const struct ipv4_ct_tuple *otuple,
 					       struct ipv4_ct_tuple *rtuple)
 {
