@@ -469,19 +469,26 @@ func (l4 *L4Filter) GetListener() string {
 	return l4.Listener
 }
 
-// 'mapStateEntryCallback' is a function called for each entry before adding to a MapState. If the
+// 'entryCallback' is a function called for each entry before adding to a MapState. If the
 // function returns 'true', the entry is added, otherwise not. The function gets a reference to the
 // entry so that it may update it's value (e.g., the proxy port).
-type mapStateEntryCallback func(key Key, value *MapStateEntry) bool
+type entryCallback func(key Key, value *MapStateEntry) bool
+
+// ChangeState allows caller to revert changes made by (multiple) toMapState call(s)
+type ChangeState struct {
+	Adds    Keys     // Added or modified keys, if not nil
+	Deletes Keys     // deleted keys, if not nil
+	Old     MapState // Old values of all modified or deleted keys, if not nil
+}
 
 // toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
 //
 // Note: It is possible for two selectors to select the same security ID.  To give priority to deny,
 // AuthType, and L7 redirection (e.g., for visibility purposes), the mapstate entries are added to
 // 'p.PolicyMapState' using denyPreferredInsertWithChanges().
-// Keys of any added or deleted entries are added to 'adds' or 'deletes', respectively, if not nil.
-// PolicyOwner (aka Endpoint) is locked during this call.
-func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, features policyFeatures, entryCb mapStateEntryCallback, adds, deletes Keys, old MapState) {
+// Keys and old values of any added or deleted entries are added to 'changes'.
+// The implementation of 'identities' is also in a locked state.
+func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, features policyFeatures, entryCb entryCallback, changes ChangeState) {
 	port := uint16(l4Filter.Port)
 	proto := uint8(l4Filter.U8Proto)
 
@@ -545,7 +552,7 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, f
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			if entryCb(keyToAdd, &entry) {
-				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, features, adds, deletes, old, identities)
+				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, identities, features, changes)
 
 				if port == 0 {
 					// Allow-all
@@ -575,7 +582,7 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, f
 		for _, id := range idents {
 			keyToAdd.Identity = id.Uint32()
 			if entryCb(keyToAdd, &entry) {
-				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, features, adds, deletes, old, identities)
+				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, identities, features, changes)
 			}
 		}
 	}
