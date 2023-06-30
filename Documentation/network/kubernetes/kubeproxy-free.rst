@@ -474,32 +474,39 @@ This setting can be changed through the ``loadBalancer.mode`` Helm option to
 ``dsr`` in order to let Cilium's eBPF NodePort implementation operate in DSR mode.
 In this mode, the backends reply directly to the external client without taking
 the extra hop, meaning, backends reply by using the service IP/port as a source.
-DSR currently requires Cilium to be deployed in :ref:`arch_direct_routing`, i.e.
-it will not work in either tunneling mode.
 
 Another advantage in DSR mode is that the client's source IP is preserved, so policy
 can match on it at the backend node. In the SNAT mode this is not possible.
 Given a specific backend can be used by multiple services, the backends need to be
-made aware of the service IP/port which they need to reply with. Therefore, Cilium
-encodes this information in a Cilium-specific IPv4 option or IPv6 Destination Option
-extension header at the cost of advertising a lower MTU. For TCP services, Cilium
-only encodes the service IP/port for the SYN packet, but not subsequent ones. The
-latter also allows to operate Cilium in a hybrid mode as detailed in the later subsection
-where DSR is used for TCP and SNAT for UDP in order to avoid an otherwise needed MTU
-reduction.
+made aware of the service IP/port which they need to reply with. Cilium encodes this
+information into the packet (using one of the dispatch mechanisms described below),
+at the cost of advertising a lower MTU. For TCP services, Cilium
+only encodes the service IP/port for the SYN packet, but not subsequent ones. This
+optimization also allows to operate Cilium in a hybrid mode as detailed in the later
+subsection where DSR is used for TCP and SNAT for UDP in order to avoid an otherwise
+needed MTU reduction.
 
-Note that usage of DSR mode might not work in some public cloud provider environments
+In some public cloud provider environments that implement source /
+destination IP address checking (e.g. AWS), the checking has to be disabled in
+order for the DSR mode to work.
+
+.. _DSR mode with Option:
+
+Direct Server Return (DSR) with IPv4 option / IPv6 extension Header
+*******************************************************************
+
+In this DSR dispatch mode, the service IP/port information is transported to the
+backend through a Cilium-specific IPv4 Option or IPv6 Destination Option extension header.
+It requires Cilium to be deployed in :ref:`arch_direct_routing`, i.e.
+it will not work in :ref:`arch_overlay` mode.
+
+This DSR mode might not work in some public cloud provider environments
 due to the Cilium-specific IP options that could be dropped by an underlying network fabric.
 In case of connectivity issues to services where backends are located on
 a remote node from the node that is processing the given NodePort request,
 first check whether the NodePort request actually arrived on the node
 containing the backend. If this was not the case, then consider either switching to
-DSR with Geneve which will be described in the later sections, or switching back to
-the default SNAT mode would be advised as a workaround.
-
-Also, in some public cloud provider environments, which implement a source /
-destination IP address checking (e.g. AWS), the checking has to be disabled in
-order for the DSR mode to work.
+DSR with Geneve (as described below), or switching back to the default SNAT mode.
 
 The above Helm example configuration in a kube-proxy-free environment with DSR-only mode
 enabled would look as follows:
@@ -511,6 +518,7 @@ enabled would look as follows:
         --set routingMode=native \\
         --set kubeProxyReplacement=strict \\
         --set loadBalancer.mode=dsr \\
+        --set loadBalancer.dsrDispatch=opt \\
         --set k8sServiceHost=${API_SERVER_IP} \\
         --set k8sServicePort=${API_SERVER_PORT}
 
