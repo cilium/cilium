@@ -476,9 +476,9 @@ type mapStateEntryCallback func(key Key, value *MapStateEntry) bool
 
 // toMapState converts a single filter into a MapState entries added to 'p.PolicyMapState'.
 //
-// Note: It is possible for two selectors to select the same security ID.  To give priority to deny
-// and L7 redirection (e.g., for visibility purposes), the mapstate entries are added to 'p.PolicyMapState'
-// using denyPreferredInsertWithChanges().
+// Note: It is possible for two selectors to select the same security ID.  To give priority to deny,
+// AuthType, and L7 redirection (e.g., for visibility purposes), the mapstate entries are added to
+// 'p.PolicyMapState' using denyPreferredInsertWithChanges().
 // Keys of any added or deleted entries are added to 'adds' or 'deletes', respectively, if not nil.
 // PolicyOwner (aka Endpoint) is locked during this call.
 func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, features policyFeatures, entryCb mapStateEntryCallback, adds, deletes Keys, old MapState) {
@@ -540,9 +540,8 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, f
 			// L4-only rule.
 			isRedirect = wildcardRule.IsRedirect()
 		}
-		_, authType := currentRule.GetAuthType()
-		entry := NewMapStateEntry(cs, l4Filter.RuleOrigin[cs], isRedirect, isDenyRule, authType)
-
+		hasAuth, authType := currentRule.GetAuthType()
+		entry := NewMapStateEntry(cs, l4Filter.RuleOrigin[cs], isRedirect, isDenyRule, hasAuth, authType)
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			if entryCb(keyToAdd, &entry) {
@@ -614,9 +613,9 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, added, del
 		}
 		perSelectorPolicy := l4.PerSelectorPolicies[selector]
 		isRedirect := perSelectorPolicy.IsRedirect()
-		_, authType := perSelectorPolicy.GetAuthType()
+		hasAuth, authType := perSelectorPolicy.GetAuthType()
 		isDeny := perSelectorPolicy != nil && perSelectorPolicy.IsDeny
-		l4Policy.AccumulateMapChanges(selector, added, deleted, l4, direction, isRedirect, isDeny, authType)
+		l4Policy.AccumulateMapChanges(selector, added, deleted, l4, direction, isRedirect, isDeny, hasAuth, authType)
 	}
 }
 
@@ -1231,7 +1230,7 @@ func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
 func (l4 *L4Policy) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity, l4Filter *L4Filter,
-	direction trafficdirection.TrafficDirection, redirect, isDeny bool, authType AuthType) {
+	direction trafficdirection.TrafficDirection, redirect, isDeny bool, hasAuth HasAuthType, authType AuthType) {
 	port := uint16(l4Filter.Port)
 	proto := uint8(l4Filter.U8Proto)
 	derivedFrom := l4Filter.RuleOrigin[cs]
@@ -1253,7 +1252,7 @@ func (l4 *L4Policy) AccumulateMapChanges(cs CachedSelector, adds, deletes []iden
 				continue
 			}
 		}
-		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, port, proto, direction, redirect, isDeny, authType, derivedFrom)
+		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, port, proto, direction, redirect, isDeny, hasAuth, authType, derivedFrom)
 	}
 }
 
