@@ -49,7 +49,7 @@ github.com/chai2010/gettext-go
 github.com/chai2010/gettext-go/mo
 github.com/chai2010/gettext-go/plural
 github.com/chai2010/gettext-go/po
-# github.com/cilium/charts v0.0.0-20230616201641-91a44e07622e
+# github.com/cilium/charts v0.0.0-20230628232147-9992996cd311
 ## explicit; go 1.17
 github.com/cilium/charts
 # github.com/cilium/cilium v1.14.0-snapshot.4
@@ -174,7 +174,7 @@ github.com/cilium/proxy/go/envoy/type/matcher/v3
 github.com/cilium/proxy/go/envoy/type/metadata/v3
 github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
-# github.com/cilium/tetragon/pkg/k8s v0.0.0-20230623074329-a1bca948bc02
+# github.com/cilium/tetragon/pkg/k8s v0.0.0-20230629143644-bebd9b4809b5
 ## explicit; go 1.18
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io/v1alpha1
@@ -868,7 +868,7 @@ golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/pkcs12
 golang.org/x/crypto/pkcs12/internal/rc2
 golang.org/x/crypto/scrypt
-# golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
+# golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
