@@ -964,6 +964,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 					__u32 src_sec_identity,
 					__s8 *ext_err)
 {
+	bool is_svc_proto __maybe_unused = true;
 	int ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv6_ct_tuple tuple = {};
 	struct lb6_service *svc;
@@ -976,8 +977,10 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
-		if (ret == DROP_NO_SERVICE)
+		if (ret == DROP_NO_SERVICE) {
+			is_svc_proto = false;
 			goto skip_service_lookup;
+		}
 		if (ret == DROP_UNKNOWN_L4) {
 			ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 			return CTX_ACT_OK;
@@ -1033,9 +1036,9 @@ skip_service_lookup:
 		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 #ifdef ENABLE_DSR
-		if (nodeport_uses_dsr6(&tuple)) {
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
 	(!defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
+		if (nodeport_uses_dsr6(&tuple)) {
 			bool dsr = false;
 
 			ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off,
@@ -1049,13 +1052,14 @@ skip_service_lookup:
 
 			if (IS_ERR(ret))
 				return ret;
+		}
 #endif
+#endif /* ENABLE_DSR */
 
 #ifndef ENABLE_MASQUERADE_IPV6
+		if (!is_svc_proto || nodeport_uses_dsr6(&tuple))
 			return CTX_ACT_OK;
 #endif /* ENABLE_MASQUERADE_IPV6 */
-		}
-#endif /* ENABLE_DSR */
 
 		ctx_store_meta(ctx, CB_NAT_46X64, 0);
 		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
@@ -2362,9 +2366,9 @@ skip_service_lookup:
 		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 #ifdef ENABLE_DSR
-		if (nodeport_uses_dsr4(&tuple)) {
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
 	(!defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE != DSR_ENCAP_GENEVE)
+		if (nodeport_uses_dsr4(&tuple)) {
 			bool dsr = false;
 
 			/* Check if packet has embedded DSR info, or belongs to
@@ -2381,17 +2385,20 @@ skip_service_lookup:
 
 			if (IS_ERR(ret))
 				return ret;
+		}
 #endif
+#endif /* ENABLE_DSR */
+
 #ifndef ENABLE_MASQUERADE_IPV4
-			/* The packet is DSR-eligible, so we know for sure that it is
-			 * not reply traffic by a remote backend which would require
-			 * forwarding / revDNAT. If BPF-Masquerading is off, there is no
-			 * other reason to tail-call CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS.
-			 */
+		/* When BPF-Masquerading is off, we can skip the revSNAT path via
+		 * CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS if:
+		 * - the packet is ICMP, or
+		 * - the packet is DSR-eligible (and thus not reply traffic by
+		 *   a remote backend that would require revSNAT / revDNAT)
+		 */
+		if (!is_svc_proto || nodeport_uses_dsr4(&tuple))
 			return CTX_ACT_OK;
 #endif /* ENABLE_MASQUERADE_IPV4 */
-		}
-#endif /* ENABLE_DSR */
 
 		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 		/* For NAT64 we might see an IPv4 reply from the backend to
