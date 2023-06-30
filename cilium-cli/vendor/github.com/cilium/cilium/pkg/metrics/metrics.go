@@ -314,6 +314,7 @@ var (
 	CIDRGroupTranslationTimeStats = NoOpHistogram
 
 	// CIDRGroupPolicies is the number of CNPs and CCNPs referencing at least one CiliumCIDRGroup.
+	// CNPs with empty or non-existing CIDRGroupRefs are not considered
 	CIDRGroupPolicies = NoOpGauge
 
 	// Identity
@@ -443,6 +444,9 @@ var (
 	// KubernetesAPIInteractions is the total time taken to process an API call made
 	// to the kube-apiserver
 	KubernetesAPIInteractions = NoOpObserverVec
+
+	// KubernetesAPIRateLimiterLatency is the client side rate limiter latency metric
+	KubernetesAPIRateLimiterLatency = NoOpObserverVec
 
 	// KubernetesAPICallsTotal is the counter for all API calls made to
 	// kube-apiserver.
@@ -613,6 +617,7 @@ type LegacyMetrics struct {
 	KubernetesEventProcessed         metric.Vec[metric.Counter]
 	KubernetesEventReceived          metric.Vec[metric.Counter]
 	KubernetesAPIInteractions        metric.Vec[metric.Observer]
+	KubernetesAPIRateLimiterLatency  metric.Vec[metric.Observer]
 	KubernetesAPICallsTotal          metric.Vec[metric.Counter]
 	KubernetesCNPStatusCompletion    metric.Vec[metric.Observer]
 	TerminatingEndpointsEvents       metric.Counter
@@ -1001,6 +1006,15 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Duration of processed API calls labeled by path and method.",
 		}, []string{LabelPath, LabelMethod}),
 
+		KubernetesAPIRateLimiterLatency: metric.NewHistogramVec(metric.HistogramOpts{
+			ConfigName: Namespace + "_" + SubsystemK8sClient + "_rate_limiter_duration_seconds",
+			Namespace:  Namespace,
+			Subsystem:  SubsystemK8sClient,
+			Name:       "rate_limiter_duration_seconds",
+			Help:       "Kubernetes client rate limiter latency in seconds. Broken down by path and method.",
+			Buckets:    []float64{0.005, 0.025, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 15.0, 30.0, 60.0},
+		}, []string{LabelPath, LabelMethod}),
+
 		KubernetesAPICallsTotal: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_" + SubsystemK8sClient + "_api_calls_total",
 			Namespace:  Namespace,
@@ -1331,6 +1345,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	KubernetesEventProcessed = lm.KubernetesEventProcessed
 	KubernetesEventReceived = lm.KubernetesEventReceived
 	KubernetesAPIInteractions = lm.KubernetesAPIInteractions
+	KubernetesAPIRateLimiterLatency = lm.KubernetesAPIRateLimiterLatency
 	KubernetesAPICallsTotal = lm.KubernetesAPICallsTotal
 	KubernetesCNPStatusCompletion = lm.KubernetesCNPStatusCompletion
 	TerminatingEndpointsEvents = lm.TerminatingEndpointsEvents
