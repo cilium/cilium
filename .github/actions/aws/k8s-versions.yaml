@@ -1,0 +1,6 @@
+# List of k8s version for GKE tests
+---
+include:
+  - version: "1.23"
+    region: eu-central-1
+    default: true
