@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/api/v1/client/prefilter"
 	"github.com/cilium/cilium/api/v1/client/recorder"
 	"github.com/cilium/cilium/api/v1/client/service"
+	"github.com/cilium/cilium/api/v1/client/statedb"
 )
 
 // Default cilium API HTTP client.
@@ -75,6 +76,7 @@ func New(transport runtime.ClientTransport, formats strfmt.Registry) *CiliumAPI 
 	cli.Prefilter = prefilter.New(transport, formats)
 	cli.Recorder = recorder.New(transport, formats)
 	cli.Service = service.New(transport, formats)
+	cli.Statedb = statedb.New(transport, formats)
 	return cli
 }
 
@@ -137,6 +139,8 @@ type CiliumAPI struct {
 
 	Service service.ClientService
 
+	Statedb statedb.ClientService
+
 	Transport runtime.ClientTransport
 }
 
@@ -152,4 +156,5 @@ func (c *CiliumAPI) SetTransport(transport runtime.ClientTransport) {
 	c.Prefilter.SetTransport(transport)
 	c.Recorder.SetTransport(transport)
 	c.Service.SetTransport(transport)
+	c.Statedb.SetTransport(transport)
 }

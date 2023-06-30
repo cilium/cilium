@@ -1068,6 +1068,9 @@ func (h *Handle) RouteListFiltered(family int, filter *Route, filterMask uint64)
 				continue
 			case filterMask&RT_FILTER_DST != 0:
 				if filter.MPLSDst == nil || route.MPLSDst == nil || (*filter.MPLSDst) != (*route.MPLSDst) {
+					if filter.Dst == nil {
+						filter.Dst = genZeroIPNet(family)
+					}
 					if !ipNetEqual(route.Dst, filter.Dst) {
 						continue
 					}
@@ -1258,6 +1261,27 @@ func deserializeRoute(m []byte) (Route, error) {
 				case unix.RTAX_FASTOPEN_NO_COOKIE:
 					route.FastOpenNoCookie = int(native.Uint32(metric.Value[0:4]))
 				}
+			}
+		}
+	}
+
+	// Same logic to generate "default" dst with iproute2 implementation
+	if route.Dst == nil {
+		var addLen int
+		var ip net.IP
+		switch msg.Family {
+		case FAMILY_V4:
+			addLen = net.IPv4len
+			ip = net.IPv4zero
+		case FAMILY_V6:
+			addLen = net.IPv6len
+			ip = net.IPv6zero
+		}
+
+		if addLen != 0 {
+			route.Dst = &net.IPNet{
+				IP:   ip,
+				Mask: net.CIDRMask(int(msg.Dst_len), 8*addLen),
 			}
 		}
 	}
@@ -1574,4 +1598,25 @@ func (p RouteProtocol) String() string {
 	default:
 		return strconv.Itoa(int(p))
 	}
+}
+
+// genZeroIPNet returns 0.0.0.0/0 or ::/0 for IPv4 or IPv6, otherwise nil
+func genZeroIPNet(family int) *net.IPNet {
+	var addLen int
+	var ip net.IP
+	switch family {
+	case FAMILY_V4:
+		addLen = net.IPv4len
+		ip = net.IPv4zero
+	case FAMILY_V6:
+		addLen = net.IPv6len
+		ip = net.IPv6zero
+	}
+	if addLen != 0 {
+		return &net.IPNet{
+			IP:   ip,
+			Mask: net.CIDRMask(0, 8*addLen),
+		}
+	}
+	return nil
 }
