@@ -11,6 +11,8 @@ import (
 	"net/netip"
 	"sort"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/cilium/cilium/pkg/slices"
 )
 
@@ -766,7 +768,7 @@ func KeepUniqueAddrs(addrs []netip.Addr) []netip.Addr {
 			return addrs[i].Compare(addrs[j]) < 0
 		},
 		func(a, b netip.Addr) bool {
-			return a == b
+			return a.Compare(b) == 0
 		},
 	)
 }
@@ -852,6 +854,15 @@ func ListContainsIP(ipList []net.IP, ip net.IP) bool {
 	return false
 }
 
+func ListContainsAddr(addrList []netip.Addr, addr netip.Addr) bool {
+	for _, e := range addrList {
+		if e.Compare(addr) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // SortIPList sorts the provided net.IP slice in place.
 func SortIPList(ipList []net.IP) {
 	sort.Slice(ipList, func(i, j int) bool {
@@ -862,9 +873,7 @@ func SortIPList(ipList []net.IP) {
 // getSortedIPList returns a new net.IP slice in which the IPs are sorted.
 func getSortedIPList(ipList []net.IP) []net.IP {
 	sortedIPList := make([]net.IP, len(ipList))
-	for i := 0; i < len(ipList); i++ {
-		sortedIPList[i] = ipList[i]
-	}
+	copy(sortedIPList, ipList)
 
 	SortIPList(sortedIPList)
 	return sortedIPList
@@ -915,6 +924,38 @@ func GetIPFromListByFamily(ipList []net.IP, v4Family bool) net.IP {
 	return nil
 }
 
+// SortedAddrListsAreEqual is the same as SortedIPListsAreEqual but with netip.addr.
+// Lists must be sorted!
+func SortedAddrListsAreEqual(a, b []netip.Addr) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i].Compare(b[i]) != 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
+func AddrListsAreEqual(a, b []netip.Addr) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	if len(a) == 0 {
+		return true
+	}
+	setA := make(sets.Set[netip.Addr], len((a)))
+	setB := make(sets.Set[netip.Addr], len((a)))
+
+	setA.Insert(a...)
+	setB.Insert(b...)
+
+	return setA.Equal(setB)
+}
+
 // AddrFromIP converts a net.IP to netip.Addr using netip.AddrFromSlice, but preserves
 // the original address family. It assumes given net.IP is not an IPv4 mapped IPv6
 // address.
@@ -950,6 +991,11 @@ func MustAddrFromIP(ip net.IP) netip.Addr {
 	return addr
 }
 
+// IPFromAddr is the inverse of AddrFromIP. This cannot fail.
+func IPFromAddr(addr netip.Addr) net.IP {
+	return net.IP(addr.AsSlice())
+}
+
 // MustAddrsFromIPs converts a slice of net.IP to a slice of netip.Addr. It assumes
 // the input slice contains only valid IP addresses and always returns a slice
 // containing valid netip.Addr.
@@ -959,4 +1005,26 @@ func MustAddrsFromIPs(ips []net.IP) []netip.Addr {
 		addrs = append(addrs, MustAddrFromIP(ip))
 	}
 	return addrs
+}
+
+// IPsFromAddrs is the inverse of MustAddrsFromIPs.
+func IPsFromAddrs(addrs []netip.Addr) []net.IP {
+	ips := make([]net.IP, 0, len(addrs))
+	for _, addr := range addrs {
+		ips = append(ips, IPFromAddr(addr))
+	}
+	return ips
+}
+
+func SplitAddrsByFamily(addrs []netip.Addr) (v4s, v6s []netip.Addr) {
+	v4s = make([]netip.Addr, 0, len(addrs))
+	v6s = make([]netip.Addr, 0, len(addrs))
+	for _, addr := range addrs {
+		if addr.Is4() {
+			v4s = append(v4s, addr)
+		} else {
+			v6s = append(v6s, addr)
+		}
+	}
+	return
 }
