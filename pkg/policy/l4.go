@@ -26,69 +26,39 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
-// __canSkipArgs is a wrapper structure to store all boolean conditions for the
-// __canSkipTruthTable.
-type __canSkipArgs struct {
-	currentL3L4Redirect bool
-	currentL3L4Allow    bool
-	l4OnlyRedirect      bool
-	l4OnlyAllow         bool
-}
-
-// __canSkipTruthTable is a map used to store the conditions for which we should
-// skip L3/L4 keys if L4-only key exists.
-var __canSkipTruthTable map[__canSkipArgs]struct{}
-
-func init() {
-	// __canSkipTruthTable contains all the required conditions to skip
-	// the generation of L3/L4 keys.
-	__canSkipTruthTable = map[__canSkipArgs]struct{}{
-		// Skip generating L3/L4 keys if L4-only key (for the same L4 port and
-		// protocol) has the same effect w.r.t. redirecting to the proxy or not,
-		// considering that L3/L4 key should redirect if L4-only key does.
-		//
-		// Also consider that a deny policy should take precedence so that
-		// - l4-only deny overrides l3/l4 allows (and denies)
-		// - l3/l4 deny overrides l4-only allows (for that specific l3)
-		//
-		// This entire logic is needed for the line with (must redirect if
-		// L4-only redirects) apart from this line and the ones marked with
-		// (deny takes precedence), this is logic is entirely an optimization.
-		//
-		// In summary, if have both L3/L4 and L4-only keys:
-		//
-		//    Current L3/L4            L4-only (if any)         Skip generating L3/L4 key
-		//    redirect     allow       none         none        no
-		//    no redirect  allow       none         none        no
-		//    no redirect  deny        none         none        no
-		//    redirect     allow       no redirect  allow       no   (this case tested below)
-		//    redirect     allow       no redirect  deny        yes  (deny takes precedence)
-		/* */ {true /* */, true /* */, false /* */, false}:/**/ {},
-		//    no redirect  allow       no redirect  allow       yes  (same effect)
-		/* */ {false /**/, true /* */, false /* */, true}:/* */ {},
-		//    no redirect  allow       no redirect  deny        yes  (deny takes precedence)
-		/* */ {false /**/, true /* */, false /* */, false}:/**/ {},
-		//    no redirect  deny        no redirect  allow       no   (deny takes precedence)
-		//    no redirect  deny        no redirect  deny        yes  (same effect)
-		/* */ {false /**/, false /**/, false /* */, false}:/**/ {},
-		//    redirect     allow       redirect     allow       yes  (same effect)
-		/* */ {true /* */, true /* */, true /*  */, true}:/* */ {},
-		//    no redirect  allow       redirect     allow       yes  (must redirect if L4-only redirects)
-		/* */ {false /**/, true /* */, true /*  */, true}:/* */ {},
-		//    no redirect  deny        redirect     allow       no   (deny takes precedence)
+// covers returns true if 'l4rule' has the effect needed for the 'l3l4rule', when 'l4rule' is added
+// to the datapath, due to the l4-only rule matching if l3l4-rule is not present. This determination
+// can be done here only when both rules have the same port number (or both have a wildcarded port).
+func (l4rule *PerSelectorPolicy) covers(l3l4rule *PerSelectorPolicy) bool {
+	// Deny takes highest precedence so it is dealt with first
+	if l4rule != nil && l4rule.IsDeny {
+		// l4-only deny takes precedence
+		return true
+	} else if l3l4rule != nil && l3l4rule.IsDeny {
+		// Must not skip if l3l4 rule is deny while l4-only rule is not
+		return false
 	}
-}
 
-// __canSkip returns true or false depending on the condition created for the
-// ;__canSkipTruthTable' truth table.
-func __canSkip(currentRule *PerSelectorPolicy, wildcardRule *PerSelectorPolicy) bool {
-	_, ok := __canSkipTruthTable[__canSkipArgs{
-		currentL3L4Redirect: currentRule.IsRedirect(),
-		currentL3L4Allow:    currentRule == nil || !currentRule.IsDeny,
-		l4OnlyRedirect:      wildcardRule.IsRedirect(),
-		l4OnlyAllow:         wildcardRule == nil || !wildcardRule.IsDeny,
-	}]
-	return ok
+	// Can not skip if currentRule has an explicit auth type and wildcardRule does not or if
+	// both have different auth types.  In all other cases the auth type from the wildcardRule
+	// can be used also for the current rule.
+	// Note that the caller must deal with inheriting redirect from wildcardRule to currentRule,
+	// if any.
+	cHasAuth, cAuthType := l3l4rule.GetAuthType()
+	wHasAuth, wAuthType := l4rule.GetAuthType()
+	if cHasAuth && !wHasAuth || cHasAuth && wHasAuth && cAuthType != wAuthType {
+		return false
+	}
+
+	l3l4IsRedirect := l3l4rule.IsRedirect()
+	l4OnlyIsRedirect := l4rule.IsRedirect()
+	if l3l4IsRedirect && !l4OnlyIsRedirect {
+		// Can not skip if l3l4-rule is redirect while l4-only is not
+		return false
+	}
+
+	// else can skip
+	return true
 }
 
 // TLS context holds the secret values resolved from an 'api.TLSContext'
@@ -552,25 +522,27 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, f
 	}
 
 	for cs, currentRule := range l4Filter.PerSelectorPolicies {
-		// have wildcard?        this is a L3L4 key?
-		isDenyRule := currentRule != nil && currentRule.IsDeny
+		// have wildcard and this is an L3L4 key?
+		isL3L4withWildcardPresent := (l4Filter.Port != 0 || l4Filter.PortName != "") && l4Filter.wildcard != nil && cs != l4Filter.wildcard
 
-		if (l4Filter.Port != 0 || l4Filter.PortName != "") && l4Filter.wildcard != nil {
-			// Now that we have a port number and a wildcard the filter has a
-			// L4-only rule.
-
-			currentRuleIsL3L4 := l4Filter.wildcard != cs
-
-			// To understand the logic for the "skip" cases, see the
-			// documentation for the __canSkip function.
-			if currentRuleIsL3L4 && __canSkip(currentRule, wildcardRule) {
-				logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: Skipping L3/L4 key due to existing L4-only key")
-				continue
-			}
+		if isL3L4withWildcardPresent && wildcardRule.covers(currentRule) {
+			logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: Skipping L3/L4 key due to existing L4-only key")
+			continue
 		}
 
+		isDenyRule := currentRule != nil && currentRule.IsDeny
+		isRedirect := currentRule.IsRedirect()
+		if !isDenyRule && isL3L4withWildcardPresent && !isRedirect {
+			// Inherit the redirect status from the wildcard rule.
+			// This is now needed as 'covers()' can pass non-redirect L3L4 rules
+			// that must inherit the redirect status from the L4-only (== L3-wildcard)
+			// rule due to auth type on the L3L4 rule being different than in the
+			// L4-only rule.
+			isRedirect = wildcardRule.IsRedirect()
+		}
 		_, authType := currentRule.GetAuthType()
-		entry := NewMapStateEntry(cs, l4Filter.RuleOrigin[cs], currentRule.IsRedirect(), isDenyRule, authType)
+		entry := NewMapStateEntry(cs, l4Filter.RuleOrigin[cs], isRedirect, isDenyRule, authType)
+
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			if entryCb(keyToAdd, &entry) {
