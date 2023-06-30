@@ -4,7 +4,7 @@ function get_local_dir() {
    cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd
 }
 
-versions=($(cat < "$(get_local_dir)/k8s_versions.txt" | grep -Eo '^[0-9]\.[0-9]{2}' | tr "\n" " "))
+versions=($(cat < "$(get_local_dir)/k8s_versions.txt" | grep -Eo '[0-9]\.[0-9]{2}' | tr "\n" " "))
 k8s_patch_versions=($(cat < "$(get_local_dir)/k8s_versions.txt" | tr "\n" " "))
 
 cilium_version=${cilium_version:-$(cat < "$(get_local_dir)/../../stable.txt")}
