@@ -672,6 +672,11 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 				// map, nextKey may be the actual key element after the deleted
 				// one, or the first element in the map.
 				currentKey = nextKey
+				// To avoid having nextKey and currentKey pointing at the same memory
+				// we allocate a new key for nextKey. Without this currentKey and nextKey
+				// would be the same pointer value and would get double iterated on the next
+				// iterations m.NextKey(...) call.
+				nextKey = m.key.New()
 				stats.Interrupted++
 			}
 			continue
