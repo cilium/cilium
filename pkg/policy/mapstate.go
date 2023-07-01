@@ -8,6 +8,8 @@ import (
 	"net"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
@@ -245,8 +247,32 @@ func (keys MapState) RemoveDependent(owner Key, dependent Key, old MapState) {
 	}
 }
 
-// MergeReferences adds owners, dependents, and DerivedFromRules from entry 'entry' to 'e'. 'entry' is not modified.
-func (e *MapStateEntry) MergeReferences(entry *MapStateEntry) {
+// Merge adds owners, dependents, and DerivedFromRules from a new 'entry' to an existing
+// entry 'e'. 'entry' is not modified.
+// IsDeny, ProxyPort, and AuthType are merged by giving precedence to deny over non-deny, proxy
+// redirection over no proxy redirection, and explicit auth type over default auth type.
+func (e *MapStateEntry) Merge(entry *MapStateEntry) {
+	// Deny is sticky
+	if !e.IsDeny {
+		e.IsDeny = entry.IsDeny
+	}
+
+	// Deny entries have no proxy redirection nor auth requirement
+	if e.IsDeny {
+		e.ProxyPort = 0
+		e.AuthType = AuthTypeDisabled
+	} else {
+		// Proxy port takes precedence, but may be updated
+		if entry.ProxyPort != 0 {
+			e.ProxyPort = entry.ProxyPort
+		}
+
+		// Numerically higher AuthType takes precedence
+		if entry.AuthType > e.AuthType {
+			e.AuthType = entry.AuthType
+		}
+	}
+
 	if e.owners == nil && len(entry.owners) > 0 {
 		e.owners = make(map[MapStateOwner]struct{}, len(entry.owners))
 	}
@@ -326,14 +352,20 @@ func (e MapStateEntry) String() string {
 // to deny entries, and L3-only deny entries over L3-L4 allows.
 // This form may be used when a full policy is computed and we are not yet interested
 // in accumulating incremental changes.
+// Caller may insert the same MapStateEntry multiple times for different Keys, but all from the same
+// owner.
+
 func (keys MapState) denyPreferredInsert(newKey Key, newEntry MapStateEntry, features policyFeatures, identities Identities) {
+	// Enforce nil values from NewMapStateEntry
+	newEntry.dependents = nil
+	newEntry.cachedNets = nil
+
 	keys.denyPreferredInsertWithChanges(newKey, newEntry, features, nil, nil, nil, identities)
 }
 
 // addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes', and any changed or removed old values in 'old', if not nil.
 func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, deletes Keys, old MapState) {
 	// Keep all owners that need this entry so that it is deleted only if all the owners delete their contribution
-	updatedEntry := entry
 	oldEntry, exists := keys[key]
 	if exists {
 		// Save old value before any changes, if desired
@@ -341,19 +373,16 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, delet
 			old.insertIfNotExists(key, oldEntry)
 		}
 
-		// keep the existing owners of the old entry
-		updatedEntry.owners = oldEntry.owners
-		// keep the existing dependent entries
-		updatedEntry.dependents = oldEntry.dependents
-	} else if len(entry.owners) > 0 {
-		// create a new owners map
-		updatedEntry.owners = make(map[MapStateOwner]struct{}, len(entry.owners))
+		oldEntry.Merge(&entry)
+		keys[key] = oldEntry
+	} else {
+		// Newly inserted entries must have their own containers, so that they
+		// remain separate when new owners/dependents are added to existing entries
+		entry.DerivedFromRules = slices.Clone(entry.DerivedFromRules)
+		entry.owners = maps.Clone(entry.owners)
+		entry.dependents = maps.Clone(entry.dependents)
+		keys[key] = entry
 	}
-
-	// Merge new owner to the updated entry without modifying 'entry' as it is being reused by the caller
-	updatedEntry.MergeReferences(&entry)
-	// Update (or insert) the entry
-	keys[key] = updatedEntry
 
 	// Record an incremental Add if desired and entry is new or changed
 	if adds != nil && (!exists || !oldEntry.DatapathEqual(&entry)) {
@@ -591,7 +620,7 @@ func (keys MapState) redirectPreferredInsert(key Key, entry MapStateEntry, adds,
 		if old != nil && !entry.DeepEqual(&oldEntry) {
 			old.insertIfNotExists(key, oldEntry)
 		}
-		oldEntry.MergeReferences(&entry)
+		oldEntry.Merge(&entry)
 		keys[key] = oldEntry
 		return
 	}
@@ -610,6 +639,11 @@ var visibilityDerivedFrom = labels.LabelArrayList{visibilityDerivedFromLabels}
 func (keys MapState) insertIfNotExists(key Key, entry MapStateEntry) bool {
 	if keys != nil {
 		if _, exists := keys[key]; !exists {
+			// new containers to keep this entry separate from the one that may remain in 'keys'
+			entry.DerivedFromRules = slices.Clone(entry.DerivedFromRules)
+			entry.owners = maps.Clone(entry.owners)
+			entry.dependents = maps.Clone(entry.dependents)
+
 			keys[key] = entry
 			return true
 		}
