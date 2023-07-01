@@ -217,6 +217,7 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 }
 
 // AuthType enumerates the supported authentication types in api.
+// Numerically higher type takes precedence in case of conflicting auth types.
 type AuthType uint8
 
 // AuthTypes is a set of AuthTypes, usually nil if empty
