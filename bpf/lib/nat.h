@@ -171,19 +171,6 @@ struct ipv4_nat_entry *snat_v4_lookup(const struct ipv4_ct_tuple *tuple)
 	return __snat_lookup(&SNAT_MAPPING_IPV4, tuple);
 }
 
-static __always_inline void snat_v4_swap_tuple(const struct ipv4_ct_tuple *otuple,
-					       struct ipv4_ct_tuple *rtuple)
-{
-	memset(rtuple, 0, sizeof(*rtuple));
-	rtuple->nexthdr = otuple->nexthdr;
-	rtuple->daddr = otuple->saddr;
-	rtuple->saddr = otuple->daddr;
-	rtuple->dport = otuple->sport;
-	rtuple->sport = otuple->dport;
-	rtuple->flags = otuple->flags == NAT_DIR_EGRESS ?
-			NAT_DIR_INGRESS : NAT_DIR_EGRESS;
-}
-
 static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 					       struct ipv4_ct_tuple *otuple,
 					       struct ipv4_nat_entry *ostate,
@@ -191,8 +178,8 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 					       bool needs_ct, __s8 *ext_err)
 {
 	int ret = DROP_NAT_NO_MAPPING, retries;
+	struct ipv4_ct_tuple rtuple = {};
 	struct ipv4_nat_entry rstate;
-	struct ipv4_ct_tuple rtuple;
 	__u16 port;
 	void *map;
 
@@ -203,13 +190,19 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 	rstate.to_dport = otuple->sport;
 
 	ostate->to_saddr = target->addr;
+	/* .to_sport is selected below */
 
-	snat_v4_swap_tuple(otuple, &rtuple);
+	/* This tuple matches reply traffic for the SNATed connection: */
+	rtuple.flags = TUPLE_F_IN;
+	rtuple.nexthdr = otuple->nexthdr;
+	rtuple.saddr = otuple->daddr;
+	rtuple.daddr = ostate->to_saddr;
+	rtuple.sport = otuple->dport;
+	/* .dport is selected below */
+
 	port = __snat_try_keep_port(target->min_port,
 				    target->max_port,
 				    bpf_ntohs(otuple->sport));
-
-	rtuple.daddr = target->addr;
 
 	ostate->common.needs_ct = needs_ct;
 	rstate.common.needs_ct = needs_ct;
@@ -1303,19 +1296,6 @@ static __always_inline int snat_v6_update(struct ipv6_ct_tuple *otuple,
 			     rtuple, rstate);
 }
 
-static __always_inline void snat_v6_swap_tuple(const struct ipv6_ct_tuple *otuple,
-					       struct ipv6_ct_tuple *rtuple)
-{
-	memset(rtuple, 0, sizeof(*rtuple));
-	rtuple->nexthdr = otuple->nexthdr;
-	rtuple->daddr = otuple->saddr;
-	rtuple->saddr = otuple->daddr;
-	rtuple->dport = otuple->sport;
-	rtuple->sport = otuple->dport;
-	rtuple->flags = otuple->flags == NAT_DIR_EGRESS ?
-			NAT_DIR_INGRESS : NAT_DIR_EGRESS;
-}
-
 static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 					       struct ipv6_ct_tuple *otuple,
 					       struct ipv6_nat_entry *ostate,
@@ -1323,8 +1303,8 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 					       bool needs_ct, __s8 *ext_err)
 {
 	int ret = DROP_NAT_NO_MAPPING, retries;
+	struct ipv6_ct_tuple rtuple = {};
 	struct ipv6_nat_entry rstate;
-	struct ipv6_ct_tuple rtuple;
 	__u16 port;
 
 	memset(&rstate, 0, sizeof(rstate));
@@ -1334,13 +1314,18 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 	rstate.to_dport = otuple->sport;
 
 	ostate->to_saddr = target->addr;
+	/* .to_sport is selected below */
 
-	snat_v6_swap_tuple(otuple, &rtuple);
+	rtuple.flags = TUPLE_F_IN;
+	rtuple.nexthdr = otuple->nexthdr;
+	rtuple.saddr = otuple->daddr;
+	rtuple.daddr = ostate->to_saddr;
+	rtuple.sport = otuple->dport;
+	/* .dport is selected below */
+
 	port = __snat_try_keep_port(target->min_port,
 				    target->max_port,
 				    bpf_ntohs(otuple->sport));
-
-	rtuple.daddr = target->addr;
 
 	ostate->common.needs_ct = needs_ct;
 	rstate.common.needs_ct = needs_ct;
