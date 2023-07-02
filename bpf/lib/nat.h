@@ -45,13 +45,13 @@ struct nat_entry {
 # define SNAT_SIGNAL_THRES		16
 #endif
 
-static __always_inline __be16 __snat_clamp_port_range(__u16 start, __u16 end,
-						      __u16 val)
+static __always_inline __u16 __snat_clamp_port_range(__u16 start, __u16 end,
+						     __u16 val)
 {
 	return (val % (__u16)(end - start)) + start;
 }
 
-static __always_inline __maybe_unused __be16
+static __always_inline __maybe_unused __u16
 __snat_try_keep_port(__u16 start, __u16 end, __u16 val)
 {
 	return val >= start && val <= end ? val :
