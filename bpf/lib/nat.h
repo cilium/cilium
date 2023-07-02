@@ -209,7 +209,6 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 				    target->max_port,
 				    bpf_ntohs(otuple->sport));
 
-	rtuple.dport = ostate->to_sport = bpf_htons(port);
 	rtuple.daddr = target->addr;
 
 	ostate->common.needs_ct = needs_ct;
@@ -221,7 +220,13 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 
 #pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
+		rtuple.dport = bpf_htons(port);
+
+		/* Check if the selected port is already in use by a RevSNAT
+		 * entry for some other connection with the same src/dst:
+		 */
 		if (!__snat_lookup(map, &rtuple)) {
+			ostate->to_sport = rtuple.dport;
 			ostate->common.created = bpf_mono_now();
 			rstate.common.created = ostate->common.created;
 
@@ -234,7 +239,6 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 					       target->max_port,
 					       retries ? port + 1 :
 					       (__u16)get_prandom_u32());
-		rtuple.dport = ostate->to_sport = bpf_htons(port);
 	}
 
 	if (retries > SNAT_SIGNAL_THRES)
@@ -1336,7 +1340,6 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 				    target->max_port,
 				    bpf_ntohs(otuple->sport));
 
-	rtuple.dport = ostate->to_sport = bpf_htons(port);
 	rtuple.daddr = target->addr;
 
 	ostate->common.needs_ct = needs_ct;
@@ -1344,7 +1347,10 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 
 #pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
+		rtuple.dport = bpf_htons(port);
+
 		if (!snat_v6_lookup(&rtuple)) {
+			ostate->to_sport = rtuple.dport;
 			ostate->common.created = bpf_mono_now();
 			rstate.common.created = ostate->common.created;
 
@@ -1357,7 +1363,6 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 					       target->max_port,
 					       retries ? port + 1 :
 					       (__u16)get_prandom_u32());
-		rtuple.dport = ostate->to_sport = bpf_htons(port);
 	}
 
 	if (retries > SNAT_SIGNAL_THRES)
