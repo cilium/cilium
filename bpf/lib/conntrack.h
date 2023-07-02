@@ -140,6 +140,22 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
 	return 0;
 }
 
+static __always_inline __u32
+ct_select_lifetime(bool tcp, bool seen_non_syn, enum ct_dir dir)
+{
+	if (tcp) {
+		if (seen_non_syn)
+			return dir == CT_SERVICE ?
+				      bpf_sec_to_mono(CT_SERVICE_LIFETIME_TCP) :
+				      bpf_sec_to_mono(CT_CONNECTION_LIFETIME_TCP);
+
+		return bpf_sec_to_mono(CT_SYN_TIMEOUT);
+	}
+
+	return dir == CT_SERVICE ? bpf_sec_to_mono(CT_SERVICE_LIFETIME_NONTCP) :
+				   bpf_sec_to_mono(CT_CONNECTION_LIFETIME_NONTCP);
+}
+
 /**
  * Update the CT timeouts for the specified entry.
  *
@@ -150,21 +166,7 @@ static __always_inline __u32 ct_update_timeout(struct ct_entry *entry,
 					       bool tcp, enum ct_dir dir,
 					       union tcp_flags seen_flags)
 {
-	__u32 lifetime = dir == CT_SERVICE ?
-			 bpf_sec_to_mono(CT_SERVICE_LIFETIME_NONTCP) :
-			 bpf_sec_to_mono(CT_CONNECTION_LIFETIME_NONTCP);
-	bool syn = seen_flags.value & TCP_FLAG_SYN;
-
-	if (tcp) {
-		entry->seen_non_syn |= !syn;
-		if (entry->seen_non_syn) {
-			lifetime = dir == CT_SERVICE ?
-				   bpf_sec_to_mono(CT_SERVICE_LIFETIME_TCP) :
-				   bpf_sec_to_mono(CT_CONNECTION_LIFETIME_TCP);
-		} else {
-			lifetime = bpf_sec_to_mono(CT_SYN_TIMEOUT);
-		}
-	}
+	__u32 lifetime = ct_select_lifetime(tcp, entry->seen_non_syn, dir);
 
 	return __ct_update_timeout(entry, lifetime, dir, seen_flags,
 				   CT_REPORT_FLAGS);
@@ -217,8 +219,12 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		    ct_entry_expired_rebalance(entry))
 			goto ct_new;
 #endif
-		if (ct_entry_alive(entry))
+		if (ct_entry_alive(entry)) {
+			if (is_tcp && !syn)
+				entry->seen_non_syn = 1;
+
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
+		}
 
 		ct_state->rev_nat_index = entry->rev_nat_index;
 		if (dir == CT_SERVICE) {
@@ -249,6 +255,10 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		case ACTION_CREATE:
 			if (unlikely(syn && ct_entry_closing(entry))) {
 				ct_reset_closing(entry);
+
+				if (is_tcp && !syn)
+					entry->seen_non_syn = 1;
+
 				*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 				return CT_REOPENED;
 			}
@@ -902,7 +912,8 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
-	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
+	__ct_update_timeout(&entry, ct_select_lifetime(is_tcp, false, dir),
+			    dir, seen_flags, CT_REPORT_FLAGS);
 
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
@@ -978,7 +989,8 @@ static __always_inline int ct_create4(const void *map_main,
 
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
-	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
+	__ct_update_timeout(&entry, ct_select_lifetime(is_tcp, false, dir),
+			    dir, seen_flags, CT_REPORT_FLAGS);
 
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
