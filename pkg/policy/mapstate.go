@@ -143,15 +143,7 @@ type MapStateEntry struct {
 // 'cs' is used to keep track of which policy selectors need this entry. If it is 'nil' this entry
 // will become sticky and cannot be completely removed via incremental updates. Even in this case
 // the entry may be overridden or removed by a deny entry.
-func NewMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, redirect, deny bool, hasAuth HasAuthType, authType AuthType) MapStateEntry {
-	var proxyPort uint16
-	if redirect {
-		// Any non-zero value will do, as the callers replace this with the
-		// actual proxy listening port number before the entry is added to the
-		// actual bpf map.
-		proxyPort = 1
-	}
-
+func NewMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, proxyPort uint16, deny bool, hasAuth HasAuthType, authType AuthType) MapStateEntry {
 	return MapStateEntry{
 		ProxyPort:        proxyPort,
 		DerivedFromRules: derivedFrom,
@@ -548,7 +540,7 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 						newKeyCpy := newKey
 						newKeyCpy.DestPort = k.DestPort
 						newKeyCpy.Nexthdr = k.Nexthdr
-						l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
+						l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, true, DefaultAuthType, AuthTypeDisabled)
 						keys.addKeyWithChanges(newKeyCpy, l3l4DenyEntry, changes)
 						// L3-only entries can be deleted incrementally so we need to track their
 						// effects on other entries so that those effects can be reverted when the
@@ -611,7 +603,7 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 						denyKeyCpy := k
 						denyKeyCpy.DestPort = newKey.DestPort
 						denyKeyCpy.Nexthdr = newKey.Nexthdr
-						l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
+						l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, true, DefaultAuthType, AuthTypeDisabled)
 						keys.addKeyWithChanges(denyKeyCpy, l3l4DenyEntry, changes)
 						// L3-only entries can be deleted incrementally so we need to track their
 						// effects on other entries so that those effects can be reverted when the
@@ -738,7 +730,7 @@ func (keys MapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, fea
 						newKeyCpy := k
 						newKeyCpy.DestPort = newKey.DestPort
 						newKeyCpy.Nexthdr = newKey.Nexthdr
-						l3l4AuthEntry := NewMapStateEntry(k, v.DerivedFromRules, false, false, DefaultAuthType, v.AuthType)
+						l3l4AuthEntry := NewMapStateEntry(k, v.DerivedFromRules, 0, false, DefaultAuthType, v.AuthType)
 						l3l4AuthEntry.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
 						l3l4keys[newKeyCpy] = l3l4AuthEntry
 					}
@@ -793,7 +785,7 @@ func (keys MapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, fea
 						newKeyCpy := newKey
 						newKeyCpy.DestPort = k.DestPort
 						newKeyCpy.Nexthdr = k.Nexthdr
-						l3l4AuthEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, false, false, DefaultAuthType, newEntry.AuthType)
+						l3l4AuthEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, 0, false, DefaultAuthType, newEntry.AuthType)
 						l3l4AuthEntry.DerivedFromRules.MergeSorted(v.DerivedFromRules)
 						keys.addKeyWithChanges(newKeyCpy, l3l4AuthEntry, changes)
 						// L3-only entries can be deleted incrementally so we need to track their
@@ -905,8 +897,7 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 		TrafficDirection: direction.Uint8(),
 	}
 
-	entry := NewMapStateEntry(nil, visibilityDerivedFrom, true, false, DefaultAuthType, AuthTypeDisabled)
-	entry.ProxyPort = redirectPort
+	entry := NewMapStateEntry(nil, visibilityDerivedFrom, redirectPort, false, DefaultAuthType, AuthTypeDisabled)
 
 	_, haveAllowAllKey := keys[allowAllKey]
 	l4Only, haveL4OnlyKey := keys[key]
@@ -966,8 +957,7 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 				if _, ok := keys[k2]; !ok {
 					d2 := labels.LabelArrayList{visibilityDerivedFromLabels}
 					d2.MergeSorted(v.DerivedFromRules)
-					v2 := NewMapStateEntry(k, d2, true, false, v.hasAuthType, v.AuthType)
-					v2.ProxyPort = redirectPort
+					v2 := NewMapStateEntry(k, d2, redirectPort, false, v.hasAuthType, v.AuthType)
 					e.PolicyDebug(logrus.Fields{
 						logfields.BPFMapKey:   k2,
 						logfields.BPFMapValue: v2,
@@ -982,7 +972,7 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 				//    key add the corresponding L3/L4 DENY key if no L3/L4
 				//    key already exists.
 				if _, ok := keys[k2]; !ok {
-					v2 := NewMapStateEntry(k, v.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
+					v2 := NewMapStateEntry(k, v.DerivedFromRules, 0, true, DefaultAuthType, AuthTypeDisabled)
 					e.PolicyDebug(logrus.Fields{
 						logfields.BPFMapKey:   k2,
 						logfields.BPFMapValue: v2,
@@ -1008,7 +998,7 @@ func (keys MapState) DetermineAllowLocalhostIngress() {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved),
 			},
 		}
-		es := NewMapStateEntry(nil, derivedFrom, false, false, ExplicitAuthType, AuthTypeDisabled) // Authentication never required for local host ingress
+		es := NewMapStateEntry(nil, derivedFrom, 0, false, ExplicitAuthType, AuthTypeDisabled) // Authentication never required for local host ingress
 		keys.denyPreferredInsert(localHostKey, es, nil, allFeatures)
 		if !option.Config.EnableRemoteNodeIdentity {
 			var isHostDenied bool
@@ -1019,7 +1009,7 @@ func (keys MapState) DetermineAllowLocalhostIngress() {
 					labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowRemoteHostIngress, labels.LabelSourceReserved),
 				},
 			}
-			es := NewMapStateEntry(nil, derivedFrom, false, isHostDenied, ExplicitAuthType, AuthTypeDisabled) // Authentication never required for remote node ingress
+			es := NewMapStateEntry(nil, derivedFrom, 0, isHostDenied, ExplicitAuthType, AuthTypeDisabled) // Authentication never required for remote node ingress
 			keys.denyPreferredInsert(localRemoteNodeKey, es, nil, allFeatures)
 		}
 	}
@@ -1042,7 +1032,7 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
 			},
 		}
-		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false, ExplicitAuthType, AuthTypeDisabled)
+		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, 0, false, ExplicitAuthType, AuthTypeDisabled)
 	}
 	if egress {
 		keyToAdd := Key{
@@ -1056,51 +1046,8 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
 			},
 		}
-		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false, ExplicitAuthType, AuthTypeDisabled)
+		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, 0, false, ExplicitAuthType, AuthTypeDisabled)
 	}
-}
-
-func (keys MapState) deniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
-	port := uint16(l4.Port)
-	proto := uint8(l4.U8Proto)
-
-	// resolve named port
-	if port == 0 && l4.PortName != "" {
-		port = policyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
-		if port == 0 {
-			return true
-		}
-	}
-
-	var dir uint8
-	if l4.Ingress {
-		dir = trafficdirection.Ingress.Uint8()
-	} else {
-		dir = trafficdirection.Egress.Uint8()
-	}
-	anyKey := Key{
-		Identity:         0,
-		DestPort:         0,
-		Nexthdr:          0,
-		TrafficDirection: dir,
-	}
-	// Are we explicitly denying all traffic?
-	v, ok := keys[anyKey]
-	if ok && v.IsDeny {
-		return true
-	}
-
-	// Are we explicitly denying this L4-only traffic?
-	anyKey.DestPort = port
-	anyKey.Nexthdr = proto
-	v, ok = keys[anyKey]
-	if ok && v.IsDeny {
-		return true
-	}
-
-	// The given L4 is not categorically denied.
-	// Traffic to/from a specific L3 on any of the selectors can still be denied.
-	return false
 }
 
 func (pms MapState) GetIdentities(log *logrus.Logger) (ingIdentities, egIdentities []int64) {
@@ -1161,7 +1108,7 @@ type MapChange struct {
 // present in both 'adds' and 'deletes'.
 func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity,
 	port uint16, proto uint8, direction trafficdirection.TrafficDirection,
-	redirect, isDeny bool, hasAuth HasAuthType, authType AuthType, derivedFrom labels.LabelArrayList) {
+	redirectPort uint16, isDeny bool, hasAuth HasAuthType, authType AuthType, derivedFrom labels.LabelArrayList) {
 	key := Key{
 		// The actual identity is set in the loops below
 		Identity: 0,
@@ -1171,7 +1118,7 @@ func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []id
 		TrafficDirection: direction.Uint8(),
 	}
 
-	value := NewMapStateEntry(cs, derivedFrom, redirect, isDeny, hasAuth, authType)
+	value := NewMapStateEntry(cs, derivedFrom, redirectPort, isDeny, hasAuth, authType)
 
 	if option.Config.Debug {
 		authString := "default"
@@ -1185,7 +1132,7 @@ func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []id
 			logfields.Port:             port,
 			logfields.Protocol:         proto,
 			logfields.TrafficDirection: direction,
-			logfields.IsRedirect:       redirect,
+			logfields.IsRedirect:       redirectPort != 0,
 			logfields.AuthType:         authString,
 		}).Debug("AccumulateMapChanges")
 	}

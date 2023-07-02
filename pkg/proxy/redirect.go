@@ -55,6 +55,7 @@ type Redirect struct {
 	rules policy.L7DataMap
 }
 
+// newRedirect can be called with localEndpoint unlocked
 func newRedirect(localEndpoint endpoint.EndpointUpdater, name string, listener *ProxyPort, dstPort uint16) *Redirect {
 	return &Redirect{
 		name:          name,

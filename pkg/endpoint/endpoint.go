@@ -283,6 +283,11 @@ type Endpoint struct {
 	// endpoint mutex after policy recalculation.
 	forcePolicyCompute bool
 
+	// regenContext is non-nil when buildMutex is held for the endpoint regeneration.
+	// It is provided here so that endpoint build functions that are only executed when the
+	// buildMutex us held can refer to it without passing it around explicitly.
+	regenContext *regenerationContext
+
 	// buildMutex synchronizes builds of individual endpoints and locks out
 	// deletion during builds
 	buildMutex lock.Mutex
@@ -528,6 +533,7 @@ func CreateHostEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter,
 }
 
 // GetID returns the endpoint's ID as a 64-bit unsigned integer.
+// Endpoint's ID is immutable so the Mutex need not be held calling this.
 func (e *Endpoint) GetID() uint64 {
 	return uint64(e.ID)
 }

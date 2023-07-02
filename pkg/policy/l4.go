@@ -13,6 +13,7 @@ import (
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/iana"
@@ -322,7 +323,7 @@ func (l7 L7DataMap) ShallowCopy() L7DataMap {
 type L7ParserType string
 
 func (l7 L7ParserType) String() string {
-	return (string)(l7)
+	return string(l7)
 }
 
 const (
@@ -469,11 +470,6 @@ func (l4 *L4Filter) GetListener() string {
 	return l4.Listener
 }
 
-// 'entryCallback' is a function called for each entry before adding to a MapState. If the
-// function returns 'true', the entry is added, otherwise not. The function gets a reference to the
-// entry so that it may update it's value (e.g., the proxy port).
-type entryCallback func(key Key, value *MapStateEntry) bool
-
 // ChangeState allows caller to revert changes made by (multiple) toMapState call(s)
 type ChangeState struct {
 	Adds    Keys     // Added or modified keys, if not nil
@@ -488,7 +484,7 @@ type ChangeState struct {
 // 'p.PolicyMapState' using denyPreferredInsertWithChanges().
 // Keys and old values of any added or deleted entries are added to 'changes'.
 // The implementation of 'identities' is also in a locked state.
-func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, features policyFeatures, entryCb entryCallback, changes ChangeState) {
+func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redirectPort uint16, changes ChangeState) {
 	port := uint16(l4Filter.Port)
 	proto := uint8(l4Filter.U8Proto)
 
@@ -524,19 +520,21 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, f
 
 	// find the L7 rules for the wildcard entry, if any
 	var wildcardRule *PerSelectorPolicy
+	var isL4withWildcardPresent bool
 	if l4Filter.wildcard != nil {
+		isL4withWildcardPresent = (l4Filter.Port != 0 || l4Filter.PortName != "")
 		wildcardRule = l4Filter.PerSelectorPolicies[l4Filter.wildcard]
 	}
 
 	for cs, currentRule := range l4Filter.PerSelectorPolicies {
 		// have wildcard and this is an L3L4 key?
-		isL3L4withWildcardPresent := (l4Filter.Port != 0 || l4Filter.PortName != "") && l4Filter.wildcard != nil && cs != l4Filter.wildcard
-
+		isL3L4withWildcardPresent := isL4withWildcardPresent && cs != l4Filter.wildcard
 		if isL3L4withWildcardPresent && wildcardRule.covers(currentRule) {
 			logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: Skipping L3/L4 key due to existing L4-only key")
 			continue
 		}
 
+		var proxyPort uint16
 		isDenyRule := currentRule != nil && currentRule.IsDeny
 		isRedirect := currentRule.IsRedirect()
 		if !isDenyRule && isL3L4withWildcardPresent && !isRedirect {
@@ -547,20 +545,25 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, f
 			// L4-only rule.
 			isRedirect = wildcardRule.IsRedirect()
 		}
+		if isRedirect {
+			proxyPort = redirectPort
+			if proxyPort == 0 {
+				continue // skip undefined redirects
+			}
+		}
+
 		hasAuth, authType := currentRule.GetAuthType()
-		entry := NewMapStateEntry(cs, l4Filter.RuleOrigin[cs], isRedirect, isDenyRule, hasAuth, authType)
+		entry := NewMapStateEntry(cs, l4Filter.RuleOrigin[cs], proxyPort, isDenyRule, hasAuth, authType)
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
-			if entryCb(keyToAdd, &entry) {
-				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, identities, features, changes)
+			p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
 
-				if port == 0 {
-					// Allow-all
-					logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: allow all")
-				} else {
-					// L4 allow
-					logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: L4 allow all")
-				}
+			if port == 0 {
+				// Allow-all
+				logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: allow all")
+			} else {
+				// L4 allow
+				logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: L4 allow all")
 			}
 			continue
 		}
@@ -581,9 +584,7 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, f
 		}
 		for _, id := range idents {
 			keyToAdd.Identity = id.Uint32()
-			if entryCb(keyToAdd, &entry) {
-				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, identities, features, changes)
-			}
+			p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
 		}
 	}
 }
@@ -614,15 +615,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, added, del
 	// that we could not push updates on an unstable policy.
 	l4Policy := l4.policy.Load()
 	if l4Policy != nil {
-		direction := trafficdirection.Egress
-		if l4.Ingress {
-			direction = trafficdirection.Ingress
-		}
-		perSelectorPolicy := l4.PerSelectorPolicies[selector]
-		isRedirect := perSelectorPolicy.IsRedirect()
-		hasAuth, authType := perSelectorPolicy.GetAuthType()
-		isDeny := perSelectorPolicy != nil && perSelectorPolicy.IsDeny
-		l4Policy.AccumulateMapChanges(selector, added, deleted, l4, direction, isRedirect, isDeny, hasAuth, authType)
+		l4Policy.AccumulateMapChanges(l4, selector, added, deleted)
 	}
 }
 
@@ -1236,30 +1229,46 @@ func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
-func (l4 *L4Policy) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity, l4Filter *L4Filter,
-	direction trafficdirection.TrafficDirection, redirect, isDeny bool, hasAuth HasAuthType, authType AuthType) {
+func (l4 *L4Policy) AccumulateMapChanges(l4Filter *L4Filter, cs CachedSelector, adds, deletes []identity.NumericIdentity) {
+	direction := trafficdirection.Egress
+	if l4Filter.Ingress {
+		direction = trafficdirection.Ingress
+	}
+	perSelectorPolicy := l4Filter.PerSelectorPolicies[cs]
+	redirect := perSelectorPolicy.IsRedirect()
+	hasAuth, authType := perSelectorPolicy.GetAuthType()
+	isDeny := perSelectorPolicy != nil && perSelectorPolicy.IsDeny
 	port := uint16(l4Filter.Port)
 	proto := uint8(l4Filter.U8Proto)
 	derivedFrom := l4Filter.RuleOrigin[cs]
 
-	// Must take a copy of 'users' as GetNamedPort() will lock the Endpoint below and
-	// the Endpoint lock may not be taken while 'l4.mutex' is held.
+	// Take a copy of 'users' as GetNamedPort() and GetRedirectPort() will lock the Endpoint
+	// below and the Endpoint lock may not be taken while 'l4.mutex' is held.
 	l4.mutex.RLock()
-	users := make(map[*EndpointPolicy]struct{}, len(l4.users))
-	for user := range l4.users {
-		users[user] = struct{}{}
-	}
+	users := maps.Clone(l4.users)
 	l4.mutex.RUnlock()
 
 	for epPolicy := range users {
 		// resolve named port
 		if port == 0 && l4Filter.PortName != "" {
-			port = epPolicy.PolicyOwner.GetNamedPort(direction == trafficdirection.Ingress, l4Filter.PortName, proto)
+			port = epPolicy.PolicyOwner.GetNamedPort(l4Filter.Ingress, l4Filter.PortName, proto)
 			if port == 0 {
 				continue
 			}
 		}
-		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, port, proto, direction, redirect, isDeny, hasAuth, authType, derivedFrom)
+		// resolve redirect port
+		var redirectPort uint16
+		if redirect {
+			redirectPort = epPolicy.PolicyOwner.LookupRedirectPort(l4Filter.Ingress, l4Filter.U8Proto.String(), port)
+			if redirectPort == 0 {
+				epPolicy.PolicyOwner.PolicyDebug(logrus.Fields{
+					logfields.L7Parser: l4Filter.L7Parser,
+					logfields.Port:     port,
+				}, "AccumulateMapChanges: Could not get proxy port for redirect")
+				continue
+			}
+		}
+		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, port, proto, direction, redirectPort, isDeny, hasAuth, authType, derivedFrom)
 	}
 }
 

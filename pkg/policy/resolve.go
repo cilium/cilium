@@ -62,10 +62,29 @@ type EndpointPolicy struct {
 }
 
 // PolicyOwner is anything which consumes a EndpointPolicy.
+// Endpoint mutex must not be held when these are called!
 type PolicyOwner interface {
+	// GetID returns the endpoint ID.
+	// Does not take the endpoint lock.
 	GetID() uint64
-	LookupRedirectPortLocked(ingress bool, protocol string, port uint16) uint16
+
+	// LookupRedirectPort returns the redirect port of an already existing redirect.
+	// This is to be used for incremental updates due to changes in identities.
+	// Current implementation of this takes the Endpoint lock.
+	LookupRedirectPort(ingress bool, protocol string, port uint16) uint16
+
+	// GetRedirectPort returns the redirect port of a redirect that may be created or updated
+	// during this call based on 'l4'
+	// Current implementation of this does not take the Endpoint lock.
+	GetRedirectPort(l4 *L4Filter) (uint16, ChangeState)
+
+	// GetNamedPort returns the port number for the given named port, or 0 if undefined.
+	// Does not take the endpoint lock.
 	GetNamedPort(ingress bool, name string, proto uint8) uint16
+
+	// PolicyDebug logs 'msg' with 'fields' if debug logging is enabled. These logs are normally
+	// separate from the main Cilium Agent logs.
+	// Does not take the endpoint lock.
 	PolicyDebug(fields logrus.Fields, msg string)
 }
 
@@ -157,71 +176,20 @@ func (p *EndpointPolicy) toMapState() {
 
 // Called with selectorcache locked for reading
 func (l4policy L4DirectionPolicy) toMapState(p *EndpointPolicy) {
+	redirects := make([]*L4Filter, 0, len(l4policy.PortRules))
 	for _, l4 := range l4policy.PortRules {
-		lookupDone := false
-		proxyport := uint16(0)
-		l4.toMapState(p, p.SelectorCache, l4policy.features, func(keyFromFilter Key, entry *MapStateEntry) bool {
-			// Fix up the proxy port for entries that need proxy redirection
-			if entry.IsRedirectEntry() {
-				if !lookupDone {
-					// only lookup once for each filter
-					// Use 'destPort' from the key as it is already resolved
-					// from a named port if needed.
-					proxyport = p.PolicyOwner.LookupRedirectPortLocked(l4.Ingress, string(l4.Protocol), keyFromFilter.DestPort)
-					lookupDone = true
-				}
-				entry.ProxyPort = proxyport
-				// If the currently allocated proxy port is 0, this is a new
-				// redirect, for which no port has been allocated yet. Ignore
-				// it for now. This will be configured by
-				// UpdateRedirects() once the port has been allocated.
-				if !entry.IsRedirectEntry() {
-					return false
-				}
-			}
-			return true
-		}, ChangeState{})
-	}
-}
-
-type getProxyPortFunc func(*L4Filter) (proxyPort uint16, ok bool)
-
-// UpdateRedirects updates redirects in the EndpointPolicy's PolicyMapState by using the provided
-// function to obtain a proxy port number to use. Changes to 'p.PolicyMapState' are collected in
-// 'adds' and 'updated' so that they can be reverted when needed.
-func (p *EndpointPolicy) UpdateRedirects(ingress bool, identities Identities, getProxyPort getProxyPortFunc, changes ChangeState) {
-	l4policy := &p.L4Policy.Ingress
-	if ingress {
-		l4policy = &p.L4Policy.Egress
-	}
-
-	// Selectorcache needs to be locked for toMapState (GetLabels()) call
-	p.SelectorCache.mutex.RLock()
-	l4policy.updateRedirects(p, identities, getProxyPort, changes)
-	p.SelectorCache.mutex.RUnlock()
-}
-
-func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, identities Identities, getProxyPort getProxyPortFunc, changes ChangeState) {
-	for _, l4 := range l4policy.PortRules {
-		if l4.IsRedirect() {
-			// Check if we are denying this specific L4 first regardless the L3, if there are any deny policies
-			if l4policy.features.contains(denyRules) && p.PolicyMapState.deniesL4(p.PolicyOwner, l4) {
-				continue
-			}
-
-			redirectPort, ok := getProxyPort(l4)
-			if !ok {
-				continue
-			}
-
-			// Set the proxy port in the policy map.
-			l4.toMapState(p, identities, l4policy.features, func(_ Key, entry *MapStateEntry) bool {
-				if entry.IsRedirectEntry() {
-					entry.ProxyPort = redirectPort
-				}
-				return true
-			}, changes)
+		if l4.L7Parser != ParserTypeNone {
+			redirects = append(redirects, l4)
+			continue
 		}
+		l4.toMapState(p, l4policy.features, 0, ChangeState{})
+	}
+	// Process redirect filters after non-redirects so that the effects of redirects can be
+	// tracked consistently
+	for _, l4 := range redirects {
+		// Resolve the proxy port for this l4Filter
+		redirectPort, proxyChanges := p.PolicyOwner.GetRedirectPort(l4)
+		l4.toMapState(p, l4policy.features, redirectPort, proxyChanges)
 	}
 }
 

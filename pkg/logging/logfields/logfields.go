@@ -308,6 +308,9 @@ const (
 	// BackendSlot is the backend slot number in a service BPF map
 	BackendSlot = "backendSlot"
 
+	// L7Parser is the name of the L7 protocol being redirected for, e.g., "http"
+	L7Parser = "L7Parser"
+
 	// L7LBProxyPort is the port number of the Envoy listener a L7 LB service redirects traffic to for load balancing.
 	L7LBProxyPort = "l7LBProxyPort"
 

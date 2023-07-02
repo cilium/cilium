@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -185,7 +186,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	defer cancel()
 	cmp := completion.NewWaitGroup(ctx)
 
-	_, err, _, _ = ep.addNewRedirects(cmp)
+	err, _, _ = ep.addNewRedirects(make(map[string]uint16), cmp)
 	c.Assert(err, check.IsNil)
 	v, ok := ep.desiredPolicy.PolicyMapState[policy.Key{
 		Identity:         0,
@@ -206,7 +207,8 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	err = ep.setDesiredPolicy(res)
 	c.Assert(err, check.IsNil)
 
-	d, err, _, _ := ep.addNewRedirects(cmp)
+	d := make(map[string]uint16)
+	err, _, _ = ep.addNewRedirects(d, cmp)
 	c.Assert(err, check.IsNil)
 	v, ok = ep.desiredPolicy.PolicyMapState[policy.Key{
 		Identity:         0,
@@ -229,17 +231,8 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	err = ep.setDesiredPolicy(res)
 	c.Assert(err, check.IsNil)
 
-	_, err, _, _ = ep.addNewRedirects(cmp)
+	err, _, _ = ep.addNewRedirects(make(map[string]uint16), cmp)
 	c.Assert(err, check.IsNil)
-	v, ok = ep.desiredPolicy.PolicyMapState[policy.Key{
-		Identity:         0,
-		DestPort:         uint16(80),
-		Nexthdr:          uint8(u8proto.TCP),
-		TrafficDirection: trafficdirection.Ingress.Uint8(),
-	}]
-	c.Assert(ok, check.Equals, true)
-	c.Assert(v.ProxyPort, check.Equals, kafkaPort)
-
 	v, ok = ep.desiredPolicy.PolicyMapState[policy.Key{
 		Identity:         0,
 		DestPort:         uint16(80),
@@ -279,7 +272,8 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	err = ep.setDesiredPolicy(res)
 	c.Assert(err, check.IsNil)
 
-	d, err, _, _ = ep.addNewRedirects(cmp)
+	d = make(map[string]uint16)
+	err, _, _ = ep.addNewRedirects(d, cmp)
 	c.Assert(err, check.IsNil)
 	ep.removeOldRedirects(d, cmp)
 	c.Assert(len(ep.realizedRedirects), check.Equals, 0)
@@ -340,6 +334,11 @@ var (
 	mapKeyFoo       = policy.Key{Identity: identityFoo, DestPort: 0, Nexthdr: 0, TrafficDirection: dirIngress}
 	mapKeyFooL7     = policy.Key{Identity: identityFoo, DestPort: 80, Nexthdr: 6, TrafficDirection: dirIngress}
 	mapKeyAllowAllE = policy.Key{Identity: 0, DestPort: 0, Nexthdr: 0, TrafficDirection: dirEgress}
+
+	regenerationMetadata = &regeneration.ExternalRegenerationMetadata{
+		Reason:            "test",
+		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+	}
 )
 
 // combineL4L7 returns a new PortRule that refers to the specified l4 ports and
@@ -400,58 +399,28 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 	c.Assert(err, check.IsNil)
 	ep.SetIdentity(epIdentity, true)
 
-	// Policy denies anything to "foo"
+	// Policy denies anything from "foo", but allows TCP port 80 with HTTP rules from everyone else
 	rules := api.Rules{
 		ruleL3DenyFoo.WithEndpointSelector(selectBar_),
 		ruleL4L7Allow.WithEndpointSelector(selectBar_),
 	}
 	do.repo.AddList(rules)
 
+	ctx, cFunc := context.WithCancel(context.TODO())
+	ep.regenContext = ParseExternalRegenerationMetadata(ctx, cFunc, regenerationMetadata)
 	res, err := ep.regeneratePolicy()
 	c.Assert(err, check.IsNil)
 	err = ep.setDesiredPolicy(res)
 	c.Assert(err, check.IsNil)
 
+	// regeneratePolicy now creates also the desired redirects
 	expected := policy.MapState{
 		mapKeyAllowAllE: policy.MapStateEntry{
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
-		mapKeyFoo: policy.MapStateEntry{
-			IsDeny:           true,
-			DerivedFromRules: labels.LabelArrayList{lblsL3DenyFoo},
-		},
-	}
-
-	equal, errStr := checker.ExportedEqual(ep.desiredPolicy.PolicyMapState, expected)
-	c.Assert(errStr, check.Equals, "")
-	c.Assert(equal, check.Equals, true)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	cmp := completion.NewWaitGroup(ctx)
-
-	logger := ep.getLogger().Logger
-	oldLogLevel := logger.GetLevel()
-	logger.SetLevel(logrus.DebugLevel)
-	defer logger.SetLevel(oldLogLevel)
-
-	desiredRedirects, err, finalizeFunc, revertFunc := ep.addNewRedirects(cmp)
-	c.Assert(err, check.IsNil)
-	finalizeFunc()
-
-	// Redirect is still created, even if all MapState entries may have been overridden by a
-	// deny entry.  A new FQDN redirect may have no MapState entries as the associated CIDR
-	// identities may match no numeric IDs yet, so we can not count the number of added MapState
-	// entries and make any conclusions from it.
-	c.Assert(len(desiredRedirects), check.Equals, 1)
-
-	expected2 := policy.MapState{
-		mapKeyAllowAllE: policy.MapStateEntry{
-			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
-		},
 		mapKeyAllL7: policy.MapStateEntry{
-			IsDeny:           false,
 			ProxyPort:        httpPort,
+			IsDeny:           false,
 			DerivedFromRules: labels.LabelArrayList{lblsL4L7Allow},
 		},
 		mapKeyFoo: policy.MapStateEntry{
@@ -466,22 +435,59 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 
 	// Redirect for the HTTP port should have been added, but there should be a deny for Foo on
 	// that port, as it is shadowed by the deny rule
-	equal, errStr = checker.ExportedEqual(ep.desiredPolicy.PolicyMapState, expected2)
+	equal, errStr := checker.ExportedEqual(ep.desiredPolicy.PolicyMapState, expected)
+	c.Assert(errStr, check.Equals, "")
+	c.Assert(equal, check.Equals, true)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmp := completion.NewWaitGroup(ctx)
+
+	logger := ep.getLogger().Logger
+	oldLogLevel := logger.GetLevel()
+	logger.SetLevel(logrus.DebugLevel)
+	defer logger.SetLevel(oldLogLevel)
+
+	err, finalizeFunc, revertFunc := ep.addNewRedirects(ep.regenContext.datapathRegenerationContext.desiredRedirects, cmp)
+	c.Assert(err, check.IsNil)
+	ep.regenContext.datapathRegenerationContext.finalizeList.Append(finalizeFunc)
+	ep.regenContext.datapathRegenerationContext.revertStack.Push(revertFunc)
+	ep.regenContext.datapathRegenerationContext.finalizeList.Finalize()
+
+	// Redirect is still created, even if all MapState entries may have been overridden by a
+	// deny entry.  A new FQDN redirect may have no MapState entries as the associated CIDR
+	// identities may match no numeric IDs yet, so we can not count the number of added MapState
+	// entries and make any conclusions from it.
+	c.Assert(len(ep.regenContext.datapathRegenerationContext.desiredRedirects), check.Equals, 1)
+
+	// No changes by addNewRedirects() as redirects are already added by regeneratePolicy()
+	equal, errStr = checker.ExportedEqual(ep.desiredPolicy.PolicyMapState, expected)
 	c.Assert(errStr, check.Equals, "")
 	c.Assert(equal, check.Equals, true)
 
 	// Keep only desired redirects
-	ep.removeOldRedirects(desiredRedirects, cmp)
+	ep.removeOldRedirects(ep.regenContext.datapathRegenerationContext.desiredRedirects, cmp)
 
 	// Check that the redirect is still realized
 	c.Assert(len(ep.realizedRedirects), check.Equals, 1)
 	c.Assert(len(ep.desiredPolicy.PolicyMapState), check.Equals, 4)
 
 	// Pretend that something failed and revert the changes
-	revertFunc()
+	ep.regenContext.datapathRegenerationContext.revertStack.Revert()
 
-	// Check that the state before addRedirects is restored
-	equal, errStr = checker.ExportedEqual(ep.desiredPolicy.PolicyMapState, expected)
+	// regeneratePolicy now creates also the desired redirects
+	expectedNoProxies := policy.MapState{
+		mapKeyAllowAllE: policy.MapStateEntry{
+			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
+		},
+		mapKeyFoo: policy.MapStateEntry{
+			IsDeny:           true,
+			DerivedFromRules: labels.LabelArrayList{lblsL3DenyFoo},
+		},
+	}
+
+	// Check that the state without the proxy entries is "restored"
+	equal, errStr = checker.ExportedEqual(ep.desiredPolicy.PolicyMapState, expectedNoProxies)
 	c.Assert(errStr, check.Equals, "")
 	c.Assert(equal, check.Equals, true)
 	c.Assert(len(ep.realizedRedirects), check.Equals, 0)

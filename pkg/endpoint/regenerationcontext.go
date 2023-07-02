@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
 )
 
@@ -45,6 +46,11 @@ func ParseExternalRegenerationMetadata(ctx context.Context, c context.CancelFunc
 		datapathRegenerationContext: &datapathRegenerationContext{
 			regenerationLevel: e.RegenerationLevel,
 			ctCleaned:         make(chan struct{}),
+			desiredRedirects:  make(map[string]uint16),
+			proxyChanges: policy.ChangeState{
+				Adds: make(policy.Keys),
+				Old:  make(policy.MapState),
+			},
 		},
 		parentContext: ctx,
 		cancelFunc:    c,
@@ -64,8 +70,10 @@ type datapathRegenerationContext struct {
 	nextDir            string
 	regenerationLevel  regeneration.DatapathRegenerationLevel
 
-	finalizeList revert.FinalizeList
-	revertStack  revert.RevertStack
+	desiredRedirects map[string]uint16
+	proxyChanges     policy.ChangeState
+	finalizeList     revert.FinalizeList
+	revertStack      revert.RevertStack
 }
 
 func (ctx *datapathRegenerationContext) prepareForProxyUpdates(parentCtx context.Context) {

@@ -475,7 +475,10 @@ func (p *Proxy) ReinstallRules(ctx context.Context) error {
 // Caller must call exactly one of the returned functions:
 // - finalizeFunc to make the changes stick, or
 // - revertFunc to cancel the changes.
-// Called with 'localEndpoint' locked!
+// These functions must be called with the endpoint locked!
+//
+// Called with localEndpoint's buildMutex held, but the endpoint Mutex can be unlocked.
+// 'localEndpoint' is stored for use during removeRedirect(), which must be called with the endpoint lock held.
 func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, localEndpoint endpoint.EndpointUpdater,
 	wg *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 
@@ -609,6 +612,7 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 				delete(p.redirects, id)
 				p.updateRedirectMetrics()
 				p.mutex.Unlock()
+
 				implFinalizeFunc, _ := redir.implementation.Close(wg)
 				if implFinalizeFunc != nil {
 					implFinalizeFunc()
@@ -642,6 +646,7 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 }
 
 // RemoveRedirect removes an existing redirect that has been successfully created earlier.
+// Must be called with the endpoint passed to CreateOrUpdateRedirect locked!
 func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	p.mutex.Lock()
 	defer func() {

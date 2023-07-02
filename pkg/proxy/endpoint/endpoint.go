@@ -27,13 +27,16 @@ type EndpointUpdater interface {
 
 	// OnProxyPolicyUpdate is called when the proxy acknowledges that it
 	// has applied a policy.
+	// Takes endpoint mutex, but called from a goroutine
 	OnProxyPolicyUpdate(policyRevision uint64)
 
 	// UpdateProxyStatistics updates the Endpoint's proxy statistics to account
 	// for a new observed flow with the given characteristics.
+	// Takes endpoint proxyStatisticsMutex
 	UpdateProxyStatistics(l4Protocol string, port uint16, ingress, request bool, verdict accesslog.FlowVerdict)
 
 	// OnDNSPolicyUpdateLocked is called when the Endpoint's DNS policy has been updated.
 	// 'rules' is a fresh copy of the DNS rules passed to the callee.
+	// Called with endpoint mutex held
 	OnDNSPolicyUpdateLocked(rules restore.DNSRules)
 }

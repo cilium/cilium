@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
@@ -77,7 +78,7 @@ func (e *Endpoint) getNamedPortEgress(npMap types.NamedPortMultiMap, name string
 }
 
 // proxyID returns a unique string to identify a proxy mapping.
-// Must be called with e.mutex held.
+// Does not need the Endpoint Mutex to be held.
 func (e *Endpoint) proxyID(l4 *policy.L4Filter) string {
 	port := uint16(l4.Port)
 	if port == 0 && l4.PortName != "" {
@@ -89,12 +90,73 @@ func (e *Endpoint) proxyID(l4 *policy.L4Filter) string {
 	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port)
 }
 
-// lookupRedirectPort returns the redirect L4 proxy port for the given L4
-// policy map key, in host byte order. Returns 0 if not found or the
-// filter doesn't require a redirect.
-// Must be called with either Endpoint.mutex or Endpoint.buildMutex held for reading.
-func (e *Endpoint) LookupRedirectPortLocked(ingress bool, protocol string, port uint16) uint16 {
+// LookupRedirectPort returns the proxy port for the given redirect, or 0 if not found
+// Must be called with e.mutex not held.
+func (e *Endpoint) LookupRedirectPort(ingress bool, protocol string, port uint16) uint16 {
+	e.unconditionalLock()
+	defer e.unlock()
 	return e.realizedRedirects[policy.ProxyID(e.ID, ingress, protocol, port)]
+}
+
+// GetRedirectPort creates or updates a proxy redirect for the given l4 and returns the allocated proxy redirect port.
+// Returns 0 if the redirect can not be created or if the l4 filter doesn't require a redirect.
+// Must be called with Endpoint.buildMutex held for writing and e.regenContext set.
+// Endpoint Mutex is not held by the callers, nor do we take it here.
+func (e *Endpoint) GetRedirectPort(l4 *policy.L4Filter) (redirectPort uint16, changes policy.ChangeState) {
+	// 'e.proxy' may be set during endpoint restore, but that happens before endpoint policy is computed
+	if option.Config.DryMode || e.isProxyDisabled() || l4.L7Parser == policy.ParserTypeNone {
+		return 0, changes
+	}
+
+	proxyID := e.proxyID(l4)
+	if proxyID == "" {
+		// Skip redirects for which a proxyID cannot be created.
+		// This may happen due to the named port mapping not
+		// existing or multiple PODs defining the same port name
+		// with different port values. The redirect will be created
+		// when the mapping is available or when the port name
+		// conflicts have been resolved in POD specs.
+		return 0, changes
+	}
+
+	// e.regenContext is non-nil when the endpoint is being regenerated and buildMutex is held.
+	// Calling this otherwise will panic
+	datapathRegenCtxt := e.regenContext.datapathRegenerationContext
+
+	// 'e' argument is stored and used only when redirect is Closed, hence the endpoint mutex does not need to be taken here
+	redirectPort, err, finalizeFunc, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, l4, proxyID, e, datapathRegenCtxt.proxyWaitGroup)
+	if err != nil {
+		// Skip redirects that can not be created or updated.  This
+		// can happen when a listener is missing, for example when
+		// restarting and k8s delivers the CNP before the related
+		// CEC.
+		// Policy is regenerated when listeners are added or removed
+		// to fix this condition when the listener is available.
+		e.getLogger().WithField(logfields.Listener, l4.GetListener()).WithError(err).Debug("Redirect rule with missing listener skipped, will be applied once the listener is available")
+		return 0, changes
+	}
+	datapathRegenCtxt.finalizeList.Append(finalizeFunc)
+	datapathRegenCtxt.revertStack.Push(revertFunc)
+
+	// Update the endpoint API model to report that Cilium manages a
+	// redirect for that port.
+	e.proxyStatisticsMutex.Lock()
+	proxyStats := e.getProxyStatisticsLocked(proxyID, string(l4.L7Parser), uint16(l4.Port), l4.Ingress)
+	oldAllocatedProxyPort := proxyStats.AllocatedProxyPort
+	proxyStats.AllocatedProxyPort = int64(redirectPort)
+	e.proxyStatisticsMutex.Unlock()
+
+	datapathRegenCtxt.revertStack.Push(func() error {
+		// Restore the proxy stats.
+		e.proxyStatisticsMutex.Lock()
+		proxyStats.AllocatedProxyPort = oldAllocatedProxyPort
+		e.proxyStatisticsMutex.Unlock()
+		return nil
+	})
+
+	datapathRegenCtxt.desiredRedirects[proxyID] = redirectPort
+
+	return redirectPort, datapathRegenCtxt.proxyChanges
 }
 
 // Note that this function assumes that endpoint policy has already been generated!
@@ -231,6 +293,10 @@ func (e *Endpoint) regeneratePolicy() (*policyGenerateResult, error) {
 				"policyChanged":       e.nextPolicyRevision > e.policyRevision,
 			}).Debug("Skipping unnecessary endpoint policy recalculation")
 			repo.Mutex.RUnlock()
+
+			// When skipping we must explicitly consider each realized redirect as a desired one, otherwise they will be removed
+			e.regenContext.datapathRegenerationContext.desiredRedirects = maps.Clone(e.realizedRedirects)
+
 			return result, nil
 		} else {
 			e.getLogger().Debug("Forced policy recalculation")
@@ -269,6 +335,16 @@ func (e *Endpoint) regeneratePolicy() (*policyGenerateResult, error) {
 
 	// Consume converts a SelectorPolicy in to an EndpointPolicy
 	result.endpointPolicy = result.selectorPolicy.Consume(e)
+
+	// proxy redirects are now created via selectorPolicy.Consume, add revert function to revert
+	// proxy changes to the desired mapstate in case something fails
+	if e.regenContext != nil {
+		datapathRegenCtxt := e.regenContext.datapathRegenerationContext
+		datapathRegenCtxt.revertStack.Push(func() error {
+			e.desiredPolicy.PolicyMapState.RevertChanges(datapathRegenCtxt.proxyChanges)
+			return nil
+		})
+	}
 	return result, nil
 }
 
@@ -373,8 +449,11 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	}()
 
 	e.buildMutex.Lock()
-	defer e.buildMutex.Unlock()
-
+	e.regenContext = ctx
+	defer func() {
+		e.regenContext = nil
+		e.buildMutex.Unlock()
+	}()
 	stats.waitingForLock.Start()
 	// Check if endpoints is still alive before doing any build
 	err = e.lockAlive()

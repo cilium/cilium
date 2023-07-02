@@ -1461,7 +1461,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			if x.cs != nil {
 				cs = x.cs
 			}
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, DefaultAuthType, AuthTypeDisabled, nil)
+			var redirectPort uint16
+			if x.redirect {
+				redirectPort = 1
+			}
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, redirectPort, x.deny, DefaultAuthType, AuthTypeDisabled, nil)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
 		policyMapState.validatePortProto(c)
@@ -1678,7 +1682,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			if x.cs != nil {
 				cs = x.cs
 			}
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, x.hasAuth, x.authType, nil)
+			var redirectPort uint16
+			if x.redirect {
+				redirectPort = 1
+			}
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, redirectPort, x.deny, x.hasAuth, x.authType, nil)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState, policyFeatures(0), nil)
 		policyMapState.validatePortProto(c)
@@ -2235,7 +2243,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			if x.cs != nil {
 				cs = x.cs
 			}
-			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, x.redirect, x.deny, DefaultAuthType, AuthTypeDisabled, nil)
+			var redirectPort uint16
+			if x.redirect {
+				redirectPort = 1
+			}
+			policyMaps.AccumulateMapChanges(cs, adds, deletes, x.port, x.proto, dir, redirectPort, x.deny, DefaultAuthType, AuthTypeDisabled, nil)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState, denyRules, nil)
 		changes = ChangeState{
