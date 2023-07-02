@@ -663,7 +663,7 @@ static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
 		goto drop_err;
 	if (eth_store_saddr(ctx, dmac.addr, 0) < 0)
 		goto drop_err;
-	if (ctx_store_bytes(ctx, ETH_ALEN * 2, &type, sizeof(type), 0) < 0)
+	if (eth_store_proto(ctx, type, 0) < 0)
 		goto drop_err;
 	if (ctx_store_bytes(ctx, off, &ip, sizeof(ip), 0) < 0)
 		goto drop_err;
@@ -2196,7 +2196,7 @@ static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
 		goto drop_err;
 	if (eth_store_saddr(ctx, dmac.addr, 0) < 0)
 		goto drop_err;
-	if (ctx_store_bytes(ctx, ETH_ALEN * 2, &type, sizeof(type), 0) < 0)
+	if (eth_store_proto(ctx, type, 0) < 0)
 		goto drop_err;
 	if (ctx_store_bytes(ctx, off, &ip, sizeof(ip), 0) < 0)
 		goto drop_err;

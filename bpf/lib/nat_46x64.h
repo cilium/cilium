@@ -289,10 +289,11 @@ static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, int nh_off,
 	v6.hop_limit = v4.ttl;
 	v4hdr_len = (__be16)(v4.ihl << 2);
 	v6.payload_len = bpf_htons(bpf_ntohs(v4.tot_len) - v4hdr_len);
-	if (ctx_change_proto(ctx, bpf_htons(ETH_P_IPV6), 0) < 0)
+	if (ctx_change_proto(ctx, protocol, 0) < 0)
 		return DROP_WRITE_ERROR;
-	if (ctx_store_bytes(ctx, nh_off, &v6, sizeof(v6), 0) < 0 ||
-	    ctx_store_bytes(ctx, nh_off - 2, &protocol, 2, 0) < 0)
+	if (eth_store_proto(ctx, protocol, 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (ctx_store_bytes(ctx, nh_off, &v6, sizeof(v6), 0) < 0)
 		return DROP_WRITE_ERROR;
 	if (v4.protocol == IPPROTO_ICMP) {
 		csum = icmp4_to_icmp6(ctx, nh_off + sizeof(v6));
@@ -341,10 +342,11 @@ static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx,
 	v4.tot_len = bpf_htons(bpf_ntohs(v6.payload_len) + sizeof(v4));
 	csum_off = offsetof(struct iphdr, check);
 	csum = csum_diff(NULL, 0, &v4, sizeof(v4), csum);
-	if (ctx_change_proto(ctx, bpf_htons(ETH_P_IP), 0) < 0)
+	if (ctx_change_proto(ctx, protocol, 0) < 0)
 		return DROP_WRITE_ERROR;
-	if (ctx_store_bytes(ctx, nh_off, &v4, sizeof(v4), 0) < 0 ||
-	    ctx_store_bytes(ctx, nh_off - 2, &protocol, 2, 0) < 0)
+	if (eth_store_proto(ctx, protocol, 0) < 0)
+		return DROP_WRITE_ERROR;
+	if (ctx_store_bytes(ctx, nh_off, &v4, sizeof(v4), 0) < 0)
 		return DROP_WRITE_ERROR;
 	if (ipv4_csum_update_by_diff(ctx, nh_off, csum) < 0)
 		return DROP_CSUM_L3;
