@@ -177,9 +177,9 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 					       const struct ipv4_nat_target *target,
 					       bool needs_ct, __s8 *ext_err)
 {
-	int ret = DROP_NAT_NO_MAPPING, retries;
 	struct ipv4_ct_tuple rtuple = {};
 	struct ipv4_nat_entry rstate;
+	int ret, retries;
 	__u16 port;
 	void *map;
 
@@ -218,15 +218,8 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 		/* Check if the selected port is already in use by a RevSNAT
 		 * entry for some other connection with the same src/dst:
 		 */
-		if (!__snat_lookup(map, &rtuple)) {
-			ostate->to_sport = rtuple.dport;
-			ostate->common.created = bpf_mono_now();
-			rstate.common.created = ostate->common.created;
-
-			ret = __snat_update(map, otuple, ostate, &rtuple, &rstate);
-			if (!ret)
-				break;
-		}
+		if (!__snat_lookup(map, &rtuple))
+			goto create_nat_entries;
 
 		port = __snat_clamp_port_range(target->min_port,
 					       target->max_port,
@@ -234,16 +227,34 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 					       (__u16)get_prandom_u32());
 	}
 
-	if (retries > SNAT_SIGNAL_THRES)
-		send_signal_nat_fill_up(ctx, SIGNAL_PROTO_V4);
+	/* Loop completed without finding a free port: */
+	ret = DROP_NAT_NO_MAPPING;
+	goto out;
 
+create_nat_entries:
+	ostate->to_sport = rtuple.dport;
+	ostate->common.created = bpf_mono_now();
+	rstate.common.created = ostate->common.created;
+
+	/* Create the SNAT and RevSNAT entries. We just confirmed that
+	 * this RevSNAT entry doesn't exist yet, and the caller previously
+	 * checked that no SNAT entry for this connection exists.
+	 */
+	ret = __snat_update(map, otuple, ostate, &rtuple, &rstate);
 	if (ret < 0) {
 		if (ext_err)
 			*ext_err = (__s8)ret;
-		return DROP_NAT_NO_MAPPING;
+		ret = DROP_NAT_NO_MAPPING;
 	}
 
-	return 0;
+out:
+	/* We struggled to find a free port. Trigger GC in the agent to
+	 * free up any ports that are held by expired connections.
+	 */
+	if (retries > SNAT_SIGNAL_THRES)
+		send_signal_nat_fill_up(ctx, SIGNAL_PROTO_V4);
+
+	return ret;
 }
 
 static __always_inline bool
@@ -1302,9 +1313,9 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 					       const struct ipv6_nat_target *target,
 					       bool needs_ct, __s8 *ext_err)
 {
-	int ret = DROP_NAT_NO_MAPPING, retries;
 	struct ipv6_ct_tuple rtuple = {};
 	struct ipv6_nat_entry rstate;
+	int ret, retries;
 	__u16 port;
 
 	memset(&rstate, 0, sizeof(rstate));
@@ -1334,15 +1345,8 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
 		rtuple.dport = bpf_htons(port);
 
-		if (!snat_v6_lookup(&rtuple)) {
-			ostate->to_sport = rtuple.dport;
-			ostate->common.created = bpf_mono_now();
-			rstate.common.created = ostate->common.created;
-
-			ret = snat_v6_update(otuple, ostate, &rtuple, &rstate);
-			if (!ret)
-				break;
-		}
+		if (!snat_v6_lookup(&rtuple))
+			goto create_nat_entries;
 
 		port = __snat_clamp_port_range(target->min_port,
 					       target->max_port,
@@ -1350,16 +1354,26 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 					       (__u16)get_prandom_u32());
 	}
 
-	if (retries > SNAT_SIGNAL_THRES)
-		send_signal_nat_fill_up(ctx, SIGNAL_PROTO_V6);
+	ret = DROP_NAT_NO_MAPPING;
+	goto out;
 
+create_nat_entries:
+	ostate->to_sport = rtuple.dport;
+	ostate->common.created = bpf_mono_now();
+	rstate.common.created = ostate->common.created;
+
+	ret = snat_v6_update(otuple, ostate, &rtuple, &rstate);
 	if (ret < 0) {
 		if (ext_err)
 			*ext_err = (__s8)ret;
-		return DROP_NAT_NO_MAPPING;
+		ret = DROP_NAT_NO_MAPPING;
 	}
 
-	return 0;
+out:
+	if (retries > SNAT_SIGNAL_THRES)
+		send_signal_nat_fill_up(ctx, SIGNAL_PROTO_V6);
+
+	return ret;
 }
 
 static __always_inline bool
