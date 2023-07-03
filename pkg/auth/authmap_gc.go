@@ -6,18 +6,18 @@ package auth
 import (
 	"context"
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
+	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node/addressing"
+	"github.com/cilium/cilium/pkg/node/manager"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -80,37 +80,58 @@ func (r *authMapGarbageCollector) cleanup(ctx context.Context) error {
 
 // Nodes
 
-func (r *authMapGarbageCollector) handleCiliumNodeEvent(_ context.Context, e resource.Event[*ciliumv2.CiliumNode]) (err error) {
+func (r *authMapGarbageCollector) subscribeToNodeEvents(nodeManager manager.NodeManager) {
+	nodeManager.Subscribe(r)
+
+	r.logger.Debug("Nodes synced")
+	r.ciliumNodesSynced = true
+}
+
+func (r *authMapGarbageCollector) NodeAdd(newNode nodeTypes.Node) error {
 	r.ciliumNodesMutex.Lock()
 	defer r.ciliumNodesMutex.Unlock()
 
-	defer func() { e.Done(err) }()
-
-	switch e.Kind {
-	case resource.Upsert:
-		if r.ciliumNodesDiscovered != nil {
-			remoteNodeIDs := r.remoteNodeIDs(e.Object)
-			r.logger.
-				WithField("key", e.Key).
-				WithField("node_ids", remoteNodeIDs).
-				Debug("Node discovered - mark to keep")
-			for _, rID := range remoteNodeIDs {
-				r.ciliumNodesDiscovered[rID] = struct{}{}
-			}
-		}
-	case resource.Sync:
-		r.logger.Debug("Nodes synced")
-		r.ciliumNodesSynced = true
-	case resource.Delete:
-		remoteNodeIDs := r.remoteNodeIDs(e.Object)
+	if r.ciliumNodesDiscovered != nil {
+		remoteNodeIDs := r.remoteNodeIDs(newNode)
 		r.logger.
-			WithField("key", e.Key).
+			WithField("name", newNode.Identity().Name).
+			WithField("cluster", newNode.Identity().Cluster).
 			WithField("node_ids", remoteNodeIDs).
-			Debug("Node deleted - mark for deletion")
+			Debug("Node discovered - mark to keep")
 		for _, rID := range remoteNodeIDs {
-			r.ciliumNodesDeleted[rID] = struct{}{}
+			r.ciliumNodesDiscovered[rID] = struct{}{}
 		}
 	}
+
+	return nil
+}
+
+func (r *authMapGarbageCollector) NodeUpdate(oldNode, newNode nodeTypes.Node) error {
+	return nil
+}
+
+func (r *authMapGarbageCollector) NodeDelete(deletedNode nodeTypes.Node) error {
+	r.ciliumNodesMutex.Lock()
+	defer r.ciliumNodesMutex.Unlock()
+
+	remoteNodeIDs := r.remoteNodeIDs(deletedNode)
+	r.logger.
+		WithField("name", deletedNode.Identity().Name).
+		WithField("cluster", deletedNode.Identity().Cluster).
+		WithField("node_ids", remoteNodeIDs).
+		Debug("Node deleted - mark for deletion")
+	for _, rID := range remoteNodeIDs {
+		r.ciliumNodesDeleted[rID] = struct{}{}
+	}
+
+	return nil
+}
+
+func (r *authMapGarbageCollector) NodeValidateImplementation(node nodeTypes.Node) error {
+	return nil
+}
+
+func (r *authMapGarbageCollector) NodeConfigurationChanged(config datapathTypes.LocalNodeConfiguration) error {
 	return nil
 }
 
@@ -184,12 +205,12 @@ func (r *authMapGarbageCollector) cleanupDeletedNode(nodeID uint16) error {
 	})
 }
 
-func (r *authMapGarbageCollector) remoteNodeIDs(node *ciliumv2.CiliumNode) []uint16 {
+func (r *authMapGarbageCollector) remoteNodeIDs(node nodeTypes.Node) []uint16 {
 	var remoteNodeIDs []uint16
 
-	for _, addr := range node.Spec.Addresses {
+	for _, addr := range node.IPAddresses {
 		if addr.Type == addressing.NodeInternalIP {
-			nodeID, exists := r.ipCache.GetNodeID(net.ParseIP(addr.IP))
+			nodeID, exists := r.ipCache.GetNodeID(addr.IP)
 			if !exists {
 				// This might be the case at startup, when new nodes aren't yet known to the nodehandler
 				// and therefore no node id has been assigned to them.

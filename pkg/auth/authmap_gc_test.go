@@ -5,19 +5,18 @@ package auth
 
 import (
 	"context"
+	"net"
 	"testing"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/node/addressing"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/policy"
 )
 
@@ -120,12 +119,12 @@ func Test_authMapGarbageCollector_cleanupNodes(t *testing.T) {
 	assert.Empty(t, gc.ciliumNodesDeleted)
 	assert.False(t, gc.ciliumNodesSynced)
 
-	err := gc.handleCiliumNodeEvent(ctx, ciliumNodeEvent(resource.Upsert, "172.18.0.1"))
+	err := gc.NodeAdd(ciliumNodeEvent("172.18.0.1"))
 	assert.NoError(t, err, "Handling a node event should never result in an error")
 	assert.Len(t, authMap.entries, 5, "Node events should never modify the map directly")
 	assert.Len(t, gc.ciliumNodesDiscovered, 2, "Discovered nodes should be kept in the internal state")
 
-	err = gc.handleCiliumNodeEvent(ctx, ciliumNodeEvent(resource.Upsert, "172.18.0.2"))
+	err = gc.NodeAdd(ciliumNodeEvent("172.18.0.2"))
 	assert.NoError(t, err, "Handling a node event should never result in an error")
 	assert.Len(t, authMap.entries, 5, "Node events should never modify the map directly")
 	assert.Len(t, gc.ciliumNodesDiscovered, 3, "Discovered nodes should be kept in the internal state")
@@ -135,17 +134,14 @@ func Test_authMapGarbageCollector_cleanupNodes(t *testing.T) {
 	assert.Len(t, authMap.entries, 5, "GC run before the initial sync should not delete any entries from the auth map")
 	assert.Len(t, gc.ciliumNodesDiscovered, 3, "GC run before the initial sync should not delete the discovered nodes")
 
-	err = gc.handleCiliumNodeEvent(ctx, ciliumNodeEvent(resource.Sync, ""))
-	assert.NoError(t, err, "Handling a node event event should never result in an error")
-	assert.Len(t, authMap.entries, 5, "Node events should never modify the map directly")
-	assert.True(t, gc.ciliumNodesSynced, "Node sync event will mark the nodes as synced")
+	gc.ciliumNodesSynced = true // Node sync event will mark the nodes as synced
 
-	err = gc.handleCiliumNodeEvent(ctx, ciliumNodeEvent(resource.Delete, "172.18.0.2"))
+	err = gc.NodeDelete(ciliumNodeEvent("172.18.0.2"))
 	assert.NoError(t, err, "Handling a node event should never result in an error")
 	assert.Len(t, authMap.entries, 5, "Node events should never modify the map directly")
 	assert.Len(t, gc.ciliumNodesDeleted, 1, "Deleted nodes after the sync and before the initial GC run should already be kept")
 
-	err = gc.handleCiliumNodeEvent(ctx, ciliumNodeEvent(resource.Upsert, "172.18.0.3"))
+	err = gc.NodeAdd(ciliumNodeEvent("172.18.0.3"))
 	assert.NoError(t, err, "Handling a node event should never result in an error")
 	assert.Len(t, authMap.entries, 5, "Node events should never modify the map directly")
 	assert.Len(t, gc.ciliumNodesDiscovered, 4, "Discovered nodes after the sync event should be kept until the first GC run")
@@ -159,12 +155,12 @@ func Test_authMapGarbageCollector_cleanupNodes(t *testing.T) {
 	assert.Nil(t, gc.ciliumNodesDiscovered, "First GC run after the initial sync should reset the option to discover nodes")
 	assert.Empty(t, gc.ciliumNodesDeleted, "GC runs should delete the successfully garbage collected entries from the list of deleted nodes")
 
-	err = gc.handleCiliumNodeEvent(ctx, ciliumNodeEvent(resource.Upsert, "172.18.0.5"))
+	err = gc.NodeAdd(ciliumNodeEvent("172.18.0.5"))
 	assert.NoError(t, err, "Handling a node should never result in an error")
 	assert.Len(t, authMap.entries, 3, "Node should never modify the map directly")
 	assert.Nil(t, gc.ciliumNodesDiscovered, "Discovered nodes after the first GC run should no longer be of any interest")
 
-	err = gc.handleCiliumNodeEvent(ctx, ciliumNodeEvent(resource.Delete, "172.18.0.3"))
+	err = gc.NodeDelete(ciliumNodeEvent("172.18.0.3"))
 	assert.NoError(t, err, "Handling a node event should never result in an error")
 	assert.Len(t, authMap.entries, 3, "Node events should never modify the map directly")
 	assert.Len(t, gc.ciliumNodesDeleted, 1, "Deleted nodes should be kept for the next GC run")
@@ -276,10 +272,10 @@ func Test_authMapGarbageCollector_cleanup(t *testing.T) {
 
 	assert.Len(t, authMap.entries, 7)
 
-	require.NoError(t, gc.handleCiliumNodeEvent(ctx, ciliumNodeEvent(resource.Upsert, "172.18.0.1")))
-	require.NoError(t, gc.handleCiliumNodeEvent(ctx, ciliumNodeEvent(resource.Upsert, "172.18.0.2")))
-	require.NoError(t, gc.handleCiliumNodeEvent(ctx, ciliumNodeEvent(resource.Sync, "")))
-	require.NoError(t, gc.handleCiliumNodeEvent(ctx, ciliumNodeEvent(resource.Delete, "172.18.0.1")))
+	require.NoError(t, gc.NodeAdd(ciliumNodeEvent("172.18.0.1")))
+	require.NoError(t, gc.NodeAdd(ciliumNodeEvent("172.18.0.2")))
+	gc.ciliumNodesSynced = true
+	require.NoError(t, gc.NodeDelete(ciliumNodeEvent("172.18.0.1")))
 	for i := 1; i < 15; i++ {
 		require.NoError(t, gc.handleIdentityChange(ctx, ciliumIdentityEvent(cache.IdentityChangeUpsert, identity.NumericIdentity(i))))
 	}
@@ -300,14 +296,11 @@ func Test_authMapGarbageCollector_HandleNodeEventError(t *testing.T) {
 	}
 	gc := newAuthMapGC(logrus.New(), authMap, newFakeIPCache(map[uint16]string{10: "172.18.0.3"}), nil)
 
-	event := ciliumNodeEvent(resource.Delete, "172.18.0.3")
-	var eventErr error
-	event.Done = func(err error) {
-		eventErr = err
-	}
-	err := gc.handleCiliumNodeEvent(context.Background(), event)
+	event := ciliumNodeEvent("172.18.0.3")
+	err := gc.NodeAdd(event)
 	assert.NoError(t, err)
-	assert.NoError(t, eventErr)
+	err = gc.NodeDelete(event)
+	assert.NoError(t, err)
 
 	gc.ciliumNodesSynced = true
 	gc.ciliumNodesDiscovered = nil
@@ -332,25 +325,16 @@ func Test_authMapGarbageCollector_HandleIdentityEventError(t *testing.T) {
 	assert.ErrorContains(t, err, "failed to cleanup deleted identity: failed to delete entry")
 }
 
-func ciliumNodeEvent(eventType resource.EventKind, nodeInternalIP string) resource.Event[*ciliumv2.CiliumNode] {
-	return resource.Event[*ciliumv2.CiliumNode]{
-		Kind: eventType,
-		Done: func(err error) {},
-		Object: &ciliumv2.CiliumNode{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "test-ns",
-				Name:      "test-node",
-			},
-			Spec: ciliumv2.NodeSpec{
-				Addresses: []ciliumv2.NodeAddress{
-					{
-						Type: addressing.NodeInternalIP,
-						IP:   nodeInternalIP,
-					},
-				},
+func ciliumNodeEvent(nodeInternalIP string) nodeTypes.Node {
+	return nodeTypes.Node{
+		Name:    "test-node",
+		Cluster: "test-cluster",
+		IPAddresses: []nodeTypes.Address{
+			{
+				Type: addressing.NodeInternalIP,
+				IP:   net.ParseIP(nodeInternalIP),
 			},
 		},
-		Key: resource.Key{Namespace: "test-ns", Name: "test-node"},
 	}
 }
 
