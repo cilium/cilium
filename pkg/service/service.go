@@ -34,9 +34,9 @@ import (
 const anyPort = "*"
 
 var (
-	updateMetric = metrics.ServicesCount.WithLabelValues("update")
-	deleteMetric = metrics.ServicesCount.WithLabelValues("delete")
-	addMetric    = metrics.ServicesCount.WithLabelValues("add")
+	updateMetric = metrics.ServicesEventsCount.WithLabelValues("update")
+	deleteMetric = metrics.ServicesEventsCount.WithLabelValues("delete")
+	addMetric    = metrics.ServicesEventsCount.WithLabelValues("add")
 )
 
 // ErrLocalRedirectServiceExists represents an error when a Local redirect
