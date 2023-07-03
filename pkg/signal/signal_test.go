@@ -68,7 +68,6 @@ func (t *signalSuite) TestSignalSet(c *C) {
 	sm := &signalManager{events: events}
 	c.Assert(sm.isMuted(), Equals, true)
 	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, true)
-	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, true)
 	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, true)
 
 	// invalid signal, nothing changes
@@ -77,16 +76,14 @@ func (t *signalSuite) TestSignalSet(c *C) {
 	c.Assert(err, ErrorMatches, "signal number not supported: 16")
 	c.Assert(sm.isMuted(), Equals, true)
 	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, true)
-	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, true)
 	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, true)
 
 	// 2 active signals
-	err = sm.UnmuteSignals(SignalNatFillUp, SignalCTFillUp)
+	err = sm.UnmuteSignals(SignalNatFillUp, SignalAuthRequired)
 	c.Assert(err, IsNil)
 	c.Assert(sm.isMuted(), Equals, false)
 	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, false)
-	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, false)
-	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, true)
+	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, false)
 
 	c.Assert(events.paused, Equals, false)
 	c.Assert(events.closed, Equals, false)
@@ -96,8 +93,7 @@ func (t *signalSuite) TestSignalSet(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(sm.isMuted(), Equals, false)
 	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, true)
-	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, false)
-	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, true)
+	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, false)
 
 	c.Assert(events.paused, Equals, false)
 	c.Assert(events.closed, Equals, false)
@@ -107,40 +103,26 @@ func (t *signalSuite) TestSignalSet(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(sm.isMuted(), Equals, false)
 	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, true)
-	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, false)
-	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, true)
-
-	c.Assert(events.paused, Equals, false)
-	c.Assert(events.closed, Equals, false)
-
-	// Unmute one more
-	err = sm.UnmuteSignals(SignalAuthRequired)
-	c.Assert(err, IsNil)
-	c.Assert(sm.isMuted(), Equals, false)
-	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, true)
-	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, false)
 	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, false)
 
 	c.Assert(events.paused, Equals, false)
 	c.Assert(events.closed, Equals, false)
 
 	// Last signala are muted
-	err = sm.MuteSignals(SignalCTFillUp, SignalAuthRequired)
+	err = sm.MuteSignals(SignalAuthRequired)
 	c.Assert(err, IsNil)
 	c.Assert(sm.isMuted(), Equals, true)
 	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, true)
-	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, true)
 	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, true)
 
 	c.Assert(events.paused, Equals, true)
 	c.Assert(events.closed, Equals, false)
 
 	// A signal is unmuted again
-	err = sm.UnmuteSignals(SignalCTFillUp)
+	err = sm.UnmuteSignals(SignalNatFillUp)
 	c.Assert(err, IsNil)
 	c.Assert(sm.isMuted(), Equals, false)
-	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, true)
-	c.Assert(sm.isSignalMuted(SignalCTFillUp), Equals, false)
+	c.Assert(sm.isSignalMuted(SignalNatFillUp), Equals, false)
 	c.Assert(sm.isSignalMuted(SignalAuthRequired), Equals, true)
 
 	c.Assert(events.paused, Equals, false)
@@ -174,17 +156,13 @@ func (t *signalSuite) TestLifeCycle(c *C) {
 	binary.Write(buf1, byteorder.Native, SignalNatFillUp)
 	binary.Write(buf1, byteorder.Native, SignalProtoV4)
 
-	buf2 := new(bytes.Buffer)
-	binary.Write(buf2, byteorder.Native, SignalCTFillUp)
-	binary.Write(buf2, byteorder.Native, SignalProtoV4)
-
-	messages := [][]byte{buf1.Bytes(), buf2.Bytes()}
+	messages := [][]byte{buf1.Bytes()}
 
 	sm := newSignalManager(fakesignalmap.NewFakeSignalMap(messages, time.Second))
 	c.Assert(sm.isMuted(), Equals, true)
 
 	wakeup := make(chan SignalData, 1024)
-	err := sm.RegisterHandler(ChannelHandler(wakeup), SignalNatFillUp, SignalCTFillUp)
+	err := sm.RegisterHandler(ChannelHandler(wakeup), SignalNatFillUp)
 	c.Assert(err, IsNil)
 	c.Assert(sm.isMuted(), Equals, false)
 
@@ -193,7 +171,7 @@ func (t *signalSuite) TestLifeCycle(c *C) {
 
 	select {
 	case x := <-wakeup:
-		sm.MuteSignals(SignalNatFillUp, SignalCTFillUp)
+		sm.MuteSignals(SignalNatFillUp)
 		c.Assert(sm.isMuted(), Equals, true)
 
 		ipv4 := false
@@ -218,7 +196,7 @@ func (t *signalSuite) TestLifeCycle(c *C) {
 		c.Assert(ipv6, Equals, false)
 
 	case <-time.After(5 * time.Second):
-		sm.MuteSignals(SignalNatFillUp, SignalCTFillUp)
+		sm.MuteSignals(SignalNatFillUp)
 		c.Assert(sm.isMuted(), Equals, true)
 
 		c.Fatal("No signals received on time.")

@@ -30,7 +30,7 @@ type SignalType uint32
 const (
 	// SignalNatFillUp denotes potential congestion on the NAT table
 	SignalNatFillUp SignalType = iota
-	// SignalCTFillUp denotes potential congestion on the CT table
+	// SignalCTFillUp denotes potential congestion on the CT table. Unused.
 	SignalCTFillUp
 	// SignalAuthRequired denotes a connection dropped due to missing authentication
 	SignalAuthRequired

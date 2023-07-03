@@ -10,11 +10,11 @@ import (
 	"github.com/cilium/cilium/pkg/signal"
 )
 
-// Cell registers a signal handler for CT and NAT fill-up signals.
+// Cell registers a signal handler for NAT fill-up signals.
 var Cell = cell.Invoke(registerSignalHandler)
 
 // SignalData holds the IP address family type BPF program sent along with
-// the SignalNatFillUp and SignalCTFillUp signals.
+// the SignalNatFillUp signal.
 type SignalData uint32
 
 const (
@@ -45,15 +45,15 @@ var muteSignals = func() error { return errors.New("muteSignals not implemented"
 var unmuteSignals = func() error { return errors.New("unmuteSignals not implemented") }
 
 func registerSignalHandler(sm signal.SignalManager) {
-	err := sm.RegisterHandler(signal.ChannelHandler(wakeup), signal.SignalCTFillUp, signal.SignalNatFillUp)
+	err := sm.RegisterHandler(signal.ChannelHandler(wakeup), signal.SignalNatFillUp)
 	if err != nil {
-		log.WithError(err).Warningf("Failed to set up signal channel for CT & NAT fill-up events!")
+		log.WithError(err).Warningf("Failed to set up signal channel for NAT fill-up events!")
 		return
 	}
 	muteSignals = func() error {
-		return sm.MuteSignals(signal.SignalCTFillUp, signal.SignalNatFillUp)
+		return sm.MuteSignals(signal.SignalNatFillUp)
 	}
 	unmuteSignals = func() error {
-		return sm.UnmuteSignals(signal.SignalCTFillUp, signal.SignalNatFillUp)
+		return sm.UnmuteSignals(signal.SignalNatFillUp)
 	}
 }
