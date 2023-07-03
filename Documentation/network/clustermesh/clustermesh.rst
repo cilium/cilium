@@ -53,7 +53,7 @@ Additional Requirements for Native-routed Datapath Modes
 
  * ConfigMap option ``ipv4-native-routing-cidr=10.0.0.0/9``
  * Helm option ``--set ipv4NativeRoutingCIDR=10.0.0.0/9``
- * ``cilium install`` option ``--helm-set ipv4NativeRoutingCIDR=10.0.0.0/9``
+ * ``cilium install`` option ``--set ipv4NativeRoutingCIDR=10.0.0.0/9``
 
 * In addition to nodes, pods in all clusters must have IP connectivity between each other. This
   requirement is typically met by establishing peering or VPN tunnels between
@@ -68,18 +68,6 @@ Install the Cilium CLI
 ======================
 
 .. include:: ../../installation/cli-download.rst
-
-Starting from v0.14.8, the Cilium CLI supports configuring Cilium Cluster Mesh
-using Helm. To opt in to use the new *helm* configuration mode export the
-``CILIUM_CLI_MODE`` variable:
-
-.. code-block:: shell-session
-
-  export CILIUM_CLI_MODE=helm
-
-Always prefer the Cilium CLI *helm* mode for new Cluster Mesh installations, as
-it supports more advanced functionalities and configuration options. It also enables
-you to use the Cilium CLI and Helm interchangeably to manage your Cilium installation.
 
 .. warning::
 
@@ -104,9 +92,7 @@ time of Cilium:
 
  * ConfigMap options ``cluster-name`` and ``cluster-id``
  * Helm options ``cluster.name`` and ``cluster.id``
- * Cilium CLI install options (*helm* mode) ``--helm-set cluster.name`` and ``--helm-set cluster.id``
- * Cilium CLI install options (*classic* mode) ``--cluster-name`` and ``--cluster-id``
-   (`GitHub issue <https://github.com/cilium/cilium-cli/issues/1347>`__)
+ * Cilium CLI install options ``--set cluster.name`` and ``--set cluster.id``
 
 .. important::
 
@@ -122,25 +108,13 @@ If you are planning to run Hubble Relay across clusters, it is best to share a
 certificate authority (CA) between the clusters as it will enable mTLS across
 clusters to just work.
 
-.. tabs::
-  .. group-tab:: Cilium CLI (*helm* mode)
+You can propagate the CA copying the Kubernetes secret containing the CA
+from one cluster to another:
 
-    You can propagate the CA copying the Kubernetes secret containing the CA
-    from one cluster to another:
+.. code-block:: shell-session
 
-    .. code-block:: shell-session
-
-      kubectl --context=$CLUSTER1 get secret -n kube-system cilium-ca -o yaml | \
-        kubectl --context $CLUSTER2 create -f -
-
-  .. group-tab:: Cilium CLI (*classic* mode)
-
-    You can propagate the CA passing ``--inherit-ca`` to the
-    ``install`` command when installing additional clusters:
-
-    .. code-block:: shell-session
-
-      cilium install --context $CLUSTER2 [...] --inherit-ca $CLUSTER1
+  kubectl --context=$CLUSTER1 get secret -n kube-system cilium-ca -o yaml | \
+    kubectl --context $CLUSTER2 create -f -
 
 .. _enable_clustermesh:
 
@@ -158,18 +132,6 @@ clusters.
 
    cilium clustermesh enable --context $CLUSTER1
    cilium clustermesh enable --context $CLUSTER2
-
-You should be seeing output similar to the following:
-
-.. code-block:: shell-session
-
-    ✨ Validating cluster configuration...
-    ✅ Valid cluster identification found: name="gke-cilium-dev-us-west2-a-test-cluster1" id="1"
-    🔑 Found existing CA in secret cilium-ca
-    🔑 Generating certificates for ClusterMesh...
-    ✨ Deploying clustermesh-apiserver...
-    🔮 Auto-exposing service within GCP VPC (cloud.google.com/load-balancer-type=internal)
-
 
 .. note::
 
@@ -228,25 +190,6 @@ direction. The connection will automatically be established in both directions:
 .. code-block:: shell-session
 
     cilium clustermesh connect --context $CLUSTER1 --destination-context $CLUSTER2
-
-
-The output should look something like this:
-
-.. code-block:: shell-session
-
-    ✨ Extracting access information of cluster gke-cilium-dev-us-west2-a-test-cluster2...
-    🔑 Extracting secrets from cluster gke-cilium-dev-us-west2-a-test-cluster2...
-    ℹ️  Found ClusterMesh service IPs: [10.168.15.209]
-    ✨ Extracting access information of cluster gke-cilium-dev-us-west2-a-test-cluster1...
-    🔑 Extracting secrets from cluster gke-cilium-dev-us-west2-a-test-cluster1...
-    ℹ️  Found ClusterMesh service IPs: [10.168.15.208]
-    ✨ Connecting cluster gke_cilium-dev_us-west2-a_test-cluster1 -> gke_cilium-dev_us-west2-a_test-cluster2...
-    🔑 Patching existing secret cilium-clustermesh...
-    ✨ Patching DaemonSet with IP aliases cilium-clustermesh...
-    ✨ Connecting cluster gke_cilium-dev_us-west2-a_test-cluster2 -> gke_cilium-dev_us-west2-a_test-cluster1...
-    🔑 Patching existing secret cilium-clustermesh...
-    ✨ Patching DaemonSet with IP aliases cilium-clustermesh...
-
 
 It may take a bit for the clusters to be connected. You can run ``cilium
 clustermesh status --wait`` to wait for the connection to be successful:
