@@ -311,7 +311,8 @@ func (rc *remoteCluster) makeExtraOpts() kvstore.ExtraOptions {
 	if rc.serviceIPGetter != nil {
 		// Allow to resolve service names without depending on the DNS. This prevents the need
 		// for setting the DNSPolicy to ClusterFirstWithHostNet when running in host network.
-		dialOpts = append(dialOpts, grpc.WithContextDialer(k8s.CreateCustomDialer(rc.serviceIPGetter, rc.getLogger())))
+		logger := log.WithField(fieldClusterName, rc.name)
+		dialOpts = append(dialOpts, grpc.WithContextDialer(k8s.CreateCustomDialer(rc.serviceIPGetter, logger, false)))
 	}
 
 	return kvstore.ExtraOptions{
