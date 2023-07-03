@@ -257,6 +257,89 @@ func TestPolicySelection(t *testing.T) {
 			err: nil,
 		},
 		{
+			name: "nil node label selector",
+			nodeLabels: map[string]string{
+				"bgp-peering-policy": "a",
+			},
+			policies: []struct {
+				want     bool
+				selector *v1.LabelSelector
+			}{
+				{
+					want:     true,
+					selector: nil,
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "empty node label selector",
+			nodeLabels: map[string]string{
+				"bgp-peering-policy": "a",
+			},
+			policies: []struct {
+				want     bool
+				selector *v1.LabelSelector
+			}{
+				{
+					want: true,
+					selector: &v1.LabelSelector{
+						MatchLabels:      map[string]string{},
+						MatchExpressions: []v1.LabelSelectorRequirement{},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "nil values in MatchExpressions for node label selector",
+			nodeLabels: map[string]string{
+				"bgp-peering-policy": "a",
+			},
+			policies: []struct {
+				want     bool
+				selector *v1.LabelSelector
+			}{
+				{
+					want: false,
+					selector: &v1.LabelSelector{
+						MatchExpressions: []v1.LabelSelectorRequirement{
+							{
+								Key:      "bgp-peering-policy",
+								Operator: "In",
+								Values:   nil,
+							},
+						},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "valid value in MatchExpressions for node label selector",
+			nodeLabels: map[string]string{
+				"bgp-peering-policy": "a",
+			},
+			policies: []struct {
+				want     bool
+				selector *v1.LabelSelector
+			}{
+				{
+					want: true,
+					selector: &v1.LabelSelector{
+						MatchExpressions: []v1.LabelSelectorRequirement{
+							{
+								Key:      "bgp-peering-policy",
+								Operator: "In",
+								Values:   []string{"a"},
+							},
+						},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
 			// expect first policy returned, error nil
 			name: "policy match",
 			nodeLabels: map[string]string{
