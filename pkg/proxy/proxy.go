@@ -480,7 +480,10 @@ func (p *Proxy) CreateOrUpdateRedirect(
 		p.mutex.Unlock()
 	}()
 
-	scopedLog := log.WithField(fieldProxyRedirectID, id)
+	scopedLog := log.
+		WithField(fieldProxyRedirectID, id).
+		WithField(logfields.Listener, l4.GetListener()).
+		WithField("l7parser", l4.GetL7Parser())
 
 	var finalizeList revert.FinalizeList
 	var revertStack revert.RevertStack
@@ -497,14 +500,15 @@ func (p *Proxy) CreateOrUpdateRedirect(
 			if err != nil {
 				existingRedirect.mutex.Unlock()
 				p.revertStackUnlocked(revertStack)
-				return 0, fmt.Errorf("unable to update existing redirect: %s", err), nil, nil
+				return 0, fmt.Errorf("unable to update existing redirect: %w", err), nil, nil
 			}
 
 			revertStack.Push(implUpdateRevertFunc)
 
 			scopedLog.
 				WithField(logfields.Object, logfields.Repr(existingRedirect)).
-				Debug("updated existing ", existingRedirect.listener.proxyType, " proxy instance")
+				WithField("proxyType", existingRedirect.listener.proxyType).
+				Debug("updated existing proxy instance")
 
 			existingRedirect.mutex.Unlock()
 
@@ -518,7 +522,7 @@ func (p *Proxy) CreateOrUpdateRedirect(
 
 		if err != nil {
 			p.revertStackUnlocked(revertStack)
-			return 0, fmt.Errorf("unable to remove old redirect: %s", err), nil, nil
+			return 0, fmt.Errorf("unable to remove old redirect: %w", err), nil, nil
 		}
 
 		finalizeList.Append(removeFinalizeFunc)
@@ -535,6 +539,9 @@ func (p *Proxy) CreateOrUpdateRedirect(
 	redirect := newRedirect(localEndpoint, ppName, pp, l4.GetPort())
 	redirect.updateRules(l4)
 	// Rely on create*Redirect to update rules, unlike the update case above.
+
+	scopedLog = scopedLog.
+		WithField("portName", ppName)
 
 	for nRetry := 0; nRetry < redirectCreationAttempts; nRetry++ {
 		if !pp.configured {
@@ -560,13 +567,13 @@ func (p *Proxy) CreateOrUpdateRedirect(
 				// an error occurred and we are retrying
 				scopedLog.
 					WithError(err).
-					Warningf("Unable to create %s proxy, retrying", ppName)
+					Warning("Unable to create proxy, retrying")
 				continue
 			} else {
 				// an error occurred, and we have no more retries
 				scopedLog.
 					WithError(err).
-					Errorf("Unable to create %s proxy %s", l4.GetL7Parser(), l4.GetListener())
+					Error("Unable to create proxy")
 				p.revertStackUnlocked(revertStack)
 				return 0, err, nil, nil
 			}
@@ -575,7 +582,7 @@ func (p *Proxy) CreateOrUpdateRedirect(
 
 	scopedLog.
 		WithField(logfields.Object, logfields.Repr(redirect)).
-		Debug("Created new ", l4.GetL7Parser(), " proxy instance")
+		Debug("Created new proxy instance")
 
 	p.redirects[id] = redirect
 	// must mark the proxyPort configured while we still hold the lock to prevent racing between two parallel runs
@@ -605,7 +612,9 @@ func (p *Proxy) CreateOrUpdateRedirect(
 		err := p.ackProxyPort(ctx, ppName, pp)
 		p.mutex.Unlock()
 		if err != nil {
-			log.WithError(err).Errorf("Datapath proxy redirection cannot be enabled for %s, L7 proxy may be bypassed", ppName)
+			scopedLog.
+				WithError(err).
+				Error("Datapath proxy redirection cannot be enabled, L7 proxy may be bypassed")
 		}
 	})
 
@@ -691,7 +700,11 @@ func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (error, reve
 			err := p.releaseProxyPort(listenerName)
 			p.mutex.Unlock()
 			if err != nil {
-				log.WithField(fieldProxyRedirectID, id).WithError(err).Warningf("Releasing proxy port %d failed", proxyPort)
+				log.
+					WithField(fieldProxyRedirectID, id).
+					WithField("proxyPort", proxyPort).
+					WithError(err).
+					Warning("Releasing proxy port failed")
 			}
 		}()
 	})
