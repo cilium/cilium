@@ -330,7 +330,7 @@ func TestPolicySelection(t *testing.T) {
 			err: nil,
 		},
 		{
-			name: "nil MatchExpression for node label selector",
+			name: "nil node label selector",
 			nodeLabels: map[string]string{
 				"bgp-peering-policy": "a",
 			},
@@ -339,10 +339,26 @@ func TestPolicySelection(t *testing.T) {
 				selector *v1.LabelSelector
 			}{
 				{
-					want: false,
+					want:     true,
+					selector: nil,
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "empty node label selector",
+			nodeLabels: map[string]string{
+				"bgp-peering-policy": "a",
+			},
+			policies: []struct {
+				want     bool
+				selector *v1.LabelSelector
+			}{
+				{
+					want: true,
 					selector: &v1.LabelSelector{
 						MatchLabels:      map[string]string{},
-						MatchExpressions: nil,
+						MatchExpressions: []v1.LabelSelectorRequirement{},
 					},
 				},
 			},
