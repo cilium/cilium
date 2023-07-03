@@ -68,7 +68,9 @@ Enable Encryption in Cilium
 
        .. code-block:: shell-session
 
-          cilium install --encryption ipsec
+          cilium install \
+             --set encryption.enabled=true \
+             --set encryption.type=ipsec
 
     .. group-tab:: Helm
 
@@ -111,7 +113,10 @@ interface as follows:
 
        .. code-block:: shell-session
 
-          cilium install --encryption ipsec --config encrypt-interface=ethX
+          cilium install \
+             --set encryption.enabled=true \
+             --set encryption.type=ipsec \
+             --set encryption.ipsec.interface=ethX
 
     .. group-tab:: Helm
 

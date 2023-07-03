@@ -513,6 +513,23 @@ Helm Options
   or "false" as values, you should remove the quotes. For example in helm command, instead of
   ``--set-string disableEndpointCRD="true"``, it should be replaced by ``--set disableEndpointCRD=true``.
 
+.. _upgrade_cilium_cli_helm_mode:
+
+Cilium CLI
+~~~~~~~~~~
+
+Upgrade Cilium CLI to `v0.15.0 <https://github.com/cilium/cilium-cli/releases/tag/v0.15.0>`_
+or later to switch to `Helm installation mode <https://github.com/cilium/cilium-cli#helm-installation-mode>`_
+to install and manage Cilium v1.14. Classic installation mode is **not**
+supported with Cilium v1.14.
+
+Helm and classic mode installations are not compatible with each other. Do not
+use Cilium CLI in Helm mode to manage classic mode installations, and vice versa.
+
+To migrate a classic mode Cilium installation to Helm mode, you need to
+uninstall Cilium using classic mode Cilium CLI, and then re-install Cilium
+using Helm mode Cilium CLI.
+
 .. _earlier_upgrade_notes:
 
 Earlier Upgrade Notes
