@@ -278,7 +278,8 @@ func (c *Controller) Run(ctx context.Context) {
 //
 // Policy selection follows the following rules:
 //   - A policy matches a node if said policy's "nodeSelector" field matches
-//     the node's labels
+//     the node's labels. If "nodeSelector" is omitted, it is unconditionally
+//     selected.
 //   - If (N > 1) policies match the provided *corev1.Node an error is returned.
 //     only a single policy may apply to a node to avoid ambiguity at this stage
 //     of development.
@@ -287,11 +288,10 @@ func PolicySelection(ctx context.Context, labels map[string]string, policies []*
 		l = log.WithFields(logrus.Fields{
 			"component": "PolicySelection",
 		})
-	)
-	// determine which policies match our node's labels.
-	var (
-		selected   *v2alpha1api.CiliumBGPPeeringPolicy
-		slimLabels = slimlabels.Set(labels)
+
+		// determine which policies match our node's labels.
+		selectedPolicy *v2alpha1api.CiliumBGPPeeringPolicy
+		slimLabels     = slimlabels.Set(labels)
 	)
 
 	// range over policies and see if any match this node's labels.
@@ -300,26 +300,38 @@ func PolicySelection(ctx context.Context, labels map[string]string, policies []*
 	// one policy applies to a node, we disconnect from all BGP peers and log
 	// an error.
 	for _, policy := range policies {
-		nodeSelector, err := slimmetav1.LabelSelectorAsSelector(policy.Spec.NodeSelector)
-		if err != nil {
-			l.WithError(err).Error("Failed to convert CiliumBGPPeeringPolicy's NodeSelector to a label.Selector interface")
-			continue
-		}
+		var selected bool
+
 		l.WithFields(logrus.Fields{
-			"policyNodeSelector": nodeSelector.String(),
+			"policyName":         policy.Name,
 			"nodeLabels":         slimLabels,
+			"policyNodeSelector": policy.Spec.NodeSelector.String(),
 		}).Debug("Comparing BGP policy node selector with node's labels")
-		if nodeSelector.Matches(slimLabels) {
-			if selected != nil {
+
+		if policy.Spec.NodeSelector == nil {
+			selected = true
+		} else {
+			nodeSelector, err := slimmetav1.LabelSelectorAsSelector(policy.Spec.NodeSelector)
+			if err != nil {
+				l.WithError(err).Error("Failed to convert CiliumBGPPeeringPolicy's NodeSelector to a label.Selector interface")
+				continue
+			}
+			if nodeSelector.Matches(slimLabels) {
+				selected = true
+			}
+		}
+
+		if selected {
+			if selectedPolicy != nil {
 				return nil, ErrMultiplePolicies
 			}
-			selected = policy
+			selectedPolicy = policy
 		}
 	}
 
 	// no policy was discovered, tell router manager to withdrawal peers if they
 	// are configured.
-	return selected, nil
+	return selectedPolicy, nil
 }
 
 // Reconcile is the control loop for the Controller.
