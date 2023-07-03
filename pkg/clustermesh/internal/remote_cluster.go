@@ -194,7 +194,7 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					rc.wg.Done()
 				}()
 
-				if <-ready != nil {
+				if err := <-ready; err != nil {
 					rc.getLogger().WithError(err).Warning("Connection to remote cluster failed")
 					return err
 				}
