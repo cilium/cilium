@@ -90,9 +90,9 @@ Install cluster one
     .. code-block:: bash
 
         cilium install \
-            --azure-resource-group "${AZURE_RESOURCE_GROUP}" \
-            --cluster-id 1 \
-            --config "cluster-pool-ipv4-cidr=10.10.0.0/16"
+            --set azure.resourceGroup="${AZURE_RESOURCE_GROUP}" \
+            --set cluster.id=1 \
+            --set ipam.operator.clusterPoolIPv4PodCIDRList='{10.10.0.0/16}'
 
 5.  Check the status of Cilium.
 
@@ -178,9 +178,9 @@ arguments.
     .. code-block:: bash
         
         cilium install \
-            --azure-resource-group "${AZURE_RESOURCE_GROUP}" \
-            --cluster-id 2 \
-            --config "cluster-pool-ipv4-cidr=10.20.0.0/16"
+            --set azure.resourceGroup="${AZURE_RESOURCE_GROUP}" \
+            --set cluster.id=2 \
+            --set ipam.operator.clusterPoolIPv4PodCIDRList='{10.20.0.0/16}'
 
 5.  Check the status of Cilium.
 
