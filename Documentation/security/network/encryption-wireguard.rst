@@ -74,7 +74,9 @@ production workloads that require high availability.
 
        .. code-block:: shell-session
 
-          cilium install --encryption wireguard
+          cilium install \
+             --set encryption.enabled=true \
+             --set encryption.type=wireguard
 
     .. group-tab:: Helm
 
@@ -232,7 +234,10 @@ options:
 
        .. code-block:: shell-session
 
-          cilium install --encryption wireguard --node-encryption
+          cilium install \
+             --set encryption.enabled=true \
+             --set encryption.type=wireguard \
+             --set encryption.nodeEncryption=true
 
     .. group-tab:: Helm
 

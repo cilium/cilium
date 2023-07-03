@@ -60,13 +60,13 @@ Installation
 
         .. code-block:: shell-session
 
-            $ cilium install \\
-                --kube-proxy-replacement=strict \\
-                --helm-set ingressController.enabled=true \\
-                --helm-set ingressController.loadbalancerMode=dedicated
+            $ cilium install \
+                --set kubeProxyReplacement=true \
+                --set ingressController.enabled=true \
+                --set ingressController.loadbalancerMode=dedicated
 
         Cilium can become the default ingress controller by setting the
-        ``--helm-set ingressController.default=true`` flag. This will create ingress entries even when the ``ingressClass`` 
+        ``--set ingressController.default=true`` flag. This will create ingress entries even when the ``ingressClass`` 
         is not set.
 
         If you only want to use envoy traffic management feature without Ingress support, you should only
@@ -74,18 +74,18 @@ Installation
 
         .. code-block:: shell-session
 
-            $ cilium install \\
-                --kube-proxy-replacement=strict \\
-                --helm-set-string extraConfig.enable-envoy-config=true
+            $ cilium install \
+                --set kubeProxyReplacement=true \
+                --set-string extraConfig.enable-envoy-config=true
 
         Additionally, the proxy load-balancing feature can be configured with the ``loadBalancer.l7.backend=envoy`` flag.
 
         .. code-block:: shell-session
 
-            $ cilium install \\
-                --kube-proxy-replacement=strict \\
-                --helm-set-string extraConfig.enable-envoy-config=true \\
-                --helm-set loadBalancer.l7.backend=envoy
+            $ cilium install \
+                --set kubeProxyReplacement=true \
+                --set-string extraConfig.enable-envoy-config=true \
+                --set loadBalancer.l7.backend=envoy
 
         Next you can check the status of the Cilium agent and operator:
 
