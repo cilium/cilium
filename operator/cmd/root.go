@@ -553,7 +553,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 					log := log.WithField(logfields.LogSubsys, "etcd")
 					goopts = &kvstore.ExtraOptions{
 						DialOption: []grpc.DialOption{
-							grpc.WithContextDialer(k8s.CreateCustomDialer(svcGetter, log)),
+							grpc.WithContextDialer(k8s.CreateCustomDialer(svcGetter, log, true)),
 						},
 					}
 				}
