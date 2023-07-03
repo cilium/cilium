@@ -689,9 +689,10 @@ type ServiceIPGetter interface {
 }
 
 // CreateCustomDialer returns a custom dialer that picks the service IP,
-// from the given ServiceIPGetter, if the address the used to dial is a k8s
-// service.
-func CreateCustomDialer(b ServiceIPGetter, log *logrus.Entry) func(ctx context.Context, addr string) (conn net.Conn, e error) {
+// from the given ServiceIPGetter, if the address used to dial is a k8s
+// service. If verboseLogs is set, a log message is output when the
+// address to service IP translation fails.
+func CreateCustomDialer(b ServiceIPGetter, log *logrus.Entry, verboseLogs bool) func(ctx context.Context, addr string) (conn net.Conn, e error) {
 	return func(ctx context.Context, s string) (conn net.Conn, e error) {
 		// If the service is available, do the service translation to
 		// the service IP. Otherwise dial with the original service
@@ -713,19 +714,20 @@ func CreateCustomDialer(b ServiceIPGetter, log *logrus.Entry) func(ctx context.C
 				svcIP := b.GetServiceIP(*svc)
 				if svcIP != nil {
 					s = svcIP.String()
-				} else {
+				} else if verboseLogs {
 					log.Debug("Service not found in the service IP getter")
 				}
-			} else {
+			} else if verboseLogs {
 				log.WithFields(logrus.Fields{
 					"url-host": u.Host,
 					"url":      s,
 				}).Debug("Unable to parse etcd service URL into a service ID")
 			}
-			log.Debugf("custom dialer based on k8s service backend is dialing to %q", s)
-		} else {
+		} else if verboseLogs {
 			log.WithError(err).Error("Unable to parse etcd service URL")
 		}
+
+		log.Debugf("Custom dialer based on k8s service backend is dialing to %q", s)
 		return net.Dial("tcp", s)
 	}
 }
