@@ -15,7 +15,6 @@
 #include "ipv6.h"
 #include "dbg.h"
 #include "l4.h"
-#include "signal.h"
 
 enum ct_action {
 	ACTION_UNSPEC,
@@ -917,7 +916,7 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	entry.src_sec_id = ct_state->src_sec_id;
 	err = map_update_elem(map_main, tuple, &entry, 0);
 	if (unlikely(err < 0))
-		goto err_ct_fill_up;
+		goto drop_err;
 
 	if (map_related != NULL) {
 		/* Create an ICMPv6 entry to relate errors */
@@ -935,14 +934,13 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 
 		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
 		if (unlikely(err < 0))
-			goto err_ct_fill_up;
+			goto drop_err;
 	}
 	return 0;
 
-err_ct_fill_up:
+drop_err:
 	if (ext_err)
 		*ext_err = (__s8)err;
-	send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V6);
 	return DROP_CT_CREATE_FAILED;
 }
 
@@ -996,7 +994,7 @@ static __always_inline int ct_create4(const void *map_main,
 	entry.src_sec_id = ct_state->src_sec_id;
 	err = map_update_elem(map_main, tuple, &entry, 0);
 	if (unlikely(err < 0))
-		goto err_ct_fill_up;
+		goto drop_err;
 
 #ifndef DISABLE_LOOPBACK_LB
 	if (dir == CT_EGRESS && ct_state->addr && ct_state->loopback) {
@@ -1017,7 +1015,7 @@ static __always_inline int ct_create4(const void *map_main,
 
 		err = map_update_elem(map_main, tuple, &entry, 0);
 		if (unlikely(err < 0))
-			goto err_ct_fill_up;
+			goto drop_err;
 
 		tuple->saddr = saddr;
 		tuple->daddr = daddr;
@@ -1043,14 +1041,13 @@ static __always_inline int ct_create4(const void *map_main,
 		 */
 		err = map_update_elem(map_related, &icmp_tuple, &entry, 0);
 		if (unlikely(err < 0))
-			goto err_ct_fill_up;
+			goto drop_err;
 	}
 	return 0;
 
-err_ct_fill_up:
+drop_err:
 	if (ext_err)
 		*ext_err = (__s8)err;
-	send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V4);
 	return DROP_CT_CREATE_FAILED;
 }
 
