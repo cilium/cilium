@@ -379,8 +379,8 @@ var (
 
 	// Services
 
-	// ServicesCount number of services
-	ServicesCount = NoOpCounterVec
+	// ServicesEventsCount counts the number of services
+	ServicesEventsCount = NoOpCounterVec
 
 	// Errors and warnings
 
@@ -1025,13 +1025,13 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			c.SignalsHandledEnabled = true
 
 		case Namespace + "_services_events_total":
-			ServicesCount = prometheus.NewCounterVec(prometheus.CounterOpts{
+			ServicesEventsCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 				Namespace: Namespace,
 				Name:      "services_events_total",
 				Help:      "Number of services events labeled by action type",
 			}, []string{LabelAction})
 
-			collectors = append(collectors, ServicesCount)
+			collectors = append(collectors, ServicesEventsCount)
 			c.ServicesCountEnabled = true
 
 		case Namespace + "_errors_warnings_total":
