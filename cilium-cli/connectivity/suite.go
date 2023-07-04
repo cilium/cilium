@@ -7,7 +7,6 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -169,8 +168,9 @@ var (
 	client2Label = map[string]string{"name": "client2"}
 )
 
-func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*check.ConnectivityTest) error) error {
-	if err := ct.SetupAndValidate(ctx); err != nil {
+func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*check.ConnectivityTest) error,
+	addExtraSetup func(context.Context, *check.ConnectivityTest) error) error {
+	if err := ct.SetupAndValidate(ctx, addExtraSetup); err != nil {
 		return err
 	}
 
