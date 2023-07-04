@@ -6,6 +6,7 @@ package cni
 import (
 	"context"
 	"fmt"
+	"github.com/cilium/cilium/plugins/cilium-cni/types"
 	"path"
 
 	"github.com/sirupsen/logrus"
@@ -41,6 +42,9 @@ type CNIConfigManager interface {
 
 	// GetChainingMode returns the configured CNI chaining mode
 	GetChainingMode() string
+
+	// GetNetConf returns the *NetConf obtained from CNI configuration file
+	GetNetConf() *types.NetConf
 }
 
 var defaultConfig = Config{

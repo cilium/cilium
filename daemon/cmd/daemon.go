@@ -408,8 +408,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("CRD Identity allocation mode requires k8s to be configured")
 	}
 
-	if mtu := params.CNIConfigManager.GetMTU(); mtu > 0 {
-		configuredMTU = mtu
+	// Obtain the netconf from the configuration file and set configuredMTU when it is not equal to 0
+	if netConf = params.CNIConfigManager.GetNetConf(); netConf != nil && params.CNIConfigManager.GetMTU() > 0 {
+		configuredMTU = params.CNIConfigManager.GetMTU()
 		log.WithField("mtu", configuredMTU).Info("Overwriting MTU based on CNI configuration")
 	}
 
