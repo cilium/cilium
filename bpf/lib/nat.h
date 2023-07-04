@@ -722,7 +722,7 @@ snat_v4_prepare_state(struct __ctx_buff *ctx, struct ipv4_nat_target *target)
 	struct endpoint_info *local_ep __maybe_unused;
 	struct remote_endpoint_info *remote_ep __maybe_unused;
 	struct egress_gw_policy_entry *egress_gw_policy __maybe_unused;
-	bool is_reply = false;
+	bool is_reply __maybe_unused = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -762,6 +762,7 @@ snat_v4_prepare_state(struct __ctx_buff *ctx, struct ipv4_nat_target *target)
 # endif /* ENABLE_MASQUERADE_IPV4 */
 #endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
 
+#if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
 	local_ep = __lookup_ip4_endpoint(ip4->saddr);
 	remote_ep = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 
@@ -787,15 +788,6 @@ snat_v4_prepare_state(struct __ctx_buff *ctx, struct ipv4_nat_target *target)
 		if (IS_ERR(err))
 			return err;
 	}
-
-#ifdef ENABLE_MASQUERADE_IPV4 /* SNAT local pod to world packets */
-# ifdef IS_BPF_OVERLAY
-	/* Do not MASQ when this function is executed from bpf_overlay
-	 * (IS_BPF_OVERLAY denotes this fact). Otherwise, a packet will
-	 * be SNAT'd to cilium_host IP addr.
-	 */
-	return NAT_PUNT_TO_STACK;
-# endif
 
 /* Check if the packet matches an egress NAT policy and so needs to be SNAT'ed.
  *
@@ -877,7 +869,7 @@ skip_egress_gateway:
 			return NAT_NEEDED;
 		}
 	}
-#endif /*ENABLE_MASQUERADE_IPV4 */
+#endif /*ENABLE_MASQUERADE_IPV4 && IS_BPF_HOST */
 
 	return NAT_PUNT_TO_STACK;
 }
@@ -1710,8 +1702,8 @@ snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 	union v6addr masq_addr __maybe_unused, router_ip __maybe_unused;
 	const union v6addr dr_addr __maybe_unused = IPV6_DIRECT_ROUTING;
 	struct remote_endpoint_info *remote_ep __maybe_unused;
-	struct endpoint_info *local_ep;
-	bool is_reply = false;
+	struct endpoint_info *local_ep __maybe_unused;
+	bool is_reply __maybe_unused = false;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 
@@ -1740,6 +1732,7 @@ snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 # endif /* ENABLE_MASQUERADE_IPV6 */
 #endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
 
+#if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
 	local_ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
 	remote_ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
 
@@ -1772,12 +1765,6 @@ snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 		if (IS_ERR(err))
 			return err;
 	}
-
-#ifdef ENABLE_MASQUERADE_IPV6
-# ifdef IS_BPF_OVERLAY
-	/* See comment in snat_v4_prepare_state(). */
-	return NAT_PUNT_TO_STACK;
-# endif /* IS_BPF_OVERLAY */
 
 # ifdef IPV6_SNAT_EXCLUSION_DST_CIDR
 	{
@@ -1824,7 +1811,7 @@ snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 			return NAT_NEEDED;
 		}
 	}
-#endif /* ENABLE_MASQUERADE_IPV6 */
+#endif /* ENABLE_MASQUERADE_IPV6 && IS_BPF_HOST */
 
 	return NAT_PUNT_TO_STACK;
 }
