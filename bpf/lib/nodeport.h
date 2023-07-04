@@ -2815,6 +2815,7 @@ static __always_inline int
 health_encap_v4(struct __ctx_buff *ctx, __u32 tunnel_ep,
 		__u32 seclabel)
 {
+	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 	struct bpf_tunnel_key key;
 
 	/* When encapsulating, a packet originating from the local
@@ -2826,7 +2827,7 @@ health_encap_v4(struct __ctx_buff *ctx, __u32 tunnel_ep,
 	key.remote_ipv4 = bpf_htonl(tunnel_ep);
 	key.tunnel_ttl = IPDEFTTL;
 
-	if (unlikely(ctx_set_tunnel_key(ctx, &key, sizeof(key),
+	if (unlikely(ctx_set_tunnel_key(ctx, &key, key_size,
 					BPF_F_ZERO_CSUM_TX) < 0))
 		return DROP_WRITE_ERROR;
 	return 0;
@@ -2836,6 +2837,7 @@ static __always_inline int
 health_encap_v6(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
 		__u32 seclabel)
 {
+	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 	struct bpf_tunnel_key key;
 
 	memset(&key, 0, sizeof(key));
@@ -2846,7 +2848,7 @@ health_encap_v6(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
 	key.remote_ipv6[3] = tunnel_ep->p4;
 	key.tunnel_ttl = IPDEFTTL;
 
-	if (unlikely(ctx_set_tunnel_key(ctx, &key, sizeof(key),
+	if (unlikely(ctx_set_tunnel_key(ctx, &key, key_size,
 					BPF_F_ZERO_CSUM_TX |
 					BPF_F_TUNINFO_IPV6) < 0))
 		return DROP_WRITE_ERROR;
