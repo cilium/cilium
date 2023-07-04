@@ -138,9 +138,6 @@ type Proxy struct {
 	// EndpointInfoRegistry interface.
 	defaultEndpointInfoRegistry logger.EndpointInfoRegistry
 
-	// proxyPortsMutex protects access to allocatedPorts, portRandomized, and proxyPorts
-	proxyPortsMutex lock.Mutex
-
 	// allocatedPorts is the map of all allocated proxy ports
 	// 'true' - port is currently in use
 	// 'false' - port has been used the past, and can be reused if needed
@@ -210,7 +207,7 @@ func (p *Proxy) UpdateEnvoyResources(ctx context.Context, old, new envoy.Resourc
 	return p.XDSServer.UpdateEnvoyResources(ctx, old, new, portAllocator)
 }
 
-// Called with proxyPortsMutex held!
+// Called with mutex held!
 func (p *Proxy) isPortAvailable(openLocalPorts map[uint16]struct{}, port uint16, reuse bool) bool {
 	if inuse, used := p.allocatedPorts[port]; used && (inuse || !reuse) {
 		return false // port already used
@@ -226,7 +223,7 @@ func (p *Proxy) isPortAvailable(openLocalPorts map[uint16]struct{}, port uint16,
 	return true
 }
 
-// Called with proxyPortsMutex held!
+// Called with mutex held!
 func (p *Proxy) allocatePort(port, min, max uint16) (uint16, error) {
 	// Get a snapshot of the TCP and UDP ports already open locally.
 	openLocalPorts := readOpenLocalPorts(append(procNetTCPFiles, procNetUDPFiles...))
@@ -254,7 +251,7 @@ func (p *Proxy) allocatePort(port, min, max uint16) (uint16, error) {
 	return 0, fmt.Errorf("no available proxy ports")
 }
 
-// Called with proxyPortsMutex held!
+// Called with mutex held!
 func (pp *ProxyPort) reservePort() {
 	if !pp.configured {
 		pp.configured = true
@@ -264,8 +261,8 @@ func (pp *ProxyPort) reservePort() {
 // AckProxyPort() marks the proxy of the given type as successfully
 // created and creates or updates the datapath rules accordingly.
 func (p *Proxy) AckProxyPort(ctx context.Context, name string) error {
-	p.proxyPortsMutex.Lock()
-	defer p.proxyPortsMutex.Unlock()
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	pp := p.proxyPorts[name]
 	if pp == nil {
 		return proxyNotFoundError(name)
@@ -276,7 +273,7 @@ func (p *Proxy) AckProxyPort(ctx context.Context, name string) error {
 // ackProxyPort() increases proxy port reference count and creates or updates the datapath rules.
 // Each call must eventually be paired with a corresponding releaseProxyPort() call
 // to keep the use count up-to-date.
-// Must be called with proxyPortsMutex held!
+// Must be called with mutex held!
 func (p *Proxy) ackProxyPort(ctx context.Context, name string, pp *ProxyPort) error {
 	scopedLog := log.WithField(fieldProxyRedirectID, name)
 
@@ -303,7 +300,7 @@ func (p *Proxy) ackProxyPort(ctx context.Context, name string, pp *ProxyPort) er
 }
 
 // releaseProxyPort() decreases the use count and frees the port if no users remain
-// Must be called with proxyPortsMutex held!
+// Must be called with mutex held!
 func (p *Proxy) releaseProxyPort(name string) error {
 	pp := p.proxyPorts[name]
 	if pp == nil {
@@ -333,7 +330,7 @@ func (p *Proxy) releaseProxyPort(name string) error {
 }
 
 // findProxyPortByType returns a ProxyPort matching the given type, listener name, and direction, if
-// found.  Must be called with proxyPortsMutex held!
+// found.  Must be called with mutex held!
 func (p *Proxy) findProxyPortByType(l7Type ProxyType, listener string, ingress bool) (string, *ProxyPort) {
 	portType := l7Type
 	switch l7Type {
@@ -379,8 +376,8 @@ func proxyNotFoundError(name string) error {
 // GetProxyPort() returns the fixed listen port for a proxy, if any.
 func (p *Proxy) GetProxyPort(name string) (uint16, error) {
 	// Accessing pp.proxyPort requires the lock
-	p.proxyPortsMutex.Lock()
-	defer p.proxyPortsMutex.Unlock()
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
 	pp := p.proxyPorts[name]
 	if pp != nil {
 		return pp.proxyPort, nil
@@ -394,8 +391,8 @@ func (p *Proxy) GetProxyPort(name string) (uint16, error) {
 // Each allocated port must be eventually freed with ReleaseProxyPort().
 func (p *Proxy) AllocateProxyPort(name string, ingress, localOnly bool) (uint16, error) {
 	// Accessing pp.proxyPort requires the lock
-	p.proxyPortsMutex.Lock()
-	defer p.proxyPortsMutex.Unlock()
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	pp := p.proxyPorts[name]
 	if pp == nil {
 		pp = &ProxyPort{proxyType: ProxyTypeCRD, ingress: ingress, localOnly: localOnly}
@@ -427,8 +424,8 @@ func (p *Proxy) AllocateProxyPort(name string, ingress, localOnly bool) (uint16,
 
 func (p *Proxy) ReleaseProxyPort(name string) error {
 	// Accessing pp.proxyPort requires the lock
-	p.proxyPortsMutex.Lock()
-	defer p.proxyPortsMutex.Unlock()
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 	return p.releaseProxyPort(name)
 }
 
@@ -437,8 +434,9 @@ func (p *Proxy) ReleaseProxyPort(name string) error {
 // This should only be called for proxies that have a static listener that is already listening on
 // 'port'. May only be called once per proxy.
 func (p *Proxy) SetProxyPort(name string, proxyType ProxyType, port uint16, ingress bool) error {
-	p.proxyPortsMutex.Lock()
-	defer p.proxyPortsMutex.Unlock()
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	pp := p.proxyPorts[name]
 	if pp == nil {
 		pp = &ProxyPort{proxyType: proxyType, ingress: ingress}
@@ -457,8 +455,8 @@ func (p *Proxy) SetProxyPort(name string, proxyType ProxyType, port uint16, ingr
 // ReinstallRules is called by daemon reconfiguration to re-install proxy ports rules that
 // were removed during the removal of all Cilium rules.
 func (p *Proxy) ReinstallRules(ctx context.Context) error {
-	p.proxyPortsMutex.Lock()
-	defer p.proxyPortsMutex.Unlock()
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
 	for name, pp := range p.proxyPorts {
 		if pp.rulesPort > 0 {
 			// This should always succeed if we have managed to start-up properly
@@ -512,9 +510,6 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 			revertFunc = revertStack.Revert
 		}
 	}()
-
-	p.proxyPortsMutex.Lock()
-	defer p.proxyPortsMutex.Unlock()
 
 	if redir, ok := p.redirects[id]; ok {
 		redir.mutex.Lock()
@@ -630,9 +625,9 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 					removeFinalizeFunc()
 				}
 
-				p.proxyPortsMutex.Lock()
+				p.mutex.Lock()
 				err := p.ackProxyPort(ctx, ppName, pp)
-				p.proxyPortsMutex.Unlock()
+				p.mutex.Unlock()
 				if err != nil {
 					log.WithError(err).Errorf("Datapath proxy redirection cannot be enabled for %s, L7 proxy may be bypassed", ppName)
 				}
@@ -660,7 +655,7 @@ func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) (error, reve
 
 // removeRedirect removes an existing redirect. p.mutex must be held
 // p.mutex must NOT be held when the returned revert function is called!
-// proxyPortsMutex must NOT be held when the returned finalize function is called!
+// p.mutex must NOT be held when the returned finalize function is called!
 func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 	log.WithField(fieldProxyRedirectID, id).
 		Debug("Removing proxy redirect")
@@ -690,9 +685,9 @@ func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (err error, 
 		go func() {
 			time.Sleep(portReuseDelay)
 
-			p.proxyPortsMutex.Lock()
+			p.mutex.Lock()
 			err := p.releaseProxyPort(listenerName)
-			p.proxyPortsMutex.Unlock()
+			p.mutex.Unlock()
 			if err != nil {
 				log.WithField(fieldProxyRedirectID, id).WithError(err).Warningf("Releasing proxy port %d failed", proxyPort)
 			}
@@ -726,8 +721,6 @@ func ChangeLogLevel(level logrus.Level) {
 func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	p.proxyPortsMutex.Lock()
-	defer p.proxyPortsMutex.Unlock()
 
 	result := &models.ProxyStatus{
 		IP:             node.GetInternalIPv4Router().String(),
