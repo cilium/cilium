@@ -48,7 +48,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(port, Not(Equals), 0)
 
-	port1, err := GetProxyPort("listener1")
+	port1, err := p.GetProxyPort("listener1")
 	c.Assert(err, IsNil)
 	c.Assert(port1, Equals, port)
 
@@ -57,7 +57,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(port1a, Equals, port1)
 
-	name, pp := findProxyPortByType(ProxyTypeCRD, "listener1", false)
+	name, pp := p.findProxyPortByType(ProxyTypeCRD, "listener1", false)
 	c.Assert(name, Equals, "listener1")
 	c.Assert(pp.proxyType, Equals, ProxyTypeCRD)
 	c.Assert(pp.proxyPort, Equals, port)
@@ -72,7 +72,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(err, IsNil)
 
 	// ProxyPort lingers and can still be found, but it's port is zeroed
-	port1b, err := GetProxyPort("listener1")
+	port1b, err := p.GetProxyPort("listener1")
 	c.Assert(err, IsNil)
 	c.Assert(port1b, Equals, uint16(0))
 	c.Assert(pp.proxyPort, Equals, uint16(0))
@@ -131,7 +131,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(pp.rulesPort, Equals, port2)
 
 	// mimic some other process taking the port
-	allocatedPorts[port2] = true
+	p.allocatedPorts[port2] = true
 
 	// Allocate again, this time a different port is allocated
 	port3, err := p.AllocateProxyPort("listener1", true, true)
@@ -162,7 +162,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(pp.proxyPort, Equals, uint16(0))
 	c.Assert(pp.rulesPort, Equals, port3)
 
-	inuse, exists := allocatedPorts[port3]
+	inuse, exists := p.allocatedPorts[port3]
 	c.Assert(exists, Equals, true)
 	c.Assert(inuse, Equals, false)
 
