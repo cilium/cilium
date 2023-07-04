@@ -85,7 +85,7 @@ jobs:
           apiVersion: kind.x-k8s.io/v1alpha4
           networking:
             ipFamily: ${IP_FAMILY}
-            kubeProxyMode: "none"
+            kubeProxyMode: "iptables"
             disableDefaultCNI: true
           nodes:
           - role: control-plane
@@ -146,7 +146,10 @@ jobs:
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set=cni.chainingMode=portmap \
-            --helm-set=kubeProxyReplacement=true \
+            --helm-set=socketLB.enabled=false \
+            --helm-set=kubeProxyReplacement=false \
+            --helm-set=bpf.masquerade=false \
+            --helm-set=ipam.mode=kubernetes \
             --helm-set=sessionAffinity=true \
             --helm-set=identityChangeGracePeriod="0s" \
             --rollback=false \
