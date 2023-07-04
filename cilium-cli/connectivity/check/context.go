@@ -260,7 +260,7 @@ func (ct *ConnectivityTest) GetTest(name string) (*Test, error) {
 // SetupAndValidate sets up and validates the connectivity test infrastructure
 // such as the client pods and validates the deployment of them along with
 // Cilium. This must be run before Run() is called.
-func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context) error {
+func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, setupAndValidateExtras func(ctx context.Context, ct *ConnectivityTest) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -276,6 +276,10 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context) error {
 		return err
 	}
 	if err := ct.detectFeatures(ctx); err != nil {
+		return err
+	}
+	// Setup and validate all the extras coming from extended functionalities.
+	if err := setupAndValidateExtras(ctx, ct); err != nil {
 		return err
 	}
 	if err := ct.getNodes(ctx); err != nil {
