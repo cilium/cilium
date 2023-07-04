@@ -527,14 +527,35 @@ func (p *Proxy) CreateOrUpdateRedirect(
 	}
 
 	// Create a new redirect
+	port, err, newRedirectFinalizeFunc, newRedirectRevertFunc := p.createNewRedirect(ctx, l4, id, localEndpoint, wg)
+	if err != nil {
+		p.revertStackUnlocked(revertStack)
+		return 0, fmt.Errorf("failed to create new redirect: %w", err), nil, nil
+	}
+
+	finalizeList.Append(newRedirectFinalizeFunc)
+	revertStack.Push(newRedirectRevertFunc)
+
+	return port, nil, finalizeList.Finalize, revertStack.Revert
+}
+
+func (p *Proxy) createNewRedirect(
+	ctx context.Context, l4 policy.ProxyPolicy, id string, localEndpoint endpoint.EndpointUpdater, wg *completion.WaitGroup,
+) (
+	uint16, error, revert.FinalizeFunc, revert.RevertFunc,
+) {
+	scopedLog := log.
+		WithField(fieldProxyRedirectID, id).
+		WithField(logfields.Listener, l4.GetListener()).
+		WithField("l7parser", l4.GetL7Parser())
+
 	ppName, pp := p.findProxyPortByType(ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress())
 	if pp == nil {
-		p.revertStackUnlocked(revertStack)
 		return 0, proxyTypeNotFoundError(ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress()), nil, nil
 	}
 
 	redirect := newRedirect(localEndpoint, ppName, pp, l4.GetPort())
-	redirect.updateRules(l4)
+	_ = redirect.updateRules(l4) // revertFunc not used because revert will remove whole redirect
 	// Rely on create*Redirect to update rules, unlike the update case above.
 
 	scopedLog = scopedLog.
@@ -553,8 +574,7 @@ func (p *Proxy) CreateOrUpdateRedirect(
 			// Check if pp.proxyPort is available and find another available proxy port if not.
 			proxyPort, err := p.allocatePort(pp.proxyPort, p.rangeMin, p.rangeMax)
 			if err != nil {
-				p.revertStackUnlocked(revertStack)
-				return 0, err, nil, nil
+				return 0, fmt.Errorf("failed to allocate port: %w", err), nil, nil
 			}
 			pp.proxyPort = proxyPort
 		}
@@ -571,8 +591,7 @@ func (p *Proxy) CreateOrUpdateRedirect(
 				scopedLog.
 					WithError(err).
 					Error("Unable to create proxy")
-				p.revertStackUnlocked(revertStack)
-				return 0, err, nil, nil
+				return 0, fmt.Errorf("failed to create redirect implementation: %w", err), nil, nil
 			}
 		}
 	}
@@ -591,7 +610,7 @@ func (p *Proxy) CreateOrUpdateRedirect(
 	// mark proxy port as configured
 	pp.configured = true
 
-	revertStack.Push(func() error {
+	revertFunc := func() error {
 		// Proxy port refcount has not been incremented yet, so it must not be decremented
 		// when reverting. Undo what we have done above.
 		p.mutex.Lock()
@@ -603,10 +622,10 @@ func (p *Proxy) CreateOrUpdateRedirect(
 			implFinalizeFunc()
 		}
 		return nil
-	})
+	}
 
 	// Set the proxy port only after an ACK is received.
-	finalizeList.Append(func() {
+	finalizeFunc := func() {
 		p.mutex.Lock()
 		err := p.ackProxyPort(ctx, ppName, pp)
 		p.mutex.Unlock()
@@ -615,10 +634,10 @@ func (p *Proxy) CreateOrUpdateRedirect(
 				WithError(err).
 				Error("Datapath proxy redirection cannot be enabled, L7 proxy may be bypassed")
 		}
-	})
+	}
 
 	// Must return the proxy port when successful
-	return pp.proxyPort, nil, finalizeList.Finalize, revertStack.Revert
+	return pp.proxyPort, nil, finalizeFunc, revertFunc
 }
 
 func (p *Proxy) createRedirectImpl(redir *Redirect, l4 policy.ProxyPolicy, pp *ProxyPort, wg *completion.WaitGroup) error {
