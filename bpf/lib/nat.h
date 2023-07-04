@@ -266,7 +266,7 @@ snat_v4_needs_ct(const struct ipv4_ct_tuple *tuple,
 		return true;
 	}
 
-#if defined(ENABLE_EGRESS_GATEWAY)
+#if defined(ENABLE_EGRESS_GATEWAY) && defined(IS_BPF_HOST)
 	/* Track egress gateway connections, but only if they are related to a
 	 * remote endpoint (if the endpoint is local then the connection is
 	 * already tracked).
@@ -641,7 +641,7 @@ snat_v4_nat_can_skip(const struct ipv4_nat_target *target, const struct ipv4_ct_
 {
 	__u16 sport = bpf_ntohs(tuple->sport);
 
-#if defined(ENABLE_EGRESS_GATEWAY)
+#if defined(ENABLE_EGRESS_GATEWAY) && defined(IS_BPF_HOST)
 	if (target->egress_gateway)
 		return false;
 #endif
