@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium.
 /// Prevent passing 0 as a reason to send_trace_notify(), because 0 is a valid
 /// value corresponding to new conntrack connections, and passing it instead of
 /// TRACE_REASON_UNKNOWN may confuse Hubble.
 // Confidence: Medium
-// Copyright Authors of Cilium.
 // Comments:
 // Options: --include-headers
 

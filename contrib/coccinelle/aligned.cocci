@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium.
 /// Find cases of missing __align_stack_8. On-the-stack objects of size > 8
 /// bytes must be force-aligned when 8 bytes isn't their natural object
 /// alignment (e.g., __u8 foo[12]).
@@ -6,7 +7,6 @@
 /// Coccinelle v1.0.7 is needed to handle the presence of #pragma unrolls in
 /// our code.
 // Confidence: Medium
-// Copyright Authors of Cilium.
 // Comments:
 // Options: --include-headers
 
