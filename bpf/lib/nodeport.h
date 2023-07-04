@@ -2155,7 +2155,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * CALL_IPV4_FROM_NETDEV in the code above.
 	 */
 #if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||	\
-    (defined(ENABLE_EGRESS_GATEWAY) && !defined(TUNNEL_MODE))
+    (defined(ENABLE_EGRESS_GATEWAY) && !defined(IS_BPF_OVERLAY) && !defined(TUNNEL_MODE))
 	/* If we're not in full DSR mode, reply traffic from remote backends
 	 * might pass back through the LB node and requires revDNAT.
 	 *
@@ -2611,7 +2611,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 			return ret;
 	}
 
-#if defined(ENABLE_EGRESS_GATEWAY) && !defined(TUNNEL_MODE)
+#if defined(ENABLE_EGRESS_GATEWAY) && !defined(IS_BPF_OVERLAY) && !defined(TUNNEL_MODE)
 	/* If we are not using TUNNEL_MODE, the gateway node needs to manually steer
 	 * any reply traffic for a remote pod into the tunnel (to avoid iptables
 	 * potentially dropping the packets).
@@ -2660,7 +2660,7 @@ out:
 	ctx_skip_nodeport_set(ctx);
 	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
 	return DROP_MISSED_TAIL_CALL;
-#if defined(ENABLE_EGRESS_GATEWAY) || defined(TUNNEL_MODE)
+#if (defined(ENABLE_EGRESS_GATEWAY) && !defined(IS_BPF_OVERLAY)) || defined(TUNNEL_MODE)
 encap_redirect:
 	src_port = tunnel_gen_src_port_v4(&tuple);
 
