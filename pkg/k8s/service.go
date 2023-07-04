@@ -728,6 +728,6 @@ func CreateCustomDialer(b ServiceIPGetter, log *logrus.Entry, verboseLogs bool) 
 		}
 
 		log.Debugf("Custom dialer based on k8s service backend is dialing to %q", s)
-		return net.Dial("tcp", s)
+		return (&net.Dialer{}).DialContext(ctx, "tcp", s)
 	}
 }
