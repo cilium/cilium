@@ -356,7 +356,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
-	port, err := proxy.GetProxyPort(proxy.DNSProxyName)
+	port, err := d.l7Proxy.GetProxyPort(proxy.DNSProxyName)
 	if err != nil {
 		return err
 	}
@@ -398,6 +398,10 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 // called after iptables has been initailized, and only after
 // successful bootstrapFQDN().
 func (d *Daemon) updateDNSDatapathRules(ctx context.Context) error {
+	if option.Config.DryMode || !option.Config.EnableL7Proxy {
+		return nil
+	}
+
 	return d.l7Proxy.AckProxyPort(ctx, proxy.DNSProxyName)
 }
 
