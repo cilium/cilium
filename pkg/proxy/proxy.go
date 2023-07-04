@@ -251,13 +251,6 @@ func (p *Proxy) allocatePort(port, min, max uint16) (uint16, error) {
 	return 0, fmt.Errorf("no available proxy ports")
 }
 
-// Called with mutex held!
-func (pp *ProxyPort) reservePort() {
-	if !pp.configured {
-		pp.configured = true
-	}
-}
-
 // AckProxyPort() marks the proxy of the given type as successfully
 // created and creates or updates the datapath rules accordingly.
 func (p *Proxy) AckProxyPort(ctx context.Context, name string) error {
@@ -414,8 +407,10 @@ func (p *Proxy) AllocateProxyPort(name string, ingress, localOnly bool) (uint16,
 		}
 	}
 	p.proxyPorts[name] = pp
+	// marks port as reserved
 	p.allocatedPorts[pp.proxyPort] = true
-	pp.reservePort() // marks port as reserved, 'pp' as configured
+	// mark proxy port as configured
+	pp.configured = true
 
 	log.WithField(fieldProxyRedirectID, name).Debugf("AllocateProxyPort: allocated proxy port %d (%v)", pp.proxyPort, *pp)
 
@@ -447,8 +442,10 @@ func (p *Proxy) SetProxyPort(name string, proxyType ProxyType, port uint16, ingr
 	}
 	pp.proxyPort = port
 	pp.isStatic = true // prevents release of the proxy port
+	// marks port as reserved
 	p.allocatedPorts[pp.proxyPort] = true
-	pp.reservePort() // marks 'port' as reserved, 'pp' as configured
+	// mark proxy port as configured
+	pp.configured = true
 	return nil
 }
 
@@ -599,10 +596,14 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 			scopedLog.WithField(logfields.Object, logfields.Repr(redir)).
 				Debug("Created new ", l4.GetL7Parser(), " proxy instance")
 			p.redirects[id] = redir
+
 			// must mark the proxyPort configured while we still hold the lock to prevent racing between
 			// two parallel runs
+
+			// marks port as reserved
 			p.allocatedPorts[pp.proxyPort] = true
-			pp.reservePort()
+			// mark proxy port as configured
+			pp.configured = true
 
 			revertStack.Push(func() error {
 				// Proxy port refcount has not been incremented yet, so it must not be decremented
