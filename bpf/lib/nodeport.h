@@ -2784,7 +2784,8 @@ declare_tailcall_if(__or4(__and(is_defined(ENABLE_IPV4),
 				is_defined(IS_BPF_HOST)),
 			  __and(is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING),
 				is_defined(ENABLE_INTER_CLUSTER_SNAT)),
-			  is_defined(ENABLE_EGRESS_GATEWAY)),
+			  __and(is_defined(ENABLE_EGRESS_GATEWAY),
+				is_defined(IS_BPF_HOST))),
 		    CILIUM_CALL_IPV4_NODEPORT_NAT_FWD)
 int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 {
@@ -2927,7 +2928,8 @@ static __always_inline int handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_
 						     is_defined(IS_BPF_HOST)),
 					       __and(is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING),
 						     is_defined(ENABLE_INTER_CLUSTER_SNAT)),
-					       is_defined(ENABLE_EGRESS_GATEWAY)),
+					       __and(is_defined(ENABLE_EGRESS_GATEWAY),
+						     is_defined(IS_BPF_HOST))),
 					 CILIUM_CALL_IPV4_NODEPORT_NAT_FWD,
 					 handle_nat_fwd_ipv4);
 		break;
