@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
 
-package observer
+package fieldmask
 
 import (
 	"fmt"
@@ -13,11 +13,11 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 )
 
-type filter map[string]filter
+type FieldMask map[string]FieldMask
 
-// createFilter constructs a tree filter based on validated and normalized field
-// mask fm. Use active() to check if applying a filter will have any effect.
-func createFilter(fm *fieldmaskpb.FieldMask) (filter, error) {
+// New constructs a tree filter based on validated and normalized field
+// mask fm. Use Active() to check if applying a filter will have any effect.
+func New(fm *fieldmaskpb.FieldMask) (FieldMask, error) {
 	if fm == nil {
 		return nil, nil
 	}
@@ -26,7 +26,7 @@ func createFilter(fm *fieldmaskpb.FieldMask) (filter, error) {
 	}
 	fm.Normalize()
 
-	f := make(filter)
+	f := make(FieldMask)
 	for _, path := range fm.GetPaths() {
 		f.add(path)
 	}
@@ -35,7 +35,7 @@ func createFilter(fm *fieldmaskpb.FieldMask) (filter, error) {
 
 // add recursively converts path into tree based on its dot separated
 // components.
-func (f filter) add(path string) {
+func (f FieldMask) add(path string) {
 	prefix, suffix, found := strings.Cut(path, ".")
 	if !found {
 		// ["src.id", "src"] doesn't occur due to fm.Normalize()
@@ -43,14 +43,14 @@ func (f filter) add(path string) {
 		return
 	}
 	if m, ok := f[prefix]; !ok || m == nil {
-		f[prefix] = make(filter)
+		f[prefix] = make(FieldMask)
 	}
 	f[prefix].add(suffix)
 }
 
-// copy sets fields in dst to values from src based on filter.
+// Copy sets fields in dst to values from src based on filter.
 // It has no effect when called on an empty filter (dst remains unchanged).
-func (f filter) copy(dst, src protoreflect.Message) {
+func (f FieldMask) Copy(dst, src protoreflect.Message) {
 	fds := dst.Descriptor().Fields()
 	for name, next := range f {
 		fd := fds.ByName(protoreflect.Name(name))
@@ -61,13 +61,13 @@ func (f filter) copy(dst, src protoreflect.Message) {
 				dst.Clear(fd)
 			}
 		} else {
-			next.copy(dst.Get(fd).Message(), src.Get(fd).Message())
+			next.Copy(dst.Get(fd).Message(), src.Get(fd).Message())
 		}
 	}
 }
 
-// alloc creates all nested protoreflect.Message fields to avoid allocation later.
-func (f filter) alloc(src protoreflect.Message) {
+// Alloc creates all nested protoreflect.Message fields to avoid allocation later.
+func (f FieldMask) Alloc(src protoreflect.Message) {
 	fds := src.Descriptor().Fields()
 	for i := 0; i < fds.Len(); i++ {
 		fd := fds.Get(i)
@@ -75,13 +75,13 @@ func (f filter) alloc(src protoreflect.Message) {
 			if len(next) > 0 {
 				// Call to Mutable allocates a composite value - protoreflect.Message in this case.
 				// See: https://pkg.go.dev/google.golang.org/protobuf/reflect/protoreflect#Message
-				next.alloc(src.Mutable(fd).Message())
+				next.Alloc(src.Mutable(fd).Message())
 			}
 		}
 	}
 }
 
-// active checks if applying a filter will have any effect.
-func (f filter) active() bool {
+// Active checks if applying a filter will have any effect.
+func (f FieldMask) Active() bool {
 	return len(f) > 0
 }
