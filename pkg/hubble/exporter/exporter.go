@@ -26,6 +26,7 @@ type exporter struct {
 	logger  logrus.FieldLogger
 	encoder *json.Encoder
 	writer  io.WriteCloser
+	flow    *flowpb.Flow
 
 	opts exporteroption.Options
 }
@@ -54,19 +55,29 @@ func NewExporter(
 // newExporter let's you supply your own WriteCloser for tests.
 func newExporter(ctx context.Context, logger logrus.FieldLogger, writer io.WriteCloser, opts exporteroption.Options) (*exporter, error) {
 	encoder := json.NewEncoder(writer)
+	var flow *flowpb.Flow
+	if opts.FieldMask.Active() {
+		flow = new(flowpb.Flow)
+		opts.FieldMask.Alloc(flow.ProtoReflect())
+	}
 	return &exporter{
 		ctx:     ctx,
 		logger:  logger,
 		encoder: encoder,
 		writer:  writer,
+		flow:    flow,
 		opts:    opts,
 	}, nil
 }
 
 // eventToExportEvent converts Event to ExportEvent.
-func eventToExportEvent(e *v1.Event) *observerpb.ExportEvent {
-	switch ev := e.Event.(type) {
+func (e *exporter) eventToExportEvent(event *v1.Event) *observerpb.ExportEvent {
+	switch ev := event.Event.(type) {
 	case *flowpb.Flow:
+		if e.opts.FieldMask.Active() {
+			e.opts.FieldMask.Copy(e.flow.ProtoReflect(), ev.ProtoReflect())
+			ev = e.flow
+		}
 		return &observerpb.ExportEvent{
 			Time:     ev.GetTime(),
 			NodeName: ev.GetNodeName(),
@@ -76,7 +87,7 @@ func eventToExportEvent(e *v1.Event) *observerpb.ExportEvent {
 		}
 	case *flowpb.LostEvent:
 		return &observerpb.ExportEvent{
-			Time:     e.Timestamp,
+			Time:     event.Timestamp,
 			NodeName: nodeTypes.GetName(),
 			ResponseTypes: &observerpb.ExportEvent_LostEvents{
 				LostEvents: ev,
@@ -84,7 +95,7 @@ func eventToExportEvent(e *v1.Event) *observerpb.ExportEvent {
 		}
 	case *flowpb.AgentEvent:
 		return &observerpb.ExportEvent{
-			Time:     e.Timestamp,
+			Time:     event.Timestamp,
 			NodeName: nodeTypes.GetName(),
 			ResponseTypes: &observerpb.ExportEvent_AgentEvent{
 				AgentEvent: ev,
@@ -92,7 +103,7 @@ func eventToExportEvent(e *v1.Event) *observerpb.ExportEvent {
 		}
 	case *flowpb.DebugEvent:
 		return &observerpb.ExportEvent{
-			Time:     e.Timestamp,
+			Time:     event.Timestamp,
 			NodeName: nodeTypes.GetName(),
 			ResponseTypes: &observerpb.ExportEvent_DebugEvent{
 				DebugEvent: ev,
@@ -124,7 +135,7 @@ func (e *exporter) OnDecodedEvent(_ context.Context, ev *v1.Event) (bool, error)
 	if !filters.Apply(e.opts.AllowList, e.opts.DenyList, ev) {
 		return false, nil
 	}
-	res := eventToExportEvent(ev)
+	res := e.eventToExportEvent(ev)
 	if res == nil {
 		return false, nil
 	}
