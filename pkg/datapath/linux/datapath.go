@@ -4,7 +4,6 @@
 package linux
 
 import (
-	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -32,9 +31,10 @@ type linuxDatapath struct {
 }
 
 // NewDatapath creates a new Linux datapath
-func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager, wgAgent datapath.WireguardAgent, nodeMap nodemap.Map) datapath.Datapath {
+func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager, wgAgent datapath.WireguardAgent,
+	nodeMap nodemap.Map, writer datapath.ConfigWriter) datapath.Datapath {
 	dp := &linuxDatapath{
-		ConfigWriter:    &config.HeaderfileWriter{},
+		ConfigWriter:    writer,
 		IptablesManager: ruleManager,
 		nodeAddressing:  NewNodeAddressing(),
 		config:          cfg,
