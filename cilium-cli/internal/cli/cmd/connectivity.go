@@ -90,7 +90,7 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 			// and end the goroutine without returning.
 			go func() {
 				defer func() { done <- struct{}{} }()
-				err = connectivity.Run(ctx, cc, hooks.AddConnectivityTests)
+				err = connectivity.Run(ctx, cc, hooks.AddConnectivityTests, hooks.SetupAndValidate)
 
 				// If Fatal() was called in the test suite, the statement below won't fire.
 				finished = true
