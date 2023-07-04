@@ -377,7 +377,13 @@ Annotations:
        egressDeny:
        - toCIDR:
          - 0.0.0.0/0
-             
+
+* IPv6 on ``cilium_host`` now is assigned from IPAM pool, rather than using the
+  same IPv6 as native host interface, like ``eth0`` (:gh-issue:`23445`). This
+  fixes broken IPv6 access in some scenarios, such as ICMPv6 to host
+  (:gh-issue:`14509`), L7 policy enabled cluster (:gh-issue:`21954`), IPsec
+  enabled cluster (:gh-issue:`23461`). After upgrade, you may notice the
+  changes in ``cilium_host``'s IPv6 and related routing rules.
 
 Removed Options
 ~~~~~~~~~~~~~~~
