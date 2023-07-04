@@ -192,10 +192,10 @@ jobs:
       KIND_CONFIG_2: .github/kind-config-2.yaml
       # helm/kind-action will override the "name:" provided in the kind config with "chart-testing" unless these are
       # specified as inputs. These must also match the suffix here for CLUSTER1 and CLUSTER2.
-      CLUSTER_NAME_1: c1
-      CLUSTER_NAME_2: c2
-      CLUSTER1: kind-c1
-      CLUSTER2: kind-c2
+      CLUSTER_NAME_1: c.1
+      CLUSTER_NAME_2: c.2
+      CLUSTER1: kind-c.1
+      CLUSTER2: kind-c.2
 
     steps:
       - name: Checkout
@@ -238,7 +238,7 @@ jobs:
             --helm-set bpf.monitorAggregation=none \
             --helm-set cni.chainingMode=portmap \
             --helm-set cluster.id=1 \
-            --helm-set cluster.name=cluster1
+            --helm-set cluster.name=$CLUSTER1
 
       - name: Create kind cluster 2
         uses: helm/kind-action@fa81e57adff234b2908110485695db0f181f3c67 # v1.7.0
@@ -255,14 +255,15 @@ jobs:
             --helm-set bpf.monitorAggregation=none \
             --helm-set cni.chainingMode=portmap \
             --helm-set cluster.id=2 \
-            --helm-set cluster.name=cluster2
+            --helm-set cluster.name=$CLUSTER2
 
       - name: Enable ClusterMesh on cluster 1 using helm-based upgrade
         run: |
           cilium upgrade --reuse-values --context $CLUSTER1 \
             --wait=true \
             --helm-set clustermesh.useAPIServer=true \
-            --helm-set clustermesh.apiserver.service.type=NodePort
+            --helm-set clustermesh.apiserver.service.type=NodePort \
+            --helm-set clustermesh.apiserver.tls.server.extraDnsNames={"$CLUSTER1.mesh.cilium.io,$CLUSTER2.mesh.cilium.io"}
 
       - name: Copy CA cert from cluster 1 to cluster 2
         run: |
@@ -277,7 +278,8 @@ jobs:
           cilium upgrade --reuse-values --context $CLUSTER2 \
             --wait=true \
             --helm-set clustermesh.useAPIServer=true \
-            --helm-set clustermesh.apiserver.service.type=NodePort
+            --helm-set clustermesh.apiserver.service.type=NodePort \
+            --helm-set clustermesh.apiserver.tls.server.extraDnsNames={"$CLUSTER1.mesh.cilium.io,$CLUSTER2.mesh.cilium.io"}
 
       - name: Rename the secrets expected by the clustermesh connect command
         run: |
