@@ -61,7 +61,11 @@ func (f FieldMask) Copy(dst, src protoreflect.Message) {
 				dst.Clear(fd)
 			}
 		} else {
-			next.Copy(dst.Get(fd).Message(), src.Get(fd).Message())
+			if sub := dst.Get(fd); sub.Message().IsValid() {
+				next.Copy(sub.Message(), src.Get(fd).Message())
+			} else {
+				next.Copy(dst.Mutable(fd).Message(), src.Get(fd).Message())
+			}
 		}
 	}
 }

@@ -91,5 +91,10 @@ func TestFieldMask_copy_without_alloc(t *testing.T) {
 		Destination: &flowpb.Endpoint{ID: 5678, PodName: "podB", Namespace: "nsB", Identity: 9123},
 	}
 
-	assert.Panics(t, func() { fm.Copy(flow.ProtoReflect(), srcA.ProtoReflect()) })
+	// Allocate field when not pre-allocated
+	assert.NotPanics(t, func() { fm.Copy(flow.ProtoReflect(), srcA.ProtoReflect()) })
+	assert.EqualExportedValues(t, flowpb.Flow{
+		Source:      &flowpb.Endpoint{PodName: "podA"},
+		Destination: &flowpb.Endpoint{ID: 5678, PodName: "podB", Namespace: "nsB", Identity: 9123},
+	}, *flow)
 }
