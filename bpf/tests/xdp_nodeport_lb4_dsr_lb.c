@@ -253,3 +253,119 @@ int nodeport_dsr_fwd_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	test_finish();
 }
+
+/* Test that a SVC request with IP options is punted to TC without change.
+ */
+PKTGEN("xdp", "xdp_nodeport_dsr_option")
+int nodeport_dsr_option_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	/* Push ethernet header */
+	l2 = pktgen__push_ethhdr(&builder);
+	if (!l2)
+		return TEST_ERROR;
+
+	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)lb_mac);
+
+	/* Push IPv4 header with option */
+	l3 = pktgen__push_default_iphdr_with_options(&builder, 1);
+	if (!l3)
+		return TEST_ERROR;
+
+	l3->saddr = CLIENT_IP;
+	l3->daddr = FRONTEND_IP;
+
+	/* No need to initialize the option for now. */
+
+	/* Push TCP header */
+	l4 = pktgen__push_default_tcphdr(&builder);
+	if (!l4)
+		return TEST_ERROR;
+
+	l4->source = CLIENT_PORT;
+	l4->dest = FRONTEND_PORT;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("xdp", "xdp_nodeport_dsr_option")
+int nodeport_dsr_option_setup(struct __ctx_buff *ctx)
+{
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("xdp", "xdp_nodeport_dsr_option")
+int nodeport_dsr_option_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	__u32 *opt;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_OK);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	opt = (void *)l3 + sizeof(struct iphdr);
+	if ((void *)opt + sizeof(__u32) > data_end)
+		test_fatal("l3 IP option out of bounds");
+
+	l4 = (void *)opt + sizeof(*opt);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
+		test_fatal("src MAC has changed")
+	if (memcmp(l2->h_dest, (__u8 *)lb_mac, ETH_ALEN) != 0)
+		test_fatal("dst MAC has changed")
+
+	if (l3->saddr != CLIENT_IP)
+		test_fatal("src IP has changed");
+
+	if (l3->daddr != FRONTEND_IP)
+		test_fatal("dst IP has changed");
+
+	if (l4->source != CLIENT_PORT)
+		test_fatal("src port has changed");
+
+	if (l4->dest != FRONTEND_PORT)
+		test_fatal("dst port has changed");
+
+	test_finish();
+}

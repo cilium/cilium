@@ -996,6 +996,15 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		if (!lb6_src_range_ok(svc, (union v6addr *)&ip6->saddr))
 			return DROP_NOT_IN_SRC_RANGE;
 
+#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_NONE
+		/* XDP can't insert DSR info into packets with IPv6 extensions.
+		 * Punt to TC.
+		 */
+		if (ctx_is_xdp() && nodeport_uses_dsr6(&tuple) &&
+		    tuple.nexthdr != ip6->nexthdr)
+			return CTX_ACT_OK;
+#endif
+
 #if defined(ENABLE_L7_LB)
 		if (lb6_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0) {
 			if (ctx_is_xdp())
@@ -2323,6 +2332,16 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 		if (!lb4_src_range_ok(svc, ip4->saddr))
 			return DROP_NOT_IN_SRC_RANGE;
+
+#if defined(ENABLE_DSR) && DSR_ENCAP_MODE == DSR_ENCAP_NONE
+		/* XDP can't insert DSR info into packets with variable-length
+		 * L3 header. Punt to TC.
+		 */
+		if (ctx_is_xdp() && nodeport_uses_dsr4(&tuple) &&
+		    ipv4_hdrlen(ip4) > (int)sizeof(struct iphdr))
+			return CTX_ACT_OK;
+#endif
+
 #if defined(ENABLE_L7_LB)
 		if (lb4_svc_is_l7loadbalancer(svc) && svc->l7_lb_proxy_port > 0) {
 			/* We cannot redirect from the XDP layer to cilium_host.
