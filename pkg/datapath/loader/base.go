@@ -541,7 +541,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	// Reinstall proxy rules for any running proxies if needed
-	if p != nil {
+	if option.Config.EnableL7Proxy {
 		if err := p.ReinstallRules(ctx); err != nil {
 			return err
 		}
