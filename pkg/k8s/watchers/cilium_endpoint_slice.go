@@ -10,8 +10,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -29,7 +28,7 @@ var (
 func CreateCiliumEndpointSliceLocalPodIndexFunc() cache.IndexFunc {
 	nodeIP := node.GetCiliumEndpointNodeIP()
 	return func(obj interface{}) ([]string, error) {
-		ces, ok := obj.(*v2alpha1.CiliumEndpointSlice)
+		ces, ok := obj.(*capi_v2a1.CiliumEndpointSlice)
 		if !ok {
 			return nil, fmt.Errorf("unexpected object type: %T", obj)
 		}
@@ -53,9 +52,9 @@ func (k *K8sWatcher) ciliumEndpointSliceInit(client client.Clientset, asyncContr
 
 	for {
 		cesIndexer, cesInformer := informer.NewIndexerInformer(
-			utils.ListerWatcherFromTyped[*cilium_v2a1.CiliumEndpointSliceList](
+			utils.ListerWatcherFromTyped[*capi_v2a1.CiliumEndpointSliceList](
 				client.CiliumV2alpha1().CiliumEndpointSlices()),
-			&cilium_v2a1.CiliumEndpointSlice{},
+			&capi_v2a1.CiliumEndpointSlice{},
 			0,
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {

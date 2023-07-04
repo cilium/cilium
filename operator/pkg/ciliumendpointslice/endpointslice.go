@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	csv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -260,7 +259,7 @@ func (c *CiliumEndpointSliceController) removeStaleAndDuplicatedCEPEntries() {
 // Note: CESs are synced locally before CES controller running and this is required.
 func syncCESsInLocalCache(cesStore cache.Store, manager operations) {
 	for _, obj := range cesStore.List() {
-		ces := obj.(*v2alpha1.CiliumEndpointSlice)
+		ces := obj.(*capi_v2a1.CiliumEndpointSlice)
 		// If CES is already cached locally, do nothing.
 		if _, err := manager.getCESFromCache(ces.GetName()); err == nil {
 			continue
@@ -343,7 +342,7 @@ func (c *CiliumEndpointSliceController) syncCES(key string) error {
 	// Check the CES exists is in cesStore i.e. in api-server copy of CESs, if exist update or delete the CES.
 	obj, exists, err := c.ciliumEndpointSliceStore.GetByKey(key)
 	if err == nil && exists {
-		ces := obj.(*v2alpha1.CiliumEndpointSlice)
+		ces := obj.(*capi_v2a1.CiliumEndpointSlice)
 		// Delete the CES, only if CEP count is zero in local copy of CES and api-server copy of CES,
 		// else Update the CES
 		if len(ces.Endpoints) == 0 && c.Manager.getCEPCountInCES(key) == 0 {
@@ -401,7 +400,7 @@ func usedIdentitiesInCESs(cesStore cache.Store) map[string]bool {
 
 	cesObjList := cesStore.List()
 	for _, cesObj := range cesObjList {
-		ces, ok := cesObj.(*v2alpha1.CiliumEndpointSlice)
+		ces, ok := cesObj.(*capi_v2a1.CiliumEndpointSlice)
 		if !ok {
 			continue
 		}
