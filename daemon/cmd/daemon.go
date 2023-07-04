@@ -636,6 +636,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		egressGatewayWatcher = d.egressGatewayManager
 	}
 
+	d.newFQDNManager()
+
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		params.Clientset,
 		d.endpointManager,

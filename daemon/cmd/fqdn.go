@@ -156,13 +156,7 @@ func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[pol
 	return d.endpointManager.UpdatePolicyMaps(ctx, notifyWg)
 }
 
-// bootstrapFQDN initializes the toFQDNs related subsystems: dnsNameManager and the DNS proxy.
-// dnsNameManager will use the default resolver and, implicitly, the
-// default DNS cache. The proxy binds to all interfaces, and uses the
-// configured DNS proxy port (this may be 0 and so OS-assigned).
-func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string) (err error) {
-	d.initDNSProxyContext(option.Config.DNSProxyLockCount)
-
+func (d *Daemon) newFQDNManager() {
 	cfg := fqdn.Config{
 		MinTTL:          option.Config.ToFQDNsMinTTL,
 		Cache:           fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
@@ -176,6 +170,14 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	rg := fqdn.NewNameManager(cfg)
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(rg)
 	d.dnsNameManager = rg
+}
+
+// bootstrapFQDN initializes the toFQDNs related subsystems: dnsNameManager and the DNS proxy.
+// dnsNameManager will use the default resolver and, implicitly, the
+// default DNS cache. The proxy binds to all interfaces, and uses the
+// configured DNS proxy port (this may be 0 and so OS-assigned).
+func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string) (err error) {
+	d.initDNSProxyContext(option.Config.DNSProxyLockCount)
 
 	// Controller to cleanup TTL expired entries from the DNS policies.
 	// dns-garbage-collector-job runs the logic to remove stale or undesired
@@ -287,10 +289,10 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 				namesToCleanSlice = append(namesToCleanSlice, name)
 			}
 
-			cfg.Cache.ReplaceFromCacheByNames(namesToCleanSlice, caches...)
+			d.dnsNameManager.GetDNSCache().ReplaceFromCacheByNames(namesToCleanSlice, caches...)
 
 			metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToCleanSlice)))
-			_, err := d.dnsNameManager.ForceGenerateDNS(context.TODO(), namesToCleanSlice)
+			_, _, _, err := d.dnsNameManager.ForceGenerateDNS(context.TODO(), namesToCleanSlice)
 			namesCount := len(namesToCleanSlice)
 			// Limit the amount of info level logging to some sane amount
 			if namesCount > 20 {
