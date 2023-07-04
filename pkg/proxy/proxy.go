@@ -475,10 +475,7 @@ func (p *Proxy) CreateOrUpdateRedirect(
 	uint16, error, revert.FinalizeFunc, revert.RevertFunc,
 ) {
 	p.mutex.Lock()
-	defer func() {
-		p.updateRedirectMetrics()
-		p.mutex.Unlock()
-	}()
+	defer p.mutex.Unlock()
 
 	scopedLog := log.
 		WithField(fieldProxyRedirectID, id).
@@ -585,6 +582,8 @@ func (p *Proxy) CreateOrUpdateRedirect(
 		Debug("Created new proxy instance")
 
 	p.redirects[id] = redirect
+	p.updateRedirectMetrics()
+
 	// must mark the proxyPort configured while we still hold the lock to prevent racing between two parallel runs
 
 	// marks port as reserved
