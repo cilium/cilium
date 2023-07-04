@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -128,9 +129,20 @@ func (k *K8sInstaller) autodetect(ctx context.Context) {
 	}
 }
 
-func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
-	k.autodetect(ctx)
+func getClusterName(helmValues map[string]interface{}) string {
+	cluster, ok := helmValues["cluster"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	clusterName, ok := cluster["name"].(string)
+	if !ok {
+		return ""
+	}
+	return clusterName
+}
 
+func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map[string]interface{}) error {
+	k.autodetect(ctx)
 	if len(validationChecks[k.flavor.Kind]) > 0 {
 		k.Log("✨ Running %q validation checks", k.flavor.Kind)
 		for _, check := range validationChecks[k.flavor.Kind] {
@@ -150,12 +162,20 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 
 	k.Log("ℹ️  Using Cilium version %s", k.chartVersion)
 
+	// "cluster.name" Helm value takes precedence over --cluster-name flag.
+	clusterName := getClusterName(helmValues)
+	if clusterName != "" {
+		k.params.ClusterName = clusterName
+	}
+
 	if k.params.ClusterName == "" {
 		if k.flavor.ClusterName != "" {
 			name := strings.ReplaceAll(k.flavor.ClusterName, "_", "-")
 			k.Log("🔮 Auto-detected cluster name: %s", name)
 			k.params.ClusterName = name
 		}
+	} else {
+		k.Log("ℹ️  Using cluster name %q", k.params.ClusterName)
 	}
 
 	if err := k.detectDatapathMode(true); err != nil {
@@ -168,14 +188,16 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context) error {
 		k.Log("ℹ️  Custom IPAM mode: %s", k.params.IPAM)
 	}
 
-	if strings.Contains(k.params.ClusterName, ".") {
-		k.Log("❌ Cluster name %q cannot contain dots", k.params.ClusterName)
-		return fmt.Errorf("invalid cluster name, dots are not allowed")
-	}
+	if !utils.IsInHelmMode() {
+		if strings.Contains(k.params.ClusterName, ".") {
+			k.Log("❌ Cluster name %q cannot contain dots", k.params.ClusterName)
+			return fmt.Errorf("invalid cluster name, dots are not allowed")
+		}
 
-	if !clusterNameValidation.MatchString(k.params.ClusterName) {
-		k.Log("❌ Cluster name %q is not valid, must match regular expression: %s", k.params.ClusterName, clusterNameValidation)
-		return fmt.Errorf("invalid cluster name")
+		if !clusterNameValidation.MatchString(k.params.ClusterName) {
+			k.Log("❌ Cluster name %q is not valid, must match regular expression: %s", k.params.ClusterName, clusterNameValidation)
+			return fmt.Errorf("invalid cluster name")
+		}
 	}
 
 	switch k.params.Encryption {

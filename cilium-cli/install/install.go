@@ -643,20 +643,21 @@ func getChainingMode(values map[string]interface{}) string {
 }
 
 func (k *K8sInstaller) preinstall(ctx context.Context) error {
-	if err := k.autodetectAndValidate(ctx); err != nil {
+	// TODO (ajs): Note that we have our own implementation of helm MergeValues at internal/helm/MergeValues, used
+	//  e.g. in hubble.go. Does using the upstream HelmOpts.MergeValues here create inconsistencies with which
+	//  parameters take precedence? Test and determine which we should use here for expected behavior.
+	// Get Helm values to check if ipv4NativeRoutingCIDR value is specified via a Helm flag.
+	helmValues, err := k.params.HelmOpts.MergeValues(getter.All(cli.New()))
+	if err != nil {
+		return err
+	}
+
+	if err := k.autodetectAndValidate(ctx, helmValues); err != nil {
 		return err
 	}
 
 	switch k.flavor.Kind {
 	case k8s.KindGKE:
-		// TODO (ajs): Note that we have our own implementation of helm MergeValues at internal/helm/MergeValues, used
-		//  e.g. in hubble.go. Does using the upstream HelmOpts.MergeValues here create inconsistencies with which
-		//  parameters take precedence? Test and determine which we should use here for expected behavior.
-		// Get Helm values to check if ipv4NativeRoutingCIDR value is specified via a Helm flag.
-		helmValues, err := k.params.HelmOpts.MergeValues(getter.All(cli.New()))
-		if err != nil {
-			return err
-		}
 		if k.params.IPv4NativeRoutingCIDR == "" && helmValues["ipv4NativeRoutingCIDR"] == nil {
 			cidr, err := k.gkeNativeRoutingCIDR(k.client.ContextName())
 			if err != nil {
@@ -675,10 +676,6 @@ func (k *K8sInstaller) preinstall(ctx context.Context) error {
 			}
 		}
 	case k8s.KindEKS:
-		helmValues, err := k.params.HelmOpts.MergeValues(getter.All(cli.New()))
-		if err != nil {
-			return err
-		}
 		chainingMode := getChainingMode(helmValues)
 
 		// Do not stop AWS DS if we are running in chaining mode
