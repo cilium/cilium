@@ -151,6 +151,14 @@ func TestEventToExportEvent(t *testing.T) {
 		nodeTypes.SetName(nodeName)
 	}()
 
+	buf := &bytesWriteCloser{bytes.Buffer{}}
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	exporter, err := newExporter(ctx, log, buf, exporteroption.Default)
+	assert.NoError(t, err)
+
 	// flow
 	ev := v1.Event{
 		Event: &observerpb.Flow{
@@ -158,7 +166,7 @@ func TestEventToExportEvent(t *testing.T) {
 			Time:     &timestamp.Timestamp{Seconds: 1},
 		},
 	}
-	res := eventToExportEvent(&ev)
+	res := exporter.eventToExportEvent(&ev)
 	expected := &observerpb.ExportEvent{
 		ResponseTypes: &observerpb.ExportEvent_Flow{Flow: ev.Event.(*flowpb.Flow)},
 		NodeName:      newNodeName,
@@ -171,7 +179,7 @@ func TestEventToExportEvent(t *testing.T) {
 		Timestamp: &timestamp.Timestamp{Seconds: 1},
 		Event:     &observerpb.LostEvent{},
 	}
-	res = eventToExportEvent(&ev)
+	res = exporter.eventToExportEvent(&ev)
 	expected = &observerpb.ExportEvent{
 		ResponseTypes: &observerpb.ExportEvent_LostEvents{LostEvents: ev.Event.(*flowpb.LostEvent)},
 		NodeName:      newNodeName,
@@ -184,7 +192,7 @@ func TestEventToExportEvent(t *testing.T) {
 		Timestamp: &timestamp.Timestamp{Seconds: 1},
 		Event:     &observerpb.AgentEvent{},
 	}
-	res = eventToExportEvent(&ev)
+	res = exporter.eventToExportEvent(&ev)
 	expected = &observerpb.ExportEvent{
 		ResponseTypes: &observerpb.ExportEvent_AgentEvent{AgentEvent: ev.Event.(*flowpb.AgentEvent)},
 		NodeName:      newNodeName,
@@ -197,11 +205,55 @@ func TestEventToExportEvent(t *testing.T) {
 		Timestamp: &timestamp.Timestamp{Seconds: 1},
 		Event:     &observerpb.DebugEvent{},
 	}
-	res = eventToExportEvent(&ev)
+	res = exporter.eventToExportEvent(&ev)
 	expected = &observerpb.ExportEvent{
 		ResponseTypes: &observerpb.ExportEvent_DebugEvent{DebugEvent: ev.Event.(*flowpb.DebugEvent)},
 		NodeName:      newNodeName,
 		Time:          ev.Timestamp,
 	}
 	assert.Equal(t, res, expected)
+}
+
+func TestExporterWithFieldMask(t *testing.T) {
+	events := []*v1.Event{
+		{
+			Event: &observerpb.Flow{
+				NodeName: "nodeName",
+				Time:     &timestamp.Timestamp{Seconds: 12},
+				Source:   &flowpb.Endpoint{PodName: "podA", Namespace: "nsA"},
+			},
+		},
+		{
+			Event: &observerpb.Flow{
+				NodeName:    "nodeName",
+				Time:        &timestamp.Timestamp{Seconds: 13},
+				Destination: &flowpb.Endpoint{PodName: "podB", Namespace: "nsB"}},
+		},
+	}
+	buf := &bytesWriteCloser{bytes.Buffer{}}
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+
+	opts := exporteroption.Default
+	for _, opt := range []exporteroption.Option{
+		exporteroption.WithFieldMask([]string{"source"}),
+	} {
+		err := opt(&opts)
+		assert.NoError(t, err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	exporter, err := newExporter(ctx, log, buf, opts)
+	assert.NoError(t, err)
+
+	for _, ev := range events {
+		stop, err := exporter.OnDecodedEvent(ctx, ev)
+		assert.False(t, stop)
+		assert.NoError(t, err)
+	}
+
+	assert.Equal(t, `{"flow":{"source":{"namespace":"nsA","pod_name":"podA"}}}
+{"flow":{}}
+`, buf.String())
 }

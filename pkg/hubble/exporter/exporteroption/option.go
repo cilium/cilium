@@ -8,6 +8,9 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/parser/fieldmask"
+
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 // Options stores all the configurations values for Hubble exporter.
@@ -18,6 +21,7 @@ type Options struct {
 	Compress   bool
 
 	AllowList, DenyList filters.FilterFuncs
+	FieldMask           fieldmask.FieldMask
 }
 
 // Option customizes the configuration of the hubble server.
@@ -76,6 +80,22 @@ func WithDenyList(f []*flowpb.FlowFilter) Option {
 			return err
 		}
 		o.DenyList = filterList
+		return nil
+	}
+}
+
+// WithFieldMask sets fieldmask for the exporter.
+func WithFieldMask(paths []string) Option {
+	return func(o *Options) error {
+		fm, err := fieldmaskpb.New(&flowpb.Flow{}, paths...)
+		if err != nil {
+			return err
+		}
+		fieldMask, err := fieldmask.New(fm)
+		if err != nil {
+			return err
+		}
+		o.FieldMask = fieldMask
 		return nil
 	}
 }
