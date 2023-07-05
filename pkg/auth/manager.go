@@ -120,30 +120,35 @@ func (a *authManager) handleCertificateRotationEvent(_ context.Context, event ce
 }
 
 func handleAuthentication(a *authManager, k authKey, reAuth bool) {
-	if a.markPendingAuth(k) {
-		go func(key authKey) {
-			defer a.clearPendingAuth(key)
-
-			if !reAuth {
-				// Check if the auth is actually required, as we might have
-				// updated the authmap since the datapath issued the auth
-				// required signal.
-				if i, err := a.authmap.Get(key); err == nil && i.expiration.After(time.Now()) {
-					a.logger.
-						WithField("key", key).
-						Debug("Already authenticated, skipping authentication")
-					return
-				}
-			}
-
-			if err := a.authenticate(key); err != nil {
-				a.logger.
-					WithError(err).
-					WithField("key", key).
-					Warning("Failed to authenticate request")
-			}
-		}(k)
+	if !a.markPendingAuth(k) {
+		a.logger.
+			WithField("key", k).
+			Debug("Pending authentication, skipping authentication")
+		return
 	}
+
+	go func(key authKey) {
+		defer a.clearPendingAuth(key)
+
+		if !reAuth {
+			// Check if the auth is actually required, as we might have
+			// updated the authmap since the datapath issued the auth
+			// required signal.
+			if i, err := a.authmap.Get(key); err == nil && i.expiration.After(time.Now()) {
+				a.logger.
+					WithField("key", key).
+					Debug("Already authenticated, skipping authentication")
+				return
+			}
+		}
+
+		if err := a.authenticate(key); err != nil {
+			a.logger.
+				WithError(err).
+				WithField("key", key).
+				Warning("Failed to authenticate request")
+		}
+	}(k)
 }
 
 // markPendingAuth checks if there is a pending authentication for the given key.
@@ -163,6 +168,10 @@ func (a *authManager) markPendingAuth(key authKey) bool {
 
 // clearPendingAuth marks the pending authentication as finished.
 func (a *authManager) clearPendingAuth(key authKey) {
+	a.logger.
+		WithField("key", key).
+		Debug("Clearing pending authentication")
+
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	delete(a.pending, key)
@@ -170,9 +179,7 @@ func (a *authManager) clearPendingAuth(key authKey) {
 
 func (a *authManager) authenticate(key authKey) error {
 	a.logger.
-		WithField("auth_type", key.authType).
-		WithField("local_identity", key.localIdentity).
-		WithField("remote_identity", key.remoteIdentity).
+		WithField("key", key).
 		Debug("Policy is requiring authentication")
 
 	// Authenticate according to the requested auth type
@@ -202,9 +209,7 @@ func (a *authManager) authenticate(key authKey) error {
 	}
 
 	a.logger.
-		WithField("auth_type", key.authType).
-		WithField("local_identity", key.localIdentity).
-		WithField("remote_identity", key.remoteIdentity).
+		WithField("key", key).
 		WithField("remote_node_ip", nodeIP).
 		Debug("Successfully authenticated")
 
