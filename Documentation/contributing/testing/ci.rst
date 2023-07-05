@@ -9,21 +9,38 @@
 CI  / GitHub Actions
 --------------------
 
-The main CI infrastructure is maintained on GitHub Actions (GHA). For a full
-list of GitHub Actions workflows run on the Cilium repository, see
-`GitHub Actions Page <https://github.com/cilium/cilium/actions>`_
+The main CI infrastructure is maintained on GitHub Actions (GHA).
+
+This infrastructure is broadly comprised of smoke tests and platform tests.
+Smoke tests are typically initiated by ``pull_request`` or
+``pull_request_target`` triggers automatically when opening or updating a pull
+request. Platform tests often require an organization member to manually
+trigger the test when the pull request is ready to be tested.
+
+Triggering Smoke Tests
+~~~~~~~~~~~~~~~~~~~~~~
+
+Several short-running tests are automatically triggered for all contributor
+submissions, subject to GitHub's limitations around first-time contributors.
+If no GitHub workflows are triggering on your PR, a committer for the project
+should trigger these within a few days. Reach out in the ``#testing``
+channel on Slack for assistance in running these tests.
 
 .. _trigger_phrases:
 
-Triggering Pull-Request Builds
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Triggering Platform Tests
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To ensure that build resources are used judiciously, builds on Jenkins and some
-tests on GHA are manually triggered via comments on each pull-request that
-contain "trigger-phrases". Only members of the Cilium GitHub organization are
-allowed to trigger these jobs. Some GitHub Workflows are triggered on
-``pull_request`` events and not comment-based. The type of trigger is specific
-to each individual GitHub Workflow.
+To ensure that build resources are used judiciously, some tests on GHA are
+manually triggered via comments. These builds typically make use of cloud
+infrastructure, such as allocating clusters or VMs in AKS, EKS or GKE. In
+order to trigger these jobs, a member of the GitHub organization must post a
+comment on the Pull Request with a "trigger phrase".
+
+If you'd like to trigger these jobs, ask in Slack in the ``#testing``
+channel. If you're regularly contributing to Cilium, you can also `become a
+member <https://github.com/cilium/community/blob/main/CONTRIBUTOR-LADDER.md#organization-member>`__
+of the Cilium organization.
 
 Depending on the PR target branch, a specific set of jobs is marked as required,
 as per the `Cilium CI matrix`_. They will be automatically featured in PR checks
@@ -41,6 +58,10 @@ them all at once:
 +------------------+--------------------------+
 | v1.11            | /test-backport-1.11      |
 +------------------+--------------------------+
+
+Pull requests submitted against older stable branches such as v1.13 may also be
+subject to Jenkins CI jobs. For more information, see
+`v1.13 CI <https://docs.cilium.io/en/v1.13/contributing/testing/ci/#ci-jenkins>`__.
 
 For a full list of GHA, see `GitHub Actions Page <https://github.com/cilium/cilium/actions>`_
 
