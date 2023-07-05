@@ -1216,6 +1216,7 @@ redo:
 static __always_inline int
 nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 {
+	struct lb6_reverse_nat *nat_info;
 	struct ipv6_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;
@@ -1232,8 +1233,8 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 		return ret;
 	}
 
-	if (!ct_has_nodeport_egress_entry6(get_ct_map6(&tuple), &tuple,
-					   NULL, is_defined(ENABLE_DSR)))
+	nat_info = nodeport_rev_dnat_get_info_ipv6(ctx, &tuple);
+	if (!nat_info)
 		return CTX_ACT_OK;
 
 	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
@@ -1241,20 +1242,12 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 
-		if (ct_state.node_port && ct_state.rev_nat_index) {
-			ret = lb6_rev_nat(ctx, l4_off, ct_state.rev_nat_index,
-					  &tuple, REV_NAT_F_TUPLE_SADDR);
-			if (IS_ERR(ret))
-				return ret;
+		ret = __lb6_rev_nat(ctx, l4_off, &tuple, REV_NAT_F_TUPLE_SADDR,
+				    nat_info);
+		if (IS_ERR(ret))
+			return ret;
 
-			ctx_snat_done_set(ctx);
-#ifdef ENABLE_DSR
-		} else if (ct_state.dsr) {
-			ret = xlate_dsr_v6(ctx, &tuple, l4_off);
-			if (IS_ERR(ret))
-				return ret;
-#endif
-		}
+		ctx_snat_done_set(ctx);
 	}
 
 	return CTX_ACT_OK;
@@ -2635,6 +2628,7 @@ static __always_inline int
 nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 {
 	int ret, l3_off = ETH_HLEN, l4_off;
+	struct lb4_reverse_nat *nat_info;
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;
@@ -2654,56 +2648,52 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 		return ret;
 	}
 
-	if (!ct_has_nodeport_egress_entry4(get_ct_map4(&tuple), &tuple,
-					   NULL, is_defined(ENABLE_DSR)))
+	nat_info = nodeport_rev_dnat_get_info_ipv4(ctx, &tuple);
+	if (!nat_info)
 		return CTX_ACT_OK;
 
 	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
 			      ACTION_CREATE, CT_INGRESS, SCOPE_REVERSE, &ct_state,
 			      &trace->monitor);
+
+	/* nodeport_rev_dnat_get_info_ipv4() just checked that such a
+	 * CT entry exists:
+	 */
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 
-		/* Reply by local backend: */
-		if (ct_state.node_port && ct_state.rev_nat_index) {
-			ret = lb4_rev_nat(ctx, l3_off, l4_off, ct_state.rev_nat_index,
-					  false, &tuple, REV_NAT_F_TUPLE_SADDR,
-					  has_l4_header);
-			if (IS_ERR(ret))
-				return ret;
+		ret = __lb4_rev_nat(ctx, l3_off, l4_off, &tuple,
+				    REV_NAT_F_TUPLE_SADDR, nat_info,
+				    false, has_l4_header);
+		if (IS_ERR(ret))
+			return ret;
 
-			ctx_snat_done_set(ctx);
+		ctx_snat_done_set(ctx);
+
 #ifdef ENABLE_DSR
-		/* Reply by DSR backend: */
-		} else if (ct_state.dsr) {
-			ret = xlate_dsr_v4(ctx, &tuple, l4_off, has_l4_header);
-			if (IS_ERR(ret))
-				return ret;
-
  #if defined(ENABLE_HIGH_SCALE_IPCACHE) &&				\
      defined(IS_BPF_OVERLAY) &&						\
      DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-			/* For HS IPCache, we also need to revDNAT the OuterSrcIP: */
-			{
-				struct bpf_tunnel_key key;
+		/* For HS IPCache, we also need to revDNAT the OuterSrcIP: */
+		if (ct_state.dsr) {
+			struct bpf_tunnel_key key;
 
-				if (ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0)
-					return DROP_NO_TUNNEL_KEY;
+			if (ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0)
+				return DROP_NO_TUNNEL_KEY;
 
-				if (!revalidate_data(ctx, &data, &data_end, &ip4))
-					return DROP_INVALID;
+			if (!revalidate_data(ctx, &data, &data_end, &ip4))
+				return DROP_INVALID;
 
-				/* kernel returns addresses in flipped locations: */
-				key.remote_ipv4 = key.local_ipv4;
-				key.local_ipv4 = bpf_ntohl(ip4->saddr);
+			/* kernel returns addresses in flipped locations: */
+			key.remote_ipv4 = key.local_ipv4;
+			key.local_ipv4 = bpf_ntohl(ip4->saddr);
 
-				if (ctx_set_tunnel_key(ctx, &key, sizeof(key),
-						       BPF_F_ZERO_CSUM_TX) < 0)
-					return DROP_WRITE_ERROR;
-			}
+			if (ctx_set_tunnel_key(ctx, &key, sizeof(key),
+					       BPF_F_ZERO_CSUM_TX) < 0)
+				return DROP_WRITE_ERROR;
+		}
  #endif
 #endif
-		}
 	}
 
 	return CTX_ACT_OK;
