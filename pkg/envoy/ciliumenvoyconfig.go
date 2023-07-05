@@ -416,9 +416,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 	return resources, nil
 }
 
-// UpsertEnvoyResources inserts or updates Envoy resources in 'resources' to the xDS cache,
-// from where they will be delivered to Envoy via xDS streaming gRPC.
-func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resources, portAllocator PortAllocator) error {
+func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources Resources, portAllocator PortAllocator) error {
 	if option.Config.Debug {
 		msg := ""
 		sep := ""
@@ -527,12 +525,7 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	return nil
 }
 
-// UpdateEnvoyResources removes any resources in 'old' that are not
-// present in 'new' and then adds or updates all resources in 'new'.
-// Envoy does not support changing the listening port of an existing
-// listener, so if the port changes we have to delete the old listener
-// and then add the new one with the new port number.
-func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources, portAllocator PortAllocator) error {
+func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources, portAllocator PortAllocator) error {
 	waitForDelete := false
 	var wg *completion.WaitGroup
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
@@ -731,8 +724,7 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	return nil
 }
 
-// DeleteEnvoyResources deletes all Envoy resources in 'resources'.
-func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resources, portAllocator PortAllocator) error {
+func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources Resources, portAllocator PortAllocator) error {
 	log.Debugf("DeleteEnvoyResources: Deleting %d listeners, %d routes, %d clusters, %d endpoints, and %d secrets...",
 		len(resources.Listeners), len(resources.Routes), len(resources.Clusters), len(resources.Endpoints), len(resources.Secrets))
 	var wg *completion.WaitGroup
@@ -790,7 +782,7 @@ func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 	return nil
 }
 
-func (s *XDSServer) UpsertEnvoyEndpoints(serviceName lb.ServiceName, backendMap map[string][]*lb.Backend) error {
+func (s *xdsServer) UpsertEnvoyEndpoints(serviceName lb.ServiceName, backendMap map[string][]*lb.Backend) error {
 	var resources Resources
 	lbEndpoints := []*envoy_config_endpoint.LbEndpoint{}
 	for port, bes := range backendMap {
