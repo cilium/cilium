@@ -32,6 +32,7 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(func(cfg *option.DaemonConfig) types.ClusterIDName {
 		return types.ClusterIDName{ClusterID: cfg.ClusterID, ClusterName: cfg.ClusterName}
 	}),
+	cell.ProvidePrivate(idsMgrProvider),
 
 	cell.Config(internal.Config{}),
 

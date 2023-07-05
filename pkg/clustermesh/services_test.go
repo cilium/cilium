@@ -113,6 +113,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		ServiceMerger:         s.svcCache,
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
+		ClusterIDsManager:     NewClusterMeshUsedIDs(),
 		Metrics:               newMetrics(),
 		InternalMetrics:       internal.MetricsProvider(subsystem)(),
 	})

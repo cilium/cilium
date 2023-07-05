@@ -138,6 +138,7 @@ func TestClusterMesh(t *testing.T) {
 	})
 	t.Cleanup(func() { ipc.Shutdown() })
 
+	usedIDs := NewClusterMeshUsedIDs()
 	cm := NewClusterMesh(hivetest.Lifecycle(t), Configuration{
 		Config:                internal.Config{ClusterMeshConfig: dir},
 		ClusterIDName:         types.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
@@ -145,6 +146,7 @@ func TestClusterMesh(t *testing.T) {
 		NodeObserver:          &testObserver{},
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
+		ClusterIDsManager:     usedIDs,
 		Metrics:               newMetrics(),
 		InternalMetrics:       internal.MetricsProvider(subsystem)(),
 	})
@@ -166,13 +168,13 @@ func TestClusterMesh(t *testing.T) {
 
 	// Ensure that ClusterIDs are reserved correctly after connect
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		cm.usedIDs.usedClusterIDsMutex.Lock()
-		defer cm.usedIDs.usedClusterIDsMutex.Unlock()
+		usedIDs.UsedClusterIDsMutex.Lock()
+		defer usedIDs.UsedClusterIDsMutex.Unlock()
 
-		assert.Contains(c, cm.usedIDs.usedClusterIDs, uint32(2))
-		assert.Contains(c, cm.usedIDs.usedClusterIDs, uint32(3))
+		assert.Contains(c, usedIDs.UsedClusterIDs, uint32(2))
+		assert.Contains(c, usedIDs.UsedClusterIDs, uint32(3))
 		// cluster3 doesn't have config, so only 2 IDs should be reserved
-		assert.Len(c, cm.usedIDs.usedClusterIDs, 2)
+		assert.Len(c, usedIDs.UsedClusterIDs, 2)
 	}, timeout, tick, "Cluster IDs were not reserved correctly")
 
 	// Reconnect cluster with changed ClusterID
@@ -186,13 +188,13 @@ func TestClusterMesh(t *testing.T) {
 	require.NoError(t, os.WriteFile(config1, etcdConfigNew, 0644), "Failed to write config file for cluster1")
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		cm.usedIDs.usedClusterIDsMutex.Lock()
-		defer cm.usedIDs.usedClusterIDsMutex.Unlock()
+		usedIDs.UsedClusterIDsMutex.Lock()
+		defer usedIDs.UsedClusterIDsMutex.Unlock()
 
 		// Ensure if old ClusterID for cluster1 is released
 		// and new ClusterID is reserved.
-		assert.NotContains(c, cm.usedIDs.usedClusterIDs, uint32(2))
-		assert.Contains(c, cm.usedIDs.usedClusterIDs, uint32(255))
+		assert.NotContains(c, usedIDs.UsedClusterIDs, uint32(2))
+		assert.Contains(c, usedIDs.UsedClusterIDs, uint32(255))
 	}, timeout, tick, "Reserved cluster IDs not updated correctly")
 
 	for _, cluster := range []string{"cluster1", "cluster2", "cluster3"} {
@@ -221,10 +223,10 @@ func TestClusterMesh(t *testing.T) {
 
 	// Make sure that ID is freed
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		cm.usedIDs.usedClusterIDsMutex.Lock()
-		defer cm.usedIDs.usedClusterIDsMutex.Unlock()
-		assert.NotContains(c, cm.usedIDs.usedClusterIDs, uint32(2))
-		assert.Len(c, cm.usedIDs.usedClusterIDs, 1)
+		usedIDs.UsedClusterIDsMutex.Lock()
+		defer usedIDs.UsedClusterIDsMutex.Unlock()
+		assert.NotContains(c, usedIDs.UsedClusterIDs, uint32(2))
+		assert.Len(c, usedIDs.UsedClusterIDs, 1)
 	}, timeout, tick, "Cluster IDs were not freed correctly")
 
 	// wait for the nodes of the removed cluster to disappear
@@ -251,8 +253,8 @@ func TestClusterMesh(t *testing.T) {
 
 	// Make sure that IDs are freed
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		cm.usedIDs.usedClusterIDsMutex.Lock()
-		defer cm.usedIDs.usedClusterIDsMutex.Unlock()
-		assert.Len(c, cm.usedIDs.usedClusterIDs, 0)
+		usedIDs.UsedClusterIDsMutex.Lock()
+		defer usedIDs.UsedClusterIDsMutex.Unlock()
+		assert.Len(c, usedIDs.UsedClusterIDs, 0)
 	}, timeout, tick, "Cluster IDs were not freed correctly")
 }

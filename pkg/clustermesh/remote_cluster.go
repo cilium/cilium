@@ -34,7 +34,7 @@ type remoteCluster struct {
 	// mesh is the cluster mesh this remote cluster belongs to
 	mesh *ClusterMesh
 
-	usedIDs *ClusterMeshUsedIDs
+	usedIDs ClusterIDsManager
 
 	// mutex protects the following variables:
 	// - remoteIdentityCache
@@ -139,7 +139,7 @@ func (rc *remoteCluster) Remove() {
 	rc.mesh.globalServices.onClusterDelete(rc.name)
 
 	if rc.config != nil {
-		rc.usedIDs.releaseClusterID(rc.config.ID)
+		rc.usedIDs.ReleaseClusterID(rc.config.ID)
 	}
 }
 
@@ -175,12 +175,12 @@ func (rc *remoteCluster) onUpdateConfig(newConfig *cmtypes.CiliumClusterConfig) 
 		return nil
 	}
 	if newConfig != nil {
-		if err := rc.usedIDs.reserveClusterID(newConfig.ID); err != nil {
+		if err := rc.usedIDs.ReserveClusterID(newConfig.ID); err != nil {
 			return err
 		}
 	}
 	if oldConfig != nil {
-		rc.usedIDs.releaseClusterID(oldConfig.ID)
+		rc.usedIDs.ReleaseClusterID(oldConfig.ID)
 	}
 	rc.config = newConfig
 
