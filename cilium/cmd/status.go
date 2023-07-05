@@ -37,7 +37,7 @@ var (
 )
 
 func init() {
-	rootCmd.AddCommand(statusCmd)
+	RootCmd.AddCommand(statusCmd)
 	statusCmd.Flags().BoolVar(&statusDetails.AllAddresses, "all-addresses", false, "Show all allocated addresses, not just count")
 	statusCmd.Flags().BoolVar(&statusDetails.AllControllers, "all-controllers", false, "Show all controllers, not just failing")
 	statusCmd.Flags().BoolVar(&statusDetails.AllNodes, "all-nodes", false, "Show all nodes, not just localhost")

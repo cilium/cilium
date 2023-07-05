@@ -87,6 +87,6 @@ func printSRv6VRFList(vrfs []srv6VRF) {
 }
 
 func init() {
-	bpfSRv6Cmd.AddCommand(bpfSRv6VRFListCmd)
+	BPFSRv6Cmd.AddCommand(bpfSRv6VRFListCmd)
 	command.AddOutputOption(bpfSRv6VRFListCmd)
 }

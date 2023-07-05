@@ -72,7 +72,7 @@ var endpointGetCmd = &cobra.Command{
 }
 
 func init() {
-	endpointCmd.AddCommand(endpointGetCmd)
+	EndpointCmd.AddCommand(endpointGetCmd)
 	endpointGetCmd.Flags().StringSliceVarP(&lbls, "labels", "l", []string{}, "list of labels")
 	command.AddOutputOption(endpointGetCmd)
 }

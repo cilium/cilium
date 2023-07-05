@@ -84,6 +84,6 @@ func NewTabWriter() *tabwriter.Writer {
 }
 
 func init() {
-	bgpCmd.AddCommand(BgpPeersCmd)
+	BgpCmd.AddCommand(BgpPeersCmd)
 	command.AddOutputOption(BgpPeersCmd)
 }

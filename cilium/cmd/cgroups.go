@@ -5,12 +5,12 @@ package cmd
 
 import "github.com/spf13/cobra"
 
-// cgroupsCmd represents the cgroups command
-var cgroupsCmd = &cobra.Command{
+// CgroupsCmd represents the cgroups command
+var CgroupsCmd = &cobra.Command{
 	Use:   "cgroups",
 	Short: "Cgroup metadata",
 }
 
 func init() {
-	rootCmd.AddCommand(cgroupsCmd)
+	RootCmd.AddCommand(CgroupsCmd)
 }

@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// recorderCmd represents the recorder command
-var recorderCmd = &cobra.Command{
+// RecorderCmd represents the recorder command
+var RecorderCmd = &cobra.Command{
 	Use:   "recorder",
 	Short: "Introspect or mangle pcap recorder",
 }
 
 func init() {
-	rootCmd.AddCommand(recorderCmd)
+	RootCmd.AddCommand(RecorderCmd)
 }

@@ -25,7 +25,7 @@ var lrpListCmd = &cobra.Command{
 }
 
 func init() {
-	lrpCmd.AddCommand(lrpListCmd)
+	LRPCmd.AddCommand(lrpListCmd)
 	command.AddOutputOption(lrpListCmd)
 }
 

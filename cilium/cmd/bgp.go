@@ -5,12 +5,12 @@ package cmd
 
 import "github.com/spf13/cobra"
 
-// bgpCmd represents the bgp command
-var bgpCmd = &cobra.Command{
+// BgpCmd represents the bgp command
+var BgpCmd = &cobra.Command{
 	Use:   "bgp",
 	Short: "Access to BGP control plane",
 }
 
 func init() {
-	rootCmd.AddCommand(bgpCmd)
+	RootCmd.AddCommand(BgpCmd)
 }

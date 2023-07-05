@@ -26,7 +26,7 @@ var bpfCtFlushCmd = &cobra.Command{
 }
 
 func init() {
-	bpfCtCmd.AddCommand(bpfCtFlushCmd)
+	BPFCtCmd.AddCommand(bpfCtFlushCmd)
 }
 
 type dummyEndpoint struct {

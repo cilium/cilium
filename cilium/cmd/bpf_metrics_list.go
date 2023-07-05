@@ -151,6 +151,6 @@ func extractRow(key *metricsmap.Key, values *metricsmap.Values) *metricsRow {
 }
 
 func init() {
-	bpfMetricsCmd.AddCommand(bpfMetricsListCmd)
+	BPFMetricsCmd.AddCommand(bpfMetricsListCmd)
 	command.AddOutputOption(bpfMetricsListCmd)
 }

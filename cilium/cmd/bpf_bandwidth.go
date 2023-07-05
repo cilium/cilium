@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bpfBandwidthCmd represents the bpf_bandwidth command
-var bpfBandwidthCmd = &cobra.Command{
+// BPFBandwidthCmd represents the bpf_bandwidth command
+var BPFBandwidthCmd = &cobra.Command{
 	Use:   "bandwidth",
 	Short: "BPF datapath bandwidth settings",
 }
 
 func init() {
-	bpfCmd.AddCommand(bpfBandwidthCmd)
+	BPFCmd.AddCommand(BPFBandwidthCmd)
 }

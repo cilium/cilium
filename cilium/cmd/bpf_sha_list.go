@@ -40,7 +40,7 @@ var (
 )
 
 func init() {
-	bpfTemplateCmd.AddCommand(bpfTemplateListCmd)
+	BPFTemplateCmd.AddCommand(bpfTemplateListCmd)
 	command.AddOutputOption(bpfTemplateListCmd)
 }
 

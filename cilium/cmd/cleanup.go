@@ -72,7 +72,7 @@ const (
 )
 
 func init() {
-	rootCmd.AddCommand(cleanupCmd)
+	RootCmd.AddCommand(cleanupCmd)
 
 	cleanupCmd.Flags().BoolVarP(&cleanAll, allFlagName, "", false, "Remove all cilium state")
 	cleanupCmd.Flags().BoolVarP(&cleanBPF, bpfFlagName, "", false, "Remove BPF state")

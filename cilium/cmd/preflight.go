@@ -28,8 +28,8 @@ var (
 	toFQDNsPreCacheTTL  int
 )
 
-// preflightCmd is the command used to manage preflight tasks for upgrades
-var preflightCmd = &cobra.Command{
+// PreflightCmd is the command used to manage preflight tasks for upgrades
+var PreflightCmd = &cobra.Command{
 	Use:   "preflight",
 	Short: "Cilium upgrade helper",
 	Long:  `CLI to help upgrade cilium`,
@@ -54,17 +54,17 @@ enough to be used by toFQDNs policy rules`,
 func init() {
 	pollerCmd.Flags().StringVar(&toFQDNsPreCachePath, toFQDNsPreCachePathOption, "", "The path to write serialized ToFQDNs pre-cache information. stdout is the default")
 	pollerCmd.Flags().IntVar(&toFQDNsPreCacheTTL, toFQDNsPreCacheTTLOption, 604800, "TTL, in seconds, to set on generated ToFQDNs pre-cache information")
-	preflightCmd.AddCommand(pollerCmd)
+	PreflightCmd.AddCommand(pollerCmd)
 
 	// From preflight_migrate_crd_identity.go
 	miCmd := migrateIdentityCmd()
 	miCmd.Flags().StringVar(&kvStore, "kvstore", "", "Key-value store type")
 	miCmd.Flags().Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-value store options e.g. etcd.address=127.0.0.1:4001")
-	preflightCmd.AddCommand(miCmd)
+	PreflightCmd.AddCommand(miCmd)
 
-	preflightCmd.AddCommand(validateCNPCmd())
+	PreflightCmd.AddCommand(validateCNPCmd())
 
-	rootCmd.AddCommand(preflightCmd)
+	RootCmd.AddCommand(PreflightCmd)
 }
 
 // preflightPoller collects IP data in toCIDRSet rules that are siblings to

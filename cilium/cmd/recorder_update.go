@@ -28,7 +28,7 @@ var recorderUpdateCmd = &cobra.Command{
 }
 
 func init() {
-	recorderCmd.AddCommand(recorderUpdateCmd)
+	RecorderCmd.AddCommand(recorderUpdateCmd)
 	recorderUpdateCmd.Flags().Uint64VarP(&idRec, "id", "", 0, "Identifier")
 	recorderUpdateCmd.Flags().Uint64VarP(&capLen, "caplen", "", 0, "Capture Length (0 is full capture)")
 	recorderUpdateCmd.Flags().StringSliceVarP(&filters, "filters", "", []string{}, "List of filters ('<srcCIDR> <srcPort> <dstCIDR> <dstPort> <proto>')")

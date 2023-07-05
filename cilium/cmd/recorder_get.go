@@ -47,6 +47,6 @@ var recorderGetCmd = &cobra.Command{
 }
 
 func init() {
-	recorderCmd.AddCommand(recorderGetCmd)
+	RecorderCmd.AddCommand(recorderGetCmd)
 	command.AddOutputOption(recorderGetCmd)
 }

@@ -28,7 +28,7 @@ var cgroupsListCmd = &cobra.Command{
 }
 
 func init() {
-	cgroupsCmd.AddCommand(cgroupsListCmd)
+	CgroupsCmd.AddCommand(cgroupsListCmd)
 	cgroupsListCmd.Flags().BoolVar(&cgroupsListNoHeaders, "no-headers", false, "Do not print headers")
 	command.AddOutputOption(cgroupsListCmd)
 }

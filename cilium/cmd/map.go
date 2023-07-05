@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// mapCmd represents the map command
-var mapCmd = &cobra.Command{
+// MAPCmd represents the map command
+var MAPCmd = &cobra.Command{
 	Use:   "map",
 	Short: "Access userspace cached content of BPF maps",
 }
 
 func init() {
-	rootCmd.AddCommand(mapCmd)
+	RootCmd.AddCommand(MAPCmd)
 }

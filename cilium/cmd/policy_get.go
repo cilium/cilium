@@ -30,6 +30,6 @@ var policyGetCmd = &cobra.Command{
 }
 
 func init() {
-	policyCmd.AddCommand(policyGetCmd)
+	PolicyCmd.AddCommand(policyGetCmd)
 	command.AddOutputOption(policyGetCmd)
 }
