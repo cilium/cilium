@@ -491,12 +491,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	switch conf.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		var (
-			veth      *netlink.Veth
-			peer      netlink.Link
-			tmpIfName string
-		)
-		veth, peer, tmpIfName, err = connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU),
+		veth, peer, tmpIfName, err := connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU),
 			int(conf.GROMaxSize), int(conf.GSOMaxSize),
 			int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep)
 		if err != nil {
