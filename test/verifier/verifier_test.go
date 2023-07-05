@@ -217,12 +217,24 @@ func TestVerifier(t *testing.T) {
 					})
 					var ve *ebpf.VerifierError
 					if errors.As(err, &ve) {
+						// Write full verifier log to a path on disk for offline analysis.
 						var buf bytes.Buffer
 						fmt.Fprintf(&buf, "%+v", ve)
 						fullLogFile := name + "_verifier.log"
 						_ = os.WriteFile(fullLogFile, buf.Bytes(), 0444)
 						t.Log("Full verifier log at", fullLogFile)
-						t.Fatalf("Verifier error: %-10v\nDatapath build config: %s", ve, datapathConfig)
+
+						// Print unverified instruction count.
+						t.Log("BPF unverified instruction count per program:")
+						for n, p := range spec.Programs {
+							t.Logf("\t%s: %d insns", n, len(p.Instructions))
+						}
+
+						// Include the original err in the output since it contains the name
+						// of the program that triggered the verifier error.
+						// ebpf.VerifierError only contains the return code and verifier log
+						// buffer.
+						t.Fatalf("Error: %v\nVerifier error tail: %-10v\nDatapath build config: %s", err, ve, datapathConfig)
 					}
 					if err != nil {
 						t.Fatal(err)
@@ -236,7 +248,7 @@ func TestVerifier(t *testing.T) {
 						// Offset points at the last newline, increment by 1 to skip it.
 						// Turn a -1 into a 0 if there are no newlines in the log.
 						lastOff := strings.LastIndex(p.VerifierLog, "\n") + 1
-						t.Logf("%s: %v", n, p.VerifierLog[lastOff:])
+						t.Logf("%s: %v (%d unverified insns)", n, p.VerifierLog[lastOff:], len(spec.Programs[n].Instructions))
 					}
 				})
 			}
