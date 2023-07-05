@@ -548,7 +548,7 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures,
 			isRedirect = wildcardRule.IsRedirect()
 		}
 		hasAuth, authType := currentRule.GetAuthType()
-		entry := NewMapStateEntry(cs, l4Filter.RuleOrigin[cs], isRedirect, isDenyRule, hasAuth, authType)
+		entry := NewMapStateEntry(cs, l4Filter.RuleOrigin[cs], isRedirect, l4Filter.Listener, isDenyRule, hasAuth, authType)
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			if entryCb(keyToAdd, &entry) {
@@ -1281,7 +1281,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 			}
 		}
 		key := Key{DestPort: port, Nexthdr: proto, TrafficDirection: direction.Uint8()}
-		value := NewMapStateEntry(cs, derivedFrom, redirect, isDeny, hasAuth, authType)
+		value := NewMapStateEntry(cs, derivedFrom, redirect, l4.Listener, isDeny, hasAuth, authType)
 
 		if option.Config.Debug {
 			authString := "default"
@@ -1297,6 +1297,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 				logfields.TrafficDirection: direction,
 				logfields.IsRedirect:       redirect,
 				logfields.AuthType:         authString,
+				logfields.Listener:         l4.Listener,
 			}).Debug("AccumulateMapChanges")
 		}
 		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, key, value)
