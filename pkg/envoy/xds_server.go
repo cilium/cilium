@@ -217,24 +217,19 @@ func newXDSServer(envoySocketDir string, ipCache IPCacheEventSource) (*xdsServer
 
 // start configures and starts the xDS GRPC server.
 func (s *xdsServer) start() error {
-	// Remove/Unlink the old unix domain socket, if any.
-	_ = os.Remove(s.socketPath)
-
-	socketListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: s.socketPath, Net: "unix"})
+	socketListener, err := s.newSocketListener()
 	if err != nil {
-		return fmt.Errorf("failed to open xDS listen socket at %s: %w", s.socketPath, err)
+		return fmt.Errorf("failed to create socket listener: %w", err)
 	}
 
-	// Make the socket accessible by owner and group only. Group access is needed for Istio
-	// sidecar proxies.
-	if err = os.Chmod(s.socketPath, 0660); err != nil {
-		return fmt.Errorf("failed to change mode of xDS listen socket at %s: %w", s.socketPath, err)
-	}
-	// Change the group to ProxyGID allowing access from any process from that group.
-	if err = os.Chown(s.socketPath, -1, option.Config.ProxyGID); err != nil {
-		log.WithError(err).Warningf("Envoy: Failed to change the group of xDS listen socket at %s, sidecar proxies may not work", s.socketPath)
-	}
+	resourceConfig := s.initializeXdsConfigs()
 
+	s.stopFunc = startXDSGRPCServer(socketListener, resourceConfig, 5*time.Second)
+
+	return nil
+}
+
+func (s *xdsServer) initializeXdsConfigs() map[string]*xds.ResourceTypeConfiguration {
 	ldsCache := xds.NewCache()
 	ldsMutator := xds.NewAckingResourceMutatorWrapper(ldsCache)
 	ldsConfig := &xds.ResourceTypeConfiguration{
@@ -283,16 +278,6 @@ func (s *xdsServer) start() error {
 		AckObserver: &nphdsCache,
 	}
 
-	stopServerFunc := startXDSGRPCServer(socketListener, map[string]*xds.ResourceTypeConfiguration{
-		ListenerTypeURL:           ldsConfig,
-		RouteTypeURL:              rdsConfig,
-		ClusterTypeURL:            cdsConfig,
-		EndpointTypeURL:           edsConfig,
-		SecretTypeURL:             sdsConfig,
-		NetworkPolicyTypeURL:      npdsConfig,
-		NetworkPolicyHostsTypeURL: nphdsConfig,
-	}, 5*time.Second)
-
 	s.listenerMutator = ldsMutator
 	s.routeMutator = rdsMutator
 	s.clusterMutator = cdsMutator
@@ -301,9 +286,37 @@ func (s *xdsServer) start() error {
 	s.networkPolicyCache = npdsCache
 	s.NetworkPolicyMutator = npdsMutator
 
-	s.stopFunc = stopServerFunc
+	resourceConfig := map[string]*xds.ResourceTypeConfiguration{
+		ListenerTypeURL:           ldsConfig,
+		RouteTypeURL:              rdsConfig,
+		ClusterTypeURL:            cdsConfig,
+		EndpointTypeURL:           edsConfig,
+		SecretTypeURL:             sdsConfig,
+		NetworkPolicyTypeURL:      npdsConfig,
+		NetworkPolicyHostsTypeURL: nphdsConfig,
+	}
+	return resourceConfig
+}
 
-	return nil
+func (s *xdsServer) newSocketListener() (*net.UnixListener, error) {
+	// Remove/Unlink the old unix domain socket, if any.
+	_ = os.Remove(s.socketPath)
+
+	socketListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: s.socketPath, Net: "unix"})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open xDS listen socket at %s: %w", s.socketPath, err)
+	}
+
+	// Make the socket accessible by owner and group only. Group access is needed for Istio
+	// sidecar proxies.
+	if err = os.Chmod(s.socketPath, 0660); err != nil {
+		return nil, fmt.Errorf("failed to change mode of xDS listen socket at %s: %w", s.socketPath, err)
+	}
+	// Change the group to ProxyGID allowing access from any process from that group.
+	if err = os.Chown(s.socketPath, -1, option.Config.ProxyGID); err != nil {
+		log.WithError(err).Warningf("Envoy: Failed to change the group of xDS listen socket at %s, sidecar proxies may not work", s.socketPath)
+	}
+	return socketListener, nil
 }
 
 func (s *xdsServer) stop() {
