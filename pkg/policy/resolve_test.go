@@ -175,7 +175,7 @@ func GenerateCIDRRules(numRules int) api.Rules {
 
 type DummyOwner struct{}
 
-func (d DummyOwner) LookupRedirectPortBuildLocked(bool, string, uint16) uint16 {
+func (d DummyOwner) LookupRedirectPortBuildLocked(bool, string, uint16, string) uint16 {
 	return 4242
 }
 
@@ -487,8 +487,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 	c.Assert(err, IsNil)
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 
-	rule1MapStateEntry := NewMapStateEntry(wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, false, false, DefaultAuthType, AuthTypeDisabled)
-	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, false, ExplicitAuthType, AuthTypeDisabled)
+	rule1MapStateEntry := NewMapStateEntry(wildcardCachedSelector, labels.LabelArrayList{ruleLabel}, false, "", false, DefaultAuthType, AuthTypeDisabled)
+	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, "", false, ExplicitAuthType, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -629,8 +629,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 	cachedSelectorTest := testSelectorCache.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	c.Assert(cachedSelectorTest, Not(IsNil))
 
-	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, false, false, DefaultAuthType, AuthTypeDisabled)
-	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, false, ExplicitAuthType, AuthTypeDisabled)
+	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, false, "", false, DefaultAuthType, AuthTypeDisabled)
+	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, "", false, ExplicitAuthType, AuthTypeDisabled)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{

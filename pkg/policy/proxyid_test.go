@@ -12,13 +12,24 @@ import (
 )
 
 func (s *PolicyTestSuite) TestProxyID(c *C) {
-	id := ProxyID(123, true, "TCP", uint16(8080))
-	c.Assert("123:ingress:TCP:8080", Equals, id)
-	endpointID, ingress, protocol, port, err := ParseProxyID(id)
+	id := ProxyID(123, true, "TCP", uint16(8080), "")
+	c.Assert("123:ingress:TCP:8080:", Equals, id)
+	endpointID, ingress, protocol, port, listener, err := ParseProxyID(id)
 	c.Assert(endpointID, Equals, uint16(123))
 	c.Assert(ingress, Equals, true)
 	c.Assert(protocol, Equals, "TCP")
 	c.Assert(port, Equals, uint16(8080))
+	c.Assert(listener, Equals, "")
+	c.Assert(err, IsNil)
+
+	id = ProxyID(321, false, "TCP", uint16(80), "myListener")
+	c.Assert("321:egress:TCP:80:myListener", Equals, id)
+	endpointID, ingress, protocol, port, listener, err = ParseProxyID(id)
+	c.Assert(endpointID, Equals, uint16(321))
+	c.Assert(ingress, Equals, false)
+	c.Assert(protocol, Equals, "TCP")
+	c.Assert(port, Equals, uint16(80))
+	c.Assert(listener, Equals, "myListener")
 	c.Assert(err, IsNil)
 }
 
@@ -30,11 +41,11 @@ func BenchmarkProxyID(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < 1000; i++ {
 		b.StartTimer()
-		proxyID := ProxyID(id, true, "TCP", port)
-		if proxyID != strconv.FormatInt(int64(id), 10)+"ingress:TCP:8080" {
+		proxyID := ProxyID(id, true, "TCP", port, "")
+		if proxyID != strconv.FormatInt(int64(id), 10)+"ingress:TCP:8080:" {
 			b.Failed()
 		}
-		_, _, _, _, err := ParseProxyID(proxyID)
+		_, _, _, _, _, err := ParseProxyID(proxyID)
 		if err != nil {
 			b.Failed()
 		}
