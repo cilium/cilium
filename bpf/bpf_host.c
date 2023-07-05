@@ -1388,10 +1388,10 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
+	__s8 ext_err __maybe_unused = 0;
 	__u32 __maybe_unused vlan_id;
 	int ret = CTX_ACT_OK;
 #ifdef ENABLE_HOST_FIREWALL
-	__s8 ext_err = 0;
 	__u16 proto = 0;
 #endif
 
@@ -1422,6 +1422,16 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		}
 	}
 #endif
+
+#if defined(ENABLE_NODEPORT) && !defined(ENABLE_SKIP_FIB)
+	ret = nodeport_rev_dnat_check_redirect(ctx, &ext_err);
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, 0, ret,
+						  ext_err, CTX_ACT_DROP,
+						  METRIC_EGRESS);
+	if (ret == CTX_ACT_REDIRECT)
+		return ret;
+#endif /* ENABLE_NODEPORT && !ENABLE_SKIP_FIB */
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (!validate_ethertype(ctx, &proto)) {

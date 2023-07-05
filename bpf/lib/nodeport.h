@@ -3033,6 +3033,79 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 }
 #endif /* ENABLE_HEALTH_CHECK */
 
+static __always_inline int
+nodeport_rev_dnat_check_redirect(struct __ctx_buff *ctx, __s8 *ext_err)
+{
+	void *data __maybe_unused, *data_end __maybe_unused;
+	int l4_off __maybe_unused, ret __maybe_unused;
+	struct bpf_fib_lookup_padded fib_params = {};
+	__be16 proto;
+
+	if (!validate_ethertype(ctx, &proto))
+		return CTX_ACT_OK;
+
+	switch (proto) {
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+	{
+		struct lb4_reverse_nat nat_info = {};
+		struct ipv4_ct_tuple tuple = {};
+		struct iphdr *ip4;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
+			return CTX_ACT_OK;
+		if (IS_ERR(ret))
+			return ret;
+
+		if (!nodeport_rev_dnat_get_info_ipv4(ctx, &tuple, &nat_info))
+			return CTX_ACT_OK;
+
+		fib_params.l.family = AF_INET;
+		fib_params.l.ifindex = ctx_get_ifindex(ctx);
+		fib_params.l.ipv4_src = nat_info.address;
+		fib_params.l.ipv4_dst = tuple.daddr;
+		break;
+	}
+#endif /* ENABLE_IPV4 */
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+	{
+		struct lb6_reverse_nat nat_info = {};
+		struct ipv6_ct_tuple tuple = {};
+		struct ipv6hdr *ip6;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+
+		ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
+		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
+			return CTX_ACT_OK;
+		if (IS_ERR(ret))
+			return ret;
+
+		if (!nodeport_rev_dnat_get_info_ipv6(ctx, &tuple, &nat_info))
+			return CTX_ACT_OK;
+
+		fib_params.l.family = AF_INET6;
+		fib_params.l.ifindex = ctx_get_ifindex(ctx);
+		ipv6_addr_copy((union v6addr *)fib_params.l.ipv6_src,
+			       &nat_info.address);
+		ipv6_addr_copy((union v6addr *)fib_params.l.ipv6_dst,
+			       &tuple.daddr);
+		break;
+	}
+#endif /* ENABLE_IPV6 */
+	default:
+		return CTX_ACT_OK;
+	}
+
+	return nodeport_fib_lookup_and_redirect(ctx, &fib_params, ext_err);
+}
+
 static __always_inline int handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id)
 {
 	int ret = CTX_ACT_OK;
