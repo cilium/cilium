@@ -14,6 +14,8 @@ import (
 	"time"
 	"unsafe"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	ippkg "github.com/cilium/cilium/pkg/ip"
@@ -139,6 +141,14 @@ type DNSCache struct {
 	// sent in the Update is lower, the TTL will be owerwritten to this value.
 	// Due is only read-only is not protected by the mutex.
 	minTTL int
+
+	// vipToBackends is the mapping from a frontend IP to one or more backend IPs.
+	// It is used for fqdn policies that select frontend IPs -- we need to allow the
+	// backend IPs when computing allowed identities
+	vipToBackends map[netip.Addr][]netip.Addr
+	// backendsToVips is the mapping from a backend IP to one or more frontend IPs.
+	// It is used for reverse lookups.
+	backendsToVips map[netip.Addr][]netip.Addr
 }
 
 // NewDNSCache returns an initialized DNSCache
@@ -151,6 +161,9 @@ func NewDNSCache(minTTL int) *DNSCache {
 		overLimit:    map[string]bool{},
 		perHostLimit: 0,
 		minTTL:       minTTL,
+
+		vipToBackends:  map[netip.Addr][]netip.Addr{},
+		backendsToVips: map[netip.Addr][]netip.Addr{},
 	}
 	return c
 }
@@ -406,15 +419,15 @@ func (c *DNSCache) Lookup(name string) (ips []netip.Addr) {
 	return c.lookupByTime(c.lastCleanup, name)
 }
 
-// lookupByTime takes a timestamp for expiration comparisons, and is only
-// intended for testing.
+// lookupByTime takes a timestamp for expiration comparisons
 func (c *DNSCache) lookupByTime(now time.Time, name string) (ips []netip.Addr) {
 	entries, found := c.forward[name]
 	if !found {
 		return nil
 	}
 
-	return entries.getIPs(now)
+	ips = entries.getIPs(now)
+	return c.expandVirtualIPs(ips)
 }
 
 // LookupByRegexp returns all non-expired cache entries that match re as a map
@@ -439,7 +452,23 @@ func (c *DNSCache) lookupByRegexpByTime(now time.Time, re *regexp.Regexp) (match
 		}
 	}
 
+	for name, match := range matches {
+		matches[name] = c.expandVirtualIPs(match)
+	}
+
 	return matches
+}
+
+// expandVirtualIPs inserts any backend IPs selected in the set of IPs
+func (c *DNSCache) expandVirtualIPs(in []netip.Addr) []netip.Addr {
+	out := append([]netip.Addr{}, in...)
+	for i := 0; i < len(in); i++ {
+		if backends, ok := c.vipToBackends[in[i]]; ok {
+			out = append(out, backends...)
+		}
+	}
+
+	return out
 }
 
 // LookupIP returns all DNS names in entries that include that IP. The cache
@@ -453,10 +482,26 @@ func (c *DNSCache) LookupIP(ip netip.Addr) (names []string) {
 	return c.lookupIPByTime(c.lastCleanup, ip)
 }
 
-// lookupIPByTime takes a timestamp for expiration comparisons, and is
-// only intended for testing.
+// lookupIPByTime takes a timestamp for expiration comparisons.
 func (c *DNSCache) lookupIPByTime(now time.Time, ip netip.Addr) (names []string) {
-	cacheEntries, found := c.reverse[ip]
+	ips := append([]netip.Addr{}, ip)
+	// Expand ip to a list of one or more frontends that might reference this backend IP
+	ips = append(ips, c.backendsToVips[ip]...)
+
+	cacheEntries := nameEntries{}
+
+	// Look up all names that point to these ips
+	found := false
+	for _, i := range ips {
+		entries, ok := c.reverse[i]
+		if !ok {
+			continue
+		}
+		found = true
+		for k, v := range entries {
+			cacheEntries[k] = v
+		}
+	}
 	if !found {
 		return nil
 	}
@@ -699,6 +744,104 @@ func (c *DNSCache) UnmarshalJSON(raw []byte) error {
 	}
 
 	return nil
+}
+
+// UpdateVirtualIPs updates the mapping from frontends to backends as stored in the cache.
+// Returns the set of names that reference these frontends.
+func (c *DNSCache) UpdateVirtualIPs(frontends []netip.Addr, backends []netip.Addr, mergeExisting bool) []string {
+	c.Lock()
+	defer c.Unlock()
+	v4be, v6be := ippkg.SplitAddrsByFamily(backends)
+
+	frontendsWithChanges := sets.Set[netip.Addr]{}
+	for _, frontend := range frontends {
+		changed := false
+		if frontend.Is4() {
+			changed = c.setVirtualIP(frontend, v4be, mergeExisting)
+		} else {
+			changed = c.setVirtualIP(frontend, v6be, mergeExisting)
+		}
+		if changed {
+			frontendsWithChanges.Insert(frontend)
+		}
+	}
+
+	// If nothing changed; we're done
+	if len(frontendsWithChanges) == 0 {
+		return nil
+	}
+
+	// Check to see if any existing names reference this frontend IP
+	updatedNames := sets.Set[string]{}
+	for fe := range frontendsWithChanges {
+		for name := range c.reverse[fe] {
+			updatedNames.Insert(name)
+		}
+	}
+
+	return updatedNames.UnsortedList()
+}
+
+// setVirtualIP updates a single frontend -> backend mapping. If mergeExisting is true, then
+// merge the new state with the existing state.
+// Returns true if the state was updated.
+func (c *DNSCache) setVirtualIP(frontend netip.Addr, backends []netip.Addr, mergeExisting bool) bool {
+	oldBackends := c.vipToBackends[frontend]
+
+	// if requested, merge the new state with the existing one
+	if mergeExisting {
+		backends = append(backends, oldBackends...)
+		ippkg.KeepUniqueAddrs(backends)
+	}
+
+	if ippkg.AddrListsAreEqual(oldBackends, backends) {
+		return false
+	}
+
+	// Set the frontend -> backend mapping
+	if len(backends) > 0 {
+		c.vipToBackends[frontend] = backends
+	} else {
+		delete(c.vipToBackends, frontend)
+	}
+
+	// Insert the frontend in to the backend -> frontend mapping
+	for _, backend := range backends {
+		if !ippkg.ListContainsAddr(c.backendsToVips[backend], frontend) {
+			c.backendsToVips[backend] = append(c.backendsToVips[backend], frontend)
+		}
+	}
+
+	// remove any stale entries from the backend -> frontend mapping
+	// No need to do this if we're merging existing; by definition
+	// those backends are still present.
+	if !mergeExisting {
+		for _, oldBackend := range oldBackends {
+			// oldBackend is still in new list; don't cleanup
+			if ippkg.ListContainsAddr(backends, oldBackend) {
+				continue
+			}
+
+			// This backend is stale; remove this frontend from the backend -> frontend mapping,
+			// deleting entirely if empty
+			fes := sets.Set[netip.Addr]{}
+			fes.Insert(c.backendsToVips[oldBackend]...)
+			fes.Delete(frontend)
+
+			if len(fes) == 0 {
+				delete(c.backendsToVips, oldBackend)
+			} else {
+				c.backendsToVips[oldBackend] = fes.UnsortedList()
+			}
+		}
+	}
+	return true
+}
+
+// DeleteVirtualIPs removes one or more virtual IPs from the cache.
+// Returns a list of names that reference this frontend IP
+func (c *DNSCache) DeleteVirtualIP(frontends []netip.Addr) []string {
+	return c.UpdateVirtualIPs(frontends, nil, false)
 }
 
 // DNSZombieMapping is an IP that has expired or been evicted from a DNS cache.

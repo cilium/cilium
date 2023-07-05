@@ -11,9 +11,12 @@ import (
 	"net/netip"
 	"regexp"
 	"sort"
+	"testing"
 	"time"
 
 	. "github.com/cilium/checkmate"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -176,8 +179,11 @@ func (ds *DNSCacheTestSuite) TestReverseUpdateLookup(c *C) {
 		"test2.com": netip.MustParseAddr("2.2.2.2"),
 		"test3.com": netip.MustParseAddr("2.2.2.3")}
 	sharedIP := netip.MustParseAddr("1.1.1.1")
+	backendIP := netip.MustParseAddr("10.0.0.1")
 	now := time.Now()
 	cache := NewDNSCache(0)
+
+	cache.UpdateVirtualIPs([]netip.Addr{netip.MustParseAddr("2.2.2.1")}, []netip.Addr{backendIP}, false)
 
 	// insert 2 records, with 1 shared IP
 	cache.Update(now, "test1.com", []netip.Addr{sharedIP, names["test1.com"]}, 2)
@@ -203,6 +209,11 @@ func (ds *DNSCacheTestSuite) TestReverseUpdateLookup(c *C) {
 
 	lookupNames = cache.lookupIPByTime(currentTime, names["test3.com"])
 	c.Assert(len(lookupNames), Equals, 0, Commentf("Returned names for IP not in cache"))
+
+	// We said that 10.0.0.1 was a backend IP for 2.2.2.1, so it should *also* resolve to test1.com
+	lookupNames = cache.lookupIPByTime(currentTime, backendIP)
+	c.Assert(len(lookupNames), Equals, 1, Commentf("Incorrect number of names returned"))
+	c.Assert(lookupNames[0], Equals, "test1.com", Commentf("Did not perform backend mapping correctly"))
 
 	// lookup between 2-4 seconds later (test1.com has expired) for both names
 	// should return 2 names for sharedIPs, and one name for the 2.2.2.* IPs
@@ -1107,4 +1118,223 @@ func (ds *DNSCacheTestSuite) TestOverlimitPreferNewerEntries(c *C) {
 		"1.1.1.9":  {name},
 		"1.1.1.10": {name},
 	})
+}
+
+func TestUpdateVirualIPs(t *testing.T) {
+	now := time.Now()
+	c := NewDNSCache(99)
+
+	fe4a := netip.MustParseAddr("172.16.0.1")
+	fe4b := netip.MustParseAddr("172.16.0.2")
+
+	fe6a := netip.MustParseAddr("fe0:16::1")
+	fe6b := netip.MustParseAddr("fe0:16::2")
+
+	be4a := netip.MustParseAddr("10.0.0.1")
+	be4b := netip.MustParseAddr("10.0.0.2")
+
+	be6a := netip.MustParseAddr(("fe0:10::1"))
+	be6b := netip.MustParseAddr(("fe0:10::2"))
+
+	// simple case: one ip -> vip
+	c.UpdateVirtualIPs([]netip.Addr{fe4a}, []netip.Addr{be4a}, false)
+	c.UpdateVirtualIPs([]netip.Addr{fe6a}, []netip.Addr{be6a}, false)
+
+	unorderedCompare := func(want, have map[netip.Addr][]netip.Addr) {
+		t.Helper()
+		wantKeys := make([]netip.Addr, 0, len(want))
+		haveKeys := make([]netip.Addr, 0, len(have))
+
+		for k := range want {
+			wantKeys = append(wantKeys, k)
+		}
+		for k := range have {
+			haveKeys = append(haveKeys, k)
+		}
+
+		assert.ElementsMatch(t, wantKeys, haveKeys, "Both maps should have the same keys")
+
+		for _, k := range wantKeys {
+			assert.ElementsMatch(t, want[k], have[k], "Maps should have the same element for key", k)
+		}
+	}
+
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			fe4a: {be4a},
+			fe6a: {be6a},
+		},
+		c.vipToBackends,
+	)
+
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			be4a: {fe4a},
+			be6a: {fe6a},
+		},
+		c.backendsToVips,
+	)
+
+	// merge a new backend while keeping the old ones
+	c.UpdateVirtualIPs([]netip.Addr{fe4a, fe6a}, []netip.Addr{be4b, be6b}, true)
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			fe4a: {be4a, be4b},
+			fe6a: {be6a, be6b},
+		},
+		c.vipToBackends,
+	)
+
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			be4a: {fe4a},
+			be4b: {fe4a},
+			be6a: {fe6a},
+			be6b: {fe6a},
+		},
+		c.backendsToVips,
+	)
+
+	// reset
+	c = NewDNSCache(99)
+
+	// Add a name that references these IPs
+	c.Update(now, "frontend.com", []netip.Addr{fe4a, fe6a}, 999)
+
+	// handle dual-stack splitting
+	l := c.UpdateVirtualIPs([]netip.Addr{fe4a, fe6a}, []netip.Addr{be4a, be6a}, false)
+	assert.ElementsMatch(t, l, []string{"frontend.com"})
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			fe4a: {be4a},
+			fe6a: {be6a},
+		},
+		c.vipToBackends,
+	)
+
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			be4a: {fe4a},
+			be6a: {fe6a},
+		},
+		c.backendsToVips,
+	)
+
+	// Update an existing entry
+	l = c.UpdateVirtualIPs([]netip.Addr{fe4a, fe6a}, []netip.Addr{be4b, be6b}, false)
+	assert.ElementsMatch(t, l, []string{"frontend.com"})
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			fe4a: {be4b},
+			fe6a: {be6b},
+		},
+		c.vipToBackends,
+	)
+
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			be4b: {fe4a},
+			be6b: {fe6a},
+		},
+		c.backendsToVips,
+	)
+
+	// Updates should be idempotent
+	l = c.UpdateVirtualIPs([]netip.Addr{fe4a, fe6a}, []netip.Addr{be4b, be6b}, false)
+	assert.Len(t, l, 0)
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			fe4a: {be4b},
+			fe6a: {be6b},
+		},
+		c.vipToBackends,
+	)
+
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			be4b: {fe4a},
+			be6b: {fe6a},
+		},
+		c.backendsToVips,
+	)
+
+	// Every backend now in two frontends
+	l = c.UpdateVirtualIPs([]netip.Addr{fe4a, fe6a}, []netip.Addr{be4a, be4b, be6a, be6b}, false)
+	assert.Len(t, l, 1)
+	l = c.UpdateVirtualIPs([]netip.Addr{fe4b, fe6b}, []netip.Addr{be4a, be4b, be6a, be6b}, false)
+	assert.Len(t, l, 0)
+
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			fe4a: {be4a, be4b},
+			fe4b: {be4a, be4b},
+			fe6a: {be6a, be6b},
+			fe6b: {be6a, be6b},
+		},
+		c.vipToBackends,
+	)
+
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			be4a: {fe4a, fe4b},
+			be4b: {fe4a, fe4b},
+			be6a: {fe6a, fe6b},
+			be6b: {fe6a, fe6b},
+		},
+		c.backendsToVips,
+	)
+
+	// Delete one of the frontends
+	c.DeleteVirtualIP([]netip.Addr{fe4b, fe6b})
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			fe4a: {be4a, be4b},
+			fe6a: {be6a, be6b},
+		},
+		c.vipToBackends,
+	)
+
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			be4a: {fe4a},
+			be4b: {fe4a},
+			be6a: {fe6a},
+			be6b: {fe6a},
+		},
+		c.backendsToVips,
+	)
+
+	// Ensure that deletes are idempotent
+	l = c.DeleteVirtualIP([]netip.Addr{fe4b, fe6b})
+	assert.Len(t, l, 0)
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			fe4a: {be4a, be4b},
+			fe6a: {be6a, be6b},
+		},
+		c.vipToBackends,
+	)
+
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{
+			be4a: {fe4a},
+			be4b: {fe4a},
+			be6a: {fe6a},
+			be6b: {fe6a},
+		},
+		c.backendsToVips,
+	)
+
+	// Delete the last remaining frontend
+	l = c.DeleteVirtualIP([]netip.Addr{fe4a, fe6a})
+	assert.ElementsMatch(t, l, []string{"frontend.com"})
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{},
+		c.vipToBackends,
+	)
+
+	unorderedCompare(
+		map[netip.Addr][]netip.Addr{},
+		c.backendsToVips,
+	)
 }

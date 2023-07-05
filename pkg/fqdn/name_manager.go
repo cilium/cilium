@@ -135,6 +135,32 @@ func (n *NameManager) GetDNSCache() *DNSCache {
 	return n.cache
 }
 
+// UpdateVirtualIPMapping is called by the service manager infrastructure to update any FQDN policies that may
+// resolve to service frontend ips.
+// Since load balancing happens *before* policy, we are in the funny situation where we need
+// to return only the frontend ip in the DNS response, but the policy engine will see requests
+// to the backend IP.
+//
+// Thus, the resolved selectors need to reference the backend IPs, and we need to be able to
+// change them at any point in time, not just in the context of a DNS request.
+//
+// frontends is a set of loadbalancer frontend IP addresses. Backends is the set of backends
+// corresponding to these IPs. mergeExisting, if true, will merge backends with any pre-existing
+// entries for those frontends; otherwise it will overwrite.
+// returns the result of UpdateSelectors.
+func (n *NameManager) UpdateLBIPMapping(frontends []netip.Addr, backends []netip.Addr, mergeExisting bool) (wg *sync.WaitGroup, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, err error) {
+	namesToRegen := n.cache.UpdateVirtualIPs(frontends, backends, mergeExisting)
+	if len(namesToRegen) > 0 {
+		log.WithFields(logrus.Fields{
+			"IPs":              frontends,
+			logfields.Backends: backends,
+			"matchNames":       namesToRegen,
+		}).Info("Forcing DNS policy update due to backend changes")
+	}
+
+	return n.ForceGenerateDNS(context.Background(), namesToRegen)
+}
+
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name they will be reflected in updatedDNSIPs.
 func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (wg *sync.WaitGroup, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, err error) {
@@ -165,7 +191,7 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 // matchNames that match them will cause these rules to regenerate.
 // Note: This is used only when DNS entries are cleaned up, not when new results
 // are ingested.
-func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) (wg *sync.WaitGroup, err error) {
+func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) (wg *sync.WaitGroup, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, err error) {
 	n.RWMutex.Lock()
 	defer n.RWMutex.Unlock()
 
@@ -185,9 +211,7 @@ func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []strin
 	}
 
 	// Emit the new rules.
-	// Ignore newly allocated IDs (3rd result) as this is only used for deletes.
-	wg, _, _, err = n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
-	return wg, err
+	return n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
 }
 
 func (n *NameManager) CompleteBootstrap() {
