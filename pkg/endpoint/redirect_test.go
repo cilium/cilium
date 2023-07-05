@@ -255,7 +255,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	})
 	c.Assert(ok, check.Equals, true)
 	c.Assert(v.ProxyPort, check.Equals, httpPort)
-	pID := policy.ProxyID(ep.ID, false, u8proto.TCP.String(), uint16(80))
+	pID := policy.ProxyID(ep.ID, false, u8proto.TCP.String(), uint16(80), "")
 	p, ok := ep.realizedRedirects[pID]
 	c.Assert(ok, check.Equals, true)
 	c.Assert(p, check.Equals, httpPort)

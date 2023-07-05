@@ -529,11 +529,23 @@ func (s *EndpointSuite) TestProxyID(c *C) {
 	c.Assert(id, Not(Equals), "")
 	c.Assert(port, Equals, uint16(8080))
 
-	endpointID, ingress, protocol, port, err := policy.ParseProxyID(id)
+	endpointID, ingress, protocol, port, listener, err := policy.ParseProxyID(id)
 	c.Assert(endpointID, Equals, uint16(123))
 	c.Assert(ingress, Equals, true)
 	c.Assert(protocol, Equals, "TCP")
 	c.Assert(port, Equals, uint16(8080))
+	c.Assert(listener, Equals, "")
+	c.Assert(err, IsNil)
+
+	id, port = e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true, L7Parser: policy.ParserTypeCRD, Listener: "test-listener"})
+	c.Assert(id, Not(Equals), "")
+	c.Assert(port, Equals, uint16(8080))
+	endpointID, ingress, protocol, port, listener, err = policy.ParseProxyID(id)
+	c.Assert(endpointID, Equals, uint16(123))
+	c.Assert(ingress, Equals, true)
+	c.Assert(protocol, Equals, "TCP")
+	c.Assert(port, Equals, uint16(8080))
+	c.Assert(listener, Equals, "test-listener")
 	c.Assert(err, IsNil)
 
 	// Undefined named port
