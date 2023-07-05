@@ -54,6 +54,10 @@ func (f *fakeWatcherConfiguration) K8sNetworkPolicyEnabled() bool {
 	return true
 }
 
+func (f *fakeWatcherConfiguration) HighScaleIPcacheEnabled() bool {
+	return false
+}
+
 type fakePolicyManager struct {
 	OnTriggerPolicyUpdates func(force bool, reason string)
 	OnPolicyAdd            func(rules api.Rules, opts *policy.AddOptions) (newRev uint64, err error)
@@ -206,6 +210,7 @@ func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 		nil,
 		emptyResources,
 		k8s.NewServiceCache(dp.LocalNodeAddressing()),
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -531,6 +536,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 		nil,
 		emptyResources,
 		k8s.NewServiceCache(dp.LocalNodeAddressing()),
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -685,6 +691,7 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 		nil,
 		emptyResources,
 		k8s.NewServiceCache(dp.LocalNodeAddressing()),
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1168,6 +1175,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		nil,
 		emptyResources,
 		k8s.NewServiceCache(dp.LocalNodeAddressing()),
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1485,6 +1493,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		nil,
 		emptyResources,
 		k8s.NewServiceCache(dp.LocalNodeAddressing()),
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -1795,6 +1804,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		nil,
 		emptyResources,
 		k8s.NewServiceCache(dp.LocalNodeAddressing()),
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
@@ -2719,6 +2729,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		nil,
 		emptyResources,
 		k8s.NewServiceCache(dp.LocalNodeAddressing()),
+		nil,
 	)
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()

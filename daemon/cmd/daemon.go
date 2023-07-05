@@ -655,6 +655,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.cgroupManager,
 		params.Resources,
 		params.ServiceCache,
+		d.dnsNameManager,
 	)
 	nd.RegisterK8sGetters(d.k8sWatcher)
 

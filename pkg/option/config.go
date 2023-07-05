@@ -2733,6 +2733,10 @@ func (c *DaemonConfig) K8sGatewayAPIEnabled() bool {
 	return c.EnableGatewayAPI
 }
 
+func (c *DaemonConfig) HighScaleIPcacheEnabled() bool {
+	return c.EnableHighScaleIPcache
+}
+
 // DirectRoutingDeviceRequired return whether the Direct Routing Device is needed under
 // the current configuration.
 func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {

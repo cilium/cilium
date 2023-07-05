@@ -137,6 +137,15 @@ func (e *Endpoints) Prefixes() []netip.Prefix {
 	return prefixes
 }
 
+// Addrs returns the endpoint's backends as a slice of netip.Addr
+func (e *Endpoints) Addrs() []netip.Addr {
+	addrs := make([]netip.Addr, 0, len(e.Backends))
+	for addrCluster := range e.Backends {
+		addrs = append(addrs, addrCluster.Addr())
+	}
+	return addrs
+}
+
 // ParseEndpointsID parses a Kubernetes endpoints and returns the EndpointSliceID
 func ParseEndpointsID(ep *slim_corev1.Endpoints) EndpointSliceID {
 	return EndpointSliceID{

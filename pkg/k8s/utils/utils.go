@@ -84,6 +84,10 @@ type PolicyConfiguration interface {
 	K8sNetworkPolicyEnabled() bool
 }
 
+type HighScaleConfiguration interface {
+	HighScaleIPcacheEnabled() bool
+}
+
 // GetEndpointSliceListOptionsModifier returns the options modifier for endpointSlice object list.
 // This methods returns a ListOptions modifier which adds a label selector to
 // select all endpointSlice objects that do not contain the k8s headless service label.

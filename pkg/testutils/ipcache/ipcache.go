@@ -51,6 +51,9 @@ func (m *MockIPCache) DeleteOnMetadataMatch(IP string, source source.Source, nam
 	return false
 }
 
+func (m *MockIPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, usedIdentities []*identity.Identity) {
+}
+
 func NewMockIPCache() *MockIPCache {
 	return &MockIPCache{}
 }

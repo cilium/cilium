@@ -35,6 +35,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+
+	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -189,6 +191,10 @@ type cgroupManager interface {
 	OnDeletePod(pod *slim_corev1.Pod)
 }
 
+type dnsNameManager interface {
+	UpdateLBIPMapping(frontends []netip.Addr, backends []netip.Addr, mereExisting bool) (wg *sync.WaitGroup, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, err error)
+}
+
 type ipcacheManager interface {
 	AllocateCIDRs(prefixes []netip.Prefix, oldNIDs []identity.NumericIdentity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error)
 	ReleaseCIDRIdentitiesByCIDR(prefixes []netip.Prefix)
@@ -201,6 +207,7 @@ type ipcacheManager interface {
 	UpsertLabels(prefix netip.Prefix, lbls labels.Labels, src source.Source, resource ipcacheTypes.ResourceID)
 	RemoveLabelsExcluded(lbls labels.Labels, toExclude map[netip.Prefix]struct{}, resource ipcacheTypes.ResourceID)
 	DeleteOnMetadataMatch(IP string, source source.Source, namespace, name string) (namedPortsChanged bool)
+	UpsertGeneratedIdentities(newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, usedIdentities []*identity.Identity)
 }
 
 type K8sWatcher struct {
@@ -242,6 +249,11 @@ type K8sWatcher struct {
 	ipcache               ipcacheManager
 	envoyConfigManager    envoyConfigManager
 	cgroupManager         cgroupManager
+
+	// dnsNameManager is the NameManager, which is part of the fqdn policy engine.
+	// It needs to know about frontend -> Backend IP mappings when in high-scale
+	// ipcache mode.
+	dnsNameManager dnsNameManager
 
 	// controllersStarted is a channel that is closed when all watchers that do not depend on
 	// local node configuration have been started
@@ -300,8 +312,9 @@ func NewK8sWatcher(
 	cgroupManager cgroupManager,
 	resources agentK8s.Resources,
 	serviceCache *k8s.ServiceCache,
+	nameManager dnsNameManager,
 ) *K8sWatcher {
-	return &K8sWatcher{
+	k := &K8sWatcher{
 		clientset:               clientset,
 		K8sSvcCache:             serviceCache,
 		endpointManager:         endpointManager,
@@ -325,6 +338,11 @@ func NewK8sWatcher(
 		cfg:                     cfg,
 		resources:               resources,
 	}
+	if cfg.HighScaleIPcacheEnabled() {
+		k.dnsNameManager = nameManager
+	}
+
+	return k
 }
 
 // requestLatencyAdapter implements the LatencyMetric interface from k8s client-go package
@@ -536,6 +554,7 @@ type WatcherConfiguration interface {
 	utils.IngressConfiguration
 	utils.GatewayAPIConfiguration
 	utils.PolicyConfiguration
+	utils.HighScaleConfiguration
 }
 
 // enableK8sWatchers starts watchers for given resources.
@@ -619,8 +638,37 @@ func (k *K8sWatcher) k8sServiceHandler() {
 
 		switch event.Action {
 		case k8s.UpdateService:
+			if k.dnsNameManager != nil {
+				// Update the the frontend -> backend mapping in the fqdn policy manager.
+				// This may trigger policy updates if any fqdn policies reference the frontends.
+				// This update merges any existing backends with the new ones
+				wg, usedIdentities, newlyAllocatedIdentities, err := k.dnsNameManager.UpdateLBIPMapping(ippkg.MustAddrsFromIPs(svc.FrontendIPs), event.Endpoints.Addrs(), true)
+				if err != nil {
+					scopedLog.WithError(err).Error("Failed to update FQDN policies with new frontend -> backend mappings")
+				} else {
+					if err := waitTimeout(wg, option.Config.FQDNProxyResponseMaxDelay); err != nil {
+						scopedLog.Error("Timed out while waiting for datapath updates of FQDN IP information while updating service IP mappings.")
+					}
+
+					k.ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities, usedIdentities)
+				}
+			}
+
+			// Commit the update to the service subsystem (update bpf maps, etc)
 			if err := k.addK8sSVCs(event.ID, event.OldService, svc, event.Endpoints); err != nil {
 				scopedLog.WithError(err).Error("Unable to add/update service to implement k8s event")
+			}
+
+			if k.dnsNameManager != nil {
+				// Now, remove any stale backends from the nameManager
+				_, usedIdentities, newlyAllocatedIdentities, err := k.dnsNameManager.UpdateLBIPMapping(ippkg.MustAddrsFromIPs(svc.FrontendIPs), event.Endpoints.Addrs(), false)
+				if err != nil {
+					scopedLog.WithError(err).Error("Failed to update FQDN policies with new frontend -> backend mappings")
+				} else {
+					// There shouldn't be any new identities here, so there's no need to wait for policy to propagate.
+					// Nevertheless, upsert any allocated identities just to be safe
+					k.ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities, usedIdentities)
+				}
 			}
 
 			// Normally, only services without a label selector (i.e. "bottomless" or empty services)
@@ -658,6 +706,17 @@ func (k *K8sWatcher) k8sServiceHandler() {
 		case k8s.DeleteService:
 			if err := k.delK8sSVCs(event.ID, event.Service, event.Endpoints); err != nil {
 				scopedLog.WithError(err).Error("Unable to delete service to implement k8s event")
+			}
+
+			if k.dnsNameManager != nil {
+				_, usedIdentities, newlyAllocatedIdentities, err := k.dnsNameManager.UpdateLBIPMapping(ippkg.MustAddrsFromIPs(svc.FrontendIPs), nil, false)
+				if err != nil {
+					scopedLog.WithError(err).Error("Failed to update FQDN policies on frontend IP deletion")
+				} else {
+					// There shouldn't be any new identities here, so there's no need to wait for policy to propagate.
+					// Nevertheless, upsert any allocated identities just to be safe
+					k.ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities, usedIdentities)
+				}
 			}
 
 			if !option.Config.EnableHighScaleIPcache && !svc.IsExternal() {
@@ -984,7 +1043,7 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 // Kubernetes event
 func (k *K8sWatcher) K8sEventProcessed(scope, action string, status bool) {
 	result := "success"
-	if status == false {
+	if !status {
 		result = "failed"
 	}
 
@@ -1078,5 +1137,24 @@ func (k *K8sWatcher) initCiliumEndpointOrSlices(clientset client.Clientset, asyn
 		go k.ciliumEndpointSliceInit(clientset, asyncControllers)
 	} else {
 		go k.ciliumEndpointsInit(clientset, asyncControllers)
+	}
+}
+
+// waitTimeout waits up to timeout for the waitgroup to be done,
+// otherwise returns error
+func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) error {
+	doneCh := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(doneCh)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-doneCh:
+		return nil
 	}
 }
