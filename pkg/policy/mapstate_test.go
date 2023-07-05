@@ -1033,8 +1033,10 @@ func denyEntry(proxyPort uint16, owners ...MapStateOwner) MapStateEntry {
 }
 
 func testEntry(proxyPort uint16, deny bool, authType AuthType, owners ...MapStateOwner) MapStateEntry {
+	listener := ""
 	entry := MapStateEntry{
 		ProxyPort: proxyPort,
+		Listener:  listener,
 		AuthType:  authType,
 		IsDeny:    deny,
 	}
@@ -1383,7 +1385,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 				cs = x.cs
 			}
 			key := Key{DestPort: x.port, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
-			value := NewMapStateEntry(cs, nil, x.redirect, x.deny, AuthTypeNone)
+			value := NewMapStateEntry(cs, nil, x.redirect, "", x.deny, AuthTypeNone)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState, nil)
@@ -1623,7 +1625,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 				cs = x.cs
 			}
 			key := Key{DestPort: x.port, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
-			value := NewMapStateEntry(cs, nil, x.redirect, x.deny, x.authType)
+			value := NewMapStateEntry(cs, nil, x.redirect, "", x.deny, x.authType)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState, nil)
@@ -1860,7 +1862,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		},
 		visArgs: []visArgs{{
 			redirectPort: 12345,
-			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		visAdds: Keys{
 			HttpIngressKey(0):         {},
@@ -1910,7 +1912,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		},
 		visArgs: []visArgs{{
 			redirectPort: 12345,
-			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		state: MapState{
 			testIngressKey(235, 0, 0): allowEntry(0, csFoo).WithDependents(HttpIngressKey(235)),
@@ -1936,7 +1938,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		},
 		visArgs: []visArgs{{
 			redirectPort: 12345,
-			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		state: MapState{
 			testIngressKey(235, 0, 0): allowEntry(0, csFoo, csBar).WithDependents(HttpIngressKey(235)),
@@ -1961,7 +1963,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		},
 		visArgs: []visArgs{{
 			redirectPort: 12345,
-			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		state: MapState{
 			testIngressKey(235, 0, 0): allowEntry(0, csBar).WithDependents(HttpIngressKey(235)),
@@ -1981,7 +1983,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		},
 		visArgs: []visArgs{{
 			redirectPort: 12345,
-			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		state: MapState{
 			testIngressKey(235, 0, 0): allowEntry(0, csBar).WithDependents(HttpIngressKey(235)),
@@ -2001,7 +2003,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		},
 		visArgs: []visArgs{{
 			redirectPort: 12345,
-			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		state: MapState{
 			testIngressKey(236, 0, 0): allowEntry(0, csFoo).WithDependents(HttpIngressKey(236)),
@@ -2022,7 +2024,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		},
 		visArgs: []visArgs{{
 			redirectPort: 12345,
-			visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+			visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 		}},
 		state: MapState{
 			testIngressKey(236, 0, 0): allowEntry(0, csFoo).WithDependents(HttpIngressKey(236)),
@@ -2043,15 +2045,15 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		visArgs: []visArgs{
 			{
 				redirectPort: 12345,
-				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+				visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
 			{
 				redirectPort: 12346,
-				visMeta:      VisibilityMetadata{Ingress: false, Port: 80, Proto: u8proto.TCP},
+				visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: false, Port: 80, Proto: u8proto.TCP},
 			},
 			{
 				redirectPort: 12347,
-				visMeta:      VisibilityMetadata{Ingress: false, Port: 53, Proto: u8proto.UDP},
+				visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: false, Port: 53, Proto: u8proto.UDP},
 			},
 		},
 		visAdds: Keys{
@@ -2093,15 +2095,15 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 		visArgs: []visArgs{
 			{
 				redirectPort: 12345,
-				visMeta:      VisibilityMetadata{Ingress: true, Port: 80, Proto: u8proto.TCP},
+				visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: true, Port: 80, Proto: u8proto.TCP},
 			},
 			{
 				redirectPort: 12346,
-				visMeta:      VisibilityMetadata{Ingress: false, Port: 80, Proto: u8proto.TCP},
+				visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: false, Port: 80, Proto: u8proto.TCP},
 			},
 			{
 				redirectPort: 12347,
-				visMeta:      VisibilityMetadata{Ingress: false, Port: 53, Proto: u8proto.UDP},
+				visMeta:      VisibilityMetadata{Parser: ParserTypeHTTP, Ingress: false, Port: 53, Proto: u8proto.UDP},
 			},
 		},
 		state: MapState{
@@ -2183,7 +2185,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 				cs = x.cs
 			}
 			key := Key{DestPort: x.port, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
-			value := NewMapStateEntry(cs, nil, x.redirect, x.deny, AuthTypeNone)
+			value := NewMapStateEntry(cs, nil, x.redirect, "", x.deny, AuthTypeNone)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
 		adds, deletes = policyMaps.consumeMapChanges(policyMapState, nil)

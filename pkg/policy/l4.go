@@ -528,7 +528,8 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 			}
 		}
 
-		entry := NewMapStateEntry(cs, l4Filter.DerivedFromRules, currentRule.IsRedirect(), isDenyRule, currentRule.GetAuthType())
+		entry := NewMapStateEntry(cs, l4Filter.DerivedFromRules, currentRule.IsRedirect(), l4Filter.Listener, isDenyRule, currentRule.GetAuthType())
+
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			keysToAdd.DenyPreferredInsert(keyToAdd, entry, identities)
@@ -1167,7 +1168,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 			}
 		}
 		key := Key{DestPort: port, Nexthdr: proto, TrafficDirection: direction.Uint8()}
-		value := NewMapStateEntry(cs, l4.DerivedFromRules, redirect, isDeny, authType)
+		value := NewMapStateEntry(cs, l4.DerivedFromRules, redirect, l4.Listener, isDeny, authType)
 
 		if option.Config.Debug {
 			log.WithFields(logrus.Fields{
@@ -1178,6 +1179,7 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 				logfields.Protocol:         proto,
 				logfields.TrafficDirection: direction,
 				logfields.IsRedirect:       redirect,
+				logfields.Listener:         l4.Listener,
 				logfields.AuthType:         authType.String(),
 			}).Debug("AccumulateMapChanges")
 		}

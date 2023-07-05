@@ -316,13 +316,13 @@ var (
 	mapKeyAllowAll__ = Key{0, 0, 0, dirIngress}
 	// Desired map entries for no L7 redirect / redirect to Proxy
 	mapEntryL7None_ = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, false, AuthTypeNone).WithOwners()
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, "", false, AuthTypeNone).WithOwners()
 	}
 	mapEntryL7Deny_ = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, true, AuthTypeNone).WithOwners()
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), false, "", true, AuthTypeNone).WithOwners()
 	}
 	mapEntryL7Proxy = func(lbls ...labels.LabelArray) MapStateEntry {
-		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), true, false, AuthTypeNone).WithOwners()
+		return NewMapStateEntry(nil, labels.LabelArrayList(lbls).Sort(), true, "", false, AuthTypeNone).WithOwners()
 	}
 )
 
@@ -1111,7 +1111,7 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
-			if equal, err := checker.DeepEqual(mapstate, tt.result); !equal {
+			if equal, err := checker.Equal(mapstate, tt.result); !equal {
 				t.Logf("Rules:\n%s\n\n", tt.rules.String())
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, err)
