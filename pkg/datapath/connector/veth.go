@@ -49,10 +49,6 @@ func SetupVeth(id string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, g
 // fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
 // veth, a pointer for the peer link and error if something fails.
 func SetupVethWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize int, ep *models.EndpointChangeRequest) (*netlink.Veth, netlink.Link, error) {
-	var (
-		epHostMAC, epLXCMAC mac.MAC
-		err                 error
-	)
 	// systemd 242+ tries to set a "persistent" MAC addr for any virtual device
 	// by default (controlled by MACAddressPolicy). As setting happens
 	// asynchronously after a device has been created, ep.Mac and ep.HostMac
@@ -61,11 +57,11 @@ func SetupVethWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIP
 	// explicitly setting MAC addrs for both veth ends. This sets
 	// addr_assign_type for NET_ADDR_SET which prevents systemd from changing
 	// the addrs.
-	epHostMAC, err = mac.GenerateRandMAC()
+	epHostMAC, err := mac.GenerateRandMAC()
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %s", err)
 	}
-	epLXCMAC, err = mac.GenerateRandMAC()
+	epLXCMAC, err := mac.GenerateRandMAC()
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to generate rnd mac addr: %s", err)
 	}
