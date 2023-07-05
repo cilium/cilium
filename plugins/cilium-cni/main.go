@@ -115,10 +115,10 @@ func getConfigFromCiliumAgent(client *client.Client) (*models.DaemonConfiguratio
 	return configResult.Status, nil
 }
 
-func allocateIPsWithCiliumAgent(client *client.Client, cniArgs types.ArgsSpec) (*models.IPAMResponse, func(context.Context), error) {
+func allocateIPsWithCiliumAgent(client *client.Client, cniArgs types.ArgsSpec, ipamPoolName string) (*models.IPAMResponse, func(context.Context), error) {
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
 
-	ipam, err := client.IPAMAllocate("", podName, "", true)
+	ipam, err := client.IPAMAllocate("", podName, ipamPoolName, true)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to allocate IP via local cilium agent: %w", err)
 	}
@@ -450,7 +450,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
 		ipam, releaseIPsFunc, err = allocateIPsWithDelegatedPlugin(context.TODO(), conf, n, args.StdinData)
 	} else {
-		ipam, releaseIPsFunc, err = allocateIPsWithCiliumAgent(c, cniArgs)
+		ipam, releaseIPsFunc, err = allocateIPsWithCiliumAgent(c, cniArgs, "")
 	}
 
 	// release addresses on failure
