@@ -514,7 +514,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			return fmt.Errorf("unable to move veth pair '%v' to netns: %s", peer, err)
 		}
 
-		_, _, err = connector.SetupVethRemoteNs(netNs, tmpIfName, args.IfName)
+		err = connector.SetupVethRemoteNs(netNs, tmpIfName, args.IfName)
 		if err != nil {
 			return fmt.Errorf("unable to set up veth on container side: %s", err)
 		}
