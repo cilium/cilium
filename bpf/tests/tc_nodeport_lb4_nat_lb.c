@@ -34,6 +34,8 @@
 #define BACKEND_IP_REMOTE	v4_pod_two
 #define BACKEND_PORT		__bpf_htons(8080)
 
+#define NATIVE_DEV_IFINDEX	11
+
 #define fib_lookup mock_fib_lookup
 
 static volatile const __u8 *client_mac = mac_one;
@@ -58,6 +60,9 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 	} else {
 		__bpf_memcpy_builtin(params->smac, (__u8 *)lb_mac, ETH_ALEN);
 		__bpf_memcpy_builtin(params->dmac, (__u8 *)client_mac, ETH_ALEN);
+
+		if (params->ipv4_src == FRONTEND_IP_LOCAL)
+			params->ifindex = NATIVE_DEV_IFINDEX;
 	}
 
 	return 0;

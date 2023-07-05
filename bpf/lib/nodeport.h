@@ -91,6 +91,29 @@ static __always_inline bool dsr_is_too_big(struct __ctx_buff *ctx __maybe_unused
 	return false;
 }
 
+static __always_inline int
+nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
+				 struct bpf_fib_lookup_padded *fib_params,
+				 __s8 *ext_err)
+{
+	int oif = NATIVE_DEV_IFINDEX;
+	int ret;
+
+	ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
+	*ext_err = (__s8)ret;
+
+	switch (ret) {
+	case BPF_FIB_LKUP_RET_SUCCESS:
+	case BPF_FIB_LKUP_RET_NO_NEIGH:
+		if ((__u32)oif == fib_params->l.ifindex)
+			return CTX_ACT_OK;
+
+		return fib_do_redirect(ctx, true, fib_params, ext_err, &oif);
+	default:
+		return DROP_NO_FIB;
+	}
+}
+
 #ifdef ENABLE_IPV6
 static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple)
 {
