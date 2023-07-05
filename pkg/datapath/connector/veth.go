@@ -45,11 +45,10 @@ func SetupVeth(id string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, g
 	return veth, link, tmpIfName, err
 }
 
-// SetupVethWithNames sets up the net interface, the temporary interface and fills up some endpoint
+// SetupVethWithNames sets up the net interface, the peer interface and fills up some endpoint
 // fields such as mac, NodeMac, ifIndex and ifName. Returns a pointer for the created
-// veth, a pointer for the temporary link, the name of the temporary link and error if
-// something fails.
-func SetupVethWithNames(lxcIfName, tmpIfName string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize int, ep *models.EndpointChangeRequest) (*netlink.Veth, netlink.Link, error) {
+// veth, a pointer for the peer link and error if something fails.
+func SetupVethWithNames(lxcIfName, peerIfName string, mtu, groIPv6MaxSize, gsoIPv6MaxSize, groIPv4MaxSize, gsoIPv4MaxSize int, ep *models.EndpointChangeRequest) (*netlink.Veth, netlink.Link, error) {
 	var (
 		epHostMAC, epLXCMAC mac.MAC
 		err                 error
@@ -77,7 +76,7 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu, groIPv6MaxSize, gsoIPv
 			HardwareAddr: net.HardwareAddr(epHostMAC),
 			TxQLen:       1000,
 		},
-		PeerName:         tmpIfName,
+		PeerName:         peerIfName,
 		PeerHardwareAddr: net.HardwareAddr(epLXCMAC),
 	}
 
@@ -102,13 +101,13 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu, groIPv6MaxSize, gsoIPv
 		return nil, nil, err
 	}
 
-	peer, err := netlink.LinkByName(tmpIfName)
+	peer, err := netlink.LinkByName(peerIfName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to lookup veth peer just created: %s", err)
 	}
 
 	if err = netlink.LinkSetMTU(peer, mtu); err != nil {
-		return nil, nil, fmt.Errorf("unable to set MTU to %q: %s", tmpIfName, err)
+		return nil, nil, fmt.Errorf("unable to set MTU to %q: %s", peerIfName, err)
 	}
 
 	hostVeth, err := netlink.LinkByName(lxcIfName)
@@ -131,7 +130,7 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu, groIPv6MaxSize, gsoIPv
 		}
 		if err = netlink.LinkSetGROMaxSize(peer, groIPv6MaxSize); err != nil {
 			return nil, nil, fmt.Errorf("unable to set GRO max size to %q: %w",
-				tmpIfName, err)
+				peerIfName, err)
 		}
 	}
 
@@ -142,7 +141,7 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu, groIPv6MaxSize, gsoIPv
 		}
 		if err = netlink.LinkSetGSOMaxSize(peer, gsoIPv6MaxSize); err != nil {
 			return nil, nil, fmt.Errorf("unable to set GSO max size to %q: %w",
-				tmpIfName, err)
+				peerIfName, err)
 		}
 	}
 
@@ -153,7 +152,7 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu, groIPv6MaxSize, gsoIPv
 		}
 		if err = netlink.LinkSetGROIPv4MaxSize(peer, groIPv4MaxSize); err != nil {
 			return nil, nil, fmt.Errorf("unable to set GRO max size to %q: %w",
-				tmpIfName, err)
+				peerIfName, err)
 		}
 	}
 
@@ -164,7 +163,7 @@ func SetupVethWithNames(lxcIfName, tmpIfName string, mtu, groIPv6MaxSize, gsoIPv
 		}
 		if err = netlink.LinkSetGSOIPv4MaxSize(peer, gsoIPv4MaxSize); err != nil {
 			return nil, nil, fmt.Errorf("unable to set GSO max size to %q: %w",
-				tmpIfName, err)
+				peerIfName, err)
 		}
 	}
 
