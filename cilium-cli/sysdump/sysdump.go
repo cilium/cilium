@@ -222,9 +222,12 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 	}
 	// If there are many nodes and no filters are specified, issue a warning and wait for a while before proceeding so the user can cancel the process.
 	if len(c.allNodes.Items) > c.Options.LargeSysdumpThreshold && (c.Options.NodeList == DefaultNodeList && c.Options.LogsLimitBytes == DefaultLogsLimitBytes && c.Options.LogsSinceTime == DefaultLogsSinceTime) {
-		c.logWarn("Detected a large cluster (%d nodes)", len(c.allNodes.Items))
-		c.logWarn("Consider using a node filter, a custom log size limit and/or a custom log time range to decrease the size of the sysdump")
-		c.logWarn("Waiting for %s before continuing", c.Options.LargeSysdumpAbortTimeout)
+		c.logWarn("Detected a large cluster (%d nodes, threshold is %d)", len(c.allNodes.Items), c.Options.LargeSysdumpThreshold)
+		c.logWarn("Consider using a node filter (--node-list option, default=\"\"),")
+		c.logWarn("a custom log size limit (--logs-limit-bytes option, default=1GiB)")
+		c.logWarn("and/or a custom log time range (--logs-since-time option, default=1y)")
+		c.logWarn("to decrease the size of the sysdump")
+		c.logWarn("Waiting for %s before continuing, press control+c to abort and adjust your options", c.Options.LargeSysdumpAbortTimeout)
 		t := time.NewTicker(c.Options.LargeSysdumpAbortTimeout)
 		defer t.Stop()
 		<-t.C
