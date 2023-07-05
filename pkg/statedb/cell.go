@@ -22,6 +22,7 @@ var Cell = cell.Module(
 	"In-memory database",
 
 	cell.Provide(New),
+	cell.Provide(newDumpHandler), // REST API Handler
 )
 
 type params struct {

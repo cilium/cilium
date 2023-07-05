@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
 	"github.com/cilium/cilium/api/v1/server/restapi/recorder"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
-	"github.com/cilium/cilium/api/v1/server/restapi/statedb"
 	"github.com/cilium/cilium/pkg/api"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -86,8 +85,6 @@ type handlersOut struct {
 	ServiceGetServiceHandler      service.GetServiceHandler
 	ServiceGetServiceIDHandler    service.GetServiceIDHandler
 	ServicePutServiceIDHandler    service.PutServiceIDHandler
-
-	StatedbGetStatedbDumpHandler statedb.GetStatedbDumpHandler
 
 	BgpGetBgpPeersHandler bgp.GetBgpPeersHandler
 }
@@ -240,9 +237,6 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 
 	// /bgp
 	out.BgpGetBgpPeersHandler = wrapAPIHandler(dp, getBGPPeersHandler)
-
-	// /statedb/dump
-	out.StatedbGetStatedbDumpHandler = wrapAPIHandler(dp, getStateDBDump)
 
 	return
 }
