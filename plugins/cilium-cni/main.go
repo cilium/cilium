@@ -465,7 +465,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	if err = connector.SufficientAddressing(ipam.HostAddressing); err != nil {
-		return fmt.Errorf("IP allocation addressing in insufficient: %s", err)
+		return fmt.Errorf("IP allocation addressing is insufficient: %w", err)
+	}
+
+	if !ipv6IsEnabled(ipam) && !ipv4IsEnabled(ipam) {
+		return fmt.Errorf("IPAM did provide neither IPv4 nor IPv6 address")
 	}
 
 	ep := &models.EndpointChangeRequest{
@@ -523,10 +527,6 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	state := CmdState{
 		HostAddr: ipam.HostAddressing,
-	}
-
-	if !ipv6IsEnabled(ipam) && !ipv4IsEnabled(ipam) {
-		return fmt.Errorf("IPAM did not provide IPv4 or IPv6 address")
 	}
 
 	var (
