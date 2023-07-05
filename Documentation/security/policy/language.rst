@@ -360,10 +360,6 @@ all
     The all entity represents the combination of all known clusters as well
     world and whitelists all communication.
 
-.. versionadded:: future
-   Allowing users to define custom entities is on the roadmap but has not been
-   implemented yet (see :gh-issue:`3553`).
-
 Access to/from local host
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
