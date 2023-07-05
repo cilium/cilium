@@ -108,7 +108,6 @@ else:
     prev_release = '%d.%d' % (relinfo.major, relinfo.minor - 1)
 githubusercontent = 'https://raw.githubusercontent.com/cilium/cilium/'
 scm_web = githubusercontent + branch
-jenkins_branch = 'https://jenkins.cilium.io/view/Cilium-v' + current_release
 github_repo = 'https://github.com/cilium/cilium/'
 archive_filename = archive_name + '.tar.gz'
 archive_link = github_repo + 'archive/' + archive_filename
@@ -140,7 +139,6 @@ language = "en"
 
 extlinks = {
     'git-tree': (scm_web + "/%s", None),
-    'jenkins-branch': (jenkins_branch + "/%s", None),
     'github-project': (project_link + '%s', None),
     'github-backport': (backport_format, None),
     'gh-issue': (github_repo + 'issues/%s', 'GitHub issue %s'),

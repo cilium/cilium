@@ -602,11 +602,9 @@ Minor version
    deprecated fields from the upstream code. New functions / fields / structs
    added in upstream that are not used in Cilium, can be removed.
 
-#. Open files ``jenkinsfiles/{kubernetes-upstream,ginkgo-kernel}.Jenkinsfile``,
-   and bump the versions being tested. More important is to make sure the
-   pipeline used on all PRs are running with the new Kubernetes version by
-   default. Make sure the files ``contributing/testing/{ci,e2e}.rst`` are up to
-   date with these changes.
+#. Make sure the workflows used on all PRs are running with the new Kubernetes
+   version by default. Make sure the files ``contributing/testing/{ci,e2e}.rst``
+   are up to date with these changes.
 
 #. Update documentation files:
    - Documentation/contributing/testing/e2e.rst
@@ -656,18 +654,12 @@ Minor version
 
 #. Submit all your changes into a new PR.
 
-#. Ping the CI team to make changes in Jenkins (adding new pipeline and
-   dedicated test trigger ``/test-X.XX-4.19`` where ``X.XX`` is the new
-   Kubernetes version).
+#. Ensure that the target CI workflows are running and passing after updating
+   the target k8s versions in the GitHub action workflows.
 
-#. Run ``/test-upstream-k8s`` and the new ``/test-X.XX-4.19`` from the PR once
-   Jenkins is up-to-date.
-
-#. Once CI is green and PR has been merged, ping the CI team again so that they:
-   #. Rotate the Jenkins pipelines and triggers due to removed/added K8s versions.
-
-   #. Update the `Cilium CI matrix`_, ``.github/maintainers-little-helper.yaml``,
-      and GitHub required PR checks accordingly.
+#. Once CI is green and PR has been merged, ping the CI team again so that they
+   update the `Cilium CI matrix`_, ``.github/maintainers-little-helper.yaml``,
+   and GitHub required PR checks accordingly.
 
 .. _Cilium CI matrix: https://docs.google.com/spreadsheets/d/1TThkqvVZxaqLR-Ela4ZrcJ0lrTJByCqrbdCjnI32_X0
 

@@ -244,7 +244,7 @@ Getting a pull request merged
       to build log for required action (e.g. Please run ``go mod tidy && go mod
       vendor`` and submit your changes, etc).
 
-   #. :ref:`ci_jenkins`: Will run a series of tests:
+   #. :ref:`ci_gha`: Will run a series of tests:
 
       #. Unit tests
       #. Single node runtime tests
