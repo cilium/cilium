@@ -103,7 +103,7 @@ type ProxyPort struct {
 
 // Proxy maintains state about redirects
 type Proxy struct {
-	*envoy.XDSServer
+	envoy.XDSServer
 
 	// runDir is the path of the directory where the state of L7 proxies is
 	// stored.
@@ -143,7 +143,7 @@ type Proxy struct {
 	proxyPorts map[string]*ProxyPort
 }
 
-func createProxy(minPort uint16, maxPort uint16, runDir string, datapathUpdater DatapathUpdater, eir logger.EndpointInfoRegistry, xdsServer *envoy.XDSServer) *Proxy {
+func createProxy(minPort uint16, maxPort uint16, runDir string, datapathUpdater DatapathUpdater, eir logger.EndpointInfoRegistry, xdsServer envoy.XDSServer) *Proxy {
 	return &Proxy{
 		runDir:                      runDir,
 		XDSServer:                   xdsServer,

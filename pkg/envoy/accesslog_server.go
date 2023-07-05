@@ -28,11 +28,11 @@ import (
 
 type AccessLogServer struct {
 	socketPath string
-	xdsServer  *XDSServer
+	xdsServer  XDSServer
 	stopCh     chan struct{}
 }
 
-func newAccessLogServer(envoySocketDir string, xdsServer *XDSServer) *AccessLogServer {
+func newAccessLogServer(envoySocketDir string, xdsServer XDSServer) *AccessLogServer {
 	return &AccessLogServer{
 		socketPath: getAccessLogSocketPath(envoySocketDir),
 		xdsServer:  xdsServer,

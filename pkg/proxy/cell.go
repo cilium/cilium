@@ -32,7 +32,7 @@ type proxyParams struct {
 	Datapath             datapath.Datapath
 	EndpointInfoRegistry logger.EndpointInfoRegistry
 	MonitorAgent         monitoragent.Agent
-	XdsServer            *envoy.XDSServer
+	XdsServer            envoy.XDSServer
 }
 
 func newProxy(params proxyParams) *Proxy {

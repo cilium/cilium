@@ -29,7 +29,7 @@ type xdsServerParams struct {
 	IPCache   *ipcache.IPCache
 }
 
-func newEnvoyXDSServer(params xdsServerParams) (*XDSServer, error) {
+func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 	xdsServer, err := newXDSServer(GetSocketDir(option.Config.RunDir), params.IPCache)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Envoy xDS server: %w", err)
@@ -60,7 +60,7 @@ type accessLogServerParams struct {
 	cell.In
 
 	Lifecycle hive.Lifecycle
-	XdsServer *XDSServer
+	XdsServer XDSServer
 }
 
 func registerEnvoyAccessLogServer(params accessLogServerParams) {
