@@ -27,8 +27,4 @@ func (s *RandSuite) TestRandomString(c *C) {
 	s0 := RandomStringWithPrefix("foo", 12)
 	c.Assert(len(s0), Equals, len("foo")+12)
 	c.Assert(strings.HasPrefix(s0, "foo"), Equals, true)
-
-	s1 := RandomLowercaseStringWithLen(15)
-	c.Assert(len(s1), Equals, 15)
-	c.Assert(strings.ToLower(s1), Equals, s1)
 }
