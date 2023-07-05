@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
@@ -138,6 +139,10 @@ var (
 		// makes different L7 proxies (Envoy, DNS proxy) usable to Cilium endpoints through
 		// a common Proxy 'redirect' abstraction.
 		proxy.Cell,
+
+		// Envoy cell which is the control-plane for the Envoy proxy.
+		// It is used to provide support for Ingress, GatewayAPI and L7 network policies (e.g. HTTP).
+		envoy.Cell,
 
 		// Cilium REST API handlers
 		restapi.Cell,

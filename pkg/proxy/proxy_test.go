@@ -8,14 +8,13 @@ import (
 	"os"
 	"testing"
 
+	. "github.com/cilium/checkmate"
+
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
 	endpointtest "github.com/cilium/cilium/pkg/proxy/endpoint/test"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
-
-	. "github.com/cilium/checkmate"
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -42,7 +41,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	err := os.MkdirAll(socketDir, 0700)
 	c.Assert(err, IsNil)
 
-	p := createProxy(10000, 20000, testRunDir, mockDatapathUpdater, testipcache.NewMockIPCache(), nil)
+	p := createProxy(10000, 20000, testRunDir, mockDatapathUpdater, nil, nil)
 
 	port, err := p.AllocateProxyPort("listener1", false, true)
 	c.Assert(err, IsNil)
@@ -210,7 +209,7 @@ func (s *ProxySuite) TestCreateOrUpdateRedirectMissingListener(c *C) {
 	err := os.MkdirAll(socketDir, 0700)
 	c.Assert(err, IsNil)
 
-	p := createProxy(10000, 20000, testRunDir, mockDatapathUpdater, testipcache.NewMockIPCache(), nil)
+	p := createProxy(10000, 20000, testRunDir, mockDatapathUpdater, nil, nil)
 
 	ep := &endpointtest.ProxyUpdaterMock{
 		Id:       1000,

@@ -144,8 +144,12 @@ type XDSServer struct {
 	// mutex must be held when accessing this.
 	networkPolicyEndpoints map[string]endpoint.EndpointUpdater
 
-	// stopServer stops the xDS gRPC server.
-	stopServer context.CancelFunc
+	// stopFunc contains the function which stops the xDS gRPC server.
+	stopFunc context.CancelFunc
+
+	// IPCache is used for tracking IP->Identity mappings and propagating
+	// them to the proxy via NPHDS in the cases described
+	ipCache IPCacheEventSource
 }
 
 func toAny(pb proto.Message) *anypb.Any {
@@ -156,24 +160,35 @@ func toAny(pb proto.Message) *anypb.Any {
 	return a
 }
 
-// StartXDSServer configures and starts the xDS GRPC server.
-func StartXDSServer(ipcache IPCacheEventSource, envoySocketDir string) (*XDSServer, error) {
-	xdsSocketPath := getXDSSocketPath(envoySocketDir)
+// newXDSServer creates a new xDS GRPC server.
+func newXDSServer(envoySocketDir string, ipCache IPCacheEventSource) (*XDSServer, error) {
+	return &XDSServer{
+		socketPath:             getXDSSocketPath(envoySocketDir),
+		accessLogPath:          getAccessLogSocketPath(envoySocketDir),
+		ipCache:                ipCache,
+		listeners:              make(map[string]*Listener),
+		networkPolicyEndpoints: make(map[string]endpoint.EndpointUpdater),
+	}, nil
+}
 
-	os.Remove(xdsSocketPath)
-	socketListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: xdsSocketPath, Net: "unix"})
+// start configures and starts the xDS GRPC server.
+func (s *XDSServer) start() error {
+	// Remove/Unlink the old unix domain socket, if any.
+	_ = os.Remove(s.socketPath)
+
+	socketListener, err := net.ListenUnix("unix", &net.UnixAddr{Name: s.socketPath, Net: "unix"})
 	if err != nil {
-		return nil, fmt.Errorf("failed to open xDS listen socket at %s: %w", xdsSocketPath, err)
+		return fmt.Errorf("failed to open xDS listen socket at %s: %w", s.socketPath, err)
 	}
 
 	// Make the socket accessible by owner and group only. Group access is needed for Istio
 	// sidecar proxies.
-	if err = os.Chmod(xdsSocketPath, 0660); err != nil {
-		return nil, fmt.Errorf("failed to change mode of xDS listen socket at %s: %w", xdsSocketPath, err)
+	if err = os.Chmod(s.socketPath, 0660); err != nil {
+		return fmt.Errorf("failed to change mode of xDS listen socket at %s: %w", s.socketPath, err)
 	}
 	// Change the group to ProxyGID allowing access from any process from that group.
-	if err = os.Chown(xdsSocketPath, -1, option.Config.ProxyGID); err != nil {
-		log.WithError(err).Warningf("Envoy: Failed to change the group of xDS listen socket at %s, sidecar proxies may not work", xdsSocketPath)
+	if err = os.Chown(s.socketPath, -1, option.Config.ProxyGID); err != nil {
+		log.WithError(err).Warningf("Envoy: Failed to change the group of xDS listen socket at %s, sidecar proxies may not work", s.socketPath)
 	}
 
 	ldsCache := xds.NewCache()
@@ -218,13 +233,13 @@ func StartXDSServer(ipcache IPCacheEventSource, envoySocketDir string) (*XDSServ
 		AckObserver: npdsMutator,
 	}
 
-	nphdsCache := newNPHDSCache(ipcache)
+	nphdsCache := newNPHDSCache(s.ipCache)
 	nphdsConfig := &xds.ResourceTypeConfiguration{
 		Source:      nphdsCache,
 		AckObserver: &nphdsCache,
 	}
 
-	stopServer := startXDSGRPCServer(socketListener, map[string]*xds.ResourceTypeConfiguration{
+	stopServerFunc := startXDSGRPCServer(socketListener, map[string]*xds.ResourceTypeConfiguration{
 		ListenerTypeURL:           ldsConfig,
 		RouteTypeURL:              rdsConfig,
 		ClusterTypeURL:            cdsConfig,
@@ -234,20 +249,26 @@ func StartXDSServer(ipcache IPCacheEventSource, envoySocketDir string) (*XDSServ
 		NetworkPolicyHostsTypeURL: nphdsConfig,
 	}, 5*time.Second)
 
-	return &XDSServer{
-		socketPath:             xdsSocketPath,
-		accessLogPath:          getAccessLogSocketPath(envoySocketDir),
-		listenerMutator:        ldsMutator,
-		listeners:              make(map[string]*Listener),
-		routeMutator:           rdsMutator,
-		clusterMutator:         cdsMutator,
-		endpointMutator:        edsMutator,
-		secretMutator:          sdsMutator,
-		networkPolicyCache:     npdsCache,
-		NetworkPolicyMutator:   npdsMutator,
-		networkPolicyEndpoints: make(map[string]endpoint.EndpointUpdater),
-		stopServer:             stopServer,
-	}, nil
+	s.listenerMutator = ldsMutator
+	s.routeMutator = rdsMutator
+	s.clusterMutator = cdsMutator
+	s.endpointMutator = edsMutator
+	s.secretMutator = sdsMutator
+	s.networkPolicyCache = npdsCache
+	s.NetworkPolicyMutator = npdsMutator
+
+	s.stopFunc = stopServerFunc
+
+	return nil
+}
+
+func (s *XDSServer) stop() {
+	if s.stopFunc != nil {
+		s.stopFunc()
+	}
+	if s.socketPath != "" {
+		_ = os.Remove(s.socketPath)
+	}
 }
 
 func getCiliumHttpFilter() *envoy_config_http.HttpFilter {
@@ -645,7 +666,7 @@ func (s *XDSServer) addListener(name string, listenerConf func() *envoy_config_l
 			}
 			// Pass the completion result to all the additional waiters.
 			for _, waiter := range listener.waiters {
-				waiter.Complete(err)
+				_ = waiter.Complete(err)
 			}
 			listener.waiters = nil
 			listener.mutex.Unlock()
@@ -901,11 +922,6 @@ func (s *XDSServer) removeListener(name string, wg *completion.WaitGroup, isProx
 		s.listeners[name] = listener
 		s.mutex.Unlock()
 	}
-}
-
-func (s *XDSServer) Stop() {
-	s.stopServer()
-	os.Remove(s.socketPath)
 }
 
 func getL7Rules(l7Rules []api.PortRuleL7, l7Proto string) *cilium.L7NetworkPolicyRules {

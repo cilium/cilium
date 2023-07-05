@@ -14,7 +14,7 @@ import (
 	"time"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	kafka_api "github.com/cilium/proxy/pkg/policy/api/kafka"
+	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
@@ -27,38 +27,41 @@ import (
 )
 
 type AccessLogServer struct {
-	xdsServer *XDSServer
-	stopCh    chan struct{}
+	socketPath string
+	xdsServer  *XDSServer
+	stopCh     chan struct{}
 }
 
-// StartAccessLogServer starts the access log server.
-func StartAccessLogServer(envoySocketDir string, xdsServer *XDSServer) (*AccessLogServer, error) {
-	accessLogPath := getAccessLogSocketPath(envoySocketDir)
+func newAccessLogServer(envoySocketDir string, xdsServer *XDSServer) *AccessLogServer {
+	return &AccessLogServer{
+		socketPath: getAccessLogSocketPath(envoySocketDir),
+		xdsServer:  xdsServer,
+	}
+}
 
+// start starts the access log server.
+func (s *AccessLogServer) start() error {
 	// Remove/Unlink the old unix domain socket, if any.
-	_ = os.Remove(accessLogPath)
+	_ = os.Remove(s.socketPath)
 
 	// Create the access log listener
-	accessLogListener, err := net.ListenUnix("unixpacket", &net.UnixAddr{Name: accessLogPath, Net: "unixpacket"})
+	accessLogListener, err := net.ListenUnix("unixpacket", &net.UnixAddr{Name: s.socketPath, Net: "unixpacket"})
 	if err != nil {
-		return nil, fmt.Errorf("failed to open access log listen socket at %s: %w", accessLogPath, err)
+		return fmt.Errorf("failed to open access log listen socket at %s: %w", s.socketPath, err)
 	}
 	accessLogListener.SetUnlinkOnClose(true)
 
 	// Make the socket accessible by owner and group only. Group access is needed for Istio
 	// sidecar proxies.
-	if err = os.Chmod(accessLogPath, 0660); err != nil {
-		return nil, fmt.Errorf("failed to change mode of access log listen socket at %s: %w", accessLogPath, err)
+	if err = os.Chmod(s.socketPath, 0660); err != nil {
+		return fmt.Errorf("failed to change mode of access log listen socket at %s: %w", s.socketPath, err)
 	}
 	// Change the group to ProxyGID allowing access from any process from that group.
-	if err = os.Chown(accessLogPath, -1, option.Config.ProxyGID); err != nil {
-		log.WithError(err).Warningf("Envoy: Failed to change the group of access log listen socket at %s, sidecar proxies may not work", accessLogPath)
+	if err = os.Chown(s.socketPath, -1, option.Config.ProxyGID); err != nil {
+		log.WithError(err).Warningf("Envoy: Failed to change the group of access log listen socket at %s, sidecar proxies may not work", s.socketPath)
 	}
 
-	server := &AccessLogServer{
-		xdsServer: xdsServer,
-		stopCh:    make(chan struct{}),
-	}
+	s.stopCh = make(chan struct{})
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -79,21 +82,23 @@ func StartAccessLogServer(envoySocketDir string, xdsServer *XDSServer) (*AccessL
 
 			// Serve this access log socket in a goroutine, so we can serve multiple
 			// connections concurrently.
-			go server.handleConn(ctx, uc)
+			go s.handleConn(ctx, uc)
 		}
 	}()
 
 	go func() {
-		<-server.stopCh
-		accessLogListener.Close()
+		<-s.stopCh
+		_ = accessLogListener.Close()
 		cancel()
 	}()
 
-	return server, nil
+	return nil
 }
 
-func (s *AccessLogServer) Stop() {
-	s.stopCh <- struct{}{}
+func (s *AccessLogServer) stop() {
+	if s.stopCh != nil {
+		s.stopCh <- struct{}{}
+	}
 }
 
 func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
@@ -103,13 +108,13 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 		select {
 		case <-stopCh:
 		case <-ctx.Done():
-			conn.Close()
+			_ = conn.Close()
 		}
 	}()
 
 	defer func() {
 		log.Info("Envoy: Closing access log connection")
-		conn.Close()
+		_ = conn.Close()
 		stopCh <- struct{}{}
 	}()
 
@@ -158,34 +163,34 @@ func logRecord(pblog *cilium.LogEntry) *logger.LogRecord {
 	var kafkaTopics []string
 
 	var l7tags logger.LogTag
-	if http := pblog.GetHttp(); http != nil {
+	if httpLogEntry := pblog.GetHttp(); httpLogEntry != nil {
 		l7tags = logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
-			Method:          http.Method,
-			Code:            int(http.Status),
-			URL:             ParseURL(http.Scheme, http.Host, http.Path),
-			Protocol:        GetProtocol(http.HttpProtocol),
-			Headers:         GetNetHttpHeaders(http.Headers),
-			MissingHeaders:  GetNetHttpHeaders(http.MissingHeaders),
-			RejectedHeaders: GetNetHttpHeaders(http.RejectedHeaders),
+			Method:          httpLogEntry.Method,
+			Code:            int(httpLogEntry.Status),
+			URL:             ParseURL(httpLogEntry.Scheme, httpLogEntry.Host, httpLogEntry.Path),
+			Protocol:        GetProtocol(httpLogEntry.HttpProtocol),
+			Headers:         GetNetHttpHeaders(httpLogEntry.Headers),
+			MissingHeaders:  GetNetHttpHeaders(httpLogEntry.MissingHeaders),
+			RejectedHeaders: GetNetHttpHeaders(httpLogEntry.RejectedHeaders),
 		})
-	} else if kafka := pblog.GetKafka(); kafka != nil {
+	} else if kafkaLogEntry := pblog.GetKafka(); kafkaLogEntry != nil {
 		kafkaRecord = &accesslog.LogRecordKafka{
-			ErrorCode:     int(kafka.ErrorCode),
-			APIVersion:    int16(kafka.ApiVersion),
-			APIKey:        kafka_api.ApiKeyToString(int16(kafka.ApiKey)),
-			CorrelationID: kafka.CorrelationId,
+			ErrorCode:     int(kafkaLogEntry.ErrorCode),
+			APIVersion:    int16(kafkaLogEntry.ApiVersion),
+			APIKey:        kafka.ApiKeyToString(int16(kafkaLogEntry.ApiKey)),
+			CorrelationID: kafkaLogEntry.CorrelationId,
 		}
-		if len(kafka.Topics) > 0 {
-			kafkaRecord.Topic.Topic = kafka.Topics[0]
-			if len(kafka.Topics) > 1 {
-				kafkaTopics = kafka.Topics[1:] // Rest of the topics
+		if len(kafkaLogEntry.Topics) > 0 {
+			kafkaRecord.Topic.Topic = kafkaLogEntry.Topics[0]
+			if len(kafkaLogEntry.Topics) > 1 {
+				kafkaTopics = kafkaLogEntry.Topics[1:] // Rest of the topics
 			}
 		}
 		l7tags = logger.LogTags.Kafka(kafkaRecord)
-	} else if l7 := pblog.GetGenericL7(); l7 != nil {
+	} else if l7LogEntry := pblog.GetGenericL7(); l7LogEntry != nil {
 		l7tags = logger.LogTags.L7(&accesslog.LogRecordL7{
-			Proto:  l7.GetProto(),
-			Fields: l7.GetFields(),
+			Proto:  l7LogEntry.GetProto(),
+			Fields: l7LogEntry.GetFields(),
 		})
 	}
 
