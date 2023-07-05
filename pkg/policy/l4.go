@@ -528,7 +528,8 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 			}
 		}
 
-		entry := NewMapStateEntry(cs, l4Filter.DerivedFromRules, currentRule.IsRedirect(), isDenyRule, currentRule.GetAuthType())
+		entry := NewMapStateEntry(cs, l4Filter.DerivedFromRules, currentRule.IsRedirect(), l4Filter.L7Parser, l4Filter.Listener, isDenyRule, currentRule.GetAuthType())
+
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			keysToAdd.DenyPreferredInsert(keyToAdd, entry, identities)
@@ -1167,7 +1168,7 @@ func (l4 *L4Policy) AccumulateMapChanges(cs CachedSelector, adds, deletes []iden
 				continue
 			}
 		}
-		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, port, proto, direction, redirect, isDeny, authType, derivedFrom)
+		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, port, proto, direction, redirect, l4Filter.L7Parser, l4Filter.Listener, isDeny, authType, derivedFrom)
 	}
 }
 

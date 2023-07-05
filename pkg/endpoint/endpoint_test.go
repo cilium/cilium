@@ -533,13 +533,26 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 func (s *EndpointSuite) TestProxyID(c *C) {
 	e := &Endpoint{ID: 123, policyRevision: 0}
 
-	id := e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true})
+	id := e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true, L7Parser: policy.ParserTypeHTTP})
 	c.Assert(id, Not(Equals), "")
-	endpointID, ingress, protocol, port, err := policy.ParseProxyID(id)
+	endpointID, ingress, protocol, port, parser, listener, err := policy.ParseProxyID(id)
 	c.Assert(endpointID, Equals, uint16(123))
 	c.Assert(ingress, Equals, true)
 	c.Assert(protocol, Equals, "TCP")
 	c.Assert(port, Equals, uint16(8080))
+	c.Assert(parser, Equals, policy.ParserTypeHTTP)
+	c.Assert(listener, Equals, "")
+	c.Assert(err, IsNil)
+
+	id = e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true, L7Parser: policy.ParserTypeCRD, Listener: "test-listener"})
+	c.Assert(id, Not(Equals), "")
+	endpointID, ingress, protocol, port, parser, listener, err = policy.ParseProxyID(id)
+	c.Assert(endpointID, Equals, uint16(123))
+	c.Assert(ingress, Equals, true)
+	c.Assert(protocol, Equals, "TCP")
+	c.Assert(port, Equals, uint16(8080))
+	c.Assert(parser, Equals, policy.ParserTypeCRD)
+	c.Assert(listener, Equals, "test-listener")
 	c.Assert(err, IsNil)
 }
 

@@ -99,6 +99,9 @@ const (
 	// IsRedirect is a boolean for if the entry is a redirect or not
 	IsRedirect = "IsRedirect"
 
+	// ProxyType is a string identifying the proxy type (see proxy.ProxyType)
+	ProxyType = "ProxyType"
+
 	// DNSName is a FQDN or not fully qualified name intended for DNS lookups
 	DNSName = "dnsName"
 

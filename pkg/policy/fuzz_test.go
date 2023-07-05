@@ -72,11 +72,15 @@ func FuzzAccumulateMapChange(f *testing.F) {
 		if err != nil {
 			t.Skip()
 		}
+		l7Parser := ParserTypeNone
+		if redirect {
+			l7Parser = ParserTypeHTTP
+		}
 		deny, err := ff.GetBool()
 		if err != nil {
 			t.Skip()
 		}
 		policyMaps := MapChanges{}
-		policyMaps.AccumulateMapChanges(csFoo, adds, deletes, port, proto, dir, redirect, deny, AuthTypeNone, nil)
+		policyMaps.AccumulateMapChanges(csFoo, adds, deletes, port, proto, dir, redirect, l7Parser, "", deny, AuthTypeNone, nil)
 	})
 }

@@ -121,15 +121,15 @@ func (e *Endpoint) proxyID(l4 *policy.L4Filter) string {
 			return ""
 		}
 	}
-	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port)
+	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, l4.L7Parser, l4.Listener)
 }
 
 // lookupRedirectPort returns the redirect L4 proxy port for the given L4
 // policy map key, in host byte order. Returns 0 if not found or the
 // filter doesn't require a redirect.
 // Must be called with Endpoint.mutex held.
-func (e *Endpoint) LookupRedirectPortLocked(ingress bool, protocol string, port uint16) uint16 {
-	return e.realizedRedirects[policy.ProxyID(e.ID, ingress, protocol, port)]
+func (e *Endpoint) LookupRedirectPortLocked(ingress bool, protocol string, port uint16, l7Parser policy.L7ParserType, listener string) uint16 {
+	return e.realizedRedirects[policy.ProxyID(e.ID, ingress, protocol, port, l7Parser, listener)]
 }
 
 // Note that this function assumes that endpoint policy has already been generated!
