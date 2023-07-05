@@ -5,6 +5,7 @@ package watchers
 
 import (
 	"context"
+	"time"
 
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -75,18 +76,29 @@ func (k *K8sWatcher) addCiliumFlowLogging(cfl *cilium_v2a1.CiliumFlowLogging) er
 
 	scopedLog.Debug("Added CiliumFlowLogging")
 
-	if k.flowLoggingManager != nil {
-		opts := []exporteroption.Option{}
-		if len(cfl.Spec.AllowList) > 0 {
-			opts = append(opts, exporteroption.WithAllowList(cfl.Spec.AllowList))
-		}
-		if len(cfl.Spec.DenyList) > 0 {
-			opts = append(opts, exporteroption.WithDenyList(cfl.Spec.DenyList))
-		}
-		if len(cfl.Spec.FieldMask) > 0 {
-			opts = append(opts, exporteroption.WithFieldMask(cfl.Spec.FieldMask))
-		}
-		return k.flowLoggingManager.Start(string(cfl.UID), cfl.Name, opts)
+	deadline, err := time.Parse(time.RFC3339, cfl.Spec.End)
+	if err != nil {
+		scopedLog.WithField("end", cfl.Spec.End).Error(err)
+		return err
+	}
+
+	if k.flowLoggingManager == nil {
+		return nil
+	}
+	opts := []exporteroption.Option{}
+	if len(cfl.Spec.AllowList) > 0 {
+		opts = append(opts, exporteroption.WithAllowList(cfl.Spec.AllowList))
+	}
+	if len(cfl.Spec.DenyList) > 0 {
+		opts = append(opts, exporteroption.WithDenyList(cfl.Spec.DenyList))
+	}
+	if len(cfl.Spec.FieldMask) > 0 {
+		opts = append(opts, exporteroption.WithFieldMask(cfl.Spec.FieldMask))
+	}
+	err = k.flowLoggingManager.Start(string(cfl.UID), cfl.Name, deadline, opts)
+	if err != nil {
+		scopedLog.Error(err)
+		return err
 	}
 	return nil
 }
@@ -99,8 +111,14 @@ func (k *K8sWatcher) deleteCiliumFlowLogging(cfl *cilium_v2a1.CiliumFlowLogging)
 	})
 
 	scopedLog.Debug("Deleted CiliumFlowLogging")
-	if k.flowLoggingManager != nil {
-		return k.flowLoggingManager.Stop(string(cfl.UID))
+	if k.flowLoggingManager == nil {
+		return nil
+	}
+
+	err := k.flowLoggingManager.Stop(string(cfl.UID))
+	if err != nil {
+		scopedLog.Error(err)
+		return err
 	}
 	return nil
 }

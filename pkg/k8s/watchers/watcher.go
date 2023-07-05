@@ -207,7 +207,7 @@ type ipcacheManager interface {
 }
 
 type FlowLoggingManager interface {
-	Start(uid, name string, opts []exporteroption.Option) error
+	Start(uid, name string, deadline time.Time, opts []exporteroption.Option) error
 	Stop(uid string) error
 }
 

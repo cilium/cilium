@@ -1009,6 +1009,11 @@ const (
 	// HubbleExportFieldmask specifies list of fields to log in exporter.
 	HubbleExportFieldmask = "hubble-export-fieldmask"
 
+	// HubbleExportManagerDir specifies the directory under which Hubble events
+	// will be logged based on configuration from CiliumFlowLogging custom
+	// resource.
+	HubbleExportManagerDir = "hubble-export-manager-dir"
+
 	// EnableHubbleRecorderAPI specifies if the Hubble Recorder API should be served
 	EnableHubbleRecorderAPI = "enable-hubble-recorder-api"
 
@@ -2239,6 +2244,11 @@ type DaemonConfig struct {
 
 	// HubbleExportFieldmask specifies list of fields to log in exporter.
 	HubbleExportFieldmask []string
+
+	// HubbleExportManagerDir specifies the directory under which Hubble events
+	// will be logged based on configuration from CiliumFlowLogging custom
+	// resource.
+	HubbleExportManagerDir string
 
 	// EnableHubbleRecorderAPI specifies if the Hubble Recorder API should be served
 	EnableHubbleRecorderAPI bool
@@ -3526,6 +3536,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 		c.HubbleExportFieldmask = vp.GetStringSlice(HubbleExportFieldmask)
 	}
 
+	c.HubbleExportManagerDir = vp.GetString(HubbleExportManagerDir)
 	c.EnableHubbleRecorderAPI = vp.GetBool(EnableHubbleRecorderAPI)
 	c.HubbleRecorderStoragePath = vp.GetString(HubbleRecorderStoragePath)
 	c.HubbleRecorderSinkQueueSize = vp.GetInt(HubbleRecorderSinkQueueSize)

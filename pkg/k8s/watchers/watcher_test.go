@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"testing"
+	"time"
 
 	. "github.com/cilium/checkmate"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -142,12 +143,12 @@ func (f *fakeSvcManager) RemoveL7LBService(serviceName, resourceName loadbalance
 }
 
 type fakeFlowLoggingManager struct {
-	OnStart func(uid, name string, opts []exporteroption.Option) error
+	OnStart func(uid string, name string, deadline time.Time, opts []exporteroption.Option) error
 	OnStop  func(uid string) error
 }
 
-func (f *fakeFlowLoggingManager) Start(uid, name string, opts []exporteroption.Option) error {
-	return f.OnStart(uid, name, opts)
+func (f *fakeFlowLoggingManager) Start(uid, name string, deadline time.Time, opts []exporteroption.Option) error {
+	return f.OnStart(uid, name, deadline, opts)
 }
 
 func (f *fakeFlowLoggingManager) Stop(uid string) error {
@@ -156,7 +157,7 @@ func (f *fakeFlowLoggingManager) Stop(uid string) error {
 
 func (s *K8sWatcherSuite) TestFlowLoggingManager(c *C) {
 	fakeFlowLoggingManager := &fakeFlowLoggingManager{
-		OnStart: func(uid string, name string, opts []exporteroption.Option) error {
+		OnStart: func(uid string, name string, deadline time.Time, opts []exporteroption.Option) error {
 			c.Assert(uid, Equals, "test-uid")
 			c.Assert(name, Equals, "test-name")
 			c.Assert(opts, HasLen, 0)
@@ -193,6 +194,9 @@ func (s *K8sWatcherSuite) TestFlowLoggingManager(c *C) {
 			UID:  "test-uid",
 			Name: "test-name",
 		},
+		Spec: v2alpha1.FlowLoggingSpec{
+			End: time.Now().Format(time.RFC3339),
+		},
 	})
 	c.Assert(err, IsNil)
 
@@ -201,11 +205,14 @@ func (s *K8sWatcherSuite) TestFlowLoggingManager(c *C) {
 			UID:  "test-uid",
 			Name: "test-name",
 		},
+		Spec: v2alpha1.FlowLoggingSpec{
+			End: time.Now().Format(time.RFC3339),
+		},
 	})
 	c.Assert(err, IsNil)
 
 	fakeErr := fmt.Errorf("fake error")
-	fakeFlowLoggingManager.OnStart = func(uid string, name string, opts []exporteroption.Option) error {
+	fakeFlowLoggingManager.OnStart = func(uid string, name string, deadline time.Time, opts []exporteroption.Option) error {
 		c.Assert(uid, Equals, "test-uid")
 		c.Assert(name, Equals, "test-name")
 		c.Assert(opts, HasLen, 2)
@@ -229,9 +236,21 @@ func (s *K8sWatcherSuite) TestFlowLoggingManager(c *C) {
 			AllowList: []*flowpb.FlowFilter{
 				{SourcePod: []string{"araara"}},
 			},
+			End: time.Now().Format(time.RFC3339),
 		},
 	})
 	c.Assert(err, Equals, fakeErr)
+
+	err = w.addCiliumFlowLogging(&v2alpha1.CiliumFlowLogging{
+		ObjectMeta: v1.ObjectMeta{
+			UID:  "test-uid",
+			Name: "test-name",
+		},
+		Spec: v2alpha1.FlowLoggingSpec{
+			End: "malformed-timestamp",
+		},
+	})
+	c.Assert(err, Not(IsNil))
 }
 
 func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {

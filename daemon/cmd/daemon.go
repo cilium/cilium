@@ -51,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hubble/exporter"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -176,8 +177,9 @@ type Daemon struct {
 	// endpoint's routing in ENI or Azure IPAM mode
 	healthEndpointRouting *linuxrouting.RoutingInfo
 
-	linkCache      *link.LinkCache
-	hubbleObserver *observer.LocalObserverServer
+	linkCache             *link.LinkCache
+	hubbleObserver        *observer.LocalObserverServer
+	hubbleExporterManager *exporter.Manager
 
 	// endpointCreations is a map of all currently ongoing endpoint
 	// creation events
@@ -637,6 +639,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	d.cgroupManager = manager.NewCgroupManager()
 
+	d.hubbleExporterManager = exporter.NewManager(d.ctx)
+
 	var egressGatewayWatcher watchers.EgressGatewayManager
 	if d.egressGatewayManager != nil {
 		egressGatewayWatcher = d.egressGatewayManager
@@ -654,7 +658,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.bgpSpeaker,
 		egressGatewayWatcher,
 		d.l7Proxy,
-		nil,
+		d.hubbleExporterManager,
 		option.Config,
 		d.ipcache,
 		d.cgroupManager,

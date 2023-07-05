@@ -966,6 +966,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.HubbleExportFieldmask, []string{}, "Specify list of fields to use for field mask in Hubble exporter.")
 	option.BindEnv(vp, option.HubbleExportFieldmask)
 
+	flags.String(option.HubbleExportManagerDir, "", "Path to directory where different Hubble event streams will be written to.")
+	option.BindEnv(vp, option.HubbleExportManagerDir)
+
 	flags.Bool(option.EnableHubbleRecorderAPI, true, "Enable the Hubble recorder API")
 	option.BindEnv(vp, option.EnableHubbleRecorderAPI)
 

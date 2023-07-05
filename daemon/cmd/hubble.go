@@ -180,6 +180,23 @@ func (d *Daemon) launchHubble() {
 			observerOpts = append(observerOpts, opt)
 		}
 	}
+	if option.Config.HubbleExportManagerDir != "" {
+		exporterOpts := []exporteroption.Option{
+			exporteroption.WithPath(option.Config.HubbleExportManagerDir),
+			exporteroption.WithMaxSizeMB(option.Config.HubbleExportFileMaxSizeMB),
+			exporteroption.WithMaxBackups(option.Config.HubbleExportFileMaxBackups),
+		}
+		if option.Config.HubbleExportFileCompress {
+			exporterOpts = append(exporterOpts, exporteroption.WithCompress())
+		}
+		err := d.hubbleExporterManager.Configure(exporterOpts...)
+		if err != nil {
+			logger.WithError(err).Error("Failed to configure Hubble exporter manager")
+		} else {
+			opt := observeroption.WithOnDecodedEvent(d.hubbleExporterManager)
+			observerOpts = append(observerOpts, opt)
+		}
+	}
 	namespaceManager := observer.NewNamespaceManager()
 	go namespaceManager.Run(d.ctx)
 
