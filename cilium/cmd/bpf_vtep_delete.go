@@ -37,5 +37,5 @@ var bpfVtepDeleteCmd = &cobra.Command{
 }
 
 func init() {
-	bpfVtepCmd.AddCommand(bpfVtepDeleteCmd)
+	BPFVtepCmd.AddCommand(bpfVtepDeleteCmd)
 }

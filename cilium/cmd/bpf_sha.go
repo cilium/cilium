@@ -7,13 +7,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bpfTemplateCmd represents the bpf-sha command
-var bpfTemplateCmd = &cobra.Command{
+// BPFTemplateCmd represents the bpf-sha command
+var BPFTemplateCmd = &cobra.Command{
 	Use:     "sha",
 	Aliases: []string{"template"},
 	Short:   "Manage compiled BPF template objects",
 }
 
 func init() {
-	bpfCmd.AddCommand(bpfTemplateCmd)
+	BPFCmd.AddCommand(BPFTemplateCmd)
 }

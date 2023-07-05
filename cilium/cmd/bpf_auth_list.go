@@ -88,6 +88,6 @@ func printAuthList(authList []authEntry) {
 }
 
 func init() {
-	bpfAuthCmd.AddCommand(bpfAuthListCmd)
+	BPFAuthCmd.AddCommand(bpfAuthListCmd)
 	command.AddOutputOption(bpfAuthListCmd)
 }

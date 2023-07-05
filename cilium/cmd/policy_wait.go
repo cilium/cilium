@@ -79,7 +79,7 @@ var policyWaitCmd = &cobra.Command{
 }
 
 func init() {
-	policyCmd.AddCommand(policyWaitCmd)
+	PolicyCmd.AddCommand(policyWaitCmd)
 	policyWaitCmd.Flags().IntVar(&waitTime, "sleep-time", 1, "Sleep interval between checks (seconds)")
 	policyWaitCmd.Flags().IntVar(&failWaitTime, "fail-wait-time", 60, "Wait time after which command fails if endpoint regeration fails (seconds)")
 	policyWaitCmd.Flags().IntVar(&maxWaitTime, "max-wait-time", 360, "Wait time after which command fails (seconds)")

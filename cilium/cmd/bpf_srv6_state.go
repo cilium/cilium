@@ -89,6 +89,6 @@ func printSRv6StateList(stateList []srv6State) {
 }
 
 func init() {
-	bpfSRv6Cmd.AddCommand(bpfSRv6StateListCmd)
+	BPFSRv6Cmd.AddCommand(bpfSRv6StateListCmd)
 	command.AddOutputOption(bpfSRv6StateListCmd)
 }

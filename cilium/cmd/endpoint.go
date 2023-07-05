@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// endpointCmd represents the endpoint command
-var endpointCmd = &cobra.Command{
+// EndpointCmd represents the endpoint command
+var EndpointCmd = &cobra.Command{
 	Use:   "endpoint",
 	Short: "Manage endpoints",
 }
 
 func init() {
-	rootCmd.AddCommand(endpointCmd)
+	RootCmd.AddCommand(EndpointCmd)
 }

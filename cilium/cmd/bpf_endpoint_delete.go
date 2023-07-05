@@ -35,5 +35,5 @@ var bpfEndpointDeleteCmd = &cobra.Command{
 }
 
 func init() {
-	bpfEndpointCmd.AddCommand(bpfEndpointDeleteCmd)
+	BPFEndpointCmd.AddCommand(bpfEndpointDeleteCmd)
 }

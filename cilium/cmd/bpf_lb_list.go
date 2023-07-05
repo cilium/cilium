@@ -169,7 +169,7 @@ var bpfLBListCmd = &cobra.Command{
 }
 
 func init() {
-	bpfLBCmd.AddCommand(bpfLBListCmd)
+	BPFLBCmd.AddCommand(bpfLBListCmd)
 	bpfLBListCmd.Flags().BoolVarP(&listRevNAT, "revnat", "", false, "List reverse NAT entries")
 	bpfLBListCmd.Flags().BoolVarP(&listFrontends, "frontends", "", false, "List all service frontend entries")
 	bpfLBListCmd.Flags().BoolVarP(&listBackends, "backends", "", false, "List all service backend entries")

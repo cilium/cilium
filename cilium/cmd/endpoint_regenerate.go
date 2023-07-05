@@ -36,5 +36,5 @@ var endpointRegenerateCmd = &cobra.Command{
 }
 
 func init() {
-	endpointCmd.AddCommand(endpointRegenerateCmd)
+	EndpointCmd.AddCommand(endpointRegenerateCmd)
 }

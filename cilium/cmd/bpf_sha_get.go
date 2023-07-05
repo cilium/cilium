@@ -32,7 +32,7 @@ var bpfShaGetCmd = &cobra.Command{
 }
 
 func init() {
-	bpfTemplateCmd.AddCommand(bpfShaGetCmd)
+	BPFTemplateCmd.AddCommand(bpfShaGetCmd)
 	command.AddOutputOption(bpfShaGetCmd)
 }
 

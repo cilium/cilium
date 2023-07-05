@@ -31,7 +31,7 @@ var bpfRecorderListCmd = &cobra.Command{
 }
 
 func init() {
-	bpfRecorderCmd.AddCommand(bpfRecorderListCmd)
+	BPFRecorderCmd.AddCommand(bpfRecorderListCmd)
 	command.AddOutputOption(bpfRecorderListCmd)
 }
 

@@ -87,7 +87,7 @@ var sections = map[string]addSection{
 }
 
 func init() {
-	rootCmd.AddCommand(debuginfoCmd)
+	RootCmd.AddCommand(debuginfoCmd)
 	debuginfoCmd.Flags().BoolVarP(&outputToFile, "file", "f", false, "Redirect output to file(s)")
 	debuginfoCmd.Flags().BoolVarP(&filePerCommand, "file-per-command", "", false, "Generate a single file per command")
 	debuginfoCmd.Flags().StringSliceVar(&outputOpts, "output", []string{}, "markdown| html| json| jsonpath='{}'")

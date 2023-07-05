@@ -23,7 +23,7 @@ var preFilterListCmd = &cobra.Command{
 }
 
 func init() {
-	preFilterCmd.AddCommand(preFilterListCmd)
+	PreFilterCmd.AddCommand(preFilterListCmd)
 	command.AddOutputOption(preFilterListCmd)
 }
 

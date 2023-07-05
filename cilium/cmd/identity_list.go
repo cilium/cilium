@@ -32,7 +32,7 @@ var identityListCmd = &cobra.Command{
 }
 
 func init() {
-	identityCmd.AddCommand(identityListCmd)
+	IdentityCmd.AddCommand(identityListCmd)
 	command.AddOutputOption(identityListCmd)
 	flags := identityListCmd.Flags()
 	flags.Bool("endpoints", false, "list identities of locally managed endpoints")

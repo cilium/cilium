@@ -25,7 +25,7 @@ var endpointLogCmd = &cobra.Command{
 }
 
 func init() {
-	endpointCmd.AddCommand(endpointLogCmd)
+	EndpointCmd.AddCommand(endpointLogCmd)
 	command.AddOutputOption(endpointLogCmd)
 }
 

@@ -29,5 +29,5 @@ var recorderDeleteCmd = &cobra.Command{
 }
 
 func init() {
-	recorderCmd.AddCommand(recorderDeleteCmd)
+	RecorderCmd.AddCommand(recorderDeleteCmd)
 }

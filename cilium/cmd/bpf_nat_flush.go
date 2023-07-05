@@ -24,7 +24,7 @@ var bpfNatFlushCmd = &cobra.Command{
 }
 
 func init() {
-	bpfNatCmd.AddCommand(bpfNatFlushCmd)
+	BPFNatCmd.AddCommand(bpfNatFlushCmd)
 }
 
 func flushNat() {

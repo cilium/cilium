@@ -87,6 +87,6 @@ func printSRv6PolicyList(policyList []srv6Policy) {
 }
 
 func init() {
-	bpfSRv6Cmd.AddCommand(bpfSRv6PolicyListCmd)
+	BPFSRv6Cmd.AddCommand(bpfSRv6PolicyListCmd)
 	command.AddOutputOption(bpfSRv6PolicyListCmd)
 }

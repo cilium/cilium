@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bpfAuthCmd represents the bpf command
-var bpfAuthCmd = &cobra.Command{
+// BPFAuthCmd represents the bpf command
+var BPFAuthCmd = &cobra.Command{
 	Use:   "auth",
 	Short: "Manage authenticated connections between identities",
 }
 
 func init() {
-	bpfCmd.AddCommand(bpfAuthCmd)
+	BPFCmd.AddCommand(BPFAuthCmd)
 }
