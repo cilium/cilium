@@ -792,6 +792,8 @@ Reporting a problem
 Before you report a problem, make sure to retrieve the necessary information
 from your cluster before the failure state is lost.
 
+.. _sysdump:
+
 Automatic log & state collection
 --------------------------------
 
