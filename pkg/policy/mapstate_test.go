@@ -56,15 +56,27 @@ func (ds *PolicyTestSuite) TestPolicyKeyTrafficDirection(c *check.C) {
 	c.Assert(k.IsEgress(), check.Equals, true)
 }
 
-func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
+// validatePortProto makes sure each Key in MapState abides by the contract that protocol/nexthdr
+// can only be wildcarded if the destination port is also wildcarded.
+func (m MapState) validatePortProto(c *check.C) {
+	for k := range m {
+		if k.Nexthdr == 0 {
+			c.Assert(k.DestPort, check.Equals, uint16(0))
+		}
+	}
+}
+
+func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsertWithChanges(c *check.C) {
 	type args struct {
 		key   Key
 		entry MapStateEntry
 	}
 	tests := []struct {
-		name       string
-		keys, want MapState
-		args       args
+		name                  string
+		keys, want            MapState
+		wantAdds, wantDeletes Keys
+		wantOldValues         MapState
+		args                  args
 	}{
 		{
 			name: "test-1 - no KV added, map should remain the same",
@@ -96,6 +108,9 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 					IsDeny:           false,
 				},
 			},
+			wantAdds:      Keys{},
+			wantDeletes:   Keys{},
+			wantOldValues: MapState{},
 		},
 		{
 			name: "test-2 - L3 allow KV should not overwrite deny entry",
@@ -146,6 +161,16 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 					IsDeny:           true,
 				},
 			},
+			wantAdds: Keys{
+				Key{
+					Identity:         1,
+					DestPort:         0,
+					Nexthdr:          0,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+			},
+			wantDeletes:   Keys{},
+			wantOldValues: MapState{},
 		},
 		{
 			name: "test-3 - L3-L4 allow KV should not overwrite deny entry",
@@ -186,6 +211,9 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 					IsDeny:           true,
 				},
 			},
+			wantAdds:      Keys{},
+			wantDeletes:   Keys{},
+			wantOldValues: MapState{},
 		},
 		{
 			name: "test-4 - L3-L4 deny KV should overwrite allow entry",
@@ -224,6 +252,27 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 					ProxyPort:        0,
 					DerivedFromRules: nil,
 					IsDeny:           true,
+				},
+			},
+			wantAdds: Keys{
+				Key{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+			},
+			wantDeletes: Keys{},
+			wantOldValues: MapState{
+				Key{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: MapStateEntry{
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
 				},
 			},
 		},
@@ -309,6 +358,44 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 					Identity:         2,
 					DestPort:         0,
 					Nexthdr:          0,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: MapStateEntry{
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			},
+			wantAdds: Keys{
+				Key{
+					Identity:         1,
+					DestPort:         0,
+					Nexthdr:          0,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+			},
+			wantDeletes: Keys{
+				Key{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+			},
+			wantOldValues: MapState{
+				Key{
+					Identity:         1,
+					DestPort:         0,
+					Nexthdr:          0,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: MapStateEntry{
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+				Key{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: MapStateEntry{
 					ProxyPort:        0,
@@ -426,6 +513,16 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 					IsDeny:           false,
 				},
 			},
+			wantAdds: Keys{
+				Key{
+					Identity:         1,
+					DestPort:         0,
+					Nexthdr:          0,
+					TrafficDirection: trafficdirection.Egress.Uint8(),
+				}: struct{}{},
+			},
+			wantDeletes:   Keys{},
+			wantOldValues: MapState{},
 		},
 		{
 			name: "test-7 - L3 ingress deny KV should not be overwritten by a L3-L4 ingress allow",
@@ -466,6 +563,9 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 					IsDeny:           true,
 				},
 			},
+			wantAdds:      Keys{},
+			wantDeletes:   Keys{},
+			wantOldValues: MapState{},
 		},
 		{
 			name: "test-8 - L3 ingress deny KV should not be overwritten by a L3-L4-L7 ingress allow",
@@ -506,9 +606,12 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 					IsDeny:           true,
 				},
 			},
+			wantAdds:      Keys{},
+			wantDeletes:   Keys{},
+			wantOldValues: MapState{},
 		},
 		{
-			name: "test-9 - L3 ingress deny KV should overwrite by a L3-L4-L7 ingress allow",
+			name: "test-9 - L3 ingress deny KV should overwrite a L3-L4-L7 ingress allow",
 			keys: MapState{
 				Key{
 					Identity:         1,
@@ -546,9 +649,37 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 					IsDeny:           true,
 				},
 			},
+			wantAdds: Keys{
+				Key{
+					Identity:         1,
+					DestPort:         0,
+					Nexthdr:          0,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+			},
+			wantDeletes: Keys{
+				Key{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+			},
+			wantOldValues: MapState{
+				Key{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: MapStateEntry{
+					ProxyPort:        8080,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			},
 		},
 		{
-			name: "test-10 - L3 ingress deny KV should overwrite by a L3-L4-L7 ingress allow and a L3-L4 deny",
+			name: "test-10 - L3 ingress deny KV should overwrite a L3-L4-L7 ingress allow and a L3-L4 deny",
 			keys: MapState{
 				Key{
 					Identity:         1,
@@ -589,6 +720,50 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 					Identity:         1,
 					DestPort:         0,
 					Nexthdr:          0,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: MapStateEntry{
+					ProxyPort:        0,
+					DerivedFromRules: nil,
+					IsDeny:           true,
+				},
+			},
+			wantAdds: Keys{
+				Key{
+					Identity:         1,
+					DestPort:         0,
+					Nexthdr:          0,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+			},
+			wantDeletes: Keys{
+				Key{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+				Key{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+			},
+			wantOldValues: MapState{
+				Key{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: MapStateEntry{
+					ProxyPort:        8080,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+				Key{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
 					TrafficDirection: trafficdirection.Ingress.Uint8(),
 				}: MapStateEntry{
 					ProxyPort:        0,
@@ -656,6 +831,9 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 					IsDeny:           true,
 				},
 			},
+			wantAdds:      Keys{},
+			wantDeletes:   Keys{},
+			wantOldValues: MapState{},
 		}, {
 			name: "test-12 - inserting a L3 'all' deny should delete all entries for that direction",
 			keys: MapState{
@@ -725,11 +903,71 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsert(c *check.C) {
 					IsDeny:           true,
 				},
 			},
+			wantAdds: Keys{
+				Key{
+					Identity:         0,
+					DestPort:         0,
+					Nexthdr:          0,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+			},
+			wantDeletes: Keys{
+				Key{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+				Key{
+					Identity:         1,
+					DestPort:         5,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: struct{}{},
+			},
+			wantOldValues: MapState{
+				Key{
+					Identity:         1,
+					DestPort:         80,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: MapStateEntry{
+					ProxyPort:        8080,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+				Key{
+					Identity:         1,
+					DestPort:         5,
+					Nexthdr:          3,
+					TrafficDirection: trafficdirection.Ingress.Uint8(),
+				}: MapStateEntry{
+					ProxyPort:        8080,
+					DerivedFromRules: nil,
+					IsDeny:           false,
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
-		tt.keys.DenyPreferredInsert(tt.args.key, tt.args.entry, nil)
-		c.Assert(tt.keys, checker.DeepEquals, tt.want, check.Commentf(tt.name))
+		adds := make(Keys)
+		deletes := make(Keys)
+		old := make(MapState)
+		// copy the starging point
+		keys := make(MapState, len(tt.keys))
+		for k, v := range tt.keys {
+			keys[k] = v
+		}
+		keys.DenyPreferredInsertWithChanges(tt.args.key, tt.args.entry, adds, deletes, old, nil)
+		keys.validatePortProto(c)
+		c.Assert(keys, checker.DeepEquals, tt.want, check.Commentf("%s: MapState mismatch", tt.name))
+		c.Assert(adds, checker.DeepEquals, tt.wantAdds, check.Commentf("%s: Adds mismatch", tt.name))
+		c.Assert(deletes, checker.DeepEquals, tt.wantDeletes, check.Commentf("%s: Deletes mismatch", tt.name))
+		c.Assert(old, checker.DeepEquals, tt.wantOldValues, check.Commentf("%s: OldValues mismatch", tt.name))
+
+		// Revert changes and check that we get the original mapstate
+		keys.RevertChanges(adds, old)
+		c.Assert(keys, checker.DeepEquals, tt.keys, check.Commentf("%s: Revert mismatch", tt.name))
 	}
 }
 
