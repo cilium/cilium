@@ -273,6 +273,7 @@ func (n *NodeManager) GetNames() (allNodeNames []string) {
 // Kubernetes apiserver. The CiliumNode will be created if it didn't exist before.
 func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 	n.mutex.Lock()
+	defer n.mutex.Unlock()
 	node, ok := n.nodes[resource.Name]
 	if !ok {
 		node = &Node{
@@ -317,7 +318,6 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		})
 		if err != nil {
 			node.logger().WithError(err).Error("Unable to create pool-maintainer trigger")
-			n.mutex.Unlock()
 			return
 		}
 
@@ -328,7 +328,6 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		})
 		if err != nil {
 			node.logger().WithError(err).Error("Unable to create pool-maintainer-retry trigger")
-			n.mutex.Unlock()
 			return
 		}
 		node.retry = retry
@@ -344,7 +343,6 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		if err != nil {
 			poolMaintainer.Shutdown()
 			node.logger().WithError(err).Error("Unable to create k8s-sync trigger")
-			n.mutex.Unlock()
 			return
 		}
 
@@ -362,7 +360,6 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 			poolMaintainer.Shutdown()
 			k8sSync.Shutdown()
 			node.logger().WithError(err).Error("Unable to create instance-sync trigger")
-			n.mutex.Unlock()
 			return
 		}
 		node.instanceSync = instanceSync
@@ -372,7 +369,8 @@ func (n *NodeManager) Upsert(resource *v2.CiliumNode) {
 		n.nodes[node.name] = node
 		log.WithField(fieldName, resource.Name).Info("Discovered new CiliumNode custom resource")
 	}
-	n.mutex.Unlock()
+	// Update the resource in the node while holding the lock, otherwise resyncs can be
+	// triggered prior to the update being applied.
 	node.UpdatedResource(resource)
 }
 
