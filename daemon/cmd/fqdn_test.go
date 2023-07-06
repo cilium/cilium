@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/re"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -37,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/testutils"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
+	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 )
 
 type DaemonFQDNSuite struct {
@@ -131,12 +131,7 @@ func (ds *DaemonFQDNSuite) SetUpTest(c *C) {
 	})
 	d.endpointManager = endpointmanager.New(&dummyEpSyncher{})
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(d.dnsNameManager)
-	d.ipcache = ipcache.NewIPCache(&ipcache.Configuration{
-		Context:           context.TODO(),
-		IdentityAllocator: d.identityAllocator,
-		PolicyHandler:     d.policy.GetSelectorCache(),
-		DatapathHandler:   d.endpointManager,
-	})
+	d.ipcache = testipcache.NewMockIPCache()
 	ds.d = d
 
 	logger.SetEndpointInfoRegistry(&dummyInfoRegistry{})
