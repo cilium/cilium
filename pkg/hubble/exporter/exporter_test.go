@@ -9,6 +9,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/cilium/fake"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -23,6 +24,10 @@ import (
 type bytesWriteCloser struct{ bytes.Buffer }
 
 func (bwc *bytesWriteCloser) Close() error { return nil }
+
+type ioWriteCloser struct{ io.Writer }
+
+func (wc *ioWriteCloser) Close() error { return nil }
 
 func TestExporter(t *testing.T) {
 	// override node name for unit test.
@@ -256,4 +261,110 @@ func TestExporterWithFieldMask(t *testing.T) {
 	assert.Equal(t, `{"flow":{"source":{"namespace":"nsA","pod_name":"podA"}}}
 {"flow":{}}
 `, buf.String())
+}
+
+func BenchmarkExporter(b *testing.B) {
+	allowNS, denyNS := fake.K8sNamespace(), fake.K8sNamespace()
+	for allowNS == denyNS {
+		allowNS, denyNS = fake.K8sNamespace(), fake.K8sNamespace()
+	}
+	allowEvent := v1.Event{
+		Event: &observerpb.Flow{
+			Time:     &timestamp.Timestamp{Seconds: 1},
+			NodeName: fake.K8sNodeName(),
+			Source: &flowpb.Endpoint{
+				Namespace: allowNS,
+				PodName:   fake.K8sPodName(),
+				Labels:    fake.K8sLabels(),
+			},
+			Destination: &flowpb.Endpoint{
+				Namespace: allowNS,
+				PodName:   fake.K8sPodName(),
+				Labels:    fake.K8sLabels(),
+			},
+			SourceNames:      fake.Names(2),
+			DestinationNames: fake.Names(2),
+			Verdict:          flowpb.Verdict_AUDIT,
+			Summary:          fake.AlphaNum(20),
+		},
+	}
+	noAllowEvent := v1.Event{
+		Event: &observerpb.Flow{
+			Time:     &timestamp.Timestamp{Seconds: 1},
+			NodeName: fake.K8sNodeName(),
+			Source: &flowpb.Endpoint{
+				Namespace: denyNS,
+				PodName:   fake.K8sPodName(),
+				Labels:    fake.K8sLabels(),
+			},
+			Destination: &flowpb.Endpoint{
+				Namespace: allowNS,
+				PodName:   fake.K8sPodName(),
+				Labels:    fake.K8sLabels(),
+			},
+			SourceNames:      fake.Names(2),
+			DestinationNames: fake.Names(2),
+			Verdict:          flowpb.Verdict_AUDIT,
+			Summary:          fake.AlphaNum(20),
+		},
+	}
+	denyEvent := v1.Event{
+		Event: &observerpb.Flow{
+			Time:     &timestamp.Timestamp{Seconds: 1},
+			NodeName: fake.K8sNodeName(),
+			Source: &flowpb.Endpoint{
+				Namespace: allowNS,
+				PodName:   fake.K8sPodName(),
+				Labels:    fake.K8sLabels(),
+			},
+			Destination: &flowpb.Endpoint{
+				Namespace: denyNS,
+				PodName:   fake.K8sPodName(),
+				Labels:    fake.K8sLabels(),
+			},
+			SourceNames:      fake.Names(2),
+			DestinationNames: fake.Names(2),
+			Verdict:          flowpb.Verdict_AUDIT,
+			Summary:          fake.AlphaNum(20),
+		},
+	}
+
+	buf := &ioWriteCloser{io.Discard}
+	log := logrus.New()
+	log.SetOutput(io.Discard)
+
+	opts := exporteroption.Default
+	for _, opt := range []exporteroption.Option{
+		exporteroption.WithFieldMask([]string{"time", "node_name", "source"}),
+		exporteroption.WithAllowList([]*flowpb.FlowFilter{
+			{SourcePod: []string{"no-matches-for-this-one"}},
+			{SourcePod: []string{allowNS + "/"}},
+		}),
+		exporteroption.WithDenyList([]*flowpb.FlowFilter{
+			{DestinationPod: []string{"no-matches-for-this-one"}},
+			{DestinationPod: []string{denyNS + "/"}},
+		}),
+	} {
+		err := opt(&opts)
+		assert.NoError(b, err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	exporter, err := newExporter(ctx, log, buf, opts)
+	assert.NoError(b, err)
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		event := &allowEvent
+		if i%10 == 0 { // 10% doesn't match allow filter
+			event = &noAllowEvent
+		}
+		if i%10 == 1 { // 10% matches deny filter
+			event = &denyEvent
+		}
+		stop, err := exporter.OnDecodedEvent(ctx, event)
+		assert.False(b, stop)
+		assert.NoError(b, err)
+	}
 }
