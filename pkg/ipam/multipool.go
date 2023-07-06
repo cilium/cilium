@@ -200,7 +200,7 @@ type multiPoolManager struct {
 	k8sUpdater  *trigger.Trigger
 	nodeUpdater nodeUpdater
 
-	finishedRestore bool
+	finishedRestore map[Family]bool
 }
 
 var _ Allocator = (*multiPoolAllocator)(nil)
@@ -235,7 +235,7 @@ func newMultiPoolManager(conf Configuration, nodeWatcher nodeWatcher, owner Owne
 		controller:             k8sController,
 		k8sUpdater:             k8sUpdater,
 		nodeUpdater:            clientset,
-		finishedRestore:        false,
+		finishedRestore:        map[Family]bool{},
 	}
 
 	// Subscribe to CiliumNode updates
@@ -410,6 +410,16 @@ func (m *multiPoolManager) computeNeededIPsPerPoolLocked() map[Pool]types.IPAMPo
 	return demand
 }
 
+func (m *multiPoolManager) restoreFinished(family Family) {
+	m.mutex.Lock()
+	m.finishedRestore[family] = true
+	m.mutex.Unlock()
+}
+
+func (m *multiPoolManager) isRestoreFinishedLocked(family Family) bool {
+	return m.finishedRestore[family]
+}
+
 func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 	m.mutex.Lock()
 	newNode := m.node.DeepCopy()
@@ -435,14 +445,18 @@ func (m *multiPoolManager) updateCiliumNode(ctx context.Context) error {
 
 		cidrs := []types.IPAMPodCIDR{}
 		if v4Pool := pool.v4; v4Pool != nil {
-			v4Pool.releaseExcessCIDRsMultiPool(neededIPs.IPv4Addrs)
+			if m.isRestoreFinishedLocked(IPv4) {
+				v4Pool.releaseExcessCIDRsMultiPool(neededIPs.IPv4Addrs)
+			}
 			v4CIDRs := v4Pool.inUsePodCIDRs()
 
 			slices.Sort(v4CIDRs)
 			cidrs = append(cidrs, v4CIDRs...)
 		}
 		if v6Pool := pool.v6; v6Pool != nil {
-			v6Pool.releaseExcessCIDRsMultiPool(neededIPs.IPv6Addrs)
+			if m.isRestoreFinishedLocked(IPv6) {
+				v6Pool.releaseExcessCIDRsMultiPool(neededIPs.IPv6Addrs)
+			}
 			v6CIDRs := v6Pool.inUsePodCIDRs()
 
 			slices.Sort(v6CIDRs)
@@ -700,4 +714,6 @@ func (c *multiPoolAllocator) Dump() (map[string]string, string) {
 	return c.manager.dump(c.family)
 }
 
-func (c *multiPoolAllocator) RestoreFinished() {}
+func (c *multiPoolAllocator) RestoreFinished() {
+	c.manager.restoreFinished(c.family)
+}
