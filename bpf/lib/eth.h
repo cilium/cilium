@@ -6,6 +6,8 @@
 
 #include <linux/if_ether.h>
 
+#include "endian.h"
+
 #ifndef ETH_HLEN
 #define ETH_HLEN __ETH_HLEN
 #endif
@@ -114,6 +116,12 @@ static __always_inline int eth_store_proto(struct __ctx_buff *ctx,
 {
 	return ctx_store_bytes(ctx, off + ETH_ALEN + ETH_ALEN,
 			       &proto, sizeof(proto), 0);
+}
+
+static __always_inline bool eth_is_supported_proto(__be16 proto)
+{
+	/* non-Ethernet II unsupported */
+	return proto >= bpf_htons(ETH_P_802_3_MIN);
 }
 
 #endif /* __LIB_ETH__ */

@@ -173,10 +173,7 @@ static __always_inline bool validate_ethertype_l2_off(struct __ctx_buff *ctx,
 	eth = data + l2_off;
 
 	*proto = eth->h_proto;
-	if (bpf_ntohs(*proto) < ETH_P_802_3_MIN)
-		return false; /* non-Ethernet II unsupported */
-
-	return true;
+	return eth_is_supported_proto(*proto);
 }
 
 static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,

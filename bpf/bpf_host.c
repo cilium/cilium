@@ -438,16 +438,12 @@ int tail_handle_ipv6_from_netdev(struct __ctx_buff *ctx)
 
 # ifdef ENABLE_HOST_FIREWALL
 static __always_inline int
-handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext_err)
+handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+		      struct trace_ctx *trace, __s8 *ext_err)
 {
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
 	__u32 src_id = 0;
 	int hdrlen, ret;
 	__u8 nexthdr;
-
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
 
 	nexthdr = ip6->nexthdr;
 	hdrlen = ipv6_hdrlen(ctx, &nexthdr);
@@ -860,17 +856,13 @@ int tail_handle_ipv4_from_netdev(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_HOST_FIREWALL
 static __always_inline int
-handle_to_netdev_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext_err)
+handle_to_netdev_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
+		      struct trace_ctx *trace, __s8 *ext_err)
 {
-	void *data, *data_end;
-	struct iphdr *ip4;
 	__u32 src_id = 0, ipcache_srcid = 0;
 
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST)
 		src_id = HOST_ID;
-
-	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
 
 	src_id = resolve_srcid_ipv4(ctx, ip4, src_id, &ipcache_srcid, true);
 
@@ -1212,25 +1204,21 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 
 #ifdef ENABLE_SRV6
 static __always_inline int
-handle_srv6(struct __ctx_buff *ctx)
+handle_srv6(struct __ctx_buff *ctx, __be16 proto,
+	    struct ipv6hdr *ip6 __maybe_unused,
+	    struct iphdr *ip4 __maybe_unused)
 {
 	__u32 *vrf_id, dst_sec_identity;
 	struct srv6_ipv6_2tuple *outer_ips;
-	struct iphdr *ip4 __maybe_unused;
 	struct remote_endpoint_info *ep;
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
 	union v6addr *sid;
-	__u16 proto;
 
-	if (!validate_ethertype(ctx, &proto))
+	if (!eth_is_supported_proto(proto))
 		return DROP_UNSUPPORTED_L2;
 
 	switch (proto) {
+# ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		if (!revalidate_data(ctx, &data, &data_end, &ip6))
-			return DROP_INVALID;
-
 		outer_ips = srv6_lookup_state_entry6(ip6);
 		if (outer_ips) {
 			ep_tail_call(ctx, CILIUM_CALL_SRV6_REPLY);
@@ -1259,11 +1247,9 @@ handle_srv6(struct __ctx_buff *ctx)
 		ctx_store_meta(ctx, CB_SRV6_VRF_ID, *vrf_id);
 		ep_tail_call(ctx, CILIUM_CALL_SRV6_ENCAP);
 		return DROP_MISSED_TAIL_CALL;
+# endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
-
 		outer_ips = srv6_lookup_state_entry4(ip4);
 		if (outer_ips) {
 			ep_tail_call(ctx, CILIUM_CALL_SRV6_REPLY);
@@ -1384,6 +1370,10 @@ int cil_from_host(struct __ctx_buff *ctx)
 __section_entry
 int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 {
+	void *data __maybe_unused, *data_end __maybe_unused;
+	struct ipv6hdr *ip6 __maybe_unused = NULL;
+	struct iphdr *ip4 __maybe_unused = NULL;
+	__be16 proto __maybe_unused = 0;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
@@ -1392,7 +1382,6 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	int ret = CTX_ACT_OK;
 #ifdef ENABLE_HOST_FIREWALL
 	__s8 ext_err = 0;
-	__u16 proto = 0;
 #endif
 
 	/* Filter allowed vlan id's and pass them back to kernel.
@@ -1423,12 +1412,34 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	}
 #endif
 
-#ifdef ENABLE_HOST_FIREWALL
-	if (!validate_ethertype(ctx, &proto)) {
-		ret = DROP_UNSUPPORTED_L2;
-		goto out;
-	}
+/* Pull L3 header for anyone who needs it: */
+#if defined(ENABLE_HOST_FIREWALL) || defined(ENABLE_SRV6) ||		\
+    defined(ENABLE_WIREGUARD) || defined(ENABLE_NODEPORT)
+	validate_ethertype(ctx, &proto);
 
+	switch (proto) {
+# ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+		break;
+# endif
+# ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+		break;
+# endif
+	default:
+		break;
+	}
+#endif
+
+#ifdef ENABLE_HOST_FIREWALL
 	policy_clear_mark(ctx);
 
 	switch (proto) {
@@ -1439,20 +1450,24 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = handle_to_netdev_ipv6(ctx, &trace, &ext_err);
+		ret = handle_to_netdev_ipv6(ctx, ip6, &trace, &ext_err);
 		break;
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP): {
-		ret = handle_to_netdev_ipv4(ctx, &trace, &ext_err);
+		ret = handle_to_netdev_ipv4(ctx, ip4, &trace, &ext_err);
 		break;
 	}
 # endif
 	default:
-		ret = DROP_UNKNOWN_L3;
+		if (!eth_is_supported_proto(proto))
+			ret = DROP_UNSUPPORTED_L2;
+		else
+			ret = DROP_UNKNOWN_L3;
+
 		break;
 	}
-out:
+
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
@@ -1500,7 +1515,7 @@ out:
 #endif /* ENABLE_WIREGUARD */
 
 #ifdef ENABLE_SRV6
-	ret = handle_srv6(ctx);
+	ret = handle_srv6(ctx, proto, ip6, ip4);
 	if (ret != CTX_ACT_OK)
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
@@ -1529,6 +1544,9 @@ out:
 			  0, trace.reason, trace.monitor);
 
 	return ret;
+
+__maybe_unused drop_err:
+	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 }
 
 /*
