@@ -1945,7 +1945,7 @@ func EnableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameter
 		ResetValues: false,
 		ReuseValues: true,
 	}
-	_, err = helm.Upgrade(ctx, k8sClient.RESTClientGetter, upgradeParams)
+	_, err = helm.Upgrade(ctx, k8sClient.RESTClientGetterForHelm, upgradeParams)
 	return err
 }
 
@@ -1965,12 +1965,12 @@ func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Paramete
 		ResetValues: false,
 		ReuseValues: true,
 	}
-	_, err = helm.Upgrade(ctx, k8sClient.RESTClientGetter, upgradeParams)
+	_, err = helm.Upgrade(ctx, k8sClient.RESTClientGetterForHelm, upgradeParams)
 	return err
 }
 
 func getRelease(kc *k8s.Client, namespace string) (*release.Release, error) {
-	client := kc.RESTClientGetter
+	client := kc.RESTClientGetterForHelm
 	release, err := helm.GetCurrentRelease(client, namespace, defaults.HelmReleaseName)
 	if err != nil {
 		return nil, err
@@ -2084,7 +2084,7 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 	// Enable clustermesh using a Helm Upgrade command against our target cluster
 	k.Log("ℹ️ Configuring Cilium in cluster '%s' to connect to cluster '%s'",
 		localClient.ClusterName(), remoteClient.ClusterName())
-	_, err = helm.Upgrade(ctx, localClient.RESTClientGetter, upgradeParams)
+	_, err = helm.Upgrade(ctx, localClient.RESTClientGetterForHelm, upgradeParams)
 	if err != nil {
 		return err
 	}
@@ -2093,7 +2093,7 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 	k.Log("ℹ️ Configuring Cilium in cluster '%s' to connect to cluster '%s'",
 		remoteClient.ClusterName(), localClient.ClusterName())
 	upgradeParams.Values = remoteHelmValues
-	_, err = helm.Upgrade(ctx, remoteClient.RESTClientGetter, upgradeParams)
+	_, err = helm.Upgrade(ctx, remoteClient.RESTClientGetterForHelm, upgradeParams)
 	if err != nil {
 		return err
 	}
@@ -2187,7 +2187,7 @@ func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
 	// Disconnect clustermesh using a Helm Upgrade command against our target cluster
 	k.Log("ℹ️ Configuring Cilium in cluster '%s' to disconnect from cluster '%s'",
 		localClient.ClusterName(), remoteClient.ClusterName())
-	if _, err = helm.Upgrade(ctx, localClient.RESTClientGetter, upgradeParams); err != nil {
+	if _, err = helm.Upgrade(ctx, localClient.RESTClientGetterForHelm, upgradeParams); err != nil {
 		return err
 	}
 
@@ -2195,7 +2195,7 @@ func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
 	k.Log("ℹ️ Configuring Cilium in cluster '%s' to disconnect from cluster '%s'",
 		remoteClient.ClusterName(), localClient.ClusterName())
 	upgradeParams.Values = remoteHelmValues
-	if _, err = helm.Upgrade(ctx, remoteClient.RESTClientGetter, upgradeParams); err != nil {
+	if _, err = helm.Upgrade(ctx, remoteClient.RESTClientGetterForHelm, upgradeParams); err != nil {
 		return err
 	}
 	k.Log("✅ Disconnected clusters %s and %s!", localClient.ClusterName(), remoteClient.ClusterName())
