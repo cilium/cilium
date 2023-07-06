@@ -100,7 +100,6 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_un
  */
 static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
-			       __u16 node_id __maybe_unused,
 			       __u32 seclabel, __u32 dstid,
 			       const struct trace_ctx *trace)
 {
