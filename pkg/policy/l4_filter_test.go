@@ -180,7 +180,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	c.Assert(filter.SelectsAllEndpoints(), Equals, true)
 
-	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
+	c.Assert(filter.redirectTypes, Equals, redirectTypeNone)
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 
@@ -227,7 +227,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndAllowAllL7(c *C) {
 
 	c.Assert(filter.SelectsAllEndpoints(), Equals, true)
 
-	c.Assert(filter.L7Parser, Equals, ParserTypeNone)
+	c.Assert(filter.redirectTypes, Equals, redirectTypeNone)
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
@@ -281,24 +281,24 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 	c.Log(buffer)
 
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
-		L7Parser: "http",
+		Port:          80,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      wildcardCachedSelector,
+		redirectTypes: redirectTypeEnvoy,
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}, {}},
 				},
-				isRedirect: true,
+				L7Parser: "http",
 			},
 		},
 		Ingress:          true,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -353,7 +353,7 @@ func (ds *PolicyTestSuite) TestMergeAllowAllL3AndShadowedL7(c *C) {
 
 	c.Assert(filter.SelectsAllEndpoints(), Equals, true)
 
-	c.Assert(filter.L7Parser, Equals, ParserTypeHTTP)
+	c.Assert(filter.redirectTypes, Equals, redirectTypeEnvoy)
 	c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 	l4IngressPolicy.Detach(repo.GetSelectorCache())
 }
@@ -399,17 +399,17 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 		}}
 
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
+		Port:          80,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      wildcardCachedSelector,
+		redirectTypes: redirectTypeEnvoy,
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
+				L7Parser: ParserTypeHTTP,
 			},
 		},
 		Ingress:          true,
@@ -425,7 +425,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7HTTP(c *C)
 	res, err := identicalHTTPRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -485,17 +485,17 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 	c.Log(buffer)
 
 	expected := L4PolicyMap{"9092/TCP": &L4Filter{
-		Port:     9092,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
-		L7Parser: ParserTypeKafka,
+		Port:          9092,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      wildcardCachedSelector,
+		redirectTypes: redirectTypeProxylib,
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					Kafka: []kafka.PortRule{{Topic: "foo"}},
 				},
-				isRedirect: true,
+				L7Parser: ParserTypeKafka,
 			},
 		},
 		Ingress:          true,
@@ -506,7 +506,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 	res, err := identicalKafkaRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -780,11 +780,11 @@ func (ds *PolicyTestSuite) TestMergeTLSTCPPolicy(c *C) {
 
 	// Since cachedSelectorA's map entry is 'nil', it will not be redirected to the proxy.
 	expected := L4PolicyMap{"443/TCP": &L4Filter{
-		Port:     443,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: nil,
-		L7Parser: ParserTypeTLS,
+		Port:          443,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      nil,
+		redirectTypes: redirectTypeEnvoy,
 		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
 			cachedSelectorC: &PerSelectorPolicy{
@@ -798,18 +798,18 @@ func (ds *PolicyTestSuite) TestMergeTLSTCPPolicy(c *C) {
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
 				L7Rules:         api.L7Rules{},
-				isRedirect:      true,
+				L7Parser:        ParserTypeTLS,
 			},
 		},
 		Ingress:          false,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 
 	l4Filter := res["443/TCP"]
 	c.Assert(l4Filter, Not(IsNil))
-	c.Assert(l4Filter.L7Parser, Equals, ParserTypeTLS)
+	c.Assert(l4Filter.redirectTypes, Equals, redirectTypeEnvoy)
 	log.Infof("res: %v", res)
 }
 
@@ -870,11 +870,11 @@ func (ds *PolicyTestSuite) TestMergeTLSHTTPPolicy(c *C) {
 
 	// Since cachedSelectorA's map entry is 'nil', it will not be redirected to the proxy.
 	expected := L4PolicyMap{"443/TCP": &L4Filter{
-		Port:     443,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: nil,
-		L7Parser: ParserTypeHTTP,
+		Port:          443,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      nil,
+		redirectTypes: redirectTypeEnvoy,
 		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
 			cachedSelectorC: &PerSelectorPolicy{
@@ -890,18 +890,18 @@ func (ds *PolicyTestSuite) TestMergeTLSHTTPPolicy(c *C) {
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{}},
 				},
-				isRedirect: true,
+				L7Parser: ParserTypeHTTP,
 			},
 		},
 		Ingress:          false,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 
 	l4Filter := res["443/TCP"]
 	c.Assert(l4Filter, Not(IsNil))
-	c.Assert(l4Filter.L7Parser, Equals, ParserTypeHTTP)
+	c.Assert(l4Filter.redirectTypes, Equals, redirectTypeEnvoy)
 	log.Infof("res: %v", res)
 }
 
@@ -978,11 +978,11 @@ func (ds *PolicyTestSuite) TestMergeTLSSNIPolicy(c *C) {
 
 	// Since cachedSelectorA's map entry is 'nil', it will not be redirected to the proxy.
 	expected := L4PolicyMap{"443/TCP": &L4Filter{
-		Port:     443,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: nil,
-		L7Parser: ParserTypeHTTP,
+		Port:          443,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      nil,
+		redirectTypes: redirectTypeEnvoy,
 		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
 			cachedSelectorC: &PerSelectorPolicy{
@@ -999,18 +999,18 @@ func (ds *PolicyTestSuite) TestMergeTLSSNIPolicy(c *C) {
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{}},
 				},
-				isRedirect: true,
+				L7Parser: ParserTypeHTTP,
 			},
 		},
 		Ingress:          false,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 
 	l4Filter := res["443/TCP"]
 	c.Assert(l4Filter, Not(IsNil))
-	c.Assert(l4Filter.L7Parser, Equals, ParserTypeHTTP)
+	c.Assert(l4Filter.redirectTypes, Equals, redirectTypeEnvoy)
 	log.Infof("res: %v", res)
 }
 
@@ -1121,29 +1121,29 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 
 	// Since cachedSelectorA's map entry is 'nil', it will not be redirected to the proxy.
 	expected := L4PolicyMap{"443/TCP": &L4Filter{
-		Port:     443,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: nil,
-		L7Parser: ParserTypeCRD,
+		Port:          443,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      nil,
+		redirectTypes: redirectTypeEnvoy,
 		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
 			cachedSelectorC: &PerSelectorPolicy{
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
-				isRedirect:      true,
+				L7Parser:        ParserTypeCRD,
+				Listener:        "/shared-cec/test",
 			},
 		},
-		Listener:         "/shared-cec/test",
 		Ingress:          false,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 
 	l4Filter := res["443/TCP"]
 	c.Assert(l4Filter, Not(IsNil))
-	c.Assert(l4Filter.L7Parser, Equals, ParserTypeCRD)
+	c.Assert(l4Filter.redirectTypes, Equals, redirectTypeEnvoy)
 	log.Infof("res: %v", res)
 
 	//
@@ -1200,29 +1200,29 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 
 	// Since cachedSelectorA's map entry is 'nil', it will not be redirected to the proxy.
 	expected = L4PolicyMap{"443/TCP": &L4Filter{
-		Port:     443,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: nil,
-		L7Parser: ParserTypeCRD,
+		Port:          443,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      nil,
+		redirectTypes: redirectTypeEnvoy,
 		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
 			cachedSelectorC: &PerSelectorPolicy{
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
-				isRedirect:      true,
+				L7Parser:        ParserTypeCRD,
+				Listener:        "default/test-cec/test",
 			},
 		},
-		Listener:         "default/test-cec/test",
 		Ingress:          false,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 
 	l4Filter = res["443/TCP"]
 	c.Assert(l4Filter, Not(IsNil))
-	c.Assert(l4Filter.L7Parser, Equals, ParserTypeCRD)
+	c.Assert(l4Filter.redirectTypes, Equals, redirectTypeEnvoy)
 	log.Infof("res: %v", res)
 
 	//
@@ -1280,29 +1280,29 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 
 	// Since cachedSelectorA's map entry is 'nil', it will not be redirected to the proxy.
 	expected = L4PolicyMap{"443/TCP": &L4Filter{
-		Port:     443,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: nil,
-		L7Parser: ParserTypeCRD,
+		Port:          443,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      nil,
+		redirectTypes: redirectTypeEnvoy,
 		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil, // no proxy redirect
 			cachedSelectorC: &PerSelectorPolicy{
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
-				isRedirect:      true,
+				L7Parser:        ParserTypeCRD,
+				Listener:        "/shared-cec/test",
 			},
 		},
-		Listener:         "/shared-cec/test",
 		Ingress:          false,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 
 	l4Filter = res["443/TCP"]
 	c.Assert(l4Filter, Not(IsNil))
-	c.Assert(l4Filter.L7Parser, Equals, ParserTypeCRD)
+	c.Assert(l4Filter.redirectTypes, Equals, redirectTypeEnvoy)
 	log.Infof("res: %v", res)
 }
 
@@ -1348,7 +1348,6 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
-		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA:        nil,
 			wildcardCachedSelector: nil,
@@ -1412,7 +1411,6 @@ func (ds *PolicyTestSuite) TestL3RuleShadowedByL3AllowAll(c *C) {
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: wildcardCachedSelector,
-		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 			cachedSelectorA:        nil,
@@ -1485,18 +1483,18 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	c.Log(buffer)
 
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
+		Port:          80,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      wildcardCachedSelector,
+		redirectTypes: redirectTypeEnvoy,
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 			cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
+				L7Parser: ParserTypeHTTP,
 			},
 		},
 		Ingress:          true,
@@ -1507,7 +1505,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	res, err := shadowRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -1561,18 +1559,18 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	c.Log(buffer)
 
 	expected = L4PolicyMap{"80/TCP": &L4Filter{
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
+		Port:          80,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      wildcardCachedSelector,
+		redirectTypes: redirectTypeEnvoy,
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 			cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
+				L7Parser: ParserTypeHTTP,
 			},
 		},
 		Ingress:          true,
@@ -1583,7 +1581,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RulePartiallyShadowedByL3AllowAll(c *
 	res, err = shadowRule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -1650,23 +1648,23 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	c.Log(buffer)
 
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
+		Port:          80,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      wildcardCachedSelector,
+		redirectTypes: redirectTypeEnvoy,
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
+				L7Parser: ParserTypeHTTP,
 			},
 			cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
+				L7Parser: ParserTypeHTTP,
 			},
 		},
 		Ingress:          true,
@@ -1677,7 +1675,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	res, err := case8Rule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -1736,23 +1734,23 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
 
 	expected = L4PolicyMap{"80/TCP": &L4Filter{
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
+		Port:          80,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      wildcardCachedSelector,
+		redirectTypes: redirectTypeEnvoy,
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
+				L7Parser: ParserTypeHTTP,
 			},
 			cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
+				L7Parser: ParserTypeHTTP,
 			},
 		},
 		Ingress:          true,
@@ -1764,7 +1762,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 	c.Log(buffer)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -1780,7 +1778,7 @@ func (ds *PolicyTestSuite) TestL3RuleWithL7RuleShadowedByL3AllowAll(c *C) {
 
 // Case 9: allow all at L3 and restricts on L7 in one rule, and in another rule,
 // select an endpoint which restricts on different L7 protocol.
-// Should fail as cannot have conflicting parsers on same port.
+// Should not fail as can have different parsers for different selectors on the same port.
 func (ds *PolicyTestSuite) TestL3SelectingEndpointAndL3AllowAllMergeConflictingL7(c *C) {
 
 	// Case 9A: Kafka first, then HTTP.
@@ -1821,6 +1819,30 @@ func (ds *PolicyTestSuite) TestL3SelectingEndpointAndL3AllowAllMergeConflictingL
 			},
 		}}
 
+	expected := L4PolicyMap{"80/TCP": &L4Filter{
+		Port:          80,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      wildcardCachedSelector,
+		redirectTypes: redirectTypeProxylib,
+		PerSelectorPolicies: L7DataMap{
+			wildcardCachedSelector: &PerSelectorPolicy{
+				L7Rules: api.L7Rules{
+					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
+				},
+				L7Parser: ParserTypeHTTP,
+			},
+			cachedSelectorA: &PerSelectorPolicy{
+				L7Rules: api.L7Rules{
+					Kafka: []kafka.PortRule{{Topic: "foo"}},
+				},
+				L7Parser: ParserTypeKafka,
+			},
+		},
+		Ingress:          true,
+		DerivedFromRules: labels.LabelArrayList{nil},
+	}}
+
 	buffer := new(bytes.Buffer)
 	ctxToA := SearchContext{To: labelsA, Trace: TRACE_VERBOSE}
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
@@ -1828,8 +1850,8 @@ func (ds *PolicyTestSuite) TestL3SelectingEndpointAndL3AllowAllMergeConflictingL
 
 	state := traceState{}
 	res, err := conflictingL7Rule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
-	c.Assert(err, Not(IsNil))
-	c.Assert(res, IsNil)
+	c.Assert(err, IsNil)
+	c.Assert(res, checker.Equals, expected)
 
 	state = traceState{}
 	res, err = conflictingL7Rule.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
@@ -1883,8 +1905,8 @@ func (ds *PolicyTestSuite) TestL3SelectingEndpointAndL3AllowAllMergeConflictingL
 
 	state = traceState{}
 	res, err = conflictingL7Rule.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
-	c.Assert(err, Not(IsNil))
-	c.Assert(res, IsNil)
+	c.Assert(err, IsNil)
+	c.Assert(res, checker.Equals, expected)
 
 	state = traceState{}
 	res, err = conflictingL7Rule.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
@@ -1941,23 +1963,23 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 	c.Log(buffer)
 
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: nil,
-		L7Parser: ParserTypeHTTP,
+		Port:          80,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      nil,
+		redirectTypes: redirectTypeEnvoy,
 		PerSelectorPolicies: L7DataMap{
 			cachedSelectorC: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
+				L7Parser: ParserTypeHTTP,
 			},
 			cachedSelectorA: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
+				L7Parser: ParserTypeHTTP,
 			},
 		},
 		Ingress:          true,
@@ -1968,7 +1990,7 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointsSelectedAllowSameL7(
 	res, err := selectDifferentEndpointsRestrictL7.resolveIngressPolicy(testPolicyContext, &ctxToA, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -2027,7 +2049,6 @@ func (ds *PolicyTestSuite) TestMergingWithDifferentEndpointSelectedAllowAllL7(c 
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
 		wildcard: nil,
-		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
 			cachedSelectorA: nil,
 			cachedSelectorC: nil,
@@ -2099,17 +2120,17 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 	ctxToA.Logging = stdlog.New(buffer, "", 0)
 
 	expected := L4PolicyMap{"80/TCP": &L4Filter{
-		Port:     80,
-		Protocol: api.ProtoTCP,
-		U8Proto:  6,
-		wildcard: wildcardCachedSelector,
-		L7Parser: ParserTypeHTTP,
+		Port:          80,
+		Protocol:      api.ProtoTCP,
+		U8Proto:       6,
+		wildcard:      wildcardCachedSelector,
+		redirectTypes: redirectTypeEnvoy,
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 				},
-				isRedirect: true,
+				L7Parser: ParserTypeHTTP,
 			},
 			cachedSelectorHost: nil, // no proxy redirect
 		},
@@ -2122,7 +2143,7 @@ func (ds *PolicyTestSuite) TestAllowingLocalhostShadowsL7(c *C) {
 	c.Log(buffer)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
 	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
@@ -2166,7 +2187,6 @@ func (ds *PolicyTestSuite) TestEntitiesL3(c *C) {
 		Protocol: api.ProtoAny,
 		U8Proto:  0,
 		wildcard: wildcardCachedSelector,
-		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
 			wildcardCachedSelector: nil,
 		},

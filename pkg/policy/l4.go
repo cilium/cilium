@@ -183,8 +183,13 @@ type PerSelectorPolicy struct {
 	// TLS handshake.
 	ServerNames StringSet `json:"serverNames,omitempty"`
 
-	// isRedirect is 'true' when traffic must be redirected
-	isRedirect bool `json:"-"`
+	// L7Parser specifies the L7 protocol parser (optional). If specified as
+	// an empty string, then means that no L7 proxy redirect is performed.
+	L7Parser L7ParserType `json:"parser,omitempty"`
+
+	// Listener is an optional fully qualified name of a Envoy Listner defined in a CiliumEnvoyConfig CRD that should be
+	// used for this traffic instead of the default listener
+	Listener string `json:"listener,omitempty"`
 
 	// Pre-computed HTTP rules, computed after rule merging is complete
 	EnvoyHTTPRules *cilium.HttpNetworkPolicyRules `json:"-"`
@@ -209,10 +214,27 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 		a.TerminatingTLS.Equal(b.TerminatingTLS) &&
 		a.OriginatingTLS.Equal(b.OriginatingTLS) &&
 		a.ServerNames.Equal(b.ServerNames) &&
-		a.isRedirect == b.isRedirect &&
-		a.Auth.DeepEqual(b.Auth) &&
+		a.Listener == b.Listener &&
+		a.L7Parser == b.L7Parser &&
+		(a.Auth == nil && b.Auth == nil || a.Auth != nil && a.Auth.DeepEqual(b.Auth)) &&
 		a.IsDeny == b.IsDeny &&
 		a.L7Rules.DeepEqual(&b.L7Rules)
+}
+
+// GetParsertype returns the ParserType of the PerSelectorPolicy
+func (a *PerSelectorPolicy) GetParserType() L7ParserType {
+	if a == nil {
+		return ParserTypeNone
+	}
+	return a.L7Parser
+}
+
+// GetListener returns the listener of the PerSelectorPolicy.
+func (a *PerSelectorPolicy) GetListener() string {
+	if a == nil {
+		return ""
+	}
+	return a.Listener
 }
 
 // AuthType enumerates the supported authentication types in api.
@@ -255,7 +277,7 @@ func (a AuthType) String() string {
 
 // IsRedirect returns true if the L7Rules are a redirect.
 func (a *PerSelectorPolicy) IsRedirect() bool {
-	return a != nil && a.isRedirect
+	return a != nil && a.L7Parser != ParserTypeNone
 }
 
 // HasL7Rules returns whether the `L7Rules` contains any L7 rules.
@@ -355,6 +377,21 @@ const (
 	redirectTypeNone redirectTypes = redirectTypes(0)
 )
 
+// redirectType returns the redirectType for the given parserType
+func redirectType(l7Parser L7ParserType) redirectTypes {
+	switch l7Parser {
+	case ParserTypeNone:
+		return redirectTypeNone
+	case ParserTypeDNS:
+		return redirectTypeDNS
+	case ParserTypeHTTP, ParserTypeTLS, ParserTypeCRD:
+		return redirectTypeEnvoy
+	default:
+		// all other (non-empty) values are used for proxylib redirects
+		return redirectTypeProxylib
+	}
+}
+
 func (from L7ParserType) canPromoteTo(to L7ParserType) bool {
 	switch from {
 	case ParserTypeNone:
@@ -409,9 +446,14 @@ type L4Filter struct {
 	// restriction (such as no L7 rules). Holds references to the cached selectors, which must
 	// be released!
 	PerSelectorPolicies L7DataMap `json:"l7-rules,omitempty"`
+
+	// redirectTypes is a set of redirectTypes for this filter
+	redirectTypes redirectTypes `json:"-"`
+
 	// L7Parser specifies the L7 protocol parser (optional). If specified as
 	// an empty string, then means that no L7 proxy redirect is performed.
 	L7Parser L7ParserType `json:"-"`
+
 	// Listener is an optional fully qualified name of a Envoy Listner defined in a CiliumEnvoyConfig CRD that should be
 	// used for this traffic instead of the default listener
 	Listener string `json:"listener,omitempty"`
@@ -442,9 +484,9 @@ func (l4 *L4Filter) CopyL7RulesPerEndpoint() L7DataMap {
 	return l4.PerSelectorPolicies.ShallowCopy()
 }
 
-// GetL7Parser returns the L7ParserType of the L4Filter.
-func (l4 *L4Filter) GetL7Parser() L7ParserType {
-	return l4.L7Parser
+// IsRedirect returns true if the L4 filter contains a port redirection
+func (l4 *L4Filter) IsRedirect() bool {
+	return l4.redirectTypes != redirectTypeNone
 }
 
 // GetIngress returns whether the L4Filter applies at ingress or egress.
@@ -455,11 +497,6 @@ func (l4 *L4Filter) GetIngress() bool {
 // GetPort returns the port at which the L4Filter applies as a uint16.
 func (l4 *L4Filter) GetPort() uint16 {
 	return uint16(l4.Port)
-}
-
-// GetListener returns the optional listener name.
-func (l4 *L4Filter) GetListener() string {
-	return l4.Listener
 }
 
 // ToMapState converts filter into a MapState with two possible values:
@@ -528,7 +565,7 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 			}
 		}
 
-		entry := NewMapStateEntry(cs, l4Filter.DerivedFromRules, currentRule.IsRedirect(), l4Filter.L7Parser, l4Filter.Listener, isDenyRule, currentRule.GetAuthType())
+		entry := NewMapStateEntry(cs, l4Filter.DerivedFromRules, currentRule.IsRedirect(), currentRule.GetParserType(), currentRule.GetListener(), isDenyRule, currentRule.GetAuthType())
 
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
@@ -573,9 +610,9 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'added' and 'deleted'.
-func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, added, deleted []identity.NumericIdentity) {
+func (l4 *L4Filter) IdentitySelectionUpdated(cs CachedSelector, added, deleted []identity.NumericIdentity) {
 	log.WithFields(logrus.Fields{
-		logfields.EndpointSelector: selector,
+		logfields.EndpointSelector: cs,
 		logfields.AddedPolicyID:    added,
 		logfields.DeletedPolicyID:  deleted,
 	}).Debug("identities selected by L4Filter updated")
@@ -583,7 +620,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, added, del
 	// Skip updates on wildcard selectors, as datapath and L7
 	// proxies do not need enumeration of all ids for L3 wildcard.
 	// This mirrors the per-selector logic in ToMapState().
-	if selector.IsWildcard() {
+	if cs.IsWildcard() {
 		return
 	}
 
@@ -593,15 +630,7 @@ func (l4 *L4Filter) IdentitySelectionUpdated(selector CachedSelector, added, del
 	// that we could not push updates on an unstable policy.
 	l4Policy := (*L4Policy)(atomic.LoadPointer(&l4.policy))
 	if l4Policy != nil {
-		direction := trafficdirection.Egress
-		if l4.Ingress {
-			direction = trafficdirection.Ingress
-		}
-		perSelectorPolicy := l4.PerSelectorPolicies[selector]
-		isRedirect := perSelectorPolicy.IsRedirect()
-		authType := perSelectorPolicy.GetAuthType()
-		isDeny := perSelectorPolicy != nil && perSelectorPolicy.IsDeny
-		l4Policy.AccumulateMapChanges(selector, added, deleted, l4, direction, isRedirect, isDeny, authType)
+		l4Policy.AccumulateMapChanges(l4, cs, added, deleted)
 	}
 }
 
@@ -634,8 +663,8 @@ func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, selectorCache *Selec
 }
 
 // add L7 rules for all endpoints in the L7DataMap
-func (l7 L7DataMap) addPolicyForSelector(rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Auth, deny bool, sni []string, forceRedirect bool) {
-	isRedirect := !deny && (forceRedirect || terminatingTLS != nil || originatingTLS != nil || len(sni) > 0 || !rules.IsEmpty())
+func (l7 L7DataMap) addPolicyForSelector(rules *api.L7Rules, terminatingTLS, originatingTLS *TLSContext, auth *api.Auth, deny bool, sni []string, parserType L7ParserType, listener string) {
+	// isRedirect := !deny && (forceRedirect || terminatingTLS != nil || originatingTLS != nil || len(sni) > 0 || !rules.IsEmpty())
 	for epsel := range l7 {
 		l7policy := &PerSelectorPolicy{
 			TerminatingTLS: terminatingTLS,
@@ -643,7 +672,8 @@ func (l7 L7DataMap) addPolicyForSelector(rules *api.L7Rules, terminatingTLS, ori
 			Auth:           auth,
 			IsDeny:         deny,
 			ServerNames:    NewStringSet(sni),
-			isRedirect:     isRedirect,
+			L7Parser:       parserType,
+			Listener:       listener,
 		}
 		if rules != nil {
 			l7policy.L7Rules = *rules
@@ -730,7 +760,9 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 	var originatingTLS *TLSContext
 	var rules *api.L7Rules
 	var sni []string
-	forceRedirect := false
+	l7Parser := ParserTypeNone
+	listener := ""
+
 	pr := rule.GetPortRule()
 	if pr != nil {
 		rules = pr.Rules
@@ -750,7 +782,7 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		// Set parser type to TLS, if TLS. This will be overridden by L7 below, if rules
 		// exists.
 		if terminatingTLS != nil || originatingTLS != nil || len(pr.ServerNames) > 0 {
-			l4.L7Parser = ParserTypeTLS
+			l7Parser = ParserTypeTLS
 		}
 
 		// Determine L7ParserType from rules present. Earlier validation ensures rules
@@ -758,22 +790,22 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		if rules != nil {
 			// we need this to redirect DNS UDP (or ANY, which is more useful)
 			if len(rules.DNS) > 0 {
-				l4.L7Parser = ParserTypeDNS
+				l7Parser = ParserTypeDNS
 			} else if protocol == api.ProtoTCP { // Other than DNS only support TCP
 				switch {
 				case len(rules.HTTP) > 0:
-					l4.L7Parser = ParserTypeHTTP
+					l7Parser = ParserTypeHTTP
 				case len(rules.Kafka) > 0:
-					l4.L7Parser = ParserTypeKafka
+					l7Parser = ParserTypeKafka
 				case rules.L7Proto != "":
-					l4.L7Parser = (L7ParserType)(rules.L7Proto)
+					l7Parser = (L7ParserType)(rules.L7Proto)
 				}
 			}
 		}
 
 		// Override the parser type to CRD is applicable.
 		if pr.Listener != nil {
-			l4.L7Parser = ParserTypeCRD
+			l7Parser = ParserTypeCRD
 			ns := policyCtx.GetNamespace()
 			resource := pr.Listener.EnvoyConfig
 			switch resource.Kind {
@@ -792,14 +824,16 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 				ns = ""
 			default:
 			}
-			l4.Listener = api.ResourceQualifiedName(ns, resource.Name, pr.Listener.Name, api.ForceNamespace)
-			forceRedirect = true
+			listener = api.ResourceQualifiedName(ns, resource.Name, pr.Listener.Name, api.ForceNamespace)
 		}
 	}
 
-	if l4.L7Parser != ParserTypeNone || auth != nil || policyCtx.IsDeny() {
-		l4.PerSelectorPolicies.addPolicyForSelector(rules, terminatingTLS, originatingTLS, auth, policyCtx.IsDeny(), sni, forceRedirect)
+	l4.redirectTypes = redirectType(l7Parser)
+
+	if l7Parser != ParserTypeNone || auth != nil || policyCtx.IsDeny() {
+		l4.PerSelectorPolicies.addPolicyForSelector(rules, terminatingTLS, originatingTLS, auth, policyCtx.IsDeny(), sni, l7Parser, listener)
 	}
+
 	return l4, nil
 }
 
@@ -882,22 +916,7 @@ func createL4EgressFilter(policyCtx PolicyContext, toEndpoints api.EndpointSelec
 
 // redirectType returns the redirectType for this filter
 func (l4 *L4Filter) redirectType() redirectTypes {
-	switch l4.L7Parser {
-	case ParserTypeNone:
-		return redirectTypeNone
-	case ParserTypeDNS:
-		return redirectTypeDNS
-	case ParserTypeHTTP, ParserTypeTLS, ParserTypeCRD:
-		return redirectTypeEnvoy
-	default:
-		// all other (non-empty) values are used for proxylib redirects
-		return redirectTypeProxylib
-	}
-}
-
-// IsRedirect returns true if the L4 filter contains a port redirection
-func (l4 *L4Filter) IsRedirect() bool {
-	return l4.L7Parser != ParserTypeNone
+	return l4.redirectTypes
 }
 
 // Marshal returns the `L4Filter` in a JSON string.
@@ -1145,30 +1164,39 @@ func (l4 *L4Policy) removeUser(user *EndpointPolicy) {
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
-func (l4 *L4Policy) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity, l4Filter *L4Filter,
-	direction trafficdirection.TrafficDirection, redirect, isDeny bool, authType AuthType) {
-	port := uint16(l4Filter.Port)
-	proto := uint8(l4Filter.U8Proto)
-	derivedFrom := l4Filter.DerivedFromRules
+func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, adds, deletes []identity.NumericIdentity) {
+	port := uint16(l4.Port)
+	proto := uint8(l4.U8Proto)
+	derivedFrom := l4.DerivedFromRules
+
+	direction := trafficdirection.Egress
+	if l4.Ingress {
+		direction = trafficdirection.Ingress
+	}
+	perSelectorPolicy := l4.PerSelectorPolicies[cs]
+	parserType := perSelectorPolicy.GetParserType()
+	listener := perSelectorPolicy.GetListener()
+	authType := perSelectorPolicy.GetAuthType()
+	isDeny := perSelectorPolicy != nil && perSelectorPolicy.IsDeny
 
 	// Must take a copy of 'users' as GetNamedPort() will lock the Endpoint below and
 	// the Endpoint lock may not be taken while 'l4.mutex' is held.
-	l4.mutex.RLock()
-	users := make(map[*EndpointPolicy]struct{}, len(l4.users))
-	for user := range l4.users {
+	l4Policy.mutex.RLock()
+	users := make(map[*EndpointPolicy]struct{}, len(l4Policy.users))
+	for user := range l4Policy.users {
 		users[user] = struct{}{}
 	}
-	l4.mutex.RUnlock()
+	l4Policy.mutex.RUnlock()
 
 	for epPolicy := range users {
 		// resolve named port
-		if port == 0 && l4Filter.PortName != "" {
-			port = epPolicy.PolicyOwner.GetNamedPort(direction == trafficdirection.Ingress, l4Filter.PortName, proto)
+		if port == 0 && l4.PortName != "" {
+			port = epPolicy.PolicyOwner.GetNamedPort(direction == trafficdirection.Ingress, l4.PortName, proto)
 			if port == 0 {
 				continue
 			}
 		}
-		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, port, proto, direction, redirect, l4Filter.L7Parser, l4Filter.Listener, isDeny, authType, derivedFrom)
+		epPolicy.policyMapChanges.AccumulateMapChanges(cs, adds, deletes, port, proto, direction, parserType != ParserTypeNone, parserType, listener, isDeny, authType, derivedFrom)
 	}
 }
 
@@ -1254,9 +1282,44 @@ func (l4 *L4Policy) GetModel() *models.L4Policy {
 // ProxyPolicy is any type which encodes state needed to redirect to an L7
 // proxy.
 type ProxyPolicy interface {
+	// IsRedirect() bool
 	CopyL7RulesPerEndpoint() L7DataMap
 	GetL7Parser() L7ParserType
 	GetIngress() bool
-	GetPort() uint16
+	GetPort() uint16 // TODO: return a string instead? Now DNS proxy uses '0' if a named port is used.
 	GetListener() string
+}
+
+// proxyPolicy hold state needed for proxy redirect creation while iterating an l4 filter for per-selector policies
+type proxyPolicy struct {
+	l4 *L4Filter
+	ps *PerSelectorPolicy
+}
+
+func NewProxyPolicy(l4 *L4Filter, ps *PerSelectorPolicy) proxyPolicy {
+	return proxyPolicy{l4: l4, ps: ps}
+}
+
+//func (p *proxyPolicy) IsRedirect() bool {
+//	return p.ps.IsRedirect()
+//}
+
+func (p *proxyPolicy) CopyL7RulesPerEndpoint() L7DataMap {
+	return p.l4.CopyL7RulesPerEndpoint()
+}
+
+func (p *proxyPolicy) GetL7Parser() L7ParserType {
+	return p.ps.GetParserType()
+}
+
+func (p *proxyPolicy) GetIngress() bool {
+	return p.l4.Ingress
+}
+
+func (p *proxyPolicy) GetPort() uint16 {
+	return p.l4.GetPort()
+}
+
+func (p *proxyPolicy) GetListener() string {
+	return p.ps.GetListener()
 }

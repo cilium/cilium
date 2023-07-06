@@ -1484,6 +1484,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 			remoteMap[uint64(id)] = struct{}{}
 		}
 
+		// TODO: Allow L7 redirection for L3-only rules with a listener reference
 		if l7.IsRedirect() {
 			// Issue a warning if this port-0 rule is a redirect.
 			// Deny rules don't support L7 therefore for the deny case
@@ -1597,7 +1598,11 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 				// then the proxy may need to drop some allowed l3 due to l7 rules potentially
 				// being different between the selectors.
 				wildcard := nSelectors == 1 || sel.IsWildcard()
-				rule, cs := getPortNetworkPolicyRule(sel, wildcard, l4.L7Parser, l7)
+				parser := policy.ParserTypeNone
+				if l7 != nil {
+					parser = l7.L7Parser
+				}
+				rule, cs := getPortNetworkPolicyRule(sel, wildcard, parser, l7)
 				if rule != nil {
 					if !cs {
 						canShortCircuit = false

@@ -400,7 +400,7 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 			} else {
 				policyStr = "allow"
 			}
-			io.WriteString(d.log, fmt.Sprintf("[distill] L4 ingress %s %+v (parser=%s, redirect=%t)\n", policyStr, key, l4.L7Parser, entry.IsRedirectEntry()))
+			io.WriteString(d.log, fmt.Sprintf("[distill] L4 ingress %s %+v (redirect=%t)\n", policyStr, key, entry.IsRedirectEntry()))
 			result.DenyPreferredInsert(key, entry, selectorCache)
 		}
 	}
@@ -430,7 +430,7 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 			} else {
 				policyStr = "allow"
 			}
-			io.WriteString(d.log, fmt.Sprintf("[distill] L4 egress %s %+v (parser=%s, redirect=%t)\n", policyStr, key, l4.L7Parser, entry.IsRedirectEntry()))
+			io.WriteString(d.log, fmt.Sprintf("[distill] L4 egress %s %+v (redirect=%t)\n", policyStr, key, entry.IsRedirectEntry()))
 			result.DenyPreferredInsert(key, entry, selectorCache)
 		}
 	}

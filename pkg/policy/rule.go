@@ -98,23 +98,6 @@ func (epd *PerSelectorPolicy) appendL7WildcardRule(ctx *SearchContext) api.L7Rul
 }
 
 func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter, selectorCache *SelectorCache) (err error) {
-	// Merge the L7-related data from the filter to merge
-	// with the L7-related data already in the existing filter.
-	existingFilter.L7Parser, err = existingFilter.L7Parser.Merge(filterToMerge.L7Parser)
-	if err != nil {
-		ctx.PolicyTrace("   Merge conflict: mismatching parsers %s/%s\n", filterToMerge.L7Parser, existingFilter.L7Parser)
-		return err
-	}
-
-	if existingFilter.Listener == "" || filterToMerge.Listener == "" {
-		if filterToMerge.Listener != "" {
-			existingFilter.Listener = filterToMerge.Listener
-		}
-	} else if filterToMerge.Listener != existingFilter.Listener {
-		ctx.PolicyTrace("   Merge conflict: mismatching CiliumEnvoyConfig listeners %v/%v\n", filterToMerge.Listener, existingFilter.Listener)
-		return fmt.Errorf("cannot merge conflicting CiliumEnvoyConfig Listeners (%v/%v)", filterToMerge.Listener, existingFilter.Listener)
-	}
-
 	for cs, newL7Rules := range filterToMerge.PerSelectorPolicies {
 		// 'cs' will be merged or moved (see below), either way it needs
 		// to be removed from the map it is in now.
@@ -157,8 +140,22 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 				newL7Rules = &PerSelectorPolicy{}
 			}
 
-			// Merge isRedirect flag
-			l7Rules.isRedirect = l7Rules.isRedirect || newL7Rules.isRedirect
+			// Merge l7 parser type
+			l7Rules.L7Parser, err = l7Rules.L7Parser.Merge(newL7Rules.L7Parser)
+			if err != nil {
+				ctx.PolicyTrace("   Merge conflict: mismatching parsers %s/%s\n", newL7Rules.L7Parser, l7Rules.L7Parser)
+				return err
+			}
+
+			// Merge listener reference
+			if l7Rules.Listener == "" || newL7Rules.Listener == "" {
+				if newL7Rules.Listener != "" {
+					l7Rules.Listener = newL7Rules.Listener
+				}
+			} else if newL7Rules.Listener != l7Rules.Listener {
+				ctx.PolicyTrace("   Merge conflict: mismatching CiliumEnvoyConfig listeners %v/%v\n", newL7Rules.Listener, l7Rules.Listener)
+				return fmt.Errorf("cannot merge conflicting CiliumEnvoyConfig Listeners (%v/%v)", newL7Rules.Listener, l7Rules.Listener)
+			}
 
 			if l7Rules.Auth == nil || newL7Rules.Auth == nil {
 				if newL7Rules.Auth != nil {
@@ -271,6 +268,7 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 			}
 		}
 	}
+	existingFilter.redirectTypes |= filterToMerge.redirectTypes
 
 	return nil
 }

@@ -533,7 +533,7 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 func (s *EndpointSuite) TestProxyID(c *C) {
 	e := &Endpoint{ID: 123, policyRevision: 0}
 
-	id := e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true, L7Parser: policy.ParserTypeHTTP})
+	id := e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true}, policy.ParserTypeHTTP, "")
 	c.Assert(id, Not(Equals), "")
 	endpointID, ingress, protocol, port, parser, listener, err := policy.ParseProxyID(id)
 	c.Assert(endpointID, Equals, uint16(123))
@@ -544,7 +544,7 @@ func (s *EndpointSuite) TestProxyID(c *C) {
 	c.Assert(listener, Equals, "")
 	c.Assert(err, IsNil)
 
-	id = e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true, L7Parser: policy.ParserTypeCRD, Listener: "test-listener"})
+	id = e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true}, policy.ParserTypeCRD, "test-listener")
 	c.Assert(id, Not(Equals), "")
 	endpointID, ingress, protocol, port, parser, listener, err = policy.ParseProxyID(id)
 	c.Assert(endpointID, Equals, uint16(123))

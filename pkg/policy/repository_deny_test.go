@@ -634,7 +634,6 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngressDeny(c *C) {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7Parser: ParserTypeNone,
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
@@ -645,7 +644,6 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngressDeny(c *C) {
 			Port:     9092,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7Parser: ParserTypeNone,
 			Ingress:  true,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
@@ -907,7 +905,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDeny(c *C) {
 			Port:     0,
 			Protocol: "ANY",
 			U8Proto:  0x0,
-			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
@@ -918,7 +915,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDeny(c *C) {
 			Port:     8,
 			Protocol: api.ProtoICMP,
 			U8Proto:  0x1,
-			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
@@ -929,7 +925,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDeny(c *C) {
 			Port:     128,
 			Protocol: api.ProtoICMPv6,
 			U8Proto:  0x3A,
-			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
 			},
@@ -1009,7 +1004,6 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgressDeny(c *C) {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7Parser: ParserTypeNone,
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
@@ -1020,7 +1014,6 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgressDeny(c *C) {
 			Port:     53,
 			Protocol: api.ProtoUDP,
 			U8Proto:  0x11,
-			L7Parser: ParserTypeNone,
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: &PerSelectorPolicy{IsDeny: true},
@@ -1107,7 +1100,6 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgressDeny(c *C) {
 			Port:     80,
 			Protocol: api.ProtoTCP,
 			U8Proto:  0x6,
-			L7Parser: ParserTypeNone,
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectors[0]: &PerSelectorPolicy{IsDeny: true},
@@ -1118,7 +1110,6 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgressDeny(c *C) {
 			Port:     0,
 			Protocol: api.ProtoAny,
 			U8Proto:  0x0,
-			L7Parser: ParserTypeNone,
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectors[0]: &PerSelectorPolicy{IsDeny: true},
@@ -1175,7 +1166,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressDenyFromEntities(c *C) {
 			Port:     0,
 			Protocol: "ANY",
 			U8Proto:  0x0,
-			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorWorld: &PerSelectorPolicy{IsDeny: true},
 			},
@@ -1232,7 +1222,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressDenyToEntities(c *C) {
 			Port:     0,
 			Protocol: "ANY",
 			U8Proto:  0x0,
-			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorWorld: &PerSelectorPolicy{IsDeny: true},
 			},
@@ -1324,7 +1313,6 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStartedDeny(c *C) {
 	expectedDeny := NewL4Policy(repo.GetRevision())
 	expectedDeny.Ingress["80/TCP"] = &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		L7Parser: ParserTypeNone,
 		PerSelectorPolicies: L7DataMap{
 			cachedSelectorApp2: &PerSelectorPolicy{IsDeny: true},
 		},

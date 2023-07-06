@@ -257,21 +257,22 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 		Ingress: L4PolicyMap{
 			"80/TCP": {
 				Port: 80, Protocol: api.ProtoTCP,
-				L7Parser: "http",
 				PerSelectorPolicies: L7DataMap{
 					cachedFooSelector: &PerSelectorPolicy{
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 						},
+						L7Parser: "http",
 					},
 				},
-				Ingress: true,
+				redirectTypes: redirectTypeEnvoy,
+				Ingress:       true,
 			},
 			"9090/TCP": {
 				Port: 9090, Protocol: api.ProtoTCP,
-				L7Parser: "tester",
 				PerSelectorPolicies: L7DataMap{
 					cachedFooSelector: &PerSelectorPolicy{
+						L7Parser: "tester",
 						L7Rules: api.L7Rules{
 							L7Proto: "tester",
 							L7: []api.PortRuleL7{
@@ -285,11 +286,11 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 						},
 					},
 				},
-				Ingress: true,
+				redirectTypes: redirectTypeProxylib,
+				Ingress:       true,
 			},
 			"8080/TCP": {
 				Port: 8080, Protocol: api.ProtoTCP,
-				L7Parser: "http",
 				PerSelectorPolicies: L7DataMap{
 					cachedFooSelector: &PerSelectorPolicy{
 						L7Rules: api.L7Rules{
@@ -298,14 +299,17 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 								{Path: "/bar", Method: "GET"},
 							},
 						},
+						L7Parser: "http",
 					},
 					wildcardCachedSelector: &PerSelectorPolicy{
 						L7Rules: api.L7Rules{
 							HTTP: []api.PortRuleHTTP{{Path: "/", Method: "GET"}},
 						},
+						L7Parser: "http",
 					},
 				},
-				Ingress: true,
+				redirectTypes: redirectTypeEnvoy,
+				Ingress:       true,
 			},
 		},
 	}
@@ -334,6 +338,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
   "l7-rules": [
     {
       "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
+        "parser": "http",
         "http": [
           {
             "path": "/",
@@ -350,6 +355,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
   "l7-rules": [
     {
       "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
+        "parser": "tester",
         "l7proto": "tester",
         "l7": [
           {
@@ -371,6 +377,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
   "l7-rules": [
     {
       "\u0026LabelSelector{MatchLabels:map[string]string{any.foo: ,},MatchExpressions:[]LabelSelectorRequirement{},}": {
+        "parser": "http",
         "http": [
           {
             "path": "/",
@@ -385,6 +392,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
     },
     {
       "\u0026LabelSelector{MatchLabels:map[string]string{},MatchExpressions:[]LabelSelectorRequirement{},}": {
+        "parser": "http",
         "http": [
           {
             "path": "/",
@@ -402,7 +410,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 		expected := new(bytes.Buffer)
 		err := json.Compact(expected, []byte(expectedIngress[i]))
 		c.Assert(err, Equals, nil, Commentf("Could not compact expected json"))
-		c.Assert(model.Ingress[i].Rule, Equals, expected.String())
+		c.Assert(model.Ingress[i].Rule, Equals, expected.String(), Commentf("mismatch on ingress %d", i))
 	}
 
 	c.Assert(policy.HasEnvoyRedirect(), Equals, true)

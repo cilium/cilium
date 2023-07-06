@@ -151,7 +151,6 @@ func (ds *PolicyTestSuite) TestL3WithIngressDenyWildcard(c *C) {
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
 						wildcard: wildcardCachedSelector,
-						L7Parser: ParserTypeNone,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
@@ -234,7 +233,6 @@ func (ds *PolicyTestSuite) TestL3WithLocalHostWildcardd(c *C) {
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
 						wildcard: wildcardCachedSelector,
-						L7Parser: ParserTypeNone,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
@@ -316,7 +314,6 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
 						wildcard: wildcardCachedSelector,
-						L7Parser: ParserTypeNone,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: &PerSelectorPolicy{IsDeny: true},
@@ -453,7 +450,6 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
-						L7Parser: ParserTypeNone,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							cachedSelectorWorld: &PerSelectorPolicy{IsDeny: true},

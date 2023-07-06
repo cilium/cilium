@@ -747,56 +747,56 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsICMPv6},
 		},
 		"9092/TCP": {
-			Port:     9092,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			L7Parser: ParserTypeKafka,
-			Ingress:  true,
+			Port:          9092,
+			Protocol:      api.ProtoTCP,
+			U8Proto:       0x6,
+			Ingress:       true,
+			redirectTypes: redirectTypeProxylib,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						Kafka: []kafka.PortRule{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 					},
-					isRedirect: true,
+					L7Parser: ParserTypeKafka,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsKafka},
 		},
 		"80/TCP": {
-			Port:     80,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			L7Parser: ParserTypeHTTP,
-			Ingress:  true,
+			Port:          80,
+			Protocol:      api.ProtoTCP,
+			U8Proto:       0x6,
+			Ingress:       true,
+			redirectTypes: redirectTypeEnvoy,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 					},
-					isRedirect: true,
+					L7Parser: ParserTypeHTTP,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
 		},
 		"9090/TCP": {
-			Port:     9090,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			L7Parser: L7ParserType("tester"),
-			Ingress:  true,
+			Port:          9090,
+			Protocol:      api.ProtoTCP,
+			U8Proto:       0x6,
+			Ingress:       true,
+			redirectTypes: redirectTypeProxylib,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						L7Proto: "tester",
 						L7:      []api.PortRuleL7{l7Rule.Ingress[0].ToPorts[0].Rules.L7[0]},
 					},
-					isRedirect: true,
+					L7Parser: L7ParserType("tester"),
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL7},
 		},
 	}
-	c.Assert(policy, checker.DeepEquals, expectedPolicy)
+	c.Assert(policy, checker.Equals, expectedPolicy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -914,41 +914,41 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 
 	expectedPolicy := L4PolicyMap{
 		"80/TCP": {
-			Port:     80,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			L7Parser: ParserTypeHTTP,
-			Ingress:  true,
+			Port:          80,
+			Protocol:      api.ProtoTCP,
+			U8Proto:       0x6,
+			Ingress:       true,
+			redirectTypes: redirectTypeEnvoy,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: nil,
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 					},
-					isRedirect: true,
+					L7Parser: ParserTypeHTTP,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL4HTTP, labelsL7HTTP},
 		},
 		"9092/TCP": {
-			Port:     9092,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			L7Parser: ParserTypeKafka,
-			Ingress:  true,
+			Port:          9092,
+			Protocol:      api.ProtoTCP,
+			U8Proto:       0x6,
+			Ingress:       true,
+			redirectTypes: redirectTypeProxylib,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: nil,
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						Kafka: []kafka.PortRule{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 					},
-					isRedirect: true,
+					L7Parser: ParserTypeKafka,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL4Kafka, labelsL7Kafka},
 		},
 	}
-	c.Assert(policy, checker.DeepEquals, expectedPolicy)
+	c.Assert(policy, checker.Equals, expectedPolicy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -1245,33 +1245,33 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 	// "0/ANY" rule should allow such traffic through.
 	expectedPolicy := L4PolicyMap{
 		"53/UDP": {
-			Port:     53,
-			Protocol: api.ProtoUDP,
-			U8Proto:  0x11,
-			L7Parser: ParserTypeDNS,
-			Ingress:  false,
+			Port:          53,
+			Protocol:      api.ProtoUDP,
+			U8Proto:       0x11,
+			Ingress:       false,
+			redirectTypes: redirectTypeDNS,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{dnsRule.Egress[0].ToPorts[0].Rules.DNS[0]},
 					},
-					isRedirect: true,
+					L7Parser: ParserTypeDNS,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsDNS},
 		},
 		"80/TCP": {
-			Port:     80,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			L7Parser: ParserTypeHTTP,
-			Ingress:  false,
+			Port:          80,
+			Protocol:      api.ProtoTCP,
+			U8Proto:       0x6,
+			Ingress:       false,
+			redirectTypes: redirectTypeEnvoy,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
 					},
-					isRedirect: true,
+					L7Parser: ParserTypeHTTP,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
@@ -1300,7 +1300,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			Port:     0,
 			Protocol: "ANY",
 			U8Proto:  0x0,
-			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: nil,
 			},
@@ -1308,7 +1307,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL4},
 		},
 	}
-	if equal, err := checker.DeepEqual(policy, expectedPolicy); !equal {
+	if equal, err := checker.Equal(policy, expectedPolicy); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
@@ -1432,41 +1431,41 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesEgress(c *C) {
 	// the L3/L4 allow should pass it without an explicit L7 wildcard.
 	expectedPolicy := L4PolicyMap{
 		"80/TCP": {
-			Port:     80,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			L7Parser: ParserTypeHTTP,
-			Ingress:  false,
+			Port:          80,
+			Protocol:      api.ProtoTCP,
+			U8Proto:       0x6,
+			Ingress:       false,
+			redirectTypes: redirectTypeEnvoy,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: nil,
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
 					},
-					isRedirect: true,
+					L7Parser: ParserTypeHTTP,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL3HTTP, labelsL7HTTP},
 		},
 		"53/UDP": {
-			Port:     53,
-			Protocol: api.ProtoUDP,
-			U8Proto:  0x11,
-			L7Parser: ParserTypeDNS,
-			Ingress:  false,
+			Port:          53,
+			Protocol:      api.ProtoUDP,
+			U8Proto:       0x11,
+			Ingress:       false,
+			redirectTypes: redirectTypeDNS,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar1: nil,
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{dnsRule.Egress[0].ToPorts[0].Rules.DNS[0]},
 					},
-					isRedirect: true,
+					L7Parser: ParserTypeDNS,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsL3DNS, labelsL7DNS},
 		},
 	}
-	if equal, err := checker.DeepEqual(policy, expectedPolicy); !equal {
+	if equal, err := checker.Equal(policy, expectedPolicy); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
@@ -1552,11 +1551,11 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
 	// HTTP rules can have side-effects, so they need to be retained even if shadowed by a wildcard.
 	expectedPolicy := L4PolicyMap{
 		"80/TCP": {
-			Port:     80,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			L7Parser: ParserTypeHTTP,
-			Ingress:  false,
+			Port:          80,
+			Protocol:      api.ProtoTCP,
+			U8Proto:       0x6,
+			Ingress:       false,
+			redirectTypes: redirectTypeEnvoy,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectors[0]: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
@@ -1566,7 +1565,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
 							Path:    "/",
 						}},
 					},
-					isRedirect: true,
+					L7Parser: ParserTypeHTTP,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
@@ -1575,7 +1574,6 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
 			Port:     0,
 			Protocol: api.ProtoAny,
 			U8Proto:  0x0,
-			L7Parser: ParserTypeNone,
 			Ingress:  false,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectors[0]: nil,
@@ -1583,7 +1581,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgress(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL3},
 		},
 	}
-	if equal, err := checker.DeepEqual(policy, expectedPolicy); !equal {
+	if equal, err := checker.Equal(policy, expectedPolicy); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}
@@ -1685,7 +1683,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 			Port:     0,
 			Protocol: "ANY",
 			U8Proto:  0x0,
-			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorWorld: nil,
 			},
@@ -1693,40 +1690,40 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL3},
 		},
 		"9092/TCP": {
-			Port:     9092,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			L7Parser: ParserTypeKafka,
-			Ingress:  true,
+			Port:          9092,
+			Protocol:      api.ProtoTCP,
+			U8Proto:       0x6,
+			Ingress:       true,
+			redirectTypes: redirectTypeProxylib,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						Kafka: []kafka.PortRule{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 					},
-					isRedirect: true,
+					L7Parser: ParserTypeKafka,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsKafka},
 		},
 		"80/TCP": {
-			Port:     80,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			L7Parser: ParserTypeHTTP,
-			Ingress:  true,
+			Port:          80,
+			Protocol:      api.ProtoTCP,
+			U8Proto:       0x6,
+			Ingress:       true,
+			redirectTypes: redirectTypeEnvoy,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Ingress[0].ToPorts[0].Rules.HTTP[0]},
 					},
-					isRedirect: true,
+					L7Parser: ParserTypeHTTP,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
 		},
 	}
 
-	c.Assert(policy, checker.DeepEquals, expectedPolicy)
+	c.Assert(policy, checker.Equals, expectedPolicy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -1825,7 +1822,6 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 			Port:     0,
 			Protocol: "ANY",
 			U8Proto:  0x0,
-			L7Parser: "",
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorWorld: nil,
 			},
@@ -1833,40 +1829,40 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesEgressToEntities(c *C) {
 			DerivedFromRules: labels.LabelArrayList{labelsL3},
 		},
 		"53/UDP": {
-			Port:     53,
-			Protocol: api.ProtoUDP,
-			U8Proto:  0x11,
-			L7Parser: ParserTypeDNS,
-			Ingress:  false,
+			Port:          53,
+			Protocol:      api.ProtoUDP,
+			U8Proto:       0x11,
+			Ingress:       false,
+			redirectTypes: redirectTypeDNS,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						DNS: []api.PortRuleDNS{dnsRule.Egress[0].ToPorts[0].Rules.DNS[0]},
 					},
-					isRedirect: true,
+					L7Parser: ParserTypeDNS,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsDNS},
 		},
 		"80/TCP": {
-			Port:     80,
-			Protocol: api.ProtoTCP,
-			U8Proto:  0x6,
-			L7Parser: ParserTypeHTTP,
-			Ingress:  false,
+			Port:          80,
+			Protocol:      api.ProtoTCP,
+			U8Proto:       0x6,
+			Ingress:       false,
+			redirectTypes: redirectTypeEnvoy,
 			PerSelectorPolicies: L7DataMap{
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
 						HTTP: []api.PortRuleHTTP{httpRule.Egress[0].ToPorts[0].Rules.HTTP[0]},
 					},
-					isRedirect: true,
+					L7Parser: ParserTypeHTTP,
 				},
 			},
 			DerivedFromRules: labels.LabelArrayList{labelsHTTP},
 		},
 	}
 
-	c.Assert(policy, checker.DeepEquals, expectedPolicy)
+	c.Assert(policy, checker.Equals, expectedPolicy)
 	policy.Detach(repo.GetSelectorCache())
 }
 
@@ -1976,20 +1972,20 @@ func (ds *PolicyTestSuite) TestMinikubeGettingStarted(c *C) {
 	expected := NewL4Policy(repo.GetRevision())
 	expected.Ingress["80/TCP"] = &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-		L7Parser: ParserTypeHTTP,
+		redirectTypes: redirectTypeEnvoy,
 		PerSelectorPolicies: L7DataMap{
 			cachedSelectorApp2: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
 					HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/"}, {}},
 				},
-				isRedirect: true,
+				L7Parser: ParserTypeHTTP,
 			},
 		},
 		Ingress:          true,
 		DerivedFromRules: []labels.LabelArray{nil},
 	}
 
-	if equal, err := checker.DeepEqual(l4IngressPolicy, expected.Ingress); !equal {
+	if equal, err := checker.Equal(l4IngressPolicy, expected.Ingress); !equal {
 		c.Logf("%s", logBuffer.String())
 		c.Errorf("Resolved policy did not match expected: \n%s", err)
 	}

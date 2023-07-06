@@ -299,19 +299,19 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 				Revision: repo.GetRevision(),
 				Ingress: L4PolicyMap{
 					"80/TCP": {
-						Port:     80,
-						Protocol: api.ProtoTCP,
-						U8Proto:  0x6,
-						wildcard: wildcardCachedSelector,
-						L7Parser: ParserTypeHTTP,
-						Ingress:  true,
+						Port:          80,
+						Protocol:      api.ProtoTCP,
+						U8Proto:       0x6,
+						wildcard:      wildcardCachedSelector,
+						Ingress:       true,
+						redirectTypes: redirectTypeEnvoy,
 						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: &PerSelectorPolicy{
 								L7Rules: api.L7Rules{
 									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
 								},
 								CanShortCircuit: true,
-								isRedirect:      true,
+								L7Parser:        ParserTypeHTTP,
 							},
 						},
 						DerivedFromRules: labels.LabelArrayList{nil},
@@ -335,7 +335,7 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
-	c.Assert(policy, checker.DeepEquals, &expectedEndpointPolicy)
+	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
 }
 
 func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
@@ -395,19 +395,19 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 				Revision: repo.GetRevision(),
 				Ingress: L4PolicyMap{
 					"80/TCP": {
-						Port:     80,
-						Protocol: api.ProtoTCP,
-						U8Proto:  0x6,
-						wildcard: wildcardCachedSelector,
-						L7Parser: ParserTypeHTTP,
-						Ingress:  true,
+						Port:          80,
+						Protocol:      api.ProtoTCP,
+						U8Proto:       0x6,
+						wildcard:      wildcardCachedSelector,
+						Ingress:       true,
+						redirectTypes: redirectTypeEnvoy,
 						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: &PerSelectorPolicy{
 								L7Rules: api.L7Rules{
 									HTTP: []api.PortRuleHTTP{{Method: "GET", Path: "/good"}},
 								},
 								CanShortCircuit: true,
-								isRedirect:      true,
+								L7Parser:        ParserTypeHTTP,
 							},
 							cachedSelectorHost: nil,
 						},
@@ -432,7 +432,7 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 	// Assign an empty mutex so that checker.Equal does not complain about the
 	// difference of the internal time.Time from the lock_debug.go.
 	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
-	c.Assert(policy, checker.DeepEquals, &expectedEndpointPolicy)
+	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
 }
 
 func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
@@ -491,7 +491,6 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
 						wildcard: wildcardCachedSelector,
-						L7Parser: ParserTypeNone,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							wildcardCachedSelector: nil,
@@ -632,7 +631,6 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 						Port:     80,
 						Protocol: api.ProtoTCP,
 						U8Proto:  0x6,
-						L7Parser: ParserTypeNone,
 						Ingress:  true,
 						PerSelectorPolicies: L7DataMap{
 							cachedSelectorWorld: nil,

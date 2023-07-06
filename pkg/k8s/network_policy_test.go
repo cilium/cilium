@@ -170,7 +170,6 @@ func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {
 	c.Assert(ingressL4Policy, checker.Equals, policy.L4PolicyMap{
 		"80/TCP": {
 			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-			L7Parser:            policy.ParserTypeNone,
 			PerSelectorPolicies: policy.L7DataMap{cachedEPSelector: nil},
 			Ingress:             true,
 			DerivedFromRules: []labels.LabelArray{
@@ -499,7 +498,6 @@ func (s *K8sSuite) TestParseNetworkPolicyEgress(c *C) {
 	c.Assert(egressL4Policy, checker.DeepEquals, policy.L4PolicyMap{
 		"80/TCP": {
 			Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
-			L7Parser:            policy.ParserTypeNone,
 			PerSelectorPolicies: policy.L7DataMap{cachedEPSelector: nil},
 			Ingress:             false,
 			DerivedFromRules: []labels.LabelArray{
