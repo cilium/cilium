@@ -182,7 +182,8 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	snat_v6_init_tuple(ip6, NAT_DIR_EGRESS, &tuple);
 	l4_off = ETH_HLEN + hdrlen;
 
-	if (nodeport_has_nat_conflict_ipv6(ip6, &target))
+	if (lb_is_svc_proto(tuple.nexthdr) &&
+	    nodeport_has_nat_conflict_ipv6(ip6, &target))
 		goto apply_snat;
 
 	ret = snat_v6_needs_masquerade(ctx, ip6, &target);
@@ -1559,7 +1560,8 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &tuple);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
-	if (nodeport_has_nat_conflict_ipv4(ip4, &target))
+	if (lb_is_svc_proto(tuple.nexthdr) &&
+	    nodeport_has_nat_conflict_ipv4(ip4, &target))
 		goto apply_snat;
 
 	ret = snat_v4_needs_masquerade(ctx, ip4, &target);

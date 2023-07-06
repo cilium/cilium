@@ -190,6 +190,20 @@ struct {
 #define cilium_dbg_lb(a, b, c, d)
 #endif
 
+static __always_inline bool lb_is_svc_proto(__u8 proto)
+{
+	switch (proto) {
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+#ifdef ENABLE_SCTP
+	case IPPROTO_SCTP:
+#endif /* ENABLE_SCTP */
+		return true;
+	default:
+		return false;
+	}
+}
+
 static __always_inline
 bool lb4_svc_is_loadbalancer(const struct lb4_service *svc __maybe_unused)
 {
