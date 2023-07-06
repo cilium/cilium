@@ -79,9 +79,11 @@ func Test_MultiPoolManager(t *testing.T) {
 	marsIPv6CIDR1 := cidr.MustParseCIDR("fd00:11::/123")
 	defaultIPv4CIDR1 := cidr.MustParseCIDR("10.0.22.0/24")
 	defaultIPv6CIDR1 := cidr.MustParseCIDR("fd00:22::/96")
+	unusedIPv4CIDR1 := cidr.MustParseCIDR("10.0.33.0/24")
+	unusedIPv6CIDR1 := cidr.MustParseCIDR("fd00:33::/96")
 
 	// Assign CIDR to pools (i.e. this simulates the operator logic)
-	currentNode.Spec.IPAM.Pools.Allocated = []types.IPAMPoolAllocation{
+	allocatedPools := []types.IPAMPoolAllocation{
 		{
 			Pool: "default",
 			CIDRs: []types.IPAMPodCIDR{
@@ -96,7 +98,15 @@ func Test_MultiPoolManager(t *testing.T) {
 				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
 			},
 		},
+		{
+			Pool: "unused",
+			CIDRs: []types.IPAMPodCIDR{
+				types.IPAMPodCIDR(unusedIPv4CIDR1.String()),
+				types.IPAMPodCIDR(unusedIPv6CIDR1.String()),
+			},
+		},
 	}
+	currentNode.Spec.IPAM.Pools.Allocated = allocatedPools
 
 	fakeK8sCiliumNodeAPI.updateNode(currentNode)
 	assert.Equal(t, <-events, "upsert")
@@ -130,9 +140,11 @@ func Test_MultiPoolManager(t *testing.T) {
 	assert.ErrorContains(t, err, "pool not (yet) available")
 	assert.Nil(t, faultyAllocation)
 
-	// Check if the agent now requests one IPv4 and one IPv6 IP for the jupiter pool
 	assert.Equal(t, <-events, "upsert")
 	currentNode = fakeK8sCiliumNodeAPI.currentNode()
+	// Check that the agent has not (yet) removed the unused pool.
+	assert.Equal(t, allocatedPools, currentNode.Spec.IPAM.Pools.Allocated)
+	// Check if the agent now requests one IPv4 and one IPv6 IP for the jupiter pool
 	assert.Equal(t, []types.IPAMPoolRequest{
 		{
 			Pool: "default",
@@ -157,6 +169,9 @@ func Test_MultiPoolManager(t *testing.T) {
 		},
 	}, currentNode.Spec.IPAM.Pools.Requested)
 
+	c.restoreFinished(IPv4)
+	c.restoreFinished(IPv6)
+
 	// Assign the jupiter pool
 	currentNode.Spec.IPAM.Pools.Allocated = []types.IPAMPoolAllocation{
 		{
@@ -178,6 +193,13 @@ func Test_MultiPoolManager(t *testing.T) {
 			CIDRs: []types.IPAMPodCIDR{
 				types.IPAMPodCIDR(marsIPv6CIDR1.String()),
 				types.IPAMPodCIDR(marsIPv4CIDR1.String()),
+			},
+		},
+		{
+			Pool: "unused",
+			CIDRs: []types.IPAMPodCIDR{
+				types.IPAMPodCIDR(unusedIPv4CIDR1.String()),
+				types.IPAMPodCIDR(unusedIPv6CIDR1.String()),
 			},
 		},
 	}
@@ -203,7 +225,7 @@ func Test_MultiPoolManager(t *testing.T) {
 	err = c.releaseIP(allocatedJupiterIP1.IP, "jupiter", IPv6, true) // triggers sync
 	assert.Nil(t, err)
 
-	// Wait for agent to release jupiter CIDRs
+	// Wait for agent to release jupiter and unused CIDRs
 	assert.Equal(t, <-events, "upsert")
 	currentNode = fakeK8sCiliumNodeAPI.currentNode()
 	assert.Equal(t, types.IPAMPoolSpec{
