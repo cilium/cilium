@@ -130,6 +130,35 @@ static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple
 	return nodeport_uses_dsr(tuple->nexthdr);
 }
 
+static __always_inline bool
+nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
+			       struct ipv6_nat_target *target __maybe_unused)
+{
+#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
+	union v6addr router_ip;
+
+	BPF_V6(router_ip, ROUTER_IP);
+	if (ipv6_addr_equals((union v6addr *)&ip6->saddr, &router_ip)) {
+		ipv6_addr_copy(&target->addr, &router_ip);
+		return true;
+	}
+#endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
+
+#if defined(IS_BPF_HOST)
+	const union v6addr dr_addr = IPV6_DIRECT_ROUTING;
+	__u32 dr_ifindex = DIRECT_ROUTING_DEV_IFINDEX;
+
+	/* See comment in nodeport_has_nat_conflict_ipv4(). */
+	if (dr_ifindex == NATIVE_DEV_IFINDEX &&
+	    ipv6_addr_equals((union v6addr *)&ip6->saddr, &dr_addr)) {
+		ipv6_addr_copy(&target->addr, &dr_addr);
+		return true;
+	}
+#endif /* IS_BPF_HOST */
+
+	return false;
+}
+
 static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 						  __s8 *ext_err)
 {
@@ -137,11 +166,24 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
 	int ret;
 
-	ret = snat_v6_prepare_state(ctx, &target);
-	if (ret == NAT_NEEDED)
-		ret = snat_v6_nat(ctx, &target, ext_err);
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	if (nodeport_has_nat_conflict_ipv6(ip6, &target))
+		goto apply_snat;
+
+	ret = snat_v6_needs_masquerade(ctx, ip6, &target);
+	if (IS_ERR(ret))
+		goto out;
+
+apply_snat:
+	ret = snat_v6_nat(ctx, &target, ext_err);
+
+out:
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 
@@ -1456,6 +1498,34 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 	return nodeport_uses_dsr(tuple->nexthdr);
 }
 
+static __always_inline bool
+nodeport_has_nat_conflict_ipv4(const struct iphdr *ip4 __maybe_unused,
+			       struct ipv4_nat_target *target __maybe_unused)
+{
+#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
+	if (ip4->saddr == IPV4_GATEWAY) {
+		target->addr = IPV4_GATEWAY;
+		return true;
+	}
+#endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
+
+#if defined(IS_BPF_HOST)
+	__u32 dr_ifindex = DIRECT_ROUTING_DEV_IFINDEX;
+
+	/* NATIVE_DEV_IFINDEX == DIRECT_ROUTING_DEV_IFINDEX cannot be moved into
+	 * preprocessor, as the former is known only during load time (templating).
+	 * This checks whether bpf_host is running on the direct routing device.
+	 */
+	if (dr_ifindex == NATIVE_DEV_IFINDEX &&
+	    ip4->saddr == IPV4_DIRECT_ROUTING) {
+		target->addr = IPV4_DIRECT_ROUTING;
+		return true;
+	}
+#endif /* IS_BPF_HOST */
+
+	return false;
+}
+
 static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 						  __u32 cluster_id __maybe_unused,
 						  __s8 *ext_err)
@@ -1469,11 +1539,24 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 		.cluster_id = cluster_id,
 #endif
 	};
+	void *data, *data_end;
+	struct iphdr *ip4;
 	int ret;
 
-	ret = snat_v4_prepare_state(ctx, &target);
-	if (ret == NAT_NEEDED)
-		ret = snat_v4_nat(ctx, &target, ext_err);
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	if (nodeport_has_nat_conflict_ipv4(ip4, &target))
+		goto apply_snat;
+
+	ret = snat_v4_needs_masquerade(ctx, ip4, &target);
+	if (IS_ERR(ret))
+		goto out;
+
+apply_snat:
+	ret = snat_v4_nat(ctx, &target, ext_err);
+
+out:
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 
