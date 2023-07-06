@@ -1744,14 +1744,6 @@ snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 
 		target->from_local_endpoint = true;
 
-		/* ipv6_hdrlen() can return an error. If it does, it makes no
-		 * sense marking this packet as a reply based on a wrong offset.
-		 *
-		 * We should probably improve this code in the future to
-		 * report the error to the caller. Same thing for errors
-		 * from ct_is_reply6() below, and ct_is_reply4() in
-		 * snat_v4_prepare_state().
-		 */
 		l4_off = ipv6_hdrlen(ctx, &tuple.nexthdr);
 		if (IS_ERR(l4_off))
 			return l4_off;
