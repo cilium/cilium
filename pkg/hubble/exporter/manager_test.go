@@ -78,10 +78,12 @@ func TestManager_ondecoded(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	m := NewManager(ctx)
 	tmp := t.TempDir()
-	err := m.Configure(exporteroption.WithPath(tmp))
-	assert.NoError(t, err)
 
-	err = m.Start("uid-a", "name-a", time.Now().Add(time.Hour), nil)
+	// Although an error was returned job was queued waiting for call to Configure.
+	err := m.Start("uid-a", "name-a", time.Now().Add(time.Hour), nil)
+	assert.ErrorContains(t, err, "unconfigured")
+
+	err = m.Configure(exporteroption.WithPath(tmp))
 	assert.NoError(t, err)
 
 	err = m.Start("uid-b", "", time.Now().Add(time.Hour), nil)
@@ -156,4 +158,13 @@ func TestManager_ondecoded(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, `{"flow":{"time":"1970-01-01T00:00:01Z","node_name":"test-node"},"node_name":"test-node","time":"1970-01-01T00:00:01Z"}
 `, string(f))
+}
+
+func TestManager_after_deadline(t *testing.T) {
+	m := NewManager(context.Background())
+	err := m.Configure(exporteroption.WithPath("/tmp/"))
+	assert.NoError(t, err)
+
+	err = m.Start("uid", "name", time.Now().Add(-time.Hour), nil)
+	assert.ErrorContains(t, err, "deadline is in the past")
 }

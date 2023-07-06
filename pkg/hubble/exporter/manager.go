@@ -25,6 +25,12 @@ import (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-exporter-manager")
 
+type job struct {
+	uid, name string
+	deadline  time.Time
+	opts      []exporteroption.Option
+}
+
 type managedExporter struct {
 	observeroption.OnDecodedEventFunc
 	cancel context.CancelFunc
@@ -34,6 +40,7 @@ type Manager struct {
 	ctx         context.Context
 	rateLimiter *rate.Limiter
 	lostEvents  int
+	waitingJobs []job
 
 	// exporters keeps track of all active Hubble-exporters by UID.
 	exporters *sync.Map
@@ -62,14 +69,25 @@ func (m *Manager) Configure(opts ...exporteroption.Option) error {
 	if m.opts.Limit > 0 {
 		m.rateLimiter = rate.NewLimiter(time.Second, int64(m.opts.Limit))
 	}
+
+	for _, job := range m.waitingJobs {
+		err := m.Start(job.uid, job.name, job.deadline, job.opts)
+		if err != nil {
+			log.WithField("name", job.name).WithError(err).Warn("failed to start waiting job")
+		}
+	}
 	return nil
 }
 
 func (m *Manager) Start(uid, name string, deadline time.Time, opts []exporteroption.Option) error {
 	if m.opts.Path == "" {
-		return fmt.Errorf("tried starting Hubble-exporter on unconfigured manager")
+		m.waitingJobs = append(m.waitingJobs, job{uid: uid, name: name, deadline: deadline, opts: opts})
+		return fmt.Errorf("tried starting Hubble-exporter on unconfigured manager. It will start later")
 	}
 
+	if deadline.Before(time.Now()) {
+		return fmt.Errorf("deadline is in the past")
+	}
 	conf := []exporteroption.Option{
 		exporteroption.WithPath(filepath.Join(m.opts.Path, uid, name+".json")),
 		exporteroption.WithMaxBackups(m.opts.MaxBackups),
@@ -88,7 +106,7 @@ func (m *Manager) Start(uid, name string, deadline time.Time, opts []exporteropt
 	exp, err := NewExporter(ctx, logger, conf...)
 	if err != nil {
 		cancel()
-		return nil
+		return fmt.Errorf("failed to create exporter: %w", err)
 	}
 	me := managedExporter{
 		OnDecodedEventFunc: exp.OnDecodedEvent,
