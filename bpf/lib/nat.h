@@ -713,29 +713,16 @@ static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
  * error code (distinct from NAT_PUNT_TO_STACK).
  */
 static __always_inline int
-snat_v4_prepare_state(struct __ctx_buff *ctx,
-		      struct ipv4_nat_target *target __maybe_unused)
+snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
+			 struct iphdr *ip4 __maybe_unused,
+			 struct ipv4_nat_target *target __maybe_unused)
 {
-	void *data, *data_end;
-	struct iphdr *ip4;
 	struct endpoint_info *local_ep __maybe_unused;
 	struct remote_endpoint_info *remote_ep __maybe_unused;
 	struct egress_gw_policy_entry *egress_gw_policy __maybe_unused;
 	bool is_reply __maybe_unused = false;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
-	/* Basic minimum is to only NAT when there is a potential of
-	 * overlapping tuples, e.g. applications in hostns reusing
-	 * source IPs we SNAT in NodePort and BPF-masq.
-	 */
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
-	if (ip4->saddr == IPV4_GATEWAY) {
-		target->addr = IPV4_GATEWAY;
-		return NAT_NEEDED;
-	}
-
 # if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 	if (target->cluster_id != 0 &&
 	    target->cluster_id != CLUSTER_ID) {
@@ -744,18 +731,6 @@ snat_v4_prepare_state(struct __ctx_buff *ctx,
 	}
 # endif
 #endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
-
-#if defined(IS_BPF_HOST)
-    /* NATIVE_DEV_IFINDEX == DIRECT_ROUTING_DEV_IFINDEX cannot be moved into
-     * preprocessor, as the former is known only during load time (templating).
-     * This checks whether bpf_host is running on the direct routing device.
-     */
-	if (DIRECT_ROUTING_DEV_IFINDEX == NATIVE_DEV_IFINDEX &&
-	    ip4->saddr == IPV4_DIRECT_ROUTING) {
-		target->addr = IPV4_DIRECT_ROUTING;
-		return NAT_NEEDED;
-	}
-#endif /* IS_BPF_HOST */
 
 #if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
 	if (ip4->saddr == IPV4_MASQUERADE) {
@@ -1692,37 +1667,16 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 }
 
 static __always_inline int
-snat_v6_prepare_state(struct __ctx_buff *ctx,
-		      struct ipv6_nat_target *target __maybe_unused)
+snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
+			 struct ipv6hdr *ip6 __maybe_unused,
+			 struct ipv6_nat_target *target __maybe_unused)
 {
-	union v6addr masq_addr __maybe_unused, router_ip __maybe_unused;
-	const union v6addr dr_addr __maybe_unused = IPV6_DIRECT_ROUTING;
+	union v6addr masq_addr __maybe_unused;
 	struct remote_endpoint_info *remote_ep __maybe_unused;
 	struct endpoint_info *local_ep __maybe_unused;
 	bool is_reply __maybe_unused = false;
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
-
-#if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
-	BPF_V6(router_ip, ROUTER_IP);
-	if (ipv6_addr_equals((union v6addr *)&ip6->saddr, &router_ip)) {
-		ipv6_addr_copy(&target->addr, &router_ip);
-		return NAT_NEEDED;
-	}
-#endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
-
-#if defined(IS_BPF_HOST)
-	/* See comment in snat_v4_prepare_state(). */
-	if (DIRECT_ROUTING_DEV_IFINDEX == NATIVE_DEV_IFINDEX &&
-	    ipv6_addr_equals((union v6addr *)&ip6->saddr, &dr_addr)) {
-		ipv6_addr_copy(&target->addr, &dr_addr);
-		return NAT_NEEDED;
-	}
-#endif /* IS_BPF_HOST */
-
+	/* See comments in snat_v4_needs_masquerade(). */
 #if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
 	BPF_V6(masq_addr, IPV6_MASQUERADE);
 	if (ipv6_addr_equals((union v6addr *)&ip6->saddr, &masq_addr)) {
@@ -1733,7 +1687,6 @@ snat_v6_prepare_state(struct __ctx_buff *ctx,
 	local_ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
 	remote_ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
 
-	/* See comment in snat_v4_prepare_state(). */
 	if (local_ep) {
 		struct ipv6_ct_tuple tuple = {};
 		int l4_off, err;
@@ -1760,7 +1713,6 @@ snat_v6_prepare_state(struct __ctx_buff *ctx,
 		union v6addr excl_cidr_mask = IPV6_SNAT_EXCLUSION_DST_CIDR_MASK;
 		union v6addr excl_cidr = IPV6_SNAT_EXCLUSION_DST_CIDR;
 
-		/* See comment in snat_v4_prepare_state(). */
 		if (ipv6_addr_in_net((union v6addr *)&ip6->daddr, &excl_cidr,
 				     &excl_cidr_mask))
 			return NAT_PUNT_TO_STACK;
@@ -1789,12 +1741,10 @@ snat_v6_prepare_state(struct __ctx_buff *ctx,
 #endif
 
 # ifndef TUNNEL_MODE
-		/* See comment in snat_v4_prepare_state(). */
 		if (identity_is_remote_node(remote_ep->sec_identity))
 			return NAT_PUNT_TO_STACK;
 # endif /* TUNNEL_MODE */
 
-		/* See comment in snat_v4_prepare_state(). */
 		if (!is_reply && local_ep) {
 			ipv6_addr_copy(&target->addr, &masq_addr);
 			return NAT_NEEDED;
