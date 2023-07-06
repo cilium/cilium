@@ -405,3 +405,50 @@ For example:
     $ make LOCKDEBUG=1
     $ # Deadlock detection during integration tests:
     $ make LOCKDEBUG=1 integration-tests
+
+CPU Profiling and Memory Leaks
+------------------------------
+
+Cilium bundles ``gops``, a standard tool for Golang applications, which
+provides the ability to collect CPU and memory profiles using ``pprof``.
+Inspecting profiles can help identify CPU bottlenecks and memory leaks.
+
+To capture a profile, take a :ref:`sysdump <sysdump>` of the cluster with the
+Cilium CLI or more directly, use the ``cilium-bugtool`` command that is
+included in the Cilium image:
+
+.. code-block:: shell-session
+
+    $ kubectl exec -ti -n kube-system <cilium-pod-name> -- cilium-bugtool --get-pprof --pprof-trace-seconds N
+    $ kubectl cp -n kube-system <cilium-pod-name>:/tmp/cilium-bugtool-<time-generated-name>.tar ./cilium-pprof.tar
+    $ tar xf ./cilium-pprof.tar
+
+Be mindful that the profile window is the number of seconds passed to
+``--pprof-trace-seconds``. Ensure that the number of seconds are enough to
+capture Cilium while it is exhibiting the problematic behavior to debug.
+
+There are 6 files that encompass the tar archive:
+
+.. code-block:: shell-session
+
+    Permissions Size User  Date Modified Name
+    .rw-r--r--   940 chris  6 Jul 14:04  gops-memstats-$(pidof-cilium-agent).md
+    .rw-r--r--  211k chris  6 Jul 14:04  gops-stack-$(pidof-cilium-agent).md
+    .rw-r--r--    58 chris  6 Jul 14:04  gops-stats-$(pidof-cilium-agent).md
+    .rw-r--r--   212 chris  6 Jul 14:04  pprof-cpu
+    .rw-r--r--  2.3M chris  6 Jul 14:04  pprof-heap
+    .rw-r--r--   25k chris  6 Jul 14:04  pprof-trace
+
+The files prefixed with ``pprof-`` are profiles. For more information on each
+one, see `Julia Evan's blog`_ on ``pprof``.
+
+To view the CPU or memory profile, simply execute the following command:
+
+.. code-block:: shell-session
+
+    $ go tool pprof -http localhost:9090 pprof-cpu  # for CPU
+    $ go tool pprof -http localhost:9090 pprof-heap # for memory
+
+This opens a browser window for profile inspection.
+
+.. _Julia Evan's blog: https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/
