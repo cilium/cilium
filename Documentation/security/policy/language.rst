@@ -1219,13 +1219,6 @@ denying an URL and ``toFQDNs``, i.e., specifically denying traffic to a specific
 domain name.
 
 
-Known issues
-------------
-
-There is currently a known issue (:gh-issue:`24502`) that makes the ``kube-apiserver``
-entity unreliable. Until this is resolved, it is recommended to grant access to the apiserver
-by CIDR or by the special ``world`` entity.
-
 Previous limitations and known issues
 -------------------------------------
 
