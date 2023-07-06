@@ -369,9 +369,6 @@ contain any characters after it.
 
 The Kubernetes tests support the following Kubernetes versions:
 
-* 1.16
-* 1.17
-* 1.18
 * 1.19
 * 1.20
 * 1.21
