@@ -713,7 +713,8 @@ static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
  * error code (distinct from NAT_PUNT_TO_STACK).
  */
 static __always_inline int
-snat_v4_prepare_state(struct __ctx_buff *ctx, struct ipv4_nat_target *target)
+snat_v4_prepare_state(struct __ctx_buff *ctx,
+		      struct ipv4_nat_target *target __maybe_unused)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -742,7 +743,9 @@ snat_v4_prepare_state(struct __ctx_buff *ctx, struct ipv4_nat_target *target)
 		return NAT_NEEDED;
 	}
 # endif
-#else
+#endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
+
+#if defined(IS_BPF_HOST)
     /* NATIVE_DEV_IFINDEX == DIRECT_ROUTING_DEV_IFINDEX cannot be moved into
      * preprocessor, as the former is known only during load time (templating).
      * This checks whether bpf_host is running on the direct routing device.
@@ -752,7 +755,7 @@ snat_v4_prepare_state(struct __ctx_buff *ctx, struct ipv4_nat_target *target)
 		target->addr = IPV4_DIRECT_ROUTING;
 		return NAT_NEEDED;
 	}
-#endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
+#endif /* IS_BPF_HOST */
 
 #if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
 	if (ip4->saddr == IPV4_MASQUERADE) {
@@ -1689,7 +1692,8 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 }
 
 static __always_inline int
-snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
+snat_v6_prepare_state(struct __ctx_buff *ctx,
+		      struct ipv6_nat_target *target __maybe_unused)
 {
 	union v6addr masq_addr __maybe_unused, router_ip __maybe_unused;
 	const union v6addr dr_addr __maybe_unused = IPV6_DIRECT_ROUTING;
@@ -1708,14 +1712,16 @@ snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 		ipv6_addr_copy(&target->addr, &router_ip);
 		return NAT_NEEDED;
 	}
-#else
+#endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
+
+#if defined(IS_BPF_HOST)
 	/* See comment in snat_v4_prepare_state(). */
 	if (DIRECT_ROUTING_DEV_IFINDEX == NATIVE_DEV_IFINDEX &&
 	    ipv6_addr_equals((union v6addr *)&ip6->saddr, &dr_addr)) {
 		ipv6_addr_copy(&target->addr, &dr_addr);
 		return NAT_NEEDED;
 	}
-#endif /* defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY) */
+#endif /* IS_BPF_HOST */
 
 #if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
 	BPF_V6(masq_addr, IPV6_MASQUERADE);
