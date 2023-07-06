@@ -19,6 +19,7 @@ type Options struct {
 	MaxSizeMB  int
 	MaxBackups int
 	Compress   bool
+	Limit      uint
 
 	AllowList, DenyList filters.FilterFuncs
 	FieldMask           fieldmask.FieldMask
@@ -96,6 +97,16 @@ func WithFieldMask(paths []string) Option {
 			return err
 		}
 		o.FieldMask = fieldMask
+		return nil
+	}
+}
+
+// WithRateLimit sets the maximum number of flows that Hubble exporter manager
+// will process. Rate limiting is disabled when set to 0. Hubble exporter
+// doesn't support this option.
+func WithRateLimit(limit uint) Option {
+	return func(o *Options) error {
+		o.Limit = limit
 		return nil
 	}
 }

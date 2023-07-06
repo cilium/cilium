@@ -969,6 +969,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.HubbleExportManagerDir, "", "Path to directory where different Hubble event streams will be written to.")
 	option.BindEnv(vp, option.HubbleExportManagerDir)
 
+	flags.Uint(option.HubbleExportManagerLimit, 10000, "Maximum number of flows that can be written to a single file per second.")
+	option.BindEnv(vp, option.HubbleExportManagerLimit)
+
 	flags.Bool(option.EnableHubbleRecorderAPI, true, "Enable the Hubble recorder API")
 	option.BindEnv(vp, option.EnableHubbleRecorderAPI)
 

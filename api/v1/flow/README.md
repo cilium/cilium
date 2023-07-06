@@ -1048,6 +1048,7 @@ This enum corresponds to Cilium&#39;s L7 accesslog FlowType:
 | PERF_EVENT_RING_BUFFER | 1 | PERF_EVENT_RING_BUFFER indicates that events were dropped in the BPF perf event ring buffer, indicating that userspace agent did not keep up with the events produced by the datapath. |
 | OBSERVER_EVENTS_QUEUE | 2 | OBSERVER_EVENTS_QUEUE indicates that events were dropped because the Hubble events queue was full, indicating that the Hubble observer did not keep up. |
 | HUBBLE_RING_BUFFER | 3 | HUBBLE_RING_BUFFER indicates that the event was dropped because it could not be read from Hubble&#39;s ring buffer in time before being overwritten. |
+| HUBBLE_EXPORTER_MANAGER_LIMIT | 4 | HUBBLE_EXPORTER_MANAGER_LIMIT indicates that events were dropped due internal rate limit of Hubble exporter manager. |
 
 
 

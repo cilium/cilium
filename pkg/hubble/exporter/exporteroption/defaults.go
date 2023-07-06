@@ -9,4 +9,5 @@ var Default = Options{
 	MaxSizeMB:  10,
 	MaxBackups: 5,
 	Compress:   false,
+	Limit:      10_000,
 }

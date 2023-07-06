@@ -1014,6 +1014,11 @@ const (
 	// resource.
 	HubbleExportManagerDir = "hubble-export-manager-dir"
 
+	// HubbleExportManagerLimit specifies the maximum rate at which Hubble
+	// exporter manager will process flows (per second). Set to 0 to disable.
+	// Default is 10,000.
+	HubbleExportManagerLimit = "hubble-export-manager-limit"
+
 	// EnableHubbleRecorderAPI specifies if the Hubble Recorder API should be served
 	EnableHubbleRecorderAPI = "enable-hubble-recorder-api"
 
@@ -2249,6 +2254,11 @@ type DaemonConfig struct {
 	// will be logged based on configuration from CiliumFlowLogging custom
 	// resource.
 	HubbleExportManagerDir string
+
+	// HubbleExportManagerLimit specifies the maximum rate at which Hubble
+	// exporter manager will process flows (per second). Set to 0 to disable.
+	// Default is 10,000.
+	HubbleExportManagerLimit uint
 
 	// EnableHubbleRecorderAPI specifies if the Hubble Recorder API should be served
 	EnableHubbleRecorderAPI bool
@@ -3537,6 +3547,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	}
 
 	c.HubbleExportManagerDir = vp.GetString(HubbleExportManagerDir)
+	c.HubbleExportManagerLimit = vp.GetUint(HubbleExportManagerLimit)
 	c.EnableHubbleRecorderAPI = vp.GetBool(EnableHubbleRecorderAPI)
 	c.HubbleRecorderStoragePath = vp.GetString(HubbleRecorderStoragePath)
 	c.HubbleRecorderSinkQueueSize = vp.GetInt(HubbleRecorderSinkQueueSize)

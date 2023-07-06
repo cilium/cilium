@@ -11,12 +11,15 @@ import (
 	"sync"
 	"time"
 
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/rate"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -28,7 +31,9 @@ type managedExporter struct {
 }
 
 type Manager struct {
-	ctx context.Context
+	ctx         context.Context
+	rateLimiter *rate.Limiter
+	lostEvents  int
 
 	// exporters keeps track of all active Hubble-exporters by UID.
 	exporters *sync.Map
@@ -53,6 +58,10 @@ func (m *Manager) Configure(opts ...exporteroption.Option) error {
 		}
 	}
 	m.opts = conf
+
+	if m.opts.Limit > 0 {
+		m.rateLimiter = rate.NewLimiter(time.Second, int64(m.opts.Limit))
+	}
 	return nil
 }
 
@@ -104,12 +113,50 @@ func (m *Manager) Stop(uid string) error {
 	return nil
 }
 
-func (m *Manager) OnDecodedEvent(ctx context.Context, ev *v1.Event) (bool, error) {
+func (m *Manager) onDecodedEvent(ctx context.Context, ev *v1.Event) (bool, error) {
 	var multiErr error
 	m.exporters.Range(func(_, me any) bool {
 		_, err := me.(managedExporter).OnDecodedEventFunc(ctx, ev)
 		multiErr = errors.Join(multiErr, err)
 		return true
 	})
+	return false, multiErr
+}
+
+// rateLimit returns stop=true when processing should stop due to reachin rate limit.
+func (m *Manager) rateLimit(ctx context.Context) (stop bool, err error) {
+	if m.rateLimiter == nil {
+		return false, nil
+	}
+	// Count lost events when we are over the limit.
+	if !m.rateLimiter.Allow() {
+		m.lostEvents++
+		return true, nil
+	}
+	// Log when there were events lost.
+	if m.lostEvents > 0 {
+		event := &v1.Event{
+			Event: &flowpb.LostEvent{
+				Source:        flowpb.LostEventSource_HUBBLE_EXPORTER_MANAGER_LIMIT,
+				NumEventsLost: uint64(m.lostEvents),
+			},
+		}
+		m.lostEvents = 0
+		return m.onDecodedEvent(ctx, event)
+	}
+	return false, nil
+}
+
+func (m *Manager) OnDecodedEvent(ctx context.Context, ev *v1.Event) (bool, error) {
+	var multiErr error
+
+	stop, err := m.rateLimit(ctx)
+	multiErr = errors.Join(multiErr, err)
+	if stop {
+		return false, multiErr
+	}
+
+	_, err = m.onDecodedEvent(ctx, ev)
+	multiErr = errors.Join(multiErr, err)
 	return false, multiErr
 }

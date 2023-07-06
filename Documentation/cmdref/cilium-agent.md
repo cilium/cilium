@@ -184,6 +184,7 @@ cilium-agent [flags]
       --hubble-export-file-max-size-mb int                        Size in MB at which to rotate Hubble export file. (default 10)
       --hubble-export-file-path string                            Filepath to write Hubble events to.
       --hubble-export-manager-dir string                          Path to directory where different Hubble event streams will be written to.
+      --hubble-export-manager-limit uint                          Maximum number of flows that can be written to a single file per second. (default 10000)
       --hubble-listen-address string                              An additional address for Hubble server to listen to, e.g. ":4244"
       --hubble-metrics strings                                    List of Hubble metrics to enable.
       --hubble-metrics-server string                              Address to serve Hubble metrics on.
