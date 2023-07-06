@@ -674,6 +674,7 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 {
 	int ret = TC_ACT_OK;
 	__u32 cluster_id __maybe_unused = 0;
+	__be16 proto __maybe_unused = 0;
 
 	/* When WireGuard strict mode is enabled, we have additional information
 	 * regarding to which CIDRs packets must encrypted. We have to check the
@@ -715,7 +716,8 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 	cluster_id = ctx_get_cluster_id_mark(ctx);
 #endif
-	ret = handle_nat_fwd(ctx, cluster_id);
+	validate_ethertype(ctx, &proto);
+	ret = handle_nat_fwd(ctx, proto, cluster_id);
 out:
 #endif
 	if (IS_ERR(ret))

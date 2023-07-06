@@ -14,17 +14,13 @@
 #include "overloadable.h"
 
 static __always_inline int
-wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
+wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto)
 {
 	struct remote_endpoint_info *dst;
 	struct remote_endpoint_info __maybe_unused *src = NULL;
 	void *data, *data_end;
-	__u16 proto = 0;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
-
-	if (!validate_ethertype(ctx, &proto))
-		return DROP_UNSUPPORTED_L2;
 
 	switch (proto) {
 #ifdef ENABLE_IPV6
@@ -65,6 +61,9 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		break;
 #endif
 	default:
+		if (!eth_is_supported_proto(proto))
+			return DROP_UNSUPPORTED_L2;
+
 		goto out;
 	}
 

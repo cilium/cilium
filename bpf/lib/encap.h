@@ -70,6 +70,10 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_un
 	int ret = 0;
 
 #if defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb
+	__be16 proto = 0;
+
+	validate_ethertype(ctx, &proto);
+
 	/* Redirect the packet to the WireGuard tunnel device for encryption
 	 * if needed.
 	 *
@@ -79,7 +83,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_un
 	 * compatible with < the v1.13 behavior in which the pod2pod bypassed
 	 * VXLAN/Geneve encapsulation when the WG feature was on.
 	 */
-	ret = wg_maybe_redirect_to_encrypt(ctx);
+	ret = wg_maybe_redirect_to_encrypt(ctx, proto);
 	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 		return ret;
 #endif /* defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb */

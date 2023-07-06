@@ -1412,11 +1412,14 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	}
 #endif
 
+	/* Up to users whether they want to tolerate unhandled protocols
+	 * or call eth_is_supported_proto().
+	 */
+	validate_ethertype(ctx, &proto);
+
 /* Pull L3 header for anyone who needs it: */
 #if defined(ENABLE_HOST_FIREWALL) || defined(ENABLE_SRV6) ||		\
     defined(ENABLE_WIREGUARD) || defined(ENABLE_NODEPORT)
-	validate_ethertype(ctx, &proto);
-
 	switch (proto) {
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
@@ -1494,7 +1497,7 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	 * the packet back to the "to-netdev" section for the SNAT instead of
 	 * returning TC_ACT_REDIRECT.
 	 */
-	ret = wg_maybe_redirect_to_encrypt(ctx);
+	ret = wg_maybe_redirect_to_encrypt(ctx, proto);
 	if (ret == CTX_ACT_REDIRECT)
 		return ret;
 	else if (IS_ERR(ret))
@@ -1527,7 +1530,7 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.
 		 */
-		ret = handle_nat_fwd(ctx, 0);
+		ret = handle_nat_fwd(ctx, proto, 0);
 		if (IS_ERR(ret))
 			return send_drop_notify_error(ctx, 0, ret,
 						      CTX_ACT_DROP,
@@ -1535,7 +1538,7 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	}
 #endif
 #ifdef ENABLE_HEALTH_CHECK
-	ret = lb_handle_health(ctx);
+	ret = lb_handle_health(ctx, proto);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
