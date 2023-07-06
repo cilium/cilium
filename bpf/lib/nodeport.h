@@ -166,12 +166,21 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
+	struct ipv6_ct_tuple tuple = {};
+	int hdrlen, l4_off, ret;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+	tuple.nexthdr = ip6->nexthdr;
+	hdrlen = ipv6_hdrlen(ctx, &tuple.nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	snat_v6_init_tuple(ip6, NAT_DIR_EGRESS, &tuple);
+	l4_off = ETH_HLEN + hdrlen;
 
 	if (nodeport_has_nat_conflict_ipv6(ip6, &target))
 		goto apply_snat;
@@ -181,7 +190,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 		goto out;
 
 apply_snat:
-	ret = snat_v6_nat(ctx, &target, ext_err);
+	ret = snat_v6_nat(ctx, &tuple, l4_off, &target, ext_err);
 
 out:
 	if (ret == NAT_PUNT_TO_STACK)
@@ -1539,12 +1548,16 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 		.cluster_id = cluster_id,
 #endif
 	};
+	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
-	int ret;
+	int l4_off, ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+
+	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &tuple);
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 	if (nodeport_has_nat_conflict_ipv4(ip4, &target))
 		goto apply_snat;
@@ -1554,7 +1567,8 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 		goto out;
 
 apply_snat:
-	ret = snat_v4_nat(ctx, &target, ext_err);
+	ret = snat_v4_nat(ctx, &tuple, l4_off, ipv4_has_l4_header(ip4),
+			  &target, ext_err);
 
 out:
 	if (ret == NAT_PUNT_TO_STACK)
