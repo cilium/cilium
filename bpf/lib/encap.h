@@ -125,8 +125,8 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 	/* tell caller that this packet needs to go through the stack: */
 	return CTX_ACT_OK;
 #else
-	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel_endpoint,
-						seclabel, dstid, NOT_VTEP_DST, trace);
+	return encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel,
+					      dstid, trace);
 #endif /* !ENABLE_NODEPORT && ENABLE_HOST_FIREWALL */
 }
 
@@ -176,8 +176,8 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 					 seclabel);
 	}
 # endif
-	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel->ip4, seclabel,
-						dstid, NOT_VTEP_DST, trace);
+	return encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel, dstid,
+					      trace);
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
 }
 
@@ -191,8 +191,8 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 	if (!tunnel)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
-	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel->ip4, seclabel,
-						0, NOT_VTEP_DST, trace);
+	return encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel, 0,
+					      trace);
 }
 #endif /* TUNNEL_MODE || ENABLE_HIGH_SCALE_IPCACHE */
 
