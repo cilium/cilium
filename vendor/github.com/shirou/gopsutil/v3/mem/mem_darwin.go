@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/shirou/gopsutil/v3/internal/common"
 	"golang.org/x/sys/unix"
+
+	"github.com/shirou/gopsutil/v3/internal/common"
 )
 
 func getHwMemsize() (uint64, error) {
