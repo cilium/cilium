@@ -322,7 +322,7 @@ Annotations:
 * There is a known issue (:gh-issue:`24502`) with CiliumNetworkPolicies that
   makes the ``kube-apiserver`` entity unreliable. Until this is resolved,
   it is recommended to grant access to the apiserver by the special ``world``
-  entity. This bug is present from v1.13.0.
+  entity. This bug is present in versions v1.13.0 through v1.13.2.
 
 1.13.1 Upgrade Notes
 --------------------
