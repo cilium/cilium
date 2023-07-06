@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
@@ -19,6 +20,13 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
 )
+
+var keySizeExceptions = []string{
+	// "cilium_policy" maps are populated in userspace
+	// and will not cause data loss when there is change
+	// in key size.
+	"cilium_policy",
+}
 
 // createMap wraps a call to ebpf.NewMapWithOptions while measuring syscall duration.
 func createMap(spec *ebpf.MapSpec, opts *ebpf.MapOptions) (*ebpf.Map, error) {
@@ -43,6 +51,7 @@ func createMap(spec *ebpf.MapSpec, opts *ebpf.MapOptions) (*ebpf.Map, error) {
 func objCheck(m *ebpf.Map, path string, mapType ebpf.MapType, keySize, valueSize, maxEntries, flags uint32) bool {
 	scopedLog := log.WithField(logfields.Path, path)
 	mismatch := false
+	supressMismatchLog := false
 
 	if m.Type() != mapType {
 		scopedLog.WithFields(logrus.Fields{
@@ -52,11 +61,26 @@ func objCheck(m *ebpf.Map, path string, mapType ebpf.MapType, keySize, valueSize
 		mismatch = true
 	}
 
+	if mi, err := m.Info(); err != nil {
+		scopedLog.Errorf("Could not get mapinfo for map %+v", *m)
+	} else {
+		if len(mi.Name) > 0 {
+			for _, n := range keySizeExceptions {
+				if strings.HasPrefix(mi.Name, n) {
+					supressMismatchLog = true
+					break
+				}
+			}
+		}
+	}
+
 	if m.KeySize() != keySize {
-		scopedLog.WithFields(logrus.Fields{
-			"old": m.KeySize(),
-			"new": keySize,
-		}).Warning("Key-size mismatch for BPF map")
+		if !supressMismatchLog {
+			scopedLog.WithFields(logrus.Fields{
+				"old": m.KeySize(),
+				"new": keySize,
+			}).Warning("Key-size mismatch for BPF map")
+		}
 		mismatch = true
 	}
 
