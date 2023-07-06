@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/completion"
+	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -94,22 +95,39 @@ func checkEnvoyVersion() error {
 	return nil
 }
 
-// createEnvoyRedirect creates a redirect with corresponding proxy
-// configuration. This will launch a proxy instance.
-func createEnvoyRedirect(r *Redirect, runDir string, xdsServer envoy.XDSServer, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) (RedirectImplementation, error) {
-	initEnvoy(runDir, xdsServer, wg)
+type envoyProxyIntegration struct {
+	runDir    string
+	xdsServer envoy.XDSServer
+	datapath  datapath.Datapath
+}
+
+// createRedirect creates a redirect with corresponding proxy configuration. This will launch a proxy instance.
+func (p *envoyProxyIntegration) createRedirect(r *Redirect, wg *completion.WaitGroup) (RedirectImplementation, error) {
+	if r.listener.proxyType == ProxyTypeCRD {
+		// CRD Listeners already exist, create a no-op implementation
+		return &CRDRedirect{}, nil
+	}
+
+	// create an Envoy Listener for Cilium policy enforcement
+	return p.handleEnvoyRedirect(r, wg)
+}
+
+func (p *envoyProxyIntegration) handleEnvoyRedirect(r *Redirect, wg *completion.WaitGroup) (RedirectImplementation, error) {
+	initEnvoy(p.runDir, p.xdsServer, wg)
 
 	l := r.listener
 	if envoyAdminClient != nil {
 		redirect := &envoyRedirect{
 			listenerName: net.JoinHostPort(r.name, fmt.Sprintf("%d", l.proxyPort)),
-			xdsServer:    xdsServer,
+			xdsServer:    p.xdsServer,
 		}
+
+		mayUseOriginalSourceAddr := p.datapath.SupportsOriginalSourceAddr()
 		// Only use original source address for egress
 		if l.ingress {
 			mayUseOriginalSourceAddr = false
 		}
-		xdsServer.AddListener(redirect.listenerName, policy.L7ParserType(l.proxyType), l.proxyPort, l.ingress,
+		p.xdsServer.AddListener(redirect.listenerName, policy.L7ParserType(l.proxyType), l.proxyPort, l.ingress,
 			mayUseOriginalSourceAddr, wg)
 
 		return redirect, nil

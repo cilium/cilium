@@ -28,17 +28,6 @@ type RedirectImplementation interface {
 	Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc)
 }
 
-// Redirect type for custom Listeners, which are managed externally.
-type CRDRedirect struct{}
-
-func (r *CRDRedirect) UpdateRules(wg *completion.WaitGroup) (revert.RevertFunc, error) {
-	return func() error { return nil }, nil
-}
-
-func (r *CRDRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
-	return nil, func() error { return nil }
-}
-
 type Redirect struct {
 	// The following fields are only written to during initialization, it
 	// is safe to read these fields without locking the mutex
