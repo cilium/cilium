@@ -5,12 +5,16 @@ package ipcache
 
 import (
 	"bytes"
+	"net"
+	"net/netip"
 	"sort"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
+	"github.com/cilium/cilium/pkg/identity"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -284,4 +288,17 @@ func (s PrefixInfo) logConflicts(scopedLog *logrus.Entry) {
 			}
 		}
 	}
+}
+
+type IPcache interface {
+	GetNamedPorts() types.NamedPortMultiMap
+	AddListener(IPIdentityMappingListener)
+	AllocateCIDRs([]netip.Prefix, []identity.NumericIdentity, map[netip.Prefix]*identity.Identity) ([]*identity.Identity, error)
+	ReleaseCIDRIdentitiesByCIDR([]netip.Prefix)
+	LookupByIP(string) (Identity, bool)
+	Upsert(string, net.IP, uint8, *K8sMetadata, Identity) (bool, error)
+	Delete(string, source.Source) bool
+	UpsertLabels(netip.Prefix, labels.Labels, source.Source, ipcacheTypes.ResourceID)
+	RemoveLabelsExcluded(labels.Labels, map[netip.Prefix]struct{}, ipcacheTypes.ResourceID)
+	DeleteOnMetadataMatch(string, source.Source, string, string) bool
 }
