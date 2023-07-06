@@ -259,7 +259,7 @@ func (d *Daemon) syncHostIPs() error {
 		lbls := ipIDLblsPair.Labels
 		if ipIDLblsPair.ID == identity.ReservedIdentityWorld {
 			p := netip.PrefixFrom(ippkg.MustAddrFromIP(ipIDLblsPair.IP), 0)
-			d.ipcache.OverrideIdentity(p, lbls, source.Local, daemonResourceID)
+			d.ipcache.(*ipcache.IPCache).OverrideIdentity(p, lbls, source.Local, daemonResourceID)
 		} else {
 			d.ipcache.UpsertLabels(ippkg.IPToNetPrefix(ipIDLblsPair.IP),
 				lbls,
@@ -280,7 +280,7 @@ func (d *Daemon) syncHostIPs() error {
 				log.Debugf("Removed outdated host IP %s from endpoint map", hostIP)
 			}
 
-			d.ipcache.RemoveLabels(ippkg.IPToNetPrefix(ip), labels.LabelHost, daemonResourceID)
+			d.ipcache.(*ipcache.IPCache).RemoveLabels(ippkg.IPToNetPrefix(ip), labels.LabelHost, daemonResourceID)
 		}
 	}
 
@@ -410,8 +410,8 @@ func (d *Daemon) initMaps() error {
 	// Set up the list of IPCache listeners in the daemon, to be
 	// used by syncEndpointsAndHostIPs()
 	// xDS cache will be added later by calling AddListener(), but only if necessary.
-	d.ipcache.SetListeners([]ipcache.IPIdentityMappingListener{
-		datapathIpcache.NewListener(d, d, d.ipcache),
+	d.ipcache.(*ipcache.IPCache).SetListeners([]ipcache.IPIdentityMappingListener{
+		datapathIpcache.NewListener(d, d, d.ipcache.(*ipcache.IPCache)),
 	})
 
 	if option.Config.EnableIPMasqAgent {

@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	secIDCache "github.com/cilium/cilium/pkg/identity/cache"
 	ippkg "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -431,7 +432,7 @@ func (d *Daemon) lookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, e
 }
 
 func (d *Daemon) lookupIPsBySecID(nid identity.NumericIdentity) []string {
-	return d.ipcache.LookupByIdentity(nid)
+	return d.ipcache.(*ipcache.IPCache).LookupByIdentity(nid)
 }
 
 // notifyOnDNSMsg handles DNS data in the daemon by emitting monitor
@@ -650,7 +651,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		}).Debug("Waited for endpoints to regenerate due to a DNS response")
 
 		// Add new identities to the ipcache after the wait for the policy updates above
-		d.ipcache.UpsertGeneratedIdentities(newlyAllocatedIdentities, usedIdentities)
+		d.ipcache.(*ipcache.IPCache).UpsertGeneratedIdentities(newlyAllocatedIdentities, usedIdentities)
 
 		endMetric()
 	}

@@ -24,7 +24,7 @@ func getIPHandler(d *Daemon, params GetIPParams) middleware.Responder {
 		}
 		listener.cidrFilter = cidrFilter
 	}
-	d.ipcache.DumpToListener(listener)
+	d.ipcache.(*ipcache.IPCache).DumpToListener(listener)
 	if len(listener.entries) == 0 {
 		return NewGetIPNotFound()
 	}

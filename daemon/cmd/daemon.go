@@ -167,7 +167,7 @@ type Daemon struct {
 
 	identityAllocator CachingIdentityAllocator
 
-	ipcache *ipcache.IPCache
+	ipcache ipcache.IPcache
 
 	k8sWatcher *watchers.K8sWatcher
 
@@ -718,7 +718,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 	// Upsert restored CIDRs after the new ipcache has been opened above
 	if len(restoredCIDRidentities) > 0 {
-		d.ipcache.UpsertGeneratedIdentities(restoredCIDRidentities, nil)
+		d.ipcache.(*ipcache.IPCache).UpsertGeneratedIdentities(restoredCIDRidentities, nil)
 	}
 	// Upsert restored local Ingress IPs
 	for _, ingressIP := range oldIngressIPs {
@@ -890,7 +890,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	if params.WGAgent != nil && option.Config.EnableWireguard {
-		if err := params.WGAgent.Init(d.ipcache, d.mtuConfig); err != nil {
+		if err := params.WGAgent.Init(d.ipcache.(*ipcache.IPCache), d.mtuConfig); err != nil {
 			log.WithError(err).Error("failed to initialize wireguard agent")
 			return nil, nil, fmt.Errorf("failed to initialize wireguard agent: %w", err)
 		}
@@ -1209,7 +1209,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// Start watcher for endpoint IP --> identity mappings in key-value store.
 	// this needs to be done *after* init() for the daemon in that function,
 	// we populate the IPCache with the host's IP(s).
-	d.ipcache.InitIPIdentityWatcher(d.ctx)
+	d.ipcache.(*ipcache.IPCache).InitIPIdentityWatcher(d.ctx)
 	identitymanager.Subscribe(d.policy)
 
 	// Start listening to changed devices if requested.

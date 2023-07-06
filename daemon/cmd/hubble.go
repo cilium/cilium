@@ -399,7 +399,7 @@ func (d *Daemon) GetK8sMetadata(ip netip.Addr) *ipcache.K8sMetadata {
 	if !ip.IsValid() {
 		return nil
 	}
-	return d.ipcache.GetK8sMetadata(ip.String())
+	return d.ipcache.(*ipcache.IPCache).GetK8sMetadata(ip.String())
 }
 
 // LookupSecIDByIP returns the security ID for the given IP. If the security ID
@@ -424,7 +424,7 @@ func (d *Daemon) LookupSecIDByIP(ip netip.Addr) (id ipcache.Identity, ok bool) {
 		// entries derived by a single address cidr-range will not have been
 		// found by the above lookup
 		cidr, _ := ip.Prefix(prefixLen)
-		if id, ok = d.ipcache.LookupByPrefix(cidr.String()); ok {
+		if id, ok = d.ipcache.(*ipcache.IPCache).LookupByPrefix(cidr.String()); ok {
 			return id, ok
 		}
 	}

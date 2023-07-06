@@ -442,7 +442,7 @@ func (r *PolicyReactionEvent) reactToRuleUpdates(epsToBumpRevision, epsToRegen *
 	//   this operation completes regardless of whether the BPF ipcache or
 	//   policymap gets updated first, so the ordering is not consequential.
 	if len(releasePrefixes) != 0 {
-		r.d.ipcache.RemovePrefixes(releasePrefixes, r.source, r.resource)
+		r.d.ipcache.(*ipcache.IPCache).RemovePrefixes(releasePrefixes, r.source, r.resource)
 	}
 
 	// Bump revision of endpoints which don't need to be regenerated.
@@ -486,7 +486,7 @@ func (r *PolicyReactionEvent) reactToRuleUpdates(epsToBumpRevision, epsToRegen *
 	// SelectorCache / Endpoints to do an incremental identity update to
 	// the datapath maps (if necessary).
 	if len(upsertPrefixes) != 0 {
-		r.d.ipcache.UpsertPrefixes(upsertPrefixes, r.source, r.resource)
+		r.d.ipcache.(*ipcache.IPCache).UpsertPrefixes(upsertPrefixes, r.source, r.resource)
 	}
 }
 
