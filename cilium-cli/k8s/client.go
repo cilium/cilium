@@ -64,6 +64,12 @@ type Client struct {
 	RawConfig          clientcmdapi.Config
 	RESTClientGetter   genericclioptions.RESTClientGetter
 	contextName        string
+
+	// RESTClientGetterForHelm is a dedicated RESTClientGetter for Helm client.
+	// Sharing the same RESTClientGetter between Helm client and direct Kubernetes
+	// API calls causes "concurrent map read and map write" fatal error.
+	// https://github.com/cilium/cilium-cli/issues/1794
+	RESTClientGetterForHelm genericclioptions.RESTClientGetter
 }
 
 func NewClient(contextName, kubeconfig string) (*Client, error) {
@@ -73,6 +79,10 @@ func NewClient(contextName, kubeconfig string) (*Client, error) {
 	_ = tetragonv1alpha1.AddToScheme(scheme.Scheme)
 
 	restClientGetter := genericclioptions.ConfigFlags{
+		Context:    &contextName,
+		KubeConfig: &kubeconfig,
+	}
+	restClientGetterForHelm := genericclioptions.ConfigFlags{
 		Context:    &contextName,
 		KubeConfig: &kubeconfig,
 	}
@@ -118,15 +128,16 @@ func NewClient(contextName, kubeconfig string) (*Client, error) {
 	}
 
 	return &Client{
-		CiliumClientset:    ciliumClientset,
-		TetragonClientset:  tetragonClientset,
-		Clientset:          clientset,
-		ExtensionClientset: extensionClientset,
-		Config:             config,
-		DynamicClientset:   dynamicClientset,
-		RawConfig:          rawConfig,
-		RESTClientGetter:   &restClientGetter,
-		contextName:        contextName,
+		CiliumClientset:         ciliumClientset,
+		TetragonClientset:       tetragonClientset,
+		Clientset:               clientset,
+		ExtensionClientset:      extensionClientset,
+		Config:                  config,
+		DynamicClientset:        dynamicClientset,
+		RawConfig:               rawConfig,
+		RESTClientGetter:        &restClientGetter,
+		contextName:             contextName,
+		RESTClientGetterForHelm: &restClientGetterForHelm,
 	}, nil
 }
 
@@ -947,7 +958,7 @@ func (c *Client) GetCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.V
 
 func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error) {
 	if utils.IsInHelmMode() {
-		release, err := helm.Get(c.RESTClientGetter, helm.GetParameters{
+		release, err := helm.Get(c.RESTClientGetterForHelm, helm.GetParameters{
 			Namespace: namespace,
 			Name:      defaults.HelmReleaseName,
 		})
