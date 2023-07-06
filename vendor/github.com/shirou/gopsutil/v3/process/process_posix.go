@@ -109,8 +109,8 @@ func PidExistsWithContext(ctx context.Context, pid int32) (bool, error) {
 		return false, err
 	}
 
-	if isMount(common.HostProc()) { // if /<HOST_PROC>/proc exists and is mounted, check if /<HOST_PROC>/proc/<PID> folder exists
-		_, err := os.Stat(common.HostProc(strconv.Itoa(int(pid))))
+	if isMount(common.HostProcWithContext(ctx)) { // if /<HOST_PROC>/proc exists and is mounted, check if /<HOST_PROC>/proc/<PID> folder exists
+		_, err := os.Stat(common.HostProcWithContext(ctx, strconv.Itoa(int(pid))))
 		if os.IsNotExist(err) {
 			return false, nil
 		}

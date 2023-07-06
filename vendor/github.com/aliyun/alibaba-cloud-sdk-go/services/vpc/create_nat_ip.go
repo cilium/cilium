@@ -71,7 +71,6 @@ func (client *Client) CreateNatIpWithCallback(request *CreateNatIpRequest, callb
 // CreateNatIpRequest is the request struct for api CreateNatIp
 type CreateNatIpRequest struct {
 	*requests.RpcRequest
-	NatIpCidrId          string           `position:"Query" name:"NatIpCidrId"`
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
 	NatIpName            string           `position:"Query" name:"NatIpName"`
 	ClientToken          string           `position:"Query" name:"ClientToken"`
