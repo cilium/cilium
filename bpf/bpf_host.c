@@ -919,9 +919,8 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 
 	ctx->mark = 0;
 	bpf_clear_meta(ctx);
-	return __encap_and_redirect_with_nodeid(ctx, 0, ep->tunnel_endpoint,
-						src_id, 0, NOT_VTEP_DST,
-						&trace);
+	return encap_and_redirect_with_nodeid(ctx, ep->tunnel_endpoint,
+					      src_id, 0, &trace);
 }
 #endif /* ENABLE_IPSEC && TUNNEL_MODE */
 
