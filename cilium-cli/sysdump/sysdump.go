@@ -760,7 +760,7 @@ func (c *Collector) Run() error {
 					return fmt.Errorf("failed to collect the Cilium Node Init daemonset: %w", err)
 				}
 				if err := c.WriteYAML(ciliumNodeInitDaemonsetFileName, v); err != nil {
-					return fmt.Errorf("failed to collect the Cilium Node Init daemonset: %w", err)
+					return fmt.Errorf("could not write Cilium Node Init daemonset YAML to file: %w", err)
 				}
 				return nil
 			},
@@ -1063,7 +1063,7 @@ func (c *Collector) Run() error {
 					LabelSelector: c.Options.CiliumNodeInitLabelSelector,
 				})
 				if err != nil {
-					return fmt.Errorf("failed to get logs from Cilium Node Init pods")
+					return fmt.Errorf("failed to list Cilium Node Init pods")
 				}
 				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium Node Init pods")
