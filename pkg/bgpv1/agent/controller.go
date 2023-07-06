@@ -236,6 +236,15 @@ func (c *Controller) Stop(ctx hive.HookContext) error {
 	return nil
 }
 
+// Signal provides a thread-safe way to trigger the BGP Control Plane controller's
+// reconciliation loop.
+//
+// It is guaranteed, bar any fatal errors, that the reconciliation loop is ran
+// sometime after this method returns.
+func (c *Controller) Signal() {
+	c.Sig.Event(struct{}{})
+}
+
 // Run places the Controller into its control loop.
 //
 // Kubernetes shared informers are started just before entering the long running
