@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/ipam"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/labels"
@@ -281,8 +280,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 		}
 	}
 
-	if option.Config.EnableIPSec &&
-		(option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure) {
+	if option.Config.EnableIPSec {
 		// If IPsec is enabled on EKS or AKS, we need to restore the host
 		// endpoint before any other endpoint, to ensure a dropless upgrade.
 		// This code can be removed in v1.15.
@@ -309,8 +307,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 	}
 
 	for _, ep := range state.restored {
-		if ep.IsHost() && option.Config.EnableIPSec &&
-			(option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure) {
+		if ep.IsHost() && option.Config.EnableIPSec {
 			// The host endpoint was handled above.
 			continue
 		}
