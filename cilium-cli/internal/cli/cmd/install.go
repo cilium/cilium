@@ -281,7 +281,7 @@ cilium install --context kind-cluster1 --helm-set cluster.id=1 --helm-set cluste
 				return err
 			}
 			cmd.SilenceUsage = true
-			if err := installer.InstallWithHelm(context.Background(), k8sClient.RESTClientGetter); err != nil {
+			if err := installer.InstallWithHelm(context.Background(), k8sClient.RESTClientGetterForHelm); err != nil {
 				fatalf("Unable to install Cilium: %s", err)
 			}
 			return nil
@@ -319,7 +319,7 @@ func newCmdUninstallWithHelm() *cobra.Command {
 				cc.UninstallResources(ctx, params.Wait)
 			}
 			uninstaller := install.NewK8sUninstaller(k8sClient, params)
-			if err := uninstaller.UninstallWithHelm(ctx, k8sClient.RESTClientGetter); err != nil {
+			if err := uninstaller.UninstallWithHelm(ctx, k8sClient.RESTClientGetterForHelm); err != nil {
 				fatalf("Unable to uninstall Cilium:  %s", err)
 			}
 			return nil
@@ -359,7 +359,7 @@ cilium upgrade --helm-set cluster.id=1 --helm-set cluster.name=cluster1
 				return err
 			}
 			cmd.SilenceUsage = true
-			if err := installer.UpgradeWithHelm(context.Background(), k8sClient.RESTClientGetter); err != nil {
+			if err := installer.UpgradeWithHelm(context.Background(), k8sClient.RESTClientGetterForHelm); err != nil {
 				fatalf("Unable to upgrade Cilium: %s", err)
 			}
 			return nil
