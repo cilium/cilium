@@ -1269,7 +1269,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 
 		for _, agent := range ct.CiliumPods() {
 			if _, ok := nodes[agent.NodeName()]; ok {
-				if err := WaitForServiceEndpoints(ctx, ct, agent, s, 1); err != nil {
+				if err := WaitForServiceEndpoints(ctx, ct, agent, s, 1, ct.Features.IPFamilies()); err != nil {
 					return err
 				}
 			}

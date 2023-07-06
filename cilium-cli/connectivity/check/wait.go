@@ -8,11 +8,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"golang.org/x/exp/slices"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium-cli/defaults"
@@ -171,7 +173,7 @@ func WaitForService(ctx context.Context, log Logger, client Pod, service Service
 
 // WaitForServiceEndpoints waits until the expected number of service backends
 // are reported by the given agent.
-func WaitForServiceEndpoints(ctx context.Context, log Logger, agent Pod, service Service, backends uint) error {
+func WaitForServiceEndpoints(ctx context.Context, log Logger, agent Pod, service Service, backends uint, families []IPFamily) error {
 	log.Logf("⌛ [%s] Waiting for Service %s to be synchronized by Cilium pod %s",
 		agent.K8sClient.ClusterName(), service.Name(), agent.Name())
 
@@ -179,7 +181,7 @@ func WaitForServiceEndpoints(ctx context.Context, log Logger, agent Pod, service
 	defer cancel()
 
 	for {
-		err := checkServiceEndpoints(ctx, agent, service, backends)
+		err := checkServiceEndpoints(ctx, agent, service, backends, families)
 		if err == nil {
 			return nil
 		}
@@ -196,7 +198,7 @@ func WaitForServiceEndpoints(ctx context.Context, log Logger, agent Pod, service
 	}
 }
 
-func checkServiceEndpoints(ctx context.Context, agent Pod, service Service, backends uint) error {
+func checkServiceEndpoints(ctx context.Context, agent Pod, service Service, backends uint, families []IPFamily) error {
 	buffer, err := agent.K8sClient.ExecInPod(ctx, agent.Namespace(), agent.NameWithoutNamespace(),
 		defaults.AgentContainerName, []string{"cilium", "service", "list", "--output=json"})
 	if err != nil {
@@ -222,6 +224,17 @@ func checkServiceEndpoints(ctx context.Context, agent Pod, service Service, back
 	}
 
 	for _, ip := range service.Service.Spec.ClusterIPs {
+		addr, err := netip.ParseAddr(ip)
+		if err != nil {
+			return fmt.Errorf("failed to parse ClusterIP %q: %w", ip, err)
+		}
+
+		// Skip the check for a given address if the corresponding IP family is not
+		// enabled in Cilium, as the backends will never be populated.
+		if addr.Is4() && !slices.Contains(families, IPFamilyV4) || addr.Is6() && !slices.Contains(families, IPFamilyV6) {
+			continue
+		}
+
 		for _, port := range service.Service.Spec.Ports {
 			if found[l3n4{addr: ip, port: uint16(port.Port)}] < backends {
 				return errors.New("service not yet synchronized")

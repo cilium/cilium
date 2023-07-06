@@ -111,6 +111,21 @@ func (fs FeatureSet) MatchRequirements(reqs ...FeatureRequirement) bool {
 	return true
 }
 
+// IPFamilies returns the list of enabled IP families.
+func (fs FeatureSet) IPFamilies() []IPFamily {
+	var families []IPFamily
+
+	if fs.MatchRequirements(RequireFeatureEnabled(FeatureIPv4)) {
+		families = append(families, IPFamilyV4)
+	}
+
+	if fs.MatchRequirements(RequireFeatureEnabled(FeatureIPv6)) {
+		families = append(families, IPFamilyV6)
+	}
+
+	return families
+}
+
 // deriveFeatures derives additional features based on the status of other features
 func (fs FeatureSet) deriveFeatures() error {
 	fs[FeatureHostPort] = FeatureStatus{
