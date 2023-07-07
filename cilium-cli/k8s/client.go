@@ -28,6 +28,7 @@ import (
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -820,14 +821,15 @@ func (c *Client) GetPodsTable(_ context.Context) (*metav1.Table, error) {
 	if r.Err() != nil {
 		return nil, r.Err()
 	}
-	i, err := r.Infos()
+	infos, err := r.Infos()
 	if err != nil {
 		return nil, err
 	}
-	if len(i) != 1 {
-		return nil, fmt.Errorf("expected a single kind of resource (got %d)", len(i))
+	objects := make([]runtime.Object, 0, len(infos))
+	for _, info := range infos {
+		objects = append(objects, info.Object)
 	}
-	return unstructuredToTable(i[0].Object)
+	return unstructuredSliceToTable(objects)
 }
 
 func (c *Client) ListUnstructured(ctx context.Context, gvr schema.GroupVersionResource, namespace *string, o metav1.ListOptions) (*unstructured.UnstructuredList, error) {
