@@ -105,6 +105,25 @@ func (n *linuxNodeHandler) getNodeIDForNode(node *nodeTypes.Node) uint16 {
 	return nodeID
 }
 
+func (n *linuxNodeHandler) deleteNodeIPs(oldIPs, newIPs []nodeTypes.Address) {
+	for _, oldAddr := range oldIPs {
+		found := false
+		for _, newAddr := range newIPs {
+			if newAddr.IP.String() == oldAddr.IP.String() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			if err := n.unmapNodeID(oldAddr.IP.String()); err != nil {
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.IPAddr: oldAddr,
+				}).Warn("DeleteNodeIPS failed to remove a node IP to node ID mapping")
+			}
+		}
+	}
+}
+
 // allocateIDForNode allocates a new ID for the given node if one hasn't already
 // been assigned. If any of the node IPs have an ID associated, then all other
 // node IPs receive the same. This might happen if we allocated a node ID from
