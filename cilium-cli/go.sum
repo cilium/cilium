@@ -109,8 +109,8 @@ github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMn
 github.com/cilium/charts v0.0.0-20230628232147-9992996cd311 h1:+Zw0r6BzIoC+ly57iVtt8LVeHNGKGNRCEiENgbByJwA=
 github.com/cilium/charts v0.0.0-20230628232147-9992996cd311/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
 github.com/cilium/checkmate v1.0.3 h1:CQC5eOmlAZeEjPrVZY3ZwEBH64lHlx9mXYdUehEwI5w=
-github.com/cilium/cilium v1.14.0-rc.0 h1:jOZ8gVmV6orhCIvYj4aan+Sfaj3o8IOFnPZenW7jv1I=
-github.com/cilium/cilium v1.14.0-rc.0/go.mod h1:Kn5pNB4Mb/5mhinclwvDtWPejmPaw5k11DGMjohdc3g=
+github.com/cilium/cilium v1.14.0-snapshot.5 h1:eSJxw/j0vwx9EhQA/Exdsol1sIZiG/9qhgbyAZ7eGbU=
+github.com/cilium/cilium v1.14.0-snapshot.5/go.mod h1:Kn5pNB4Mb/5mhinclwvDtWPejmPaw5k11DGMjohdc3g=
 github.com/cilium/client-go v0.27.2-fix h1:dbFQGtP5Y1lFVBhkMCIAwyf/PUWFBn8M1ZTCKA6BUdw=
 github.com/cilium/client-go v0.27.2-fix/go.mod h1:tY0gVmUsHrAmjzHX9zs7eCjxcBsf8IiNe7KQ52biTcQ=
 github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc h1:tNEOByqRaBwlf1ANK/U/sd5oOIkxkPkpCVqaabxvU84=
@@ -1264,8 +1264,8 @@ google.golang.org/grpc v1.35.0/go.mod h1:qjiiYl8FncCW8feJPdyg3v6XW24KsRHe+dy9BAG
 google.golang.org/grpc v1.36.0/go.mod h1:qjiiYl8FncCW8feJPdyg3v6XW24KsRHe+dy9BAGRRjU=
 google.golang.org/grpc v1.36.1/go.mod h1:qjiiYl8FncCW8feJPdyg3v6XW24KsRHe+dy9BAGRRjU=
 google.golang.org/grpc v1.38.0/go.mod h1:NREThFqKR1f3iQ6oBuvc5LadQuXVGo9rkm5ZGrQdJfM=
-google.golang.org/grpc v1.56.1 h1:z0dNfjIl0VpaZ9iSVjA6daGatAYwPGstTjt5vkRMFkQ=
-google.golang.org/grpc v1.56.1/go.mod h1:I9bI3vqKfayGqPUAwGdOSu7kt6oIJLixfffKrpXqQ9s=
+google.golang.org/grpc v1.56.2 h1:fVRFRnXvU+x6C4IlHZewvJOVHoOv1TUuQyoRsYnB4bI=
+google.golang.org/grpc v1.56.2/go.mod h1:I9bI3vqKfayGqPUAwGdOSu7kt6oIJLixfffKrpXqQ9s=
 google.golang.org/protobuf v0.0.0-20200109180630-ec00e32a8dfd/go.mod h1:DFci5gLYBciE7Vtevhsrf46CRTquxDuWsQurQQe4oz8=
 google.golang.org/protobuf v0.0.0-20200221191635-4d8936d0db64/go.mod h1:kwYJMbMJ01Woi6D6+Kah6886xMZcty6N08ah7+eCXa0=
 google.golang.org/protobuf v0.0.0-20200228230310-ab0ca4ff8a60/go.mod h1:cfTl7dwQJ+fmap5saPgwCLgHXTUD7jkjRqWcaiX5VyM=

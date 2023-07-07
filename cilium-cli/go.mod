@@ -20,7 +20,7 @@ replace (
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/charts v0.0.0-20230628232147-9992996cd311
-	github.com/cilium/cilium v1.14.0-rc.0
+	github.com/cilium/cilium v1.14.0-snapshot.5
 	github.com/cilium/hubble v0.11.6
 	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230706144126-79aa12a01b97
 	github.com/cilium/workerpool v1.2.0
@@ -33,7 +33,7 @@ require (
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
 	golang.org/x/mod v0.12.0
-	google.golang.org/grpc v1.56.1
+	google.golang.org/grpc v1.56.2
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	helm.sh/helm/v3 v3.12.1
 	k8s.io/api v0.27.2
