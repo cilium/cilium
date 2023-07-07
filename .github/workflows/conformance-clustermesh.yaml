@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7  
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -417,7 +417,7 @@ jobs:
 
         kubectl config use-context ${{ env.contextName1 }}
         kubectl get pods --all-namespaces -o wide
-        cilium sysdump --output-filename cilium-sysdump-context1-${{ join(matrix.*, '-') }}
+        cilium sysdump --output-filename cilium-sysdump-context1-final-${{ join(matrix.*, '-') }}
 
         kubectl config use-context ${{ env.contextName2 }}
         kubectl get pods --all-namespaces -o wide
@@ -452,7 +452,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7  
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.installation-and-connectivity.result }}
