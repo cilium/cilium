@@ -161,7 +161,7 @@ func addEgressIpRoutes(egressIP net.IPNet, ifaceIndex int) error {
 		Gw:        eniGatewayIP,
 		Protocol:  linux_defaults.RTProto,
 	}); err != nil {
-		return fmt.Errorf("unable to add L2 nexthop route: %w", err)
+		return fmt.Errorf("unable to add default route: %w", err)
 	}
 
 	return nil
