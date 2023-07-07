@@ -120,8 +120,9 @@ type KProbeSpec struct {
 	// +kubebuilder:validation:Optional
 	// A return argument to include in the trace output.
 	ReturnArg KProbeArg `json:"returnArg"`
-	// +kubebuilder:validation:Enum=Post;TrackSock;UntrackSock
+	// +kubebuilder:validation:Optional
 	// An action to perform on the return argument.
+	// Available actions are: Post;TrackSock;UntrackSock
 	ReturnArgAction string `json:"returnArgAction"`
 	// +kubebuilder:validation:Optional
 	// Selectors to apply before producing trace output. Selectors are ORed.
