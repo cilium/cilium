@@ -292,11 +292,29 @@
       ],
       "versioning": "regex:^v0.0.0-(<patch>\\d+)-.*$",
     },
+    // Ref: https://github.com/cilium/cilium-cli#releases
     {
       "groupName": "Cilium CLI",
       "groupSlug": "cilium-cli",
       "matchDepNames": [
         "cilium/cilium-cli"
+      ],
+      "matchBaseBranches": [
+        "main",
+        "v1.14",
+      ]
+    },
+    {
+      "groupName": "Cilium CLI",
+      "groupSlug": "cilium-cli",
+      "matchDepNames": [
+        "cilium/cilium-cli"
+      ],
+      "allowedVersions": "/^v0\\.14\\.[0-9]+$/",
+      "matchBaseBranches": [
+        "v1.13",
+        "v1.12",
+        "v1.11",
       ]
     },
     {
