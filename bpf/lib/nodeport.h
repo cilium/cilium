@@ -262,6 +262,8 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 	__be16 src_port;
 	int l4_off, ret;
 
+	build_bug_on((sizeof(gopt) % 4) != 0);
+
 	dst = (union v6addr *)&ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
 	if (!info || info->tunnel_endpoint == 0)
@@ -1601,6 +1603,8 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 	bool has_encap = l3_off > ETH_HLEN;
 	struct iphdr *outer_ip4 = ip4;
 	void *data, *data_end;
+
+	build_bug_on((sizeof(gopt) % 4) != 0);
 
 	if (has_encap) {
 		/* point at the inner IPv4 header */
