@@ -27,6 +27,7 @@ env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
   cilium_cli_version: v0.15.0
   cilium_cli_ci_version:
+  CILIUM_CLI_MODE: helm
   k8s_version: v1.27.1
 
 jobs:
@@ -149,14 +150,8 @@ jobs:
             --helm-set=kubeProxyReplacement=true \
             --helm-set=sessionAffinity=true \
             --helm-set=identityChangeGracePeriod="0s" \
-            --rollback=false \
-            --config monitor-aggregation=none \
-            --version="
-          HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-            --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
-            --relay-version=${SHA}"
+            --helm-set=bpf.monitorAggregation=none"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
-          echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
