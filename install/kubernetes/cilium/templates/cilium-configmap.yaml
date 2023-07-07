@@ -442,6 +442,10 @@ data:
 {{- else if eq .Values.tunnel "geneve" }}
   routing-mode: "tunnel"
   tunnel-protocol: "geneve"
+{{- else if not (or .Values.gke.enabled .Values.aksbyocni.enabled) }}
+  # Default case
+  routing-mode: "tunnel"
+  tunnel-protocol: "vxlan"
 {{- end }}
 
 {{- if .Values.routingMode }}
