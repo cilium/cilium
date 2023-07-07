@@ -103,13 +103,17 @@ int ipv4_ipsec_from_host_setup(struct __ctx_buff *ctx)
 	struct ipcache_key cache_key = {};
 	struct remote_endpoint_info cache_value = {};
 
+	/* This is the ipcache entry for the CiliumInternalIP of the remote node.
+	 * It allows us to lookup the tunnel endpoint from the outer destination IP
+	 * address of the ESP packet. The CiliumInternalIPs are used for that outer
+	 * header.
+	 */
 	cache_key.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(32);
 	cache_key.family = ENDPOINT_KEY_IPV4;
 	cache_key.ip4 = v4_pod_two;
 	cache_value.sec_identity = 233;
 	cache_value.tunnel_endpoint = v4_node_two;
 	cache_value.node_id = NODE_ID;
-	cache_value.key = ENCRYPT_KEY;
 	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
 
 	set_encrypt_key_mark(ctx, ENCRYPT_KEY, NODE_ID);
@@ -230,13 +234,13 @@ int ipv6_ipsec_from_host_setup(struct __ctx_buff *ctx)
 	struct ipcache_key cache_key = {};
 	struct remote_endpoint_info cache_value = {};
 
+	/* See comment for IPv4 counterpart. */
 	cache_key.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(128);
 	cache_key.family = ENDPOINT_KEY_IPV6;
 	memcpy(&cache_key.ip6, (__u8 *)v6_pod_two, 16);
 	cache_value.sec_identity = 233;
 	cache_value.tunnel_endpoint = v4_node_two;
 	cache_value.node_id = NODE_ID;
-	cache_value.key = ENCRYPT_KEY;
 	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
 
 	set_encrypt_key_mark(ctx, ENCRYPT_KEY, NODE_ID);
