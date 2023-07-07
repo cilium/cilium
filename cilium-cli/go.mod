@@ -22,7 +22,7 @@ require (
 	github.com/cilium/charts v0.0.0-20230628232147-9992996cd311
 	github.com/cilium/cilium v1.14.0-rc.0
 	github.com/cilium/hubble v0.11.6
-	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230630110152-6e4791657167
+	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230706144126-79aa12a01b97
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.4
 	github.com/go-openapi/strfmt v0.21.7
@@ -32,7 +32,7 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
-	golang.org/x/mod v0.11.0
+	golang.org/x/mod v0.12.0
 	google.golang.org/grpc v1.56.1
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	helm.sh/helm/v3 v3.12.1
