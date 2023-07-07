@@ -494,6 +494,60 @@ func entryIdentityIsSupersetOf(primaryKey Key, primaryEntry MapStateEntry, compa
 	if primaryKey.Identity == compareKey.Identity {
 		return false
 	}
+
+	// Consider an identity that selects a broader CIDR as a superset of
+	// an identity that selects a narrower CIDR. For instance, an identity
+	// corresponding to 192.0.0.0/16 is a superset of the identity that
+	// corresponds to 192.0.2.3/32.
+	//
+	// The reasons we need to do this are surprisingly complex, taking into
+	// consideration design decisions around the handling of ToFQDNs policy
+	// and how L4PolicyMap/L4Filter structures cache the policies with
+	// respect to specific CIDRs. More specifically:
+	// - At the time of initial L4Filter creation, it is not known which
+	//   specific CIDRs (or corresponding identities) are selected by a
+	//   toFQDNs rule in the policy engine.
+	// - It is possible to have a CIDR deny rule that should deny peers
+	//   that are allowed by a ToFQDNs statement. The precedence rules in
+	//   the API for such policy conflicts define that the deny should take
+	//   precedence.
+	// - Consider a case where there is a deny rule for 192.0.0.0/16 with
+	//   an allow rule for cilium.io, and one of the IP addresses for
+	//   cilium.io is 192.0.2.3.
+	// - If the IP for cilium.io was known at initial policy computation
+	//   time, then we would calculate the MapState from the L4Filters and
+	//   immediately determine that there is a conflict between the
+	//   L4Filter that denies 192.0.0.0/16 vs. the allow for 192.0.2.3.
+	//   From this we could immediately discard the "allow to 192.0.2.3"
+	//   policymap entry during policy calculation. This would satisfy the
+	//   API constraint that deny rules take precedence over allow rules.
+	//   However, this is not the case for ToFQDNs -- the IPs are not known
+	//   until DNS resolution time by the selected application / endpoint.
+	// - In order to make ToFQDNs policy implementation efficient, it uses
+	//   a shorter incremental policy computation path that attempts to
+	//   directly implement the ToFQDNs allow into a MapState entry without
+	//   reaching back up to the L4Filter layer to iterate all selectors
+	//   to determine traffic reachability for this newly learned IP.
+	// - As such, when the new ToFQDNs allow for the 192.0.2.3 IP address
+	//   is implemented, we must iterate back through all existing MapState
+	//   entries to determine whether any of the other map entries already
+	//   denies this traffic by virtue of the IP prefix being a superset of
+	//   this new allow. This allows us to ensure that the broader CIDR
+	//   deny semantics are correctly applied when there is a combination
+	//   of CIDR deny rules and ToFQDNs allow rules.
+	//
+	// An alternative to this approach might be to change the ToFQDNs
+	// policy calculation layer to reference back to the L4Filter layer,
+	// and perhaps introduce additional CIDR caching somewhere there so
+	// that this policy computation can be efficient while handling DNS
+	// responses. As of the writing of this message, such there is no
+	// active proposal to implement this proposal. As a result, any time
+	// there is an incremental policy update for a new map entry, we must
+	// iterate through all entries in the map and re-evaluate superset
+	// relationships for deny entries to ensure that policy precedence is
+	// correctly implemented between the new and old entries, taking into
+	// account whether the identities may represent CIDRs that have a
+	// superset relationship.
 	return primaryKey.Identity == 0 && compareKey.Identity != 0 ||
 		ip.NetsContainsAny(primaryEntry.getNets(identities, primaryKey.Identity),
 			compareEntry.getNets(identities, compareKey.Identity))
