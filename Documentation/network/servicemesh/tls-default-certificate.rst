@@ -49,5 +49,7 @@ Installation
         .. code-block:: shell-session
 
             $ cilium install \
+                --set kubeProxyReplacement=true \
+                --set ingressController.enabled=true \
                 --set ingressController.defaultSecretNamespace=kube-system \
                 --set ingressController.defaultSecretName=default-cert
