@@ -1055,6 +1055,11 @@ data:
   annotate-k8s-node: "true"
 {{- end }}
 
+{{- if hasKey .Values "k8sClientRateLimit" }}
+  k8s-client-qps: {{ .Values.k8sClientRateLimit.qps | quote }}
+  k8s-client-burst: {{ .Values.k8sClientRateLimit.burst | quote }}
+{{- end }}
+
 {{- if and .Values.operator.setNodeTaints (not .Values.operator.removeNodeTaints) -}}
   {{ fail "Cannot have operator.setNodeTaintsMaxNodes and not operator.removeNodeTaints = false" }}
 {{- end -}}
