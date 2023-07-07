@@ -36,3 +36,29 @@ func unstructuredToTable(o runtime.Object) (*metav1.Table, error) {
 	}
 	return t, nil
 }
+
+func unstructuredSliceToTable(objects []runtime.Object) (*metav1.Table, error) {
+	if len(objects) == 0 {
+		return nil, fmt.Errorf("empty object list provided")
+	}
+
+	mainKind := objects[0].GetObjectKind().GroupVersionKind()
+	mainTable, err := unstructuredToTable(objects[0])
+	if err != nil {
+		return nil, err
+	}
+
+	for _, object := range objects[1:] {
+		if mainKind != object.GetObjectKind().GroupVersionKind() {
+			// Make sure that table is only populated with the same kind
+			continue
+		}
+		tempTable, err := unstructuredToTable(object)
+		if err != nil {
+			return nil, err
+		}
+		mainTable.Rows = append(mainTable.Rows, tempTable.Rows...)
+	}
+
+	return mainTable, nil
+}
