@@ -6,8 +6,9 @@
 
 .. _k8scompatibility:
 
+************************
 Kubernetes Compatibility
-========================
+************************
 
 Cilium is compatible with multiple Kubernetes API Groups. Some are deprecated
 or beta, and may only be available in specific versions of Kubernetes.
