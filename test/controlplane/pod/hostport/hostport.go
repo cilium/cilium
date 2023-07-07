@@ -8,8 +8,7 @@ import (
 	"path"
 	"testing"
 
-	operatorOption "github.com/cilium/cilium/operator/option"
-	agentOption "github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/test/controlplane"
 	"github.com/cilium/cilium/test/controlplane/services/helpers"
 	"github.com/cilium/cilium/test/controlplane/suite"
@@ -28,8 +27,6 @@ func testHostPort(t *testing.T) {
 
 	abs := func(f string) string { return path.Join(cwd, "pod", "hostport", f) }
 
-	modConfig := func(daemonCfg *agentOption.DaemonConfig, _ *operatorOption.OperatorConfig) {}
-
 	k8sVersions := controlplane.K8sVersions()
 	// We only need to test the last k8s version
 	test := suite.NewControlPlaneTest(t, "hostport-control-plane", k8sVersions[len(k8sVersions)-1])
@@ -38,8 +35,8 @@ func testHostPort(t *testing.T) {
 	// Feed in initial state and start the agent.
 	test.
 		UpdateObjectsFromFile(abs("init.yaml")).
-		SetupEnvironment(modConfig).
-		StartAgent().
+		SetupEnvironment().
+		StartAgent(func(_ *option.DaemonConfig) {}).
 
 		// Step 1: Create the first hostport pod.
 		// lbmap1.golden: Hostport service exists in the Datapath with hostport-1 pod as backend.
