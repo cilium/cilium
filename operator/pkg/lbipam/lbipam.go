@@ -1076,12 +1076,7 @@ func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2alpha1
 			return fmt.Errorf("Error parsing cidr '%s': %w", cidrBlock.Cidr, err)
 		}
 
-		lbRange, err := NewLBRange(cidr, pool)
-		if err != nil {
-			return fmt.Errorf("Error making LB Range for '%s': %w", cidrBlock.Cidr, err)
-		}
-
-		ipam.rangesStore.Add(lbRange)
+		ipam.rangesStore.Add(newLBRange(cidr, pool))
 	}
 
 	// Unmark new pools so they get a conflict: False condition set, otherwise kubectl will report a blank field.
@@ -1140,12 +1135,7 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 			continue
 		}
 
-		newRange, err := NewLBRange(&newCIDR, pool)
-		if err != nil {
-			return fmt.Errorf("Error while making new LB range for CIDR '%s': %w", newCIDR.String(), err)
-		}
-
-		ipam.rangesStore.Add(newRange)
+		ipam.rangesStore.Add(newLBRange(&newCIDR, pool))
 	}
 
 	existingRanges, _ = ipam.rangesStore.GetRangesForPool(pool.GetName())

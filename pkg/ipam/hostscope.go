@@ -18,16 +18,10 @@ type hostScopeAllocator struct {
 }
 
 func newHostScopeAllocator(n *net.IPNet) Allocator {
-	cidrRange, err := ipallocator.NewCIDRRange(n)
-	if err != nil {
-		panic(err)
-	}
-	a := &hostScopeAllocator{
+	return &hostScopeAllocator{
 		allocCIDR: n,
-		allocator: cidrRange,
+		allocator: ipallocator.NewCIDRRange(n),
 	}
-
-	return a
 }
 
 func (h *hostScopeAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
