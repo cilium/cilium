@@ -33,10 +33,6 @@ type API struct {
 // NewAPI returns a new mocked ECS API
 func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, securityGroups []*types.SecurityGroup) *API {
 	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
-	cidrRange, err := ipallocator.NewCIDRRange(cidr)
-	if err != nil {
-		panic(err)
-	}
 
 	api := &API{
 		unattached:     map[string]*eniTypes.ENI{},
@@ -44,7 +40,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 		subnets:        map[string]*ipamTypes.Subnet{},
 		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
 		securityGroups: map[string]*types.SecurityGroup{},
-		allocator:      cidrRange,
+		allocator:      ipallocator.NewCIDRRange(cidr),
 	}
 
 	api.UpdateSubnets(subnets)

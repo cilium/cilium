@@ -67,10 +67,8 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 	// Use 10.10.0.0/17 for IP allocations
 	cidrSet, _ := cidrset.NewCIDRSet(baseCidr, 17)
 	podCidr, _ := cidrSet.AllocateNext()
-	podCidrRange, err := ipallocator.NewCIDRRange(podCidr)
-	if err != nil {
-		panic(err)
-	}
+	podCidrRange := ipallocator.NewCIDRRange(podCidr)
+
 	// Use 10.10.128.0/17 for prefix allocations
 	pdCidr, _ := cidrSet.AllocateNext()
 	pdCidrRange, err := cidrset.NewCIDRSet(pdCidr, 28)

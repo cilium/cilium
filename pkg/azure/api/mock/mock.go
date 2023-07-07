@@ -67,14 +67,10 @@ func (a *API) UpdateSubnets(subnets []*ipamTypes.Subnet) {
 	a.subnets = map[string]*subnet{}
 	for _, s := range subnets {
 		_, cidr, _ := net.ParseCIDR(s.CIDR.String())
-		cidrRange, err := ipallocator.NewCIDRRange(cidr)
-		if err != nil {
-			panic(err)
-		}
 
 		a.subnets[s.ID] = &subnet{
 			subnet:    s.DeepCopy(),
-			allocator: cidrRange,
+			allocator: ipallocator.NewCIDRRange(cidr),
 		}
 	}
 	a.mutex.Unlock()
