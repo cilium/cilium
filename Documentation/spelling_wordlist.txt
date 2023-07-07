@@ -899,6 +899,7 @@ qdisc
 qdiscs
 qede
 qemu
+qps
 quantiles
 queryable
 queueSize
@@ -952,6 +953,7 @@ runPath
 runnable
 runtime
 runtimes
+sClientRateLimit
 sEventHandover
 sNetworkPolicy
 sNode
