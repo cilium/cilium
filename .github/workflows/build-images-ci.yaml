@@ -164,6 +164,8 @@ jobs:
 
       - name: Sign Container Images
         if: ${{ github.event_name != 'pull_request_target' }}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
         run: |
           cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_v1_13.outputs.digest }}
           cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_v1_13_detect_race_condition.outputs.digest }}
@@ -191,6 +193,8 @@ jobs:
 
       - name: Sign SBOM Images
         if: ${{ github.event_name != 'pull_request_target' }}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
         run: |
           docker_build_ci_v1_13_digest="${{ steps.docker_build_ci_v1_13.outputs.digest }}"
           image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${docker_build_ci_v1_13_digest/:/-}.sbom"
@@ -281,6 +285,8 @@ jobs:
 
       - name: Sign Container Images
         if: ${{ github.event_name == 'pull_request_target' }}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
         run: |
           cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_pr.outputs.digest }}
           cosign sign quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci@${{ steps.docker_build_ci_pr_detect_race_condition.outputs.digest }}
@@ -308,6 +314,8 @@ jobs:
 
       - name: Sign SBOM Images
         if: ${{ github.event_name == 'pull_request_target' }}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
         run: |
           docker_build_ci_pr_digest="${{ steps.docker_build_ci_pr.outputs.digest }}"
           image_name="quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${docker_build_ci_pr_digest/:/-}.sbom"
