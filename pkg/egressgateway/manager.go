@@ -615,11 +615,7 @@ func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bo
 		return false
 	}
 
-	addIPRulesAndRoutesForConfig := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) {
-		if !gwc.localNodeConfiguredAsGateway {
-			return
-		}
-
+	addIPRulesForConfig := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) {
 		logger := log.WithFields(logrus.Fields{
 			logfields.SourceIP:        endpointIP,
 			logfields.DestinationCIDR: dstCIDR.String(),
@@ -637,16 +633,27 @@ func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bo
 		} else {
 			logger.Debug("Added IP rule")
 		}
-
-		if err := addEgressIpRoutes(gwc.egressIP, gwc.ifaceIndex); err != nil {
-			logger.WithError(err).Warn("Can't add IP routes")
-			return
-		}
-		logger.Debug("Added IP routes")
 	}
 
 	for _, policyConfig := range manager.policyConfigs {
-		policyConfig.forEachEndpointAndDestination(addIPRulesAndRoutesForConfig)
+		gwc := &policyConfig.gatewayConfig
+
+		if gwc.localNodeConfiguredAsGateway &&
+			len(policyConfig.matchedEndpoints) > 0 {
+
+			policyConfig.forEachEndpointAndDestination(addIPRulesForConfig)
+
+			logger := log.WithFields(logrus.Fields{
+				logfields.EgressIP:  gwc.egressIP.IP,
+				logfields.LinkIndex: gwc.ifaceIndex,
+			})
+
+			if err := addEgressIpRoutes(gwc.egressIP, gwc.ifaceIndex); err != nil {
+				logger.WithError(err).Warn("Can't add IP routes")
+			} else {
+				logger.Debug("Added IP routes")
+			}
+		}
 	}
 
 	return
