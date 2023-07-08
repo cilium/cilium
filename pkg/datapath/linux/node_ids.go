@@ -25,7 +25,8 @@ const (
 
 var (
 	localNodeID = nodeID{
-		id: 0,
+		id:     0,
+		refcnt: 1,
 	}
 )
 
@@ -43,7 +44,7 @@ func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
 	defer n.mutex.Unlock()
 
 	if nodeID := n.getNodeIDForIP(nodeIP); nodeID != nil {
-		// Don't allocate a node ID if one already exists.
+		nodeID.refcnt++
 		return nodeID.id
 	}
 
@@ -58,7 +59,8 @@ func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
 		}).Debug("Allocated new node ID for node IP address")
 	}
 	nodeID := &nodeID{
-		id: id,
+		id:     id,
+		refcnt: 1,
 	}
 	if err := n.mapNodeID(nodeIP.String(), nodeID); err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
@@ -155,8 +157,11 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 			}).Debug("Allocated new node ID for node")
 		}
 		nID = &nodeID{
-			id: id,
+			id:     id,
+			refcnt: 1,
 		}
+	} else {
+		nID.refcnt++
 	}
 
 	for _, addr := range node.IPAddresses {
@@ -185,7 +190,14 @@ func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
 	}
 
 	for _, addr := range oldNode.IPAddresses {
-		id := n.nodeIDsByIPs[addr.IP.String()]
+		id, exists := n.nodeIDsByIPs[addr.IP.String()]
+		if !exists {
+			log.WithFields(logrus.Fields{
+				logfields.NodeName: oldNode.Name,
+				logfields.IPAddr:   addr.IP,
+			}).Errorf("deallocateIDForNode with node IP that wasn't mapped to ID")
+			continue
+		}
 		if nodeID.id != id.id {
 			log.WithFields(logrus.Fields{
 				logfields.NodeName: oldNode.Name,
@@ -194,7 +206,7 @@ func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
 		}
 	}
 
-	n.deallocateNodeIDLocked(nodeID.id)
+	n.deallocateNodeIDLocked(nodeID)
 }
 
 // DeallocateNodeID deallocates the given node ID, if it was allocated.
@@ -217,12 +229,24 @@ func (n *linuxNodeHandler) DeallocateNodeID(nodeIP net.IP) {
 		}).Warning("Attempt to deallocate node ID for unknown IP")
 		return
 	}
-	n.deallocateNodeIDLocked(nodeID.id)
+
+	n.deallocateNodeIDLocked(nodeID)
 }
 
-func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16) {
+func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID *nodeID) {
+	if nodeID.refcnt < 1 {
+		log.WithFields(logrus.Fields{
+			logfields.NodeID: nodeID.id,
+		}).Warning("Attempt to deallocate node ID with refcnt <1")
+	}
+
+	nodeID.refcnt--
+	if nodeID.refcnt != 0 {
+		return
+	}
+
 	for ip, id := range n.nodeIDsByIPs {
-		if nodeID == id.id {
+		if nodeID.id == id.id {
 			if err := n.unmapNodeID(ip); err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.NodeID: nodeID,
@@ -232,10 +256,10 @@ func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16) {
 		}
 	}
 
-	if !n.nodeIDs.Insert(idpool.ID(nodeID)) {
-		log.WithField(logfields.NodeID, nodeID).Warn("Attempted to deallocate a node ID that wasn't allocated")
+	if !n.nodeIDs.Insert(idpool.ID(nodeID.id)) {
+		log.WithField(logfields.NodeID, nodeID.id).Warn("Attempted to deallocate a node ID that wasn't allocated")
 	}
-	log.WithField(logfields.NodeID, nodeID).Debug("Deallocate node ID")
+	log.WithField(logfields.NodeID, nodeID.id).Debug("Deallocate node ID")
 }
 
 // mapNodeID adds a node ID <> IP mapping into the local in-memory map of the
@@ -324,7 +348,8 @@ func (n *linuxNodeHandler) RestoreNodeIDs() {
 			address = net.IP(key.IP[:net.IPv4len]).String()
 		}
 		nid := &nodeID{
-			id: val.NodeID,
+			id:     val.NodeID,
+			refcnt: 1,
 		}
 		nodeIDs[address] = nid
 	}

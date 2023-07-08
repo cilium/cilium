@@ -15,6 +15,9 @@ func (m *FakeNodeIDHandler) AllocateNodeID(_ net.IP) uint16 {
 	return 0
 }
 
+func (n *FakeNodeIDHandler) DeallocateNodeID(_ net.IP) {
+}
+
 func (m *FakeNodeIDHandler) GetNodeIP(_ uint16) string {
 	return ""
 }

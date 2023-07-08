@@ -53,7 +53,8 @@ type NeighLink struct {
 }
 
 type nodeID struct {
-	id uint16
+	id     uint16
+	refcnt uint32
 }
 
 type linuxNodeHandler struct {
