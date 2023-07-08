@@ -52,6 +52,10 @@ type NeighLink struct {
 	Name string `json:"link-name"`
 }
 
+type nodeID struct {
+	id uint16
+}
+
 type linuxNodeHandler struct {
 	mutex                lock.RWMutex
 	isInitialized        bool
@@ -73,7 +77,7 @@ type linuxNodeHandler struct {
 	// Pool of available IDs for nodes.
 	nodeIDs idpool.IDPool
 	// Node-scoped unique IDs for the nodes.
-	nodeIDsByIPs map[string]uint16
+	nodeIDsByIPs map[string]*nodeID
 	// reverse map of the above
 	nodeIPsByIDs map[uint16]string
 
@@ -101,7 +105,7 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 		neighLastPingByNextHop: map[string]time.Time{},
 		nodeMap:                nodeMap,
 		nodeIDs:                idpool.NewIDPool(minNodeID, maxNodeID),
-		nodeIDsByIPs:           map[string]uint16{},
+		nodeIDsByIPs:           map[string]*nodeID{},
 		nodeIPsByIDs:           map[uint16]string{},
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(),
 	}
@@ -1575,10 +1579,10 @@ func (n *linuxNodeHandler) deleteIPsec(oldNode *nodeTypes.Node) {
 	scopedLog.Debugf("Removing IPsec configuration for node")
 
 	nodeID := n.getNodeIDForNode(oldNode)
-	if nodeID == 0 {
+	if nodeID == nil {
 		scopedLog.Warning("No node ID found for node.")
 	} else {
-		ipsec.DeleteIPsecEndpoint(nodeID)
+		ipsec.DeleteIPsecEndpoint(nodeID.id)
 	}
 
 	if n.nodeConfig.EnableIPv4 && oldNode.IPv4AllocCIDR != nil {

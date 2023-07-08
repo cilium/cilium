@@ -23,6 +23,12 @@ const (
 	maxNodeID = idpool.ID(^uint16(0))
 )
 
+var (
+	localNodeID = nodeID{
+		id: 0,
+	}
+)
+
 // AllocateNodeID allocates a new ID for the given node (by IP) if one wasn't
 // already assigned.
 func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
@@ -36,20 +42,23 @@ func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
-	if nodeID, exists := n.getNodeIDForIP(nodeIP); exists {
+	if nodeID := n.getNodeIDForIP(nodeIP); nodeID != nil {
 		// Don't allocate a node ID if one already exists.
-		return nodeID
+		return nodeID.id
 	}
 
-	nodeID := uint16(n.nodeIDs.AllocateID())
-	if nodeID == uint16(idpool.NoID) {
+	id := uint16(n.nodeIDs.AllocateID())
+	if id == uint16(idpool.NoID) {
 		log.Error("No more IDs available for nodes")
-		return nodeID
+		return id
 	} else {
 		log.WithFields(logrus.Fields{
-			logfields.NodeID: nodeID,
+			logfields.NodeID: id,
 			logfields.IPAddr: nodeIP,
 		}).Debug("Allocated new node ID for node IP address")
+	}
+	nodeID := &nodeID{
+		id: id,
 	}
 	if err := n.mapNodeID(nodeIP.String(), nodeID); err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
@@ -57,7 +66,7 @@ func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
 			logfields.IPAddr: nodeIP.String(),
 		}).Error("Failed to map node IP address to allocated ID")
 	}
-	return nodeID
+	return nodeID.id
 }
 
 func (n *linuxNodeHandler) GetNodeIP(nodeID uint16) string {
@@ -76,33 +85,36 @@ func (n *linuxNodeHandler) GetNodeID(nodeIP net.IP) (uint16, bool) {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
-	return n.getNodeIDForIP(nodeIP)
+	nodeID := n.getNodeIDForIP(nodeIP)
+	if nodeID == nil {
+		return 0, false
+	}
+	return nodeID.id, true
 }
 
-func (n *linuxNodeHandler) getNodeIDForIP(nodeIP net.IP) (uint16, bool) {
+func (n *linuxNodeHandler) getNodeIDForIP(nodeIP net.IP) *nodeID {
 	localNodeV4 := node.GetIPv4()
 	localNodeV6 := node.GetIPv6()
 	if localNodeV4.Equal(nodeIP) || localNodeV6.Equal(nodeIP) {
-		return 0, true
+		return &localNodeID
 	}
 
 	if nodeID, exists := n.nodeIDsByIPs[nodeIP.String()]; exists {
-		return nodeID, true
+		return nodeID
 	}
 
-	return 0, false
+	return nil
 }
 
 // getNodeIDForNode gets the node ID for the given node if one was allocated
 // for any of the node IP addresses. If none is found, 0 is returned.
-func (n *linuxNodeHandler) getNodeIDForNode(node *nodeTypes.Node) uint16 {
-	nodeID := uint16(0)
+func (n *linuxNodeHandler) getNodeIDForNode(node *nodeTypes.Node) *nodeID {
 	for _, addr := range node.IPAddresses {
-		if id, exists := n.nodeIDsByIPs[addr.IP.String()]; exists {
-			nodeID = id
+		if nodeID, exists := n.nodeIDsByIPs[addr.IP.String()]; exists {
+			return nodeID
 		}
 	}
-	return nodeID
+	return nil
 }
 
 func (n *linuxNodeHandler) deleteNodeIPs(oldIPs, newIPs []nodeTypes.Address) {
@@ -130,17 +142,20 @@ func (n *linuxNodeHandler) deleteNodeIPs(oldIPs, newIPs []nodeTypes.Address) {
 // the ipcache, where we don't have all node IPs but only one.
 func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 	// Did we already allocate a node ID for any IP of that node?
-	nodeID := n.getNodeIDForNode(node)
+	nID := n.getNodeIDForNode(node)
 
-	if nodeID == 0 {
-		nodeID = uint16(n.nodeIDs.AllocateID())
-		if nodeID == uint16(idpool.NoID) {
+	if nID == nil {
+		id := uint16(n.nodeIDs.AllocateID())
+		if id == uint16(idpool.NoID) {
 			log.WithField(logfields.NodeName, node.Name).Error("No more IDs available for nodes")
 		} else {
 			log.WithFields(logrus.Fields{
-				logfields.NodeID:   nodeID,
+				logfields.NodeID:   id,
 				logfields.NodeName: node.Name,
 			}).Debug("Allocated new node ID for node")
+		}
+		nID = &nodeID{
+			id: id,
 		}
 	}
 
@@ -149,23 +164,29 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 		if _, exists := n.nodeIDsByIPs[ip]; exists {
 			continue
 		}
-		if err := n.mapNodeID(ip, nodeID); err != nil {
+		if err := n.mapNodeID(ip, nID); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
-				logfields.NodeID: nodeID,
+				logfields.NodeID: nID.id,
 				logfields.IPAddr: ip,
 			}).Error("Failed to map node IP address to allocated ID")
 		}
 	}
-	return nodeID
+	return nID.id
 }
 
 // deallocateIDForNode deallocates the node ID for the given node, if it was allocated.
 func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
 	nodeID := n.getNodeIDForNode(oldNode)
+	if nodeID == nil {
+		log.WithFields(logrus.Fields{
+			logfields.NodeName: oldNode.Name,
+		}).Warn("deallocate ID for node that does not have an existing ID")
+		return
+	}
 
 	for _, addr := range oldNode.IPAddresses {
 		id := n.nodeIDsByIPs[addr.IP.String()]
-		if nodeID != id {
+		if nodeID.id != id.id {
 			log.WithFields(logrus.Fields{
 				logfields.NodeName: oldNode.Name,
 				logfields.IPAddr:   addr.IP,
@@ -173,19 +194,20 @@ func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
 		}
 	}
 
-	n.deallocateNodeIDLocked(nodeID)
+	n.deallocateNodeIDLocked(nodeID.id)
 }
 
 // DeallocateNodeID deallocates the given node ID, if it was allocated.
-func (n *linuxNodeHandler) DeallocateNodeID(nodeID uint16) {
+func (n *linuxNodeHandler) DeallocateNodeID(id uint16) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
-	n.deallocateNodeIDLocked(nodeID)
+
+	n.deallocateNodeIDLocked(id)
 }
 
 func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16) {
 	for ip, id := range n.nodeIDsByIPs {
-		if nodeID == id {
+		if nodeID == id.id {
 			if err := n.unmapNodeID(ip); err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.NodeID: nodeID,
@@ -204,7 +226,7 @@ func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16) {
 // mapNodeID adds a node ID <> IP mapping into the local in-memory map of the
 // Node Manager and in the corresponding BPF map. If any of those map updates
 // fail, both are cancelled and the function returns an error.
-func (n *linuxNodeHandler) mapNodeID(ip string, id uint16) error {
+func (n *linuxNodeHandler) mapNodeID(ip string, id *nodeID) error {
 	if _, exists := n.nodeIDsByIPs[ip]; exists {
 		return fmt.Errorf("a mapping for node IP %s already exists", ip)
 	}
@@ -214,14 +236,14 @@ func (n *linuxNodeHandler) mapNodeID(ip string, id uint16) error {
 		return fmt.Errorf("invalid node IP %s", ip)
 	}
 
-	if err := n.nodeMap.Update(nodeIP, id); err != nil {
+	if err := n.nodeMap.Update(nodeIP, id.id); err != nil {
 		return err
 	}
 
 	// We only add the IP <> ID mapping in memory once we are sure it was
 	// successfully added to the BPF map.
 	n.nodeIDsByIPs[ip] = id
-	n.nodeIPsByIDs[id] = ip
+	n.nodeIPsByIDs[id.id] = ip
 
 	return nil
 }
@@ -244,7 +266,7 @@ func (n *linuxNodeHandler) unmapNodeID(ip string) error {
 	}
 	if id, exists := n.nodeIDsByIPs[ip]; exists {
 		delete(n.nodeIDsByIPs, ip)
-		delete(n.nodeIPsByIDs, id)
+		delete(n.nodeIPsByIDs, id.id)
 	}
 
 	return nil
@@ -257,12 +279,12 @@ func (n *linuxNodeHandler) DumpNodeIDs() []*models.NodeID {
 
 	nodeIDs := map[uint16]*models.NodeID{}
 	for ip, id := range n.nodeIDsByIPs {
-		if nodeID, exists := nodeIDs[id]; exists {
+		if nodeID, exists := nodeIDs[id.id]; exists {
 			nodeID.Ips = append(nodeID.Ips, ip)
-			nodeIDs[id] = nodeID
+			nodeIDs[id.id] = nodeID
 		} else {
-			i := int64(id)
-			nodeIDs[id] = &models.NodeID{
+			i := int64(id.id)
+			nodeIDs[id.id] = &models.NodeID{
 				ID:  &i,
 				Ips: []string{ip},
 			}
@@ -280,13 +302,16 @@ func (n *linuxNodeHandler) DumpNodeIDs() []*models.NodeID {
 // BPF map and into the node handler in-memory copy.
 func (n *linuxNodeHandler) RestoreNodeIDs() {
 	// Retrieve node IDs from the BPF map to be able to restore them.
-	nodeIDs := make(map[string]uint16)
+	nodeIDs := make(map[string]*nodeID)
 	parse := func(key *nodemap.NodeKey, val *nodemap.NodeValue) {
 		address := key.IP.String()
 		if key.Family == bpf.EndpointKeyIPv4 {
 			address = net.IP(key.IP[:net.IPv4len]).String()
 		}
-		nodeIDs[address] = val.NodeID
+		nid := &nodeID{
+			id: val.NodeID,
+		}
+		nodeIDs[address] = nid
 	}
 	if err := n.nodeMap.IterateWithCallback(parse); err != nil {
 		log.WithError(err).Error("Failed to dump content of node map")
@@ -297,7 +322,7 @@ func (n *linuxNodeHandler) RestoreNodeIDs() {
 	log.Infof("Restored %d node IDs from the BPF map", len(nodeIDs))
 }
 
-func (n *linuxNodeHandler) registerNodeIDAllocations(allocatedNodeIDs map[string]uint16) {
+func (n *linuxNodeHandler) registerNodeIDAllocations(allocatedNodeIDs map[string]*nodeID) {
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
@@ -315,10 +340,10 @@ func (n *linuxNodeHandler) registerNodeIDAllocations(allocatedNodeIDs map[string
 	// available for allocation.
 	nodeIDs := make(map[uint16]struct{})
 	for ip, id := range allocatedNodeIDs {
-		n.nodeIPsByIDs[id] = ip // reverse mapping for all ip, id pairs
-		if _, exists := nodeIDs[id]; !exists {
-			nodeIDs[id] = struct{}{}
-			if !n.nodeIDs.Remove(idpool.ID(id)) {
+		n.nodeIPsByIDs[id.id] = ip // reverse mapping for all ip, id pairs
+		if _, exists := nodeIDs[id.id]; !exists {
+			nodeIDs[id.id] = struct{}{}
+			if !n.nodeIDs.Remove(idpool.ID(id.id)) {
 				// This is just a sanity check. It should never happen as we
 				// have checked that we start with a full idpool (0 allocated
 				// node IDs) and then only remove them from the idpool if they
