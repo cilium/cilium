@@ -198,11 +198,26 @@ func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
 }
 
 // DeallocateNodeID deallocates the given node ID, if it was allocated.
-func (n *linuxNodeHandler) DeallocateNodeID(id uint16) {
+func (n *linuxNodeHandler) DeallocateNodeID(nodeIP net.IP) {
+	localNode := node.GetIPv4()
+	if localNode.Equal(nodeIP) {
+		log.WithFields(logrus.Fields{
+			logfields.IPAddr: nodeIP,
+		}).Warning("Attempt to deallocate local node ID")
+		return
+	}
+
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
-	n.deallocateNodeIDLocked(id)
+	nodeID, exists := n.nodeIDsByIPs[nodeIP.String()]
+	if !exists {
+		log.WithFields(logrus.Fields{
+			logfields.IPAddr: nodeIP,
+		}).Warning("Attempt to deallocate node ID for unknown IP")
+		return
+	}
+	n.deallocateNodeIDLocked(nodeID.id)
 }
 
 func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16) {
