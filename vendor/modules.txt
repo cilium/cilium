@@ -218,6 +218,7 @@ github.com/cilium/proxy/go/envoy/config/overload/v3
 github.com/cilium/proxy/go/envoy/config/ratelimit/v3
 github.com/cilium/proxy/go/envoy/config/route/v3
 github.com/cilium/proxy/go/envoy/config/trace/v3
+github.com/cilium/proxy/go/envoy/extensions/bootstrap/internal_listener/v3
 github.com/cilium/proxy/go/envoy/extensions/clusters/dynamic_forward_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/common/dynamic_forward_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/common/ratelimit/v3
@@ -238,6 +239,7 @@ github.com/cilium/proxy/go/envoy/extensions/filters/network/ratelimit/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_cluster/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_dynamic_forward_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3
+github.com/cilium/proxy/go/envoy/extensions/transport_sockets/internal_upstream/v3
 github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3
 github.com/cilium/proxy/go/envoy/extensions/upstreams/http/http/v3
 github.com/cilium/proxy/go/envoy/extensions/upstreams/http/tcp/v3
