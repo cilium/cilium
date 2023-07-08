@@ -159,19 +159,6 @@ func deleteIpRule(ipRule netlink.Rule) {
 		})
 }
 
-func deleteIpRouteTable(tableIndex int) {
-	routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4,
-		&netlink.Route{Table: tableIndex}, uint64(netlink.RT_FILTER_TABLE))
-	if err != nil {
-		log.WithError(err).Error("Cannot list IP routes")
-		return
-	}
-
-	for _, route := range routes {
-		deleteIpRoute(route)
-	}
-}
-
 func deleteIpRoute(ipRoute netlink.Route) {
 	logger := log.WithFields(logrus.Fields{})
 
