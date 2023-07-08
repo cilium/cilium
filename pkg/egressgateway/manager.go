@@ -708,21 +708,27 @@ nextIpRule:
 		}
 	}
 
-	// Then go through each interface on the node
-	links, err := netlink.LinkList()
+	// Fetch all IP routes, and delete the unused EgressGW-specific routes:
+	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
 	if err != nil {
-		logger.WithError(err).Error("Cannot list interfaces")
+		logger.WithError(err).Error("Cannot list IP routes")
 		return
 	}
 
-	for _, l := range links {
-		// If egress gateway is active for this interface, move to the next interface
-		if _, ok := activeEgressGwIfaceIndexes[l.Attrs().Index]; ok {
+	for _, route := range routes {
+		linkIndex := route.LinkIndex
+
+		// Keep the route if it was not created by EgressGW.
+		if route.Table != egressGatewayRoutingTableIdx(linkIndex) {
 			continue
 		}
 
-		// Otherwise delete the whole routing table for that interface
-		deleteIpRouteTable(egressGatewayRoutingTableIdx(l.Attrs().Index))
+		// Keep the route if EgressGW still uses this interface.
+		if _, ok := activeEgressGwIfaceIndexes[linkIndex]; ok {
+			continue
+		}
+
+		deleteIpRoute(route)
 	}
 }
 
