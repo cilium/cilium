@@ -4,6 +4,7 @@
 package bpf
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -501,6 +502,99 @@ func (s *BPFPrivilegedTestSuite) TestDump(c *C) {
 	})
 }
 
+// TestDumpReliablyWithCallbackOveralapping attempts to test that DumpReliablyWithCallback
+// will reliably iterate all keys that are known to be in a map, even if keys that are ahead
+// of the current iteration can be deleted or updated concurrently.
+// This test is not deterministic, it establishes a condition where we have keys that are known
+// to be in the map and other keys which are volatile.  The test passes if the dump can reliably
+// iterate all keys that are not volatile.
+func (s *BPFPrivilegedTestSuite) TestDumpReliablyWithCallbackOveralapping(c *C) {
+	iterations := 10000
+	maxEntries := uint32(128)
+	m := NewMap("cilium_dump_test2",
+		ebpf.Hash,
+		&TestKey{},
+		&TestValue{},
+		int(maxEntries),
+		BPF_F_NO_PREALLOC).WithCache()
+	err := m.OpenOrCreate()
+	c.Assert(err, IsNil)
+	defer func() {
+		path, _ := m.Path()
+		os.Remove(path)
+	}()
+	defer m.Close()
+
+	// Prepopulate the map.
+	for i := uint32(0); i < maxEntries; i++ {
+		err := m.Update(&TestKey{Key: i}, &TestValue{Value: i + 200})
+		c.Check(err, IsNil)
+	}
+
+	// used to block the update/delete goroutine so that both start at aprox the same time.
+	start := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	// This goroutine will continuously delete and reinsert even keys.
+	// Thus, when this is running in parallel with DumpReliablyWithCallback
+	// it is unclear whether any even key will be iterated.
+	go func() {
+		defer wg.Done()
+		<-start
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			for i := uint32(0); i < maxEntries; i += 2 {
+				m.Delete(&TestKey{Key: i})
+				err := m.Update(&TestKey{Key: i}, &TestValue{Value: i + 200})
+				c.Check(err, IsNil)
+			}
+		}
+	}()
+
+	// We expect that DumpReliablyWithCallback will iterate all odd key/value pairs
+	// even if the even keys are being deleted and reinserted.
+	expect := map[string]string{}
+	for i := uint32(0); i < maxEntries; i++ {
+		if i%2 != 0 {
+			expect[fmt.Sprintf("key=%d", i)] = fmt.Sprintf("value=%d", i+200)
+		}
+	}
+	close(start) // start testing.
+	for i := 0; i < iterations; i++ {
+		dump := map[string]string{}
+		ds := NewDumpStats(m)
+		err := m.DumpReliablyWithCallback(func(key MapKey, value MapValue) {
+			k := key.(*TestKey).Key
+			if k%2 != 0 {
+				k := key.(*TestKey).Key
+				ks := dump[fmt.Sprintf("key=%d", k)]
+				if _, ok := dump[ks]; ok {
+					c.FailNow()
+				}
+				dump[fmt.Sprintf("key=%d", key.(*TestKey).Key)] = fmt.Sprintf("value=%d", value.(*TestValue).Value)
+			}
+		}, ds)
+		if err == nil {
+			c.Check(dump, checker.DeepEquals, expect)
+		} else {
+			c.Check(err, Equals, ErrMaxLookup)
+		}
+	}
+	cancel()
+	wg.Wait()
+}
+
+// TestDumpReliablyWithCallback tests that DumpReliablyWithCallback by concurrently
+// upserting/removing keys in range [0, 4) in the map and then continuously dumping
+// the map.
+// The test validates that all keys that are not being removed/added are contained in the dump.
 func (s *BPFPrivilegedTestSuite) TestDumpReliablyWithCallback(c *C) {
 	maxEntries := uint32(256)
 	m := NewMap("cilium_dump_test",
