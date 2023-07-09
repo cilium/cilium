@@ -164,20 +164,6 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			// Only inject Cilium filters if Cilium allocates listener address
 			injectCiliumFilters := listener.GetAddress() == nil && !internalListener
 
-			if !internalListener {
-				// Inject Cilium bpf metadata listener filter, if not already present.
-				found := false
-				for _, lf := range listener.ListenerFilters {
-					if lf.Name == "cilium.bpf_metadata" {
-						found = true
-					}
-				}
-				if !found {
-					listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* egress */, useOriginalSourceAddr, isL7LB))
-				}
-				// Inject listener socket option for Cilium datapath
-				listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* egress */))
-			}
 			// Fill in SDS & RDS config source if unset
 			for _, fc := range listener.FilterChains {
 				fillInTransportSocketXDS(cecNamespace, cecName, fc.TransportSocket)
@@ -429,6 +415,25 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 
 			// Inject Transparent to work with TPROXY
 			listener.Transparent = &wrapperspb.BoolValue{Value: true}
+		}
+		if !internalListener {
+			// Inject Cilium bpf metadata listener filter, if not already present.
+			found := false
+			for _, lf := range listener.ListenerFilters {
+				if lf.Name == "cilium.bpf_metadata" {
+					found = true
+				}
+			}
+			if !found {
+				// Get listener port number to be used as the proxy-id
+				var port uint32
+				if sa := listener.GetAddress().GetSocketAddress(); sa != nil {
+					port = sa.GetPortValue()
+				}
+				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* egress */, useOriginalSourceAddr, isL7LB, port))
+			}
+			// Inject listener socket option for Cilium datapath
+			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* egress */))
 		}
 		if validate {
 			if err := listener.Validate(); err != nil {
