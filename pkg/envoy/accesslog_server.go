@@ -161,15 +161,6 @@ func logRecord(pblog *cilium.LogEntry) *logger.LogRecord {
 			Proto:  l7.GetProto(),
 			Fields: l7.GetFields(),
 		})
-	} else {
-		// Default to the deprecated HTTP log format
-		l7tags = logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
-			Method:   pblog.Method,
-			Code:     int(pblog.Status),
-			URL:      ParseURL(pblog.Scheme, pblog.Host, pblog.Path),
-			Protocol: GetProtocol(pblog.HttpProtocol),
-			Headers:  GetNetHttpHeaders(pblog.Headers),
-		})
 	}
 
 	flowType := GetFlowType(pblog)

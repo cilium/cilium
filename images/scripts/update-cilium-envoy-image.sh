@@ -14,7 +14,7 @@ root_dir="$(git rev-parse --show-toplevel)"
 cd "${root_dir}"
 
 github_repo="cilium/proxy"
-github_branch="v1.23"
+github_branch="v1.24"
 image="quay.io/cilium/cilium-envoy"
 
 latest_commit_sha="$(curl -s https://api.github.com/repos/${github_repo}/commits/${github_branch} | jq -r '.sha')"

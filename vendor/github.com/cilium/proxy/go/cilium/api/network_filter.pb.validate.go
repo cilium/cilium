@@ -61,10 +61,6 @@ func (m *NetworkFilter) validate(all bool) error {
 
 	// no validation rules for ProxylibParams
 
-	// no validation rules for L7Proto
-
-	// no validation rules for PolicyName
-
 	// no validation rules for AccessLogPath
 
 	if len(errors) > 0 {
