@@ -22,6 +22,7 @@ import (
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_extensions_bootstrap_internal_listener_v3 "github.com/cilium/proxy/go/envoy/extensions/bootstrap/internal_listener/v3"
 	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
 	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -1293,12 +1294,19 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 				},
 			},
 		},
+		BootstrapExtensions: []*envoy_config_core.TypedExtensionConfig{
+			{
+				Name:        "envoy.bootstrap.internal_listener",
+				TypedConfig: toAny(&envoy_extensions_bootstrap_internal_listener_v3.InternalListener{}),
+			},
+		},
 		LayeredRuntime: &envoy_config_bootstrap.LayeredRuntime{
 			Layers: []*envoy_config_bootstrap.RuntimeLayer{
 				{
 					Name: "static_layer_0",
 					LayerSpecifier: &envoy_config_bootstrap.RuntimeLayer_StaticLayer{
 						StaticLayer: &structpb.Struct{Fields: map[string]*structpb.Value{
+							"envoy.reloadable_features.internal_address": {Kind: &structpb.Value_BoolValue{BoolValue: true}},
 							"overload": {Kind: &structpb.Value_StructValue{StructValue: &structpb.Struct{Fields: map[string]*structpb.Value{
 								"global_downstream_max_connections": {Kind: &structpb.Value_NumberValue{NumberValue: 50000}},
 							}}}},
