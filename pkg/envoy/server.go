@@ -707,12 +707,13 @@ func (s *XDSServer) deleteSecret(name string, wg *completion.WaitGroup, callback
 }
 
 // 'l7lb' triggers the upstream mark to embed source pod EndpointID instead of source security ID
-func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, l7lb bool) *envoy_config_listener.ListenerFilter {
+func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, l7lb bool, proxyID uint32) *envoy_config_listener.ListenerFilter {
 	conf := &cilium.BpfMetadata{
 		IsIngress:                isIngress,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
 		BpfRoot:                  bpf.GetMapRoot(),
 		IsL7Lb:                   l7lb,
+		ProxyId:                  proxyID,
 	}
 	// Set Ingress source addresses if configuring for L7 LB One of these will be used when
 	// useOriginalSourceAddr is false, or when the source is known to not be from the local node
@@ -787,7 +788,7 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 					TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
 				},
 			},
-			getListenerFilter(isIngress, mayUseOriginalSourceAddr, false),
+			getListenerFilter(isIngress, mayUseOriginalSourceAddr, false, uint32(port)),
 		},
 	}
 
