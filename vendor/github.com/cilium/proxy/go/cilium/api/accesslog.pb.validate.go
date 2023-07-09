@@ -598,52 +598,6 @@ func (m *LogEntry) validate(all bool) error {
 
 	// no validation rules for DestinationAddress
 
-	// no validation rules for HttpProtocol
-
-	// no validation rules for Scheme
-
-	// no validation rules for Host
-
-	// no validation rules for Path
-
-	// no validation rules for Method
-
-	// no validation rules for Status
-
-	for idx, item := range m.GetHeaders() {
-		_, _ = idx, item
-
-		if all {
-			switch v := interface{}(item).(type) {
-			case interface{ ValidateAll() error }:
-				if err := v.ValidateAll(); err != nil {
-					errors = append(errors, LogEntryValidationError{
-						field:  fmt.Sprintf("Headers[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			case interface{ Validate() error }:
-				if err := v.Validate(); err != nil {
-					errors = append(errors, LogEntryValidationError{
-						field:  fmt.Sprintf("Headers[%v]", idx),
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			}
-		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return LogEntryValidationError{
-					field:  fmt.Sprintf("Headers[%v]", idx),
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
-	}
-
 	switch m.L7.(type) {
 
 	case *LogEntry_Http:

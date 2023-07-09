@@ -270,6 +270,17 @@ func (m *PortNetworkPolicy) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	if m.GetEndPort() > 65535 {
+		err := PortNetworkPolicyValidationError{
+			field:  "EndPort",
+			reason: "value must be less than or equal to 65535",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	// no validation rules for Protocol
 
 	for idx, item := range m.GetRules() {
