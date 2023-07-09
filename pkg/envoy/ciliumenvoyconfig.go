@@ -159,19 +159,25 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 				listener.EnableReusePort = &wrapperspb.BoolValue{Value: false}
 			}
 
-			// Inject Cilium bpf metadata listener filter, if not already present.
-			found := false
-			for _, lf := range listener.ListenerFilters {
-				if lf.Name == "cilium.bpf_metadata" {
-					found = true
-				}
-			}
-			if !found {
-				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* egress */, useOriginalSourceAddr, isL7LB))
-			}
-			// Inject listener socket option for Cilium datapath
-			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* egress */))
+			// Figure out if this is an internal listener
+			internalListener := listener.GetAddress() != nil && listener.GetAddress().GetEnvoyInternalAddress() != nil
+			// Only inject Cilium filters if Cilium allocates listener address
+			injectCiliumFilters := listener.GetAddress() == nil && !internalListener
 
+			if !internalListener {
+				// Inject Cilium bpf metadata listener filter, if not already present.
+				found := false
+				for _, lf := range listener.ListenerFilters {
+					if lf.Name == "cilium.bpf_metadata" {
+						found = true
+					}
+				}
+				if !found {
+					listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* egress */, useOriginalSourceAddr, isL7LB))
+				}
+				// Inject listener socket option for Cilium datapath
+				listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* egress */))
+			}
 			// Fill in SDS & RDS config source if unset
 			for _, fc := range listener.FilterChains {
 				fillInTransportSocketXDS(cecNamespace, cecName, fc.TransportSocket)
@@ -210,7 +216,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 						if routeConfig := hcmConfig.GetRouteConfig(); routeConfig != nil {
 							qualifyRouteConfigurationResourceNames(cecNamespace, cecName, routeConfig)
 						}
-						if listener.GetAddress() == nil {
+						if injectCiliumFilters {
 							foundCiliumL7Filter := false
 						loop:
 							for j, httpFilter := range hcmConfig.HttpFilters {
@@ -245,10 +251,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 					default:
 						continue
 					}
-					// Only inject Cilium policy enforcement filters for
-					// listeners for which Cilium agent allocates address
-					// for (see below)
-					if listener.GetAddress() == nil {
+					if injectCiliumFilters {
 						if !foundCiliumNetworkFilter {
 							// Inject Cilium network filter just before the HTTP Connection Manager or TCPProxy filter
 							fc.Filters = append(fc.Filters[:i+1], fc.Filters[i:]...)
@@ -410,7 +413,10 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 	// Allocate TPROXY ports for listeners without address.
 	// Do this only after all other possible error cases.
 	for _, listener := range resources.Listeners {
-		if listener.GetAddress() == nil {
+		// Figure out if this is an internal listener
+		internalListener := listener.GetAddress() != nil && listener.GetAddress().GetEnvoyInternalAddress() != nil
+
+		if listener.GetAddress() == nil && !internalListener {
 			port, err := portAllocator.AllocateProxyPort(listener.Name, false)
 			if err != nil || port == 0 {
 				return Resources{}, fmt.Errorf("Listener port allocation for %q failed: %s", listener.Name, err)

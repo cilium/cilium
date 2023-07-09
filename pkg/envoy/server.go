@@ -22,6 +22,7 @@ import (
 	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_extensions_bootstrap_internal_listener_v3 "github.com/cilium/proxy/go/envoy/extensions/bootstrap/internal_listener/v3"
 	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
 	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -1291,6 +1292,12 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 				Address: &envoy_config_core.Address_Pipe{
 					Pipe: &envoy_config_core.Pipe{Path: adminPath},
 				},
+			},
+		},
+		BootstrapExtensions: []*envoy_config_core.TypedExtensionConfig{
+			{
+				Name:        "envoy.bootstrap.internal_listener",
+				TypedConfig: toAny(&envoy_extensions_bootstrap_internal_listener_v3.InternalListener{}),
 			},
 		},
 		LayeredRuntime: &envoy_config_bootstrap.LayeredRuntime{
