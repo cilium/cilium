@@ -5,6 +5,7 @@ triggers:
     - conformance-aws-cni.yaml
     - conformance-clustermesh.yaml
     - conformance-e2e.yaml
+    - conformance-ipsec-e2e.yaml
     - conformance-eks.yaml
     - conformance-externalworkloads.yaml
     - conformance-gateway-api.yaml
@@ -30,6 +31,9 @@ triggers:
   /ci-ipsec-upgrade:
     workflows:
     - tests-ipsec-upgrade.yaml
+  /ci-ipsec-e2e:
+    workflows:
+    - conformance-ipsec-e2e.yaml
   /ci-eks:
     workflows:
     - conformance-eks.yaml
@@ -66,6 +70,8 @@ workflows:
   conformance-clustermesh.yaml:
     paths-ignore-regex: (test|Documentation)/
   conformance-e2e.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-ipsec-e2e.yaml:
     paths-ignore-regex: (test|Documentation)/
   conformance-eks.yaml:
     paths-ignore-regex: (test|Documentation)/
