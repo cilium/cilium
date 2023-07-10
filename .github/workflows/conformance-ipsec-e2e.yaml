@@ -1,0 +1,325 @@
+name: Cilium Conformance IPsec E2E (ci-ipsec-e2e)
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+  # Run every 6 hours
+  schedule:
+    - cron:  '0 5/6 * * *'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.14.8
+  cilium_cli_ci_version:
+  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+jobs:
+  commit-status-start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  setup-and-test:
+    runs-on: ubuntu-latest-4cores-16gb
+    env:
+      job_name: 'Setup & Test'
+    strategy:
+      fail-fast: false
+      max-parallel: 16
+      matrix:
+        include:
+          # See https://github.com/cilium/cilium/issues/20606 for configuration table
+
+          - name: '1'
+            kernel: '4.19-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'vxlan'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            ipv6: 'false' # https://github.com/cilium/cilium/issues/23461
+
+          - name: '2'
+            kernel: '5.4-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+
+          - name: '3'
+            kernel: '5.10-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            endpoint-routes: 'true'
+
+          - name: '4'
+            kernel: 'bpf-next-20230420.212204'
+            kube-proxy: 'iptables'
+            kpr: 'disabled'
+            tunnel: 'geneve'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            endpoint-routes: 'true'
+
+    timeout-minutes: 60
+    steps:
+      - name: Checkout context ref
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+
+          CILIUM_INSTALL_DEFAULTS="--wait \
+            --chart-directory=./install/kubernetes/cilium \
+            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.eventBufferCapacity=65535 \
+            --helm-set=bpf.monitorAggregation=none \
+            --nodes-without-cilium=kind-worker3 \
+            --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
+          TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
+          if [ "${{ matrix.tunnel }}" == "disabled" ]; then
+            TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16 --helm-set-string=tunnel=disabled"
+            TUNNEL="${TUNNEL} --helm-set-string=ipv6NativeRoutingCIDR=fd00:10:244::/56"
+          fi
+          LB_MODE=""
+          if [ "${{ matrix.lb-mode }}" != "" ]; then
+            LB_MODE="--helm-set-string=loadBalancer.mode=${{ matrix.lb-mode }}"
+          fi
+          ENDPOINT_ROUTES=""
+          if [ "${{ matrix.endpoint-routes }}" == "true" ]; then
+            ENDPOINT_ROUTES="--helm-set-string=endpointRoutes.enabled=true"
+          fi
+          IPV6=""
+          if [ "${{ matrix.ipv6 }}" != "false" ]; then
+            IPV6="--helm-set=ipv6.enabled=true"
+          fi
+          MASQ=""
+          if [ "${{ matrix.kpr }}" == "true" ]; then
+            # BPF-masq requires KPR=true.
+            MASQ="--helm-set=bpf.masquerade=true"
+            if [ "${{ matrix.host-fw }}" == "true" ]; then
+              # BPF IPv6 masquerade not currently supported with host firewall - GH-26074
+              MASQ="${MASQ} --helm-set=enableIPv6Masquerade=false"
+            fi
+          fi
+          EGRESS_GATEWAY=""
+          if [ "${{ matrix.egress-gateway }}" == "true" ]; then
+            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true --helm-set=debug.enabled=true"
+          fi
+          LB_ACCELERATION=""
+          if [ "${{ matrix.lb-acceleration }}" != "" ]; then
+            LB_ACCELERATION="--helm-set=loadBalancer.acceleration=${{ matrix.lb-acceleration }}"
+          fi
+
+          ENCRYPT=""
+          if [ "${{ matrix.encryption }}" != "" ]; then
+            ENCRYPT="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ matrix.encryption }}"
+            if [ "${{ matrix.encryption-node }}" != "" ]; then
+              ENCRYPT+=" --helm-set=encryption.nodeEncryption=${{ matrix.encryption-node }}"
+            fi
+          fi
+
+          HOST_FW=""
+          if [ "${{ matrix.host-fw }}" == "true" ]; then
+            HOST_FW="--helm-set=hostFirewall.enabled=true"
+          fi
+
+          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
+          echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
+
+          JUNIT=""
+          for NAME in ${{ matrix.kube-proxy }} ${{ matrix.tunnel }} ${{ matrix.lb-mode }} ${{ matrix.encryption }} ${{ matrix.endpoint-routes }}; do
+            if [[ "${NAME}" != "" ]] && [[ "${NAME}" != "disabled" ]] && [[ "${NAME}" != "none" ]]; then
+              if [[ "${JUNIT}" != "" ]]; then
+                JUNIT+="-"
+              fi
+              if [[ "${NAME}" == "true" ]];then
+                NAME="endpoint-routes"
+              fi
+              JUNIT+="${NAME}"
+            fi
+          done
+          echo junit_type="${JUNIT}" >> $GITHUB_OUTPUT
+          echo sha=${SHA} >> $GITHUB_OUTPUT
+
+      - name: Checkout pull request for Helm chart
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Install Cilium CLI-cli
+        uses: cilium/cilium-cli@5362f383942260c0aed4f3876e09c3452435577a # v0.14.8
+        with:
+          release-version: ${{ env.cilium_cli_version }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
+          binary-name: cilium-cli
+          binary-dir: ./
+
+      - name: Provision LVH VMs
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
+        with:
+          test-name: e2e-conformance
+          image-version: ${{ matrix.kernel }}
+          host-mount: ./
+          cpu: 4
+          dns-resolver: '1.1.1.1'
+          install-dependencies: 'true'
+          cmd: |
+            git config --global --add safe.directory /host
+
+      - name: Wait for images to be available
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Run tests (${{ join(matrix.*, ', ') }})
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/
+            ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
+
+            kubectl taint nodes --all node-role.kubernetes.io/control-plane- || true
+            kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+            kubectl create -n kube-system secret generic cilium-ipsec-keys \
+              --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
+
+            export CILIUM_CLI_MODE=helm
+            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+            ./cilium-cli status --wait
+            kubectl get pods --all-namespaces -o wide
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+            mkdir -p cilium-junits
+
+            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --test '!check-log-errors' \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+              --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})"
+
+            ./contrib/scripts/kind-down.sh
+
+      - name: Fetch artifacts
+        if: ${{ !success() }}
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host
+            kubectl get pods --all-namespaces -o wide
+            ./cilium-cli status
+            mkdir -p cilium-sysdumps
+            ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+            # To debug https://github.com/cilium/cilium/issues/26062
+            head -n -0 /proc/buddyinfo /proc/pagetypeinfo
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: cilium-sysdumps
+          path: cilium-sysdump-*.zip
+          retention-days: 5
+
+      - name: Upload JUnits [junit]
+        if: ${{ always() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: cilium-junits
+          path: cilium-junits/*.xml
+          retention-days: 2
+
+      - name: Publish Test Results As GitHub Summary
+        if: ${{ always() }}
+        uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
+        with:
+          junit-directory: "cilium-junits"
+
+  commit-status-final:
+    if: ${{ always() }}
+    needs: setup-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.setup-and-test.result }}
