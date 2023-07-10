@@ -93,7 +93,6 @@ import (
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
-	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
 const (
@@ -161,8 +160,6 @@ type Daemon struct {
 
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
-
-	netConf *cnitypes.NetConf
 
 	endpointManager endpointmanager.EndpointManager
 
@@ -398,11 +395,7 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 
 // newDaemon creates and returns a new Daemon with the parameters set in c.
 func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams) (*Daemon, *endpointRestoreState, error) {
-	var (
-		err           error
-		netConf       *cnitypes.NetConf
-		configuredMTU = option.Config.MTU
-	)
+	var err error
 
 	bootstrapStats.daemonInit.Start()
 
@@ -415,11 +408,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !params.Clientset.IsEnabled() &&
 		option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
 		return nil, nil, fmt.Errorf("CRD Identity allocation mode requires k8s to be configured")
-	}
-
-	if mtu := params.CNIConfigManager.GetMTU(); mtu > 0 {
-		configuredMTU = mtu
-		log.WithField("mtu", configuredMTU).Info("Overwriting MTU based on CNI configuration")
 	}
 
 	apiLimiterSet, err := rate.NewAPILimiterSet(option.Config.APIRateLimit, apiRateLimitDefaults, ratemetrics.APILimiterObserver())
@@ -494,6 +482,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if externalIP == nil {
 		externalIP = node.GetIPv6()
 	}
+	configuredMTU := option.Config.MTU
+	if mtu := params.CNIConfigManager.GetMTU(); mtu > 0 {
+		configuredMTU = mtu
+		log.WithField("mtu", configuredMTU).Info("Overwriting MTU based on CNI configuration")
+	}
 	// ExternalIP could be nil but we are covering that case inside NewConfiguration
 	mtuConfig = mtu.NewConfiguration(
 		authKeySize,
@@ -516,7 +509,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
 	}
 
-	nd := nodediscovery.NewNodeDiscovery(params.NodeManager, params.Clientset, mtuConfig, netConf)
+	nd := nodediscovery.NewNodeDiscovery(params.NodeManager, params.Clientset, mtuConfig, params.CNIConfigManager.GetCustomNetConf())
 
 	devMngr, err := linuxdatapath.NewDeviceManager()
 	if err != nil {
@@ -529,7 +522,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		prefixLengths:     createPrefixLengthCounter(),
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex:  new(lock.RWMutex),
-		netConf:           netConf,
 		mtuConfig:         mtuConfig,
 		datapath:          params.Datapath,
 		deviceManager:     devMngr,
