@@ -5,7 +5,7 @@
 
 package ipc
 
-// Made up sentinel error codes for the js/wasm platform.
+// Made up sentinel error codes for {js,wasip1}/wasm.
 const (
 	IpcErrorIO        = 1
 	IpcErrorInvalid   = 2

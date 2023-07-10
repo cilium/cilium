@@ -234,6 +234,10 @@ func HaveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
 }
 
 func haveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
+	if ok := helperProbeNotImplemented(pt); ok {
+		return fmt.Errorf("no feature probe for %v/%v", pt, helper)
+	}
+
 	if err := HaveProgramType(pt); err != nil {
 		return err
 	}
@@ -282,4 +286,12 @@ func haveProgramHelper(pt ebpf.ProgramType, helper asm.BuiltinFunc) error {
 	}
 
 	return err
+}
+
+func helperProbeNotImplemented(pt ebpf.ProgramType) bool {
+	switch pt {
+	case ebpf.Extension, ebpf.LSM, ebpf.StructOps, ebpf.Tracing:
+		return true
+	}
+	return false
 }

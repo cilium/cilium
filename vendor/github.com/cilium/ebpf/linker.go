@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/internal"
-	"github.com/cilium/ebpf/internal/linux"
 )
 
 // handles stores handle objects to avoid gc cleanup
@@ -124,14 +123,6 @@ func applyRelocations(insns asm.Instructions, target *btf.Spec, bo binary.ByteOr
 		bo = internal.NativeEndian
 	}
 
-	if target == nil {
-		var err error
-		target, err = linux.TypesNoCopy()
-		if err != nil {
-			return err
-		}
-	}
-
 	fixups, err := btf.CORERelocate(relos, target, bo)
 	if err != nil {
 		return err
@@ -139,7 +130,7 @@ func applyRelocations(insns asm.Instructions, target *btf.Spec, bo binary.ByteOr
 
 	for i, fixup := range fixups {
 		if err := fixup.Apply(reloInsns[i]); err != nil {
-			return fmt.Errorf("apply fixup %s: %w", &fixup, err)
+			return fmt.Errorf("fixup for %s: %w", relos[i], err)
 		}
 	}
 
@@ -253,7 +244,7 @@ func fixupKfuncs(insns asm.Instructions) (handles, error) {
 
 fixups:
 	// only load the kernel spec if we found at least one kfunc call
-	kernelSpec, err := linux.TypesNoCopy()
+	kernelSpec, err := btf.LoadKernelSpec()
 	if err != nil {
 		return nil, err
 	}

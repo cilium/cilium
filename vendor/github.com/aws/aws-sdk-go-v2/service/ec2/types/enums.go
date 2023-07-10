@@ -5329,6 +5329,24 @@ func (NetworkInterfaceType) Values() []NetworkInterfaceType {
 	}
 }
 
+type NitroEnclavesSupport string
+
+// Enum values for NitroEnclavesSupport
+const (
+	NitroEnclavesSupportUnsupported NitroEnclavesSupport = "unsupported"
+	NitroEnclavesSupportSupported   NitroEnclavesSupport = "supported"
+)
+
+// Values returns all known values for NitroEnclavesSupport. Note that this can be
+// expanded in the future, and so it is only as up to date as the client. The
+// ordering of this slice is not guaranteed to be stable across updates.
+func (NitroEnclavesSupport) Values() []NitroEnclavesSupport {
+	return []NitroEnclavesSupport{
+		"unsupported",
+		"supported",
+	}
+}
+
 type OfferingClassType string
 
 // Enum values for OfferingClassType
