@@ -4,7 +4,6 @@
 package xds
 
 import (
-	"context"
 	"sort"
 
 	"github.com/sirupsen/logrus"
@@ -194,7 +193,7 @@ func (c *Cache) Clear(typeURL string) (version uint64, updated bool) {
 	return c.version, cacheIsUpdated
 }
 
-func (c *Cache) GetResources(ctx context.Context, typeURL string, lastVersion uint64, nodeIP string, resourceNames []string) (*VersionedResources, error) {
+func (c *Cache) GetResources(typeURL string, lastVersion uint64, nodeIP string, resourceNames []string) (*VersionedResources, error) {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
 
@@ -288,7 +287,7 @@ func (c *Cache) EnsureVersion(typeURL string, version uint64) {
 // if available, and returns it. Otherwise, returns nil. If an error occurs while
 // fetching the resource, also returns the error.
 func (c *Cache) Lookup(typeURL string, resourceName string) (proto.Message, error) {
-	res, err := c.GetResources(context.Background(), typeURL, 0, "", []string{resourceName})
+	res, err := c.GetResources(typeURL, 0, "", []string{resourceName})
 	if err != nil || res == nil || len(res.Resources) == 0 {
 		return nil, err
 	}

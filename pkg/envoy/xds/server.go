@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"time"
 
 	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	"github.com/sirupsen/logrus"
@@ -92,12 +91,11 @@ type ResourceTypeConfiguration struct {
 // sources.
 // types maps each supported resource type URL to its corresponding resource
 // source and ACK observer.
-func NewServer(resourceTypes map[string]*ResourceTypeConfiguration,
-	resourceAccessTimeout time.Duration) *Server {
+func NewServer(resourceTypes map[string]*ResourceTypeConfiguration) *Server {
 	watchers := make(map[string]*ResourceWatcher, len(resourceTypes))
 	ackObservers := make(map[string]ResourceVersionAckObserver, len(resourceTypes))
 	for typeURL, resType := range resourceTypes {
-		w := NewResourceWatcher(typeURL, resType.Source, resourceAccessTimeout)
+		w := NewResourceWatcher(typeURL, resType.Source)
 		resType.Source.AddResourceVersionObserver(w)
 		watchers[typeURL] = w
 
