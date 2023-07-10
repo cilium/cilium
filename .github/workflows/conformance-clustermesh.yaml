@@ -375,6 +375,7 @@ jobs:
         kubectl --context ${{ env.contextName2 }} create -n kube-system secret generic cilium-ipsec-keys --from-literal=keys="${SECRET}"
 
     - name: Install Cilium in cluster1
+      id: install-cilium-cluster1
       run: |
         # Explicitly configure the NodePort to make sure that it is different in
         # each cluster, to workaround #24692
@@ -436,7 +437,7 @@ jobs:
         --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
     - name: Post-test information gathering
-      if: ${{ !success() }}
+      if: ${{ !success() && steps.install-cilium-cluster1.outcome != 'skipped' }}
       run: |
         cilium --context ${{ env.contextName1 }} status
         cilium --context ${{ env.contextName1 }} clustermesh status

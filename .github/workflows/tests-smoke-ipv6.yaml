@@ -148,6 +148,7 @@ jobs:
           cilium version
 
       - name: Install Cilium
+        id: install-cilium
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
@@ -168,7 +169,7 @@ jobs:
           kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
 
       - name: Report cluster failure status and capture cilium-sysdump
-        if: ${{ failure() }}
+        if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
         # The following is needed to prevent hubble from receiving an empty
         # file (EOF) on stdin and displaying no flows.
         shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'

@@ -134,6 +134,7 @@ jobs:
           done
 
       - name: Install Cilium
+        id: install-cilium
         run: |
           CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
@@ -179,7 +180,7 @@ jobs:
           assert ip_address("${{ steps.ips.outputs.echo-other-node }}") in ip_network("${{ steps.ips.outputs.echo-other-node-pool }}"), "echo-other-node pool mismatch"
 
       - name: Post-test information gathering
-        if: ${{ !success() }}
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status
