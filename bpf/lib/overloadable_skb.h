@@ -38,11 +38,12 @@ get_epid(const struct __sk_buff *ctx)
 }
 
 /**
- * set_identity_mark - pushes 24 bit identity into ctx mark value.
+ * ctx_set_identity_mark - pushes 24 bit identity into ctx mark value.
  */
 static __always_inline __maybe_unused void
-set_identity_mark(struct __sk_buff *ctx, __u32 identity)
+ctx_set_identity_mark(struct __sk_buff *ctx, __u32 identity)
 {
+	ctx->mark |= MARK_MAGIC_IDENTITY;
 	ctx->mark = ctx->mark & MARK_MAGIC_KEY_MASK;
 	ctx->mark |= ((identity & 0xFFFF) << 16) | ((identity & 0xFF0000) >> 16);
 }

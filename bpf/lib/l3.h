@@ -87,8 +87,7 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 
 #if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
 	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
-	ctx->mark |= MARK_MAGIC_IDENTITY;
-	set_identity_mark(ctx, seclabel);
+	ctx_set_identity_mark(ctx, seclabel);
 
 # if defined(IS_BPF_OVERLAY) && !defined(ENABLE_NODEPORT)
 	/* In tunneling mode, we execute this code to send the packet from
