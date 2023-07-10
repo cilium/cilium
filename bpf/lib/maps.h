@@ -151,8 +151,8 @@ struct bpf_elf_map __section_maps CUSTOM_CALLS_MAP = {
 
 struct ipcache_key {
 	struct bpf_lpm_trie_key lpm_key;
-	__u16 pad1;
-	__u8 cluster_id;
+	__u16 cluster_id;
+	__u8 pad1;
 	__u8 family;
 	union {
 		struct {
