@@ -4,8 +4,6 @@
 package xds
 
 import (
-	"context"
-
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/lock"
@@ -21,8 +19,7 @@ type ResourceSource interface {
 	// changed since lastVersion, nil is returned.
 	// If resourceNames is empty, all resources are returned.
 	// Should not be blocking.
-	GetResources(ctx context.Context, typeURL string, lastVersion uint64,
-		nodeIP string, resourceNames []string) (*VersionedResources, error)
+	GetResources(typeURL string, lastVersion uint64, nodeIP string, resourceNames []string) (*VersionedResources, error)
 
 	// EnsureVersion increases this resource set's version to be at least the
 	// given version. If the current version is already higher than the

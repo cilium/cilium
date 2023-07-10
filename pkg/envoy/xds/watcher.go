@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -38,20 +37,15 @@ type ResourceWatcher struct {
 	// current version is increased.
 	// versionCond is associated with versionLocker.
 	versionCond *sync.Cond
-
-	// resourceAccessTimeout is the timeout to use for any access to the
-	// resource set.
-	resourceAccessTimeout time.Duration
 }
 
 // NewResourceWatcher creates a new ResourceWatcher backed by the given
 // resource set.
-func NewResourceWatcher(typeURL string, resourceSet ResourceSource, resourceAccessTimeout time.Duration) *ResourceWatcher {
+func NewResourceWatcher(typeURL string, resourceSet ResourceSource) *ResourceWatcher {
 	w := &ResourceWatcher{
-		version:               1,
-		typeURL:               typeURL,
-		resourceSet:           resourceSet,
-		resourceAccessTimeout: resourceAccessTimeout,
+		version:     1,
+		typeURL:     typeURL,
+		resourceSet: resourceSet,
 	}
 	w.versionCond = sync.NewCond(&w.versionLocker)
 	return w
@@ -141,12 +135,9 @@ func (w *ResourceWatcher) WatchResources(ctx context.Context, typeURL string, la
 			break
 		}
 
-		subCtx, cancel := context.WithTimeout(ctx, w.resourceAccessTimeout)
-		var err error
 		watchLog.Debugf("getting %d resources from set", len(resourceNames))
-		res, err = w.resourceSet.GetResources(subCtx, typeURL, lastVersion, nodeIP, resourceNames)
-		cancel()
-
+		var err error
+		res, err = w.resourceSet.GetResources(typeURL, lastVersion, nodeIP, resourceNames)
 		if err != nil {
 			watchLog.WithError(err).Errorf("failed to query resources named: %v; terminating resource watch", resourceNames)
 			return
