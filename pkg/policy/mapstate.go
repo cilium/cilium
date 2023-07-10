@@ -398,8 +398,12 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, changes Cha
 			return
 		}
 
+		if entry.DeepEqual(&oldEntry) {
+			return // nothing to do
+		}
+
 		// Save old value before any changes, if desired
-		if changes.Old != nil && !entry.DeepEqual(&oldEntry) {
+		if changes.Old != nil {
 			changes.Old.insertIfNotExists(key, oldEntry)
 		}
 
