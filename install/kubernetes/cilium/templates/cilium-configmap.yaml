@@ -934,6 +934,9 @@ data:
 {{- if .Values.egressGateway.installRoutes }}
   install-egress-gateway-routes: "true"
 {{- end }}
+{{- if hasKey .Values.egressGateway "reconciliationTriggerInterval" }}
+  egress-gateway-reconciliation-trigger-interval: {{ .Values.egressGateway.reconciliationTriggerInterval | quote }}
+{{- end }}
 {{- if .Values.egressGateway.maxPolicyEntries }}
   egress-gateway-policy-map-max: {{ .Values.egressGateway.maxPolicyEntries }}
 {{- end }}

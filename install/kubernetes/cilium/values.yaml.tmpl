@@ -1639,6 +1639,8 @@ egressGateway:
   # -- Install egress gateway IP rules and routes in order to properly steer
   # egress gateway traffic to the correct ENI interface
   installRoutes: false
+  # -- Time between triggers of egress gateway state reconciliations
+  reconciliationTriggerInterval: 1s
   # -- Maximum number of entries in egress gateway policy map
   # maxPolicyEntries: 16384
 
