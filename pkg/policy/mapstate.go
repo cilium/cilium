@@ -696,12 +696,16 @@ func (k Key) IsSuperSetOf(other Key) int {
 
 // authPreferredInsert applies AuthType of a more generic entry to more specific entries, if not
 // explicitly specified.
+//
+// This function is expected to be called for a map insertion after deny
+// entry evaluation. If there is a map entry that is a superset of 'newKey'
+// which denies traffic matching 'newKey', then this function should not be called.
 func (keys MapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, features policyFeatures, changes ChangeState) {
 	if features.contains(authRules) {
 		if newEntry.hasAuthType == DefaultAuthType {
 			// New entry has a default auth type.
 			// Fill in the AuthType from more generic entries with an explicit auth type
-			max_specificity := 0
+			maxSpecificity := 0
 			l3l4keys := make(MapState)
 			for k, v := range keys {
 				// Only consider the same Traffic direction
@@ -720,11 +724,13 @@ func (keys MapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, fea
 					continue
 				}
 
-				// Find out if 'k' is a more specific superset of 'newKey' than seen so far
+				// Find out if 'k' is an identity-port-proto superset of 'newKey'
 				if specificity := k.IsSuperSetOf(newKey); specificity > 0 {
-					if specificity > max_specificity {
+					if specificity > maxSpecificity {
+						// AuthType from the most specific superset is
+						// applied to 'newEntry'
 						newEntry.AuthType = v.AuthType
-						max_specificity = specificity
+						maxSpecificity = specificity
 					}
 				} else {
 					// Check if a new L3L4 entry must be created due to L3-only
@@ -733,9 +739,9 @@ func (keys MapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, fea
 					// only override the AuthType for the L3 & L4 combination,
 					// not L4 in general.
 					//
-					// These need to be collected and added after it is known if
-					// there is a superset key of newKey with an explicit auth
-					// type. In this case AuthType of the new L4-only entry was
+					// These need to be collected and only added if there is a
+					// superset key of newKey with an explicit auth type. In
+					// this case AuthType of the new L4-only entry was
 					// overridden by a more generic entry and 'max_specificity >
 					// 0' after the loop.
 					if k.Identity != 0 && k.Nexthdr == 0 && newKey.Identity == 0 && newKey.Nexthdr != 0 {
@@ -752,7 +758,7 @@ func (keys MapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, fea
 			// overridden by a more generic entry. If it was overridden, the new L3L4
 			// entries are not needed as the L4-only entry with an overridden AuthType
 			// will be matched before the L3-only entries in the datapath.
-			if max_specificity == 0 {
+			if maxSpecificity == 0 {
 				for k, v := range l3l4keys {
 					keys.addKeyWithChanges(k, v, changes)
 					// L3-only entries can be deleted incrementally so we need to track their
@@ -763,8 +769,9 @@ func (keys MapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, fea
 			}
 		} else {
 			// New entry has an explicit auth type.
-			// Check it the new entry is the most specific superset of any other entry with the default auth type,
-			// and propagate the auth type from the new entry to such entries.
+			// Check if the new entry is the most specific superset of any other entry
+			// with the default auth type, and propagate the auth type from the new
+			// entry to such entries.
 			explicitSubsetKeys := make(Keys)
 			defaultSubsetKeys := make(map[Key]int)
 			for k, v := range keys {
