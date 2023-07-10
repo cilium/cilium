@@ -66,6 +66,11 @@ const (
 	eventDeleteEndpoint
 )
 
+type endpointEvent struct {
+	eventType eventType
+	endpoint  *k8sTypes.CiliumEndpoint
+}
+
 type Config struct {
 	// Install egress gateway IP rules and routes in order to properly steer
 	// egress gateway traffic to the correct ENI interface
@@ -117,7 +122,11 @@ type Manager struct {
 	// just received the event, or because the processing failed due to the
 	// manager being unable to resolve the endpoint identity to a set of
 	// labels
-	pendingEndpointEvents map[endpointID]*k8sTypes.CiliumEndpoint
+	pendingEndpointEvents map[endpointID]endpointEvent
+
+	// pendingEndpointEventsLock protects the access to the
+	// pendingEndpointEvents map
+	pendingEndpointEventsLock lock.RWMutex
 
 	// endpointEventsQueue is a workqueue of CiliumEndpoint IDs that need to
 	// be processed by the manager
@@ -179,7 +188,7 @@ func NewEgressGatewayManager(p Params) (*Manager, error) {
 		policyConfigs:                 make(map[policyID]*PolicyConfig),
 		policyConfigsBySourceIP:       make(map[string][]*PolicyConfig),
 		epDataStore:                   make(map[endpointID]*endpointMetadata),
-		pendingEndpointEvents:         make(map[endpointID]*k8sTypes.CiliumEndpoint),
+		pendingEndpointEvents:         make(map[endpointID]endpointEvent),
 		endpointEventsQueue:           endpointEventRetryQueue,
 		identityAllocator:             p.IdentityAllocator,
 		installRoutes:                 p.Config.InstallEgressGatewayRoutes,
@@ -306,7 +315,18 @@ func (manager *Manager) processCiliumEndpoints(ctx context.Context, wg *sync.Wai
 			}
 			endpointID := item.(types.NamespacedName)
 
-			manager.addEndpoint(endpointID)
+			manager.pendingEndpointEventsLock.RLock()
+			epEvent, ok := manager.pendingEndpointEvents[endpointID]
+			manager.pendingEndpointEventsLock.RUnlock()
+
+			if ok {
+				switch epEvent.eventType {
+				case eventUpdateEndpoint:
+					manager.addEndpoint(endpointID)
+				case eventDeleteEndpoint:
+					manager.deleteEndpoint(endpointID)
+				}
+			}
 
 			if manager.endpointEventIsPending(endpointID) {
 				// if the endpoint event is still pending it means the manager
@@ -369,8 +389,8 @@ func (manager *Manager) OnDeleteEgressPolicy(configID policyID) {
 }
 
 func (manager *Manager) endpointEventIsPending(id types.NamespacedName) bool {
-	manager.Lock()
-	defer manager.Unlock()
+	manager.pendingEndpointEventsLock.RLock()
+	defer manager.pendingEndpointEventsLock.RUnlock()
 
 	_, ok := manager.pendingEndpointEvents[id]
 	return ok
@@ -384,13 +404,18 @@ func (manager *Manager) addEndpoint(id types.NamespacedName) {
 	manager.Lock()
 	defer manager.Unlock()
 
-	endpoint, ok := manager.pendingEndpointEvents[id]
+	manager.pendingEndpointEventsLock.RLock()
+	epEvent, ok := manager.pendingEndpointEvents[id]
+	manager.pendingEndpointEventsLock.RUnlock()
+
 	if !ok {
 		// the endpoint event has been already processed (for example we
 		// received an updated endpoint object or a delete event),
 		// nothing to do
 		return
 	}
+
+	endpoint := epEvent.endpoint
 
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sEndpointName: endpoint.Name,
@@ -405,7 +430,9 @@ func (manager *Manager) addEndpoint(id types.NamespacedName) {
 
 	// delete the endpoint from pendingEndpointEvent, from now on if we
 	// encounter a failure it cannot be retried
+	manager.pendingEndpointEventsLock.Lock()
 	delete(manager.pendingEndpointEvents, id)
+	manager.pendingEndpointEventsLock.Unlock()
 
 	if epData, err = getEndpointMetadata(endpoint, identityLabels); err != nil {
 		logger.WithError(err).
@@ -425,6 +452,26 @@ func (manager *Manager) addEndpoint(id types.NamespacedName) {
 	manager.reconciliationTrigger.TriggerWithReason("endpoint updated")
 }
 
+func (manager *Manager) deleteEndpoint(id types.NamespacedName) {
+	manager.Lock()
+	defer manager.Unlock()
+
+	logger := log.WithFields(logrus.Fields{
+		logfields.K8sEndpointName: id.Name,
+		logfields.K8sNamespace:    id.Namespace,
+	})
+
+	logger.Debug("Deleted CiliumEndpoint")
+	delete(manager.epDataStore, id)
+
+	manager.pendingEndpointEventsLock.Lock()
+	delete(manager.pendingEndpointEvents, id)
+	manager.pendingEndpointEventsLock.Unlock()
+
+	manager.setEventBitmap(eventDeleteEndpoint)
+	manager.reconciliationTrigger.TriggerWithReason("endpoint deleted")
+}
+
 // OnUpdateEndpoint is the event handler for endpoint additions and updates.
 func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	id := types.NamespacedName{
@@ -432,35 +479,30 @@ func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 		Namespace: endpoint.GetNamespace(),
 	}
 
-	manager.Lock()
-	defer manager.Unlock()
+	manager.pendingEndpointEventsLock.Lock()
+	manager.pendingEndpointEvents[id] = endpointEvent{
+		eventType: eventUpdateEndpoint,
+		endpoint:  endpoint,
+	}
+	manager.pendingEndpointEventsLock.Unlock()
 
-	manager.pendingEndpointEvents[id] = endpoint
 	manager.endpointEventsQueue.Add(id)
 }
 
 // OnDeleteEndpoint is the event handler for endpoint deletions.
 func (manager *Manager) OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
-	manager.Lock()
-	defer manager.Unlock()
-
-	logger := log.WithFields(logrus.Fields{
-		logfields.K8sEndpointName: endpoint.Name,
-		logfields.K8sNamespace:    endpoint.Namespace,
-	})
-
 	id := types.NamespacedName{
 		Name:      endpoint.GetName(),
 		Namespace: endpoint.GetNamespace(),
 	}
 
-	delete(manager.epDataStore, id)
-	delete(manager.pendingEndpointEvents, id)
+	manager.pendingEndpointEventsLock.Lock()
+	manager.pendingEndpointEvents[id] = endpointEvent{
+		eventType: eventDeleteEndpoint,
+	}
+	manager.pendingEndpointEventsLock.Unlock()
 
-	logger.Debug("Deleted CiliumEndpoint")
-
-	manager.setEventBitmap(eventDeleteEndpoint)
-	manager.reconciliationTrigger.TriggerWithReason("endpoint deleted")
+	manager.endpointEventsQueue.Add(id)
 }
 
 // OnUpdateNode is the event handler for node additions and updates.
