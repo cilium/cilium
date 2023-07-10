@@ -76,7 +76,20 @@ func listEgressIpRules() ([]netlink.Rule, error) {
 		Priority: linux_defaults.RulePriorityEgressGateway,
 	}
 
-	rules, err := route.ListRules(netlink.FAMILY_V4, &filter)
+	return listFilteredEgressIpRules(&filter)
+}
+
+func listEgressIpRulesForRoutingTable(RoutingTableIdx int) ([]netlink.Rule, error) {
+	filter := route.Rule{
+		Priority: linux_defaults.RulePriorityEgressGateway,
+		Table:    RoutingTableIdx,
+	}
+
+	return listFilteredEgressIpRules(&filter)
+}
+
+func listFilteredEgressIpRules(filter *route.Rule) ([]netlink.Rule, error) {
+	rules, err := route.ListRules(netlink.FAMILY_V4, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -90,18 +103,27 @@ func listEgressIpRules() ([]netlink.Rule, error) {
 	return rules, nil
 }
 
-func addEgressIpRule(endpointIP net.IP, dstCIDR *net.IPNet, egressIP net.IP, ifaceIndex int) error {
-	routingTableIdx := egressGatewayRoutingTableIdx(ifaceIndex)
+func newEgressIpRule(endpointIP net.IP, dstCIDR *net.IPNet, routingTableIdx int) *netlink.Rule {
+	rule := netlink.NewRule()
 
-	ipRule := route.Rule{
-		Priority: linux_defaults.RulePriorityEgressGateway,
-		From:     &net.IPNet{IP: endpointIP, Mask: net.CIDRMask(32, 32)},
-		To:       dstCIDR,
-		Table:    routingTableIdx,
-		Protocol: linux_defaults.RTProto,
-	}
+	rule.Family = netlink.FAMILY_V4
+	rule.Table = routingTableIdx
+	rule.Priority = linux_defaults.RulePriorityEgressGateway
+	rule.Src = &net.IPNet{IP: endpointIP, Mask: net.CIDRMask(32, 32)}
+	rule.Dst = dstCIDR
+	rule.Protocol = linux_defaults.RTProto
 
-	return route.ReplaceRule(ipRule)
+	return rule
+}
+
+func egressIPRuleMatches(ipRule *netlink.Rule, endpointIP net.IP, dstCIDR *net.IPNet) bool {
+	ipRuleMaskSize, _ := ipRule.Dst.Mask.Size()
+	dstCIDRMaskSize, _ := dstCIDR.Mask.Size()
+
+	// We already filtered for .Family, .Priority and .Table
+	return ipRule.Src.IP.Equal(endpointIP) &&
+		ipRuleMaskSize == dstCIDRMaskSize &&
+		ipRule.Dst.IP.Equal(dstCIDR.IP)
 }
 
 func getFirstIPInHostRange(ip net.IPNet) net.IP {
