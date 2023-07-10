@@ -173,8 +173,9 @@ type RunInstancesInput struct {
 	// Web Services Nitro Enclaves and hibernation on the same instance.
 	EnclaveOptions *types.EnclaveOptionsRequest
 
-	// Indicates whether an instance is enabled for hibernation. For more information,
-	// see Hibernate your instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
+	// Indicates whether an instance is enabled for hibernation. This parameter is
+	// valid only if the instance meets the hibernation prerequisites (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/hibernating-prerequisites.html)
+	// . For more information, see Hibernate your instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
 	// in the Amazon EC2 User Guide. You can't enable hibernation and Amazon Web
 	// Services Nitro Enclaves on the same instance.
 	HibernationOptions *types.HibernationOptionsRequest

@@ -652,6 +652,10 @@ type CORERelocation struct {
 	id TypeID
 }
 
+func (cr *CORERelocation) String() string {
+	return fmt.Sprintf("CORERelocation(%s, %s[%s], local_id=%d)", cr.kind, cr.typ, cr.accessor, cr.id)
+}
+
 func CORERelocationMetadata(ins *asm.Instruction) *CORERelocation {
 	relo, _ := ins.Metadata.Get(coreRelocationMeta{}).(*CORERelocation)
 	return relo

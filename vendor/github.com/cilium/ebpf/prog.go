@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/internal"
-	"github.com/cilium/ebpf/internal/linux"
 	"github.com/cilium/ebpf/internal/sys"
 	"github.com/cilium/ebpf/internal/unix"
 )
@@ -902,7 +901,7 @@ func findProgramTargetInKernel(name string, progType ProgramType, attachType Att
 		return nil, 0, errUnrecognizedAttachType
 	}
 
-	spec, err := linux.TypesNoCopy()
+	spec, err := btf.LoadKernelSpec()
 	if err != nil {
 		return nil, 0, fmt.Errorf("load kernel spec: %w", err)
 	}
