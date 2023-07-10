@@ -27,6 +27,7 @@ concurrency:
 
 env:
   region: us-east-2
+  eksctl_version: v0.147.0
   # renovate: datasource=github-releases depName=cilium/cilium
   cilium_version: v1.13.4
   kubectl_version: v1.23.6
@@ -57,7 +58,7 @@ jobs:
 
       - name: Install eksctl CLI
         run: |
-          curl -LO "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz"
+          curl -LO "https://github.com/weaveworks/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
           sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
           rm eksctl_$(uname -s)_amd64.tar.gz
 
