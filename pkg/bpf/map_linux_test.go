@@ -12,10 +12,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
@@ -23,6 +26,12 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
+)
+
+// Configure a generous timeout to prevent flakes when running in a noisy CI environment.
+const (
+	tick    = 100 * time.Millisecond
+	timeout = 10 * time.Second
 )
 
 type BPFPrivilegedTestSuite struct {
@@ -837,5 +846,85 @@ func BenchmarkMapLookup(b *testing.B) {
 		if _, err := m.Lookup(&k); err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+func TestErrorResolver(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	CheckOrMountFS("")
+	require.NoError(t, rlimit.RemoveMemlock())
+
+	var (
+		key1, key2 = TestKey{Key: 10}, TestKey{Key: 20}
+		val1, val2 = TestValue{1}, TestValue{2}
+	)
+
+	tests := []struct {
+		name        string
+		remove      func(t *testing.T, m *Map)
+		expectedKey TestKey
+		expectedVal TestValue
+	}{
+		{
+			name:        "remove inserted element",
+			remove:      func(t *testing.T, m *Map) { require.NoError(t, m.Delete(&key1), "Failed to remove element from map") },
+			expectedKey: key2,
+			expectedVal: val2,
+		},
+		{
+			name:        "remove failing element",
+			remove:      func(t *testing.T, m *Map) { require.Error(t, m.Delete(&key2), "Removal from map should have failed") },
+			expectedKey: key1,
+			expectedVal: val1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewMap("cilium_error_resolver_test",
+				ebpf.Hash,
+				&TestKey{},
+				&TestValue{},
+				1, // Only one entry, so that the second insertion will fail
+				BPF_F_NO_PREALLOC,
+			).WithCache()
+
+			t.Cleanup(func() {
+				// Let's make sure that there's no interference between tests
+				mapControllers.RemoveControllerAndWait(m.controllerName())
+			})
+
+			require.NoError(t, m.CreateUnpinned(), "Failed to create map")
+			require.NoError(t, m.Update(&key1, &val1), "Failed to insert element in map")
+
+			// Let's attempt to insert a second element in the map, which will fail because the map can only hold one
+			require.Error(t, m.Update(&key2, &val2), "Map insertion should have failed")
+
+			// Let's now remove one of the two elements (the actual assertion depends on which element is to be removed)
+			tt.remove(t, m)
+
+			// Assert that the other element is eventually present and correct
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				value, err := m.Lookup(&tt.expectedKey)
+				assert.NoError(c, err)
+				if assert.NotNil(c, value) {
+					assert.Equal(c, tt.expectedVal.Value, value.(*TestValue).Value)
+				}
+			}, timeout, tick)
+
+			// Check that the error resolver controller eventually succeeds
+			require.EventuallyWithT(t, func(c *assert.CollectT) {
+				models := mapControllers.GetStatusModel()
+				for _, model := range models {
+					if model.Name == m.controllerName() {
+						assert.NotZero(c, model.Status.SuccessCount)
+						assert.Greater(c, model.Status.LastSuccessTimestamp, model.Status.LastFailureTimestamp)
+						return
+					}
+				}
+
+				assert.Fail(c, "Expected controller status not found")
+			}, timeout, tick)
+		})
 	}
 }
