@@ -363,7 +363,7 @@ func setupLogging(n *types.NetConf) error {
 func cmdAdd(args *skel.CmdArgs) (err error) {
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
-		return fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
+		return fmt.Errorf("unable to parse CNI configuration \"%s\": %v", string(args.StdinData), err)
 	}
 
 	if err = setupLogging(n); err != nil {
@@ -609,7 +609,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	// are guaranteed to be recoverable.
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
-		return fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
+		return fmt.Errorf("unable to parse CNI configuration \"%s\": %v", string(args.StdinData), err)
 	}
 
 	if err := setupLogging(n); err != nil {
@@ -710,7 +710,7 @@ func cmdCheck(args *skel.CmdArgs) error {
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
 		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidNetworkConfig",
-			fmt.Sprintf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err))
+			fmt.Sprintf("unable to parse CNI configuration \"%s\": %v", string(args.StdinData), err))
 	}
 
 	if err := setupLogging(n); err != nil {
