@@ -190,54 +190,6 @@ move_local_rules
 setup_proxy_rules
 fi
 
-if [ "$MODE" = "ipip" ]; then
-	if [ "$IP4_HOST" != "<nil>" ]; then
-		ENCAP_DEV="cilium_ipip4"
-		ip link show $ENCAP_DEV || {
-			# Upon module load it will create a non-removable tunl0
-			# device. Instead of creating an additional useless one,
-			# rename tunl0 with cilium prefix in a second step. If
-			# we to do 'ip link add name $ENCAP_DEV [...]' it would
-			# create two devices. :/
-			ip link add name tunl0 type ipip external || true
-			ip link set tunl0 name $ENCAP_DEV
-		}
-		setup_dev $ENCAP_DEV || encap_fail
-
-		ENCAP_IDX=$(cat "${SYSCLASSNETDIR}/${ENCAP_DEV}/ifindex")
-		sed -i '/^#.*ENCAP4_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
-		echo "#define ENCAP4_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
-	else
-		ip link del cilium_ipip4 2> /dev/null || true
-	fi
-	if [ "$IP6_HOST" != "<nil>" ]; then
-		ENCAP_DEV="cilium_ipip6"
-		ip link show $ENCAP_DEV || {
-			# For cilium_ipip6 device, we unfortunately cannot use the
-			# same workaround as cilium_ipip4. While the latter allows
-			# to set an existing tunl0 into collect_md mode, the default
-			# ip6tnl0 if present cannot. It's quite annoying, but if v6
-			# was built into the kernel, we might just need to live with
-			# it. Default device creation can still be worked around
-			# via boot param if the sysctl from agent won't do it.
-			ip link add name $ENCAP_DEV type ip6tnl external || true
-			ip link set sit0 name cilium_sit || true
-		}
-		setup_dev $ENCAP_DEV || encap_fail
-
-		ENCAP_IDX=$(cat "${SYSCLASSNETDIR}/${ENCAP_DEV}/ifindex")
-		sed -i '/^#.*ENCAP6_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
-		echo "#define ENCAP6_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
-	else
-		ip link del cilium_ipip6 2> /dev/null || true
-		ip link del cilium_sit   2> /dev/null || true
-	fi
-else
-	ip link del cilium_ipip4 2> /dev/null || true
-	ip link del cilium_ipip6 2> /dev/null || true
-	ip link del cilium_sit   2> /dev/null || true
-fi
-
 # Remove eventual existing encapsulation device from previous run
 case "${TUNNEL_PROTOCOL}" in
   "<nil>")

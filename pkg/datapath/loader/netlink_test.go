@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
@@ -83,7 +84,7 @@ func TestSetupDev(t *testing.T) {
 		err := netlink.LinkAdd(dummy)
 		require.NoError(t, err)
 
-		err = setupDev(dummy)
+		err = enableForwarding(dummy)
 		require.NoError(t, err)
 
 		enabledSettings := []string{
@@ -269,6 +270,53 @@ func TestRemoveTCPrograms(t *testing.T) {
 
 		err = netlink.LinkDel(dummy)
 		require.NoError(t, err)
+
+		return nil
+	})
+}
+
+func TestSetupIPIPDevices(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	netnsName := "test-setup-ipip-devs"
+	netns0, err := netns.ReplaceNetNSWithName(netnsName)
+	require.NoError(t, err)
+	require.NotNil(t, netns0)
+	t.Cleanup(func() {
+		netns0.Close()
+		netns.RemoveNetNSWithName(netnsName)
+	})
+
+	netns0.Do(func(_ ns.NetNS) error {
+		err := setupIPIPDevices(true, true)
+		require.NoError(t, err)
+
+		_, err = netlink.LinkByName(defaults.IPIPv4Device)
+		require.NoError(t, err)
+
+		_, err = netlink.LinkByName(defaults.IPIPv6Device)
+		require.NoError(t, err)
+
+		_, err = netlink.LinkByName("cilium_tunl")
+		require.NoError(t, err)
+
+		_, err = netlink.LinkByName("cilium_ip6tnl")
+		require.NoError(t, err)
+
+		_, err = netlink.LinkByName("tunl0")
+		require.Error(t, err)
+
+		_, err = netlink.LinkByName("ip6tnl0")
+		require.Error(t, err)
+
+		err = setupIPIPDevices(false, false)
+		require.NoError(t, err)
+
+		_, err = netlink.LinkByName(defaults.IPIPv4Device)
+		require.Error(t, err)
+
+		_, err = netlink.LinkByName(defaults.IPIPv6Device)
+		require.Error(t, err)
 
 		return nil
 	})
