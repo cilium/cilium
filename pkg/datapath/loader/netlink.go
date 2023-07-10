@@ -226,7 +226,9 @@ func RemoveTCFilters(ifName string, tcDir uint32) error {
 	return nil
 }
 
-func setupDev(link netlink.Link) error {
+// configureDevice puts the given link into the up state and applies
+// link-specific sysctls.
+func configureDevice(link netlink.Link) error {
 	ifName := link.Attrs().Name
 
 	if err := netlink.LinkSetUp(link); err != nil {
@@ -284,14 +286,14 @@ func setupVethPair(name, peerName string) error {
 	if err != nil {
 		return err
 	}
-	if err := setupDev(veth); err != nil {
+	if err := configureDevice(veth); err != nil {
 		return err
 	}
 	peer, err := netlink.LinkByName(peerName)
 	if err != nil {
 		return err
 	}
-	if err := setupDev(peer); err != nil {
+	if err := configureDevice(peer); err != nil {
 		return err
 	}
 
@@ -442,5 +444,131 @@ func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
 		}
 
 	}
+	return nil
+}
+
+// setupIPIPDevices ensures the specified v4 and/or v6 devices are created and
+// configured with their respective sysctls.
+//
+// Calling this function may result in tunl0 (v4) or ip6tnl0 (v6) fallback
+// interfaces being created as a result of loading the ipip and ip6_tunnel
+// kernel modules by creating cilium_ tunnel interfaces. These are catch-all
+// interfaces for the ipip decapsulation stack. By default, these interfaces
+// will be created in new network namespaces, but Cilium disables this behaviour
+// by setting net.core.fb_tunnels_only_for_init_net = 2.
+//
+// In versions of Cilium prior to 1.15, the behaviour was as follows:
+//   - Repurpose the default tunl0 by setting it into collect_md mode and renaming
+//     it to cilium_ipip4. Use the interface for production traffic.
+//   - The same cannot be done for ip6tunl0, as collect_md cannot be enabled on
+//     this interface. Leave it unused.
+//   - Rename sit0 to cilium_sit, if present. This was potentially a mistake,
+//     as the sit module is not involved with ip6tnl interfaces.
+//
+// As of Cilium 1.15, if present, tunl0 is renamed to cilium_tunl and ip6tnl0 is
+// renamed to cilium_ip6tnl. This is to communicate to the user that Cilium has
+// taken control of the encapsulation stack on the node, as it currently doesn't
+// explicitly support sharing it with other tools/CNIs. Fallback devices are left
+// unused for production traffic. Only devices that were explicitly created are used.
+func setupIPIPDevices(ipv4, ipv6 bool) error {
+	// FlowBased sets IFLA_IPTUN_COLLECT_METADATA, the equivalent of 'ip link add
+	// ... type ipip/ip6tnl external'. This is needed so bpf programs can use
+	// bpf_skb_[gs]et_tunnel_key() on packets flowing through tunnels.
+
+	if ipv4 {
+		// Set up IPv4 tunnel device if requested.
+		if err := setupDevice(&netlink.Iptun{
+			LinkAttrs: netlink.LinkAttrs{Name: defaults.IPIPv4Device},
+			FlowBased: true,
+		}); err != nil {
+			return fmt.Errorf("creating %s: %w", defaults.IPIPv4Device, err)
+		}
+
+		// Rename fallback device created by potential kernel module load after
+		// creating tunnel interface.
+		if err := renameDevice("tunl0", "cilium_tunl"); err != nil {
+			return fmt.Errorf("renaming fallback device %s: %w", "tunl0", err)
+		}
+	} else {
+		if err := removeDevice(defaults.IPIPv4Device); err != nil {
+			return fmt.Errorf("removing %s: %w", defaults.IPIPv4Device, err)
+		}
+	}
+
+	if ipv6 {
+		// Set up IPv6 tunnel device if requested.
+		if err := setupDevice(&netlink.Ip6tnl{
+			LinkAttrs: netlink.LinkAttrs{Name: defaults.IPIPv6Device},
+			FlowBased: true,
+		}); err != nil {
+			return fmt.Errorf("creating %s: %w", defaults.IPIPv6Device, err)
+		}
+
+		// Rename fallback device created by potential kernel module load after
+		// creating tunnel interface.
+		if err := renameDevice("ip6tnl0", "cilium_ip6tnl"); err != nil {
+			return fmt.Errorf("renaming fallback device %s: %w", "tunl0", err)
+		}
+	} else {
+		if err := removeDevice(defaults.IPIPv6Device); err != nil {
+			return fmt.Errorf("removing %s: %w", defaults.IPIPv6Device, err)
+		}
+	}
+
+	return nil
+}
+
+// setupDevice creates and configures a device based on the given netlink attrs.
+func setupDevice(attrs netlink.Link) error {
+	name := attrs.Attrs().Name
+
+	// Reuse existing tunnel interface created by previous runs.
+	l, err := netlink.LinkByName(name)
+	if err != nil {
+		if err := netlink.LinkAdd(attrs); err != nil {
+			return fmt.Errorf("creating device %s: %w", name, err)
+		}
+
+		// Fetch the link we've just created.
+		l, err = netlink.LinkByName(name)
+		if err != nil {
+			return fmt.Errorf("retrieving created device %s: %w", name, err)
+		}
+	}
+
+	if err := configureDevice(l); err != nil {
+		return fmt.Errorf("setting up device %s: %w", l.Attrs().Name, err)
+	}
+
+	return nil
+}
+
+// removeDevice removes the device with the given name. Returns error if the
+// device exists but was unable to be removed.
+func removeDevice(name string) error {
+	link, err := netlink.LinkByName(name)
+	if err != nil {
+		return nil
+	}
+
+	if err := netlink.LinkDel(link); err != nil {
+		return fmt.Errorf("removing device %s: %w", name, err)
+	}
+
+	return nil
+}
+
+// renameDevice renames a network device from and to a given value. Returns nil
+// if the device does not exist.
+func renameDevice(from, to string) error {
+	link, err := netlink.LinkByName(from)
+	if err != nil {
+		return nil
+	}
+
+	if err := netlink.LinkSetName(link, to); err != nil {
+		return fmt.Errorf("renaming device %s to %s: %w", from, to, err)
+	}
+
 	return nil
 }
