@@ -1,4 +1,4 @@
-name: Cilium Conformance E2E (ci-e2e)
+name: Cilium Conformance IPsec E2E (ci-ipsec-e2e)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -52,7 +52,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.4
+  cilium_cli_version: v0.14.8
   cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
@@ -67,7 +67,6 @@ jobs:
 
   setup-and-test:
     runs-on: ubuntu-latest-4cores-16gb
-    name: 'Setup & Test'
     env:
       job_name: 'Setup & Test'
     strategy:
@@ -82,106 +81,34 @@ jobs:
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
+            encryption: 'ipsec'
+            encryption-node: 'false'
 
           - name: '2'
             kernel: '5.4-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
 
           - name: '3'
             kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
             endpoint-routes: 'true'
 
           - name: '4'
-            kernel: '5.10-20230420.212204'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-
-          - name: '5'
-            kernel: '5.15-20230420.212204'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'dsr'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            host-fw: 'true'
-
-          - name: '6'
-            kernel: '6.0-20230420.212204'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            host-fw: 'true'
-            lb-acceleration: 'testing-only'
-
-          - name: '7'
-            kernel: 'bpf-next-20230420.212204'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            lb-acceleration: 'testing-only'
-
-          - name: '8'
             kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
-            endpoint-routes: 'true'
-
-          - name: '9'
-            kernel: '5.10-20230420.212204'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
+            encryption: 'ipsec'
             encryption-node: 'false'
-            lb-mode: 'snat'
             endpoint-routes: 'true'
-            egress-gateway: 'true'
-
-          - name: '10'
-            kernel: '5.15-20230420.212204'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            lb-mode: 'dsr'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-
-          - name: '11'
-            kernel: '6.0-20230420.212204'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-
-          - name: '12'
-            kernel: 'bpf-next-20230420.212204'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
 
     timeout-minutes: 60
     steps:
@@ -208,18 +135,16 @@ jobs:
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
             --helm-set=image.tag=${SHA} \
-            --helm-set=debug.enabled=true \
-            --helm-set=debug.verbose=envoy \
             --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
             --helm-set=operator.image.suffix=-ci \
             --helm-set=operator.image.tag=${SHA} \
             --helm-set=operator.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
-            --helm-set=hubble.relay.image.useDigest=false \
             --helm-set=hubble.eventBufferCapacity=65535 \
             --helm-set=bpf.monitorAggregation=none \
             --helm-set=authentication.mutual.spire.enabled=true \
+            --helm-set=authentication.mutual.spire.install.enabled=true \
             --nodes-without-cilium=kind-worker3 \
             --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
           TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
@@ -250,7 +175,7 @@ jobs:
           fi
           EGRESS_GATEWAY=""
           if [ "${{ matrix.egress-gateway }}" == "true" ]; then
-            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true"
+            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true --helm-set=debug.enabled=true"
           fi
           LB_ACCELERATION=""
           if [ "${{ matrix.lb-acceleration }}" != "" ]; then
@@ -295,7 +220,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Cilium CLI-cli
-        uses: cilium/cilium-cli@2037fb55bc81db08b66e315f5f0b9169ce6f30c2 # v0.15.4
+        uses: cilium/cilium-cli@5362f383942260c0aed4f3876e09c3452435577a # v0.14.8
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
@@ -303,7 +228,7 @@ jobs:
           binary-dir: ./
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           test-name: e2e-conformance
           image-version: ${{ matrix.kernel }}
@@ -323,20 +248,16 @@ jobs:
           done
 
       - name: Run tests (${{ join(matrix.*, ', ') }})
-        id: run-tests
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           provision: 'false'
           cmd: |
             cd /host/
-
-            IP_FAM="dual"
-            if [ "${{ matrix.ipv6 }}" == "false" ]; then
-              IP_FAM="ipv4"
-            fi
-            ./contrib/scripts/kind.sh --xdp --secondary-network "" 3 "" "" "${{ matrix.kube-proxy }}" \$IP_FAM
+            ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
 
             kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+            kubectl create -n kube-system secret generic cilium-ipsec-keys \
+              --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
             export CILIUM_CLI_MODE=helm
             ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
@@ -358,8 +279,8 @@ jobs:
             ./contrib/scripts/kind-down.sh
 
       - name: Fetch artifacts
-        if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        if: ${{ !success() }}
+        uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           provision: 'false'
           cmd: |
@@ -385,7 +306,7 @@ jobs:
         with:
           name: cilium-junits
           path: cilium-junits/*.xml
-          retention-days: 5
+          retention-days: 2
 
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() }}
