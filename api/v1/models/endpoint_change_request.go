@@ -49,10 +49,10 @@ type EndpointChangeRequest struct {
 	// Local endpoint ID
 	ID int64 `json:"id,omitempty"`
 
-	// Index of network device
+	// Index of network device in host netns
 	InterfaceIndex int64 `json:"interface-index,omitempty"`
 
-	// Name of network device
+	// Name of network device in host netns
 	InterfaceName string `json:"interface-name,omitempty"`
 
 	// Kubernetes namespace name

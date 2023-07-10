@@ -1301,10 +1301,10 @@ definitions:
         description: Docker network ID
         type: string
       interface-name:
-        description: Name of network device
+        description: Name of network device in host netns
         type: string
       interface-index:
-        description: Index of network device
+        description: Index of network device in host netns
         type: integer
       state:
         description: Current state of endpoint
@@ -1842,10 +1842,10 @@ definitions:
         description: MAC address
         type: string
       interface-name:
-        description: Name of network device
+        description: Name of network device in host netns
         type: string
       interface-index:
-        description: Index of network device
+        description: Index of network device in host netns
         type: integer
   EndpointIdentifiers:
     description: |-
