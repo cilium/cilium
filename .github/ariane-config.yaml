@@ -60,6 +60,6 @@ workflows:
   conformance-gke.yaml:
     paths-ignore-regex: (test|Documentation)/
   tests-datapath-verifier.yaml:
-    paths-regex: (bpf|test/verifier)/
+    paths-regex: (bpf|test/verifier|vendor)/
   tests-l4lb.yaml:
-    paths-regex: (pkg|daemon|bpf|test/l4lb|images)/
+    paths-regex: (bpf|daemon|images|pkg|test/l4lb|vendor)/
