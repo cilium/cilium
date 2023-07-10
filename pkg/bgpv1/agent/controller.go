@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/workerpool"
 
+	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ip"
@@ -34,42 +35,6 @@ var (
 	// multiple policies which apply to its host.
 	ErrMultiplePolicies = fmt.Errorf("more then one CiliumBGPPeeringPolicy applies to this node, please ensure only a single Policy matches this node's labels")
 )
-
-// Signaler multiplexes multiple event sources into a single level-triggered
-// event.
-//
-// Signaler should always be constructed with a channel of size 1.
-//
-// Use of a Signaler allows for bursts of events to be "rolled-up".
-// This is a suitable approach since the Controller checks the entire state of
-// the world on each iteration of its control loop.
-//
-// Additionally, this precludes any need for ordering between different event
-// sources.
-type Signaler struct {
-	Sig chan struct{}
-}
-
-// NewSignaler constructs a Signaler
-func NewSignaler() Signaler {
-	return Signaler{
-		Sig: make(chan struct{}, 1),
-	}
-}
-
-// Event adds an edge triggered event to the Signaler.
-//
-// A controller which uses this Signaler will be notified of this event some
-// time after.
-//
-// This signature adheres to the common event handling signatures of
-// cache.ResourceEventHandlerFuncs for convenience.
-func (s Signaler) Event(_ interface{}) {
-	select {
-	case s.Sig <- struct{}{}:
-	default:
-	}
-}
 
 // ControlPlaneState captures a subset of Cilium's runtime state.
 //
@@ -139,7 +104,7 @@ type Controller struct {
 	// when it occurs the Controller will query each
 	// informer for the latest API information required
 	// to drive it's control loop.
-	Sig Signaler
+	Sig *signaler.BGPCPSignaler
 	// BGPMgr is an implementation of the BGPRouterManager interface
 	// and provides a declarative API for configuring BGP peers.
 	BGPMgr BGPRouterManager
@@ -152,7 +117,8 @@ type ControllerParams struct {
 	cell.In
 
 	Lifecycle      hive.Lifecycle
-	Sig            Signaler
+	Shutdowner     hive.Shutdowner
+	Sig            *signaler.BGPCPSignaler
 	RouteMgr       BGPRouterManager
 	PolicyResource resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
 	DaemonConfig   *option.DaemonConfig
