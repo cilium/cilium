@@ -2500,6 +2500,10 @@ func init() {
           "description": "ID assigned by container runtime",
           "type": "string"
         },
+        "container-interface-name": {
+          "description": "Name of network device in container netns",
+          "type": "string"
+        },
         "container-name": {
           "description": "Name assigned to container",
           "type": "string"
@@ -2707,6 +2711,10 @@ func init() {
           "items": {
             "$ref": "#/definitions/AddressPair"
           }
+        },
+        "container-interface-name": {
+          "description": "Name of network device in container netns",
+          "type": "string"
         },
         "host-addressing": {
           "$ref": "#/definitions/NodeAddressing"
@@ -7706,6 +7714,10 @@ func init() {
           "description": "ID assigned by container runtime",
           "type": "string"
         },
+        "container-interface-name": {
+          "description": "Name of network device in container netns",
+          "type": "string"
+        },
         "container-name": {
           "description": "Name assigned to container",
           "type": "string"
@@ -7913,6 +7925,10 @@ func init() {
           "items": {
             "$ref": "#/definitions/AddressPair"
           }
+        },
+        "container-interface-name": {
+          "description": "Name of network device in container netns",
+          "type": "string"
         },
         "host-addressing": {
           "$ref": "#/definitions/NodeAddressing"

@@ -25,6 +25,9 @@ type EndpointNetworking struct {
 	// IP4/6 addresses assigned to this Endpoint
 	Addressing []*AddressPair `json:"addressing"`
 
+	// Name of network device in container netns
+	ContainerInterfaceName string `json:"container-interface-name,omitempty"`
+
 	// host addressing
 	HostAddressing *NodeAddressing `json:"host-addressing,omitempty"`
 
