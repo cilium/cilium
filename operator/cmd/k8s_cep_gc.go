@@ -104,7 +104,7 @@ func doCiliumEndpointSyncGC(ctx context.Context, clientset k8sClient.Clientset, 
 			for _, owner := range cep.ObjectMeta.OwnerReferences {
 				switch owner.Kind {
 				case "Pod":
-					podObj, exists, err = watchers.PodStore.GetByKey(cepFullName)
+					podObj, exists, err = watchers.PodStore.GetByKey(cep.Namespace + "/" + owner.Name)
 					if err != nil {
 						scopedLog.WithError(err).Warn("Unable to get pod from store")
 					}
