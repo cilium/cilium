@@ -36,6 +36,14 @@ type EndpointSelector struct {
 	cachedLabelSelectorString string `json:"-"`
 }
 
+// Len returns the number of match labels and expressions
+func (n *EndpointSelector) Len() int {
+	if n.LabelSelector == nil {
+		return 0
+	}
+	return len(n.MatchLabels) + len(n.MatchExpressions)
+}
+
 // LabelSelectorString returns a user-friendly string representation of
 // EndpointSelector.
 func (n *EndpointSelector) LabelSelectorString() string {
@@ -315,15 +323,14 @@ func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 
 // IsWildcard returns true if the endpoint selector selects all endpoints.
 func (n *EndpointSelector) IsWildcard() bool {
-	return n.LabelSelector != nil &&
-		len(n.LabelSelector.MatchLabels)+len(n.LabelSelector.MatchExpressions) == 0
+	return n.Len() == 0
 }
 
 // ConvertToLabelSelectorRequirementSlice converts the MatchLabels and
 // MatchExpressions within the specified EndpointSelector into a list of
 // LabelSelectorRequirements.
 func (n *EndpointSelector) ConvertToLabelSelectorRequirementSlice() []slim_metav1.LabelSelectorRequirement {
-	requirements := make([]slim_metav1.LabelSelectorRequirement, 0, len(n.MatchExpressions)+len(n.MatchLabels))
+	requirements := make([]slim_metav1.LabelSelectorRequirement, 0, n.Len())
 	// Append already existing match expressions.
 	requirements = append(requirements, n.MatchExpressions...)
 	// Convert each MatchLables to LabelSelectorRequirement.
