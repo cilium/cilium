@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -35,7 +36,7 @@ type localNodeStoreSpecerParams struct {
 	Config             *option.DaemonConfig
 	NodeResource       k8s.LocalNodeResource
 	CiliumNodeResource k8s.LocalCiliumNodeResource
-	Signaler           Signaler
+	Signaler           *signaler.BGPCPSignaler
 }
 
 // NewNodeSpecer constructs a new nodeSpecer and registers it in the hive lifecycle
@@ -71,7 +72,7 @@ type kubernetesNodeSpecer struct {
 
 	currentNode *slim_corev1.Node
 	workerpool  *workerpool.WorkerPool
-	signaler    Signaler
+	signaler    *signaler.BGPCPSignaler
 }
 
 func (s *kubernetesNodeSpecer) Start(_ hive.HookContext) error {
@@ -153,7 +154,7 @@ type ciliumNodeSpecer struct {
 
 	currentNode *ciliumv2.CiliumNode
 	workerpool  *workerpool.WorkerPool
-	signaler    Signaler
+	signaler    *signaler.BGPCPSignaler
 }
 
 func (s *ciliumNodeSpecer) Start(_ hive.HookContext) error {
