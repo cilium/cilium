@@ -23,6 +23,12 @@ const (
 	// SecondHostDevice is the name of the second interface of the host veth pair.
 	SecondHostDevice = "cilium_net"
 
+	// IPIPv4Device is a device of type 'ipip', created by the agent.
+	IPIPv4Device = "cilium_ipip4"
+
+	// IPIPv6Device is a device of type 'ip6tnl', created by the agent.
+	IPIPv6Device = "cilium_ipip6"
+
 	// CiliumK8sAnnotationPrefix is the prefix key for the annotations used in kubernetes.
 	CiliumK8sAnnotationPrefix = "cilium.io/"
 

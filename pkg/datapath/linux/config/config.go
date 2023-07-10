@@ -738,6 +738,23 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
+	if option.Config.EnableHealthDatapath {
+		if option.Config.IPv4Enabled() {
+			ipip4, err := netlink.LinkByName(defaults.IPIPv4Device)
+			if err != nil {
+				return err
+			}
+			cDefinesMap["ENCAP4_IFINDEX"] = fmt.Sprintf("%d", ipip4.Attrs().Index)
+		}
+		if option.Config.IPv6Enabled() {
+			ipip6, err := netlink.LinkByName(defaults.IPIPv6Device)
+			if err != nil {
+				return err
+			}
+			cDefinesMap["ENCAP6_IFINDEX"] = fmt.Sprintf("%d", ipip6.Attrs().Index)
+		}
+	}
+
 	// Since golang maps are unordered, we sort the keys in the map
 	// to get a consistent written format to the writer. This maintains
 	// the consistency when we try to calculate hash for a datapath after
