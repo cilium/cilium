@@ -47,24 +47,32 @@ type cniConfigManager struct {
 // GetMTU returns the MTU as written in the CNI configuration file.
 // This is one way to override the node's MTU.
 func (c *cniConfigManager) GetMTU() int {
-	if c.config.ReadCNIConf == "" {
+	conf := c.GetCustomNetConf()
+	if conf == nil {
 		return 0
 	}
-
-	conf, err := cnitypes.ReadNetConf(c.config.ReadCNIConf)
-	if err != nil {
-		c.log.WithField("path", c.config.ReadCNIConf).WithError(err).Warnf("Failed to parse existing CNI configuration file")
-	}
-
-	if conf.MTU > 0 {
-		return conf.MTU
-	}
-	return 0
+	return conf.MTU
 }
 
 // GetChainingMode returns the configured chaining mode.
 func (c *cniConfigManager) GetChainingMode() string {
 	return c.config.CNIChainingMode
+}
+
+// GetCustomNetConf returns the parsed custom CNI configuration, if provided
+// (In other words, the value to --read-cni-conf).
+// Otherwise, returns nil.
+func (c *cniConfigManager) GetCustomNetConf() *cnitypes.NetConf {
+	if c.config.ReadCNIConf == "" {
+		return nil
+	}
+
+	conf, err := cnitypes.ReadNetConf(c.config.ReadCNIConf)
+	if err != nil {
+		c.log.WithField("path", c.config.ReadCNIConf).WithError(err).Warnf("Failed to parse existing CNI configuration file")
+		return nil
+	}
+	return conf
 }
 
 // cniConfigs are the default configurations, per chaining mode
