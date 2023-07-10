@@ -1306,6 +1306,9 @@ definitions:
       interface-index:
         description: Index of network device in host netns
         type: integer
+      container-interface-name:
+        description: Name of network device in container netns
+        type: string
       state:
         description: Current state of endpoint
         "$ref": "#/definitions/EndpointState"
@@ -1847,6 +1850,9 @@ definitions:
       interface-index:
         description: Index of network device in host netns
         type: integer
+      container-interface-name:
+        description: Name of network device in container netns
+        type: string
   EndpointIdentifiers:
     description: |-
       Unique identifiers for this endpoint from outside cilium

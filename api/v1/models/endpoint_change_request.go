@@ -28,6 +28,9 @@ type EndpointChangeRequest struct {
 	// ID assigned by container runtime
 	ContainerID string `json:"container-id,omitempty"`
 
+	// Name of network device in container netns
+	ContainerInterfaceName string `json:"container-interface-name,omitempty"`
+
 	// Name assigned to container
 	ContainerName string `json:"container-name,omitempty"`
 
