@@ -122,7 +122,7 @@ func (s *accessLogServer) accessLogger(conn *net.UnixConn) {
 			if !request {
 				port = r.SourceEndpoint.Port
 			}
-			localEndpoint.UpdateProxyStatistics("TCP", port, ingress, request, r.Verdict)
+			localEndpoint.UpdateProxyStatistics(ingress, "TCP", port, uint16(pblog.ProxyId), request, r.Verdict)
 		}
 	}
 }

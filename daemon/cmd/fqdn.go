@@ -520,7 +520,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			serverPort = uint16(serverPortUint64)
 		}
 	}
-	ep.UpdateProxyStatistics(strings.ToUpper(protocol), serverPort, false, !msg.Response, verdict)
+	ep.UpdateProxyStatistics(false, strings.ToUpper(protocol), serverPort, proxy.DefaultDNSProxy.GetBindPort(), !msg.Response, verdict)
 
 	record := logger.NewLogRecord(flowType, false,
 		func(lr *logger.LogRecord) { lr.LogRecord.TransportProtocol = accesslog.TransportProtocol(protoID) },
