@@ -993,11 +993,11 @@ struct lb6_backend {
 	__be16 port;
 	__u8 proto;
 	__u8 flags;
-	__u8 cluster_id;	/* With this field, we can distinguish two
+	__u16 cluster_id;	/* With this field, we can distinguish two
 				 * backends that have the same IP address,
 				 * but belong to the different cluster.
 				 */
-	__u8 pad[3];
+	__u8 pad[2];
 };
 
 struct lb6_health {
@@ -1052,11 +1052,11 @@ struct lb4_backend {
 	__be16 port;		/* L4 port filter */
 	__u8 proto;		/* L4 protocol, currently not used (set to 0) */
 	__u8 flags;
-	__u8 cluster_id;	/* With this field, we can distinguish two
+	__u16 cluster_id;	/* With this field, we can distinguish two
 				 * backends that have the same IP address,
 				 * but belong to the different cluster.
 				 */
-	__u8 pad[3];
+	__u8 pad[2];
 };
 
 struct lb4_health {
