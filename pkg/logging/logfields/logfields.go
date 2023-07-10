@@ -38,6 +38,9 @@ const (
 	// ContainerID is the container identifier
 	ContainerID = "containerID"
 
+	// ContainerInterface is the name of the interface in the container namespace
+	ContainerInterface = "containerInterface"
+
 	// IdentityLabels are the labels relevant for the security identity
 	IdentityLabels = "identityLabels"
 

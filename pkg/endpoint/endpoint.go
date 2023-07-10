@@ -150,6 +150,15 @@ type Endpoint struct {
 	// ifIndex is the interface index of the host face interface (veth pair)
 	ifIndex int
 
+	// containerIfName is the name of the container facing interface (veth pair).
+	// Immutable after Endpoint creation.
+	containerIfName string
+
+	// disableLegacyIdentifiers disables lookup using legacy endpoint identifiers
+	// (container name, container id, pod name) for this endpoint.
+	// Immutable after Endpoint creation.
+	disableLegacyIdentifiers bool
+
 	// OpLabels is the endpoint's label configuration
 	//
 	// FIXME: Rename this field to Labels

@@ -330,13 +330,14 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	}
 
 	log.WithFields(logrus.Fields{
-		"addressing":            epTemplate.Addressing,
-		logfields.ContainerID:   epTemplate.ContainerID,
-		"datapathConfiguration": epTemplate.DatapathConfiguration,
-		logfields.Interface:     epTemplate.InterfaceName,
-		logfields.K8sPodName:    epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
-		logfields.Labels:        epTemplate.Labels,
-		"sync-build":            epTemplate.SyncBuildEndpoint,
+		"addressing":                 epTemplate.Addressing,
+		logfields.ContainerID:        epTemplate.ContainerID,
+		logfields.ContainerInterface: epTemplate.ContainerInterfaceName,
+		"datapathConfiguration":      epTemplate.DatapathConfiguration,
+		logfields.Interface:          epTemplate.InterfaceName,
+		logfields.K8sPodName:         epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
+		logfields.Labels:             epTemplate.Labels,
+		"sync-build":                 epTemplate.SyncBuildEndpoint,
 	}).Info("Create endpoint request")
 
 	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, owner, d, d.ipcache, d.l7Proxy, d.identityAllocator, epTemplate)
@@ -589,13 +590,14 @@ func patchEndpointIDHandler(d *Daemon, params PatchEndpointIDParams) middleware.
 	epTemplate := params.Endpoint
 
 	log.WithFields(logrus.Fields{
-		logfields.EndpointID:    params.ID,
-		"addressing":            epTemplate.Addressing,
-		logfields.ContainerID:   epTemplate.ContainerID,
-		"datapathConfiguration": epTemplate.DatapathConfiguration,
-		logfields.Interface:     epTemplate.InterfaceName,
-		logfields.K8sPodName:    epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
-		logfields.Labels:        epTemplate.Labels,
+		logfields.EndpointID:         params.ID,
+		"addressing":                 epTemplate.Addressing,
+		logfields.ContainerID:        epTemplate.ContainerID,
+		logfields.ContainerInterface: epTemplate.ContainerInterfaceName,
+		"datapathConfiguration":      epTemplate.DatapathConfiguration,
+		logfields.Interface:          epTemplate.InterfaceName,
+		logfields.K8sPodName:         epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
+		logfields.Labels:             epTemplate.Labels,
 	}).Info("Patch endpoint request")
 
 	// Validate the template. Assignment afterwards is atomic.

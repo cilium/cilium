@@ -66,12 +66,14 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 
 	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, uint16(base.ID), base.InterfaceName)
 	ep.ifIndex = int(base.InterfaceIndex)
+	ep.containerIfName = base.ContainerInterfaceName
 	ep.containerName = base.ContainerName
 	ep.containerID = base.ContainerID
 	ep.dockerNetworkID = base.DockerNetworkID
 	ep.dockerEndpointID = base.DockerEndpointID
 	ep.K8sPodName = base.K8sPodName
 	ep.K8sNamespace = base.K8sNamespace
+	ep.disableLegacyIdentifiers = base.DisableLegacyIdentifiers
 
 	if base.Mac != "" {
 		m, err := mac.ParseMAC(base.Mac)
@@ -158,10 +160,11 @@ func (e *Endpoint) getModelNetworkingRLocked() *models.EndpointNetworking {
 			IPV6:         e.GetIPv6Address(),
 			IPV6PoolName: e.IPv6IPAMPool,
 		}},
-		InterfaceIndex: int64(e.ifIndex),
-		InterfaceName:  e.ifName,
-		Mac:            e.mac.String(),
-		HostMac:        e.nodeMAC.String(),
+		InterfaceIndex:         int64(e.ifIndex),
+		InterfaceName:          e.ifName,
+		ContainerInterfaceName: e.containerIfName,
+		Mac:                    e.mac.String(),
+		HostMac:                e.nodeMAC.String(),
 	}
 }
 

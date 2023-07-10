@@ -363,29 +363,31 @@ func (e *Endpoint) restoreIdentity() error {
 func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 
 	return &serializableEndpoint{
-		ID:                    e.ID,
-		ContainerName:         e.containerName,
-		ContainerID:           e.containerID,
-		DockerNetworkID:       e.dockerNetworkID,
-		DockerEndpointID:      e.dockerEndpointID,
-		IfName:                e.ifName,
-		IfIndex:               e.ifIndex,
-		OpLabels:              e.OpLabels,
-		LXCMAC:                e.mac,
-		IPv6:                  e.IPv6,
-		IPv6IPAMPool:          e.IPv6IPAMPool,
-		IPv4:                  e.IPv4,
-		IPv4IPAMPool:          e.IPv4IPAMPool,
-		NodeMAC:               e.nodeMAC,
-		SecurityIdentity:      e.SecurityIdentity,
-		Options:               e.Options,
-		DNSRules:              e.DNSRules,
-		DNSHistory:            e.DNSHistory,
-		DNSZombies:            e.DNSZombies,
-		K8sPodName:            e.K8sPodName,
-		K8sNamespace:          e.K8sNamespace,
-		DatapathConfiguration: e.DatapathConfiguration,
-		CiliumEndpointUID:     e.ciliumEndpointUID,
+		ID:                       e.ID,
+		ContainerName:            e.containerName,
+		ContainerID:              e.containerID,
+		DockerNetworkID:          e.dockerNetworkID,
+		DockerEndpointID:         e.dockerEndpointID,
+		IfName:                   e.ifName,
+		IfIndex:                  e.ifIndex,
+		ContainerIfName:          e.containerIfName,
+		DisableLegacyIdentifiers: e.disableLegacyIdentifiers,
+		OpLabels:                 e.OpLabels,
+		LXCMAC:                   e.mac,
+		IPv6:                     e.IPv6,
+		IPv6IPAMPool:             e.IPv6IPAMPool,
+		IPv4:                     e.IPv4,
+		IPv4IPAMPool:             e.IPv4IPAMPool,
+		NodeMAC:                  e.nodeMAC,
+		SecurityIdentity:         e.SecurityIdentity,
+		Options:                  e.Options,
+		DNSRules:                 e.DNSRules,
+		DNSHistory:               e.DNSHistory,
+		DNSZombies:               e.DNSZombies,
+		K8sPodName:               e.K8sPodName,
+		K8sNamespace:             e.K8sNamespace,
+		DatapathConfiguration:    e.DatapathConfiguration,
+		CiliumEndpointUID:        e.ciliumEndpointUID,
 	}
 }
 
@@ -423,6 +425,13 @@ type serializableEndpoint struct {
 
 	// ifIndex is the interface index of the host face interface (veth pair)
 	IfIndex int
+
+	// ContainerIfName is the name of the container facing interface (veth pair).
+	ContainerIfName string
+
+	// DisableLegacyIdentifiers disables lookup using legacy endpoint identifiers
+	// (container name, container id, pod name) for this endpoint.
+	DisableLegacyIdentifiers bool
 
 	// OpLabels is the endpoint's label configuration
 	//
@@ -518,6 +527,8 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.dockerEndpointID = r.DockerEndpointID
 	ep.ifName = r.IfName
 	ep.ifIndex = r.IfIndex
+	ep.containerIfName = r.ContainerIfName
+	ep.disableLegacyIdentifiers = r.DisableLegacyIdentifiers
 	ep.OpLabels = r.OpLabels
 	ep.mac = r.LXCMAC
 	ep.IPv6 = r.IPv6
