@@ -36,7 +36,7 @@ func (m *ProxyUpdaterMock) ConntrackName() string                         { retu
 func (m *ProxyUpdaterMock) ConntrackNameLocked() string                   { return "global" }
 
 func (m *ProxyUpdaterMock) OnProxyPolicyUpdate(policyRevision uint64) {}
-func (m *ProxyUpdaterMock) UpdateProxyStatistics(l4Protocol string, port uint16, ingress, request bool,
+func (m *ProxyUpdaterMock) UpdateProxyStatistics(ingress bool, l4Protocol string, port, proxyPort uint16, request bool,
 	verdict accesslog.FlowVerdict) {
 }
 func (m *ProxyUpdaterMock) OnDNSPolicyUpdateLocked(rules restore.DNSRules) {}

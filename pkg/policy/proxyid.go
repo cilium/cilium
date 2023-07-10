@@ -12,6 +12,16 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+// ProxyStatsKey returns a key for endpoint's proxy stats, which may aggregate stats from multiple
+// proxy redirects on the same port.
+func ProxyStatsKey(ingress bool, protocol string, port, proxyPort uint16) string {
+	direction := "egress"
+	if ingress {
+		direction = "ingress"
+	}
+	return fmt.Sprintf("%s:%s:%d:%d", direction, protocol, port, proxyPort)
+}
+
 // ProxyID returns a unique string to identify a proxy mapping.
 func ProxyID(endpointID uint16, ingress bool, protocol string, port uint16) string {
 	direction := "egress"
