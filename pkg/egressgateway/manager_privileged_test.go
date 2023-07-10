@@ -136,7 +136,7 @@ func (k *EgressGatewayTestSuite) SetUpTest(c *C) {
 		egressmap.Cell,
 		cell.Provide(NewEgressGatewayManager),
 		cell.Provide(
-			func() Config { return Config{true} },
+			func() Config { return Config{true, 1 * time.Millisecond} },
 			func() *option.DaemonConfig { return &option.DaemonConfig{EnableIPv4EgressGateway: true} },
 			func() k8s.CacheStatus { return k.cacheStatus },
 			func() cache.IdentityAllocator { return identityAllocator },
@@ -234,14 +234,14 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	// Test if disabling the --install-egress-gateway-routes agent option
 	// will result in stale IP routes/rules getting removed
 	egressGatewayManager.installRoutes = false
-	egressGatewayManager.reconcile(eventNone)
+	egressGatewayManager.reconciliationTrigger.Trigger()
 
 	assertIPRules(c, []ipRule{})
 
 	// Enabling it back should result in the routes/rules being in place
 	// again
 	egressGatewayManager.installRoutes = true
-	egressGatewayManager.reconcile(eventNone)
+	egressGatewayManager.reconciliationTrigger.Trigger()
 
 	assertIPRules(c, []ipRule{
 		{ep1IP, destCIDR, egressCIDR1, testInterface1Idx},
