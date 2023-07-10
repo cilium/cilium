@@ -3164,3 +3164,7 @@ authentication:
       agentSocketPath: /run/spire/sockets/agent/agent.sock
       # -- SPIRE connection timeout
       connectionTimeout: 30s
+
+validatingAdmissionPolicy:
+  # -- Enable support for Validating Admission Policy
+  enabled: true

@@ -1,0 +1,56 @@
+{{- if and .Values.validatingAdmissionPolicy.enabled (.Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1alpha1/ValidatingAdmissionPolicy") }}
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "cilium-validate-network-policies"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   ["cilium.io"]
+        apiVersions: ["v2"]
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["ciliumnetworkpolicies", "ciliumclusterwidenetworkpolicies"]
+  validations:
+    - expression:
+        (
+          has(object.spec.ingress)
+          && object.spec.ingress.exists(x, has(x.toPorts)
+            && x.toPorts.exists(x,
+              (
+                has(x.ports) && (
+                  x.ports.exists(x, x.protocol == 'TCP')
+                  && (
+                       has(x.rules) && (
+                         has(x.rules.http) || has(x.rules.kafka)
+                       )
+                  )
+                ) && (
+                       has(x.rules) && !has(x.rules.dns)
+                )
+              )
+            )
+          )
+        ) ||
+        (
+          has(object.spec.egress)
+          && object.spec.egress.exists(x, has(x.toPorts)
+            && x.toPorts.exists(x,
+              (
+                has(x.ports) && (
+                  x.ports.exists(x, x.protocol == 'TCP')
+                  && (
+                       has(x.rules) && (
+                         has(x.rules.http) || has(x.rules.kafka)
+                       )
+                  )
+                ) || (
+                       has(x.rules) && has(x.rules.dns)
+                )
+              )
+            )
+          )
+        )
+
+      message: "L7 rules can only apply to TCP (not UDP) except for egress DNS rules"
+{{- end }}

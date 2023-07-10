@@ -2692,6 +2692,10 @@
      - Cilium agent update strategy
      - object
      - ``{"rollingUpdate":{"maxUnavailable":2},"type":"RollingUpdate"}``
+   * - validatingAdmissionPolicy.enabled
+     - Enable support for Validating Admission Policy
+     - bool
+     - ``true``
    * - vtep.cidr
      - A space separated list of VTEP device CIDRs, for example "1.1.1.0/24 1.1.2.0/24"
      - string

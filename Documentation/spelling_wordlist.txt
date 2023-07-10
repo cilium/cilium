@@ -1137,6 +1137,7 @@ vCPU
 vCPUs
 vX
 validateCNPs
+validatingAdmissionPolicy
 validator
 vendored
 verifier
