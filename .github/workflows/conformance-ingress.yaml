@@ -136,6 +136,7 @@ jobs:
           done
 
       - name: Install Cilium
+        id: install-cilium
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
@@ -216,7 +217,7 @@ jobs:
           ./ingress-controller-conformance -ingress-class cilium -wait-time-for-ingress-status 60s -wait-time-for-ready 60s
 
       - name: Post-test information gathering
-        if: ${{ !success() }}
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status

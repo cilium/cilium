@@ -354,6 +354,7 @@ jobs:
           done
 
       - name: Run tests (${{ join(matrix.*, ', ') }})
+        id: run-tests
         uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           provision: 'false'
@@ -387,7 +388,7 @@ jobs:
             ./contrib/scripts/kind-down.sh
 
       - name: Fetch artifacts
-        if: ${{ !success() }}
+        if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
         uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
         with:
           provision: 'false'

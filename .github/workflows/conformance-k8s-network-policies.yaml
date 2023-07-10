@@ -80,6 +80,7 @@ jobs:
           config: ${{ env.KIND_CONFIG }}
 
       - name: Install cilium chart
+        id: install-cilium
         run: |
           helm install cilium ./install/kubernetes/cilium \
              --wait \
@@ -125,7 +126,7 @@ jobs:
           ci-version: ${{ env.cilium_cli_ci_version }}
 
       - name: Report cluster failure status and capture cilium-sysdump
-        if: ${{ failure() }}
+        if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
         run: |
           echo "=== Retrieve cluster state ==="
           kubectl get pods --all-namespaces -o wide
