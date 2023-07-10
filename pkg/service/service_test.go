@@ -6,6 +6,7 @@ package service
 import (
 	"errors"
 	"net"
+	"net/netip"
 	"testing"
 
 	. "github.com/cilium/checkmate"
@@ -839,6 +840,96 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(found, Equals, true)
 	c.Assert(m.svcHealth.ServiceByPort(32001), IsNil)
+}
+
+// Define a mock implementation of the NodeMetaCollector interface for testing
+type mockNodeMetaCollector struct {
+	ipv4 net.IP
+	ipv6 net.IP
+}
+
+func (m *mockNodeMetaCollector) GetIPv4() net.IP {
+	return m.ipv4
+}
+
+func (m *mockNodeMetaCollector) GetIPv6() net.IP {
+	return m.ipv6
+}
+
+func (m *ManagerTestSuite) TestHealthCheckLoadBalancerIP(c *C) {
+	option.Config.EnableHealthCheckLoadBalancerIP = true
+
+	mockCollector := &mockNodeMetaCollector{
+		ipv4: net.ParseIP("192.0.2.0"),
+		ipv6: net.ParseIP("2001:db8::1"),
+	}
+
+	loadBalancerIP := *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.1"), 80, lb.ScopeExternal, 0)
+
+	localBackend1 := lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.1"), 8080)
+	localBackend1.NodeName = nodeTypes.GetName()
+
+	allBackends := []*lb.Backend{localBackend1}
+
+	// Insert svc1 as type LoadBalancer with some local backends
+	p1 := &lb.SVC{
+		Frontend:            loadBalancerIP,
+		Backends:            allBackends,
+		Type:                lb.SVCTypeLoadBalancer,
+		ExtTrafficPolicy:    lb.SVCTrafficPolicyLocal,
+		IntTrafficPolicy:    lb.SVCTrafficPolicyCluster,
+		HealthCheckNodePort: 32001,
+		Name:                lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+	}
+
+	svc, _, _, _, _ := m.svc.createSVCInfoIfNotExist(p1)
+	err := m.svc.upsertNodePortHealthService(svc, mockCollector)
+
+	c.Assert(err, IsNil)
+	c.Assert(svc.healthcheckFrontendHash, Not(Equals), "")
+	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Name, Equals, "svc1-healthCheck")
+	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Namespace, Equals, "ns1")
+	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].frontend.Port, Equals, svc.svcHealthCheckNodePort)
+	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].frontend.AddrCluster.Addr(), Equals, netip.MustParseAddr("1.1.1.1"))
+	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].backends[0].AddrCluster, Equals, cmtypes.AddrClusterFrom(netip.MustParseAddr("192.0.2.0"), option.Config.ClusterID))
+
+	// Update the externalTrafficPolicy for svc1
+	svc.frontend.Scope = lb.ScopeExternal
+	svc.svcHealthCheckNodePort = 0
+	oldHealthHash := svc.healthcheckFrontendHash
+	err = m.svc.upsertNodePortHealthService(svc, mockCollector)
+	c.Assert(err, IsNil)
+	c.Assert(svc.healthcheckFrontendHash, Equals, "")
+	c.Assert(m.svc.svcByHash[oldHealthHash], IsNil)
+
+	// Restore the original version of svc1
+	svc.frontend.Scope = lb.ScopeInternal
+	svc.svcHealthCheckNodePort = 32001
+	err = m.svc.upsertNodePortHealthService(svc, mockCollector)
+	c.Assert(err, IsNil)
+	c.Assert(svc.healthcheckFrontendHash, Not(Equals), "")
+	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Name, Equals, "svc1-healthCheck")
+	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].svcName.Namespace, Equals, "ns1")
+	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].frontend.Port, Equals, svc.svcHealthCheckNodePort)
+	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].frontend.AddrCluster.Addr(), Equals, netip.MustParseAddr("1.1.1.1"))
+	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].backends[0].AddrCluster, Equals, cmtypes.AddrClusterFrom(netip.MustParseAddr("192.0.2.0"), option.Config.ClusterID))
+
+	// IPv6 NodePort Backend
+	oldHealthHash = svc.healthcheckFrontendHash
+	svc.frontend = *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("2001:db8:1::1"), 80, lb.ScopeExternal, 0)
+	err = m.svc.upsertNodePortHealthService(svc, mockCollector)
+	c.Assert(err, IsNil)
+	c.Assert(m.svc.svcByHash[svc.healthcheckFrontendHash].backends[0].AddrCluster, Equals, cmtypes.AddrClusterFrom(netip.MustParseAddr("2001:db8::1"), option.Config.ClusterID))
+	c.Assert(m.svc.svcByHash[oldHealthHash], IsNil)
+
+	var ok bool
+	// Delete
+	ok, err = m.svc.DeleteService(m.svc.svcByHash[svc.healthcheckFrontendHash].frontend.L3n4Addr)
+	c.Assert(ok, Equals, true)
+	c.Assert(err, IsNil)
+
+	option.Config.EnableHealthCheckLoadBalancerIP = false
+
 }
 
 func (m *ManagerTestSuite) TestHealthCheckNodePortDisabled(c *C) {

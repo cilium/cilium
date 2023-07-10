@@ -697,6 +697,11 @@ data:
 {{- if hasKey .Values.nodePort "enableHealthCheck" }}
   enable-health-check-nodeport: {{ .Values.nodePort.enableHealthCheck | quote}}
 {{- end }}
+{{- if .Values.gke.enabled }}
+  enable-health-check-loadbalancer-ip: "true"
+{{- else if hasKey .Values.nodePort "enableHealthCheckLoadBalancerIP" }}
+  enable-health-check-loadbalancer-ip: {{ .Values.nodePort.enableHealthCheckLoadBalancerIP | quote}}
+{{- end }}
   node-port-bind-protection: {{ .Values.nodePort.bindProtection | quote }}
   enable-auto-protect-node-port-range: {{ .Values.nodePort.autoProtectPortRange | quote }}
 {{- end }}

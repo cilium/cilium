@@ -1778,6 +1778,10 @@ nodePort:
   # -- Enable healthcheck nodePort server for NodePort services
   enableHealthCheck: true
 
+  # -- Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs
+  # EnableHealthCheck to be enabled
+  enableHealthCheckLoadBalancerIP: false
+
 # policyAuditMode: false
 
 # -- The agent can be put into one of the three policy enforcement modes:

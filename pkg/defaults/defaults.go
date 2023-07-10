@@ -274,6 +274,10 @@ const (
 	// EnableHealthCheckNodePort
 	EnableHealthCheckNodePort = true
 
+	// EnableHealthCheckLoadBalancerIP is the default value for
+	// EnableHealthCheckLoadBalancerIP
+	EnableHealthCheckLoadBalancerIP = false
+
 	// AlignCheckerName is the BPF object name for the alignchecker.
 	AlignCheckerName = "bpf_alignchecker.o"
 

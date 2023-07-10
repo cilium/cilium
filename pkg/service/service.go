@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
@@ -93,6 +95,7 @@ type svcInfo struct {
 	sessionAffinity           bool
 	sessionAffinityTimeoutSec uint32
 	svcHealthCheckNodePort    uint16
+	healthcheckFrontendHash   string
 	svcName                   lb.ServiceName
 	loadBalancerSourceRanges  []*cidr.CIDR
 	l7LBProxyPort             uint16   // Non-zero for egress L7 LB services
@@ -697,7 +700,7 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	// Only add a HealthCheckNodePort server if this is a service which may
 	// only contain local backends (i.e. it has externalTrafficPolicy=Local)
 	if option.Config.EnableHealthCheckNodePort {
-		if svc.isExtLocal() && filterBackends {
+		if svc.isExtLocal() && filterBackends && svc.svcHealthCheckNodePort > 0 {
 			// HealthCheckNodePort is used by external systems to poll the state of the Service,
 			// it should never take into consideration Terminating backends, even when there are only
 			// Terminating backends.
@@ -709,11 +712,24 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 			}
 			s.healthServer.UpsertService(lb.ID(svc.frontend.ID), svc.svcName.Namespace, svc.svcName.Name,
 				activeBackends, svc.svcHealthCheckNodePort)
+
+			if err = s.upsertNodePortHealthService(svc, &nodeMetaCollector{}); err != nil {
+				return false, lb.ID(0), fmt.Errorf("upserting NodePort health service failed: %w", err)
+			}
+
 		} else if svc.svcHealthCheckNodePort == 0 {
 			// Remove the health check server in case this service used to have
 			// externalTrafficPolicy=Local with HealthCheckNodePort in the previous
 			// version, but not anymore.
 			s.healthServer.DeleteService(lb.ID(svc.frontend.ID))
+
+			if svc.healthcheckFrontendHash != "" {
+				healthSvc := s.svcByHash[svc.healthcheckFrontendHash]
+				if healthSvc != nil {
+					s.deleteServiceLocked(healthSvc)
+				}
+				svc.healthcheckFrontendHash = ""
+			}
 		}
 	}
 
@@ -726,6 +742,105 @@ func (s *Service) upsertService(params *lb.SVC) (bool, lb.ID, error) {
 	s.notifyMonitorServiceUpsert(svc.frontend, svc.backends,
 		svc.svcType, svc.svcExtTrafficPolicy, svc.svcIntTrafficPolicy, svc.svcName.Name, svc.svcName.Namespace)
 	return new, lb.ID(svc.frontend.ID), nil
+}
+
+type NodeMetaCollector interface {
+	GetIPv4() net.IP
+	GetIPv6() net.IP
+}
+
+type nodeMetaCollector struct{}
+
+func (n *nodeMetaCollector) GetIPv4() net.IP {
+	return node.GetIPv4()
+}
+
+func (n *nodeMetaCollector) GetIPv6() net.IP {
+	return node.GetIPv6()
+}
+
+// upsertNodePortHealthService makes the HealthCheckNodePort available to the external IP of the service
+func (s *Service) upsertNodePortHealthService(svc *svcInfo, nodeMeta NodeMetaCollector) error {
+	// For any service that has a healthCheckNodePort, we create a healthCheck service
+	// The service that is created does not need an another healthCheck service.
+	// The easiest way end that loop is to check for the HealthCheckNodePort
+	// Also, without a healthCheckNodePort, we don't need to create a healthCheck service
+	if !option.Config.EnableHealthCheckLoadBalancerIP || svc.svcType != lb.SVCTypeLoadBalancer || svc.svcHealthCheckNodePort == 0 {
+		if svc.healthcheckFrontendHash == "" {
+			return nil
+		}
+
+		healthSvc := s.svcByHash[svc.healthcheckFrontendHash]
+		if healthSvc != nil {
+			s.deleteServiceLocked(healthSvc)
+		}
+		svc.healthcheckFrontendHash = ""
+
+		return nil
+	}
+
+	healthCheckSvcName := svc.svcName
+	healthCheckSvcName.Name = svc.svcName.Name + "-healthCheck"
+
+	healthCheckFrontend := *lb.NewL3n4AddrID(
+		lb.TCP,
+		svc.frontend.AddrCluster,
+		svc.svcHealthCheckNodePort,
+		lb.ScopeExternal,
+		0,
+	)
+
+	if svc.healthcheckFrontendHash != "" && svc.healthcheckFrontendHash != healthCheckFrontend.Hash() {
+		healthSvc := s.svcByHash[svc.healthcheckFrontendHash]
+		if healthSvc != nil {
+			s.deleteServiceLocked(healthSvc)
+		}
+	}
+
+	var ip netip.Addr
+	var ok bool
+	if svc.frontend.AddrCluster.Is4() {
+		ip, ok = netip.AddrFromSlice(nodeMeta.GetIPv4().To4())
+	} else {
+		ip, ok = netip.AddrFromSlice(nodeMeta.GetIPv6())
+	}
+
+	if !ok {
+		return fmt.Errorf("failed to parse node IP")
+	}
+
+	clusterAddr := cmtypes.AddrClusterFrom(ip, option.Config.ClusterID)
+
+	healthCheckBackends := []*lb.Backend{
+		{
+			L3n4Addr: *lb.NewL3n4Addr(lb.TCP, clusterAddr, svc.svcHealthCheckNodePort, lb.ScopeInternal),
+			State:    lb.BackendStateActive,
+			NodeName: nodeTypes.GetName(),
+		},
+	}
+	// Create a new service with the healthcheck frontend and healthcheck backend
+	healthCheckSvc := &lb.SVC{
+		Name:             healthCheckSvcName,
+		Type:             svc.svcType,
+		Frontend:         healthCheckFrontend,
+		ExtTrafficPolicy: lb.SVCTrafficPolicyLocal,
+		IntTrafficPolicy: lb.SVCTrafficPolicyLocal,
+		Backends:         healthCheckBackends,
+		LoopbackHostport: true,
+	}
+
+	_, _, err := s.upsertService(healthCheckSvc)
+	if err != nil {
+		return err
+	}
+	svc.healthcheckFrontendHash = healthCheckFrontend.Hash()
+
+	log.WithFields(logrus.Fields{
+		logfields.ServiceName:      svc.svcName.Name,
+		logfields.ServiceNamespace: svc.svcName.Namespace,
+	}).Debug("Created healthcheck service for frontend")
+
+	return nil
 }
 
 // filterServiceBackends returns the list of backends based on given front end ports.
@@ -1647,6 +1762,13 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	}
 	if err := DeleteID(uint32(svc.frontend.ID)); err != nil {
 		return fmt.Errorf("Unable to release service ID %d: %s", svc.frontend.ID, err)
+	}
+
+	if svc.healthcheckFrontendHash != "" {
+		healthSvc := s.svcByHash[svc.healthcheckFrontendHash]
+		if healthSvc != nil {
+			s.deleteServiceLocked(healthSvc)
+		}
 	}
 
 	if option.Config.EnableHealthCheckNodePort {
