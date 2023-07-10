@@ -210,6 +210,10 @@ type MockCachedSelector struct {
 	key string
 }
 
+func (m MockCachedSelector) IsMoreSpecificThan(policy.CachedSelector) bool {
+	return false
+}
+
 func (m MockCachedSelector) GetSelections() []identity.NumericIdentity {
 	return nil
 }

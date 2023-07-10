@@ -5,7 +5,9 @@ package policy
 
 import (
 	"sync"
+	"testing"
 
+	"github.com/stretchr/testify/assert"
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -168,6 +170,10 @@ func newTestCachedSelector(name string, wildcard bool, selections ...int) *testC
 	}
 	cs.addSelections(selections...)
 	return cs
+}
+
+func (cs *testCachedSelector) IsMoreSpecificThan(other CachedSelector) bool {
+	return false
 }
 
 // returns selections as []identity.NumericIdentity
@@ -614,4 +620,99 @@ func testNewSelectorCache(ids cache.IdentityCache) *SelectorCache {
 	sc := NewSelectorCache(testidentity.NewMockIdentityAllocator(ids), ids)
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	return sc
+}
+
+func newFQDNCachedSelector(selector api.FQDNSelector) CachedSelector {
+	fqdnKey := selector.String()
+	cs := &fqdnSelector{
+		selectorManager: selectorManager{
+			key:              fqdnKey,
+			users:            make(map[CachedSelectionUser]struct{}),
+			cachedSelections: make(map[identity.NumericIdentity]struct{}),
+		},
+		selector: selector,
+	}
+	return cs
+}
+
+func newLabelCachedSelector(selector api.EndpointSelector) CachedSelector {
+	fqdnKey := selector.String()
+	cs := &labelIdentitySelector{
+		selectorManager: selectorManager{
+			key:              fqdnKey,
+			users:            make(map[CachedSelectionUser]struct{}),
+			cachedSelections: make(map[identity.NumericIdentity]struct{}),
+		},
+		selector: selector,
+	}
+	return cs
+}
+
+func TestSelectorIsMoreSpecificThan(t *testing.T) {
+	f1 := newFQDNCachedSelector(api.FQDNSelector{MatchName: "www.google.com"})
+	f2 := newFQDNCachedSelector(api.FQDNSelector{MatchPattern: "*.google.com"})
+	f3 := newFQDNCachedSelector(api.FQDNSelector{MatchPattern: "*.com"})
+	f4 := newFQDNCachedSelector(api.FQDNSelector{MatchPattern: "*"})
+
+	l1 := newLabelCachedSelector(api.EndpointSelector{})
+	l2 := newLabelCachedSelector(api.WildcardEndpointSelector)
+	l3 := newLabelCachedSelector(api.NewESFromLabels(labels.ParseSelectLabel("foo")))
+	l4 := newLabelCachedSelector(api.NewESFromLabels(labels.ParseSelectLabel("bar")))
+	l5 := newLabelCachedSelector(api.NewESFromLabels(labels.ParseSelectLabel("foo"), labels.ParseSelectLabel("bar")))
+
+	assert.False(t, f1.IsMoreSpecificThan(f1), "f1/f1")
+	assert.True(t, f1.IsMoreSpecificThan(f2), "f1/f2")
+	assert.False(t, f1.IsMoreSpecificThan(f3), "f1/f3") // "*.com"' would not match "www.google.com"
+	assert.True(t, f1.IsMoreSpecificThan(f4), "f1/f4")
+
+	assert.False(t, f2.IsMoreSpecificThan(f1), "f2/f1")
+	assert.False(t, f2.IsMoreSpecificThan(f2), "f2/f2")
+	assert.False(t, f2.IsMoreSpecificThan(f3), "f2/f3")
+	assert.True(t, f2.IsMoreSpecificThan(f4), "f2/f4")
+
+	assert.False(t, f3.IsMoreSpecificThan(f1), "f3/f1")
+	assert.False(t, f3.IsMoreSpecificThan(f2), "f3/f2")
+	assert.False(t, f3.IsMoreSpecificThan(f3), "f3/f3")
+	assert.True(t, f3.IsMoreSpecificThan(f4), "f3/f4")
+
+	assert.False(t, f4.IsMoreSpecificThan(f1), "f4/f1")
+	assert.False(t, f4.IsMoreSpecificThan(f2), "f4/f2")
+	assert.False(t, f4.IsMoreSpecificThan(f3), "f4/f3")
+	assert.False(t, f4.IsMoreSpecificThan(f4), "f4/f4")
+
+	assert.True(t, f4.IsMoreSpecificThan(l1), "f4/l1")
+	assert.True(t, f4.IsMoreSpecificThan(l2), "f4/l2")
+	assert.True(t, f4.IsMoreSpecificThan(l3), "f4/l3")
+	assert.True(t, f4.IsMoreSpecificThan(l4), "f4/l4")
+	assert.True(t, f4.IsMoreSpecificThan(l5), "f4/l5")
+
+	assert.False(t, l1.IsMoreSpecificThan(l1), "l1/l1")
+	assert.False(t, l1.IsMoreSpecificThan(l2), "l1/l2")
+	assert.False(t, l1.IsMoreSpecificThan(l3), "l1/l3")
+	assert.False(t, l1.IsMoreSpecificThan(l4), "l1/l4")
+	assert.False(t, l1.IsMoreSpecificThan(l5), "l1/l5")
+
+	assert.False(t, l2.IsMoreSpecificThan(l1), "l2/l1")
+	assert.False(t, l2.IsMoreSpecificThan(l2), "l2/l2")
+	assert.False(t, l2.IsMoreSpecificThan(l3), "l2/l3")
+	assert.False(t, l2.IsMoreSpecificThan(l4), "l2/l4")
+	assert.False(t, l2.IsMoreSpecificThan(l5), "l2/l5")
+
+	assert.True(t, l3.IsMoreSpecificThan(l1), "l3/l1")
+	assert.True(t, l3.IsMoreSpecificThan(l2), "l3/l2")
+	assert.False(t, l3.IsMoreSpecificThan(l3), "l3/l3")
+	assert.False(t, l3.IsMoreSpecificThan(l4), "l3/l4")
+	assert.False(t, l3.IsMoreSpecificThan(l5), "l3/l5")
+
+	assert.True(t, l4.IsMoreSpecificThan(l1), "l4/l1")
+	assert.True(t, l4.IsMoreSpecificThan(l2), "l4/l2")
+	assert.False(t, l4.IsMoreSpecificThan(l3), "l4/l3")
+	assert.False(t, l4.IsMoreSpecificThan(l4), "l4/l4")
+	assert.False(t, l4.IsMoreSpecificThan(l5), "l4/l5")
+
+	assert.True(t, l5.IsMoreSpecificThan(l1), "l5/l1")
+	assert.True(t, l5.IsMoreSpecificThan(l2), "l5/l2")
+	assert.True(t, l5.IsMoreSpecificThan(l3), "l5/l3")
+	assert.True(t, l5.IsMoreSpecificThan(l4), "l5/l4")
+	assert.False(t, l5.IsMoreSpecificThan(l5), "l5/l5")
 }

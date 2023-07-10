@@ -1095,6 +1095,10 @@ type selectorMock struct {
 	key string
 }
 
+func (t selectorMock) IsMoreSpecificThan(policy.CachedSelector) bool {
+	return false
+}
+
 func (t selectorMock) GetSelections() []identity.NumericIdentity {
 	panic("implement me")
 }

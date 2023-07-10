@@ -5,13 +5,16 @@ package policy
 
 import (
 	"fmt"
+	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -2106,4 +2109,66 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsertWithSubnets(c *check.
 		outcomeKeys.DenyPreferredInsert(bKey, bEntry, selectorCache)
 		c.Assert(outcomeKeys, checker.DeepEquals, expectedKeys, check.Commentf("different traffic directions %s", tt.name))
 	}
+}
+
+func TestIsMoreSpecificThan(t *testing.T) {
+	f1 := newFQDNCachedSelector(api.FQDNSelector{MatchName: "www.google.com"})
+	f2 := newFQDNCachedSelector(api.FQDNSelector{MatchPattern: "*.google.com"})
+
+	l1 := newLabelCachedSelector(api.NewESFromLabels(labels.ParseSelectLabel("foo"), labels.ParseSelectLabel("bar")))
+	l2 := newLabelCachedSelector(api.NewESFromLabels(labels.ParseSelectLabel("bar")))
+
+	ef1 := NewMapStateEntry(f1, nil, true, ParserTypeHTTP, "", false, AuthTypeNone)
+	ef2 := NewMapStateEntry(f2, nil, true, ParserTypeHTTP, "", false, AuthTypeNone)
+	el1 := NewMapStateEntry(l1, nil, true, ParserTypeHTTP, "", false, AuthTypeNone)
+	el2 := NewMapStateEntry(l2, nil, true, ParserTypeHTTP, "", false, AuthTypeNone)
+
+	assert.False(t, ef1.IsMoreSpecificThan(&ef1))
+	assert.True(t, ef1.IsMoreSpecificThan(&ef2))
+	assert.True(t, ef1.IsMoreSpecificThan(&el1))
+	assert.True(t, ef1.IsMoreSpecificThan(&el2))
+
+	assert.False(t, ef2.IsMoreSpecificThan(&ef1))
+	assert.False(t, ef2.IsMoreSpecificThan(&ef2))
+	assert.True(t, ef2.IsMoreSpecificThan(&el1))
+	assert.True(t, ef2.IsMoreSpecificThan(&el2))
+
+	assert.False(t, el1.IsMoreSpecificThan(&ef1))
+	assert.False(t, el1.IsMoreSpecificThan(&ef2))
+	assert.False(t, el1.IsMoreSpecificThan(&el1))
+	assert.True(t, el1.IsMoreSpecificThan(&el2))
+
+	assert.False(t, el2.IsMoreSpecificThan(&ef1))
+	assert.False(t, el2.IsMoreSpecificThan(&ef2))
+	assert.False(t, el2.IsMoreSpecificThan(&el1))
+	assert.False(t, el2.IsMoreSpecificThan(&el2))
+
+	// multiple selectors
+	ef12 := ef1
+	ef12.owners = map[MapStateOwner]struct{}{f1: {}, f2: {}}
+
+	// Is one of the owners of ef12 more specific than all of the owners of the other?
+	assert.False(t, ef12.IsMoreSpecificThan(&ef1))
+	assert.True(t, ef12.IsMoreSpecificThan(&ef2))
+	assert.True(t, ef12.IsMoreSpecificThan(&el1))
+	assert.True(t, ef12.IsMoreSpecificThan(&el2))
+
+	assert.False(t, ef1.IsMoreSpecificThan(&ef12))
+	assert.False(t, ef2.IsMoreSpecificThan(&ef12))
+	assert.False(t, el1.IsMoreSpecificThan(&ef12))
+	assert.False(t, el2.IsMoreSpecificThan(&ef12))
+
+	// mixed fqdn and label selectors, label selector is more specific, fqdn is not
+	elf12 := el1
+	elf12.owners = map[MapStateOwner]struct{}{l1: {}, f2: {}}
+
+	assert.False(t, elf12.IsMoreSpecificThan(&ef1))
+	assert.False(t, elf12.IsMoreSpecificThan(&ef2))
+	assert.True(t, elf12.IsMoreSpecificThan(&el1))
+	assert.True(t, elf12.IsMoreSpecificThan(&el2))
+
+	assert.True(t, ef1.IsMoreSpecificThan(&elf12))
+	assert.False(t, ef2.IsMoreSpecificThan(&elf12))
+	assert.False(t, el1.IsMoreSpecificThan(&elf12))
+	assert.False(t, el2.IsMoreSpecificThan(&elf12))
 }

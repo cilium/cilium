@@ -518,12 +518,42 @@ func (keys MapState) redirectPreferredInsert(key Key, entry MapStateEntry, adds,
 	// Merging owners from the new entry to the existing one has no datapath impact so we skip
 	// adding anything to 'adds' here.
 	if oldEntry, exists := keys[key]; exists && (oldEntry.IsRedirectEntry() || oldEntry.IsDeny) {
+		if oldEntry.IsRedirectEntry() && entry.IsRedirectEntry() &&
+			oldEntry.ProxyPort != entry.ProxyPort {
+			// Two different proxy ports on the same key, find out which entry is driven
+			// by a more specific selector
+			if entry.IsMoreSpecificThan(&oldEntry) {
+				oldEntry.ProxyPort = entry.ProxyPort
+			}
+		}
 		oldEntry.MergeReferences(&entry)
 		keys[key] = oldEntry
 		return
 	}
 	// Otherwise write the entry to the map
 	keys.addKeyWithChanges(key, entry, adds, deletes)
+}
+
+// IsMoreSpecificThan returns true if the receiver has an owner that is more specific than all the
+// owners of 'other'
+func (e *MapStateEntry) IsMoreSpecificThan(other *MapStateEntry) bool {
+	for owner := range e.owners {
+		if cs, ok := owner.(CachedSelector); ok {
+			moreSpecific := true
+			for owner := range other.owners {
+				if other, ok := owner.(CachedSelector); ok {
+					if !cs.IsMoreSpecificThan(other) {
+						moreSpecific = false
+						break
+					}
+				}
+			}
+			if moreSpecific {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 var visibilityDerivedFromLabels = labels.LabelArray{

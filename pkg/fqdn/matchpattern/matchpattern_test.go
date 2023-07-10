@@ -111,3 +111,49 @@ func (ts *MatchPatternTestSuite) TestMatchPatternSanitize(c *C) {
 		c.Assert(sanitized, Equals, target, Commentf("matchPattern: %s not sanitized correctly", source))
 	}
 }
+
+// TestMatchPatternIsMoreSpecific tests IsMoreSpecific
+func (ts *MatchPatternTestSuite) TestMatchPatternIsMoreSpecific(c *C) {
+	type testcase struct {
+		a   string
+		b   string
+		res bool
+	}
+	for _, t := range []testcase{
+		{a: "", b: "", res: false},
+		{a: "", b: "*", res: false},
+		{a: "*", b: "", res: false},
+		{a: "*.", b: "*.", res: false},
+		{a: "*.com", b: "*.com.", res: false},
+		{a: "com", b: "*", res: true},
+		{a: "*.com", b: "*.com", res: false},
+		{a: "foo.com", b: "*.com", res: true},
+		{a: "foo.com.", b: "*.com", res: true},
+		{a: "foo.com", b: "*.com.", res: true},
+		{a: "foo.com.", b: "*.com.", res: true},
+		{a: "*foo.com", b: "*.com", res: true},
+		{a: "f*oo.com", b: "*.com", res: true},
+		{a: "fo*o.com", b: "*.com", res: true},
+		{a: "foo*.com", b: "*.com", res: true},
+		{a: "*.foo.com", b: "*.com", res: false},
+		{a: "foo*.com", b: "*foo.com", res: false},
+		{a: "foo*.com", b: "*oo.com", res: false},
+		{a: "foo.com", b: "*oo.com", res: true},
+		{a: "*foo.com", b: "*oo.com", res: true},
+		{a: "f*oo.com", b: "*oo.com", res: true},
+		{a: "fo*o.com", b: "*oo.com", res: false},
+		{a: "fo*o.com", b: "*o*o.com", res: true},
+		{a: "www.fo*o.com", b: "*o*o.com", res: false},
+		{a: "www.fo*o.com", b: "*.*o*o.com", res: true},
+		{a: "www.foo.com", b: "www.*o*o.com", res: true},
+		{a: "www.foo.com", b: "www.foo*o.com", res: false},
+		{a: "www.foo.com", b: "www.fo*oo.com", res: false},
+		{a: "www.foo.com", b: "www.f*oo.com", res: true},
+		{a: "www.fzoo.com", b: "www.f*oo.com", res: true},
+		{a: "www.f*oo.com", b: "www.f*oo.com", res: false},
+		{a: "*.gogole.com", b: "*.*go*g*l*.c*m", res: true},
+	} {
+		res := IsMoreSpecific(t.a, t.b)
+		c.Assert(res, Equals, t.res, Commentf("matchPattern: IsMoreSpecific fail: %v", t))
+	}
+}

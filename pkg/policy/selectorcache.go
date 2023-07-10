@@ -17,6 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -48,6 +49,10 @@ type CachedSelector interface {
 	// String returns the string representation of this selector.
 	// Used as a map key.
 	String() string
+
+	// IsMoreSpecificThan returns true if the receiver is more specific than 'other' for the
+	// purposes of tie-braking with respect to policy features such as proxy redirection
+	IsMoreSpecificThan(other CachedSelector) bool
 }
 
 // CachedSelectorSlice is a slice of CachedSelectors that can be sorted.
@@ -434,6 +439,30 @@ type fqdnSelector struct {
 	selector api.FQDNSelector
 }
 
+// IsMoreSpecificThan is called when receiver and 'other' both have selected the same identity.
+// Returns true when the receiver should be considered to be a more specific selector than
+// 'other'. By definition all the requirements of both selectors are satisfied, so in general the
+// selector with more requirements is considered to be more specific.
+func (a *fqdnSelector) IsMoreSpecificThan(other CachedSelector) bool {
+	if _, ok := other.(*labelIdentitySelector); ok {
+		// FQDN Selector is always considered to be more specific than
+		// labelIdentitySelector.
+		return true
+	}
+	if b, ok := other.(*fqdnSelector); ok {
+		// 'a' is considered more specific than 'other' if 'other' would match whatever 'a' matches
+		patB := b.selector.MatchPattern
+		if len(patB) > 0 {
+			patA := a.selector.MatchPattern
+			if len(patA) == 0 {
+				patA = a.selector.MatchName // exact match can be more specific than a pattern
+			}
+			return matchpattern.IsMoreSpecific(patA, patB)
+		}
+	}
+	return false
+}
+
 // lock must be held
 //
 // The caller is responsible for making sure the same identity is not
@@ -598,6 +627,23 @@ type labelIdentitySelector struct {
 	selectorManager
 	selector   api.EndpointSelector
 	namespaces []string // allowed namespaces, or ""
+}
+
+// IsMoreSpecificThan is called when receiver and 'other' both have selected the same identity.
+// Returns true when the receiver should be considered to be a more specific selector than
+// 'other'. By definition all the requirements of both selectors are satisfied, so in general the
+// selector with more requirements is considered to be more specific.
+func (a *labelIdentitySelector) IsMoreSpecificThan(other CachedSelector) bool {
+	if b, ok := other.(*labelIdentitySelector); ok {
+		// Both are label identity selectors, that both have matched the same identity. In
+		// this case we consider 'a' to be more specific than 'b' if it has more label
+		// matches or requirements.  all the labels of 'b' and some more.
+		return a.selector.Len() > b.selector.Len()
+	}
+
+	// labelIdentitySelector is never considered to be more specific than an FQDN Selector.
+
+	return false
 }
 
 // lock must be held

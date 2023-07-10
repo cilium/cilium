@@ -76,3 +76,64 @@ func ToRegexp(pattern string) string {
 	// Anchor the match to require the whole string to match this expression
 	return "^" + pattern + "$"
 }
+
+// IsMoreSpecific returns true if 'b' would match anything 'a' matches.
+// Examples:
+// foo.com is more specific than *
+// foo.com is more specific than *.com
+// *.foo.com is more specific than *.*.com
+// *foo.com is more specific than *oo.com
+func IsMoreSpecific(a, b string) bool {
+	a = Sanitize(a)
+	b = Sanitize(b)
+	if len(a) <= 1 {
+		return false // empty can not be more specific than anything
+	}
+	if a == b {
+		return false // same is not more specific
+	}
+	if b == "*" {
+		return true // anything is more specific than "*"
+	}
+	subdomainsA := strings.Split(a, ".")
+	subdomainsB := strings.Split(b, ".")
+	if len(subdomainsA) != len(subdomainsB) {
+		return false // must match to same depth for 'b' to match anything 'a' matches
+	}
+	nDomains := len(subdomainsA) - 1 // discount the trailing '.'
+	for i := 0; i < nDomains; i++ {
+		subA := subdomainsA[i]
+		subB := subdomainsB[i]
+		partsB := strings.Split(subB, "*")
+		// subA must contain all the fixed parts of b without them overlapping
+		lastPart := len(partsB) - 1
+		if lastPart == 0 {
+			// no wildcards in b, must be an exact match
+			if subB != subA {
+				return false
+			}
+			continue
+		}
+		// subdomain b has at least one wildcard
+		for j, part := range partsB {
+			switch j {
+			case 0:
+				if !strings.HasPrefix(subA, part) {
+					return false
+				}
+				subA = subA[len(part):] // remove the fixed part
+			default:
+				k := strings.Index(subA, part)
+				if k < 0 {
+					return false
+				}
+				subA = subA[k+len(part):] // cut till past the fixed part
+			case lastPart:
+				if !strings.HasSuffix(subA, part) {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
