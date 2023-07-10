@@ -676,8 +676,10 @@ enum metric_dir {
  * The upper 16 bits plus lower 8 bits (e.g. mask 0XFFFF00FF) contain the
  * packets security identity. The lower/upper halves are swapped to recover
  * the identity.
- *
- * In case of MARK_MAGIC_PROXY_EGRESS_EPID the upper 16 bits carry the Endpoint
+ */
+#define MARK_MAGIC_SEC_IDENTITY_MASK	0xFFFF00FF
+
+/* In case of MARK_MAGIC_PROXY_EGRESS_EPID the upper 16 bits carry the Endpoint
  * ID instead of the security identity and the lower 8 bits will be zeroes.
  *
  * The 4 bits at 0X0F00 provide
@@ -699,9 +701,6 @@ enum metric_dir {
 #define MARK_MAGIC_IDENTITY		0x0F00 /* mark carries identity */
 #define MARK_MAGIC_TO_PROXY		0x0200
 #define MARK_MAGIC_SNAT_DONE		0x0300
-
-#define MARK_MAGIC_KEY_MASK		0xFF00
-
 
 /* The mark is used to indicate that the WireGuard tunnel device is done
  * encrypting a packet. The MSB invades the Kubernetes mark "space" which is

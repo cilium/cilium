@@ -44,7 +44,8 @@ static __always_inline __maybe_unused void
 ctx_set_identity_mark(struct __sk_buff *ctx, __u32 identity)
 {
 	ctx->mark |= MARK_MAGIC_IDENTITY;
-	ctx->mark = ctx->mark & MARK_MAGIC_KEY_MASK;
+	/* Mix in the identity, but preserve all unrelated bits: */
+	ctx->mark &= ~MARK_MAGIC_SEC_IDENTITY_MASK;
 	ctx->mark |= ((identity & 0xFFFF) << 16) | ((identity & 0xFF0000) >> 16);
 }
 
