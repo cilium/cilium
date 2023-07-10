@@ -183,6 +183,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	l4_off = ETH_HLEN + hdrlen;
 
 	if (lb_is_svc_proto(tuple.nexthdr) &&
+	    !nodeport_uses_dsr6(&tuple) &&
 	    nodeport_has_nat_conflict_ipv6(ip6, &target))
 		goto apply_snat;
 
@@ -1561,6 +1562,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
 	if (lb_is_svc_proto(tuple.nexthdr) &&
+	    !nodeport_uses_dsr4(&tuple) &&
 	    nodeport_has_nat_conflict_ipv4(ip4, &target))
 		goto apply_snat;
 
