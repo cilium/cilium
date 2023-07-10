@@ -168,6 +168,11 @@ func (s Service) Name() string {
 	return s.Service.Namespace + "/" + s.Service.Name
 }
 
+// NameWithoutNamespace returns the name of the service without the namespace.
+func (s Service) NameWithoutNamespace() string {
+	return s.Service.Name
+}
+
 // Scheme returns the string 'http'.
 func (s Service) Scheme() string {
 	// We only have http services for now.
