@@ -304,8 +304,8 @@ struct tunnel_key {
 		union v6addr	ip6;
 	};
 	__u8 family;
-	__u8 cluster_id;
-	__u16 pad;
+	__u8 pad;
+	__u16 cluster_id;
 } __packed;
 
 struct tunnel_value {
