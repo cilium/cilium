@@ -474,13 +474,14 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	ep := &models.EndpointChangeRequest{
-		ContainerID:           args.ContainerID,
-		Labels:                models.Labels{},
-		State:                 models.EndpointStateWaitingDashForDashIdentity.Pointer(),
-		Addressing:            &models.AddressPair{},
-		K8sPodName:            string(cniArgs.K8S_POD_NAME),
-		K8sNamespace:          string(cniArgs.K8S_POD_NAMESPACE),
-		DatapathConfiguration: &models.EndpointDatapathConfiguration{},
+		ContainerID:            args.ContainerID,
+		Labels:                 models.Labels{},
+		State:                  models.EndpointStateWaitingDashForDashIdentity.Pointer(),
+		Addressing:             &models.AddressPair{},
+		K8sPodName:             string(cniArgs.K8S_POD_NAME),
+		K8sNamespace:           string(cniArgs.K8S_POD_NAMESPACE),
+		ContainerInterfaceName: args.IfName,
+		DatapathConfiguration:  &models.EndpointDatapathConfiguration{},
 	}
 
 	if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
