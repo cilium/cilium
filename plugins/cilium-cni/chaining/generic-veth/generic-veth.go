@@ -48,10 +48,10 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		}
 	}()
 	var (
-		hostMac, vethHostName, vethLXCMac, vethIP, vethIPv6 string
-		vethHostIdx, peerIndex                              int
-		peer                                                netlink.Link
-		netNs                                               ns.NetNS
+		hostMac, vethHostName, vethLXCMac, vethLXCName, vethIP, vethIPv6 string
+		vethHostIdx, peerIndex                                           int
+		peer                                                             netlink.Link
+		netNs                                                            ns.NetNS
 	)
 
 	netNs, err = ns.GetNS(pluginCtx.Args.Netns)
@@ -76,6 +76,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			}
 
 			vethLXCMac = link.Attrs().HardwareAddr.String()
+			vethLXCName = link.Attrs().Name
 
 			veth, ok := link.(*netlink.Veth)
 			if !ok {
@@ -181,15 +182,16 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			IPV4: vethIP,
 			IPV6: vethIPv6,
 		},
-		ContainerID:       pluginCtx.Args.ContainerID,
-		State:             models.EndpointStateWaitingDashForDashIdentity.Pointer(),
-		HostMac:           hostMac,
-		InterfaceIndex:    int64(vethHostIdx),
-		Mac:               vethLXCMac,
-		InterfaceName:     vethHostName,
-		K8sPodName:        string(pluginCtx.CniArgs.K8S_POD_NAME),
-		K8sNamespace:      string(pluginCtx.CniArgs.K8S_POD_NAMESPACE),
-		SyncBuildEndpoint: true,
+		ContainerID:            pluginCtx.Args.ContainerID,
+		State:                  models.EndpointStateWaitingDashForDashIdentity.Pointer(),
+		HostMac:                hostMac,
+		InterfaceIndex:         int64(vethHostIdx),
+		Mac:                    vethLXCMac,
+		InterfaceName:          vethHostName,
+		ContainerInterfaceName: vethLXCName,
+		K8sPodName:             string(pluginCtx.CniArgs.K8S_POD_NAME),
+		K8sNamespace:           string(pluginCtx.CniArgs.K8S_POD_NAMESPACE),
+		SyncBuildEndpoint:      true,
 		DatapathConfiguration: &models.EndpointDatapathConfiguration{
 			// aws-cni requires ARP passthrough between Linux and
 			// the pod
