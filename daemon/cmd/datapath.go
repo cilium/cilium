@@ -306,7 +306,7 @@ func (d *Daemon) initMaps() error {
 		return nil
 	}
 
-	if err := lxcmap.LXCMap().OpenOrCreate(); err != nil {
+	if err := lxcmap.LXCMap().Recreate(); err != nil {
 		return fmt.Errorf("initializing lxc map: %w", err)
 	}
 
