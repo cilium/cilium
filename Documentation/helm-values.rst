@@ -795,11 +795,15 @@
    * - :spelling:ignore:`egressGateway`
      - Enables egress gateway to redirect and SNAT the traffic that leaves the cluster.
      - object
-     - ``{"enabled":false,"installRoutes":false}``
+     - ``{"enabled":false,"installRoutes":false,"reconciliationTriggerInterval":"1s"}``
    * - :spelling:ignore:`egressGateway.installRoutes`
      - Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface
      - bool
      - ``false``
+   * - :spelling:ignore:`egressGateway.reconciliationTriggerInterval`
+     - Time between triggers of egress gateway state reconciliations
+     - string
+     - ``"1s"``
    * - :spelling:ignore:`enableCiliumEndpointSlice`
      - Enable CiliumEndpointSlice feature.
      - bool
