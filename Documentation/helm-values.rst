@@ -2111,7 +2111,7 @@
    * - :spelling:ignore:`nodePort`
      - Configure N-S k8s service loadbalancing
      - object
-     - ``{"autoProtectPortRange":true,"bindProtection":true,"enableHealthCheck":true,"enabled":false}``
+     - ``{"autoProtectPortRange":true,"bindProtection":true,"enableHealthCheck":true,"enableHealthCheckLoadBalancerIP":false,"enabled":false}``
    * - :spelling:ignore:`nodePort.autoProtectPortRange`
      - Append NodePort range to ip_local_reserved_ports if clash with ephemeral ports is detected.
      - bool
@@ -2124,6 +2124,10 @@
      - Enable healthcheck nodePort server for NodePort services
      - bool
      - ``true``
+   * - :spelling:ignore:`nodePort.enableHealthCheckLoadBalancerIP`
+     - Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs EnableHealthCheck to be enabled
+     - bool
+     - ``false``
    * - :spelling:ignore:`nodePort.enabled`
      - Enable the Cilium NodePort service implementation.
      - bool

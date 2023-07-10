@@ -825,6 +825,9 @@ const (
 	// EnableHealthCheckNodePort is the name of the EnableHealthCheckNodePort option
 	EnableHealthCheckNodePort = "enable-health-check-nodeport"
 
+	// EnableHealthCheckLoadBalancerIP is the name of the EnableHealthCheckLoadBalancerIP option
+	EnableHealthCheckLoadBalancerIP = "enable-health-check-loadbalancer-ip"
+
 	// PolicyQueueSize is the size of the queues utilized by the policy
 	// repository.
 	PolicyQueueSize = "policy-queue-size"
@@ -1909,6 +1912,10 @@ type DaemonConfig struct {
 	// cilium
 	EnableHealthCheckNodePort bool
 
+	// EnableHealthCheckLoadBalancerIP enables health checking of LoadBalancerIP
+	// by cilium
+	EnableHealthCheckLoadBalancerIP bool
+
 	// KVstoreKeepAliveInterval is the interval in which the lease is being
 	// renewed. This must be set to a value lesser than the LeaseTTL ideally
 	// by a factor of 3.
@@ -2438,43 +2445,44 @@ type DaemonConfig struct {
 var (
 	// Config represents the daemon configuration
 	Config = &DaemonConfig{
-		CreationTime:                 time.Now(),
-		Opts:                         NewIntOptions(&DaemonOptionLibrary),
-		Monitor:                      &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
-		IPv6ClusterAllocCIDR:         defaults.IPv6ClusterAllocCIDR,
-		IPv6ClusterAllocCIDRBase:     defaults.IPv6ClusterAllocCIDRBase,
-		EnableHostIPRestore:          defaults.EnableHostIPRestore,
-		EnableHealthChecking:         defaults.EnableHealthChecking,
-		EnableEndpointHealthChecking: defaults.EnableEndpointHealthChecking,
-		EnableHealthCheckNodePort:    defaults.EnableHealthCheckNodePort,
-		EnableIPv4:                   defaults.EnableIPv4,
-		EnableIPv6:                   defaults.EnableIPv6,
-		EnableIPv6NDP:                defaults.EnableIPv6NDP,
-		EnableSCTP:                   defaults.EnableSCTP,
-		EnableL7Proxy:                defaults.EnableL7Proxy,
-		EndpointStatus:               make(map[string]struct{}),
-		DNSMaxIPsPerRestoredRule:     defaults.DNSMaxIPsPerRestoredRule,
-		ToFQDNsMaxIPsPerHost:         defaults.ToFQDNsMaxIPsPerHost,
-		KVstorePeriodicSync:          defaults.KVstorePeriodicSync,
-		KVstoreConnectivityTimeout:   defaults.KVstoreConnectivityTimeout,
-		IPAllocationTimeout:          defaults.IPAllocationTimeout,
-		IdentityChangeGracePeriod:    defaults.IdentityChangeGracePeriod,
-		IdentityRestoreGracePeriod:   defaults.IdentityRestoreGracePeriod,
-		FixedIdentityMapping:         make(map[string]string),
-		KVStoreOpt:                   make(map[string]string),
-		LogOpt:                       make(map[string]string),
-		LoopbackIPv4:                 defaults.LoopbackIPv4,
-		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
-		AnnotateK8sNode:              defaults.AnnotateK8sNode,
-		K8sServiceCacheSize:          defaults.K8sServiceCacheSize,
-		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
-		IdentityAllocationMode:       IdentityAllocationModeKVstore,
-		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
-		EnableWellKnownIdentities:    defaults.EnableWellKnownIdentities,
-		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
-		AllocatorListTimeout:         defaults.AllocatorListTimeout,
-		EnableICMPRules:              defaults.EnableICMPRules,
-		UseCiliumInternalIPForIPsec:  defaults.UseCiliumInternalIPForIPsec,
+		CreationTime:                    time.Now(),
+		Opts:                            NewIntOptions(&DaemonOptionLibrary),
+		Monitor:                         &models.MonitorStatus{Cpus: int64(runtime.NumCPU()), Npages: 64, Pagesize: int64(os.Getpagesize()), Lost: 0, Unknown: 0},
+		IPv6ClusterAllocCIDR:            defaults.IPv6ClusterAllocCIDR,
+		IPv6ClusterAllocCIDRBase:        defaults.IPv6ClusterAllocCIDRBase,
+		EnableHostIPRestore:             defaults.EnableHostIPRestore,
+		EnableHealthChecking:            defaults.EnableHealthChecking,
+		EnableEndpointHealthChecking:    defaults.EnableEndpointHealthChecking,
+		EnableHealthCheckLoadBalancerIP: defaults.EnableHealthCheckLoadBalancerIP,
+		EnableHealthCheckNodePort:       defaults.EnableHealthCheckNodePort,
+		EnableIPv4:                      defaults.EnableIPv4,
+		EnableIPv6:                      defaults.EnableIPv6,
+		EnableIPv6NDP:                   defaults.EnableIPv6NDP,
+		EnableSCTP:                      defaults.EnableSCTP,
+		EnableL7Proxy:                   defaults.EnableL7Proxy,
+		EndpointStatus:                  make(map[string]struct{}),
+		DNSMaxIPsPerRestoredRule:        defaults.DNSMaxIPsPerRestoredRule,
+		ToFQDNsMaxIPsPerHost:            defaults.ToFQDNsMaxIPsPerHost,
+		KVstorePeriodicSync:             defaults.KVstorePeriodicSync,
+		KVstoreConnectivityTimeout:      defaults.KVstoreConnectivityTimeout,
+		IPAllocationTimeout:             defaults.IPAllocationTimeout,
+		IdentityChangeGracePeriod:       defaults.IdentityChangeGracePeriod,
+		IdentityRestoreGracePeriod:      defaults.IdentityRestoreGracePeriod,
+		FixedIdentityMapping:            make(map[string]string),
+		KVStoreOpt:                      make(map[string]string),
+		LogOpt:                          make(map[string]string),
+		LoopbackIPv4:                    defaults.LoopbackIPv4,
+		EnableEndpointRoutes:            defaults.EnableEndpointRoutes,
+		AnnotateK8sNode:                 defaults.AnnotateK8sNode,
+		K8sServiceCacheSize:             defaults.K8sServiceCacheSize,
+		AutoCreateCiliumNodeResource:    defaults.AutoCreateCiliumNodeResource,
+		IdentityAllocationMode:          IdentityAllocationModeKVstore,
+		AllowICMPFragNeeded:             defaults.AllowICMPFragNeeded,
+		EnableWellKnownIdentities:       defaults.EnableWellKnownIdentities,
+		K8sEnableK8sEndpointSlice:       defaults.K8sEnableEndpointSlice,
+		AllocatorListTimeout:            defaults.AllocatorListTimeout,
+		EnableICMPRules:                 defaults.EnableICMPRules,
+		UseCiliumInternalIPForIPsec:     defaults.UseCiliumInternalIPForIPsec,
 
 		K8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 
@@ -3042,6 +3050,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableHealthChecking = vp.GetBool(EnableHealthChecking)
 	c.EnableEndpointHealthChecking = vp.GetBool(EnableEndpointHealthChecking)
 	c.EnableHealthCheckNodePort = vp.GetBool(EnableHealthCheckNodePort)
+	c.EnableHealthCheckLoadBalancerIP = vp.GetBool(EnableHealthCheckLoadBalancerIP)
 	c.EnableLocalNodeRoute = vp.GetBool(EnableLocalNodeRoute)
 	c.EnablePolicy = strings.ToLower(vp.GetString(EnablePolicy))
 	c.EnableExternalIPs = vp.GetBool(EnableExternalIPs)
