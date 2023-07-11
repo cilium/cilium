@@ -18,9 +18,10 @@ import (
 )
 
 var BgpPeersCmd = &cobra.Command{
-	Use:   "peers",
-	Short: "List current state of all peers",
-	Long:  "List state of all peers defined in CiliumBGPPeeringPolicy",
+	Use:     "peers",
+	Aliases: []string{"neighbors"},
+	Short:   "List current state of all peers",
+	Long:    "List state of all peers defined in CiliumBGPPeeringPolicy",
 	Run: func(cmd *cobra.Command, args []string) {
 		res, err := client.Bgp.GetBgpPeers(nil)
 		if err != nil {
