@@ -404,6 +404,11 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 					fmt.Fprint(w, "expected=unknown, retrieved=unknown")
 				}
 				fmt.Fprint(w, "\n")
+
+				if cluster.Synced != nil {
+					fmt.Fprintf(w, "   └  synchronization status: nodes=%v, endpoints=%v, identities=%v, services=%v\n",
+						cluster.Synced.Nodes, cluster.Synced.Endpoints, cluster.Synced.Identities, cluster.Synced.Services)
+				}
 			}
 		}
 	}
