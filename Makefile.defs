@@ -66,6 +66,7 @@ CONSUL_IMAGE=consul:1.7.2
 
 export CILIUM_CLI ?= cilium
 export GO ?= go
+export KUBECTL ?= kubectl
 
 # go build/test/clean flags
 # these are declared here so they are treated explicitly
