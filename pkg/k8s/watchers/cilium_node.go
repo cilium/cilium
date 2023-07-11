@@ -68,7 +68,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 						if ciliumNode := k8s.CastInformerEvent[cilium_v2.CiliumNode](newObj); ciliumNode != nil {
 							valid = true
 							isLocal := k8s.IsLocalCiliumNode(ciliumNode)
-							// Comparing Annotations here since wg-pub-key annotation is used to exchange rotated Wireguard keys.
+							// Comparing Annotations here since wg-pub-key annotation is used to exchange rotated WireGuard keys.
 							if oldCN.DeepEqual(ciliumNode) &&
 								comparator.MapStringEquals(oldCN.ObjectMeta.Labels, ciliumNode.ObjectMeta.Labels) &&
 								comparator.MapStringEquals(oldCN.ObjectMeta.Annotations, ciliumNode.ObjectMeta.Annotations) {

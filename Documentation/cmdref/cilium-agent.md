@@ -150,8 +150,8 @@ cilium-agent [flags]
       --enable-unreachable-routes                                 Add unreachable routes on pod deletion
       --enable-vtep                                               Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)
       --enable-well-known-identities                              Enable well-known identities for known Kubernetes components (default true)
-      --enable-wireguard                                          Enable wireguard
-      --enable-wireguard-userspace-fallback                       Enables the fallback to the wireguard userspace implementation
+      --enable-wireguard                                          Enable WireGuard
+      --enable-wireguard-userspace-fallback                       Enable fallback to the WireGuard userspace implementation
       --enable-xdp-prefilter                                      Enable XDP prefiltering
       --enable-xt-socket-fallback                                 Enable fallback for missing xt_socket module (default true)
       --encrypt-interface string                                  Transparent encryption interface

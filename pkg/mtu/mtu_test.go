@@ -68,7 +68,7 @@ func (m *MTUSuite) TestNewConfiguration(c *C) {
 	c.Assert(conf.GetDeviceMTU(), Equals, 1400)
 	c.Assert(conf.GetRouteMTU(), Equals, conf.GetDeviceMTU()-(TunnelOverhead+EncryptionIPsecOverhead+16))
 
-	// Add routes with wireguard enabled
+	// Add routes with WireGuard enabled
 	conf = NewConfiguration(32, false, false, true, false, 1400, nil)
 	c.Assert(conf.GetDeviceMTU(), Equals, 1400)
 	c.Assert(conf.GetRouteMTU(), Equals, conf.GetDeviceMTU()-WireguardOverhead)

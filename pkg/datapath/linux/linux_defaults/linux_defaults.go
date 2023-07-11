@@ -12,7 +12,7 @@ const (
 	// RouteTableIPSec is the default table ID to use for IPSec routing rules
 	RouteTableIPSec = 200
 
-	// RouteTableWireguard is the default table ID to use for Wireguard routing
+	// RouteTableWireguard is the default table ID to use for WireGuard routing
 	// rules
 	RouteTableWireguard = 201
 
@@ -64,7 +64,7 @@ const (
 	// RTProto is the default protocol we install our fib rules and routes with
 	RTProto = unix.RTPROT_KERNEL
 
-	// RulePriorityWireguard is the priority of the rule used for routing packets to Wireguard device for encryption
+	// RulePriorityWireguard is the priority of the rule used for routing packets to WireGuard device for encryption
 	RulePriorityWireguard = 1
 
 	// RulePriorityEgressGateway is the priority used in IP routes added by the manager.

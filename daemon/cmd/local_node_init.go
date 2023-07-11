@@ -111,7 +111,7 @@ func (ini *localNodeInitializer) initFromK8s(ctx context.Context, node *node.Loc
 	//   - Cilium internal IPs (restored from cilium_host or allocated by IPAM)
 	//   - Health IPs (allocated by IPAM)
 	//   - Ingress IPs (restored from ipcachemap or allocated)
-	//   - Wireguard key (set by wireguard agent)
+	//   - WireGuard key (set by WireGuard agent)
 	//   - IPsec key (set by IPsec)
 	//   - alloc CIDRs (depends on IPAM mode; restored from Node or CiliumNode)
 	//   - ClusterID (set by NodeDiscovery)

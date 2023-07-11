@@ -114,7 +114,7 @@ const (
 	NoTrackAlias = Prefix + ".no-track-port"
 
 	// WireguardPubKey / WireguardPubKeyAlias is the annotation name used to store
-	// the Wireguard public key in the CiliumNode CRD that we need to use to encrypt
+	// the WireGuard public key in the CiliumNode CRD that we need to use to encrypt
 	// traffic to that node.
 	WireguardPubKey      = NetworkPrefix + "/wg-pub-key"
 	WireguardPubKeyAlias = Prefix + ".network.wg-pub-key"
