@@ -9,7 +9,7 @@ List routes in the BGP Control Plane's RIBs
 List routes in the BGP Control Plane's Routing Information Bases (RIBs)
 
 ```
-cilium bgp routes <available | advertised> <afi> <safi> [vrouter <asn>] [neighbor <address>] [flags]
+cilium bgp routes <available | advertised> <afi> <safi> [vrouter <asn>] [peer|neighbor <address>] [flags]
 ```
 
 ### Examples
@@ -21,8 +21,8 @@ cilium bgp routes <available | advertised> <afi> <safi> [vrouter <asn>] [neighbo
   Get all IPv6 unicast routes available for a specific vrouter:
     cilium bgp routes available ipv6 unicast vrouter 65001
 
-  Get IPv4 unicast routes advertised to specific peer:
-    cilium bgp routes advertised ipv4 unicast neighbor 10.0.0.1
+  Get IPv4 unicast routes advertised to a specific peer:
+    cilium bgp routes advertised ipv4 unicast peer 10.0.0.1
 ```
 
 ### Options
