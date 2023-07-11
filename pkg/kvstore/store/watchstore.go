@@ -73,7 +73,6 @@ type restartableWatchStore struct {
 	observer   Observer
 
 	watching        atomic.Bool
-	synced          bool
 	onSyncCallbacks []func(ctx context.Context)
 
 	// Using a separate entries counter avoids the need for synchronizing the
@@ -151,12 +150,13 @@ func (rws *restartableWatchStore) Watch(ctx context.Context, backend WatchStoreB
 			rws.drainKeys(true)
 			syncedMetric.Set(metrics.BoolToFloat64(true))
 
-			if !rws.synced {
-				rws.synced = true
-				for _, callback := range rws.onSyncCallbacks {
-					callback(ctx)
-				}
+			for _, callback := range rws.onSyncCallbacks {
+				callback(ctx)
 			}
+
+			// Clear the list of callbacks so that they don't get executed
+			// a second time in case of reconnections.
+			rws.onSyncCallbacks = nil
 
 			continue
 		}
