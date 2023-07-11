@@ -16,24 +16,6 @@
 #include "high_scale_ipcache.h"
 
 #ifdef HAVE_ENCAP
-#ifdef ENABLE_IPSEC
-static __always_inline int
-encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u8 key, __u16 node_id,
-			 __u32 seclabel)
-{
-	/* IPSec is performed by the stack on any packets with the
-	 * MARK_MAGIC_ENCRYPT bit set. During the process though we
-	 * lose the lxc context (seclabel and tunnel endpoint). The
-	 * tunnel endpoint can be looked up from daddr but the sec
-	 * label is stashed in the mark and extracted in bpf_host
-	 * to send ctx onto tunnel for encap.
-	 */
-	set_encrypt_key_mark(ctx, key, node_id);
-	set_identity_meta(ctx, seclabel);
-	return CTX_ACT_OK;
-}
-#endif /* ENABLE_IPSEC */
-
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    __be32 tunnel_endpoint,
@@ -141,10 +123,10 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 }
 
 #if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
-/* encap_and_redirect_lxc adds IPSec metadata (if enabled) and returns the packet
- * so that it can be passed to the IP stack. Without IPSec the packet is
- * typically redirected to the output tunnel device and ctx will not be seen by
- * the IP stack.
+/* encap_and_redirect_lxc checks whether the packet requires IPsec handling,
+ * and returns it so that it can be passed to the IP stack. Without IPSec the
+ * packet is typically redirected to the output tunnel device and ctx will not
+ * be seen by the IP stack.
  *
  * Returns CTX_ACT_OK when ctx needs to be handed to IP stack (eg. for IPSec
  * handling), CTX_ACT_DROP, DROP_NO_TUNNEL_ENDPOINT or DROP_WRITE_ERROR on error,
@@ -155,9 +137,8 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 		       __be32 tunnel_endpoint __maybe_unused,
 		       __u32 src_ip __maybe_unused,
 		       __u32 dst_ip __maybe_unused,
-		       __u8 encrypt_key __maybe_unused,
+		       __u8 *encrypt_key __maybe_unused,
 		       struct tunnel_key *key __maybe_unused,
-		       __u16 node_id __maybe_unused,
 		       __u32 seclabel, __u32 dstid,
 		       const struct trace_ctx *trace)
 {
@@ -173,9 +154,8 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 
 	if (tunnel_endpoint) {
 #ifdef ENABLE_IPSEC
-		if (encrypt_key)
-			return encap_and_redirect_ipsec(ctx, encrypt_key,
-							node_id, seclabel);
+		if (*encrypt_key)
+			return CTX_ACT_OK;
 #endif
 		return __encap_and_redirect_lxc(ctx, tunnel_endpoint,
 						seclabel, dstid, trace);
@@ -187,10 +167,8 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 
 # ifdef ENABLE_IPSEC
 	if (tunnel->key) {
-		__u8 min_encrypt_key = get_min_encrypt_key(tunnel->key);
-
-		return encap_and_redirect_ipsec(ctx, min_encrypt_key, node_id,
-						seclabel);
+		*encrypt_key = get_min_encrypt_key(tunnel->key);
+		return CTX_ACT_OK;
 	}
 # endif
 	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel->ip4, seclabel,

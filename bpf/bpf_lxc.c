@@ -637,9 +637,8 @@ ct_recreate6:
 		 * the packet needs IPSec encap so push ctx to stack for encap, or
 		 * (c) packet was redirected to tunnel device so return.
 		 */
-		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, 0, 0, encrypt_key,
-					     &key, node_id, SECLABEL, *dst_sec_identity,
-					     &trace);
+		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, 0, 0, &encrypt_key,
+					     &key, SECLABEL, *dst_sec_identity, &trace);
 		if (ret == CTX_ACT_OK)
 			goto encrypt_to_stack;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
@@ -678,14 +677,15 @@ pass_to_stack:
 		return ret;
 #endif
 
-#ifndef TUNNEL_MODE
-# ifdef ENABLE_IPSEC
+#ifdef TUNNEL_MODE
+encrypt_to_stack:
+#endif
+#ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
 		set_encrypt_key_mark(ctx, encrypt_key, node_id);
 		set_identity_meta(ctx, SECLABEL);
 	} else
-# endif /* ENABLE_IPSEC */
-#endif /* TUNNEL_MODE */
+#endif /* ENABLE_IPSEC */
 	{
 #ifdef ENABLE_IDENTITY_MARK
 		/* Always encode the source identity when passing to the stack.
@@ -698,9 +698,6 @@ pass_to_stack:
 #endif
 	}
 
-#ifdef TUNNEL_MODE
-encrypt_to_stack:
-#endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dst_sec_identity, 0, 0,
 			  trace.reason, trace.monitor);
 
@@ -1151,7 +1148,7 @@ skip_vtep:
 #endif
 
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, ip4->saddr,
-					     ip4->daddr, encrypt_key, &key, node_id,
+					     ip4->daddr, &encrypt_key, &key,
 					     SECLABEL, *dst_sec_identity, &trace);
 		if (ret == DROP_NO_TUNNEL_ENDPOINT)
 			goto pass_to_stack;
@@ -1206,14 +1203,15 @@ pass_to_stack:
 		return ret;
 #endif
 
-#ifndef TUNNEL_MODE
-# ifdef ENABLE_IPSEC
+#if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
+encrypt_to_stack:
+#endif
+#ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
 		set_encrypt_key_mark(ctx, encrypt_key, node_id);
 		set_identity_meta(ctx, SECLABEL);
 	} else
-# endif /* ENABLE_IPSEC */
-#endif /* TUNNEL_MODE */
+#endif /* ENABLE_IPSEC */
 	{
 #ifdef ENABLE_IDENTITY_MARK
 		/* Always encode the source identity when passing to the stack.
@@ -1226,9 +1224,6 @@ pass_to_stack:
 #endif
 	}
 
-#if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
-encrypt_to_stack:
-#endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dst_sec_identity, 0, 0,
 			  trace.reason, trace.monitor);
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
