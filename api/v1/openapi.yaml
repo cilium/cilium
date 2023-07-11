@@ -2342,6 +2342,9 @@ definitions:
       num-identities:
         description: Number of identities in the cluster
         type: integer
+      num-endpoints:
+        description: Number of endpoints in the cluster
+        type: integer
       status:
         description: Status of the control plane
         type: string

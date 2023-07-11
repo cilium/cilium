@@ -4224,6 +4224,10 @@ func init() {
           "description": "Name of the cluster",
           "type": "string"
         },
+        "num-endpoints": {
+          "description": "Number of endpoints in the cluster",
+          "type": "integer"
+        },
         "num-failures": {
           "description": "Number of failures reaching the cluster",
           "type": "integer"
@@ -9681,6 +9685,10 @@ func init() {
         "name": {
           "description": "Name of the cluster",
           "type": "string"
+        },
+        "num-endpoints": {
+          "description": "Number of endpoints in the cluster",
+          "type": "integer"
         },
         "num-failures": {
           "description": "Number of failures reaching the cluster",
