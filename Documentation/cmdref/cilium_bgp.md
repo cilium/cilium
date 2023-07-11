@@ -22,4 +22,5 @@ Access to BGP control plane
 
 * [cilium](cilium.md)	 - CLI
 * [cilium bgp peers](cilium_bgp_peers.md)	 - List current state of all peers
+* [cilium bgp routes](cilium_bgp_routes.md)	 - List routes in the BGP Control Plane's RIBs
 
