@@ -802,7 +802,7 @@ int tail_nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx)
 	/* look up with SCOPE_FORWARD: */
 	__ipv6_ct_tuple_reverse(&tuple);
 
-	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
+	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
 			      CT_EGRESS, SCOPE_FORWARD, &ct_state, &monitor);
 	switch (ret) {
 	case CT_NEW:
@@ -1043,8 +1043,8 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	ipv6_ct_tuple_swap_ports(&tuple);
 	tuple.flags = TUPLE_F_OUT;
 
-	ret = __snat_v6_nat(ctx, &tuple, l4_off, ACTION_CREATE, true,
-			    &target, &trace, &ext_err);
+	ret = __snat_v6_nat(ctx, &tuple, l4_off, true, &target, &trace,
+			    &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -1230,7 +1230,7 @@ skip_service_lookup:
 		/* lookup with SCOPE_FORWARD: */
 		__ipv6_ct_tuple_reverse(&tuple);
 
-		ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
+		ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
 				      CT_EGRESS, SCOPE_FORWARD, &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
@@ -1336,8 +1336,8 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		return ret;
 #endif
 
-	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
-			      CT_INGRESS, SCOPE_REVERSE, &ct_state, &trace->monitor);
+	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
+			      SCOPE_REVERSE, &ct_state, &trace->monitor);
 	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 
@@ -1391,7 +1391,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 	if (!ct_has_nodeport_egress_entry6(get_ct_map6(&tuple), &tuple, NULL, false))
 		goto out;
 
-	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
+	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
 			      CT_INGRESS, SCOPE_REVERSE, &ct_state, &monitor);
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		ret = lb6_rev_nat(ctx, l4_off, ct_state.rev_nat_index,
@@ -2297,8 +2297,8 @@ int tail_nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx)
 	__ipv4_ct_tuple_reverse(&tuple);
 
 	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
-			      has_l4_header, ACTION_CREATE, CT_EGRESS,
-			      SCOPE_FORWARD, &ct_state, &monitor);
+			      has_l4_header, CT_EGRESS, SCOPE_FORWARD,
+			      &ct_state, &monitor);
 	switch (ret) {
 	case CT_NEW:
 	/* Maybe we can be a bit more selective about CT_REOPENED?
@@ -2495,7 +2495,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	tuple.flags = TUPLE_F_OUT;
 
 	ret = __snat_v4_nat(ctx, &tuple, ipv4_has_l4_header(ip4), l4_off,
-			    ACTION_CREATE, true, &target, &trace, &ext_err);
+			    true, &target, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -2710,8 +2710,7 @@ skip_service_lookup:
 		__ipv4_ct_tuple_reverse(&tuple);
 
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
-				      ACTION_CREATE, CT_EGRESS, SCOPE_FORWARD,
-				      &ct_state, &monitor);
+				      CT_EGRESS, SCOPE_FORWARD, &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
 redo:
@@ -2811,8 +2810,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 #endif
 
 	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
-			      ACTION_CREATE, CT_INGRESS, SCOPE_REVERSE, &ct_state,
-			      &trace->monitor);
+			      CT_INGRESS, SCOPE_REVERSE, &ct_state, &trace->monitor);
 
 	/* nodeport_rev_dnat_get_info_ipv4() just checked that such a
 	 * CT entry exists:
@@ -2909,7 +2907,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 		goto out;
 
 	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
-			      ACTION_CREATE, CT_INGRESS, SCOPE_REVERSE, &ct_state, &monitor);
+			      CT_INGRESS, SCOPE_REVERSE, &ct_state, &monitor);
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		reason = TRACE_REASON_CT_REPLY;
 		ret = lb4_rev_nat(ctx, l3_off, l4_off, ct_state.rev_nat_index, false,
