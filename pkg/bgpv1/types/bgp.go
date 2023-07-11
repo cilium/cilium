@@ -7,6 +7,8 @@ import (
 	"context"
 	"net/netip"
 
+	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
+
 	"github.com/cilium/cilium/api/v1/models"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
@@ -35,6 +37,19 @@ type RouteSelectionOptions struct {
 type Advertisement struct {
 	Prefix        netip.Prefix
 	GoBGPPathUUID []byte // path identifier in underlying implementation
+}
+
+// Path is an object representing a single routing Path. It is an analogue of GoBGP's Path object,
+// but only contains minimal fields required for Cilium usecases.
+type Path struct {
+	// read/write
+	NLRI           bgp.AddrPrefixInterface
+	PathAttributes []bgp.PathAttributeInterface
+
+	// readonly
+	AgeNanoseconds int64 // time duration in nanoseconds since the Path was created
+	Best           bool
+	GoBGPPathUUID  []byte // path identifier in underlying implementation
 }
 
 // NeighborRequest contains neighbor parameters used when enabling or disabling peer
