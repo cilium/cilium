@@ -76,7 +76,10 @@ func FuzzAccumulateMapChange(f *testing.F) {
 		if err != nil {
 			t.Skip()
 		}
+
+		key := Key{DestPort: port, Nexthdr: proto, TrafficDirection: dir.Uint8()}
+		value := NewMapStateEntry(csFoo, nil, redirect, deny, DefaultAuthType, AuthTypeDisabled)
 		policyMaps := MapChanges{}
-		policyMaps.AccumulateMapChanges(csFoo, adds, deletes, port, proto, dir, redirect, deny, DefaultAuthType, AuthTypeDisabled, nil)
+		policyMaps.AccumulateMapChanges(csFoo, adds, deletes, key, value)
 	})
 }
