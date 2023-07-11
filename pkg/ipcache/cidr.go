@@ -220,10 +220,22 @@ func (ipc *IPCache) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []
 		if id := ipc.IdentityAllocator.LookupIdentityByID(ctx, nid); id != nil {
 			prefix, ok := cidrLabelToPrefix(id)
 			if !ok {
-				log.WithFields(logrus.Fields{
+				lgr := log.WithFields(logrus.Fields{
 					logfields.Identity: nid,
 					logfields.Labels:   id.Labels,
-				}).Warn("Unexpected release of non-CIDR identity, will leak this identity. Please report this issue to the developers.")
+				})
+
+				if !id.IsReserved() {
+					lgr.Warn("Unexpected release of non-CIDR identity, will leak this identity. Please report this issue to the developers.")
+				} else {
+					// If we have arrived here because the identity is a
+					// reserved identity, then the caller was mistaken. This
+					// currently has a number of occurrences, in which case we
+					// debug log here because this has caused excessive log
+					// pressure. https://github.com/cilium/cilium/issues/23192
+					lgr.Debug("Unexpected release of Reserved identity. Please report this issue to the developers.")
+				}
+
 				continue
 			}
 			prefixes = append(prefixes, prefix)
