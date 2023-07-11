@@ -205,7 +205,7 @@ jobs:
           # Run tests
           export KUBERNETES_CONFORMANCE_TEST='y'
           export E2E_REPORT_DIR=${PWD}/_artifacts
-          /usr/local/bin/ginkgo --nodes=25                \
+          /usr/local/bin/ginkgo --nodes=5                \
             --focus="(HostPort.*\[Conformance\].*|Services.*\[Conformance\].*|Net.*ol.*)"     \
             --skip="(Legacy|HostPort.validates.that.there.is.no.conflict.between.pods.with.same.hostPort.but.different.hostIP.and.protocol|should.allow.egress.access.to.server.in.CIDR.block|should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block|should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed|Feature:SCTPConnectivity)" \
             /usr/local/bin/e2e.test                       \
