@@ -158,6 +158,10 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 		Endpoints:  rc.ipCacheWatcher.Synced(),
 	}
 
+	status.Ready = status.Ready &&
+		status.Synced.Nodes && status.Synced.Services &&
+		status.Synced.Identities && status.Synced.Endpoints
+
 	return status
 }
 
