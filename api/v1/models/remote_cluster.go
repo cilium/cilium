@@ -54,6 +54,9 @@ type RemoteCluster struct {
 
 	// Status of the control plane
 	Status string `json:"status,omitempty"`
+
+	// Synchronization status about each resource type
+	Synced *RemoteClusterSynced `json:"synced,omitempty"`
 }
 
 // Validate validates this remote cluster
@@ -65,6 +68,10 @@ func (m *RemoteCluster) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateLastFailure(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateSynced(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -105,11 +112,34 @@ func (m *RemoteCluster) validateLastFailure(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *RemoteCluster) validateSynced(formats strfmt.Registry) error {
+	if swag.IsZero(m.Synced) { // not required
+		return nil
+	}
+
+	if m.Synced != nil {
+		if err := m.Synced.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("synced")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("synced")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 // ContextValidate validate this remote cluster based on the context it is used
 func (m *RemoteCluster) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.contextValidateConfig(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateSynced(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -127,6 +157,22 @@ func (m *RemoteCluster) contextValidateConfig(ctx context.Context, formats strfm
 				return ve.ValidateName("config")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("config")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *RemoteCluster) contextValidateSynced(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Synced != nil {
+		if err := m.Synced.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("synced")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("synced")
 			}
 			return err
 		}

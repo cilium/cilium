@@ -4255,6 +4255,10 @@ func init() {
         "status": {
           "description": "Status of the control plane",
           "type": "string"
+        },
+        "synced": {
+          "description": "Synchronization status about each resource type",
+          "$ref": "#/definitions/RemoteClusterSynced"
         }
       }
     },
@@ -4279,6 +4283,27 @@ func init() {
         },
         "sync-canaries": {
           "description": "Whether the remote cluster supports per-prefix \"synced\" canaries",
+          "type": "boolean"
+        }
+      }
+    },
+    "RemoteClusterSynced": {
+      "description": "Status of the synchronization with the remote cluster, about each resource\ntype. A given resource is considered to be synchronized if the initial\nlist of entries has been completely received from the remote cluster, and\nnew events are currently being watched.\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "endpoints": {
+          "description": "Endpoints synchronization status",
+          "type": "boolean"
+        },
+        "identities": {
+          "description": "Identities synchronization status",
+          "type": "boolean"
+        },
+        "nodes": {
+          "description": "Nodes synchronization status",
+          "type": "boolean"
+        },
+        "services": {
+          "description": "Services synchronization status",
           "type": "boolean"
         }
       }
@@ -9746,6 +9771,10 @@ func init() {
         "status": {
           "description": "Status of the control plane",
           "type": "string"
+        },
+        "synced": {
+          "description": "Synchronization status about each resource type",
+          "$ref": "#/definitions/RemoteClusterSynced"
         }
       }
     },
@@ -9770,6 +9799,27 @@ func init() {
         },
         "sync-canaries": {
           "description": "Whether the remote cluster supports per-prefix \"synced\" canaries",
+          "type": "boolean"
+        }
+      }
+    },
+    "RemoteClusterSynced": {
+      "description": "Status of the synchronization with the remote cluster, about each resource\ntype. A given resource is considered to be synchronized if the initial\nlist of entries has been completely received from the remote cluster, and\nnew events are currently being watched.\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "endpoints": {
+          "description": "Endpoints synchronization status",
+          "type": "boolean"
+        },
+        "identities": {
+          "description": "Identities synchronization status",
+          "type": "boolean"
+        },
+        "nodes": {
+          "description": "Nodes synchronization status",
+          "type": "boolean"
+        },
+        "services": {
+          "description": "Services synchronization status",
           "type": "boolean"
         }
       }

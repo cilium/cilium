@@ -2333,6 +2333,9 @@ definitions:
       ready:
         description: Indicates readiness of the remote cluster
         type: boolean
+      synced:
+        description: Synchronization status about each resource type
+        "$ref": "#/definitions/RemoteClusterSynced"
       config:
         description: Cluster configuration exposed by the remote cluster
         "$ref": "#/definitions/RemoteClusterConfig"
@@ -2358,6 +2361,27 @@ definitions:
         description: Time of last failure that occurred while attempting to reach the cluster
         type: string
         format: date-time
+  RemoteClusterSynced:
+    description: |-
+      Status of the synchronization with the remote cluster, about each resource
+      type. A given resource is considered to be synchronized if the initial
+      list of entries has been completely received from the remote cluster, and
+      new events are currently being watched.
+
+      +k8s:deepcopy-gen=true
+    properties:
+      nodes:
+        description: Nodes synchronization status
+        type: boolean
+      services:
+        description: Services synchronization status
+        type: boolean
+      endpoints:
+        description: Endpoints synchronization status
+        type: boolean
+      identities:
+        description: Identities synchronization status
+        type: boolean
   RemoteClusterConfig:
     description: |-
       Cluster configuration exposed by the remote cluster
