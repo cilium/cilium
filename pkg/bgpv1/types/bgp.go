@@ -83,6 +83,46 @@ type ServerParameters struct {
 	Global BGPGlobal
 }
 
+// Family holds Address Family Indicator (AFI) and Subsequent Address Family Indicator for Multi-Protocol BGP
+type Family struct {
+	Afi  Afi
+	Safi Safi
+}
+
+// Route represents a single route in the RIB of underlying router
+type Route struct {
+	Prefix string
+	Paths  []*Path
+}
+
+// TableType specifies the routing table type of underlying router
+type TableType int
+
+const (
+	TableTypeUnknown TableType = iota
+	TableTypeLocRIB
+	TableTypeAdjRIBIn
+	TableTypeAdjRIBOut
+)
+
+// GetRoutesRequest contains parameters for retrieving routes from the RIB of underlying router
+type GetRoutesRequest struct {
+	// TableType specifies a table type to retrieve
+	TableType TableType
+
+	// Family specifies an address family of the table
+	Family Family
+
+	// Neighbor specifies which neighbor's table to retrieve. Must be
+	// specified when TableTypeAdjRIBIn/Out is specified in TableType.
+	Neighbor netip.Addr
+}
+
+// GetRoutesResponse contains routes retrieved from the RIB of underlying router
+type GetRoutesResponse struct {
+	Routes []*Route
+}
+
 // Router is vendor-agnostic cilium bgp configuration layer. Parameters of this layer
 // are standard BGP RFC complaint and not specific to any underlying implementation.
 type Router interface {
@@ -105,6 +145,9 @@ type Router interface {
 
 	// GetPeerState returns status of BGP peers
 	GetPeerState(ctx context.Context) (GetPeerStateResponse, error)
+
+	// GetRoutes retrieves routes from the RIB of underlying router
+	GetRoutes(ctx context.Context, r *GetRoutesRequest) (*GetRoutesResponse, error)
 
 	// GetBGP returns configured BGP global parameters
 	GetBGP(ctx context.Context) (GetBGPResponse, error)
