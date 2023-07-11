@@ -265,7 +265,6 @@ static __always_inline int
 snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 			   struct ipv4_ct_tuple *tuple,
 			   bool has_l4_header,
-			   enum ct_action ct_action,
 			   struct ipv4_nat_entry **state,
 			   struct ipv4_nat_entry *tmp,
 			   __u32 off,
@@ -292,7 +291,7 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 		ipv4_ct_tuple_swap_addrs(&tuple_snat);
 
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple_snat), &tuple_snat,
-				      ctx, off, has_l4_header, ct_action, CT_EGRESS,
+				      ctx, off, has_l4_header, CT_EGRESS,
 				      SCOPE_FORWARD, &ct_state, &trace->monitor);
 		if (ret < 0)
 			return ret;
@@ -318,7 +317,6 @@ static __always_inline int
 snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       struct ipv4_ct_tuple *tuple,
 			       bool has_l4_header,
-			       enum ct_action ct_action,
 			       struct ipv4_nat_entry **state,
 			       __u32 off,
 			       const struct ipv4_nat_target *target)
@@ -347,7 +345,7 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 		ipv4_ct_tuple_swap_ports(&tuple_revsnat);
 
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple_revsnat), &tuple_revsnat,
-				      ctx, off, has_l4_header, ct_action, CT_INGRESS,
+				      ctx, off, has_l4_header, CT_INGRESS,
 				      SCOPE_REVERSE, &ct_state, &monitor);
 		if (ret < 0)
 			return ret;
@@ -944,16 +942,15 @@ snat_v4_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
 
 static __always_inline int
 __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
-	      bool has_l4_header, int l4_off, enum ct_action action,
-	      bool update_tuple, const struct ipv4_nat_target *target,
+	      bool has_l4_header, int l4_off, bool update_tuple,
+	      const struct ipv4_nat_target *target,
 	      struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ipv4_nat_entry *state, tmp;
 	int ret;
 
-	ret = snat_v4_nat_handle_mapping(ctx, tuple, has_l4_header, action,
-					 &state, &tmp, l4_off, target,
-					 trace, ext_err);
+	ret = snat_v4_nat_handle_mapping(ctx, tuple, has_l4_header, &state,
+					 &tmp, l4_off, target, trace, ext_err);
 	if (ret > 0)
 		return CTX_ACT_OK;
 	if (ret < 0)
@@ -973,7 +970,6 @@ static __always_inline __maybe_unused int
 snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
-	enum ct_action ct_action = ACTION_UNSPEC;
 	struct icmphdr icmphdr __align_stack_8;
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -1003,9 +999,9 @@ snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 #endif  /* ENABLE_SCTP */
 		if (ctx_load_bytes(ctx, off, &l4hdr, sizeof(l4hdr)) < 0)
 			return DROP_INVALID;
+
 		tuple.dport = l4hdr.dport;
 		tuple.sport = l4hdr.sport;
-		ct_action = ACTION_CREATE;
 		break;
 	case IPPROTO_ICMP:
 		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
@@ -1015,7 +1011,6 @@ snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		case ICMP_ECHO:
 			tuple.dport = 0;
 			tuple.sport = icmphdr.un.echo.id;
-			ct_action = ACTION_CREATE;
 			break;
 		case ICMP_ECHOREPLY:
 			tuple.dport = icmphdr.un.echo.id;
@@ -1037,8 +1032,8 @@ snat_v4_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 	if (snat_v4_nat_can_skip(target, &tuple, icmp_echoreply))
 		return NAT_PUNT_TO_STACK;
 
-	return __snat_v4_nat(ctx, &tuple, has_l4_header, off, ct_action,
-			     false, target, trace, ext_err);
+	return __snat_v4_nat(ctx, &tuple, has_l4_header, off, false, target,
+			     trace, ext_err);
 }
 
 static __always_inline __maybe_unused int
@@ -1121,7 +1116,6 @@ static __always_inline __maybe_unused int
 snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		__s8 *ext_err __maybe_unused)
 {
-	enum ct_action ct_action = ACTION_UNSPEC;
 	struct icmphdr icmphdr __align_stack_8;
 	struct ipv4_nat_entry *state;
 	struct ipv4_ct_tuple tuple = {};
@@ -1153,7 +1147,6 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 			return DROP_INVALID;
 		tuple.dport = l4hdr.dport;
 		tuple.sport = l4hdr.sport;
-		ct_action = ACTION_CREATE;
 		break;
 	case IPPROTO_ICMP:
 		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
@@ -1162,7 +1155,6 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		case ICMP_ECHO:
 			tuple.dport = 0;
 			tuple.sport = icmphdr.un.echo.id;
-			ct_action = ACTION_CREATE;
 			break;
 		case ICMP_ECHOREPLY:
 			tuple.dport = icmphdr.un.echo.id;
@@ -1182,7 +1174,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 
 	if (snat_v4_rev_nat_can_skip(target, &tuple))
 		return NAT_PUNT_TO_STACK;
-	ret = snat_v4_rev_nat_handle_mapping(ctx, &tuple, has_l4_header, ct_action, &state,
+	ret = snat_v4_rev_nat_handle_mapping(ctx, &tuple, has_l4_header, &state,
 					     off, target);
 	if (ret > 0)
 		return CTX_ACT_OK;
@@ -1368,7 +1360,6 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 static __always_inline int
 snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 			   struct ipv6_ct_tuple *tuple,
-			   enum ct_action ct_action,
 			   struct ipv6_nat_entry **state,
 			   struct ipv6_nat_entry *tmp,
 			   __u32 off,
@@ -1390,8 +1381,8 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 		ipv6_ct_tuple_swap_addrs(&tuple_snat);
 
 		ret = ct_lazy_lookup6(get_ct_map6(&tuple_snat), &tuple_snat,
-				      ctx, off, ct_action, CT_EGRESS,
-				      SCOPE_FORWARD, &ct_state, &trace->monitor);
+				      ctx, off, CT_EGRESS, SCOPE_FORWARD,
+				      &ct_state, &trace->monitor);
 		if (ret < 0)
 			return ret;
 
@@ -1415,7 +1406,6 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 static __always_inline int
 snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       struct ipv6_ct_tuple *tuple,
-			       enum ct_action ct_action,
 			       struct ipv6_nat_entry **state,
 			       __u32 off,
 			       const struct ipv6_nat_target *target)
@@ -1438,8 +1428,8 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 		ipv6_ct_tuple_swap_ports(&tuple_revsnat);
 
 		ret = ct_lazy_lookup6(get_ct_map6(&tuple_revsnat), &tuple_revsnat,
-				      ctx, off, ct_action, CT_INGRESS,
-				      SCOPE_REVERSE, &ct_state, &monitor);
+				      ctx, off, CT_INGRESS, SCOPE_REVERSE,
+				      &ct_state, &monitor);
 		if (ret < 0)
 			return ret;
 	}
@@ -1809,15 +1799,15 @@ snat_v6_prepare_state(struct __ctx_buff *ctx, struct ipv6_nat_target *target)
 
 static __always_inline int
 __snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
-	      int l4_off, enum ct_action action, bool update_tuple,
+	      int l4_off, bool update_tuple,
 	      const struct ipv6_nat_target *target,
 	      struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct ipv6_nat_entry *state, tmp;
 	int ret;
 
-	ret = snat_v6_nat_handle_mapping(ctx, tuple, action, &state, &tmp,
-					 l4_off, target, trace, ext_err);
+	ret = snat_v6_nat_handle_mapping(ctx, tuple, &state, &tmp, l4_off,
+					 target, trace, ext_err);
 	if (ret > 0)
 		return CTX_ACT_OK;
 	if (ret < 0)
@@ -1837,7 +1827,6 @@ static __always_inline __maybe_unused int
 snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 	    struct trace_ctx *trace, __s8 *ext_err)
 {
-	enum ct_action ct_action = ACTION_UNSPEC;
 	struct icmp6hdr icmp6hdr __align_stack_8;
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -1871,9 +1860,9 @@ snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 #endif  /* ENABLE_SCTP */
 		if (ctx_load_bytes(ctx, off, &l4hdr, sizeof(l4hdr)) < 0)
 			return DROP_INVALID;
+
 		tuple.dport = l4hdr.dport;
 		tuple.sport = l4hdr.sport;
-		ct_action = ACTION_CREATE;
 		break;
 	case IPPROTO_ICMPV6:
 		if (ctx_load_bytes(ctx, off, &icmp6hdr, sizeof(icmp6hdr)) < 0)
@@ -1888,7 +1877,6 @@ snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		if (icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
 			tuple.dport = 0;
 			tuple.sport = icmp6hdr.icmp6_dataun.u_echo.identifier;
-			ct_action = ACTION_CREATE;
 		} else {
 			tuple.dport = icmp6hdr.icmp6_dataun.u_echo.identifier;
 			tuple.sport = 0;
@@ -1902,8 +1890,7 @@ snat_v6_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 	if (snat_v6_nat_can_skip(target, &tuple, icmp_echoreply))
 		return NAT_PUNT_TO_STACK;
 
-	return __snat_v6_nat(ctx, &tuple, off, ct_action, false, target,
-			     trace, ext_err);
+	return __snat_v6_nat(ctx, &tuple, off, false, target, trace, ext_err);
 }
 
 static __always_inline __maybe_unused int
@@ -2002,7 +1989,6 @@ static __always_inline __maybe_unused int
 snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		__s8 *ext_err __maybe_unused)
 {
-	enum ct_action ct_action = ACTION_UNSPEC;
 	struct icmp6hdr icmp6hdr __align_stack_8;
 	struct ipv6_nat_entry *state;
 	struct ipv6_ct_tuple tuple = {};
@@ -2038,7 +2024,6 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 			return DROP_INVALID;
 		tuple.dport = l4hdr.dport;
 		tuple.sport = l4hdr.sport;
-		ct_action = ACTION_CREATE;
 		break;
 	case IPPROTO_ICMPV6:
 		if (ctx_load_bytes(ctx, off, &icmp6hdr, sizeof(icmp6hdr)) < 0)
@@ -2051,7 +2036,6 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		case ICMPV6_ECHO_REQUEST:
 			tuple.dport = 0;
 			tuple.sport = icmp6hdr.icmp6_dataun.u_echo.identifier;
-			ct_action = ACTION_CREATE;
 			break;
 		case ICMPV6_ECHO_REPLY:
 			tuple.dport = icmp6hdr.icmp6_dataun.u_echo.identifier;
@@ -2069,7 +2053,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 
 	if (snat_v6_rev_nat_can_skip(target, &tuple))
 		return NAT_PUNT_TO_STACK;
-	ret = snat_v6_rev_nat_handle_mapping(ctx, &tuple, ct_action, &state,
+	ret = snat_v6_rev_nat_handle_mapping(ctx, &tuple, &state,
 					     off, target);
 	if (ret > 0)
 		return CTX_ACT_OK;
