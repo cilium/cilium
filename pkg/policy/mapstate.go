@@ -1390,37 +1390,7 @@ type MapChange struct {
 //
 // The caller is responsible for making sure the same identity is not
 // present in both 'adds' and 'deletes'.
-func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity,
-	port uint16, proto uint8, direction trafficdirection.TrafficDirection,
-	redirect, isDeny bool, hasAuth HasAuthType, authType AuthType, derivedFrom labels.LabelArrayList) {
-	key := Key{
-		// The actual identity is set in the loops below
-		Identity: 0,
-		// NOTE: Port is in host byte-order!
-		DestPort:         port,
-		Nexthdr:          proto,
-		TrafficDirection: direction.Uint8(),
-	}
-
-	value := NewMapStateEntry(cs, derivedFrom, redirect, isDeny, hasAuth, authType)
-
-	if option.Config.Debug {
-		authString := "default"
-		if hasAuth {
-			authString = authType.String()
-		}
-		log.WithFields(logrus.Fields{
-			logfields.EndpointSelector: cs,
-			logfields.AddedPolicyID:    adds,
-			logfields.DeletedPolicyID:  deletes,
-			logfields.Port:             port,
-			logfields.Protocol:         proto,
-			logfields.TrafficDirection: direction,
-			logfields.IsRedirect:       redirect,
-			logfields.AuthType:         authString,
-		}).Debug("AccumulateMapChanges")
-	}
-
+func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity, key Key, value MapStateEntry) {
 	mc.mutex.Lock()
 	for _, id := range adds {
 		key.Identity = id.Uint32()
