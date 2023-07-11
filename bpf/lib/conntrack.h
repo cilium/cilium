@@ -461,7 +461,7 @@ ct_extract_ports6(struct __ctx_buff *ctx, int off, struct ipv6_ct_tuple *tuple)
 				tuple->dport = identifier;
 				fallthrough;
 			default:
-				return ACTION_CREATE;
+				break;
 			}
 		}
 		break;
@@ -476,14 +476,13 @@ ct_extract_ports6(struct __ctx_buff *ctx, int off, struct ipv6_ct_tuple *tuple)
 		if (l4_load_ports(ctx, off, &tuple->dport) < 0)
 			return DROP_CT_INVALID_HDR;
 
-		return ACTION_CREATE;
-
+		break;
 	default:
 		/* Can't handle extension headers yet */
 		return DROP_CT_UNKNOWN_PROTO;
 	}
 
-	return ACTION_UNSPEC;
+	return 0;
 }
 
 /* This defines the ct_is_reply6 function. */
@@ -491,11 +490,12 @@ DEFINE_FUNC_CT_IS_REPLY(6)
 
 static __always_inline int
 __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ctx,
-	     int l4_off, enum ct_action action, enum ct_dir dir, enum ct_scope scope,
+	     int l4_off, enum ct_dir dir, enum ct_scope scope,
 	     struct ct_state *ct_state, __u32 *monitor)
 {
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags tcp_flags = { .value = 0 };
+	enum ct_action action;
 	enum ct_status ret;
 
 	if (is_tcp) {
@@ -547,14 +547,12 @@ out:
 /* An IPv6 version of ct_lazy_lookup4. */
 static __always_inline int
 ct_lazy_lookup6(const void *map, struct ipv6_ct_tuple *tuple,
-		struct __ctx_buff *ctx, int l4_off, enum ct_action action,
-		enum ct_dir dir, enum ct_scope scope, struct ct_state *ct_state,
-		__u32 *monitor)
+		struct __ctx_buff *ctx, int l4_off, enum ct_dir dir,
+		enum ct_scope scope, struct ct_state *ct_state, __u32 *monitor)
 {
 	tuple->flags = ct_lookup_select_tuple_type(dir, scope);
 
-	return __ct_lookup6(map, tuple, ctx, l4_off, action, dir, scope,
-			    ct_state, monitor);
+	return __ct_lookup6(map, tuple, ctx, l4_off, dir, scope, ct_state, monitor);
 }
 
 /* Offset must point to IPv6 */
@@ -564,15 +562,15 @@ static __always_inline int ct_lookup6(const void *map,
 				      enum ct_dir dir, struct ct_state *ct_state,
 				      __u32 *monitor)
 {
-	int action;
+	int ret;
 
 	tuple->flags = ct_lookup_select_tuple_type(dir, SCOPE_BIDIR);
 
-	action = ct_extract_ports6(ctx, l4_off, tuple);
-	if (action < 0)
-		return action;
+	ret = ct_extract_ports6(ctx, l4_off, tuple);
+	if (ret < 0)
+		return ret;
 
-	return __ct_lookup6(map, tuple, ctx, l4_off, action, dir, SCOPE_BIDIR,
+	return __ct_lookup6(map, tuple, ctx, l4_off, dir, SCOPE_BIDIR,
 			    ct_state, monitor);
 }
 
@@ -713,7 +711,7 @@ ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 				tuple->dport = identifier;
 				fallthrough;
 			default:
-				return ACTION_CREATE;
+				break;
 			}
 		}
 		break;
@@ -728,14 +726,13 @@ ct_extract_ports4(struct __ctx_buff *ctx, int off, enum ct_dir dir,
 		if (err < 0)
 			return err;
 
-		return ACTION_CREATE;
-
+		break;
 	default:
 		/* Can't handle extension headers yet */
 		return DROP_CT_UNKNOWN_PROTO;
 	}
 
-	return ACTION_UNSPEC;
+	return 0;
 }
 
 /* This defines the ct_is_reply4 function. */
@@ -743,11 +740,12 @@ DEFINE_FUNC_CT_IS_REPLY(4)
 
 static __always_inline int
 __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx,
-	     int l4_off, bool has_l4_header, enum ct_action action, enum ct_dir dir,
-	     enum ct_scope scope, struct ct_state *ct_state, __u32 *monitor)
+	     int l4_off, bool has_l4_header, enum ct_dir dir, enum ct_scope scope,
+	     struct ct_state *ct_state, __u32 *monitor)
 {
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags tcp_flags = { .value = 0 };
+	enum ct_action action;
 	enum ct_status ret;
 
 	if (is_tcp && has_l4_header) {
@@ -804,7 +802,6 @@ out:
  * @arg ctx		packet
  * @arg l4_off		offset to L4 header
  * @arg has_l4_header	packet has L4 header
- * @arg action		ACTION_CREATE or ACTION_UNSPEC for __ct_lookup
  * @arg dir		lookup direction
  * @arg scope		CT scope. For SCOPE_FORWARD, the tuple also needs to
  *			be in forward layout.
@@ -822,13 +819,13 @@ out:
 static __always_inline int
 ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple,
 		struct __ctx_buff *ctx, int l4_off, bool has_l4_header,
-		enum ct_action action, enum ct_dir dir, enum ct_scope scope,
+		enum ct_dir dir, enum ct_scope scope,
 		struct ct_state *ct_state, __u32 *monitor)
 {
 	tuple->flags = ct_lookup_select_tuple_type(dir, scope);
 
 	return __ct_lookup4(map, tuple, ctx, l4_off, has_l4_header,
-			    action, dir, scope, ct_state, monitor);
+			    dir, scope, ct_state, monitor);
 }
 
 /* Offset must point to IPv4 header */
@@ -837,17 +834,17 @@ static __always_inline int ct_lookup4(const void *map,
 				      struct __ctx_buff *ctx, int off, enum ct_dir dir,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
-	int action;
 	bool has_l4_header = true;
+	int ret;
 
 	tuple->flags = ct_lookup_select_tuple_type(dir, SCOPE_BIDIR);
 
-	action = ct_extract_ports4(ctx, off, dir, tuple, &has_l4_header);
-	if (action < 0)
-		return action;
+	ret = ct_extract_ports4(ctx, off, dir, tuple, &has_l4_header);
+	if (ret < 0)
+		return ret;
 
 	return __ct_lookup4(map, tuple, ctx, off, has_l4_header,
-			    action, dir, SCOPE_BIDIR, ct_state, monitor);
+			    dir, SCOPE_BIDIR, ct_state, monitor);
 }
 
 /* Offset must point to IPv6 */
