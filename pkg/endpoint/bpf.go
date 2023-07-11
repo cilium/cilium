@@ -1290,6 +1290,7 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) 
 				// Will change to 0 if on a sidecar
 				entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
 			}
+			e.getLogger().WithFields(logrus.Fields{"entry": entry}).Info("addPolicyKey")
 			if !e.addPolicyKey(keyToAdd, entry, false) {
 				errors++
 			}
@@ -1393,6 +1394,8 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 		}
 	}
 
+	//e.getLogger().WithFields(logrus.Fields{"endpoint": e.ID, "map": currentMap}).Info("policy map dump")
+
 	// Log full policy map for every dump
 	e.PolicyDebug(logrus.Fields{"dumpedPolicyMap": currentMap}, "syncPolicyMapWithDump")
 	// Diffs between the maps indicate an error in the policy map update logic.
@@ -1419,6 +1422,7 @@ func (e *Endpoint) syncPolicyMapController() {
 					return controller.NewExitReason("Endpoint disappeared")
 				}
 				defer e.unlock()
+				//e.getLogger().Info("call syncPolicyMapWithDump")
 				return e.syncPolicyMapWithDump()
 			},
 			RunInterval: 1 * time.Minute,

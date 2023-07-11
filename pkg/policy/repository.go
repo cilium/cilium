@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
@@ -611,6 +612,41 @@ func (p *Repository) getMatchingRules(securityIdentity *identity.Identity) (
 	return
 }
 
+func (p *Repository) getMatchingRules2(securityIdentity *identity.Identity) (
+	ingressMatch, egressMatch, adminEgress bool,
+	matchingRules ruleSlice) {
+
+	matchingRules = []*rule{}
+	for _, r := range p.rules {
+		isNode := securityIdentity.ID == identity.ReservedIdentityHost
+		selectsNode := r.NodeSelector.LabelSelector != nil
+		if selectsNode != isNode {
+			continue
+		}
+		if ruleMatches := r.matches(securityIdentity); ruleMatches {
+			// Don't need to update whether ingressMatch is true if it already
+			// has been determined to be true - allows us to not have to check
+			// lenth of slice.
+			if !ingressMatch {
+				ingressMatch = len(r.Ingress) > 0 || len(r.IngressDeny) > 0
+			}
+			if !egressMatch {
+				egressMatch = len(r.Egress) > 0 || len(r.EgressDeny) > 0
+				if egressMatch {
+					for _, lbl := range r.Labels {
+						if lbl.Source == labels.LabelSourceAdmin {
+							egressMatch = false
+							adminEgress = true
+						}
+					}
+				}
+			}
+			matchingRules = append(matchingRules, r)
+		}
+	}
+	return
+}
+
 // NumRules returns the amount of rules in the policy repository.
 //
 // Must be called with p.Mutex held
@@ -695,9 +731,42 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	// to not have to iterate through the entire rule list multiple times and
 	// perform the matching decision again when computing policy for each
 	// protocol layer, which is quite costly in terms of performance.
-	ingressEnabled, egressEnabled,
-		matchingRules :=
-		p.computePolicyEnforcementAndRules(securityIdentity)
+	ingressEnabled, egressEnabled, adminEgressEnabled,
+		matchingRules := p.computePolicyEnforcementAndRules2(securityIdentity)
+
+	defaultAllow := false
+	if egressEnabled {
+		for _, r := range matchingRules {
+			if len(r.Egress) > 0 || len(r.EgressDeny) > 0 {
+				if !r.DefaultAllow {
+					//log.WithFields(logrus.Fields{"rule": r.Rule, "identity": securityIdentity.ID}).Info("[tm] egress defined with no default allow")
+					defaultAllow = false
+					break
+				} else {
+					//log.WithFields(logrus.Fields{"rule": r.Rule, "identity": securityIdentity.ID}).Info("[tm] egress defined with default Allow")
+					defaultAllow = true
+				}
+			}
+		}
+	}
+
+	// var rootRuleList ruleSlice
+	// for _, egressDenyRule := range cloudproviderpolicy.EgressDenyList {
+	// 	rootRule := rule{
+	// 		Rule:     *egressDenyRule,
+	// 		metadata: newRuleMetadata(),
+	// 	}
+	// 	rootRule.metadata.IdentitySelected[securityIdentity.ID] = true
+	// 	rootRuleList = append(rootRuleList, &rootRule)
+	// }
+
+	// matchingRules = append(rootRuleList, matchingRules...)
+
+	for _, temp := range matchingRules {
+		log.WithFields(logrus.Fields{"Rules": temp.Rule, "metadata": temp.metadata, "egressenabled": egressEnabled}).Info("[tamilmani] egressdeny rules in matchingRules")
+	}
+
+	// parse through all matching rules
 
 	calculatedPolicy := &selectorPolicy{
 		Revision:             p.GetRevision(),
@@ -705,6 +774,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		L4Policy:             NewL4Policy(p.GetRevision()),
 		IngressPolicyEnabled: ingressEnabled,
 		EgressPolicyEnabled:  egressEnabled,
+		DefaultAllow:         defaultAllow,
 	}
 
 	lbls := securityIdentity.LabelArray
@@ -736,7 +806,7 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		calculatedPolicy.L4Policy.Ingress = newL4IngressPolicy
 	}
 
-	if egressEnabled {
+	if egressEnabled || adminEgressEnabled {
 		newL4EgressPolicy, err := matchingRules.resolveL4EgressPolicy(&policyCtx, &egressCtx)
 		if err != nil {
 			return nil, err
@@ -787,5 +857,40 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 		// enforcement for the endpoint. We don't care about returning any
 		// rules that match.
 		return false, false, nil
+	}
+}
+
+func (p *Repository) computePolicyEnforcementAndRules2(securityIdentity *identity.Identity) (
+	ingress, egress, adminEgress bool,
+	matchingRules ruleSlice,
+) {
+	lbls := securityIdentity.LabelArray
+
+	// Check if policy enforcement should be enabled at the daemon level.
+	if lbls.Has(labels.IDNameHost) && !option.Config.EnableHostFirewall {
+		return false, false, false, nil
+	}
+	switch GetPolicyEnabled() {
+	case option.AlwaysEnforce:
+		_, _, _, matchingRules = p.getMatchingRules2(securityIdentity)
+		// If policy enforcement is enabled for the daemon, then it has to be
+		// enabled for the endpoint.
+		return true, true, false, matchingRules
+	case option.DefaultEnforcement:
+		ingress, egress, adminEgress, matchingRules = p.getMatchingRules2(securityIdentity)
+		// If the endpoint has the reserved:init label, i.e. if it has not yet
+		// received any labels, always enforce policy (default deny).
+		if lbls.Has(labels.IDNameInit) {
+			return true, true, false, matchingRules
+		}
+
+		// Default mode means that if rules contain labels that match this
+		// endpoint, then enable policy enforcement for this endpoint.
+		return ingress, egress, adminEgress, matchingRules
+	default:
+		// If policy enforcement isn't enabled, we do not enable policy
+		// enforcement for the endpoint. We don't care about returning any
+		// rules that match.
+		return false, false, false, nil
 	}
 }

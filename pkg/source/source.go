@@ -45,6 +45,8 @@ const (
 	// by the previous agent instance. Can be overwritten by all other
 	// sources (except for unspec).
 	Restored Source = "restored"
+
+	Admin Source = "admin"
 )
 
 // AllowOverwrite returns true if new state from a particular source is allowed

@@ -18,7 +18,6 @@ import (
 
 type rule struct {
 	api.Rule
-
 	metadata *ruleMetadata
 }
 

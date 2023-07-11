@@ -878,6 +878,7 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 	// in different orders. When this happens we'll be tracking
 	// essentially two copies of the same selector.
 	key := selector.CachedString()
+	//log.WithField("selector key", key).Info("[tamilmani] AddIdentitySelector selector cache string")
 	sc.mutex.Lock()
 	defer sc.mutex.Unlock()
 	idSel, exists := sc.selectors[key]
@@ -904,6 +905,7 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 	// Add the initial user
 	newIDSel.users[user] = struct{}{}
 
+	//log.WithFields(logrus.Fields{"key": newIDSel.key, "namespace": newIDSel.namespaces}).Info("[tamilmani] call updateSelections")
 	// Find all matching identities from the identity cache.
 	for numericID, identity := range sc.idCache {
 		if newIDSel.matches(identity) {
@@ -1042,6 +1044,8 @@ func (sc *SelectorCache) UpdateIdentities(added, deleted cache.IdentityCache, wg
 				logfields.Labels:   lbls,
 			}).Debug("UpdateIdentities: Adding a new identity")
 		}
+
+		//log.WithField("identity", numericID).Info("[tamilmani] UpdateIdentities: identity getting added in selector cache")
 		sc.idCache[numericID] = newIdentity(numericID, lbls)
 	}
 

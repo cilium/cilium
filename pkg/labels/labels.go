@@ -112,6 +112,8 @@ const (
 	// LabelKeyFixedIdentity is the label that can be used to define a fixed
 	// identity.
 	LabelKeyFixedIdentity = "io.cilium.fixed-identity"
+
+	LabelSourceAdmin = "admin"
 )
 
 // Label is the Cilium's representation of a container label.

@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/cloudproviderpolicy"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/counter"
@@ -59,6 +60,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -1250,6 +1252,54 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		}
 
 		ipsec.StartStaleKeysReclaimer(ctx)
+	}
+
+	// log.Info("[tamilmani] Adding bpf policy rule da.")
+	// egressDenyRule := &api.Rule{
+	// 	EndpointSelector: api.WildcardEndpointSelector,
+	// 	EgressDeny: []api.EgressDenyRule{
+	// 		{
+	// 			EgressCommonRule: api.EgressCommonRule{
+	// 				ToCIDR:      []api.CIDR{"10.0.0.5/32"},
+	// 				ToEndpoints: make([]policyAPI.EndpointSelector, 0),
+	// 			},
+	// 		},
+	// 	},
+	// }
+
+	// if err := egressDenyRule.Sanitize(); err != nil {
+	// 	log.WithField("error", err).Error("sanitize rule failed da")
+	// }
+
+	// var egressDenyList []*api.Rule
+	// egressDenyList = append(egressDenyList, egressDenyRule)
+
+	// d.policy.Mutex.Lock()
+	// addedRules, newRev := d.policy.AddListLocked(egressDenyList)
+	// d.policy.Mutex.Unlock()
+
+	// log.WithFields(logrus.Fields{
+	// 	"addedRules": addedRules.AsPolicyRules().String(),
+	// 	"revision":   newRev,
+	// }).Info("[tamilmani] Added new rul da")
+
+	// repo := d.GetPolicyRepository()
+	// repo.Iterate(func(rule *policyAPI.Rule) {
+	// 	for _, er := range rule.EgressDeny {
+	// 		log.WithField("egressDenyRule", er).Info("[tamilmani]Rules present in repo")
+	// 	}
+	// })
+
+	rules := cloudproviderpolicy.InitCloudProviderPolicies()
+	_, policyAdderr := d.PolicyAdd(rules, &policy.AddOptions{
+		ReplaceWithLabels: k8sCiliumUtils.GetPolicyLabels("", "cpPolicy", "CloudProviderPolicyUid", ""),
+		Source:            source.Admin,
+		Resource:          "cloudproviderresourceid"})
+
+	if policyAdderr != nil {
+		log.WithError(policyAdderr).Info("[tamilmani] policy add failed")
+	} else {
+		log.Info("[tamilmani] policy added")
 	}
 
 	return &d, restoredEndpoints, nil

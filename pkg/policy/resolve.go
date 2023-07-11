@@ -31,6 +31,8 @@ type selectorPolicy struct {
 	// EgressPolicyEnabled specifies whether this policy contains any policy
 	// at egress.
 	EgressPolicyEnabled bool
+
+	DefaultAllow bool
 }
 
 func (p *selectorPolicy) Attach(ctx PolicyContext) {
@@ -118,9 +120,9 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 		PolicyOwner:    policyOwner,
 	}
 
-	if !p.IngressPolicyEnabled || !p.EgressPolicyEnabled {
-		calculatedPolicy.PolicyMapState.AllowAllIdentities(
-			!p.IngressPolicyEnabled, !p.EgressPolicyEnabled)
+	if !p.IngressPolicyEnabled || !p.EgressPolicyEnabled || p.DefaultAllow {
+		calculatedPolicy.PolicyMapState.AllowAllIdentities2(
+			!p.IngressPolicyEnabled, !p.EgressPolicyEnabled, p.DefaultAllow)
 	}
 
 	// Register the new EndpointPolicy as a receiver of delta
@@ -171,6 +173,7 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapSt
 		lookupDone := false
 		proxyport := uint16(0)
 		keysFromFilter := filter.ToMapState(p.PolicyOwner, direction, p.SelectorCache)
+		//log.WithField("keysFromFilter", keysFromFilter).Info("[tamilmani] computeDirectionL4PolicyMapEntries")
 		for keyFromFilter, entry := range keysFromFilter {
 			// Fix up the proxy port for entries that need proxy redirection
 			if entry.IsRedirectEntry() {
@@ -190,6 +193,7 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapSt
 					continue
 				}
 			}
+			//log.WithFields(logrus.Fields{"keyfromfilter": keysFromFilter, "l4policy": p.L4Policy.Egress}).Info("[tamilmani] computeDirectionL4PolicyMapEntries")
 			policyMapState.DenyPreferredInsert(keyFromFilter, entry, p.SelectorCache)
 		}
 	}

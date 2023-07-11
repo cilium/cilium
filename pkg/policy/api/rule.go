@@ -101,6 +101,8 @@ type Rule struct {
 	//
 	// +kubebuilder:validation:Optional
 	Description string `json:"description,omitempty"`
+
+	DefaultAllow bool
 }
 
 // MarshalJSON returns the JSON encoding of Rule r. We need to overwrite it to

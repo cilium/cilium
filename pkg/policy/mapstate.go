@@ -397,6 +397,7 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 	allCpy.TrafficDirection = newKey.TrafficDirection
 	// If we have a deny "all" we don't accept any kind of map entry.
 	if v, ok := keys[allCpy]; ok && v.IsDeny {
+		//log.WithField("mapentry", v).Info("[tamilmani] surprise. your rule not added")
 		return
 	}
 	if newEntry.IsDeny {
@@ -754,6 +755,37 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false, AuthTypeNone)
 	}
 	if egress {
+		keyToAdd := Key{
+			Identity:         0,
+			DestPort:         0,
+			Nexthdr:          0,
+			TrafficDirection: trafficdirection.Egress.Uint8(),
+		}
+		derivedFrom := labels.LabelArrayList{
+			labels.LabelArray{
+				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
+			},
+		}
+		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false, AuthTypeNone)
+	}
+}
+
+func (keys MapState) AllowAllIdentities2(ingress, egress, defaultAllow bool) {
+	if ingress {
+		keyToAdd := Key{
+			Identity:         0,
+			DestPort:         0,
+			Nexthdr:          0,
+			TrafficDirection: trafficdirection.Ingress.Uint8(),
+		}
+		derivedFrom := labels.LabelArrayList{
+			labels.LabelArray{
+				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
+			},
+		}
+		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false, AuthTypeNone)
+	}
+	if egress || defaultAllow {
 		keyToAdd := Key{
 			Identity:         0,
 			DestPort:         0,

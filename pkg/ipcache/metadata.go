@@ -288,6 +288,7 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 
 	// Recalculate policy first before upserting into the ipcache.
 	if len(idsToAdd) > 0 {
+		//log.Info("[tamilmani]: in inject labels")
 		ipc.UpdatePolicyMaps(ctx, idsToAdd, idsToDelete)
 	}
 
@@ -367,6 +368,7 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 	// re-implementing the same logic here. It will also allow removing the
 	// dependencies that are passed into this function.
 
+	//log.WithField("[tamilmani]: added id", addedIdentities).Info("update policy map triggered")
 	var wg sync.WaitGroup
 	// SelectorCache.UpdateIdentities() asks for callers to avoid
 	// handing the same identity in both 'adds' and 'deletes'

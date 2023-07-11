@@ -312,6 +312,7 @@ func (n *EndpointSelector) Matches(lblsToMatch k8sLbls.Labels) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
