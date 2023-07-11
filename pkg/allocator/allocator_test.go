@@ -551,6 +551,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	backend.AllocateID(ctx, idpool.ID(2), TestAllocatorKey("baz"))
 
 	rc := global.NewRemoteCache("remote", remote)
+	require.False(t, rc.Synced(), "The cache should not be synchronized")
 	cancel = run(ctx, rc)
 
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("foo"), Typ: kvstore.EventTypeModify}, <-events)
@@ -562,7 +563,9 @@ func TestWatchRemoteKVStore(t *testing.T) {
 		return global.remoteCaches["remote"] == rc
 	}, 1*time.Second, 10*time.Millisecond)
 
+	require.True(t, rc.Synced(), "The cache should now be synchronized")
 	stop(cancel)
+	require.False(t, rc.Synced(), "The cache should no longer be synchronized when stopped")
 
 	// Add a new remote cache with the same name, and assert that it overrides
 	// the previous one, and the proper events are emitted (including deletions
@@ -604,6 +607,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: kvstore.EventTypeModify}, <-events)
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(7), Key: TestAllocatorKey("foo"), Typ: kvstore.EventTypeModify}, <-events)
+	require.False(t, rc.Synced(), "The cache should not be synchronized if the ListDone event has not been received")
 
 	stop(cancel)
 
