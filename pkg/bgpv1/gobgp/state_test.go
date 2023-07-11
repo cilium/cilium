@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
+	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/pointer"
 )
@@ -367,4 +368,93 @@ func findMatchingPeer(t *testing.T, peers []*models.BgpPeer, n *v2alpha1api.Cili
 		}
 	}
 	return nil
+}
+
+func TestGetRoutes(t *testing.T) {
+	testSC, err := NewGoBGPServerWithConfig(context.Background(), log, types.ServerParameters{
+		Global: types.BGPGlobal{
+			ASN:        65000,
+			RouterID:   "127.0.0.1",
+			ListenPort: -1,
+		},
+	}, &agent.ControlPlaneState{})
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		testSC.Stop()
+	})
+
+	err = testSC.AddNeighbor(context.TODO(), types.NeighborRequest{
+		Neighbor: neighbor64125,
+		VR:       &v2alpha1api.CiliumBGPVirtualRouter{},
+	})
+	require.NoError(t, err)
+
+	_, err = testSC.AdvertisePath(context.TODO(), types.PathRequest{
+		Advert: types.Advertisement{
+			Prefix: netip.MustParsePrefix("10.0.0.0/24"),
+		},
+	})
+	require.NoError(t, err)
+
+	_, err = testSC.AdvertisePath(context.TODO(), types.PathRequest{
+		Advert: types.Advertisement{
+			Prefix: netip.MustParsePrefix("fd00::/64"),
+		},
+	})
+	require.NoError(t, err)
+
+	// test IPv4 address family
+	res, err := testSC.GetRoutes(context.TODO(), &types.GetRoutesRequest{
+		TableType: types.TableTypeLocRIB,
+		Family: types.Family{
+			Afi:  types.AfiIPv4,
+			Safi: types.SafiUnicast,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(res.Routes))
+	require.Equal(t, 1, len(res.Routes[0].Paths))
+	require.Equal(t, uint16(bgp.AFI_IP), res.Routes[0].Paths[0].NLRI.AFI())
+	require.Equal(t, uint8(bgp.SAFI_UNICAST), res.Routes[0].Paths[0].NLRI.SAFI())
+	require.IsType(t, &bgp.IPAddrPrefix{}, res.Routes[0].Paths[0].NLRI)
+
+	// test IPv6 address family
+	res, err = testSC.GetRoutes(context.TODO(), &types.GetRoutesRequest{
+		TableType: types.TableTypeLocRIB,
+		Family: types.Family{
+			Afi:  types.AfiIPv6,
+			Safi: types.SafiUnicast,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(res.Routes))
+	require.Equal(t, 1, len(res.Routes[0].Paths))
+	require.Equal(t, uint16(bgp.AFI_IP6), res.Routes[0].Paths[0].NLRI.AFI())
+	require.Equal(t, uint8(bgp.SAFI_UNICAST), res.Routes[0].Paths[0].NLRI.SAFI())
+	require.IsType(t, &bgp.IPv6AddrPrefix{}, res.Routes[0].Paths[0].NLRI)
+
+	// test adj-rib-out
+	res, err = testSC.GetRoutes(context.TODO(), &types.GetRoutesRequest{
+		TableType: types.TableTypeAdjRIBOut,
+		Family: types.Family{
+			Afi:  types.AfiIPv4,
+			Safi: types.SafiUnicast,
+		},
+		Neighbor: netip.MustParsePrefix(neighbor64125.PeerAddress).Addr(),
+	})
+	require.NoError(t, err)
+	require.Equal(t, 0, len(res.Routes)) // adj-rib is empty as there is no actual peering up
+
+	// test adj-rib-in
+	res, err = testSC.GetRoutes(context.TODO(), &types.GetRoutesRequest{
+		TableType: types.TableTypeAdjRIBIn,
+		Family: types.Family{
+			Afi:  types.AfiIPv6,
+			Safi: types.SafiUnicast,
+		},
+		Neighbor: netip.MustParsePrefix(neighbor64125.PeerAddress).Addr(),
+	})
+	require.NoError(t, err)
+	require.Equal(t, 0, len(res.Routes)) // adj-rib is empty as there is no actual peering up
 }
