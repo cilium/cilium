@@ -756,7 +756,7 @@ const (
 	// IPSecKeyFileName is the name of the option for ipsec key file
 	IPSecKeyFileName = "ipsec-key-file"
 
-	// EnableWireguard is the name of the option to enable wireguard
+	// EnableWireguard is the name of the option to enable WireGuard
 	EnableWireguard = "enable-wireguard"
 
 	// EnableL2Announcements is the name of the option to enable l2 announcements
@@ -782,7 +782,7 @@ const (
 	// or direct routing is used and the node CIDR and pod CIDR overlap.
 	EncryptionStrictModeAllowRemoteNodeIdentities = "encryption-strict-mode-allow-remote-node-identities"
 
-	// EnableWireguardUserspaceFallback is the name of the option that enables the fallback to wireguard userspace mode
+	// EnableWireguardUserspaceFallback is the name of the option that enables the fallback to WireGuard userspace mode
 	EnableWireguardUserspaceFallback = "enable-wireguard-userspace-fallback"
 
 	// NodeEncryptionOptOutLabels is the name of the option for the node-to-node encryption opt-out labels

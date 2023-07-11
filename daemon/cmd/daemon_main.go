@@ -360,7 +360,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableIPsecKeyWatcher, defaults.EnableIPsecKeyWatcher, "Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations.")
 	option.BindEnv(vp, option.EnableIPsecKeyWatcher)
 
-	flags.Bool(option.EnableWireguard, false, "Enable wireguard")
+	flags.Bool(option.EnableWireguard, false, "Enable WireGuard")
 	option.BindEnv(vp, option.EnableWireguard)
 
 	flags.Bool(option.EnableL2Announcements, false, "Enable L2 announcements")
@@ -375,7 +375,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Duration(option.L2AnnouncerRetryPeriod, 2*time.Second, "Timeout after a renew failure, before the next retry")
 	option.BindEnv(vp, option.L2AnnouncerRetryPeriod)
 
-	flags.Bool(option.EnableWireguardUserspaceFallback, false, "Enables the fallback to the wireguard userspace implementation")
+	flags.Bool(option.EnableWireguardUserspaceFallback, false, "Enable fallback to the WireGuard userspace implementation")
 	option.BindEnv(vp, option.EnableWireguardUserspaceFallback)
 
 	flags.String(option.NodeEncryptionOptOutLabels, defaults.NodeEncryptionOptOutLabels, "Label selector for nodes which will opt-out of node-to-node encryption")
@@ -1704,7 +1704,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	if params.WGAgent != nil {
 		if err := params.WGAgent.RestoreFinished(); err != nil {
-			log.WithError(err).Error("Failed to set up wireguard peers")
+			log.WithError(err).Error("Failed to set up WireGuard peers")
 		}
 	}
 

@@ -323,7 +323,7 @@ func addEncryption(w *tabwriter.Writer, p *models.DebugInfo) {
 	printMD(w, "Cilium encryption\n", "")
 
 	if p.Encryption != nil && p.Encryption.Wireguard != nil {
-		fmt.Fprint(w, "##### Wireguard\n\n")
+		fmt.Fprint(w, "##### WireGuard\n\n")
 		printTicks(w)
 		for _, wg := range p.Encryption.Wireguard.Interfaces {
 			fmt.Fprintf(w, "interface: %s\n", wg.Name)
