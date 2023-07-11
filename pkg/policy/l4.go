@@ -210,7 +210,7 @@ func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
 		a.OriginatingTLS.Equal(b.OriginatingTLS) &&
 		a.ServerNames.Equal(b.ServerNames) &&
 		a.isRedirect == b.isRedirect &&
-		a.Auth.DeepEqual(b.Auth) &&
+		(a.Auth == nil && b.Auth == nil || a.Auth != nil && a.Auth.DeepEqual(b.Auth)) &&
 		a.IsDeny == b.IsDeny &&
 		a.L7Rules.DeepEqual(&b.L7Rules)
 }
