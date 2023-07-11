@@ -259,6 +259,11 @@ func (iw *IPIdentityWatcher) Drain() {
 	iw.store.Drain()
 }
 
+// NumEntries returns the number of entries synchronized from the kvstore.
+func (iw *IPIdentityWatcher) NumEntries() uint64 {
+	return iw.store.NumEntries()
+}
+
 // OnUpdate is triggered when a new upsertion event is observed, and
 // synchronizes local caching of endpoint IP to ipIDPair mapping with
 // the operation the key-value store has informed us about.

@@ -149,6 +149,7 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 	status.NumNodes = int64(rc.remoteNodes.NumEntries())
 	status.NumSharedServices = int64(rc.remoteServices.NumEntries())
 	status.NumIdentities = int64(rc.remoteIdentityCache.NumEntries())
+	status.NumEndpoints = int64(rc.ipCacheWatcher.NumEntries())
 	return status
 }
 
