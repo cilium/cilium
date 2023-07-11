@@ -165,8 +165,6 @@ github.com/cilium/controller-tools v0.6.2 h1:oIkqAzqncKsm+lQFJVP6n+bqHOVs9nUZ06h
 github.com/cilium/controller-tools v0.6.2/go.mod h1:oaeGpjXn6+ZSEIQkUe/+3I40PNiDYp9aeawbt3xTgJ8=
 github.com/cilium/coverbee v0.3.2 h1:RaJN5OaHf/M8tmeLemHmdO0H5bFUhvtTAoYbStDIX14=
 github.com/cilium/coverbee v0.3.2/go.mod h1:p9Q2SRC/sPA0qATNfY19GXBUPdcQP6UVV2LKgOHRIzQ=
-github.com/cilium/customvet v0.0.0-20221207181232-aa8731fa2d27 h1:X99IJC9BVwnZiPv3XTuMRf5HlCYUL7rlNEZU/zWVtOo=
-github.com/cilium/customvet v0.0.0-20221207181232-aa8731fa2d27/go.mod h1:nFj/mLY2y3zQe+DDXgl9rXixkJPVLf23UfRlaljzW6k=
 github.com/cilium/deepequal-gen v0.0.0-20230330134849-754271daeec2 h1:/TjcgbZnbhiVkqWdcmFvpOUzk6/dlGBAIipt0qjxzqU=
 github.com/cilium/deepequal-gen v0.0.0-20230330134849-754271daeec2/go.mod h1:Fjjkur+OWg3is19QRyUYbdPm1KP1aMsVV/IurXYmO3c=
 github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc h1:tNEOByqRaBwlf1ANK/U/sd5oOIkxkPkpCVqaabxvU84=
@@ -175,6 +173,8 @@ github.com/cilium/ebpf v0.11.0 h1:V8gS/bTCCjX9uUnkUFUpPsksM8n1lXBAvHcpiFk1X2Y=
 github.com/cilium/ebpf v0.11.0/go.mod h1:WE7CZAnqOL2RouJ4f1uyNhqr2P4CCvXFIqdRDUgWsVs=
 github.com/cilium/fake v0.4.0 h1:ATSUQaeKaBMJmSWQe+D0QYtiSA2WXOlisq4RbSkLdE8=
 github.com/cilium/fake v0.4.0/go.mod h1:21afzsL8AAyP1Mrz/qz5vCenHmtYxIJxnULri9ofXF8=
+github.com/cilium/linters v0.0.0-20230711081823-012f25fa2197 h1:lrHymv1WbQpC7583xGy73ady/P5WyerI3m/fp5T0ZT4=
+github.com/cilium/linters v0.0.0-20230711081823-012f25fa2197/go.mod h1:UcjOuDlOEdaySs4Y1jITQtTPiWOChILk9JbRNhmll2k=
 github.com/cilium/lumberjack/v2 v2.3.0 h1:IhVJMvPpqDYmQzC0KDhAoy7KlaRsyOsZnT97Nsa3u0o=
 github.com/cilium/lumberjack/v2 v2.3.0/go.mod h1:yfbtPGmg4i//5oEqzaMxDqSWqgfZFmMoV70Mc2k6v0A=
 github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7 h1:ocC6/1Gz6LJd0XsJiwhcTlAy3yJrJruzh4sjRzUNvQs=

@@ -18,10 +18,10 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/checkmate v1.0.3
 	github.com/cilium/coverbee v0.3.2
-	github.com/cilium/customvet v0.0.0-20221207181232-aa8731fa2d27
 	github.com/cilium/deepequal-gen v0.0.0-20230330134849-754271daeec2
 	github.com/cilium/ebpf v0.11.0
 	github.com/cilium/fake v0.4.0
+	github.com/cilium/linters v0.0.0-20230711081823-012f25fa2197
 	github.com/cilium/lumberjack/v2 v2.3.0
 	github.com/cilium/proxy v0.0.0-20230623092907-8fddead4e52c
 	github.com/cilium/workerpool v1.2.0
