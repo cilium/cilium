@@ -172,15 +172,20 @@ func (c *cniConfigManager) Start(hive.HookContext) error {
 		return nil
 	}
 
-	var err error
-
-	c.watcher, err = fsnotify.NewWatcher()
-	if err != nil {
-		c.log.Warnf("Failed to create watcher: %v", err)
-	} else {
-		if err := c.watcher.Add(c.cniConfDir); err != nil {
-			c.log.Warnf("Failed to watch CNI configuration directory %s: %v", c.cniConfDir, err)
-			c.watcher = nil
+	// Watch the CNI configuration directory, and regenerate CNI config
+	// if necessary.
+	// Don't watch for changes if cni-exclusive is false. This is to allow
+	// rewriting of the Cilium CNI configuration by another plugin (e.g. Istio).
+	if c.config.CNIExclusive {
+		var err error
+		c.watcher, err = fsnotify.NewWatcher()
+		if err != nil {
+			c.log.Warnf("Failed to create watcher: %v", err)
+		} else {
+			if err := c.watcher.Add(c.cniConfDir); err != nil {
+				c.log.Warnf("Failed to watch CNI configuration directory %s: %v", c.cniConfDir, err)
+				c.watcher = nil
+			}
 		}
 	}
 
