@@ -893,8 +893,6 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 			.flags = tuple->flags | TUPLE_F_RELATED,
 		};
 
-		entry.seen_non_syn = true; /* For ICMP, there is no SYN. */
-
 		ipv6_addr_copy(&icmp_tuple.daddr, &tuple->daddr);
 		ipv6_addr_copy(&icmp_tuple.saddr, &tuple->saddr);
 
@@ -1001,7 +999,6 @@ static __always_inline int ct_create4(const void *map_main,
 			.flags = tuple->flags | TUPLE_F_RELATED,
 		};
 
-		entry.seen_non_syn = true; /* For ICMP, there is no SYN. */
 		/* Previous map update succeeded, we could delete it in case
 		 * the below throws an error, but we might as well just let
 		 * it time out.
