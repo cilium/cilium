@@ -2039,6 +2039,8 @@ func (d *Daemon) instantiateAPI(swaggerSpec *server.Spec) *restapi.CiliumAPIAPI 
 
 	// /bgp/peers
 	restAPI.BgpGetBgpPeersHandler = NewGetBGPHandler(d.bgpControlPlaneController)
+	// /bgp/routes
+	restAPI.BgpGetBgpRoutesHandler = NewGetBGPRoutesHandler(d.bgpControlPlaneController)
 
 	// /statedb/dump
 	restAPI.StatedbGetStatedbDumpHandler = &getStateDBDump{d.db}

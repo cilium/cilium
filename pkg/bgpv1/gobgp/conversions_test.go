@@ -10,12 +10,14 @@ import (
 	gobgp "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/server"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/bgpv1/types"
 )
 
 // Test common Path type conversions appearing in the codebase
 func TestPathConversions(t *testing.T) {
-	for _, tt := range commonPaths {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range types.CommonPaths {
+		t.Run(tt.Name, func(t *testing.T) {
 			s := server.NewBgpServer()
 			go s.Serve()
 
@@ -32,7 +34,7 @@ func TestPathConversions(t *testing.T) {
 				s.Stop()
 			})
 
-			path, err := ToGoBGPPath(&tt.path)
+			path, err := ToGoBGPPath(&tt.Path)
 			require.NoError(t, err)
 
 			res, err := s.AddPath(context.TODO(), &gobgp.AddPathRequest{
@@ -48,8 +50,16 @@ func TestPathConversions(t *testing.T) {
 				paths, err := ToAgentPaths(destination.Paths)
 				require.NoError(t, err)
 				require.NotZero(t, paths)
-				require.EqualValues(t, tt.path.NLRI, paths[0].NLRI)
-				require.EqualValues(t, tt.path.PathAttributes, paths[0].PathAttributes)
+				require.EqualValues(t, tt.Path.NLRI, paths[0].NLRI)
+				require.EqualValues(t, len(tt.Path.PathAttributes), len(paths[0].PathAttributes))
+				for i := range tt.Path.PathAttributes {
+					// byte-compare encoded path attributes
+					data1, err := tt.Path.PathAttributes[i].Serialize()
+					require.NoError(t, err)
+					data2, err := paths[0].PathAttributes[i].Serialize()
+					require.NoError(t, err)
+					require.EqualValues(t, data1, data2)
+				}
 			})
 			require.NoError(t, err)
 		})
