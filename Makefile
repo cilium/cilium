@@ -501,32 +501,34 @@ kind-clustermesh-images: kind-clustermesh-ready kind-build-clustermesh-apiserver
 	$(QUIET)kind load docker-image $(LOCAL_KVSTOREMESH_IMAGE) --name clustermesh1
 	$(QUIET)kind load docker-image $(LOCAL_KVSTOREMESH_IMAGE) --name clustermesh2
 
+ENABLE_KVSTOREMESH ?= false
 $(eval $(call KIND_ENV,kind-install-cilium-clustermesh))
 kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Cilium version into the clustermesh clusters and enable clustermesh.
 	@echo "  INSTALL cilium on clustermesh1 cluster"
-	kubectl config use kind-clustermesh1
-	-$(CILIUM_CLI) uninstall >/dev/null
-	$(CILIUM_CLI) install \
+	-$(CILIUM_CLI) --context=kind-clustermesh1 uninstall >/dev/null
+	$(CILIUM_CLI) --context=kind-clustermesh1 install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
-		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
-		--agent-image=$(LOCAL_AGENT_IMAGE) \
-		--operator-image=$(LOCAL_OPERATOR_IMAGE) \
-		--version=
+		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
+		--set=image.override=$(LOCAL_AGENT_IMAGE) \
+		--set=operator.image.override=$(LOCAL_OPERATOR_IMAGE) \
+		--set=clustermesh.apiserver.image.override=$(LOCAL_CLUSTERMESH_IMAGE) \
+		--set=clustermesh.apiserver.kvstoremesh.image.override=$(LOCAL_KVSTOREMESH_IMAGE) \
+		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
+
 	@echo "  INSTALL cilium on clustermesh2 cluster"
-	kubectl config use kind-clustermesh2
-	-$(CILIUM_CLI) uninstall >/dev/null
-	$(CILIUM_CLI) install \
-		--inherit-ca kind-clustermesh1 \
+	-$(CILIUM_CLI) --context=kind-clustermesh2 uninstall >/dev/null
+	$(KUBECTL) --context=kind-clustermesh1 get secret -n kube-system cilium-ca -o yaml | \
+		$(KUBECTL) --context=kind-clustermesh2 replace --force -f -
+	$(CILIUM_CLI) --context=kind-clustermesh2 install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
-		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
-		--agent-image=$(LOCAL_AGENT_IMAGE) \
-		--operator-image=$(LOCAL_OPERATOR_IMAGE) \
-		--version=
-	@echo "  Enabling clustermesh"
-	$(CILIUM_CLI) clustermesh enable --context kind-clustermesh1 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
-	$(CILIUM_CLI) clustermesh enable --context kind-clustermesh2 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
-	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
-	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
+		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
+		--set=image.override=$(LOCAL_AGENT_IMAGE) \
+		--set=operator.image.override=$(LOCAL_OPERATOR_IMAGE) \
+		--set=clustermesh.apiserver.image.override=$(LOCAL_CLUSTERMESH_IMAGE) \
+		--set=clustermesh.apiserver.kvstoremesh.image.override=$(LOCAL_KVSTOREMESH_IMAGE) \
+		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
+
+	@echo "  CONNECT the two clusters"
 	$(CILIUM_CLI) clustermesh connect --context kind-clustermesh1 --destination-context kind-clustermesh2
 	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
 	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
