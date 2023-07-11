@@ -387,9 +387,9 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 
 		for _, cluster := range sr.ClusterMesh.Clusters {
 			if sd.AllClusters || !cluster.Ready {
-				fmt.Fprintf(w, "   %s: %s, %d nodes, %d identities, %d services, %d failures (last: %s)\n",
+				fmt.Fprintf(w, "   %s: %s, %d nodes, %d endpoints, %d identities, %d services, %d failures (last: %s)\n",
 					cluster.Name, clusterReadiness(cluster), cluster.NumNodes,
-					cluster.NumIdentities, cluster.NumSharedServices,
+					cluster.NumEndpoints, cluster.NumIdentities, cluster.NumSharedServices,
 					cluster.NumFailures, timeSince(time.Time(cluster.LastFailure)))
 				fmt.Fprintf(w, "   └  %s\n", cluster.Status)
 			}
