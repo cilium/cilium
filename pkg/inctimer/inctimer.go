@@ -73,10 +73,8 @@ func (it *incTimer) After(d time.Duration) <-chan time.Time {
 	return it.t.C
 }
 
-// After wraps the time.After function to get
-// around the customvet warning for cases
-// where it is inconvenient to use the instantiated
-// version.
+// After wraps the time.After function to get around the /timeafter linter
+// warning for cases where it is inconvenient to use the instantiated version.
 func After(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }
