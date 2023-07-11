@@ -43,7 +43,7 @@ type RemoteCluster struct {
 	// Number of services in the cluster
 	NumSharedServices int64 `json:"num-shared-services,omitempty"`
 
-	// Indicates readiness of the remote cluser
+	// Indicates readiness of the remote cluster
 	Ready bool `json:"ready,omitempty"`
 
 	// Status of the control plane
