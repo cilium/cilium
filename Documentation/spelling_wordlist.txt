@@ -694,7 +694,6 @@ webhook
 webhooks
 webservice
 whitespace
-wireguard
 www
 xDS
 xdp
