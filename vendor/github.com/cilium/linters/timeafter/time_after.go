@@ -1,16 +1,5 @@
-// Copyright 2020 Authors of Cilium
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
 
 package timeafter
 
@@ -25,17 +14,15 @@ import (
 )
 
 const (
-	// Doc for the timeafter check
-	Doc = `This is checks for "time.After" instances in for loops.`
-
 	timeAfterPkg  = "time"
 	timeAfterFunc = "After"
 )
 
-// Analyzer is the global for the multichecker
+// Analyzer implements an analysis function that checks for the use of
+// time.After in loops.
 var Analyzer = &analysis.Analyzer{
 	Name:     "timeafter",
-	Doc:      Doc,
+	Doc:      `check for "time.After" instances in loops`,
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 	Run:      run,
 }
