@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package gobgp
+package types
 
 import (
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
-
-	"github.com/cilium/cilium/pkg/bgpv1/types"
 )
 
 var (
@@ -16,14 +14,14 @@ var (
 	nextHopAttribute     = bgp.NewPathAttributeNextHop("0.0.0.0")
 	mpReachNLRIAttribute = bgp.NewPathAttributeMpReachNLRI("::", []bgp.AddrPrefixInterface{prefixV6})
 
-	// common path structure appearing in the agent code
-	commonPaths = []struct {
-		name string
-		path types.Path
+	// CommonPaths contains common path structure values appearing in the agent code
+	CommonPaths = []struct {
+		Name string
+		Path Path
 	}{
 		{
-			name: "IPv4 unicast advertisement",
-			path: types.Path{
+			Name: "IPv4 unicast advertisement",
+			Path: Path{
 				NLRI: prefixV4,
 				PathAttributes: []bgp.PathAttributeInterface{
 					originAttribute,
@@ -32,8 +30,8 @@ var (
 			},
 		},
 		{
-			name: "IPv6 unicast advertisement",
-			path: types.Path{
+			Name: "IPv6 unicast advertisement",
+			Path: Path{
 				NLRI: prefixV6,
 				PathAttributes: []bgp.PathAttributeInterface{
 					originAttribute,
