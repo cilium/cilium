@@ -214,6 +214,36 @@ func (p *policyIdentitiesLabelLookup) GetLabels(id identity.NumericIdentity) lab
 	return nil
 }
 
+// proxyPolicy passes state needed for proxy redirect creation
+type proxyPolicy struct {
+	l4   *policy.L4Filter
+	port uint16
+}
+
+func (e *Endpoint) newProxyPolicy(l4 *policy.L4Filter, port uint16) proxyPolicy {
+	return proxyPolicy{l4: l4, port: port}
+}
+
+func (p *proxyPolicy) CopyL7RulesPerEndpoint() policy.L7DataMap {
+	return p.l4.CopyL7RulesPerEndpoint()
+}
+
+func (p *proxyPolicy) GetL7Parser() policy.L7ParserType {
+	return p.l4.L7Parser
+}
+
+func (p *proxyPolicy) GetIngress() bool {
+	return p.l4.Ingress
+}
+
+func (p *proxyPolicy) GetPort() uint16 {
+	return p.port
+}
+
+func (p *proxyPolicy) GetListener() string {
+	return p.l4.GetListener()
+}
+
 // addNewRedirectsFromDesiredPolicy must be called while holding the endpoint lock for
 // writing. On success, returns nil; otherwise, returns an error indicating the
 // problem that occurred while adding an l7 redirect for the specified policy.
@@ -258,7 +288,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				var finalizeFunc revert.FinalizeFunc
 				var revertFunc revert.RevertFunc
 
-				proxyID := e.proxyID(l4)
+				proxyID, port := e.proxyID(l4)
 				if proxyID == "" {
 					// Skip redirects for which a proxyID cannot be created.
 					// This may happen due to the named port mapping not
@@ -268,9 +298,9 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 					// conflicts have been resolved in POD specs.
 					continue
 				}
-
+				pp := e.newProxyPolicy(l4, port)
 				var err error
-				redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(e.aliveCtx, l4, proxyID, e, proxyWaitGroup)
+				redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e, proxyWaitGroup)
 				if err != nil {
 					// Skip redirects that can not be created or updated.  This
 					// can happen when a listener is missing, for example when
