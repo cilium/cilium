@@ -81,6 +81,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		BgpGetBgpPeersHandler: bgp.GetBgpPeersHandlerFunc(func(params bgp.GetBgpPeersParams) middleware.Responder {
 			return middleware.NotImplemented("operation bgp.GetBgpPeers has not yet been implemented")
 		}),
+		BgpGetBgpRoutesHandler: bgp.GetBgpRoutesHandlerFunc(func(params bgp.GetBgpRoutesParams) middleware.Responder {
+			return middleware.NotImplemented("operation bgp.GetBgpRoutes has not yet been implemented")
+		}),
 		DaemonGetCgroupDumpMetadataHandler: daemon.GetCgroupDumpMetadataHandlerFunc(func(params daemon.GetCgroupDumpMetadataParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetCgroupDumpMetadata has not yet been implemented")
 		}),
@@ -268,6 +271,8 @@ type CiliumAPIAPI struct {
 	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
 	// BgpGetBgpPeersHandler sets the operation handler for the get bgp peers operation
 	BgpGetBgpPeersHandler bgp.GetBgpPeersHandler
+	// BgpGetBgpRoutesHandler sets the operation handler for the get bgp routes operation
+	BgpGetBgpRoutesHandler bgp.GetBgpRoutesHandler
 	// DaemonGetCgroupDumpMetadataHandler sets the operation handler for the get cgroup dump metadata operation
 	DaemonGetCgroupDumpMetadataHandler daemon.GetCgroupDumpMetadataHandler
 	// DaemonGetClusterNodesHandler sets the operation handler for the get cluster nodes operation
@@ -459,6 +464,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.BgpGetBgpPeersHandler == nil {
 		unregistered = append(unregistered, "bgp.GetBgpPeersHandler")
+	}
+	if o.BgpGetBgpRoutesHandler == nil {
+		unregistered = append(unregistered, "bgp.GetBgpRoutesHandler")
 	}
 	if o.DaemonGetCgroupDumpMetadataHandler == nil {
 		unregistered = append(unregistered, "daemon.GetCgroupDumpMetadataHandler")
@@ -714,6 +722,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/bgp/peers"] = bgp.NewGetBgpPeers(o.context, o.BgpGetBgpPeersHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/bgp/routes"] = bgp.NewGetBgpRoutes(o.context, o.BgpGetBgpRoutesHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
