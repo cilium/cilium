@@ -175,9 +175,9 @@ agentNotReadyTaintKey
 agentSocketPath
 aksbyocni
 alibabacloud
-allocateLoadBalancerNodePorts
 allocator
 allocators
+allowRemoteNodeIdentities
 allowedConfigOverrides
 amd
 analytics
@@ -916,7 +916,6 @@ rebase
 rebased
 rebasing
 recompiles
-reconciliationTriggerInterval
 recv
 recvmsg
 refactoring
