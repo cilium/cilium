@@ -27,9 +27,29 @@ func NewGetBGPHandler(c *bgpv1.Controller) restapi.GetBgpPeersHandler {
 func (b *getBGP) Handle(params restapi.GetBgpPeersParams) middleware.Responder {
 	peers, err := b.bgpController.BGPMgr.GetPeers(params.HTTPRequest.Context())
 	if err != nil {
-		msg := fmt.Errorf("failed to get peers, %w", err)
+		msg := fmt.Errorf("failed to get peers: %w", err)
 		return api.Error(http.StatusInternalServerError, msg)
 	}
 
 	return restapi.NewGetBgpPeersOK().WithPayload(peers)
+}
+
+type getBGPRoutes struct {
+	bgpController *bgpv1.Controller
+}
+
+// NewGetBGPRoutesHandler returns bgp routes status endpoint
+func NewGetBGPRoutesHandler(c *bgpv1.Controller) restapi.GetBgpRoutesHandler {
+	return &getBGPRoutes{bgpController: c}
+}
+
+// Handle gets BGP routes from BGP controller
+func (b *getBGPRoutes) Handle(params restapi.GetBgpRoutesParams) middleware.Responder {
+	routes, err := b.bgpController.BGPMgr.GetRoutes(params.HTTPRequest.Context(), params)
+	if err != nil {
+		msg := fmt.Errorf("failed to get routes: %w", err)
+		return api.Error(http.StatusInternalServerError, msg)
+	}
+
+	return restapi.NewGetBgpRoutesOK().WithPayload(routes)
 }
