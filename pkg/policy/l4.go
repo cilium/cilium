@@ -469,11 +469,6 @@ func (l4 *L4Filter) GetListener() string {
 	return l4.Listener
 }
 
-// 'entryCallback' is a function called for each entry before adding to a MapState. If the
-// function returns 'true', the entry is added, otherwise not. The function gets a reference to the
-// entry so that it may update it's value (e.g., the proxy port).
-type entryCallback func(key Key, value *MapStateEntry) bool
-
 // ChangeState allows caller to revert changes made by (multiple) toMapState call(s)
 type ChangeState struct {
 	Adds    Keys                  // Added or modified keys, if not nil
@@ -488,12 +483,12 @@ type ChangeState struct {
 // 'p.PolicyMapState' using denyPreferredInsertWithChanges().
 // Keys and old values of any added or deleted entries are added to 'changes'.
 // SelectorCache is also in read-locked state during this call.
-func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, entryCb entryCallback, changes ChangeState) {
-	port := uint16(l4Filter.Port)
-	proto := uint8(l4Filter.U8Proto)
+func (l4 *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, redirects map[string]uint16, changes ChangeState) {
+	port := uint16(l4.Port)
+	proto := uint8(l4.U8Proto)
 
 	direction := trafficdirection.Egress
-	if l4Filter.Ingress {
+	if l4.Ingress {
 		direction = trafficdirection.Ingress
 	}
 
@@ -501,15 +496,15 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures,
 	if option.Config.Debug {
 		logger = log.WithFields(logrus.Fields{
 			logfields.Port:             port,
-			logfields.PortName:         l4Filter.PortName,
+			logfields.PortName:         l4.PortName,
 			logfields.Protocol:         proto,
 			logfields.TrafficDirection: direction,
 		})
 	}
 
 	// resolve named port
-	if port == 0 && l4Filter.PortName != "" {
-		port = p.PolicyOwner.GetNamedPort(l4Filter.Ingress, l4Filter.PortName, proto)
+	if port == 0 && l4.PortName != "" {
+		port = p.PolicyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
 		if port == 0 {
 			return // nothing to be done for undefined named port
 		}
@@ -524,13 +519,13 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures,
 
 	// find the L7 rules for the wildcard entry, if any
 	var wildcardRule *PerSelectorPolicy
-	if l4Filter.wildcard != nil {
-		wildcardRule = l4Filter.PerSelectorPolicies[l4Filter.wildcard]
+	if l4.wildcard != nil {
+		wildcardRule = l4.PerSelectorPolicies[l4.wildcard]
 	}
 
-	for cs, currentRule := range l4Filter.PerSelectorPolicies {
+	for cs, currentRule := range l4.PerSelectorPolicies {
 		// have wildcard and this is an L3L4 key?
-		isL3L4withWildcardPresent := (l4Filter.Port != 0 || l4Filter.PortName != "") && l4Filter.wildcard != nil && cs != l4Filter.wildcard
+		isL3L4withWildcardPresent := (l4.Port != 0 || l4.PortName != "") && l4.wildcard != nil && cs != l4.wildcard
 
 		if isL3L4withWildcardPresent && wildcardRule.covers(currentRule) {
 			logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: Skipping L3/L4 key due to existing L4-only key")
@@ -548,19 +543,26 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures,
 			isRedirect = wildcardRule.IsRedirect()
 		}
 		hasAuth, authType := currentRule.GetAuthType()
-		entry := NewMapStateEntry(cs, l4Filter.RuleOrigin[cs], isRedirect, l4Filter.Listener, isDenyRule, hasAuth, authType)
+		var proxyPort uint16
+		if isRedirect {
+			var exists bool
+			proxyPort, exists = redirects[ProxyID(uint16(p.PolicyOwner.GetID()), l4.Ingress, string(l4.Protocol), port, l4.Listener)]
+			if !exists {
+				continue // Skip unrealized redirects
+			}
+		}
+		entry := NewMapStateEntry(cs, l4.RuleOrigin[cs], proxyPort, l4.Listener, isDenyRule, hasAuth, authType)
+
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
-			if entryCb(keyToAdd, &entry) {
-				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+			p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
 
-				if port == 0 {
-					// Allow-all
-					logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: allow all")
-				} else {
-					// L4 allow
-					logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: L4 allow all")
-				}
+			if port == 0 {
+				// Allow-all
+				logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: allow all")
+			} else {
+				// L4 allow
+				logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: L4 allow all")
 			}
 			continue
 		}
@@ -581,21 +583,15 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures,
 		}
 		for _, id := range idents {
 			keyToAdd.Identity = id.Uint32()
-			if entryCb(keyToAdd, &entry) {
+			p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+			// If Cilium is in dual-stack mode then the "World" identity
+			// needs to be split into two identities to represent World
+			// IPv6 and IPv4 traffic distinctly from one another.
+			if id == identity.ReservedIdentityWorld && option.Config.IsDualStack() {
+				keyToAdd.Identity = identity.ReservedIdentityWorldIPv4.Uint32()
 				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
-				// If Cilium is in dual-stack mode then the "World" identity
-				// needs to be split into two identities to represent World
-				// IPv6 and IPv4 traffic distinctly from one another.
-				if id == identity.ReservedIdentityWorld && option.Config.IsDualStack() {
-					keyToAdd.Identity = identity.ReservedIdentityWorldIPv4.Uint32()
-					if entryCb(keyToAdd, &entry) {
-						p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
-					}
-					keyToAdd.Identity = identity.ReservedIdentityWorldIPv6.Uint32()
-					if entryCb(keyToAdd, &entry) {
-						p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
-					}
-				}
+				keyToAdd.Identity = identity.ReservedIdentityWorldIPv6.Uint32()
+				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
 			}
 		}
 	}
@@ -1280,8 +1276,16 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 				continue
 			}
 		}
+		var proxyPort uint16
+		if redirect {
+			var err error
+			proxyPort, err = epPolicy.PolicyOwner.LookupRedirectPort(l4.Ingress, string(l4.Protocol), port, l4.Listener)
+			if err != nil {
+				continue // Skip unrealized redirects
+			}
+		}
 		key := Key{DestPort: port, Nexthdr: proto, TrafficDirection: direction.Uint8()}
-		value := NewMapStateEntry(cs, derivedFrom, redirect, l4.Listener, isDeny, hasAuth, authType)
+		value := NewMapStateEntry(cs, derivedFrom, proxyPort, l4.Listener, isDeny, hasAuth, authType)
 
 		if option.Config.Debug {
 			authString := "default"

@@ -210,11 +210,35 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 		Old:  make(map[policy.Key]policy.MapStateEntry),
 	}
 
+	// create or update proxy redirects
 	e.desiredPolicy.UpdateRedirects(ingress,
-		func(l4 *policy.L4Filter) (uint16, bool) {
+		func(l4 *policy.L4Filter) map[string]uint16 {
 			var redirectPort uint16
+
 			// Any map updates when a new policy has not been calculated are taken care by incremental map updates.
 			updateMaps := e.desiredPolicy != e.realizedPolicy
+
+			// proxyID() returns also the destination port for the policy,
+			// which may be resolved from a named port
+			proxyID, dstPort := e.proxyID(l4)
+			if proxyID == "" {
+				// Skip redirects for which a proxyID cannot be created.
+				// This may happen due to the named port mapping not
+				// existing or multiple PODs defining the same port name
+				// with different port values. The redirect will be created
+				// when the mapping is available or when the port name
+				// conflicts have been resolved in POD specs.
+				return nil
+			}
+
+			// desiredRedirects starts out empty, so we can use it check
+			// if the redirect has already been updated on this round.
+			if redirectPort = desiredRedirects[proxyID]; redirectPort != 0 {
+				if updateMaps {
+					return desiredRedirects
+				}
+				return nil
+			}
 
 			// Only create a redirect if the proxy is NOT running in a sidecar container
 			// or the parser is not HTTP. If running in a sidecar container and the parser
@@ -224,25 +248,8 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				var finalizeFunc revert.FinalizeFunc
 				var revertFunc revert.RevertFunc
 
-				// proxyID() returns also the destination port for the policy,
-				// which may be resolved from a named port
-				proxyID, dstPort := e.proxyID(l4)
-				if proxyID == "" {
-					// Skip redirects for which a proxyID cannot be created.
-					// This may happen due to the named port mapping not
-					// existing or multiple PODs defining the same port name
-					// with different port values. The redirect will be created
-					// when the mapping is available or when the port name
-					// conflicts have been resolved in POD specs.
-					return 0, false
-				}
-				// desiredRedirects starts out empty, so we can use it check
-				// if the redirect has already been updated on this round.
-				if redirectPort = desiredRedirects[proxyID]; redirectPort != 0 {
-					return redirectPort, updateMaps
-				}
-
 				pp := e.newProxyPolicy(l4, dstPort)
+
 				var err error
 				redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e, proxyWaitGroup)
 				if err != nil {
@@ -253,24 +260,28 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 					// Policy is regenerated when listeners are added or removed
 					// to fix this condition when the listener is available.
 					e.getLogger().WithField(logfields.Listener, l4.GetListener()).WithError(err).Debug("Redirect rule with missing listener skipped, will be applied once the listener is available")
-					return 0, false
+					return nil
 				}
 				finalizeList.Append(finalizeFunc)
 				revertStack.Push(revertFunc)
-
-				desiredRedirects[proxyID] = redirectPort
-
-				// Update the endpoint API model to report that Cilium manages a
-				// redirect for that port.
-				statsKey := policy.ProxyStatsKey(l4.Ingress, string(l4.Protocol), dstPort, redirectPort)
-				e.proxyStatisticsMutex.Lock()
-				proxyStats := e.getProxyStatisticsLocked(statsKey, string(l4.L7Parser), dstPort, l4.Ingress)
-				proxyStats.AllocatedProxyPort = int64(redirectPort)
-				e.proxyStatisticsMutex.Unlock()
-
-				updatedStats = append(updatedStats, proxyStats)
 			}
-			return redirectPort, updateMaps
+
+			desiredRedirects[proxyID] = redirectPort
+
+			// Update the endpoint API model to report that Cilium manages a
+			// redirect for that port.
+			statsKey := policy.ProxyStatsKey(l4.Ingress, string(l4.Protocol), dstPort, redirectPort)
+			e.proxyStatisticsMutex.Lock()
+			proxyStats := e.getProxyStatisticsLocked(statsKey, string(l4.L7Parser), dstPort, l4.Ingress)
+			proxyStats.AllocatedProxyPort = int64(redirectPort)
+			e.proxyStatisticsMutex.Unlock()
+
+			updatedStats = append(updatedStats, proxyStats)
+
+			if updateMaps {
+				return desiredRedirects
+			}
+			return nil
 		}, changes)
 
 	revertStack.Push(func() error {
@@ -437,13 +448,15 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects, realizedRedirects map[st
 			continue
 		}
 
-		err, finalizeFunc, revertFunc := e.proxy.RemoveRedirect(id, proxyWaitGroup)
-		if err != nil {
-			e.getLogger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
-			continue
+		if redirectPort != 0 {
+			err, finalizeFunc, revertFunc := e.proxy.RemoveRedirect(id, proxyWaitGroup)
+			if err != nil {
+				e.getLogger().WithError(err).WithField(logfields.L4PolicyID, id).Warn("Error while removing proxy redirect")
+				continue
+			}
+			finalizeList.Append(finalizeFunc)
+			revertStack.Push(revertFunc)
 		}
-		finalizeList.Append(finalizeFunc)
-		revertStack.Push(revertFunc)
 
 		// Update the endpoint API model to report that no redirect is
 		// active or known for that port anymore. We never delete stats
@@ -841,16 +854,6 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		}
 		datapathRegenCtxt.revertStack.Push(networkPolicyRevertFunc)
 
-		// At this point desiredRedirects only contains the (new) realized redirects,
-		// so update e.realizedRedirects pointer now, before syncPolicyMap() refers to
-		// e.realizedRedirects below
-		e.realizedRedirects.Store(&desiredRedirects)
-		datapathRegenCtxt.revertStack.Push(func() error {
-			// revert back to the set of previously realized redirects
-			e.realizedRedirects.Store(&previouslyRealizedRedirects)
-			return nil
-		})
-
 		// Synchronously try to update PolicyMap for this endpoint. If any
 		// part of updating the PolicyMap fails, bail out and do not generate
 		// BPF. Unfortunately, this means that the map will be in an inconsistent
@@ -872,6 +875,15 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		datapathRegenCtxt.finalizeList.Append(finalizeFunc)
 		datapathRegenCtxt.revertStack.Push(revertFunc)
 		stats.proxyConfiguration.End(true)
+
+		// At this point desiredRedirects only contains the (new) realized redirects,
+		// so update e.realizedRedirects pointer.
+		e.realizedRedirects.Store(&desiredRedirects)
+		datapathRegenCtxt.revertStack.Push(func() error {
+			// revert back to the set of previously realized redirects
+			e.realizedRedirects.Store(&previouslyRealizedRedirects)
+			return nil
+		})
 	}
 
 	stats.prepareBuild.Start()
@@ -1178,10 +1190,10 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 	adds, deletes := e.desiredPolicy.ConsumeMapChanges()
 	changes := policy.ChangeState{Adds: adds}
 
-	realizedRedirects := e.GetRealizedRedirects()
-
 	// Add possible visibility redirects due to incrementally added keys
 	if e.visibilityPolicy != nil {
+		realizedRedirects := e.GetRealizedRedirects()
+
 		for _, visMeta := range e.visibilityPolicy.Ingress {
 			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port, "")
 			if redirectPort, exists := realizedRedirects[proxyID]; exists && redirectPort != 0 {
@@ -1210,13 +1222,6 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 			continue
 		}
 
-		// Redirect entries currently come in with a dummy redirect port ("1"), replace it with
-		// the actual proxy port number, or with 0 if the redirect does not exist yet. This is
-		// due to the fact that proxies may not yet have bound to a specific port when a proxy
-		// policy is first instantiated.
-		if entry.IsRedirectEntry() {
-			entry.ProxyPort = realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd, entry.Listener)]
-		}
 		if !e.addPolicyKey(keyToAdd, entry, true) {
 			errors++
 		}
@@ -1271,19 +1276,10 @@ func (e *Endpoint) syncPolicyMap() error {
 func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) (diffCount int, diffs []policy.MapChange, err error) {
 	errors := 0
 
-	realizedRedirects := e.GetRealizedRedirects()
-
 	// Add policy map entries before deleting to avoid transient drops
 
 	e.desiredPolicy.GetPolicyMap().ForEach(func(keyToAdd policy.Key, entry policy.MapStateEntry) bool {
 		if oldEntry, ok := realized.Get(keyToAdd); !ok || !oldEntry.DatapathEqual(&entry) {
-			// Redirect entries currently come in with a dummy redirect port ("1"), replace it with
-			// the actual proxy port number. This is due to the fact that proxies may not yet have
-			// bound to a specific port when a proxy policy is first instantiated.
-			if entry.IsRedirectEntry() {
-				// Will change to 0 if on a sidecar
-				entry.ProxyPort = realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd, entry.Listener)]
-			}
 			if !e.addPolicyKey(keyToAdd, entry, false) {
 				errors++
 			}
