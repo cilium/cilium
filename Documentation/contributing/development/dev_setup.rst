@@ -541,6 +541,55 @@ Making Changes
    This make target works both inside and outside the Vagrant VM, assuming that ``docker``
    is running in the environment.
 
+Update a golang version
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Minor version
+^^^^^^^^^^^^^
+
+Each Cilium release is tied to a specific version of Golang via an explicit constraint
+in our Renovate configuration.
+
+We aim to build and release all maintained Cilium branches using a Golang version
+that is actively supported. This needs to be balanced against the desire to avoid
+regressions in Golang that may impact Cilium. Golang supports two minor versions
+at any given time – when updating the version used by a Cilium branch, you should
+choose the older of the two supported versions.
+
+To update the minor version of Golang used by a release, you will first need to
+update the Renovate configuration found in ``.github/renovate.json5``. For each
+minor release, there will be a section that looks like this:
+
+.. code-block:: json
+
+    {
+      "matchPackageNames": [
+        "docker.io/library/golang",
+        "go"
+      ],
+      "allowedVersions": "<1.21",
+      "matchBaseBranches": [
+        "v1.14"
+      ]
+    }
+
+To allow Renovate to create a pull request that updates the minor Golang version,
+bump the ``allowedVersions`` constraint to include the desired minor version. Once
+this change has been merged, Renovate will create a pull request that updates the
+Golang version. Minor version updates may require further changes to ensure that
+all Cilium features are working correctly – use the CI to identify any issues that
+require further changes, and bring them to the attention of the Cilium maintainers
+in the pull request.
+
+Once the CI is passing, the PR will be merged as part of the standard version
+upgrade process.
+
+Patch version
+^^^^^^^^^^^^^
+
+New patch versions of Golang are picked up automatically by the CI; there should
+normally be no need to update the version manually.
+
 Add/update a golang dependency
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
