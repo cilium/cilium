@@ -109,22 +109,14 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 }
 
 /* __encap_and_redirect_lxc() is a variant of encap_and_redirect_lxc()
- * that requires a valid tunnel_endpoint.
+ * that requires a valid tunnel_endpoint, and doesn't handle IPsec.
  */
 static __always_inline int
 __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
-			 __u8 encrypt_key __maybe_unused,
-			 __u16 node_id __maybe_unused, __u32 seclabel,
-			 __u32 dstid, const struct trace_ctx *trace)
+			 __u32 seclabel, __u32 dstid, const struct trace_ctx *trace)
 {
 	int ifindex __maybe_unused;
 	int ret __maybe_unused;
-
-#ifdef ENABLE_IPSEC
-	if (encrypt_key)
-		return encap_and_redirect_ipsec(ctx, encrypt_key, node_id,
-						seclabel);
-#endif
 
 #if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
 	/* For the host firewall, traffic from a pod to a remote node is sent
@@ -178,10 +170,16 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 							NOT_VTEP_DST, trace);
 	return DROP_NO_TUNNEL_ENDPOINT;
 #else /* ENABLE_HIGH_SCALE_IPCACHE */
-	if (tunnel_endpoint)
+
+	if (tunnel_endpoint) {
+#ifdef ENABLE_IPSEC
+		if (encrypt_key)
+			return encap_and_redirect_ipsec(ctx, encrypt_key,
+							node_id, seclabel);
+#endif
 		return __encap_and_redirect_lxc(ctx, tunnel_endpoint,
-						encrypt_key, node_id, seclabel,
-						dstid, trace);
+						seclabel, dstid, trace);
+	}
 
 	tunnel = map_lookup_elem(&TUNNEL_MAP, key);
 	if (!tunnel)

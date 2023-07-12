@@ -1094,13 +1094,8 @@ ct_recreate4:
 				return DROP_NO_EGRESS_GATEWAY;
 			}
 			/* Send the packet to egress gateway node through a tunnel. */
-			ret = __encap_and_redirect_lxc(ctx, tunnel_endpoint, 0,
-						       node_id, SECLABEL,
-						       *dst_sec_identity, &trace);
-			if (ret == CTX_ACT_OK)
-				goto encrypt_to_stack;
-
-			return ret;
+			return __encap_and_redirect_lxc(ctx, tunnel_endpoint,
+							SECLABEL, *dst_sec_identity, &trace);
 		}
 	}
 skip_egress_gateway:
@@ -1231,7 +1226,7 @@ pass_to_stack:
 #endif
 	}
 
-#if defined(TUNNEL_MODE) || defined(ENABLE_EGRESS_GATEWAY) || defined(ENABLE_HIGH_SCALE_IPCACHE)
+#if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dst_sec_identity, 0, 0,
