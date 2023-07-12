@@ -473,15 +473,20 @@ func (l4 *L4Filter) GetListener() string {
 // To give priority for deny and L7 redirection (e.g., for visibility purposes), we use
 // DenyPreferredInsert() instead of directly inserting the value to the map.
 // PolicyOwner (aka Endpoint) is locked during this call.
-func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficdirection.TrafficDirection, identities Identities) MapState {
-	port := uint16(l4Filter.Port)
-	proto := uint8(l4Filter.U8Proto)
+func (l4 *L4Filter) ToMapState(policyOwner PolicyOwner, identities Identities) MapState {
+	port := uint16(l4.Port)
+	proto := uint8(l4.U8Proto)
+
+	direction := trafficdirection.Egress
+	if l4.Ingress {
+		direction = trafficdirection.Ingress
+	}
 
 	logger := log
 	if option.Config.Debug {
 		logger = log.WithFields(logrus.Fields{
 			logfields.Port:             port,
-			logfields.PortName:         l4Filter.PortName,
+			logfields.PortName:         l4.PortName,
 			logfields.Protocol:         proto,
 			logfields.TrafficDirection: direction,
 		})
@@ -490,8 +495,8 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 	keysToAdd := MapState{}
 
 	// resolve named port
-	if port == 0 && l4Filter.PortName != "" {
-		port = policyOwner.GetNamedPortLocked(l4Filter.Ingress, l4Filter.PortName, proto)
+	if port == 0 && l4.PortName != "" {
+		port = policyOwner.GetNamedPortLocked(l4.Ingress, l4.PortName, proto)
 		if port == 0 {
 			return keysToAdd
 		}
@@ -506,19 +511,19 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 
 	// find the L7 rules for the wildcard entry, if any
 	var wildcardRule *PerSelectorPolicy
-	if l4Filter.wildcard != nil {
-		wildcardRule = l4Filter.PerSelectorPolicies[l4Filter.wildcard]
+	if l4.wildcard != nil {
+		wildcardRule = l4.PerSelectorPolicies[l4.wildcard]
 	}
 
-	for cs, currentRule := range l4Filter.PerSelectorPolicies {
+	for cs, currentRule := range l4.PerSelectorPolicies {
 		// have wildcard?        this is a L3L4 key?
 		isDenyRule := currentRule != nil && currentRule.IsDeny
 
-		if (l4Filter.Port != 0 || l4Filter.PortName != "") && l4Filter.wildcard != nil {
+		if (l4.Port != 0 || l4.PortName != "") && l4.wildcard != nil {
 			// Now that we have a port number and a wildcard the filter has a
 			// L4-only rule.
 
-			currentRuleIsL3L4 := l4Filter.wildcard != cs
+			currentRuleIsL3L4 := l4.wildcard != cs
 
 			// To understand the logic for the "skip" cases, see the
 			// documentation for the __canSkip function.
@@ -528,7 +533,15 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 			}
 		}
 
-		entry := NewMapStateEntry(cs, l4Filter.DerivedFromRules, currentRule.IsRedirect(), l4Filter.Listener, isDenyRule, currentRule.GetAuthType())
+		var proxyPort uint16
+		if currentRule.IsRedirect() {
+			var err error
+			proxyPort, err = policyOwner.LookupRedirectPortLocked(l4.Ingress, string(l4.Protocol), port, l4.L7Parser, l4.Listener)
+			if err != nil {
+				continue // Skip unrealized redirects
+			}
+		}
+		entry := NewMapStateEntry(cs, l4.DerivedFromRules, proxyPort, l4.Listener, isDenyRule, currentRule.GetAuthType())
 
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
@@ -1167,9 +1180,16 @@ func (l4Policy *L4Policy) AccumulateMapChanges(l4 *L4Filter, cs CachedSelector, 
 				continue
 			}
 		}
+		var proxyPort uint16
+		if redirect {
+			var err error
+			proxyPort, err = epPolicy.PolicyOwner.LookupRedirectPortLocked(l4.Ingress, string(l4.Protocol), port, l4.L7Parser, l4.Listener)
+			if err != nil {
+				continue // Skip unrealized redirects
+			}
+		}
 		key := Key{DestPort: port, Nexthdr: proto, TrafficDirection: direction.Uint8()}
-		value := NewMapStateEntry(cs, l4.DerivedFromRules, redirect, l4.Listener, isDeny, authType)
-
+		value := NewMapStateEntry(cs, l4.DerivedFromRules, proxyPort, l4.Listener, isDeny, authType)
 		if option.Config.Debug {
 			log.WithFields(logrus.Fields{
 				logfields.EndpointSelector: cs,

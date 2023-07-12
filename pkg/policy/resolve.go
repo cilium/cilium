@@ -66,7 +66,7 @@ type EndpointPolicy struct {
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	GetID() uint64
-	LookupRedirectPortLocked(ingress bool, protocol string, port uint16, listener string) uint16
+	LookupRedirectPortLocked(ingress bool, protocol string, port uint16, parser L7ParserType, listener string) (uint16, error)
 	GetNamedPort(ingress bool, name string, proto uint8) uint16
 	GetNamedPortLocked(ingress bool, name string, proto uint8) uint16
 	PolicyDebug(fields logrus.Fields, msg string)
@@ -162,25 +162,14 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries() {
 	if p.L4Policy == nil {
 		return
 	}
-	p.computeDirectionL4PolicyMapEntries(p.PolicyMapState, p.L4Policy.Ingress, trafficdirection.Ingress)
-	p.computeDirectionL4PolicyMapEntries(p.PolicyMapState, p.L4Policy.Egress, trafficdirection.Egress)
+	p.computeDirectionL4PolicyMapEntries(p.PolicyMapState, p.L4Policy.Ingress)
+	p.computeDirectionL4PolicyMapEntries(p.PolicyMapState, p.L4Policy.Egress)
 }
 
-func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapState, l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
+func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapState, l4PolicyMap L4PolicyMap) {
 	for _, filter := range l4PolicyMap {
-		keysFromFilter := filter.ToMapState(p.PolicyOwner, direction, p.SelectorCache)
+		keysFromFilter := filter.ToMapState(p.PolicyOwner, p.SelectorCache)
 		for keyFromFilter, entry := range keysFromFilter {
-			// Fix up the proxy port for entries that need proxy redirection
-			if entry.IsRedirectEntry() {
-				entry.ProxyPort = p.PolicyOwner.LookupRedirectPortLocked(filter.Ingress, string(filter.Protocol), keyFromFilter.DestPort, entry.Listener)
-				// If the currently allocated proxy port is 0, this is a new
-				// redirect, for which no port has been allocated yet. Ignore
-				// it for now. This will be configured by
-				// e.addNewRedirectsFromDesiredPolicy() once the port has been allocated.
-				if !entry.IsRedirectEntry() {
-					continue
-				}
-			}
 			policyMapState.DenyPreferredInsert(keyFromFilter, entry, p.SelectorCache)
 		}
 	}

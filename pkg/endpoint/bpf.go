@@ -39,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/version"
 )
@@ -344,18 +343,10 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 			}
 
 			// Set the proxy port in the policy map.
-			var direction trafficdirection.TrafficDirection
-			if l4.Ingress {
-				direction = trafficdirection.Ingress
-			} else {
-				direction = trafficdirection.Egress
-			}
-
 			idLookup := &policyIdentitiesLabelLookup{e}
-			keysFromFilter := l4.ToMapState(e, direction, idLookup)
+			keysFromFilter := l4.ToMapState(e, idLookup)
 			for keyFromFilter, entry := range keysFromFilter {
 				if entry.IsRedirectEntry() {
-					entry.ProxyPort = redirectPort
 					e.desiredPolicy.PolicyMapState.DenyPreferredInsertWithChanges(keyFromFilter, entry, adds, nil, old, idLookup)
 				}
 			}

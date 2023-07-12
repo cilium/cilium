@@ -1385,7 +1385,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 				cs = x.cs
 			}
 			key := Key{DestPort: x.port, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
-			value := NewMapStateEntry(cs, nil, x.redirect, "", x.deny, AuthTypeNone)
+			var proxyPort uint16
+			if x.redirect {
+				proxyPort = 1
+			}
+			value := NewMapStateEntry(cs, nil, proxyPort, "", x.deny, AuthTypeNone)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState, nil)
@@ -1625,7 +1629,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 				cs = x.cs
 			}
 			key := Key{DestPort: x.port, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
-			value := NewMapStateEntry(cs, nil, x.redirect, "", x.deny, x.authType)
+			var proxyPort uint16
+			if x.redirect {
+				proxyPort = 1
+			}
+			value := NewMapStateEntry(cs, nil, proxyPort, "", x.deny, x.authType)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState, nil)
@@ -2185,7 +2193,11 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 				cs = x.cs
 			}
 			key := Key{DestPort: x.port, Nexthdr: x.proto, TrafficDirection: dir.Uint8()}
-			value := NewMapStateEntry(cs, nil, x.redirect, "", x.deny, AuthTypeNone)
+			var proxyPort uint16
+			if x.redirect {
+				proxyPort = 1
+			}
+			value := NewMapStateEntry(cs, nil, proxyPort, "", x.deny, AuthTypeNone)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
 		adds, deletes = policyMaps.consumeMapChanges(policyMapState, nil)

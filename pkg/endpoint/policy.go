@@ -126,12 +126,20 @@ func (e *Endpoint) proxyID(l4 *policy.L4Filter) (string, uint16) {
 	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, l4.Listener), port
 }
 
+var unrealizedRedirect = errors.New("Proxy port for redirect not found")
+
 // lookupRedirectPort returns the redirect L4 proxy port for the given L4
 // policy map key, in host byte order. Returns 0 if not found or the
 // filter doesn't require a redirect.
+// Returns an error if the redirect port can not be found and one is needed.
 // Must be called with Endpoint.mutex held.
-func (e *Endpoint) LookupRedirectPortLocked(ingress bool, protocol string, port uint16, listener string) uint16 {
-	return e.realizedRedirects[policy.ProxyID(e.ID, ingress, protocol, port, listener)]
+func (e *Endpoint) LookupRedirectPortLocked(ingress bool, protocol string, port uint16, parser policy.L7ParserType, listener string) (uint16, error) {
+	proxyPort := e.realizedRedirects[policy.ProxyID(e.ID, ingress, protocol, port, listener)]
+	// Sidecar HTTP does not need a proxy port
+	if proxyPort == 0 && !(e.hasSidecarProxy && parser == policy.ParserTypeHTTP) {
+		return 0, unrealizedRedirect
+	}
+	return proxyPort, nil
 }
 
 // Note that this function assumes that endpoint policy has already been generated!
