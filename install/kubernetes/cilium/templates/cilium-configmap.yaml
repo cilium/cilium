@@ -1144,6 +1144,7 @@ data:
   mesh-auth-mutual-enabled: "true"
   mesh-auth-mutual-listener-port: {{ .Values.authentication.mutual.port | quote }}
   mesh-auth-spire-agent-socket: {{ .Values.authentication.mutual.spire.agentSocketPath | quote }}
+  mesh-auth-mutual-connect-timeout: {{ include "validateDuration" .Values.authentication.mutual.connectTimeout | quote }}
   {{- if .Values.authentication.mutual.spire.serverAddress }}
   mesh-auth-spire-server-address: {{ .Values.authentication.mutual.spire.serverAddress | quote }}
   {{- else }}

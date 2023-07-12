@@ -3118,6 +3118,8 @@ authentication:
   mutual:
     # -- Port on the agent where mutual authentication handshakes between agents will be performed
     port: 4250
+    # -- Timeout for connecting to the remote node TCP socket
+    connectTimeout: 5s
     # Settings for SPIRE
     spire:
       # -- Enable SPIRE integration
