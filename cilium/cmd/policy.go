@@ -22,8 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
-// policyCmd represents the policy command
-var policyCmd = &cobra.Command{
+// PolicyCmd represents the policy command
+var PolicyCmd = &cobra.Command{
 	Use:   "policy",
 	Short: "Manage security policies",
 }
@@ -35,7 +35,7 @@ var (
 )
 
 func init() {
-	rootCmd.AddCommand(policyCmd)
+	RootCmd.AddCommand(PolicyCmd)
 
 	// Initialize LRU here because the policy subcommands (validate, import)
 	// will call down to sanitizing the FQDN rules which contains regexes.

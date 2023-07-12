@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bpfIPMasqCmd represents the bpf command
-var bpfIPMasqCmd = &cobra.Command{
+// BPFIPMasqCmd represents the bpf command
+var BPFIPMasqCmd = &cobra.Command{
 	Use:   "ipmasq",
 	Short: "ip-masq-agent CIDRs",
 }
 
 func init() {
-	bpfCmd.AddCommand(bpfIPMasqCmd)
+	BPFCmd.AddCommand(BPFIPMasqCmd)
 }

@@ -235,7 +235,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
        .. code-block:: shell-session
 
-           cilium install --azure-resource-group "${AZURE_RESOURCE_GROUP}"
+           cilium install --set azure.resourceGroup="${AZURE_RESOURCE_GROUP}"
 
        The Cilium CLI will automatically install Cilium using one of the
        following installation modes based on the ``--network-plugin``

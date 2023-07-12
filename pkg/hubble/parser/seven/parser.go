@@ -46,8 +46,9 @@ func New(
 	opts ...options.Option,
 ) (*Parser, error) {
 	args := &options.Options{
-		CacheSize:       10000,
-		RedactHTTPQuery: false,
+		CacheSize:         10000,
+		RedactHTTPQuery:   false,
+		RedactKafkaAPIKey: false,
 	}
 
 	for _, opt := range opts {
@@ -353,7 +354,7 @@ func decodeLayer7(r *accesslog.LogRecord, opts *options.Options) *flowpb.Layer7 
 	case r.Kafka != nil:
 		return &flowpb.Layer7{
 			Type:   flowType,
-			Record: decodeKafka(r.Type, r.Kafka),
+			Record: decodeKafka(r.Type, r.Kafka, opts),
 		}
 	default:
 		return &flowpb.Layer7{

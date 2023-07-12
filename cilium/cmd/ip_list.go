@@ -33,7 +33,7 @@ var ipListCmd = &cobra.Command{
 var numeric bool
 
 func init() {
-	ipCmd.AddCommand(ipListCmd)
+	IPCmd.AddCommand(ipListCmd)
 	command.AddOutputOption(ipListCmd)
 	flags := ipListCmd.Flags()
 	flags.BoolVarP(&numeric, "numeric", "n", false, "Print numeric identities")

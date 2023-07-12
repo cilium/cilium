@@ -29,7 +29,7 @@ func (k *K8sWatcher) ciliumEgressGatewayPolicyInit(ciliumNPClient client.Clients
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(apiGroup, metricCEGP, resources.MetricCreate, valid, equal) }()
-				if cegp := k8s.ObjToCEGP(obj); cegp != nil {
+				if cegp := k8s.CastInformerEvent[cilium_v2.CiliumEgressGatewayPolicy](obj); cegp != nil {
 					valid = true
 					err := k.addCiliumEgressGatewayPolicy(cegp)
 					k.K8sEventProcessed(metricCEGP, resources.MetricCreate, err == nil)
@@ -39,7 +39,7 @@ func (k *K8sWatcher) ciliumEgressGatewayPolicyInit(ciliumNPClient client.Clients
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(apiGroup, metricCEGP, resources.MetricUpdate, valid, equal) }()
 
-				newCegp := k8s.ObjToCEGP(newObj)
+				newCegp := k8s.CastInformerEvent[cilium_v2.CiliumEgressGatewayPolicy](newObj)
 				if newCegp == nil {
 					return
 				}
@@ -50,7 +50,7 @@ func (k *K8sWatcher) ciliumEgressGatewayPolicyInit(ciliumNPClient client.Clients
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(apiGroup, metricCEGP, resources.MetricDelete, valid, equal) }()
-				cegp := k8s.ObjToCEGP(obj)
+				cegp := k8s.CastInformerEvent[cilium_v2.CiliumEgressGatewayPolicy](obj)
 				if cegp == nil {
 					return
 				}
@@ -59,7 +59,7 @@ func (k *K8sWatcher) ciliumEgressGatewayPolicyInit(ciliumNPClient client.Clients
 				k.K8sEventProcessed(metricCEGP, resources.MetricDelete, true)
 			},
 		},
-		k8s.TransformToCiliumEgressGatewayPolicy,
+		nil,
 	)
 
 	k.blockWaitGroupToSyncResources(

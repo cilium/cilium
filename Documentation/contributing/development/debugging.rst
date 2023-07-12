@@ -4,10 +4,79 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+.. _gs_debugging:
+
 #########
 Debugging
 #########
 
+Attaching a Debugger
+--------------------
+
+Cilium comes with a set of Makefile targets for quickly deploying development
+builds to a local :ref:`Kind <gs_kind>` cluster. One of these targets is
+``kind-debug-agent``, which generates a container image that wraps the Cilium
+agent with a `Delve (dlv) <https://github.com/go-delve/delve>`_ invocation. This
+causes the agent process to listen for connections from a debugger front-end on
+port 2345.
+
+To build and push a debug image to your local Kind cluster, run:
+
+.. code-block:: shell-session
+
+    $ make kind-debug-agent
+
+.. note::
+      The image is automatically pushed to the Kind nodes, but running Cilium
+      Pods are not restarted. To do so, run:
+
+      .. code-block:: shell-session
+        
+        $ kubectl delete pods -n kube-system -l app.kubernetes.io/name=cilium-agent
+
+If your Kind cluster was set up using ``make kind``, it will automatically
+be configured using with the following port mappings:
+
+- ``23401``: ``kind-control-plane-1``
+- ``2340*``: Subsequent ``kind-control-plane-*`` nodes, if defined
+- ``23411``: ``kind-worker-1``
+- ``2341*``: Subsequent ``kind-worker-*`` nodes, if defined
+
+The Delve listener supports multiple debugging protocols, so any IDEs or
+debugger front-ends that understand either the `Debug Adapter Protocol
+<https://microsoft.github.io/debug-adapter-protocol>`_ or Delve API v2 are
+supported.
+
+~~~~~~~~~~~~~~~~~~
+Visual Studio Code
+~~~~~~~~~~~~~~~~~~
+
+The Cilium repository contains a VS Code launch configuration
+(``.vscode/launch.json``) that includes debug targets for the Kind control
+plane, the first two ``kind-worker`` nodes and the :ref:`Cilium Operator
+<cilium_operator_internals>`.
+
+.. image:: _static/vscode-run-and-debug.png
+    :align: center
+
+|
+
+The preceding screenshot is taken from the 'Run And Debug' section in VS Code.
+The default shortcut to access this section is ``Shift+Ctrl+D``. Select a target
+to attach to, start the debug session and set a breakpoint to halt the agent or
+operator on a specific code statement. This only works for Go code, BPF C code
+cannot be debugged this way.
+
+See `the VS Code debugging guide <https://code.visualstudio.com/docs/editor/debugging>`_
+for more details.
+
+~~~~~~
+Neovim
+~~~~~~
+
+The Cilium repository contains a `.nvim directory
+<https://github.com/cilium/cilium/tree/main/.nvim>`_ containing a DAP
+configuration as well as a README on how to configure ``nvim-dap``.
 
 toFQDNs and DNS Debugging
 -------------------------
@@ -405,3 +474,50 @@ For example:
     $ make LOCKDEBUG=1
     $ # Deadlock detection during integration tests:
     $ make LOCKDEBUG=1 integration-tests
+
+CPU Profiling and Memory Leaks
+------------------------------
+
+Cilium bundles ``gops``, a standard tool for Golang applications, which
+provides the ability to collect CPU and memory profiles using ``pprof``.
+Inspecting profiles can help identify CPU bottlenecks and memory leaks.
+
+To capture a profile, take a :ref:`sysdump <sysdump>` of the cluster with the
+Cilium CLI or more directly, use the ``cilium-bugtool`` command that is
+included in the Cilium image:
+
+.. code-block:: shell-session
+
+    $ kubectl exec -ti -n kube-system <cilium-pod-name> -- cilium-bugtool --get-pprof --pprof-trace-seconds N
+    $ kubectl cp -n kube-system <cilium-pod-name>:/tmp/cilium-bugtool-<time-generated-name>.tar ./cilium-pprof.tar
+    $ tar xf ./cilium-pprof.tar
+
+Be mindful that the profile window is the number of seconds passed to
+``--pprof-trace-seconds``. Ensure that the number of seconds are enough to
+capture Cilium while it is exhibiting the problematic behavior to debug.
+
+There are 6 files that encompass the tar archive:
+
+.. code-block:: shell-session
+
+    Permissions Size User  Date Modified Name
+    .rw-r--r--   940 chris  6 Jul 14:04  gops-memstats-$(pidof-cilium-agent).md
+    .rw-r--r--  211k chris  6 Jul 14:04  gops-stack-$(pidof-cilium-agent).md
+    .rw-r--r--    58 chris  6 Jul 14:04  gops-stats-$(pidof-cilium-agent).md
+    .rw-r--r--   212 chris  6 Jul 14:04  pprof-cpu
+    .rw-r--r--  2.3M chris  6 Jul 14:04  pprof-heap
+    .rw-r--r--   25k chris  6 Jul 14:04  pprof-trace
+
+The files prefixed with ``pprof-`` are profiles. For more information on each
+one, see `Julia Evan's blog`_ on ``pprof``.
+
+To view the CPU or memory profile, simply execute the following command:
+
+.. code-block:: shell-session
+
+    $ go tool pprof -http localhost:9090 pprof-cpu  # for CPU
+    $ go tool pprof -http localhost:9090 pprof-heap # for memory
+
+This opens a browser window for profile inspection.
+
+.. _Julia Evan's blog: https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/

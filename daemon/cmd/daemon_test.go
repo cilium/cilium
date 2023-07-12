@@ -11,6 +11,9 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/cilium/checkmate"
+	"github.com/spf13/cobra"
+
 	"github.com/cilium/cilium/api/v1/models"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
@@ -44,8 +47,6 @@ import (
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/types"
-
-	. "github.com/cilium/checkmate"
 )
 
 type DaemonSuite struct {
@@ -66,7 +67,7 @@ type DaemonSuite struct {
 	OnGetCIDRPrefixLengths func() ([]int, []int)
 }
 
-func setupTestDirectories() {
+func setupTestDirectories() string {
 	tempRunDir, err := os.MkdirTemp("", "cilium-test-run")
 	if err != nil {
 		panic("TempDir() failed.")
@@ -77,14 +78,13 @@ func setupTestDirectories() {
 		panic("Mkdir failed")
 	}
 
-	option.Config.RunDir = tempRunDir
-	option.Config.StateDir = tempRunDir
-
 	socketDir := envoy.GetSocketDir(tempRunDir)
 	err = os.MkdirAll(socketDir, 0700)
 	if err != nil {
 		panic("creating envoy socket directory failed")
 	}
+
+	return tempRunDir
 }
 
 func TestMain(m *testing.M) {
@@ -96,9 +96,30 @@ func TestMain(m *testing.M) {
 
 	proxy.DefaultDNSProxy = fqdnproxy.MockFQDNProxy{}
 
+	time.Local = time.UTC
+
+	os.Exit(m.Run())
+}
+
+type dummyEpSyncher struct{}
+
+func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration) {
+}
+
+func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
+}
+
+func (ds *DaemonSuite) SetUpSuite(c *C) {
+	testutils.IntegrationTest(c)
+}
+
+func (s *DaemonSuite) setupConfigOptions() {
 	// Set up all configuration options which are global to the entire test
 	// run.
-	option.Config.Populate(Vp)
+	mockCmd := &cobra.Command{}
+	s.hive.RegisterFlags(mockCmd.Flags())
+	InitGlobalFlags(mockCmd, s.hive.Viper())
+	option.Config.Populate(s.hive.Viper())
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeKVstore
 	option.Config.DryMode = true
 	option.Config.Opts = option.NewIntOptions(&option.DaemonMutableOptionLibrary)
@@ -119,28 +140,10 @@ func TestMain(m *testing.M) {
 	// which requires root privileges. This would require marking the test suite
 	// as privileged.
 	option.Config.KubeProxyReplacement = option.KubeProxyReplacementFalse
-
-	time.Local = time.UTC
-
-	os.Exit(m.Run())
-}
-
-type dummyEpSyncher struct{}
-
-func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration) {
-}
-
-func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
-}
-
-func (ds *DaemonSuite) SetUpSuite(c *C) {
-	testutils.IntegrationTest(c)
 }
 
 func (ds *DaemonSuite) SetUpTest(c *C) {
 	ctx := context.Background()
-
-	setupTestDirectories()
 
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
@@ -165,10 +168,19 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 		statedb.Cell,
 		tables.Cell,
 		job.Cell,
+		metrics.Cell,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
 			daemonPromise = p
 		}),
 	)
+
+	// bootstrap global config
+	ds.setupConfigOptions()
+
+	// create temporary test directories and update global config accordingly
+	testRunDir := setupTestDirectories()
+	option.Config.RunDir = testRunDir
+	option.Config.StateDir = testRunDir
 
 	err := ds.hive.Start(ctx)
 	c.Assert(err, IsNil)

@@ -48,7 +48,7 @@ var serviceUpdateCmd = &cobra.Command{
 }
 
 func init() {
-	serviceCmd.AddCommand(serviceUpdateCmd)
+	ServiceCmd.AddCommand(serviceUpdateCmd)
 	serviceUpdateCmd.Flags().Uint64VarP(&idU, "id", "", 0, "Identifier")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sExternalIPs, "k8s-external", "", false, "Set service as a k8s ExternalIPs")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sNodePort, "k8s-node-port", "", false, "Set service as a k8s NodePort")

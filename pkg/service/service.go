@@ -4,6 +4,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"go.uber.org/multierr"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -810,9 +810,10 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 		if !lb.IsValidStateTransition(be.State, updatedB.State) {
 			currentState, _ := be.State.String()
 			newState, _ := updatedB.State.String()
-			e := fmt.Errorf("invalid state transition for backend"+
-				"[%s] (%s) -> (%s)", updatedB.String(), currentState, newState)
-			errs = multierr.Append(errs, e)
+			errs = errors.Join(errs,
+				fmt.Errorf("invalid state transition for backend[%s] (%s) -> (%s)",
+					updatedB.String(), currentState, newState),
+			)
 			continue
 		}
 		be.State = updatedB.State
@@ -875,16 +876,13 @@ func (s *Service) UpdateBackendsState(backends []*lb.Backend) error {
 			logfields.BackendPreferred: b.Preferred,
 		}).Info("Persisting updated backend state for backend")
 		if err := s.lbmap.UpdateBackendWithState(b); err != nil {
-			e := fmt.Errorf("failed to update backend %+v %w", b, err)
-			errs = multierr.Append(errs, e)
+			errs = errors.Join(errs, fmt.Errorf("failed to update backend %+v %w", b, err))
 		}
 	}
 
 	for i := range updateSvcs {
-		err := s.lbmap.UpsertService(updateSvcs[i])
-		errs = multierr.Append(errs, err)
+		errs = errors.Join(errs, s.lbmap.UpsertService(updateSvcs[i]))
 	}
-
 	return errs
 }
 
@@ -954,6 +952,18 @@ func (s *Service) GetDeepCopyServicesByName(name, namespace string) (svcs []*lb.
 	return svcs
 }
 
+// GetDeepCopyServiceByFrontend returns a deep-copy of the service that matches the Frontend address.
+func (s *Service) GetDeepCopyServiceByFrontend(frontend lb.L3n4Addr) (*lb.SVC, bool) {
+	s.RLock()
+	defer s.RUnlock()
+
+	if svc, found := s.svcByHash[frontend.Hash()]; found {
+		return svc.deepCopyToLBSVC(), true
+	}
+
+	return nil, false
+}
+
 // RestoreServices restores services from BPF maps.
 //
 // It first restores all the service entries, followed by backend entries.
@@ -965,28 +975,23 @@ func (s *Service) GetDeepCopyServicesByName(name, namespace string) (svcs []*lb.
 func (s *Service) RestoreServices() error {
 	s.Lock()
 	defer s.Unlock()
-	var errs error
 	backendsById := make(map[lb.BackendID]struct{})
 
+	var errs error
 	// Restore service cache from BPF maps
 	if err := s.restoreServicesLocked(backendsById); err != nil {
-		errs = multierr.Append(errs,
-			fmt.Errorf("error while restoring services: %w", err))
+		errs = errors.Join(errs, fmt.Errorf("error while restoring services: %w", err))
 	}
 
 	// Restore backend IDs
 	if err := s.restoreBackendsLocked(backendsById); err != nil {
-		errs = multierr.Append(errs,
-			fmt.Errorf("error while restoring backends: %w", err))
+		errs = errors.Join(errs, fmt.Errorf("error while restoring backends: %w", err))
 	}
 
 	// Remove LB source ranges for no longer existing services
 	if option.Config.EnableSVCSourceRangeCheck {
-		if err := s.restoreAndDeleteOrphanSourceRanges(); err != nil {
-			return err
-		}
+		errs = errors.Join(errs, s.restoreAndDeleteOrphanSourceRanges())
 	}
-
 	return errs
 }
 

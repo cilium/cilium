@@ -25,7 +25,7 @@ var bpfmountfsShowCmd = &cobra.Command{
 }
 
 func init() {
-	bpfmountFSCmd.AddCommand(bpfmountfsShowCmd)
+	BPFMountFSCmd.AddCommand(bpfmountfsShowCmd)
 	command.AddOutputOption(bpfmountfsShowCmd)
 }
 

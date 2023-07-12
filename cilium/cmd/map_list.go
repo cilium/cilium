@@ -75,7 +75,7 @@ func printMapList(mapList *models.BPFMapList) {
 }
 
 func init() {
-	mapCmd.AddCommand(mapListCmd)
+	MAPCmd.AddCommand(mapListCmd)
 	command.AddOutputOption(mapListCmd)
 	mapListCmd.Flags().BoolVar(&verbose, "verbose", false, "Print cache contents of all maps")
 }

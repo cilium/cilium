@@ -10,6 +10,7 @@ import (
 	"time"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
@@ -32,7 +33,7 @@ func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts
 		if uri.User != nil {
 			// Don't include the password in the flow.
 			if _, ok := uri.User.Password(); ok {
-				uri.User = url.UserPassword(uri.User.Username(), "HUBBLE_REDACTED")
+				uri.User = url.UserPassword(uri.User.Username(), defaults.SensitiveValueRedacted)
 			}
 		}
 		if opts.RedactHTTPQuery {

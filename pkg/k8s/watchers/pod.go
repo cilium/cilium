@@ -46,6 +46,7 @@ import (
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
+	"github.com/cilium/cilium/pkg/k8s/watchers/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -75,7 +76,7 @@ func (k *K8sWatcher) createAllPodsController(slimClient slimclientset.Interface)
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				if pod := k8s.ObjTov1Pod(obj); pod != nil {
+				if pod := k8s.CastInformerEvent[slim_corev1.Pod](obj); pod != nil {
 					err := k.addK8sPodV1(pod)
 					k.K8sEventProcessed(metricPod, resources.MetricCreate, err == nil)
 					k.K8sEventReceived(podApiGroup, metricPod, resources.MetricCreate, true, false)
@@ -84,8 +85,8 @@ func (k *K8sWatcher) createAllPodsController(slimClient slimclientset.Interface)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if oldPod := k8s.ObjTov1Pod(oldObj); oldPod != nil {
-					if newPod := k8s.ObjTov1Pod(newObj); newPod != nil {
+				if oldPod := k8s.CastInformerEvent[slim_corev1.Pod](oldObj); oldPod != nil {
+					if newPod := k8s.CastInformerEvent[slim_corev1.Pod](newObj); newPod != nil {
 						if oldPod.DeepEqual(newPod) {
 							k.K8sEventReceived(podApiGroup, metricPod, resources.MetricUpdate, false, true)
 						} else {
@@ -99,7 +100,7 @@ func (k *K8sWatcher) createAllPodsController(slimClient slimclientset.Interface)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				if pod := k8s.ObjTov1Pod(obj); pod != nil {
+				if pod := k8s.CastInformerEvent[slim_corev1.Pod](obj); pod != nil {
 					err := k.deleteK8sPodV1(pod)
 					k.K8sEventProcessed(metricPod, resources.MetricDelete, err == nil)
 					k.K8sEventReceived(podApiGroup, metricPod, resources.MetricDelete, true, false)
@@ -773,6 +774,17 @@ func (k *K8sWatcher) deleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 	}
 
 	for _, dpSvc := range svcs {
+		svc, _ := k.svcManager.GetDeepCopyServiceByFrontend(dpSvc.Frontend.L3n4Addr)
+		// Check whether the service being deleted is in fact "owned" by the pod being deleted.
+		// We want to make sure that the pod being deleted is in fact the "current" backend that
+		// "owns" the hostPort service. Otherwise we might break hostPort connectivity for another
+		// pod which may have since claimed ownership for the same hostPort service, which was previously
+		// "owned" by the pod being deleted.
+		// See: https://github.com/cilium/cilium/issues/22460.
+		if svc != nil && !utils.DeepEqualBackends(svc.Backends, dpSvc.Backends) {
+			continue
+		}
+
 		if _, err := k.svcManager.DeleteService(dpSvc.Frontend.L3n4Addr); err != nil {
 			logger.WithError(err).Error("Error while deleting service in LB map")
 			return err

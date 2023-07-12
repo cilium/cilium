@@ -162,7 +162,7 @@ func init() {
         "tags": [
           "daemon"
         ],
-        "summary": "Retrieve information about the agent and evironment for debugging",
+        "summary": "Retrieve information about the agent and environment for debugging",
         "responses": {
           "200": {
             "description": "Success",
@@ -2385,7 +2385,7 @@ func init() {
           "type": "object",
           "properties": {
             "wireguard": {
-              "description": "Status of the Wireguard agent",
+              "description": "Status of the WireGuard agent",
               "$ref": "#/definitions/WireguardStatus"
             }
           }
@@ -2438,7 +2438,7 @@ func init() {
           "type": "string"
         },
         "wireguard": {
-          "description": "Status of the Wireguard agent",
+          "description": "Status of the WireGuard agent",
           "$ref": "#/definitions/WireguardStatus"
         }
       }
@@ -4596,10 +4596,10 @@ func init() {
       }
     },
     "WireguardInterface": {
-      "description": "Status of a Wireguard interface\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of a WireGuard interface\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "listen-port": {
-          "description": "Port on which the Wireguard endpoint is exposed",
+          "description": "Port on which the WireGuard endpoint is exposed",
           "type": "integer"
         },
         "name": {
@@ -4611,7 +4611,7 @@ func init() {
           "type": "integer"
         },
         "peers": {
-          "description": "Optional list of wireguard peers",
+          "description": "Optional list of WireGuard peers",
           "type": "array",
           "items": {
             "$ref": "#/definitions/WireguardPeer"
@@ -4624,7 +4624,7 @@ func init() {
       }
     },
     "WireguardPeer": {
-      "description": "Status of a Wireguard peer\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of a WireGuard peer\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "allowed-ips": {
           "description": "List of IPs which may be routed through this peer",
@@ -4657,10 +4657,10 @@ func init() {
       }
     },
     "WireguardStatus": {
-      "description": "Status of the Wireguard agent\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of the WireGuard agent\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "interfaces": {
-          "description": "Wireguard interfaces managed by this Cilium instance",
+          "description": "WireGuard interfaces managed by this Cilium instance",
           "type": "array",
           "items": {
             "$ref": "#/definitions/WireguardInterface"
@@ -4986,7 +4986,7 @@ func init() {
         "tags": [
           "daemon"
         ],
-        "summary": "Retrieve information about the agent and evironment for debugging",
+        "summary": "Retrieve information about the agent and environment for debugging",
         "responses": {
           "200": {
             "description": "Success",
@@ -7458,7 +7458,7 @@ func init() {
           "type": "object",
           "properties": {
             "wireguard": {
-              "description": "Status of the Wireguard agent",
+              "description": "Status of the WireGuard agent",
               "$ref": "#/definitions/WireguardStatus"
             }
           }
@@ -7499,7 +7499,7 @@ func init() {
       "type": "object",
       "properties": {
         "wireguard": {
-          "description": "Status of the Wireguard agent",
+          "description": "Status of the WireGuard agent",
           "$ref": "#/definitions/WireguardStatus"
         }
       }
@@ -7520,7 +7520,7 @@ func init() {
           "type": "string"
         },
         "wireguard": {
-          "description": "Status of the Wireguard agent",
+          "description": "Status of the WireGuard agent",
           "$ref": "#/definitions/WireguardStatus"
         }
       }
@@ -10122,10 +10122,10 @@ func init() {
       }
     },
     "WireguardInterface": {
-      "description": "Status of a Wireguard interface\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of a WireGuard interface\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "listen-port": {
-          "description": "Port on which the Wireguard endpoint is exposed",
+          "description": "Port on which the WireGuard endpoint is exposed",
           "type": "integer"
         },
         "name": {
@@ -10137,7 +10137,7 @@ func init() {
           "type": "integer"
         },
         "peers": {
-          "description": "Optional list of wireguard peers",
+          "description": "Optional list of WireGuard peers",
           "type": "array",
           "items": {
             "$ref": "#/definitions/WireguardPeer"
@@ -10150,7 +10150,7 @@ func init() {
       }
     },
     "WireguardPeer": {
-      "description": "Status of a Wireguard peer\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of a WireGuard peer\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "allowed-ips": {
           "description": "List of IPs which may be routed through this peer",
@@ -10183,10 +10183,10 @@ func init() {
       }
     },
     "WireguardStatus": {
-      "description": "Status of the Wireguard agent\n\n+k8s:deepcopy-gen=true",
+      "description": "Status of the WireGuard agent\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "interfaces": {
-          "description": "Wireguard interfaces managed by this Cilium instance",
+          "description": "WireGuard interfaces managed by this Cilium instance",
           "type": "array",
           "items": {
             "$ref": "#/definitions/WireguardInterface"

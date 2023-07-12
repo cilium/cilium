@@ -84,7 +84,6 @@ import (
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
-	ratemetrics "github.com/cilium/cilium/pkg/rate/metrics"
 	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
@@ -93,7 +92,6 @@ import (
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
-	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
 const (
@@ -162,8 +160,6 @@ type Daemon struct {
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
 
-	netConf *cnitypes.NetConf
-
 	endpointManager endpointmanager.EndpointManager
 
 	identityAllocator CachingIdentityAllocator
@@ -220,6 +216,9 @@ type Daemon struct {
 
 	// statedb for implementing /statedb/dump
 	db statedb.DB
+
+	// read-only map of all the hive settings
+	settings cellSettings
 }
 
 func (d *Daemon) initDNSProxyContext(size int) {
@@ -398,34 +397,14 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 
 // newDaemon creates and returns a new Daemon with the parameters set in c.
 func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams) (*Daemon, *endpointRestoreState, error) {
-	var (
-		err           error
-		netConf       *cnitypes.NetConf
-		configuredMTU = option.Config.MTU
-	)
+	var err error
 
 	bootstrapStats.daemonInit.Start()
-
-	// Validate the daemon-specific global options.
-	if err := option.Config.Validate(Vp); err != nil {
-		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
-	}
 
 	// Validate configuration options that depend on other cells.
 	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !params.Clientset.IsEnabled() &&
 		option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
 		return nil, nil, fmt.Errorf("CRD Identity allocation mode requires k8s to be configured")
-	}
-
-	if mtu := params.CNIConfigManager.GetMTU(); mtu > 0 {
-		configuredMTU = mtu
-		log.WithField("mtu", configuredMTU).Info("Overwriting MTU based on CNI configuration")
-	}
-
-	apiLimiterSet, err := rate.NewAPILimiterSet(option.Config.APIRateLimit, apiRateLimitDefaults, ratemetrics.APILimiterObserver())
-	if err != nil {
-		log.WithError(err).Error("unable to configure API rate limiting")
-		return nil, nil, fmt.Errorf("unable to configure API rate limiting: %w", err)
 	}
 
 	// Check the kernel if we can make use of managed neighbor entries which
@@ -494,6 +473,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if externalIP == nil {
 		externalIP = node.GetIPv6()
 	}
+	configuredMTU := option.Config.MTU
+	if mtu := params.CNIConfigManager.GetMTU(); mtu > 0 {
+		configuredMTU = mtu
+		log.WithField("mtu", configuredMTU).Info("Overwriting MTU based on CNI configuration")
+	}
 	// ExternalIP could be nil but we are covering that case inside NewConfiguration
 	mtuConfig = mtu.NewConfiguration(
 		authKeySize,
@@ -516,7 +500,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
 	}
 
-	nd := nodediscovery.NewNodeDiscovery(params.NodeManager, params.Clientset, mtuConfig, netConf)
+	nd := nodediscovery.NewNodeDiscovery(params.NodeManager, params.Clientset, mtuConfig, params.CNIConfigManager.GetCustomNetConf())
 
 	devMngr, err := linuxdatapath.NewDeviceManager()
 	if err != nil {
@@ -529,14 +513,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		prefixLengths:     createPrefixLengthCounter(),
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex:  new(lock.RWMutex),
-		netConf:           netConf,
 		mtuConfig:         mtuConfig,
 		datapath:          params.Datapath,
 		deviceManager:     devMngr,
 		nodeDiscovery:     nd,
 		nodeLocalStore:    params.LocalNodeStore,
 		endpointCreations: newEndpointCreationManager(params.Clientset),
-		apiLimiterSet:     apiLimiterSet,
+		apiLimiterSet:     params.APILimiterSet,
 		controllers:       controller.NewManager(),
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
@@ -553,6 +536,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		l2announcer:          params.L2Announcer,
 		l7Proxy:              params.L7Proxy,
 		db:                   params.DB,
+		settings:             params.Settings,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
@@ -898,8 +882,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	if params.WGAgent != nil && option.Config.EnableWireguard {
 		if err := params.WGAgent.Init(d.ipcache, d.mtuConfig); err != nil {
-			log.WithError(err).Error("failed to initialize wireguard agent")
-			return nil, nil, fmt.Errorf("failed to initialize wireguard agent: %w", err)
+			log.WithError(err).Error("failed to initialize WireGuard agent")
+			return nil, nil, fmt.Errorf("failed to initialize WireGuard agent: %w", err)
 		}
 
 		params.NodeManager.Subscribe(params.WGAgent)

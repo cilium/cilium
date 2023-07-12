@@ -98,16 +98,16 @@ func newSyncSecretsManager(clientset k8sClient.Clientset, namespace string, maxR
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				if secret := k8s.ObjToV1Secret(obj); secret != nil {
+				if secret := k8s.CastInformerEvent[slim_corev1.Secret](obj); secret != nil {
 					manager.queue.Add(secretAddedEvent{secret: secret})
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				oldSecret := k8s.ObjToV1Secret(oldObj)
+				oldSecret := k8s.CastInformerEvent[slim_corev1.Secret](oldObj)
 				if oldSecret == nil {
 					return
 				}
-				newSecret := k8s.ObjToV1Secret(newObj)
+				newSecret := k8s.CastInformerEvent[slim_corev1.Secret](newObj)
 				if newSecret == nil {
 					return
 				}
@@ -117,7 +117,7 @@ func newSyncSecretsManager(clientset k8sClient.Clientset, namespace string, maxR
 				manager.queue.Add(secretUpdatedEvent{oldSecret: oldSecret, newSecret: newSecret})
 			},
 			DeleteFunc: func(obj interface{}) {
-				if secret := k8s.ObjToV1Secret(obj); secret != nil {
+				if secret := k8s.CastInformerEvent[slim_corev1.Secret](obj); secret != nil {
 					manager.queue.Add(secretDeletedEvent{secret: secret})
 				}
 			},

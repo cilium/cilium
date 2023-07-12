@@ -4,11 +4,8 @@
 package proxy
 
 import (
-	"fmt"
-
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
@@ -31,55 +28,26 @@ var Cell = cell.Module(
 type proxyParams struct {
 	cell.In
 
-	Lifecycle            hive.Lifecycle
 	IPCache              *ipcache.IPCache
 	Datapath             datapath.Datapath
 	EndpointInfoRegistry logger.EndpointInfoRegistry
 	MonitorAgent         monitoragent.Agent
+	XdsServer            envoy.XDSServer
 }
 
-func newProxy(params proxyParams) (*Proxy, error) {
+func newProxy(params proxyParams) *Proxy {
 	if !option.Config.EnableL7Proxy {
 		log.Info("L7 proxies are disabled")
 		if option.Config.EnableEnvoyConfig {
 			log.Warningf("%s is not functional when L7 proxies are disabled", option.EnableEnvoyConfig)
 		}
-		return nil, nil
+		return nil
 	}
 
 	configureProxyLogger(params.EndpointInfoRegistry, params.MonitorAgent, option.Config.AgentLabels)
 
 	// FIXME: Make the port range configurable.
-	proxy := createProxy(10000, 20000, option.Config.RunDir, params.Datapath, params.IPCache, params.EndpointInfoRegistry)
-
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(startContext hive.HookContext) error {
-			xdsServer, err := envoy.StartXDSServer(proxy.ipcache, envoy.GetSocketDir(proxy.runDir))
-			if err != nil {
-				return fmt.Errorf("failed to start Envoy xDS server: %w", err)
-			}
-			proxy.XDSServer = xdsServer
-
-			accessLogServer, err := envoy.StartAccessLogServer(envoy.GetSocketDir(proxy.runDir), proxy.XDSServer)
-			if err != nil {
-				return fmt.Errorf("failed to start Envoy AccessLog server: %w", err)
-			}
-			proxy.accessLogServer = accessLogServer
-
-			return nil
-		},
-		OnStop: func(stopContext hive.HookContext) error {
-			if proxy.XDSServer != nil {
-				proxy.XDSServer.Stop()
-			}
-			if proxy.accessLogServer != nil {
-				proxy.accessLogServer.Stop()
-			}
-			return nil
-		},
-	})
-
-	return proxy, nil
+	return createProxy(10000, 20000, option.Config.RunDir, params.Datapath, params.EndpointInfoRegistry, params.XdsServer)
 }
 
 func configureProxyLogger(eir logger.EndpointInfoRegistry, monitorAgent monitoragent.Agent, agentLabels []string) {

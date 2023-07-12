@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var statedbCmd = &cobra.Command{
+var StatedbCmd = &cobra.Command{
 	Use:   "statedb",
 	Short: "Inspect StateDB",
 }
@@ -28,6 +28,6 @@ var statedbDumpCmd = &cobra.Command{
 }
 
 func init() {
-	statedbCmd.AddCommand(statedbDumpCmd)
-	rootCmd.AddCommand(statedbCmd)
+	StatedbCmd.AddCommand(statedbDumpCmd)
+	RootCmd.AddCommand(StatedbCmd)
 }

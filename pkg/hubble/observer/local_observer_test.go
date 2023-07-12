@@ -597,3 +597,35 @@ func TestLocalObserverServer_GetNamespaces(t *testing.T) {
 	}
 	assert.Equal(t, expected, res)
 }
+
+func Benchmark_TrackNamespaces(b *testing.B) {
+	pp, err := parser.New(
+		log,
+		&testutils.NoopEndpointGetter,
+		&testutils.NoopIdentityGetter,
+		&testutils.NoopDNSGetter,
+		&testutils.NoopIPGetter,
+		&testutils.NoopServiceGetter,
+		&testutils.NoopLinkGetter,
+		&testutils.NoopPodMetadataGetter,
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	nsManager := NewNamespaceManager()
+	s, err := NewLocalServer(pp, nsManager, log, observeroption.WithMaxFlows(container.Capacity1))
+	if err != nil {
+		b.Fatal(err)
+	}
+	f := &flowpb.Flow{
+		Source:      &flowpb.Endpoint{Namespace: "foo"},
+		Destination: &flowpb.Endpoint{Namespace: "bar"},
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.trackNamespaces(f)
+	}
+}

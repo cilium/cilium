@@ -78,7 +78,7 @@ func newWireguardAgent(lc hive.Lifecycle, localNodeStore *node.LocalNodeStore) *
 	var wgAgent *wg.Agent
 	if option.Config.EnableWireguard {
 		if option.Config.EnableIPSec {
-			log.Fatalf("Wireguard (--%s) cannot be used with IPSec (--%s)",
+			log.Fatalf("WireGuard (--%s) cannot be used with IPsec (--%s)",
 				option.EnableWireguard, option.EnableIPSecName)
 		}
 
@@ -86,7 +86,7 @@ func newWireguardAgent(lc hive.Lifecycle, localNodeStore *node.LocalNodeStore) *
 		privateKeyPath := filepath.Join(option.Config.StateDir, wgTypes.PrivKeyFilename)
 		wgAgent, err = wg.NewAgent(privateKeyPath, localNodeStore)
 		if err != nil {
-			log.Fatalf("failed to initialize wireguard: %s", err)
+			log.Fatalf("failed to initialize WireGuard: %s", err)
 		}
 
 		lc.Append(hive.Hook{
@@ -96,7 +96,7 @@ func newWireguardAgent(lc hive.Lifecycle, localNodeStore *node.LocalNodeStore) *
 			},
 		})
 	} else {
-		// Delete wireguard device from previous run (if such exists)
+		// Delete WireGuard device from previous run (if such exists)
 		link.DeleteByName(wgTypes.IfaceName)
 	}
 	return wgAgent

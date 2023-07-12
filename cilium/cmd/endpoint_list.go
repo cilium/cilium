@@ -36,7 +36,7 @@ var endpointListCmd = &cobra.Command{
 }
 
 func init() {
-	endpointCmd.AddCommand(endpointListCmd)
+	EndpointCmd.AddCommand(endpointListCmd)
 	endpointListCmd.Flags().BoolVar(&noHeaders, "no-headers", false, "Do not print headers")
 	command.AddOutputOption(endpointListCmd)
 }

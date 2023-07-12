@@ -59,7 +59,7 @@ var bpfNatListCmd = &cobra.Command{
 }
 
 func init() {
-	bpfNatCmd.AddCommand(bpfNatListCmd)
+	BPFNatCmd.AddCommand(bpfNatListCmd)
 	command.AddOutputOption(bpfNatListCmd)
 }
 

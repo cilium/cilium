@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium.
 /// Find function arguments that can be declared const. Confidence in the
 /// results in low for now, but the compiler should catch any incorrect const
 /// qualifier.
 // Confidence: Low
-// Copyright Authors of Cilium.
 // Comments:
 // Options: --include-headers
 

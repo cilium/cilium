@@ -4636,26 +4636,25 @@ type GroupIdentifier struct {
 }
 
 // Indicates whether your instance is configured for hibernation. This parameter
-// is valid only if the instance meets the hibernation prerequisites (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites)
+// is valid only if the instance meets the hibernation prerequisites (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/hibernating-prerequisites.html)
 // . For more information, see Hibernate your instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
 // in the Amazon EC2 User Guide.
 type HibernationOptions struct {
 
-	// If this parameter is set to true , your instance is enabled for hibernation;
-	// otherwise, it is not enabled for hibernation.
+	// If true , your instance is enabled for hibernation; otherwise, it is not enabled
+	// for hibernation.
 	Configured *bool
 
 	noSmithyDocumentSerde
 }
 
 // Indicates whether your instance is configured for hibernation. This parameter
-// is valid only if the instance meets the hibernation prerequisites (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites)
+// is valid only if the instance meets the hibernation prerequisites (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/hibernating-prerequisites.html)
 // . For more information, see Hibernate your instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
 // in the Amazon EC2 User Guide.
 type HibernationOptionsRequest struct {
 
-	// If you set this parameter to true , your instance is enabled for hibernation.
-	// Default: false
+	// Set to true to enable your instance for hibernation. Default: false
 	Configured *bool
 
 	noSmithyDocumentSerde
@@ -6883,6 +6882,9 @@ type InstanceTypeInfo struct {
 
 	// Describes the network settings for the instance type.
 	NetworkInfo *NetworkInfo
+
+	// Indicates whether Nitro Enclaves is supported.
+	NitroEnclavesSupport NitroEnclavesSupport
 
 	// Describes the placement group settings for the instance type.
 	PlacementGroupInfo *PlacementGroupInfo

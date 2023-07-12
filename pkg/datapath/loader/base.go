@@ -405,12 +405,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	args[initArgSocketLBPeer] = "<nil>"
 	args[initArgCgroupRoot] = "<nil>"
 	args[initArgBpffsRoot] = "<nil>"
-
-	if len(option.Config.GetDevices()) != 0 {
-		args[initArgDevices] = strings.Join(option.Config.GetDevices(), ";")
-	} else {
-		args[initArgDevices] = "<nil>"
-	}
+	args[initArgDevices] = "<nil>"
 
 	if !option.Config.TunnelingEnabled() {
 		if option.Config.EnableIPv4EgressGateway || option.Config.EnableHighScaleIPcache {
@@ -434,14 +429,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgTunnelPort] = fmt.Sprintf("%d", option.Config.TunnelPort)
 	}
 
-	if option.Config.EnableNodePort {
-		args[initArgNodePort] = "true"
-	} else {
-		args[initArgNodePort] = "false"
-	}
-
+	args[initArgNodePort] = "<nil>"
 	args[initArgNodePortBind] = "<nil>"
-
 	args[initBPFCPU] = "<nil>"
 	args[initArgNrCPUs] = "<nil>"
 
@@ -541,7 +530,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	// Reinstall proxy rules for any running proxies if needed
-	if p != nil {
+	if option.Config.EnableL7Proxy {
 		if err := p.ReinstallRules(ctx); err != nil {
 			return err
 		}

@@ -45,6 +45,7 @@
   "pruneStaleBranches": true,
   "baseBranches": [
     "main",
+    "v1.14",
     "v1.13",
     "v1.12",
     "v1.11"
@@ -113,6 +114,7 @@
         "go.sum"
       ],
       matchBaseBranches: [
+        "v1.14",
         "v1.13",
         "v1.12",
         "v1.11"
@@ -191,6 +193,7 @@
       "allowedVersions": "22.04",
       "matchBaseBranches": [
         "main",
+        "v1.14",
         "v1.13"
       ]
     },
@@ -212,6 +215,16 @@
       "matchPaths": [
         "install/kubernetes/cilium/templates/spire/**"
       ],
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/golang",
+        "go"
+      ],
+      "allowedVersions": "<1.21",
+      "matchBaseBranches": [
+        "v1.14"
+      ]
     },
     {
       "matchPackageNames": [
@@ -249,6 +262,15 @@
       "matchPackageNames": [
         "docker.io/library/alpine"
       ],
+      "allowedVersions": "<3.19",
+      "matchBaseBranches": [
+        "v1.14",
+      ]
+    },
+    {
+      "matchPackageNames": [
+        "docker.io/library/alpine"
+      ],
       "allowedVersions": "<3.18",
       "matchBaseBranches": [
         "v1.13",
@@ -270,11 +292,29 @@
       ],
       "versioning": "regex:^v0.0.0-(<patch>\\d+)-.*$",
     },
+    // Ref: https://github.com/cilium/cilium-cli#releases
     {
       "groupName": "Cilium CLI",
       "groupSlug": "cilium-cli",
       "matchDepNames": [
         "cilium/cilium-cli"
+      ],
+      "matchBaseBranches": [
+        "main",
+        "v1.14",
+      ]
+    },
+    {
+      "groupName": "Cilium CLI",
+      "groupSlug": "cilium-cli",
+      "matchDepNames": [
+        "cilium/cilium-cli"
+      ],
+      "allowedVersions": "/^v0\\.14\\.[0-9]+$/",
+      "matchBaseBranches": [
+        "v1.13",
+        "v1.12",
+        "v1.11",
       ]
     },
     {
@@ -310,6 +350,7 @@
         "golangci/golangci-lint"
       ],
       "matchBaseBranches": [
+        "v1.14",
         "v1.13",
         "v1.12",
         "v1.11"

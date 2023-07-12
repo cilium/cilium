@@ -85,6 +85,13 @@ Then, install Cilium release via Helm:
 
 .. include:: next-steps.rst
 
+Attaching a Debugger
+====================
+
+Cilium's Kind configuration enables access to Delve debug server instances running
+in the agent and operator Pods by default. See :ref:`gs_debugging` to learn how
+to use it.
+
 Troubleshooting
 ===============
 

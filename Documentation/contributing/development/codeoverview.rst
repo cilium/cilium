@@ -56,7 +56,7 @@ plugins
   Plugins to integrate with Kubernetes and Docker
 
 test
-  End-to-end integration tests run in the :ref:`testsuite`.
+  End-to-end integration tests run in the :ref:`testsuite-legacy`.
 
 Cilium
 ------

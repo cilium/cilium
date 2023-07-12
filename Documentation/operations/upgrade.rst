@@ -377,7 +377,13 @@ Annotations:
        egressDeny:
        - toCIDR:
          - 0.0.0.0/0
-             
+
+* IPv6 on ``cilium_host`` now is assigned from IPAM pool, rather than using the
+  same IPv6 as native host interface, like ``eth0`` (:gh-issue:`23445`). This
+  fixes broken IPv6 access in some scenarios, such as ICMPv6 to host
+  (:gh-issue:`14509`), L7 policy enabled cluster (:gh-issue:`21954`), IPsec
+  enabled cluster (:gh-issue:`23461`). After upgrade, you may notice the
+  changes in ``cilium_host``'s IPv6 and related routing rules.
 
 Removed Options
 ~~~~~~~~~~~~~~~
@@ -392,6 +398,10 @@ New Options
   ``tunnel=disabled``, now deprecated.
 * ``tunnel-protocol``: This option allows setting the tunneling protocol, in place
   of e.g., ``tunnel=vxlan``.
+* ``tls-relay-client-ca-files``: This option lets you provide a certificate authority (CA)
+  key and cert in Hubble Relay to authenticate Hubble Relay's clients with mTLS. When you provide a CA key and cert,
+  Hubble Relay enforces mTLS authentication on its clients (for example, Hubble CLI
+  client can't connect to Hubble Relay using ``--tls-allow-insecure``).
 
 Deprecated Options
 ~~~~~~~~~~~~~~~~~~
@@ -406,6 +416,18 @@ Deprecated Options
 * The ``cluster-pool-v2beta`` IPAM mode is deprecated and will be removed in v1.15.
   The functionality to dynamically allocate Pod CIDRs is now provided  by the
   more flexible ``multi-pool`` IPAM mode.
+* The following Hubble Relay options are deprecated and will be removed in v1.15:
+   * ``tls-client-cert-file`` (replaced with ``tls-hubble-client-cert-file``).
+   * ``tls-client-key-file`` (replaced with ``tls-hubble-client-key-file``).
+   * ``tls-server-cert-file`` (replaced with ``tls-relay-server-cert-file``).
+   * ``tls-server-key-file`` (replaced with ``tls-relay-server-key-file``).
+* The ``kube-proxy-replacement`` option's values ``strict``, ``partial`` and
+  ``disabled`` are deprecated and will be removed in v1.15. They are replaced
+  by ``true`` and ``false``. ``true`` corresponds to ``strict``, i.e. enables
+  all kube-proxy replacement features. ``false`` disables kube-proxy
+  replacement but allows users to selectively enable each kube-proxy replacement
+  feature individually.
+
 
 Deprecated Commands
 ~~~~~~~~~~~~~~~~~~~
@@ -490,6 +512,23 @@ Helm Options
 * Value ``disableEndpointCRD`` is now a boolean type instead of a string. Instead of using "true"
   or "false" as values, you should remove the quotes. For example in helm command, instead of
   ``--set-string disableEndpointCRD="true"``, it should be replaced by ``--set disableEndpointCRD=true``.
+
+.. _upgrade_cilium_cli_helm_mode:
+
+Cilium CLI
+~~~~~~~~~~
+
+Upgrade Cilium CLI to `v0.15.0 <https://github.com/cilium/cilium-cli/releases/tag/v0.15.0>`_
+or later to switch to `Helm installation mode <https://github.com/cilium/cilium-cli#helm-installation-mode>`_
+to install and manage Cilium v1.14. Classic installation mode is **not**
+supported with Cilium v1.14.
+
+Helm and classic mode installations are not compatible with each other. Do not
+use Cilium CLI in Helm mode to manage classic mode installations, and vice versa.
+
+To migrate a classic mode Cilium installation to Helm mode, you need to
+uninstall Cilium using classic mode Cilium CLI, and then re-install Cilium
+using Helm mode Cilium CLI.
 
 .. _earlier_upgrade_notes:
 

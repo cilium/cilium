@@ -25,6 +25,7 @@ information about Cilium's CI infrastructure.
 
    ci
    e2e
+   e2e_legacy
    unit
    bpf
 

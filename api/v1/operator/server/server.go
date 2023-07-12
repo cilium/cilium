@@ -256,6 +256,12 @@ func (s *Server) SetAPI(api *restapi.CiliumOperatorAPI) {
 	s.handler = configureAPI(api)
 }
 
+// GetAPI returns the configured API. Modifications on the API must be performed
+// before server is started.
+func (s *Server) GetAPI() *restapi.CiliumOperatorAPI {
+	return s.api
+}
+
 func (s *Server) hasScheme(scheme string) bool {
 	schemes := s.EnabledListeners
 	if len(schemes) == 0 {

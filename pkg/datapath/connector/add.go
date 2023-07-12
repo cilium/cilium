@@ -11,7 +11,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/sysctl"
 )
 
@@ -36,13 +35,6 @@ func Endpoint2IfName(endpointID string) string {
 // endpointID.
 func Endpoint2TempIfName(endpointID string) string {
 	return temporaryInterfacePrefix + truncateString(endpointID, 5)
-}
-
-// Endpoint2TempRandIfName returns a random, temporary interface name for the
-// given endpointID. This is similar to Endpoint2TempIfName() but uses a
-// random string instead of endpoint ID.
-func Endpoint2TempRandIfName() string {
-	return temporaryInterfacePrefix + "_" + rand.RandomLowercaseStringWithLen(5)
 }
 
 func truncateString(epID string, maxLen uint) string {

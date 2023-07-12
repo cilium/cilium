@@ -13,7 +13,7 @@ TUNNEL_PROTOCOL=${8}
 # Only set if TUNNEL_PROTOCOL = "vxlan", "geneve"
 TUNNEL_PORT=${9}
 # Only set if MODE = "direct"
-NATIVE_DEVS=${10}
+# NATIVE_DEVS=${10}
 HOST_DEV1=${11}
 HOST_DEV2=${12}
 MTU=${13}
@@ -21,7 +21,7 @@ MTU=${13}
 # SOCKETLB_PEER=${15}
 # CGROUP_ROOT=${16}
 # BPFFS_ROOT=${17}
-NODE_PORT=${18}
+# NODE_PORT=${18}
 # NODE_PORT_BIND=${19}
 # MCPU=${20}
 # NR_CPUS=${21}
@@ -274,51 +274,4 @@ if [ "${TUNNEL_PROTOCOL}" != "<nil>" ]; then
 	ENCAP_IDX=$(cat "${SYSCLASSNETDIR}/${ENCAP_DEV}/ifindex")
 	sed -i '/^#.*ENCAP_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
-fi
-
-if [ "$MODE" = "direct" ] || [ "$NODE_PORT" = "true" ] ; then
-	if [ "$NATIVE_DEVS" == "<nil>" ]; then
-		echo "No device specified for $MODE mode, ignoring..."
-	else
-		if [ "$IP6_HOST" != "<nil>" ]; then
-			echo 1 > "${PROCSYSNETDIR}/ipv6/conf/all/forwarding"
-		fi
-		echo "$NATIVE_DEVS" > $RUNDIR/device.state
-	fi
-else
-	FILE=$RUNDIR/device.state
-	if [ -f $FILE ]; then
-		DEVS=$(cat $FILE)
-		for DEV in ${DEVS//,/ }; do
-			echo "Removed BPF program from device $DEV"
-			tc qdisc del dev $DEV clsact 2> /dev/null || true
-		done
-		rm $FILE
-	fi
-fi
-
-# Remove bpf_host.o from previously used devices
-for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep -v cilium); do
-	found=false
-	for NATIVE_DEV in ${NATIVE_DEVS//;/ }; do
-		if [ "${iface}" == "$NATIVE_DEV" ]; then
-			found=true
-			break
-		fi
-	done
-	$found && continue
-	for where in ingress egress; do
-		# iproute2 uses the filename and section (bpf_overlay.o:[from-overlay]) as
-		# the filter name. Filters created by the Go bpf loader contain the bpf
-		# function and interface name, like cil_from_netdev-eth0.
-		# Only detach programs known to be attached to 'physical' network devices.
-		if tc filter show dev "$iface" "$where" | grep -qE "\b(bpf_host|cil_from_netdev|cil_to_netdev)"; then
-			echo "Removing $where TC filter from interface $iface"
-			tc filter del dev "$iface" "$where" || true
-		fi
-	done
-done
-
-if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
-	tc filter del dev $HOST_DEV2 "egress" 2> /dev/null || true
 fi

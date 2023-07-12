@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bpfConfigCmd represents the bpf command
-var bpfConfigCmd = &cobra.Command{
+// BPFConfigCmd represents the bpf command
+var BPFConfigCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Manage runtime config",
 }
 
 func init() {
-	bpfCmd.AddCommand(bpfConfigCmd)
+	BPFCmd.AddCommand(BPFConfigCmd)
 }

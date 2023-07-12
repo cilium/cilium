@@ -95,17 +95,17 @@ func (sm *serviceManager) getByKey(key string) (*slim_corev1.Service, bool, erro
 }
 
 func (sm *serviceManager) handleAddService(obj interface{}) {
-	if service := k8s.ObjToV1Services(obj); service != nil {
+	if service := k8s.CastInformerEvent[slim_corev1.Service](obj); service != nil {
 		sm.queue.Add(serviceAddedEvent{service: service})
 	}
 }
 
 func (sm *serviceManager) handleUpdateService(oldObj, newObj interface{}) {
-	oldService := k8s.ObjToV1Services(oldObj)
+	oldService := k8s.CastInformerEvent[slim_corev1.Service](oldObj)
 	if oldService == nil {
 		return
 	}
-	newService := k8s.ObjToV1Services(newObj)
+	newService := k8s.CastInformerEvent[slim_corev1.Service](newObj)
 	if newService == nil {
 		return
 	}
@@ -116,7 +116,7 @@ func (sm *serviceManager) handleUpdateService(oldObj, newObj interface{}) {
 }
 
 func (sm *serviceManager) handleDeleteService(obj interface{}) {
-	if service := k8s.ObjToV1Services(obj); service != nil {
+	if service := k8s.CastInformerEvent[slim_corev1.Service](obj); service != nil {
 		sm.queue.Add(serviceDeletedEvent{service: service})
 	}
 }

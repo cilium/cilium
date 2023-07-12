@@ -101,6 +101,6 @@ func printEgressList(egressList []egressPolicy) {
 }
 
 func init() {
-	bpfEgressCmd.AddCommand(bpfEgressListCmd)
+	BPFEgressCmd.AddCommand(bpfEgressListCmd)
 	command.AddOutputOption(bpfEgressListCmd)
 }

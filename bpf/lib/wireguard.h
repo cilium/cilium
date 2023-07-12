@@ -22,7 +22,6 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	__u16 proto = 0;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
-	__u8 __maybe_unused icmp_type = 0;
 
 	if (!validate_ethertype(ctx, &proto))
 		return DROP_UNSUPPORTED_L2;
@@ -39,10 +38,16 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 		 * NA should not be sent over WG.
 		 */
 		if (ip6->nexthdr == IPPROTO_ICMPV6) {
+			__u8 icmp_type;
+
 			if (data + sizeof(*ip6) + ETH_HLEN +
 			    sizeof(struct icmp6hdr) > data_end)
 				return DROP_INVALID;
-			icmp_type = icmp6_load_type(ctx, ETH_HLEN);
+
+			if (icmp6_load_type(ctx, ETH_HLEN + sizeof(struct ipv6hdr),
+					    &icmp_type) < 0)
+				return DROP_INVALID;
+
 			if (icmp_type == ICMP6_NA_MSG_TYPE)
 				goto out;
 		}
@@ -106,6 +111,58 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 out:
 	return CTX_ACT_OK;
 }
+
+#ifdef ENCRYPTION_STRICT_MODE
+
+/* strict_allow checks whether the packet is allowed to pass through the strict mode. */
+static __always_inline bool
+strict_allow(struct __ctx_buff *ctx) {
+	struct remote_endpoint_info __maybe_unused *dest_info, __maybe_unused *src_info;
+	bool __maybe_unused in_strict_cidr = false;
+	void *data, *data_end;
+#ifdef ENABLE_IPV4
+	struct iphdr *ip4;
+#endif
+	__u16 proto = 0;
+
+	if (!validate_ethertype(ctx, &proto))
+		return true;
+
+	switch (proto) {
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return true;
+
+		/* Allow traffic that is sent from the node:
+		 * (1) When encapsulation is used and the destination is a remote pod.
+		 * (2) When the destination is a remote-node.
+		 */
+		if (ip4->saddr == IPV4_GATEWAY || ip4->saddr == IPV4_ENCRYPT_IFACE)
+			return true;
+
+		in_strict_cidr = ipv4_is_in_subnet(ip4->daddr,
+						   STRICT_IPV4_NET,
+						   STRICT_IPV4_NET_SIZE);
+		in_strict_cidr &= ipv4_is_in_subnet(ip4->saddr,
+						    STRICT_IPV4_NET,
+						    STRICT_IPV4_NET_SIZE);
+
+#if defined(TUNNEL_MODE) || defined(STRICT_IPV4_OVERLAPPING_CIDR)
+		/* Allow pod to remote-node communication */
+		dest_info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+		if (dest_info && dest_info->sec_identity &&
+		    identity_is_node(dest_info->sec_identity))
+			return true;
+#endif /* TUNNEL_MODE || STRICT_IPV4_OVERLAPPING_CIDR */
+		return !in_strict_cidr;
+#endif /* ENABLE_IPV4 */
+	default:
+		return true;
+	}
+}
+
+#endif /* ENCRYPTION_STRICT_MODE */
 
 #endif /* __WIREGUARD_H_ */
 

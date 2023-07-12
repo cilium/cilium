@@ -29,12 +29,12 @@ var requiredEnvoyVersionSHA string
 // envoyRedirect implements the RedirectImplementation interface for an l7 proxy.
 type envoyRedirect struct {
 	listenerName string
-	xdsServer    *envoy.XDSServer
+	xdsServer    envoy.XDSServer
 }
 
 var envoyOnce sync.Once
 
-func initEnvoy(runDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGroup) {
+func initEnvoy(runDir string, xdsServer envoy.XDSServer, wg *completion.WaitGroup) {
 	envoyOnce.Do(func() {
 		if option.Config.ExternalEnvoyProxy {
 			envoyAdminClient = envoy.NewEnvoyAdminClientForSocket(envoy.GetSocketDir(runDir))
@@ -49,6 +49,8 @@ func initEnvoy(runDir string, xdsServer *envoy.XDSServer, wg *completion.WaitGro
 			if option.Config.ProxyPrometheusPort < 0 || option.Config.ProxyPrometheusPort > 65535 {
 				log.WithField(logfields.Port, option.Config.ProxyPrometheusPort).Error("Envoy: Invalid configured proxy-prometheus-port")
 			} else if option.Config.ProxyPrometheusPort != 0 {
+				// We could do this in the bootstrap config as with the Envoy DaemonSet,
+				// but then a failure to bind to the configured port would fail starting Envoy.
 				xdsServer.AddMetricsListener(uint16(option.Config.ProxyPrometheusPort), wg)
 			}
 		}
@@ -94,7 +96,7 @@ func checkEnvoyVersion() error {
 
 // createEnvoyRedirect creates a redirect with corresponding proxy
 // configuration. This will launch a proxy instance.
-func createEnvoyRedirect(r *Redirect, runDir string, xdsServer *envoy.XDSServer, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) (RedirectImplementation, error) {
+func createEnvoyRedirect(r *Redirect, runDir string, xdsServer envoy.XDSServer, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) (RedirectImplementation, error) {
 	initEnvoy(runDir, xdsServer, wg)
 
 	l := r.listener

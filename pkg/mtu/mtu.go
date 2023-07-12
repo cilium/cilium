@@ -56,7 +56,7 @@ const (
 	// key secrets.
 	EncryptionDefaultAuthKeyLength = 16
 
-	// WireguardOverhead is an approximation for the overhead of wireguard
+	// WireguardOverhead is an approximation for the overhead of WireGuard
 	// encapsulation.
 	//
 	// https://github.com/torvalds/linux/blob/v5.12/drivers/net/wireguard/device.c#L262:

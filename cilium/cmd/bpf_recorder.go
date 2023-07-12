@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bpfRecorderCmd represents the bpf_recorder command
-var bpfRecorderCmd = &cobra.Command{
+// BPFRecorderCmd represents the bpf_recorder command
+var BPFRecorderCmd = &cobra.Command{
 	Use:   "recorder",
 	Short: "PCAP recorder",
 }
 
 func init() {
-	bpfCmd.AddCommand(bpfRecorderCmd)
+	BPFCmd.AddCommand(BPFRecorderCmd)
 }

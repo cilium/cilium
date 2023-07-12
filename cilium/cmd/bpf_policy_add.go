@@ -24,5 +24,5 @@ var bpfPolicyAddCmd = &cobra.Command{
 
 func init() {
 	bpfPolicyAddCmd.Flags().BoolVar(&isDeny, "deny", false, "Sets deny mode")
-	bpfPolicyCmd.AddCommand(bpfPolicyAddCmd)
+	BPFPolicyCmd.AddCommand(bpfPolicyAddCmd)
 }

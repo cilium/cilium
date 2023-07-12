@@ -10,15 +10,10 @@ import (
 	"github.com/go-openapi/runtime/middleware"
 
 	. "github.com/cilium/cilium/api/v1/server/restapi/statedb"
-	"github.com/cilium/cilium/pkg/statedb"
 )
 
-type getStateDBDump struct {
-	db statedb.DB
-}
-
-func (h *getStateDBDump) Handle(params GetStatedbDumpParams) middleware.Responder {
+func getStateDBDump(d *Daemon, params GetStatedbDumpParams) middleware.Responder {
 	return middleware.ResponderFunc(func(w http.ResponseWriter, _ runtime.Producer) {
-		h.db.WriteJSON(w)
+		d.db.WriteJSON(w)
 	})
 }

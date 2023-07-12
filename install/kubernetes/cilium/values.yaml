@@ -15,6 +15,7 @@ debug:
   # This option is used to enable debug messages for operations related to such
   # sub-system such as (e.g. kvstore, envoy, datapath or policy), and flow is
   # for enabling debug messages emitted per request, message and connection.
+  # Multiple values can be set via a space-separated string (e.g. "datapath envoy").
   #
   # Applicable values:
   # - flow
@@ -39,6 +40,18 @@ kubeConfigPath: ""
 k8sServiceHost: ""
 # -- (string) Kubernetes service port
 k8sServicePort: ""
+
+# -- Configure the client side rate limit for the agent and operator
+#
+# If the amount of requests to the Kubernetes API server exceeds the configured
+# rate limit, the agent and operator will start to throttle requests by delaying
+# them until there is budget or the request times out.
+k8sClientRateLimit:
+  # -- The sustained request rate in requests per second.
+  qps: 5
+  # -- The burst request rate in requests per second.
+  # The rate limiter will allow short bursts with a higher rate.
+  burst: 10
 
 cluster:
   # -- Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
@@ -733,6 +746,9 @@ ingressController:
     loadBalancerClass: ~
     # -- Configure a specific loadBalancerIP on the shared LB service
     loadBalancerIP : ~
+    # -- Configure if node port allocation is required for LB service
+    # ref: https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-nodeport-allocation
+    allocateLoadBalancerNodePorts: ~
 
 gatewayAPI:
   # -- Enable support for Gateway API in cilium
@@ -767,6 +783,18 @@ encryption:
   # -- Enable encryption for pure node to node traffic.
   # This option is only effective when encryption.type is set to "wireguard".
   nodeEncryption: false
+
+  # -- Configure the WireGuard Pod2Pod strict mode.
+  strictMode:
+    # -- Enable WireGuard Pod2Pod strict mode.
+    enabled: false
+    
+    # -- CIDR for the WireGuard Pod2Pod strict mode.
+    cidr: ""
+
+    # -- Allow dynamic lookup of remote node identities.
+    # This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
+    allowRemoteNodeIdentities: false
 
   ipsec:
     # -- Name of the key file inside the Kubernetes secret configured via secretName.
@@ -1013,10 +1041,11 @@ hubble:
   #
   #   redact:
   #   - http-url-query
+  #   - kafka-api-key
   #
   # You can specify the list of options from the helm CLI:
   #
-  #   --set hubble.redact="{http-url-query}"
+  #   --set hubble.redact="{http-url-query,kafka-api-key}"
   #
   redact: ~
 
@@ -1210,6 +1239,10 @@ hubble:
         # When set to true, enable TLS on for Hubble Relay server
         # (ie: for clients connecting to the Hubble Relay API).
         enabled: false
+        # When set to true enforces mutual TLS between Hubble Relay server and its clients.
+        # False allow non-mutual TLS connections.
+        # This option has no effect when TLS is disabled.
+        mtls: false
         # These values need to be set manually if hubble.tls.auto.enabled is false.
         cert: ""
         key: ""
@@ -1626,6 +1659,8 @@ egressGateway:
   # -- Install egress gateway IP rules and routes in order to properly steer
   # egress gateway traffic to the correct ENI interface
   installRoutes: false
+  # -- Time between triggers of egress gateway state reconciliations
+  reconciliationTriggerInterval: 1s
   # -- Maximum number of entries in egress gateway policy map
   # maxPolicyEntries: 16384
 
@@ -3168,3 +3203,4 @@ authentication:
 validatingAdmissionPolicy:
   # -- Enable support for Validating Admission Policy
   enabled: true
+

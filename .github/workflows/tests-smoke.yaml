@@ -16,7 +16,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.8
+  cilium_cli_version: v0.15.2
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
   KIND_VERSION: v0.17.0
@@ -157,6 +157,7 @@ jobs:
           cilium version
 
       - name: Install Cilium
+        id: install-cilium
         run: |
           cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
@@ -193,7 +194,7 @@ jobs:
           cat metrics.prom | promtool check metrics
 
       - name: Report cluster failure status and capture cilium-sysdump
-        if: ${{ failure() }}
+        if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
         # The following is needed to prevent hubble from receiving an empty
         # file (EOF) on stdin and displaying no flows.
         shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'

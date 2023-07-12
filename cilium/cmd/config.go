@@ -41,7 +41,7 @@ var configCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(configCmd)
+	RootCmd.AddCommand(configCmd)
 	configCmd.Flags().BoolVarP(&listOptions, "list-options", "", false, "List available options")
 	configCmd.Flags().BoolVarP(&listReadOnlyConfigurations, "read-only", "r", false, "Display read only configurations")
 	configCmd.Flags().BoolVarP(&listAllConfigurations, "all", "a", false, "Display all cilium configurations")

@@ -8,11 +8,11 @@ import (
 )
 
 // bpfCtCmd represents the bpf_ct command
-var bpfLBCmd = &cobra.Command{
+var BPFLBCmd = &cobra.Command{
 	Use:   "lb",
 	Short: "Load-balancing configuration",
 }
 
 func init() {
-	bpfCmd.AddCommand(bpfLBCmd)
+	BPFCmd.AddCommand(BPFLBCmd)
 }

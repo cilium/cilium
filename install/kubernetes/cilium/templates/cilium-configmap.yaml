@@ -583,6 +583,14 @@ data:
   {{- end }}
 {{- end }}
 
+{{- if .Values.encryption.strictMode.enabled }}
+  enable-encryption-strict-mode: {{ .Values.encryption.strictMode.enabled | quote }}
+
+  encryption-strict-mode-cidr: {{ .Values.encryption.strictMode.cidr | quote }}
+
+  encryption-strict-mode-allow-remote-node-identities: {{ .Values.encryption.strictMode.allowRemoteNodeIdentities | quote }}
+{{- end }}
+
   enable-xt-socket-fallback: {{ .Values.enableXTSocketFallback | quote }}
 {{- if or (.Values.azure.enabled) (.Values.eni.enabled) (.Values.gke.enabled) (ne $cniChainingMode "none") }}
   install-no-conntrack-iptables-rules: "false"
@@ -816,7 +824,7 @@ data:
 
 {{- if .Values.hubble.enabled }}
   # Enable Hubble gRPC service.
-  enable-hubble: {{ .Values.hubble.enabled  | quote }}
+  enable-hubble: {{ .Values.hubble.enabled | quote }}
   # UNIX domain socket for Hubble server to listen to.
   hubble-socket-path: {{ .Values.hubble.socketPath | quote }}
 {{- if hasKey .Values.hubble "eventQueueSize" }}
@@ -933,6 +941,9 @@ data:
 {{- end }}
 {{- if .Values.egressGateway.installRoutes }}
   install-egress-gateway-routes: "true"
+{{- end }}
+{{- if hasKey .Values.egressGateway "reconciliationTriggerInterval" }}
+  egress-gateway-reconciliation-trigger-interval: {{ .Values.egressGateway.reconciliationTriggerInterval | quote }}
 {{- end }}
 {{- if .Values.egressGateway.maxPolicyEntries }}
   egress-gateway-policy-map-max: {{ .Values.egressGateway.maxPolicyEntries }}
@@ -1053,6 +1064,11 @@ data:
 
 {{- if .Values.annotateK8sNode }}
   annotate-k8s-node: "true"
+{{- end }}
+
+{{- if hasKey .Values "k8sClientRateLimit" }}
+  k8s-client-qps: {{ .Values.k8sClientRateLimit.qps | quote }}
+  k8s-client-burst: {{ .Values.k8sClientRateLimit.burst | quote }}
 {{- end }}
 
 {{- if and .Values.operator.setNodeTaints (not .Values.operator.removeNodeTaints) -}}

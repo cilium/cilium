@@ -115,10 +115,10 @@ func getConfigFromCiliumAgent(client *client.Client) (*models.DaemonConfiguratio
 	return configResult.Status, nil
 }
 
-func allocateIPsWithCiliumAgent(client *client.Client, cniArgs types.ArgsSpec) (*models.IPAMResponse, func(context.Context), error) {
+func allocateIPsWithCiliumAgent(client *client.Client, cniArgs types.ArgsSpec, ipamPoolName string) (*models.IPAMResponse, func(context.Context), error) {
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
 
-	ipam, err := client.IPAMAllocate("", podName, "", true)
+	ipam, err := client.IPAMAllocate("", podName, ipamPoolName, true)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to allocate IP via local cilium agent: %w", err)
 	}
@@ -363,7 +363,7 @@ func setupLogging(n *types.NetConf) error {
 func cmdAdd(args *skel.CmdArgs) (err error) {
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
-		return fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
+		return fmt.Errorf("unable to parse CNI configuration \"%s\": %v", string(args.StdinData), err)
 	}
 
 	if err = setupLogging(n); err != nil {
@@ -397,6 +397,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		return fmt.Errorf("unable to connect to Cilium daemon: %s", client.Hint(err))
 	}
 
+	conf, err := getConfigFromCiliumAgent(c)
+	if err != nil {
+		return err
+	}
+
 	// If CNI ADD gives us a PrevResult, we're a chained plugin and *must* detect a
 	// valid chained mode. If no chained mode we understand is specified, error out.
 	// Otherwise, continue with normal plugin execution.
@@ -405,10 +410,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			var (
 				res *cniTypesV1.Result
 				ctx = chainingapi.PluginContext{
-					Logger:  logger,
-					Args:    args,
-					CniArgs: cniArgs,
-					NetConf: n,
+					Logger:     logger,
+					Args:       args,
+					CniArgs:    cniArgs,
+					NetConf:    n,
+					CiliumConf: conf,
 				}
 			)
 
@@ -440,17 +446,12 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			args.IfName, args.Netns, err)
 	}
 
-	conf, err := getConfigFromCiliumAgent(c)
-	if err != nil {
-		return err
-	}
-
 	var ipam *models.IPAMResponse
 	var releaseIPsFunc func(context.Context)
 	if conf.IpamMode == ipamOption.IPAMDelegatedPlugin {
 		ipam, releaseIPsFunc, err = allocateIPsWithDelegatedPlugin(context.TODO(), conf, n, args.StdinData)
 	} else {
-		ipam, releaseIPsFunc, err = allocateIPsWithCiliumAgent(c, cniArgs)
+		ipam, releaseIPsFunc, err = allocateIPsWithCiliumAgent(c, cniArgs, "")
 	}
 
 	// release addresses on failure
@@ -465,7 +466,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	if err = connector.SufficientAddressing(ipam.HostAddressing); err != nil {
-		return fmt.Errorf("IP allocation addressing in insufficient: %s", err)
+		return fmt.Errorf("IP allocation addressing is insufficient: %w", err)
+	}
+
+	if !ipv6IsEnabled(ipam) && !ipv4IsEnabled(ipam) {
+		return fmt.Errorf("IPAM did provide neither IPv4 nor IPv6 address")
 	}
 
 	ep := &models.EndpointChangeRequest{
@@ -487,12 +492,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	switch conf.DatapathMode {
 	case datapathOption.DatapathModeVeth:
-		var (
-			veth      *netlink.Veth
-			peer      netlink.Link
-			tmpIfName string
-		)
-		veth, peer, tmpIfName, err = connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU),
+		veth, peer, tmpIfName, err := connector.SetupVeth(ep.ContainerID, int(conf.DeviceMTU),
 			int(conf.GROMaxSize), int(conf.GSOMaxSize),
 			int(conf.GROIPV4MaxSize), int(conf.GSOIPV4MaxSize), ep)
 		if err != nil {
@@ -515,7 +515,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			return fmt.Errorf("unable to move veth pair '%v' to netns: %s", peer, err)
 		}
 
-		_, _, err = connector.SetupVethRemoteNs(netNs, tmpIfName, args.IfName)
+		err = connector.SetupVethRemoteNs(netNs, tmpIfName, args.IfName)
 		if err != nil {
 			return fmt.Errorf("unable to set up veth on container side: %s", err)
 		}
@@ -523,10 +523,6 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	state := CmdState{
 		HostAddr: ipam.HostAddressing,
-	}
-
-	if !ipv6IsEnabled(ipam) && !ipv4IsEnabled(ipam) {
-		return fmt.Errorf("IPAM did not provide IPv4 or IPv6 address")
 	}
 
 	var (
@@ -613,7 +609,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	// are guaranteed to be recoverable.
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
-		return fmt.Errorf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err)
+		return fmt.Errorf("unable to parse CNI configuration \"%s\": %v", string(args.StdinData), err)
 	}
 
 	if err := setupLogging(n); err != nil {
@@ -714,7 +710,7 @@ func cmdCheck(args *skel.CmdArgs) error {
 	n, err := types.LoadNetConf(args.StdinData)
 	if err != nil {
 		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidNetworkConfig",
-			fmt.Sprintf("unable to parse CNI configuration \"%s\": %s", args.StdinData, err))
+			fmt.Sprintf("unable to parse CNI configuration \"%s\": %v", string(args.StdinData), err))
 	}
 
 	if err := setupLogging(n); err != nil {

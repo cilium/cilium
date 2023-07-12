@@ -178,7 +178,9 @@ To enable the iptables connection-tracking bypass:
 
        .. code-block:: shell-session
 
-          cilium install --config install-no-conntrack-iptables-rules=true
+          cilium install \
+            --set installNoConntrackIptablesRules=true \
+            --set kubeProxyReplacement=true
 
     .. group-tab:: Helm
 
@@ -187,7 +189,7 @@ To enable the iptables connection-tracking bypass:
            helm install cilium |CHART_RELEASE| \\
              --namespace kube-system \\
              --set installNoConntrackIptablesRules=true \\
-             --set kubeProxyReplacement=strict
+             --set kubeProxyReplacement=true
 
 Hubble
 ======

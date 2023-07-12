@@ -29,7 +29,7 @@ func (k *K8sWatcher) ciliumLocalRedirectPolicyInit(ciliumLRPClient client.Client
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(apiGroup, metricCLRP, resources.MetricCreate, valid, equal) }()
-				if cLRP := k8s.ObjToCLRP(obj); cLRP != nil {
+				if cLRP := k8s.CastInformerEvent[cilium_v2.CiliumLocalRedirectPolicy](obj); cLRP != nil {
 					valid = true
 					err := k.addCiliumLocalRedirectPolicy(cLRP)
 					k.K8sEventProcessed(metricCLRP, resources.MetricCreate, err == nil)
@@ -43,7 +43,7 @@ func (k *K8sWatcher) ciliumLocalRedirectPolicyInit(ciliumLRPClient client.Client
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(apiGroup, metricCLRP, resources.MetricDelete, valid, equal) }()
-				cLRP := k8s.ObjToCLRP(obj)
+				cLRP := k8s.CastInformerEvent[cilium_v2.CiliumLocalRedirectPolicy](obj)
 				if cLRP == nil {
 					return
 				}
@@ -52,7 +52,7 @@ func (k *K8sWatcher) ciliumLocalRedirectPolicyInit(ciliumLRPClient client.Client
 				k.K8sEventProcessed(metricCLRP, resources.MetricDelete, err == nil)
 			},
 		},
-		k8s.TransformToCiliumLocalRedirectPolicy,
+		nil,
 	)
 
 	k.blockWaitGroupToSyncResources(

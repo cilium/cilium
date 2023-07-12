@@ -119,7 +119,7 @@ func printEvent(event *models.MapEvent) {
 }
 
 func init() {
-	mapCmd.AddCommand(mapEventListCmd)
+	MAPCmd.AddCommand(mapEventListCmd)
 	mapEventListCmd.Flags().BoolVarP(&followMapEvents, "follow", "f", false, "If set then events will be streamed")
 	command.AddOutputOption(mapEventListCmd)
 }

@@ -83490,6 +83490,19 @@ func awsEc2query_deserializeDocumentInstanceTypeInfo(v **types.InstanceTypeInfo,
 				return err
 			}
 
+		case strings.EqualFold("nitroEnclavesSupport", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.NitroEnclavesSupport = types.NitroEnclavesSupport(xtv)
+			}
+
 		case strings.EqualFold("placementGroupInfo", t.Name.Local):
 			nodeDecoder := smithyxml.WrapNodeDecoder(decoder.Decoder, t)
 			if err := awsEc2query_deserializeDocumentPlacementGroupInfo(&sv.PlacementGroupInfo, nodeDecoder); err != nil {

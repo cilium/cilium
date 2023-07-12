@@ -62,6 +62,6 @@ var bpfIPMasqListCmd = &cobra.Command{
 }
 
 func init() {
-	bpfIPMasqCmd.AddCommand(bpfIPMasqListCmd)
+	BPFIPMasqCmd.AddCommand(bpfIPMasqListCmd)
 	command.AddOutputOption(bpfIPMasqListCmd)
 }

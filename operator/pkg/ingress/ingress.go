@@ -130,16 +130,16 @@ func NewController(clientset k8sClient.Clientset, options ...Option) (*Controlle
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				if ingress := k8s.ObjToV1Ingress(obj); ingress != nil {
+				if ingress := k8s.CastInformerEvent[slim_networkingv1.Ingress](obj); ingress != nil {
 					ic.queue.Add(ingressAddedEvent{ingress: ingress})
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				oldIngress := k8s.ObjToV1Ingress(oldObj)
+				oldIngress := k8s.CastInformerEvent[slim_networkingv1.Ingress](oldObj)
 				if oldIngress == nil {
 					return
 				}
-				newIngress := k8s.ObjToV1Ingress(newObj)
+				newIngress := k8s.CastInformerEvent[slim_networkingv1.Ingress](newObj)
 				if newIngress == nil {
 					return
 				}
@@ -149,7 +149,7 @@ func NewController(clientset k8sClient.Clientset, options ...Option) (*Controlle
 				ic.queue.Add(ingressUpdatedEvent{oldIngress: oldIngress, newIngress: newIngress})
 			},
 			DeleteFunc: func(obj interface{}) {
-				if ingress := k8s.ObjToV1Ingress(obj); ingress != nil {
+				if ingress := k8s.CastInformerEvent[slim_networkingv1.Ingress](obj); ingress != nil {
 					ic.queue.Add(ingressDeletedEvent{ingress: ingress})
 				}
 			},

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -21,7 +21,7 @@ import (
 
 type DiffStoreFixture struct {
 	diffStore DiffStore[*slimv1.Service]
-	signaler  agent.Signaler
+	signaler  *signaler.BGPCPSignaler
 	slimCs    *slim_fake.Clientset
 	hive      *hive.Hive
 }
@@ -49,10 +49,10 @@ func newDiffStoreFixture() *DiffStoreFixture {
 			}
 		}),
 
-		cell.Provide(agent.NewSignaler),
+		cell.Provide(signaler.NewBGPCPSignaler),
 
 		cell.Invoke(func(
-			signaler agent.Signaler,
+			signaler *signaler.BGPCPSignaler,
 			diffFactory DiffStore[*slimv1.Service],
 		) {
 			fixture.signaler = signaler

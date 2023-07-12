@@ -25,7 +25,7 @@ var endpointHealthCmd = &cobra.Command{
 }
 
 func init() {
-	endpointCmd.AddCommand(endpointHealthCmd)
+	EndpointCmd.AddCommand(endpointHealthCmd)
 	command.AddOutputOption(endpointHealthCmd)
 }
 

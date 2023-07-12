@@ -190,7 +190,7 @@ Preparation
 
     .. code-block:: shell-session
 
-        $ cilium install --helm-values values-migration.yaml --helm-auto-gen-values values-initial.yaml
+        $ cilium install --values values-migration.yaml --dry-run-helm-values > values-initial.yaml
         $ cat values-initial.yaml
 
 
@@ -323,10 +323,10 @@ Perform these steps once the cluster is fully migrated.
 
     .. code-block:: shell-session
 
-      $ cilium install --helm-values values-initial.yaml --helm-auto-gen-values values-final.yaml \
-        --helm-set operator.unmanagedPodWatcher.restart=true --helm-set cni.customConf=false \
-        --helm-set policyEnforcementMode=default \
-        --helm-set bpf.hostLegacyRouting=false # optional, can cause brief interruptions
+      $ cilium install --values values-initial.yaml --dry-run-helm-values \
+        --set operator.unmanagedPodWatcher.restart=true --set cni.customConf=false \
+        --set policyEnforcementMode=default \
+        --set bpf.hostLegacyRouting=false > values-final.yaml # optional, can cause brief interruptions
       $ diff values-initial.yaml values-final.yaml
 
     Then, apply the changes to the cluster:

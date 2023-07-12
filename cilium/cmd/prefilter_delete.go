@@ -21,7 +21,7 @@ var preFilterDeleteCmd = &cobra.Command{
 }
 
 func init() {
-	preFilterCmd.AddCommand(preFilterDeleteCmd)
+	PreFilterCmd.AddCommand(preFilterDeleteCmd)
 	preFilterDeleteCmd.Flags().Uint64VarP(&revision, "revision", "", 0, "Update revision")
 	preFilterDeleteCmd.Flags().StringSliceVarP(&cidrs, "cidr", "", []string{}, "List of CIDR prefixes to delete")
 }

@@ -339,34 +339,6 @@ func (p *ProbeManager) KernelConfigAvailable() bool {
 	return true
 }
 
-// HaveMapType is a wrapper around features.HaveMapType() to check if a certain
-// BPF map type is supported by the kernel.
-// On unexpected probe results this function will terminate with log.Fatal().
-func HaveMapType(mt ebpf.MapType) error {
-	err := features.HaveMapType(mt)
-	if errors.Is(err, ebpf.ErrNotSupported) {
-		return err
-	}
-	if err != nil {
-		log.WithError(err).WithField("maptype", mt).Fatal("failed to probe MapType")
-	}
-	return nil
-}
-
-// HaveProgramType is a wrapper around features.HaveProgramType() to check
-// if a certain BPF program type is supported by the kernel.
-// On unexpected probe results this function will terminate with log.Fatal().
-func HaveProgramType(pt ebpf.ProgramType) error {
-	err := features.HaveProgramType(pt)
-	if errors.Is(err, ebpf.ErrNotSupported) {
-		return err
-	}
-	if err != nil {
-		log.WithError(err).WithField("programtype", pt).Fatal("failed to probe ProgramType")
-	}
-	return nil
-}
-
 // HaveProgramHelper is a wrapper around features.HaveProgramHelper() to
 // check if a certain BPF program/helper copmbination is supported by the kernel.
 // On unexpected probe results this function will terminate with log.Fatal().

@@ -52,7 +52,7 @@ func init() {
 	bpfCtListCmd.Flags().BoolVarP(&timeDiff, "time-diff", "d", false, "print time difference for entries")
 	bpfCtListCmd.Flags().StringVar(&timeDiffClockSourceMode, "time-diff-clocksource-mode", "", "manually set clock source mode (instead of contacting the server)")
 	bpfCtListCmd.Flags().Int64Var(&timeDiffClockSourceHz, "time-diff-clocksource-hz", 250, "manually set clock source Hz")
-	bpfCtCmd.AddCommand(bpfCtListCmd)
+	BPFCtCmd.AddCommand(bpfCtListCmd)
 	command.AddOutputOption(bpfCtListCmd)
 }
 

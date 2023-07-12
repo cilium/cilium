@@ -833,7 +833,7 @@ paths:
             "$ref": "#/definitions/Error"
   "/debuginfo":
     get:
-      summary: Retrieve information about the agent and evironment for debugging
+      summary: Retrieve information about the agent and environment for debugging
       tags:
       - daemon
       responses:
@@ -1643,7 +1643,7 @@ definitions:
         type: object
         properties:
           wireguard:
-            description: Status of the Wireguard agent
+            description: Status of the WireGuard agent
             "$ref": "#/definitions/WireguardStatus"
   CgroupDumpMetadata:
     description: cgroup full metadata
@@ -3481,7 +3481,7 @@ definitions:
         type: string
         description: Human readable status/error/warning message
       wireguard:
-        description: Status of the Wireguard agent
+        description: Status of the WireGuard agent
         "$ref": "#/definitions/WireguardStatus"
   CNIChainingStatus:
     description: |-
@@ -3499,7 +3499,7 @@ definitions:
           - portmap
   WireguardStatus:
     description: |-
-      Status of the Wireguard agent
+      Status of the WireGuard agent
 
       +k8s:deepcopy-gen=true
     properties:
@@ -3507,13 +3507,13 @@ definitions:
         description: Node Encryption status
         type: string
       interfaces:
-        description: Wireguard interfaces managed by this Cilium instance
+        description: WireGuard interfaces managed by this Cilium instance
         type: array
         items:
           "$ref": "#/definitions/WireguardInterface"
   WireguardInterface:
     description: |-
-      Status of a Wireguard interface
+      Status of a WireGuard interface
 
       +k8s:deepcopy-gen=true
     properties:
@@ -3524,19 +3524,19 @@ definitions:
         description: Public key of this interface
         type: string
       listen-port:
-        description: Port on which the Wireguard endpoint is exposed
+        description: Port on which the WireGuard endpoint is exposed
         type: integer
       peer-count:
         description: Number of peers configured on this interface
         type: integer
       peers:
-        description: Optional list of wireguard peers
+        description: Optional list of WireGuard peers
         type: array
         items:
           "$ref": "#/definitions/WireguardPeer"
   WireguardPeer:
     description: |-
-      Status of a Wireguard peer
+      Status of a WireGuard peer
 
       +k8s:deepcopy-gen=true
     properties:

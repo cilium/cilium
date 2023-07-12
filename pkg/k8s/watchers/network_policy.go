@@ -32,7 +32,7 @@ func (k *K8sWatcher) networkPoliciesInit(slimClient slimclientset.Interface, swg
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(apiGroup, metricKNP, resources.MetricCreate, valid, equal) }()
-				if k8sNP := k8s.ObjToV1NetworkPolicy(obj); k8sNP != nil {
+				if k8sNP := k8s.CastInformerEvent[slim_networkingv1.NetworkPolicy](obj); k8sNP != nil {
 					valid = true
 					err := k.addK8sNetworkPolicyV1(k8sNP)
 					k.K8sEventProcessed(metricKNP, resources.MetricCreate, err == nil)
@@ -41,8 +41,8 @@ func (k *K8sWatcher) networkPoliciesInit(slimClient slimclientset.Interface, swg
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(apiGroup, metricKNP, resources.MetricUpdate, valid, equal) }()
-				if oldK8sNP := k8s.ObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
-					if newK8sNP := k8s.ObjToV1NetworkPolicy(newObj); newK8sNP != nil {
+				if oldK8sNP := k8s.CastInformerEvent[slim_networkingv1.NetworkPolicy](oldObj); oldK8sNP != nil {
+					if newK8sNP := k8s.CastInformerEvent[slim_networkingv1.NetworkPolicy](newObj); newK8sNP != nil {
 						valid = true
 						if oldK8sNP.DeepEqual(newK8sNP) {
 							equal = true
@@ -57,7 +57,7 @@ func (k *K8sWatcher) networkPoliciesInit(slimClient slimclientset.Interface, swg
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(apiGroup, metricKNP, resources.MetricDelete, valid, equal) }()
-				k8sNP := k8s.ObjToV1NetworkPolicy(obj)
+				k8sNP := k8s.CastInformerEvent[slim_networkingv1.NetworkPolicy](obj)
 				if k8sNP == nil {
 					return
 				}

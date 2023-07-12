@@ -12,17 +12,9 @@ import (
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 )
 
-type getLRP struct {
-	rpm *redirectpolicy.Manager
-}
-
-func NewGetLrpHandler(rpm *redirectpolicy.Manager) GetLrpHandler {
-	return &getLRP{rpm: rpm}
-}
-
-func (h *getLRP) Handle(params GetLrpParams) middleware.Responder {
+func getLRPHandler(d *Daemon, params GetLrpParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /lrp request")
-	return NewGetLrpOK().WithPayload(getLRPs(h.rpm))
+	return NewGetLrpOK().WithPayload(getLRPs(d.redirectPolicyManager))
 }
 
 func getLRPs(rpm *redirectpolicy.Manager) []*models.LRPSpec {

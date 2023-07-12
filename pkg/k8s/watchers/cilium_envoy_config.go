@@ -37,7 +37,7 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ctx context.Context, ciliumNPClient c
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(apiGroup, metricCEC, resources.MetricCreate, valid, equal) }()
-				if cec := k8s.ObjToCEC(obj); cec != nil {
+				if cec := k8s.CastInformerEvent[cilium_v2.CiliumEnvoyConfig](obj); cec != nil {
 					valid = true
 					err := k.addCiliumEnvoyConfig(cec)
 					k.K8sEventProcessed(metricCEC, resources.MetricCreate, err == nil)
@@ -47,8 +47,8 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ctx context.Context, ciliumNPClient c
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(apiGroup, metricCEC, resources.MetricUpdate, valid, equal) }()
 
-				if oldCEC := k8s.ObjToCEC(oldObj); oldCEC != nil {
-					if newCEC := k8s.ObjToCEC(newObj); newCEC != nil {
+				if oldCEC := k8s.CastInformerEvent[cilium_v2.CiliumEnvoyConfig](oldObj); oldCEC != nil {
+					if newCEC := k8s.CastInformerEvent[cilium_v2.CiliumEnvoyConfig](newObj); newCEC != nil {
 						valid = true
 						if newCEC.DeepEqual(oldCEC) {
 							equal = true
@@ -62,7 +62,7 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ctx context.Context, ciliumNPClient c
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(apiGroup, metricCEC, resources.MetricDelete, valid, equal) }()
-				cec := k8s.ObjToCEC(obj)
+				cec := k8s.CastInformerEvent[cilium_v2.CiliumEnvoyConfig](obj)
 				if cec == nil {
 					return
 				}
@@ -71,7 +71,7 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ctx context.Context, ciliumNPClient c
 				k.K8sEventProcessed(metricCEC, resources.MetricDelete, err == nil)
 			},
 		},
-		k8s.TransformToCiliumEnvoyConfig,
+		nil,
 	)
 
 	k.blockWaitGroupToSyncResources(
