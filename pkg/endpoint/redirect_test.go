@@ -8,7 +8,6 @@ package endpoint
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
 	"gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -29,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -145,7 +145,9 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	do := &DummyOwner{
 		repo: policy.NewPolicyRepository(nil, nil, nil),
 	}
+	do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	identitymanager.Subscribe(do.repo)
+	defer identitymanager.RemoveAll()
 
 	lblQA := labels.ParseLabel("QA")
 	lblBar := labels.ParseLabel("bar")
@@ -365,7 +367,9 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 	do := &DummyOwner{
 		repo: policy.NewPolicyRepository(mgr, identityCache, nil),
 	}
+	do.repo.GetSelectorCache().SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
 	identitymanager.Subscribe(do.repo)
+	defer identitymanager.RemoveAll()
 
 	httpPort := uint16(19001)
 	dnsPort := uint16(19002)
@@ -414,11 +418,6 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	cmp := completion.NewWaitGroup(ctx)
-
-	logger := ep.getLogger().Logger
-	oldLogLevel := logger.GetLevel()
-	logger.SetLevel(logrus.DebugLevel)
-	defer logger.SetLevel(oldLogLevel)
 
 	desiredRedirects, err, finalizeFunc, revertFunc := ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
