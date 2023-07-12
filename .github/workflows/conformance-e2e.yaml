@@ -67,6 +67,7 @@ jobs:
 
   setup-and-test:
     runs-on: ubuntu-latest-4cores-16gb
+    name: 'Setup & Test'
     env:
       job_name: 'Setup & Test'
     strategy:
