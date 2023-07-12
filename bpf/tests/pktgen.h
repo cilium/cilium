@@ -469,11 +469,26 @@ struct arphdreth *pktgen__push_arphdr_ethernet(struct pktgen *builder)
 	builder->layer_offsets[layer_idx] = builder->cur_off;
 	builder->cur_off += sizeof(struct arphdreth);
 
-	layer->ar_hrd = bpf_htons(ARPHRD_ETHER);
-	layer->ar_hln = ETH_ALEN;
-	layer->ar_pln = 4; /* Size of an IPv4 address */
-
 	return layer;
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+struct arphdreth *pktgen__push_default_arphdr_ethernet(struct pktgen *builder)
+{
+	struct arphdreth *arp = pktgen__push_arphdr_ethernet(builder);
+
+	if (!arp)
+		return NULL;
+
+	if ((void *)arp + sizeof(*arp) > ctx_data_end(builder->ctx))
+		return NULL;
+
+	arp->ar_hrd = bpf_htons(ARPHRD_ETHER);
+	arp->ar_hln = ETH_ALEN;
+	arp->ar_pln = 4; /* Size of an IPv4 address */
+
+	return arp;
 }
 
 /* Push an empty TCP header onto the packet */
