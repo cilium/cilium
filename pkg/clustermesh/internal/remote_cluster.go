@@ -70,12 +70,16 @@ type remoteCluster struct {
 
 	// mutex protects the following variables
 	// - backend
+	// - config
 	// - failures
 	// - lastFailure
 	mutex lock.RWMutex
 
 	// backend is the kvstore backend being used
 	backend kvstore.BackendOperations
+
+	// config contains the information about the cluster config for status reporting
+	config *models.RemoteClusterConfig
 
 	// failures is the number of observed failures
 	failures int
@@ -121,6 +125,7 @@ func (rc *remoteCluster) releaseOldConnection() {
 	rc.mutex.Lock()
 	backend := rc.backend
 	rc.backend = nil
+	rc.config = nil
 	rc.mutex.Unlock()
 
 	// Release resources asynchronously in the background. Many of these
@@ -157,6 +162,10 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					return err
 				}
 
+				rc.mutex.Lock()
+				rc.backend = backend
+				rc.mutex.Unlock()
+
 				rc.getLogger().Info("Connection to remote cluster established")
 
 				config, err := rc.getClusterConfig(ctx, backend, false)
@@ -166,13 +175,8 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					rc.getLogger().Info("Found remote cluster configuration")
 				} else {
 					rc.getLogger().WithError(err).Warning("Unable to get remote cluster configuration")
-					backend.Close(ctx)
 					return err
 				}
-
-				rc.mutex.Lock()
-				rc.backend = backend
-				rc.mutex.Unlock()
 
 				ctx, cancel := context.WithCancel(ctx)
 				rc.wg.Add(1)
@@ -251,6 +255,10 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 		}
 	}
 
+	rc.mutex.Lock()
+	rc.config = &models.RemoteClusterConfig{Required: requireConfig}
+	rc.mutex.Unlock()
+
 	cfgch := make(chan *types.CiliumClusterConfig)
 	defer close(cfgch)
 
@@ -284,6 +292,15 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 	// Wait until either the configuration is retrieved, or the context expires
 	select {
 	case config := <-cfgch:
+		if config != nil {
+			rc.mutex.Lock()
+			rc.config.Retrieved = true
+			rc.config.ClusterID = int64(config.ID)
+			rc.config.Kvstoremesh = config.Capabilities.Cached
+			rc.config.SyncCanaries = config.Capabilities.SyncedCanaries
+			rc.mutex.Unlock()
+		}
+
 		return config, nil
 	case <-ctx.Done():
 		return nil, fmt.Errorf("failed to retrieve cluster configuration")
@@ -375,7 +392,7 @@ func (rc *remoteCluster) isReady() bool {
 }
 
 func (rc *remoteCluster) isReadyLocked() bool {
-	return rc.backend != nil
+	return rc.backend != nil && rc.config != nil && (!rc.config.Required || rc.config.Retrieved)
 }
 
 func (rc *remoteCluster) status() *models.RemoteCluster {
@@ -397,6 +414,7 @@ func (rc *remoteCluster) status() *models.RemoteCluster {
 		Name:        rc.name,
 		Ready:       rc.isReadyLocked(),
 		Status:      backendStatus,
+		Config:      rc.config,
 		NumFailures: int64(rc.failures),
 		LastFailure: strfmt.DateTime(rc.lastFailure),
 	}
