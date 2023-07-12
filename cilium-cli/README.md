@@ -372,7 +372,7 @@ To install the default version of Cilium:
 
 To see the Helm release that got deployed:
 
-    helm list -n kube-system cilium
+    helm list -n kube-system --filter "cilium"
 
 To see non-default Helm values that `cilium-cli` used for this Cilium installation:
 
