@@ -38,11 +38,11 @@ runs:
       if: ${{ steps.build-cli.outputs.path != '' }}
       shell: bash
       run: |
-        cd ${{ steps.build-cli.outputs.path }}
-        make TARGET=${{ inputs.binary-name }}
+        TARGET=/tmp/cilium
+        make -C ${{ steps.build-cli.outputs.path }} TARGET=${TARGET}
         # Install the binary in a separate step (rather than executing make install)
         # to avoid building the binary as root, which would cause issues with caching.
-        sudo mv ${{ inputs.binary-name }} ${{ inputs.binary-dir }}/${{ inputs.binary-name }}
+        sudo mv ${TARGET} ${{ inputs.binary-dir }}/${{ inputs.binary-name }}
 
     - name: Check Required Version
       if: ${{ steps.build-cli.outputs.path == '' && inputs.release-version == '' && inputs.ci-version == '' }}
