@@ -60,7 +60,7 @@ jobs:
       - name: Set image tag
         id: vars
         run: |
-          if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
+          if [ "${{ github.event.pull_request.head.sha }}" != "" ]; then
             echo tag=${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
           else
             echo tag=${{ github.sha }} >> $GITHUB_OUTPUT

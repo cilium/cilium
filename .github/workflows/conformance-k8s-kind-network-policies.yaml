@@ -125,7 +125,7 @@ jobs:
       - name: Set up job variables
         id: vars
         run: |
-          if [ ${{ github.event.pull_request }} ]; then
+          if [ "${{ github.event.pull_request }}" ]; then
             SHA=${{ github.event.pull_request.head.sha }}
           else
             SHA=${{ github.sha }}
