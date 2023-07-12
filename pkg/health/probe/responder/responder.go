@@ -21,10 +21,10 @@ type Server struct {
 }
 
 // NewServer creates a new server listening on the given port
-func NewServer(port int) *Server {
+func NewServer(address string, port int) *Server {
 	return &Server{
 		http.Server{
-			Addr:    fmt.Sprintf(":%d", port),
+			Addr:    fmt.Sprintf("%s:%d", address, port),
 			Handler: http.HandlerFunc(serverRequests),
 		},
 	}
