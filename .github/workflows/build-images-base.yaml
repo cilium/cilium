@@ -266,10 +266,12 @@ jobs:
           APP_ID: ${{ secrets.AUTO_COMMITTER_APP_ID }}
 
       - name: Push changes into PR
+        env:
+          REF: ${{ github.event.pull_request.head.ref }}
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' || steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' }}
         run: |
           git diff HEAD^
-          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.QUAY_ORGANIZATION }}/cilium.git HEAD:${{ github.event.pull_request.head.ref }}
+          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.QUAY_ORGANIZATION }}/cilium.git HEAD:"$REF"
 
   image-digests:
     name: Display Digests
