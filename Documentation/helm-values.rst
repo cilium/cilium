@@ -48,6 +48,10 @@
      - Interval for garbage collection of auth map entries.
      - string
      - ``"5m0s"``
+   * - :spelling:ignore:`authentication.mutual.connectTimeout`
+     - Timeout for connecting to the remote node TCP socket
+     - string
+     - ``"5s"``
    * - :spelling:ignore:`authentication.mutual.port`
      - Port on the agent where mutual authentication handshakes between agents will be performed
      - int
