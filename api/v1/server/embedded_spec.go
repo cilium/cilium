@@ -4277,6 +4277,10 @@ func init() {
     "RemoteCluster": {
       "description": "Status of remote cluster\n\n+k8s:deepcopy-gen=true",
       "properties": {
+        "config": {
+          "description": "Cluster configuration exposed by the remote cluster",
+          "$ref": "#/definitions/RemoteClusterConfig"
+        },
         "last-failure": {
           "description": "Time of last failure that occurred while attempting to reach the cluster",
           "type": "string",
@@ -4313,6 +4317,31 @@ func init() {
         "status": {
           "description": "Status of the control plane",
           "type": "string"
+        }
+      }
+    },
+    "RemoteClusterConfig": {
+      "description": "Cluster configuration exposed by the remote cluster\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "cluster-id": {
+          "description": "The Cluster ID advertised by the remote cluster",
+          "type": "integer"
+        },
+        "kvstoremesh": {
+          "description": "Whether the remote cluster information is locally cached by kvstoremesh",
+          "type": "boolean"
+        },
+        "required": {
+          "description": "Whether the configuration is required to be present",
+          "type": "boolean"
+        },
+        "retrieved": {
+          "description": "Whether the configuration has been correctly retrieved",
+          "type": "boolean"
+        },
+        "sync-canaries": {
+          "description": "Whether the remote cluster supports per-prefix \"synced\" canaries",
+          "type": "boolean"
         }
       }
     },
@@ -9801,6 +9830,10 @@ func init() {
     "RemoteCluster": {
       "description": "Status of remote cluster\n\n+k8s:deepcopy-gen=true",
       "properties": {
+        "config": {
+          "description": "Cluster configuration exposed by the remote cluster",
+          "$ref": "#/definitions/RemoteClusterConfig"
+        },
         "last-failure": {
           "description": "Time of last failure that occurred while attempting to reach the cluster",
           "type": "string",
@@ -9837,6 +9870,31 @@ func init() {
         "status": {
           "description": "Status of the control plane",
           "type": "string"
+        }
+      }
+    },
+    "RemoteClusterConfig": {
+      "description": "Cluster configuration exposed by the remote cluster\n\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "cluster-id": {
+          "description": "The Cluster ID advertised by the remote cluster",
+          "type": "integer"
+        },
+        "kvstoremesh": {
+          "description": "Whether the remote cluster information is locally cached by kvstoremesh",
+          "type": "boolean"
+        },
+        "required": {
+          "description": "Whether the configuration is required to be present",
+          "type": "boolean"
+        },
+        "retrieved": {
+          "description": "Whether the configuration has been correctly retrieved",
+          "type": "boolean"
+        },
+        "sync-canaries": {
+          "description": "Whether the remote cluster supports per-prefix \"synced\" canaries",
+          "type": "boolean"
         }
       }
     },

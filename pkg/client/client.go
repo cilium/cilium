@@ -392,6 +392,18 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 					cluster.NumEndpoints, cluster.NumIdentities, cluster.NumSharedServices,
 					cluster.NumFailures, timeSince(time.Time(cluster.LastFailure)))
 				fmt.Fprintf(w, "   └  %s\n", cluster.Status)
+
+				fmt.Fprint(w, "   └  remote configuration: ")
+				if cluster.Config != nil {
+					fmt.Fprintf(w, "expected=%t, retrieved=%t", cluster.Config.Required, cluster.Config.Retrieved)
+					if cluster.Config.Retrieved {
+						fmt.Fprintf(w, ", cluster-id=%d, kvstoremesh=%t, sync-canaries=%t",
+							cluster.Config.ClusterID, cluster.Config.Kvstoremesh, cluster.Config.SyncCanaries)
+					}
+				} else {
+					fmt.Fprint(w, "expected=unknown, retrieved=unknown")
+				}
+				fmt.Fprint(w, "\n")
 			}
 		}
 	}
