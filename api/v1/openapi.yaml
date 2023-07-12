@@ -2333,6 +2333,9 @@ definitions:
       ready:
         description: Indicates readiness of the remote cluster
         type: boolean
+      config:
+        description: Cluster configuration exposed by the remote cluster
+        "$ref": "#/definitions/RemoteClusterConfig"
       num-nodes:
         description: Number of nodes in the cluster
         type: integer
@@ -2355,6 +2358,27 @@ definitions:
         description: Time of last failure that occurred while attempting to reach the cluster
         type: string
         format: date-time
+  RemoteClusterConfig:
+    description: |-
+      Cluster configuration exposed by the remote cluster
+
+      +k8s:deepcopy-gen=true
+    properties:
+      required:
+        description: Whether the configuration is required to be present
+        type: boolean
+      retrieved:
+        description: Whether the configuration has been correctly retrieved
+        type: boolean
+      cluster-id:
+        description: The Cluster ID advertised by the remote cluster
+        type: integer
+      kvstoremesh:
+        description: Whether the remote cluster information is locally cached by kvstoremesh
+        type: boolean
+      sync-canaries:
+        description: Whether the remote cluster supports per-prefix "synced" canaries
+        type: boolean
   MonitorStatus:
     description: Status of the node monitor
     properties:

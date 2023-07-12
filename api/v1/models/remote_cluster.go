@@ -24,6 +24,9 @@ import (
 // swagger:model RemoteCluster
 type RemoteCluster struct {
 
+	// Cluster configuration exposed by the remote cluster
+	Config *RemoteClusterConfig `json:"config,omitempty"`
+
 	// Time of last failure that occurred while attempting to reach the cluster
 	// Format: date-time
 	LastFailure strfmt.DateTime `json:"last-failure,omitempty"`
@@ -57,6 +60,10 @@ type RemoteCluster struct {
 func (m *RemoteCluster) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateConfig(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateLastFailure(formats); err != nil {
 		res = append(res, err)
 	}
@@ -64,6 +71,25 @@ func (m *RemoteCluster) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *RemoteCluster) validateConfig(formats strfmt.Registry) error {
+	if swag.IsZero(m.Config) { // not required
+		return nil
+	}
+
+	if m.Config != nil {
+		if err := m.Config.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("config")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("config")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -79,8 +105,33 @@ func (m *RemoteCluster) validateLastFailure(formats strfmt.Registry) error {
 	return nil
 }
 
-// ContextValidate validates this remote cluster based on context it is used
+// ContextValidate validate this remote cluster based on the context it is used
 func (m *RemoteCluster) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateConfig(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *RemoteCluster) contextValidateConfig(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Config != nil {
+		if err := m.Config.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("config")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("config")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 
