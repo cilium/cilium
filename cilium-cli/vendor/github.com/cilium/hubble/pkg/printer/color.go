@@ -108,3 +108,11 @@ func (c colorer) verdictTraced(a interface{}) string {
 func (c colorer) verdictTranslated(a interface{}) string {
 	return c.yellow.Sprint(a)
 }
+
+func (c colorer) authTestAlwaysFail(a interface{}) string {
+	return c.red.Sprint(a)
+}
+
+func (c colorer) authIsEnabled(a interface{}) string {
+	return c.green.Sprint(a)
+}

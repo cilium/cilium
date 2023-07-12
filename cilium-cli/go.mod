@@ -21,8 +21,8 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/charts v0.0.0-20230628232147-9992996cd311
 	github.com/cilium/cilium v1.14.0-snapshot.5
-	github.com/cilium/hubble v0.11.6
-	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230707091407-8a837d810b87
+	github.com/cilium/hubble v0.12.0
+	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230712082728-185746ca3f78
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.4
 	github.com/go-openapi/strfmt v0.21.7
@@ -31,7 +31,7 @@ require (
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
-	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df
+	golang.org/x/exp v0.0.0-20230711153332-06a737ee72cb
 	golang.org/x/mod v0.12.0
 	google.golang.org/grpc v1.56.2
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
@@ -89,7 +89,7 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v0.10.1 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
-	github.com/fatih/color v1.14.1 // indirect
+	github.com/fatih/color v1.15.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-gorp/gorp/v3 v3.0.5 // indirect
@@ -206,7 +206,7 @@ require (
 	golang.org/x/net v0.11.0 // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.9.1-0.20230616193735-e0c3b6e6ae3b // indirect
+	golang.org/x/sys v0.10.0 // indirect
 	golang.org/x/term v0.9.0 // indirect
 	golang.org/x/text v0.10.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
