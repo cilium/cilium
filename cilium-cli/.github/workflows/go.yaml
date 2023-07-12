@@ -22,7 +22,7 @@ jobs:
       uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
       with:
         # renovate: datasource=golang-version depName=go
-        go-version: 1.20.5
+        go-version: 1.20.6
 
     - name: Run static checks
       uses: golangci/golangci-lint-action@639cd343e1d3b897ff35927a75193d57cfcba299 # v3.6.0
