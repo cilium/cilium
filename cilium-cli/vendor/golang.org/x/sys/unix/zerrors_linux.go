@@ -827,9 +827,9 @@ const (
 	DM_UUID_FLAG                                = 0x4000
 	DM_UUID_LEN                                 = 0x81
 	DM_VERSION                                  = 0xc138fd00
-	DM_VERSION_EXTRA                            = "-ioctl (2022-07-28)"
+	DM_VERSION_EXTRA                            = "-ioctl (2023-03-01)"
 	DM_VERSION_MAJOR                            = 0x4
-	DM_VERSION_MINOR                            = 0x2f
+	DM_VERSION_MINOR                            = 0x30
 	DM_VERSION_PATCHLEVEL                       = 0x0
 	DT_BLK                                      = 0x6
 	DT_CHR                                      = 0x2
@@ -2213,6 +2213,7 @@ const (
 	PACKET_USER                                 = 0x6
 	PACKET_VERSION                              = 0xa
 	PACKET_VNET_HDR                             = 0xf
+	PACKET_VNET_HDR_SZ                          = 0x18
 	PARITY_CRC16_PR0                            = 0x2
 	PARITY_CRC16_PR0_CCITT                      = 0x4
 	PARITY_CRC16_PR1                            = 0x3
@@ -2371,6 +2372,7 @@ const (
 	PR_FP_EXC_UND                               = 0x40000
 	PR_FP_MODE_FR                               = 0x1
 	PR_FP_MODE_FRE                              = 0x2
+	PR_GET_AUXV                                 = 0x41555856
 	PR_GET_CHILD_SUBREAPER                      = 0x25
 	PR_GET_DUMPABLE                             = 0x3
 	PR_GET_ENDIAN                               = 0x13
@@ -2380,6 +2382,7 @@ const (
 	PR_GET_IO_FLUSHER                           = 0x3a
 	PR_GET_KEEPCAPS                             = 0x7
 	PR_GET_MDWE                                 = 0x42
+	PR_GET_MEMORY_MERGE                         = 0x44
 	PR_GET_NAME                                 = 0x10
 	PR_GET_NO_NEW_PRIVS                         = 0x27
 	PR_GET_PDEATHSIG                            = 0x2
@@ -2436,6 +2439,7 @@ const (
 	PR_SET_IO_FLUSHER                           = 0x39
 	PR_SET_KEEPCAPS                             = 0x8
 	PR_SET_MDWE                                 = 0x41
+	PR_SET_MEMORY_MERGE                         = 0x43
 	PR_SET_MM                                   = 0x23
 	PR_SET_MM_ARG_END                           = 0x9
 	PR_SET_MM_ARG_START                         = 0x8
@@ -2519,6 +2523,7 @@ const (
 	PTRACE_GETSIGMASK                           = 0x420a
 	PTRACE_GET_RSEQ_CONFIGURATION               = 0x420f
 	PTRACE_GET_SYSCALL_INFO                     = 0x420e
+	PTRACE_GET_SYSCALL_USER_DISPATCH_CONFIG     = 0x4211
 	PTRACE_INTERRUPT                            = 0x4207
 	PTRACE_KILL                                 = 0x8
 	PTRACE_LISTEN                               = 0x4208
@@ -2549,6 +2554,7 @@ const (
 	PTRACE_SETREGSET                            = 0x4205
 	PTRACE_SETSIGINFO                           = 0x4203
 	PTRACE_SETSIGMASK                           = 0x420b
+	PTRACE_SET_SYSCALL_USER_DISPATCH_CONFIG     = 0x4210
 	PTRACE_SINGLESTEP                           = 0x9
 	PTRACE_SYSCALL                              = 0x18
 	PTRACE_SYSCALL_INFO_ENTRY                   = 0x1
@@ -3085,7 +3091,7 @@ const (
 	TASKSTATS_GENL_NAME                         = "TASKSTATS"
 	TASKSTATS_GENL_VERSION                      = 0x1
 	TASKSTATS_TYPE_MAX                          = 0x6
-	TASKSTATS_VERSION                           = 0xd
+	TASKSTATS_VERSION                           = 0xe
 	TCIFLUSH                                    = 0x0
 	TCIOFF                                      = 0x2
 	TCIOFLUSH                                   = 0x2
