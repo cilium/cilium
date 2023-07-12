@@ -365,8 +365,10 @@ void *pktgen__push_rawhdr(struct pktgen *builder, __u16 hdrsize, enum pkt_layer 
 		return NULL;
 
 	layer = ctx_data(ctx) + builder->cur_off;
-	layer_idx = pktgen__free_layer(builder);
+	if ((void *)layer + hdrsize > ctx_data_end(ctx))
+		return NULL;
 
+	layer_idx = pktgen__free_layer(builder);
 	if (layer_idx < 0)
 		return NULL;
 
@@ -408,9 +410,6 @@ struct ipv6_opt_hdr *pktgen__append_ipv6_extension_header(struct pktgen *builder
 	if (!hdr)
 		return NULL;
 
-	if ((void *)hdr + length > ctx_data_end(builder->ctx))
-		return NULL;
-
 	hdr->hdrlen = hdrlen;
 
 	return hdr;
@@ -424,9 +423,6 @@ struct ipv6hdr *pktgen__push_default_ipv6hdr(struct pktgen *builder)
 			sizeof(struct ipv6hdr), PKT_LAYER_IPV6);
 
 	if (!hdr)
-		return NULL;
-
-	if ((void *) hdr + sizeof(struct ipv6hdr) > ctx_data_end(builder->ctx))
 		return NULL;
 
 	memset(hdr, 0, sizeof(struct ipv6hdr));
