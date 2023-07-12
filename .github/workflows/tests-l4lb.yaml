@@ -112,6 +112,7 @@ jobs:
           until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
 
       - name: Run LoadBalancing test
+        id: lb-test
         run: |
           cd ${{ github.workspace }}/test/l4lb && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }}
 
@@ -120,7 +121,7 @@ jobs:
           cd ${{ github.workspace }}/test/nat46x64 && sudo ./test.sh ${{ env.QUAY_ORGANIZATION_DEV }} ${{ steps.vars.outputs.sha }}
 
       - name: Fetch cilium-sysdump
-        if: ${{ !success() }}
+        if: ${{ !success() && steps.lb-test.outcome != 'skipped' }}
         run: |
           sudo cilium sysdump --output-filename cilium-sysdump-out
 
