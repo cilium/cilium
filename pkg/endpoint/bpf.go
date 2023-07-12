@@ -216,11 +216,12 @@ func (p *policyIdentitiesLabelLookup) GetLabels(id identity.NumericIdentity) lab
 // proxyPolicy passes state needed for proxy redirect creation
 type proxyPolicy struct {
 	l4   *policy.L4Filter
+	ps   *policy.PerSelectorPolicy
 	port uint16
 }
 
-func (e *Endpoint) newProxyPolicy(l4 *policy.L4Filter, port uint16) proxyPolicy {
-	return proxyPolicy{l4: l4, port: port}
+func (e *Endpoint) newProxyPolicy(l4 *policy.L4Filter, ps *policy.PerSelectorPolicy, port uint16) proxyPolicy {
+	return proxyPolicy{l4: l4, ps: ps, port: port}
 }
 
 func (p *proxyPolicy) CopyL7RulesPerEndpoint() policy.L7DataMap {
@@ -240,7 +241,7 @@ func (p *proxyPolicy) GetPort() uint16 {
 }
 
 func (p *proxyPolicy) GetListener() string {
-	return p.l4.GetListener()
+	return p.ps.GetListener()
 }
 
 // addNewRedirectsFromDesiredPolicy must be called while holding the endpoint lock for
@@ -278,65 +279,70 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				continue
 			}
 
-			var redirectPort uint16
 			// Only create a redirect if the proxy is NOT running in a sidecar container
-			// or the parser is not HTTP. If running in a sidecar container and the parser
+			// with an HTTP parser. If running in a sidecar container and the parser
 			// is HTTP, just allow traffic to the port at L4 by setting the proxy port
 			// to 0.
 			if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
-				var finalizeFunc revert.FinalizeFunc
-				var revertFunc revert.RevertFunc
+				for _, v := range l4.PerSelectorPolicies {
+					if v == nil || !v.IsRedirect() {
+						continue
+					}
+					proxyID, port := e.proxyID(l4, v.Listener)
+					if proxyID == "" {
+						// Skip redirects for which a proxyID cannot be created.
+						// This may happen due to the named port mapping not
+						// existing or multiple PODs defining the same port name
+						// with different port values. The redirect will be created
+						// when the mapping is available or when the port name
+						// conflicts have been resolved in POD specs.
+						continue
+					}
 
-				proxyID, port := e.proxyID(l4)
-				if proxyID == "" {
-					// Skip redirects for which a proxyID cannot be created.
-					// This may happen due to the named port mapping not
-					// existing or multiple PODs defining the same port name
-					// with different port values. The redirect will be created
-					// when the mapping is available or when the port name
-					// conflicts have been resolved in POD specs.
-					continue
+					// desiredRedirects starts out empty, so we can use it check
+					// if the redirect has already been updated on this round.
+					if desiredRedirects[proxyID] {
+						continue
+					}
+
+					pp := e.newProxyPolicy(l4, v, port)
+					redirectPort, err, finalizeFunc, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e, proxyWaitGroup)
+					if err != nil {
+						// Skip redirects that can not be created or updated.  This
+						// can happen when a listener is missing, for example when
+						// restarting and k8s delivers the CNP before the related
+						// CEC.
+						// Policy is regenerated when listeners are added or removed
+						// to fix this condition when the listener is available.
+						e.getLogger().WithField(logfields.Listener, pp.GetListener()).WithError(err).Debug("Redirect rule with missing listener skipped, will be applied once the listener is available")
+						continue
+					}
+					finalizeList.Append(finalizeFunc)
+					revertStack.Push(revertFunc)
+
+					if e.realizedRedirects == nil {
+						e.realizedRedirects = make(map[string]uint16)
+					}
+					if _, found := e.realizedRedirects[proxyID]; !found {
+						revertStack.Push(func() error {
+							delete(e.realizedRedirects, proxyID)
+							return nil
+						})
+					}
+					e.realizedRedirects[proxyID] = redirectPort
+					desiredRedirects[proxyID] = true
+
+					// Update the endpoint API model to report that Cilium manages a
+					// redirect for that port.
+					statsKey := e.proxyStatsKey(l4, redirectPort)
+					e.proxyStatisticsMutex.Lock()
+					proxyStats := e.getProxyStatisticsLocked(statsKey, string(l4.L7Parser), uint16(l4.Port), l4.Ingress)
+					proxyStats.AllocatedProxyPort = int64(redirectPort)
+					e.proxyStatisticsMutex.Unlock()
+
+					updatedStats = append(updatedStats, proxyStats)
 				}
-				pp := e.newProxyPolicy(l4, port)
-				var err error
-				redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e, proxyWaitGroup)
-				if err != nil {
-					// Skip redirects that can not be created or updated.  This
-					// can happen when a listener is missing, for example when
-					// restarting and k8s delivers the CNP before the related
-					// CEC.
-					// Policy is regenerated when listeners are added or removed
-					// to fix this condition when the listener is available.
-					e.getLogger().WithField(logfields.Listener, l4.GetListener()).WithError(err).Debug("Redirect rule with missing listener skipped, will be applied once the listener is available")
-					continue
-				}
-				finalizeList.Append(finalizeFunc)
-				revertStack.Push(revertFunc)
-
-				if e.realizedRedirects == nil {
-					e.realizedRedirects = make(map[string]uint16)
-				}
-				if _, found := e.realizedRedirects[proxyID]; !found {
-					revertStack.Push(func() error {
-						delete(e.realizedRedirects, proxyID)
-						return nil
-					})
-				}
-				e.realizedRedirects[proxyID] = redirectPort
-
-				desiredRedirects[proxyID] = true
-
-				// Update the endpoint API model to report that Cilium manages a
-				// redirect for that port.
-				statsKey := e.proxyStatsKey(l4, redirectPort)
-				e.proxyStatisticsMutex.Lock()
-				proxyStats := e.getProxyStatisticsLocked(statsKey, string(l4.L7Parser), uint16(l4.Port), l4.Ingress)
-				proxyStats.AllocatedProxyPort = int64(redirectPort)
-				e.proxyStatisticsMutex.Unlock()
-
-				updatedStats = append(updatedStats, proxyStats)
 			}
-
 			if e.desiredPolicy == e.realizedPolicy {
 				// Any map updates when a new policy has not been calculated are taken care by incremental map updates.
 				continue

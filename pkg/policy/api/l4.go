@@ -145,6 +145,19 @@ type Listener struct {
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
+
+	// Priority is used to select the Listener if multiple rules would apply different listeners
+	// to a policy map entry. Lower numbers indicate higher priority. If left out, a random, but
+	// unique priority on the range 10000-20000 is assigned, so that traffic will be
+	// consistently redirected to the same listener. If higher priority desired, a low unique
+	// number like 1, 2, or 3 should be explicitly specified here. If a lower than default
+	// priority is needed, then a unique number higher than 20000 should be explicitly
+	// specified. Numbers on the default range (10000-20000) are not allowed.
+	//
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	// +kubebuilder:validation:Optional
+	Priority uint16 `json:"priority"`
 }
 
 // PortRule is a list of ports/protocol combinations with optional Layer 7

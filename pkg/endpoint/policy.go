@@ -115,7 +115,7 @@ func (e *Endpoint) proxyStatsKey(l4 *policy.L4Filter, proxyPort uint16) string {
 // proxyID returns a unique string to identify a proxy mapping,
 // and the resolved destination port number.
 // Must be called with e.mutex held.
-func (e *Endpoint) proxyID(l4 *policy.L4Filter) (string, uint16) {
+func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string) (string, uint16) {
 	port := uint16(l4.Port)
 	if port == 0 && l4.PortName != "" {
 		port = e.GetNamedPortLocked(l4.Ingress, l4.PortName, uint8(l4.U8Proto))
@@ -123,7 +123,7 @@ func (e *Endpoint) proxyID(l4 *policy.L4Filter) (string, uint16) {
 			return "", 0
 		}
 	}
-	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, l4.Listener), port
+	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, listener), port
 }
 
 var unrealizedRedirect = errors.New("Proxy port for redirect not found")

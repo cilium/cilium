@@ -390,6 +390,22 @@ spec:
                                 description: Name is the name of the listener.
                                 minLength: 1
                                 type: string
+                              priority:
+                                description: Priority is used to select the Listener
+                                  if multiple rules would apply different listeners
+                                  to a policy map entry. Lower numbers indicate higher
+                                  priority. If left out, a random, but unique priority
+                                  on the range 10000-20000 is assigned, so that traffic
+                                  will be consistently redirected to the same listener.
+                                  If higher priority desired, a low unique number
+                                  like 1, 2, or 3 should be explicitly specified here.
+                                  If a lower than default priority is needed, then
+                                  a unique number higher than 20000 should be explicitly
+                                  specified. Numbers on the default range (10000-20000)
+                                  are not allowed.
+                                maximum: 65535
+                                minimum: 1
+                                type: integer
                             required:
                             - envoyConfig
                             - name
@@ -1725,6 +1741,22 @@ spec:
                                 description: Name is the name of the listener.
                                 minLength: 1
                                 type: string
+                              priority:
+                                description: Priority is used to select the Listener
+                                  if multiple rules would apply different listeners
+                                  to a policy map entry. Lower numbers indicate higher
+                                  priority. If left out, a random, but unique priority
+                                  on the range 10000-20000 is assigned, so that traffic
+                                  will be consistently redirected to the same listener.
+                                  If higher priority desired, a low unique number
+                                  like 1, 2, or 3 should be explicitly specified here.
+                                  If a lower than default priority is needed, then
+                                  a unique number higher than 20000 should be explicitly
+                                  specified. Numbers on the default range (10000-20000)
+                                  are not allowed.
+                                maximum: 65535
+                                minimum: 1
+                                type: integer
                             required:
                             - envoyConfig
                             - name
@@ -2866,6 +2898,22 @@ spec:
                                   description: Name is the name of the listener.
                                   minLength: 1
                                   type: string
+                                priority:
+                                  description: Priority is used to select the Listener
+                                    if multiple rules would apply different listeners
+                                    to a policy map entry. Lower numbers indicate
+                                    higher priority. If left out, a random, but unique
+                                    priority on the range 10000-20000 is assigned,
+                                    so that traffic will be consistently redirected
+                                    to the same listener. If higher priority desired,
+                                    a low unique number like 1, 2, or 3 should be
+                                    explicitly specified here. If a lower than default
+                                    priority is needed, then a unique number higher
+                                    than 20000 should be explicitly specified. Numbers
+                                    on the default range (10000-20000) are not allowed.
+                                  maximum: 65535
+                                  minimum: 1
+                                  type: integer
                               required:
                               - envoyConfig
                               - name
@@ -4222,6 +4270,22 @@ spec:
                                   description: Name is the name of the listener.
                                   minLength: 1
                                   type: string
+                                priority:
+                                  description: Priority is used to select the Listener
+                                    if multiple rules would apply different listeners
+                                    to a policy map entry. Lower numbers indicate
+                                    higher priority. If left out, a random, but unique
+                                    priority on the range 10000-20000 is assigned,
+                                    so that traffic will be consistently redirected
+                                    to the same listener. If higher priority desired,
+                                    a low unique number like 1, 2, or 3 should be
+                                    explicitly specified here. If a lower than default
+                                    priority is needed, then a unique number higher
+                                    than 20000 should be explicitly specified. Numbers
+                                    on the default range (10000-20000) are not allowed.
+                                  maximum: 65535
+                                  minimum: 1
+                                  type: integer
                               required:
                               - envoyConfig
                               - name

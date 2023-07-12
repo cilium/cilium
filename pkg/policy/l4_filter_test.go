@@ -1132,14 +1132,14 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
 				isRedirect:      true,
+				Listener:        "/shared-cec/test",
 			},
 		},
-		Listener:         "/shared-cec/test",
 		Ingress:          false,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
 
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(res, checker.Equals, expected)
 
 	l4Filter := res["443/TCP"]
 	c.Assert(l4Filter, Not(IsNil))
@@ -1211,9 +1211,9 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
 				isRedirect:      true,
+				Listener:        "default/test-cec/test",
 			},
 		},
-		Listener:         "default/test-cec/test",
 		Ingress:          false,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}
@@ -1291,9 +1291,9 @@ func (ds *PolicyTestSuite) TestMergeListenerPolicy(c *C) {
 				EnvoyHTTPRules:  nil,
 				CanShortCircuit: false,
 				isRedirect:      true,
+				Listener:        "/shared-cec/test",
 			},
 		},
-		Listener:         "/shared-cec/test",
 		Ingress:          false,
 		DerivedFromRules: labels.LabelArrayList{nil},
 	}}

@@ -106,15 +106,6 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 		return err
 	}
 
-	if existingFilter.Listener == "" || filterToMerge.Listener == "" {
-		if filterToMerge.Listener != "" {
-			existingFilter.Listener = filterToMerge.Listener
-		}
-	} else if filterToMerge.Listener != existingFilter.Listener {
-		ctx.PolicyTrace("   Merge conflict: mismatching CiliumEnvoyConfig listeners %v/%v\n", filterToMerge.Listener, existingFilter.Listener)
-		return fmt.Errorf("cannot merge conflicting CiliumEnvoyConfig Listeners (%v/%v)", filterToMerge.Listener, existingFilter.Listener)
-	}
-
 	for cs, newL7Rules := range filterToMerge.PerSelectorPolicies {
 		// 'cs' will be merged or moved (see below), either way it needs
 		// to be removed from the map it is in now.
@@ -159,6 +150,20 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 
 			// Merge isRedirect flag
 			l7Rules.isRedirect = l7Rules.isRedirect || newL7Rules.isRedirect
+
+			// Merge listener reference
+			if l7Rules.Listener == "" || newL7Rules.Listener == "" {
+				if newL7Rules.Listener != "" {
+					l7Rules.Listener = newL7Rules.Listener
+				}
+			} else if newL7Rules.Listener != l7Rules.Listener &&
+				newL7Rules.Priority == l7Rules.Priority {
+				ctx.PolicyTrace("   Merge conflict: mismatching CiliumEnvoyConfig listeners %v/%v with the same priority %d\n", newL7Rules.Listener, l7Rules.Listener, l7Rules.Priority)
+				return fmt.Errorf("cannot merge conflicting CiliumEnvoyConfig Listeners (%v/%v) with the same priority (%d)", newL7Rules.Listener, l7Rules.Listener, l7Rules.Priority)
+			}
+			if newL7Rules.Listener != l7Rules.Listener && newL7Rules.Priority < l7Rules.Priority {
+				l7Rules.Listener = newL7Rules.Listener
+			}
 
 			if l7Rules.Auth == nil || newL7Rules.Auth == nil {
 				if newL7Rules.Auth != nil {

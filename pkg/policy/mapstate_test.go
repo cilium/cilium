@@ -1036,6 +1036,7 @@ func testEntry(proxyPort uint16, deny bool, authType AuthType, owners ...MapStat
 	listener := ""
 	entry := MapStateEntry{
 		ProxyPort: proxyPort,
+		priority:  proxyPort,
 		Listener:  listener,
 		AuthType:  authType,
 		IsDeny:    deny,
@@ -1389,7 +1390,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesDeny(c *check.C) {
 			if x.redirect {
 				proxyPort = 1
 			}
-			value := NewMapStateEntry(cs, nil, proxyPort, "", x.deny, AuthTypeNone)
+			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, AuthTypeNone)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState, nil)
@@ -1633,7 +1634,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChanges(c *check.C) {
 			if x.redirect {
 				proxyPort = 1
 			}
-			value := NewMapStateEntry(cs, nil, proxyPort, "", x.deny, x.authType)
+			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, x.authType)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
 		adds, deletes := policyMaps.consumeMapChanges(policyMapState, nil)
@@ -2197,7 +2198,7 @@ func (ds *PolicyTestSuite) TestMapState_AccumulateMapChangesOnVisibilityKeys(c *
 			if x.redirect {
 				proxyPort = 1
 			}
-			value := NewMapStateEntry(cs, nil, proxyPort, "", x.deny, AuthTypeNone)
+			value := NewMapStateEntry(cs, nil, proxyPort, "", 0, x.deny, AuthTypeNone)
 			policyMaps.AccumulateMapChanges(cs, adds, deletes, key, value)
 		}
 		adds, deletes = policyMaps.consumeMapChanges(policyMapState, nil)
