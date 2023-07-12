@@ -17,7 +17,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	relaypb "github.com/cilium/cilium/api/v1/relay"
 	"github.com/cilium/cilium/pkg/identity"
@@ -112,23 +112,25 @@ func (p *Printer) WriteErr(msg string) error {
 }
 
 // GetPorts returns source and destination port of a flow.
-func (p *Printer) GetPorts(f *pb.Flow) (string, string) {
+func (p *Printer) GetPorts(f *flowpb.Flow) (string, string) {
 	l4 := f.GetL4()
 	if l4 == nil {
 		return "", ""
 	}
 	switch l4.Protocol.(type) {
-	case *pb.Layer4_TCP:
+	case *flowpb.Layer4_TCP:
 		return strconv.Itoa(int(l4.GetTCP().SourcePort)), strconv.Itoa(int(l4.GetTCP().DestinationPort))
-	case *pb.Layer4_UDP:
+	case *flowpb.Layer4_UDP:
 		return strconv.Itoa(int(l4.GetUDP().SourcePort)), strconv.Itoa(int(l4.GetUDP().DestinationPort))
+	case *flowpb.Layer4_SCTP:
+		return strconv.Itoa(int(l4.GetSCTP().SourcePort)), strconv.Itoa(int(l4.GetSCTP().DestinationPort))
 	default:
 		return "", ""
 	}
 }
 
 // GetHostNames returns source and destination hostnames of a flow.
-func (p *Printer) GetHostNames(f *pb.Flow) (string, string) {
+func (p *Printer) GetHostNames(f *flowpb.Flow) (string, string) {
 	var srcNamespace, dstNamespace, srcPodName, dstPodName, srcSvcName, dstSvcName string
 	if f == nil {
 		return "", ""
@@ -174,7 +176,7 @@ func (p *Printer) fmtIdentity(i uint32) string {
 
 // GetSecurityIdentities returns the source and destination numeric security
 // identity formatted as a string.
-func (p *Printer) GetSecurityIdentities(f *pb.Flow) (srcIdentity, dstIdentity string) {
+func (p *Printer) GetSecurityIdentities(f *flowpb.Flow) (srcIdentity, dstIdentity string) {
 	if f == nil {
 		return "", ""
 	}
@@ -193,17 +195,17 @@ func fmtTimestamp(layout string, ts *timestamppb.Timestamp) string {
 }
 
 // GetFlowType returns the type of a flow as a string.
-func GetFlowType(f *pb.Flow) string {
+func GetFlowType(f *flowpb.Flow) string {
 	if l7 := f.GetL7(); l7 != nil {
 		l7Protocol := "l7"
 		l7Type := strings.ToLower(l7.Type.String())
 		switch l7.GetRecord().(type) {
-		case *pb.Layer7_Http:
+		case *flowpb.Layer7_Http:
 			l7Protocol = "http"
-		case *pb.Layer7_Dns:
+		case *flowpb.Layer7_Dns:
 			l7Protocol = "dns"
 			l7Type += " " + l7.GetDns().ObservationSource
-		case *pb.Layer7_Kafka:
+		case *flowpb.Layer7_Kafka:
 			l7Protocol = "kafka"
 		}
 		return l7Protocol + "-" + l7Type
@@ -224,13 +226,13 @@ func GetFlowType(f *pb.Flow) string {
 		return f.GetDebugCapturePoint().String()
 	case api.MessageTypeTraceSock:
 		switch f.GetSockXlatePoint() {
-		case pb.SocketTranslationPoint_SOCK_XLATE_POINT_POST_DIRECTION_FWD:
+		case flowpb.SocketTranslationPoint_SOCK_XLATE_POINT_POST_DIRECTION_FWD:
 			return "post-xlate-fwd"
-		case pb.SocketTranslationPoint_SOCK_XLATE_POINT_POST_DIRECTION_REV:
+		case flowpb.SocketTranslationPoint_SOCK_XLATE_POINT_POST_DIRECTION_REV:
 			return "post-xlate-rev"
-		case pb.SocketTranslationPoint_SOCK_XLATE_POINT_PRE_DIRECTION_FWD:
+		case flowpb.SocketTranslationPoint_SOCK_XLATE_POINT_PRE_DIRECTION_FWD:
 			return "pre-xlate-fwd"
-		case pb.SocketTranslationPoint_SOCK_XLATE_POINT_PRE_DIRECTION_REV:
+		case flowpb.SocketTranslationPoint_SOCK_XLATE_POINT_PRE_DIRECTION_REV:
 			return "pre-xlate-rev"
 		}
 		return f.GetSockXlatePoint().String()
@@ -239,31 +241,54 @@ func GetFlowType(f *pb.Flow) string {
 	return "UNKNOWN"
 }
 
-func (p Printer) getVerdict(f *pb.Flow) string {
+func (p Printer) getVerdict(f *flowpb.Flow) string {
 	verdict := f.GetVerdict()
 	msg := verdict.String()
 	switch verdict {
-	case pb.Verdict_FORWARDED, pb.Verdict_REDIRECTED:
+	case flowpb.Verdict_FORWARDED, flowpb.Verdict_REDIRECTED:
 		if f.GetEventType().GetType() == api.MessageTypePolicyVerdict {
 			msg = "ALLOWED"
 		}
 		return p.color.verdictForwarded(msg)
-	case pb.Verdict_DROPPED, pb.Verdict_ERROR:
+	case flowpb.Verdict_DROPPED, flowpb.Verdict_ERROR:
 		if f.GetEventType().GetType() == api.MessageTypePolicyVerdict {
 			msg = "DENIED"
 		}
 		return p.color.verdictDropped(msg)
-	case pb.Verdict_AUDIT:
+	case flowpb.Verdict_AUDIT:
 		if f.GetEventType().GetType() == api.MessageTypePolicyVerdict {
 			msg = "AUDITED"
 		}
 		return p.color.verdictAudit(msg)
-	case pb.Verdict_TRACED:
+	case flowpb.Verdict_TRACED:
 		return p.color.verdictTraced(msg)
-	case pb.Verdict_TRANSLATED:
+	case flowpb.Verdict_TRANSLATED:
 		return p.color.verdictTranslated(msg)
 	default:
 		return msg
+	}
+}
+
+func (p Printer) getSummary(f *flowpb.Flow) string {
+	auth := p.getAuth(f)
+	if auth == "" {
+		return f.GetSummary()
+	}
+
+	return fmt.Sprintf("%s; Auth: %s", f.GetSummary(), auth)
+}
+
+func (p Printer) getAuth(f *flowpb.Flow) string {
+	auth := f.GetAuthType()
+	msg := auth.String()
+	switch auth {
+	case flowpb.AuthType_DISABLED:
+		// if auth is disabled we do not want to display anything
+		return ""
+	case flowpb.AuthType_TEST_ALWAYS_FAIL:
+		return p.color.authTestAlwaysFail(msg)
+	default:
+		return p.color.authIsEnabled(msg)
 	}
 }
 
@@ -298,7 +323,7 @@ func (p *Printer) WriteProtoFlow(res *observerpb.GetFlowsResponse) error {
 			dst, tab,
 			GetFlowType(f), tab,
 			p.getVerdict(f), tab,
-			f.GetSummary(), newline,
+			p.getSummary(f), newline,
 		)
 		if ew.err != nil {
 			return fmt.Errorf("failed to write out packet: %v", ew.err)
@@ -357,7 +382,7 @@ func (p *Printer) WriteProtoFlow(res *observerpb.GetFlowsResponse) error {
 			dstIdentity,
 			GetFlowType(f),
 			p.getVerdict(f),
-			f.GetSummary())
+			p.getSummary(f))
 		if err != nil {
 			return fmt.Errorf("failed to write out packet: %v", err)
 		}
@@ -463,26 +488,26 @@ func (p *Printer) WriteProtoNodeStatusEvent(r *observerpb.GetFlowsResponse) erro
 	return nil
 }
 
-func formatServiceAddr(a *pb.ServiceUpsertNotificationAddr) string {
+func formatServiceAddr(a *flowpb.ServiceUpsertNotificationAddr) string {
 	return net.JoinHostPort(a.Ip, strconv.Itoa(int(a.Port)))
 }
 
-func getAgentEventDetails(e *pb.AgentEvent, timeLayout string) string {
+func getAgentEventDetails(e *flowpb.AgentEvent, timeLayout string) string {
 	switch e.GetType() {
-	case pb.AgentEventType_AGENT_EVENT_UNKNOWN:
+	case flowpb.AgentEventType_AGENT_EVENT_UNKNOWN:
 		if u := e.GetUnknown(); u != nil {
 			return fmt.Sprintf("type: %s, notification: %s", u.Type, u.Notification)
 		}
-	case pb.AgentEventType_AGENT_STARTED:
+	case flowpb.AgentEventType_AGENT_STARTED:
 		if a := e.GetAgentStart(); a != nil {
 			return fmt.Sprintf("start time: %s", fmtTimestamp(timeLayout, a.Time))
 		}
-	case pb.AgentEventType_POLICY_UPDATED, pb.AgentEventType_POLICY_DELETED:
+	case flowpb.AgentEventType_POLICY_UPDATED, flowpb.AgentEventType_POLICY_DELETED:
 		if p := e.GetPolicyUpdate(); p != nil {
 			return fmt.Sprintf("labels: [%s], revision: %d, count: %d",
 				strings.Join(p.Labels, ","), p.Revision, p.RuleCount)
 		}
-	case pb.AgentEventType_ENDPOINT_REGENERATE_SUCCESS, pb.AgentEventType_ENDPOINT_REGENERATE_FAILURE:
+	case flowpb.AgentEventType_ENDPOINT_REGENERATE_SUCCESS, flowpb.AgentEventType_ENDPOINT_REGENERATE_FAILURE:
 		if r := e.GetEndpointRegenerate(); r != nil {
 			var sb strings.Builder
 			fmt.Fprintf(&sb, "id: %d, labels: [%s]", r.Id, strings.Join(r.Labels, ","))
@@ -491,7 +516,7 @@ func getAgentEventDetails(e *pb.AgentEvent, timeLayout string) string {
 			}
 			return sb.String()
 		}
-	case pb.AgentEventType_ENDPOINT_CREATED, pb.AgentEventType_ENDPOINT_DELETED:
+	case flowpb.AgentEventType_ENDPOINT_CREATED, flowpb.AgentEventType_ENDPOINT_DELETED:
 		if ep := e.GetEndpointUpdate(); ep != nil {
 			var sb strings.Builder
 			fmt.Fprintf(&sb, "id: %d", ep.Id)
@@ -503,7 +528,7 @@ func getAgentEventDetails(e *pb.AgentEvent, timeLayout string) string {
 			}
 			return sb.String()
 		}
-	case pb.AgentEventType_IPCACHE_UPSERTED, pb.AgentEventType_IPCACHE_DELETED:
+	case flowpb.AgentEventType_IPCACHE_UPSERTED, flowpb.AgentEventType_IPCACHE_DELETED:
 		if i := e.GetIpcacheUpdate(); i != nil {
 			var sb strings.Builder
 			fmt.Fprintf(&sb, "cidr: %s, identity: %d", i.Cidr, i.Identity)
@@ -519,7 +544,7 @@ func getAgentEventDetails(e *pb.AgentEvent, timeLayout string) string {
 			fmt.Fprintf(&sb, ", encrypt key: %d", i.EncryptKey)
 			return sb.String()
 		}
-	case pb.AgentEventType_SERVICE_UPSERTED:
+	case flowpb.AgentEventType_SERVICE_UPSERTED:
 		if svc := e.GetServiceUpsert(); svc != nil {
 			var sb strings.Builder
 			fmt.Fprintf(&sb, "id: %d", svc.Id)
@@ -547,7 +572,7 @@ func getAgentEventDetails(e *pb.AgentEvent, timeLayout string) string {
 			}
 			return sb.String()
 		}
-	case pb.AgentEventType_SERVICE_DELETED:
+	case flowpb.AgentEventType_SERVICE_DELETED:
 		if s := e.GetServiceDelete(); s != nil {
 			return fmt.Sprintf("id: %d", s.Id)
 		}
@@ -642,7 +667,7 @@ func fmtCPU(cpu *wrapperspb.Int32Value) string {
 	return fmt.Sprintf("%02d", cpu.GetValue())
 }
 
-func fmtEndpointShort(ep *pb.Endpoint) string {
+func fmtEndpointShort(ep *flowpb.Endpoint) string {
 	if ep == nil {
 		return "N/A"
 	}
