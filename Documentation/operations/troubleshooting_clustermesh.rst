@@ -42,11 +42,13 @@ Manual Verification of Setup
         level=info msg="Initial etcd session established" config=/var/lib/cilium/etcd-config.yaml endpoints="[https://127.0.0.1:2379]" subsys=kvstore
         level=info msg="Successfully verified version of etcd endpoint" config=/var/lib/cilium/etcd-config.yaml endpoints="[https://127.0.0.1:2379]" etcdEndpoint="https://127.0.0.1:2379" subsys=kvstore version=3.4.13
 
- #. Validate that the ClusterMesh is healthy with ``cilium status``::
+ #. Validate that ClusterMesh is healthy running ``cilium status --all-clusters`` inside each Cilium agent::
 
         ClusterMesh:   1/1 clusters ready, 10 global-services
-           k8s-c2: ready, 3 nodes, 8 identities, 10 services, 0 failures (last: never)
-           └  etcd: 1/1 connected, lease-ID=7c028201b53de660, lock lease-ID=7c028201b53de662, has-quorum=true: https://k8s-c2.mesh.cilium.io:2379 - 3.4.13 (Leader)
+           k8s-c2: ready, 3 nodes, 25 endpoints, 8 identities, 10 services, 0 failures (last: never)
+           └  etcd: 1/1 connected, leases=0, lock lease-ID=7c028201b53de662, has-quorum=true: https://k8s-c2.mesh.cilium.io:2379 - 3.5.4 (Leader)
+           └  remote configuration: expected=true, retrieved=true, cluster-id=3, kvstoremesh=false, sync-canaries=true
+           └  synchronization status: nodes=true, endpoints=true, identities=true, services=true
 
  #. Validate that required TLS secrets are setup properly. By default, the below
     TLS secrets must be available in cilium installed namespace
