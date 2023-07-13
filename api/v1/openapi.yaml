@@ -2333,6 +2333,9 @@ definitions:
       ready:
         description: Indicates readiness of the remote cluster
         type: boolean
+      connected:
+        description: Indicates whether the connection to the remote kvstore is established
+        type: boolean
       synced:
         description: Synchronization status about each resource type
         "$ref": "#/definitions/RemoteClusterSynced"

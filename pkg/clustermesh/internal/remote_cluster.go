@@ -413,6 +413,7 @@ func (rc *remoteCluster) status() *models.RemoteCluster {
 	status := &models.RemoteCluster{
 		Name:        rc.name,
 		Ready:       rc.isReadyLocked(),
+		Connected:   rc.backend != nil,
 		Status:      backendStatus,
 		Config:      rc.config,
 		NumFailures: int64(rc.failures),
