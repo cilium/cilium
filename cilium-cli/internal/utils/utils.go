@@ -130,7 +130,6 @@ func NewWaitObserver(ctx context.Context, p WaitParameters) *WaitObserver {
 	w := &WaitObserver{
 		ctx:         ctx,
 		params:      p,
-		lastWarning: time.Now(),
 		waitStarted: time.Now(),
 	}
 
