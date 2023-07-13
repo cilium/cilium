@@ -526,18 +526,9 @@ type UpgradeParameters struct {
 // Upgrade upgrades the existing Helm release with the given Helm chart and values
 func Upgrade(
 	ctx context.Context,
-	k8sClient genericclioptions.RESTClientGetter,
+	actionConfig *action.Configuration,
 	params UpgradeParameters,
 ) (*release.Release, error) {
-	actionConfig := action.Configuration{}
-	// Use the default Helm driver (Kubernetes secret).
-	helmDriver := ""
-	// TODO(michi) Make the logger configurable (search for all instances)
-	logger := func(format string, v ...interface{}) {}
-	if err := actionConfig.Init(k8sClient, params.Namespace, helmDriver, logger); err != nil {
-		return nil, err
-	}
-
 	if params.Chart == nil {
 		currentRelease, err := actionConfig.Releases.Last(params.Name)
 		if err != nil {
@@ -546,7 +537,7 @@ func Upgrade(
 		params.Chart = currentRelease.Chart
 	}
 
-	helmClient := action.NewUpgrade(&actionConfig)
+	helmClient := action.NewUpgrade(actionConfig)
 	helmClient.Namespace = params.Namespace
 	helmClient.ResetValues = params.ResetValues
 	helmClient.ReuseValues = params.ReuseValues
@@ -567,16 +558,9 @@ type GetParameters struct {
 
 // Get returns the Helm release specified by GetParameters.
 func Get(
-	k8sClient genericclioptions.RESTClientGetter,
+	actionConfig *action.Configuration,
 	params GetParameters,
 ) (*release.Release, error) {
-	actionConfig := action.Configuration{}
-	// Use the default Helm driver (Kubernetes secret).
-	helmDriver := ""
-	logger := func(format string, v ...interface{}) {}
-	if err := actionConfig.Init(k8sClient, params.Namespace, helmDriver, logger); err != nil {
-		return nil, err
-	}
-	helmClient := action.NewGet(&actionConfig)
+	helmClient := action.NewGet(actionConfig)
 	return helmClient.Run(params.Name)
 }
