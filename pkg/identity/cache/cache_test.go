@@ -86,6 +86,26 @@ func (s *IdentityCacheTestSuite) TestLookupReservedIdentityByLabels(c *C) {
 			want: identity.NewIdentity(ni, labels.Labels{"kvstore": labels.NewLabel("kvstore", "", labels.LabelSourceReserved)}),
 		},
 		{
+			name: "fixed-identity+reserved-identity returns fixed",
+			args: args{
+				lbls: labels.Labels{
+					labels.LabelKeyFixedIdentity: labels.ParseLabel(labels.LabelKeyFixedIdentity + "=" + "kvstore"),
+					labels.IDNameHost:            labels.LabelHost[labels.IDNameHost],
+				},
+			},
+			want: identity.NewIdentity(ni, labels.Labels{"kvstore": labels.NewLabel("kvstore", "", labels.LabelSourceReserved)}),
+		},
+		{
+			name: "reserved-identity+fixed-identity returns fixed",
+			args: args{
+				lbls: labels.Labels{
+					labels.IDNameHost:            labels.LabelHost[labels.IDNameHost],
+					labels.LabelKeyFixedIdentity: labels.ParseLabel(labels.LabelKeyFixedIdentity + "=" + "kvstore"),
+				},
+			},
+			want: identity.NewIdentity(ni, labels.Labels{"kvstore": labels.NewLabel("kvstore", "", labels.LabelSourceReserved)}),
+		},
+		{
 			name: "non-existing-fixed-identity",
 			args: args{
 				lbls: labels.Labels{labels.LabelKeyFixedIdentity: labels.ParseLabel(labels.LabelKeyFixedIdentity + "=" + "kube-dns")},
@@ -95,21 +115,21 @@ func (s *IdentityCacheTestSuite) TestLookupReservedIdentityByLabels(c *C) {
 		{
 			name: "reserved-identity",
 			args: args{
-				lbls: labels.Labels{labels.LabelSourceReserved: labels.NewLabel(labels.LabelSourceReservedKeyPrefix+"host", "", labels.LabelSourceReserved)},
+				lbls: labels.LabelHost,
 			},
-			want: identity.NewIdentity(identity.ReservedIdentityHost, labels.Labels{"host": labels.ParseLabel("reserved:host")}),
+			want: identity.NewIdentity(identity.ReservedIdentityHost, labels.LabelHost),
 		},
 		{
 			name: "reserved-identity+other-labels",
 			args: args{
 				lbls: labels.Labels{
-					labels.LabelSourceReserved: labels.ParseLabel("reserved:host"),
-					"id.foo":                   labels.ParseLabel("id.foo"),
+					labels.IDNameHost: labels.LabelHost[labels.IDNameHost],
+					"id.foo":          labels.ParseLabel("id.foo"),
 				},
 			},
 			want: identity.NewIdentity(identity.ReservedIdentityHost, labels.Labels{
-				labels.LabelSourceReserved: labels.ParseLabel("reserved:host"),
-				"id.foo":                   labels.ParseLabel("id.foo"),
+				labels.IDNameHost: labels.LabelHost[labels.IDNameHost],
+				"id.foo":          labels.ParseLabel("id.foo"),
 			},
 			),
 		},
@@ -119,6 +139,15 @@ func (s *IdentityCacheTestSuite) TestLookupReservedIdentityByLabels(c *C) {
 				lbls: kvstoreLabels,
 			},
 			want: identity.NewIdentity(identity.ReservedCiliumKVStore, kvstoreLabels),
+		},
+		{
+			name: "no fixed and reserved identities returns nil",
+			args: args{
+				lbls: labels.Labels{
+					"id.foo": labels.ParseLabel("id.foo"),
+				},
+			},
+			want: nil,
 		},
 	}
 
