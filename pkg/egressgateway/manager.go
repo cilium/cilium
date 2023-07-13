@@ -626,6 +626,12 @@ func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bo
 			logfields.LinkIndex: gwc.ifaceIndex,
 		})
 
+		if err := addEgressIpRoutes(gwc); err != nil {
+			logger.WithError(err).Warn("Can't add IP routes")
+		} else {
+			logger.Debug("Added IP routes")
+		}
+
 		routingTableIdx := egressGatewayRoutingTableIdx(gwc.ifaceIndex)
 
 		ipRules, err := listEgressIpRulesForRoutingTable(routingTableIdx)
@@ -665,12 +671,6 @@ func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bo
 		}
 
 		policyConfig.forEachEndpointAndDestination(addIPRulesForConfig)
-
-		if err := addEgressIpRoutes(gwc); err != nil {
-			logger.WithError(err).Warn("Can't add IP routes")
-		} else {
-			logger.Debug("Added IP routes")
-		}
 	}
 
 	return
