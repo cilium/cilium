@@ -12,7 +12,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-  kind_version: v0.14.0
+  kind_version: v0.20.0
   kind_config: .github/kind-config.yaml
   TIMEOUT: 2m
   LOG_TIME: 30m
