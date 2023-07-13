@@ -102,7 +102,7 @@ spec:
           value: "hubble-relay:80"
         {{- end }}
         {{- with .Values.hubble.ui.backend.extraEnv }}
-        {{- toYaml . | trim | nindent 10 }}
+        {{- toYaml . | trim | nindent 8 }}
         {{- end }}
         ports:
         - name: grpc
