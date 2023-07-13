@@ -96,6 +96,7 @@ func (s *IdentityTestSuite) TestNewIdentityFromLabelArray(c *C) {
 }
 
 func TestLookupReservedIdentityByLabels(t *testing.T) {
+	cidrPrefix := netip.MustParsePrefix("10.0.0.0/24")
 	type want struct {
 		id     NumericIdentity
 		labels labels.Labels
@@ -134,6 +135,14 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 			want: &want{
 				id:     ReservedIdentityHealth,
 				labels: labels.LabelHealth,
+			},
+		},
+		{
+			name: "world",
+			args: labels.LabelWorld,
+			want: &want{
+				id:     ReservedIdentityWorld,
+				labels: labels.LabelWorld,
 			},
 		},
 		{
@@ -221,6 +230,14 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 				id:     ReservedIdentityIngress,
 				labels: labels.LabelIngress,
 			},
+		},
+		{
+			name: "cidr",
+			args: labels.Map2Labels(map[string]string{
+				labels.LabelWorld.String():              "",
+				cidr.GetCIDRLabels(cidrPrefix).String(): "",
+			}, ""),
+			want: nil,
 		},
 	}
 	for _, tt := range tests {
