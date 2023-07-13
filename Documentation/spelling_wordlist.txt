@@ -302,6 +302,7 @@ clusterPoolIPv
 clusterSize
 clustermesh
 clustermeshcertgen
+clustermeshes
 clusterwide
 cmdref
 cni
