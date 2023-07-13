@@ -104,6 +104,30 @@ func TestNewWatchedClientConfig(t *testing.T) {
 	assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)
 }
 
+func TestNewWatchedClientConfigWithoutClientCert(t *testing.T) {
+	dir, hubble, relay := directories(t)
+	setup(t, hubble, relay)
+	defer cleanup(dir)
+	logger, _ := test.NewNullLogger()
+
+	expectedCaCertPool := x509.NewCertPool()
+	if ok := expectedCaCertPool.AppendCertsFromPEM(initialHubbleServerCA); !ok {
+		t.Fatal("AppendCertsFromPEM", initialHubbleServerCA)
+	}
+
+	c, err := NewWatchedClientConfig(logger, hubble.caFiles, "", "")
+	assert.Nil(t, err)
+	assert.NotNil(t, c)
+	defer c.Stop()
+
+	tlsConfig := c.ClientConfig(&tls.Config{
+		MinVersion: tls.VersionTLS13,
+	})
+	assert.NotNil(t, tlsConfig)
+	// GetClientCertificate should be nil when a client keypair isn't configured
+	assert.Nil(t, tlsConfig.GetClientCertificate)
+}
+
 func TestWatchedClientConfigRotation(t *testing.T) {
 	dir, hubble, relay := directories(t)
 	setup(t, hubble, relay)
