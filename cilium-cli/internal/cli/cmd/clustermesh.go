@@ -179,7 +179,6 @@ func newCmdClusterMeshStatus() *cobra.Command {
 
 	cmd.Flags().BoolVar(&params.Wait, "wait", false, "Wait until status is successful")
 	cmd.Flags().DurationVar(&params.WaitDuration, "wait-duration", 15*time.Minute, "Maximum time to wait")
-	cmd.Flags().BoolVar(&params.SkipServiceCheck, "skip-service-check", false, "Do not require service IP of remote cluster to be available")
 	cmd.Flags().StringVarP(&params.Output, "output", "o", status.OutputSummary, "Output format. One of: json, summary")
 
 	return cmd
