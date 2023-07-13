@@ -92,7 +92,7 @@ func (k *K8sStatusCollector) ClusterMeshConnectivity(ctx context.Context, cilium
 
 	status, err := k.client.CiliumStatus(ctx, k.params.Namespace, ciliumPod)
 	if err != nil {
-		return nil, fmt.Errorf("unable to determine cilium status: %w", err)
+		return nil, err
 	}
 
 	if status.ClusterMesh == nil {
