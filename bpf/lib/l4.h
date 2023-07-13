@@ -24,6 +24,11 @@ union tcp_flags {
 	__u32 value;
 };
 
+static __always_inline __u8 tcp_flags_to_u8(__be32 value)
+{
+	return ((union tcp_flags)value).lower_bits;
+}
+
 /**
  * Modify L4 port and correct checksum
  * @arg ctx:      packet

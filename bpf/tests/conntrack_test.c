@@ -74,7 +74,7 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 		monitor = __ct_update_timeout(&entry, 1000, CT_INGRESS, flags, REPORT_ALL_FLAGS);
 		assert(monitor);
 		assert(entry.last_rx_report == __now);
-		assert(entry.rx_flags_seen == bpf_ntohs(TCP_FLAG_SYN));
+		assert(entry.rx_flags_seen == tcp_flags_to_u8(TCP_FLAG_SYN));
 		assert(entry.last_tx_report == 0);
 		assert(entry.tx_flags_seen == 0);
 		/* Same call; no report. */
@@ -85,7 +85,7 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 		flags.value |= TCP_FLAG_FIN;
 		monitor = __ct_update_timeout(&entry, 1000, CT_INGRESS, flags, REPORT_NO_FLAGS);
 		assert(!monitor);
-		assert(entry.rx_flags_seen == bpf_ntohs(TCP_FLAG_SYN));
+		assert(entry.rx_flags_seen == tcp_flags_to_u8(TCP_FLAG_SYN));
 		assert(entry.tx_flags_seen == 0);
 	});
 
