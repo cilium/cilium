@@ -1158,18 +1158,28 @@ func (k *K8sClusterMesh) statusAccessInformation(ctx context.Context, log bool, 
 	}
 }
 
-func (k *K8sClusterMesh) waitForDeployment(ctx context.Context) error {
-	k.Log("⌛ [%s] Waiting for deployment %s to become ready...", k.client.ClusterName(), defaults.ClusterMeshDeploymentName)
-
-	for k.client.CheckDeploymentStatus(ctx, k.params.Namespace, defaults.ClusterMeshDeploymentName) != nil {
-		select {
-		case <-time.After(time.Second):
-		case <-ctx.Done():
-			return fmt.Errorf("waiting for deployment %s to become ready has been interrupted: %w", defaults.ClusterMeshDeploymentName, ctx.Err())
+func (k *K8sClusterMesh) statusDeployment(ctx context.Context) (err error) {
+	w := utils.NewWaitObserver(ctx, utils.WaitParameters{Log: func(err error, wait string) {
+		k.Log("⌛ Waiting (%s) for deployment %s to become ready: %s", wait, defaults.ClusterMeshDeploymentName, err)
+	}})
+	defer func() {
+		w.Cancel()
+		if err != nil {
+			err = fmt.Errorf("deployment %s is not ready: %w", defaults.ClusterMeshDeploymentName, err)
 		}
-	}
+	}()
 
-	return nil
+	for {
+		err := k.client.CheckDeploymentStatus(ctx, k.params.Namespace, defaults.ClusterMeshDeploymentName)
+		if err != nil && k.params.Wait {
+			if err := w.Retry(err); err != nil {
+				return err
+			}
+			continue
+		}
+
+		return err
+	}
 }
 
 type StatisticalStatus struct {
@@ -1344,12 +1354,11 @@ func (k *K8sClusterMesh) Status(ctx context.Context) (*Status, error) {
 		k.Log("  - %s:%d", ip, s.AccessInformation.ServicePort)
 	}
 
-	if k.params.Wait {
-		err = k.waitForDeployment(ctx)
-		if err != nil {
-			return nil, err
-		}
+	err = k.statusDeployment(ctx)
+	if err != nil {
+		return nil, err
 	}
+	k.Log("✅ Deployment %s is ready", defaults.ClusterMeshDeploymentName)
 
 	s.Connectivity, err = k.statusConnectivity(ctx)
 
