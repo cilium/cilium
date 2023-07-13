@@ -4219,6 +4219,10 @@ func init() {
           "description": "Cluster configuration exposed by the remote cluster",
           "$ref": "#/definitions/RemoteClusterConfig"
         },
+        "connected": {
+          "description": "Indicates whether the connection to the remote kvstore is established",
+          "type": "boolean"
+        },
         "last-failure": {
           "description": "Time of last failure that occurred while attempting to reach the cluster",
           "type": "string",
@@ -9734,6 +9738,10 @@ func init() {
         "config": {
           "description": "Cluster configuration exposed by the remote cluster",
           "$ref": "#/definitions/RemoteClusterConfig"
+        },
+        "connected": {
+          "description": "Indicates whether the connection to the remote kvstore is established",
+          "type": "boolean"
         },
         "last-failure": {
           "description": "Time of last failure that occurred while attempting to reach the cluster",
