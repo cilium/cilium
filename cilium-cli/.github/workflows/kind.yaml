@@ -11,8 +11,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  KIND_VERSION: v0.14.0
-  KIND_CONFIG: .github/kind-config.yaml
+  # renovate: datasource=github-releases depName=kubernetes-sigs/kind
+  kind_version: v0.14.0
+  kind_config: .github/kind-config.yaml
   TIMEOUT: 2m
   LOG_TIME: 30m
   # renovate: datasource=github-releases depName=cilium/cilium
@@ -58,8 +59,8 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
         with:
-          version: ${{ env.KIND_VERSION }}
-          config: ${{ env.KIND_CONFIG }}
+          version: ${{ env.kind_version }}
+          config: ${{ env.kind_config }}
 
       - name: Set NODES_WITHOUT_CILIUM
         run: |
@@ -188,8 +189,8 @@ jobs:
 
     env:
       CILIUM_CLI_MODE: helm
-      KIND_CONFIG_1: .github/kind-config-1.yaml
-      KIND_CONFIG_2: .github/kind-config-2.yaml
+      kind_config_1: .github/kind-config-1.yaml
+      kind_config_2: .github/kind-config-2.yaml
       # helm/kind-action will override the "name:" provided in the kind config with "chart-testing" unless these are
       # specified as inputs. These must also match the suffix here for CLUSTER1 and CLUSTER2.
       CLUSTER_NAME_1: c.1
@@ -226,8 +227,8 @@ jobs:
       - name: Create kind cluster 1
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
         with:
-          version: ${{ env.KIND_VERSION }}
-          config: ${{ env.KIND_CONFIG_1 }}
+          version: ${{ env.kind_version }}
+          config: ${{ env.kind_config_1 }}
           cluster_name: ${{ env.CLUSTER_NAME_1 }}
 
       - name: Install Cilium on cluster 1
@@ -243,8 +244,8 @@ jobs:
       - name: Create kind cluster 2
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
         with:
-          version: ${{ env.KIND_VERSION }}
-          config: ${{ env.KIND_CONFIG_2 }}
+          version: ${{ env.kind_version }}
+          config: ${{ env.kind_config_2 }}
           cluster_name: ${{ env.CLUSTER_NAME_2 }}
 
       - name: Install Cilium on cluster 2
