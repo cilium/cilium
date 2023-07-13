@@ -1219,6 +1219,36 @@ func (c *ConnectivityStatus) addError(pod, cluster string, err error) {
 	m[cluster].Errors = append(m[cluster].Errors, err)
 }
 
+func remoteClusterStatusToError(status *models.RemoteCluster) error {
+	switch {
+	case status == nil:
+		return errors.New("unknown status")
+	case !status.Connected:
+		return errors.New(status.Status)
+	case status.Config == nil:
+		return errors.New("remote cluster configuration retrieval status unknown")
+	case status.Config.Required && !status.Config.Retrieved:
+		return errors.New("remote cluster configuration required but not found")
+	case status.Synced == nil:
+		return errors.New("synchronization status unknown")
+	case !(status.Synced.Nodes && status.Synced.Endpoints && status.Synced.Identities && status.Synced.Services):
+		var toSync []string
+		appendNotSynced := func(name string, synced bool) {
+			if !synced {
+				toSync = append(toSync, name)
+			}
+		}
+		appendNotSynced("endpoints", status.Synced.Endpoints)
+		appendNotSynced("identities", status.Synced.Identities)
+		appendNotSynced("nodes", status.Synced.Nodes)
+		appendNotSynced("services", status.Synced.Services)
+
+		return fmt.Errorf("synchronization in progress for %s", strings.Join(toSync, ", "))
+	default:
+		return errors.New("not ready")
+	}
+}
+
 func (c *ConnectivityStatus) parseAgentStatus(name string, expected []string, s *status.ClusterMeshAgentConnectivityStatus) {
 	if c.GlobalServices.Min < 0 || c.GlobalServices.Min > s.GlobalServices {
 		c.GlobalServices.Min = s.GlobalServices
@@ -1245,7 +1275,7 @@ func (c *ConnectivityStatus) parseAgentStatus(name string, expected []string, s 
 			ready++
 			stats.Connected++
 		} else {
-			c.addError(name, cluster.Name, fmt.Errorf("cluster is not ready: %s", cluster.Status))
+			c.addError(name, cluster.Name, remoteClusterStatusToError(cluster))
 		}
 	}
 
