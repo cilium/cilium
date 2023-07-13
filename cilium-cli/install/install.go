@@ -26,7 +26,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -1018,7 +1017,7 @@ func (k *K8sInstaller) RollbackInstallation(ctx context.Context) {
 	}
 }
 
-func (k *K8sInstaller) InstallWithHelm(ctx context.Context, k8sClient genericclioptions.RESTClientGetter) error {
+func (k *K8sInstaller) InstallWithHelm(ctx context.Context, k8sClient *k8s.Client) error {
 	if k.params.ListVersions {
 		return k.listVersions()
 	}
@@ -1029,15 +1028,7 @@ func (k *K8sInstaller) InstallWithHelm(ctx context.Context, k8sClient genericcli
 	if err != nil {
 		return err
 	}
-	actionConfig := action.Configuration{}
-	// Use the default Helm driver (Kubernetes secret).
-	helmDriver := ""
-	// TODO(michi) Make the logger configurable
-	logger := func(format string, v ...interface{}) {}
-	if err := actionConfig.Init(k8sClient, k.params.Namespace, helmDriver, logger); err != nil {
-		return err
-	}
-	helmClient := action.NewInstall(&actionConfig)
+	helmClient := action.NewInstall(k8sClient.HelmActionConfig)
 	helmClient.ReleaseName = defaults.HelmReleaseName
 	helmClient.Namespace = k.params.Namespace
 	helmClient.Wait = k.params.Wait

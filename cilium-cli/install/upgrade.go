@@ -14,12 +14,12 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/helm"
 	"github.com/cilium/cilium-cli/internal/utils"
+	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/status"
 )
 
@@ -162,7 +162,7 @@ func upgradeDeployment(ctx context.Context, k *K8sInstaller, params upgradeDeplo
 	return nil
 }
 
-func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient genericclioptions.RESTClientGetter) error {
+func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient *k8s.Client) error {
 	if k.params.ListVersions {
 		return k.listVersions()
 	}
@@ -189,7 +189,7 @@ func (k *K8sInstaller) UpgradeWithHelm(ctx context.Context, k8sClient genericcli
 		DryRun:           k.params.DryRun,
 		DryRunHelmValues: k.params.DryRunHelmValues,
 	}
-	release, err := helm.Upgrade(ctx, k8sClient, upgradeParams)
+	release, err := helm.Upgrade(ctx, k8sClient.HelmActionConfig, upgradeParams)
 	if err != nil {
 		return err
 	}

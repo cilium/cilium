@@ -545,7 +545,7 @@ func (k *K8sStatusCollector) status(ctx context.Context) *Status {
 				if !ok {
 					return fmt.Errorf("failed to initialize Helm client")
 				}
-				release, err := helm.Get(client.RESTClientGetter, helm.GetParameters{
+				release, err := helm.Get(client.HelmActionConfig, helm.GetParameters{
 					Namespace: k.params.Namespace,
 					Name:      defaults.HelmReleaseName,
 				})

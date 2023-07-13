@@ -963,7 +963,7 @@ func (k *K8sClusterMesh) patchConfig(ctx context.Context, client k8sClusterMeshI
 
 // getClientsForConnect returns a k8s.Client for the local and remote cluster, respectively
 func (k *K8sClusterMesh) getClientsForConnect() (*k8s.Client, *k8s.Client, error) {
-	remoteClient, err := k8s.NewClient(k.params.DestinationContext, "")
+	remoteClient, err := k8s.NewClient(k.params.DestinationContext, "", k.params.Namespace)
 	if err != nil {
 		return nil, nil, fmt.Errorf(
 			"unable to create Kubernetes client to access remote cluster %q: %w",
@@ -1113,7 +1113,7 @@ func (k *K8sClusterMesh) disconnectCluster(ctx context.Context, src, dst k8sClus
 }
 
 func (k *K8sClusterMesh) Disconnect(ctx context.Context) error {
-	remoteCluster, err := k8s.NewClient(k.params.DestinationContext, "")
+	remoteCluster, err := k8s.NewClient(k.params.DestinationContext, "", k.params.Namespace)
 	if err != nil {
 		return fmt.Errorf("unable to create Kubernetes client to access remote cluster %q: %w", k.params.DestinationContext, err)
 	}
@@ -1945,7 +1945,7 @@ func EnableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Parameter
 		ResetValues: false,
 		ReuseValues: true,
 	}
-	_, err = helm.Upgrade(ctx, k8sClient.RESTClientGetter, upgradeParams)
+	_, err = helm.Upgrade(ctx, k8sClient.HelmActionConfig, upgradeParams)
 	return err
 }
 
@@ -1965,17 +1965,12 @@ func DisableWithHelm(ctx context.Context, k8sClient *k8s.Client, params Paramete
 		ResetValues: false,
 		ReuseValues: true,
 	}
-	_, err = helm.Upgrade(ctx, k8sClient.RESTClientGetter, upgradeParams)
+	_, err = helm.Upgrade(ctx, k8sClient.HelmActionConfig, upgradeParams)
 	return err
 }
 
-func getRelease(kc *k8s.Client, namespace string) (*release.Release, error) {
-	client := kc.RESTClientGetter
-	release, err := helm.GetCurrentRelease(client, namespace, defaults.HelmReleaseName)
-	if err != nil {
-		return nil, err
-	}
-	return release, nil
+func getRelease(kc *k8s.Client) (*release.Release, error) {
+	return kc.HelmActionConfig.Releases.Last(defaults.HelmReleaseName)
 }
 
 // validateCAMatch determines if the certificate authority certificate being
@@ -2015,7 +2010,7 @@ func (k *K8sClusterMesh) validateCAMatch(aiLocal, aiRemote *accessInformation) (
 // (certgen) mode. As with classic mode, only autodetected IP-based
 // clustermesh-apiserver Service endpoints are currently supported.
 func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
-	localRelease, err := getRelease(k.client.(*k8s.Client), k.params.Namespace)
+	localRelease, err := getRelease(k.client.(*k8s.Client))
 	if err != nil {
 		k.Log("❌ Unable to find Helm release for the target cluster")
 		return err
@@ -2061,7 +2056,7 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 	}
 
 	// Get existing helm values for the remote cluster
-	remoteRelease, err := getRelease(remoteClient, k.params.Namespace)
+	remoteRelease, err := getRelease(remoteClient)
 	if err != nil {
 		k.Log("❌ Unable to find Helm release for the remote cluster")
 		return err
@@ -2084,7 +2079,7 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 	// Enable clustermesh using a Helm Upgrade command against our target cluster
 	k.Log("ℹ️ Configuring Cilium in cluster '%s' to connect to cluster '%s'",
 		localClient.ClusterName(), remoteClient.ClusterName())
-	_, err = helm.Upgrade(ctx, localClient.RESTClientGetter, upgradeParams)
+	_, err = helm.Upgrade(ctx, localClient.HelmActionConfig, upgradeParams)
 	if err != nil {
 		return err
 	}
@@ -2093,7 +2088,7 @@ func (k *K8sClusterMesh) ConnectWithHelm(ctx context.Context) error {
 	k.Log("ℹ️ Configuring Cilium in cluster '%s' to connect to cluster '%s'",
 		remoteClient.ClusterName(), localClient.ClusterName())
 	upgradeParams.Values = remoteHelmValues
-	_, err = helm.Upgrade(ctx, remoteClient.RESTClientGetter, upgradeParams)
+	_, err = helm.Upgrade(ctx, remoteClient.HelmActionConfig, upgradeParams)
 	if err != nil {
 		return err
 	}
@@ -2129,7 +2124,7 @@ func (k *K8sClusterMesh) needsClassicMode(r *release.Release) (bool, error) {
 }
 
 func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
-	localRelease, err := getRelease(k.client.(*k8s.Client), k.params.Namespace)
+	localRelease, err := getRelease(k.client.(*k8s.Client))
 	if err != nil {
 		k.Log("❌ Unable to find Helm release for the target cluster")
 		return err
@@ -2165,7 +2160,7 @@ func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
 	}
 
 	// Get existing helm values for the remote cluster
-	remoteRelease, err := getRelease(remoteClient, k.params.Namespace)
+	remoteRelease, err := getRelease(remoteClient)
 	if err != nil {
 		k.Log("❌ Unable to find Helm release for the remote cluster")
 		return err
@@ -2187,7 +2182,7 @@ func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
 	// Disconnect clustermesh using a Helm Upgrade command against our target cluster
 	k.Log("ℹ️ Configuring Cilium in cluster '%s' to disconnect from cluster '%s'",
 		localClient.ClusterName(), remoteClient.ClusterName())
-	if _, err = helm.Upgrade(ctx, localClient.RESTClientGetter, upgradeParams); err != nil {
+	if _, err = helm.Upgrade(ctx, localClient.HelmActionConfig, upgradeParams); err != nil {
 		return err
 	}
 
@@ -2195,7 +2190,7 @@ func (k *K8sClusterMesh) DisconnectWithHelm(ctx context.Context) error {
 	k.Log("ℹ️ Configuring Cilium in cluster '%s' to disconnect from cluster '%s'",
 		remoteClient.ClusterName(), localClient.ClusterName())
 	upgradeParams.Values = remoteHelmValues
-	if _, err = helm.Upgrade(ctx, remoteClient.RESTClientGetter, upgradeParams); err != nil {
+	if _, err = helm.Upgrade(ctx, remoteClient.HelmActionConfig, upgradeParams); err != nil {
 		return err
 	}
 	k.Log("✅ Disconnected clusters %s and %s!", localClient.ClusterName(), remoteClient.ClusterName())

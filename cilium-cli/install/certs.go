@@ -72,7 +72,7 @@ func (k *K8sUninstaller) uninstallCerts(ctx context.Context) (err error) {
 
 func (k *K8sInstaller) installCerts(ctx context.Context) error {
 	if k.params.InheritCA != "" {
-		caCluster, err := k8s.NewClient(k.params.InheritCA, "")
+		caCluster, err := k8s.NewClient(k.params.InheritCA, "", k.params.Namespace)
 		if err != nil {
 			return fmt.Errorf("unable to create Kubernetes client to derive CA from: %w", err)
 		}

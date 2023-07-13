@@ -19,6 +19,7 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/distribution/distribution/reference"
+	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chartutil"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -65,9 +66,10 @@ type Client struct {
 	RawConfig          clientcmdapi.Config
 	RESTClientGetter   genericclioptions.RESTClientGetter
 	contextName        string
+	HelmActionConfig   *action.Configuration
 }
 
-func NewClient(contextName, kubeconfig string) (*Client, error) {
+func NewClient(contextName, kubeconfig, ciliumNamespace string) (*Client, error) {
 	// Register the Cilium types in the default scheme.
 	_ = ciliumv2.AddToScheme(scheme.Scheme)
 	_ = ciliumv2alpha1.AddToScheme(scheme.Scheme)
@@ -118,6 +120,15 @@ func NewClient(contextName, kubeconfig string) (*Client, error) {
 		contextName = rawConfig.CurrentContext
 	}
 
+	// Initialize Helm action configuration.
+	// Use the default Helm driver (Kubernetes secret).
+	helmDriver := ""
+	actionConfig := action.Configuration{}
+	logger := func(format string, v ...interface{}) {}
+	if err := actionConfig.Init(&restClientGetter, ciliumNamespace, helmDriver, logger); err != nil {
+		return nil, err
+	}
+
 	return &Client{
 		CiliumClientset:    ciliumClientset,
 		TetragonClientset:  tetragonClientset,
@@ -128,6 +139,7 @@ func NewClient(contextName, kubeconfig string) (*Client, error) {
 		RawConfig:          rawConfig,
 		RESTClientGetter:   &restClientGetter,
 		contextName:        contextName,
+		HelmActionConfig:   &actionConfig,
 	}, nil
 }
 
@@ -949,7 +961,7 @@ func (c *Client) GetCiliumVersion(ctx context.Context, p *corev1.Pod) (*semver.V
 
 func (c *Client) GetRunningCiliumVersion(ctx context.Context, namespace string) (string, error) {
 	if utils.IsInHelmMode() {
-		release, err := helm.Get(c.RESTClientGetter, helm.GetParameters{
+		release, err := helm.Get(c.HelmActionConfig, helm.GetParameters{
 			Namespace: namespace,
 			Name:      defaults.HelmReleaseName,
 		})
