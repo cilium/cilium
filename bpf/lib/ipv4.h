@@ -136,7 +136,6 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 			  bool *has_l4_header)
 {
 	bool is_fragment, not_first_fragment;
-	enum metric_dir dir;
 	int ret;
 
 	struct ipv4_frag_id frag_id = {
@@ -148,11 +147,8 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 	};
 
 	is_fragment = ipv4_is_fragment(ip4);
-	dir = ct_to_metrics_dir(ct_dir);
 
 	if (unlikely(is_fragment)) {
-		update_metrics(ctx_full_len(ctx), dir, REASON_FRAG_PACKET);
-
 		not_first_fragment = ipv4_is_not_first_fragment(ip4);
 		if (has_l4_header)
 			*has_l4_header = !not_first_fragment;
@@ -171,7 +167,8 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 		 * we receive). Fragment has L4 header, create an entry in datagrams map.
 		 */
 		if (map_update_elem(&IPV4_FRAG_DATAGRAMS_MAP, &frag_id, ports, BPF_ANY))
-			update_metrics(ctx_full_len(ctx), dir, REASON_FRAG_PACKET_UPDATE);
+			update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(ct_dir),
+				       REASON_FRAG_PACKET_UPDATE);
 
 		/* Do not return an error if map update failed, as nothing prevents us
 		 * to process the current packet normally.
