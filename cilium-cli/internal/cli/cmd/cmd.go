@@ -40,7 +40,7 @@ func NewCiliumCommand(hooks Hooks) *cobra.Command {
 				return nil
 			}
 
-			c, err := k8s.NewClient(contextName, "")
+			c, err := k8s.NewClient(contextName, "", namespace)
 			if err != nil {
 				return fmt.Errorf("unable to create Kubernetes client: %w", err)
 			}
