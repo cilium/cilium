@@ -1272,10 +1272,7 @@ func (k *K8sClusterMesh) statusConnectivity(ctx context.Context) (*ConnectivityS
 		if k.params.Wait {
 			if err == nil {
 				if status.NotReady > 0 {
-					err = fmt.Errorf("%d clusters not ready", status.NotReady)
-				}
-				if len(status.Errors) > 0 {
-					err = fmt.Errorf("%d clusters have errors", len(status.Errors))
+					err = fmt.Errorf("%d nodes are not ready", status.NotReady)
 				}
 			}
 
