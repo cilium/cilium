@@ -1037,6 +1037,7 @@ subcommands
 subdirectories
 subdomain
 subdomains
+subfeatures
 subnet
 subnetIDsFilter
 subnetTagsFilter
