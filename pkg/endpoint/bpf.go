@@ -325,8 +325,8 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 			for keyFromFilter, entry := range keysFromFilter {
 				if entry.IsRedirectEntry() {
 					entry.ProxyPort = redirectPort
+					e.desiredPolicy.PolicyMapState.DenyPreferredInsertWithChanges(keyFromFilter, entry, adds, nil, old, idLookup)
 				}
-				e.desiredPolicy.PolicyMapState.DenyPreferredInsertWithChanges(keyFromFilter, entry, adds, nil, old, idLookup)
 			}
 		}
 	}
