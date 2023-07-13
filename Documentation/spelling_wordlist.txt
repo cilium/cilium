@@ -196,6 +196,7 @@ cls
 clusterIP
 clustermesh
 clustermeshcertgen
+clustermeshes
 clusterwide
 cni
 cnp
