@@ -17,7 +17,7 @@ Generic
 
        cilium status
 
- #. Validate the Cluster Mesh is enabled correctly and operational:
+ #. Validate that Cluster Mesh is enabled correctly and operational:
 
     .. code-block:: shell-session
 
@@ -30,14 +30,13 @@ Manual Verification of Setup
  #. Validate that each cluster is assigned a **unique** human-readable name as well
     as a numeric cluster ID (1-255).
 
- #. Validate that the ClusterMesh apiserver is initialized correctly for each cluster
+ #. Validate that the clustermesh-apiserver is initialized correctly for each cluster:
 
     .. code-block:: shell-session
 
         $ kubectl logs -n kube-system deployment/clustermesh-apiserver -c apiserver
         ...
         level=info msg="Connecting to etcd server..." config=/var/lib/cilium/etcd-config.yaml endpoints="[https://127.0.0.1:2379]" subsys=kvstore
-        level=info msg="Got lease ID 7c0281854b945c05" subsys=kvstore
         level=info msg="Got lock lease ID 7c0281854b945c07" subsys=kvstore
         level=info msg="Initial etcd session established" config=/var/lib/cilium/etcd-config.yaml endpoints="[https://127.0.0.1:2379]" subsys=kvstore
         level=info msg="Successfully verified version of etcd endpoint" config=/var/lib/cilium/etcd-config.yaml endpoints="[https://127.0.0.1:2379]" etcdEndpoint="https://127.0.0.1:2379" subsys=kvstore version=3.4.13
@@ -50,18 +49,24 @@ Manual Verification of Setup
            └  remote configuration: expected=true, retrieved=true, cluster-id=3, kvstoremesh=false, sync-canaries=true
            └  synchronization status: nodes=true, endpoints=true, identities=true, services=true
 
- #. Validate that required TLS secrets are setup properly. By default, the below
-    TLS secrets must be available in cilium installed namespace
+ #. Validate that the required TLS secrets are set up properly. By default, the
+    following TLS secrets must be available in the namespace in which Cilium is
+    installed:
 
-    * clustermesh-apiserver-admin-cert, which is used by etcd container in clustermesh-apiserver deployment.
-      Not applicable if external etcd cluster is used.
+    * ``clustermesh-apiserver-server-cert``, which is used by the etcd container
+      in the clustermesh-apiserver deployment. Not applicable if an external etcd
+      cluster is used.
 
-    * clustermesh-apiserver-client-cert, which is used by apiserver container in clustermesh-apiserver deployment
-      to establish connection to etcd cluster (either internal or external).
+    * ``clustermesh-apiserver-admin-cert``, which is used by the apiserver/kvstoremesh
+      containers in the clustermesh-apiserver deployment, to authenticate against the
+      sidecar etcd instance. Not applicable if an external etcd cluster is used.
 
-    * cilium-ca, which is CA used to generate the above two certs.
+    * ``clustermesh-apiserver-remote-cert``, which is used by Cilium agents, and
+      optionally the kvstoremesh container in the clustermesh-apiserver deployment,
+      to authenticate against remote etcd instances (either internal or external).
 
-    If any of above secrets are not configured correctly, there will be potential error message like below::
+    If any of the prior secrets is not configured correctly, there will be a potential
+    error message like the following::
 
        level=warning msg="Error observed on etcd connection, reconnecting etcd" clusterName=eks-dev-1 config=/var/lib/cilium/clustermesh/eks-dev-1 error="not able to connect to any etcd endpoints" kvstoreErr="quorum check failed 12 times in a row: timeout while waiting for initial connection" kvstoreStatus="quorum check failed 12 times in a row: timeout while waiting for initial connection" subsys=clustermesh
 
@@ -76,23 +81,24 @@ Manual Verification of Setup
 
     If the configuration is not found, check the following:
 
-    * The Kubernetes secret ``clustermesh-secrets`` is imported correctly.
+    * The ``cilium-clustermesh`` Kubernetes secret is present and correctly
+      mounted by the Cilium agent pods.
 
-    * The secret contains a file for each remote cluster with the filename
-      matching the name of the remote cluster.
+    * The secret contains a file for each remote cluster with the filename matching
+      the name of the remote cluster as provided by the ``--cluster-name`` argument
+      or the ``cluster-name`` ConfigMap option.
 
-    * The contents of the file in the secret is a valid etcd configuration
-      consisting of the IP to reach the remote etcd as well as the required
-      certificates to connect to that etcd.
+    * Each file named after a remote cluster contains a valid etcd configuration
+      consisting of the endpoints to reach the remote etcd cluster, and the path
+      of the certificate and private key to authenticate against that etcd cluster.
+      Additional files may be included in the secret to provide the certificate
+      and private key themselves.
 
-    * Run a ``kubectl exec -ti ds/cilium -- bash`` in one of the Cilium pods and check
-      the contents of the directory ``/var/lib/cilium/clustermesh/``. It must
-      contain a configuration file for each remote cluster along with all the
-      required SSL certificates and keys. The filenames must match the cluster
-      names as provided by the ``--cluster-name`` argument or ``cluster-name``
-      ConfigMap option. If the directory is empty or incomplete, regenerate the
-      secret again and ensure that the secret is correctly mounted into the
-      DaemonSet.
+    * The ``/var/lib/cilium/clustermesh`` directory inside any of the Cilium agent
+      pods contains the files mounted from the ``cilium-clustermesh`` secret.
+      You can use
+      ``kubectl exec -ti -n kube-system ds/cilium -c cilium-agent -- ls /var/lib/cilium/clustermesh``
+      to list the files present.
 
  #. Validate that the connection to the remote cluster could be established.
     You will see a log message like this in the ``cilium-agent`` logs for each
@@ -117,13 +123,13 @@ Manual Verification of Setup
       point to a logical name representing the remote cluster;
       When KVStoreMesh is enabled, it exists in the ``cilium-kvstoremesh`` secret.
 
-    .. code-block:: yaml
+      .. code-block:: yaml
 
          endpoints:
          - https://cluster1.mesh.cilium.io:2379
 
-      The name will *NOT* be resolvable via DNS outside of the cilium pod. The
-      name is mapped to an IP using ``hostAliases``. Run ``kubectl -n
+      The name will *NOT* be resolvable via DNS outside the Cilium agent pods.
+      The name is mapped to an IP using ``hostAliases``. Run ``kubectl -n
       kube-system get daemonset cilium -o yaml`` when KVStoreMesh is disabled,
       or run ``kubectl -n kube-system get deployment clustermesh-apiserver -o yaml`` when KVStoreMesh is enabled,
       grep for the FQDN to retrieve the IP that is configured. Then use ``curl`` to validate that the port is
