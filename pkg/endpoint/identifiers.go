@@ -104,9 +104,8 @@ func (e *Endpoint) GetDockerEndpointID() string {
 	return e.dockerEndpointID
 }
 
-// IdentifiersLocked fetches the set of attributes that uniquely identify the
-// endpoint. The caller must hold exclusive control over the endpoint.
-func (e *Endpoint) IdentifiersLocked() id.Identifiers {
+// Identifiers fetches the set of attributes that uniquely identify the endpoint.
+func (e *Endpoint) Identifiers() id.Identifiers {
 	refs := make(id.Identifiers, 8)
 	if cniID := e.GetCNIAttachmentID(); cniID != "" {
 		refs[id.CNIAttachmentIdPrefix] = cniID
@@ -141,16 +140,6 @@ func (e *Endpoint) IdentifiersLocked() id.Identifiers {
 	}
 
 	return refs
-}
-
-// Identifiers fetches the set of attributes that uniquely identify the endpoint.
-func (e *Endpoint) Identifiers() (id.Identifiers, error) {
-	if err := e.rlockAlive(); err != nil {
-		return nil, err
-	}
-	defer e.runlock()
-
-	return e.IdentifiersLocked(), nil
 }
 
 // GetCiliumEndpointUID returns the UID of the CiliumEndpoint.

@@ -724,7 +724,7 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 		err = mgr.expose(ep)
 		c.Assert(err, IsNil, Commentf("Test Name: %s", tt.name))
 		want := tt.setupWant()
-		mgr.updateReferencesLocked(ep, ep.IdentifiersLocked())
+		mgr.updateReferencesLocked(ep, ep.Identifiers())
 
 		ep = mgr.LookupCNIAttachmentID(want.ep.GetCNIAttachmentID())
 		c.Assert(ep, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
