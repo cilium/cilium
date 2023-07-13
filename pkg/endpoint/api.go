@@ -67,8 +67,12 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, uint16(base.ID), base.InterfaceName)
 	ep.ifIndex = int(base.InterfaceIndex)
 	ep.containerIfName = base.ContainerInterfaceName
-	ep.containerName = base.ContainerName
-	ep.containerID = base.ContainerID
+	if base.ContainerName != "" {
+		ep.containerName.Store(&base.ContainerName)
+	}
+	if base.ContainerID != "" {
+		ep.containerID.Store(&base.ContainerID)
+	}
 	ep.dockerNetworkID = base.DockerNetworkID
 	ep.dockerEndpointID = base.DockerEndpointID
 	ep.K8sPodName = base.K8sPodName
@@ -142,15 +146,15 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 
 func (e *Endpoint) getModelEndpointIdentitiersRLocked() *models.EndpointIdentifiers {
 	identifiers := &models.EndpointIdentifiers{
-		CniAttachmentID:  e.getCNIAttachmentIDLocked(),
+		CniAttachmentID:  e.GetCNIAttachmentID(),
 		DockerEndpointID: e.dockerEndpointID,
 		DockerNetworkID:  e.dockerNetworkID,
 	}
 
 	// Use legacy endpoint identifiers only if the endpoint has not opted out
 	if !e.disableLegacyIdentifiers {
-		identifiers.ContainerID = e.containerID
-		identifiers.ContainerName = e.containerName
+		identifiers.ContainerID = e.GetContainerID()
+		identifiers.ContainerName = e.GetContainerName()
 		identifiers.PodName = e.GetK8sNamespaceAndPodName()
 		identifiers.K8sPodName = e.K8sPodName
 		identifiers.K8sNamespace = e.K8sNamespace
@@ -534,12 +538,14 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 		changed = true
 	}
 
-	if newEp.containerName != "" && e.containerName != newEp.containerName {
-		e.containerName = newEp.containerName
+	if newContainerName := newEp.containerName.Load(); newContainerName != nil && *newContainerName != "" {
+		e.containerName.Store(newContainerName)
+		// no need to set changed here
 	}
 
-	if newEp.containerID != "" && e.containerID != newEp.containerID {
-		e.containerID = newEp.containerID
+	if newContainerID := newEp.containerID.Load(); newContainerID != nil && *newContainerID != "" {
+		e.containerID.Store(newContainerID)
+		// no need to set changed here
 	}
 
 	e.replaceInformationLabels(newEp.OpLabels.OrchestrationInfo)

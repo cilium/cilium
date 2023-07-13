@@ -371,8 +371,8 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 
 	return &serializableEndpoint{
 		ID:                       e.ID,
-		ContainerName:            e.containerName,
-		ContainerID:              e.containerID,
+		ContainerName:            e.GetContainerName(),
+		ContainerID:              e.GetContainerID(),
 		DockerNetworkID:          e.dockerNetworkID,
 		DockerEndpointID:         e.dockerEndpointID,
 		IfName:                   e.ifName,
@@ -528,8 +528,8 @@ func (ep *Endpoint) MarshalJSON() ([]byte, error) {
 func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.ID = r.ID
 	ep.createdAt = time.Now()
-	ep.containerName = r.ContainerName
-	ep.containerID = r.ContainerID
+	ep.containerName.Store(&r.ContainerName)
+	ep.containerID.Store(&r.ContainerID)
 	ep.dockerNetworkID = r.DockerNetworkID
 	ep.dockerEndpointID = r.DockerEndpointID
 	ep.ifName = r.IfName

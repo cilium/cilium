@@ -110,7 +110,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	f := logrus.Fields{
 		logfields.LogSubsys:              subsystem,
 		logfields.EndpointID:             e.ID,
-		logfields.ContainerID:            e.getShortContainerIDLocked(),
+		logfields.ContainerID:            e.GetShortContainerID(),
 		logfields.ContainerInterface:     e.containerIfName,
 		logfields.DatapathPolicyRevision: e.policyRevision,
 		logfields.DesiredPolicyRevision:  e.nextPolicyRevision,
@@ -170,7 +170,7 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
 		f := logrus.Fields{
 			logfields.LogSubsys:              subsystem,
 			logfields.EndpointID:             e.ID,
-			logfields.ContainerID:            e.getShortContainerIDLocked(),
+			logfields.ContainerID:            e.GetShortContainerID(),
 			logfields.DatapathPolicyRevision: e.policyRevision,
 			logfields.DesiredPolicyRevision:  e.nextPolicyRevision,
 			logfields.IPv4:                   e.GetIPv4Address(),

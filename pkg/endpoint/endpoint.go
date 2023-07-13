@@ -134,12 +134,16 @@ type Endpoint struct {
 	mutex lock.RWMutex
 
 	// containerName is the name given to the endpoint by the container runtime.
-	// Mutable, must be read with the endpoint lock!
-	containerName string
+	// It is not mutable once set, but is not set on the initial endpoint creation
+	// when using the docker plugin. CNI-based clusters (read: all clusters) set
+	// this on endpoint creation.
+	containerName atomic.Pointer[string]
 
 	// containerID is the container ID that docker has assigned to the endpoint.
-	// Mutable, must be read with the endpoint lock!
-	containerID string
+	// It is not mutable once set, but is not set on the initial endpoint creation
+	// when using the docker plugin. CNI-based clusters (read: all clusters) set
+	// this on endpoint creation.
+	containerID atomic.Pointer[string]
 
 	// dockerNetworkID is the network ID of the libnetwork network if the
 	// endpoint is a docker managed container which uses libnetwork
