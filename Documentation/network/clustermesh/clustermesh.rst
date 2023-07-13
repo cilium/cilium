@@ -205,12 +205,12 @@ The output will look something like this:
     ✅ Cluster access information is available:
       - 10.168.0.89:2379
     ✅ Service "clustermesh-apiserver" of type "LoadBalancer" found
-    ⌛ Waiting (12s) for clusters to be connected: 2 clusters have errors
-    ⌛ Waiting (25s) for clusters to be connected: 2 clusters have errors
-    ⌛ Waiting (38s) for clusters to be connected: 2 clusters have errors
-    ⌛ Waiting (51s) for clusters to be connected: 2 clusters have errors
-    ⌛ Waiting (1m4s) for clusters to be connected: 2 clusters have errors
-    ⌛ Waiting (1m17s) for clusters to be connected: 1 clusters have errors
+    ⌛ Waiting (12s) for clusters to be connected: 2 nodes are not ready
+    ⌛ Waiting (25s) for clusters to be connected: 2 nodes are not ready
+    ⌛ Waiting (38s) for clusters to be connected: 2 nodes are not ready
+    ⌛ Waiting (51s) for clusters to be connected: 2 nodes are not ready
+    ⌛ Waiting (1m4s) for clusters to be connected: 2 nodes are not ready
+    ⌛ Waiting (1m17s) for clusters to be connected: 1 nodes are not ready
     ✅ All 2 nodes are connected to all clusters [min:1 / avg:1.0 / max:1]
     🔌 Cluster Connections:
     - cilium-cli-ci-multicluster-2-168: 2/2 configured, 2/2 connected
