@@ -208,10 +208,7 @@ func (e *Endpoint) RegenerateAfterRestore() error {
 		return fmt.Errorf("failed while regenerating endpoint")
 	}
 
-	// NOTE: unconditionalRLock is used here because it's used only for logging an already restored endpoint
-	e.unconditionalRLock()
 	scopedLog.WithField(logfields.IPAddr, []string{e.GetIPv4Address(), e.GetIPv6Address()}).Info("Restored endpoint")
-	e.runlock()
 	return nil
 }
 

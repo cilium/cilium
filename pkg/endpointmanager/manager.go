@@ -381,14 +381,7 @@ func (mgr *endpointManager) ReleaseID(ep *endpoint.Endpoint) error {
 // unexpose removes the endpoint from the endpointmanager, so subsequent
 // lookups will no longer find the endpoint.
 func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
-	// Fetch the identifiers; this will only fail if the endpoint is
-	// already disconnected, in which case we don't need to proceed with
-	// the rest of cleaning up the endpoint.
-	identifiers, err := ep.Identifiers()
-	if err != nil {
-		// Already disconnecting
-		return
-	}
+	identifiers := ep.Identifiers()
 	previousState := ep.GetState()
 
 	mgr.mutex.Lock()
@@ -401,7 +394,7 @@ func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
 	// We haven't yet allocated the ID for a restoring endpoint, so no
 	// need to release it.
 	if previousState != endpoint.StateRestoring {
-		if err = mgr.ReleaseID(ep); err != nil {
+		if err := mgr.ReleaseID(ep); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				"state":                   previousState,
 				logfields.CNIAttachmentID: identifiers[endpointid.CNIAttachmentIdPrefix],
@@ -528,10 +521,7 @@ func (mgr *endpointManager) UpdateReferences(ep *endpoint.Endpoint) error {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
 
-	identifiers, err := ep.Identifiers()
-	if err != nil {
-		return err
-	}
+	identifiers := ep.Identifiers()
 	mgr.updateReferencesLocked(ep, identifiers)
 
 	return nil
@@ -623,7 +613,7 @@ func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
 
 	mgr.mutex.Lock()
 	// Get a copy of the identifiers before exposing the endpoint
-	identifiers := ep.IdentifiersLocked()
+	identifiers := ep.Identifiers()
 	ep.Start(newID)
 	mgr.mcastManager.AddAddress(ep.IPv6)
 	mgr.updateIDReferenceLocked(ep)
