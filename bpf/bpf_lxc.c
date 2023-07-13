@@ -1208,6 +1208,10 @@ encrypt_to_stack:
 #endif
 #ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
+		/* When changing this part, consider that bpf_host needs
+		 * to understand both formats. Otherwise packets will
+		 * not get handled correctly during up-/downgrade.
+		 */
 		set_encrypt_key_mark(ctx, encrypt_key, node_id);
 		set_identity_meta(ctx, SECLABEL);
 	} else
