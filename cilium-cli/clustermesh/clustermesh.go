@@ -643,16 +643,17 @@ func (k *K8sClusterMesh) Enable(ctx context.Context) error {
 }
 
 type accessInformation struct {
-	ServiceIPs           []string `json:"service_ips,omitempty"`
-	ServicePort          int      `json:"service_port,omitempty"`
-	ClusterID            string   `json:"cluster_id,omitempty"`
-	ClusterName          string   `json:"cluster_name,omitempty"`
-	CA                   []byte   `json:"ca,omitempty"`
-	ClientCert           []byte   `json:"client_cert,omitempty"`
-	ClientKey            []byte   `json:"client_key,omitempty"`
-	ExternalWorkloadCert []byte   `json:"external_workload_cert,omitempty"`
-	ExternalWorkloadKey  []byte   `json:"external_workload_key,omitempty"`
-	Tunnel               string   `json:"tunnel,omitempty"`
+	ServiceType          corev1.ServiceType `json:"service_type,omitempty"`
+	ServiceIPs           []string           `json:"service_ips,omitempty"`
+	ServicePort          int                `json:"service_port,omitempty"`
+	ClusterID            string             `json:"cluster_id,omitempty"`
+	ClusterName          string             `json:"cluster_name,omitempty"`
+	CA                   []byte             `json:"ca,omitempty"`
+	ClientCert           []byte             `json:"client_cert,omitempty"`
+	ClientKey            []byte             `json:"client_key,omitempty"`
+	ExternalWorkloadCert []byte             `json:"external_workload_cert,omitempty"`
+	ExternalWorkloadKey  []byte             `json:"external_workload_key,omitempty"`
+	Tunnel               string             `json:"tunnel,omitempty"`
 }
 
 func (ai *accessInformation) etcdConfiguration() string {
@@ -803,6 +804,7 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 		ClientCert:           clientCert,
 		ExternalWorkloadKey:  externalWorkloadKey,
 		ExternalWorkloadCert: externalWorkloadCert,
+		ServiceType:          svc.Spec.Type,
 		ServiceIPs:           []string{},
 		Tunnel:               cm.Data[configNameTunnel],
 	}
@@ -1132,7 +1134,6 @@ func (k *K8sClusterMesh) Disconnect(ctx context.Context) error {
 
 type Status struct {
 	AccessInformation *accessInformation  `json:"access_information,omitempty"`
-	Service           *corev1.Service     `json:"service,omitempty"`
 	Connectivity      *ConnectivityStatus `json:"connectivity,omitempty"`
 }
 
@@ -1154,29 +1155,6 @@ func (k *K8sClusterMesh) statusAccessInformation(ctx context.Context, log bool, 
 		}
 
 		return ai, err
-	}
-}
-
-func (k *K8sClusterMesh) statusService(ctx context.Context) (*corev1.Service, error) {
-	w := utils.NewWaitObserver(ctx, utils.WaitParameters{Log: func(err error, wait string) {
-		k.Log("⌛ Waiting (%s) for ClusterMesh service to be available: %s", wait, err)
-	}})
-	defer w.Cancel()
-
-	for {
-		svc, err := k.client.GetService(ctx, k.params.Namespace, defaults.ClusterMeshServiceName, metav1.GetOptions{})
-		if err != nil {
-			if k.params.Wait {
-				if err := w.Retry(err); err != nil {
-					return nil, err
-				}
-				continue
-			}
-
-			return nil, fmt.Errorf("clustermesh-apiserver cannot be found: %w", err)
-		}
-
-		return svc, nil
 	}
 }
 
@@ -1360,23 +1338,10 @@ func (k *K8sClusterMesh) Status(ctx context.Context) (*Status, error) {
 		return nil, err
 	}
 
+	k.Log("✅ Service %q of type %q found", defaults.ClusterMeshServiceName, s.AccessInformation.ServiceType)
 	k.Log("✅ Cluster access information is available:")
 	for _, ip := range s.AccessInformation.ServiceIPs {
 		k.Log("  - %s:%d", ip, s.AccessInformation.ServicePort)
-	}
-
-	s.Service, err = k.statusService(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	k.Log("✅ Service %q of type %q found", defaults.ClusterMeshServiceName, s.Service.Spec.Type)
-
-	if s.Service.Spec.Type == corev1.ServiceTypeLoadBalancer {
-		if len(s.AccessInformation.ServiceIPs) == 0 {
-			k.Log("❌ Service is of type LoadBalancer but has no IPs assigned")
-			return nil, fmt.Errorf("no IP available to reach cluster")
-		}
 	}
 
 	if k.params.Wait {
@@ -1796,24 +1761,12 @@ func (k *K8sClusterMesh) ExternalWorkloadStatus(ctx context.Context, names []str
 		return err
 	}
 
+	k.Log("✅ Service %q of type %q found", defaults.ClusterMeshServiceName, ai.ServiceType)
 	k.Log("✅ Cluster access information is available:")
 	for _, ip := range ai.ServiceIPs {
 		k.Log("	 - %s:%d", ip, ai.ServicePort)
 	}
 
-	svc, err := k.statusService(ctx)
-	if err != nil {
-		return err
-	}
-
-	k.Log("✅ Service %q of type %q found", defaults.ClusterMeshServiceName, svc.Spec.Type)
-
-	if svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
-		if len(ai.ServiceIPs) == 0 {
-			k.Log("❌ Service is of type LoadBalancer but has no IPs assigned")
-			return fmt.Errorf("no IP available to reach cluster")
-		}
-	}
 	var cews []ciliumv2.CiliumExternalWorkload
 
 	if len(names) == 0 {
