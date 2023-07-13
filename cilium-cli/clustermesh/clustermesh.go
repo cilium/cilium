@@ -26,6 +26,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -1218,7 +1219,7 @@ func (c *ConnectivityStatus) addError(pod, cluster string, err error) {
 	m[cluster].Errors = append(m[cluster].Errors, err)
 }
 
-func (c *ConnectivityStatus) parseAgentStatus(name string, s *status.ClusterMeshAgentConnectivityStatus) {
+func (c *ConnectivityStatus) parseAgentStatus(name string, expected []string, s *status.ClusterMeshAgentConnectivityStatus) {
 	if c.GlobalServices.Min < 0 || c.GlobalServices.Min > s.GlobalServices {
 		c.GlobalServices.Min = s.GlobalServices
 	}
@@ -1248,7 +1249,16 @@ func (c *ConnectivityStatus) parseAgentStatus(name string, s *status.ClusterMesh
 		}
 	}
 
-	if ready != int64(len(s.Clusters)) {
+	// Add an error for any cluster that was expected but not found
+	var missing bool
+	for _, exp := range expected {
+		if _, ok := s.Clusters[exp]; !ok {
+			missing = true
+			c.addError(name, exp, errors.New("unknown status"))
+		}
+	}
+
+	if missing || ready != int64(len(s.Clusters)) {
 		c.NotReady++
 	}
 
@@ -1298,6 +1308,24 @@ func (k *K8sClusterMesh) determineStatusConnectivity(ctx context.Context) (*Conn
 		Clusters:       map[string]*ClusterStats{},
 	}
 
+	// Retrieve the remote clusters to connect to from the clustermesh configuration,
+	// as there's no guarantee that the secret has already propagated into the agents.
+	// Don't fail in case the secret is not found, as it is legitimate if no cluster
+	// has been connected yet.
+	config, err := k.client.GetSecret(ctx, k.params.Namespace, defaults.ClusterMeshSecretName, metav1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return nil, fmt.Errorf("unable to retrieve clustermesh configuration: %w", err)
+	}
+
+	var expected []string
+	for name, cfg := range config.Data {
+		// Same check as https://github.com/cilium/cilium/blob/538a18800206da0d33916f5f48853a3d4454dd81/pkg/clustermesh/internal/config.go#L68
+		if strings.Contains(string(cfg), "endpoints:") {
+			stats.Clusters[name] = &ClusterStats{}
+			expected = append(expected, name)
+		}
+	}
+
 	pods, err := k.client.ListPods(ctx, k.params.Namespace, metav1.ListOptions{LabelSelector: defaults.AgentPodSelector})
 	if err != nil {
 		return nil, fmt.Errorf("unable to list cilium pods: %w", err)
@@ -1306,13 +1334,13 @@ func (k *K8sClusterMesh) determineStatusConnectivity(ctx context.Context) (*Conn
 	for _, pod := range pods.Items {
 		s, err := k.statusCollector.ClusterMeshConnectivity(ctx, pod.Name)
 		if err != nil {
-			if errors.Is(err, status.ErrClusterMeshStatusNotAvailable) {
+			if len(expected) == 0 && errors.Is(err, status.ErrClusterMeshStatusNotAvailable) {
 				continue
 			}
 			return nil, fmt.Errorf("unable to determine status of cilium pod %q: %w", pod.Name, err)
 		}
 
-		stats.parseAgentStatus(pod.Name, s)
+		stats.parseAgentStatus(pod.Name, expected, s)
 	}
 
 	if len(pods.Items) > 0 {
