@@ -79,44 +79,13 @@ type ClusterMeshAgentConnectivityStatus struct {
 	Errors         ErrorCountMap
 }
 
+// ErrClusterMeshStatusNotAvailable is a sentinel.
+var ErrClusterMeshStatusNotAvailable = errors.New("ClusterMesh status is not available")
+
 func (k *K8sStatusCollector) ClusterMeshConnectivity(ctx context.Context, ciliumPod string) (*ClusterMeshAgentConnectivityStatus, error) {
 	ctx, cancel := context.WithTimeout(ctx, k.params.waitTimeout())
 	defer cancel()
 
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		s, err := k.clusterMeshConnectivity(ctx, ciliumPod)
-		if err != nil {
-			if k.params.Wait {
-				time.Sleep(defaults.WaitRetryInterval)
-				continue
-			}
-		}
-
-		// If we are waiting for a successful status then all clusters need to
-		// be ready
-		if k.params.Wait {
-			for _, cluster := range s.Clusters {
-				if !cluster.Ready {
-					time.Sleep(defaults.WaitRetryInterval)
-					continue
-				}
-			}
-		}
-
-		return s, err
-	}
-}
-
-// ErrClusterMeshStatusNotAvailable is a sentinel.
-var ErrClusterMeshStatusNotAvailable = errors.New("ClusterMesh status is not available")
-
-func (k *K8sStatusCollector) clusterMeshConnectivity(ctx context.Context, ciliumPod string) (*ClusterMeshAgentConnectivityStatus, error) {
 	c := &ClusterMeshAgentConnectivityStatus{
 		Clusters: map[string]*models.RemoteCluster{},
 	}
