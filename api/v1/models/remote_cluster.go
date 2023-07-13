@@ -27,6 +27,9 @@ type RemoteCluster struct {
 	// Cluster configuration exposed by the remote cluster
 	Config *RemoteClusterConfig `json:"config,omitempty"`
 
+	// Indicates whether the connection to the remote kvstore is established
+	Connected bool `json:"connected,omitempty"`
+
 	// Time of last failure that occurred while attempting to reach the cluster
 	// Format: date-time
 	LastFailure strfmt.DateTime `json:"last-failure,omitempty"`
