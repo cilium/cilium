@@ -462,7 +462,6 @@ type Parameters struct {
 	WaitDuration         time.Duration
 	DestinationEndpoints []string
 	SourceEndpoints      []string
-	SkipServiceCheck     bool
 	ApiserverImage       string
 	ApiserverVersion     string
 	CreateCA             bool
