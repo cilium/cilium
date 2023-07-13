@@ -7,7 +7,6 @@
 package endpoint
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net/netip"
@@ -514,28 +513,6 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 		if e.setState(StateWaitingForIdentity, "Update endpoint from API PATCH") {
 			changed = true
 		}
-	}
-
-	if len(newEp.mac) != 0 && !bytes.Equal(e.mac, newEp.mac) {
-		e.mac = newEp.mac
-		changed = true
-	}
-
-	if len(newEp.nodeMAC) != 0 && !bytes.Equal(e.GetNodeMAC(), newEp.nodeMAC) {
-		e.nodeMAC = newEp.nodeMAC
-		changed = true
-	}
-
-	if newEp.IPv6.IsValid() && e.IPv6 != newEp.IPv6 {
-		e.IPv6 = newEp.IPv6
-		e.IPv6IPAMPool = newEp.IPv6IPAMPool
-		changed = true
-	}
-
-	if newEp.IPv4.IsValid() && e.IPv4 != newEp.IPv4 {
-		e.IPv4 = newEp.IPv4
-		e.IPv4IPAMPool = newEp.IPv4IPAMPool
-		changed = true
 	}
 
 	if newContainerName := newEp.containerName.Load(); newContainerName != nil && *newContainerName != "" {
