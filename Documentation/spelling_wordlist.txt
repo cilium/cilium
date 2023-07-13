@@ -566,6 +566,7 @@ subclasses
 subcommand
 subcommands
 subdirectories
+subfeatures
 subnet
 subnets
 subregister
