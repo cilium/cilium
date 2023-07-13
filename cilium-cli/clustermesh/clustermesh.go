@@ -16,11 +16,13 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
 
+	"golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -1384,11 +1386,18 @@ func (k *K8sClusterMesh) Status(ctx context.Context) (*Status, error) {
 				s.Connectivity.Connected.Max)
 		}
 
-		k.Log("🔌 Cluster Connections:")
-		for cluster, stats := range s.Connectivity.Clusters {
-			k.Log("- %s: %d/%d configured, %d/%d connected",
-				cluster, stats.Configured, s.Connectivity.Total,
-				stats.Connected, s.Connectivity.Total)
+		if len(s.Connectivity.Clusters) > 0 {
+			k.Log("🔌 Cluster Connections:")
+			clusters := maps.Keys(s.Connectivity.Clusters)
+			sort.Strings(clusters)
+			for _, cluster := range clusters {
+				stats := s.Connectivity.Clusters[cluster]
+				k.Log("  - %s: %d/%d configured, %d/%d connected",
+					cluster, stats.Configured, s.Connectivity.Total,
+					stats.Connected, s.Connectivity.Total)
+			}
+		} else {
+			k.Log("🔌 No cluster connected")
 		}
 
 		k.Log("🔀 Global services: [ min:%d / avg:%.1f / max:%d ]",
@@ -1399,10 +1408,13 @@ func (k *K8sClusterMesh) Status(ctx context.Context) (*Status, error) {
 		if len(s.Connectivity.Errors) > 0 {
 			k.Log("❌ %d Errors:", len(s.Connectivity.Errors))
 
-			for podName, clusters := range s.Connectivity.Errors {
+			podNames := maps.Keys(s.Connectivity.Errors)
+			sort.Strings(podNames)
+			for _, podName := range podNames {
+				clusters := s.Connectivity.Errors[podName]
 				for clusterName, a := range clusters {
 					for _, err := range a.Errors {
-						k.Log("❌ %s is not connected to cluster %s: %s", podName, clusterName, err)
+						k.Log("  ❌ %s is not connected to cluster %s: %s", podName, clusterName, err)
 					}
 				}
 			}
