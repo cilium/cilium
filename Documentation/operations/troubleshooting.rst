@@ -406,7 +406,7 @@ may help. This controls the time interval between two garbage collection runs.
 
 By default ``--conntrack-gc-interval`` is set to 0 which translates to
 using a dynamic interval. In that case, the interval is updated after each
-garbage collection run depending on how many entries where garbage collected.
+garbage collection run depending on how many entries were garbage collected.
 If very few or no entries were garbage collected, the interval will increase;
 if many entries were garbage collected, it will decrease. The current interval
 value is reported in the Cilium agent logs.
