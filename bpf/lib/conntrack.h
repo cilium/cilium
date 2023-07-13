@@ -771,13 +771,19 @@ DEFINE_FUNC_CT_IS_REPLY(4)
 
 static __always_inline int
 __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx,
-	     int l4_off, bool has_l4_header, enum ct_dir dir, enum ct_scope scope,
-	     __u32 ct_entry_types, struct ct_state *ct_state, __u32 *monitor)
+	     int l4_off, bool has_l4_header, bool is_fragment __maybe_unused,
+	     enum ct_dir dir, enum ct_scope scope, __u32 ct_entry_types,
+	     struct ct_state *ct_state, __u32 *monitor)
 {
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags tcp_flags = { .value = 0 };
 	enum ct_action action;
 	enum ct_status ret;
+
+#ifdef ENABLE_IPV4_FRAGMENTS
+	if (unlikely(is_fragment))
+		update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(dir), REASON_FRAG_PACKET);
+#endif
 
 	if (is_tcp && has_l4_header) {
 		if (l4_load_tcp_flags(ctx, l4_off, &tcp_flags) < 0)
@@ -852,13 +858,13 @@ out:
  */
 static __always_inline int
 ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx,
-		bool is_fragment __maybe_unused, int l4_off, bool has_l4_header,
+		bool is_fragment, int l4_off, bool has_l4_header,
 		enum ct_dir dir, enum ct_scope scope, __u32 ct_entry_types,
 		struct ct_state *ct_state, __u32 *monitor)
 {
 	tuple->flags = ct_lookup_select_tuple_type(dir, scope);
 
-	return __ct_lookup4(map, tuple, ctx, l4_off, has_l4_header,
+	return __ct_lookup4(map, tuple, ctx, l4_off, has_l4_header, is_fragment,
 			    dir, scope, ct_entry_types, ct_state, monitor);
 }
 
@@ -869,15 +875,27 @@ static __always_inline int ct_lookup4(const void *map,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
 	bool has_l4_header = true;
+	bool is_fragment = false;
+#ifdef ENABLE_IPV4_FRAGMENTS
+	void *data, *data_end;
+	struct iphdr *ip4;
+#endif
 	int ret;
 
 	tuple->flags = ct_lookup_select_tuple_type(dir, SCOPE_BIDIR);
+
+#ifdef ENABLE_IPV4_FRAGMENTS
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_CT_INVALID_HDR;
+
+	is_fragment = ipv4_is_fragment(ip4);
+#endif
 
 	ret = ct_extract_ports4(ctx, off, dir, tuple, &has_l4_header);
 	if (ret < 0)
 		return ret;
 
-	return __ct_lookup4(map, tuple, ctx, off, has_l4_header,
+	return __ct_lookup4(map, tuple, ctx, off, has_l4_header, is_fragment,
 			    dir, SCOPE_BIDIR, CT_ENTRY_ANY, ct_state, monitor);
 }
 
