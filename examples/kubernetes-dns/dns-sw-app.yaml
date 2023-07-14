@@ -9,4 +9,4 @@ metadata:
 spec:
   containers:
   - name: mediabot
-    image: docker.io/tgraf/netperf
+    image: docker.io/cilium/json-mock

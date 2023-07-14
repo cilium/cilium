@@ -47,7 +47,7 @@ metadata:
 spec:
   containers:
   - name: spaceship
-    image: docker.io/tgraf/netperf
+    image: docker.io/cilium/json-mock
 ---
 apiVersion: v1
 kind: Pod
@@ -60,4 +60,4 @@ metadata:
 spec:
   containers:
   - name: spaceship
-    image: docker.io/tgraf/netperf
+    image: docker.io/cilium/json-mock
