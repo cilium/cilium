@@ -472,6 +472,12 @@ spec:
                             ipv6-cidr:
                               description: IPv6CIDRBlock is the VPC IPv6 CIDR
                               type: string
+                            secondary-cidrs:
+                              description: SecondaryCIDRs is the list of Secondary
+                                CIDRs associated with the VPC
+                              items:
+                                type: string
+                              type: array
                             vpc-id:
                               description: VPCID is the vpc to which the ENI belongs
                               type: string

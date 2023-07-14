@@ -170,6 +170,7 @@ func (c *Client) GetVPC(ctx context.Context, vpcID string) (*ipamTypes.VirtualNe
 	return &ipamTypes.VirtualNetwork{
 		ID:          resp.Vpcs.Vpc[0].VpcId,
 		PrimaryCIDR: resp.Vpcs.Vpc[0].CidrBlock,
+		CIDRs:       resp.Vpcs.Vpc[0].SecondaryCidrBlocks.SecondaryCidrBlock,
 	}, nil
 }
 
@@ -194,6 +195,7 @@ func (c *Client) GetVPCs(ctx context.Context) (ipamTypes.VirtualNetworkMap, erro
 			result[v.VpcId] = &ipamTypes.VirtualNetwork{
 				ID:          v.VpcId,
 				PrimaryCIDR: v.CidrBlock,
+				CIDRs:       v.SecondaryCidrBlocks.SecondaryCidrBlock,
 			}
 		}
 		if resp.TotalCount < resp.PageNumber*resp.PageSize {
@@ -497,6 +499,7 @@ func parseENI(iface *ecs.NetworkInterfaceSet, vpcs ipamTypes.VirtualNetworkMap, 
 	vpc, ok := vpcs[iface.VpcId]
 	if ok {
 		eni.VPC.CIDRBlock = vpc.PrimaryCIDR
+		eni.VPC.SecondaryCIDRs = vpc.CIDRs
 	}
 
 	subnet, ok := subnets[iface.VSwitchId]
