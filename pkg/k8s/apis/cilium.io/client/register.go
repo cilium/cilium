@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -305,6 +306,8 @@ func createCRD(crdVersionedName string, crdMetaName string) func(clientset apiex
 			clientset,
 			constructV1CRD(crdMetaName, ciliumCRD),
 			crdhelpers.NewDefaultPoller(),
+			k8sconst.CustomResourceDefinitionSchemaVersionKey,
+			versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion),
 		)
 	}
 }
