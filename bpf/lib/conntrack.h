@@ -378,28 +378,6 @@ static __always_inline void ct_flip_tuple_dir6(struct ipv6_ct_tuple *tuple)
 }
 
 static __always_inline void
-__ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
-{
-	union v6addr tmp_addr = {};
-	__be16 tmp;
-
-	ipv6_addr_copy(&tmp_addr, &tuple->saddr);
-	ipv6_addr_copy(&tuple->saddr, &tuple->daddr);
-	ipv6_addr_copy(&tuple->daddr, &tmp_addr);
-
-	tmp = tuple->sport;
-	tuple->sport = tuple->dport;
-	tuple->dport = tmp;
-}
-
-static __always_inline void
-ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
-{
-	__ipv6_ct_tuple_reverse(tuple);
-	ct_flip_tuple_dir6(tuple);
-}
-
-static __always_inline void
 ipv6_ct_tuple_swap_addrs(struct ipv6_ct_tuple *tuple)
 {
 	union v6addr tmp_addr = {};
@@ -422,6 +400,20 @@ ipv6_ct_tuple_swap_ports(struct ipv6_ct_tuple *tuple)
 	tmp = tuple->sport;
 	tuple->sport = tuple->dport;
 	tuple->dport = tmp;
+}
+
+static __always_inline void
+__ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
+{
+	ipv6_ct_tuple_swap_addrs(tuple);
+	ipv6_ct_tuple_swap_ports(tuple);
+}
+
+static __always_inline void
+ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
+{
+	__ipv6_ct_tuple_reverse(tuple);
+	ct_flip_tuple_dir6(tuple);
 }
 
 static __always_inline int
@@ -612,27 +604,6 @@ static __always_inline void ct_flip_tuple_dir4(struct ipv4_ct_tuple *tuple)
 }
 
 static __always_inline void
-__ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
-{
-	__be32 tmp_addr = tuple->saddr;
-	__be16 tmp;
-
-	tuple->saddr = tuple->daddr;
-	tuple->daddr = tmp_addr;
-
-	tmp = tuple->sport;
-	tuple->sport = tuple->dport;
-	tuple->dport = tmp;
-}
-
-static __always_inline void
-ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
-{
-	__ipv4_ct_tuple_reverse(tuple);
-	ct_flip_tuple_dir4(tuple);
-}
-
-static __always_inline void
 ipv4_ct_tuple_swap_addrs(struct ipv4_ct_tuple *tuple)
 {
 	__be32 tmp_addr = tuple->saddr;
@@ -654,6 +625,20 @@ ipv4_ct_tuple_swap_ports(struct ipv4_ct_tuple *tuple)
 	tmp = tuple->sport;
 	tuple->sport = tuple->dport;
 	tuple->dport = tmp;
+}
+
+static __always_inline void
+__ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
+{
+	ipv4_ct_tuple_swap_addrs(tuple);
+	ipv4_ct_tuple_swap_ports(tuple);
+}
+
+static __always_inline void
+ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
+{
+	__ipv4_ct_tuple_reverse(tuple);
+	ct_flip_tuple_dir4(tuple);
 }
 
 static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
