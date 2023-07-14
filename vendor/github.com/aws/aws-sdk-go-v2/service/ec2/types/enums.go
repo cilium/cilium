@@ -3442,6 +3442,17 @@ const (
 	InstanceTypeI4g4xlarge      InstanceType = "i4g.4xlarge"
 	InstanceTypeI4g8xlarge      InstanceType = "i4g.8xlarge"
 	InstanceTypeI4g16xlarge     InstanceType = "i4g.16xlarge"
+	InstanceTypeHpc7g4xlarge    InstanceType = "hpc7g.4xlarge"
+	InstanceTypeHpc7g8xlarge    InstanceType = "hpc7g.8xlarge"
+	InstanceTypeHpc7g16xlarge   InstanceType = "hpc7g.16xlarge"
+	InstanceTypeC7gnMedium      InstanceType = "c7gn.medium"
+	InstanceTypeC7gnLarge       InstanceType = "c7gn.large"
+	InstanceTypeC7gnXlarge      InstanceType = "c7gn.xlarge"
+	InstanceTypeC7gn2xlarge     InstanceType = "c7gn.2xlarge"
+	InstanceTypeC7gn4xlarge     InstanceType = "c7gn.4xlarge"
+	InstanceTypeC7gn8xlarge     InstanceType = "c7gn.8xlarge"
+	InstanceTypeC7gn12xlarge    InstanceType = "c7gn.12xlarge"
+	InstanceTypeC7gn16xlarge    InstanceType = "c7gn.16xlarge"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -4103,6 +4114,17 @@ func (InstanceType) Values() []InstanceType {
 		"i4g.4xlarge",
 		"i4g.8xlarge",
 		"i4g.16xlarge",
+		"hpc7g.4xlarge",
+		"hpc7g.8xlarge",
+		"hpc7g.16xlarge",
+		"c7gn.medium",
+		"c7gn.large",
+		"c7gn.xlarge",
+		"c7gn.2xlarge",
+		"c7gn.4xlarge",
+		"c7gn.8xlarge",
+		"c7gn.12xlarge",
+		"c7gn.16xlarge",
 	}
 }
 
