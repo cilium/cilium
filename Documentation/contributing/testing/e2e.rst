@@ -22,14 +22,15 @@ Running End-To-End Connectivity Tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The connectivity tests are implemented in such a way that they can be run against
-any K8s cluster running Cilium. The built-in feature detection allows the testing 
+any K8s cluster running Cilium. The built-in feature detection allows the testing
 framework to automatically skip tests when a required test condition cannot be met
 (for example, skip the Egress Gateway tests if the Egress Gateway feature is disabled).
 
 Running tests locally
 ^^^^^^^^^^^^^^^^^^^^^
 
-Before running the connectivity tests you need to install `Cilium CLI <https://github.com/cilium/cilium-cli#installation>`_.
+.. include:: /installation/cli-download.rst
+
 Alternatively, ``Cilium CLI`` can be manually built and installed by fetching
 ``https://github.com/cilium/cilium-cli``, and then running ``make install``.
 
@@ -63,11 +64,11 @@ Assuming that Cilium was built with:
     ...
     ^^^ Images pushed, multi-arch manifest should be above. ^^^
 
-You can install Cilium with the following:
+You can install Cilium with the following command:
 
 .. code-block:: shell-session
 
-    $ cilium install --wait --rollback=false \
+    $ cilium install --wait \
         --chart-directory=$GOPATH/src/github.com/cilium/cilium/install/kubernetes/cilium \
         --helm-set=image.override=localhost:5000/cilium/cilium-dev:local \
         --helm-set=image.pullPolicy=Never \
@@ -90,7 +91,7 @@ Finally, to run tests:
 Alternatively, you can select which tests to run:
 
 .. code-block:: shell-session
-   
+
     $ cilium connectivity test --test north-south-loadbalancing
     ...
     [=] Test [north-south-loadbalancing]
@@ -151,7 +152,7 @@ Finally, you can SSH into the VM to start a K8s cluster, install Cilium, and fin
     # git config --global --add safe.directory /host/cilium
     # ./contrib/scripts/kind.sh "" 3 "" "" "none" "dual"
     # cd /host/cilium-cli
-    # ./cilium install --wait --rollback=false \
+    # ./cilium install --wait \
         --chart-directory=../cilium/install/kubernetes/cilium \
         --version=v1.13.2 \
         --helm-set-string=tunnel=vxlan \
