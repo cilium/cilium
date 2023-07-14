@@ -1320,12 +1320,13 @@ func deserializeRoute(m []byte) (Route, error) {
 // RouteGetOptions contains a set of options to use with
 // RouteGetWithOptions
 type RouteGetOptions struct {
-	Iif     string
-	Oif     string
-	VrfName string
-	SrcAddr net.IP
-	UID     *uint32
-	Mark    int
+	Iif      string
+	Oif      string
+	VrfName  string
+	SrcAddr  net.IP
+	UID      *uint32
+	Mark     int
+	FIBMatch bool
 }
 
 // RouteGetWithOptions gets a route to a specific destination from the host system.
@@ -1361,6 +1362,9 @@ func (h *Handle) RouteGetWithOptions(destination net.IP, options *RouteGetOption
 		msg.Src_len = bitlen
 	}
 	msg.Flags = unix.RTM_F_LOOKUP_TABLE
+	if options != nil && options.FIBMatch {
+		msg.Flags |= unix.RTM_F_FIB_MATCH
+	}
 	req.AddData(msg)
 
 	rtaDst := nl.NewRtAttr(unix.RTA_DST, destinationData)
