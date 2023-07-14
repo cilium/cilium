@@ -14,6 +14,7 @@ type Protinfo struct {
 	Flood        bool
 	ProxyArp     bool
 	ProxyArpWiFi bool
+	Isolated     bool
 }
 
 // String returns a list of enabled flags
@@ -46,6 +47,9 @@ func (prot *Protinfo) String() string {
 	}
 	if prot.ProxyArpWiFi {
 		boolStrings = append(boolStrings, "ProxyArpWiFi")
+	}
+	if prot.Isolated {
+		boolStrings = append(boolStrings, "Isolated")
 	}
 	return strings.Join(boolStrings, " ")
 }
