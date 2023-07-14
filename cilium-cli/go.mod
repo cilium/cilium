@@ -35,7 +35,7 @@ require (
 	golang.org/x/mod v0.12.0
 	google.golang.org/grpc v1.56.2
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
-	helm.sh/helm/v3 v3.12.1
+	helm.sh/helm/v3 v3.12.2
 	k8s.io/api v0.27.2
 	k8s.io/apimachinery v0.27.2
 	k8s.io/cli-runtime v0.27.2
