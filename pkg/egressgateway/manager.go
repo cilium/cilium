@@ -408,7 +408,7 @@ func (manager *Manager) addEndpoint(id types.NamespacedName) {
 	epEvent, ok := manager.pendingEndpointEvents[id]
 	manager.pendingEndpointEventsLock.RUnlock()
 
-	if !ok {
+	if !ok || epEvent.endpoint == nil {
 		// the endpoint event has been already processed (for example we
 		// received an updated endpoint object or a delete event),
 		// nothing to do
