@@ -934,7 +934,7 @@ struct ct_entry {
 	__u32 lifetime;
 	__u16 rx_closing:1,
 	      tx_closing:1,
-	      nat46:1,
+	      unused_nat46:1,	/* unused since v1.12 / 81dee05e82fb */
 	      lb_loopback:1,
 	      seen_non_syn:1,
 	      node_port:1,
