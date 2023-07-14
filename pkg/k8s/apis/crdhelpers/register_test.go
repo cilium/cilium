@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package client
+package crdhelpers
 
 import (
 	"context"
@@ -90,7 +90,7 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 				crd := s.getV1TestCRD()
 				client := fake.NewSimpleClientset()
 				c.Assert(k8sversion.Force(v1Support.Major+"."+v1Support.Minor), IsNil)
-				return createUpdateCRD(client, crd, newFakePoller())
+				return CreateUpdateCRD(client, crd, newFakePoller())
 			},
 			wantErr: false,
 		},
@@ -101,7 +101,7 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 				crd := s.getV1TestCRD()
 				client := fake.NewSimpleClientset()
 				c.Assert(k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor), IsNil)
-				return createUpdateCRD(client, crd, newFakePoller())
+				return CreateUpdateCRD(client, crd, newFakePoller())
 			},
 			wantErr: false,
 		},
@@ -128,7 +128,7 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 				)
 				c.Assert(err, IsNil)
 
-				return createUpdateCRD(client, crd, newFakePoller())
+				return CreateUpdateCRD(client, crd, newFakePoller())
 			},
 			wantErr: false,
 		},
@@ -161,14 +161,14 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 				client.Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = v1beta1Support
 				c.Assert(k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor), IsNil)
 
-				// Retrieve v1 CRD here as that's what createUpdateCRD will be
+				// Retrieve v1 CRD here as that's what CreateUpdateCRD will be
 				// expecting, and change the name to match to-be installed CRD.
-				// This tests that createUpdateCRD will fallback on its v1beta1
+				// This tests that CreateUpdateCRD will fallback on its v1beta1
 				// variant.
 				crd := s.getV1TestCRD()
 				crd.ObjectMeta.Name = crdToInstall.ObjectMeta.Name
 
-				return createUpdateCRD(client, crd, newFakePoller())
+				return CreateUpdateCRD(client, crd, newFakePoller())
 			},
 			wantErr: false,
 		},
