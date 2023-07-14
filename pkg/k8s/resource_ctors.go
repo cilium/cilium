@@ -21,6 +21,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discoveryv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_discoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/option"
@@ -105,6 +106,17 @@ func CiliumIdentityResource(lc hive.Lifecycle, cs client.Clientset, opts ...func
 		opts...,
 	)
 	return resource.New[*cilium_api_v2.CiliumIdentity](lc, lw, resource.WithMetric("CiliumIdentityList")), nil
+}
+
+func NetworkPolicyResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_networkingv1.NetworkPolicy], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*slim_networkingv1.NetworkPolicyList](cs.Slim().NetworkingV1().NetworkPolicies("")),
+		opts...,
+	)
+	return resource.New[*slim_networkingv1.NetworkPolicy](lc, lw, resource.WithMetric("NetworkPolicy")), nil
 }
 
 func CiliumNetworkPolicyResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*cilium_api_v2.CiliumNetworkPolicy], error) {

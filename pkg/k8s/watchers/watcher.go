@@ -271,7 +271,12 @@ type K8sWatcher struct {
 
 	datapath datapath.Datapath
 
-	networkpolicyStore cache.Store
+	// networkPoliciesInitOnce is used to guarantee only one call to NetworkPoliciesInit is
+	// executed.
+	networkPoliciesInitOnce sync.Once
+	//networkPoliciesStoreSet is closed once the networkpolicyStore is set.
+	networkPoliciesStoreSet chan struct{}
+	networkpolicyStore      cache.Store
 
 	cfg WatcherConfiguration
 
@@ -297,27 +302,28 @@ func NewK8sWatcher(
 	serviceCache *k8s.ServiceCache,
 ) *K8sWatcher {
 	return &K8sWatcher{
-		clientset:             clientset,
-		K8sSvcCache:           serviceCache,
-		endpointManager:       endpointManager,
-		nodeDiscoverManager:   nodeDiscoverManager,
-		policyManager:         policyManager,
-		policyRepository:      policyRepository,
-		svcManager:            svcManager,
-		ipcache:               ipcache,
-		controllersStarted:    make(chan struct{}),
-		stop:                  make(chan struct{}),
-		podStoreSet:           make(chan struct{}),
-		datapath:              datapath,
-		redirectPolicyManager: redirectPolicyManager,
-		bgpSpeakerManager:     bgpSpeakerManager,
-		egressGatewayManager:  egressGatewayManager,
-		cgroupManager:         cgroupManager,
-		NodeChain:             subscriber.NewNodeChain(),
-		CiliumNodeChain:       subscriber.NewCiliumNodeChain(),
-		envoyConfigManager:    envoyConfigManager,
-		cfg:                   cfg,
-		resources:             resources,
+		clientset:               clientset,
+		K8sSvcCache:             serviceCache,
+		endpointManager:         endpointManager,
+		nodeDiscoverManager:     nodeDiscoverManager,
+		policyManager:           policyManager,
+		policyRepository:        policyRepository,
+		svcManager:              svcManager,
+		ipcache:                 ipcache,
+		controllersStarted:      make(chan struct{}),
+		stop:                    make(chan struct{}),
+		podStoreSet:             make(chan struct{}),
+		networkPoliciesStoreSet: make(chan struct{}),
+		datapath:                datapath,
+		redirectPolicyManager:   redirectPolicyManager,
+		bgpSpeakerManager:       bgpSpeakerManager,
+		egressGatewayManager:    egressGatewayManager,
+		cgroupManager:           cgroupManager,
+		NodeChain:               subscriber.NewNodeChain(),
+		CiliumNodeChain:         subscriber.NewCiliumNodeChain(),
+		envoyConfigManager:      envoyConfigManager,
+		cfg:                     cfg,
+		resources:               resources,
 	}
 }
 
@@ -557,8 +563,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			go k.ciliumNodeInit(k.clientset, asyncControllers)
 		// Kubernetes built-in resources
 		case k8sAPIGroupNetworkingV1Core:
-			swgKNP := lock.NewStoppableWaitGroup()
-			k.networkPoliciesInit(k.clientset.Slim(), swgKNP)
+			k.NetworkPoliciesInit()
 		case resources.K8sAPIGroupServiceV1Core:
 			k.servicesInit()
 		case resources.K8sAPIGroupEndpointSliceOrEndpoint:
@@ -1041,6 +1046,7 @@ func (k *K8sWatcher) SetIndexer(name string, indexer cache.Indexer) {
 func (k *K8sWatcher) GetStore(name string) cache.Store {
 	switch name {
 	case "networkpolicy":
+		<-k.networkPoliciesStoreSet
 		return k.networkpolicyStore
 	case "pod":
 		// Wait for podStore to get initialized.
