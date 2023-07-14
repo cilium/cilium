@@ -744,6 +744,9 @@ int tail_nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
+	/* look up with SCOPE_FORWARD: */
+	__ipv6_ct_tuple_reverse(&tuple);
+
 	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
 			      CT_EGRESS, SCOPE_FORWARD, &ct_state, &monitor);
 	switch (ret) {
@@ -1169,6 +1172,9 @@ skip_service_lookup:
 		return DROP_INVALID;
 	if (backend_local || !nodeport_uses_dsr6(&tuple)) {
 		struct ct_state ct_state = {};
+
+		/* lookup with SCOPE_FORWARD: */
+		__ipv6_ct_tuple_reverse(&tuple);
 
 		ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
 				      CT_EGRESS, SCOPE_FORWARD, &ct_state, &monitor);
@@ -2191,6 +2197,9 @@ int tail_nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
+	/* lookup with SCOPE_FORWARD: */
+	__ipv4_ct_tuple_reverse(&tuple);
+
 	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
 			      has_l4_header, ACTION_CREATE, CT_EGRESS,
 			      SCOPE_FORWARD, &ct_state, &monitor);
@@ -2613,6 +2622,9 @@ skip_service_lookup:
 	 */
 	if (backend_local || !nodeport_uses_dsr4(&tuple)) {
 		struct ct_state ct_state = {};
+
+		/* lookup with SCOPE_FORWARD: */
+		__ipv4_ct_tuple_reverse(&tuple);
 
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
 				      ACTION_CREATE, CT_EGRESS, SCOPE_FORWARD,

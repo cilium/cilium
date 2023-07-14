@@ -288,11 +288,8 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 		int ret;
 
 		memcpy(&tuple_snat, tuple, sizeof(tuple_snat));
-
-		/* CT expects a tuple with the source and destination ports reversed,
-		 * while NAT uses normal tuples that match packet headers.
-		 */
-		ipv4_ct_tuple_swap_ports(&tuple_snat);
+		/* Lookup with SCOPE_FORWARD. Ports are already in correct layout: */
+		ipv4_ct_tuple_swap_addrs(&tuple_snat);
 
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple_snat), &tuple_snat,
 				      ctx, off, has_l4_header, ct_action, CT_EGRESS,
@@ -1389,10 +1386,8 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 		int ret;
 
 		memcpy(&tuple_snat, tuple, sizeof(tuple_snat));
-		/* CT expects a tuple with the source and destination ports reversed,
-		 * while NAT uses normal tuples that match packet headers.
-		 */
-		ipv6_ct_tuple_swap_ports(&tuple_snat);
+		/* Lookup with SCOPE_FORWARD. Ports are already in correct layout: */
+		ipv6_ct_tuple_swap_addrs(&tuple_snat);
 
 		ret = ct_lazy_lookup6(get_ct_map6(&tuple_snat), &tuple_snat,
 				      ctx, off, ct_action, CT_EGRESS,
