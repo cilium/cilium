@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/blang/semver/v4"
 	"github.com/sirupsen/logrus"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -17,7 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -26,12 +26,8 @@ import (
 // subsysK8s is the value for logfields.LogSubsys
 const subsysK8s = "k8s"
 
-var (
-	// log is the k8s package logger object.
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
-
-	comparableCRDSchemaVersion = versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion)
-)
+// log is the k8s package logger object.
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
 
 // CreateUpdateCRD ensures the CRD object is installed into the K8s cluster. It
 // will create or update the CRD and its validation schema as necessary. This
@@ -40,6 +36,8 @@ func CreateUpdateCRD(
 	clientset apiextensionsclient.Interface,
 	crd *apiextensionsv1.CustomResourceDefinition,
 	poller poller,
+	crdSchemaVersionLabelKey string,
+	minCRDSchemaVersion semver.Version,
 ) error {
 	scopedLog := log.WithField("name", crd.Name)
 
@@ -65,7 +63,7 @@ func CreateUpdateCRD(
 		return err
 	}
 
-	if err := updateV1CRD(scopedLog, crd, clusterCRD, v1CRDClient, poller); err != nil {
+	if err := updateV1CRD(scopedLog, crd, clusterCRD, v1CRDClient, poller, crdSchemaVersionLabelKey, minCRDSchemaVersion); err != nil {
 		return err
 	}
 	if err := waitForV1CRD(scopedLog, clusterCRD, v1CRDClient, poller); err != nil {
@@ -77,20 +75,23 @@ func CreateUpdateCRD(
 	return nil
 }
 
-
-func needsUpdateV1(clusterCRD *apiextensionsv1.CustomResourceDefinition) bool {
+func needsUpdateV1(
+	clusterCRD *apiextensionsv1.CustomResourceDefinition,
+	crdSchemaVersionLabelKey string,
+	minCRDSchemaVersion semver.Version,
+) bool {
 	if clusterCRD.Spec.Versions[0].Schema == nil {
 		// no validation detected
 		return true
 	}
-	v, ok := clusterCRD.Labels[k8sconst.CustomResourceDefinitionSchemaVersionKey]
+	v, ok := clusterCRD.Labels[crdSchemaVersionLabelKey]
 	if !ok {
 		// no schema version detected
 		return true
 	}
 
 	clusterVersion, err := versioncheck.Version(v)
-	if err != nil || clusterVersion.LT(comparableCRDSchemaVersion) {
+	if err != nil || clusterVersion.LT(minCRDSchemaVersion) {
 		// version in cluster is either unparsable or smaller than current version
 		return true
 	}
@@ -103,10 +104,12 @@ func updateV1CRD(
 	crd, clusterCRD *apiextensionsv1.CustomResourceDefinition,
 	client v1client.CustomResourceDefinitionsGetter,
 	poller poller,
+	crdSchemaVersionLabelKey string,
+	minCRDSchemaVersion semver.Version,
 ) error {
 	scopedLog.Debug("Checking if CRD (CustomResourceDefinition) needs update...")
 
-	if crd.Spec.Versions[0].Schema != nil && needsUpdateV1(clusterCRD) {
+	if crd.Spec.Versions[0].Schema != nil && needsUpdateV1(clusterCRD, crdSchemaVersionLabelKey, minCRDSchemaVersion) {
 		scopedLog.Info("Updating CRD (CustomResourceDefinition)...")
 
 		// Update the CRD with the validation schema.
@@ -123,7 +126,7 @@ func updateV1CRD(
 			// This seems too permissive but we only get here if the version is
 			// different per needsUpdate above. If so, we want to update on any
 			// validation change including adding or removing validation.
-			if needsUpdateV1(clusterCRD) {
+			if needsUpdateV1(clusterCRD, crdSchemaVersionLabelKey, minCRDSchemaVersion) {
 				scopedLog.Debug("CRD validation is different, updating it...")
 
 				clusterCRD.ObjectMeta.Labels = crd.ObjectMeta.Labels

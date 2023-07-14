@@ -21,6 +21,7 @@ import (
 	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -69,6 +70,10 @@ func (s *CiliumV2RegisterSuite) getV1beta1TestCRD() *apiextensionsv1beta1.Custom
 	}
 }
 
+const labelKey = k8sconst.CustomResourceDefinitionSchemaVersionKey
+
+var minVersion = versioncheck.MustVersion(k8sconst.CustomResourceDefinitionSchemaVersion)
+
 func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 	v1Support := &version.Info{
 		Major: "1",
@@ -90,7 +95,7 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 				crd := s.getV1TestCRD()
 				client := fake.NewSimpleClientset()
 				c.Assert(k8sversion.Force(v1Support.Major+"."+v1Support.Minor), IsNil)
-				return CreateUpdateCRD(client, crd, newFakePoller())
+				return CreateUpdateCRD(client, crd, newFakePoller(), labelKey, minVersion)
 			},
 			wantErr: false,
 		},
@@ -101,7 +106,7 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 				crd := s.getV1TestCRD()
 				client := fake.NewSimpleClientset()
 				c.Assert(k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor), IsNil)
-				return CreateUpdateCRD(client, crd, newFakePoller())
+				return CreateUpdateCRD(client, crd, newFakePoller(), labelKey, minVersion)
 			},
 			wantErr: false,
 		},
@@ -128,7 +133,7 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 				)
 				c.Assert(err, IsNil)
 
-				return CreateUpdateCRD(client, crd, newFakePoller())
+				return CreateUpdateCRD(client, crd, newFakePoller(), labelKey, minVersion)
 			},
 			wantErr: false,
 		},
@@ -168,7 +173,7 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 				crd := s.getV1TestCRD()
 				crd.ObjectMeta.Name = crdToInstall.ObjectMeta.Name
 
-				return CreateUpdateCRD(client, crd, newFakePoller())
+				return CreateUpdateCRD(client, crd, newFakePoller(), labelKey, minVersion)
 			},
 			wantErr: false,
 		},
@@ -183,31 +188,31 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoValidation(c *C) {
 	v1CRD := s.getV1TestCRD()
 	v1CRD.Spec.Versions[0].Schema = nil
-	c.Assert(needsUpdateV1(v1CRD), Equals, true)
+	c.Assert(needsUpdateV1(v1CRD, labelKey, minVersion), Equals, true)
 }
 
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoLabels(c *C) {
 	v1CRD := s.getV1TestCRD()
 	v1CRD.Labels = nil
-	c.Assert(needsUpdateV1(v1CRD), Equals, true)
+	c.Assert(needsUpdateV1(v1CRD, labelKey, minVersion), Equals, true)
 }
 
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoVersionLabel(c *C) {
 	v1CRD := s.getV1TestCRD()
 	v1CRD.Labels = map[string]string{"test": "test"}
-	c.Assert(needsUpdateV1(v1CRD), Equals, true)
+	c.Assert(needsUpdateV1(v1CRD, labelKey, minVersion), Equals, true)
 }
 
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateOlderVersion(c *C) {
 	v1CRD := s.getV1TestCRD()
 	v1CRD.Labels[k8sconst.CustomResourceDefinitionSchemaVersionKey] = "0.9"
-	c.Assert(needsUpdateV1(v1CRD), Equals, true)
+	c.Assert(needsUpdateV1(v1CRD, labelKey, minVersion), Equals, true)
 }
 
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateCorruptedVersion(c *C) {
 	v1CRD := s.getV1TestCRD()
 	v1CRD.Labels[k8sconst.CustomResourceDefinitionSchemaVersionKey] = "totally-not-semver"
-	c.Assert(needsUpdateV1(v1CRD), Equals, true)
+	c.Assert(needsUpdateV1(v1CRD, labelKey, minVersion), Equals, true)
 }
 
 func (s *CiliumV2RegisterSuite) TestFQDNNameRegex(c *C) {
