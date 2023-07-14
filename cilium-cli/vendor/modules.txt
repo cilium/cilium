@@ -173,7 +173,7 @@ github.com/cilium/proxy/go/envoy/type/metadata/v3
 github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
 github.com/cilium/proxy/pkg/policy/api/kafka
-# github.com/cilium/tetragon/pkg/k8s v0.0.0-20230712082728-185746ca3f78
+# github.com/cilium/tetragon/pkg/k8s v0.0.0-20230712144138-cc372f1f2a19
 ## explicit; go 1.19
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io/v1alpha1
@@ -869,7 +869,7 @@ golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/pkcs12
 golang.org/x/crypto/pkcs12/internal/rc2
 golang.org/x/crypto/scrypt
-# golang.org/x/exp v0.0.0-20230711153332-06a737ee72cb
+# golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1
 ## explicit; go 1.20
 golang.org/x/exp/constraints
 golang.org/x/exp/maps
