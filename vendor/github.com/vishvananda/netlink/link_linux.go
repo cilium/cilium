@@ -2997,13 +2997,13 @@ func parseLinkXdp(data []byte) (*LinkXdp, error) {
 }
 
 func addIptunAttrs(iptun *Iptun, linkInfo *nl.RtAttr) {
+	data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
+
 	if iptun.FlowBased {
 		// In flow based mode, no other attributes need to be configured
-		linkInfo.AddRtAttr(nl.IFLA_IPTUN_COLLECT_METADATA, boolAttr(iptun.FlowBased))
+		data.AddRtAttr(nl.IFLA_IPTUN_COLLECT_METADATA, []byte{})
 		return
 	}
-
-	data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
 
 	ip := iptun.Local.To4()
 	if ip != nil {
@@ -3031,10 +3031,6 @@ func addIptunAttrs(iptun *Iptun, linkInfo *nl.RtAttr) {
 func parseIptunData(link Link, data []syscall.NetlinkRouteAttr) {
 	iptun := link.(*Iptun)
 	for _, datum := range data {
-		// NOTE: same with vxlan, ip tunnel may also has null datum.Value
-		if len(datum.Value) == 0 {
-			continue
-		}
 		switch datum.Attr.Type {
 		case nl.IFLA_IPTUN_LOCAL:
 			iptun.Local = net.IP(datum.Value[0:4])
@@ -3064,6 +3060,12 @@ func parseIptunData(link Link, data []syscall.NetlinkRouteAttr) {
 
 func addIp6tnlAttrs(ip6tnl *Ip6tnl, linkInfo *nl.RtAttr) {
 	data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
+
+	if ip6tnl.FlowBased {
+		// In flow based mode, no other attributes need to be configured
+		data.AddRtAttr(nl.IFLA_IPTUN_COLLECT_METADATA, []byte{})
+		return
+	}
 
 	if ip6tnl.Link != 0 {
 		data.AddRtAttr(nl.IFLA_IPTUN_LINK, nl.Uint32Attr(ip6tnl.Link))
@@ -3119,6 +3121,8 @@ func parseIp6tnlData(link Link, data []syscall.NetlinkRouteAttr) {
 			ip6tnl.EncapSport = ntohs(datum.Value[0:2])
 		case nl.IFLA_IPTUN_ENCAP_DPORT:
 			ip6tnl.EncapDport = ntohs(datum.Value[0:2])
+		case nl.IFLA_IPTUN_COLLECT_METADATA:
+			ip6tnl.FlowBased = true
 		}
 	}
 }
