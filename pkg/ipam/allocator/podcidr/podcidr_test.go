@@ -1399,7 +1399,7 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 			wantErr: false,
 		},
 		{
-			name: "test-2 - create a Cilium Node but it already exists so the next operation should be an update",
+			name: "test-2 - create a Cilium Node but it already exists so the next operation should be a retry",
 			testSetup: func() {
 				calls = map[k8sOp]int{}
 			},
@@ -1424,22 +1424,6 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 								Reason: metav1.StatusReasonAlreadyExists,
 							}}
 					},
-					OnGet: func(nodeName string) (node *v2.CiliumNode, err error) {
-						calls[k8sOpGet]++
-						c.Assert(nodeName, Equals, "node-1")
-						return &v2.CiliumNode{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "node-1",
-							},
-							Spec: v2.NodeSpec{
-								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
-								},
-							},
-						}, nil
-					},
 				},
 				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
 					"node-1": {
@@ -1462,9 +1446,55 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 			testPostRun: func(args *args) {
 				c.Assert(calls, checker.DeepEquals, map[k8sOp]int{
 					k8sOpCreate: 1,
-					k8sOpGet:    1,
 				})
 				c.Assert(args.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
+					"node-1": {
+						ciliumNode: &v2.CiliumNode{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "node-1",
+							},
+							Spec: v2.NodeSpec{
+								IPAM: ipamTypes.IPAMSpec{
+									PodCIDRs: []string{
+										"10.10.0.0/24",
+									},
+								},
+							},
+						},
+						op: k8sOpRetryUpdate,
+					}})
+			},
+			wantErr: true,
+		},
+		{
+			name: "test-3 - update a Cilium Node when the local copy is outdated, so the next operation should be a retry",
+			testSetup: func() {
+				calls = map[k8sOp]int{}
+			},
+			args: &args{
+				nodeGetter: &k8sNodeMock{
+					OnUpdate: func(_, n *v2.CiliumNode) (node *v2.CiliumNode, err error) {
+						calls[k8sOpUpdate]++
+						c.Assert(n, checker.DeepEquals, &v2.CiliumNode{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "node-1",
+							},
+							Spec: v2.NodeSpec{
+								IPAM: ipamTypes.IPAMSpec{
+									PodCIDRs: []string{
+										"10.10.0.0/24",
+									},
+								},
+							},
+						})
+						return nil, &k8sErrors.StatusError{
+							ErrStatus: metav1.Status{
+								Reason: metav1.StatusReasonConflict,
+							},
+						}
+					},
+				},
+				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
 					"node-1": {
 						ciliumNode: &v2.CiliumNode{
 							ObjectMeta: metav1.ObjectMeta{
@@ -1479,91 +1509,30 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 							},
 						},
 						op: k8sOpUpdate,
-					}})
-			},
-			wantErr: true,
-		},
-		{
-			name: "test-3 - create a Cilium Node but it already exists. When performing a get" +
-				" the node was removed upstream." +
-				" The operator is listening for node events, if the node is removed," +
-				" a delete event will eventually remove the node from the list of nodes that" +
-				" need to be synchronized with k8s",
-			testSetup: func() {
-				calls = map[k8sOp]int{}
-			},
-			args: &args{
-				nodeGetter: &k8sNodeMock{
-					OnCreate: func(n *v2.CiliumNode) (node *v2.CiliumNode, err error) {
-						calls[k8sOpCreate]++
-						c.Assert(n, checker.DeepEquals, &v2.CiliumNode{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "node-1",
-							},
-							Spec: v2.NodeSpec{
-								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
-								},
-							},
-						})
-						return nil, &k8sErrors.StatusError{
-							ErrStatus: metav1.Status{
-								Reason: metav1.StatusReasonAlreadyExists,
-							}}
-					},
-					OnGet: func(nodeName string) (node *v2.CiliumNode, err error) {
-						calls[k8sOpGet]++
-						c.Assert(nodeName, Equals, "node-1")
-						return nil, &k8sErrors.StatusError{
-							ErrStatus: metav1.Status{
-								Reason: metav1.StatusReasonNotFound,
-							}}
-					},
-				},
-				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
-					"node-1": {
-						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "node-1",
-							},
-							Spec: v2.NodeSpec{
-								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
-								},
-							},
-						},
-						op: k8sOpCreate,
 					},
 				},
 			},
 			testPostRun: func(args *args) {
 				c.Assert(calls, checker.DeepEquals, map[k8sOp]int{
-					k8sOpCreate: 1,
-					k8sOpGet:    1,
+					k8sOpUpdate: 1,
 				})
-				c.Assert(args.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
-					"node-1": {
-						ciliumNode: &v2.CiliumNode{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "node-1",
-							},
-							Spec: v2.NodeSpec{
-								IPAM: ipamTypes.IPAMSpec{
-									PodCIDRs: []string{
-										"10.10.0.0/24",
-									},
-								},
+				c.Assert(len(args.ciliumNodesToK8s), checker.Equals, 1)
+				c.Assert("node-1", checker.HasKey, args.ciliumNodesToK8s)
+				c.Assert(args.ciliumNodesToK8s["node-1"].ciliumNode, checker.DeepEquals, &v2.CiliumNode{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+					Spec: v2.NodeSpec{
+						IPAM: ipamTypes.IPAMSpec{
+							PodCIDRs: []string{
+								"10.10.0.0/24",
 							},
 						},
-						op: k8sOpCreate,
 					},
 				})
+				c.Assert(args.ciliumNodesToK8s["node-1"].op, checker.Equals, k8sOpRetryUpdate)
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "test-4 - try to update a node that no longer exists. We should stop" +
@@ -1666,6 +1635,72 @@ func (s *PodCIDRSuite) Test_syncToK8s(c *C) {
 					k8sOpUpdateStatus: 1,
 				})
 				c.Assert(args.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{})
+			},
+			wantErr: false,
+		},
+		{
+			name: " test-6 - conflict occurs when trying to update status only so the next operation should be a retry",
+			testSetup: func() {
+				calls = map[k8sOp]int{}
+			},
+			args: &args{
+				nodeGetter: &k8sNodeMock{
+					OnUpdateStatus: func(_, n *v2.CiliumNode) (node *v2.CiliumNode, err error) {
+						calls[k8sOpUpdateStatus]++
+						c.Assert(n, checker.DeepEquals, &v2.CiliumNode{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "node-1",
+							},
+							Spec: v2.NodeSpec{
+								IPAM: ipamTypes.IPAMSpec{
+									PodCIDRs: []string{
+										"10.10.0.0/24",
+									},
+								},
+							},
+						})
+						return nil, nil
+					},
+				},
+				ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{
+					"node-1": {
+						ciliumNode: &v2.CiliumNode{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "node-1",
+							},
+							Spec: v2.NodeSpec{
+								IPAM: ipamTypes.IPAMSpec{
+									PodCIDRs: []string{
+										"10.10.0.0/24",
+									},
+								},
+							},
+						},
+						op: k8sOpUpdateStatus,
+					},
+				},
+			},
+			testPostRun: func(args *args) {
+				c.Assert(calls, checker.DeepEquals, map[k8sOp]int{
+					k8sOpUpdateStatus: 1,
+				})
+				c.Assert(args.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{
+					"node-1": {
+						ciliumNode: &v2.CiliumNode{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "node-1",
+							},
+							Spec: v2.NodeSpec{
+								IPAM: ipamTypes.IPAMSpec{
+									PodCIDRs: []string{
+										"10.10.0.0/24",
+									},
+								},
+							},
+						},
+						op: k8sOpRetryUpdateStatus,
+					},
+				})
 			},
 			wantErr: false,
 		},

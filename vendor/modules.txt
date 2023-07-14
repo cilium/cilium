@@ -1636,6 +1636,7 @@ k8s.io/client-go/util/flowcontrol
 k8s.io/client-go/util/homedir
 k8s.io/client-go/util/jsonpath
 k8s.io/client-go/util/keyutil
+k8s.io/client-go/util/retry
 k8s.io/client-go/util/workqueue
 # k8s.io/code-generator v0.27.2
 ## explicit; go 1.20
@@ -1828,4 +1829,5 @@ sigs.k8s.io/yaml
 # github.com/miekg/dns => github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc
 # go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
 # k8s.io/client-go => github.com/cilium/client-go v0.27.2-fix
+# k8s.io/client-goil/retry => github.com/cilium/client-go v0.27.2-fix
 # sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.6.2

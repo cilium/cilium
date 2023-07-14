@@ -136,13 +136,18 @@ const (
 	k8sOpDelete
 	k8sOpUpdate
 	k8sOpUpdateStatus
+	k8sOpRetryUpdate
+	k8sOpRetryUpdateStatus
 )
+
+type ciliumNodeModifier func(*v2.CiliumNode) *v2.CiliumNode
 
 // ciliumNodeK8sOp is a wrapper with the operation that should be performed
 // in kubernetes.
 type ciliumNodeK8sOp struct {
 	ciliumNode *v2.CiliumNode
 	op         k8sOp
+	modifier   ciliumNodeModifier
 }
 
 var updateK8sInterval = 15 * time.Second
@@ -236,9 +241,8 @@ func NewNodesPodCIDRManager(
 func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s map[string]*ciliumNodeK8sOp) (retErr error) {
 	for nodeName, nodeToK8s := range ciliumNodesToK8s {
 		var (
-			err, err2     error
-			newCiliumNode *v2.CiliumNode
-			log           = log.WithFields(logrus.Fields{
+			err error
+			log = log.WithFields(logrus.Fields{
 				"node-name": nodeName,
 			})
 		)
@@ -295,24 +299,27 @@ func syncToK8s(nodeGetterUpdater ipam.CiliumNodeGetterUpdater, ciliumNodesToK8s 
 		// so the next time we will need to perform an update.
 		case k8sErrors.IsAlreadyExists(err) || k8sErrors.IsConflict(err):
 			retErr = err
-			newCiliumNode, err2 = nodeGetterUpdater.Get(nodeToK8s.ciliumNode.GetName())
-			if err2 == nil {
-				newCiliumNode.Spec.IPAM.PodCIDRs = nodeToK8s.ciliumNode.Spec.IPAM.PodCIDRs
+			// These variables will be allocated to the heap by the go compiler as they escape
+			// this function.
+			oldNodePodCIDRs := nodeToK8s.ciliumNode.Spec.IPAM.PodCIDRs
+			oldNodeOwnerReferences := nodeToK8s.ciliumNode.GetOwnerReferences()
+			oldNodeOperatorStatusError := nodeToK8s.ciliumNode.Status.IPAM.OperatorStatus.Error
+			nodeToK8s.modifier = func(newCiliumNode *v2.CiliumNode) *v2.CiliumNode {
+				newCiliumNode.Spec.IPAM.PodCIDRs = oldNodePodCIDRs
 				if len(newCiliumNode.OwnerReferences) == 0 {
-					newCiliumNode.OwnerReferences = nodeToK8s.ciliumNode.GetOwnerReferences()
+					newCiliumNode.OwnerReferences = oldNodeOwnerReferences
 				}
-				newCiliumNode.Status.IPAM.OperatorStatus.Error = nodeToK8s.ciliumNode.Status.IPAM.OperatorStatus.Error
-				nodeToK8s.ciliumNode = newCiliumNode
-				ciliumNodesToK8s[nodeName] = nodeToK8s
-				if nodeToK8s.op == k8sOpCreate {
-					// We only perform an update if we were able to successfully
-					// retrieve the node. The operator is listening for cilium node
-					// events. In case the node was deleted, which could be a reason
-					// for why the Get returned an error, the operator will then
-					// remove the cilium node from the allocated nodes.
-					nodeToK8s.op = k8sOpUpdate
-				}
+				newCiliumNode.Status.IPAM.OperatorStatus.Error = oldNodeOperatorStatusError
+
+				return newCiliumNode
 			}
+			switch nodeToK8s.op {
+			case k8sOpUpdateStatus:
+				nodeToK8s.op = k8sOpRetryUpdateStatus
+			default:
+				nodeToK8s.op = k8sOpRetryUpdate
+			}
+			ciliumNodesToK8s[nodeName] = nodeToK8s
 		case err == nil:
 			delete(ciliumNodesToK8s, nodeName)
 		default:
@@ -342,6 +349,17 @@ func (n *NodesPodCIDRManager) upsertLocked(node *v2.CiliumNode) {
 		cn                       *v2.CiliumNode
 		err                      error
 	)
+	if nodeToK8s, ok := n.ciliumNodesToK8s[node.GetName()]; ok {
+		switch nodeToK8s.op {
+		case k8sOpRetryUpdateStatus:
+			n.syncNode(k8sOpUpdateStatus, nodeToK8s.modifier(node))
+			return
+		case k8sOpRetryUpdate:
+			n.syncNode(k8sOpUpdate, nodeToK8s.modifier(node))
+			return
+		}
+	}
+
 	if option.Config.IPAMMode() == ipamOption.IPAMClusterPoolV2 {
 		cn, updateSpec, updateStatus, err = n.allocateNodeV2(node)
 		if err != nil {

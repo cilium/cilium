@@ -12,6 +12,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/watchers"
@@ -94,6 +95,15 @@ type Node struct {
 	// resyncNeeded. This is needed because resyncs and allocations happen
 	// in parallel.
 	resyncNeeded time.Time
+
+	// synching should be set to true if the node is currently being
+	// synced to the API server. If a node is attempting to sync to the API
+	// server and it sees that this field is set to true, it should stop.
+	// This is to prevent overlapping synching attempts between different
+	// goroutines. Two examples when this could occur are: (1) two successive
+	// updates in quick succession, and (2) an event-based sync overlapping
+	// with a timer-based sync.
+	synching bool
 
 	// available is the map of IPs available to this node
 	available ipamTypes.AllocationMap
@@ -504,6 +514,14 @@ func (n *Node) ResourceCopy() *v2.CiliumNode {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 	return n.resource.DeepCopy()
+}
+
+// ResourceVersion returns the resource version of the CiliumNode custom resource
+// associated with the node
+func (n *Node) ResourceVersion() string {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+	return n.resource.ResourceVersion
 }
 
 // createInterface creates an additional interface with the instance and
@@ -991,6 +1009,18 @@ func (n *Node) PopulateIPReleaseStatus(node *v2.CiliumNode) {
 	node.Status.IPAM.ReleaseIPs = releaseStatus
 }
 
+func (n *Node) isSynching() bool {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+	return n.synching
+}
+
+func (n *Node) setSynching(s bool) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	n.synching = s
+}
+
 // syncToAPIServer synchronizes the contents of the CiliumNode resource
 // [(*Node).resource)] with the K8s apiserver. This operation occurs on an
 // interval to refresh the CiliumNode resource.
@@ -1002,6 +1032,13 @@ func (n *Node) PopulateIPReleaseStatus(node *v2.CiliumNode) {
 // To initialize, or seed, the CiliumNode resource, the PreAllocate field is
 // populated with a default value and then is adjusted as necessary.
 func (n *Node) syncToAPIServer() (err error) {
+	if n.isSynching() {
+		return nil
+	}
+
+	n.setSynching(true)
+	defer n.setSynching(false)
+
 	scopedLog := n.logger()
 	scopedLog.Debug("Refreshing node")
 
@@ -1026,13 +1063,15 @@ func (n *Node) syncToAPIServer() (err error) {
 	// released IP in the pool is fine, as the agent will ignore it.
 	pool := n.Pool()
 
-	// Always update the status first to ensure that the IPAM information
-	// is synced for all addresses that are marked as available.
-	//
-	// Two attempts are made in case the local resource is outdated. If the
-	// second attempt fails as well we are likely under heavy contention,
-	// fall back to the controller based background interval to retry.
-	for retry := 0; retry < 2; retry++ {
+	attempts := 0
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if node.ResourceVersion != n.ResourceVersion() {
+			*node = *(n.ResourceCopy())
+			*origNode = *node
+		}
+
+		// Always update the status first to ensure that the IPAM information
+		// is synced for all addresses that are marked as available.
 		if node.Status.IPAM.Used == nil {
 			node.Status.IPAM.Used = ipamTypes.AllocationMap{}
 		}
@@ -1040,18 +1079,32 @@ func (n *Node) syncToAPIServer() (err error) {
 		n.ops.PopulateStatusFields(node)
 		n.PopulateIPReleaseStatus(node)
 
-		err = n.update(origNode, node, retry, true)
-		if err == nil {
-			break
-		}
-	}
+		updatedNode, updateErr := n.manager.k8sAPI.UpdateStatus(origNode, node)
+		if updatedNode != nil && updatedNode.Name != "" {
+			*node = *updatedNode
+		} else if updateErr != nil {
+			scopedLog.WithError(updateErr).WithFields(logrus.Fields{
+				logfields.Attempt: attempts,
+				"updateStatus":    true,
+			}).Warning("Failed to update CiliumNode")
 
+			return updateErr
+		}
+
+		return nil
+	})
 	if err != nil {
 		scopedLog.WithError(err).Warning("Unable to update CiliumNode status")
 		return err
 	}
 
-	for retry := 0; retry < 2; retry++ {
+	attempts = 0
+	err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if node.ResourceVersion != n.ResourceVersion() {
+			*node = *(n.ResourceCopy())
+			*origNode = *node
+		}
+
 		node.Spec.IPAM.Pool = pool
 		scopedLog.WithField("poolSize", len(node.Spec.IPAM.Pool)).Debug("Updating node in apiserver")
 
@@ -1064,76 +1117,23 @@ func (n *Node) syncToAPIServer() (err error) {
 			node.Spec.IPAM.PreAllocate = n.ops.GetMinimumAllocatableIPv4()
 		}
 
-		err = n.update(origNode, node, retry, false)
-		if err == nil {
-			break
+		_, updateErr := n.manager.k8sAPI.Update(origNode, node)
+		if updateErr != nil {
+			scopedLog.WithError(updateErr).WithFields(logrus.Fields{
+				logfields.Attempt: attempts,
+				"updateStatus":    false,
+			}).Warning("Failed to update CiliumNode")
+
+			return updateErr
 		}
-	}
+
+		return nil
+	})
 
 	if err != nil {
 		scopedLog.WithError(err).Warning("Unable to update CiliumNode spec")
+		return err
 	}
 
-	return err
-}
-
-// update is a helper function for syncToAPIServer(). This function updates the
-// CiliumNode resource spec or status depending on `status`. The resource is
-// updated from `origNode` to `node`.
-//
-// Note that the `origNode` and `node` pointers will have their underlying
-// values modified in this function! The following is an outline of when
-// `origNode` and `node` pointers are updated:
-//   - `node` is updated when we succeed in updating to update the resource to
-//     the apiserver.
-//   - `origNode` and `node` are updated when we fail to update the resource,
-//     but we succeed in retrieving the latest version of it from the
-//     apiserver.
-func (n *Node) update(origNode, node *v2.CiliumNode, attempts int, status bool) error {
-	scopedLog := n.logger()
-
-	var (
-		updatedNode    *v2.CiliumNode
-		updateErr, err error
-	)
-
-	if status {
-		updatedNode, updateErr = n.manager.k8sAPI.UpdateStatus(origNode, node)
-	} else {
-		updatedNode, updateErr = n.manager.k8sAPI.Update(origNode, node)
-	}
-
-	if updatedNode != nil && updatedNode.Name != "" {
-		*node = *updatedNode
-		if updateErr == nil {
-			return nil
-		}
-	} else if updateErr != nil {
-		scopedLog.WithError(updateErr).WithFields(logrus.Fields{
-			logfields.Attempt: attempts,
-			"updateStatus":    status,
-		}).Warning("Failed to update CiliumNode")
-
-		var newNode *v2.CiliumNode
-		newNode, err = n.manager.k8sAPI.Get(node.Name)
-		if err != nil {
-			return err
-		}
-
-		// Propagate the error in the case that we are on our last attempt and
-		// we never succeeded in updating the resource.
-		//
-		// Also, propagate the reference to the nodes in the case we've
-		// succeeded in updating the CiliumNode status. The reason is because
-		// the subsequent run will be to update the CiliumNode spec and we need
-		// to ensure we have the most up-to-date CiliumNode references before
-		// doing that operation, hence the deep copies.
-		err = updateErr
-		*node = *newNode
-		*origNode = *node
-	} else /* updateErr == nil */ {
-		err = updateErr
-	}
-
-	return err
+	return nil
 }
