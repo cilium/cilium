@@ -122,6 +122,23 @@ func getRegion(ctx context.Context, configs configs) (value string, found bool, 
 	return
 }
 
+// appIDProvider provides access to the sdk app ID value
+type appIDProvider interface {
+	getAppID(ctx context.Context) (string, bool, error)
+}
+
+func getAppID(ctx context.Context, configs configs) (value string, found bool, err error) {
+	for _, cfg := range configs {
+		if p, ok := cfg.(appIDProvider); ok {
+			value, found, err = p.getAppID(ctx)
+			if err != nil || found {
+				break
+			}
+		}
+	}
+	return
+}
+
 // ec2IMDSRegionProvider provides access to the ec2 imds region
 // configuration value
 type ec2IMDSRegionProvider interface {

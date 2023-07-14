@@ -76,6 +76,9 @@ var defaultAWSConfigResolvers = []awsConfigResolver{
 	// Sets the resolved bearer authentication token API clients will use for
 	// httpBearerAuth authentication scheme.
 	resolveBearerAuthToken,
+
+	// Sets the sdk app ID if present in shared config profile
+	resolveAppID,
 }
 
 // A Config represents a generic configuration value or set of values. This type
