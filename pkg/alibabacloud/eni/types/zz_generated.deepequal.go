@@ -44,7 +44,7 @@ func (in *ENI) DeepEqual(other *ENI) bool {
 		}
 	}
 
-	if in.VPC != other.VPC {
+	if !in.VPC.DeepEqual(&other.VPC) {
 		return false
 	}
 
@@ -260,6 +260,22 @@ func (in *VPC) DeepEqual(other *VPC) bool {
 	}
 	if in.IPv6CIDRBlock != other.IPv6CIDRBlock {
 		return false
+	}
+	if ((in.SecondaryCIDRs != nil) && (other.SecondaryCIDRs != nil)) || ((in.SecondaryCIDRs == nil) != (other.SecondaryCIDRs == nil)) {
+		in, other := &in.SecondaryCIDRs, &other.SecondaryCIDRs
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if inElement != (*other)[i] {
+					return false
+				}
+			}
+		}
 	}
 
 	return true

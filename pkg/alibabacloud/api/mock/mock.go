@@ -108,6 +108,7 @@ func (a *API) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap,
 			if vpcs != nil {
 				if vpc, ok := vpcs[eni.VPC.VPCID]; ok {
 					eni.VPC.CIDRBlock = vpc.PrimaryCIDR
+					eni.VPC.SecondaryCIDRs = vpc.CIDRs
 				}
 			}
 
@@ -137,6 +138,7 @@ func (a *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap
 			if vpcs != nil {
 				if vpc, ok := vpcs[eni.VPC.VPCID]; ok {
 					eni.VPC.CIDRBlock = vpc.PrimaryCIDR
+					eni.VPC.SecondaryCIDRs = vpc.CIDRs
 				}
 			}
 

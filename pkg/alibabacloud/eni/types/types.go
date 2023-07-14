@@ -174,6 +174,11 @@ type VPC struct {
 	//
 	// +optional
 	IPv6CIDRBlock string `json:"ipv6-cidr,omitempty"`
+
+	// SecondaryCIDRs is the list of Secondary CIDRs associated with the VPC
+	//
+	// +optional
+	SecondaryCIDRs []string `json:"secondary-cidrs,omitempty"`
 }
 
 type VSwitch struct {
