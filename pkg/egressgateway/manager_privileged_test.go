@@ -40,6 +40,7 @@ import (
 
 const (
 	testInterface1 = "cilium_egw1"
+	testInterface2 = "cilium_egw2"
 
 	node1 = "k8s1"
 	node2 = "k8s2"
@@ -56,6 +57,8 @@ const (
 
 	egressIP1   = "192.168.101.1"
 	egressCIDR1 = "192.168.101.1/24"
+	egressIP2   = "192.168.102.1"
+	egressCIDR2 = "192.168.102.1/24"
 
 	zeroIP4 = "0.0.0.0"
 
@@ -155,7 +158,9 @@ func (k *EgressGatewayTestSuite) TearDownTest(c *C) {
 
 func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	testInterface1Idx := createTestInterface(testInterface1, egressCIDR1)
+	testInterface2Idx := createTestInterface(testInterface2, egressCIDR2)
 
+	defer destroyTestInterface(testInterface2)
 	defer destroyTestInterface(testInterface1)
 
 	policyMap := k.manager.policyMap
@@ -242,6 +247,22 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	// again
 	egressGatewayManager.installRoutes = true
 	egressGatewayManager.reconciliationTrigger.Trigger()
+
+	assertIPRules(c, []ipRule{
+		{ep1IP, destCIDR, egressCIDR1, testInterface1Idx},
+	})
+
+	/* Changing the selected egress interface should update the IP rules. */
+	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroup1Selector, testInterface2)
+	egressGatewayManager.OnAddEgressPolicy(policy1)
+
+	assertIPRules(c, []ipRule{
+		{ep1IP, destCIDR, egressCIDR2, testInterface2Idx},
+	})
+
+	/* Restore the selected egress interface. */
+	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroup1Selector, testInterface1)
+	egressGatewayManager.OnAddEgressPolicy(policy1)
 
 	assertIPRules(c, []ipRule{
 		{ep1IP, destCIDR, egressCIDR1, testInterface1Idx},

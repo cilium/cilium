@@ -673,6 +673,10 @@ nextIpRule:
 				return false
 			}
 
+			if ipRule.Table != egressGatewayRoutingTableIdx(gwc.ifaceIndex) {
+				return false
+			}
+
 			// no need to check also ipRule.Src.IP.Equal(endpointIP) as we are iterating
 			// over the slice of policies returned by the
 			// policyConfigsBySourceIP[ipRule.Src.IP.String()] map
