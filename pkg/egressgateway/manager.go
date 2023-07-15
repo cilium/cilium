@@ -322,6 +322,7 @@ nextIpRule:
 		matchFunc := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) bool {
 			return manager.installRoutes &&
 				gwc.localNodeConfiguredAsGateway &&
+				ipRule.Table == egressGatewayRoutingTableIdx(gwc.ifaceIndex) &&
 				ipRule.Src.IP.Equal(endpointIP) && ipRule.Dst.String() == dstCIDR.String()
 		}
 
