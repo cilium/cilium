@@ -69,11 +69,11 @@ bool egress_gw_request_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint)
 }
 
 static __always_inline
-bool egress_gw_snat_needed(struct iphdr *ip4, __be32 *snat_addr)
+bool egress_gw_snat_needed(__be32 saddr, __be32 daddr, __be32 *snat_addr)
 {
 	struct egress_gw_policy_entry *egress_gw_policy;
 
-	egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
+	egress_gw_policy = lookup_ip4_egress_gw_policy(saddr, daddr);
 	if (!egress_gw_policy)
 		return false;
 

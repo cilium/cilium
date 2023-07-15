@@ -712,7 +712,6 @@ static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
  */
 static __always_inline int
 snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
-			 struct iphdr *ip4 __maybe_unused,
 			 struct ipv4_ct_tuple *tuple __maybe_unused,
 			 int l4_off __maybe_unused,
 			 struct ipv4_nat_target *target __maybe_unused)
@@ -733,13 +732,13 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 #endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
 
 #if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
-	if (ip4->saddr == IPV4_MASQUERADE) {
+	if (tuple->saddr == IPV4_MASQUERADE) {
 		target->addr = IPV4_MASQUERADE;
 		return NAT_NEEDED;
 	}
 
-	local_ep = __lookup_ip4_endpoint(ip4->saddr);
-	remote_ep = lookup_ip4_remote_endpoint(ip4->daddr, 0);
+	local_ep = __lookup_ip4_endpoint(tuple->saddr);
+	remote_ep = lookup_ip4_remote_endpoint(tuple->daddr, 0);
 
 	/* Check if this packet belongs to reply traffic coming from a
 	 * local endpoint.
@@ -780,7 +779,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	if (is_reply)
 		goto skip_egress_gateway;
 
-	if (egress_gw_snat_needed(ip4, &target->addr)) {
+	if (egress_gw_snat_needed(tuple->saddr, tuple->daddr, &target->addr)) {
 		target->egress_gateway = true;
 
 		return NAT_NEEDED;
@@ -792,7 +791,7 @@ skip_egress_gateway:
 	/* Do not MASQ if a dst IP belongs to a pods CIDR
 	 * (ipv4-native-routing-cidr if specified, otherwise local pod CIDR).
 	 */
-	if (ipv4_is_in_subnet(ip4->daddr, IPV4_SNAT_EXCLUSION_DST_CIDR,
+	if (ipv4_is_in_subnet(tuple->daddr, IPV4_SNAT_EXCLUSION_DST_CIDR,
 			      IPV4_SNAT_EXCLUSION_DST_CIDR_LEN))
 		return NAT_PUNT_TO_STACK;
 #endif
@@ -809,7 +808,7 @@ skip_egress_gateway:
 		struct lpm_v4_key pfx;
 
 		pfx.lpm.prefixlen = 32;
-		memcpy(pfx.lpm.data, &ip4->daddr, sizeof(pfx.addr));
+		memcpy(pfx.lpm.data, &tuple->daddr, sizeof(pfx.addr));
 		if (map_lookup_elem(&IP_MASQ_AGENT_IPV4, &pfx))
 			return NAT_PUNT_TO_STACK;
 #endif
@@ -1651,7 +1650,6 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 
 static __always_inline int
 snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
-			 struct ipv6hdr *ip6 __maybe_unused,
 			 struct ipv6_ct_tuple *tuple __maybe_unused,
 			 int l4_off __maybe_unused,
 			 struct ipv6_nat_target *target __maybe_unused)
@@ -1664,13 +1662,13 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	/* See comments in snat_v4_needs_masquerade(). */
 #if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
 	BPF_V6(masq_addr, IPV6_MASQUERADE);
-	if (ipv6_addr_equals((union v6addr *)&ip6->saddr, &masq_addr)) {
+	if (ipv6_addr_equals(&tuple->saddr, &masq_addr)) {
 		ipv6_addr_copy(&target->addr, &masq_addr);
 		return NAT_NEEDED;
 	}
 
-	local_ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
-	remote_ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
+	local_ep = __lookup_ip6_endpoint(&tuple->saddr);
+	remote_ep = lookup_ip6_remote_endpoint(&tuple->daddr, 0);
 
 	if (local_ep) {
 		int err;
@@ -1688,8 +1686,7 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 		union v6addr excl_cidr_mask = IPV6_SNAT_EXCLUSION_DST_CIDR_MASK;
 		union v6addr excl_cidr = IPV6_SNAT_EXCLUSION_DST_CIDR;
 
-		if (ipv6_addr_in_net((union v6addr *)&ip6->daddr, &excl_cidr,
-				     &excl_cidr_mask))
+		if (ipv6_addr_in_net(&tuple->daddr, &excl_cidr, &excl_cidr_mask))
 			return NAT_PUNT_TO_STACK;
 	}
 # endif /* IPV6_SNAT_EXCLUSION_DST_CIDR */
@@ -1705,12 +1702,13 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 
 		pfx.lpm.prefixlen = sizeof(pfx.addr) * 8;
 		/* pfx.lpm is aligned on 8 bytes on the stack, but pfx.lpm.data
-		 * is on 4 (after pfx.lpm.prefixlen), and we can't use memcpy()
-		 * on the whole field or the verifier complains.
+		 * is on 4 (after pfx.lpm.prefixlen). As the CT tuple is on the
+		 * stack as well, we need to copy piece-by-piece.
 		 */
-		memcpy(pfx.lpm.data, &ip6->daddr, 4);
-		memcpy(pfx.lpm.data + 4, (__u8 *)&ip6->daddr + 4, 8);
-		memcpy(pfx.lpm.data + 12, (__u8 *)&ip6->daddr + 12, 4);
+		memcpy(pfx.lpm.data, &tuple->daddr.p1, 4);
+		memcpy(pfx.lpm.data + 4, &tuple->daddr.p2, 4);
+		memcpy(pfx.lpm.data + 8, &tuple->daddr.p3, 4);
+		memcpy(pfx.lpm.data + 12, &tuple->daddr.p4, 4);
 		if (map_lookup_elem(&IP_MASQ_AGENT_IPV6, &pfx))
 			return NAT_PUNT_TO_STACK;
 #endif
