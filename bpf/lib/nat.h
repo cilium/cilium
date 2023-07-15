@@ -726,6 +726,8 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	if (target->cluster_id != 0 &&
 	    target->cluster_id != CLUSTER_ID) {
 		target->addr = IPV4_INTER_CLUSTER_SNAT;
+		target->from_local_endpoint = true;
+
 		return NAT_NEEDED;
 	}
 # endif
