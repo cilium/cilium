@@ -672,8 +672,8 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 }
 
 static __always_inline bool
-snat_v4_nat_can_skip(const struct ipv4_nat_target *target, const struct ipv4_ct_tuple *tuple,
-		     bool icmp_echoreply)
+snat_v4_nat_can_skip(const struct ipv4_nat_target *target,
+		     const struct ipv4_ct_tuple *tuple)
 {
 	__u16 sport = bpf_ntohs(tuple->sport);
 
@@ -682,8 +682,7 @@ snat_v4_nat_can_skip(const struct ipv4_nat_target *target, const struct ipv4_ct_
 		return false;
 #endif
 
-	return (!target->from_local_endpoint && sport < NAT_MIN_EGRESS) ||
-		icmp_echoreply;
+	return (!target->from_local_endpoint && sport < NAT_MIN_EGRESS);
 }
 
 static __always_inline bool
@@ -1004,7 +1003,6 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, int off,
 		__be16 sport;
 		__be16 dport;
 	} l4hdr;
-	bool icmp_echoreply = false;
 
 	build_bug_on(sizeof(struct ipv4_nat_entry) > 64);
 
@@ -1030,10 +1028,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, int off,
 			tuple->sport = icmphdr.un.echo.id;
 			break;
 		case ICMP_ECHOREPLY:
-			tuple->dport = icmphdr.un.echo.id;
-			tuple->sport = 0;
-			icmp_echoreply = true;
-			break;
+			return NAT_PUNT_TO_STACK;
 		case ICMP_DEST_UNREACH:
 			if (icmphdr.code != ICMP_FRAG_NEEDED)
 				return DROP_UNKNOWN_ICMP_CODE;
@@ -1046,7 +1041,7 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, int off,
 		return NAT_PUNT_TO_STACK;
 	};
 
-	if (snat_v4_nat_can_skip(target, tuple, icmp_echoreply))
+	if (snat_v4_nat_can_skip(target, tuple))
 		return NAT_PUNT_TO_STACK;
 
 	return __snat_v4_nat(ctx, tuple, has_l4_header, off, false, target,
