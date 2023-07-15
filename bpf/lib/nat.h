@@ -752,10 +752,15 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 
 		target->from_local_endpoint = true;
 
-		err = ct_is_reply4(get_ct_map4(tuple), ctx, l4_off, tuple,
-				   &is_reply);
-		if (IS_ERR(err))
+		err = ct_extract_ports4(ctx, l4_off, CT_EGRESS, tuple, NULL);
+		if (err < 0)
 			return err;
+
+		is_reply = ct_is_reply4(get_ct_map4(tuple), tuple);
+
+		/* SNAT code has its own port extraction logic: */
+		tuple->dport = 0;
+		tuple->sport = 0;
 	}
 
 /* Check if the packet matches an egress NAT policy and so needs to be SNAT'ed.
@@ -1675,10 +1680,15 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 
 		target->from_local_endpoint = true;
 
-		err = ct_is_reply6(get_ct_map6(tuple), ctx, l4_off, tuple,
-				   &is_reply);
-		if (IS_ERR(err))
+		err = ct_extract_ports6(ctx, l4_off, tuple);
+		if (err < 0)
 			return err;
+
+		is_reply = ct_is_reply6(get_ct_map6(tuple), tuple);
+
+		/* SNAT code has its own port extraction logic: */
+		tuple->dport = 0;
+		tuple->sport = 0;
 	}
 
 # ifdef IPV6_SNAT_EXCLUSION_DST_CIDR
