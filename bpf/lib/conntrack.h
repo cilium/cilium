@@ -316,29 +316,22 @@ ct_lookup_select_tuple_type(enum ct_dir dir, enum ct_scope scope)
  * flow is a reply.
  */
 #define DEFINE_FUNC_CT_IS_REPLY(FAMILY)						\
-static __always_inline int							\
-ct_is_reply ## FAMILY(const void *map, struct __ctx_buff *ctx, int off,		\
-		      struct ipv ## FAMILY ## _ct_tuple *tuple,			\
-		      bool *is_reply)						\
+static __always_inline bool							\
+ct_is_reply ## FAMILY(const void *map,						\
+		      struct ipv ## FAMILY ## _ct_tuple *tuple)			\
 {										\
 	__u8 flags = tuple->flags;						\
-	int err = 0;								\
-										\
-	err = ct_extract_ports ## FAMILY(ctx, off, CT_EGRESS, tuple, NULL);	\
-	if (err < 0)								\
-		return err;							\
+	bool is_reply = false;							\
 										\
 	tuple->flags = TUPLE_F_IN;						\
 										\
-	*is_reply = map_lookup_elem(map, tuple) != NULL;			\
+	if (map_lookup_elem(map, tuple))					\
+		is_reply = true;						\
 										\
 	/* restore initial flags */						\
 	tuple->flags = flags;							\
-	/* callers (ie. SNAT code) have their own port extraction logic: */	\
-	tuple->dport = 0;							\
-	tuple->sport = 0;							\
 										\
-	return 0;								\
+	return is_reply;							\
 }
 
 static __always_inline int
@@ -422,9 +415,7 @@ ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 }
 
 static __always_inline int
-ct_extract_ports6(struct __ctx_buff *ctx, int off,
-		  enum ct_dir dir __maybe_unused, struct ipv6_ct_tuple *tuple,
-		  bool *has_l4_header __maybe_unused)
+ct_extract_ports6(struct __ctx_buff *ctx, int off, struct ipv6_ct_tuple *tuple)
 {
 	switch (tuple->nexthdr) {
 	case IPPROTO_ICMPV6:
@@ -565,7 +556,7 @@ static __always_inline int ct_lookup6(const void *map,
 
 	tuple->flags = ct_lookup_select_tuple_type(dir, SCOPE_BIDIR);
 
-	action = ct_extract_ports6(ctx, l4_off, dir, tuple, NULL);
+	action = ct_extract_ports6(ctx, l4_off, tuple);
 	if (action < 0)
 		return action;
 
