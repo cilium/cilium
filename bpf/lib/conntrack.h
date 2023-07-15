@@ -321,6 +321,7 @@ ct_is_reply ## FAMILY(const void *map, struct __ctx_buff *ctx, int off,		\
 		      struct ipv ## FAMILY ## _ct_tuple *tuple,			\
 		      bool *is_reply)						\
 {										\
+	__u8 flags = tuple->flags;						\
 	int err = 0;								\
 										\
 	err = ct_extract_ports ## FAMILY(ctx, off, CT_EGRESS, tuple, NULL);	\
@@ -330,6 +331,12 @@ ct_is_reply ## FAMILY(const void *map, struct __ctx_buff *ctx, int off,		\
 	tuple->flags = TUPLE_F_IN;						\
 										\
 	*is_reply = map_lookup_elem(map, tuple) != NULL;			\
+										\
+	/* restore initial flags */						\
+	tuple->flags = flags;							\
+	/* callers (ie. SNAT code) have their own port extraction logic: */	\
+	tuple->dport = 0;							\
+	tuple->sport = 0;							\
 										\
 	return 0;								\
 }
