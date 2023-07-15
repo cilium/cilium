@@ -376,10 +376,8 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 
 	if (*state)
 		return NAT_CONTINUE_XLATE;
-	else
-		return tuple->nexthdr != IPPROTO_ICMP &&
-		       bpf_ntohs(tuple->dport) < target->min_port ?
-		       NAT_PUNT_TO_STACK : DROP_NAT_NO_MAPPING;
+
+	return DROP_NAT_NO_MAPPING;
 }
 
 static __always_inline int
@@ -1394,8 +1392,7 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 			       struct ipv6_ct_tuple *tuple,
 			       enum ct_action ct_action,
 			       struct ipv6_nat_entry **state,
-			       __u32 off,
-			       const struct ipv6_nat_target *target)
+			       __u32 off)
 {
 	*state = snat_v6_lookup(tuple);
 
@@ -1423,10 +1420,8 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 
 	if (*state)
 		return NAT_CONTINUE_XLATE;
-	else
-		return tuple->nexthdr != IPPROTO_ICMPV6 &&
-		       bpf_ntohs(tuple->dport) < target->min_port ?
-		       NAT_PUNT_TO_STACK : DROP_NAT_NO_MAPPING;
+
+	return DROP_NAT_NO_MAPPING;
 }
 
 static __always_inline int snat_v6_icmp_rewrite_embedded(struct __ctx_buff *ctx,
@@ -1984,8 +1979,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 
 	if (snat_v6_rev_nat_can_skip(target, &tuple))
 		return NAT_PUNT_TO_STACK;
-	ret = snat_v6_rev_nat_handle_mapping(ctx, &tuple, ct_action, &state,
-					     off, target);
+	ret = snat_v6_rev_nat_handle_mapping(ctx, &tuple, ct_action, &state, off);
 	if (ret > 0)
 		return CTX_ACT_OK;
 	if (ret < 0)
