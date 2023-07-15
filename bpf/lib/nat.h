@@ -713,6 +713,8 @@ static __always_inline void snat_v4_init_tuple(const struct iphdr *ip4,
 static __always_inline int
 snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 struct iphdr *ip4 __maybe_unused,
+			 struct ipv4_ct_tuple *tuple __maybe_unused,
+			 int l4_off __maybe_unused,
 			 struct ipv4_nat_target *target __maybe_unused)
 {
 	struct endpoint_info *local_ep __maybe_unused;
@@ -747,17 +749,12 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	 * skip the CT lookup since this cannot be reply traffic.
 	 */
 	if (local_ep) {
-		struct ipv4_ct_tuple tuple = {
-			.nexthdr = ip4->protocol,
-			.daddr = ip4->daddr,
-			.saddr = ip4->saddr
-		};
 		int err;
 
 		target->from_local_endpoint = true;
 
-		err = ct_is_reply4(get_ct_map4(&tuple), ctx, ETH_HLEN +
-				   ipv4_hdrlen(ip4), &tuple, &is_reply);
+		err = ct_is_reply4(get_ct_map4(tuple), ctx, l4_off, tuple,
+				   &is_reply);
 		if (IS_ERR(err))
 			return err;
 	}
@@ -1655,6 +1652,8 @@ static __always_inline void snat_v6_init_tuple(const struct ipv6hdr *ip6,
 static __always_inline int
 snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 			 struct ipv6hdr *ip6 __maybe_unused,
+			 struct ipv6_ct_tuple *tuple __maybe_unused,
+			 int l4_off __maybe_unused,
 			 struct ipv6_nat_target *target __maybe_unused)
 {
 	union v6addr masq_addr __maybe_unused;
@@ -1674,21 +1673,11 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	remote_ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
 
 	if (local_ep) {
-		struct ipv6_ct_tuple tuple = {};
-		int l4_off, err;
-
-		tuple.nexthdr = ip6->nexthdr;
-		ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
-		ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
+		int err;
 
 		target->from_local_endpoint = true;
 
-		l4_off = ipv6_hdrlen(ctx, &tuple.nexthdr);
-		if (IS_ERR(l4_off))
-			return l4_off;
-
-		l4_off += ETH_HLEN;
-		err = ct_is_reply6(get_ct_map6(&tuple), ctx, l4_off, &tuple,
+		err = ct_is_reply6(get_ct_map6(tuple), ctx, l4_off, tuple,
 				   &is_reply);
 		if (IS_ERR(err))
 			return err;

@@ -187,7 +187,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	    nodeport_has_nat_conflict_ipv6(ip6, &target))
 		goto apply_snat;
 
-	ret = snat_v6_needs_masquerade(ctx, ip6, &target);
+	ret = snat_v6_needs_masquerade(ctx, ip6, &tuple, l4_off, &target);
 	if (IS_ERR(ret))
 		goto out;
 
@@ -1601,7 +1601,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	    nodeport_has_nat_conflict_ipv4(ip4, &target))
 		goto apply_snat;
 
-	ret = snat_v4_needs_masquerade(ctx, ip4, &target);
+	ret = snat_v4_needs_masquerade(ctx, ip4, &tuple, l4_off, &target);
 	if (IS_ERR(ret))
 		goto out;
 
