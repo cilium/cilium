@@ -604,7 +604,7 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 					   offsetof(struct icmphdr, type),
 					   &type, 1) < 0)
 				return DROP_INVALID;
-			if (type == ICMP_ECHO || type == ICMP_ECHOREPLY) {
+			if (type == ICMP_ECHOREPLY) {
 				if (ctx_store_bytes(ctx, off +
 						    offsetof(struct icmphdr, un.echo.id),
 						    &state->to_dport,
@@ -1128,11 +1128,6 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
 			return DROP_INVALID;
 		switch (icmphdr.type) {
-		case ICMP_ECHO:
-			tuple.dport = 0;
-			tuple.sport = icmphdr.un.echo.id;
-			ct_action = ACTION_CREATE;
-			break;
 		case ICMP_ECHOREPLY:
 			tuple.dport = icmphdr.un.echo.id;
 			tuple.sport = 0;
@@ -1573,7 +1568,7 @@ static __always_inline int snat_v6_rewrite_ingress(struct __ctx_buff *ctx,
 
 			if (icmp6_load_type(ctx, off, &type) < 0)
 				return DROP_INVALID;
-			if (type == ICMPV6_ECHO_REQUEST || type == ICMPV6_ECHO_REPLY) {
+			if (type == ICMPV6_ECHO_REPLY) {
 				if (ctx_store_bytes(ctx, off +
 						    offsetof(struct icmp6hdr,
 							     icmp6_dataun.u_echo.identifier),
@@ -1958,11 +1953,6 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		case ICMP6_NS_MSG_TYPE:
 		case ICMP6_NA_MSG_TYPE:
 			return CTX_ACT_OK;
-		case ICMPV6_ECHO_REQUEST:
-			tuple.dport = 0;
-			tuple.sport = icmp6hdr.icmp6_dataun.u_echo.identifier;
-			ct_action = ACTION_CREATE;
-			break;
 		case ICMPV6_ECHO_REPLY:
 			tuple.dport = icmp6hdr.icmp6_dataun.u_echo.identifier;
 			tuple.sport = 0;
