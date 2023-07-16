@@ -221,13 +221,15 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 
 apply_snat:
 	ret = snat_v6_nat(ctx, &tuple, l4_off, &target, trace, ext_err);
+	if (IS_ERR(ret))
+		goto out;
+
+	/* See the equivalent v4 path for comment */
+	ctx_snat_done_set(ctx);
 
 out:
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
-
-	/* See the equivalent v4 path for comment */
-	ctx_snat_done_set(ctx);
 
 	return ret;
 }
@@ -1680,10 +1682,8 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 apply_snat:
 	ret = snat_v4_nat(ctx, &tuple, ip4, l4_off, ipv4_has_l4_header(ip4),
 			  &target, trace, ext_err);
-
-out:
-	if (ret == NAT_PUNT_TO_STACK)
-		ret = CTX_ACT_OK;
+	if (IS_ERR(ret))
+		goto out;
 
 	/* If multiple netdevs process an outgoing packet, then this packets will
 	 * be handled multiple times by the "to-netdev" section. This can lead
@@ -1695,6 +1695,10 @@ out:
 	if (target.egress_gateway)
 		return egress_gw_fib_lookup_and_redirect(ctx, target.addr, tuple.daddr, ext_err);
 #endif
+
+out:
+	if (ret == NAT_PUNT_TO_STACK)
+		ret = CTX_ACT_OK;
 
 	return ret;
 }
