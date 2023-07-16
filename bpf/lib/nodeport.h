@@ -2681,12 +2681,9 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 			if (ctx_get_tunnel_key(ctx, &key, sizeof(key), 0) < 0)
 				return DROP_NO_TUNNEL_KEY;
 
-			if (!revalidate_data(ctx, &data, &data_end, &ip4))
-				return DROP_INVALID;
-
 			/* kernel returns addresses in flipped locations: */
 			key.remote_ipv4 = key.local_ipv4;
-			key.local_ipv4 = bpf_ntohl(ip4->saddr);
+			key.local_ipv4 = bpf_ntohl(nat_info->address);
 
 			if (ctx_set_tunnel_key(ctx, &key, sizeof(key),
 					       BPF_F_ZERO_CSUM_TX) < 0)
