@@ -660,10 +660,10 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 			if !ctEntryExist(ctMap, ctKey) {
 				// No egress CT entry is found, delete the orphan ingress SNAT entry
 				if deleted, _ := natMap.Delete(natKey); deleted {
-					stats.IngressDeleted += 1
+					stats.IngressDeleted++
 				}
 			} else {
-				stats.IngressAlive += 1
+				stats.IngressAlive++
 			}
 		} else if natKey.GetFlags()&tuple.TUPLE_F_OUT == tuple.TUPLE_F_OUT {
 			ingressCTKey := ingressCTKeyFromEgressNatKey(natKey)
@@ -675,15 +675,19 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 				!ctEntryExist(ctMap, dsrCTKey) {
 				// No relevant CT entries were found, delete the orphan egress NAT entry
 				if deleted, _ := natMap.Delete(natKey); deleted {
-					stats.EgressDeleted += 1
+					stats.EgressDeleted++
 				}
 			} else {
-				stats.EgressAlive += 1
+				stats.EgressAlive++
 			}
 		}
 	}
 
-	natMap.DumpReliablyWithCallback(cb, stats.DumpStats)
+	if err := natMap.DumpReliablyWithCallback(cb, stats.DumpStats); err != nil {
+		log.WithError(err).Error("NATmap dump failed during GC")
+	} else {
+		natMap.UpdatePressureMetricWithSize(int32(stats.IngressAlive + stats.EgressAlive))
+	}
 
 	return &stats
 }
