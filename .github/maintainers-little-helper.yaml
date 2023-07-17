@@ -1,5 +1,3 @@
-project: "https://github.com/cilium/cilium/projects/239"
-column: "In progress"
 move-to-projects-for-labels-xored:
   v1.14:
     needs-backport/1.14:
