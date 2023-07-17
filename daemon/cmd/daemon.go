@@ -1328,7 +1328,10 @@ func changedOption(key string, value option.OptionSetting, data interface{}) {
 			logging.SetLogLevelToDebug()
 		}
 		// Reflect log level change to proxies
-		proxy.ChangeLogLevel(logging.GetLevel(logging.DefaultLogger))
+		// Might not be initialized yet
+		if option.Config.EnableL7Proxy {
+			d.l7Proxy.ChangeLogLevel(logging.GetLevel(logging.DefaultLogger))
+		}
 	}
 	d.policy.BumpRevision() // force policy recalculation
 }
