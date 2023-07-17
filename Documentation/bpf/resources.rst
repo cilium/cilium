@@ -307,7 +307,7 @@ surrounding ecosystem in user space.
 
 All BPF update newsletters (01 - 12) can be found here:
 
-     https://cilium.io/blog/categories/eBPF/
+     https://cilium.io/blog/categories/technology/5/
 
 And for the news on the latest resources and developments in the eBPF world,
 please refer to the link here:
@@ -577,7 +577,7 @@ related to BPF and XDP:
      Polytechnique Montreal,
      Trace Aggregation and Collection with eBPF,
      Suchakra Sharma,
-     https://nova.polymtl.ca/~suchakra/eBPF-5May2017.pdf
+     https://hsdm.dorsal.polymtl.ca/system/files/eBPF-5May2017%20(1).pdf
 
 40. Apr 2017,
      DockerCon, Austin,
