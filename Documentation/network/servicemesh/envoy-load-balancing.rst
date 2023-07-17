@@ -115,8 +115,8 @@ Supported Annotations
      - Default Value
    * - ``service.cilium.io/lb-l7``
      - Enable L7 Load balancing for kubernetes service.
-     - ``envoy``, ``disabled``
-     - Default to ``disabled``
+     - ``enabled``, ``disabled``
+     - Defaults to ``disabled``
    * - ``service.cilium.io/lb-l7-algorithm``
      - The LB algorithm to be used for services.
      - ``round_robin``, ``least_request``, ``random``
