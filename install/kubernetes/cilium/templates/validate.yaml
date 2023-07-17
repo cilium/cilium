@@ -68,12 +68,6 @@
   {{- end }}
 {{- end }}
 
-{{- if .Values.authentication.mutual.spire.install.enabled }}
-  {{- if not .Values.authentication.mutual.spire.enabled }}
-    {{ fail "SPIRE installation requires .Values.authentication.mutual.enabled=true and .Values.authentication.mutual.spire.enabled=true" }}
-  {{- end }}
-{{- end }}
-
 {{/* validate Cilium operator */}}
 {{- if eq .Values.enableCiliumEndpointSlice true }}
   {{- if eq .Values.disableEndpointCRD true }}

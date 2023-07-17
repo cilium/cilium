@@ -72,7 +72,7 @@ contributors across the globe, there is almost always someone available to help.
 | authentication.mutual.spire.install.agent.labels | object | `{}` | SPIRE agent labels |
 | authentication.mutual.spire.install.agent.serviceAccount | object | `{"create":true,"name":"spire-agent"}` | SPIRE agent service account |
 | authentication.mutual.spire.install.agent.skipKubeletVerification | bool | `true` | SPIRE Workload Attestor kubelet verification. |
-| authentication.mutual.spire.install.enabled | bool | `false` | Enable SPIRE installation. This will only take effect only if authentication.mutual.spire.enabled is true |
+| authentication.mutual.spire.install.enabled | bool | `true` | Enable SPIRE installation. This will only take effect only if authentication.mutual.spire.enabled is true |
 | authentication.mutual.spire.install.namespace | string | `"cilium-spire"` | SPIRE namespace to install into |
 | authentication.mutual.spire.install.server.annotations | object | `{}` | SPIRE server annotations |
 | authentication.mutual.spire.install.server.ca.keyType | string | `"rsa-4096"` | SPIRE CA key type AWS requires the use of RSA. EC cryptography is not supported |

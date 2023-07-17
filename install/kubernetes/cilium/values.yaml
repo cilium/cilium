@@ -3099,7 +3099,7 @@ authentication:
       install:
         # -- Enable SPIRE installation.
         # This will only take effect only if authentication.mutual.spire.enabled is true
-        enabled: false
+        enabled: true
         # -- SPIRE namespace to install into
         namespace: cilium-spire
         # SPIRE agent configuration
