@@ -361,7 +361,7 @@ likely it is that various datapath optimizations can be used.
 
 In our Cilium release blogs, we also regularly highlight some of the eBPF based
 kernel work we conduct which implicitly helps Cilium's datapath performance
-such as `replacing retpolines with direct jumps in the eBPF JIT <https://cilium.io/blog/2020/02/18/cilium-17#linux-kernel-changes>`_.
+such as `replacing retpolines with direct jumps in the eBPF JIT <https://cilium.io/blog/2020/02/18/cilium-17#upstream-linux>`_.
 
 Moreover, the kernel allows to configure several options which will help maximize
 network performance.
