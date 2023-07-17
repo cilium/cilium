@@ -903,7 +903,7 @@ test against and allows central control over what data (and at what rate)
 is pulled from the api-server and how it’s stored (in-memory or persisted).
 
 The resources are usually made available centrally for the application,
-e.g. in cilium-agent they’re provided from `pkg/k8s/shared_resources.go <https://github.com/cilium/cilium/blob/main/pkg/k8s/shared_resources.go>`_.
+e.g. in cilium-agent they’re provided from `pkg/k8s/resource.go <https://github.com/cilium/cilium/blob/main/daemon/k8s/resources.go>`_.
 See also the runnable example in `pkg/k8s/resource/example <https://github.com/cilium/cilium/tree/main/pkg/k8s/resource/example>`_.
 
 .. code-block:: go
