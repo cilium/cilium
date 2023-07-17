@@ -18,8 +18,10 @@ See :ref:`gs_clustermesh` for instructions on how to set up cluster mesh.
 
 .. _kvstoremesh:
 
-KVStoreMesh
-===========
+KVStoreMesh (beta)
+==================
+
+.. include:: ../../beta.rst
 
 KVStoreMesh is an extension of Cluster Mesh. It caches the information obtained
 from the remote clusters in a local kvstore (such as etcd), to which all local
@@ -28,8 +30,3 @@ agent directly pulls the information from the remote clusters. KVStoreMesh enabl
 improved scalability and isolation, and targets large scale Cluster Mesh deployments.
 
 See :ref:`enable_clustermesh` for instructions on how to enable KVStoreMesh.
-
-.. note::
-
-    KVStoreMesh is a beta feature. Please provide feedback and file a GitHub
-    issue if you experience any problems.
