@@ -62,7 +62,6 @@ func NewTunnelMap(mapName string) *Map {
 	}
 }
 
-// +k8s:deepcopy-gen=true
 type TunnelIP struct {
 	// represents both IPv6 and IPv4 (in the lowest four bytes)
 	IP     types.IPv6 `align:"$union0"`
