@@ -10,13 +10,17 @@ import (
 
 	. "github.com/cilium/checkmate"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
@@ -610,7 +614,7 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 
 	// cilium-agent finished the initialization, and thus SyncWithK8sFinished
 	// is called
-	err = m.svc.SyncWithK8sFinished()
+	err = m.svc.SyncWithK8sFinished(func(k8s.ServiceID, *lock.StoppableWaitGroup) bool { return true })
 	c.Assert(err, IsNil)
 
 	// svc1 should be removed from cilium while svc2 is synced
@@ -629,6 +633,89 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 	for _, b := range lbmap.ServiceByID[uint16(id2)].Backends {
 		c.Assert(m.lbmap.AffinityMatch[uint16(id2)][b.ID], Equals, struct{}{})
 	}
+}
+
+func TestRestoreServiceWithStaleBackends(t *testing.T) {
+	backendAddrs := []string{"10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4", "10.0.0.5"}
+
+	service := func(ns, name, frontend string, backends ...string) *lb.SVC {
+		var bes []*lb.Backend
+		for _, backend := range backends {
+			bes = append(bes, lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster(backend), 8080))
+		}
+
+		return &lb.SVC{
+			Frontend:         *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster(frontend), 80, lb.ScopeExternal, 0),
+			Backends:         bes,
+			Type:             lb.SVCTypeClusterIP,
+			ExtTrafficPolicy: lb.SVCTrafficPolicyCluster,
+			IntTrafficPolicy: lb.SVCTrafficPolicyCluster,
+			Name:             lb.ServiceName{Name: name, Namespace: ns},
+		}
+	}
+
+	toBackendAddrs := func(backends []*lb.Backend) (addrs []string) {
+		for _, be := range backends {
+			addrs = append(addrs, be.L3n4Addr.AddrCluster.Addr().String())
+		}
+		return
+	}
+
+	lbmap := mockmaps.NewLBMockMap()
+	svc := NewService(nil, nil, lbmap)
+
+	_, id1, err := svc.upsertService(service("foo", "bar", "172.16.0.1", backendAddrs...))
+	require.NoError(t, err, "Failed to upsert service")
+
+	require.Contains(t, lbmap.ServiceByID, uint16(id1), "lbmap not populated correctly")
+	require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "lbmap not populated correctly")
+	require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "lbmap not populated correctly")
+
+	// Recreate the Service structure, but keep the lbmap to restore services from
+	svc = NewService(nil, nil, lbmap)
+	require.NoError(t, svc.RestoreServices(), "Failed to restore services")
+
+	// Simulate a set of service updates. Until synchronization completes, a given service
+	// might not yet contain all backends, in case they either belong to different endpointslices
+	// or different clusters.
+	_, id1bis, err := svc.upsertService(service("foo", "bar", "172.16.0.1", "10.0.0.3"))
+	require.NoError(t, err, "Failed to upsert service")
+	require.Equal(t, id1, id1bis, "Service ID changed unexpectedly")
+
+	// No backend should have been removed yet
+	require.Contains(t, lbmap.ServiceByID, uint16(id1), "lbmap incorrectly modified")
+	require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "lbmap incorrectly modified")
+	require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "lbmap incorrectly modified")
+
+	// Let's do it once more
+	_, id1ter, err := svc.upsertService(service("foo", "bar", "172.16.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.5"))
+	require.NoError(t, err, "Failed to upsert service")
+	require.Equal(t, id1, id1ter, "Service ID changed unexpectedly")
+
+	// No backend should have been removed yet
+	require.Contains(t, lbmap.ServiceByID, uint16(id1), "lbmap incorrectly modified")
+	require.ElementsMatch(t, backendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "lbmap incorrectly modified")
+	require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "lbmap incorrectly modified")
+
+	// Trigger a new upsertion: this mimics what would eventually happen when calling ServiceCache.EnsureService()
+	ensurer := func(id k8s.ServiceID, swg *lock.StoppableWaitGroup) bool {
+		defer swg.Done()
+		if id.Namespace == "foo" && id.Name == "bar" {
+			_, _, err := svc.upsertService(service("foo", "bar", "172.16.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.5"))
+			require.NoError(t, err, "Failed to upsert service")
+			return true
+		}
+		require.Fail(t, "Unexpected service ID", "Service ID: %v", id)
+		return false
+	}
+
+	require.NoError(t, svc.SyncWithK8sFinished(ensurer), "Failed to trigger garbage collection")
+
+	// Stale backends should now have been removed
+	require.Contains(t, lbmap.ServiceByID, uint16(id1), "stale backends not correctly removed from lbmap")
+	finalBackendAddrs := []string{"10.0.0.2", "10.0.0.3", "10.0.0.5"}
+	require.ElementsMatch(t, finalBackendAddrs, toBackendAddrs(lbmap.ServiceByID[uint16(id1)].Backends), "stale backends not correctly removed from lbmap")
+	require.ElementsMatch(t, finalBackendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "stale backends not correctly removed from lbmap")
 }
 
 func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
