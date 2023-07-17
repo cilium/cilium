@@ -1264,7 +1264,7 @@ the check when running on some cloud providers. E.g. `Amazon NLB
 <https://kubernetes.io/docs/concepts/services-networking/service/#aws-nlb-support>`__
 natively implements the check, so the kube-proxy replacement's feature can be disabled.
 Meanwhile `GKE internal TCP/UDP load balancer
-<https://cloud.google.com/kubernetes-engine/docs/how-to/internal-load-balancing#lb_source_ranges>`__
+<https://cloud.google.com/kubernetes-engine/docs/how-to/service-parameters#lb_source_ranges>`__
 does not, so the feature must be kept enabled in order to restrict the access.
 
 Service Proxy Name Configuration

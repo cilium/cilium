@@ -18,7 +18,7 @@ OpenShift Requirements
 
 2. Read `OpenShift documentation <https://docs.okd.io/latest/welcome/index.html>`_ to find out about provider-specific prerequisites.
 
-3. `Get OpenShift Installer <https://github.com/openshift/okd#getting-started>`_.
+3. `Get OpenShift Installer <https://github.com/okd-project/okd#getting-started>`_.
 
 .. note::
 

@@ -20,7 +20,7 @@ are built on top of Ginkgo. Ginkgo provides a rich framework for developing
 tests alongside the benefits of Golang (compilation-time checks, types, etc.).
 To get accustomed to the basics of Ginkgo, we recommend reading the `Ginkgo
 Getting-Started Guide
-<https://onsi.github.io/ginkgo/#getting-started-writing-your-first-test>`_ , as
+<https://onsi.github.io/ginkgo/#getting-started>`_ , as
 well as running `example tests
 <https://github.com/onsi/composition-ginkgo-example>`_ to get a feel for the
 Ginkgo workflow.
@@ -309,7 +309,7 @@ following files currently are generated depending upon the test suite that is ra
 Best Practices for Writing Tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* Provide informative output to console during a test using the `By construct <https://onsi.github.io/ginkgo/#documenting-complex-its-by>`_. This helps with debugging and gives those who did not write the test a good idea of what is going on. The lower the barrier of entry is for understanding tests, the better our tests will be!
+* Provide informative output to console during a test using the `By construct <https://onsi.github.io/ginkgo/#documenting-complex-specs-by>`_. This helps with debugging and gives those who did not write the test a good idea of what is going on. The lower the barrier of entry is for understanding tests, the better our tests will be!
 * Leave the testing environment in the same state that it was in when the test started by deleting resources, resetting configuration, etc.
 * Gather logs in the case that a test fails. If a test fails while running on Jenkins, a postmortem needs to be done to analyze why. So, dumping logs to a location where Jenkins can pick them up is of the highest imperative. Use the following code in an ``AfterFailed`` method:
 
@@ -334,7 +334,7 @@ This method is an equivalent to ``SetUp`` or initialize functions in common
 unit test frameworks.
 
 .. _BeforeEach: https://onsi.github.io/ginkgo/#extracting-common-setup-beforeeach
-.. _Describe or Context: https://onsi.github.io/ginkgo/#organizing-specs-with-containers-describe-and-context
+.. _Describe or Context: https://onsi.github.io/ginkgo/#organizing-specs-with-container-nodes
 
 AfterAll
 ^^^^^^^^
