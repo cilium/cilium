@@ -19,6 +19,7 @@ var Cell = cell.Module(
 	"Envoy proxy and control-plane",
 
 	cell.Provide(newEnvoyXDSServer),
+	cell.Provide(newEnvoyAdminClient),
 	cell.Invoke(registerEnvoyAccessLogServer),
 )
 
@@ -27,6 +28,8 @@ type xdsServerParams struct {
 
 	Lifecycle hive.Lifecycle
 	IPCache   *ipcache.IPCache
+
+	EnvoyAdminClient *EnvoyAdminClient
 }
 
 func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
@@ -53,7 +56,19 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 		},
 	})
 
+	if !option.Config.ExternalEnvoyProxy {
+		return &onDemandXdsStarter{
+			XDSServer:   xdsServer,
+			runDir:      option.Config.RunDir,
+			adminClient: params.EnvoyAdminClient,
+		}, nil
+	}
+
 	return xdsServer, nil
+}
+
+func newEnvoyAdminClient() *EnvoyAdminClient {
+	return NewEnvoyAdminClientForSocket(GetSocketDir(option.Config.RunDir))
 }
 
 type accessLogServerParams struct {

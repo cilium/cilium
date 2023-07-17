@@ -77,8 +77,9 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	defer accessLogServer.stop()
 
 	// launch debug variant of the Envoy proxy
-	envoyProxy := StartEmbeddedEnvoy(testRunDir, filepath.Join(testRunDir, "cilium-envoy.log"), 0)
+	envoyProxy, err := startEmbeddedEnvoy(testRunDir, filepath.Join(testRunDir, "cilium-envoy.log"), 0)
 	c.Assert(envoyProxy, NotNil)
+	c.Assert(err, IsNil)
 	log.Debug("started Envoy")
 
 	log.Debug("adding metrics listener")
@@ -166,8 +167,9 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 	defer accessLogServer.stop()
 
 	// launch debug variant of the Envoy proxy
-	envoyProxy := StartEmbeddedEnvoy(testRunDir, filepath.Join(testRunDir, "cilium-envoy.log"), 42)
+	envoyProxy, err := startEmbeddedEnvoy(testRunDir, filepath.Join(testRunDir, "cilium-envoy.log"), 42)
 	c.Assert(envoyProxy, NotNil)
+	c.Assert(err, IsNil)
 	log.Debug("started Envoy")
 
 	rName := "listener:22"
