@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/completion"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -110,6 +112,14 @@ func (p *envoyProxyIntegration) createRedirect(r *Redirect, wg *completion.WaitG
 
 	// create an Envoy Listener for Cilium policy enforcement
 	return p.handleEnvoyRedirect(r, wg)
+}
+
+func (p *envoyProxyIntegration) changeLogLevel(level logrus.Level) error {
+	if envoyAdminClient != nil {
+		return envoyAdminClient.ChangeLogLevel(level)
+	}
+
+	return nil
 }
 
 func (p *envoyProxyIntegration) handleEnvoyRedirect(r *Redirect, wg *completion.WaitGroup) (RedirectImplementation, error) {

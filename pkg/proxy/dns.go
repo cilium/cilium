@@ -89,6 +89,10 @@ func (p *dnsProxyIntegration) createRedirect(r *Redirect, wg *completion.WaitGro
 	return dr, dr.setRules(nil, r.rules)
 }
 
+func (p *dnsProxyIntegration) changeLogLevel(level logrus.Level) error {
+	return nil
+}
+
 func copyRules(rules policy.L7DataMap) policy.L7DataMap {
 	currentRules := policy.L7DataMap{}
 	for key, val := range rules {

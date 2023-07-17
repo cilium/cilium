@@ -720,10 +720,13 @@ func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (error, reve
 }
 
 // ChangeLogLevel changes proxy log level to correspond to the logrus log level 'level'.
-func ChangeLogLevel(level logrus.Level) {
-	if envoyAdminClient != nil {
-		err := envoyAdminClient.ChangeLogLevel(level)
-		log.WithError(err).Debug("failed to change log level in Envoy")
+func (p *Proxy) ChangeLogLevel(level logrus.Level) {
+	if err := p.envoyIntegration.changeLogLevel(level); err != nil {
+		log.WithError(err).Debug("failed to change log level in Envoy proxy")
+	}
+
+	if err := p.dnsIntegration.changeLogLevel(level); err != nil {
+		log.WithError(err).Debug("failed to change log level in DNS proxy")
 	}
 }
 
