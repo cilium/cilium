@@ -256,6 +256,8 @@ func (m *ExtAuthz) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for IncludeTlsSession
+
 	switch m.Services.(type) {
 
 	case *ExtAuthz_GrpcService:
