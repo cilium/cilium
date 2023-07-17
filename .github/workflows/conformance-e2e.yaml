@@ -252,7 +252,6 @@ jobs:
             --helm-set=hubble.eventBufferCapacity=65535 \
             --helm-set=bpf.monitorAggregation=none \
             --helm-set=authentication.mutual.spire.enabled=true \
-            --helm-set=authentication.mutual.spire.install.enabled=true \
             --nodes-without-cilium=kind-worker3 \
             --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
           TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
