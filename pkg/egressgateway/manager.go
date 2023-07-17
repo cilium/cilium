@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
@@ -727,7 +728,10 @@ nextIpRule:
 	}
 
 	// Fetch all IP routes, and delete the unused EgressGW-specific routes:
-	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
+	routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		Table: unix.RT_TABLE_UNSPEC,
+	}, netlink.RT_FILTER_TABLE)
+
 	if err != nil {
 		logger.WithError(err).Error("Cannot list IP routes")
 		return
