@@ -22,7 +22,7 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.2
+  cilium_cli_version: v0.15.3
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
@@ -66,7 +66,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@31d91f053cbd63c59160e75a35b52470cd49c989 # v0.15.2
+        uses: cilium/cilium-cli@829ae9b4d2c65104343051ad77b618b92a2c2b75 # v0.15.3
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
