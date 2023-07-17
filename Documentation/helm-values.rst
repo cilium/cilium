@@ -91,7 +91,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.enabled`
      - Enable SPIRE installation. This will only take effect only if authentication.mutual.spire.enabled is true
      - bool
-     - ``false``
+     - ``true``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
