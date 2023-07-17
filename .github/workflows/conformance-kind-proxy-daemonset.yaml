@@ -70,6 +70,7 @@ jobs:
             --helm-set=hubble.relay.enabled=true \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.relay.image.useDigest=false \
             --helm-set=cni.chainingMode=portmap \
             --helm-set-string=kubeProxyReplacement=strict \
             --helm-set=loadBalancer.l7.backend=envoy \
