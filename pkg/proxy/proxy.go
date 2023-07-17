@@ -104,10 +104,6 @@ type ProxyPort struct {
 type Proxy struct {
 	envoy.XDSServer
 
-	// runDir is the path of the directory where the state of L7 proxies is
-	// stored.
-	runDir string
-
 	// mutex is the lock required when modifying any proxy datastructure
 	mutex lock.RWMutex
 
@@ -141,9 +137,8 @@ type Proxy struct {
 	dnsIntegration   *dnsProxyIntegration
 }
 
-func createProxy(minPort uint16, maxPort uint16, runDir string, datapathUpdater DatapathUpdater, envoyIntegration *envoyProxyIntegration, dnsIntegration *dnsProxyIntegration, xdsServer envoy.XDSServer) *Proxy {
+func createProxy(minPort uint16, maxPort uint16, datapathUpdater DatapathUpdater, envoyIntegration *envoyProxyIntegration, dnsIntegration *dnsProxyIntegration, xdsServer envoy.XDSServer) *Proxy {
 	return &Proxy{
-		runDir:           runDir,
 		XDSServer:        xdsServer,
 		rangeMin:         minPort,
 		rangeMax:         maxPort,
@@ -769,21 +764,4 @@ func (p *Proxy) updateRedirectMetrics() {
 	for proto, count := range result {
 		metrics.ProxyRedirects.WithLabelValues(proto).Set(float64(count))
 	}
-}
-
-// UpdateNetworkPolicy must update the redirect configuration of an endpoint in the proxy
-func (p *Proxy) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
-	return p.XDSServer.UpdateNetworkPolicy(ep, vis, policy, ingressPolicyEnforced, egressPolicyEnforced, wg)
-}
-
-// Overload XDSServer.UpsertEnvoyResources to start Envoy on demand
-func (p *Proxy) UpsertEnvoyResources(ctx context.Context, resources envoy.Resources, portAllocator envoy.PortAllocator) error {
-	initEnvoy(p.runDir, p.XDSServer, nil)
-	return p.XDSServer.UpsertEnvoyResources(ctx, resources, portAllocator)
-}
-
-// Overload XDSServer.UpdateEnvoyResources to start Envoy on demand
-func (p *Proxy) UpdateEnvoyResources(ctx context.Context, old, new envoy.Resources, portAllocator envoy.PortAllocator) error {
-	initEnvoy(p.runDir, p.XDSServer, nil)
-	return p.XDSServer.UpdateEnvoyResources(ctx, old, new, portAllocator)
 }

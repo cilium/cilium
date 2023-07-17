@@ -49,14 +49,15 @@ func newProxy(params proxyParams) *Proxy {
 	configureProxyLogger(params.EndpointInfoRegistry, params.MonitorAgent, option.Config.AgentLabels)
 
 	// FIXME: Make the port range configurable.
-	return createProxy(10000, 20000, option.Config.RunDir, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration, params.XdsServer)
+	return createProxy(10000, 20000, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration, params.XdsServer)
 }
 
 type envoyProxyIntegrationParams struct {
 	cell.In
 
-	Datapath  datapath.Datapath
-	XdsServer envoy.XDSServer
+	Datapath    datapath.Datapath
+	XdsServer   envoy.XDSServer
+	AdminClient *envoy.EnvoyAdminClient
 }
 
 func newEnvoyProxyIntegration(params envoyProxyIntegrationParams) *envoyProxyIntegration {
@@ -65,9 +66,9 @@ func newEnvoyProxyIntegration(params envoyProxyIntegrationParams) *envoyProxyInt
 	}
 
 	return &envoyProxyIntegration{
-		runDir:    option.Config.RunDir,
-		xdsServer: params.XdsServer,
-		datapath:  params.Datapath,
+		xdsServer:   params.XdsServer,
+		datapath:    params.Datapath,
+		adminClient: params.AdminClient,
 	}
 }
 
