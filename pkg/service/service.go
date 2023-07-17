@@ -12,6 +12,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"go.uber.org/multierr"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -20,6 +21,7 @@ import (
 	datapathOpt "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	datapathTypes "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -98,6 +100,9 @@ type svcInfo struct {
 	LoopbackHostport          bool
 
 	restoredFromDatapath bool
+	// The hashes of the backends restored from the datapath and
+	// not yet heard about from the service cache.
+	restoredBackendHashes sets.Set[string]
 }
 
 func (svc *svcInfo) isL7LBService() bool {
@@ -1073,7 +1078,27 @@ func (s *Service) restoreAndDeleteOrphanSourceRanges() error {
 //
 // The removal is based on an assumption that during the sync period
 // UpsertService() is going to be called for each alive service.
-func (s *Service) SyncWithK8sFinished() error {
+func (s *Service) SyncWithK8sFinished(ensurer func(k8s.ServiceID, *lock.StoppableWaitGroup) bool) error {
+	servicesWithStaleBackends := sets.New[lb.ServiceName]()
+
+	// We need to trigger the stale services refresh while not holding the
+	// lock, to ensure that the generated events can be processed, and to
+	// prevent a possible deadlock in case the events channel is already full.
+	defer func() {
+		swg := lock.NewStoppableWaitGroup()
+
+		for svc := range servicesWithStaleBackends {
+			ensurer(k8s.ServiceID{
+				Cluster:   svc.Cluster,
+				Namespace: svc.Namespace,
+				Name:      svc.Name,
+			}, swg)
+		}
+
+		swg.Stop()
+		swg.Wait()
+	}()
+
 	s.Lock()
 	defer s.Unlock()
 
@@ -1087,7 +1112,18 @@ func (s *Service) SyncWithK8sFinished() error {
 			if err := s.deleteServiceLocked(svc); err != nil {
 				return fmt.Errorf("Unable to remove service %+v: %s", svc, err)
 			}
+		} else if svc.restoredBackendHashes.Len() > 0 {
+			// The service is still associated with stale backends
+			servicesWithStaleBackends.Insert(svc.svcName)
+			log.WithFields(logrus.Fields{
+				logfields.ServiceID:      svc.frontend.ID,
+				logfields.ServiceName:    svc.svcName.String(),
+				logfields.L3n4Addr:       logfields.Repr(svc.frontend.L3n4Addr),
+				logfields.OrphanBackends: svc.restoredBackendHashes.Len(),
+			}).Info("Service has stale backends: triggering refresh")
 		}
+
+		svc.restoredBackendHashes = nil
 	}
 
 	// Remove no longer existing affinity matches
@@ -1534,6 +1570,14 @@ func (s *Service) restoreServicesLocked(svcBackendsById map[lb.BackendID]struct{
 			svcBackendsById[backend.ID] = struct{}{}
 		}
 
+		if len(newSVC.backendByHash) > 0 {
+			// Indicate that these backends were restored from BPF maps,
+			// so that they are not removed until SyncWithK8sFinished()
+			// is executed (if not observed in the meanwhile) to prevent
+			// disrupting valid connections.
+			newSVC.restoredBackendHashes = sets.KeySet(newSVC.backendByHash)
+		}
+
 		// Recalculate Maglev lookup tables if the maps were removed due to
 		// the changed M param.
 		ipv6 := newSVC.frontend.IsIPv6() || (svc.NatPolicy == lb.SVCNatPolicyNat46)
@@ -1652,6 +1696,10 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 				backends[i].ID = s.backendByHash[hash].ID
 			}
 		} else {
+			// We observed this backend, hence let's remove it from the list
+			// of the restored ones.
+			svc.restoredBackendHashes.Delete(hash)
+
 			backends[i].ID = b.ID
 			// Backend state can either be updated via kubernetes events,
 			// or service API. If the state update is coming via kubernetes events,
@@ -1685,6 +1733,14 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 
 	for hash, backend := range svc.backendByHash {
 		if _, found := backendSet[hash]; !found {
+			if svc.restoredBackendHashes.Has(hash) {
+				// Don't treat backends restored from the datapath and not yet observed as
+				// obsolete, because that would cause connections targeting those backends
+				// to be dropped in case we haven't fully synchronized yet.
+				backends = append(backends, backend)
+				continue
+			}
+
 			obsoleteSVCBackendIDs = append(obsoleteSVCBackendIDs, backend.ID)
 			if s.backendRefCount.Delete(hash) {
 				DeleteBackendID(backend.ID)
