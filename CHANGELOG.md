@@ -1,5 +1,90 @@
 # Changelog
 
+## v1.14.0-rc.1
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add tls-server-enforce-mtls flag to hubble-relay to enforce mTLS connection with clients. (Backport PR #26636, Upstream PR #25582, @marqc)
+* BPF NodePort is now enabled by default if CiliumEnvoyConfig is configured. (Backport PR #26636, Upstream PR #25901, @jrajahalme)
+* Fix endpoint slices filtering to ensure we filter out headless services and continue to support older k8s versions where service labels are not propagated to endpoint slices (Backport PR #26799, Upstream PR #25351, @odinuge)
+* helm: Allow node port allocation for Ingress LB service (Backport PR #26799, Upstream PR #26502, @sayboras)
+
+**Bugfixes:**
+* Add host-side interface info to cni.Result, which allows bandwidth CNI to work with Cilium (Backport PR #26636, Upstream PR #26518, @nayihz)
+* auth: Switch to observing identity changes (Backport PR #26636, Upstream PR #26375, @mhofstetter)
+* bgpv1: Unconditionally select node when empty nodeSelector is given (Backport PR #26734, Upstream PR #26590, @YutaroHayakawa)
+* client, health/client: set dummy host header on unix:// local communication (Backport PR #26838, Upstream PR #26800, @tklauser)
+* egressgw: retry getIdentityLabels on failure (Backport PR #26734, Upstream PR #26457, @jibi)
+* Fix bug where bpf map entries may not be reliably dumped or garbage collected when the map is actively being updated. (Backport PR #26838, Upstream PR #26583, @tommyp1ckles)
+* Fix error propagation issue in clustermesh which prevented retrying on certain validation errors (Backport PR #26799, Upstream PR #26613, @giorio94)
+* Fix SNAT by the N/S load-balancer for fragmented IPv4 requests. (Backport PR #26636, Upstream PR #26550, @julianwiedmann)
+* Fixed double metric accounting for k8s events (Backport PR #26636, Upstream PR #26349, @dylandreimerink)
+* Fixed proxy redirect policy implementation when any deny rule prevents them. (Backport PR #26813, Upstream PR #26344, @jrajahalme)
+* Implement OnAddNode handlers for CiliumNodeUpdater and EndpointManager (Backport PR #26734, Upstream PR #26484, @pippolo84)
+* Policy auth precedence fix (Backport PR #26813, Upstream PR #26331, @jrajahalme)
+* Validate "ownership" of hostPort service being deleted (Backport PR #26734, Upstream PR #22587, @yasz24)
+
+**CI Changes:**
+* .github/workflows: use Helm mode cilium-cli in K8sUpstreamNetConformance (Backport PR #26734, Upstream PR #26692, @tklauser)
+* .github: add 'name' field for the conformance-e2e job (Backport PR #26838, Upstream PR #26791, @aanm)
+* ariane: don't skip verifier and l4lb tests on vendor/ changes (Backport PR #26734, Upstream PR #26715, @tklauser)
+* ci-multi-pool: Use ip-masq-agent for masquerading (Backport PR #26636, Upstream PR #26538, @gandro)
+* docs: Update external workloads instructions (Backport PR #26734, Upstream PR #26607, @michi-covalent)
+* replace cilium/customvet by cilium/linters (Backport PR #26799, Upstream PR #26755, @rolinh)
+* v1.14: ci: use Ariane to trigger workflows (#26625, @nbusseneau)
+
+**Misc Changes:**
+* Add helm values for K8s API server client rate limits and instructions on how to size them when using L2 announcements. (Backport PR #26799, Upstream PR #26711, @dylandreimerink)
+* Add L2 responder map dumping to sysdump (Backport PR #26734, Upstream PR #26667, @dylandreimerink)
+* Add the tunnel values to the config map even when the default values are used. (Backport PR #26838, Upstream PR #26712, @3u13r)
+* auth: optimize log output for pending auth (Backport PR #26734, Upstream PR #26642, @mhofstetter)
+* auth: use NodeManager instead of k8s.CiliumNodeResource in auth gc (Backport PR #26636, Upstream PR #26592, @mhofstetter)
+* bgpv1: set correct upper limits to BPG timers and GR restart time (Backport PR #26636, Upstream PR #26534, @harsimran-pabla)
+* bpf: dsr: fix IPIP health-encap on older kernels (Backport PR #26636, Upstream PR #26609, @julianwiedmann)
+* bpf: nodeport: only set outer src IP for tunnel encap in XDP (Backport PR #26799, Upstream PR #26726, @julianwiedmann)
+* bpf: Replace deprecated "-target bpf" with "--target=bpf" for clang (Backport PR #26636, Upstream PR #26553, @qmonnet)
+* chore(deps): update all github action dependencies (v1.14) (minor) (#26699, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.14) (patch) (#26698, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.0 (v1.14) (#26700, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.2 (v1.14) (#26782, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.20.5 docker digest to fd9306e (v1.14) (#26696, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to 0bced47 (v1.14) (#26697, @renovate[bot])
+* chore(deps): update hubble cli to v0.12.0 (v1.14) (minor) (#26763, @renovate[bot])
+* daemon: fix issue where IPAM options in custom CNI confs was ignored (Backport PR #26799, Upstream PR #26732, @squeed)
+* doc: Documented incompatibility of EgressGW and kvstore (Backport PR #26636, Upstream PR #26139, @PhilipSchmid)
+* docs, kpr, maglev: Move Maglev out of beta (Backport PR #26636, Upstream PR #19541, @borkmann)
+* docs/ipsec: Clarify limitation on number of nodes (Backport PR #26838, Upstream PR #26810, @pchaigno)
+* docs: Add debugging guide for inspecting gops / pprof profiles (Backport PR #26734, Upstream PR #26675, @christarazi)
+* docs: Add L2 Pod Announcements docs (Backport PR #26636, Upstream PR #26517, @markpash)
+* docs: HOWTO run cilium-cli e2e connectivity tests (Backport PR #26734, Upstream PR #25217, @brb)
+* docs: Ignore Helm values, update spelling list (Backport PR #26838, Upstream PR #26759, @qmonnet)
+* docs: Istio docs fix sidecar inject method (Backport PR #26636, Upstream PR #26526, @networkop)
+* docs: Mention --kube-proxy-replacement=boolean changes (Backport PR #26734, Upstream PR #26577, @brb)
+* docs: Multi-Pool IPAM now partially supports iptables-based NAT (Backport PR #26636, Upstream PR #26522, @gandro)
+* docs: remove no-longer-valid known policy issue (Backport PR #26799, Upstream PR #26660, @squeed)
+* docs: Update cluster mesh instructions (Backport PR #26734, Upstream PR #26608, @michi-covalent)
+* docs: Update Go Extension docs (Backport PR #26799, Upstream PR #26504, @sayboras)
+* docs: update KPR section on DSR (Backport PR #26636, Upstream PR #26582, @julianwiedmann)
+* docs: Update the docs for Helm mode Cilium CLI (Backport PR #26734, Upstream PR #26606, @michi-covalent)
+* docs: Upgrade Note For Deny Policy Fix (Backport PR #26636, Upstream PR #26245, @nathanjsweet)
+* Document cilium_host's IPv6 change in upgrade guide (Backport PR #26734, Upstream PR #26615, @jschwinger233)
+* Documentation/community: add multi-pool IPAM to list of beta features (Backport PR #26636, Upstream PR #26566, @tklauser)
+* Egress Gateway: make CiliumEndpoint reconciliation asynchronous from k8s watcher (Backport PR #26799, Upstream PR #26741, @jibi)
+* fix kind job with network policy failures (Backport PR #26799, Upstream PR #26639, @aojea)
+* helm: Use kubeProxyReplacement as string (Backport PR #26636, Upstream PR #26549, @jrajahalme)
+* hubble: Optimize namespace tracking (Backport PR #26799, Upstream PR #26547, @glibsm)
+* ipam/multipool: wait for restoration before releasing CIDRs (Backport PR #26734, Upstream PR #26668, @tklauser)
+* loader: check enabled L7 proxy via config property (Backport PR #26636, Upstream PR #26627, @mhofstetter)
+* make: rework kind-install-cilium-clustermesh for Cilium CLI Helm mode (Backport PR #26799, Upstream PR #26753, @giorio94)
+* monitor: update DBG_CT_LOOKUP4_2 / DBG_CT_LOOKUP6_2 output (Backport PR #26636, Upstream PR #26558, @julianwiedmann)
+* multi-pool: Document unsupported kvstore mode (Backport PR #26734, Upstream PR #26662, @gandro)
+* Prepare v1.14 stable branch (#26548, @joestringer)
+* Silence misleading log messages about service resolution in clustermesh (Backport PR #26734, Upstream PR #26614, @giorio94)
+* Update docs for Kubernetes 1.27 (Backport PR #26734, Upstream PR #26671, @christarazi)
+* vendor: Update go-restful (Backport PR #26636, Upstream PR #26560, @ferozsalam)
+
 ## v1.14.0-rc.0
 
 Summary of Changes
