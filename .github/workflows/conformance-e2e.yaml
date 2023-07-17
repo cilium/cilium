@@ -361,7 +361,12 @@ jobs:
           provision: 'false'
           cmd: |
             cd /host/
-            ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
+
+            IP_FAM="dual"
+            if [ "${{ matrix.ipv6 }}" == "false" ]; then
+              IP_FAM="ipv4"
+            fi
+            ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" \$IP_FAM
 
             kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
             if [ "${{ matrix.encryption }}" == "ipsec" ]; then
