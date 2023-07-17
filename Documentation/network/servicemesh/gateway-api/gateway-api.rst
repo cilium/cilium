@@ -16,6 +16,7 @@ tests, plus the ReferenceGrant extended tests, are passed.
 - `GatewayClass <https://gateway-api.sigs.k8s.io/api-types/gatewayclass/>`_
 - `Gateway <https://gateway-api.sigs.k8s.io/api-types/gateway/>`_
 - `HTTPRoute <https://gateway-api.sigs.k8s.io/api-types/httproute/>`_
+- `TLSRoute (experimental) <https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io%2fv1alpha2.TLSRoute/>`_
 - `ReferenceGrant <https://gateway-api.sigs.k8s.io/api-types/referencegrant/>`_
 
 .. include:: installation.rst
