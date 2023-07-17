@@ -135,7 +135,7 @@ clusters.
 
 .. note::
 
-   You can additionally opt in to :ref:`kvstoremesh` (beta feature) when enabling
+   You can additionally opt in to :ref:`kvstoremesh` when enabling
    Cluster Mesh. Make sure to configure the Cilium CLI in *helm* mode and run:
 
    .. code-block:: shell-session
