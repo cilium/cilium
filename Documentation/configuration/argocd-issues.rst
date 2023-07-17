@@ -26,7 +26,7 @@ causing one or more of the following issues:
 Solution
 --------
 
-To prevent these issues, declare resource exclusions in the Argo CD ``ConfigMap`` by following `these instructions <https://argoproj.github.io/argo-cd/operator-manual/declarative-setup/#resource-exclusioninclusion>`__.
+To prevent these issues, declare resource exclusions in the Argo CD ``ConfigMap`` by following `these instructions <https://argo-cd.readthedocs.io/en/stable/operator-manual/declarative-setup/#resource-exclusioninclusion>`__.
 
 Here is an example snippet:
 
