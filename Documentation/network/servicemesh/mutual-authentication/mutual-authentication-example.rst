@@ -14,10 +14,10 @@ This example shows you how to enforce mutual authentication between two Pods.
 
 Deploy a client (pod-worker) and a server (echo) using the following manifest:
 
-.. code-block:: shell-session
+.. parsed-literal::
 
-    $ kubectl apply -f |SCM_WEB|\/examples/kubernetes/servicemesh/mutual-auth-example.yaml
-    $ kubectl apply -f |SCM_WEB|\/examples/kubernetes/servicemesh/cnp-without-mutual-auth.yaml
+    $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/servicemesh/mutual-auth-example.yaml
+    $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/servicemesh/cnp-without-mutual-auth.yaml
     service/echo created
     deployment.apps/echo created
     pod/pod-worker created
@@ -203,7 +203,7 @@ Update the existing rule to only allow ingress access to mutually authenticated 
 
 .. parsed-literal::
 
-    $ kubectl apply -f |SCM_WEB|\/examples/kubernetes/servicemesh/cnp-with-mutual-auth.yaml
+    $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/servicemesh/cnp-with-mutual-auth.yaml
 
 Verify Mutual Authentication
 ============================
