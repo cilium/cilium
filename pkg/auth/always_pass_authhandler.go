@@ -8,6 +8,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -40,4 +41,8 @@ func (r *alwaysPassAuthHandler) authType() policy.AuthType {
 
 func (r *alwaysPassAuthHandler) subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {
 	return nil
+}
+
+func (r *alwaysPassAuthHandler) certProviderStatus() *models.Status {
+	return nil // reporting no status as we have no cert provider
 }

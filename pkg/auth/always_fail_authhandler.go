@@ -6,6 +6,7 @@ package auth
 import (
 	"errors"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -30,4 +31,8 @@ func (r *alwaysFailAuthHandler) authType() policy.AuthType {
 
 func (r *alwaysFailAuthHandler) subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {
 	return nil
+}
+
+func (r *alwaysFailAuthHandler) certProviderStatus() *models.Status {
+	return nil // reporting no status as we have no cert provider
 }

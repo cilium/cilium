@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -1634,6 +1635,7 @@ type daemonParams struct {
 	L7Proxy              *proxy.Proxy
 	DB                   statedb.DB
 	APILimiterSet        *rate.APILimiterSet
+	AuthManager          *auth.AuthManager
 	Settings             cellSettings
 	HealthProvider       cell.Health
 	HealthReporter       cell.HealthReporter

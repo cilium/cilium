@@ -47,6 +47,10 @@ type SpireDelegateClient struct {
 	rotatedIdentitiesChan chan certs.CertificateRotationEvent
 
 	logLimiter logging.Limiter
+
+	connected        bool
+	lastConnectError error
+	connectedMutex   lock.RWMutex
 }
 
 type SpireDelegateConfig struct {
@@ -265,6 +269,12 @@ func (s *SpireDelegateClient) handleX509BundleUpdate(bundles map[string][]byte) 
 func (s *SpireDelegateClient) openStream(ctx context.Context) {
 	// try to init the watcher with a backoff
 	backoffTime := backoff.Exponential{Min: 100 * time.Millisecond, Max: 10 * time.Second}
+
+	// a retry might have happened, signal that we are disconnected
+	s.connectedMutex.Lock()
+	s.connected = false
+	s.connectedMutex.Unlock()
+
 	for {
 		s.log.Info("Connecting to SPIRE Delegate API Client")
 
@@ -272,10 +282,21 @@ func (s *SpireDelegateClient) openStream(ctx context.Context) {
 		s.stream, s.trustStream, err = s.initWatcher(ctx)
 		if err != nil {
 			s.log.WithError(err).Warn("SPIRE Delegate API Client failed to init watcher, retrying")
+
+			s.connectedMutex.Lock()
+			s.connected = false
+			s.lastConnectError = err
+			s.connectedMutex.Unlock()
+
 			time.Sleep(backoffTime.Duration(s.connectionAttempts))
 			s.connectionAttempts++
 			continue
 		}
+
+		s.connectedMutex.Lock()
+		s.connected = true
+		s.lastConnectError = nil
+		s.connectedMutex.Unlock()
 		break
 	}
 }

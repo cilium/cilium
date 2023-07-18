@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/daemon/cmd/cni"
+	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
@@ -217,6 +218,9 @@ type Daemon struct {
 
 	// statedb for implementing /statedb/dump
 	db statedb.DB
+
+	// authManager for reporting the status of the auth system certificate provider
+	authManager *auth.AuthManager
 
 	// read-only map of all the hive settings
 	settings cellSettings
@@ -534,6 +538,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		l2announcer:          params.L2Announcer,
 		l7Proxy:              params.L7Proxy,
 		db:                   params.DB,
+		authManager:          params.AuthManager,
 		settings:             params.Settings,
 		healthProvider:       params.HealthProvider,
 		healthReporter:       params.HealthReporter,
