@@ -512,9 +512,6 @@ const (
 	// BPFSocketLBHostnsOnly is the name of the BPFSocketLBHostnsOnly option
 	BPFSocketLBHostnsOnly = "bpf-lb-sock-hostns-only"
 
-	// TunnelName is the name of the Tunnel option
-	TunnelName = "tunnel"
-
 	// RoutingMode is the name of the option to choose between native routing and tunneling mode
 	RoutingMode = "routing-mode"
 
@@ -529,7 +526,7 @@ const (
 	// SingleClusterRoute enables use of a single route covering the entire
 	// cluster CIDR to point to the cilium_host interface instead of using
 	// a separate route for each cluster node CIDR. This option is not
-	// compatible with Tunnel=TunnelDisabled
+	// compatible with --routing-mode=native
 	SingleClusterRouteName = "single-cluster-route"
 
 	// MaxInternalTimerDelay sets a maximum on all periodic timers in
@@ -1385,11 +1382,6 @@ const (
 	PprofPortAgent = 6060
 )
 
-// GetTunnelModes returns the list of all tunnel modes
-func GetTunnelModes() string {
-	return fmt.Sprintf("%s, %s, %s", TunnelVXLAN, TunnelGeneve, TunnelDisabled)
-}
-
 // getEnvName returns the environment variable to be used for the given option name.
 func getEnvName(option string) string {
 	under := strings.Replace(option, "-", "_", -1)
@@ -1463,7 +1455,6 @@ type DaemonConfig struct {
 	EnableRuntimeDeviceDetection bool
 
 	DatapathMode   string // Datapath mode
-	Tunnel         string // Tunnel mode
 	RoutingMode    string // Routing mode
 	TunnelProtocol string // Tunneling protocol
 	TunnelPort     int    // Tunnel port
@@ -3281,21 +3272,9 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	}
 	c.TCFilterPriority = uint16(tcFilterPrio)
 
-	c.Tunnel = vp.GetString(TunnelName)
 	c.RoutingMode = vp.GetString(RoutingMode)
 	c.TunnelProtocol = vp.GetString(TunnelProtocol)
 	c.TunnelPort = vp.GetInt(TunnelPortName)
-
-	if c.Tunnel != "" && c.RoutingMode != defaults.RoutingMode {
-		log.Fatalf("Option --%s cannot be used in combination with --%s", RoutingMode, TunnelName)
-	}
-
-	if c.Tunnel == "disabled" {
-		c.RoutingMode = RoutingModeNative
-	} else if c.Tunnel != "" {
-		c.TunnelProtocol = c.Tunnel
-	}
-	c.Tunnel = ""
 
 	if c.TunnelPort == 0 {
 		// manually pick port for native-routing and DSR with Geneve dispatch:
