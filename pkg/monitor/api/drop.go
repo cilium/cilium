@@ -91,6 +91,7 @@ var errors = map[uint8]string{
 	193: "Unsupported packet protocol for DSR encapsulation",
 	194: "No egress gateway found",
 	195: "Traffic is unencrypted",
+	196: "TTL exceeded",
 }
 
 func extendedReason(reason uint8, extError int8) string {
