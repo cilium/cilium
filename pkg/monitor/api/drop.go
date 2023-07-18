@@ -86,6 +86,7 @@ var errors = map[uint8]string{
 	188: "L3 translation from IPv6 to IPv4 failed (NAT64)",
 	189: "Authentication required",
 	194: "No egress gateway found",
+	196: "TTL exceeded",
 }
 
 func extendedReason(reason uint8, extError int8) string {
