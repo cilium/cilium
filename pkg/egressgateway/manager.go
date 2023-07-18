@@ -66,11 +66,6 @@ const (
 	eventDeleteEndpoint
 )
 
-type endpointEvent struct {
-	eventType eventType
-	endpoint  *k8sTypes.CiliumEndpoint
-}
-
 type Config struct {
 	// Install egress gateway IP rules and routes in order to properly steer
 	// egress gateway traffic to the correct ENI interface
@@ -122,7 +117,7 @@ type Manager struct {
 	// just received the event, or because the processing failed due to the
 	// manager being unable to resolve the endpoint identity to a set of
 	// labels
-	pendingEndpointEvents map[endpointID]endpointEvent
+	pendingEndpointEvents map[endpointID]*k8sTypes.CiliumEndpoint
 
 	// pendingEndpointEventsLock protects the access to the
 	// pendingEndpointEvents map
@@ -188,7 +183,7 @@ func NewEgressGatewayManager(p Params) (*Manager, error) {
 		policyConfigs:                 make(map[policyID]*PolicyConfig),
 		policyConfigsBySourceIP:       make(map[string][]*PolicyConfig),
 		epDataStore:                   make(map[endpointID]*endpointMetadata),
-		pendingEndpointEvents:         make(map[endpointID]endpointEvent),
+		pendingEndpointEvents:         make(map[endpointID]*k8sTypes.CiliumEndpoint),
 		endpointEventsQueue:           endpointEventRetryQueue,
 		identityAllocator:             p.IdentityAllocator,
 		installRoutes:                 p.Config.InstallEgressGatewayRoutes,
@@ -316,19 +311,17 @@ func (manager *Manager) processCiliumEndpoints(ctx context.Context, wg *sync.Wai
 			endpointID := item.(types.NamespacedName)
 
 			manager.pendingEndpointEventsLock.RLock()
-			epEvent, ok := manager.pendingEndpointEvents[endpointID]
+			ep, ok := manager.pendingEndpointEvents[endpointID]
 			manager.pendingEndpointEventsLock.RUnlock()
 
+			var err error
 			if ok {
-				switch epEvent.eventType {
-				case eventUpdateEndpoint:
-					manager.addEndpoint(endpointID)
-				case eventDeleteEndpoint:
-					manager.deleteEndpoint(endpointID)
-				}
+				err = manager.addEndpoint(ep)
+			} else {
+				manager.deleteEndpoint(endpointID)
 			}
 
-			if manager.endpointEventIsPending(endpointID) {
+			if err != nil {
 				// if the endpoint event is still pending it means the manager
 				// failed to resolve the endpoint ID to a set of labels, so add back
 				// the item to the queue
@@ -388,34 +381,13 @@ func (manager *Manager) OnDeleteEgressPolicy(configID policyID) {
 	manager.reconciliationTrigger.TriggerWithReason("policy deleted")
 }
 
-func (manager *Manager) endpointEventIsPending(id types.NamespacedName) bool {
-	manager.pendingEndpointEventsLock.RLock()
-	defer manager.pendingEndpointEventsLock.RUnlock()
-
-	_, ok := manager.pendingEndpointEvents[id]
-	return ok
-}
-
-func (manager *Manager) addEndpoint(id types.NamespacedName) {
+func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
 	var epData *endpointMetadata
 	var err error
 	var identityLabels labels.Labels
 
 	manager.Lock()
 	defer manager.Unlock()
-
-	manager.pendingEndpointEventsLock.RLock()
-	epEvent, ok := manager.pendingEndpointEvents[id]
-	manager.pendingEndpointEventsLock.RUnlock()
-
-	if !ok {
-		// the endpoint event has been already processed (for example we
-		// received an updated endpoint object or a delete event),
-		// nothing to do
-		return
-	}
-
-	endpoint := epEvent.endpoint
 
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sEndpointName: endpoint.Name,
@@ -425,19 +397,13 @@ func (manager *Manager) addEndpoint(id types.NamespacedName) {
 	if identityLabels, err = manager.getIdentityLabels(uint32(endpoint.Identity.ID)); err != nil {
 		logger.WithError(err).
 			Warning("Failed to get identity labels for endpoint")
-		return
+		return err
 	}
-
-	// delete the endpoint from pendingEndpointEvent, from now on if we
-	// encounter a failure it cannot be retried
-	manager.pendingEndpointEventsLock.Lock()
-	delete(manager.pendingEndpointEvents, id)
-	manager.pendingEndpointEventsLock.Unlock()
 
 	if epData, err = getEndpointMetadata(endpoint, identityLabels); err != nil {
 		logger.WithError(err).
 			Error("Failed to get valid endpoint metadata, skipping update to egress policy.")
-		return
+		return nil
 	}
 
 	if _, ok := manager.epDataStore[epData.id]; ok {
@@ -450,6 +416,8 @@ func (manager *Manager) addEndpoint(id types.NamespacedName) {
 
 	manager.setEventBitmap(eventUpdateEndpoint)
 	manager.reconciliationTrigger.TriggerWithReason("endpoint updated")
+
+	return nil
 }
 
 func (manager *Manager) deleteEndpoint(id types.NamespacedName) {
@@ -464,10 +432,6 @@ func (manager *Manager) deleteEndpoint(id types.NamespacedName) {
 	logger.Debug("Deleted CiliumEndpoint")
 	delete(manager.epDataStore, id)
 
-	manager.pendingEndpointEventsLock.Lock()
-	delete(manager.pendingEndpointEvents, id)
-	manager.pendingEndpointEventsLock.Unlock()
-
 	manager.setEventBitmap(eventDeleteEndpoint)
 	manager.reconciliationTrigger.TriggerWithReason("endpoint deleted")
 }
@@ -480,10 +444,7 @@ func (manager *Manager) OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	}
 
 	manager.pendingEndpointEventsLock.Lock()
-	manager.pendingEndpointEvents[id] = endpointEvent{
-		eventType: eventUpdateEndpoint,
-		endpoint:  endpoint,
-	}
+	manager.pendingEndpointEvents[id] = endpoint
 	manager.pendingEndpointEventsLock.Unlock()
 
 	manager.endpointEventsQueue.Add(id)
@@ -497,9 +458,7 @@ func (manager *Manager) OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	}
 
 	manager.pendingEndpointEventsLock.Lock()
-	manager.pendingEndpointEvents[id] = endpointEvent{
-		eventType: eventDeleteEndpoint,
-	}
+	delete(manager.pendingEndpointEvents, id)
 	manager.pendingEndpointEventsLock.Unlock()
 
 	manager.endpointEventsQueue.Add(id)
