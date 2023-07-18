@@ -22,8 +22,7 @@ RUN apk add --no-cache --virtual --update \
 
 FROM docs-base AS docs-builder
 ADD ./requirements.txt /tmp/requirements.txt
-# Workaround for https://github.com/yaml/pyyaml/issues/601
-RUN pip install "Cython<3.0" pyyaml --no-build-isolation && pip install -r /tmp/requirements.txt
+RUN pip install -r /tmp/requirements.txt
 
 ENV HOME=/tmp
 ENV READTHEDOCS_VERSION=$READTHEDOCS_VERSION

@@ -49,7 +49,7 @@ pyenchant==3.2.2
 Pygments==2.14.0
 pyrsistent==0.19.3
 pytz==2022.7.1
-PyYAML==6.0
+PyYAML==6.0.1
 requests==2.31.0
 rich==12.6.0
 rstcheck-core==1.0.3
