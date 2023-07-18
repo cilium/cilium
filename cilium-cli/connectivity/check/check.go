@@ -84,6 +84,9 @@ type Parameters struct {
 
 	CollectSysdumpOnFailure bool
 	SysdumpOptions          sysdump.Options
+
+	ExternalTargetCANamespace string
+	ExternalTargetCAName      string
 }
 
 type podCIDRs struct {
