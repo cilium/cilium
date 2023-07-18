@@ -543,7 +543,11 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	// Reinstall proxy rules for any running proxies if needed
 	if option.Config.EnableL7Proxy {
-		if err := p.ReinstallRules(ctx); err != nil {
+		if err := p.ReinstallRoutingRules(); err != nil {
+			return err
+		}
+
+		if err := p.ReinstallIPTablesRules(ctx); err != nil {
 			return err
 		}
 	}
