@@ -68,7 +68,7 @@ func newLBIPAM(params LBIPAMParams) *LBIPAM {
 
 	var lbClasses []string
 	if params.DaemonConfig.EnableBGPControlPlane {
-		lbClasses = append(lbClasses, "io.cilium/bgp-control-plane")
+		lbClasses = append(lbClasses, cilium_api_v2alpha1.BGPLoadBalancerClass)
 	}
 
 	jobGroup := params.JobRegistry.NewGroup(
