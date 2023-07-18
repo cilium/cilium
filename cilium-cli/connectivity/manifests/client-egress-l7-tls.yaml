@@ -29,8 +29,8 @@ specs:
           name: externaltarget-tls # internal certificate to terminate in cluster
       originatingTLS:
         secret:
-          namespace: "{{.TestNamespace}}"
-          name: cabundle # public CA bundle to validate external target
+          namespace: "{{.ExternalTargetCANamespace}}"
+          name: "{{.ExternalTargetCAName}}" # public CA bundle to validate external target
       rules:
         http:
         - method: "GET"
