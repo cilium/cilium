@@ -242,6 +242,13 @@ func Upsert(route Route) error {
 		return fmt.Errorf("unable to lookup interface %s: %w", route.Device, err)
 	}
 
+	// Can't add local routes to an interface that's down ('lo' in new netns).
+	if link.Attrs().OperState == netlink.OperDown {
+		if err := netlink.LinkSetUp(link); err != nil {
+			return fmt.Errorf("unable to set interface up: %w", err)
+		}
+	}
+
 	routerNet := route.getNexthopAsIPNet()
 	if routerNet != nil {
 		if _, err := replaceNexthopRoute(route, link, routerNet); err != nil {

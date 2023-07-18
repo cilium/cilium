@@ -73,6 +73,12 @@ const (
 	// rules for routing EP traffic to the correct ENI interface
 	RulePriorityEgressGateway = 8
 
+	// RulePriorityProxyIngress is the priority of the routing rule installed by
+	// the proxy package for redirecting inbound packets to the proxy. Priority 10
+	// used to be for outgoing packets from the proxy (see PROXY_RT_TABLE in older
+	// versions), but is no longer used.
+	RulePriorityProxyIngress = 9
+
 	// RulePriorityIngress is the priority of the rule used for ingress routing
 	// of endpoints. This priority is after encryption and proxy rules, and
 	// before the local table priority.
