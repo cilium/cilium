@@ -134,11 +134,16 @@ spec:
                   the endpoint apart from the pod name. This includes container runtime
                   IDs.
                 properties:
+                  cni-attachment-id:
+                    description: ID assigned to this attachment by container runtime
+                    type: string
                   container-id:
-                    description: ID assigned by container runtime
+                    description: ID assigned by container runtime (deprecated, may
+                      not be unique)
                     type: string
                   container-name:
-                    description: Name assigned to container
+                    description: Name assigned to container (deprecated, may not be
+                      unique)
                     type: string
                   docker-endpoint-id:
                     description: Docker endpoint ID
