@@ -2769,6 +2769,11 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
 	return c.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard
 }
 
+func (c *DaemonConfig) LoadBalancerUsesDSR() bool {
+	return c.NodePortMode == NodePortModeDSR ||
+		c.NodePortMode == NodePortModeHybrid
+}
+
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
 	ip, cidr, err := net.ParseCIDR(c.IPv6ClusterAllocCIDR)
 	if err != nil {

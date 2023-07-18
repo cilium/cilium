@@ -35,7 +35,7 @@ var Cell = cell.Module(
 				(dcfg.EnableNodePort ||
 					dcfg.KubeProxyReplacement == option.KubeProxyReplacementStrict ||
 					dcfg.KubeProxyReplacement == option.KubeProxyReplacementTrue) &&
-					dcfg.NodePortMode != option.NodePortModeSNAT &&
+					dcfg.LoadBalancerUsesDSR() &&
 					dcfg.LoadBalancerDSRDispatch == option.DSRDispatchGeneve,
 				// The datapath logic takes care of the MTU overhead. So no need to
 				// take it into account here.
