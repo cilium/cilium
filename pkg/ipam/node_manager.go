@@ -417,19 +417,18 @@ func (n *NodeManager) Get(nodeName string) *Node {
 	return node
 }
 
-// GetNodesByIPWatermark returns all nodes that require addresses to be
+// GetNodesByIPWatermarkLocked returns all nodes that require addresses to be
 // allocated or released, sorted by the number of addresses needed to be operated
 // in descending order. Number of addresses to be released is negative value
 // so that nodes with IP deficit are resolved first
-func (n *NodeManager) GetNodesByIPWatermark() []*Node {
-	n.mutex.RLock()
+// The caller must hold the NodeManager lock
+func (n *NodeManager) GetNodesByIPWatermarkLocked() []*Node {
 	list := make([]*Node, len(n.nodes))
 	index := 0
 	for _, node := range n.nodes {
 		list[index] = node
 		index++
 	}
-	n.mutex.RUnlock()
 
 	sort.Slice(list, func(i, j int) bool {
 		valuei := list[i].GetNeededAddresses()
@@ -509,12 +508,14 @@ func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncS
 // watermarks. Any updates to the node resource are synchronized to the
 // Kubernetes apiserver.
 func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
 	n.metricsAPI.IncResyncCount()
 
 	stats := resyncStats{}
 	sem := semaphore.NewWeighted(n.parallelWorkers)
 
-	for _, node := range n.GetNodesByIPWatermark() {
+	for _, node := range n.GetNodesByIPWatermarkLocked() {
 		err := sem.Acquire(ctx, 1)
 		if err != nil {
 			continue
