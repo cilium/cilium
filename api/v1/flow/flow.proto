@@ -392,6 +392,7 @@ enum DropReason {
     UNSUPPORTED_PROTOCOL_FOR_DSR_ENCAP = 193;
     NO_EGRESS_GATEWAY = 194;
     UNENCRYPTED_TRAFFIC = 195;
+    TTL_EXCEEDED = 196;
 }
 
 enum TrafficDirection {
