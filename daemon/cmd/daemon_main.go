@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bpf"
@@ -1620,6 +1621,7 @@ type daemonParams struct {
 	L2Announcer          *l2announcer.L2Announcer
 	L7Proxy              *proxy.Proxy
 	DB                   statedb.DB
+	AuthManager          *auth.AuthManager
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
