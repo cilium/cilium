@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
 )
@@ -105,4 +106,23 @@ func (s *SpireDelegateClient) SNIToNumericIdentity(sni string) (identity.Numeric
 
 func (s *SpireDelegateClient) SubscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {
 	return s.rotatedIdentitiesChan
+}
+
+func (s *SpireDelegateClient) Status() *models.Status {
+	s.connectedMutex.RLock()
+	defer s.connectedMutex.RUnlock()
+	if !s.connected {
+		msg := "Not connected to SPIRE server"
+		if s.lastConnectError != nil {
+			msg = fmt.Sprintf("Cannot connect to SPIRE server: %q", s.lastConnectError)
+		}
+
+		return &models.Status{
+			State: models.StatusStateFailure,
+			Msg:   msg,
+		}
+	}
+	return &models.Status{
+		State: models.StatusStateOk,
+	}
 }

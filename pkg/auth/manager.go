@@ -10,6 +10,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
@@ -26,7 +27,7 @@ func (key signalAuthKey) String() string {
 	return policy.AuthType(key.AuthType).String()
 }
 
-type authManager struct {
+type AuthManager struct {
 	logger        logrus.FieldLogger
 	nodeIDHandler types.NodeIDHandler
 	authHandlers  map[policy.AuthType]authHandler
@@ -34,7 +35,7 @@ type authManager struct {
 
 	mutex                    lock.Mutex
 	pending                  map[authKey]struct{}
-	handleAuthenticationFunc func(a *authManager, k authKey, reAuth bool)
+	handleAuthenticationFunc func(a *AuthManager, k authKey, reAuth bool)
 }
 
 // authHandler is responsible to handle authentication for a specific auth type
@@ -42,6 +43,7 @@ type authHandler interface {
 	authenticate(*authRequest) (*authResponse, error)
 	authType() policy.AuthType
 	subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent
+	certProviderStatus() *models.Status
 }
 
 type authRequest struct {
@@ -54,7 +56,7 @@ type authResponse struct {
 	expirationTime time.Time
 }
 
-func newAuthManager(logger logrus.FieldLogger, authHandlers []authHandler, authmap authMap, nodeIDHandler types.NodeIDHandler) (*authManager, error) {
+func newAuthManager(logger logrus.FieldLogger, authHandlers []authHandler, authmap authMap, nodeIDHandler types.NodeIDHandler) (*AuthManager, error) {
 	ahs := map[policy.AuthType]authHandler{}
 	for _, ah := range authHandlers {
 		if ah == nil {
@@ -66,7 +68,7 @@ func newAuthManager(logger logrus.FieldLogger, authHandlers []authHandler, authm
 		ahs[ah.authType()] = ah
 	}
 
-	return &authManager{
+	return &AuthManager{
 		logger:                   logger,
 		authHandlers:             ahs,
 		authmap:                  authmap,
@@ -77,7 +79,7 @@ func newAuthManager(logger logrus.FieldLogger, authHandlers []authHandler, authm
 }
 
 // handleAuthRequest receives auth required signals and spawns a new go routine for each authentication request.
-func (a *authManager) handleAuthRequest(_ context.Context, key signalAuthKey) error {
+func (a *AuthManager) handleAuthRequest(_ context.Context, key signalAuthKey) error {
 	k := authKey{
 		localIdentity:  identity.NumericIdentity(key.LocalIdentity),
 		remoteIdentity: identity.NumericIdentity(key.RemoteIdentity),
@@ -94,7 +96,7 @@ func (a *authManager) handleAuthRequest(_ context.Context, key signalAuthKey) er
 	return nil
 }
 
-func (a *authManager) handleCertificateRotationEvent(_ context.Context, event certs.CertificateRotationEvent) error {
+func (a *AuthManager) handleCertificateRotationEvent(_ context.Context, event certs.CertificateRotationEvent) error {
 	a.logger.
 		WithField("identity", event.Identity).
 		Debug("Handle certificate rotation event")
@@ -113,7 +115,7 @@ func (a *authManager) handleCertificateRotationEvent(_ context.Context, event ce
 	return nil
 }
 
-func handleAuthentication(a *authManager, k authKey, reAuth bool) {
+func handleAuthentication(a *AuthManager, k authKey, reAuth bool) {
 	if !a.markPendingAuth(k) {
 		a.logger.
 			WithField("key", k).
@@ -148,7 +150,7 @@ func handleAuthentication(a *authManager, k authKey, reAuth bool) {
 // markPendingAuth checks if there is a pending authentication for the given key.
 // If an auth is already pending returns false, otherwise marks the key as pending
 // and returns true.
-func (a *authManager) markPendingAuth(key authKey) bool {
+func (a *AuthManager) markPendingAuth(key authKey) bool {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -161,7 +163,7 @@ func (a *authManager) markPendingAuth(key authKey) bool {
 }
 
 // clearPendingAuth marks the pending authentication as finished.
-func (a *authManager) clearPendingAuth(key authKey) {
+func (a *AuthManager) clearPendingAuth(key authKey) {
 	a.logger.
 		WithField("key", key).
 		Debug("Clearing pending authentication")
@@ -171,7 +173,7 @@ func (a *authManager) clearPendingAuth(key authKey) {
 	delete(a.pending, key)
 }
 
-func (a *authManager) authenticate(key authKey) error {
+func (a *AuthManager) authenticate(key authKey) error {
 	a.logger.
 		WithField("key", key).
 		Debug("Policy is requiring authentication")
@@ -210,7 +212,7 @@ func (a *authManager) authenticate(key authKey) error {
 	return nil
 }
 
-func (a *authManager) updateAuthMap(key authKey, expirationTime time.Time) error {
+func (a *AuthManager) updateAuthMap(key authKey, expirationTime time.Time) error {
 	val := authInfo{
 		expiration: expirationTime,
 	}
@@ -220,4 +222,20 @@ func (a *authManager) updateAuthMap(key authKey, expirationTime time.Time) error
 	}
 
 	return nil
+}
+
+func (a *AuthManager) CertProviderStatus() *models.Status {
+	for _, h := range a.authHandlers {
+		status := h.certProviderStatus()
+		if status != nil {
+			// for now we only can have one cert provider
+			// once this changes we need to merge the statuses
+			return status
+		}
+	}
+
+	// if none was found auth is disabled
+	return &models.Status{
+		State: models.StatusStateDisabled,
+	}
 }

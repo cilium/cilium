@@ -2021,6 +2021,9 @@ definitions:
       cni-chaining:
         description: Status of CNI chaining
         "$ref": "#/definitions/CNIChainingStatus"
+      auth-certificate-provider:
+        description: Status of Mutual Authentication certificate provider
+        "$ref": "#/definitions/Status"
   Status:
     description: Status of an individual component
     type: object
