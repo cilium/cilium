@@ -178,6 +178,7 @@ cardinality
 cass
 cassandra
 cassandraparser
+cep
 certgen
 certmanager
 cgroup
