@@ -275,6 +275,7 @@ endianness
 endpointSelector
 endpointmanager
 etcd
+eth
 ethernet
 ethtool
 extTrafficPolicy

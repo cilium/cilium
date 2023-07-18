@@ -22,10 +22,13 @@ import (
 // swagger:model EndpointIdentifiers
 type EndpointIdentifiers struct {
 
-	// ID assigned by container runtime
+	// ID assigned to this attachment by container runtime
+	CniAttachmentID string `json:"cni-attachment-id,omitempty"`
+
+	// ID assigned by container runtime (deprecated, may not be unique)
 	ContainerID string `json:"container-id,omitempty"`
 
-	// Name assigned to container
+	// Name assigned to container (deprecated, may not be unique)
 	ContainerName string `json:"container-name,omitempty"`
 
 	// Docker endpoint ID

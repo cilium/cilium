@@ -1091,8 +1091,9 @@ parameters:
       Supported endpoint id prefixes:
         - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595
         - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343
-        - container-id: Container runtime ID, e.g. container-id:22222
-        - container-name: Container name, e.g. container-name:foobar
+        - cni-attachment-id: CNI attachment ID, e.g. cni-attachment-id:22222:eth0
+        - container-id: Container runtime ID, e.g. container-id:22222 (deprecated, may not be unique)
+        - container-name: Container name, e.g. container-name:foobar (deprecated, may not be unique)
         - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar
         - docker-endpoint: Docker libnetwork endpoint ID, e.g. docker-endpoint:4444
     in: path
@@ -1865,11 +1866,14 @@ definitions:
       +deepequal-gen=true
     type: object
     properties:
+      cni-attachment-id:
+        description: ID assigned to this attachment by container runtime
+        type: string
       container-id:
-        description: ID assigned by container runtime
+        description: ID assigned by container runtime (deprecated, may not be unique)
         type: string
       container-name:
-        description: Name assigned to container
+        description: Name assigned to container (deprecated, may not be unique)
         type: string
       docker-endpoint-id:
         description: Docker endpoint ID
