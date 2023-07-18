@@ -41,6 +41,21 @@ func (e *Endpoint) GetK8sNamespaceAndPodName() string {
 	return e.K8sNamespace + "/" + e.K8sPodName
 }
 
+// getCNIAttachmentIDLocked returns the endpoint's unique CNI attachment ID
+func (e *Endpoint) getCNIAttachmentIDLocked() string {
+	if e.containerIfName != "" {
+		return e.containerID + ":" + e.containerIfName
+	}
+	return e.containerID
+}
+
+// GetCNIAttachmentID returns the endpoint's unique CNI attachment ID
+func (e *Endpoint) GetCNIAttachmentID() string {
+	e.unconditionalRLock()
+	defer e.runlock()
+	return e.getCNIAttachmentIDLocked()
+}
+
 // GetContainerID returns the endpoint's container ID
 func (e *Endpoint) GetContainerID() string {
 	e.unconditionalRLock()
@@ -80,8 +95,12 @@ func (e *Endpoint) GetDockerEndpointID() string {
 // IdentifiersLocked fetches the set of attributes that uniquely identify the
 // endpoint. The caller must hold exclusive control over the endpoint.
 func (e *Endpoint) IdentifiersLocked() id.Identifiers {
-	refs := make(id.Identifiers, 6)
-	if e.containerID != "" {
+	refs := make(id.Identifiers, 7)
+	if cniID := e.getCNIAttachmentIDLocked(); cniID != "" {
+		refs[id.CNIAttachmentIdPrefix] = cniID
+	}
+
+	if !e.disableLegacyIdentifiers && e.containerID != "" {
 		refs[id.ContainerIdPrefix] = e.containerID
 	}
 
@@ -97,7 +116,7 @@ func (e *Endpoint) IdentifiersLocked() id.Identifiers {
 		refs[id.IPv6Prefix] = e.IPv6.String()
 	}
 
-	if e.containerName != "" {
+	if !e.disableLegacyIdentifiers && e.containerName != "" {
 		refs[id.ContainerNamePrefix] = e.containerName
 	}
 

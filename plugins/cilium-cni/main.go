@@ -663,7 +663,7 @@ func cmdDel(args *skel.CmdArgs) error {
 		return err
 	}
 
-	id := endpointid.NewID(endpointid.ContainerIdPrefix, args.ContainerID)
+	id := endpointid.NewCNIAttachmentID(args.ContainerID, args.IfName)
 	if err := c.EndpointDelete(id); err != nil {
 		// EndpointDelete returns an error in the following scenarios:
 		// DeleteEndpointIDInvalid: Invalid delete parameters, no need to retry
@@ -787,7 +787,7 @@ func cmdCheck(args *skel.CmdArgs) error {
 	defer netNs.Close()
 
 	// Ask the agent for the endpoint's health
-	eID := fmt.Sprintf("container-id:%s", args.ContainerID)
+	eID := endpointid.NewCNIAttachmentID(args.ContainerID, args.IfName)
 	logger.Debugf("Asking agent for healthz for %s", eID)
 	epHealth, err := c.EndpointHealthGet(eID)
 	if err != nil {
@@ -799,7 +799,7 @@ func cmdCheck(args *skel.CmdArgs) error {
 		return cniTypes.NewError(types.CniErrUnhealthy, "Unhealthy",
 			"container is unhealthy in agent")
 	}
-	logger.Debugf("Container %s has a healthy agent endpoint", args.ContainerID)
+	logger.Debugf("Container %s:%s has a healthy agent endpoint", args.ContainerID, args.IfName)
 
 	// Verify that the interface exists and has the desired IP address
 	// we can get the IP from the CNI previous result.

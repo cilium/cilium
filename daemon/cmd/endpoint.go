@@ -244,7 +244,7 @@ func newEndpointCreationManager(cs client.Clientset) *endpointCreationManager {
 
 func (m *endpointCreationManager) NewCreateRequest(ep *endpoint.Endpoint, cancel context.CancelFunc) {
 	// Tracking is only performed if Kubernetes pod names are available.
-	// The endpoint create logic already ensures that IPs and containerID
+	// The endpoint create logic already ensures that IPs and CNI attachment ID
 	// are unique and thus tracking is not required outside of the
 	// Kubernetes context
 	if !ep.K8sNamespaceAndPodNameIsSet() || !m.clientset.IsEnabled() {
@@ -350,9 +350,9 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		return invalidDataError(ep, fmt.Errorf("endpoint ID %d already exists", ep.ID))
 	}
 
-	oldEp = d.endpointManager.LookupContainerID(ep.GetContainerID())
+	oldEp = d.endpointManager.LookupCNIAttachmentID(ep.GetCNIAttachmentID())
 	if oldEp != nil {
-		return invalidDataError(ep, fmt.Errorf("endpoint for container %s already exists", ep.GetContainerID()))
+		return invalidDataError(ep, fmt.Errorf("endpoint for CNI attachment ID %s already exists", ep.GetCNIAttachmentID()))
 	}
 
 	var checkIDs []string

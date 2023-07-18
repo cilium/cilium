@@ -259,6 +259,9 @@ func (mgr *endpointManager) Lookup(id string) (*endpoint.Endpoint, error) {
 	case endpointid.CiliumGlobalIdPrefix:
 		return nil, ErrUnsupportedID
 
+	case endpointid.CNIAttachmentIdPrefix:
+		return mgr.lookupCNIAttachmentID(eid), nil
+
 	case endpointid.ContainerIdPrefix:
 		return mgr.lookupContainerID(eid), nil
 
@@ -290,10 +293,10 @@ func (mgr *endpointManager) LookupCiliumID(id uint16) *endpoint.Endpoint {
 	return ep
 }
 
-// LookupContainerID looks up endpoint by container ID
-func (mgr *endpointManager) LookupContainerID(id string) *endpoint.Endpoint {
+// LookupCNIAttachmentID looks up endpoint by CNI attachment ID
+func (mgr *endpointManager) LookupCNIAttachmentID(id string) *endpoint.Endpoint {
 	mgr.mutex.RLock()
-	ep := mgr.lookupContainerID(id)
+	ep := mgr.lookupCNIAttachmentID(id)
 	mgr.mutex.RUnlock()
 	return ep
 }
@@ -366,9 +369,9 @@ func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
 	if previousState != endpoint.StateRestoring {
 		if err = mgr.ReleaseID(ep); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
-				"state":               previousState,
-				logfields.ContainerID: identifiers[endpointid.ContainerIdPrefix],
-				logfields.K8sPodName:  identifiers[endpointid.PodNamePrefix],
+				"state":                   previousState,
+				logfields.CNIAttachmentID: identifiers[endpointid.CNIAttachmentIdPrefix],
+				logfields.K8sPodName:      identifiers[endpointid.PodNamePrefix],
 			}).Warning("Unable to release endpoint ID")
 		}
 	}
@@ -451,6 +454,13 @@ func (mgr *endpointManager) lookupIPv6(ipv6 string) *endpoint.Endpoint {
 
 func (mgr *endpointManager) lookupContainerID(id string) *endpoint.Endpoint {
 	if ep, ok := mgr.endpointsAux[endpointid.NewID(endpointid.ContainerIdPrefix, id)]; ok {
+		return ep
+	}
+	return nil
+}
+
+func (mgr *endpointManager) lookupCNIAttachmentID(id string) *endpoint.Endpoint {
+	if ep, ok := mgr.endpointsAux[endpointid.NewID(endpointid.CNIAttachmentIdPrefix, id)]; ok {
 		return ep
 	}
 	return nil
