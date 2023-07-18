@@ -803,20 +803,14 @@ func (manager *Manager) reconcileLocked() {
 		return
 	}
 
-	if manager.eventBitmapIsSet(eventUpdateEndpoint, eventDeleteEndpoint) {
-		manager.updatePoliciesMatchedEndpointIDs()
-		manager.updatePoliciesBySourceIP()
-	}
-
-	if manager.eventBitmapIsSet(eventAddPolicy, eventDeletePolicy) {
-		manager.updatePoliciesBySourceIP()
-	}
-
+	switch {
 	// on eventK8sSyncDone we need to update all caches unconditionally as
 	// we don't know which k8s events/resources were received during the
 	// initial k8s sync
-	if manager.eventBitmapIsSet(eventK8sSyncDone) {
+	case manager.eventBitmapIsSet(eventUpdateEndpoint, eventDeleteEndpoint, eventK8sSyncDone):
 		manager.updatePoliciesMatchedEndpointIDs()
+		fallthrough
+	case manager.eventBitmapIsSet(eventAddPolicy, eventDeletePolicy):
 		manager.updatePoliciesBySourceIP()
 	}
 
