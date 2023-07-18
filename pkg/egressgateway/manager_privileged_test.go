@@ -160,7 +160,10 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	testInterface1Idx := createTestInterface(testInterface1, egressCIDR1)
 	testInterface2Idx := createTestInterface(testInterface2, egressCIDR2)
 
+	defer cleanupIpRulesAndRoutes(testInterface2Idx)
 	defer destroyTestInterface(testInterface2)
+
+	defer cleanupIpRulesAndRoutes(testInterface1Idx)
 	defer destroyTestInterface(testInterface1)
 
 	policyMap := k.manager.policyMap
@@ -451,6 +454,32 @@ func cleanupPolicies(policyMap egressmap.PolicyMap) {
 		pr := parseEgressRule(ep, destCIDR, zeroIP4, zeroIP4)
 		policyMap.Delete(pr.sourceIP, pr.destCIDR)
 	}
+}
+
+func cleanupIpRulesAndRoutes(ifaceIndex int) error {
+	routingTableIdx := egressGatewayRoutingTableIdx(ifaceIndex)
+
+	ipRules, err := listEgressIpRulesForRoutingTable(routingTableIdx)
+	if err != nil {
+		return fmt.Errorf("Can't fetch IP rules")
+	}
+
+	for _, ipRule := range ipRules {
+		deleteIpRule(ipRule)
+	}
+
+	IpRoutes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
+		Table: routingTableIdx,
+	}, netlink.RT_FILTER_TABLE)
+	if err != nil {
+		return fmt.Errorf("Can't fetch IP routes")
+	}
+
+	for _, route := range IpRoutes {
+		deleteIpRoute(route)
+	}
+
+	return nil
 }
 
 func newCiliumNode(name, nodeIP string, nodeLabels map[string]string) nodeTypes.Node {
