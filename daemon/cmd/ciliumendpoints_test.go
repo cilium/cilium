@@ -194,11 +194,11 @@ func Test_cleanStaleCEP(t *testing.T) {
 }
 
 type fakeEPManager struct {
-	byPodName map[string]*endpoint.Endpoint
+	byCEPName map[string]*endpoint.Endpoint
 }
 
-func (epm *fakeEPManager) LookupPodName(name string) *endpoint.Endpoint {
-	ep, ok := epm.byPodName[name]
+func (epm *fakeEPManager) LookupCEPName(namespacedName string) *endpoint.Endpoint {
+	ep, ok := epm.byCEPName[namespacedName]
 	if !ok {
 		return nil
 	}

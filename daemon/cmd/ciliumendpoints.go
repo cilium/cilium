@@ -21,7 +21,7 @@ import (
 )
 
 type localEndpointCache interface {
-	LookupPodName(name string) *endpoint.Endpoint
+	LookupCEPName(namespacedName string) *endpoint.Endpoint
 }
 
 // This must only be run after K8s Pod and CES/CEP caches are synced and local endpoint restoration is complete.
@@ -45,7 +45,7 @@ func (d *Daemon) cleanStaleCEPs(ctx context.Context, eps localEndpointCache, cil
 				return fmt.Errorf("unexpected object type returned from ciliumendpointslice store: %T", cesObj)
 			}
 			for _, cep := range ces.Endpoints {
-				if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() && eps.LookupPodName(ces.Namespace+"/"+cep.Name) == nil {
+				if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() && eps.LookupCEPName(ces.Namespace+"/"+cep.Name) == nil {
 					d.deleteCiliumEndpoint(ctx, ces.Namespace, cep.Name, nil, ciliumClient, eps,
 						enableCiliumEndpointSlice)
 				}
@@ -58,7 +58,7 @@ func (d *Daemon) cleanStaleCEPs(ctx context.Context, eps localEndpointCache, cil
 				return fmt.Errorf("unexpected object type returned from ciliumendpoint store: %T", cepObj)
 			}
 
-			if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() && eps.LookupPodName(cep.Namespace+"/"+cep.Name) == nil {
+			if cep.Networking.NodeIP == node.GetCiliumEndpointNodeIP() && eps.LookupCEPName(cep.Namespace+"/"+cep.Name) == nil {
 				d.deleteCiliumEndpoint(ctx, cep.Namespace, cep.Name, &cep.ObjectMeta.UID, ciliumClient, eps,
 					enableCiliumEndpointSlice)
 			}

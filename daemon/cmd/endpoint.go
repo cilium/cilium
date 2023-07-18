@@ -251,18 +251,18 @@ func (m *endpointCreationManager) NewCreateRequest(ep *endpoint.Endpoint, cancel
 		return
 	}
 
-	podName := ep.GetK8sNamespaceAndPodName()
+	cepName := ep.GetK8sNamespaceAndCEPName()
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if req, ok := m.requests[podName]; ok {
-		ep.Logger(daemonSubsys).Warning("Cancelling obsolete endpoint creating due to new create for same pod")
+	if req, ok := m.requests[cepName]; ok {
+		ep.Logger(daemonSubsys).Warning("Cancelling obsolete endpoint creating due to new create for same cep name")
 		req.cancel()
 	}
 
 	ep.Logger(daemonSubsys).Debug("New create request")
-	m.requests[podName] = &endpointCreationRequest{
+	m.requests[cepName] = &endpointCreationRequest{
 		cancel:   cancel,
 		endpoint: ep,
 		started:  time.Now(),
@@ -274,15 +274,15 @@ func (m *endpointCreationManager) EndCreateRequest(ep *endpoint.Endpoint) bool {
 		return false
 	}
 
-	podName := ep.GetK8sNamespaceAndPodName()
+	cepName := ep.GetK8sNamespaceAndCEPName()
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if req, ok := m.requests[podName]; ok {
+	if req, ok := m.requests[cepName]; ok {
 		if req.endpoint == ep {
 			ep.Logger(daemonSubsys).Debug("End of create request")
-			delete(m.requests, podName)
+			delete(m.requests, cepName)
 			return true
 		}
 	}

@@ -79,7 +79,7 @@ func (fw *fakeEPWatcher) assertDelete(e *types.CiliumEndpoint) (string, bool) {
 
 type fakeEndpointCache struct{}
 
-func (fe *fakeEndpointCache) LookupPodName(namespacedName string) *endpoint.Endpoint {
+func (fe *fakeEndpointCache) LookupCEPName(namespacedName string) *endpoint.Endpoint {
 	return nil
 }
 
