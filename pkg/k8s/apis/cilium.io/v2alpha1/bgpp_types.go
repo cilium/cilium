@@ -27,6 +27,8 @@ const (
 	DefaultBGPKeepAliveTimeSeconds = 30
 	// DefaultBGPGRRestartTimeSeconds defines default Restart Time for graceful restart (RFC 4724, section 4.2)
 	DefaultBGPGRRestartTimeSeconds = 120
+	// BGPLoadBalancerClass defines the BGP Control Plane load balancer class for Services.
+	BGPLoadBalancerClass = "io.cilium/bgp-control-plane"
 )
 
 // +genclient
@@ -198,7 +200,12 @@ type CiliumBGPVirtualRouter struct {
 	// +kubebuilder:default=false
 	ExportPodCIDR *bool `json:"exportPodCIDR,omitempty"`
 	// ServiceSelector selects a group of load balancer services which this
-	// virtual router will announce.
+	// virtual router will announce. The loadBalancerClass for a service must
+	// be nil or specify a class supported by Cilium, e.g. "io.cilium/bgp-control-plane".
+	// Refer to the following document for additional details regarding load balancer
+	// classes:
+	//
+	//   https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class
 	//
 	// If empty / nil no services will be announced.
 	//

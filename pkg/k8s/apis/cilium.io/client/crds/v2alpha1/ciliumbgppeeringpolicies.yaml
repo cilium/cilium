@@ -259,8 +259,12 @@ spec:
                       type: array
                     serviceSelector:
                       description: "ServiceSelector selects a group of load balancer
-                        services which this virtual router will announce. \n If empty
-                        / nil no services will be announced."
+                        services which this virtual router will announce. The loadBalancerClass
+                        for a service must be nil or specify a class supported by
+                        Cilium, e.g. \"io.cilium/bgp-control-plane\". Refer to the
+                        following document for additional details regarding load balancer
+                        classes: \n   https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class
+                        \n If empty / nil no services will be announced."
                       properties:
                         matchExpressions:
                           description: matchExpressions is a list of label selector

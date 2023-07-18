@@ -627,26 +627,33 @@ func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *Ser
 // desired state.
 func (r *LBServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service, ls localServices) ([]netip.Prefix, error) {
 	if newc.ServiceSelector == nil {
-		// If the vRouter has no service selector, there are no desired routes
+		// If the vRouter has no service selector, there are no desired routes.
 		return nil, nil
 	}
 
-	// Ignore non-loadbalancer services
+	// Ignore non-loadbalancer services.
 	if svc.Spec.Type != slim_corev1.ServiceTypeLoadBalancer {
 		return nil, nil
 	}
 
+	// The vRouter has a service selector, so determine the desired routes.
 	svcSelector, err := slim_metav1.LabelSelectorAsSelector(newc.ServiceSelector)
 	if err != nil {
 		return nil, fmt.Errorf("labelSelectorAsSelector: %w", err)
 	}
 
-	// Ignore non matching services
+	// Ignore non matching services.
 	if !svcSelector.Matches(serviceLabelSet(svc)) {
 		return nil, nil
 	}
 
-	// Ignore externalTrafficPolicy == Local && no local endpoints
+	// Ignore service managed by an unsupported LB class.
+	if svc.Spec.LoadBalancerClass != nil && *svc.Spec.LoadBalancerClass != v2alpha1api.BGPLoadBalancerClass {
+		// The service is managed by a different LB class.
+		return nil, nil
+	}
+
+	// Ignore externalTrafficPolicy == Local && no local endpoints.
 	if svc.Spec.ExternalTrafficPolicy == slim_corev1.ServiceExternalTrafficPolicyLocal &&
 		!hasLocalEndpoints(svc, ls) {
 		return nil, nil
