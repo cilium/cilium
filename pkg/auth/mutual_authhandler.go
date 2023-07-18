@@ -16,6 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -276,4 +277,8 @@ func (m *mutualAuthHandler) verifyPeerCertificate(id *identity.NumericIdentity, 
 
 func (m *mutualAuthHandler) subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {
 	return m.cert.SubscribeToRotatedIdentities()
+}
+
+func (m *mutualAuthHandler) certProviderStatus() *models.Status {
+	return m.cert.Status()
 }

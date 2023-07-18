@@ -1019,6 +1019,26 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 				}
 			},
 		},
+		{
+			Name: "auth-cert-provider",
+			Probe: func(ctx context.Context) (interface{}, error) {
+				if d.authManager == nil {
+					return &models.Status{State: models.StatusStateDisabled}, nil
+				}
+
+				return d.authManager.CertProviderStatus(), nil
+			},
+			OnStatusUpdate: func(status status.Status) {
+				d.statusCollectMutex.Lock()
+				defer d.statusCollectMutex.Unlock()
+
+				if status.Err == nil {
+					if s, ok := status.Data.(*models.Status); ok {
+						d.statusResponse.AuthCertificateProvider = s
+					}
+				}
+			},
+		},
 	}
 
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()

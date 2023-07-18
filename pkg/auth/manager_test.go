@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
@@ -120,7 +121,7 @@ func Test_authManager_handleAuthRequest(t *testing.T) {
 	assert.NotNil(t, am)
 
 	handleAuthCalled := false
-	am.handleAuthenticationFunc = func(_ *authManager, k authKey, reAuth bool) {
+	am.handleAuthenticationFunc = func(_ *AuthManager, k authKey, reAuth bool) {
 		handleAuthCalled = true
 		assert.False(t, reAuth)
 		assert.Equal(t, authKey{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 0, authType: 100}, k)
@@ -160,7 +161,7 @@ func Test_authManager_handleCertificateRotationEvent(t *testing.T) {
 	assert.NotNil(t, am)
 
 	handleAuthCalled := false
-	am.handleAuthenticationFunc = func(_ *authManager, k authKey, reAuth bool) {
+	am.handleAuthenticationFunc = func(_ *AuthManager, k authKey, reAuth bool) {
 		handleAuthCalled = true
 		assert.True(t, reAuth)
 		assert.True(t, k.localIdentity == 2 || k.remoteIdentity == 2)
@@ -210,6 +211,10 @@ func (r *fakeAuthHandler) authType() policy.AuthType {
 }
 
 func (r *fakeAuthHandler) subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {
+	return nil
+}
+
+func (r *fakeAuthHandler) certProviderStatus() *models.Status {
 	return nil
 }
 
