@@ -955,6 +955,7 @@ here.
 | NAT64 | 188 |  |
 | AUTH_REQUIRED | 189 |  |
 | NO_EGRESS_GATEWAY | 194 |  |
+| TTL_EXCEEDED | 196 |  |
 
 
 
