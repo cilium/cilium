@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/blang/semver/v4"
+
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
 )
@@ -16,11 +18,43 @@ import (
 // NoErrorsInLogs checks whether there are no error messages in cilium-agent
 // logs. The error messages are defined in badLogMsgsWithExceptions, which key
 // is an error message, while values is a list of ignored messages.
-func NoErrorsInLogs() check.Scenario {
-	return &noErrorsInLogs{}
+func NoErrorsInLogs(ciliumVersion semver.Version) check.Scenario {
+	// Exceptions for level=error should only be added as a last resort, if the
+	// error cannot be fixed in Cilium or in the test.
+	errorLogExceptions := []string{"Error in delegate stream, restarting", failedToListCRDs}
+	if ciliumVersion.LT(semver.MustParse("1.14.0")) {
+		errorLogExceptions = append(errorLogExceptions, previouslyUsedCIDR)
+	}
+	// The list is adopted from cilium/cilium/test/helper/utils.go
+	var errorMsgsWithExceptions = map[string][]string{
+		panicMessage:        nil,
+		deadLockHeader:      nil,
+		segmentationFault:   nil,
+		NACKreceived:        nil,
+		RunInitFailed:       nil,
+		sizeMismatch:        {"globals/cilium_policy"},
+		emptyBPFInitArg:     nil,
+		RemovingMapMsg:      nil,
+		logBufferMessage:    nil,
+		ClangErrorsMsg:      nil,
+		ClangErrorMsg:       nil,
+		symbolSubstitution:  nil,
+		uninitializedRegen:  nil,
+		unstableStat:        nil,
+		removeTransientRule: nil,
+		missingIptablesWait: nil,
+		localIDRestoreFail:  nil,
+		routerIPMismatch:    nil,
+		emptyIPNodeIDAlloc:  nil,
+		"DATA RACE":         nil,
+		"level=error":       errorLogExceptions,
+	}
+	return &noErrorsInLogs{errorMsgsWithExceptions}
 }
 
-type noErrorsInLogs struct{}
+type noErrorsInLogs struct {
+	errorMsgsWithExceptions map[string][]string
+}
 
 func (n *noErrorsInLogs) Name() string {
 	return "no-errors-in-logs"
@@ -36,7 +70,7 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 		if err != nil {
 			t.Fatalf("Error reading Cilium logs: %s", err)
 		}
-		checkErrorsInLogs(logs, t)
+		n.checkErrorsInLogs(logs, t)
 	}
 
 }
@@ -83,10 +117,10 @@ func (n *noMissedTailCalls) Run(ctx context.Context, t *check.Test) {
 
 }
 
-func checkErrorsInLogs(logs string, t *check.Test) {
+func (n *noErrorsInLogs) checkErrorsInLogs(logs string, t *check.Test) {
 	uniqueFailures := make(map[string]int)
 	for _, msg := range strings.Split(logs, "\n") {
-		for fail, ignoreMsgs := range errorMsgsWithExceptions {
+		for fail, ignoreMsgs := range n.errorMsgsWithExceptions {
 			if strings.Contains(msg, fail) {
 				ok := false
 				for _, ignore := range ignoreMsgs {
@@ -136,31 +170,5 @@ const (
 	routerIPMismatch    = "Mismatch of router IPs found during restoration"
 	emptyIPNodeIDAlloc  = "Attempt to allocate a node ID for an empty node IP address"
 	failedToListCRDs    = "the server could not find the requested resource" // cf. https://github.com/cilium/cilium/issues/16425
+	previouslyUsedCIDR  = "Unable to find identity of previously used CIDR"  // from https://github.com/cilium/cilium/issues/26881
 )
-
-// The list is adopted from cilium/cilium/test/helper/utils.go
-var errorMsgsWithExceptions = map[string][]string{
-	panicMessage:        nil,
-	deadLockHeader:      nil,
-	segmentationFault:   nil,
-	NACKreceived:        nil,
-	RunInitFailed:       nil,
-	sizeMismatch:        {"globals/cilium_policy"},
-	emptyBPFInitArg:     nil,
-	RemovingMapMsg:      nil,
-	logBufferMessage:    nil,
-	ClangErrorsMsg:      nil,
-	ClangErrorMsg:       nil,
-	symbolSubstitution:  nil,
-	uninitializedRegen:  nil,
-	unstableStat:        nil,
-	removeTransientRule: nil,
-	missingIptablesWait: nil,
-	localIDRestoreFail:  nil,
-	routerIPMismatch:    nil,
-	emptyIPNodeIDAlloc:  nil,
-	"DATA RACE":         nil,
-	// Exceptions for level=error should only be added as a last resort, if the
-	// error cannot be fixed in Cilium or in the test.
-	"level=error": {"Error in delegate stream, restarting", failedToListCRDs},
-}
