@@ -121,6 +121,10 @@ spec:
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+        {{- with .Values.clustermesh.apiserver.etcd.lifecycle }}
+        lifecycle:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
       - name: apiserver
         image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
         imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
@@ -176,6 +180,10 @@ spec:
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+        {{- with .Values.clustermesh.apiserver.lifecycle }}
+        lifecycle:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
       volumes:
       - name: etcd-server-secrets
         secret:
@@ -196,6 +204,7 @@ spec:
       priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.clustermesh.apiserver.priorityClassName "system-cluster-critical") }}
       serviceAccount: {{ .Values.serviceAccounts.clustermeshApiserver.name | quote }}
       serviceAccountName: {{ .Values.serviceAccounts.clustermeshApiserver.name | quote }}
+      terminationGracePeriodSeconds: {{ .Values.clustermesh.apiserver.terminationGracePeriodSeconds }}
       automountServiceAccountToken: {{ .Values.serviceAccounts.clustermeshApiserver.automount }}
       {{- with .Values.clustermesh.apiserver.affinity }}
       affinity:

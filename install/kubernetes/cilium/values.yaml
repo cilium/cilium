@@ -2281,7 +2281,10 @@ clustermesh:
 
       # -- Security context to be added to clustermesh-apiserver etcd containers
       securityContext: {}
-
+      
+      # -- lifecycle setting for the etcd container.
+      lifecycle: {}
+      
       init:
         # -- Specifies the resources for etcd init container in the apiserver
         resources: {}
@@ -2315,6 +2318,12 @@ clustermesh:
 
     # -- Number of replicas run for the clustermesh-apiserver deployment.
     replicas: 1
+
+    # -- lifecycle setting for the apiserver container.
+    lifecycle: {}
+
+    # -- terminationGracePeriodSeconds(default 30s) for the clustermesh-apiserver deployment.
+    terminationGracePeriodSeconds: 30
 
     # -- Additional clustermesh-apiserver environment variables.
     extraEnv: []
