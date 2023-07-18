@@ -764,11 +764,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.ExternalEnvoyProxy, false, "whether the Envoy is deployed externally in form of a DaemonSet or not")
 	option.BindEnv(vp, option.ExternalEnvoyProxy)
 
-	flags.StringP(option.TunnelName, "t", "", fmt.Sprintf("Tunnel mode {%s} (default \"vxlan\" for the \"veth\" datapath mode)", option.GetTunnelModes()))
-	option.BindEnv(vp, option.TunnelName)
-	flags.MarkDeprecated(option.TunnelName,
-		fmt.Sprintf("This option will be removed in v1.15. Please use --%s and --%s instead.", option.RoutingMode, option.TunnelProtocol))
-
 	flags.String(option.RoutingMode, defaults.RoutingMode, fmt.Sprintf("Routing mode (%q or %q)", option.RoutingModeNative, option.RoutingModeTunnel))
 	option.BindEnv(vp, option.RoutingMode)
 
