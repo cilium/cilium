@@ -1067,7 +1067,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 	}
 
 	if ct.Params().IncludeUnsafeTests {
-		ct.NewTest("check-log-errors").WithScenarios(tests.NoErrorsInLogs())
+		ct.NewTest("check-log-errors").WithScenarios(tests.NoErrorsInLogs(ct.CiliumVersion))
 	}
 
 	return ct.Run(ctx)
