@@ -152,14 +152,16 @@ spec:
                     description: Docker network ID
                     type: string
                   k8s-namespace:
-                    description: K8s namespace for this endpoint
+                    description: K8s namespace for this endpoint (deprecated, may
+                      not be unique)
                     type: string
                   k8s-pod-name:
-                    description: K8s pod name for this endpoint
+                    description: K8s pod name for this endpoint (deprecated, may not
+                      be unique)
                     type: string
                   pod-name:
-                    description: K8s pod for this endpoint(Deprecated, use K8sPodName
-                      and K8sNamespace instead)
+                    description: K8s pod for this endpoint (deprecated, may not be
+                      unique)
                     type: string
                 type: object
               health:
