@@ -55,7 +55,7 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 {
 	if (ipv4_dec_ttl(ctx, l3_off, ip4)) {
 		/* FIXME: Send ICMP TTL */
-		return DROP_INVALID;
+		return DROP_TTL_EXCEEDED;
 	}
 
 	if (smac && eth_store_saddr(ctx, smac, 0) < 0)
