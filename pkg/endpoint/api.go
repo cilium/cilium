@@ -141,15 +141,22 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 }
 
 func (e *Endpoint) getModelEndpointIdentitiersRLocked() *models.EndpointIdentifiers {
-	return &models.EndpointIdentifiers{
-		ContainerID:      e.containerID,
-		ContainerName:    e.containerName,
+	identifiers := &models.EndpointIdentifiers{
+		CniAttachmentID:  e.getCNIAttachmentIDLocked(),
 		DockerEndpointID: e.dockerEndpointID,
 		DockerNetworkID:  e.dockerNetworkID,
 		PodName:          e.GetK8sNamespaceAndPodName(),
 		K8sPodName:       e.K8sPodName,
 		K8sNamespace:     e.K8sNamespace,
 	}
+
+	// Use legacy endpoint identifiers only if the endpoint has not opted out
+	if !e.disableLegacyIdentifiers {
+		identifiers.ContainerID = e.containerID
+		identifiers.ContainerName = e.containerName
+	}
+
+	return identifiers
 }
 
 func (e *Endpoint) getModelNetworkingRLocked() *models.EndpointNetworking {

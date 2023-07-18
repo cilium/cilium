@@ -35,6 +35,9 @@ const (
 	// EventUUID is an event unique identifier
 	EventUUID = "eventID"
 
+	// CNIAttachmentID uniquely identifies an endpoint
+	CNIAttachmentID = "cniAttachmentID"
+
 	// ContainerID is the container identifier
 	ContainerID = "containerID"
 

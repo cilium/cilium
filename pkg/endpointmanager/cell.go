@@ -42,8 +42,8 @@ type EndpointsLookup interface {
 	// LookupCiliumID looks up endpoint by endpoint ID
 	LookupCiliumID(id uint16) *endpoint.Endpoint
 
-	// LookupContainerID looks up endpoint by container ID
-	LookupContainerID(id string) *endpoint.Endpoint
+	// LookupCNIAttachmentID looks up endpoint by CNI attachment ID
+	LookupCNIAttachmentID(id string) *endpoint.Endpoint
 
 	// LookupIPv4 looks up endpoint by IPv4 address
 	LookupIPv4(ipv4 string) *endpoint.Endpoint

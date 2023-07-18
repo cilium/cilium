@@ -183,7 +183,44 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 			},
 		},
 		{
-			name: "endpoint by container ID",
+			name: "endpoint by CNI attachment ID",
+			cm: apiv1.EndpointChangeRequest{
+				ContainerID:            "1234",
+				ContainerInterfaceName: "eth0",
+			},
+			setupArgs: func() args {
+				return args{
+					endpointid.NewCNIAttachmentID("1234", "eth0"),
+				}
+			},
+			setupWant: func() want {
+				return want{
+					ep:       true,
+					err:      nil,
+					errCheck: Equals,
+				}
+			},
+		},
+		{
+			name: "endpoint by CNI attachment ID without interface",
+			cm: apiv1.EndpointChangeRequest{
+				ContainerID: "1234",
+			},
+			setupArgs: func() args {
+				return args{
+					endpointid.NewCNIAttachmentID("1234", ""),
+				}
+			},
+			setupWant: func() want {
+				return want{
+					ep:       true,
+					err:      nil,
+					errCheck: Equals,
+				}
+			},
+		},
+		{
+			name: "endpoint by container ID (deprecated)",
 			cm: apiv1.EndpointChangeRequest{
 				ContainerID: "1234",
 			},
@@ -219,7 +256,7 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 			},
 		},
 		{
-			name: "endpoint by container name",
+			name: "endpoint by container name (deprecated)",
 			cm: apiv1.EndpointChangeRequest{
 				ContainerName: "foo",
 			},
@@ -300,6 +337,25 @@ func (s *EndpointManagerSuite) TestLookup(c *C) {
 				return want{
 					err:      nil,
 					errCheck: Not(Equals),
+				}
+			},
+		},
+		{
+			name: "invalid lookup with container id with disabled legacy identifiers",
+			cm: apiv1.EndpointChangeRequest{
+				ContainerID:              "1234",
+				DisableLegacyIdentifiers: true,
+			},
+			setupArgs: func() args {
+				return args{
+					endpointid.NewID(endpointid.ContainerIdPrefix, "1234"),
+				}
+			},
+			setupWant: func() want {
+				return want{
+					ep:       false,
+					err:      nil,
+					errCheck: Equals,
 				}
 			},
 		},
@@ -392,20 +448,23 @@ func (s *EndpointManagerSuite) TestLookupCiliumID(c *C) {
 	}
 }
 
-func (s *EndpointManagerSuite) TestLookupContainerID(c *C) {
+func (s *EndpointManagerSuite) TestLookupCNIAttachmentID(c *C) {
 	mgr := New(&dummyEpSyncher{})
 	ep, err := endpoint.NewEndpointFromChangeModel(context.Background(), s, s, testipcache.NewMockIPCache(), &endpoint.FakeEndpointProxy{}, testidentity.NewMockIdentityAllocator(nil), &apiv1.EndpointChangeRequest{
-		ContainerID: "foo",
+		ContainerID:            "foo",
+		ContainerInterfaceName: "bar",
 	})
 	c.Assert(err, IsNil)
 	mgr.expose(ep)
 
-	good := mgr.LookupContainerID("foo")
+	good := mgr.LookupCNIAttachmentID("foo:bar")
 	c.Assert(good, checker.DeepEquals, ep)
 
-	bad := mgr.LookupContainerID("asdf")
+	bad := mgr.LookupCNIAttachmentID("foo")
 	c.Assert(bad, IsNil)
 
+	bad = mgr.LookupCNIAttachmentID("asdf")
+	c.Assert(bad, IsNil)
 }
 
 func (s *EndpointManagerSuite) TestLookupIPv4(c *C) {
@@ -579,7 +638,7 @@ func (s *EndpointManagerSuite) TestUpdateReferences(c *C) {
 		want := tt.setupWant()
 		mgr.updateReferencesLocked(ep, ep.IdentifiersLocked())
 
-		ep = mgr.LookupContainerID(want.ep.GetContainerID())
+		ep = mgr.LookupCNIAttachmentID(want.ep.GetCNIAttachmentID())
 		c.Assert(ep, checker.DeepEquals, want.ep, Commentf("Test Name: %s", tt.name))
 
 		ep = mgr.lookupDockerEndpoint(want.ep.GetDockerEndpointID())

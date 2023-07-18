@@ -101,6 +101,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 		fmt.Fprintf(fw, " * Docker Endpoint ID: %s\n", e.dockerEndpointID)
 	} else {
 		fmt.Fprintf(fw, " * Container ID: %s\n", e.containerID)
+		fmt.Fprintf(fw, " * Container Interface: %s\n", e.containerIfName)
 	}
 
 	if option.Config.EnableIPv6 {

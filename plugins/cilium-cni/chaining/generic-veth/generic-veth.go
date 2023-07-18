@@ -211,16 +211,19 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		},
 	}
 
+	scopedLog := pluginCtx.Logger.WithFields(logrus.Fields{
+		logfields.ContainerID:        ep.ContainerID,
+		logfields.ContainerInterface: ep.ContainerInterfaceName,
+	})
+
 	err = cli.EndpointCreate(ep)
 	if err != nil {
-		pluginCtx.Logger.WithError(err).WithFields(logrus.Fields{
-			logfields.ContainerID: ep.ContainerID}).Warn("Unable to create endpoint")
+		scopedLog.WithError(err).Warn("Unable to create endpoint")
 		err = fmt.Errorf("unable to create endpoint: %s", err)
 		return
 	}
 
-	pluginCtx.Logger.WithFields(logrus.Fields{
-		logfields.ContainerID: ep.ContainerID}).Debug("Endpoint successfully created")
+	scopedLog.Debug("Endpoint successfully created")
 
 	res = prevRes
 
@@ -228,7 +231,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 }
 
 func (f *GenericVethChainer) Delete(ctx context.Context, pluginCtx chainingapi.PluginContext, delClient *lib.DeletionFallbackClient) (err error) {
-	id := endpointid.NewID(endpointid.ContainerIdPrefix, pluginCtx.Args.ContainerID)
+	id := endpointid.NewCNIAttachmentID(pluginCtx.Args.ContainerID, pluginCtx.Args.IfName)
 	if err := delClient.EndpointDelete(id); err != nil {
 		pluginCtx.Logger.WithError(err).Warning("Errors encountered while deleting endpoint")
 	}
@@ -237,7 +240,7 @@ func (f *GenericVethChainer) Delete(ctx context.Context, pluginCtx chainingapi.P
 
 func (f *GenericVethChainer) Check(ctx context.Context, pluginCtx chainingapi.PluginContext, cli *client.Client) error {
 	// Just confirm that the endpoint is healthy
-	eID := fmt.Sprintf("container-id:%s", pluginCtx.Args.ContainerID)
+	eID := endpointid.NewCNIAttachmentID(pluginCtx.Args.ContainerID, pluginCtx.Args.IfName)
 	pluginCtx.Logger.Debugf("Asking agent for healthz for %s", eID)
 	epHealth, err := cli.EndpointHealthGet(eID)
 	if err != nil {
@@ -249,7 +252,7 @@ func (f *GenericVethChainer) Check(ctx context.Context, pluginCtx chainingapi.Pl
 		return cniTypes.NewError(types.CniErrUnhealthy, "Unhealthy",
 			"container is unhealthy in agent")
 	}
-	pluginCtx.Logger.Debugf("Container %s has a healthy agent endpoint", pluginCtx.Args.ContainerID)
+	pluginCtx.Logger.Debugf("Container %s:%s has a healthy agent endpoint", pluginCtx.Args.ContainerID, pluginCtx.Args.IfName)
 	return nil
 }
 
