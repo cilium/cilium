@@ -215,17 +215,17 @@ func initKubeProxyReplacementOptions(tunnelConfig tunnel.Config) error {
 
 	if option.Config.EnableNodePort {
 		if option.Config.TunnelingEnabled() && tunnelConfig.Protocol() == tunnel.VXLAN &&
-			option.Config.NodePortMode != option.NodePortModeSNAT {
+			option.Config.LoadBalancerUsesDSR() {
 			return fmt.Errorf("Node Port %q mode cannot be used with %s tunneling.", option.Config.NodePortMode, tunnel.VXLAN)
 		}
 
-		if option.Config.TunnelingEnabled() && option.Config.NodePortMode != option.NodePortModeSNAT &&
+		if option.Config.TunnelingEnabled() && option.Config.LoadBalancerUsesDSR() &&
 			option.Config.LoadBalancerDSRDispatch != option.DSRDispatchGeneve {
 			return fmt.Errorf("Tunnel routing with Node Port %q mode requires %s dispatch.",
 				option.Config.NodePortMode, option.DSRDispatchGeneve)
 		}
 
-		if option.Config.NodePortMode != option.NodePortModeSNAT &&
+		if option.Config.LoadBalancerUsesDSR() &&
 			option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve &&
 			tunnelConfig.Protocol() != tunnel.Geneve {
 			return fmt.Errorf("Node Port %q mode with %s dispatch requires %s tunnel protocol.",
@@ -474,7 +474,7 @@ func finishKubeProxyReplacementInit() error {
 
 	if option.Config.EnableIPv4 &&
 		!option.Config.TunnelingEnabled() &&
-		option.Config.NodePortMode != option.NodePortModeSNAT &&
+		option.Config.LoadBalancerUsesDSR() &&
 		len(option.Config.GetDevices()) > 1 {
 
 		// In the case of the multi-dev NodePort DSR, if a request from an
