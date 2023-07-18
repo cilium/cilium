@@ -3107,8 +3107,9 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_HEALTH_CHECK
+# if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 static __always_inline int
-health_encap_v4(struct __ctx_buff *ctx, __u32 tunnel_ep,
+health_encap_v4(struct __ctx_buff *ctx, const struct lb4_health *val,
 		__u32 seclabel)
 {
 	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
@@ -3120,19 +3121,21 @@ health_encap_v4(struct __ctx_buff *ctx, __u32 tunnel_ep,
 	 */
 	memset(&key, 0, sizeof(key));
 	key.tunnel_id = seclabel == HOST_ID ? LOCAL_NODE_ID : seclabel;
-	key.remote_ipv4 = bpf_htonl(tunnel_ep);
+	key.remote_ipv4 = bpf_htonl(val->peer.address);
 	key.tunnel_ttl = IPDEFTTL;
 
 	if (unlikely(ctx_set_tunnel_key(ctx, &key, key_size,
 					BPF_F_ZERO_CSUM_TX) < 0))
 		return DROP_WRITE_ERROR;
-	return 0;
+
+	return ctx_redirect(ctx, ENCAP4_IFINDEX, 0);
 }
 
 static __always_inline int
-health_encap_v6(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
+health_encap_v6(struct __ctx_buff *ctx, const struct lb6_health *val,
 		__u32 seclabel)
 {
+	const union v6addr *tunnel_ep = &val->peer.address;
 	__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 	struct bpf_tunnel_key key;
 
@@ -3148,8 +3151,12 @@ health_encap_v6(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
 					BPF_F_ZERO_CSUM_TX |
 					BPF_F_TUNINFO_IPV6) < 0))
 		return DROP_WRITE_ERROR;
-	return 0;
+
+	return ctx_redirect(ctx, ENCAP6_IFINDEX, 0);
 }
+# else
+# error "Invalid load balancer DSR encapsulation mode for LB Health-check!"
+# endif
 
 static __always_inline int
 lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
@@ -3159,12 +3166,12 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 	int ret __maybe_unused;
 	__u16 proto = 0;
 
-	if ((ctx->mark & MARK_MAGIC_HEALTH_IPIP_DONE) ==
-	    MARK_MAGIC_HEALTH_IPIP_DONE)
+	if ((ctx->mark & MARK_MAGIC_HEALTH_LB_DONE) ==
+	    MARK_MAGIC_HEALTH_LB_DONE)
 		return CTX_ACT_OK;
 	validate_ethertype(ctx, &proto);
 	switch (proto) {
-#if defined(ENABLE_IPV4) && DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+#if defined(ENABLE_IPV4)
 	case bpf_htons(ETH_P_IP): {
 		struct lb4_health *val;
 
@@ -3172,14 +3179,15 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 		val = map_lookup_elem(&LB4_HEALTH_MAP, &key);
 		if (!val)
 			return CTX_ACT_OK;
-		ret = health_encap_v4(ctx, val->peer.address, 0);
-		if (ret != 0)
+		ret = health_encap_v4(ctx, val, 0);
+		if (IS_ERR(ret))
 			return ret;
-		ctx->mark |= MARK_MAGIC_HEALTH_IPIP_DONE;
-		return ctx_redirect(ctx, ENCAP4_IFINDEX, 0);
+
+		ctx->mark |= MARK_MAGIC_HEALTH_LB_DONE;
+		return ret;
 	}
 #endif
-#if defined(ENABLE_IPV6) && DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+#if defined(ENABLE_IPV6)
 	case bpf_htons(ETH_P_IPV6): {
 		struct lb6_health *val;
 
@@ -3187,11 +3195,12 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 		val = map_lookup_elem(&LB6_HEALTH_MAP, &key);
 		if (!val)
 			return CTX_ACT_OK;
-		ret = health_encap_v6(ctx, &val->peer.address, 0);
-		if (ret != 0)
+		ret = health_encap_v6(ctx, val, 0);
+		if (IS_ERR(ret))
 			return ret;
-		ctx->mark |= MARK_MAGIC_HEALTH_IPIP_DONE;
-		return ctx_redirect(ctx, ENCAP6_IFINDEX, 0);
+
+		ctx->mark |= MARK_MAGIC_HEALTH_LB_DONE;
+		return ret;
 	}
 #endif
 	default:

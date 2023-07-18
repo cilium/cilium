@@ -1986,7 +1986,7 @@ type DaemonConfig struct {
 	// EnableSVCSourceRangeCheck enables check of loadBalancerSourceRanges
 	EnableSVCSourceRangeCheck bool
 
-	// EnableHealthDatapath enables IPIP health probes data path
+	// EnableHealthDatapath enables Standalone-LB health probes data path
 	EnableHealthDatapath bool
 
 	// EnableHostPort enables k8s Pod's hostPort mapping through BPF
