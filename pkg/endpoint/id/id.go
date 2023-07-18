@@ -58,9 +58,17 @@ const (
 	// Deprecated. Use CNIAttachmentIdPrefix instead
 	ContainerNamePrefix PrefixType = "container-name"
 
+	// CEPNamePrefix is used to address an endpoint via its Kubernetes
+	// CiliumEndpoint resource name. This addressing only works if the endpoint
+	// is represented as a Kubernetes CiliumEndpoint resource.
+	CEPNamePrefix PrefixType = "cep-name"
+
 	// PodNamePrefix is used to address an endpoint via the Kubernetes pod
 	// name. This addressing only works if the endpoint represents as
 	// Kubernetes pod.
+	// This can only be used to look up endpoints which have not opted-out of
+	// legacy identifiers.
+	// Deprecated. May not be unique. Use CEPNamePrefix instead.
 	PodNamePrefix PrefixType = "pod-name"
 
 	// IPv4Prefix is used to address an endpoint via the endpoint's IPv4
@@ -140,6 +148,7 @@ func Parse(id string) (PrefixType, string, error) {
 		ContainerIdPrefix,
 		DockerEndpointPrefix,
 		ContainerNamePrefix,
+		CEPNamePrefix,
 		PodNamePrefix,
 		IPv4Prefix,
 		IPv6Prefix:

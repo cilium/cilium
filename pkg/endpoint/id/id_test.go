@@ -61,6 +61,16 @@ func (s *IDSuite) TestSplitID(c *C) {
 			},
 		},
 		{
+			name: "ID with CEPNamePrefix prefix",
+			id:   string(CEPNamePrefix) + ":default:baz-net1",
+			want: want{
+				prefixType:      CEPNamePrefix,
+				prefixTypeCheck: Equals,
+				id:              "default:baz-net1",
+				idCheck:         Equals,
+			},
+		},
+		{
 			name: "ID with ':'",
 			id:   ":",
 			want: want{

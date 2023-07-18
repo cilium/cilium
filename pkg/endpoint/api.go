@@ -145,15 +145,15 @@ func (e *Endpoint) getModelEndpointIdentitiersRLocked() *models.EndpointIdentifi
 		CniAttachmentID:  e.getCNIAttachmentIDLocked(),
 		DockerEndpointID: e.dockerEndpointID,
 		DockerNetworkID:  e.dockerNetworkID,
-		PodName:          e.GetK8sNamespaceAndPodName(),
-		K8sPodName:       e.K8sPodName,
-		K8sNamespace:     e.K8sNamespace,
 	}
 
 	// Use legacy endpoint identifiers only if the endpoint has not opted out
 	if !e.disableLegacyIdentifiers {
 		identifiers.ContainerID = e.containerID
 		identifiers.ContainerName = e.containerName
+		identifiers.PodName = e.GetK8sNamespaceAndPodName()
+		identifiers.K8sPodName = e.K8sPodName
+		identifiers.K8sNamespace = e.K8sNamespace
 	}
 
 	return identifiers

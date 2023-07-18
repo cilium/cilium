@@ -274,6 +274,9 @@ func (mgr *endpointManager) Lookup(id string) (*endpoint.Endpoint, error) {
 	case endpointid.PodNamePrefix:
 		return mgr.lookupPodNameLocked(eid), nil
 
+	case endpointid.CEPNamePrefix:
+		return mgr.lookupCEPNameLocked(eid), nil
+
 	case endpointid.IPv4Prefix:
 		return mgr.lookupIPv4(eid), nil
 
@@ -330,12 +333,26 @@ func (mgr *endpointManager) LookupIP(ip netip.Addr) (ep *endpoint.Endpoint) {
 	return ep
 }
 
-// LookupPodName looks up endpoint by namespace + pod name
-func (mgr *endpointManager) LookupPodName(name string) *endpoint.Endpoint {
+// LookupCEPName looks up an endpoint by its K8s namespace + cep name
+func (mgr *endpointManager) LookupCEPName(namespacedName string) *endpoint.Endpoint {
 	mgr.mutex.RLock()
-	ep := mgr.lookupPodNameLocked(name)
+	ep := mgr.lookupCEPNameLocked(namespacedName)
 	mgr.mutex.RUnlock()
 	return ep
+}
+
+// GetEndpointsByPodName looks up endpoints by namespace + pod name
+func (mgr *endpointManager) GetEndpointsByPodName(namespacedName string) []*endpoint.Endpoint {
+	mgr.mutex.RLock()
+	defer mgr.mutex.RUnlock()
+	eps := make([]*endpoint.Endpoint, 0, 1)
+	for _, ep := range mgr.endpoints {
+		if ep.GetK8sNamespaceAndPodName() == namespacedName {
+			eps = append(eps, ep)
+		}
+	}
+
+	return eps
 }
 
 // ReleaseID releases the ID of the specified endpoint from the endpointManager.
@@ -371,7 +388,7 @@ func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
 			log.WithError(err).WithFields(logrus.Fields{
 				"state":                   previousState,
 				logfields.CNIAttachmentID: identifiers[endpointid.CNIAttachmentIdPrefix],
-				logfields.K8sPodName:      identifiers[endpointid.PodNamePrefix],
+				logfields.CEPName:         identifiers[endpointid.CEPNamePrefix],
 			}).Warning("Unable to release endpoint ID")
 		}
 	}
@@ -426,6 +443,13 @@ func (mgr *endpointManager) lookupDockerEndpoint(id string) *endpoint.Endpoint {
 
 func (mgr *endpointManager) lookupPodNameLocked(name string) *endpoint.Endpoint {
 	if ep, ok := mgr.endpointsAux[endpointid.NewID(endpointid.PodNamePrefix, name)]; ok {
+		return ep
+	}
+	return nil
+}
+
+func (mgr *endpointManager) lookupCEPNameLocked(name string) *endpoint.Endpoint {
+	if ep, ok := mgr.endpointsAux[endpointid.NewID(endpointid.CEPNamePrefix, name)]; ok {
 		return ep
 	}
 	return nil
