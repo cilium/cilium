@@ -87,12 +87,12 @@ Install cluster one
 4.  Install Cilium, it is important to give
     the cluster a unique cluster ID and to tell Cilium to use our custom pod CIDR.
 
-    .. code-block:: bash
+    .. parsed-literal::
 
-        cilium install \
-            --azure-resource-group "${AZURE_RESOURCE_GROUP}" \
-            --cluster-id 1 \
-            --config "cluster-pool-ipv4-cidr=10.10.0.0/16"
+        cilium install |CHART_VERSION| \
+            --set azure.resourceGroup="${AZURE_RESOURCE_GROUP}" \
+            --set cluster.id=1 \
+            --set ipam.operator.clusterPoolIPv4PodCIDRList='{10.10.0.0/16}'
 
 5.  Check the status of Cilium.
 
@@ -175,12 +175,12 @@ arguments.
 4.  Install Cilium, it is important to give
     the cluster a unique cluster ID and to tell Cilium to use our custom pod CIDR.
 
-    .. code-block:: bash
-        
-        cilium install \
-            --azure-resource-group "${AZURE_RESOURCE_GROUP}" \
-            --cluster-id 2 \
-            --config "cluster-pool-ipv4-cidr=10.20.0.0/16"
+    .. parsed-literal::
+
+        cilium install |CHART_VERSION| \
+            --set azure.resourceGroup="${AZURE_RESOURCE_GROUP}" \
+            --set cluster.id=2 \
+            --set ipam.operator.clusterPoolIPv4PodCIDRList='{10.20.0.0/16}'
 
 5.  Check the status of Cilium.
 

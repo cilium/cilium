@@ -66,9 +66,9 @@ Install Cilium
 
 Install Cilium by running:
 
-.. code-block:: shell-session
+.. parsed-literal::
 
-    cilium install
+    cilium install |CHART_VERSION|
 
 Validate the Installation
 =========================

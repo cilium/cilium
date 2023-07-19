@@ -96,15 +96,13 @@ If you are planning to run Hubble Relay across clusters, it is best to share a
 certificate authority (CA) between the clusters as it will enable mTLS across
 clusters to just work.
 
-The easiest way to establish this is to pass ``--inherit-ca`` to the
-``install`` command when installing additional clusters:
+You can propagate the CA copying the Kubernetes secret containing the CA
+from one cluster to another:
 
 .. code-block:: shell-session
 
-   cilium install --context $CLUSTER2 [...] --inherit-ca $CLUSTER1
-
-If you are not using ``cilium install`` for the installation, simply propagate
-the Kubernetes secret containing the CA from one cluster to the other.
+  kubectl --context=$CLUSTER1 get secret -n kube-system cilium-ca -o yaml | \
+    kubectl --context $CLUSTER2 create -f -
 
 .. _enable_clustermesh:
 

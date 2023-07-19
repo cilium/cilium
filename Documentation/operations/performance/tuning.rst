@@ -61,9 +61,11 @@ To enable the iptables connection-tracking bypass:
 
     .. group-tab:: Cilium CLI
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-          cilium install --config install-no-conntrack-iptables-rules=true
+          cilium install |CHART_VERSION| \
+            --set installNoConntrackIptablesRules=true \
+            --set kubeProxyReplacement=true
 
     .. group-tab:: Helm
 

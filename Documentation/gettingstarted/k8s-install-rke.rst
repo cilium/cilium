@@ -61,9 +61,9 @@ Deploy Cilium
 
         Install Cilium by running:
 
-        .. code-block:: shell-session
+        .. parsed-literal::
 
-            cilium install
+            cilium install |CHART_VERSION|
 
 .. include:: k8s-install-restart-pods.rst
 
