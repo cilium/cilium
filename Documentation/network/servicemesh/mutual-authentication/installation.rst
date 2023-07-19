@@ -41,9 +41,9 @@ Installation
         Mutual authentication and associated SPIRE server can be enabled with the following command.
         Note this requires the Cilium CLI Helm mode (version 0.15 or later).
 
-        .. code-block:: shell-session
+        .. parsed-literal::
 
-            $ cilium install \
+            $ cilium install |CHART_VERSION| \
                 --helm-set authentication.mutual.spire.enabled=true \
                 --helm-set authentication.mutual.spire.install.enabled=true
 

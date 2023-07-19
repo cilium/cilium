@@ -58,9 +58,9 @@ Installation
 
         Cilium Ingress Controller can be enabled with the below command
 
-        .. code-block:: shell-session
+        .. parsed-literal::
 
-            $ cilium install \
+            $ cilium install |CHART_VERSION| \
                 --set kubeProxyReplacement=true \
                 --set ingressController.enabled=true \
                 --set ingressController.loadbalancerMode=dedicated
@@ -72,17 +72,17 @@ Installation
         If you only want to use envoy traffic management feature without Ingress support, you should only
         enable ``--enable-envoy-config`` flag.
 
-        .. code-block:: shell-session
+        .. parsed-literal::
 
-            $ cilium install \
+            $ cilium install |CHART_VERSION| \
                 --set kubeProxyReplacement=true \
                 --set-string extraConfig.enable-envoy-config=true
 
         Additionally, the proxy load-balancing feature can be configured with the ``loadBalancer.l7.backend=envoy`` flag.
 
-        .. code-block:: shell-session
+        .. parsed-literal::
 
-            $ cilium install \
+            $ cilium install |CHART_VERSION| \
                 --set kubeProxyReplacement=true \
                 --set-string extraConfig.enable-envoy-config=true \
                 --set loadBalancer.l7.backend=envoy

@@ -74,9 +74,9 @@ Install Cilium
 
 Install Cilium by running:
 
-.. code-block:: shell-session
+.. parsed-literal::
 
-    cilium install --set=ipam.operator.clusterPoolIPv4PodCIDR="10.42.0.0/16"
+    cilium install |CHART_VERSION| --set=ipam.operator.clusterPoolIPv4PodCIDR="10.42.0.0/16"
 
 Validate the Installation
 =========================
