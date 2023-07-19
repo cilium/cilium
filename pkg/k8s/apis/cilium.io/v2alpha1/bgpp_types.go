@@ -99,6 +99,16 @@ type CiliumBGPNeighborGracefulRestart struct {
 	RestartTimeSeconds *int32 `json:"restartTimeSeconds,omitempty"`
 }
 
+// CiliumBGPFamily represents a AFI/SAFI address family pair.
+type CiliumBGPFamily struct {
+	// +kubebuilder:validation:Enum=ipv4;ipv6;l2vpn;ls;opaque
+	// +kubebuilder:validation:Required
+	Afi string `json:"afi"`
+	// +kubebuilder:validation:Enum=unicast;multicast;mpls_label;encapsulation;vpls;evpn;ls;sr_policy;mup;mpls_vpn;mpls_vpn_multicast;route_target_constraints;flowspec_unicast;flowspec_vpn;key_value
+	// +kubebuilder:validation:Required
+	Safi string `json:"safi"`
+}
+
 // CiliumBGPNeighbor is a neighboring peer for use in a
 // CiliumBGPVirtualRouter configuration.
 type CiliumBGPNeighbor struct {
@@ -162,6 +172,14 @@ type CiliumBGPNeighbor struct {
 	//
 	// +kubebuilder:validation:Optional
 	GracefulRestart *CiliumBGPNeighborGracefulRestart `json:"gracefulRestart,omitempty"`
+	// Families, if provided, defines a set of AFI/SAFIs the speaker will
+	// negotiate with it's peer.
+	//
+	// If this slice is not provided the default families of IPv6 and IPv4 will
+	// be provided.
+	//
+	// +kubebuilder:validation:Optional
+	Families []CiliumBGPFamily `json:"families"`
 }
 
 // CiliumBGPVirtualRouter defines a discrete BGP virtual router configuration.
@@ -236,6 +254,18 @@ func (n *CiliumBGPNeighbor) SetDefaults() {
 	if n.GracefulRestart != nil && n.GracefulRestart.Enabled &&
 		(n.GracefulRestart.RestartTimeSeconds == nil || *n.GracefulRestart.RestartTimeSeconds == 0) {
 		n.GracefulRestart.RestartTimeSeconds = pointer.Int32(DefaultBGPGRRestartTimeSeconds)
+	}
+	if len(n.Families) == 0 {
+		n.Families = []CiliumBGPFamily{
+			{
+				Afi:  "ipv4",
+				Safi: "unicast",
+			},
+			{
+				Afi:  "ipv6",
+				Safi: "unicast",
+			},
+		}
 	}
 }
 
