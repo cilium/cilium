@@ -124,6 +124,12 @@ jobs:
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
 
+      - name: Override cluster name
+        run: |
+          # Extend default name with matrix index to avoid cluster name conflicts
+          NAME=${{ env.name }}-${{ matrix.index }}
+          echo "name=${NAME}" >> "$GITHUB_ENV"
+
       - name: Set up job variables
         id: vars
         run: |
@@ -151,7 +157,7 @@ jobs:
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
             --helm-set=debug.enabled=true \
-            --azure-resource-group ${{ env.name }}-${{ matrix.location }} \
+            --azure-resource-group ${{ env.name }} \
             --wait=false \
             --rollback=false \
             --config monitor-aggregation=none \
@@ -188,13 +194,13 @@ jobs:
         run: |
           # Create group
           az group create \
-            --name ${{ env.name }}-${{ matrix.location }} \
+            --name ${{ env.name }} \
             --location ${{ matrix.location }} \
             --tags usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}
 
           # Create AKS cluster
           az aks create \
-            --resource-group ${{ env.name }}-${{ matrix.location }} \
+            --resource-group ${{ env.name }} \
             --name ${{ env.name }} \
             --location ${{ matrix.location }} \
             --kubernetes-version ${{ matrix.version }} \
@@ -206,7 +212,7 @@ jobs:
       - name: Get cluster credentials
         run: |
           az aks get-credentials \
-            --resource-group ${{ env.name }}-${{ matrix.location }} \
+            --resource-group ${{ env.name }} \
             --name ${{ env.name }}
 
       - name: Wait for images to be available
@@ -297,7 +303,7 @@ jobs:
       - name: Clean up AKS
         if: ${{ always() }}
         run: |
-          az group delete --name ${{ env.name }}-${{ matrix.location }} --yes --no-wait
+          az group delete --name ${{ env.name }} --yes --no-wait
         shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
 
       - name: Upload artifacts
