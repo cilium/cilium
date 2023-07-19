@@ -50,6 +50,7 @@ const (
 
 	ep1IP = "10.0.0.1"
 	ep2IP = "10.0.0.2"
+	ep3IP = "10.0.0.3"
 
 	destCIDR      = "1.1.1.0/24"
 	excludedCIDR1 = "1.1.1.22/32"
@@ -59,6 +60,8 @@ const (
 	egressCIDR1 = "192.168.101.1/24"
 	egressIP2   = "192.168.102.1"
 	egressCIDR2 = "192.168.102.1/24"
+	egressIP3   = "192.168.103.1"
+	egressCIDR3 = "192.168.103.1/24"
 
 	zeroIP4 = "0.0.0.0"
 
@@ -70,6 +73,7 @@ const (
 var (
 	ep1Labels = map[string]string{"test-key": "test-value-1"}
 	ep2Labels = map[string]string{"test-key": "test-value-2"}
+	ep3Labels = map[string]string{"test-key": "test-value-3"}
 
 	identityAllocator = testidentity.NewMockIdentityAllocator(nil)
 
@@ -178,7 +182,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	egressGatewayManager.OnUpdateNode(node2)
 
 	// Create a new policy
-	policy1 := newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroup1Selector, testInterface1)
+	policy1 := newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroup1Selector, nil, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
 	assertEgressRules(c, policyMap, []egressRule{})
@@ -214,7 +218,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	})
 
 	// Create a new policy
-	policy2 := newEgressPolicyConfigWithNodeSelector("policy-2", ep2Labels, destCIDR, []string{}, nodeGroup2Selector, testInterface1)
+	policy2 := newEgressPolicyConfigWithNodeSelector("policy-2", ep2Labels, destCIDR, []string{}, nodeGroup2Selector, nil, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy2)
 
 	assertEgressRules(c, policyMap, []egressRule{
@@ -236,6 +240,36 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 		{ep1IP, destCIDR, egressCIDR1, testInterface1Idx},
 	})
 
+	// Add an additional Egress IP on the first interface, and a policy
+	// that selects this IP. The conflicting policy should be ignored, and no
+	// entries / rules for ep3 installed.
+	link, err := netlink.LinkByName(testInterface1)
+	if err != nil {
+		panic(err)
+	}
+
+	a, _ := netlink.ParseAddr(egressCIDR3)
+	netlink.AddrAdd(link, a)
+
+	policy3 := newEgressPolicyConfigWithNodeSelector("policy-3", ep3Labels, destCIDR, []string{}, nodeGroup1Selector, net.ParseIP(egressIP3), "")
+	egressGatewayManager.OnAddEgressPolicy(policy3)
+
+	// Add a new endpoint and ID which matches policy-3
+	ep3, _ := newEndpointAndIdentity("ep-3", ep3IP, ep3Labels)
+	egressGatewayManager.OnUpdateEndpoint(&ep3)
+
+	assertEgressRules(c, policyMap, []egressRule{
+		{ep1IP, destCIDR, egressIP1, node1IP},
+		{ep2IP, destCIDR, zeroIP4, node2IP},
+	})
+	assertIPRules(c, []ipRule{
+		{ep1IP, destCIDR, egressCIDR1, testInterface1Idx},
+	})
+
+	// Delete the conflicting policy again.
+	egressGatewayManager.OnDeleteEgressPolicy(policy3.id)
+	netlink.AddrDel(link, a)
+
 	// Test if disabling the --install-egress-gateway-routes agent option
 	// will result in stale IP routes/rules getting removed
 	egressGatewayManager.installRoutes = false
@@ -253,7 +287,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	})
 
 	/* Changing the selected egress interface should update the IP rules. */
-	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroup1Selector, testInterface2)
+	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroup1Selector, nil, testInterface2)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
 	assertIPRules(c, []ipRule{
@@ -261,7 +295,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	})
 
 	/* Restore the selected egress interface. */
-	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroup1Selector, testInterface1)
+	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroup1Selector, nil, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
 	assertIPRules(c, []ipRule{
@@ -269,7 +303,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	})
 
 	// Test excluded CIDRs by adding one to policy-1
-	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{excludedCIDR1}, nodeGroup1Selector, testInterface1)
+	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{excludedCIDR1}, nodeGroup1Selector, nil, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
 	assertEgressRules(c, policyMap, []egressRule{
@@ -303,7 +337,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	})
 
 	// Add a second excluded CIDR to policy-1
-	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{excludedCIDR1, excludedCIDR2}, nodeGroup1Selector, testInterface1)
+	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{excludedCIDR1, excludedCIDR2}, nodeGroup1Selector, nil, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
 	assertEgressRules(c, policyMap, []egressRule{
@@ -344,7 +378,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	})
 
 	// Remove the first excluded CIDR from policy-1
-	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{excludedCIDR2}, nodeGroup1Selector, testInterface1)
+	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{excludedCIDR2}, nodeGroup1Selector, nil, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
 	assertEgressRules(c, policyMap, []egressRule{
@@ -370,7 +404,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	})
 
 	// Remove the second excluded CIDR
-	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroup1Selector, testInterface1)
+	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroup1Selector, nil, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
 	assertEgressRules(c, policyMap, []egressRule{
@@ -383,7 +417,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	})
 
 	// Test matching no gateway
-	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroupNotFoundSelector, testInterface1)
+	policy1 = newEgressPolicyConfigWithNodeSelector("policy-1", ep1Labels, destCIDR, []string{}, nodeGroupNotFoundSelector, nil, testInterface1)
 	egressGatewayManager.OnAddEgressPolicy(policy1)
 
 	assertEgressRules(c, policyMap, []egressRule{
@@ -466,7 +500,7 @@ func newCiliumNode(name, nodeIP string, nodeLabels map[string]string) nodeTypes.
 	}
 }
 
-func newEgressPolicyConfigWithNodeSelector(policyName string, labels map[string]string, destinationCIDR string, excludedCIDRs []string, selector *v1.LabelSelector, iface string) PolicyConfig {
+func newEgressPolicyConfigWithNodeSelector(policyName string, labels map[string]string, destinationCIDR string, excludedCIDRs []string, selector *v1.LabelSelector, egressIP net.IP, iface string) PolicyConfig {
 	_, parsedDestinationCIDR, _ := net.ParseCIDR(destinationCIDR)
 
 	parsedExcludedCIDRs := []*net.IPNet{}
@@ -491,6 +525,7 @@ func newEgressPolicyConfigWithNodeSelector(policyName string, labels map[string]
 		policyGwConfig: &policyGatewayConfig{
 			nodeSelector: api.NewESFromK8sLabelSelector("", selector),
 			iface:        iface,
+			egressIP:     egressIP,
 		},
 	}
 }

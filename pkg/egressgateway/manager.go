@@ -108,6 +108,8 @@ type Manager struct {
 	// nodes stores nodes sorted by their name
 	nodes []nodeTypes.Node
 
+	egressIpByInterfaceIndex map[int]string
+
 	// policyConfigs stores policy configs indexed by policyID
 	policyConfigs map[policyID]*PolicyConfig
 
@@ -186,6 +188,7 @@ func NewEgressGatewayManager(p Params) (*Manager, error) {
 	manager := &Manager{
 		cacheStatus:                   p.CacheStatus,
 		nodeDataStore:                 make(map[string]nodeTypes.Node),
+		egressIpByInterfaceIndex:      make(map[int]string),
 		policyConfigs:                 make(map[policyID]*PolicyConfig),
 		policyConfigsBySourceIP:       make(map[string][]*PolicyConfig),
 		epDataStore:                   make(map[endpointID]*endpointMetadata),
@@ -647,6 +650,8 @@ func (manager *Manager) policyMatchesMinusExcludedCIDRs(sourceIP net.IP, f func(
 }
 
 func (manager *Manager) regenerateGatewayConfigs() {
+	manager.egressIpByInterfaceIndex = make(map[int]string)
+
 	for _, policyConfig := range manager.policyConfigs {
 		policyConfig.regenerateGatewayConfig(manager)
 	}

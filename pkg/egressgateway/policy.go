@@ -115,14 +115,27 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 
 		if node.IsLocal() {
 			err := gwc.deriveFromPolicyGatewayConfig(policyGwc)
-			if err != nil {
-				logger := log.WithFields(logrus.Fields{
-					logfields.CiliumEgressGatewayPolicyName: config.id,
-					logfields.Interface:                     policyGwc.iface,
-					logfields.EgressIP:                      policyGwc.egressIP,
-				})
 
+			logger := log.WithFields(logrus.Fields{
+				logfields.CiliumEgressGatewayPolicyName: config.id,
+				logfields.Interface:                     policyGwc.iface,
+				logfields.EgressIP:                      policyGwc.egressIP,
+			})
+
+			if err != nil {
 				logger.WithError(err).Error("Failed to derive policy gateway configuration")
+				break
+			}
+
+			if manager.installRoutes && gwc.localNodeConfiguredAsGateway {
+				egressIP := manager.egressIpByInterfaceIndex[gwc.ifaceIndex]
+
+				if egressIP == "" {
+					manager.egressIpByInterfaceIndex[gwc.ifaceIndex] = gwc.egressIP.String()
+				} else if egressIP != gwc.egressIP.String() {
+					gwc.localNodeConfiguredAsGateway = false
+					logger.Errorf("This policy conflicts with another policy which selects the same egress interface, but uses a different egress IP (%s).", egressIP)
+				}
 			}
 		}
 
