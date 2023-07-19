@@ -53,21 +53,20 @@ Installation
 
         Cilium Ingress Controller can be enabled with the below command
 
-        .. code-block:: shell-session
+        .. parsed-literal::
 
-            $ cilium install \\
-                --kube-proxy-replacement=strict \\
-                --helm-set ingressController.enabled=true
-
+            $ cilium install |CHART_VERSION| \
+                --set kubeProxyReplacement=true \
+                --set ingressController.enabled=true \
 
         If you only want to use envoy traffic management feature without Ingress support, you should only
         enable ``--enable-envoy-config`` flag.
 
-        .. code-block:: shell-session
+        .. parsed-literal::
 
-            $ cilium install \\
-                --kube-proxy-replacement=strict \\
-                --helm-set-string extraConfig.enable-envoy-config=true
+            $ cilium install |CHART_VERSION| \
+                --set kubeProxyReplacement=true \
+                --set-string extraConfig.enable-envoy-config=true
 
         Next you can check the status of the Cilium agent and operator:
 
