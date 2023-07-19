@@ -3,4 +3,5 @@
 include:
   - version: "1.24"
     location: westeurope
+    index: 1
     default: true
