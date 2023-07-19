@@ -30,3 +30,13 @@ various features (e.g. clustermesh, Hubble).
   .. group-tab:: Other
 
     See the full page of `releases <https://github.com/cilium/cilium-cli/releases/latest>`_.
+
+.. only:: not stable
+
+   Clone the Cilium GitHub repository so that the Cilium CLI can access the
+   latest unreleased Helm chart from the main branch:
+
+   .. parsed-literal::
+
+      git clone git@github.com:cilium/cilium.git
+      cd cilium

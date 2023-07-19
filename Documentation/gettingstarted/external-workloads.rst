@@ -70,9 +70,9 @@ Your cluster must be configured with support for external workloads
 enabled. This can be done with the cilium CLI tool by issuing ``cilium
 clustermesh enable`` after ``cilium install``:
 
-.. code-block:: shell-session
+.. parsed-literal::
 
-    cilium install --config tunnel=vxlan
+    cilium install |CHART_VERSION| --set tunnel=vxlan
     cilium clustermesh enable
 
 Config option ``tunnel=vxlan`` overrides any default that could
