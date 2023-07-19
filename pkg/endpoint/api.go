@@ -34,16 +34,16 @@ func (e *Endpoint) GetLabelsModel() (*models.LabelConfiguration, error) {
 		return nil, err
 	}
 	spec := &models.LabelConfigurationSpec{
-		User: e.OpLabels.Custom.GetModel(),
+		User: e.Labels.Custom.GetModel(),
 	}
 
 	cfg := models.LabelConfiguration{
 		Spec: spec,
 		Status: &models.LabelConfigurationStatus{
 			Realized:         spec,
-			SecurityRelevant: e.OpLabels.OrchestrationIdentity.GetModel(),
-			Derived:          e.OpLabels.OrchestrationInfo.GetModel(),
-			Disabled:         e.OpLabels.Disabled.GetModel(),
+			SecurityRelevant: e.Labels.OrchestrationIdentity.GetModel(),
+			Derived:          e.Labels.OrchestrationInfo.GetModel(),
+			Disabled:         e.Labels.Disabled.GetModel(),
 		},
 	}
 	e.runlock()
@@ -127,8 +127,8 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 	if base.Labels != nil {
 		lbls := labels.NewLabelsFromModel(base.Labels)
 		identityLabels, infoLabels := labelsfilter.Filter(lbls)
-		ep.OpLabels.OrchestrationIdentity = identityLabels
-		ep.OpLabels.OrchestrationInfo = infoLabels
+		ep.Labels.OrchestrationIdentity = identityLabels
+		ep.Labels.OrchestrationInfo = infoLabels
 	}
 
 	if base.State != nil {
@@ -188,7 +188,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		statusLog = statusLog[:1]
 	}
 
-	lblMdl := model.NewModel(&e.OpLabels)
+	lblMdl := model.NewModel(&e.Labels)
 
 	// Sort these slices since they come out in random orders. This allows
 	// reflect.DeepEqual to succeed.
@@ -532,8 +532,8 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 		e.containerID = newEp.containerID
 	}
 
-	e.replaceInformationLabels(newEp.OpLabels.OrchestrationInfo)
-	rev := e.replaceIdentityLabels(newEp.OpLabels.IdentityLabels())
+	e.replaceInformationLabels(newEp.Labels.OrchestrationInfo)
+	rev := e.replaceIdentityLabels(newEp.Labels.IdentityLabels())
 	if rev != 0 {
 		// Run as a goroutine since the runIdentityResolver needs to get the lock
 		go e.runIdentityResolver(e.aliveCtx, rev, false)
@@ -583,7 +583,7 @@ func (e *Endpoint) GetConfigurationStatus() *models.EndpointConfigurationStatus 
 	return &models.EndpointConfigurationStatus{
 		Realized: &models.EndpointConfigurationSpec{
 			LabelConfiguration: &models.LabelConfigurationSpec{
-				User: e.OpLabels.Custom.GetModel(),
+				User: e.Labels.Custom.GetModel(),
 			},
 			Options: *e.Options.GetMutableModel(),
 		},
@@ -599,7 +599,7 @@ func (e *Endpoint) ApplyUserLabelChanges(lbls labels.Labels) (add, del labels.La
 		return nil, nil, err
 	}
 	defer e.runlock()
-	add, del = e.OpLabels.SplitUserLabelChanges(lbls)
+	add, del = e.Labels.SplitUserLabelChanges(lbls)
 	return
 }
 

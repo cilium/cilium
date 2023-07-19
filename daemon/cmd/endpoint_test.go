@@ -100,7 +100,7 @@ func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 	c.Assert(err, IsNil)
 	ep, err := ds.d.endpointManager.Lookup(endpointid.NewIPPrefixID(v4ip))
 	c.Assert(err, IsNil)
-	c.Assert(ep.OpLabels.IdentityLabels(), checker.DeepEquals, expectedLabels)
+	c.Assert(ep.Labels.IdentityLabels(), checker.DeepEquals, expectedLabels)
 
 	secID := ep.WaitForIdentity(3 * time.Second)
 	c.Assert(secID, Not(IsNil))

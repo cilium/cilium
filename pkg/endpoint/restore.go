@@ -217,7 +217,7 @@ func (e *Endpoint) restoreIdentity() error {
 	}
 	scopedLog := log.WithField(logfields.EndpointID, e.ID)
 	// Filter the restored labels with the new daemon's filter
-	l, _ := labelsfilter.Filter(e.OpLabels.AllLabels())
+	l, _ := labelsfilter.Filter(e.Labels.AllLabels())
 	e.runlock()
 
 	// Getting the ep's identity while we are restoring should block the
@@ -370,7 +370,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		DockerEndpointID:      e.dockerEndpointID,
 		IfName:                e.ifName,
 		IfIndex:               e.ifIndex,
-		OpLabels:              e.OpLabels,
+		Labels:                e.Labels,
 		LXCMAC:                e.mac,
 		IPv6:                  e.IPv6,
 		IPv6IPAMPool:          e.IPv6IPAMPool,
@@ -424,10 +424,10 @@ type serializableEndpoint struct {
 	// ifIndex is the interface index of the host face interface (veth pair)
 	IfIndex int
 
-	// OpLabels is the endpoint's label configuration
+	// Labels is the endpoint's label configuration
 	//
 	// FIXME: Rename this field to Labels
-	OpLabels labels.OpLabels
+	Labels labels.OpLabels
 
 	// mac is the MAC address of the endpoint
 	//
@@ -492,7 +492,7 @@ func (ep *Endpoint) UnmarshalJSON(raw []byte) error {
 	// We may have to populate structures in the Endpoint manually to do the
 	// translation from serializableEndpoint --> Endpoint.
 	restoredEp := &serializableEndpoint{
-		OpLabels:   labels.NewOpLabels(),
+		Labels:     labels.NewOpLabels(),
 		DNSHistory: fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		DNSZombies: fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
 	}
@@ -518,7 +518,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.dockerEndpointID = r.DockerEndpointID
 	ep.ifName = r.IfName
 	ep.ifIndex = r.IfIndex
-	ep.OpLabels = r.OpLabels
+	ep.Labels = r.Labels
 	ep.mac = r.LXCMAC
 	ep.IPv6 = r.IPv6
 	ep.IPv6IPAMPool = r.IPv6IPAMPool
