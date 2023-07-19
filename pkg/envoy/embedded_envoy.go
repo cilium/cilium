@@ -460,3 +460,19 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 		log.WithError(err).Fatal("Envoy: Error writing Envoy bootstrap file")
 	}
 }
+
+// getEmbeddedEnvoyVersion returns the envoy binary version string
+func getEmbeddedEnvoyVersion() (string, error) {
+	out, err := exec.Command(ciliumEnvoy, "--version").Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to execute '%s --version': %w", ciliumEnvoy, err)
+	}
+	envoyVersionString := strings.TrimSpace(string(out))
+
+	envoyVersionArray := strings.Fields(envoyVersionString)
+	if len(envoyVersionArray) < 3 {
+		return "", fmt.Errorf("failed to extract version from truncated Envoy version string")
+	}
+
+	return envoyVersionArray[2], nil
+}

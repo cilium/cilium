@@ -21,6 +21,7 @@ var Cell = cell.Module(
 	cell.Provide(newEnvoyXDSServer),
 	cell.Provide(newEnvoyAdminClient),
 	cell.Invoke(registerEnvoyAccessLogServer),
+	cell.Invoke(registerEnvoyVersionCheck),
 )
 
 type xdsServerParams struct {
@@ -28,8 +29,6 @@ type xdsServerParams struct {
 
 	Lifecycle hive.Lifecycle
 	IPCache   *ipcache.IPCache
-
-	EnvoyAdminClient *EnvoyAdminClient
 }
 
 func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
@@ -58,9 +57,8 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 
 	if !option.Config.ExternalEnvoyProxy {
 		return &onDemandXdsStarter{
-			XDSServer:   xdsServer,
-			runDir:      option.Config.RunDir,
-			adminClient: params.EnvoyAdminClient,
+			XDSServer: xdsServer,
+			runDir:    option.Config.RunDir,
 		}, nil
 	}
 
@@ -95,6 +93,41 @@ func registerEnvoyAccessLogServer(params accessLogServerParams) {
 		},
 		OnStop: func(stopContext hive.HookContext) error {
 			accessLogServer.stop()
+			return nil
+		},
+	})
+}
+
+type versionCheckParams struct {
+	cell.In
+
+	Lifecycle        hive.Lifecycle
+	EnvoyAdminClient *EnvoyAdminClient
+}
+
+func registerEnvoyVersionCheck(params versionCheckParams) {
+	if !option.Config.EnableL7Proxy || option.Config.DisableEnvoyVersionCheck {
+		return
+	}
+
+	envoyVersionFunc := func() (string, error) {
+		return getRemoteEnvoyVersion(params.EnvoyAdminClient)
+	}
+
+	if !option.Config.ExternalEnvoyProxy {
+		envoyVersionFunc = getEmbeddedEnvoyVersion
+	}
+
+	params.Lifecycle.Append(hive.Hook{
+		OnStart: func(startContext hive.HookContext) error {
+			// To prevent agent restarts in case the Envoy DaemonSet isn't ready yet,
+			// version check is performed asynchronously and errors are only logged.
+			go func() {
+				if err := checkEnvoyVersion(envoyVersionFunc); err != nil {
+					log.WithError(err).Error("Envoy: Version check failed")
+				}
+			}()
+
 			return nil
 		},
 	})
