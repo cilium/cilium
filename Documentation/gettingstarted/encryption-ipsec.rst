@@ -66,9 +66,11 @@ Enable Encryption in Cilium
        If you are deploying Cilium with the Cilium CLI, pass the following
        options:
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-          cilium install --encryption ipsec
+          cilium install |CHART_VERSION| \
+             --set encryption.enabled=true \
+             --set encryption.type=ipsec
 
     .. group-tab:: Helm
 
@@ -111,9 +113,12 @@ interface as follows:
 
     .. group-tab:: Cilium CLI
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-          cilium install --encryption ipsec --config encrypt-interface=ethX
+          cilium install |CHART_VERSION| \
+             --set encryption.enabled=true \
+             --set encryption.type=ipsec \
+             --set encryption.ipsec.interface=ethX
 
     .. group-tab:: Helm
 
@@ -132,9 +137,12 @@ In order to enable node-to-node encryption, add:
 
     .. group-tab:: Cilium CLI
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-          cilium install --encryption ipsec --node-encryption
+          cilium install |CHART_VERSION| \
+             --set encryption.enabled=true \
+             --set encryption.type=wireguard \
+             --set encryption.nodeEncryption=true
 
     .. group-tab:: Helm
 
