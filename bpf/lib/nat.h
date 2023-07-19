@@ -1937,10 +1937,6 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		if (ctx_load_bytes(ctx, off, &icmp6hdr, sizeof(icmp6hdr)) < 0)
 			return DROP_INVALID;
 		switch (icmp6hdr.icmp6_type) {
-			/* Letting neighbor solicitation / advertisement pass through. */
-		case ICMP6_NS_MSG_TYPE:
-		case ICMP6_NA_MSG_TYPE:
-			return CTX_ACT_OK;
 		case ICMPV6_ECHO_REPLY:
 			tuple.dport = icmp6hdr.icmp6_dataun.u_echo.identifier;
 			tuple.sport = 0;
