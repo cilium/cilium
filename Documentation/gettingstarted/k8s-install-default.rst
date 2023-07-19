@@ -208,9 +208,9 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
        Install Cilium into the Kubernetes cluster pointed to by your current kubectl context:
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-          cilium install
+          cilium install |CHART_VERSION|
 
     .. group-tab:: GKE
 
@@ -220,9 +220,9 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
        Install Cilium into the GKE cluster:
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-           cilium install
+           cilium install |CHART_VERSION|
 
     .. group-tab:: AKS
 
@@ -230,9 +230,9 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
        Install Cilium into the AKS cluster:
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-           cilium install --azure-resource-group "${AZURE_RESOURCE_GROUP}"
+           cilium install |CHART_VERSION| --set azure.resourceGroup="${AZURE_RESOURCE_GROUP}"
 
        The Cilium CLI will automatically install Cilium using one of the
        following installation modes based on the ``--network-plugin``
@@ -258,9 +258,9 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
        Install Cilium into the EKS cluster.
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-           cilium install
+           cilium install |CHART_VERSION|
            cilium status --wait
 
        .. note::
@@ -288,9 +288,9 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
        Install Cilium into your newly created RKE cluster:
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-           cilium install
+           cilium install |CHART_VERSION|
 
     .. group-tab:: k3s
 
@@ -300,9 +300,9 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
        Install Cilium into your newly created Kubernetes cluster:
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-           cilium install
+           cilium install |CHART_VERSION|
 
     .. group-tab:: Alibaba ACK
 

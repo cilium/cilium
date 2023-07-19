@@ -58,11 +58,11 @@ Installation
 
         Cilium Gateway API Controller can be enabled with the below command
 
-        .. code-block:: shell-session
+        .. parsed-literal::
 
-            $ cilium install \\
-                --kube-proxy-replacement=strict \\
-                --helm-set gatewayAPI.enabled=true
+            $ cilium install |CHART_VERSION| \
+                --set kubeProxyReplacement=true \
+                --set gatewayAPI.enabled=true
 
         Next you can check the status of the Cilium agent and operator:
 
