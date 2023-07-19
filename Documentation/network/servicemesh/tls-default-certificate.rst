@@ -46,9 +46,9 @@ Installation
 
         Cilium Ingress Controller can be enabled with the following command:
 
-        .. code-block:: shell-session
+        .. parsed-literal::
 
-            $ cilium install \
+            $ cilium install |CHART_VERSION| \
                 --set kubeProxyReplacement=true \
                 --set ingressController.enabled=true \
                 --set ingressController.defaultSecretNamespace=kube-system \

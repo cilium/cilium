@@ -66,9 +66,9 @@ Enable Encryption in Cilium
        If you are deploying Cilium with the Cilium CLI, pass the following
        options:
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-          cilium install \
+          cilium install |CHART_VERSION| \
              --set encryption.enabled=true \
              --set encryption.type=ipsec
 
@@ -111,9 +111,9 @@ interface as follows:
 
     .. group-tab:: Cilium CLI
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-          cilium install \
+          cilium install |CHART_VERSION| \
              --set encryption.enabled=true \
              --set encryption.type=ipsec \
              --set encryption.ipsec.interface=ethX
