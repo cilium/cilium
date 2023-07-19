@@ -605,7 +605,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			testConnDisruptServerDeployment := newDeployment(deploymentParameters{
 				Name:           testConnDisruptServerDeploymentName,
 				Kind:           KindTestConnDisrupt,
-				Image:          "quay.io/cilium/test-connection-disruption:v0.0.2",
+				Image:          "quay.io/cilium/test-connection-disruption:v0.0.4",
 				Replicas:       3,
 				Labels:         map[string]string{"app": "test-conn-disrupt-server"},
 				Command:        []string{"tcd-server", "8000"},
@@ -654,7 +654,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			testConnDisruptClientDeployment := newDeployment(deploymentParameters{
 				Name:     testConnDisruptClientDeploymentName,
 				Kind:     KindTestConnDisrupt,
-				Image:    "quay.io/cilium/test-connection-disruption:v0.0.2",
+				Image:    "quay.io/cilium/test-connection-disruption:v0.0.4",
 				Replicas: 5,
 				Labels:   map[string]string{"app": "test-conn-disrupt-client"},
 				Port:     8000,
