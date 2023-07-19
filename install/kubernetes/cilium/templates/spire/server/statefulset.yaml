@@ -39,7 +39,7 @@ spec:
           - |
             {{- tpl (.Files.Get "files/spire/init.bash") . | nindent 12 }}
       - name: spire-server
-        image: ghcr.io/spiffe/spire-server:1.5.1
+        image: {{ .Values.authentication.mutual.spire.install.server.image }}
         args:
         - -config
         - /run/spire/config/server.conf
