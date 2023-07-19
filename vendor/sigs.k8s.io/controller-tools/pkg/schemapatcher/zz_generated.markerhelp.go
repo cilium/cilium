@@ -40,6 +40,10 @@ func (Generator) Help() *markers.DefinitionHelp {
 				Summary: "specifies the maximum description length for fields in CRD's OpenAPI schema. ",
 				Details: "0 indicates drop the description for all fields completely. n indicates limit the description to at most n characters and truncate the description to closest sentence boundary if it exceeds n characters.",
 			},
+			"GenerateEmbeddedObjectMeta": {
+				Summary: "specifies if any embedded ObjectMeta in the CRD should be generated",
+				Details: "",
+			},
 		},
 	}
 }
