@@ -69,17 +69,19 @@ type schemaContext struct {
 	schemaRequester schemaRequester
 	PackageMarkers  markers.MarkerValues
 
-	allowDangerousTypes bool
+	allowDangerousTypes    bool
+	ignoreUnexportedFields bool
 }
 
 // newSchemaContext constructs a new schemaContext for the given package and schema requester.
 // It must have type info added before use via ForInfo.
-func newSchemaContext(pkg *loader.Package, req schemaRequester, allowDangerousTypes bool) *schemaContext {
+func newSchemaContext(pkg *loader.Package, req schemaRequester, allowDangerousTypes, ignoreUnexportedFields bool) *schemaContext {
 	pkg.NeedTypesInfo()
 	return &schemaContext{
-		pkg:                 pkg,
-		schemaRequester:     req,
-		allowDangerousTypes: allowDangerousTypes,
+		pkg:                    pkg,
+		schemaRequester:        req,
+		allowDangerousTypes:    allowDangerousTypes,
+		ignoreUnexportedFields: ignoreUnexportedFields,
 	}
 }
 
@@ -87,10 +89,11 @@ func newSchemaContext(pkg *loader.Package, req schemaRequester, allowDangerousTy
 // as this one, except with the given type information.
 func (c *schemaContext) ForInfo(info *markers.TypeInfo) *schemaContext {
 	return &schemaContext{
-		pkg:                 c.pkg,
-		info:                info,
-		schemaRequester:     c.schemaRequester,
-		allowDangerousTypes: c.allowDangerousTypes,
+		pkg:                    c.pkg,
+		info:                   info,
+		schemaRequester:        c.schemaRequester,
+		allowDangerousTypes:    c.allowDangerousTypes,
+		ignoreUnexportedFields: c.ignoreUnexportedFields,
 	}
 }
 
@@ -344,6 +347,11 @@ func structToSchema(ctx *schemaContext, structType *ast.StructType) *apiext.JSON
 	}
 
 	for _, field := range ctx.info.Fields {
+		// Skip if the field is not an inline field, ignoreUnexportedFields is true, and the field is not exported
+		if field.Name != "" && ctx.ignoreUnexportedFields && !ast.IsExported(field.Name) {
+			continue
+		}
+
 		jsonTag, hasTag := field.Tag.Lookup("json")
 		if !hasTag {
 			// if the field doesn't have a JSON tag, it doesn't belong in output (and shouldn't exist in a serialized type)

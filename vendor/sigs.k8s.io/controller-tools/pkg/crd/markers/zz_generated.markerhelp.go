@@ -48,7 +48,7 @@ func (DeprecatedVersion) Help() *markers.DefinitionHelp {
 			Details: "",
 		},
 		FieldHelp: map[string]markers.DetailedHelp{
-			"Warning": markers.DetailedHelp{
+			"Warning": {
 				Summary: "message to be shown on the deprecated version",
 				Details: "",
 			},

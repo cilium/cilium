@@ -161,8 +161,8 @@ github.com/cilium/checkmate v1.0.3 h1:CQC5eOmlAZeEjPrVZY3ZwEBH64lHlx9mXYdUehEwI5
 github.com/cilium/checkmate v1.0.3/go.mod h1:KiBTasf39/F2hf2yAmHw21YFl3hcEyP4Yk6filxc12A=
 github.com/cilium/client-go v0.27.2-fix h1:dbFQGtP5Y1lFVBhkMCIAwyf/PUWFBn8M1ZTCKA6BUdw=
 github.com/cilium/client-go v0.27.2-fix/go.mod h1:tY0gVmUsHrAmjzHX9zs7eCjxcBsf8IiNe7KQ52biTcQ=
-github.com/cilium/controller-tools v0.6.2 h1:oIkqAzqncKsm+lQFJVP6n+bqHOVs9nUZ06hgZ4PxlMM=
-github.com/cilium/controller-tools v0.6.2/go.mod h1:oaeGpjXn6+ZSEIQkUe/+3I40PNiDYp9aeawbt3xTgJ8=
+github.com/cilium/controller-tools v0.6.2-1 h1:hwWdRnjhk1QasWAetpSTdwV+yuYNNwSCSPRlmknpLPA=
+github.com/cilium/controller-tools v0.6.2-1/go.mod h1:oaeGpjXn6+ZSEIQkUe/+3I40PNiDYp9aeawbt3xTgJ8=
 github.com/cilium/coverbee v0.3.2 h1:RaJN5OaHf/M8tmeLemHmdO0H5bFUhvtTAoYbStDIX14=
 github.com/cilium/coverbee v0.3.2/go.mod h1:p9Q2SRC/sPA0qATNfY19GXBUPdcQP6UVV2LKgOHRIzQ=
 github.com/cilium/deepequal-gen v0.0.0-20230330134849-754271daeec2 h1:/TjcgbZnbhiVkqWdcmFvpOUzk6/dlGBAIipt0qjxzqU=

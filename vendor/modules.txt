@@ -1781,7 +1781,7 @@ sigs.k8s.io/controller-runtime/pkg/webhook
 sigs.k8s.io/controller-runtime/pkg/webhook/admission
 sigs.k8s.io/controller-runtime/pkg/webhook/conversion
 sigs.k8s.io/controller-runtime/pkg/webhook/internal/metrics
-# sigs.k8s.io/controller-tools v0.11.4 => github.com/cilium/controller-tools v0.6.2
+# sigs.k8s.io/controller-tools v0.11.4 => github.com/cilium/controller-tools v0.6.2-1
 ## explicit; go 1.16
 sigs.k8s.io/controller-tools/cmd/controller-gen
 sigs.k8s.io/controller-tools/pkg/crd
@@ -1828,4 +1828,4 @@ sigs.k8s.io/yaml
 # github.com/miekg/dns => github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc
 # go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
 # k8s.io/client-go => github.com/cilium/client-go v0.27.2-fix
-# sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.6.2
+# sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.6.2-1
