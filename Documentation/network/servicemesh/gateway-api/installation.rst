@@ -60,9 +60,9 @@ Installation
 
         Cilium Gateway API Controller can be enabled with the below command
 
-        .. code-block:: shell-session
+        .. parsed-literal::
 
-            $ cilium install \
+            $ cilium install |CHART_VERSION| \
                 --set kubeProxyReplacement=true \
                 --set gatewayAPI.enabled=true
 

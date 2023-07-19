@@ -72,9 +72,9 @@ production workloads that require high availability.
        If you are deploying Cilium with the Cilium CLI, pass the following
        options:
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-          cilium install \
+          cilium install |CHART_VERSION| \
              --set encryption.enabled=true \
              --set encryption.type=wireguard
 
@@ -232,9 +232,9 @@ options:
        If you are deploying Cilium with the Cilium CLI, pass the following
        options:
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-          cilium install \
+          cilium install |CHART_VERSION| \
              --set encryption.enabled=true \
              --set encryption.type=wireguard \
              --set encryption.nodeEncryption=true
