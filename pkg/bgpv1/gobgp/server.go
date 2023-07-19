@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
 const (
@@ -37,6 +38,19 @@ var (
 	GoBGPIPv4Family = &gobgp.Family{
 		Afi:  gobgp.Family_AFI_IP,
 		Safi: gobgp.Family_SAFI_UNICAST,
+	}
+	// The default S/Afi pair to use if not provided by the user.
+	defaultSafiAfi = []*gobgp.AfiSafi{
+		{
+			Config: &gobgp.AfiSafiConfig{
+				Family: GoBGPIPv4Family,
+			},
+		},
+		{
+			Config: &gobgp.AfiSafiConfig{
+				Family: GoBGPIPv6Family,
+			},
+		},
 	}
 )
 
@@ -152,6 +166,38 @@ func (g *GoBGPServer) UpdateNeighbor(ctx context.Context, n types.NeighborReques
 	return nil
 }
 
+// convertBGPNeighborSAFI will convert a slice of CiliumBGPFamily to a slice of
+// gobgp.AfiSafi.
+//
+// Our internal S/Afi types use the same integer values as the gobgp library,
+// so we can simply cast our types into the corresponding gobgp types.
+func convertBGPNeighborSAFI(fams []v2alpha1.CiliumBGPFamily) ([]*gobgp.AfiSafi, error) {
+	if len(fams) == 0 {
+		return defaultSafiAfi, nil
+	}
+
+	out := make([]*gobgp.AfiSafi, 0, len(fams))
+	for _, fam := range fams {
+		var safi types.Safi
+		var afi types.Afi
+		if err := safi.FromString(fam.Safi); err != nil {
+			return out, fmt.Errorf("failed to parse Safi: %w", err)
+		}
+		if err := afi.FromString(fam.Afi); err != nil {
+			return out, fmt.Errorf("failed to parse Afi: %w", err)
+		}
+		out = append(out, &gobgp.AfiSafi{
+			Config: &gobgp.AfiSafiConfig{
+				Family: &gobgp.Family{
+					Afi:  gobgp.Family_Afi(afi),
+					Safi: gobgp.Family_Safi(safi),
+				},
+			},
+		})
+	}
+	return out, nil
+}
+
 // getPeerConfig returns GoBGP Peer configuration for the provided CiliumBGPNeighbor.
 func (g *GoBGPServer) getPeerConfig(ctx context.Context, n types.NeighborRequest, isUpdate bool) (peer *gobgp.Peer, needsReset bool, err error) {
 	// cilium neighbor uses prefix string, gobgp neighbor uses IP string, convert.
@@ -177,7 +223,6 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n types.NeighborRequest
 		peer = &gobgp.Peer{
 			Conf:      existingPeer.Conf,
 			Transport: existingPeer.Transport,
-			AfiSafis:  existingPeer.AfiSafis,
 		}
 		// Update the peer port if needed.
 		if existingPeer.Transport.RemotePort != peerPort {
@@ -193,21 +238,12 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n types.NeighborRequest
 			Transport: &gobgp.Transport{
 				RemotePort: peerPort,
 			},
-			// tells the peer we are capable of unicast IPv4 and IPv6
-			// advertisements.
-			AfiSafis: []*gobgp.AfiSafi{
-				{
-					Config: &gobgp.AfiSafiConfig{
-						Family: GoBGPIPv4Family,
-					},
-				},
-				{
-					Config: &gobgp.AfiSafiConfig{
-						Family: GoBGPIPv6Family,
-					},
-				},
-			},
 		}
+	}
+
+	peer.AfiSafis, err = convertBGPNeighborSAFI(n.Neighbor.Families)
+	if err != nil {
+		return peer, needsReset, fmt.Errorf("failed to convert CiliumBGPNeighbor Families to gobgp AfiSafi: %w", err)
 	}
 
 	// As GoBGP defaulting of peer's Transport.LocalAddress follows different paths
