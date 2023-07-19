@@ -322,7 +322,7 @@ func (c *CiliumEndpointSliceController) handleErr(err error, key interface{}) {
 		// Update metadata of the object from store on conflict
 		obj, exists, err := c.ciliumEndpointSliceStore.GetByKey(key.(string))
 		if err == nil && exists {
-			c.Manager.updateCESInCache(obj.(*v2alpha1.CiliumEndpointSlice), false)
+			c.Manager.updateCESInCache(obj.(*capi_v2a1.CiliumEndpointSlice), false)
 		}
 	}
 
