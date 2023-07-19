@@ -99,6 +99,12 @@ type CiliumBGPNeighborGracefulRestart struct {
 	RestartTimeSeconds *int32 `json:"restartTimeSeconds,omitempty"`
 }
 
+// CiliumBGPFamily represents a AFI/SAFI address family pair.
+type CiliumBGPFamily struct {
+	Afi  string
+	Safi string
+}
+
 // CiliumBGPNeighbor is a neighboring peer for use in a
 // CiliumBGPVirtualRouter configuration.
 type CiliumBGPNeighbor struct {
@@ -162,6 +168,9 @@ type CiliumBGPNeighbor struct {
 	//
 	// +kubebuilder:validation:Optional
 	GracefulRestart *CiliumBGPNeighborGracefulRestart `json:"gracefulRestart,omitempty"`
+	// Families, if provided, defines a set of AFI/SAFIs the speaker will
+	// negotiate with it's peer.
+	Families []CiliumBGPFamily
 }
 
 // CiliumBGPVirtualRouter defines a discrete BGP virtual router configuration.
