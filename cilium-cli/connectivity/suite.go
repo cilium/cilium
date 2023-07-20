@@ -206,16 +206,16 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		return ct.Run(ctx)
 	}
 
-	// Upgrade Test
-	if ct.Params().IncludeUpgradeTest {
-		ct.NewTest("post-upgrade").WithScenarios(
+	// Conn disrupt Test
+	if ct.Params().IncludeConnDisruptTest {
+		ct.NewTest("no-interrupted-connections").WithScenarios(
 			tests.NoInterruptedConnections(),
 		)
 
-		if ct.Params().UpgradeTestSetup {
-			// Exit early, as --upgrade-setup is only needed to deploy pods which
+		if ct.Params().ConnDisruptTestSetup {
+			// Exit early, as --conn-disrupt-test-setup is only needed to deploy pods which
 			// will be used by another invocation of "cli connectivity test" (with
-			// include --include-upgrade-tests"
+			// include --include-conn-disrupt-test"
 			return ct.Run(ctx)
 		}
 
