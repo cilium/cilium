@@ -92,7 +92,8 @@ static __always_inline bool identity_from_ipcache_ok(void)
 #ifdef ENABLE_IPV6
 static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
-		   __u32 srcid_from_proxy, const bool from_host)
+		   __u32 srcid_from_proxy, __u32 *sec_identity,
+		   const bool from_host)
 {
 	__u32 src_id = WORLD_ID, srcid_from_ipcache = srcid_from_proxy;
 	struct remote_endpoint_info *info = NULL;
@@ -103,6 +104,8 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		src = (union v6addr *) &ip6->saddr;
 		info = lookup_ip6_remote_endpoint(src, 0);
 		if (info) {
+			*sec_identity = info->sec_identity;
+
 			if (info->sec_identity) {
 				/* When SNAT is enabled on traffic ingressing
 				 * into Cilium, all traffic from the world will
@@ -136,12 +139,14 @@ struct {
 
 static __always_inline int
 handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
+	    __u32 ipcache_srcid __maybe_unused,
 	    const bool from_host __maybe_unused,
 	    __s8 *ext_err __maybe_unused)
 {
 #ifdef ENABLE_HOST_FIREWALL
 	struct ct_buffer6 ct_buffer = {};
 	bool need_hostfw = false;
+	bool is_host_id = false;
 #endif /* ENABLE_HOST_FIREWALL */
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -185,10 +190,11 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
-		if (ipv6_host_policy_egress_lookup(ctx, secctx, ip6, &ct_buffer)) {
+		if (ipv6_host_policy_egress_lookup(ctx, secctx, ipcache_srcid, ip6, &ct_buffer)) {
 			if (unlikely(ct_buffer.ret < 0))
 				return ct_buffer.ret;
 			need_hostfw = true;
+			is_host_id = secctx == HOST_ID;
 		}
 	} else if (!ctx_skip_host_fw(ctx)) {
 		/* Verifier workaround: R5 invalid mem access 'scalar'. */
@@ -209,8 +215,10 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	}
 
 skip_host_firewall:
+
 	ctx_store_meta(ctx, CB_FROM_HOST,
-		       (need_hostfw ? FROM_HOST_FLAG_NEED_HOSTFW : 0));
+		       (need_hostfw ? FROM_HOST_FLAG_NEED_HOSTFW : 0) |
+		       (is_host_id ? FROM_HOST_FLAG_HOST_ID : 0));
 #endif /* ENABLE_HOST_FIREWALL */
 
 	return CTX_ACT_OK;
@@ -252,11 +260,15 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			/* The map value is zeroed so the map update didn't happen somehow. */
 			return DROP_INVALID_TC_BUFFER;
 
-		if (from_host)
-			ret = __ipv6_host_policy_egress(ctx, ip6, ct_buffer, &trace, ext_err);
-		else
+		if (from_host) {
+			bool is_host_id = from_host_raw & FROM_HOST_FLAG_HOST_ID;
+
+			ret = __ipv6_host_policy_egress(ctx, is_host_id, ip6, ct_buffer,
+							&trace, ext_err);
+		} else {
 			ret = __ipv6_host_policy_ingress(ctx, ip6, ct_buffer, &remote_id, &trace,
 							 ext_err);
+		}
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -393,7 +405,7 @@ int tail_handle_ipv6_cont_from_netdev(struct __ctx_buff *ctx)
 }
 
 static __always_inline int
-tail_handle_ipv6(struct __ctx_buff *ctx, const bool from_host)
+tail_handle_ipv6(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_host)
 {
 	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	int ret;
@@ -401,7 +413,7 @@ tail_handle_ipv6(struct __ctx_buff *ctx, const bool from_host)
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = handle_ipv6(ctx, proxy_identity, from_host, &ext_err);
+	ret = handle_ipv6(ctx, proxy_identity, ipcache_srcid, from_host, &ext_err);
 
 	/* TC_ACT_REDIRECT is not an error, but it means we should stop here. */
 	if (ret == CTX_ACT_OK) {
@@ -427,22 +439,29 @@ tail_handle_ipv6(struct __ctx_buff *ctx, const bool from_host)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_HOST)
 int tail_handle_ipv6_from_host(struct __ctx_buff *ctx __maybe_unused)
 {
-	return tail_handle_ipv6(ctx, true);
+	__u32 ipcache_srcid = 0;
+
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6)
+	ipcache_srcid = ctx_load_meta(ctx, CB_IPCACHE_SRC_LABEL);
+	ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, 0);
+#endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6) */
+
+	return tail_handle_ipv6(ctx, ipcache_srcid, true);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_NETDEV)
 int tail_handle_ipv6_from_netdev(struct __ctx_buff *ctx)
 {
-	return tail_handle_ipv6(ctx, false);
+	return tail_handle_ipv6(ctx, 0, false);
 }
 
 # ifdef ENABLE_HOST_FIREWALL
 static __always_inline int
 handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext_err)
 {
+	__u32 src_id = 0, ipcache_srcid = 0;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	__u32 src_id = 0;
 	int hdrlen, ret;
 	__u8 nexthdr;
 
@@ -464,10 +483,10 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST)
 		src_id = HOST_ID;
-	src_id = resolve_srcid_ipv6(ctx, ip6, src_id, true);
+	src_id = resolve_srcid_ipv6(ctx, ip6, src_id, &ipcache_srcid, true);
 
 	/* to-netdev is attached to the egress path of the native device. */
-	return ipv6_host_policy_egress(ctx, src_id, ip6, trace, ext_err);
+	return ipv6_host_policy_egress(ctx, src_id, ipcache_srcid, ip6, trace, ext_err);
 }
 #endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV6 */
@@ -1124,12 +1143,17 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 			return send_drop_notify_error(ctx, identity, DROP_INVALID,
 						      CTX_ACT_DROP, METRIC_INGRESS);
 
-		identity = resolve_srcid_ipv6(ctx, ip6, identity, from_host);
+		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid,
+					      from_host);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
-		if (from_host)
+		if (from_host) {
+# if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6)
+			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
+# endif /* defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE_IPV6) */
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_HOST);
-		else
+		} else {
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
+		}
 		/* See comment below for IPv4. */
 		return send_drop_notify_error(ctx, identity, DROP_MISSED_TAIL_CALL,
 					      CTX_ACT_OK, METRIC_INGRESS);
@@ -1739,7 +1763,7 @@ from_host_to_lxc(struct __ctx_buff *ctx, __s8 *ext_err)
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
-		ret = ipv6_host_policy_egress(ctx, HOST_ID, ip6, &trace, ext_err);
+		ret = ipv6_host_policy_egress(ctx, HOST_ID, 0, ip6, &trace, ext_err);
 		break;
 # endif
 # ifdef ENABLE_IPV4
