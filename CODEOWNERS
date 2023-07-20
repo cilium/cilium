@@ -138,6 +138,8 @@
 #   Provide background on how the Cilium Endpoint package fits into the overall
 #   agent architecture, relationship with generation of policy / datapath
 #   constructs, serialization and restore from disk.
+# - @cilium/egress-gateway:
+#   Maintain the egress gateway control plane and datapath logic.
 # - @cilium/ipcache:
 #   Provide background on how the userspace IPCache structure fits into the
 #   overall agent architecture, ordering constraints with respect to network
@@ -242,6 +244,7 @@
 /api/v1/recorder/ @cilium/sig-hubble-api
 /api/v1/relay/ @cilium/sig-hubble-api
 /bpf/ @cilium/sig-datapath
+/bpf/lib/egress_gateway.h @cilium/egress-gateway
 Makefile* @cilium/build
 /bpf/Makefile* @cilium/loader
 /bpf/init.sh @cilium/loader
@@ -318,7 +321,7 @@ Makefile* @cilium/build
 /Documentation/network/concepts/ipam/azure* @cilium/sig-ipam @cilium/azure @cilium/docs-structure
 /Documentation/network/concepts/ipam/eni* @cilium/sig-ipam @cilium/aws @cilium/docs-structure
 /Documentation/network/ebpf/ @cilium/sig-datapath @cilium/docs-structure
-/Documentation/network/egress-gateway.rst @cilium/sig-datapath @cilium/docs-structure
+/Documentation/network/egress-gateway.rst @cilium/egress-gateway @cilium/docs-structure
 /Documentation/network/kubernetes/ @cilium/sig-k8s @cilium/docs-structure
 /Documentation/network/kubernetes/bandwidth-manager.rst @cilium/sig-datapath @cilium/docs-structure
 /Documentation/network/kubernetes/ipam* @cilium/sig-ipam @cilium/docs-structure
@@ -411,7 +414,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/datapath/ipcache/ @cilium/ipcache
 /pkg/defaults @cilium/sig-agent
 /pkg/ebpf @cilium/sig-datapath
-/pkg/egressgateway/ @cilium/sig-datapath
+/pkg/egressgateway/ @cilium/egress-gateway
 /pkg/elf @cilium/sig-datapath
 /pkg/endpoint/ @cilium/endpoint
 /pkg/endpointmanager/ @cilium/endpoint
@@ -437,7 +440,10 @@ jenkinsfiles @cilium/ci-structure
 /pkg/k8s/watchers/cilium_network_policy.go @cilium/sig-policy
 /pkg/k8s/watchers/cilium_cidr_group.go @cilium/sig-policy
 /pkg/k8s/watchers/cilium_cidr_group_test.go @cilium/sig-policy
+/pkg/k8s/watchers/cilium_egress_gateway_policy.go @cilium/egress-gateway @cilium/sig-k8s
 /pkg/k8s/apis/cilium.io/client/crds/v2/ @cilium/sig-k8s
+/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumegressgatewaypolicies.yaml @cilium/egress-gateway
+/pkg/k8s/apis/cilium.io/v2/cegp_types.go @cilium/egress-gateway
 /pkg/k8s/apis/cilium.io/v2/ @cilium/api @cilium/sig-k8s
 /pkg/kvstore/ @cilium/kvstore
 /pkg/l2announcer/ @cilium/sig-agent
@@ -450,6 +456,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/mac @cilium/sig-datapath
 /pkg/maglev @cilium/sig-lb
 /pkg/maps/ @cilium/sig-datapath
+/pkg/maps/egressmap @cilium/egress-gateway
 /pkg/mcastmanager @cilium/sig-datapath
 /pkg/metrics @cilium/metrics
 /pkg/modules/ @cilium/sig-datapath
