@@ -123,7 +123,7 @@ Validate installation
            spec:
              containers:
              - name: nginx
-               image: nginx:1.14.2
+               image: nginx:1.25.1
                ports:
                - containerPort: 80
        ---
@@ -145,7 +145,7 @@ Validate installation
            spec:
              containers:
              - name: nginx
-               image: nginx:1.14.2
+               image: nginx:1.25.1
                ports:
                - containerPort: 80
        EOF
@@ -161,6 +161,13 @@ Validate installation
        nginx-default-79885c7f58-qch6b   1/1     Running   0          5s     10.10.10.77   kind-worker    <none>           <none>
        nginx-mars-76766f95f5-d9vzt      1/1     Running   0          5s     10.20.0.20    kind-worker2   <none>           <none>
        nginx-mars-76766f95f5-mtn2r      1/1     Running   0          5s     10.20.0.37    kind-worker    <none>           <none>
+
+#. Test connectivity between pods:
+
+   .. code-block:: shell-session
+
+       $ kubectl exec pod/nginx-default-79885c7f58-fdfgf -- curl -s -o /dev/null -w "%{http_code}" http://10.20.0.37
+       200
 
 #. Alternatively, the ``ipam.cilium.io/ipam-pool`` annotation can also be applied to a namespace:
 
@@ -178,6 +185,8 @@ Validate installation
        $ cilium connectivity test
        [...]
        ✅ All 42 tests (295 actions) successful, 13 tests skipped, 0 scenarios skipped.
+
+  **Note:** The connectivity test requires a cluster with at least 2 worker nodes to complete successfully.
 
 #. Verify that the connectivity test pods were assigned IPv4 addresses from the 10.20.0.0/16 CIDR
    defined in the ``mars`` pool:
