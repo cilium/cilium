@@ -85,7 +85,6 @@ jobs:
             tunnel: 'vxlan'
             test-upgrade: 'true'
             test-flow-interrupts: 'true'
-            ipv6: 'false'
 
           - name: '2'
             kernel: '5.4-20230420.212204'
@@ -94,7 +93,6 @@ jobs:
             tunnel: 'disabled'
             test-upgrade: 'true'
             test-flow-interrupts: 'true'
-            ipv6: 'false'
 
           - name: '3'
             kernel: '5.10-20230420.212204'
@@ -104,7 +102,6 @@ jobs:
             endpoint-routes: 'true'
             test-upgrade: 'true'
             test-flow-interrupts: 'true'
-            ipv6: 'false'
 
           - name: '4'
             kernel: '5.10-20230420.212204'
@@ -117,7 +114,6 @@ jobs:
             debug: 'true'
             test-upgrade: 'true'
             test-flow-interrupts: 'true'
-            ipv6: 'false'
 
           - name: '5'
             kernel: '5.15-20230420.212204'
@@ -130,7 +126,6 @@ jobs:
             host-fw: 'true'
             test-upgrade: 'true'
             test-flow-interrupts: 'true'
-            ipv6: 'false'
 
           - name: '6'
             kernel: '6.0-20230420.212204'
@@ -143,7 +138,6 @@ jobs:
             lb-acceleration: 'testing-only'
             test-upgrade: 'true'
             test-flow-interrupts: 'true'
-            ipv6: 'false'
 
           - name: '7'
             kernel: 'bpf-next-20230420.212204'
@@ -155,7 +149,6 @@ jobs:
             lb-acceleration: 'testing-only'
             test-upgrade: 'true'
             test-flow-interrupts: 'true'
-            ipv6: 'false'
 
           - name: '8'
             kernel: 'bpf-next-20230420.212204'
@@ -165,7 +158,6 @@ jobs:
             endpoint-routes: 'true'
             test-upgrade: 'true'
             test-flow-interrupts: 'true'
-            ipv6: 'false'
 
           - name: '9'
             kernel: '4.19-20230420.212204'
@@ -185,7 +177,6 @@ jobs:
             debug: 'true'
             test-upgrade: 'true'
             test-flow-interrupts: 'true'
-            ipv6: 'false'
 
           - name: '11'
             kernel: '5.10-20230420.212204'
@@ -197,7 +188,6 @@ jobs:
             endpoint-routes: 'true'
             test-upgrade: 'true'
             test-flow-interrupts: 'true'
-            ipv6: 'false'
 
           - name: '12'
             kernel: '5.10-20230420.212204'
@@ -211,7 +201,6 @@ jobs:
             egress-gateway: 'true'
             test-upgrade: 'true'
             test-flow-interrupts: 'true'
-            ipv6: 'false'
 
           - name: '13'
             kernel: '5.15-20230420.212204'
@@ -225,7 +214,6 @@ jobs:
             egress-gateway: 'true'
             test-upgrade: 'true'
             test-flow-interrupts: 'true'
-            ipv6: 'false'
 
           - name: '14'
             kernel: '6.0-20230420.212204'
@@ -257,7 +245,6 @@ jobs:
             endpoint-routes: 'true'
             test-upgrade: 'true'
             test-flow-interrupts: 'true'
-            ipv6: 'false'
 
     timeout-minutes: 60
     steps:
