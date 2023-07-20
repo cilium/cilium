@@ -1774,19 +1774,19 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple, int off,
 	case IPPROTO_ICMPV6:
 		if (ctx_load_bytes(ctx, off, &icmp6hdr, sizeof(icmp6hdr)) < 0)
 			return DROP_INVALID;
-		/* Letting neighbor solicitation / advertisement pass through. */
-		if (icmp6hdr.icmp6_type == ICMP6_NS_MSG_TYPE ||
-		    icmp6hdr.icmp6_type == ICMP6_NA_MSG_TYPE)
-			return CTX_ACT_OK;
-		if (icmp6hdr.icmp6_type != ICMPV6_ECHO_REQUEST &&
-		    icmp6hdr.icmp6_type != ICMPV6_ECHO_REPLY)
-			return DROP_NAT_UNSUPP_PROTO;
-		if (icmp6hdr.icmp6_type == ICMPV6_ECHO_REQUEST) {
+
+		switch (icmp6hdr.icmp6_type) {
+		case ICMPV6_ECHO_REPLY:
+		case ICMP6_NS_MSG_TYPE:
+		case ICMP6_NA_MSG_TYPE:
+			return NAT_PUNT_TO_STACK;
+		case ICMPV6_ECHO_REQUEST:
 			tuple->dport = 0;
 			tuple->sport = icmp6hdr.icmp6_dataun.u_echo.identifier;
 			ct_action = ACTION_CREATE;
-		} else {
-			return NAT_PUNT_TO_STACK;
+			break;
+		default:
+			return DROP_NAT_UNSUPP_PROTO;
 		}
 		break;
 	default:
