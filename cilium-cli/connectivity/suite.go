@@ -212,6 +212,10 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 			tests.NoInterruptedConnections(),
 		)
 
+		ct.NewTest("no-ipsec-xfrm-errors").
+			WithFeatureRequirements(check.RequireFeatureMode(check.FeatureEncryptionPod, "ipsec")).
+			WithScenarios(tests.NoIPsecXfrmErrors())
+
 		if ct.Params().ConnDisruptTestSetup {
 			// Exit early, as --conn-disrupt-test-setup is only needed to deploy pods which
 			// will be used by another invocation of "cli connectivity test" (with
