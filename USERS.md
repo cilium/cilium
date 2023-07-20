@@ -585,6 +585,11 @@ Users (Alphabetically)
       L: https://teuto.net/managed-kubernetes
       Q: @cwrau
 
+    * N: Trendyol
+      D: Trendyol.com has recently implemented Cilium as the default CNI for its production Kubernetes clusters starting from version 1.26.
+      U: Networking, kube-proxy replacement, eBPF, Network Visibility with Hubble and Grafana, Local Redirect Policy
+      L: https://t.ly/FDCZK
+
     * N: T-Systems International
       D: TSI uses Cilium for it's Open Sovereign Cloud product, including as a CNI for Gardener-based Kubernetes clusters and bare-metal infrastructure managed by OnMetal.
       U: CNI, overlay network, NetworkPolicies
