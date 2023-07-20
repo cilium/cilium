@@ -47,6 +47,7 @@
 #include "lib/nodeport.h"
 #include "lib/eps.h"
 #include "lib/host_firewall.h"
+#include "lib/egress_gateway.h"
 #include "lib/egress_policies.h"
 #include "lib/overloadable.h"
 #include "lib/encrypt.h"
