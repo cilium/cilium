@@ -449,7 +449,7 @@ jobs:
 
       - name: Run upgrade tests (${{ join(matrix.*, ', ') }})
         if:  ${{ matrix.test-upgrade == 'true' }}
-        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        uses: cilium/little-vm-helper@6a3d1797af8fab1a49f1c3d09afe3230aea559b6 # v0.0.11
         with:
           provision: 'false'
           cmd: |
@@ -553,7 +553,7 @@ jobs:
 
       - name: Run logs
         if: ${{ !success() }}
-        uses: cilium/little-vm-helper@d04a0cf0ee684b1b249a320a0a6030ffda5eef30 # v0.0.5
+        uses: cilium/little-vm-helper@6a3d1797af8fab1a49f1c3d09afe3230aea559b6 # v0.0.11
         with:
           provision: 'false'
           cmd: |
@@ -573,7 +573,7 @@ jobs:
             done
 
       - name: Fetch artifacts
-        if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
+        if: ${{ !success() }}
         uses: cilium/little-vm-helper@6a3d1797af8fab1a49f1c3d09afe3230aea559b6 # v0.0.11
         with:
           provision: 'false'
