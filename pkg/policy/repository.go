@@ -381,7 +381,7 @@ func (p *Repository) SearchRLocked(lbls labels.LabelArray) api.Rules {
 // TODO: this should be in a test_helpers.go file or something similar
 // so we can clearly delineate what helpers are for testing.
 // NOTE: This is only called from unit tests, but from multiple packages.
-func (p *Repository) Add(r api.Rule, localRuleConsumers []Endpoint) (uint64, map[uint16]struct{}, error) {
+func (p *Repository) Add(r api.Rule) (uint64, map[uint16]struct{}, error) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
 

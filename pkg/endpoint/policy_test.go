@@ -142,7 +142,7 @@ func TestIncrementalUpdatesDuringPolicyGeneration(t *testing.T) {
 		},
 	}
 
-	_, _, err := repo.Add(*egressDenyRule, nil)
+	_, _, err := repo.Add(*egressDenyRule)
 	if err != nil {
 		t.Fatal(err)
 	}

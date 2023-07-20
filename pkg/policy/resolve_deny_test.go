@@ -130,7 +130,7 @@ func (ds *PolicyTestSuite) TestL3WithIngressDenyWildcard(c *C) {
 	}
 
 	rule1.Sanitize()
-	_, _, err := repo.Add(rule1, []Endpoint{})
+	_, _, err := repo.Add(rule1)
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
@@ -211,7 +211,7 @@ func (ds *PolicyTestSuite) TestL3WithLocalHostWildcardd(c *C) {
 	}
 
 	rule1.Sanitize()
-	_, _, err := repo.Add(rule1, []Endpoint{})
+	_, _, err := repo.Add(rule1)
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
@@ -296,7 +296,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 	}
 
 	rule1.Sanitize()
-	_, _, err := repo.Add(rule1, []Endpoint{})
+	_, _, err := repo.Add(rule1)
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
@@ -409,7 +409,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 	}
 
 	rule1.Sanitize()
-	_, _, err := repo.Add(rule1, []Endpoint{})
+	_, _, err := repo.Add(rule1)
 	c.Assert(err, IsNil)
 
 	repo.Mutex.RLock()
