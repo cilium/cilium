@@ -71,11 +71,14 @@ func createPolicyMapFromDaemonConfig(daemonConfig *option.DaemonConfig, lc hive.
 		return bpf.NewMapOut[PolicyMap](nil)
 	}
 
-	return bpf.NewMapOut(CreatePolicyMap(lc, cfg))
+	return bpf.NewMapOut(PolicyMap(createPolicyMap(lc, cfg, ebpf.PinByName)))
 }
 
-func CreatePolicyMap(lc hive.Lifecycle, cfg PolicyConfig) PolicyMap {
-	return createPolicyMap(lc, cfg, ebpf.PinByName)
+// CreatePrivatePolicyMap creates an unpinned policy map.
+//
+// Useful for testing.
+func CreatePrivatePolicyMap(lc hive.Lifecycle, cfg PolicyConfig) PolicyMap {
+	return createPolicyMap(lc, cfg, ebpf.PinNone)
 }
 
 func createPolicyMap(lc hive.Lifecycle, cfg PolicyConfig, pinning ebpf.PinType) *policyMap {

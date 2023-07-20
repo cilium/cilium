@@ -20,9 +20,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/hive"
-	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -112,7 +111,6 @@ type parsedEgressRule struct {
 
 // Hook up gocheck into the "go test" runner.
 type EgressGatewayTestSuite struct {
-	hive        *hive.Hive
 	manager     *Manager
 	cacheStatus k8s.CacheStatus
 }
@@ -135,25 +133,21 @@ func (k *EgressGatewayTestSuite) SetUpSuite(c *C) {
 
 func (k *EgressGatewayTestSuite) SetUpTest(c *C) {
 	k.cacheStatus = make(k8s.CacheStatus)
-	k.hive = hive.New(
-		egressmap.Cell,
-		cell.Provide(NewEgressGatewayManager),
-		cell.Provide(
-			func() Config { return Config{true, 1 * time.Millisecond} },
-			func() *option.DaemonConfig { return &option.DaemonConfig{EnableIPv4EgressGateway: true} },
-			func() k8s.CacheStatus { return k.cacheStatus },
-			func() cache.IdentityAllocator { return identityAllocator },
-		),
-		cell.Invoke(func(m *Manager) {
-			k.manager = m
-		}),
-	)
-	c.Assert(k.hive.Start(context.Background()), IsNil)
-	c.Assert(k.manager, NotNil)
-}
 
-func (k *EgressGatewayTestSuite) TearDownTest(c *C) {
-	c.Assert(k.hive.Stop(context.Background()), IsNil)
+	lc := hivetest.Lifecycle(c)
+	policyMap := egressmap.CreatePrivatePolicyMap(lc, egressmap.DefaultPolicyConfig)
+
+	var err error
+	k.manager, err = NewEgressGatewayManager(Params{
+		Lifecycle:         lc,
+		Config:            Config{true, 1 * time.Millisecond},
+		DaemonConfig:      &option.DaemonConfig{EnableIPv4EgressGateway: true},
+		CacheStatus:       k.cacheStatus,
+		IdentityAllocator: identityAllocator,
+		PolicyMap:         policyMap,
+	})
+	c.Assert(err, IsNil)
+	c.Assert(k.manager, NotNil)
 }
 
 func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
@@ -164,8 +158,6 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	defer destroyTestInterface(testInterface1)
 
 	policyMap := k.manager.policyMap
-	defer cleanupPolicies(policyMap)
-
 	egressGatewayManager := k.manager
 	assertIPRules(c, []ipRule{})
 
@@ -444,13 +436,6 @@ func destroyTestInterface(iface string) error {
 	}
 
 	return nil
-}
-
-func cleanupPolicies(policyMap egressmap.PolicyMap) {
-	for _, ep := range []string{ep1IP, ep2IP} {
-		pr := parseEgressRule(ep, destCIDR, zeroIP4, zeroIP4)
-		policyMap.Delete(pr.sourceIP, pr.destCIDR)
-	}
 }
 
 func newCiliumNode(name, nodeIP string, nodeLabels map[string]string) nodeTypes.Node {
