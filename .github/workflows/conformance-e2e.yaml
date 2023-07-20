@@ -425,6 +425,14 @@ jobs:
           path: cilium-junits/*.xml
           retention-days: 2
 
+      - name: Upload LVM log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: LVM log
+          path: /tmp/console.log
+          retention-days: 2
+
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() }}
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
