@@ -21,13 +21,13 @@ import (
 // The test case consists of three steps:
 //
 // 1. Deploying pods and a service which establish the long-lived connections
-// (done by "--upgrade-test-setup"). The client pods ("test-conn-disrupt-client")
+// (done by "--conn-disrupt-test-setup"). The client pods ("test-conn-disrupt-client")
 // establish connections via ClusterIP ("test-conn-disrupt") to server pods
 // ("test-conn-disrupt-server"). As there former pods come first before the latter,
 // the former pods can crash which increases the pod restart counter. The step
 // is responsible for storing the restart counter too.
 // 2. Do Cilium upgrade.
-// 3. Run the test ("--include-upgrade-test"). The test checks the restart
+// 3. Run the test ("--include-conn-disrupt-test"). The test checks the restart
 // counters, and compares them against the previously stored ones. A mismatch
 // indicates that a connection was interrupted.
 func NoInterruptedConnections() check.Scenario {
@@ -58,12 +58,12 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 	}
 
 	// Only store restart counters which will be used later when running the same
-	// test case, but w/o --upgrade-test-setup.
-	if ct.Params().UpgradeTestSetup {
-		file, err := os.Create(ct.Params().UpgradeTestResultPath)
+	// test case, but w/o --conn-disrupt-test-setup.
+	if ct.Params().ConnDisruptTestSetup {
+		file, err := os.Create(ct.Params().ConnDisruptTestRestartsPath)
 		if err != nil {
-			t.Fatalf("Failed to create %q file for writing upgrade test temp results: %s",
-				ct.Params().UpgradeTestResultPath, err)
+			t.Fatalf("Failed to create %q file for writing conn disrupt test temp results: %s",
+				ct.Params().ConnDisruptTestRestartsPath, err)
 		}
 		defer file.Close()
 
@@ -77,15 +77,15 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 		}
 
 		if _, err := file.Write(j); err != nil {
-			t.Fatalf("Failed to write upgrade test temp result into file: %s", err)
+			t.Fatalf("Failed to write conn disrupt test temp result into file: %s", err)
 		}
 
 		return
 	}
 
-	b, err := os.ReadFile(ct.Params().UpgradeTestResultPath)
+	b, err := os.ReadFile(ct.Params().ConnDisruptTestRestartsPath)
 	if err != nil {
-		t.Fatalf("Failed to read upgrade test result files: %s", err)
+		t.Fatalf("Failed to read conn disrupt test result files: %s", err)
 	}
 	prevRestartCount := make(map[string]string)
 	if err := gojson.Unmarshal(b, &prevRestartCount); err != nil {
