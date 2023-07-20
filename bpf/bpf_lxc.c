@@ -2271,7 +2271,9 @@ int cil_to_container(struct __ctx_buff *ctx)
 #if defined(ENABLE_L7_LB)
 	else if (magic == MARK_MAGIC_PROXY_EGRESS_EPID) {
 		tail_call_dynamic(ctx, &POLICY_EGRESSCALL_MAP, identity);
-		return DROP_MISSED_TAIL_CALL;
+		return send_drop_notify(ctx, identity, SECLABEL, LXC_ID,
+					DROP_MISSED_TAIL_CALL, CTX_ACT_DROP,
+					METRIC_INGRESS);
 	}
 #endif
 
@@ -2291,7 +2293,9 @@ int cil_to_container(struct __ctx_buff *ctx)
 		ctx_store_meta(ctx, CB_FROM_HOST, 1);
 		ctx_store_meta(ctx, CB_DST_ENDPOINT_ID, LXC_ID);
 		tail_call_static(ctx, &POLICY_CALL_MAP, HOST_EP_ID);
-		return DROP_MISSED_TAIL_CALL;
+		return send_drop_notify(ctx, identity, SECLABEL, LXC_ID,
+					DROP_MISSED_TAIL_CALL, CTX_ACT_DROP,
+					METRIC_INGRESS);
 	}
 #endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
