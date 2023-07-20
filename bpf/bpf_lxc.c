@@ -2214,8 +2214,10 @@ int cil_to_container(struct __ctx_buff *ctx)
 		void *data, *data_end;
 		struct ipv6hdr *ip6;
 
-		if (!revalidate_data(ctx, &data, &data_end, &ip6))
-			return DROP_INVALID;
+		if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto out;
+		}
 
 		ep = __lookup_ip6_endpoint((union v6addr *)&ip6->saddr);
 		if (ep)
@@ -2235,8 +2237,10 @@ int cil_to_container(struct __ctx_buff *ctx)
 		void *data, *data_end;
 		struct iphdr *ip4;
 
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
+		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto out;
+		}
 
 		ep = __lookup_ip4_endpoint(ip4->saddr);
 		if (ep)
