@@ -141,6 +141,8 @@ external software and protocols:
   Provide background on how the Cilium Endpoint package fits into the overall
   agent architecture, relationship with generation of policy / datapath
   constructs, serialization and restore from disk.
+- `@cilium/egress-gateway <https://github.com/orgs/cilium/teams/egress-gateway>`__:
+  Maintain the egress gateway control plane and datapath logic.
 - `@cilium/ipcache <https://github.com/orgs/cilium/teams/ipcache>`__:
   Provide background on how the userspace IPCache structure fits into the
   overall agent architecture, ordering constraints with respect to network
