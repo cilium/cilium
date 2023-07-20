@@ -30,5 +30,4 @@ func (v4 IPv4) String() string {
 // DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
 func (v4 *IPv4) DeepCopyInto(out *IPv4) {
 	copy(out[:], v4[:])
-	return
 }

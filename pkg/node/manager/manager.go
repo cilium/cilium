@@ -704,5 +704,4 @@ func (m *manager) StartNeighborRefresh(nh datapath.NodeNeighbors) {
 			RunInterval: option.Config.ARPPingRefreshPeriod,
 		},
 	)
-	return
 }

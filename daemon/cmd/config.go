@@ -109,7 +109,6 @@ func (c *ConfigModifyEvent) configModify(params PatchConfigParams, resChan chan 
 	}
 
 	resChan <- NewPatchConfigOK()
-	return
 }
 
 func patchConfigHandler(d *Daemon, params PatchConfigParams) middleware.Responder {

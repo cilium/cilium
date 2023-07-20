@@ -38,7 +38,7 @@ func BenchmarkRingWrite(b *testing.B) {
 func BenchmarkRingRead(b *testing.B) {
 	entry := &v1.Event{}
 	s := NewRing(capacity(b.N))
-	a := make([]*v1.Event, b.N, b.N)
+	a := make([]*v1.Event, b.N)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		s.Write(entry)
@@ -54,7 +54,7 @@ func BenchmarkRingRead(b *testing.B) {
 func BenchmarkTimeLibListRead(b *testing.B) {
 	entry := &v1.Event{}
 	s := list.New()
-	a := make([]*v1.Event, b.N, b.N)
+	a := make([]*v1.Event, b.N)
 	i := 0
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -69,7 +69,7 @@ func BenchmarkTimeLibListRead(b *testing.B) {
 func BenchmarkTimeLibRingRead(b *testing.B) {
 	entry := &v1.Event{}
 	s := ring.New(b.N)
-	a := make([]*v1.Event, b.N, b.N)
+	a := make([]*v1.Event, b.N)
 	i := 0
 	b.ReportAllocs()
 	b.ResetTimer()

@@ -34,11 +34,7 @@ type NodeUpdate interface {
 }
 
 func nodeEventsAreEqual(oldNode, newNode *slim_corev1.Node) bool {
-	if !comparator.MapStringEquals(oldNode.GetLabels(), newNode.GetLabels()) {
-		return false
-	}
-
-	return true
+	return comparator.MapStringEquals(oldNode.GetLabels(), newNode.GetLabels())
 }
 
 func (k *K8sWatcher) NodesInit(k8sClient client.Clientset) {

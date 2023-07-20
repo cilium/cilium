@@ -1291,9 +1291,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, isExtLocal, isIntLocal b
 			if prevSessionAffinity {
 				// Remove obsolete svc backends if previously the svc had the affinity enabled
 				toDeleteAffinity = make([]lb.BackendID, 0, len(obsoleteSVCBackendIDs))
-				for _, bID := range obsoleteSVCBackendIDs {
-					toDeleteAffinity = append(toDeleteAffinity, bID)
-				}
+				toDeleteAffinity = append(toDeleteAffinity, obsoleteSVCBackendIDs...)
 			}
 		}
 

@@ -942,9 +942,7 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 		}
 
 		for _, dead := range dead[deadIdx:] {
-			if _, ok := possibleAlive[dead]; ok {
-				delete(possibleAlive, dead)
-			}
+			delete(possibleAlive, dead)
 		}
 
 		for zombie := range possibleAlive {

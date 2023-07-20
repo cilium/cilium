@@ -162,7 +162,7 @@ func (i *ingressClassManager) handleIngressClassDeletedEvent(event ingressClassD
 	log.WithField(logfields.IngressClass, event.ingressClass).Debug("Handling ingress class delete")
 
 	if event.ingressClass.GetName() == ciliumIngressClassName {
-		i.ingressQueue.Add(ciliumIngressClassDeletedEvent{ingressClass: event.ingressClass})
+		i.ingressQueue.Add(ciliumIngressClassDeletedEvent(event))
 	}
 	return nil
 }

@@ -23,7 +23,7 @@ var allChecks = []checkCRDFunc{
 
 func main() {
 	if len(os.Args) != 2 {
-		log.Fatal(fmt.Sprintf("usage: %s <path>", os.Args[0]))
+		log.Fatalf("usage: %s <path>", os.Args[0])
 	}
 
 	_ = crdv1.AddToScheme(scheme.Scheme)

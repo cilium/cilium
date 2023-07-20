@@ -219,9 +219,7 @@ func (c *Client) GetInstanceTypes(ctx context.Context) ([]ecs.InstanceType, erro
 			return nil, err
 		}
 
-		for _, v := range resp.InstanceTypes.InstanceType {
-			result = append(result, v)
-		}
+		result = append(result, resp.InstanceTypes.InstanceType...)
 
 		if resp.NextToken == "" {
 			break
@@ -412,9 +410,8 @@ func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]ecs.NetworkIn
 			return nil, err
 		}
 
-		for _, v := range resp.NetworkInterfaceSets.NetworkInterfaceSet {
-			result = append(result, v)
-		}
+		result = append(result, resp.NetworkInterfaceSets.NetworkInterfaceSet...)
+
 		if resp.NextToken == "" {
 			break
 		} else {
@@ -442,9 +439,8 @@ func (c *Client) describeNetworkInterfacesByInstance(ctx context.Context, instan
 			break
 		}
 
-		for _, v := range resp.NetworkInterfaceSets.NetworkInterfaceSet {
-			result = append(result, v)
-		}
+		result = append(result, resp.NetworkInterfaceSets.NetworkInterfaceSet...)
+
 		if resp.TotalCount < resp.PageNumber*resp.PageSize {
 			break
 		}

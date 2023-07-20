@@ -55,7 +55,7 @@ func (sc StatusCode) String() string {
 
 func (s Status) String() string {
 	if s.Msg == "" {
-		return fmt.Sprintf("%s", s.Code)
+		return s.Code.String()
 	}
 	return fmt.Sprintf("%s - %s", s.Code, s.Msg)
 }

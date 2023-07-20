@@ -438,7 +438,7 @@ func finishKubeProxyReplacementInit() error {
 		default:
 			if probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectNeigh) != nil ||
 				probes.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer) != nil {
-				msg = fmt.Sprintf("BPF host routing requires kernel 5.10 or newer.")
+				msg = "BPF host routing requires kernel 5.10 or newer."
 			}
 		}
 		if msg != "" {

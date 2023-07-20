@@ -363,7 +363,7 @@ func (o *objectCache) watchTemplatesDirectory(ctx context.Context) error {
 			} else {
 				log.WithField("event", event).Debug("Ignoring template FS event")
 			}
-		case err, _ = <-templateWatcher.Errors:
+		case err = <-templateWatcher.Errors:
 			return err
 		case <-ctx.Done():
 			return ctx.Err()

@@ -26,9 +26,8 @@ type L2AnnounceEntry struct {
 }
 
 func (pne *L2AnnounceEntry) DeepCopy() *L2AnnounceEntry {
-	var n L2AnnounceEntry
 	// Shallow copy
-	n = *pne
+	var n L2AnnounceEntry = *pne
 	// Explicit clone for slices
 	n.IP = slices.Clone(pne.IP)
 	n.Origins = slices.Clone(pne.Origins)

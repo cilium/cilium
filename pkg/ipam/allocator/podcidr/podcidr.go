@@ -410,7 +410,6 @@ func (n *NodesPodCIDRManager) Delete(node *v2.CiliumNode) {
 		op: k8sOpDelete,
 	}
 	n.k8sReSync.Trigger()
-	return
 }
 
 // Resync resyncs the nodes with k8s.

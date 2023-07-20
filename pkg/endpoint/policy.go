@@ -673,22 +673,20 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 			canceled     bool
 		)
 
-		select {
-		case result, ok := <-resChan:
-			if ok {
-				regenResult := result.(*EndpointRegenerationResult)
-				regenError = regenResult.err
-				buildSuccess = regenError == nil
+		result, ok := <-resChan
+		if ok {
+			regenResult := result.(*EndpointRegenerationResult)
+			regenError = regenResult.err
+			buildSuccess = regenError == nil
 
-				if regenError != nil && !errors.Is(regenError, context.Canceled) {
-					e.getLogger().WithError(regenError).Error("endpoint regeneration failed")
-				}
-			} else {
-				// This may be unnecessary(?) since 'closing' of the results
-				// channel means that event has been cancelled?
-				e.getLogger().Debug("regeneration was cancelled")
-				canceled = true
+			if regenError != nil && !errors.Is(regenError, context.Canceled) {
+				e.getLogger().WithError(regenError).Error("endpoint regeneration failed")
 			}
+		} else {
+			// This may be unnecessary(?) since 'closing' of the results
+			// channel means that event has been cancelled?
+			e.getLogger().Debug("regeneration was cancelled")
+			canceled = true
 		}
 
 		// If a build is canceled, that means that the Endpoint is being deleted

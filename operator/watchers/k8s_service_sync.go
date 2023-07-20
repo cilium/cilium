@@ -108,7 +108,7 @@ type ServiceSyncParameters struct {
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
 func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg ServiceSyncParameters) {
-	kvstoreReady := make(chan struct{}, 0)
+	kvstoreReady := make(chan struct{})
 
 	wg.Add(1)
 	go func() {

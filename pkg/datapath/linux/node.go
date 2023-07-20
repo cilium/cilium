@@ -645,7 +645,7 @@ type NextHop struct {
 func (n *linuxNodeHandler) insertNeighborCommon(scopedLog *logrus.Entry, ctx context.Context, nextHop NextHop, link netlink.Link, refresh bool) {
 	if refresh {
 		if lastPing, found := n.neighLastPingByNextHop[nextHop.Name]; found &&
-			time.Now().Sub(lastPing) < option.Config.ARPPingRefreshPeriod {
+			time.Since(lastPing) < option.Config.ARPPingRefreshPeriod {
 			// Last ping was issued less than option.Config.ARPPingRefreshPeriod
 			// ago, so skip it (e.g. to avoid ddos'ing the same GW if nodes are
 			// L3 connected)
@@ -2035,7 +2035,7 @@ func deleteOldLocalRule(family int, rule route.Rule) error {
 		}
 	}
 
-	if found == true {
+	if found {
 		err := route.DeleteRule(family, rule)
 		if err != nil {
 			return fmt.Errorf("could not delete old %s local rule: %w", familyStr, err)

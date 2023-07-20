@@ -298,10 +298,8 @@ func (manager *Manager) processCiliumEndpoints(ctx context.Context, wg *sync.Wai
 
 		retryQueue := manager.endpointEventsQueue
 		go func() {
-			select {
-			case <-ctx.Done():
-				retryQueue.ShutDown()
-			}
+			<-ctx.Done()
+			retryQueue.ShutDown()
 		}()
 
 		for {

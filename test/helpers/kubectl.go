@@ -274,7 +274,7 @@ func Init() {
 		os.Setenv("HUBBLE_RELAY_TAG", config.CiliumTestConfig.HubbleRelayTag)
 	}
 
-	if config.CiliumTestConfig.ProvisionK8s == false {
+	if !config.CiliumTestConfig.ProvisionK8s {
 		os.Setenv("SKIP_K8S_PROVISION", "true")
 	}
 
@@ -936,7 +936,7 @@ func (kub *Kubectl) GetPodOnNodeLabeledWithOffset(label string, podFilter string
 
 	var podName string
 
-	podsNodes, err := kub.GetPodsNodes(DefaultNamespace, fmt.Sprintf("%s", podFilter))
+	podsNodes, err := kub.GetPodsNodes(DefaultNamespace, podFilter)
 	gomega.ExpectWithOffset(callOffset, err).Should(gomega.BeNil(), "Cannot retrieve pods nodes with filter %q", podFilter)
 	gomega.Expect(podsNodes).ShouldNot(gomega.BeEmpty(), "No pod found in namespace %s with filter %q", DefaultNamespace, podFilter)
 	for pod, node := range podsNodes {
@@ -1316,26 +1316,22 @@ func (kub *Kubectl) PprofReport() {
 		}
 	}
 
-	for {
-		select {
-		case <-ticker.C:
-
-			testPath, err := CreateReportDirectory()
-			if err != nil {
-				log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
-				return
-			}
-
-			pods, err := kub.GetCiliumPods()
-			if err != nil {
-				log.Errorf("cannot get cilium pods")
-			}
-
-			for _, pod := range pods {
-				retrievePProf(pod, testPath)
-			}
-
+	for range ticker.C {
+		testPath, err := CreateReportDirectory()
+		if err != nil {
+			log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+			return
 		}
+
+		pods, err := kub.GetCiliumPods()
+		if err != nil {
+			log.Errorf("cannot get cilium pods")
+		}
+
+		for _, pod := range pods {
+			retrievePProf(pod, testPath)
+		}
+
 	}
 }
 
@@ -2823,7 +2819,7 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 		close(queue)
 
 		for status := range queue {
-			if status == false {
+			if !status {
 				return false, nil
 			}
 		}
@@ -2919,7 +2915,6 @@ func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd strin
 			// Retry.
 		default:
 			kub.Logger().Warningf("command terminated with exit code %d on try %d", res.GetExitCode(), i)
-			break
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
@@ -4388,7 +4383,7 @@ func (kub *Kubectl) WaitForEgressPolicyEntries(node string, expectedCount int) e
 	body := func() bool {
 		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
 		defer cancel()
-		cmd := fmt.Sprintf(`cilium bpf egress list | tail -n +2 | wc -l`)
+		cmd := "cilium bpf egress list | tail -n +2 | wc -l"
 		out := kub.CiliumExecContext(ctx, ciliumPod, cmd)
 		if !out.WasSuccessful() {
 			kub.Logger().

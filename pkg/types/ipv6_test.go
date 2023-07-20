@@ -19,8 +19,7 @@ type IPv6Suite struct{}
 var _ = check.Suite(&IPv6Suite{})
 
 func (s *IPv6Suite) TestIP(c *check.C) {
-	var expectedAddress net.IP
-	expectedAddress = []byte{240, 13, 0, 0, 0, 0, 0, 0, 172, 16, 0, 20, 0, 0, 0, 1}
+	var expectedAddress net.IP = []byte{240, 13, 0, 0, 0, 0, 0, 0, 172, 16, 0, 20, 0, 0, 0, 1}
 	result := testIPv6Address.IP()
 
 	c.Assert(result, checker.DeepEquals, expectedAddress)

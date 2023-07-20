@@ -393,8 +393,6 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	if err != nil {
 		log.WithError(err).WithField(logfields.PolicyRevision, newRev).Error("enqueue of RuleReactionEvent failed")
 	}
-
-	return
 }
 
 // PolicyReactionEvent is an event which needs to be serialized after changes
@@ -616,8 +614,6 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, opts *policy.DeleteOptio
 	if err := d.SendNotification(monitorAPI.PolicyDeleteMessage(deleted, labels.GetModel(), rev)); err != nil {
 		log.WithError(err).WithField(logfields.PolicyRevision, rev).Warn("Failed to send policy update as monitor notification")
 	}
-
-	return
 }
 
 func deletePolicyHandler(d *Daemon, params DeletePolicyParams) middleware.Responder {

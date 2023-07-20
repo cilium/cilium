@@ -114,7 +114,6 @@ func (c *CNPStatusEventHandler) UpdateCNPStore(cnpStore *store.SharedStore) {
 // OnDelete is called when a delete event is called on the CNP status key.
 // It is a NoOp
 func (c *CNPStatusEventHandler) OnDelete(_ store.NamedKey) {
-	return
 }
 
 // OnUpdate is called when a CNPStatus object is modified in the KVStore.

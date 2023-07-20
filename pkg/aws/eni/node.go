@@ -110,8 +110,6 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 			}
 			return nil
 		})
-
-	return
 }
 
 // getLimits returns the interface and IP limits of this node

@@ -52,7 +52,7 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 	c.Assert(len(selIPMap), Equals, 1, Commentf("Incorrect length for testCase with single ToFQDNs entry"))
 
 	expectedIPs := []net.IP{net.ParseIP("1.1.1.1")}
-	ips, _ := selIPMap[ciliumIOSel]
+	ips := selIPMap[ciliumIOSel]
 	c.Assert(ips[0].Equal(expectedIPs[0]), Equals, true)
 
 	// poll DNS once, check that we only generate 1 rule (for 2 IPs that we

@@ -87,8 +87,6 @@ func (n *Node) PopulateStatusFields(resource *v2.CiliumNode) {
 			}
 			return nil
 		})
-
-	return
 }
 
 // CreateInterface creates an additional interface with the instance and

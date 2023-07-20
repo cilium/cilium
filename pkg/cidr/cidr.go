@@ -72,7 +72,6 @@ func (in *CIDR) DeepCopyInto(out *CIDR) {
 		*out = make(net.IPMask, len(*in))
 		copy(*out, *in)
 	}
-	return
 }
 
 // AvailableIPs returns the number of IPs available in a CIDR

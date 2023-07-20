@@ -474,7 +474,7 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 		DNSZombies:       fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
 		state:            "",
 		status:           NewEndpointStatus(),
-		hasBPFProgram:    make(chan struct{}, 0),
+		hasBPFProgram:    make(chan struct{}),
 		desiredPolicy:    policy.NewEndpointPolicy(policyGetter.GetPolicyRepository()),
 		controllers:      controller.NewManager(),
 		regenFailedChan:  make(chan struct{}, 1),
@@ -840,7 +840,7 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 	ep.SetDefaultOpts(ep.Options)
 
 	// Initialize fields to values which are non-nil that are not serialized.
-	ep.hasBPFProgram = make(chan struct{}, 0)
+	ep.hasBPFProgram = make(chan struct{})
 	ep.desiredPolicy = policy.NewEndpointPolicy(policyGetter.GetPolicyRepository())
 	ep.realizedPolicy = ep.desiredPolicy
 	ep.controllers = controller.NewManager()
@@ -1752,11 +1752,7 @@ func (e *Endpoint) UpdateLabelsFrom(oldLbls, newLbls map[string]string, source s
 func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 	// Check if the endpoint has since received a new identity revision, if
 	// so, abort as a new resolution routine will have been started.
-	if myChangeRev != e.identityRevision {
-		return true
-	}
-
-	return false
+	return myChangeRev != e.identityRevision
 }
 
 // runIdentityResolver resolves the numeric identity for the set of labels that

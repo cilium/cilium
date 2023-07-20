@@ -111,15 +111,12 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing types.NodeAddressing)
 	switch svc.Spec.Type {
 	case slim_corev1.ServiceTypeClusterIP:
 		svcType = loadbalancer.SVCTypeClusterIP
-		break
 
 	case slim_corev1.ServiceTypeNodePort:
 		svcType = loadbalancer.SVCTypeNodePort
-		break
 
 	case slim_corev1.ServiceTypeLoadBalancer:
 		svcType = loadbalancer.SVCTypeLoadBalancer
-		break
 
 	case slim_corev1.ServiceTypeExternalName:
 		// External-name services must be ignored
@@ -662,7 +659,7 @@ func (s *Service) EqualsClusterService(svc *serviceStore.ClusterService) bool {
 		len(s.LoadBalancerSourceRanges) == 0 &&
 		comparator.MapStringEquals(s.Labels, svc.Labels) &&
 		comparator.MapStringEquals(s.Selector, svc.Selector) &&
-		s.SessionAffinity == false &&
+		!s.SessionAffinity &&
 		s.SessionAffinityTimeoutSec == 0 &&
 		s.Type == loadbalancer.SVCTypeClusterIP {
 

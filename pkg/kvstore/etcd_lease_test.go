@@ -125,7 +125,7 @@ func TestLeaseManagerParallel(t *testing.T) {
 		mgr.Wait()
 	})
 
-	ch := make(chan client.LeaseID, 0)
+	ch := make(chan client.LeaseID)
 
 	// Perform multiple requests in parallel, simulating a slow client, and
 	// assert that they all return the same lease ID

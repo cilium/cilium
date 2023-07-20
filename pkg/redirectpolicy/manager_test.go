@@ -53,7 +53,7 @@ func (ps *fakePodStore) List() []interface{} {
 	if ps.OnList != nil {
 		return ps.OnList()
 	}
-	pods := make([]interface{}, 2, 2)
+	pods := make([]interface{}, 2)
 	pods = append(pods, pod1, pod2)
 	return pods
 }

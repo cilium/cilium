@@ -984,7 +984,7 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 // Kubernetes event
 func (k *K8sWatcher) K8sEventProcessed(scope, action string, status bool) {
 	result := "success"
-	if status == false {
+	if !status {
 		result = "failed"
 	}
 

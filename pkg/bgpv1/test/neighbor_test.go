@@ -155,7 +155,7 @@ func Test_NeighborAddDel(t *testing.T) {
 			}
 
 			deadline, _ := testCtx.Deadline()
-			outstanding := deadline.Sub(time.Now())
+			outstanding := time.Until(deadline)
 			require.Greater(t, outstanding, 0*time.Second, "test context deadline exceeded")
 
 			peerStatesMatch := func() bool {
@@ -298,7 +298,7 @@ func Test_NeighborGracefulRestart(t *testing.T) {
 			require.NoError(t, err)
 
 			deadline, _ := testCtx.Deadline()
-			outstanding := deadline.Sub(time.Now())
+			outstanding := time.Until(deadline)
 			require.Greater(t, outstanding, 0*time.Second, "test context deadline exceeded")
 
 			peerStatesMatch := func() bool {

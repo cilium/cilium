@@ -4,7 +4,6 @@
 package testutils
 
 import (
-	"fmt"
 	"os"
 	"testing"
 )
@@ -19,16 +18,13 @@ func PrivilegedTest(tb testing.TB) {
 	tb.Helper()
 
 	if os.Getenv(privilegedEnv) == "" {
-		tb.Skip(fmt.Sprintf("Set %s to run this test", privilegedEnv))
+		tb.Skipf("Set %s to run this test", privilegedEnv)
 	}
 }
 
 // IntegrationTests returns true if integration tests are requested.
 func IntegrationTests() bool {
-	if os.Getenv(integrationEnv) != "" {
-		return true
-	}
-	return false
+	return os.Getenv(integrationEnv) != ""
 }
 
 // IntegrationTest only executes tb if integration tests are requested.
@@ -36,7 +32,7 @@ func IntegrationTest(tb testing.TB) {
 	tb.Helper()
 
 	if os.Getenv(integrationEnv) == "" {
-		tb.Skip(fmt.Sprintf("Set %s to run this test", integrationEnv))
+		tb.Skipf("Set %s to run this test", integrationEnv)
 	}
 }
 
@@ -44,6 +40,6 @@ func GatewayAPIConformanceTest(tb testing.TB) {
 	tb.Helper()
 
 	if os.Getenv(gatewayAPIConformanceEnv) == "" {
-		tb.Skip(fmt.Sprintf("Set %s to run this test", gatewayAPIConformanceEnv))
+		tb.Skipf("Set %s to run this test", gatewayAPIConformanceEnv)
 	}
 }

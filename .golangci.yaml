@@ -110,6 +110,7 @@ linters:
     - goheader
     - gosec
     - gomodguard
+    - gosimple
 
 # To enable later if makes sense
 #    - deadcode
