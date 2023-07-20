@@ -26,7 +26,7 @@ func getDebugInfoHandler(d *Daemon, params restapi.GetDebuginfoParams) middlewar
 	if kver, err := version.GetKernelVersion(); err != nil {
 		dr.KernelVersion = fmt.Sprintf("Error: %s\n", err)
 	} else {
-		dr.KernelVersion = fmt.Sprintf("%s", kver)
+		dr.KernelVersion = kver.String()
 	}
 
 	status := d.getStatus(false)

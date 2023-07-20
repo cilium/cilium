@@ -207,7 +207,7 @@ func (r *resource[T]) metricEventProcessed(eventKind EventKind, status bool) {
 	}
 
 	result := "success"
-	if status == false {
+	if !status {
 		result = "failed"
 	}
 

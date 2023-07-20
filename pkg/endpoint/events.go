@@ -65,7 +65,6 @@ func (ev *EndpointRegenerationEvent) Handle(res chan interface{}) {
 	res <- &EndpointRegenerationResult{
 		err: err,
 	}
-	return
 }
 
 // EndpointRegenerationResult contains the results of an endpoint regeneration.
@@ -182,7 +181,6 @@ func (ev *EndpointNoTrackEvent) Handle(res chan interface{}) {
 	res <- &EndpointRegenerationResult{
 		err: nil,
 	}
-	return
 }
 
 // EndpointPolicyVisibilityEvent contains all fields necessary to update the
@@ -248,7 +246,6 @@ func (ev *EndpointPolicyVisibilityEvent) Handle(res chan interface{}) {
 	res <- &EndpointRegenerationResult{
 		err: nil,
 	}
-	return
 }
 
 // EndpointPolicyBandwidthEvent contains all fields necessary to update

@@ -123,7 +123,7 @@ func (ipt *ipt) getVersion() (semver.Version, error) {
 	if err != nil {
 		return semver.Version{}, err
 	}
-	v := regexp.MustCompile("v([0-9]+(\\.[0-9]+)+)")
+	v := regexp.MustCompile(`v([0-9]+(\.[0-9]+)+)`)
 	vString := v.FindStringSubmatch(string(b))
 	if vString == nil {
 		return semver.Version{}, fmt.Errorf("no iptables version found in string: %s", string(b))
@@ -1620,7 +1620,7 @@ func (m *IptablesManager) ciliumNoTrackXfrmRules(prog iptablesInterface, input s
 // and 0x*e00 for encryption, colliding with existing rules. Needed
 // for kube-proxy for example.
 func (m *IptablesManager) addCiliumAcceptXfrmRules() error {
-	if option.Config.EnableIPSec == false {
+	if !option.Config.EnableIPSec {
 		return nil
 	}
 

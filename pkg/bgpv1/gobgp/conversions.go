@@ -62,7 +62,7 @@ func ToAgentPath(p *gobgp.Path) (*types.Path, error) {
 
 	// ageNano is time since the Path was created in nanoseconds.
 	// It is calculated by difference in time from age timestamp till now.
-	ageNano := int64(time.Now().Sub(p.Age.AsTime()))
+	ageNano := int64(time.Since(p.Age.AsTime()))
 
 	return &types.Path{
 		NLRI:           nlri,

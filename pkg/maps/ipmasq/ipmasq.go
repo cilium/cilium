@@ -4,7 +4,6 @@
 package ipmasq
 
 import (
-	"fmt"
 	"net"
 	"sync"
 
@@ -27,7 +26,7 @@ type Key4 struct {
 	Address   types.IPv4
 }
 
-func (k *Key4) String() string  { return fmt.Sprintf("%s", k.Address) }
+func (k *Key4) String() string  { return k.Address.String() }
 func (k *Key4) New() bpf.MapKey { return &Key4{} }
 
 type Key6 struct {
@@ -35,7 +34,7 @@ type Key6 struct {
 	Address   types.IPv6
 }
 
-func (k *Key6) String() string  { return fmt.Sprintf("%s", k.Address) }
+func (k *Key6) String() string  { return k.Address.String() }
 func (k *Key6) New() bpf.MapKey { return &Key6{} }
 
 type Value struct {

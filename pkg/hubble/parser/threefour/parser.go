@@ -96,15 +96,16 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		return errors.ErrEmptyData
 	}
 
+	eventType := data[0]
+
 	var packetOffset int
-	var eventType uint8
-	eventType = data[0]
 	var dn *monitor.DropNotify
 	var tn *monitor.TraceNotify
 	var pvn *monitor.PolicyVerdictNotify
 	var dbg *monitor.DebugCapture
 	var eventSubType uint8
 	var authType flow.AuthType
+
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
 		packetOffset = monitor.DropNotifyLen

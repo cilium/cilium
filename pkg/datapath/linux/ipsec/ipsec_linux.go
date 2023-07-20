@@ -132,8 +132,8 @@ func getIPSecKeys(ip net.IP) *ipSecKey {
 	defer ipSecLock.RUnlock()
 
 	key, scoped := ipSecKeysGlobal[ip.String()]
-	if scoped == false {
-		key, _ = ipSecKeysGlobal[""]
+	if !scoped {
+		key = ipSecKeysGlobal[""]
 	}
 	return key
 }

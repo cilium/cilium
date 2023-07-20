@@ -281,8 +281,7 @@ func TestHandleErr(t *testing.T) {
 		updatedCES.Generation = 2
 		cesController.ciliumEndpointSliceStore.Add(updatedCES)
 
-		var err error
-		err = k8s_errors.NewConflict(
+		var err error = k8s_errors.NewConflict(
 			schema.GroupResource{Group: "", Resource: "ciliumendpointslices"},
 			key,
 			fmt.Errorf("conflict"))

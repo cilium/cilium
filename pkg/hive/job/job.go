@@ -314,8 +314,6 @@ func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, options op
 	if options.shutdowner != nil && jos.shutdownOnError {
 		options.shutdowner.Shutdown(hive.ShutdownWithError(err))
 	}
-
-	return
 }
 
 // Timer creates a timer job which can be added to a Group. Timer jobs invoke the given function at the specified
@@ -539,6 +537,4 @@ func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, options
 	} else {
 		l.WithError(err).Debug("Observer job stopped")
 	}
-
-	return
 }

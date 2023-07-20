@@ -389,7 +389,7 @@ func (p *Proxy) AllocateProxyPort(name string, ingress, localOnly bool) (uint16,
 	if pp.proxyPort == 0 {
 		var err error
 		// Try to allocate the same port that was previously used on the datapath
-		if pp.rulesPort != 0 && p.allocatedPorts[pp.rulesPort] == false {
+		if pp.rulesPort != 0 && !p.allocatedPorts[pp.rulesPort] {
 			pp.proxyPort = pp.rulesPort
 		} else {
 			pp.proxyPort, err = p.allocatePort(pp.rulesPort, p.rangeMin, p.rangeMax)

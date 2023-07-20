@@ -75,7 +75,6 @@ type DummyIdentityAllocatorOwner struct{}
 
 // UpdateIdentities does nothing.
 func (d *DummyIdentityAllocatorOwner) UpdateIdentities(added, deleted cache.IdentityCache) {
-	return
 }
 
 // GetNodeSuffix does nothing.

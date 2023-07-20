@@ -364,7 +364,6 @@ func writeJSONPathToOutput(buf bytes.Buffer, path string, suffix string, jsonPat
 	writeFile([]byte(jsonStr), fileName)
 
 	fmt.Printf("%s output at %s\n", jsonpathOutput, fileName)
-	return
 }
 
 func writeToOutput(buf bytes.Buffer, output outputType, path string, suffix string) {

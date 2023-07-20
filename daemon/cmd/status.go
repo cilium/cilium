@@ -527,12 +527,10 @@ func (c *clusterNodesClient) NodeNeighDiscoveryEnabled() bool {
 
 func (c *clusterNodesClient) NodeNeighborRefresh(ctx context.Context, node nodeTypes.Node) {
 	// no-op
-	return
 }
 
 func (c *clusterNodesClient) NodeCleanNeighbors(migrateOnly bool) {
 	// no-op
-	return
 }
 
 func (c *clusterNodesClient) AllocateNodeID(_ net.IP) uint16 {
@@ -552,7 +550,6 @@ func (c *clusterNodesClient) DumpNodeIDs() []*models.NodeID {
 
 func (c *clusterNodesClient) RestoreNodeIDs() {
 	// no-op
-	return
 }
 
 func (h *getNodes) cleanupClients(d *Daemon) {
@@ -772,7 +769,7 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 					state = models.StatusStateFailure
 					msg = fmt.Sprintf("Err: %s", status.Err)
 				case ok:
-					msg = fmt.Sprintf("%s", info)
+					msg = info
 				}
 
 				d.statusCollectMutex.Lock()
@@ -1080,5 +1077,4 @@ func (d *Daemon) startStatusCollector(cleaner *daemonCleanup) {
 
 		}
 	})
-	return
 }

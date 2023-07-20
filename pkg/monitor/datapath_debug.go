@@ -540,7 +540,7 @@ func (n *DebugCapture) getJSON(data []byte, cpuPrefix string, linkMonitor getter
 func (n *DebugCapture) DumpJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
 	resp, err := n.getJSON(data, cpuPrefix, linkMonitor)
 	if err != nil {
-		fmt.Println(fmt.Sprintf(`{"type":"debug_capture_error","message":%q}`, err.Error()))
+		fmt.Printf(`{"type":"debug_capture_error","message":%q}`+"\n", err.Error())
 		return
 	}
 	fmt.Println(resp)

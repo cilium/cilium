@@ -121,9 +121,7 @@ func GetPodMetadata(k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (contain
 	k8sLabels[k8sConst.PolicyLabelCluster] = option.Config.ClusterName
 
 	for _, containers := range pod.Spec.Containers {
-		for _, cp := range containers.Ports {
-			containerPorts = append(containerPorts, cp)
-		}
+		containerPorts = append(containerPorts, containers.Ports...)
 	}
 
 	return containerPorts, k8sLabels, annotations, nil

@@ -51,7 +51,7 @@ type PolicyValue struct {
 
 // String pretty print the SID.
 func (v *PolicyValue) String() string {
-	return fmt.Sprintf("%s", v.SID)
+	return v.SID.String()
 }
 
 func initPolicyMaps(create bool) error {

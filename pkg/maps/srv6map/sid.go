@@ -4,7 +4,6 @@
 package srv6map
 
 import (
-	"fmt"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -27,7 +26,7 @@ type SIDKey struct {
 }
 
 func (k *SIDKey) String() string {
-	return fmt.Sprintf("%s", k.SID)
+	return k.SID.String()
 }
 
 func NewSIDKey(sid types.IPv6) SIDKey {

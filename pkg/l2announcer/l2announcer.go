@@ -166,16 +166,14 @@ func (l2a *L2Announcer) run(ctx context.Context) error {
 
 	// We have to first have a local node before we can start processing other events.
 	for {
-		select {
-		case event, more := <-localNodeChan:
-			// resource closed, shutting down
-			if !more {
-				return nil
-			}
+		event, more := <-localNodeChan
+		// resource closed, shutting down
+		if !more {
+			return nil
+		}
 
-			if err := l2a.processLocalNodeEvent(ctx, event); err != nil {
-				l2a.params.Logger.WithError(err).Warn("Error processing local node event")
-			}
+		if err := l2a.processLocalNodeEvent(ctx, event); err != nil {
+			l2a.params.Logger.WithError(err).Warn("Error processing local node event")
 		}
 
 		if l2a.localNode != nil {

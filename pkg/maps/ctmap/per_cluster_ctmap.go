@@ -471,8 +471,6 @@ func (gm *dummyPerClusterCTMaps) Cleanup() {
 		gm.tcp6 = nil
 		gm.any6 = nil
 	}
-
-	return
 }
 
 func newPerClusterCTMap(name string, m mapType) (*PerClusterCTMap, error) {

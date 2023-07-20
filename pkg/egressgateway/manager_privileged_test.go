@@ -704,7 +704,6 @@ func tryAssertEgressRules(policyMap egressmap.PolicyMap, rules []egressRule) err
 			}
 
 			untrackedRule = true
-			return
 		})
 
 	if untrackedRule {

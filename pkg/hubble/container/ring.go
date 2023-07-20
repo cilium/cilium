@@ -124,7 +124,7 @@ func NewRing(n Capacity) *Ring {
 		cycleMask: ^uint64(0) >> cycleExp,
 		halfCycle: halfCycle,
 		dataLen:   dataLen,
-		data:      make([]*v1.Event, dataLen, dataLen),
+		data:      make([]*v1.Event, dataLen),
 		notifyMu:  lock.Mutex{},
 		notifyCh:  nil,
 	}

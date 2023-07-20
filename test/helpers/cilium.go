@@ -245,10 +245,7 @@ func (s *SSHMeta) WaitDockerPluginReady() bool {
 		// check that connect works
 		cmd = `nc -U -z /run/docker/plugins/cilium.sock`
 		res = s.ExecWithSudo(cmd)
-		if !res.WasSuccessful() {
-			return false
-		}
-		return true
+		return res.WasSuccessful()
 	}
 	err := WithTimeout(body, "Docker plugin is not ready after timeout", &TimeoutConfig{Timeout: HelperTimeout})
 	if err != nil {
@@ -312,11 +309,7 @@ func (s *SSHMeta) WaitEndpointsReady() bool {
 			"'%d' containers are in a '%s' state of a total of '%d' containers.",
 			result[desiredState], desiredState, total)
 
-		if result[desiredState] == total {
-			return true
-		}
-
-		return false
+		return result[desiredState] == total
 	}
 
 	err := WithTimeout(body, "Endpoints are not ready after timeout", &TimeoutConfig{Timeout: HelperTimeout})
@@ -417,7 +410,7 @@ func (s *SSHMeta) GetEndpointsIdentityIds() (map[string]string, error) {
 // GetEndpointsNames returns the container-name field of each Cilium endpoint.
 func (s *SSHMeta) GetEndpointsNames() ([]string, error) {
 	data := s.ListEndpoints()
-	if data.WasSuccessful() == false {
+	if !data.WasSuccessful() {
 		return nil, fmt.Errorf("`cilium endpoint list` was not successful")
 	}
 
@@ -591,7 +584,7 @@ func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, 
 		logfields.Path: path}).Info("validating policy before importing")
 
 	res := s.ExecCilium(fmt.Sprintf("policy validate %s", path))
-	if res.WasSuccessful() == false {
+	if !res.WasSuccessful() {
 		s.logger.WithFields(logrus.Fields{
 			logfields.Path: path,
 		}).Errorf("could not validate policy %s: %s", path, res.CombineOutput())
@@ -599,7 +592,7 @@ func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, 
 	}
 
 	res = s.ExecCilium(fmt.Sprintf("policy import %s", path))
-	if res.WasSuccessful() == false {
+	if !res.WasSuccessful() {
 		s.logger.WithFields(logrus.Fields{
 			logfields.Path: path,
 		}).Errorf("could not import policy: %s", res.CombineOutput())
@@ -760,38 +753,34 @@ func (s *SSHMeta) PprofReport() {
 	ticker := time.NewTicker(PProfCadence)
 	log := s.logger.WithField("subsys", "pprofReport")
 
-	for {
-		select {
-		case <-ticker.C:
-
-			testPath, err := CreateReportDirectory()
-			if err != nil {
-				log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
-				return
-			}
-			d := time.Now().Add(50 * time.Second)
-			ctx, cancel := context.WithDeadline(context.Background(), d)
-
-			res := s.ExecInBackground(ctx, `sudo gops pprof-cpu $(pgrep cilium-agent)`)
-
-			err = res.WaitUntilMatch("Profiling dump saved to")
-			if err != nil {
-				log.WithError(err).Error("Cannot get pprof report")
-			}
-
-			files := s.Exec("ls -1 /tmp/")
-			for _, file := range files.ByLines() {
-				if !strings.Contains(file, "profile") {
-					continue
-				}
-
-				dest := filepath.Join(
-					s.basePath, testPath,
-					fmt.Sprintf("%s.pprof", file))
-				_ = s.ExecWithSudo(fmt.Sprintf("mv /tmp/%s %s", file, dest))
-			}
-			cancel()
+	for range ticker.C {
+		testPath, err := CreateReportDirectory()
+		if err != nil {
+			log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+			return
 		}
+		d := time.Now().Add(50 * time.Second)
+		ctx, cancel := context.WithDeadline(context.Background(), d)
+
+		res := s.ExecInBackground(ctx, `sudo gops pprof-cpu $(pgrep cilium-agent)`)
+
+		err = res.WaitUntilMatch("Profiling dump saved to")
+		if err != nil {
+			log.WithError(err).Error("Cannot get pprof report")
+		}
+
+		files := s.Exec("ls -1 /tmp/")
+		for _, file := range files.ByLines() {
+			if !strings.Contains(file, "profile") {
+				continue
+			}
+
+			dest := filepath.Join(
+				s.basePath, testPath,
+				fmt.Sprintf("%s.pprof", file))
+			_ = s.ExecWithSudo(fmt.Sprintf("mv /tmp/%s %s", file, dest))
+		}
+		cancel()
 	}
 }
 
@@ -881,7 +870,7 @@ func (s *SSHMeta) ServiceIsSynced(id int) (bool, error) {
 		svc.Status.Realized.FrontendAddress.IP,
 		fmt.Sprintf("%d", svc.Status.Realized.FrontendAddress.Port))
 	lb, ok := bpfLB[frontendAddr]
-	if ok == false {
+	if !ok {
 		return false, fmt.Errorf(
 			"frontend address from the service %d does not have it's corresponding frontend address(%s) on bpf maps",
 			id, frontendAddr)
@@ -899,7 +888,7 @@ func (s *SSHMeta) ServiceIsSynced(id int) (bool, error) {
 				result = true
 			}
 		}
-		if result == false {
+		if !result {
 			return false, fmt.Errorf(
 				"backend address %s does not exists on BPF load balancer metadata id=%d", target, id)
 		}

@@ -186,8 +186,6 @@ func (c *CiliumEndpointSliceController) Run(ces cache.Indexer, stopCh <-chan str
 	}()
 
 	<-stopCh
-
-	return
 }
 
 // Upon warm boot[restart], Iterate over all CEPs which we got from the api-server
@@ -274,7 +272,6 @@ func syncCESsInLocalCache(cesStore cache.Store, manager operations) {
 
 	}
 	log.Debug("Successfully synced all CESs locally")
-	return
 }
 
 // worker runs a worker thread that just dequeues items, processes them, and

@@ -571,7 +571,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"loadBalancer.algorithm":    "random",
 				"routingMode":               "native",
 				"autoDirectNodeRoutes":      "true",
-				"devices":                   fmt.Sprintf(`'{}'`), // Revert back to auto-detection after XDP.
+				"devices":                   "'{}'", // Revert back to auto-detection after XDP.
 			})
 			testNodePortExternal(kubectl, ni, false, true, false)
 		})
@@ -585,7 +585,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"routingMode":               "native",
 				"autoDirectNodeRoutes":      "true",
 				"loadBalancer.dsrDispatch":  "geneve",
-				"devices":                   fmt.Sprintf(`'{}'`), // Revert back to auto-detection after XDP.
+				"devices":                   "'{}'", // Revert back to auto-detection after XDP.
 			})
 			testNodePortExternal(kubectl, ni, false, true, true)
 		})
@@ -598,7 +598,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"routingMode":               "native",
 				"autoDirectNodeRoutes":      "true",
 				"loadBalancer.dsrDispatch":  "geneve",
-				"devices":                   fmt.Sprintf(`'{}'`),
+				"devices":                   "'{}'",
 			})
 			testNodePortExternal(kubectl, ni, false, true, false)
 		})
@@ -611,7 +611,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"maglev.tableSize":          "251",
 				"tunnelProtocol":            "geneve",
 				"loadBalancer.dsrDispatch":  "geneve",
-				"devices":                   fmt.Sprintf(`'{}'`), // Revert back to auto-detection after XDP.
+				"devices":                   "'{}'", // Revert back to auto-detection after XDP.
 			})
 			testNodePortExternal(kubectl, ni, false, true, true)
 		})
@@ -623,7 +623,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 				"loadBalancer.algorithm":    "random",
 				"tunnelProtocol":            "geneve",
 				"loadBalancer.dsrDispatch":  "geneve",
-				"devices":                   fmt.Sprintf(`'{}'`),
+				"devices":                   "'{}'",
 			})
 			testNodePortExternal(kubectl, ni, false, true, false)
 		})

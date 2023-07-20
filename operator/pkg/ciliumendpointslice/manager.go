@@ -176,13 +176,10 @@ func (c *cesMgr) addCEPtoCES(cep *cilium_v2.CoreCiliumEndpoint, ces *cesTracker)
 	ces.ces.Endpoints = append(ces.ces.Endpoints, *cep)
 	// If this CEP is re-generated again before previous CEP-DELETE completed.
 	// remove this from removedCEP list.
-	if _, ok := ces.removedCEPs[GetCEPNameFromCCEP(cep, ces.ces.Namespace)]; ok {
-		delete(ces.removedCEPs, GetCEPNameFromCCEP(cep, ces.ces.Namespace))
-	}
+	delete(ces.removedCEPs, GetCEPNameFromCCEP(cep, ces.ces.Namespace))
 	// Increment the cepInsert counter
 	ces.cepInserted += 1
 	c.insertCESInWorkQueue(ces, DefaultCESSyncTime)
-	return
 }
 
 // Generate random string for given length of characters.
@@ -370,8 +367,6 @@ func (c *cesMgr) RemoveCEPFromCache(cepName string, baseDelay time.Duration) {
 			logfields.CEPName: cepName,
 		}).Debug("Could not remove CEP from local cache missing CEPName.")
 	}
-
-	return
 }
 
 func (c *cesMgr) removeCEPFromCES(cepName string, cesName string, baseDelay time.Duration, identity int64, checkIdentity bool) {
@@ -584,7 +579,7 @@ func (c *cesManagerIdentity) deleteCESFromCache(cesName string) {
 	}
 
 	c.identityLock.Lock()
-	identity, _ := c.cesToIdentity[cesName]
+	identity := c.cesToIdentity[cesName]
 	for i, ces := range c.identityToCES[identity] {
 		if cesName == ces.ces.GetName() {
 			c.identityToCES[identity] = append(c.identityToCES[identity][:i],

@@ -996,7 +996,7 @@ func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
 	c.Assert(id, Not(Equals), lb.ID(0))
-	svc, _ = m.svc.svcByID[id]
+	svc = m.svc.svcByID[id]
 	// Only node-local backends are selected.
 	c.Assert(len(svc.backends), Equals, len(localBackends))
 

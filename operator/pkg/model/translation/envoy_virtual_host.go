@@ -96,10 +96,8 @@ func (s SortableRoute) Less(i, j int) bool {
 	// Make sure the longest header match always comes first
 	headerMatch1 := len(s[i].Match.GetHeaders())
 	headerMatch2 := len(s[j].Match.GetHeaders())
-	if headerMatch1 > headerMatch2 {
-		return true
-	}
-	return false
+
+	return headerMatch1 > headerMatch2
 }
 
 func (s SortableRoute) Swap(i, j int) {

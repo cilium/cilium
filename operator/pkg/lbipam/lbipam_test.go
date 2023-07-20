@@ -130,11 +130,7 @@ func TestPoolInternalConflict(t *testing.T) {
 
 		pool := fixture.PatchedPool(action)
 
-		if !isPoolConflicting(pool) {
-			return false
-		}
-
-		return true
+		return !isPoolConflicting(pool)
 	}, time.Second)
 
 	go fixture.hive.Start(context.Background())
@@ -151,11 +147,7 @@ func TestPoolInternalConflict(t *testing.T) {
 
 		pool := fixture.PatchedPool(action)
 
-		if isPoolConflicting(pool) {
-			return false
-		}
-
-		return true
+		return !isPoolConflicting(pool)
 	}, 2*time.Second)
 
 	pool, err := fixture.poolClient.Get(context.Background(), "pool-a", meta_v1.GetOptions{})
