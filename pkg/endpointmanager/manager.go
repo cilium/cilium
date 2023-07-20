@@ -606,6 +606,18 @@ func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 	if ep.ID != 0 {
 		return fmt.Errorf("Endpoint ID is already set to %d", ep.ID)
 	}
+
+	// Updating logger to re-populate pod fields
+	// when endpoint and its logger are created pod details are not populated
+	// and all subsequent logs have empty pod details like ip addresses, k8sPodName
+	// this update will populate pod details in logger
+	ep.UpdateLogger(map[string]interface{}{
+		logfields.ContainerID: ep.GetShortContainerID(),
+		logfields.IPv4:        ep.GetIPv4Address(),
+		logfields.IPv6:        ep.GetIPv6Address(),
+		logfields.K8sPodName:  ep.GetK8sNamespaceAndPodName(),
+	})
+
 	err = mgr.expose(ep)
 	if err != nil {
 		return err
