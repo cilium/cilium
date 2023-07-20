@@ -588,7 +588,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	}
 
 	// Deploy test-conn-disrupt actors
-	if ct.params.UpgradeTestSetup {
+	if ct.params.ConnDisruptTestSetup {
 		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, testConnDisruptServerDeploymentName, metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), testConnDisruptServerDeploymentName)
@@ -1042,7 +1042,7 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 		}
 	}
 
-	if ct.params.IncludeUpgradeTest {
+	if ct.params.IncludeConnDisruptTest {
 		srcList = append(srcList, testConnDisruptClientDeploymentName)
 		dstList = append(dstList, testConnDisruptServerDeploymentName)
 	}
