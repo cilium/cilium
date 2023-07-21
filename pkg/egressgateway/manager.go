@@ -714,15 +714,22 @@ nextIpRule:
 		deleteIpRule(ipRule)
 	}
 
-	// Build a list of all the network interfaces that are being actively used by egress gateway
-	activeEgressGwIfaceIndexes := map[int]struct{}{}
+	// Build a list of all the network interfaces that are being actively used by egress gateway,
+	// and by which policy they are selected.
+	activeEgressGwIfaceIndexes := make(map[int]*PolicyConfig)
 	for _, policyConfig := range manager.policyConfigs {
-		// check if the policy selects at least one endpoint
-		if len(policyConfig.matchedEndpoints) != 0 {
-			if policyConfig.gatewayConfig.localNodeConfiguredAsGateway {
-				activeEgressGwIfaceIndexes[policyConfig.gatewayConfig.ifaceIndex] = struct{}{}
-			}
+		gwc := &policyConfig.gatewayConfig
+
+		if !gwc.localNodeConfiguredAsGateway {
+			continue
 		}
+
+		// check if the policy selects at least one endpoint
+		if len(policyConfig.matchedEndpoints) == 0 {
+			continue
+		}
+
+		activeEgressGwIfaceIndexes[gwc.ifaceIndex] = policyConfig
 	}
 
 	// Fetch all IP routes, and delete the unused EgressGW-specific routes:
@@ -743,9 +750,22 @@ nextIpRule:
 			continue
 		}
 
-		// Keep the route if EgressGW still uses this interface.
-		if _, ok := activeEgressGwIfaceIndexes[linkIndex]; ok {
-			continue
+		policyConfig := activeEgressGwIfaceIndexes[linkIndex]
+
+		// Keep the route if it still matches the policy on this interface.
+		if policyConfig != nil {
+			/* Only take a closer look at next-hop routes for now: */
+			if route.Scope != netlink.SCOPE_LINK {
+				continue
+			}
+
+			eniGatewayIP := getFirstIPInHostRange(policyConfig.gatewayConfig.egressIP)
+			routeMaskSize, routeMaskTotal := route.Dst.Mask.Size()
+
+			if route.Dst.IP.Equal(eniGatewayIP) &&
+				routeMaskSize == 32 && routeMaskTotal == 32 {
+				continue
+			}
 		}
 
 		deleteIpRoute(route)
