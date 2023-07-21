@@ -94,7 +94,7 @@ type CiliumBGPNeighborGracefulRestart struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=2147483647
+	// +kubebuilder:validation:Maximum=4095
 	// +kubebuilder:default=120
 	RestartTimeSeconds *int32 `json:"restartTimeSeconds,omitempty"`
 }
@@ -146,7 +146,7 @@ type CiliumBGPNeighbor struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=3
-	// +kubebuilder:validation:Maximum=2147483647
+	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:default=90
 	HoldTimeSeconds *int32 `json:"holdTimeSeconds,omitempty"`
 	// KeepaliveTimeSeconds defines the initial value for the BGP KeepaliveTimer (RFC 4271, Section 8).
@@ -154,7 +154,7 @@ type CiliumBGPNeighbor struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=2147483647
+	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:default=30
 	KeepAliveTimeSeconds *int32 `json:"keepAliveTimeSeconds,omitempty"`
 	// GracefulRestart defines graceful restart parameters which are negotiated
