@@ -19,18 +19,10 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
-	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
-
-// RegisterCiliumNodeSubscriber allows registration of subscriber.CiliumNode implementations.
-// On CiliumNode events all registered subscriber.CiliumNode implementations will
-// have their event handling methods called in order of registration.
-func (k *K8sWatcher) RegisterCiliumNodeSubscriber(s subscriber.CiliumNode) {
-	k.CiliumNodeChain.Register(s)
-}
 
 func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncControllers *sync.WaitGroup) {
 	// CiliumNode objects are used for node discovery until the key-value
@@ -50,12 +42,11 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 					if ciliumNode := k8s.CastInformerEvent[cilium_v2.CiliumNode](obj); ciliumNode != nil {
 						valid = true
 						n := nodeTypes.ParseCiliumNode(ciliumNode)
-						errs := k.CiliumNodeChain.OnAddCiliumNode(ciliumNode, swgNodes)
 						if n.IsLocal() {
 							return
 						}
 						k.nodeDiscoverManager.NodeUpdated(n)
-						k.K8sEventProcessed(metricCiliumNode, resources.MetricCreate, errs == nil)
+						k.K8sEventProcessed(metricCiliumNode, resources.MetricCreate, true)
 					}
 				},
 				UpdateFunc: func(oldObj, newObj interface{}) {
@@ -80,28 +71,22 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient client.Clientset, asyncContro
 								}
 							}
 							n := nodeTypes.ParseCiliumNode(ciliumNode)
-							errs := k.CiliumNodeChain.OnUpdateCiliumNode(oldCN, ciliumNode, swgNodes)
 							if isLocal {
 								return
 							}
 							k.nodeDiscoverManager.NodeUpdated(n)
-							k.K8sEventProcessed(metricCiliumNode, resources.MetricUpdate, errs == nil)
+							k.K8sEventProcessed(metricCiliumNode, resources.MetricUpdate, true)
 						}
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
-					var valid, equal bool
-					defer func() { k.K8sEventReceived(apiGroup, metricCiliumNode, resources.MetricDelete, valid, equal) }()
+					var equal bool
+					defer func() { k.K8sEventReceived(apiGroup, metricCiliumNode, resources.MetricDelete, true, equal) }()
 					ciliumNode := k8s.CastInformerEvent[cilium_v2.CiliumNode](obj)
 					if ciliumNode == nil {
 						return
 					}
-					valid = true
 					n := nodeTypes.ParseCiliumNode(ciliumNode)
-					errs := k.CiliumNodeChain.OnDeleteCiliumNode(ciliumNode, swgNodes)
-					if errs != nil {
-						valid = false
-					}
 					k.nodeDiscoverManager.NodeDeleted(n)
 				},
 			},

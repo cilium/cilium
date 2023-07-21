@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -88,11 +87,6 @@ type K8sEventRegister interface {
 	// K8sEventProcessed is called to do metrics accounting for each processed
 	// Kubernetes event.
 	K8sEventProcessed(scope string, action string, status bool)
-
-	// RegisterCiliumNodeSubscriber allows registration of subscriber.CiliumNode
-	// implementations. Events for all CiliumNode events (not just the local one)
-	// will be sent to the subscriber.
-	RegisterCiliumNodeSubscriber(s subscriber.CiliumNode)
 }
 
 type MtuConfiguration interface {
