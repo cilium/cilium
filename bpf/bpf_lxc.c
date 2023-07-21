@@ -463,7 +463,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		auth_type = (__u8)*ext_err;
-		verdict = auth_lookup(ctx, SECLABEL, *dst_sec_identity, node_id, auth_type);
+		verdict = auth_lookup(ctx, SECLABEL, *dst_sec_identity, tunnel_endpoint, auth_type);
 	}
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
@@ -895,7 +895,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		auth_type = (__u8)*ext_err;
-		verdict = auth_lookup(ctx, SECLABEL, *dst_sec_identity, node_id, auth_type);
+		verdict = auth_lookup(ctx, SECLABEL, *dst_sec_identity, tunnel_endpoint, auth_type);
 	}
 
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
@@ -1492,7 +1492,8 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 
 		if (sep) {
 			auth_type = (__u8)*ext_err;
-			verdict = auth_lookup(ctx, SECLABEL, src_label, sep->node_id, auth_type);
+			verdict = auth_lookup(ctx, SECLABEL, src_label,
+					      sep->tunnel_endpoint, auth_type);
 		}
 	}
 
@@ -1818,7 +1819,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 
 		if (sep) {
 			auth_type = (__u8)*ext_err;
-			verdict = auth_lookup(ctx, SECLABEL, src_label, sep->node_id, auth_type);
+			verdict = auth_lookup(ctx, SECLABEL, src_label,
+					      sep->tunnel_endpoint, auth_type);
 		}
 	}
 	/* Emit verdict if drop or if allow for CT_NEW or CT_REOPENED. */
