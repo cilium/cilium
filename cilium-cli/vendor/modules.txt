@@ -173,7 +173,7 @@ github.com/cilium/proxy/go/envoy/type/metadata/v3
 github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
 github.com/cilium/proxy/pkg/policy/api/kafka
-# github.com/cilium/tetragon/pkg/k8s v0.0.0-20230720174204-f0ae9f0f27f0
+# github.com/cilium/tetragon/pkg/k8s v0.0.0-20230721102407-d51b96debc69
 ## explicit; go 1.20
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io
 github.com/cilium/tetragon/pkg/k8s/apis/cilium.io/v1alpha1
