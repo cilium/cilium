@@ -244,14 +244,16 @@ func (sm *syncSecretManager) handleIngressUpsertedEvent(ingress *slim_networking
 		if err != nil {
 			return err
 		}
-		if !exists {
-			return fmt.Errorf("secret does not exist: %s", key)
-		}
 
 		sm.lock.Lock()
-		sm.watchedSecretMap[key] = getSyncedSecretKey(sm.namespace, secret.GetNamespace(), secret.GetName())
+		sm.watchedSecretMap[key] = getSyncedSecretKey(sm.namespace, ingress.GetNamespace(), tls.SecretName)
 		sm.lock.Unlock()
 
+		// the secret might be created after Ingress object, just skip it for now.
+		// The sync will be handled as part of Secret creation later.
+		if !exists {
+			return nil
+		}
 		// proceed to sync secret
 		err = sm.syncSecret(secret)
 		if err != nil {
