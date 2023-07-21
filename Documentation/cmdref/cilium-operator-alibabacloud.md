@@ -68,7 +68,7 @@ cilium-operator-alibabacloud [flags]
       --limit-ipam-api-qps float                             Queries per second limit when accessing external IPAM APIs (default 4)
       --log-driver strings                                   Logging endpoints to use for example syslog
       --log-opt map                                          Log driver options for cilium-operator, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"}
-      --mesh-auth-mutual-enabled                             The flag to enable mutual authentication for the SPIRE server.
+      --mesh-auth-mutual-enabled                             The flag to enable mutual authentication for the SPIRE server (beta).
       --mesh-auth-spiffe-trust-domain string                 The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-agent-socket string                  The path for the SPIRE admin agent Unix socket. (default "/run/spire/sockets/agent/agent.sock")
       --mesh-auth-spire-server-address string                SPIRE server endpoint. (default "spire-server.spire.svc:8081")
