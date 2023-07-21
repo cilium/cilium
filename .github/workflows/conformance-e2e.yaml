@@ -427,6 +427,7 @@ jobs:
             mkdir -p cilium-junits
 
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --test '!no-missed-tail-calls' \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
@@ -478,6 +479,7 @@ jobs:
 
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
               --flush-ct \
+              --test '!no-missed-tail-calls' \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
@@ -511,6 +513,7 @@ jobs:
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
               \$EXTRA_CONNECTIVITY_TEST \
               --flush-ct \
+              --test '!no-missed-tail-calls' \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
@@ -533,6 +536,7 @@ jobs:
             ./cilium-cli connectivity test --test '!check-log-errors' --include-unsafe-tests --collect-sysdump-on-failure \
               \$EXTRA_CONNECTIVITY_TEST \
               --flush-ct \
+              --test '!no-missed-tail-calls' \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
