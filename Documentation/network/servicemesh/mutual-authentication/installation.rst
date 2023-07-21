@@ -19,7 +19,6 @@ Installation
 
             $ helm install cilium |CHART_RELEASE| \\
                 --namespace kube-system \\
-                --reuse-values \\
                 --set authentication.mutual.spire.enabled=true \\
                 --set authentication.mutual.spire.install.enabled=true
 
