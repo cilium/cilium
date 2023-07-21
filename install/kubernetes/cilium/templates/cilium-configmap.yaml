@@ -844,12 +844,6 @@ data:
 {{- end }}
   enable-hubble-open-metrics: {{ .Values.hubble.metrics.enableOpenMetrics | quote }}
 {{- end }}
-{{- if .Values.hubble.redact }}
-  # A space separated list of redact options for Hubble.
-  hubble-redact: {{- range .Values.hubble.redact }}
-    {{.}}
-{{- end }}
-{{- end }}
 {{- if hasKey .Values.hubble "listenAddress" }}
   # An additional address for Hubble server to listen to (e.g. ":4244").
   hubble-listen-address: {{ .Values.hubble.listenAddress | quote }}

@@ -33,7 +33,6 @@ type Parser struct {
 	ipGetter          getters.IPGetter
 	serviceGetter     getters.ServiceGetter
 	endpointGetter    getters.EndpointGetter
-	opts              *options.Options
 }
 
 // New returns a new L7 parser
@@ -46,8 +45,7 @@ func New(
 	opts ...options.Option,
 ) (*Parser, error) {
 	args := &options.Options{
-		CacheSize:       10000,
-		RedactHTTPQuery: false,
+		CacheSize: 10000,
 	}
 
 	for _, opt := range opts {
@@ -72,7 +70,6 @@ func New(
 		ipGetter:          ipGetter,
 		serviceGetter:     serviceGetter,
 		endpointGetter:    endpointGetter,
-		opts:              args,
 	}, nil
 }
 
@@ -137,7 +134,7 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 	decoded.Type = flowpb.FlowType_L7
 	decoded.SourceNames = sourceNames
 	decoded.DestinationNames = destinationNames
-	decoded.L7 = decodeLayer7(r, p.opts)
+	decoded.L7 = decodeLayer7(r)
 	decoded.L7.LatencyNs = p.computeResponseTime(r, timestamp)
 	decoded.IsReply = decodeIsReply(r.Type)
 	decoded.Reply = decoded.GetIsReply().GetValue()
@@ -328,7 +325,7 @@ func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName string) 
 	}
 }
 
-func decodeLayer7(r *accesslog.LogRecord, opts *options.Options) *flowpb.Layer7 {
+func decodeLayer7(r *accesslog.LogRecord) *flowpb.Layer7 {
 	var flowType flowpb.L7FlowType
 	switch r.Type {
 	case accesslog.TypeRequest:
@@ -348,7 +345,7 @@ func decodeLayer7(r *accesslog.LogRecord, opts *options.Options) *flowpb.Layer7 
 	case r.HTTP != nil:
 		return &flowpb.Layer7{
 			Type:   flowType,
-			Record: decodeHTTP(r.Type, r.HTTP, opts),
+			Record: decodeHTTP(r.Type, r.HTTP),
 		}
 	case r.Kafka != nil:
 		return &flowpb.Layer7{

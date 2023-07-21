@@ -557,7 +557,6 @@ hostonlyifs
 hostport
 hostscope
 hq
-http
 httpd
 https
 hubble
