@@ -143,6 +143,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 	case gc.iface != "":
 		// If the gateway config specifies an interface, use the first IPv4 assigned to that
 		// interface as egress IP
+		gwc.ifaceName = gc.iface
 		gwc.egressIP, gwc.ifaceIndex, err = getIfaceFirstIPv4Address(gc.iface)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
