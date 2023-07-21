@@ -88,6 +88,8 @@ func NewClient(host string) (*Client, error) {
 		return nil, fmt.Errorf("invalid host format '%s'", host)
 	}
 
+	hostHeader := tmp[1]
+
 	switch tmp[0] {
 	case "tcp":
 		if _, err := url.Parse("tcp://" + tmp[1]); err != nil {
@@ -96,11 +98,15 @@ func NewClient(host string) (*Client, error) {
 		host = "http://" + tmp[1]
 	case "unix":
 		host = tmp[1]
+		// For local communication (unix domain sockets), the hostname is not used. Leave
+		// Host header empty because otherwise it would be rejected by net/http client-side
+		// sanitization, see https://go.dev/issue/60374.
+		hostHeader = "localhost"
 	}
 
 	transport := configureTransport(nil, tmp[0], host)
 	httpClient := &http.Client{Transport: transport}
-	clientTrans := runtime_client.NewWithClient(tmp[1], clientapi.DefaultBasePath,
+	clientTrans := runtime_client.NewWithClient(hostHeader, clientapi.DefaultBasePath,
 		clientapi.DefaultSchemes, httpClient)
 	return &Client{*clientapi.New(clientTrans, strfmt.Default)}, nil
 }
