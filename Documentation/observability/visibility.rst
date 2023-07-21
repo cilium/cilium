@@ -66,26 +66,6 @@ In order for Cilium to populate the ``INGRESS ENFORCEMENT``, ``EGRESS ENFORCEMEN
 and ``VISIBILITY POLICY`` fields, it must run with ``--endpoint-status=policy``
 to make field values visible.
 
-Security Implications
----------------------
-
-Monitoring Layer 7 traffic involves security considerations for handling
-potentially sensitive information, such as usernames, passwords, query
-parameters, API keys, and others.
-
-.. warning::
-
-   By default, Hubble does not redact potentially sensitive information
-   present in `Layer 7 Hubble Flows <https://github.com/cilium/cilium/tree/master/api/v1/flow#flow-Layer7>`_.
-
-To harden security, Cilium provides the ``--hubble-redact`` option to control
-how Hubble handles sensitive information present in Layer 7 flows. More
-specifically, it offers the following features for supported Layer 7 protocols:
-
-* For HTTP: redacting URL query (GET) parameters
-
-For more information on configuring Cilium, see :ref:`Cilium Configuration <configuration>`.
-
 Troubleshooting
 ---------------
 
