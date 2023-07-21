@@ -135,36 +135,22 @@ func getFirstIPInHostRange(ip net.IPNet) net.IP {
 	return out
 }
 
-func addEgressIpRoutes(egressIP net.IPNet, ifaceIndex int) error {
-	routingTableIdx := egressGatewayRoutingTableIdx(ifaceIndex)
+func addEgressIpRoutes(gwc *gatewayConfig) error {
+	routingTableIdx := egressGatewayRoutingTableIdx(gwc.ifaceIndex)
 
 	// The gateway for a subnet and VPC should always be the first IP of the
 	// host address range.
-	eniGatewayIP := getFirstIPInHostRange(egressIP)
+	eniGatewayIP := getFirstIPInHostRange(gwc.egressIP)
 
-	// Nexthop route to the VPC or subnet gateway
-	if err := netlink.RouteReplace(&netlink.Route{
-		LinkIndex: ifaceIndex,
-		Dst:       &net.IPNet{IP: eniGatewayIP, Mask: net.CIDRMask(32, 32)},
-		Scope:     netlink.SCOPE_LINK,
-		Table:     routingTableIdx,
-		Protocol:  linux_defaults.RTProto,
-	}); err != nil {
-		return fmt.Errorf("unable to add L2 nexthop route: %w", err)
+	IpRoute := route.Route{
+		Prefix:  net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)},
+		Nexthop: &eniGatewayIP,
+		Device:  gwc.ifaceName,
+		Proto:   linux_defaults.RTProto,
+		Table:   routingTableIdx,
 	}
 
-	// Default route to the VPC or subnet gateway
-	if err := netlink.RouteReplace(&netlink.Route{
-		LinkIndex: ifaceIndex,
-		Dst:       &net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)},
-		Table:     routingTableIdx,
-		Gw:        eniGatewayIP,
-		Protocol:  linux_defaults.RTProto,
-	}); err != nil {
-		return fmt.Errorf("unable to add default route: %w", err)
-	}
-
-	return nil
+	return route.Upsert(IpRoute)
 }
 
 func deleteIpRule(ipRule netlink.Rule) {

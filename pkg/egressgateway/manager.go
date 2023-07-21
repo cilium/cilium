@@ -666,7 +666,7 @@ func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bo
 
 		policyConfig.forEachEndpointAndDestination(addIPRulesForConfig)
 
-		if err := addEgressIpRoutes(gwc.egressIP, gwc.ifaceIndex); err != nil {
+		if err := addEgressIpRoutes(gwc); err != nil {
 			logger.WithError(err).Warn("Can't add IP routes")
 		} else {
 			logger.Debug("Added IP routes")
