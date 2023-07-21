@@ -289,6 +289,7 @@ jobs:
             --helm-set=authentication.mutual.spire.enabled=true \
             --helm-set=authentication.mutual.spire.install.enabled=true \
             --nodes-without-cilium=kind-worker3 \
+            --helm-set=bpfClockSource=false \
             --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
 
           TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
