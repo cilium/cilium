@@ -5,6 +5,7 @@ This repository holds helm templates for the following Cilium releases:
 * [v1.14.0-snapshot.2](https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.2) (_[source](https://github.com/cilium/cilium/tree/v1.14.0-snapshot.2/install/kubernetes/cilium)_)
 * [v1.14.0-snapshot.1](https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.1) (_[source](https://github.com/cilium/cilium/tree/v1.14.0-snapshot.1/install/kubernetes/cilium)_)
 * [v1.14.0-snapshot.0](https://github.com/cilium/cilium/releases/tag/v1.14.0-snapshot.0) (_[source](https://github.com/cilium/cilium/tree/v1.14.0-snapshot.0/install/kubernetes/cilium)_)
+* [v1.14.0-rc.1](https://github.com/cilium/cilium/releases/tag/v1.14.0-rc.1) (_[source](https://github.com/cilium/cilium/tree/v1.14.0-rc.1/install/kubernetes/cilium)_)
 * [v1.14.0-rc.0](https://github.com/cilium/cilium/releases/tag/v1.14.0-rc.0) (_[source](https://github.com/cilium/cilium/tree/v1.14.0-rc.0/install/kubernetes/cilium)_)
 * [v1.13.4](https://github.com/cilium/cilium/releases/tag/v1.13.4) (_[source](https://github.com/cilium/cilium/tree/v1.13.4/install/kubernetes/cilium)_)
 * [v1.13.3](https://github.com/cilium/cilium/releases/tag/v1.13.3) (_[source](https://github.com/cilium/cilium/tree/v1.13.3/install/kubernetes/cilium)_)
@@ -151,6 +152,7 @@ This repository holds helm templates for the following Cilium releases:
 
 This repository holds helm templates for the following Tetragon releases:
 
+* [v0.10.0](https://github.com/cilium/tetragon/releases/tag/v0.10.0) (_[source](https://github.com/cilium/tetragon/tree/v0.10.0/install/kubernetes)_)
 * [v0.9.0](https://github.com/cilium/tetragon/releases/tag/v0.9.0) (_[source](https://github.com/cilium/tetragon/tree/v0.9.0/install/kubernetes)_)
 * [v0.8.4](https://github.com/cilium/tetragon/releases/tag/v0.8.4) (_[source](https://github.com/cilium/tetragon/tree/v0.8.4/install/kubernetes)_)
 * [v0.8.3](https://github.com/cilium/tetragon/releases/tag/v0.8.3) (_[source](https://github.com/cilium/tetragon/tree/v0.8.3/install/kubernetes)_)
