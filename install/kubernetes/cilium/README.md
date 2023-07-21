@@ -66,7 +66,7 @@ contributors across the globe, there is almost always someone available to help.
 | authentication.mutual.spire.adminSocketPath | string | `"/run/spire/sockets/admin.sock"` | SPIRE socket path where the SPIRE delegated api agent is listening |
 | authentication.mutual.spire.agentSocketPath | string | `"/run/spire/sockets/agent/agent.sock"` | SPIRE socket path where the SPIRE workload agent is listening. Applies to both the Cilium Agent and Operator |
 | authentication.mutual.spire.connectionTimeout | string | `"30s"` | SPIRE connection timeout |
-| authentication.mutual.spire.enabled | bool | `false` | Enable SPIRE integration |
+| authentication.mutual.spire.enabled | bool | `false` | Enable SPIRE integration (beta) |
 | authentication.mutual.spire.install.agent.annotations | object | `{}` | SPIRE agent annotations |
 | authentication.mutual.spire.install.agent.image | string | `"ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823"` | SPIRE agent image |
 | authentication.mutual.spire.install.agent.labels | object | `{}` | SPIRE agent labels |

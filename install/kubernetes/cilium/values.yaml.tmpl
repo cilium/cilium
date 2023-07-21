@@ -3070,7 +3070,7 @@ sctp:
   # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
   enabled: false
 
-# Configuration for types of authentication for Cilium
+# Configuration for types of authentication for Cilium (beta)
 authentication:
   # -- Enable authentication processing and garbage collection.
   # Note that if disabled, policy enforcement will still block requests that require authentication.
@@ -3090,7 +3090,7 @@ authentication:
     port: 4250
     # Settings for SPIRE
     spire:
-      # -- Enable SPIRE integration
+      # -- Enable SPIRE integration (beta)
       enabled: false
       # Settings to control the SPIRE installation and configuration
       install:

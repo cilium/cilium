@@ -40,7 +40,7 @@ cilium-agent hive dot-graph [flags]
       --k8s-heartbeat-timeout duration                            Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                                Absolute path of the kubernetes kubeconfig file
       --l2-pod-announcements-interface string                     Interface used for sending gratuitous arp messages
-      --mesh-auth-enabled                                         Enable authentication processing & garbage collection (default true)
+      --mesh-auth-enabled                                         Enable authentication processing & garbage collection (beta) (default true)
       --mesh-auth-gc-interval duration                            Interval in which auth entries are attempted to be garbage collected (default 5m0s)
       --mesh-auth-mutual-listener-port int                        Port on which the Cilium Agent will perform mutual authentication handshakes between other Agents
       --mesh-auth-queue-size int                                  Queue size for the auth manager (default 1024)

@@ -65,7 +65,7 @@
      - string
      - ``"30s"``
    * - :spelling:ignore:`authentication.mutual.spire.enabled`
-     - Enable SPIRE integration
+     - Enable SPIRE integration (beta)
      - bool
      - ``false``
    * - :spelling:ignore:`authentication.mutual.spire.install.agent.annotations`
