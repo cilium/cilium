@@ -8,6 +8,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -103,7 +104,7 @@ type Metadata interface {
 }
 
 // NewIPAM returns a new IP address manager
-func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, clientset client.Clientset) *IPAM {
+func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, k8sEventReg K8sEventRegister, node agentK8s.LocalCiliumNodeResource, mtuConfig MtuConfiguration, clientset client.Clientset) *IPAM {
 	ipam := &IPAM{
 		nodeAddressing:   nodeAddressing,
 		config:           c,
@@ -128,7 +129,7 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 		}
 	case ipamOption.IPAMMultiPool:
 		log.Info("Initializing MultiPool IPAM")
-		manager := newMultiPoolManager(c, k8sEventReg, owner, clientset.CiliumV2().CiliumNodes())
+		manager := newMultiPoolManager(c, node, owner, clientset.CiliumV2().CiliumNodes())
 
 		if c.IPv6Enabled() {
 			ipam.IPv6Allocator = manager.Allocator(IPv6)
