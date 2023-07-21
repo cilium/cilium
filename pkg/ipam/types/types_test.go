@@ -31,6 +31,23 @@ type mockInterface struct {
 	pools map[string][]net.IP
 }
 
+func (m *mockInterface) DeepCopyInterface() Interface {
+	mc := &mockInterface{
+		id:    m.id,
+		pools: map[string][]net.IP{},
+	}
+	for id, pool := range m.pools {
+		pc := make([]net.IP, 0, len(pool))
+		for _, ip := range pool {
+			ipc := net.IP{}
+			copy(ipc, ip)
+			pc = append(pc, ipc)
+		}
+		mc.pools[id] = pc
+	}
+	return mc
+}
+
 func (m *mockInterface) InterfaceID() string {
 	return m.id
 }
