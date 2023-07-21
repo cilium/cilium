@@ -95,7 +95,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@829ae9b4d2c65104343051ad77b618b92a2c2b75 # v0.15.3
+        uses: cilium/cilium-cli@2037fb55bc81db08b66e315f5f0b9169ce6f30c2 # v0.15.4
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
