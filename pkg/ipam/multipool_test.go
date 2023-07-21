@@ -13,85 +13,34 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
-type fakeK8sCiliumNodeAPI struct {
-	mutex lock.Mutex
-	node  *ciliumv2.CiliumNode
-	sub   subscriber.CiliumNode
-
-	onUpsertEvent func()
-	onDeleteEvent func()
-}
-
-func (f *fakeK8sCiliumNodeAPI) RegisterCiliumNodeSubscriber(s subscriber.CiliumNode) {
-	f.sub = s
-}
-
-// UpdateStatus implements nodeUpdater
-func (f *fakeK8sCiliumNodeAPI) UpdateStatus(_ context.Context, ciliumNode *ciliumv2.CiliumNode, _ metav1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
-	err := f.updateNode(ciliumNode)
-	return ciliumNode, err
-}
-
-// UpdateStatus implements nodeUpdater
-func (f *fakeK8sCiliumNodeAPI) Update(_ context.Context, ciliumNode *ciliumv2.CiliumNode, _ metav1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
-	err := f.updateNode(ciliumNode)
-	return ciliumNode, err
-}
-
-// currentNode returns a the current snapshot of the node
-func (f *fakeK8sCiliumNodeAPI) currentNode() *ciliumv2.CiliumNode {
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
-
-	return f.node.DeepCopy()
-}
-
-// updateNode is to be invoked by the test code to simulate updates by the operator
-func (f *fakeK8sCiliumNodeAPI) updateNode(newNode *ciliumv2.CiliumNode) error {
-	f.mutex.Lock()
-	oldNode := f.node
-	if oldNode == nil {
-		f.mutex.Unlock()
-		return fmt.Errorf("failed to update CiliumNode %q: node not found", newNode.Name)
-	}
-	f.node = newNode.DeepCopy()
-
-	sub := f.sub
-	onUpsertEvent := f.onUpsertEvent
-	f.mutex.Unlock()
-
-	var err error
-	if sub != nil {
-		err = sub.OnUpdateCiliumNode(oldNode, newNode, nil)
-	}
-	if onUpsertEvent != nil {
-		onUpsertEvent()
-	}
-
-	return err
-}
-
 func Test_MultiPoolManager(t *testing.T) {
 	fakeConfig := &testConfiguration{}
 	fakeOwner := &ownerMock{}
 	events := make(chan string, 1)
-	fakeK8sCiliumNodeAPI := &fakeK8sCiliumNodeAPI{
+	fakeK8sCiliumNodeAPI := &fakeK8sCiliumNodeAPIResource{
 		node: &ciliumv2.CiliumNode{},
-		onDeleteEvent: func() {
+		onDeleteEvent: func(err error) {
+			if err != nil {
+				t.Errorf("deleting failed: %v", err)
+			}
 			events <- "delete"
 		},
-		onUpsertEvent: func() {
+		onUpsertEvent: func(err error) {
+			if err != nil {
+				t.Errorf("upserting failed: %v", err)
+			}
 			events <- "upsert"
 		},
 	}
@@ -517,4 +466,77 @@ func Test_pendingAllocationsPerPool(t *testing.T) {
 	pending.markAsAllocated("other", "foo", IPv6)
 	assert.Equal(t, 0, pending.pendingForPool("other", IPv4))
 	assert.Equal(t, 0, pending.pendingForPool("other", IPv6))
+}
+
+type fakeK8sCiliumNodeAPIResource struct {
+	mutex lock.Mutex
+	node  *ciliumv2.CiliumNode
+	c     chan resource.Event[*ciliumv2.CiliumNode]
+
+	onUpsertEvent func(err error)
+	onDeleteEvent func(err error)
+}
+
+func (f *fakeK8sCiliumNodeAPIResource) Update(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, _ v1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
+	err := f.updateNode(ciliumNode)
+	return ciliumNode, err
+}
+
+func (f *fakeK8sCiliumNodeAPIResource) UpdateStatus(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, _ v1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
+	err := f.updateNode(ciliumNode)
+	return ciliumNode, err
+}
+
+func (f *fakeK8sCiliumNodeAPIResource) Observe(ctx context.Context, next func(resource.Event[*ciliumv2.CiliumNode]), complete func(error)) {
+	panic("unimplemented")
+}
+
+func (f *fakeK8sCiliumNodeAPIResource) Events(ctx context.Context, _ ...resource.EventsOpt) <-chan resource.Event[*ciliumv2.CiliumNode] {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	f.c = make(chan resource.Event[*ciliumv2.CiliumNode])
+	return f.c
+}
+
+func (f *fakeK8sCiliumNodeAPIResource) Store(context.Context) (resource.Store[*ciliumv2.CiliumNode], error) {
+	return nil, errors.New("unimplemented")
+}
+
+// currentNode returns a the current snapshot of the node
+func (f *fakeK8sCiliumNodeAPIResource) currentNode() *ciliumv2.CiliumNode {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	return f.node.DeepCopy()
+}
+
+// updateNode is to be invoked by the test code to simulate updates by the operator
+func (f *fakeK8sCiliumNodeAPIResource) updateNode(newNode *ciliumv2.CiliumNode) error {
+	f.mutex.Lock()
+	oldNode := f.node
+	if oldNode == nil {
+		f.mutex.Unlock()
+		return fmt.Errorf("failed to update CiliumNode %q: node not found", newNode.Name)
+	}
+	f.node = newNode.DeepCopy()
+
+	c := f.c
+	onUpsertEvent := f.onUpsertEvent
+	f.mutex.Unlock()
+
+	var err error
+	if c != nil {
+		c <- resource.Event[*ciliumv2.CiliumNode]{
+			Kind:   resource.Upsert,
+			Object: newNode,
+			Key:    resource.NewKey(newNode),
+			Done: func(err error) {
+				if onUpsertEvent != nil {
+					onUpsertEvent(err)
+				}
+			}}
+	}
+
+	return err
 }

@@ -4,6 +4,8 @@
 package ipam
 
 import (
+	"context"
+	"errors"
 	"net"
 	"time"
 
@@ -11,6 +13,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/fake"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/mtu"
 )
@@ -25,11 +29,24 @@ func (o *ownerMock) RegisterCiliumNodeSubscriber(s subscriber.CiliumNode)       
 func (o *ownerMock) UpdateCiliumNodeResource()                                          {}
 func (o *ownerMock) LocalAllocCIDRsUpdated(ipv4AllocCIDRs, ipv6AllocCIDRs []*cidr.CIDR) {}
 
+type resourceMock struct{}
+
+func (rm *resourceMock) Observe(ctx context.Context, next func(resource.Event[*ciliumv2.CiliumNode]), complete func(error)) {
+}
+
+func (rm *resourceMock) Events(ctx context.Context, opts ...resource.EventsOpt) <-chan resource.Event[*ciliumv2.CiliumNode] {
+	return nil
+}
+
+func (rm *resourceMock) Store(context.Context) (resource.Store[*ciliumv2.CiliumNode], error) {
+	return nil, errors.New("unimplemented")
+}
+
 var mtuMock = mtu.NewConfiguration(0, false, false, false, false, 1500, nil)
 
 func (s *IPAMSuite) TestAllocatedIPDump(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
 
 	allocv4, allocv6, status := ipam.Dump()
 	c.Assert(status, Not(Equals), "")
@@ -48,7 +65,7 @@ func (s *IPAMSuite) TestExpirationTimer(c *C) {
 	timeout := 50 * time.Millisecond
 
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
 
 	err := ipam.AllocateIP(ip, "foo", PoolDefault)
 	c.Assert(err, IsNil)
@@ -113,7 +130,7 @@ func (s *IPAMSuite) TestAllocateNextWithExpiration(c *C) {
 	timeout := 50 * time.Millisecond
 
 	fakeAddressing := fake.NewNodeAddressing()
-	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
+	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &resourceMock{}, &mtuMock, nil)
 
 	ipv4, ipv6, err := ipam.AllocateNextWithExpiration("", "foo", PoolDefault, timeout)
 	c.Assert(err, IsNil)
