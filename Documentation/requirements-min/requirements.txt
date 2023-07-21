@@ -1,0 +1,21 @@
+sphinx==5.3.0
+sphinx-autobuild==2021.3.14
+
+# Custom theme, forked from Read the Docs
+git+https://github.com/cilium/sphinx_rtd_theme.git@v1.0#egg=sphinx-rtd-theme-cilium
+
+# We use semver to parse Cilium's version in the config file
+semver==2.13.0
+
+# Sphinx extensions
+myst-parser==0.18.1
+sphinx-tabs==3.4.0
+sphinx-version-warning==1.1.2
+sphinxcontrib-googleanalytics==0.4
+sphinxcontrib-openapi==0.8.1
+sphinxcontrib-spelling==8.0.0
+sphinxcontrib-websupport==1.2.4
+
+# Linters
+rstcheck==6.1.1
+yamllint==1.29.0
