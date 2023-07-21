@@ -33,6 +33,11 @@ const (
 	testCommandRetries = 3
 )
 
+var (
+	// PING 10.0.0.1 (10.0.0.1) 56(84) bytes of data.
+	pingHeaderPattern = regexp.MustCompile(`^PING .* bytes of data\.`)
+)
+
 // Action represents an individual action (e.g. a curl call) in a Scenario
 // between a source and a destination peer.
 type Action struct {
@@ -281,6 +286,8 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 	// deemed inconclusive when the command succeeded, but we don't have any
 	// output. We've seen this happen when there are connectivity blips on the
 	// k8s side.
+	// Ping Command is treated specially: its output may contain the header
+	// `PING 10.0.0.1 (10.0.0.1) 56(84) bytes of data.` even if the command hangs.
 	// This check currently only works because all our test commands expect an
 	// output.
 	for i := 1; i <= testCommandRetries; i++ {
@@ -288,14 +295,14 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Labels["name"], cmd)
 		a.cmdOutput = output.String()
 		// Check for inconclusive results.
-		if err == nil && strings.TrimSpace(a.cmdOutput) == "" {
+		if err == nil && strings.TrimSpace(pingHeaderPattern.ReplaceAllString(output.String(), "")) == "" {
 			a.Debugf("retrying command %s due to inconclusive results", cmdStr)
 			continue
 		}
 		break
 	}
 	// Check for inconclusive results.
-	if err == nil && strings.TrimSpace(a.cmdOutput) == "" {
+	if err == nil && strings.TrimSpace(pingHeaderPattern.ReplaceAllString(output.String(), "")) == "" {
 		a.Failf("inconclusive results: command %q was successful but without output", cmdStr)
 	}
 
