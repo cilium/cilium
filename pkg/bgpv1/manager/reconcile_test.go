@@ -104,8 +104,9 @@ func TestPreflightReconciler(t *testing.T) {
 					RouterID:   tt.routerID,
 					ListenPort: tt.localPort,
 				},
+				CState: &agent.ControlPlaneState{},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams, &agent.ControlPlaneState{})
+			testSC, err := NewServerWithConfig(context.Background(), srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test BgpServer: %v", err)
 			}
@@ -312,8 +313,9 @@ func TestNeighborReconciler(t *testing.T) {
 					RouterID:   "127.0.0.1",
 					ListenPort: -1,
 				},
+				CState: &agent.ControlPlaneState{},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams, &agent.ControlPlaneState{})
+			testSC, err := NewServerWithConfig(context.Background(), srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test BgpServer: %v", err)
 			}
@@ -463,13 +465,14 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 					RouterID:   "127.0.0.1",
 					ListenPort: -1,
 				},
+				CState: &agent.ControlPlaneState{},
 			}
 			oldc := &v2alpha1api.CiliumBGPVirtualRouter{
 				LocalASN:      64125,
 				ExportPodCIDR: pointer.Bool(tt.enabled),
 				Neighbors:     []v2alpha1api.CiliumBGPNeighbor{},
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams, &agent.ControlPlaneState{})
+			testSC, err := NewServerWithConfig(context.Background(), srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}
@@ -1050,13 +1053,14 @@ func TestLBServiceReconciler(t *testing.T) {
 					RouterID:   "127.0.0.1",
 					ListenPort: -1,
 				},
+				CState: &agent.ControlPlaneState{},
 			}
 			oldc := &v2alpha1api.CiliumBGPVirtualRouter{
 				LocalASN:        64125,
 				Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
 				ServiceSelector: tt.oldServiceSelector,
 			}
-			testSC, err := NewServerWithConfig(context.Background(), srvParams, &agent.ControlPlaneState{})
+			testSC, err := NewServerWithConfig(context.Background(), srvParams)
 			if err != nil {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}
@@ -1197,9 +1201,10 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 			RouterID:   "127.0.0.1",
 			ListenPort: -1,
 		},
+		CState: &agent.ControlPlaneState{},
 	}
 
-	testSC, err := NewServerWithConfig(context.Background(), srvParams, &agent.ControlPlaneState{})
+	testSC, err := NewServerWithConfig(context.Background(), srvParams)
 	require.NoError(t, err)
 
 	originalServer := testSC.Server

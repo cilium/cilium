@@ -257,7 +257,7 @@ func TestGetPeerState(t *testing.T) {
 			},
 		}
 		t.Run(tt.name, func(t *testing.T) {
-			testSC, err := NewGoBGPServerWithConfig(context.Background(), log, srvParams, &agent.ControlPlaneState{})
+			testSC, err := NewGoBGPServerWithConfig(context.Background(), log, srvParams)
 			require.NoError(t, err)
 
 			t.Cleanup(func() {
@@ -377,7 +377,8 @@ func TestGetRoutes(t *testing.T) {
 			RouterID:   "127.0.0.1",
 			ListenPort: -1,
 		},
-	}, &agent.ControlPlaneState{})
+		CState: &agent.ControlPlaneState{},
+	})
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
