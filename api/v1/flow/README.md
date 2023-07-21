@@ -956,6 +956,7 @@ here.
 | AUTH_REQUIRED | 189 |  |
 | NO_EGRESS_GATEWAY | 194 |  |
 | TTL_EXCEEDED | 196 |  |
+| NO_NODE_ID | 197 |  |
 
 
 

@@ -155,6 +155,7 @@ const DropReason_NAT64 = flow.DropReason_NAT64
 const DropReason_AUTH_REQUIRED = flow.DropReason_AUTH_REQUIRED
 const DropReason_NO_EGRESS_GATEWAY = flow.DropReason_NO_EGRESS_GATEWAY
 const DropReason_TTL_EXCEEDED = flow.DropReason_TTL_EXCEEDED
+const DropReason_NO_NODE_ID = flow.DropReason_NO_NODE_ID
 
 var DropReason_name = flow.DropReason_name
 var DropReason_value = flow.DropReason_value
