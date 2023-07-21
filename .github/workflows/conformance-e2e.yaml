@@ -486,10 +486,10 @@ jobs:
             EXTRA_CONNECTIVITY_TEST=""
             if [ "${{ matrix.test-flow-interrupts }}" == "true" ]; then
               # Create pods which establish long lived connections. It will be used by
-              # subsequent connectivity tests with --include-upgrade-test to catch any
+              # subsequent connectivity tests with --include-conn-disrupt-test to catch any
               # interruption in such flows.
-              ./cilium-cli connectivity test --include-upgrade-test --upgrade-test-setup
-              EXTRA_CONNECTIVITY_TEST=" --include-upgrade-test"
+              ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
+              EXTRA_CONNECTIVITY_TEST=" --include-conn-disrupt-test"
             fi
 
             # Upgrade
@@ -517,7 +517,7 @@ jobs:
               --junit-property github_job_step="Run tests upgrade 2 (${{ join(matrix.*, ', ') }})"
 
             # --flush-ct interrupts the flows, so we need to set up again.
-            ./cilium-cli connectivity test --include-upgrade-test --upgrade-test-setup
+            ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
 
             # Dowgrade
 
