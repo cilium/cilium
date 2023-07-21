@@ -979,6 +979,7 @@ here.
 | NO_EGRESS_GATEWAY | 194 |  |
 | UNENCRYPTED_TRAFFIC | 195 |  |
 | TTL_EXCEEDED | 196 |  |
+| NO_NODE_ID | 197 |  |
 
 
 
