@@ -59,20 +59,20 @@ func GetObjNamespaceName(obj NamespaceNameGetter) string {
 	return ns + "/" + obj.GetName()
 }
 
-// ServiceConfiguration is the required configuration for GetServiceListOptionsModifier
+// ServiceConfiguration is the required configuration for GetServiceAndEndpointListOptionsModifier
 type ServiceConfiguration interface {
 	// K8sServiceProxyNameValue must return the value of the proxy name
 	// annotation. If set, only services with this label will be handled.
 	K8sServiceProxyNameValue() string
 }
 
-// IngressConfiguration is the required configuration for GetServiceListOptionsModifier
+// IngressConfiguration is the required configuration for GetServiceAndEndpointListOptionsModifier
 type IngressConfiguration interface {
 	// K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium
 	K8sIngressControllerEnabled() bool
 }
 
-// GatewayAPIConfiguration is the required configuration for GetServiceListOptionsModifier
+// GatewayAPIConfiguration is the required configuration for GetServiceAndEndpointListOptionsModifier
 type GatewayAPIConfiguration interface {
 	// K8sGatewayAPIEnabled returns true if gateway API is enabled in Cilium
 	K8sGatewayAPIEnabled() bool
@@ -84,15 +84,37 @@ type PolicyConfiguration interface {
 	K8sNetworkPolicyEnabled() bool
 }
 
-// GetServiceListOptionsModifier returns the options modifier for service object list.
+// GetEndpointSliceListOptionsModifier returns the options modifier for endpointSlice object list.
+// This methods returns a ListOptions modifier which adds a label selector to
+// select all endpointSlice objects that do not contain the k8s headless service label.
+// This is the same behavior as kube-proxy.
+// Given label mirroring from the service objects to endpoint slice objects were introduced in Kubernetes PR 94443,
+// and released as part of Kubernetes v1.20; we can start using GetServiceAndEndpointListOptionsModifier for
+// endpoint slices when dropping support for Kubernetes v1.19 and older. We can do that since the
+// serviceProxyNameLabel label will then be mirrored to endpoint slices for services with that label.
+func GetEndpointSliceListOptionsModifier() (func(options *v1meta.ListOptions), error) {
+	nonHeadlessServiceSelector, err := labels.NewRequirement(v1.IsHeadlessService, selection.DoesNotExist, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	labelSelector := labels.NewSelector()
+	labelSelector = labelSelector.Add(*nonHeadlessServiceSelector)
+
+	return func(options *v1meta.ListOptions) {
+		options.LabelSelector = labelSelector.String()
+	}, nil
+}
+
+// GetServiceAndEndpointListOptionsModifier returns the options modifier for service and endpoint object lists.
 // This methods returns a ListOptions modifier which adds a label selector to only
 // select services that are in context of Cilium.
-// Like kube-proxy Cilium does not select services containing k8s headless service label.
+// Like kube-proxy Cilium does not select services/endpoints containing k8s headless service label.
 // We honor service.kubernetes.io/service-proxy-name label in the service object and only
 // handle services that match our service proxy name. If the service proxy name for Cilium
 // is an empty string, we assume that Cilium is the default service handler in which case
 // we select all services that don't have the above mentioned label.
-func GetServiceListOptionsModifier(cfg ServiceConfiguration) (func(options *v1meta.ListOptions), error) {
+func GetServiceAndEndpointListOptionsModifier(cfg ServiceConfiguration) (func(options *v1meta.ListOptions), error) {
 	var (
 		serviceNameSelector, nonHeadlessServiceSelector *labels.Requirement
 		err                                             error
