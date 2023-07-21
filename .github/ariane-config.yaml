@@ -7,8 +7,12 @@ triggers:
     - conformance-e2e.yaml
     - conformance-eks.yaml
     - conformance-externalworkloads.yaml
+    - conformance-gateway-api.yaml
     - conformance-ginkgo.yaml
     - conformance-gke.yaml
+    - conformance-ingress.yaml
+    - conformance-runtime.yaml
+    - integration-test.yaml
     - tests-datapath-verifier.yaml
     - tests-l4lb.yaml
   /ci-aks:
@@ -55,10 +59,18 @@ workflows:
     paths-ignore-regex: (test|Documentation)/
   conformance-externalworkloads.yaml:
     paths-ignore-regex: (test|Documentation)/
+  conformance-gateway-api.yaml:
+    paths-ignore-regex: (test|Documentation)/
   conformance-ginkgo.yaml:
     paths-ignore-regex: Documentation/
   conformance-gke.yaml:
     paths-ignore-regex: (test|Documentation)/
+  conformance-ingress.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-runtime.yaml:
+    paths-ignore-regex: Documentation/
+  integration-test.yaml:
+    paths-ignore-regex: Documentation/
   tests-datapath-verifier.yaml:
     paths-regex: (bpf|test/verifier|vendor)/
   tests-l4lb.yaml:
