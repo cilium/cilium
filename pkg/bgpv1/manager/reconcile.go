@@ -149,13 +149,14 @@ func preflightReconciler(
 				AdvertiseInactiveRoutes: true,
 			},
 		},
+		CState: cstate,
 	}
 
 	// stop the old BgpServer
 	sc.Server.Stop()
 
 	// create a new one via ServerWithConfig constructor
-	s, err := NewServerWithConfig(ctx, globalConfig, cstate)
+	s, err := NewServerWithConfig(ctx, globalConfig)
 	if err != nil {
 		l.WithError(err).Errorf("Failed to start BGP server for virtual router with local ASN %v", newc.LocalASN)
 		return fmt.Errorf("failed to start BGP server for virtual router with local ASN %v: %w", newc.LocalASN, err)

@@ -224,9 +224,10 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context, c *v2alpha1api
 				AdvertiseInactiveRoutes: true,
 			},
 		},
+		CState: &agent.ControlPlaneState{},
 	}
 
-	if s, err = NewServerWithConfig(ctx, globalConfig, cstate); err != nil {
+	if s, err = NewServerWithConfig(ctx, globalConfig); err != nil {
 		return fmt.Errorf("failed to start BGP server for config with local ASN %v: %w", c.LocalASN, err)
 	}
 
