@@ -1357,7 +1357,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`hubble.metrics.enabled`
-     - Configures the list of metrics to collect. If empty or null, metrics are disabled. Example:    enabled:   - dns:query;ignoreAAAA   - drop   - tcp   - flow   - icmp   - http  You can specify the list of metrics from the helm CLI:    --set hubble.metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
+     - Configures the list of metrics to collect. If empty or null, metrics are disabled. Example:    enabled:   - dns:query;ignoreAAAA   - drop   - tcp   - flow   - icmp   - http  You can specify the list of metrics from the helm CLI:    --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
      - string
      - ``nil``
    * - :spelling:ignore:`hubble.metrics.port`
@@ -1404,10 +1404,6 @@
      - Whether Hubble should prefer to announce IPv6 or IPv4 addresses if both are available.
      - bool
      - ``false``
-   * - :spelling:ignore:`hubble.redact`
-     - Configures the list of redact options for Hubble. Example:    redact:   - http-url-query  You can specify the list of options from the helm CLI:    --set hubble.redact="{http-url-query}"
-     - string
-     - ``nil``
    * - :spelling:ignore:`hubble.relay.affinity`
      - Affinity for hubble-replay
      - object

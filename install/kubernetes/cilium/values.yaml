@@ -982,7 +982,7 @@ hubble:
     #
     # You can specify the list of metrics from the helm CLI:
     #
-    #   --set hubble.metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
+    #   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
     #
     enabled: ~
     # -- Enables exporting hubble metrics in OpenMetrics format.
@@ -1022,18 +1022,6 @@ hubble:
 
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
-
-  # -- Configures the list of redact options for Hubble.
-  # Example:
-  #
-  #   redact:
-  #   - http-url-query
-  #
-  # You can specify the list of options from the helm CLI:
-  #
-  #   --set hubble.redact="{http-url-query}"
-  #
-  redact: ~
 
   # -- An additional address for Hubble to listen to.
   # Set this field ":4244" if you are enabling Hubble Relay, as it assumes that
