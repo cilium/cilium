@@ -271,3 +271,6 @@ Limitations
     * :ref:`HostPolicies` are not currently supported with IPsec encryption.
     * IPsec encryption is not supported on clusters or clustermeshes with more
       than 65535 nodes.
+    * Decryption with Cilium IPsec is limited to a single CPU core per IPsec
+      tunnel. This may affect performance in case of high throughput between
+      two nodes.
