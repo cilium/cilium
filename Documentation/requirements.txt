@@ -64,7 +64,7 @@ sphinxcontrib-httpdomain==1.8.1
 sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==1.0.3
 sphinxcontrib-serializinghtml==1.1.5
-tornado==6.2
+tornado==6.3.2
 typer==0.7.0
 types-docutils==0.19.1.6
 typing-extensions==4.5.0
