@@ -170,7 +170,7 @@ func TestDecodeL7HTTPRequestRemoveUrlQuery(t *testing.T) {
 	lr.SourceEndpoint.Port = 56789
 	lr.DestinationEndpoint.Port = 80
 
-	opts := []options.Option{options.Redact(nil, []string{"http-url-query"})}
+	opts := []options.Option{options.Redact(nil, true, false)}
 	parser, err := New(log, nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
