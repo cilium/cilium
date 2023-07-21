@@ -27,6 +27,9 @@ triggers:
   /ci-e2e:
     workflows:
     - conformance-e2e.yaml
+  /ci-ipsec-upgrade:
+    workflows:
+    - tests-ipsec-upgrade.yaml
   /ci-eks:
     workflows:
     - conformance-eks.yaml
