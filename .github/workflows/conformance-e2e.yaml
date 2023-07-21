@@ -1,4 +1,4 @@
-name: Cilium Conformance E2E (ci-e2e)
+name: Cilium IPsec upgrade (ci-ipsec-upgrade)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -52,16 +52,19 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.3
-  cilium_cli_ci_version:
+  cilium_cli_version:
+  # until https://github.com/cilium/cilium-cli/pull/1854 has been released
+  cilium_cli_ci_version: 8c624e141844a19a6b2e21d5255f3ca6195c996d
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  upgrade_cilium_from_vsn: 1.13.4
+  upgrade_cilium_to_vsn: 1.14.0-rc.1 # empty means upgrade to CI build
 
 jobs:
   commit-status-start:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7  
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -75,147 +78,38 @@ jobs:
       max-parallel: 16
       matrix:
         include:
-          # See https://github.com/cilium/cilium/issues/20606 for configuration table
-
           - name: '1'
-            kernel: '4.19-20230420.212204'
+            kernel: '5.4-20230420.212204'
             kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'vxlan'
+            kpr: 'disabled'
+            tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            debug: 'true'
+            test-flow-interrupts: 'true'
+            ipv6: 'false' # until https://github.com/cilium/cilium/issues/26944 resolved
 
           - name: '2'
-            kernel: '5.4-20230420.212204'
+            kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
-            kpr: 'false'
+            kpr: 'disabled'
             tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
+            endpoint-routes: 'true'
+            test-flow-interrupts: 'true'
+            ipv6: 'false' # until https://github.com/cilium/cilium/issues/26944 resolved
 
           - name: '3'
-            kernel: '5.10-20230420.212204'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            endpoint-routes: 'true'
-
-          - name: '4'
-            kernel: '5.10-20230420.212204'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-
-          - name: '5'
-            kernel: '5.15-20230420.212204'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'dsr'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            host-fw: 'true'
-
-          - name: '6'
-            kernel: '6.0-20230420.212204'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            host-fw: 'true'
-            lb-acceleration: 'testing-only'
-
-          - name: '7'
-            kernel: 'bpf-next-20230420.212204'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            lb-acceleration: 'testing-only'
-
-          - name: '8'
             kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'geneve'
-            endpoint-routes: 'true'
-
-          - name: '9'
-            kernel: '4.19-20230420.212204'
-            kube-proxy: 'iptables'
-            kpr: 'false'
+            kpr: 'disabled'
             tunnel: 'vxlan'
             encryption: 'ipsec'
             encryption-node: 'false'
-
-          - name: '10'
-            kernel: '5.4-20230420.212204'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
-
-          - name: '11'
-            kernel: '5.10-20230420.212204'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
             endpoint-routes: 'true'
-
-          - name: '12'
-            kernel: '5.10-20230420.212204'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-
-          - name: '13'
-            kernel: '5.15-20230420.212204'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            lb-mode: 'dsr'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-
-          - name: '14'
-            kernel: '6.0-20230420.212204'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-
-          - name: '15'
-            kernel: 'bpf-next-20230420.212204'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-
-          - name: '16'
-            kernel: 'bpf-next-20230420.212204'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'geneve'
-            encryption: 'ipsec'
-            encryption-node: 'false'
-            endpoint-routes: 'true'
+            test-flow-interrupts: 'true'
+            ipv6: 'false' # until https://github.com/cilium/cilium/issues/26944 resolved
 
     timeout-minutes: 60
     steps:
@@ -237,8 +131,8 @@ jobs:
             SHA="${{ github.sha }}"
           fi
 
-          CILIUM_INSTALL_DEFAULTS="--wait \
-            --chart-directory=./install/kubernetes/cilium \
+          # TODO(brb) move the settings derivation into a reusable GH workflow
+          CILIUM_MAIN_IMAGE_SETTINGS="--chart-directory=./install/kubernetes/cilium \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
             --helm-set=image.tag=${SHA} \
@@ -249,13 +143,20 @@ jobs:
             --helm-set=operator.image.tag=${SHA} \
             --helm-set=operator.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-            --helm-set=hubble.relay.image.tag=${SHA} \
-            --helm-set=hubble.relay.image.useDigest=false \
+            --helm-set=hubble.relay.image.tag=${SHA}"
+          echo "cilium_main_image_settings=${CILIUM_MAIN_IMAGE_SETTINGS}" >> $GITHUB_OUTPUT
+
+          CILIUM_INSTALL_DEFAULTS="--wait \
+            --helm-set=debug.enabled=true \
+            --helm-set=cni.uninstall=false \
+            --helm-set=cluster.name=default \
             --helm-set=hubble.eventBufferCapacity=65535 \
             --helm-set=bpf.monitorAggregation=none \
             --helm-set=authentication.mutual.spire.enabled=true \
             --nodes-without-cilium=kind-worker3 \
+            --helm-set=bpfClockSource=false \
             --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
+
           TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
             TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16 --helm-set-string=tunnel=disabled"
@@ -274,7 +175,7 @@ jobs:
             IPV6="--helm-set=ipv6.enabled=true"
           fi
           MASQ=""
-          if [ "${{ matrix.kpr }}" == "true" ]; then
+          if [ "${{ matrix.kpr }}" == "true" ] || [ "${{ matrix.kpr }}" == "strict" ]; then
             # BPF-masq requires KPR=true.
             MASQ="--helm-set=bpf.masquerade=true"
             if [ "${{ matrix.host-fw }}" == "true" ]; then
@@ -339,16 +240,18 @@ jobs:
       - name: Provision LVH VMs
         uses: cilium/little-vm-helper@6a3d1797af8fab1a49f1c3d09afe3230aea559b6 # v0.0.11
         with:
-          test-name: e2e-conformance
+          test-name: ipsec-upgrade
           image-version: ${{ matrix.kernel }}
           host-mount: ./
           cpu: 4
+          mem: '12G'
           dns-resolver: '1.1.1.1'
           install-dependencies: 'true'
           cmd: |
             git config --global --add safe.directory /host
 
       - name: Wait for images to be available
+        if:  ${{ env.upgrade_cilium_to_vsn-upgrade == '' }}
         timeout-minutes: 10
         shell: bash
         run: |
@@ -356,8 +259,7 @@ jobs:
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
-      - name: Run tests (${{ join(matrix.*, ', ') }})
-        id: run-tests
+      - name: Run upgrade tests (${{ join(matrix.*, ', ') }})
         uses: cilium/little-vm-helper@6a3d1797af8fab1a49f1c3d09afe3230aea559b6 # v0.0.11
         with:
           provision: 'false'
@@ -368,7 +270,7 @@ jobs:
             if [ "${{ matrix.ipv6 }}" == "false" ]; then
               IP_FAM="ipv4"
             fi
-            ./contrib/scripts/kind.sh --xdp --secondary-network "" 3 "" "" "${{ matrix.kube-proxy }}" \$IP_FAM
+            ./contrib/scripts/kind.sh "" 3 "" "" "${{ matrix.kube-proxy }}" \$IP_FAM
 
             kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
             if [ "${{ matrix.encryption }}" == "ipsec" ]; then
@@ -376,27 +278,97 @@ jobs:
                 --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
             fi
 
-            export CILIUM_CLI_MODE=helm
-            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
-            kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
-            kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
+            mkdir -p cilium-junits
+
+            # Install
+
+            # TODO(brb) Create function to derive EXTRAS_V1{3,2,1}
+            EXTRAS_V13=""
+            if [ "${{ matrix.encryption }}" == "wireguard" ]; then
+              EXTRAS_V13=" --helm-set=l7Proxy=false"
+            fi
+            if [ "${{ matrix.kpr }}" == "strict" ] || [ "${{ matrix.kpr }}" == "true" ]; then
+              # BPF IPv6 masquerade is not supported in < v1.14
+              EXTRAS_V13+=" --helm-set=enableIPv6Masquerade=false"
+            fi
+
+            CILIUM_CLI_MODE=helm ./cilium-cli install \
+              --version ${{ env.upgrade_cilium_from_vsn }} \
+              ${{ steps.vars.outputs.cilium_install_defaults }} \
+              \$EXTRAS_V13
 
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-            mkdir -p cilium-junits
-
+            # Disable no-missed-tail-calls due to https://github.com/cilium/cilium/issues/26739
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --flush-ct \
+              --test '!no-missed-tail-calls' \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-              --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})"
+              --junit-property github_job_step="Run tests upgrade 1 (${{ join(matrix.*, ', ') }})"
 
-            ./contrib/scripts/kind-down.sh
+            EXTRA_CONNECTIVITY_TEST=""
+            if [ "${{ matrix.test-flow-interrupts }}" == "true" ]; then
+              # Create pods which establish long lived connections. It will be used by
+              # subsequent connectivity tests with --include-conn-disrupt-test to catch any
+              # interruption in such flows.
+              ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
+              EXTRA_CONNECTIVITY_TEST=" --include-conn-disrupt-test"
+            fi
+
+            # Upgrade
+
+            if [ -z "${{ env.upgrade_cilium_to_vsn }}" ]; then
+              CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+                ${{ steps.vars.outputs.cilium_main_image_settings }} \
+                ${{ steps.vars.outputs.cilium_install_defaults }}
+            else
+              CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+                --version ${{ env.upgrade_cilium_to_vsn }} \
+                ${{ steps.vars.outputs.cilium_install_defaults }}
+            fi
+
+            ./cilium-cli status --wait
+            kubectl get pods --all-namespaces -o wide
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              \$EXTRA_CONNECTIVITY_TEST \
+              --flush-ct \
+              --test '!no-missed-tail-calls' \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+              --junit-property github_job_step="Run tests upgrade 2 (${{ join(matrix.*, ', ') }})"
+
+            # --flush-ct interrupts the flows, so we need to set up again.
+            ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
+
+            # Dowgrade
+
+            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+              --version ${{ env.upgrade_cilium_from_vsn }} \
+              ${{ steps.vars.outputs.cilium_install_defaults }} \
+              \$EXTRAS_V13
+
+            ./cilium-cli status --wait
+            kubectl get pods --all-namespaces -o wide
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+            ./cilium-cli connectivity test --test '!check-log-errors' --include-unsafe-tests --collect-sysdump-on-failure \
+              \$EXTRA_CONNECTIVITY_TEST \
+              --flush-ct \
+              --test '!no-missed-tail-calls' \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+              --junit-property github_job_step="Run tests upgrade 3 (${{ join(matrix.*, ', ') }})"
 
       - name: Fetch artifacts
-        if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
+        if: ${{ !success() }}
         uses: cilium/little-vm-helper@6a3d1797af8fab1a49f1c3d09afe3230aea559b6 # v0.0.11
         with:
           provision: 'false'
@@ -437,7 +409,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7  
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.setup-and-test.result }}
