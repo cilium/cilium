@@ -1956,22 +1956,10 @@
      - Configure the client side rate limit for the agent and operator  If the amount of requests to the Kubernetes API server exceeds the configured rate limit, the agent and operator will start to throttle requests by delaying them until there is budget or the request times out.
      - object
      - ``{"burst":10,"qps":5}``
-   * - :spelling:ignore:`k8sClientRateLimit`
-     - Configure the client side rate limit for the agent and operator  If the amount of requests to the Kubernetes API server exceeds the configured rate limit, the agent and operator will start to throttle requests by delaying them until there is budget or the request times out.
-     - object
-     - ``{"burst":10,"qps":5}``
    * - :spelling:ignore:`k8sClientRateLimit.burst`
      - The burst request rate in requests per second. The rate limiter will allow short bursts with a higher rate.
      - int
      - ``10``
-   * - :spelling:ignore:`k8sClientRateLimit.burst`
-     - The burst request rate in requests per second. The rate limiter will allow short bursts with a higher rate.
-     - int
-     - ``10``
-   * - :spelling:ignore:`k8sClientRateLimit.qps`
-     - The sustained request rate in requests per second.
-     - int
-     - ``5``
    * - :spelling:ignore:`k8sClientRateLimit.qps`
      - The sustained request rate in requests per second.
      - int

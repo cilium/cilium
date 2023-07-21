@@ -3173,15 +3173,3 @@ authentication:
       agentSocketPath: /run/spire/sockets/agent/agent.sock
       # -- SPIRE connection timeout
       connectionTimeout: 30s
-
-# -- Configure the client side rate limit for the agent and operator
-#
-# If the amount of requests to the Kubernetes API server exceeds the configured
-# rate limit, the agent and operator will start to throttle requests by delaying
-# them until there is budget or the request times out.
-k8sClientRateLimit:
-  # -- The sustained request rate in requests per second.
-  qps: 5
-  # -- The burst request rate in requests per second.
-  # The rate limiter will allow short bursts with a higher rate.
-  burst: 10
