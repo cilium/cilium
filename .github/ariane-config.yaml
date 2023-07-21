@@ -6,8 +6,10 @@ triggers:
     - conformance-clustermesh.yaml
     - conformance-e2e.yaml
     - conformance-eks.yaml
-    - conformance-externalworkloads.yaml    
+    - conformance-externalworkloads.yaml
+    - conformance-gateway-api.yaml
     - conformance-gke.yaml
+    - conformance-ingress.yaml
     - tests-l4lb.yaml
   /ci-aks:
     workflows:
@@ -47,7 +49,11 @@ workflows:
     paths-ignore-regex: (test|Documentation)/
   conformance-externalworkloads.yaml:
     paths-ignore-regex: (test|Documentation)/
+  conformance-gateway-api.yaml:
+    paths-ignore-regex: (test|Documentation)/
   conformance-gke.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-ingress.yaml:
     paths-ignore-regex: (test|Documentation)/
   tests-l4lb.yaml:
     paths-regex: (bpf|daemon|images|pkg|test/l4lb|vendor)/
