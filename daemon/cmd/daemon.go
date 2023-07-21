@@ -647,9 +647,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
 		switch option.Config.IPAMMode() {
 		case ipamOption.IPAMKubernetes:
-			d.k8sWatcher.RegisterNodeSubscriber(d.bgpSpeaker)
+			d.bgpSpeaker.SubscribeToLocalNodeResource(ctx, params.Resources.LocalNode)
 		case ipamOption.IPAMClusterPool:
-			d.k8sWatcher.RegisterCiliumNodeSubscriber(d.bgpSpeaker)
+			d.bgpSpeaker.SubscribeToLocalCiliumNodeResource(ctx, params.Resources.LocalCiliumNode)
 		}
 	}
 	if option.Config.EnableServiceTopology {

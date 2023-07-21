@@ -372,7 +372,7 @@ func TestSpeakerOnUpdateNode(t *testing.T) {
 
 	go spkr.run(ctx)
 
-	err := spkr.OnUpdateNode(&node, &node, nil)
+	err := spkr.notifyNodeEvent(Update, &node, nodePodCIDRs(&node), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -476,7 +476,7 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 
 	go spkr.run(ctx)
 
-	err := spkr.OnDeleteNode(&node, nil)
+	err := spkr.notifyNodeEvent(Delete, &node, nodePodCIDRs(&node), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -499,25 +499,19 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 	if !spkr.shutDown() {
 		t.Fatalf("wanted speaker to be shutdown")
 	}
-	if err := spkr.OnAddNode(nil, nil); !errors.Is(err, ErrShutDown) {
+	if err := spkr.notifyNodeEvent(Add, nil, nil, true); !errors.Is(err, ErrShutDown) {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
-	if err := spkr.OnDeleteNode(nil, nil); !errors.Is(err, ErrShutDown) {
+	if err := spkr.notifyNodeEvent(Update, nil, nil, false); !errors.Is(err, ErrShutDown) {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
-	if err := spkr.OnAddCiliumNode(nil, nil); !errors.Is(err, ErrShutDown) {
-		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
-	}
-	if err := spkr.OnDeleteCiliumNode(nil, nil); !errors.Is(err, ErrShutDown) {
+	if err := spkr.notifyNodeEvent(Delete, nil, nil, true); !errors.Is(err, ErrShutDown) {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
 	if err := spkr.OnDeleteService(nil); !errors.Is(err, ErrShutDown) {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
 	if err := spkr.OnUpdateEndpoints(nil); !errors.Is(err, ErrShutDown) {
-		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
-	}
-	if err := spkr.OnUpdateNode(nil, nil, nil); !errors.Is(err, ErrShutDown) {
 		t.Fatalf("got: %v, want: %v", err, ErrShutDown)
 	}
 	if err := spkr.OnUpdateService(nil); !errors.Is(err, ErrShutDown) {
@@ -571,7 +565,7 @@ func TestSpeakerOnUpdateAndDeleteCiliumNode(t *testing.T) {
 
 	// CiliumNode with one pod CIDR
 	node, advs := mock.GenTestCiliumNodeAndAdvertisements(1)
-	err := spkr.OnUpdateCiliumNode(nil, &node, nil)
+	err := spkr.notifyNodeEvent(Update, &node, ciliumNodePodCIDRs(&node), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -587,9 +581,8 @@ func TestSpeakerOnUpdateAndDeleteCiliumNode(t *testing.T) {
 	}
 
 	// Add two additional pod CIDRs to CiliumNode
-	oldNode := node
 	node, advs = mock.GenTestCiliumNodeAndAdvertisements(3)
-	err = spkr.OnUpdateCiliumNode(&oldNode, &node, nil)
+	err = spkr.notifyNodeEvent(Update, &node, ciliumNodePodCIDRs(&node), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -605,7 +598,7 @@ func TestSpeakerOnUpdateAndDeleteCiliumNode(t *testing.T) {
 	}
 
 	// Delete CiliumNode
-	err = spkr.OnDeleteCiliumNode(&node, nil)
+	err = spkr.notifyNodeEvent(Delete, &node, ciliumNodePodCIDRs(&node), true)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -16,12 +16,15 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
+	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
+
+	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgp/fence"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 )
@@ -29,9 +32,6 @@ import (
 var (
 	ErrShutDown = errors.New("cannot enqueue event, speaker is shutdown")
 )
-
-// compile time check, Speaker must be a subscriber.Node
-var _ subscriber.Node = (*MetalLBSpeaker)(nil)
 
 // New creates a new MetalLB BGP speaker controller. Options are provided to
 // specify what the Speaker should announce via BGP.
@@ -247,43 +247,53 @@ func (s *MetalLBSpeaker) notifyNodeEvent(op Op, nodeMeta metaGetter, podCIDRs *[
 	return nil
 }
 
-// OnAddNode notifies the Speaker of a new node.
-func (s *MetalLBSpeaker) OnAddNode(node *slim_corev1.Node, swg *lock.StoppableWaitGroup) error {
-	return s.notifyNodeEvent(Add, node, nodePodCIDRs(node), false)
+func (s *MetalLBSpeaker) SubscribeToLocalNodeResource(ctx context.Context, lnr agentK8s.LocalNodeResource) {
+	go eventLoop[*slim_corev1.Node](ctx, s, lnr, nodePodCIDRs)
 }
 
-func (s *MetalLBSpeaker) OnUpdateNode(oldNode, newNode *slim_corev1.Node, swg *lock.StoppableWaitGroup) error {
-	return s.notifyNodeEvent(Update, newNode, nodePodCIDRs(newNode), false)
+func (s *MetalLBSpeaker) SubscribeToLocalCiliumNodeResource(ctx context.Context, lcnr agentK8s.LocalCiliumNodeResource) {
+	go eventLoop[*ciliumv2.CiliumNode](ctx, s, lcnr, ciliumNodePodCIDRs)
 }
 
-// OnDeleteNode notifies the Speaker of a node deletion.
-//
-// When the speaker discovers the node that it is running on
-// is shuttig down it will send a BGP message to its peer
-// instructing it to withdrawal all previously advertised
-// routes.
-func (s *MetalLBSpeaker) OnDeleteNode(node *slim_corev1.Node, swg *lock.StoppableWaitGroup) error {
-	return s.notifyNodeEvent(Delete, node, nodePodCIDRs(node), true)
+type metaGetterObject interface {
+	k8sRuntime.Object
+	metaGetter
 }
 
-// OnAddCiliumNode notifies the Speaker of a new CiliumNode.
-func (s *MetalLBSpeaker) OnAddCiliumNode(node *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error {
-	return s.notifyNodeEvent(Add, node, ciliumNodePodCIDRs(node), false)
-}
+func eventLoop[T metaGetterObject](ctx context.Context, s *MetalLBSpeaker, res resource.Resource[T], nodePodCIDRs func(T) *[]string) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-// OnUpdateCiliumNode notifies the Speaker of an update to a CiliumNode.
-func (s *MetalLBSpeaker) OnUpdateCiliumNode(oldNode, newNode *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error {
-	return s.notifyNodeEvent(Update, newNode, ciliumNodePodCIDRs(newNode), false)
-}
+	// Don't retry on errors, the downstream code isn't expecting it.
+	evs := res.Events(ctx, resource.WithErrorHandler(resource.RetryUpTo(0)))
 
-// OnDeleteCiliumNode notifies the Speaker of a CiliumNode deletion.
-//
-// When the speaker discovers the node that it is running on
-// is shuttig down it will send a BGP message to its peer
-// instructing it to withdrawal all previously advertised
-// routes.
-func (s *MetalLBSpeaker) OnDeleteCiliumNode(node *ciliumv2.CiliumNode, swg *lock.StoppableWaitGroup) error {
-	return s.notifyNodeEvent(Delete, node, ciliumNodePodCIDRs(node), true)
+	var existing *T
+	for ev := range evs {
+		var err error
+		switch ev.Kind {
+		case resource.Upsert:
+			node := ev.Object
+			if existing == nil {
+				err = s.notifyNodeEvent(Add, node, nodePodCIDRs(node), false)
+			} else {
+				err = s.notifyNodeEvent(Update, node, nodePodCIDRs(node), false)
+			}
+			existing = &node
+		case resource.Delete:
+			// When the speaker discovers the node that it is running on
+			// is shuttig down it will send a BGP message to its peer
+			// instructing it to withdrawal all previously advertised
+			// routes.
+			node := ev.Object
+			err = s.notifyNodeEvent(Delete, node, nodePodCIDRs(node), true)
+		}
+		ev.Done(err)
+		// If the speaker is shutdown, there's no need to keep the eventloop
+		// alive. Return, which cancels ctx and hence also the resource.
+		if errors.Is(err, ErrShutDown) {
+			return
+		}
+	}
 }
 
 // RegisterSvcCache registers the K8s watcher cache with this Speaker.
