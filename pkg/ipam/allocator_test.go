@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/mtu"
 )
 
@@ -24,7 +23,6 @@ type ownerMock struct{}
 func (o *ownerMock) K8sEventReceived(resourceApiGroup, scope string, action string, valid, equal bool) {
 }
 func (o *ownerMock) K8sEventProcessed(scope string, action string, status bool) {}
-func (o *ownerMock) RegisterCiliumNodeSubscriber(s subscriber.CiliumNode)       {}
 
 func (o *ownerMock) UpdateCiliumNodeResource()                                          {}
 func (o *ownerMock) LocalAllocCIDRsUpdated(ipv4AllocCIDRs, ipv6AllocCIDRs []*cidr.CIDR) {}

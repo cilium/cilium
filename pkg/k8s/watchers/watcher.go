@@ -232,12 +232,6 @@ type K8sWatcher struct {
 	// have their event handling methods called in order of registration.
 	NodeChain *subscriber.NodeChain
 
-	// CiliumNodeChain is the root of a notification chain for CiliumNode events.
-	// This CiliumNodeChain allows registration of subscriber.CiliumNode implementations.
-	// On CiliumNode events all registered subscriber.CiliumNode implementations will
-	// have their event handling methods called in order of registration.
-	CiliumNodeChain *subscriber.CiliumNodeChain
-
 	endpointManager endpointManager
 
 	nodeDiscoverManager   nodeDiscoverManager
@@ -325,7 +319,6 @@ func NewK8sWatcher(
 		bgpSpeakerManager:       bgpSpeakerManager,
 		cgroupManager:           cgroupManager,
 		NodeChain:               subscriber.NewNodeChain(),
-		CiliumNodeChain:         subscriber.NewCiliumNodeChain(),
 		envoyConfigManager:      envoyConfigManager,
 		cfg:                     cfg,
 		resources:               resources,
