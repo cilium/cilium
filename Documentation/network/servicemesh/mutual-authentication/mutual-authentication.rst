@@ -6,9 +6,9 @@
 
 .. _gs_mutual_authentication:
 
-*********************
-Mutual Authentication
-*********************
+****************************
+Mutual Authentication (Beta)
+****************************
 
 .. include:: ../../../beta.rst
 
