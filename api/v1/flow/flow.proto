@@ -291,6 +291,7 @@ enum DropReason {
     PROXY_REDIRECTION_NOT_SUPPORTED_FOR_PROTOCOL = 180;
     POLICY_DENY = 181;
     VLAN_FILTERED = 182;
+    NO_NODE_ID = 197;
 }
 
 enum TrafficDirection {
