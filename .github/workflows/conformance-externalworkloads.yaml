@@ -108,7 +108,7 @@ jobs:
     name: "Installation and Connectivity Test"
     needs: generate-matrix
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       job_name: "Installation and Connectivity Test"
     strategy:
