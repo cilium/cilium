@@ -12,8 +12,6 @@ import (
 	"sort"
 	"strings"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
 )
@@ -59,29 +57,13 @@ func (n *noIPsecXfrmErrors) Run(ctx context.Context, t *check.Test) {
 
 func (n *noIPsecXfrmErrors) collectXfrmErrors(ctx context.Context, t *check.Test) map[string]string {
 
+	ct := t.Context()
 	xfrmErrors := map[string]string{}
+	cmd := []string{"cilium", "metrics", "list", "-ojson", "-pcilium_ipsec_xfrm_error"}
 
-	client := t.Context().K8sClient()
-	nodes, err := client.ListNodes(ctx, metav1.ListOptions{})
-	if err != nil {
-		t.Fatalf("Unable to list nodes: %s", err)
-	}
-	if len(nodes.Items) == 0 {
-		t.Fatal("No nodes found")
-	}
-
-	for _, node := range nodes.Items {
-		ciliumPods, err := client.ListPods(ctx, "kube-system",
-			metav1.ListOptions{LabelSelector: defaults.AgentPodSelector, FieldSelector: "spec.nodeName=" + node.GetName()})
-		if err != nil {
-			t.Fatalf("Unable to list cilium pods: %s", err)
-		}
-		if len(ciliumPods.Items) == 0 {
-			t.Fatalf("No cilium pods found")
-		}
-
-		encryptStatus, err := client.ExecInPod(ctx, "kube-system", ciliumPods.Items[0].GetName(), "",
-			[]string{"cilium", "metrics", "list", "-ojson", "-pcilium_ipsec_xfrm_error"})
+	for _, pod := range ct.CiliumPods() {
+		pod := pod
+		encryptStatus, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
 		if err != nil {
 			t.Fatalf("Unable to get cilium ipsec xfrm error metrics: %s", err)
 		}
@@ -98,9 +80,11 @@ func (n *noIPsecXfrmErrors) collectXfrmErrors(ctx context.Context, t *check.Test
 						xfrmMetric.Labels.Type, xfrmMetric.Labels.Error, xfrmMetric.Value))
 			}
 			sort.Strings(xErrors)
-			xfrmErrors[node.GetName()] = strings.Join(xErrors, ",")
+			xfrmErrors[pod.Pod.Status.NominatedNodeName] = strings.Join(xErrors, ",")
 		}
+
 	}
+
 	return xfrmErrors
 }
 
