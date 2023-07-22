@@ -6,9 +6,9 @@
 
 .. _bgp:
 
-****************
-BGP (deprecated)
-****************
+*************************************
+MetalLB BGP ControlPlane (deprecated)
+*************************************
 
 .. warning::
   This feature will only receive security updates and bug fixes. It is recommended
