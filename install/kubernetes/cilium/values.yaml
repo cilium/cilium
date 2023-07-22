@@ -3214,3 +3214,7 @@ k8sClientRateLimit:
   # -- The burst request rate in requests per second.
   # The rate limiter will allow short bursts with a higher rate.
   burst: 10
+
+validatingAdmissionPolicy:
+  # -- Enable support for Validating Admission Policy
+  enabled: true

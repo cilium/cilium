@@ -1,0 +1,10 @@
+{{- if and .Values.validatingAdmissionPolicy.enabled (.Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1alpha1/ValidatingAdmissionPolicyBinding") }}
+apiVersion: admissionregistration.k8s.io/v1alpha1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: "validate-cilium-network-policies-binding"
+spec:
+  policyName: "validate-cilium-network-policies"
+  validationActions: [Deny]
+  matchResources:
+{{- end }}
