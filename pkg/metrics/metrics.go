@@ -54,6 +54,9 @@ const (
 	// SubsystemK8sClient is the subsystem to scope metrics related to the kubernetes client.
 	SubsystemK8sClient = "k8s_client"
 
+	// SubsystemWorkQueue is the subsystem to scope metrics related to the workqueue.
+	SubsystemWorkQueue = "k8s_workqueue"
+
 	// SubsystemKVStore is the subsystem to scope metrics related to the kvstore.
 	SubsystemKVStore = "kvstore"
 
@@ -550,6 +553,80 @@ var (
 	// APILimiterProcessedRequests is the counter of the number of
 	// processed (successful and failed) requests
 	APILimiterProcessedRequests = NoOpCounterVec
+
+	// WorkQueueDepth is the depth of the workqueue
+	//
+	// We set actual metrics here instead of NoOp for the workqueue metrics
+	// because these metrics will be registered with workqueue.SetProvider
+	// by init function in watcher.go. Otherwise, we will register NoOps.
+	//
+	WorkQueueDepth = metric.NewGaugeVec(metric.GaugeOpts{
+		ConfigName: Namespace + "_" + SubsystemWorkQueue + "_depth",
+		Namespace:  Namespace,
+		Subsystem:  SubsystemWorkQueue,
+		Name:       "depth",
+		Help:       "Current depth of workqueue.",
+	}, []string{"name"})
+
+	// WorkQueueAddsTotal is the total number of adds to the workqueue
+	WorkQueueAddsTotal = metric.NewCounterVec(metric.CounterOpts{
+		ConfigName: Namespace + "_" + SubsystemWorkQueue + "_adds_total",
+		Namespace:  Namespace,
+		Subsystem:  SubsystemWorkQueue,
+		Name:       "adds_total",
+		Help:       "Total number of adds handled by workqueue.",
+	}, []string{"name"})
+
+	// WorkQueueLatency is the latency of how long an item stays in the workqueue
+	WorkQueueLatency = metric.NewHistogramVec(metric.HistogramOpts{
+		ConfigName: Namespace + "_" + SubsystemWorkQueue + "_queue_duration_seconds",
+		Namespace:  Namespace,
+		Subsystem:  SubsystemWorkQueue,
+		Name:       "queue_duration_seconds",
+		Help:       "How long in seconds an item stays in workqueue before being requested.",
+		Buckets:    prometheus.ExponentialBuckets(10e-9, 10, 10),
+	}, []string{"name"})
+
+	// WorkQueueDuration is the duration of how long processing an item for the workqueue
+	WorkQueueDuration = metric.NewHistogramVec(metric.HistogramOpts{
+		ConfigName: Namespace + "_" + SubsystemWorkQueue + "_work_duration_seconds",
+		Namespace:  Namespace,
+		Subsystem:  SubsystemWorkQueue,
+		Name:       "work_duration_seconds",
+		Help:       "How long in seconds processing an item from workqueue takes.",
+		Buckets:    prometheus.ExponentialBuckets(10e-9, 10, 10),
+	}, []string{"name"})
+
+	// WorkQueueUnfinishedWork is how many seconds of work has been done that is in progress
+	WorkQueueUnfinishedWork = metric.NewGaugeVec(metric.GaugeOpts{
+		ConfigName: Namespace + "_" + SubsystemWorkQueue + "_unfinished_work_seconds",
+		Namespace:  Namespace,
+		Subsystem:  SubsystemWorkQueue,
+		Name:       "unfinished_work_seconds",
+		Help: "How many seconds of work has been done that " +
+			"is in progress and hasn't been observed by work_duration. Large " +
+			"values indicate stuck threads. One can deduce the number of stuck " +
+			"threads by observing the rate at which this increases.",
+	}, []string{"name"})
+
+	// WorkQueueLongestRunningProcessor is the longest running processor in the workqueue
+	WorkQueueLongestRunningProcessor = metric.NewGaugeVec(metric.GaugeOpts{
+		ConfigName: Namespace + "_" + SubsystemWorkQueue + "_longest_running_processor_seconds",
+		Namespace:  Namespace,
+		Subsystem:  SubsystemWorkQueue,
+		Name:       "longest_running_processor_seconds",
+		Help: "How many seconds has the longest running " +
+			"processor for workqueue been running.",
+	}, []string{"name"})
+
+	// WorkQueueRetries is the number of retries for handled by the workqueue
+	WorkQueueRetries = metric.NewCounterVec(metric.CounterOpts{
+		ConfigName: Namespace + "_" + SubsystemWorkQueue + "_retries_total",
+		Namespace:  Namespace,
+		Subsystem:  SubsystemWorkQueue,
+		Name:       "retries_total",
+		Help:       "Total number of retries handled by workqueue.",
+	}, []string{"name"})
 )
 
 type LegacyMetrics struct {
@@ -628,6 +705,13 @@ type LegacyMetrics struct {
 	APILimiterRateLimit              metric.Vec[metric.Gauge]
 	APILimiterAdjustmentFactor       metric.Vec[metric.Gauge]
 	APILimiterProcessedRequests      metric.Vec[metric.Counter]
+	WorkQueueDepth                   metric.Vec[metric.Gauge]
+	WorkQueueAddsTotal               metric.Vec[metric.Counter]
+	WorkQueueLatency                 metric.Vec[metric.Observer]
+	WorkQueueDuration                metric.Vec[metric.Observer]
+	WorkQueueUnfinishedWork          metric.Vec[metric.Gauge]
+	WorkQueueLongestRunningProcessor metric.Vec[metric.Gauge]
+	WorkQueueRetries                 metric.Vec[metric.Counter]
 }
 
 func NewLegacyMetrics() *LegacyMetrics {
@@ -1233,6 +1317,14 @@ func NewLegacyMetrics() *LegacyMetrics {
 			LabelProtocol,
 			LabelAddressType,
 		}),
+
+		WorkQueueDepth:                   WorkQueueDepth,
+		WorkQueueAddsTotal:               WorkQueueAddsTotal,
+		WorkQueueLatency:                 WorkQueueLatency,
+		WorkQueueDuration:                WorkQueueDuration,
+		WorkQueueUnfinishedWork:          WorkQueueUnfinishedWork,
+		WorkQueueLongestRunningProcessor: WorkQueueLongestRunningProcessor,
+		WorkQueueRetries:                 WorkQueueRetries,
 	}
 
 	ifindexOpts := metric.GaugeOpts{

@@ -6,14 +6,17 @@ package resource
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
 	"github.com/cilium/cilium/pkg/hive"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
@@ -125,6 +128,7 @@ type options struct {
 	sourceObj   func() k8sRuntime.Object // prototype for the object before it is transformed
 	indexers    cache.Indexers           // map of the optional custom indexers to be added to the underlying resource informer
 	metricScope string                   // the scope label used when recording metrics for the resource
+	name        string                   // the name label used for the workqueue metrics
 }
 
 type ResourceOption func(o *options)
@@ -168,6 +172,13 @@ func WithMetric(scope string) ResourceOption {
 func WithIndexers(indexers cache.Indexers) ResourceOption {
 	return func(o *options) {
 		o.indexers = indexers
+	}
+}
+
+// WithName sets the name of the resource. Used for workqueue metrics.
+func WithName(name string) ResourceOption {
+	return func(o *options) {
+		o.name = name
 	}
 }
 
@@ -395,8 +406,9 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 
 	// Create a queue for receiving the events from the informer.
 	queue := &keyQueue{
-		RateLimitingInterface: workqueue.NewRateLimitingQueue(options.rateLimiter),
-		errorHandler:          options.errorHandler,
+		RateLimitingInterface: workqueue.NewRateLimitingQueueWithConfig(options.rateLimiter,
+			workqueue.RateLimitingQueueConfig{Name: r.resourceName()}),
+		errorHandler: options.errorHandler,
 	}
 	r.mu.Lock()
 	subId := r.subId
@@ -530,6 +542,25 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 	}()
 
 	return out
+}
+
+func (r *resource[T]) resourceName() string {
+	if r.opts.name != "" {
+		return r.opts.name
+	}
+
+	// We create a new pointer to the reconciled resource type.
+	// For example, with resource[*cilium_api_v2.CiliumNode] new(T) returns **cilium_api_v2.CiliumNode
+	// and *new(T) is nil. So we create a new pointer using reflect.New()
+	o := *new(T)
+	sourceObj := reflect.New(reflect.TypeOf(o).Elem()).Interface().(T)
+
+	gvk, err := apiutil.GVKForObject(sourceObj, scheme)
+	if err != nil {
+		return ""
+	}
+
+	return strings.ToLower(gvk.Kind)
 }
 
 // keyQueue wraps the workqueue to implement the error retry logic for a single subscriber,
