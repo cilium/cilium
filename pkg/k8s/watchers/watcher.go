@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	k8s_metrics "k8s.io/client-go/tools/metrics"
+	"k8s.io/client-go/util/workqueue"
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/cidr"
@@ -112,6 +113,8 @@ func init() {
 	k8s_metrics.RequestLatency = registerOps.RequestLatency
 	k8s_metrics.RateLimiterLatency = registerOps.RateLimiterLatency
 	k8s_metrics.RequestResult = registerOps.RequestResult
+
+	workqueue.SetProvider(workqueueMetricsProvider{})
 }
 
 var (
@@ -358,6 +361,36 @@ func (r *resultAdapter) Increment(_ context.Context, code, method, host string) 
 		}
 	}
 	k8smetrics.LastInteraction.Reset()
+}
+
+type workqueueMetricsProvider struct{}
+
+func (workqueueMetricsProvider) NewDepthMetric(name string) workqueue.GaugeMetric {
+	return metrics.WorkQueueDepth.WithLabelValues(name)
+}
+
+func (workqueueMetricsProvider) NewAddsMetric(name string) workqueue.CounterMetric {
+	return metrics.WorkQueueAddsTotal.WithLabelValues(name)
+}
+
+func (workqueueMetricsProvider) NewLatencyMetric(name string) workqueue.HistogramMetric {
+	return metrics.WorkQueueLatency.WithLabelValues(name)
+}
+
+func (workqueueMetricsProvider) NewWorkDurationMetric(name string) workqueue.HistogramMetric {
+	return metrics.WorkQueueDuration.WithLabelValues(name)
+}
+
+func (workqueueMetricsProvider) NewUnfinishedWorkSecondsMetric(name string) workqueue.SettableGaugeMetric {
+	return metrics.WorkQueueUnfinishedWork.WithLabelValues(name)
+}
+
+func (workqueueMetricsProvider) NewLongestRunningProcessorSecondsMetric(name string) workqueue.SettableGaugeMetric {
+	return metrics.WorkQueueLongestRunningProcessor.WithLabelValues(name)
+}
+
+func (workqueueMetricsProvider) NewRetriesMetric(name string) workqueue.CounterMetric {
+	return metrics.WorkQueueRetries.WithLabelValues(name)
 }
 
 // WaitForCacheSync blocks until the given resources have been synchronized from k8s.  Note that if

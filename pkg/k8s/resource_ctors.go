@@ -212,6 +212,7 @@ func EndpointsResource(lc hive.Lifecycle, cfg Config, cs client.Clientset) (reso
 		lw,
 		resource.WithLazyTransform(lw.getSourceObj, transformEndpoint),
 		resource.WithMetric("Endpoint"),
+		resource.WithName("endpoints"),
 	), nil
 }
 
