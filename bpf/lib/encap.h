@@ -122,8 +122,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
  */
 static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-			       __u16 node_id __maybe_unused, __u32 seclabel,
-			       __u32 monitor)
+			       __u32 seclabel, __u32 monitor)
 {
 	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
 }
@@ -140,8 +139,7 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
  */
 static __always_inline int
 encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-		       __u8 encrypt_key __maybe_unused,
-		       struct tunnel_key *key, __u16 node_id __maybe_unused,
+		       __u8 encrypt_key __maybe_unused, struct tunnel_key *key,
 		       __u32 seclabel, __u32 monitor)
 {
 	struct endpoint_key *tunnel;
@@ -150,7 +148,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 #ifdef ENABLE_IPSEC
 		if (encrypt_key)
 			return set_ipsec_encrypt(ctx, encrypt_key,
-						 node_id, seclabel);
+						 tunnel_endpoint, seclabel);
 #endif
 #if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
 		/* For the host firewall, traffic from a pod to a remote node
@@ -174,7 +172,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	if (tunnel->key) {
 		__u8 min_encrypt_key = get_min_encrypt_key(tunnel->key);
 
-		return set_ipsec_encrypt(ctx, min_encrypt_key, node_id,
+		return set_ipsec_encrypt(ctx, min_encrypt_key, tunnel->ip4,
 					 seclabel);
 	}
 #endif
