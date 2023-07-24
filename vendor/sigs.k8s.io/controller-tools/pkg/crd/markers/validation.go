@@ -66,6 +66,7 @@ var ValidationMarkers = mustMakeAllWithPrefix("kubebuilder:validation", markers.
 	Type(""),
 	XPreserveUnknownFields{},
 	XEmbeddedResource{},
+	XIntOrString{},
 )
 
 // FieldOnlyMarkers list field-specific validation markers (i.e. those markers that don't make
@@ -238,6 +239,14 @@ type XPreserveUnknownFields struct{}
 type XEmbeddedResource struct{}
 
 // +controllertools:marker:generateHelp:category="CRD validation"
+// IntOrString marks a fields as an IntOrString.
+//
+// This is required when applying patterns or other validations to an IntOrString
+// field. Knwon information about the type is applied during the collapse phase
+// and as such is not normally available during marker application.
+type XIntOrString struct{}
+
+// +controllertools:marker:generateHelp:category="CRD validation"
 // Schemaless marks a field as being a schemaless object.
 //
 // Schemaless objects are not introspected, so you must provide
@@ -303,8 +312,11 @@ func (m MinLength) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
 	return nil
 }
 func (m Pattern) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
-	if schema.Type != "string" {
-		return fmt.Errorf("must apply pattern to a string")
+	// Allow string types or IntOrStrings. An IntOrString will still
+	// apply the pattern validation when a string is detected, the pattern
+	// will not apply to ints though.
+	if schema.Type != "string" && !schema.XIntOrString {
+		return fmt.Errorf("must apply pattern to a `string` or `IntOrString`")
 	}
 	schema.Pattern = string(m)
 	return nil
@@ -411,3 +423,13 @@ func (m XEmbeddedResource) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
 	schema.XEmbeddedResource = true
 	return nil
 }
+
+// NB(JoelSpeed): we use this property in other markers here,
+// which means the "XIntOrString" marker *must* be applied first.
+
+func (m XIntOrString) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
+	schema.XIntOrString = true
+	return nil
+}
+
+func (m XIntOrString) ApplyFirst() {}
