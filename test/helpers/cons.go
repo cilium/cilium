@@ -243,6 +243,7 @@ const (
 	failedToUpdateLock         = "Failed to update lock:"
 	failedToReleaseLock        = "Failed to release lock:"
 	errorCreatingInitialLeader = "error initially creating leader election record:"
+	secIdentityChanged         = "SecurityIdentity changed during policy regeneration"
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
@@ -305,7 +306,7 @@ var badLogMessages = map[string][]string{
 	"DATA RACE":         nil,
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
-	"level=error": {opCantBeFulfilled, initLeaderElection, globalDataSupport, removeInexistentID, failedToListCRDs, retrieveResLock, failedToRelLockEmptyName, failedToUpdateLock, failedToReleaseLock, errorCreatingInitialLeader},
+	"level=error": {opCantBeFulfilled, initLeaderElection, globalDataSupport, removeInexistentID, failedToListCRDs, retrieveResLock, failedToRelLockEmptyName, failedToUpdateLock, failedToReleaseLock, errorCreatingInitialLeader, secIdentityChanged},
 }
 
 var ciliumCLICommands = map[string]string{
