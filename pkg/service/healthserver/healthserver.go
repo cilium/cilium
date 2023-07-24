@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
@@ -215,6 +216,7 @@ func (h *httpHealthServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	svc := h.loadService()
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Load-Balancing-Endpoint-Weight", strconv.Itoa(svc.LocalEndpoints))
 
 	if svc.LocalEndpoints == 0 {
 		w.WriteHeader(http.StatusServiceUnavailable)
