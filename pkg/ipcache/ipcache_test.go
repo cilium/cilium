@@ -46,7 +46,6 @@ func (s *IPCacheTestSuite) SetUpTest(c *C) {
 		IdentityAllocator: allocator,
 		PolicyHandler:     &mockUpdater{},
 		DatapathHandler:   &mockTriggerer{},
-		NodeIDHandler:     &mockNodeIDHandler{},
 	})
 
 	s.cleanup = func() {
@@ -619,7 +618,6 @@ func benchmarkIPCacheUpsert(b *testing.B, num int) {
 			IdentityAllocator: allocator,
 			PolicyHandler:     &mockUpdater{},
 			DatapathHandler:   &mockTriggerer{},
-			NodeIDHandler:     &mockNodeIDHandler{},
 		})
 
 		// We only want to measure the calls to upsert.
@@ -724,10 +722,4 @@ func (s *IPCacheTestSuite) TestIPCacheShadowing(c *C) {
 	ipc.Delete(endpointIP, source.KVStore)
 	_, exists := ipc.LookupByPrefix(cidrOverlap)
 	c.Assert(exists, Equals, false)
-}
-
-type mockNodeIDHandler struct{}
-
-func (m *mockNodeIDHandler) AllocateNodeID(_ net.IP) uint16 {
-	return 0
 }
