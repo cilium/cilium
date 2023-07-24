@@ -91,14 +91,14 @@ func (k *TunnelKey) New() bpf.MapKey { return &TunnelKey{} }
 
 type TunnelValue struct {
 	TunnelIP
-	Key    uint8  `align:"key"`
-	NodeID uint16 `align:"node_id"`
+	Key uint8  `align:"key"`
+	Pad uint16 `align:"pad"`
 }
 
 // String provides a string representation of the TunnelValue.
 func (k TunnelValue) String() string {
 	if ip := k.toIP(); ip != nil {
-		return ip.String() + ":" + fmt.Sprintf("%d %d", k.Key, k.NodeID)
+		return ip.String() + ":" + fmt.Sprintf("%d", k.Key)
 	}
 	return "nil"
 }
@@ -127,11 +127,10 @@ func newTunnelKey(ip net.IP, clusterID uint32) (*TunnelKey, error) {
 	return &result, nil
 }
 
-func newTunnelValue(ip net.IP, key uint8, nodeID uint16) *TunnelValue {
+func newTunnelValue(ip net.IP, key uint8) *TunnelValue {
 	result := TunnelValue{}
 	result.TunnelIP = newTunnelIP(ip)
 	result.Key = key
-	result.NodeID = nodeID
 	return &result
 }
 
@@ -148,19 +147,18 @@ func newTunnelIP(ip net.IP) TunnelIP {
 }
 
 // SetTunnelEndpoint adds/replaces a prefix => tunnel-endpoint mapping
-func (m *Map) SetTunnelEndpoint(encryptKey uint8, nodeID uint16, prefix cmtypes.AddrCluster, endpoint net.IP) error {
+func (m *Map) SetTunnelEndpoint(encryptKey uint8, prefix cmtypes.AddrCluster, endpoint net.IP) error {
 	key, err := newTunnelKey(prefix.AsNetIP(), prefix.ClusterID())
 	if err != nil {
 		return err
 	}
 
-	val := newTunnelValue(endpoint, encryptKey, nodeID)
+	val := newTunnelValue(endpoint, encryptKey)
 
 	log.WithFields(logrus.Fields{
 		fieldPrefix:   prefix,
 		fieldEndpoint: endpoint,
 		fieldKey:      encryptKey,
-		fieldNodeID:   nodeID,
 	}).Debug("Updating tunnel map entry")
 
 	return m.Update(key, val)
