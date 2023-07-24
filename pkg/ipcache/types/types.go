@@ -5,7 +5,6 @@ package types
 
 import (
 	"context"
-	"net"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -26,9 +25,4 @@ type PolicyHandler interface {
 // before updating the datapath's IPCache maps.
 type DatapathHandler interface {
 	UpdatePolicyMaps(context.Context, *sync.WaitGroup) *sync.WaitGroup
-}
-
-// NodeHandler is responsible for the management of node identities.
-type NodeIDHandler interface {
-	AllocateNodeID(net.IP) uint16
 }
