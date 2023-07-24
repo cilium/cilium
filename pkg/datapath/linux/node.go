@@ -985,7 +985,7 @@ func getV6LinkLocalIP() (net.IP, error) {
 	return getLinkLocalIP(netlink.FAMILY_V6)
 }
 
-func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
+func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node, nodeID uint16) {
 	if newNode.IsLocal() {
 		n.replaceHostRules()
 	}
@@ -996,11 +996,11 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 	// the mark fields. This uses XFRM_OUTPUT_MARK added in 4.14 kernels.
 	zeroMark := option.Config.EnableEndpointRoutes
 
-	n.enableIPsecIPv4(newNode, zeroMark)
-	n.enableIPsecIPv6(newNode, zeroMark)
+	n.enableIPsecIPv4(newNode, nodeID, zeroMark)
+	n.enableIPsecIPv6(newNode, nodeID, zeroMark)
 }
 
-func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, zeroMark bool) {
+func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint16, zeroMark bool) {
 	var spi uint8
 
 	if !n.nodeConfig.EnableIPv4 || newNode.IPv4AllocCIDR == nil {
@@ -1057,7 +1057,6 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, zeroMark boo
 		}
 
 		localIP := n.nodeAddressing.IPv4().Router()
-		remoteNodeID := n.allocateIDForNode(newNode)
 
 		if n.subnetEncryption() {
 			// Check if we should use the NodeInternalIPs instead of the
@@ -1071,19 +1070,19 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, zeroMark boo
 			}
 
 			for _, cidr := range n.nodeConfig.IPv4PodSubnets {
-				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, zeroMark)
+				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, zeroMark)
 				upsertIPsecLog(err, "out IPv4", wildcardCIDR, cidr, spi)
 			}
 		} else {
 			remoteCIDR := newNode.IPv4AllocCIDR.IPNet
 			n.replaceNodeIPSecOutRoute(new4Net)
-			spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)
+			spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, false)
 			upsertIPsecLog(err, "out IPv4", wildcardCIDR, remoteCIDR, spi)
 		}
 	}
 }
 
-func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, zeroMark bool) {
+func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint16, zeroMark bool) {
 	var spi uint8
 
 	if !n.nodeConfig.EnableIPv6 || newNode.IPv6AllocCIDR == nil {
@@ -1130,7 +1129,6 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, zeroMark boo
 		}
 
 		localIP := n.nodeAddressing.IPv6().Router()
-		remoteNodeID := n.allocateIDForNode(newNode)
 
 		if n.subnetEncryption() {
 			// Check if we should use the NodeInternalIPs instead of the
@@ -1144,13 +1142,13 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, zeroMark boo
 			}
 
 			for _, cidr := range n.nodeConfig.IPv6PodSubnets {
-				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, zeroMark)
+				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, zeroMark)
 				upsertIPsecLog(err, "out IPv6", wildcardCIDR, cidr, spi)
 			}
 		} else {
 			remoteCIDR := newNode.IPv6AllocCIDR.IPNet
 			n.replaceNodeIPSecOutRoute(new6Net)
-			spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)
+			spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, false)
 			upsertIPsecLog(err, "out IPv6", wildcardCIDR, remoteCIDR, spi)
 		}
 	}
@@ -1185,7 +1183,8 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if n.nodeConfig.EnableIPSec && !n.nodeConfig.EncryptNode {
-		n.enableIPsec(newNode)
+		remoteNodeID := n.allocateIDForNode(newNode)
+		n.enableIPsec(newNode, remoteNodeID)
 		newKey = newNode.EncryptionKey
 	}
 
