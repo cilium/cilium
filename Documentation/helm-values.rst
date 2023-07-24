@@ -81,10 +81,6 @@
      - Enables the BGP control plane.
      - bool
      - ``false``
-   * - bpf.clockProbe
-     - Enable BPF clock source probing for more efficient tick retrieval.
-     - bool
-     - ``false``
    * - bpf.ctAnyMax
      - Configure the maximum number of entries for the non-TCP connection tracking table.
      - int
@@ -153,6 +149,10 @@
      - Configure explicitly allowed VLAN id's for bpf logic bypass. [0] will allow all VLAN id's without any filtering.
      - list
      - ``[]``
+   * - bpfClockProbe
+     - Enable BPF clock source probing for more efficient tick retrieval.
+     - bool
+     - ``false``
    * - certgen
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
