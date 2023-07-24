@@ -140,10 +140,6 @@ type NodeNeighbors interface {
 }
 
 type NodeIDHandler interface {
-	// AllocateNodeID allocates a new ID for the given node (by IP) if one wasn't
-	// already assigned.
-	AllocateNodeID(net.IP) uint16
-
 	// DumpNodeIDs returns all node IDs and their associated IP addresses.
 	DumpNodeIDs() []*models.NodeID
 
