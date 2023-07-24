@@ -84,7 +84,13 @@ jobs:
       matrix:
         include:
         - crd-channel: experimental
+          ipFamily: ipv4
+        - crd-channel: experimental
+          ipFamily: ipv6
         - crd-channel: standard
+          ipFamily: ipv4
+        - crd-channel: standard
+          ipFamily: ipv6
     steps:
       - name: Checkout main branch to access local actions
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
@@ -148,6 +154,34 @@ jobs:
           version: ${{ env.kind_version }}
           config: ${{ env.kind_config }}
 
+      - name: Workaround CoreDNS for IPv6 airgapped
+        if: ${{ matrix.ipFamily == 'ipv6' }}
+        run: |
+          # Patch CoreDNS to work in Github CI
+          # 1. Github CI doesn´t offer IPv6 connectivity, so CoreDNS should be configured
+          # to work in an offline environment:
+          # https://github.com/coredns/coredns/issues/2494#issuecomment-457215452
+          # 2. Github CI adds following domains to resolv.conf search field:
+          # .net.
+          # CoreDNS should handle those domains and answer with NXDOMAIN instead of SERVFAIL
+          # otherwise pods stops trying to resolve the domain.
+          # Get the current config
+          original_coredns=$(/usr/local/bin/kubectl get -oyaml -n=kube-system configmap/coredns)
+          echo "Original CoreDNS config:"
+          echo "${original_coredns}"
+          # Patch it
+          fixed_coredns=$(
+            printf '%s' "${original_coredns}" | sed \
+              -e 's/^.*kubernetes cluster\.local/& net/' \
+              -e '/^.*upstream$/d' \
+              -e '/^.*fallthrough.*$/d' \
+              -e '/^.*forward . \/etc\/resolv.conf$/d' \
+              -e '/^.*loop$/d' \
+          )
+          echo "Patched CoreDNS config:"
+          echo "${fixed_coredns}"
+          printf '%s' "${fixed_coredns}" | /usr/local/bin/kubectl apply -f -
+
       - name: Install Go
         uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
         with:
@@ -192,10 +226,15 @@ jobs:
       - name: Install metallb for LB service
         timeout-minutes: 10
         run: |
-          KIND_NET_CIDR=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Subnet}}')
-          METALLB_IP_START=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200@")
-          METALLB_IP_END=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.250@")
-          METALLB_IP_RANGE="${METALLB_IP_START}-${METALLB_IP_END}"
+          if [[ "${{ matrix.ipFamily }}" == "ipv6" ]]; then
+            IPV6_KIND_SUBNET="$(docker network inspect kind --format='{{(index .IPAM.Config 1).Gateway }}')""
+            METALLB_IP_RANGE="$(IPV6_KIND_SUBNET)00-$(IPV6_KIND_SUBNET)55"
+          else 
+            KIND_NET_CIDR=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Subnet}}')
+            METALLB_IP_START=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200@")
+            METALLB_IP_END=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.250@")
+            METALLB_IP_RANGE="${METALLB_IP_START}-${METALLB_IP_END}"
+          fi
           
           cat << EOF > metallb_values.yaml
           configInline:
