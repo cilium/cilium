@@ -295,8 +295,7 @@ skip_host_firewall:
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      info->node_id, secctx,
-						      &trace);
+						      secctx, &trace);
 	} else {
 		struct tunnel_key key = {};
 
@@ -588,8 +587,7 @@ skip_vtep:
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      info->node_id, secctx,
-						      &trace);
+						      secctx, &trace);
 	} else {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
 		struct tunnel_key key = {};
