@@ -420,9 +420,6 @@ bpf:
   # -- Configure the mount point for the BPF filesystem
   root: /sys/fs/bpf
 
-  # -- Enable BPF clock source probing for more efficient tick retrieval.
-  clockProbe: false
-
   # -- Enables pre-allocation of eBPF map values. This increases
   # memory usage but can reduce latency.
   preallocateMaps: false
@@ -496,6 +493,9 @@ bpf:
   # [0] will allow all VLAN id's without any filtering.
   # @default -- `[]`
   vlanBypass: ~
+
+# -- Enable BPF clock source probing for more efficient tick retrieval.
+bpfClockProbe: false
 
 # -- Clean all eBPF datapath state from the initContainer of the cilium-agent
 # DaemonSet.
