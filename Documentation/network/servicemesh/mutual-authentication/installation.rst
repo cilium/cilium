@@ -13,8 +13,8 @@ Installation
 
         .. include:: ../../../installation/cli-download.rst
 
-        Mutual authentication and associated SPIRE server can be enabled with the following command.
-        Note this requires the Cilium CLI Helm mode (version 0.15 or later).
+        You can enable mutual authentication and its associated SPIRE server with the following command.
+        This command requires the Cilium CLI Helm mode version 0.15 or later.
 
         .. code-block:: shell-session
 
@@ -22,7 +22,7 @@ Installation
                 --helm-set authentication.mutual.spire.enabled=true \
                 --helm-set authentication.mutual.spire.install.enabled=true
 
-        Next you can check the status of the Cilium agent and operator:
+        Next, you can check the status of the Cilium agent and operator:
 
         .. code-block:: shell-session
 
@@ -44,7 +44,7 @@ Installation
             $ kubectl -n kube-system rollout restart deployment/cilium-operator
             $ kubectl -n kube-system rollout restart ds/cilium
 
-        Next you can check the status of the Cilium agent and operator:
+        Next, you can check the status of the Cilium agent and operator:
 
         .. code-block:: shell-session
 
