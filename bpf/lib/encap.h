@@ -9,31 +9,14 @@
 #include "trace.h"
 #include "l3.h"
 
-#if defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb
-#include "lib/wireguard.h"
-#endif /* defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb */
+#if __ctx_is == __ctx_skb
+#include "encrypt.h"
+#include "wireguard.h"
+#endif /* __ctx_is == __ctx_skb */
 
 #include "high_scale_ipcache.h"
 
 #ifdef HAVE_ENCAP
-#ifdef ENABLE_IPSEC
-static __always_inline int
-encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u8 key, __u16 node_id,
-			 __u32 seclabel)
-{
-	/* IPSec is performed by the stack on any packets with the
-	 * MARK_MAGIC_ENCRYPT bit set. During the process though we
-	 * lose the lxc context (seclabel and tunnel endpoint). The
-	 * tunnel endpoint can be looked up from daddr but the sec
-	 * label is stashed in the mark and extracted in bpf_host
-	 * to send ctx onto tunnel for encap.
-	 */
-	set_encrypt_key_mark(ctx, key, node_id);
-	set_identity_meta(ctx, seclabel);
-	return CTX_ACT_OK;
-}
-#endif /* ENABLE_IPSEC */
-
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    __be32 tunnel_endpoint,
@@ -123,8 +106,7 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 
 #ifdef ENABLE_IPSEC
 	if (encrypt_key)
-		return encap_and_redirect_ipsec(ctx, encrypt_key, node_id,
-						seclabel);
+		return set_ipsec_encrypt(ctx, encrypt_key, node_id, seclabel);
 #endif
 
 #if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
@@ -192,8 +174,8 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 	if (tunnel->key) {
 		__u8 min_encrypt_key = get_min_encrypt_key(tunnel->key);
 
-		return encap_and_redirect_ipsec(ctx, min_encrypt_key, node_id,
-						seclabel);
+		return set_ipsec_encrypt(ctx, min_encrypt_key, node_id,
+					 seclabel);
 	}
 # endif
 	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel->ip4, seclabel,
