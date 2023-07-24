@@ -9,25 +9,11 @@
 #include "trace.h"
 #include "l3.h"
 
-#ifdef ENCAP_IFINDEX
-#ifdef ENABLE_IPSEC
-static __always_inline int
-encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u8 key, __u16 node_id,
-			 __u32 seclabel)
-{
-	/* IPSec is performed by the stack on any packets with the
-	 * MARK_MAGIC_ENCRYPT bit set. During the process though we
-	 * lose the lxc context (seclabel and tunnel endpoint). The
-	 * tunnel endpoint can be looked up from daddr but the sec
-	 * label is stashed in the mark and extracted in bpf_host
-	 * to send ctx onto tunnel for encap.
-	 */
-	set_encrypt_key_mark(ctx, key, node_id);
-	set_identity_meta(ctx, seclabel);
-	return IPSEC_ENDPOINT;
-}
-#endif /* ENABLE_IPSEC */
+#if __ctx_is == __ctx_skb
+#include "encrypt.h"
+#endif /* __ctx_is == __ctx_skb */
 
+#ifdef ENCAP_IFINDEX
 static __always_inline int
 encap_remap_v6_host_address(struct __ctx_buff *ctx __maybe_unused,
 			    const bool egress __maybe_unused)
@@ -163,8 +149,8 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	if (tunnel_endpoint) {
 #ifdef ENABLE_IPSEC
 		if (encrypt_key)
-			return encap_and_redirect_ipsec(ctx, encrypt_key,
-						        node_id, seclabel);
+			return set_ipsec_encrypt(ctx, encrypt_key,
+						 node_id, seclabel);
 #endif
 #if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
 		/* For the host firewall, traffic from a pod to a remote node
@@ -188,8 +174,8 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	if (tunnel->key) {
 		__u8 min_encrypt_key = get_min_encrypt_key(tunnel->key);
 
-		return encap_and_redirect_ipsec(ctx, min_encrypt_key, node_id,
-						seclabel);
+		return set_ipsec_encrypt(ctx, min_encrypt_key, node_id,
+					 seclabel);
 	}
 #endif
 	return __encap_and_redirect_with_nodeid(ctx, tunnel->ip4, seclabel, monitor);
