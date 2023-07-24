@@ -117,7 +117,7 @@ func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
 // is not required to upsert the new pair.
 func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidr net.IPNet,
 	oldHostIP, newHostIP net.IP, oldID *ipcache.Identity, newID ipcache.Identity,
-	encryptKey uint8, nodeID uint16, k8sMeta *ipcache.K8sMetadata) {
+	encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
 
 	scopedLog := log
 	if option.Config.Debug {
@@ -145,7 +145,6 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 		value := ipcacheMap.RemoteEndpointInfo{
 			SecurityIdentity: uint32(newID.ID),
 			Key:              encryptKey,
-			NodeID:           nodeID,
 		}
 
 		if newHostIP != nil {
