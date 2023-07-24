@@ -116,7 +116,6 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	void *data, *data_end;
 	__u32 __maybe_unused tunnel_endpoint = 0;
 	__u8 __maybe_unused encrypt_key = 0;
-	__u16 __maybe_unused node_id = 0;
 	__u32 monitor = 0;
 	__u8 reason;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
@@ -146,7 +145,6 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 			*dst_id = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = get_min_encrypt_key(info->key);
-			node_id = info->node_id;
 #ifdef ENABLE_WIREGUARD
 			if (info->tunnel_endpoint != 0 &&
 			    !identity_is_node(info->sec_label))
@@ -360,7 +358,7 @@ ct_recreate6:
 		 * (c) packet was redirected to tunnel device so return.
 		 */
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
-					     &key, node_id, SECLABEL, monitor);
+					     &key, SECLABEL, monitor);
 		if (ret == IPSEC_ENDPOINT)
 			goto encrypt_to_stack;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
@@ -404,7 +402,9 @@ pass_to_stack:
 #elif !defined(TUNNEL_MODE)
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
-		set_ipsec_encrypt_mark(ctx, encrypt_key, node_id);
+		ret = set_ipsec_encrypt_mark(ctx, encrypt_key, tunnel_endpoint);
+		if (unlikely(ret != CTX_ACT_OK))
+			return ret;
 #  ifdef ENABLE_IDENTITY_MARK
 		set_identity_meta(ctx, SECLABEL);
 #  endif /* ENABLE_IDENTITY_MARK */
@@ -573,7 +573,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	struct ct_state ct_state = {};
 	__u32 __maybe_unused tunnel_endpoint = 0;
 	__u8 __maybe_unused encrypt_key = 0;
-	__u16 __maybe_unused node_id = 0;
 	__u32 monitor = 0;
 	__u8 ct_ret;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
@@ -602,7 +601,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 			*dst_id = info->sec_label;
 			tunnel_endpoint = info->tunnel_endpoint;
 			encrypt_key = get_min_encrypt_key(info->key);
-			node_id = info->node_id;
 #ifdef ENABLE_WIREGUARD
 			/* If we detect that the dst is a remote endpoint, we
 			 * need to mark the packet. The ip rule which matches
@@ -826,7 +824,7 @@ ct_recreate4:
 		 * direct to external interface.
 		 */
 		ret = encap_and_redirect_lxc(ctx, egress_gw_policy->gateway_ip, encrypt_key,
-					     &key, node_id, SECLABEL, monitor);
+					     &key, SECLABEL, monitor);
 		if (ret == IPSEC_ENDPOINT)
 			goto encrypt_to_stack;
 		else
@@ -849,7 +847,7 @@ skip_egress_gateway:
 		key.family = ENDPOINT_KEY_IPV4;
 
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
-					     &key, node_id, SECLABEL, monitor);
+					     &key, SECLABEL, monitor);
 		if (ret == DROP_NO_TUNNEL_ENDPOINT)
 			goto pass_to_stack;
 		/* If not redirected noteably due to IPSEC then pass up to stack
@@ -892,7 +890,9 @@ pass_to_stack:
 #elif !defined(TUNNEL_MODE)
 # ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
-		set_ipsec_encrypt_mark(ctx, encrypt_key, node_id);
+		ret = set_ipsec_encrypt_mark(ctx, encrypt_key, tunnel_endpoint);
+		if (unlikely(ret != CTX_ACT_OK))
+			return ret;
 #  ifdef ENABLE_IDENTITY_MARK
 		set_identity_meta(ctx, SECLABEL);
 #  endif
