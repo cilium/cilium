@@ -6,7 +6,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"net"
 	"strings"
 	"time"
 
@@ -533,11 +532,6 @@ func (c *clusterNodesClient) NodeNeighborRefresh(ctx context.Context, node nodeT
 func (c *clusterNodesClient) NodeCleanNeighbors(migrateOnly bool) {
 	// no-op
 	return
-}
-
-func (c *clusterNodesClient) AllocateNodeID(_ net.IP) uint16 {
-	// no-op
-	return 0
 }
 
 func (c *clusterNodesClient) GetNodeIP(_ uint16) string {

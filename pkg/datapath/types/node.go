@@ -140,10 +140,6 @@ type NodeNeighbors interface {
 }
 
 type NodeIDHandler interface {
-	// AllocateNodeID allocates a new ID for the given node (by IP) if one wasn't
-	// already assigned.
-	AllocateNodeID(net.IP) uint16
-
 	// GetNodeIP returns the string node IP that was previously registered as the given node ID.
 	GetNodeIP(uint16) string
 

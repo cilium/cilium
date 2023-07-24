@@ -23,43 +23,6 @@ const (
 	maxNodeID = idpool.ID(^uint16(0))
 )
 
-// AllocateNodeID allocates a new ID for the given node (by IP) if one wasn't
-// already assigned.
-func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
-	if len(nodeIP) == 0 || nodeIP.IsUnspecified() {
-		// This should never happen. If it ever does, we may have an unexpected
-		// call to AllocateNodeID.
-		log.Warning("Attempt to allocate a node ID for an empty node IP address")
-		return 0
-	}
-
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
-	if nodeID, exists := n.getNodeIDForIP(nodeIP); exists {
-		// Don't allocate a node ID if one already exists.
-		return nodeID
-	}
-
-	nodeID := uint16(n.nodeIDs.AllocateID())
-	if nodeID == uint16(idpool.NoID) {
-		log.Error("No more IDs available for nodes")
-		return nodeID
-	} else {
-		log.WithFields(logrus.Fields{
-			logfields.NodeID: nodeID,
-			logfields.IPAddr: nodeIP,
-		}).Debug("Allocated new node ID for node IP address")
-	}
-	if err := n.mapNodeID(nodeIP.String(), nodeID); err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.NodeID: nodeID,
-			logfields.IPAddr: nodeIP.String(),
-		}).Error("Failed to map node IP address to allocated ID")
-	}
-	return nodeID
-}
-
 func (n *linuxNodeHandler) GetNodeIP(nodeID uint16) string {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
@@ -154,13 +117,6 @@ func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
 		}
 	}
 
-	n.deallocateNodeIDLocked(nodeID)
-}
-
-// DeallocateNodeID deallocates the given node ID, if it was allocated.
-func (n *linuxNodeHandler) DeallocateNodeID(nodeID uint16) {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
 	n.deallocateNodeIDLocked(nodeID)
 }
 
