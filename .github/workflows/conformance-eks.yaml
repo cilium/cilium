@@ -305,7 +305,7 @@ jobs:
         with:
           name: cilium-junits
           path: cilium-junits/*.xml
-          retention-days: 2
+          retention-days: 5
 
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() }}
