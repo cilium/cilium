@@ -325,9 +325,8 @@ jobs:
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: cilium-junits
-          path: |
-            cilium-junits/*.xml
-          retention-days: 2
+          path: cilium-junits/*.xml
+          retention-days: 5
 
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() }}
