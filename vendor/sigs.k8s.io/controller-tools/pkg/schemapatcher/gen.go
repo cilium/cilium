@@ -23,7 +23,6 @@ import (
 
 	"gopkg.in/yaml.v3"
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextlegacy "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -54,7 +53,6 @@ import (
 // patches.
 
 var (
-	legacyAPIExtVersion  = apiextlegacy.SchemeGroupVersion.String()
 	currentAPIExtVersion = apiext.SchemeGroupVersion.String()
 )
 
@@ -62,18 +60,8 @@ var (
 
 // Generator patches existing CRDs with new schemata.
 //
-// For legacy (v1beta1) single-version CRDs, it will simply replace the global schema.
-//
-// For legacy (v1beta1) multi-version CRDs, and any v1 CRDs, it will replace
-// schemata of existing versions and *clear the schema* from any versions not
-// specified in the Go code.  It will *not* add new versions, or remove old
-// ones.
-//
-// For legacy multi-version CRDs with identical schemata, it will take care of
-// lifting the per-version schema up to the global schema.
-//
 // It will generate output for each "CRD Version" (API version of the CRD type
-// itself) , e.g. apiextensions/v1beta1 and apiextensions/v1) available.
+// itself) , e.g. apiextensions/v1) available.
 type Generator struct {
 	// ManifestsPath contains the CustomResourceDefinition YAML files.
 	ManifestsPath string `marker:"manifests"`
@@ -259,67 +247,13 @@ type partialCRD struct {
 	CRDVersion string
 }
 
-// setGlobalSchema sets the global schema for the v1beta1 apiext version in
-// this set (if present, as per partialCRD.setGlobalSchema), and sets the
-// versioned schemas (as per setVersionedSchemata) for the v1 version.
+// setGlobalSchema sets the versioned schemas (as per setVersionedSchemata).
 func (e *partialCRDSet) setGlobalSchema() error {
-	// there's no easy way to get a "random" key from a go map :-/
-	var schema apiext.JSONSchemaProps
-	for ver := range e.NewSchemata {
-		schema = e.NewSchemata[ver]
-		break
-	}
 	for _, crdInfo := range e.CRDVersions {
-		switch crdInfo.CRDVersion {
-		case legacyAPIExtVersion:
-			if err := crdInfo.setGlobalSchema(schema); err != nil {
-				return err
-			}
-		case currentAPIExtVersion:
-			// just set the schemata as normal for non-legacy versions
-			if err := crdInfo.setVersionedSchemata(e.NewSchemata); err != nil {
-				return err
-			}
+		if err := crdInfo.setVersionedSchemata(e.NewSchemata); err != nil {
+			return err
 		}
 	}
-	return nil
-}
-
-// setGlobalSchema sets the global schema to one of the schemata
-// for this CRD.  All schemata must be identical for this to be a valid operation.
-func (e *partialCRD) setGlobalSchema(newSchema apiext.JSONSchemaProps) error {
-	if e.CRDVersion != legacyAPIExtVersion {
-		// no global schema, nothing to do
-		return fmt.Errorf("cannot set global schema on non-legacy CRD versions")
-	}
-	schema, err := legacySchema(newSchema)
-	if err != nil {
-		return fmt.Errorf("failed to convert schema to legacy form: %w", err)
-	}
-	schemaNodeTree, err := yamlop.ToYAML(schema)
-	if err != nil {
-		return err
-	}
-	schemaNodeTree = schemaNodeTree.Content[0] // get rid of the document node
-	yamlop.SetStyle(schemaNodeTree, 0)         // clear the style so it defaults to auto-style-choice
-
-	if err := yamlop.SetNode(e.Yaml, *schemaNodeTree, "spec", "validation", "openAPIV3Schema"); err != nil {
-		return err
-	}
-
-	versions, found, err := e.getVersionsNode()
-	if err != nil {
-		return err
-	}
-	if !found {
-		return nil
-	}
-	for i, verNode := range versions.Content {
-		if err := yamlop.DeleteNode(verNode, "schema"); err != nil {
-			return fmt.Errorf("spec.versions[%d]: %w", i, err)
-		}
-	}
-
 	return nil
 }
 
@@ -382,16 +316,7 @@ func (e *partialCRD) setVersionedSchemata(newSchemata map[string]apiext.JSONSche
 				return fmt.Errorf("spec.versions[%d]: %w", i, err)
 			}
 		} else {
-			// TODO(directxman12): if this gets to be more than 2 versions, use polymorphism to clean this up
-			var verSchema interface{} = newSchema
-			if e.CRDVersion == legacyAPIExtVersion {
-				verSchema, err = legacySchema(newSchema)
-				if err != nil {
-					return fmt.Errorf("failed to convert schema to legacy form: %w", err)
-				}
-			}
-
-			schemaNodeTree, err := yamlop.ToYAML(verSchema)
+			schemaNodeTree, err := yamlop.ToYAML(newSchema)
 			if err != nil {
 				return fmt.Errorf("failed to convert schema to YAML: %w", err)
 			}
@@ -433,7 +358,10 @@ func crdsFromDirectory(ctx *genall.GenerationContext, dir string) (map[schema.Gr
 		if err := kyaml.Unmarshal(rawContent, &typeMeta); err != nil {
 			continue
 		}
-		if !isSupportedAPIExtGroupVer(typeMeta.APIVersion) || typeMeta.Kind != "CustomResourceDefinition" {
+		if !isSupportedAPIExtGroupVer(typeMeta.APIVersion) {
+			return nil, fmt.Errorf("load %q: apiVersion %q not supported", filepath.Join(dir, fileInfo.Name()), typeMeta.APIVersion)
+		}
+		if typeMeta.Kind != "CustomResourceDefinition" {
 			continue
 		}
 
@@ -443,14 +371,9 @@ func crdsFromDirectory(ctx *genall.GenerationContext, dir string) (map[schema.Gr
 			continue
 		}
 		groupKind := schema.GroupKind{Group: actualCRD.Spec.Group, Kind: actualCRD.Spec.Names.Kind}
-		var versions map[string]struct{}
-		if len(actualCRD.Spec.Versions) == 0 {
-			versions = map[string]struct{}{actualCRD.Spec.Version: {}}
-		} else {
-			versions = make(map[string]struct{}, len(actualCRD.Spec.Versions))
-			for _, ver := range actualCRD.Spec.Versions {
-				versions[ver.Name] = struct{}{}
-			}
+		versions := make(map[string]struct{}, len(actualCRD.Spec.Versions))
+		for _, ver := range actualCRD.Spec.Versions {
+			versions[ver.Name] = struct{}{}
 		}
 
 		// then actually unmarshal in a manner that preserves ordering, etc
@@ -480,9 +403,9 @@ func crdsFromDirectory(ctx *genall.GenerationContext, dir string) (map[schema.Gr
 }
 
 // isSupportedAPIExtGroupVer checks if the given string-form group-version
-// is one of the known apiextensions versions (v1, v1beta1).
+// is one of the known apiextensions versions (v1).
 func isSupportedAPIExtGroupVer(groupVer string) bool {
-	return groupVer == currentAPIExtVersion || groupVer == legacyAPIExtVersion
+	return groupVer == currentAPIExtVersion
 }
 
 // crdIsh is a merged blob of CRD fields that looks enough like all versions of
@@ -502,23 +425,5 @@ type crdIsh struct {
 		Versions []struct {
 			Name string `json:"name"`
 		} `json:"versions"`
-		Version string `json:"version"`
 	} `json:"spec"`
-}
-
-// legacySchema jumps through some hoops to convert a v1 schema to a v1beta1 schema.
-func legacySchema(origSchema apiext.JSONSchemaProps) (apiextlegacy.JSONSchemaProps, error) {
-	shellCRD := apiext.CustomResourceDefinition{}
-	shellCRD.APIVersion = currentAPIExtVersion
-	shellCRD.Kind = "CustomResourceDefinition"
-	shellCRD.Spec.Versions = []apiext.CustomResourceDefinitionVersion{
-		{Schema: &apiext.CustomResourceValidation{OpenAPIV3Schema: origSchema.DeepCopy()}},
-	}
-
-	legacyCRD, err := crdgen.AsVersion(shellCRD, apiextlegacy.SchemeGroupVersion)
-	if err != nil {
-		return apiextlegacy.JSONSchemaProps{}, err
-	}
-
-	return *legacyCRD.(*apiextlegacy.CustomResourceDefinition).Spec.Validation.OpenAPIV3Schema, nil
 }
