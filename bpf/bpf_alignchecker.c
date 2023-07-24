@@ -44,7 +44,7 @@
  */
 int main(void)
 {
-	int iter = 0;
+	__maybe_unused int iter = 0;
 
 	DECLARE(struct, ipv4_ct_tuple, iter);
 	DECLARE(struct, ipv6_ct_tuple, iter);
