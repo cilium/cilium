@@ -13,14 +13,23 @@
 
 #ifdef ENABLE_IPSEC
 static __always_inline int
-set_ipsec_encrypt_mark(struct __ctx_buff *ctx, __u8 key, __u16 node_id)
+set_ipsec_encrypt_mark(struct __ctx_buff *ctx, __u8 key, __u32 tunnel_endpoint)
 {
-	set_encrypt_key_mark(ctx, key, node_id);
+	struct node_key node_ip = {};
+	__u16 *node_id;
+
+	node_ip.family = ENDPOINT_KEY_IPV4;
+	node_ip.ip4 = tunnel_endpoint;
+	node_id = map_lookup_elem(&NODE_MAP, &node_ip);
+	if (!node_id)
+		return DROP_NO_NODE_ID;
+
+	set_encrypt_key_mark(ctx, key, *node_id);
 	return CTX_ACT_OK;
 }
 
 static __always_inline int
-set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 key, __u16 node_id,
+set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 key, __u32 tunnel_endpoint,
 		  __u32 seclabel)
 {
 	/* IPSec is performed by the stack on any packets with the
@@ -31,7 +40,7 @@ set_ipsec_encrypt(struct __ctx_buff *ctx, __u8 key, __u16 node_id,
 	 * to send ctx onto tunnel for encap.
 	 */
 	set_identity_meta(ctx, seclabel);
-	return set_ipsec_encrypt_mark(ctx, key, node_id);
+	return set_ipsec_encrypt_mark(ctx, key, tunnel_endpoint);
 }
 
 static __always_inline int

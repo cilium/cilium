@@ -107,7 +107,6 @@ int ipv4_ipsec_from_host_setup(struct __ctx_buff *ctx)
 	cache_key.ip4 = v4_pod_two;
 	cache_value.sec_label = 233;
 	cache_value.tunnel_endpoint = v4_node_two;
-	cache_value.node_id = NODE_ID;
 	cache_value.key = ENCRYPT_KEY;
 	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
 
@@ -234,7 +233,6 @@ int ipv6_ipsec_from_host_setup(struct __ctx_buff *ctx)
 	memcpy(&cache_key.ip6, (__u8 *)v6_pod_two, 16);
 	cache_value.sec_label = 233;
 	cache_value.tunnel_endpoint = v4_node_two;
-	cache_value.node_id = NODE_ID;
 	cache_value.key = ENCRYPT_KEY;
 	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
 
