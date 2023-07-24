@@ -270,7 +270,6 @@ func (ipc *IPCache) upsertLocked(
 
 	var cidr *net.IPNet
 	var oldIdentity *Identity
-	var hostID uint16
 	callbackListeners := true
 
 	oldHostIP, oldHostKey := ipc.getHostIPCache(ip)
@@ -380,13 +379,9 @@ func (ipc *IPCache) upsertLocked(
 		namedPortsChanged = namedPortsChanged && ipc.needNamedPorts.Load()
 	}
 
-	if hostIP != nil {
-		hostID = ipc.AllocateNodeID(hostIP)
-	}
-
 	if callbackListeners && !newIdentity.shadowed {
 		for _, listener := range ipc.listeners {
-			listener.OnIPIdentityCacheChange(Upsert, *cidr, oldHostIP, hostIP, oldIdentity, newIdentity, hostKey, hostID, k8sMeta)
+			listener.OnIPIdentityCacheChange(Upsert, *cidr, oldHostIP, hostIP, oldIdentity, newIdentity, hostKey, k8sMeta)
 		}
 	}
 
@@ -456,11 +451,7 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 			endpointIP := net.ParseIP(ip)
 			cidr = endpointIPToCIDR(endpointIP)
 		}
-		nodeID := uint16(0)
-		if hostIP != nil {
-			nodeID = ipc.AllocateNodeID(hostIP)
-		}
-		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, identity, encryptKey, nodeID, k8sMeta)
+		listener.OnIPIdentityCacheChange(Upsert, *cidr, nil, hostIP, nil, identity, encryptKey, k8sMeta)
 	}
 }
 
@@ -497,7 +488,6 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	var oldIdentity *Identity
 	newIdentity := cachedIdentity
 	callbackListeners := true
-	var nodeID uint16
 
 	var err error
 	if _, cidr, err = net.ParseCIDR(ip); err == nil {
@@ -556,14 +546,10 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 		namedPortsChanged = namedPortsChanged && ipc.needNamedPorts.Load()
 	}
 
-	if newHostIP != nil {
-		nodeID = ipc.AllocateNodeID(newHostIP)
-	}
-
 	if callbackListeners {
 		for _, listener := range ipc.listeners {
 			listener.OnIPIdentityCacheChange(cacheModification, *cidr, oldHostIP, newHostIP,
-				oldIdentity, newIdentity, encryptKey, nodeID, oldK8sMeta)
+				oldIdentity, newIdentity, encryptKey, oldK8sMeta)
 		}
 	}
 
