@@ -105,7 +105,6 @@ contributors across the globe, there is almost always someone available to help.
 | bgpControlPlane.enabled | bool | `false` | Enables the BGP control plane. |
 | bpf.authMapMax | int | `524288` | Configure the maximum number of entries in auth map. |
 | bpf.autoMount.enabled | bool | `true` | Enable automatic mount of BPF filesystem When `autoMount` is enabled, the BPF filesystem is mounted at `bpf.root` path on the underlying host and inside the cilium agent pod. If users disable `autoMount`, it's expected that users have mounted bpffs filesystem at the specified `bpf.root` volume, and then the volume will be mounted inside the cilium agent pod at the same path. |
-| bpf.clockProbe | bool | `false` | Enable BPF clock source probing for more efficient tick retrieval. |
 | bpf.ctAnyMax | int | `262144` | Configure the maximum number of entries for the non-TCP connection tracking table. |
 | bpf.ctTcpMax | int | `524288` | Configure the maximum number of entries in the TCP connection tracking table. |
 | bpf.hostLegacyRouting | bool | `false` | Configure whether direct routing mode should route traffic via host stack (true) or directly and more efficiently out of BPF (false) if the kernel supports it. The latter has the implication that it will also bypass netfilter in the host namespace. |
@@ -123,6 +122,7 @@ contributors across the globe, there is almost always someone available to help.
 | bpf.root | string | `"/sys/fs/bpf"` | Configure the mount point for the BPF filesystem |
 | bpf.tproxy | bool | `false` | Configure the eBPF-based TPROXY to reduce reliance on iptables rules for implementing Layer 7 policy. |
 | bpf.vlanBypass | list | `[]` | Configure explicitly allowed VLAN id's for bpf logic bypass. [0] will allow all VLAN id's without any filtering. |
+| bpfClockProbe | bool | `false` | Enable BPF clock source probing for more efficient tick retrieval. |
 | certgen | object | `{"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"image":{"digest":"sha256:4a456552a5f192992a6edcec2febb1c54870d665173a33dc7d876129b199ddbd","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/certgen","tag":"v0.1.8","useDigest":true},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}` | Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually. |
 | certgen.annotations | object | `{"cronJob":{},"job":{}}` | Annotations to be added to the hubble-certgen initial Job and CronJob |
 | certgen.extraVolumeMounts | list | `[]` | Additional certgen volumeMounts. |

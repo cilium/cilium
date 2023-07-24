@@ -220,10 +220,6 @@
      - Enable automatic mount of BPF filesystem When ``autoMount`` is enabled, the BPF filesystem is mounted at ``bpf.root`` path on the underlying host and inside the cilium agent pod. If users disable ``autoMount``\ , it's expected that users have mounted bpffs filesystem at the specified ``bpf.root`` volume, and then the volume will be mounted inside the cilium agent pod at the same path.
      - bool
      - ``true``
-   * - :spelling:ignore:`bpf.clockProbe`
-     - Enable BPF clock source probing for more efficient tick retrieval.
-     - bool
-     - ``false``
    * - :spelling:ignore:`bpf.ctAnyMax`
      - Configure the maximum number of entries for the non-TCP connection tracking table.
      - int
@@ -292,6 +288,10 @@
      - Configure explicitly allowed VLAN id's for bpf logic bypass. [0] will allow all VLAN id's without any filtering.
      - list
      - ``[]``
+   * - :spelling:ignore:`bpfClockProbe`
+     - Enable BPF clock source probing for more efficient tick retrieval.
+     - bool
+     - ``false``
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
