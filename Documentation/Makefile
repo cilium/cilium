@@ -93,10 +93,6 @@ api-flaggen:
 		2>/dev/null \
 		> configuration/api-restrictions-table.rst
 
-copy-api:
-	@$(ECHO_GEN)_api
-	$(QUIET)cp -r ../api/. _api
-
 update-helm-values: $(HELM_VALUES) ## Update the Helm reference documentation.
 
 HELM_DOCS_ROOT_PATH := $(DOCKER_CTR_ROOT_DIR)
@@ -117,11 +113,11 @@ $(HELM_VALUES): FORCE
 	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $@)" > $@
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2)
 
-epub latex html: builder-image copy-api update-helm-values ## Check documentation and render it under the specified format.
+epub latex html: builder-image update-helm-values ## Check documentation and render it under the specified format.
 	@$(ECHO_GEN)_build/$@
 	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
 
-html-netlify: copy-api
+html-netlify:
 	@$(ECHO_GEN)_build/$@
 	$(QUIET) SKIP_LINT=1 ./check-build.sh html $(SPHINX_OPTS)
 
