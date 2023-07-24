@@ -268,7 +268,7 @@ cilium install
 
 # Install Cilium into Kubernetes context "kind-cluster1" and also set cluster
 # name and ID to prepare for multi-cluster capabilities.
-cilium install --context kind-cluster1 --helm-set cluster.id=1 --helm-set cluster.name=cluster1
+cilium install --context kind-cluster1 --set cluster.id=1 --set cluster.name=cluster1
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.Namespace = namespace
