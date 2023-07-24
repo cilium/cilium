@@ -56,9 +56,6 @@ jobs:
       - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           persist-credentials: false
-      - name: Run pre-requisites for validation
-        run: |
-          make -C Documentation copy-api # necessary for check-build.sh
       - uses: docker://cilium/docs-builder:2023-03-01@sha256:36b233afd73482c2bc7ed43f7a1537f09962015c34679b86c4ca1fa618d67b95
         with:
           entrypoint: ./Documentation/check-build.sh
