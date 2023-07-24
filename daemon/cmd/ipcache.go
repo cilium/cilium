@@ -48,7 +48,7 @@ type ipCacheDumpListener struct {
 // OnIPIdentityCacheChange is called by DumpToListenerLocked
 func (ipc *ipCacheDumpListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 	cidr net.IPNet, oldHostIP, newHostIP net.IP, oldID *ipcache.Identity,
-	newID ipcache.Identity, encryptKey uint8, _ uint16, k8sMeta *ipcache.K8sMetadata) {
+	newID ipcache.Identity, encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
 	// only capture entries which are a subnet of cidrFilter
 	if ipc.cidrFilter != nil && !containsSubnet(*ipc.cidrFilter, cidr) {
 		return

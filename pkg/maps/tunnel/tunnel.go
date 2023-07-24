@@ -76,8 +76,8 @@ func (k TunnelKey) String() string {
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type TunnelValue struct {
 	TunnelIP
-	Key    uint8  `align:"key"`
-	NodeID uint16 `align:"node_id"`
+	Key uint8  `align:"key"`
+	Pad uint16 `align:"pad"`
 }
 
 // GetValuePtr returns the unsafe pointer to the BPF key for users that
@@ -87,7 +87,7 @@ func (k *TunnelValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(k) }
 // String provides a string representation of the TunnelValue.
 func (k TunnelValue) String() string {
 	if ip := k.toIP(); ip != nil {
-		return ip.String() + ":" + fmt.Sprintf("%d %d", k.Key, k.NodeID)
+		return ip.String() + ":" + fmt.Sprintf("%d", k.Key)
 	}
 	return "nil"
 }
@@ -111,11 +111,10 @@ func newTunnelKey(ip net.IP) *TunnelKey {
 
 func (v TunnelKey) NewValue() bpf.MapValue { return &TunnelValue{} }
 
-func newTunnelValue(ip net.IP, key uint8, nodeID uint16) *TunnelValue {
+func newTunnelValue(ip net.IP, key uint8) *TunnelValue {
 	result := TunnelValue{}
 	result.TunnelIP = newTunnelIP(ip)
 	result.Key = key
-	result.NodeID = nodeID
 	return &result
 }
 
@@ -134,15 +133,14 @@ func newTunnelIP(ip net.IP) TunnelIP {
 func (v TunnelValue) NewValue() bpf.MapValue { return &TunnelValue{} }
 
 // SetTunnelEndpoint adds/replaces a prefix => tunnel-endpoint mapping
-func (m *Map) SetTunnelEndpoint(encryptKey uint8, nodeID uint16, prefix, endpoint net.IP) error {
+func (m *Map) SetTunnelEndpoint(encryptKey uint8, prefix, endpoint net.IP) error {
 	key := newTunnelKey(prefix)
-	val := newTunnelValue(endpoint, encryptKey, nodeID)
+	val := newTunnelValue(endpoint, encryptKey)
 
 	log.WithFields(logrus.Fields{
 		fieldPrefix:   prefix,
 		fieldEndpoint: endpoint,
 		fieldKey:      encryptKey,
-		fieldNodeID:   nodeID,
 	}).Debug("Updating tunnel map entry")
 
 	return TunnelMap.Update(key, val)

@@ -29,7 +29,7 @@ type IPIdentityMappingListener interface {
 	// k8sMeta contains the Kubernetes pod namespace and name behind the IP
 	// and may be nil.
 	OnIPIdentityCacheChange(modType CacheModification, cidr net.IPNet, oldHostIP, newHostIP net.IP,
-		oldID *Identity, newID Identity, encryptKey uint8, nodeID uint16, k8sMeta *K8sMetadata)
+		oldID *Identity, newID Identity, encryptKey uint8, k8sMeta *K8sMetadata)
 
 	// OnIPIdentityCacheGC will be called to sync other components which are
 	// reliant upon the IPIdentityCache with the IPIdentityCache.
