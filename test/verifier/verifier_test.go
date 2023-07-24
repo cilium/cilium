@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"os/exec"
@@ -62,10 +63,36 @@ func getCIKernelVersion(t *testing.T) (string, string) {
 	return ciKernel, "detected"
 }
 
-func getDatapathConfigFile(t *testing.T, ciKernelVersion, bpfProgram string) string {
+func getDatapathConfigFiles(t *testing.T, ciKernelVersion, bpfProgram string) []string {
 	t.Helper()
 
-	return filepath.Join(*ciliumBasePath, "bpf", "complexity-tests", ciKernelVersion, fmt.Sprintf("%s.txt", bpfProgram))
+	pattern := filepath.Join("bpf", "complexity-tests", ciKernelVersion, bpfProgram, "*.txt")
+	files, err := filepath.Glob(filepath.Join(*ciliumBasePath, pattern))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(files) == 0 {
+		t.Fatal("No files match", pattern)
+	}
+
+	return files
+}
+
+// readDatapathConfig turns each line in a reader into a single line with each
+// element separated by spaces.
+func readDatapathConfig(t *testing.T, r io.Reader) string {
+	scanner := bufio.NewScanner(r)
+	var lines []string
+	for scanner.Scan() {
+		lines = append(lines, strings.TrimSpace(scanner.Text()))
+	}
+
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	return strings.Join(lines, " ")
 }
 
 // This test tries to compile BPF programs with a set of options that maximize
@@ -118,102 +145,101 @@ func TestVerifier(t *testing.T) {
 			macroName: "MAX_LB_OPTIONS",
 		},
 	} {
-		initObjFile := path.Join(*ciliumBasePath, "bpf", fmt.Sprintf("%s.o", bpfProgram.name))
+		t.Run(bpfProgram.name, func(t *testing.T) {
+			initObjFile := path.Join(*ciliumBasePath, "bpf", fmt.Sprintf("%s.o", bpfProgram.name))
 
-		file, err := os.Open(getDatapathConfigFile(t, kernelVersion, bpfProgram.name))
-		if err != nil {
-			t.Fatalf("Unable to open list of datapath configurations for %s: %v", bpfProgram.name, err)
-		}
-		defer file.Close()
+			fileNames := getDatapathConfigFiles(t, kernelVersion, bpfProgram.name)
+			for _, fileName := range fileNames {
+				configName := strings.TrimSuffix(filepath.Base(fileName), filepath.Ext(fileName))
+				t.Run(configName, func(t *testing.T) {
+					file, err := os.Open(fileName)
+					if err != nil {
+						t.Fatalf("Unable to open configuration: %v", err)
+					}
+					defer file.Close()
 
-		scanner := bufio.NewScanner(file)
-		for i := 1; scanner.Scan(); i++ {
-			datapathConfig := scanner.Text()
+					datapathConfig := readDatapathConfig(t, file)
 
-			name := fmt.Sprintf("%s_%d", bpfProgram.name, i)
-			t.Run(name, func(t *testing.T) {
-				cmd = exec.Command("make", "-C", "bpf", fmt.Sprintf("%s.o", bpfProgram.name))
-				cmd.Dir = *ciliumBasePath
-				cmd.Env = append(cmd.Env,
-					fmt.Sprintf("%s=%s", bpfProgram.macroName, datapathConfig),
-					fmt.Sprintf("KERNEL=%s", kernelVersion),
-				)
-				if out, err := cmd.CombinedOutput(); err != nil {
-					t.Fatalf("Failed to compile %s bpf objects: %v\ncommand output: %s", bpfProgram.name, err, out)
-				}
+					name := fmt.Sprintf("%s_%s", bpfProgram.name, configName)
+					cmd = exec.Command("make", "-C", "bpf", fmt.Sprintf("%s.o", bpfProgram.name))
+					cmd.Dir = *ciliumBasePath
+					cmd.Env = append(cmd.Env,
+						fmt.Sprintf("%s=%s", bpfProgram.macroName, datapathConfig),
+						fmt.Sprintf("KERNEL=%s", kernelVersion),
+					)
+					if out, err := cmd.CombinedOutput(); err != nil {
+						t.Fatalf("Failed to compile bpf objects: %v\ncommand output: %s", err, out)
+					}
 
-				objFile := path.Join(*ciliumBasePath, "bpf", name+".o")
-				// Rename object file to avoid subsequent runs to overwrite it,
-				// so we can keep it for CI's artifact upload.
-				if err = os.Rename(initObjFile, objFile); err != nil {
-					t.Fatalf("Failed to rename %s to %s: %v", initObjFile, objFile, err)
-				}
+					objFile := path.Join(*ciliumBasePath, "bpf", name+".o")
+					// Rename object file to avoid subsequent runs to overwrite it,
+					// so we can keep it for CI's artifact upload.
+					if err = os.Rename(initObjFile, objFile); err != nil {
+						t.Fatalf("Failed to rename %s to %s: %v", initObjFile, objFile, err)
+					}
 
-				// Parse the compiled object into a CollectionSpec.
-				spec, err := bpf.LoadCollectionSpec(objFile)
-				if err != nil {
-					t.Fatal(err)
-				}
+					// Parse the compiled object into a CollectionSpec.
+					spec, err := bpf.LoadCollectionSpec(objFile)
+					if err != nil {
+						t.Fatal(err)
+					}
 
-				// Delete unsupported programs from the spec.
-				for n, p := range spec.Programs {
-					err := probes.HaveAttachType(p.Type, p.AttachType)
-					if errors.Is(err, ebpf.ErrNotSupported) {
-						t.Logf("%s: skipped unsupported program/attach type (%s/%s)", n, p.Type, p.AttachType)
-						delete(spec.Programs, n)
-						continue
+					// Delete unsupported programs from the spec.
+					for n, p := range spec.Programs {
+						err := probes.HaveAttachType(p.Type, p.AttachType)
+						if errors.Is(err, ebpf.ErrNotSupported) {
+							t.Logf("%s: skipped unsupported program/attach type (%s/%s)", n, p.Type, p.AttachType)
+							delete(spec.Programs, n)
+							continue
+						}
+						if err != nil {
+							t.Fatal(err)
+						}
+					}
+
+					// Strip all pinning flags so we don't need to specify a pin path.
+					// This creates new maps for every Collection.
+					for _, m := range spec.Maps {
+						m.Pinning = ebpf.PinNone
+					}
+
+					coll, err := bpf.LoadCollection(spec, ebpf.CollectionOptions{
+						// Enable verifier logs for successful loads.
+						// Use log level 1 since it's known by all target kernels.
+						Programs: ebpf.ProgramOptions{
+							// Maximum log size for kernels <5.2. Some programs generate a
+							// verifier log of over 8MiB, so avoid retries due to the initial
+							// size being too small. This saves a lot of time as retrying means
+							// reloading all maps and progs in the collection.
+							LogSize:  (math.MaxUint32 >> 8), // 16MiB
+							LogLevel: ebpf.LogLevelBranch,
+						},
+					})
+					var ve *ebpf.VerifierError
+					if errors.As(err, &ve) {
+						var buf bytes.Buffer
+						fmt.Fprintf(&buf, "%+v", ve)
+						fullLogFile := name + "_verifier.log"
+						_ = os.WriteFile(fullLogFile, buf.Bytes(), 0444)
+						t.Log("Full verifier log at", fullLogFile)
+						t.Fatalf("Verifier error: %-10v\nDatapath build config: %s", ve, datapathConfig)
 					}
 					if err != nil {
 						t.Fatal(err)
 					}
-				}
+					defer coll.Close()
 
-				// Strip all pinning flags so we don't need to specify a pin path.
-				// This creates new maps for every Collection.
-				for _, m := range spec.Maps {
-					m.Pinning = ebpf.PinNone
-				}
-
-				coll, err := bpf.LoadCollection(spec, ebpf.CollectionOptions{
-					// Enable verifier logs for successful loads.
-					// Use log level 1 since it's known by all target kernels.
-					Programs: ebpf.ProgramOptions{
-						// Maximum log size for kernels <5.2. Some programs generate a
-						// verifier log of over 8MiB, so avoid retries due to the initial
-						// size being too small. This saves a lot of time as retrying means
-						// reloading all maps and progs in the collection.
-						LogSize:  (math.MaxUint32 >> 8), // 16MiB
-						LogLevel: ebpf.LogLevelBranch,
-					},
+					// Print verifier stats appearing on the last line of the log, e.g.
+					// 'processed 12248 insns (limit 1000000) ...'.
+					for n, p := range coll.Programs {
+						p.VerifierLog = strings.TrimRight(p.VerifierLog, "\n")
+						// Offset points at the last newline, increment by 1 to skip it.
+						// Turn a -1 into a 0 if there are no newlines in the log.
+						lastOff := strings.LastIndex(p.VerifierLog, "\n") + 1
+						t.Logf("%s: %v", n, p.VerifierLog[lastOff:])
+					}
 				})
-				var ve *ebpf.VerifierError
-				if errors.As(err, &ve) {
-					var buf bytes.Buffer
-					fmt.Fprintf(&buf, "%+v", ve)
-					fullLogFile := name + "_verifier.log"
-					_ = os.WriteFile(fullLogFile, buf.Bytes(), 0444)
-					t.Log("Full verifier log at", fullLogFile)
-					t.Fatalf("Verifier error: %-10v\nDatapath build config: %s", ve, datapathConfig)
-				}
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer coll.Close()
-
-				// Print verifier stats appearing on the last line of the log, e.g.
-				// 'processed 12248 insns (limit 1000000) ...'.
-				for n, p := range coll.Programs {
-					p.VerifierLog = strings.TrimRight(p.VerifierLog, "\n")
-					// Offset points at the last newline, increment by 1 to skip it.
-					// Turn a -1 into a 0 if there are no newlines in the log.
-					lastOff := strings.LastIndex(p.VerifierLog, "\n") + 1
-					t.Logf("%s: %v", n, p.VerifierLog[lastOff:])
-				}
-			})
-
-			if err = scanner.Err(); err != nil {
-				t.Fatalf("Error while reading list of datapath configurations for %s: %v", bpfProgram.name, err)
 			}
-		}
+		})
 	}
 }
