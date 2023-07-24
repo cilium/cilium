@@ -297,7 +297,7 @@ struct tunnel_value {
 	};
 	__u8 family;
 	__u8 key;
-	__u16 node_id;
+	__u16 pad;
 } __packed;
 
 #define ENDPOINT_F_HOST		1 /* Special endpoint representing local host */
@@ -328,7 +328,7 @@ struct edt_info {
 struct remote_endpoint_info {
 	__u32		sec_identity;
 	__u32		tunnel_endpoint;
-	__u16		node_id;
+	__u16		pad;
 	__u8		key;
 };
 
