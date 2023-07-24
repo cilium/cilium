@@ -151,11 +151,8 @@ func (k *EgressGatewayTestSuite) SetUpTest(c *C) {
 }
 
 func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
-	testInterface1Idx := createTestInterface(testInterface1, egressCIDR1)
-	testInterface2Idx := createTestInterface(testInterface2, egressCIDR2)
-
-	defer destroyTestInterface(testInterface2)
-	defer destroyTestInterface(testInterface1)
+	testInterface1Idx := createTestInterface(c, testInterface1, egressCIDR1)
+	testInterface2Idx := createTestInterface(c, testInterface2, egressCIDR2)
 
 	policyMap := k.manager.policyMap
 	egressGatewayManager := k.manager
@@ -402,40 +399,37 @@ func TestCell(t *testing.T) {
 	}
 }
 
-func createTestInterface(iface string, addr string) int {
+func createTestInterface(tb testing.TB, iface string, addr string) int {
+	tb.Helper()
+
 	la := netlink.NewLinkAttrs()
 	la.Name = iface
 	dummy := &netlink.Dummy{LinkAttrs: la}
 	if err := netlink.LinkAdd(dummy); err != nil {
-		panic(err)
+		tb.Fatal(err)
 	}
 
 	link, err := netlink.LinkByName(iface)
 	if err != nil {
-		panic(err)
+		tb.Fatal(err)
 	}
 
+	tb.Cleanup(func() {
+		if err := netlink.LinkDel(link); err != nil {
+			tb.Error(err)
+		}
+	})
+
 	if err := netlink.LinkSetUp(link); err != nil {
-		panic(err)
+		tb.Fatal(err)
 	}
 
 	a, _ := netlink.ParseAddr(addr)
-	netlink.AddrAdd(link, a)
+	if err := netlink.AddrAdd(link, a); err != nil {
+		tb.Fatal(err)
+	}
 
 	return link.Attrs().Index
-}
-
-func destroyTestInterface(iface string) error {
-	link, err := netlink.LinkByName(iface)
-	if err != nil {
-		return err
-	}
-
-	if err := netlink.LinkDel(link); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func newCiliumNode(name, nodeIP string, nodeLabels map[string]string) nodeTypes.Node {
