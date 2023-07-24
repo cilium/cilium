@@ -84,7 +84,6 @@ int ipv4_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
 	cache_key.ip4 = v4_pod_two;
 	cache_value.sec_identity = 233;
 	cache_value.tunnel_endpoint = v4_node_two;
-	cache_value.node_id = NODE_ID;
 	cache_value.key = ENCRYPT_KEY;
 	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
 
@@ -92,6 +91,13 @@ int ipv4_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
 	struct encrypt_config encrypt_value = { .encrypt_key = 3 };
 
 	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
+
+	struct node_key node_ip = {};
+	__u32 node_id = NODE_ID;
+
+	node_ip.family = ENDPOINT_KEY_IPV4;
+	node_ip.ip4 = v4_node_two;
+	map_update_elem(&NODE_MAP, &node_ip, &node_id, BPF_ANY);
 
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
@@ -218,7 +224,6 @@ int ipv6_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
 	memcpy(&cache_key.ip6, (__u8 *)v6_pod_two, 16);
 	cache_value.sec_identity = 233;
 	cache_value.tunnel_endpoint = v4_node_two;
-	cache_value.node_id = NODE_ID;
 	cache_value.key = ENCRYPT_KEY;
 	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
 
@@ -226,6 +231,13 @@ int ipv6_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
 	struct encrypt_config encrypt_value = { .encrypt_key = 3 };
 
 	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
+
+	struct node_key node_ip = {};
+	__u32 node_id = NODE_ID;
+
+	node_ip.family = ENDPOINT_KEY_IPV4;
+	node_ip.ip4 = v4_node_two;
+	map_update_elem(&NODE_MAP, &node_ip, &node_id, BPF_ANY);
 
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
