@@ -100,8 +100,9 @@ where, and how. This is an example policy using all optional fields:
         matchLabels:
           color: blue
       nodeSelector:
-        matchLabels:
-          role: worker
+        matchExpressions:
+          - key: node-role.kubernetes.io/control-plane
+            operator: DoesNotExist
       interfaces:
       - ^eth[0-9]+
       externalIPs: true
