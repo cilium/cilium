@@ -353,8 +353,6 @@ struct {
  * either at the socket level or by the caller.
  * In the case of the caller doing the service translation it passes in state via CB,
  * which we take in with lb6_ctx_restore_state().
- *
- * Kernel 4.9 verifier is very finicky about the order of this code, modify with caution.
  */
 static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *dst_sec_identity,
 						__s8 *ext_err)
@@ -388,8 +386,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 	/* Determine the destination category for policy fallback.  Service
 	 * translation of the destination address is done before this function,
-	 * so we can do this first. Also, verifier on kernel 4.9 insisted this
-	 * be done before the CT lookup below.
+	 * so we can do this first.
 	 */
 	if (1) {
 		const union v6addr *daddr = (union v6addr *)&ip6->daddr;
