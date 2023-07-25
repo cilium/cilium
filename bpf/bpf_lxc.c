@@ -1402,8 +1402,8 @@ out:
 #ifdef ENABLE_IPV6
 static __always_inline int
 ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
-	    enum ct_status *ct_status, struct ipv6_ct_tuple *tuple_out,
-	    __s8 *ext_err, __u16 *proxy_port, bool from_host __maybe_unused)
+	    struct ipv6_ct_tuple *tuple_out, __s8 *ext_err, __u16 *proxy_port,
+	    bool from_host __maybe_unused)
 {
 	struct ct_state *ct_state, ct_state_new = {};
 	struct ipv6_ct_tuple *tuple;
@@ -1442,7 +1442,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;
 	monitor = ct_buffer->monitor;
 	ret = ct_buffer->ret;
-	*ct_status = (enum ct_status)ret;
+	reason = (enum trace_reason)ct_buffer->ret;
 
 	/* Skip policy enforcement for return traffic. */
 	if (ret == CT_REPLY || ret == CT_RELATED) {
@@ -1542,7 +1542,6 @@ skip_policy_enforcement:
 			return ret;
 	}
 
-	reason = (enum trace_reason)*ct_status;
 	if (*proxy_port > 0) {
 		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
 				   bpf_ntohs(*proxy_port), ifindex, reason, monitor);
@@ -1577,13 +1576,12 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	bool proxy_redirect __maybe_unused = false;
 	__u16 proxy_port = 0;
 	__s8 ext_err = 0;
-	enum ct_status ct_status = 0;
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
-	ret = ipv6_policy(ctx, ifindex, src_label, &ct_status, &tuple,
-			  &ext_err, &proxy_port, from_host);
+	ret = ipv6_policy(ctx, ifindex, src_label, &tuple, &ext_err, &proxy_port,
+			  from_host);
 	if (ret == POLICY_ACT_PROXY_REDIRECT) {
 		ret = ctx_redirect_to_proxy6(ctx, &tuple, proxy_port, from_host);
 		proxy_redirect = true;
@@ -1621,7 +1619,6 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 	struct ipv6hdr *ip6;
 	__u16 proxy_port = 0;
 	__s8 ext_err = 0;
-	enum ct_status ct_status;
 	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
@@ -1667,8 +1664,8 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 #endif
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = ipv6_policy(ctx, 0, src_sec_identity, &ct_status, NULL,
-			  &ext_err, &proxy_port, true);
+	ret = ipv6_policy(ctx, 0, src_sec_identity, NULL, &ext_err, &proxy_port,
+			  true);
 	if (ret == POLICY_ACT_PROXY_REDIRECT) {
 		ret = ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
 		proxy_redirect = true;
@@ -1707,7 +1704,7 @@ TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS, tail_ipv6_ct_ingress, CT_INGRESS,
 
 #ifdef ENABLE_IPV4
 static __always_inline int
-ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status *ct_status,
+ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	    struct ipv4_ct_tuple *tuple_out, __s8 *ext_err, __u16 *proxy_port,
 	    bool from_host __maybe_unused, bool from_tunnel)
 {
@@ -1756,7 +1753,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;
 	monitor = ct_buffer->monitor;
 	ret = ct_buffer->ret;
-	*ct_status = (enum ct_status)ret;
+	reason = (enum trace_reason)ct_buffer->ret;
 
 	/* Check it this is return traffic to an egress proxy.
 	 * Do not redirect again if the packet is coming from the egress proxy.
@@ -1871,7 +1868,6 @@ skip_policy_enforcement:
 			return ret;
 	}
 
-	reason = (enum trace_reason)*ct_status;
 	if (*proxy_port > 0) {
 		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
 				   bpf_ntohs(*proxy_port), ifindex, reason, monitor);
@@ -1912,7 +1908,6 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
 	bool from_tunnel = ctx_load_meta(ctx, CB_FROM_TUNNEL);
 	bool proxy_redirect __maybe_unused = false;
-	enum ct_status ct_status = 0;
 	__u16 proxy_port = 0;
 	__s8 ext_err = 0;
 
@@ -1921,8 +1916,8 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, 0);
 
-	ret = ipv4_policy(ctx, ifindex, src_label, &ct_status, &tuple,
-			  &ext_err, &proxy_port, from_host, from_tunnel);
+	ret = ipv4_policy(ctx, ifindex, src_label, &tuple, &ext_err, &proxy_port,
+			  from_host, from_tunnel);
 	if (ret == POLICY_ACT_PROXY_REDIRECT) {
 		ret = ctx_redirect_to_proxy4(ctx, &tuple, proxy_port, from_host);
 		proxy_redirect = true;
@@ -1960,7 +1955,6 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 	struct iphdr *ip4;
 	__u16 proxy_port = 0;
 	__s8 ext_err = 0;
-	enum ct_status ct_status;
 	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
@@ -2000,8 +1994,8 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 #endif
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = ipv4_policy(ctx, 0, src_sec_identity, &ct_status, NULL,
-			  &ext_err, &proxy_port, true, false);
+	ret = ipv4_policy(ctx, 0, src_sec_identity, NULL, &ext_err, &proxy_port,
+			  true, false);
 	if (ret == POLICY_ACT_PROXY_REDIRECT) {
 		ret = ctx_redirect_to_proxy_hairpin_ipv4(ctx, proxy_port);
 		proxy_redirect = true;
