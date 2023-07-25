@@ -8,17 +8,16 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/timestamp"
 )
 
 // bpfCtListCmd represents the bpf_ct_list command
@@ -107,26 +106,10 @@ func getMaps(t string, id uint32) []*ctmap.Map {
 	return []*ctmap.Map{}
 }
 
-func getClockSourceFromAgent() (*models.ClockSource, error) {
-	params := daemon.NewGetHealthzParamsWithTimeout(5 * time.Second)
-	brief := false
-	params.SetBrief(&brief)
-	resp, err := client.Daemon.GetHealthz(params)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.Payload.ClockSource == nil {
-		return nil, errors.New("could not determine clocksource")
-	}
-
-	return resp.Payload.ClockSource, nil
-}
-
 func getClockSource() (*models.ClockSource, error) {
 	switch timeDiffClockSourceMode {
 	case "":
-		return getClockSourceFromAgent()
+		return timestamp.GetClockSourceFromAgent(client.Daemon)
 	case models.ClockSourceModeKtime:
 		return &models.ClockSource{
 			Mode: models.ClockSourceModeKtime,
