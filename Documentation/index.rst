@@ -7,7 +7,7 @@
 Welcome to Cilium's documentation!
 ==================================
 
-The documentation is divided into the following sections:
+The documentation is divided into the following sections hello:
 
 * :ref:`k8s_install_quick`: Provides a simple tutorial for running a small Cilium
   setup on your laptop.  Intended as an easy way to get your hands dirty
