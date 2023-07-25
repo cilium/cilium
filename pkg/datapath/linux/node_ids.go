@@ -187,6 +187,25 @@ func (n *linuxNodeHandler) unmapNodeID(ip string) error {
 	return nil
 }
 
+// diffAndUnmapNodeIPs takes two lists of node IP addresses: new and old ones.
+// It unmaps the node IP to node ID mapping for all the old IP addresses that
+// are not in the list of new IP addresses.
+func (n *linuxNodeHandler) diffAndUnmapNodeIPs(oldIPs, newIPs []nodeTypes.Address) {
+nextOldIP:
+	for _, oldAddr := range oldIPs {
+		for _, newAddr := range newIPs {
+			if newAddr.IP.Equal(oldAddr.IP) {
+				continue nextOldIP
+			}
+		}
+		if err := n.unmapNodeID(oldAddr.IP.String()); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.IPAddr: oldAddr,
+			}).Warn("Failed to remove a node IP to node ID mapping")
+		}
+	}
+}
+
 // DumpNodeIDs returns all node IDs and their associated IP addresses.
 func (n *linuxNodeHandler) DumpNodeIDs() []*models.NodeID {
 	n.mutex.Lock()
