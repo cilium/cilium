@@ -630,9 +630,9 @@ func (ds *DNSCacheTestSuite) TestZombiesSiblingsGC(c *C) {
 	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
 	// Siblings are IPs that resolve to the same name.
-	zombies.Upsert(now, "1.1.1.1", "test.com")
-	zombies.Upsert(now, "1.1.1.2", "test.com")
-	zombies.Upsert(now, "3.3.3.3", "pizza.com")
+	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "test.com")
+	zombies.Upsert(now, netip.MustParseAddr("1.1.1.2"), "test.com")
+	zombies.Upsert(now, netip.MustParseAddr("3.3.3.3"), "pizza.com")
 
 	// Mark 1.1.1.2 alive which should also keep 1.1.1.1 alive since they
 	// have the same name
@@ -654,8 +654,8 @@ func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 	now := time.Now()
 	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
-	zombies.Upsert(now, "1.1.1.1", "test.com")
-	zombies.Upsert(now, "2.2.2.2", "somethingelse.com")
+	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "test.com")
+	zombies.Upsert(now, netip.MustParseAddr("2.2.2.2"), "somethingelse.com")
 
 	// Without any MarkAlive or SetCTGCTime, all entries remain alive
 	alive, dead := zombies.GC()
@@ -667,7 +667,7 @@ func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 
 	// Adding another name to 1.1.1.1 keeps it alive and adds the name to the
 	// zombie
-	zombies.Upsert(now, "1.1.1.1", "anotherthing.com")
+	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "anotherthing.com")
 	alive, dead = zombies.GC()
 	c.Assert(dead, HasLen, 0)
 	assertZombiesContain(c, alive, map[string][]string{
@@ -699,8 +699,8 @@ func (ds *DNSCacheTestSuite) TestZombiesGC(c *C) {
 
 	// Update 2.2.2.2 with a new DNS name. It remains alive.
 	// Add 1.1.1.1 again. It is alive.
-	zombies.Upsert(now, "2.2.2.2", "thelastthing.com")
-	zombies.Upsert(now, "1.1.1.1", "onemorething.com")
+	zombies.Upsert(now, netip.MustParseAddr("2.2.2.2"), "thelastthing.com")
+	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "onemorething.com")
 
 	alive, dead = zombies.GC()
 	c.Assert(dead, HasLen, 0)
@@ -737,9 +737,9 @@ func (ds *DNSCacheTestSuite) TestZombiesGCOverLimit(c *C) {
 
 	// Limit the total number of IPs to be associated with a specific host
 	// to 1, but associate 'test.com' with multiple IPs.
-	zombies.Upsert(now, "1.1.1.1", "test.com")
-	zombies.Upsert(now, "2.2.2.2", "somethingelse.com", "test.com")
-	zombies.Upsert(now, "3.3.3.3", "anothertest.com")
+	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "test.com")
+	zombies.Upsert(now, netip.MustParseAddr("2.2.2.2"), "somethingelse.com", "test.com")
+	zombies.Upsert(now, netip.MustParseAddr("3.3.3.3"), "anothertest.com")
 
 	// Based on the zombie liveness sorting, the '2.2.2.2' entry is more
 	// important (as it could potentially impact multiple apps connecting
@@ -765,7 +765,7 @@ func (ds *DNSCacheTestSuite) TestZombiesGCOverLimitWithCTGC(c *C) {
 	// Limit the number of IPs per hostname, but associate 'test.com' with
 	// more IPs.
 	for i := 0; i < maxConnections+1; i++ {
-		zombies.Upsert(now, fmt.Sprintf("1.1.1.%d", i+1), "test.com")
+		zombies.Upsert(now, netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i+1)), "test.com")
 	}
 
 	// Simulate that CT garbage collection marks some IPs as live, we'll
@@ -794,9 +794,9 @@ func (ds *DNSCacheTestSuite) TestZombiesGCDeferredDeletes(c *C) {
 	now := time.Now()
 	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
-	zombies.Upsert(now.Add(0*time.Second), "1.1.1.1", "test.com")
-	zombies.Upsert(now.Add(1*time.Second), "2.2.2.2", "somethingelse.com")
-	zombies.Upsert(now.Add(2*time.Second), "3.3.3.3", "onemorething.com")
+	zombies.Upsert(now.Add(0*time.Second), netip.MustParseAddr("1.1.1.1"), "test.com")
+	zombies.Upsert(now.Add(1*time.Second), netip.MustParseAddr("2.2.2.2"), "somethingelse.com")
+	zombies.Upsert(now.Add(2*time.Second), netip.MustParseAddr("3.3.3.3"), "onemorething.com")
 
 	// No zombies should be evicted because the limit is high
 	alive, dead := zombies.GC()
@@ -808,7 +808,7 @@ func (ds *DNSCacheTestSuite) TestZombiesGCDeferredDeletes(c *C) {
 	})
 
 	zombies = NewDNSZombieMappings(2, defaults.ToFQDNsMaxIPsPerHost)
-	zombies.Upsert(now.Add(0*time.Second), "1.1.1.1", "test.com")
+	zombies.Upsert(now.Add(0*time.Second), netip.MustParseAddr("1.1.1.1"), "test.com")
 
 	// No zombies should be evicted because we are below the limit
 	alive, dead = zombies.GC()
@@ -819,8 +819,8 @@ func (ds *DNSCacheTestSuite) TestZombiesGCDeferredDeletes(c *C) {
 
 	// 1.1.1.1 is evicted because it was Upserted earlier in
 	// time, implying an earlier DNS expiry.
-	zombies.Upsert(now.Add(1*time.Second), "2.2.2.2", "somethingelse.com")
-	zombies.Upsert(now.Add(2*time.Second), "3.3.3.3", "onemorething.com")
+	zombies.Upsert(now.Add(1*time.Second), netip.MustParseAddr("2.2.2.2"), "somethingelse.com")
+	zombies.Upsert(now.Add(2*time.Second), netip.MustParseAddr("3.3.3.3"), "onemorething.com")
 	alive, dead = zombies.GC()
 	assertZombiesContain(c, dead, map[string][]string{
 		"1.1.1.1": {"test.com"},
@@ -832,7 +832,7 @@ func (ds *DNSCacheTestSuite) TestZombiesGCDeferredDeletes(c *C) {
 
 	// Only 3.3.3.3 is evicted because it is not marked alive, despite having the
 	// latest insert time.
-	zombies.Upsert(now.Add(0*time.Second), "1.1.1.1", "test.com")
+	zombies.Upsert(now.Add(0*time.Second), netip.MustParseAddr("1.1.1.1"), "test.com")
 	gcTime := now.Add(4 * time.Second)
 	zombies.MarkAlive(gcTime, netip.MustParseAddr("1.1.1.1"))
 	zombies.MarkAlive(gcTime, netip.MustParseAddr("2.2.2.2"))
@@ -852,8 +852,8 @@ func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 	now := time.Now()
 	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 
-	zombies.Upsert(now, "1.1.1.1", "test.com", "anothertest.com")
-	zombies.Upsert(now, "2.2.2.2", "somethingelse.com")
+	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "test.com", "anothertest.com")
+	zombies.Upsert(now, netip.MustParseAddr("2.2.2.2"), "somethingelse.com")
 
 	// Without any MarkAlive or SetCTGCTime, all entries remain alive
 	alive, dead := zombies.GC()
@@ -884,7 +884,7 @@ func (ds *DNSCacheTestSuite) TestZombiesForceExpire(c *C) {
 	})
 
 	// Setup again with 2 names for test.com
-	zombies.Upsert(now, "2.2.2.2", "test.com")
+	zombies.Upsert(now, netip.MustParseAddr("2.2.2.2"), "test.com")
 
 	// Don't expire if the IP doesn't match
 	err = zombies.ForceExpireByNameIP(time.Time{}, "somethingelse.com", net.ParseIP("1.1.1.1"))
@@ -974,9 +974,9 @@ func (ds *DNSCacheTestSuite) TestZombiesDumpAlive(c *C) {
 	alive := zombies.DumpAlive(nil)
 	c.Assert(alive, HasLen, 0)
 
-	zombies.Upsert(now, "1.1.1.1", "test.com")
-	zombies.Upsert(now, "2.2.2.2", "example.com")
-	zombies.Upsert(now, "3.3.3.3", "example.org")
+	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "test.com")
+	zombies.Upsert(now, netip.MustParseAddr("2.2.2.2"), "example.com")
+	zombies.Upsert(now, netip.MustParseAddr("3.3.3.3"), "example.org")
 
 	alive = zombies.DumpAlive(nil)
 	assertZombiesContain(c, alive, map[string][]string{
@@ -1015,7 +1015,7 @@ func (ds *DNSCacheTestSuite) TestZombiesDumpAlive(c *C) {
 		"1.1.1.1": {"test.com"},
 	})
 
-	zombies.Upsert(now, "1.1.1.2", "test2.com")
+	zombies.Upsert(now, netip.MustParseAddr("1.1.1.2"), "test2.com")
 
 	alive = zombies.DumpAlive(cidrMatcher)
 	assertZombiesContain(c, alive, map[string][]string{
