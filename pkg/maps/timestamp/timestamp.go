@@ -4,12 +4,16 @@
 package timestamp
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -20,14 +24,18 @@ const (
 	bpfMonoScaler = 8
 )
 
-// Get current clocksource - to be used in the agent context.
-func GetClockSourceFromOptions() *models.ClockSource {
+func getClockSourceFromConfig(config *option.DaemonConfig) *models.ClockSource {
 	clockSource := &models.ClockSource{Mode: models.ClockSourceModeKtime}
-	if option.Config.ClockSource == option.ClockSourceJiffies {
+	if config.ClockSource == option.ClockSourceJiffies {
 		clockSource.Mode = models.ClockSourceModeJiffies
-		clockSource.Hertz = int64(option.Config.KernelHz)
+		clockSource.Hertz = int64(config.KernelHz)
 	}
 	return clockSource
+}
+
+// Get current clocksource - to be used in the agent context.
+func GetClockSourceFromOptions() *models.ClockSource {
+	return getClockSourceFromConfig(option.Config)
 }
 
 // Connect to the agent via API and get its current clocksource.
@@ -45,6 +53,24 @@ func GetClockSourceFromAgent(svc daemon.ClientService) (*models.ClockSource, err
 	}
 
 	return resp.Payload.ClockSource, nil
+}
+
+// Get the clocksource from the agent config file in case agent is not running.
+func GetClockSourceFromRuntimeConfig() (*models.ClockSource, error) {
+	var config option.DaemonConfig
+
+	agentConfigFile := filepath.Join(defaults.RuntimePath, defaults.StateDir,
+		"agent-runtime-config.json")
+
+	if byteValue, err := os.ReadFile(agentConfigFile); err == nil {
+		err = json.Unmarshal(byteValue, &config)
+		if err != nil {
+			return nil, err
+		}
+		return getClockSourceFromConfig(&config), nil
+	} else {
+		return nil, err
+	}
 }
 
 // Returns current time in units that are used for timestamps in CT and NAT
