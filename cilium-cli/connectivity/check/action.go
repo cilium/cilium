@@ -1053,7 +1053,7 @@ func (a *Action) validateMetric(ctx context.Context, node string, result Metrics
 			a.Debugf("failed to check metrics on node %s: %s\n", node, err)
 		} else {
 			// Metrics check succeed, let's exit.
-			a.Debugf("checked metrics properly on node %s: %s\n", node)
+			a.Debugf("checked metrics properly on node %s\n", node)
 			return
 
 		}
