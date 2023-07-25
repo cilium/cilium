@@ -1148,6 +1148,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		newIP6                                   = newNode.GetNodeIP(true)
 		oldKey, newKey                           uint8
 		isLocalNode                              = false
+		remoteNodeID                             = n.allocateIDForNode(newNode)
 	)
 
 	if oldNode != nil {
@@ -1161,7 +1162,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if n.nodeConfig.EnableIPSec && !n.nodeConfig.EncryptNode {
-		remoteNodeID := n.allocateIDForNode(newNode)
 		n.enableIPsec(newNode, remoteNodeID)
 		newKey = newNode.EncryptionKey
 	}
