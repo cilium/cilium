@@ -286,7 +286,9 @@ from ``1.10.x`` to ``1.11.y`` first, and to ``1.12.z`` only afterwards).
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | Current version       | Target version        | L3/L4 impact            | L7 impact                 |
 +=======================+=======================+=========================+===========================+
-| ``1.12.x``            | ``1.13.y``            | Minimal to None         | Clients must reconnect[1] |
+| ``1.13.x (x <= 3)``   | ``1.13.y (y >= 5)``   | Minimal to None         | Clients must reconnect[1] |
++-----------------------+-----------------------+-------------------------+---------------------------+
+| ``1.12.x``            | ``1.13.y (y >= 5)``   | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.11.x``            | ``1.12.y``            | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
@@ -303,6 +305,15 @@ Annotations:
 .. _current_release_required_changes:
 
 .. _1.13_upgrade_notes:
+
+1.13.4 (to and from) Upgrade Notes
+----------------------------------
+
+* Existing connections may be interrupted when upgrading to v1.13.4, while they
+  may linger for too long when upgrading from v1.13.4.  This is due to a
+  difference in how the age of the connections is calculated when using
+  bpf-clock-probe (:gh-issue:`26955`). To minimize disruption during upgrades,
+  we recommend skipping this release and upgrading directly to a newer version.
 
 1.13.3+ Upgrade Notes
 ---------------------
@@ -435,6 +446,11 @@ Helm Options
   domain socket will be removed and the Kubernetes peer-svc mandatory when
   Hubble Relay is enabled. Users overriding ``hubble.peerService.enabled`` to
   ``false`` are encouraged to migrate to ``true`` with the Cilium v1.13 release.
+* ``bpfClockProbe`` has been set to ``false`` everywhere to avoid interrupting
+  existing connections. It can still be manually set to ``true`` if the
+  BPF clock probe behavior is desired.
+* The previous ``bpf.clockProbe`` flag used in ``values.yaml`` was incorrectly
+  named. The correct name is ``bpfClockProbe``.
 
 CRD Changes
 ~~~~~~~~~~~
