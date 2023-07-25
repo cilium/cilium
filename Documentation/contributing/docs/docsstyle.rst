@@ -69,6 +69,40 @@ Wrap the lines for long sentences or paragraphs. There is no fixed convention
 on the length of lines, but targeting a width of about 80 characters should be
 safe in most circumstances.
 
+Capitalization
+--------------
+
+Follow `the section on capitalization for API objects`_ from the Kubernetes
+style guide for when to (not) capitalize API objects. In particular:
+
+    When you refer specifically to interacting with an API object, use
+    `UpperCamelCase`_, also known as Pascal case.
+
+And:
+
+    When you are generally discussing an API object, use `sentence-style
+    capitalization`_
+
+For example, write "Gateway API", capitalized. Use "Gateway" when writing about
+an API object as an entity, and "gateway" for a specific instance.
+
+The following examples are correct::
+
+    - Gateway API is a subproject of Kubernetes SIG Network.
+    - Cilium is conformant to the Gateway API spec at version X.Y.Z.
+    - In order to expose this service, create a Gateway to hold the listener configuration.
+    - Traffic from the Internet passes through the gateway to get to the backend service.
+    - Now that you have created the "foo" gateway, you need to create some Routes.
+
+But the following examples are incorrect::
+
+    - The implemention of gateway API
+    - To create a gateway object, ...
+
+.. _the section on capitalization for API objects: https://kubernetes.io/docs/contribute/style/style-guide/#use-upper-camel-case-for-api-objects
+.. _UpperCamelCase: https://en.wikipedia.org/wiki/Camel_case
+.. _sentence-style capitalization: https://docs.microsoft.com/en-us/style-guide/text-formatting/using-type/use-sentence-style-capitalization
+
 Code Blocks
 -----------
 
