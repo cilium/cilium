@@ -105,9 +105,12 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 
 // deallocateIDForNode deallocates the node ID for the given node, if it was allocated.
 func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
+	nodeIPs := make(map[string]bool)
 	nodeID := n.getNodeIDForNode(oldNode)
 
+	// Check that all node IDs of the node had the same node ID.
 	for _, addr := range oldNode.IPAddresses {
+		nodeIPs[addr.IP.String()] = true
 		id := n.nodeIDsByIPs[addr.IP.String()]
 		if nodeID != id {
 			log.WithFields(logrus.Fields{
@@ -117,18 +120,28 @@ func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
 		}
 	}
 
-	n.deallocateNodeIDLocked(nodeID)
+	n.deallocateNodeIDLocked(nodeID, nodeIPs, oldNode.Name)
 }
 
-func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16) {
+func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16, nodeIPs map[string]bool, nodeName string) {
 	for ip, id := range n.nodeIDsByIPs {
-		if nodeID == id {
-			if err := n.unmapNodeID(ip); err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.NodeID: nodeID,
-					logfields.IPAddr: ip,
-				}).Warn("Failed to remove a node IP to node ID mapping")
-			}
+		if nodeID != id {
+			continue
+		}
+		// Check that only IPs of this node had this node ID.
+		if _, isIPOfOldNode := nodeIPs[ip]; !isIPOfOldNode {
+			log.WithFields(logrus.Fields{
+				logfields.NodeName: nodeName,
+				logfields.IPAddr:   ip,
+				logfields.NodeID:   id,
+			}).Errorf("Found a foreign IP address with the ID of the current node")
+		}
+
+		if err := n.unmapNodeID(ip); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.NodeID: nodeID,
+				logfields.IPAddr: ip,
+			}).Warn("Failed to remove a node IP to node ID mapping")
 		}
 	}
 
