@@ -3,7 +3,6 @@
 config:
   - type: "no-tunnel"
     index: 1
-    cilium-install-opts: ""
   - type: "tunnel"
     index: 2
     cilium-install-opts: "--datapath-mode=tunnel"
