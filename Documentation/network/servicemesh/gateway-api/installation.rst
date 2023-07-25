@@ -1,8 +1,8 @@
 Prerequisites
 #############
 
-* Cilium must be configured with ``kubeProxyReplacement`` as partial
-  or strict. Please refer to :ref:`kube-proxy replacement <kubeproxy-free>`
+* Cilium must be configured with ``kubeProxyReplacement=true``.
+  Please refer to :ref:`kube-proxy replacement <kubeproxy-free>`
   for more details.
 * Cilium must be configured with the L7 proxy enabled using the ``--enable-l7-proxy`` flag (enabled by default).
 * The below CRDs from Gateway API v0.7.0 ``must`` be pre-installed.
@@ -29,6 +29,8 @@ Prerequisites
 Installation
 ############
 
+.. include:: ../../../installation/cli-download.rst
+
 .. tabs::
 
     .. group-tab:: Helm
@@ -41,6 +43,7 @@ Installation
             $ helm upgrade cilium |CHART_RELEASE| \\
                 --namespace kube-system \\
                 --reuse-values \\
+                --set kubeProxyReplacement=true \\
                 --set gatewayAPI.enabled=true
 
             $ kubectl -n kube-system rollout restart deployment/cilium-operator
@@ -52,18 +55,15 @@ Installation
 
             $ cilium status
 
-        .. include:: ../../../installation/cli-download.rst
 
     .. group-tab:: Cilium CLI
-
-        .. include:: ../../../installation/cli-download.rst
 
         Cilium Gateway API Controller can be enabled with the below command
 
         .. parsed-literal::
 
-            $ cilium install |CHART_VERSION| \
-                --set kubeProxyReplacement=true \
+            $ cilium install |CHART_VERSION| \\
+                --set kubeProxyReplacement=true \\
                 --set gatewayAPI.enabled=true
 
         Next you can check the status of the Cilium agent and operator:
