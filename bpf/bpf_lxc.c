@@ -409,11 +409,6 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	}
 
 #ifdef ENABLE_PER_PACKET_LB
-#if !defined(DEBUG) && defined(TUNNEL_MODE)
-	/* verifier workaround on kernel 4.9, not needed otherwise */
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
-#endif
 	/* Restore ct_state from per packet lb handling in the previous tail call. */
 	lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port);
 	/* No hairpin/loopback support for IPv6, see lb6_local(). */
