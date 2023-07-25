@@ -109,7 +109,11 @@ func getMaps(t string, id uint32) []*ctmap.Map {
 func getClockSource() (*models.ClockSource, error) {
 	switch timeDiffClockSourceMode {
 	case "":
-		return timestamp.GetClockSourceFromAgent(client.Daemon)
+		clockSource, err := timestamp.GetClockSourceFromAgent(client.Daemon)
+		if err != nil {
+			return timestamp.GetClockSourceFromRuntimeConfig()
+		}
+		return clockSource, err
 	case models.ClockSourceModeKtime:
 		return &models.ClockSource{
 			Mode: models.ClockSourceModeKtime,
