@@ -116,6 +116,20 @@ func metricsIncrease(mf1, mf2 *dto.MetricFamily) error {
 	metrics1 := mf1.GetMetric()
 	metrics2 := mf2.GetMetric()
 
+	// Absent initial metric means it's zero, check that after metric is non-zero.
+	if mf1 == nil && mf2 != nil {
+		for _, m2 := range metrics2 {
+			if m2.GetCounter() == nil {
+				return fmt.Errorf("metric %s is not a Counter: %v", mf2.GetName(), mf2)
+			}
+
+			if val := m2.GetCounter().GetValue(); val == 0.0 {
+				return fmt.Errorf("metric %s did not increase as expected, value 1 was assumed zero: %f and value 2: %f", mf2.GetName(), 0.0, val)
+			}
+		}
+		return nil
+	}
+
 	if len(metrics1) != len(metrics2) {
 		return fmt.Errorf("metric %s has different length metrics 1: %d and metrics 2: %d", mf1.GetName(), len(metrics1), len(metrics2))
 	}
@@ -128,7 +142,7 @@ func metricsIncrease(mf1, mf2 *dto.MetricFamily) error {
 			return fmt.Errorf("metric %s is not a Counter: %v", mf1.GetName(), metrics2[i])
 		}
 
-		value1 := metrics1[i].GetCounter().GetValue() // Here we assume that metrics are of Counter type.
+		value1 := metrics1[i].GetCounter().GetValue()
 		value2 := metrics2[i].GetCounter().GetValue()
 		if value1 >= value2 {
 			return fmt.Errorf("metric %s did not increase as expected, value 1: %f and value 2: %f", mf1.GetName(), value1, value2)

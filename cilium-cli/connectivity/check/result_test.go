@@ -115,7 +115,7 @@ func TestExpectMetricsToIncrease(t *testing.T) {
 			metricsAfter:  metricsBefore,
 			wantErr:       true,
 		},
-		"metric name not present in the metrics before": {
+		"metric name not present in the metrics before, counters should be set 0": {
 			metrics: "cilium_forward_count_total",
 			source: MetricsSource{
 				Name: components.CiliumAgentName,
@@ -124,7 +124,7 @@ func TestExpectMetricsToIncrease(t *testing.T) {
 			},
 			metricsBefore: otherMetric,
 			metricsAfter:  metricsAfter,
-			wantErr:       true,
+			wantErr:       false,
 		},
 		"metric name not present in the metrics after": {
 			metrics:       "cilium_forward_count_total",
