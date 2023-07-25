@@ -1412,9 +1412,8 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	bool skip_ingress_proxy = false;
-	enum trace_reason reason;
+	struct trace_ctx trace;
 	union v6addr orig_sip;
-	__u32 monitor = 0;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 	__u8 auth_type = 0;
@@ -1440,9 +1439,9 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 
 	tuple = (struct ipv6_ct_tuple *)&ct_buffer->tuple;
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;
-	monitor = ct_buffer->monitor;
+	trace.monitor = ct_buffer->monitor;
+	trace.reason = (enum trace_reason)ct_buffer->ret;
 	ret = ct_buffer->ret;
-	reason = (enum trace_reason)ct_buffer->ret;
 
 	/* Skip policy enforcement for return traffic. */
 	if (ret == CT_REPLY || ret == CT_RELATED) {
@@ -1456,7 +1455,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 			 * into ctx->mark and *proxy_port can be left unset.
 			 */
 			send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
-					   0, ifindex, (enum trace_reason)ret, monitor);
+					   0, ifindex, trace.reason, trace.monitor);
 			if (tuple_out)
 				memcpy(tuple_out, tuple, sizeof(*tuple));
 			return POLICY_ACT_PROXY_REDIRECT;
@@ -1544,14 +1543,15 @@ skip_policy_enforcement:
 
 	if (*proxy_port > 0) {
 		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
-				   bpf_ntohs(*proxy_port), ifindex, reason, monitor);
+				   bpf_ntohs(*proxy_port), ifindex, trace.reason,
+				   trace.monitor);
 		if (tuple_out)
 			memcpy(tuple_out, tuple, sizeof(*tuple));
 		return POLICY_ACT_PROXY_REDIRECT;
 	}
 	/* Not redirected to host / proxy. */
 	send_trace_notify6(ctx, TRACE_TO_LXC, src_label, SECLABEL, &orig_sip,
-			   LXC_ID, ifindex, reason, monitor);
+			   LXC_ID, ifindex, trace.reason, trace.monitor);
 
 #if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
 	/* See comment in IPv4 path. */
@@ -1715,13 +1715,13 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	bool skip_ingress_proxy = false;
 	bool is_untracked_fragment = false;
 	struct ct_buffer4 *ct_buffer;
-	__u32 monitor = 0, zero = 0;
-	enum trace_reason reason;
+	struct trace_ctx trace;
 	int ret, verdict;
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 	__u8 auth_type = 0;
+	__u32 zero = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1751,9 +1751,9 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 
 	tuple = (struct ipv4_ct_tuple *)&ct_buffer->tuple;
 	ct_state = (struct ct_state *)&ct_buffer->ct_state;
-	monitor = ct_buffer->monitor;
+	trace.monitor = ct_buffer->monitor;
+	trace.reason = (enum trace_reason)ct_buffer->ret;
 	ret = ct_buffer->ret;
-	reason = (enum trace_reason)ct_buffer->ret;
 
 	/* Check it this is return traffic to an egress proxy.
 	 * Do not redirect again if the packet is coming from the egress proxy.
@@ -1768,7 +1768,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 			 * into ctx->mark and *proxy_port can be left unset.
 			 */
 			send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
-					   0, ifindex, (enum trace_reason)ret, monitor);
+					   0, ifindex, trace.reason, trace.monitor);
 			if (tuple_out)
 				*tuple_out = *tuple;
 			return POLICY_ACT_PROXY_REDIRECT;
@@ -1870,14 +1870,15 @@ skip_policy_enforcement:
 
 	if (*proxy_port > 0) {
 		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
-				   bpf_ntohs(*proxy_port), ifindex, reason, monitor);
+				   bpf_ntohs(*proxy_port), ifindex, trace.reason,
+				   trace.monitor);
 		if (tuple_out)
 			*tuple_out = *tuple;
 		return POLICY_ACT_PROXY_REDIRECT;
 	}
 	/* Not redirected to host / proxy. */
 	send_trace_notify4(ctx, TRACE_TO_LXC, src_label, SECLABEL, orig_sip,
-			   LXC_ID, ifindex, reason, monitor);
+			   LXC_ID, ifindex, trace.reason, trace.monitor);
 
 #if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
 	/* In tunneling mode, we execute this code to send the packet from
