@@ -32,8 +32,8 @@ struct {
 	},
 };
 
-PKTGEN("tc", "ipv4_ipsec_from_lxc")
-int ipv4_ipsec_from_lxc_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "02_ipv4_from_lxc_encrypt")
+int ipv4_from_lxc_encrypt_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct ethhdr *l2;
@@ -68,8 +68,8 @@ int ipv4_ipsec_from_lxc_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipv4_ipsec_from_lxc")
-int ipv4_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
+SETUP("tc", "02_ipv4_from_lxc_encrypt")
+int ipv4_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 {
 	struct policy_key policy_key = { .egress = 1 };
 	struct policy_entry policy_value = {};
@@ -103,8 +103,8 @@ int ipv4_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "ipv4_ipsec_from_lxc")
-int ipv4_ipsec_from_lxc_check(__maybe_unused const struct __ctx_buff *ctx)
+CHECK("tc", "02_ipv4_from_lxc_encrypt")
+int ipv4_from_lxc_encrypt_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -173,8 +173,8 @@ int ipv4_ipsec_from_lxc_check(__maybe_unused const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "ipv6_ipsec_from_lxc")
-int ipv6_ipsec_from_lxc_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "03_ipv6_from_lxc_encrypt")
+int ipv6_from_lxc_encrypt_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct ethhdr *l2;
@@ -208,8 +208,8 @@ int ipv6_ipsec_from_lxc_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipv6_ipsec_from_lxc")
-int ipv6_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
+SETUP("tc", "03_ipv6_from_lxc_encrypt")
+int ipv6_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 {
 	struct policy_key policy_key = { .egress = 1 };
 	struct policy_entry policy_value = {};
@@ -243,8 +243,8 @@ int ipv6_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "ipv6_ipsec_from_lxc")
-int ipv6_ipsec_from_lxc_check(__maybe_unused const struct __ctx_buff *ctx)
+CHECK("tc", "03_ipv6_from_lxc_encrypt")
+int ipv6_from_lxc_encrypt_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
