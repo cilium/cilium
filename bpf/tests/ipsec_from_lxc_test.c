@@ -32,8 +32,8 @@ struct {
 	},
 };
 
-PKTGEN("tc", "02_ipv4_from_lxc_encrypt")
-int ipv4_from_lxc_encrypt_pktgen(struct __ctx_buff *ctx)
+static __always_inline int
+pktgen_from_lxc(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct ethhdr *l2;
@@ -68,8 +68,14 @@ int ipv4_from_lxc_encrypt_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "02_ipv4_from_lxc_encrypt")
-int ipv4_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
+PKTGEN("tc", "01_ipv4_from_lxc_no_node_id")
+int ipv4_from_lxc_no_node_id_pktgen(struct __ctx_buff *ctx)
+{
+	return pktgen_from_lxc(ctx);
+}
+
+SETUP("tc", "01_ipv4_from_lxc_no_node_id")
+int ipv4_from_lxc_no_node_id_setup(struct __ctx_buff *ctx)
 {
 	struct policy_key policy_key = { .egress = 1 };
 	struct policy_entry policy_value = {};
@@ -92,6 +98,50 @@ int ipv4_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 
 	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
 
+	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
+	return TEST_ERROR;
+}
+
+CHECK("tc", "01_ipv4_from_lxc_no_node_id")
+int ipv4_from_lxc_no_node_id_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	struct metrics_value *entry = NULL;
+	struct metrics_key key = {};
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(*status_code) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_DROP);
+
+	key.reason = (__u8)-DROP_NO_NODE_ID;
+	key.dir = METRIC_EGRESS;
+	entry = map_lookup_elem(&METRICS_MAP, &key);
+	if (!entry)
+		test_fatal("metrics entry not found");
+	assert(entry->count == 1);
+
+	test_finish();
+}
+
+PKTGEN("tc", "02_ipv4_from_lxc_encrypt")
+int ipv4_from_lxc_encrypt_pktgen(struct __ctx_buff *ctx)
+{
+	return pktgen_from_lxc(ctx);
+}
+
+SETUP("tc", "02_ipv4_from_lxc_encrypt")
+int ipv4_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
+{
 	struct node_key node_ip = {};
 	__u32 node_id = NODE_ID;
 
