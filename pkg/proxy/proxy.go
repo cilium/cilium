@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
@@ -135,9 +134,11 @@ type Proxy struct {
 
 	envoyIntegration *envoyProxyIntegration
 	dnsIntegration   *dnsProxyIntegration
+
+	metrics *proxyMetrics
 }
 
-func createProxy(minPort uint16, maxPort uint16, datapathUpdater DatapathUpdater, envoyIntegration *envoyProxyIntegration, dnsIntegration *dnsProxyIntegration, xdsServer envoy.XDSServer) *Proxy {
+func createProxy(minPort uint16, maxPort uint16, datapathUpdater DatapathUpdater, envoyIntegration *envoyProxyIntegration, dnsIntegration *dnsProxyIntegration, xdsServer envoy.XDSServer, metrics *proxyMetrics) *Proxy {
 	return &Proxy{
 		XDSServer:        xdsServer,
 		rangeMin:         minPort,
@@ -148,6 +149,7 @@ func createProxy(minPort uint16, maxPort uint16, datapathUpdater DatapathUpdater
 		proxyPorts:       defaultProxyPortMap(),
 		envoyIntegration: envoyIntegration,
 		dnsIntegration:   dnsIntegration,
+		metrics:          metrics,
 	}
 }
 
@@ -762,6 +764,6 @@ func (p *Proxy) updateRedirectMetrics() {
 		result[string(redirect.listener.proxyType)]++
 	}
 	for proto, count := range result {
-		metrics.ProxyRedirects.WithLabelValues(proto).Set(float64(count))
+		p.metrics.ProxyRedirects.WithLabelValues(proto).Set(float64(count))
 	}
 }

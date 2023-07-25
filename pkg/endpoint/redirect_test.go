@@ -164,7 +164,7 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 		redirectPortUserMap: make(map[uint16][]string),
 	}
 
-	ep := NewEndpointWithState(do, do, testipcache.NewMockIPCache(), rsp, mgr, 12345, StateRegenerating)
+	ep := NewEndpointWithState(do, do, testipcache.NewMockIPCache(), rsp, mgr, NewEndpointL7Metrics(), 12345, StateRegenerating)
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	epIdentity, _, err := mgr.AllocateIdentity(context.Background(), qaBarLbls, true, identity.InvalidIdentity)
@@ -392,7 +392,7 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 		redirectPortUserMap: make(map[uint16][]string),
 	}
 
-	ep := NewEndpointWithState(do, do, testipcache.NewMockIPCache(), rsp, mgr, 12345, StateRegenerating)
+	ep := NewEndpointWithState(do, do, testipcache.NewMockIPCache(), rsp, mgr, NewEndpointL7Metrics(), 12345, StateRegenerating)
 
 	epIdentity, _, err := mgr.AllocateIdentity(context.Background(), labelsBar.Labels(),
 		true, identity.NumericIdentity(identityBar))

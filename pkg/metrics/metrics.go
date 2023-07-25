@@ -142,9 +142,6 @@ const (
 	// (scope=slow_path)
 	LabelScope = "scope"
 
-	// LabelProtocolL7 is the label used when working with layer 7 protocols.
-	LabelProtocolL7 = "protocol_l7"
-
 	// LabelBuildState is the state a build queue entry is in
 	LabelBuildState = "state"
 
@@ -333,38 +330,6 @@ var (
 
 	// EventLagK8s is the lag calculation for k8s Pod events.
 	EventLagK8s = NoOpGauge
-
-	// L7 statistics
-
-	// ProxyRedirects is the number of redirects labeled by protocol
-	ProxyRedirects = NoOpGaugeVec
-
-	// ProxyPolicyL7Total is a count of all l7 requests handled by proxy
-	ProxyPolicyL7Total = NoOpCounterVec
-
-	// ProxyParseErrors is a count of failed parse errors on proxy
-	// Deprecated: in favor of ProxyPolicyL7Total
-	ProxyParseErrors = NoOpCounter
-
-	// ProxyForwarded is a count of all forwarded requests by proxy
-	// Deprecated: in favor of ProxyPolicyL7Total
-	ProxyForwarded = NoOpCounter
-
-	// ProxyDenied is a count of all denied requests by policy by the proxy
-	// Deprecated: in favor of ProxyPolicyL7Total
-	ProxyDenied = NoOpCounter
-
-	// ProxyReceived is a count of all received requests by the proxy
-	// Deprecated: in favor of ProxyPolicyL7Total
-	ProxyReceived = NoOpCounter
-
-	// ProxyUpstreamTime is how long the upstream server took to reply labeled
-	// by error, protocol and span time
-	ProxyUpstreamTime = NoOpObserverVec
-
-	// ProxyDatapathUpdateTimeout is a count of all the timeouts encountered while
-	// updating the datapath due to an FQDN IP update
-	ProxyDatapathUpdateTimeout = NoOpCounter
 
 	// L3-L4 statistics
 
@@ -590,14 +555,6 @@ type LegacyMetrics struct {
 	Identity                         metric.Vec[metric.Gauge]
 	EventTS                          metric.Vec[metric.Gauge]
 	EventLagK8s                      metric.Gauge
-	ProxyRedirects                   metric.Vec[metric.Gauge]
-	ProxyPolicyL7Total               metric.Vec[metric.Counter]
-	ProxyParseErrors                 metric.Counter
-	ProxyForwarded                   metric.Counter
-	ProxyDenied                      metric.Counter
-	ProxyReceived                    metric.Counter
-	ProxyUpstreamTime                metric.Vec[metric.Observer]
-	ProxyDatapathUpdateTimeout       metric.Counter
 	DropCount                        metric.Vec[metric.Counter]
 	DropBytes                        metric.Vec[metric.Counter]
 	ForwardCount                     metric.Vec[metric.Counter]
@@ -791,67 +748,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:        "k8s_event_lag_seconds",
 			Help:        "Lag for Kubernetes events - computed value between receiving a CNI ADD event from kubelet and a Pod event received from kube-api-server",
 			ConstLabels: prometheus.Labels{"source": LabelEventSourceK8s},
-		}),
-
-		ProxyRedirects: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: Namespace + "_proxy_redirects",
-
-			Namespace: Namespace,
-			Name:      "proxy_redirects",
-			Help:      "Number of redirects installed for endpoints, labeled by protocol",
-		}, []string{LabelProtocolL7}),
-
-		ProxyPolicyL7Total: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: Namespace + "_policy_l7_total",
-
-			Namespace: Namespace,
-			Name:      "policy_l7_total",
-			Help:      "Number of total proxy requests handled",
-		}, []string{"rule"}),
-
-		ProxyParseErrors: metric.NewCounter(metric.CounterOpts{
-			ConfigName: Namespace + "_policy_l7_parse_errors_total",
-			Namespace:  Namespace,
-			Name:       "policy_l7_parse_errors_total",
-			Help:       "Number of total L7 parse errors",
-		}),
-
-		ProxyForwarded: metric.NewCounter(metric.CounterOpts{
-			ConfigName: Namespace + "_policy_l7_forwarded_total",
-			Namespace:  Namespace,
-			Name:       "policy_l7_forwarded_total",
-			Help:       "Number of total L7 forwarded requests/responses",
-		}),
-
-		ProxyDenied: metric.NewCounter(metric.CounterOpts{
-			ConfigName: Namespace + "_policy_l7_denied_total",
-			Namespace:  Namespace,
-			Name:       "policy_l7_denied_total",
-			Help:       "Number of total L7 denied requests/responses due to policy",
-		}),
-
-		ProxyReceived: metric.NewCounter(metric.CounterOpts{
-			ConfigName: Namespace + "_policy_l7_received_total",
-
-			Namespace: Namespace,
-			Name:      "policy_l7_received_total",
-			Help:      "Number of total L7 received requests/responses",
-		}),
-
-		ProxyUpstreamTime: metric.NewHistogramVec(metric.HistogramOpts{
-			ConfigName: Namespace + "_proxy_upstream_reply_seconds",
-			Namespace:  Namespace,
-			Name:       "proxy_upstream_reply_seconds",
-			Help:       "Seconds waited to get a reply from a upstream server",
-		}, []string{"error", LabelProtocolL7, LabelScope}),
-
-		ProxyDatapathUpdateTimeout: metric.NewCounter(metric.CounterOpts{
-			ConfigName: Namespace + "_proxy_datapath_update_timeout_total",
-			Disabled:   true,
-
-			Namespace: Namespace,
-			Name:      "proxy_datapath_update_timeout_total",
-			Help:      "Number of total datapath update timeouts due to FQDN IP updates",
 		}),
 
 		DropCount: metric.NewCounterVec(metric.CounterOpts{
@@ -1318,14 +1214,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 	Identity = lm.Identity
 	EventTS = lm.EventTS
 	EventLagK8s = lm.EventLagK8s
-	ProxyRedirects = lm.ProxyRedirects
-	ProxyPolicyL7Total = lm.ProxyPolicyL7Total
-	ProxyParseErrors = lm.ProxyParseErrors
-	ProxyForwarded = lm.ProxyForwarded
-	ProxyDenied = lm.ProxyDenied
-	ProxyReceived = lm.ProxyReceived
-	ProxyUpstreamTime = lm.ProxyUpstreamTime
-	ProxyDatapathUpdateTimeout = lm.ProxyDatapathUpdateTimeout
 	DropCount = lm.DropCount
 	DropBytes = lm.DropBytes
 	ForwardCount = lm.ForwardCount

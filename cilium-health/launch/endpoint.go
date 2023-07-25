@@ -229,6 +229,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	bigTCPConfig bigtcp.Configuration,
 	epMgr EndpointAdder,
 	proxy endpoint.EndpointProxy,
+	l7Metrics *endpoint.EndpointL7Metrics,
 	allocator cache.IdentityAllocator,
 	routingConfig routingConfigurer) (*Client, error) {
 
@@ -300,7 +301,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	// Create the endpoint
-	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, policyGetter, ipcache, proxy, allocator, info)
+	ep, err := endpoint.NewEndpointFromChangeModel(baseCtx, owner, policyGetter, ipcache, proxy, allocator, l7Metrics, info)
 	if err != nil {
 		return nil, fmt.Errorf("Error while creating endpoint model: %s", err)
 	}

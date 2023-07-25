@@ -162,3 +162,92 @@ func (epPolicyMaps *endpointPolicyStatusMap) UpdateMetrics() {
 		metrics.PolicyEndpointStatus.WithLabelValues(string(k)).Set(v)
 	}
 }
+
+// LabelProtocolL7 is the label used when working with layer 7 protocols.
+const LabelProtocolL7 = "protocol_l7"
+
+type EndpointL7Metrics struct {
+	// ProxyPolicyL7Total is a count of all l7 requests handled by proxy
+	ProxyPolicyL7Total metric.Vec[metric.Counter]
+
+	// ProxyParseErrors is a count of failed parse errors on proxy
+	// Deprecated: in favor of ProxyPolicyL7Total
+	ProxyParseErrors metric.Counter
+
+	// ProxyForwarded is a count of all forwarded requests by proxy
+	// Deprecated: in favor of ProxyPolicyL7Total
+	ProxyForwarded metric.Counter
+
+	// ProxyDenied is a count of all denied requests by policy by the proxy
+	// Deprecated: in favor of ProxyPolicyL7Total
+	ProxyDenied metric.Counter
+
+	// ProxyReceived is a count of all received requests by the proxy
+	// Deprecated: in favor of ProxyPolicyL7Total
+	ProxyReceived metric.Counter
+
+	// ProxyUpstreamTime is how long the upstream server took to reply labeled
+	// by error, protocol and span time
+	ProxyUpstreamTime metric.Vec[metric.Observer]
+
+	// ProxyDatapathUpdateTimeout is a count of all the timeouts encountered while
+	// updating the datapath due to an FQDN IP update
+	ProxyDatapathUpdateTimeout metric.Counter
+}
+
+func NewEndpointL7Metrics() *EndpointL7Metrics {
+	return &EndpointL7Metrics{
+		ProxyPolicyL7Total: metric.NewCounterVec(metric.CounterOpts{
+			ConfigName: metrics.Namespace + "_policy_l7_total",
+
+			Namespace: metrics.Namespace,
+			Name:      "policy_l7_total",
+			Help:      "Number of total proxy requests handled",
+		}, []string{"rule"}),
+
+		ProxyParseErrors: metric.NewCounter(metric.CounterOpts{
+			ConfigName: metrics.Namespace + "_policy_l7_parse_errors_total",
+			Namespace:  metrics.Namespace,
+			Name:       "policy_l7_parse_errors_total",
+			Help:       "Number of total L7 parse errors",
+		}),
+
+		ProxyForwarded: metric.NewCounter(metric.CounterOpts{
+			ConfigName: metrics.Namespace + "_policy_l7_forwarded_total",
+			Namespace:  metrics.Namespace,
+			Name:       "policy_l7_forwarded_total",
+			Help:       "Number of total L7 forwarded requests/responses",
+		}),
+
+		ProxyDenied: metric.NewCounter(metric.CounterOpts{
+			ConfigName: metrics.Namespace + "_policy_l7_denied_total",
+			Namespace:  metrics.Namespace,
+			Name:       "policy_l7_denied_total",
+			Help:       "Number of total L7 denied requests/responses due to policy",
+		}),
+
+		ProxyReceived: metric.NewCounter(metric.CounterOpts{
+			ConfigName: metrics.Namespace + "_policy_l7_received_total",
+
+			Namespace: metrics.Namespace,
+			Name:      "policy_l7_received_total",
+			Help:      "Number of total L7 received requests/responses",
+		}),
+
+		ProxyUpstreamTime: metric.NewHistogramVec(metric.HistogramOpts{
+			ConfigName: metrics.Namespace + "_proxy_upstream_reply_seconds",
+			Namespace:  metrics.Namespace,
+			Name:       "proxy_upstream_reply_seconds",
+			Help:       "Seconds waited to get a reply from a upstream server",
+		}, []string{"error", LabelProtocolL7, metrics.LabelScope}),
+
+		ProxyDatapathUpdateTimeout: metric.NewCounter(metric.CounterOpts{
+			ConfigName: metrics.Namespace + "_proxy_datapath_update_timeout_total",
+			Disabled:   true,
+
+			Namespace: metrics.Namespace,
+			Name:      "proxy_datapath_update_timeout_total",
+			Help:      "Number of total datapath update timeouts due to FQDN IP updates",
+		}),
+	}
+}

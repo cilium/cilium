@@ -74,6 +74,7 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup) {
 						d.bigTCPConfig,
 						d.endpointManager,
 						d.l7Proxy,
+						d.l7Metrics,
 						d.identityAllocator,
 						d.healthEndpointRouting,
 					)

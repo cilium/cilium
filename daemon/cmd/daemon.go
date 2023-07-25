@@ -113,6 +113,7 @@ type Daemon struct {
 	clientset        k8sClient.Clientset
 	buildEndpointSem *semaphore.Weighted
 	l7Proxy          *proxy.Proxy
+	l7Metrics        *endpoint.EndpointL7Metrics
 	svc              *service.Service
 	rec              *recorder.Recorder
 	policy           *policy.Repository
@@ -534,6 +535,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		monitorAgent:         params.MonitorAgent,
 		l2announcer:          params.L2Announcer,
 		l7Proxy:              params.L7Proxy,
+		l7Metrics:            params.L7Metrics,
 		db:                   params.DB,
 		settings:             params.Settings,
 		healthProvider:       params.HealthProvider,

@@ -33,6 +33,7 @@ var Cell = cell.Module(
 
 	cell.Config(defaultEndpointManagerConfig),
 	cell.Provide(newDefaultEndpointManager),
+	cell.Metric(endpoint.NewEndpointL7Metrics),
 )
 
 type EndpointsLookup interface {
@@ -162,10 +163,11 @@ var (
 type endpointManagerParams struct {
 	cell.In
 
-	Lifecycle       hive.Lifecycle
-	Config          EndpointManagerConfig
-	Clientset       client.Clientset
-	MetricsRegistry *metrics.Registry
+	Lifecycle         hive.Lifecycle
+	Config            EndpointManagerConfig
+	Clientset         client.Clientset
+	MetricsRegistry   *metrics.Registry
+	EndpointL7Metrics *endpoint.EndpointL7Metrics
 }
 
 type endpointManagerOut struct {
@@ -179,7 +181,7 @@ type endpointManagerOut struct {
 func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	checker := endpoint.CheckHealth
 
-	mgr := New(&watchers.EndpointSynchronizer{Clientset: p.Clientset})
+	mgr := New(&watchers.EndpointSynchronizer{Clientset: p.Clientset}, p.EndpointL7Metrics)
 	if p.Config.EndpointGCInterval > 0 {
 		ctx, cancel := context.WithCancel(context.Background())
 		p.Lifecycle.Append(hive.Hook{

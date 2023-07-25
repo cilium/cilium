@@ -24,6 +24,7 @@ var Cell = cell.Module(
 	cell.Provide(newEnvoyProxyIntegration),
 	cell.Provide(newDNSProxyIntegration),
 	cell.ProvidePrivate(endpoint.NewEndpointInfoRegistry),
+	cell.Metric(newProxyMetrics),
 )
 
 type proxyParams struct {
@@ -35,6 +36,7 @@ type proxyParams struct {
 	EnvoyProxyIntegration *envoyProxyIntegration
 	DNSProxyIntegration   *dnsProxyIntegration
 	XdsServer             envoy.XDSServer
+	Metrics               *proxyMetrics
 }
 
 func newProxy(params proxyParams) *Proxy {
@@ -49,7 +51,7 @@ func newProxy(params proxyParams) *Proxy {
 	configureProxyLogger(params.EndpointInfoRegistry, params.MonitorAgent, option.Config.AgentLabels)
 
 	// FIXME: Make the port range configurable.
-	return createProxy(10000, 20000, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration, params.XdsServer)
+	return createProxy(10000, 20000, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration, params.XdsServer, params.Metrics)
 }
 
 type envoyProxyIntegrationParams struct {
