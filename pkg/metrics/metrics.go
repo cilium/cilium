@@ -485,29 +485,6 @@ var (
 	// from/to the kvstore has completed.
 	KVStoreInitialSyncCompleted = NoOpGaugeVec
 
-	// FQDNGarbageCollectorCleanedTotal is the number of domains cleaned by the
-	// GC job.
-	FQDNGarbageCollectorCleanedTotal = NoOpCounter
-
-	// FQDNActiveNames is the number of domains inside the DNS cache that have
-	// not expired (by TTL), per endpoint.
-	FQDNActiveNames = NoOpGaugeVec
-
-	// FQDNActiveIPs is the number of IPs inside the DNS cache associated with
-	// a domain that has not expired (by TTL) and are currently active, per
-	// endpoint.
-	FQDNActiveIPs = NoOpGaugeVec
-
-	// FQDNAliveZombieConnections is the number IPs associated with domains
-	// that have expired (by TTL) yet still associated with an active
-	// connection (aka zombie), per endpoint.
-	FQDNAliveZombieConnections = NoOpGaugeVec
-
-	// FQDNSemaphoreRejectedTotal is the total number of DNS requests rejected
-	// by the DNS proxy because too many requests were in flight, as enforced by
-	// the admission semaphore.
-	FQDNSemaphoreRejectedTotal = NoOpCounter
-
 	// IPCacheErrorsTotal is the total number of IPCache events handled in
 	// the IPCache subsystem that resulted in errors.
 	IPCacheErrorsTotal = NoOpCounterVec
@@ -1104,50 +1081,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Number of events interacting with the IP to Identity cache",
 		}, []string{LabelType}),
 
-		FQDNGarbageCollectorCleanedTotal: metric.NewCounter(metric.CounterOpts{
-			ConfigName: Namespace + "_" + SubsystemFQDN + "_gc_deletions_total",
-			Namespace:  Namespace,
-			Subsystem:  SubsystemFQDN,
-			Name:       "gc_deletions_total",
-			Help:       "Number of FQDNs that have been cleaned on FQDN Garbage collector job",
-		}),
-
-		FQDNActiveNames: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: Namespace + "_" + SubsystemFQDN + "_active_names",
-			Disabled:   true,
-			Namespace:  Namespace,
-			Subsystem:  SubsystemFQDN,
-			Name:       "active_names",
-			Help:       "Number of domains inside the DNS cache that have not expired (by TTL), per endpoint",
-		}, []string{LabelPeerEndpoint}),
-
-		FQDNActiveIPs: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: Namespace + "_" + SubsystemFQDN + "_active_ips",
-			Disabled:   true,
-			Namespace:  Namespace,
-			Subsystem:  SubsystemFQDN,
-			Name:       "active_ips",
-			Help:       "Number of IPs inside the DNS cache associated with a domain that has not expired (by TTL), per endpoint",
-		}, []string{LabelPeerEndpoint}),
-
-		FQDNAliveZombieConnections: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: Namespace + "_" + SubsystemFQDN + "_alive_zombie_connections",
-			Disabled:   true,
-			Namespace:  Namespace,
-			Subsystem:  SubsystemFQDN,
-			Name:       "alive_zombie_connections",
-			Help:       "Number of IPs associated with domains that have expired (by TTL) yet still associated with an active connection (aka zombie), per endpoint",
-		}, []string{LabelPeerEndpoint}),
-
-		FQDNSemaphoreRejectedTotal: metric.NewCounter(metric.CounterOpts{
-			ConfigName: Namespace + "_" + SubsystemFQDN + "_semaphore_rejected_total",
-			Disabled:   true,
-			Namespace:  Namespace,
-			Subsystem:  SubsystemFQDN,
-			Name:       "semaphore_rejected_total",
-			Help:       "Number of DNS request rejected by the DNS Proxy's admission semaphore",
-		}),
-
 		BPFSyscallDuration: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: Namespace + "_" + SubsystemBPF + "_syscall_duration_seconds",
 			Disabled:   true,
@@ -1355,11 +1288,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 	KVStoreQuorumErrors = lm.KVStoreQuorumErrors
 	KVStoreSyncQueueSize = lm.KVStoreSyncQueueSize
 	KVStoreInitialSyncCompleted = lm.KVStoreInitialSyncCompleted
-	FQDNGarbageCollectorCleanedTotal = lm.FQDNGarbageCollectorCleanedTotal
-	FQDNActiveNames = lm.FQDNActiveNames
-	FQDNActiveIPs = lm.FQDNActiveIPs
-	FQDNAliveZombieConnections = lm.FQDNAliveZombieConnections
-	FQDNSemaphoreRejectedTotal = lm.FQDNSemaphoreRejectedTotal
 	IPCacheErrorsTotal = lm.IPCacheErrorsTotal
 	IPCacheEventsTotal = lm.IPCacheEventsTotal
 	BPFSyscallDuration = lm.BPFSyscallDuration

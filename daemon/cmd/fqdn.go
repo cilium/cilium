@@ -37,6 +37,7 @@ import (
 	ippkg "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
@@ -214,13 +215,13 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 			endpoints := d.endpointManager.GetEndpoints()
 			for _, ep := range endpoints {
 				epID := ep.StringID()
-				if metrics.FQDNActiveNames.IsEnabled() || metrics.FQDNActiveIPs.IsEnabled() {
+				if d.fqdnMetrics.FQDNActiveNames.IsEnabled() || d.fqdnMetrics.FQDNActiveIPs.IsEnabled() {
 					countFQDNs, countIPs := ep.DNSHistory.Count()
-					if metrics.FQDNActiveNames.IsEnabled() {
-						metrics.FQDNActiveNames.WithLabelValues(epID).Set(float64(countFQDNs))
+					if d.fqdnMetrics.FQDNActiveNames.IsEnabled() {
+						d.fqdnMetrics.FQDNActiveNames.WithLabelValues(epID).Set(float64(countFQDNs))
 					}
-					if metrics.FQDNActiveIPs.IsEnabled() {
-						metrics.FQDNActiveIPs.WithLabelValues(epID).Set(float64(countIPs))
+					if d.fqdnMetrics.FQDNActiveIPs.IsEnabled() {
+						d.fqdnMetrics.FQDNActiveIPs.WithLabelValues(epID).Set(float64(countIPs))
 					}
 				}
 				affectedNames := ep.DNSHistory.GC(GCStart, ep.DNSZombies)
@@ -230,8 +231,8 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 					}
 				}
 				alive, dead := ep.DNSZombies.GC()
-				if metrics.FQDNAliveZombieConnections.IsEnabled() {
-					metrics.FQDNAliveZombieConnections.WithLabelValues(epID).Set(float64(len(alive)))
+				if d.fqdnMetrics.FQDNAliveZombieConnections.IsEnabled() {
+					d.fqdnMetrics.FQDNAliveZombieConnections.WithLabelValues(epID).Set(float64(len(alive)))
 				}
 
 				// Alive zombie need to be added to the global cache as name->IP
@@ -292,7 +293,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 
 			cfg.Cache.ReplaceFromCacheByNames(namesToCleanSlice, caches...)
 
-			metrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToCleanSlice)))
+			d.fqdnMetrics.FQDNGarbageCollectorCleanedTotal.Add(float64(len(namesToCleanSlice)))
 			_, err := d.dnsNameManager.ForceGenerateDNS(context.TODO(), namesToCleanSlice)
 			namesCount := len(namesToCleanSlice)
 			// Limit the amount of info level logging to some sane amount
@@ -466,7 +467,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		stat.ProcessingTime.End(true)
 		stat.TotalTime.End(true)
 		if errors.As(stat.Err, &dnsproxy.ErrFailedAcquireSemaphore{}) || errors.As(stat.Err, &dnsproxy.ErrTimedOutAcquireSemaphore{}) {
-			metrics.FQDNSemaphoreRejectedTotal.Inc()
+			d.fqdnMetrics.FQDNSemaphoreRejectedTotal.Inc()
 		}
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, totalTime).Observe(
 			stat.TotalTime.Total().Seconds())
@@ -948,4 +949,77 @@ func readPreCache(preCachePath string) (cache *fqdn.DNSCache, err error) {
 		return nil, err
 	}
 	return cache, nil
+}
+
+type fqdnMetrics struct {
+	// FQDNGarbageCollectorCleanedTotal is the number of domains cleaned by the
+	// GC job.
+	FQDNGarbageCollectorCleanedTotal metric.Counter
+
+	// FQDNActiveNames is the number of domains inside the DNS cache that have
+	// not expired (by TTL), per endpoint.
+	FQDNActiveNames metric.Vec[metric.Gauge]
+
+	// FQDNActiveIPs is the number of IPs inside the DNS cache associated with
+	// a domain that has not expired (by TTL) and are currently active, per
+	// endpoint.
+	FQDNActiveIPs metric.Vec[metric.Gauge]
+
+	// FQDNAliveZombieConnections is the number IPs associated with domains
+	// that have expired (by TTL) yet still associated with an active
+	// connection (aka zombie), per endpoint.
+	FQDNAliveZombieConnections metric.Vec[metric.Gauge]
+
+	// FQDNSemaphoreRejectedTotal is the total number of DNS requests rejected
+	// by the DNS proxy because too many requests were in flight, as enforced by
+	// the admission semaphore.
+	FQDNSemaphoreRejectedTotal metric.Counter
+}
+
+func newFqdnMetrics() *fqdnMetrics {
+	return &fqdnMetrics{
+		FQDNGarbageCollectorCleanedTotal: metric.NewCounter(metric.CounterOpts{
+			ConfigName: metrics.Namespace + "_" + metrics.SubsystemFQDN + "_gc_deletions_total",
+			Namespace:  metrics.Namespace,
+			Subsystem:  metrics.SubsystemFQDN,
+			Name:       "gc_deletions_total",
+			Help:       "Number of FQDNs that have been cleaned on FQDN Garbage collector job",
+		}),
+
+		FQDNActiveNames: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: metrics.Namespace + "_" + metrics.SubsystemFQDN + "_active_names",
+			Disabled:   true,
+			Namespace:  metrics.Namespace,
+			Subsystem:  metrics.SubsystemFQDN,
+			Name:       "active_names",
+			Help:       "Number of domains inside the DNS cache that have not expired (by TTL), per endpoint",
+		}, []string{metrics.LabelPeerEndpoint}),
+
+		FQDNActiveIPs: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: metrics.Namespace + "_" + metrics.SubsystemFQDN + "_active_ips",
+			Disabled:   true,
+			Namespace:  metrics.Namespace,
+			Subsystem:  metrics.SubsystemFQDN,
+			Name:       "active_ips",
+			Help:       "Number of IPs inside the DNS cache associated with a domain that has not expired (by TTL), per endpoint",
+		}, []string{metrics.LabelPeerEndpoint}),
+
+		FQDNAliveZombieConnections: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: metrics.Namespace + "_" + metrics.SubsystemFQDN + "_alive_zombie_connections",
+			Disabled:   true,
+			Namespace:  metrics.Namespace,
+			Subsystem:  metrics.SubsystemFQDN,
+			Name:       "alive_zombie_connections",
+			Help:       "Number of IPs associated with domains that have expired (by TTL) yet still associated with an active connection (aka zombie), per endpoint",
+		}, []string{metrics.LabelPeerEndpoint}),
+
+		FQDNSemaphoreRejectedTotal: metric.NewCounter(metric.CounterOpts{
+			ConfigName: metrics.Namespace + "_" + metrics.SubsystemFQDN + "_semaphore_rejected_total",
+			Disabled:   true,
+			Namespace:  metrics.Namespace,
+			Subsystem:  metrics.SubsystemFQDN,
+			Name:       "semaphore_rejected_total",
+			Help:       "Number of DNS request rejected by the DNS Proxy's admission semaphore",
+		}),
+	}
 }

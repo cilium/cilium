@@ -1603,6 +1603,7 @@ var daemonCell = cell.Module(
 	// by the debuginfo API
 	cell.ProvidePrivate(daemonSettings),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
+	cell.Metric(newFqdnMetrics),
 )
 
 type daemonParams struct {
@@ -1642,6 +1643,7 @@ type daemonParams struct {
 	HealthProvider       cell.Health
 	HealthReporter       cell.HealthReporter
 	DeviceManager        *linuxdatapath.DeviceManager `optional:"true"`
+	FQDNMetrics          *fqdnMetrics
 
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,
