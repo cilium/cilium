@@ -2721,6 +2721,9 @@ clustermesh:
       # -- Security context to be added to clustermesh-apiserver etcd containers
       securityContext: {}
 
+      # -- lifecycle setting for the etcd container
+      lifecycle: {}
+
       init:
         # -- Specifies the resources for etcd init container in the apiserver
         resources: {}
@@ -2771,6 +2774,9 @@ clustermesh:
           drop:
             - ALL
 
+      # -- lifecycle setting for the KVStoreMesh container
+      lifecycle: {}
+
     service:
       # -- The type of service used for apiserver access.
       type: NodePort
@@ -2800,6 +2806,12 @@ clustermesh:
 
     # -- Number of replicas run for the clustermesh-apiserver deployment.
     replicas: 1
+
+    # -- lifecycle setting for the apiserver container
+    lifecycle: {}
+
+    # -- terminationGracePeriodSeconds for the clustermesh-apiserver deployment
+    terminationGracePeriodSeconds: 30
 
     # -- Additional clustermesh-apiserver arguments.
     extraArgs: []

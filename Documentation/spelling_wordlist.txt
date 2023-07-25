@@ -635,6 +635,7 @@ tcptop
 tcptracer
 templating
 terminatingTLS
+terminationGracePeriodSeconds
 testsuite
 tetragon
 th

@@ -368,6 +368,10 @@
      - Specifies the resources for etcd init container in the apiserver
      - object
      - ``{}``
+   * - :spelling:ignore:`clustermesh.apiserver.etcd.lifecycle`
+     - lifecycle setting for the etcd container
+     - object
+     - ``{}``
    * - :spelling:ignore:`clustermesh.apiserver.etcd.resources`
      - Specifies the resources for etcd container in the apiserver
      - object
@@ -416,6 +420,10 @@
      - KVStoreMesh image.
      - object
      - ``{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/kvstoremesh-ci","tag":"latest","useDigest":false}``
+   * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.lifecycle`
+     - lifecycle setting for the KVStoreMesh container
+     - object
+     - ``{}``
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.resources`
      - Resource requests and limits for the KVStoreMesh container
      - object
@@ -424,6 +432,10 @@
      - KVStoreMesh Security context
      - object
      - ``{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}``
+   * - :spelling:ignore:`clustermesh.apiserver.lifecycle`
+     - lifecycle setting for the apiserver container
+     - object
+     - ``{}``
    * - :spelling:ignore:`clustermesh.apiserver.metrics.enabled`
      - Enables exporting apiserver metrics in OpenMetrics format.
      - bool
@@ -564,6 +576,10 @@
      - The type of service used for apiserver access.
      - string
      - ``"NodePort"``
+   * - :spelling:ignore:`clustermesh.apiserver.terminationGracePeriodSeconds`
+     - terminationGracePeriodSeconds for the clustermesh-apiserver deployment
+     - int
+     - ``30``
    * - :spelling:ignore:`clustermesh.apiserver.tls.admin`
      - base64 encoded PEM values for the clustermesh-apiserver admin certificate and private key. Used if 'auto' is not enabled.
      - object
