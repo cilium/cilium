@@ -39,10 +39,10 @@ type nodeMap struct {
 	bpfMap *ebpf.Map
 }
 
-func newMap() *nodeMap {
+func newMap(mapName string) *nodeMap {
 	return &nodeMap{
 		bpfMap: ebpf.NewMap(&ebpf.MapSpec{
-			Name:       MapName,
+			Name:       mapName,
 			Type:       ebpf.Hash,
 			KeySize:    uint32(unsafe.Sizeof(NodeKey{})),
 			ValueSize:  uint32(unsafe.Sizeof(NodeValue{})),
