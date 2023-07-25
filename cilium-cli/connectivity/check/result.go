@@ -167,19 +167,17 @@ func assertMetricsIncrease(metrics ...string) assertMetricsFunc {
 	return func(before, after map[string]*dto.MetricFamily) error {
 		var err error
 		for _, metricName := range metrics {
-			bValue, ok := before[metricName]
-			if !ok {
-				err = errors.Join(err, fmt.Errorf("metric %s has not been retrieved before action", metricName))
-			}
+			// beforeValue can be absent, we will consider it as nil by default.
+			beforeValue := before[metricName]
 
-			aValue, ok := after[metricName]
+			afterValue, ok := after[metricName]
 			if !ok {
 				err = errors.Join(err, fmt.Errorf("metric %s has not been retrieved after action", metricName))
 			}
 
 			// Additional check needed because previously we do not return in case of error, otherwise we will panic!
-			if bValue != nil && aValue != nil {
-				errM := metricsIncrease(bValue, aValue)
+			if afterValue != nil {
+				errM := metricsIncrease(beforeValue, afterValue)
 				if errM != nil {
 					err = errors.Join(err, errM)
 				}
