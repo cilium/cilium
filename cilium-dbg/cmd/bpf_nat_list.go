@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/nat"
+	"github.com/cilium/cilium/pkg/maps/timestamp"
 )
 
 // bpfNatListCmd represents the bpf_nat_list command
@@ -87,7 +88,11 @@ func dumpNat(maps []interface{}, args ...interface{}) {
 				Fatalf("Error while collecting BPF map entries: %s", err)
 			}
 		} else {
-			out, err := m.(nat.NatMap).DumpEntries()
+			clockSource, err := timestamp.GetClockSourceFromAgent(client.Daemon)
+			if err != nil {
+				Fatalf("Error while dumping BPF Map: %s", err)
+			}
+			out, err := nat.DumpEntriesWithTimeDiff(m.(nat.NatMap), clockSource)
 			if err != nil {
 				Fatalf("Error while dumping BPF Map: %s", err)
 			}

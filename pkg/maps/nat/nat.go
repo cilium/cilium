@@ -9,9 +9,11 @@ import (
 
 	"github.com/cilium/ebpf"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/timestamp"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
 )
@@ -47,7 +49,7 @@ type NatEntry interface {
 	ToHost() NatEntry
 
 	// Dumps the Nat entry as string.
-	Dump(key NatKey, start uint64) string
+	Dump(key NatKey, toDeltaSecs func(uint64) string) string
 }
 
 // A "Record" designates a map entry (key + value), but avoid "entry" because of
@@ -66,14 +68,6 @@ type NatMap interface {
 	Path() (string, error)
 	DumpEntries() (string, error)
 	DumpWithCallback(bpf.DumpCallback) error
-}
-
-// NatDumpCreated returns time in seconds when NAT entry was created.
-func NatDumpCreated(dumpStart, entryCreated uint64) string {
-	tsecCreated := entryCreated / 1000000000
-	tsecStart := dumpStart / 1000000000
-
-	return fmt.Sprintf("%dsec", tsecStart-tsecCreated)
 }
 
 // NewMap instantiates a Map.
@@ -117,22 +111,50 @@ func (m *Map) DumpReliablyWithCallback(cb bpf.DumpCallback, stats *bpf.DumpStats
 	return (&m.Map).DumpReliablyWithCallback(cb, stats)
 }
 
-// DoDumpEntries iterates through Map m and writes the values of the
-// nat entries in m to a string.
-func DoDumpEntries(m NatMap) (string, error) {
+// DumpEntriesWithTimeDiff iterates through Map m and writes the values of the
+// nat entries in m to a string. If clockSource is not nil, it uses it to
+// compute the time difference of each entry from now and prints that too.
+func DumpEntriesWithTimeDiff(m NatMap, clockSource *models.ClockSource) (string, error) {
+	var toDeltaSecs func(uint64) string
 	var sb strings.Builder
 
-	nsecStart, _ := bpf.GetMtime()
+	if clockSource == nil {
+		toDeltaSecs = func(t uint64) string {
+			return fmt.Sprintf("? (raw %d)", t)
+		}
+	} else {
+		now, err := timestamp.GetCTCurTime(clockSource)
+		if err != nil {
+			return "", err
+		}
+		tsConverter, err := timestamp.NewCTTimeToSecConverter(clockSource)
+		if err != nil {
+			return "", err
+		}
+		tsecNow := tsConverter(now)
+		toDeltaSecs = func(t uint64) string {
+			tsec := tsConverter(uint64(t))
+			diff := int64(tsecNow) - int64(tsec)
+			return fmt.Sprintf("%dsec ago", diff)
+		}
+	}
+
 	cb := func(k bpf.MapKey, v bpf.MapValue) {
 		key := k.(NatKey)
 		if !key.ToHost().Dump(&sb, false) {
 			return
 		}
 		val := v.(NatEntry)
-		sb.WriteString(val.ToHost().Dump(key, nsecStart))
+		sb.WriteString(val.ToHost().Dump(key, toDeltaSecs))
 	}
 	err := m.DumpWithCallback(cb)
 	return sb.String(), err
+}
+
+// DoDumpEntries iterates through Map m and writes the values of the
+// nat entries in m to a string.
+func DoDumpEntries(m NatMap) (string, error) {
+	return DumpEntriesWithTimeDiff(m, nil)
 }
 
 // DumpEntries iterates through Map m and writes the values of the
