@@ -96,6 +96,10 @@ func dumpNat(maps []interface{}, args ...interface{}) {
 		} else {
 			clockSource, err := timestamp.GetClockSourceFromAgent(client.Daemon)
 			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to get clocksource from agent: %s", err)
+				clockSource, err = timestamp.GetClockSourceFromRuntimeConfig()
+			}
+			if err != nil {
 				Fatalf("Error while dumping BPF Map: %s", err)
 			}
 			out, err := nat.DumpEntriesWithTimeDiff(m.(nat.NatMap), clockSource)
