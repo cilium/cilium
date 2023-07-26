@@ -1,5 +1,54 @@
 # Changelog
 
+## v1.11.19
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* client, health/client: set dummy host header on unix:// local communication (Backport PR #26917, Upstream PR #26800, @tklauser)
+* Fix bug that caused transient IPsec packet drops on upgrades when tunneling is enabled. (Backport PR #26872, Upstream PR #26708, @pchaigno)
+* Fix bug where CNI gets installed even if cni.install=false (Backport PR #26419, Upstream PR #26278, @joestringer)
+* Fix path asymmetry when using pod-to-pod encryption with IPsec and tunnel mode. (Backport PR #26872, Upstream PR #25440, @pchaigno)
+* Fixed Cilium agent crash when policy refers to a non-existing Envoy listener. (Backport PR #26419, Upstream PR #25969, @jrajahalme)
+* Fixed proxy redirect policy implementation when any deny rule prevents them. (Backport PR #26752, Upstream PR #26344, @jrajahalme)
+* ipsec: Split removeStaleXFRMOnce to fix deprioritization issue (Backport PR #26419, Upstream PR #26113, @jschwinger233)
+
+**CI Changes:**
+* ariane: don't skip verifier and l4lb tests on vendor/ changes (Backport PR #26801, Upstream PR #26715, @tklauser)
+* hostfw tests flake workaround (Backport PR #25557, Upstream PR #25323, @tommyp1ckles)
+* test: Fix and unquarantine `Skip conntrack` test (Backport PR #27030, Upstream PR #25038, @pchaigno)
+* v1.11: ci: increase ginkgo kernel test timeout (#26921, @mhofstetter)
+* v1.11: ci: use Ariane to trigger workflows (#26578, @nbusseneau)
+
+**Misc Changes:**
+* Add cilium bpf nodeid list to bugtool and print nodeid in hex in ipcache dump (Backport PR #26419, Upstream PR #26130, @brb)
+* chore(deps): update actions/setup-go action to v4 (v1.11) (#26391, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.11) (minor) (#26452, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.11) (patch) (#26449, @renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.16.6 (v1.11) (#26450, @renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.16.6 (v1.11) (#26451, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to c9820a4 (v1.11) (#26448, @renovate[bot])
+* chore(deps): update hubble cli to v0.12.0 (v1.11) (minor) (#26769, @renovate[bot])
+* docker: Detect default "desktop-linux" builder (Backport PR #26419, Upstream PR #25908, @jrajahalme)
+* docs/ipsec: Clarify limitation on number of nodes (Backport PR #26872, Upstream PR #26810, @pchaigno)
+* docs/ipsec: Document RSS limitation (Backport PR #27030, Upstream PR #26979, @pchaigno)
+* docs/ipsec: Extend troubleshooting section (Backport PR #27030, Upstream PR #26808, @pchaigno)
+* docs: clarify that L3 DNS policies require L7 proxy enabled (Backport PR #26419, Upstream PR #26180, @wedaly)
+* docs: Pick up PyYAML 6.0.1 (Backport PR #26917, Upstream PR #26883, @michi-covalent)
+* docs: reword incorrect L7 policy description (Backport PR #26419, Upstream PR #26092, @peterj)
+* docs: Specify Helm chart version in "cilium install" commands (Backport PR #27030, Upstream PR #26934, @michi-covalent)
+* Fix "make -C Documentation builder-image" (Backport PR #26917, Upstream PR #26874, @michi-covalent)
+* test/provision/compile.sh: Make usable from dev VM (Backport PR #25557, Upstream PR #25352, @jrajahalme)
+
+**Other Changes:**
+* envoy: Bump envoy to v1.24.9 (#26807, @sayboras)
+* envoy: Bump envoy version to v1.23.10 (#25891, @mhofstetter)
+* envoy: Bump envoy version to v1.24.10 (#27067, @sayboras)
+* envoy: Bump minor version to v1.24.x (#26329, @sayboras)
+* install: Update image digests for v1.11.18 (#26268, @qmonnet)
+* v1.11 docs: Use stable-v0.14.txt for cilium-cli version (#26467, @michi-covalent)
+
 ## v1.11.18
 
 Summary of Changes
