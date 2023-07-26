@@ -147,7 +147,7 @@ func TestClusterMesh(t *testing.T) {
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
 		ClusterIDsManager:     usedIDs,
-		Metrics:               newMetrics(),
+		Metrics:               NewMetrics(),
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
 	})
 	require.NotNil(t, cm, "Failed to initialize clustermesh")

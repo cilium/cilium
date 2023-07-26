@@ -114,7 +114,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		RemoteIdentityWatcher: mgr,
 		IPCache:               ipc,
 		ClusterIDsManager:     NewClusterMeshUsedIDs(),
-		Metrics:               newMetrics(),
+		Metrics:               NewMetrics(),
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
 	})
 	c.Assert(s.mesh, Not(IsNil))

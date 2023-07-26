@@ -149,7 +149,7 @@ func TestRemoteClusterRun(t *testing.T) {
 					IPCache:               &ipc,
 					RemoteIdentityWatcher: allocator,
 					ClusterIDsManager:     NewClusterMeshUsedIDs(),
-					Metrics:               newMetrics(),
+					Metrics:               NewMetrics(),
 				},
 				globalServices: newGlobalServiceCache(metrics.NoOpGauge),
 			}
