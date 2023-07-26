@@ -227,8 +227,8 @@ jobs:
         timeout-minutes: 10
         run: |
           if [[ "${{ matrix.ipFamily }}" == "ipv6" ]]; then
-            IPV6_KIND_SUBNET="$(docker network inspect kind --format='{{(index .IPAM.Config 1).Gateway }}')""
-            METALLB_IP_RANGE="$(IPV6_KIND_SUBNET)00-$(IPV6_KIND_SUBNET)55"
+            IPV6_KIND_SUBNET="$(docker network inspect kind --format='{{(index .IPAM.Config 1).Gateway }}')"
+            METALLB_IP_RANGE="${IPV6_KIND_SUBNET}00-${IPV6_KIND_SUBNET}55"
           else 
             KIND_NET_CIDR=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Subnet}}')
             METALLB_IP_START=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200@")
