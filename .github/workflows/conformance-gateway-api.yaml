@@ -62,7 +62,8 @@ env:
   CILIUM_CLI_MODE: helm
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
   kind_version: v0.20.0
-  kind_config: .github/kind-config.yaml
+  kind_config_ipv4: .github/kind-config.yaml
+  kind_config_ipv6: .github/kind-config-ipv6.yaml
   gateway_api_version: v0.7.0
   metallb_version: 0.12.1
   timeout: 5m
@@ -99,7 +100,7 @@ jobs:
           persist-credentials: false
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
-
+      
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@829ae9b4d2c65104343051ad77b618b92a2c2b75 # v0.15.3
         with:
@@ -138,6 +139,10 @@ jobs:
             --helm-set=securityContext.privileged=true \
             --helm-set=gatewayAPI.enabled=true"
 
+          if [ ${{ matrix.ipFamily }} == "ipv6" ]; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=ipv6.enabled=true"
+          fi
+
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo skipped_tests=${SKIPPED_TESTS} >> $GITHUB_OUTPUT
           echo supported_features=${SUPPORTED_FEATURES} >> $GITHUB_OUTPUT
@@ -152,7 +157,7 @@ jobs:
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
         with:
           version: ${{ env.kind_version }}
-          config: ${{ env.kind_config }}
+          config: ${{ matrix.ipFamily == 'ipv6' && env.kind_config_ipv6 || env.kind_config_ipv4 }}
 
       - name: Workaround CoreDNS for IPv6 airgapped
         if: ${{ matrix.ipFamily == 'ipv6' }}
@@ -227,7 +232,7 @@ jobs:
         timeout-minutes: 10
         run: |
           if [[ "${{ matrix.ipFamily }}" == "ipv6" ]]; then
-            IPV6_KIND_SUBNET="$(docker network inspect kind --format='{{(index .IPAM.Config 1).Gateway }}')"
+            IPV6_KIND_SUBNET="$(docker network inspect kind --format='{{(index .IPAM.Config 0).Gateway }}')"
             METALLB_IP_RANGE="${IPV6_KIND_SUBNET}00-${IPV6_KIND_SUBNET}55"
           else 
             KIND_NET_CIDR=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Subnet}}')
