@@ -14,27 +14,52 @@ broader community. You'll also find here some pointers on how you can
 
 Major Feature Status
 --------------------
-+-----------------------------+------------------------------------------------------------+
-| eBPF Networking             | Stable (:ref:`Roadmap Details<rm-advanced-networking>`)    |
-++----------------------------+------------------------------------------------------------+
-|| Kubernetes CNI             | Stable                                                     |
-++----------------------------+------------------------------------------------------------+
-|| Load Balancing             | Stable                                                     |
-++----------------------------+------------------------------------------------------------+
-|| Network Policy             | Stable                                                     |
-++----------------------------+------------------------------------------------------------+
-|| Kube-proxy Replacement     | Stable                                                     |
-++----------------------------+------------------------------------------------------------+
-|| Egress Gateway             | Stable                                                     |
-++----------------------------+------------------------------------------------------------+
-| Multi-Cluster (ClusterMesh) | Stable (:ref:`Roadmap Details<rm-clustermesh>`)            |
-+-----------------------------+------------------------------------------------------------+
-| Hubble Observability        | Stable (:ref:`Roadmap Details<rm-hubble-observability>`)   |
-+-----------------------------+------------------------------------------------------------+
-| Service Mesh                | Stable (:ref:`Roadmap Details<rm-cilium-service-mesh>`)    |
-+-----------------------------+------------------------------------------------------------+
-| Tetragon Security           | Beta                                                       |
-+-----------------------------+------------------------------------------------------------+
+
++--------------------------------------------------+----------------------------------------------------------+
+| eBPF Networking                                  | Stable (:ref:`Roadmap Details<rm-advanced-networking>`)  |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`Kubernetes CNI<k8s_network_root>`         | Stable                                                   |
+++-------------------------------------------------+----------------------------------------------------------+
+|| `Load Balancing`_                               | Stable                                                   |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`k8s_policy`                               | Stable                                                   |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`Kube-proxy Replacement<kubeproxy-free>`   | Stable                                                   |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`egress-gateway`                           | Stable                                                   |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`gsg_encryption` (IPSec and WireGuard)     | Stable                                                   |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`bandwidth-manager`                        | Stable                                                   |
+++-------------------------------------------------+----------------------------------------------------------+
+| Cilium Mesh                                      | Stable (:ref:`Roadmap Details<rm-clustermesh>`)          |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`Multi-Cluster (ClusterMesh)<clustermesh>` | Stable                                                   |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`External Workloads<external_workloads>`   | Beta                                                     |
+++-------------------------------------------------+----------------------------------------------------------+
+| Hubble Observability                             | Stable (:ref:`Roadmap Details<rm-hubble-observability>`) |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`Hubble CLI<hubble_cli>`                   | Stable                                                   |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`hubble_ui`                                | Stable                                                   |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`Prometheus metrics<metrics>`              | Stable                                                   |
+++-------------------------------------------------+----------------------------------------------------------+
+| Cilium Service Mesh                              | Stable (:ref:`Roadmap Details<rm-cilium-service-mesh>`)  |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`gs_ingress`                               | Stable                                                   |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`gs_gateway_api`                           | Stable                                                   |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`gs_l7_traffic_management`                 | Stable                                                   |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`gs_mutual_authentication`                 | Beta                                                     |
+++-------------------------------------------------+----------------------------------------------------------+
+|| :ref:`SPIFFE integration<identity_management>`  | Beta                                                     |
+++-------------------------------------------------+----------------------------------------------------------+
+| `Tetragon`_ Security                             | Beta (:ref:`Roadmap Details<rm-tetragon>`)               |
++--------------------------------------------------+----------------------------------------------------------+
 
 "Stable" means that the feature is in use in production (though advanced
 features may still be in beta or in development).
@@ -42,7 +67,7 @@ features may still be in beta or in development).
 Release Cadence
 ~~~~~~~~~~~~~~~
 
-We aim to make 2-3 point releases per year of Cilium and its core components
+We aim to make 2-3 `point releases`_ per year of Cilium and its core components
 (Hubble, Cilium CLI, Tetragon, etc). We also make patch releases available as
 necessary for security or urgent fixes. 
 
@@ -72,42 +97,27 @@ Cilium has applied for `CNCF Graduation`_, please add your support on the PR!
 Cilium Service Mesh 
 ~~~~~~~~~~~~~~~~~~~
 
-Our eBPF-accelerated Service Mesh is the main focus for
-major enhancement, and it's a natural evolution of Cilium's networking
-capabilities. We released a beta at the end of 2021 and had very valuable
-feedback from our user community. The next steps we'd like to take for Cilium
-Service Mesh (in no particular order) are: 
+As Cilium Service Mesh gets wider adoption, the next steps we'd like to take in
+this area (in no particular order) are: 
 
 * Graduating Prometheus metrics and OpenTelemetry collector to stable
-* Using Kubernetes as service mesh control plane 
- 
-  * Simple to use sidecar-free service mesh configured using Kubernetes Services
-    and Ingress with support for additional annotations
-
-* Graduating EnvoyConfig CRD to stable
 * Extended sample Grafana dashboards for L7 visibility
 * SMI integration 
-* SPIFFE integration
-* Gateway API Integration
-* Next-generation mutual authentication datapath framework
-
-  * Support for integrated runtime identity
-  * SSL-based mutual authentication
-  * Support for any network protocol
-
 * Performance benchmarking
 
 .. _rm-clustermesh:
 
-ClusterMesh
+Cilium Mesh 
 ~~~~~~~~~~~
 
-Core :ref:`ClusterMesh<clustermesh>` is stable and widely adopted. Future extensions include: 
+Cilium Mesh incorporates the ability to connect any application workload to any
+other, whether they are distributed within the same or different Kubernetes
+clusters, or in external services or VMs in public or private clouds. This
+builds on the core :ref:`ClusterMesh<clustermesh>` capability that is stable and
+widely adopted. Future extensions include: 
 
-* Service affinity
 * Cluster health checks
 * :ref:`External Workloads<external_workloads>` graduating to stable
-
 
 .. _rm-advanced-networking:
 
@@ -118,9 +128,7 @@ There are several advanced networking features currently in beta, several of
 these are already in production use with a set of adopters. We expect the
 following features to graduate to stable:
 
-* :ref:`gsg_encryption` (IPsec & WireGuard)
 * :ref:`BGP<bgp>`
-* :ref:`bandwidth-manager`
 * :ref:`Local Redirect Policy<local-redirect-policy>`
 * :ref:`CiliumEndpointSlice<gsg_ces>`
 * :ref:`Multi-Pool IPAM<ipam_crd_multi_pool>`
@@ -145,12 +153,17 @@ currently working on `CI improvements`_ to make these more reliable and easier t
 maintain. This is a good area to get involved if you are interested in learning
 more about Cilium internals and development.
 
+.. _rm-tetragon:
+
 Tetragon Security
 ~~~~~~~~~~~~~~~~~
 
-Tetragon provides security observability and runtime enforcement through the JSON events and the Tetragon
+`Tetragon`_ is a sub-project within the Cilium family. It provides security observability and runtime enforcement through the JSON events and the Tetragon
 CLI for things like process execution, file access, network observability, and
 privileged execution.
+
+Although Tetragon is still in Beta stage, it is already in
+production use with a set of adopters.
 
 Codebase modularization
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -201,6 +214,8 @@ anything other than trivial fixes.
 
 
 .. _committers: https://raw.githubusercontent.com/cilium/cilium/main/MAINTAINERS.md
+.. _Load Balancing: https://cilium.io/use-cases/load-balancer/
+.. _Tetragon: https://tetragon.cilium.io
 .. _GitHub issues: https://github.com/cilium/cilium/issues
 .. _point releases: https://cilium.io/blog/categories/release/
 .. _Get Involved: https://cilium.io/get-involved
