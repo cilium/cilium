@@ -76,10 +76,6 @@ type kvstoreBackend struct {
 	// this is typical set to the node's IP address
 	suffix string
 
-	// deleteInvalidPrefixes enables deletion of identities outside of the
-	// valid prefix
-	deleteInvalidPrefixes bool
-
 	backend kvstore.BackendOperations
 
 	keyType allocator.AllocatorKey
@@ -586,10 +582,6 @@ func (k *kvstoreBackend) ListAndWatch(ctx context.Context, handler allocator.Cac
 			switch {
 			case err != nil:
 				log.WithError(err).WithField(fieldKey, event.Key).Warning("Invalid key")
-
-				if k.deleteInvalidPrefixes {
-					k.backend.Delete(ctx, event.Key)
-				}
 
 			case id != idpool.NoID:
 				var key allocator.AllocatorKey
