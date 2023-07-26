@@ -911,6 +911,10 @@ func (in *FlowLoggingSpec) DeepCopyInto(out *FlowLoggingSpec) {
 			}
 		}
 	}
+	if in.Expiration != nil {
+		in, out := &in.Expiration, &out.Expiration
+		*out = (*in).DeepCopy()
+	}
 	return
 }
 

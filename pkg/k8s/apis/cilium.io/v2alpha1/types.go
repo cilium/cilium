@@ -129,11 +129,12 @@ type FlowLoggingSpec struct {
 	// +kubebuilder:validation:Optional
 	DenyList []*flowpb.FlowFilter `json:"denylist"`
 
-	// End denotes the timestamp when logging will stop. It uses RFC3339 format.
-	// Empty means that flow logging won't stop until this object is deleted.
+	// Expiration specifies the time when logging will stop. Empty means
+	// that flow logging won't stop until this object is deleted.
 	//
+	// +kubebuilder:validation:Format=date-time
 	// +kubebuilder:validation:Optional
-	End string `json:"end"`
+	Expiration *metav1.Time `json:"end"`
 }
 
 // FlowLoggingStatus is a status of a flow logging task.

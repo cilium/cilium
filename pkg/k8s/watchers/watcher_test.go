@@ -188,6 +188,7 @@ func (s *K8sWatcherSuite) TestFlowLoggingManager(c *C) {
 		emptyResources,
 		nil,
 	)
+	now := v1.Now()
 
 	err := w.addCiliumFlowLogging(&v2alpha1.CiliumFlowLogging{
 		ObjectMeta: v1.ObjectMeta{
@@ -195,7 +196,7 @@ func (s *K8sWatcherSuite) TestFlowLoggingManager(c *C) {
 			Name: "test-name",
 		},
 		Spec: v2alpha1.FlowLoggingSpec{
-			End: time.Now().Format(time.RFC3339),
+			Expiration: &now,
 		},
 	})
 	c.Assert(err, IsNil)
@@ -206,7 +207,7 @@ func (s *K8sWatcherSuite) TestFlowLoggingManager(c *C) {
 			Name: "test-name",
 		},
 		Spec: v2alpha1.FlowLoggingSpec{
-			End: time.Now().Format(time.RFC3339),
+			Expiration: &now,
 		},
 	})
 	c.Assert(err, IsNil)
@@ -236,21 +237,10 @@ func (s *K8sWatcherSuite) TestFlowLoggingManager(c *C) {
 			AllowList: []*flowpb.FlowFilter{
 				{SourcePod: []string{"araara"}},
 			},
-			End: time.Now().Format(time.RFC3339),
+			Expiration: &now,
 		},
 	})
 	c.Assert(err, Equals, fakeErr)
-
-	err = w.addCiliumFlowLogging(&v2alpha1.CiliumFlowLogging{
-		ObjectMeta: v1.ObjectMeta{
-			UID:  "test-uid",
-			Name: "test-name",
-		},
-		Spec: v2alpha1.FlowLoggingSpec{
-			End: "malformed-timestamp",
-		},
-	})
-	c.Assert(err, Not(IsNil))
 }
 
 func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {

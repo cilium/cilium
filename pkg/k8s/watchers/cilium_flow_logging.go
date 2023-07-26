@@ -75,16 +75,15 @@ func (k *K8sWatcher) addCiliumFlowLogging(cfl *cilium_v2a1.CiliumFlowLogging) er
 	})
 
 	scopedLog.Debug("Added CiliumFlowLogging")
-
-	deadline, err := time.Parse(time.RFC3339, cfl.Spec.End)
-	if err != nil {
-		scopedLog.WithField("end", cfl.Spec.End).Error(err)
-		return err
-	}
-
 	if k.flowLoggingManager == nil {
 		return nil
 	}
+
+	var deadline time.Time
+	if cfl.Spec.Expiration != nil {
+		deadline = cfl.Spec.Expiration.Time
+	}
+
 	opts := []exporteroption.Option{}
 	if len(cfl.Spec.AllowList) > 0 {
 		opts = append(opts, exporteroption.WithAllowList(cfl.Spec.AllowList))
@@ -95,7 +94,7 @@ func (k *K8sWatcher) addCiliumFlowLogging(cfl *cilium_v2a1.CiliumFlowLogging) er
 	if len(cfl.Spec.FieldMask) > 0 {
 		opts = append(opts, exporteroption.WithFieldMask(cfl.Spec.FieldMask))
 	}
-	err = k.flowLoggingManager.Start(string(cfl.UID), cfl.Name, deadline, opts)
+	err := k.flowLoggingManager.Start(string(cfl.UID), cfl.Name, deadline, opts)
 	if err != nil {
 		scopedLog.Error(err)
 		return err

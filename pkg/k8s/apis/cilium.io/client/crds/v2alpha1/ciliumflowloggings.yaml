@@ -536,9 +536,9 @@ spec:
                   type: object
                 type: array
               end:
-                description: End denotes the timestamp when logging will stop. It
-                  uses RFC3339 format. Empty means that flow logging won't stop until
-                  this object is deleted.
+                description: Expiration specifies the time when logging will stop.
+                  Empty means that flow logging won't stop until this object is deleted.
+                format: date-time
                 type: string
               fieldmask:
                 description: List of field names that will be kept in the log output.

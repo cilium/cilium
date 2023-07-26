@@ -23,6 +23,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// tolerance specifies the minimum required run duration for a logging task.
+const tolerance = 30 * time.Second
+
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-exporter-manager")
 
 type job struct {
@@ -85,8 +88,12 @@ func (m *Manager) Start(uid, name string, deadline time.Time, opts []exporteropt
 		return fmt.Errorf("tried starting Hubble-exporter on unconfigured manager. It will start later")
 	}
 
-	if deadline.Before(time.Now()) {
-		return fmt.Errorf("deadline is in the past")
+	if !deadline.IsZero() {
+		if now := time.Now(); deadline.Before(now) {
+			return fmt.Errorf("deadline is in the past")
+		} else if min := now.Add(tolerance); deadline.Before(min) {
+			return fmt.Errorf("expected duration is below the %v minimum: %v", tolerance, min.Sub(deadline))
+		}
 	}
 	conf := []exporteroption.Option{
 		exporteroption.WithPath(filepath.Join(m.opts.Path, uid, name+".json")),
@@ -102,7 +109,15 @@ func (m *Manager) Start(uid, name string, deadline time.Time, opts []exporteropt
 		"name": name,
 	})
 
-	ctx, cancel := context.WithDeadline(m.ctx, deadline)
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	if deadline.IsZero() {
+		ctx, cancel = context.WithCancel(m.ctx)
+	} else {
+		ctx, cancel = context.WithDeadline(m.ctx, deadline)
+	}
 	exp, err := NewExporter(ctx, logger, conf...)
 	if err != nil {
 		cancel()
