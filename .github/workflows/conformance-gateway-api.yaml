@@ -262,9 +262,11 @@ jobs:
           apiVersion: metallb.io/v1beta1
           kind: L2Advertisement
           metadata:
-            name: example
+            name: l2
             namespace: metallb-system
           EOF
+        
+          kubectl get IPAddressPool --all-namespaces -o yaml
   
       - name: Run Gateway API conformance test
         timeout-minutes: 30
