@@ -212,7 +212,7 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 	}
 
 	if versioncheck.MustCompile("<1.14.0")(ct.CiliumVersion) {
-		mode = "disabled"
+		mode = "vxlan"
 		if v, ok := cm.Data["tunnel"]; ok {
 			mode = v
 		}
@@ -221,13 +221,16 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 			Mode:    mode,
 		}
 	} else {
-		mode = "native"
+		mode = "tunnel"
 		if v, ok := cm.Data["routing-mode"]; ok {
 			mode = v
 		}
-		tunnelProto := ""
+
+		tunnelProto := "vxlan"
 		if mode != "native" {
-			tunnelProto = cm.Data["tunnel-protocol"]
+			if v, ok := cm.Data["tunnel-protocol"]; ok {
+				tunnelProto = v
+			}
 		}
 
 		result[FeatureTunnel] = FeatureStatus{
