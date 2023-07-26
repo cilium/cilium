@@ -36,6 +36,6 @@ var Cell = cell.Module(
 
 	cell.Config(common.Config{}),
 
-	cell.Metric(newMetrics),
+	cell.Metric(NewMetrics),
 	cell.Metric(common.MetricsProvider(subsystem)),
 )
