@@ -14,7 +14,7 @@ import (
 	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/clustermesh/internal"
+	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
@@ -106,7 +106,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	defer ipc.Shutdown()
 
 	s.mesh = NewClusterMesh(hivetest.Lifecycle(c), Configuration{
-		Config:                internal.Config{ClusterMeshConfig: dir},
+		Config:                common.Config{ClusterMeshConfig: dir},
 		ClusterIDName:         types.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
 		NodeKeyCreator:        testNodeCreator,
 		NodeObserver:          &testObserver{},
@@ -115,7 +115,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		IPCache:               ipc,
 		ClusterIDsManager:     NewClusterMeshUsedIDs(),
 		Metrics:               newMetrics(),
-		InternalMetrics:       internal.MetricsProvider(subsystem)(),
+		CommonMetrics:         common.MetricsProvider(subsystem)(),
 	})
 	c.Assert(s.mesh, Not(IsNil))
 
