@@ -140,6 +140,8 @@ nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
 	BPF_V6(router_ip, ROUTER_IP);
 	if (ipv6_addr_equals((union v6addr *)&ip6->saddr, &router_ip)) {
 		ipv6_addr_copy(&target->addr, &router_ip);
+		target->needs_ct = true;
+
 		return true;
 	}
 #endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
@@ -152,6 +154,8 @@ nodeport_has_nat_conflict_ipv6(const struct ipv6hdr *ip6 __maybe_unused,
 	if (dr_ifindex == NATIVE_DEV_IFINDEX &&
 	    ipv6_addr_equals((union v6addr *)&ip6->saddr, &dr_addr)) {
 		ipv6_addr_copy(&target->addr, &dr_addr);
+		target->needs_ct = true;
+
 		return true;
 	}
 #endif /* IS_BPF_HOST */
@@ -1551,6 +1555,8 @@ nodeport_has_nat_conflict_ipv4(const struct iphdr *ip4 __maybe_unused,
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
 	if (ip4->saddr == IPV4_GATEWAY) {
 		target->addr = IPV4_GATEWAY;
+		target->needs_ct = true;
+
 		return true;
 	}
 #endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
@@ -1565,6 +1571,8 @@ nodeport_has_nat_conflict_ipv4(const struct iphdr *ip4 __maybe_unused,
 	if (dr_ifindex == NATIVE_DEV_IFINDEX &&
 	    ip4->saddr == IPV4_DIRECT_ROUTING) {
 		target->addr = IPV4_DIRECT_ROUTING;
+		target->needs_ct = true;
+
 		return true;
 	}
 #endif /* IS_BPF_HOST */
