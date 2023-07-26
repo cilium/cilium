@@ -190,6 +190,9 @@ func parseBoolStatus(s string) bool {
 	return false
 }
 
+// extractFeaturesFromConfigMap extracts features from the Cilium ConfigMap.
+// Note that there is no rule regarding if the default value is reflected
+// in the ConfigMap or not.
 func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, client *k8s.Client, result FeatureSet) error {
 	cm, err := client.GetConfigMap(ctx, ct.params.CiliumNamespace, defaults.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
@@ -265,6 +268,10 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 	return nil
 }
 
+// extractFeaturesFromRuntimeConfig extracts features from the Cilium runtime config.
+// The downside of this approach is that the `DaemonConfig` struct is not stable.
+// If there are changes to it in the future, we will likely have to maintain
+// version-specific copies of the struct in the Cilium-CLI.
 func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context, ciliumPod Pod, result FeatureSet) error {
 	namespace := ciliumPod.Pod.Namespace
 
@@ -521,6 +528,9 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 	for _, ciliumPod := range ct.ciliumPods {
 		features := FeatureSet{}
 
+		// If unsure from which source to retrieve the information from,
+		// prefer "CiliumStatus" over "ConfigMap" over "RuntimeConfig".
+		// See the corresponding functions for more information.
 		err := ct.extractFeaturesFromConfigMap(ctx, ciliumPod.K8sClient, features)
 		if err != nil {
 			return err
