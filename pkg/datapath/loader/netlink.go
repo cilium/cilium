@@ -446,6 +446,120 @@ func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
 	return nil
 }
 
+// setupTunnelDevice ensures the cilium_{mode} device is created and
+// unused leftover devices are cleaned up in case mode changes.
+func setupTunnelDevice(mode string, port, mtu int) error {
+	switch mode {
+	case option.TunnelGeneve:
+		if err := setupGeneveDevice(port, mtu); err != nil {
+			return fmt.Errorf("setting up geneve device: %w", err)
+		}
+		if err := removeDevice(defaults.VxlanDevice); err != nil {
+			return fmt.Errorf("removing %s: %w", defaults.VxlanDevice, err)
+		}
+
+	case option.TunnelVXLAN:
+		if err := setupVxlanDevice(port, mtu); err != nil {
+			return fmt.Errorf("setting up vxlan device: %w", err)
+		}
+		if err := removeDevice(defaults.GeneveDevice); err != nil {
+			return fmt.Errorf("removing %s: %w", defaults.GeneveDevice, err)
+		}
+
+	default:
+		if err := removeDevice(defaults.VxlanDevice); err != nil {
+			return fmt.Errorf("removing %s: %w", defaults.VxlanDevice, err)
+		}
+		if err := removeDevice(defaults.GeneveDevice); err != nil {
+			return fmt.Errorf("removing %s: %w", defaults.GeneveDevice, err)
+		}
+	}
+
+	return nil
+}
+
+// setupGeneveDevice ensures the cilium_geneve device is created with the given
+// destination port and mtu.
+//
+// Changing the destination port will recreate the device. Changing the MTU will
+// modify the device without recreating it.
+func setupGeneveDevice(dport, mtu int) error {
+	mac, err := mac.GenerateRandMAC()
+	if err != nil {
+		return err
+	}
+
+	dev := &netlink.Geneve{
+		LinkAttrs: netlink.LinkAttrs{
+			Name:         defaults.GeneveDevice,
+			MTU:          mtu,
+			HardwareAddr: net.HardwareAddr(mac),
+		},
+		FlowBased: true,
+		Dport:     uint16(dport),
+	}
+
+	l, err := ensureDevice(dev)
+	if err != nil {
+		return fmt.Errorf("creating geneve device: %w", err)
+	}
+
+	// Recreate the device with the correct destination port. Modifying the device
+	// without recreating it is not supported.
+	geneve, _ := l.(*netlink.Geneve)
+	if geneve.Dport != uint16(dport) {
+		if err := netlink.LinkDel(l); err != nil {
+			return fmt.Errorf("deleting outdated geneve device: %w", err)
+		}
+		if _, err := ensureDevice(dev); err != nil {
+			return fmt.Errorf("recreating geneve device %s: %w", defaults.GeneveDevice, err)
+		}
+	}
+
+	return nil
+}
+
+// setupVxlanDevice ensures the cilium_vxlan device is created with the given
+// port and mtu.
+//
+// Changing the port will recreate the device. Changing the MTU will modify the
+// device without recreating it.
+func setupVxlanDevice(port, mtu int) error {
+	mac, err := mac.GenerateRandMAC()
+	if err != nil {
+		return err
+	}
+
+	dev := &netlink.Vxlan{
+		LinkAttrs: netlink.LinkAttrs{
+			Name:         defaults.VxlanDevice,
+			MTU:          mtu,
+			HardwareAddr: net.HardwareAddr(mac),
+		},
+		FlowBased: true,
+		Port:      port,
+	}
+
+	l, err := ensureDevice(dev)
+	if err != nil {
+		return fmt.Errorf("creating vxlan device: %w", err)
+	}
+
+	// Recreate the device with the correct destination port. Modifying the device
+	// without recreating it is not supported.
+	vxlan, _ := l.(*netlink.Vxlan)
+	if vxlan.Port != port {
+		if err := netlink.LinkDel(l); err != nil {
+			return fmt.Errorf("deleting outdated vxlan device: %w", err)
+		}
+		if _, err := ensureDevice(dev); err != nil {
+			return fmt.Errorf("recreating vxlan device %s: %w", defaults.VxlanDevice, err)
+		}
+	}
+
+	return nil
+}
+
 // setupIPIPDevices ensures the specified v4 and/or v6 devices are created and
 // configured with their respective sysctls.
 //

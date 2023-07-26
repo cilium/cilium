@@ -29,6 +29,12 @@ const (
 	// IPIPv6Device is a device of type 'ip6tnl', created by the agent.
 	IPIPv6Device = "cilium_ipip6"
 
+	// GeneveDevice is a device of type 'geneve', created by the agent.
+	GeneveDevice = "cilium_geneve"
+
+	// VxlanDevice is a device of type 'vxlan', created by the agent.
+	VxlanDevice = "cilium_vxlan"
+
 	// CiliumK8sAnnotationPrefix is the prefix key for the annotations used in kubernetes.
 	CiliumK8sAnnotationPrefix = "cilium.io/"
 
