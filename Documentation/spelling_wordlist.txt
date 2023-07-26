@@ -14,6 +14,7 @@ CIDRs
 CN
 CRI
 Cavium
+Checkpatch
 Cheng
 Chewbacca
 Chun
@@ -75,6 +76,7 @@ Monnet
 Mythbusters
 NDP
 Neovim
+Netlify
 Netronome
 NewProto
 Nic

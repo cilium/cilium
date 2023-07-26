@@ -4,6 +4,8 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+.. _docs_structure_recommendations:
+
 ******************************************
 Recommendations on documentation structure
 ******************************************
