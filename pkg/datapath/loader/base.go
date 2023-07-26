@@ -361,6 +361,23 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		}
 	}
 
+	if !option.Config.TunnelingEnabled() {
+		if option.Config.EgressGatewayCommonEnabled() || option.Config.EnableHighScaleIPcache {
+			// Tunnel is required for egress traffic under this config
+			encapProto = option.Config.TunnelProtocol
+		}
+	}
+	if !option.Config.TunnelingEnabled() &&
+		option.Config.EnableNodePort &&
+		option.Config.NodePortMode != option.NodePortModeSNAT &&
+		option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve {
+		encapProto = option.TunnelGeneve
+	}
+
+	if err := setupTunnelDevice(encapProto, option.Config.TunnelPort, deviceMTU); err != nil {
+		return fmt.Errorf("failed to setup %s tunnel device: %w", encapProto, err)
+	}
+
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		var err error
 		if sysSettings, err = addENIRules(sysSettings, o.Datapath().LocalNodeAddressing()); err != nil {
@@ -415,20 +432,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	args[initArgCgroupRoot] = "<nil>"
 	args[initArgBpffsRoot] = "<nil>"
 	args[initArgDevices] = "<nil>"
-
-	if !option.Config.TunnelingEnabled() {
-		if option.Config.EgressGatewayCommonEnabled() || option.Config.EnableHighScaleIPcache {
-			// Tunnel is required for egress traffic under this config
-			encapProto = option.Config.TunnelProtocol
-		}
-	}
-
-	if !option.Config.TunnelingEnabled() &&
-		option.Config.EnableNodePort &&
-		option.Config.NodePortMode != option.NodePortModeSNAT &&
-		option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve {
-		encapProto = option.TunnelGeneve
-	}
 
 	// set init.sh args based on encapProto
 	args[initArgTunnelProtocol] = "<nil>"
