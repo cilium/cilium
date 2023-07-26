@@ -133,7 +133,7 @@ func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
 		ClusterSizeDependantInterval: c.ClusterSizeDependantInterval,
 		ServiceIPGetter:              c.ServiceIPGetter,
 
-		NewRemoteCluster: cm.newRemoteCluster,
+		NewRemoteCluster: cm.NewRemoteCluster,
 
 		NodeName: nodeName,
 		Metrics:  c.CommonMetrics,
@@ -143,7 +143,7 @@ func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
 	return cm
 }
 
-func (cm *ClusterMesh) newRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
+func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
 	rc := &remoteCluster{
 		name:    name,
 		mesh:    cm,
