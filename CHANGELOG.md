@@ -1,5 +1,64 @@
 # Changelog
 
+## v1.12.12
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* daemon: don't allow egress gateway with KV store identity allocation (Backport PR #26420, Upstream PR #26189, @jibi)
+
+**Bugfixes:**
+* bgpv1: Unconditionally select node when empty nodeSelector is given (Backport PR #26746, Upstream PR #26590, @YutaroHayakawa)
+* client, health/client: set dummy host header on unix:// local communication (Backport PR #26916, Upstream PR #26800, @tklauser)
+* Fix bug that caused transient IPsec packet drops on upgrades when tunneling is enabled. (Backport PR #26859, Upstream PR #26708, @pchaigno)
+* Fix bug where CNI gets installed even if cni.install=false (Backport PR #26420, Upstream PR #26278, @joestringer)
+* Fix path asymmetry when using pod-to-pod encryption with IPsec and tunnel mode. (Backport PR #26859, Upstream PR #25440, @pchaigno)
+* Fixed Cilium agent crash when policy refers to a non-existing Envoy listener. (Backport PR #26420, Upstream PR #25969, @jrajahalme)
+* Fixed proxy redirect policy implementation when any deny rule prevents them. (Backport PR #26750, Upstream PR #26344, @jrajahalme)
+* ingress: Delay secret sync if not available (Backport PR #26994, Upstream PR #26988, @sayboras)
+* ipsec: Split removeStaleXFRMOnce to fix deprioritization issue (Backport PR #26420, Upstream PR #26113, @jschwinger233)
+
+**CI Changes:**
+* ariane: don't skip verifier and l4lb tests on vendor/ changes (Backport PR #26738, Upstream PR #26715, @tklauser)
+* v1.12: ci: use Ariane to trigger workflows (#26579, @nbusseneau)
+
+**Misc Changes:**
+* Add cilium bpf nodeid list to bugtool and print nodeid in hex in ipcache dump (Backport PR #26420, Upstream PR #26130, @brb)
+* Adding an AWS architecture diagram for AWS FTR review (Backport PR #26420, Upstream PR #26016, @amitmavgupta)
+* Calling out support for Single-Region, Multi-Region, Multi-AZ for EKS (Backport PR #26420, Upstream PR #26015, @amitmavgupta)
+* chore(deps): update actions/setup-go action to v4 (v1.12) (#26447, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.12) (minor) (#26446, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.12) (patch) (#26443, @renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.16.6 (v1.12) (#26444, @renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.16.6 (v1.12) (#26445, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to c9820a4 (v1.12) (#26705, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to f8f6584 (v1.12) (#26442, @renovate[bot])
+* chore(deps): update docker/setup-buildx-action action to v2.9.1 (v1.12) (#26829, @renovate[bot])
+* chore(deps): update hubble cli to v0.12.0 (v1.12) (minor) (#26766, @renovate[bot])
+* doc: Documented incompatibility of EgressGW and kvstore (Backport PR #26659, Upstream PR #26139, @PhilipSchmid)
+* docker: Detect default "desktop-linux" builder (Backport PR #26420, Upstream PR #25908, @jrajahalme)
+* docs/ipsec: Clarify limitation on number of nodes (Backport PR #26859, Upstream PR #26810, @pchaigno)
+* docs: Bump Sphinx and sphinx-tabs version. (Backport PR #27059, Upstream PR #20997, @qmonnet)
+* docs: clarify that L3 DNS policies require L7 proxy enabled (Backport PR #26420, Upstream PR #26180, @wedaly)
+* docs: fixed search for every page (Backport PR #27059, Upstream PR #26892, @geakstr)
+* docs: Ignore Helm values, update spelling list (Backport PR #27059, Upstream PR #26759, @qmonnet)
+* docs: Pick up PyYAML 6.0.1 (Backport PR #26916, Upstream PR #26883, @michi-covalent)
+* docs: Revert Python version in docs-builder image to 3.7.9, downgrade sphinxcontrib-applehelp, to fix builds on Read The Docs (Backport PR #27059, Upstream PR #24099, @qmonnet)
+* docs: reword incorrect L7 policy description (Backport PR #26420, Upstream PR #26092, @peterj)
+* docs: Rework requirements.txt: Generate from minimal list (Backport PR #27059, Upstream PR #20978, @qmonnet)
+* docs: Update dependencies for documentation build system (Sphinx, add-ons etc.) (Backport PR #27059, Upstream PR #24014, @qmonnet)
+* Documentation: enable parallel builds (Backport PR #27059, Upstream PR #23752, @squeed)
+* Fix "make -C Documentation builder-image" (Backport PR #26916, Upstream PR #26874, @michi-covalent)
+
+**Other Changes:**
+* envoy: Bump envoy to v1.24.9 (#26806, @sayboras)
+* envoy: Bump envoy version to v1.24.10 (#27068, @sayboras)
+* envoy: Bump minor version to v1.24.x (#26328, @sayboras)
+* install: Update image digests for v1.12.11 (#26270, @qmonnet)
+* service: Handle backend with initial state set to Terminating (#25863, @sterchelen)
+* v1.12 docs: Use stable-v0.14.txt for cilium-cli version (#26466, @michi-covalent)
+
 ## v1.12.11
 
 Summary of Changes
