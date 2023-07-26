@@ -391,7 +391,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.image`
      - Clustermesh API server image.
      - object
-     - ``{"digest":"sha256:5dff8cba7b230294cbfe284222b1963e9c2e0d93baef19f0e565b957dac7749a","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.14.0-rc.1","useDigest":true}``
+     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.14.0","useDigest":false}``
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.enabled`
      - Enable KVStoreMesh. KVStoreMesh caches the information retrieved from the remote clusters in the local etcd instance.
      - bool
@@ -411,7 +411,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.image`
      - KVStoreMesh image.
      - object
-     - ``{"digest":"sha256:69b385338771696036e2edce22626b98b84df63739bb56287f992ff169fa75c0","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/kvstoremesh","tag":"v1.14.0-rc.1","useDigest":true}``
+     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/kvstoremesh","tag":"v1.14.0","useDigest":false}``
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.resources`
      - Resource requests and limits for the KVStoreMesh container
      - object
@@ -1431,7 +1431,7 @@
    * - :spelling:ignore:`hubble.relay.image`
      - Hubble-relay container image.
      - object
-     - ``{"digest":"sha256:51627988e5df034e2b7a6291ed06593d0bc12a54f01549a2f5c7db46adc1ecfe","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.14.0-rc.1","useDigest":true}``
+     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.14.0","useDigest":false}``
    * - :spelling:ignore:`hubble.relay.listenHost`
      - Host to listen to. Specify an empty string to bind to all the interfaces.
      - string
@@ -1799,7 +1799,7 @@
    * - :spelling:ignore:`image`
      - Agent container image.
      - object
-     - ``{"digest":"sha256:47c403975508dcf0f53f801f1fd0cf0804d4dc656ee01a136bd3805ed2ec14bb","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.14.0-rc.1","useDigest":true}``
+     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.14.0","useDigest":false}``
    * - :spelling:ignore:`imagePullSecrets`
      - Configure image pull secrets for pulling container images
      - string
@@ -2227,7 +2227,7 @@
    * - :spelling:ignore:`operator.image`
      - cilium-operator image.
      - object
-     - ``{"alibabacloudDigest":"sha256:c0840b26aaff7eb65415e05644cbcefbc47cdc67a35fabe37cc19dc72127d878","awsDigest":"sha256:32e6bd6863984be27433c3405f6e41074cc72a3a40cc3bf9d7bc1241552776a5","azureDigest":"sha256:359b7d84c1544ee3f91ef3eecdbf5a02bc0a5d5077791212a3e7ef2f7304d123","genericDigest":"sha256:36e0d2d4ba8f35031b65d0703a74e1dd68253589479f7007f84b245bc6ebc410","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.14.0-rc.1","useDigest":true}``
+     - ``{"alibabacloudDigest":"","awsDigest":"","azureDigest":"","genericDigest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.14.0","useDigest":false}``
    * - :spelling:ignore:`operator.nodeGCInterval`
      - Interval for cilium node garbage collection.
      - string
@@ -2415,7 +2415,7 @@
    * - :spelling:ignore:`preflight.image`
      - Cilium pre-flight image.
      - object
-     - ``{"digest":"sha256:47c403975508dcf0f53f801f1fd0cf0804d4dc656ee01a136bd3805ed2ec14bb","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.14.0-rc.1","useDigest":true}``
+     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.14.0","useDigest":false}``
    * - :spelling:ignore:`preflight.nodeSelector`
      - Node labels for preflight pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
