@@ -30,6 +30,11 @@ func (a *Agent) NodeDelete(node nodeTypes.Node) error {
 	return a.DeletePeer(node.Fullname())
 }
 
+// AllNodeValidateImplementation is called to validate the implementation of
+// all nodes in the datapath.
+func (a *Agent) AllNodeValidateImplementation() {
+}
+
 // NodeValidateImplementation is called to validate the implementation of
 // the node in the datapath. This function is intended to be run on an
 // interval to ensure that the datapath is consistently converged.
