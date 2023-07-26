@@ -15,6 +15,8 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/strfmt"
+	"github.com/go-openapi/swag"
 )
 
 // NewPutPolicyParams creates a new PutPolicyParams object
@@ -39,6 +41,14 @@ type PutPolicyParams struct {
 	  In: body
 	*/
 	Policy string
+	/*If true, indicates that existing rules with identical labels should be replaced.
+	  In: query
+	*/
+	Replace *bool
+	/*If present, indicates that existing rules with the given labels should be deleted.
+	  In: query
+	*/
+	ReplaceWithLabels []string
 }
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
@@ -49,6 +59,8 @@ func (o *PutPolicyParams) BindRequest(r *http.Request, route *middleware.Matched
 	var res []error
 
 	o.HTTPRequest = r
+
+	qs := runtime.Values(r.URL.Query())
 
 	if runtime.HasBody(r) {
 		defer r.Body.Close()
@@ -66,8 +78,68 @@ func (o *PutPolicyParams) BindRequest(r *http.Request, route *middleware.Matched
 	} else {
 		res = append(res, errors.Required("policy", "body", ""))
 	}
+
+	qReplace, qhkReplace, _ := qs.GetOK("replace")
+	if err := o.bindReplace(qReplace, qhkReplace, route.Formats); err != nil {
+		res = append(res, err)
+	}
+
+	qReplaceWithLabels, qhkReplaceWithLabels, _ := qs.GetOK("replace-with-labels")
+	if err := o.bindReplaceWithLabels(qReplaceWithLabels, qhkReplaceWithLabels, route.Formats); err != nil {
+		res = append(res, err)
+	}
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+// bindReplace binds and validates parameter Replace from query.
+func (o *PutPolicyParams) bindReplace(rawData []string, hasKey bool, formats strfmt.Registry) error {
+	var raw string
+	if len(rawData) > 0 {
+		raw = rawData[len(rawData)-1]
+	}
+
+	// Required: false
+	// AllowEmptyValue: false
+
+	if raw == "" { // empty values pass all other validations
+		return nil
+	}
+
+	value, err := swag.ConvertBool(raw)
+	if err != nil {
+		return errors.InvalidType("replace", "query", "bool", raw)
+	}
+	o.Replace = &value
+
+	return nil
+}
+
+// bindReplaceWithLabels binds and validates array parameter ReplaceWithLabels from query.
+//
+// Arrays are parsed according to CollectionFormat: "" (defaults to "csv" when empty).
+func (o *PutPolicyParams) bindReplaceWithLabels(rawData []string, hasKey bool, formats strfmt.Registry) error {
+	var qvReplaceWithLabels string
+	if len(rawData) > 0 {
+		qvReplaceWithLabels = rawData[len(rawData)-1]
+	}
+
+	// CollectionFormat:
+	replaceWithLabelsIC := swag.SplitByFormat(qvReplaceWithLabels, "")
+	if len(replaceWithLabelsIC) == 0 {
+		return nil
+	}
+
+	var replaceWithLabelsIR []string
+	for _, replaceWithLabelsIV := range replaceWithLabelsIC {
+		replaceWithLabelsI := replaceWithLabelsIV
+
+		replaceWithLabelsIR = append(replaceWithLabelsIR, replaceWithLabelsI)
+	}
+
+	o.ReplaceWithLabels = replaceWithLabelsIR
+
 	return nil
 }

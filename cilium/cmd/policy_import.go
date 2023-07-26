@@ -15,6 +15,8 @@ import (
 )
 
 var printPolicy bool
+var replacePolicy bool
+var replaceWithLabels []string
 
 // policyImportCmd represents the policy_import command
 var policyImportCmd = &cobra.Command{
@@ -46,7 +48,7 @@ var policyImportCmd = &cobra.Command{
 			if err != nil {
 				Fatalf("Cannot marshal policy: %s\n", err)
 			}
-			if resp, err := client.PolicyPut(string(jsonPolicy)); err != nil {
+			if resp, err := client.PolicyReplace(string(jsonPolicy), replacePolicy, replaceWithLabels); err != nil {
 				Fatalf("Cannot import policy: %s\n", err)
 			} else if command.OutputOption() {
 				if err := command.PrintOutput(resp); err != nil {
@@ -64,5 +66,7 @@ var policyImportCmd = &cobra.Command{
 func init() {
 	PolicyCmd.AddCommand(policyImportCmd)
 	policyImportCmd.Flags().BoolVarP(&printPolicy, "print", "", false, "Print policy after import")
+	policyImportCmd.Flags().BoolVarP(&replacePolicy, "replace", "", false, "Replace existing policy")
+	policyImportCmd.Flags().StringSliceVarP(&replaceWithLabels, "replace-with-labels", "", []string{}, "Replace existing policies that match given labels")
 	command.AddOutputOption(policyImportCmd)
 }

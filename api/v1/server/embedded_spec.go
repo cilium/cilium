@@ -1286,6 +1286,12 @@ func init() {
         "parameters": [
           {
             "$ref": "#/parameters/policy-rules"
+          },
+          {
+            "$ref": "#/parameters/policy-replace"
+          },
+          {
+            "$ref": "#/parameters/policy-replace-with-labels"
           }
         ],
         "responses": {
@@ -5147,6 +5153,21 @@ func init() {
       "in": "path",
       "required": true
     },
+    "policy-replace": {
+      "type": "boolean",
+      "description": "If true, indicates that existing rules with identical labels should be replaced.",
+      "name": "replace",
+      "in": "query"
+    },
+    "policy-replace-with-labels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "If present, indicates that existing rules with the given labels should be deleted.",
+      "name": "replace-with-labels",
+      "in": "query"
+    },
     "policy-rules": {
       "description": "Policy rules",
       "name": "policy",
@@ -6653,6 +6674,21 @@ func init() {
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "type": "boolean",
+            "description": "If true, indicates that existing rules with identical labels should be replaced.",
+            "name": "replace",
+            "in": "query"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "If present, indicates that existing rules with the given labels should be deleted.",
+            "name": "replace-with-labels",
+            "in": "query"
           }
         ],
         "responses": {
@@ -11080,6 +11116,21 @@ func init() {
       "name": "pod",
       "in": "path",
       "required": true
+    },
+    "policy-replace": {
+      "type": "boolean",
+      "description": "If true, indicates that existing rules with identical labels should be replaced.",
+      "name": "replace",
+      "in": "query"
+    },
+    "policy-replace-with-labels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "If present, indicates that existing rules with the given labels should be deleted.",
+      "name": "replace-with-labels",
+      "in": "query"
     },
     "policy-rules": {
       "description": "Policy rules",
