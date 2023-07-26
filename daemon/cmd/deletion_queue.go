@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
@@ -94,12 +95,9 @@ func (dq *deletionQueue) processQueuedDeletes(d *Daemon, ctx context.Context) er
 	log.Infof("Processing %d queued deletion requests", len(files))
 
 	for _, file := range files {
-		// get the container id
-		epID, err := os.ReadFile(file)
+		err = d.processQueuedDeleteEntryLocked(file)
 		if err != nil {
 			log.WithError(err).WithField(logfields.Path, file).Error("Failed to read queued CNI deletion entry. Endpoint will not be deleted.")
-		} else {
-			_, _ = d.DeleteEndpoint(string(epID)) // this will log errors elsewhere
 		}
 
 		if err := os.Remove(file); err != nil {
@@ -123,4 +121,32 @@ func unlockAfterAPIServer(lc hive.Lifecycle, _ *server.Server, dq *deletionQueue
 			return nil
 		},
 	})
+}
+
+// processQueuedDeleteEntry processes the contents of the deletion queue entry
+// in file. Requires the caller to hold the deletion queue lock.
+func (d *Daemon) processQueuedDeleteEntryLocked(file string) error {
+	contents, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+
+	// Attempt to parse contents as a batch deletion request
+	var req models.EndpointBatchDeleteRequest
+	err = req.UnmarshalBinary(contents)
+	if err != nil {
+		// fall back on treating the file contents as an endpoint id (legacy behavior)
+		epID := string(contents)
+		log.
+			WithError(err).
+			WithField(logfields.EndpointID, epID).
+			Debug("Falling back on legacy deletion queue format")
+		_, _ = d.DeleteEndpoint(epID) // this will log errors elsewhere
+		return nil
+	}
+
+	// As with DeleteEndpoint, errors are logged elsewhere
+	_, _ = d.deleteEndpointByContainerID(req.ContainerID)
+
+	return nil
 }
