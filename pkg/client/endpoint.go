@@ -20,6 +20,13 @@ func (c *Client) EndpointList() ([]*models.Endpoint, error) {
 	return resp.Payload, nil
 }
 
+// EndpointDeleteMany deletes multiple endpoints
+func (c *Client) EndpointDeleteMany(req *models.EndpointBatchDeleteRequest) error {
+	params := endpoint.NewDeleteEndpointParams().WithEndpoint(req).WithTimeout(api.ClientTimeout)
+	_, _, err := c.Endpoint.DeleteEndpoint(params)
+	return Hint(err)
+}
+
 // EndpointGet returns endpoint by ID
 func (c *Client) EndpointGet(id string) (*models.Endpoint, error) {
 	params := endpoint.NewGetEndpointIDParams().WithID(id).WithTimeout(api.ClientTimeout)
