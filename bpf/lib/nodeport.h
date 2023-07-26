@@ -1553,12 +1553,11 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	return ret;
 }
 
-static __always_inline int handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
+static __always_inline int
+handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
+		    __s8 *ext_err)
 {
-	struct trace_ctx trace;
-	__s8 ext_err = 0;
-
-	return __handle_nat_fwd_ipv6(ctx, &trace, &ext_err);
+	return __handle_nat_fwd_ipv6(ctx, trace, ext_err);
 }
 
 declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
@@ -1582,7 +1581,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = __handle_nat_fwd_ipv6(ctx, &trace, &ext_err);
+	ret = handle_nat_fwd_ipv6(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
@@ -3054,15 +3053,15 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
 	return ret;
 }
 
-static __always_inline int handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
+static __always_inline int
+handle_nat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
+		    __s8 *ext_err)
 {
-	struct trace_ctx trace;
 	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
-	__s8 ext_err = 0;
 
 	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
 
-	return __handle_nat_fwd_ipv4(ctx, cluster_id, &trace, &ext_err);
+	return __handle_nat_fwd_ipv4(ctx, cluster_id, trace, ext_err);
 }
 
 declare_tailcall_if(__or4(__and(is_defined(ENABLE_IPV4),
@@ -3082,10 +3081,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	};
 	int ret;
 	enum trace_point obs_point;
-	__u32 cluster_id = ctx_load_meta(ctx, CB_CLUSTER_ID_EGRESS);
 	__s8 ext_err = 0;
-
-	ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, 0);
 
 #ifdef IS_BPF_OVERLAY
 	obs_point = TRACE_TO_OVERLAY;
@@ -3093,7 +3089,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = __handle_nat_fwd_ipv4(ctx, cluster_id, &trace, &ext_err);
+	ret = handle_nat_fwd_ipv4(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
@@ -3200,7 +3196,10 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 }
 #endif /* ENABLE_HEALTH_CHECK */
 
-static __always_inline int handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id)
+static __always_inline int
+handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id,
+	       struct trace_ctx *trace __maybe_unused,
+	       __s8 *ext_err __maybe_unused)
 {
 	int ret = CTX_ACT_OK;
 	__u16 proto;
@@ -3212,26 +3211,26 @@ static __always_inline int handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_
 	switch (proto) {
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		ret = invoke_tailcall_if(__or4(__and(is_defined(ENABLE_IPV4),
-						     is_defined(ENABLE_IPV6)),
-					       __and(is_defined(ENABLE_HOST_FIREWALL),
-						     is_defined(IS_BPF_HOST)),
-					       __and(is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING),
-						     is_defined(ENABLE_INTER_CLUSTER_SNAT)),
-					       __and(is_defined(ENABLE_EGRESS_GATEWAY_COMMON),
-						     is_defined(IS_BPF_HOST))),
-					 CILIUM_CALL_IPV4_NODEPORT_NAT_FWD,
-					 handle_nat_fwd_ipv4);
+		ret = invoke_traced_tailcall_if(__or4(__and(is_defined(ENABLE_IPV4),
+							    is_defined(ENABLE_IPV6)),
+						      __and(is_defined(ENABLE_HOST_FIREWALL),
+							    is_defined(IS_BPF_HOST)),
+						      __and(is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING),
+							    is_defined(ENABLE_INTER_CLUSTER_SNAT)),
+						      __and(is_defined(ENABLE_EGRESS_GATEWAY_COMMON),
+							    is_defined(IS_BPF_HOST))),
+						CILIUM_CALL_IPV4_NODEPORT_NAT_FWD,
+						handle_nat_fwd_ipv4, trace, ext_err);
 		break;
 #endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
-						    is_defined(ENABLE_IPV6)),
-					      __and(is_defined(ENABLE_HOST_FIREWALL),
-						    is_defined(IS_BPF_HOST))),
-					 CILIUM_CALL_IPV6_NODEPORT_NAT_FWD,
-					 handle_nat_fwd_ipv6);
+		ret = invoke_traced_tailcall_if(__or(__and(is_defined(ENABLE_IPV4),
+							   is_defined(ENABLE_IPV6)),
+						     __and(is_defined(ENABLE_HOST_FIREWALL),
+							   is_defined(IS_BPF_HOST))),
+						CILIUM_CALL_IPV6_NODEPORT_NAT_FWD,
+						handle_nat_fwd_ipv6, trace, ext_err);
 		break;
 #endif /* ENABLE_IPV6 */
 	default:
