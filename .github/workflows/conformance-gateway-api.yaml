@@ -140,7 +140,7 @@ jobs:
             --helm-set=gatewayAPI.enabled=true"
 
           if [ ${{ matrix.ipFamily }} == "ipv6" ]; then
-            CILIUM_INSTALL_DEFAULTS+=" --helm-set=ipv6.enabled=true"
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=ipv6.enabled=true --helm-set=ipv4.enabled=false"
           fi
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
