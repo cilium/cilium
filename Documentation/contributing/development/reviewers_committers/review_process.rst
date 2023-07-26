@@ -12,13 +12,113 @@ Pull requests review process for committers
 Review process
 --------------
 
-Every committer in the `committers team`_ belongs to `one or more other teams
-in the Cilium organization <cilium_teams_>`_ If you would like to be added or
-removed from any team, please contact any of the `maintainers`_.
+.. note::
 
-Once a PR is opened by a contributor, GitHub will automatically pick which
-`teams <cilium_teams>`_ should review the PR using the ``CODEOWNERS`` file.
-Each committer can see the PRs they need to review by filtering by reviews
+   These instructions assume that reviewers are members of the Cilium GitHub
+   organization. This is required to obtain the privileges to modify GitHub
+   labels on the pull request. See `Cilium's Contributor Ladder`_ for details.
+
+.. _Cilium's Contributor Ladder: https://github.com/cilium/community/blob/main/CONTRIBUTOR-LADDER.md
+
+#. Find Pull Requests (PRs) needing a review `from you <user_review_filter_>`_,
+   or `from one of your teams <team_review_filter_>`_.
+
+#. If this PR was opened by a contributor who is not part of the Cilium
+   organization, please assign yourself to that PR and keep track of the PR to
+   ensure it gets reviewed and merged.
+
+   If the contributor is a Cilium committer, then they are responsible for
+   getting the PR in a ready to be merged state by adding the
+   ``ready-to-merge`` label, once all reviews have been addressed and CI checks
+   are successful, so that they (or another committer) can merge the PR.
+
+   If this PR is a backport PR (typically with the label ``kind/backport``) and
+   no-one else has reviewed the PR, review the changes as a sanity check. If
+   any individual commits deviate from the original patch, request review from
+   the original author to validate that the backport was correctly applied.
+
+#. Review overall correctness of the PR according to the rules specified in the
+   section :ref:`submit_pr`.
+
+#. Set the labels accordingly. A bot called maintainer's little helper might
+   automatically help you with this.
+
+   +--------------------------------+---------------------------------------------------------------------------+
+   | Labels                         | When to set                                                               |
+   +================================+===========================================================================+
+   | ``dont-merge/needs-sign-off``  | Some commits are not signed off                                           |
+   +--------------------------------+---------------------------------------------------------------------------+
+   | ``needs-rebase``               | PR is outdated and needs to be rebased                                    |
+   +--------------------------------+---------------------------------------------------------------------------+
+
+#. Validate that bugfixes are marked with ``kind/bug`` and validate whether the
+   assessment of backport requirements as requested by the submitter conforms
+   to the :ref:`backport_criteria`.
+
+   +--------------------------+---------------------------------------------------------------------------+
+   | Labels                   | When to set                                                               |
+   +==========================+===========================================================================+
+   | ``needs-backport/X.Y``   | PR needs to be backported to these stable releases                        |
+   +--------------------------+---------------------------------------------------------------------------+
+
+#. If the PR is subject to backport, validate that the PR does not mix bugfix
+   and refactoring of code as it will heavily complicate the backport process.
+   Demand for the PR to be split.
+
+#. Validate the ``release-note/*`` label and check the release note
+   suitability. Release notes are passed through the dedicated ``release-note``
+   block (see :ref:`submit_pr`), or through the PR title if this block is
+   missing. To check if the notes are suitable, put yourself into the
+   perspective of a future release notes reader with lack of context and ensure
+   the title is precise but brief.
+
+   +-----------------------------------+--------------------------------------------------------------------------------------------------------+
+   | Labels                            | When to set                                                                                            |
+   +===================================+========================================================================================================+
+   | ``dont-merge/needs-release-note`` | Do NOT merge PR, needs a release note                                                                  |
+   +-----------------------------------+--------------------------------------------------------------------------------------------------------+
+   | ``release-note/bug``              | This is a non-trivial bugfix and is a user-facing bug                                                  |
+   +-----------------------------------+--------------------------------------------------------------------------------------------------------+
+   | ``release-note/major``            | This is a major feature addition, e.g. Add MongoDB support                                             |
+   +-----------------------------------+--------------------------------------------------------------------------------------------------------+
+   | ``release-note/minor``            | This is a minor feature addition, e.g. Add support for a Kubernetes version                            |
+   +-----------------------------------+--------------------------------------------------------------------------------------------------------+
+   | ``release-note/misc``             | This is a not user-facing change , e.g. Refactor endpoint package, a bug fix of a non-released feature |
+   +-----------------------------------+--------------------------------------------------------------------------------------------------------+
+   | ``release-note/ci``               | This is a CI feature or bug fix.                                                                       |
+   +-----------------------------------+--------------------------------------------------------------------------------------------------------+
+
+#. Check for upgrade compatibility impact and if in doubt, set the label
+   ``upgrade-impact`` and discuss in the Slack channel or in the weekly
+   meeting.
+
+   +--------------------------+---------------------------------------------------------------------------+
+   | Labels                   | When to set                                                               |
+   +==========================+===========================================================================+
+   | ``upgrade-impact``       | The code changes have a potential upgrade impact                          |
+   +--------------------------+---------------------------------------------------------------------------+
+
+#. When all review objectives for all ``CODEOWNERS`` are met, all CI tests have
+   passed, and all reviewers have approved the requested changes, you can merge
+   the PR by clicking on the "Rebase and merge" button.
+
+#. If the PR is a backport PR, update the labels of cherry-picked PRs with the
+   command included at the end of the original post. For example:
+
+   .. code-block:: shell-session
+
+       $ for pr in 26759 24099; do contrib/backporting/set-labels.py $pr done 1.13; done
+
+Reviewer Teams
+--------------
+
+Every reviewer, including committers in the `committers team`_, belongs to `one
+or more teams in the Cilium organization <cilium_teams_>`_. If you would like
+to be added or removed from any team, please contact any of the `maintainers`_.
+
+Once a contributor opens a PR, GitHub automatically picks which `teams
+<cilium_teams>`_ should review the PR using the ``CODEOWNERS`` file. Each
+reviewer can see the PRs they need to review by filtering by reviews
 requested. A good filter is provided in this `link <user_review_filter_>`_ so
 make sure to bookmark it.
 
@@ -27,24 +127,23 @@ GitHub requested their review. For small PRs, it may make sense to simply
 review the entire PR. However, if the PR is quite large then it can help to
 narrow the area of focus to one particular aspect of the code. When leaving a
 review, share which areas you focused on and which areas you think that other
-reviewers should look into. This will help others to focus on aspects of review
+reviewers should look into. This helps others to focus on aspects of review
 that have not been covered as deeply.
 
-Belonging to a team does not mean that a committer should know every single
-line of code the team is maintaining. For this reason it is recommended that
-once you have reviewed a PR, if you feel that another pair of eyes is needed,
-you should re-request a review from the appropriate team. In the example below,
-the committer belonging to the CI team is re-requesting a review for other team
-members to review the PR. This allows other team members belonging to the CI
-team to see the PR as part of the PRs that require review in the `filter
-<team_review_filter_>`_.
+Belonging to a team does not mean that a reviewer needs to know every single
+line of code the team is maintaining. Once you have reviewed a PR, if you feel
+that another pair of eyes is needed, re-request a review from the appropriate
+team. In the following example, the reviewer belonging to the CI team is
+re-requesting a review for other team members to review the PR. This allows
+other team members belonging to the CI team to see the PR as part of the PRs
+that require review in the `filter <team_review_filter_>`_.
 
 .. image:: ../../../images/re-request-review.png
    :align: center
    :scale: 50%
 
 When all review objectives for all ``CODEOWNERS`` are met, all required CI
-tests have passed and a proper release label as been set, you may set the
+tests have passed and a proper release label is set, you may set the
 ``ready-to-merge`` label to indicate that all criteria have been met.
 Maintainer's little helper might set this label automatically if the previous
 requirements were met.
@@ -61,7 +160,7 @@ requirements were met.
 .. _user_review_filter: https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+user-review-requested%3A%40me+sort%3Aupdated-asc
 .. _team_review_filter: https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+review-requested%3A%40me+sort%3Aupdated-asc
 
-Code Owners
+Code owners
 -----------
 
 .. include:: ../../../codeowners.rst
