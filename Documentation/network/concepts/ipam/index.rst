@@ -14,6 +14,11 @@ IP Address Management (IPAM) is responsible for the allocation and management
 of IP addresses used by network endpoints (container and others) managed by
 Cilium. Various IPAM modes are supported to meet the needs of different users:
 
+Don't change the IPAM mode of an existing cluster. Changing the IPAM mode in
+a live environment may cause persistent disruption of connectivity for existing workloads.
+The safest path to change IPAM mode is to install a fresh Kubernetes cluster with the new IPAM configuration.
+
+
 .. toctree::
    :maxdepth: 1
    :glob:
