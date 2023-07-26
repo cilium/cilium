@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/ipcache/types/fake"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -82,8 +81,7 @@ func containsIP(allowedIPs []net.IPNet, ipnet *net.IPNet) bool {
 
 func newTestAgent(ctx context.Context) (*Agent, *ipcache.IPCache) {
 	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
-		Context:       ctx,
-		NodeIDHandler: &fake.FakeNodeIDHandler{},
+		Context: ctx,
 	})
 	wgAgent := &Agent{
 		wgClient:         &fakeWgClient{},
