@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
@@ -173,6 +174,13 @@ func Test_authManager_handleCertificateRotationEvent(t *testing.T) {
 // Fake IPCache
 type fakeIPCache struct {
 	nodeIdMappings map[uint16]string
+}
+
+func (r *fakeIPCache) DumpNodeIDs() []*models.NodeID {
+	return []*models.NodeID{}
+}
+
+func (r *fakeIPCache) RestoreNodeIDs() {
 }
 
 func newFakeIPCache(mappings map[uint16]string) *fakeIPCache {

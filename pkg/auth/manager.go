@@ -6,12 +6,12 @@ package auth
 import (
 	"context"
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/auth/certs"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/authmap"
@@ -27,20 +27,14 @@ func (key signalAuthKey) String() string {
 }
 
 type authManager struct {
-	logger       logrus.FieldLogger
-	ipCache      ipCache
-	authHandlers map[policy.AuthType]authHandler
-	authmap      authMap
+	logger        logrus.FieldLogger
+	nodeIDHandler types.NodeIDHandler
+	authHandlers  map[policy.AuthType]authHandler
+	authmap       authMap
 
 	mutex                    lock.Mutex
 	pending                  map[authKey]struct{}
 	handleAuthenticationFunc func(a *authManager, k authKey, reAuth bool)
-}
-
-// ipCache is the set of interactions the auth manager performs with the IPCache
-type ipCache interface {
-	GetNodeIP(uint16) string
-	GetNodeID(nodeIP net.IP) (nodeID uint16, exists bool)
 }
 
 // authHandler is responsible to handle authentication for a specific auth type
@@ -60,7 +54,7 @@ type authResponse struct {
 	expirationTime time.Time
 }
 
-func newAuthManager(logger logrus.FieldLogger, authHandlers []authHandler, authmap authMap, ipCache ipCache) (*authManager, error) {
+func newAuthManager(logger logrus.FieldLogger, authHandlers []authHandler, authmap authMap, nodeIDHandler types.NodeIDHandler) (*authManager, error) {
 	ahs := map[policy.AuthType]authHandler{}
 	for _, ah := range authHandlers {
 		if ah == nil {
@@ -76,7 +70,7 @@ func newAuthManager(logger logrus.FieldLogger, authHandlers []authHandler, authm
 		logger:                   logger,
 		authHandlers:             ahs,
 		authmap:                  authmap,
-		ipCache:                  ipCache,
+		nodeIDHandler:            nodeIDHandler,
 		pending:                  make(map[authKey]struct{}),
 		handleAuthenticationFunc: handleAuthentication,
 	}, nil
@@ -188,7 +182,7 @@ func (a *authManager) authenticate(key authKey) error {
 		return fmt.Errorf("unknown requested auth type: %s", key.authType)
 	}
 
-	nodeIP := a.ipCache.GetNodeIP(key.remoteNodeID)
+	nodeIP := a.nodeIDHandler.GetNodeIP(key.remoteNodeID)
 	if nodeIP == "" {
 		return fmt.Errorf("remote node IP not available for node ID %d", key.remoteNodeID)
 	}
