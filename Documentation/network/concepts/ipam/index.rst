@@ -26,6 +26,10 @@ Multiple CIDRs per node      ❌                     ❌                       �
 Dynamic CIDR/IP allocation   ❌                     ❌                       ✅          ✅          ✅              ✅                ❌
 ============================ ====================== ======================== =========== =========== =============== ================= ===============
 
+Don't change the IPAM mode of an existing cluster. Changing the IPAM mode in
+a live environment may cause persistent disruption of connectivity for existing workloads.
+The safest path to change IPAM mode is to install a fresh Kubernetes cluster with the new IPAM configuration.
+
 
 .. toctree::
    :maxdepth: 1
