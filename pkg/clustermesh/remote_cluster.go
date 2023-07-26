@@ -9,7 +9,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
-	"github.com/cilium/cilium/pkg/clustermesh/internal"
+	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
@@ -22,7 +22,7 @@ import (
 )
 
 // remoteCluster implements the clustermesh business logic on top of
-// internal.RemoteCluster.
+// common.RemoteCluster.
 type remoteCluster struct {
 	// name is the name of the cluster
 	name string
@@ -58,8 +58,8 @@ type remoteCluster struct {
 	// allocations in the remote cluster
 	remoteIdentityCache *allocator.RemoteCache
 
-	// status is the function which fills the internal part of the status.
-	status internal.StatusFunc
+	// status is the function which fills the common part of the status.
+	status common.StatusFunc
 
 	swg *lock.StoppableWaitGroup
 }

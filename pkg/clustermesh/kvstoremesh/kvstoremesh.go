@@ -6,7 +6,7 @@ package kvstoremesh
 import (
 	"context"
 
-	"github.com/cilium/cilium/pkg/clustermesh/internal"
+	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -20,7 +20,7 @@ import (
 
 // KVStoreMesh is a cache of multiple remote clusters
 type KVStoreMesh struct {
-	internal internal.ClusterMesh
+	common common.ClusterMesh
 
 	// backend is the interface to operate the local kvstore
 	backend        kvstore.BackendOperations
@@ -31,16 +31,16 @@ type params struct {
 	cell.In
 
 	types.ClusterIDName
-	internal.Config
+	common.Config
 
 	BackendPromise promise.Promise[kvstore.BackendOperations]
 
-	Metrics internal.Metrics
+	Metrics common.Metrics
 }
 
 func newKVStoreMesh(lc hive.Lifecycle, params params) *KVStoreMesh {
 	km := KVStoreMesh{backendPromise: params.BackendPromise}
-	km.internal = internal.NewClusterMesh(internal.Configuration{
+	km.common = common.NewClusterMesh(common.Configuration{
 		Config:           params.Config,
 		ClusterIDName:    params.ClusterIDName,
 		NewRemoteCluster: km.newRemoteCluster,
@@ -49,9 +49,9 @@ func newKVStoreMesh(lc hive.Lifecycle, params params) *KVStoreMesh {
 
 	lc.Append(&km)
 
-	// The "internal" Start hook needs to be executed after that the kvstoremesh one
+	// The "common" Start hook needs to be executed after that the kvstoremesh one
 	// terminated, to ensure that the backend promise has already been resolved.
-	lc.Append(&km.internal)
+	lc.Append(&km.common)
 
 	return &km
 }
@@ -70,7 +70,7 @@ func (km *KVStoreMesh) Stop(hive.HookContext) error {
 	return nil
 }
 
-func (km *KVStoreMesh) newRemoteCluster(name string, _ internal.StatusFunc) internal.RemoteCluster {
+func (km *KVStoreMesh) newRemoteCluster(name string, _ common.StatusFunc) common.RemoteCluster {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	rc := &remoteCluster{
