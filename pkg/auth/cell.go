@@ -12,11 +12,11 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/auth/spire"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/policy"
@@ -76,7 +76,7 @@ type authManagerParams struct {
 	AuthHandlers []authHandler `group:"authHandlers"`
 
 	SignalManager   signal.SignalManager
-	IPCache         *ipcache.IPCache
+	NodeIDHandler   types.NodeIDHandler
 	IdentityChanges stream.Observable[cache.IdentityChange]
 	NodeManager     nodeManager.NodeManager
 	PolicyRepo      *policy.Repository
@@ -93,12 +93,12 @@ func registerAuthManager(params authManagerParams) error {
 	mapWriter := newAuthMapWriter(params.Logger, params.AuthMap)
 	mapCache := newAuthMapCache(params.Logger, mapWriter)
 
-	mgr, err := newAuthManager(params.Logger, params.AuthHandlers, mapCache, params.IPCache)
+	mgr, err := newAuthManager(params.Logger, params.AuthHandlers, mapCache, params.NodeIDHandler)
 	if err != nil {
 		return fmt.Errorf("failed to create auth manager: %w", err)
 	}
 
-	mapGC := newAuthMapGC(params.Logger, mapCache, params.IPCache, params.PolicyRepo)
+	mapGC := newAuthMapGC(params.Logger, mapCache, params.NodeIDHandler, params.PolicyRepo)
 
 	// Register auth components to lifecycle hooks & jobs
 
