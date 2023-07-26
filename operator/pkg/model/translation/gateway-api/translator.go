@@ -103,8 +103,9 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32) *core
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type:  corev1.ServiceTypeLoadBalancer,
-			Ports: ports,
+			Type:           corev1.ServiceTypeLoadBalancer,
+			Ports:          ports,
+			IPFamilyPolicy: ipFamilyPolicyPtr(corev1.IPFamilyPolicyPreferDualStack),
 		},
 	}
 }
@@ -134,4 +135,8 @@ func getEndpoints(resource model.FullyQualifiedResource) *corev1.Endpoints {
 			},
 		},
 	}
+}
+
+func ipFamilyPolicyPtr(p corev1.IPFamilyPolicyType) *corev1.IPFamilyPolicyType {
+	return &p
 }
