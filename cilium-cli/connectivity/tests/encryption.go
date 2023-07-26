@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/defaults"
+
 	"github.com/cilium/cilium-cli/connectivity/check"
 )
 
@@ -23,26 +25,59 @@ const (
 	requestICMPEcho
 )
 
-// getInterNodeIface determines on which netdev iface to capture pkts. In the
-// case of tunneling, we don't expect to see unencrypted pkts on a corresponding
-// tunneling iface, so the choice is obvious. In the native routing mode, we run
-// "ip route get $DST_IP" from the client pod's node.
+// getInterNodeIface determines on which netdev iface to capture pkts.
+// We run "ip route get $DST_IP" from the client pod's node to see to
+// which interface the traffic is routed to. Additionally, we translate
+// the interface name to the tunneling interface name, if the route goes
+// through "cilium_host" and tunneling is enabled.
 func getInterNodeIface(ctx context.Context, t *check.Test, clientHost *check.Pod, dstIP string) string {
-	tunnelFeat, ok := t.Context().Feature(check.FeatureTunnel)
-	if ok && tunnelFeat.Enabled {
-		return "cilium_" + tunnelFeat.Mode // E.g. cilium_vxlan
+	cmd := []string{
+		"/bin/sh", "-c",
+		fmt.Sprintf("ip -o route get %s | grep -oE 'dev [^ ]*' | cut -d' ' -f2",
+			dstIP),
 	}
-
-	cmd := []string{"/bin/sh", "-c",
-		fmt.Sprintf("ip -o r g %s | grep -oE 'dev [^ ]*' | cut -d' ' -f2",
-			dstIP)}
 	t.Debugf("Running %s", strings.Join(cmd, " "))
 	dev, err := clientHost.K8sClient.ExecInPod(ctx, clientHost.Pod.Namespace,
 		clientHost.Pod.Name, "", cmd)
 	if err != nil {
 		t.Fatalf("Failed to get IP route: %s", err)
 	}
-	return strings.TrimRight(dev.String(), "\n\r")
+
+	device := strings.TrimRight(dev.String(), "\n\r")
+
+	// When tunneling is enabled, and the traffic is routed to the cilium IP space
+	// we want to capture on the tunnel interface.
+	if tunnelFeat, ok := t.Context().Feature(check.FeatureTunnel); ok &&
+		tunnelFeat.Enabled && device == defaults.HostDevice {
+		return "cilium_" + tunnelFeat.Mode // E.g. cilium_vxlan
+	}
+
+	return device
+}
+
+// getSourceAddress determines the source IP address we want to use for
+// capturing packet. If direct routing is used, the source IP is the client IP.
+func getSourceAddress(ctx context.Context, t *check.Test, client,
+	clientHost *check.Pod, ipFam check.IPFamily, dstIP string,
+) string {
+	if tunnelStatus, ok := t.Context().Feature(check.FeatureTunnel); ok &&
+		!tunnelStatus.Enabled {
+		return client.Address(ipFam)
+	}
+
+	cmd := []string{
+		"/bin/sh", "-c",
+		fmt.Sprintf("ip -o route get %s | grep -oE 'src [^ ]*' | cut -d' ' -f2",
+			dstIP),
+	}
+	t.Debugf("Running %s", strings.Join(cmd, " "))
+	srcIP, err := clientHost.K8sClient.ExecInPod(ctx, clientHost.Pod.Namespace,
+		clientHost.Pod.Name, "", cmd)
+	if err != nil {
+		t.Fatalf("Failed to get IP route: %s", err)
+	}
+
+	return strings.TrimRight(srcIP.String(), "\n\r")
 }
 
 // PodToPodEncryption is a test case which checks the following:
@@ -85,11 +120,11 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 }
 
 func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
-	client, server, clientHost *check.Pod, reqType requestType, ipFam check.IPFamily) {
-
+	client, server, clientHost *check.Pod, reqType requestType, ipFam check.IPFamily,
+) {
 	dstAddr := server.Address(ipFam)
 	iface := getInterNodeIface(ctx, t, clientHost, dstAddr)
-	t.Debugf("Detected %s iface for communication among client and server nodes", iface)
+	srcAddr := getSourceAddress(ctx, t, client, clientHost, ipFam, dstAddr)
 
 	bgStdout := &safeBuffer{}
 	bgStderr := &safeBuffer{}
@@ -117,10 +152,11 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 			// Unfortunately, we cannot use "host %s and host %s" filter here,
 			// as IPsec recirculates replies to the iface netdev, which would
 			// make tcpdump to capture the pkts (false positive).
-			fmt.Sprintf("src host %s and dst host %s and %s", client.Address(ipFam), dstAddr, protoFilter),
+			fmt.Sprintf("src host %s and dst host %s and %s", srcAddr, dstAddr, protoFilter),
 			// Only one pkt is enough, as we don't expect any unencrypted pkt
 			// to be captured
-			"-c", "1"}
+			"-c", "1",
+		}
 		t.Debugf("Running in bg: %s", strings.Join(cmd, " "))
 		err := clientHost.K8sClient.ExecInPodWithWriters(ctx, killCmdCtx,
 			clientHost.Pod.Namespace, clientHost.Pod.Name, "", cmd, bgStdout, bgStderr)
