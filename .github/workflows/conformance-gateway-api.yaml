@@ -247,6 +247,8 @@ jobs:
             --version ${{ env.metallb_version }} \
             --wait
 
+          kubectl delete ValidatingWebhookConfiguration metallb-webhook-configuration
+
           kubectl apply -f - <<EOF
           apiVersion: metallb.io/v1beta1
           kind: IPAddressPool
