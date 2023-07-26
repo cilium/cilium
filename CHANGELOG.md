@@ -1,5 +1,106 @@
 # Changelog
 
+## v1.13.5
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add helm value `envoyConfig.enabled` that can be used to enable CiliumEnvoyConfig CRD independently of Cilium Ingress controller. (Backport PR #26421, Upstream PR #26005, @jrajahalme)
+* Allow to disable external workloads support in clustermesh-apiserver to improve performance when not needed. (Backport PR #26421, Upstream PR #25259, @giorio94)
+* daemon: don't allow egress gateway with KV store identity allocation (Backport PR #26421, Upstream PR #26189, @jibi)
+* helm: Allow node port allocation for Ingress LB service (Backport PR #26861, Upstream PR #26502, @sayboras)
+* ingress: Add loadBalancerIP and loadBalancerClass (Backport PR #26528, Upstream PR #22670, @oliver-ni)
+
+**Bugfixes:**
+* Avoid dropping short packets (that don't have their L3 header in linear data) in the to-netdev and from-host paths. (Backport PR #25739, Upstream PR #25159, @julianwiedmann)
+* bgpv1: Unconditionally select node when empty nodeSelector is given (Backport PR #26737, Upstream PR #26590, @YutaroHayakawa)
+* bpf: ct: fix CT-based packet tracing for IPv6 (Backport PR #26528, Upstream PR #26476, @julianwiedmann)
+* bpf: fix error handling for invoke_tailcall_if() (Backport PR #26497, Upstream PR #26118, @julianwiedmann)
+* bpf: lxc: fix one missing drop notification in CT lookup tail calls (Backport PR #26421, Upstream PR #26115, @julianwiedmann)
+* client, health/client: set dummy host header on unix:// local communication (Backport PR #26861, Upstream PR #26800, @tklauser)
+* Envoy resource namespacing (Backport PR #26421, Upstream PR #26037, @jrajahalme)
+* Fix a bug in the Egress Gateway feature when using the --install-egress-gateway-routes option. Delete stale IP rules after a CiliumEgressGatewayPolicy is updated and selects a different egress network interface. (Backport PR #26947, Upstream PR #26846, @julianwiedmann)
+* Fix bug that caused transient IPsec packet drops on upgrades when tunneling is enabled. (Backport PR #26792, Upstream PR #26708, @pchaigno)
+* Fix bug where CNI gets installed even if cni.install=false (Backport PR #26421, Upstream PR #26278, @joestringer)
+* Fix crash of cilium-agent happening when a remote node without node IP addresses is removed. (Backport PR #26421, Upstream PR #25851, @cyclinder)
+* Fix missing metric "cilium_services_events_total" (Backport PR #27036, Upstream PR #26719, @christarazi)
+* Fix path asymmetry when using pod-to-pod encryption with IPsec and tunnel mode. (Backport PR #26792, Upstream PR #25440, @pchaigno)
+* Fix possible connection drops on agents restart when a service is associated with multiple endpointslices or has backends across multiple clusters (Backport PR #27036, Upstream PR #26912, @giorio94)
+* Fix: Return "Content-Type" and "X-Content-Type-Options" headers from  Health Check Node Port (Backport PR #26528, Upstream PR #26458, @cezarygerard)
+* Fixed proxy redirect policy implementation when any deny rule prevents them. (Backport PR #26749, Upstream PR #26344, @jrajahalme)
+* helm: Fix a bug caused by incorrect indentation of the extraEnv parameter for Hubble UI backend (Backport PR #26915, Upstream PR #26797, @toVersus)
+* ingress: Delay secret sync if not available (Backport PR #26993, Upstream PR #26988, @sayboras)
+* ipsec: Split removeStaleXFRMOnce to fix deprioritization issue (Backport PR #26421, Upstream PR #26113, @jschwinger233)
+* Parses the IP addr passed as CIDR from the delegated IPAM and then use the IP addr from the parsed prefix. (Backport PR #26421, Upstream PR #22918, @vipul-21)
+* Temporarily disable bpf-clock-probe to avoid causing interruptions for long-lived connections during upgrades (Backport PR #27034, Upstream PR #26981, @margamanterola)
+
+**CI Changes:**
+* .github: add 'name' field for the conformance-e2e job (Backport PR #26861, Upstream PR #26791, @aanm)
+* ariane: don't skip verifier and l4lb tests on vendor/ changes (Backport PR #26737, Upstream PR #26715, @tklauser)
+* ci: fix Azure cluster names sometimes being too long (Backport PR #27036, Upstream PR #26933, @nbusseneau)
+* gh/workflows: Optionally enable dual stack in ci-e2e (Backport PR #26915, Upstream PR #26856, @brb)
+* gha: uniform the final sysdump names in conformance clustermesh (#26686, @giorio94)
+* test: Fix and unquarantine `Skip conntrack` test (Backport PR #27036, Upstream PR #25038, @pchaigno)
+* v1.13: ci: use Ariane to trigger workflows (#26580, @nbusseneau)
+
+**Misc Changes:**
+* Add cilium bpf nodeid list to bugtool and print nodeid in hex in ipcache dump (Backport PR #26421, Upstream PR #26130, @brb)
+* Adding an AWS architecture diagram for AWS FTR review (Backport PR #26421, Upstream PR #26016, @amitmavgupta)
+* bpf: add drop reason for TTL exceeded (Backport PR #27036, Upstream PR #26884, @julianwiedmann)
+* bpf: nodeport: wire up trace struct for IPv6 RevDNAT (Backport PR #26421, Upstream PR #26047, @julianwiedmann)
+* bpf: Use "fallthrough;", compile with -Wimplicit-fallthrough (Backport PR #26421, Upstream PR #26211, @qmonnet)
+* build(deps): bump github.com/docker/distribution from 2.8.1+incompatible to 2.8.2+incompatible (Backport PR #26737, Upstream PR #25393, @dependabot[bot])
+* Calling out support for Single-Region, Multi-Region, Multi-AZ for EKS (Backport PR #26421, Upstream PR #26015, @amitmavgupta)
+* certloader: Correctly support RequestClientCert in WatchedClientConfig (Backport PR #26915, Upstream PR #26812, @chancez)
+* chore(deps): update actions/setup-go action to v4 (v1.13) (#26320, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.13) (minor) (#26440, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.13) (patch) (#26702, @renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.17.4 (v1.13) (#26436, @renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.17.4 (v1.13) (#26437, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.19.10 docker digest to 405b708 (v1.13) (#26422, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.19.10 docker digest to 6fb612a (v1.13) (#26249, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to 0bced47 (v1.13) (#26701, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to 2a357c4 (v1.13) (#26317, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to 6120be6 (v1.13) (#26433, @renovate[bot])
+* chore(deps): update docker/setup-buildx-action action to v2.8.0 (v1.13) (#26572, @renovate[bot])
+* chore(deps): update docker/setup-buildx-action action to v2.9.0 (v1.13) (#26703, @renovate[bot])
+* chore(deps): update hubble cli to v0.12.0 (v1.13) (minor) (#26765, @renovate[bot])
+* chore(deps): update sigstore/cosign-installer action to v3 (v1.13) (#26441, @renovate[bot])
+* chore(deps): update sigstore/cosign-installer action to v3 (v1.13) (#26704, @renovate[bot])
+* doc: Documented incompatibility of EgressGW and kvstore (Backport PR #26637, Upstream PR #26139, @PhilipSchmid)
+* docker: Detect default "desktop-linux" builder (Backport PR #26421, Upstream PR #25908, @jrajahalme)
+* docs/ipsec: Clarify limitation on number of nodes (Backport PR #26861, Upstream PR #26810, @pchaigno)
+* docs/ipsec: Document RSS limitation (Backport PR #27036, Upstream PR #26979, @pchaigno)
+* docs/ipsec: Extend troubleshooting section (Backport PR #27036, Upstream PR #26808, @pchaigno)
+* docs/upgrading: note that policy bug was fixed in v1.13.3 (#26661, @squeed)
+* docs: clarify that L3 DNS policies require L7 proxy enabled (Backport PR #26421, Upstream PR #26180, @wedaly)
+* docs: Pick up PyYAML 6.0.1 (Backport PR #26915, Upstream PR #26883, @michi-covalent)
+* docs: remove no-longer-valid known policy issue (Backport PR #26861, Upstream PR #26660, @squeed)
+* docs: reword incorrect L7 policy description (Backport PR #26421, Upstream PR #26092, @peterj)
+* docs: Specify Helm chart version in "cilium install" commands (Backport PR #27036, Upstream PR #26934, @michi-covalent)
+* Document that the `install-egress-gateway-routes` flag is only for EKS's ENI mode in egress gateway guide (Backport PR #26861, Upstream PR #23616, @deepeshaburse)
+* Document that upgrades to 1.13.4 may experience interruptions of existing connections, while upgrades from 1.13.4 may encounter lingering connections. (#27048, @margamanterola)
+* Dump maps and events for all lb4/6 v3 backends (Backport PR #26421, Upstream PR #26108, @ti-mo)
+* Fix "make -C Documentation builder-image" (Backport PR #26915, Upstream PR #26874, @michi-covalent)
+* fix(deps): update module github.com/docker/docker to v24 (main) (Backport PR #26737, Upstream PR #26316, @renovate[bot])
+* helm: Add flag to disable CRD check for mass server-side apply (Backport PR #26421, Upstream PR #25956, @jcpunk)
+* vendor: Update go-restful (Backport PR #26576, Upstream PR #26560, @ferozsalam)
+
+**Other Changes:**
+* [v1.13] bgpv1: skip invalid node selector config in policy selection (#26541, @harsimran-pabla)
+* envoy: Bump envoy to v1.24.9 (#26805, @sayboras)
+* envoy: Bump envoy version to v1.24.10 (#27070, @sayboras)
+* envoy: Bump minor version to v1.24.x (#26309, @sayboras)
+* envoy: Update for missing backports (#26722, @jrajahalme)
+* gh/workflows: Bump CLI to v0.15.3 in ci-e2e (#26855, @brb)
+* install: Update image digests for v1.13.4 (#26267, @qmonnet)
+* metrics: fix missing k8s rest client metrics (#26412, @ysksuzuki)
+* Revert "chore(deps): update sigstore/cosign-installer action to v3 (v1.13)" (#26690, @aanm)
+* v1.13 Backports 2023-06-26 (#26477, @jibi)
+* v1.13 docs: Use stable-v0.14.txt for cilium-cli version (#26465, @michi-covalent)
+* v1.13: node: Fix node encryption condition in incorrect backport (#26953, @pchaigno)
+
 ## v1.13.4
 
 Summary of Changes
