@@ -99,6 +99,7 @@ struct ipv4_nat_target {
 	bool from_local_endpoint;
 	bool egress_gateway; /* NAT is needed because of an egress gateway policy */
 	__u32 cluster_id;
+	bool needs_ct;
 };
 
 #if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
@@ -255,31 +256,6 @@ out:
 	return ret;
 }
 
-static __always_inline bool
-snat_v4_needs_ct(const struct ipv4_ct_tuple *tuple,
-		 const struct ipv4_nat_target *target)
-{
-	if (tuple->saddr == target->addr) {
-		/* Host-local connection. */
-		return true;
-	}
-
-#if defined(ENABLE_EGRESS_GATEWAY) && defined(IS_BPF_HOST)
-	/* Track egress gateway connections, but only if they are related to a
-	 * remote endpoint (if the endpoint is local then the connection is
-	 * already tracked).
-	 */
-	if (target->egress_gateway && !target->from_local_endpoint) {
-		/* Track established egress gateway connections to extend the
-		 * CT entry expiration timeout.
-		 */
-		return true;
-	}
-#endif
-
-	return false;
-}
-
 static __always_inline int
 snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 			   struct ipv4_ct_tuple *tuple,
@@ -291,7 +267,7 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 			   const struct ipv4_nat_target *target,
 			   __s8 *ext_err)
 {
-	bool needs_ct;
+	bool needs_ct = target->needs_ct;
 	void *map;
 
 	map = get_cluster_snat_map_v4(target->cluster_id);
@@ -299,7 +275,6 @@ snat_v4_nat_handle_mapping(struct __ctx_buff *ctx,
 		return DROP_SNAT_NO_MAP_FOUND;
 
 	*state = __snat_lookup(map, tuple);
-	needs_ct = *state ? (*state)->common.needs_ct : snat_v4_needs_ct(tuple, target);
 
 	if (needs_ct) {
 		struct ipv4_ct_tuple tuple_snat;
@@ -732,6 +707,8 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 #if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
 	if (tuple->saddr == IPV4_MASQUERADE) {
 		target->addr = IPV4_MASQUERADE;
+		target->needs_ct = true;
+
 		return NAT_NEEDED;
 	}
 
@@ -784,6 +761,9 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 
 	if (egress_gw_snat_needed(tuple->saddr, tuple->daddr, &target->addr)) {
 		target->egress_gateway = true;
+		/* If the endpoint is local, then the connection is already tracked. */
+		if (!local_ep)
+			target->needs_ct = true;
 
 		return NAT_NEEDED;
 	}
@@ -1185,6 +1165,7 @@ struct ipv6_nat_target {
 	const __u16 min_port; /* host endianness */
 	const __u16 max_port; /* host endianness */
 	bool from_local_endpoint;
+	bool needs_ct;
 };
 
 #if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
@@ -1317,18 +1298,6 @@ out:
 	return ret;
 }
 
-static __always_inline bool
-snat_v6_needs_ct(struct ipv6_ct_tuple *tuple,
-		 const struct ipv6_nat_target *target)
-{
-	if (ipv6_addr_equals(&tuple->saddr, &target->addr)) {
-		/* Host-local connection. */
-		return true;
-	}
-
-	return false;
-}
-
 static __always_inline int
 snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 			   struct ipv6_ct_tuple *tuple,
@@ -1339,10 +1308,9 @@ snat_v6_nat_handle_mapping(struct __ctx_buff *ctx,
 			   const struct ipv6_nat_target *target,
 			   __s8 *ext_err)
 {
-	bool needs_ct;
+	bool needs_ct = target->needs_ct;
 
 	*state = snat_v6_lookup(tuple);
-	needs_ct = *state ? (*state)->common.needs_ct : snat_v6_needs_ct(tuple, target);
 
 	if (needs_ct) {
 		struct ipv6_ct_tuple tuple_snat;
@@ -1654,6 +1622,8 @@ snat_v6_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
 	BPF_V6(masq_addr, IPV6_MASQUERADE);
 	if (ipv6_addr_equals(&tuple->saddr, &masq_addr)) {
 		ipv6_addr_copy(&target->addr, &masq_addr);
+		target->needs_ct = true;
+
 		return NAT_NEEDED;
 	}
 
