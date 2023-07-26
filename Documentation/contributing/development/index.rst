@@ -19,6 +19,7 @@ understand the workflow of getting these changes reviewed and merged upstream.
    :maxdepth: 2
 
    contributing_guide
+   reviewers_committers/index
    dev_setup
    images
    codeoverview
