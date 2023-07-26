@@ -665,8 +665,10 @@ out:
 __section_entry
 int cil_to_overlay(struct __ctx_buff *ctx)
 {
+	struct trace_ctx __maybe_unused trace;
 	int ret = TC_ACT_OK;
 	__u32 cluster_id __maybe_unused = 0;
+	__s8 ext_err = 0;
 
 	/* When WireGuard strict mode is enabled, we have additional information
 	 * regarding to which CIDRs packets must encrypted. We have to check the
@@ -708,11 +710,12 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 	cluster_id = ctx_get_cluster_id_mark(ctx);
 #endif
-	ret = handle_nat_fwd(ctx, cluster_id);
+	ret = handle_nat_fwd(ctx, cluster_id, &trace, &ext_err);
 out:
 #endif
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_EGRESS);
 	return ret;
 }
 

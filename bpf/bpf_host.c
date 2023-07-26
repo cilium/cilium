@@ -1389,8 +1389,8 @@ int cil_to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	};
 	__u32 __maybe_unused vlan_id;
 	int ret = CTX_ACT_OK;
-#ifdef ENABLE_HOST_FIREWALL
 	__s8 ext_err = 0;
+#ifdef ENABLE_HOST_FIREWALL
 	__u16 proto = 0;
 #endif
 
@@ -1517,12 +1517,7 @@ out:
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.
 		 */
-		ret = handle_nat_fwd(ctx, 0);
-		if (IS_ERR(ret))
-			return send_drop_notify_error(ctx, 0, ret,
-						      CTX_ACT_DROP,
-						      METRIC_EGRESS);
-
+		ret = handle_nat_fwd(ctx, 0, &trace, &ext_err);
 		if (ret == CTX_ACT_REDIRECT)
 			return ret;
 	}
@@ -1530,8 +1525,8 @@ out:
 
 __maybe_unused exit:
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
-					      METRIC_EGRESS);
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_EGRESS);
 	send_trace_notify(ctx, TRACE_TO_NETWORK, 0, 0, 0,
 			  0, trace.reason, trace.monitor);
 
