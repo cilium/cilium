@@ -265,6 +265,7 @@ jobs:
           mv ./linux-amd64/helm ./helm
 
       - name: Provision LVH VMs
+        id: provision-vh-vms
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           test-name: datapath-conformance
@@ -348,6 +349,7 @@ jobs:
           tar -xf /tmp/.ginkgo-build/test.tgz
 
       - name: Run tests
+        id: run-tests
         timeout-minutes: 40
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
@@ -408,7 +410,7 @@ jobs:
                -cilium.operator-suffix=-ci
 
       - name: Fetch artifacts
-        if: ${{ !success() }}
+        if: ${{ !success() && steps.provision-vh-vms.outcome == 'success' }}
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
@@ -429,7 +431,7 @@ jobs:
           retention-days: 5
 
       - name: Fetch JUnits
-        if: ${{ always() }}
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
         shell: bash
         run: |
           mkdir -p cilium-junits
