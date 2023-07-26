@@ -572,6 +572,8 @@ paths:
       - policy
       parameters:
       - "$ref": "#/parameters/policy-rules"
+      - "$ref": "#/parameters/policy-replace"
+      - "$ref": "#/parameters/policy-replace-with-labels"
       responses:
         '200':
           description: Success
@@ -1193,6 +1195,20 @@ parameters:
     required: true
     in: body
     schema:
+      type: string
+  policy-replace:
+    name: replace
+    description: If true, indicates that existing rules with identical labels should be replaced.
+    required: false
+    in: query
+    type: boolean
+  policy-replace-with-labels:
+    name: replace-with-labels
+    description: If present, indicates that existing rules with the given labels should be deleted.
+    required: false
+    in: query
+    type: array
+    items:
       type: string
   pod-name:
     name: pod

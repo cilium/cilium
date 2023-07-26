@@ -18,9 +18,11 @@ cilium policy import <path> [flags]
 ### Options
 
 ```
-  -h, --help            help for import
-  -o, --output string   json| yaml| jsonpath='{}'
-      --print           Print policy after import
+  -h, --help                          help for import
+  -o, --output string                 json| yaml| jsonpath='{}'
+      --print                         Print policy after import
+      --replace                       Replace existing policy
+      --replace-with-labels strings   Replace existing policies that match given labels
 ```
 
 ### Options inherited from parent commands

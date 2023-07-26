@@ -644,8 +644,16 @@ func putPolicyHandler(d *Daemon, params PutPolicyParams) middleware.Responder {
 		}
 	}
 
+	replace := false
+	if params.Replace != nil {
+		replace = *params.Replace
+	}
+	replaceWithLabels := labels.ParseSelectLabelArrayFromArray(params.ReplaceWithLabels)
+
 	rev, err := d.PolicyAdd(rules, &policy.AddOptions{
-		Source: source.LocalAPI,
+		Replace:           replace,
+		ReplaceWithLabels: replaceWithLabels,
+		Source:            source.LocalAPI,
 	})
 	if err != nil {
 		metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
