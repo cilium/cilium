@@ -39,6 +39,8 @@ the release of version ``v1.3.0``:
 - Major bugfixes relevant to the correct operation of Cilium
 - Debug tool improvements
 
+.. _backport_criteria_docs:
+
 Backport Criteria for documentation changes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

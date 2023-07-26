@@ -4,6 +4,8 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+.. _docs_style_guide:
+
 *******************
 Documentation style
 *******************
@@ -101,6 +103,8 @@ But the following examples are incorrect::
 .. _the section on capitalization for API objects: https://kubernetes.io/docs/contribute/style/style-guide/#use-upper-camel-case-for-api-objects
 .. _UpperCamelCase: https://en.wikipedia.org/wiki/Camel_case
 .. _sentence-style capitalization: https://docs.microsoft.com/en-us/style-guide/text-formatting/using-type/use-sentence-style-capitalization
+
+.. _docs_style_code_blocks:
 
 Code blocks
 -----------
