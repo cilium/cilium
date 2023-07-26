@@ -18,13 +18,13 @@ on:
         required: false
         default: '{}'
 
-  push:
-    branches:
-      - main
-      - ft/main/**
-    paths-ignore:
-      - 'Documentation/**'
-      - 'test/**'
+  push: {}
+    # branches:
+    #   - main
+    #   - ft/main/**
+    # paths-ignore:
+    #   - 'Documentation/**'
+    #   - 'test/**'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
