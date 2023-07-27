@@ -1339,6 +1339,11 @@ definitions:
         description: |
           Whether to build an endpoint synchronously
         type: boolean
+      disable-legacy-identifiers:
+        description: >-
+          Disables lookup using legacy endpoint identifiers (container name,
+          container id, pod name) for this endpoint
+        type: boolean
       datapath-configuration:
         "$ref": "#/definitions/EndpointDatapathConfiguration"
   EndpointDatapathConfiguration:
