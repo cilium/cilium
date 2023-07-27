@@ -173,8 +173,9 @@ Creating the Backports Branch
 #. Check whether there are any `outstanding backport PRs for the target branch
    <https://github.com/cilium/cilium/pulls?q=is%3Aopen+is%3Apr+label%3Akind%2Fbackports>`__.
    If there are already backports for that branch, create a thread in the
-   #launchpad channel in Slack and reach out to the author to coordinate
-   triage, review and merge of the existing PR into the target branch.
+   #launchpad channel in `Cilium Slack`_ and reach out to the author to
+   coordinate triage, review and merge of the existing PR into the target
+   branch.
 
 #. Run ``contrib/backporting/start-backport`` for the release version that
    you intend to backport PRs for. This will pull the latest repository commits
@@ -250,9 +251,9 @@ Creating the Backports Branch
    the backporter should build new images as described in :ref:`update_cilim_builder_runtime_images`.
 
 #. (Optional) If there are any commits or pull requests that are tricky or
-   time-consuming to backport, consider reaching out for help on Slack. If the
-   commit does not cherry-pick cleanly, please mention the necessary changes in
-   the pull request description in the next section.
+   time-consuming to backport, consider reaching out for help on `Cilium
+   Slack`_. If the commit does not cherry-pick cleanly, please mention the
+   necessary changes in the pull request description in the next section.
 
 Creating the Backport Pull Request
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

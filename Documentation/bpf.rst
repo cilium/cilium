@@ -919,7 +919,8 @@ In order to run through all BPF selftests, the following command is needed:
 
     $ sudo make run_tests
 
-If you see any failures, please contact us on Slack with the full test output.
+If you see any failures, please contact us on `Cilium Slack`_ with the full
+test output.
 
 Compiling iproute2
 ``````````````````

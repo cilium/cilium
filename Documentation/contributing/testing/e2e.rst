@@ -700,5 +700,5 @@ Further Assistance
 ~~~~~~~~~~~~~~~~~~
 
 Have a question about how the tests work or want to chat more about improving the
-testing infrastructure for Cilium? Hop on over to the
-`testing <https://cilium.slack.com/messages/C7PE7V806>`_ channel on Slack.
+testing infrastructure for Cilium? Hop on over to the ``#testing`` channel on
+`Cilium Slack`_.

@@ -100,10 +100,13 @@ run_linter() {
 
     CONF_PY_ROLES=$(sed -n "/^extlinks = {$/,/^}$/ s/^ *'\([^']\+\)':.*/\1/p" conf.py | tr '\n' ',')
     CONF_PY_SUBSTITUTIONS="$(sed -n 's/^\.\. |\([^|]\+\)|.*/\1/p' conf.py | tr '\n' ',')release"
+    CONF_PY_TARGET_NAMES="(cilium slack)"
     ignored_messages="("
     ignored_messages="${ignored_messages}bpf.rst:.*: \(INFO/1\) Enumerated list start value not ordinal"
     ignored_messages="${ignored_messages}|Hyperlink target .*is not referenced\."
     ignored_messages="${ignored_messages}|Duplicate implicit target name:"
+    ignored_messages="${ignored_messages}|\(ERROR/3\) Indirect hyperlink target \".*\"  refers to target \"${CONF_PY_TARGET_NAMES}\", which does not exist."
+    ignored_messages="${ignored_messages}|\(ERROR/3\) Unknown target name: \"${CONF_PY_TARGET_NAMES}\"."
     ignored_messages="${ignored_messages})"
     # Filter out the AttributeError reports that are due to a bug in rstcheck,
     # see https://github.com/rstcheck/rstcheck-core/issues/3.

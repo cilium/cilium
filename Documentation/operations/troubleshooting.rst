@@ -927,14 +927,12 @@ you can also redirect to a file like
    away before sharing it with us.
 
 
-Slack Assistance
+Slack assistance
 ----------------
 
-The Cilium slack community is helpful first point of assistance to get help
-troubleshooting a problem or to discuss options on how to address a problem.
-
-The slack community is open to everyone. You can request an invite email by
-visiting `Slack <https://cilium.herokuapp.com/>`_.
+The `Cilium Slack`_ community is a helpful first point of assistance to get
+help troubleshooting a problem or to discuss options on how to address a
+problem. The community is open to anyone.
 
 Report an issue via GitHub
 --------------------------
@@ -943,7 +941,6 @@ If you believe to have found an issue in Cilium, please report a
 `GitHub issue`_ and make sure to attach a system dump as described above to
 ensure that developers have the best chance to reproduce the issue.
 
-.. _Slack channel: https://cilium.herokuapp.com
 .. _NodeSelector: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 .. _RBAC: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
 .. _CNI: https://github.com/containernetworking/cni

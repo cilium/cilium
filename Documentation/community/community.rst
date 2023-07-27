@@ -20,15 +20,15 @@ Zoom call open to everyone. During that time, we discuss:
 If you want to discuss something during the next meeting's open session,
 you can add it to `the meeting's Google doc
 <https://docs.google.com/document/d/1Y_4chDk4rznD6UgXPlPvn3Dc7l-ZutGajUv1eF0VDwQ/edit#>`_.
-The Zoom link to the meeting is available in the #development Slack
+The Zoom link to the meeting is available in the ``#development`` Slack
 channel and in `the meeting notes
 <https://docs.google.com/document/d/1Y_4chDk4rznD6UgXPlPvn3Dc7l-ZutGajUv1eF0VDwQ/edit#>`_.
 
 Slack
 =====
 
-Our Cilium & eBPF Slack is the main discussion space for the Cilium community.
-Click `here <https://cilium.herokuapp.com>`_ to request an invite.
+Our `Cilium & eBPF Slack <Cilium Slack_>`_ is the main discussion space for the
+Cilium community.
 
 Slack channels
 --------------
@@ -36,11 +36,11 @@ Slack channels
 ==================== ==========================================================
 Name                 Purpose
 ==================== ==========================================================
-#general             General user discussions & questions
-#hubble              Questions on Hubble
-#kubernetes          Kubernetes-specific questions
-#networkpolicy       Questions on network policies
-#release             Release announcements only
+``#general``         General user discussions & questions
+``#hubble``          Questions on Hubble
+``#kubernetes``      Kubernetes-specific questions
+``#networkpolicy``   Questions on network policies
+``#release``         Release announcements only
 ==================== ==========================================================
 
 You can join the following channels if you are looking to contribute to
@@ -49,11 +49,11 @@ Cilium:
 ==================== ==========================================================
 Name                 Purpose
 ==================== ==========================================================
-#development         Development discussions around Cilium
-#ebpf-go-dev         Development discussion for the `eBPF Go library`_
-#git                 GitHub notifications
-#sig-*               SIG-specific discussions (see below)
-#testing             Testing and CI discussions
+``#development``     Development discussions around Cilium
+``#ebpf-go-dev``     Development discussion for the `eBPF Go library`_
+``#git``             GitHub notifications
+``#sig-``\*          SIG-specific discussions (see below)
+``#testing``         Testing and CI discussions
 ==================== ==========================================================
 
 If you are interested in eBPF, then the following channels are for you:
@@ -61,10 +61,10 @@ If you are interested in eBPF, then the following channels are for you:
 ==================== ==========================================================
 Name                 Purpose
 ==================== ==========================================================
-#ebpf                General eBPF questions
-#ebpf-go             Questions on the `eBPF Go library`_
-#ebpf-lsm            Questions on BPF Linux Security Modules (LSM)
-#ebpf-news           Contributions to the `eBPF Updates`_
+``#ebpf``            General eBPF questions
+``#ebpf-go``         Questions on the `eBPF Go library`_
+``#ebpf-lsm``        Questions on BPF Linux Security Modules (LSM)
+``#ebpf-news``       Contributions to the `eBPF Updates`_
 ==================== ==========================================================
 
 .. _eBPF Go library: https://github.com/cilium/ebpf
@@ -81,16 +81,16 @@ The following is a list of special interest groups (SIG) that are meeting on a
 regular interval. See the respective slack channel for exact meeting cadence
 and meeting links.
 
-====================== ===================================== ============= ================================================================================
-SIG                    Meeting                               Slack         Description
-====================== ===================================== ============= ================================================================================
-Datapath               Thursdays, 08:00 PT                   #sig-datapath Development discussions for Linux and eBPF code used in Cilium.
-Documentation          None                                  #sig-docs     Documentation, Helm references, and translations.
-Envoy                  On demand                             #sig-envoy    Envoy, Istio and maintenance of all L7 protocol parsers.
-Hubble                 During community meeting              #sig-hubble   All Hubble-related code: Server, UI, CLI and Relay.
-Policy                 None                                  #sig-policy   Network policy and enforcement.
-Release Management     None                                  #launchpad    Release management and backport coordination.
-====================== ===================================== ============= ================================================================================
+====================== ===================================== ================= ================================================================================
+SIG                    Meeting                               Slack             Description
+====================== ===================================== ================= ================================================================================
+Datapath               Thursdays, 08:00 PT                   ``#sig-datapath`` Development discussions for Linux and eBPF code used in Cilium.
+Documentation          None                                  ``#sig-docs``     Documentation, Helm references, and translations.
+Envoy                  On demand                             ``#sig-envoy``    Envoy, Istio and maintenance of all L7 protocol parsers.
+Hubble                 During community meeting              ``#sig-hubble``   All Hubble-related code: Server, UI, CLI and Relay.
+Policy                 None                                  ``#sig-policy``   Network policy and enforcement.
+Release Management     None                                  ``#launchpad``    Release management and backport coordination.
+====================== ===================================== ================= ================================================================================
 
 How to create a SIG
 -------------------
@@ -99,5 +99,5 @@ How to create a SIG
 2. Specify the title "SIG-Request: <Name>"
 3. Provide a description
 4. Find two Cilium committers to support the SIG.
-5. Ask on #development to get the Slack channel and Zoom meeting created
+5. Ask on ``#development`` to get the Slack channel and Zoom meeting created
 6. Submit a PR to update the documentation to get your new SIG listed
