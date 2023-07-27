@@ -51,7 +51,7 @@ In this example, the cause for the failure is a Linux kernel running on the
 worker node which is not meeting :ref:`admin_system_reqs`.
 
 If the cause for the problem is not apparent based on these simple steps,
-please come and seek help on our :term:`Slack channel`.
+please come and seek help on `Cilium Slack`_.
 
 Apiserver outside of cluster
 ==============================

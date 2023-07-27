@@ -83,13 +83,19 @@ Solution
 This `pull request <https://github.com/argoproj/argo-cd/pull/8371>`__ fixed this issue in Argo CD's `v2.3.0 release <https://github.com/argoproj/argo-cd/releases/tag/v2.3.0>`__.
 Upgrade your Argo CD and check if ``helm template`` with ``serviceMonitor`` enabled still fails.
 
-
 .. note::
-    Note that when using ``helm template``, it is highly recommended you set ``--kube-version`` and ``--api-versions`` with the values matching your target Kubernetes cluster.
-    Helm charts such as Cilium's often conditionally enable certain Kubernetes features based on their availability (beta vs stable) on the target cluster.
-    
-    By specifying ``--api-versions=monitoring.coreos.com/v1`` you should be able to pass validation with ``helm template``.
 
-    
-If you have an issue with Argo CD that's not outlined above, check this `list of Argo CD related issues on GitHub <https://github.com/cilium/cilium/issues?q=is%3Aissue+argocd>`__.
-If you can't find an issue that relates to yours, create one and/or seek help on the :term:`Slack channel`.
+    When using ``helm template``, it is highly recommended you set
+    ``--kube-version`` and ``--api-versions`` with the values matching your
+    target Kubernetes cluster. Helm charts such as Cilium's often conditionally
+    enable certain Kubernetes features based on their availability (beta vs
+    stable) on the target cluster.
+
+    By specifying ``--api-versions=monitoring.coreos.com/v1`` you should be
+    able to pass validation with ``helm template``.
+
+If you have an issue with Argo CD that's not outlined above, check this `list
+of Argo CD related issues on GitHub
+<https://github.com/cilium/cilium/issues?q=is%3Aissue+argocd>`__.
+If you can't find an issue that relates to yours, create one and/or seek help
+on `Cilium Slack`_.
