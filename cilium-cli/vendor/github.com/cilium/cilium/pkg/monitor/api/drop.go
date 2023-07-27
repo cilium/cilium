@@ -90,6 +90,7 @@ var errors = map[uint8]string{
 	192: "Invalid ClusterID",
 	193: "Unsupported packet protocol for DSR encapsulation",
 	194: "No egress gateway found",
+	196: "TTL exceeded",
 }
 
 func extendedReason(reason uint8, extError int8) string {

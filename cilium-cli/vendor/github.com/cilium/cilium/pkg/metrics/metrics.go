@@ -412,8 +412,8 @@ var (
 
 	// Services
 
-	// ServicesCount number of services
-	ServicesCount = NoOpCounterVec
+	// ServicesEventsCount counts the number of services
+	ServicesEventsCount = NoOpCounterVec
 
 	// Errors and warnings
 
@@ -609,7 +609,7 @@ type LegacyMetrics struct {
 	ConntrackGCDuration              metric.Vec[metric.Observer]
 	ConntrackDumpResets              metric.Vec[metric.Counter]
 	SignalsHandled                   metric.Vec[metric.Counter]
-	ServicesCount                    metric.Vec[metric.Counter]
+	ServicesEventsCount              metric.Vec[metric.Counter]
 	ErrorsWarnings                   metric.Vec[metric.Counter]
 	ControllerRuns                   metric.Vec[metric.Counter]
 	ControllerRunsDuration           metric.Vec[metric.Observer]
@@ -949,7 +949,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 				"labeled by signal type, data and completion status",
 		}, []string{LabelSignalType, LabelSignalData, LabelStatus}),
 
-		ServicesCount: metric.NewCounterVec(metric.CounterOpts{
+		ServicesEventsCount: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_services_events_total",
 			Namespace:  Namespace,
 			Name:       "services_events_total",
@@ -1337,7 +1337,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	ConntrackGCDuration = lm.ConntrackGCDuration
 	ConntrackDumpResets = lm.ConntrackDumpResets
 	SignalsHandled = lm.SignalsHandled
-	ServicesCount = lm.ServicesCount
+	ServicesEventsCount = lm.ServicesEventsCount
 	ErrorsWarnings = lm.ErrorsWarnings
 	ControllerRuns = lm.ControllerRuns
 	ControllerRunsDuration = lm.ControllerRunsDuration
