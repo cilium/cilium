@@ -224,7 +224,7 @@ func (m *BGPRouterManager) registerBGPServer(ctx context.Context, c *v2alpha1api
 				AdvertiseInactiveRoutes: true,
 			},
 		},
-		CState: &agent.ControlPlaneState{},
+		CState: cstate,
 	}
 
 	if s, err = NewServerWithConfig(ctx, globalConfig); err != nil {
