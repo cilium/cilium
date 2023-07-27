@@ -89,8 +89,8 @@ Review process
    +-----------------------------------+--------------------------------------------------------------------------------------------------------+
 
 #. Check for upgrade compatibility impact and if in doubt, set the label
-   ``upgrade-impact`` and discuss in the Slack channel or in the weekly
-   meeting.
+   ``upgrade-impact`` and discuss in `Cilium Slack`_'s ``#development`` channel
+   or in the weekly meeting.
 
    +--------------------------+---------------------------------------------------------------------------+
    | Labels                   | When to set                                                               |

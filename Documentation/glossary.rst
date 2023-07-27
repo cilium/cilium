@@ -12,8 +12,8 @@ Glossary
 Cilium has some terms with special meanings. These should all be covered
 throughout the documentation but for convenience we have also listed some of
 them below with short descriptions. If you need more information, please ask us
-on `Slack <https://cilium.herokuapp.com>`_. Feel free to extend this document
-with words you expected to see here.
+on `Cilium Slack`_. Feel free to extend this document with words you expected
+to see here.
 
 .. glossary::
    :sorted:
@@ -25,10 +25,6 @@ with words you expected to see here.
      A Cilium policy consists of a list of rules. The security policy can be
      specified in The Kubernetes NetworkPolicy format or The Cilium policy
      language.
-
-   Slack channel
-     Public community slack channel for everyone to ask questions
-     https://cilium.herokuapp.com
 
    iproute2
      https://www.kernel.org/pub/linux/utils/net/iproute2/

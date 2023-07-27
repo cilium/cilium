@@ -171,15 +171,18 @@ production.
 Codebase modularization
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-As the project is growing in complexity it is becoming increasingly important to be able
-to divide it into more manageable chunks. To achieve this, we're working on modularizing the
-codebase and going from a tightly coupled design (one large initialization and configuration)
-to a more loosely coupled design of mostly self-contained modules. This will make Cilium 
-internals easier to comprehend, test and extend. 
+As the project is growing in complexity it is becoming increasingly important
+to be able to divide it into more manageable chunks. To achieve this, we're
+working on modularizing the codebase and going from a tightly coupled design
+(one large initialization and configuration) to a more loosely coupled design
+of mostly self-contained modules. This will make Cilium internals easier to
+comprehend, test and extend.
 
-Contributions in this area are very welcome. To get started, take a look at the :ref:`guide-to-the-hive`
-documentation and the issues referenced from `modularization meta issue <modularization-issue_>`_.
-If you have any questions or ideas please join us on the #sig-modularization channel on `Cilium Slack <slack_>`_.
+Contributions in this area are very welcome. To get started, take a look at the
+:ref:`guide-to-the-hive` documentation and the issues referenced from
+`modularization meta issue <modularization-issue_>`_. If you have any questions
+or ideas please join us on the ``#sig-modularization`` channel on `Cilium
+Slack`_.
 
 .. _rm-influence:
 
@@ -199,8 +202,8 @@ details of our pull request process and expectations, along with instructions
 for setting up your development environment.
 
 We encourage you to discuss your ideas for significant enhancements and feature
-requests on the #development channel on `Cilium Slack <slack_>`_, bring them to
-the :ref:`weekly-community-meeting`, and/or create a `CFP design doc`_.
+requests on the ``#development`` channel on `Cilium Slack`_, bring them to the
+:ref:`weekly-community-meeting`, and/or create a `CFP design doc`_.
 
 This roadmap does not give date commitments since the work is dependent on the
 community. If you're looking for commitments to apply engineering resources to
@@ -226,7 +229,6 @@ anything other than trivial fixes.
 .. _Hubble OpenTelemetry collector: https://github.com/cilium/hubble-otel
 .. _CI improvements: https://github.com/cilium/cilium/issues?q=is%3Aopen+is%3Aissue+label%3Aarea%2FCI-improvement
 .. _good-first-issue: https://github.com/cilium/cilium/labels/good-first-issue
-.. _slack: https://cilium.io/slack
 .. _enterprise: https://cilium.io/enterprise
 .. _CFP design doc: https://github.com/cilium/design-cfps/tree/main
 .. _modularization-issue: https://github.com/cilium/cilium/issues/23425
