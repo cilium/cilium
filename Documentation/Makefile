@@ -105,13 +105,14 @@ M2R := $(DOCKER_CTR) $(HELM_TOOLBOX_IMAGE) python3 /usr/bin/m2r2
 .PHONY: update-helm-values FORCE
 $(HELM_VALUES): TMP_FILE_1 := helm-values.tmp
 $(HELM_VALUES): TMP_FILE_2 := helm-values.awk
+$(HELM_VALUES): TMP_FILE_3 := helm-values.sed
 $(HELM_VALUES): FORCE
 	$(QUIET)$(HELM_DOCS) -d -c $(HELM_DOCS_CHARTS_DIR) -t $(HELM_DOCS_OUTPUT_DIR)/$(TMP_FILE_1).tmpl > $(TMP_FILE_1)
 	$(QUIET)awk -F'|' '{print "|"$$2"|"$$5"|"$$3"|"$$4"|"}' $(TMP_FILE_1) > $(TMP_FILE_2)
 	$(QUIET)$(M2R) --overwrite $(TMP_FILE_2)
-	$(QUIET)sed -i 's/^\(   \* - \)\([[:print:]]\+\)$$/\1:spelling:ignore:`\2`/' $@
-	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $@)" > $@
-	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2)
+	$(QUIET)$(SED) 's/^\(   \* - \)\([[:print:]]\+\)$$/\1:spelling:ignore:`\2`/' $@ > $(TMP_FILE_3)
+	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $(TMP_FILE_3))" > $@
+	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2) $(TMP_FILE_3)
 
 epub latex html: builder-image update-helm-values ## Check documentation and render it under the specified format.
 	@$(ECHO_GEN)_build/$@
