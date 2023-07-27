@@ -4,6 +4,7 @@
 package redirectpolicy
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/cilium/checkmate"
@@ -12,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -45,58 +47,40 @@ func (f *fakeSvcManager) UpsertService(*lb.SVC) (bool, lb.ID, error) {
 	return true, 1, nil
 }
 
-type fakePodStore struct {
-	OnList func() []interface{}
+type fakePodResource struct {
+	store fakePodStore
 }
 
-func (ps *fakePodStore) List() []interface{} {
+func (fpr *fakePodResource) Observe(ctx context.Context, next func(resource.Event[*slimcorev1.Pod]), complete func(error)) {
+	panic("unimplemented")
+}
+func (fpr *fakePodResource) Events(ctx context.Context, opts ...resource.EventsOpt) <-chan resource.Event[*slimcorev1.Pod] {
+	panic("unimplemented")
+}
+func (fpr *fakePodResource) Store(context.Context) (resource.Store[*slimcorev1.Pod], error) {
+	return &fpr.store, nil
+}
+
+type fakePodStore struct {
+	OnList func() []*slimcorev1.Pod
+}
+
+func (ps *fakePodStore) List() []*slimcorev1.Pod {
 	if ps.OnList != nil {
 		return ps.OnList()
 	}
-	pods := make([]interface{}, 2, 2)
-	pods = append(pods, pod1, pod2)
+	pods := []*slimcorev1.Pod{pod1, pod2}
 	return pods
 }
 
-func (ps *fakePodStore) Add(obj interface{}) error {
-	return nil
-}
-
-func (ps *fakePodStore) Update(obj interface{}) error {
-	return nil
-}
-
-func (ps *fakePodStore) Delete(obj interface{}) error {
-	return nil
-}
-
-func (ps *fakePodStore) ListKeys() []string {
-	return nil
-}
-
-func (ps *fakePodStore) Get(obj interface{}) (item interface{}, exists bool, err error) {
+func (ps *fakePodStore) IterKeys() resource.KeyIter { return nil }
+func (ps *fakePodStore) Get(obj *slimcorev1.Pod) (item *slimcorev1.Pod, exists bool, err error) {
 	return nil, false, nil
 }
-
-func (ps *fakePodStore) GetByKey(key string) (item interface{}, exists bool, err error) {
+func (ps *fakePodStore) GetByKey(key resource.Key) (item *slimcorev1.Pod, exists bool, err error) {
 	return nil, false, nil
 }
-
-func (ps *fakePodStore) Replace(i []interface{}, s string) error {
-	return nil
-}
-
-func (ps *fakePodStore) Resync() error {
-	return nil
-}
-
-type fakePodStoreGetter struct {
-	ps *fakePodStore
-}
-
-func (psg *fakePodStoreGetter) GetStore(name string) cache.Store {
-	return psg.ps
-}
+func (ps *fakePodStore) CacheStore() cache.Store { return nil }
 
 var (
 	tcpStr    = "TCP"
@@ -239,7 +223,10 @@ var (
 
 func (m *ManagerSuite) SetUpTest(c *C) {
 	m.svc = &fakeSvcManager{}
-	m.rpm = NewRedirectPolicyManager(m.svc)
+	fpr := &fakePodResource{
+		fakePodStore{},
+	}
+	m.rpm = NewRedirectPolicyManager(m.svc, fpr)
 	configAddrType = LRPConfig{
 		id: k8s.ServiceID{
 			Name:      "test-foo",
@@ -321,8 +308,6 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigSinglePort(c *C) {
 			podID:    pod1ID,
 		}
 	}
-
-	m.rpm.RegisterGetStores(&fakePodStoreGetter{ps: &fakePodStore{}})
 
 	added, err := m.rpm.AddRedirectPolicy(configAddrType)
 
@@ -434,8 +419,6 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigMultiplePorts(c *C) {
 		})
 	}
 
-	m.rpm.RegisterGetStores(&fakePodStoreGetter{ps: &fakePodStore{}})
-
 	added, err := m.rpm.AddRedirectPolicy(configAddrType)
 
 	c.Assert(added, Equals, true)
@@ -509,14 +492,14 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigDualStack(c *C) {
 		podID:    pod3ID,
 	}}
 	pod3.Status.PodIPs = append(pod3.Status.PodIPs, pod3v6)
-	psg := &fakePodStoreGetter{
-		&fakePodStore{
-			OnList: func() []interface{} {
-				return []interface{}{pod3}
+	psg := &fakePodResource{
+		fakePodStore{
+			OnList: func() []*slimcorev1.Pod {
+				return []*slimcorev1.Pod{pod3}
 			},
 		},
 	}
-	m.rpm.RegisterGetStores(psg)
+	m.rpm.localPods = psg
 
 	added, err := m.rpm.AddRedirectPolicy(configAddrType)
 
