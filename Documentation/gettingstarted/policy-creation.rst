@@ -265,8 +265,8 @@ This request will hang, so press Control-C to kill the curl request, or wait
 for it to time out.
 
 We hope you enjoyed the tutorial.  Feel free to play more with the setup,
-follow the `gs_http` guide, and reach out to us on the `Cilium
-Slack channel <https://cilium.herokuapp.com>`_ with any questions!
+follow the `gs_http` guide, and reach out to us on `Cilium Slack`_ with any
+questions!
 
 Clean-up
 ========

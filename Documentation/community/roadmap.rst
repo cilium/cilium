@@ -166,8 +166,9 @@ contributors find issues and feature requests that are relatively self-contained
 and could be a good place to start. Please also read the :ref:`dev_guide` for
 details of our pull request process and expectations, along with instructions
 for setting up your development environment. We encourage you to discuss your
-ideas for significant enhancements and feature requests on the #development
-channel on `Cilium Slack <slack_>`_ and/or bring them to the :ref:`weekly-community-meeting`. 
+ideas for significant enhancements and feature requests on the ``#development``
+channel on `Cilium Slack`_ and/or bring them to the
+:ref:`weekly-community-meeting`.
 
 This roadmap does not give date commitments since the work is dependent on the
 community. If you're looking for commitments to apply engineering resources to
@@ -191,5 +192,4 @@ anything other than trivial fixes.
 .. _Hubble OpenTelemetry collector: https://github.com/cilium/hubble-otel
 .. _CI improvements: https://github.com/cilium/cilium/issues?q=is%3Aopen+is%3Aissue+label%3Aarea%2FCI-improvement
 .. _good-first-issue: https://github.com/cilium/cilium/labels/good-first-issue
-.. _slack: https://cilium.io/slack
 .. _enterprise: https://cilium.io/enterprise

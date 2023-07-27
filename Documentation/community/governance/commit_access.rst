@@ -143,7 +143,7 @@ demonstrated the following in their interaction with the project:
 The process to grant commit access to a candidate is simple:
 
 -  An existing committer nominates the candidate by sending a message in the
-   #committers Slack channel to all existing committers with information
+   ``#committers`` Slack channel to all existing committers with information
    substantiating the contributions of the candidate in the areas described
    above.
 
@@ -313,8 +313,8 @@ decide an issue. If the maintainers themselves cannot decide an issue, the
 issue will be resolved by voting. The voting process is a simple majority in
 which each committer and each maintainer receives one vote.
 
-Votes are done in the Slack channel #committers using Slack polls. A failure to
-vote is an implicit abstention.
+Votes are done in the Slack channel ``#committers`` using Slack polls. A
+failure to vote is an implicit abstention.
 
 Company Block Vote Limit
 ------------------------

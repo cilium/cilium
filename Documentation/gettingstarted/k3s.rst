@@ -43,7 +43,7 @@ replace the variables with values from your environment:
     curl -sfL https://get.k3s.io | K3S_URL='https://${MASTER_IP}:6443' K3S_TOKEN=${NODE_TOKEN} sh -
 
 Should you encounter any issues during the installation, please refer to the
-:ref:`troubleshooting_k8s` section and / or seek help on the :term:`Slack channel`.
+:ref:`troubleshooting_k8s` section and/or seek help on `Cilium Slack`_.
 
 Please consult the Kubernetes :ref:`k8s_requirements` for information on  how
 you need to configure your Kubernetes cluster to operate with Cilium.
