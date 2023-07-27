@@ -253,7 +253,8 @@ func initKubeProxyReplacementOptions() error {
 		option.Config.EnableHealthDatapath =
 			option.Config.DatapathMode == datapathOption.DatapathModeLBOnly &&
 				option.Config.NodePortMode == option.NodePortModeDSR &&
-				option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP
+				(option.Config.LoadBalancerDSRDispatch == option.DSRDispatchIPIP ||
+					option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve)
 	}
 
 	if option.Config.InstallNoConntrackIptRules {
