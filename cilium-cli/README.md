@@ -356,8 +356,12 @@ deprecated. To use the `classic` mode, set `CILIUM_CLI_MODE` environment variabl
 
     export CILIUM_CLI_MODE=classic
 
-> **Warning**
-> The `classic` installation mode will be removed after v0.15 release.
+> **Warnings**
+> - The `classic` installation mode will be removed after v0.15 release.
+> - Cilium CLI does not support converting `classic` mode installations to
+>   `helm` mode installations and vice versa.
+> - Cilium CLI does not support running commands in `helm` mode against classic
+>   mode installations.
 
 ### Examples
 
