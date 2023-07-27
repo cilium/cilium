@@ -80,16 +80,16 @@ func (k *K8sWatcher) addCiliumFlowLogging(cfl *cilium_v2a1.CiliumFlowLogging) er
 	}
 
 	var deadline time.Time
-	if cfl.Spec.Expiration != nil {
-		deadline = cfl.Spec.Expiration.Time
+	if cfl.Spec.Expires != nil {
+		deadline = cfl.Spec.Expires.Time
 	}
 
 	opts := []exporteroption.Option{}
-	if len(cfl.Spec.AllowList) > 0 {
-		opts = append(opts, exporteroption.WithAllowList(cfl.Spec.AllowList))
+	if len(cfl.Spec.Filters) > 0 {
+		opts = append(opts, exporteroption.WithAllowList(cfl.Spec.Filters))
 	}
-	if len(cfl.Spec.DenyList) > 0 {
-		opts = append(opts, exporteroption.WithDenyList(cfl.Spec.DenyList))
+	if len(cfl.Spec.ExcludeFilters) > 0 {
+		opts = append(opts, exporteroption.WithDenyList(cfl.Spec.ExcludeFilters))
 	}
 	if len(cfl.Spec.FieldMask) > 0 {
 		opts = append(opts, exporteroption.WithFieldMask(cfl.Spec.FieldMask))

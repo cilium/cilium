@@ -196,7 +196,7 @@ func (s *K8sWatcherSuite) TestFlowLoggingManager(c *C) {
 			Name: "test-name",
 		},
 		Spec: v2alpha1.FlowLoggingSpec{
-			Expiration: &now,
+			Expires: &now,
 		},
 	})
 	c.Assert(err, IsNil)
@@ -207,7 +207,7 @@ func (s *K8sWatcherSuite) TestFlowLoggingManager(c *C) {
 			Name: "test-name",
 		},
 		Spec: v2alpha1.FlowLoggingSpec{
-			Expiration: &now,
+			Expires: &now,
 		},
 	})
 	c.Assert(err, IsNil)
@@ -234,10 +234,10 @@ func (s *K8sWatcherSuite) TestFlowLoggingManager(c *C) {
 		},
 		Spec: v2alpha1.FlowLoggingSpec{
 			FieldMask: []string{"source"},
-			AllowList: []*flowpb.FlowFilter{
+			Filters: []*flowpb.FlowFilter{
 				{SourcePod: []string{"araara"}},
 			},
-			Expiration: &now,
+			Expires: &now,
 		},
 	})
 	c.Assert(err, Equals, fakeErr)

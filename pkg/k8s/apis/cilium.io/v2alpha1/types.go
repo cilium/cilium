@@ -6,7 +6,6 @@ package v2alpha1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -75,79 +74,4 @@ type CiliumEndpointSliceList struct {
 
 	// Items is a list of CiliumEndpointSlice.
 	Items []CiliumEndpointSlice `json:"items"`
-}
-
-// +genclient
-// +genclient:nonNamespaced
-// +genclient:onlyVerbs=get,list,watch
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:categories={cilium},singular="ciliumflowlogging",path="ciliumflowloggings",scope="Cluster",shortName={cfl,ciliumfl}
-// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",description="Time duration since creation of CiliumFlow Logging",name="Age",type=date
-// +kubebuilder:storageversion
-// +kubebuilder:subresource:status
-
-// CiliumFlowLogging configures a flow logging task for Cilium agents.
-//
-// +deepequal-gen=false
-type CiliumFlowLogging struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
-
-	// Spec defines the desired specification/configuration of the flow logging.
-	//
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Spec is immutable"
-	Spec FlowLoggingSpec `json:"spec"`
-
-	// Status defines the realized specification/configuration and status
-	// of the flow logging.
-	//
-	// +kubebuilder:validation:Optional
-	Status FlowLoggingStatus `json:"status,omitempty"`
-}
-
-// FlowLoggingSpec defines configuration of a flow logging task.
-//
-// +deepequal-gen=false
-type FlowLoggingSpec struct {
-	// List of field names that will be kept in the log output.
-	//
-	// +kubebuilder:validation:Optional
-	FieldMask []string `json:"fieldmask"`
-
-	// Flow passes the allowlist filter if any of the entries match.
-	// The check is disabled when empty. Only Flows matching Allowlist, but
-	// not matching Denylist will be logged.
-	//
-	// +kubebuilder:validation:Optional
-	AllowList []*flowpb.FlowFilter `json:"allowlist"`
-
-	// Flow passes the denylist filter if none of the entries match.
-	// The check is disabled when empty. Only Flows matching Allowlist, but
-	// not matching Denylist will be logged.
-	//
-	// +kubebuilder:validation:Optional
-	DenyList []*flowpb.FlowFilter `json:"denylist"`
-
-	// Expiration specifies the time when logging will stop. Empty means
-	// that flow logging won't stop until this object is deleted.
-	//
-	// +kubebuilder:validation:Format=date-time
-	// +kubebuilder:validation:Optional
-	Expiration *metav1.Time `json:"end"`
-}
-
-// FlowLoggingStatus is a status of a flow logging task.
-type FlowLoggingStatus struct{}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +deepequal-gen=false
-
-// CiliumFlowLoggingList is a list of CiliumFlowLogging objects.
-type CiliumFlowLoggingList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	// Items is a list of CiliumFlowLogging
-	Items []CiliumFlowLogging `json:"items"`
 }

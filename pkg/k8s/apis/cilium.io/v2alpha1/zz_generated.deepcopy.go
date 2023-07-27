@@ -891,8 +891,8 @@ func (in *FlowLoggingSpec) DeepCopyInto(out *FlowLoggingSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.AllowList != nil {
-		in, out := &in.AllowList, &out.AllowList
+	if in.Filters != nil {
+		in, out := &in.Filters, &out.Filters
 		*out = make([]*flow.FlowFilter, len(*in))
 		for i := range *in {
 			if (*in)[i] != nil {
@@ -901,8 +901,8 @@ func (in *FlowLoggingSpec) DeepCopyInto(out *FlowLoggingSpec) {
 			}
 		}
 	}
-	if in.DenyList != nil {
-		in, out := &in.DenyList, &out.DenyList
+	if in.ExcludeFilters != nil {
+		in, out := &in.ExcludeFilters, &out.ExcludeFilters
 		*out = make([]*flow.FlowFilter, len(*in))
 		for i := range *in {
 			if (*in)[i] != nil {
@@ -911,8 +911,8 @@ func (in *FlowLoggingSpec) DeepCopyInto(out *FlowLoggingSpec) {
 			}
 		}
 	}
-	if in.Expiration != nil {
-		in, out := &in.Expiration, &out.Expiration
+	if in.Expires != nil {
+		in, out := &in.Expires, &out.Expires
 		*out = (*in).DeepCopy()
 	}
 	return
