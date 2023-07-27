@@ -2,6 +2,8 @@
 /* Copyright Authors of Cilium */
 
 #include "common.h"
+#include <bpf/ctx/skb.h>
+#include "pktgen.h"
 
 /* Set the LXC source address to be the address of pod one */
 #define LXC_IPV4 (__be32)v4_pod_one
@@ -10,8 +12,6 @@
 /* Enable CT debug output */
 #undef QUIET_CT
 
-#include <bpf/ctx/skb.h>
-#include "pktgen.h"
 
 /* Set ETH_HLEN to 14 to indicate that the packet has a 14 byte ethernet header */
 #define ETH_HLEN 14
