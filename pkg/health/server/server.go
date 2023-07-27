@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -418,7 +419,16 @@ func NewServer(config Config) (*Server, error) {
 	server.Client = cl
 	server.Server = *server.newServer(config.HealthAPISpec)
 
-	server.httpPathServer = responder.NewServer(node.GetCiliumEndpointNodeIP(), config.HTTPPathPort)
+	var address []string
+	if option.Config.EnableIPv4 {
+		address = append(address, node.GetIPv4().String())
+	}
+
+	if option.Config.EnableIPv6 {
+		address = append(address, node.GetIPv6().String())
+	}
+
+	server.httpPathServer = responder.NewServer(address, config.HTTPPathPort)
 
 	return server, nil
 }
