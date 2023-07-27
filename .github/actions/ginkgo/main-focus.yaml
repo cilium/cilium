@@ -223,10 +223,6 @@ exclude:
   - k8s-version: "1.27"
     focus: "f10-agent-hubble-bandwidth"
 
-  # Cilium "v1.13" is not supported in K8s "1.27". Skipping upgrade/downgrade tests.
-  - k8s-version: "1.27"
-    focus: "f19-update"
-
   # These tests are meant to run with kube-proxy which is not available
   # with net-next
   - k8s-version: "1.27"
