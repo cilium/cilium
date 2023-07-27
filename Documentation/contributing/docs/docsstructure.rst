@@ -79,8 +79,9 @@ a page expands it to include multiple concepts or tasks, then add new pages for
 individual concepts and tasks.
 
 If you're moving a page and changing its URL, make sure you update every link
-to that page in the documentation. Ask on Slack (``#sig-docs``) for someone to
-set up a HTTP redirection from the old URL to the new one, if necessary.
+to that page in the documentation. Ask on `Cilium Slack`_ (``#sig-docs``) for
+someone to set up a HTTP redirection from the old URL to the new one, if
+necessary.
 
 Removing content and entire pages
 ---------------------------------

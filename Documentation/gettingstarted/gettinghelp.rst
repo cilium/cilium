@@ -21,14 +21,11 @@ tags <https://github.com/cilium/cilium/issues?utf8=%E2%9C%93&q=label%3Akind%2Fqu
 to maintain a list of questions asked by users. We suggest checking to see if
 your question is already answered.
 
-
-.. _slack:
-
 Slack
 =====
 
 **Chat**: The best way to get immediate help if you get stuck is to ask in one
-of the `Cilium Slack channels <https://cilium.herokuapp.com>`_.
+of the `Cilium Slack`_ channels.
 
 GitHub
 ======

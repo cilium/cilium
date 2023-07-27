@@ -16,14 +16,15 @@ Release managers
 ----------------
 
 Release managers take care of the patch releases for each supported stable
-branch of Cilium. They typically coordinate in #launchpad on Cilium Slack.
+branch of Cilium. They typically coordinate in ``#launchpad`` on `Cilium
+Slack`_.
 
 Backporters
 -----------
 
 Backporters handle backports to Cilium's supported stable branches. They
-typically coordinate in #launchpad on Cilium Slack. The :ref:`backport_process`
-provides some guidance on how to backport changes.
+typically coordinate in ``#launchpad`` on `Cilium Slack`_. The
+:ref:`backport_process` provides some guidance on how to backport changes.
 
 Triagers
 --------
@@ -35,7 +36,8 @@ Triagers take care of several tasks:
   - They triage bugs, which means they interact with reporters until the issue
     is clear and can get the label associated to the corresponding working
     group, when possible
-  - They keep an eye on Slack, to try and answer questions from the community
+  - They keep an eye on `Cilium Slack`_, to try and answer questions from the
+    community
 
 They are members of the `TopHat team`_ on GitHub.
 
@@ -45,5 +47,5 @@ CI Health managers
 ------------------
 
 CI Health managers monitor the status of the CI, track down flakes, and ensure
-that CI checks keep running smoothly. They typically coordinate in #testing on
-Cilium Slack.
+that CI checks keep running smoothly. They typically coordinate in ``#testing``
+on `Cilium Slack`_.
