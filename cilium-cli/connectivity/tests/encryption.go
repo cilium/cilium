@@ -148,14 +148,11 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 		// its captures.
 		cmd := []string{
 			"tcpdump", "-i", iface, "--immediate-mode", "-w", fmt.Sprintf("/tmp/%s.pcap", t.Name()),
-			// Capture pod egress traffic.
+			// Capture egress traffic.
 			// Unfortunately, we cannot use "host %s and host %s" filter here,
 			// as IPsec recirculates replies to the iface netdev, which would
 			// make tcpdump to capture the pkts (false positive).
 			fmt.Sprintf("src host %s and dst host %s and %s", srcAddr, dstAddr, protoFilter),
-			// Only one pkt is enough, as we don't expect any unencrypted pkt
-			// to be captured
-			"-c", "1",
 		}
 		t.Debugf("Running in bg: %s", strings.Join(cmd, " "))
 		err := clientHost.K8sClient.ExecInPodWithWriters(ctx, killCmdCtx,
@@ -213,7 +210,17 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 		t.Fatalf("Failed to retrieve tcpdump pkt count: %s", err)
 	}
 	if !strings.HasPrefix(count.String(), "0 packets") {
-		t.Fatalf("Captured unencrypted pkt (count=%s)", count.String())
+		t.Failf("Captured unencrypted pkt (count=%s)", strings.TrimRight(count.String(), "\n\r"))
+
+		// If debug mode is enabled, dump the captured pkts
+		if t.Context().Params().Debug {
+			cmd := []string{"/bin/sh", "-c", fmt.Sprintf("tcpdump -r /tmp/%s.pcap 2>/dev/null", t.Name())}
+			out, err := clientHost.K8sClient.ExecInPod(ctx, clientHost.Pod.Namespace, clientHost.Pod.Name, "", cmd)
+			if err != nil {
+				t.Fatalf("Failed to retrieve tcpdump output: %s", err)
+			}
+			t.Debugf("Captured pkts:\n%s", out.String())
+		}
 	}
 }
 
