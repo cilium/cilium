@@ -14,10 +14,30 @@ The main CI infrastructure is maintained at https://jenkins.cilium.io/
 Triggering Pull-Request Builds With Jenkins
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To ensure that build resources are used judiciously, builds on Jenkins
-are manually triggered via comments on each pull-request that contain
-"trigger-phrases". Only members of the Cilium GitHub organization are
-allowed to trigger these jobs.
+Triggering Smoke Tests
+~~~~~~~~~~~~~~~~~~~~~~
+
+Several short-running tests are automatically triggered for all contributor
+submissions, subject to GitHub's limitations around first-time contributors.
+If no GitHub workflows are triggering on your PR, a committer for the project
+should trigger these within a few days. Reach out in the ``#testing``
+channel on `Cilium Slack`_ for assistance in running these tests.
+
+.. _trigger_phrases:
+
+Triggering Platform Tests
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To ensure that build resources are used judiciously, some tests on GHA are
+manually triggered via comments. These builds typically make use of cloud
+infrastructure, such as allocating clusters or VMs in AKS, EKS or GKE. In
+order to trigger these jobs, a member of the GitHub organization must post a
+comment on the Pull Request with a "trigger phrase".
+
+If you'd like to trigger these jobs, ask in `Cilium Slack`_ in the ``#testing``
+channel. If you're regularly contributing to Cilium, you can also `become a
+member <https://github.com/cilium/community/blob/main/CONTRIBUTOR-LADDER.md#organization-member>`__
+of the Cilium organization.
 
 Depending on the PR target branch, a specific set of jobs is marked as required,
 as per the `Cilium CI matrix`_. They will be automatically featured in PR checks
@@ -270,8 +290,6 @@ Up to date CI testing information regarding k8s - kernel version pairs can
 always be found in the `Cilium CI matrix`_.
 
 .. _Cilium CI matrix: https://docs.google.com/spreadsheets/d/1TThkqvVZxaqLR-Ela4ZrcJ0lrTJByCqrbdCjnI32_X0
-
-.. _trigger_phrases:
 
 .. _ci_failure_triage:
 

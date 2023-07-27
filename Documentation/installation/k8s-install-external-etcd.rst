@@ -16,7 +16,7 @@ using an external etcd. Use of an external etcd provides better performance and
 is suitable for larger environments.
 
 Should you encounter any issues during the installation, please refer to the
-:ref:`troubleshooting_k8s` section and / or seek help on :ref:`slack`.
+:ref:`troubleshooting_k8s` section and/or seek help on `Cilium Slack`_.
 
 When do I need to use a kvstore?
 ================================
