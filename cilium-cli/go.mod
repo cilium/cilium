@@ -20,7 +20,7 @@ replace (
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/charts v0.0.0-20230717145054-e881575172da
-	github.com/cilium/cilium v1.14.0-snapshot.6
+	github.com/cilium/cilium v1.14.0
 	github.com/cilium/hubble v0.12.0
 	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230721102407-d51b96debc69
 	github.com/cilium/workerpool v1.2.0

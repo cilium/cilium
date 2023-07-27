@@ -387,11 +387,28 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 
 		for _, cluster := range sr.ClusterMesh.Clusters {
 			if sd.AllClusters || !cluster.Ready {
-				fmt.Fprintf(w, "   %s: %s, %d nodes, %d identities, %d services, %d failures (last: %s)\n",
+				fmt.Fprintf(w, "   %s: %s, %d nodes, %d endpoints, %d identities, %d services, %d failures (last: %s)\n",
 					cluster.Name, clusterReadiness(cluster), cluster.NumNodes,
-					cluster.NumIdentities, cluster.NumSharedServices,
+					cluster.NumEndpoints, cluster.NumIdentities, cluster.NumSharedServices,
 					cluster.NumFailures, timeSince(time.Time(cluster.LastFailure)))
 				fmt.Fprintf(w, "   └  %s\n", cluster.Status)
+
+				fmt.Fprint(w, "   └  remote configuration: ")
+				if cluster.Config != nil {
+					fmt.Fprintf(w, "expected=%t, retrieved=%t", cluster.Config.Required, cluster.Config.Retrieved)
+					if cluster.Config.Retrieved {
+						fmt.Fprintf(w, ", cluster-id=%d, kvstoremesh=%t, sync-canaries=%t",
+							cluster.Config.ClusterID, cluster.Config.Kvstoremesh, cluster.Config.SyncCanaries)
+					}
+				} else {
+					fmt.Fprint(w, "expected=unknown, retrieved=unknown")
+				}
+				fmt.Fprint(w, "\n")
+
+				if cluster.Synced != nil {
+					fmt.Fprintf(w, "   └  synchronization status: nodes=%v, endpoints=%v, identities=%v, services=%v\n",
+						cluster.Synced.Nodes, cluster.Synced.Endpoints, cluster.Synced.Identities, cluster.Synced.Services)
+				}
 			}
 		}
 	}
