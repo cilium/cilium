@@ -41,6 +41,8 @@ Listed below are the actively maintained release branches along with their lates
 patch release, corresponding image pull tags and their release notes:
 
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
+| `v1.14 <https://github.com/cilium/cilium/tree/v1.14>`__ | 2023-07-27 | ``quay.io/cilium/cilium:v1.14.0``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.14.0>`__  |
++---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
 | `v1.13 <https://github.com/cilium/cilium/tree/v1.13>`__ | 2023-06-14 | ``quay.io/cilium/cilium:v1.13.4``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.13.4>`__  |
 +---------------------------------------------------------+------------+------------------------------------+----------------------------------------------------------------------------+
 | `v1.12 <https://github.com/cilium/cilium/tree/v1.12>`__ | 2023-06-14 | ``quay.io/cilium/cilium:v1.12.11`` | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.12.11>`__ |
