@@ -7,7 +7,7 @@ import "time"
 
 const (
 	// renovate: datasource=github-releases depName=cilium/cilium
-	Version = "v1.13.4"
+	Version = "v1.14.0"
 
 	AgentContainerName      = "cilium-agent"
 	AgentServiceAccountName = "cilium"
