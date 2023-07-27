@@ -50,9 +50,9 @@ Major Feature Status
 ++-------------------------------------------------+----------------------------------------------------------+
 || :ref:`gs_ingress`                               | Stable                                                   |
 ++-------------------------------------------------+----------------------------------------------------------+
-|| :ref:`gs_gateway_api`                           | Stable                                                   |
+|| :ref:`gs_gateway_api`                           | Beta                                                     |
 ++-------------------------------------------------+----------------------------------------------------------+
-|| :ref:`gs_l7_traffic_management`                 | Stable                                                   |
+|| :ref:`gs_l7_traffic_management`                 | Beta                                                     |
 ++-------------------------------------------------+----------------------------------------------------------+
 || :ref:`gs_mutual_authentication`                 | Beta                                                     |
 ++-------------------------------------------------+----------------------------------------------------------+
@@ -67,7 +67,7 @@ features may still be in beta or in development).
 Release Cadence
 ~~~~~~~~~~~~~~~
 
-We aim to make 2-3 `point releases`_ per year of Cilium and its core components
+We aim to make 2 to 3 `point releases`_ per year of Cilium and its core components
 (Hubble, Cilium CLI, Tetragon, etc). We also make patch releases available as
 necessary for security or urgent fixes. 
 
@@ -97,9 +97,11 @@ Cilium has applied for `CNCF Graduation`_, please add your support on the PR!
 Cilium Service Mesh 
 ~~~~~~~~~~~~~~~~~~~
 
-As Cilium Service Mesh gets wider adoption, the next steps we'd like to take in
-this area (in no particular order) are: 
+As Cilium Service Mesh gets wider adoption, the next steps in
+this area (in no particular order) include: 
 
+* Graduating Gateway API and L7 Traffic management to stable
+* Graduating next-gen mutual authentication and SPIFFE integration to stable
 * Graduating Prometheus metrics and OpenTelemetry collector to stable
 * Extended sample Grafana dashboards for L7 visibility
 * SMI integration 
@@ -132,6 +134,7 @@ following features to graduate to stable:
 * :ref:`Local Redirect Policy<local-redirect-policy>`
 * :ref:`CiliumEndpointSlice<gsg_ces>`
 * :ref:`Multi-Pool IPAM<ipam_crd_multi_pool>`
+* :ref:`Node-to-node WireGuard encryption<node-node-wg>`
 
 .. _rm-hubble-observability:
 
@@ -162,8 +165,8 @@ Tetragon Security
 CLI for things like process execution, file access, network observability, and
 privileged execution.
 
-Although Tetragon is still in Beta stage, it is already in
-production use with a set of adopters.
+Although Tetragon is still in Beta stage, a set of adopters already use it in
+production.
 
 Codebase modularization
 ~~~~~~~~~~~~~~~~~~~~~~~

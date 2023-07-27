@@ -217,6 +217,8 @@ have WireGuard encryption enabled, i.e. mixed mode is currently not supported.
 In addition, UDP traffic between nodes of different clusters on port ``51871``
 must be allowed.
 
+.. _node-node-wg:
+
 Node-to-Node Encryption (beta)
 ==============================
 
