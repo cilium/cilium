@@ -1831,6 +1831,15 @@ prometheus:
   # ref: https://docs.cilium.io/en/stable/observability/metrics/
   metrics: ~
 
+  # --- Enable controller group metrics for monitoring specific Cilium
+  # subsystems. The list is a list of controller group names. The special
+  # values of "all" and "none" are supported. The set of controller
+  # group names is not guaranteed to be stable between Cilium versions.
+  controllerGroupMetrics:
+    - write-cni-file
+    - sync-host-ips
+    - sync-lb-maps-with-k8s-services
+
 # -- Grafana dashboards for cilium-agent
 # grafana can import dashboards based on the label and value
 # ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
