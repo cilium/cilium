@@ -35,6 +35,7 @@ mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex _
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
+#include "lib/lb.h"
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -116,42 +117,10 @@ SETUP("tc", "hairpin_flow_1_forward_v4")
 int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
-	struct lb4_key lb_svc_key = {};
-	struct lb4_service lb_svc_value = {};
-	struct lb4_reverse_nat revnat_value = {};
-	struct lb4_backend backend = {};
 
-	/* Register a fake LB backend with endpoint ID 124 for our service */
-	lb_svc_key.address = v4_svc_one;
-	lb_svc_key.dport = tcp_svc_one;
-	lb_svc_key.scope = LB_LOOKUP_SCOPE_EXT;
-
-	/* Create a service with only one backend */
-	lb_svc_value.count = 1;
-	lb_svc_value.flags = SVC_FLAG_ROUTABLE;
-	lb_svc_value.rev_nat_index = revnat_id;
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-
-	/* Insert a reverse NAT entry for the above service */
-	revnat_value.address = v4_svc_one;
-	revnat_value.port = tcp_svc_one;
-	map_update_elem(&LB4_REVERSE_NAT_MAP, &revnat_id, &revnat_value, BPF_ANY);
-
-	/* A backend between 1 and .count is chosen, since we have only one backend
-	 * it is always backend_slot 1. Point it to backend_id 124.
-	 */
-	lb_svc_key.backend_slot = 1;
-	lb_svc_value.backend_id = 124;
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-
-	/* Create backend id 124 which contains the IP and port to send the
-	 * packet to.
-	 */
-	backend.address = v4_pod_one;
-	backend.port = tcp_svc_one;
-	backend.proto = IPPROTO_TCP;
-	backend.flags = 0;
-	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
+	lb_v4_add_service(v4_svc_one, tcp_svc_one, 1, revnat_id);
+	lb_v4_add_backend(v4_svc_one, tcp_svc_one, 1, 124,
+			  v4_pod_one, tcp_svc_one, IPPROTO_TCP, 0);
 
 	/* Add an IPCache entry for pod 1 */
 	ipcache_v4_add_entry(v4_pod_one, 0, 112233, 0, 0);
@@ -322,17 +291,6 @@ int hairpin_flow_rev_check(__maybe_unused const struct __ctx_buff *ctx)
 SETUP("tc", "tc_drop_no_backend")
 int tc_drop_no_backend_setup(struct __ctx_buff *ctx)
 {
-	/* Fake Service matching our packet. */
-	struct lb4_key lb_svc_key = {
-		.address = v4_svc_one,
-		.dport = tcp_svc_one,
-		.scope = LB_LOOKUP_SCOPE_EXT
-	};
-	/* Service with no backends */
-	struct lb4_service lb_svc_value = {
-		.count = 0,
-		.flags = SVC_FLAG_ROUTABLE,
-	};
 	struct policy_key policy_key = {
 		.egress = 1,
 	};
@@ -346,9 +304,7 @@ int tc_drop_no_backend_setup(struct __ctx_buff *ctx)
 	if (ret)
 		return ret;
 
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-	lb_svc_key.scope = LB_LOOKUP_SCOPE_INT;
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
+	lb_v4_add_service(v4_svc_one, tcp_svc_one, 0, 1);
 
 	/* avoid policy drop */
 	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);

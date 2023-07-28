@@ -66,6 +66,7 @@
 #include <bpf_lxc.c>
 
 #include "lib/ipcache.h"
+#include "lib/lb.h"
 
 /*
  * Tests
@@ -179,40 +180,11 @@ int lxc_to_overlay_syn_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "01_lxc_to_overlay_syn")
 int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 {
-	struct lb4_key lb_svc_key = {
-		.address = FRONTEND_IP,
-		.dport = FRONTEND_PORT,
-		.scope = LB_LOOKUP_SCOPE_EXT,
-	};
-	struct lb4_service lb_svc_value = {
-		.count = 1,
-		.rev_nat_index = 1,
-	};
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
 
-	lb_svc_key.backend_slot = 1;
-	lb_svc_value.backend_id = 1;
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-
-	struct lb4_reverse_nat revnat_value = {
-		.address = FRONTEND_IP,
-		.port = FRONTEND_PORT,
-	};
-	map_update_elem(&LB4_REVERSE_NAT_MAP, &lb_svc_value.rev_nat_index, &revnat_value, BPF_ANY);
-
-	struct lb4_backend backend = {
-		.address = BACKEND_IP,
-		.port = BACKEND_PORT,
-		.proto = IPPROTO_TCP,
-		.flags = BE_STATE_ACTIVE,
-
-		/* Encode cluster_id into backend. So that we can distinguish
-		 * the backends localted in the different clusters, but has
-		 * exactly the same IP.
-		 */
-		.cluster_id = BACKEND_CLUSTER_ID,
-	};
-	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
+	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, 1);
+	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 1,
+			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP,
+			  BACKEND_CLUSTER_ID);
 
 	ipcache_v4_add_entry(BACKEND_IP, BACKEND_CLUSTER_ID, BACKEND_IDENTITY,
 			     BACKEND_NODE_IP, 0);
