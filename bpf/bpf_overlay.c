@@ -68,8 +68,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	/* Lookup the source in the ipcache. After decryption this will be the
 	 * inner source IP to get the source security identity.
 	 */
-	info = ipcache_lookup6(&IPCACHE_MAP, (union v6addr *)&ip6->saddr,
-			       V6_CACHE_KEY_LEN, 0);
+	info = lookup_ip6_remote_endpoint((union v6addr *)&ip6->saddr, 0);
 
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	if (decrypted) {
@@ -294,7 +293,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	/* Lookup the source in the ipcache. After decryption this will be the
 	 * inner source IP to get the source security identity.
 	 */
-	info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr, V4_CACHE_KEY_LEN, 0);
+	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	/* If packets are decrypted the key has already been pushed into metadata. */

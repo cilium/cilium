@@ -379,7 +379,7 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 	build_bug_on((sizeof(gopt) % 4) != 0);
 
 	dst = (union v6addr *)&ip6->daddr;
-	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
+	info = lookup_ip6_remote_endpoint(dst, 0);
 	if (!info || info->tunnel_endpoint == 0)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
@@ -968,7 +968,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 			union v6addr *dst = (union v6addr *)&ip6->daddr;
 			struct remote_endpoint_info *info;
 
-			info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
+			info = lookup_ip6_remote_endpoint(dst, 0);
 			if (info && info->tunnel_endpoint) {
 				tunnel_endpoint = info->tunnel_endpoint;
 				dst_sec_identity = info->sec_identity;
@@ -1179,7 +1179,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 
 #ifdef TUNNEL_MODE
 	dst = (union v6addr *)&ip6->daddr;
-	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
+	info = lookup_ip6_remote_endpoint(dst, 0);
 	if (info && info->tunnel_endpoint != 0) {
 		tunnel_endpoint = info->tunnel_endpoint;
 		dst_sec_identity = info->sec_identity;
@@ -1879,7 +1879,7 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, int l3_
 	tunnel_endpoint = ip4->daddr;
 	dst_sec_identity = 0;
 #else
-	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
+	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 	if (!info || info->tunnel_endpoint == 0)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
@@ -2440,7 +2440,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		{
 			struct remote_endpoint_info *info;
 
-			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
+			info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 			if (info && info->tunnel_endpoint) {
 				tunnel_endpoint = info->tunnel_endpoint;
 				dst_sec_identity = info->sec_identity;
@@ -2654,7 +2654,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	has_l4_header = ipv4_has_l4_header(ip4);
 
 #ifdef TUNNEL_MODE
-	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
+	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 	if (info && info->tunnel_endpoint != 0) {
 		tunnel_endpoint = info->tunnel_endpoint;
 		dst_sec_identity = info->sec_identity;
