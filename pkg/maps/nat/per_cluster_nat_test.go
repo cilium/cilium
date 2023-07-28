@@ -6,7 +6,7 @@ package nat
 import (
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/ebpf/rlimit"
 
@@ -16,166 +16,144 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-type PerClusterNATMapPrivilegedTestSuite struct{}
-
-var _ = Suite(&PerClusterNATMapPrivilegedTestSuite{})
-
-const (
-	testPerClusterNATMapNamePrefix = "test_cilium_per_cluster_nat_"
-)
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-func (k *PerClusterNATMapPrivilegedTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedTest(c)
+func setup(tb testing.TB) {
+	testutils.PrivilegedTest(tb)
 
 	bpf.CheckOrMountFS("")
-	err := rlimit.RemoveMemlock()
-	c.Assert(err, IsNil)
+	require.NoError(tb, rlimit.RemoveMemlock(), "Failed to set memlock rlimit")
+
+	// Override the map names to avoid clashing with the real ones.
+	ClusterOuterMapNameTestOverride("test")
 }
 
-func (k *PerClusterNATMapPrivilegedTestSuite) SetUpTest(c *C) {
-	InitPerClusterNATMaps(testPerClusterNATMapNamePrefix, true, true, option.NATMapEntriesGlobalDefault)
+func path(tb testing.TB, m *bpf.Map) string {
+	path, err := m.Path()
+	require.NoError(tb, err, "Failed to retrieve map path")
+	return path
 }
 
-func (k *PerClusterNATMapPrivilegedTestSuite) TearDownTest(c *C) {
-	PerClusterNATMaps.Cleanup()
-}
+func TestPerClusterMaps(t *testing.T) {
+	setup(t)
 
-func (k *PerClusterNATMapPrivilegedTestSuite) TestPerClusterCtMap(c *C) {
-	om, err := newPerClusterNATMap(testPerClusterNATMapNamePrefix+perClusterNATIPv4OuterMapSuffix, IPv4, option.NATMapEntriesGlobalDefault)
-	c.Assert(err, IsNil)
+	maps := newPerClusterNATMaps(true, true, option.NATMapEntriesGlobalDefault)
+	require.NotNil(t, maps.v4Map, "Failed to initialize maps")
+	require.NotNil(t, maps.v6Map, "Failed to initialize maps")
 
-	defer om.Unpin()
-	defer om.Close()
+	require.NoError(t, maps.OpenOrCreate(), "Failed to create outer maps")
+	require.FileExists(t, path(t, maps.v4Map.Map), "Failed to create outer maps")
+	require.FileExists(t, path(t, maps.v6Map.Map), "Failed to create outer maps")
+
+	t.Cleanup(func() {
+		require.NoError(t, maps.Close())
+		require.NoError(t, CleanupPerClusterNATMaps(true, true), "Failed to cleanup maps")
+	})
 
 	// ClusterID 0 should never be used
-	err = om.updateClusterNATMap(0)
-	c.Assert(err, NotNil)
-	_, err = om.getClusterNATMap(0)
-	c.Assert(err, NotNil)
-	err = om.deleteClusterNATMap(0)
-	c.Assert(err, NotNil)
+	require.Error(t, maps.CreateClusterNATMaps(0), "ClusterID 0 should never be used")
+	require.Error(t, maps.DeleteClusterNATMaps(0), "ClusterID 0 should never be used")
+	_, err := GetClusterNATMap(0, IPv4)
+	require.Error(t, err, "ClusterID 0 should never be used")
 
 	// ClusterID beyond the ClusterIDMax should never be used
-	err = om.updateClusterNATMap(cmtypes.ClusterIDMax + 1)
-	c.Assert(err, NotNil)
-	_, err = om.getClusterNATMap(cmtypes.ClusterIDMax + 1)
-	c.Assert(err, NotNil)
-	err = om.deleteClusterNATMap(cmtypes.ClusterIDMax + 1)
-	c.Assert(err, NotNil)
+	require.Error(t, maps.CreateClusterNATMaps(cmtypes.ClusterIDMax+1), "ClusterID beyond the ClusterIDMax should never be used")
+	require.Error(t, maps.DeleteClusterNATMaps(cmtypes.ClusterIDMax+1), "ClusterID beyond the ClusterIDMax should never be used")
+	_, err = GetClusterNATMap(cmtypes.ClusterIDMax+1, IPv6)
+	require.Error(t, err, "ClusterID beyond the ClusterIDMax should never be used")
 
 	// Basic update
-	err = om.updateClusterNATMap(1)
-	c.Assert(err, IsNil)
+	require.NoError(t, maps.CreateClusterNATMaps(1), "Failed to create maps")
+	require.NoError(t, maps.CreateClusterNATMaps(cmtypes.ClusterIDMax), "Failed to create maps")
 
-	// After update, outer map should be updated with the inner map
-	v, err := om.Lookup(&PerClusterNATMapKey{1})
-	c.Assert(err, IsNil)
-	c.Assert(v, Not(Equals), 0)
+	for _, id := range []uint32{1, cmtypes.ClusterIDMax} {
+		for _, om := range []*perClusterNATMap{maps.v4Map, maps.v6Map} {
+			// After update, the outer map should be updated with the inner map
+			value, err := om.Lookup(&PerClusterNATMapKey{id})
+			require.NoError(t, err, "Outer map not updated correctly (id=%v, family=%v)", id, om.family)
+			require.NotZero(t, value, "Outer map not updated correctly (id=%v, family=%v)", id, om.family)
 
-	// Basic Get
-	im, err := om.getClusterNATMap(1)
-	c.Assert(im, NotNil)
-	c.Assert(err, IsNil)
+			// After update, the inner map should exist
+			require.FileExists(t, path(t, &om.newInnerMap(id).Map), "Inner map not correctly present (id=%v, family=%v)", id, om.family)
 
-	im.Close()
-
-	// Getting nonexistent entry returns error
-	_, err = om.getClusterNATMap(2)
-	c.Assert(err, NotNil)
-
-	// Basic delete
-	err = om.deleteClusterNATMap(1)
-	c.Assert(err, IsNil)
-
-	// After delete, outer map shouldn't contain the inner map
-	_, err = om.Lookup(&PerClusterNATMapKey{1})
-	c.Assert(err, NotNil)
-}
-
-func (k *PerClusterNATMapPrivilegedTestSuite) TestPerClusterNATMaps(c *C) {
-	gm, err := newPerClusterNATMaps(testPerClusterNATMapNamePrefix, true, true, option.NATMapEntriesGlobalDefault)
-	c.Assert(err, IsNil)
-
-	defer gm.Cleanup()
-
-	// ClusterID 0 should never be used
-	err = gm.UpdateClusterNATMaps(0)
-	c.Assert(err, NotNil)
-	err = gm.DeleteClusterNATMaps(0)
-	c.Assert(err, NotNil)
-	_, err = gm.GetClusterNATMap(0, IPv4)
-	c.Assert(err, NotNil)
-
-	// ClusterID beyond the ClusterIDMax should never be used
-	err = gm.UpdateClusterNATMaps(cmtypes.ClusterIDMax + 1)
-	c.Assert(err, NotNil)
-	err = gm.DeleteClusterNATMaps(cmtypes.ClusterIDMax + 1)
-	c.Assert(err, NotNil)
-	_, err = gm.GetClusterNATMap(cmtypes.ClusterIDMax+1, IPv4)
-	c.Assert(err, NotNil)
-
-	// Basic update
-	err = gm.UpdateClusterNATMaps(1)
-	c.Assert(err, IsNil)
-
-	err = gm.UpdateClusterNATMaps(cmtypes.ClusterIDMax)
-	c.Assert(err, IsNil)
-
-	for _, om := range []*PerClusterNATMap{gm.v4Map, gm.v6Map} {
-		// After update, outer map should be updated with the inner map
-		v, err := om.Lookup(&PerClusterNATMapKey{1})
-		c.Assert(err, IsNil)
-		c.Assert(v, Not(Equals), 0)
-		v, err = om.Lookup(&PerClusterNATMapKey{cmtypes.ClusterIDMax})
-		c.Assert(err, IsNil)
-		c.Assert(v, Not(Equals), 0)
+			// After update, it should be possible to get and open the inner map
+			im, err := GetClusterNATMap(id, om.family)
+			require.NotNil(t, im, "Failed to get inner map (id=%v, family=%v)", id, om.family)
+			require.NoError(t, err, "Failed to get inner map (id=%v, family=%v)", id, om.family)
+			require.NoError(t, im.Open(), "Failed to open inner map (id=%v, family=%v)", id, om.family)
+			im.Close()
+		}
 	}
 
-	// Basic get
-	im, err := gm.GetClusterNATMap(1, IPv4)
-	c.Assert(err, IsNil)
-	im.Close()
-
-	im, err = gm.GetClusterNATMap(1, IPv6)
-	c.Assert(err, IsNil)
-	im.Close()
-
-	im, err = gm.GetClusterNATMap(cmtypes.ClusterIDMax, IPv4)
-	c.Assert(err, IsNil)
-	im.Close()
-
-	im, err = gm.GetClusterNATMap(cmtypes.ClusterIDMax, IPv6)
-	c.Assert(err, IsNil)
-	im.Close()
+	// An update for an already existing entry should succeed
+	require.NoError(t, maps.CreateClusterNATMaps(cmtypes.ClusterIDMax), "Failed to create maps")
 
 	// Basic delete
-	err = gm.DeleteClusterNATMaps(1)
-	c.Assert(err, IsNil)
+	require.NoError(t, maps.DeleteClusterNATMaps(1), "Failed to delete maps")
+	require.NoError(t, maps.DeleteClusterNATMaps(cmtypes.ClusterIDMax), "Failed to delete maps")
 
-	err = gm.DeleteClusterNATMaps(cmtypes.ClusterIDMax)
-	c.Assert(err, IsNil)
+	for _, id := range []uint32{1, cmtypes.ClusterIDMax} {
+		for _, om := range []*perClusterNATMap{maps.v4Map, maps.v6Map} {
+			// After delete, the outer map shouldn't contain the entry
+			_, err := om.Lookup(&PerClusterNATMapKey{id})
+			require.Error(t, err, "Outer map not updated correctly (id=%v, family=%v)", id, om.family)
 
-	_, err = gm.v4Map.Lookup(&PerClusterNATMapKey{1})
-	c.Assert(err, NotNil)
+			// After delete, the inner map should not exist
+			require.NoFileExists(t, path(t, &om.newInnerMap(id).Map), "Inner map not correctly deleted (id=%v, family=%v)", id, om.family)
 
-	_, err = gm.v6Map.Lookup(&PerClusterNATMapKey{1})
-	c.Assert(err, NotNil)
+			// After delete, it should be no longer be possible to open the inner map
+			im, err := GetClusterNATMap(id, om.family)
+			require.NotNil(t, im, "Failed to get inner map (id=%v, family=%v)", id, om.family)
+			require.NoError(t, err, "Failed to get inner map (id=%v, family=%v)", id, om.family)
+			require.Error(t, im.Open(), "Should have failed to open inner map (id=%v, family=%v)", id, om.family)
+		}
+	}
 
-	_, err = gm.v4Map.Lookup(&PerClusterNATMapKey{cmtypes.ClusterIDMax})
-	c.Assert(err, NotNil)
+	// A deletion for an already deleted entry should succeed
+	require.NoError(t, maps.DeleteClusterNATMaps(cmtypes.ClusterIDMax), "Failed to delete maps")
+}
 
-	_, err = gm.v6Map.Lookup(&PerClusterNATMapKey{cmtypes.ClusterIDMax})
-	c.Assert(err, NotNil)
+func TestPerClusterMapsCleanup(t *testing.T) {
+	setup(t)
 
-	for _, om := range []*PerClusterNATMap{gm.v4Map, gm.v6Map} {
-		// After delete, outer map shouldn't contain the maps
-		_, err := om.Lookup(&PerClusterNATMapKey{1})
-		c.Assert(err, NotNil)
-		_, err = om.Lookup(&PerClusterNATMapKey{cmtypes.ClusterIDMax})
-		c.Assert(err, NotNil)
+	tests := []struct {
+		name       string
+		ipv4, ipv6 bool
+	}{
+		{name: "IPv4", ipv4: true},
+		{name: "IPv6", ipv6: true},
+		{name: "dual", ipv4: true, ipv6: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Pick up edge and middle values since filling all slots consumes too much memory.
+			ids := []uint32{1, 128, cmtypes.ClusterIDMax}
+			maps := newPerClusterNATMaps(true, true, option.NATMapEntriesGlobalDefault)
+
+			require.NoError(t, maps.OpenOrCreate(), "Failed to create outer maps")
+			t.Cleanup(func() {
+				require.NoError(t, maps.Close())
+				// This also ensures that the cleanup succeeds even if the outer maps don't exist
+				require.NoError(t, CleanupPerClusterNATMaps(true, true), "Failed to cleanup maps")
+			})
+
+			for _, id := range ids {
+				require.NoError(t, maps.CreateClusterNATMaps(id), "Failed to create maps (id=%v)", id)
+			}
+
+			require.NoError(t, CleanupPerClusterNATMaps(tt.ipv4, tt.ipv6), "Failed to cleanup maps")
+
+			for _, om := range []*perClusterNATMap{maps.v4Map, maps.v6Map} {
+				must := require.FileExists
+				if om.family == IPv4 && tt.ipv4 || om.family == IPv6 && tt.ipv6 {
+					must = require.NoFileExists
+				}
+
+				for _, id := range ids {
+					must(t, path(t, &om.newInnerMap(id).Map), "Inner map not correctly deleted (id=%v, family=%v)", id, om.family)
+				}
+
+				must(t, path(t, om.Map), "Outer map not correctly deleted (family=%v)", om.family)
+			}
+		})
 	}
 }
