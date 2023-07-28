@@ -31,7 +31,7 @@ var (
 		},
 	}
 
-	clusterNameValidation = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])$`)
+	clusterNameValidation = regexp.MustCompile(`^[a-zA-Z0-9]([-a-zA-Z0-9]*[a-zA-Z0-9])$`)
 )
 
 func (p Parameters) checkDisabled(name string) bool {
