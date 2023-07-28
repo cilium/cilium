@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -421,11 +420,11 @@ func NewServer(config Config) (*Server, error) {
 
 	var address []string
 	if option.Config.EnableIPv4 {
-		address = append(address, node.GetIPv4().String())
+		address = append(address, "127.0.0.1")
 	}
 
 	if option.Config.EnableIPv6 {
-		address = append(address, node.GetIPv6().String())
+		address = append(address, "::1")
 	}
 
 	server.httpPathServer = responder.NewServer(address, config.HTTPPathPort)

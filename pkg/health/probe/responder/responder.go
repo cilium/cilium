@@ -7,8 +7,9 @@ package responder
 // as this package typically runs in its own process
 import (
 	"context"
-	"fmt"
+	"net"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -29,7 +30,7 @@ func NewServer(address []string, port int) *Server {
 	server := &Server{}
 	for _, ip := range address {
 		hs := http.Server{
-			Addr:    fmt.Sprintf("%s:%d", ip, port),
+			Addr:    net.JoinHostPort(ip, strconv.Itoa(port)),
 			Handler: http.HandlerFunc(serverRequests),
 		}
 		server.httpServer = append(server.httpServer, &hs)
