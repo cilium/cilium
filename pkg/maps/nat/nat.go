@@ -289,36 +289,35 @@ func GlobalMaps(ipv4, ipv6, nodeport bool) (ipv4Map, ipv6Map *Map) {
 	if !nodeport {
 		return
 	}
-	entries := option.Config.NATMapEntriesGlobal
-	if entries == 0 {
-		entries = option.LimitTableMax
-	}
 	if ipv4 {
-		ipv4Map = NewMap(MapNameSnat4Global, IPv4, entries)
+		ipv4Map = NewMap(MapNameSnat4Global, IPv4, maxEntries())
 	}
 	if ipv6 {
-		ipv6Map = NewMap(MapNameSnat6Global, IPv6, entries)
+		ipv6Map = NewMap(MapNameSnat6Global, IPv6, maxEntries())
 	}
 	return
 }
 
 // ClusterMaps returns all NAT maps for given clusters
 func ClusterMaps(clusterID uint32, ipv4, ipv6 bool) (ipv4Map, ipv6Map *Map, err error) {
-	if PerClusterNATMaps == nil {
-		err = fmt.Errorf("Per-cluster NAT maps are not initialized")
-		return
-	}
 	if ipv4 {
-		ipv4Map, err = PerClusterNATMaps.GetClusterNATMap(clusterID, IPv4)
+		ipv4Map, err = GetClusterNATMap(clusterID, IPv4)
 		if err != nil {
 			return
 		}
 	}
 	if ipv6 {
-		ipv6Map, err = PerClusterNATMaps.GetClusterNATMap(clusterID, IPv6)
+		ipv6Map, err = GetClusterNATMap(clusterID, IPv6)
 		if err != nil {
 			return
 		}
 	}
 	return
+}
+
+func maxEntries() int {
+	if option.Config.NATMapEntriesGlobal != 0 {
+		return option.Config.NATMapEntriesGlobal
+	}
+	return option.LimitTableMax
 }
