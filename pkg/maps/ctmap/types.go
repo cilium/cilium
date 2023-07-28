@@ -57,6 +57,21 @@ func (m mapType) String() string {
 	return fmt.Sprintf("Unknown (%d)", int(m))
 }
 
+func (m mapType) name() string {
+	switch m {
+	case mapTypeIPv4TCPLocal, mapTypeIPv4TCPGlobal:
+		return "tcp4"
+	case mapTypeIPv6TCPLocal, mapTypeIPv6TCPGlobal:
+		return "tcp6"
+	case mapTypeIPv4AnyLocal, mapTypeIPv4AnyGlobal:
+		return "any4"
+	case mapTypeIPv6AnyLocal, mapTypeIPv6AnyGlobal:
+		return "any6"
+	default:
+		panic("Unexpected map type " + m.String())
+	}
+}
+
 func (m mapType) isIPv4() bool {
 	switch m {
 	case mapTypeIPv4TCPLocal, mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal, mapTypeIPv4AnyGlobal:
