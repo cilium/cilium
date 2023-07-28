@@ -55,6 +55,8 @@ static volatile const __u8 *node_mac = mac_two;
 
 #include "bpf_host.c"
 
+#include "lib/endpoint.h"
+
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
 	__uint(key_size, sizeof(__u32));
@@ -124,18 +126,8 @@ int ipv4_l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx)
 	void *data_end = (void *)(long)ctx->data_end;
 	__u64 flags = BPF_F_ADJ_ROOM_FIXED_GSO;
 
-	struct endpoint_info ep_value = {
-		.lxc_id = TEST_LXC_ID_LOCAL,
-	};
-
-	memcpy(&ep_value.mac, (__u8 *)ep_mac, ETH_ALEN);
-	memcpy(&ep_value.node_mac, (__u8 *)node_mac, ETH_ALEN);
-
-	struct endpoint_key ep_key = {
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = TEST_IP_LOCAL,
-	};
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
+	endpoint_v4_add_entry(TEST_IP_LOCAL, 0, TEST_LXC_ID_LOCAL, 0,
+			      (__u8 *)ep_mac, (__u8 *)node_mac);
 
 	/* As commented in PKTGEN, now we strip the L2 header. Bpf helper
 	 * skb_adjust_room will use L2 header to overwrite L3 header, so we play
@@ -277,18 +269,8 @@ int ipv6_l3_to_l2_fast_redirect_setup(struct __ctx_buff *ctx)
 	void *data_end = (void *)(long)ctx->data_end;
 	__u64 flags = BPF_F_ADJ_ROOM_FIXED_GSO;
 
-	struct endpoint_info ep_value = {
-		.lxc_id = TEST_LXC_ID_LOCAL,
-	};
-
-	memcpy(&ep_value.mac, (__u8 *)ep_mac, ETH_ALEN);
-	memcpy(&ep_value.node_mac, (__u8 *)node_mac, ETH_ALEN);
-
-	struct endpoint_key ep_key = {
-		.family = ENDPOINT_KEY_IPV6,
-	};
-	memcpy(&ep_key.ip6, (__u8 *)TEST_IPV6_LOCAL, 16);
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
+	endpoint_v6_add_entry((union v6addr *)TEST_IPV6_LOCAL, 0, TEST_LXC_ID_LOCAL, 0,
+			      (__u8 *)ep_mac, (__u8 *)node_mac);
 
 	/* As commented in PKTGEN, now we strip the L2 header. Bpf helper
 	 * skb_adjust_room will use L2 header to overwrite L3 header, so we play

@@ -71,6 +71,8 @@ static volatile const __u8 *DEST_NODE_MAC = mac_four;
 
 #include "bpf_overlay.c"
 
+#include "lib/endpoint.h"
+
 #define FROM_OVERLAY 0
 #define ESP_SEQUENCE 69865
 
@@ -347,21 +349,8 @@ int ipv4_without_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv4_without_encrypt_ipsec_from_overlay")
 int ipv4_without_encrypt_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 {
-	struct endpoint_info ep_value = {
-		.ifindex = DEST_IFINDEX,
-		.lxc_id = DEST_LXC_ID,
-
-	};
-
-	memcpy(&ep_value.mac, (__u8 *)DEST_EP_MAC, ETH_ALEN);
-	memcpy(&ep_value.node_mac, (__u8 *)DEST_NODE_MAC, ETH_ALEN);
-
-	struct endpoint_key ep_key = {
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = v4_pod_two,
-	};
-
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
+	endpoint_v4_add_entry(v4_pod_two, DEST_IFINDEX, DEST_LXC_ID, 0,
+			      (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
 
 	ctx->mark = MARK_MAGIC_DECRYPT;
 	tail_call_static(ctx, &entry_call_map, FROM_OVERLAY);
@@ -475,21 +464,8 @@ int ipv6_without_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv6_without_encrypt_ipsec_from_overlay")
 int ipv6_without_encrypt_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 {
-	struct endpoint_info ep_value = {
-		.ifindex = DEST_IFINDEX,
-		.lxc_id = DEST_LXC_ID,
-
-	};
-
-	memcpy(&ep_value.mac, (__u8 *)DEST_EP_MAC, ETH_ALEN);
-	memcpy(&ep_value.node_mac, (__u8 *)DEST_NODE_MAC, ETH_ALEN);
-
-	struct endpoint_key ep_key = {
-		.family = ENDPOINT_KEY_IPV6,
-	};
-
-	memcpy(&ep_key.ip6, (__u8 *)v6_pod_two, 16);
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
+	endpoint_v6_add_entry((union v6addr *)v6_pod_two, DEST_IFINDEX, DEST_LXC_ID,
+			      0, (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
 
 	ctx->mark = MARK_MAGIC_DECRYPT;
 	tail_call_static(ctx, &entry_call_map, FROM_OVERLAY);

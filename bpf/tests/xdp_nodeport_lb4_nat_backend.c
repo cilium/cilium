@@ -34,6 +34,7 @@
 
 #include <bpf_xdp.c>
 
+#include "lib/endpoint.h"
 #include "lib/ipcache.h"
 
 static volatile const __u8 *client_mac = mac_one;
@@ -142,12 +143,7 @@ int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
 
 	/* add local backend */
-	struct endpoint_info ep_value = {};
-	struct endpoint_key ep_key = {
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP,
-	};
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
+	endpoint_v4_add_entry(BACKEND_IP, 0, 0, 0, NULL, NULL);
 
 	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
 
