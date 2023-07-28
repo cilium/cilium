@@ -71,23 +71,30 @@ func (client *Client) CreateTrafficMirrorSessionWithCallback(request *CreateTraf
 // CreateTrafficMirrorSessionRequest is the request struct for api CreateTrafficMirrorSession
 type CreateTrafficMirrorSessionRequest struct {
 	*requests.RpcRequest
-	TrafficMirrorTargetType         string           `position:"Query" name:"TrafficMirrorTargetType"`
-	ResourceOwnerId                 requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken                     string           `position:"Query" name:"ClientToken"`
-	Enabled                         requests.Boolean `position:"Query" name:"Enabled"`
-	ResourceGroupId                 string           `position:"Query" name:"ResourceGroupId"`
-	TrafficMirrorSessionName        string           `position:"Query" name:"TrafficMirrorSessionName"`
-	TrafficMirrorSessionDescription string           `position:"Query" name:"TrafficMirrorSessionDescription"`
-	TrafficMirrorSourceIds          *[]string        `position:"Query" name:"TrafficMirrorSourceIds"  type:"Repeated"`
-	DryRun                          requests.Boolean `position:"Query" name:"DryRun"`
-	ResourceOwnerAccount            string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount                    string           `position:"Query" name:"OwnerAccount"`
-	Priority                        requests.Integer `position:"Query" name:"Priority"`
-	OwnerId                         requests.Integer `position:"Query" name:"OwnerId"`
-	TrafficMirrorTargetId           string           `position:"Query" name:"TrafficMirrorTargetId"`
-	TrafficMirrorFilterId           string           `position:"Query" name:"TrafficMirrorFilterId"`
-	PacketLength                    requests.Integer `position:"Query" name:"PacketLength"`
-	VirtualNetworkId                requests.Integer `position:"Query" name:"VirtualNetworkId"`
+	TrafficMirrorTargetType         string                           `position:"Query" name:"TrafficMirrorTargetType"`
+	ResourceOwnerId                 requests.Integer                 `position:"Query" name:"ResourceOwnerId"`
+	ClientToken                     string                           `position:"Query" name:"ClientToken"`
+	Enabled                         requests.Boolean                 `position:"Query" name:"Enabled"`
+	ResourceGroupId                 string                           `position:"Query" name:"ResourceGroupId"`
+	TrafficMirrorSessionName        string                           `position:"Query" name:"TrafficMirrorSessionName"`
+	TrafficMirrorSessionDescription string                           `position:"Query" name:"TrafficMirrorSessionDescription"`
+	TrafficMirrorSourceIds          *[]string                        `position:"Query" name:"TrafficMirrorSourceIds"  type:"Repeated"`
+	Tag                             *[]CreateTrafficMirrorSessionTag `position:"Query" name:"Tag"  type:"Repeated"`
+	DryRun                          requests.Boolean                 `position:"Query" name:"DryRun"`
+	ResourceOwnerAccount            string                           `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount                    string                           `position:"Query" name:"OwnerAccount"`
+	Priority                        requests.Integer                 `position:"Query" name:"Priority"`
+	OwnerId                         requests.Integer                 `position:"Query" name:"OwnerId"`
+	TrafficMirrorTargetId           string                           `position:"Query" name:"TrafficMirrorTargetId"`
+	TrafficMirrorFilterId           string                           `position:"Query" name:"TrafficMirrorFilterId"`
+	PacketLength                    requests.Integer                 `position:"Query" name:"PacketLength"`
+	VirtualNetworkId                requests.Integer                 `position:"Query" name:"VirtualNetworkId"`
+}
+
+// CreateTrafficMirrorSessionTag is a repeated param struct in CreateTrafficMirrorSessionRequest
+type CreateTrafficMirrorSessionTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // CreateTrafficMirrorSessionResponse is the response struct for api CreateTrafficMirrorSession

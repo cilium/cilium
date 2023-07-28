@@ -71,16 +71,23 @@ func (client *Client) CreatePublicIpAddressPoolWithCallback(request *CreatePubli
 // CreatePublicIpAddressPoolRequest is the request struct for api CreatePublicIpAddressPool
 type CreatePublicIpAddressPoolRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	Isp                  string           `position:"Query" name:"Isp"`
-	Description          string           `position:"Query" name:"Description"`
-	ResourceGroupId      string           `position:"Query" name:"ResourceGroupId"`
-	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	Name                 string           `position:"Query" name:"Name"`
+	ResourceOwnerId      requests.Integer                `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string                          `position:"Query" name:"ClientToken"`
+	Isp                  string                          `position:"Query" name:"Isp"`
+	Description          string                          `position:"Query" name:"Description"`
+	ResourceGroupId      string                          `position:"Query" name:"ResourceGroupId"`
+	Tag                  *[]CreatePublicIpAddressPoolTag `position:"Query" name:"Tag"  type:"Repeated"`
+	DryRun               requests.Boolean                `position:"Query" name:"DryRun"`
+	ResourceOwnerAccount string                          `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                          `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer                `position:"Query" name:"OwnerId"`
+	Name                 string                          `position:"Query" name:"Name"`
+}
+
+// CreatePublicIpAddressPoolTag is a repeated param struct in CreatePublicIpAddressPoolRequest
+type CreatePublicIpAddressPoolTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // CreatePublicIpAddressPoolResponse is the response struct for api CreatePublicIpAddressPool

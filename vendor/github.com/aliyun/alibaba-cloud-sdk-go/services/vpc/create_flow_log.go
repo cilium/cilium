@@ -71,20 +71,27 @@ func (client *Client) CreateFlowLogWithCallback(request *CreateFlowLogRequest, c
 // CreateFlowLogRequest is the request struct for api CreateFlowLog
 type CreateFlowLogRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	Description          string           `position:"Query" name:"Description"`
-	ResourceGroupId      string           `position:"Query" name:"ResourceGroupId"`
-	ResourceId           string           `position:"Query" name:"ResourceId"`
-	ProjectName          string           `position:"Query" name:"ProjectName"`
-	LogStoreName         string           `position:"Query" name:"LogStoreName"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	TrafficPath          *[]string        `position:"Query" name:"TrafficPath"  type:"Repeated"`
-	AggregationInterval  requests.Integer `position:"Query" name:"AggregationInterval"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	ResourceType         string           `position:"Query" name:"ResourceType"`
-	TrafficType          string           `position:"Query" name:"TrafficType"`
-	FlowLogName          string           `position:"Query" name:"FlowLogName"`
+	ResourceOwnerId      requests.Integer    `position:"Query" name:"ResourceOwnerId"`
+	Description          string              `position:"Query" name:"Description"`
+	ResourceGroupId      string              `position:"Query" name:"ResourceGroupId"`
+	Tag                  *[]CreateFlowLogTag `position:"Query" name:"Tag"  type:"Repeated"`
+	ResourceId           string              `position:"Query" name:"ResourceId"`
+	ProjectName          string              `position:"Query" name:"ProjectName"`
+	LogStoreName         string              `position:"Query" name:"LogStoreName"`
+	ResourceOwnerAccount string              `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string              `position:"Query" name:"OwnerAccount"`
+	TrafficPath          *[]string           `position:"Query" name:"TrafficPath"  type:"Repeated"`
+	AggregationInterval  requests.Integer    `position:"Query" name:"AggregationInterval"`
+	OwnerId              requests.Integer    `position:"Query" name:"OwnerId"`
+	ResourceType         string              `position:"Query" name:"ResourceType"`
+	TrafficType          string              `position:"Query" name:"TrafficType"`
+	FlowLogName          string              `position:"Query" name:"FlowLogName"`
+}
+
+// CreateFlowLogTag is a repeated param struct in CreateFlowLogRequest
+type CreateFlowLogTag struct {
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // CreateFlowLogResponse is the response struct for api CreateFlowLog
