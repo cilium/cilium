@@ -145,7 +145,7 @@ bool egress_gw_reply_needs_redirect(struct iphdr *ip4 __maybe_unused,
 	    egress_policy->gateway_ip == EGRESS_GATEWAY_EXCLUDED_CIDR)
 		return false;
 
-	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
+	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 	if (!info || info->tunnel_endpoint == 0)
 		return false;
 

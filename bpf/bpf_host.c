@@ -331,7 +331,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		return CTX_ACT_OK;
 
 	dst = (union v6addr *) &ip6->daddr;
-	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
+	info = lookup_ip6_remote_endpoint(dst, 0);
 
 #ifdef TUNNEL_MODE
 	if (info != NULL && info->tunnel_endpoint != 0) {
@@ -739,7 +739,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 skip_vtep:
 #endif
 
-	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
+	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 
 #ifdef TUNNEL_MODE
 	if (info != NULL && info->tunnel_endpoint != 0) {
