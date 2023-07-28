@@ -96,7 +96,7 @@ func Test_authManager_authenticate(t *testing.T) {
 				logrus.New(),
 				[]authHandler{&alwaysFailAuthHandler{}, newAlwaysPassAuthHandler(logrus.New())},
 				authMap,
-				newFakeIPCache(map[uint16]string{
+				newFakeNodeIDHandler(map[uint16]string{
 					2: "172.18.0.2",
 					3: "172.18.0.3",
 				}),
@@ -171,29 +171,29 @@ func Test_authManager_handleCertificateRotationEvent(t *testing.T) {
 	assert.True(t, handleAuthCalled)
 }
 
-// Fake IPCache
-type fakeIPCache struct {
+// Fake NodeIDHandler
+type fakeNodeIDHandler struct {
 	nodeIdMappings map[uint16]string
 }
 
-func (r *fakeIPCache) DumpNodeIDs() []*models.NodeID {
+func (r *fakeNodeIDHandler) DumpNodeIDs() []*models.NodeID {
 	return []*models.NodeID{}
 }
 
-func (r *fakeIPCache) RestoreNodeIDs() {
+func (r *fakeNodeIDHandler) RestoreNodeIDs() {
 }
 
-func newFakeIPCache(mappings map[uint16]string) *fakeIPCache {
-	return &fakeIPCache{
+func newFakeNodeIDHandler(mappings map[uint16]string) *fakeNodeIDHandler {
+	return &fakeNodeIDHandler{
 		nodeIdMappings: mappings,
 	}
 }
 
-func (r *fakeIPCache) GetNodeIP(id uint16) string {
+func (r *fakeNodeIDHandler) GetNodeIP(id uint16) string {
 	return r.nodeIdMappings[id]
 }
 
-func (r *fakeIPCache) GetNodeID(nodeIP net.IP) (uint16, bool) {
+func (r *fakeNodeIDHandler) GetNodeID(nodeIP net.IP) (uint16, bool) {
 	for id, ip := range r.nodeIdMappings {
 		if ip == nodeIP.String() {
 			return id, true
