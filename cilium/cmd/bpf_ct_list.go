@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/api/v1/client/daemon"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -79,6 +80,9 @@ func parseArgs(args []string) (string, uint32, error) {
 			return "", 0, fmt.Errorf("missing clusterID")
 		}
 		id, err := strconv.ParseUint(args[1], 10, 32)
+		if err == nil {
+			err = cmtypes.ValidateClusterID(uint32(id))
+		}
 		if err != nil {
 			return "", 0, fmt.Errorf("invalid clusterID: %w", err)
 		}
@@ -96,8 +100,9 @@ func getMaps(t string, id uint32) []*ctmap.Map {
 		return ctmap.LocalMaps(&dummyEndpoint{ID: int(id)}, true, true)
 	}
 	if t == "cluster" {
-		ctmap.InitPerClusterCTMaps(ctmap.PerClusterCTOuterMapPrefix, true, getIpv6EnableStatus())
-		return ctmap.PerClusterCTMaps.GetClusterCTMaps(id)
+		// Ignoring the error, as we already validated the cluster ID.
+		maps, _ := ctmap.GetClusterCTMaps(id, true, getIpv6EnableStatus())
+		return maps
 	}
 	return []*ctmap.Map{}
 }
