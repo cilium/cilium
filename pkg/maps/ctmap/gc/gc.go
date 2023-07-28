@@ -32,6 +32,8 @@ type EndpointManager interface {
 	GetEndpoints() []*endpoint.Endpoint
 }
 
+type PerClusterCTMapsRetriever func() []*ctmap.Map
+
 type parameters struct {
 	cell.In
 
@@ -41,6 +43,8 @@ type parameters struct {
 	EndpointManager EndpointManager
 	Datapath        types.Datapath
 	SignalManager   SignalHandler
+
+	PerClusterCTMapsRetriever PerClusterCTMapsRetriever `optional:"true"`
 }
 
 type GC struct {
@@ -52,6 +56,8 @@ type GC struct {
 	endpointsManager EndpointManager
 	nodeAddressing   types.NodeAddressing
 	signalHandler    SignalHandler
+
+	perClusterCTMapsRetriever PerClusterCTMapsRetriever
 }
 
 func New(params parameters) *GC {
@@ -201,16 +207,10 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 	if e == nil {
 		maps = ctmap.GlobalMaps(ipv4, ipv6)
 
-		// We treat per-cluster CT Maps as global map. When we don't enable
-		// cluster-aware addressing, ctmap.PerClusterCTMaps is nil (this is
-		// the default).
-		if ctmap.PerClusterCTMaps != nil {
-			perClusterMaps, err := ctmap.PerClusterCTMaps.GetAllClusterCTMaps()
-			if err != nil {
-				gc.logger.Error("Failed to get per-cluster CT maps. Continue without them.")
-			} else {
-				maps = append(maps, perClusterMaps...)
-			}
+		// We treat per-cluster CT Maps as global maps. When we don't enable
+		// cluster-aware addressing, perClusterCTMapsRetriever is nil (default).
+		if gc.perClusterCTMapsRetriever != nil {
+			maps = append(maps, gc.perClusterCTMapsRetriever()...)
 		}
 	} else {
 		maps = ctmap.LocalMaps(e, ipv4, ipv6)
