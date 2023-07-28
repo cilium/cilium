@@ -19,6 +19,8 @@
 
 #include "bpf_lxc.c"
 
+#include "lib/ipcache.h"
+
 #define FROM_CONTAINER 0
 
 struct {
@@ -82,16 +84,7 @@ int ipv4_from_lxc_no_node_id_setup(struct __ctx_buff *ctx)
 
 	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);
 
-	struct ipcache_key cache_key = {};
-	struct remote_endpoint_info cache_value = {};
-
-	cache_key.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(32);
-	cache_key.family = ENDPOINT_KEY_IPV4;
-	cache_key.ip4 = v4_pod_two;
-	cache_value.sec_identity = 233;
-	cache_value.tunnel_endpoint = v4_node_two;
-	cache_value.key = ENCRYPT_KEY;
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(v4_pod_two, 0, 233, v4_node_two, ENCRYPT_KEY);
 
 	__u32 encrypt_key = 0;
 	struct encrypt_config encrypt_value = { .encrypt_key = 3 };
@@ -266,16 +259,7 @@ int ipv6_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 
 	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);
 
-	struct ipcache_key cache_key = {};
-	struct remote_endpoint_info cache_value = {};
-
-	cache_key.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(128);
-	cache_key.family = ENDPOINT_KEY_IPV6;
-	memcpy(&cache_key.ip6, (__u8 *)v6_pod_two, 16);
-	cache_value.sec_identity = 233;
-	cache_value.tunnel_endpoint = v4_node_two;
-	cache_value.key = ENCRYPT_KEY;
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v6_add_entry((union v6addr *)v6_pod_two, 0, 233, v4_node_two, ENCRYPT_KEY);
 
 	__u32 encrypt_key = 0;
 	struct encrypt_config encrypt_value = { .encrypt_key = 3 };

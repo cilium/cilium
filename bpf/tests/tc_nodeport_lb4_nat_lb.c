@@ -67,6 +67,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 #include "bpf_host.c"
 
+#include "lib/ipcache.h"
+
 #define FROM_NETDEV	0
 #define TO_NETDEV	1
 
@@ -193,15 +195,7 @@ int nodeport_local_backend_setup(struct __ctx_buff *ctx)
 	};
 	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
 
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = 32,
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP_LOCAL,
-	};
-	struct remote_endpoint_info cache_value = {
-		.sec_identity = 112233,
-	};
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(BACKEND_IP_LOCAL, 0, 112233, 0, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
@@ -481,15 +475,7 @@ int nodeport_udp_local_backend_setup(struct __ctx_buff *ctx)
 	};
 	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
 
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(32),
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP_LOCAL,
-	};
-	struct remote_endpoint_info cache_value = {
-		.sec_identity = 112233,
-	};
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(BACKEND_IP_LOCAL, 0, 112233, 0, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
@@ -649,15 +635,7 @@ int nodeport_nat_fwd_setup(struct __ctx_buff *ctx)
 	};
 	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
 
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = 32,
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP_REMOTE,
-	};
-	struct remote_endpoint_info cache_value = {
-		.sec_identity = 112233,
-	};
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(BACKEND_IP_REMOTE, 0, 112233, 0, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);

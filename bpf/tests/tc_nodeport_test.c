@@ -33,6 +33,8 @@ mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex _
 
 #include <bpf_lxc.c>
 
+#include "lib/ipcache.h"
+
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
 	__uint(key_size, sizeof(__u32));
@@ -117,8 +119,6 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	struct lb4_service lb_svc_value = {};
 	struct lb4_reverse_nat revnat_value = {};
 	struct lb4_backend backend = {};
-	struct ipcache_key cache_key = {};
-	struct remote_endpoint_info cache_value = {};
 	struct endpoint_key ep_key = {};
 	struct endpoint_info ep_value = {};
 
@@ -155,12 +155,7 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
 
 	/* Add an IPCache entry for pod 1 */
-	cache_key.lpm_key.prefixlen = 32;
-	cache_key.family = ENDPOINT_KEY_IPV4;
-	cache_key.ip4 = v4_pod_one;
-	/* a random sec id for the pod */
-	cache_value.sec_identity = 112233;
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(v4_pod_one, 0, 112233, 0, 0);
 
 	ep_key.ip4 = v4_pod_one;
 	ep_key.family = ENDPOINT_KEY_IPV4;
