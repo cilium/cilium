@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/hubble/exporter/exporteroption"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/identity"
@@ -1643,6 +1644,7 @@ type daemonParams struct {
 	Settings             cellSettings
 	HealthProvider       cell.Health
 	HealthReporter       cell.HealthReporter
+	JobRegistry          job.Registry
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

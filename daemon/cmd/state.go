@@ -14,9 +14,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/workqueue"
 
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/ipam"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
@@ -26,6 +27,10 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+)
+
+const (
+	syncLBMapJobRetyCount = 5
 )
 
 type endpointRestoreState struct {
@@ -439,43 +444,44 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
 func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struct{} {
 	bootstrapStats.restore.Start()
 	var restoreComplete chan struct{}
+	var clusterSyncComplete chan struct{}
 	if option.Config.RestoreState {
 		// When we regenerate restored endpoints, it is guaranteed tha we have
 		// received the full list of policies present at the time the daemon
 		// is bootstrapped.
 		restoreComplete = d.regenerateRestoredEndpoints(restoredEndpoints)
-		go func() {
-			<-restoreComplete
-		}()
-
-		go func() {
-			if d.clientset.IsEnabled() {
-				// Also wait for all cluster mesh to be synchronized with the
-				// datapath before proceeding.
-				if d.clustermesh != nil {
-					err := d.clustermesh.ClustersSynced(d.ctx)
-					if err != nil {
-						log.WithError(err).Fatal("timeout while waiting for all clusters to be locally synchronized")
+		if d.clientset.IsEnabled() {
+			d.jobGroup.Add(
+				job.OneShot("setup-sync-lb-maps", func(ctx context.Context) error {
+					clusterSyncComplete = make(chan struct{})
+					// Also wait for all cluster mesh to be synchronized with the
+					// datapath before proceeding.
+					if d.clustermesh != nil {
+						err := d.clustermesh.ClustersSynced(d.ctx)
+						if err != nil {
+							log.WithError(err).Fatal("timeout while waiting for all clusters to be locally synchronized")
+						}
+						log.Debug("all clusters have been correctly synchronized locally")
 					}
-					log.Debug("all clusters have been correctly synchronized locally")
-				}
-				// Start controller which removes any leftover Kubernetes
+					close(clusterSyncComplete)
+					return nil
+				}),
+				// Start a job which removes any leftover Kubernetes
 				// services that may have been deleted while Cilium was not
-				// running. Once this controller succeeds, because it has no
-				// RunInterval specified, it will not run again unless updated
-				// elsewhere. This means that if, for instance, a user manually
+				// running. Since this is a OneShot job, it will not run again unless
+				// updated elsewhere. This means that if, for instance, a user manually
 				// adds a service via the CLI into the BPF maps, that it will
 				// not be cleaned up by the daemon until it restarts.
-				controller.NewManager().UpdateController("sync-lb-maps-with-k8s-services",
-					controller.ControllerParams{
-						DoFunc: func(ctx context.Context) error {
-							return d.svc.SyncWithK8sFinished(d.k8sWatcher.K8sSvcCache.EnsureService)
-						},
-						Context: d.ctx,
+				job.OneShot(
+					"sync-lb-maps-with-k8s-services",
+					func(ctx context.Context) error {
+						<-clusterSyncComplete
+						return d.svc.SyncWithK8sFinished(d.k8sWatcher.K8sSvcCache.EnsureService)
 					},
-				)
-			}
-		}()
+					job.WithRetry(syncLBMapJobRetyCount, workqueue.DefaultControllerRateLimiter()),
+				),
+			)
+		}
 	} else {
 		log.Info("State restore is disabled. Existing endpoints on node are ignored")
 	}

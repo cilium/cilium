@@ -51,6 +51,7 @@ import (
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -104,6 +105,8 @@ const (
 	ConfigModifyQueueSize = 10
 
 	syncHostIPsController = "sync-host-ips"
+
+	daemonJobs = "daemon-jobs"
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
@@ -223,6 +226,9 @@ type Daemon struct {
 	// enable modules health support
 	healthProvider cell.Health
 	healthReporter cell.HealthReporter
+
+	// jobGroup to run any jobs needed by the daemon
+	jobGroup job.Group
 }
 
 func (d *Daemon) initDNSProxyContext(size int) {
@@ -511,6 +517,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, err
 	}
 
+	jobGroup := params.JobRegistry.NewGroup(
+		job.WithLogger(log.WithField(logfields.JobName, daemonJobs)),
+	)
+
 	d := Daemon{
 		ctx:               ctx,
 		clientset:         params.Clientset,
@@ -543,6 +553,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		settings:             params.Settings,
 		healthProvider:       params.HealthProvider,
 		healthReporter:       params.HealthReporter,
+		jobGroup:             jobGroup,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
