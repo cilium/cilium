@@ -61,6 +61,7 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include <bpf_host.c>
 
 #include "lib/ipcache.h"
+#include "lib/lb.h"
 
 #define FROM_NETDEV	0
 #define TO_NETDEV	1
@@ -136,53 +137,9 @@ int nodeport_dsr_fwd_setup(struct __ctx_buff *ctx)
 	union v6addr backend_ip = BACKEND_IP;
 	__u16 revnat_id = 1;
 
-	/* Register a fake LB backend matching our packet. */
-	struct lb6_key lb_svc_key = {
-		.dport = FRONTEND_PORT,
-		.scope = LB_LOOKUP_SCOPE_EXT,
-	};
-	ipv6_addr_copy((union v6addr *)&lb_svc_key.address, &frontend_ip);
-
-	/* Create a service with only one backend */
-	struct lb6_service lb_svc_value = {
-		.count = 1,
-		.flags = SVC_FLAG_ROUTABLE,
-		.rev_nat_index = revnat_id,
-	};
-	map_update_elem(&LB6_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-	/* We need to register both in the external and internal scopes for the
-	 * packet to be redirected to a neighboring node
-	 */
-	lb_svc_key.scope = LB_LOOKUP_SCOPE_INT;
-	map_update_elem(&LB6_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-
-	/* A backend between 1 and .count is chosen, since we have only one backend
-	 * it is always backend_slot 1. Point it to backend_id 124.
-	 */
-	lb_svc_key.scope = LB_LOOKUP_SCOPE_EXT;
-	lb_svc_key.backend_slot = 1;
-	lb_svc_value.backend_id = 124;
-	map_update_elem(&LB6_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-
-	/* Insert a reverse NAT entry for the above service */
-	struct lb6_reverse_nat revnat_value = {
-		.port = FRONTEND_PORT,
-	};
-	ipv6_addr_copy((union v6addr *)&revnat_value.address, &frontend_ip);
-
-	map_update_elem(&LB6_REVERSE_NAT_MAP, &revnat_id, &revnat_value, BPF_ANY);
-
-	/* Create backend id 124 which contains the IP and port to send the
-	 * packet to.
-	 */
-	struct lb6_backend backend = {
-		.port = BACKEND_PORT,
-		.proto = IPPROTO_TCP,
-		.flags = BE_STATE_ACTIVE,
-	};
-	ipv6_addr_copy((union v6addr *)&backend.address, &backend_ip);
-
-	map_update_elem(&LB6_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
+	lb_v6_add_service(&frontend_ip, FRONTEND_PORT, 1, revnat_id);
+	lb_v6_add_backend(&frontend_ip, FRONTEND_PORT, 1, 124,
+			  &backend_ip, BACKEND_PORT, IPPROTO_TCP, 0);
 
 	ipcache_v6_add_entry(&backend_ip, 0, 112233, 0, 0);
 
