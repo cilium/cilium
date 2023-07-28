@@ -21,7 +21,6 @@ import (
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -51,7 +50,6 @@ func setup(tb testing.TB) {
 	tb.Helper()
 
 	require.NoError(tb, rlimit.RemoveMemlock(), "Failed to remove memory limits")
-	ctmap.InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
 
 	node.SetTestLocalNodeStore()
 	node.InitDefaultPrefix("")
