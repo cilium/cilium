@@ -104,6 +104,8 @@ int mock_send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 /* Include an actual datapath code */
 #include <bpf_overlay.c>
 
+#include "lib/endpoint.h"
+
 /*
  * Tests
  */
@@ -311,17 +313,8 @@ int from_overlay_synack_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "02_from_overlay_synack")
 int from_overlay_synack_setup(struct __ctx_buff *ctx)
 {
-	struct endpoint_key ep_key = {
-		.ip4 = CLIENT_IP,
-		.family = ENDPOINT_KEY_IPV4,
-	};
-	struct endpoint_info ep_value = {
-		.ifindex = CLIENT_IFINDEX,
-	};
-	memcpy(&ep_value.mac, (__u8 *)CLIENT_MAC, ETH_ALEN);
-	memcpy(&ep_value.node_mac, (__u8 *)CLIENT_ROUTER_MAC, ETH_ALEN);
-
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
+	endpoint_v4_add_entry(CLIENT_IP, CLIENT_IFINDEX, 0, 0,
+			      (__u8 *)CLIENT_MAC, (__u8 *)CLIENT_ROUTER_MAC);
 
 	tail_call_static(ctx, &entry_call_map, FROM_OVERLAY);
 	return TEST_ERROR;

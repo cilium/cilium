@@ -67,6 +67,7 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 #include <bpf_xdp.c>
 
+#include "lib/endpoint.h"
 #include "lib/ipcache.h"
 
 #define FROM_NETDEV	0
@@ -182,17 +183,8 @@ int nodeport_local_backend_setup(struct __ctx_buff *ctx)
 	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
 
 	/* add local backend */
-	struct endpoint_info ep_value = {};
-
-	memcpy(&ep_value.mac, (__u8 *)local_backend_mac, ETH_ALEN);
-	memcpy(&ep_value.node_mac, (__u8 *)node_mac, ETH_ALEN);
-
-	struct endpoint_key ep_key = {
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP_LOCAL,
-	};
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
-
+	endpoint_v4_add_entry(BACKEND_IP_LOCAL, 0, 0, 0,
+			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
 	ipcache_v4_add_entry(BACKEND_IP_LOCAL, 0, 112233, 0, 0);
 
 	/* Jump into the entrypoint */
