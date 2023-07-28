@@ -42,6 +42,7 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include <bpf_xdp.c>
 
 #include "lib/egressgw.h"
+#include "lib/ipcache.h"
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,
@@ -134,15 +135,7 @@ int egressgw_reply_setup(struct __ctx_buff *ctx)
 	map_update_elem(&SNAT_MAPPING_IPV4, &snat_tuple, &snat_entry, BPF_ANY);
 
 	/* install ipcache entry for the CLIENT_IP: */
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(32),
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = CLIENT_IP,
-	};
-	struct remote_endpoint_info cache_value = {
-		.tunnel_endpoint = CLIENT_NODE_IP,
-	};
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(CLIENT_IP, 0, 0, CLIENT_NODE_IP, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);

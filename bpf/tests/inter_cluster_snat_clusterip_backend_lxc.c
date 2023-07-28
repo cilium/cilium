@@ -62,6 +62,8 @@
 /* Include an actual datapath code */
 #include <bpf_lxc.c>
 
+#include "lib/ipcache.h"
+
 /*
  * Tests
  */
@@ -287,17 +289,7 @@ int lxc_to_overlay_synack_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "02_lxc_to_overlay_synack")
 int lxc_to_overlay_synack_setup(struct __ctx_buff *ctx)
 {
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(V4_CACHE_KEY_LEN),
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = CLIENT_NODE_IP,
-	};
-
-	struct remote_endpoint_info cache_value = {
-		.sec_identity = REMOTE_NODE_ID,
-	};
-
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(CLIENT_NODE_IP, 0, REMOTE_NODE_ID, 0, 0);
 
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
 

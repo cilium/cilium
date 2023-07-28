@@ -36,6 +36,8 @@
 
 #include "bpf_host.c"
 
+#include "lib/ipcache.h"
+
 static volatile const __u8 *node_mac = mac_three;
 static volatile const __u8 *backend_mac = mac_four;
 
@@ -157,15 +159,7 @@ int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 	};
 	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
 
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = 32,
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP,
-	};
-	struct remote_endpoint_info cache_value = {
-		.sec_identity = 112233,
-	};
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);

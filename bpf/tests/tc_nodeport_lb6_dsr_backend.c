@@ -39,6 +39,8 @@ static volatile const __u8 *backend_mac = mac_four;
 
 #include "bpf_host.c"
 
+#include "lib/ipcache.h"
+
 #define FROM_NETDEV	0
 #define TO_NETDEV	1
 
@@ -136,16 +138,7 @@ int nodeport_dsr_backend_setup(struct __ctx_buff *ctx)
 	ipv6_addr_copy((union v6addr *)&ep_key.ip6, &backend_ip);
 	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
 
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(128),
-		.family = ENDPOINT_KEY_IPV6,
-	};
-	ipv6_addr_copy((union v6addr *)&cache_key.ip6, &backend_ip);
-
-	struct remote_endpoint_info cache_value = {
-		.sec_identity = 112233,
-	};
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v6_add_entry(&backend_ip, 0, 112233, 0, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);

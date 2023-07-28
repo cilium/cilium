@@ -65,6 +65,8 @@
 /* Include an actual datapath code */
 #include <bpf_lxc.c>
 
+#include "lib/ipcache.h"
+
 /*
  * Tests
  */
@@ -212,24 +214,8 @@ int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 	};
 	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
 
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(V4_CACHE_KEY_LEN),
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP,
-
-		/* Encode cluster_id into ipcache key. So that we can lookup
-		 * for the IP/Prefix located in the different clusters, but
-		 * overlapping.
-		 */
-		.cluster_id = BACKEND_CLUSTER_ID
-	};
-	struct remote_endpoint_info cache_value = {
-		.sec_identity = BACKEND_IDENTITY,
-
-		/* Assuming node IP is unique for now */
-		.tunnel_endpoint = BACKEND_NODE_IP,
-	};
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(BACKEND_IP, BACKEND_CLUSTER_ID, BACKEND_IDENTITY,
+			     BACKEND_NODE_IP, 0);
 
 	struct policy_key policy_key = {
 		/* Policy enforcement is identity based. So, if above ipcache

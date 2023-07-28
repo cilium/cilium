@@ -60,6 +60,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 #include <bpf_host.c>
 
+#include "lib/ipcache.h"
+
 #define FROM_NETDEV	0
 #define TO_NETDEV	1
 
@@ -182,16 +184,7 @@ int nodeport_dsr_fwd_setup(struct __ctx_buff *ctx)
 
 	map_update_elem(&LB6_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
 
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(128),
-		.family = ENDPOINT_KEY_IPV6,
-	};
-	ipv6_addr_copy((union v6addr *)&cache_key.ip6, &backend_ip);
-
-	struct remote_endpoint_info cache_value = {
-		.sec_identity = 112233,
-	};
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v6_add_entry(&backend_ip, 0, 112233, 0, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
