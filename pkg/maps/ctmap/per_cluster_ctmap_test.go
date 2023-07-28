@@ -4,7 +4,9 @@
 package ctmap
 
 import (
-	. "github.com/cilium/checkmate"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/ebpf/rlimit"
 
@@ -13,184 +15,215 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-type PerClusterCTMapPrivilegedTestSuite struct{}
-
-var _ = Suite(&PerClusterCTMapPrivilegedTestSuite{})
-
-const (
-	testPerClusterCTMapNamePrefix = "test_cilium_per_cluster_ct_"
-)
-
-func (k *PerClusterCTMapPrivilegedTestSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedTest(c)
+func setup(tb testing.TB) {
+	testutils.PrivilegedTest(tb)
 
 	bpf.CheckOrMountFS("")
-	err := rlimit.RemoveMemlock()
-	c.Assert(err, IsNil)
+	require.NoError(tb, rlimit.RemoveMemlock(), "Failed to set memlock rlimit")
+
+	// Override the map names to avoid clashing with the real ones.
+	ClusterOuterMapNameTestOverride("test")
 }
 
-func (k *PerClusterCTMapPrivilegedTestSuite) SetUpTest(c *C) {
-	// Prepare all per-cluster ctmaps
-	if err := InitPerClusterCTMaps(testPerClusterCTMapNamePrefix, true, true); err != nil {
-		panic(err)
-	}
-}
+func BenchmarkPerClusterCTMapUpdate(b *testing.B) {
+	b.StopTimer()
+	setup(b)
 
-func (k *PerClusterCTMapPrivilegedTestSuite) TearDownTest(c *C) {
-	PerClusterCTMaps.Cleanup()
-}
+	om := newPerClusterCTMap(mapTypeIPv4TCPGlobal)
+	require.NotNil(b, om, "Failed to initialize map")
 
-func (k *PerClusterCTMapPrivilegedTestSuite) Benchmark_PerClusterCTMapUpdate(c *C) {
-	c.StopTimer()
+	require.NoError(b, om.OpenOrCreate(), "Failed to create outer map")
+	b.Cleanup(func() {
+		require.NoError(b, om.Close())
+		require.NoError(b, CleanupPerClusterCTMaps(true, true), "Failed to cleanup maps")
+	})
 
-	om, err := newPerClusterCTMap(testPerClusterCTMapNamePrefix+perClusterTCP4OuterMapSuffix, mapTypeIPv4TCPGlobal)
-	c.Assert(err, IsNil)
+	b.StartTimer()
 
-	defer om.Unpin()
-	defer om.Close()
-
-	c.StartTimer()
-
-	for i := 0; i < c.N; i++ {
-		err = om.updateClusterCTMap(1)
-		c.Assert(err, IsNil)
+	for i := 0; i < b.N; i++ {
+		require.NoError(b, om.createClusterCTMap(1), "Failed to create map")
 	}
 
-	c.StopTimer()
+	b.StopTimer()
 }
 
-func (k *PerClusterCTMapPrivilegedTestSuite) Benchmark_PerClusterCTMapLookup(c *C) {
-	c.StopTimer()
+func BenchmarkPerClusterCTMapLookup(b *testing.B) {
+	b.StopTimer()
+	setup(b)
 
-	om, err := newPerClusterCTMap(testPerClusterCTMapNamePrefix+perClusterTCP4OuterMapSuffix, mapTypeIPv4TCPGlobal)
-	c.Assert(err, IsNil)
+	om := newPerClusterCTMap(mapTypeIPv4TCPGlobal)
+	require.NotNil(b, om, "Failed to initialize map")
 
-	defer om.Unpin()
-	defer om.Close()
+	require.NoError(b, om.OpenOrCreate(), "Failed to create outer map")
+	b.Cleanup(func() {
+		require.NoError(b, om.Close())
+		require.NoError(b, CleanupPerClusterCTMaps(true, true), "Failed to cleanup maps")
+	})
 
-	err = om.updateClusterCTMap(1)
-	c.Assert(err, IsNil)
+	require.NoError(b, om.createClusterCTMap(1), "Failed to create map")
 
-	c.StartTimer()
+	b.StartTimer()
 
 	key := &PerClusterCTMapKey{1}
-	for i := 0; i < c.N; i++ {
-		_, err = om.Lookup(key)
-		c.Assert(err, IsNil)
+	for i := 0; i < b.N; i++ {
+		_, err := om.Lookup(key)
+		require.NoError(b, err, "Failed to lookup element")
 	}
 
-	c.StopTimer()
+	b.StopTimer()
 }
 
-func (k *PerClusterCTMapPrivilegedTestSuite) TestPerClusterCTMap(c *C) {
-	om, err := newPerClusterCTMap(testPerClusterCTMapNamePrefix+perClusterTCP4OuterMapSuffix, mapTypeIPv4TCPGlobal)
-	c.Assert(err, IsNil)
+func TestPerClusterCTMaps(t *testing.T) {
+	setup(t)
 
-	defer om.Unpin()
-	defer om.Close()
+	maps := NewPerClusterCTMaps(true, true)
+	for _, om := range []*PerClusterCTMap{maps.tcp4, maps.any4, maps.tcp6, maps.any6} {
+		require.NotNil(t, om, "Failed to initialize maps")
+	}
+
+	require.NoError(t, maps.OpenOrCreate(), "Failed to create outer maps")
+	for _, om := range []*PerClusterCTMap{maps.tcp4, maps.any4, maps.tcp6, maps.any6} {
+		require.FileExists(t, bpf.MapPath(om.Map.Name()), "Failed to create outer maps")
+	}
+
+	t.Cleanup(func() {
+		require.NoError(t, maps.Close())
+		require.NoError(t, CleanupPerClusterCTMaps(true, true), "Failed to cleanup maps")
+	})
 
 	// ClusterID 0 should never be used
-	err = om.updateClusterCTMap(0)
-	c.Assert(err, NotNil)
+	require.Error(t, maps.CreateClusterCTMaps(0), "ClusterID 0 should never be used")
+	require.Error(t, maps.DeleteClusterCTMaps(0), "ClusterID 0 should never be used")
+	_, err := GetClusterCTMaps(0, true, true)
+	require.Error(t, err, "ClusterID 0 should never be used")
 
 	// ClusterID beyond the ClusterIDMax should never be used
-	err = om.updateClusterCTMap(cmtypes.ClusterIDMax + 1)
-	c.Assert(err, NotNil)
+	require.Error(t, maps.CreateClusterCTMaps(cmtypes.ClusterIDMax+1), "ClusterID beyond the ClusterIDMax should never be used")
+	require.Error(t, maps.DeleteClusterCTMaps(cmtypes.ClusterIDMax+1), "ClusterID beyond the ClusterIDMax should never be used")
+	_, err = GetClusterCTMaps(cmtypes.ClusterIDMax+1, true, true)
+	require.Error(t, err, "ClusterID beyond the ClusterIDMax should never be used")
 
 	// Basic update
-	cluster1MapName := getInnerMapName(om.Name(), 1)
-	err = om.updateClusterCTMap(1)
-	c.Assert(err, IsNil)
+	require.NoError(t, maps.CreateClusterCTMaps(1), "Failed to create maps")
+	require.NoError(t, maps.CreateClusterCTMaps(cmtypes.ClusterIDMax), "Failed to create maps")
 
-	// After update, outer map should be updated with the inner map
-	v, err := om.Lookup(&PerClusterCTMapKey{1})
-	c.Assert(err, IsNil)
-	c.Assert(v, Not(Equals), 0)
+	for _, id := range []uint32{1, cmtypes.ClusterIDMax} {
+		for _, om := range []*PerClusterCTMap{maps.tcp4, maps.any4, maps.tcp6, maps.any6} {
+			// After update, the outer map should be updated with the inner map
+			value, err := om.Lookup(&PerClusterCTMapKey{id})
+			require.NoError(t, err, "Outer map not updated correctly (id=%v, map=%v)", id, om.Name())
+			require.NotZero(t, value, "Outer map not updated correctly (id=%v, map=%v)", id, om.Name())
 
-	// Inner map should not exist on the global registry
-	c.Assert(bpf.GetMap(cluster1MapName), IsNil)
+			// After update, the inner map should exist
+			require.FileExists(t, bpf.MapPath(om.newInnerMap(id).Map.Name()), "Inner map not correctly present (id=%v, map=%v)", id, om.Name())
+		}
 
-	// Basic Get
-	im, err := om.getClusterMap(1)
-	c.Assert(err, IsNil)
-	c.Assert(im, NotNil)
-
-	im.Close()
-
-	// Getting nonexistent entry returns an error
-	_, err = om.getClusterMap(2)
-	c.Assert(err, NotNil)
-
-	// Basic all get
-	ims, err := om.getAllClusterMaps()
-	c.Assert(err, IsNil)
-	c.Assert(len(ims), Equals, 1)
-
-	for _, im := range ims {
-		im.Close()
+		// After update, it should be possible to get and open the inner map
+		ims, err := GetClusterCTMaps(id, true, true)
+		require.Len(t, ims, 4, "Retrieved an incorrect number of inner maps")
+		for _, im := range ims {
+			require.NotNil(t, im, "Failed to get inner map (id=%v, map=%v)", id, im.Name())
+			require.NoError(t, err, "Failed to get inner map (id=%v, map=%v)", id, im.Name())
+			require.NoError(t, im.Open(), "Failed to open inner map (id=%v, map=%v)", im.Name())
+			im.Close()
+		}
 	}
 
-	// Basic delete
-	err = om.deleteClusterCTMap(1)
-	c.Assert(err, IsNil)
+	// An update for an already existing entry should succeed
+	require.NoError(t, maps.CreateClusterCTMaps(cmtypes.ClusterIDMax), "Failed to create maps")
 
-	// After delete, outer map shouldn't contain the inner map
-	_, err = om.Lookup(&PerClusterCTMapKey{1})
-	c.Assert(err, NotNil)
+	// Basic get all
+	ims := maps.GetAllClusterCTMaps()
+	require.Len(t, ims, 8, "Retrieved an unexpected number of maps")
+
+	// Basic delete
+	require.NoError(t, maps.DeleteClusterCTMaps(1), "Failed to delete maps")
+	require.NoError(t, maps.DeleteClusterCTMaps(cmtypes.ClusterIDMax), "Failed to delete maps")
+
+	for _, id := range []uint32{1, cmtypes.ClusterIDMax} {
+		for _, om := range []*PerClusterCTMap{maps.tcp4, maps.any4, maps.tcp6, maps.any6} {
+			// After delete, the outer map shouldn't contain the entry
+			_, err := om.Lookup(&PerClusterCTMapKey{id})
+			require.Error(t, err, "Outer map not updated correctly (id=%v, map=%v)", id, om.Name())
+
+			// After delete, the inner map should not exist
+			require.NoFileExists(t, bpf.MapPath(om.newInnerMap(id).Map.Name()), "Inner map not correctly deleted (id=%v, map=%v)", id, om.Name())
+		}
+
+		// After delete, it should be no longer be possible to open the inner map
+		ims, err := GetClusterCTMaps(id, true, true)
+		require.Len(t, ims, 4, "Retrieved an incorrect number of inner maps")
+		for _, im := range ims {
+			require.NotNil(t, im, "Failed to get inner map (id=%v, map=%v)", id, im.Name())
+			require.NoError(t, err, "Failed to get inner map (id=%v, map=%v)", id, im.Name())
+			require.Error(t, im.Open(), "Should have failed to open inner map (id=%v, map=%v)", id, im.Name())
+		}
+	}
+
+	// A deletion for an already deleted entry should succeed
+	require.NoError(t, maps.DeleteClusterCTMaps(cmtypes.ClusterIDMax), "Failed to delete maps")
 }
 
-func (k *PerClusterCTMapPrivilegedTestSuite) TestPerClusterCTMaps(c *C) {
-	gm, err := newPerClusterCTMaps(testPerClusterCTMapNamePrefix, true, true)
-	c.Assert(err, IsNil)
+func TestPerClusterCTMapsCleanup(t *testing.T) {
+	setup(t)
 
-	defer gm.Cleanup()
-
-	// ClusterID 0 should never be used
-	err = gm.UpdateClusterCTMaps(0)
-	c.Assert(err, NotNil)
-
-	// ClusterID beyond the ClusterIDMax should never be used
-	err = gm.UpdateClusterCTMaps(cmtypes.ClusterIDMax + 1)
-	c.Assert(err, NotNil)
-
-	// Basic Update
-	err = gm.UpdateClusterCTMaps(1)
-	c.Assert(err, IsNil)
-
-	err = gm.UpdateClusterCTMaps(cmtypes.ClusterIDMax)
-	c.Assert(err, IsNil)
-
-	for _, om := range []*PerClusterCTMap{gm.tcp4, gm.tcp6, gm.any4, gm.any6} {
-		// After update, outer map should be updated with the inner map
-		v, err := om.Lookup(&PerClusterCTMapKey{1})
-		c.Assert(err, IsNil)
-		c.Assert(v, Not(Equals), 0)
-		v, err = om.Lookup(&PerClusterCTMapKey{cmtypes.ClusterIDMax})
-		c.Assert(err, IsNil)
-		c.Assert(v, Not(Equals), 0)
+	tests := []struct {
+		name            string
+		ipv4, ipv6      bool
+		present, absent []mapType
+	}{
+		{
+			name:    "IPv4",
+			ipv4:    true,
+			present: []mapType{mapTypeIPv6TCPGlobal, mapTypeIPv6AnyLocal},
+			absent:  []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal},
+		},
+		{
+			name:    "IPv6",
+			ipv6:    true,
+			present: []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal},
+			absent:  []mapType{mapTypeIPv6TCPGlobal, mapTypeIPv6AnyLocal},
+		},
+		{
+			name:   "dual",
+			ipv4:   true,
+			ipv6:   true,
+			absent: []mapType{mapTypeIPv4TCPGlobal, mapTypeIPv4AnyLocal, mapTypeIPv6TCPGlobal, mapTypeIPv6AnyLocal},
+		},
 	}
 
-	// Basic all get
-	ims, err := gm.GetAllClusterCTMaps()
-	c.Assert(err, IsNil)
-	c.Assert(len(ims), Equals, 8)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Pick up edge and middle values since filling all slots consumes too much memory.
+			ids := []uint32{1, 128, cmtypes.ClusterIDMax}
+			gm := NewPerClusterCTMaps(true, true)
 
-	for _, im := range ims {
-		im.Close()
-	}
+			require.NoError(t, gm.OpenOrCreate(), "Failed to create outer maps")
+			t.Cleanup(func() {
+				require.NoError(t, gm.Close())
+				// This also ensures that the cleanup succeeds even if the outer maps don't exist
+				require.NoError(t, CleanupPerClusterCTMaps(true, true), "Failed to cleanup maps")
+			})
 
-	// Basic delete
-	err = gm.DeleteClusterCTMaps(1)
-	c.Assert(err, IsNil)
+			for _, id := range ids {
+				require.NoError(t, gm.CreateClusterCTMaps(id), "Failed to create maps (id=%v)", id)
+			}
 
-	err = gm.DeleteClusterCTMaps(cmtypes.ClusterIDMax)
-	c.Assert(err, IsNil)
+			require.NoError(t, CleanupPerClusterCTMaps(tt.ipv4, tt.ipv6), "Failed to cleanup maps")
 
-	for _, om := range []*PerClusterCTMap{gm.tcp4, gm.tcp6, gm.any4, gm.any6} {
-		// After delete, outer map shouldn't contain the maps
-		_, err := om.Lookup(&PerClusterCTMapKey{1})
-		c.Assert(err, NotNil)
-		_, err = om.Lookup(&PerClusterCTMapKey{cmtypes.ClusterIDMax})
-		c.Assert(err, NotNil)
+			for _, typ := range tt.present {
+				for _, id := range ids {
+					require.FileExists(t, bpf.MapPath(ClusterInnerMapName(typ, id)), "Inner map should not have been deleted (id=%v, type=%v)", id, typ.name())
+				}
+				require.FileExists(t, bpf.MapPath(ClusterOuterMapName(typ)), "Outer map should not have been deleted (type=%v)", typ.name())
+			}
+
+			for _, typ := range tt.absent {
+				for _, id := range ids {
+					require.NoFileExists(t, bpf.MapPath(ClusterInnerMapName(typ, id)), "Inner map should have been deleted (id=%v, type=%v)", id, typ.name())
+				}
+				require.NoFileExists(t, bpf.MapPath(ClusterOuterMapName(typ)), "Outer map should have been deleted (type=%v)", typ.name())
+			}
+		})
 	}
 }
