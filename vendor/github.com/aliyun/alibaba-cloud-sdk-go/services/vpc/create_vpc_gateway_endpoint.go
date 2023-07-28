@@ -71,18 +71,25 @@ func (client *Client) CreateVpcGatewayEndpointWithCallback(request *CreateVpcGat
 // CreateVpcGatewayEndpointRequest is the request struct for api CreateVpcGatewayEndpoint
 type CreateVpcGatewayEndpointRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	ResourceGroupId      string           `position:"Query" name:"ResourceGroupId"`
-	ServiceName          string           `position:"Query" name:"ServiceName"`
-	DryRun               requests.Boolean `position:"Query" name:"DryRun"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	EndpointDescription  string           `position:"Query" name:"EndpointDescription"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	VpcId                string           `position:"Query" name:"VpcId"`
-	EndpointName         string           `position:"Query" name:"EndpointName"`
-	PolicyDocument       string           `position:"Query" name:"PolicyDocument"`
+	ResourceOwnerId      requests.Integer               `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string                         `position:"Query" name:"ClientToken"`
+	ResourceGroupId      string                         `position:"Query" name:"ResourceGroupId"`
+	ServiceName          string                         `position:"Query" name:"ServiceName"`
+	Tag                  *[]CreateVpcGatewayEndpointTag `position:"Query" name:"Tag"  type:"Repeated"`
+	DryRun               requests.Boolean               `position:"Query" name:"DryRun"`
+	ResourceOwnerAccount string                         `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                         `position:"Query" name:"OwnerAccount"`
+	EndpointDescription  string                         `position:"Query" name:"EndpointDescription"`
+	OwnerId              requests.Integer               `position:"Query" name:"OwnerId"`
+	VpcId                string                         `position:"Query" name:"VpcId"`
+	EndpointName         string                         `position:"Query" name:"EndpointName"`
+	PolicyDocument       string                         `position:"Query" name:"PolicyDocument"`
+}
+
+// CreateVpcGatewayEndpointTag is a repeated param struct in CreateVpcGatewayEndpointRequest
+type CreateVpcGatewayEndpointTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // CreateVpcGatewayEndpointResponse is the response struct for api CreateVpcGatewayEndpoint

@@ -50,6 +50,8 @@ type VirtualBorderRouterType struct {
 	PConnVbrChargeType               string                                       `json:"PConnVbrChargeType" xml:"PConnVbrChargeType"`
 	PhysicalConnectionId             string                                       `json:"PhysicalConnectionId" xml:"PhysicalConnectionId"`
 	Bandwidth                        int                                          `json:"Bandwidth" xml:"Bandwidth"`
+	ResourceGroupId                  string                                       `json:"ResourceGroupId" xml:"ResourceGroupId"`
 	AssociatedPhysicalConnections    AssociatedPhysicalConnections                `json:"AssociatedPhysicalConnections" xml:"AssociatedPhysicalConnections"`
 	AssociatedCens                   AssociatedCensInDescribeVirtualBorderRouters `json:"AssociatedCens" xml:"AssociatedCens"`
+	Tags                             TagsInDescribeVirtualBorderRouters           `json:"Tags" xml:"Tags"`
 }

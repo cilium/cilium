@@ -71,25 +71,33 @@ func (client *Client) CreateVirtualBorderRouterWithCallback(request *CreateVirtu
 // CreateVirtualBorderRouterRequest is the request struct for api CreateVirtualBorderRouter
 type CreateVirtualBorderRouterRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId       requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	CircuitCode           string           `position:"Query" name:"CircuitCode"`
-	VlanId                requests.Integer `position:"Query" name:"VlanId"`
-	ClientToken           string           `position:"Query" name:"ClientToken"`
-	EnableIpv6            requests.Boolean `position:"Query" name:"EnableIpv6"`
-	Description           string           `position:"Query" name:"Description"`
-	PeerGatewayIp         string           `position:"Query" name:"PeerGatewayIp"`
-	PeerIpv6GatewayIp     string           `position:"Query" name:"PeerIpv6GatewayIp"`
-	PeeringSubnetMask     string           `position:"Query" name:"PeeringSubnetMask"`
-	LocalGatewayIp        string           `position:"Query" name:"LocalGatewayIp"`
-	PeeringIpv6SubnetMask string           `position:"Query" name:"PeeringIpv6SubnetMask"`
-	ResourceOwnerAccount  string           `position:"Query" name:"ResourceOwnerAccount"`
-	Bandwidth             requests.Integer `position:"Query" name:"Bandwidth"`
-	OwnerAccount          string           `position:"Query" name:"OwnerAccount"`
-	OwnerId               requests.Integer `position:"Query" name:"OwnerId"`
-	PhysicalConnectionId  string           `position:"Query" name:"PhysicalConnectionId"`
-	LocalIpv6GatewayIp    string           `position:"Query" name:"LocalIpv6GatewayIp"`
-	Name                  string           `position:"Query" name:"Name"`
-	VbrOwnerId            requests.Integer `position:"Query" name:"VbrOwnerId"`
+	ResourceOwnerId       requests.Integer                 `position:"Query" name:"ResourceOwnerId"`
+	CircuitCode           string                           `position:"Query" name:"CircuitCode"`
+	VlanId                requests.Integer                 `position:"Query" name:"VlanId"`
+	ClientToken           string                           `position:"Query" name:"ClientToken"`
+	EnableIpv6            requests.Boolean                 `position:"Query" name:"EnableIpv6"`
+	Description           string                           `position:"Query" name:"Description"`
+	PeerGatewayIp         string                           `position:"Query" name:"PeerGatewayIp"`
+	PeerIpv6GatewayIp     string                           `position:"Query" name:"PeerIpv6GatewayIp"`
+	ResourceGroupId       string                           `position:"Query" name:"ResourceGroupId"`
+	PeeringSubnetMask     string                           `position:"Query" name:"PeeringSubnetMask"`
+	LocalGatewayIp        string                           `position:"Query" name:"LocalGatewayIp"`
+	PeeringIpv6SubnetMask string                           `position:"Query" name:"PeeringIpv6SubnetMask"`
+	ResourceOwnerAccount  string                           `position:"Query" name:"ResourceOwnerAccount"`
+	Bandwidth             requests.Integer                 `position:"Query" name:"Bandwidth"`
+	OwnerAccount          string                           `position:"Query" name:"OwnerAccount"`
+	OwnerId               requests.Integer                 `position:"Query" name:"OwnerId"`
+	Tags                  *[]CreateVirtualBorderRouterTags `position:"Query" name:"Tags"  type:"Repeated"`
+	PhysicalConnectionId  string                           `position:"Query" name:"PhysicalConnectionId"`
+	LocalIpv6GatewayIp    string                           `position:"Query" name:"LocalIpv6GatewayIp"`
+	Name                  string                           `position:"Query" name:"Name"`
+	VbrOwnerId            requests.Integer                 `position:"Query" name:"VbrOwnerId"`
+}
+
+// CreateVirtualBorderRouterTags is a repeated param struct in CreateVirtualBorderRouterRequest
+type CreateVirtualBorderRouterTags struct {
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // CreateVirtualBorderRouterResponse is the response struct for api CreateVirtualBorderRouter
