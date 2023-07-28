@@ -16,13 +16,10 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/inctimer"
 	iputil "github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/option"
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ct-gc")
 
 type Enabler interface {
 	// Enable enables the connection tracking garbage collection.
@@ -43,6 +40,7 @@ type parameters struct {
 	DaemonConfig    *option.DaemonConfig
 	EndpointManager EndpointManager
 	Datapath        types.Datapath
+	SignalManager   SignalHandler
 }
 
 type GC struct {
@@ -53,6 +51,7 @@ type GC struct {
 
 	endpointsManager EndpointManager
 	nodeAddressing   types.NodeAddressing
+	signalHandler    SignalHandler
 }
 
 func New(params parameters) *GC {
@@ -64,6 +63,7 @@ func New(params parameters) *GC {
 
 		endpointsManager: params.EndpointManager,
 		nodeAddressing:   params.Datapath.LocalNodeAddressing(),
+		signalHandler:    params.SignalManager,
 	}
 }
 
@@ -148,12 +148,12 @@ func (gc *GC) Enable(restoredEndpoints []*endpoint.Endpoint) {
 			}
 
 			triggeredBySignal = false
-			unmuteSignals()
+			gc.signalHandler.UnmuteSignals()
 			select {
-			case x := <-wakeup:
+			case x := <-gc.signalHandler.Signals():
 				// mute before draining so that no more wakeups are queued just
 				// after we have drained
-				muteSignals()
+				gc.signalHandler.MuteSignals()
 				triggeredBySignal = true
 				ipv4 = false
 				ipv6 = false
@@ -163,8 +163,8 @@ func (gc *GC) Enable(restoredEndpoints []*endpoint.Endpoint) {
 					ipv6 = true
 				}
 				// Drain current queue since we just woke up anyway.
-				for len(wakeup) > 0 {
-					x := <-wakeup
+				for len(gc.signalHandler.Signals()) > 0 {
+					x := <-gc.signalHandler.Signals()
 					if x == SignalProtoV4 {
 						ipv4 = true
 					} else if x == SignalProtoV6 {
@@ -172,7 +172,7 @@ func (gc *GC) Enable(restoredEndpoints []*endpoint.Endpoint) {
 					}
 				}
 			case <-ctTimer.After(ctmap.GetInterval(maxDeleteRatio)):
-				muteSignals()
+				gc.signalHandler.MuteSignals()
 				ipv4 = gc.ipv4
 				ipv6 = gc.ipv6
 			}
