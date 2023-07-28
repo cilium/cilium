@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"reflect"
 	"strconv"
 
 	"golang.org/x/sys/unix"
@@ -474,11 +475,12 @@ func (gm *dummyPerClusterCTMaps) Cleanup() {
 }
 
 func newPerClusterCTMap(name string, m mapType) (*PerClusterCTMap, error) {
+	keySize := reflect.Indirect(reflect.ValueOf(m.key())).Type().Size()
 	inner := &ebpf.MapSpec{
 		Type:       ebpf.LRUHash,
-		KeySize:    uint32(mapInfo[m].keySize),
-		ValueSize:  uint32(mapInfo[m].valueSize),
-		MaxEntries: uint32(mapInfo[m].maxEntries),
+		KeySize:    uint32(keySize),
+		ValueSize:  uint32(SizeofCtEntry),
+		MaxEntries: uint32(m.maxEntries()),
 	}
 
 	om := bpf.NewMapWithInnerSpec(
