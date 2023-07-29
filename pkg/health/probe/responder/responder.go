@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"time"
 )
 
@@ -28,6 +29,14 @@ func NewServer(address []string, port int) *Server {
 
 	server := &Server{}
 	for _, ip := range address {
+		if ip != "" {
+			ipBytes, _ := netip.ParseAddr(ip)
+			if ipBytes.Is6() {
+				// if ipv6 address, then listen address should be in format of [ipv6]:port
+				ip = "[" + ip + "]"
+			}
+		}
+
 		hs := http.Server{
 			Addr:    fmt.Sprintf("%s:%d", ip, port),
 			Handler: http.HandlerFunc(serverRequests),
@@ -40,13 +49,17 @@ func NewServer(address []string, port int) *Server {
 
 // Serve http requests until shut down
 func (s *Server) Serve() error {
+	errors := make(chan error)
 	for _, hs := range s.httpServer {
-		if err := hs.ListenAndServe(); err != nil {
-			return err
-		}
+		tmpHttpServer := hs
+		go func() {
+			errors <- tmpHttpServer.ListenAndServe()
+		}()
 	}
 
-	return nil
+	// Block for the first error, then return.
+	err := <-errors
+	return err
 }
 
 // Shutdown server gracefully

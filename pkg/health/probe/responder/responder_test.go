@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
 package responder
 
 import (
@@ -32,11 +35,11 @@ func (r *ResponderTestSuite) TestNewServer(c *C) {
 		},
 		{
 			name:           "Initialize http server listening on ipv4 and ipv6 address",
-			address:        []string{"[fc00:c111::2]", "192.168.1.4"},
+			address:        []string{"fc00:c111::2", "192.168.1.4"},
 			expectedServer: 2,
 		},
 		{
-			name:           "Pass invalid input as nil to address",
+			name:           "nitialize http server with nil address",
 			address:        nil,
 			expectedServer: 1,
 		},
