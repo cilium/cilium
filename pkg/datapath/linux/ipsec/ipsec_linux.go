@@ -803,9 +803,7 @@ func LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 		if err != nil {
 			// If no version info is provided assume using key format without
 			// versioning and assign SPI.
-			log.Warning("IPsec secrets without an SPI as the first argument are deprecated and will be unsupported in v1.13.")
-			spiI = 1
-			offsetBase = -1
+			return 0, 0, fmt.Errorf("ipsec secrets must have an SPI as first argument")
 		}
 		if spiI > linux_defaults.IPsecMaxKeyVersion {
 			return 0, 0, fmt.Errorf("encryption key space exhausted. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, s[offsetSPI])
