@@ -34,6 +34,7 @@ var (
 	keysDat        = []byte("1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef\n1 hmac(sha256) 0123456789abcdef0123456789abcdef cbc(aes) 0123456789abcdef0123456789abcdef foobar\n1 digest_null \"\" cipher_null \"\"\n")
 	keysAeadDat    = []byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")
 	invalidKeysDat = []byte("1 test abcdefghijklmnopqrstuvwzyzABCDEF test abcdefghijklmnopqrstuvwzyzABCDEF\n")
+	noKey          = []byte("6 rfc4106(gcm(aes)) 128\n")
 )
 
 func (p *IPSecSuitePrivileged) SetUpTest(c *C) {
@@ -48,6 +49,12 @@ func (p *IPSecSuitePrivileged) TearDownTest(c *C) {
 func (p *IPSecSuitePrivileged) TestLoadKeysNoFile(c *C) {
 	_, _, err := LoadIPSecKeysFile(path)
 	c.Assert(os.IsNotExist(err), Equals, true)
+}
+
+func (p *IPSecSuitePrivileged) TestEmptyKey(c *C) {
+	keys := bytes.NewReader(noKey)
+	_, _, err := loadIPSecKeys(keys)
+	c.Assert(err, NotNil)
 }
 
 func (p *IPSecSuitePrivileged) TestInvalidLoadKeys(c *C) {

@@ -747,6 +747,9 @@ func decodeIPSecKey(keyRaw string) (int, []byte, error) {
 	}
 	keyTrimmed := strings.TrimPrefix(keyRaw, "0x")
 	key, err := hex.DecodeString(keyTrimmed)
+	if len(key) == 0 {
+		return 0, nil, fmt.Errorf("ipsec key data was empty")
+	}
 	return len(keyTrimmed), key, err
 }
 
@@ -772,7 +775,7 @@ func LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 	defer ipSecLock.Unlock()
 
 	if err := encrypt.MapCreate(); err != nil {
-		return 0, 0, fmt.Errorf("Encrypt map create failed: %v", err)
+		return 0, 0, fmt.Errorf("encrypt map create failed: %v", err)
 	}
 
 	scanner := bufio.NewScanner(r)
@@ -823,7 +826,7 @@ func LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 
 			_, aeadKey, err = decodeIPSecKey(s[offsetBase+offsetAeadKey])
 			if err != nil {
-				return 0, 0, fmt.Errorf("unable to decode AEAD key string %q", s[offsetBase+offsetAeadKey])
+				return 0, 0, fmt.Errorf("unable to decode AEAD key string %q: %w", s[offsetBase+offsetAeadKey], err)
 			}
 
 			icvLen, err := strconv.Atoi(s[offsetICV+offsetBase])
@@ -846,13 +849,13 @@ func LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 			authAlgo := s[offsetBase+offsetAuthAlgo]
 			keyLen, authKey, err = decodeIPSecKey(s[offsetBase+offsetAuthKey])
 			if err != nil {
-				return 0, 0, fmt.Errorf("unable to decode authentication key string %q", s[offsetBase+offsetAuthKey])
+				return 0, 0, fmt.Errorf("unable to decode authentication key string %q: %w", s[offsetBase+offsetAuthKey], err)
 			}
 
 			encAlgo := s[offsetBase+offsetEncAlgo]
 			_, encKey, err := decodeIPSecKey(s[offsetBase+offsetEncKey])
 			if err != nil {
-				return 0, 0, fmt.Errorf("unable to decode encryption key string %q", s[offsetBase+offsetEncKey])
+				return 0, 0, fmt.Errorf("unable to decode encryption key string %q: %w", s[offsetBase+offsetEncKey], err)
 			}
 
 			ipSecKey.Auth = &netlink.XfrmStateAlgo{
