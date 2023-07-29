@@ -70,13 +70,13 @@ Install Cilium
 
 .. note::
 
-   Install Cilium with ``--set=ipam.operator.clusterPoolIPv4PodCIDR="10.42.0.0/16"`` to match k3s default podCIDR 10.42.0.0/16.
+   Install Cilium with ``--set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"`` to match k3s default podCIDR 10.42.0.0/16.
 
 Install Cilium by running:
 
 .. parsed-literal::
 
-    cilium install |CHART_VERSION| --set=ipam.operator.clusterPoolIPv4PodCIDR="10.42.0.0/16"
+    cilium install |CHART_VERSION| --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"
 
 Validate the Installation
 =========================
