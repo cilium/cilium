@@ -19,6 +19,8 @@ import (
 var (
 	policySecurityGroupIDKey = aws.String("instance.group-id")
 	policySecurityGroupName  = aws.String("instance.group-name")
+	policyEniSecurityGroupIDKey = aws.String("group-id")
+	policyEniSecurityGroupName  = aws.String("group-name")
 	policyEC2Labelskey       = "tag"
 )
 
@@ -33,6 +35,58 @@ func GetIPsFromGroup(ctx context.Context, group *api.ToGroups) ([]netip.Addr, er
 		return result, fmt.Errorf("no aws data available")
 	}
 	return getInstancesIpsFromFilter(ctx, group.AWS)
+}
+
+// getNetworkInterfaceIpsFromFilter returns the ips from the network interfaces for
+// the given security group filter
+func getNetworkInterfaceIpsFromFilter(ctx context.Context, filter *api.AWSGroup) ([]netip.Addr, error) {
+	result := []netip.Addr{}
+	input := &ec2.DescribeNetworkInterfacesInput{}
+
+	cfg, err := cilium_ec2.NewConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ec2Client := ec2.NewFromConfig(cfg)
+
+	if len(filter.SecurityGroupsIds) > 0 {
+		input.Filters = append(input.Filters, ec2_types.Filter{
+			Name:   policyEniSecurityGroupIDKey,
+			Values: filter.SecurityGroupsIds,
+		})
+	}
+	if len(filter.SecurityGroupsNames) > 0 {
+		input.Filters = append(input.Filters, ec2_types.Filter{
+			Name:   policyEniSecurityGroupName,
+			Values: filter.SecurityGroupsNames,
+		})
+	}
+
+	paginator := ec2.NewDescribeNetworkInterfacesPaginator(ec2Client, input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("cannot retrieve aws network interface information: %w", err)
+		}
+		// functionally equivalent to extractIPs, we return private IPs and associated public IPs
+		for _, iface := range output.NetworkInterfaces {
+			for _, ifaceIP := range iface.PrivateIpAddresses {
+				addr, err := netip.ParseAddr(aws.ToString(ifaceIP.PrivateIpAddress))
+				if err != nil {
+					continue
+				}
+				result = append(result, addr)
+				if ifaceIP.Association != nil {
+					addr, err = netip.ParseAddr(aws.ToString(ifaceIP.Association.PublicIp))
+					if err != nil {
+						continue
+					}
+					result = append(result, addr)
+				}
+			}
+		}
+	}
+	return result, nil
 }
 
 // getInstancesFromFilter returns the instances IPs in aws EC2 filter by the
