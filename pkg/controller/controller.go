@@ -12,6 +12,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -80,6 +81,8 @@ type ControllerParams struct {
 	NoErrorRetry bool
 
 	Context context.Context
+
+	HealthReporter cell.HealthReporter
 }
 
 // undefinedDoFunc is used when no DoFunc is set. controller.DoFunc is set to this
@@ -214,6 +217,9 @@ func (c *controller) runController(params ControllerParams) {
 
 			switch err := err.(type) {
 			case ExitReason:
+				if params.HealthReporter != nil {
+					params.HealthReporter.Degraded(c.name, err)
+				}
 				// This is actually not an error case, but it causes an exit
 				c.recordSuccess()
 				c.lastError = err // This will be shown in the controller status
@@ -248,6 +254,9 @@ func (c *controller) runController(params ControllerParams) {
 				}
 			}
 		} else {
+			if params.HealthReporter != nil {
+				params.HealthReporter.OK(c.name)
+			}
 			c.recordSuccess()
 
 			// reset error retries after successful attempt
