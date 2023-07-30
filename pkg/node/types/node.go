@@ -351,6 +351,21 @@ func (n *Node) GetK8sNodeIP() net.IP {
 	return externalIP
 }
 
+// GetNodeInternalIP returns the Internal IP of node or nil.
+func (n *Node) GetNodeInternalIP(ipv6 bool) net.IP {
+	for _, addr := range n.IPAddresses {
+		if (ipv6 && addr.IP.To4() != nil) ||
+			(!ipv6 && addr.IP.To4() == nil) {
+			continue
+		}
+		if addr.Type == addressing.NodeInternalIP {
+			return addr.IP
+		}
+	}
+
+	return nil
+}
+
 // GetCiliumInternalIP returns the CiliumInternalIP e.g. the IP associated
 // with cilium_host on the node.
 func (n *Node) GetCiliumInternalIP(ipv6 bool) net.IP {

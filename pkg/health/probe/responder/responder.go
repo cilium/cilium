@@ -23,7 +23,7 @@ type Server struct {
 
 // NewServer creates a new server listening on the given port
 func NewServer(address []string, port int) *Server {
-	if address == nil {
+	if len(address) == 0 {
 		address = []string{""}
 	}
 
