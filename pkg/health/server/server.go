@@ -421,11 +421,19 @@ func NewServer(config Config) (*Server, error) {
 
 	var address []string
 	if option.Config.EnableIPv4 {
-		address = append(address, node.GetIPv4().String())
+		nodeIpv4 := node.GetInternalIPv4()
+		if nodeIpv4 != nil {
+			address = append(address, nodeIpv4.String())
+		}
 	}
 
 	if option.Config.EnableIPv6 {
-		address = append(address, node.GetIPv6().String())
+		nodeIpv6 := node.GetInternalIPv6()
+		if nodeIpv6 != nil {
+			address = append(address, nodeIpv6.String())
+		} else {
+			address = nil
+		}
 	}
 
 	server.httpPathServer = responder.NewServer(address, config.HTTPPathPort)
