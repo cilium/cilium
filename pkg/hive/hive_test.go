@@ -280,6 +280,42 @@ func TestProvideHealthReporter(t *testing.T) {
 	assert.Equal(t, s3.Level, cell.StatusUnknown)
 }
 
+func TestScopedReporter(t *testing.T) {
+	testCell := cell.Module(
+		"endpoint-manager",
+		"Endpoint Manager Module",
+		cell.Invoke(func(hr cell.HealthReporter) {
+			hr.OK("all good")
+			root := cell.WithLabels(context.Background(), hr, map[string]string{
+				"module": "vehicle-manager",
+			})
+			ep0 := cell.WithLabels(context.Background(), root, map[string]string{
+				"endpoint": "ep0",
+			})
+			ep1 := cell.WithLabels(context.Background(), root, map[string]string{
+				"endpoint": "ep1",
+			})
+			ep0.OK("ep0 ok")
+			ep1.Degraded("ep1 ok", fmt.Errorf("failed to regenerate endpoint: enival"))
+		}),
+	)
+	h := hive.New(
+		testCell,
+		cell.Invoke(func(h cell.Health, lc hive.Lifecycle, shutdowner hive.Shutdowner) {
+			lc.Append(hive.Hook{
+				OnStop: func(hive.HookContext) error {
+					for _, s := range h.All() {
+						fmt.Println("Status:\n", s.Message)
+						fmt.Println("----")
+					}
+					return nil
+				}})
+		}),
+		shutdownOnStartCell,
+	)
+	assert.NoError(t, h.Run(), "expected Run to succeed")
+}
+
 func TestGroup(t *testing.T) {
 	sum := 0
 
