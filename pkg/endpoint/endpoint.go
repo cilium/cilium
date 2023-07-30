@@ -365,6 +365,8 @@ type Endpoint struct {
 	noTrackPort uint16
 
 	ciliumEndpointUID k8sTypes.UID
+
+	CleanupReporter func()
 }
 
 type namedPortsGetter interface {

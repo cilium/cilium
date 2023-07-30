@@ -19,6 +19,7 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
@@ -82,12 +83,14 @@ type endpointManager struct {
 
 	// controllers associated with the endpoint manager.
 	controllers *controller.Manager
+
+	healthReporter cell.HealthReporter
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
 // resources with Kubernetes.
 type EndpointResourceSynchronizer interface {
-	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration)
+	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration, reporter cell.HealthReporter)
 	DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint)
 }
 
@@ -96,7 +99,7 @@ type EndpointResourceSynchronizer interface {
 type endpointDeleteFunc func(*endpoint.Endpoint, endpoint.DeleteConfig) []error
 
 // New creates a new endpointManager.
-func New(epSynchronizer EndpointResourceSynchronizer) *endpointManager {
+func New(epSynchronizer EndpointResourceSynchronizer, hr cell.HealthReporter) *endpointManager {
 	mgr := endpointManager{
 		endpoints:                    make(map[uint16]*endpoint.Endpoint),
 		endpointsAux:                 make(map[string]*endpoint.Endpoint),
@@ -104,6 +107,7 @@ func New(epSynchronizer EndpointResourceSynchronizer) *endpointManager {
 		EndpointResourceSynchronizer: epSynchronizer,
 		subscribers:                  make(map[Subscriber]struct{}),
 		controllers:                  controller.NewManager(),
+		healthReporter:               hr,
 	}
 	mgr.deleteEndpoint = mgr.removeEndpoint
 
@@ -364,6 +368,12 @@ func (mgr *endpointManager) ReleaseID(ep *endpoint.Endpoint) error {
 // unexpose removes the endpoint from the endpointmanager, so subsequent
 // lookups will no longer find the endpoint.
 func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
+	// Close endpoints health checker.
+	defer func() {
+		if ep.CleanupReporter != nil {
+			ep.CleanupReporter()
+		}
+	}()
 	// Fetch the identifiers; this will only fail if the endpoint is
 	// already disconnected, in which case we don't need to proceed with
 	// the rest of cleaning up the endpoint.
@@ -623,7 +633,14 @@ func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
 	mgr.updateReferencesLocked(ep, identifiers)
 	mgr.mutex.Unlock()
 
-	mgr.RunK8sCiliumEndpointSync(ep, option.Config)
+	ctx, cancel := context.WithCancel(context.Background())
+	syncHealthReporter := cell.WithLabels(ctx, mgr.healthReporter, cell.Labels{
+		"name":       "k8s-ciliumendpoint-sync",
+		"endpoint":   ep.GetK8sPodName(),
+		"endpointID": fmt.Sprintf("%d", ep.GetID()),
+	})
+	ep.CleanupReporter = cancel
+	mgr.RunK8sCiliumEndpointSync(ep, option.Config, syncHealthReporter)
 
 	return nil
 }

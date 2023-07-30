@@ -166,6 +166,7 @@ type endpointManagerParams struct {
 	Config          EndpointManagerConfig
 	Clientset       client.Clientset
 	MetricsRegistry *metrics.Registry
+	Reporter        cell.HealthReporter
 }
 
 type endpointManagerOut struct {
@@ -178,8 +179,8 @@ type endpointManagerOut struct {
 
 func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 	checker := endpoint.CheckHealth
-
-	mgr := New(&watchers.EndpointSynchronizer{Clientset: p.Clientset})
+	hr := cell.WithLabels(context.Background(), p.Reporter, map[string]string{"component": "endpoint-manager"})
+	mgr := New(&watchers.EndpointSynchronizer{Clientset: p.Clientset}, hr)
 	if p.Config.EndpointGCInterval > 0 {
 		ctx, cancel := context.WithCancel(context.Background())
 		p.Lifecycle.Append(hive.Hook{
