@@ -7,9 +7,10 @@ package responder
 // as this package typically runs in its own process
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
-	"net/netip"
 	"time"
 )
 
@@ -18,30 +19,23 @@ var defaultTimeout = 30 * time.Second
 
 // Server wraps a minimal http server for the /hello endpoint
 type Server struct {
-	httpServer []*http.Server
+	httpServers []*http.Server
 }
 
 // NewServer creates a new server listening on the given port
-func NewServer(address []string, port int) *Server {
+func NewServers(address []string, port int) *Server {
 	if len(address) == 0 {
 		address = []string{""}
 	}
 
 	server := &Server{}
 	for _, ip := range address {
-		if ip != "" {
-			ipBytes, _ := netip.ParseAddr(ip)
-			if ipBytes.Is6() {
-				// if ipv6 address, then listen address should be in format of [ipv6]:port
-				ip = "[" + ip + "]"
-			}
-		}
-
+		addr := net.JoinHostPort(ip, fmt.Sprintf("%v", port))
 		hs := http.Server{
-			Addr:    fmt.Sprintf("%s:%d", ip, port),
+			Addr:    addr,
 			Handler: http.HandlerFunc(serverRequests),
 		}
-		server.httpServer = append(server.httpServer, &hs)
+		server.httpServers = append(server.httpServers, &hs)
 	}
 
 	return server
@@ -50,7 +44,7 @@ func NewServer(address []string, port int) *Server {
 // Serve http requests until shut down
 func (s *Server) Serve() error {
 	errors := make(chan error)
-	for _, hs := range s.httpServer {
+	for _, hs := range s.httpServers {
 		tmpHttpServer := hs
 		go func() {
 			errors <- tmpHttpServer.ListenAndServe()
@@ -66,14 +60,12 @@ func (s *Server) Serve() error {
 func (s *Server) Shutdown() error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
-	var err error
-	for _, hs := range s.httpServer {
-		if tmpError := hs.Shutdown(ctx); tmpError != nil {
-			err = tmpError
-		}
+	errs := make([]error, 0, len(s.httpServers))
+	for _, hs := range s.httpServers {
+		errs = append(errs, hs.Shutdown(ctx))
 	}
 
-	return err
+	return errors.Join(errs...)
 }
 
 func serverRequests(w http.ResponseWriter, r *http.Request) {

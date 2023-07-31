@@ -6,49 +6,48 @@ package responder
 import (
 	"testing"
 
-	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
 )
 
-type ResponderTestSuite struct{}
-
-var _ = Suite(&ResponderTestSuite{})
-
-func Test(t *testing.T) {
-	TestingT(t)
-}
-
-func (r *ResponderTestSuite) TestNewServer(c *C) {
+func TestNewServersInitialization(t *testing.T) {
 	tests := []struct {
-		name           string
-		address        []string
-		expectedServer int
+		name                   string
+		address                []string
+		expectedServerCount    int
+		exptectedServerAddress []string
 	}{
 		{
-			name:           "Initialize http server listening on all ports",
-			address:        []string{""},
-			expectedServer: 1,
+			name:                   "Initialize http server listening on all ports",
+			address:                []string{""},
+			expectedServerCount:    1,
+			exptectedServerAddress: []string{":4240"},
 		},
 		{
-			name:           "Initialize http server listening on ipv4 address",
-			address:        []string{"192.168.1.4"},
-			expectedServer: 1,
+			name:                   "Initialize http server listening on ipv4 address",
+			address:                []string{"192.168.1.4"},
+			expectedServerCount:    1,
+			exptectedServerAddress: []string{"192.168.1.4:4240"},
 		},
 		{
-			name:           "Initialize http server listening on ipv4 and ipv6 address",
-			address:        []string{"fc00:c111::2", "192.168.1.4"},
-			expectedServer: 2,
+			name:                   "Initialize http server listening on ipv4 and ipv6 address",
+			address:                []string{"192.168.1.4", "fc00:c111::2"},
+			expectedServerCount:    2,
+			exptectedServerAddress: []string{"192.168.1.4:4240", "[fc00:c111::2]:4240"},
 		},
 		{
-			name:           "nitialize http server with nil address",
-			address:        nil,
-			expectedServer: 1,
+			name:                   "Initialize http server with nil address",
+			address:                []string{},
+			expectedServerCount:    1,
+			exptectedServerAddress: []string{":4240"},
 		},
 	}
 
 	for _, tt := range tests {
-		c.Log("Test :", tt.name)
-		s := NewServer(tt.address, 4240)
-		c.Assert(s, NotNil)
-		c.Assert(len(s.httpServer), Equals, tt.expectedServer)
+		s := NewServers(tt.address, 4240)
+		assert.NotNil(t, s)
+		assert.Equal(t, len(s.httpServers), tt.expectedServerCount, "Number of listen address doesn't match")
+		for i, s := range s.httpServers {
+			assert.Equal(t, tt.exptectedServerAddress[i], s.Addr)
+		}
 	}
 }
