@@ -65,7 +65,8 @@ static __always_inline int ipv4_dec_ttl(struct __ctx_buff *ctx, int off,
 	ip4->ttl = new_ttl;
 
 	/* l3_csum_replace() takes at min 2 bytes, zero extended. */
-	ipv4_csum_update_by_value(ctx, off, ttl, new_ttl, 2);
+	if (ipv4_csum_update_by_value(ctx, off, ttl, new_ttl, 2) < 0)
+		return DROP_CSUM_L3;
 
 	return 0;
 }
