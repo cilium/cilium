@@ -12,10 +12,10 @@ Layer 3 Examples
 The layer 3 policy establishes the base connectivity rules regarding which endpoints
 can talk to each other. Layer 3 policies can be specified using the following methods:
 
-* `Labels based`: This is used to describe the relationship if both endpoints
-  are managed by Cilium and are thus assigned labels. The big advantage of this
-  method is that IP addresses are not encoded into the policies and the policy is
-  completely decoupled from the addressing.
+* `Endpoints based`: This is used to describe the relationship if both
+  endpoints are managed by Cilium and are thus assigned labels. The
+  advantage of this method is that IP addresses are not encoded into the
+  policies and the policy is completely decoupled from the addressing.
 
 * `Services based`: This is an intermediate form between Labels and CIDR and
   makes use of the services concept in the orchestration system. A good example
@@ -39,14 +39,14 @@ can talk to each other. Layer 3 policies can be specified using the following me
   above. DNS information is acquired by routing DNS traffic via a proxy.
   DNS TTLs are respected.
 
-.. _Labels based:
+.. _Endpoints based:
 
-Labels Based
-------------
+Endpoints Based
+---------------
 
-Label-based L3 policy is used to establish policy between endpoints inside the
-cluster managed by Cilium. Label-based L3 policies are defined by using an
-`EndpointSelector` inside a rule to choose what kind of traffic that can be
+Endpoints-based L3 policy is used to establish rules between endpoints inside
+the cluster managed by Cilium. Endpoints-based L3 policies are defined by using
+an `EndpointSelector` inside a rule to select what kind of traffic can be
 received (on ingress), or sent (on egress). An empty `EndpointSelector` allows
 all traffic. The examples below demonstrate this in further detail.
 
@@ -258,7 +258,8 @@ Traffic from pods to services running in your cluster can be allowed via
 `Services without a Selector
 <https://kubernetes.io/docs/concepts/services-networking/service/#services-without-selectors>`_
 are supported when defined by their name and namespace or label selector.
-For services backed by pods, use `labels based` rules on the backend pod labels.
+For services backed by pods, use `Endpoints Based` rules on the backend pod
+labels.
 
 This example shows how to allow all endpoints with the label ``id=app2``
 to talk to all endpoints of kubernetes service ``myservice`` in kubernetes
@@ -533,13 +534,13 @@ a single egress rule.
    This includes DNS policies as well as :ref:`proxy_visibility` annotations.
 
 ``toFQDNs`` egress rules cannot contain any other L3 rules, such as
-``toEndpoints`` (under `Labels Based`_) and ``toCIDRs`` (under `CIDR Based`_).
+``toEndpoints`` (under `Endpoints Based`_) and ``toCIDRs`` (under `CIDR Based`_).
 They may contain L4/L7 rules, such as ``toPorts`` (see `Layer 4 Examples`_)
 with, optionally, ``HTTP`` and ``Kafka`` sections (see `Layer 7 Examples`_).
 
 .. note:: DNS based rules are intended for external connections and behave
           similarly to `CIDR based`_ rules. See `Services based`_ and
-          `Labels based`_ for cluster-internal traffic.
+          `Endpoints based`_ for cluster-internal traffic.
 
 IPs to be allowed are selected via:
 
