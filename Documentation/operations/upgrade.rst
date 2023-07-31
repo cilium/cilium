@@ -323,6 +323,13 @@ To migrate a classic mode Cilium installation to Helm mode, you need to
 uninstall Cilium using classic mode Cilium CLI, and then re-install Cilium
 using Helm mode Cilium CLI.
 
+Helm Options
+~~~~~~~~~~~~
+
+* Values ``clustermesh.apiserver.tls.ca.cert`` and ``clustermesh.apiserver.tls.ca.key``
+  were deprecated in Cilium 1.14 in favor of ``tls.ca.cert`` and ``tls.ca.key`` respectively,
+  and have been removed. The ```clustermesh-apiserver-ca-cert`` secret is no longer generated.
+
 .. _earlier_upgrade_notes:
 
 Earlier Upgrade Notes

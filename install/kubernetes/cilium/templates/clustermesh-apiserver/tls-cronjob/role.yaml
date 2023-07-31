@@ -19,7 +19,6 @@ rules:
       - secrets
     resourceNames:
       - cilium-ca
-      - clustermesh-apiserver-ca-cert
     verbs:
       - get
       - update

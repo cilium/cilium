@@ -604,18 +604,6 @@
      - When set to true, automatically generate a CA and certificates to enable mTLS between clustermesh-apiserver and external workload instances. If set to false, the certs to be provided by setting appropriate values below.
      - bool
      - ``true``
-   * - :spelling:ignore:`clustermesh.apiserver.tls.ca`
-     - Deprecated in favor of tls.ca. To be removed in 1.15. base64 encoded PEM values for the ExternalWorkload CA certificate and private key.
-     - object
-     - ``{"cert":"","key":""}``
-   * - :spelling:ignore:`clustermesh.apiserver.tls.ca.cert`
-     - Deprecated in favor of tls.ca.cert. To be removed in 1.15. Optional CA cert. If it is provided, it will be used by the 'cronJob' method to generate all other certificates. Otherwise, an ephemeral CA is generated.
-     - string
-     - ``""``
-   * - :spelling:ignore:`clustermesh.apiserver.tls.ca.key`
-     - Deprecated in favor of tls.ca.key. To be removed in 1.15. Optional CA private key. If it is provided, it will be used by the 'cronJob' method to generate all other certificates. Otherwise, an ephemeral CA is generated.
-     - string
-     - ``""``
    * - :spelling:ignore:`clustermesh.apiserver.tls.client`
      - base64 encoded PEM values for the clustermesh-apiserver client certificate and private key. Used if 'auto' is not enabled.
      - object
