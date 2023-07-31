@@ -61,7 +61,7 @@
 enum {
 	XFER_PKT_NO_SVC		= (1 << 0),  /* Skip upper service handling. */
 	XFER_UNUSED		= (1 << 1),
-	XFER_PKT_SNAT_DONE	= (1 << 2),  /* SNAT is done */
+	XFER_PKT_SKIP_SNAT	= (1 << 2),  /* Skip SNAT processing. */
 };
 
 /* For use in ctx_get_xfer(), after XDP called ctx_move_xfer(). */
@@ -674,7 +674,7 @@ enum metric_dir {
 #define MARK_MAGIC_ENCRYPT		0x0E00
 #define MARK_MAGIC_IDENTITY		0x0F00 /* mark carries identity */
 #define MARK_MAGIC_TO_PROXY		0x0200
-#define MARK_MAGIC_SNAT_DONE		0x0300
+#define MARK_MAGIC_SKIP_SNAT		0x0300
 
 #define MARK_MAGIC_KEY_MASK		0xFF00
 
@@ -686,11 +686,11 @@ enum metric_dir {
  */
 #define MARK_MAGIC_WG_ENCRYPTED		0x1E00
 
-/* MARK_MAGIC_HEALTH_IPIP_DONE can overlap with MARK_MAGIC_SNAT_DONE with both
+/* MARK_MAGIC_HEALTH_IPIP_DONE can overlap with MARK_MAGIC_SKIP_SNAT with both
  * being mutual exclusive given former is only under DSR. Used to push health
  * probe packets to ipip tunnel device & to avoid looping back.
  */
-#define MARK_MAGIC_HEALTH_IPIP_DONE	MARK_MAGIC_SNAT_DONE
+#define MARK_MAGIC_HEALTH_IPIP_DONE	MARK_MAGIC_SKIP_SNAT
 
 /* MARK_MAGIC_HEALTH can overlap with MARK_MAGIC_DECRYPT with both being
  * mutual exclusive. Note, MARK_MAGIC_HEALTH is user-facing UAPI for LB!

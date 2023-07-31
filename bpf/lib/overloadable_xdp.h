@@ -145,19 +145,13 @@ ctx_change_head(struct xdp_md *ctx __maybe_unused,
 
 static __always_inline void ctx_skip_snat_set(struct xdp_md *ctx)
 {
-	ctx_set_xfer(ctx, XFER_PKT_SNAT_DONE);
+	ctx_set_xfer(ctx, XFER_PKT_SKIP_SNAT);
 }
 
-/* Deprecated, use ctx_skip_snat_set() instead. */
-static __always_inline void ctx_snat_done_set(struct xdp_md *ctx)
-{
-	ctx_skip_snat_set(ctx);
-}
-
-static __always_inline bool ctx_snat_done(struct xdp_md *ctx)
+static __always_inline bool ctx_skip_snat(struct xdp_md *ctx)
 {
 	/* shouldn't be needed, there's no relevant Egress hook in XDP */
-	return ctx_load_meta(ctx, XFER_MARKER) & XFER_PKT_SNAT_DONE;
+	return ctx_load_meta(ctx, XFER_MARKER) & XFER_PKT_SKIP_SNAT;
 }
 
 #ifdef HAVE_ENCAP

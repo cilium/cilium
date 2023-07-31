@@ -148,7 +148,12 @@ ctx_skip_host_fw(struct __sk_buff *ctx)
 static __always_inline void ctx_skip_snat_set(struct __sk_buff *ctx)
 {
 	ctx->mark &= ~MARK_MAGIC_HOST_MASK;
-	ctx->mark |= MARK_MAGIC_SNAT_DONE;
+	ctx->mark |= MARK_MAGIC_SKIP_SNAT;
+}
+
+static __always_inline bool ctx_skip_snat(const struct __sk_buff *ctx)
+{
+	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_SKIP_SNAT;
 }
 
 static __always_inline __maybe_unused __u32 ctx_get_xfer(struct __sk_buff *ctx,
@@ -176,17 +181,6 @@ static __always_inline __maybe_unused int
 ctx_change_head(struct __sk_buff *ctx, __u32 head_room, __u64 flags)
 {
 	return skb_change_head(ctx, head_room, flags);
-}
-
-/* Deprecated, use ctx_skip_snat_set() instead. */
-static __always_inline void ctx_snat_done_set(struct __sk_buff *ctx)
-{
-	ctx_skip_snat_set(ctx);
-}
-
-static __always_inline bool ctx_snat_done(const struct __sk_buff *ctx)
-{
-	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_SNAT_DONE;
 }
 
 #ifdef HAVE_ENCAP

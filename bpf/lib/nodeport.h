@@ -203,7 +203,7 @@ out:
 		ret = CTX_ACT_OK;
 
 	/* See the equivalent v4 path for comment */
-	ctx_snat_done_set(ctx);
+	ctx_skip_snat_set(ctx);
 
 	return ret;
 }
@@ -549,7 +549,7 @@ static __always_inline int xlate_dsr_v6(struct __ctx_buff *ctx,
 	if (!entry)
 		return 0;
 
-	ctx_snat_done_set(ctx);
+	ctx_skip_snat_set(ctx);
 	return snat_v6_rewrite_egress(ctx, &nat_tup, entry, l4_off);
 }
 
@@ -949,7 +949,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	ctx_snat_done_set(ctx);
+	ctx_skip_snat_set(ctx);
 
 #if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID))
 	ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
@@ -1022,7 +1022,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		goto drop_err;
 
-	ctx_snat_done_set(ctx);
+	ctx_skip_snat_set(ctx);
 #ifdef TUNNEL_MODE
 	if (tunnel_endpoint) {
 		__be16 src_port;
@@ -1304,7 +1304,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 		if (IS_ERR(ret))
 			return ret;
 
-		ctx_snat_done_set(ctx);
+		ctx_skip_snat_set(ctx);
 	}
 
 	return CTX_ACT_OK;
@@ -1358,7 +1358,7 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
-		ctx_snat_done_set(ctx);
+		ctx_skip_snat_set(ctx);
 		ifindex = ct_state.ifindex;
 #ifdef TUNNEL_MODE
 		{
@@ -1497,7 +1497,7 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace)
 #if !defined(ENABLE_DSR) ||						\
     (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||		\
      defined(ENABLE_MASQUERADE_IPV6)
-	if (!ctx_snat_done(ctx)) {
+	if (!ctx_skip_snat(ctx)) {
 		ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD);
 		ret = DROP_MISSED_TAIL_CALL;
 	}
@@ -1627,7 +1627,7 @@ out:
 	 * be handled multiple times by the "to-netdev" section. This can lead
 	 * to multiple SNATs. To prevent from that, set the SNAT done flag.
 	 */
-	ctx_snat_done_set(ctx);
+	ctx_skip_snat_set(ctx);
 
 	return ret;
 }
@@ -2024,7 +2024,7 @@ static __always_inline int xlate_dsr_v4(struct __ctx_buff *ctx,
 	if (!entry)
 		return 0;
 
-	ctx_snat_done_set(ctx);
+	ctx_skip_snat_set(ctx);
 	return snat_v4_rewrite_egress(ctx, &nat_tup, entry, l4_off, has_l4_header);
 }
 
@@ -2160,6 +2160,7 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
+
 	addr = ctx_load_meta(ctx, CB_ADDR_V4);
 	port = (__be16)ctx_load_meta(ctx, CB_PORT);
 
@@ -2366,7 +2367,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	ctx_snat_done_set(ctx);
+	ctx_skip_snat_set(ctx);
 
 	/* At this point we know that a reverse SNAT mapping exists.
 	 * Otherwise, we would have tail-called back to
@@ -2447,7 +2448,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	if (IS_ERR(ret))
 		goto drop_err;
 
-	ctx_snat_done_set(ctx);
+	ctx_skip_snat_set(ctx);
 #ifdef TUNNEL_MODE
 	if (tunnel_endpoint) {
 		__be16 src_port;
@@ -2757,7 +2758,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace)
 		if (IS_ERR(ret))
 			return ret;
 
-		ctx_snat_done_set(ctx);
+		ctx_skip_snat_set(ctx);
 
 #ifdef ENABLE_DSR
  #if defined(ENABLE_HIGH_SCALE_IPCACHE) &&				\
@@ -2849,7 +2850,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
-		ctx_snat_done_set(ctx);
+		ctx_skip_snat_set(ctx);
 		ifindex = ct_state.ifindex;
 #if defined(TUNNEL_MODE)
 		{
@@ -2971,7 +2972,7 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
     (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||		\
      defined(ENABLE_MASQUERADE_IPV4) ||					\
     (defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT))
-	if (!ctx_snat_done(ctx)) {
+	if (!ctx_skip_snat(ctx)) {
 		ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
 		ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD);
 		ret = DROP_MISSED_TAIL_CALL;

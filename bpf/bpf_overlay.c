@@ -696,13 +696,13 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 #endif
 
 #ifdef ENABLE_NODEPORT
-	if (ctx_snat_done(ctx)) {
+	if (ctx_skip_snat(ctx)) {
 		ret = CTX_ACT_OK;
 		goto out;
 	}
 
-	/* This must be after above ctx_snat_done, since the MARK_MAGIC_CLUSTER_ID
-	 * is a super set of the MARK_MAGIC_SNAT_DONE. They will never be used together,
+	/* This must be after above ctx_skip_snat, since the MARK_MAGIC_CLUSTER_ID
+	 * is a super set of the MARK_MAGIC_SKIP_SNAT. They will never be used together,
 	 * but SNAT check should always take presedence.
 	 */
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING

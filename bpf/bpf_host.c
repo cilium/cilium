@@ -1338,8 +1338,8 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		ctx_skip_nodeport_set(ctx);
 
 #ifdef HAVE_ENCAP
-	if (flags & XFER_PKT_SNAT_DONE)
-		ctx_snat_done_set(ctx);
+	if (flags & XFER_PKT_SKIP_SNAT)
+		ctx_skip_snat_set(ctx);
 #endif
 #endif
 
@@ -1511,7 +1511,7 @@ out:
 #endif
 
 #ifdef ENABLE_NODEPORT
-	if (!ctx_snat_done(ctx)) {
+	if (!ctx_skip_snat(ctx)) {
 		/*
 		 * handle_nat_fwd tail calls in the majority of cases,
 		 * so control might never return to this program.
