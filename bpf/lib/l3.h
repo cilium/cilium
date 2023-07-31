@@ -33,11 +33,11 @@ static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 	int ret;
 
 	ret = ipv6_dec_hoplimit(ctx, l3_off);
-	if (IS_ERR(ret))
+	if (IS_ERR(ret)) {
+		if (ret == DROP_TTL_EXCEEDED)
+			return icmp6_send_time_exceeded(ctx, l3_off, direction);
+
 		return ret;
-	if (ret > 0) {
-		/* Hoplimit was reached */
-		return icmp6_send_time_exceeded(ctx, l3_off, direction);
 	}
 
 	if (smac && eth_store_saddr(ctx, smac, 0) < 0)
@@ -53,10 +53,12 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 				   const __u8 *smac, const __u8 *dmac,
 				   struct iphdr *ip4)
 {
-	if (ipv4_dec_ttl(ctx, l3_off, ip4)) {
-		/* FIXME: Send ICMP TTL */
-		return DROP_TTL_EXCEEDED;
-	}
+	int ret;
+
+	ret = ipv4_dec_ttl(ctx, l3_off, ip4);
+	/* FIXME: Send ICMP TTL */
+	if (IS_ERR(ret))
+		return ret;
 
 	if (smac && eth_store_saddr(ctx, smac, 0) < 0)
 		return DROP_WRITE_ERROR;
