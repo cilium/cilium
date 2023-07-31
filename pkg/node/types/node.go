@@ -351,11 +351,24 @@ func (n *Node) GetK8sNodeIP() net.IP {
 	return externalIP
 }
 
-// GetNodeInternalIP returns the Internal IP of node or nil.
-func (n *Node) GetNodeInternalIP(ipv6 bool) net.IP {
+// GetNodeInternalIP returns the Internal IPv4 of node or nil.
+func (n *Node) GetNodeInternalIPv4() net.IP {
 	for _, addr := range n.IPAddresses {
-		if (ipv6 && addr.IP.To4() != nil) ||
-			(!ipv6 && addr.IP.To4() == nil) {
+		if addr.IP.To4() == nil {
+			continue
+		}
+		if addr.Type == addressing.NodeInternalIP {
+			return addr.IP
+		}
+	}
+
+	return nil
+}
+
+// GetNodeInternalIP returns the Internal IPv6 of node or nil.
+func (n *Node) GetNodeInternalIPv6() net.IP {
+	for _, addr := range n.IPAddresses {
+		if addr.IP.To4() != nil {
 			continue
 		}
 		if addr.Type == addressing.NodeInternalIP {

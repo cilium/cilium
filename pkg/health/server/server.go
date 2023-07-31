@@ -5,6 +5,7 @@ package server
 
 import (
 	"fmt"
+	"net"
 	"path"
 	"time"
 
@@ -419,24 +420,40 @@ func NewServer(config Config) (*Server, error) {
 	server.Client = cl
 	server.Server = *server.newServer(config.HealthAPISpec)
 
-	var address []string
-	if option.Config.EnableIPv4 {
-		nodeIpv4 := node.GetInternalIPv4()
-		if nodeIpv4 != nil {
-			address = append(address, nodeIpv4.String())
+	var (
+		address  []string
+		nodeIPv4 net.IP
+		nodeIPv6 net.IP
+	)
+	// Skipping for nodes which has JoinCluster cilium config flag enabled
+	// as cilium agent couldn't listen on internal nodeIP and requires investigation
+	// For more details: https://github.com/cilium/cilium/issues/27200
+	if !option.Config.JoinCluster {
+		if option.Config.EnableIPv4 {
+			nodeIPv4 = node.GetInternalIPv4()
+			if nodeIPv4 != nil {
+				address = append(address, nodeIPv4.String())
+			}
+		}
+
+		if option.Config.EnableIPv6 {
+			nodeIPv6 = node.GetInternalIPv6()
+			if nodeIPv6 != nil {
+				address = append(address, nodeIPv6.String())
+			}
 		}
 	}
 
-	if option.Config.EnableIPv6 {
-		nodeIpv6 := node.GetInternalIPv6()
-		if nodeIpv6 != nil {
-			address = append(address, nodeIpv6.String())
-		} else {
-			address = nil
+	if len(address) != 0 {
+		if option.Config.EnableIPv4 && nodeIPv4 == nil {
+			address = append(address, "0.0.0.0")
+		}
+		if option.Config.EnableIPv6 && nodeIPv6 == nil {
+			address = append(address, "::")
 		}
 	}
 
-	server.httpPathServer = responder.NewServer(address, config.HTTPPathPort)
+	server.httpPathServer = responder.NewServers(address, config.HTTPPathPort)
 
 	return server, nil
 }
