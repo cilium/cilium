@@ -480,6 +480,21 @@ Name                                          Labels                            
 ``k8s_client_api_calls_total``                ``host``, ``method``, ``return_code``         Enabled    Number of API calls made to kube-apiserver labeled by host, method and return code
 ============================================= ============================================= ========== ===========================================================
 
+Kubernetes workqueue
+~~~~~~~~~~~~~~~~~~~~
+
+==================================================== ============================================= ========== ===========================================================
+Name                                                 Labels                                        Default    Description
+==================================================== ============================================= ========== ===========================================================
+``k8s_workqueue_depth``                              ``name``                                      Enabled    Current depth of workqueue
+``k8s_workqueue_adds_total``                         ``name``                                      Enabled    Total number of adds handled by workqueue
+``k8s_workqueue_queue_duration_seconds``             ``name``                                      Enabled    Duration in seconds an item stays in workqueue prior to request
+``k8s_workqueue_work_duration_seconds``              ``name``                                      Enabled    Duration in seconds to process an item from workqueue
+``k8s_workqueue_unfinished_work_seconds``            ``name``                                      Enabled    Duration in seconds of work in progress that hasn't been observed by work_duration. Large values indicate stuck threads. You can deduce the number of stuck threads by observing the rate at which this value increases.
+``k8s_workqueue_longest_running_processor_seconds``  ``name``                                      Enabled    Duration in seconds of the longest running processor for workqueue
+``k8s_workqueue_retries_total``                      ``name``                                      Enabled    Total number of retries handled by workqueue
+==================================================== ============================================= ========== ===========================================================
+
 IPAM
 ~~~~
 
