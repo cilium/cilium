@@ -659,6 +659,24 @@ func (p *Repository) GetRulesMatching(lbls labels.LabelArray) (ingressMatch bool
 	return
 }
 
+func getNamespaceFromIdentity(securityIdentity *identity.Identity) string {
+	for _, lbl := range securityIdentity.LabelArray {
+		if lbl.Key == k8sConst.PodNamespaceLabel && lbl.Source == labels.LabelSourceK8s {
+			return lbl.Value
+		}
+	}
+	return ""
+}
+
+func isInit(securityIdentity *identity.Identity) bool {
+	for _, lbl := range securityIdentity.LabelArray {
+		if lbl.Source == labels.LabelSourceReserved && lbl.Key == labels.IDNameInit {
+			return true
+		}
+	}
+	return false
+}
+
 // getMatchingRules returns whether any of the rules in a repository contain a
 // rule with labels matching the given security identity, as well as
 // a slice of all rules which match.
@@ -669,11 +687,16 @@ func (p *Repository) getMatchingRules(securityIdentity *identity.Identity) (
 	matchingRules ruleSlice) {
 
 	matchingRules = []*rule{}
-	key, _ := getShardKey(securityIdentity.LabelArray)
+	key := getNamespaceFromIdentity(securityIdentity)
 	relevantShards := map[string]ruleSlice{
 		key: p.rulesByShard[key],
 		"":  p.rulesByShard[""],
 	}
+
+	if isInit(securityIdentity) {
+		relevantShards = p.rulesByShard
+	}
+
 	for _, rr := range relevantShards {
 		for _, r := range rr {
 			isNode := securityIdentity.ID == identity.ReservedIdentityHost
