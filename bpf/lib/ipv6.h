@@ -136,7 +136,7 @@ static __always_inline int ipv6_dec_hoplimit(struct __ctx_buff *ctx, int off)
 		return DROP_INVALID;
 
 	if (hl <= 1)
-		return 1;
+		return DROP_TTL_EXCEEDED;
 	hl--;
 	if (ctx_store_bytes(ctx, off + offsetof(struct ipv6hdr, hop_limit),
 			    &hl, sizeof(hl), BPF_F_RECOMPUTE_CSUM) < 0)

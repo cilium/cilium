@@ -59,7 +59,7 @@ static __always_inline int ipv4_dec_ttl(struct __ctx_buff *ctx, int off,
 	__u8 new_ttl, ttl = ip4->ttl;
 
 	if (ttl <= 1)
-		return 1;
+		return DROP_TTL_EXCEEDED;
 
 	new_ttl = ttl - 1;
 	ip4->ttl = new_ttl;
