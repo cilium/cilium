@@ -143,7 +143,6 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
 
-	/* This will invalidate the size check */
 	ret = ipv6_l3(ctx, l3_off, (__u8 *)&router_mac, (__u8 *)&lxc_mac, direction);
 	if (ret != CTX_ACT_OK)
 		return ret;
