@@ -29,7 +29,7 @@ Dynamic CIDR/IP allocation   ❌                     ❌                       �
 Don't change the IPAM mode of an existing cluster. Changing the IPAM mode in
 a live environment may cause persistent disruption of connectivity for existing workloads.
 The safest path to change IPAM mode is to install a fresh Kubernetes cluster with the new IPAM configuration.
-
+If you are interested in extending Cilium to support migration between IPAM modes, see :gh-issue:`27164`.
 
 .. toctree::
    :maxdepth: 1
