@@ -329,21 +329,31 @@ func BenchmarkParseLabel(b *testing.B) {
 	b.ResetTimer()
 	var err error
 	var cntAdd, cntFound int
+	count := 10000
+	shards := 10
 
-	lbls := make([]labels.LabelArray, 100)
-	for i := 0; i < 100; i++ {
+	lbls := make([]labels.LabelArray, count)
+	for i := 0; i < count; i++ {
 		I := fmt.Sprintf("%d", i)
-		lbls[i] = labels.LabelArray{labels.NewLabel("tag3", I, labels.LabelSourceK8s), labels.NewLabel("namespace", "default", labels.LabelSourceK8s)}
+		namespace := fmt.Sprintf("%d", i%shards)
+		lbls[i] = labels.LabelArray{
+			labels.NewLabel("tag3", I, labels.LabelSourceK8s),
+			labels.NewLabel("namespace", "default", labels.LabelSourceK8s),
+			labels.NewLabel(k8sConst.PolicyLabelNamespace, namespace, labels.LabelSourceK8s),
+		}
 	}
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		for j := 0; j < 100; j++ {
+		for j := 0; j < count; j++ {
 			J := fmt.Sprintf("%d", j)
+			namespace := fmt.Sprintf("%d", j%shards)
 			_, _, err = repo.Add(api.Rule{
 				EndpointSelector: api.NewESFromLabels(labels.NewLabel("foo", J, labels.LabelSourceK8s), labels.NewLabel("namespace", "default", labels.LabelSourceK8s)),
 				Labels: labels.LabelArray{
 					labels.ParseLabel("k8s:tag1"),
 					labels.NewLabel("namespace", "default", labels.LabelSourceK8s),
 					labels.NewLabel("tag3", J, labels.LabelSourceK8s),
+					labels.NewLabel(k8sConst.PolicyLabelNamespace, namespace, labels.LabelSourceK8s),
 				},
 			}, []Endpoint{})
 			if err == nil {
@@ -352,13 +362,14 @@ func BenchmarkParseLabel(b *testing.B) {
 		}
 
 		repo.Mutex.RLock()
-		for j := 0; j < 100; j++ {
+		for j := 0; j < count; j++ {
 			cntFound += len(repo.SearchRLocked(lbls[j]))
 		}
 		repo.Mutex.RUnlock()
 	}
-	b.Log("Added: ", cntAdd)
-	b.Log("found: ", cntFound)
+	if cntAdd != cntFound {
+		b.Fatalf("Expected to find same number of rules as added, %d, but instead found %d", cntAdd, cntFound)
+	}
 }
 
 func (ds *PolicyTestSuite) TestAllowsIngress(c *C) {
@@ -2244,7 +2255,7 @@ func (ds *PolicyTestSuite) TestremoveIdentityFromRuleCaches(c *C) {
 		},
 	}})
 
-	addedRule := testRepo.rules[0]
+	addedRule := testRepo.getInternalRules()[0]
 
 	selectedEpLabels := labels.ParseSelectLabel("id=a")
 	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})

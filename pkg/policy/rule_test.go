@@ -2596,8 +2596,8 @@ func (ds *PolicyTestSuite) TestMatches(c *C) {
 		},
 	})
 
-	epRule := repo.rules[0]
-	hostRule := repo.rules[1]
+	epRule := repo.getInternalRules()[0]
+	hostRule := repo.getInternalRules()[1]
 
 	selectedEpLabels := labels.ParseSelectLabel("id=a")
 	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})

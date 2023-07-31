@@ -1543,7 +1543,7 @@ func (ds *PolicyTestSuite) TestRemoveIdentityFromRuleDenyCaches(c *C) {
 		},
 	}})
 
-	addedRule := testRepo.rules[0]
+	addedRule := testRepo.getInternalRules()[0]
 
 	selectedEpLabels := labels.ParseSelectLabel("id=a")
 	selectedIdentity := identity.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})

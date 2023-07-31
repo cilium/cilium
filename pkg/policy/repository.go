@@ -109,7 +109,9 @@ func (p *policyContext) SetDeny(deny bool) bool {
 type Repository struct {
 	// Mutex protects the whole policy tree
 	Mutex lock.RWMutex
-	rules ruleSlice
+	// Internally we shard the rule list to improve performance and maximize throughput
+	// We currently shard it on the policy namespace, using an empty string when its missing
+	rulesByShard map[string]ruleSlice
 
 	// revision is the revision of the policy repository. It will be
 	// incremented whenever the policy repository is changed.
@@ -137,6 +139,18 @@ type Repository struct {
 	secretManager certificatemanager.SecretManager
 
 	getEnvoyHTTPRules func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)
+}
+
+// getShardKey returns the key to be used for the sharing of Repository.rulesByShard.
+// We currently use the K8s namespace label as the key, and if its not present, we fall back
+// to an empty string. Returns a true if it found a namespace label, and false if not.
+func getShardKey(lbls labels.LabelArray) (string, bool) {
+	for _, lbl := range lbls {
+		if lbl.Key == k8sConst.PolicyLabelNamespace && lbl.Source == labels.LabelSourceK8s {
+			return lbl.Value, true
+		}
+	}
+	return "", false
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
@@ -194,6 +208,7 @@ func NewStoppedPolicyRepository(
 		selectorCache: selectorCache,
 		certManager:   certManager,
 		secretManager: secretManager,
+		rulesByShard:  make(map[string]ruleSlice),
 	}
 	repo.policyCache = NewPolicyCache(repo, true)
 	return repo
@@ -264,12 +279,26 @@ func (p *Repository) ResolveL4IngressPolicy(ctx *SearchContext) (L4PolicyMap, er
 		repo: p,
 		ns:   ctx.To.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
 	}
-	result, err := p.rules.resolveL4IngressPolicy(&policyCtx, ctx)
+	var rules ruleSlice
+	for _, r := range p.rulesByShard {
+		rules = append(rules, r...)
+	}
+	result, err := rules.resolveL4IngressPolicy(&policyCtx, ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	return result, nil
+}
+
+// getInternalRules dumps all the rules into a ruleSlice for convenience for testing
+// NOTE: This is only called from unit tests
+func (p *Repository) getInternalRules() ruleSlice {
+	var rules ruleSlice
+	for _, r := range p.rulesByShard {
+		rules = append(rules, r...)
+	}
+	return rules
 }
 
 // ResolveL4EgressPolicy resolves the L4 egress policy for a set of endpoints
@@ -287,7 +316,12 @@ func (p *Repository) ResolveL4EgressPolicy(ctx *SearchContext) (L4PolicyMap, err
 		repo: p,
 		ns:   ctx.From.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel),
 	}
-	result, err := p.rules.resolveL4EgressPolicy(&policyCtx, ctx)
+
+	var rules ruleSlice
+	for _, r := range p.rulesByShard {
+		rules = append(rules, r...)
+	}
+	result, err := rules.resolveL4EgressPolicy(&policyCtx, ctx)
 
 	if err != nil {
 		return nil, err
@@ -367,9 +401,19 @@ func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
 func (p *Repository) SearchRLocked(lbls labels.LabelArray) api.Rules {
 	result := api.Rules{}
 
-	for _, r := range p.rules {
-		if r.Labels.Contains(lbls) {
-			result = append(result, &r.Rule)
+	key, ok := getShardKey(lbls)
+	relevantShards := p.rulesByShard
+	if ok {
+		relevantShards = map[string]ruleSlice{
+			key: p.rulesByShard[key],
+		}
+	}
+
+	for _, rules := range relevantShards {
+		for _, r := range rules {
+			if r.Labels.Contains(lbls) {
+				result = append(result, &r.Rule)
+			}
 		}
 	}
 
@@ -399,16 +443,17 @@ func (p *Repository) Add(r api.Rule, localRuleConsumers []Endpoint) (uint64, map
 // Expects that the entire rule list has already been sanitized.
 func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 
-	newList := make(ruleSlice, len(rules))
+	var newList ruleSlice
 	for i := range rules {
 		newRule := &rule{
 			Rule:     *rules[i],
 			metadata: newRuleMetadata(),
 		}
-		newList[i] = newRule
+		key, _ := getShardKey(rules[i].Labels)
+		newList = append(newList, newRule)
+		p.rulesByShard[key] = append(p.rulesByShard[key], newRule)
 	}
 
-	p.rules = append(p.rules, newList...)
 	p.BumpRevision()
 	metrics.Policy.Add(float64(len(newList)))
 	return newList, p.GetRevision()
@@ -421,12 +466,14 @@ func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 // The repository read lock must be held until the waitgroup is complete.
 func (p *Repository) removeIdentityFromRuleCaches(identity *identity.Identity) *sync.WaitGroup {
 	var wg sync.WaitGroup
-	wg.Add(len(p.rules))
-	for _, r := range p.rules {
-		go func(rr *rule, wgg *sync.WaitGroup) {
-			rr.metadata.delete(identity)
-			wgg.Done()
-		}(r, &wg)
+	for _, rules := range p.rulesByShard {
+		wg.Add(len(rules))
+		for _, r := range rules {
+			go func(rr *rule, wgg *sync.WaitGroup) {
+				rr.metadata.delete(identity)
+				wgg.Done()
+			}(r, &wg)
+		}
 	}
 	return &wg
 }
@@ -463,8 +510,10 @@ func (p *Repository) AddList(rules api.Rules) (ruleSlice, uint64) {
 func (p *Repository) Iterate(f func(rule *api.Rule)) {
 	p.Mutex.RWMutex.Lock()
 	defer p.Mutex.RWMutex.Unlock()
-	for _, r := range p.rules {
-		f(&r.Rule)
+	for _, rules := range p.rulesByShard {
+		for _, r := range rules {
+			f(&r.Rule)
+		}
 	}
 }
 
@@ -501,21 +550,34 @@ func (r ruleSlice) UpdateRulesEndpointsCaches(endpointsToBumpRevision, endpoints
 func (p *Repository) DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, uint64, int) {
 
 	deleted := 0
-	new := p.rules[:0]
-	deletedRules := ruleSlice{}
+	var deletedRules ruleSlice
 
-	for _, r := range p.rules {
-		if !r.Labels.Contains(lbls) {
-			new = append(new, r)
+	key, ok := getShardKey(lbls)
+	relevantShards := p.rulesByShard
+	if ok {
+		relevantShards = map[string]ruleSlice{
+			key: p.rulesByShard[key],
+		}
+	}
+	for shard := range relevantShards {
+		newList := p.rulesByShard[shard][:0]
+		for _, r := range p.rulesByShard[shard] {
+			if !r.Labels.Contains(lbls) {
+				newList = append(newList, r)
+			} else {
+				deletedRules = append(deletedRules, r)
+				deleted++
+			}
+		}
+		if len(newList) > 0 {
+			p.rulesByShard[shard] = newList
 		} else {
-			deletedRules = append(deletedRules, r)
-			deleted++
+			delete(p.rulesByShard, shard)
 		}
 	}
 
 	if deleted > 0 {
 		p.BumpRevision()
-		p.rules = new
 		metrics.Policy.Sub(float64(deleted))
 	}
 
@@ -548,8 +610,10 @@ func (p *Repository) GetJSON() string {
 	defer p.Mutex.RUnlock()
 
 	result := api.Rules{}
-	for _, r := range p.rules {
-		result = append(result, &r.Rule)
+	for _, rules := range p.rulesByShard {
+		for _, r := range rules {
+			result = append(result, &r.Rule)
+		}
 	}
 
 	return JSONMarshalRules(result)
@@ -562,25 +626,34 @@ func (p *Repository) GetJSON() string {
 func (p *Repository) GetRulesMatching(lbls labels.LabelArray) (ingressMatch bool, egressMatch bool) {
 	ingressMatch = false
 	egressMatch = false
-	for _, r := range p.rules {
-		rulesMatch := r.getSelector().Matches(lbls)
-		if rulesMatch {
-			if len(r.Ingress) > 0 {
-				ingressMatch = true
-			}
-			if len(r.IngressDeny) > 0 {
-				ingressMatch = true
-			}
-			if len(r.Egress) > 0 {
-				egressMatch = true
-			}
-			if len(r.EgressDeny) > 0 {
-				egressMatch = true
-			}
-		}
 
-		if ingressMatch && egressMatch {
-			return
+	key, _ := getShardKey(lbls)
+	relevantShards := map[string]ruleSlice{
+		key: p.rulesByShard[key],
+		"":  p.rulesByShard[""],
+	}
+
+	for _, rr := range relevantShards {
+		for _, r := range rr {
+			rulesMatch := r.getSelector().Matches(lbls)
+			if rulesMatch {
+				if len(r.Ingress) > 0 {
+					ingressMatch = true
+				}
+				if len(r.IngressDeny) > 0 {
+					ingressMatch = true
+				}
+				if len(r.Egress) > 0 {
+					egressMatch = true
+				}
+				if len(r.EgressDeny) > 0 {
+					egressMatch = true
+				}
+			}
+
+			if ingressMatch && egressMatch {
+				return
+			}
 		}
 	}
 	return
@@ -596,23 +669,30 @@ func (p *Repository) getMatchingRules(securityIdentity *identity.Identity) (
 	matchingRules ruleSlice) {
 
 	matchingRules = []*rule{}
-	for _, r := range p.rules {
-		isNode := securityIdentity.ID == identity.ReservedIdentityHost
-		selectsNode := r.NodeSelector.LabelSelector != nil
-		if selectsNode != isNode {
-			continue
-		}
-		if ruleMatches := r.matches(securityIdentity); ruleMatches {
-			// Don't need to update whether ingressMatch is true if it already
-			// has been determined to be true - allows us to not have to check
-			// lenth of slice.
-			if !ingressMatch {
-				ingressMatch = len(r.Ingress) > 0 || len(r.IngressDeny) > 0
+	key, _ := getShardKey(securityIdentity.LabelArray)
+	relevantShards := map[string]ruleSlice{
+		key: p.rulesByShard[key],
+		"":  p.rulesByShard[""],
+	}
+	for _, rr := range relevantShards {
+		for _, r := range rr {
+			isNode := securityIdentity.ID == identity.ReservedIdentityHost
+			selectsNode := r.NodeSelector.LabelSelector != nil
+			if selectsNode != isNode {
+				continue
 			}
-			if !egressMatch {
-				egressMatch = len(r.Egress) > 0 || len(r.EgressDeny) > 0
+			if ruleMatches := r.matches(securityIdentity); ruleMatches {
+				// Don't need to update whether ingressMatch is true if it already
+				// has been determined to be true - allows us to not have to check
+				// lenth of slice.
+				if !ingressMatch {
+					ingressMatch = len(r.Ingress) > 0 || len(r.IngressDeny) > 0
+				}
+				if !egressMatch {
+					egressMatch = len(r.Egress) > 0 || len(r.EgressDeny) > 0
+				}
+				matchingRules = append(matchingRules, r)
 			}
-			matchingRules = append(matchingRules, r)
 		}
 	}
 	return
@@ -622,7 +702,11 @@ func (p *Repository) getMatchingRules(securityIdentity *identity.Identity) (
 //
 // Must be called with p.Mutex held
 func (p *Repository) NumRules() int {
-	return len(p.rules)
+	var count int
+	for _, rules := range p.rulesByShard {
+		count += len(rules)
+	}
+	return count
 }
 
 // GetRevision returns the revision of the policy repository
@@ -663,9 +747,11 @@ func (p *Repository) TranslateRules(translator Translator) (*TranslationResult, 
 
 	result := &TranslationResult{}
 
-	for ruleIndex := range p.rules {
-		if err := translator.Translate(&p.rules[ruleIndex].Rule, result); err != nil {
-			return nil, err
+	for i, rules := range p.rulesByShard {
+		for ruleIndex := range rules {
+			if err := translator.Translate(&p.rulesByShard[i][ruleIndex].Rule, result); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return result, nil
