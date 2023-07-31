@@ -281,16 +281,16 @@ The table below lists suggested upgrade transitions, from a specified current
 version running in a cluster to a specified target version. If a specific
 combination is not listed in the table below, then it may not be safe. In that
 case, consider performing incremental upgrades between versions (e.g. upgrade
-from ``1.11.x`` to ``1.12.y`` first, and to ``1.13.z`` only afterwards).
+from ``1.12.x`` to ``1.13.y`` first, and to ``1.14.z`` only afterwards).
 
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | Current version       | Target version        | L3/L4 impact            | L7 impact                 |
 +=======================+=======================+=========================+===========================+
+| ``1.13.x``            | ``1.14.y``            | Minimal to None         | Clients must reconnect[1] |
++-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.12.x``            | ``1.13.y``            | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 | ``1.11.x``            | ``1.12.y``            | Minimal to None         | Clients must reconnect[1] |
-+-----------------------+-----------------------+-------------------------+---------------------------+
-| ``1.10.x``            | ``1.11.y``            | Minimal to None         | Clients must reconnect[1] |
 +-----------------------+-----------------------+-------------------------+---------------------------+
 
 Annotations:
@@ -302,217 +302,10 @@ Annotations:
 
 .. _current_release_required_changes:
 
-.. _1.14_upgrade_notes:
+.. _1.15_upgrade_notes:
 
-1.14 Upgrade Notes
+1.15 Upgrade Notes
 ------------------
-* The default value of ``--tofqdns-min-ttl`` has changed from 3600 seconds to
-  zero. This means Cilium DNS network policy now honors the TTLs returned from
-  the upstream DNS server by default. Explicitly configure ``--tofqdns-min-ttl``
-  if you need to preserve the previous DNS network policy behavior that lets
-  applications create new connections after the TTL specified by the upstream
-  DNS server is expired.
-* Cilium now writes its CNI configuration file to ``05-cilium.conflist`` in
-  all cases, rather than the previous default of ``05-cilium.conf``.
-* The default value of ``--update-ec2-adapter-limit-via-api`` has changed from
-  ``false`` to ``true``. This means that the Cilium Operator will fetch the
-  most up-to-date EC2 adapter limits from the AWS API. This now requires
-  updated IAM permissions for Cilium to have ``ec2:DescribeInstances``. In EKS,
-  nodes usually have ``AmazonEKSWorkerNodePolicy`` which includes this
-  permission, so it should work in most cases. If your nodes don't have this
-  policy, then consider adding it to your IAM permissions. Explicitly configure
-  ``--update-ec2-adapter-limit-via-api`` to ``false`` if you want to avoid this
-  additional IAM permission. Beware that if your EC2 instance type that Cilium
-  is running on is not known to Cilium, it may cause a crash.
-* Egress Gateway policies now drop matching traffic when no
-  gateway nodes can be found. Previously, traffic would be allowed without
-  being rerouted towards an Egress Gateway.
-* If Gateway API feature is enabled, please upgrade related CRDs to v0.6.x. This is
-  mainly for ReferenceGrant resource version change (i.e. from v1alpha2 to v1beta1).
-* The attribute ``auth.type`` is renamed to ``authentication.mode`` in both Ingress and
-  Egress rules in CiliumNetworkPolicy CRD. The old attribute name is no longer supported,
-  please update your CiliumNetworkPolicy CRD accordingly. Also applicable values for this
-  attribute are changed to ``disabled``, ``required`` and ``test-always-fail``.
-* Cilium agents now automatically clean up possible stale information about meshed
-  clusters after reconnecting to the corresponding remote kvstores (see :gh-issue:`24740`
-  for the rationale behind this change). This might lead to brief connectivity disruptions
-  towards remote pods and global services when v1.14 Cilium agents connect to older
-  versions of the *clustermesh-apiserver*, and the *clustermesh-apiserver* is restarted.
-  Please upgrade the *clustermesh-apiserver* in all clusters before the Cilium agents
-  to prevent the possibility of connectivity disruptions. Note: this issue does not
-  affect setups using a persistent etcd cluster instead of the ephemeral one bundled
-  with the *clustermesh-apiserver*.
-* Deny policies now always take precedence over allow policies. Previously, a CIDR-based
-  allow policy would always allow traffic, even if there was an overlapping CIDR-based deny policy
-  to deny the same traffic. Now, a CIDR-based deny policy drops traffic when there is
-  an allow policy for the same traffic.
-
-  Verify that all of your CIDR-based deny and allow policies work
-  as intended. The following example shows an allow policy that would previously allow
-  all egress traffic to ``20.1.1.1`` for its selector, but that traffic will now be dropped
-  by the deny policy:
-
-  .. code-block:: yaml
-
-     apiVersion: "cilium.io/v2"
-     kind: CiliumNetworkPolicy
-     metadata:
-       name: "allow-to-external-service"
-     spec:
-       endpointSelector:
-         matchLabels:
-           app: some-specific-app
-       egress:
-         - toCIDR:
-           - 20.1.1.1/32
-
-  .. code-block:: yaml
-
-     apiVersion: "cilium.io/v2"
-     kind: CiliumNetworkPolicy
-     metadata:
-       name: "deny-all-external-egress-traffic"
-     spec:
-       endpointSelector: {}
-       egressDeny:
-       - toCIDR:
-         - 0.0.0.0/0
-
-* IPv6 on ``cilium_host`` now is assigned from IPAM pool, rather than using the
-  same IPv6 as native host interface, like ``eth0`` (:gh-issue:`23445`). This
-  fixes broken IPv6 access in some scenarios, such as ICMPv6 to host
-  (:gh-issue:`14509`), L7 policy enabled cluster (:gh-issue:`21954`), IPsec
-  enabled cluster (:gh-issue:`23461`). After upgrade, you may notice the
-  changes in ``cilium_host``'s IPv6 and related routing rules.
-
-Removed Options
-~~~~~~~~~~~~~~~
-
-* The ``sockops-enable`` and ``force-local-policy-eval-at-source`` options deprecated in version
-  1.13 are removed.
-
-New Options
-~~~~~~~~~~~
-
-* ``routing-mode=native``: This option enables native-routing mode, in place of
-  ``tunnel=disabled``, now deprecated.
-* ``tunnel-protocol``: This option allows setting the tunneling protocol, in place
-  of e.g., ``tunnel=vxlan``.
-* ``tls-relay-client-ca-files``: This option lets you provide a certificate authority (CA)
-  key and cert in Hubble Relay to authenticate Hubble Relay's clients with mTLS. When you provide a CA key and cert,
-  Hubble Relay enforces mTLS authentication on its clients (for example, Hubble CLI
-  client can't connect to Hubble Relay using ``--tls-allow-insecure``).
-
-Deprecated Options
-~~~~~~~~~~~~~~~~~~
-
-* The ``tunnel`` option is deprecated and will be removed in v1.15. To enable
-  native-routing mode, set ``routing-mode=native`` (previously
-  ``tunnel=disabled``). To configure the tunneling protocol, set
-  ``tunnel-protocol=geneve`` (previously ``tunnel=geneve``).
-* The ``disable-cnp-status-updates``, ``cnp-node-status-gc-interval duration`` and ``enable-k8s-event-handover``
-  options are deprecated and will be removed in v1.15. There is no replacement for these
-  flags as enabling them causes scalability and performance issues even in small clusters.
-* The ``cluster-pool-v2beta`` IPAM mode is deprecated and will be removed in v1.15.
-  The functionality to dynamically allocate Pod CIDRs is now provided  by the
-  more flexible ``multi-pool`` IPAM mode.
-* The following Hubble Relay options are deprecated and will be removed in v1.15:
-   * ``tls-client-cert-file`` (replaced with ``tls-hubble-client-cert-file``).
-   * ``tls-client-key-file`` (replaced with ``tls-hubble-client-key-file``).
-   * ``tls-server-cert-file`` (replaced with ``tls-relay-server-cert-file``).
-   * ``tls-server-key-file`` (replaced with ``tls-relay-server-key-file``).
-* The ``kube-proxy-replacement`` option's values ``strict``, ``partial`` and
-  ``disabled`` are deprecated and will be removed in v1.15. They are replaced
-  by ``true`` and ``false``. ``true`` corresponds to ``strict``, i.e. enables
-  all kube-proxy replacement features. ``false`` disables kube-proxy
-  replacement but allows users to selectively enable each kube-proxy replacement
-  feature individually.
-
-
-Deprecated Commands
-~~~~~~~~~~~~~~~~~~~
-
-* The ``cilium endpoint regenerate`` command is deprecated and will be removed
-  in v1.15.
-
-Added Metrics
-~~~~~~~~~~~~~
-
-* ``cilium_operator_ces_sync_total``
-* ``cilium_policy_change_total``
-* ``go_sched_latencies_seconds``
-* ``cilium_operator_ipam_available_ips``
-* ``cilium_operator_ipam_used_ips``
-* ``cilium_operator_ipam_needed_ips``
-* ``kvstore_sync_queue_size``
-* ``kvstore_initial_sync_completed``
-
-You can now additionally configure the *clustermesh-apiserver* to expose a set
-of metrics about the synchronization process, kvstore operations, and the sidecar
-etcd instance. Please refer to :ref:`clustermesh_apiserver_metrics` and
-:ref:`the clustermesh-apiserver metrics reference<clustermesh_apiserver_metrics_reference>`
-for more information.
-
-Deprecated Metrics
-~~~~~~~~~~~~~~~~~~
-
-* ``cilium_operator_ces_sync_errors_total`` is deprecated. Please use ``cilium_operator_ces_sync_total`` instead.
-* ``cilium_policy_import_errors_total`` is deprecated. Please use
-  ``cilium_policy_change_total``, which counts all policy changes (Add, Update, Delete)
-  based on outcome ("success" or "failure").
-* ``cilium_operator_ipam_ips`` is deprecated. Use ``cilium_operator_ipam_{available,used,needed}_ips`` instead.
-
-Changed Metrics
-~~~~~~~~~~~~~~~
-
-* ``cilium_bpf_map_pressure`` is now enabled by default.
-
-Helm Options
-~~~~~~~~~~~~
-
-* The ``securityContext`` for Hubble Relay now applies to the container, not
-  the pod. To update the security context of the pod, use
-  ``podSecurityContext``.
-* The ``securityContext`` for Hubble Relay now defaults to drop all
-  capabilities and run as non-root user.
-* The ``containerRuntime.integration`` value is being deprecated in favor of ``bpf.autoMount.enabled``.
-* Following the deprecation of the ``tunnel`` agent flag, ``tunnel`` is being
-  deprecated in favor of ``routingMode`` and ``tunnelProtocol`` and will be
-  removed in v1.15.
-* Following the deprecation of the ``disable-cnp-status-updates``,
-  ``cnp-node-status-gc-interval duration`` and ``enable-k8s-event-handover`` options,
-  corresponding helm values ``enableCnpStatusUpdates``, ``enableK8sEventHandover``
-  are being deprecated and will be removed in 1.15. There is no replacement for these
-  values as enabling them causes scalability and performance issues even in small clusters.
-* Values ``encryption.keyFile``, ``encryption.mountPath``,
-  ``encryption.secretName`` and ``encryption.interface`` are deprecated in
-  favor of their ``encryption.ipsec.*`` counterparts and will be removed in
-  Cilium 1.15.
-* Value ``hubble.peerService.enabled`` was deprecated in Cilium 1.13 and has
-  been removed. The peer service is no longer optional.
-* Values ``hubble.tls.ca``, ``hubble.tls.ca.cert`` and ``hubble.tls.ca.key``
-  were deprecated in Cilium 1.12 in favor of ``tls.ca``, ``tls.ca.cert`` and
-  ``tls.ca.key`` respectively, and have been removed.
-* Value ``hubble.ui.securityContext.enabled`` was deprecated in Cilium 1.12 in
-  favor of ``hubble.ui.securityContext``, and has been removed.
-* Values ``ipam.operator.clusterPoolIPv4PodCIDR`` and
-  ``ipam.operator.clusterPoolIPv6PodCIDR`` were deprecated in Cilium 1.11 in
-  favor of ``ipam.operator.clusterPoolIPv4PodCIDRList`` and
-  ``ipam.operator.clusterPoolIPv6PodCIDRList``, respectively, and have been
-  removed.
-  In order to preserve the default behavior for selecting CIDRs when default
-  values are kept, ``ipam.operator.clusterPoolIPv4PodCIDRList`` now defaults to
-  a singleton containing the default CIDR value for the removed value
-  ``ipam.operator.clusterPoolIPv4PodCIDR`` (and similarly for IPv6).
-* Values ``clustermesh.apiserver.tls.ca.cert`` and ``clustermesh.apiserver.tls.ca.key``
-  are deprecated in favor of ``tls.ca.cert`` and ``tls.ca.key`` respectively, and
-  will be removed in v1.15.
-* Values ``proxy.prometheus.enabled`` and ``proxy.prometheus.port`` are deprecated in favor of
-  their ``envoy.prometheus.*`` counterparts.
-* Value ``disableEndpointCRD`` is now a boolean type instead of a string. Instead of using "true"
-  or "false" as values, you should remove the quotes. For example in helm command, instead of
-  ``--set-string disableEndpointCRD="true"``, it should be replaced by ``--set disableEndpointCRD=true``.
-
 .. _upgrade_cilium_cli_helm_mode:
 
 Cilium CLI
