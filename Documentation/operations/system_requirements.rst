@@ -332,6 +332,11 @@ For IPSec enabled Cilium deployments, you need to ensure that the firewall
 allows ESP traffic through. For example, AWS Security Groups doesn't allow ESP
 traffic by default.
 
+If you are using WireGuard, you must allow UDP port 51871. Furthermore, if you
+have disabled node-to-node encryption and configured an overlay network mode
+(such as VXLAN or Geneve) in addition to WireGuard, then the overlay ports must
+also be allowed.
+
 If you are using VXLAN overlay network mode, Cilium uses Linux's default VXLAN
 port 8472 over UDP, unless Linux has been configured otherwise. In this case,
 UDP 8472 must be open among all nodes to enable VXLAN overlay mode. The same
