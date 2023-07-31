@@ -122,8 +122,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		ctx_change_type(ctx, PACKET_HOST);
 
 		send_trace_notify(ctx, TRACE_TO_STACK, *identity, 0, 0,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
-				  TRACE_PAYLOAD_LEN);
+				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
 
 		return CTX_ACT_OK;
 	}
@@ -283,8 +282,7 @@ skip_vtep:
 		ctx_change_type(ctx, PACKET_HOST);
 
 		send_trace_notify(ctx, TRACE_TO_STACK, *identity, 0, 0,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
-				  TRACE_PAYLOAD_LEN);
+				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
 
 		return CTX_ACT_OK;
 	}
@@ -465,8 +463,7 @@ int from_overlay(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPSEC
 	if (is_esp(ctx, proto))
 		send_trace_notify(ctx, TRACE_FROM_OVERLAY, 0, 0, 0,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
-				  TRACE_PAYLOAD_LEN);
+				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
 	else
 #endif
 	{
