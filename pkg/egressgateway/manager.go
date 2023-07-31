@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -52,6 +53,7 @@ var Cell = cell.Module(
 	"Egress Gateway allows originating traffic from specific IPv4 addresses",
 	cell.Config(defaultConfig),
 	cell.Provide(NewEgressGatewayManager),
+	cell.Provide(newPolicyResource),
 )
 
 type eventType int
@@ -93,15 +95,18 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 type Manager struct {
 	lock.Mutex
 
-	// cacheStatus is used to check if the agent has synced its
-	// cache with the k8s API server
-	cacheStatus k8s.CacheStatus
+	// allCachesSynced is true when all k8s objects we depend on have had
+	// their initial state synced.
+	allCachesSynced bool
 
 	// nodeDataStore stores node name to node mapping
 	nodeDataStore map[string]nodeTypes.Node
 
 	// nodes stores nodes sorted by their name
 	nodes []nodeTypes.Node
+
+	// policies allows reading policy CRD from k8s.
+	policies resource.Resource[*Policy]
 
 	// policyConfigs stores policy configs indexed by policyID
 	policyConfigs map[policyID]*PolicyConfig
@@ -162,6 +167,7 @@ type Params struct {
 	CacheStatus       k8s.CacheStatus
 	IdentityAllocator identityCache.IdentityAllocator
 	PolicyMap         egressmap.PolicyMap
+	Policies          resource.Resource[*Policy]
 
 	Lifecycle hive.Lifecycle
 }
@@ -179,7 +185,6 @@ func NewEgressGatewayManager(p Params) (*Manager, error) {
 	endpointEventRetryQueue := workqueue.NewRateLimitingQueueWithConfig(rateLimiter, workqueue.RateLimitingQueueConfig{})
 
 	manager := &Manager{
-		cacheStatus:                   p.CacheStatus,
 		nodeDataStore:                 make(map[string]nodeTypes.Node),
 		policyConfigs:                 make(map[policyID]*PolicyConfig),
 		policyConfigsBySourceIP:       make(map[string][]*PolicyConfig),
@@ -190,6 +195,7 @@ func NewEgressGatewayManager(p Params) (*Manager, error) {
 		installRoutes:                 p.Config.InstallEgressGatewayRoutes,
 		reconciliationTriggerInterval: p.Config.EgressGatewayReconciliationTriggerInterval,
 		policyMap:                     p.PolicyMap,
+		policies:                      p.Policies,
 	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -220,7 +226,7 @@ func NewEgressGatewayManager(p Params) (*Manager, error) {
 				return fmt.Errorf("egress gateway needs kernel 5.2 or newer")
 			}
 
-			manager.runReconciliationAfterK8sSync(ctx)
+			go manager.processEvents(ctx, p.CacheStatus)
 			manager.processCiliumEndpoints(ctx, &wg)
 			return nil
 		},
@@ -267,20 +273,59 @@ func (manager *Manager) getIdentityLabels(securityIdentity uint32) (labels.Label
 	return identity.Labels, nil
 }
 
-// runReconciliationAfterK8sSync spawns a goroutine that waits for the agent to
+// processEvents spawns a goroutine that waits for the agent to
 // sync with k8s and then runs the first reconciliation.
-func (manager *Manager) runReconciliationAfterK8sSync(ctx context.Context) {
-	go func() {
-		select {
-		case <-manager.cacheStatus:
-			manager.Lock()
-			manager.setEventBitmap(eventK8sSyncDone)
-			manager.Unlock()
-
-			manager.reconciliationTrigger.TriggerWithReason("k8s sync done")
-		case <-ctx.Done():
+func (manager *Manager) processEvents(ctx context.Context, cacheStatus k8s.CacheStatus) {
+	var globalSync, policySync bool
+	maybeTriggerReconcile := func() {
+		if !globalSync || !policySync {
+			return
 		}
-	}()
+
+		manager.Lock()
+		defer manager.Unlock()
+
+		if manager.allCachesSynced {
+			return
+		}
+
+		manager.allCachesSynced = true
+		manager.setEventBitmap(eventK8sSyncDone)
+		manager.reconciliationTrigger.TriggerWithReason("k8s sync done")
+	}
+
+	policyEvents := manager.policies.Events(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case <-cacheStatus:
+			globalSync = true
+			maybeTriggerReconcile()
+			cacheStatus = nil
+
+		case event := <-policyEvents:
+			if event.Kind == resource.Sync {
+				policySync = true
+				maybeTriggerReconcile()
+				event.Done(nil)
+			} else {
+				manager.handlePolicyEvent(event)
+			}
+		}
+	}
+}
+
+func (manager *Manager) handlePolicyEvent(event resource.Event[*Policy]) {
+	switch event.Kind {
+	case resource.Upsert:
+		err := manager.onAddEgressPolicy(event.Object)
+		event.Done(err)
+	case resource.Delete:
+		manager.onDeleteEgressPolicy(event.Object)
+		event.Done(nil)
+	}
 }
 
 // processCiliumEndpoints spawns a goroutine that:
@@ -337,9 +382,14 @@ func (manager *Manager) processCiliumEndpoints(ctx context.Context, wg *sync.Wai
 
 // Event handlers
 
-// OnAddEgressPolicy parses the given policy config, and updates internal state
+// onAddEgressPolicy parses the given policy config, and updates internal state
 // with the config fields.
-func (manager *Manager) OnAddEgressPolicy(config PolicyConfig) {
+func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
+	config, err := ParseCEGP(policy)
+	if err != nil {
+		return err
+	}
+
 	manager.Lock()
 	defer manager.Unlock()
 
@@ -353,15 +403,18 @@ func (manager *Manager) OnAddEgressPolicy(config PolicyConfig) {
 
 	config.updateMatchedEndpointIDs(manager.epDataStore)
 
-	manager.policyConfigs[config.id] = &config
+	manager.policyConfigs[config.id] = config
 
 	manager.setEventBitmap(eventAddPolicy)
 	manager.reconciliationTrigger.TriggerWithReason("policy added")
+	return nil
 }
 
-// OnDeleteEgressPolicy deletes the internal state associated with the given
+// onDeleteEgressPolicy deletes the internal state associated with the given
 // policy, including egress eBPF map entries.
-func (manager *Manager) OnDeleteEgressPolicy(configID policyID) {
+func (manager *Manager) onDeleteEgressPolicy(policy *Policy) {
+	configID := ParseCEGPConfigID(policy)
+
 	manager.Lock()
 	defer manager.Unlock()
 
@@ -369,7 +422,6 @@ func (manager *Manager) OnDeleteEgressPolicy(configID policyID) {
 
 	if manager.policyConfigs[configID] == nil {
 		logger.Warn("Can't delete CiliumEgressGatewayPolicy: policy not found")
-		return
 	}
 
 	logger.Debug("Deleted CiliumEgressGatewayPolicy")
@@ -856,7 +908,7 @@ nextPolicyKey:
 // Whenever it encounters an error, it will just log it and move to the next
 // item, in order to reconcile as many states as possible.
 func (manager *Manager) reconcileLocked() {
-	if !manager.cacheStatus.Synchronized() {
+	if !manager.allCachesSynced {
 		return
 	}
 
