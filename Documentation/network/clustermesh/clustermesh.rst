@@ -48,12 +48,12 @@ Additional Requirements for Native-routed Datapath Modes
 * Cilium in each cluster must be configured with a native routing CIDR that
   covers all the PodCIDR ranges across all connected clusters. Cluster CIDRs are
   typically allocated from the ``10.0.0.0/8`` private address space. When this
-  is a case a native routing CIDR such as ``10.0.0.0/9`` should cover all
+  is the case a native routing CIDR such as ``10.0.0.0/8`` should cover all
   clusters:
 
- * ConfigMap option ``ipv4-native-routing-cidr=10.0.0.0/9``
- * Helm option ``--set ipv4NativeRoutingCIDR=10.0.0.0/9``
- * ``cilium install`` option ``--set ipv4NativeRoutingCIDR=10.0.0.0/9``
+ * ConfigMap option ``ipv4-native-routing-cidr=10.0.0.0/8``
+ * Helm option ``--set ipv4NativeRoutingCIDR=10.0.0.0/8``
+ * ``cilium install`` option ``--set ipv4NativeRoutingCIDR=10.0.0.0/8``
 
 * In addition to nodes, pods in all clusters must have IP connectivity between each other. This
   requirement is typically met by establishing peering or VPN tunnels between
