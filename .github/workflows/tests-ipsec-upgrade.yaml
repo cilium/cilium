@@ -153,7 +153,7 @@ jobs:
             --helm-set=hubble.eventBufferCapacity=65535 \
             --helm-set=bpf.monitorAggregation=none \
             --nodes-without-cilium=kind-worker3 \
-            --helm-set=bpfClockSource=false \
+            --helm-set=bpfClockProbe=false \
             --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
 
           TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
