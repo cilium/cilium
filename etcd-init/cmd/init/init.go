@@ -22,21 +22,11 @@ import (
 )
 
 const (
-	keyEtcdDataDirectory           = "etcd-data-dir"
-	keyEtcdClusterName             = "etcd-cluster-name"
-	keyEtcdListenClientURLs        = "etcd-listen-client-urls"
-	keyEtcdAdvertiseClientURLs     = "etcd-advertise-client-urls"
-	keyEtcdInitialClusterToken     = "etcd-initial-cluster-token"
-	keyEtcdInitialClusterState     = "etcd-initial-cluster-state"
-	keyEtcdAutoCompactionRetention = "etcd-auto-compaction-retention"
-	keyIPv6                        = "ipv6"
-	keyForceWipeEtcdData           = "force-wipe-etcd-data"
-	keyPprof                       = "pprof"
-	keyPprofAddress                = "pprof-address"
-	keyPprofPort                   = "pprof-port"
-	keyGops                        = "gops"
-	keyGopsPort                    = "gops-port"
-	keyStartupTimeout              = "startup-timeout"
+	keyEtcdDataDirectory = "etcd-data-dir"
+	keyEtcdClusterName   = "etcd-cluster-name"
+	keyIPv6              = "ipv6"
+	keyForceWipeEtcdData = "force-wipe-etcd-data"
+	keyStartupTimeout    = "startup-timeout"
 )
 
 func New(vp *viper.Viper) *cobra.Command {
@@ -58,27 +48,11 @@ func New(vp *viper.Viper) *cobra.Command {
 		defaults.EtcdClusterName,
 		"Name of the current cluster")
 	flags.Bool(
-		keyPprof, false, "Enable serving the pprof debugging API",
-	)
-	flags.Bool(
 		keyIPv6, defaults.IPv6, "Use IPv6 addressing for loopback. Only needed on an IPv6 only host.",
 	)
 	flags.Bool(
 		keyForceWipeEtcdData, false, "Wipe the given etcd data directory before starting",
 	)
-	flags.String(
-		keyPprofAddress, defaults.PprofAddress, "Address that pprof listens on",
-	)
-	flags.Int(
-		keyPprofPort, defaults.PprofPort, "Port that pprof listens on",
-	)
-	flags.Bool(
-		keyGops, true, "Run gops agent",
-	)
-	flags.Int(
-		keyGopsPort,
-		defaults.GopsPort,
-		"Port for gops server to listen on")
 	flags.Duration(
 		keyStartupTimeout,
 		defaults.StartupTimeout,
