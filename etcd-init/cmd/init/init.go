@@ -39,7 +39,6 @@ const (
 	keyStartupTimeout              = "startup-timeout"
 )
 
-// New creates a new serve command.
 func New(vp *viper.Viper) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",

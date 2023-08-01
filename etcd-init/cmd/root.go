@@ -7,11 +7,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/cilium/cilium/etcd-init/cmd/completion"
-	i "github.com/cilium/cilium/etcd-init/cmd/init"
-	"github.com/cilium/cilium/etcd-init/cmd/version"
+	initcmd "github.com/cilium/cilium/etcd-init/cmd/init"
+	versioncmd "github.com/cilium/cilium/etcd-init/cmd/version"
 	"github.com/cilium/cilium/pkg/logging"
-	v "github.com/cilium/cilium/pkg/version"
+	ciliumversion "github.com/cilium/cilium/pkg/version"
 )
 
 func New() *cobra.Command {
@@ -20,7 +19,7 @@ func New() *cobra.Command {
 		Short:        "etcd Init is a tool to initialise a etcd install.",
 		Long:         "etcd Init is a tool to initialise an etcd install. It does not require etcd to be running, as it configures an internal etcd library to setup the files on disk.",
 		SilenceUsage: true,
-		Version:      v.GetCiliumVersion().Version,
+		Version:      ciliumversion.GetCiliumVersion().Version,
 	}
 	vp := newViper()
 	flags := rootCmd.PersistentFlags()
@@ -35,9 +34,8 @@ func New() *cobra.Command {
 	}
 
 	rootCmd.AddCommand(
-		completion.New(),
-		i.New(vp),
-		version.New(),
+		initcmd.New(vp),
+		versioncmd.New(),
 	)
 	rootCmd.SetVersionTemplate("{{with .Name}}{{printf \"%s \" .}}{{end}}{{printf \"v%s\" .Version}}\n")
 	return rootCmd
