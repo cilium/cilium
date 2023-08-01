@@ -568,6 +568,7 @@ int test_nat4_icmp_error_tcp_egress(__maybe_unused struct __ctx_buff *ctx)
 	assert(ret == 0);
 
 	struct ipv4_ct_tuple icmp_tuple = {};
+	struct trace_ctx trace;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int l4_off;
@@ -580,7 +581,7 @@ int test_nat4_icmp_error_tcp_egress(__maybe_unused struct __ctx_buff *ctx)
 	 * snat_v4_nat().
 	 */
 	ret = snat_v4_nat(ctx, &icmp_tuple, l4_off, ipv4_has_l4_header(ip4),
-			  &target, NULL);
+			  &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -682,6 +683,7 @@ int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 	assert(ret == 0);
 
 	struct ipv4_ct_tuple icmp_tuple = {};
+	struct trace_ctx trace;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int l4_off;
@@ -694,7 +696,7 @@ int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 	 * snat_v4_nat().
 	 */
 	ret = snat_v4_nat(ctx, &icmp_tuple, l4_off, ipv4_has_l4_header(ip4),
-			  &target, NULL);
+			  &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -795,6 +797,7 @@ int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 	assert(ret == 0);
 
 	struct ipv4_ct_tuple icmp_tuple = {};
+	struct trace_ctx trace;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int l4_off;
@@ -807,7 +810,7 @@ int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 	 * snat_v4_nat().
 	 */
 	ret = snat_v4_nat(ctx, &icmp_tuple, l4_off, ipv4_has_l4_header(ip4),
-			  &target, NULL);
+			  &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -897,6 +900,7 @@ int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 	assert(ret == 0);
 
 	struct ipv4_ct_tuple icmp_tuple = {};
+	struct trace_ctx trace;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	int l4_off;
@@ -909,7 +913,7 @@ int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 	 * snat_v4_nat().
 	 */
 	ret = snat_v4_nat(ctx, &icmp_tuple, l4_off, ipv4_has_l4_header(ip4),
-			  &target, NULL);
+			  &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
