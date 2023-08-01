@@ -95,6 +95,13 @@
         // renovate wants to downgrade to 1.0.5. Can be removed if pflag ever
         // tags a new release.
         "github.com/spf13/pflag",
+        // v0.0.0-20230801115018-d63ba01acd4b causes this complilation error:
+        //
+        // # github.com/cilium/cilium/pkg/hive/cell
+        // Error: vendor/github.com/cilium/cilium/pkg/hive/cell/health.go:194:23:
+        // type func(a Status, b Status) bool of func(a, b Status) bool {…} does not match inferred
+        // type func(a Status, b Status) int for func(a E, b E) int
+        "golang.org/x/exp",
       ],
       "matchPackagePatterns": [
         // k8s dependencies will be updated manually in lockstep.
