@@ -66,49 +66,49 @@ jobs:
     runs-on: ubuntu-20.04
     timeout-minutes: 45
     steps:
-    - name: Checkout context ref
-      uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
-      with:
-        ref: ${{ inputs.context-ref || github.sha }}
-        persist-credentials: false
+      - name: Checkout context ref
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
 
-    - name: Set Environment Variables
-      uses: ./.github/actions/set-env-variables
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
 
-    - name: Set image tag
-      id: vars
-      run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          SHA="${{ inputs.SHA }}"
-        else
-          SHA="${{ github.sha }}"
-        fi
-        echo sha=${SHA} >> $GITHUB_OUTPUT
+      - name: Set image tag
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+          echo sha=${SHA} >> $GITHUB_OUTPUT
 
-    - name: Checkout
-      uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
-      with:
-        ref: ${{ steps.vars.outputs.sha }}
-        persist-credentials: false
+      - name: Checkout
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
 
-    - name: Install Go
-      uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
-      with:
-        # renovate: datasource=golang-version depName=go
-        go-version: 1.20.6
+      - name: Install Go
+        uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.20.6
 
-    - name: Prepare environment
-      timeout-minutes: 15
-      run: |
-        ./.travis/prepare.sh
+      - name: Prepare environment
+        timeout-minutes: 15
+        run: |
+          ./.travis/prepare.sh
 
-    - name: Run integration tests
-      timeout-minutes: 30
-      run: |
-        export PATH=/usr/local/clang/bin:$PATH
-        export V=0
-        export DOCKER_BUILD_FLAGS=--quiet
-        ./.travis/build.sh
+      - name: Run integration tests
+        timeout-minutes: 30
+        run: |
+          export PATH=/usr/local/clang/bin:$PATH
+          export V=0
+          export DOCKER_BUILD_FLAGS=--quiet
+          ./.travis/build.sh
 
   commit-status-final:
     if: ${{ always() }}
