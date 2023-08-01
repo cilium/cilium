@@ -56,8 +56,7 @@ env:
   # until https://github.com/cilium/cilium-cli/pull/1854 has been released
   cilium_cli_ci_version: 8c624e141844a19a6b2e21d5255f3ca6195c996d
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  upgrade_cilium_from_vsn: 1.13.4
-  upgrade_cilium_to_vsn: 1.14.0-rc.1 # empty means upgrade to CI build
+  cilium_stable_version: 1.13
 
 jobs:
   commit-status-start:
@@ -132,12 +131,22 @@ jobs:
           fi
 
           # TODO(brb) move the settings derivation into a reusable GH workflow
+          CILIUM_STABLE_IMAGE_SETTINGS="--chart-directory=./cilium-${{ env.cilium_stable_version }}/install/kubernetes/cilium/ \
+            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=v${{ env.cilium_stable_version }} \
+            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=v${{ env.cilium_stable_version }} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.tag=v${{ env.cilium_stable_version }}"
+          echo "cilium_stable_image_settings=${CILIUM_STABLE_IMAGE_SETTINGS}" >> $GITHUB_OUTPUT
+
           CILIUM_MAIN_IMAGE_SETTINGS="--chart-directory=./install/kubernetes/cilium \
             --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
             --helm-set=image.useDigest=false \
             --helm-set=image.tag=${SHA} \
-            --helm-set=debug.enabled=true \
-            --helm-set=debug.verbose=envoy \
             --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
             --helm-set=operator.image.suffix=-ci \
             --helm-set=operator.image.tag=${SHA} \
@@ -207,17 +216,6 @@ jobs:
           CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
           echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
           
-          # TODO(brb) Create function to derive EXTRAS_V1{3,2,1}
-          EXTRAS_V13=""
-          if [ "${{ matrix.encryption }}" == "wireguard" ]; then
-            EXTRAS_V13=" --helm-set=l7Proxy=false"
-          fi
-          if [ "${{ matrix.kpr }}" == "strict" ] || [ "${{ matrix.kpr }}" == "true" ]; then
-            # BPF IPv6 masquerade is not supported in < v1.14
-            EXTRAS_V13+=" --helm-set=enableIPv6Masquerade=false"
-          fi
-          echo "cilium_extras_v13=${EXTRAS_V13}" >> $GITHUB_OUTPUT
-
           JUNIT=""
           for NAME in ${{ matrix.kube-proxy }} ${{ matrix.tunnel }} ${{ matrix.lb-mode }} ${{ matrix.encryption }} ${{ matrix.endpoint-routes }}; do
             if [[ "${NAME}" != "" ]] && [[ "${NAME}" != "disabled" ]] && [[ "${NAME}" != "none" ]]; then
@@ -238,6 +236,12 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
+
+      - name: Download Helm charts for ${{ env.cilium_stable_version }}
+        shell: bash
+        run: |
+          wget https://github.com/cilium/cilium/archive/refs/heads/v${{ env.cilium_stable_version }}.tar.gz
+          tar -xf v${{ env.cilium_stable_version }}.tar.gz
 
       - name: Install Cilium CLI-cli
         uses: cilium/cilium-cli@829ae9b4d2c65104343051ad77b618b92a2c2b75 # v0.15.3
@@ -261,7 +265,6 @@ jobs:
             git config --global --add safe.directory /host
 
       - name: Wait for images to be available
-        if:  ${{ env.upgrade_cilium_to_vsn == '' }}
         timeout-minutes: 10
         shell: bash
         run: |
@@ -288,7 +291,7 @@ jobs:
 
             mkdir -p cilium-junits
 
-      - name: Install Cilium ${{ env.upgrade_cilium_from_vsn }} (${{ matrix.name }})
+      - name: Install Cilium ${{ env.cilium_stable_version }} (${{ matrix.name }})
         uses: cilium/little-vm-helper@6a3d1797af8fab1a49f1c3d09afe3230aea559b6 # v0.0.11
         with:
           provision: 'false'
@@ -296,15 +299,14 @@ jobs:
             cd /host/
 
             CILIUM_CLI_MODE=helm ./cilium-cli install \
-              --version ${{ env.upgrade_cilium_from_vsn }} \
-              ${{ steps.vars.outputs.cilium_install_defaults }} \
-              ${{ steps.vars.outputs.cilium_extras_v13 }}
+              ${{ steps.vars.outputs.cilium_stable_image_settings }} \
+              ${{ steps.vars.outputs.cilium_install_defaults }}
 
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-      - name: Test Cilium ${{ env.upgrade_cilium_from_vsn }} (${{ matrix.name }})
+      - name: Test Cilium ${{ env.cilium_stable_version }} (${{ matrix.name }})
         uses: cilium/little-vm-helper@6a3d1797af8fab1a49f1c3d09afe3230aea559b6 # v0.0.11
         with:
           provision: 'false'
@@ -323,28 +325,22 @@ jobs:
             # interruption in such flows.
             ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
 
-      - name: Upgrade Cilium ${{ env.upgrade_cilium_to_vsn }} (${{ matrix.name }})
+      - name: Upgrade Cilium (${{ matrix.name }})
         uses: cilium/little-vm-helper@6a3d1797af8fab1a49f1c3d09afe3230aea559b6 # v0.0.11
         with:
           provision: 'false'
           cmd: |
             cd /host/
 
-            if [ -z "${{ env.upgrade_cilium_to_vsn }}" ]; then
-              CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
-                ${{ steps.vars.outputs.cilium_main_image_settings }} \
-                ${{ steps.vars.outputs.cilium_install_defaults }}
-            else
-              CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
-                --version ${{ env.upgrade_cilium_to_vsn }} \
-                ${{ steps.vars.outputs.cilium_install_defaults }}
-            fi
+            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+              ${{ steps.vars.outputs.cilium_main_image_settings }} \
+              ${{ steps.vars.outputs.cilium_install_defaults }}
 
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-      - name: Test Cilium after upgrade to ${{ env.upgrade_cilium_to_vsn }} (${{ matrix.name }})
+      - name: Test Cilium after upgrade (${{ matrix.name }})
         uses: cilium/little-vm-helper@6a3d1797af8fab1a49f1c3d09afe3230aea559b6 # v0.0.11
         with:
           provision: 'false'
@@ -365,7 +361,7 @@ jobs:
             # --flush-ct interrupts the flows, so we need to set up again.
             ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
 
-      - name: Downgrade Cilium ${{ env.upgrade_cilium_from_vsn }} (${{ matrix.name }})
+      - name: Downgrade Cilium ${{ env.cilium_stable_version }} (${{ matrix.name }})
         uses: cilium/little-vm-helper@6a3d1797af8fab1a49f1c3d09afe3230aea559b6 # v0.0.11
         with:
           provision: 'false'
@@ -373,15 +369,14 @@ jobs:
             cd /host/
 
             CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
-              --version ${{ env.upgrade_cilium_from_vsn }} \
-              ${{ steps.vars.outputs.cilium_install_defaults }} \
-              ${{ steps.vars.outputs.cilium_extras_v13 }}
+              ${{ steps.vars.outputs.cilium_stable_image_settings }} \
+              ${{ steps.vars.outputs.cilium_install_defaults }}
 
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-      - name: Test Cilium after downgrade to ${{ env.upgrade_cilium_from_vsn }} (${{ matrix.name }})
+      - name: Test Cilium after downgrade to ${{ env.cilium_stable_version }} (${{ matrix.name }})
         uses: cilium/little-vm-helper@6a3d1797af8fab1a49f1c3d09afe3230aea559b6 # v0.0.11
         with:
           provision: 'false'
