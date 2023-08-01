@@ -31,10 +31,10 @@ type ServerWithConfig struct {
 	Config *v2alpha1api.CiliumBGPVirtualRouter
 
 	// Holds any announced PodCIDR routes.
-	PodCIDRAnnouncements []types.Advertisement
+	PodCIDRAnnouncements []*types.Path
 
 	// Holds any announced Service routes.
-	ServiceAnnouncements map[resource.Key][]types.Advertisement
+	ServiceAnnouncements map[resource.Key][]*types.Path
 }
 
 // NewServerWithConfig will start an underlying BgpServer utilizing types.ServerParameters
@@ -54,7 +54,7 @@ func NewServerWithConfig(ctx context.Context, params types.ServerParameters) (*S
 	return &ServerWithConfig{
 		Server:               s,
 		Config:               nil,
-		PodCIDRAnnouncements: []types.Advertisement{},
-		ServiceAnnouncements: make(map[resource.Key][]types.Advertisement),
+		PodCIDRAnnouncements: []*types.Path{},
+		ServiceAnnouncements: make(map[resource.Key][]*types.Path),
 	}, nil
 }
