@@ -68,6 +68,15 @@ jobs:
     runs-on: ubuntu-latest
     name: Build Ginkgo Runtime
     steps:
+      - name: Checkout context ref
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
       - name: Set up job variables
         id: vars
         run: |
@@ -79,14 +88,12 @@ jobs:
 
           echo "sha=${SHA}" >> $GITHUB_OUTPUT
 
+      # Checkout source code to use the local `test` directory
       - name: Checkout code
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
-
-      - name: Set Environment Variables
-        uses: ./.github/actions/set-env-variables
 
       # If any of these steps are modified, please update the copy of these
       # steps further down under the 'setup-and-test' jobs.
@@ -214,25 +221,32 @@ jobs:
 
     timeout-minutes: 20
     steps:
-      - name: Set up job variables
-        id: vars
-        run: |
-          if [ ${{ github.event.pull_request }} ]; then
-            SHA=${{ github.event.pull_request.head.sha }}
-          else
-            SHA=${{ github.sha }}
-          fi
-
-          echo "sha=${SHA}" >> $GITHUB_OUTPUT
-
-      - name: Checkout pull request for tests
+      - name: Checkout context ref
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
-          ref: ${{ steps.vars.outputs.sha }}
+          ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
 
       - name: Set Environment Variables
         uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+
+      # Checkout source code to use the local `test` directory
+      - name: Checkout code
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
 
       - name: Provision LVH VMs
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
