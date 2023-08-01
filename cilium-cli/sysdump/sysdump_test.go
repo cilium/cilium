@@ -350,6 +350,10 @@ func (c *fakeClient) GetVersion(_ context.Context) (string, error) {
 	panic("implement me")
 }
 
+func (c *fakeClient) GetHelmValues(_ context.Context, _ string, _ string) (string, error) {
+	panic("implement me")
+}
+
 func (c *fakeClient) ListCiliumCIDRGroups(_ context.Context, _ metav1.ListOptions) (*ciliumv2alpha1.CiliumCIDRGroupList, error) {
 	panic("implement me")
 }

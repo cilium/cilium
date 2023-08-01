@@ -46,6 +46,8 @@ type Options struct {
 	CiliumDaemonSetSelector string
 	// The labels used to target Cilium Envoy pods.
 	CiliumEnvoyLabelSelector string
+	// The release name of Cilium Helm chart.
+	CiliumHelmReleaseName string
 	// The labels used to target Cilium Node Init daemon set. Usually, this label is same as CiliumNodeInitLabelSelector.
 	CiliumNodeInitDaemonSetSelector string
 	// The labels used to target Cilium Node Init pods.
@@ -1536,6 +1538,26 @@ func (c *Collector) Run() error {
 			},
 		})
 	}
+
+	helmTasks := []Task{
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting Helm values from the release",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetHelmValues(ctx, c.Options.CiliumHelmReleaseName, c.Options.CiliumNamespace)
+				if err != nil {
+					return fmt.Errorf("failed to get the helm values from the release: %w", err)
+				}
+				if err := c.WriteString(ciliumHelmValuesFileName, v); err != nil {
+					return fmt.Errorf("failed to write the helm values to the file: %w", err)
+				}
+				return nil
+			},
+		},
+	}
+
+	tasks = append(tasks, helmTasks...)
 	// Append tasks added by AddTasks.
 	tasks = append(tasks, c.additionalTasks...)
 
