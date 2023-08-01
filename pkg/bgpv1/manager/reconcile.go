@@ -171,7 +171,7 @@ func preflightReconciler(
 
 	// Clear the shadow state since any advertisements will be gone now that the server has been recreated.
 	sc.PodCIDRAnnouncements = nil
-	sc.ServiceAnnouncements = make(map[resource.Key][]types.Advertisement)
+	sc.ServiceAnnouncements = make(map[resource.Key][]*types.Path)
 
 	return nil
 }
@@ -366,13 +366,13 @@ func exportPodCIDRReconciler(
 		return fmt.Errorf("attempted pod CIDR advertisements reconciliation with nil ControlPlaneState")
 	}
 
-	toAdvertise := []netip.Prefix{}
+	var toAdvertise []*types.Path
 	for _, cidr := range cstate.PodCIDRs {
 		prefix, err := netip.ParsePrefix(cidr)
 		if err != nil {
 			return fmt.Errorf("failed to parse prefix %s: %w", cidr, err)
 		}
-		toAdvertise = append(toAdvertise, prefix)
+		toAdvertise = append(toAdvertise, types.NewPathForPrefix(prefix))
 	}
 
 	advertisements, err := exportAdvertisementsReconciler(&advertisementsReconcilerParams{
@@ -688,22 +688,20 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 
 	for _, desiredCidr := range desiredCidrs {
 		// If this route has already been announced, don't add it again
-		if slices.IndexFunc(sc.ServiceAnnouncements[svcKey], func(existing types.Advertisement) bool {
-			return desiredCidr == existing.Prefix
+		if slices.IndexFunc(sc.ServiceAnnouncements[svcKey], func(existing *types.Path) bool {
+			return desiredCidr.String() == existing.NLRI.String()
 		}) != -1 {
 			continue
 		}
 
 		// Advertise the new cidr
 		advertPathResp, err := sc.Server.AdvertisePath(ctx, types.PathRequest{
-			Advert: types.Advertisement{
-				Prefix: desiredCidr,
-			},
+			Path: types.NewPathForPrefix(desiredCidr),
 		})
 		if err != nil {
 			return fmt.Errorf("failed to advertise service route %v: %w", desiredCidr, err)
 		}
-		sc.ServiceAnnouncements[svcKey] = append(sc.ServiceAnnouncements[svcKey], advertPathResp.Advert)
+		sc.ServiceAnnouncements[svcKey] = append(sc.ServiceAnnouncements[svcKey], advertPathResp.Path)
 	}
 
 	// Loop over announcements in reverse order so we can delete entries without effecting iteration.
@@ -711,13 +709,13 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 		announcement := sc.ServiceAnnouncements[svcKey][i]
 		// If the announcement is within the list of desired routes, don't remove it
 		if slices.IndexFunc(desiredCidrs, func(existing netip.Prefix) bool {
-			return existing == announcement.Prefix
+			return existing.String() == announcement.NLRI.String()
 		}) != -1 {
 			continue
 		}
 
-		if err := sc.Server.WithdrawPath(ctx, types.PathRequest{Advert: announcement}); err != nil {
-			return fmt.Errorf("failed to withdraw service route %s: %w", announcement, err)
+		if err := sc.Server.WithdrawPath(ctx, types.PathRequest{Path: announcement}); err != nil {
+			return fmt.Errorf("failed to withdraw service route %s: %w", announcement.NLRI, err)
 		}
 
 		// Delete announcement from slice
@@ -733,10 +731,10 @@ func (r *LBServiceReconciler) withdrawService(ctx context.Context, sc *ServerWit
 	// Loop in reverse order so we can delete without effect to the iteration.
 	for i := len(advertisements) - 1; i >= 0; i-- {
 		advertisement := advertisements[i]
-		if err := sc.Server.WithdrawPath(ctx, types.PathRequest{Advert: advertisement}); err != nil {
+		if err := sc.Server.WithdrawPath(ctx, types.PathRequest{Path: advertisement}); err != nil {
 			// Persist remaining advertisements
 			sc.ServiceAnnouncements[key] = advertisements
-			return fmt.Errorf("failed to withdraw deleted service route: %v: %w", advertisement.Prefix, err)
+			return fmt.Errorf("failed to withdraw deleted service route: %v: %w", advertisement.NLRI, err)
 		}
 
 		// Delete the advertisement after each withdraw in case we error half way through

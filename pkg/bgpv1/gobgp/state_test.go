@@ -392,16 +392,12 @@ func TestGetRoutes(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = testSC.AdvertisePath(context.TODO(), types.PathRequest{
-		Advert: types.Advertisement{
-			Prefix: netip.MustParsePrefix("10.0.0.0/24"),
-		},
+		Path: types.NewPathForPrefix(netip.MustParsePrefix("10.0.0.0/24")),
 	})
 	require.NoError(t, err)
 
 	_, err = testSC.AdvertisePath(context.TODO(), types.PathRequest{
-		Advert: types.Advertisement{
-			Prefix: netip.MustParsePrefix("fd00::/64"),
-		},
+		Path: types.NewPathForPrefix(netip.MustParsePrefix("fd00::/64")),
 	})
 	require.NoError(t, err)
 

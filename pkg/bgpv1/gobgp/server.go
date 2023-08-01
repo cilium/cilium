@@ -11,7 +11,6 @@ import (
 	gobgp "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/server"
 	"github.com/sirupsen/logrus"
-	apb "google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -343,99 +342,39 @@ func (g *GoBGPServer) RemoveNeighbor(ctx context.Context, n types.NeighborReques
 	return nil
 }
 
-// AdvertisePath will advertise the provided IP network to any existing and all
+// AdvertisePath will advertise the provided Path to any existing and all
 // subsequently added Neighbors currently peered with this BgpServer.
-//
-// `ip` can be an ipv4 or ipv6 and this method will handle the differences
-// between MP BGP and BGP.
 //
 // It is an error to advertise an IPv6 path when no IPv6 address is configured
 // on this Cilium node, selfsame for IPv4.
 //
-// Nexthop of the path will always set to "0.0.0.0" in IPv4 and "::" in IPv6, so
-// that GoBGP selects appropriate actual nexthop address and advertise it.
-//
-// An Advertisement is returned which may be passed to WithdrawPath to remove
-// this Advertisement.
+// A Path is returned which may be passed to WithdrawPath to stop advertising the Path.
 func (g *GoBGPServer) AdvertisePath(ctx context.Context, p types.PathRequest) (types.PathResponse, error) {
-	var err error
-	var path *gobgp.Path
-	var resp *gobgp.AddPathResponse
-	prefix := p.Advert.Prefix
-
-	origin, _ := apb.New(&gobgp.OriginAttribute{
-		Origin: 0,
-	})
-	switch {
-	case prefix.Addr().Is4():
-		nlri, _ := apb.New(&gobgp.IPAddressPrefix{
-			PrefixLen: uint32(prefix.Bits()),
-			Prefix:    prefix.Addr().String(),
-		})
-		// Currently, we only support advertising locally originated paths (the paths generated in Cilium
-		// node itself, not the paths received from another BGP Peer or redistributed from another routing
-		// protocol. In this case, the nexthop address should be the address used for peering. That means
-		// the nexthop address can be changed depending on the neighbor.
-		//
-		// For example, when the Cilium node is connected to two subnets 10.0.0.0/24 and 10.0.1.0/24 with
-		// local address 10.0.0.1 and 10.0.1.1 respectively, the nexthop should be advertised for 10.0.0.0/24
-		// peers is 10.0.0.1. On the other hand, we should advertise 10.0.1.1 as a nexthop for 10.0.1.0/24.
-		//
-		// Fortunately, GoBGP takes care of resolving appropriate nexthop address for each peers when we
-		// specify an zero IP address (0.0.0.0 for IPv4 and :: for IPv6). So, we can just rely on that.
-		//
-		// References:
-		// - RFC4271 Section 5.1.3 (NEXT_HOP)
-		// - RFC4760 Section 3 (Multiprotocol Reachable NLRI - MP_REACH_NLRI (Type Code 14))
-		nextHop, _ := apb.New(&gobgp.NextHopAttribute{
-			NextHop: "0.0.0.0",
-		})
-		path = &gobgp.Path{
-			Family: GoBGPIPv4Family,
-			Nlri:   nlri,
-			Pattrs: []*apb.Any{nextHop, origin},
-		}
-		resp, err = g.server.AddPath(ctx, &gobgp.AddPathRequest{
-			Path: path,
-		})
-	case prefix.Addr().Is6():
-		nlri, _ := apb.New(&gobgp.IPAddressPrefix{
-			PrefixLen: uint32(prefix.Bits()),
-			Prefix:    prefix.Addr().String(),
-		})
-		nlriAttrs, _ := apb.New(&gobgp.MpReachNLRIAttribute{ // MP BGP NLRI
-			Family: GoBGPIPv6Family,
-			// See the above explanation for IPv4
-			NextHops: []string{"::"},
-			Nlris:    []*apb.Any{nlri},
-		})
-		path = &gobgp.Path{
-			Family: GoBGPIPv6Family,
-			Nlri:   nlri,
-			Pattrs: []*apb.Any{nlriAttrs, origin},
-		}
-		resp, err = g.server.AddPath(ctx, &gobgp.AddPathRequest{
-			Path: path,
-		})
-	default:
-		return types.PathResponse{}, fmt.Errorf("unknown address family for prefix %s", prefix.String())
-	}
+	gobgpPath, err := ToGoBGPPath(p.Path)
 	if err != nil {
-		return types.PathResponse{}, err
+		return types.PathResponse{}, fmt.Errorf("failed converting Path to %v: %w", p.Path.NLRI, err)
 	}
+
+	resp, err := g.server.AddPath(ctx, &gobgp.AddPathRequest{Path: gobgpPath})
+	if err != nil {
+		return types.PathResponse{}, fmt.Errorf("failed adding Path to %v: %w", gobgpPath.Nlri, err)
+	}
+
+	agentPath, err := ToAgentPath(gobgpPath)
+	if err != nil {
+		return types.PathResponse{}, fmt.Errorf("failed converting Path to %v: %w", gobgpPath.Nlri, err)
+	}
+	agentPath.UUID = resp.Uuid
+
 	return types.PathResponse{
-		Advert: types.Advertisement{
-			Prefix:        prefix,
-			GoBGPPathUUID: resp.Uuid,
-		},
+		Path: agentPath,
 	}, err
 }
 
-// WithdrawPath withdraws an Advertisement produced by AdvertisePath from this
-// BgpServer.
+// WithdrawPath withdraws a Path produced by AdvertisePath from this BgpServer.
 func (g *GoBGPServer) WithdrawPath(ctx context.Context, p types.PathRequest) error {
 	err := g.server.DeletePath(ctx, &gobgp.DeletePathRequest{
-		Uuid: p.Advert.GoBGPPathUUID,
+		Uuid: p.Path.UUID,
 	})
 	return err
 }

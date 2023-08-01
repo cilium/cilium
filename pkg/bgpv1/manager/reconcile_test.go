@@ -479,14 +479,12 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			testSC.Config = oldc
 			for _, cidr := range tt.advertised {
 				advrtResp, err := testSC.Server.AdvertisePath(context.Background(), types.PathRequest{
-					Advert: types.Advertisement{
-						Prefix: cidr,
-					},
+					Path: types.NewPathForPrefix(cidr),
 				})
 				if err != nil {
 					t.Fatalf("failed to advertise initial pod cidr routes: %v", err)
 				}
-				testSC.PodCIDRAnnouncements = append(testSC.PodCIDRAnnouncements, advrtResp.Advert)
+				testSC.PodCIDRAnnouncements = append(testSC.PodCIDRAnnouncements, advrtResp.Path)
 			}
 
 			newc := &v2alpha1api.CiliumBGPVirtualRouter{
@@ -519,7 +517,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				prefix := netip.MustParsePrefix(cidr)
 				var seen bool
 				for _, advrt := range testSC.PodCIDRAnnouncements {
-					if advrt.Prefix == prefix {
+					if advrt.NLRI.String() == prefix.String() {
 						seen = true
 					}
 				}
@@ -533,7 +531,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			for _, advrt := range testSC.PodCIDRAnnouncements {
 				var seen bool
 				for _, cidr := range tt.updated {
-					if advrt.Prefix == netip.MustParsePrefix(cidr) {
+					if advrt.NLRI.String() == cidr {
 						seen = true
 					}
 				}
@@ -1124,15 +1122,13 @@ func TestLBServiceReconciler(t *testing.T) {
 				for _, cidr := range cidrs {
 					prefix := netip.MustParsePrefix(cidr)
 					advrtResp, err := testSC.Server.AdvertisePath(context.Background(), types.PathRequest{
-						Advert: types.Advertisement{
-							Prefix: prefix,
-						},
+						Path: types.NewPathForPrefix(prefix),
 					})
 					if err != nil {
 						t.Fatalf("failed to advertise initial svc lb cidr routes: %v", err)
 					}
 
-					testSC.ServiceAnnouncements[svcKey] = append(testSC.ServiceAnnouncements[svcKey], advrtResp.Advert)
+					testSC.ServiceAnnouncements[svcKey] = append(testSC.ServiceAnnouncements[svcKey], advrtResp.Path)
 				}
 			}
 
@@ -1185,7 +1181,7 @@ func TestLBServiceReconciler(t *testing.T) {
 					prefix := netip.MustParsePrefix(cidr)
 					var seen bool
 					for _, advrt := range testSC.ServiceAnnouncements[svcKey] {
-						if advrt.Prefix == prefix {
+						if advrt.NLRI.String() == prefix.String() {
 							seen = true
 						}
 					}
@@ -1201,7 +1197,7 @@ func TestLBServiceReconciler(t *testing.T) {
 				for _, advrt := range advrts {
 					var seen bool
 					for _, cidr := range tt.updated[svcKey] {
-						if advrt.Prefix == netip.MustParsePrefix(cidr) {
+						if advrt.NLRI.String() == cidr {
 							seen = true
 						}
 					}
