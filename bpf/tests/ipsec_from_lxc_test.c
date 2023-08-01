@@ -87,7 +87,7 @@ int ipv4_from_lxc_no_node_id_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(v4_pod_two, 0, 233, v4_node_two, ENCRYPT_KEY);
 
 	__u32 encrypt_key = 0;
-	struct encrypt_config encrypt_value = { .encrypt_key = 3 };
+	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY };
 
 	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
 
@@ -262,7 +262,7 @@ int ipv6_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 	ipcache_v6_add_entry((union v6addr *)v6_pod_two, 0, 233, v4_node_two, ENCRYPT_KEY);
 
 	__u32 encrypt_key = 0;
-	struct encrypt_config encrypt_value = { .encrypt_key = 3 };
+	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY };
 
 	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
 
