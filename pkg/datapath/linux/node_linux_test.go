@@ -4,6 +4,7 @@
 package linux
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
@@ -751,6 +753,67 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateIDs(c *check.C) {
 	nodeID6, err := nodeMap.Lookup(nodeIP3)
 	c.Assert(err, check.IsNil)
 	c.Assert(nodeID5, check.Equals, nodeID6)
+}
+
+// Tests that we don't leak XFRM policies and states as nodes come and go.
+func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(c *check.C) {
+	keys := bytes.NewReader([]byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
+	_, _, err := ipsec.LoadIPSecKeys(keys)
+	c.Assert(err, check.IsNil)
+
+	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
+	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing, nodemapfake.NewFakeNodeMap())
+	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
+
+	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
+		EnableIPv4:  s.enableIPv4,
+		EnableIPv6:  s.enableIPv6,
+		EnableIPSec: true,
+	})
+	c.Assert(err, check.IsNil)
+
+	// Adding a node adds some XFRM states and policies.
+	node := nodeTypes.Node{
+		Name: "node",
+		IPAddresses: []nodeTypes.Address{
+			{IP: net.ParseIP("4.4.4.4"), Type: nodeaddressing.NodeCiliumInternalIP},
+			{IP: net.ParseIP("2001:aaaa::1"), Type: nodeaddressing.NodeCiliumInternalIP},
+		},
+		IPv4AllocCIDR: cidr.MustParseCIDR("4.4.4.0/24"),
+		IPv6AllocCIDR: cidr.MustParseCIDR("2001:aaaa::/96"),
+	}
+	err = linuxNodeHandler.NodeAdd(node)
+	c.Assert(err, check.IsNil)
+
+	states, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	c.Assert(err, check.IsNil)
+	c.Assert(len(states), check.Not(check.Equals), 0)
+	policies, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	c.Assert(err, check.IsNil)
+	c.Assert(countXFRMPolicies(policies), check.Not(check.Equals), 0)
+
+	// Removing the node removes those XFRM states and policies.
+	err = linuxNodeHandler.NodeDelete(node)
+	c.Assert(err, check.IsNil)
+
+	states, err = netlink.XfrmStateList(netlink.FAMILY_ALL)
+	c.Assert(err, check.IsNil)
+	c.Assert(len(states), check.Equals, 0)
+	policies, err = netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	c.Assert(err, check.IsNil)
+	c.Assert(countXFRMPolicies(policies), check.Equals, 0)
+}
+
+// Counts the number of XFRM policies excluding the catch-all default-drop one.
+// That one is always installed and shouldn't be removed.
+func countXFRMPolicies(policies []netlink.XfrmPolicy) int {
+	nbPolicies := 0
+	for _, policy := range policies {
+		if policy.Action != netlink.XFRM_POLICY_BLOCK {
+			nbPolicies++
+		}
+	}
+	return nbPolicies
 }
 
 func lookupDirectRoute(CIDR *cidr.CIDR, nodeIP net.IP) ([]netlink.Route, error) {
