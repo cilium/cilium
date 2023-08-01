@@ -99,7 +99,7 @@ jobs:
           default-ingress-controller: true
 
     steps:
-      - name: Checkout context ref
+      - name: Checkout context ref (trusted)
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ inputs.context-ref || github.sha }}
@@ -142,7 +142,9 @@ jobs:
             --helm-set=extraConfig.bpf-lb-acceleration=${{ matrix.bpf-lb-acceleration }}"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
 
-      - name: Checkout
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ steps.vars.outputs.sha }}
