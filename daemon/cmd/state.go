@@ -444,48 +444,45 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
 func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struct{} {
 	bootstrapStats.restore.Start()
 	var restoreComplete chan struct{}
-	var clusterSyncComplete chan struct{}
 	if option.Config.RestoreState {
 		// When we regenerate restored endpoints, it is guaranteed tha we have
 		// received the full list of policies present at the time the daemon
 		// is bootstrapped.
 		restoreComplete = d.regenerateRestoredEndpoints(restoredEndpoints)
-		if d.clientset.IsEnabled() {
-			d.jobGroup.Add(
-				job.OneShot("setup-sync-lb-maps", func(ctx context.Context) error {
-					clusterSyncComplete = make(chan struct{})
-					// Also wait for all cluster mesh to be synchronized with the
-					// datapath before proceeding.
-					if d.clustermesh != nil {
-						err := d.clustermesh.ClustersSynced(d.ctx)
-						if err != nil {
-							log.WithError(err).Fatal("timeout while waiting for all clusters to be locally synchronized")
-						}
-						log.Debug("all clusters have been correctly synchronized locally")
-					}
-					close(clusterSyncComplete)
-					return nil
-				}),
-				// Start a job which removes any leftover Kubernetes
-				// services that may have been deleted while Cilium was not
-				// running. Since this is a OneShot job, it will not run again unless
-				// updated elsewhere. This means that if, for instance, a user manually
-				// adds a service via the CLI into the BPF maps, that it will
-				// not be cleaned up by the daemon until it restarts.
-				job.OneShot(
-					"sync-lb-maps-with-k8s-services",
-					func(ctx context.Context) error {
-						<-clusterSyncComplete
-						return d.svc.SyncWithK8sFinished(d.k8sWatcher.K8sSvcCache.EnsureService)
-					},
-					job.WithRetry(syncLBMapJobRetyCount, workqueue.DefaultControllerRateLimiter()),
-				),
-			)
-		}
+		// Sync leftover kubernetes services
+		d.syncLBMaps()
 	} else {
 		log.Info("State restore is disabled. Existing endpoints on node are ignored")
 	}
 	bootstrapStats.restore.End(true)
 
 	return restoreComplete
+}
+
+func (d *Daemon) syncLBMaps() {
+	if d.clientset.IsEnabled() {
+		return
+	}
+	d.jobGroup.Add(
+		job.OneShot("sync-lb-maps-with-k8s-services", func(ctx context.Context) error {
+			// wait for all cluster mesh to be synchronized with the
+			// datapath before proceeding.
+			if d.clustermesh != nil {
+				err := d.clustermesh.ClustersSynced(d.ctx)
+				if err != nil {
+					log.WithError(err).Fatal("timeout while waiting for all clusters to be locally synchronized")
+				}
+				log.Debug("all clusters have been correctly synchronized locally")
+			}
+			// Remove any leftover Kubernetes services
+			// that may have been deleted while Cilium was not
+			// running. Since this is a OneShot job, it will not run again unless
+			// updated elsewhere. This means that if, for instance, a user manually
+			// adds a service via the CLI into the BPF maps, that it will
+			// not be cleaned up by the daemon until it restarts.
+			return d.svc.SyncWithK8sFinished(d.k8sWatcher.K8sSvcCache.EnsureService)
+		},
+			job.WithRetry(syncLBMapJobRetyCount, workqueue.DefaultControllerRateLimiter()),
+		),
+	)
 }

@@ -732,7 +732,4 @@ const (
 
 	// State is the state of an individual component (apiserver, kvstore etc)
 	State = "state"
-
-	// JobName is the name of the job
-	JobName = "jobName"
 )

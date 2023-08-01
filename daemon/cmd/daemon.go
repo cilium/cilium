@@ -105,8 +105,6 @@ const (
 	ConfigModifyQueueSize = 10
 
 	syncHostIPsController = "sync-host-ips"
-
-	daemonJobs = "daemon-jobs"
 )
 
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
@@ -518,8 +516,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	jobGroup := params.JobRegistry.NewGroup(
-		job.WithLogger(log.WithField(logfields.JobName, daemonJobs)),
+		job.WithLogger(log),
 	)
+	params.Lifecycle.Append(jobGroup)
 
 	d := Daemon{
 		ctx:               ctx,
