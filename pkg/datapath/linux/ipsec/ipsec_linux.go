@@ -83,7 +83,7 @@ var (
 
 	// ipSecKeysGlobal can be accessed by multiple subsystems concurrently,
 	// so it should be accessed only through the getIPSecKeys and
-	// loadIPSecKeys functions, which will ensure the proper lock is held
+	// LoadIPSecKeys functions, which will ensure the proper lock is held
 	ipSecKeysGlobal = make(map[string]*ipSecKey)
 
 	// ipSecCurrentKeySPI is the SPI of the IPSec currently in use
@@ -761,10 +761,10 @@ func LoadIPSecKeysFile(path string) (int, uint8, error) {
 		return 0, 0, err
 	}
 	defer file.Close()
-	return loadIPSecKeys(file)
+	return LoadIPSecKeys(file)
 }
 
-func loadIPSecKeys(r io.Reader) (int, uint8, error) {
+func LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 	var spi uint8
 	var keyLen int
 
