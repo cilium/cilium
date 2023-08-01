@@ -213,7 +213,7 @@ jobs:
 
     timeout-minutes: 60
     steps:
-      - name: Checkout context ref
+      - name: Checkout context ref (trusted)
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ inputs.context-ref || github.sha }}
