@@ -259,7 +259,52 @@ int ipv4_from_lxc_new_local_key_check(__maybe_unused const struct __ctx_buff *ct
 	test_finish();
 }
 
-PKTGEN("tc", "04_ipv6_from_lxc_encrypt")
+PKTGEN("tc", "04_ipv4_from_lxc_new_remote_key")
+int ipv4_from_lxc_new_remote_key_pktgen(struct __ctx_buff *ctx)
+{
+	return pktgen_from_lxc(ctx);
+}
+
+SETUP("tc", "04_ipv4_from_lxc_new_remote_key")
+int ipv4_from_lxc_new_remote_key_setup(struct __ctx_buff *ctx)
+{
+	/* The new key is configured on the destination node but not yet locally.
+	 */
+	ipcache_v4_add_entry(v4_pod_two, 0, 233, v4_node_two, ENCRYPT_KEY + 1);
+
+	__u32 encrypt_key = 0;
+	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY };
+
+	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
+
+	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
+	return TEST_ERROR;
+}
+
+CHECK("tc", "04_ipv4_from_lxc_new_remote_key")
+int ipv4_from_lxc_new_remote_key_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(*status_code) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_OK);
+	assert(ctx->mark == (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
+	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL);
+
+	test_finish();
+}
+
+PKTGEN("tc", "05_ipv6_from_lxc_encrypt")
 int ipv6_from_lxc_encrypt_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -294,7 +339,7 @@ int ipv6_from_lxc_encrypt_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "04_ipv6_from_lxc_encrypt")
+SETUP("tc", "05_ipv6_from_lxc_encrypt")
 int ipv6_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 {
 	struct policy_key policy_key = { .egress = 1 };
@@ -320,7 +365,7 @@ int ipv6_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "04_ipv6_from_lxc_encrypt")
+CHECK("tc", "05_ipv6_from_lxc_encrypt")
 int ipv6_from_lxc_encrypt_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
