@@ -6,6 +6,8 @@ package sysdump
 import (
 	"runtime"
 	"time"
+
+	"github.com/cilium/cilium-cli/defaults"
 )
 
 const (
@@ -41,6 +43,7 @@ const (
 	DefaultTetragonCLICommand                = "tetra"
 	DefaultTetragonTracingPolicy             = "tetragontracingpolicy-<ts>.yaml"
 	DefaultTetragonTracingPolicyNamespaced   = "tetragontracingpolicynamespaced-<ts>.yaml"
+	DefaultCiliumHelmReleaseName             = defaults.HelmReleaseName
 )
 
 var (
