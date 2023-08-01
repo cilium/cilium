@@ -344,7 +344,9 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	// Any code that relies on sysctl settings being applied needs to be called after this.
-	sysctl.ApplySettings(sysSettings)
+	if err := sysctl.ApplySettings(sysSettings); err != nil {
+		return err
+	}
 
 	// add internal ipv4 and ipv6 addresses to cilium_host
 	if err := addHostDeviceAddr(hostDev1, nodeIPv4, nodeIPv6); err != nil {
