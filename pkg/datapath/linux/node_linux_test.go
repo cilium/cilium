@@ -197,10 +197,10 @@ func removeDevice(name string) {
 
 func (s *linuxPrivilegedBaseTestSuite) TestUpdateNodeRoute(c *check.C) {
 	ip4CIDR := cidr.MustParseCIDR("254.254.254.0/24")
-	c.Assert(ip4CIDR, check.Not(check.IsNil))
+	c.Assert(ip4CIDR, check.IsNil)
 
 	ip6CIDR := cidr.MustParseCIDR("cafe:cafe:cafe:cafe::/96")
-	c.Assert(ip6CIDR, check.Not(check.IsNil))
+	c.Assert(ip6CIDR, check.IsNil)
 
 	dpConfig := DatapathConfiguration{HostDevice: dummyHostDeviceName}
 
