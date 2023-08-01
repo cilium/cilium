@@ -21,7 +21,7 @@ import (
 func NoErrorsInLogs(ciliumVersion semver.Version) check.Scenario {
 	// Exceptions for level=error should only be added as a last resort, if the
 	// error cannot be fixed in Cilium or in the test.
-	errorLogExceptions := []string{"Error in delegate stream, restarting", failedToListCRDs}
+	errorLogExceptions := []string{"Error in delegate stream, restarting", failedToListCRDs, removeInexistentID}
 	if ciliumVersion.LT(semver.MustParse("1.14.0")) {
 		errorLogExceptions = append(errorLogExceptions, previouslyUsedCIDR)
 	}
@@ -165,6 +165,7 @@ const (
 	uninitializedRegen  = "Uninitialized regeneration level"                         // from https://github.com/cilium/cilium/pull/10949
 	unstableStat        = "BUG: stat() has unstable behavior"                        // from https://github.com/cilium/cilium/pull/11028
 	removeTransientRule = "Unable to process chain CILIUM_TRANSIENT_FORWARD with ip" // from https://github.com/cilium/cilium/issues/11276
+	removeInexistentID  = "removing identity not added to the identity manager!"     // from https://github.com/cilium/cilium/issues/16419
 	missingIptablesWait = "Missing iptables wait arg (-w):"
 	localIDRestoreFail  = "Could not restore all CIDR identities" // from https://github.com/cilium/cilium/pull/19556
 	routerIPMismatch    = "Mismatch of router IPs found during restoration"
