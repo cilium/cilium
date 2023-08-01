@@ -18,6 +18,9 @@ triggers:
   /ci-multicluster:
     workflows:
     - conformance-clustermesh.yaml
+  /ci-e2e:
+    workflows:
+    - conformance-e2e.yaml
   /ci-eks:
     workflows:
     - conformance-eks.yaml
@@ -37,6 +40,8 @@ workflows:
   conformance-aws-cni.yaml:
     paths-ignore-regex: (test|Documentation)/
   conformance-clustermesh.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-e2e.yaml:
     paths-ignore-regex: (test|Documentation)/
   conformance-eks.yaml:
     paths-ignore-regex: (test|Documentation)/
