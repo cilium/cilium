@@ -643,6 +643,38 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 // Tests that we don't leak XFRM policies and states as nodes come and go.
 func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(c *check.C) {
+	externalNodeDevice := "ipsec_interface"
+
+	// Cover the XFRM configuration for IPAM modes cluster-pool, kubernetes, etc.
+	config := datapath.LocalNodeConfiguration{
+		EnableIPv4:  s.enableIPv4,
+		EnableIPv6:  s.enableIPv6,
+		EnableIPSec: true,
+	}
+	//s.testNodeChurnXFRMLeaksWithConfig(c, config)
+
+	// In the case of subnet encryption (tested below), the IPsec logic
+	// retrieves the IP address of the encryption interface directly so we need
+	// a dummy interface.
+	removeDevice(externalNodeDevice)
+	err := setupDummyDevice(externalNodeDevice, net.ParseIP("1.1.1.1"), net.ParseIP("face::1"))
+	c.Assert(err, check.IsNil)
+	defer removeDevice(externalNodeDevice)
+	option.Config.EncryptInterface = []string{externalNodeDevice}
+
+	// Cover the XFRM configuration for subnet encryption: IPAM modes AKS and EKS.
+	_, ipv4PodSubnets, err := net.ParseCIDR("4.4.0.0/16")
+	c.Assert(err, check.IsNil)
+	c.Assert(ipv4PodSubnets, check.Not(check.IsNil))
+	config.IPv4PodSubnets = []*net.IPNet{ipv4PodSubnets}
+	_, ipv6PodSubnets, err := net.ParseCIDR("2001:aaaa::/64")
+	c.Assert(err, check.IsNil)
+	c.Assert(ipv6PodSubnets, check.Not(check.IsNil))
+	config.IPv6PodSubnets = []*net.IPNet{ipv6PodSubnets}
+	s.testNodeChurnXFRMLeaksWithConfig(c, config)
+}
+
+func (s *linuxPrivilegedBaseTestSuite) testNodeChurnXFRMLeaksWithConfig(c *check.C, config datapath.LocalNodeConfiguration) {
 	keys := bytes.NewReader([]byte("6 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"))
 	_, _, err := ipsec.LoadIPSecKeys(keys)
 	c.Assert(err, check.IsNil)
@@ -651,11 +683,7 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(c *check.C) {
 	linuxNodeHandler := NewNodeHandler(dpConfig, s.nodeAddressing)
 	c.Assert(linuxNodeHandler, check.Not(check.IsNil))
 
-	err = linuxNodeHandler.NodeConfigurationChanged(datapath.LocalNodeConfiguration{
-		EnableIPv4:  s.enableIPv4,
-		EnableIPv6:  s.enableIPv6,
-		EnableIPSec: true,
-	})
+	err = linuxNodeHandler.NodeConfigurationChanged(config)
 	c.Assert(err, check.IsNil)
 
 	// Adding a node adds some XFRM states and policies.
