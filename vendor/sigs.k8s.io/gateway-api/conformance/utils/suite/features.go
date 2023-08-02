@@ -137,6 +137,9 @@ const (
 
 	// This option indicates support for HTTPRoute path rewrite (experimental conformance)
 	SupportHTTPRoutePathRewrite SupportedFeature = "HTTPRoutePathRewrite"
+
+	// This option indicates support for HTTPRoute request mirror (extended conformance).
+	SupportHTTPRouteRequestMirror SupportedFeature = "HTTPRouteRequestMirror"
 )
 
 // HTTPExtendedFeatures includes all the supported features for HTTPRoute
@@ -151,6 +154,7 @@ var HTTPExtendedFeatures = sets.New(
 	SupportHTTPRoutePathRedirect,
 	SupportHTTPRouteHostRewrite,
 	SupportHTTPRoutePathRewrite,
+	SupportHTTPRouteRequestMirror,
 ).Insert(HTTPCoreFeatures.UnsortedList()...)
 
 // -----------------------------------------------------------------------------
