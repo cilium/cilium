@@ -84,6 +84,68 @@ var HTTPRouteQueryParamMatching = suite.ConformanceTest{
 			Response: http.Response{StatusCode: 404},
 		}}
 
+		// Combinations of query param matching with other core matches.
+		testCases = append(testCases, []http.ExpectedResponse{
+			{
+				Request:   http.Request{Path: "/path1?animal=whale"},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
+			},
+			{
+				Request:   http.Request{Headers: map[string]string{"version": "one"}, Path: "/?animal=whale"},
+				Backend:   "infra-backend-v2",
+				Namespace: ns,
+			},
+			{
+				Request:   http.Request{Headers: map[string]string{"version": "two"}, Path: "/path2?animal=whale"},
+				Backend:   "infra-backend-v3",
+				Namespace: ns,
+			},
+		}...)
+
+		// Ensure that combinations of matches which are OR'd together match
+		// even if only one of them is used in the request.
+		testCases = append(testCases, []http.ExpectedResponse{
+			{
+				Request:   http.Request{Path: "/path3?animal=shark"},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
+			},
+			{
+				Request:   http.Request{Headers: map[string]string{"version": "three"}, Path: "/path4?animal=kraken"},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
+			},
+		}...)
+
+		// Ensure that combinations of match types which are ANDed together do not match
+		// when only a subset of match types is used in the request.
+		testCases = append(testCases, []http.ExpectedResponse{
+			{
+				Request:  http.Request{Path: "/?animal=shark"},
+				Response: http.Response{StatusCode: 404},
+			},
+			{
+				Request:  http.Request{Path: "/path4?animal=kraken"},
+				Response: http.Response{StatusCode: 404},
+			},
+		}...)
+
+		// For requests that satisfy multiple matches, ensure precedence order
+		// defined by the Gateway API spec is maintained.
+		testCases = append(testCases, []http.ExpectedResponse{
+			{
+				Request:   http.Request{Path: "/path5?animal=hydra"},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
+			},
+			{
+				Request:   http.Request{Headers: map[string]string{"version": "four"}, Path: "/?animal=hydra"},
+				Backend:   "infra-backend-v3",
+				Namespace: ns,
+			},
+		}...)
+
 		for i := range testCases {
 			tc := testCases[i]
 			t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
