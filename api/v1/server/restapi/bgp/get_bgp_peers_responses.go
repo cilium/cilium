@@ -63,3 +63,89 @@ func (o *GetBgpPeersOK) WriteResponse(rw http.ResponseWriter, producer runtime.P
 		panic(err) // let the recovery middleware deal with this
 	}
 }
+
+// GetBgpPeersInternalServerErrorCode is the HTTP code returned for type GetBgpPeersInternalServerError
+const GetBgpPeersInternalServerErrorCode int = 500
+
+/*
+GetBgpPeersInternalServerError Internal Server Error
+
+swagger:response getBgpPeersInternalServerError
+*/
+type GetBgpPeersInternalServerError struct {
+
+	/*
+	  In: Body
+	*/
+	Payload models.Error `json:"body,omitempty"`
+}
+
+// NewGetBgpPeersInternalServerError creates GetBgpPeersInternalServerError with default headers values
+func NewGetBgpPeersInternalServerError() *GetBgpPeersInternalServerError {
+
+	return &GetBgpPeersInternalServerError{}
+}
+
+// WithPayload adds the payload to the get bgp peers internal server error response
+func (o *GetBgpPeersInternalServerError) WithPayload(payload models.Error) *GetBgpPeersInternalServerError {
+	o.Payload = payload
+	return o
+}
+
+// SetPayload sets the payload to the get bgp peers internal server error response
+func (o *GetBgpPeersInternalServerError) SetPayload(payload models.Error) {
+	o.Payload = payload
+}
+
+// WriteResponse to the client
+func (o *GetBgpPeersInternalServerError) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.WriteHeader(500)
+	payload := o.Payload
+	if err := producer.Produce(rw, payload); err != nil {
+		panic(err) // let the recovery middleware deal with this
+	}
+}
+
+// GetBgpPeersDisabledCode is the HTTP code returned for type GetBgpPeersDisabled
+const GetBgpPeersDisabledCode int = 501
+
+/*
+GetBgpPeersDisabled BGP Control Plane disabled
+
+swagger:response getBgpPeersDisabled
+*/
+type GetBgpPeersDisabled struct {
+
+	/*
+	  In: Body
+	*/
+	Payload models.Error `json:"body,omitempty"`
+}
+
+// NewGetBgpPeersDisabled creates GetBgpPeersDisabled with default headers values
+func NewGetBgpPeersDisabled() *GetBgpPeersDisabled {
+
+	return &GetBgpPeersDisabled{}
+}
+
+// WithPayload adds the payload to the get bgp peers disabled response
+func (o *GetBgpPeersDisabled) WithPayload(payload models.Error) *GetBgpPeersDisabled {
+	o.Payload = payload
+	return o
+}
+
+// SetPayload sets the payload to the get bgp peers disabled response
+func (o *GetBgpPeersDisabled) SetPayload(payload models.Error) {
+	o.Payload = payload
+}
+
+// WriteResponse to the client
+func (o *GetBgpPeersDisabled) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.WriteHeader(501)
+	payload := o.Payload
+	if err := producer.Produce(rw, payload); err != nil {
+		panic(err) // let the recovery middleware deal with this
+	}
+}

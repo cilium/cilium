@@ -51,6 +51,19 @@ func init() {
                 "$ref": "#/definitions/BgpPeer"
               }
             }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "501": {
+            "description": "BGP Control Plane disabled",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Disabled"
           }
         }
       }
@@ -94,6 +107,13 @@ func init() {
             "schema": {
               "$ref": "#/definitions/Error"
             }
+          },
+          "501": {
+            "description": "BGP Control Plane disabled",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Disabled"
           }
         }
       }
@@ -5105,6 +5125,19 @@ func init() {
                 "$ref": "#/definitions/BgpPeer"
               }
             }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "501": {
+            "description": "BGP Control Plane disabled",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Disabled"
           }
         }
       }
@@ -5171,6 +5204,13 @@ func init() {
             "schema": {
               "$ref": "#/definitions/Error"
             }
+          },
+          "501": {
+            "description": "BGP Control Plane disabled",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Disabled"
           }
         }
       }

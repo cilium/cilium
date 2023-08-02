@@ -106,3 +106,46 @@ func (o *GetBgpRoutesInternalServerError) WriteResponse(rw http.ResponseWriter, 
 		panic(err) // let the recovery middleware deal with this
 	}
 }
+
+// GetBgpRoutesDisabledCode is the HTTP code returned for type GetBgpRoutesDisabled
+const GetBgpRoutesDisabledCode int = 501
+
+/*
+GetBgpRoutesDisabled BGP Control Plane disabled
+
+swagger:response getBgpRoutesDisabled
+*/
+type GetBgpRoutesDisabled struct {
+
+	/*
+	  In: Body
+	*/
+	Payload models.Error `json:"body,omitempty"`
+}
+
+// NewGetBgpRoutesDisabled creates GetBgpRoutesDisabled with default headers values
+func NewGetBgpRoutesDisabled() *GetBgpRoutesDisabled {
+
+	return &GetBgpRoutesDisabled{}
+}
+
+// WithPayload adds the payload to the get bgp routes disabled response
+func (o *GetBgpRoutesDisabled) WithPayload(payload models.Error) *GetBgpRoutesDisabled {
+	o.Payload = payload
+	return o
+}
+
+// SetPayload sets the payload to the get bgp routes disabled response
+func (o *GetBgpRoutesDisabled) SetPayload(payload models.Error) {
+	o.Payload = payload
+}
+
+// WriteResponse to the client
+func (o *GetBgpRoutesDisabled) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
+
+	rw.WriteHeader(501)
+	payload := o.Payload
+	if err := producer.Produce(rw, payload); err != nil {
+		panic(err) // let the recovery middleware deal with this
+	}
+}
