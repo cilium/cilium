@@ -43,7 +43,7 @@ func NewMockIdentityAllocator(c cache.IdentityCache) *MockIdentityAllocator {
 		IdentityCache: c,
 
 		currentID:        1000,
-		localID:          int(identity.LocalIdentityFlag),
+		localID:          int(identity.IdentityScopeLocal),
 		ipToIdentity:     make(map[string]int),
 		idToIdentity:     make(map[int]*identity.Identity),
 		labelsToIdentity: make(map[string]int),

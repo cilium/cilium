@@ -11,6 +11,9 @@ static __always_inline bool identity_in_range(__u32 identity, __u32 range_start,
 	return range_start <= identity && identity <= range_end;
 }
 
+#define IDENTITY_SCOPE_MASK 0xFF000000
+#define IDENTITY_SCOPE_REMOTE_NODE 0x02000000
+
 static __always_inline bool identity_is_remote_node(__u32 identity)
 {
 	/* KUBE_APISERVER_NODE_ID is the reserved identity that corresponds to
@@ -23,12 +26,18 @@ static __always_inline bool identity_is_remote_node(__u32 identity)
 	 * identities. But for now, this is good enough to capture the notion
 	 * of 'remote nodes in the cluster' for routing decisions.
 	 *
+	 * Remote nodes may also have, instead, an identity allocated from the
+	 * remote node identity scope, which is identified by the top 8 bits
+	 * being 0x02.
+	 *
 	 * Note that kube-apiserver policy is handled entirely separately by
 	 * the standard policymap enforcement logic and has no relationship to
 	 * the identity as used here. If the apiserver is outside the cluster,
 	 * then the KUBE_APISERVER_NODE_ID case should not ever be hit.
 	 */
-	return identity == REMOTE_NODE_ID || identity == KUBE_APISERVER_NODE_ID;
+	return identity == REMOTE_NODE_ID ||
+		identity == KUBE_APISERVER_NODE_ID ||
+		(identity & IDENTITY_SCOPE_MASK) == IDENTITY_SCOPE_REMOTE_NODE;
 }
 
 static __always_inline bool identity_is_node(__u32 identity)

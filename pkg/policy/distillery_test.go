@@ -42,7 +42,7 @@ var (
 )
 
 func localIdentity(n uint32) identity.NumericIdentity {
-	return identity.NumericIdentity(n) | identity.LocalIdentityFlag
+	return identity.NumericIdentity(n) | identity.IdentityScopeLocal
 
 }
 func (s *DistilleryTestSuite) TestCacheManagement(c *C) {

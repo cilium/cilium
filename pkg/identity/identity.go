@@ -180,18 +180,26 @@ func (pair *IPIdentityPair) PrefixString() string {
 // RequiresGlobalIdentity returns true if the label combination requires a
 // global identity
 func RequiresGlobalIdentity(lbls labels.Labels) bool {
-	needsGlobal := true
+	return ScopeForLabels(lbls) == IdentityScopeGlobal
+}
+
+// ScopeForLabels returns the identity scope to be used for the label set.
+// If all labels are either CIDR or reserved, then returns the CIDR scope.
+// Note: This assumes the caller has already called LookupReservedIdentityByLabels;
+// it does not handle that case.
+func ScopeForLabels(lbls labels.Labels) NumericIdentity {
+	scope := IdentityScopeGlobal
 
 	for _, label := range lbls {
 		switch label.Source {
 		case labels.LabelSourceCIDR, labels.LabelSourceReserved:
-			needsGlobal = false
+			scope = IdentityScopeLocal
 		default:
-			return true
+			return IdentityScopeGlobal
 		}
 	}
 
-	return needsGlobal
+	return scope
 }
 
 // AddUserDefinedNumericIdentitySet adds all key-value pairs from the given map

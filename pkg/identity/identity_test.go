@@ -81,6 +81,64 @@ func (s *IdentityTestSuite) TestRequiresGlobalIdentity(c *C) {
 	c.Assert(RequiresGlobalIdentity(labels.NewLabelsFromModel([]string{"k8s:foo=bar"})), Equals, true)
 }
 
+func (s *IdentityTestSuite) TestScopeForLabels(c *C) {
+	tests := []struct {
+		lbls  labels.Labels
+		scope NumericIdentity
+	}{
+		{
+			lbls:  cidr.GetCIDRLabels(netip.MustParsePrefix("0.0.0.0/0")),
+			scope: IdentityScopeLocal,
+		},
+		{
+			lbls:  cidr.GetCIDRLabels(netip.MustParsePrefix("192.168.23.0/24")),
+			scope: IdentityScopeLocal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"k8s:foo=bar"}),
+			scope: IdentityScopeGlobal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"reserved:world"}),
+			scope: IdentityScopeGlobal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"reserved:unmanaged"}),
+			scope: IdentityScopeGlobal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"reserved:health"}),
+			scope: IdentityScopeGlobal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"reserved:init"}),
+			scope: IdentityScopeGlobal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"reserved:ingress"}),
+			scope: IdentityScopeGlobal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"reserved:remote-node"}),
+			scope: IdentityScopeGlobal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"reserved:remote-node", "reserved:kube-apiserver"}),
+			scope: IdentityScopeGlobal,
+		},
+	}
+
+	for i, test := range tests {
+		// ScopeForLabels requires this to return nil
+		id := LookupReservedIdentityByLabels(test.lbls)
+		if id != nil {
+			continue
+		}
+		scope := ScopeForLabels(test.lbls)
+		c.Assert(scope, Equals, test.scope, Commentf("%d / labels %s", i, test.lbls.String()))
+	}
+}
+
 func (s *IdentityTestSuite) TestNewIdentityFromLabelArray(c *C) {
 	id := NewIdentityFromLabelArray(NumericIdentity(1001),
 		labels.NewLabelArrayFromSortedList("unspec:a=;unspec:b;unspec:c=d"))
