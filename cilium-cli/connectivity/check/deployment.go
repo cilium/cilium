@@ -389,24 +389,28 @@ func newIngress() *networkingv1.Ingress {
 
 // deploy ensures the test Namespace, Services and Deployments are running on the cluster.
 func (ct *ConnectivityTest) deploy(ctx context.Context) error {
-	if ct.params.ForceDeploy {
-		if err := ct.deleteDeployments(ctx, ct.clients.src); err != nil {
-			return err
-		}
-	}
+	var err error
 
-	_, err := ct.clients.src.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
-	if err != nil {
-		ct.Logf("✨ [%s] Creating namespace %s for connectivity check...", ct.clients.src.ClusterName(), ct.params.TestNamespace)
-		namespace := &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        ct.params.TestNamespace,
-				Annotations: ct.params.NamespaceAnnotations,
-			},
+	for _, client := range ct.Clients() {
+		if ct.params.ForceDeploy {
+			if err := ct.deleteDeployments(ctx, client); err != nil {
+				return err
+			}
 		}
-		_, err = ct.clients.src.CreateNamespace(ctx, namespace, metav1.CreateOptions{})
+
+		_, err := client.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
 		if err != nil {
-			return fmt.Errorf("unable to create namespace %s: %s", ct.params.TestNamespace, err)
+			ct.Logf("✨ [%s] Creating namespace %s for connectivity check...", client.ClusterName(), ct.params.TestNamespace)
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        ct.params.TestNamespace,
+					Annotations: ct.params.NamespaceAnnotations,
+				},
+			}
+			_, err = client.CreateNamespace(ctx, namespace, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("unable to create namespace %s: %w", ct.params.TestNamespace, err)
+			}
 		}
 	}
 
@@ -672,29 +676,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			_, err = ct.clients.dst.CreateDeployment(ctx, ct.params.TestNamespace, testConnDisruptClientDeployment, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to create deployment %s: %w", testConnDisruptClientDeployment, err)
-			}
-		}
-	}
-
-	if ct.params.MultiCluster != "" {
-		if ct.params.ForceDeploy {
-			if err := ct.deleteDeployments(ctx, ct.clients.dst); err != nil {
-				return err
-			}
-		}
-
-		_, err = ct.clients.dst.GetNamespace(ctx, ct.params.TestNamespace, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Creating namespace %s for connectivity check...", ct.clients.dst.ClusterName(), ct.params.TestNamespace)
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        ct.params.TestNamespace,
-					Annotations: ct.params.NamespaceAnnotations,
-				},
-			}
-			_, err = ct.clients.dst.CreateNamespace(ctx, namespace, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create namespace %s: %s", ct.params.TestNamespace, err)
 			}
 		}
 	}
