@@ -20,6 +20,11 @@ type authMap interface {
 	All() (map[authKey]authInfo, error)
 }
 
+type authMapCacher interface {
+	authMap
+	GetCacheInfo(key authKey) (authInfoCache, error)
+}
+
 type authKey struct {
 	localIdentity  identity.NumericIdentity
 	remoteIdentity identity.NumericIdentity
@@ -33,6 +38,11 @@ func (r authKey) String() string {
 
 type authInfo struct {
 	expiration time.Time
+}
+
+type authInfoCache struct {
+	authInfo
+	storedAt time.Time
 }
 
 func (r authInfo) String() string {

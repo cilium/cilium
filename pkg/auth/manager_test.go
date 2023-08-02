@@ -26,7 +26,7 @@ func Test_newAuthManager_clashingAuthHandlers(t *testing.T) {
 		&alwaysFailAuthHandler{},
 	}
 
-	am, err := newAuthManager(logrus.New(), authHandlers, nil, nil)
+	am, err := newAuthManager(logrus.New(), authHandlers, nil, nil, time.Second)
 	assert.ErrorContains(t, err, "multiple handlers for auth type: test-always-fail")
 	assert.Nil(t, am)
 }
@@ -37,7 +37,7 @@ func Test_newAuthManager(t *testing.T) {
 		&fakeAuthHandler{},
 	}
 
-	am, err := newAuthManager(logrus.New(), authHandlers, nil, nil)
+	am, err := newAuthManager(logrus.New(), authHandlers, nil, nil, time.Second)
 	assert.NoError(t, err)
 	assert.NotNil(t, am)
 
@@ -99,6 +99,7 @@ func Test_authManager_authenticate(t *testing.T) {
 					2: "172.18.0.2",
 					3: "172.18.0.3",
 				}),
+				time.Second,
 			)
 
 			assert.NoError(t, err)
@@ -114,7 +115,7 @@ func Test_authManager_authenticate(t *testing.T) {
 func Test_authManager_handleAuthRequest(t *testing.T) {
 	authHandlers := []authHandler{newAlwaysPassAuthHandler(logrus.New())}
 
-	am, err := newAuthManager(logrus.New(), authHandlers, nil, nil)
+	am, err := newAuthManager(logrus.New(), authHandlers, nil, nil, time.Second)
 	assert.NoError(t, err)
 	assert.NotNil(t, am)
 
@@ -136,7 +137,7 @@ func Test_authManager_handleCertificateRotationEvent_Error(t *testing.T) {
 		failGet: true,
 	}
 
-	am, err := newAuthManager(logrus.New(), authHandlers, aMap, nil)
+	am, err := newAuthManager(logrus.New(), authHandlers, aMap, nil, time.Second)
 	assert.NoError(t, err)
 	assert.NotNil(t, am)
 
@@ -154,7 +155,7 @@ func Test_authManager_handleCertificateRotationEvent(t *testing.T) {
 		},
 	}
 
-	am, err := newAuthManager(logrus.New(), authHandlers, aMap, nil)
+	am, err := newAuthManager(logrus.New(), authHandlers, aMap, nil, time.Second)
 	assert.NoError(t, err)
 	assert.NotNil(t, am)
 
@@ -248,6 +249,14 @@ func (r *fakeAuthMap) All() (map[authKey]authInfo, error) {
 	}
 
 	return r.entries, nil
+}
+
+func (r *fakeAuthMap) GetCacheInfo(key authKey) (authInfoCache, error) {
+	v, err := r.Get(key)
+
+	return authInfoCache{
+		authInfo: v,
+	}, err
 }
 
 func (r *fakeAuthMap) Get(key authKey) (authInfo, error) {
