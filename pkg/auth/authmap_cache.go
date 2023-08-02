@@ -6,6 +6,7 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
@@ -17,7 +18,7 @@ import (
 type authMapCache struct {
 	logger            logrus.FieldLogger
 	authmap           authMap
-	cacheEntries      map[authKey]authInfo
+	cacheEntries      map[authKey]authInfoCache
 	cacheEntriesMutex lock.RWMutex
 }
 
@@ -25,7 +26,7 @@ func newAuthMapCache(logger logrus.FieldLogger, authmap authMap) *authMapCache {
 	return &authMapCache{
 		logger:       logger,
 		authmap:      authmap,
-		cacheEntries: map[authKey]authInfo{},
+		cacheEntries: map[authKey]authInfoCache{},
 	}
 }
 
@@ -35,18 +36,23 @@ func (r *authMapCache) All() (map[authKey]authInfo, error) {
 
 	result := make(map[authKey]authInfo)
 	for k, v := range r.cacheEntries {
-		result[k] = v
+		result[k] = v.authInfo
 	}
 	return maps.Clone(result), nil
 }
 
 func (r *authMapCache) Get(key authKey) (authInfo, error) {
+	info, err := r.GetCacheInfo(key)
+	return info.authInfo, err
+}
+
+func (r *authMapCache) GetCacheInfo(key authKey) (authInfoCache, error) {
 	r.cacheEntriesMutex.RLock()
 	defer r.cacheEntriesMutex.RUnlock()
 
 	info, ok := r.cacheEntries[key]
 	if !ok {
-		return authInfo{}, fmt.Errorf("failed to get auth info for key: %s", key)
+		return authInfoCache{}, fmt.Errorf("failed to get auth info for key: %s", key)
 	}
 	return info, nil
 }
@@ -59,7 +65,10 @@ func (r *authMapCache) Update(key authKey, info authInfo) error {
 		return err
 	}
 
-	r.cacheEntries[key] = info
+	r.cacheEntries[key] = authInfoCache{
+		authInfo: info,
+		storedAt: time.Now(),
+	}
 
 	return nil
 }
@@ -88,7 +97,7 @@ func (r *authMapCache) DeleteIf(predicate func(key authKey, info authInfo) bool)
 	defer r.cacheEntriesMutex.Unlock()
 
 	for k, v := range r.cacheEntries {
-		if predicate(k, v) {
+		if predicate(k, v.authInfo) {
 			// delete every entry individually to keep the cache in sync in case of an error
 			if err := r.authmap.Delete(k); err != nil {
 				if !errors.Is(err, ebpf.ErrKeyNotExist) {
@@ -114,7 +123,10 @@ func (r *authMapCache) restoreCache() error {
 		return fmt.Errorf("failed to load all auth map entries: %w", err)
 	}
 	for k, v := range all {
-		r.cacheEntries[k] = v
+		r.cacheEntries[k] = authInfoCache{
+			authInfo: v,
+			storedAt: time.Now(),
+		}
 	}
 
 	r.logger.
