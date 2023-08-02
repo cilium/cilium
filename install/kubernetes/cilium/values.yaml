@@ -3169,6 +3169,9 @@ authentication:
           labels: { }
           # -- SPIRE Workload Attestor kubelet verification.
           skipKubeletVerification: true
+          # -- SPIRE agent tolerations configuration
+          # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+          tolerations: []
         server:
           # -- SPIRE server image
           image: ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f
@@ -3190,6 +3193,14 @@ authentication:
             annotations: {}
             # -- Labels to be added to the SPIRE server service
             labels: {}
+          # -- SPIRE server affinity configuration
+          affinity: {}
+          # -- SPIRE server nodeSelector configuration
+          # ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+          nodeSelector: {}
+          # -- SPIRE server tolerations configuration
+          # ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+          tolerations: []
           # SPIRE server datastorage configuration
           dataStorage:
             # -- Enable SPIRE server data storage
