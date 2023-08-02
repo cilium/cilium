@@ -20,16 +20,18 @@ type localIdentityCache struct {
 	identitiesByID      map[identity.NumericIdentity]*identity.Identity
 	identitiesByLabels  map[string]*identity.Identity
 	nextNumericIdentity identity.NumericIdentity
+	scope               identity.NumericIdentity
 	minID               identity.NumericIdentity
 	maxID               identity.NumericIdentity
 	events              allocator.AllocatorEventSendChan
 }
 
-func newLocalIdentityCache(minID, maxID identity.NumericIdentity, events allocator.AllocatorEventSendChan) *localIdentityCache {
+func newLocalIdentityCache(scope, minID, maxID identity.NumericIdentity, events allocator.AllocatorEventSendChan) *localIdentityCache {
 	return &localIdentityCache{
 		identitiesByID:      map[identity.NumericIdentity]*identity.Identity{},
 		identitiesByLabels:  map[string]*identity.Identity{},
 		nextNumericIdentity: minID,
+		scope:               scope,
 		minID:               minID,
 		maxID:               maxID,
 		events:              events,
@@ -50,16 +52,16 @@ func (l *localIdentityCache) bumpNextNumericIdentity() {
 // The l.mutex must be held
 func (l *localIdentityCache) getNextFreeNumericIdentity(idCandidate identity.NumericIdentity) (identity.NumericIdentity, error) {
 	// Try first with the given candidate
-	if idCandidate.HasLocalScope() {
+	if idCandidate.Scope() == l.scope {
 		if _, taken := l.identitiesByID[idCandidate]; !taken {
 			// let nextNumericIdentity be, allocated identities will be skipped anyway
-			log.Debugf("Reallocated restored CIDR identity: %d", idCandidate)
+			log.Debugf("Reallocated restored local identity: %d", idCandidate)
 			return idCandidate, nil
 		}
 	}
 	firstID := l.nextNumericIdentity
 	for {
-		idCandidate = l.nextNumericIdentity | identity.LocalIdentityFlag
+		idCandidate = l.nextNumericIdentity | l.scope
 		if _, taken := l.identitiesByID[idCandidate]; !taken {
 			l.bumpNextNumericIdentity()
 			return idCandidate, nil

@@ -14,7 +14,7 @@ import (
 )
 
 func (s *IdentityTestSuite) TestLocalIdentity(c *C) {
-	localID := NumericIdentity(LocalIdentityFlag | 1)
+	localID := NumericIdentity(IdentityScopeLocal | 1)
 	c.Assert(localID.HasLocalScope(), Equals, true)
 
 	maxClusterID := NumericIdentity(types.ClusterIDMax | 1)

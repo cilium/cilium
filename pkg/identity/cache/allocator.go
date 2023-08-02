@@ -253,7 +253,7 @@ func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityA
 
 	// Local identity cache can be created synchronously since it doesn't
 	// rely upon any external resources (e.g., external kvstore).
-	m.localIdentities = newLocalIdentityCache(identity.MinAllocatorLocalIdentity, identity.MaxAllocatorLocalIdentity, m.events)
+	m.localIdentities = newLocalIdentityCache(identity.IdentityScopeLocal, identity.MinAllocatorLocalIdentity, identity.MaxAllocatorLocalIdentity, m.events)
 
 	return m
 }
@@ -349,7 +349,10 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 		return reservedIdentity, false, nil
 	}
 
-	if !identity.RequiresGlobalIdentity(lbls) {
+	// If the set of labels uses non-global scope,
+	// then allocate with the appropriate local allocator and return.
+	switch identity.ScopeForLabels(lbls) {
+	case identity.IdentityScopeLocal:
 		return m.localIdentities.lookupOrCreate(lbls, oldNID)
 	}
 
@@ -411,7 +414,8 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 		return false, nil
 	}
 
-	if !identity.RequiresGlobalIdentity(id.Labels) {
+	switch identity.ScopeForLabels(id.Labels) {
+	case identity.IdentityScopeLocal:
 		return m.localIdentities.release(id), nil
 	}
 

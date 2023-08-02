@@ -208,7 +208,8 @@ func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labe
 		return reservedIdentity
 	}
 
-	if !identity.RequiresGlobalIdentity(lbls) {
+	switch identity.ScopeForLabels(lbls) {
+	case identity.IdentityScopeLocal:
 		return m.localIdentities.lookup(lbls)
 	}
 
@@ -247,7 +248,8 @@ func (m *CachingIdentityAllocator) LookupIdentityByID(ctx context.Context, id id
 		return identity
 	}
 
-	if id.HasLocalScope() {
+	switch id.Scope() {
+	case identity.IdentityScopeLocal:
 		return m.localIdentities.lookupByID(id)
 	}
 

@@ -346,7 +346,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 	assert.Len(t, remaining, 0)
 	id := IPIdentityCache.IdentityAllocator.LookupIdentityByID(
 		context.TODO(),
-		identity.LocalIdentityFlag, // we assume first local ID
+		identity.IdentityScopeLocal, // we assume first local ID
 	)
 	assert.NotNil(t, id)
 	assert.Equal(t, 1, id.ReferenceCount)

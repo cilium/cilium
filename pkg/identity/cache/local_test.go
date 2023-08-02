@@ -15,7 +15,8 @@ import (
 
 func (s *IdentityCacheTestSuite) TestBumpNextNumericIdentity(c *C) {
 	minID, maxID := identity.NumericIdentity(1), identity.NumericIdentity(5)
-	cache := newLocalIdentityCache(minID, maxID, nil)
+	scope := identity.NumericIdentity(0x42_00_00_00)
+	cache := newLocalIdentityCache(scope, minID, maxID, nil)
 
 	for i := minID; i <= maxID; i++ {
 		c.Assert(cache.nextNumericIdentity, Equals, i)
@@ -28,7 +29,8 @@ func (s *IdentityCacheTestSuite) TestBumpNextNumericIdentity(c *C) {
 
 func (s *IdentityCacheTestSuite) TestLocalIdentityCache(c *C) {
 	minID, maxID := identity.NumericIdentity(1), identity.NumericIdentity(5)
-	cache := newLocalIdentityCache(minID, maxID, nil)
+	scope := identity.NumericIdentity(0x42_00_00_00)
+	cache := newLocalIdentityCache(scope, minID, maxID, nil)
 
 	identities := map[identity.NumericIdentity]*identity.Identity{}
 
@@ -38,6 +40,7 @@ func (s *IdentityCacheTestSuite) TestLocalIdentityCache(c *C) {
 		id, isNew, err := cache.lookupOrCreate(labels.NewLabelsFromModel([]string{fmt.Sprintf("%d", i)}), identity.InvalidIdentity)
 		c.Assert(err, IsNil)
 		c.Assert(isNew, Equals, true)
+		c.Assert(id.ID, Equals, scope+i)
 		identities[id.ID] = id
 	}
 
@@ -64,7 +67,7 @@ func (s *IdentityCacheTestSuite) TestLocalIdentityCache(c *C) {
 	// lookup must still be successful
 	for i := minID; i <= maxID; i++ {
 		c.Assert(cache.lookup(labels.NewLabelsFromModel([]string{fmt.Sprintf("%d", i)})), Not(IsNil))
-		c.Assert(cache.lookupByID(i|identity.LocalIdentityFlag), Not(IsNil))
+		c.Assert(cache.lookupByID(i|scope), Not(IsNil))
 	}
 
 	// release the identities a second time, this must cause the identity
@@ -82,7 +85,7 @@ func (s *IdentityCacheTestSuite) TestLocalIdentityCache(c *C) {
 	}
 
 	// release a random identity in the middle
-	randomID := identity.NumericIdentity(3) | identity.LocalIdentityFlag
+	randomID := identity.NumericIdentity(3) | scope
 	c.Assert(cache.release(identities[randomID]), Equals, true)
 
 	id, isNew, err := cache.lookupOrCreate(labels.NewLabelsFromModel([]string{"foo"}), identity.InvalidIdentity)

@@ -23,9 +23,28 @@ const (
 	// shifted
 	ClusterIDShift = 16
 
-	// LocalIdentityFlag is the bit in the numeric identity that identifies
-	// a numeric identity to have local scope
-	LocalIdentityFlag = NumericIdentity(1 << 24)
+	// Identities also have scopes, which is defined by the high 8 bits.
+	// 0x00 -- Global and reserved identities. Reserved identities are
+	//         not allocated like global identities, but are known
+	//         because they are hardcoded in Cilium. Older versions of
+	//         Cilium will not be aware of any "new" reserved identities
+	//         that are added.
+	// 0x01 -- local (CIDR) identities
+	// 0x02 -- remote nodes
+
+	// IdentityScopeMask is the top 8 bits of the 32 bit identity
+	IdentityScopeMask = NumericIdentity(0xFF_00_00_00)
+
+	// IdentityScopeGlobal is the identity scope used by global and reserved identities.
+	IdentityScopeGlobal = NumericIdentity(0)
+
+	// IdentityScopeLocal is the tag in the numeric identity that identifies
+	// a numeric identity to have local (CIDR) scope.
+	IdentityScopeLocal = NumericIdentity(1 << 24)
+
+	// IdentityScopeRemoteNode is the tag in the numeric identity that identifies
+	// an identity to be a remote in-cluster node.
+	IdentityScopeRemoteNode = NumericIdentity(2 << 24)
 
 	// MinAllocatorLocalIdentity represents the minimal numeric identity
 	// that the localIdentityCache allocator can allocate for a local (CIDR)
@@ -38,7 +57,7 @@ const (
 
 	// MinLocalIdentity represents the actual minimal numeric identity value
 	// for a local (CIDR) identity.
-	MinLocalIdentity = MinAllocatorLocalIdentity | LocalIdentityFlag
+	MinLocalIdentity = MinAllocatorLocalIdentity | IdentityScopeLocal
 
 	// MaxAllocatorLocalIdentity represents the maximal numeric identity
 	// that the localIdentityCache allocator can allocate for a local (CIDR)
@@ -51,7 +70,7 @@ const (
 
 	// MaxLocalIdentity represents the actual maximal numeric identity value
 	// for a local (CIDR) identity.
-	MaxLocalIdentity = MaxAllocatorLocalIdentity | LocalIdentityFlag
+	MaxLocalIdentity = MaxAllocatorLocalIdentity | IdentityScopeLocal
 
 	// MinimalNumericIdentity represents the minimal numeric identity not
 	// used for reserved purposes.
@@ -583,9 +602,18 @@ func iterateReservedIdentityLabels(f func(_ NumericIdentity, _ labels.Labels)) {
 	}
 }
 
-// HasLocalScope returns true if the identity has a local scope
+// HasLocalScope returns true if the identity is in the Local (CIDR) scope
 func (id NumericIdentity) HasLocalScope() bool {
-	return (id & LocalIdentityFlag) != 0
+	return id.Scope() == IdentityScopeLocal
+}
+
+func (id NumericIdentity) HasRemoteNodeScope() bool {
+	return id.Scope() == IdentityScopeRemoteNode
+}
+
+// Scope returns the identity scope of this given numeric ID.
+func (id NumericIdentity) Scope() NumericIdentity {
+	return id & IdentityScopeMask
 }
 
 // IsWorld returns true if the identity is one of the world identities
