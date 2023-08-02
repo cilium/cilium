@@ -88,6 +88,10 @@
      - SPIRE Workload Attestor kubelet verification.
      - bool
      - ``true``
+   * - :spelling:ignore:`authentication.mutual.spire.install.agent.tolerations`
+     - SPIRE agent tolerations configuration ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - list
+     - ``[]``
    * - :spelling:ignore:`authentication.mutual.spire.install.enabled`
      - Enable SPIRE installation. This will only take effect only if authentication.mutual.spire.enabled is true
      - bool
@@ -96,6 +100,10 @@
      - SPIRE namespace to install into
      - string
      - ``"cilium-spire"``
+   * - :spelling:ignore:`authentication.mutual.spire.install.server.affinity`
+     - SPIRE server affinity configuration
+     - object
+     - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.annotations`
      - SPIRE server annotations
      - object
@@ -136,6 +144,10 @@
      - SPIRE server labels
      - object
      - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.server.nodeSelector`
+     - SPIRE server nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+     - object
+     - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.service.annotations`
      - Annotations to be added to the SPIRE server service
      - object
@@ -152,6 +164,10 @@
      - SPIRE server service account
      - object
      - ``{"create":true,"name":"spire-server"}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.server.tolerations`
+     - SPIRE server tolerations configuration ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - list
+     - ``[]``
    * - :spelling:ignore:`authentication.mutual.spire.serverAddress`
      - SPIRE server address used by Cilium Operator  If k8s Service DNS along with port number is used (e.g. :raw-html-m2r:`<service-name>`.\ :raw-html-m2r:`<namespace>`.svc(.*):\ :raw-html-m2r:`<port-number>` format), Cilium Operator will resolve its address by looking up the clusterIP from Service resource.  Example values: 10.0.0.1:8081, spire-server.cilium-spire.svc:8081
      - string

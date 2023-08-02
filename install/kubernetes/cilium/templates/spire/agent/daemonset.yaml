@@ -69,6 +69,10 @@ spec:
               port: 4251
             initialDelaySeconds: 5
             periodSeconds: 5
+      {{- with .Values.authentication.mutual.spire.install.agent.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
       volumes:
         - name: spire-config
           configMap:
