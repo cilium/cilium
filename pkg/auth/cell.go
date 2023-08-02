@@ -45,23 +45,27 @@ var Cell = cell.Module(
 		newAlwaysFailAuthHandler,
 	),
 	cell.Config(config{
-		MeshAuthEnabled:    true,
-		MeshAuthQueueSize:  1024,
-		MeshAuthGCInterval: 5 * time.Minute,
+		MeshAuthEnabled:               true,
+		MeshAuthQueueSize:             1024,
+		MeshAuthGCInterval:            5 * time.Minute,
+		MeshAuthSignalBackoffDuration: 1 * time.Second, // this default is based on the default TCP retransmission timeout
 	}),
 	cell.Config(MutualAuthConfig{}),
 )
 
 type config struct {
-	MeshAuthEnabled    bool
-	MeshAuthQueueSize  int
-	MeshAuthGCInterval time.Duration
+	MeshAuthEnabled               bool
+	MeshAuthQueueSize             int
+	MeshAuthGCInterval            time.Duration
+	MeshAuthSignalBackoffDuration time.Duration
 }
 
 func (r config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("mesh-auth-enabled", r.MeshAuthEnabled, "Enable authentication processing & garbage collection (beta)")
 	flags.Int("mesh-auth-queue-size", r.MeshAuthQueueSize, "Queue size for the auth manager")
 	flags.Duration("mesh-auth-gc-interval", r.MeshAuthGCInterval, "Interval in which auth entries are attempted to be garbage collected")
+	flags.Duration("mesh-auth-signal-backoff-duration", r.MeshAuthSignalBackoffDuration, "Time to wait betweeen two authentication required signals in case of a cache mismatch")
+	flags.MarkHidden("mesh-auth-signal-backoff-duration")
 }
 
 type authManagerParams struct {
@@ -93,7 +97,7 @@ func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 	mapWriter := newAuthMapWriter(params.Logger, params.AuthMap)
 	mapCache := newAuthMapCache(params.Logger, mapWriter)
 
-	mgr, err := newAuthManager(params.Logger, params.AuthHandlers, mapCache, params.NodeIDHandler)
+	mgr, err := newAuthManager(params.Logger, params.AuthHandlers, mapCache, params.NodeIDHandler, params.Config.MeshAuthSignalBackoffDuration)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create auth manager: %w", err)
 	}
