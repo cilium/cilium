@@ -408,7 +408,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	args[initArgDevices] = "<nil>"
 
 	if !option.Config.TunnelingEnabled() {
-		if option.Config.EnableIPv4EgressGateway || option.Config.EnableHighScaleIPcache {
+		if option.Config.EgressGatewayCommonEnabled() || option.Config.EnableHighScaleIPcache {
 			// Tunnel is required for egress traffic under this config
 			encapProto = option.Config.TunnelProtocol
 		}
