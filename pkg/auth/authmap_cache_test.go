@@ -28,7 +28,7 @@ func Test_authMapCache_restoreCache(t *testing.T) {
 				},
 			},
 		},
-		cacheEntries: map[authKey]authInfo{},
+		cacheEntries: map[authKey]authInfoCache{},
 	}
 
 	err := am.restoreCache()
@@ -52,14 +52,15 @@ func Test_authMapCache_allReturnsCopy(t *testing.T) {
 		authmap: &fakeAuthMap{
 			entries: map[authKey]authInfo{},
 		},
-		cacheEntries: map[authKey]authInfo{
+		cacheEntries: map[authKey]authInfoCache{
 			{
 				localIdentity:  1,
 				remoteIdentity: 2,
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
-				expiration: time.Now().Add(10 * time.Minute),
+				authInfo: authInfo{time.Now().Add(10 * time.Minute)},
+				storedAt: time.Now().Add(-10 * time.Minute),
 			},
 		},
 	}
@@ -96,14 +97,15 @@ func Test_authMapCache_Delete(t *testing.T) {
 	am := authMapCache{
 		logger:  logrus.New(),
 		authmap: fakeMap,
-		cacheEntries: map[authKey]authInfo{
+		cacheEntries: map[authKey]authInfoCache{
 			{
 				localIdentity:  1,
 				remoteIdentity: 2,
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
-				expiration: time.Now().Add(10 * time.Minute),
+				authInfo: authInfo{time.Now().Add(10 * time.Minute)},
+				storedAt: time.Now().Add(-10 * time.Minute),
 			},
 			{
 				localIdentity:  3,
@@ -111,7 +113,8 @@ func Test_authMapCache_Delete(t *testing.T) {
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
-				expiration: time.Now().Add(10 * time.Minute),
+				authInfo: authInfo{time.Now().Add(10 * time.Minute)},
+				storedAt: time.Now().Add(-10 * time.Minute),
 			},
 			{
 				localIdentity:  4,
@@ -119,7 +122,8 @@ func Test_authMapCache_Delete(t *testing.T) {
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
-				expiration: time.Now().Add(10 * time.Minute),
+				authInfo: authInfo{time.Now().Add(10 * time.Minute)},
+				storedAt: time.Now().Add(-10 * time.Minute),
 			},
 		},
 	}
@@ -171,14 +175,15 @@ func Test_authMapCache_DeleteIf(t *testing.T) {
 	am := authMapCache{
 		logger:  logrus.New(),
 		authmap: fakeMap,
-		cacheEntries: map[authKey]authInfo{
+		cacheEntries: map[authKey]authInfoCache{
 			{
 				localIdentity:  1,
 				remoteIdentity: 2,
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
-				expiration: time.Now().Add(10 * time.Minute),
+				authInfo: authInfo{time.Now().Add(10 * time.Minute)},
+				storedAt: time.Now().Add(-10 * time.Minute),
 			},
 			{
 				localIdentity:  3,
@@ -186,7 +191,8 @@ func Test_authMapCache_DeleteIf(t *testing.T) {
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
-				expiration: time.Now().Add(10 * time.Minute),
+				authInfo: authInfo{time.Now().Add(10 * time.Minute)},
+				storedAt: time.Now().Add(-10 * time.Minute),
 			},
 			{
 				localIdentity:  4,
@@ -194,7 +200,8 @@ func Test_authMapCache_DeleteIf(t *testing.T) {
 				remoteNodeID:   10,
 				authType:       policy.AuthTypeDisabled,
 			}: {
-				expiration: time.Now().Add(10 * time.Minute),
+				authInfo: authInfo{time.Now().Add(10 * time.Minute)},
+				storedAt: time.Now().Add(-10 * time.Minute),
 			},
 		},
 	}
