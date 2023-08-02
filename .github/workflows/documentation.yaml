@@ -57,7 +57,7 @@ jobs:
       - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           persist-credentials: false
-      - uses: docker://cilium/docs-builder:2023-03-01@sha256:36b233afd73482c2bc7ed43f7a1537f09962015c34679b86c4ca1fa618d67b95
+      - uses: docker://quay.io/cilium/docs-builder:989b89f58d28b46941f8f96e77800aae7f3ea554@sha256:12ac522fe84a65f6e0c8bc47ef7c13d6502fc44fd0e8726777da5655a792fbee
         with:
           entrypoint: ./Documentation/check-build.sh
           args: html
