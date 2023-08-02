@@ -2611,7 +2611,7 @@ func (c *DaemonConfig) TunnelDevice() string {
 // takes care of the MTU overhead. So no need to take it into account here.
 // See encap_geneve_dsr_opt[4,6] in nodeport.h
 func (c *DaemonConfig) TunnelExists() bool {
-	return c.TunnelingEnabled() || c.EnableIPv4EgressGateway || c.EnableHighScaleIPcache
+	return c.TunnelingEnabled() || c.EgressGatewayCommonEnabled() || c.EnableHighScaleIPcache
 }
 
 // AreDevicesRequired returns true if the agent needs to attach to the native
@@ -2760,6 +2760,12 @@ func (c *DaemonConfig) K8sIngressControllerEnabled() bool {
 // K8sGatewayAPIEnabled returns true if Gateway API feature is enabled in Cilium
 func (c *DaemonConfig) K8sGatewayAPIEnabled() bool {
 	return c.EnableGatewayAPI
+}
+
+// EgressGatewayCommonEnabled returns true if at least one egress gateway implementation
+// is enabled.
+func (c *DaemonConfig) EgressGatewayCommonEnabled() bool {
+	return c.EnableIPv4EgressGateway
 }
 
 // DirectRoutingDeviceRequired return whether the Direct Routing Device is needed under
