@@ -5,6 +5,7 @@ package egressgateway
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"sort"
@@ -173,8 +174,34 @@ type Params struct {
 }
 
 func NewEgressGatewayManager(p Params) (*Manager, error) {
-	if !p.DaemonConfig.EnableIPv4EgressGateway {
+	dcfg := p.DaemonConfig
+
+	if !dcfg.EnableIPv4EgressGateway {
 		return nil, nil
+	}
+
+	if dcfg.IdentityAllocationMode == option.IdentityAllocationModeKVstore {
+		return nil, errors.New("egress gateway is not supported in KV store identity allocation mode")
+	}
+
+	if dcfg.EnableHighScaleIPcache {
+		return nil, errors.New("egress gateway is not supported in high scale IPcache mode")
+	}
+
+	if !dcfg.MasqueradingEnabled() || !dcfg.EnableBPFMasquerade {
+		return nil, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
+	}
+
+	if !dcfg.EnableRemoteNodeIdentity {
+		// datapath code depends on remote node identities to distinguish between
+		// cluster-local and cluster-egress traffic.
+		return nil, fmt.Errorf("egress gateway requires remote node identities (--%s=\"true\")", option.EnableRemoteNodeIdentity)
+	}
+
+	if dcfg.EnableL7Proxy {
+		log.WithField(logfields.URL, "https://github.com/cilium/cilium/issues/19642").
+			Warningf("both egress gateway and L7 proxy (--%s) are enabled. This is currently not fully supported: "+
+				"if the same endpoint is selected both by an egress gateway and a L7 policy, endpoint traffic will not go through egress gateway.", option.EnableL7Proxy)
 	}
 
 	// here we try to mimic the same exponential backoff retry logic used by
