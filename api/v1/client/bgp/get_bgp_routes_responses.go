@@ -38,6 +38,12 @@ func (o *GetBgpRoutesReader) ReadResponse(response runtime.ClientResponse, consu
 			return nil, err
 		}
 		return nil, result
+	case 501:
+		result := NewGetBgpRoutesDisabled()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	default:
 		return nil, runtime.NewAPIError("response status code does not match any response statuses defined for this endpoint in the swagger spec", response, response.Code())
 	}
@@ -156,6 +162,67 @@ func (o *GetBgpRoutesInternalServerError) GetPayload() models.Error {
 }
 
 func (o *GetBgpRoutesInternalServerError) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	// response payload
+	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
+		return err
+	}
+
+	return nil
+}
+
+// NewGetBgpRoutesDisabled creates a GetBgpRoutesDisabled with default headers values
+func NewGetBgpRoutesDisabled() *GetBgpRoutesDisabled {
+	return &GetBgpRoutesDisabled{}
+}
+
+/*
+GetBgpRoutesDisabled describes a response with status code 501, with default header values.
+
+BGP Control Plane disabled
+*/
+type GetBgpRoutesDisabled struct {
+	Payload models.Error
+}
+
+// IsSuccess returns true when this get bgp routes disabled response has a 2xx status code
+func (o *GetBgpRoutesDisabled) IsSuccess() bool {
+	return false
+}
+
+// IsRedirect returns true when this get bgp routes disabled response has a 3xx status code
+func (o *GetBgpRoutesDisabled) IsRedirect() bool {
+	return false
+}
+
+// IsClientError returns true when this get bgp routes disabled response has a 4xx status code
+func (o *GetBgpRoutesDisabled) IsClientError() bool {
+	return false
+}
+
+// IsServerError returns true when this get bgp routes disabled response has a 5xx status code
+func (o *GetBgpRoutesDisabled) IsServerError() bool {
+	return true
+}
+
+// IsCode returns true when this get bgp routes disabled response a status code equal to that given
+func (o *GetBgpRoutesDisabled) IsCode(code int) bool {
+	return code == 501
+}
+
+func (o *GetBgpRoutesDisabled) Error() string {
+	return fmt.Sprintf("[GET /bgp/routes][%d] getBgpRoutesDisabled  %+v", 501, o.Payload)
+}
+
+func (o *GetBgpRoutesDisabled) String() string {
+	return fmt.Sprintf("[GET /bgp/routes][%d] getBgpRoutesDisabled  %+v", 501, o.Payload)
+}
+
+func (o *GetBgpRoutesDisabled) GetPayload() models.Error {
+	return o.Payload
+}
+
+func (o *GetBgpRoutesDisabled) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
 	// response payload
 	if err := consumer.Consume(response.Body(), &o.Payload); err != nil && err != io.EOF {
