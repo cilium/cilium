@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"net/netip"
 	"sort"
@@ -77,6 +78,11 @@ var BgpRoutesCmd = &cobra.Command{
 		// retrieve the routes
 		res, err := client.Bgp.GetBgpRoutes(params)
 		if err != nil {
+			disabledErr := bgp.NewGetBgpRoutesDisabled()
+			if errors.As(err, &disabledErr) {
+				fmt.Println("BGP Control Plane is disabled")
+				return
+			}
 			Fatalf("failed retrieving routes: %s\n", err)
 		}
 

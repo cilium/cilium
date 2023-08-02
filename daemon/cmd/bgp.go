@@ -25,6 +25,9 @@ func NewGetBGPHandler(c *bgpv1.Controller) restapi.GetBgpPeersHandler {
 
 // Handle gets peering information from BGP controller
 func (b *getBGP) Handle(params restapi.GetBgpPeersParams) middleware.Responder {
+	if b.bgpController == nil {
+		return api.Error(http.StatusNotImplemented, fmt.Errorf("BGP Control Plane disabled"))
+	}
 	peers, err := b.bgpController.BGPMgr.GetPeers(params.HTTPRequest.Context())
 	if err != nil {
 		msg := fmt.Errorf("failed to get peers: %w", err)
@@ -45,6 +48,9 @@ func NewGetBGPRoutesHandler(c *bgpv1.Controller) restapi.GetBgpRoutesHandler {
 
 // Handle gets BGP routes from BGP controller
 func (b *getBGPRoutes) Handle(params restapi.GetBgpRoutesParams) middleware.Responder {
+	if b.bgpController == nil {
+		return api.Error(http.StatusNotImplemented, fmt.Errorf("BGP Control Plane disabled"))
+	}
 	routes, err := b.bgpController.BGPMgr.GetRoutes(params.HTTPRequest.Context(), params)
 	if err != nil {
 		msg := fmt.Errorf("failed to get routes: %w", err)
