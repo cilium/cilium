@@ -43,18 +43,19 @@ func (n *noInterruptedConnections) Name() string {
 func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 
-	client := ct.K8sClient()
-	pods, err := client.ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + check.KindTestConnDisrupt})
-	if err != nil {
-		t.Fatalf("Unable to list test-conn-disrupt pods: %s", err)
-	}
-	if len(pods.Items) == 0 {
-		t.Fatal("No test-conn-disrupt-{client,server} pods found")
-	}
-
 	restartCount := make(map[string]string)
-	for _, pod := range pods.Items {
-		restartCount[pod.GetObjectMeta().GetName()] = strconv.Itoa(int(pod.Status.ContainerStatuses[0].RestartCount))
+	for _, client := range ct.Clients() {
+		pods, err := client.ListPods(ctx, ct.Params().TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + check.KindTestConnDisrupt})
+		if err != nil {
+			t.Fatalf("Unable to list test-conn-disrupt pods: %s", err)
+		}
+		if len(pods.Items) == 0 {
+			t.Fatal("No test-conn-disrupt-{client,server} pods found")
+		}
+
+		for _, pod := range pods.Items {
+			restartCount[pod.GetObjectMeta().GetName()] = strconv.Itoa(int(pod.Status.ContainerStatuses[0].RestartCount))
+		}
 	}
 
 	// Only store restart counters which will be used later when running the same
@@ -94,7 +95,7 @@ func (n *noInterruptedConnections) Run(ctx context.Context, t *check.Test) {
 
 	for pod, count := range restartCount {
 		if prevCount, found := prevRestartCount[pod]; !found {
-			t.Fatalf("Could not found Pod %s restart count", pod)
+			t.Fatalf("Could not find Pod %s restart count", pod)
 		} else if prevCount != count {
 			t.Fatalf("Pod %s flow was interrupted (restart count does not match %s != %s)",
 				pod, prevCount, count)
