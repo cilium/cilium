@@ -632,13 +632,16 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			ct.Failf("%s deployment is not ready: %s", testConnDisruptServerDeploymentName, err)
 		}
 
-		_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, testConnDisruptServiceName, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s service...", ct.clients.dst.ClusterName(), testConnDisruptServiceName)
-			svc := newService(testConnDisruptServiceName, map[string]string{"app": "test-conn-disrupt-server"}, nil, "http", 8000)
-			_, err = ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
+		for _, client := range ct.Clients() {
+			_, err = client.GetService(ctx, ct.params.TestNamespace, testConnDisruptServiceName, metav1.GetOptions{})
 			if err != nil {
-				return err
+				ct.Logf("✨ [%s] Deploying %s service...", client.ClusterName(), testConnDisruptServiceName)
+				svc := newService(testConnDisruptServiceName, map[string]string{"app": "test-conn-disrupt-server"}, nil, "http", 8000)
+				svc.ObjectMeta.Annotations = map[string]string{"service.cilium.io/global": "true"}
+				_, err = client.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
+				if err != nil {
+					return fmt.Errorf("unable to create service %s: %w", testConnDisruptServiceName, err)
+				}
 			}
 		}
 
