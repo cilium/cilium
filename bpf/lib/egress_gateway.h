@@ -38,11 +38,20 @@ struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 
 }
 
 static __always_inline
-bool egress_gw_request_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint)
+bool egress_gw_request_needs_redirect(struct iphdr *ip4, int ct_status,
+				      __u32 *tunnel_endpoint)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
 	struct egress_gw_policy_entry *egress_gw_policy;
 	struct endpoint_info *gateway_node_ep;
+
+	/* If the packet is a reply or is related, it means that outside
+	* has initiated the connection, and so we should skip egress
+	* gateway, since an egress policy is only matching connections
+	* originating from a pod.
+	*/
+	if (ct_status == CT_REPLY || ct_status == CT_RELATED)
+		return false;
 
 	egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
 	if (!egress_gw_policy)
