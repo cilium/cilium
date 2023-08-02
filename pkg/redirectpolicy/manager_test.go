@@ -82,6 +82,11 @@ func (ps *fakePodStore) GetByKey(key resource.Key) (item *slimcorev1.Pod, exists
 }
 func (ps *fakePodStore) CacheStore() cache.Store { return nil }
 
+func (ps *fakePodStore) IndexKeys(indexName, indexedValue string) ([]string, error) { return nil, nil }
+func (ps *fakePodStore) ByIndex(indexName, indexedValue string) ([]*slimcorev1.Pod, error) {
+	return nil, nil
+}
+
 var (
 	tcpStr    = "TCP"
 	udpStr    = "UDP"
