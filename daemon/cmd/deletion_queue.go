@@ -103,7 +103,7 @@ func (dq *deletionQueue) processQueuedDeletes(d *Daemon, ctx context.Context) er
 		}
 
 		if err := os.Remove(file); err != nil {
-			log.WithError(err).WithField(logfields.Path, file).Error("Failed to remve queued CNI deletion entry, but deletion was successful.")
+			log.WithError(err).WithField(logfields.Path, file).Error("Failed to remove queued CNI deletion entry, but deletion was successful.")
 		}
 	}
 

@@ -220,7 +220,7 @@ const (
 	// NewCIDR is the new subnet/CIDR
 	NewCIDR = "newCIDR"
 
-	// IPAddrs is a lsit of IP addrs
+	// IPAddrs is a list of IP addrs
 	IPAddrs = "ipAddrs"
 
 	// MTU is the maximum transmission unit of one interface
