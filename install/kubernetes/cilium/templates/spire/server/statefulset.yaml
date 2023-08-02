@@ -72,6 +72,18 @@ spec:
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 5
+      {{- with .Values.authentication.mutual.spire.install.server.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.authentication.mutual.spire.install.server.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.authentication.mutual.spire.install.server.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
       volumes:
       - name: spire-config
         configMap:
