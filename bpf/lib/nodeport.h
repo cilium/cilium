@@ -2682,8 +2682,10 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 	 * any reply traffic for a remote pod into the tunnel (to avoid iptables
 	 * potentially dropping the packets).
 	 */
-	if (egress_gw_reply_needs_redirect(ip4, &tunnel_endpoint, &dst_sec_identity))
+	if (egress_gw_reply_needs_redirect(ip4, &tunnel_endpoint, &dst_sec_identity)) {
+		reason = TRACE_REASON_CT_REPLY;
 		goto redirect;
+	}
 #endif /* ENABLE_EGRESS_GATEWAY */
 
 	if (!check_revdnat)
