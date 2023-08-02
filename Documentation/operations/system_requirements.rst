@@ -91,22 +91,6 @@ Ubuntu_                    >= 18.04.3
           GitHub issue or by creating a pull request that updates this guide.
 
 
-systemd-based distributions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Some distributions need to be configured not to manage "foreign" routes. This
-is the case in Ubuntu 22.04, for example (see :gh-issue:`18706`). This can
-usually be done by setting
-
-.. code-block:: text
-
-   ManageForeignRoutes=no
-   ManageForeignRoutingPolicyRules=no
-
-in ``/etc/systemd/networkd.conf``, but please refer to your distribution's
-documentation for the right way to perform this override.
-
-
 Flatcar
 ~~~~~~~
 
