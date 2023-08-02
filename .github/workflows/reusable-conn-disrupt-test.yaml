@@ -1,0 +1,51 @@
+name: Cilium Conn Disrupt Test
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        required: true
+        type: string
+      operation-cmd:
+        required: true
+        type: string
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: 'Setup & Perform Conn Disrupt Test'
+    env:
+      job_name: 'Setup & Perform Conn Disrupt Test'
+    steps:
+      - name: Setup Conn Disrupt Test
+        uses: cilium/little-vm-helper@6a3d1797af8fab1a49f1c3d09afe3230aea559b6 # v0.0.11
+        with:
+          provision: 'false'
+          cmd: |
+            # Create pods which establish long lived connections. It will be used by
+            # subsequent connectivity tests with --include-conn-disrupt-test to catch any
+            # interruption in such flows.
+            /host/cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
+
+      - name: Operate Cilium
+        uses: cilium/little-vm-helper@6a3d1797af8fab1a49f1c3d09afe3230aea559b6 # v0.0.11
+        with:
+          provision: 'false'
+          cmd: |
+            ${{ inputs.operation-cmd }}
+
+      - name: Perform Conn Disrupt Test
+        uses: cilium/little-vm-helper@6a3d1797af8fab1a49f1c3d09afe3230aea559b6 # v0.0.11
+        with:
+          provision: 'false'
+          cmd: |
+            # Disable no-missed-tail-calls due to https://github.com/cilium/cilium/issues/26739
+            # Disable check-log-errors due to https://github.com/cilium/cilium-cli/issues/1858
+            /host/cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --include-conn-disrupt-test \
+              --test '!no-missed-tail-calls,!check-log-errors' \
+              --flush-ct \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+              --sysdump-output-filename "cilium-sysdump-${{ inputs.name }}-<ts>" \
+              --junit-file "cilium-junits/${{ env.job_name }} (${{ inputs.name }}).xml" \
+              --junit-property github_job_step="Run conn disrupt tests (${{ inputs.name }})"
