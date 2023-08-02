@@ -301,7 +301,7 @@ connect="ssh -p 2222 -o StrictHostKeyChecking=no root@localhost"
 # Let's go!
 
 if [[ -z "${skip_to_tests}" ]]; then
-    report "Bulding tests"
+    report "Building tests"
     build_tests
 
     if [[ -z "${wakeup_vm}" ]]; then

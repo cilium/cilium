@@ -92,7 +92,7 @@ func performCiliumNodeGC(ctx context.Context, client ciliumv2.CiliumNodeInterfac
 		scopedLog := log.WithField(logfields.NodeName, nodeName)
 		_, err := nodeGetter.GetK8sSlimNode(nodeName)
 		if err == nil {
-			scopedLog.Debugf("CiliumNode is valid, no gargage collection required")
+			scopedLog.Debugf("CiliumNode is valid, no garbage collection required")
 			continue
 		}
 

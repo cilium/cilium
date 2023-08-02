@@ -97,7 +97,7 @@ The following examples are correct::
 
 But the following examples are incorrect::
 
-    - The implemention of gateway API
+    - The implementation of gateway API
     - To create a gateway object, ...
 
 .. _the section on capitalization for API objects: https://kubernetes.io/docs/contribute/style/style-guide/#use-upper-camel-case-for-api-objects

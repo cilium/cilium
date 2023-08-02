@@ -413,11 +413,11 @@ func AutoComplete() error {
 	InitDefaultPrefix(option.Config.DirectRoutingDevice)
 
 	if option.Config.EnableIPv6 && GetIPv6AllocRange() == nil {
-		return fmt.Errorf("IPv6 allocation CIDR is not configured. Please specificy --%s", option.IPv6Range)
+		return fmt.Errorf("IPv6 allocation CIDR is not configured. Please specify --%s", option.IPv6Range)
 	}
 
 	if option.Config.EnableIPv4 && GetIPv4AllocRange() == nil {
-		return fmt.Errorf("IPv4 allocation CIDR is not configured. Please specificy --%s", option.IPv4Range)
+		return fmt.Errorf("IPv4 allocation CIDR is not configured. Please specify --%s", option.IPv4Range)
 	}
 
 	return nil
