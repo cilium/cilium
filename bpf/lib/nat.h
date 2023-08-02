@@ -609,7 +609,7 @@ snat_v4_nat_can_skip(const struct ipv4_nat_target *target, const struct ipv4_ct_
 {
 	__u16 sport = bpf_ntohs(tuple->sport);
 
-#if defined(ENABLE_EGRESS_GATEWAY) && defined(IS_BPF_HOST)
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
 	if (target->egress_gateway)
 		return false;
 #endif
@@ -744,7 +744,7 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx __maybe_unused,
  * the destination may be in the SNAT exclusion CIDR but regardless of that we
  * always want to SNAT a packet if it's matched by an egress NAT policy.
  */
-#if defined(ENABLE_EGRESS_GATEWAY)
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON)
 	/* If the packet is destined to an entity inside the cluster, either EP
 	 * or node, skip SNAT since only traffic leaving the cluster is supposed
 	 * to be masqueraded with an egress IP.
