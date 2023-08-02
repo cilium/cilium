@@ -954,22 +954,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			}
 		}
 	}
-	if option.Config.EnableIPv4EgressGateway {
-		// datapath code depends on remote node identities to distinguish between cluser-local and
-		// cluster-egress traffic
-		if !option.Config.EnableRemoteNodeIdentity {
-			log.WithError(err).Errorf("egress gateway requires remote node identities (--%s=\"true\").",
-				option.EnableRemoteNodeIdentity)
-			return nil, nil, fmt.Errorf("egress gateway requires remote node identities (--%s=\"true\").",
-				option.EnableRemoteNodeIdentity)
-		}
 
-		if option.Config.EnableL7Proxy {
-			log.WithField(logfields.URL, "https://github.com/cilium/cilium/issues/19642").
-				Warningf("both egress gateway and L7 proxy (--%s) are enabled. This is currently not fully supported: "+
-					"if the same endpoint is selected both by an egress gateway and a L7 policy, endpoint traffic will not go through egress gateway.", option.EnableL7Proxy)
-		}
-	}
 	if option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
 		// TODO(brb) nodeport constraints will be lifted once the SNAT BPF code has been refactored
 		if err := node.InitBPFMasqueradeAddrs(option.Config.GetDevices()); err != nil {
@@ -979,9 +964,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	} else if option.Config.EnableIPMasqAgent {
 		log.WithError(err).Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
 		return nil, nil, fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
-	} else if option.Config.EnableIPv4EgressGateway {
-		log.WithError(err).Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
-		return nil, nil, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 	} else if !option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
 		log.Infof("Auto-disabling %q feature since IPv4 and IPv6 masquerading are disabled",
 			option.EnableBPFMasquerade)

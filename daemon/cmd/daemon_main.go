@@ -1424,9 +1424,6 @@ func initEnv(vp *viper.Viper) {
 		if option.Config.TunnelingEnabled() {
 			log.Fatal("The high-scale IPcache mode requires native routing.")
 		}
-		if option.Config.EnableIPv4EgressGateway {
-			log.Fatal("The egress gateway is not supported in high scale IPcache mode.")
-		}
 		if option.Config.EnableIPSec {
 			log.Fatal("IPsec is not supported in high scale IPcache mode.")
 		}
@@ -1540,12 +1537,6 @@ func initEnv(vp *viper.Viper) {
 					"bypass.",
 				option.BypassIPAvailabilityUponRestore,
 			)
-		}
-	}
-
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeKVstore {
-		if option.Config.EnableIPv4EgressGateway {
-			log.Fatal("The egress gateway is not supported in KV store identity allocation mode.")
 		}
 	}
 }
