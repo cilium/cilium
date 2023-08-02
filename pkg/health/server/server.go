@@ -5,7 +5,6 @@ package server
 
 import (
 	"fmt"
-	"net"
 	"path"
 	"time"
 
@@ -419,41 +418,30 @@ func NewServer(config Config) (*Server, error) {
 
 	server.Client = cl
 	server.Server = *server.newServer(config.HealthAPISpec)
-
-	var (
-		address  []string
-		nodeIPv4 net.IP
-		nodeIPv6 net.IP
-	)
-	// Skipping for nodes which has JoinCluster cilium config flag enabled
-	// as cilium agent couldn't listen on internal nodeIP and requires investigation
-	// For more details: https://github.com/cilium/cilium/issues/27200
-	if !option.Config.JoinCluster {
-		if option.Config.EnableIPv4 {
-			nodeIPv4 = node.GetInternalIPv4()
-			if nodeIPv4 != nil {
-				address = append(address, nodeIPv4.String())
-			}
-		}
-
-		if option.Config.EnableIPv6 {
-			nodeIPv6 = node.GetInternalIPv6()
-			if nodeIPv6 != nil {
-				address = append(address, nodeIPv6.String())
-			}
-		}
-	}
-
-	if len(address) != 0 {
-		if option.Config.EnableIPv4 && nodeIPv4 == nil {
-			address = append(address, "0.0.0.0")
-		}
-		if option.Config.EnableIPv6 && nodeIPv6 == nil {
-			address = append(address, "::")
-		}
-	}
-
-	server.httpPathServer = responder.NewServers(address, config.HTTPPathPort)
+	server.httpPathServer = responder.NewServers(getAddresses(), config.HTTPPathPort)
 
 	return server, nil
+}
+
+func getAddresses() []string {
+	addresses := make([]string, 0, 2)
+
+	// listen on all interfaces and all families in case of external-workloads
+	if option.Config.JoinCluster {
+		return []string{""}
+	}
+
+	if option.Config.EnableIPv4 {
+		if ipv4 := node.GetIPv4(); ipv4 != nil {
+			addresses = append(addresses, ipv4.String())
+		}
+	}
+
+	if option.Config.EnableIPv6 {
+		if ipv6 := node.GetIPv6(); ipv6 != nil {
+			addresses = append(addresses, ipv6.String())
+		}
+	}
+
+	return addresses
 }
