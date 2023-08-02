@@ -1065,7 +1065,7 @@ ct_recreate4:
 		}
 	}
 
-#ifdef ENABLE_EGRESS_GATEWAY
+#ifdef ENABLE_EGRESS_GATEWAY_COMMON
 	{
 		/* If the packet is destined to an entity inside the cluster,
 		 * either EP or node, it should not be forwarded to an egress
@@ -1230,7 +1230,7 @@ pass_to_stack:
 #endif
 	}
 
-#if defined(TUNNEL_MODE) || defined(ENABLE_EGRESS_GATEWAY) || defined(ENABLE_HIGH_SCALE_IPCACHE)
+#if defined(TUNNEL_MODE) || defined(ENABLE_EGRESS_GATEWAY_COMMON) || defined(ENABLE_HIGH_SCALE_IPCACHE)
 encrypt_to_stack:
 #endif
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dst_sec_identity, 0, 0,
