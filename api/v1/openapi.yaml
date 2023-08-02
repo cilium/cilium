@@ -1079,6 +1079,15 @@ paths:
             type: array
             items:
               "$ref": "#/definitions/BgpPeer"
+        '500':
+          description: Internal Server Error
+          schema:
+            "$ref": "#/definitions/Error"
+        '501':
+          description: BGP Control Plane disabled
+          x-go-name: Disabled
+          schema:
+            "$ref": "#/definitions/Error"
   "/bgp/routes":
     get:
       summary: Lists BGP routes from BGP Control Plane RIB.
@@ -1100,6 +1109,11 @@ paths:
               "$ref": "#/definitions/BgpRoute"
         '500':
           description: Internal Server Error
+          schema:
+            "$ref": "#/definitions/Error"
+        '501':
+          description: BGP Control Plane disabled
+          x-go-name: Disabled
           schema:
             "$ref": "#/definitions/Error"
 parameters:
