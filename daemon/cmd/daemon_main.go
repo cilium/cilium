@@ -1706,7 +1706,6 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		<-params.CacheStatus
 	}
 	bootstrapStats.k8sInit.End(true)
-	restoreComplete := d.initRestore(restoredEndpoints)
 
 	if params.WGAgent != nil {
 		if err := params.WGAgent.RestoreFinished(); err != nil {
@@ -1735,10 +1734,6 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	go func() {
-		if restoreComplete != nil {
-			<-restoreComplete
-		}
-
 		// Only attempt CEP cleanup if cilium endpoint CRD is not disabled, otherwise the cep/ces
 		// watchers/indexers will not be initialized.
 		if params.Clientset.IsEnabled() && option.Config.EnableStaleCiliumEndpointCleanup && !option.Config.DisableCiliumEndpointCRD {
@@ -1754,9 +1749,6 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		}
 	}()
 	go func() {
-		if restoreComplete != nil {
-			<-restoreComplete
-		}
 		d.dnsNameManager.CompleteBootstrap()
 
 		ms := maps.NewMapSweeper(&EndpointMapManager{

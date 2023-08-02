@@ -22,6 +22,8 @@ type Loader interface {
 	EndpointHash(cfg EndpointConfiguration) (string, error)
 	Unload(ep Endpoint)
 	Reinitialize(ctx context.Context, o BaseProgramOwner, deviceMTU int, iptMgr IptablesManager, p Proxy) error
+	InitializeBaseDatapath(ctx context.Context, o BaseProgramOwner, deviteMTU int) error
+	ConfigureBaseDatapath(ctx context.Context, o BaseProgramOwner, iptMgr IptablesManager, p Proxy) error
 }
 
 // BaseProgramOwner is any type for which a loader is building base programs.

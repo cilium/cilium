@@ -2594,6 +2594,24 @@ func (c *DaemonConfig) TunnelingEnabled() bool {
 	return c.RoutingMode != RoutingModeNative
 }
 
+// GetEncapProto returns the encapsulation protocol, if any, to be used for the datapath.
+func (c *DaemonConfig) GetEncapProto() string {
+	encapProto := TunnelDisabled
+	switch {
+	case c.TunnelingEnabled():
+		encapProto = c.TunnelProtocol
+	case !c.TunnelingEnabled():
+		if c.EnableIPv4EgressGateway || c.EnableHighScaleIPcache {
+			// Tunnel is required for egress traffic under this config
+			encapProto = c.TunnelProtocol
+		}
+		if c.EnableNodePort && c.NodePortMode != NodePortModeSNAT && c.LoadBalancerDSRDispatch == DSRDispatchGeneve {
+			encapProto = TunnelGeneve
+		}
+	}
+	return encapProto
+}
+
 // TunnelDevice returns cilium_{vxlan,geneve} depending on the config or "" if disabled.
 func (c *DaemonConfig) TunnelDevice() string {
 	if c.TunnelingEnabled() {

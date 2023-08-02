@@ -289,11 +289,9 @@ func (l *Loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwne
 	return l.reinitializeXDPLocked(ctx, extraCArgs)
 }
 
-// Reinitialize (re-)configures the base datapath configuration including global
-// BPF programs, netfilter rule configuration and reserving routes in IPAM for
-// locally detected prefixes. It may be run upon initial Cilium startup, after
-// restore from a previous Cilium run, or during regular Cilium operation.
-func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+// InitializeBaseDatapath writes the required header files for BPF program
+// compilation and configures the the base datapath interfaces
+func (l *Loader) InitializeBaseDatapath(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int) error {
 	args := make([]string, initArgMax)
 
 	sysSettings := []sysctl.Setting{
@@ -304,7 +302,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		{Name: "kernel.timer_migration", Val: "0", IgnoreErr: true},
 	}
 
-	// Lock so that endpoints cannot be built while we are compile base programs.
+	// Lock so that endpoints cannot be built while we are compiling base programs.
 	o.GetCompilationLock().Lock()
 	defer o.GetCompilationLock().Unlock()
 	defer func() { firstInitialization = false }()
@@ -312,11 +310,9 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	l.init(o.Datapath(), o.LocalConfig())
 
 	var mode baseDeviceMode
-	encapProto := option.TunnelDisabled
 	switch {
 	case option.Config.TunnelingEnabled():
 		mode = tunnelMode
-		encapProto = option.Config.TunnelProtocol
 	case option.Config.EnableHealthDatapath:
 		mode = option.DSRDispatchIPIP
 		sysSettings = append(sysSettings,
@@ -325,6 +321,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	default:
 		mode = directMode
 	}
+
 	args[initArgMode] = string(mode)
 
 	var nodeIPv4, nodeIPv6 net.IP
@@ -407,23 +404,11 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	args[initArgBpffsRoot] = "<nil>"
 	args[initArgDevices] = "<nil>"
 
-	if !option.Config.TunnelingEnabled() {
-		if option.Config.EgressGatewayCommonEnabled() || option.Config.EnableHighScaleIPcache {
-			// Tunnel is required for egress traffic under this config
-			encapProto = option.Config.TunnelProtocol
-		}
-	}
-
-	if !option.Config.TunnelingEnabled() &&
-		option.Config.EnableNodePort &&
-		option.Config.NodePortMode != option.NodePortModeSNAT &&
-		option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve {
-		encapProto = option.TunnelGeneve
-	}
-
 	// set init.sh args based on encapProto
 	args[initArgTunnelProtocol] = "<nil>"
 	args[initArgTunnelPort] = "<nil>"
+
+	encapProto := option.Config.GetEncapProto()
 	if encapProto != option.TunnelDisabled {
 		args[initArgTunnelProtocol] = encapProto
 		args[initArgTunnelPort] = fmt.Sprintf("%d", option.Config.TunnelPort)
@@ -473,6 +458,17 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	if _, err := cmd.CombinedOutput(log, true); err != nil {
 		return err
 	}
+	return nil
+}
+
+// ConfigureBaseDatapath (re-)configures the base datapath configuration including global
+// BPF programs, netfilter rule configuration, and reserving routes in IPAM for
+// locally detected prefixes.
+func (l *Loader) ConfigureBaseDatapath(ctx context.Context, o datapath.BaseProgramOwner, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+	// Lock so that endpoints cannot be built while we are compiling base programs.
+	o.GetCompilationLock().Lock()
+	defer o.GetCompilationLock().Unlock()
+	defer func() { firstInitialization = false }()
 
 	if option.Config.EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
@@ -517,6 +513,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		}
 	}
 
+	encapProto := option.Config.GetEncapProto()
+
 	if err := l.reinitializeOverlay(ctx, encapProto); err != nil {
 		return err
 	}
@@ -534,6 +532,21 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		if err := p.ReinstallRules(ctx); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// Reinitialize (re-)configures the base datapath configuration including global
+// BPF programs, netfilter rule configuration and reserving routes in IPAM for
+// locally detected prefixes. It may be run upon initial Cilium startup, after
+// restore from a previous Cilium run, or during regular Cilium operation.
+func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+	if err := l.InitializeBaseDatapath(ctx, o, deviceMTU); err != nil {
+		return fmt.Errorf("failed to initialize datapath: %w", err)
+	}
+
+	if err := l.ConfigureBaseDatapath(ctx, o, iptMgr, p); err != nil {
+		return fmt.Errorf("failed to configure datapath: %w", err)
 	}
 
 	return nil

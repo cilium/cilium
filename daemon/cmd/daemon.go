@@ -274,7 +274,7 @@ func (d *Daemon) GetCompilationLock() *lock.RWMutex {
 	return d.compilationMutex
 }
 
-func (d *Daemon) init() error {
+func (d *Daemon) init(restoredEndpoints *endpointRestoreState) error {
 	globalsDir := option.Config.GetGlobalsDir()
 	if err := os.MkdirAll(globalsDir, defaults.RuntimePathRights); err != nil {
 		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("Could not create runtime directory")
@@ -287,8 +287,20 @@ func (d *Daemon) init() error {
 	if !option.Config.DryMode {
 		bandwidth.InitBandwidthManager()
 
-		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
-			return fmt.Errorf("failed while reinitializing datapath: %w", err)
+		if err := d.Datapath().Loader().InitializeBaseDatapath(d.ctx, d, d.mtuConfig.GetDeviceMTU()); err != nil {
+			return fmt.Errorf("failed to write datapath headers: %w", err)
+		}
+
+		restoreComplete := d.initRestore(restoredEndpoints)
+
+		// if endpoints are being restored, wait until restoration is complete
+		// before compiling and loading base datapath programs
+		if restoreComplete != nil {
+			<-restoreComplete
+		}
+
+		if err := d.Datapath().Loader().ConfigureBaseDatapath(d.ctx, d, d.Datapath(), d.l7Proxy); err != nil {
+			log.Fatalf("error while initializing daemon: %s", err)
 		}
 
 		if err := linuxdatapath.NodeEnsureLocalIPRule(); errors.Is(err, unix.EEXIST) {
@@ -1140,7 +1152,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// Must be done at least after initializing BPF LB-related maps
 	// (lbmap.Init()).
 	bootstrapStats.bpfBase.Start()
-	err = d.init()
+	err = d.init(restoredEndpoints)
 	bootstrapStats.bpfBase.EndError(err)
 	if err != nil {
 		return nil, restoredEndpoints, fmt.Errorf("error while initializing daemon: %w", err)
