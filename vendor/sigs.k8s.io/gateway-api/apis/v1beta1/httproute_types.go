@@ -56,9 +56,13 @@ type HTTPRouteList struct {
 type HTTPRouteSpec struct {
 	CommonRouteSpec `json:",inline"`
 
-	// Hostnames defines a set of hostname that should match against the HTTP
-	// Host header to select a HTTPRoute to process the request. This matches
-	// the RFC 1123 definition of a hostname with 2 notable exceptions:
+	// Hostnames defines a set of hostname that should match against the HTTP Host
+	// header to select a HTTPRoute used to process the request. Implementations
+	// MUST ignore any port value specified in the HTTP Host header while
+	// performing a match.
+	//
+	// Valid values for Hostnames are determined by RFC 1123 definition of a
+	// hostname with 2 notable exceptions:
 	//
 	// 1. IPs are not allowed.
 	// 2. A hostname may be prefixed with a wildcard label (`*.`). The wildcard
@@ -154,12 +158,13 @@ type HTTPRouteRule struct {
 	// Proxy or Load Balancer routing configuration generated from HTTPRoutes
 	// MUST prioritize matches based on the following criteria, continuing on
 	// ties. Across all rules specified on applicable Routes, precedence must be
-	// given to the match with the largest number of:
+	// given to the match having:
 	//
-	// * Characters in a matching "Exact" path match
-	// * Characters in a matching "Prefix" path match
-	// * Header matches.
-	// * Query param matches.
+	// * "Exact" path match.
+	// * "Prefix" path match with largest number of characters.
+	// * Method match.
+	// * Largest number of header matches.
+	// * Largest number of query param matches.
 	//
 	// Note: The precedence of RegularExpression path matches are implementation-specific.
 	//
@@ -269,7 +274,9 @@ type HTTPRouteRule struct {
 type PathMatchType string
 
 const (
-	// Matches the URL path exactly and with case sensitivity.
+	// Matches the URL path exactly and with case sensitivity. This means that
+	// an exact path match on `/abc` will only match requests to `/abc`, NOT
+	// `/abc/`, `/Abc`, or `/abcd`.
 	PathMatchExact PathMatchType = "Exact"
 
 	// Matches based on a URL path prefix split by `/`. Matching is
