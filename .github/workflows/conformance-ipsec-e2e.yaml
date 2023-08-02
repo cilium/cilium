@@ -278,6 +278,16 @@ jobs:
 
             ./contrib/scripts/kind-down.sh
 
+      - name: Rotate IPsec Key & Test (${{ join(matrix.*, ', ') }})
+        uses: ./.github/workflows/reusable-conn-disrupt-test.yaml
+        with:
+          name: "conformance-ipsec-e2e-key-rotation-${{ matrix.name }}"
+          operation-cmd: |
+            KEYID=$(kubectl get secret -n kube-system cilium-ipsec-keys -o yaml | awk '/^\s*keys:/ {print $2}' | base64 -d | awk '{print $1}')
+            if [[ $KEYID -ge 15 ]]; then KEYID=0; fi
+            data=$(echo "{\"stringData\":{\"keys\":\"$((($KEYID+1))) "rfc4106\(gcm\(aes\)\)" $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null| xxd -p -c 64)) 128\"}}")
+            kubectl patch secret -n kube-system cilium-ipsec-keys -p="${data}" -v=1
+
       - name: Fetch artifacts
         if: ${{ !success() }}
         uses: cilium/little-vm-helper@0fcaa3fed17811fcd8b6f1b0dc1f24e5f4ff6b13 # v0.0.7
