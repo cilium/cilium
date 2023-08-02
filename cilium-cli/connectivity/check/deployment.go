@@ -1027,8 +1027,14 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 	}
 
 	if ct.params.IncludeConnDisruptTest {
-		srcList = append(srcList, testConnDisruptClientDeploymentName)
-		dstList = append(dstList, testConnDisruptServerDeploymentName)
+		// We append the server and client deployment names to two different
+		// lists. This matters when running in multi-cluster mode, because
+		// the server is deployed in the local cluster (targeted by the "src"
+		// client), while the client in the remote one (targeted by the "dst"
+		// client). When running against a single cluster, instead, this does
+		// not matter much, because the two clients are identical.
+		srcList = append(srcList, testConnDisruptServerDeploymentName)
+		dstList = append(dstList, testConnDisruptClientDeploymentName)
 	}
 
 	if (ct.params.MultiCluster != "" || !ct.params.SingleNode) && !ct.params.Perf {
