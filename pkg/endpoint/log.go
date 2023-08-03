@@ -98,6 +98,11 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	// default to a new default logger
 	baseLogger := logging.InitializeDefaultLogger()
 
+	// Set log format based on daemon config
+	baseLogger.SetFormatter(logging.GetFormatter(
+		logging.LogOptions(option.Config.LogOpt).GetLogFormat(),
+	))
+
 	// If this endpoint is set to debug ensure it will print debug by giving it
 	// an independent logger.
 	// If this endpoint is not set to debug, it will use the log level set by the user.
