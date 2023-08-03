@@ -235,3 +235,4 @@
 /pkg/byteorder/ @cilium/api
 /pkg/client @cilium/api
 /pkg/hubble/metrics @cilium/sig-hubble-api
+/pkg/time @cilium/sig-agent
