@@ -496,6 +496,7 @@ Makefile* @cilium/build
 /pkg/stream @cilium/sig-foundations
 /pkg/sysctl @cilium/sig-datapath
 /pkg/testutils/ @cilium/ci-structure
+/pkg/time @cilium/sig-agent
 /pkg/tuple @cilium/sig-datapath
 /pkg/types/ @cilium/sig-datapath
 /pkg/wireguard @cilium/wireguard
