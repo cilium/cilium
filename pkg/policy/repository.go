@@ -141,16 +141,67 @@ type Repository struct {
 	getEnvoyHTTPRules func(certificatemanager.SecretManager, *api.L7Rules, string) (*cilium.HttpNetworkPolicyRules, bool)
 }
 
-// getShardKey returns the key to be used for the sharing of Repository.rulesByShard.
-// We currently use the K8s namespace label as the key, and if its not present, we fall back
+// getShardKey returns the key to be used for the sharding of Repository.rulesByShard.
+// We currently use the K8s namespace label as the key, and if it's not present, we fall back
 // to an empty string. Returns a true if it found a namespace label, and false if not.
 func getShardKey(lbls labels.LabelArray) (string, bool) {
+	key := ""
+	matched := false
 	for _, lbl := range lbls {
 		if lbl.Key == k8sConst.PolicyLabelNamespace && lbl.Source == labels.LabelSourceK8s {
-			return lbl.Value, true
+			// If we find two, ignore then and put them into the non-namespaced for easier housekeeping
+			if matched {
+				return "", false
+			}
+			key = lbl.Value
+			matched = true
 		}
 	}
-	return "", false
+	return key, matched
+}
+
+// getShardKeyFromRule finds the correct shard key to ensure that housekeeping works
+// as expected. A rule will get a shard key that is not the empty string iff
+//   - it has a single namespace label in its api.Rule.Labels
+//   - and has a single namespace match in its endpoint selector that match the namespace from the label.
+//
+// Otherwise, we always default to empty string.
+//
+// This means that when searching for rules that apply on an endpoint based on labels, one always has to search the
+// shard for the empty string, as well as the one for the namespace found in the label set or EndpointSelector.
+//
+// On the opposite side, when searching for rules that has a set of labels x, one has to search through all shards.
+// Only if the set of labels has a single namespace label, one can search through the empty string and the shard for
+// the given namespace
+func getShardKeyFromRule(r api.Rule) string {
+	if r.EndpointSelector.LabelSelector == nil {
+		return ""
+	}
+
+	if matches, found := r.EndpointSelector.GetMatch(labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel); found {
+		key, ok := getShardKey(r.Labels)
+		if ok && len(matches) == 1 && matches[0] == key {
+			return key
+		}
+	}
+	return ""
+}
+
+// getNamespaceFromLabels returns the namespace found in the labels iff there is a single
+// namespace value. If zero or more than one is found, it returns an empty string.
+func getNamespaceFromLabels(lbls labels.LabelArray) string {
+	key := ""
+	matched := false
+	for _, lbl := range lbls {
+		if lbl.Key == k8sConst.PodNamespaceLabel && lbl.Source == labels.LabelSourceK8s {
+			if matched {
+				return ""
+			}
+			key = lbl.Value
+			matched = true
+		}
+	}
+	return key
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
@@ -406,6 +457,7 @@ func (p *Repository) SearchRLocked(lbls labels.LabelArray) api.Rules {
 	if ok {
 		relevantShards = map[string]ruleSlice{
 			key: p.rulesByShard[key],
+			"":  p.rulesByShard[""],
 		}
 	}
 
@@ -449,9 +501,9 @@ func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 			Rule:     *rules[i],
 			metadata: newRuleMetadata(),
 		}
-		key, _ := getShardKey(rules[i].Labels)
 		newList = append(newList, newRule)
-		p.rulesByShard[key] = append(p.rulesByShard[key], newRule)
+		shard := getShardKeyFromRule(newRule.Rule)
+		p.rulesByShard[shard] = append(p.rulesByShard[shard], newRule)
 	}
 
 	p.BumpRevision()
@@ -552,11 +604,13 @@ func (p *Repository) DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, ui
 	deleted := 0
 	var deletedRules ruleSlice
 
-	key, ok := getShardKey(lbls)
 	relevantShards := p.rulesByShard
+
+	key, ok := getShardKey(lbls)
 	if ok {
 		relevantShards = map[string]ruleSlice{
 			key: p.rulesByShard[key],
+			"":  p.rulesByShard[""],
 		}
 	}
 	for shard := range relevantShards {
@@ -627,7 +681,7 @@ func (p *Repository) GetRulesMatching(lbls labels.LabelArray) (ingressMatch bool
 	ingressMatch = false
 	egressMatch = false
 
-	key, _ := getShardKey(lbls)
+	key := getNamespaceFromLabels(lbls)
 	relevantShards := map[string]ruleSlice{
 		key: p.rulesByShard[key],
 		"":  p.rulesByShard[""],
@@ -659,24 +713,6 @@ func (p *Repository) GetRulesMatching(lbls labels.LabelArray) (ingressMatch bool
 	return
 }
 
-func getNamespaceFromIdentity(securityIdentity *identity.Identity) string {
-	for _, lbl := range securityIdentity.LabelArray {
-		if lbl.Key == k8sConst.PodNamespaceLabel && lbl.Source == labels.LabelSourceK8s {
-			return lbl.Value
-		}
-	}
-	return ""
-}
-
-func isInit(securityIdentity *identity.Identity) bool {
-	for _, lbl := range securityIdentity.LabelArray {
-		if lbl.Source == labels.LabelSourceReserved && lbl.Key == labels.IDNameInit {
-			return true
-		}
-	}
-	return false
-}
-
 // getMatchingRules returns whether any of the rules in a repository contain a
 // rule with labels matching the given security identity, as well as
 // a slice of all rules which match.
@@ -687,18 +723,14 @@ func (p *Repository) getMatchingRules(securityIdentity *identity.Identity) (
 	matchingRules ruleSlice) {
 
 	matchingRules = []*rule{}
-	key := getNamespaceFromIdentity(securityIdentity)
+	key := getNamespaceFromLabels(securityIdentity.LabelArray)
 	relevantShards := map[string]ruleSlice{
 		key: p.rulesByShard[key],
 		"":  p.rulesByShard[""],
 	}
 
-	if isInit(securityIdentity) {
-		relevantShards = p.rulesByShard
-	}
-
-	for _, rr := range relevantShards {
-		for _, r := range rr {
+	for _, rules := range relevantShards {
+		for _, r := range rules {
 			isNode := securityIdentity.ID == identity.ReservedIdentityHost
 			selectsNode := r.NodeSelector.LabelSelector != nil
 			if selectsNode != isNode {
