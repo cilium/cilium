@@ -51,7 +51,21 @@ Supported Ingress Annotations
      - 0 (disabled)
 
 Additionally, cloud-provider specific annotations for the LoadBalancer service
-are supported. Please refer to the `Kubernetes documentation <https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer>`_
+are supported.
+
+By default, annotations with values beginning with:
+
+* ``service.beta.kubernetes.io``
+* ``service.kubernetes.io``
+* ``cloud.google.com``
+
+will be copied from an Ingress object to the generated LoadBalancer service objects.
+
+This setting is controlled by the Cilium Operator's ``ingress-lb-annotation-prefixes``
+config flag, and can be configured in Cilium's Helm ``values.yaml``
+using the ``ingressController.ingressLBAnnotationPrefixes`` setting.
+
+Please refer to the `Kubernetes documentation <https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer>`_
 for more details.
 
 Examples
