@@ -6,12 +6,32 @@ package gc
 import (
 	"errors"
 
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/signal"
 )
 
-// Cell registers a signal handler for CT and NAT fill-up signals.
-var Cell = cell.Invoke(registerSignalHandler)
+var Cell = cell.Module(
+	"ct-nat-map-gc",
+	"Garbage collection of CT and NAT maps",
+
+	cell.Provide(
+		// Provide the interface uses to start the GC logic. This hack
+		// should be removed once all dependencies have been modularized,
+		// and we can start the GC through a Start hook.
+		func(gc *GC) Enabler { return gc },
+	),
+
+	cell.ProvidePrivate(
+		New,
+
+		// Provide the reduced interface used by the GC logic.
+		func(mgr endpointmanager.EndpointManager) EndpointManager { return mgr },
+	),
+
+	// Register a signal handler for CT and NAT fill-up signals.
+	cell.Invoke(registerSignalHandler),
+)
 
 // SignalData holds the IP address family type BPF program sent along with
 // the SignalNatFillUp and SignalCTFillUp signals.
