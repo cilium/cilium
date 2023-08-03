@@ -10,6 +10,19 @@
 Gateway API Support
 *******************
 
+What is Gateway API?
+####################
+
+Gateway API is a Kubernetes SIG-Network subproject to design a successor for
+the Ingress object. It is a set of resources that model service networking in
+Kubernetes, and is designed to be role-oriented, portable, expressive, and
+extensible.
+
+See the `Gateway API site <https://gateway-api.sigs.k8s.io/>`__ for more details.
+
+Cilium Gateway API Support
+##########################
+
 Cilium supports Gateway API v0.5.1 for below resources, all the Core conformance
 tests, plus the ReferenceGrant extended tests, are passed.
 
@@ -34,4 +47,4 @@ Cilium's Gateway API features:
    http
    https
 
-More examples can be found `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/v0.5.1/examples/v1beta1>`_.
+More examples can be found in the `upstream repository <https://github.com/kubernetes-sigs/gateway-api/tree/v0.5.1/examples/v1beta1>`_.
