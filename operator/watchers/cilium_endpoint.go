@@ -14,7 +14,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
-	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -200,14 +199,11 @@ func HasCE(ns, name string) (*cilium_api_v2.CiliumEndpoint, bool, error) {
 }
 
 func endpointUpdated(cep *cilium_api_v2.CiliumEndpoint) {
-	if cep.Status.Networking == nil || cep.Status.Identity == nil || cep.GetName() == "" || cep.Namespace == "" {
-		return
-	}
-	cesController.Manager.InsertCEPInCache(k8s.ConvertCEPToCoreCEP(cep), cep.Namespace)
+	cesController.OnEndpointUpdate(cep)
 }
 
 func endpointDeleted(cep *cilium_api_v2.CiliumEndpoint) {
-	cesController.Manager.RemoveCEPFromCache(ces.GetCEPNameFromCCEP(k8s.ConvertCEPToCoreCEP(cep), cep.Namespace), ces.DefaultCESSyncTime)
+	cesController.OnEndpointDelete(cep)
 }
 
 // objToCiliumEndpoint attempts to cast object to a CiliumEndpoint object

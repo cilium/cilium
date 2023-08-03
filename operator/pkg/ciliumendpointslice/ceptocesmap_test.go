@@ -12,8 +12,8 @@ import (
 func TestCepToCESCounts(t *testing.T) {
 	testCases := []struct {
 		name    string
-		cepName string
-		cesName string
+		cepName CEPName
+		cesName CESName
 		count   int
 	}{
 		{
@@ -47,21 +47,23 @@ func TestCepToCESCounts(t *testing.T) {
 			count:   4,
 		},
 	}
-	cmap := newDesiredCESMap()
+	cmap := newCESToCEPMapping()
 
 	// Insert new CEPs in cepCache map and check its total count
 	for _, tc := range testCases {
 		t.Run(tc.name, func(*testing.T) {
-			cmap.insertCEP(tc.cepName, tc.cesName)
+			cmap.insertCES(CESName(tc.cesName), "ns")
+			cmap.insertCEP(CEPName(tc.cepName), CESName(tc.cesName))
 			assert.Equal(t, cmap.countCEPs(), tc.count, "Number of CEP entries in cmap should match with Count")
 			assert.Equal(t, cmap.hasCEP(tc.cepName), true, "CEP name should present in cmap")
-			assert.Equal(t, cmap.hasCEP(tc.cesName), false, "CES name should NOT present in cmap as Key")
+			assert.Equal(t, cmap.hasCEP("not-really-cep"), false, "Random string should NOT present in cmap as Key")
 		})
 	}
 
 	// Insert and remove CEPs in cepCache and check for any stale entries present in cepCache.
 	for _, tc := range testCases {
 		t.Run(tc.name, func(*testing.T) {
+			cmap.insertCES(CESName(tc.cesName), "ns")
 			cmap.insertCEP(tc.cepName, tc.cesName)
 			cesName, ok := cmap.getCESName(tc.cepName)
 			assert.Equal(t, ok, true, "CEP name should be there in map")
