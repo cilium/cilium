@@ -16,7 +16,7 @@ SPHINX_OPTS := "-j=auto"
 default: html
 
 define build_image
-  $(ECHO_DOCKER)
+  $(ECHO_DOCKER) $(3)
   # Pre-pull FROM docker image due to Buildkit sometimes failing to pull them.
   grep -m 1 "^FROM " $(1) | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
   $(QUIET)tar c $(REQUIREMENTS) Dockerfile \
