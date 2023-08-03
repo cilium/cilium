@@ -15,6 +15,8 @@
 	      - sizeof(__u32)))
 #define WORLD_CIDR_PREFIX_LEN4(PREFIX) (WORLD_CIDR_STATIC_PREFIX4 + (PREFIX))
 
+/* world_cidrs_lookup4 returns true if the given address
+ * should be encapsulated */
 static __always_inline __maybe_unused bool
 world_cidrs_lookup4(__u32 addr)
 {
@@ -26,7 +28,7 @@ world_cidrs_lookup4(__u32 addr)
 
 	key.ip &= GET_PREFIX(V4_CACHE_KEY_LEN);
 	matches = map_lookup_elem(&WORLD_CIDRS4_MAP, &key);
-	return matches != NULL;
+	return matches != NULL && *matches == 1;
 }
 
 static __always_inline bool
@@ -47,7 +49,7 @@ needs_encapsulation(__u32 addr)
 	 * ipcache is enabled, we want to encapsulate with the remote pod's IP
 	 * itself.
 	 */
-	return !world_cidrs_lookup4(addr);
+	return world_cidrs_lookup4(addr);
 }
 
 static __always_inline int

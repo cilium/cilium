@@ -17,6 +17,9 @@ const (
 	MapName4      = "cilium_world_cidrs4"
 )
 
+// The WorldCIDRS map determines if -- when using high-scale ipcache -- a given
+// CIDR should be encapsulated or not.
+// By default, traffic is *not* encapsulated.
 type Map interface {
 	// Load initializes the map. If create is true, will create the map
 	// if missing. Otherwise, will return error if the map does not exist
@@ -24,7 +27,7 @@ type Map interface {
 
 	IterateWithCallback(cb WorldCIDRsIterateCallback) error
 
-	Add(cidrs ...netip.Prefix) error
+	Add(cidrs map[netip.Prefix]bool) error
 	Delete(cidrs ...netip.Prefix) error
 }
 
@@ -37,7 +40,8 @@ type WorldCIDRKey4 struct {
 
 // WorldCIDRVal is the value of world CIDRs maps.
 type WorldCIDRVal struct {
-	Exists uint8
+	// if this is 1, then the traffic should be encapsulated
+	Encap uint8
 }
 
 // wolrdCIDRsMap is the internal representation of a world CIDRs map.
@@ -104,9 +108,13 @@ func NewWorldCIDRKey4(cidr netip.Prefix) WorldCIDRKey4 {
 	return key
 }
 
-func NewWorldCIDRVal() WorldCIDRVal {
+func NewWorldCIDRVal(encap bool) WorldCIDRVal {
+	val := uint8(0)
+	if encap {
+		val = 1
+	}
 	return WorldCIDRVal{
-		Exists: 1,
+		Encap: val,
 	}
 }
 
@@ -119,8 +127,8 @@ func (k *WorldCIDRKey4) GetCIDR() netip.Prefix {
 	return netip.PrefixFrom(k.IP.Addr(), int(k.PrefixLen))
 }
 
-// Add adds the givenCIDR to the map.
-func (m *worldCIDRsMap) Add(cidrs ...netip.Prefix) error {
+// Add specifies whether the provided cidrs should be encapsulated or not.
+func (m *worldCIDRsMap) Add(cidrs map[netip.Prefix]bool) error {
 	if len(cidrs) == 0 {
 		return nil
 	}
@@ -128,13 +136,13 @@ func (m *worldCIDRsMap) Add(cidrs ...netip.Prefix) error {
 	keys := make([]WorldCIDRKey4, 0, len(cidrs))
 	vals := make([]WorldCIDRVal, 0, len(cidrs))
 
-	for _, cidr := range cidrs {
+	for cidr, encap := range cidrs {
 		// TODO: ipv6 support
 		if cidr.Addr().Is6() {
 			continue
 		}
 		keys = append(keys, NewWorldCIDRKey4(cidr))
-		vals = append(vals, NewWorldCIDRVal())
+		vals = append(vals, NewWorldCIDRVal(encap))
 	}
 
 	_, err := m.v4map.BatchUpdate(keys, vals, nil)
@@ -164,7 +172,8 @@ func (m *worldCIDRsMap) Delete(cidrs ...netip.Prefix) error {
 // WorldCIDRsIterateCallback represents the signature of the callback function
 // expected by the IterateWithCallback method, which in turn is used to iterate
 // all the keys/values of a world CIDR map.
-type WorldCIDRsIterateCallback func(netip.Prefix)
+// Bool is true if the given prefix should be encapsulated.
+type WorldCIDRsIterateCallback func(netip.Prefix, bool)
 
 // IterateWithCallback iterates through all the keys/values of a world CIDRs
 // map, passing each key/value pair to the cb callback.
@@ -172,8 +181,9 @@ func (m worldCIDRsMap) IterateWithCallback(cb WorldCIDRsIterateCallback) error {
 	err := m.v4map.IterateWithCallback(&WorldCIDRKey4{}, &WorldCIDRVal{},
 		func(k, v interface{}) {
 			key := k.(*WorldCIDRKey4)
+			val := v.(*WorldCIDRVal)
 			p := key.GetCIDR()
-			cb(p)
+			cb(p, val.Encap == 1)
 		})
 
 	if err != nil {
