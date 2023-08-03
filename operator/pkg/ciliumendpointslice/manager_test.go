@@ -6,241 +6,128 @@ package ciliumendpointslice
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/stretchr/testify/assert"
 )
 
-var (
-	cep1 = &capi_v2a1.CoreCiliumEndpoint{
-		Name:       "cilium-abcd-123",
-		IdentityID: 364747,
+func getCEP(name string, id int64) *capi_v2a1.CoreCiliumEndpoint {
+	return &capi_v2a1.CoreCiliumEndpoint{
+		Name:       name,
+		IdentityID: id,
 	}
+}
 
-	cep2 = &capi_v2a1.CoreCiliumEndpoint{
-		Name:       "cilium-abcd-456",
-		IdentityID: 364748,
-	}
-
-	cep3 = &capi_v2a1.CoreCiliumEndpoint{
-		Name:       "cilium-abcd-789",
-		IdentityID: 364749,
-	}
-
-	cep4 = &capi_v2a1.CoreCiliumEndpoint{
-		Name:       "cilium-bcde-123",
-		IdentityID: 364757,
-	}
-
-	cep5 = &capi_v2a1.CoreCiliumEndpoint{
-		Name:       "cilium-bcde-456",
-		IdentityID: 364767,
-	}
-
-	cep1a = &capi_v2a1.CoreCiliumEndpoint{
-		Name:       "cilium-abcd-123a",
-		IdentityID: 364747,
-	}
-
-	cep2b = &capi_v2a1.CoreCiliumEndpoint{
-		Name:       "cilium-abcd-456b",
-		IdentityID: 364748,
-	}
-
-	CES = &capi_v2a1.CiliumEndpointSlice{
-		TypeMeta: meta_v1.TypeMeta{
-			Kind:       "CiliumEndpointSlice",
-			APIVersion: capi_v2a1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: meta_v1.ObjectMeta{},
-		Namespace:  "kube-system",
-		Endpoints: []capi_v2a1.CoreCiliumEndpoint{
-			{
-				Name:       "cilium-abcd-123",
-				IdentityID: 364748,
-			},
-			{
-				Name:       "cilium-abcd-456",
-				IdentityID: 364748,
-			},
-		},
-	}
-)
-
-func TestInsertAndRemoveCEPsInCache(t *testing.T) {
-
-	// Insert CEPs in Cache and count total number of CES and CEP
-	t.Run("Test Inserting CEPs in cache and count number of CEPs and CESs", func(*testing.T) {
-		m := newCESManagerFcfs(newQueue(), 2)
-		m.InsertCEPInCache(cep1, "kube-system")
-		m.InsertCEPInCache(cep2, "kube-system")
-		m.InsertCEPInCache(cep3, "kube-system")
-		assert.Equal(t, m.getCESCount(), 2, "Total number of CESs allocated is 2")
-		assert.Equal(t, m.getTotalCEPCount(), 3, "Total number of CEPs inserted is 3")
+func TestFCFSManager(t *testing.T) {
+	t.Run("Test adding new CEP to map", func(*testing.T) {
+		m := newCESManagerFcfs(2).(*cesManagerFcfs)
+		m.UpdateCEPMapping(getCEP("c1", 0), "ns")
+		assert.Equal(t, 1, m.mapping.getCESCount(), "Total number of CESs allocated is 1")
+		assert.Equal(t, 1, m.mapping.countCEPs(), "Total number of CEPs inserted is 1")
 	})
-
-	// Remove CEPs from Cache and check total number of CES and CEP
-	t.Run("Test Removing CEPs from cache and check number of CEPs and CESs", func(*testing.T) {
-		m := newCESManagerFcfs(newQueue(), 2)
-		u := newDesiredCESMap()
-		cn := m.InsertCEPInCache(cep1, "kube-system")
-		u.insertCEP(cep1.Name, cn)
-		cn = m.InsertCEPInCache(cep2, "kube-system")
-		u.insertCEP(cep2.Name, cn)
-		cn = m.InsertCEPInCache(cep3, "kube-system")
-		u.insertCEP(cep3.Name, cn)
-		cn = m.InsertCEPInCache(cep4, "kube-system")
-		u.insertCEP(cep4.Name, cn)
-		cn = m.InsertCEPInCache(cep5, "kube-system")
-		u.insertCEP(cep5.Name, cn)
-		// Check all 5 CEP are inserted
-		assert.Equal(t, m.getCESCount(), 3, "Total number of CESs allocated is 3")
-		assert.Equal(t, m.getTotalCEPCount(), 5, "Total number of CEPs inserted is 5")
-
-		// Remove a CEP from Cache
-		// This should remove one CEP from cache and remove a CES
-		m.RemoveCEPFromCache(GetCEPNameFromCCEP(cep5, "kube-system"), DefaultCESSyncTime)
-		if cn, ok := u.getCESName(cep5.Name); ok {
-			// complete CES delete from local datastore, after successful removal in k8s-apiserver.
-			m.deleteCESFromCache(cn)
-		}
-		assert.Equal(t, m.getCESCount(), 2, "Total number of CESs allocated is 2")
-		assert.Equal(t, m.getTotalCEPCount(), 4, "Total number of CEPs inserted is 4")
-
-		// Remove a CEP from Cache
-		// This should remove one CEP in a CES.
-		m.RemoveCEPFromCache(GetCEPNameFromCCEP(cep3, "kube-system"), DefaultCESSyncTime)
-		assert.Equal(t, m.getCESCount(), 2, "Total number of CESs allocated is 2")
-		assert.Equal(t, m.getTotalCEPCount(), 3, "Total number of CEPs inserted is 3")
-
-		// Remove a CEP from Cache
-		// This should remove one CEP in a CES.
-		m.RemoveCEPFromCache(GetCEPNameFromCCEP(cep4, "kube-system"), DefaultCESSyncTime)
-		if cn, ok := u.getCESName(cep4.Name); ok {
-			// complete CES delete from local datastore, after successful removal in k8s-apiserver.
-			m.deleteCESFromCache(cn)
-		}
-		assert.Equal(t, m.getCESCount(), 1, "Total number of CESs allocated is 1")
-		assert.Equal(t, m.getTotalCEPCount(), 2, "Total number of CEPs inserted is 2")
-
-		// Remove a CEP from Cache
-		// This should remove one CEP in a CES.
-		m.RemoveCEPFromCache(GetCEPNameFromCCEP(cep1, "kube-system"), DefaultCESSyncTime)
-		assert.Equal(t, m.getCESCount(), 1, "Total number of CESs allocated is 1")
-		assert.Equal(t, m.getTotalCEPCount(), 1, "Total number of CEPs inserted is 1")
-
-		// Remove a CEP from Cache
-		// This should remove one CEP in a CES.
-		m.RemoveCEPFromCache(GetCEPNameFromCCEP(cep2, "kube-system"), DefaultCESSyncTime)
-		if cn, ok := u.getCESName(cep2.Name); ok {
-			// complete CES delete from local datastore, after successful removal in k8s-apiserver.
-			m.deleteCESFromCache(cn)
-		}
-		assert.Equal(t, m.getCESCount(), 0, "Total number of CESs allocated is 0")
-		assert.Equal(t, m.getTotalCEPCount(), 0, "Total number of CEPs inserted is 0")
+	t.Run("Test creating enough CESs", func(*testing.T) {
+		m := newCESManagerFcfs(2).(*cesManagerFcfs)
+		m.UpdateCEPMapping(getCEP("c1", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c2", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c3", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c4", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c5", 0), "ns")
+		assert.Equal(t, 3, m.mapping.getCESCount(), "Total number of CESs allocated is 3")
+		assert.Equal(t, 5, m.mapping.countCEPs(), "Total number of CEPs inserted is 5")
 	})
-
-	t.Run("Test InsertCEPInCache always adds CEPs to the largest CES", func(*testing.T) {
-		m := newCESManagerFcfs(newQueue(), 10)
-		// Create a CES with a custom CEP list.
-		createCES := func(cesName, ns string, cepList []capi_v2a1.CoreCiliumEndpoint) *cesTracker {
-			newCES := m.createCES(cesName)
-			newCES.ces.Namespace = ns
-			for _, cep := range cepList {
-				m.addCEPtoCES(&cep, newCES)
-			}
-
-			m.updateCESInCache(newCES.ces, true)
-			return newCES
-		}
-
-		ces1 := createCES("ces1", "default", []capi_v2a1.CoreCiliumEndpoint{*cep1})
-		ces2 := createCES("ces2", "default", []capi_v2a1.CoreCiliumEndpoint{*cep2, *cep2b})
-		ces3 := createCES("ces3", "default", []capi_v2a1.CoreCiliumEndpoint{*cep3})
-		ces4 := createCES("ces4", "namespace-a", []capi_v2a1.CoreCiliumEndpoint{*cep2, *cep2b})
-		ces5 := createCES("ces5", "namespace-a", []capi_v2a1.CoreCiliumEndpoint{*cep3})
-
-		// All CEPs should be added to the same CES (ces2) in default namespace.
-		m.InsertCEPInCache(cep4, "default")
-		assert.Equal(t, 3, len(ces2.ces.Endpoints), "The largest CES in default namespace has 3 CEPs")
-		m.InsertCEPInCache(cep5, "default")
-		assert.Equal(t, 4, len(ces2.ces.Endpoints), "The largest CES in default namespace has 4 CEPs")
-		m.InsertCEPInCache(cep1a, "default")
-		assert.Equal(t, 5, len(ces2.ces.Endpoints), "The largest CES in default namespace has 5 CEPs")
-
-		// All CEPs should be added to the same CES (ces4) in namespace-a.
-		m.InsertCEPInCache(cep4, "namespace-a")
-		assert.Equal(t, 3, len(ces4.ces.Endpoints), "The largest CES in namespace-a has 3 CEPs")
-		assert.Equal(t, 5, len(ces2.ces.Endpoints), "The largest CES in default namespace still has 5 CEPs")
-
-		// The rest of CESs should have the same number of CEPs.
-		assert.Equal(t, 1, len(ces1.ces.Endpoints), "A smaller CES still has only 1 CEP")
-		assert.Equal(t, 1, len(ces3.ces.Endpoints), "A smaller CES still has only 1 CEP")
-		assert.Equal(t, 1, len(ces5.ces.Endpoints), "A smaller CES still has only 1 CEP")
+	t.Run("Test keeping the CEPs from different namespaces in different CESs", func(*testing.T) {
+		m := newCESManagerFcfs(5).(*cesManagerFcfs)
+		m.UpdateCEPMapping(getCEP("c1", 0), "ns1")
+		m.UpdateCEPMapping(getCEP("c2", 0), "ns2")
+		m.UpdateCEPMapping(getCEP("c3", 0), "ns3")
+		m.UpdateCEPMapping(getCEP("c4", 0), "ns4")
+		m.UpdateCEPMapping(getCEP("c5", 0), "ns5")
+		assert.Equal(t, 5, m.mapping.getCESCount(), "Total number of CESs allocated is 1")
+		assert.Equal(t, 5, m.mapping.countCEPs(), "Total number of CEPs inserted is 1")
+	})
+	t.Run("Test keeping the same mapping", func(*testing.T) {
+		m := newCESManagerFcfs(2).(*cesManagerFcfs)
+		m.UpdateCEPMapping(getCEP("c1", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c1", 5), "ns")
+		assert.Equal(t, 1, m.mapping.getCESCount(), "Total number of CESs allocated is 1")
+		assert.Equal(t, 1, m.mapping.countCEPs(), "Total number of CEPs inserted is 1")
+	})
+	t.Run("Test reusing CES", func(*testing.T) {
+		m := newCESManagerFcfs(2).(*cesManagerFcfs)
+		m.UpdateCEPMapping(getCEP("c1", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c2", 0), "ns")
+		m.RemoveCEPMapping(getCEP("c1", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c3", 0), "ns")
+		m.RemoveCEPMapping(getCEP("c2", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c4", 0), "ns")
+		m.RemoveCEPMapping(getCEP("c3", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c5", 0), "ns")
+		assert.Equal(t, 1, m.mapping.getCESCount(), "Total number of CESs allocated is 1")
+		assert.Equal(t, 2, m.mapping.countCEPs(), "Total number of CEPs inserted is 2")
 	})
 }
 
-func TestDeepCopyCEPs(t *testing.T) {
-	// Insert CEPs in Cache, then do the deep copy and compare CESs.
-	t.Run("Test Inserting CEPs in cache and count number of CEPs and CESs", func(*testing.T) {
-		m := newCESManagerFcfs(newQueue(), 2)
-		m.InsertCEPInCache(cep1, "kube-system")
-		cn := m.InsertCEPInCache(cep2, "kube-system")
-		ces, _ := m.getCESFromCache(cn)
-		assert.Equal(t, m.getCESCount(), 1, "Total number of CESs allocated is 1")
-		assert.Equal(t, m.getTotalCEPCount(), 2, "Total number of CEPs inserted is 2")
-		assert.Equal(t, m.getTotalCEPCount(), len(ces.Endpoints), "Total number of CEPs inserted is 2")
-
-		// Copy randomly Generated cesName to the local variable
-		CES.Name = ces.Name
-
-		// Copy only headers and check data between local variable and in datastore. No DeepCopy.
-		m.updateCESInCache(CES, false)
-		ces, _ = m.getCESFromCache(cn)
-		assert.Equal(t, ces.DeepEqual(CES), false, "CEPs expected to have same name but different identities")
-
-		// do deep copy between local variable and in datastore
-		m.updateCESInCache(CES, true)
-		ces, _ = m.getCESFromCache(cn)
-		assert.Equal(t, ces.DeepEqual(CES), true, "Local CES should match with CES in datastore")
-
-		m1 := newCESManagerIdentity(newQueue(), 2)
-		m1.InsertCEPInCache(cep1, "kube-system")
-		m1.InsertCEPInCache(cep1a, "kube-system")
-		m1.InsertCEPInCache(cep2b, "kube-system")
-		cn = m1.InsertCEPInCache(cep2, "kube-system")
-		ces, _ = m1.getCESFromCache(cn)
-		assert.Equal(t, m1.getCESCount(), 2, "Total number of CESs allocated is 2")
-		assert.Equal(t, m1.getTotalCEPCount(), 4, "Total number of CEPs inserted is 4")
-		assert.Equal(t, len(ces.Endpoints), 2, "Total number of CEPs inserted in a CES is 2")
-
-		// Copy randomly Generated cesName to the local variable
-		CES.Name = ces.Name
-
-		// Copy only headers and check data between local variable and in datastore. No DeepCopy.
-		m1.updateCESInCache(CES, false)
-		ces, _ = m1.getCESFromCache(cn)
-		assert.Equal(t, ces.DeepEqual(CES), false, "CEPs expected to have same name but different identities")
-
-		// do deep copy between local variable and in datastore
-		m1.updateCESInCache(CES, true)
-		ces, _ = m1.getCESFromCache(cn)
-		assert.Equal(t, ces.DeepEqual(CES), true, "Local CES should match with CES in datastore")
+func TestIdentityManager(t *testing.T) {
+	t.Run("Test adding new CEP to map", func(*testing.T) {
+		m := newCESManagerIdentity(2).(*cesManagerIdentity)
+		m.UpdateCEPMapping(getCEP("c1", 0), "ns")
+		assert.Equal(t, 1, m.mapping.getCESCount(), "Total number of CESs allocated is 1")
+		assert.Equal(t, 1, m.mapping.countCEPs(), "Total number of CEPs inserted is 1")
 	})
-}
-
-func TestRemovedCEPs(t *testing.T) {
-	t.Run("Test Deleting CEPs and Insert", func(*testing.T) {
-		m := newCESManagerFcfs(newQueue(), 2)
-		m.InsertCEPInCache(cep1, "kube-system")
-		cesName := m.InsertCEPInCache(cep2, "kube-system")
-		m.RemoveCEPFromCache(GetCEPNameFromCCEP(cep1, "kube-system"), DefaultCESSyncTime)
-		m.RemoveCEPFromCache(GetCEPNameFromCCEP(cep2, "kube-system"), DefaultCESSyncTime)
-		remCEPs := m.getRemovedCEPs(cesName)
-		assert.Equal(t, len(remCEPs), 2, "Total removedCEPs should match with value 2")
-		m.clearRemovedCEPs(cesName, remCEPs)
-		remCEPs = m.getRemovedCEPs(cesName)
-		assert.Equal(t, len(remCEPs), 0, "Total removedCEPs should match with value 0")
+	t.Run("Test creating enough CESs", func(*testing.T) {
+		m := newCESManagerIdentity(2).(*cesManagerIdentity)
+		m.UpdateCEPMapping(getCEP("c1", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c2", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c3", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c4", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c5", 0), "ns")
+		assert.Equal(t, 3, m.mapping.getCESCount(), "Total number of CESs allocated is 3")
+		assert.Equal(t, 5, m.mapping.countCEPs(), "Total number of CEPs inserted is 5")
+	})
+	t.Run("Test keeping the CEPs from different namespaces in different CESs", func(*testing.T) {
+		m := newCESManagerIdentity(5).(*cesManagerIdentity)
+		m.UpdateCEPMapping(getCEP("c1", 0), "ns1")
+		m.UpdateCEPMapping(getCEP("c2", 0), "ns2")
+		m.UpdateCEPMapping(getCEP("c3", 0), "ns3")
+		m.UpdateCEPMapping(getCEP("c4", 0), "ns4")
+		m.UpdateCEPMapping(getCEP("c5", 0), "ns5")
+		assert.Equal(t, 5, m.mapping.getCESCount(), "Total number of CESs allocated is 1")
+		assert.Equal(t, 5, m.mapping.countCEPs(), "Total number of CEPs inserted is 1")
+	})
+	t.Run("Test grouping by id", func(*testing.T) {
+		m := newCESManagerIdentity(2).(*cesManagerIdentity)
+		m.UpdateCEPMapping(getCEP("c1", 1), "ns")
+		m.UpdateCEPMapping(getCEP("c2", 2), "ns")
+		m.UpdateCEPMapping(getCEP("c3", 3), "ns")
+		m.UpdateCEPMapping(getCEP("c4", 4), "ns")
+		m.UpdateCEPMapping(getCEP("c5", 4), "ns")
+		assert.Equal(t, 4, m.mapping.getCESCount(), "Total number of CESs allocated is 4")
+		assert.Equal(t, 5, m.mapping.countCEPs(), "Total number of CEPs inserted is 5")
+	})
+	t.Run("Test keeping the same mapping", func(*testing.T) {
+		m := newCESManagerIdentity(2).(*cesManagerIdentity)
+		m.UpdateCEPMapping(getCEP("c1", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c1", 0), "ns")
+		assert.Equal(t, 1, m.mapping.getCESCount(), "Total number of CESs allocated is 1")
+		assert.Equal(t, 1, m.mapping.countCEPs(), "Total number of CEPs inserted is 1")
+	})
+	t.Run("Test moving CEP when ID changed", func(*testing.T) {
+		m := newCESManagerIdentity(2).(*cesManagerIdentity)
+		m.UpdateCEPMapping(getCEP("c1", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c1", 1), "ns")
+		assert.Equal(t, 2, m.mapping.getCESCount(), "Total number of CESs allocated is 1")
+		assert.Equal(t, 1, m.mapping.countCEPs(), "Total number of CEPs inserted is 1")
+	})
+	t.Run("Test reusing CES", func(*testing.T) {
+		m := newCESManagerIdentity(2).(*cesManagerIdentity)
+		m.UpdateCEPMapping(getCEP("c1", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c2", 0), "ns")
+		m.RemoveCEPMapping(getCEP("c1", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c3", 0), "ns")
+		m.RemoveCEPMapping(getCEP("c2", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c4", 0), "ns")
+		m.RemoveCEPMapping(getCEP("c3", 0), "ns")
+		m.UpdateCEPMapping(getCEP("c5", 0), "ns")
+		assert.Equal(t, 1, m.mapping.getCESCount(), "Total number of CESs allocated is 1")
+		assert.Equal(t, 2, m.mapping.countCEPs(), "Total number of CEPs inserted is 2")
 	})
 }

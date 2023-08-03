@@ -5,216 +5,149 @@ package ciliumendpointslice
 
 import (
 	"testing"
-
+	
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/time/rate"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	k8stesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/util/workqueue"
+	k8sTesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
-	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
-	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/client"
 )
 
-const (
-	CESReconcilerUID      = "12345"
-	CESReconcilerGenerate = 9090
-)
+func TestReconcileCreate(t *testing.T) {
+	m := newCESManagerFcfs(2).(*cesManagerFcfs)
+	c, _ := client.NewFakeClientset()
 
-var (
-	// Test CES object, with 2 CEPs packed in it.
-	CES1 = &capi_v2a1.CiliumEndpointSlice{
-		TypeMeta: meta_v1.TypeMeta{
-			Kind:       "CiliumEndpointSlice",
-			APIVersion: capi_v2a1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name: "CES-apple-one",
-		},
-		Endpoints: []capi_v2a1.CoreCiliumEndpoint{
-			{
-				Name:       "cilium-abcd-123",
-				IdentityID: 364748,
-			},
-			{
-				Name:       "cilium-abcd-456",
-				IdentityID: 364748,
-			},
-		},
-	}
+	var createdSlice *v2alpha1.CiliumEndpointSlice
+	c.CiliumFakeClientset.PrependReactor("create", "*", func(action k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
+		pa := action.(k8sTesting.CreateAction)
+		createdSlice = pa.GetObject().(*v2alpha1.CiliumEndpointSlice)
+		return true, nil, nil
+	})
+	r := newReconciler(c.CiliumFakeClientset.CiliumV2alpha1(), m)
+	r.ciliumEndpointStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+	ceSliceStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
-	// Test CES object, with 2 CEPs packed in it.
-	CES2 = &capi_v2a1.CiliumEndpointSlice{
-		TypeMeta: meta_v1.TypeMeta{
-			Kind:       "CiliumEndpointSlice",
-			APIVersion: capi_v2a1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name: "CES-apple-two",
-		},
-		Endpoints: []capi_v2a1.CoreCiliumEndpoint{
-			{
-				Name:       "cilium-nfgt-123",
-				IdentityID: 364748,
-			},
-			{
-				Name:       "cilium-nfgt-456",
-				IdentityID: 364748,
-			},
-		},
-	}
+	cep1 := createStoreEndpoint("cep1", "ns", 1)
+	r.ciliumEndpointStore.Add(cep1)
+	cep2 := createStoreEndpoint("cep2", "ns", 2)
+	r.ciliumEndpointStore.Add(cep2)
+	cep3 := createStoreEndpoint("cep3", "ns", 2)
+	r.ciliumEndpointStore.Add(cep3)
+	m.mapping.insertCES("ces1", "ns")
+	m.mapping.insertCES("ces2", "ns")
+	m.mapping.insertCEP("ns/cep1", "ces1")
+	m.mapping.insertCEP("ns/cep2", "ces1")
+	m.mapping.insertCEP("ns/cep3", "ces2")
+	r.reconcileCES("ces1")
 
-	// Test CES object, with 2 CEPs packed in it.
-	CES3 = &capi_v2a1.CiliumEndpointSlice{
-		TypeMeta: meta_v1.TypeMeta{
-			Kind:       "CiliumEndpointSlice",
-			APIVersion: capi_v2a1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name: "CES-apple-three",
-		},
-		Endpoints: []capi_v2a1.CoreCiliumEndpoint{
-			{
-				Name:       "cilium-tkld-123",
-				IdentityID: 364748,
-			},
-			{
-				Name:       "cilium-tkld-456",
-				IdentityID: 364748,
-			},
-		},
-	}
-
-	// Test CES object, with no CEPs packed in it.
-	emptyCES = &capi_v2a1.CiliumEndpointSlice{
-		TypeMeta: meta_v1.TypeMeta{
-			Kind:       "CiliumEndpointSlice",
-			APIVersion: capi_v2a1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: meta_v1.ObjectMeta{
-			Name: "CES-empty",
-		},
-		Endpoints: []capi_v2a1.CoreCiliumEndpoint{},
-	}
-)
-
-func newQueue() workqueue.RateLimitingInterface {
-	return workqueue.NewNamedRateLimitingQueue(workqueue.NewMaxOfRateLimiter(
-		workqueue.NewItemExponentialFailureRateLimiter(defaultSyncBackOff, maxSyncBackOff),
-		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(5), 10)}), "fakeQueue")
+	assert.Equal(t, "ces1", createdSlice.Name)
+	assert.Equal(t, 2, len(createdSlice.Endpoints))
+	assert.Equal(t, "ns", createdSlice.Namespace)
+	eps := []string{createdSlice.Endpoints[0].Name, createdSlice.Endpoints[1].Name}
+	assert.Contains(t, eps, "cep1")
+	assert.Contains(t, eps, "cep2")
 }
 
-// Create a fake cilium Client and add prepend reactor for Create/Update/Delete
-func fakeCiliumClient() clientset.CiliumV2alpha1Interface {
-	client := fake.NewSimpleClientset()
-	client.PrependReactor("create", "ciliumendpointslices", k8stesting.ReactionFunc(func(action k8stesting.Action) (bool, runtime.Object, error) {
-		ciliumEndpointSlice := action.(k8stesting.CreateAction).GetObject().(*capi_v2a1.CiliumEndpointSlice)
-		ciliumEndpointSlice.UID = CESReconcilerUID
-		return false, ciliumEndpointSlice, nil
-	}))
-	client.PrependReactor("update", "ciliumendpointslices", k8stesting.ReactionFunc(func(action k8stesting.Action) (bool, runtime.Object, error) {
-		ciliumEndpointSlice := action.(k8stesting.UpdateAction).GetObject().(*capi_v2a1.CiliumEndpointSlice)
-		ciliumEndpointSlice.Generation = CESReconcilerGenerate
-		return false, ciliumEndpointSlice, nil
-	}))
-	client.PrependReactor("delete", "ciliumendpointslices", k8stesting.ReactionFunc(func(action k8stesting.Action) (bool, runtime.Object, error) {
-		return false, nil, nil
-	}))
-	return client.CiliumV2alpha1()
+func TestReconcileUpdate(t *testing.T) {
+	m := newCESManagerFcfs(2).(*cesManagerFcfs)
+	c, _ := client.NewFakeClientset()
+
+	var updatedSlice *v2alpha1.CiliumEndpointSlice
+	c.CiliumFakeClientset.PrependReactor("update", "*", func(action k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
+		pa := action.(k8sTesting.UpdateAction)
+		updatedSlice = pa.GetObject().(*v2alpha1.CiliumEndpointSlice)
+		return true, nil, nil
+	})
+	r := newReconciler(c.CiliumFakeClientset.CiliumV2alpha1(), m)
+	r.ciliumEndpointStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+	ceSliceStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+
+	cep1 := createStoreEndpoint("cep1", "ns", 1)
+	r.ciliumEndpointStore.Add(cep1)
+	cep2 := createStoreEndpoint("cep2", "ns", 2)
+	r.ciliumEndpointStore.Add(cep2)
+	cep3 := createStoreEndpoint("cep3", "ns", 2)
+	r.ciliumEndpointStore.Add(cep3)
+	ces1 := createStoreEndpointSlice("ces1", "ns", []v2alpha1.CoreCiliumEndpoint{createManagerEndpoint("cep1", 1), createManagerEndpoint("cep3", 2)})
+	ceSliceStore.Add(ces1)
+	m.mapping.insertCES("ces1", "ns")
+	m.mapping.insertCES("ces2", "ns")
+	m.mapping.insertCEP("ns/cep1", "ces1")
+	m.mapping.insertCEP("ns/cep2", "ces1")
+	m.mapping.insertCEP("ns/cep3", "ces2")
+	// ces1 contains cep1 and cep3, but it's mapped to cep1 and cep2
+	// so it's expected that after update it would contain cep1 and cep2
+	r.reconcileCES("ces1")
+
+	assert.Equal(t, "ces1", updatedSlice.Name)
+	assert.Equal(t, 2, len(updatedSlice.Endpoints))
+	assert.Equal(t, "ns", updatedSlice.Namespace)
+	eps := []string{updatedSlice.Endpoints[0].Name, updatedSlice.Endpoints[1].Name}
+	assert.Contains(t, eps, "cep1")
+	assert.Contains(t, eps, "cep2")
 }
 
-// Test Reconciler by creating CESs, Updating CESs and Deleting CESs
-func TestCiliumReconcile(t *testing.T) {
-	client := fakeCiliumClient()
+func TestReconcileDelete(t *testing.T) {
+	m := newCESManagerFcfs(2).(*cesManagerFcfs)
+	c, _ := client.NewFakeClientset()
 
-	// Store the CESs in local Datastore
-	m := newCESManagerFcfs(newQueue(), 2)
-	// Create a CES and updates the CES in local datastore.
-	// deepcopies the entire CES object in datastore.
-	m.createCES(CES1.Name)
-	m.updateCESInCache(CES1, true)
-	m.createCES(CES2.Name)
-	m.updateCESInCache(CES2, true)
-	m.createCES(CES3.Name)
-	m.updateCESInCache(CES3, true)
-
-	// List of CESs to be created in api-server
-	r := newReconciler(client, m)
-
-	// Create CESs, check errors from api-server and match CESs UID value returned
-	// from api-server with CESs in datastore.
-	t.Run("Create CESs, check for any errors and  compare returned value from api-server with local data", func(*testing.T) {
-		err := r.reconcileCESCreate(CES1.Name)
-		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CES Create request to api-server")
-		err = r.reconcileCESCreate(CES2.Name)
-		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CES Create request to api-server")
-		err = r.reconcileCESCreate(CES3.Name)
-		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CES Create request to api-server")
-		// Get CES from local datastore
-		ces, _ := m.getCESFromCache(CES1.Name)
-		assert.Equal(t, string(ces.GetUID()), CESReconcilerUID, "Returned CES UID from api-server should match with local CES UID")
-		// Get CES from local datastore
-		ces, _ = m.getCESFromCache(CES2.Name)
-		assert.Equal(t, string(ces.GetUID()), CESReconcilerUID, "Returned CES UID from api-server should match with local CES UID")
-		// Get CES from local datastore
-		ces, _ = m.getCESFromCache(CES3.Name)
-		assert.Equal(t, string(ces.GetUID()), CESReconcilerUID, "Returned CES UID from api-server should match with local CES UID")
+	var deletedSlice string
+	c.CiliumFakeClientset.PrependReactor("delete", "*", func(action k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
+		pa := action.(k8sTesting.DeleteAction)
+		deletedSlice = pa.GetName()
+		return true, nil, nil
 	})
+	r := newReconciler(c.CiliumFakeClientset.CiliumV2alpha1(), m)
+	r.ciliumEndpointStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+	ceSliceStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
-	t.Run("Attempt to create empty CES and check that it is not created", func(*testing.T) {
-		m.createCES(emptyCES.Name)
-		m.updateCESInCache(emptyCES, true)
-		err := r.reconcileCESCreate(emptyCES.Name)
-		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CES Create request to api-server")
-		ces, _ := m.getCESFromCache(emptyCES.Name)
-		// CES is empty, so it should be removed from cache instead of created in the api-server
-		assert.Equal(t, (*capi_v2a1.CiliumEndpointSlice)(nil), ces, "Empty CES was removed from cache rather than created in api-server")
+	cep1 := createStoreEndpoint("cep1", "ns", 1)
+	r.ciliumEndpointStore.Add(cep1)
+	cep2 := createStoreEndpoint("cep2", "ns", 2)
+	r.ciliumEndpointStore.Add(cep2)
+	cep3 := createStoreEndpoint("cep3", "ns", 2)
+	r.ciliumEndpointStore.Add(cep3)
+	ces1 := createStoreEndpointSlice("ces1", "ns", []v2alpha1.CoreCiliumEndpoint{createManagerEndpoint("cep1", 1), createManagerEndpoint("cep3", 2)})
+	ceSliceStore.Add(ces1)
+	m.mapping.insertCES("ces1", "ns")
+	m.mapping.insertCES("ces2", "ns")
+	m.mapping.insertCEP("ns/cep1", "ces2")
+	m.mapping.insertCEP("ns/cep2", "ces2")
+	m.mapping.insertCEP("ns/cep3", "ces2")
+	// ces1 contains cep1 and cep3, but it's mapped to nothing so it should be deleted
+	r.reconcileCES("ces1")
+
+	assert.Equal(t, "ces1", deletedSlice)
+}
+
+func TestReconcileNoop(t *testing.T) {
+	m := newCESManagerFcfs(2).(*cesManagerFcfs)
+	c, _ := client.NewFakeClientset()
+
+	noRequest := true
+	c.CiliumFakeClientset.PrependReactor("*", "*", func(action k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
+		noRequest = false
+		return true, nil, nil
 	})
+	r := newReconciler(c.CiliumFakeClientset.CiliumV2alpha1(), m)
+	r.ciliumEndpointStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+	ceSliceStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
-	// Update CESs, check errors from api-server and match CESs Generate value returned
-	// from api-server with CESs in datastore.
-	t.Run("Update CESs, check for any errors and  compare returned value from api-server with local data", func(*testing.T) {
-		err := r.reconcileCESUpdate(CES1.Name)
-		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CES Update request to api-server")
-		err = r.reconcileCESUpdate(CES2.Name)
-		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CES Update request to api-server")
-		err = r.reconcileCESUpdate(CES3.Name)
-		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CES Update request to api-server")
-		// Get CES from local datastore
-		ces, _ := m.getCESFromCache(CES1.Name)
-		assert.Equal(t, ces.Generation, int64(CESReconcilerGenerate), "Returned CES Generate from api-server should match with constant")
-		// Get CES from local datastore
-		ces, _ = m.getCESFromCache(CES2.Name)
-		assert.Equal(t, ces.Generation, int64(CESReconcilerGenerate), "Returned CES Generate from api-server should match with constant")
-		// Get CES from local datastore
-		ces, _ = m.getCESFromCache(CES3.Name)
-		assert.Equal(t, ces.Generation, int64(CESReconcilerGenerate), "Returned CES Generate from api-server should match with constant")
-	})
+	cep1 := createStoreEndpoint("cep1", "ns", 1)
+	r.ciliumEndpointStore.Add(cep1)
+	cep2 := createStoreEndpoint("cep2", "ns", 2)
+	r.ciliumEndpointStore.Add(cep2)
+	cep3 := createStoreEndpoint("cep3", "ns", 2)
+	r.ciliumEndpointStore.Add(cep3)
+	m.mapping.insertCES("ces1", "ns")
+	m.mapping.insertCES("ces2", "ns")
+	m.mapping.insertCEP("ns/cep1", "ces2")
+	m.mapping.insertCEP("ns/cep2", "ces2")
+	m.mapping.insertCEP("ns/cep3", "ces2")
+	// ces1 contains cep1 and cep3, but it's mapped to nothing so it should be deleted
+	r.reconcileCES("ces1")
 
-	// Delete CESs, check errors from api-server and match CESs and CEPs count
-	t.Run("Delete CESs, check errors from api-server and match CESs and CEPs count ", func(*testing.T) {
-		// Get CESs from local datastore and check it length
-		assert.Equal(t, m.getCESCount(), 3, "Check the total CES, this should match with value 3")
-		assert.Equal(t, m.getTotalCEPCount(), 6, "Check the total CES, this should match with value 6")
-
-		// reconcile with Server
-		err := r.reconcileCESDelete(CES1.Name)
-		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CES Delete request to api-server")
-		err = r.reconcileCESDelete(CES2.Name)
-		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CES Delete request to api-server")
-		err = r.reconcileCESDelete(CES3.Name)
-		// There should not be any error from api-server
-		assert.Equal(t, err, nil, "No error in CES Delete request to api-server")
-	})
+	assert.Equal(t, true, noRequest)
 }
