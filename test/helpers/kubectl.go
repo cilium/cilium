@@ -122,6 +122,8 @@ var (
 		"ipv6NativeRoutingCIDR":  IPv6NativeRoutingCIDR,
 
 		"ipam.operator.clusterPoolIPv6PodCIDRList": "fd02::/112",
+
+		"extraConfig.max-internal-timer-delay": "5s",
 	}
 
 	eksChainingHelmOverrides = map[string]string{
