@@ -63,7 +63,6 @@ env:
   clusterName2: cluster2-${{ github.run_id }}
   contextName1: kind-cluster1-${{ github.run_id }}
   contextName2: kind-cluster2-${{ github.run_id }}
-  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
   commit-status-start:
@@ -352,7 +351,7 @@ jobs:
         timeout-minutes: 10
         shell: bash
         run: |
-          for image in cilium-ci operator-generic-ci hubble-relay-ci clustermesh-apiserver-ci ; do
+          for image in cilium-ci operator-generic-ci hubble-relay-ci clustermesh-apiserver-ci kvstoremesh-ci ; do
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
