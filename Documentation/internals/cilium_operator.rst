@@ -220,3 +220,14 @@ constructs to derivative CNP/CCNP objects without these fields.
 
 For more information, see how Cilium network policies incorporate the
 use of ``toGroups`` to :ref:`lock down external access using AWS security groups<aws_metadata_with_policy>`.
+
+Ingress and Gateway API Support
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When Ingress or Gateway API support is enabled, the Cilium Operator performs the
+task of parsing Ingress or Gateway API objects and converting them into
+``CiliumEnvoyConfig`` objects used for configuring the per-node Envoy proxy.
+
+Additionally, Secrets used by Ingress or Gateway API objects will be synced to
+a Cilium-managed namespace that the Cilium Agent is then granted access to. This
+reduces the permissions required of the Cilium Agent.
