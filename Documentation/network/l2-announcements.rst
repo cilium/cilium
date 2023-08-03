@@ -41,8 +41,8 @@ The L2 Announcements feature and all the requirements can be enabled as follows:
                --namespace kube-system \\
                --reuse-values \\
                --set l2announcements.enabled=true \\
-               --set k8sClientRateLimit.qps={QPS} \\
-               --set k8sClientRateLimit.burst={BURST} \\
+               --set k8sClientRateLimit.qps=${QPS} \\
+               --set k8sClientRateLimit.burst=${BURST} \\
                --set kubeProxyReplacement=strict \\
                --set k8sServiceHost=${API_SERVER_IP} \\
                --set k8sServicePort=${API_SERVER_PORT}
@@ -54,8 +54,8 @@ The L2 Announcements feature and all the requirements can be enabled as follows:
 
             enable-l2-announcements: true
             kube-proxy-replacement: strict
-            k8s-client-qps: {QPS}
-            k8s-client-burst: {BURST}
+            k8s-client-qps: ${QPS}
+            k8s-client-burst: ${BURST}
 
 .. warning::
   Sizing the client rate limit (``k8sClientRateLimit.qps`` and ``k8sClientRateLimit.burst``) 
