@@ -108,3 +108,24 @@ spec:
   - toServices:
     - k8sService:
         serviceName: http
+---
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumCIDRGroup
+metadata:
+  name: "high-scale-encap"
+  annotations:
+    network.cilium.io/high-scale-encapsulate: "true"
+spec:
+  externalCIDRs:
+    - "0.0.0.0/0"
+---
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumCIDRGroup
+metadata:
+  name: "high-scale-noencap"
+  annotations:
+    network.cilium.io/high-scale-encapsulate: "false"
+spec:
+  externalCIDRs:
+    - "1.1.1.0/24"
+    - "8.8.8.8/32"

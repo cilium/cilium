@@ -778,15 +778,24 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}
 			deploymentManager.DeployCilium(options, DeployCiliumOptionsAndDNS)
 
-			cmd := fmt.Sprintf("bpftool map update pinned %scilium_world_cidrs4 key 0 0 0 0 0 0 0 0 value 1", bpffsDir)
-			kubectl.CiliumExecMustSucceedOnAll(context.TODO(), cmd)
-
 			hsIPcacheYAML := helpers.ManifestGet(kubectl.BasePath(), hsIPcacheFile)
 			kubectl.Create(hsIPcacheYAML).ExpectSuccess("Unable to create resource %q", hsIPcacheYAML)
 
+			// Validate that world cidrs were correctly set up
+			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Ensuring the desired CIDRs appear in cilium bpf world list")
+			Eventually(func() int {
+				cmd := "cilium bpf world list"
+				res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, cmd)
+				res.ExpectSuccess("failed to execute bpf world list")
+				return res.CountLines()
+			}, helpers.HelperTimeout, time.Second).Should(Equal(4), "should be prefixes and one header")
+
 			// We need a longer timeout here because of the larger number of
 			// pods that need to be deployed.
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l type=client", 2*helpers.HelperTimeout)
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l type=client", 2*helpers.HelperTimeout)
 			Expect(err).ToNot(HaveOccurred(), "Client pods not ready after timeout")
 		}
 
