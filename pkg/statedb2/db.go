@@ -90,9 +90,7 @@ type DB struct {
 func NewDB(tables []TableMeta) (*DB, error) {
 	txn := iradix.New[tableEntry]().Txn()
 	db := &DB{
-		tables:    make(map[TableName]TableMeta),
-		gcTrigger: make(chan struct{}, 1),
-		gcExited:  make(chan struct{}),
+		tables: make(map[TableName]TableMeta),
 	}
 	for _, t := range tables {
 		name := t.Name()
@@ -163,6 +161,8 @@ func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
 }
 
 func (db *DB) Start(hive.HookContext) error {
+	db.gcTrigger = make(chan struct{}, 1)
+	db.gcExited = make(chan struct{})
 	go graveyardWorker(db)
 	return nil
 }
