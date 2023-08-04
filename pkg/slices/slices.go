@@ -145,3 +145,19 @@ func SubsetOf[S ~[]T, T comparable](a, b S) (bool, []T) {
 	d := Diff(a, b)
 	return len(d) == 0, d
 }
+
+// NFromMap takes a map of elements and returns a slice of N of them.
+func NFromMap[K comparable, V any](m map[K]V, n uint) []K {
+	max := n
+	result := make([]K, 0, max)
+	i := uint(0)
+	for k := range m {
+		if i >= max {
+			break
+		}
+		result[i] = k
+		i++
+	}
+
+	return result
+}
