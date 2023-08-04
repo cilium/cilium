@@ -244,7 +244,7 @@ jobs:
           tar -xf v${{ env.cilium_stable_version }}.tar.gz
 
       - name: Install Cilium CLI-cli
-        uses: cilium/cilium-cli@829ae9b4d2c65104343051ad77b618b92a2c2b75 # v0.15.3
+        uses: cilium/cilium-cli@8144df39be1411403dbe06a14fdddf24e9eb0c1e # v0.15.5
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
