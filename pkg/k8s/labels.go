@@ -11,9 +11,9 @@ import (
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/policy"
 )
 
 const (
@@ -97,17 +97,6 @@ func GetPodMetadata(k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (contain
 	annotations := objMetaCpy.Annotations
 	k8sLabels := filterPodLabels(objMetaCpy.Labels)
 
-	for k, v := range k8sNs.GetLabels() {
-		k8sLabels[policy.JoinPath(k8sConst.PodNamespaceMetaLabels, k)] = v
-	}
-	k8sLabels[k8sConst.PodNamespaceLabel] = namespace
-
-	if pod.Spec.ServiceAccountName != "" {
-		k8sLabels[k8sConst.PolicyLabelServiceAccount] = pod.Spec.ServiceAccountName
-	} else {
-		delete(k8sLabels, k8sConst.PolicyLabelServiceAccount)
-	}
-
 	// If the pod has been injected with an Istio sidecar proxy compatible with
 	// Cilium, add a label to notify that.
 	// If the pod already contains that label to explicitly enable or disable
@@ -118,15 +107,15 @@ func GetPodMetadata(k8sNs *slim_corev1.Namespace, pod *slim_corev1.Pod) (contain
 		k8sLabels[k8sConst.PolicyLabelIstioSidecarProxy] = "true"
 	}
 
-	k8sLabels[k8sConst.PolicyLabelCluster] = option.Config.ClusterName
-
 	for _, containers := range pod.Spec.Containers {
 		for _, cp := range containers.Ports {
 			containerPorts = append(containerPorts, cp)
 		}
 	}
 
-	return containerPorts, k8sLabels, annotations, nil
+	labels := k8sUtils.SanitizePodLabels(k8sLabels, k8sNs, pod.Spec.ServiceAccountName, option.Config.ClusterName)
+
+	return containerPorts, labels, annotations, nil
 }
 
 // filterPodLabels returns a copy of the given labels map, without the labels owned by Cilium.
