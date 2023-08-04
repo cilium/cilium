@@ -8,9 +8,13 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/internal/endpoints/awsrulesfn"
 	internalendpoints "github.com/aws/aws-sdk-go-v2/service/sso/internal/endpoints"
+	smithyendpoints "github.com/aws/smithy-go/endpoints"
 	"github.com/aws/smithy-go/middleware"
+	"github.com/aws/smithy-go/ptr"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
+	"net/http"
 	"net/url"
 	"strings"
 )
@@ -37,13 +41,6 @@ type EndpointResolverFunc func(region string, options EndpointResolverOptions) (
 
 func (fn EndpointResolverFunc) ResolveEndpoint(region string, options EndpointResolverOptions) (endpoint aws.Endpoint, err error) {
 	return fn(region, options)
-}
-
-func resolveDefaultEndpointConfiguration(o *Options) {
-	if o.EndpointResolver != nil {
-		return
-	}
-	o.EndpointResolver = NewDefaultEndpointResolver()
 }
 
 // EndpointResolverFromURL returns an EndpointResolver configured using the
@@ -79,6 +76,10 @@ func (*ResolveEndpoint) ID() string {
 func (m *ResolveEndpoint) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
 	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
 ) {
+	if !awsmiddleware.GetRequiresLegacyEndpoints(ctx) {
+		return next.HandleSerialize(ctx, in)
+	}
+
 	req, ok := in.Request.(*smithyhttp.Request)
 	if !ok {
 		return out, metadata, fmt.Errorf("unknown transport type %T", in.Request)
@@ -94,6 +95,11 @@ func (m *ResolveEndpoint) HandleSerialize(ctx context.Context, in middleware.Ser
 	var endpoint aws.Endpoint
 	endpoint, err = m.Resolver.ResolveEndpoint(awsmiddleware.GetRegion(ctx), eo)
 	if err != nil {
+		nf := (&aws.EndpointNotFoundError{})
+		if errors.As(err, &nf) {
+			ctx = awsmiddleware.SetRequiresLegacyEndpoints(ctx, false)
+			return next.HandleSerialize(ctx, in)
+		}
 		return out, metadata, fmt.Errorf("failed to resolve service endpoint, %w", err)
 	}
 
@@ -129,27 +135,10 @@ func removeResolveEndpointMiddleware(stack *middleware.Stack) error {
 
 type wrappedEndpointResolver struct {
 	awsResolver aws.EndpointResolverWithOptions
-	resolver    EndpointResolver
 }
 
 func (w *wrappedEndpointResolver) ResolveEndpoint(region string, options EndpointResolverOptions) (endpoint aws.Endpoint, err error) {
-	if w.awsResolver == nil {
-		goto fallback
-	}
-	endpoint, err = w.awsResolver.ResolveEndpoint(ServiceID, region, options)
-	if err == nil {
-		return endpoint, nil
-	}
-
-	if nf := (&aws.EndpointNotFoundError{}); !errors.As(err, &nf) {
-		return endpoint, err
-	}
-
-fallback:
-	if w.resolver == nil {
-		return endpoint, fmt.Errorf("default endpoint resolver provided was nil")
-	}
-	return w.resolver.ResolveEndpoint(region, options)
+	return w.awsResolver.ResolveEndpoint(ServiceID, region, options)
 }
 
 type awsEndpointResolverAdaptor func(service, region string) (aws.Endpoint, error)
@@ -160,12 +149,13 @@ func (a awsEndpointResolverAdaptor) ResolveEndpoint(service, region string, opti
 
 var _ aws.EndpointResolverWithOptions = awsEndpointResolverAdaptor(nil)
 
-// withEndpointResolver returns an EndpointResolver that first delegates endpoint resolution to the awsResolver.
-// If awsResolver returns aws.EndpointNotFoundError error, the resolver will use the the provided
-// fallbackResolver for resolution.
+// withEndpointResolver returns an aws.EndpointResolverWithOptions that first delegates endpoint resolution to the awsResolver.
+// If awsResolver returns aws.EndpointNotFoundError error, the v1 resolver middleware will swallow the error,
+// and set an appropriate context flag such that fallback will occur when EndpointResolverV2 is invoked
+// via its middleware.
 //
-// fallbackResolver must not be nil
-func withEndpointResolver(awsResolver aws.EndpointResolver, awsResolverWithOptions aws.EndpointResolverWithOptions, fallbackResolver EndpointResolver) EndpointResolver {
+// If another error (besides aws.EndpointNotFoundError) is returned, then that error will be propagated.
+func withEndpointResolver(awsResolver aws.EndpointResolver, awsResolverWithOptions aws.EndpointResolverWithOptions) EndpointResolver {
 	var resolver aws.EndpointResolverWithOptions
 
 	if awsResolverWithOptions != nil {
@@ -176,7 +166,6 @@ func withEndpointResolver(awsResolver aws.EndpointResolver, awsResolverWithOptio
 
 	return &wrappedEndpointResolver{
 		awsResolver: resolver,
-		resolver:    fallbackResolver,
 	}
 }
 
@@ -197,4 +186,568 @@ func finalizeClientEndpointResolverOptions(options *Options) {
 		}
 	}
 
+}
+
+func resolveEndpointResolverV2(options *Options) {
+	if options.EndpointResolverV2 == nil {
+		options.EndpointResolverV2 = NewDefaultEndpointResolverV2()
+	}
+}
+
+// Utility function to aid with translating pseudo-regions to classical regions
+// with the appropriate setting indicated by the pseudo-region
+func mapPseudoRegion(pr string) (region string, fips aws.FIPSEndpointState) {
+	const fipsInfix = "-fips-"
+	const fipsPrefix = "fips-"
+	const fipsSuffix = "-fips"
+
+	if strings.Contains(pr, fipsInfix) ||
+		strings.Contains(pr, fipsPrefix) ||
+		strings.Contains(pr, fipsSuffix) {
+		region = strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(
+			pr, fipsInfix, "-"), fipsPrefix, ""), fipsSuffix, "")
+		fips = aws.FIPSEndpointStateEnabled
+	} else {
+		region = pr
+	}
+
+	return region, fips
+}
+
+// builtInParameterResolver is the interface responsible for resolving BuiltIn
+// values during the sourcing of EndpointParameters
+type builtInParameterResolver interface {
+	ResolveBuiltIns(*EndpointParameters) error
+}
+
+// builtInResolver resolves modeled BuiltIn values using only the members defined
+// below.
+type builtInResolver struct {
+	// The AWS region used to dispatch the request.
+	Region string
+
+	// Sourced BuiltIn value in a historical enabled or disabled state.
+	UseDualStack aws.DualStackEndpointState
+
+	// Sourced BuiltIn value in a historical enabled or disabled state.
+	UseFIPS aws.FIPSEndpointState
+
+	// Base endpoint that can potentially be modified during Endpoint resolution.
+	Endpoint *string
+}
+
+// Invoked at runtime to resolve BuiltIn Values. Only resolution code specific to
+// each BuiltIn value is generated.
+func (b *builtInResolver) ResolveBuiltIns(params *EndpointParameters) error {
+
+	region, _ := mapPseudoRegion(b.Region)
+	if len(region) == 0 {
+		return fmt.Errorf("Could not resolve AWS::Region")
+	} else {
+		params.Region = aws.String(region)
+	}
+	if b.UseDualStack == aws.DualStackEndpointStateEnabled {
+		params.UseDualStack = aws.Bool(true)
+	} else {
+		params.UseDualStack = aws.Bool(false)
+	}
+	if b.UseFIPS == aws.FIPSEndpointStateEnabled {
+		params.UseFIPS = aws.Bool(true)
+	} else {
+		params.UseFIPS = aws.Bool(false)
+	}
+	params.Endpoint = b.Endpoint
+	return nil
+}
+
+// EndpointParameters provides the parameters that influence how endpoints are
+// resolved.
+type EndpointParameters struct {
+	// The AWS region used to dispatch the request.
+	//
+	// Parameter is
+	// required.
+	//
+	// AWS::Region
+	Region *string
+
+	// When true, use the dual-stack endpoint. If the configured endpoint does not
+	// support dual-stack, dispatching the request MAY return an error.
+	//
+	// Defaults to
+	// false if no value is provided.
+	//
+	// AWS::UseDualStack
+	UseDualStack *bool
+
+	// When true, send this request to the FIPS-compliant regional endpoint. If the
+	// configured endpoint does not have a FIPS compliant endpoint, dispatching the
+	// request will return an error.
+	//
+	// Defaults to false if no value is
+	// provided.
+	//
+	// AWS::UseFIPS
+	UseFIPS *bool
+
+	// Override the endpoint used to send this request
+	//
+	// Parameter is
+	// required.
+	//
+	// SDK::Endpoint
+	Endpoint *string
+}
+
+// ValidateRequired validates required parameters are set.
+func (p EndpointParameters) ValidateRequired() error {
+	if p.UseDualStack == nil {
+		return fmt.Errorf("parameter UseDualStack is required")
+	}
+
+	if p.UseFIPS == nil {
+		return fmt.Errorf("parameter UseFIPS is required")
+	}
+
+	return nil
+}
+
+// WithDefaults returns a shallow copy of EndpointParameterswith default values
+// applied to members where applicable.
+func (p EndpointParameters) WithDefaults() EndpointParameters {
+	if p.UseDualStack == nil {
+		p.UseDualStack = ptr.Bool(false)
+	}
+
+	if p.UseFIPS == nil {
+		p.UseFIPS = ptr.Bool(false)
+	}
+	return p
+}
+
+// EndpointResolverV2 provides the interface for resolving service endpoints.
+type EndpointResolverV2 interface {
+	// ResolveEndpoint attempts to resolve the endpoint with the provided options,
+	// returning the endpoint if found. Otherwise an error is returned.
+	ResolveEndpoint(ctx context.Context, params EndpointParameters) (
+		smithyendpoints.Endpoint, error,
+	)
+}
+
+// resolver provides the implementation for resolving endpoints.
+type resolver struct{}
+
+func NewDefaultEndpointResolverV2() EndpointResolverV2 {
+	return &resolver{}
+}
+
+// ResolveEndpoint attempts to resolve the endpoint with the provided options,
+// returning the endpoint if found. Otherwise an error is returned.
+func (r *resolver) ResolveEndpoint(
+	ctx context.Context, params EndpointParameters,
+) (
+	endpoint smithyendpoints.Endpoint, err error,
+) {
+	params = params.WithDefaults()
+	if err = params.ValidateRequired(); err != nil {
+		return endpoint, fmt.Errorf("endpoint parameters are not valid, %w", err)
+	}
+	_UseDualStack := *params.UseDualStack
+	_UseFIPS := *params.UseFIPS
+
+	if exprVal := params.Endpoint; exprVal != nil {
+		_Endpoint := *exprVal
+		_ = _Endpoint
+		if _UseFIPS == true {
+			return endpoint, fmt.Errorf("endpoint rule error, %s", "Invalid Configuration: FIPS and custom endpoint are not supported")
+		}
+		if _UseDualStack == true {
+			return endpoint, fmt.Errorf("endpoint rule error, %s", "Invalid Configuration: Dualstack and custom endpoint are not supported")
+		}
+		uriString := _Endpoint
+
+		uri, err := url.Parse(uriString)
+		if err != nil {
+			return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+		}
+
+		return smithyendpoints.Endpoint{
+			URI:     *uri,
+			Headers: http.Header{},
+		}, nil
+	}
+	if exprVal := params.Region; exprVal != nil {
+		_Region := *exprVal
+		_ = _Region
+		if exprVal := awsrulesfn.GetPartition(_Region); exprVal != nil {
+			_PartitionResult := *exprVal
+			_ = _PartitionResult
+			if _UseFIPS == true {
+				if _UseDualStack == true {
+					if true == _PartitionResult.SupportsFIPS {
+						if true == _PartitionResult.SupportsDualStack {
+							uriString := func() string {
+								var out strings.Builder
+								out.WriteString("https://portal.sso-fips.")
+								out.WriteString(_Region)
+								out.WriteString(".")
+								out.WriteString(_PartitionResult.DualStackDnsSuffix)
+								return out.String()
+							}()
+
+							uri, err := url.Parse(uriString)
+							if err != nil {
+								return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+							}
+
+							return smithyendpoints.Endpoint{
+								URI:     *uri,
+								Headers: http.Header{},
+							}, nil
+						}
+					}
+					return endpoint, fmt.Errorf("endpoint rule error, %s", "FIPS and DualStack are enabled, but this partition does not support one or both")
+				}
+			}
+			if _UseFIPS == true {
+				if true == _PartitionResult.SupportsFIPS {
+					uriString := func() string {
+						var out strings.Builder
+						out.WriteString("https://portal.sso-fips.")
+						out.WriteString(_Region)
+						out.WriteString(".")
+						out.WriteString(_PartitionResult.DnsSuffix)
+						return out.String()
+					}()
+
+					uri, err := url.Parse(uriString)
+					if err != nil {
+						return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+					}
+
+					return smithyendpoints.Endpoint{
+						URI:     *uri,
+						Headers: http.Header{},
+					}, nil
+				}
+				return endpoint, fmt.Errorf("endpoint rule error, %s", "FIPS is enabled but this partition does not support FIPS")
+			}
+			if _UseDualStack == true {
+				if true == _PartitionResult.SupportsDualStack {
+					uriString := func() string {
+						var out strings.Builder
+						out.WriteString("https://portal.sso.")
+						out.WriteString(_Region)
+						out.WriteString(".")
+						out.WriteString(_PartitionResult.DualStackDnsSuffix)
+						return out.String()
+					}()
+
+					uri, err := url.Parse(uriString)
+					if err != nil {
+						return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+					}
+
+					return smithyendpoints.Endpoint{
+						URI:     *uri,
+						Headers: http.Header{},
+					}, nil
+				}
+				return endpoint, fmt.Errorf("endpoint rule error, %s", "DualStack is enabled but this partition does not support DualStack")
+			}
+			if _Region == "ap-east-1" {
+				uriString := "https://portal.sso.ap-east-1.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "ap-northeast-1" {
+				uriString := "https://portal.sso.ap-northeast-1.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "ap-northeast-2" {
+				uriString := "https://portal.sso.ap-northeast-2.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "ap-northeast-3" {
+				uriString := "https://portal.sso.ap-northeast-3.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "ap-south-1" {
+				uriString := "https://portal.sso.ap-south-1.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "ap-southeast-1" {
+				uriString := "https://portal.sso.ap-southeast-1.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "ap-southeast-2" {
+				uriString := "https://portal.sso.ap-southeast-2.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "ca-central-1" {
+				uriString := "https://portal.sso.ca-central-1.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "eu-central-1" {
+				uriString := "https://portal.sso.eu-central-1.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "eu-north-1" {
+				uriString := "https://portal.sso.eu-north-1.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "eu-south-1" {
+				uriString := "https://portal.sso.eu-south-1.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "eu-west-1" {
+				uriString := "https://portal.sso.eu-west-1.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "eu-west-2" {
+				uriString := "https://portal.sso.eu-west-2.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "eu-west-3" {
+				uriString := "https://portal.sso.eu-west-3.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "me-south-1" {
+				uriString := "https://portal.sso.me-south-1.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "sa-east-1" {
+				uriString := "https://portal.sso.sa-east-1.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "us-east-1" {
+				uriString := "https://portal.sso.us-east-1.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "us-east-2" {
+				uriString := "https://portal.sso.us-east-2.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "us-west-2" {
+				uriString := "https://portal.sso.us-west-2.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "us-gov-east-1" {
+				uriString := "https://portal.sso.us-gov-east-1.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			if _Region == "us-gov-west-1" {
+				uriString := "https://portal.sso.us-gov-west-1.amazonaws.com"
+
+				uri, err := url.Parse(uriString)
+				if err != nil {
+					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+				}
+
+				return smithyendpoints.Endpoint{
+					URI:     *uri,
+					Headers: http.Header{},
+				}, nil
+			}
+			uriString := func() string {
+				var out strings.Builder
+				out.WriteString("https://portal.sso.")
+				out.WriteString(_Region)
+				out.WriteString(".")
+				out.WriteString(_PartitionResult.DnsSuffix)
+				return out.String()
+			}()
+
+			uri, err := url.Parse(uriString)
+			if err != nil {
+				return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+			}
+
+			return smithyendpoints.Endpoint{
+				URI:     *uri,
+				Headers: http.Header{},
+			}, nil
+		}
+		return endpoint, fmt.Errorf("Endpoint resolution failed. Invalid operation or environment input.")
+	}
+	return endpoint, fmt.Errorf("endpoint rule error, %s", "Invalid Configuration: Missing Region")
 }

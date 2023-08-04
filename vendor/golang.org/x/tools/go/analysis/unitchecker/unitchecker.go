@@ -62,6 +62,7 @@ type Config struct {
 	Compiler                  string
 	Dir                       string
 	ImportPath                string
+	GoVersion                 string // minimum required Go version, such as "go1.21.0"
 	GoFiles                   []string
 	NonGoFiles                []string
 	IgnoredFiles              []string
@@ -217,8 +218,9 @@ func run(fset *token.FileSet, cfg *Config, analyzers []*analysis.Analyzer) ([]re
 		return compilerImporter.Import(path)
 	})
 	tc := &types.Config{
-		Importer: importer,
-		Sizes:    types.SizesFor("gc", build.Default.GOARCH), // assume gccgo ≡ gc?
+		Importer:  importer,
+		Sizes:     types.SizesFor("gc", build.Default.GOARCH), // assume gccgo ≡ gc?
+		GoVersion: cfg.GoVersion,
 	}
 	info := &types.Info{
 		Types:      make(map[ast.Expr]types.TypeAndValue),
@@ -286,13 +288,13 @@ func run(fset *token.FileSet, cfg *Config, analyzers []*analysis.Analyzer) ([]re
 	analyzers = filtered
 
 	// Read facts from imported packages.
-	read := func(imp *types.Package) ([]byte, error) {
-		if vetx, ok := cfg.PackageVetx[imp.Path()]; ok {
+	read := func(pkgPath string) ([]byte, error) {
+		if vetx, ok := cfg.PackageVetx[pkgPath]; ok {
 			return ioutil.ReadFile(vetx)
 		}
 		return nil, nil // no .vetx file, no facts
 	}
-	facts, err := facts.NewDecoder(pkg).Decode(read)
+	facts, err := facts.NewDecoder(pkg).Decode(false, read)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +393,7 @@ func run(fset *token.FileSet, cfg *Config, analyzers []*analysis.Analyzer) ([]re
 		results[i].diagnostics = act.diagnostics
 	}
 
-	data := facts.Encode()
+	data := facts.Encode(false)
 	if err := ioutil.WriteFile(cfg.VetxOutput, data, 0666); err != nil {
 		return nil, fmt.Errorf("failed to write analysis facts: %v", err)
 	}

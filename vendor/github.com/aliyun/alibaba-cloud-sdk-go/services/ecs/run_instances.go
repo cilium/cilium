@@ -148,6 +148,7 @@ type RunInstancesRequest struct {
 	DeploymentSetId                          string                          `position:"Query" name:"DeploymentSetId"`
 	NetworkInterface                         *[]RunInstancesNetworkInterface `position:"Query" name:"NetworkInterface"  type:"Repeated"`
 	Amount                                   requests.Integer                `position:"Query" name:"Amount"`
+	AutoPay                                  requests.Boolean                `position:"Query" name:"AutoPay"`
 	OwnerAccount                             string                          `position:"Query" name:"OwnerAccount"`
 	Tenancy                                  string                          `position:"Query" name:"Tenancy"`
 	RamRoleName                              string                          `position:"Query" name:"RamRoleName"`
