@@ -1243,7 +1243,7 @@ handle_srv6(struct __ctx_buff *ctx)
 __section_entry
 int cil_from_netdev(struct __ctx_buff *ctx)
 {
-	__u32 __maybe_unused src_id = 0;
+	__u32 src_id = 0;
 
 #ifdef ENABLE_NODEPORT_ACCELERATION
 	__u32 flags = ctx_get_xfer(ctx, XFER_FLAGS);
@@ -1280,8 +1280,8 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #ifdef ENABLE_HIGH_SCALE_IPCACHE
 	ret = decapsulate_overlay(ctx, &src_id);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
-				       METRIC_INGRESS);
+		goto drop_err;
+
 	if (ret == CTX_ACT_REDIRECT)
 		return ret;
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
@@ -1289,7 +1289,7 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 	return handle_netdev(ctx, false);
 
 drop_err:
-	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+	return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
 }
 
 /*
