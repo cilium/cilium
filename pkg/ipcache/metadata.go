@@ -122,6 +122,15 @@ func (m *metadata) enqueuePrefixUpdates(prefixes ...netip.Prefix) {
 }
 
 func (m *metadata) upsertLocked(prefix netip.Prefix, src source.Source, resource types.ResourceID, info ...IPMetadata) {
+	if option.Config.Debug {
+		log.WithFields(logrus.Fields{
+			logfields.Prefix:   prefix,
+			logfields.Source:   src,
+			logfields.Resource: resource,
+			logfields.Value:    info,
+		}).Debug("Associating prefix to metadata")
+	}
+
 	if _, ok := m.m[prefix]; !ok {
 		m.m[prefix] = make(PrefixInfo)
 	}
@@ -615,6 +624,14 @@ func (m *metadata) filterByLabels(filter labels.Labels) []netip.Prefix {
 //
 // This function assumes that the ipcache metadata lock is held for writing.
 func (m *metadata) remove(prefix netip.Prefix, resource types.ResourceID, aux ...IPMetadata) {
+	if option.Config.Debug {
+		log.WithFields(logrus.Fields{
+			logfields.Prefix:   prefix,
+			logfields.Resource: resource,
+			logfields.Value:    aux,
+		}).Debug("Removing metadata association for prefix")
+	}
+
 	info, ok := m.m[prefix]
 	if !ok || info[resource] == nil {
 		return
