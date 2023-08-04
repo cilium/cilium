@@ -6,8 +6,8 @@ package manager
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 // reconcileDiff is a helper structure which provides fields and a method set
@@ -17,9 +17,8 @@ type reconcileDiff struct {
 	// incoming CiliumBGPVirtualRouter configs mapped by their
 	// local ASN.
 	seen map[int64]*v2alpha1api.CiliumBGPVirtualRouter
-	// the state of the bgp control plane at the time of this reconcileDiff's
-	// creation.
-	state *agent.ControlPlaneState
+	// the Cilium node information at the time which reconciliation was triggered.
+	node *node.LocalNode
 	// Local ASNs which BgpServers must be instantiated, configured,
 	// and added to the manager. Intended key for `seen` map.
 	register []int64
@@ -34,10 +33,10 @@ type reconcileDiff struct {
 
 // newReconcileDiff constructs a new *reconcileDiff with all internal instructures
 // initialized.
-func newReconcileDiff(state *agent.ControlPlaneState) *reconcileDiff {
+func newReconcileDiff(node *node.LocalNode) *reconcileDiff {
 	return &reconcileDiff{
 		seen:      make(map[int64]*v2alpha1api.CiliumBGPVirtualRouter),
-		state:     state,
+		node:      node,
 		register:  []int64{},
 		withdraw:  []int64{},
 		reconcile: []int64{},

@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 // BGPRouterManager provides a declarative API for defining
@@ -31,7 +32,7 @@ type BGPRouterManager interface {
 	//
 	// Providing a nil policy to ConfigurePeers will withdrawal all routes
 	// and disconnect from the peers.
-	ConfigurePeers(ctx context.Context, policy *v2alpha1api.CiliumBGPPeeringPolicy, state *ControlPlaneState) error
+	ConfigurePeers(ctx context.Context, policy *v2alpha1api.CiliumBGPPeeringPolicy, node *node.LocalNode) error
 
 	// GetPeers fetches BGP peering state from underlying routing daemon.
 	//
