@@ -6,7 +6,6 @@ package agent
 import (
 	"context"
 	"fmt"
-	"net/netip"
 
 	"github.com/sirupsen/logrus"
 
@@ -34,46 +33,6 @@ var (
 	// multiple policies which apply to its host.
 	ErrMultiplePolicies = fmt.Errorf("more then one CiliumBGPPeeringPolicy applies to this node, please ensure only a single Policy matches this node's labels")
 )
-
-// ControlPlaneState captures a subset of Cilium's runtime state.
-//
-// This state carries information interesting to various BGP sub-systems
-// and provides a contract for information a sub-system will be provided
-// about Cilium's runtime state.
-//
-// ControlPlaneState should be a point-in-time snapshot of Cilium's runtime
-// state and remain read-only to all sub systems its passed to.
-type ControlPlaneState struct {
-	// A list of configured PodCIDRs for the current Node.
-	PodCIDRs []string
-	// Parsed 'cilium.io/bgp-virtual-router' annotations of the the node this
-	// control plane is running on.
-	Annotations AnnotationMap
-	// The current IPv4 address of the agent, reachable externally.
-	IPv4 netip.Addr
-	// The current IPv6 address of the agent, reachable externally.
-	IPv6 netip.Addr
-	// The current node name
-	CurrentNodeName string
-}
-
-// ResolveRouterID resolves router ID, if we have an annotation and it can be
-// parsed into a valid ipv4 address use it. If not, determine if Cilium is
-// configured with an IPv4 address, if so use it. If neither, return an error,
-// we cannot assign an router ID.
-func (cstate *ControlPlaneState) ResolveRouterID(localASN int64) (string, error) {
-	if _, ok := cstate.Annotations[localASN]; ok {
-		if parsed, err := netip.ParseAddr(cstate.Annotations[localASN].RouterID); err == nil && !parsed.IsUnspecified() {
-			return parsed.String(), nil
-		}
-	}
-
-	if !cstate.IPv4.IsUnspecified() {
-		return cstate.IPv4.String(), nil
-	}
-
-	return "", fmt.Errorf("router id not specified by annotation and no IPv4 address assigned by cilium, cannot resolve router id for virtual router with local ASN %v", localASN)
-}
 
 type policyLister interface {
 	List() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error)

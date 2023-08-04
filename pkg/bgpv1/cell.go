@@ -25,8 +25,6 @@ var Cell = cell.Module(
 	// The Controller which is the entry point of the module
 	cell.Provide(agent.NewController, signaler.NewBGPCPSignaler),
 	cell.ProvidePrivate(
-		// Local Node Store Specer provides the module with information about the current node.
-		agent.NewNodeSpecer,
 		// BGP Peering Policy resource provides the module with a stream of events for the BGPPeeringPolicy resource.
 		newBGPPeeringPolicyResource,
 		// goBGP is currently the only supported RouterManager, if more are
