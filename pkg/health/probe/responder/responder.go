@@ -7,7 +7,9 @@ package responder
 // as this package typically runs in its own process
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 )
@@ -17,29 +19,53 @@ var defaultTimeout = 30 * time.Second
 
 // Server wraps a minimal http server for the /hello endpoint
 type Server struct {
-	httpServer http.Server
+	httpServers []*http.Server
 }
 
 // NewServer creates a new server listening on the given port
-func NewServer(port int) *Server {
-	return &Server{
-		http.Server{
-			Addr:    fmt.Sprintf(":%d", port),
-			Handler: http.HandlerFunc(serverRequests),
-		},
+func NewServers(address []string, port int) *Server {
+	if len(address) == 0 {
+		address = []string{""}
 	}
+
+	server := &Server{}
+	for _, ip := range address {
+		addr := net.JoinHostPort(ip, fmt.Sprintf("%v", port))
+		hs := http.Server{
+			Addr:    addr,
+			Handler: http.HandlerFunc(serverRequests),
+		}
+		server.httpServers = append(server.httpServers, &hs)
+	}
+
+	return server
 }
 
 // Serve http requests until shut down
 func (s *Server) Serve() error {
-	return s.httpServer.ListenAndServe()
+	errors := make(chan error)
+	for _, hs := range s.httpServers {
+		tmpHttpServer := hs
+		go func() {
+			errors <- tmpHttpServer.ListenAndServe()
+		}()
+	}
+
+	// Block for the first error, then return.
+	err := <-errors
+	return err
 }
 
 // Shutdown server gracefully
 func (s *Server) Shutdown() error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
-	return s.httpServer.Shutdown(ctx)
+	errs := make([]error, 0, len(s.httpServers))
+	for _, hs := range s.httpServers {
+		errs = append(errs, hs.Shutdown(ctx))
+	}
+
+	return errors.Join(errs...)
 }
 
 func serverRequests(w http.ResponseWriter, r *http.Request) {
