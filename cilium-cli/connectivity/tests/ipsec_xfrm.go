@@ -80,7 +80,7 @@ func (n *noIPsecXfrmErrors) collectXfrmErrors(ctx context.Context, t *check.Test
 						xfrmMetric.Labels.Type, xfrmMetric.Labels.Error, xfrmMetric.Value))
 			}
 			sort.Strings(xErrors)
-			xfrmErrors[pod.Pod.Status.NominatedNodeName] = strings.Join(xErrors, ",")
+			xfrmErrors[pod.Pod.Status.HostIP] = strings.Join(xErrors, ",")
 		}
 
 	}
