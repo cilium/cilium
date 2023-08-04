@@ -75,6 +75,14 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 		return
 	}
 
+	// The CEP name is derived from the K8sPodName and K8sNamespace.
+	// They should always be available if an endpoint belongs to a pod.
+	cepName := e.GetK8sCEPName()
+	if cepName == "" {
+		scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s cep name")
+		return
+	}
+
 	var (
 		lastMdl  *cilium_v2.EndpointStatus
 		localCEP *cilium_v2.CiliumEndpoint // the local copy of the CEP object. Reused.
@@ -93,14 +101,6 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 
 				if k8sversion.Version().Equals(semver.Version{}) {
 					return fmt.Errorf("Kubernetes apiserver is not available")
-				}
-
-				// The CEP name is derived from the K8sPodName and K8sNamespace.
-				// They should always be available if an endpoint belongs to a pod.
-				cepName := e.GetK8sCEPName()
-				if cepName == "" {
-					scopedLog.Debug("Skipping CiliumEndpoint update because it has no k8s cep name")
-					return nil
 				}
 
 				namespace := e.GetK8sNamespace()
