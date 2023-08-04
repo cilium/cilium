@@ -13,6 +13,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"github.com/sirupsen/logrus"
+
 	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -188,6 +190,11 @@ func HasCEWithIdentity(identity string) bool {
 		return false
 	}
 	ces, _ := CiliumEndpointStore.IndexKeys(identityIndex, identity)
+
+	log.WithFields(logrus.Fields{
+		logfields.Identity: identity,
+		"endpoints":        ces,
+	}).Info("Looked up endpoints using the identity")
 
 	return len(ces) != 0
 }

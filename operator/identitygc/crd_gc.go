@@ -44,10 +44,22 @@ func (igc *GC) runHeartbeatUpdater(ctx context.Context) error {
 	for event := range igc.identity.Events(ctx) {
 		switch event.Kind {
 		case resource.Upsert:
+			log.WithFields(logrus.Fields{
+				"event-type":         "resource.Upsert",
+				logfields.Identity:   event.Object.Name,
+				logfields.K8sUID:     event.Object.UID,
+				"creation-timestamp": event.Object.CreationTimestamp,
+			})
 			// Identity is marked as alive if it is new or it has
 			// been updated.
 			igc.heartbeatStore.markAlive(event.Object.Name, time.Now())
 		case resource.Delete:
+			log.WithFields(logrus.Fields{
+				"event-type":         "resource.Delete",
+				logfields.Identity:   event.Object.Name,
+				logfields.K8sUID:     event.Object.UID,
+				"creation-timestamp": event.Object.CreationTimestamp,
+			})
 			// When the identity is deleted, delete the
 			// heartbeat entry as well. This will not be
 			// 100% accurate as the CiliumEndpoint can live
@@ -124,12 +136,19 @@ func (igc *GC) gc(ctx context.Context) error {
 					return err
 				}
 
+				log.WithFields(logrus.Fields{
+					logfields.Identity: identity.Name,
+					logfields.K8sUID:   identity.UID,
+					"timestamp":        identity.Annotations[identitybackend.HeartBeatAnnotation],
+				}).Info("Marked identity for later deletion")
+
 				continue
 			}
 
 			log.WithFields(logrus.Fields{
 				logfields.Identity: identity,
-			}).Debugf("Deleting unused identity; marked for deletion at %s", ts)
+				"timestamp":        ts,
+			}).Info("Deleting unused identity, previously marked for deletion")
 
 			if err := igc.deleteIdentity(ctx, identity); err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
@@ -139,6 +158,11 @@ func (igc *GC) gc(ctx context.Context) error {
 			} else {
 				deletedEntries++
 			}
+
+			log.WithFields(logrus.Fields{
+				logfields.Identity: identity,
+				"timestamp":        ts,
+			}).Info("Deleted unused identity successfully, previously marked for deletion")
 		}
 
 		// If Context was canceled we should break

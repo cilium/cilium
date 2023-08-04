@@ -35,7 +35,7 @@ func newHeartbeatStore(timeout time.Duration) *heartbeatStore {
 
 // markAlive marks an identity as alive
 func (i *heartbeatStore) markAlive(identity string, t time.Time) {
-	log.WithField(logfields.Identity, identity).Debug("Marking identity alive")
+	log.WithField(logfields.Identity, identity).Info("Marking identity alive in lastLifesign")
 	i.mutex.Lock()
 	i.lastLifesign[identity] = t
 	i.mutex.Unlock()
