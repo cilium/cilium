@@ -638,7 +638,6 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 // Tests that we don't leak XFRM policies and states as nodes come and go.
 func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(c *check.C) {
-	externalNodeDevice := "ipsec_interface"
 
 	// Cover the XFRM configuration for IPAM modes cluster-pool, kubernetes, etc.
 	config := datapath.LocalNodeConfiguration{
@@ -646,7 +645,20 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeChurnXFRMLeaks(c *check.C) {
 		EnableIPv6:  s.enableIPv6,
 		EnableIPSec: true,
 	}
-	//s.testNodeChurnXFRMLeaksWithConfig(c, config)
+	s.testNodeChurnXFRMLeaksWithConfig(c, config)
+}
+
+// Tests the same as linuxPrivilegedBaseTestSuite.TestNodeChurnXFRMLeaks just
+// for the subnet encryption. IPv4-only because of https://github.com/cilium/cilium/issues/27280.
+func (s *linuxPrivilegedIPv4OnlyTestSuite) TestNodeChurnXFRMLeaks(c *check.C) {
+	externalNodeDevice := "ipsec_interface"
+
+	// Cover the XFRM configuration for IPAM modes cluster-pool, kubernetes, etc.
+	config := datapath.LocalNodeConfiguration{
+		EnableIPv4:  s.enableIPv4,
+		EnableIPSec: true,
+	}
+	s.testNodeChurnXFRMLeaksWithConfig(c, config)
 
 	// In the case of subnet encryption (tested below), the IPsec logic
 	// retrieves the IP address of the encryption interface directly so we need
