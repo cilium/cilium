@@ -22,7 +22,7 @@ require (
 	github.com/cilium/charts v0.0.0-20230727213338-a60b1bf0f160
 	github.com/cilium/cilium v1.14.0
 	github.com/cilium/hubble v0.12.0
-	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230801202737-19fdc3a56629
+	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230803165914-c62ce1115d4a
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.4
 	github.com/go-openapi/strfmt v0.21.7
