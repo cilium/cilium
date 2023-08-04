@@ -16,7 +16,8 @@ var (
 	// -ldflags "-X "github.com/cilium/cilium/pkg/kvstore".Debug=true"
 	Debug string
 
-	traceEnabled bool
+	// force-enable tracing
+	traceEnabled bool = true
 )
 
 // EnableTracing enables kvstore tracing
@@ -27,7 +28,8 @@ func EnableTracing() {
 // Trace is used to trace kvstore debug messages
 func Trace(format string, err error, fields logrus.Fields, a ...interface{}) {
 	if traceEnabled {
-		log.WithError(err).WithFields(fields).Debugf(format)
+		// Set tracing to info level for better debugging
+		log.WithError(err).WithFields(fields).Infof(format)
 	}
 }
 
