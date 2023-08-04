@@ -5,20 +5,25 @@ package manager
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/pointer"
 
-	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/addressing"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 )
 
 // We use similar local listen ports as the tests in the pkg/bgpv1/test package.
@@ -104,7 +109,6 @@ func TestPreflightReconciler(t *testing.T) {
 					RouterID:   tt.routerID,
 					ListenPort: tt.localPort,
 				},
-				CState: &agent.ControlPlaneState{},
 			}
 			testSC, err := NewServerWithConfig(context.Background(), srvParams)
 			if err != nil {
@@ -124,16 +128,21 @@ func TestPreflightReconciler(t *testing.T) {
 			newc := &v2alpha1api.CiliumBGPVirtualRouter{
 				LocalASN: 64125,
 			}
-			cstate := &agent.ControlPlaneState{
-				Annotations: agent.AnnotationMap{
-					64125: agent.Attributes{
-						RouterID:  tt.newRouterID,
-						LocalPort: tt.newLocalPort,
+
+			preflightReconciler := NewPreflightReconciler().Reconciler
+			params := ReconcileParams{
+				CurrentServer: testSC,
+				DesiredConfig: newc,
+				Node: &node.LocalNode{
+					Node: nodeTypes.Node{
+						Annotations: map[string]string{
+							"cilium.io/bgp-virtual-router.64125": fmt.Sprintf("router-id=%s,local-port=%d", tt.newRouterID, tt.newLocalPort),
+						},
 					},
 				},
 			}
 
-			err = preflightReconciler(context.Background(), testSC, newc, cstate)
+			err = preflightReconciler.Reconcile(context.Background(), params)
 			if (tt.err == nil) != (err == nil) {
 				t.Fatalf("wanted error: %v", (tt.err == nil))
 			}
@@ -313,7 +322,6 @@ func TestNeighborReconciler(t *testing.T) {
 					RouterID:   "127.0.0.1",
 					ListenPort: -1,
 				},
-				CState: &agent.ControlPlaneState{},
 			}
 			testSC, err := NewServerWithConfig(context.Background(), srvParams)
 			if err != nil {
@@ -345,7 +353,14 @@ func TestNeighborReconciler(t *testing.T) {
 			newc.Neighbors = append(newc.Neighbors, tt.newNeighbors...)
 			newc.SetDefaults()
 
-			err = neighborReconciler(context.Background(), testSC, newc, nil)
+			neighborReconciler := NewNeighborReconciler().Reconciler
+			params := ReconcileParams{
+				CurrentServer: testSC,
+				DesiredConfig: newc,
+				Node:          &node.LocalNode{},
+			}
+
+			err = neighborReconciler.Reconcile(context.Background(), params)
 			if (tt.err == nil) != (err == nil) {
 				t.Fatalf("want error: %v, got: %v", (tt.err == nil), err)
 			}
@@ -407,7 +422,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 		// the updated PodCIDR blocks to reconcile, these are string encoded
 		// for the convenience of attaching directly to the NodeSpec.PodCIDRs
 		// field.
-		updated []string
+		updated []*cidr.CIDR
 		// error nil or not
 		err error
 	}{
@@ -423,7 +438,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			name:         "enable",
 			enabled:      false,
 			shouldEnable: true,
-			updated:      []string{"192.168.0.0/24"},
+			updated:      []*cidr.CIDR{cidr.MustParseCIDR("192.168.0.0/24")},
 		},
 		{
 			name:         "no change",
@@ -432,7 +447,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			advertised: []netip.Prefix{
 				netip.MustParsePrefix("192.168.0.0/24"),
 			},
-			updated: []string{"192.168.0.0/24"},
+			updated: []*cidr.CIDR{cidr.MustParseCIDR("192.168.0.0/24")},
 		},
 		{
 			name:         "additional network",
@@ -441,7 +456,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			advertised: []netip.Prefix{
 				netip.MustParsePrefix("192.168.0.0/24"),
 			},
-			updated: []string{"192.168.0.0/24", "192.168.1.0/24"},
+			updated: []*cidr.CIDR{cidr.MustParseCIDR("192.168.0.0/24"), cidr.MustParseCIDR("192.168.1.0/24")},
 		},
 		{
 			name:         "removal of both networks",
@@ -451,7 +466,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				netip.MustParsePrefix("192.168.0.0/24"),
 				netip.MustParsePrefix("192.168.1.0/24"),
 			},
-			updated: []string{},
+			updated: []*cidr.CIDR{},
 		},
 	}
 
@@ -465,7 +480,6 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 					RouterID:   "127.0.0.1",
 					ListenPort: -1,
 				},
-				CState: &agent.ControlPlaneState{},
 			}
 			oldc := &v2alpha1api.CiliumBGPVirtualRouter{
 				LocalASN:      64125,
@@ -492,12 +506,19 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				ExportPodCIDR: pointer.Bool(tt.shouldEnable),
 				Neighbors:     []v2alpha1api.CiliumBGPNeighbor{},
 			}
-			newcstate := agent.ControlPlaneState{
-				PodCIDRs: tt.updated,
-				IPv4:     netip.MustParseAddr("127.0.0.1"),
+
+			exportPodCIDRReconciler := NewExportPodCIDRReconciler().Reconciler
+			params := ReconcileParams{
+				CurrentServer: testSC,
+				DesiredConfig: newc,
+				Node: &node.LocalNode{
+					Node: nodeTypes.Node{
+						IPv4SecondaryAllocCIDRs: tt.updated,
+					},
+				},
 			}
 
-			err = exportPodCIDRReconciler(context.Background(), testSC, newc, &newcstate)
+			err = exportPodCIDRReconciler.Reconcile(context.Background(), params)
 			if err != nil {
 				t.Fatalf("failed to reconcile new pod cidr advertisements: %v", err)
 			}
@@ -514,7 +535,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 
 			// ensure we see tt.updated in testSC.PodCIDRAnnoucements
 			for _, cidr := range tt.updated {
-				prefix := netip.MustParsePrefix(cidr)
+				prefix := netip.MustParsePrefix(cidr.String())
 				var seen bool
 				for _, advrt := range testSC.PodCIDRAnnouncements {
 					if advrt.NLRI.String() == prefix.String() {
@@ -531,7 +552,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			for _, advrt := range testSC.PodCIDRAnnouncements {
 				var seen bool
 				for _, cidr := range tt.updated {
-					if advrt.NLRI.String() == cidr {
+					if advrt.NLRI.String() == cidr.String() {
 						seen = true
 					}
 				}
@@ -1106,7 +1127,6 @@ func TestLBServiceReconciler(t *testing.T) {
 					RouterID:   "127.0.0.1",
 					ListenPort: -1,
 				},
-				CState: &agent.ControlPlaneState{},
 			}
 			oldc := &v2alpha1api.CiliumBGPVirtualRouter{
 				LocalASN:        64125,
@@ -1137,10 +1157,6 @@ func TestLBServiceReconciler(t *testing.T) {
 				Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
 				ServiceSelector: tt.newServiceSelector,
 			}
-			newcstate := agent.ControlPlaneState{
-				IPv4:            netip.MustParseAddr("127.0.0.1"),
-				CurrentNodeName: "node1",
-			}
 
 			diffstore := newFakeDiffStore[*slim_corev1.Service]()
 			for _, obj := range tt.upsertedServices {
@@ -1155,11 +1171,21 @@ func TestLBServiceReconciler(t *testing.T) {
 				epDiffStore.Upsert(obj)
 			}
 
-			reconciler := NewLBServiceReconciler(diffstore, epDiffStore)
-			err = reconciler.Reconciler.Reconcile(context.Background(), ReconcileParams{
-				Server: testSC,
-				NewC:   newc,
-				CState: &newcstate,
+			reconciler := NewLBServiceReconciler(diffstore, epDiffStore).Reconciler
+			err = reconciler.Reconcile(context.Background(), ReconcileParams{
+				CurrentServer: testSC,
+				DesiredConfig: newc,
+				Node: &node.LocalNode{
+					Node: nodeTypes.Node{
+						Name: "node1",
+						IPAddresses: []nodeTypes.Address{
+							{
+								Type: addressing.NodeExternalIP,
+								IP:   net.ParseIP("127.0.0.1"),
+							},
+						},
+					},
+				},
 			})
 			if err != nil {
 				t.Fatalf("failed to reconcile new lb svc advertisements: %v", err)
@@ -1252,7 +1278,6 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 			RouterID:   "127.0.0.1",
 			ListenPort: -1,
 		},
-		CState: &agent.ControlPlaneState{},
 	}
 
 	testSC, err := NewServerWithConfig(context.Background(), srvParams)
@@ -1272,55 +1297,47 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 		ServiceSelector: serviceSelector,
 	}
 
-	cstate := &agent.ControlPlaneState{
-		Annotations: agent.AnnotationMap{
-			localASN: agent.Attributes{
-				RouterID:  routerID,
-				LocalPort: localPort,
+	exportPodCIDRReconciler := NewExportPodCIDRReconciler().Reconciler
+	params := ReconcileParams{
+		CurrentServer: testSC,
+		DesiredConfig: newc,
+		Node: &node.LocalNode{
+			Node: nodeTypes.Node{
+				Annotations: map[string]string{
+					"cilium.io/bgp-virtual-router.64125": fmt.Sprintf("router-id=%s,local-port=%d", routerID, localPort),
+				},
 			},
 		},
 	}
 
-	err = exportPodCIDRReconciler(context.Background(), testSC, newc, cstate)
+	err = exportPodCIDRReconciler.Reconcile(context.Background(), params)
 	require.NoError(t, err)
 
 	diffstore.Upsert(obj)
 	reconciler := NewLBServiceReconciler(diffstore, epDiffStore)
-	err = reconciler.Reconciler.Reconcile(context.Background(), ReconcileParams{
-		Server: testSC,
-		NewC:   newc,
-		CState: cstate,
-	})
+	err = reconciler.Reconciler.Reconcile(context.Background(), params)
 	require.NoError(t, err)
 
 	// update server config, this is done outside of reconcilers
 	testSC.Config = newc
 
-	// Update router-ID
-	cstate = &agent.ControlPlaneState{
-		Annotations: agent.AnnotationMap{
-			localASN: agent.Attributes{
-				RouterID:  newRouterID,
-				LocalPort: localPort,
-			},
-		},
+	params.Node.Node.Annotations = map[string]string{
+		"cilium.io/bgp-virtual-router.64125": fmt.Sprintf("router-id=%s,local-port=%d", newRouterID, localPort),
 	}
 
+	preflightReconciler := NewPreflightReconciler().Reconciler
+
 	// Trigger pre flight reconciler
-	err = preflightReconciler(context.Background(), testSC, newc, cstate)
+	err = preflightReconciler.Reconcile(context.Background(), params)
 	require.NoError(t, err)
 
 	// Test pod CIDR reconciler is working
-	err = exportPodCIDRReconciler(context.Background(), testSC, newc, cstate)
+	err = exportPodCIDRReconciler.Reconcile(context.Background(), params)
 	require.NoError(t, err)
 
 	// Update LB service
 	reconciler = NewLBServiceReconciler(diffstore, epDiffStore)
-	err = reconciler.Reconciler.Reconcile(context.Background(), ReconcileParams{
-		Server: testSC,
-		NewC:   newc,
-		CState: cstate,
-	})
+	err = reconciler.Reconciler.Reconcile(context.Background(), params)
 	require.NoError(t, err)
 }
 

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/cidr"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/node"
@@ -152,15 +152,17 @@ func Test_PodCIDRAdvert(t *testing.T) {
 	err = gobgpPeers[0].waitForSessionState(testCtx, []string{"ESTABLISHED"})
 	require.NoError(t, err)
 
-	tracker := fixture.fakeClientSet.SlimFakeClientset.Tracker()
-
 	for _, step := range steps {
 		t.Run(step.description, func(t *testing.T) {
-			// update node spec
-			fixture.config.node.Spec.PodCIDRs = step.podCIDRs
-
-			err := tracker.Update(corev1.SchemeGroupVersion.WithResource("nodes"), fixture.config.node.DeepCopy(), "")
-			require.NoError(t, err, step.description)
+			// update node in LocalNodeStore with new PodCIDR
+			// this will trigger a reconciliation as the controller is observing
+			// the LocalNodeStore
+			fixture.nodeStore.Update(func(n *node.LocalNode) {
+				n.IPv4SecondaryAllocCIDRs = n.IPv4SecondaryAllocCIDRs[0:0]
+				for _, podCIDR := range step.podCIDRs {
+					n.IPv4SecondaryAllocCIDRs = append(n.IPv4SecondaryAllocCIDRs, cidr.MustParseCIDR(podCIDR))
+				}
+			})
 
 			// validate expected result
 			receivedEvents, err := gobgpPeers[0].getRouteEvents(testCtx, len(step.expectedRouteEvents))

@@ -12,7 +12,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
-	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
@@ -21,13 +20,14 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sPkg "github.com/cilium/cilium/pkg/k8s"
-	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -61,13 +61,6 @@ var (
 		"rack": "rack0",
 	}
 
-	baseNodeConf = nodeConfig{
-		labels: labels,
-		annotations: map[string]string{
-			nodeAnnotationKey: nodeAnnotationValues,
-		},
-	}
-
 	baseBGPPolicy = policyConfig{
 		nodeSelector: labels,
 		virtualRouters: []cilium_api_v2alpha1.CiliumBGPVirtualRouter{
@@ -79,7 +72,6 @@ var (
 
 	// Daemon start config
 	fixtureConf = fixtureConfig{
-		node:      newNodeObj(baseNodeConf),
 		policy:    newPolicyObj(baseBGPPolicy),
 		ipam:      ipamOption.IPAMKubernetes,
 		bgpEnable: true,
@@ -93,10 +85,10 @@ type fixture struct {
 	policyClient  v2alpha1.CiliumBGPPeeringPolicyInterface
 	hive          *hive.Hive
 	bgp           *agent.Controller
+	nodeStore     *node.LocalNodeStore
 }
 
 type fixtureConfig struct {
-	node      slim_core_v1.Node
 	policy    cilium_api_v2alpha1.CiliumBGPPeeringPolicy
 	ipam      string
 	bgpEnable bool
@@ -110,27 +102,11 @@ func newFixture(conf fixtureConfig) *fixture {
 	f.fakeClientSet, _ = k8sClient.NewFakeClientset()
 	f.policyClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2alpha1().CiliumBGPPeeringPolicies()
 
-	// create default base node
-	f.fakeClientSet.SlimFakeClientset.Tracker().Create(
-		slim_core_v1.SchemeGroupVersion.WithResource("nodes"), conf.node.DeepCopy(), "")
-
 	// create initial bgp policy
 	f.fakeClientSet.CiliumFakeClientset.Tracker().Add(&conf.policy)
 
 	// Construct a new Hive with mocked out dependency cells.
 	f.hive = hive.New(
-		// node resource
-		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) k8s.LocalNodeResource {
-			lw := utils.ListerWatcherFromTyped[*slim_core_v1.NodeList](c.Slim().CoreV1().Nodes())
-			return k8s.LocalNodeResource(resource.New[*slim_core_v1.Node](lc, lw))
-		}),
-
-		// cilium node resource
-		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) k8s.LocalCiliumNodeResource {
-			lw := utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](c.CiliumV2().CiliumNodes())
-			return k8s.LocalCiliumNodeResource(resource.New[*cilium_api_v2.CiliumNode](lc, lw))
-		}),
-
 		// service
 		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) resource.Resource[*slim_core_v1.Service] {
 			return resource.New[*slim_core_v1.Service](
@@ -154,6 +130,20 @@ func newFixture(conf fixtureConfig) *fixture {
 				EnableBGPControlPlane: conf.bgpEnable,
 				IPAM:                  conf.ipam,
 			}
+		}),
+
+		// LocalNodeStore
+		cell.Provide(func() *node.LocalNodeStore {
+			store := node.NewTestLocalNodeStore(node.LocalNode{
+				Node: types.Node{
+					Annotations: map[string]string{
+						nodeAnnotationKey: nodeAnnotationValues,
+					},
+					Labels: labels,
+				},
+			})
+			f.nodeStore = store
+			return store
 		}),
 
 		// local bgp state for inspection
