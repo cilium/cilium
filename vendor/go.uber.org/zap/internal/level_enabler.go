@@ -18,6 +18,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+// Package internal and its subpackages hold types and functionality
+// that are not part of Zap's public API.
 package internal
 
 import "go.uber.org/zap/zapcore"

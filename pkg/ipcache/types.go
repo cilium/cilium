@@ -9,7 +9,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -137,7 +136,9 @@ func (s PrefixInfo) isValid() bool {
 
 func (s PrefixInfo) sortedBySourceThenResourceID() []ipcachetypes.ResourceID {
 	resourceIDs := maps.Keys(s)
-	slices.SortFunc(resourceIDs, func(a, b ipcachetypes.ResourceID) bool {
+	sort.Slice(resourceIDs, func(i, j int) bool {
+		a := resourceIDs[i]
+		b := resourceIDs[j]
 		if s[a].source != s[b].source {
 			return !source.AllowOverwrite(s[a].source, s[b].source)
 		}

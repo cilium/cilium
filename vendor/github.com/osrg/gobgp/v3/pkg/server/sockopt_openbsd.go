@@ -384,11 +384,20 @@ func setTCPMinTTLSockopt(conn *net.TCPConn, ttl int) error {
 	return setsockOptInt(sc, level, name, ttl)
 }
 
+func setTCPMSSSockopt(conn *net.TCPConn, mss uint16) error {
+	family := extractFamilyFromTCPConn(conn)
+	sc, err := conn.SyscallConn()
+	if err != nil {
+		return err
+	}
+	return setsockoptTcpMss(sc, family, mss)
+}
+
 func setBindToDevSockopt(sc syscall.RawConn, device string) error {
 	return fmt.Errorf("binding connection to a device is not supported")
 }
 
-func dialerControl(logger log.Logger, network, address string, c syscall.RawConn, ttl, minTtl uint8, password string, bindInterface string) error {
+func dialerControl(logger log.Logger, network, address string, c syscall.RawConn, ttl, minTtl uint8, mss uint16, password string, bindInterface string) error {
 	if password != "" {
 		logger.Warn("setting md5 for active connection is not supported",
 			log.Fields{
@@ -406,6 +415,19 @@ func dialerControl(logger log.Logger, network, address string, c syscall.RawConn
 			log.Fields{
 				"Topic": "Peer",
 				"Key":   address})
+	}
+	var sockerr error
+	if mss != 0 {
+		if err := c.Control(func(fd uintptr) {
+			level := syscall.IPPROTO_TCP
+			name := syscall.TCP_MAXSEG
+			sockerr = os.NewSyscallError("setsockopt", syscall.SetsockoptInt(int(fd), level, name, int(mss)))
+		}); err != nil {
+			return err
+		}
+		if sockerr != nil {
+			return sockerr
+		}
 	}
 	return nil
 }
