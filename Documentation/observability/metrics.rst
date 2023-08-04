@@ -570,7 +570,7 @@ Name                                     Labels                                 
 ``ipam_release_duration_seconds``        ``type``, ``status``, ``subnet_id``                               Enabled    Release ip or interface latency in seconds
 ``ipam_allocation_duration_seconds``     ``type``, ``status``, ``subnet_id``                               Enabled    Allocation ip or interface latency in seconds
 ``ipam_available_interfaces``                                                                              Enabled    Number of interfaces with addresses available
-``ipam_nodes_at_capacity``                                                                                 Enabled    Number of nodes unable to allocate more addresses
+``ipam_nodes``                           ``category``                                                      Enabled    Number of nodes by category { total | in-deficit | at-capacity }
 ``ipam_resync_total``                                                                                      Enabled    Number of synchronization operations with external IPAM API
 ``ipam_api_duration_seconds``            ``operation``, ``response_code``                                  Enabled    Duration of interactions with external IPAM API.
 ``ipam_api_rate_limit_duration_seconds`` ``operation``                                                     Enabled    Duration of rate limiting while accessing external IPAM API
