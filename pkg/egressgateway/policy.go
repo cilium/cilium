@@ -4,6 +4,7 @@
 package egressgateway
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 
@@ -98,7 +99,7 @@ func (config *policyGatewayConfig) selectsNodeAsGateway(node nodeTypes.Node) boo
 	return config.nodeSelector.Matches(k8sLabels.Set(node.Labels))
 }
 
-func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
+func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager, policyByInterfaceIndex map[int]*PolicyConfig) {
 	gwc := gatewayConfig{
 		egressIP:  net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 0)},
 		gatewayIP: GatewayNotFoundIPv4,
@@ -115,15 +116,37 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 
 		if node.IsLocal() {
 			err := gwc.deriveFromPolicyGatewayConfig(policyGwc)
-			if err != nil {
-				logger := log.WithFields(logrus.Fields{
-					logfields.CiliumEgressGatewayPolicyName: config.id,
-					logfields.Interface:                     policyGwc.iface,
-					logfields.EgressIP:                      policyGwc.egressIP,
-				})
+			logger := log.WithFields(logrus.Fields{
+				logfields.CiliumEgressGatewayPolicyName: config.id,
+				logfields.Interface:                     policyGwc.iface,
+				logfields.EgressIP:                      policyGwc.egressIP,
+			})
 
+			if err != nil {
 				logger.WithError(err).Error("Failed to derive policy gateway configuration")
+				break
 			}
+
+			if !manager.installRoutes {
+				break
+			}
+
+			// We can only have one default route per interface. Enforce that all
+			// policies on an interface use the same EgressIP (== default route).
+			currentPolicy := policyByInterfaceIndex[gwc.ifaceIndex]
+			if currentPolicy == nil {
+				policyByInterfaceIndex[gwc.ifaceIndex] = config
+				break
+			}
+
+			currentEgressIP := currentPolicy.gatewayConfig.egressIP
+			if gwc.egressIP.IP.Equal(currentEgressIP.IP) && bytes.Equal(gwc.egressIP.Mask, currentEgressIP.Mask) {
+				break
+			}
+
+			gwc.localNodeConfiguredAsGateway = false
+			gwc.gatewayIP = GatewayNotFoundIPv4
+			logger.Errorf("Conflict with policy %s: Selects the same egress interface but uses a different egress IP (%s).", currentPolicy.id, currentEgressIP.String())
 		}
 
 		break
