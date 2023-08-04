@@ -286,8 +286,12 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 
 	// Check label updates too.
 	oldK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(oldK8sPod.ObjectMeta.Labels, labels.LabelSourceK8s))
-	oldPodLabels := oldK8sPodLabels.K8sStringMap()
-	newK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(newK8sPod.ObjectMeta.Labels, labels.LabelSourceK8s))
+	// old labels are stripped to avoid grandfathering in special labels
+	oldPodLabels := k8sUtils.StripPodSpecialLabels(oldK8sPodLabels.K8sStringMap())
+
+	strippedNewLabels := k8sUtils.StripPodSpecialLabels(newK8sPod.Labels)
+
+	newK8sPodLabels, _ := labelsfilter.Filter(labels.Map2Labels(strippedNewLabels, labels.LabelSourceK8s))
 	newPodLabels := newK8sPodLabels.K8sStringMap()
 	labelsChanged := !comparator.MapStringEquals(oldPodLabels, newPodLabels)
 
