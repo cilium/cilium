@@ -283,6 +283,18 @@ func GetIPv4() net.IP {
 	return clone(n.GetNodeIP(false))
 }
 
+// GetInternalIPv4 returns node internal ipv4 address else return nil.
+func GetInternalIPv4() net.IP {
+	n := getLocalNode()
+	return clone(n.GetNodeInternalIPv4())
+}
+
+// GetInternalIPv6 returns node internal ipv6 address else return nil.
+func GetInternalIPv6() net.IP {
+	n := getLocalNode()
+	return clone(n.GetNodeInternalIPv6())
+}
+
 // GetCiliumEndpointNodeIP is the node IP that will be referenced by CiliumEndpoints with endpoints
 // running on this node.
 func GetCiliumEndpointNodeIP() string {
