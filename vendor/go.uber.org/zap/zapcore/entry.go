@@ -24,25 +24,23 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"go.uber.org/multierr"
 	"go.uber.org/zap/internal/bufferpool"
 	"go.uber.org/zap/internal/exit"
+	"go.uber.org/zap/internal/pool"
 )
 
-var (
-	_cePool = sync.Pool{New: func() interface{} {
-		// Pre-allocate some space for cores.
-		return &CheckedEntry{
-			cores: make([]Core, 4),
-		}
-	}}
-)
+var _cePool = pool.New(func() *CheckedEntry {
+	// Pre-allocate some space for cores.
+	return &CheckedEntry{
+		cores: make([]Core, 4),
+	}
+})
 
 func getCheckedEntry() *CheckedEntry {
-	ce := _cePool.Get().(*CheckedEntry)
+	ce := _cePool.Get()
 	ce.reset()
 	return ce
 }
