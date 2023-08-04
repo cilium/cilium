@@ -9,6 +9,7 @@ import (
 	"net/netip"
 
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
@@ -20,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -76,6 +78,7 @@ type CachingIdentityAllocator interface {
 	cache.IdentityAllocator
 	clustermesh.RemoteIdentityWatcher
 
+	ReleaseCIDRs(context.Context, []netip.Prefix)
 	InitIdentityAllocator(versioned.Interface) <-chan struct{}
 	Close()
 }
@@ -91,4 +94,23 @@ func (c cachingIdentityAllocator) AllocateCIDRsForIPs(ips []net.IP, newlyAllocat
 
 func (c cachingIdentityAllocator) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []identity.NumericIdentity) {
 	c.ipcache.ReleaseCIDRIdentitiesByID(ctx, identities)
+}
+
+func (c *cachingIdentityAllocator) ReleaseCIDRs(ctx context.Context, prefixes []netip.Prefix) {
+	for _, prefix := range prefixes {
+		lbls := cidr.GetCIDRLabels(prefix)
+		id := c.LookupIdentity(ctx, lbls)
+		if id == nil {
+			log.WithFields(logrus.Fields{
+				logfields.CIDR: prefix.String(),
+			}).Warning("Restored Identity for CIDR cannot be found")
+			continue
+		}
+		if _, err := c.Release(ctx, id, false); err != nil {
+			log.WithFields(logrus.Fields{
+				logfields.Identity: id,
+				logfields.CIDR:     prefix,
+			}).WithError(err).Warning("Unable to release restored CIDR identity.")
+		}
+	}
 }

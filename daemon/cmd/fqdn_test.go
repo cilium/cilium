@@ -104,6 +104,12 @@ func (f *FakeRefcountingIdentityAllocator) ReleaseCIDRIdentitiesByID(ctx context
 	}
 }
 
+func (f *FakeRefcountingIdentityAllocator) ReleaseCIDRs(ctx context.Context, prefixes []netip.Prefix) {
+	for _, prefix := range prefixes {
+		f.identityCount.Delete(int(f.ipToIdentity[prefix.Addr().String()]))
+	}
+}
+
 func (f *FakeRefcountingIdentityAllocator) IdentityReferenceCounter() counter.IntCounter {
 	return f.identityCount
 }

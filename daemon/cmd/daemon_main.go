@@ -59,6 +59,7 @@ import (
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -91,6 +92,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/resiliency"
+	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
@@ -1855,7 +1857,17 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			// (re-)allocate the restored identities before we release them.
 			time.Sleep(option.Config.IdentityRestoreGracePeriod)
 			log.Debugf("Releasing reference counts for %d restored CIDR identities", len(d.restoredCIDRs))
-			d.ipcache.ReleaseCIDRIdentitiesByCIDR(d.restoredCIDRs)
+			// Release the CIDR identity references acquired by
+			// the corresponding AllocateCIDRs() call from when
+			// d.restoredCIDRs was initialized.
+			// Remove the ipcache CIDR associations from the
+			// corresponding UpsertPrefixes() call.
+			d.identityAllocator.ReleaseCIDRs(d.ctx, d.restoredCIDRs)
+			d.ipcache.RemovePrefixes(
+				d.restoredCIDRs,
+				source.Restored,
+				ipcachetypes.NewResourceID(ipcachetypes.ResourceKindDaemon, "", ""),
+			)
 			// release the memory held by restored CIDRs
 			d.restoredCIDRs = nil
 

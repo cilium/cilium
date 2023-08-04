@@ -59,7 +59,7 @@ import (
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
-	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
+	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -583,7 +583,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// same numeric IDs as before, but the restored identities are to be upsterted to the new
 	// (datapath) ipcache after it has been initialized below. This is accomplished by passing
 	// 'restoredCIDRidentities' to AllocateCIDRs() and then calling
-	// UpsertGeneratedIdentities(restoredCIDRidentities) after initMaps() below.
+	// UpsertPrefixes(d.restoredCIDRs) after initMaps() below.
 	restoredCIDRidentities := make(map[netip.Prefix]*identity.Identity)
 	if len(d.restoredCIDRs) > 0 {
 		log.Infof("Restoring %d old CIDR identities", len(d.restoredCIDRs))
@@ -695,8 +695,17 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("error while opening/creating BPF maps: %w", err)
 	}
 	// Upsert restored CIDRs after the new ipcache has been opened above
-	if len(restoredCIDRidentities) > 0 {
-		d.ipcache.UpsertGeneratedIdentities(restoredCIDRidentities, nil)
+	restoredResource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindDaemon, "", "")
+	if len(d.restoredCIDRs) > 0 {
+		// Asynchronously upsert the prefixes into the new ipcache map.
+		// By the time the datapath gets initialized to consume this
+		// map, ipcache should have completed the async work. If this
+		// doesn't occur, it will result in temporary drops in the
+		// time between datapath initialization until this async
+		// process completes.
+		// TODO: Add signalling mechanism to pass to the datapath to
+		//       ensure this ordering property.
+		d.ipcache.UpsertPrefixes(d.restoredCIDRs, source.Restored, restoredResource)
 	}
 	// Upsert restored local Ingress IPs
 	for _, ingressIP := range oldIngressIPs {
@@ -704,7 +713,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			ingressIP,
 			labels.LabelIngress,
 			source.Restored,
-			ipcachetypes.NewResourceID(ipcachetypes.ResourceKindDaemon, "", ""),
+			restoredResource,
 		)
 	}
 	if len(oldIngressIPs) > 0 {
