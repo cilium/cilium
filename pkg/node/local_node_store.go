@@ -55,14 +55,14 @@ type LocalNodeStore struct {
 	complete func(error)
 }
 
-func newTestLocalNodeStore() *LocalNodeStore {
+func NewTestLocalNodeStore(mockNode LocalNode) *LocalNodeStore {
 	src, emit, complete := stream.Multicast[LocalNode](stream.EmitLatest)
-	emit(LocalNode{})
+	emit(mockNode)
 	return &LocalNodeStore{
 		Observable: src,
 		emit:       emit,
 		complete:   complete,
-		value:      LocalNode{},
+		value:      mockNode,
 	}
 }
 
