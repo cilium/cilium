@@ -194,6 +194,29 @@ func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []strin
 	return wg, err
 }
 
+// ReinitializeIdentityReferences can be called during bootstrap in order to
+// re-establish FQDN selector references for CIDR Identities that were
+// previously restored by the agent.
+//
+// The caller must release references to all Identities in `toRelease`, and
+// must insert 'newlyAllocatedIdentities' into the ipcache via a call to
+// UpsertGeneratedIdentities().
+func (n *NameManager) ReinitializeIdentityReferences(ctx context.Context) (wg *sync.WaitGroup, toRelease []*identity.Identity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, err error) {
+	n.RWMutex.Lock()
+	defer n.RWMutex.Unlock()
+
+	selectors := make(map[api.FQDNSelector]struct{}, 0)
+	for fqdnSel := range n.allSelectors {
+		selectors[fqdnSel] = struct{}{}
+	}
+
+	// Ignore newly allocated IDs (3rd result) as this is specifically
+	// trying to ensure that restored identities get a reference associated
+	// with the SelectorCache after the IdentityRestoreGracePeriod expired
+	// them during startup.
+	return n.forceGenerateDNSLocked(ctx, selectors)
+}
+
 func (n *NameManager) CompleteBootstrap() {
 	n.Lock()
 	n.bootstrapCompleted = true

@@ -1858,6 +1858,31 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			d.ipcache.ReleaseCIDRIdentitiesByCIDR(d.restoredCIDRs)
 			// release the memory held by restored CIDRs
 			d.restoredCIDRs = nil
+
+			wg, toRelease, newIdentities, err := d.dnsNameManager.ReinitializeIdentityReferences(d.ctx)
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.CIDRS: logging.SampleSlice(d.restoredCIDRs),
+				}).WithError(err).Warning("Failed to retain Identity references after " + option.IdentityRestoreGracePeriod)
+			}
+			wg.Wait()
+			if len(newIdentities) > 0 {
+				d.ipcache.UpsertGeneratedIdentities(newIdentities, toRelease)
+				log.WithFields(logrus.Fields{
+					logfields.Identity: logging.SampleMapKeys(newIdentities),
+				}).Info("Completed FQDN rule identity recalculation")
+			}
+			if len(toRelease) > 0 {
+				log.WithFields(logrus.Fields{
+					logfields.Identity: toRelease[:10],
+				}).Debug("Releasing identities used in DNS manager")
+				if err = d.identityAllocator.ReleaseSlice(d.ctx, toRelease); err != nil {
+					log.WithFields(logrus.Fields{
+						logfields.Identity: logging.SampleSlice(toRelease),
+					}).WithError(err).Warning("Unable to release Identity references after " + option.IdentityRestoreGracePeriod)
+				}
+			}
+
 		}
 	}()
 	d.endpointManager.Subscribe(d)
