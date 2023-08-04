@@ -160,6 +160,17 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 	return n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
 }
 
+func (n *NameManager) forceGenerateDNSLocked(ctx context.Context, affectedFDQNSels map[api.FQDNSelector]struct{}) (wg *sync.WaitGroup, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, err error) {
+	namesMissingIPs, selectorIPMapping := n.MapSelectorsToIPsLocked(affectedFDQNSels)
+	if len(namesMissingIPs) != 0 {
+		log.WithField(logfields.DNSName, namesMissingIPs).
+			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
+	}
+
+	// Emit the new rules.
+	return n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
+}
+
 // ForceGenerateDNS unconditionally regenerates all rules that refer to DNS
 // names in namesToRegen. These names are FQDNs and toFQDNs.matchPatterns or
 // matchNames that match them will cause these rules to regenerate.
@@ -178,15 +189,8 @@ func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []strin
 		}
 	}
 
-	namesMissingIPs, selectorIPMapping := n.MapSelectorsToIPsLocked(affectedFQDNSels)
-	if len(namesMissingIPs) != 0 {
-		log.WithField(logfields.DNSName, namesMissingIPs).
-			Debug("No IPs to insert when generating DNS name selected by ToFQDN rule")
-	}
-
-	// Emit the new rules.
 	// Ignore newly allocated IDs (3rd result) as this is only used for deletes.
-	wg, _, _, err = n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
+	wg, _, _, err = n.forceGenerateDNSLocked(ctx, affectedFQDNSels)
 	return wg, err
 }
 
