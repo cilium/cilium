@@ -1,3 +1,49 @@
+# Release (2023-07-31)
+
+## General Highlights
+* **Feature**: Adds support for smithy-modeled endpoint resolution. A new rules-based endpoint resolution will be added to the SDK which will supercede and deprecate existing endpoint resolution. Specifically, EndpointResolver will be deprecated while BaseEndpoint and EndpointResolverV2 will take its place. For more information, please see the Endpoints section in our Developer Guide.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/amplifyuibuilder`: [v1.12.0](service/amplifyuibuilder/CHANGELOG.md#v1120-2023-07-31)
+  * **Feature**: Amplify Studio releases GraphQL support for codegen job action.
+* `github.com/aws/aws-sdk-go-v2/service/autoscaling`: [v1.30.0](service/autoscaling/CHANGELOG.md#v1300-2023-07-31)
+  * **Feature**: You can now configure an instance refresh to set its status to 'failed' when it detects that a specified CloudWatch alarm has gone into the ALARM state. You can also choose to roll back the instance refresh automatically when the alarm threshold is met.
+* `github.com/aws/aws-sdk-go-v2/service/cleanrooms`: [v1.3.0](service/cleanrooms/CHANGELOG.md#v130-2023-07-31)
+  * **Feature**: This release introduces custom SQL queries - an expanded set of SQL you can run. This release adds analysis templates, a new resource for storing pre-defined custom SQL queries ahead of time. This release also adds the Custom analysis rule, which lets you approve analysis templates for querying.
+* `github.com/aws/aws-sdk-go-v2/service/codestarconnections`: [v1.15.0](service/codestarconnections/CHANGELOG.md#v1150-2023-07-31)
+  * **Feature**: New integration with the Gitlab provider type.
+* `github.com/aws/aws-sdk-go-v2/service/drs`: [v1.15.0](service/drs/CHANGELOG.md#v1150-2023-07-31)
+  * **Feature**: Add support for in-aws right sizing
+* `github.com/aws/aws-sdk-go-v2/service/inspector2`: [v1.16.0](service/inspector2/CHANGELOG.md#v1160-2023-07-31)
+  * **Feature**: This release adds 1 new API: BatchGetFindingDetails to retrieve enhanced vulnerability intelligence details for findings.
+* `github.com/aws/aws-sdk-go-v2/service/lookoutequipment`: [v1.18.0](service/lookoutequipment/CHANGELOG.md#v1180-2023-07-31)
+  * **Feature**: This release includes new import resource, model versioning and resource policy features.
+* `github.com/aws/aws-sdk-go-v2/service/omics`: [v1.6.0](service/omics/CHANGELOG.md#v160-2023-07-31)
+  * **Feature**: Add CreationType filter for ListReadSets
+* `github.com/aws/aws-sdk-go-v2/service/rds`: [v1.49.0](service/rds/CHANGELOG.md#v1490-2023-07-31)
+  * **Feature**: This release adds support for Aurora MySQL local write forwarding, which allows for forwarding of write operations from reader DB instances to the writer DB instance.
+* `github.com/aws/aws-sdk-go-v2/service/route53`: [v1.29.0](service/route53/CHANGELOG.md#v1290-2023-07-31)
+  * **Feature**: Amazon Route 53 now supports the Israel (Tel Aviv) Region (il-central-1) for latency records, geoproximity records, and private DNS for Amazon VPCs in that region.
+* `github.com/aws/aws-sdk-go-v2/service/scheduler`: [v1.2.0](service/scheduler/CHANGELOG.md#v120-2023-07-31)
+  * **Feature**: This release introduces automatic deletion of schedules in EventBridge Scheduler. If configured, EventBridge Scheduler automatically deletes a schedule after the schedule has completed its last invocation.
+
+# Release (2023-07-28.2)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/applicationinsights`: [v1.18.0](service/applicationinsights/CHANGELOG.md#v1180-2023-07-282)
+  * **Feature**: This release enable customer to add/remove/update more than one workload for a component
+* `github.com/aws/aws-sdk-go-v2/service/cloudformation`: [v1.33.0](service/cloudformation/CHANGELOG.md#v1330-2023-07-282)
+  * **Feature**: This SDK release is for the feature launch of AWS CloudFormation RetainExceptOnCreate. It adds a new parameter retainExceptOnCreate in the following APIs: CreateStack, UpdateStack, RollbackStack, ExecuteChangeSet.
+* `github.com/aws/aws-sdk-go-v2/service/cloudfront`: [v1.27.0](service/cloudfront/CHANGELOG.md#v1270-2023-07-282)
+  * **Feature**: Add a new JavaScript runtime version for CloudFront Functions.
+* `github.com/aws/aws-sdk-go-v2/service/connect`: [v1.62.0](service/connect/CHANGELOG.md#v1620-2023-07-282)
+  * **Feature**: This release adds support for new number types.
+* `github.com/aws/aws-sdk-go-v2/service/kafka`: [v1.21.0](service/kafka/CHANGELOG.md#v1210-2023-07-282)
+  * **Feature**: Amazon MSK has introduced new versions of ListClusterOperations and DescribeClusterOperation APIs. These v2 APIs provide information and insights into the ongoing operations of both MSK Provisioned and MSK Serverless clusters.
+* `github.com/aws/aws-sdk-go-v2/service/pinpoint`: [v1.21.0](service/pinpoint/CHANGELOG.md#v1210-2023-07-282)
+  * **Feature**: Added support for sending push notifications using the FCM v1 API with json credentials. Amazon Pinpoint customers can now deliver messages to Android devices using both FCM v1 API and the legacy FCM/GCM API
+
 # Release (2023-07-28)
 
 ## General Highlights

@@ -68,6 +68,12 @@ type Config struct {
 	//
 	// See the `aws.EndpointResolverWithOptions` documentation for additional
 	// usage information.
+	//
+	// Deprecated: with the release of endpoint resolution v2 in API clients,
+	// EndpointResolver and EndpointResolverWithOptions are deprecated.
+	// Providing a value for this field will likely prevent you from using
+	// newer endpoint-related service features. See API client options
+	// EndpointResolverV2 and BaseEndpoint.
 	EndpointResolverWithOptions EndpointResolverWithOptions
 
 	// RetryMaxAttempts specifies the maximum number attempts an API client

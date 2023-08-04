@@ -55,8 +55,6 @@ func (p *Process) NameWithContext(ctx context.Context) (string, error) {
 			extendedName := filepath.Base(cmdlineSlice[0])
 			if strings.HasPrefix(extendedName, p.name) {
 				name = extendedName
-			} else {
-				name = cmdlineSlice[0]
 			}
 		}
 	}
