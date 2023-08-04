@@ -683,8 +683,10 @@ func (manager *Manager) policyMatchesMinusExcludedCIDRs(sourceIP net.IP, f func(
 }
 
 func (manager *Manager) regenerateGatewayConfigs() {
+	policyByInterfaceIndex := make(map[int]*PolicyConfig)
+
 	for _, policyConfig := range manager.policyConfigs {
-		policyConfig.regenerateGatewayConfig(manager)
+		policyConfig.regenerateGatewayConfig(manager, policyByInterfaceIndex)
 	}
 }
 
