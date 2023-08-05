@@ -99,7 +99,7 @@ metadata:
 spec:
   containers:
   - name: cilium-builder
-    image: quay.io/cilium/cilium-builder:d669bd542b88217487a4bcb152fcdc4e47a32cb7@sha256:99db1f7ef6b5a429ada9497ebf9b6fbfdb0e09da378c57e7933528cb4945e7fd
+    image: quay.io/cilium/cilium-builder:3cb559d71c3283aa0d5e64c8fd97490178a166ce@sha256:370b95e8cb0c675708e73760566edbd602de73a21b40b55bba2a9af4021fb68a
     workingDir: /cilium
     command: ["sleep"]
     args:
