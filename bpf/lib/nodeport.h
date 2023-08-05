@@ -2204,6 +2204,12 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV4_NODEPORT_NAT_EGRESS)
 int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 {
+	struct bpf_fib_lookup_padded fib_params = {
+		.l = {
+			.family		= AF_INET,
+			.ifindex	= ctx_get_ifindex(ctx),
+		},
+	};
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
@@ -2218,6 +2224,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	struct ipv4_ct_tuple tuple = {};
 	int ret, l4_off, oif = 0;
 	void *data, *data_end;
+	bool has_l4_header;
 	struct iphdr *ip4;
 	__s8 ext_err = 0;
 #ifdef TUNNEL_MODE
@@ -2230,6 +2237,8 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
+
+	has_l4_header = ipv4_has_l4_header(ip4);
 
 #ifdef TUNNEL_MODE
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
@@ -2251,7 +2260,11 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	ipv4_ct_tuple_swap_ports(&tuple);
 	tuple.flags = TUPLE_F_OUT;
 
-	ret = __snat_v4_nat(ctx, &tuple, ipv4_has_l4_header(ip4), l4_off,
+	ret = ipv4_l3(ctx, ETH_HLEN, NULL, NULL, ip4);
+	if (unlikely(ret != CTX_ACT_OK))
+		goto drop_err;
+
+	ret = __snat_v4_nat(ctx, &tuple, has_l4_header, l4_off,
 			    ACTION_CREATE, true, &target, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
@@ -2292,8 +2305,10 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	ret = fib_redirect_v4(ctx, ETH_HLEN, ip4, true, &ext_err,
-			      ctx_get_ifindex(ctx), &oif);
+	fib_params.l.ipv4_src = ip4->saddr;
+	fib_params.l.ipv4_dst = ip4->daddr;
+
+	ret = fib_redirect(ctx, true, &fib_params, &ext_err, &oif);
 	if (fib_ok(ret)) {
 		cilium_capture_out(ctx);
 		return ret;
