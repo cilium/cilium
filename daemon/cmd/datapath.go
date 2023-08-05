@@ -518,6 +518,9 @@ func setupIPSec() (int, uint8, error) {
 	if err != nil {
 		return 0, 0, err
 	}
+	if err := ipsec.SetIPSecSPI(spi); err != nil {
+		return 0, 0, err
+	}
 	node.SetIPsecKeyIdentity(spi)
 	return authKeySize, spi, nil
 }
