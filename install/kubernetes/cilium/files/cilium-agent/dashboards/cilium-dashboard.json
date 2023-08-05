@@ -8183,6 +8183,31 @@
   "templating": {
     "list": [
       {
+        "allValue": "",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": "prometheus",
+        "definition": "label_values(cilium_version, cluster)",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "cluster",
+        "options": [],
+        "query": "label_values(cilium_version, cluster)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "tagValuesQuery": "",
+        "tags": [],
+        "tagsQuery": "",
+        "type": "query",
+        "useTags": false
+      },
+      {
         "allValue": "cilium.*",
         "current": {
           "selected": false,
@@ -8190,14 +8215,14 @@
           "value": "$__all"
         },
         "datasource": "prometheus",
-        "definition": "label_values(cilium_version, pod)",
+        "definition": "label_values(cilium_version{cluster=~\"$cluster\"}, pod)",
         "hide": 0,
         "includeAll": true,
         "label": null,
         "multi": false,
         "name": "pod",
         "options": [],
-        "query": "label_values(cilium_version, pod)",
+        "query": "label_values(cilium_version{cluster=~\"$cluster\"}, pod)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
