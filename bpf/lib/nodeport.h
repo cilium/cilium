@@ -1259,6 +1259,10 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, ACTION_CREATE,
 			      CT_INGRESS, SCOPE_REVERSE, &ct_state, &monitor);
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
+		ret = ipv6_l3(ctx, ETH_HLEN, NULL, NULL, METRIC_EGRESS);
+		if (unlikely(ret != CTX_ACT_OK))
+			return ret;
+
 		ret = lb6_rev_nat(ctx, l4_off, ct_state.rev_nat_index,
 				  &tuple, REV_NAT_F_TUPLE_SADDR);
 		if (IS_ERR(ret))
