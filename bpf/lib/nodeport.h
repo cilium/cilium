@@ -1013,6 +1013,10 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	ipv6_ct_tuple_swap_ports(&tuple);
 	tuple.flags = TUPLE_F_OUT;
 
+	ret = ipv6_l3(ctx, ETH_HLEN, NULL, NULL, METRIC_EGRESS);
+	if (unlikely(ret != CTX_ACT_OK))
+		goto drop_err;
+
 	ret = __snat_v6_nat(ctx, &tuple, l4_off, true, &target, &trace,
 			    &ext_err);
 	if (IS_ERR(ret))
