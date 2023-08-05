@@ -943,28 +943,23 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 		     * needed.
 		     */
 		    ret == DROP_NAT_NO_MAPPING) {
-			/* In case of no mapping, recircle back to
-			 * main path. SNAT is very expensive in terms
-			 * of instructions and
-			 * complexity. Consequently, this is done
-			 * inside a tail call here (because we don't
-			 * have BPF to BPF calls).
-			 */
-			ctx_skip_nodeport_set(ctx);
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
-			ret = DROP_MISSED_TAIL_CALL;
+			/* In case of no mapping, recircle back to main path. */
+			goto recircle;
 		}
 		goto drop_err;
 	}
 
 	ctx_snat_done_set(ctx);
 
-#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID))
-	ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
-#else
+	if (lb_is_svc_proto(tuple.nexthdr) && !nodeport_uses_dsr6(&tuple)) {
+		ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
+		return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
+					      CTX_ACT_DROP, METRIC_INGRESS);
+	}
+
+recircle:
 	ctx_skip_nodeport_set(ctx);
 	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
-#endif
 	ret = DROP_MISSED_TAIL_CALL;
 
  drop_err:
@@ -2368,16 +2363,8 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 		     * needed.
 		     */
 		    ret == DROP_NAT_NO_MAPPING) {
-			/* In case of no mapping, recircle back to
-			 * main path. SNAT is very expensive in terms
-			 * of instructions and
-			 * complexity. Consequently, this is done
-			 * inside a tail call here (because we don't
-			 * have BPF to BPF calls).
-			 */
-			ctx_skip_nodeport_set(ctx);
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
-			ret = DROP_MISSED_TAIL_CALL;
+			/* In case of no mapping, recircle back to main path. */
+			goto recircle;
 		}
 		goto drop_err;
 	}
@@ -2385,23 +2372,28 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	ctx_snat_done_set(ctx);
 
 	/* At this point we know that a reverse SNAT mapping exists.
-	 * Otherwise, we would have tail-called back to
-	 * CALL_IPV4_FROM_NETDEV in the code above.
+	 * Otherwise we would have recircled.
 	 */
-#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) ||	\
-    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && !defined(IS_BPF_OVERLAY) && !defined(TUNNEL_MODE))
-	/* If we're not in full DSR mode, reply traffic from remote backends
-	 * might pass back through the LB node and requires revDNAT.
+
+	/* Reply traffic by remote non-DSR backends passes back through
+	 * the LB node and requires revDNAT.
 	 *
 	 * Also let rev_nodeport_lb4() redirect EgressGW reply traffic into
 	 * tunnel (see there for details).
 	 */
-	ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
-#else
+	if ((lb_is_svc_proto(tuple.nexthdr) && !nodeport_uses_dsr4(&tuple)) ||
+	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	     !is_defined(IS_BPF_OVERLAY) &&
+	     !is_defined(TUNNEL_MODE))) {
+		ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
+		return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
+					      CTX_ACT_DROP, METRIC_INGRESS);
+	}
+
+recircle:
 	/* There's no reason to continue in the RevDNAT path, just recircle back. */
 	ctx_skip_nodeport_set(ctx);
 	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
-#endif
 	ret = DROP_MISSED_TAIL_CALL;
 
  drop_err:
