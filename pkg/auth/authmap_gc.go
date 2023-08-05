@@ -127,6 +127,9 @@ func (r *authMapGarbageCollector) NodeDelete(deletedNode nodeTypes.Node) error {
 	return nil
 }
 
+func (r *authMapGarbageCollector) AllNodeValidateImplementation() {
+}
+
 func (r *authMapGarbageCollector) NodeValidateImplementation(node nodeTypes.Node) error {
 	return nil
 }
