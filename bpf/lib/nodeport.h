@@ -915,10 +915,26 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
+	struct ipv6_ct_tuple tuple = {};
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
 	__s8 ext_err = 0;
-	int ret;
+	int l4_off, ret;
 
-	ret = snat_v6_rev_nat(ctx, &target, &ext_err);
+	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
+
+	tuple.nexthdr = ip6->nexthdr;
+	ret = ipv6_hdrlen(ctx, &tuple.nexthdr);
+	if (ret < 0)
+		goto drop_err;
+
+	l4_off = ETH_HLEN + ret;
+	snat_v6_init_tuple(ip6, NAT_DIR_INGRESS, &tuple);
+
+	ret = snat_v6_rev_nat(ctx, &tuple, l4_off, &target, &ext_err);
 	if (IS_ERR(ret)) {
 		if (ret == NAT_PUNT_TO_STACK ||
 		    /* DROP_NAT_NO_MAPPING is unwanted behavior in a
@@ -2327,10 +2343,23 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
+	struct ipv4_ct_tuple tuple = {};
+	void *data, *data_end;
+	bool has_l4_header;
+	struct iphdr *ip4;
 	__s8 ext_err = 0;
-	int ret;
+	int l4_off, ret;
 
-	ret = snat_v4_rev_nat(ctx, &target, &ext_err);
+	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+		ret = DROP_INVALID;
+		goto drop_err;
+	}
+
+	has_l4_header = ipv4_has_l4_header(ip4);
+	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+	snat_v4_init_tuple(ip4, NAT_DIR_INGRESS, &tuple);
+
+	ret = snat_v4_rev_nat(ctx, &tuple, has_l4_header, l4_off, &target, &ext_err);
 	if (IS_ERR(ret)) {
 		if (ret == NAT_PUNT_TO_STACK ||
 		    /* DROP_NAT_NO_MAPPING is unwanted behavior in a

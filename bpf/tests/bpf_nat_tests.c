@@ -192,19 +192,26 @@ int test_nat4_icmp_error_tcp(__maybe_unused struct __ctx_buff *ctx)
 				  false, NULL);
 	assert(ret == 0);
 
+	struct ipv4_ct_tuple snat_tuple = {};
+	void *data, *data_end;
+	struct iphdr *ip4;
+	__u16 proto;
+	int l3_off;
+	int l4_off;
+
+	assert(validate_ethertype(ctx, &proto));
+	assert(revalidate_data(ctx, &data, &data_end, &ip4));
+	l3_off = ETH_HLEN;
+	l4_off = l3_off + ipv4_hdrlen(ip4);
+	snat_v4_init_tuple(ip4, NAT_DIR_INGRESS, &snat_tuple);
+
 	/* This is the entry-point of the test, calling
 	 * snat_v4_rev_nat().
 	 */
-	ret = snat_v4_rev_nat(ctx, &target, NULL);
+	ret = snat_v4_rev_nat(ctx, &snat_tuple, ipv4_has_l4_header(ip4),
+			      l4_off, &target, NULL);
 	assert(ret == 0);
 
-	__u16 proto;
-	void *data;
-	void *data_end;
-
-	int l3_off;
-	int l4_off;
-	struct iphdr *ip4;
 	struct icmphdr icmphdr __align_stack_8;
 
 	assert(validate_ethertype(ctx, &proto));
@@ -301,19 +308,26 @@ int test_nat4_icmp_error_udp(__maybe_unused struct __ctx_buff *ctx)
 				  false, NULL);
 	assert(ret == 0);
 
+	struct ipv4_ct_tuple snat_tuple = {};
+	void *data, *data_end;
+	struct iphdr *ip4;
+	__u16 proto;
+	int l3_off;
+	int l4_off;
+
+	assert(validate_ethertype(ctx, &proto));
+	assert(revalidate_data(ctx, &data, &data_end, &ip4));
+	l3_off = ETH_HLEN;
+	l4_off = l3_off + ipv4_hdrlen(ip4);
+	snat_v4_init_tuple(ip4, NAT_DIR_INGRESS, &snat_tuple);
+
 	/* This is the entry-point of the test, calling
 	 * snat_v4_rev_nat().
 	 */
-	ret = snat_v4_rev_nat(ctx, &target, NULL);
+	ret = snat_v4_rev_nat(ctx, &snat_tuple, ipv4_has_l4_header(ip4),
+			      l4_off, &target, NULL);
 	assert(ret == 0);
 
-	__u16 proto;
-	void *data;
-	void *data_end;
-
-	int l3_off;
-	int l4_off;
-	struct iphdr *ip4;
 	struct icmphdr icmphdr __align_stack_8;
 
 	assert(validate_ethertype(ctx, &proto));
@@ -409,19 +423,26 @@ int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 				  false, NULL);
 	assert(ret == 0);
 
+	struct ipv4_ct_tuple snat_tuple = {};
+	void *data, *data_end;
+	struct iphdr *ip4;
+	__u16 proto;
+	int l3_off;
+	int l4_off;
+
+	assert(validate_ethertype(ctx, &proto));
+	assert(revalidate_data(ctx, &data, &data_end, &ip4));
+	l3_off = ETH_HLEN;
+	l4_off = l3_off + ipv4_hdrlen(ip4);
+	snat_v4_init_tuple(ip4, NAT_DIR_INGRESS, &snat_tuple);
+
 	/* This is the entry-point of the test, calling
 	 * snat_v4_rev_nat().
 	 */
-	ret = snat_v4_rev_nat(ctx, &target, NULL);
+	ret = snat_v4_rev_nat(ctx, &snat_tuple, ipv4_has_l4_header(ip4),
+			      l4_off, &target, NULL);
 	assert(ret == 0);
 
-	__u16 proto;
-	void *data;
-	void *data_end;
-
-	int l3_off;
-	int l4_off;
-	struct iphdr *ip4;
 	struct icmphdr icmphdr __align_stack_8;
 
 	assert(validate_ethertype(ctx, &proto));
@@ -506,10 +527,24 @@ int test_nat4_icmp_error_sctp(__maybe_unused struct __ctx_buff *ctx)
 				  false, NULL);
 	assert(ret == 0);
 
+	struct ipv4_ct_tuple snat_tuple = {};
+	void *data, *data_end;
+	struct iphdr *ip4;
+	__u16 proto;
+	int l3_off;
+	int l4_off;
+
+	assert(validate_ethertype(ctx, &proto));
+	assert(revalidate_data(ctx, &data, &data_end, &ip4));
+	l3_off = ETH_HLEN;
+	l4_off = l3_off + ipv4_hdrlen(ip4);
+	snat_v4_init_tuple(ip4, NAT_DIR_INGRESS, &snat_tuple);
+
 	/* This is the entry-point of the test, calling
 	 * snat_v4_rev_nat().
 	 */
-	ret = snat_v4_rev_nat(ctx, &target, NULL);
+	ret = snat_v4_rev_nat(ctx, &snat_tuple, ipv4_has_l4_header(ip4),
+			      l4_off, &target, NULL);
 	assert(ret == DROP_CSUM_L4);
 
 	/* nothing really change with udp/tcp */
