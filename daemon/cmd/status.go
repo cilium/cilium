@@ -499,6 +499,9 @@ func (c *clusterNodesClient) NodeDelete(node nodeTypes.Node) error {
 	return nil
 }
 
+func (c *clusterNodesClient) AllNodeValidateImplementation() {
+}
+
 func (c *clusterNodesClient) NodeValidateImplementation(node nodeTypes.Node) error {
 	// no-op
 	return nil
