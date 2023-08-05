@@ -131,6 +131,9 @@ func (n *signalNodeHandler) NodeDelete(node nodeTypes.Node) error {
 	return nil
 }
 
+func (n *signalNodeHandler) AllNodeValidateImplementation() {
+}
+
 func (n *signalNodeHandler) NodeValidateImplementation(node nodeTypes.Node) error {
 	if n.EnableNodeValidateImplementationEvent {
 		n.NodeValidateImplementationEvent <- node

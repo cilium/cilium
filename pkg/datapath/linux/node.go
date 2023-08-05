@@ -1713,6 +1713,16 @@ func (n *linuxNodeHandler) NodeValidateImplementation(nodeToValidate nodeTypes.N
 	return n.nodeUpdate(nil, &nodeToValidate, false)
 }
 
+// AllNodeValidateImplementation is called to validate the implementation of the
+// node in the datapath for all existing nodes
+func (n *linuxNodeHandler) AllNodeValidateImplementation() {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	for _, updateNode := range n.nodes {
+		n.nodeUpdate(nil, updateNode, false)
+	}
+}
+
 // NodeNeighDiscoveryEnabled returns whether node neighbor discovery is enabled
 func (n *linuxNodeHandler) NodeNeighDiscoveryEnabled() bool {
 	return n.enableNeighDiscovery

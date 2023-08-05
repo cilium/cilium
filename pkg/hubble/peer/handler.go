@@ -90,6 +90,10 @@ func (h *handler) NodeDelete(n types.Node) error {
 	return nil
 }
 
+// AllNodeValidateImplementation implements
+func (h handler) AllNodeValidateImplementation() {
+}
+
 // NodeValidateImplementation implements
 // datapath.NodeHandler.NodeValidateImplementation. It is a no-op.
 func (h handler) NodeValidateImplementation(_ types.Node) error {
