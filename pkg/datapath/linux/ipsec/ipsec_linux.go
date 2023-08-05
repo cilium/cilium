@@ -761,7 +761,6 @@ func LoadIPSecKeysFile(path string) (int, uint8, error) {
 func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 	var spi uint8
 	var keyLen int
-	scopedLog := log
 
 	ipSecLock.Lock()
 	defer ipSecLock.Unlock()
@@ -879,11 +878,17 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 		ipSecKeysRemovalTime[oldSpi] = time.Now()
 		ipSecCurrentKeySPI = spi
 	}
+	return keyLen, spi, nil
+}
+
+func SetIPSecSPI(spi uint8) error {
+	scopedLog := log
+
 	if err := encrypt.MapUpdateContext(0, spi); err != nil {
 		scopedLog.WithError(err).Warn("cilium_encrypt_state map updated failed:")
-		return 0, 0, err
+		return err
 	}
-	return keyLen, spi, nil
+	return nil
 }
 
 // DeleteIPsecEncryptRoute removes nodes in main routing table by walking
@@ -936,6 +941,12 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 			// Publish the updated node information to k8s/KVStore
 			nodediscovery.UpdateLocalNode()
 
+			// Push SPI update into BPF datapath now that XFRM state
+			// is configured.
+			if err := SetIPSecSPI(spi); err != nil {
+				log.WithError(err).Errorf("Failed to set IPsec SPI")
+				continue
+			}
 		case err := <-watcher.Errors:
 			log.WithError(err).WithField(logfields.Path, keyfilePath).
 				Warning("Error encountered while watching file with fsnotify")
