@@ -927,11 +927,11 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 			// package
 			node.SetIPsecKeyIdentity(spi)
 
-			// NodeValidateImplementation will eventually call
+			// AllNodeValidateImplementation will eventually call
 			// nodeUpdate(), which is responsible for updating the
 			// IPSec policies and states for all the different EPs
 			// with ipsec.UpsertIPsecEndpoint()
-			nodeHandler.NodeValidateImplementation(*nodediscovery.LocalNode())
+			nodeHandler.AllNodeValidateImplementation()
 
 			// Publish the updated node information to k8s/KVStore
 			nodediscovery.UpdateLocalNode()
