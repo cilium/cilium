@@ -30,6 +30,9 @@ triggers:
   /ci-gke:
     workflows:
     - conformance-gke.yaml
+  /ci-ingress:
+    workflows:
+    - conformance-ingress.yaml
   /ci-l4lb:
     workflows:
     - tests-l4lb.yaml
