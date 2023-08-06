@@ -82,21 +82,35 @@ jobs:
       matrix:
         include:
         - name: Without XDP
+          kube-proxy-replacement: true
+          enable-node-port: false
           bpf-lb-acceleration: disabled
           loadbalancer-mode: dedicated
           default-ingress-controller: false
         - name: With XDP
+          kube-proxy-replacement: true
+          enable-node-port: false
           bpf-lb-acceleration: native
           loadbalancer-mode: dedicated
           default-ingress-controller: false
         - name: With Shared LB
+          kube-proxy-replacement: true
+          enable-node-port: false
           bpf-lb-acceleration: disabled
           loadbalancer-mode: shared
           default-ingress-controller: false
         - name: With Default Ingress Controller
+          kube-proxy-replacement: true
+          enable-node-port: false
           bpf-lb-acceleration: disabled
           loadbalancer-mode: dedicated
           default-ingress-controller: true
+        - name: Without KPR
+          kube-proxy-replacement: false
+          enable-node-port: true
+          bpf-lb-acceleration: disabled
+          loadbalancer-mode: dedicated
+          default-ingress-controller: false
 
     steps:
       - name: Checkout context ref (trusted)
@@ -135,7 +149,8 @@ jobs:
             --helm-set=operator.image.tag=${SHA} \
             --helm-set=operator.image.useDigest=false \
             --helm-set=securityContext.privileged=true \
-            --helm-set kubeProxyReplacement=true \
+            --helm-set kubeProxyReplacement=${{ matrix.kube-proxy-replacement }} \
+            --helm-set nodePort.enabled=${{ matrix.enable-node-port }} \
             --helm-set=ingressController.enabled=true \
             --helm-set=ingressController.loadbalancerMode=${{ matrix.loadbalancer-mode }} \
             --helm-set=ingressController.default=${{ matrix.default-ingress-controller }} \
@@ -238,6 +253,7 @@ jobs:
           curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"/details/1
 
       - name: Run Sanity check (internal to NodePort)
+        if: ${{ matrix.kube-proxy-replacement == 'true' }}
         timeout-minutes: 5
         run: |
           if [ ${{ matrix.loadbalancer-mode }} = "dedicated" ]; then
