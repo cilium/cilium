@@ -1466,9 +1466,8 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	if (skip_ingress_proxy)
 		goto skip_policy_enforcement;
 
-	verdict = policy_can_access_ingress(ctx, src_label, SECLABEL,
-					    tuple->dport, tuple->nexthdr, l4_off, false,
-					    &policy_match_type, &audited, ext_err, proxy_port);
+	verdict = policy_can_ingress6(ctx, tuple, l4_off, src_label, SECLABEL,
+				      &policy_match_type, &audited, ext_err, proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		struct remote_endpoint_info *sep = lookup_ip6_remote_endpoint(&orig_sip, 0);
 
@@ -1791,10 +1790,9 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 		goto skip_policy_enforcement;
 #endif /* ENABLE_PER_PACKET_LB && !DISABLE_LOOPBACK_LB */
 
-	verdict = policy_can_access_ingress(ctx, src_label, SECLABEL,
-					    tuple->dport, tuple->nexthdr, l4_off,
-					    is_untracked_fragment,
-					    &policy_match_type, &audited, ext_err, proxy_port);
+	verdict = policy_can_ingress4(ctx, tuple, l4_off, is_untracked_fragment, src_label,
+				      SECLABEL, &policy_match_type, &audited, ext_err,
+				      proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		struct remote_endpoint_info *sep = lookup_ip4_remote_endpoint(orig_sip, 0);
 
