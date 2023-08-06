@@ -191,9 +191,9 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
  *   - Negative error code if the packet should be dropped
  */
 static __always_inline int
-policy_can_access_ingress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
-			  __u16 dport, __u8 proto, int l4_off, bool is_untracked_fragment,
-			  __u8 *match_type, __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
+policy_can_ingress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
+		   __u16 dport, __u8 proto, int l4_off, bool is_untracked_fragment,
+		   __u8 *match_type, __u8 *audited, __s8 *ext_err, __u16 *proxy_port)
 {
 	int ret;
 
@@ -214,6 +214,29 @@ policy_can_access_ingress(struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 #endif
 
 	return ret;
+}
+
+static __always_inline int policy_can_ingress6(struct __ctx_buff *ctx,
+					       const struct ipv6_ct_tuple *tuple,
+					       int l4_off,  __u32 src_id, __u32 dst_id,
+					       __u8 *match_type, __u8 *audited,
+					       __s8 *ext_err, __u16 *proxy_port)
+{
+	return policy_can_ingress(ctx, src_id, dst_id, tuple->dport,
+				 tuple->nexthdr, l4_off, false, match_type, audited,
+				 ext_err, proxy_port);
+}
+
+static __always_inline int policy_can_ingress4(struct __ctx_buff *ctx,
+					       const struct ipv4_ct_tuple *tuple,
+					       int l4_off, bool is_untracked_fragment,
+					       __u32 src_id, __u32 dst_id,
+					       __u8 *match_type, __u8 *audited,
+					       __s8 *ext_err, __u16 *proxy_port)
+{
+	return policy_can_ingress(ctx, src_id, dst_id, tuple->dport,
+				 tuple->nexthdr, l4_off, is_untracked_fragment,
+				 match_type, audited, ext_err, proxy_port);
 }
 
 #ifdef HAVE_ENCAP
