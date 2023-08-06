@@ -40,12 +40,18 @@ triggers:
   /ci-external-workloads:
     workflows:
     - conformance-externalworkloads.yaml
+  /ci-gateway-api:
+    workflows:
+    - conformance-gateway-api.yaml
   /ci-ginkgo:
     workflows:
     - conformance-ginkgo.yaml
   /ci-gke:
     workflows:
     - conformance-gke.yaml
+  /ci-ingress:
+    workflows:
+    - conformance-ingress.yaml
   /ci-verifier:
     workflows:
     - tests-datapath-verifier.yaml
