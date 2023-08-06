@@ -49,7 +49,6 @@ var HTTPRoutePartiallyInvalidViaInvalidReferenceGrant = suite.ConformanceTest{
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, s.Client, s.TimeoutConfig, s.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
 
 		t.Run("HTTPRoute with BackendRef in another namespace and no ReferenceGrant covering the Service has a ResolvedRefs Condition with status False and Reason RefNotPermitted", func(t *testing.T) {
-
 			resolvedRefsCond := metav1.Condition{
 				Type:   string(v1beta1.RouteConditionResolvedRefs),
 				Status: metav1.ConditionFalse,
@@ -80,6 +79,5 @@ var HTTPRoutePartiallyInvalidViaInvalidReferenceGrant = suite.ConformanceTest{
 				Namespace: "gateway-conformance-app-backend",
 			})
 		})
-
 	},
 }

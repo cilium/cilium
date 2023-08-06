@@ -25,8 +25,8 @@ import (
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:categories=gateway-api,shortName=refgrant
-// +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:deprecatedversion:warning="The v1alpha2 version of ReferenceGrant has been deprecated and will be removed in a future release of the API. Please upgrade to v1beta1."
 
 // ReferenceGrant identifies kinds of resources in other namespaces that are
 // trusted to reference the specified kinds of resources in the same namespace
@@ -36,8 +36,12 @@ import (
 // Additional Reference Grants can be used to add to the set of trusted
 // sources of inbound references for the namespace they are defined within.
 //
-// All cross-namespace references in Gateway API (with the exception of cross-namespace
-// Gateway-route attachment) require a ReferenceGrant.
+// A ReferenceGrant is required for all cross-namespace references in Gateway API
+// (with the exception of cross-namespace Route-Gateway attachment, which is
+// governed by the AllowedRoutes configuration on the Gateway, and cross-namespace
+// Service ParentRefs on a "consumer" mesh Route, which defines routing rules
+// applicable only to workloads in the Route namespace). ReferenceGrants allowing
+// a reference from a Route to a Service are only applicable to BackendRefs.
 //
 // ReferenceGrant is a form of runtime verification allowing users to assert
 // which cross-namespace object references are permitted. Implementations that

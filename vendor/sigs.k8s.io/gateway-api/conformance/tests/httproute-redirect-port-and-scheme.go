@@ -40,6 +40,7 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 		suite.SupportGateway,
 		suite.SupportHTTPRoute,
 		suite.SupportHTTPRoutePortRedirect,
+		suite.SupportGatewayPort8080,
 	},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"
@@ -59,7 +60,7 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 		gwAddr443 := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
 		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
-		certNN := types.NamespacedName{Name: "tls-validity-checks-certificate", Namespace: string(ns)}
+		certNN := types.NamespacedName{Name: "tls-validity-checks-certificate", Namespace: ns}
 		cPem, keyPem, err := GetTLSSecret(suite.Client, certNN)
 		if err != nil {
 			t.Fatalf("unexpected error finding TLS secret: %v", err)

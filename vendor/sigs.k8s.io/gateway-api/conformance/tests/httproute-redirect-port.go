@@ -47,57 +47,58 @@ var HTTPRouteRedirectPort = suite.ConformanceTest{
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
 		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
-		testCases := []http.ExpectedResponse{{
-			Request: http.Request{
-				Path:             "/port",
-				UnfollowRedirect: true,
+		testCases := []http.ExpectedResponse{
+			{
+				Request: http.Request{
+					Path:             "/port",
+					UnfollowRedirect: true,
+				},
+				Response: http.Response{
+					StatusCode: 302,
+				},
+				RedirectRequest: &roundtripper.RedirectRequest{
+					Port: "8083",
+				},
+				Namespace: ns,
+			}, {
+				Request: http.Request{
+					Path:             "/port-and-host",
+					UnfollowRedirect: true,
+				},
+				Response: http.Response{
+					StatusCode: 302,
+				},
+				RedirectRequest: &roundtripper.RedirectRequest{
+					Host: "example.org",
+					Port: "8083",
+				},
+				Namespace: ns,
+			}, {
+				Request: http.Request{
+					Path:             "/port-and-status",
+					UnfollowRedirect: true,
+				},
+				Response: http.Response{
+					StatusCode: 301,
+				},
+				RedirectRequest: &roundtripper.RedirectRequest{
+					Port: "8083",
+				},
+				Namespace: ns,
+			}, {
+				Request: http.Request{
+					Path:             "/port-and-host-and-status",
+					UnfollowRedirect: true,
+				},
+				Response: http.Response{
+					StatusCode: 302,
+				},
+				RedirectRequest: &roundtripper.RedirectRequest{
+					Port: "8083",
+					Host: "example.org",
+				},
+				Namespace: ns,
 			},
-			Response: http.Response{
-				StatusCode: 302,
-			},
-			RedirectRequest: &roundtripper.RedirectRequest{
-				Port: "8083",
-			},
-			Namespace: ns,
-		}, {
-			Request: http.Request{
-				Path:             "/port-and-host",
-				UnfollowRedirect: true,
-			},
-			Response: http.Response{
-				StatusCode: 302,
-			},
-			RedirectRequest: &roundtripper.RedirectRequest{
-				Host: "example.org",
-				Port: "8083",
-			},
-			Namespace: ns,
-		}, {
-			Request: http.Request{
-				Path:             "/port-and-status",
-				UnfollowRedirect: true,
-			},
-			Response: http.Response{
-				StatusCode: 301,
-			},
-			RedirectRequest: &roundtripper.RedirectRequest{
-				Port: "8083",
-			},
-			Namespace: ns,
-		}, {
-			Request: http.Request{
-				Path:             "/port-and-host-and-status",
-				UnfollowRedirect: true,
-			},
-			Response: http.Response{
-				StatusCode: 302,
-			},
-			RedirectRequest: &roundtripper.RedirectRequest{
-				Port: "8083",
-				Host: "example.org",
-			},
-			Namespace: ns,
-		},
 		}
 		for i := range testCases {
 			// Declare tc here to avoid loop variable

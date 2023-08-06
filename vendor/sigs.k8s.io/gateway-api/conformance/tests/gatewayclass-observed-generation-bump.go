@@ -38,7 +38,6 @@ var GatewayClassObservedGenerationBump = suite.ConformanceTest{
 	ShortName: "GatewayClassObservedGenerationBump",
 	Features: []suite.SupportedFeature{
 		suite.SupportGateway,
-		suite.SupportGatewayClassObservedGenerationBump,
 	},
 	Description: "A GatewayClass should update the observedGeneration in all of it's Status.Conditions after an update to the spec",
 	Manifests:   []string{"tests/gatewayclass-observed-generation-bump.yaml"},

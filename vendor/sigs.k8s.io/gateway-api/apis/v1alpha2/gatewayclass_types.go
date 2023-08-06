@@ -27,6 +27,7 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:categories=gateway-api,scope=Cluster,shortName=gc
 // +kubebuilder:subresource:status
+// +kubebuilder:unservedversion
 // +kubebuilder:deprecatedversion:warning="The v1alpha2 version of GatewayClass has been deprecated and will be removed in a future release of the API. Please upgrade to v1beta1."
 // +kubebuilder:printcolumn:name="Controller",type=string,JSONPath=`.spec.controllerName`
 // +kubebuilder:printcolumn:name="Accepted",type=string,JSONPath=`.status.conditions[?(@.type=="Accepted")].status`

@@ -96,3 +96,38 @@ spec:
     backendRefs:
     - name: infra-backend-v1
       port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /response-and-request-header-modifiers
+    filters:
+    - type: ResponseHeaderModifier
+      responseHeaderModifier:
+        set:
+        - name: X-Header-Set-1
+          value: header-set-1
+        - name: X-Header-Set-2
+          value: header-set-2
+        add:
+        - name: X-Header-Add-1
+          value: header-add-1
+        - name: X-Header-Add-2
+          value: header-add-2
+        remove:
+        - X-Header-Remove-1
+        - X-Header-Remove-2
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        set:
+        - name: X-Header-Set
+          value: set-overwrites-values
+        add:
+        - name: X-Header-Add
+          value: header-val-1
+        - name: X-Header-Add-Append
+          value: header-val-2
+        remove:
+        - X-Header-Remove
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080

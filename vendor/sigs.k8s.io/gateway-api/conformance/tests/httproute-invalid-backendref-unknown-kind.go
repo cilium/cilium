@@ -67,6 +67,5 @@ var HTTPRouteInvalidBackendRefUnknownKind = suite.ConformanceTest{
 				Response: http.Response{StatusCode: 500},
 			})
 		})
-
 	},
 }

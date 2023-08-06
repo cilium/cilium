@@ -50,7 +50,7 @@ var GatewayWithAttachedRoutes = suite.ConformanceTest{
 				Conditions: []metav1.Condition{{
 					Type:   string(v1beta1.ListenerConditionAccepted),
 					Status: metav1.ConditionTrue,
-					Reason: "", //any reason
+					Reason: "", // any reason
 				}},
 				AttachedRoutes: 1,
 			}}
@@ -69,10 +69,44 @@ var GatewayWithAttachedRoutes = suite.ConformanceTest{
 				Conditions: []metav1.Condition{{
 					Type:   string(v1beta1.ListenerConditionAccepted),
 					Status: metav1.ConditionTrue,
-					Reason: "", //any reason
+					Reason: "", // any reason
 				}},
 				AttachedRoutes: 2,
 			}}
+
+			kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, gwNN, listeners)
+		})
+
+		t.Run("Gateway listener should have attached route by specifying the sectionName", func(t *testing.T) {
+			gwNN := types.NamespacedName{Name: "gateway-with-two-listeners-and-one-attached-route", Namespace: "gateway-conformance-infra"}
+			listeners := []v1beta1.ListenerStatus{
+				{
+					Name: v1beta1.SectionName("http-unattached"),
+					SupportedKinds: []v1beta1.RouteGroupKind{{
+						Group: (*v1beta1.Group)(&v1beta1.GroupVersion.Group),
+						Kind:  v1beta1.Kind("HTTPRoute"),
+					}},
+					Conditions: []metav1.Condition{{
+						Type:   string(v1beta1.ListenerConditionAccepted),
+						Status: metav1.ConditionTrue,
+						Reason: "", // any reason
+					}},
+					AttachedRoutes: 0,
+				},
+				{
+					Name: v1beta1.SectionName("http"),
+					SupportedKinds: []v1beta1.RouteGroupKind{{
+						Group: (*v1beta1.Group)(&v1beta1.GroupVersion.Group),
+						Kind:  v1beta1.Kind("HTTPRoute"),
+					}},
+					Conditions: []metav1.Condition{{
+						Type:   string(v1beta1.ListenerConditionAccepted),
+						Status: metav1.ConditionTrue,
+						Reason: "", // any reason
+					}},
+					AttachedRoutes: 1,
+				},
+			}
 
 			kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, gwNN, listeners)
 		})

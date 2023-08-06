@@ -46,31 +46,32 @@ var HTTPRouteRedirectHostAndStatus = suite.ConformanceTest{
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
 		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
-		testCases := []http.ExpectedResponse{{
-			Request: http.Request{
-				Path:             "/hostname-redirect",
-				UnfollowRedirect: true,
+		testCases := []http.ExpectedResponse{
+			{
+				Request: http.Request{
+					Path:             "/hostname-redirect",
+					UnfollowRedirect: true,
+				},
+				Response: http.Response{
+					StatusCode: 302,
+				},
+				RedirectRequest: &roundtripper.RedirectRequest{
+					Host: "example.org",
+				},
+				Namespace: ns,
+			}, {
+				Request: http.Request{
+					Path:             "/host-and-status",
+					UnfollowRedirect: true,
+				},
+				Response: http.Response{
+					StatusCode: 301,
+				},
+				RedirectRequest: &roundtripper.RedirectRequest{
+					Host: "example.org",
+				},
+				Namespace: ns,
 			},
-			Response: http.Response{
-				StatusCode: 302,
-			},
-			RedirectRequest: &roundtripper.RedirectRequest{
-				Host: "example.org",
-			},
-			Namespace: ns,
-		}, {
-			Request: http.Request{
-				Path:             "/host-and-status",
-				UnfollowRedirect: true,
-			},
-			Response: http.Response{
-				StatusCode: 301,
-			},
-			RedirectRequest: &roundtripper.RedirectRequest{
-				Host: "example.org",
-			},
-			Namespace: ns,
-		},
 		}
 		for i := range testCases {
 			// Declare tc here to avoid loop variable

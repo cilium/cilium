@@ -26,6 +26,7 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:categories=gateway-api
 // +kubebuilder:subresource:status
+// +kubebuilder:unservedversion
 // +kubebuilder:deprecatedversion:warning="The v1alpha2 version of HTTPRoute has been deprecated and will be removed in a future release of the API. Please upgrade to v1beta1."
 // +kubebuilder:printcolumn:name="Hostnames",type=string,JSONPath=`.spec.hostnames`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`

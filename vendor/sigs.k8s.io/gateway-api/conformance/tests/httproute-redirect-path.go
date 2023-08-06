@@ -47,81 +47,82 @@ var HTTPRouteRedirectPath = suite.ConformanceTest{
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
 		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
-		testCases := []http.ExpectedResponse{{
-			Request: http.Request{
-				Path:             "/original-prefix/lemon",
-				UnfollowRedirect: true,
+		testCases := []http.ExpectedResponse{
+			{
+				Request: http.Request{
+					Path:             "/original-prefix/lemon",
+					UnfollowRedirect: true,
+				},
+				Response: http.Response{
+					StatusCode: 302,
+				},
+				RedirectRequest: &roundtripper.RedirectRequest{
+					Path: "/replacement-prefix/lemon",
+				},
+				Namespace: ns,
+			}, {
+				Request: http.Request{
+					Path:             "/full/path/original",
+					UnfollowRedirect: true,
+				},
+				Response: http.Response{
+					StatusCode: 302,
+				},
+				RedirectRequest: &roundtripper.RedirectRequest{
+					Path: "/full-path-replacement",
+				},
+				Namespace: ns,
+			}, {
+				Request: http.Request{
+					Path:             "/path-and-host",
+					UnfollowRedirect: true,
+				},
+				Response: http.Response{
+					StatusCode: 302,
+				},
+				RedirectRequest: &roundtripper.RedirectRequest{
+					Host: "example.org",
+					Path: "/replacement-prefix",
+				},
+				Namespace: ns,
+			}, {
+				Request: http.Request{
+					Path:             "/path-and-status",
+					UnfollowRedirect: true,
+				},
+				Response: http.Response{
+					StatusCode: 301,
+				},
+				RedirectRequest: &roundtripper.RedirectRequest{
+					Path: "/replacement-prefix",
+				},
+				Namespace: ns,
+			}, {
+				Request: http.Request{
+					Path:             "/full-path-and-host",
+					UnfollowRedirect: true,
+				},
+				Response: http.Response{
+					StatusCode: 302,
+				},
+				RedirectRequest: &roundtripper.RedirectRequest{
+					Host: "example.org",
+					Path: "/replacement-full",
+				},
+				Namespace: ns,
+			}, {
+				Request: http.Request{
+					Path:             "/full-path-and-status",
+					UnfollowRedirect: true,
+				},
+				Response: http.Response{
+					StatusCode: 301,
+				},
+				RedirectRequest: &roundtripper.RedirectRequest{
+					Path: "/replacement-full",
+				},
+				Namespace: ns,
 			},
-			Response: http.Response{
-				StatusCode: 302,
-			},
-			RedirectRequest: &roundtripper.RedirectRequest{
-				Path: "/replacement-prefix/lemon",
-			},
-			Namespace: ns,
-		}, {
-			Request: http.Request{
-				Path:             "/full/path/original",
-				UnfollowRedirect: true,
-			},
-			Response: http.Response{
-				StatusCode: 302,
-			},
-			RedirectRequest: &roundtripper.RedirectRequest{
-				Path: "/full-path-replacement",
-			},
-			Namespace: ns,
-		}, {
-			Request: http.Request{
-				Path:             "/path-and-host",
-				UnfollowRedirect: true,
-			},
-			Response: http.Response{
-				StatusCode: 302,
-			},
-			RedirectRequest: &roundtripper.RedirectRequest{
-				Host: "example.org",
-				Path: "/replacement-prefix",
-			},
-			Namespace: ns,
-		}, {
-			Request: http.Request{
-				Path:             "/path-and-status",
-				UnfollowRedirect: true,
-			},
-			Response: http.Response{
-				StatusCode: 301,
-			},
-			RedirectRequest: &roundtripper.RedirectRequest{
-				Path: "/replacement-prefix",
-			},
-			Namespace: ns,
-		}, {
-			Request: http.Request{
-				Path:             "/full-path-and-host",
-				UnfollowRedirect: true,
-			},
-			Response: http.Response{
-				StatusCode: 302,
-			},
-			RedirectRequest: &roundtripper.RedirectRequest{
-				Host: "example.org",
-				Path: "/replacement-full",
-			},
-			Namespace: ns,
-		}, {
-			Request: http.Request{
-				Path:             "/full-path-and-status",
-				UnfollowRedirect: true,
-			},
-			Response: http.Response{
-				StatusCode: 301,
-			},
-			RedirectRequest: &roundtripper.RedirectRequest{
-				Path: "/replacement-full",
-			},
-			Namespace: ns,
-		},
 		}
 		for i := range testCases {
 			// Declare tc here to avoid loop variable

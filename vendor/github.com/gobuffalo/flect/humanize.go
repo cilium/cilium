@@ -22,13 +22,9 @@ func (i Ident) Humanize() Ident {
 		return New("")
 	}
 
-	var parts []string
-	for index, part := range i.Parts {
-		if index == 0 {
-			part = strings.Title(i.Parts[0])
-		}
-
-		parts = xappend(parts, part)
+	parts := xappend([]string{}, Titleize(i.Parts[0]))
+	if len(i.Parts) > 1 {
+		parts = xappend(parts, i.Parts[1:]...)
 	}
 
 	return New(strings.Join(parts, " "))

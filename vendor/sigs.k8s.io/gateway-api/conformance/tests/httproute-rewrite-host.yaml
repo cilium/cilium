@@ -27,3 +27,26 @@ spec:
       backendRefs:
         - name: infra-backend-v2
           port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /rewrite-host-and-modify-headers
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            hostname: test.example.org
+        - type: RequestHeaderModifier
+          requestHeaderModifier:
+            set:
+              - name: X-Header-Set
+                value: set-overwrites-values
+            add:
+              - name: X-Header-Add
+                value: header-val-1
+              - name: X-Header-Add-Append
+                value: header-val-2
+            remove:
+              - X-Header-Remove
+      backendRefs:
+        - name: infra-backend-v2
+          port: 8080

@@ -58,6 +58,28 @@ var HTTPRouteRequestMirror = suite.ConformanceTest{
 				Backend:    "infra-backend-v1",
 				MirroredTo: "infra-backend-v2",
 				Namespace:  ns,
+			}, {
+				Request: http.Request{
+					Path: "/mirror-and-modify-headers",
+					Headers: map[string]string{
+						"X-Header-Remove":     "remove-val",
+						"X-Header-Add-Append": "append-val-1",
+					},
+				},
+				ExpectedRequest: &http.ExpectedRequest{
+					Request: http.Request{
+						Path: "/mirror-and-modify-headers",
+						Headers: map[string]string{
+							"X-Header-Add":        "header-val-1",
+							"X-Header-Add-Append": "append-val-1,header-val-2",
+							"X-Header-Set":        "set-overwrites-values",
+						},
+					},
+					AbsentHeaders: []string{"X-Header-Remove"},
+				},
+				Namespace:  ns,
+				Backend:    "infra-backend-v1",
+				MirroredTo: "infra-backend-v2",
 			},
 		}
 		for i := range testCases {
