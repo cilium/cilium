@@ -79,7 +79,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_un
 /* encap_and_redirect_with_nodeid returns CTX_ACT_OK after ctx meta-data is
  * set. Caller should pass the ctx to the stack at this point. Otherwise
  * returns CTX_ACT_REDIRECT on successful redirect to tunnel device.
- * On error returns CTX_ACT_DROP or DROP_WRITE_ERROR.
+ * On error returns a DROP_* reason.
  */
 static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
@@ -137,8 +137,8 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
  * the IP stack.
  *
  * Returns CTX_ACT_OK when ctx needs to be handed to IP stack (eg. for IPSec
- * handling), CTX_ACT_DROP, DROP_NO_TUNNEL_ENDPOINT or DROP_WRITE_ERROR on error,
- * and finally on successful redirect returns CTX_ACT_REDIRECT.
+ * handling), a DROP_* reason on error, and finally on successful redirect returns
+ * CTX_ACT_REDIRECT.
  */
 static __always_inline int
 encap_and_redirect_lxc(struct __ctx_buff *ctx,
