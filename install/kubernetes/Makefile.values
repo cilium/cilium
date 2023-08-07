@@ -25,35 +25,42 @@ else
     export HUBBLE_RELAY_REPO:=${CI_REGISTRY}/${CI_ORG}/hubble-relay-ci
 endif
 
+# renovate: datasource=docker
 export CERTGEN_REPO:=quay.io/cilium/certgen
-# renovate: datasource=docker depName=quay.io/cilium/certgen
 export CERTGEN_VERSION:=v0.2.0
 export CERTGEN_DIGEST:=sha256:169d93fd8f2f9009db3b9d5ccd37c2b753d0989e1e7cd8fe79f9160c459eef4f
 
+# renovate: datasource=docker
 export CILIUM_NODEINIT_REPO:=quay.io/cilium/startup-script
-# renovate: datasource=docker depName=quay.io/cilium/startup-script
 export CILIUM_NODEINIT_VERSION:=c54c7edeab7fde4da68e59acd319ab24af242c3f
 export CILIUM_NODEINIT_DIGEST:=sha256:8d7b41c4ca45860254b3c19e20210462ef89479bb6331d6760c4e609d651b29c
 
+# renovate: datasource=docker
 export CILIUM_ENVOY_REPO:=quay.io/cilium/cilium-envoy
 export CILIUM_ENVOY_VERSION:=v1.29.6-1d6c2a79b0ff543bed0538ed2f9e236ef0d307af
 export CILIUM_ENVOY_DIGEST:=sha256:fb3c4ee29e3db638156ed69e88731f598738ca60f5fda007450d02bb4aea0d6b
 
+# renovate: datasource=docker
 export HUBBLE_UI_BACKEND_REPO:=quay.io/cilium/hubble-ui-backend
 export HUBBLE_UI_BACKEND_VERSION:=v0.13.1
 export HUBBLE_UI_BACKEND_DIGEST:=sha256:0e0eed917653441fded4e7cdb096b7be6a3bddded5a2dd10812a27b1fc6ed95b
+
+# renovate: datasource=docker
 export HUBBLE_UI_FRONTEND_REPO:=quay.io/cilium/hubble-ui
 export HUBBLE_UI_FRONTEND_VERSION:=v0.13.1
 export HUBBLE_UI_FRONTEND_DIGEST:=sha256:e2e9313eb7caf64b0061d9da0efbdad59c6c461f6ca1752768942bfeda0796c6
 
+# renovate: datasource=docker
 export SPIRE_INIT_REPO:=docker.io/library/busybox
 export SPIRE_INIT_VERSION:=1.36.1
 export SPIRE_INIT_DIGEST:=sha256:223ae047b1065bd069aac01ae3ac8088b3ca4a527827e283b85112f29385fb1b
+
+# renovate: datasource=docker
 export SPIRE_SERVER_REPO:=ghcr.io/spiffe/spire-server
-# renovate: datasource=docker depName=ghcr.io/spiffe/spire-server
 export SPIRE_SERVER_VERSION:=1.9.6
 export SPIRE_SERVER_DIGEST:=sha256:59a0b92b39773515e25e68a46c40d3b931b9c1860bc445a79ceb45a805cab8b4
+
+# renovate: datasource=docker
 export SPIRE_AGENT_REPO:=ghcr.io/spiffe/spire-agent
-# renovate: datasource=docker depName=ghcr.io/spiffe/spire-agent
 export SPIRE_AGENT_VERSION:=1.9.6
 export SPIRE_AGENT_DIGEST:=sha256:5106ac601272a88684db14daf7f54b9a45f31f77bb16a906bd5e87756ee7b97c

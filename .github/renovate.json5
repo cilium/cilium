@@ -259,6 +259,46 @@
       ],
     },
     {
+      "groupName": "all external docker images dependencies",
+      "groupSlug": "all-external-images-deps-main",
+      "matchFiles": [
+        "install/kubernetes/Makefile.values"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "digest",
+        "patch",
+        "pin",
+        "pinDigest"
+      ],
+      "schedule": [
+        "on monday"
+      ],
+      matchBaseBranches: [
+        "main"
+      ]
+    },
+    {
+      // Do not allow any major and minor updates into stable branches.
+      "enabled": false,
+      "groupName": "all external docker images dependencies",
+      "groupSlug": "all-external-images-deps-stable",
+      "matchFiles": [
+        "install/kubernetes/Makefile.values"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+      ],
+      matchBaseBranches: [
+        "v1.16",
+        "v1.15",
+        "v1.14",
+        "v1.13"
+      ]
+    },
+    {
       "matchFiles": [
         "install/kubernetes/Makefile.values"
       ],
@@ -542,6 +582,12 @@
         ],
         "executionMode": "update"
       }
+    },
+    {
+      "matchDepNames": [
+        "quay.io/cilium/cilium-envoy"
+      ],
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-.*$",
     }
   ],
   "kubernetes": {
@@ -628,11 +674,14 @@
     },
     {
       "fileMatch": [
-        "^install/kubernetes/Makefile.values$"
+        "^install/kubernetes/Makefile\\.values$"
       ],
+      // This regex manages version strings in the Makefile.defs file,
+      // similar to the examples shown here:
+      //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION:=(?<currentValue>.*)\\s+.+_DIGEST:=(?<currentDigest>sha256:[a-f0-9]+)"
+        "# renovate: datasource=(?<datasource>.*?)\\s+.+_REPO:=(?<depName>.*?)\\s+.+_VERSION:=(?<currentValue>.*)\\s+.+_DIGEST:=(?<currentDigest>sha256:[a-f0-9]+)"
       ]
-    },
+    }
   ]
 }
