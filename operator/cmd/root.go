@@ -30,7 +30,7 @@ import (
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
-	ces "github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
+	"github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
 	gatewayapi "github.com/cilium/cilium/operator/pkg/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/ingress"
 	"github.com/cilium/cilium/operator/pkg/lbipam"
@@ -127,6 +127,14 @@ var (
 			}
 		}),
 
+		cell.Provide(func(
+			daemonCfg *option.DaemonConfig,
+		) ciliumendpointslice.SharedConfig {
+			return ciliumendpointslice.SharedConfig{
+				EnableCiliumEndpointSlice: daemonCfg.EnableCiliumEndpointSlice,
+			}
+		}),
+
 		api.HealthHandlerCell(
 			kvstoreEnabled,
 			isLeader.Load,
@@ -157,6 +165,13 @@ var (
 			// setup operations. This is a hacky workaround until the kvstore is
 			// refactored into a proper cell.
 			identitygc.Cell,
+
+			// CiliumEndpointSlice controller depends on the CiliumEndpoint and
+			// CiliumEndpointSlice resources. It reconciles the state of CESs in the
+			// cluster based on the CEPs and CESs events.
+			// It is disabled if CiliumEndpointSlice is disabled in the cluster -
+			// when --enable-cilium-endpoint-slice is false.
+			ciliumendpointslice.Cell,
 		),
 	)
 
@@ -420,29 +435,6 @@ func (legacy *legacyOnLeader) onStop(_ hive.HookContext) error {
 // in HA mode.
 func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	isLeader.Store(true)
-
-	// If CiliumEndpointSlice feature is enabled, create CESController, start CEP watcher and run controller.
-	// Knowing CES are enabled only if CiliumEndpoint CRD are enabled too.
-	if legacy.clientset.IsEnabled() && option.Config.EnableCiliumEndpointSlice {
-		log.Info("Create and run CES controller, start CEP watcher")
-		// Initialize  the CES controller
-		cesController := ces.NewCESController(
-			legacy.ctx,
-			&legacy.wg,
-			legacy.clientset,
-			operatorOption.Config.CESMaxCEPsInCES,
-			operatorOption.Config.CESSlicingMode,
-			operatorOption.Config.CESWriteQPSLimit,
-			operatorOption.Config.CESWriteQPSBurst)
-		// Start CEP watcher
-		operatorWatchers.CiliumEndpointsSliceInit(legacy.ctx, &legacy.wg, legacy.clientset, cesController)
-		// Start the CES controller, after current CEPs are synced locally in cache.
-		legacy.wg.Add(1)
-		go func() {
-			defer legacy.wg.Done()
-			cesController.Run(operatorWatchers.CiliumEndpointStore, legacy.ctx.Done())
-		}()
-	}
 
 	// Restart kube-dns as soon as possible since it helps etcd-operator to be
 	// properly setup. If kube-dns is not managed by Cilium it can prevent

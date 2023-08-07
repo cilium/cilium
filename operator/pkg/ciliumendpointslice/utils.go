@@ -1,8 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
 package ciliumendpointslice
 
 import (
-	"fmt"
 	"math/rand"
+	"strings"
 )
 
 // Generate random string for given length of characters.
@@ -18,10 +21,18 @@ func randomName(n int) string {
 // of a CES name is similar to pod k8s naming convention "ces-123456789-abcde".
 // First 3 letters indicates ces resource, followed by random letters.
 func uniqueCESliceName(mapping *CESToCEPMapping) string {
-	var cesName string
+	var sb strings.Builder
 	for {
-		cesName = fmt.Sprintf("%s-%s-%s", cesNamePrefix, randomName(9), randomName(5))
-		if !mapping.hasCESName(CESName(cesName)) {
+		rn1, rn2 := randomName(9), randomName(5)
+		sb.Reset()
+		sb.Grow(len(cesNamePrefix) + 1 + len(rn1) + 1 + len(rn2))
+		sb.WriteString(cesNamePrefix)
+		sb.WriteRune('-')
+		sb.WriteString(rn1)
+		sb.WriteRune('-')
+		sb.WriteString(rn2)
+		cesName := sb.String()
+		if !mapping.hasCESName(NewCESName(cesName)) {
 			return cesName
 		}
 	}

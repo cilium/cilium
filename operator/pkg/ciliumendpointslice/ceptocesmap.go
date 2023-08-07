@@ -3,10 +3,14 @@
 
 package ciliumendpointslice
 
-import "github.com/cilium/cilium/pkg/lock"
+import (
+	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/lock"
+)
 
-type CEPName string
-type CESName string
+type CEPName resource.Key
+type CESName resource.Key
 
 // CESToCEPMapping is used to map Cilium Endpoints to CiliumEndpointSlices and
 // retrieving all the Cilium Endpoints mapped to the given CiliumEndpointSlice.
@@ -141,4 +145,32 @@ func (c *CESToCEPMapping) getCESData(name CESName) CESData {
 	defer c.mutex.RUnlock()
 	data := c.cesData[name]
 	return data
+}
+
+func (ces CESName) key() resource.Key {
+	return resource.Key(ces)
+}
+
+func (cep CEPName) key() resource.Key {
+	return resource.Key(cep)
+}
+
+func (ces CESName) string() string {
+	return ces.key().String()
+}
+
+func (cep CEPName) string() string {
+	return cep.key().String()
+}
+
+func NewCESName(name string) CESName {
+	return CESName(resource.Key{Name: name})
+}
+
+func NewCEPName(name, ns string) CEPName {
+	return CEPName(resource.Key{Name: name, Namespace: ns})
+}
+
+func GetCEPNameFromCCEP(cep *capi_v2a1.CoreCiliumEndpoint, namespace string) CEPName {
+	return NewCEPName(cep.Name, namespace)
 }

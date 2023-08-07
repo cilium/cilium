@@ -26,26 +26,6 @@ const (
 	// PrometheusServeAddr is the default server address for operator metrics
 	PrometheusServeAddr = ":9963"
 
-	// CESMaxCEPsInCESDefault is the maximum number of cilium endpoints allowed in a CES
-	CESMaxCEPsInCESDefault = 100
-
-	// CESSlicingModeDefault is default method for grouping CEP in a CES.
-	CESSlicingModeDefault = "cesSliceModeIdentity"
-
-	// CESWriteQPSLimitDefault is the default rate limit for the CES work queue.
-	CESWriteQPSLimitDefault = 10
-
-	// CESWriteQPSLimitMax is the maximum rate limit for the CES work queue.
-	// CES work queue QPS limit cannot exceed this value, regardless of other config.
-	CESWriteQPSLimitMax = 50
-
-	// CESWriteQPSBurstDefault is the default burst rate for the CES work queue.
-	CESWriteQPSBurstDefault = 20
-
-	// CESWriteQPSBurstMax is the maximum burst rate for the CES work queue.
-	// CES work queue QPS burst cannot exceed this value, regardless of other config.
-	CESWriteQPSBurstMax = 100
-
 	// CNPStatusCleanupQPSDefault is the default rate for the CNP NodeStatus updates GC.
 	CNPStatusCleanupQPSDefault = 10
 
@@ -238,25 +218,6 @@ const (
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs = "alibaba-cloud-release-excess-ips"
-
-	// CiliumEndpointSlice options
-
-	// CESMaxCEPsInCES is the maximum number of cilium endpoints allowed in single
-	// a CiliumEndpointSlice resource.
-	CESMaxCEPsInCES = "ces-max-ciliumendpoints-per-ces"
-
-	// CESSlicingMode instructs how CEPs are grouped in a CES.
-	CESSlicingMode = "ces-slice-mode"
-
-	// CESWriteQPSLimit is the rate limit per second for the CES work queue to
-	// process  CES events that result in CES write (Create, Update, Delete)
-	// requests to the kube-apiserver.
-	CESWriteQPSLimit = "ces-write-qps-limit"
-
-	// CESWriteQPSBurst is the burst rate per second used with CESWriteQPSLimit
-	// for the CES work queue to process CES events that result in CES write
-	// (Create, Update, Delete) requests to the kube-apiserver.
-	CESWriteQPSBurst = "ces-write-qps-burst"
 
 	// LoadBalancerL7 enables loadbalancer capabilities for services via envoy proxy
 	LoadBalancerL7 = "loadbalancer-l7"
@@ -514,26 +475,6 @@ type OperatorConfig struct {
 	// the number of API calls to AlibabaCloud ECS service.
 	AlibabaCloudReleaseExcessIPs bool
 
-	// CiliumEndpointSlice options
-
-	// CESMaxCEPsInCES is the maximum number of CiliumEndpoints allowed in single
-	// a CiliumEndpointSlice resource.
-	// The default value of maximum CiliumEndpoints allowed in a CiliumEndpointSlice resource is 100.
-	CESMaxCEPsInCES int
-
-	// CESSlicingMode instructs how CEPs are grouped in a CES.
-	CESSlicingMode string
-
-	// CESWriteQPSLimit is the rate limit per second for the CES work queue to
-	// process  CES events that result in CES write (Create, Update, Delete)
-	// requests to the kube-apiserver.
-	CESWriteQPSLimit float64
-
-	// CESWriteQPSBurst is the burst rate per second used with CESWriteQPSLimit
-	// for the CES work queue to process CES events that result in CES write
-	// (Create, Update, Delete) requests to the kube-apiserver.
-	CESWriteQPSBurst int
-
 	// LoadBalancerL7 enables loadbalancer capabilities for services.
 	LoadBalancerL7 string
 
@@ -698,12 +639,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 
 	c.AlibabaCloudVPCID = vp.GetString(AlibabaCloudVPCID)
 	c.AlibabaCloudReleaseExcessIPs = vp.GetBool(AlibabaCloudReleaseExcessIPs)
-
-	// CiliumEndpointSlice options
-	c.CESMaxCEPsInCES = vp.GetInt(CESMaxCEPsInCES)
-	c.CESSlicingMode = vp.GetString(CESSlicingMode)
-	c.CESWriteQPSLimit = vp.GetFloat64(CESWriteQPSLimit)
-	c.CESWriteQPSBurst = vp.GetInt(CESWriteQPSBurst)
 
 	// Option maps and slices
 

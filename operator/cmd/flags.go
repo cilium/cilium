@@ -280,32 +280,8 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.BGPConfigPath, "/var/lib/cilium/bgp/config.yaml", "Path to file containing the BGP configuration")
 	option.BindEnv(vp, option.BGPConfigPath)
 
-	enableCES := flags.Bool(option.EnableCiliumEndpointSlice, false, "If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.")
+	flags.Bool(option.EnableCiliumEndpointSlice, false, "If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.")
 	option.BindEnv(vp, option.EnableCiliumEndpointSlice)
-
-	flags.Int(operatorOption.CESMaxCEPsInCES, operatorOption.CESMaxCEPsInCESDefault, "Maximum number of CiliumEndpoints allowed in a CES")
-	if *enableCES {
-		flags.MarkHidden(operatorOption.CESMaxCEPsInCES)
-	}
-	option.BindEnv(vp, operatorOption.CESMaxCEPsInCES)
-
-	flags.String(operatorOption.CESSlicingMode, operatorOption.CESSlicingModeDefault, "Slicing mode define how ceps are grouped into a CES")
-	if *enableCES {
-		flags.MarkHidden(operatorOption.CESSlicingMode)
-	}
-	option.BindEnv(vp, operatorOption.CESSlicingMode)
-
-	flags.Float64(operatorOption.CESWriteQPSLimit, operatorOption.CESWriteQPSLimitDefault, "CES work queue rate limit")
-	if *enableCES {
-		flags.MarkHidden(operatorOption.CESWriteQPSLimit)
-	}
-	option.BindEnv(vp, operatorOption.CESWriteQPSLimit)
-
-	flags.Int(operatorOption.CESWriteQPSBurst, operatorOption.CESWriteQPSBurstDefault, "CES work queue burst rate")
-	if *enableCES {
-		flags.MarkHidden(operatorOption.CESWriteQPSBurst)
-	}
-	option.BindEnv(vp, operatorOption.CESWriteQPSBurst)
 
 	flags.String(operatorOption.CiliumK8sNamespace, "", fmt.Sprintf("Name of the Kubernetes namespace in which Cilium is deployed in. Defaults to the same namespace defined in %s", option.K8sNamespaceName))
 	option.BindEnv(vp, operatorOption.CiliumK8sNamespace)
