@@ -50,6 +50,7 @@ func (s *ConfigSuite) SetUpSuite(c *C) {
 func (s *ConfigSuite) SetUpTest(c *C) {
 	err := rlimit.RemoveMemlock()
 	c.Assert(err, IsNil)
+	option.Config.EnableHostLegacyRouting = true // Disable obtaining direct routing device.
 	node.SetTestLocalNodeStore()
 	node.InitDefaultPrefix("")
 	node.SetInternalIPv4Router(ipv4DummyAddr.AsSlice())

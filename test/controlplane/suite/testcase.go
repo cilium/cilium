@@ -123,6 +123,10 @@ func (cpt *ControlPlaneTest) SetupEnvironment(modConfig func(*agentOption.Daemon
 	agentOption.Config.EnableHealthCheckNodePort = false
 	agentOption.Config.Debug = true
 
+	// Set devices to skip device detection.
+	agentOption.Config.SetDevices([]string{"dummy"})
+	agentOption.Config.DirectRoutingDevice = "dummy"
+
 	operatorOption.Config.Populate(operatorCmd.Vp)
 
 	// Apply the test specific global configuration

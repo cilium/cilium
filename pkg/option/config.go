@@ -2737,7 +2737,7 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
 		return true
 	}
 
-	return (c.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard) && !c.TunnelingEnabled()
+	return c.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
