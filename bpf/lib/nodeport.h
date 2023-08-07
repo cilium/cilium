@@ -919,6 +919,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	__s8 ext_err = 0;
+	__u32 src_id = 0;
 	int l4_off, ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
@@ -952,8 +953,27 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 	ctx_snat_done_set(ctx);
 
 	if (lb_is_svc_proto(tuple.nexthdr) && !nodeport_uses_dsr6(&tuple)) {
+#if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
+		/* We only enforce the host policies if nodeport.h is included from
+		 * bpf_host.
+		 */
+		struct trace_ctx __maybe_unused trace = {
+			.reason = TRACE_REASON_UNKNOWN,
+			.monitor = 0,
+		};
+
+		ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
+		if (IS_ERR(ret))
+			goto drop_err;
+
+		/* We don't want to enforce host policies a second time if we
+		 * recircle.
+		 */
+		ctx_skip_host_fw_set(ctx);
+#endif
+
 		ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
-		return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
+		return send_drop_notify_error(ctx, src_id, DROP_MISSED_TAIL_CALL,
 					      CTX_ACT_DROP, METRIC_INGRESS);
 	}
 
@@ -963,7 +983,7 @@ recircle:
 	ret = DROP_MISSED_TAIL_CALL;
 
  drop_err:
-	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP,
+	return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, CTX_ACT_DROP,
 					  METRIC_INGRESS);
 }
 
@@ -1460,25 +1480,7 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 {
 	__s8 ext_err = 0;
 	int ret = 0;
-#if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
-	/* We only enforce the host policies if nodeport.h is included from
-	 * bpf_host.
-	 */
-	struct trace_ctx __maybe_unused trace = {
-		.reason = TRACE_REASON_UNKNOWN,
-		.monitor = 0,
-	};
-	__u32 src_id = 0;
 
-	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
-	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
-	/* We don't want to enforce host policies a second time if we jump back to
-	 * bpf_host's handle_ipv6.
-	 */
-	ctx_skip_host_fw_set(ctx);
-#endif
 	ret = rev_nodeport_lb6(ctx, &ext_err);
 	if (IS_ERR(ret))
 		goto drop;
@@ -2343,6 +2345,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	bool has_l4_header;
 	struct iphdr *ip4;
 	__s8 ext_err = 0;
+	__u32 src_id = 0;
 	int l4_off, ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
@@ -2385,8 +2388,27 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
 	     !is_defined(IS_BPF_OVERLAY) &&
 	     !is_defined(TUNNEL_MODE))) {
+#if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
+		/* We only enforce the host policies if nodeport.h is included from
+		 * bpf_host.
+		 */
+		struct trace_ctx __maybe_unused trace = {
+			.reason = TRACE_REASON_UNKNOWN,
+			.monitor = 0,
+		};
+
+		ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
+		if (IS_ERR(ret))
+			goto drop_err;
+
+		/* We don't want to enforce host policies a second time if we
+		 * recircle.
+		 */
+		ctx_skip_host_fw_set(ctx);
+#endif
+
 		ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
-		return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
+		return send_drop_notify_error(ctx, src_id, DROP_MISSED_TAIL_CALL,
 					      CTX_ACT_DROP, METRIC_INGRESS);
 	}
 
@@ -2397,7 +2419,7 @@ recircle:
 	ret = DROP_MISSED_TAIL_CALL;
 
  drop_err:
-	return send_drop_notify_error_ext(ctx, 0, ret, ext_err, CTX_ACT_DROP,
+	return send_drop_notify_error_ext(ctx, src_id, ret, ext_err, CTX_ACT_DROP,
 					  METRIC_INGRESS);
 }
 
@@ -2957,25 +2979,7 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 {
 	__s8 ext_err = 0;
 	int ret = 0;
-#if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
-	/* We only enforce the host policies if nodeport.h is included from
-	 * bpf_host.
-	 */
-	struct trace_ctx __maybe_unused trace = {
-		.reason = TRACE_REASON_UNKNOWN,
-		.monitor = 0,
-	};
-	__u32 src_id = 0;
 
-	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
-	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
-	/* We don't want to enforce host policies a second time if we jump back to
-	 * bpf_host's handle_ipv6.
-	 */
-	ctx_skip_host_fw_set(ctx);
-#endif
 	ret = rev_nodeport_lb4(ctx, &ext_err);
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
