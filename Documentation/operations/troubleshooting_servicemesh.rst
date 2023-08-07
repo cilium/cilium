@@ -20,15 +20,18 @@ Generic
 Manual Verification of Setup
 ----------------------------
 
- #. Validate that the ``kubeProxyReplacement`` is set to either partial or strict.
+ #. Validate that ``nodePort.enabled`` is true.
 
     .. code-block:: shell-session
 
-        $ kubectl exec -n kube-system ds/cilium -- cilium status
+        $ kubectl exec -n kube-system ds/cilium -- cilium status --verbose
         ...
-        KVStore:                 Ok   Disabled
-        Kubernetes:              Ok   1.23 (v1.23.6) [linux/amd64]
-        KubeProxyReplacement:    True   [eth0 192.168.49.2]
+        KubeProxyReplacement Details:
+        ...
+          Services:
+          - ClusterIP:      Enabled
+          - NodePort:       Enabled (Range: 30000-32767)
+        ...
 
  #. Validate that runtime the values of ``enable-envoy-config`` and ``enable-ingress-controller``
     are true. Ingress controller flag is optional if customer only uses ``CiliumEnvoyConfig`` or
