@@ -5,10 +5,10 @@ package ciliumendpointslice
 
 import (
 	"context"
+	"errors"
 
 	"github.com/sirupsen/logrus"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
@@ -16,39 +16,51 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // reconciler is used to sync the current (i.e. desired) state of the CESs in datastore into current state CESs in the k8s-apiserver.
 // The source of truth is in local datastore.
 type reconciler struct {
-	client              clientset.CiliumV2alpha1Interface
-	cesManager          operations
-	ciliumEndpointStore cache.Store
+	logger     logrus.FieldLogger
+	client     clientset.CiliumV2alpha1Interface
+	context    context.Context
+	cesManager operations
+	cepStore   resource.Store[*cilium_v2.CiliumEndpoint]
+	cesStore   resource.Store[*cilium_v2a1.CiliumEndpointSlice]
 }
 
 // newReconciler creates and initializes a new reconciler.
-func newReconciler(client clientset.CiliumV2alpha1Interface, cesMgr operations) *reconciler {
+func newReconciler(
+	client clientset.CiliumV2alpha1Interface,
+	cesMgr operations,
+	logger logrus.FieldLogger,
+	ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint],
+	ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+	ctx context.Context,
+) *reconciler {
+	cepStore, _ := ciliumEndpoint.Store(ctx)
+	cesStore, _ := ciliumEndpointSlice.Store(ctx)
 	return &reconciler{
+		logger:     logger,
 		client:     client,
 		cesManager: cesMgr,
+		cepStore:   cepStore,
+		cesStore:   cesStore,
+		context:    ctx,
 	}
 }
 
-func (r *reconciler) reconcileCES(ces string) (err error) {
-	cesName := CESName(ces)
+func (r *reconciler) reconcileCES(cesName CESName) (err error) {
 	desiredCEPsNumber := r.cesManager.getCEPCountInCES(cesName)
 	if operatorOption.Config.EnableMetrics {
 		metrics.CiliumEndpointSliceDensity.Observe(float64(desiredCEPsNumber))
 	}
 	// Check the CES exists is in cesStore i.e. in api-server copy of CESs, if exist update or delete the CES.
-	obj, exists, err := ceSliceStore.GetByKey(ces)
+	cesObj, exists, err := r.cesStore.GetByKey(cesName.key())
 	if err != nil {
 		return
-	}
-	var cesObj *cilium_v2a1.CiliumEndpointSlice = nil
-	if obj != nil {
-		cesObj = obj.(*cilium_v2a1.CiliumEndpointSlice)
 	}
 	if !exists && desiredCEPsNumber > 0 {
 		return r.reconcileCESCreate(cesName)
@@ -63,8 +75,8 @@ func (r *reconciler) reconcileCES(ces string) (err error) {
 
 // Create a new CES in api-server.
 func (r *reconciler) reconcileCESCreate(cesName CESName) (err error) {
-	log.WithFields(logrus.Fields{
-		logfields.CESName: cesName,
+	r.logger.WithFields(logrus.Fields{
+		logfields.CESName: cesName.string(),
 	}).Debug("Reconciling CES Create.")
 	ceps := r.cesManager.getCEPinCES(cesName)
 	if operatorOption.Config.EnableMetrics {
@@ -76,7 +88,7 @@ func (r *reconciler) reconcileCESCreate(cesName CESName) (err error) {
 			APIVersion: cilium_v2.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: meta_v1.ObjectMeta{
-			Name: string(cesName),
+			Name: cesName.Name,
 		},
 		Endpoints: make([]cilium_v2a1.CoreCiliumEndpoint, 0, len(ceps)),
 	}
@@ -86,6 +98,10 @@ func (r *reconciler) reconcileCESCreate(cesName CESName) (err error) {
 
 	for _, cepName := range ceps {
 		ccep := r.getCoreEndpointFromStore(cepName)
+		r.logger.WithFields(logrus.Fields{
+			logfields.CESName: cesName.string(),
+			logfields.CEPName: cepName.string(),
+		}).Debugf("Adding CEP to new CES (exist %v)", ccep != nil)
 		if ccep != nil {
 			newCES.Endpoints = append(newCES.Endpoints, *ccep)
 		}
@@ -93,8 +109,8 @@ func (r *reconciler) reconcileCESCreate(cesName CESName) (err error) {
 
 	// Call the client API, to Create CES
 	if _, err = r.client.CiliumEndpointSlices().Create(
-		context.TODO(), newCES, meta_v1.CreateOptions{}); err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
+		r.context, newCES, meta_v1.CreateOptions{}); err != nil && !errors.Is(err, context.Canceled) {
+		r.logger.WithError(err).WithFields(logrus.Fields{
 			logfields.CESName: newCES.Name,
 		}).Info("Unable to create CiliumEndpointSlice in k8s-apiserver")
 	}
@@ -103,11 +119,10 @@ func (r *reconciler) reconcileCESCreate(cesName CESName) (err error) {
 
 // Update an existing CES
 func (r *reconciler) reconcileCESUpdate(cesName CESName, cesObj *cilium_v2a1.CiliumEndpointSlice) (err error) {
-	log.WithFields(logrus.Fields{
-		logfields.CESName: cesName,
+	r.logger.WithFields(logrus.Fields{
+		logfields.CESName: cesName.string(),
 	}).Debug("Reconciling CES Update.")
 	updatedCES := cesObj.DeepCopy()
-	cesEqual := true
 	cepInserted := 0
 	cepRemoved := 0
 	cepUpdated := 0
@@ -120,6 +135,10 @@ func (r *reconciler) reconcileCESUpdate(cesName CESName, cesObj *cilium_v2a1.Cil
 	// Get the CEPs objects from the CEP Store and map the names to them
 	for _, cepName := range cepsAssignedToCES {
 		ccep := r.getCoreEndpointFromStore(cepName)
+		r.logger.WithFields(logrus.Fields{
+			logfields.CESName: cesName.string(),
+			logfields.CEPName: cepName.string(),
+		}).Debugf("Adding CEP to existing CES (exist %v)", ccep != nil)
 		if ccep != nil {
 			updatedEndpoints = append(updatedEndpoints, *ccep)
 			cepNameToCEP[cepName] = ccep
@@ -129,23 +148,22 @@ func (r *reconciler) reconcileCESUpdate(cesName CESName, cesObj *cilium_v2a1.Cil
 	// Grab metrics about number of inserted, updated and deleted CEPs and
 	// determine whether CES needs to be updated at all.
 	for _, ep := range updatedCES.Endpoints {
-		epName := CEPName(GetCEPNameFromCCEP(&ep, updatedCES.Namespace))
+		epName := GetCEPNameFromCCEP(&ep, updatedCES.Namespace)
 		if r.cesManager.isCEPinCES(epName, cesName) {
 			cepInserted = cepInserted - 1
 			if !ep.DeepEqual(cepNameToCEP[epName]) {
-				cesEqual = false
 				cepUpdated = cepUpdated + 1
 			}
 		} else {
-			cesEqual = false
 			cepRemoved = cepRemoved + 1
 		}
 	}
 	updatedCES.Endpoints = updatedEndpoints
-	log.WithFields(logrus.Fields{
-		logfields.CESName: cesName,
+	r.logger.WithFields(logrus.Fields{
+		logfields.CESName: cesName.string(),
 	}).Debugf("Inserted %d endpoints, updated %d endpoints, removed %d endpoints", cepInserted, cepUpdated, cepRemoved)
 
+	cesEqual := cepInserted == 0 && cepUpdated == 0 && cepRemoved == 0
 	data := r.cesManager.getCESData(cesName)
 	if updatedCES.Namespace != data.ns {
 		updatedCES.Namespace = data.ns
@@ -158,19 +176,19 @@ func (r *reconciler) reconcileCESUpdate(cesName CESName, cesObj *cilium_v2a1.Cil
 	}
 
 	if !cesEqual {
-		log.WithFields(logrus.Fields{
-			logfields.CESName: cesName,
+		r.logger.WithFields(logrus.Fields{
+			logfields.CESName: cesName.string(),
 		}).Debug("CES changed, updating")
 		// Call the client API, to Create CESs
 		if _, err = r.client.CiliumEndpointSlices().Update(
-			context.TODO(), updatedCES, meta_v1.UpdateOptions{}); err != nil {
-			log.WithError(err).WithFields(logrus.Fields{
+			r.context, updatedCES, meta_v1.UpdateOptions{}); err != nil && !errors.Is(err, context.Canceled) {
+			r.logger.WithError(err).WithFields(logrus.Fields{
 				logfields.CESName: updatedCES.Name,
 			}).Info("Unable to update CiliumEndpointSlice in k8s-apiserver")
 		}
 	} else {
-		log.WithFields(logrus.Fields{
-			logfields.CESName: cesName,
+		r.logger.WithFields(logrus.Fields{
+			logfields.CESName: cesName.string(),
 		}).Debug("CES up to date, skipping update")
 	}
 	return
@@ -178,15 +196,15 @@ func (r *reconciler) reconcileCESUpdate(cesName CESName, cesObj *cilium_v2a1.Cil
 
 // Delete the CES.
 func (r *reconciler) reconcileCESDelete(ces *cilium_v2a1.CiliumEndpointSlice) (err error) {
-	log.WithFields(logrus.Fields{
+	r.logger.WithFields(logrus.Fields{
 		logfields.CESName: ces.Name,
 	}).Debug("Reconciling CES Delete.")
 	if operatorOption.Config.EnableMetrics {
 		metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPRemove).Observe(float64(len(ces.Endpoints)))
 	}
 	if err = r.client.CiliumEndpointSlices().Delete(
-		context.TODO(), ces.Name, meta_v1.DeleteOptions{}); err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
+		r.context, ces.Name, meta_v1.DeleteOptions{}); err != nil && !errors.Is(err, context.Canceled) {
+		r.logger.WithError(err).WithFields(logrus.Fields{
 			logfields.CESName: ces.Name,
 		}).Info("Unable to delete CiliumEndpointSlice in k8s-apiserver")
 		return
@@ -195,9 +213,12 @@ func (r *reconciler) reconcileCESDelete(ces *cilium_v2a1.CiliumEndpointSlice) (e
 }
 
 func (r *reconciler) getCoreEndpointFromStore(cepName CEPName) *cilium_v2a1.CoreCiliumEndpoint {
-	cepObj, exists, err := r.ciliumEndpointStore.GetByKey(string(cepName))
+	cepObj, exists, err := r.cepStore.GetByKey(cepName.key())
 	if err == nil && exists {
-		return k8s.ConvertCEPToCoreCEP(cepObj.(*cilium_v2.CiliumEndpoint))
+		return k8s.ConvertCEPToCoreCEP(cepObj)
 	}
+	r.logger.WithFields(logrus.Fields{
+		logfields.CEPName: cepName.string(),
+	}).Debugf("Couldn't get CEP from Store (err=%v, exists=%v)", err, exists)
 	return nil
 }

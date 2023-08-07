@@ -17,6 +17,10 @@ cilium-operator-azure hive dot-graph [flags]
 ### Options inherited from parent commands
 
 ```
+      --ces-max-ciliumendpoints-per-ces int                  Maximum number of CiliumEndpoints allowed in a CES (default 100)
+      --ces-slice-mode string                                Slicing mode define how ceps are grouped into a CES (default "cesSliceModeIdentity")
+      --ces-write-qps-burst int                              CES work queue burst rate (default 20)
+      --ces-write-qps-limit float                            CES work queue rate limit (default 10)
       --cluster-id uint32                                    Unique identifier of the cluster
       --cluster-name string                                  Name of the cluster (default "default")
       --controller-group-metrics strings                     List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.

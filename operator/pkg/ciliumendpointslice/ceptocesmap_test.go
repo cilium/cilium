@@ -18,32 +18,32 @@ func TestCepToCESCounts(t *testing.T) {
 	}{
 		{
 			name:    "Insert CEPs - 1",
-			cepName: "cilium-adf8-kube-system",
-			cesName: "ces-dfbkjswert-twis",
+			cepName: NewCEPName("cilium-adf8-kube-system", "ns"),
+			cesName: NewCESName("ces-dfbkjswert-twis"),
 			count:   1,
 		},
 		{
 			name:    "Insert CEPs - 2",
-			cepName: "cilium-dtyr-kube-system",
-			cesName: "ces-dfbkjswert-twis",
+			cepName: NewCEPName("cilium-dtyr-kube-system", "ns"),
+			cesName: NewCESName("ces-dfbkjswert-twis"),
 			count:   2,
 		},
 		{
 			name:    "Insert CEPs - 3",
-			cepName: "cilium-fgh8-kube-system",
-			cesName: "ces-dfbkjswert-twis",
+			cepName: NewCEPName("cilium-fgh8-kube-system", "ns"),
+			cesName: NewCESName("ces-dfbkjswert-twis"),
 			count:   3,
 		},
 		{
 			name:    "Insert CEPs - 4",
-			cepName: "cilium-cspn-kube-system",
-			cesName: "ces-dfbkjswert-twis",
+			cepName: NewCEPName("cilium-cspn-kube-system", "ns"),
+			cesName: NewCESName("ces-dfbkjswert-twis"),
 			count:   4,
 		},
 		{
 			name:    "Check same CEP-name with CES name",
-			cepName: "cilium-cspn-kube-system",
-			cesName: "ces-dfbkjswert-0wis",
+			cepName: NewCEPName("cilium-cspn-kube-system", "ns"),
+			cesName: NewCESName("ces-dfbkjswert-0wis"),
 			count:   4,
 		},
 	}
@@ -56,7 +56,7 @@ func TestCepToCESCounts(t *testing.T) {
 			cmap.insertCEP(CEPName(tc.cepName), CESName(tc.cesName))
 			assert.Equal(t, cmap.countCEPs(), tc.count, "Number of CEP entries in cmap should match with Count")
 			assert.Equal(t, cmap.hasCEP(tc.cepName), true, "CEP name should present in cmap")
-			assert.Equal(t, cmap.hasCEP("not-really-cep"), false, "Random string should NOT present in cmap as Key")
+			assert.Equal(t, cmap.hasCEP(NewCEPName("not-really-cep", "ns")), false, "Random string should NOT present in cmap as Key")
 		})
 	}
 
