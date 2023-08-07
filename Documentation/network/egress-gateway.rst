@@ -93,7 +93,7 @@ The egress gateway feature and all the requirements can be enabled as follow:
                --reuse-values \\
                --set egressGateway.enabled=true \\
                --set bpf.masquerade=true \\
-               --set kubeProxyReplacement=strict \\
+               --set kubeProxyReplacement=true \\
                --set l7Proxy=false
 
     .. group-tab:: ConfigMap
@@ -103,7 +103,7 @@ The egress gateway feature and all the requirements can be enabled as follow:
             enable-bpf-masquerade: true
             enable-ipv4-egress-gateway: true
             enable-l7-proxy: false
-            kube-proxy-replacement: strict
+            kube-proxy-replacement: true
 
 Rollout both the agent pods and the operator pods to make the changes effective:
 
