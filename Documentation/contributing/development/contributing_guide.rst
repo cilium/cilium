@@ -226,14 +226,22 @@ requirements have been met:
    request description box there is a button for creating the pull request.
    Click the arrow and choose "Create draft pull request". If your PR is still a
    work in progress, please select this mode. You will still be able to run the
-   CI against it. Once the PR is ready for review you can click in "Ready for
-   review" button at the bottom of the page" and reviewers will start reviewing.
-   When you are actively changing your PR, set it back to draft PR mode to
-   signal that reviewers do not need to spend time reviewing the PR right now.
-   When it is ready for review again, mark it as such.
+   CI against it.
 
-.. image:: https://i1.wp.com/user-images.githubusercontent.com/3477155/52671177-5d0e0100-2ee8-11e9-8645-bdd923b7d93b.gif
-    :align: center
+   .. image:: https://i1.wp.com/user-images.githubusercontent.com/3477155/52671177-5d0e0100-2ee8-11e9-8645-bdd923b7d93b.gif
+       :align: center
+
+#. Once the PR is ready for review you can click the "Ready for review" button
+   at the bottom of the page and GitHub will notify reviewers that the PR is
+   ready to be reviewed.
+
+#. Engage in the discussions raised by reviewers and address any feedback where
+   changes are requested. When you are actively changing your PR, set the PR to
+   draft PR mode to signal that reviewers do not need to actively review the PR
+   right now. When it is ready for review again, click "Ready for review", and
+   re-request review from the reviewers:
+
+   .. image:: /images/cilium_request_review.png
 
 Getting a pull request merged
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
