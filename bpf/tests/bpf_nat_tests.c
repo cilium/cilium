@@ -193,6 +193,7 @@ int test_nat4_icmp_error_tcp(__maybe_unused struct __ctx_buff *ctx)
 	assert(ret == 0);
 
 	struct ipv4_ct_tuple snat_tuple = {};
+	struct trace_ctx trace;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	__u16 proto;
@@ -209,7 +210,7 @@ int test_nat4_icmp_error_tcp(__maybe_unused struct __ctx_buff *ctx)
 	 * snat_v4_rev_nat().
 	 */
 	ret = snat_v4_rev_nat(ctx, &snat_tuple, ipv4_has_l4_header(ip4),
-			      l4_off, &target, NULL);
+			      l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
 	struct icmphdr icmphdr __align_stack_8;
@@ -309,6 +310,7 @@ int test_nat4_icmp_error_udp(__maybe_unused struct __ctx_buff *ctx)
 	assert(ret == 0);
 
 	struct ipv4_ct_tuple snat_tuple = {};
+	struct trace_ctx trace;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	__u16 proto;
@@ -325,7 +327,7 @@ int test_nat4_icmp_error_udp(__maybe_unused struct __ctx_buff *ctx)
 	 * snat_v4_rev_nat().
 	 */
 	ret = snat_v4_rev_nat(ctx, &snat_tuple, ipv4_has_l4_header(ip4),
-			      l4_off, &target, NULL);
+			      l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
 	struct icmphdr icmphdr __align_stack_8;
@@ -424,6 +426,7 @@ int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 	assert(ret == 0);
 
 	struct ipv4_ct_tuple snat_tuple = {};
+	struct trace_ctx trace;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	__u16 proto;
@@ -440,7 +443,7 @@ int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 	 * snat_v4_rev_nat().
 	 */
 	ret = snat_v4_rev_nat(ctx, &snat_tuple, ipv4_has_l4_header(ip4),
-			      l4_off, &target, NULL);
+			      l4_off, &target, &trace, NULL);
 	assert(ret == 0);
 
 	struct icmphdr icmphdr __align_stack_8;
@@ -528,6 +531,7 @@ int test_nat4_icmp_error_sctp(__maybe_unused struct __ctx_buff *ctx)
 	assert(ret == 0);
 
 	struct ipv4_ct_tuple snat_tuple = {};
+	struct trace_ctx trace;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	__u16 proto;
@@ -544,7 +548,7 @@ int test_nat4_icmp_error_sctp(__maybe_unused struct __ctx_buff *ctx)
 	 * snat_v4_rev_nat().
 	 */
 	ret = snat_v4_rev_nat(ctx, &snat_tuple, ipv4_has_l4_header(ip4),
-			      l4_off, &target, NULL);
+			      l4_off, &target, &trace, NULL);
 	assert(ret == DROP_CSUM_L4);
 
 	/* nothing really change with udp/tcp */

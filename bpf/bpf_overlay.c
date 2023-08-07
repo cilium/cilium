@@ -221,6 +221,7 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	       .cluster_id = cluster_id_from_identity,
 	};
 	struct ipv4_ct_tuple tuple;
+	struct trace_ctx trace;
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
@@ -232,7 +233,8 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	snat_v4_init_tuple(ip4, NAT_DIR_INGRESS, &tuple);
 
 	ret = snat_v4_rev_nat(ctx, &tuple, ipv4_has_l4_header(ip4),
-			      ETH_HLEN + ipv4_hdrlen(ip4), &target, ext_err);
+			      ETH_HLEN + ipv4_hdrlen(ip4), &target,
+			      &trace, ext_err);
 	if (ret != NAT_PUNT_TO_STACK && ret != DROP_NAT_NO_MAPPING) {
 		if (IS_ERR(ret))
 			return ret;
