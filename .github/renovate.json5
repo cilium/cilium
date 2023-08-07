@@ -74,7 +74,7 @@
         "pinDigest"
       ],
       "schedule": [
-        "on friday"
+        "on monday"
       ]
     },
     {
@@ -97,7 +97,7 @@
         "pinDigest"
       ],
       "schedule": [
-        "on friday"
+        "on monday"
       ],
       matchBaseBranches: [
         "main"
@@ -154,7 +154,7 @@
         "images/runtime/Dockerfile"
       ],
       "schedule": [
-        "on friday"
+        "on monday"
       ]
     },
     {
@@ -168,7 +168,7 @@
         "images/operator/Dockerfile"
       ],
       "schedule": [
-        "on friday"
+        "on monday"
       ]
     },
     {
@@ -181,7 +181,7 @@
         "images/operator/Dockerfile"
       ],
       "schedule": [
-        "on friday"
+        "on monday"
       ]
     },
     {
@@ -318,7 +318,7 @@
         "docker.io/library/golang"
       ],
       "schedule": [
-        "on friday"
+        "on monday"
       ]
     },
     {
