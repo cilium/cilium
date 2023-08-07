@@ -65,6 +65,9 @@
       "matchPaths": [
         ".github/workflows/**"
       ],
+      excludeDepNames: [
+        "quay.io/lvh-images/kind"
+      ],
       "matchUpdateTypes": [
         "major",
         "minor",
@@ -343,6 +346,39 @@
         "v1.13",
         "v1.12"
       ]
+    },
+    {
+      "matchDepNames": [
+        "quay.io/lvh-images/kind"
+      ],
+      "versioning": "regex:^((?<compatibility>[a-z-]+)|((?<major>\\d+)\\.(?<minor>\\d+)))\\-(?<patch>\\d+)\\.(?<build>\\d+)$"
+    },
+    {
+      "groupName": "all lvh-images main",
+      "groupSlug": "all-lvh-images-main",
+      "matchPackageNames": [
+        "quay.io/lvh-images/kind"
+      ],
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "pin",
+        "pinDigest"
+      ],
+      "schedule": [
+        "on monday"
+      ],
+    },
+    {
+      // Do not allow any updates for major.minor, they will be done by maintainers
+      "enabled": false,
+      "matchPackageNames": [
+        "quay.io/lvh-images/kind"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
     }
   ],
   "kubernetes": {
@@ -377,7 +413,8 @@
       //   https://docs.renovatebot.com/modules/manager/regex/#advanced-capture
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+version: (?<currentValue>.*)",
-        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION: (?<currentValue>.*)"
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION: (?<currentValue>.*)",
+        "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+kernel: '(?<currentValue>.*)'"
       ]
     },
     {
