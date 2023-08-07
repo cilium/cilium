@@ -143,3 +143,19 @@ func getSupportedKind(protocol gatewayv1beta1.ProtocolType) gatewayv1beta1.Kind 
 		return "Unknown"
 	}
 }
+
+func mergeMap(left, right map[string]string) map[string]string {
+	if left == nil {
+		return right
+	} else {
+		for key, value := range right {
+			left[key] = value
+		}
+	}
+	return left
+}
+
+func setMergedLabelsAndAnnotations(temp, desired client.Object) {
+	temp.SetAnnotations(mergeMap(temp.GetAnnotations(), desired.GetAnnotations()))
+	temp.SetLabels(mergeMap(temp.GetLabels(), desired.GetLabels()))
+}
