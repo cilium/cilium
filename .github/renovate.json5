@@ -171,7 +171,8 @@
         "images/cilium-docker-plugin/Dockerfile",
         "images/clustermesh-apiserver/Dockerfile",
         "images/hubble-relay/Dockerfile",
-        "images/operator/Dockerfile"
+        "images/operator/Dockerfile",
+        "images/kvstoremesh/Dockerfile"
       ],
       "schedule": [
         "on monday"
@@ -184,7 +185,8 @@
         "contrib/coccinelle/Dockerfile",
         "images/cache/Dockerfile",
         "images/clustermesh-apiserver/Dockerfile",
-        "images/operator/Dockerfile"
+        "images/operator/Dockerfile",
+        "images/kvstoremesh/Dockerfile"
       ],
       "schedule": [
         "on monday"
