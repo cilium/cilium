@@ -6,6 +6,8 @@ package statedb2
 import (
 	"sync/atomic"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/cilium/cilium/pkg/statedb2/index"
 )
 
@@ -56,6 +58,9 @@ func (dt *DeleteTracker[Obj]) Close() {
 	table := txn.getTable(dt.table.Name())
 	table.deleteTrackers, _, _ = table.deleteTrackers.Delete([]byte(dt.trackerName))
 	txn.Commit()
+	txn.db.metrics.TableDeleteTrackerCount.With(prometheus.Labels{
+		"table": dt.table.Name(),
+	}).Dec()
 
 	// Trigger garbage collection without this delete tracker to garbage
 	// collect any deleted objects that may not have been consumed.
