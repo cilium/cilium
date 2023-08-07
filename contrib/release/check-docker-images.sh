@@ -11,12 +11,12 @@ external_dependencies=(
 )
 
 internal_dependencies_quay_only=(
-  "cilium-etcd-operator:${CILIUM_ETCD_OPERATOR_VERSION}" \
-  "startup-script:${CILIUM_NODEINIT_VERSION}"
+  "cilium-etcd-operator:${CILIUM_ETCD_OPERATOR_VERSION}@${CILIUM_ETCD_OPERATOR_DIGEST}" \
+  "startup-script:${CILIUM_NODEINIT_VERSION}@${CILIUM_NODEINIT_DIGEST}"
 )
 
 internal_dependencies=(
-  "certgen:${CERTGEN_VERSION}" \
+  "certgen:${CERTGEN_VERSION}@${CERTGEN_DIGEST}" \
   "hubble-ui:${HUBBLE_UI_FRONTEND_VERSION}" \
   "hubble-ui-backend:${HUBBLE_UI_BACKEND_VERSION}" \
 )
