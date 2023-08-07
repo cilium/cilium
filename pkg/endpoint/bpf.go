@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
@@ -780,7 +779,6 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		if err != nil {
 			return false, err
 		}
-		e.initPolicyMapPressureMetric()
 		e.updatePolicyMapPressureMetric()
 	}
 
@@ -1027,25 +1025,16 @@ func (e *Endpoint) SkipStateClean() {
 	e.unlock()
 }
 
-func (e *Endpoint) initPolicyMapPressureMetric() {
-	if !metrics.BPFMapPressure {
-		return
-	}
-
-	if e.policyMapPressureGauge != nil {
-		return
-	}
-
-	e.policyMapPressureGauge = metrics.NewBPFMapPressureGauge(e.policyMap.NonPrefixedName(), policymap.PressureMetricThreshold)
+// PolicyMapPressureEvent represents an event for a policymap pressure metric
+// update that is sent via the policyMapPressureUpdater interface.
+type PolicyMapPressureEvent struct{ Value float64 }
+type policyMapPressureUpdater interface {
+	Update(PolicyMapPressureEvent)
 }
 
 func (e *Endpoint) updatePolicyMapPressureMetric() {
-	if e.policyMapPressureGauge == nil {
-		return
-	}
-
 	value := float64(len(e.realizedPolicy.PolicyMapState)) / float64(e.policyMap.MaxEntries())
-	e.policyMapPressureGauge.Set(value)
+	e.PolicyMapPressureUpdater.Update(PolicyMapPressureEvent{value})
 }
 
 func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) bool {

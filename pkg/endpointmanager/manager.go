@@ -84,6 +84,8 @@ type endpointManager struct {
 
 	// controllers associated with the endpoint manager.
 	controllers *controller.Manager
+
+	policyMapPressure *policyMapPressure
 }
 
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
@@ -108,7 +110,7 @@ func New(epSynchronizer EndpointResourceSynchronizer) *endpointManager {
 		controllers:                  controller.NewManager(),
 	}
 	mgr.deleteEndpoint = mgr.removeEndpoint
-
+	mgr.policyMapPressure = newPolicyMapPressure()
 	return &mgr
 }
 
@@ -614,6 +616,7 @@ func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
 	mgr.mutex.Lock()
 	// Get a copy of the identifiers before exposing the endpoint
 	identifiers := ep.Identifiers()
+	ep.PolicyMapPressureUpdater = mgr.policyMapPressure
 	ep.Start(newID)
 	mgr.mcastManager.AddAddress(ep.IPv6)
 	mgr.updateIDReferenceLocked(ep)
