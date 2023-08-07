@@ -222,9 +222,8 @@ type Endpoint struct {
 	// reference to all policy related BPF
 	policyMap *policymap.PolicyMap
 
-	// policyMapPressureGauge is a metric to track and report the pressure over
-	// policyMap.
-	policyMapPressureGauge *metrics.GaugeWithThreshold
+	// PolicyMapPressureUpdater updates the policymap pressure metric.
+	PolicyMapPressureUpdater policyMapPressureUpdater
 
 	// Options determine the datapath configuration of the endpoint.
 	Options *option.IntOptions
