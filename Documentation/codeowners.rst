@@ -40,6 +40,8 @@ repository in the Cilium project:
   Provide guidance around the best use of Cilium project continuous
   integration and testing infrastructure, including GitHub actions, VM
   helpers, testing frameworks, etc.
+- `@cilium/community <https://github.com/orgs/cilium/teams/community>`__:
+  Maintain files that refer to Cilium community users such as USERS.md.
 - `@cilium/contributing <https://github.com/orgs/cilium/teams/contributing>`__:
   Encourage practices that ensure an inclusive contributor community. Review
   tooling and scripts used by contributors.

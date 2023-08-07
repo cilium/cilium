@@ -37,6 +37,8 @@
 #   Provide guidance around the best use of Cilium project continuous
 #   integration and testing infrastructure, including GitHub actions, VM
 #   helpers, testing frameworks, etc.
+# - @cilium/community:
+#   Maintain files that refer to Cilium community users such as USERS.md.
 # - @cilium/contributing:
 #   Encourage practices that ensure an inclusive contributor community. Review
 #   tooling and scripts used by contributors.
@@ -534,7 +536,7 @@ jenkinsfiles @cilium/ci-structure
 /test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure
 /test/runtime/chaos_endpoint.go @cilium/endpoint @cilium/ci-structure
 /tools/ @cilium/contributing
-/USERS.md @cilium/tophat
+/USERS.md @cilium/community
 Vagrantfile @cilium/ci-structure
 /Vagrantfile @cilium/contributing
 /go.sum @cilium/vendor
