@@ -28,6 +28,7 @@ var (
 			k8s.LBIPPoolsResource,
 			k8s.CiliumIdentityResource,
 			k8s.CiliumPodIPPoolResource,
+			CiliumEndpointResource,
 		),
 	)
 )
@@ -41,4 +42,5 @@ type Resources struct {
 	LBIPPools        resource.Resource[*cilium_api_v2alpha1.CiliumLoadBalancerIPPool]
 	Identities       resource.Resource[*cilium_api_v2.CiliumIdentity]
 	CiliumPodIPPools resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool]
+	CiliumEndpoints  resource.Resource[*cilium_api_v2.CiliumEndpoint]
 }
