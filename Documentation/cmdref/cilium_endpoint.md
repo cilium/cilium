@@ -28,5 +28,4 @@ Manage endpoints
 * [cilium endpoint labels](cilium_endpoint_labels.md)	 - Manage label configuration of endpoint
 * [cilium endpoint list](cilium_endpoint_list.md)	 - List all endpoints
 * [cilium endpoint log](cilium_endpoint_log.md)	 - View endpoint status log
-* [cilium endpoint regenerate](cilium_endpoint_regenerate.md)	 - Force regeneration of endpoint program
 
