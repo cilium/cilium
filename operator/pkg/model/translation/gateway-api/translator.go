@@ -90,7 +90,7 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32) *core
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ciliumGatewayPrefix + resource.Name,
+			Name:      shorten(ciliumGatewayPrefix + resource.Name),
 			Namespace: resource.Namespace,
 			Labels:    map[string]string{owningGatewayLabel: resource.Name},
 			OwnerReferences: []metav1.OwnerReference{
@@ -112,7 +112,7 @@ func getService(resource *model.FullyQualifiedResource, allPorts []uint32) *core
 func getEndpoints(resource model.FullyQualifiedResource) *corev1.Endpoints {
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ciliumGatewayPrefix + resource.Name,
+			Name:      shorten(ciliumGatewayPrefix + resource.Name),
 			Namespace: resource.Namespace,
 			Labels:    map[string]string{owningGatewayLabel: resource.Name},
 			OwnerReferences: []metav1.OwnerReference{
@@ -134,4 +134,13 @@ func getEndpoints(resource model.FullyQualifiedResource) *corev1.Endpoints {
 			},
 		},
 	}
+}
+
+// shorten shortens the string to 63 characters.
+// this is the implicit required for all the resource naming in k8s.
+func shorten(s string) string {
+	if len(s) > 63 {
+		return s[:63]
+	}
+	return s
 }
