@@ -410,6 +410,7 @@ ct_recreate6:
 	case CT_REPLY:
 		policy_mark_skip(ctx);
 
+		tuple->nexthdr = ip6->nexthdr;
 		hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
 		if (hdrlen < 0)
 			return hdrlen;
@@ -1467,6 +1468,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 			struct csum_offset csum_off = {};
 			int ret2, l4_off;
 
+			tuple->nexthdr = ip6->nexthdr;
 			hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
 			if (hdrlen < 0)
 				return hdrlen;
