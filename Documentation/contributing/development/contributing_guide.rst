@@ -240,8 +240,8 @@ Getting a pull request merged
 
 #. As you submit the pull request as described in the section :ref:`submit_pr`.
    One of the reviewers will start a CI run by replying with a comment
-   ``/test`` as described in :ref:`trigger_phrases`. If you are a core team
-   member, you may trigger the CI run yourself. CI consists of:
+   ``/test`` as described in :ref:`trigger_phrases`. If you are an
+   `organization member`_, you may trigger the CI run yourself. CI consists of:
 
    #. Static code analysis by Github Actions and Travis CI. Golang linter
       suggestions are added in-line on PRs. For other failed jobs, please refer
@@ -275,6 +275,8 @@ Getting a pull request merged
 #. Once the PR has been reviewed and the CI tests have passed, the PR will be
    merged by one of the repository owners. In case this does not happen, ping
    us on Slack in the #development channel.
+
+.. _organization member: https://github.com/cilium/community/blob/main/CONTRIBUTOR-LADDER.md#organization-member
 
 Handling large pull requests
 ----------------------------
