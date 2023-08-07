@@ -1,4 +1,4 @@
-name: Conformance E2E (ci-e2e)
+name: Cilium E2E Upgrade (ci-e2e-upgrade)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -51,8 +51,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.15.14
   cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  # renovate: datasource=docker depName=quay.io/cilium/kindest-node
 
 jobs:
   commit-status-start:
@@ -60,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -74,9 +77,9 @@ jobs:
       max-parallel: 16
       matrix:
         include:
-          # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          # ! NOTE: keep tests-e2e-upgrade.yaml config in sync !
-          # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          # ! NOTE: keep conformance-e2e.yaml config in sync !
+          # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -123,7 +126,7 @@ jobs:
             lb-mode: 'dsr'
             endpoint-routes: 'true'
             egress-gateway: 'true'
-            host-fw: 'true'
+            host-fw: 'false' # enabling breaks downgrading (missed tail calls)
 
           - name: '6'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -139,7 +142,7 @@ jobs:
 
           - name: '7'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20231123.012848'
+            kernel: 'bpf-next-20231030.012704'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -152,7 +155,7 @@ jobs:
 
           - name: '8'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20231123.012848'
+            kernel: 'bpf-next-20231030.012704'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
@@ -202,7 +205,7 @@ jobs:
 
           - name: '12'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: 'bpf-next-20231123.012848'
+            kernel: 'bpf-next-20231030.012704'
             kube-proxy: 'none'
             kpr: 'true'
             devices: '{eth0,eth1}'
@@ -214,19 +217,10 @@ jobs:
             egress-gateway: 'true'
             ingress-controller: 'true'
 
-          - name: '13'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '4.19-20231026.065108'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'vxlan'
-            misc: 'policyCIDRMatchMode=nodes'
-
-
     timeout-minutes: 60
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -243,9 +237,31 @@ jobs:
             SHA="${{ github.sha }}"
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
+          CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh)
+          echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
 
-      - name: Derive Cilium installation config and junit type
-        id: cilium-config
+      - name: Derive stable Cilium installation config
+        id: cilium-stable-config
+        uses: ./.github/actions/cilium-config
+        with:
+          image-tag: ${{ steps.vars.outputs.downgrade_version }}
+          chart-dir: './cilium-${{ steps.vars.outputs.downgrade_version }}/install/kubernetes/cilium/'
+          tunnel: ${{ matrix.tunnel }}
+          devices: ${{ matrix.devices }}
+          endpoint-routes: ${{ matrix.endpoint-routes }}
+          ipv6: ${{ matrix.ipv6 }}
+          kpr: ${{ matrix.kpr }}
+          lb-mode: ${{ matrix.lb-mode }}
+          lb-acceleration: ${{ matrix.lb-acceleration }}
+          encryption: ${{ matrix.encryption }}
+          encryption-node: ${{ matrix.encryption-node }}
+          egress-gateway: ${{ matrix.egress-gateway }}
+          host-fw: ${{ matrix.host-fw }}
+          mutual-auth: false
+          misc: 'bpfClockProbe=false,cni.uninstall=false' # TODO(brb) maybe it's only needed for <1.14
+
+      - name: Derive newest Cilium installation config
+        id: cilium-newest-config
         uses: ./.github/actions/cilium-config
         with:
           image-tag: ${{ steps.vars.outputs.sha }}
@@ -261,22 +277,29 @@ jobs:
           encryption-node: ${{ matrix.encryption-node }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
-          ingress-controller: ${{ matrix.ingress-controller }}
-          misc: ${{ matrix.misc }}
+          mutual-auth: false
+          misc: 'bpfClockProbe=false,cni.uninstall=false'
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
 
+      - name: Checkout ${{ steps.vars.outputs.downgrade_version }} branch to get the Helm chart
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          path: cilium-${{ steps.vars.outputs.downgrade_version }}
+          ref: ${{ steps.vars.outputs.downgrade_version }}
+          persist-credentials: false
+
       - name: Install Cilium CLI-cli
-        uses: cilium/cilium-cli@446392499db483906bcc3ade85f023912a79e5ee # v0.15.14
+        uses: cilium/cilium-cli@8144df39be1411403dbe06a14fdddf24e9eb0c1e # v0.15.5
         with:
           repository: ${{ env.CILIUM_CLI_RELEASE_REPO }}
-          release-version: ${{ env.CILIUM_CLI_VERSION }}
+          release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
           binary-name: cilium-cli
           binary-dir: ./
@@ -284,22 +307,15 @@ jobs:
       - name: Provision LVH VMs
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
-          test-name: e2e-conformance
+          test-name: ipsec-upgrade
           image-version: ${{ matrix.kernel }}
           host-mount: ./
           cpu: 4
+          mem: '12G'
           dns-resolver: '1.1.1.1'
           install-dependencies: 'true'
           cmd: |
             git config --global --add safe.directory /host
-
-      - name: Wait for images to be available
-        timeout-minutes: 30
-        shell: bash
-        run: |
-          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
-            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
-          done
 
       - name: Setup K8s cluster
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
@@ -316,25 +332,57 @@ jobs:
 
             kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
-      - name: Install Cilium
+            mkdir -p cilium-junits
+
+      - name: Wait for images to be available
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+          until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Install Cilium ${{ env.cilium_stable_version }}
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
           cmd: |
             cd /host/
 
-            export CILIUM_CLI_MODE=helm
-            ./cilium-cli install ${{ steps.cilium-config.outputs.config }}
-            kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
-            kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
+            CILIUM_CLI_MODE=helm ./cilium-cli install \
+              ${{ steps.cilium-stable-config.outputs.config }}
 
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
-            kubectl -n kube-system exec daemonset/cilium -- cilium-dbg status
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-            mkdir -p cilium-junits
+      - name: Start conn-disrupt-test
+        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/
 
-      - name: Run tests
+            # Create pods which establish long lived connections. It will be used by
+            # subsequent connectivity tests with --include-conn-disrupt-test to catch any
+            # interruption in such flows.
+            ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
+
+      - name: Upgrade Cilium
+        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/
+
+            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+              ${{ steps.cilium-newest-config.outputs.config }}
+
+            ./cilium-cli status --wait
+            kubectl get pods --all-namespaces -o wide
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+      - name: Test Cilium after upgrade
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
@@ -346,22 +394,64 @@ jobs:
               EXTRA="--secondary-network-iface=eth1"
             fi
 
+            # Disable check-log-errors due to https://github.com/cilium/cilium-cli/issues/1858
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --include-conn-disrupt-test \
+              --flush-ct \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-              --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
-              --junit-property github_job_step="Run tests (${{ matrix.name }})" \
+              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+              --junit-property github_job_step="Run tests upgrade 2 (${{ join(matrix.*, ', ') }})" \
               \$EXTRA
 
-            ./contrib/scripts/kind-down.sh
+            # --flush-ct interrupts the flows, so we need to set up again.
+            ./cilium-cli connectivity test --include-conn-disrupt-test --conn-disrupt-test-setup
+
+      - name: Downgrade Cilium ${{ env.cilium_stable_version }}
+        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/
+
+            CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
+              ${{ steps.cilium-stable-config.outputs.config }}
+
+            ./cilium-cli status --wait
+            kubectl get pods --all-namespaces -o wide
+            kubectl -n kube-system exec daemonset/cilium -- cilium status
+
+      - name: Test Cilium after downgrade to ${{ env.cilium_stable_version }}
+        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
+        with:
+          provision: 'false'
+          cmd: |
+            cd /host/
+
+            EXTRA=""
+            if [ "${{ matrix.secondary-network }}" = "true" ]; then
+              EXTRA="--secondary-network-iface=eth1"
+            fi
+
+            kubectl -n kube-system get pods -l k8s-app=cilium --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | xargs -I'{}' /bin/sh -c "echo '{}' && kubectl -n kube-system exec  '{}' -c cilium-agent -- cilium metrics list | grep drop_count"
+
+            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+              --include-conn-disrupt-test \
+              --flush-ct \
+              --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
+              --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
+              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
+              --junit-property github_job_step="Run tests upgrade 3 (${{ join(matrix.*, ', ') }})" \
+              \$EXTRA
 
       - name: Fetch artifacts
-        if: ${{ !success() && steps.run-tests.outcome != 'skipped' }}
+        if: ${{ !success() }}
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
           cmd: |
             cd /host
+            kubectl -n kube-system get pods -l k8s-app=cilium --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}' | xargs -I'{}' /bin/sh -c "echo '{}' && kubectl -n kube-system exec  '{}' -c cilium-agent -- cilium metrics list | grep drop_count"
             kubectl get pods --all-namespaces -o wide
             ./cilium-cli status
             mkdir -p cilium-sysdumps
@@ -371,7 +461,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: cilium-sysdumps
           path: cilium-sysdump-*.zip
@@ -379,11 +469,11 @@ jobs:
 
       - name: Upload JUnits [junit]
         if: ${{ always() }}
-        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         with:
           name: cilium-junits
           path: cilium-junits/*.xml
-          retention-days: 5
+          retention-days: 2
 
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() }}
@@ -398,7 +488,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.setup-and-test.result }}
