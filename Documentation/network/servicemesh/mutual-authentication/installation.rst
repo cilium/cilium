@@ -7,6 +7,15 @@ Prerequisites
 Installation
 ############
 
+.. Note::
+
+    The default installation requires `PersistentVolumeClaim <https://kubernetes.io/docs/concepts/storage/persistent-volumes/>`_
+    support in the cluster, so please check with your cluster provider if it's supported or how to enable it.
+
+    For lab or local cluster, you can switch to in-memory storage by passing ``authentication.mutual.spire.server.datastorage.enabled=false``
+    to the installation command, at the cost of re-creating all data when the SPIRE server pod is restarted.
+
+
 .. tabs::
 
     .. group-tab:: Cilium CLI
