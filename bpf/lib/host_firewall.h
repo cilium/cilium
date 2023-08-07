@@ -76,8 +76,9 @@ __ipv6_host_policy_egress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		return CTX_ACT_OK;
 
 	/* Perform policy lookup. */
-	verdict = policy_can_egress6(ctx, tuple, HOST_ID, dst_sec_identity,
-				     &policy_match_type, &audited, ext_err, &proxy_port);
+	verdict = policy_can_egress6(ctx, tuple, ct_buffer->l4_off, HOST_ID,
+				     dst_sec_identity, &policy_match_type,
+				     &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		auth_type = (__u8)*ext_err;
 		verdict = auth_lookup(ctx, HOST_ID, dst_sec_identity, tunnel_endpoint, auth_type);
@@ -193,7 +194,7 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 
 	/* Perform policy lookup */
 	verdict = policy_can_access_ingress(ctx, *src_sec_identity, HOST_ID, tuple->dport,
-					    tuple->nexthdr, false,
+					    tuple->nexthdr, ct_buffer->l4_off, false,
 					    &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		auth_type = (__u8)*ext_err;
@@ -349,8 +350,9 @@ __ipv4_host_policy_egress(struct __ctx_buff *ctx, bool is_host_id __maybe_unused
 		return CTX_ACT_OK;
 
 	/* Perform policy lookup. */
-	verdict = policy_can_egress4(ctx, tuple, HOST_ID, dst_sec_identity,
-				     &policy_match_type, &audited, ext_err, &proxy_port);
+	verdict = policy_can_egress4(ctx, tuple, ct_buffer->l4_off, HOST_ID,
+				     dst_sec_identity, &policy_match_type,
+				     &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		auth_type = (__u8)*ext_err;
 		verdict = auth_lookup(ctx, HOST_ID, dst_sec_identity, tunnel_endpoint, auth_type);
@@ -469,7 +471,7 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 
 	/* Perform policy lookup */
 	verdict = policy_can_access_ingress(ctx, *src_sec_identity, HOST_ID, tuple->dport,
-					    tuple->nexthdr,
+					    tuple->nexthdr, ct_buffer->l4_off,
 					    is_untracked_fragment,
 					    &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
