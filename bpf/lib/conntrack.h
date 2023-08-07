@@ -35,6 +35,7 @@ struct ct_buffer4 {
 	struct ct_state ct_state;
 	__u32 monitor;
 	int ret;
+	int l4_off;
 };
 #endif
 
@@ -44,6 +45,7 @@ struct ct_buffer6 {
 	struct ct_state ct_state;
 	__u32 monitor;
 	int ret;
+	int l4_off;
 };
 #endif
 

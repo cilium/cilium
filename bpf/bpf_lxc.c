@@ -233,10 +233,10 @@ declare_tailcall_if(CONDITION, ID)						\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
 	struct ct_buffer4 ct_buffer = {};					\
-	int l4_off, ret = CTX_ACT_OK;						\
 	struct ipv4_ct_tuple *tuple;						\
 	struct ct_state *ct_state;						\
 	void *data, *data_end;							\
+	int ret = CTX_ACT_OK;							\
 	struct iphdr *ip4;							\
 	__u32 zero = 0;								\
 	void *map;								\
@@ -250,14 +250,13 @@ int NAME(struct __ctx_buff *ctx)						\
 	tuple->nexthdr = ip4->protocol;						\
 	tuple->daddr = ip4->daddr;						\
 	tuple->saddr = ip4->saddr;						\
-										\
-	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);					\
+	ct_buffer.l4_off = ETH_HLEN + ipv4_hdrlen(ip4);				\
 										\
 	map = select_ct_map4(ctx, DIR, tuple);					\
 	if (!map)								\
 		return drop_for_direction(ctx, DIR, DROP_CT_NO_MAP_FOUND);	\
 										\
-	ct_buffer.ret = ct_lookup4(map, tuple, ctx, l4_off,			\
+	ct_buffer.ret = ct_lookup4(map, tuple, ctx, ct_buffer.l4_off,		\
 				   DIR, ct_state, &ct_buffer.monitor);		\
 	if (ct_buffer.ret < 0)							\
 		return drop_for_direction(ctx, DIR, ct_buffer.ret);		\
@@ -275,8 +274,8 @@ int NAME(struct __ctx_buff *ctx)						\
 declare_tailcall_if(CONDITION, ID)						\
 int NAME(struct __ctx_buff *ctx)						\
 {										\
-	int l4_off, ret = CTX_ACT_OK, hdrlen;					\
 	struct ct_buffer6 ct_buffer = {};					\
+	int ret = CTX_ACT_OK, hdrlen;						\
 	struct ipv6_ct_tuple *tuple;						\
 	struct ct_state *ct_state;						\
 	void *data, *data_end;							\
@@ -297,10 +296,11 @@ int NAME(struct __ctx_buff *ctx)						\
 	if (hdrlen < 0)								\
 		return drop_for_direction(ctx, DIR, hdrlen);			\
 										\
-	l4_off = ETH_HLEN + hdrlen;						\
+	ct_buffer.l4_off = ETH_HLEN + hdrlen;					\
 										\
-	ct_buffer.ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off,	\
-				   DIR, ct_state, &ct_buffer.monitor);		\
+	ct_buffer.ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx,		\
+				   ct_buffer.l4_off, DIR, ct_state,		\
+				   &ct_buffer.monitor);				\
 	if (ct_buffer.ret < 0)							\
 		return drop_for_direction(ctx, DIR, ct_buffer.ret);		\
 										\
@@ -366,7 +366,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	int ret, verdict, l4_off, hdrlen, zero = 0;
+	int ret, verdict, l4_off, zero = 0;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
@@ -423,6 +423,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	ret = ct_buffer->ret;
 	ct_status = (enum ct_status)ret;
 	trace.reason = (enum trace_reason)ret;
+	l4_off = ct_buffer->l4_off;
 
 #if defined(ENABLE_L7_LB)
 	if (proxy_port > 0) {
@@ -508,13 +509,6 @@ ct_recreate6:
 	case CT_RELATED:
 	case CT_REPLY:
 		policy_mark_skip(ctx);
-
-		tuple->nexthdr = ip6->nexthdr;
-		hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
-		if (hdrlen < 0)
-			return hdrlen;
-
-		l4_off = ETH_HLEN + hdrlen;
 
 #ifdef ENABLE_NODEPORT
 # ifdef ENABLE_DSR
@@ -842,8 +836,6 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			   ip4->daddr, *dst_sec_identity);
 	}
 
-	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
-
 	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER4, &zero);
 	if (!ct_buffer)
 		return DROP_INVALID_TC_BUFFER;
@@ -857,6 +849,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	ret = ct_buffer->ret;
 	ct_status = (enum ct_status)ret;
 	trace.reason = (enum trace_reason)ret;
+	l4_off = ct_buffer->l4_off;
 
 #if defined(ENABLE_L7_LB)
 	if (proxy_port > 0) {
@@ -1401,7 +1394,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 {
 	struct ct_state *ct_state, ct_state_new = {};
 	struct ipv6_ct_tuple *tuple;
-	int ret, verdict, hdrlen, zero = 0;
+	int ret, verdict, l4_off, zero = 0;
 	struct ct_buffer6 *ct_buffer;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -1436,6 +1429,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	trace.monitor = ct_buffer->monitor;
 	trace.reason = (enum trace_reason)ct_buffer->ret;
 	ret = ct_buffer->ret;
+	l4_off = ct_buffer->l4_off;
 
 	/* Skip policy enforcement for return traffic. */
 	if (ret == CT_REPLY || ret == CT_RELATED) {
@@ -1457,14 +1451,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 
 		/* Reverse NAT applies to return traffic only. */
 		if (unlikely(ct_state->rev_nat_index)) {
-			int ret2, l4_off;
-
-			tuple->nexthdr = ip6->nexthdr;
-			hdrlen = ipv6_hdrlen(ctx, &tuple->nexthdr);
-			if (hdrlen < 0)
-				return hdrlen;
-
-			l4_off = ETH_HLEN + hdrlen;
+			int ret2;
 
 			ret2 = lb6_rev_nat(ctx, l4_off,
 					   ct_state->rev_nat_index, tuple, 0);
@@ -1712,7 +1699,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	bool is_untracked_fragment = false;
 	struct ct_buffer4 *ct_buffer;
 	struct trace_ctx trace;
-	int ret, verdict;
+	int ret, verdict, l4_off;
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
@@ -1750,6 +1737,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	trace.monitor = ct_buffer->monitor;
 	trace.reason = (enum trace_reason)ct_buffer->ret;
 	ret = ct_buffer->ret;
+	l4_off = ct_buffer->l4_off;
 
 	/* Check it this is return traffic to an egress proxy.
 	 * Do not redirect again if the packet is coming from the egress proxy.
@@ -1773,9 +1761,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 		/* Reverse NAT applies to return traffic only. */
 		if (unlikely(ct_state->rev_nat_index && !ct_state->loopback)) {
 			bool has_l4_header = false;
-			int ret2, l4_off;
-
-			l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+			int ret2;
 
 			has_l4_header = ipv4_has_l4_header(ip4);
 
