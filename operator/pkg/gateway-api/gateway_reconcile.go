@@ -168,8 +168,7 @@ func (r *gatewayReconciler) ensureService(ctx context.Context, desired *corev1.S
 
 	temp := existing.DeepCopy()
 	temp.Spec = desired.Spec
-	temp.SetAnnotations(desired.GetAnnotations())
-	temp.SetLabels(desired.GetLabels())
+	setMergedLabelsAndAnnotations(temp, desired)
 
 	return r.Client.Patch(ctx, temp, client.MergeFrom(existing))
 }
@@ -186,8 +185,7 @@ func (r *gatewayReconciler) ensureEndpoints(ctx context.Context, desired *corev1
 
 	temp := existing.DeepCopy()
 	temp.Subsets = desired.Subsets
-	temp.SetAnnotations(desired.GetAnnotations())
-	temp.SetLabels(desired.GetLabels())
+	setMergedLabelsAndAnnotations(temp, desired)
 
 	return r.Client.Patch(ctx, temp, client.MergeFrom(existing))
 }
@@ -203,8 +201,7 @@ func (r *gatewayReconciler) ensureEnvoyConfig(ctx context.Context, desired *cili
 	}
 	temp := existing.DeepCopy()
 	temp.Spec = desired.Spec
-	temp.SetAnnotations(desired.GetAnnotations())
-	temp.SetLabels(desired.GetLabels())
+	setMergedLabelsAndAnnotations(temp, desired)
 
 	return r.Client.Patch(ctx, temp, client.MergeFrom(existing))
 }
