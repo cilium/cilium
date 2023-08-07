@@ -17,6 +17,7 @@ triggers:
     - integration-test.yaml
     - tests-datapath-verifier.yaml
     - tests-l4lb.yaml
+    - tests-e2e-upgrade.yaml
     - tests-ipsec-upgrade.yaml
   /ci-aks:
     workflows:
@@ -30,6 +31,9 @@ triggers:
   /ci-e2e:
     workflows:
     - conformance-e2e.yaml
+  /ci-e2e-upgrade:
+    workflows:
+    - tests-e2e-upgrade.yaml
   /ci-ipsec-upgrade:
     workflows:
     - tests-ipsec-upgrade.yaml
@@ -103,5 +107,7 @@ workflows:
     paths-regex: (bpf|test/verifier|vendor)/
   tests-l4lb.yaml:
     paths-regex: (bpf|daemon|images|pkg|test/l4lb|vendor)/
+  tests-e2e-upgrade.yaml:
+    paths-ignore-regex: (test|Documentation)/
   tests-ipsec-upgrade.yaml:
     paths-ignore-regex: (test|Documentation)/
