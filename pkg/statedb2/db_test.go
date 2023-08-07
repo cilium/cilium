@@ -624,3 +624,10 @@ func BenchmarkDB_FullIteration(b *testing.B) {
 		}
 	})
 }
+
+func Test_callerPackage(t *testing.T) {
+	pkg := func() string {
+		return callerPackage()
+	}()
+	require.Equal(t, "pkg/statedb2", pkg)
+}

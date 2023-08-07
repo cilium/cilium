@@ -6,9 +6,14 @@ package statedb2
 import (
 	"errors"
 	"fmt"
+	"reflect"
+	"runtime"
+	"strings"
 	"sync/atomic"
+	"time"
 
 	iradix "github.com/hashicorp/go-immutable-radix/v2"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/lock"
@@ -85,12 +90,14 @@ type DB struct {
 	root      atomic.Pointer[iradix.Tree[tableEntry]]
 	gcTrigger chan struct{} // trigger for graveyard garbage collection
 	gcExited  chan struct{}
+	metrics   Metrics
 }
 
-func NewDB(tables []TableMeta) (*DB, error) {
+func NewDB(tables []TableMeta, metrics Metrics) (*DB, error) {
 	txn := iradix.New[tableEntry]().Txn()
 	db := &DB{
-		tables: make(map[TableName]TableMeta),
+		tables:  make(map[TableName]TableMeta),
+		metrics: metrics,
 	}
 	for _, t := range tables {
 		name := t.Name()
@@ -135,28 +142,49 @@ func (db *DB) ReadTxn() ReadTxn {
 //
 // WriteTxn is not thread-safe!
 func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
+	callerPkg := callerPackage()
+
 	allTables := append(tables, table)
 	smus := lock.SortableMutexes{}
 	for _, table := range allTables {
 		smus = append(smus, table.sortableMutex())
 	}
+	lockAt := time.Now()
 	smus.Lock()
+	acquiredAt := time.Now()
 
 	rootReadTxn := db.root.Load().Txn()
 	tableEntries := make(map[TableName]*tableEntry, len(tables))
+	var tableNames []string
 	for _, table := range allTables {
 		tableEntry, ok := rootReadTxn.Get(table.tableKey())
 		if !ok {
 			panic("BUG: Table '" + table.Name() + "' not found")
 		}
 		tableEntries[table.Name()] = &tableEntry
+		tableNames = append(tableNames, table.Name())
+
+		db.metrics.TableContention.With(prometheus.Labels{
+			"table": table.Name(),
+		}).Set(table.sortableMutex().AcquireDuration().Seconds())
 	}
+
+	db.metrics.WriteTxnAcquisition.With(prometheus.Labels{
+		"package": callerPkg,
+		"tables":  strings.Join(tableNames, "+"),
+	}).Observe(acquiredAt.Sub(lockAt).Seconds())
+
 	return &txn{
-		db:          db,
-		rootReadTxn: rootReadTxn,
-		tables:      tableEntries,
-		writeTxns:   make(map[tableIndex]*iradix.Txn[object]),
-		smus:        smus,
+		db:                     db,
+		rootReadTxn:            rootReadTxn,
+		tables:                 tableEntries,
+		writeTxns:              make(map[tableIndex]*iradix.Txn[object]),
+		smus:                   smus,
+		acquiredAt:             acquiredAt,
+		tableNames:             strings.Join(tableNames, "+"),
+		packageName:            callerPkg,
+		pendingObjectDeltas:    make(map[string]float64),
+		pendingGraveyardDeltas: make(map[string]float64),
 	}
 }
 
@@ -175,4 +203,31 @@ func (db *DB) Stop(ctx hive.HookContext) error {
 	case <-db.gcExited:
 	}
 	return nil
+}
+
+var ciliumPackagePrefix = func() string {
+	sentinel := func() {}
+	name := runtime.FuncForPC(reflect.ValueOf(sentinel).Pointer()).Name()
+	if idx := strings.Index(name, "pkg/"); idx >= 0 {
+		return name[:idx]
+	}
+	return ""
+}()
+
+func callerPackage() string {
+	var callerPkg string
+	pc, _, _, ok := runtime.Caller(2)
+	if ok {
+		f := runtime.FuncForPC(pc)
+		if f != nil {
+			callerPkg = f.Name()
+			callerPkg, _ = strings.CutPrefix(callerPkg, ciliumPackagePrefix)
+			callerPkg = strings.SplitN(callerPkg, ".", 2)[0]
+		} else {
+			callerPkg = "unknown"
+		}
+	} else {
+		callerPkg = "unknown"
+	}
+	return callerPkg
 }
