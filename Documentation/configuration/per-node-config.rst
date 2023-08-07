@@ -62,7 +62,7 @@ Example: KubeProxyReplacement Rollout
 
 To roll out :ref:`kube-proxy replacement <kubeproxy-free>` in a gradual manner,
 you may also wish to use the CiliumNodeConfig feature. This will label all migrated
-nodes with ``io.cilium.migration/kube-proxy-replacement: strict``
+nodes with ``io.cilium.migration/kube-proxy-replacement: true``
 
 .. warning::
 
@@ -76,9 +76,9 @@ nodes with ``io.cilium.migration/kube-proxy-replacement: strict``
 
     .. code-block:: shell-session
 
-        kubectl -n kube-system patch daemonset kube-proxy --patch '{"spec": {"template": {"spec": {"affinity": {"nodeAffinity": {"requiredDuringSchedulingIgnoredDuringExecution": {"nodeSelectorTerms": [{"matchExpressions": [{"key": "io.cilium.migration/kube-proxy-replacement", "operator": "NotIn", "values": ["strict"]}]}]}}}}}}}'
+        kubectl -n kube-system patch daemonset kube-proxy --patch '{"spec": {"template": {"spec": {"affinity": {"nodeAffinity": {"requiredDuringSchedulingIgnoredDuringExecution": {"nodeSelectorTerms": [{"matchExpressions": [{"key": "io.cilium.migration/kube-proxy-replacement", "operator": "NotIn", "values": ["true"]}]}]}}}}}}}'
 
-#. Configure Cilium to use strict kube-proxy on migrated nodes
+#. Configure Cilium to use kube-proxy replacement on migrated nodes
 
     .. code-block:: shell-session
 
@@ -87,13 +87,13 @@ nodes with ``io.cilium.migration/kube-proxy-replacement: strict``
         kind: CiliumNodeConfig
         metadata:
           namespace: kube-system
-          name: kube-proxy-replacement-strict
+          name: kube-proxy-replacement
         spec:
           nodeSelector:
             matchLabels:
-              io.cilium.migration/kube-proxy-replacement: strict
+              io.cilium.migration/kube-proxy-replacement: true
           defaults:
-            kube-proxy-replacement: strict
+            kube-proxy-replacement: true
             kube-proxy-replacement-healthz-bind-address: "0.0.0.0:10256"
 
         EOF
@@ -103,7 +103,7 @@ nodes with ``io.cilium.migration/kube-proxy-replacement: strict``
     .. code-block:: shell-session
 
         export NODE=kind-worker
-        kubectl label node $NODE --overwrite 'io.cilium.migration/kube-proxy-replacement=strict'
+        kubectl label node $NODE --overwrite 'io.cilium.migration/kube-proxy-replacement=true'
         kubectl cordon $NODE
 
 #. Delete Cilium DaemonSet to reload configuration:
@@ -118,7 +118,7 @@ nodes with ``io.cilium.migration/kube-proxy-replacement: strict``
 
         kubectl -n kube-system exec $(kubectl -n kube-system get pod -l k8s-app=cilium --field-selector spec.nodeName=$NODE -o name) -c cilium-agent -- \
             cilium config get kube-proxy-replacement
-        strict
+        true
 
 #. Uncordon node
 
@@ -130,9 +130,9 @@ nodes with ``io.cilium.migration/kube-proxy-replacement: strict``
 
     .. code-block:: shell-session
 
-        cilium config set --restart=false kube-proxy-replacement strict
+        cilium config set --restart=false kube-proxy-replacement true
         cilium config set --restart=false kube-proxy-replacement-healthz-bind-address "0.0.0.0:10256"
-        kubectl -n kube-system delete ciliumnodeconfig kube-proxy-replacement-strict
+        kubectl -n kube-system delete ciliumnodeconfig kube-proxy-replacement
 
 #. Cleanup: delete kube-proxy daemonset, unlabel nodes
 
