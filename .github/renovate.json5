@@ -153,6 +153,9 @@
         "images/builder/Dockerfile",
         "images/runtime/Dockerfile"
       ],
+      "matchPackageNames": [
+        "docker.io/library/golang"
+      ],
       "schedule": [
         "on monday"
       ]
