@@ -252,6 +252,12 @@ Users (Alphabetically)
       U: Networking, network policy, and network visibility
       L: https://cloud.google.com/blog/products/containers-kubernetes/bringing-ebpf-and-cilium-to-google-kubernetes-engine
 
+    * N: G DATA CyberDefense AG
+      D: G DATA CyberDefense AG is using Cilium on our managed on premise clusters.
+      U: Networking, network policy, security, and network visibility
+      L: https://gdatasoftware.com
+      Q: @farodin91
+
     * N: IKEA IT AB
       D: IKEA IT AB is using Cilium for production and non-production environments (self-hosted, bare-metal, private cloud)
       U: Networking, CiliumclusterWideNetworkPolicy, CiliumNetworkPolicy, kube-proxy replacement, Hubble, Direct routing, egress gateway, hubble-otel, Multi Nic XDP, BGP advertisements, Bandwidth Manager, Service Load Balancing, Cluster Mesh
