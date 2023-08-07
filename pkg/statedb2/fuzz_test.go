@@ -76,7 +76,7 @@ var (
 	tableFuzz2, _ = statedb2.NewTable[fuzzObj]("fuzz2", idIndex)
 	tableFuzz3, _ = statedb2.NewTable[fuzzObj]("fuzz3", idIndex)
 	fuzzTables    = []statedb2.TableMeta{tableFuzz1, tableFuzz2, tableFuzz3}
-	fuzzDB, _     = statedb2.NewDB(fuzzTables)
+	fuzzDB, _     = statedb2.NewDB(fuzzTables, statedb2.NewMetrics())
 )
 
 func randomSubset[T any](xs []T) []T {
@@ -286,4 +286,5 @@ func TestDB_Fuzz(t *testing.T) {
 	}
 	wg.Wait()
 	actionLog.validate(fuzzDB, t)
+
 }

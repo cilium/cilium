@@ -7,9 +7,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/spanstat"
 )
 
 const (
@@ -32,6 +34,8 @@ func graveyardWorker(db *DB) {
 		// Throttle garbage collection.
 		limiter.Wait(context.Background())
 
+		cleaningTimes := make(map[string]*spanstat.SpanStat)
+
 		type deadObjectRevisionKey = []byte
 		toBeDeleted := map[TableMeta][]deadObjectRevisionKey{}
 
@@ -39,6 +43,8 @@ func graveyardWorker(db *DB) {
 		txn := db.ReadTxn().getTxn()
 		tableIter := txn.rootReadTxn.Root().Iterator()
 		for name, table, ok := tableIter.Next(); ok; name, table, ok = tableIter.Next() {
+			cleaningTimes[string(name)] = spanstat.Start()
+
 			// Find the low watermark
 			lowWatermark := table.revision
 			dtIter := table.deleteTrackers.Root().Iterator()
@@ -48,6 +54,11 @@ func graveyardWorker(db *DB) {
 					lowWatermark = rev
 				}
 			}
+
+			db.metrics.TableGraveyardLowWatermark.With(prometheus.Labels{
+				"table": string(name),
+			}).Set(float64(lowWatermark))
+
 			// Find objects to be deleted by iterating over the graveyard revision index up
 			// to the low watermark.
 			indexTree, ok := txn.getTable(string(name)).indexes.Get([]byte(GraveyardRevisionIndex))
@@ -61,9 +72,16 @@ func graveyardWorker(db *DB) {
 				}
 				toBeDeleted[table.meta] = append(toBeDeleted[table.meta], key)
 			}
+
+			cleaningTimes[string(name)].End(true)
 		}
 
 		if len(toBeDeleted) == 0 {
+			for tableName, stat := range cleaningTimes {
+				db.metrics.TableGraveyardCleaningDuration.With(prometheus.Labels{
+					"table": tableName,
+				}).Observe(stat.Total().Seconds())
+			}
 			continue
 		}
 
@@ -71,20 +89,26 @@ func graveyardWorker(db *DB) {
 		tablesToModify := maps.Keys(toBeDeleted)
 		txn = db.WriteTxn(tablesToModify[0], tablesToModify[1:]...).getTxn()
 		for meta, deadObjs := range toBeDeleted {
-			numCollected := 0
 			tableName := meta.Name()
+			cleaningTimes[tableName].Start()
 			for _, key := range deadObjs {
 				_, existed := txn.indexWriteTxn(tableName, GraveyardRevisionIndex).Delete(key)
 				if existed {
 					// The dead object still existed (and wasn't replaced by a create->delete),
 					// delete it from the primary index.
 					txn.indexWriteTxn(tableName, GraveyardIndex).Delete(key[8:])
-					numCollected++
+					txn.pendingGraveyardDeltas[tableName]--
 				}
 			}
+			cleaningTimes[tableName].End(true)
 		}
 		txn.Commit()
 
+		for tableName, stat := range cleaningTimes {
+			db.metrics.TableGraveyardCleaningDuration.With(prometheus.Labels{
+				"table": tableName,
+			}).Observe(stat.Total().Seconds())
+		}
 	}
 }
 

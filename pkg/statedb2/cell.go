@@ -18,16 +18,18 @@ var Cell = cell.Module(
 	"In-memory transactional database",
 
 	cell.Provide(newHiveDB),
+	cell.Metric(NewMetrics),
 )
 
 type tablesIn struct {
 	cell.In
 
 	TableMetas []TableMeta `group:"statedb-tables"`
+	Metrics    Metrics
 }
 
 func newHiveDB(lc hive.Lifecycle, tablesIn tablesIn) (*DB, error) {
-	db, err := NewDB(tablesIn.TableMetas)
+	db, err := NewDB(tablesIn.TableMetas, tablesIn.Metrics)
 	if err != nil {
 		return nil, err
 	}
