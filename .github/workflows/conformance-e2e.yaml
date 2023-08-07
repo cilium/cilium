@@ -78,18 +78,21 @@ jobs:
           # See https://github.com/cilium/cilium/issues/20606 for configuration table
 
           - name: '1'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '4.19-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
 
           - name: '2'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.4-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
 
           - name: '3'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'false'
@@ -97,6 +100,7 @@ jobs:
             endpoint-routes: 'true'
 
           - name: '4'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'true'
@@ -106,6 +110,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '5'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.15-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'true'
@@ -116,6 +121,7 @@ jobs:
             host-fw: 'true'
 
           - name: '6'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '6.0-20230420.212204'
             kube-proxy: 'none'
             kpr: 'true'
@@ -126,6 +132,7 @@ jobs:
             lb-acceleration: 'testing-only'
 
           - name: '7'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'none'
             kpr: 'true'
@@ -135,6 +142,7 @@ jobs:
             lb-acceleration: 'testing-only'
 
           - name: '8'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'false'
@@ -142,6 +150,7 @@ jobs:
             endpoint-routes: 'true'
 
           - name: '9'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.10-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'true'
@@ -153,6 +162,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '10'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '5.15-20230420.212204'
             kube-proxy: 'iptables'
             kpr: 'true'
@@ -164,6 +174,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '11'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: '6.0-20230420.212204'
             kube-proxy: 'none'
             kpr: 'true'
@@ -174,6 +185,7 @@ jobs:
             egress-gateway: 'true'
 
           - name: '12'
+            # renovate: datasource=docker depName=quay.io/lvh-images/kind
             kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'none'
             kpr: 'true'
