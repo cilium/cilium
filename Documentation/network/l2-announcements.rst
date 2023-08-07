@@ -43,7 +43,7 @@ The L2 Announcements feature and all the requirements can be enabled as follows:
                --set l2announcements.enabled=true \\
                --set k8sClientRateLimit.qps={QPS} \\
                --set k8sClientRateLimit.burst={BURST} \\
-               --set kubeProxyReplacement=strict \\
+               --set kubeProxyReplacement=true \\
                --set k8sServiceHost=${API_SERVER_IP} \\
                --set k8sServicePort=${API_SERVER_PORT}
                
@@ -53,7 +53,7 @@ The L2 Announcements feature and all the requirements can be enabled as follows:
         .. code-block:: yaml
 
             enable-l2-announcements: true
-            kube-proxy-replacement: strict
+            kube-proxy-replacement: true
             k8s-client-qps: {QPS}
             k8s-client-burst: {BURST}
 
@@ -64,7 +64,8 @@ The L2 Announcements feature and all the requirements can be enabled as follows:
 Prerequisites
 #############
 
-* Kube Proxy replacement mode must be enabled and set to ``strict`` mode, see :ref:`kubeproxy-free` for details.
+* Kube Proxy replacement mode must be enabled. For more information, see
+  :ref:`kubeproxy-free`.
 
 * All devices on which L2 Aware LB will be announced should be enabled and included in the 
   ``--devices`` flag or ``devices`` Helm option if explicitly set, see :ref:`NodePort Devices`.
@@ -300,7 +301,7 @@ There are three Helm options that can be tuned with regards to leases:
                --namespace kube-system \\
                --reuse-values \\
                --set l2announcements.enabled=true \\
-               --set kubeProxyReplacement=strict \\
+               --set kubeProxyReplacement=true \\
                --set k8sServiceHost=${API_SERVER_IP} \\
                --set k8sServicePort=${API_SERVER_PORT} \\
                --set k8sClientRateLimit.qps={QPS} \\
@@ -314,7 +315,7 @@ There are three Helm options that can be tuned with regards to leases:
         .. code-block:: yaml
 
             enable-l2-announcements: true
-            kube-proxy-replacement: strict
+            kube-proxy-replacement: true
             l2-announcements-lease-duration: 3s
             l2-announcements-renew-deadline: 1s
             l2-announcements-retry-period: 200ms

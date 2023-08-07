@@ -205,7 +205,7 @@ version which was installed in this cluster.
         mode: "kubernetes"
       k8sServiceHost: "API_SERVER_IP"
       k8sServicePort: "API_SERVER_PORT"
-      kubeProxyReplacement: "strict"
+      kubeProxyReplacement: "true"
 
    You can then upgrade using this values file by running:
 
