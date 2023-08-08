@@ -17,10 +17,20 @@ const (
 	// StartupTimeout is the timeout that is used when establishing a new
 	// connection.
 	StartupTimeout = 30 * time.Second
-	// GopsPort is the default port for gops to listen on.
-	GopsPort = 9893
-	// PprofAddress is the default port for pprof to listen on.
-	PprofAddress = "localhost"
-	// PprofPort is the default port for pprof to listen on.
-	PprofPort = 6062
+	// RootRoleName is the name used by the "root" role that we create in etcd
+	RootRoleName = "root"
+	// RootUserName is the name used by the "root" user that we create in etcd
+	RootUserName = "root"
+	// ExternalWorkloadRoleName is the name used by the "external workload" role that we create in etcd
+	ExternalWorkloadRoleName = "externalworkload"
+	// ExternalWorkloadUserName is the name used by the "external workload" user that we create in etcd
+	ExternalWorkloadUserName = "externalworkload"
+	// AdminUsernamePrefix is a sprintf format string to assemble the admin username
+	AdminUsernamePrefix = "admin-%s"
+	// RemoteRoleName is the name used by the "external workload" role that we create in etcd
+	RemoteRoleName = "remote"
+	// RemoteUserName is the name used by the "external workload" user that we create in etcd
+	RemoteUserName = "Remote"
+	// KeyHasClusterConfig is the name of the key used to define if we've already configured etcd
+	KeyHasClusterConfig = "cilium/.has-cluster-config"
 )

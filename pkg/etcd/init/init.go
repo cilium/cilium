@@ -5,14 +5,12 @@ import (
 	"fmt"
 
 	"go.etcd.io/etcd/client/v3"
-)
 
-const (
-	rootRoleName = "root"
+	"github.com/cilium/cilium/pkg/etcd/init/defaults"
 )
 
 func InitEtcd(ctx context.Context, client *clientv3.Client, clusterName string) error {
-	_, err := client.Put(ctx, "cilium/.has-cluster-config", "true")
+	_, err := client.Put(ctx, defaults.KeyHasClusterConfig, "true")
 	if err != nil {
 		return err
 	}
@@ -41,12 +39,11 @@ func InitEtcd(ctx context.Context, client *clientv3.Client, clusterName string) 
 }
 
 func setupRootUser(ctx context.Context, client *clientv3.Client) error {
-	rootUsername := "root"
-	_, err := client.UserAddWithOptions(ctx, rootUsername, "", &clientv3.UserAddOptions{NoPassword: true})
+	_, err := client.UserAddWithOptions(ctx, defaults.RootUserName, "", &clientv3.UserAddOptions{NoPassword: true})
 	if err != nil {
 		return err
 	}
-	_, err = client.UserGrantRole(ctx, rootUsername, rootRoleName)
+	_, err = client.UserGrantRole(ctx, defaults.RootUserName, defaults.RootRoleName)
 	if err != nil {
 		return err
 	}
@@ -54,12 +51,12 @@ func setupRootUser(ctx context.Context, client *clientv3.Client) error {
 }
 
 func setupAdminUser(ctx context.Context, client *clientv3.Client, clusterName string) error {
-	adminUsername := fmt.Sprintf("admin-%s", clusterName)
+	adminUsername := fmt.Sprintf(defaults.AdminUsernamePrefix, clusterName)
 	_, err := client.UserAddWithOptions(ctx, adminUsername, "", &clientv3.UserAddOptions{NoPassword: true})
 	if err != nil {
 		return err
 	}
-	_, err = client.UserGrantRole(ctx, adminUsername, rootRoleName)
+	_, err = client.UserGrantRole(ctx, adminUsername, defaults.RootRoleName)
 	if err != nil {
 		return err
 	}
@@ -67,29 +64,27 @@ func setupAdminUser(ctx context.Context, client *clientv3.Client, clusterName st
 }
 
 func setupExternalWorkloadUser(ctx context.Context, client *clientv3.Client) error {
-	externalWorkloadUsername := "externalworkload"
-	externalWorkloadRoleName := "externalworkload"
-	_, err := client.UserAddWithOptions(ctx, externalWorkloadUsername, "", &clientv3.UserAddOptions{NoPassword: true})
+	_, err := client.UserAddWithOptions(ctx, defaults.ExternalWorkloadUserName, "", &clientv3.UserAddOptions{NoPassword: true})
 	if err != nil {
 		return err
 	}
-	_, err = client.RoleAdd(ctx, externalWorkloadRoleName)
+	_, err = client.RoleAdd(ctx, defaults.ExternalWorkloadRoleName)
 	if err != nil {
 		return err
 	}
-	_, err = client.UserGrantRole(ctx, externalWorkloadUsername, externalWorkloadRoleName)
+	_, err = client.UserGrantRole(ctx, defaults.ExternalWorkloadUserName, defaults.ExternalWorkloadRoleName)
 	if err != nil {
 		return err
 	}
-	_, err = client.RoleGrantPermission(ctx, externalWorkloadRoleName, "[", "", clientv3.PermissionType(clientv3.PermRead))
+	_, err = client.RoleGrantPermission(ctx, defaults.ExternalWorkloadRoleName, "[", "", clientv3.PermissionType(clientv3.PermRead))
 	if err != nil {
 		return err
 	}
-	_, err = client.RoleGrantPermission(ctx, externalWorkloadRoleName, "cilium/state/noderegister/v1/", "cilium/state/noderegister/v10", clientv3.PermissionType(clientv3.PermReadWrite))
+	_, err = client.RoleGrantPermission(ctx, defaults.ExternalWorkloadRoleName, "cilium/state/noderegister/v1/", "cilium/state/noderegister/v10", clientv3.PermissionType(clientv3.PermReadWrite))
 	if err != nil {
 		return err
 	}
-	_, err = client.RoleGrantPermission(ctx, externalWorkloadRoleName, "cilium/.initlock/", "cilium/.initlock0", clientv3.PermissionType(clientv3.PermReadWrite))
+	_, err = client.RoleGrantPermission(ctx, defaults.ExternalWorkloadRoleName, "cilium/.initlock/", "cilium/.initlock0", clientv3.PermissionType(clientv3.PermReadWrite))
 	if err != nil {
 		return err
 	}
@@ -98,21 +93,19 @@ func setupExternalWorkloadUser(ctx context.Context, client *clientv3.Client) err
 }
 
 func setupRemoteUser(ctx context.Context, client *clientv3.Client) error {
-	remoteUsername := "remote"
-	remoteRoleName := "remote"
-	_, err := client.UserAddWithOptions(ctx, remoteUsername, "", &clientv3.UserAddOptions{NoPassword: true})
+	_, err := client.UserAddWithOptions(ctx, defaults.RemoteUserName, "", &clientv3.UserAddOptions{NoPassword: true})
 	if err != nil {
 		return err
 	}
-	_, err = client.RoleAdd(ctx, remoteRoleName)
+	_, err = client.RoleAdd(ctx, defaults.RemoteRoleName)
 	if err != nil {
 		return err
 	}
-	_, err = client.UserGrantRole(ctx, remoteUsername, remoteRoleName)
+	_, err = client.UserGrantRole(ctx, defaults.RemoteUserName, defaults.RemoteRoleName)
 	if err != nil {
 		return err
 	}
-	_, err = client.RoleGrantPermission(ctx, remoteRoleName, "[", "", clientv3.PermissionType(clientv3.PermRead))
+	_, err = client.RoleGrantPermission(ctx, defaults.RemoteRoleName, "[", "", clientv3.PermissionType(clientv3.PermRead))
 	if err != nil {
 		return err
 	}
