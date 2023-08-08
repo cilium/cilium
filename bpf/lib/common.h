@@ -297,7 +297,7 @@ struct tunnel_value {
 	};
 	__u8 family;
 	__u8 key;
-	__u16 node_id;
+	__u16 pad;
 } __packed;
 
 #define ENDPOINT_F_HOST		1 /* Special endpoint representing local host */
@@ -328,7 +328,7 @@ struct edt_info {
 struct remote_endpoint_info {
 	__u32		sec_identity;
 	__u32		tunnel_endpoint;
-	__u16		node_id;
+	__u16		pad;
 	__u8		key;
 };
 
@@ -611,6 +611,7 @@ enum {
 #define DROP_DSR_ENCAP_UNSUPP_PROTO	-193
 #define DROP_NO_EGRESS_GATEWAY	-194
 #define DROP_TTL_EXCEEDED	-196
+#define DROP_NO_NODE_ID		-197
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 #define NAT_46X64_RECIRC	100

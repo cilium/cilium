@@ -112,7 +112,7 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 // node are provided as context. The caller expects the tunnel mapping in the
 // datapath to be updated.
 func updateTunnelMapping(oldCIDR, newCIDR cmtypes.PrefixCluster, oldIP, newIP net.IP,
-	firstAddition, encapEnabled bool, oldEncryptKey, newEncryptKey uint8, nodeID uint16) {
+	firstAddition, encapEnabled bool, oldEncryptKey, newEncryptKey uint8) {
 	if !encapEnabled {
 		// When the protocol family is disabled, the initial node addition will
 		// trigger a deletion to clean up leftover entries. The deletion happens
@@ -130,7 +130,7 @@ func updateTunnelMapping(oldCIDR, newCIDR cmtypes.PrefixCluster, oldIP, newIP ne
 			"allocCIDR":      newCIDR,
 		}).Debug("Updating tunnel map entry")
 
-		if err := tunnel.TunnelMap().SetTunnelEndpoint(newEncryptKey, nodeID, newCIDR.AddrCluster(), newIP); err != nil {
+		if err := tunnel.TunnelMap().SetTunnelEndpoint(newEncryptKey, newCIDR.AddrCluster(), newIP); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				"allocCIDR": newCIDR,
 			}).Error("bpf: Unable to update in tunnel endpoint map")
@@ -985,7 +985,7 @@ func getV6LinkLocalIP() (net.IP, error) {
 	return getLinkLocalIP(netlink.FAMILY_V6)
 }
 
-func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
+func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node, nodeID uint16) {
 	if newNode.IsLocal() {
 		n.replaceHostRules()
 	}
@@ -996,11 +996,11 @@ func (n *linuxNodeHandler) enableIPsec(newNode *nodeTypes.Node) {
 	// the mark fields. This uses XFRM_OUTPUT_MARK added in 4.14 kernels.
 	zeroMark := option.Config.EnableEndpointRoutes
 
-	n.enableIPsecIPv4(newNode, zeroMark)
-	n.enableIPsecIPv6(newNode, zeroMark)
+	n.enableIPsecIPv4(newNode, nodeID, zeroMark)
+	n.enableIPsecIPv6(newNode, nodeID, zeroMark)
 }
 
-func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, zeroMark bool) {
+func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint16, zeroMark bool) {
 	var spi uint8
 
 	if !n.nodeConfig.EnableIPv4 || newNode.IPv4AllocCIDR == nil {
@@ -1057,7 +1057,6 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, zeroMark boo
 		}
 
 		localIP := n.nodeAddressing.IPv4().Router()
-		remoteNodeID := n.allocateIDForNode(newNode)
 
 		if n.subnetEncryption() {
 			// Check if we should use the NodeInternalIPs instead of the
@@ -1071,19 +1070,19 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, zeroMark boo
 			}
 
 			for _, cidr := range n.nodeConfig.IPv4PodSubnets {
-				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, zeroMark)
+				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, zeroMark)
 				upsertIPsecLog(err, "out IPv4", wildcardCIDR, cidr, spi)
 			}
 		} else {
 			remoteCIDR := newNode.IPv4AllocCIDR.IPNet
 			n.replaceNodeIPSecOutRoute(new4Net)
-			spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)
+			spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, false)
 			upsertIPsecLog(err, "out IPv4", wildcardCIDR, remoteCIDR, spi)
 		}
 	}
 }
 
-func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, zeroMark bool) {
+func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint16, zeroMark bool) {
 	var spi uint8
 
 	if !n.nodeConfig.EnableIPv6 || newNode.IPv6AllocCIDR == nil {
@@ -1130,7 +1129,6 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, zeroMark boo
 		}
 
 		localIP := n.nodeAddressing.IPv6().Router()
-		remoteNodeID := n.allocateIDForNode(newNode)
 
 		if n.subnetEncryption() {
 			// Check if we should use the NodeInternalIPs instead of the
@@ -1144,13 +1142,13 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, zeroMark boo
 			}
 
 			for _, cidr := range n.nodeConfig.IPv6PodSubnets {
-				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, zeroMark)
+				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, zeroMark)
 				upsertIPsecLog(err, "out IPv6", wildcardCIDR, cidr, spi)
 			}
 		} else {
 			remoteCIDR := newNode.IPv6AllocCIDR.IPNet
 			n.replaceNodeIPSecOutRoute(new6Net)
-			spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, remoteNodeID, ipsec.IPSecDirOut, false)
+			spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, false)
 			upsertIPsecLog(err, "out IPv6", wildcardCIDR, remoteCIDR, spi)
 		}
 	}
@@ -1172,6 +1170,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		newIP6                                   = newNode.GetNodeIP(true)
 		oldKey, newKey                           uint8
 		isLocalNode                              = false
+		remoteNodeID                             = n.allocateIDForNode(newNode)
 	)
 
 	if oldNode != nil {
@@ -1182,10 +1181,12 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		oldIP4 = oldNode.GetNodeIP(false)
 		oldIP6 = oldNode.GetNodeIP(true)
 		oldKey = oldNode.EncryptionKey
+
+		n.diffAndUnmapNodeIPs(oldNode.IPAddresses, newNode.IPAddresses)
 	}
 
 	if n.nodeConfig.EnableIPSec && !n.nodeConfig.EncryptNode {
-		n.enableIPsec(newNode)
+		n.enableIPsec(newNode, remoteNodeID)
 		newKey = newNode.EncryptionKey
 	}
 
@@ -1242,14 +1243,12 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 			newPrefixCluster6 = cmtypes.PrefixClusterFromCIDR(newNode.IPv6AllocCIDR, 0)
 		}
 
-		nodeID := n.allocateIDForNode(newNode)
-
 		// Update the tunnel mapping of the node. In case the
 		// node has changed its CIDR range, a new entry in the
 		// map is created and the old entry is removed.
-		updateTunnelMapping(oldPrefixCluster4, newPrefixCluster4, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, oldKey, newKey, nodeID)
+		updateTunnelMapping(oldPrefixCluster4, newPrefixCluster4, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, oldKey, newKey)
 		// Not a typo, the IPv4 host IP is used to build the IPv6 overlay
-		updateTunnelMapping(oldPrefixCluster6, newPrefixCluster6, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey, nodeID)
+		updateTunnelMapping(oldPrefixCluster6, newPrefixCluster6, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv6, oldKey, newKey)
 
 		if !n.nodeConfig.UseSingleClusterRoute {
 			n.updateOrRemoveNodeRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode)

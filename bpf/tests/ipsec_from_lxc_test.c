@@ -32,8 +32,8 @@ struct {
 	},
 };
 
-PKTGEN("tc", "ipv4_ipsec_from_lxc")
-int ipv4_ipsec_from_lxc_pktgen(struct __ctx_buff *ctx)
+static __always_inline int
+pktgen_from_lxc(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct ethhdr *l2;
@@ -68,8 +68,14 @@ int ipv4_ipsec_from_lxc_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipv4_ipsec_from_lxc")
-int ipv4_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
+PKTGEN("tc", "01_ipv4_from_lxc_no_node_id")
+int ipv4_from_lxc_no_node_id_pktgen(struct __ctx_buff *ctx)
+{
+	return pktgen_from_lxc(ctx);
+}
+
+SETUP("tc", "01_ipv4_from_lxc_no_node_id")
+int ipv4_from_lxc_no_node_id_setup(struct __ctx_buff *ctx)
 {
 	struct policy_key policy_key = { .egress = 1 };
 	struct policy_entry policy_value = {};
@@ -84,7 +90,6 @@ int ipv4_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
 	cache_key.ip4 = v4_pod_two;
 	cache_value.sec_identity = 233;
 	cache_value.tunnel_endpoint = v4_node_two;
-	cache_value.node_id = NODE_ID;
 	cache_value.key = ENCRYPT_KEY;
 	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
 
@@ -97,8 +102,59 @@ int ipv4_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "ipv4_ipsec_from_lxc")
-int ipv4_ipsec_from_lxc_check(__maybe_unused const struct __ctx_buff *ctx)
+CHECK("tc", "01_ipv4_from_lxc_no_node_id")
+int ipv4_from_lxc_no_node_id_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	struct metrics_value *entry = NULL;
+	struct metrics_key key = {};
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(*status_code) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_DROP);
+
+	key.reason = (__u8)-DROP_NO_NODE_ID;
+	key.dir = METRIC_EGRESS;
+	entry = map_lookup_elem(&METRICS_MAP, &key);
+	if (!entry)
+		test_fatal("metrics entry not found");
+	assert(entry->count == 1);
+
+	test_finish();
+}
+
+PKTGEN("tc", "02_ipv4_from_lxc_encrypt")
+int ipv4_from_lxc_encrypt_pktgen(struct __ctx_buff *ctx)
+{
+	return pktgen_from_lxc(ctx);
+}
+
+SETUP("tc", "02_ipv4_from_lxc_encrypt")
+int ipv4_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
+{
+	struct node_key node_ip = {};
+	__u32 node_id = NODE_ID;
+
+	node_ip.family = ENDPOINT_KEY_IPV4;
+	node_ip.ip4 = v4_node_two;
+	map_update_elem(&NODE_MAP, &node_ip, &node_id, BPF_ANY);
+
+	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
+	return TEST_ERROR;
+}
+
+CHECK("tc", "02_ipv4_from_lxc_encrypt")
+int ipv4_from_lxc_encrypt_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -167,8 +223,8 @@ int ipv4_ipsec_from_lxc_check(__maybe_unused const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "ipv6_ipsec_from_lxc")
-int ipv6_ipsec_from_lxc_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "03_ipv6_from_lxc_encrypt")
+int ipv6_from_lxc_encrypt_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct ethhdr *l2;
@@ -202,8 +258,8 @@ int ipv6_ipsec_from_lxc_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipv6_ipsec_from_lxc")
-int ipv6_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
+SETUP("tc", "03_ipv6_from_lxc_encrypt")
+int ipv6_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 {
 	struct policy_key policy_key = { .egress = 1 };
 	struct policy_entry policy_value = {};
@@ -218,7 +274,6 @@ int ipv6_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
 	memcpy(&cache_key.ip6, (__u8 *)v6_pod_two, 16);
 	cache_value.sec_identity = 233;
 	cache_value.tunnel_endpoint = v4_node_two;
-	cache_value.node_id = NODE_ID;
 	cache_value.key = ENCRYPT_KEY;
 	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
 
@@ -227,12 +282,19 @@ int ipv6_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
 
 	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
 
+	struct node_key node_ip = {};
+	__u32 node_id = NODE_ID;
+
+	node_ip.family = ENDPOINT_KEY_IPV4;
+	node_ip.ip4 = v4_node_two;
+	map_update_elem(&NODE_MAP, &node_ip, &node_id, BPF_ANY);
+
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
 }
 
-CHECK("tc", "ipv6_ipsec_from_lxc")
-int ipv6_ipsec_from_lxc_check(__maybe_unused const struct __ctx_buff *ctx)
+CHECK("tc", "03_ipv6_from_lxc_encrypt")
+int ipv6_from_lxc_encrypt_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;

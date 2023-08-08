@@ -42,6 +42,8 @@ mutual authentication requires a framework secure identity verification for dist
 
     To learn more about the the Mutual Authentication architecture for the Cilium Service Mesh, read the `CFP <https://github.com/cilium/design-cfps/blob/main/cilium/CFP-22215-mutual-auth-for-service-mesh.md>`_.
 
+.. _identity_management:
+
 Identity Management
 ###################
 

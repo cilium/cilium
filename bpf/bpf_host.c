@@ -338,8 +338,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 #ifdef TUNNEL_MODE
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      info->node_id, secctx,
-						      info->sec_identity,
+						      secctx, info->sec_identity,
 						      &trace);
 	} else {
 		struct tunnel_key key = {};
@@ -747,8 +746,7 @@ skip_vtep:
 #ifdef TUNNEL_MODE
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      info->node_id, secctx,
-						      info->sec_identity,
+						      secctx, info->sec_identity,
 						      &trace);
 	} else {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
@@ -1493,6 +1491,12 @@ out:
 					      METRIC_EGRESS);
 #endif /* ENABLE_SRV6 */
 
+#ifdef ENABLE_HEALTH_CHECK
+	ret = lb_handle_health(ctx);
+	if (ret != CTX_ACT_OK)
+		goto exit;
+#endif
+
 #ifdef ENABLE_NODEPORT
 	if (!ctx_snat_done(ctx)) {
 		/*
@@ -1506,12 +1510,11 @@ out:
 						      METRIC_EGRESS);
 	}
 #endif
-#ifdef ENABLE_HEALTH_CHECK
-	ret = lb_handle_health(ctx);
+
+__maybe_unused exit:
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
-#endif
 	send_trace_notify(ctx, TRACE_TO_NETWORK, 0, 0, 0,
 			  0, trace.reason, trace.monitor);
 

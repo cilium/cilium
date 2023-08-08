@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -34,6 +35,7 @@ import (
 // conformance tests.
 type ConformanceTestSuite struct {
 	Client            client.Client
+	Clientset         *clientset.Clientset
 	RESTClient        *rest.RESTClient
 	RestConfig        *rest.Config
 	RoundTripper      roundtripper.RoundTripper
@@ -53,6 +55,7 @@ type ConformanceTestSuite struct {
 // Options can be used to initialize a ConformanceTestSuite.
 type Options struct {
 	Client           client.Client
+	Clientset        *clientset.Clientset
 	RESTClient       *rest.RESTClient
 	RestConfig       *rest.Config
 	GatewayClassName string
@@ -105,6 +108,7 @@ func New(s Options) *ConformanceTestSuite {
 
 	suite := &ConformanceTestSuite{
 		Client:           s.Client,
+		Clientset:        s.Clientset,
 		RESTClient:       s.RESTClient,
 		RestConfig:       s.RestConfig,
 		RoundTripper:     roundTripper,
@@ -150,7 +154,7 @@ func (suite *ConformanceTestSuite) Setup(t *testing.T) {
 		t.Logf("Test Setup: Applying programmatic resources")
 		secret := kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-web-backend", "certificate", []string{"*"})
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
-		secret = kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-infra", "tls-validity-checks-certificate", []string{"*"})
+		secret = kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-infra", "tls-validity-checks-certificate", []string{"*", "*.org"})
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
 		secret = kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-infra", "tls-passthrough-checks-certificate", []string{"abc.example.com"})
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)

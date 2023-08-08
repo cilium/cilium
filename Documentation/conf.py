@@ -265,7 +265,6 @@ http_strict_mode = False
 # Try as hard as possible to find references
 default_role = 'any'
 
-
 def setup(app):
     app.add_css_file('parsed-literal.css')
     app.add_css_file('copybutton.css')

@@ -84,22 +84,19 @@ func (s SortableRoute) Less(i, j int) bool {
 		return false
 	}
 
-	// Make sure the longest query match always comes first
-	queryMatch1 := len(s[i].Match.GetQueryParameters())
-	queryMatch2 := len(s[j].Match.GetQueryParameters())
-	if queryMatch1 > queryMatch2 {
-		return true
-	} else if queryMatch1 < queryMatch2 {
-		return false
-	}
-
 	// Make sure the longest header match always comes first
 	headerMatch1 := len(s[i].Match.GetHeaders())
 	headerMatch2 := len(s[j].Match.GetHeaders())
 	if headerMatch1 > headerMatch2 {
 		return true
+	} else if headerMatch1 < headerMatch2 {
+		return false
 	}
-	return false
+
+	// Make sure the longest query match always comes first
+	queryMatch1 := len(s[i].Match.GetQueryParameters())
+	queryMatch2 := len(s[j].Match.GetQueryParameters())
+	return queryMatch1 > queryMatch2
 }
 
 func (s SortableRoute) Swap(i, j int) {

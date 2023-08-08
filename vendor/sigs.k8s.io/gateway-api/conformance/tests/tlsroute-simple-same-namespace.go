@@ -27,7 +27,6 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
@@ -47,10 +46,12 @@ var TLSRouteSimpleSameNamespace = suite.ConformanceTest{
 	},
 	Manifests: []string{"tests/tlsroute-simple-same-namespace.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
-		ns := v1beta1.Namespace("gateway-conformance-infra")
-		routeNN := types.NamespacedName{Name: "gateway-conformance-infra-test", Namespace: string(ns)}
-		gwNN := types.NamespacedName{Name: "gateway-tlsroute", Namespace: string(ns)}
-		certNN := types.NamespacedName{Name: "tls-passthrough-checks-certificate", Namespace: string(ns)}
+		ns := "gateway-conformance-infra"
+		routeNN := types.NamespacedName{Name: "gateway-conformance-infra-test", Namespace: ns}
+		gwNN := types.NamespacedName{Name: "gateway-tlsroute", Namespace: ns}
+		certNN := types.NamespacedName{Name: "tls-passthrough-checks-certificate", Namespace: ns}
+
+		kubernetes.NamespacesMustBeReady(t, suite.Client, suite.TimeoutConfig, []string{ns})
 
 		gwAddr, hostnames := kubernetes.GatewayAndTLSRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
 		if len(hostnames) != 1 {

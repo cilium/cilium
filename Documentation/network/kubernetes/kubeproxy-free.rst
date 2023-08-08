@@ -678,9 +678,6 @@ each underlying device's driver must have native XDP support on all Cilium manag
 nodes. In addition, for performance reasons we recommend kernel >= 5.5 for
 the multi-device XDP acceleration.
 
-NodePort acceleration can be used with either direct routing (``routingMode=native``)
-or tunnel mode. Direct routing is recommended to achieve optimal performance.
-
 A list of drivers supporting XDP can be found in :ref:`the XDP documentation<xdp_drivers>`.
 
 The current Cilium kube-proxy XDP acceleration mode can also be introspected through
@@ -1311,7 +1308,7 @@ the check when running on some cloud providers. E.g. `Amazon NLB
 <https://kubernetes.io/docs/concepts/services-networking/service/#aws-nlb-support>`__
 natively implements the check, so the kube-proxy replacement's feature can be disabled.
 Meanwhile `GKE internal TCP/UDP load balancer
-<https://cloud.google.com/kubernetes-engine/docs/how-to/internal-load-balancing#lb_source_ranges>`__
+<https://cloud.google.com/kubernetes-engine/docs/how-to/service-parameters#lb_source_ranges>`__
 does not, so the feature must be kept enabled in order to restrict the access.
 
 Service Proxy Name Configuration

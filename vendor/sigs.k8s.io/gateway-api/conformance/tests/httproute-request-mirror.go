@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The Kubernetes Authors.
+Copyright 2023 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,48 +27,39 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, HTTPExactPathMatching)
+	ConformanceTests = append(ConformanceTests, HTTPRouteRequestMirror)
 }
 
-var HTTPExactPathMatching = suite.ConformanceTest{
-	ShortName:   "HTTPExactPathMatching",
-	Description: "A single HTTPRoute with exact path matching for different backends",
+var HTTPRouteRequestMirror = suite.ConformanceTest{
+	ShortName:   "HTTPRouteRequestMirror",
+	Description: "An HTTPRoute with request mirror filter",
+	Manifests:   []string{"tests/httproute-request-mirror.yaml"},
 	Features: []suite.SupportedFeature{
 		suite.SupportGateway,
 		suite.SupportHTTPRoute,
+		suite.SupportHTTPRouteRequestMirror,
 	},
-	Manifests: []string{"tests/httproute-exact-path-matching.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"
-		routeNN := types.NamespacedName{Name: "exact-matching", Namespace: ns}
+		routeNN := types.NamespacedName{Name: "request-mirror", Namespace: ns}
 		gwNN := types.NamespacedName{Name: "same-namespace", Namespace: ns}
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
-		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
 		testCases := []http.ExpectedResponse{
 			{
-				Request:   http.Request{Path: "/one"},
-				Backend:   "infra-backend-v1",
-				Namespace: ns,
-			}, {
-				Request:   http.Request{Path: "/two"},
-				Backend:   "infra-backend-v2",
-				Namespace: ns,
-			}, {
-				Request:  http.Request{Path: "/"},
-				Response: http.Response{StatusCode: 404},
-			}, {
-				Request:  http.Request{Path: "/one/example"},
-				Response: http.Response{StatusCode: 404},
-			}, {
-				Request:  http.Request{Path: "/two/"},
-				Response: http.Response{StatusCode: 404},
-			}, {
-				Request:  http.Request{Path: "/Two"},
-				Response: http.Response{StatusCode: 404},
+				Request: http.Request{
+					Path: "/mirror",
+				},
+				ExpectedRequest: &http.ExpectedRequest{
+					Request: http.Request{
+						Path: "/mirror",
+					},
+				},
+				Backend:    "infra-backend-v1",
+				MirroredTo: "infra-backend-v2",
+				Namespace:  ns,
 			},
 		}
-
 		for i := range testCases {
 			// Declare tc here to avoid loop variable
 			// reuse issues across parallel tests.
@@ -76,6 +67,7 @@ var HTTPExactPathMatching = suite.ConformanceTest{
 			t.Run(tc.GetTestCaseName(i), func(t *testing.T) {
 				t.Parallel()
 				http.MakeRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr, tc)
+				http.ExpectMirroredRequest(t, suite.Client, suite.Clientset, ns, tc.MirroredTo, tc.Request.Path)
 			})
 		}
 	},

@@ -45,6 +45,16 @@ Configuration
 For a practical tutorial on how to enable this mode in Cilium, see
 :ref:`gsg_ipam_crd_cluster_pool`.
 
+Expanding the cluster pool
+==========================
+
+Don't change any existing elements of the ``clusterPoolIPv4PodCIDRList`` list, as
+changes cause unexpected behavior. If the pool is exhausted,
+add a new element to the list instead. The minimum mask length is ``/30``, with a recommended minimum mask 
+length of at least ``/29``. The reason to add new elements rather than change existing elements is that
+the allocator reserves 2 IPs per CIDR block for the network and broadcast addresses.
+Changing ``clusterPoolIPv4MaskSize`` is also not possible. 
+
 ***************
 Troubleshooting
 ***************
