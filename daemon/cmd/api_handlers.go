@@ -40,6 +40,7 @@ type handlersOut struct {
 	DaemonGetNodeIdsHandler            daemon.GetNodeIdsHandler
 	DaemonPatchConfigHandler           daemon.PatchConfigHandler
 
+	EndpointDeleteEndpointHandler        endpoint.DeleteEndpointHandler
 	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler
 	EndpointGetEndpointHandler           endpoint.GetEndpointHandler
 	EndpointGetEndpointIDConfigHandler   endpoint.GetEndpointIDConfigHandler
@@ -142,6 +143,7 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 
 	if cfg.DatapathMode != datapathOption.DatapathModeLBOnly {
 		// /endpoint/
+		out.EndpointDeleteEndpointHandler = wrapAPIHandler(dp, deleteEndpointHandler)
 		out.EndpointGetEndpointHandler = wrapAPIHandler(dp, getEndpointHandler)
 
 		// /endpoint/{id}

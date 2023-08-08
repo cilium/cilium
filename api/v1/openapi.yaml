@@ -249,6 +249,29 @@ paths:
           description: Endpoints with provided parameters not found
         '429':
           description: Rate-limiting too many requests in the given time frame
+    delete:
+      summary: Deletes a list of endpoints
+      description: |
+        Deletes a list of endpoints that have endpoints matching the provided properties
+      tags:
+        - endpoint
+      parameters:
+        - "$ref": "#/parameters/endpoint-batch-delete-request"
+      responses:
+        '200':
+          description: Success
+        '206':
+          description: Deleted with a number of errors encountered
+          x-go-name: Errors
+          schema:
+            type: integer
+        '400':
+          description: Invalid endpoint delete request
+          x-go-name: Invalid
+        '404':
+          description: No endpoints with provided parameters found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
   "/endpoint/{id}/config":
     get:
       summary: Retrieve endpoint configuration
@@ -1143,6 +1166,12 @@ parameters:
     required: true
     schema:
       "$ref": "#/definitions/EndpointChangeRequest"
+  endpoint-batch-delete-request:
+    name: endpoint
+    in: body
+    required: true
+    schema:
+      "$ref": "#/definitions/EndpointBatchDeleteRequest"
   identity-id:
     name: id
     description: |
@@ -1423,6 +1452,14 @@ definitions:
         type: boolean
       datapath-configuration:
         "$ref": "#/definitions/EndpointDatapathConfiguration"
+  EndpointBatchDeleteRequest:
+    description: |
+      Properties selecting a batch of endpoints to delete.
+    type: object
+    properties:
+      container-id:
+        description: ID assigned by container runtime
+        type: string
   EndpointDatapathConfiguration:
     description: Datapath configuration to be used for the endpoint
     type: object

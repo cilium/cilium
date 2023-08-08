@@ -57,6 +57,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		BinProducer:  runtime.ByteStreamProducer(),
 		JSONProducer: runtime.JSONProducer(),
 
+		EndpointDeleteEndpointHandler: endpoint.DeleteEndpointHandlerFunc(func(params endpoint.DeleteEndpointParams) middleware.Responder {
+			return middleware.NotImplemented("operation endpoint.DeleteEndpoint has not yet been implemented")
+		}),
 		EndpointDeleteEndpointIDHandler: endpoint.DeleteEndpointIDHandlerFunc(func(params endpoint.DeleteEndpointIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation endpoint.DeleteEndpointID has not yet been implemented")
 		}),
@@ -258,6 +261,8 @@ type CiliumAPIAPI struct {
 	//   - application/json
 	JSONProducer runtime.Producer
 
+	// EndpointDeleteEndpointHandler sets the operation handler for the delete endpoint operation
+	EndpointDeleteEndpointHandler endpoint.DeleteEndpointHandler
 	// EndpointDeleteEndpointIDHandler sets the operation handler for the delete endpoint ID operation
 	EndpointDeleteEndpointIDHandler endpoint.DeleteEndpointIDHandler
 	// PolicyDeleteFqdnCacheHandler sets the operation handler for the delete fqdn cache operation
@@ -446,6 +451,9 @@ func (o *CiliumAPIAPI) Validate() error {
 		unregistered = append(unregistered, "JSONProducer")
 	}
 
+	if o.EndpointDeleteEndpointHandler == nil {
+		unregistered = append(unregistered, "endpoint.DeleteEndpointHandler")
+	}
 	if o.EndpointDeleteEndpointIDHandler == nil {
 		unregistered = append(unregistered, "endpoint.DeleteEndpointIDHandler")
 	}
@@ -698,6 +706,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers = make(map[string]map[string]http.Handler)
 	}
 
+	if o.handlers["DELETE"] == nil {
+		o.handlers["DELETE"] = make(map[string]http.Handler)
+	}
+	o.handlers["DELETE"]["/endpoint"] = endpoint.NewDeleteEndpoint(o.context, o.EndpointDeleteEndpointHandler)
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}

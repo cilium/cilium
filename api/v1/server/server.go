@@ -59,6 +59,7 @@ type serverParams struct {
 	Logger     logrus.FieldLogger
 	Spec       *Spec
 
+	EndpointDeleteEndpointHandler        endpoint.DeleteEndpointHandler
 	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler
 	PolicyDeleteFqdnCacheHandler         policy.DeleteFqdnCacheHandler
 	IpamDeleteIpamIPHandler              ipam.DeleteIpamIPHandler
@@ -120,6 +121,7 @@ func newForCell(p serverParams) (*Server, error) {
 
 	// Construct the API from the provided handlers
 
+	api.EndpointDeleteEndpointHandler = p.EndpointDeleteEndpointHandler
 	api.EndpointDeleteEndpointIDHandler = p.EndpointDeleteEndpointIDHandler
 	api.PolicyDeleteFqdnCacheHandler = p.PolicyDeleteFqdnCacheHandler
 	api.IpamDeleteIpamIPHandler = p.IpamDeleteIpamIPHandler

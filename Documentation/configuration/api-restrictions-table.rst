@@ -9,6 +9,8 @@ The following API flags are compatible with the ``cilium-agent`` flag
 ===================== ====================
 Flag Name             Description
 ===================== ====================
+DeleteEndpoint        Deletes a list of endpoints that have endpoints matching the
+                      provided properties
 DeleteEndpointID      Deletes the endpoint specified by the ID. Deletion is
                       imminent and atomic, if the deletion request is valid and
                       the endpoint exists, deletion will occur even if errors are
