@@ -403,7 +403,8 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	// nodev1: ip4Alloc1, ip6alloc1 => externalNodeIP1
 	nodev1 := nodeTypes.Node{
-		Name: "node1",
+		Name:      "node1",
+		ClusterID: 11,
 		IPAddresses: []nodeTypes.Address{
 			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
 		},
@@ -441,7 +442,8 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	// nodev2: ip4Alloc1, ip6alloc1 => externalNodeIP2
 	nodev2 := nodeTypes.Node{
-		Name: "node1",
+		Name:      "node1",
+		ClusterID: 11,
 		IPAddresses: []nodeTypes.Address{
 			{IP: externalNodeIP2, Type: nodeaddressing.NodeInternalIP},
 		},
@@ -480,7 +482,8 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	// nodev3: ip4Alloc2, ip6alloc2 => externalNodeIP1
 	nodev3 := nodeTypes.Node{
-		Name: "node1",
+		Name:      "node1",
+		ClusterID: 11,
 		IPAddresses: []nodeTypes.Address{
 			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
 		},
@@ -539,7 +542,8 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	// nodev4: stop announcing CIDRs
 	nodev4 := nodeTypes.Node{
-		Name: "node1",
+		Name:      "node1",
+		ClusterID: 11,
 		IPAddresses: []nodeTypes.Address{
 			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
 		},
@@ -570,7 +574,8 @@ func (s *linuxPrivilegedBaseTestSuite) TestNodeUpdateEncapsulation(c *check.C) {
 
 	// nodev5: re-announce CIDRs
 	nodev5 := nodeTypes.Node{
-		Name: "node1",
+		Name:      "node1",
+		ClusterID: 11,
 		IPAddresses: []nodeTypes.Address{
 			{IP: externalNodeIP1, Type: nodeaddressing.NodeInternalIP},
 		},
