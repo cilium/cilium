@@ -128,8 +128,6 @@
         // want to update them automatically.
         "go.universe.tf/metallb",
         "github.com/cilium/metallb",
-        "github.com/vishvananda/netlink",
-        "github.com/cilium/netlink",
         // metallb is still using an old version of "github.com/mdlayher/arp"
         "github.com/mdlayher/arp",
         "github.com/miekg/dns",
