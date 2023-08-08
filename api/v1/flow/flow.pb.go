@@ -159,7 +159,8 @@ func (TraceObservationPoint) EnumDescriptor() ([]byte, []int) {
 }
 
 // This enum corresponds to Cilium's L7 accesslog FlowType:
-//   https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L26
+//
+//	https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L26
 type L7FlowType int32
 
 const (
@@ -1360,6 +1361,7 @@ type Layer4 struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Protocol:
+	//
 	//	*Layer4_TCP
 	//	*Layer4_UDP
 	//	*Layer4_ICMPv4
@@ -1464,7 +1466,8 @@ func (*Layer4_ICMPv4) isLayer4_Protocol() {}
 func (*Layer4_ICMPv6) isLayer4_Protocol() {}
 
 // Message for L7 flow, which roughly corresponds to Cilium's accesslog LogRecord:
-//   https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141
+//
+//	https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141
 type Layer7 struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1476,6 +1479,7 @@ type Layer7 struct {
 	// L7 field. This field is set if and only if FlowType is L7.
 	//
 	// Types that are assignable to Record:
+	//
 	//	*Layer7_Dns
 	//	*Layer7_Http
 	//	*Layer7_Kafka
@@ -2599,7 +2603,8 @@ func (x *FlowFilter) GetIpVersion() []IPVersion {
 }
 
 // DNS flow. This is basically directly mapped from Cilium's LogRecordDNS:
-//     https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264
+//
+//	https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264
 type DNS struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2614,13 +2619,16 @@ type DNS struct {
 	// List of CNames in the DNS response.
 	Cnames []string `protobuf:"bytes,4,rep,name=cnames,proto3" json:"cnames,omitempty"`
 	// Corresponds to DNSDataSource defined in:
-	//   https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L253
+	//
+	//	https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L253
 	ObservationSource string `protobuf:"bytes,5,opt,name=observation_source,json=observationSource,proto3" json:"observation_source,omitempty"`
 	// Return code of the DNS request defined in:
-	//   https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
+	//
+	//	https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6
 	Rcode uint32 `protobuf:"varint,6,opt,name=rcode,proto3" json:"rcode,omitempty"`
 	// String representation of qtypes defined in:
-	//   https://tools.ietf.org/html/rfc1035#section-3.2.3
+	//
+	//	https://tools.ietf.org/html/rfc1035#section-3.2.3
 	Qtypes []string `protobuf:"bytes,7,rep,name=qtypes,proto3" json:"qtypes,omitempty"`
 	// String representation of rrtypes defined in:
 	// https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
@@ -2771,7 +2779,8 @@ func (x *HTTPHeader) GetValue() string {
 }
 
 // L7 information for HTTP flows. It corresponds to Cilium's accesslog.LogRecordHTTP type.
-//   https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206
+//
+//	https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206
 type HTTP struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2852,7 +2861,8 @@ func (x *HTTP) GetHeaders() []*HTTPHeader {
 }
 
 // L7 information for Kafka flows. It corresponds to Cilium's accesslog.LogRecordKafka type.
-//   https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229
+//
+//	https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229
 type Kafka struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -3063,6 +3073,7 @@ type AgentEvent struct {
 
 	Type AgentEventType `protobuf:"varint,1,opt,name=type,proto3,enum=flow.AgentEventType" json:"type,omitempty"`
 	// Types that are assignable to Notification:
+	//
 	//	*AgentEvent_Unknown
 	//	*AgentEvent_AgentStart
 	//	*AgentEvent_PolicyUpdate
