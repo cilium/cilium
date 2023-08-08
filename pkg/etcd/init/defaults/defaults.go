@@ -31,6 +31,4 @@ const (
 	RemoteRoleName = "remote"
 	// RemoteUserName is the name used by the "external workload" user that we create in etcd
 	RemoteUserName = "Remote"
-	// KeyHasClusterConfig is the name of the key used to define if we've already configured etcd
-	KeyHasClusterConfig = "cilium/.has-cluster-config"
 )

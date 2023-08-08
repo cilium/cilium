@@ -7,10 +7,11 @@ import (
 	"go.etcd.io/etcd/client/v3"
 
 	"github.com/cilium/cilium/pkg/etcd/init/defaults"
+	"github.com/cilium/cilium/pkg/kvstore"
 )
 
 func InitEtcd(ctx context.Context, client *clientv3.Client, clusterName string) error {
-	_, err := client.Put(ctx, defaults.KeyHasClusterConfig, "true")
+	_, err := client.Put(ctx, kvstore.HasClusterConfigPath, "true")
 	if err != nil {
 		return err
 	}
