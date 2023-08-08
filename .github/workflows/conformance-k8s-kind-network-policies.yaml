@@ -28,6 +28,7 @@ env:
   cilium_cli_version: v0.15.5
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
+  # renovate: datasource=docker depName=kindest/node
   k8s_version: v1.27.1
 
 jobs:
