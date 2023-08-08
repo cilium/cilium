@@ -1025,7 +1025,7 @@ func TestChangeServiceType(t *testing.T) {
 
 // TestAllowFirstLastIPs tests that first and last IPs are assigned when we set .spec.allowFirstLastIPs to yes.
 func TestAllowFirstLastIPs(t *testing.T) {
-	pool := mkPool(poolAUID, "pool-a", []string{"10.0.10.123/32"})
+	pool := mkPool(poolAUID, "pool-a", []string{"10.0.10.16/30"})
 	pool.Spec.AllowFirstLastIPs = cilium_api_v2alpha1.AllowFirstLastIPYes
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
 		pool,
@@ -1045,6 +1045,7 @@ func TestAllowFirstLastIPs(t *testing.T) {
 				IPFamilies: []slim_core_v1.IPFamily{
 					slim_core_v1.IPv4Protocol,
 				},
+				LoadBalancerIP: "10.0.10.16",
 			},
 		},
 	)
@@ -1097,7 +1098,7 @@ func TestAllowFirstLastIPs(t *testing.T) {
 func TestUpdateAllowFirstAndLastIPs(t *testing.T) {
 	// Add pool which does not allow first and last IPs
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
-		mkPool(poolAUID, "pool-a", []string{"10.0.10.123/32"}),
+		mkPool(poolAUID, "pool-a", []string{"10.0.10.16/30"}),
 	}, true, true, nil)
 
 	policy := slim_core_v1.IPFamilyPolicySingleStack
@@ -1114,6 +1115,7 @@ func TestUpdateAllowFirstAndLastIPs(t *testing.T) {
 				IPFamilies: []slim_core_v1.IPFamily{
 					slim_core_v1.IPv4Protocol,
 				},
+				LoadBalancerIP: "10.0.10.16",
 			},
 		},
 	)

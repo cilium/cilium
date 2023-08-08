@@ -1100,8 +1100,13 @@ func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2alpha1
 			// TODO: in 1.16 switch from default no to default yes.
 			// https://github.com/cilium/cilium/issues/28591
 			from, to := lbRange.alloc.Range()
-			lbRange.alloc.Alloc(from, true)
-			lbRange.alloc.Alloc(to, true)
+
+			// If the first and last IPs are the same or adjacent, we would reserve the entire range.
+			// Only reserve first and last IPs for ranges /30 or /126 and larger.
+			if !(from.Compare(to) == 0 || from.Next().Compare(to) == 0) {
+				lbRange.alloc.Alloc(from, true)
+				lbRange.alloc.Alloc(to, true)
+			}
 		}
 
 		ipam.rangesStore.Add(lbRange)
@@ -1190,14 +1195,22 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 				if pool.Spec.AllowFirstLastIPs == cilium_api_v2alpha1.AllowFirstLastIPYes {
 					// If we are allowing first and last IPs again, free them for allocation
 					from, to := extRange.alloc.Range()
-					extRange.alloc.Free(from)
-					extRange.alloc.Free(to)
+
+					if !(from.Compare(to) == 0 || from.Next().Compare(to) == 0) {
+						extRange.alloc.Free(from)
+						extRange.alloc.Free(to)
+					}
 				} else {
 					// If we are disallowing first and last IPs, alloc the first and last IP if they are not already allocated.
 					// Note: This will not revoke IPs that are already allocated to services.
 					from, to := extRange.alloc.Range()
-					extRange.alloc.Alloc(from, true)
-					extRange.alloc.Alloc(to, true)
+
+					// If the first and last IPs are the same or adjacent, we would reserve the entire range.
+					// Only reserve first and last IPs for ranges /30 or /126 and larger.
+					if !(from.Compare(to) == 0 || from.Next().Compare(to) == 0) {
+						extRange.alloc.Alloc(from, true)
+						extRange.alloc.Alloc(to, true)
+					}
 				}
 			}
 
@@ -1236,8 +1249,13 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 			// TODO: in 1.16 switch from default no to default yes.
 			// https://github.com/cilium/cilium/issues/28591
 			from, to := newLBRange.alloc.Range()
-			newLBRange.alloc.Alloc(from, true)
-			newLBRange.alloc.Alloc(to, true)
+
+			// If the first and last IPs are the same or adjacent, we would reserve the entire range.
+			// Only reserve first and last IPs for ranges /30 or /126 and larger.
+			if !(from.Compare(to) == 0 || from.Next().Compare(to) == 0) {
+				newLBRange.alloc.Alloc(from, true)
+				newLBRange.alloc.Alloc(to, true)
+			}
 		}
 
 		ipam.rangesStore.Add(newLBRange)
