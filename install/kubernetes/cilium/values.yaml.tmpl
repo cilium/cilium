@@ -3116,6 +3116,9 @@ authentication:
         server:
           # -- SPIRE server image
           image: ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f
+          # -- SPIRE configuration image
+          spireConfig:
+            image: docker.io/library/busybox:1.35.0@sha256:223ae047b1065bd069aac01ae3ac8088b3ca4a527827e283b85112f29385fb1b
           # -- SPIRE server service account
           serviceAccount:
             create: true
