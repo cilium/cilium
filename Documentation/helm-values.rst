@@ -152,6 +152,14 @@
      - SPIRE server nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
      - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.server.podSecurityContext`
+     - Security context to be added to spire server pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+     - object
+     - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.server.securityContext`
+     - Security context to be added to spire server containers. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+     - object
+     - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.service.annotations`
      - Annotations to be added to the SPIRE server service
      - object
