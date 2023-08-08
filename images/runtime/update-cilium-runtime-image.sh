@@ -23,13 +23,6 @@ for i in "${used_by[@]}" ; do
 done
 
 # shellcheck disable=SC2207
-jenkins_used_by=($(git grep -l "${image}:" jenkinsfiles/))
-
-for i in "${jenkins_used_by[@]}" ; do
-  sed -E "s#\"${image}:.*\"#\"${image_full}\"#" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
-done
-
-# shellcheck disable=SC2207
 github_used_by=($(git grep -l "${image}:" .github/workflows/))
 
 for i in "${github_used_by[@]}" ; do
