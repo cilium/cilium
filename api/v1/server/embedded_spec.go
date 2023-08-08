@@ -209,6 +209,40 @@ func init() {
             "description": "Rate-limiting too many requests in the given time frame"
           }
         }
+      },
+      "delete": {
+        "description": "Deletes a list of endpoints that have endpoints matching the provided properties\n",
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Deletes a list of endpoints",
+        "parameters": [
+          {
+            "$ref": "#/parameters/endpoint-batch-delete-request"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "206": {
+            "description": "Deleted with a number of errors encountered",
+            "schema": {
+              "type": "integer"
+            },
+            "x-go-name": "Errors"
+          },
+          "400": {
+            "description": "Invalid endpoint delete request",
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "No endpoints with provided parameters found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
+          }
+        }
       }
     },
     "/endpoint/{id}": {
@@ -2483,6 +2517,16 @@ func init() {
         "status": {
           "description": "The desired and realized configuration state of the endpoint",
           "$ref": "#/definitions/EndpointStatus"
+        }
+      }
+    },
+    "EndpointBatchDeleteRequest": {
+      "description": "Properties selecting a batch of endpoints to delete.\n",
+      "type": "object",
+      "properties": {
+        "container-id": {
+          "description": "ID assigned by container runtime",
+          "type": "string"
         }
       }
     },
@@ -4820,6 +4864,14 @@ func init() {
       "name": "cidr",
       "in": "query"
     },
+    "endpoint-batch-delete-request": {
+      "name": "endpoint",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "$ref": "#/definitions/EndpointBatchDeleteRequest"
+      }
+    },
     "endpoint-change-request": {
       "name": "endpoint",
       "in": "body",
@@ -5173,6 +5225,45 @@ func init() {
           },
           "404": {
             "description": "Endpoints with provided parameters not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
+          }
+        }
+      },
+      "delete": {
+        "description": "Deletes a list of endpoints that have endpoints matching the provided properties\n",
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Deletes a list of endpoints",
+        "parameters": [
+          {
+            "name": "endpoint",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/EndpointBatchDeleteRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "206": {
+            "description": "Deleted with a number of errors encountered",
+            "schema": {
+              "type": "integer"
+            },
+            "x-go-name": "Errors"
+          },
+          "400": {
+            "description": "Invalid endpoint delete request",
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "No endpoints with provided parameters found"
           },
           "429": {
             "description": "Rate-limiting too many requests in the given time frame"
@@ -7705,6 +7796,16 @@ func init() {
         "status": {
           "description": "The desired and realized configuration state of the endpoint",
           "$ref": "#/definitions/EndpointStatus"
+        }
+      }
+    },
+    "EndpointBatchDeleteRequest": {
+      "description": "Properties selecting a batch of endpoints to delete.\n",
+      "type": "object",
+      "properties": {
+        "container-id": {
+          "description": "ID assigned by container runtime",
+          "type": "string"
         }
       }
     },
@@ -10485,6 +10586,14 @@ func init() {
       "description": "A CIDR range of IPs",
       "name": "cidr",
       "in": "query"
+    },
+    "endpoint-batch-delete-request": {
+      "name": "endpoint",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "$ref": "#/definitions/EndpointBatchDeleteRequest"
+      }
     },
     "endpoint-change-request": {
       "name": "endpoint",
