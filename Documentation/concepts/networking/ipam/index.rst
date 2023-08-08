@@ -21,6 +21,7 @@ Cilium. Various IPAM modes are supported to meet the needs of different users:
    cluster-pool
    kubernetes
    azure
+   azure-delegated-ipam
    eni
    gke
    crd

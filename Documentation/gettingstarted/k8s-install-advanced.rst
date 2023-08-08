@@ -37,6 +37,7 @@ External Installers
    :maxdepth: 1
    :glob:
 
+   k8s-install-aks
    k8s-install-kops
    k8s-install-kubespray
    k8s-install-kubeadm
