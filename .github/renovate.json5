@@ -10,6 +10,8 @@
   "includePaths": [
     ".github/actions/ginkgo/**",
     ".github/workflows/**",
+    ".github/kind-config.yaml",
+    ".github/kind-config-ipv6.yaml",
     "images/**",
     "examples/hubble/*",
     "go.mod",
@@ -371,10 +373,27 @@
       ],
     },
     {
+      "groupName": "all kind-images main",
+      "groupSlug": "all-kind-images-main",
+      "matchPackageNames": [
+        "kindest/node"
+      ],
+      "matchUpdateTypes": [
+        "digest",
+        "patch",
+        "pin",
+        "pinDigest"
+      ],
+      "schedule": [
+        "on monday"
+      ],
+    },
+    {
       // Do not allow any updates for major.minor, they will be done by maintainers
       "enabled": false,
       "matchPackageNames": [
-        "quay.io/lvh-images/kind"
+        "quay.io/lvh-images/kind",
+        "kindest/node"
       ],
       "matchUpdateTypes": [
         "major",
@@ -418,7 +437,8 @@
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION: (?<currentValue>.*)",
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+kernel: '(?<currentValue>.*)'",
         '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+kernel: "(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
-        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+image-version: "(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"'
+        '# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*)\\s+.+image-version: "(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"',
+        '# renovate: datasource=(?<datasource>.*?)\\s+.+kube-image: "(?<depName>.*):(?<currentValue>.*)@(?<currentDigest>sha256:[a-f0-9]+)"'
       ]
     },
     {
