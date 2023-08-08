@@ -51,6 +51,9 @@ type remoteCluster struct {
 	// changes in the remote cluster
 	ipCacheWatcher *ipcache.IPIdentityWatcher
 
+	// ipCacheWatcherExtraOpts returns extra options for watching ipcache entries.
+	ipCacheWatcherExtraOpts IPCacheWatcherOptsFn
+
 	// remoteIdentityCache is a locally cached copy of the identity
 	// allocations in the remote cluster
 	remoteIdentityCache *allocator.RemoteCache
@@ -111,7 +114,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	})
 
 	mgr.Register(adapter(ipcache.IPIdentitiesPath), func(ctx context.Context) {
-		rc.ipCacheWatcher.Watch(ctx, backend, ipcache.WithCachedPrefix(capabilities.Cached))
+		rc.ipCacheWatcher.Watch(ctx, backend, rc.ipCacheWatcherOpts(config)...)
 	})
 
 	mgr.Register(adapter(identityCache.IdentitiesPath), func(ctx context.Context) {
@@ -182,4 +185,18 @@ func (rc *remoteCluster) onUpdateConfig(newConfig *cmtypes.CiliumClusterConfig) 
 	rc.config = newConfig
 
 	return nil
+}
+
+func (rc *remoteCluster) ipCacheWatcherOpts(config *cmtypes.CiliumClusterConfig) []ipcache.IWOpt {
+	var opts []ipcache.IWOpt
+
+	if config != nil {
+		opts = append(opts, ipcache.WithCachedPrefix(config.Capabilities.Cached))
+	}
+
+	if rc.ipCacheWatcherExtraOpts != nil {
+		opts = append(opts, rc.ipCacheWatcherExtraOpts(config)...)
+	}
+
+	return opts
 }

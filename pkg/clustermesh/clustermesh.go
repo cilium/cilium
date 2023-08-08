@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh/internal"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -61,6 +62,9 @@ type Configuration struct {
 	// ServiceIPGetter, if not nil, is used to create a custom dialer for service resolution.
 	ServiceIPGetter k8s.ServiceIPGetter
 
+	// IPCacheWatcherExtraOpts returns extra options for watching ipcache entries.
+	IPCacheWatcherExtraOpts IPCacheWatcherOptsFn `optional:"true"`
+
 	Metrics         Metrics
 	InternalMetrics internal.Metrics
 }
@@ -79,6 +83,10 @@ type RemoteIdentityWatcher interface {
 	// emitting a deletion event for all previously known identities.
 	RemoveRemoteIdentities(name string)
 }
+
+// IPCacheWatcherOptsFn is a function which returns extra options for watching
+// ipcache entries.
+type IPCacheWatcherOptsFn func(config *cmtypes.CiliumClusterConfig) []ipcache.IWOpt
 
 // ClusterMesh is a cache of multiple remote clusters
 type ClusterMesh struct {
@@ -186,6 +194,7 @@ func (cm *ClusterMesh) newRemoteCluster(name string, status internal.StatusFunc)
 	)
 
 	rc.ipCacheWatcher = ipcache.NewIPIdentityWatcher(name, cm.conf.IPCache)
+	rc.ipCacheWatcherExtraOpts = cm.conf.IPCacheWatcherExtraOpts
 
 	return rc
 }
