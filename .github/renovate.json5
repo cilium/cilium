@@ -69,7 +69,8 @@
         ".github/workflows/**"
       ],
       excludeDepNames: [
-        "quay.io/lvh-images/kind"
+        "quay.io/lvh-images/kind",
+        "quay.io/cilium/kindest-node"
       ],
       "matchUpdateTypes": [
         "major",
@@ -376,7 +377,8 @@
       "groupName": "all kind-images main",
       "groupSlug": "all-kind-images-main",
       "matchPackageNames": [
-        "kindest/node"
+        "kindest/node",
+        "quay.io/cilium/kindest-node"
       ],
       "matchUpdateTypes": [
         "digest",
@@ -393,12 +395,19 @@
       "enabled": false,
       "matchPackageNames": [
         "quay.io/lvh-images/kind",
-        "kindest/node"
+        "kindest/node",
+        "quay.io/cilium/kindest-node"
       ],
       "matchUpdateTypes": [
         "major",
         "minor"
       ],
+    },
+    {
+      "matchPackageNames": [
+        "quay.io/cilium/kindest-node"
+      ],
+      "ignoreUnstable": false,
     }
   ],
   "kubernetes": {
