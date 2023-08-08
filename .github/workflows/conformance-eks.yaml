@@ -57,6 +57,7 @@ env:
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.143.0
   kubectl_version: v1.27.2
 
@@ -180,7 +181,7 @@ jobs:
 
       - name: Install eksctl CLI
         run: |
-          curl -LO "https://github.com/weaveworks/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
+          curl -LO "https://github.com/eksctl-io/eksctl/releases/download/${{ env.eksctl_version }}/eksctl_$(uname -s)_amd64.tar.gz"
           sudo tar xzvfC eksctl_$(uname -s)_amd64.tar.gz /usr/bin
           rm eksctl_$(uname -s)_amd64.tar.gz
 
