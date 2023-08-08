@@ -308,8 +308,9 @@ generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observ
 
 define generate_k8s_api
 	$(QUIET) cd "./vendor/k8s.io/code-generator" && \
-	bash ./generate-groups.sh $(1) \
+	bash ./generate-internal-groups.sh $(1) \
 	    $(2) \
+	    "" \
 	    $(3) \
 	    $(4) \
 	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
