@@ -13,10 +13,12 @@ External Installers
    :maxdepth: 2
    :glob:
 
+   k8s-install-aks
    k8s-install-kops
    k8s-install-kubespray
    k8s-install-kubeadm
    k8s-install-rancher-existing-nodes
    k8s-install-rke
    rancher-desktop
+
 
