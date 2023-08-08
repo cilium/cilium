@@ -13,6 +13,7 @@ import (
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -257,13 +258,15 @@ func (s PrefixInfo) logConflicts(scopedLog *logrus.Entry) {
 
 		if info.tunnelPeer.IsValid() {
 			if tunnelPeer.IsValid() {
-				scopedLog.WithFields(logrus.Fields{
-					logfields.TunnelPeer:            tunnelPeer.String(),
-					logfields.Resource:              tunnelPeerResourceID,
-					logfields.ConflictingTunnelPeer: info.tunnelPeer.String(),
-					logfields.ConflictingResource:   resourceID,
-				}).Warning("Detected conflicting tunnel peer for prefix. " +
-					"This may cause connectivity issues for this address.")
+				if option.Config.TunnelingEnabled() {
+					scopedLog.WithFields(logrus.Fields{
+						logfields.TunnelPeer:            tunnelPeer.String(),
+						logfields.Resource:              tunnelPeerResourceID,
+						logfields.ConflictingTunnelPeer: info.tunnelPeer.String(),
+						logfields.ConflictingResource:   resourceID,
+					}).Warning("Detected conflicting tunnel peer for prefix. " +
+						"This may cause connectivity issues for this address.")
+				}
 			} else {
 				tunnelPeer = info.tunnelPeer
 				tunnelPeerResourceID = resourceID
