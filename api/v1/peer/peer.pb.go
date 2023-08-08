@@ -127,8 +127,8 @@ type ChangeNotification struct {
 	// to the peer name and a forward slash is added.
 	//
 	// Examples:
-	//  - runtime1
-	//  - testcluster/runtime1
+	//   - runtime1
+	//   - testcluster/runtime1
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Address is the address of the peer's gRPC service.
 	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
