@@ -23,6 +23,8 @@ IPs.
 LB IPAM is always enabled but dormant. The controller is awoken when the first
 IP Pool is added to the cluster.
 
+.. _lb_ipam_pools:
+
 Pools
 #####
 
@@ -52,6 +54,33 @@ After adding the pool to the cluster, it appears like so.
     $ kubectl get ippools                           
     NAME        DISABLED   CONFLICTING   IPS AVAILABLE   AGE
     blue-pool   false      False         65788           2s
+
+CIDRs, Ranges and reserved IPs
+------------------------------
+
+An IP pool can have multiple blocks of IPs. A block can be specified with CIDR
+notation (<prefix>/<bits>) or a range notation with a start and stop IP. As
+pictured in :ref:`lb_ipam_pools`.
+
+CIDRs are often used to specify routable IP ranges. By convention, the first
+and the last IP of a CIDR are reserved. The first IP is the 
+"network address" and the last IP is the "broadcast address". In some networks
+these IPs are not usable and they do not always play well with all network 
+equipment. LB-IPAM will not assign these by default. Exceptions are /32 and 
+/31 IPv4 CIDRs and /128 and /127 IPv6 CIDRs since these only have 1 or 2 IPs 
+respectively.
+
+If you wish to use the first and last IPs of CIDRs, you can set the 
+``.spec.allowFirstLastIPs`` field to ``yes``.
+
+Since Ranges are typically used to indicate subsections of routable IP ranges,
+no IPs are reserved.
+
+.. warning::
+
+  In v1.15, ``.spec.allowFirstLastIPs`` defaults to ``no``. This will change to
+  ``yes`` in v1.16. Please set this field explicitly if you rely on the field
+  being set to ``no``.
 
 Service Selectors
 -----------------
