@@ -4,9 +4,12 @@
 package options
 
 import (
-	"fmt"
-
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	HttpUrlQuery = "http-url-query"
+	KafkaApiKey  = "kafka-api-key"
 )
 
 // Option is used to configure parsers
@@ -27,14 +30,25 @@ func CacheSize(size int) Option {
 }
 
 // Redact configures which data Hubble will redact.
-func Redact(logger logrus.FieldLogger, httpQuery bool, kafkaApiKey bool) Option {
+func Redact(logger logrus.FieldLogger, hubbleRedactOptions []string) Option {
 	return func(opt *Options) {
-		opt.RedactHTTPQuery = httpQuery
-		opt.RedactKafkaAPIKey = kafkaApiKey
+		validOpts := []string{}
+		for _, option := range hubbleRedactOptions {
+			switch option {
+			case HttpUrlQuery:
+				opt.RedactHTTPQuery = true
+			case KafkaApiKey:
+				opt.RedactKafkaAPIKey = true
+			default:
+				if logger != nil {
+					logger.WithField("option", option).Warn("ignoring unknown Hubble redact option")
+				}
+				continue
+			}
+			validOpts = append(validOpts, option)
+		}
 		if logger != nil {
-			logger.WithField(
-				"options",
-				fmt.Sprintf("%+v", opt)).Info("configured Hubble with redact options")
+			logger.WithField("options", validOpts).Info("configured Hubble with redact options")
 		}
 	}
 }
