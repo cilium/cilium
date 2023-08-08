@@ -84,9 +84,6 @@ jobs:
             kpr: 'disabled'
             tunnel: 'disabled'
             encryption: 'ipsec'
-            encryption-node: 'false'
-            debug: 'true'
-            test-flow-interrupts: 'true'
             ipv6: 'false' # until https://github.com/cilium/cilium/issues/26944 resolved
 
           - name: '2'
@@ -96,9 +93,7 @@ jobs:
             kpr: 'disabled'
             tunnel: 'disabled'
             encryption: 'ipsec'
-            encryption-node: 'false'
             endpoint-routes: 'true'
-            test-flow-interrupts: 'true'
             ipv6: 'false' # until https://github.com/cilium/cilium/issues/26944 resolved
 
           - name: '3'
@@ -108,9 +103,7 @@ jobs:
             kpr: 'disabled'
             tunnel: 'vxlan'
             encryption: 'ipsec'
-            encryption-node: 'false'
             endpoint-routes: 'true'
-            test-flow-interrupts: 'true'
             ipv6: 'false' # until https://github.com/cilium/cilium/issues/26944 resolved
 
     timeout-minutes: 60
@@ -218,20 +211,7 @@ jobs:
 
           CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
           echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
-          
-          JUNIT=""
-          for NAME in ${{ matrix.kube-proxy }} ${{ matrix.tunnel }} ${{ matrix.lb-mode }} ${{ matrix.encryption }} ${{ matrix.endpoint-routes }}; do
-            if [[ "${NAME}" != "" ]] && [[ "${NAME}" != "disabled" ]] && [[ "${NAME}" != "none" ]]; then
-              if [[ "${JUNIT}" != "" ]]; then
-                JUNIT+="-"
-              fi
-              if [[ "${NAME}" == "true" ]];then
-                NAME="endpoint-routes"
-              fi
-              JUNIT+="${NAME}"
-            fi
-          done
-          echo junit_type="${JUNIT}" >> $GITHUB_OUTPUT
+
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Checkout pull request for Helm chart
