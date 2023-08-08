@@ -524,7 +524,6 @@ ct_recreate6:
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
 					  *dst_sec_identity, 0, 0,
 					  trace.reason, trace.monitor);
-			ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
 		}
@@ -966,7 +965,6 @@ ct_recreate4:
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL,
 					  *dst_sec_identity, 0, 0,
 					  trace.reason, trace.monitor);
-			ctx->tc_index |= TC_INDEX_F_SKIP_RECIRCULATION;
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
 			return DROP_MISSED_TAIL_CALL;
 		}
