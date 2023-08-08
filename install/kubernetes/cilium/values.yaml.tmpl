@@ -786,7 +786,7 @@ encryption:
   strictMode:
     # -- Enable WireGuard Pod2Pod strict mode.
     enabled: false
-    
+
     # -- CIDR for the WireGuard Pod2Pod strict mode.
     cidr: ""
 
@@ -3206,6 +3206,14 @@ authentication:
             accessMode: ReadWriteOnce
             # -- StorageClass of the SPIRE server data storage
             storageClass: null
+          # -- Security context to be added to spire server pods.
+          # SecurityContext holds pod-level security attributes and common container settings.
+          # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+          podSecurityContext: {}
+          # -- Security context to be added to spire server containers.
+          # SecurityContext holds pod-level security attributes and common container settings.
+          # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+          securityContext: {}
           # SPIRE CA configuration
           ca:
             # -- SPIRE CA key type
