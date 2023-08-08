@@ -139,15 +139,8 @@ func (d *Daemon) launchHubble() {
 		)
 	}
 
-	if option.Config.HubbleRedact {
-		parserOpts = append(
-			parserOpts,
-			parserOptions.Redact(
-				logger,
-				option.Config.HubbleRedactHttpURLQuery,
-				option.Config.HubbleRedactKafkaApiKey,
-			),
-		)
+	if len(option.Config.HubbleRedact) > 0 {
+		parserOpts = append(parserOpts, parserOptions.Redact(logger, option.Config.HubbleRedact))
 	}
 
 	d.linkCache = link.NewLinkCache()

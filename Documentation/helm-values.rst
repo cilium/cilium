@@ -1429,9 +1429,9 @@
      - bool
      - ``false``
    * - :spelling:ignore:`hubble.redact`
-     - Configures the redact options for Hubble. Example:    redact:     enabled: true     http:       urlQuery: true     kafka:       apiKey: false  You can specify the options from the helm CLI:    --set hubble.redact="true"   --set hubble.redact.http.urlQuery="true"   --set hubble.redact.kafka.apiKey="false"
-     - object
-     - ``{"enabled":false,"http":{"urlQuery":false},"kafka":{"apiKey":false}}``
+     - Configures the list of redact options for Hubble. Example:    redact:   - http-url-query   - kafka-api-key  You can specify the list of options from the helm CLI:    --set hubble.redact="{http-url-query,kafka-api-key}"
+     - string
+     - ``nil``
    * - :spelling:ignore:`hubble.relay.affinity`
      - Affinity for hubble-replay
      - object
