@@ -34,6 +34,7 @@ concurrency:
 
 jobs:
   build-and-push-prs:
+    timeout-minutes: 45
     runs-on: ubuntu-20.04
     strategy:
       matrix:
