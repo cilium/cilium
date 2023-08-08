@@ -335,6 +335,34 @@ func (mgr *endpointManager) LookupPodName(name string) *endpoint.Endpoint {
 	return ep
 }
 
+// GetEndpointsByPodName looks up endpoints by namespace + pod name
+func (mgr *endpointManager) GetEndpointsByPodName(namespacedName string) []*endpoint.Endpoint {
+	mgr.mutex.RLock()
+	defer mgr.mutex.RUnlock()
+	eps := make([]*endpoint.Endpoint, 0, 1)
+	for _, ep := range mgr.endpoints {
+		if ep.GetK8sNamespaceAndPodName() == namespacedName {
+			eps = append(eps, ep)
+		}
+	}
+
+	return eps
+}
+
+// GetEndpointsByContainerID looks up endpoints by container ID
+func (mgr *endpointManager) GetEndpointsByContainerID(containerID string) []*endpoint.Endpoint {
+	mgr.mutex.RLock()
+	defer mgr.mutex.RUnlock()
+
+	eps := make([]*endpoint.Endpoint, 0, 1)
+	for _, ep := range mgr.endpoints {
+		if ep.GetContainerID() == containerID {
+			eps = append(eps, ep)
+		}
+	}
+	return eps
+}
+
 // ReleaseID releases the ID of the specified endpoint from the endpointManager.
 // Returns an error if the ID cannot be released.
 func (mgr *endpointManager) ReleaseID(ep *endpoint.Endpoint) error {
