@@ -1,5 +1,5 @@
 # File source with modifications to the coredns corefile
-# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.26/cluster/addons/dns/coredns/coredns.yaml.base
+# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.28/cluster/addons/dns/coredns/coredns.yaml.base
 # __MACHINE_GENERATED_WARNING__
 
 apiVersion: v1
@@ -29,12 +29,6 @@ rules:
   verbs:
   - list
   - watch
-- apiGroups:
-  - ""
-  resources:
-  - nodes
-  verbs:
-  - get
 - apiGroups:
   - discovery.k8s.io
   resources:

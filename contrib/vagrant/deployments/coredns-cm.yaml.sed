@@ -1,5 +1,5 @@
 # File source
-# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.23/cluster/addons/dns/coredns/coredns.yaml.base
+# https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.28/cluster/addons/dns/coredns/coredns.yaml.base
 
 apiVersion: v1
 kind: ConfigMap
@@ -30,3 +30,4 @@ data:
         reload
         loadbalance
     }
+---
