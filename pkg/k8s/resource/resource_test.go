@@ -137,20 +137,8 @@ func TestResource_WithFakeClient(t *testing.T) {
 	ev.Done(nil)
 
 	// Second should be a sync.
-	//
-	// We work around the rare race condition in which we see the same
-	// upsert event twice due to it being inserted into store while Resource's
-	// Add handler finishes after the initial listing has been processed (#23079).
-	// Proper fix is to make sure updates to store happen synchronously with queueing
-	// and subscribing which requires locking around updates to the store (e.g. fork
-	// of informer in style of pkg/k8s/informer).
 	ev, ok = <-events
 	require.True(t, ok, "events channel closed unexpectedly")
-	if ev.Kind == resource.Upsert {
-		t.Logf("Ignored duplicate upsert event")
-		ev.Done(nil)
-		ev = <-events
-	}
 	require.Equal(t, resource.Sync, ev.Kind)
 	require.Nil(t, ev.Object)
 	ev.Done(nil)
@@ -301,68 +289,81 @@ func TestResource_RepeatedDelete(t *testing.T) {
 	require.Nil(t, ev.Object)
 	ev.Done(nil)
 
+	finalVersion := "99999"
+
 	// Repeatedly create and delete the node in the background
 	// while "unreliably" processing some of the delete events.
 	go func() {
-		for i := 0; i < 10000; i++ {
+		for i := 0; i < 1000; i++ {
 			node.ObjectMeta.ResourceVersion = fmt.Sprintf("%d", i)
+
 			fakeClient.KubernetesFakeClientset.Tracker().Create(
 				corev1.SchemeGroupVersion.WithResource("nodes"),
 				node.DeepCopy(), "")
 
-			time.Sleep(time.Microsecond * 10)
+			time.Sleep(time.Microsecond)
 
 			fakeClient.KubernetesFakeClientset.Tracker().Delete(
 				corev1.SchemeGroupVersion.WithResource("nodes"),
 				"", "some-node")
+
+			time.Sleep(time.Microsecond)
 		}
 
-		node.ObjectMeta.ResourceVersion = "9999"
+		// Create final copy of the object to mark the end of the test.
+		node.ObjectMeta.ResourceVersion = finalVersion
 		fakeClient.KubernetesFakeClientset.Tracker().Create(
 			corev1.SchemeGroupVersion.WithResource("nodes"),
 			node.DeepCopy(), "")
-
-		cancel()
 	}()
 
-	var lastVersion uint64
-	var lastNode *corev1.Node
+	var (
+		lastDeleteVersion uint64
+		lastUpsertVersion uint64
+	)
+	exists := false
 
 	for ev := range events {
 		if ev.Kind == resource.Delete {
-			// Check that we don't go back in time
 			version, _ := strconv.ParseUint(ev.Object.ObjectMeta.ResourceVersion, 10, 64)
-			require.LessOrEqual(t, lastVersion, version, "expected always increasing ResourceVersion")
-			lastVersion = version
 
-			lastNode = nil
+			// Objects that we've not witnessed created should not be seen deleted.
+			require.True(t, exists, "delete event for object that we didn't witness being created")
+
+			// The upserted object's version should be less or equal to the deleted object's version.
+			require.Equal(t, lastUpsertVersion, version, "expected deleted object version to equal to last upserted version")
+
+			// Check that we don't go back in time.
+			require.LessOrEqual(t, lastDeleteVersion, version, "expected always increasing ResourceVersion")
+			lastDeleteVersion = version
+
+			// Fail every 3rd deletion to test retrying.
 			if rand.Intn(3) == 0 {
 				ev.Done(errors.New("delete failed"))
 			} else {
+				exists = false
 				ev.Done(nil)
 			}
-		} else {
-			lastNode = ev.Object
+		} else if ev.Kind == resource.Upsert {
+			exists = true
+
+			// Check that we don't go back in time
+			version, _ := strconv.ParseUint(ev.Object.ObjectMeta.ResourceVersion, 10, 64)
+			require.LessOrEqual(t, lastUpsertVersion, version, "expected always increasing ResourceVersion")
+			lastUpsertVersion = version
+
+			if ev.Object.ObjectMeta.ResourceVersion == finalVersion {
+				cancel()
+			}
 			ev.Done(nil)
 		}
-	}
-	require.NotNil(t, lastNode)
-
-	// Cancel the subscriber context and verify that the stream gets completed.
-	cancel()
-
-	// No more events should be observed.
-	ev, ok = <-events
-	if ok {
-		t.Fatalf("unexpected event still in stream: %v", ev)
 	}
 
 	// Finally check that the hive stops correctly. Note that we're not doing this in a
 	// defer to avoid potentially deadlocking on the Fatal calls.
-	if err := hive.Stop(context.TODO()); err != nil {
-		t.Fatalf("hive.Stop failed: %s", err)
-	}
+	require.NoError(t, hive.Stop(context.TODO()))
 }
+
 func TestResource_CompletionOnStop(t *testing.T) {
 	var nodes resource.Resource[*corev1.Node]
 
