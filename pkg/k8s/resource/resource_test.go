@@ -7,7 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"runtime"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -255,6 +257,112 @@ func TestResource_WithFakeClient(t *testing.T) {
 	}
 }
 
+func TestResource_RepeatedDelete(t *testing.T) {
+	var (
+		nodeName = "some-node"
+		node     = &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            nodeName,
+				ResourceVersion: "0",
+			},
+			Status: corev1.NodeStatus{
+				Phase: "init",
+			},
+		}
+
+		nodes          resource.Resource[*corev1.Node]
+		fakeClient, cs = k8sClient.NewFakeClientset()
+
+		events <-chan resource.Event[*corev1.Node]
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	hive := hive.New(
+		cell.Provide(func() k8sClient.Clientset { return cs }),
+		nodesResource,
+		cell.Invoke(func(r resource.Resource[*corev1.Node]) {
+			nodes = r
+
+			// Subscribe prior to starting as it's allowed. Sync event
+			// for early subscribers will be emitted when informer has
+			// synchronized.
+			events = nodes.Events(ctx)
+		}))
+
+	if err := hive.Start(ctx); err != nil {
+		t.Fatalf("hive.Start failed: %s", err)
+	}
+
+	ev, ok := <-events
+	require.True(t, ok, "events channel closed unexpectedly")
+	require.Equal(t, resource.Sync, ev.Kind)
+	require.Nil(t, ev.Object)
+	ev.Done(nil)
+
+	// Repeatedly create and delete the node in the background
+	// while "unreliably" processing some of the delete events.
+	go func() {
+		for i := 0; i < 10000; i++ {
+			node.ObjectMeta.ResourceVersion = fmt.Sprintf("%d", i)
+			fakeClient.KubernetesFakeClientset.Tracker().Create(
+				corev1.SchemeGroupVersion.WithResource("nodes"),
+				node.DeepCopy(), "")
+
+			time.Sleep(time.Microsecond * 10)
+
+			fakeClient.KubernetesFakeClientset.Tracker().Delete(
+				corev1.SchemeGroupVersion.WithResource("nodes"),
+				"", "some-node")
+		}
+
+		node.ObjectMeta.ResourceVersion = "9999"
+		fakeClient.KubernetesFakeClientset.Tracker().Create(
+			corev1.SchemeGroupVersion.WithResource("nodes"),
+			node.DeepCopy(), "")
+
+		cancel()
+	}()
+
+	var lastVersion uint64
+	var lastNode *corev1.Node
+
+	for ev := range events {
+		if ev.Kind == resource.Delete {
+			// Check that we don't go back in time
+			version, _ := strconv.ParseUint(ev.Object.ObjectMeta.ResourceVersion, 10, 64)
+			require.LessOrEqual(t, lastVersion, version, "expected always increasing ResourceVersion")
+			lastVersion = version
+
+			lastNode = nil
+			if rand.Intn(3) == 0 {
+				ev.Done(errors.New("delete failed"))
+			} else {
+				ev.Done(nil)
+			}
+		} else {
+			lastNode = ev.Object
+			ev.Done(nil)
+		}
+	}
+	require.NotNil(t, lastNode)
+
+	// Cancel the subscriber context and verify that the stream gets completed.
+	cancel()
+
+	// No more events should be observed.
+	ev, ok = <-events
+	if ok {
+		t.Fatalf("unexpected event still in stream: %v", ev)
+	}
+
+	// Finally check that the hive stops correctly. Note that we're not doing this in a
+	// defer to avoid potentially deadlocking on the Fatal calls.
+	if err := hive.Stop(context.TODO()); err != nil {
+		t.Fatalf("hive.Stop failed: %s", err)
+	}
+}
 func TestResource_CompletionOnStop(t *testing.T) {
 	var nodes resource.Resource[*corev1.Node]
 
