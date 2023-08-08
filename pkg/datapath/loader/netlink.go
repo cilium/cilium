@@ -25,13 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/sysctl"
 )
 
-type baseDeviceMode string
-
-const (
-	directMode = baseDeviceMode("direct")
-	tunnelMode = baseDeviceMode("tunnel")
-)
-
 func directionToParent(dir string) uint32 {
 	switch dir {
 	case dirIngress:

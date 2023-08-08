@@ -249,7 +249,6 @@
 /bpf/lib/egress_gateway.h @cilium/egress-gateway
 Makefile* @cilium/build
 /bpf/Makefile* @cilium/loader
-/bpf/init.sh @cilium/loader
 /bpf/custom/Makefile* @cilium/build @cilium/loader
 /bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
 /bpf/lib/encrypt.h @cilium/ipsec
