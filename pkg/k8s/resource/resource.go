@@ -11,12 +11,15 @@ import (
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/hive"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
+	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/promise"
@@ -103,9 +106,9 @@ type Resource[T k8sRuntime.Object] interface {
 // See also pkg/k8s/resource/example/main.go for a runnable example.
 func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher, opts ...ResourceOption) Resource[T] {
 	r := &resource[T]{
-		queues: make(map[uint64]*keyQueue),
-		needed: make(chan struct{}, 1),
-		lw:     lw,
+		subscribers: make(map[uint64]*subscriber[T]),
+		needed:      make(chan struct{}, 1),
+		lw:          lw,
 	}
 	r.opts.sourceObj = func() k8sRuntime.Object {
 		var obj T
@@ -172,8 +175,8 @@ type resource[T k8sRuntime.Object] struct {
 
 	needed chan struct{}
 
-	queues map[uint64]*keyQueue
-	subId  uint64
+	subscribers map[uint64]*subscriber[T]
+	subId       uint64
 
 	lw           cache.ListerWatcher
 	synchronized bool // flipped to true when informer has synced.
@@ -237,28 +240,6 @@ func (r *resource[T]) metricEventReceived(action string, valid, equal bool) {
 	metrics.KubernetesEventReceived.WithLabelValues(r.opts.metricScope, action, validStr, equalStr).Inc()
 }
 
-func (r *resource[T]) pushUpdate(key Key) {
-	r.metricEventReceived("update", true, false)
-	r.mu.RLock()
-	for _, queue := range r.queues {
-		queue.AddUpsert(key)
-	}
-	r.mu.RUnlock()
-}
-
-func (r *resource[T]) pushDelete(lastState any) {
-	key := NewKey(lastState)
-	obj := lastState
-	if d, ok := lastState.(cache.DeletedFinalStateUnknown); ok {
-		obj = d.Obj
-	}
-	r.mu.RLock()
-	for _, queue := range r.queues {
-		queue.AddDelete(key, obj)
-	}
-	r.mu.RUnlock()
-}
-
 func (r *resource[T]) Start(hive.HookContext) error {
 	r.wg.Add(1)
 	go r.startWhenNeeded()
@@ -287,15 +268,7 @@ func (r *resource[T]) startWhenNeeded() {
 		return
 	}
 
-	// Construct the informer and run it.
-	handlerFuncs :=
-		cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj any) { r.pushUpdate(NewKey(obj)) },
-			UpdateFunc: func(old any, new any) { r.pushUpdate(NewKey(new)) },
-			DeleteFunc: func(obj any) { r.pushDelete(obj) },
-		}
-
-	store, informer := cache.NewTransformingInformer(r.lw, r.opts.sourceObj(), 0, handlerFuncs, r.opts.transform)
+	store, informer := r.newInformer()
 	r.storeResolver.Resolve(&typedStore[T]{store})
 
 	r.wg.Add(1)
@@ -304,14 +277,14 @@ func (r *resource[T]) startWhenNeeded() {
 		informer.Run(r.ctx.Done())
 	}()
 
-	// Wait for cache to be synced before emitting the sync events.
+	// Wait for cache to be synced before emitting the sync event.
 	if cache.WaitForCacheSync(r.ctx.Done(), informer.HasSynced) {
 		// Emit the sync event for all subscribers. Subscribers
 		// that subscribe afterwards will emit it by checking
 		// r.synchronized.
 		r.mu.Lock()
-		for _, queue := range r.queues {
-			queue.AddSync()
+		for _, sub := range r.subscribers {
+			sub.enqueueSync()
 		}
 		r.synchronized = true
 		r.mu.Unlock()
@@ -357,8 +330,8 @@ func (r *resource[T]) Observe(ctx context.Context, next func(Event[T]), complete
 // before the subscriber can handle the event only the latest state of object
 // is emitted.
 //
-// The 'ctx' is used to cancel the subscription. If cancelled, the subscriber
-// must drain the event channel.
+// The 'ctx' is used to cancel the subscription. The returned channel will be
+// closed when context is cancelled.
 //
 // Options are supported to configure rate limiting of retries
 // (WithRateLimiter), error handling strategy (WithErrorHandler).
@@ -380,30 +353,20 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 	// Mark the resource as needed. This will start the informer if it was not already.
 	r.markNeeded()
 
+	out := make(chan Event[T])
 	ctx, subCancel := context.WithCancel(ctx)
 
-	// Create a queue for receiving the events from the informer.
-	queue := &keyQueue{
-		RateLimitingInterface: workqueue.NewRateLimitingQueue(options.rateLimiter),
-		errorHandler:          options.errorHandler,
+	sub := &subscriber[T]{
+		r:         r,
+		options:   options,
+		debugInfo: debugInfo,
+		wq:        workqueue.NewRateLimitingQueue(options.rateLimiter),
 	}
-	r.mu.Lock()
-	subId := r.subId
-	r.subId++
-	r.mu.Unlock()
 
-	out := make(chan Event[T])
-
-	// Fork a goroutine to pop elements from the queue and pass them to the subscriber.
+	// Fork a goroutine to process the queued keys and pass them to the subscriber.
 	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
-
-		// Make sure to call ShutDown() in the end. Calling ShutDownWithDrain is not
-		// enough as DelayingQueue does not implement it, so without ShutDown() we'd
-		// leak the (*delayingType).waitingLoop.
-		defer queue.ShutDown()
-
 		defer close(out)
 
 		// Grab a handle to the store. Asynchronous as informer is started in the background.
@@ -414,92 +377,32 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 		}
 
 		r.mu.Lock()
-		r.queues[subId] = queue
+		subId := r.subId
+		r.subId++
+		r.subscribers[subId] = sub
 
-		// Append the current set of keys to the queue.
-		keyIter := store.IterKeys()
-		for keyIter.Next() {
-			queue.AddUpsert(keyIter.Key())
+		// Populate the queue with the initial set of keys that are already
+		// in the store. Done under the resource lock to synchronize with delta
+		// processing to make sure we don't end up queuing the key as initial key,
+		// processing it and then requeuing it again.
+		initialKeys := store.IterKeys()
+		for initialKeys.Next() {
+			sub.enqueueKey(initialKeys.Key())
 		}
 
 		// If the informer is already synchronized, then the above set of keys is a consistent
 		// snapshot and we can queue the sync entry. If we're not yet synchronized the sync will
 		// be queued from startWhenNeeded() after the informer has synchronized.
 		if r.synchronized {
-			queue.AddSync()
+			sub.enqueueSync()
 		}
 		r.mu.Unlock()
 
-		doneFinalizer := func(done *bool) {
-			// If you get here it is because an Event[T] was handed to a subscriber
-			// that forgot to call Event[T].Done().
-			//
-			// Calling Done() is needed to mark the event as handled. This allows
-			// the next event for the same key to be handled and is used to clear
-			// rate limiting and retry counts of prior failures.
-			panic(fmt.Sprintf(
-				"%s has a broken event handler that did not call Done() "+
-					"before event was garbage collected",
-				debugInfo))
-		}
+		sub.processLoop(ctx, out, store)
 
-	loop:
-		for {
-			// Retrieve an item from the subscribers queue and then fetch the object
-			// from the store.
-			raw, shutdown := queue.Get()
-			if shutdown {
-				break
-			}
-			entry := raw.(queueEntry)
-
-			var (
-				// eventDoneSentinel is a heap allocated object referenced by Done().
-				// If Done() is not called, a finalizer set on this object will be invoked
-				// which panics. If Done() is called, the finalizer is unset.
-				eventDoneSentinel = new(bool)
-				event             Event[T]
-			)
-			event.Done = func(err error) {
-				runtime.SetFinalizer(eventDoneSentinel, nil)
-				queue.eventDone(entry, err)
-				r.metricEventProcessed(event.Kind, err == nil)
-			}
-
-			// Add a finalizer to catch forgotten calls to Done().
-			runtime.SetFinalizer(eventDoneSentinel, doneFinalizer)
-
-			switch entry := entry.(type) {
-			case syncEntry:
-				event.Kind = Sync
-			case deleteEntry:
-				event.Kind = Delete
-				event.Key = entry.key
-				event.Object = entry.obj.(T)
-			case upsertEntry:
-				obj, exists, err := store.GetByKey(entry.key)
-				// If the item didn't exist, then it's been deleted and a delete event will
-				// follow soon.
-				if err != nil || !exists {
-					event.Done(nil)
-					continue loop
-				}
-				event.Kind = Upsert
-				event.Key = entry.key
-				event.Object = obj
-			default:
-				panic(fmt.Sprintf("%T: unknown entry type %T", r, entry))
-			}
-
-			select {
-			case out <- event:
-			case <-ctx.Done():
-				// Subscriber cancelled or resource is shutting down. We're not requiring
-				// the subscriber to drain the channel, so we're marking the event done here
-				// and not sending it. Will keep going until queue has been drained.
-				event.Done(nil)
-			}
-		}
+		r.mu.Lock()
+		delete(r.subscribers, subId)
+		r.mu.Unlock()
 	}()
 
 	// Fork a goroutine to wait for either the subscriber cancelling or the resource
@@ -511,100 +414,324 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 		case <-r.ctx.Done():
 		case <-ctx.Done():
 		}
-		r.mu.Lock()
-		delete(r.queues, subId)
-		r.mu.Unlock()
 		subCancel()
-		queue.ShutDownWithDrain()
+		sub.wq.ShutDownWithDrain()
 	}()
 
 	return out
 }
 
-// keyQueue wraps the workqueue to implement the error retry logic for a single subscriber,
-// e.g. it implements the eventDone() method called by Event[T].Done().
-type keyQueue struct {
-	workqueue.RateLimitingInterface
-	errorHandler ErrorHandler
+type subscriber[T k8sRuntime.Object] struct {
+	r         *resource[T]
+	debugInfo string
+	wq        workqueue.RateLimitingInterface
+	options   eventsOpts
 }
 
-func (kq *keyQueue) AddSync() {
-	kq.Add(syncEntry{})
+func (s *subscriber[T]) processLoop(ctx context.Context, out chan Event[T], store Store[T]) {
+	// Make sure to call ShutDown() in the end. Calling ShutDownWithDrain is not
+	// enough as DelayingQueue does not implement it, so without ShutDown() we'd
+	// leak the (*delayingType).waitingLoop.
+	defer s.wq.ShutDown()
+
+	doneFinalizer := func(done *bool) {
+		// If you get here it is because an Event[T] was handed to a subscriber
+		// that forgot to call Event[T].Done().
+		//
+		// Calling Done() is needed to mark the event as handled. This allows
+		// the next event for the same key to be handled and is used to clear
+		// rate limiting and retry counts of prior failures.
+		panic(fmt.Sprintf(
+			"%s has a broken event handler that did not call Done() "+
+				"before event was garbage collected",
+			s.debugInfo))
+	}
+
+	// To synthesize delete events to the subscriber we keep track of the last know state
+	// of the object given to the subscriber. Objects are cleaned from this map when delete
+	// events are successfully processed.
+	var lastKnownObjects lastKnownObjects[T]
+
+loop:
+	for {
+		// Retrieve an item from the subscribers queue and then fetch the object
+		// from the store.
+		workItem, shutdown := s.getWorkItem()
+		if shutdown {
+			break
+		}
+
+		var event Event[T]
+
+		switch workItem := workItem.(type) {
+		case syncWorkItem:
+			event.Kind = Sync
+		case keyWorkItem:
+			obj, exists, err := store.GetByKey(workItem.key)
+			if !exists || err != nil {
+				// The object no longer exists in the store and thus has been deleted.
+				deletedObject, ok := lastKnownObjects.Load(workItem.key)
+				if !ok {
+					// Object was never seen by the subscriber. Ignore the event.
+					s.wq.Done(workItem)
+					continue loop
+				}
+				event.Kind = Delete
+				event.Key = workItem.key
+				event.Object = deletedObject
+			} else {
+				lastKnownObjects.Store(workItem.key, obj)
+				event.Kind = Upsert
+				event.Key = workItem.key
+				event.Object = obj
+			}
+		default:
+			panic(fmt.Sprintf("%T: unknown work item %T", s.r, workItem))
+		}
+
+		// eventDoneSentinel is a heap allocated object referenced by Done().
+		// If Done() is not called, a finalizer set on this object will be invoked
+		// which panics. If Done() is called, the finalizer is unset.
+		var eventDoneSentinel = new(bool)
+		event.Done = func(err error) {
+			runtime.SetFinalizer(eventDoneSentinel, nil)
+
+			if err == nil && event.Kind == Delete {
+				// Deletion processed successfully. Remove it from the set of
+				// deleted objects unless it was replaced by an upsert or newer
+				// deletion.
+				lastKnownObjects.DeleteByUID(event.Key, event.Object)
+			}
+
+			s.eventDone(workItem, err)
+
+			s.r.metricEventProcessed(event.Kind, err == nil)
+		}
+
+		// Add a finalizer to catch forgotten calls to Done().
+		runtime.SetFinalizer(eventDoneSentinel, doneFinalizer)
+
+		select {
+		case out <- event:
+		case <-ctx.Done():
+			// Subscriber cancelled or resource is shutting down. We're not requiring
+			// the subscriber to drain the channel, so we're marking the event done here
+			// and not sending it.
+			event.Done(nil)
+
+			// Drain the queue without further processing.
+			for {
+				_, shutdown := s.getWorkItem()
+				if shutdown {
+					return
+				}
+			}
+		}
+	}
 }
 
-func (kq *keyQueue) AddUpsert(key Key) {
-	// The entries must be added by value and not by pointer in order for
-	// them to be compared by value and not by pointer.
-	kq.Add(upsertEntry{key})
+func (s *subscriber[T]) getWorkItem() (e workItem, shutdown bool) {
+	var raw any
+	raw, shutdown = s.wq.Get()
+	if shutdown {
+		return
+	}
+	return raw.(workItem), false
 }
 
-func (kq *keyQueue) AddDelete(key Key, obj any) {
-	kq.Add(deleteEntry{key, obj})
+func (s *subscriber[T]) enqueueSync() {
+	s.wq.Add(syncWorkItem{})
 }
 
-func (kq *keyQueue) eventDone(entry queueEntry, err error) {
-	// This is based on the example found in k8s.io/client-go/examples/workqueue/main.go.
+func (s *subscriber[T]) enqueueKey(key Key) {
+	s.wq.Add(keyWorkItem{key})
+}
+
+func (s *subscriber[T]) eventDone(entry workItem, err error) {
+	// This is based on the example found in k8s.io/client-go/examples/worsueue/main.go.
 
 	// Mark the object as done being processed. If it was marked dirty
 	// during processing, it'll be processed again.
-	defer kq.Done(entry)
+	defer s.wq.Done(entry)
 
 	if err != nil {
-		numRequeues := kq.NumRequeues(entry)
+		numRequeues := s.wq.NumRequeues(entry)
 
 		var action ErrorAction
 		switch entry := entry.(type) {
-		case syncEntry:
-			action = kq.errorHandler(Key{}, numRequeues, err)
-		case upsertEntry:
-			action = kq.errorHandler(entry.key, numRequeues, err)
-		case deleteEntry:
-			action = kq.errorHandler(entry.key, numRequeues, err)
+		case syncWorkItem:
+			action = s.options.errorHandler(Key{}, numRequeues, err)
+		case keyWorkItem:
+			action = s.options.errorHandler(entry.key, numRequeues, err)
 		default:
 			panic(fmt.Sprintf("keyQueue: unhandled entry %T", entry))
 		}
 
 		switch action {
 		case ErrorActionRetry:
-			kq.AddRateLimited(entry)
+			s.wq.AddRateLimited(entry)
 		case ErrorActionStop:
-			kq.ShutDown()
+			s.wq.ShutDown()
 		case ErrorActionIgnore:
-			kq.Forget(entry)
+			s.wq.Forget(entry)
 		default:
-			panic(fmt.Sprintf("keyQueue: unknown action %q from error handler %v", action, kq.errorHandler))
+			panic(fmt.Sprintf("keyQueue: unknown action %q from error handler %v", action, s.options.errorHandler))
 		}
 	} else {
 		// As the object was processed successfully we can "forget" it.
 		// This clears any rate limiter state associated with this object, so
 		// it won't be throttled based on previous failure history.
-		kq.Forget(entry)
+		s.wq.Forget(entry)
 	}
 }
 
-// queueEntry restricts the set of types we use when type-switching over the
+// lastKnownObjects stores the last known state of an object from a subscriber's
+// perspective. It is used to emit delete events with the last known state of
+// the object.
+type lastKnownObjects[T k8sRuntime.Object] struct {
+	mu   lock.RWMutex
+	objs map[Key]T
+}
+
+func (l *lastKnownObjects[T]) Load(key Key) (obj T, ok bool) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	obj, ok = l.objs[key]
+	return
+}
+
+func (l *lastKnownObjects[T]) Store(key Key, obj T) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.objs == nil {
+		l.objs = map[Key]T{}
+	}
+	l.objs[key] = obj
+}
+
+// DeleteByUID removes the object, but only if the UID matches. UID
+// might not match if the object has been re-created with the same key
+// after deletion and thus Store'd again here. Once that incarnation
+// is deleted, we will be here again and the UID will match.
+func (l *lastKnownObjects[T]) DeleteByUID(key Key, objToDelete T) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if obj, ok := l.objs[key]; ok {
+		if getUID(obj) == getUID(objToDelete) {
+			delete(l.objs, key)
+		}
+	}
+}
+
+// workItem restricts the set of types we use when type-switching over the
 // queue entries, so that we'll get a compiler error on impossible types.
 //
 // The queue entries must be kept comparable and not be pointers as we want
-// to be able to coalesce multiple upsertEntry's into a single element in the
+// to be able to coalesce multiple keyEntry's into a single element in the
 // queue.
-type queueEntry interface {
-	isQueueEntry()
+type workItem interface {
+	isWorkItem()
 }
 
-type syncEntry struct{}
+// syncWorkItem marks the store as synchronized and thus a 'Sync' event can be
+// emitted to the subscriber.
+type syncWorkItem struct{}
 
-func (syncEntry) isQueueEntry() {}
+func (syncWorkItem) isWorkItem() {}
 
-type upsertEntry struct {
+// keyWorkItem marks work for a specific key. Whether this is an upsert or delete
+// depends on the state of the store at the time this work item is processed.
+type keyWorkItem struct {
 	key Key
 }
 
-func (upsertEntry) isQueueEntry() {}
+func (keyWorkItem) isWorkItem() {}
 
-type deleteEntry struct {
-	key Key
-	obj any
+func (r *resource[T]) newInformer() (cache.Store, cache.Controller) {
+	clientState := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+	opts := cache.DeltaFIFOOptions{KeyFunction: cache.MetaNamespaceKeyFunc, KnownObjects: clientState}
+	fifo := cache.NewDeltaFIFOWithOptions(opts)
+	transformer := r.opts.transform
+	cacheMutationDetector := cache.NewCacheMutationDetector(fmt.Sprintf("%T", r))
+	cfg := &cache.Config{
+		Queue:            fifo,
+		ListerWatcher:    r.lw,
+		ObjectType:       r.opts.sourceObj(),
+		FullResyncPeriod: 0,
+		RetryOnError:     false,
+		Process: func(obj interface{}, isInInitialList bool) error {
+			// Processing of the deltas is done under the resource mutex. This
+			// avoids emitting double events for new subscribers that list the
+			// keys in the store.
+			r.mu.RLock()
+			defer r.mu.RUnlock()
+
+			for _, d := range obj.(cache.Deltas) {
+				var obj interface{}
+				if transformer != nil {
+					var err error
+					if obj, err = transformer(d.Object); err != nil {
+						return err
+					}
+				} else {
+					obj = d.Object
+				}
+
+				// In CI we detect if the objects were modified and panic
+				// (e.g. when KUBE_CACHE_MUTATION_DETECTOR is set)
+				// this is a no-op in production environments.
+				cacheMutationDetector.AddObject(obj)
+
+				key := NewKey(obj)
+
+				switch d.Type {
+				case cache.Sync, cache.Added, cache.Updated:
+					metric := resources.MetricCreate
+					if d.Type != cache.Added {
+						metric = resources.MetricUpdate
+					}
+					r.metricEventReceived(metric, true, false)
+
+					if _, exists, err := clientState.Get(obj); err == nil && exists {
+						if err := clientState.Update(obj); err != nil {
+							return err
+						}
+					} else {
+						if err := clientState.Add(obj); err != nil {
+							return err
+						}
+					}
+
+					for _, sub := range r.subscribers {
+						sub.enqueueKey(key)
+					}
+				case cache.Deleted:
+					r.metricEventReceived(resources.MetricDelete, true, false)
+
+					if err := clientState.Delete(obj); err != nil {
+						return err
+					}
+
+					for _, sub := range r.subscribers {
+						sub.enqueueKey(key)
+					}
+				}
+			}
+			return nil
+		},
+	}
+	return clientState, cache.New(cfg)
 }
 
-func (deleteEntry) isQueueEntry() {}
+func getUID(obj k8sRuntime.Object) types.UID {
+	meta, err := meta.Accessor(obj)
+	if err != nil {
+		// If we get here, it means the object does not implement ObjectMeta, and thus
+		// the Resource[T] has been instantianted with an unsuitable type T.
+		// As this would be catched immediately during development, panicing is the
+		// way.
+		panic(fmt.Sprintf("BUG: meta.Accessor() failed on %T: %s", obj, err))
+	}
+	return meta.GetUID()
+}
