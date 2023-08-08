@@ -126,96 +126,46 @@ jobs:
             SHA="${{ github.sha }}"
           fi
 
-          # TODO(brb) move the settings derivation into a reusable GH workflow
-          CILIUM_STABLE_IMAGE_SETTINGS="--chart-directory=./cilium-${{ env.cilium_stable_version }}/install/kubernetes/cilium/ \
-            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-            --helm-set=image.useDigest=false \
-            --helm-set=image.tag=v${{ env.cilium_stable_version }} \
-            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-            --helm-set=operator.image.suffix=-ci \
-            --helm-set=operator.image.tag=v${{ env.cilium_stable_version }} \
-            --helm-set=operator.image.useDigest=false \
-            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-            --helm-set=hubble.relay.image.tag=v${{ env.cilium_stable_version }}"
-          echo "cilium_stable_image_settings=${CILIUM_STABLE_IMAGE_SETTINGS}" >> $GITHUB_OUTPUT
-
-          CILIUM_MAIN_IMAGE_SETTINGS="--chart-directory=./install/kubernetes/cilium \
-            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-            --helm-set=image.useDigest=false \
-            --helm-set=image.tag=${SHA} \
-            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-            --helm-set=operator.image.suffix=-ci \
-            --helm-set=operator.image.tag=${SHA} \
-            --helm-set=operator.image.useDigest=false \
-            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-            --helm-set=hubble.relay.image.tag=${SHA}"
-          echo "cilium_main_image_settings=${CILIUM_MAIN_IMAGE_SETTINGS}" >> $GITHUB_OUTPUT
-
-          CILIUM_INSTALL_DEFAULTS="--wait \
-            --helm-set=debug.enabled=true \
-            --helm-set=cni.uninstall=false \
-            --helm-set=cluster.name=default \
-            --helm-set=hubble.eventBufferCapacity=65535 \
-            --helm-set=bpf.monitorAggregation=none \
-            --nodes-without-cilium=kind-worker3 \
-            --helm-set=bpfClockProbe=false \
-            --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
-
-          TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
-          if [ "${{ matrix.tunnel }}" == "disabled" ]; then
-            TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16 --helm-set-string=tunnel=disabled"
-            TUNNEL="${TUNNEL} --helm-set-string=ipv6NativeRoutingCIDR=fd00:10:244::/56"
-          fi
-          LB_MODE=""
-          if [ "${{ matrix.lb-mode }}" != "" ]; then
-            LB_MODE="--helm-set-string=loadBalancer.mode=${{ matrix.lb-mode }}"
-          fi
-          ENDPOINT_ROUTES=""
-          if [ "${{ matrix.endpoint-routes }}" == "true" ]; then
-            ENDPOINT_ROUTES="--helm-set-string=endpointRoutes.enabled=true"
-          fi
-          IPV6=""
-          if [ "${{ matrix.ipv6 }}" != "false" ]; then
-            IPV6="--helm-set=ipv6.enabled=true"
-          fi
-          MASQ=""
-          if [ "${{ matrix.kpr }}" == "true" ] || [ "${{ matrix.kpr }}" == "strict" ]; then
-            # BPF-masq requires KPR=true.
-            MASQ="--helm-set=bpf.masquerade=true"
-            if [ "${{ matrix.host-fw }}" == "true" ]; then
-              # BPF IPv6 masquerade not currently supported with host firewall - GH-26074
-              MASQ="${MASQ} --helm-set=enableIPv6Masquerade=false"
-            fi
-          fi
-          EGRESS_GATEWAY=""
-          if [ "${{ matrix.egress-gateway }}" == "true" ]; then
-            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true"
-          fi
-          LB_ACCELERATION=""
-          if [ "${{ matrix.lb-acceleration }}" != "" ]; then
-            LB_ACCELERATION="--helm-set=loadBalancer.acceleration=${{ matrix.lb-acceleration }}"
-          fi
-
-          ENCRYPT=""
-          if [ "${{ matrix.encryption }}" != "" ]; then
-            ENCRYPT="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ matrix.encryption }}"
-            if [ "${{ matrix.encryption-node }}" != "" ]; then
-              ENCRYPT+=" --helm-set=encryption.nodeEncryption=${{ matrix.encryption-node }}"
-            fi
-          fi
-
-          HOST_FW=""
-          if [ "${{ matrix.host-fw }}" == "true" ]; then
-            HOST_FW="--helm-set=hostFirewall.enabled=true"
-          fi
-
-          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
-          echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
-
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
-      - name: Checkout pull request for Helm chart
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - name: Derive stable Cilium installation config
+        id: cilium-stable-config
+        uses: ./.github/actions/cilium-config
+        with:
+          image-tag: v${{ env.cilium_stable_version }}
+          chart-dir: './cilium-${{ env.cilium_stable_version }}/install/kubernetes/cilium/'
+          tunnel: ${{ matrix.tunnel }}
+          endpoint-routes: ${{ matrix.endpoint-routes }}
+          ipv6: ${{ matrix.ipv6 }}
+          kpr: ${{ matrix.kpr }}
+          lb-mode: ${{ matrix.lb-mode }}
+          lb-acceleration: ${{ matrix.lb-acceleration }}
+          encryption: ${{ matrix.encryption }}
+          encryption-node: ${{ matrix.encryption-node }}
+          egress-gateway: ${{ matrix.egress-gateway }}
+          host-fw: ${{ matrix.host-fw }}
+
+      - name: Derive newest Cilium installation config
+        id: cilium-newest-config
+        uses: ./.github/actions/cilium-config
+        with:
+          image-tag: ${{ steps.vars.outputs.sha }}
+          chart-dir: './install/kubernetes/cilium'
+          tunnel: ${{ matrix.tunnel }}
+          endpoint-routes: ${{ matrix.endpoint-routes }}
+          ipv6: ${{ matrix.ipv6 }}
+          kpr: ${{ matrix.kpr }}
+          lb-mode: ${{ matrix.lb-mode }}
+          lb-acceleration: ${{ matrix.lb-acceleration }}
+          encryption: ${{ matrix.encryption }}
+          encryption-node: ${{ matrix.encryption-node }}
+          egress-gateway: ${{ matrix.egress-gateway }}
+          host-fw: ${{ matrix.host-fw }}
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -282,8 +232,7 @@ jobs:
             cd /host/
 
             CILIUM_CLI_MODE=helm ./cilium-cli install \
-              ${{ steps.vars.outputs.cilium_stable_image_settings }} \
-              ${{ steps.vars.outputs.cilium_install_defaults }}
+              ${{ steps.cilium-stable-config.outputs.config }}
 
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
@@ -316,8 +265,7 @@ jobs:
             cd /host/
 
             CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
-              ${{ steps.vars.outputs.cilium_main_image_settings }} \
-              ${{ steps.vars.outputs.cilium_install_defaults }}
+              ${{ steps.cilium-newest-config.outputs.config }}
 
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
@@ -352,8 +300,7 @@ jobs:
             cd /host/
 
             CILIUM_CLI_MODE=helm ./cilium-cli upgrade \
-              ${{ steps.vars.outputs.cilium_stable_image_settings }} \
-              ${{ steps.vars.outputs.cilium_install_defaults }}
+              ${{ steps.cilium-stable-config.outputs.config }}
 
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
