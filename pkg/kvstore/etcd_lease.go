@@ -15,6 +15,7 @@ import (
 	client "go.etcd.io/etcd/client/v3"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/spanstat"
 )
 
 // etcdLeaseClient represents the subset of the etcd client methods used to handle the leases lifecycle.
@@ -198,7 +199,10 @@ func (elm *etcdLeaseManager) Wait() {
 	elm.wg.Wait()
 }
 
-func (elm *etcdLeaseManager) newLease(ctx context.Context) (client.LeaseID, context.CancelFunc, error) {
+func (elm *etcdLeaseManager) newLease(ctx context.Context) (c client.LeaseID, cancelFn context.CancelFunc, err error) {
+	defer func(duration *spanstat.SpanStat) {
+		increaseMetric("lease", metricSet, "AcquireLease", duration.EndError(err).Total(), err)
+	}(spanstat.Start())
 	resp, err := elm.client.Grant(ctx, int64(elm.ttl.Seconds()))
 	if err != nil {
 		return client.NoLease, nil, err
