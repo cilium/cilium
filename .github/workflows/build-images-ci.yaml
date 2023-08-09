@@ -24,6 +24,7 @@ concurrency:
 
 jobs:
   build-and-push-prs:
+    name: Build and Push Images
     runs-on: ubuntu-20.04
     strategy:
       matrix:

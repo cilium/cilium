@@ -1,4 +1,4 @@
-name: Smoke test
+name: Smoke Test
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -52,8 +52,10 @@ jobs:
 
   preflight-clusterrole:
     runs-on: ubuntu-latest
+    name: Preflight Clusterrole Check
     steps:
-      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - name: Checkout code
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           persist-credentials: false
 
@@ -62,6 +64,7 @@ jobs:
 
   helm-charts:
     runs-on: ubuntu-latest
+    name: Helm Charts Check
     steps:
       - name: Checkout
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
@@ -77,6 +80,7 @@ jobs:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.tested == 'true' }}
     runs-on: ubuntu-latest
+    name: Installation and Conformance Test
     steps:
       - name: Checkout main branch to access local actions
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3

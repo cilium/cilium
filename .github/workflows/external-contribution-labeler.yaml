@@ -15,6 +15,7 @@ jobs:
         (github.event.pull_request.author_association != 'MEMBER')
       )
     runs-on: ubuntu-latest
+    name: Label PRs
     permissions:
       pull-requests: write
     steps:
@@ -62,7 +63,8 @@ jobs:
           echo author_association_from_event=${{ github.event.pull_request.author_association }}
           echo author_association_from_api=${{ steps.author_association.outputs.result }}
 
-      - uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6.4.1
+      - name: Set label
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6.4.1
         if: ${{ steps.check_secret.outputs.is_CHECK_TEAM_ORG_APP_ID_set == 'true' && steps.author_association.outputs.result != 'true' }}
         with:
           script: |
