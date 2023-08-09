@@ -189,7 +189,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 
 	changes := policy.ChangeState{
 		Adds: make(policy.Keys),
-		Old:  make(policy.MapState),
+		Old:  policy.NewMapState(nil),
 	}
 
 	e.desiredPolicy.UpdateRedirects(ingress,
@@ -267,7 +267,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 		}
 		e.proxyStatisticsMutex.Unlock()
 
-		e.desiredPolicy.PolicyMapState.RevertChanges(changes)
+		e.desiredPolicy.GetPolicyMap().RevertChanges(changes)
 		return nil
 	})
 
@@ -281,7 +281,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		revertStack  revert.RevertStack
 		changes      = policy.ChangeState{
 			Adds: make(policy.Keys),
-			Old:  make(policy.MapState),
+			Old:  policy.NewMapState(nil),
 		}
 	)
 
@@ -347,7 +347,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 
 		updatedStats = append(updatedStats, proxyStats)
 
-		e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, changes)
+		e.desiredPolicy.GetPolicyMap().AddVisibilityKeys(e, redirectPort, visMeta, changes)
 	}
 
 	revertStack.Push(func() error {
@@ -359,7 +359,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		e.proxyStatisticsMutex.Unlock()
 
 		// Restore the desired policy map state.
-		e.desiredPolicy.PolicyMapState.RevertChanges(changes)
+		e.desiredPolicy.GetPolicyMap().RevertChanges(changes)
 		return nil
 	})
 
@@ -751,10 +751,11 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		// Synchronize the in-memory realized state with BPF map entries,
 		// so that any potential discrepancy between desired and realized
 		// state would be dealt with by the following e.syncPolicyMap.
-		e.realizedPolicy.PolicyMapState, err = e.dumpPolicyMapToMapState()
+		pm, err := e.dumpPolicyMapToMapState()
 		if err != nil {
 			return false, err
 		}
+		e.realizedPolicy.SetPolicyMap(pm)
 		e.updatePolicyMapPressureMetric()
 	}
 
@@ -1009,7 +1010,7 @@ type policyMapPressureUpdater interface {
 }
 
 func (e *Endpoint) updatePolicyMapPressureMetric() {
-	value := float64(len(e.realizedPolicy.PolicyMapState)) / float64(e.policyMap.MaxEntries())
+	value := float64(e.realizedPolicy.GetPolicyMap().Len()) / float64(e.policyMap.MaxEntries())
 	e.PolicyMapPressureUpdater.Update(PolicyMapPressureEvent{value})
 }
 
@@ -1032,18 +1033,18 @@ func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) boo
 		return false
 	}
 
-	entry := e.realizedPolicy.PolicyMapState[keyToDelete]
-
+	entry, ok := e.realizedPolicy.GetPolicyMap().Get(keyToDelete)
 	// Operation was successful, remove from realized state.
-	delete(e.realizedPolicy.PolicyMapState, keyToDelete)
-	e.updatePolicyMapPressureMetric()
+	if ok {
+		e.realizedPolicy.GetPolicyMap().Delete(keyToDelete)
+		e.updatePolicyMapPressureMetric()
 
-	e.PolicyDebug(logrus.Fields{
-		logfields.BPFMapKey:   keyToDelete,
-		logfields.BPFMapValue: entry,
-		"incremental":         incremental,
-	}, "deletePolicyKey")
-
+		e.PolicyDebug(logrus.Fields{
+			logfields.BPFMapKey:   keyToDelete,
+			logfields.BPFMapValue: entry,
+			"incremental":         incremental,
+		}, "deletePolicyKey")
+	}
 	return true
 }
 
@@ -1067,7 +1068,7 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 	}
 
 	// Operation was successful, add to realized state.
-	e.realizedPolicy.PolicyMapState[keyToAdd] = entry
+	e.realizedPolicy.GetPolicyMap().Insert(keyToAdd, entry)
 	e.updatePolicyMapPressureMetric()
 
 	e.PolicyDebug(logrus.Fields{
@@ -1125,13 +1126,13 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 		for _, visMeta := range e.visibilityPolicy.Ingress {
 			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
 			if redirectPort, exists := e.realizedRedirects[proxyID]; exists && redirectPort != 0 {
-				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, changes)
+				e.desiredPolicy.GetPolicyMap().AddVisibilityKeys(e, redirectPort, visMeta, changes)
 			}
 		}
 		for _, visMeta := range e.visibilityPolicy.Egress {
 			proxyID := policy.ProxyID(e.ID, visMeta.Ingress, visMeta.Proto.String(), visMeta.Port)
 			if redirectPort, exists := e.realizedRedirects[proxyID]; exists && redirectPort != 0 {
-				e.desiredPolicy.PolicyMapState.AddVisibilityKeys(e, redirectPort, visMeta, changes)
+				e.desiredPolicy.GetPolicyMap().AddVisibilityKeys(e, redirectPort, visMeta, changes)
 			}
 		}
 	}
@@ -1142,7 +1143,7 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 		// Remove the key from 'deletes' to keep the new entry.
 		delete(deletes, keyToAdd)
 
-		entry, exists := e.desiredPolicy.PolicyMapState[keyToAdd]
+		entry, exists := e.desiredPolicy.GetPolicyMap().Get(keyToAdd)
 		if !exists {
 			e.getLogger().WithFields(logrus.Fields{
 				logfields.AddedPolicyID: keyToAdd,
@@ -1199,7 +1200,7 @@ func (e *Endpoint) syncPolicyMap() error {
 	}
 
 	// Diffs between the maps are expected here, so do not bother collecting them
-	_, _, err = e.syncPolicyMapsWith(e.realizedPolicy.PolicyMapState, false)
+	_, _, err = e.syncPolicyMapsWith(e.realizedPolicy.GetPolicyMap(), false)
 	return err
 }
 
@@ -1212,8 +1213,9 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) 
 	errors := 0
 
 	// Add policy map entries before deleting to avoid transient drops
-	for keyToAdd, entry := range e.desiredPolicy.PolicyMapState {
-		if oldEntry, ok := realized[keyToAdd]; !ok || !oldEntry.DatapathEqual(&entry) {
+
+	e.desiredPolicy.GetPolicyMap().ForEach(func(keyToAdd policy.Key, entry policy.MapStateEntry) bool {
+		if oldEntry, ok := realized.Get(keyToAdd); !ok || !oldEntry.DatapathEqual(&entry) {
 			// Redirect entries currently come in with a dummy redirect port ("1"), replace it with
 			// the actual proxy port number. This is due to the fact that proxies may not yet have
 			// bound to a specific port when a proxy policy is first instantiated.
@@ -1229,12 +1231,13 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) 
 				diffs = append(diffs, policy.MapChange{Add: true, Key: keyToAdd, Value: entry})
 			}
 		}
-	}
+		return true
+	})
 
 	// Delete policy keys present in the realized state, but not present in the desired state
-	for keyToDelete := range realized {
+	realized.ForEach(func(keyToDelete policy.Key, _ policy.MapStateEntry) bool {
 		// If key that is in realized state is not in desired state, just remove it.
-		if entry, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
+		if entry, ok := e.desiredPolicy.GetPolicyMap().Get(keyToDelete); !ok {
 			if !e.deletePolicyKey(keyToDelete, false) {
 				errors++
 			}
@@ -1243,7 +1246,8 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) 
 				diffs = append(diffs, policy.MapChange{Add: false, Key: keyToDelete, Value: entry})
 			}
 		}
-	}
+		return true
+	})
 
 	if errors > 0 {
 		err = fmt.Errorf("syncPolicyMap failed")
@@ -1252,7 +1256,7 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) 
 }
 
 func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
-	currentMap := make(policy.MapState)
+	currentMap := policy.NewMapState(nil)
 
 	cb := func(key bpf.MapKey, value bpf.MapValue) {
 		policymapKey := key.(*policymap.PolicyKey)
@@ -1270,7 +1274,7 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 			IsDeny:    policymapEntry.IsDeny(),
 			AuthType:  policy.AuthType(policymapEntry.AuthType),
 		}
-		currentMap[policyKey] = policyEntry
+		currentMap.Insert(policyKey, policyEntry)
 	}
 	err := e.policyMap.DumpWithCallback(cb)
 
