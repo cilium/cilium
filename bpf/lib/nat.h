@@ -986,15 +986,14 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple, int off,
 }
 
 static __always_inline __maybe_unused int
-snat_v4_rev_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off)
+snat_v4_rev_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off,
+					struct ipv4_nat_entry **state)
 {
 	struct ipv4_ct_tuple tuple = {};
-	struct ipv4_nat_entry *state;
 	struct iphdr iphdr;
 	__be16 identifier;
 	__u8 type;
 	__u32 icmpoff = off + sizeof(struct icmphdr);
-	int ret;
 
 	/* According to the RFC 5508, any networking equipment that is
 	 * responding with an ICMP Error packet should embed the original
@@ -1042,23 +1041,17 @@ snat_v4_rev_nat_handle_icmp_frag_needed(struct __ctx_buff *ctx, __u64 off)
 	default:
 		return NAT_PUNT_TO_STACK;
 	}
-	state = snat_v4_lookup(&tuple);
-	if (!state)
+
+	*state = snat_v4_lookup(&tuple);
+	if (!*state)
 		return NAT_PUNT_TO_STACK;
 
 	/* We found SNAT entry to rev-NAT embedded packet. The source addr
 	 * should point to endpoint that initiated the packet, as-well if
 	 * dest port had been NATed.
 	 */
-	ret = snat_v4_icmp_rewrite_ingress_embedded(ctx, &tuple, state,
-						    off, icmpoff);
-	if (IS_ERR(ret))
-		return ret;
-
-	/* Switch back to the outer header. */
-	tuple.nexthdr = IPPROTO_ICMP;
-
-	return snat_v4_rewrite_ingress(ctx, &tuple, state, off);
+	return snat_v4_icmp_rewrite_ingress_embedded(ctx, &tuple, *state,
+						     off, icmpoff);
 }
 
 static __always_inline __maybe_unused int
@@ -1066,7 +1059,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		__s8 *ext_err __maybe_unused)
 {
 	struct icmphdr icmphdr __align_stack_8;
-	struct ipv4_nat_entry *state;
+	struct ipv4_nat_entry *state = NULL;
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -1108,7 +1101,12 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		case ICMP_DEST_UNREACH:
 			if (icmphdr.code != ICMP_FRAG_NEEDED)
 				return NAT_PUNT_TO_STACK;
-			return snat_v4_rev_nat_handle_icmp_frag_needed(ctx, off);
+
+			ret = snat_v4_rev_nat_handle_icmp_frag_needed(ctx, off, &state);
+			if (IS_ERR(ret))
+				return ret;
+
+			goto rewrite;
 		default:
 			return NAT_PUNT_TO_STACK;
 		}
@@ -1124,6 +1122,7 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 	if (ret < 0)
 		return ret;
 
+rewrite:
 	return snat_v4_rewrite_ingress(ctx, &tuple, state, off);
 }
 #else
@@ -1766,15 +1765,15 @@ snat_v6_nat(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple, int off,
 }
 
 static __always_inline __maybe_unused int
-snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx, __u32 off)
+snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx, __u32 off,
+				       struct ipv6_nat_entry **state)
 {
-	struct ipv6_nat_entry *state;
 	struct ipv6_ct_tuple tuple = {};
 	struct ipv6hdr iphdr;
 	__be16 identifier;
 	__u8 type;
 	__u32 icmpoff = off;
-	int ret, hdrlen;
+	int hdrlen;
 
 	/* According to the RFC 5508, any networking
 	 * equipment that is responding with an ICMP Error
@@ -1839,22 +1838,16 @@ snat_v6_rev_nat_handle_icmp_pkt_toobig(struct __ctx_buff *ctx, __u32 off)
 	default:
 		return NAT_PUNT_TO_STACK;
 	}
-	state = snat_v6_lookup(&tuple);
-	if (!state)
+
+	*state = snat_v6_lookup(&tuple);
+	if (!*state)
 		return NAT_PUNT_TO_STACK;
 
 	/* We found SNAT entry to rev-NAT embedded packet. The source addr
 	 * should point to endpoint that initiated the packet, as-well if
 	 * dest port had been NATed.
 	 */
-	ret = snat_v6_icmp_rewrite_embedded(ctx, &tuple, state, off, icmpoff);
-	if (IS_ERR(ret))
-		return ret;
-
-	/* Switch back to the outer header. */
-	tuple.nexthdr = IPPROTO_ICMPV6;
-
-	return snat_v6_rewrite_ingress(ctx, &tuple, state, off);
+	return snat_v6_icmp_rewrite_embedded(ctx, &tuple, *state, off, icmpoff);
 }
 
 static __always_inline __maybe_unused int
@@ -1906,7 +1899,11 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 			tuple.sport = 0;
 			break;
 		case ICMPV6_PKT_TOOBIG:
-			return snat_v6_rev_nat_handle_icmp_pkt_toobig(ctx, off);
+			ret = snat_v6_rev_nat_handle_icmp_pkt_toobig(ctx, off, &state);
+			if (IS_ERR(ret))
+				return ret;
+
+			goto rewrite;
 		default:
 			return NAT_PUNT_TO_STACK;
 		}
@@ -1921,6 +1918,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 	if (ret < 0)
 		return ret;
 
+rewrite:
 	return snat_v6_rewrite_ingress(ctx, &tuple, state, off);
 }
 #else
