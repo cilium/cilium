@@ -1,4 +1,4 @@
-name: Go-related checks
+name: Go Related Checks
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   go-mod:
+    name: Check Go Modules
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
@@ -33,7 +34,7 @@ jobs:
           test -z "$(git status --porcelain)" || (echo "please run 'go mod tidy && go mod vendor', and submit your changes"; exit 1)
 
   golangci:
-    name: lint
+    name: Lint Source Code
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
@@ -52,6 +53,7 @@ jobs:
 
   precheck:
     runs-on: ubuntu-latest
+    name: Precheck
     steps:
       - name: Install Go
         uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
@@ -70,6 +72,7 @@ jobs:
 
   generate-api:
     runs-on: ubuntu-latest
+    name: Generate API
     steps:
       - name: Install Go
         uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
@@ -88,6 +91,7 @@ jobs:
 
   generate-k8s-api:
     runs-on: ubuntu-latest
+    name: Generate k8s API
     steps:
       - name: Install Go
         uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0

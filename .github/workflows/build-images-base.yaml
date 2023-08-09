@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   build-and-push:
+    name: Build and Push Images
     timeout-minutes: 30
     environment: release-base-images
     runs-on: ubuntu-22.04

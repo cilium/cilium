@@ -1,4 +1,4 @@
-name: BPF checks
+name: BPF Checks
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -41,7 +41,7 @@ jobs:
               - 'contrib/coccinelle/**'
 
   checkpatch:
-    name: checkpatch
+    name: Check Patch
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -57,13 +57,15 @@ jobs:
   coccicheck:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.coccinelle == 'true' }}
-    name: coccicheck
+    name: Run coccicheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - name: Checout code
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           persist-credentials: false
-      - uses: docker://cilium/coccicheck:2.0@sha256:6f0369994c426d0bc013fc443cc6a48a0734fb35467955d10f3fc9f7cbd9c7fe
+      - name: Run coccicheck
+        uses: docker://cilium/coccicheck:2.0@sha256:6f0369994c426d0bc013fc443cc6a48a0734fb35467955d10f3fc9f7cbd9c7fe
         with:
           entrypoint: ./contrib/coccinelle/check-cocci.sh
 
@@ -81,7 +83,7 @@ jobs:
   build_all:
     needs: [check_changes, set_clang_dir]
     if: ${{ needs.check_changes.outputs.bpf-tree == 'true' }}
-    name: build datapath
+    name: Build Datapath
     runs-on: ubuntu-22.04
     steps:
       - name: Install Go

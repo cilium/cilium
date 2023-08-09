@@ -50,6 +50,7 @@ jobs:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.tested == 'true' }}
     runs-on: ubuntu-22.04
+    name: Installation and Conformance Test
     steps:
       - name: Checkout
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
