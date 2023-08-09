@@ -279,7 +279,7 @@ func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, options op
 	stat := &spanstat.SpanStat{}
 
 	timer, cancel := inctimer.New()
-	cancel()
+	defer cancel()
 
 	var err error
 	for i := 0; i <= jos.retry; i++ {
