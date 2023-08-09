@@ -574,7 +574,9 @@ static __always_inline int xlate_dsr_v6(struct __ctx_buff *ctx,
 		return 0;
 
 	ctx_snat_done_set(ctx);
-	return snat_v6_rewrite_egress(ctx, &nat_tup, entry, l4_off);
+	return snat_v6_rewrite_headers(ctx, nat_tup.nexthdr, ETH_HLEN, l4_off,
+				       &nat_tup.saddr, &entry->to_saddr, IPV6_SADDR_OFF,
+				       nat_tup.sport, entry->to_sport, TCP_SPORT_OFF);
 }
 
 static __always_inline int dsr_reply_icmp6(struct __ctx_buff *ctx,
@@ -2053,7 +2055,9 @@ static __always_inline int xlate_dsr_v4(struct __ctx_buff *ctx,
 		return 0;
 
 	ctx_snat_done_set(ctx);
-	return snat_v4_rewrite_egress(ctx, &nat_tup, entry, l4_off, has_l4_header);
+	return snat_v4_rewrite_headers(ctx, nat_tup.nexthdr, ETH_HLEN, has_l4_header, l4_off,
+				       nat_tup.saddr, entry->to_saddr, IPV4_SADDR_OFF,
+				       nat_tup.sport, entry->to_sport, TCP_SPORT_OFF);
 }
 
 static __always_inline int dsr_reply_icmp4(struct __ctx_buff *ctx,
