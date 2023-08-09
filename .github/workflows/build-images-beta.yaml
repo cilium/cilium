@@ -20,6 +20,7 @@ permissions:
 jobs:
   build-and-push:
     timeout-minutes: 45
+    name: Build and Push Images
     environment: release-beta-images
     runs-on: ubuntu-20.04
     strategy:

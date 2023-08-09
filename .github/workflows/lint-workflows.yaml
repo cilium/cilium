@@ -1,4 +1,4 @@
-name: GitHub Workflow-related checks
+name: GitHub Workflow Related Checks
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   ginkgo-workflow-comments:
+    name: Lint Ginko Workflows Comments
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -137,9 +138,11 @@ jobs:
           fi
 
   ginkgo-schema-validation:
+    name: Validate Ginko Schema
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
+      - name: Checkout
+        uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
         with:
           python-version: '3.10'
       - run: pip install yamale
@@ -159,9 +162,11 @@ jobs:
           done
 
   conformance-schema-validation:
+    name: Validate k8s Versions Schema
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
+      - name: Checkout
+        uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
         with:
           python-version: '3.10'
       - run: pip install yamale

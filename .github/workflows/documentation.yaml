@@ -54,10 +54,12 @@ jobs:
     name: Validate & Build HTML
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - name: Checkout
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           persist-credentials: false
-      - uses: docker://quay.io/cilium/docs-builder:4b194c0facc5d1d3b9c0dfef3529ee7c661a6b73@sha256:095cf9621cf46c6c878e25c3a98f02ef3d0aed1154936663e352fd3fe5e7613d
+      - name: Build HTML
+        uses: docker://quay.io/cilium/docs-builder:4b194c0facc5d1d3b9c0dfef3529ee7c661a6b73@sha256:095cf9621cf46c6c878e25c3a98f02ef3d0aed1154936663e352fd3fe5e7613d
         with:
           entrypoint: ./Documentation/check-build.sh
           args: html

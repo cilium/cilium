@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   build-and-push:
-    name: Build and push image
+    name: Build and Push Image
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     environment: docs-builder

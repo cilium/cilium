@@ -1,4 +1,4 @@
-name: ClusterMesh (ci-multicluster)
+name: Conformance Cluster Mesh (ci-clustermesh)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -67,6 +67,7 @@ env:
 
 jobs:
   commit-status-start:
+    name: Commmit Status Start
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
@@ -75,7 +76,7 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   installation-and-connectivity:
-    name: "Installation and Connectivity Test"
+    name: Installation and Connectivity Test
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -475,6 +476,7 @@ jobs:
 
   commit-status-final:
     if: ${{ always() }}
+    name: Commit Status Final
     needs: installation-and-connectivity
     runs-on: ubuntu-latest
     steps:
