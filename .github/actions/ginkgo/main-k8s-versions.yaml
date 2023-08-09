@@ -6,7 +6,7 @@ include:
     # renovate: datasource=docker
     kube-image: "kindest/node:v1.27.1@sha256:b7d12ed662b873bd8510879c1846e87c7e676a79fefc93e17b2a52989d3ff42b"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
-    kernel: "bpf-next-20230809.013124@sha256:328ba9ef033e07242bfff3ca6ff30848b15f5d6898c0c54d483e598e1c056b62"
+    kernel: "bpf-next-20230808.142051@sha256:4306f62dee78f873a5e42c9fa66ac936e4b7af68a5efbcb922be047506e95dba"
 
   - k8s-version: "1.26"
     ip-family: "dual"
