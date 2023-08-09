@@ -35,6 +35,7 @@ concurrency:
 jobs:
   build-and-push-prs:
     timeout-minutes: 45
+    name: Build and Push Images
     runs-on: ubuntu-20.04
     strategy:
       matrix:

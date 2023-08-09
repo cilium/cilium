@@ -1,4 +1,4 @@
-name: codeql
+name: CodeQL
 
 on:
   pull_request:
@@ -36,6 +36,7 @@ jobs:
   analyze:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.go-changes == 'true' || github.event_name != 'pull_request' }}
+    name: Analyze
     runs-on: ubuntu-latest
     permissions:
       security-events: write

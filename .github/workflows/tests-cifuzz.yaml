@@ -6,6 +6,7 @@ on:
 permissions: read-all
 jobs:
   Fuzzing:
+    name: Build and Run Fuzzers
     runs-on: ubuntu-latest
     steps:
     - name: Build Fuzzers

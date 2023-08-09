@@ -1,4 +1,4 @@
-name: Cilium Conformance IPsec E2E (ci-ipsec-e2e)
+name: Conformance IPsec E2E (ci-ipsec-e2e)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -58,6 +58,7 @@ env:
 
 jobs:
   commit-status-start:
+    name: Commit Status Start
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
@@ -66,6 +67,7 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   setup-and-test:
+    name: 'Setup & Test'
     runs-on: ubuntu-latest-4cores-16gb
     env:
       job_name: 'Setup & Test'
@@ -322,6 +324,7 @@ jobs:
 
   commit-status-final:
     if: ${{ always() }}
+    name: Commit Status Final
     needs: setup-and-test
     runs-on: ubuntu-latest
     steps:

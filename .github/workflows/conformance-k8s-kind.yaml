@@ -1,4 +1,4 @@
-name: ConformanceK8sKind
+name: Conformance K8s Kind
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -33,6 +33,7 @@ env:
 
 jobs:
   kubernetes-e2e:
+    name: Installation and Conformance Test
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:

@@ -1,4 +1,4 @@
-name: Cyclonus network policy test
+name: Cyclonus Network Policy Test
 
 on:
   schedule:

@@ -1,4 +1,4 @@
-name: CODEOWNERS checks
+name: CODEOWNERS Checks
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -41,7 +41,8 @@ jobs:
     name: Check CODEOWNERS consistency
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - name: Checkout
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           persist-credentials: false
           # Hard-code the path instead of using ${{ github.repository }}

@@ -1,4 +1,4 @@
-name: Container vulnerability scan
+name: Container Vulnerability Scan
 on:
   schedule:
     - cron: "0 4 * * *"
@@ -9,7 +9,7 @@ permissions: read-all
 jobs:
   container-scan:
     if: github.repository_owner == 'cilium'
-    name: scan-container
+    name: Scan Containers
     runs-on: ubuntu-20.04
     strategy:
       matrix:

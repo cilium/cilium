@@ -1,4 +1,4 @@
-name: BPF checks
+name: BPF Checks
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -45,7 +45,7 @@ jobs:
               - 'pkg/bpf/**'
 
   checkpatch:
-    name: checkpatch
+    name: Check Patch
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -91,7 +91,7 @@ jobs:
   build_all:
     needs: [check_changes, set_clang_dir]
     if: ${{ needs.check_changes.outputs.bpf-tree == 'true' }}
-    name: build datapath
+    name: Build Datapath
     runs-on: ubuntu-22.04
     steps:
       - name: Install Go
