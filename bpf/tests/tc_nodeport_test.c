@@ -36,6 +36,7 @@ mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex _
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
+#include "lib/policy.h"
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -291,13 +292,6 @@ int hairpin_flow_rev_check(__maybe_unused const struct __ctx_buff *ctx)
 SETUP("tc", "tc_drop_no_backend")
 int tc_drop_no_backend_setup(struct __ctx_buff *ctx)
 {
-	struct policy_key policy_key = {
-		.egress = 1,
-	};
-	struct policy_entry policy_value = {
-		.deny = 0,
-	};
-
 	int ret;
 
 	ret = build_packet(ctx);
@@ -307,7 +301,7 @@ int tc_drop_no_backend_setup(struct __ctx_buff *ctx)
 	lb_v4_add_service(v4_svc_one, tcp_svc_one, 0, 1);
 
 	/* avoid policy drop */
-	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);
+	policy_add_egress_allow_all_entry();
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, 0);

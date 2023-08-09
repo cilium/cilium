@@ -68,29 +68,6 @@ static __always_inline void del_egressgw_policy_entry(__be32 saddr, __be32 daddr
 	map_delete_elem(&EGRESS_POLICY_MAP, &in_key);
 }
 
-#ifndef SKIP_POLICY_MAP
-static __always_inline void add_allow_all_egress_policy(void)
-{
-	struct policy_key policy_key = {
-		.egress = 1,
-	};
-	struct policy_entry policy_value = {
-		.deny = 0,
-	};
-
-	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);
-}
-
-static __always_inline void del_allow_all_egress_policy(void)
-{
-	struct policy_key policy_key = {
-		.egress = 1,
-	};
-
-	map_delete_elem(&POLICY_MAP, &policy_key);
-}
-#endif
-
 static __always_inline int egressgw_pktgen(struct __ctx_buff *ctx,
 					   struct egressgw_test_ctx test_ctx)
 {

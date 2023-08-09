@@ -30,6 +30,8 @@ static volatile const __u8 *server_mac = mac_two;
 
 #include "bpf_lxc.c"
 
+#include "lib/policy.h"
+
 #define FROM_CONTAINER 0
 
 struct {
@@ -95,15 +97,7 @@ __u64 drop_count;
 SETUP("tc", "tc_lxc_policy_drop")
 int tc_lxc_policy_drop__setup(struct __ctx_buff *ctx)
 {
-	struct policy_key policy_key = {
-		.egress = 1,
-	};
-	struct policy_entry policy_value = {
-		.deny = 1,
-	};
-
-	/* Add deny policy */
-	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);
+	policy_add_egress_deny_all_entry();
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);

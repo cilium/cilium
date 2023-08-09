@@ -63,6 +63,7 @@
 #include <bpf_lxc.c>
 
 #include "lib/ipcache.h"
+#include "lib/policy.h"
 
 /*
  * Tests
@@ -180,18 +181,7 @@ int overlay_to_lxc_syn_setup(struct __ctx_buff *ctx)
 	 * Apply policy based on the remote "real"
 	 * identity instead of remote-node identity.
 	 */
-	struct policy_key policy_key = {
-		.sec_label = CLIENT_IDENTITY,
-		.dport = BACKEND_PORT,
-		.protocol = IPPROTO_TCP,
-		.egress = 0,
-	};
-
-	struct policy_entry policy_value = {
-		.deny = 0,
-	};
-
-	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);
+	policy_add_ingress_allow_entry(CLIENT_IDENTITY, IPPROTO_TCP, BACKEND_PORT);
 
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
 	ctx_store_meta(ctx, CB_SRC_LABEL, CLIENT_IDENTITY);
