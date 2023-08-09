@@ -731,6 +731,29 @@ func (k *K8sClusterMesh) getSecret(ctx context.Context, client k8sClusterMeshImp
 	return secret, err
 }
 
+func (k *K8sClusterMesh) getCACert(ctx context.Context, client k8sClusterMeshImplementation) ([]byte, error) {
+	secret, err := client.GetSecret(ctx, k.params.Namespace, defaults.CASecretName, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("get secret %q to retrieve CA: %s", defaults.CASecretName, err)
+	}
+
+	// The helm and cronjob certificate generation methods currently store
+	// the certificate under the ca.crt key, while cert-manager requires it
+	// to be under the tls.crt key. Hence, let's attempt to retrieve it
+	// using both keys.
+	cert, ok := secret.Data[defaults.CASecretCertName]
+	if ok {
+		return cert, nil
+	}
+
+	cert, ok = secret.Data[corev1.TLSCertKey]
+	if ok {
+		return cert, nil
+	}
+
+	return nil, fmt.Errorf("secret %q does not contain the CA certificate", defaults.CASecretName)
+}
+
 func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8sClusterMeshImplementation, endpoints []string, verbose bool, getExternalWorkLoadSecret bool) (*accessInformation, error) {
 	cm, err := client.GetConfigMap(ctx, k.params.Namespace, defaults.ConfigMapName, metav1.GetOptions{})
 	if err != nil {
@@ -755,15 +778,6 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 	if verbose {
 		k.Log("🔑 Extracting secrets from cluster %s...", clusterName)
 	}
-	caSecret, err := client.GetSecret(ctx, k.params.Namespace, defaults.CASecretName, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("unable to get secret %q to retrieve CA: %s", defaults.CASecretName, err)
-	}
-
-	caCert, ok := caSecret.Data[defaults.CASecretCertName]
-	if !ok {
-		return nil, fmt.Errorf("secret %q does not contain CA cert %q", defaults.CASecretName, defaults.CASecretCertName)
-	}
 
 	meshSecret, err := k.getSecret(ctx, client, defaults.ClusterMeshRemoteSecretName)
 	if err != nil {
@@ -778,6 +792,15 @@ func (k *K8sClusterMesh) extractAccessInformation(ctx context.Context, client k8
 	clientCert, ok := meshSecret.Data[corev1.TLSCertKey]
 	if !ok {
 		return nil, fmt.Errorf("secret %q does not contain key %q", meshSecret.Name, corev1.TLSCertKey)
+	}
+
+	caCert, err := k.getCACert(ctx, client)
+	// We failed to retrieve the CA from its own secret, let's fallback to the ca.crt certificate inside the mesh secret.
+	if err != nil {
+		caCert, ok = meshSecret.Data[defaults.CASecretCertName]
+		if !ok {
+			return nil, fmt.Errorf("unable to retrieve the CA certificate: %w", err)
+		}
 	}
 
 	// ExternalWorkload secret is created by 'clustermesh enable' command, but it isn't created by Helm. We should try to load this secret only when needed
