@@ -317,11 +317,9 @@ func (h *Hive) fatalOnTimeout(ctx context.Context) chan struct{} {
 
 		// Context was cancelled. Give 5 more seconds and then
 		// go fatal.
-		time.Sleep(5 * time.Second)
-
 		select {
 		case <-terminated:
-		default:
+		case <-time.After(5 * time.Second):
 			log.Fatal("Start or stop failed to finish on time, aborting forcefully.")
 		}
 	}()
