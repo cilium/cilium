@@ -36,30 +36,15 @@ int ipv6_without_extension_header_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct ipv6hdr *l3;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
-
-	l3 = pktgen__push_default_ipv6hdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	memcpy(&l3->saddr, (__u8 *)v6_node_one, sizeof(l3->saddr));
-	memcpy(&l3->daddr, (__u8 *)v6_node_two, sizeof(l3->daddr));
-
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv6_tcp_packet(&builder,
+					  (__u8 *)mac_one, (__u8 *)mac_two,
+					  (__u8 *)v6_node_one, (__u8 *)v6_node_two,
+					  tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->source = tcp_src_one;
-	l4->dest = tcp_svc_one;
 
 	pktgen__finish(&builder);
 

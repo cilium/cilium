@@ -93,31 +93,17 @@ pktgen_from_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)CLIENT_MAC, (__u8 *)CLIENT_ROUTER_MAC);
-
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = CLIENT_IP;
-	l3->daddr = FRONTEND_IP;
-
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)CLIENT_MAC, (__u8 *)CLIENT_ROUTER_MAC,
+					  CLIENT_IP, FRONTEND_IP,
+					  CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
-	l4->source = CLIENT_PORT;
-	l4->dest = FRONTEND_PORT;
 	l4->syn = syn ? 1 : 0;
 	l4->ack = ack ? 1 : 0;
 
@@ -135,31 +121,18 @@ pktgen_to_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)BACKEND_ROUTER_MAC, (__u8 *)CLIENT_MAC);
-
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = BACKEND_IP;
-	l3->daddr = CLIENT_IP;
-
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)BACKEND_ROUTER_MAC,
+					  (__u8 *)CLIENT_MAC,
+					  BACKEND_IP, CLIENT_IP,
+					  BACKEND_PORT, CLIENT_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
-	l4->source = BACKEND_PORT;
-	l4->dest = CLIENT_PORT;
 	l4->syn = syn ? 1 : 0;
 	l4->ack = ack ? 1 : 0;
 

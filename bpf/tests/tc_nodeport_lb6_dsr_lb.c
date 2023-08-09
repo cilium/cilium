@@ -89,36 +89,18 @@ int nodeport_dsr_fwd_pktgen(struct __ctx_buff *ctx)
 	union v6addr frontend_ip = FRONTEND_IP;
 	union v6addr client_ip = CLIENT_IP;
 	struct pktgen builder;
-	struct ipv6hdr *l3;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)lb_mac);
-
-	/* Push IPv6 header */
-	l3 = pktgen__push_default_ipv6hdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	ipv6_addr_copy((union v6addr *)&l3->saddr, &client_ip);
-	ipv6_addr_copy((union v6addr *)&l3->daddr, &frontend_ip);
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv6_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  (__u8 *)&client_ip, (__u8 *)&frontend_ip,
+					  CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->source = CLIENT_PORT;
-	l4->dest = FRONTEND_PORT;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
