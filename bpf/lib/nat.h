@@ -354,6 +354,74 @@ snat_v4_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 }
 
 static __always_inline int
+snat_v4_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
+			bool has_l4_header, int l4_off,
+			__be32 old_addr, __be32 new_addr, __u16 addr_off,
+			__be16 old_port, __be16 new_port, __u16 port_off)
+{
+	__wsum sum;
+
+	/* No change needed: */
+	if (old_addr == new_addr && old_port == new_port)
+		return 0;
+
+	sum = csum_diff(&old_addr, 4, &new_addr, 4, 0);
+	if (ctx_store_bytes(ctx, l3_off + addr_off, &new_addr, 4, 0) < 0)
+		return DROP_WRITE_ERROR;
+
+	if (has_l4_header) {
+		int flags = BPF_F_PSEUDO_HDR;
+		struct csum_offset csum = {};
+		__wsum l4_sum = sum;
+
+		csum_l4_offset_and_flags(nexthdr, &csum);
+
+		if (old_port != new_port) {
+			__be32 from, to;
+			int ret;
+
+			switch (nexthdr) {
+			case IPPROTO_TCP:
+			case IPPROTO_UDP:
+				ret = l4_modify_port(ctx, l4_off, port_off,
+						     &csum, new_port, old_port);
+				if (ret < 0)
+					return ret;
+				break;
+#ifdef ENABLE_SCTP
+			case IPPROTO_SCTP:
+				return DROP_CSUM_L4;
+#endif  /* ENABLE_SCTP */
+			case IPPROTO_ICMP:
+				if (l4_store_port(ctx, l4_off, port_off, new_port) < 0)
+					return DROP_WRITE_ERROR;
+
+				from = old_port;
+				to = new_port;
+				l4_sum = csum_diff(&from, 4, &to, 4, 0);
+
+				/* Not initialized by csum_l4_offset_and_flags(): */
+				csum.offset = offsetof(struct icmphdr, checksum);
+				/* No Pseudo-Hdr checksum for ICMPv4: */
+				flags = 0;
+				break;
+			default:
+				return DROP_UNKNOWN_L4;
+			}
+		}
+
+		if (csum.offset &&
+		    csum_l4_replace(ctx, l4_off, &csum, 0, l4_sum, flags) < 0)
+			return DROP_CSUM_L4;
+	}
+
+	if (ipv4_csum_update_by_diff(ctx, l3_off, sum) < 0)
+		return DROP_CSUM_L3;
+
+	return 0;
+}
+
+static __always_inline int
 snat_v4_icmp_rewrite_ingress_embedded(struct __ctx_buff *ctx,
 				      struct ipv4_ct_tuple *tuple,
 				      struct ipv4_nat_entry *state,
@@ -1374,6 +1442,60 @@ snat_v6_rev_nat_handle_mapping(struct __ctx_buff *ctx,
 		return 0;
 
 	return DROP_NAT_NO_MAPPING;
+}
+
+static __always_inline int
+snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off, int l4_off,
+			union v6addr *old_addr, union v6addr *new_addr, __u16 addr_off,
+			__be16 old_port, __be16 new_port, __u16 port_off)
+{
+	struct csum_offset csum = {};
+	__wsum sum;
+
+	/* No change needed: */
+	if (ipv6_addr_equals(old_addr, new_addr) && old_port == new_port)
+		return 0;
+
+	sum = csum_diff(old_addr, 16, new_addr, 16, 0);
+	if (ctx_store_bytes(ctx, l3_off + addr_off, new_addr, 16, 0) < 0)
+		return DROP_WRITE_ERROR;
+
+	csum_l4_offset_and_flags(nexthdr, &csum);
+
+	if (old_port != new_port) {
+		__be32 from, to;
+		int ret;
+
+		switch (nexthdr) {
+		case IPPROTO_TCP:
+		case IPPROTO_UDP:
+			ret = l4_modify_port(ctx, l4_off, port_off,
+					     &csum, new_port, old_port);
+			if (ret < 0)
+				return ret;
+			break;
+#ifdef ENABLE_SCTP
+		case IPPROTO_SCTP:
+			return DROP_CSUM_L4;
+#endif  /* ENABLE_SCTP */
+		case IPPROTO_ICMPV6:
+			if (l4_store_port(ctx, l4_off, port_off, new_port) < 0)
+				return DROP_WRITE_ERROR;
+
+			from = old_port;
+			to = new_port;
+			sum = csum_diff(&from, 4, &to, 4, sum);
+			break;
+		default:
+			return DROP_UNKNOWN_L4;
+		}
+	}
+
+	if (csum.offset &&
+	    csum_l4_replace(ctx, l4_off, &csum, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+		return DROP_CSUM_L4;
+
+	return 0;
 }
 
 static __always_inline int snat_v6_icmp_rewrite_embedded(struct __ctx_buff *ctx,
