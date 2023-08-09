@@ -149,7 +149,7 @@ func (s *LoaderTestSuite) testCompileAndLoad(c *C, ep *testutils.TestEndpoint) {
 	defer cancel()
 	stats := &metrics.SpanStat{}
 
-	l := &Loader{}
+	l := NewLoader()
 	err := l.compileAndLoad(ctx, ep, dirInfo, stats)
 	c.Assert(err, IsNil)
 }
@@ -216,7 +216,7 @@ func (s *LoaderTestSuite) testCompileFailure(c *C, ep *testutils.TestEndpoint) {
 		}
 	}()
 
-	l := &Loader{}
+	l := NewLoader()
 	timeout := time.Now().Add(contextTimeout)
 	var err error
 	stats := &metrics.SpanStat{}
@@ -257,7 +257,7 @@ func BenchmarkCompileAndLoad(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
-	l := &Loader{}
+	l := NewLoader()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -332,7 +332,7 @@ func BenchmarkCompileOrLoad(b *testing.B) {
 	}
 	defer os.RemoveAll(epDir)
 
-	l := &Loader{}
+	l := NewLoader()
 	l.templateCache = newObjectCache(&config.HeaderfileWriter{}, nil, tmpDir)
 	if err := l.CompileOrLoad(ctx, &ep, nil); err != nil {
 		log.Warningf("Failure in %s: %s", tmpDir, err)
