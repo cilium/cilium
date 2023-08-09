@@ -187,6 +187,7 @@
         "contrib/coccinelle/Dockerfile",
         "images/cache/Dockerfile",
         "images/clustermesh-apiserver/Dockerfile",
+        "images/hubble-relay/Dockerfile",
         "images/operator/Dockerfile",
         "images/kvstoremesh/Dockerfile"
       ],
