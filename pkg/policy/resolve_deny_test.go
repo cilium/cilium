@@ -168,7 +168,7 @@ func (ds *PolicyTestSuite) TestL3WithIngressDenyWildcard(c *C) {
 		PolicyOwner: DummyOwner{},
 		// inherit this from the result as it is outside of the scope
 		// of this test
-		PolicyMapState: policy.PolicyMapState,
+		policyMapState: policy.policyMapState,
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
@@ -251,7 +251,7 @@ func (ds *PolicyTestSuite) TestL3WithLocalHostWildcardd(c *C) {
 		PolicyOwner: DummyOwner{},
 		// inherit this from the result as it is outside of the scope
 		// of this test
-		PolicyMapState: policy.PolicyMapState,
+		policyMapState: policy.policyMapState,
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
@@ -331,12 +331,12 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 			IngressPolicyEnabled: true,
 		},
 		PolicyOwner: DummyOwner{},
-		PolicyMapState: MapState{
+		policyMapState: newMapState(map[Key]MapStateEntry{
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
 			{TrafficDirection: trafficdirection.Egress.Uint8()}: allowEgressMapStateEntry,
 			{DestPort: 80, Nexthdr: 6}:                          rule1MapStateEntry,
-		},
+		}),
 	}
 
 	// Add new identity to test accumulation of MapChanges
@@ -469,14 +469,14 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 			IngressPolicyEnabled: true,
 		},
 		PolicyOwner: DummyOwner{},
-		PolicyMapState: MapState{
+		policyMapState: newMapState(map[Key]MapStateEntry{
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
 			{TrafficDirection: trafficdirection.Egress.Uint8()}:                          allowEgressMapStateEntry,
 			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld),
 			{Identity: 192, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry,
 			{Identity: 194, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry,
-		},
+		}),
 	}
 
 	adds, deletes := policy.ConsumeMapChanges()

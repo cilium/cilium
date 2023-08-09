@@ -371,14 +371,14 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 // distillPolicy distills the policy repository into a set of bpf map state
 // entries for an endpoint with the specified labels.
 func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray) (MapState, error) {
-	result := make(MapState)
+	result := newMapState(nil)
 	selectorCache := d.Repository.GetSelectorCache()
 	endpointSelected, _ := d.Repository.GetRulesMatching(epLabels)
 	io.WriteString(d.log, fmt.Sprintf("[distill] Endpoint selected by policy: %t\n", endpointSelected))
 	if !endpointSelected {
 		allowAllIngress := true
 		allowAllEgress := false // Skip egress
-		result.AllowAllIdentities(allowAllIngress, allowAllEgress)
+		result.allowAllIdentities(allowAllIngress, allowAllEgress)
 		result.clearCaches()
 		return result, nil
 	}
@@ -399,7 +399,8 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 	io.WriteString(d.log, "[distill] Producing L4 ingress filter keys\n")
 	for _, l4 := range l4IngressPolicy {
 		io.WriteString(d.log, fmt.Sprintf("[distill] Processing ingress L4Filter (l4: %d/%s), (l3/7: %+v)\n", l4.Port, l4.Protocol, l4.L7RulesPerSelector))
-		for key, entry := range l4.ToMapState(owner, 0, selectorCache) {
+		ms := l4.ToMapState(owner, 0, selectorCache)
+		ms.ForEach(func(key Key, entry MapStateEntry) (cont bool) {
 			var policyStr string
 			if entry.IsDeny {
 				policyStr = "deny"
@@ -408,7 +409,8 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 			}
 			io.WriteString(d.log, fmt.Sprintf("[distill] L4 ingress %s %+v (parser=%s, redirect=%t)\n", policyStr, key, l4.L7Parser, entry.IsRedirectEntry()))
 			result.DenyPreferredInsert(key, entry, selectorCache)
-		}
+			return true
+		})
 	}
 	l4IngressPolicy.Detach(selectorCache)
 	result.clearCaches()
@@ -429,7 +431,8 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 	io.WriteString(d.log, "[distill] Producing L4 egress filter keys\n")
 	for _, l4 := range l4EgressPolicy {
 		io.WriteString(d.log, fmt.Sprintf("[distill] Processing egress L4Filter (l4: %d/%s), (l3/7: %+v)\n", l4.Port, l4.Protocol, l4.L7RulesPerSelector))
-		for key, entry := range l4.ToMapState(owner, 1, selectorCache) {
+		ms := l4.ToMapState(owner, 1, selectorCache)
+		ms.ForEach(func(key Key, entry MapStateEntry) (cont bool) {
 			var policyStr string
 			if entry.IsDeny {
 				policyStr = "deny"
@@ -438,7 +441,8 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 			}
 			io.WriteString(d.log, fmt.Sprintf("[distill] L4 egress %s %+v (parser=%s, redirect=%t)\n", policyStr, key, l4.L7Parser, entry.IsRedirectEntry()))
 			result.DenyPreferredInsert(key, entry, selectorCache)
-		}
+			return true
+		})
 	}
 	l4EgressPolicy.Detach(selectorCache)
 	result.clearCaches()
@@ -450,11 +454,12 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 // tests does not allow expected MapStateEntries to contain actual
 // CachedSelectors as those have not been inserted to the selector
 // cache at the time when the expectations are created.
-func (m MapState) clearCaches() {
-	for k, v := range m {
+func (m *mapState) clearCaches() {
+	m.ForEach(func(k Key, v MapStateEntry) (cont bool) {
 		v.owners = make(map[MapStateOwner]struct{})
-		m[k] = v
-	}
+		m.Insert(k, v)
+		return true
+	})
 }
 
 func Test_MergeL3(t *testing.T) {
@@ -469,8 +474,8 @@ func Test_MergeL3(t *testing.T) {
 		rules  api.Rules
 		result MapState
 	}{
-		{0, api.Rules{rule__L3AllowFoo, rule__L3AllowBar}, MapState{mapKeyAllowFoo__: mapEntryL7None_(lbls__L3AllowFoo, lbls__L3AllowBar), mapKeyAllowBar__: mapEntryL7None_(lbls__L3AllowFoo, lbls__L3AllowBar)}},
-		{1, api.Rules{rule__L3AllowFoo, ruleL3L4__Allow}, MapState{mapKeyAllowFoo__: mapEntryL7None_(lbls__L3AllowFoo), mapKeyAllowFooL4: mapEntryL7None_(lblsL3L4__Allow)}},
+		{0, api.Rules{rule__L3AllowFoo, rule__L3AllowBar}, newMapState(map[Key]MapStateEntry{mapKeyAllowFoo__: mapEntryL7None_(lbls__L3AllowFoo, lbls__L3AllowBar), mapKeyAllowBar__: mapEntryL7None_(lbls__L3AllowFoo, lbls__L3AllowBar)})},
+		{1, api.Rules{rule__L3AllowFoo, ruleL3L4__Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFoo__: mapEntryL7None_(lbls__L3AllowFoo), mapKeyAllowFooL4: mapEntryL7None_(lblsL3L4__Allow)})},
 	}
 
 	for _, tt := range tests {
@@ -581,15 +586,15 @@ func parseTable(test string) generatedBPFKey {
 // The algorithm represented in this function should be the source of truth
 // of our expectations when enforcing multiple types of policies.
 func testCaseToMapState(t generatedBPFKey) MapState {
-	m := MapState{}
+	m := newMapState(nil)
 
 	if t.L3Key.L3 != nil {
 		if t.L3Key.Deny != nil && *t.L3Key.Deny {
-			m[mapKeyDeny_Foo__] = mapEntryL7Deny_()
+			m.keys[mapKeyDeny_Foo__] = mapEntryL7Deny_()
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L3Key.L7 == nil || !*t.L3Key.L7 {
-				m[mapKeyAllowFoo__] = mapEntryL7None_()
+				m.keys[mapKeyAllowFoo__] = mapEntryL7None_()
 			}
 			// there's no "else" because we don't support L3L7 policies, i.e.,
 			// a L4 port needs to be specified.
@@ -597,42 +602,42 @@ func testCaseToMapState(t generatedBPFKey) MapState {
 	}
 	if t.L4Key.L3 != nil {
 		if t.L4Key.Deny != nil && *t.L4Key.Deny {
-			m[mapKeyDeny____L4] = mapEntryL7Deny_()
+			m.keys[mapKeyDeny____L4] = mapEntryL7Deny_()
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L4Key.L7 == nil || !*t.L4Key.L7 {
-				m[mapKeyAllow___L4] = mapEntryL7None_()
+				m.keys[mapKeyAllow___L4] = mapEntryL7None_()
 			} else {
 				// L7 is set and it's true then we should expected a mapEntry
 				// with L7 redirection.
-				m[mapKeyAllow___L4] = mapEntryL7Proxy()
+				m.keys[mapKeyAllow___L4] = mapEntryL7Proxy()
 			}
 		}
 	}
 	if t.L3L4Key.L3 != nil {
 		if t.L3L4Key.Deny != nil && *t.L3L4Key.Deny {
-			m[mapKeyDeny_FooL4] = mapEntryL7Deny_()
+			m.keys[mapKeyDeny_FooL4] = mapEntryL7Deny_()
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L3L4Key.L7 == nil || !*t.L3L4Key.L7 {
-				m[mapKeyAllowFooL4] = mapEntryL7None_()
+				m.keys[mapKeyAllowFooL4] = mapEntryL7None_()
 			} else {
 				// L7 is set and it's true then we should expected a mapEntry
 				// with L7 redirection only if we haven't set it already
 				// for an existing L4-only.
 				if t.L4Key.L7 == nil || !*t.L4Key.L7 {
-					m[mapKeyAllowFooL4] = mapEntryL7Proxy()
+					m.keys[mapKeyAllowFooL4] = mapEntryL7Proxy()
 				}
 			}
 		}
 	}
 
 	// Add dependency deny-L3->deny-L3L4 if allow-L4 exists
-	denyL3, denyL3exists := m[mapKeyDeny_Foo__]
-	denyL3L4, denyL3L4exists := m[mapKeyDeny_FooL4]
-	allowL4, allowL4exists := m[mapKeyAllow___L4]
+	denyL3, denyL3exists := m.keys[mapKeyDeny_Foo__]
+	denyL3L4, denyL3L4exists := m.keys[mapKeyDeny_FooL4]
+	allowL4, allowL4exists := m.keys[mapKeyAllow___L4]
 	if allowL4exists && !allowL4.IsDeny && denyL3exists && denyL3.IsDeny && denyL3L4exists && denyL3L4.IsDeny {
-		mapKeyDeny_Foo__.AddDependent(m, mapKeyDeny_FooL4)
+		m.AddDependent(mapKeyDeny_Foo__, mapKeyDeny_FooL4)
 	}
 	return m
 }
@@ -955,38 +960,38 @@ func Test_MergeRules(t *testing.T) {
 		// https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw/edit?usp=sharing
 		//
 		//  Rule 0                   | Rule 1         | Rule 2         | Rule 3         | Rule 4         | Rule 5         | Rule 6         | Rule 7         | Desired BPF map state
-		{0, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, MapState{}},
-		{1, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{2, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7None_(lbls__L4__Allow)}},
-		{3, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7None_(lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{4, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3L4__Allow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7None_(lblsL3L4__Allow)}},
-		{5, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3L4__Allow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7None_(lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{6, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7None_(lblsL3L4__Allow, lbls__L4__Allow)}},                                                     // identical L3L4 entry suppressed
-		{7, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7None_(lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}}, // identical L3L4 entry suppressed
-		{8, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow)}},
-		{9, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{10, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, rule____NoAllow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lbls__L4__Allow)}},
-		{11, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, rule____NoAllow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{12, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow)}},                                                                      // L3L4 entry suppressed to allow L4-only entry to redirect
-		{13, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},                  // L3L4 entry suppressed to allow L4-only entry to redirect
-		{14, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow)}},                                                     // L3L4 entry suppressed to allow L4-only entry to redirect
-		{15, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}}, // L3L4 entry suppressed to allow L4-only entry to redirect
-		{16, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow)}},
-		{17, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{18, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, rule____NoAllow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lbls__L4__Allow)}},
-		{19, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, rule____NoAllow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{20, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, ruleL3L4__Allow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow)}},
-		{21, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, ruleL3L4__Allow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{22, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow)}},
-		{23, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{24, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow)}},                                                                                       // identical L3L4 entry suppressed
-		{25, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},                                   // identical L3L4 entry suppressed
-		{26, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lbls__L4__Allow)}},                                                                      // identical L3L4 entry suppressed
-		{27, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},                  // identical L3L4 entry suppressed
-		{28, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow)}},                                                                      // identical L3L4 entry suppressed
-		{29, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},                  // identical L3L4 entry suppressed
-		{30, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow)}},                                                     // identical L3L4 entry suppressed
-		{31, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}}, // identical L3L4 entry suppressed
+		{0, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, newMapState(nil)},
+		{1, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{2, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule__L4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7None_(lbls__L4__Allow)})},
+		{3, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule__L4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7None_(lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{4, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3L4__Allow, rule____NoAllow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7None_(lblsL3L4__Allow)})},
+		{5, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3L4__Allow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7None_(lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{6, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7None_(lblsL3L4__Allow, lbls__L4__Allow)})},                                                     // identical L3L4 entry suppressed
+		{7, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7None_(lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})}, // identical L3L4 entry suppressed
+		{8, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow)})},
+		{9, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{10, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, rule____NoAllow, rule__L4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lbls__L4__Allow)})},
+		{11, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, rule____NoAllow, rule__L4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{12, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow)})},                                                                      // L3L4 entry suppressed to allow L4-only entry to redirect
+		{13, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},                  // L3L4 entry suppressed to allow L4-only entry to redirect
+		{14, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow)})},                                                     // L3L4 entry suppressed to allow L4-only entry to redirect
+		{15, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})}, // L3L4 entry suppressed to allow L4-only entry to redirect
+		{16, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow)})},
+		{17, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{18, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, rule____NoAllow, rule__L4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lbls__L4__Allow)})},
+		{19, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, rule____NoAllow, rule__L4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{20, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, ruleL3L4__Allow, rule____NoAllow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow)})},
+		{21, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, ruleL3L4__Allow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{22, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow)})},
+		{23, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule____NoAllow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{24, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow)})},                                                                                       // identical L3L4 entry suppressed
+		{25, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},                                   // identical L3L4 entry suppressed
+		{26, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule__L4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lbls__L4__Allow)})},                                                                      // identical L3L4 entry suppressed
+		{27, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, rule____NoAllow, rule__L4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},                  // identical L3L4 entry suppressed
+		{28, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow)})},                                                                      // identical L3L4 entry suppressed
+		{29, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},                  // identical L3L4 entry suppressed
+		{30, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow)})},                                                     // identical L3L4 entry suppressed
+		{31, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})}, // identical L3L4 entry suppressed
 	}
 
 	expectedMapState := generateMapStates()
@@ -1034,14 +1039,17 @@ func Test_MergeRules(t *testing.T) {
 			// Since this field is only used for debuggability purposes we can
 			// ignore it and test only for the MapState that we are expecting
 			// to be plumbed into the datapath.
-			for k, v := range mapstate {
+			mapstate.ForEach(func(k Key, v MapStateEntry) (cont bool) {
 				if v.DerivedFromRules == nil || len(v.DerivedFromRules) == 0 {
-					continue
+					return true
 				}
 				v.DerivedFromRules = labels.LabelArrayList(nil).Sort()
-				mapstate[k] = v
-			}
+				mapstate.Insert(k, v)
+				return true
+			})
 			if equal, err := checker.DeepEqual(mapstate, expectedMapState[tt.test]); !equal {
+				t.Logf("Rules:\n%s\n\n", tt.rules.String())
+				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy obtained didn't match expected for endpoint:\n%s", err)
 			}
 			if equal, err := checker.DeepEqual(generatedRule, tt.rules); !equal {
@@ -1068,38 +1076,38 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 		// https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw/edit?usp=sharing
 		//
 		//  Rule 0                   | Rule 1         | Rule 2         | Rule 3         | Rule 4         | Rule 5         | Rule 6         | Rule 7         | Desired BPF map state
-		{0, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, MapState{}},
-		{1, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{2, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule__npL4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7None_(lbls__L4__Allow)}},
-		{3, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule__npL4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7None_(lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{4, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3npL4__Allow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7None_(lblsL3L4__Allow)}},
-		{5, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3npL4__Allow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7None_(lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{6, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3npL4__Allow, rule__npL4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7None_(lblsL3L4__Allow, lbls__L4__Allow)}},                                                     // identical L3L4 entry suppressed
-		{7, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3npL4__Allow, rule__npL4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7None_(lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}}, // identical L3L4 entry suppressed
-		{8, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow)}},
-		{9, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{10, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, rule____NoAllow, rule__npL4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lbls__L4__Allow)}},
-		{11, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, rule____NoAllow, rule__npL4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{12, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, ruleL3npL4__Allow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow)}},                                                                        // L3L4 entry suppressed to allow L4-only entry to redirect
-		{13, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, ruleL3npL4__Allow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},                    // L3L4 entry suppressed to allow L4-only entry to redirect
-		{14, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, ruleL3npL4__Allow, rule__npL4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow)}},                                                     // L3L4 entry suppressed to allow L4-only entry to redirect
-		{15, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, ruleL3npL4__Allow, rule__npL4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}}, // L3L4 entry suppressed to allow L4-only entry to redirect
-		{16, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow)}},
-		{17, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{18, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, rule____NoAllow, rule__npL4__Allow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lbls__L4__Allow)}},
-		{19, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, rule____NoAllow, rule__npL4__Allow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{20, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, ruleL3npL4__Allow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow)}},
-		{21, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, ruleL3npL4__Allow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{22, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, ruleL3npL4__Allow, rule__npL4__Allow, rule____NoAllow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow)}},
-		{23, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, ruleL3npL4__Allow, rule__npL4__Allow, ruleL3____Allow}, MapState{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},
-		{24, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow)}},                                                                                           // identical L3L4 entry suppressed
-		{25, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},                                       // identical L3L4 entry suppressed
-		{26, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, rule____NoAllow, rule__npL4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lbls__L4__Allow)}},                                                                        // identical L3L4 entry suppressed
-		{27, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, rule____NoAllow, rule__npL4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},                    // identical L3L4 entry suppressed
-		{28, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, ruleL3npL4__Allow, rule____NoAllow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow)}},                                                                        // identical L3L4 entry suppressed
-		{29, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, ruleL3npL4__Allow, rule____NoAllow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}},                    // identical L3L4 entry suppressed
-		{30, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, ruleL3npL4__Allow, rule__npL4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow)}},                                                     // identical L3L4 entry suppressed
-		{31, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, ruleL3npL4__Allow, rule__npL4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}}, // identical L3L4 entry suppressed
+		{0, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, newMapState(nil)},
+		{1, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{2, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule__npL4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7None_(lbls__L4__Allow)})},
+		{3, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule__npL4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7None_(lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{4, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3npL4__Allow, rule____NoAllow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7None_(lblsL3L4__Allow)})},
+		{5, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3npL4__Allow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7None_(lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{6, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3npL4__Allow, rule__npL4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7None_(lblsL3L4__Allow, lbls__L4__Allow)})},                                                     // identical L3L4 entry suppressed
+		{7, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule____NoAllow, ruleL3npL4__Allow, rule__npL4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7None_(lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})}, // identical L3L4 entry suppressed
+		{8, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow)})},
+		{9, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{10, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, rule____NoAllow, rule__npL4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lbls__L4__Allow)})},
+		{11, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, rule____NoAllow, rule__npL4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{12, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, ruleL3npL4__Allow, rule____NoAllow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow)})},                                                                        // L3L4 entry suppressed to allow L4-only entry to redirect
+		{13, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, ruleL3npL4__Allow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},                    // L3L4 entry suppressed to allow L4-only entry to redirect
+		{14, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, ruleL3npL4__Allow, rule__npL4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow)})},                                                     // L3L4 entry suppressed to allow L4-only entry to redirect
+		{15, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, rule____NoAllow, rule__npL4L7Allow, ruleL3npL4__Allow, rule__npL4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})}, // L3L4 entry suppressed to allow L4-only entry to redirect
+		{16, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow)})},
+		{17, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{18, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, rule____NoAllow, rule__npL4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lbls__L4__Allow)})},
+		{19, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, rule____NoAllow, rule__npL4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{20, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, ruleL3npL4__Allow, rule____NoAllow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow)})},
+		{21, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, ruleL3npL4__Allow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{22, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, ruleL3npL4__Allow, rule__npL4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow)})},
+		{23, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule____NoAllow, ruleL3npL4__Allow, rule__npL4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllowFooL4: mapEntryL7Proxy(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllow___L4: mapEntryL7None_(lblsL3L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},
+		{24, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, rule____NoAllow, rule____NoAllow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow)})},                                                                                           // identical L3L4 entry suppressed
+		{25, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, rule____NoAllow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},                                       // identical L3L4 entry suppressed
+		{26, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, rule____NoAllow, rule__npL4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lbls__L4__Allow)})},                                                                        // identical L3L4 entry suppressed
+		{27, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, rule____NoAllow, rule__npL4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},                    // identical L3L4 entry suppressed
+		{28, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, ruleL3npL4__Allow, rule____NoAllow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow)})},                                                                        // identical L3L4 entry suppressed
+		{29, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, ruleL3npL4__Allow, rule____NoAllow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})},                    // identical L3L4 entry suppressed
+		{30, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, ruleL3npL4__Allow, rule__npL4__Allow, rule____NoAllow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow)})},                                                     // identical L3L4 entry suppressed
+		{31, api.Rules{rule_____NoDeny, rule_____NoDeny, rule_____NoDeny, ruleL3npL4L7Allow, rule__npL4L7Allow, ruleL3npL4__Allow, rule__npL4__Allow, ruleL3____Allow}, newMapState(map[Key]MapStateEntry{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)})}, // identical L3L4 entry suppressed
 	}
 	for _, tt := range tests {
 		repo := newPolicyDistillery(selectorCache)
@@ -1138,8 +1146,8 @@ func Test_AllowAll(t *testing.T) {
 		rules    api.Rules
 		result   MapState
 	}{
-		{0, api.EndpointSelectorNone, api.Rules{rule____AllowAll}, MapState{mapKeyAllowAll__: mapEntryL7None_(lblsAllowAllIngress)}},
-		{1, api.WildcardEndpointSelector, api.Rules{rule____AllowAll}, MapState{mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll)}},
+		{0, api.EndpointSelectorNone, api.Rules{rule____AllowAll}, NewMapState(map[Key]MapStateEntry{mapKeyAllowAll__: mapEntryL7None_(lblsAllowAllIngress)})},
+		{1, api.WildcardEndpointSelector, api.Rules{rule____AllowAll}, NewMapState(map[Key]MapStateEntry{mapKeyAllowAll__: mapEntryL7None_(lbls____AllowAll)})},
 	}
 
 	for _, tt := range tests {
@@ -1387,21 +1395,21 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 		rules  api.Rules
 		result MapState
 	}{
-		{"deny_world_no_labels", api.Rules{ruleL3DenyWorld, ruleL3AllowWorldIP}, MapState{
+		{"deny_world_no_labels", api.Rules{ruleL3DenyWorld, ruleL3AllowWorldIP}, newMapState(map[Key]MapStateEntry{
 			mapKeyL3WorldIngress: mapEntryDeny,
 			mapKeyL3WorldEgress:  mapEntryDeny,
-		}}, {"deny_world_with_labels", api.Rules{ruleL3DenyWorldWithLabels, ruleL3AllowWorldIP}, MapState{
+		})}, {"deny_world_with_labels", api.Rules{ruleL3DenyWorldWithLabels, ruleL3AllowWorldIP}, newMapState(map[Key]MapStateEntry{
 			mapKeyL3WorldIngress: mapEntryWorldDenyWithLabels,
 			mapKeyL3WorldEgress:  mapEntryWorldDenyWithLabels,
-		}}, {"deny_one_ip_with_a_larger_subnet", api.Rules{ruleL3DenySubnet, ruleL3AllowWorldIP}, MapState{
+		})}, {"deny_one_ip_with_a_larger_subnet", api.Rules{ruleL3DenySubnet, ruleL3AllowWorldIP}, newMapState(map[Key]MapStateEntry{
 			mapKeyL3SubnetIngress: mapEntryDeny,
 			mapKeyL3SubnetEgress:  mapEntryDeny,
-		}}, {"deny_part_of_a_subnet_with_an_ip", api.Rules{ruleL3DenySmallerSubnet, ruleL3AllowLargerSubnet}, MapState{
+		})}, {"deny_part_of_a_subnet_with_an_ip", api.Rules{ruleL3DenySmallerSubnet, ruleL3AllowLargerSubnet}, newMapState(map[Key]MapStateEntry{
 			mapKeyL3SmallerSubnetIngress: mapEntryDeny,
 			mapKeyL3SmallerSubnetEgress:  mapEntryDeny,
 			mapKeyL3SubnetIngress:        mapEntryAllow,
 			mapKeyL3SubnetEgress:         mapEntryAllow,
-		}}, {"broad_deny_is_a_portproto_subset_of_a_specific_allow", api.Rules{ruleL3L4Port8080ProtoAnyDenyWorld, ruleL3AllowWorldIP}, MapState{
+		})}, {"broad_deny_is_a_portproto_subset_of_a_specific_allow", api.Rules{ruleL3L4Port8080ProtoAnyDenyWorld, ruleL3AllowWorldIP}, newMapState(map[Key]MapStateEntry{
 			mapKeyL3L4Port8080ProtoTCPWorldIngress:   mapEntryDeny,
 			mapKeyL3L4Port8080ProtoTCPWorldEgress:    mapEntryDeny,
 			mapKeyL3L4Port8080ProtoUDPWorldIngress:   mapEntryDeny,
@@ -1412,8 +1420,8 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL3L4Port8080ProtoTCPWorldSNEgress:  mapEntryDeny,
 			mapKeyL3L4Port8080ProtoUDPWorldSNIngress: mapEntryDeny,
 			mapKeyL3L4Port8080ProtoUDPWorldSNEgress:  mapEntryDeny,
-		}},
-		{"broad_allow_is_a_portproto_subset_of_a_specific_deny", api.Rules{ruleL3AllowWorldSubnet, ruleL3DenyWorldIP}, MapState{
+		})},
+		{"broad_allow_is_a_portproto_subset_of_a_specific_deny", api.Rules{ruleL3AllowWorldSubnet, ruleL3DenyWorldIP}, newMapState(map[Key]MapStateEntry{
 
 			mapKeyL3L4Port8080ProtoTCPWorldSNIngress: mapEntryAllow,
 			mapKeyL3L4Port8080ProtoTCPWorldSNEgress:  mapEntryAllow,
@@ -1426,7 +1434,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL4Port8080ProtoTCPWorldIPEgress:  mapEntryDeny,
 			mapKeyL4Port8080ProtoUDPWorldIPIngress: mapEntryDeny,
 			mapKeyL4Port8080ProtoUDPWorldIPEgress:  mapEntryDeny,
-		}},
+		})},
 	}
 	for _, tt := range tests {
 		repo := newPolicyDistillery(selectorCache)

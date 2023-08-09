@@ -852,7 +852,7 @@ func (e *Endpoint) GetRealizedPolicyRuleLabelsForKey(key policy.Key) (
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
-	entry, ok := e.realizedPolicy.PolicyMapState[key]
+	entry, ok := e.realizedPolicy.GetPolicyMap().Get(key)
 	if !ok {
 		return nil, 0, false
 	}

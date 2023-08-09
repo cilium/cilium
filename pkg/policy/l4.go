@@ -338,7 +338,7 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 		})
 	}
 
-	keysToAdd := MapState{}
+	keysToAdd := NewMapState(nil)
 
 	// resolve named port
 	if port == 0 && l4Filter.PortName != "" {

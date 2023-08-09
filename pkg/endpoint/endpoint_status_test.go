@@ -82,7 +82,7 @@ func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *End
 		})
 	}
 
-	e.desiredPolicy.PolicyMapState = policy.MapState{}
+	e.desiredPolicy.SetPolicyMap(nil)
 
 	if spec.numPortsPerIdentity == 0 {
 		spec.numPortsPerIdentity = 1
@@ -95,7 +95,7 @@ func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *End
 				DestPort:         uint16(80 + n),
 				TrafficDirection: trafficdirection.Ingress.Uint8(),
 			}
-			e.desiredPolicy.PolicyMapState[key] = policy.MapStateEntry{}
+			e.desiredPolicy.GetPolicyMap().Insert(key, policy.MapStateEntry{})
 		}
 	}
 
@@ -106,7 +106,7 @@ func (s *EndpointSuite) newEndpoint(c *check.C, spec endpointGeneratorSpec) *End
 				DestPort:         uint16(80 + n),
 				TrafficDirection: trafficdirection.Egress.Uint8(),
 			}
-			e.desiredPolicy.PolicyMapState[key] = policy.MapStateEntry{}
+			e.desiredPolicy.GetPolicyMap().Insert(key, policy.MapStateEntry{})
 		}
 	}
 
@@ -396,7 +396,7 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 	}
 
 	for _, tt := range tests {
-		e.desiredPolicy.PolicyMapState = policy.MapState{}
+		e.desiredPolicy.SetPolicyMap(nil)
 		for _, arg := range tt.args {
 			t := policy.Key{
 				Identity:         arg.identity,
@@ -404,7 +404,7 @@ func (s *EndpointSuite) TestgetEndpointPolicyMapState(c *check.C) {
 				Nexthdr:          arg.nexthdr,
 				TrafficDirection: arg.direction.Uint8(),
 			}
-			e.desiredPolicy.PolicyMapState[t] = policy.MapStateEntry{}
+			e.desiredPolicy.GetPolicyMap().Insert(t, policy.MapStateEntry{})
 		}
 		expectedIngressList := prepareExpectedList(tt.ingressResult)
 		expectedEgressList := prepareExpectedList(tt.egressResult)

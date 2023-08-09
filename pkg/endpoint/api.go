@@ -331,17 +331,17 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 
 	realizedLog := log.WithField("map-name", "realized").Logger
 	realizedIngressIdentities, realizedEgressIdentities :=
-		e.realizedPolicy.PolicyMapState.GetIdentities(realizedLog)
+		e.realizedPolicy.GetPolicyMap().GetIdentities(realizedLog)
 
 	realizedDenyIngressIdentities, realizedDenyEgressIdentities :=
-		e.realizedPolicy.PolicyMapState.GetDenyIdentities(realizedLog)
+		e.realizedPolicy.GetPolicyMap().GetDenyIdentities(realizedLog)
 
 	desiredLog := log.WithField("map-name", "desired").Logger
 	desiredIngressIdentities, desiredEgressIdentities :=
-		e.desiredPolicy.PolicyMapState.GetIdentities(desiredLog)
+		e.desiredPolicy.GetPolicyMap().GetIdentities(desiredLog)
 
 	desiredDenyIngressIdentities, desiredDenyEgressIdentities :=
-		e.desiredPolicy.PolicyMapState.GetDenyIdentities(desiredLog)
+		e.desiredPolicy.GetPolicyMap().GetDenyIdentities(desiredLog)
 
 	policyEnabled := e.policyStatus()
 
