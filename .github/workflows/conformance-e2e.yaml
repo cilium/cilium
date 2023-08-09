@@ -1,4 +1,4 @@
-name: Cilium Conformance E2E (ci-e2e)
+name: Conformance E2E (ci-e2e)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -58,6 +58,7 @@ env:
 
 jobs:
   commit-status-start:
+    name: Commit Status Start
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
@@ -370,6 +371,7 @@ jobs:
 
   commit-status-final:
     if: ${{ always() }}
+    name: Commit Status Final
     needs: setup-and-test
     runs-on: ubuntu-latest
     steps:
