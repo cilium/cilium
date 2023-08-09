@@ -43,6 +43,7 @@ env:
 
 jobs:
   push-charts:
+    name: Push Charts
     runs-on: ubuntu-20.04
     # we also check for push events in case someone is testing the workflow by uncommenting the push trigger above.
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
@@ -96,7 +97,8 @@ jobs:
         ref: ${{ steps.get-ref.outputs.ref }}
         # required for git describe
         fetch-depth: 0
-    - id: get-version
+    - name: Get version
+      id: get-version
       run: |
         set -o pipefail
         set -e

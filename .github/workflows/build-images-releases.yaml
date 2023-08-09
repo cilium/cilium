@@ -14,6 +14,7 @@ permissions:
 
 jobs:
   build-and-push:
+    name: Build and Push Images
     environment: release
     runs-on: ubuntu-20.04
     strategy:

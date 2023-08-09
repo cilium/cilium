@@ -1,4 +1,4 @@
-name: Cyclonus network policy test
+name: Cyclonus Network Policy Test
 
 on:
   schedule:
@@ -20,9 +20,11 @@ env:
 
 jobs:
   preflight-clusterrole:
+    name: Preflight Clusterrole Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - name: Checkout code
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           persist-credentials: false
       - name: Check pre-flight clusterrole
@@ -37,6 +39,7 @@ jobs:
              cilium-preflight/clusterrole.yaml
 
   cyclonus-test:
+    name: Cyclonus Test 
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main branch to access local actions

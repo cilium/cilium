@@ -1,4 +1,4 @@
-name: ConformanceKindEnvoyDaemonSet
+name: Conformance Kind Envoy DaemonSet
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
