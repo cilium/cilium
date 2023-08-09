@@ -72,8 +72,6 @@ PKTGEN("tc", "ipv4_l3_to_l2_fast_redirect")
 int ipv4_l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	struct tcphdr *l4;
 	void *data;
 
@@ -87,27 +85,13 @@ int ipv4_l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx)
 	 * Therefore we workaround the issue by pushing L2 header in the PKTGEN
 	 * and stripping it in the SETUP.
 	 */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
 
-	ethhdr__set_macs(l2, (__u8 *)node_mac, (__u8 *)ep_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-
-	if (!l3)
-		return TEST_ERROR;
-	l3->saddr = TEST_IP_REMOTE;
-	l3->daddr = TEST_IP_LOCAL;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
-
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)node_mac, (__u8 *)ep_mac,
+					  TEST_IP_REMOTE, TEST_IP_LOCAL,
+					  tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
-	l4->source = tcp_src_one;
-	l4->dest = tcp_svc_one;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 
@@ -216,8 +200,6 @@ PKTGEN("tc", "ipv6_l3_to_l2_fast_redirect")
 int ipv6_l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
-	struct ipv6hdr *l3;
 	struct tcphdr *l4;
 	void *data;
 
@@ -231,26 +213,13 @@ int ipv6_l3_to_l2_fast_redirect_pktgen(struct __ctx_buff *ctx)
 	 * Therefore we workaround the issue by pushing L2 header in the PKTGEN
 	 * and stripping it in the SETUP.
 	 */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)node_mac, (__u8 *)ep_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_ipv6hdr(&builder);
-
-	if (!l3)
-		return TEST_ERROR;
-	ipv6hdr__set_addrs(l3, (__u8 *)TEST_IPV6_REMOTE, (__u8 *)TEST_IPV6_LOCAL);
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
-
+	l4 = pktgen__push_ipv6_tcp_packet(&builder,
+					  (__u8 *)node_mac, (__u8 *)ep_mac,
+					  (__u8 *)TEST_IPV6_REMOTE,
+					  (__u8 *)TEST_IPV6_LOCAL,
+					  tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
-	l4->source = tcp_src_one;
-	l4->dest = tcp_svc_one;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 

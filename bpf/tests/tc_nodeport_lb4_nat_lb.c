@@ -141,35 +141,17 @@ int nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)lb_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = CLIENT_IP;
-	l3->daddr = FRONTEND_IP_LOCAL;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  CLIENT_IP, FRONTEND_IP_LOCAL,
+					  CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->source = CLIENT_PORT;
-	l4->dest = FRONTEND_PORT;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -261,35 +243,17 @@ int nodeport_local_backend_reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)lb_mac, (__u8 *)client_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = BACKEND_IP_LOCAL;
-	l3->daddr = CLIENT_IP;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)lb_mac, (__u8 *)client_mac,
+					  BACKEND_IP_LOCAL, CLIENT_IP,
+					  BACKEND_PORT, CLIENT_PORT);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->source = BACKEND_PORT;
-	l4->dest = CLIENT_PORT;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -371,35 +335,17 @@ int nodeport_local_backend_redirect_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)lb_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = CLIENT_IP_2;
-	l3->daddr = FRONTEND_IP_LOCAL;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  CLIENT_IP_2, FRONTEND_IP_LOCAL,
+					  CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->source = CLIENT_PORT;
-	l4->dest = FRONTEND_PORT;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -481,35 +427,17 @@ int nodeport_local_backend_redirect_reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)lb_mac, (__u8 *)client_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = BACKEND_IP_LOCAL;
-	l3->daddr = CLIENT_IP_2;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)lb_mac, (__u8 *)client_mac,
+					  BACKEND_IP_LOCAL, CLIENT_IP_2,
+					  BACKEND_PORT, CLIENT_PORT);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->source = BACKEND_PORT;
-	l4->dest = CLIENT_PORT;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -592,35 +520,17 @@ int nodeport_udp_local_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct udphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)lb_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = CLIENT_IP;
-	l3->daddr = FRONTEND_IP_LOCAL;
-
-	/* Push UDP header */
-	l4 = pktgen__push_default_udphdr(&builder);
+	l4 = pktgen__push_ipv4_udp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  CLIENT_IP, FRONTEND_IP_LOCAL,
+					  CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->source = CLIENT_PORT;
-	l4->dest = FRONTEND_PORT;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -709,35 +619,17 @@ int nodeport_nat_fwd_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)lb_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = CLIENT_IP;
-	l3->daddr = FRONTEND_IP_REMOTE;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  CLIENT_IP, FRONTEND_IP_REMOTE,
+					  CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->source = CLIENT_PORT;
-	l4->dest = FRONTEND_PORT;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -825,35 +717,17 @@ static __always_inline int build_reply(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)remote_backend_mac, (__u8 *)lb_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = BACKEND_IP_REMOTE;
-	l3->daddr = LB_IP;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)remote_backend_mac, (__u8 *)lb_mac,
+					  BACKEND_IP_REMOTE, LB_IP,
+					  BACKEND_PORT, nat_source_port);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->source = BACKEND_PORT;
-	l4->dest = nat_source_port;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)

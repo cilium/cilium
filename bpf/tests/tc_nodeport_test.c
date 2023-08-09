@@ -62,37 +62,18 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
 	struct pktgen builder;
 	volatile const __u8 *src = mac_one;
 	volatile const __u8 *dst = mac_two;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	struct tcphdr *l4;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-
-	if (!l3)
-		return TEST_ERROR;
-	l3->saddr = v4_pod_one;
-	l3->daddr = v4_svc_one;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
-
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)src, (__u8 *)dst,
+					  v4_pod_one, v4_svc_one,
+					  tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
-	l4->source = tcp_src_one;
-	l4->dest = tcp_svc_one;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 
@@ -184,41 +165,21 @@ PKTGEN("tc", "hairpin_flow_2_reverse_v4")
 int hairpin_flow_reverse_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
 	volatile const __u8 *src = mac_one;
 	volatile const __u8 *dst = mac_two;
-	struct iphdr *l3;
 	struct tcphdr *l4;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = v4_pod_one;
-	l3->daddr = IPV4_LOOPBACK;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
-
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)src, (__u8 *)dst,
+					  v4_pod_one, IPV4_LOOPBACK,
+					  tcp_svc_one, tcp_src_one);
 	if (!l4)
 		return TEST_ERROR;
 
-	l4->source = tcp_svc_one;
-	l4->dest = tcp_src_one;
 	l4->ack = 1;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));

@@ -314,29 +314,17 @@ PKTGEN("tc", "ipv4_without_encrypt_ipsec_from_overlay")
 int ipv4_without_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	struct tcphdr *l4;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
-
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-	l3->saddr = v4_pod_one;
-	l3->daddr = v4_pod_two;
-
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)mac_one, (__u8 *)mac_two,
+					  v4_pod_one, v4_pod_two,
+					  tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
-	l4->source = tcp_src_one;
-	l4->dest = tcp_svc_one;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -430,28 +418,17 @@ PKTGEN("tc", "ipv6_without_encrypt_ipsec_from_overlay")
 int ipv6_without_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
-	struct ipv6hdr *l3;
 	struct tcphdr *l4;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
-
-	l3 = pktgen__push_default_ipv6hdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-	ipv6hdr__set_addrs(l3, (__u8 *)v6_pod_one, (__u8 *)v6_pod_two);
-
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv6_tcp_packet(&builder,
+					  (__u8 *)mac_one, (__u8 *)mac_two,
+					  (__u8 *)v6_pod_one, (__u8 *)v6_pod_two,
+					  tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
-	l4->source = tcp_src_one;
-	l4->dest = tcp_svc_one;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
