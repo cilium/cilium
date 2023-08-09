@@ -491,10 +491,6 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	delete(ipc.ipToHostIPCache, ip)
 	delete(ipc.ipToK8sMetadata, ip)
 
-	// this removes the IP from the metadata map
-	// this prevents old assigned labels from being re-used
-	ipc.metadata.delete(ip)
-
 	// Update named ports
 	namedPortsChanged = false
 	if oldK8sMeta != nil && len(oldK8sMeta.NamedPorts) > 0 {
