@@ -20,6 +20,7 @@
 #include "bpf_lxc.c"
 
 #include "lib/ipcache.h"
+#include "lib/policy.h"
 
 #define FROM_CONTAINER 0
 
@@ -79,10 +80,7 @@ int ipv4_from_lxc_no_node_id_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "01_ipv4_from_lxc_no_node_id")
 int ipv4_from_lxc_no_node_id_setup(struct __ctx_buff *ctx)
 {
-	struct policy_key policy_key = { .egress = 1 };
-	struct policy_entry policy_value = {};
-
-	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);
+	policy_add_egress_allow_all_entry();
 
 	ipcache_v4_add_entry(v4_pod_two, 0, 233, v4_node_two, ENCRYPT_KEY);
 
@@ -342,10 +340,7 @@ int ipv6_from_lxc_encrypt_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "05_ipv6_from_lxc_encrypt")
 int ipv6_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 {
-	struct policy_key policy_key = { .egress = 1 };
-	struct policy_entry policy_value = {};
-
-	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);
+	policy_add_egress_allow_all_entry();
 
 	ipcache_v6_add_entry((union v6addr *)v6_pod_two, 0, 233, v4_node_two, ENCRYPT_KEY);
 

@@ -67,6 +67,7 @@
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
+#include "lib/policy.h"
 
 /*
  * Tests
@@ -189,19 +190,7 @@ int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 	ipcache_v4_add_entry(BACKEND_IP, BACKEND_CLUSTER_ID, BACKEND_IDENTITY,
 			     BACKEND_NODE_IP, 0);
 
-	struct policy_key policy_key = {
-		/* Policy enforcement is identity based. So, if above ipcache
-		 * lookup work correctly, this should work as well.
-		 */
-		.sec_label = BACKEND_IDENTITY,
-		.dport = BACKEND_PORT,
-		.protocol = IPPROTO_TCP,
-		.egress = 1,
-	};
-	struct policy_entry policy_value = {
-		.deny = 0,
-	};
-	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);
+	policy_add_egress_allow_entry(BACKEND_IDENTITY, IPPROTO_TCP, BACKEND_PORT);
 
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
 
