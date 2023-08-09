@@ -15,7 +15,7 @@ triggers:
   /ci-awscni:
     workflows:
     - conformance-aws-cni.yaml
-  /ci-multicluster:
+  /ci-clustermesh:
     workflows:
     - conformance-clustermesh.yaml
   /ci-ipsec-upgrade:

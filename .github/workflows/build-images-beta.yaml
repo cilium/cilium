@@ -15,6 +15,7 @@ permissions: read-all
 
 jobs:
   build-and-push:
+    name: Build and Push Images
     environment: release-beta-images
     runs-on: ubuntu-22.04
     strategy:

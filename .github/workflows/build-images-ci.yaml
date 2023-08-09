@@ -20,6 +20,7 @@ concurrency:
 
 jobs:
   build-and-push-prs:
+    name: Build and Push Images
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -227,6 +228,7 @@ jobs:
   # which requires qemu setup in order to avoid x86/arm64 binaries mixups
   # note: we only build on pushes to v1.12 branch
   build-and-push-with-qemu:
+    name: Build and Push with qemu
     if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-22.04
     strategy:

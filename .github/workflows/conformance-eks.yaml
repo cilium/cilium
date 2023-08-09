@@ -1,4 +1,4 @@
-name: ConformanceEKS (ci-eks)
+name: Conformance EKS (ci-eks)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -61,6 +61,7 @@ env:
 
 jobs:
   commit-status-start:
+    name: Commit Status Start
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
@@ -69,6 +70,7 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   generate-matrix:
+    name: Generate Matrix
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -103,7 +105,7 @@ jobs:
           echo "matrix=$(jq -c . < /tmp/matrix.json)" >> $GITHUB_OUTPUT
 
   installation-and-connectivity:
-    name: "Installation and Connectivity Test"
+    name: Installation and Connectivity Test
     needs: generate-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 75
@@ -315,6 +317,7 @@ jobs:
 
   commit-status-final:
     if: ${{ always() }}
+    name: Commit Status Final
     needs: installation-and-connectivity
     runs-on: ubuntu-latest
     steps:

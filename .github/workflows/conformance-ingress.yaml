@@ -1,4 +1,4 @@
-name: ConformanceIngress
+name: Conformance Ingress
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -61,6 +61,7 @@ env:
 
 jobs:
   commit-status-start:
+    name: Commit Status Start
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
@@ -69,6 +70,7 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   ingress-conformance-test:
+    name: Ingress Conformance Test
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -201,6 +203,7 @@ jobs:
 
   commit-status-final:
     if: ${{ always() }}
+    name: Commit Status Final
     needs: ingress-conformance-test
     runs-on: ubuntu-latest
     steps:
