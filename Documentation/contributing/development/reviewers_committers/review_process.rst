@@ -98,24 +98,21 @@ Review process
    | ``upgrade-impact``       | The code changes have a potential upgrade impact                          |
    +--------------------------+---------------------------------------------------------------------------+
 
-#. When submitting a review, provide explicit approval or request for changes
-   whenever possible. This provides clear feedback to contributors about
-   whether they must take action to resolve the comments before the PR can be
-   merged.
+#. When submitting a review, provide explicit approval or request specific
+   changes whenever possible. Clear feedback indicates whether contributors
+   must take action before a PR can merge.
 
-   If you are in doubt regarding the comments or review, you may leave comments
-   without explicit approval. If you do not explicitly approve or request
-   changes, it's best practice to raise awareness about the discussion so that
-   others can participate and clarify expectations to the contributor. Here are
-   some ways that you can raise awareness:
+   If you need more information before you can approve or request changes, you
+   can leave comments seeking clarity. If you do not explicitly approve or
+   request changes, it's best practice to raise awareness about the discussion
+   so that others can participate. Here are some ways you can raise awareness:
 
-   - Re-request the review of your codeowners in the PR
+   - Re-request review from codeowners in the PR
    - Raise the topic for discussion in Slack or during community meetings
 
-   When requesting changes, consider leaving a summary comment for the overall
-   PR that provides an overview of your feedback, what you think may be
-   important for the contributor to consider, and/or encouragement regarding
-   aspects of the PR that are of benefit to the project.
+   When requesting changes, summarize your feedback for the PR, including
+   overall issues for a contributor to consider and/or encouragement for what a
+   contributor is already doing well.
 
 #. When all review objectives for all ``CODEOWNERS`` are met, all CI tests have
    passed, and all reviewers have approved the requested changes, you can merge
@@ -133,7 +130,7 @@ Reviewer Teams
 
 Every reviewer, including committers in the `committers team`_, belongs to `one
 or more teams in the Cilium organization <cilium_teams_>`_. If you would like
-to be added or removed from any team, please submit a PR against the
+to add or remove yourself from any team, please submit a PR against the
 `community repository`_.
 
 Once a contributor opens a PR, GitHub automatically picks which `teams
