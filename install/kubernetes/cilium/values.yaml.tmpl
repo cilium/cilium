@@ -3145,6 +3145,9 @@ authentication:
         agent:
           # -- SPIRE agent image
           image: ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823
+          # -- SPIRE configuration image
+          spireConfig:
+            image: docker.io/library/busybox:1.35.0@sha256:223ae047b1065bd069aac01ae3ac8088b3ca4a527827e283b85112f29385fb1b
           # -- SPIRE agent service account
           serviceAccount:
             create: true
