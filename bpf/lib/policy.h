@@ -127,7 +127,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		cilium_dbg3(ctx, DBG_L4_CREATE, remote_id, local_id,
 			    dport << 16 | proto);
 		*match_type = POLICY_MATCH_L3_L4;		/* 1. id/proto/port */
-		return __account_and_check(ctx, policy, ext_err, proxy_port);
+		goto check_policy;
 	}
 
 	/* L4-only lookup. */
@@ -145,27 +145,27 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 
 	if (likely(l4policy && !l4policy->wildcard_dport)) {
 		*match_type = POLICY_MATCH_L4_ONLY;		/* 2. ANY/proto/port */
-		return __account_and_check(ctx, l4policy, ext_err, proxy_port);
+		goto check_l4_policy;
 	}
 
 	if (likely(policy && !policy->wildcard_protocol)) {
 		*match_type = POLICY_MATCH_L3_PROTO;		/* 3. id/proto/ANY */
-		return __account_and_check(ctx, policy, ext_err, proxy_port);
+		goto check_policy;
 	}
 
 	if (likely(l4policy && !l4policy->wildcard_protocol)) {
 		*match_type = POLICY_MATCH_PROTO_ONLY;		/* 4. ANY/proto/ANY */
-		return __account_and_check(ctx, l4policy, ext_err, proxy_port);
+		goto check_l4_policy;
 	}
 
 	if (likely(policy)) {
 		*match_type = POLICY_MATCH_L3_ONLY;		/* 5. id/ANY/ANY */
-		return __account_and_check(ctx, policy, ext_err, proxy_port);
+		goto check_policy;
 	}
 
 	if (likely(l4policy)) {
 		*match_type = POLICY_MATCH_ALL;			/* 6. ANY/ANY/ANY */
-		return __account_and_check(ctx, l4policy, ext_err, proxy_port);
+		goto check_l4_policy;
 	}
 
 	/* TODO: Consider skipping policy lookup in this case? */
@@ -178,6 +178,12 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 		return DROP_FRAG_NOSUPPORT;
 
 	return DROP_POLICY;
+
+check_policy:
+	return __account_and_check(ctx, policy, ext_err, proxy_port);
+
+check_l4_policy:
+	return __account_and_check(ctx, l4policy, ext_err, proxy_port);
 }
 
 /**
