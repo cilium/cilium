@@ -9,7 +9,6 @@ import (
 	"time"
 
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -330,8 +329,8 @@ func Test_LBEgressAdvertisement(t *testing.T) {
 	require.NoError(t, err)
 
 	// setup bgp policy with service selection
-	fixture.config.policy.Spec.VirtualRouters[0].ServiceSelector = &slim_metav1.LabelSelector{
-		MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+	fixture.config.policy.Spec.VirtualRouters[0].ServiceSelector = &slimv1.LabelSelector{
+		MatchExpressions: []slimv1.LabelSelectorRequirement{
 			// always true match
 			{
 				Key:      "somekey",

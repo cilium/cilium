@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	metallbk8s "go.universe.tf/metallb/pkg/k8s"
 	mlbk8s "go.universe.tf/metallb/pkg/k8s"
 	"go.universe.tf/metallb/pkg/k8s/types"
 	v1 "k8s.io/api/core/v1"
@@ -27,7 +26,7 @@ const (
 var (
 	errTimeout = errors.New("timeout occurred before mock received event")
 	emptyEps   = mlbk8s.EpsOrSlices{
-		Type: metallbk8s.Eps,
+		Type: mlbk8s.Eps,
 	}
 )
 

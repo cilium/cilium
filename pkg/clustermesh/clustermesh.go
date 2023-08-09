@@ -10,7 +10,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh/internal"
-	"github.com/cilium/cilium/pkg/clustermesh/types"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -36,7 +36,7 @@ type Configuration struct {
 	internal.Config
 
 	// ClusterIDName is the id/name of the local cluster. This is used for logging and metrics
-	types.ClusterIDName
+	cmtypes.ClusterIDName
 
 	// NodeKeyCreator is the function used to create node instances as
 	// nodes are being discovered in remote clusters

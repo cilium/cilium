@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/clustermesh/internal"
-	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/hive/hivetest"
@@ -140,7 +139,7 @@ func TestClusterMesh(t *testing.T) {
 
 	cm := NewClusterMesh(hivetest.Lifecycle(t), Configuration{
 		Config:                internal.Config{ClusterMeshConfig: dir},
-		ClusterIDName:         types.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
+		ClusterIDName:         cmtypes.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
 		NodeKeyCreator:        testNodeCreator,
 		NodeObserver:          &testObserver{},
 		RemoteIdentityWatcher: mgr,

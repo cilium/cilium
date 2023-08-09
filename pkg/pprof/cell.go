@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
-	_ "net/http/pprof"
 	"strconv"
 
 	"github.com/sirupsen/logrus"

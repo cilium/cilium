@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
@@ -262,7 +261,7 @@ func CiliumSlimEndpointResource(lc hive.Lifecycle, cs client.Clientset, opts ...
 		opts...,
 	)
 	return resource.New[*types.CiliumEndpoint](lc, lw,
-		resource.WithLazyTransform(func() runtime.Object {
+		resource.WithLazyTransform(func() k8sRuntime.Object {
 			return &cilium_api_v2.CiliumEndpoint{}
 		}, TransformToCiliumEndpoint),
 	), nil
