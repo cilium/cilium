@@ -330,6 +330,16 @@ Helm Options
   were deprecated in Cilium 1.14 in favor of ``tls.ca.cert`` and ``tls.ca.key`` respectively,
   and have been removed. The ```clustermesh-apiserver-ca-cert`` secret is no longer generated.
 
+Changed Metrics
+~~~~~~~~~~~~~~~
+
+* ``cilium_kvstore_operations_duration_seconds``,
+  ``cilium_clustermesh_apiserver_kvstore_operations_duration_seconds``
+  and ``cilium_kvstoremesh_kvstore_operations_duration_seconds``
+  do not include client-side rate-limiting latency anymore.
+  For checking client-side rate-limiting you can use corresponding
+  ``*_api_limiter_wait_duration_seconds`` metrics.
+
 .. _earlier_upgrade_notes:
 
 Earlier Upgrade Notes
