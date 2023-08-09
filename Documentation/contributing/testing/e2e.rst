@@ -132,7 +132,7 @@ Alternatively, you can use the ``scripts/pull_image.sh``:
     $ git clone https://github.com/cilium/little-vm-helper
     $ IMAGE_DIR=./images ./little-vm-helper/scripts/pull_image.sh quay.io/lvh-images/kind:6.0-main
 
-See `<https://quay.io/organization/lvh-images/kind?tab=tags>`_ for all available
+See `<https://quay.io/repository/lvh-images/kind?tab=tags>`_ for all available
 images. To build a new VM image (or to update any existing) please refer to
 `little-vm-helper-images <https://github.com/cilium/little-vm-helper-images>`_.
 
