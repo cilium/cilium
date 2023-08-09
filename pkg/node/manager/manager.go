@@ -55,6 +55,7 @@ type IPCache interface {
 	Delete(IP string, source source.Source) bool
 	TriggerLabelInjection(source source.Source)
 	UpsertMetadata(string, labels.Labels)
+	RemoveMetadata(prefix string, lbls labels.Labels, src source.Source)
 }
 
 // Configuration is the set of configuration options the node manager depends
@@ -526,13 +527,14 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 			}
 			oldNodeIPAddrs = append(oldNodeIPAddrs, address.IP)
 		}
-		m.deleteIPCache(oldNode.Source, oldNodeIPAddrs, ipsAdded)
+
+		m.deleteIPCache(oldNode.Source, oldNodeIPAddrs, ipsAdded, remoteHostIdentity)
 
 		// Delete the old health IP addresses if they have changed in this node.
-		m.deleteIPCache(oldNode.Source, []net.IP{oldNode.IPv4HealthIP, oldNode.IPv6HealthIP}, healthIPsAdded)
+		m.deleteIPCache(oldNode.Source, []net.IP{oldNode.IPv4HealthIP, oldNode.IPv6HealthIP}, healthIPsAdded, identity.IdentityUnknown)
 
 		// Delete the old ingress IP addresses if they have changed in this node.
-		m.deleteIPCache(oldNode.Source, []net.IP{oldNode.IPv4IngressIP, oldNode.IPv6IngressIP}, ingressIPsAdded)
+		m.deleteIPCache(oldNode.Source, []net.IP{oldNode.IPv4IngressIP, oldNode.IPv6IngressIP}, ingressIPsAdded, identity.IdentityUnknown)
 
 		entry.mutex.Unlock()
 	} else {
@@ -565,9 +567,17 @@ func (m *Manager) upsertIntoIDMD(prefix string, id identity.NumericIdentity) {
 	}
 }
 
+func (m *Manager) removeFromIDMD(prefix string, id identity.NumericIdentity, src source.Source) {
+	if id == identity.ReservedIdentityHost {
+		m.ipcache.RemoveMetadata(prefix, labels.LabelHost, src)
+	} else {
+		m.ipcache.RemoveMetadata(prefix, labels.LabelRemoteNode, src)
+	}
+}
+
 // deleteIPCache deletes the IP addresses from the IPCache with the 'oldSource'
 // if they are not found in the newIPs slice.
-func (m *Manager) deleteIPCache(oldSource source.Source, oldIPs []net.IP, newIPs []string) {
+func (m *Manager) deleteIPCache(oldSource source.Source, oldIPs []net.IP, newIPs []string, remoteID identity.NumericIdentity) {
 	for _, address := range oldIPs {
 		if address == nil {
 			continue
@@ -583,6 +593,9 @@ func (m *Manager) deleteIPCache(oldSource source.Source, oldIPs []net.IP, newIPs
 		// Delete from the IPCache if the node's IP addresses was not
 		// added in this update.
 		if !found {
+			if remoteID != identity.IdentityUnknown {
+				m.removeFromIDMD(addrStr, remoteID, oldSource)
+			}
 			m.ipcache.Delete(addrStr, oldSource)
 		}
 	}
@@ -604,6 +617,16 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 	if !oldNodeExists {
 		m.mutex.Unlock()
 		return
+	}
+
+	remoteHostIdentity := identity.ReservedIdentityHost
+	if m.conf.RemoteNodeIdentitiesEnabled() {
+		nid := identity.NumericIdentity(n.NodeIdentity)
+		if nid != identity.IdentityUnknown && nid != identity.ReservedIdentityHost {
+			remoteHostIdentity = nid
+		} else if !n.IsLocal() {
+			remoteHostIdentity = identity.ReservedIdentityRemoteNode
+		}
 	}
 
 	// If the source is Kubernetes and the node is the node we are running on
@@ -630,7 +653,9 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 			continue
 		}
 
-		m.ipcache.Delete(address.IP.String(), n.Source)
+		ip := address.IP.String()
+		m.removeFromIDMD(ip, remoteHostIdentity, n.Source)
+		m.ipcache.Delete(ip, n.Source)
 	}
 
 	for _, address := range []net.IP{
