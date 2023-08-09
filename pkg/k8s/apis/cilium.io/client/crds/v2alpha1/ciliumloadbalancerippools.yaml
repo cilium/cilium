@@ -26,10 +26,10 @@ spec:
     - jsonPath: .spec.disabled
       name: Disabled
       type: boolean
-    - jsonPath: .status.conditions[?(@.type=="io.cilium/conflict")].status
+    - jsonPath: .status.conditions[?(@.type=="cilium.io/PoolConflict")].status
       name: Conflicting
       type: string
-    - jsonPath: .status.conditions[?(@.type=="io.cilium/ips-available")].message
+    - jsonPath: .status.conditions[?(@.type=="cilium.io/IPsAvailable")].message
       name: IPs Available
       type: string
     - jsonPath: .metadata.creationTimestamp

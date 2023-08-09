@@ -37,12 +37,12 @@ import (
 
 const (
 	// The condition added to services to indicate if a request for IPs could be satisfied or not
-	ciliumSvcRequestSatisfiedCondition = "io.cilium/lb-ipam-request-satisfied"
+	ciliumSvcRequestSatisfiedCondition = "cilium.io/IPAMRequestSatisfied"
 
-	ciliumPoolIPsTotalCondition     = "io.cilium/ips-total"
-	ciliumPoolIPsAvailableCondition = "io.cilium/ips-available"
-	ciliumPoolIPsUsedCondition      = "io.cilium/ips-used"
-	ciliumPoolConflict              = "io.cilium/conflict"
+	ciliumPoolIPsTotalCondition     = "cilium.io/IPsTotal"
+	ciliumPoolIPsAvailableCondition = "cilium.io/IPsAvailable"
+	ciliumPoolIPsUsedCondition      = "cilium.io/IPsUsed"
+	ciliumPoolConflict              = "cilium.io/PoolConflict"
 
 	// The annotation LB IPAM will look for when searching for requested IPs
 	ciliumSvcLBIPSAnnotation = "io.cilium/lb-ipam-ips"
