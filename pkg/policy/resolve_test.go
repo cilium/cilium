@@ -328,7 +328,7 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 		PolicyOwner: DummyOwner{},
 		// inherit this from the result as it is outside of the scope
 		// of this test
-		PolicyMapState: policy.PolicyMapState,
+		policyMapState: policy.policyMapState,
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
@@ -425,7 +425,7 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 		PolicyOwner: DummyOwner{},
 		// inherit this from the result as it is outside of the scope
 		// of this test
-		PolicyMapState: policy.PolicyMapState,
+		policyMapState: policy.policyMapState,
 	}
 
 	// Have to remove circular reference before testing to avoid an infinite loop
@@ -507,10 +507,10 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 			EgressPolicyEnabled:  false,
 		},
 		PolicyOwner: DummyOwner{},
-		PolicyMapState: MapState{
+		policyMapState: newMapState(map[Key]MapStateEntry{
 			{TrafficDirection: trafficdirection.Egress.Uint8()}: allowEgressMapStateEntry,
 			{DestPort: 80, Nexthdr: 6}:                          rule1MapStateEntry,
-		},
+		}),
 	}
 
 	// Add new identity to test accumulation of MapChanges
@@ -659,12 +659,12 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 			EgressPolicyEnabled:  false,
 		},
 		PolicyOwner: DummyOwner{},
-		PolicyMapState: MapState{
+		policyMapState: newMapState(map[Key]MapStateEntry{
 			{TrafficDirection: trafficdirection.Egress.Uint8()}:                          allowEgressMapStateEntry,
 			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld),
 			{Identity: 192, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
 			{Identity: 194, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry.WithAuthType(AuthTypeDisabled),
-		},
+		}),
 	}
 
 	// Have to remove circular reference before testing for Equality to avoid an infinite loop
@@ -696,7 +696,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 	type fields struct {
 		selectorPolicy *selectorPolicy
-		PolicyMapState MapState
+		PolicyMapState *mapState
 	}
 	type args struct {
 		identity identity.NumericIdentity
@@ -715,7 +715,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: false,
 					EgressPolicyEnabled:  false,
 				},
-				PolicyMapState: MapState{},
+				PolicyMapState: newMapState(nil),
 			},
 			args: args{
 				identity: 0,
@@ -730,7 +730,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: MapState{},
+				PolicyMapState: newMapState(nil),
 			},
 			args: args{
 				identity: 0,
@@ -745,14 +745,14 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: MapState{
-					Key{
+				PolicyMapState: newMapState(map[Key]MapStateEntry{
+					{
 						Identity:         0,
 						DestPort:         0,
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Ingress.Uint8(),
-					}: MapStateEntry{},
-				},
+					}: {},
+				}),
 			},
 			args: args{
 				identity: 0,
@@ -767,14 +767,14 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: MapState{
-					Key{
+				PolicyMapState: newMapState(map[Key]MapStateEntry{
+					{
 						Identity:         0,
 						DestPort:         0,
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Egress.Uint8(),
-					}: MapStateEntry{},
-				},
+					}: {},
+				}),
 			},
 			args: args{
 				identity: 0,
@@ -789,14 +789,14 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: MapState{
-					Key{
+				PolicyMapState: newMapState(map[Key]MapStateEntry{
+					{
 						Identity:         0,
 						DestPort:         0,
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Ingress.Uint8(),
-					}: MapStateEntry{IsDeny: true},
-				},
+					}: {IsDeny: true},
+				}),
 			},
 			args: args{
 				identity: 0,
@@ -811,14 +811,14 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: false,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: MapState{
-					Key{
+				PolicyMapState: newMapState(map[Key]MapStateEntry{
+					{
 						Identity:         0,
 						DestPort:         0,
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Ingress.Uint8(),
-					}: MapStateEntry{IsDeny: true},
-				},
+					}: {IsDeny: true},
+				}),
 			},
 			args: args{
 				identity: 0,
@@ -833,14 +833,14 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  true,
 				},
-				PolicyMapState: MapState{
-					Key{
+				PolicyMapState: newMapState(map[Key]MapStateEntry{
+					{
 						Identity:         0,
 						DestPort:         0,
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Egress.Uint8(),
-					}: MapStateEntry{IsDeny: true},
-				},
+					}: {IsDeny: true},
+				}),
 			},
 			args: args{
 				identity: 0,
@@ -855,14 +855,14 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 					IngressPolicyEnabled: true,
 					EgressPolicyEnabled:  false,
 				},
-				PolicyMapState: MapState{
-					Key{
+				PolicyMapState: newMapState(map[Key]MapStateEntry{
+					{
 						Identity:         0,
 						DestPort:         0,
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Egress.Uint8(),
-					}: MapStateEntry{IsDeny: true},
-				},
+					}: {IsDeny: true},
+				}),
 			},
 			args: args{
 				identity: 0,
@@ -875,7 +875,7 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &EndpointPolicy{
 				selectorPolicy: tt.fields.selectorPolicy,
-				PolicyMapState: tt.fields.PolicyMapState,
+				policyMapState: tt.fields.PolicyMapState,
 			}
 			gotIngress, gotEgress := p.AllowsIdentity(tt.args.identity)
 			if gotIngress != tt.wantIngress {
