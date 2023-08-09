@@ -552,7 +552,7 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures,
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			if entryCb(keyToAdd, &entry) {
-				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
 
 				if port == 0 {
 					// Allow-all
@@ -582,7 +582,7 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures,
 		for _, id := range idents {
 			keyToAdd.Identity = id.Uint32()
 			if entryCb(keyToAdd, &entry) {
-				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
+				p.policyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
 			}
 		}
 	}

@@ -9,7 +9,6 @@ import (
 	check "github.com/cilium/checkmate"
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -187,12 +186,12 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 
 	_, err, _, _ = ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
-	v, ok := ep.desiredPolicy.PolicyMapState[policy.Key{
+	v, ok := ep.desiredPolicy.GetPolicyMap().Get(policy.Key{
 		Identity:         0,
 		DestPort:         uint16(80),
 		Nexthdr:          uint8(u8proto.TCP),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
-	}]
+	})
 	c.Assert(ok, check.Equals, true)
 	c.Assert(v.ProxyPort, check.Equals, httpPort)
 
@@ -208,12 +207,12 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 
 	d, err, _, _ := ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
-	v, ok = ep.desiredPolicy.PolicyMapState[policy.Key{
+	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.Key{
 		Identity:         0,
 		DestPort:         uint16(80),
 		Nexthdr:          uint8(u8proto.TCP),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
-	}]
+	})
 	c.Assert(ok, check.Equals, true)
 	// Check that proxyport was updated accordingly.
 	c.Assert(v.ProxyPort, check.Equals, kafkaPort)
@@ -231,30 +230,30 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 
 	_, err, _, _ = ep.addNewRedirects(cmp)
 	c.Assert(err, check.IsNil)
-	v, ok = ep.desiredPolicy.PolicyMapState[policy.Key{
+	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.Key{
 		Identity:         0,
 		DestPort:         uint16(80),
 		Nexthdr:          uint8(u8proto.TCP),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
-	}]
+	})
 	c.Assert(ok, check.Equals, true)
 	c.Assert(v.ProxyPort, check.Equals, kafkaPort)
 
-	v, ok = ep.desiredPolicy.PolicyMapState[policy.Key{
+	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.Key{
 		Identity:         0,
 		DestPort:         uint16(80),
 		Nexthdr:          uint8(u8proto.TCP),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
-	}]
+	})
 	c.Assert(ok, check.Equals, true)
 	c.Assert(v.ProxyPort, check.Equals, kafkaPort)
 
-	v, ok = ep.desiredPolicy.PolicyMapState[policy.Key{
+	v, ok = ep.desiredPolicy.GetPolicyMap().Get(policy.Key{
 		Identity:         0,
 		DestPort:         uint16(80),
 		Nexthdr:          uint8(u8proto.TCP),
 		TrafficDirection: trafficdirection.Egress.Uint8(),
-	}]
+	})
 	c.Assert(ok, check.Equals, true)
 	c.Assert(v.ProxyPort, check.Equals, httpPort)
 	pID := policy.ProxyID(ep.ID, false, u8proto.TCP.String(), uint16(80))
@@ -412,19 +411,18 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 	err = ep.setDesiredPolicy(res)
 	c.Assert(err, check.IsNil)
 
-	expected := policy.MapState{
-		mapKeyAllowAllE: policy.MapStateEntry{
+	expected := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
-		mapKeyFoo: policy.MapStateEntry{
+		mapKeyFoo: {
 			IsDeny:           true,
 			DerivedFromRules: labels.LabelArrayList{lblsL3DenyFoo},
 		},
+	})
+	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+		c.Fatal("desired policy map does not equal expected map")
 	}
-
-	equal, errStr := checker.ExportedEqual(ep.desiredPolicy.PolicyMapState, expected)
-	c.Assert(errStr, check.Equals, "")
-	c.Assert(equal, check.Equals, true)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -445,45 +443,45 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 	// entries and make any conclusions from it.
 	c.Assert(len(desiredRedirects), check.Equals, 1)
 
-	expected2 := policy.MapState{
-		mapKeyAllowAllE: policy.MapStateEntry{
+	expected2 := policy.NewMapState(map[policy.Key]policy.MapStateEntry{
+		mapKeyAllowAllE: {
 			DerivedFromRules: labels.LabelArrayList{AllowAnyEgressLabels},
 		},
-		mapKeyAllL7: policy.MapStateEntry{
+		mapKeyAllL7: {
 			IsDeny:           false,
 			ProxyPort:        httpPort,
 			DerivedFromRules: labels.LabelArrayList{lblsL4L7Allow},
 		},
-		mapKeyFoo: policy.MapStateEntry{
+		mapKeyFoo: {
 			IsDeny:           true,
 			DerivedFromRules: labels.LabelArrayList{lblsL3DenyFoo},
 		},
-		mapKeyFooL7: policy.MapStateEntry{
+		mapKeyFooL7: {
 			IsDeny:           true,
 			DerivedFromRules: labels.LabelArrayList{lblsL3DenyFoo},
 		},
-	}
+	})
 
 	// Redirect for the HTTP port should have been added, but there should be a deny for Foo on
 	// that port, as it is shadowed by the deny rule
-	equal, errStr = checker.ExportedEqual(ep.desiredPolicy.PolicyMapState, expected2)
-	c.Assert(errStr, check.Equals, "")
-	c.Assert(equal, check.Equals, true)
+	if !ep.desiredPolicy.GetPolicyMap().Equals(expected2) {
+		c.Fatal("desired policy map does not equal expected map")
+	}
 
 	// Keep only desired redirects
 	ep.removeOldRedirects(desiredRedirects, cmp)
 
 	// Check that the redirect is still realized
 	c.Assert(len(ep.realizedRedirects), check.Equals, 1)
-	c.Assert(len(ep.desiredPolicy.PolicyMapState), check.Equals, 4)
+	c.Assert(ep.desiredPolicy.GetPolicyMap().Len(), check.Equals, 4)
 
 	// Pretend that something failed and revert the changes
 	revertFunc()
 
 	// Check that the state before addRedirects is restored
-	equal, errStr = checker.ExportedEqual(ep.desiredPolicy.PolicyMapState, expected)
-	c.Assert(errStr, check.Equals, "")
-	c.Assert(equal, check.Equals, true)
+	if !ep.desiredPolicy.GetPolicyMap().Equals(expected) {
+		c.Fatal("desired policy map does not equal expected map")
+	}
 	c.Assert(len(ep.realizedRedirects), check.Equals, 0)
-	c.Assert(len(ep.desiredPolicy.PolicyMapState), check.Equals, 2)
+	c.Assert(ep.desiredPolicy.GetPolicyMap().Len(), check.Equals, 2)
 }
