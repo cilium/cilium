@@ -135,7 +135,7 @@ The reason for the conflict is stated in the status and can be accessed like so
 
 .. code-block:: shell-session
 
-    $ kubectl get ippools/red-pool -o jsonpath='{.status.conditions[?(@.type=="io.cilium/conflict")].message}'
+    $ kubectl get ippools/red-pool -o jsonpath='{.status.conditions[?(@.type=="cilium.io/PoolConflict")].message}'
     Pool conflicts since CIDR '20.0.10.0/24' overlaps CIDR '20.0.10.0/24' from IP Pool 'blue-pool'
 
 or
@@ -153,7 +153,7 @@ or
             Observed Generation:   1
             Reason:                cidr_overlap
             Status:                True
-            Type:                  io.cilium/conflict
+            Type:                  cilium.io/PoolConflict
         #[...]
 
 Disabling a Pool
@@ -188,14 +188,14 @@ the amount of used and available IPs. A machine parsable output can be obtained 
 
 .. code-block:: shell-session
 
-    $ kubectl get ippools -o jsonpath='{.items[*].status.conditions[?(@.type!="io.cilium/conflict")]}' | jq
+    $ kubectl get ippools -o jsonpath='{.items[*].status.conditions[?(@.type!="cilium.io/PoolConflict")]}' | jq
     {
       "lastTransitionTime": "2022-10-25T14:08:55Z",
       "message": "254",
       "observedGeneration": 1,
       "reason": "noreason",
       "status": "Unknown",
-      "type": "io.cilium/ips-total"
+      "type": "cilium.io/IPsTotal"
     }
     {
       "lastTransitionTime": "2022-10-25T14:08:55Z",
@@ -203,7 +203,7 @@ the amount of used and available IPs. A machine parsable output can be obtained 
       "observedGeneration": 1,
       "reason": "noreason",
       "status": "Unknown",
-      "type": "io.cilium/ips-available"
+      "type": "cilium.io/IPsAvailable"
     }
     {
       "lastTransitionTime": "2022-10-25T14:08:55Z",
@@ -211,7 +211,7 @@ the amount of used and available IPs. A machine parsable output can be obtained 
       "observedGeneration": 1,
       "reason": "noreason",
       "status": "Unknown",
-      "type": "io.cilium/ips-used"
+      "type": "cilium.io/IPsUsed"
     }
 
 Or human readable output like so
@@ -234,19 +234,19 @@ Or human readable output like so
         Observed Generation:   1
         Reason:                noreason
         Status:                Unknown
-        Type:                  io.cilium/ips-total
+        Type:                  cilium.io/IPsTotal
         Last Transition Time:  2022-10-25T14:08:55Z
         Message:               254
         Observed Generation:   1
         Reason:                noreason
         Status:                Unknown
-        Type:                  io.cilium/ips-available
+        Type:                  cilium.io/IPsAvailable
         Last Transition Time:  2022-10-25T14:08:55Z
         Message:               0
         Observed Generation:   1
         Reason:                noreason
         Status:                Unknown
-        Type:                  io.cilium/ips-used
+        Type:                  cilium.io/IPsUsed
 
 Services
 ########
