@@ -223,7 +223,7 @@ jobs:
           image-tag: ${{ steps.vars.outputs.sha }}
           chart-dir: './install/kubernetes/cilium'
           tunnel: ${{ matrix.tunnel }}
-          endpoint-routes: ${{ matrix.endoint-routes }}
+          endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv6: ${{ matrix.ipv6 }}
           kpr: ${{ matrix.kpr }}
           lb-mode: ${{ matrix.lb-mode }}
