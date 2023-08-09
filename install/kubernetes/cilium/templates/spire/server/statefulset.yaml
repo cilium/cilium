@@ -32,7 +32,7 @@ spec:
       {{- end }}
       containers:
       - name: cilium-init
-        image: {{ .Values.authentication.mutual.spire.install.server.spireConfig.image }}
+        image: {{ .Values.authentication.mutual.spire.install.spireConfig.image }}
         command:
           - /bin/sh
           - -c
