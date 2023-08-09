@@ -530,7 +530,10 @@ func getTCFilters(link netlink.Link) ([]*netlink.BpfFilter, error) {
 					strings.Contains(bpfFilter.Name, "bpf_overlay") ||
 					// Filters created by the Go bpf loader contain the bpf function and
 					// interface name, like cil_from_netdev-eth0.
-					strings.Contains(bpfFilter.Name, "cil_") {
+					strings.Contains(bpfFilter.Name, "cil_") ||
+					// Filters created by the cilium agent whose version is lower than 1.13.1
+					// are prefixed with cilium
+					strings.Contains(bpfFilter.Name, "cilium") {
 					allFilters = append(allFilters, bpfFilter)
 				}
 			}
