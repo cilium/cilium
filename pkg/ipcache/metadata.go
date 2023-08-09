@@ -79,12 +79,6 @@ func (m *metadata) upsert(prefix string, lbls labels.Labels) {
 	m.Unlock()
 }
 
-func (m *metadata) delete(prefix string) {
-	m.Lock()
-	delete(m.m, prefix)
-	m.Unlock()
-}
-
 // GetIDMetadataByIP returns the associated labels with an IP. The caller must
 // not modifying the returned object as it's a live reference to the underlying
 // map.
