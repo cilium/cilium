@@ -1,6 +1,7 @@
 package clustermesh
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -8,6 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/release"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/cilium/cilium-cli/k8s"
 )
 
 func TestNeedClassicMode(t *testing.T) {
@@ -273,6 +278,45 @@ func TestRemoteClusterStatusToError(t *testing.T) {
 			assert.Equal(t, tt.expected, remoteClusterStatusToError(tt.status).Error())
 		})
 	}
+}
+
+func TestGetCASecret(t *testing.T) {
+	tests := []struct {
+		name      string
+		secret    *corev1.Secret
+		expected  []byte
+		assertErr assert.ErrorAssertionFunc
+	}{
+		{
+			name:      "secret not present",
+			secret:    k8s.NewSecret("bar", "foo", map[string][]byte{"ca.crt": []byte("cert")}),
+			assertErr: assert.Error,
+		},
+		{
+			name:      "secret present, ca.crt key",
+			secret:    k8s.NewSecret("cilium-ca", "foo", map[string][]byte{"ca.crt": []byte("cert")}),
+			expected:  []byte("cert"),
+			assertErr: assert.NoError,
+		},
+		{
+			name:      "secret present, tls.crt key",
+			secret:    k8s.NewSecret("cilium-ca", "foo", map[string][]byte{"tls.crt": []byte("cert")}),
+			expected:  []byte("cert"),
+			assertErr: assert.NoError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cm := K8sClusterMesh{params: Parameters{Namespace: "foo"}}
+			client := k8s.Client{Clientset: fake.NewSimpleClientset(tt.secret)}
+
+			cert, err := cm.getCACert(context.TODO(), &client)
+			assert.Equal(t, tt.expected, cert)
+			tt.assertErr(t, err)
+		})
+	}
+
 }
 
 // Helpers
