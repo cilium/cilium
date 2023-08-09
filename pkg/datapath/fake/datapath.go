@@ -153,3 +153,7 @@ func (f *fakeLoader) CustomCallsMapPath(id uint16) string {
 func (f *fakeLoader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	return nil
 }
+
+func (f *fakeLoader) HostDatapathInitialized() <-chan struct{} {
+	return nil
+}

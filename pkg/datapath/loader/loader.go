@@ -70,11 +70,14 @@ type Loader struct {
 	templateCache *objectCache
 
 	ipsecMu lock.Mutex // guards reinitializeIPSec
+
+	hostDpInitializedOnce sync.Once
+	hostDpInitialized     chan struct{}
 }
 
 // NewLoader returns a new loader.
 func NewLoader() *Loader {
-	return &Loader{}
+	return &Loader{hostDpInitialized: make(chan struct{})}
 }
 
 // Init initializes the datapath cache with base program hashes derived from
@@ -308,6 +311,11 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		}
 		defer finalize()
 	}
+
+	l.hostDpInitializedOnce.Do(func() {
+		log.Debug("Initialized host datapath")
+		close(l.hostDpInitialized)
+	})
 
 	return nil
 }
@@ -544,4 +552,10 @@ func (l *Loader) CallsMapPath(id uint16) string {
 // specified ID.
 func (l *Loader) CustomCallsMapPath(id uint16) string {
 	return bpf.LocalMapPath(callsmap.CustomCallsMapName, id)
+}
+
+// HostDatapathInitialized returns a channel which is closed when the
+// host datapath has been loaded for the first time.
+func (l *Loader) HostDatapathInitialized() <-chan struct{} {
+	return l.hostDpInitialized
 }
