@@ -1,4 +1,4 @@
-name: ConformanceKind
+name: Conformance Kind
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -27,6 +27,7 @@ env:
 
 jobs:
   installation-and-connectivity:
+    name: Installation and Connectivity Test
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
