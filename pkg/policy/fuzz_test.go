@@ -40,7 +40,7 @@ func FuzzResolveEgressPolicy(f *testing.F) {
 
 func FuzzDenyPreferredInsert(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
-		keys := MapState{}
+		keys := newMapState(nil)
 		key := Key{}
 		entry := MapStateEntry{}
 		ff := fuzz.NewConsumer(data)

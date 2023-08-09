@@ -686,7 +686,7 @@ func (e *Endpoint) Allows(id identity.NumericIdentity) bool {
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 
-	v, ok := e.desiredPolicy.PolicyMapState[keyToLookup]
+	ok, v := e.desiredPolicy.GetPolicyMap().Get(keyToLookup)
 	return ok && !v.IsDeny
 }
 
