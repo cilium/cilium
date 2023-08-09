@@ -79,6 +79,14 @@ func (m *metadata) upsert(prefix string, lbls labels.Labels) {
 	m.Unlock()
 }
 
+func (ipc *IPCache) RemoveMetadata(prefix string, lbls labels.Labels, src source.Source) {
+	ipc.metadata.Lock()
+	ipc.Lock()
+	_ = ipc.removeLabels(prefix, lbls, src)
+	ipc.Unlock()
+	ipc.metadata.Unlock()
+}
+
 // GetIDMetadataByIP returns the associated labels with an IP. The caller must
 // not modifying the returned object as it's a live reference to the underlying
 // map.

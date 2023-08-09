@@ -87,6 +87,9 @@ func (i *ipcacheMock) TriggerLabelInjection(s source.Source) {
 func (i *ipcacheMock) UpsertMetadata(string, labels.Labels) {
 }
 
+func (i *ipcacheMock) RemoveMetadata(string, labels.Labels, source.Source) {
+}
+
 type signalNodeHandler struct {
 	EnableNodeAddEvent                    bool
 	NodeAddEvent                          chan nodeTypes.Node
