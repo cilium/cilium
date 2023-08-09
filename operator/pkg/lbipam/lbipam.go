@@ -16,6 +16,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
+	meta "k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
@@ -28,6 +29,7 @@ import (
 	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_meta "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/api/meta"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	client_typed_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
 	"github.com/cilium/cilium/pkg/option"
@@ -408,11 +410,7 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 
 		// Remove all ingress IPs
 		sv.Status.LoadBalancer.Ingress = nil
-		for i := len(sv.Status.Conditions) - 1; i >= 0; i-- {
-			if sv.Status.Conditions[i].Type == ciliumSvcRequestSatisfiedCondition {
-				sv.Status.Conditions = slices.Delete(sv.Status.Conditions, i, i+1)
-			}
-		}
+		slim_meta.RemoveStatusCondition(&sv.Status.Conditions, ciliumSvcRequestSatisfiedCondition)
 
 		err := ipam.patchSvcStatus(ctx, sv)
 		if err != nil {
@@ -850,17 +848,15 @@ func (ipam *LBIPAM) setSVCSatisfiedCondition(
 		status = slim_meta_v1.ConditionTrue
 	}
 
-	for _, cond := range sv.Status.Conditions {
-		if cond.Type == ciliumSvcRequestSatisfiedCondition &&
-			cond.Status == status &&
-			cond.ObservedGeneration == sv.Generation &&
-			cond.Reason == reason &&
-			cond.Message == message {
-			return false
-		}
+	if cond := slim_meta.FindStatusCondition(sv.Status.Conditions, ciliumSvcRequestSatisfiedCondition); cond != nil &&
+		cond.Status == status &&
+		cond.ObservedGeneration == sv.Generation &&
+		cond.Reason == reason &&
+		cond.Message == message {
+		return false
 	}
 
-	sv.Status.Conditions = append(sv.Status.Conditions, slim_meta_v1.Condition{
+	slim_meta.SetStatusCondition(&sv.Status.Conditions, slim_meta_v1.Condition{
 		Type:               ciliumSvcRequestSatisfiedCondition,
 		Status:             status,
 		ObservedGeneration: sv.Generation,
@@ -1264,25 +1260,16 @@ func (ipam *LBIPAM) setPoolCondition(
 	reason, message string,
 ) (statusModified bool) {
 	// Don't trigger an update if the condition is already applied
-	for _, cond := range pool.Status.Conditions {
-		if cond.Type == condType &&
-			cond.Status == status &&
-			cond.ObservedGeneration == pool.Generation &&
-			cond.Reason == reason &&
-			cond.Message == message {
-			return false
-		}
+
+	if cond := meta.FindStatusCondition(pool.Status.Conditions, condType); cond != nil &&
+		cond.Status == status &&
+		cond.ObservedGeneration == pool.Generation &&
+		cond.Reason == reason &&
+		cond.Message == message {
+		return false
 	}
 
-	// Remove old conditions of the same type
-	for i := len(pool.Status.Conditions) - 1; i >= 0; i-- {
-		cond := pool.Status.Conditions[i]
-		if cond.Type == condType {
-			pool.Status.Conditions = slices.Delete(pool.Status.Conditions, i, i+1)
-		}
-	}
-
-	pool.Status.Conditions = append(pool.Status.Conditions, meta_v1.Condition{
+	meta.SetStatusCondition(&pool.Status.Conditions, meta_v1.Condition{
 		Type:               condType,
 		Status:             status,
 		ObservedGeneration: pool.Generation,
@@ -1375,31 +1362,7 @@ func (ipam *LBIPAM) handlePoolDeleted(ctx context.Context, pool *cilium_api_v2al
 }
 
 func isPoolConflicting(pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) bool {
-	var lastCondition *meta_v1.Condition
-
-	for i, cond := range pool.Status.Conditions {
-		if cond.Type != ciliumPoolConflict {
-			continue
-		}
-
-		if lastCondition == nil {
-			lastCondition = &pool.Status.Conditions[i]
-		}
-
-		if cond.ObservedGeneration > lastCondition.ObservedGeneration {
-			lastCondition = &pool.Status.Conditions[i]
-		}
-
-		if cond.LastTransitionTime.After(lastCondition.LastTransitionTime.Time) {
-			lastCondition = &pool.Status.Conditions[i]
-		}
-	}
-
-	if lastCondition == nil {
-		return false
-	}
-
-	return lastCondition.Status == meta_v1.ConditionTrue
+	return meta.IsStatusConditionTrue(pool.Status.Conditions, ciliumPoolConflict)
 }
 
 // settleConflicts check if there exist any un-resolved conflicts between the ranges of IP pools and resolve them.

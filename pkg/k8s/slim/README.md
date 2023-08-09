@@ -54,6 +54,8 @@ curl "${url}/staging/src/k8s.io/api/networking/v1/well_known_annotations.go" > p
 curl "${url}/staging/src/k8s.io/apimachinery/pkg/selection/operator.go" > pkg/k8s/slim/k8s/apis/selection/operator.go
 
 curl "${url}/staging/src/k8s.io/apimachinery/pkg/util/intstr/intstr.go" > pkg/k8s/slim/k8s/apis/util/intstr/intstr.go
+
+curl "${url}/staging/src/k8s.io/apimachinery/pkg/api/meta/conditions.go" > pkg/k8s/slim/k8s/apis/api/meta/conditions.go
 ```
 
 All fields of the copied structures are exactly the same as the ones available
