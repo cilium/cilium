@@ -28,6 +28,9 @@
 
 #define NEXTHDR_MAX             255
 
+#define IPV6_SADDR_OFF		offsetof(struct ipv6hdr, saddr)
+#define IPV6_DADDR_OFF		offsetof(struct ipv6hdr, daddr)
+
 static __always_inline int ipv6_optlen(const struct ipv6_opt_hdr *opthdr)
 {
 	return (opthdr->hdrlen + 1) << 3;
