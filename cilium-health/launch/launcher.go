@@ -38,7 +38,7 @@ const (
 )
 
 // Launch starts the cilium-health server and returns a handle to obtain its status
-func Launch() (*CiliumHealth, error) {
+func Launch(initialized <-chan struct{}) (*CiliumHealth, error) {
 	var (
 		err error
 		ch  = &CiliumHealth{}
@@ -61,12 +61,15 @@ func Launch() (*CiliumHealth, error) {
 		return nil, fmt.Errorf("failed to instantiate cilium-health client: %w", err)
 	}
 
-	go ch.runServer()
+	go ch.runServer(initialized)
 
 	return ch, nil
 }
 
-func (ch *CiliumHealth) runServer() {
+func (ch *CiliumHealth) runServer(initialized <-chan struct{}) {
+	// Wait until the agent has initialized sufficiently
+	<-initialized
+
 	// Wait until Cilium API is available
 	for {
 		cli, err := ciliumPkg.NewDefaultClient()
