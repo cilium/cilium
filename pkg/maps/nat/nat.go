@@ -36,7 +36,7 @@ const (
 // It also implements the NatMap interface.
 type Map struct {
 	bpf.Map
-	v4 bool
+	family IPFamily
 }
 
 // NatEntry is the interface describing values to the NAT map.
@@ -77,11 +77,11 @@ func NatDumpCreated(dumpStart, entryCreated uint64) string {
 }
 
 // NewMap instantiates a Map.
-func NewMap(name string, v4 bool, entries int) *Map {
+func NewMap(name string, family IPFamily, entries int) *Map {
 	var mapKey bpf.MapKey
 	var mapValue bpf.MapValue
 
-	if v4 {
+	if family == IPv4 {
 		mapKey = &NatKey4{}
 		mapValue = &NatEntry4{}
 	} else {
@@ -100,7 +100,7 @@ func NewMap(name string, v4 bool, entries int) *Map {
 		).WithCache().
 			WithEvents(option.Config.GetEventBufferConfig(name)).
 			WithPressureMetric(),
-		v4: v4,
+		family: family,
 	}
 }
 
@@ -187,7 +187,7 @@ func doFlush6(m *Map) gcStats {
 
 // Flush deletes all NAT mappings from the given table.
 func (m *Map) Flush() int {
-	if m.v4 {
+	if m.family == IPv4 {
 		return int(doFlush4(m).deleted)
 	}
 
@@ -271,14 +271,14 @@ func deleteSwappedMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
 // DeleteMapping removes a NAT mapping from the global NAT table.
 func (m *Map) DeleteMapping(key tuple.TupleKey) error {
 	if key.GetFlags()&tuple.TUPLE_F_IN != 0 {
-		if m.v4 {
+		if m.family == IPv4 {
 			// To delete NAT entries created by DSR
 			return deleteSwappedMapping4(m, key.(*tuple.TupleKey4Global))
 		}
 		return deleteSwappedMapping6(m, key.(*tuple.TupleKey6Global))
 	}
 
-	if m.v4 {
+	if m.family == IPv4 {
 		return deleteMapping4(m, key.(*tuple.TupleKey4Global))
 	}
 	return deleteMapping6(m, key.(*tuple.TupleKey6Global))
@@ -294,10 +294,10 @@ func GlobalMaps(ipv4, ipv6, nodeport bool) (ipv4Map, ipv6Map *Map) {
 		entries = option.LimitTableMax
 	}
 	if ipv4 {
-		ipv4Map = NewMap(MapNameSnat4Global, true, entries)
+		ipv4Map = NewMap(MapNameSnat4Global, IPv4, entries)
 	}
 	if ipv6 {
-		ipv6Map = NewMap(MapNameSnat6Global, false, entries)
+		ipv6Map = NewMap(MapNameSnat6Global, IPv6, entries)
 	}
 	return
 }
@@ -309,13 +309,13 @@ func ClusterMaps(clusterID uint32, ipv4, ipv6 bool) (ipv4Map, ipv6Map *Map, err 
 		return
 	}
 	if ipv4 {
-		ipv4Map, err = PerClusterNATMaps.GetClusterNATMap(clusterID, true)
+		ipv4Map, err = PerClusterNATMaps.GetClusterNATMap(clusterID, IPv4)
 		if err != nil {
 			return
 		}
 	}
 	if ipv6 {
-		ipv6Map, err = PerClusterNATMaps.GetClusterNATMap(clusterID, false)
+		ipv6Map, err = PerClusterNATMaps.GetClusterNATMap(clusterID, IPv6)
 		if err != nil {
 			return
 		}
