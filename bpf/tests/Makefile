@@ -19,6 +19,8 @@ CLANG_FLAGS += -Wno-unknown-warning-option
 CLANG_FLAGS += -Wno-gnu-variable-sized-type-not-at-end
 CLANG_FLAGS += -Wimplicit-int-conversion -Wenum-conversion
 CLANG_FLAGS += -Wimplicit-fallthrough
+# Create dependency files for each .o file.
+CLANG_FLAGS += -MD
 LLC_FLAGS := -march=bpf
 # Mimics the mcpu values set by cilium-agent. See GetBPFCPU().
 ifeq ("$(KERNEL)","netnext")
@@ -29,10 +31,12 @@ endif
 
 .PHONY: all clean
 
-TEST_OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c)) $(patsubst %c, %i, $(wildcard *.c))
+TEST_OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
 
-%.o: %.ll $(LIB)
+%.o: %.ll %.i $(LIB)
 	$(ECHO_CC)
+	# Remove the .o file to force recompilation, only rely on make's caching, not clangs
+	rm -f $@
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $<
 
 %.ll: %.c
@@ -49,3 +53,6 @@ clean:
 	rm -f $(wildcard *.ll)
 	rm -f $(wildcard *.o)
 	rm -f $(wildcard *.i)
+	rm -f $(wildcard *.d)
+
+-include $(TEST_OBJECTS:.o=.d)
