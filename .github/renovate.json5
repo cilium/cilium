@@ -238,9 +238,7 @@
         "docker.io/library/golang",
         "go"
       ],
-      // Golang 1.20.0 had a regression which prevented us from upgrading it
-      // to 1.20 before the 1.13 release.
-      "allowedVersions": "<1.20",
+      "allowedVersions": "<1.21",
       "matchBaseBranches": [
         "v1.13"
       ]
@@ -250,7 +248,7 @@
         "docker.io/library/golang",
         "go"
       ],
-      "allowedVersions": "<1.20",
+      "allowedVersions": "<1.21",
       "matchBaseBranches": [
         "v1.12"
       ]
