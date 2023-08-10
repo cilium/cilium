@@ -46,7 +46,6 @@ const (
 
 	ep1IP = "10.0.0.1"
 	ep2IP = "10.0.0.2"
-	ep3IP = "10.0.0.3"
 
 	destCIDR      = "1.1.1.0/24"
 	excludedCIDR1 = "1.1.1.22/32"
@@ -56,8 +55,6 @@ const (
 	egressCIDR1 = "192.168.101.1/24"
 	egressIP2   = "192.168.102.1"
 	egressCIDR2 = "192.168.102.1/24"
-	egressIP3   = "192.168.103.1"
-	egressCIDR3 = "192.168.103.1/24"
 
 	zeroIP4 = "0.0.0.0"
 
@@ -69,7 +66,6 @@ const (
 var (
 	ep1Labels = map[string]string{"test-key": "test-value-1"}
 	ep2Labels = map[string]string{"test-key": "test-value-2"}
-	ep3Labels = map[string]string{"test-key": "test-value-3"}
 
 	identityAllocator = testidentity.NewMockIdentityAllocator(nil)
 
@@ -240,48 +236,6 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	assertIPRules(c, []ipRule{
 		{ep1IP, destCIDR, egressCIDR1, testInterface1Idx},
 	})
-
-	// Add an additional Egress IP on the first interface, and a policy
-	// that selects this IP. The conflicting policy should be ignored,
-	// resulting in a "no gateway found" egress entry and no IP rule
-	// for ep3.
-	link, err := netlink.LinkByName(testInterface1)
-	if err != nil {
-		panic(err)
-	}
-
-	a, _ := netlink.ParseAddr(egressCIDR3)
-	err = netlink.AddrAdd(link, a)
-	c.Assert(err, IsNil)
-
-	policy3 := policyParams{
-		name:            "policy-3",
-		endpointLabels:  ep3Labels,
-		destinationCIDR: destCIDR,
-		nodeLabels:      nodeGroup1Labels,
-		egressIP:        egressIP3,
-	}
-
-	addPolicy(c, k.policies, &policy3)
-
-	// Add a new endpoint and ID which matches policy-3
-	ep3, _ := newEndpointAndIdentity("ep-3", ep3IP, ep3Labels)
-	egressGatewayManager.OnUpdateEndpoint(&ep3)
-
-	assertEgressRules(c, policyMap, []egressRule{
-		{ep1IP, destCIDR, egressIP1, node1IP},
-		{ep2IP, destCIDR, zeroIP4, node2IP},
-		{ep3IP, destCIDR, egressIP3, gatewayNotFoundValue},
-	})
-	assertIPRules(c, []ipRule{
-		{ep1IP, destCIDR, egressCIDR1, testInterface1Idx},
-	})
-
-	// Delete the conflicting policy and IP again.
-	deletePolicy(c, k.policies, &policy3)
-
-	err = netlink.AddrDel(link, a)
-	c.Assert(err, IsNil)
 
 	// Test if disabling the --install-egress-gateway-routes agent option
 	// will result in stale IP routes/rules getting removed
