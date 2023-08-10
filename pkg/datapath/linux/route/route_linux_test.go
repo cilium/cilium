@@ -284,6 +284,7 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 			preRun: func() *netlink.Rule {
 				r := netlink.NewRule()
 				r.Src = fakeIP
+				r.Family = family
 				r.Priority = 1 // Must add priority and table otherwise it's auto-assigned
 				r.Table = 1
 				addRule(t, r)
@@ -300,6 +301,7 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 			preRun: func() *netlink.Rule {
 				r := netlink.NewRule()
 				r.Dst = fakeIP
+				r.Family = family
 				r.Priority = 1 // Must add priority and table otherwise it's auto-assigned
 				r.Table = 1
 				addRule(t, r)
@@ -316,6 +318,7 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 			preRun: func() *netlink.Rule {
 				r := netlink.NewRule()
 				r.Dst = fakeIP
+				r.Family = family
 				r.Priority = 1 // Must add priority and table otherwise it's auto-assigned
 				r.Table = 1
 				addRule(t, r)
@@ -350,6 +353,7 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 			preRun: func() *netlink.Rule {
 				r := netlink.NewRule()
 				r.Dst = fakeIP
+				r.Family = family
 				r.Priority = 1 // Must add priority and table otherwise it's auto-assigned
 				r.Table = 1
 				addRule(t, r)
@@ -384,6 +388,7 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 			preRun: func() *netlink.Rule {
 				r := netlink.NewRule()
 				r.Src = fakeIP
+				r.Family = family
 				r.Priority = 5
 				r.Table = 1
 				addRule(t, r)
@@ -424,6 +429,7 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 			preRun: func() *netlink.Rule {
 				r := netlink.NewRule()
 				r.Src = fakeIP
+				r.Family = family
 				r.Priority = 1 // Must add priority otherwise it's auto-assigned
 				r.Table = 199
 				addRule(t, r)
@@ -440,6 +446,7 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 			preRun: func() *netlink.Rule {
 				r := netlink.NewRule()
 				r.Src = fakeIP
+				r.Family = family
 				r.Priority = 1 // Must add priority and table otherwise it's auto-assigned
 				r.Table = 1
 				r.Mask = 0x5
@@ -457,6 +464,7 @@ func runListRules(t *testing.T, family int, fakeIP, fakeIP2 *net.IPNet) {
 			preRun: func() *netlink.Rule {
 				r := netlink.NewRule()
 				r.Src = fakeIP
+				r.Family = family
 				r.Priority = 1 // Must add priority, table, mask otherwise it's auto-assigned
 				r.Table = 1
 				r.Mask = 0xff
