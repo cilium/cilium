@@ -109,9 +109,15 @@ jobs:
 
       - name: Connectivity Test
         run: |
+          # Setup the connectivity disruption tests. We don't really care about the result
+          # here (in the sense that we don't perform any operation which might cause a
+          # disruption), but we want to make sure that the command works as expected.
+          cilium connectivity test --debug --test-namespace test-namespace \
+            --include-conn-disrupt-test --conn-disrupt-test-setup
+
           # Run the connectivity test in non-default namespace (i.e. not cilium-test)
           cilium connectivity test --debug --all-flows --test-namespace test-namespace \
-            --include-unsafe-tests \
+            --include-unsafe-tests --include-conn-disrupt-test \
             --collect-sysdump-on-failure --junit-file cilium-junit-${{ matrix.mode }}-1.xml \
             --junit-property mode=${{ matrix.mode }} --junit-property type=no-tunnel \
             --curl-insecure \
@@ -322,8 +328,14 @@ jobs:
 
       - name: Run the multicluster connectivity tests
         run: |
+          # Setup the connectivity disruption tests. We don't really care about the result
+          # here (in the sense that we don't perform any operation which might cause a
+          # disruption), but we want to make sure that the command works as expected.
           cilium connectivity test --context $CLUSTER1 --multi-cluster $CLUSTER2 --debug \
-            --include-unsafe-tests \
+            --include-conn-disrupt-test --conn-disrupt-test-setup
+
+          cilium connectivity test --context $CLUSTER1 --multi-cluster $CLUSTER2 --debug \
+            --include-unsafe-tests --include-conn-disrupt-test \
             --collect-sysdump-on-failure --junit-file cilium-junit-clustermesh-1.xml \
             --junit-property mode=clustermesh --junit-property type=ipsec
 
