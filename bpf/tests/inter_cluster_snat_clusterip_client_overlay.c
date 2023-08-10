@@ -259,7 +259,7 @@ int to_overlay_syn_check(struct __ctx_buff *ctx)
 	tuple.nexthdr = IPPROTO_TCP;
 	tuple.flags = TUPLE_F_OUT;
 
-	entry = map_lookup_elem(&per_cluster_snat_mapping_ipv4_2, &tuple);
+	entry = bpf_map_lookup_elem(&per_cluster_snat_mapping_ipv4_2, &tuple);
 	if (!entry)
 		test_fatal("couldn't find egress SNAT mapping");
 
@@ -270,7 +270,7 @@ int to_overlay_syn_check(struct __ctx_buff *ctx)
 	tuple.nexthdr = IPPROTO_TCP;
 	tuple.flags = TUPLE_F_IN;
 
-	entry = map_lookup_elem(&per_cluster_snat_mapping_ipv4_2, &tuple);
+	entry = bpf_map_lookup_elem(&per_cluster_snat_mapping_ipv4_2, &tuple);
 	if (!entry)
 		test_fatal("couldn't find ingress SNAT mapping");
 

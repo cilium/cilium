@@ -13,7 +13,8 @@
 #define __ctx_is			__ctx_xdp
 
 #include "common.h"
-#include "../helpers_xdp.h"
+#include "../bpf_helpers.h"
+#include "../features_xdp.h"
 #include "../builtins.h"
 #include "../section.h"
 #include "../loader.h"
@@ -87,6 +88,9 @@ xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
 	return ret;
 }
 
+// An invalid/non-existant helper function definition designed to trigger the verifier.
+static long (*bpf_invalid)(void *first, ...) = (void *) -1;
+
 #define ctx_load_bytes			xdp_load_bytes
 #define ctx_store_bytes			xdp_store_bytes
 
@@ -94,19 +98,19 @@ xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
  * use since it otherwise triggers a verifier error.
  */
 
-#define ctx_change_type			xdp_change_type__stub
-#define ctx_change_tail			xdp_change_tail__stub
+#define ctx_change_type			bpf_invalid
+#define ctx_change_tail			bpf_invalid
 
 #define ctx_pull_data(ctx, ...)		do { /* Already linear. */ } while (0)
 
-#define ctx_get_tunnel_key		xdp_get_tunnel_key__stub
-#define ctx_set_tunnel_key		xdp_set_tunnel_key__stub
+#define ctx_get_tunnel_key		bpf_invalid
+#define ctx_set_tunnel_key		bpf_invalid
 
-#define ctx_get_tunnel_opt		xdp_get_tunnel_opt__stub
+#define ctx_get_tunnel_opt		bpf_invalid
 
-#define ctx_event_output		xdp_event_output
+#define ctx_event_output		bpf_perf_event_output
 
-#define ctx_adjust_meta			xdp_adjust_meta
+#define ctx_adjust_meta			bpf_xdp_adjust_meta
 
 #define get_hash(ctx)			({ 0; })
 #define get_hash_recalc(ctx)		get_hash(ctx)
@@ -248,7 +252,7 @@ ctx_change_proto(struct xdp_md *ctx __maybe_unused,
 		else
 			return -EFAULT;
 	}
-	ret = xdp_adjust_head(ctx, -len_diff);
+	ret = bpf_xdp_adjust_head(ctx, -len_diff);
 	if (!ret && len_diff > 0) {
 		data_end = ctx_data_end(ctx);
 		data = ctx_data(ctx);
@@ -263,7 +267,7 @@ ctx_change_proto(struct xdp_md *ctx __maybe_unused,
 static __always_inline __maybe_unused int
 ctx_adjust_troom(struct xdp_md *ctx, const __s32 len_diff)
 {
-	return xdp_adjust_tail(ctx, len_diff);
+	return bpf_xdp_adjust_tail(ctx, len_diff);
 }
 
 static __always_inline __maybe_unused int
@@ -280,7 +284,7 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 	build_bug_on(len_diff <= 0 || len_diff >= 128);
 	build_bug_on(mode != BPF_ADJ_ROOM_NET);
 
-	ret = xdp_adjust_head(ctx, -len_diff);
+	ret = bpf_xdp_adjust_head(ctx, -len_diff);
 
 	/* XXX: Note, this hack is currently tailored to NodePort DSR
 	 * requirements and not a generic helper. If needed elsewhere,
@@ -334,7 +338,7 @@ ctx_redirect(const struct xdp_md *ctx, int ifindex, const __u32 flags)
 	if ((__u32)ifindex == ctx->ingress_ifindex)
 		return XDP_TX;
 
-	return redirect(ifindex, flags);
+	return bpf_redirect(ifindex, flags);
 }
 
 static __always_inline __maybe_unused int
@@ -381,7 +385,7 @@ struct {
 static __always_inline __maybe_unused void
 ctx_store_meta(struct xdp_md *ctx __maybe_unused, const __u64 off, __u32 datum)
 {
-	__u32 zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
+	__u32 zero = 0, *data_meta = bpf_map_lookup_elem(&cilium_xdp_scratch, &zero);
 
 	if (always_succeeds(data_meta))
 		data_meta[off] = datum;
@@ -391,7 +395,7 @@ ctx_store_meta(struct xdp_md *ctx __maybe_unused, const __u64 off, __u32 datum)
 static __always_inline __maybe_unused __u32
 ctx_load_meta(const struct xdp_md *ctx __maybe_unused, const __u64 off)
 {
-	__u32 zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
+	__u32 zero = 0, *data_meta = bpf_map_lookup_elem(&cilium_xdp_scratch, &zero);
 
 	if (always_succeeds(data_meta))
 		return data_meta[off];

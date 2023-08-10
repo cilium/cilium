@@ -36,7 +36,7 @@ mock_skb_store_meta(struct __sk_buff *ctx __maybe_unused, const __u32 off,
 	__u32 idx = 0;
 	struct mock_skb_meta *meta;
 
-	meta = map_lookup_elem(&mock_skb_meta_map, &idx);
+	meta = bpf_map_lookup_elem(&mock_skb_meta_map, &idx);
 	if (!meta)
 		return;
 
@@ -49,7 +49,7 @@ mock_skb_load_meta(const struct __sk_buff *ctx __maybe_unused, const __u32 off)
 	__u32 idx = 0;
 	struct mock_skb_meta *meta;
 
-	meta = map_lookup_elem(&mock_skb_meta_map, &idx);
+	meta = bpf_map_lookup_elem(&mock_skb_meta_map, &idx);
 	if (!meta)
 		return 0;
 

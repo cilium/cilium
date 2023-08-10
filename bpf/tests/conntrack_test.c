@@ -14,7 +14,7 @@
 
 static __u64 __now;
 
-#define ktime_get_ns()	(__now * NSEC_PER_SEC)
+#define bpf_ktime_get_ns()	(__now * NSEC_PER_SEC)
 #define jiffies64()	(__now)
 
 /* Is not part of these tests, and is causing issues in the CI */
@@ -103,11 +103,11 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 
 		struct ct_entry ct_entry_new = {};
 
-		res = map_update_elem(get_ct_map4(&tuple), &tuple, &ct_entry_new, BPF_ANY);
+		res = bpf_map_update_elem(get_ct_map4(&tuple), &tuple, &ct_entry_new, BPF_ANY);
 		if (IS_ERR(res))
-			test_fatal("map_update_elem: %lld", res);
+			test_fatal("bpf_map_update_elem: %lld", res);
 
-		struct ct_entry *entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+		struct ct_entry *entry = bpf_map_lookup_elem(get_ct_map4(&tuple), &tuple);
 
 		if (!entry)
 			test_fatal("ct entry lookup failed");

@@ -229,10 +229,10 @@ static __always_inline int check_v4(struct __ctx_buff *ctx)
 	pfx.lpm.prefixlen = 32;
 
 #ifdef CIDR4_LPM_PREFILTER
-	if (map_lookup_elem(&CIDR4_LMAP_NAME, &pfx))
+	if (bpf_map_lookup_elem(&CIDR4_LMAP_NAME, &pfx))
 		return CTX_ACT_DROP;
 #endif /* CIDR4_LPM_PREFILTER */
-	return map_lookup_elem(&CIDR4_HMAP_NAME, &pfx) ?
+	return bpf_map_lookup_elem(&CIDR4_HMAP_NAME, &pfx) ?
 		CTX_ACT_DROP : check_v4_lb(ctx);
 #else
 	return check_v4_lb(ctx);
@@ -304,10 +304,10 @@ static __always_inline int check_v6(struct __ctx_buff *ctx)
 	pfx.lpm.prefixlen = 128;
 
 #ifdef CIDR6_LPM_PREFILTER
-	if (map_lookup_elem(&CIDR6_LMAP_NAME, &pfx))
+	if (bpf_map_lookup_elem(&CIDR6_LMAP_NAME, &pfx))
 		return CTX_ACT_DROP;
 #endif /* CIDR6_LPM_PREFILTER */
-	return map_lookup_elem(&CIDR6_HMAP_NAME, &pfx) ?
+	return bpf_map_lookup_elem(&CIDR6_HMAP_NAME, &pfx) ?
 		CTX_ACT_DROP : check_v6_lb(ctx);
 #else
 	return check_v6_lb(ctx);

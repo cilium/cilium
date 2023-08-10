@@ -115,7 +115,7 @@ ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
 {
 	struct ipv4_frag_l4ports *tmp;
 
-	tmp = map_lookup_elem(&IPV4_FRAG_DATAGRAMS_MAP, frag_id);
+	tmp = bpf_map_lookup_elem(&IPV4_FRAG_DATAGRAMS_MAP, frag_id);
 	if (!tmp)
 		return DROP_FRAG_NOT_FOUND;
 
@@ -166,7 +166,7 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 		/* First logical fragment for this datagram (not necessarily the first
 		 * we receive). Fragment has L4 header, create an entry in datagrams map.
 		 */
-		if (map_update_elem(&IPV4_FRAG_DATAGRAMS_MAP, &frag_id, ports, BPF_ANY))
+		if (bpf_map_update_elem(&IPV4_FRAG_DATAGRAMS_MAP, &frag_id, ports, BPF_ANY))
 			update_metrics(ctx_full_len(ctx), dir, REASON_FRAG_PACKET_UPDATE);
 
 		/* Do not return an error if map update failed, as nothing prevents us

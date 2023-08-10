@@ -17,7 +17,7 @@ __lookup_ip6_endpoint(const union v6addr *ip6)
 	key.ip6 = *ip6;
 	key.family = ENDPOINT_KEY_IPV6;
 
-	return map_lookup_elem(&ENDPOINTS_MAP, &key);
+	return bpf_map_lookup_elem(&ENDPOINTS_MAP, &key);
 }
 
 static __always_inline __maybe_unused struct endpoint_info *
@@ -34,7 +34,7 @@ __lookup_ip4_endpoint(__u32 ip)
 	key.ip4 = ip;
 	key.family = ENDPOINT_KEY_IPV4;
 
-	return map_lookup_elem(&ENDPOINTS_MAP, &key);
+	return bpf_map_lookup_elem(&ENDPOINTS_MAP, &key);
 }
 
 static __always_inline __maybe_unused struct endpoint_info *
@@ -52,7 +52,7 @@ lookup_ip4_endpoint(const struct iphdr *ip4)
 #define V6_CACHE_KEY_LEN (sizeof(union v6addr)*8)
 
 static __always_inline __maybe_unused struct remote_endpoint_info *
-ipcache_lookup6(const void *map, const union v6addr *addr,
+ipcache_lookup6(void *map, const union v6addr *addr,
 		__u32 prefix, __u32 cluster_id)
 {
 	struct ipcache_key key = {
@@ -68,13 +68,13 @@ ipcache_lookup6(const void *map, const union v6addr *addr,
 	key.cluster_id = (__u8)cluster_id;
 
 	ipv6_addr_clear_suffix(&key.ip6, prefix);
-	return map_lookup_elem(map, &key);
+	return bpf_map_lookup_elem(map, &key);
 }
 
 #define V4_CACHE_KEY_LEN (sizeof(__u32)*8)
 
 static __always_inline __maybe_unused struct remote_endpoint_info *
-ipcache_lookup4(const void *map, __be32 addr, __u32 prefix, __u32 cluster_id)
+ipcache_lookup4(void *map, __be32 addr, __u32 prefix, __u32 cluster_id)
 {
 	struct ipcache_key key = {
 		.lpm_key = { IPCACHE_PREFIX_LEN(prefix), {} },
@@ -89,7 +89,7 @@ ipcache_lookup4(const void *map, __be32 addr, __u32 prefix, __u32 cluster_id)
 	key.cluster_id = (__u8)cluster_id;
 
 	key.ip4 &= GET_PREFIX(prefix);
-	return map_lookup_elem(map, &key);
+	return bpf_map_lookup_elem(map, &key);
 }
 
 #define lookup_ip6_remote_endpoint(addr, cluster_id) \

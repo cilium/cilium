@@ -17,7 +17,7 @@ ipcache_v4_add_entry(__be32 addr, __u8 cluster_id, __u32 sec_identity,
 	value.tunnel_endpoint = tunnel_ep;
 	value.key = spi;
 
-	map_update_elem(&IPCACHE_MAP, &key, &value, BPF_ANY);
+	bpf_map_update_elem(&IPCACHE_MAP, &key, &value, BPF_ANY);
 }
 
 static __always_inline void

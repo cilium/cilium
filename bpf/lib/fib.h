@@ -148,10 +148,10 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 		 */
 		if (neigh_resolver_available()) {
 			if (nh)
-				return redirect_neigh(*oif, &nh_params,
+				return bpf_redirect_neigh(*oif, &nh_params,
 						sizeof(nh_params), 0);
 			else
-				return redirect_neigh(*oif, NULL, 0, 0);
+				return bpf_redirect_neigh(*oif, NULL, 0, 0);
 		} else {
 			union macaddr smac = NATIVE_DEV_MAC_BY_IFINDEX(*oif);
 
@@ -179,7 +179,7 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 	int ret;
 
 #ifndef ENABLE_SKIP_FIB
-	ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
+	ret = bpf_fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
 	if (ret != BPF_FIB_LKUP_RET_SUCCESS) {
 		*fib_err = (__s8)ret;
 		if (likely(ret == BPF_FIB_LKUP_RET_NO_NEIGH)) {
@@ -221,10 +221,10 @@ skip_oif:
 		 */
 		if (neigh_resolver_available()) {
 			if (nh)
-				return redirect_neigh(*oif, &nh_params,
+				return bpf_redirect_neigh(*oif, &nh_params,
 						      sizeof(nh_params), 0);
 			else
-				return redirect_neigh(*oif, NULL, 0, 0);
+				return bpf_redirect_neigh(*oif, NULL, 0, 0);
 		} else {
 			union macaddr *dmac, smac = NATIVE_DEV_MAC_BY_IFINDEX(*oif);
 
@@ -274,7 +274,7 @@ fib_lookup_v6(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 	ipv6_addr_copy((union v6addr *)&fib_params->l.ipv6_dst,
 		       (union v6addr *)ipv6_dst);
 
-	return fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), flags);
+	return bpf_fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), flags);
 };
 
 static __always_inline int
@@ -318,7 +318,7 @@ fib_lookup_v4(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
 	fib_params->l.ipv4_src	= ipv4_src;
 	fib_params->l.ipv4_dst	= ipv4_dst;
 
-	return fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), flags);
+	return bpf_fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), flags);
 }
 
 static __always_inline int

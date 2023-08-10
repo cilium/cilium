@@ -75,7 +75,7 @@ int ipv4_from_lxc_no_node_id_setup(struct __ctx_buff *ctx)
 	__u32 encrypt_key = 0;
 	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY };
 
-	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
+	bpf_map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
 
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
@@ -104,7 +104,7 @@ int ipv4_from_lxc_no_node_id_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	key.reason = (__u8)-DROP_NO_NODE_ID;
 	key.dir = METRIC_EGRESS;
-	entry = map_lookup_elem(&METRICS_MAP, &key);
+	entry = bpf_map_lookup_elem(&METRICS_MAP, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
 	assert(entry->count == 1);
@@ -126,7 +126,7 @@ int ipv4_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 
 	node_ip.family = ENDPOINT_KEY_IPV4;
 	node_ip.ip4 = v4_node_two;
-	map_update_elem(&NODE_MAP, &node_ip, &node_id, BPF_ANY);
+	bpf_map_update_elem(&NODE_MAP, &node_ip, &node_id, BPF_ANY);
 
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
@@ -216,7 +216,7 @@ int ipv4_from_lxc_new_local_key_setup(struct __ctx_buff *ctx)
 	__u32 encrypt_key = 0;
 	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY + 1 };
 
-	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
+	bpf_map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
 
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
@@ -261,7 +261,7 @@ int ipv4_from_lxc_new_remote_key_setup(struct __ctx_buff *ctx)
 	__u32 encrypt_key = 0;
 	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY };
 
-	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
+	bpf_map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
 
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
@@ -324,14 +324,14 @@ int ipv6_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 	__u32 encrypt_key = 0;
 	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY };
 
-	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
+	bpf_map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
 
 	struct node_key node_ip = {};
 	__u32 node_id = NODE_ID;
 
 	node_ip.family = ENDPOINT_KEY_IPV4;
 	node_ip.ip4 = v4_node_two;
-	map_update_elem(&NODE_MAP, &node_ip, &node_id, BPF_ANY);
+	bpf_map_update_elem(&NODE_MAP, &node_ip, &node_id, BPF_ANY);
 
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;

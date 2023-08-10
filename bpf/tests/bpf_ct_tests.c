@@ -141,7 +141,7 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 			test_fail();
 		}
 
-		struct ct_entry *entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+		struct ct_entry *entry = bpf_map_lookup_elem(get_ct_map4(&tuple), &tuple);
 
 		assert(entry);
 		assert(entry->tx_flags_seen == tcp_flags_to_u8(TCP_FLAG_SYN));
@@ -202,7 +202,7 @@ int test_ct4_rst1_check(__maybe_unused struct __ctx_buff *ctx)
 		tuple.dport = __bpf_htons(3020);
 		tuple.flags = 0;
 
-		struct ct_entry *entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+		struct ct_entry *entry = bpf_map_lookup_elem(get_ct_map4(&tuple), &tuple);
 
 		assert(entry);
 		assert(entry->rx_flags_seen == tcp_flags_to_u8(TCP_FLAG_SYN | TCP_FLAG_RST));

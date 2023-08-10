@@ -205,7 +205,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	if (need_hostfw) {
 		__u32 zero = 0;
 
-		if (map_update_elem(&CT_TAIL_CALL_BUFFER6, &zero, &ct_buffer, 0) < 0)
+		if (bpf_map_update_elem(&CT_TAIL_CALL_BUFFER6, &zero, &ct_buffer, 0) < 0)
 			return DROP_INVALID_TC_BUFFER;
 	}
 
@@ -246,7 +246,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		__u32 zero = 0;
 		__u32 remote_id = WORLD_ID;
 
-		ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
+		ct_buffer = bpf_map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
 		if (!ct_buffer)
 			return DROP_INVALID_TC_BUFFER;
 		if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
@@ -594,7 +594,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	if (need_hostfw) {
 		__u32 zero = 0;
 
-		if (map_update_elem(&CT_TAIL_CALL_BUFFER4, &zero, &ct_buffer, 0) < 0)
+		if (bpf_map_update_elem(&CT_TAIL_CALL_BUFFER4, &zero, &ct_buffer, 0) < 0)
 			return DROP_INVALID_TC_BUFFER;
 	}
 
@@ -633,7 +633,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		__u32 zero = 0;
 		__u32 remote_id = 0;
 
-		ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER4, &zero);
+		ct_buffer = bpf_map_lookup_elem(&CT_TAIL_CALL_BUFFER4, &zero);
 		if (!ct_buffer)
 			return DROP_INVALID_TC_BUFFER;
 		if (ct_buffer->tuple.saddr == 0)
@@ -728,7 +728,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		struct vtep_value *vtep;
 
 		vkey.vtep_ip = ip4->daddr & VTEP_MASK;
-		vtep = map_lookup_elem(&VTEP_MAP, &vkey);
+		vtep = bpf_map_lookup_elem(&VTEP_MAP, &vkey);
 		if (!vtep)
 			goto skip_vtep;
 
@@ -1015,7 +1015,7 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 	__u32 index = RUNTIME_CONFIG_AGENT_LIVENESS;
 	__u64 *time;
 
-	time = map_lookup_elem(&CONFIG_MAP, &index);
+	time = bpf_map_lookup_elem(&CONFIG_MAP, &index);
 	if (!time)
 		return CTX_ACT_OK;
 
@@ -1023,7 +1023,7 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 	 * of the responder map anymore. So stop responding, assuming other nodes
 	 * will take over for a node without an active agent.
 	 */
-	if (ktime_get_ns() - (*time) > L2_ANNOUNCEMENTS_MAX_LIVENESS)
+	if (bpf_ktime_get_ns() - (*time) > L2_ANNOUNCEMENTS_MAX_LIVENESS)
 		return CTX_ACT_OK;
 
 	if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
@@ -1031,7 +1031,7 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 
 	key.ip4 = tip;
 	key.ifindex = ctx->ingress_ifindex;
-	stats = map_lookup_elem(&L2_RESPONDER_MAP4, &key);
+	stats = bpf_map_lookup_elem(&L2_RESPONDER_MAP4, &key);
 	if (!stats)
 		return CTX_ACT_OK;
 

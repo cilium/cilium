@@ -15,10 +15,10 @@ void custom_prog(const struct __ctx_buff *ctx, __u32 identity)
 
 	len = ctx_full_len(ctx);
 
-	bytecount = map_lookup_elem(&bytecount_map, &identity);
+	bytecount = bpf_map_lookup_elem(&bytecount_map, &identity);
 	if (bytecount)
 		__sync_fetch_and_add(bytecount, len);
 	else
 		/* No entry for endpoint in hashmap, attempt to create one */
-		map_update_elem(&bytecount_map, &identity, &len, BPF_ANY);
+		bpf_map_update_elem(&bytecount_map, &identity, &len, BPF_ANY);
 }

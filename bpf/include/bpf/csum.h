@@ -5,7 +5,6 @@
 #define __BPF_CSUM_H_
 
 #include "compiler.h"
-#include "helpers.h"
 
 static __always_inline __sum16 csum_fold(__wsum csum)
 {
@@ -30,8 +29,8 @@ static __always_inline __wsum csum_sub(__wsum csum, __wsum addend)
 	return csum_add(csum, ~addend);
 }
 
-static __always_inline __wsum csum_diff(const void *from, __u32 size_from,
-					const void *to,   __u32 size_to,
+static __always_inline __wsum csum_diff(void *from, __u32 size_from,
+					void *to,   __u32 size_to,
 					__u32 seed)
 {
 	if (__builtin_constant_p(size_from) &&
@@ -48,7 +47,7 @@ static __always_inline __wsum csum_diff(const void *from, __u32 size_from,
 						 *(__u32 *)to));
 	}
 
-	return csum_diff_external(from, size_from, to, size_to, seed);
+	return bpf_csum_diff(from, size_from, to, size_to, seed);
 }
 
 #endif /* __BPF_CSUM_H_ */

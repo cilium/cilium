@@ -182,7 +182,7 @@ endif
 
 include ./Makefile.bpf
 
-.PHONY: all bpf_all build_all subdirs install clean gen_compile_commands
+.PHONY: all bpf_all build_all subdirs install clean gen_compile_commands update_helper_defs
 
 all: bpf_all
 
@@ -311,3 +311,7 @@ ifeq (, $(BEAR_CLI))
 else
 	bear -- make
 endif
+
+update_helper_defs:
+	curl https://raw.githubusercontent.com/libbpf/libbpf/master/src/bpf_helpers.h --output ./include/bpf/bpf_helpers.h
+	curl https://raw.githubusercontent.com/libbpf/libbpf/master/src/bpf_helper_defs.h --output ./include/bpf/bpf_helper_defs.h

@@ -129,7 +129,7 @@ int l4lb_health_check_host_setup(struct __ctx_buff *ctx)
 		}
 	};
 
-	map_update_elem(&LB4_HEALTH_MAP, &key, &value, 0);
+	bpf_map_update_elem(&LB4_HEALTH_MAP, &key, &value, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, TO_NETDEV);

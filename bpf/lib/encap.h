@@ -164,7 +164,7 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 						encrypt_key, seclabel, dstid,
 						trace);
 
-	tunnel = map_lookup_elem(&TUNNEL_MAP, key);
+	tunnel = bpf_map_lookup_elem(&TUNNEL_MAP, key);
 	if (!tunnel)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
@@ -187,7 +187,7 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct tunnel_key *k,
 {
 	struct tunnel_value *tunnel;
 
-	tunnel = map_lookup_elem(&TUNNEL_MAP, k);
+	tunnel = bpf_map_lookup_elem(&TUNNEL_MAP, k);
 	if (!tunnel)
 		return DROP_NO_TUNNEL_ENDPOINT;
 

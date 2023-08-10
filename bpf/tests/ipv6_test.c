@@ -77,7 +77,7 @@ int ipv6_without_extension_header_check(struct __ctx_buff *ctx)
 	status_code = data;
 	assert(*status_code == 123);
 
-	xdp_adjust_head(ctx, 4);
+	bpf_xdp_adjust_head(ctx, 4);
 
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);
@@ -185,7 +185,7 @@ int ipv6_with_hop_auth_tcp_check(struct __ctx_buff *ctx)
 	status_code = data;
 	assert(*status_code == 1234);
 
-	xdp_adjust_head(ctx, 4);
+	bpf_xdp_adjust_head(ctx, 4);
 
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);

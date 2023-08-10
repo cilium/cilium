@@ -31,14 +31,14 @@ static __always_inline void update_metrics(__u64 bytes, __u8 direction,
 	key.dir    = direction;
 
 
-	entry = map_lookup_elem(&METRICS_MAP, &key);
+	entry = bpf_map_lookup_elem(&METRICS_MAP, &key);
 	if (entry) {
 		entry->count += 1;
 		entry->bytes += bytes;
 	} else {
 		new_entry.count = 1;
 		new_entry.bytes = bytes;
-		map_update_elem(&METRICS_MAP, &key, &new_entry, 0);
+		bpf_map_update_elem(&METRICS_MAP, &key, &new_entry, 0);
 	}
 }
 

@@ -253,7 +253,7 @@ int nodeport_dsr_backend_check(struct __ctx_buff *ctx)
 	tuple.flags = TUPLE_F_IN;
 	ipv4_ct_tuple_reverse(&tuple);
 
-	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	ct_entry = bpf_map_lookup_elem(get_ct_map4(&tuple), &tuple);
 	if (!ct_entry)
 		test_fatal("no CT entry for DSR found");
 	if (!ct_entry->dsr)
@@ -516,7 +516,7 @@ int nodeport_dsr_backend_redirect_check(struct __ctx_buff *ctx)
 	tuple.flags = TUPLE_F_IN;
 	ipv4_ct_tuple_reverse(&tuple);
 
-	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	ct_entry = bpf_map_lookup_elem(get_ct_map4(&tuple), &tuple);
 	if (!ct_entry)
 		test_fatal("no CT entry for DSR found");
 	if (!ct_entry->dsr)

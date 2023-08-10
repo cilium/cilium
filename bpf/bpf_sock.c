@@ -22,7 +22,7 @@
 #define SYS_PROCEED	1
 
 #ifndef HOST_NETNS_COOKIE
-# define HOST_NETNS_COOKIE   get_netns_cookie(NULL)
+# define HOST_NETNS_COOKIE   bpf_get_netns_cookie(NULL)
 #endif
 
 static __always_inline __maybe_unused bool is_v4_loopback(__be32 daddr)
@@ -66,7 +66,7 @@ static __always_inline __maybe_unused bool task_in_extended_hostns(void)
 {
 #ifdef ENABLE_MKE
 	/* Extension for non-Cilium managed containers on MKE. */
-	return get_cgroup_classid() == MKE_HOST;
+	return bpf_get_cgroup_classid() == MKE_HOST;
 #else
 	return false;
 #endif
@@ -76,7 +76,7 @@ static __always_inline __maybe_unused bool
 ctx_in_hostns(void *ctx __maybe_unused, __net_cookie *cookie)
 {
 #ifdef HAVE_NETNS_COOKIE
-	__net_cookie own_cookie = get_netns_cookie(ctx);
+	__net_cookie own_cookie = bpf_get_netns_cookie(ctx);
 
 	if (cookie)
 		*cookie = own_cookie;
@@ -95,7 +95,7 @@ bool sock_is_health_check(struct bpf_sock_addr *ctx __maybe_unused)
 #ifdef ENABLE_HEALTH_CHECK
 	int val;
 
-	if (!get_socket_opt(ctx, SOL_SOCKET, SO_MARK, &val, sizeof(val)))
+	if (!bpf_getsockopt(ctx, SOL_SOCKET, SO_MARK, &val, sizeof(val)))
 		return val == MARK_MAGIC_HEALTH;
 #endif
 	return false;
@@ -105,7 +105,7 @@ static __always_inline __maybe_unused
 __u64 sock_select_slot(struct bpf_sock_addr *ctx)
 {
 	return ctx->protocol == IPPROTO_TCP ?
-	       get_prandom_u32() : sock_local_cookie(ctx);
+	       bpf_get_prandom_u32() : sock_local_cookie(ctx);
 }
 
 static __always_inline __maybe_unused
@@ -148,9 +148,9 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 	val.port = orig_key->dport;
 	val.rev_nat_index = rev_nat_id;
 
-	tmp = map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
+	tmp = bpf_map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
 	if (!tmp || memcmp(tmp, &val, sizeof(val)))
-		ret = map_update_elem(&LB4_REVERSE_NAT_SK_MAP, &key,
+		ret = bpf_map_update_elem(&LB4_REVERSE_NAT_SK_MAP, &key,
 				      &val, 0);
 	return ret;
 }
@@ -268,17 +268,17 @@ sock4_skip_xlate_if_same_netns(struct bpf_sock_addr *ctx __maybe_unused,
 
 	switch (ctx->protocol) {
 	case IPPROTO_TCP:
-		sk = sk_lookup_tcp(ctx, &tuple, sizeof(tuple.ipv4),
+		sk = bpf_sk_lookup_tcp(ctx, &tuple, sizeof(tuple.ipv4),
 				   BPF_F_CURRENT_NETNS, 0);
 		break;
 	case IPPROTO_UDP:
-		sk = sk_lookup_udp(ctx, &tuple, sizeof(tuple.ipv4),
+		sk = bpf_sk_lookup_udp(ctx, &tuple, sizeof(tuple.ipv4),
 				   BPF_F_CURRENT_NETNS, 0);
 		break;
 	}
 
 	if (sk) {
-		sk_release(sk);
+		bpf_sk_release(sk);
 		return true;
 	}
 #endif /* HAVE_SOCKET_LOOKUP */
@@ -438,11 +438,11 @@ __sock4_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 {
 	int ret = lb_skip_l4_dnat() ? SYS_PROCEED : SYS_REJECT;
 #ifdef ENABLE_HEALTH_CHECK
-	__sock_cookie key = get_socket_cookie(ctx);
+	__sock_cookie key = bpf_get_socket_cookie(ctx);
 	struct lb4_health *val = NULL;
 
 	if (!lb_skip_l4_dnat())
-		val = map_lookup_elem(&LB4_HEALTH_MAP, &key);
+		val = bpf_map_lookup_elem(&LB4_HEALTH_MAP, &key);
 	if (val) {
 		ctx_set_port(ctx, val->peer.port);
 		ret = SYS_PROCEED;
@@ -532,10 +532,10 @@ static __always_inline void sock4_auto_bind(struct bpf_sock_addr *ctx)
 static __always_inline int __sock4_pre_bind(struct bpf_sock_addr *ctx,
 					    struct bpf_sock_addr *ctx_full)
 {
-	/* Code compiled in here guarantees that get_socket_cookie() is
+	/* Code compiled in here guarantees that bpf_get_socket_cookie() is
 	 * available and unique on underlying kernel.
 	 */
-	__sock_cookie key = get_socket_cookie(ctx_full);
+	__sock_cookie key = bpf_get_socket_cookie(ctx_full);
 	struct lb4_health val = {
 		.peer = {
 			.address	= ctx->user_ip4,
@@ -545,7 +545,7 @@ static __always_inline int __sock4_pre_bind(struct bpf_sock_addr *ctx,
 	};
 	int ret;
 
-	ret = map_update_elem(&LB4_HEALTH_MAP, &key, &val, 0);
+	ret = bpf_map_update_elem(&LB4_HEALTH_MAP, &key, &val, 0);
 	if (!ret)
 		sock4_auto_bind(ctx);
 	return ret;
@@ -582,7 +582,7 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 
 	send_trace_sock_notify4(ctx_full, XLATE_PRE_DIRECTION_REV, dst_ip,
 				bpf_ntohs(dst_port));
-	val = map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
+	val = bpf_map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
 	if (val) {
 		struct lb4_service *svc;
 		struct lb4_key svc_key = {
@@ -596,7 +596,7 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 						ctx_in_hostns(ctx_full, NULL));
 		if (!svc || svc->rev_nat_index != val->rev_nat_index ||
 		    (svc->count == 0 && !lb4_svc_is_l7loadbalancer(svc))) {
-			map_delete_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
+			bpf_map_delete_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
 			return -ENOENT;
 		}
@@ -670,9 +670,9 @@ static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 	val.port = orig_key->dport;
 	val.rev_nat_index = rev_nat_index;
 
-	tmp = map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
+	tmp = bpf_map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
 	if (!tmp || memcmp(tmp, &val, sizeof(val)))
-		ret = map_update_elem(&LB6_REVERSE_NAT_SK_MAP, &key,
+		ret = bpf_map_update_elem(&LB6_REVERSE_NAT_SK_MAP, &key,
 				      &val, 0);
 	return ret;
 }
@@ -944,8 +944,8 @@ static __always_inline int __sock6_pre_bind(struct bpf_sock_addr *ctx)
 	if (is_v4_in_v6(&val.peer.address))
 		return sock6_pre_bind_v4_in_v6(ctx);
 #ifdef ENABLE_IPV6
-	key = get_socket_cookie(ctx);
-	ret = map_update_elem(&LB6_HEALTH_MAP, &key, &val, 0);
+	key = bpf_get_socket_cookie(ctx);
+	ret = bpf_map_update_elem(&LB6_HEALTH_MAP, &key, &val, 0);
 	if (!ret)
 		sock6_auto_bind(ctx);
 #endif
@@ -1094,11 +1094,11 @@ __sock6_health_fwd(struct bpf_sock_addr *ctx __maybe_unused)
 		return __sock4_health_fwd(ctx);
 	} else {
 #ifdef ENABLE_IPV6
-		__sock_cookie key = get_socket_cookie(ctx);
+		__sock_cookie key = bpf_get_socket_cookie(ctx);
 		struct lb6_health *val = NULL;
 
 		if (!lb_skip_l4_dnat())
-			val = map_lookup_elem(&LB6_HEALTH_MAP, &key);
+			val = bpf_map_lookup_elem(&LB6_HEALTH_MAP, &key);
 		if (val) {
 			ctx_set_port(ctx, val->peer.port);
 			ret = SYS_PROCEED;
@@ -1175,7 +1175,7 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 	send_trace_sock_notify6(ctx, XLATE_PRE_DIRECTION_REV, &key.address,
 				bpf_ntohs(dst_port));
 
-	val = map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
+	val = bpf_map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
 	if (val) {
 		struct lb6_service *svc;
 		struct lb6_key svc_key = {
@@ -1189,7 +1189,7 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 						ctx_in_hostns(ctx, NULL));
 		if (!svc || svc->rev_nat_index != val->rev_nat_index ||
 		    (svc->count == 0 && !lb6_svc_is_l7loadbalancer(svc))) {
-			map_delete_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
+			bpf_map_delete_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
 			return -ENOENT;
 		}

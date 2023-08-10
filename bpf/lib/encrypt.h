@@ -20,7 +20,7 @@ set_ipsec_encrypt_mark(struct __ctx_buff *ctx, __u8 key, __u32 tunnel_endpoint)
 
 	node_ip.family = ENDPOINT_KEY_IPV4;
 	node_ip.ip4 = tunnel_endpoint;
-	node_id = map_lookup_elem(&NODE_MAP, &node_ip);
+	node_id = bpf_map_lookup_elem(&NODE_MAP, &node_ip);
 	if (!node_id)
 		return DROP_NO_NODE_ID;
 

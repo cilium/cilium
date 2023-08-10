@@ -13,7 +13,7 @@
 static __always_inline void relax_verifier(void)
 {
 #ifndef HAVE_LARGE_INSN_LIMIT
-       volatile int __maybe_unused id = get_smp_processor_id();
+       volatile int __maybe_unused id = bpf_get_smp_processor_id();
 #endif
 }
 

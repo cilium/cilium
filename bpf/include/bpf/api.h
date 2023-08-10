@@ -11,7 +11,6 @@
 
 #include "compiler.h"
 #include "section.h"
-#include "helpers.h"
 #include "builtins.h"
 #include "tailcall.h"
 #include "errno.h"

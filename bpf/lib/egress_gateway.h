@@ -30,7 +30,7 @@ struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 
 		.saddr = saddr,
 		.daddr = daddr,
 	};
-	return map_lookup_elem(&EGRESS_POLICY_MAP, &key);
+	return bpf_map_lookup_elem(&EGRESS_POLICY_MAP, &key);
 }
 
 static __always_inline

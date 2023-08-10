@@ -26,7 +26,7 @@ auth_lookup(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id, __u32 remot
 	if (remote_node_ip) {
 		node_ip.family = ENDPOINT_KEY_IPV4;
 		node_ip.ip4 = remote_node_ip;
-		node_id = map_lookup_elem(&NODE_MAP, &node_ip);
+		node_id = bpf_map_lookup_elem(&NODE_MAP, &node_ip);
 		if (!node_id)
 			return DROP_NO_NODE_ID;
 		key.remote_node_id = *node_id;
@@ -36,7 +36,7 @@ auth_lookup(struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id, __u32 remot
 	}
 
 	/* Check L3-proto policy */
-	auth = map_lookup_elem(&AUTH_MAP, &key);
+	auth = bpf_map_lookup_elem(&AUTH_MAP, &key);
 	if (likely(auth)) {
 		/* check that entry has not expired */
 		if (utime_get_time() < auth->expiration)

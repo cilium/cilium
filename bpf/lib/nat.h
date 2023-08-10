@@ -54,26 +54,26 @@ static __always_inline __maybe_unused __u16
 __snat_try_keep_port(__u16 start, __u16 end, __u16 val)
 {
 	return val >= start && val <= end ? val :
-	       __snat_clamp_port_range(start, end, (__u16)get_prandom_u32());
+	       __snat_clamp_port_range(start, end, (__u16)bpf_get_prandom_u32());
 }
 
 static __always_inline __maybe_unused void *
-__snat_lookup(const void *map, const void *tuple)
+__snat_lookup(void *map, const void *tuple)
 {
-	return map_lookup_elem(map, tuple);
+	return bpf_map_lookup_elem(map, tuple);
 }
 
 static __always_inline __maybe_unused int
-__snat_update(const void *map, const void *otuple, const void *ostate,
-	      const void *rtuple, const void *rstate)
+__snat_update(void *map, const void *otuple, const void *ostate,
+			  const void *rtuple, const void *rstate)
 {
 	int ret;
 
-	ret = map_update_elem(map, rtuple, rstate, BPF_NOEXIST);
+	ret = bpf_map_update_elem(map, rtuple, rstate, BPF_NOEXIST);
 	if (!ret) {
-		ret = map_update_elem(map, otuple, ostate, BPF_NOEXIST);
+		ret = bpf_map_update_elem(map, otuple, ostate, BPF_NOEXIST);
 		if (ret)
-			map_delete_elem(map, rtuple);
+			bpf_map_delete_elem(map, rtuple);
 	}
 	return ret;
 }
@@ -160,7 +160,7 @@ get_cluster_snat_map_v4(__u32 cluster_id __maybe_unused)
 {
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
-		return map_lookup_elem(&PER_CLUSTER_SNAT_MAPPING_IPV4, &cluster_id);
+		return bpf_map_lookup_elem(&PER_CLUSTER_SNAT_MAPPING_IPV4, &cluster_id);
 #endif
 	return &SNAT_MAPPING_IPV4;
 }
@@ -224,7 +224,7 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 		port = __snat_clamp_port_range(target->min_port,
 					       target->max_port,
 					       retries ? port + 1 :
-					       (__u16)get_prandom_u32());
+					       (__u16)bpf_get_prandom_u32());
 	}
 
 	/* Loop completed without finding a free port: */
@@ -648,7 +648,7 @@ snat_v4_create_dsr(const struct ipv4_ct_tuple *tuple,
 	state.to_saddr = to_saddr;
 	state.to_sport = to_sport;
 
-	ret = map_update_elem(&SNAT_MAPPING_IPV4, &tmp, &state, 0);
+	ret = bpf_map_update_elem(&SNAT_MAPPING_IPV4, &tmp, &state, 0);
 	if (ret) {
 		*ext_err = (__s8)ret;
 		return DROP_NAT_NO_MAPPING;
@@ -1205,7 +1205,7 @@ get_cluster_snat_map_v6(__u32 cluster_id __maybe_unused)
 {
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 	if (cluster_id != 0 && cluster_id != CLUSTER_ID)
-		return map_lookup_elem(&PER_CLUSTER_SNAT_MAPPING_IPV6, &cluster_id);
+		return bpf_map_lookup_elem(&PER_CLUSTER_SNAT_MAPPING_IPV6, &cluster_id);
 #endif
 	return &SNAT_MAPPING_IPV6;
 }
@@ -1269,7 +1269,7 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 		port = __snat_clamp_port_range(target->min_port,
 					       target->max_port,
 					       retries ? port + 1 :
-					       (__u16)get_prandom_u32());
+					       (__u16)bpf_get_prandom_u32());
 	}
 
 	ret = DROP_NAT_NO_MAPPING;
@@ -1583,7 +1583,7 @@ snat_v6_create_dsr(const struct ipv6_ct_tuple *tuple, union v6addr *to_saddr,
 	ipv6_addr_copy(&state.to_saddr, to_saddr);
 	state.to_sport = to_sport;
 
-	ret = map_update_elem(&SNAT_MAPPING_IPV6, &tmp, &state, 0);
+	ret = bpf_map_update_elem(&SNAT_MAPPING_IPV6, &tmp, &state, 0);
 	if (ret) {
 		*ext_err = (__s8)ret;
 		return DROP_NAT_NO_MAPPING;

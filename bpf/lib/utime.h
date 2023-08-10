@@ -22,7 +22,7 @@ _utime_get_offset()
 	__u32 index = RUNTIME_CONFIG_UTIME_OFFSET;
 	__u64 *offset;
 
-	offset = map_lookup_elem(&CONFIG_MAP, &index);
+	offset = bpf_map_lookup_elem(&CONFIG_MAP, &index);
 	if (likely(offset))
 		return *offset;
 
@@ -36,6 +36,6 @@ _utime_get_offset()
 static __always_inline __u64
 utime_get_time()
 {
-	return (ktime_get_ns() >> UTIME_SHIFT) + _utime_get_offset();
+	return (bpf_ktime_get_ns() >> UTIME_SHIFT) + _utime_get_offset();
 }
 #endif

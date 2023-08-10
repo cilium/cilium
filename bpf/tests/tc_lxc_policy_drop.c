@@ -109,7 +109,7 @@ int tc_lxc_policy_drop_check(const struct __ctx_buff *ctx)
 
 	key.reason = (__u8)-DROP_POLICY_DENY;
 	key.dir = METRIC_EGRESS;
-	entry = map_lookup_elem(&METRICS_MAP, &key);
+	entry = bpf_map_lookup_elem(&METRICS_MAP, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
 	assert(entry->count == 1);

@@ -232,7 +232,7 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 	tuple.nexthdr = IPPROTO_TCP;
 	tuple.flags = TUPLE_F_SERVICE;
 
-	entry = map_lookup_elem(&CT_MAP_TCP4, &tuple);
+	entry = bpf_map_lookup_elem(&CT_MAP_TCP4, &tuple);
 	if (!entry)
 		test_fatal("couldn't find service conntrack entry");
 
@@ -244,7 +244,7 @@ int lxc_to_overlay_syn_check(struct __ctx_buff *ctx)
 	tuple.nexthdr = IPPROTO_TCP;
 	tuple.flags   = TUPLE_F_OUT;
 
-	entry = map_lookup_elem(&per_cluster_ct_tcp4_2, &tuple);
+	entry = bpf_map_lookup_elem(&per_cluster_ct_tcp4_2, &tuple);
 	if (!entry)
 		test_fatal("couldn't find egress conntrack entry");
 
@@ -336,7 +336,7 @@ int overlay_to_lxc_synack_check(struct __ctx_buff *ctx)
 	tuple.nexthdr = IPPROTO_TCP;
 	tuple.flags   = TUPLE_F_OUT;
 
-	entry = map_lookup_elem(&per_cluster_ct_tcp4_2, &tuple);
+	entry = bpf_map_lookup_elem(&per_cluster_ct_tcp4_2, &tuple);
 	if (!entry)
 		test_fatal("couldn't find egress conntrack entry");
 
@@ -421,7 +421,7 @@ int lxc_to_overlay_ack_check(struct __ctx_buff *ctx)
 	tuple.nexthdr = IPPROTO_TCP;
 	tuple.flags   = TUPLE_F_OUT;
 
-	entry = map_lookup_elem(&per_cluster_ct_tcp4_2, &tuple);
+	entry = bpf_map_lookup_elem(&per_cluster_ct_tcp4_2, &tuple);
 	if (!entry)
 		test_fatal("couldn't find egress conntrack entry");
 

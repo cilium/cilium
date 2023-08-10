@@ -59,7 +59,7 @@ redirect_self(struct xdp_md *ctx __maybe_unused)
 }
 
 static __always_inline __maybe_unused int
-redirect_neigh(int ifindex __maybe_unused,
+bpf_redirect_neigh(int ifindex __maybe_unused,
 	       struct bpf_redir_neigh *params __maybe_unused,
 	       int plen __maybe_unused,
 	       __u32 flags __maybe_unused)

@@ -103,7 +103,7 @@ int egressgw_reply_pktgen(struct __ctx_buff *ctx)
 		.to_sport = MASQ_PORT,
 	};
 
-	map_update_elem(&SNAT_MAPPING_IPV4, &tuple, &nat_entry, BPF_ANY);
+	bpf_map_update_elem(&SNAT_MAPPING_IPV4, &tuple, &nat_entry, BPF_ANY);
 
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
 			.test = TEST_XDP_REPLY,
@@ -132,7 +132,7 @@ int egressgw_reply_setup(struct __ctx_buff *ctx)
 		.to_dport = client_port(TEST_XDP_REPLY),
 	};
 
-	map_update_elem(&SNAT_MAPPING_IPV4, &snat_tuple, &snat_entry, BPF_ANY);
+	bpf_map_update_elem(&SNAT_MAPPING_IPV4, &snat_tuple, &snat_entry, BPF_ANY);
 
 	/* install ipcache entry for the CLIENT_IP: */
 	ipcache_v4_add_entry(CLIENT_IP, 0, 0, CLIENT_NODE_IP, 0);

@@ -33,7 +33,7 @@ tail_call_static(const struct __ctx_buff *ctx, const void *map,
 }
 
 static __always_inline __maybe_unused void
-tail_call_dynamic(struct __ctx_buff *ctx, const void *map, __u32 slot)
+tail_call_dynamic(struct __ctx_buff *ctx, void *map, __u32 slot)
 {
 	if (__builtin_constant_p(slot))
 		__throw_build_bug();
@@ -42,7 +42,7 @@ tail_call_dynamic(struct __ctx_buff *ctx, const void *map, __u32 slot)
 	 * we give LLVM a free pass to optimize since we cannot do much
 	 * here anyway as x86-64 JIT will emit a retpoline for this case.
 	 */
-	tail_call(ctx, map, slot);
+	bpf_tail_call(ctx, map, slot);
 }
 #else
 /* BPF unit tests compile some BPF code under their native arch. Tail calls

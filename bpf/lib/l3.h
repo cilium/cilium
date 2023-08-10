@@ -186,7 +186,7 @@ static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 	__u32 encrypt_key = 0;
 	struct encrypt_config *cfg;
 
-	cfg = map_lookup_elem(&ENCRYPT_MAP, &encrypt_key);
+	cfg = bpf_map_lookup_elem(&ENCRYPT_MAP, &encrypt_key);
 	/* Having no key info for a context is the same as no encryption */
 	if (cfg)
 		local_key = cfg->encrypt_key;

@@ -50,11 +50,11 @@ static __always_inline int edt_sched_departure(struct __ctx_buff *ctx)
 	if (!aggregate.id)
 		return CTX_ACT_OK;
 
-	info = map_lookup_elem(&THROTTLE_MAP, &aggregate);
+	info = bpf_map_lookup_elem(&THROTTLE_MAP, &aggregate);
 	if (!info)
 		return CTX_ACT_OK;
 
-	now = ktime_get_ns();
+	now = bpf_ktime_get_ns();
 	t = ctx->tstamp;
 	if (t < now)
 		t = now;

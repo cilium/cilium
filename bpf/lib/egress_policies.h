@@ -36,7 +36,7 @@ srv6_lookup_vrf4(__be32 sip, __be32 dip)
 		.src_ip = sip,
 		.dst_cidr = dip,
 	};
-	return map_lookup_elem(&SRV6_VRF_MAP4, &key);
+	return bpf_map_lookup_elem(&SRV6_VRF_MAP4, &key);
 }
 
 /* SRV6_POLICY_STATIC_PREFIX4 gets sizeof non-IP, non-prefix part of
@@ -55,7 +55,7 @@ srv6_lookup_policy4(__u32 vrf_id, __be32 dip)
 		.vrf_id = vrf_id,
 		.dst_cidr = dip,
 	};
-	return map_lookup_elem(&SRV6_POLICY_MAP4, &key);
+	return bpf_map_lookup_elem(&SRV6_POLICY_MAP4, &key);
 }
 # endif /* ENABLE_IPV4 */
 
@@ -75,7 +75,7 @@ srv6_lookup_vrf6(const struct in6_addr *sip, const struct in6_addr *dip)
 		.src_ip = *(union v6addr *)sip,
 		.dst_cidr = *(union v6addr *)dip,
 	};
-	return map_lookup_elem(&SRV6_VRF_MAP6, &key);
+	return bpf_map_lookup_elem(&SRV6_VRF_MAP6, &key);
 }
 
 /* SRV6_POLICY_STATIC_PREFIX6 gets sizeof non-IP, non-prefix part of
@@ -95,7 +95,7 @@ srv6_lookup_policy6(__u32 vrf_id, const struct in6_addr *dip)
 		.vrf_id = vrf_id,
 		.dst_cidr = *(union v6addr *)dip,
 	};
-	return map_lookup_elem(&SRV6_POLICY_MAP6, &key);
+	return bpf_map_lookup_elem(&SRV6_POLICY_MAP6, &key);
 }
 
 static __always_inline __u32
@@ -103,7 +103,7 @@ srv6_lookup_sid(const struct in6_addr *sid)
 {
 	__u32 *vrf_id;
 
-	vrf_id = map_lookup_elem(&SRV6_SID_MAP, sid);
+	vrf_id = bpf_map_lookup_elem(&SRV6_SID_MAP, sid);
 	if (vrf_id)
 		return *vrf_id;
 	return 0;
@@ -267,7 +267,7 @@ srv6_create_state_entry(struct __ctx_buff *ctx)
 			return DROP_INVALID;
 		inner_ips = (struct srv6_ipv6_2tuple *)&inner->saddr;
 
-		if (map_update_elem(&SRV6_STATE_MAP6, inner_ips, outer_ips, 0) < 0)
+		if (bpf_map_update_elem(&SRV6_STATE_MAP6, inner_ips, outer_ips, 0) < 0)
 			return DROP_INVALID;
 		break;
 	}
@@ -280,7 +280,7 @@ srv6_create_state_entry(struct __ctx_buff *ctx)
 			return DROP_INVALID;
 		inner_ips = (struct srv6_ipv4_2tuple *)&inner->saddr;
 
-		if (map_update_elem(&SRV6_STATE_MAP4, inner_ips, outer_ips, 0) < 0)
+		if (bpf_map_update_elem(&SRV6_STATE_MAP4, inner_ips, outer_ips, 0) < 0)
 			return DROP_INVALID;
 		break;
 	}
@@ -294,7 +294,7 @@ srv6_create_state_entry(struct __ctx_buff *ctx)
 static __always_inline struct srv6_ipv6_2tuple *
 srv6_lookup_state_entry4(struct iphdr *ip4)
 {
-	return map_lookup_elem(&SRV6_STATE_MAP4,
+	return bpf_map_lookup_elem(&SRV6_STATE_MAP4,
 			       (struct srv6_ipv4_2tuple *)&ip4->saddr);
 }
 #  endif /* ENABLE_IPV4 */
@@ -302,7 +302,7 @@ srv6_lookup_state_entry4(struct iphdr *ip4)
 static __always_inline struct srv6_ipv6_2tuple *
 srv6_lookup_state_entry6(struct ipv6hdr *ip6)
 {
-	return map_lookup_elem(&SRV6_STATE_MAP6,
+	return bpf_map_lookup_elem(&SRV6_STATE_MAP6,
 			       (struct srv6_ipv6_2tuple *)&ip6->saddr);
 }
 

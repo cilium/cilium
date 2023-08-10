@@ -20,7 +20,7 @@ endpoint_v4_add_entry(__be32 addr, __u32 ifindex, __u16 lxc_id, __u32 flags,
 	if (node_mac_addr)
 		memcpy(&value.node_mac, node_mac_addr, ETH_ALEN);
 
-	map_update_elem(&ENDPOINTS_MAP, &key, &value, BPF_ANY);
+	bpf_map_update_elem(&ENDPOINTS_MAP, &key, &value, BPF_ANY);
 }
 
 static __always_inline void

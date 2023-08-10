@@ -159,7 +159,7 @@ int egressgw_skip_no_gateway_redirect_check(const struct __ctx_buff *ctx)
 
 	key.reason = (__u8)-DROP_NO_EGRESS_GATEWAY;
 	key.dir = METRIC_EGRESS;
-	entry = map_lookup_elem(&METRICS_MAP, &key);
+	entry = bpf_map_lookup_elem(&METRICS_MAP, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
 	assert(entry->count == 1);

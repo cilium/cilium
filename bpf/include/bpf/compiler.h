@@ -69,10 +69,6 @@
 # define __throw_build_bug()	__builtin_trap()
 #endif
 
-#ifndef __printf
-# define __printf(X, Y)		__attribute__((__format__(printf, X, Y)))
-#endif
-
 #ifndef barrier
 # define barrier()		asm volatile("": : :"memory")
 #endif

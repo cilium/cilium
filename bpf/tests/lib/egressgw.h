@@ -54,7 +54,7 @@ static __always_inline void add_egressgw_policy_entry(__be32 saddr, __be32 daddr
 		.gateway_ip = gateway_ip,
 	};
 
-	map_update_elem(&EGRESS_POLICY_MAP, &in_key, &in_val, 0);
+	bpf_map_update_elem(&EGRESS_POLICY_MAP, &in_key, &in_val, 0);
 }
 
 static __always_inline void del_egressgw_policy_entry(__be32 saddr, __be32 daddr, __u8 cidr)
@@ -65,7 +65,7 @@ static __always_inline void del_egressgw_policy_entry(__be32 saddr, __be32 daddr
 		.daddr   = daddr,
 	};
 
-	map_delete_elem(&EGRESS_POLICY_MAP, &in_key);
+	bpf_map_delete_elem(&EGRESS_POLICY_MAP, &in_key);
 }
 
 static __always_inline int egressgw_pktgen(struct __ctx_buff *ctx,
@@ -203,7 +203,7 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
 		.nexthdr = IPPROTO_TCP,
 		.flags = TUPLE_F_OUT,
 	};
-	struct ct_entry *ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	struct ct_entry *ct_entry = bpf_map_lookup_elem(get_ct_map4(&tuple), &tuple);
 
 	if (!ct_entry)
 		test_fatal("no CT entry found");

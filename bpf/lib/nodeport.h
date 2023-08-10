@@ -46,6 +46,15 @@ struct dsr_opt_v4 {
 	__u32 addr;
 };
 
+/* Padded struct so the dmac at the end can be passed to another helper
+ * e.g. as a map value buffer. Otherwise verifier will trip over it with
+ * 'invalid indirect read from stack off'.
+ */
+struct bpf_fib_lookup_padded {
+	struct bpf_fib_lookup l;
+	__u8 pad[2];
+};
+
 static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 {
 # if defined(ENABLE_DSR) && !defined(ENABLE_DSR_HYBRID)
@@ -132,7 +141,7 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 	int oif = NATIVE_DEV_IFINDEX;
 	int ret;
 
-	ret = fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
+	ret = bpf_fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), 0);
 	*ext_err = (__s8)ret;
 
 	switch (ret) {
@@ -3133,7 +3142,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 		struct lb4_health *val;
 
 		key = get_socket_cookie(ctx);
-		val = map_lookup_elem(&LB4_HEALTH_MAP, &key);
+		val = bpf_map_lookup_elem(&LB4_HEALTH_MAP, &key);
 		if (!val)
 			return CTX_ACT_OK;
 		ret = health_encap_v4(ctx, val->peer.address, 0);
@@ -3148,7 +3157,7 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused)
 		struct lb6_health *val;
 
 		key = get_socket_cookie(ctx);
-		val = map_lookup_elem(&LB6_HEALTH_MAP, &key);
+		val = bpf_map_lookup_elem(&LB6_HEALTH_MAP, &key);
 		if (!val)
 			return CTX_ACT_OK;
 		ret = health_encap_v6(ctx, &val->peer.address, 0);

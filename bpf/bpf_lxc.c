@@ -260,7 +260,7 @@ int NAME(struct __ctx_buff *ctx)						\
 				   DIR, ct_state, &ct_buffer.monitor);		\
 	if (ct_buffer.ret < 0)							\
 		return drop_for_direction(ctx, DIR, ct_buffer.ret);		\
-	if (map_update_elem(&CT_TAIL_CALL_BUFFER4, &zero, &ct_buffer, 0) < 0)	\
+	if (bpf_map_update_elem(&CT_TAIL_CALL_BUFFER4, &zero, &ct_buffer, 0) < 0)	\
 		return drop_for_direction(ctx, DIR, DROP_INVALID_TC_BUFFER);	\
 										\
 	ret = invoke_tailcall_if(CONDITION, TARGET_ID, TARGET_NAME);		\
@@ -304,7 +304,7 @@ int NAME(struct __ctx_buff *ctx)						\
 	if (ct_buffer.ret < 0)							\
 		return drop_for_direction(ctx, DIR, ct_buffer.ret);		\
 										\
-	if (map_update_elem(&CT_TAIL_CALL_BUFFER6, &zero, &ct_buffer, 0) < 0)	\
+	if (bpf_map_update_elem(&CT_TAIL_CALL_BUFFER6, &zero, &ct_buffer, 0) < 0)	\
 		return drop_for_direction(ctx, DIR,				\
 			DROP_INVALID_TC_BUFFER);				\
 										\
@@ -410,7 +410,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	/* No hairpin/loopback support for IPv6, see lb6_local(). */
 #endif /* ENABLE_PER_PACKET_LB */
 
-	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
+	ct_buffer = bpf_map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
 	if (!ct_buffer)
 		return DROP_INVALID_TC_BUFFER;
 	if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
@@ -836,7 +836,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			   ip4->daddr, *dst_sec_identity);
 	}
 
-	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER4, &zero);
+	ct_buffer = bpf_map_lookup_elem(&CT_TAIL_CALL_BUFFER4, &zero);
 	if (!ct_buffer)
 		return DROP_INVALID_TC_BUFFER;
 	if (ct_buffer->tuple.saddr == 0)
@@ -1098,7 +1098,7 @@ skip_egress_gateway:
 		struct vtep_value *vtep;
 
 		vkey.vtep_ip = ip4->daddr & VTEP_MASK;
-		vtep = map_lookup_elem(&VTEP_MAP, &vkey);
+		vtep = bpf_map_lookup_elem(&VTEP_MAP, &vkey);
 		if (!vtep)
 			goto skip_vtep;
 
@@ -1417,7 +1417,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	 */
 	skip_ingress_proxy = tc_index_skip_ingress_proxy(ctx);
 
-	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
+	ct_buffer = bpf_map_lookup_elem(&CT_TAIL_CALL_BUFFER6, &zero);
 	if (!ct_buffer)
 		return DROP_INVALID_TC_BUFFER;
 	if (ct_buffer->tuple.saddr.d1 == 0 && ct_buffer->tuple.saddr.d2 == 0)
@@ -1724,7 +1724,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	is_untracked_fragment = ipv4_is_fragment(ip4);
 #endif
 
-	ct_buffer = map_lookup_elem(&CT_TAIL_CALL_BUFFER4, &zero);
+	ct_buffer = bpf_map_lookup_elem(&CT_TAIL_CALL_BUFFER4, &zero);
 	if (!ct_buffer)
 		return DROP_INVALID_TC_BUFFER;
 	if (ct_buffer->tuple.saddr == 0)

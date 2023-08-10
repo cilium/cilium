@@ -169,7 +169,7 @@ ctx_move_xfer(struct __sk_buff *ctx __maybe_unused)
 static __always_inline __maybe_unused int
 ctx_change_head(struct __sk_buff *ctx, __u32 head_room, __u64 flags)
 {
-	return skb_change_head(ctx, head_room, flags);
+	return bpf_skb_change_head(ctx, head_room, flags);
 }
 
 static __always_inline void ctx_snat_done_set(struct __sk_buff *ctx)

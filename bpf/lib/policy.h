@@ -32,7 +32,7 @@ __account_and_check(struct __ctx_buff *ctx, struct policy_entry *policy,
 }
 
 static __always_inline int
-__policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
+__policy_can_access(void *map, struct __ctx_buff *ctx, __u32 local_id,
 		    __u32 remote_id, __u16 ethertype __maybe_unused, __u16 dport,
 		    __u8 proto, int off __maybe_unused, int dir,
 		    bool is_untracked_fragment, __u8 *match_type, __s8 *ext_err,
@@ -118,7 +118,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	 * Note: Untracked fragments always have zero ports in the tuple so they can
 	 * only match entries that have fully wildcarded ports.
 	 */
-	policy = map_lookup_elem(map, &key);
+	policy = bpf_map_lookup_elem(map, &key);
 
 	/* This is a full L3/L4 match if port is not wildcarded,
 	 * need to check for L4-only policy first if it is.
@@ -141,7 +141,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 local_id,
 	 * Untracked fragments always have zero ports in the tuple so they can
 	 * only match entries that have fully wildcarded ports.
 	 */
-	l4policy = map_lookup_elem(map, &key);
+	l4policy = bpf_map_lookup_elem(map, &key);
 
 	if (likely(l4policy && !l4policy->wildcard_dport)) {
 		*match_type = POLICY_MATCH_L4_ONLY;		/* 2. ANY/proto/port */

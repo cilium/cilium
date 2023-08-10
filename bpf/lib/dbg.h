@@ -169,7 +169,7 @@ enum {
 # define printk(fmt, ...)					\
 		({						\
 			const char ____fmt[] = fmt;		\
-			trace_printk(____fmt, sizeof(____fmt),	\
+			bpf_trace_printk(____fmt, sizeof(____fmt),	\
 				     ##__VA_ARGS__);		\
 		})
 

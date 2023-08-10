@@ -842,7 +842,7 @@ describe some of the differences for the BPF model:
     {
         uint32_t *bytes;
 
-        bytes = map_lookup_elem(&acc_map, &dir);
+        bytes = bpf_map_lookup_elem(&acc_map, &dir);
         if (bytes)
                 lock_xadd(bytes, skb->len);
 
@@ -991,7 +991,7 @@ describe some of the differences for the BPF model:
   In the future, LLVM might detect these occurrences and early throw an error
   to the user.
 
-  Helper functions such as ``trace_printk()`` can be worked around as follows:
+  Helper functions such as ``bpf_trace_printk()`` can be worked around as follows:
 
   .. code-block:: c
 
@@ -1001,7 +1001,7 @@ describe some of the differences for the BPF model:
     # define printk(fmt, ...)                                      \
         ({                                                         \
             char ____fmt[] = fmt;                                  \
-            trace_printk(____fmt, sizeof(____fmt), ##__VA_ARGS__); \
+            bpf_trace_printk(____fmt, sizeof(____fmt), ##__VA_ARGS__); \
         })
     #endif
 
@@ -1009,7 +1009,7 @@ describe some of the differences for the BPF model:
   The output will then be written to the trace pipe. ``tc exec bpf dbg`` can be
   used to retrieve the messages from there.
 
-  The use of the ``trace_printk()`` helper function has a couple of disadvantages
+  The use of the ``bpf_trace_printk()`` helper function has a couple of disadvantages
   and thus is not recommended for production usage. Constant strings like the
   ``"skb len:%u\n"`` need to be loaded into the BPF stack each time the helper
   function is called, but also BPF helper functions are limited to a maximum
@@ -1023,7 +1023,7 @@ describe some of the differences for the BPF model:
   Cilium's monitor makes use of these helpers in order to implement a debugging
   framework, notifications for network policy violations, etc. These helpers pass
   the data through a lockless memory mapped per-CPU ``perf`` ring buffer, and
-  is thus significantly faster than ``trace_printk()``.
+  is thus significantly faster than ``bpf_trace_printk()``.
 
 5. **Use of LLVM built-in functions for memset()/memcpy()/memmove()/memcmp().**
 
@@ -1169,7 +1169,7 @@ describe some of the differences for the BPF model:
     int looper(struct __sk_buff *skb)
     {
         printk("skb cb: %u\n", skb->cb[0]++);
-        tail_call(skb, &jmp_map, 0);
+        bpf_tail_call(skb, &jmp_map, 0);
         return TC_ACT_OK;
     }
 
@@ -1177,7 +1177,7 @@ describe some of the differences for the BPF model:
     int entry(struct __sk_buff *skb)
     {
         skb->cb[0] = 0;
-        tail_call(skb, &jmp_map, 0);
+        bpf_tail_call(skb, &jmp_map, 0);
         return TC_ACT_OK;
     }
 

@@ -13,13 +13,13 @@
 
 /* Monotonic clock, scalar format. */
 #define bpf_ktime_get_sec()	\
-	({ __u64 __x = ktime_get_ns() / NSEC_PER_SEC; __x; })
+	({ __u64 __x = bpf_ktime_get_ns() / NSEC_PER_SEC; __x; })
 #define bpf_ktime_get_msec()	\
-	({ __u64 __x = ktime_get_ns() / NSEC_PER_MSEC; __x; })
+	({ __u64 __x = bpf_ktime_get_ns() / NSEC_PER_MSEC; __x; })
 #define bpf_ktime_get_usec()	\
-	({ __u64 __x = ktime_get_ns() / NSEC_PER_USEC; __x; })
+	({ __u64 __x = bpf_ktime_get_ns() / NSEC_PER_USEC; __x; })
 #define bpf_ktime_get_nsec()	\
-	({ __u64 __x = ktime_get_ns(); __x; })
+	({ __u64 __x = bpf_ktime_get_ns(); __x; })
 
 /* Jiffies */
 #define bpf_jiffies_to_sec(j)	\
