@@ -17,7 +17,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
-	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/identity"
@@ -556,7 +555,7 @@ func tryAssertIPRules(rules []ipRule) error {
 		parsedRules = append(parsedRules, parseIPRule(r.sourceIP, r.destCIDR, r.egressIP, r.ifaceIndex))
 	}
 
-	installedRules, err := route.ListRules(netlink.FAMILY_V4, &route.Rule{Priority: linux_defaults.RulePriorityEgressGateway})
+	installedRules, err := listEgressIpRules()
 	if err != nil {
 		panic("Cannot list IP rules")
 	}
