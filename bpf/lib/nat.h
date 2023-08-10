@@ -489,9 +489,9 @@ static __always_inline int snat_v4_rewrite_egress(struct __ctx_buff *ctx,
 						  struct ipv4_nat_entry *state,
 						  __u32 off, bool has_l4_header)
 {
-	int ret, flags = BPF_F_PSEUDO_HDR;
+	int flags = BPF_F_PSEUDO_HDR;
 	struct csum_offset csum = {};
-	__be32 sum;
+	__be32 sum, l4_sum;
 
 	if (state->to_saddr == tuple->saddr &&
 	    state->to_sport == tuple->sport)
@@ -499,35 +499,35 @@ static __always_inline int snat_v4_rewrite_egress(struct __ctx_buff *ctx,
 	sum = csum_diff(&tuple->saddr, 4, &state->to_saddr, 4, 0);
 	if (has_l4_header) {
 		csum_l4_offset_and_flags(tuple->nexthdr, &csum);
+		l4_sum = sum;
 
 		if (state->to_sport != tuple->sport) {
+			__be32 to = state->to_sport;
+			__be32 from = tuple->sport;
+			int port_off;
+
 			switch (tuple->nexthdr) {
 			case IPPROTO_TCP:
 			case IPPROTO_UDP:
-				ret = l4_modify_port(ctx, off,
-						     offsetof(struct tcphdr, source),
-						     &csum, state->to_sport,
-						     tuple->sport);
-				if (ret < 0)
-					return ret;
+				port_off = TCP_SPORT_OFF;
 				break;
 #ifdef ENABLE_SCTP
 			case IPPROTO_SCTP:
 				return DROP_CSUM_L4;
 #endif  /* ENABLE_SCTP */
-			case IPPROTO_ICMP: {
-				if (ctx_store_bytes(ctx, off +
-						    offsetof(struct icmphdr, un.echo.id),
-						    &state->to_sport,
-						    sizeof(state->to_sport), 0) < 0)
-					return DROP_WRITE_ERROR;
-				if (l4_csum_replace(ctx, off + offsetof(struct icmphdr, checksum),
-						    tuple->sport,
-						    state->to_sport,
-						    sizeof(tuple->sport)) < 0)
-					return DROP_CSUM_L4;
+			case IPPROTO_ICMP:
+				port_off = offsetof(struct icmphdr, un.echo.id);
+				csum.offset = offsetof(struct icmphdr, checksum);
+				flags = 0;
 				break;
-			}}
+			default:
+				return DROP_UNKNOWN_L4;
+			}
+
+			if (l4_store_port(ctx, off + port_off, state->to_sport) < 0)
+				return DROP_WRITE_ERROR;
+
+			l4_sum = csum_diff(&from, 4, &to, 4, l4_sum);
 		}
 	}
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, saddr),
@@ -536,7 +536,7 @@ static __always_inline int snat_v4_rewrite_egress(struct __ctx_buff *ctx,
 	if (ipv4_csum_update_by_diff(ctx, ETH_HLEN, sum) < 0)
 		return DROP_CSUM_L3;
 	if (csum.offset &&
-	    csum_l4_replace(ctx, off, &csum, 0, sum, flags) < 0)
+	    csum_l4_replace(ctx, off, &csum, 0, l4_sum, flags) < 0)
 		return DROP_CSUM_L4;
 	return 0;
 }
@@ -546,25 +546,26 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 						   struct ipv4_nat_entry *state,
 						   __u32 off)
 {
-	int ret, flags = BPF_F_PSEUDO_HDR;
+	int flags = BPF_F_PSEUDO_HDR;
 	struct csum_offset csum = {};
-	__be32 sum;
+	__be32 sum, l4_sum;
 
 	if (state->to_daddr == tuple->daddr &&
 	    state->to_dport == tuple->dport)
 		return 0;
 	sum = csum_diff(&tuple->daddr, 4, &state->to_daddr, 4, 0);
 	csum_l4_offset_and_flags(tuple->nexthdr, &csum);
+	l4_sum = sum;
+
 	if (state->to_dport != tuple->dport) {
+		__be32 to = state->to_dport;
+		__be32 from = tuple->dport;
+		int port_off;
+
 		switch (tuple->nexthdr) {
 		case IPPROTO_TCP:
 		case IPPROTO_UDP:
-			ret = l4_modify_port(ctx, off,
-					     offsetof(struct tcphdr, dest),
-					     &csum, state->to_dport,
-					     tuple->dport);
-			if (ret < 0)
-				return ret;
+			port_off = TCP_DPORT_OFF;
 			break;
 #ifdef ENABLE_SCTP
 		case IPPROTO_SCTP:
@@ -577,28 +578,33 @@ static __always_inline int snat_v4_rewrite_ingress(struct __ctx_buff *ctx,
 					   offsetof(struct icmphdr, type),
 					   &type, 1) < 0)
 				return DROP_INVALID;
-			if (type == ICMP_ECHOREPLY) {
-				if (ctx_store_bytes(ctx, off +
-						    offsetof(struct icmphdr, un.echo.id),
-						    &state->to_dport,
-						    sizeof(state->to_dport), 0) < 0)
-					return DROP_WRITE_ERROR;
-				if (l4_csum_replace(ctx, off + offsetof(struct icmphdr, checksum),
-						    tuple->dport,
-						    state->to_dport,
-						    sizeof(tuple->dport)) < 0)
-					return DROP_CSUM_L4;
-			}
+
+			if (type != ICMP_ECHOREPLY)
+				goto skip_port_rewrite;
+
+			port_off = offsetof(struct icmphdr, un.echo.id);
+			csum.offset = offsetof(struct icmphdr, checksum);
+			flags = 0;
 			break;
-		}}
+		}
+		default:
+			return DROP_UNKNOWN_L4;
+		}
+
+		if (l4_store_port(ctx, off + port_off, state->to_dport) < 0)
+			return DROP_WRITE_ERROR;
+
+		l4_sum = csum_diff(&from, 4, &to, 4, l4_sum);
 	}
+
+skip_port_rewrite:
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, daddr),
 			    &state->to_daddr, 4, 0) < 0)
 		return DROP_WRITE_ERROR;
 	if (ipv4_csum_update_by_diff(ctx, ETH_HLEN, sum) < 0)
 		return DROP_CSUM_L3;
 	if (csum.offset &&
-	    csum_l4_replace(ctx, off, &csum, 0, sum, flags) < 0)
+	    csum_l4_replace(ctx, off, &csum, 0, l4_sum, flags) < 0)
 		return DROP_CSUM_L4;
 	return 0;
 }
@@ -1447,7 +1453,6 @@ static __always_inline int snat_v6_rewrite_egress(struct __ctx_buff *ctx,
 {
 	struct csum_offset csum = {};
 	__be32 sum;
-	int ret;
 
 	if (ipv6_addr_equals(&state->to_saddr, &tuple->saddr) &&
 	    state->to_sport == tuple->sport)
@@ -1455,32 +1460,31 @@ static __always_inline int snat_v6_rewrite_egress(struct __ctx_buff *ctx,
 	sum = csum_diff(&tuple->saddr, 16, &state->to_saddr, 16, 0);
 	csum_l4_offset_and_flags(tuple->nexthdr, &csum);
 	if (state->to_sport != tuple->sport) {
+		__be32 to = state->to_sport;
+		__be32 from = tuple->sport;
+		int port_off;
+
 		switch (tuple->nexthdr) {
 		case IPPROTO_TCP:
 		case IPPROTO_UDP:
-			ret = l4_modify_port(ctx, off, offsetof(struct tcphdr, source),
-					     &csum, state->to_sport, tuple->sport);
-			if (ret < 0)
-				return ret;
+			port_off = TCP_SPORT_OFF;
 			break;
 #ifdef ENABLE_SCTP
 		case IPPROTO_SCTP:
 			return DROP_CSUM_L4;
 #endif  /* ENABLE_SCTP */
-		case IPPROTO_ICMPV6: {
-			__be32 from, to;
-
-			if (ctx_store_bytes(ctx, off +
-					    offsetof(struct icmp6hdr,
-						     icmp6_dataun.u_echo.identifier),
-					    &state->to_sport,
-					    sizeof(state->to_sport), 0) < 0)
-				return DROP_WRITE_ERROR;
-			from = tuple->sport;
-			to = state->to_sport;
-			sum = csum_diff(&from, 4, &to, 4, sum);
+		case IPPROTO_ICMPV6:
+			port_off = offsetof(struct icmp6hdr,
+					    icmp6_dataun.u_echo.identifier);
 			break;
-		}}
+		default:
+			return DROP_UNKNOWN_L4;
+		}
+
+		if (l4_store_port(ctx, off + port_off, state->to_sport) < 0)
+			return DROP_WRITE_ERROR;
+
+		sum = csum_diff(&from, 4, &to, 4, sum);
 	}
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct ipv6hdr, saddr),
 			    &state->to_saddr, 16, 0) < 0)
@@ -1498,7 +1502,6 @@ static __always_inline int snat_v6_rewrite_ingress(struct __ctx_buff *ctx,
 {
 	struct csum_offset csum = {};
 	__be32 sum;
-	int ret;
 
 	if (ipv6_addr_equals(&state->to_daddr, &tuple->daddr) &&
 	    state->to_dport == tuple->dport)
@@ -1506,15 +1509,14 @@ static __always_inline int snat_v6_rewrite_ingress(struct __ctx_buff *ctx,
 	sum = csum_diff(&tuple->daddr, 16, &state->to_daddr, 16, 0);
 	csum_l4_offset_and_flags(tuple->nexthdr, &csum);
 	if (state->to_dport != tuple->dport) {
+		__be32 to = state->to_dport;
+		__be32 from = tuple->dport;
+		int port_off;
+
 		switch (tuple->nexthdr) {
 		case IPPROTO_TCP:
 		case IPPROTO_UDP:
-			ret = l4_modify_port(ctx, off,
-					     offsetof(struct tcphdr, dest),
-					     &csum, state->to_dport,
-					     tuple->dport);
-			if (ret < 0)
-				return ret;
+			port_off = TCP_DPORT_OFF;
 			break;
 #ifdef ENABLE_SCTP
 		case IPPROTO_SCTP:
@@ -1522,24 +1524,28 @@ static __always_inline int snat_v6_rewrite_ingress(struct __ctx_buff *ctx,
 #endif  /* ENABLE_SCTP */
 		case IPPROTO_ICMPV6: {
 			__u8 type = 0;
-			__be32 from, to;
 
 			if (icmp6_load_type(ctx, off, &type) < 0)
 				return DROP_INVALID;
-			if (type == ICMPV6_ECHO_REPLY) {
-				if (ctx_store_bytes(ctx, off +
-						    offsetof(struct icmp6hdr,
-							     icmp6_dataun.u_echo.identifier),
-						    &state->to_dport,
-						    sizeof(state->to_dport), 0) < 0)
-					return DROP_WRITE_ERROR;
-				from = tuple->dport;
-				to = state->to_dport;
-				sum = csum_diff(&from, 4, &to, 4, sum);
-			}
+
+			if (type != ICMPV6_ECHO_REPLY)
+				goto skip_port_rewrite;
+
+			port_off = offsetof(struct icmp6hdr,
+					    icmp6_dataun.u_echo.identifier);
 			break;
-		}}
+		}
+		default:
+			return DROP_UNKNOWN_L4;
+		}
+
+		if (l4_store_port(ctx, off + port_off, state->to_dport) < 0)
+			return DROP_WRITE_ERROR;
+
+		sum = csum_diff(&from, 4, &to, 4, sum);
 	}
+
+skip_port_rewrite:
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct ipv6hdr, daddr),
 			    &state->to_daddr, 16, 0) < 0)
 		return DROP_WRITE_ERROR;
