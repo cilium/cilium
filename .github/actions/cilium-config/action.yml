@@ -37,6 +37,15 @@ inputs:
   host-fw:
     description: 'Enable host firewall'
     default: false
+  mutual-auth:
+    description: 'Enable mTLS-based Mutual Authentication'
+    default: true
+  devices:
+    description: 'List of native devices to attach datapath programs'
+    default: ''
+  misc:
+    description: 'Misc helm rarely set by a user coma separated values'
+    default: ''
 outputs:
   config:
     description: 'Cilium installation config'
@@ -63,14 +72,21 @@ runs:
             --helm-set=hubble.relay.image.useDigest=false \
             --helm-set=hubble.eventBufferCapacity=65535 \
             --helm-set=bpf.monitorAggregation=none \
-            --helm-set=authentication.mutual.spire.enabled=true \
+            --helm-set=cluster.name=default \
+            --helm-set=authentication.mutual.spire.enabled=${{ inputs.mutual-auth }} \
             --nodes-without-cilium=kind-worker3 \
-            --helm-set-string=kubeProxyReplacement=${{ inputs.kpr }}"
+            --helm-set-string=kubeProxyReplacement=${{ inputs.kpr }} \
+            --set='${{ inputs.misc }}'"
 
           TUNNEL="--helm-set-string=tunnelProtocol=${{ inputs.tunnel }}"
           if [ "${{ inputs.tunnel }}" == "disabled" ]; then
             TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16 --helm-set-string=tunnel=disabled"
             TUNNEL="${TUNNEL} --helm-set-string=ipv6NativeRoutingCIDR=fd00:10:244::/56"
+          fi
+
+          DEVICES=""
+          if [ "${{ inputs.devices }}" != "" ]; then
+            DEVICES="--helm-set=devices='${{ inputs.devices }}'"
           fi
 
           LB_MODE=""
@@ -121,5 +137,5 @@ runs:
             HOST_FW="--helm-set=hostFirewall.enabled=true"
           fi
 
-          CONFIG="${DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
+          CONFIG="${DEFAULTS} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
           echo "config=${CONFIG}" >> $GITHUB_OUTPUT
