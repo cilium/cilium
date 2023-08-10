@@ -1,3 +1,7 @@
+# v1.110.1 (2023-08-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.110.0 (2023-08-03)
 
 * **Feature**: This release adds new parameter isPrimaryIPv6 to  allow assigning an IPv6 address as a primary IPv6 address to a network interface which cannot be changed to give equivalent functionality available for network interfaces with primary IPv4 address.

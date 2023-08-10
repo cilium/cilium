@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: MPL-2.0
 
 linters:
+  fast: false
+  disable-all: true
   enable:
-    - megacheck
     - revive
+    - megacheck
     - govet
     - unconvert
-    - megacheck
     - gas
     - gocyclo
     - dupl
@@ -16,18 +17,30 @@ linters:
     - unused
     - typecheck
     - ineffassign
-    - stylecheck
+    # - stylecheck
     - exportloopref
     - gocritic
     - nakedret
     - gosimple
     - prealloc
-  fast: false
-  disable-all: true
+
+# golangci-lint configuration file
+linters-settings:
+  revive:
+    ignore-generated-header: true
+    severity: warning
+    rules:
+      - name: package-comments
+        severity: warning
+        disabled: true
+      - name: exported
+        severity: warning
+        disabled: false
+        arguments: ["checkPrivateReceivers", "disableStutteringCheck"]
 
 issues:
+  exclude-use-default: false
   exclude-rules:
     - path: _test\.go
       linters:
         - dupl
-  exclude-use-default: false

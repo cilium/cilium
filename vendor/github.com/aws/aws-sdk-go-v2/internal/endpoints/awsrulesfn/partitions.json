@@ -8,7 +8,7 @@
       "supportsDualStack" : true,
       "supportsFIPS" : true
     },
-    "regionRegex" : "^(us|eu|ap|sa|ca|me|af)\\-\\w+\\-\\d+$",
+    "regionRegex" : "^(us|eu|ap|sa|ca|me|af|il)\\-\\w+\\-\\d+$",
     "regions" : {
       "af-south-1" : {
         "description" : "Africa (Cape Town)"
@@ -72,6 +72,9 @@
       },
       "eu-west-3" : {
         "description" : "Europe (Paris)"
+      },
+      "il-central-1" : {
+        "description" : "Israel (Tel Aviv)"
       },
       "me-central-1" : {
         "description" : "Middle East (UAE)"
