@@ -68,6 +68,16 @@ func addPolicy(tb testing.TB, policies fakeResource[*Policy], params *policyPara
 	})
 }
 
+func deletePolicy(tb testing.TB, policies fakeResource[*Policy], params *policyParams) {
+	tb.Helper()
+
+	policy, _ := newCEGP(params)
+	policies.process(tb, resource.Event[*Policy]{
+		Kind:   resource.Delete,
+		Object: policy,
+	})
+}
+
 type policyParams struct {
 	name            string
 	endpointLabels  map[string]string
