@@ -46,9 +46,10 @@ const (
 	ep1IP = "10.0.0.1"
 	ep2IP = "10.0.0.2"
 
-	destCIDR      = "1.1.1.0/24"
-	excludedCIDR1 = "1.1.1.22/32"
-	excludedCIDR2 = "1.1.1.240/30"
+	destCIDR        = "1.1.1.0/24"
+	allZeroDestCIDR = "0.0.0.0/0"
+	excludedCIDR1   = "1.1.1.22/32"
+	excludedCIDR2   = "1.1.1.240/30"
 
 	egressIP1   = "192.168.101.1"
 	egressCIDR1 = "192.168.101.1/24"
@@ -163,13 +164,15 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	egressGatewayManager.OnUpdateNode(node2)
 
 	// Create a new policy
-	addPolicy(c, k.policies, &policyParams{
+	policy1 := policyParams{
 		name:            "policy-1",
 		endpointLabels:  ep1Labels,
 		destinationCIDR: destCIDR,
 		nodeLabels:      nodeGroup1Labels,
 		iface:           testInterface1,
-	})
+	}
+
+	addPolicy(c, k.policies, &policy1)
 
 	assertEgressRules(c, policyMap, []egressRule{})
 	assertIPRules(c, []ipRule{})
@@ -202,6 +205,23 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	assertIPRules(c, []ipRule{
 		{ep1IP, destCIDR, egressCIDR1, testInterface1Idx},
 	})
+
+	// Changing the DestCIDR to 0.0.0.0 results in a conflict with
+	// the existing IP rules. Test that the manager is able to
+	// resolve this conflict.
+	policy1.destinationCIDR = allZeroDestCIDR
+	addPolicy(c, k.policies, &policy1)
+
+	assertEgressRules(c, policyMap, []egressRule{
+		{ep1IP, allZeroDestCIDR, egressIP1, node1IP},
+	})
+	assertIPRules(c, []ipRule{
+		{ep1IP, allZeroDestCIDR, egressCIDR1, testInterface1Idx},
+	})
+
+	// Restore old DestCIDR
+	policy1.destinationCIDR = destCIDR
+	addPolicy(c, k.policies, &policy1)
 
 	// Create a new policy
 	addPolicy(c, k.policies, &policyParams{
