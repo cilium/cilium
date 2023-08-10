@@ -34,7 +34,7 @@ var PerClusterNATMaps PerClusterNATMapper
 type PerClusterNATMapper interface {
 	UpdateClusterNATMaps(clusterID uint32) error
 	DeleteClusterNATMaps(clusterID uint32) error
-	GetClusterNATMap(clusterID uint32, v4 bool) (*Map, error)
+	GetClusterNATMap(clusterID uint32, family IPFamily) (*Map, error)
 	Cleanup()
 }
 
@@ -57,7 +57,7 @@ type dummyPerClusterNATMaps struct {
 // A map-in-map that holds per-cluster NAT maps.
 type PerClusterNATMap struct {
 	*bpf.Map
-	v4              bool
+	family          IPFamily
 	innerMapEntries int
 }
 
@@ -75,13 +75,13 @@ type PerClusterNATMapVal struct {
 func (v *PerClusterNATMapVal) String() string    { return fmt.Sprintf("fd=%d", v.Fd) }
 func (n *PerClusterNATMapVal) New() bpf.MapValue { return &PerClusterNATMapVal{} }
 
-func newPerClusterNATMap(name string, v4 bool, innerMapEntries int) (*PerClusterNATMap, error) {
+func newPerClusterNATMap(name string, family IPFamily, innerMapEntries int) (*PerClusterNATMap, error) {
 	var (
 		keySize uint32
 		valSize uint32
 	)
 
-	if v4 {
+	if family == IPv4 {
 		keySize = uint32(unsafe.Sizeof(NatKey4{}))
 		valSize = uint32(unsafe.Sizeof(NatEntry4{}))
 	} else {
@@ -112,13 +112,13 @@ func newPerClusterNATMap(name string, v4 bool, innerMapEntries int) (*PerCluster
 
 	return &PerClusterNATMap{
 		Map:             om,
-		v4:              v4,
+		family:          family,
 		innerMapEntries: innerMapEntries,
 	}, nil
 }
 
 func (om *PerClusterNATMap) newInnerMap(name string) *Map {
-	return NewMap(name, om.v4, om.innerMapEntries)
+	return NewMap(name, om.family, om.innerMapEntries)
 }
 
 func (om *PerClusterNATMap) updateClusterNATMap(clusterID uint32) error {
@@ -229,14 +229,14 @@ func newPerClusterNATMaps(outerMapNamePrefix string, ipv4, ipv6 bool, innerMapEn
 	}()
 
 	if ipv4 {
-		gm.v4Map, err = newPerClusterNATMap(outerMapNamePrefix+perClusterNATIPv4OuterMapSuffix, true, innerMapEntries)
+		gm.v4Map, err = newPerClusterNATMap(outerMapNamePrefix+perClusterNATIPv4OuterMapSuffix, IPv4, innerMapEntries)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if ipv6 {
-		gm.v6Map, err = newPerClusterNATMap(outerMapNamePrefix+perClusterNATIPv6OuterMapSuffix, false, innerMapEntries)
+		gm.v6Map, err = newPerClusterNATMap(outerMapNamePrefix+perClusterNATIPv6OuterMapSuffix, IPv6, innerMapEntries)
 		if err != nil {
 			return nil, err
 		}
@@ -283,11 +283,11 @@ func (gm *perClusterNATMaps) DeleteClusterNATMaps(clusterID uint32) error {
 	return nil
 }
 
-func (gm *perClusterNATMaps) GetClusterNATMap(clusterID uint32, v4 bool) (*Map, error) {
+func (gm *perClusterNATMaps) GetClusterNATMap(clusterID uint32, family IPFamily) (*Map, error) {
 	gm.RLock()
 	defer gm.RUnlock()
 
-	if v4 {
+	if family == IPv4 {
 		if im, err := gm.v4Map.getClusterNATMap(clusterID); err != nil {
 			return nil, err
 		} else {
@@ -370,11 +370,11 @@ func (gm *dummyPerClusterNATMaps) DeleteClusterNATMaps(clusterID uint32) error {
 	return nil
 }
 
-func (gm *dummyPerClusterNATMaps) GetClusterNATMap(clusterID uint32, v4 bool) (*Map, error) {
+func (gm *dummyPerClusterNATMaps) GetClusterNATMap(clusterID uint32, family IPFamily) (*Map, error) {
 	gm.RLock()
 	defer gm.RUnlock()
 
-	if v4 {
+	if family == IPv4 {
 		if _, ok := gm.v4Map[clusterID]; ok {
 			return &Map{}, nil
 		}

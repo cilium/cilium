@@ -94,7 +94,7 @@ func (k *CTMapPrivilegedTestSuite) Benchmark_MapUpdate(c *C) {
 // their CT entry (GH#12625).
 func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 	// Init maps
-	natMap := nat.NewMap("cilium_nat_any4_test", true, 1000)
+	natMap := nat.NewMap("cilium_nat_any4_test", nat.IPv4, 1000)
 	err := natMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer natMap.Map.Unpin()
@@ -203,7 +203,7 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 // TestOrphanNat checks whether dangling NAT entries are GC'd (GH#12686)
 func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	// Init maps
-	natMap := nat.NewMap("cilium_nat_any4_test", true, 1000)
+	natMap := nat.NewMap("cilium_nat_any4_test", nat.IPv4, 1000)
 	err := natMap.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer natMap.Map.Unpin()
@@ -493,7 +493,7 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 
 	// Let's check IPv6
 
-	natMapV6 := nat.NewMap("cilium_nat_any6_test", false, 1000)
+	natMapV6 := nat.NewMap("cilium_nat_any6_test", nat.IPv6, 1000)
 	err = natMapV6.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer natMapV6.Map.Unpin()

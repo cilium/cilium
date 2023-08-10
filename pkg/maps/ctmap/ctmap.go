@@ -304,7 +304,7 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 	} else {
 		// per-cluster map handling
 		if nat.PerClusterNATMaps != nil {
-			natm, err := nat.PerClusterNATMaps.GetClusterNATMap(m.clusterID, false)
+			natm, err := nat.PerClusterNATMaps.GetClusterNATMap(m.clusterID, nat.IPv6)
 			if err != nil {
 				log.WithError(err).Error("Unable to get per-cluster NAT map")
 			} else {
@@ -405,7 +405,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 	} else {
 		// per-cluster map handling
 		if nat.PerClusterNATMaps != nil {
-			natm, err := nat.PerClusterNATMaps.GetClusterNATMap(m.clusterID, true)
+			natm, err := nat.PerClusterNATMaps.GetClusterNATMap(m.clusterID, nat.IPv4)
 			if err != nil {
 				log.WithError(err).Error("Unable to get per-cluster NAT map")
 			} else {

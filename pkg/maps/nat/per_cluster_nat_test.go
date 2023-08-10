@@ -45,7 +45,7 @@ func (k *PerClusterNATMapPrivilegedTestSuite) TearDownTest(c *C) {
 }
 
 func (k *PerClusterNATMapPrivilegedTestSuite) TestPerClusterCtMap(c *C) {
-	om, err := newPerClusterNATMap(testPerClusterNATMapNamePrefix+perClusterNATIPv4OuterMapSuffix, true, option.NATMapEntriesGlobalDefault)
+	om, err := newPerClusterNATMap(testPerClusterNATMapNamePrefix+perClusterNATIPv4OuterMapSuffix, IPv4, option.NATMapEntriesGlobalDefault)
 	c.Assert(err, IsNil)
 
 	defer om.Unpin()
@@ -107,7 +107,7 @@ func (k *PerClusterNATMapPrivilegedTestSuite) TestPerClusterNATMaps(c *C) {
 	c.Assert(err, NotNil)
 	err = gm.DeleteClusterNATMaps(0)
 	c.Assert(err, NotNil)
-	_, err = gm.GetClusterNATMap(0, true)
+	_, err = gm.GetClusterNATMap(0, IPv4)
 	c.Assert(err, NotNil)
 
 	// ClusterID beyond the ClusterIDMax should never be used
@@ -115,7 +115,7 @@ func (k *PerClusterNATMapPrivilegedTestSuite) TestPerClusterNATMaps(c *C) {
 	c.Assert(err, NotNil)
 	err = gm.DeleteClusterNATMaps(cmtypes.ClusterIDMax + 1)
 	c.Assert(err, NotNil)
-	_, err = gm.GetClusterNATMap(cmtypes.ClusterIDMax+1, true)
+	_, err = gm.GetClusterNATMap(cmtypes.ClusterIDMax+1, IPv4)
 	c.Assert(err, NotNil)
 
 	// Basic update
@@ -136,19 +136,19 @@ func (k *PerClusterNATMapPrivilegedTestSuite) TestPerClusterNATMaps(c *C) {
 	}
 
 	// Basic get
-	im, err := gm.GetClusterNATMap(1, true)
+	im, err := gm.GetClusterNATMap(1, IPv4)
 	c.Assert(err, IsNil)
 	im.Close()
 
-	im, err = gm.GetClusterNATMap(1, false)
+	im, err = gm.GetClusterNATMap(1, IPv6)
 	c.Assert(err, IsNil)
 	im.Close()
 
-	im, err = gm.GetClusterNATMap(cmtypes.ClusterIDMax, true)
+	im, err = gm.GetClusterNATMap(cmtypes.ClusterIDMax, IPv4)
 	c.Assert(err, IsNil)
 	im.Close()
 
-	im, err = gm.GetClusterNATMap(cmtypes.ClusterIDMax, false)
+	im, err = gm.GetClusterNATMap(cmtypes.ClusterIDMax, IPv6)
 	c.Assert(err, IsNil)
 	im.Close()
 

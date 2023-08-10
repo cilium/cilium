@@ -12,6 +12,23 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+// IPFamily represents an IP family (i.e., either IPv4 or IPv6).
+type IPFamily bool
+
+const (
+	// IPv4 represents the IPv4 IP family.
+	IPv4 = IPFamily(true)
+	// IPv6 represents the IPv6 IP family.
+	IPv6 = IPFamily(false)
+)
+
+func (family IPFamily) String() string {
+	if family == IPv4 {
+		return "ipv4"
+	}
+	return "ipv6"
+}
+
 type NatKey interface {
 	bpf.MapKey
 
