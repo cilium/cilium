@@ -1,5 +1,54 @@
 # Changelog
 
+## v1.14.1
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* gateway-api: Upgrade to v0.7.1 (Backport PR #27238, Upstream PR #27157, @sayboras)
+* Prevent Cilium from running with Delegated IPAM at the same time as Ingress (Backport PR #27238, Upstream PR #26744, @rickysumho)
+
+**Bugfixes:**
+* Fix a bug that affected the health-check feature in Stand-alone L4LB mode. For certain configurations (eg if both IPv4 and IPv6 support is enabled) health-check traffic would not get IPIP-encapsulated. (Backport PR #27190, Upstream PR #27015, @julianwiedmann)
+* Fix a bug that affected the RevDNAT translation of IPv6 packets with extension headers. (Backport PR #27345, Upstream PR #27312, @julianwiedmann)
+* Fix a bug that could cause packet drops of type XfrmOutPolBlock when IPsec is enabled and node are recycled. Fix a bug that could cause IPsec-encrypted packets to be sent to the wrong destination node when node churn is high. (Backport PR #27238, Upstream PR #27029, @pchaigno)
+* Fix agent panic in case malformed objects are retrieved from the kvstore, and improve validation (Backport PR #27345, Upstream PR #27237, @giorio94)
+* Fix bug limiting pod-to-pod network performance under high load when tunneling and IPSec are both enabled. (Backport PR #27345, Upstream PR #27168, @learnitall)
+* Fix bug where startup CIDR restore logic would mishandle reference counting, leading to persistent packet loss to those CIDRs (Backport PR #27419, Upstream PR #27327, @joestringer)
+* Fix generation of the clustermesh config through Helm when kvstoremesh is enabled, and the TLS key/cert pair is manually specified for a given remote cluster (Backport PR #27238, Upstream PR #27177, @giorio94)
+* operator: Adjust CiliumEndpoint gc to account for kvstore mode (Backport PR #27190, Upstream PR #25324, @learnitall)
+* Resolve a deadlock on startup when local redirect policies are used. (Backport PR #27238, Upstream PR #27115, @bimmlerd)
+
+**CI Changes:**
+* .github: rebuild ginkgo tests in case of cache miss (Backport PR #27190, Upstream PR #27158, @sayboras)
+* Add renovate tags for automatic updates of kernel version in v1.14 (#27386, @aanm)
+* ci: fix and standardize checkouts in privileged workflows (Backport PR #27238, Upstream PR #27193, @nbusseneau)
+* ci: increase connectivity test timeout in GHA external workload (Backport PR #27345, Upstream PR #26975, @mhofstetter)
+
+**Misc Changes:**
+* Add note for changing IPAM settings (Backport PR #27238, Upstream PR #27090, @darox)
+* chore(deps): update cilium/little-vm-helper action to v0.0.12 (v1.14) (#27270, @renovate[bot])
+* chore(deps): update dependency cilium/cilium-cli to v0.15.5 (v1.14) (#27271, @renovate[bot])
+* chore(deps): update go to v1.20.6 (v1.14) (patch) (#26783, @renovate[bot])
+* chore(deps): update go to v1.20.7 (v1.14) (patch) (#27284, @renovate[bot])
+* docs/ipsec: Extend troubleshooting for long key rotations (Backport PR #27190, Upstream PR #26809, @pchaigno)
+* docs: Document `DROP_NO_NODE_ID` for IPsec (Backport PR #27345, Upstream PR #27184, @pchaigno)
+* docs: Have Makefile print generated image tags when running with V=0 (Backport PR #27345, Upstream PR #27250, @qmonnet)
+* docs: kpr: remove caveat about XDP + tunnel performance (Backport PR #27190, Upstream PR #27091, @julianwiedmann)
+* docs: Replace non-portable "sed -i" in Makefile (Backport PR #27238, Upstream PR #27122, @qmonnet)
+* docs: Simplify clustermesh example (Backport PR #27238, Upstream PR #27172, @joestringer)
+* docs: update roadmap after 1.14 release (Backport PR #27238, Upstream PR #27089, @lizrice)
+* Documentation: fix the broken links/dead links (Backport PR #27190, Upstream PR #26880, @vipul-21)
+* fix: use proper helm param name for specifying pod cidr (Backport PR #27238, Upstream PR #27141, @yandzee)
+* mutual-auth: Add note for PVC requirement (Backport PR #27345, Upstream PR #27311, @sayboras)
+* remove systemd-based distributions issue from  docs (Backport PR #27345, Upstream PR #27208, @WeirdMachine)
+* Update Service Mesh docs (Backport PR #27345, Upstream PR #27231, @youngnick)
+
+**Other Changes:**
+* backport v1.14: IPsec upgrade tests (#27175, @brb)
+* install: Update image digests for v1.14.0 (#27111, @aanm)
+
 ## v1.14.0
 
 Summary of Changes
