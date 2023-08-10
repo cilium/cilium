@@ -1,5 +1,50 @@
 # Changelog
 
+## v1.13.6
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Prevent Cilium from running with Delegated IPAM at the same time as Ingress (Backport PR #27239, Upstream PR #26744, @rickysumho)
+* Update Service Mesh docs to fix a number of issues (#27333, @youngnick)
+
+**Bugfixes:**
+* Fix a bug that affected the health-check feature in Stand-alone L4LB mode. For certain configurations (eg if both IPv4 and IPv6 support is enabled) health-check traffic would not get IPIP-encapsulated. (Backport PR #27154, Upstream PR #27015, @julianwiedmann)
+* Fix a bug that could cause packet drops of type XfrmOutPolBlock when IPsec is enabled and node are recycled. Fix a bug that could cause IPsec-encrypted packets to be sent to the wrong destination node when node churn is high. (Backport PR #27107, Upstream PR #27029, @pchaigno)
+* operator: Adjust CiliumEndpoint gc to account for kvstore mode (Backport PR #27154, Upstream PR #25324, @learnitall)
+
+**CI Changes:**
+* Add BPF unit tests for IPsec (Backport PR #27107, Upstream PR #25699, @jschwinger233)
+* Add renovate tags for automatic updates of kernel version in v1.13 (#27387, @aanm)
+* Fix verifier issues in IPv6 BPF tests (Backport PR #27107, Upstream PR #25191, @dylandreimerink)
+* Trigger required workflows using Ariane (Backport PR #27095, Upstream PR #27002, @michi-covalent)
+
+**Misc Changes:**
+* Add note for changing IPAM settings (Backport PR #27239, Upstream PR #27090, @darox)
+* bpf: test: Fix the byte order in the IPV4 macro (Backport PR #27107, Upstream PR #25114, @gentoo-root)
+* chore(deps): update all github action dependencies (v1.13) (patch) (#27290, @renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.19.12 (v1.13) (#26825, @renovate[bot])
+* chore(deps): update docker/setup-buildx-action action to v2.9.1 (v1.13) (#26827, @renovate[bot])
+* chore(deps): update helm/kind-action action to v1.8.0 (v1.13) (#26828, @renovate[bot])
+* docs: Fix gRPC API generation for online docs (Backport PR #27095, Upstream PR #27014, @qmonnet)
+* docs: fixed search for every page (Backport PR #26906, Upstream PR #26892, @geakstr)
+* docs: Ignore Helm values, update spelling list (Backport PR #26906, Upstream PR #26759, @qmonnet)
+* docs: Replace non-portable "sed -i" in Makefile (Backport PR #27239, Upstream PR #27122, @qmonnet)
+* docs: Revert Python version in docs-builder image to 3.7.9, downgrade sphinxcontrib-applehelp, to fix builds on Read The Docs (Backport PR #26906, Upstream PR #24099, @qmonnet)
+* docs: Simplify clustermesh example (Backport PR #27239, Upstream PR #27172, @joestringer)
+* docs: Update dependencies for documentation build system (Sphinx, add-ons etc.) (Backport PR #26906, Upstream PR #24014, @qmonnet)
+* Documentation: enable parallel builds (Backport PR #26906, Upstream PR #23752, @squeed)
+* Documentation: fix the broken links/dead links (Backport PR #27154, Upstream PR #26880, @vipul-21)
+* endpoint: don't hold the endpoint lock while generating policy (Backport PR #26735, Upstream PR #26242, @squeed)
+
+**Other Changes:**
+* backport v1.13: IPsec upgrade tests (#27174, @brb)
+* install: Update image digests for v1.13.5 (#27120, @nathanjsweet)
+* k8s: fix incorrect EndpointSlice API version (#27277, @ysksuzuki)
+* remove stable tag from image build (#27076, @aanm)
+* v1.13 backport:  gh/workflows: Reusable workflow for ci-e2e and misc changes (#27374, @brb)
+
 ## v1.13.5
 
 Summary of Changes
