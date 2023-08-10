@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.11.20
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Fix a bug that could cause packet drops of type XfrmOutPolBlock when IPsec is enabled and node are recycled. Fix a bug that could cause IPsec-encrypted packets to be sent to the wrong destination node when node churn is high. (Backport PR #27148, Upstream PR #27029, @pchaigno)
+
+**Misc Changes:**
+* chore(deps): update docker.io/library/golang docker tag to v1.19.11 (#27252, @ferozsalam)
+
+**Other Changes:**
+* install: Update image digests for v1.11.19 (#27125, @nathanjsweet)
+
 ## v1.11.19
 
 Summary of Changes
