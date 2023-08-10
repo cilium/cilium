@@ -393,7 +393,7 @@ func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
 
 	// This must be done before the ID is released for the endpoint!
 	mgr.removeIDLocked(ep.ID)
-	mgr.RemoveIPv6Address(ep.IPv6)
+	mgr.mcastManager.RemoveAddress(ep.IPv6)
 
 	// We haven't yet allocated the ID for a restoring endpoint, so no
 	// need to release it.
@@ -542,16 +542,6 @@ func (mgr *endpointManager) removeReferencesLocked(identifiers endpointid.Identi
 	}
 }
 
-// AddIPv6Address notifies an addition of an IPv6 address
-func (mgr *endpointManager) AddIPv6Address(ipv6 netip.Addr) {
-	mgr.mcastManager.AddAddress(ipv6)
-}
-
-// RemoveAIPv6ddress notifies a removal of an IPv6 address
-func (mgr *endpointManager) RemoveIPv6Address(ipv6 netip.Addr) {
-	mgr.mcastManager.RemoveAddress(ipv6)
-}
-
 // RegenerateAllEndpoints calls a setState for each endpoint and
 // regenerates if state transaction is valid. During this process, the endpoint
 // list is locked and cannot be modified.
@@ -632,7 +622,7 @@ func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
 	// Get a copy of the identifiers before exposing the endpoint
 	identifiers := ep.IdentifiersLocked()
 	ep.Start(newID)
-	mgr.AddIPv6Address(ep.IPv6)
+	mgr.mcastManager.AddAddress(ep.IPv6)
 	mgr.updateIDReferenceLocked(ep)
 	mgr.updateReferencesLocked(ep, identifiers)
 	mgr.mutex.Unlock()
