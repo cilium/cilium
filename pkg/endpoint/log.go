@@ -117,6 +117,7 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 		logfields.IPv4:                   e.GetIPv4Address(),
 		logfields.IPv6:                   e.GetIPv6Address(),
 		logfields.K8sPodName:             e.GetK8sNamespaceAndPodName(),
+		logfields.CEPName:                e.GetK8sNamespaceAndCEPName(),
 	}
 
 	if e.SecurityIdentity != nil {

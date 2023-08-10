@@ -654,6 +654,7 @@ func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 		logfields.IPv4:        ep.GetIPv4Address(),
 		logfields.IPv6:        ep.GetIPv6Address(),
 		logfields.K8sPodName:  ep.GetK8sNamespaceAndPodName(),
+		logfields.CEPName:     ep.GetK8sNamespaceAndCEPName(),
 	})
 
 	err = mgr.expose(ep)
