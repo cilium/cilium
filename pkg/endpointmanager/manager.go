@@ -203,10 +203,10 @@ func (mgr *endpointManager) InitMetrics(registry *metrics.Registry) {
 	})
 }
 
-// AllocateID checks if the ID can be reused. If it cannot, returns an error.
+// allocateID checks if the ID can be reused. If it cannot, returns an error.
 // If an ID of 0 is provided, a new ID is allocated. If a new ID cannot be
 // allocated, returns an error.
-func (mgr *endpointManager) AllocateID(currID uint16) (uint16, error) {
+func (mgr *endpointManager) allocateID(currID uint16) (uint16, error) {
 	var newID uint16
 	if currID != 0 {
 		if err := idallocator.Reuse(currID); err != nil {
@@ -613,7 +613,7 @@ func (mgr *endpointManager) GetPolicyEndpoints() map[policy.Endpoint]struct{} {
 }
 
 func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
-	newID, err := mgr.AllocateID(ep.ID)
+	newID, err := mgr.allocateID(ep.ID)
 	if err != nil {
 		return err
 	}
