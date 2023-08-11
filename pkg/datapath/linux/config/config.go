@@ -473,6 +473,13 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			if option.Config.LoadBalancerRSSv4CIDR != "" {
 				ipv4 := byteorder.NetIPv4ToHost32(option.Config.LoadBalancerRSSv4.IP)
 				ones, _ := option.Config.LoadBalancerRSSv4.Mask.Size()
+
+				log.Println(ipv4)
+				log.Println(ones)
+
+				log.Printf("%T", ipv4)
+				log.Printf("%T", ones)
+
 				cDefinesMap["IPV4_RSS_PREFIX"] = fmt.Sprintf("%d", ipv4)
 				cDefinesMap["IPV4_RSS_PREFIX_BITS"] = fmt.Sprintf("%d", ones)
 			} else {
