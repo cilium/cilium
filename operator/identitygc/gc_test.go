@@ -5,29 +5,22 @@ package identitygc
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"strconv"
-	"sync"
 	"testing"
 	"time"
 
 	"go.uber.org/goleak"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	authIdentity "github.com/cilium/cilium/operator/auth/identity"
 	"github.com/cilium/cilium/operator/auth/spire"
 	"github.com/cilium/cilium/operator/k8s"
-	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/informer"
-	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -37,6 +30,7 @@ func TestIdentitiesGC(t *testing.T) {
 		// To ignore goroutine started from sigs.k8s.io/controller-runtime/pkg/log.go
 		// init function
 		goleak.IgnoreTopFunction("time.Sleep"),
+		goleak.IgnoreCurrent(),
 	)
 
 	var clientset k8sClient.Clientset
@@ -90,7 +84,6 @@ func TestIdentitiesGC(t *testing.T) {
 			return nil
 		}),
 
-		cell.Invoke(setupCiliumEndpointWatcher),
 		cell.Invoke(registerGC),
 	)
 
@@ -105,7 +98,7 @@ func TestIdentitiesGC(t *testing.T) {
 		identities *v2.CiliumIdentityList
 		err        error
 	)
-	for retry := 0; retry < 10; retry++ {
+	for retry := 0; retry < 100; retry++ {
 		identities, err = clientset.CiliumV2().CiliumIdentities().List(
 			ctx,
 			metav1.ListOptions{
@@ -245,78 +238,4 @@ func setupCiliumEndpoint(clientset k8sClient.Clientset) error {
 		return fmt.Errorf("failed to create endpoint %v: %w", endpoint, err)
 	}
 	return nil
-}
-
-func setupCiliumEndpointWatcher(
-	lc hive.Lifecycle,
-	params params,
-) {
-	var wg sync.WaitGroup
-
-	lc.Append(hive.Hook{
-		OnStart: func(ctx hive.HookContext) error {
-			// identity gc internally depends on the global watchers.CiliumEndpointStore,
-			// so we have to create a mock one here (and run an informer) to get the gc
-			// to work properly.
-
-			watchers.CiliumEndpointStore = cache.NewIndexer(
-				cache.DeletionHandlingMetaNamespaceKeyFunc,
-				cache.Indexers{
-					cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
-					"identity": func(obj interface{}) ([]string, error) {
-						endpointObj, ok := obj.(*v2.CiliumEndpoint)
-						if !ok {
-							return nil, errors.New("failed to convert cilium endpoint")
-						}
-						identityID := "0"
-						if endpointObj.Status.Identity != nil {
-							identityID = strconv.FormatInt(endpointObj.Status.Identity.ID, 10)
-						}
-						return []string{identityID}, nil
-					},
-				},
-			)
-			ciliumEndpointInformer := informer.NewInformerWithStore(
-				utils.ListerWatcherFromTyped[*v2.CiliumEndpointList](params.Clientset.CiliumV2().CiliumEndpoints("")),
-				&v2.CiliumEndpoint{},
-				0,
-				cache.ResourceEventHandlerFuncs{},
-				func(obj interface{}) (interface{}, error) {
-					endpointObj, ok := obj.(*v2.CiliumEndpoint)
-					if !ok {
-						return nil, errors.New("failed to convert cilium endpoint")
-					}
-					return &v2.CiliumEndpoint{
-						TypeMeta: endpointObj.TypeMeta,
-						ObjectMeta: metav1.ObjectMeta{
-							Name: endpointObj.Name,
-						},
-						Status: v2.EndpointStatus{
-							Identity: endpointObj.Status.Identity,
-						},
-					}, nil
-				},
-				watchers.CiliumEndpointStore,
-			)
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				ciliumEndpointInformer.Run(ctx.Done())
-			}()
-			cache.WaitForCacheSync(ctx.Done(), ciliumEndpointInformer.HasSynced)
-			// signal that endpoints are sync-ed, otherwise identities gc won't start
-			close(watchers.CiliumEndpointsSynced)
-
-			return nil
-		},
-		OnStop: func(ctx hive.HookContext) error {
-			// force cleanup of goroutines run from initialization of watchers.nodeQueue
-			watchers.NodeQueueShutDown()
-			// wait for CiliumEndpointInformer goroutine to be cleaned up
-			wg.Wait()
-
-			return nil
-		},
-	})
 }

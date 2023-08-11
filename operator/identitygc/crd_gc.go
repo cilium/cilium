@@ -5,16 +5,17 @@ package identitygc
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/operator/metrics"
-	"github.com/cilium/cilium/operator/pkg/ciliumendpointslice"
-	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/controller"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/identitybackend"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -68,13 +69,11 @@ func (igc *GC) runHeartbeatUpdater(ctx context.Context) error {
 // since HeartbeatTimeout.
 func (igc *GC) gc(ctx context.Context) error {
 	igc.logger.Debug("Running CRD identity garbage collector")
-
-	select {
-	case <-watchers.CiliumEndpointsSynced:
-	case <-ctx.Done():
-		return nil
+	cepStore, err := igc.ciliumEndpoint.Store(ctx)
+	if err != nil {
+		igc.logger.WithError(err).Error("unable to get CEP store")
+		return err
 	}
-
 	identitiesStore, err := igc.identity.Store(ctx)
 	if err != nil {
 		igc.logger.WithError(err).Error("unable to get Cilium identities from local store")
@@ -84,7 +83,12 @@ func (igc *GC) gc(ctx context.Context) error {
 	var idsInCESs map[string]bool
 	cesEnabled := option.Config.EnableCiliumEndpointSlice
 	if cesEnabled {
-		idsInCESs = ciliumendpointslice.UsedIdentitiesInCESs()
+		cesStore, err := igc.ciliumEndpointSlice.Store(ctx)
+		if err != nil {
+			igc.logger.WithError(err).Warning("unable to get CES  store")
+		} else {
+			idsInCESs = usedIdentitiesInCESs(cesStore)
+		}
 	}
 
 	identities := identitiesStore.List()
@@ -98,7 +102,7 @@ func (igc *GC) gc(ctx context.Context) error {
 			_, foundInCES = idsInCESs[identity.Name]
 		}
 		// The identity is definitely alive if there's a CE or CES using it.
-		alive := foundInCES || watchers.HasCEWithIdentity(identity.Name)
+		alive := foundInCES || hasCEWithIdentity(cepStore, identity.Name)
 
 		if alive {
 			igc.heartbeatStore.markAlive(identity.Name, timeNow)
@@ -211,4 +215,21 @@ func (igc *GC) updateIdentity(ctx context.Context, identity *v2.CiliumIdentity) 
 	log.WithField(logfields.Identity, identity.GetName()).Debug("Updated identity")
 
 	return nil
+}
+
+func hasCEWithIdentity(cepStore resource.Store[*v2.CiliumEndpoint], identity string) bool {
+	ces, _ := cepStore.IndexKeys(operatorK8s.CiliumEndpointIndexIdentity, identity)
+	return len(ces) != 0
+}
+
+func usedIdentitiesInCESs(cesStore resource.Store[*v2alpha1.CiliumEndpointSlice]) map[string]bool {
+	usedIdentities := make(map[string]bool)
+	cesObjList := cesStore.List()
+	for _, ces := range cesObjList {
+		for _, cep := range ces.Endpoints {
+			id := strconv.FormatInt(cep.IdentityID, 10)
+			usedIdentities[id] = true
+		}
+	}
+	return usedIdentities
 }

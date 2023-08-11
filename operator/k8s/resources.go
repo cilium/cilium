@@ -12,6 +12,10 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
 
+const (
+	CiliumEndpointIndexIdentity = "identity"
+)
+
 var (
 	// ResourcesCell provides a set of handles to Kubernetes resources used throughout the
 	// operator. Each of the resources share a client-go informer and backing store so we only
