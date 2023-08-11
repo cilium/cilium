@@ -198,7 +198,7 @@ func (e *Endpoint) GetLabelsLocked(id identity.NumericIdentity) labels.LabelArra
 // problem that occurred while adding an l7 redirect for the specified policy.
 // Must be called with endpoint.mutex Lock()ed.
 func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirects map[string]bool, proxyWaitGroup *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
-	if option.Config.DryMode || e.isProxyDisabled() {
+	if option.Config.DryMode || e.IsProxyDisabled() {
 		return nil, nil, nil
 	}
 
@@ -306,7 +306,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 		}
 	)
 
-	if e.visibilityPolicy == nil {
+	if e.visibilityPolicy == nil || e.IsProxyDisabled() {
 		return nil, finalizeList.Finalize, revertStack.Revert
 	}
 
