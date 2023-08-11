@@ -181,17 +181,6 @@ func transformToCiliumEndpoint(obj interface{}) (interface{}, error) {
 	}
 }
 
-// HasCEWithIdentity returns true or false if the Cilium Endpoint store has
-// the given identity.
-func HasCEWithIdentity(identity string) bool {
-	if CiliumEndpointStore == nil {
-		return false
-	}
-	ces, _ := CiliumEndpointStore.IndexKeys(identityIndex, identity)
-
-	return len(ces) != 0
-}
-
 // HasCE returns true or false if the Cilium Endpoint store has the endpoint
 // with the given name.
 func HasCE(ns, name string) (*cilium_api_v2.CiliumEndpoint, bool, error) {
