@@ -9,8 +9,10 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 
@@ -66,12 +68,29 @@ type policyMap struct {
 	m *ebpf.Map
 }
 
-func createPolicyMapFromDaemonConfig(daemonConfig *option.DaemonConfig, lc hive.Lifecycle, cfg PolicyConfig) bpf.MapOut[PolicyMap] {
-	if !daemonConfig.EnableIPv4EgressGateway {
-		return bpf.NewMapOut[PolicyMap](nil)
+func createPolicyMapFromDaemonConfig(in struct {
+	cell.In
+
+	Lifecycle hive.Lifecycle
+	*option.DaemonConfig
+	PolicyConfig
+}) (out struct {
+	cell.Out
+
+	bpf.MapOut[PolicyMap]
+	defines.NodeOut
+}) {
+	out.NodeDefines = map[string]string{
+		"EGRESS_POLICY_MAP":      PolicyMapName,
+		"EGRESS_POLICY_MAP_SIZE": fmt.Sprint(in.EgressGatewayPolicyMapMax),
 	}
 
-	return bpf.NewMapOut(PolicyMap(createPolicyMap(lc, cfg, ebpf.PinByName)))
+	if !in.EnableIPv4EgressGateway {
+		return
+	}
+
+	out.MapOut = bpf.NewMapOut(PolicyMap(createPolicyMap(in.Lifecycle, in.PolicyConfig, ebpf.PinByName)))
+	return
 }
 
 // CreatePrivatePolicyMap creates an unpinned policy map.

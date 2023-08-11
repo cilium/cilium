@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
-	"github.com/cilium/cilium/pkg/maps/egressmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
@@ -204,7 +203,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["IPCACHE_MAP_SIZE"] = fmt.Sprintf("%d", ipcachemap.MaxEntries)
 	cDefinesMap["NODE_MAP"] = nodemap.MapName
 	cDefinesMap["NODE_MAP_SIZE"] = fmt.Sprintf("%d", nodemap.MaxEntries)
-	cDefinesMap["EGRESS_POLICY_MAP"] = egressmap.PolicyMapName
 	cDefinesMap["SRV6_VRF_MAP4"] = srv6map.VRFMapName4
 	cDefinesMap["SRV6_VRF_MAP6"] = srv6map.VRFMapName6
 	cDefinesMap["SRV6_POLICY_MAP4"] = srv6map.PolicyMapName4
@@ -347,10 +345,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableXDPPrefilter {
 		cDefinesMap["ENABLE_PREFILTER"] = "1"
-	}
-
-	if option.Config.EnableIPv4EgressGateway {
-		cDefinesMap["ENABLE_EGRESS_GATEWAY"] = "1"
 	}
 
 	if option.Config.EnableEndpointRoutes {
