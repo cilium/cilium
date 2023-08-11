@@ -462,6 +462,7 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 	// CiliumNode object
 	nodeResource.ObjectMeta.Annotations = k8sNodeParsed.GetCiliumAnnotations()
 
+	var oldCiliumNodeInternalIPs []string
 	for _, k8sAddress := range k8sNodeAddresses {
 		// Do not add CiliumNodeInternalIP from the k8sNodeAddress. The source
 		// of truth is always the local node. The CiliumInternalIP address is
@@ -472,6 +473,8 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 				Type: k8sAddress.Type,
 				IP:   k8sAddressStr,
 			})
+		} else {
+			oldCiliumNodeInternalIPs = append(oldCiliumNodeInternalIPs, k8sAddress.IP.String())
 		}
 	}
 
@@ -488,6 +491,16 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) er
 			nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
 				Type: address.Type,
 				IP:   ciliumNodeAddress,
+			})
+		}
+	}
+	if len(n.localNode.IPAddresses) == 0 {
+		// If local CiliumNodeInternalIP is not synced yet, do not overwrite data in CN from k8s
+		log.Infof("Retaining old CiliumNodeInternalIP from CiliumNode since local data isn't available yet")
+		for _, ip := range oldCiliumNodeInternalIPs {
+			nodeResource.Spec.Addresses = append(nodeResource.Spec.Addresses, ciliumv2.NodeAddress{
+				Type: addressing.NodeCiliumInternalIP,
+				IP:   ip,
 			})
 		}
 	}
