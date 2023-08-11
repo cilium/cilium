@@ -61,6 +61,12 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 		m.controllers = controllerMap{}
 	}
 
+	if params.Group.Name == "" {
+		log.Errorf(
+			"Controller initialized with unpopulated group information. " +
+				"Metrics will not be exported for this controller.")
+	}
+
 	ctrl, exists := m.controllers[name]
 	if exists {
 		ctrl.getLogger().Debug("Updating existing controller")
