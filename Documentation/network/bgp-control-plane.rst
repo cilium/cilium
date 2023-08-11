@@ -447,8 +447,8 @@ and a ``Operator-Side`` control plane (not yet implemented).
 Both control planes are implemented by a ``Controller`` which follows
 the ``Kubernetes`` controller pattern.
 
-Both control planes primary listen for ``CiliumBGPPeeringPolicy`` CRDs,
-long with other Cilium and Kubernetes resources useful for implementing
+Both control planes primarily listen for ``CiliumBGPPeeringPolicy`` CRDs,
+along with other Cilium and Kubernetes resources used for implementing
 a BGP control plane.
 
 Agent-Side Architecture
