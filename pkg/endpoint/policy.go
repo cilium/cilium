@@ -115,7 +115,7 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 		return nil, nil
 	}
 
-	if e.isProxyDisabled() {
+	if e.IsProxyDisabled() {
 		return nil, nil
 	}
 
