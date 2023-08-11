@@ -228,6 +228,15 @@ func (ev *EndpointPolicyVisibilityEvent) Handle(res chan interface{}) {
 		return
 	}
 	if proxyVisibility != "" {
+		if e.IsProxyDisabled() {
+			e.getLogger().
+				WithField(logfields.EndpointID, e.GetID()).
+				Warn("ignoring L7 proxy visibility policy as L7 proxy is disabled")
+			res <- &EndpointRegenerationResult{
+				err: nil,
+			}
+			return
+		}
 		e.getLogger().Debug("creating visibility policy")
 		nvp, err = policy.NewVisibilityPolicy(proxyVisibility)
 		if err != nil {
