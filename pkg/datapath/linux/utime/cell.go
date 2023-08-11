@@ -19,6 +19,8 @@ const (
 	syncControllerInterval = 1 * time.Minute
 )
 
+var syncControllerGroupName = controller.NewGroup("sync-utime")
+
 // Cell initializes and manages the utime offset synchronization.
 var Cell = cell.Module(
 	"utime",
@@ -38,6 +40,7 @@ func initUtimeSync(lifecycle hive.Lifecycle, configMap configmap.Map) {
 			// between monotonic and boottime clocks.
 			controllerManager.UpdateController(syncControllerName,
 				controller.ControllerParams{
+					Group: syncControllerGroupName,
 					DoFunc: func(ctx context.Context) error {
 						return ctrl.sync()
 					},

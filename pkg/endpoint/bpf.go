@@ -54,6 +54,8 @@ const (
 
 var (
 	handleNoHostInterfaceOnce sync.Once
+
+	syncPolicymapControllerGroup = controller.NewGroup("sync-policymap")
 )
 
 // policyMapPath returns the path to the policy map of endpoint.
@@ -1376,6 +1378,7 @@ func (e *Endpoint) syncPolicyMapController() {
 	ctrlName := fmt.Sprintf("sync-policymap-%d", e.ID)
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
+			Group: syncPolicymapControllerGroup,
 			DoFunc: func(ctx context.Context) (reterr error) {
 				// Failure to lock is not an error, it means
 				// that the endpoint was disconnected and we

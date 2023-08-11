@@ -19,6 +19,14 @@ import (
 
 var (
 	controllerManager = controller.NewManager()
+
+	addDerivativeCNPControllerGroup    = controller.NewGroup("add-derivative-cilium-network-policy")
+	updateDerivativeCNPControllerGroup = controller.NewGroup("update-derivative-cilium-network-policy")
+	deleteDerivativeCNPControllerGroup = controller.NewGroup("delete-derivative-cilium-network-policy")
+
+	addDerivativeCCNPControllerGroup    = controller.NewGroup("add-derivative-clusterwide-cilium-network-policy")
+	updateDerivativeCCNPControllerGroup = controller.NewGroup("update-derivative-clusterwide-cilium-network-policy")
+	deleteDerivativeCCNPControllerGroup = controller.NewGroup("delete-derivative-clusterwide-cilium-network-policy")
 )
 
 // AddDerivativeCNPIfNeeded will create a new CNP if the given CNP has any rules
@@ -33,8 +41,10 @@ func AddDerivativeCNPIfNeeded(clientset client.Clientset, cnp *cilium_v2.CiliumN
 		}).Debug("CNP does not have derivative policies, skipped")
 		return true
 	}
-	controllerManager.UpdateController(fmt.Sprintf("add-derivative-cnp-%s", cnp.ObjectMeta.Name),
+	controllerManager.UpdateController(
+		fmt.Sprintf("add-derivative-cnp-%s", cnp.ObjectMeta.Name),
 		controller.ControllerParams{
+			Group: addDerivativeCNPControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				return addDerivativePolicy(ctx, clientset, cnp, false)
 			},
@@ -53,8 +63,10 @@ func AddDerivativeCCNPIfNeeded(clientset client.Clientset, cnp *cilium_v2.Cilium
 		}).Debug("CCNP does not have derivative policies, skipped")
 		return true
 	}
-	controllerManager.UpdateController(fmt.Sprintf("add-derivative-ccnp-%s", cnp.ObjectMeta.Name),
+	controllerManager.UpdateController(
+		fmt.Sprintf("add-derivative-ccnp-%s", cnp.ObjectMeta.Name),
 		controller.ControllerParams{
+			Group: addDerivativeCCNPControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				return addDerivativePolicy(ctx, clientset, cnp, true)
 			},
@@ -75,8 +87,10 @@ func UpdateDerivativeCNPIfNeeded(clientset client.Clientset, newCNP *cilium_v2.C
 			logfields.K8sNamespace:            newCNP.ObjectMeta.Namespace,
 		}).Info("New CNP does not have derivative policy, but old had. Deleting old policies")
 
-		controllerManager.UpdateController(fmt.Sprintf("delete-derivative-cnp-%s", oldCNP.ObjectMeta.Name),
+		controllerManager.UpdateController(
+			fmt.Sprintf("delete-derivative-cnp-%s", oldCNP.ObjectMeta.Name),
 			controller.ControllerParams{
+				Group: deleteDerivativeCNPControllerGroup,
 				DoFunc: func(ctx context.Context) error {
 					return DeleteDerivativeCNP(ctx, clientset, oldCNP)
 				},
@@ -88,8 +102,10 @@ func UpdateDerivativeCNPIfNeeded(clientset client.Clientset, newCNP *cilium_v2.C
 		return false
 	}
 
-	controllerManager.UpdateController(fmt.Sprintf("update-derivative-cnp-%s", newCNP.ObjectMeta.Name),
+	controllerManager.UpdateController(
+		fmt.Sprintf("update-derivative-cnp-%s", newCNP.ObjectMeta.Name),
 		controller.ControllerParams{
+			Group: updateDerivativeCNPControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				return addDerivativePolicy(ctx, clientset, newCNP, false)
 			},
@@ -109,8 +125,10 @@ func UpdateDerivativeCCNPIfNeeded(clientset client.Clientset, newCCNP *cilium_v2
 			logfields.CiliumClusterwideNetworkPolicyName: newCCNP.ObjectMeta.Name,
 		}).Info("New CCNP does not have derivative policy, but old had. Deleting old policies")
 
-		controllerManager.UpdateController(fmt.Sprintf("delete-derivative-ccnp-%s", oldCCNP.ObjectMeta.Name),
+		controllerManager.UpdateController(
+			fmt.Sprintf("delete-derivative-ccnp-%s", oldCCNP.ObjectMeta.Name),
 			controller.ControllerParams{
+				Group: deleteDerivativeCCNPControllerGroup,
 				DoFunc: func(ctx context.Context) error {
 					return DeleteDerivativeCCNP(ctx, clientset, oldCCNP)
 				},
@@ -122,8 +140,10 @@ func UpdateDerivativeCCNPIfNeeded(clientset client.Clientset, newCCNP *cilium_v2
 		return false
 	}
 
-	controllerManager.UpdateController(fmt.Sprintf("update-derivative-ccnp-%s", newCCNP.ObjectMeta.Name),
+	controllerManager.UpdateController(
+		fmt.Sprintf("update-derivative-ccnp-%s", newCCNP.ObjectMeta.Name),
 		controller.ControllerParams{
+			Group: updateDerivativeCCNPControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				return addDerivativePolicy(ctx, clientset, newCCNP, true)
 			},

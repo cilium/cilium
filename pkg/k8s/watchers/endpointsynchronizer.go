@@ -35,6 +35,8 @@ const (
 	subsysEndpointSync = "endpointsynchronizer"
 )
 
+var ciliumEndpointToK8sSyncControllerGroup = controller.NewGroup("sync-to-k8s-ciliumendpoint")
+
 // EndpointSynchronizer currently is an empty type, which wraps around syncing
 // of CiliumEndpoint resources.
 type EndpointSynchronizer struct {
@@ -93,6 +95,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 	// NOTE: The controller functions do NOT hold the endpoint locks
 	e.UpdateController(controllerName,
 		controller.ControllerParams{
+			Group:       ciliumEndpointToK8sSyncControllerGroup,
 			RunInterval: 10 * time.Second,
 			DoFunc: func(ctx context.Context) (err error) {
 				// Update logger as scopeLog might not have the podName when it
@@ -416,6 +419,7 @@ func (epSync *EndpointSynchronizer) DeleteK8sCiliumEndpointSync(e *endpoint.Endp
 	// NOTE: The controller functions do NOT hold the endpoint locks
 	e.UpdateController(controllerName,
 		controller.ControllerParams{
+			Group: ciliumEndpointToK8sSyncControllerGroup,
 			StopFunc: func(ctx context.Context) error {
 				return deleteCEP(ctx, scopedLog, ciliumClient, e)
 			},

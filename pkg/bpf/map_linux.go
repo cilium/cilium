@@ -28,9 +28,13 @@ import (
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
-// ErrMaxLookup is returned when the maximum number of map element lookups has
-// been reached.
-var ErrMaxLookup = errors.New("maximum number of lookups reached")
+var (
+	// ErrMaxLookup is returned when the maximum number of map element lookups has
+	// been reached.
+	ErrMaxLookup = errors.New("maximum number of lookups reached")
+
+	bpfMapSyncControllerGroup = controller.NewGroup("bpf-map-sync")
+)
 
 type MapKey interface {
 	fmt.Stringer
@@ -225,6 +229,7 @@ func (m *Map) scheduleErrorResolver() {
 		time.Sleep(errorResolverSchedulerDelay)
 		mapControllers.UpdateController(m.controllerName(),
 			controller.ControllerParams{
+				Group:       bpfMapSyncControllerGroup,
 				DoFunc:      m.resolveErrors,
 				RunInterval: errorResolverSchedulerMinInterval,
 			},

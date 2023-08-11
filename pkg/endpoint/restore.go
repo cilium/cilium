@@ -36,6 +36,11 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+var (
+	restoreEndpointIdentityControllerGroup = controller.NewGroup("restore-endpoint-identity")
+	initialGlobalIdentitiesControllerGroup = controller.NewGroup("initial-global-identities")
+)
+
 // getCiliumVersionString returns the first line containing ciliumCHeaderPrefix.
 func getCiliumVersionString(epCHeaderFilePath string) ([]byte, error) {
 	f, err := os.Open(epCHeaderFilePath)
@@ -231,6 +236,7 @@ func (e *Endpoint) restoreIdentity() error {
 	)
 	e.UpdateController(controllerName,
 		controller.ControllerParams{
+			Group: restoreEndpointIdentityControllerGroup,
 			DoFunc: func(ctx context.Context) (err error) {
 				allocateCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
 				defer cancel()
@@ -264,6 +270,7 @@ func (e *Endpoint) restoreIdentity() error {
 		var gotInitialGlobalIdentities = make(chan struct{})
 		e.UpdateController(controllerName,
 			controller.ControllerParams{
+				Group: initialGlobalIdentitiesControllerGroup,
 				DoFunc: func(ctx context.Context) (err error) {
 					identityCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
 					defer cancel()

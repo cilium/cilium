@@ -63,6 +63,8 @@ const (
 	dnsSourceConnection = "connection"
 )
 
+var dnsGCControllerGroup = controller.NewGroup("dns-garbage-collector-job")
+
 func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, identityAllocator secIDCache.IdentityAllocator) (map[policyApi.FQDNSelector][]*identity.Identity, []*identity.Identity, map[netip.Prefix]*identity.Identity, error) {
 	var err error
 
@@ -193,6 +195,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	dnsGCJobName := "dns-garbage-collector-job"
 	dnsGCJobInterval := 1 * time.Minute
 	controller.NewManager().UpdateController(dnsGCJobName, controller.ControllerParams{
+		Group:       dnsGCControllerGroup,
 		RunInterval: dnsGCJobInterval,
 		DoFunc: func(ctx context.Context) error {
 			var (

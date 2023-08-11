@@ -40,6 +40,11 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+var (
+	endpointRegenerationRecoveryControllerGroup = controller.NewGroup("endpoint-regeneration-recovery")
+	syncAddressIdentityMappingControllerGroup   = controller.NewGroup("sync-address-identity-mapping")
+)
+
 // GetNamedPort returns the port for the given name.
 // Must be called with e.mutex NOT held
 func (e *Endpoint) GetNamedPort(ingress bool, name string, proto uint8) uint16 {
@@ -732,6 +737,7 @@ var reasonRegenRetry = "retrying regeneration"
 // fails inside of the controller,
 func (e *Endpoint) startRegenerationFailureHandler() {
 	e.controllers.UpdateController(fmt.Sprintf("endpoint-%s-regeneration-recovery", e.StringID()), controller.ControllerParams{
+		Group: endpointRegenerationRecoveryControllerGroup,
 		DoFunc: func(ctx context.Context) error {
 			select {
 			case <-e.regenFailedChan:
@@ -795,8 +801,10 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 		addressFamily = "IPv6"
 	}
 
-	e.controllers.UpdateController(fmt.Sprintf("sync-%s-identity-mapping (%d)", addressFamily, e.ID),
+	e.controllers.UpdateController(
+		fmt.Sprintf("sync-%s-identity-mapping (%d)", addressFamily, e.ID),
 		controller.ControllerParams{
+			Group: syncAddressIdentityMappingControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				if err := e.rlockAlive(); err != nil {
 					return controller.NewExitReason("Endpoint disappeared")

@@ -41,12 +41,13 @@ func GetGlobalStatus() models.ControllerStatuses {
 	return globalStatus.GetStatusModel()
 }
 
-// UpdateController installs or updates a controller in the manager. A
-// controller is identified by its name. If a controller with the name already
-// exists, the controller will be shut down and replaced with the provided
-// controller. Updating a controller will cause the DoFunc to be run
-// immediately regardless of any previous conditions. It will also cause any
-// statistics to be reset.
+// UpdateController installs or updates a controller in the
+// manager. A controller is primarily identified by its name.
+// If a controller with the name already exists, the controller
+// will be shut down and replaced with the provided controller.
+//
+// Updating a controller will cause the DoFunc to be run immediately regardless
+// of any previous conditions. It will also cause any statistics to be reset.
 func (m *Manager) UpdateController(name string, params ControllerParams) {
 	m.updateController(name, params)
 }
@@ -77,6 +78,7 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 		ctrl = &managedController{
 			controller: controller{
 				name:       name,
+				group:      params.Group,
 				uuid:       uuid.New().String(),
 				stop:       make(chan struct{}),
 				update:     make(chan ControllerParams, 1),

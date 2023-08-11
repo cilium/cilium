@@ -27,6 +27,11 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+var (
+	remoteConnectionControllerGroup = controller.NewGroup("clustermesh-remote-cluster")
+	clusterConfigControllerGroup    = controller.NewGroup("clustermesh-cluster-config")
+)
+
 type RemoteCluster interface {
 	// Run implements the actual business logic once the connection to the remote cluster has been established.
 	// The ready channel shall be closed when the initialization tasks completed, possibly returning an error.
@@ -143,8 +148,10 @@ func (rc *remoteCluster) releaseOldConnection() {
 }
 
 func (rc *remoteCluster) restartRemoteConnection() {
-	rc.controllers.UpdateController(rc.remoteConnectionControllerName,
+	rc.controllers.UpdateController(
+		rc.remoteConnectionControllerName,
 		controller.ControllerParams{
+			Group: remoteConnectionControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				rc.releaseOldConnection()
 
@@ -273,6 +280,7 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 	ctrlname := rc.remoteConnectionControllerName + "-cluster-config"
 	defer rc.controllers.RemoveControllerAndWait(ctrlname)
 	rc.controllers.UpdateController(ctrlname, controller.ControllerParams{
+		Group: clusterConfigControllerGroup,
 		DoFunc: func(ctx context.Context) error {
 			rc.getLogger().Debug("Retrieving cluster configuration from remote kvstore")
 			config, err := cmutils.GetClusterConfig(ctx, rc.name, backend)

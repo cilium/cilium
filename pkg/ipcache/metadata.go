@@ -32,6 +32,8 @@ var (
 	ErrLocalIdentityAllocatorUninitialized = errors.New("local identity allocator uninitialized")
 
 	LabelInjectorName = "ipcache-inject-labels"
+
+	injectLabelsControllerGroup = controller.NewGroup("ipcache-inject-labels")
 )
 
 // metadata contains the ipcache metadata. Mainily it holds a map which maps IP
@@ -582,6 +584,7 @@ func (ipc *IPCache) TriggerLabelInjection() {
 	ipc.UpdateController(
 		LabelInjectorName,
 		controller.ControllerParams{
+			Group:   injectLabelsControllerGroup,
 			Context: ipc.Configuration.Context,
 			DoFunc: func(ctx context.Context) error {
 				var err error

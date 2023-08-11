@@ -25,7 +25,11 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-ipcache")
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-ipcache")
+
+	ipcacheBPFGCControllerGroup = controller.NewGroup("ipcache-bpf-garbage-collection")
+)
 
 // datapath is an interface to the datapath implementation, used to apply
 // changes that are made within this module.
@@ -251,6 +255,7 @@ func (l *BPFListener) OnIPIdentityCacheGC() {
 	// consistent state.
 	l.ipcache.UpdateController("ipcache-bpf-garbage-collection",
 		controller.ControllerParams{
+			Group: ipcacheBPFGCControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				wg, err := l.garbageCollect(ctx)
 				if err != nil {
