@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/option"
+
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/btf"
@@ -100,6 +102,38 @@ func iproute2Compat(spec *ebpf.CollectionSpec) error {
 	}
 
 	return nil
+}
+
+func resolveSettings(config *option.DaemonConfig) map[string]int64 {
+	settings := make(map[string]int64)
+
+	settings["setting_l2_announcement"] = 0
+	if config.EnableL2Announcements {
+		settings["setting_l2_announcement"] = 1
+	}
+
+	return settings
+}
+
+// UpdateInlineSettings finds load imm instructions that load settings and replaces
+// the inline constants with values based on the config.
+//
+// TODO(dylandreimerink): This should replace the logic that current writes data to
+// the global data map.
+func UpdateInlineSettings(config *option.DaemonConfig, spec *ebpf.CollectionSpec) {
+	settings := resolveSettings(config)
+	for _, prog := range spec.Programs {
+		for k, inst := range prog.Instructions {
+			if !inst.IsConstantLoad(asm.DWord) {
+				continue
+			}
+
+			setting, ok := settings[inst.Reference()]
+			if ok {
+				prog.Instructions[k].Constant = setting
+			}
+		}
+	}
 }
 
 // LoadCollection loads the given spec into the kernel with the specified opts.

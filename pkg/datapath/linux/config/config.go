@@ -290,11 +290,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
-	if option.Config.EnableL2Announcements {
-		cDefinesMap["ENABLE_L2_ANNOUNCEMENTS"] = "1"
-		// If the agent is down for longer than the lease duration, stop responding
-		cDefinesMap["L2_ANNOUNCEMENTS_MAX_LIVENESS"] = fmt.Sprintf("%dULL", option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
-	}
+	// If the agent is down for longer than the lease duration, stop responding
+	cDefinesMap["L2_ANNOUNCEMENTS_MAX_LIVENESS"] = fmt.Sprintf("%dULL", option.Config.L2AnnouncerLeaseDuration.Nanoseconds())
 
 	if option.Config.EnableEncryptionStrictMode {
 		cDefinesMap["ENCRYPTION_STRICT_MODE"] = "1"

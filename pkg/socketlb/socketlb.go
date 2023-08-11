@@ -86,6 +86,8 @@ func Enable() (err error) {
 		}
 	}()
 
+	bpf.UpdateInlineSettings(option.Config, spec)
+
 	coll, err := bpf.LoadCollection(spec, ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 	})

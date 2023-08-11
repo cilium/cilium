@@ -3,6 +3,7 @@
 
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
+#include <bpf/settings.h>
 
 #include <node_config.h>
 #include <ep_config.h>
@@ -1002,7 +1003,6 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx,
 #endif /* TUNNEL_MODE */
 #endif /* ENABLE_IPSEC */
 
-#ifdef ENABLE_L2_ANNOUNCEMENTS
 static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 {
 	union macaddr mac = NODE_MAC;
@@ -1042,7 +1042,6 @@ static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
 
 	return ret;
 };
-#endif
 
 static __always_inline int
 do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
@@ -1107,16 +1106,17 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	bpf_clear_meta(ctx);
 
 	switch (proto) {
-# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER || \
-     defined ENABLE_L2_ANNOUNCEMENTS
 	case bpf_htons(ETH_P_ARP):
-		#ifdef ENABLE_L2_ANNOUNCEMENTS
+		if (setting_l2_announcement() == 1) {
 			ret = handle_l2_announcement(ctx);
-		#else
-			ret = CTX_ACT_OK;
-		#endif
+			break;
+		}
+
+# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
+		ret = CTX_ACT_OK;
 		break;
 # endif
+
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))

@@ -102,6 +102,8 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 		}
 	}
 
+	bpf.UpdateInlineSettings(option.Config, spec)
+
 	// Load the CollectionSpec into the kernel, picking up any pinned maps from
 	// bpffs in the process.
 	finalize := func() {}
@@ -124,6 +126,8 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 				l.WithError(err).Error("Could not finalize bpffs map migration")
 			}
 		}
+
+		bpf.UpdateInlineSettings(option.Config, spec)
 
 		// Retry loading the Collection after starting map migration.
 		l.Debug("Retrying loading Collection into kernel after map migration")

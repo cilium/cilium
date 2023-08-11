@@ -26,7 +26,7 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4
-#define ENABLE_L2_ANNOUNCEMENTS
+#define setting_l2_announcement_val 1
 
 #include <bpf_host.c>
 
