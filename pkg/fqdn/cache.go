@@ -861,16 +861,29 @@ func (zombies *DNSZombieMappings) isZombieAlive(zombie *DNSZombieMapping, aliveN
 	return alive, overLimit
 }
 
-// sortZombieMappingSlice sorts the provided slice by whether the connection is
-// marked alive or not, the oldest created connections, and tie-break by the
-// number of DNS names for that IP.
+// sortZombieMappingSlice sorts the provided slice so that less important
+// zombies shuffle to the front of the slice (from where they are eliminated).
+// To achieve this, it sorts by three criteria, in order of priority:
 //
-// Important zombies shuffle to the end of the slice.
+// 1. when the connection was last marked alive (earlier == less important)
+// 2. when this ip was last scheduled for deletion (earlier == less important)
+// 3. tie-break by number of DNS names for that IP
 func sortZombieMappingSlice(alive []*DNSZombieMapping) {
 	sort.Slice(alive, func(i, j int) bool {
-		return alive[i].AliveAt.Before(alive[j].AliveAt) ||
-			alive[i].DeletePendingAt.Before(alive[j].DeletePendingAt) ||
-			len(alive[i].Names) < len(alive[j].Names)
+		switch {
+		case alive[i].AliveAt.Before(alive[j].AliveAt):
+			return true
+		case alive[i].AliveAt.After(alive[j].AliveAt):
+			return false
+		// We have AliveAt equality after this point.
+		case alive[i].DeletePendingAt.Before(alive[j].DeletePendingAt):
+			return true
+		case alive[i].DeletePendingAt.After(alive[j].DeletePendingAt):
+			return false
+		// DeletePendingAt is also equal. Tie-break by number of Names.
+		default:
+			return len(alive[i].Names) < len(alive[j].Names)
+		}
 	})
 }
 
