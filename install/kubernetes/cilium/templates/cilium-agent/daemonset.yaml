@@ -689,10 +689,10 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command:
           - "/install-plugin.sh"
+        {{- with .Values.cni.resources }}
         resources:
-          requests:
-            cpu: 100m
-            memory: 10Mi
+          {{- toYaml . | trim | nindent 10 }}
+        {{- end }}
         securityContext:
           {{- if .Values.securityContext.privileged }}
           privileged: true
