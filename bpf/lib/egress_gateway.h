@@ -8,10 +8,6 @@
 
 #include "maps.h"
 
-#if defined(ENABLE_EGRESS_GATEWAY)
-#define ENABLE_EGRESS_GATEWAY_COMMON
-#endif
-
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
 
 /* EGRESS_STATIC_PREFIX represents the size in bits of the static prefix part of
