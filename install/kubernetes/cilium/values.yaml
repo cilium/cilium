@@ -596,6 +596,12 @@ cni:
   # inside the agent pod.
   hostConfDirMountPath: /host/etc/cni/net.d
 
+  # -- Specifies the resources for the cni initContainer
+  resources:
+    requests:
+      cpu: 100m
+      memory: 10Mi
+
 # -- (string) Configure how frequently garbage collection should occur for the datapath
 # connection tracking table.
 # @default -- `"0s"`
