@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	ciliumV2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -32,9 +33,11 @@ type params struct {
 	Logger    logrus.FieldLogger
 	Lifecycle hive.Lifecycle
 
-	Clientset          k8sClient.Clientset
-	Identity           resource.Resource[*v2.CiliumIdentity]
-	AuthIdentityClient authIdentity.Provider
+	Clientset           k8sClient.Clientset
+	Identity            resource.Resource[*v2.CiliumIdentity]
+	CiliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
+	CiliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
+	AuthIdentityClient  authIdentity.Provider
 
 	Cfg         Config
 	SharedCfg   SharedConfig
@@ -45,9 +48,11 @@ type params struct {
 type GC struct {
 	logger logrus.FieldLogger
 
-	clientset          ciliumV2.CiliumIdentityInterface
-	identity           resource.Resource[*v2.CiliumIdentity]
-	authIdentityClient authIdentity.Provider
+	clientset           ciliumV2.CiliumIdentityInterface
+	identity            resource.Resource[*v2.CiliumIdentity]
+	ciliumEndpoint      resource.Resource[*v2.CiliumEndpoint]
+	ciliumEndpointSlice resource.Resource[*v2alpha1.CiliumEndpointSlice]
+	authIdentityClient  authIdentity.Provider
 
 	clusterInfo    cmtypes.ClusterInfo
 	allocationMode string
@@ -88,16 +93,18 @@ func registerGC(p params) {
 	}
 
 	gc := &GC{
-		logger:             p.Logger,
-		clientset:          p.Clientset.CiliumV2().CiliumIdentities(),
-		identity:           p.Identity,
-		authIdentityClient: p.AuthIdentityClient,
-		clusterInfo:        p.ClusterInfo,
-		allocationMode:     p.SharedCfg.IdentityAllocationMode,
-		gcInterval:         p.Cfg.Interval,
-		heartbeatTimeout:   p.Cfg.HeartbeatTimeout,
-		gcRateInterval:     p.Cfg.RateInterval,
-		gcRateLimit:        p.Cfg.RateLimit,
+		logger:              p.Logger,
+		clientset:           p.Clientset.CiliumV2().CiliumIdentities(),
+		identity:            p.Identity,
+		ciliumEndpoint:      p.CiliumEndpoint,
+		ciliumEndpointSlice: p.CiliumEndpointSlice,
+		authIdentityClient:  p.AuthIdentityClient,
+		clusterInfo:         p.ClusterInfo,
+		allocationMode:      p.SharedCfg.IdentityAllocationMode,
+		gcInterval:          p.Cfg.Interval,
+		heartbeatTimeout:    p.Cfg.HeartbeatTimeout,
+		gcRateInterval:      p.Cfg.RateInterval,
+		gcRateLimit:         p.Cfg.RateLimit,
 		heartbeatStore: newHeartbeatStore(
 			p.Cfg.HeartbeatTimeout,
 		),
