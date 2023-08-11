@@ -443,7 +443,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
 	}
 
-	// We need to update the the visibility policy after adding the endpoint in
+	// We need to update the visibility policy after adding the endpoint in
 	// the endpoint manager because the endpoint manager create the endpoint
 	// queue of the endpoint. If we execute this function before the endpoint
 	// manager creates the endpoint queue the operation will fail.
@@ -456,6 +456,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			value, _ := annotation.Get(p, annotation.ProxyVisibility, annotation.ProxyVisibilityAlias)
 			return value, nil
 		})
+
 		ep.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress string, err error) {
 			p, err := d.k8sWatcher.GetCachedPod(ns, podName)
 			if err != nil {
