@@ -9,7 +9,6 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/gobgp"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/resource"
 )
 
 // ServerWithConfig is a container for providing interface with underlying router implementation
@@ -30,17 +29,9 @@ type ServerWithConfig struct {
 	// configuration applied to it.
 	Config *v2alpha1api.CiliumBGPVirtualRouter
 
-	// Holds any announced PodCIDR routes.
-	PodCIDRAnnouncements []*types.Path
-
-	// Holds any announced pod ip pool CIDRs keyed by pool name of the backing CiliumPodIPPool.
-	PodIPPoolAnnouncements map[resource.Key][]*types.Path
-
-	// Holds any announced Service routes.
-	ServiceAnnouncements map[resource.Key][]*types.Path
-
-	// Holds routing policies configured by the policy reconciler.
-	RoutePolicies map[string]*types.RoutePolicy
+	// ReconcilerMetadata holds reconciler-specific metadata keyed by the reconciler name,
+	// opaque outside the respective reconciler.
+	ReconcilerMetadata map[string]any
 }
 
 // NewServerWithConfig will start an underlying BgpServer utilizing types.ServerParameters
@@ -58,11 +49,8 @@ func NewServerWithConfig(ctx context.Context, params types.ServerParameters) (*S
 	}
 
 	return &ServerWithConfig{
-		Server:                 s,
-		Config:                 nil,
-		PodCIDRAnnouncements:   []*types.Path{},
-		ServiceAnnouncements:   make(map[resource.Key][]*types.Path),
-		RoutePolicies:          make(map[string]*types.RoutePolicy),
-		PodIPPoolAnnouncements: make(map[resource.Key][]*types.Path),
+		Server:             s,
+		Config:             nil,
+		ReconcilerMetadata: make(map[string]any),
 	}, nil
 }

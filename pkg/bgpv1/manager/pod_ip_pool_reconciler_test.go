@@ -213,7 +213,7 @@ func TestPodIPPoolReconciler(t *testing.T) {
 			for _, obj := range tt.upsertedPools {
 				store.Upsert(obj)
 			}
-			reconciler := NewPodIPPoolReconciler(store).Reconciler
+			reconciler := NewPodIPPoolReconciler(store).Reconciler.(*PodIPPoolReconciler)
 
 			node := &node.LocalNode{
 				Node: nodeTypes.Node{
@@ -247,21 +247,23 @@ func TestPodIPPoolReconciler(t *testing.T) {
 				t.Fatalf("failed to reconcile pool cidr advertisements: %v", err)
 			}
 
+			podIPPoolAnnouncements := reconciler.getMetadata(testSC)
+
 			// If the pool selector is disabled, ensure no advertisements are still present.
 			if tt.poolSelector == nil && tt.upsertedPools != nil {
-				if len(testSC.PodIPPoolAnnouncements) > 0 {
+				if len(podIPPoolAnnouncements) > 0 {
 					t.Fatal("disabled pool selector but pool cidr advertisements still present")
 				}
 			}
 
-			log.Printf("%+v %+v", testSC.PodIPPoolAnnouncements, tt.updated)
+			log.Printf("%+v %+v", podIPPoolAnnouncements, tt.updated)
 
 			// Ensure we see tt.updated in testSC.PodIPPoolAnnouncements
 			for poolKey, cidrs := range tt.updated {
 				for _, cidr := range cidrs {
 					prefix := netip.MustParsePrefix(cidr)
 					var seen bool
-					for _, advrt := range testSC.PodIPPoolAnnouncements[poolKey] {
+					for _, advrt := range podIPPoolAnnouncements[poolKey] {
 						if advrt.NLRI.String() == prefix.String() {
 							seen = true
 						}
@@ -274,7 +276,7 @@ func TestPodIPPoolReconciler(t *testing.T) {
 
 			// ensure testSC.PodIPPoolAnnouncements does not contain advertisements
 			// not in tt.updated
-			for poolKey, advrts := range testSC.PodIPPoolAnnouncements {
+			for poolKey, advrts := range podIPPoolAnnouncements {
 				for _, advrt := range advrts {
 					var seen bool
 					for _, cidr := range tt.updated[poolKey] {
