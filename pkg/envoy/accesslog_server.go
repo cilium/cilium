@@ -170,7 +170,8 @@ func logRecord(pblog *cilium.LogEntry) *logger.LogRecord {
 	var kafkaRecord *accesslog.LogRecordKafka
 	var kafkaTopics []string
 
-	var l7tags logger.LogTag
+	var l7tags logger.LogTag = func(lr *logger.LogRecord) {}
+
 	if httpLogEntry := pblog.GetHttp(); httpLogEntry != nil {
 		l7tags = logger.LogTags.HTTP(&accesslog.LogRecordHTTP{
 			Method:          httpLogEntry.Method,
@@ -222,7 +223,9 @@ func logRecord(pblog *cilium.LogEntry) *logger.LogRecord {
 	r := logger.NewLogRecord(flowType, pblog.IsIngress,
 		logger.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
 		logger.LogTags.Verdict(GetVerdict(pblog), pblog.CiliumRuleRef),
-		logger.LogTags.Addressing(addrInfo), l7tags)
+		logger.LogTags.Addressing(addrInfo),
+		l7tags,
+	)
 	r.Log()
 
 	// Each kafka topic needs to be logged separately, log the rest if any
