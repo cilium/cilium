@@ -28,6 +28,8 @@ const (
 	MapDeleteAll
 )
 
+var bpfEventBufferGCControllerGroup = controller.NewGroup("bpf-event-buffer-gc")
+
 // String returns a string representation of an Action.
 func (e Action) String() string {
 	switch e {
@@ -92,6 +94,7 @@ func (m *Map) initEventsBuffer(maxSize int, eventsTTL time.Duration) {
 		mapControllers.UpdateController(
 			fmt.Sprintf("bpf-event-buffer-gc-%s", m.name),
 			controller.ControllerParams{
+				Group: bpfEventBufferGCControllerGroup,
 				DoFunc: func(_ context.Context) error {
 					m.scopedLogger().Debugf("clearing bpf map events older than %s", b.eventTTL)
 					b.buffer.Compact(func(e interface{}) bool {

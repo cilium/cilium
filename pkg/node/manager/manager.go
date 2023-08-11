@@ -41,6 +41,8 @@ import (
 var (
 	randGen                    = rand.NewSafeRand(time.Now().UnixNano())
 	baseBackgroundSyncInterval = time.Minute
+
+	neighborTableRefreshControllerGroup = controller.NewGroup("neighbor-table-refresh")
 )
 
 const (
@@ -718,8 +720,10 @@ func (m *manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 // by sending arping periodically.
 func (m *manager) StartNeighborRefresh(nh datapath.NodeNeighbors) {
 	ctx, cancel := context.WithCancel(context.Background())
-	controller.NewManager().UpdateController("neighbor-table-refresh",
+	controller.NewManager().UpdateController(
+		"neighbor-table-refresh",
 		controller.ControllerParams{
+			Group: neighborTableRefreshControllerGroup,
 			DoFunc: func(controllerCtx context.Context) error {
 				// Cancel previous goroutines from previous controller run
 				cancel()

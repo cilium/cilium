@@ -25,6 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/policy/groups"
 )
 
+var ccnpToGroupsControllerGroup = controller.NewGroup("cilium-clusterwide-network-policy-to-groups")
+
 func k8sEventMetric(scope, action string) {
 	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, scope, action).SetToCurrentTime()
 }
@@ -127,8 +129,10 @@ func enableCCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sCli
 		mgr.RemoveAllAndWait()
 	}()
 
-	mgr.UpdateController("ccnp-to-groups",
+	mgr.UpdateController(
+		"ccnp-to-groups",
 		controller.ControllerParams{
+			Group: ccnpToGroupsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				groups.UpdateCNPInformation(clientset)
 				return nil

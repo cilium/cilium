@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/clustermesh"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
 	dptypes "github.com/cilium/cilium/pkg/datapath/types"
@@ -113,6 +114,11 @@ var (
 		// Provide a LocalNodeInitializer that is invoked when LocalNodeStore is started.
 		// This fills in the initial state before it is accessed by other sub-systems.
 		cell.Provide(newLocalNodeInitializer),
+
+		// Controller provides flags and configuration related
+		// to Controller management, concurrent control loops
+		// which run throughout the system on specified intervals
+		controller.Cell,
 
 		// Shared resources provide access to k8s resources as event streams or as
 		// read-only stores.

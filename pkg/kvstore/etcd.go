@@ -78,6 +78,8 @@ var (
 	ErrLockLeaseExpired = errors.New("transaction did not succeed: lock lease expired")
 
 	randGen = rand.NewSafeRand(time.Now().UnixNano())
+
+	etcdLockSessionRenewControllerGroup = controller.NewGroup(etcdLockSessionRenewNamePrefix)
 )
 
 type etcdModule struct {
@@ -806,8 +808,10 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		}
 	}()
 
-	ec.controllers.UpdateController(makeSessionName(etcdLockSessionRenewNamePrefix, opts),
+	ec.controllers.UpdateController(
+		makeSessionName(etcdLockSessionRenewNamePrefix, opts),
 		controller.ControllerParams{
+			Group: etcdLockSessionRenewControllerGroup,
 			// Stop controller function when etcd client is terminating
 			Context: ec.client.Ctx(),
 			DoFunc: func(ctx context.Context) error {

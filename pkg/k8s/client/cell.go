@@ -56,6 +56,8 @@ var Cell = cell.Module(
 	cell.Provide(newClientset),
 )
 
+var k8sHeartbeatControllerGroup = controller.NewGroup("k8s-heartbeat")
+
 // Type aliases for the clientsets to avoid name collision on 'Clientset' when composing them.
 type (
 	KubernetesClientset = kubernetes.Clientset
@@ -263,6 +265,7 @@ func (c *compositeClientset) startHeartbeat() {
 
 	c.controller.UpdateController("k8s-heartbeat",
 		controller.ControllerParams{
+			Group: k8sHeartbeatControllerGroup,
 			DoFunc: func(context.Context) error {
 				runHeartbeat(
 					c.log,

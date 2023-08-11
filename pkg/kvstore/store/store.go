@@ -33,6 +33,8 @@ var (
 	controllers controller.Manager
 
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "shared-store")
+
+	kvstoreSyncControllerGroup = controller.NewGroup("kvstore-sync")
 )
 
 // KeyCreator is the function to create a new empty Key instances. Store
@@ -226,6 +228,7 @@ func JoinSharedStore(c Configuration) (*SharedStore, error) {
 
 	controllers.UpdateController(s.controllerName,
 		controller.ControllerParams{
+			Group: kvstoreSyncControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				return s.syncLocalKeys(ctx, true)
 			},

@@ -34,6 +34,8 @@ var usersManagementCell = cell.Module(
 	cell.Invoke(registerUsersManager),
 )
 
+var usersManagementControllerGroup = controller.NewGroup("clustermesh-users-management")
+
 type UsersManagementConfig struct {
 	ClusterUsersEnabled    bool
 	ClusterUsersConfigPath string
@@ -97,6 +99,7 @@ func (us *usersManager) Start(hive.HookContext) error {
 	}
 
 	us.manager.UpdateController(usersMgmtCtrl, controller.ControllerParams{
+		Group:   usersManagementControllerGroup,
 		Context: context.Background(),
 		DoFunc:  us.sync,
 	})

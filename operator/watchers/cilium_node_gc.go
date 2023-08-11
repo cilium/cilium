@@ -20,6 +20,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+var ciliumNodeGCControllerGroup = controller.NewGroup("cilium-node-gc")
+
 // ciliumNodeGCCandidate keeps track of cilium nodes, which are candidate for GC.
 // Underlying there is a map with node name as key, and last marked timestamp as value.
 type ciliumNodeGCCandidate struct {
@@ -69,6 +71,7 @@ func RunCiliumNodeGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sClien
 	// create the controller to perform mark and sweep operation for cilium nodes
 	ctrlMgr.UpdateController("cilium-node-gc",
 		controller.ControllerParams{
+			Group:   ciliumNodeGCControllerGroup,
 			Context: ctx,
 			DoFunc: func(ctx context.Context) error {
 				return performCiliumNodeGC(ctx, clientset.CiliumV2().CiliumNodes(), ciliumNodeStore,

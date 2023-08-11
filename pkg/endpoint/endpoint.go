@@ -61,10 +61,17 @@ import (
 
 const (
 	maxLogs = 256
+
+	resolveIdentity = "resolve-identity"
+	resolveLabels   = "resolve-labels"
 )
 
 var (
 	EndpointMutableOptionLibrary = option.GetEndpointMutableOptionLibrary()
+
+	resolveIdentityControllerGroup = controller.NewGroup(resolveIdentity)
+
+	resolveLabelsControllerGroup = controller.NewGroup(resolveLabels)
 )
 
 // State is an enumeration for possible endpoint states.
@@ -1578,8 +1585,7 @@ type MetadataResolverCB func(ns, podName string) (pod *slim_corev1.Pod, _ []slim
 // will handle updates (such as pkg/k8s/watchers informers).
 func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 	done := make(chan struct{})
-	const controllerPrefix = "resolve-labels"
-	controllerName := fmt.Sprintf("%s-%s", controllerPrefix, e.GetK8sNamespaceAndPodName())
+	controllerName := resolveLabels + "-" + e.GetK8sNamespaceAndPodName()
 	go func() {
 		select {
 		case <-done:
@@ -1591,11 +1597,12 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 
 	e.controllers.UpdateController(controllerName,
 		controller.ControllerParams{
+			Group: resolveLabelsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
 				pod, cp, identityLabels, info, _, err := resolveMetadata(ns, podName)
 				if err != nil {
-					e.Logger(controllerPrefix).WithError(err).Warning("Unable to fetch kubernetes labels")
+					e.Logger(resolveLabels).WithError(err).Warning("Unable to fetch kubernetes labels")
 					return err
 				}
 				e.SetPod(pod)
@@ -1804,9 +1811,10 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blo
 		scopedLog.Info("Resolving identity labels (non-blocking)")
 	}
 
-	ctrlName := fmt.Sprintf("resolve-identity-%d", e.ID)
+	ctrlName := fmt.Sprintf("%s-%d", resolveIdentity, e.ID)
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
+			Group: resolveIdentityControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				_, err := e.identityLabelsChanged(ctx, myChangeRev)
 				switch err {

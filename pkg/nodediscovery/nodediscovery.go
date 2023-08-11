@@ -53,7 +53,11 @@ const (
 	maxRetryCount       = 10
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubsys)
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubsys)
+
+	localNodeToKVStoreControllerGroup = controller.NewGroup("local-node-to-kv-store")
+)
 
 type k8sGetters interface {
 	GetK8sNode(ctx context.Context, nodeName string) (*slim_corev1.Node, error)
@@ -290,8 +294,10 @@ func (n *NodeDiscovery) updateLocalNode() {
 	if option.Config.KVStore != "" && !option.Config.JoinCluster {
 		go func() {
 			<-n.Registered
-			controller.NewManager().UpdateController("propagating local node change to kv-store",
+			controller.NewManager().UpdateController(
+				"propagating local node change to kv-store",
 				controller.ControllerParams{
+					Group: localNodeToKVStoreControllerGroup,
 					DoFunc: func(ctx context.Context) error {
 						n.localNodeLock.Lock()
 						localNode := n.localNode.DeepCopy()

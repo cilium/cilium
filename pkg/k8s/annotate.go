@@ -25,6 +25,8 @@ import (
 
 type nodeAnnotation = map[string]string
 
+var nodeAnnotationControllerGroup = controller.NewGroup("update-k8s-node-annotations")
+
 func prepareNodeAnnotation(nd nodeTypes.Node, encryptKey uint8) nodeAnnotation {
 	annotationMap := map[string]fmt.Stringer{
 		annotation.V4CIDRName:     nd.IPv4AllocCIDR,
@@ -85,6 +87,7 @@ func AnnotateNode(cs kubernetes.Interface, nodeName string, nd nodeTypes.Node, e
 	annotation := prepareNodeAnnotation(nd, encryptKey)
 	controller.NewManager().UpdateController("update-k8s-node-annotations",
 		controller.ControllerParams{
+			Group: nodeAnnotationControllerGroup,
 			DoFunc: func(_ context.Context) error {
 				err := updateNodeAnnotation(cs, nodeName, annotation)
 				if err != nil {

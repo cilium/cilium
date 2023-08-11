@@ -35,6 +35,8 @@ const (
 	clusterPoolStatusTriggerName    = "sync-clusterpool-status-trigger"
 )
 
+var clusterPoolStatusControllerGroup = controller.NewGroup(clusterPoolStatusControllerName)
+
 // containsCIDR checks if the outer IPNet contains the inner IPNet
 func containsCIDR(outer, inner *net.IPNet) bool {
 	outerMask, _ := outer.Mask.Size()
@@ -304,9 +306,11 @@ func (c *crdWatcher) restoreFinished() {
 	}
 
 	// creating a new controller will execute DoFunc immediately
-	c.controller.UpdateController(clusterPoolStatusControllerName, controller.ControllerParams{
-		DoFunc: c.updateCiliumNodeStatus,
-	})
+	c.controller.UpdateController(clusterPoolStatusControllerName,
+		controller.ControllerParams{
+			Group:  clusterPoolStatusControllerGroup,
+			DoFunc: c.updateCiliumNodeStatus,
+		})
 	c.finishedRestore = true
 }
 

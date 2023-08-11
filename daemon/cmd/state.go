@@ -28,6 +28,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+var syncLBMapsControllerGroup = controller.NewGroup("sync-lb-maps-with-k8s-services")
+
 type endpointRestoreState struct {
 	possible map[uint16]*endpoint.Endpoint
 	restored []*endpoint.Endpoint
@@ -464,8 +466,10 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 				// elsewhere. This means that if, for instance, a user manually
 				// adds a service via the CLI into the BPF maps, that it will
 				// not be cleaned up by the daemon until it restarts.
-				controller.NewManager().UpdateController("sync-lb-maps-with-k8s-services",
+				controller.NewManager().UpdateController(
+					"sync-lb-maps-with-k8s-services",
 					controller.ControllerParams{
+						Group: syncLBMapsControllerGroup,
 						DoFunc: func(ctx context.Context) error {
 							return d.svc.SyncWithK8sFinished(d.k8sWatcher.K8sSvcCache.EnsureService)
 						},

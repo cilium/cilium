@@ -20,6 +20,10 @@ import (
 const (
 	success = "success"
 	failure = "failure"
+
+	// special Group "names" for metrics config
+	allControllerMetricsEnabled = "all"
+	noControllerMetricsEnabled  = "none"
 )
 
 // ControllerFunc is a function that the controller runs. This type is used for
@@ -41,8 +45,26 @@ func NewExitReason(reason string) ExitReason {
 	return ExitReason{errors.New(reason)}
 }
 
+// Group contains metadata about a group of controllers
+type Group struct {
+	// Name of the controller group.
+	//
+	// This name MUST NOT be dynamically generated based on
+	// resource identifier in order to limit metrics cardinality.
+	Name string
+}
+
+func NewGroup(name string) Group {
+	return Group{Name: name}
+}
+
 // ControllerParams contains all parameters of a controller
 type ControllerParams struct {
+	// Group is used for aggregate metrics collection.
+	// The Group.Name must NOT be dynamically generated from a
+	// resource identifier in order to limit metrics cardinality.
+	Group Group
+
 	// DoFunc is the function that will be run until it succeeds and/or
 	// using the interval RunInterval if not 0.
 	// An unset DoFunc is an error and will be logged as one.
@@ -95,6 +117,32 @@ func NoopFunc(ctx context.Context) error {
 	return nil
 }
 
+// isGroupMetricEnabled returns true if metrics are enabled for the Group
+//
+// The controller metrics config option is used to determine
+// if "all", "none" (takes precedence over "all"), or the
+// given set of Group names should be enabled.
+//
+// If no controller metrics config option was provided,
+// only then is the DefaultMetricsEnabled field used.
+func isGroupMetricEnabled(g Group) bool {
+	var metricsEnabled = groupMetricEnabled
+	if metricsEnabled == nil {
+		// There is currently no guarantee that a caller of this function
+		// has initialized the configuration map using the hive cell.
+		return false
+	}
+
+	if metricsEnabled[noControllerMetricsEnabled] {
+		// "none" takes precedence over "all"
+		return false
+	} else if metricsEnabled[allControllerMetricsEnabled] {
+		return true
+	} else {
+		return metricsEnabled[g.Name]
+	}
+}
+
 // Controller is a simple pattern that allows to perform the following
 // tasks:
 //   - Run an operation in the background and retry until it succeeds
@@ -132,6 +180,7 @@ func NoopFunc(ctx context.Context) error {
 //     check for the destruction throughout the run.
 type controller struct {
 	// Constant after creation, safe to access without locking
+	group  Group
 	name   string
 	uuid   string
 	logger *logrus.Entry
@@ -322,7 +371,11 @@ func (c *controller) recordError(err error) {
 	c.lastErrorStamp = time.Now()
 	c.failureCount++
 	c.consecutiveErrors++
+
 	metrics.ControllerRuns.WithLabelValues(failure).Inc()
+	if isGroupMetricEnabled(c.group) {
+		GroupRuns.WithLabelValues(c.group.Name, failure).Inc()
+	}
 	metrics.ControllerRunsDuration.WithLabelValues(failure).Observe(c.lastDuration.Seconds())
 }
 
@@ -335,5 +388,8 @@ func (c *controller) recordSuccess() {
 	c.consecutiveErrors = 0
 
 	metrics.ControllerRuns.WithLabelValues(success).Inc()
+	if isGroupMetricEnabled(c.group) {
+		GroupRuns.WithLabelValues(c.group.Name, success).Inc()
+	}
 	metrics.ControllerRunsDuration.WithLabelValues(success).Observe(c.lastDuration.Seconds())
 }

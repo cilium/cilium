@@ -37,6 +37,8 @@ var (
 	log         = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint-manager")
 	metricsOnce sync.Once
 	launchTime  = 30 * time.Second
+
+	endpointGCControllerGroup = controller.NewGroup("endpoint-gc")
 )
 
 // compile time check - endpointManager must implement
@@ -116,6 +118,7 @@ func (mgr *endpointManager) WithPeriodicEndpointGC(ctx context.Context, checkHea
 	mgr.checkHealth = checkHealth
 	mgr.controllers.UpdateController("endpoint-gc",
 		controller.ControllerParams{
+			Group:       endpointGCControllerGroup,
 			DoFunc:      mgr.markAndSweep,
 			RunInterval: interval,
 			Context:     ctx,

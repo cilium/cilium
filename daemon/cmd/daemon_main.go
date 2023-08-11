@@ -1547,8 +1547,10 @@ func (d *Daemon) initKVStore() {
 		ClusterSizeDependantInterval: d.nodeDiscovery.Manager.ClusterSizeDependantInterval,
 	}
 
+	var cg = controller.NewGroup("kvstore-locks-gc")
 	controller.NewManager().UpdateController("kvstore-locks-gc",
 		controller.ControllerParams{
+			Group: cg,
 			DoFunc: func(ctx context.Context) error {
 				kvstore.RunLockGC()
 				return nil
