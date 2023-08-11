@@ -491,6 +491,8 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}
 			testSC.Config = oldc
+			reconciler := NewExportPodCIDRReconciler().Reconciler.(*ExportPodCIDRReconciler)
+			podCIDRAnnouncements := reconciler.getMetadata(testSC)
 			for _, cidr := range tt.advertised {
 				advrtResp, err := testSC.Server.AdvertisePath(context.Background(), types.PathRequest{
 					Path: types.NewPathForPrefix(cidr),
@@ -498,8 +500,9 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 				if err != nil {
 					t.Fatalf("failed to advertise initial pod cidr routes: %v", err)
 				}
-				testSC.PodCIDRAnnouncements = append(testSC.PodCIDRAnnouncements, advrtResp.Path)
+				podCIDRAnnouncements = append(podCIDRAnnouncements, advrtResp.Path)
 			}
+			reconciler.storeMetadata(testSC, podCIDRAnnouncements)
 
 			newc := &v2alpha1api.CiliumBGPVirtualRouter{
 				LocalASN:      64125,
@@ -522,22 +525,23 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to reconcile new pod cidr advertisements: %v", err)
 			}
+			podCIDRAnnouncements = reconciler.getMetadata(testSC)
 
 			// if we disable exports of pod cidr ensure no advertisements are
 			// still present.
 			if tt.shouldEnable == false {
-				if len(testSC.PodCIDRAnnouncements) > 0 {
+				if len(podCIDRAnnouncements) > 0 {
 					t.Fatal("disabled export but advertisements till present")
 				}
 			}
 
-			log.Printf("%+v %+v", testSC.PodCIDRAnnouncements, tt.updated)
+			log.Printf("%+v %+v", podCIDRAnnouncements, tt.updated)
 
 			// ensure we see tt.updated in testSC.PodCIDRAnnoucements
 			for _, cidr := range tt.updated {
 				prefix := netip.MustParsePrefix(cidr.String())
 				var seen bool
-				for _, advrt := range testSC.PodCIDRAnnouncements {
+				for _, advrt := range podCIDRAnnouncements {
 					if advrt.NLRI.String() == prefix.String() {
 						seen = true
 					}
@@ -549,7 +553,7 @@ func TestExportPodCIDRReconciler(t *testing.T) {
 
 			// ensure testSC.PodCIDRAnnouncements does not contain advertisements
 			// not in tt.updated
-			for _, advrt := range testSC.PodCIDRAnnouncements {
+			for _, advrt := range podCIDRAnnouncements {
 				var seen bool
 				for _, cidr := range tt.updated {
 					if advrt.NLRI.String() == cidr.String() {
@@ -1138,25 +1142,6 @@ func TestLBServiceReconciler(t *testing.T) {
 				t.Fatalf("failed to create test bgp server: %v", err)
 			}
 			testSC.Config = oldc
-			for svcKey, cidrs := range tt.advertised {
-				for _, cidr := range cidrs {
-					prefix := netip.MustParsePrefix(cidr)
-					advrtResp, err := testSC.Server.AdvertisePath(context.Background(), types.PathRequest{
-						Path: types.NewPathForPrefix(prefix),
-					})
-					if err != nil {
-						t.Fatalf("failed to advertise initial svc lb cidr routes: %v", err)
-					}
-
-					testSC.ServiceAnnouncements[svcKey] = append(testSC.ServiceAnnouncements[svcKey], advrtResp.Path)
-				}
-			}
-
-			newc := &v2alpha1api.CiliumBGPVirtualRouter{
-				LocalASN:        64125,
-				Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
-				ServiceSelector: tt.newServiceSelector,
-			}
 
 			diffstore := newFakeDiffStore[*slim_corev1.Service]()
 			for _, obj := range tt.upsertedServices {
@@ -1171,7 +1156,29 @@ func TestLBServiceReconciler(t *testing.T) {
 				epDiffStore.Upsert(obj)
 			}
 
-			reconciler := NewLBServiceReconciler(diffstore, epDiffStore).Reconciler
+			reconciler := NewLBServiceReconciler(diffstore, epDiffStore).Reconciler.(*LBServiceReconciler)
+			serviceAnnouncements := reconciler.getMetadata(testSC)
+
+			for svcKey, cidrs := range tt.advertised {
+				for _, cidr := range cidrs {
+					prefix := netip.MustParsePrefix(cidr)
+					advrtResp, err := testSC.Server.AdvertisePath(context.Background(), types.PathRequest{
+						Path: types.NewPathForPrefix(prefix),
+					})
+					if err != nil {
+						t.Fatalf("failed to advertise initial svc lb cidr routes: %v", err)
+					}
+
+					serviceAnnouncements[svcKey] = append(serviceAnnouncements[svcKey], advrtResp.Path)
+				}
+			}
+
+			newc := &v2alpha1api.CiliumBGPVirtualRouter{
+				LocalASN:        64125,
+				Neighbors:       []v2alpha1api.CiliumBGPNeighbor{},
+				ServiceSelector: tt.newServiceSelector,
+			}
+
 			err = reconciler.Reconcile(context.Background(), ReconcileParams{
 				CurrentServer: testSC,
 				DesiredConfig: newc,
@@ -1194,19 +1201,19 @@ func TestLBServiceReconciler(t *testing.T) {
 			// if we disable exports of pod cidr ensure no advertisements are
 			// still present.
 			if tt.newServiceSelector == nil && !containsLbClass(tt.upsertedServices) {
-				if len(testSC.ServiceAnnouncements) > 0 {
+				if len(serviceAnnouncements) > 0 {
 					t.Fatal("disabled export but advertisements still present")
 				}
 			}
 
-			log.Printf("%+v %+v", testSC.ServiceAnnouncements, tt.updated)
+			log.Printf("%+v %+v", serviceAnnouncements, tt.updated)
 
 			// ensure we see tt.updated in testSC.ServiceAnnouncements
 			for svcKey, cidrs := range tt.updated {
 				for _, cidr := range cidrs {
 					prefix := netip.MustParsePrefix(cidr)
 					var seen bool
-					for _, advrt := range testSC.ServiceAnnouncements[svcKey] {
+					for _, advrt := range serviceAnnouncements[svcKey] {
 						if advrt.NLRI.String() == prefix.String() {
 							seen = true
 						}
@@ -1219,7 +1226,7 @@ func TestLBServiceReconciler(t *testing.T) {
 
 			// ensure testSC.PodCIDRAnnouncements does not contain advertisements
 			// not in tt.updated
-			for svcKey, advrts := range testSC.ServiceAnnouncements {
+			for svcKey, advrts := range serviceAnnouncements {
 				for _, advrt := range advrts {
 					var seen bool
 					for _, cidr := range tt.updated[svcKey] {
