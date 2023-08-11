@@ -725,11 +725,11 @@ func tryAssertEgressRules(policyMap egressmap.PolicyMap, rules []egressRule) err
 		}
 
 		if !policyVal.GetEgressIP().Equal(r.egressIP) {
-			return fmt.Errorf("mismatched egress IP")
+			return fmt.Errorf("mismatched egress IP (%q), expected: %q", policyVal.GetEgressIP(), r.egressIP)
 		}
 
 		if !policyVal.GetGatewayIP().Equal(r.gatewayIP) {
-			return fmt.Errorf("mismatched gateway IP")
+			return fmt.Errorf("mismatched gateway IP (%q), expected: %q", policyVal.GetGatewayIP(), r.gatewayIP)
 		}
 	}
 
