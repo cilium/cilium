@@ -416,6 +416,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableNat46X64Gateway {
 			cDefinesMap["ENABLE_NAT_46X64_GATEWAY"] = "1"
 			base := option.Config.IPv6NAT46x64CIDRBase.AsSlice()
+			log.Printf("%s", base)
 			cDefinesMap["NAT_46X64_PREFIX_0"] = fmt.Sprintf("%d", base[0])
 			cDefinesMap["NAT_46X64_PREFIX_1"] = fmt.Sprintf("%d", base[1])
 			cDefinesMap["NAT_46X64_PREFIX_2"] = fmt.Sprintf("%d", base[2])
