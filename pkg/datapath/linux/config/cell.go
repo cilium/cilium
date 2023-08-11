@@ -16,9 +16,10 @@ var Cell = cell.Module(
 	cell.Provide(
 		func(in struct {
 			cell.In
-			NodeExtraDefines []dpdef.Fn `group:"header-node-defines"`
-		}) dptypes.ConfigWriter {
-			return &HeaderfileWriter{nodeExtraDefines: in.NodeExtraDefines}
+			NodeExtraDefines   []dpdef.Map `group:"header-node-defines"`
+			NodeExtraDefineFns []dpdef.Fn  `group:"header-node-define-fns"`
+		}) (dptypes.ConfigWriter, error) {
+			return NewHeaderfileWriter(in.NodeExtraDefines, in.NodeExtraDefineFns)
 		},
 	),
 )

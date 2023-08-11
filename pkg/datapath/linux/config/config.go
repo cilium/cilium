@@ -77,7 +77,21 @@ var (
 // HeaderfileWriter is a wrapper type which implements datapath.ConfigWriter.
 // It manages writing of configuration of datapath program headerfiles.
 type HeaderfileWriter struct {
-	nodeExtraDefines []dpdef.Fn
+	nodeExtraDefines   dpdef.Map
+	nodeExtraDefineFns []dpdef.Fn
+}
+
+func NewHeaderfileWriter(nodeExtraDefines []dpdef.Map, nodeExtraDefineFns []dpdef.Fn) (*HeaderfileWriter, error) {
+	merged := make(dpdef.Map)
+	for _, defines := range nodeExtraDefines {
+		if err := merged.Merge(defines); err != nil {
+			return nil, err
+		}
+	}
+	return &HeaderfileWriter{
+		nodeExtraDefines:   merged,
+		nodeExtraDefineFns: nodeExtraDefineFns,
+	}, nil
 }
 
 func writeIncludes(w io.Writer) (int, error) {
@@ -727,18 +741,18 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	}
 	cDefinesMap["EPHEMERAL_MIN"] = fmt.Sprintf("%d", ephemeralMin)
 
-	for _, fn := range h.nodeExtraDefines {
+	if err := cDefinesMap.Merge(h.nodeExtraDefines); err != nil {
+		return err
+	}
+
+	for _, fn := range h.nodeExtraDefineFns {
 		defines, err := fn()
 		if err != nil {
 			return err
 		}
 
-		for key, value := range defines {
-			if _, ok := cDefinesMap[key]; ok {
-				return fmt.Errorf("extra node define overwrites key %q", key)
-			}
-
-			cDefinesMap[key] = value
+		if err := cDefinesMap.Merge(defines); err != nil {
+			return err
 		}
 	}
 
