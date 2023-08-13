@@ -228,7 +228,7 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 		if hRoutes[0].RequestRedirect != nil {
 			route.Action = getRouteRedirect(hRoutes[0].RequestRedirect)
 		} else {
-			route.Action = getRouteAction(backends)
+			route.Action = getRouteAction(backends, r.Rewrite)
 		}
 		routes = append(routes, &route)
 		delete(matchBackendMap, r.GetMatchKey())
@@ -236,16 +236,40 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 	return routes
 }
 
-func getRouteAction(backends []model.Backend) *envoy_config_route_v3.Route_Route {
+type routeActionMutation func(*envoy_config_route_v3.Route_Route) *envoy_config_route_v3.Route_Route
+
+func hostRewriteMutation(rewrite *model.HTTPURLRewriteFilter) routeActionMutation {
+	return func(route *envoy_config_route_v3.Route_Route) *envoy_config_route_v3.Route_Route {
+		if rewrite == nil || rewrite.HostName == nil || route.Route == nil {
+			return route
+		}
+		route.Route.HostRewriteSpecifier = &envoy_config_route_v3.RouteAction_HostRewriteLiteral{
+			HostRewriteLiteral: *rewrite.HostName,
+		}
+		return route
+	}
+}
+
+func getRouteAction(backends []model.Backend, rewrite *model.HTTPURLRewriteFilter) *envoy_config_route_v3.Route_Route {
 	var routeAction *envoy_config_route_v3.Route_Route
+
+	var mutators = []routeActionMutation{
+		hostRewriteMutation(rewrite),
+	}
+
 	if len(backends) == 1 {
-		return &envoy_config_route_v3.Route_Route{
+		r := &envoy_config_route_v3.Route_Route{
 			Route: &envoy_config_route_v3.RouteAction{
 				ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
 					Cluster: fmt.Sprintf("%s/%s:%s", backends[0].Namespace, backends[0].Name, backends[0].Port.GetPort()),
 				},
 			},
 		}
+
+		for _, mutator := range mutators {
+			r = mutator(r)
+		}
+		return r
 	}
 
 	weightedClusters := make([]*envoy_config_route_v3.WeightedCluster_ClusterWeight, 0, len(backends))
@@ -267,6 +291,9 @@ func getRouteAction(backends []model.Backend) *envoy_config_route_v3.Route_Route
 				},
 			},
 		},
+	}
+	for _, mutator := range mutators {
+		routeAction = mutator(routeAction)
 	}
 	return routeAction
 }

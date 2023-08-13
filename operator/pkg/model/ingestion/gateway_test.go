@@ -1350,6 +1350,60 @@ var responseHeaderModifierHTTPListeners = []model.HTTPListener{
 	},
 }
 
+var rewriteHostHTTPInput = Input{
+	GatewayClass: gatewayv1beta1.GatewayClass{},
+	Gateway:      sameNamespaceGateway,
+	HTTPRoutes:   rewriteHostHTTPRoutes,
+	Services:     allServices,
+}
+
+var rewriteHostHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				Hostnames: []string{"rewrite.example"},
+				PathMatch: model.StringMatch{Prefix: "/one"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Rewrite: &model.HTTPURLRewriteFilter{
+					HostName: model.AddressOf("one.example.org"),
+				},
+			},
+			{
+				Hostnames: []string{"rewrite.example"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v2",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Rewrite: &model.HTTPURLRewriteFilter{
+					HostName: model.AddressOf("example.org"),
+				},
+			},
+		},
+	},
+}
+
 func TestHTTPGatewayAPI(t *testing.T) {
 	tests := map[string]struct {
 		input Input
@@ -1410,6 +1464,10 @@ func TestHTTPGatewayAPI(t *testing.T) {
 		"Conformance/HTTPRouteResponseHeaderModifier": {
 			input: responseHeaderModifierHTTPInput,
 			want:  responseHeaderModifierHTTPListeners,
+		},
+		"Conformance/HTTPRouteRewriteHost": {
+			input: rewriteHostHTTPInput,
+			want:  rewriteHostHTTPListeners,
 		},
 	}
 

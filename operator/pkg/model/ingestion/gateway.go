@@ -88,6 +88,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 				var requestHeaderFilter *model.HTTPHeaderFilter
 				var responseHeaderFilter *model.HTTPHeaderFilter
 				var requestRedirectFilter *model.HTTPRequestRedirectFilter
+				var rewriteFilter *model.HTTPURLRewriteFilter
 				if len(rule.Filters) > 0 {
 					for _, f := range rule.Filters {
 						if f.Type == gatewayv1beta1.HTTPRouteFilterRequestHeaderModifier {
@@ -109,6 +110,10 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 						if f.Type == gatewayv1beta1.HTTPRouteFilterRequestRedirect {
 							requestRedirectFilter = toHTTPRequestRedirectFilter(f.RequestRedirect)
 						}
+
+						if f.Type == gatewayv1beta1.HTTPRouteFilterURLRewrite {
+							rewriteFilter = toHTTPRewriteFilter(f.URLRewrite)
+						}
 					}
 				}
 
@@ -120,6 +125,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 						RequestHeaderFilter:    requestHeaderFilter,
 						ResponseHeaderModifier: responseHeaderFilter,
 						RequestRedirect:        requestRedirectFilter,
+						Rewrite:                rewriteFilter,
 					})
 				}
 
@@ -135,6 +141,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 						RequestHeaderFilter:    requestHeaderFilter,
 						ResponseHeaderModifier: responseHeaderFilter,
 						RequestRedirect:        requestRedirectFilter,
+						Rewrite:                rewriteFilter,
 					})
 				}
 			}
@@ -244,6 +251,15 @@ func toHTTPRequestRedirectFilter(redirect *gatewayv1beta1.HTTPRequestRedirectFil
 		Path:       pathModifier,
 		Port:       (*int32)(redirect.Port),
 		StatusCode: redirect.StatusCode,
+	}
+}
+
+func toHTTPRewriteFilter(rewrite *gatewayv1beta1.HTTPURLRewriteFilter) *model.HTTPURLRewriteFilter {
+	if rewrite == nil {
+		return nil
+	}
+	return &model.HTTPURLRewriteFilter{
+		HostName: (*string)(rewrite.Hostname),
 	}
 }
 
