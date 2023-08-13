@@ -147,3 +147,27 @@ func Test_hostRewriteMutation(t *testing.T) {
 		})
 	})
 }
+
+func Test_pathPrefixMutation(t *testing.T) {
+	t.Run("no prefix rewrite", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		res := pathPrefixMutation(nil)(route)
+		require.Equal(t, route, res)
+	})
+
+	t.Run("with prefix rewrite", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		rewrite := &model.HTTPURLRewriteFilter{
+			Path: &model.StringMatch{
+				Prefix: "/prefix",
+			},
+		}
+
+		res := pathPrefixMutation(rewrite)(route)
+		require.Equal(t, res.Route.PrefixRewrite, "/prefix")
+	})
+}

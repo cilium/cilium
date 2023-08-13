@@ -200,6 +200,9 @@ type HTTPURLRewriteFilter struct {
 	// Hostname is the value to be used to replace the Host header value during
 	// forwarding.
 	HostName *string `json:"hostname,omitempty"`
+
+	// Path is the values to be used to replace the path
+	Path *StringMatch `json:"path,omitempty"`
 }
 
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.

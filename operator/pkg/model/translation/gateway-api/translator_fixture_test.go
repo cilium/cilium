@@ -191,10 +191,8 @@ var basicHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 							Routes: []*envoy_config_route_v3.Route{
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/bar(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/bar",
 										},
 									},
 									Action: toRouteAction("default", "my-service", "8080"),
@@ -1115,20 +1113,16 @@ var hostnameIntersectionHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyCo
 							Routes: []*envoy_config_route_v3.Route{
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/s1(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/s1",
 										},
 									},
 									Action: routeActionBackendV1,
 								},
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/s3(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/s3",
 										},
 									},
 									Action: routeActionBackendV3,
@@ -1141,10 +1135,8 @@ var hostnameIntersectionHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyCo
 							Routes: []*envoy_config_route_v3.Route{
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/s2(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/s2",
 										},
 									},
 									Action: routeActionBackendV2,
@@ -1157,10 +1149,8 @@ var hostnameIntersectionHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyCo
 							Routes: []*envoy_config_route_v3.Route{
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/s2(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/s2",
 										},
 									},
 									Action: routeActionBackendV2,
@@ -1173,10 +1163,8 @@ var hostnameIntersectionHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyCo
 							Routes: []*envoy_config_route_v3.Route{
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/s2(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/s2",
 										},
 									},
 									Action: routeActionBackendV2,
@@ -1189,10 +1177,8 @@ var hostnameIntersectionHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyCo
 							Routes: []*envoy_config_route_v3.Route{
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/s4(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/s4",
 										},
 									},
 									Action: routeActionBackendV1,
@@ -2501,10 +2487,8 @@ var requestRedirectHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 							Routes: []*envoy_config_route_v3.Route{
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/hostname-redirect(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/hostname-redirect",
 										},
 									},
 									Action: &envoy_config_route_v3.Route_Redirect{
@@ -2515,10 +2499,8 @@ var requestRedirectHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 								},
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/status-code-301(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/status-code-301",
 										},
 									},
 									Action: &envoy_config_route_v3.Route_Redirect{
@@ -2527,10 +2509,8 @@ var requestRedirectHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 								},
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/host-and-status(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/host-and-status",
 										},
 									},
 									Action: &envoy_config_route_v3.Route_Redirect{
@@ -2745,10 +2725,8 @@ var responseHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoy
 							Routes: []*envoy_config_route_v3.Route{
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/case-insensitivity(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/case-insensitivity",
 										},
 									},
 									ResponseHeadersToAdd: []*envoy_config_core_v3.HeaderValueOption{
@@ -2800,10 +2778,8 @@ var responseHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoy
 								},
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/multiple(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/multiple",
 										},
 									},
 									ResponseHeadersToAdd: []*envoy_config_core_v3.HeaderValueOption{
@@ -2848,10 +2824,8 @@ var responseHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoy
 								},
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/remove(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/remove",
 										},
 									},
 									ResponseHeadersToRemove: []string{"X-Header-Remove"},
@@ -2859,10 +2833,8 @@ var responseHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoy
 								},
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/set(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/set",
 										},
 									},
 									ResponseHeadersToAdd: []*envoy_config_core_v3.HeaderValueOption{
@@ -2878,10 +2850,8 @@ var responseHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoy
 								},
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/add(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/add",
 										},
 									},
 									ResponseHeadersToAdd: []*envoy_config_core_v3.HeaderValueOption{
@@ -3041,6 +3011,305 @@ var rewriteHostHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 			},
 			{Any: backendV1XDSResource},
 			{Any: backendV2XDSResource},
+		},
+	},
+}
+
+// rewritePathHTTPListeners is the internal representation of the Conformance/HTTPRouteRewritePath
+var rewritePathHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "same-namespace",
+				Kind:      "Gateway",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{Prefix: "/prefix/one"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Rewrite: &model.HTTPURLRewriteFilter{
+					Path: &model.StringMatch{
+						Prefix: "/one",
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/full/one"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Rewrite: &model.HTTPURLRewriteFilter{
+					Path: &model.StringMatch{
+						Exact: "/one",
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/full/rewrite-path-and-modify-headers"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Rewrite: &model.HTTPURLRewriteFilter{
+					Path: &model.StringMatch{
+						Exact: "/test",
+					},
+				},
+				RequestHeaderFilter: &model.HTTPHeaderFilter{
+					HeadersToAdd: []model.Header{
+						{
+							Name:  "X-Header-Add",
+							Value: "header-val-1",
+						},
+						{
+							Name:  "X-Header-Add-Append",
+							Value: "header-val-2",
+						},
+					},
+					HeadersToSet: []model.Header{
+						{
+							Name:  "X-Header-Set",
+							Value: "set-overwrites-values",
+						},
+					},
+					HeadersToRemove: []string{"X-Header-Remove"},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/prefix/rewrite-path-and-modify-headers"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Rewrite: &model.HTTPURLRewriteFilter{
+					Path: &model.StringMatch{
+						Prefix: "/prefix",
+					},
+				},
+				RequestHeaderFilter: &model.HTTPHeaderFilter{
+					HeadersToAdd: []model.Header{
+						{
+							Name:  "X-Header-Add",
+							Value: "header-val-1",
+						},
+						{
+							Name:  "X-Header-Add-Append",
+							Value: "header-val-2",
+						},
+					},
+					HeadersToSet: []model.Header{
+						{
+							Name:  "X-Header-Set",
+							Value: "set-overwrites-values",
+						},
+					},
+					HeadersToRemove: []string{"X-Header-Remove"},
+				},
+			},
+		},
+	},
+}
+var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-gateway-same-namespace",
+		Namespace: "gateway-conformance-infra",
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				Kind:       "Gateway",
+				Name:       "same-namespace",
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-gateway-same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "infra-backend-v1",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: httpInsecureListenerXDSResource},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "*",
+							Domains: []string{"*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/prefix/rewrite-path-and-modify-headers",
+										},
+									},
+									Action: &envoy_config_route_v3.Route_Route{
+										Route: &envoy_config_route_v3.RouteAction{
+											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
+											},
+											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
+											},
+											PrefixRewrite: "/prefix",
+										},
+									},
+									RequestHeadersToAdd: []*envoy_config_core_v3.HeaderValueOption{
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-Header-Add",
+												Value: "header-val-1",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
+										},
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-Header-Add-Append",
+												Value: "header-val-2",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
+										},
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-Header-Set",
+												Value: "set-overwrites-values",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+										},
+									},
+									RequestHeadersToRemove: []string{"X-Header-Remove"},
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/full/rewrite-path-and-modify-headers",
+										},
+									},
+									Action: &envoy_config_route_v3.Route_Route{
+										Route: &envoy_config_route_v3.RouteAction{
+											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
+											},
+											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
+											},
+											RegexRewrite: &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+												Pattern: &envoy_type_matcher_v3.RegexMatcher{
+													Regex: "^/.*$",
+												},
+												Substitution: "/test",
+											},
+										},
+									},
+									RequestHeadersToAdd: []*envoy_config_core_v3.HeaderValueOption{
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-Header-Add",
+												Value: "header-val-1",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
+										},
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-Header-Add-Append",
+												Value: "header-val-2",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
+										},
+										{
+											Header: &envoy_config_core_v3.HeaderValue{
+												Key:   "X-Header-Set",
+												Value: "set-overwrites-values",
+											},
+											AppendAction: envoy_config_core_v3.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+										},
+									},
+									RequestHeadersToRemove: []string{"X-Header-Remove"},
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/prefix/one",
+										},
+									},
+									Action: &envoy_config_route_v3.Route_Route{
+										Route: &envoy_config_route_v3.RouteAction{
+											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
+											},
+											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
+											},
+											PrefixRewrite: "/one",
+										},
+									},
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/full/one",
+										},
+									},
+									Action: &envoy_config_route_v3.Route_Route{
+										Route: &envoy_config_route_v3.RouteAction{
+											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
+											},
+											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
+											},
+											RegexRewrite: &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+												Pattern: &envoy_type_matcher_v3.RegexMatcher{
+													Regex: "^/.*$",
+												},
+												Substitution: "/one",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: backendV1XDSResource},
 		},
 	},
 }
