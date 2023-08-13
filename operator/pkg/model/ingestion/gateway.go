@@ -258,8 +258,26 @@ func toHTTPRewriteFilter(rewrite *gatewayv1beta1.HTTPURLRewriteFilter) *model.HT
 	if rewrite == nil {
 		return nil
 	}
+	var path *model.StringMatch
+	if rewrite.Path != nil {
+		switch rewrite.Path.Type {
+		case gatewayv1beta1.FullPathHTTPPathModifier:
+			if rewrite.Path.ReplaceFullPath != nil {
+				path = &model.StringMatch{
+					Exact: *rewrite.Path.ReplaceFullPath,
+				}
+			}
+		case gatewayv1beta1.PrefixMatchHTTPPathModifier:
+			if rewrite.Path.ReplacePrefixMatch != nil {
+				path = &model.StringMatch{
+					Prefix: *rewrite.Path.ReplacePrefixMatch,
+				}
+			}
+		}
+	}
 	return &model.HTTPURLRewriteFilter{
 		HostName: (*string)(rewrite.Hostname),
+		Path:     path,
 	}
 }
 
