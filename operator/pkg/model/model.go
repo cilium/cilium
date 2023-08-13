@@ -193,6 +193,15 @@ type HTTPRequestRedirectFilter struct {
 	StatusCode *int `json:"statusCode,omitempty"`
 }
 
+// HTTPURLRewriteFilter defines a filter that modifies a request during
+// forwarding. At most one of these filters may be used on a Route rule. This
+// MUST NOT be used on the same Route rule as a HTTPRequestRedirect filter.
+type HTTPURLRewriteFilter struct {
+	// Hostname is the value to be used to replace the Host header value during
+	// forwarding.
+	HostName *string `json:"hostname,omitempty"`
+}
+
 // HTTPRoute holds all the details needed to route HTTP traffic to a backend.
 type HTTPRoute struct {
 	Name string `json:"name,omitempty"`
@@ -221,6 +230,9 @@ type HTTPRoute struct {
 	// RequestRedirect defines a schema for a filter that responds to the
 	// request with an HTTP redirection.
 	RequestRedirect *HTTPRequestRedirectFilter `json:"requestRedirect,omitempty"`
+
+	// Rewrite defines a schema for a filter that modifies the URL of the request.
+	Rewrite *HTTPURLRewriteFilter `json:"rewrite,omitempty"`
 }
 
 // GetMatchKey returns the key to be used for matching the backend.
