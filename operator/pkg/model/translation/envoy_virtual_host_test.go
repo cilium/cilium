@@ -10,6 +10,9 @@ import (
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/operator/pkg/model"
 )
 
 func TestSortableRoute(t *testing.T) {
@@ -119,4 +122,28 @@ func TestSortableRoute(t *testing.T) {
 	// More Header match comes first
 	assert.True(t, len(arr[4].Match.GetHeaders()) == 2)
 	assert.True(t, len(arr[5].Match.GetHeaders()) == 1)
+}
+
+func Test_hostRewriteMutation(t *testing.T) {
+	t.Run("no host rewrite", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		res := hostRewriteMutation(nil)(route)
+		require.Equal(t, route, res)
+	})
+
+	t.Run("with host rewrite", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		rewrite := &model.HTTPURLRewriteFilter{
+			HostName: model.AddressOf("example.com"),
+		}
+
+		res := hostRewriteMutation(rewrite)(route)
+		require.Equal(t, res.Route.HostRewriteSpecifier, &envoy_config_route_v3.RouteAction_HostRewriteLiteral{
+			HostRewriteLiteral: "example.com",
+		})
+	})
 }

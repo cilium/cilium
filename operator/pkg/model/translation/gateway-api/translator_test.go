@@ -157,6 +157,15 @@ func Test_translator_Translate(t *testing.T) {
 			},
 			want: responseHeaderModifierHTTPListenersCiliumEnvoyConfig,
 		},
+		{
+			name: "Conformance/HTTPRouteRewriteHost",
+			args: args{
+				m: &model.Model{
+					HTTP: rewriteHostHTTPListeners,
+				},
+			},
+			want: rewriteHostHTTPListenersCiliumEnvoyConfig,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
