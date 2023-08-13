@@ -1861,3 +1861,75 @@ var responseHeaderModifierHTTPRoutes = []gatewayv1beta1.HTTPRoute{
 		},
 	},
 }
+
+// https://github.com/kubernetes-sigs/gateway-api/blob/v0.7.1/conformance/tests/httproute-rewrite-host.yaml
+var rewriteHostHTTPRoutes = []gatewayv1beta1.HTTPRoute{
+	{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rewrite-host",
+			Namespace: "gateway-conformance-infra",
+		},
+		Spec: gatewayv1beta1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
+				ParentRefs: []gatewayv1beta1.ParentReference{
+					{
+						Name: "same-namespace",
+					},
+				},
+			},
+			Hostnames: []gatewayv1beta1.Hostname{
+				"rewrite.example",
+			},
+			Rules: []gatewayv1beta1.HTTPRouteRule{
+				{
+					Matches: []gatewayv1beta1.HTTPRouteMatch{
+						{
+							Path: &gatewayv1beta1.HTTPPathMatch{
+								Type:  model.AddressOf[gatewayv1beta1.PathMatchType](gatewayv1beta1.PathMatchPathPrefix),
+								Value: model.AddressOf("/one"),
+							},
+						},
+					},
+					Filters: []gatewayv1beta1.HTTPRouteFilter{
+						{
+							Type: "URLRewrite",
+							URLRewrite: &gatewayv1beta1.HTTPURLRewriteFilter{
+								Hostname: model.AddressOf[gatewayv1beta1.PreciseHostname]("one.example.org"),
+							},
+						},
+					},
+					BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1beta1.BackendRef{
+								BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+									Name: "infra-backend-v1",
+									Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+								},
+							},
+						},
+					},
+				},
+				{
+					Filters: []gatewayv1beta1.HTTPRouteFilter{
+						{
+							Type: "URLRewrite",
+							URLRewrite: &gatewayv1beta1.HTTPURLRewriteFilter{
+								Hostname: model.AddressOf[gatewayv1beta1.PreciseHostname]("example.org"),
+							},
+						},
+					},
+					BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1beta1.BackendRef{
+								BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+									Name: "infra-backend-v2",
+									Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}

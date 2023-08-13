@@ -2905,6 +2905,146 @@ var responseHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoy
 	},
 }
 
+// rewriteHostHTTPListeners is the internal representation of the Conformance/HTTPRouteRewriteHost
+var rewriteHostHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+				Kind:      "Gateway",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				Hostnames: []string{"rewrite.example"},
+				PathMatch: model.StringMatch{Prefix: "/one"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Rewrite: &model.HTTPURLRewriteFilter{
+					HostName: model.AddressOf("one.example.org"),
+				},
+			},
+			{
+				Hostnames: []string{"rewrite.example"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v2",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Rewrite: &model.HTTPURLRewriteFilter{
+					HostName: model.AddressOf("example.org"),
+				},
+			},
+		},
+	},
+}
+var rewriteHostHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "cilium-gateway-same-namespace",
+		Namespace: "gateway-conformance-infra",
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				Kind:       "Gateway",
+				Name:       "same-namespace",
+			},
+		},
+	},
+	Spec: ciliumv2.CiliumEnvoyConfigSpec{
+		Services: []*ciliumv2.ServiceListener{
+			{
+				Name:      "cilium-gateway-same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		BackendServices: []*ciliumv2.Service{
+			{
+				Name:      "infra-backend-v1",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+			{
+				Name:      "infra-backend-v2",
+				Namespace: "gateway-conformance-infra",
+				Ports:     []string{"8080"},
+			},
+		},
+		Resources: []ciliumv2.XDSResource{
+			{Any: httpInsecureListenerXDSResource},
+			{
+				Any: toAny(&envoy_config_route_v3.RouteConfiguration{
+					Name: "listener-insecure",
+					VirtualHosts: []*envoy_config_route_v3.VirtualHost{
+						{
+							Name:    "rewrite.example",
+							Domains: []string{"rewrite.example", "rewrite.example:*"},
+							Routes: []*envoy_config_route_v3.Route{
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/one",
+										},
+									},
+									Action: &envoy_config_route_v3.Route_Route{
+										Route: &envoy_config_route_v3.RouteAction{
+											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v1", "8080"),
+											},
+											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
+											},
+											HostRewriteSpecifier: &envoy_config_route_v3.RouteAction_HostRewriteLiteral{
+												HostRewriteLiteral: "one.example.org",
+											},
+										},
+									},
+								},
+								{
+									Match: &envoy_config_route_v3.RouteMatch{
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									Action: &envoy_config_route_v3.Route_Route{
+										Route: &envoy_config_route_v3.RouteAction{
+											ClusterSpecifier: &envoy_config_route_v3.RouteAction_Cluster{
+												Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v2", "8080"),
+											},
+											MaxStreamDuration: &envoy_config_route_v3.RouteAction_MaxStreamDuration{
+												MaxStreamDuration: &durationpb.Duration{Seconds: 0},
+											},
+											HostRewriteSpecifier: &envoy_config_route_v3.RouteAction_HostRewriteLiteral{
+												HostRewriteLiteral: "example.org",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				}),
+			},
+			{Any: backendV1XDSResource},
+			{Any: backendV2XDSResource},
+		},
+	},
+}
+
 func toEnvoyCluster(namespace, name, port string) *envoy_config_cluster_v3.Cluster {
 	return &envoy_config_cluster_v3.Cluster{
 		Name: fmt.Sprintf("%s/%s:%s", namespace, name, port),
