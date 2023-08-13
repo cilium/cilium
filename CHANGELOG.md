@@ -1,5 +1,41 @@
 # Changelog
 
+## v1.12.13
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Remove remote-node labels from ipcache on node delete (#27406, @joestringer)
+* Fix a bug that could cause packet drops of type XfrmOutPolBlock when IPsec is enabled and node are recycled. (Backport PR #27138, Upstream PR #27029, @pchaigno)
+* Fix a bug that could cause IPsec-encrypted packets to be sent to the wrong destination node when node churn is high. (Backport PR #27138, Upstream PR #27029, @pchaigno)
+* operator: Adjust CiliumEndpoint gc to account for kvstore mode (Backport PR #27155, Upstream PR #25324, @learnitall)
+
+**CI Changes:**
+* Add renovate tags for automatic updates of kernel version in v1.12 (#27388, @aanm)
+* ci: fix Azure cluster names sometimes being too long (Backport PR #27031, Upstream PR #26933, @nbusseneau)
+* test: Fix and unquarantine `Skip conntrack` test (Backport PR #27031, Upstream PR #25038, @pchaigno)
+* Trigger required workflows using Ariane (Backport PR #27094, Upstream PR #27002, @michi-covalent)
+
+**Misc Changes:**
+* chore(deps): update all github action dependencies (v1.12) (patch) (#27294, @renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.19.11 (v1.12) (#27019, @renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.19.12 (v1.12) (#27295, @renovate[bot])
+* chore(deps): update helm/kind-action action to v1.8.0 (v1.12) (#26830, @renovate[bot])
+* docs/ipsec: Document RSS limitation (Backport PR #27031, Upstream PR #26979, @pchaigno)
+* docs/ipsec: Extend troubleshooting section (Backport PR #27031, Upstream PR #26808, @pchaigno)
+* docs: Fix gRPC API generation for online docs (Backport PR #27094, Upstream PR #27014, @qmonnet)
+* docs: Replace non-portable "sed -i" in Makefile (Backport PR #27240, Upstream PR #27122, @qmonnet)
+* docs: Specify Helm chart version in "cilium install" commands (Backport PR #27031, Upstream PR #26934, @michi-covalent)
+* Documentation: fix the broken links/dead links (Backport PR #27155, Upstream PR #26880, @vipul-21)
+
+**Other Changes:**
+* backport v1.12: IPsec upgrade tests (#27173, @brb)
+* Delete IP Label metadata on delete from ipcache (#26958, @meyskens)
+* install: Update image digests for v1.12.12 (#27124, @nathanjsweet)
+* k8s: fix incorrect EndpointSlice API version (#27378, @nebril)
+* Update Service Mesh docs to fix a number of issues (#27335, @youngnick)
+
 ## v1.12.12
 
 Summary of Changes
