@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/operator/pkg/model"
+	"github.com/cilium/cilium/pkg/math"
 )
 
 const (
@@ -76,6 +77,15 @@ func (s SortableRoute) Less(i, j int) bool {
 	}
 
 	// Make sure longest Prefix match always comes first
+	prefixMatch1 := math.IntMax(len(s[i].Match.GetPathSeparatedPrefix()), len(s[i].Match.GetPrefix()))
+	prefixMatch2 := math.IntMax(len(s[j].Match.GetPathSeparatedPrefix()), len(s[j].Match.GetPrefix()))
+	if prefixMatch1 > prefixMatch2 {
+		return true
+	} else if prefixMatch1 < prefixMatch2 {
+		return false
+	}
+
+	// Make sure longest Regex match always comes first
 	regexMatch1 := len(s[i].Match.GetSafeRegex().String())
 	regexMatch2 := len(s[j].Match.GetSafeRegex().String())
 	if regexMatch1 > regexMatch2 {
@@ -250,11 +260,39 @@ func hostRewriteMutation(rewrite *model.HTTPURLRewriteFilter) routeActionMutatio
 	}
 }
 
+func pathPrefixMutation(rewrite *model.HTTPURLRewriteFilter) routeActionMutation {
+	return func(route *envoy_config_route_v3.Route_Route) *envoy_config_route_v3.Route_Route {
+		if rewrite == nil || rewrite.Path == nil || len(rewrite.Path.Prefix) == 0 {
+			return route
+		}
+		route.Route.PrefixRewrite = rewrite.Path.Prefix
+		return route
+	}
+}
+
+func pathFullReplaceMutation(rewrite *model.HTTPURLRewriteFilter) routeActionMutation {
+	return func(route *envoy_config_route_v3.Route_Route) *envoy_config_route_v3.Route_Route {
+		if rewrite == nil || rewrite.Path == nil || len(rewrite.Path.Exact) == 0 {
+			return route
+		}
+		route.Route.RegexRewrite = &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+			Pattern: &envoy_type_matcher_v3.RegexMatcher{
+				EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
+				Regex:      "^/.*$",
+			},
+			Substitution: rewrite.Path.Exact,
+		}
+		return route
+	}
+}
+
 func getRouteAction(backends []model.Backend, rewrite *model.HTTPURLRewriteFilter) *envoy_config_route_v3.Route_Route {
 	var routeAction *envoy_config_route_v3.Route_Route
 
 	var mutators = []routeActionMutation{
 		hostRewriteMutation(rewrite),
+		pathPrefixMutation(rewrite),
+		pathFullReplaceMutation(rewrite),
 	}
 
 	if len(backends) == 1 {
@@ -365,7 +403,9 @@ func envoyHTTPRouteNoBackend(route model.HTTPRoute, hostnames []string, hostName
 func getRouteMatch(hostnames []string, hostNameSuffixMatch bool, pathMatch model.StringMatch, headers []model.KeyValueMatch, query []model.KeyValueMatch, method *string) *envoy_config_route_v3.RouteMatch {
 	headerMatchers := getHeaderMatchers(hostnames, hostNameSuffixMatch, headers, method)
 	queryMatchers := getQueryMatchers(query)
-	if pathMatch.Exact != "" {
+
+	switch {
+	case pathMatch.Exact != "":
 		return &envoy_config_route_v3.RouteMatch{
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_Path{
 				Path: pathMatch.Exact,
@@ -373,19 +413,23 @@ func getRouteMatch(hostnames []string, hostNameSuffixMatch bool, pathMatch model
 			Headers:         headerMatchers,
 			QueryParameters: queryMatchers,
 		}
-	}
-	if pathMatch.Prefix != "" {
+	case pathMatch.Prefix == "/":
 		return &envoy_config_route_v3.RouteMatch{
-			PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-				SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-					Regex: getMatchingPrefixRegex(pathMatch.Prefix),
-				},
+			PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+				Prefix: pathMatch.Prefix,
 			},
 			Headers:         headerMatchers,
 			QueryParameters: queryMatchers,
 		}
-	}
-	if pathMatch.Regex != "" {
+	case pathMatch.Prefix != "":
+		return &envoy_config_route_v3.RouteMatch{
+			PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+				PathSeparatedPrefix: strings.TrimSuffix(pathMatch.Prefix, "/"),
+			},
+			Headers:         headerMatchers,
+			QueryParameters: queryMatchers,
+		}
+	case pathMatch.Regex != "":
 		return &envoy_config_route_v3.RouteMatch{
 			PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
 				SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
@@ -395,13 +439,14 @@ func getRouteMatch(hostnames []string, hostNameSuffixMatch bool, pathMatch model
 			Headers:         headerMatchers,
 			QueryParameters: queryMatchers,
 		}
-	}
-	return &envoy_config_route_v3.RouteMatch{
-		PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
-			Prefix: "/",
-		},
-		Headers:         headerMatchers,
-		QueryParameters: queryMatchers,
+	default:
+		return &envoy_config_route_v3.RouteMatch{
+			PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+				Prefix: "/",
+			},
+			Headers:         headerMatchers,
+			QueryParameters: queryMatchers,
+		}
 	}
 }
 
@@ -465,23 +510,6 @@ func getHeaderMatchers(hostnames []string, hostNameSuffixMatch bool, headers []m
 	}
 
 	return result
-}
-
-// getMatchingPrefixRegex returns safe regex used by envoy to match the
-// prefix. By default, prefix matching in envoy will not reject /foobar
-// if the original path is only /foo. Hence, conversion with safe regex
-// is required.
-//
-// If the original path is /foo, the returned regex will be /foo(/.*)?$
-// - /foo -> matched
-// - /foo/ -> matched
-// - /foobar -> not matched
-func getMatchingPrefixRegex(path string) string {
-	removedTrailingSlash := path
-	if strings.HasSuffix(path, slash) {
-		removedTrailingSlash = removedTrailingSlash[:len(removedTrailingSlash)-1]
-	}
-	return fmt.Sprintf("%s(/.*)?$", removedTrailingSlash)
 }
 
 // getMatchingHeaderRegex is to make sure that one and only one single
