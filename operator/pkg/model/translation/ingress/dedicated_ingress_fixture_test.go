@@ -464,10 +464,8 @@ var hostRulesListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 							Routes: []*envoy_config_route_v3.Route{
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
 										},
 									},
 									Action: toHTTPSRedirectAction(),
@@ -480,10 +478,8 @@ var hostRulesListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 							Routes: []*envoy_config_route_v3.Route{
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
 										},
 										Headers: []*envoy_config_route_v3.HeaderMatcher{
 											{
@@ -518,10 +514,8 @@ var hostRulesListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 							Routes: []*envoy_config_route_v3.Route{
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_Prefix{
+											Prefix: "/",
 										},
 									},
 									Action: toWeightedClusterRouteAction([]string{
@@ -801,10 +795,8 @@ var pathRulesListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 								},
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/foo(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/foo",
 										},
 									},
 									Action: toRouteAction("random-namespace", "foo-prefix", "8080"),
@@ -817,30 +809,24 @@ var pathRulesListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 							Routes: []*envoy_config_route_v3.Route{
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/aaa/bbb(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/aaa/bbb",
 										},
 									},
 									Action: toRouteAction("random-namespace", "aaa-slash-bbb-prefix", "8080"),
 								},
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/foo(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/foo",
 										},
 									},
 									Action: toRouteAction("random-namespace", "foo-prefix", "8080"),
 								},
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/aaa(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/aaa",
 										},
 									},
 									Action: toRouteAction("random-namespace", "aaa-prefix", "8080"),
@@ -861,10 +847,8 @@ var pathRulesListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 								},
 								{
 									Match: &envoy_config_route_v3.RouteMatch{
-										PathSpecifier: &envoy_config_route_v3.RouteMatch_SafeRegex{
-											SafeRegex: &envoy_type_matcher_v3.RegexMatcher{
-												Regex: "/aaa/bbb(/.*)?$",
-											},
+										PathSpecifier: &envoy_config_route_v3.RouteMatch_PathSeparatedPrefix{
+											PathSeparatedPrefix: "/aaa/bbb",
 										},
 									},
 									Action: toRouteAction("random-namespace", "aaa-slash-bbb-slash-prefix", "8080"),
