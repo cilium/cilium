@@ -36,7 +36,7 @@ var bpfNatListCmd = &cobra.Command{
 				cmd.PrintErrf("Invalid ClusterID: %s", err.Error())
 				return
 			}
-			ipv4, ipv6, err := nat.ClusterMaps(uint32(clusterID), true, false)
+			ipv4, ipv6, err := nat.ClusterMaps(uint32(clusterID), true, getIpv6EnableStatus())
 			if err != nil {
 				cmd.PrintErrf("Failed to retrieve cluster maps: %s", err.Error())
 				return
