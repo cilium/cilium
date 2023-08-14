@@ -29,6 +29,7 @@ import (
 	ipamMetadata "github.com/cilium/cilium/pkg/ipam/metadata"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -97,6 +98,9 @@ var (
 		// DB provides an extendable in-memory database with rich transactions
 		// and multi-version concurrency control through immutable radix trees.
 		statedb.Cell,
+		// Store cell provides factory for creating watchStore/syncStore/storeManager
+		// useful for synchronizing data from/to kvstore.
+		store.Cell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure

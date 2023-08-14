@@ -96,11 +96,12 @@ type ServiceSyncConfiguration interface {
 type ServiceSyncParameters struct {
 	ServiceSyncConfiguration
 
-	Clientset  k8sClient.Clientset
-	Services   resource.Resource[*slim_corev1.Service]
-	Endpoints  resource.Resource[*k8s.Endpoints]
-	Backend    store.SyncStoreBackend
-	SharedOnly bool
+	Clientset    k8sClient.Clientset
+	Services     resource.Resource[*slim_corev1.Service]
+	Endpoints    resource.Resource[*k8s.Endpoints]
+	Backend      store.SyncStoreBackend
+	SharedOnly   bool
+	StoreFactory store.Factory
 }
 
 // StartSynchronizingServices starts a controller for synchronizing services from k8s to kvstore
@@ -119,7 +120,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 			cfg.Backend = kvstore.Client()
 		}
 
-		store := store.NewWorkqueueSyncStore(cfg.LocalClusterName(),
+		store := cfg.StoreFactory.NewSyncStore(cfg.LocalClusterName(),
 			cfg.Backend, serviceStore.ServiceStorePrefix)
 		kvs = store
 		close(kvstoreReady)

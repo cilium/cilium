@@ -51,6 +51,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -144,6 +145,7 @@ var (
 
 			lbipam.Cell,
 			auth.Cell,
+			store.Cell,
 			legacyCell,
 
 			// When running in kvstore mode, the start hook of the identity GC
@@ -379,13 +381,14 @@ func kvstoreEnabled() bool {
 
 var legacyCell = cell.Invoke(registerLegacyOnLeader)
 
-func registerLegacyOnLeader(lc hive.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources) {
+func registerLegacyOnLeader(lc hive.Lifecycle, clientset k8sClient.Clientset, resources operatorK8s.Resources, factory store.Factory) {
 	ctx, cancel := context.WithCancel(context.Background())
 	legacy := &legacyOnLeader{
-		ctx:       ctx,
-		cancel:    cancel,
-		clientset: clientset,
-		resources: resources,
+		ctx:          ctx,
+		cancel:       cancel,
+		clientset:    clientset,
+		resources:    resources,
+		storeFactory: factory,
 	}
 	lc.Append(hive.Hook{
 		OnStart: legacy.onStart,
@@ -394,11 +397,12 @@ func registerLegacyOnLeader(lc hive.Lifecycle, clientset k8sClient.Clientset, re
 }
 
 type legacyOnLeader struct {
-	ctx       context.Context
-	cancel    context.CancelFunc
-	clientset k8sClient.Clientset
-	wg        sync.WaitGroup
-	resources operatorK8s.Resources
+	ctx          context.Context
+	cancel       context.CancelFunc
+	clientset    k8sClient.Clientset
+	wg           sync.WaitGroup
+	resources    operatorK8s.Resources
+	storeFactory store.Factory
 }
 
 func (legacy *legacyOnLeader) onStop(_ hive.HookContext) error {
@@ -508,11 +512,11 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		if legacy.clientset.IsEnabled() && operatorOption.Config.SyncK8sServices {
 			operatorWatchers.StartSynchronizingServices(legacy.ctx, &legacy.wg, operatorWatchers.ServiceSyncParameters{
 				ServiceSyncConfiguration: option.Config,
-
-				Clientset:  legacy.clientset,
-				Services:   legacy.resources.Services,
-				Endpoints:  legacy.resources.Endpoints,
-				SharedOnly: true,
+				Clientset:                legacy.clientset,
+				Services:                 legacy.resources.Services,
+				Endpoints:                legacy.resources.Endpoints,
+				SharedOnly:               true,
+				StoreFactory:             legacy.storeFactory,
 			})
 			// If K8s is enabled we can do the service translation automagically by
 			// looking at services from k8s and retrieve the service IP from that.

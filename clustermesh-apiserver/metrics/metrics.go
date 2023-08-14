@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -43,15 +44,26 @@ func (def MetricsConfig) Flags(flags *pflag.FlagSet) {
 type metricsManager struct {
 	registry *prometheus.Registry
 	server   http.Server
+
+	metrics []metric.WithMetadata
 }
 
-func registerMetricsManager(lc hive.Lifecycle, cfg MetricsConfig) error {
+type params struct {
+	cell.In
+
+	MetricsConfig
+
+	Metrics []metric.WithMetadata `group:"hive-metrics"`
+}
+
+func registerMetricsManager(lc hive.Lifecycle, params params) error {
 	manager := metricsManager{
 		registry: prometheus.NewPedanticRegistry(),
-		server:   http.Server{Addr: cfg.PrometheusServeAddr},
+		server:   http.Server{Addr: params.PrometheusServeAddr},
+		metrics:  params.Metrics,
 	}
 
-	if cfg.PrometheusServeAddr != "" {
+	if params.PrometheusServeAddr != "" {
 		lc.Append(&manager)
 	} else {
 		log.Info("Prometheus metrics are disabled")
@@ -77,14 +89,16 @@ func (mm *metricsManager) Start(hive.HookContext) error {
 		metrics.KVStoreOperationsDuration,
 		metrics.KVStoreEventsQueueDuration,
 		metrics.KVStoreQuorumErrors,
-		metrics.KVStoreSyncQueueSize,
-		metrics.KVStoreInitialSyncCompleted,
 		metrics.APILimiterProcessingDuration,
 		metrics.APILimiterWaitDuration,
 		metrics.APILimiterRequestsInFlight,
 		metrics.APILimiterRateLimit,
 		metrics.APILimiterProcessedRequests,
 	)
+
+	for _, metric := range mm.metrics {
+		mm.registry.MustRegister(metric.(prometheus.Collector))
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(mm.registry, promhttp.HandlerOpts{}))

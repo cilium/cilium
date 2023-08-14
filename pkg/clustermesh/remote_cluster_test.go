@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -119,6 +120,7 @@ func TestRemoteClusterRun(t *testing.T) {
 		},
 	}
 
+	store := store.NewFactory(store.MetricsProvider())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var wg sync.WaitGroup
@@ -150,6 +152,7 @@ func TestRemoteClusterRun(t *testing.T) {
 					RemoteIdentityWatcher: allocator,
 					ClusterIDsManager:     NewClusterMeshUsedIDs(),
 					Metrics:               NewMetrics(),
+					StoreFactory:          store,
 				},
 				globalServices: newGlobalServiceCache(metrics.NoOpGauge),
 			}

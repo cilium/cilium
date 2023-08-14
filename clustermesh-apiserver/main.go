@@ -128,6 +128,7 @@ func init() {
 
 		healthAPIServerCell,
 		cmmetrics.Cell,
+		store.Cell,
 		usersManagementCell,
 		cell.Invoke(registerHooks),
 	)
@@ -142,6 +143,7 @@ type parameters struct {
 	Clientset      k8sClient.Clientset
 	Resources      apiserverK8s.Resources
 	BackendPromise promise.Promise[kvstore.BackendOperations]
+	StoreFactory   store.Factory
 }
 
 func registerHooks(lc hive.Lifecycle, params parameters) error {
@@ -156,23 +158,23 @@ func registerHooks(lc hive.Lifecycle, params parameters) error {
 				return err
 			}
 
-			startServer(ctx, params.Clientset, backend, params.Resources)
+			startServer(ctx, params.Clientset, backend, params.Resources, params.StoreFactory)
 			return nil
 		},
 	})
 	return nil
 }
 
-func readMockFile(ctx context.Context, path string, backend kvstore.BackendOperations) error {
+func readMockFile(ctx context.Context, path string, backend kvstore.BackendOperations, factory store.Factory) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("unable to open file %s: %s", path, err)
 	}
 	defer f.Close()
 
-	identities := newIdentitySynchronizer(ctx, backend)
-	nodes := newNodeSynchronizer(ctx, backend)
-	endpoints := newEndpointSynchronizer(ctx, backend)
+	identities := newIdentitySynchronizer(ctx, backend, factory)
+	nodes := newNodeSynchronizer(ctx, backend, factory)
+	endpoints := newEndpointSynchronizer(ctx, backend, factory)
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -292,8 +294,8 @@ type identitySynchronizer struct {
 	encoder func([]byte) string
 }
 
-func newIdentitySynchronizer(ctx context.Context, backend kvstore.BackendOperations) synchronizer {
-	identitiesStore := store.NewWorkqueueSyncStore(cfg.LocalClusterName(), backend,
+func newIdentitySynchronizer(ctx context.Context, backend kvstore.BackendOperations, factory store.Factory) synchronizer {
+	identitiesStore := factory.NewSyncStore(cfg.LocalClusterName(), backend,
 		path.Join(identityCache.IdentitiesPath, "id"),
 		store.WSSWithSyncedKeyOverride(identityCache.IdentitiesPath))
 	go identitiesStore.Run(ctx)
@@ -366,8 +368,8 @@ type nodeSynchronizer struct {
 	store store.SyncStore
 }
 
-func newNodeSynchronizer(ctx context.Context, backend kvstore.BackendOperations) synchronizer {
-	nodesStore := store.NewWorkqueueSyncStore(cfg.LocalClusterName(), backend, nodeStore.NodeStorePrefix)
+func newNodeSynchronizer(ctx context.Context, backend kvstore.BackendOperations, factory store.Factory) synchronizer {
+	nodesStore := factory.NewSyncStore(cfg.LocalClusterName(), backend, nodeStore.NodeStorePrefix)
 	go nodesStore.Run(ctx)
 
 	return &nodeSynchronizer{store: nodesStore}
@@ -418,8 +420,8 @@ type endpointSynchronizer struct {
 	cache map[string]ipmap
 }
 
-func newEndpointSynchronizer(ctx context.Context, backend kvstore.BackendOperations) synchronizer {
-	endpointsStore := store.NewWorkqueueSyncStore(cfg.LocalClusterName(), backend,
+func newEndpointSynchronizer(ctx context.Context, backend kvstore.BackendOperations, factory store.Factory) synchronizer {
+	endpointsStore := factory.NewSyncStore(cfg.LocalClusterName(), backend,
 		path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace),
 		store.WSSWithSyncedKeyOverride(ipcache.IPIdentitiesPath))
 	go endpointsStore.Run(ctx)
@@ -521,7 +523,7 @@ func synchronize[T runtime.Object](ctx context.Context, r resource.Resource[T], 
 	}
 }
 
-func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, backend kvstore.BackendOperations, resources apiserverK8s.Resources) {
+func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, backend kvstore.BackendOperations, resources apiserverK8s.Resources, factory store.Factory) {
 	log.WithFields(logrus.Fields{
 		"cluster-name": cfg.clusterName,
 		"cluster-id":   cfg.clusterID,
@@ -560,13 +562,13 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, backe
 
 	ctx := context.Background()
 	if mockFile != "" {
-		if err := readMockFile(ctx, mockFile, backend); err != nil {
+		if err := readMockFile(ctx, mockFile, backend, factory); err != nil {
 			log.WithError(err).Fatal("Unable to read mock file")
 		}
 	} else {
-		go synchronize(ctx, resources.CiliumIdentities, newIdentitySynchronizer(ctx, backend))
-		go synchronize(ctx, resources.CiliumNodes, newNodeSynchronizer(ctx, backend))
-		go synchronize(ctx, resources.CiliumSlimEndpoints, newEndpointSynchronizer(ctx, backend))
+		go synchronize(ctx, resources.CiliumIdentities, newIdentitySynchronizer(ctx, backend, factory))
+		go synchronize(ctx, resources.CiliumNodes, newNodeSynchronizer(ctx, backend, factory))
+		go synchronize(ctx, resources.CiliumSlimEndpoints, newEndpointSynchronizer(ctx, backend, factory))
 		operatorWatchers.StartSynchronizingServices(ctx, &sync.WaitGroup{}, operatorWatchers.ServiceSyncParameters{
 			ServiceSyncConfiguration: cfg,
 			Clientset:                clientset,
@@ -574,6 +576,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, backe
 			Endpoints:                resources.Endpoints,
 			Backend:                  backend,
 			SharedOnly:               !cfg.enableExternalWorkloads,
+			StoreFactory:             factory,
 		})
 	}
 

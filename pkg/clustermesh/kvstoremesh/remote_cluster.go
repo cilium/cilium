@@ -33,6 +33,8 @@ type remoteCluster struct {
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+
+	storeFactory store.Factory
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, srccfg *types.CiliumClusterConfig, ready chan<- error) {
@@ -60,7 +62,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 
 	var mgr store.WatchStoreManager
 	if capabilities.SyncedCanaries {
-		mgr = store.NewWatchStoreManagerSync(backend, rc.name)
+		mgr = rc.storeFactory.NewWatchStoreManager(backend, rc.name)
 	} else {
 		mgr = store.NewWatchStoreManagerImmediate(rc.name)
 	}
@@ -133,14 +135,14 @@ func (o *syncer) OnSync(ctx context.Context) {
 	o.Synced(ctx)
 }
 
-func newReflector(local kvstore.BackendOperations, cluster, prefix string) reflector {
+func newReflector(local kvstore.BackendOperations, cluster, prefix string, factory store.Factory) reflector {
 	prefix = kvstore.StateToCachePrefix(prefix)
 	syncer := syncer{
-		SyncStore: store.NewWorkqueueSyncStore(cluster, local, path.Join(prefix, cluster),
+		SyncStore: factory.NewSyncStore(cluster, local, path.Join(prefix, cluster),
 			store.WSSWithSyncedKeyOverride(prefix)),
 	}
 
-	watcher := store.NewRestartableWatchStore(cluster, store.KVPairCreator, &syncer,
+	watcher := factory.NewWatchStore(cluster, store.KVPairCreator, &syncer,
 		store.RWSWithOnSyncCallback(syncer.OnSync),
 	)
 

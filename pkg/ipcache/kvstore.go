@@ -177,7 +177,7 @@ type IPCacher interface {
 }
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher for the given cluster.
-func NewIPIdentityWatcher(clusterName string, ipc IPCacher) *IPIdentityWatcher {
+func NewIPIdentityWatcher(clusterName string, ipc IPCacher, factory storepkg.Factory) *IPIdentityWatcher {
 	watcher := IPIdentityWatcher{
 		ipcache:     ipc,
 		clusterName: clusterName,
@@ -185,7 +185,7 @@ func NewIPIdentityWatcher(clusterName string, ipc IPCacher) *IPIdentityWatcher {
 		log:         log.WithField(logfields.ClusterName, clusterName),
 	}
 
-	watcher.store = storepkg.NewRestartableWatchStore(
+	watcher.store = factory.NewWatchStore(
 		clusterName,
 		func() storepkg.Key { return &identity.IPIdentityPair{} },
 		&watcher,
@@ -408,11 +408,11 @@ var (
 
 // InitIPIdentityWatcher initializes the watcher for ip-identity mapping events
 // in the key-value store.
-func (ipc *IPCache) InitIPIdentityWatcher(ctx context.Context) {
+func (ipc *IPCache) InitIPIdentityWatcher(ctx context.Context, factory storepkg.Factory) {
 	setupIPIdentityWatcher.Do(func() {
 		go func() {
 			log.Info("Starting IP identity watcher")
-			watcher = NewIPIdentityWatcher(option.Config.ClusterName, ipc)
+			watcher = NewIPIdentityWatcher(option.Config.ClusterName, ipc, factory)
 			close(initialized)
 			watcher.Watch(ctx, kvstore.Client(), WithSelfDeletionProtection())
 		}()

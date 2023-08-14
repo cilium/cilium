@@ -62,6 +62,8 @@ type remoteCluster struct {
 	status common.StatusFunc
 
 	swg *lock.StoppableWaitGroup
+
+	storeFactory store.Factory
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config *cmtypes.CiliumClusterConfig, ready chan<- error) {
@@ -95,7 +97,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 
 	var mgr store.WatchStoreManager
 	if capabilities.SyncedCanaries {
-		mgr = store.NewWatchStoreManagerSync(backend, rc.name)
+		mgr = rc.storeFactory.NewWatchStoreManager(backend, rc.name)
 	} else {
 		mgr = store.NewWatchStoreManagerImmediate(rc.name)
 	}

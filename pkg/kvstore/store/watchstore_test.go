@@ -16,8 +16,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/metrics/metric"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 type fakeLWBackend struct {
@@ -127,7 +125,8 @@ func rwsDrain(t *testing.T, store WatchStore, observer *fakeObserver, expected [
 
 func TestRestartableWatchStore(t *testing.T) {
 	observer := NewFakeObserver(t)
-	store := NewRestartableWatchStore("qux", KVPairCreator, observer)
+	f, _ := GetFactory(t)
+	store := f.NewWatchStore("qux", KVPairCreator, observer)
 	require.Equal(t, uint64(0), store.NumEntries())
 	require.False(t, store.Synced())
 
@@ -172,7 +171,8 @@ func TestRestartableWatchStore(t *testing.T) {
 
 func TestRestartableWatchStoreDrain(t *testing.T) {
 	observer := NewFakeObserver(t)
-	store := NewRestartableWatchStore("qux", KVPairCreator, observer)
+	f, _ := GetFactory(t)
+	store := f.NewWatchStore("qux", KVPairCreator, observer)
 
 	// Watch a few keys through the watch store
 	rwsRun(store, "foo/bar", func() {
@@ -214,8 +214,8 @@ func TestRestartableWatchStoreSyncCallback(t *testing.T) {
 			observer.OnUpdate(NewKVPair("callback/executed", value))
 		}
 	}
-
-	store := NewRestartableWatchStore("qux", KVPairCreator, observer,
+	f, _ := GetFactory(t)
+	store := f.NewWatchStore("qux", KVPairCreator, observer,
 		RWSWithOnSyncCallback(callback("1")), RWSWithOnSyncCallback(callback("2")))
 
 	// The watcher is closed before receiving the list done event, the sync callbacks should not be executed
@@ -262,7 +262,8 @@ func TestRestartableWatchStoreConcurrent(t *testing.T) {
 		{Typ: kvstore.EventTypeCreate, Key: "key1", Value: []byte("value1")},
 	})
 	observer := NewFakeObserver(t)
-	store := NewRestartableWatchStore("qux", KVPairCreator, observer)
+	f, _ := GetFactory(t)
+	store := f.NewWatchStore("qux", KVPairCreator, observer)
 
 	wg.Add(1)
 	go func() {
@@ -278,18 +279,15 @@ func TestRestartableWatchStoreConcurrent(t *testing.T) {
 }
 
 func TestRestartableWatchStoreMetrics(t *testing.T) {
-	defer func(name string, metric metric.Vec[metric.Gauge]) {
-		metrics.KVStoreInitialSyncCompleted = metric
-	}(option.Config.ClusterName, metrics.KVStoreInitialSyncCompleted)
-
+	f, m := GetFactory(t)
 	metrics.NewLegacyMetrics()
-	require.True(t, metrics.KVStoreInitialSyncCompleted.IsEnabled())
+	require.True(t, m.KVStoreInitialSyncCompleted.IsEnabled())
 
 	entries := prometheus.NewGauge(prometheus.GaugeOpts{Name: "test_elements_metric"})
-	synced := metrics.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "qux", "read")
+	synced := m.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "qux", "read")
 
 	observer := NewFakeObserver(t)
-	store := NewRestartableWatchStore("qux", KVPairCreator, observer, RWSWithEntriesMetric(entries))
+	store := f.NewWatchStore("qux", KVPairCreator, observer, RWSWithEntriesMetric(entries))
 
 	require.Equal(t, float64(0), testutil.ToFloat64(entries))
 	require.Equal(t, metrics.BoolToFloat64(false), testutil.ToFloat64(synced))

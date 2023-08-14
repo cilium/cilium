@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
 // WatchStore abstracts the operations allowing to synchronize key/value pairs
@@ -88,13 +89,14 @@ type restartableWatchStore struct {
 
 	log           *logrus.Entry
 	entriesMetric prometheus.Gauge
+	syncMetric    metric.Vec[metric.Gauge]
 }
 
 // NewRestartableWatchStore returns a WatchStore instance which supports
 // restarting the watch operation multiple times, automatically handling
 // the emission of deletion events for all stale entries (if enabled). It
 // shall be restarted only once the previous Watch execution terminated.
-func NewRestartableWatchStore(clusterName string, keyCreator KeyCreator, observer Observer, opts ...RWSOpt) WatchStore {
+func newRestartableWatchStore(clusterName string, keyCreator KeyCreator, observer Observer, m *Metrics, opts ...RWSOpt) WatchStore {
 	rws := &restartableWatchStore{
 		source:     clusterName,
 		keyCreator: keyCreator,
@@ -104,6 +106,7 @@ func NewRestartableWatchStore(clusterName string, keyCreator KeyCreator, observe
 
 		log:           log,
 		entriesMetric: metrics.NoOpGauge,
+		syncMetric:    m.KVStoreInitialSyncCompleted,
 	}
 
 	for _, opt := range opts {
@@ -126,7 +129,7 @@ func (rws *restartableWatchStore) Watch(ctx context.Context, backend WatchStoreB
 	}
 
 	rws.log = rws.log.WithField(logfields.Prefix, prefix)
-	syncedMetric := metrics.KVStoreInitialSyncCompleted.WithLabelValues(
+	syncedMetric := rws.syncMetric.WithLabelValues(
 		kvstore.GetScopeFromKey(prefix), rws.source, "read")
 
 	rws.log.Info("Starting restartable watch store")
