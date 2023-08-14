@@ -4,6 +4,7 @@
 package egressgateway
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -702,10 +703,40 @@ func (manager *Manager) policyMatchesMinusExcludedCIDRs(sourceIP net.IP, f func(
 }
 
 func (manager *Manager) regenerateGatewayConfigs() {
-	policyByInterfaceIndex := make(map[int]*PolicyConfig)
-
 	for _, policyConfig := range manager.policyConfigs {
-		policyConfig.regenerateGatewayConfig(manager, policyByInterfaceIndex)
+		policyConfig.regenerateGatewayConfig(manager)
+	}
+
+	if !manager.installRoutes {
+		return
+	}
+
+	// We can only have one default route per interface. Warn if there are
+	// conflicts on the desired egress IP per interface.
+	policyByInterfaceIndex := make(map[int]*PolicyConfig)
+	for _, policyConfig := range manager.policyConfigs {
+		gwc := policyConfig.gatewayConfig
+
+		if !gwc.localNodeConfiguredAsGateway {
+			continue
+		}
+
+		currentPolicy := policyByInterfaceIndex[gwc.ifaceIndex]
+		if currentPolicy == nil {
+			policyByInterfaceIndex[gwc.ifaceIndex] = policyConfig
+			continue
+		}
+
+		currentEgressIP := currentPolicy.gatewayConfig.egressIP
+		if gwc.egressIP.IP.Equal(currentEgressIP.IP) && bytes.Equal(gwc.egressIP.Mask, currentEgressIP.Mask) {
+			continue
+		}
+
+		log.WithFields(logrus.Fields{
+			logfields.CiliumEgressGatewayPolicyName: policyConfig.id,
+			logfields.Interface:                     policyConfig.policyGwConfig.iface,
+			logfields.EgressIP:                      policyConfig.policyGwConfig.egressIP,
+		}).Errorf("Conflict with policy %s: Selects the same egress interface but uses a different egress IP (%s).", currentPolicy.id, currentEgressIP.String())
 	}
 }
 
