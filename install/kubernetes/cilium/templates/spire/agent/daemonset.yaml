@@ -29,7 +29,7 @@ spec:
       serviceAccountName: {{ .Values.authentication.mutual.spire.install.agent.serviceAccount.name }}
       initContainers:
         - name: init
-          image: {{ .Values.authentication.mutual.spire.install.spireConfig.image }}
+          image: {{ .Values.authentication.mutual.spire.install.init.image }}
           command:
             - /bin/sh
             - -c

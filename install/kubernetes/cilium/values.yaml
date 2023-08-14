@@ -3144,8 +3144,8 @@ authentication:
         enabled: true
         # -- SPIRE namespace to install into
         namespace: cilium-spire
-        # -- SPIRE configuration image
-        spireConfig:
+        # -- SPIRE init-configuration image
+        init:
           image: docker.io/library/busybox:1.35.0@sha256:223ae047b1065bd069aac01ae3ac8088b3ca4a527827e283b85112f29385fb1b
         # SPIRE agent configuration
         agent:
