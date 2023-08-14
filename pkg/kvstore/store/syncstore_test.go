@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -49,6 +48,11 @@ func NewFakeBackend(t *testing.T, expectLease bool) *fakeBackend {
 		errorsOnUpdate: make(map[string]uint),
 		errorsOnDelete: make(map[string]uint),
 	}
+}
+
+func GetFactory(t *testing.T) (Factory, *Metrics) {
+	metrics := MetricsProvider()
+	return NewFactory(metrics), metrics
 }
 
 func (fb *fakeBackend) Update(ctx context.Context, key string, value []byte, lease bool) error {
@@ -117,7 +121,8 @@ func eventually(in <-chan *KVPair) *KVPair {
 func TestWorkqueueSyncStore(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, true)
-	store := NewWorkqueueSyncStore("qux", backend, "/foo/bar")
+	st, _ := GetFactory(t)
+	store := st.NewSyncStore("qux", backend, "/foo/bar")
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -174,7 +179,8 @@ func TestWorkqueueSyncStore(t *testing.T) {
 func TestWorkqueueSyncStoreWithoutLease(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, false)
-	store := NewWorkqueueSyncStore("qux", backend, "/foo/bar", WSSWithoutLease())
+	st, _ := GetFactory(t)
+	store := st.NewSyncStore("qux", backend, "/foo/bar", WSSWithoutLease())
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -198,7 +204,8 @@ func TestWorkqueueSyncStoreWithRateLimiter(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, true)
 	limiter := NewFakeRateLimiter()
-	store := NewWorkqueueSyncStore("qux", backend, "/foo/bar", WSSWithRateLimiter(limiter))
+	st, _ := GetFactory(t)
+	store := st.NewSyncStore("qux", backend, "/foo/bar", WSSWithRateLimiter(limiter))
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -225,7 +232,8 @@ func TestWorkqueueSyncStoreWithRateLimiter(t *testing.T) {
 func TestWorkqueueSyncStoreWithWorkers(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, true)
-	store := NewWorkqueueSyncStore("qux", backend, "/foo/bar", WSSWithWorkers(2))
+	st, _ := GetFactory(t)
+	store := st.NewSyncStore("qux", backend, "/foo/bar", WSSWithWorkers(2))
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -256,7 +264,8 @@ func TestWorkqueueSyncStoreSynced(t *testing.T) {
 		return func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			backend := NewFakeBackend(t, true)
-			store := NewWorkqueueSyncStore("qux", backend, "foo/bar", opts...)
+			st, _ := GetFactory(t)
+			store := st.NewSyncStore("qux", backend, "foo/bar", opts...)
 
 			var wg sync.WaitGroup
 			wg.Add(1)
@@ -364,35 +373,32 @@ func TestWorkqueueSyncStoreSynced(t *testing.T) {
 }
 
 func TestWorkqueueSyncStoreMetrics(t *testing.T) {
-	defer func(name string, queue, sync metric.Vec[metric.Gauge]) {
+	defer func(name string) {
 		option.Config.ClusterName = name
-		metrics.KVStoreSyncQueueSize = queue
-		metrics.KVStoreInitialSyncCompleted = sync
-	}(option.Config.ClusterName, metrics.KVStoreSyncQueueSize, metrics.KVStoreInitialSyncCompleted)
-
-	legacyMetrics := metrics.NewLegacyMetrics()
-	require.True(t, legacyMetrics.KVStoreSyncQueueSize.IsEnabled())
-	require.True(t, legacyMetrics.KVStoreInitialSyncCompleted.IsEnabled())
+	}(option.Config.ClusterName)
+	st, me := GetFactory(t)
+	require.True(t, me.KVStoreSyncQueueSize.IsEnabled())
+	require.True(t, me.KVStoreInitialSyncCompleted.IsEnabled())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	backend := NewFakeBackend(t, true)
-	store := NewWorkqueueSyncStore("foo", backend, "cilium/state/nodes/v1")
+	store := st.NewSyncStore("foo", backend, "cilium/state/nodes/v1")
 
 	// The queue size should be initially zero.
-	require.Equal(t, float64(0), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
+	require.Equal(t, float64(0), testutil.ToFloat64(me.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
 
 	// We are not reading from the store, hence the queue size should reflect the number of upsertions
 	store.UpsertKey(ctx, NewKVPair("key1", "value1"))
 	store.UpsertKey(ctx, NewKVPair("key2", "value2"))
-	require.Equal(t, float64(2), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
+	require.Equal(t, float64(2), testutil.ToFloat64(me.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
 
 	// Upserting a different key shall increse the metric
 	store.UpsertKey(ctx, NewKVPair("key3", "value3"))
-	require.Equal(t, float64(3), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
+	require.Equal(t, float64(3), testutil.ToFloat64(me.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
 
 	// Upserting an already upserted key (although with a different value) shall not increase the metric
 	store.UpsertKey(ctx, NewKVPair("key1", "valueA"))
-	require.Equal(t, float64(3), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
+	require.Equal(t, float64(3), testutil.ToFloat64(me.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
 
 	// Start the store
 	var wg sync.WaitGroup
@@ -408,7 +414,7 @@ func TestWorkqueueSyncStoreMetrics(t *testing.T) {
 
 		// The store should no longer be synced, since it is stopped.
 		require.Equal(t, metrics.BoolToFloat64(false),
-			testutil.ToFloat64(metrics.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "foo", "write")))
+			testutil.ToFloat64(me.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "foo", "write")))
 	}()
 
 	// The metric should reflect the updated queue size (one in this case, since one element has been processed, and
@@ -416,12 +422,12 @@ func TestWorkqueueSyncStoreMetrics(t *testing.T) {
 	// no guarantee that the processing of the second element has already started.
 	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key1", "valueA"), eventually(backend.updated))
 	require.Eventually(t, func() bool {
-		return testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")) == 1
+		return testutil.ToFloat64(me.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")) == 1
 	}, timeout, tick, "Incorrect metric value (expected: 1)")
 
 	// Deleting one element, the queue size should grow by one (the worker is still stuck in the Update() call).
 	store.DeleteKey(ctx, NewKVPair("key1", ""))
-	require.Equal(t, float64(2), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
+	require.Equal(t, float64(2), testutil.ToFloat64(me.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
 
 	backend.errorsOnUpdate["cilium/state/nodes/v1/key3"] = 1
 	require.Equal(t, NewKVPair("cilium/state/nodes/v1/key2", "value2"), eventually(backend.updated))
@@ -432,14 +438,14 @@ func TestWorkqueueSyncStoreMetrics(t *testing.T) {
 	store.Synced(ctx, func(ctx context.Context) {
 		// When the callback is executed, the store should be synced
 		require.Equal(t, metrics.BoolToFloat64(true),
-			testutil.ToFloat64(metrics.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "foo", "write")))
+			testutil.ToFloat64(me.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "foo", "write")))
 	})
 
 	// The store should not yet be synced, as the synced entry has not yet been written to the kvstore.
 	require.Equal(t, metrics.BoolToFloat64(false),
-		testutil.ToFloat64(metrics.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "foo", "write")))
+		testutil.ToFloat64(me.KVStoreInitialSyncCompleted.WithLabelValues("nodes/v1", "foo", "write")))
 	require.Equal(t, "cilium/synced/foo/cilium/state/nodes/v1", eventually(backend.updated).Key)
 
 	// Once all elements have been processed, the metric should be zero.
-	require.Equal(t, float64(0), testutil.ToFloat64(metrics.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
+	require.Equal(t, float64(0), testutil.ToFloat64(me.KVStoreSyncQueueSize.WithLabelValues("nodes/v1", "foo")))
 }

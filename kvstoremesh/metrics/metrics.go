@@ -91,8 +91,6 @@ func (mm *metricsManager) Start(hive.HookContext) error {
 		metrics.KVStoreOperationsDuration,
 		metrics.KVStoreEventsQueueDuration,
 		metrics.KVStoreQuorumErrors,
-		metrics.KVStoreSyncQueueSize,
-		metrics.KVStoreInitialSyncCompleted,
 		metrics.APILimiterProcessingDuration,
 		metrics.APILimiterWaitDuration,
 		metrics.APILimiterRequestsInFlight,

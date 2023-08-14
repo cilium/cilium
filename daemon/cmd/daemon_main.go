@@ -61,6 +61,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -1645,11 +1646,11 @@ type daemonParams struct {
 	HealthProvider       cell.Health
 	HealthReporter       cell.HealthReporter
 	DeviceManager        *linuxdatapath.DeviceManager `optional:"true"`
-
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,
 	// and because it depends on parameters which are not provided through hive.
-	CTNATMapGC gc.Enabler
+	CTNATMapGC   gc.Enabler
+	StoreFactory store.Factory
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

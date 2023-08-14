@@ -16,6 +16,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/kvstore"
+	storepkg "github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -85,11 +86,12 @@ func eventually(in <-chan event) event {
 }
 
 func TestIPIdentityWatcher(t *testing.T) {
+	st := storepkg.NewFactory(storepkg.MetricsProvider())
 	runnable := func(body func(ipcache *fakeIPCache), prefix string, opts ...IWOpt) func(t *testing.T) {
 		return func(t *testing.T) {
 			ipcache := NewFakeIPCache()
 			backend := NewFakeBackend()
-			watcher := NewIPIdentityWatcher("foo", ipcache)
+			watcher := NewIPIdentityWatcher("foo", ipcache, st)
 
 			var wg sync.WaitGroup
 			ctx, cancel := context.WithCancel(context.Background())

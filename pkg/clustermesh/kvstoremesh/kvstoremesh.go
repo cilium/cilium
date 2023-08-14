@@ -13,6 +13,7 @@ import (
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/store"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/promise"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
@@ -25,6 +26,8 @@ type KVStoreMesh struct {
 	// backend is the interface to operate the local kvstore
 	backend        kvstore.BackendOperations
 	backendPromise promise.Promise[kvstore.BackendOperations]
+
+	storeFactory store.Factory
 }
 
 type params struct {
@@ -35,11 +38,15 @@ type params struct {
 
 	BackendPromise promise.Promise[kvstore.BackendOperations]
 
-	Metrics common.Metrics
+	Metrics      common.Metrics
+	StoreFactory store.Factory
 }
 
 func newKVStoreMesh(lc hive.Lifecycle, params params) *KVStoreMesh {
-	km := KVStoreMesh{backendPromise: params.BackendPromise}
+	km := KVStoreMesh{
+		backendPromise: params.BackendPromise,
+		storeFactory:   params.StoreFactory,
+	}
 	km.common = common.NewClusterMesh(common.Configuration{
 		Config:           params.Config,
 		ClusterIDName:    params.ClusterIDName,
@@ -79,10 +86,11 @@ func (km *KVStoreMesh) newRemoteCluster(name string, _ common.StatusFunc) common
 
 		cancel: cancel,
 
-		nodes:      newReflector(km.backend, name, nodeStore.NodeStorePrefix),
-		services:   newReflector(km.backend, name, serviceStore.ServiceStorePrefix),
-		identities: newReflector(km.backend, name, identityCache.IdentitiesPath),
-		ipcache:    newReflector(km.backend, name, ipcache.IPIdentitiesPath),
+		nodes:        newReflector(km.backend, name, nodeStore.NodeStorePrefix, km.storeFactory),
+		services:     newReflector(km.backend, name, serviceStore.ServiceStorePrefix, km.storeFactory),
+		identities:   newReflector(km.backend, name, identityCache.IdentitiesPath, km.storeFactory),
+		ipcache:      newReflector(km.backend, name, ipcache.IPIdentitiesPath, km.storeFactory),
+		storeFactory: km.storeFactory,
 	}
 
 	run := func(fn func(context.Context)) {

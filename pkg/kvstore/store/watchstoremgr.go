@@ -98,14 +98,14 @@ type wsmSync struct {
 // This ensures that the synchronization of the keys hosted under the given prefix
 // have been successfully synchronized from the external source, even in case an
 // ephemeral kvstore is used.
-func NewWatchStoreManagerSync(backend WatchStoreBackend, clusterName string) WatchStoreManager {
+func newWatchStoreManagerSync(backend WatchStoreBackend, clusterName string, factory Factory) WatchStoreManager {
 	mgr := wsmSync{
 		wsmCommon:   newWSMCommon(clusterName),
 		clusterName: clusterName,
 		backend:     backend,
 	}
 
-	mgr.store = NewRestartableWatchStore(clusterName, KVPairCreator, &mgr)
+	mgr.store = factory.NewWatchStore(clusterName, KVPairCreator, &mgr)
 	return &mgr
 }
 

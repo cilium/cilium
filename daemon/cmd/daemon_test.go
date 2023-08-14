@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/authmap"
@@ -172,6 +173,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 		tables.Cell,
 		job.Cell,
 		metrics.Cell,
+		store.Cell,
 		cell.Invoke(func(p promise.Promise[*Daemon]) {
 			daemonPromise = p
 		}),

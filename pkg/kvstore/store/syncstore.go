@@ -113,7 +113,7 @@ func WSSWithSyncedKeyOverride(key string) WSSOpt {
 
 // NewWorkqueueSyncStore returns a SyncStore instance which leverages a workqueue
 // to coalescence update/delete requests and handle retries in case of errors.
-func NewWorkqueueSyncStore(clusterName string, backend SyncStoreBackend, prefix string, opts ...WSSOpt) SyncStore {
+func newWorkqueueSyncStore(clusterName string, backend SyncStoreBackend, prefix string, m *Metrics, opts ...WSSOpt) SyncStore {
 	wss := &wqSyncStore{
 		backend: backend,
 		prefix:  prefix,
@@ -133,8 +133,8 @@ func NewWorkqueueSyncStore(clusterName string, backend SyncStoreBackend, prefix 
 
 	wss.log = wss.log.WithField(logfields.ClusterName, wss.source)
 	wss.workqueue = workqueue.NewRateLimitingQueue(wss.limiter)
-	wss.queuedMetric = metrics.KVStoreSyncQueueSize.WithLabelValues(kvstore.GetScopeFromKey(prefix), wss.source)
-	wss.syncedMetric = metrics.KVStoreInitialSyncCompleted.WithLabelValues(kvstore.GetScopeFromKey(prefix), wss.source, "write")
+	wss.queuedMetric = m.KVStoreSyncQueueSize.WithLabelValues(kvstore.GetScopeFromKey(prefix), wss.source)
+	wss.syncedMetric = m.KVStoreInitialSyncCompleted.WithLabelValues(kvstore.GetScopeFromKey(prefix), wss.source, "write")
 	return wss
 }
 

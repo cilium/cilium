@@ -477,14 +477,6 @@ var (
 	// KVStoreQuorumErrors records the number of kvstore quorum errors
 	KVStoreQuorumErrors = NoOpCounterVec
 
-	// KVStoreSyncQueueSize records the number of elements queued for
-	// synchronization in the kvstore.
-	KVStoreSyncQueueSize = NoOpGaugeVec
-
-	// KVStoreInitialSyncCompleted records whether the initial synchronization
-	// from/to the kvstore has completed.
-	KVStoreInitialSyncCompleted = NoOpGaugeVec
-
 	// FQDNGarbageCollectorCleanedTotal is the number of domains cleaned by the
 	// GC job.
 	FQDNGarbageCollectorCleanedTotal = NoOpCounter
@@ -625,8 +617,6 @@ type LegacyMetrics struct {
 	KVStoreOperationsDuration        metric.Vec[metric.Observer]
 	KVStoreEventsQueueDuration       metric.Vec[metric.Observer]
 	KVStoreQuorumErrors              metric.Vec[metric.Counter]
-	KVStoreSyncQueueSize             metric.Vec[metric.Gauge]
-	KVStoreInitialSyncCompleted      metric.Vec[metric.Gauge]
 	FQDNGarbageCollectorCleanedTotal metric.Counter
 	FQDNActiveNames                  metric.Vec[metric.Gauge]
 	FQDNActiveIPs                    metric.Vec[metric.Gauge]
@@ -1071,22 +1061,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Number of quorum errors",
 		}, []string{LabelError}),
 
-		KVStoreSyncQueueSize: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: Namespace + "_" + SubsystemKVStore + "_sync_queue_size",
-			Namespace:  Namespace,
-			Subsystem:  SubsystemKVStore,
-			Name:       "sync_queue_size",
-			Help:       "Number of elements queued for synchronization in the kvstore",
-		}, []string{LabelScope, LabelSourceCluster}),
-
-		KVStoreInitialSyncCompleted: metric.NewGaugeVec(metric.GaugeOpts{
-			ConfigName: Namespace + "_" + SubsystemKVStore + "_initial_sync_completed",
-			Namespace:  Namespace,
-			Subsystem:  SubsystemKVStore,
-			Name:       "initial_sync_completed",
-			Help:       "Whether the initial synchronization from/to the kvstore has completed",
-		}, []string{LabelScope, LabelSourceCluster, LabelAction}),
-
 		IPCacheErrorsTotal: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_" + SubsystemIPCache + "_errors_total",
 			Namespace:  Namespace,
@@ -1353,8 +1327,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 	KVStoreOperationsDuration = lm.KVStoreOperationsDuration
 	KVStoreEventsQueueDuration = lm.KVStoreEventsQueueDuration
 	KVStoreQuorumErrors = lm.KVStoreQuorumErrors
-	KVStoreSyncQueueSize = lm.KVStoreSyncQueueSize
-	KVStoreInitialSyncCompleted = lm.KVStoreInitialSyncCompleted
 	FQDNGarbageCollectorCleanedTotal = lm.FQDNGarbageCollectorCleanedTotal
 	FQDNActiveNames = lm.FQDNActiveNames
 	FQDNActiveIPs = lm.FQDNActiveIPs

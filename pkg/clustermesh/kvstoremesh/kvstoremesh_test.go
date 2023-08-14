@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -195,8 +196,8 @@ func TestRemoteClusterRun(t *testing.T) {
 				cached:            tt.srccfg != nil && tt.srccfg.Capabilities.Cached,
 				kvs:               tt.kvs,
 			}
-
-			km := KVStoreMesh{backend: kvstore.Client()}
+			st := store.NewFactory(store.MetricsProvider())
+			km := KVStoreMesh{backend: kvstore.Client(), storeFactory: st}
 			rc := km.newRemoteCluster("foo", nil)
 			ready := make(chan error)
 

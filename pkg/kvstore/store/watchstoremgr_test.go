@@ -53,6 +53,7 @@ func TestWatchStoreManager(t *testing.T) {
 		}
 	}
 
+	f, _ := GetFactory(t)
 	t.Run("sync", runnable(func() WatchStoreManager {
 		backend := NewFakeLWBackend(t, kvstore.SyncedPrefix+"/foo/", []kvstore.KeyValueEvent{
 			{Typ: kvstore.EventTypeListDone},
@@ -62,7 +63,7 @@ func TestWatchStoreManager(t *testing.T) {
 			{Typ: kvstore.EventTypeCreate, Key: "qux"},
 		})
 
-		return NewWatchStoreManagerSync(backend, "foo")
+		return f.NewWatchStoreManager(backend, "foo")
 	}))
 
 	t.Run("immediate", runnable(func() WatchStoreManager {
@@ -85,10 +86,10 @@ func TestWatchStoreManagerPanic(t *testing.T) {
 			require.Panics(t, func() { mgr.Run(ctx) }, "mgr.Run should panic when already started")
 		}
 	}
-
+	f, _ := GetFactory(t)
 	t.Run("sync", runnable(func() WatchStoreManager {
 		backend := NewFakeLWBackend(t, kvstore.SyncedPrefix+"/foo/", nil)
-		return NewWatchStoreManagerSync(backend, "foo")
+		return f.NewWatchStoreManager(backend, "foo")
 	}))
 
 	t.Run("immediate", runnable(func() WatchStoreManager {

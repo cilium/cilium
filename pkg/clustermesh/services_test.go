@@ -28,6 +28,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -104,7 +105,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		Context: ctx,
 	})
 	defer ipc.Shutdown()
-
+	store := store.NewFactory(store.MetricsProvider())
 	s.mesh = NewClusterMesh(hivetest.Lifecycle(c), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
 		ClusterIDName:         types.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
@@ -116,6 +117,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 		ClusterIDsManager:     NewClusterMeshUsedIDs(),
 		Metrics:               NewMetrics(),
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
+		StoreFactory:          store,
 	})
 	c.Assert(s.mesh, Not(IsNil))
 

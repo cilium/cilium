@@ -74,6 +74,7 @@ type Configuration struct {
 
 	Metrics       Metrics
 	CommonMetrics common.Metrics
+	StoreFactory  store.Factory
 }
 
 // RemoteIdentityWatcher is any type which provides identities that have been
@@ -145,28 +146,28 @@ func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
 
 func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
 	rc := &remoteCluster{
-		name:    name,
-		mesh:    cm,
-		usedIDs: cm.conf.ClusterIDsManager,
-		status:  status,
-		swg:     lock.NewStoppableWaitGroup(),
+		name:         name,
+		mesh:         cm,
+		usedIDs:      cm.conf.ClusterIDsManager,
+		status:       status,
+		swg:          lock.NewStoppableWaitGroup(),
+		storeFactory: cm.conf.StoreFactory,
 	}
-
-	rc.remoteNodes = store.NewRestartableWatchStore(
+	rc.remoteNodes = cm.conf.StoreFactory.NewWatchStore(
 		name,
 		cm.conf.NodeKeyCreator,
 		cm.conf.NodeObserver,
 		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalNodes.WithLabelValues(cm.conf.ClusterName, cm.nodeName, rc.name)),
 	)
 
-	rc.remoteServices = store.NewRestartableWatchStore(
+	rc.remoteServices = cm.conf.StoreFactory.NewWatchStore(
 		name,
 		func() store.Key { return new(serviceStore.ClusterService) },
 		&remoteServiceObserver{remoteCluster: rc, swg: rc.swg},
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.swg.Stop() }),
 	)
 
-	rc.ipCacheWatcher = ipcache.NewIPIdentityWatcher(name, cm.conf.IPCache)
+	rc.ipCacheWatcher = ipcache.NewIPIdentityWatcher(name, cm.conf.IPCache, cm.conf.StoreFactory)
 	rc.ipCacheWatcherExtraOpts = cm.conf.IPCacheWatcherExtraOpts
 
 	return rc

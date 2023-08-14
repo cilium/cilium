@@ -139,6 +139,7 @@ func TestClusterMesh(t *testing.T) {
 	t.Cleanup(func() { ipc.Shutdown() })
 
 	usedIDs := NewClusterMeshUsedIDs()
+	storeFactory := store.NewFactory(store.MetricsProvider())
 	cm := NewClusterMesh(hivetest.Lifecycle(t), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
 		ClusterIDName:         types.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
@@ -149,11 +150,11 @@ func TestClusterMesh(t *testing.T) {
 		ClusterIDsManager:     usedIDs,
 		Metrics:               NewMetrics(),
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
+		StoreFactory:          storeFactory,
 	})
 	require.NotNil(t, cm, "Failed to initialize clustermesh")
-
 	// cluster2 is the cluster which is tested with sync canaries
-	nodesWSS := store.NewWorkqueueSyncStore("cluster2", kvstore.Client(), nodeStore.NodeStorePrefix)
+	nodesWSS := storeFactory.NewSyncStore("cluster2", kvstore.Client(), nodeStore.NodeStorePrefix)
 	wg.Add(1)
 	go func() {
 		nodesWSS.Run(ctx)
