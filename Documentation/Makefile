@@ -110,7 +110,7 @@ $(HELM_VALUES): FORCE
 	$(QUIET)$(HELM_DOCS) -d -c $(HELM_DOCS_CHARTS_DIR) -t $(HELM_DOCS_OUTPUT_DIR)/$(TMP_FILE_1).tmpl > $(TMP_FILE_1)
 	$(QUIET)awk -F'|' '{print "|"$$2"|"$$5"|"$$3"|"$$4"|"}' $(TMP_FILE_1) > $(TMP_FILE_2)
 	$(QUIET)$(M2R) --overwrite $(TMP_FILE_2)
-	$(QUIET)$(SED) 's/^\(   \* - \)\([[:print:]]\+\)$$/\1:spelling:ignore:`\2`/' $@ > $(TMP_FILE_3)
+	$(QUIET)$(SED) 's/^\(   \* - \)\([[:print:]]\{1,\}\)$$/\1:spelling:ignore:`\2`/' $@ > $(TMP_FILE_3)
 	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $(TMP_FILE_3))" > $@
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2) $(TMP_FILE_3)
 
