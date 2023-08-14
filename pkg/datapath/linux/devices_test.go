@@ -83,6 +83,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 	s.withFixture(c, func() {
 		option.Config.SetDevices([]string{})
 		option.Config.DirectRoutingDevice = ""
+		option.Config.EnableNodePort = true
 		option.Config.NodePortAcceleration = option.NodePortAccelerationDisabled
 
 		// No devices, nothing to detect.
@@ -315,6 +316,7 @@ func (s *DevicesSuite) TestListenForNewDevices(c *C) {
 		timeout := time.After(10 * time.Second)
 
 		option.Config.SetDevices([]string{})
+		option.Config.EnableNodePort = true
 		c.Assert(createDummy("dummy0", "192.168.1.2/24", false), IsNil)
 
 		dm, err := newDeviceManagerForTests()
