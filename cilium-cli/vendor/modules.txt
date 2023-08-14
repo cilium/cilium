@@ -448,7 +448,7 @@ github.com/google/go-cmp/cmp/internal/value
 ## explicit; go 1.12
 github.com/google/gofuzz
 github.com/google/gofuzz/bytesource
-# github.com/google/gops v0.3.27
+# github.com/google/gops v0.3.28
 ## explicit; go 1.17
 github.com/google/gops/agent
 github.com/google/gops/internal
@@ -692,8 +692,9 @@ github.com/russross/blackfriday/v2
 # github.com/sasha-s/go-deadlock v0.3.1
 ## explicit
 github.com/sasha-s/go-deadlock
-# github.com/shirou/gopsutil/v3 v3.23.5
+# github.com/shirou/gopsutil/v3 v3.23.7
 ## explicit; go 1.15
+github.com/shirou/gopsutil/v3/common
 github.com/shirou/gopsutil/v3/internal/common
 github.com/shirou/gopsutil/v3/mem
 # github.com/shopspring/decimal v1.3.1
@@ -772,7 +773,7 @@ github.com/xeipuuv/gojsonschema
 # github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8
 ## explicit
 github.com/xi2/xz
-# github.com/xlab/treeprint v1.1.0
+# github.com/xlab/treeprint v1.2.0
 ## explicit; go 1.13
 github.com/xlab/treeprint
 # github.com/yusufpapurcu/wmi v1.2.3
@@ -897,7 +898,7 @@ golang.org/x/oauth2/internal
 ## explicit; go 1.17
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.10.0
+# golang.org/x/sys v0.11.0
 ## explicit; go 1.17
 golang.org/x/sys/execabs
 golang.org/x/sys/internal/unsafeheader
@@ -1040,7 +1041,7 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# helm.sh/helm/v3 v3.12.2
+# helm.sh/helm/v3 v3.12.3
 ## explicit; go 1.19
 helm.sh/helm/v3/internal/fileutil
 helm.sh/helm/v3/internal/ignore
@@ -1204,7 +1205,7 @@ k8s.io/apimachinery/third_party/forked/golang/reflect
 # k8s.io/apiserver v0.27.4
 ## explicit; go 1.20
 k8s.io/apiserver/pkg/endpoints/deprecation
-# k8s.io/cli-runtime v0.27.2
+# k8s.io/cli-runtime v0.27.3
 ## explicit; go 1.20
 k8s.io/cli-runtime/pkg/genericclioptions
 k8s.io/cli-runtime/pkg/printers
@@ -1445,7 +1446,7 @@ k8s.io/kube-openapi/pkg/spec3
 k8s.io/kube-openapi/pkg/util/proto
 k8s.io/kube-openapi/pkg/util/proto/validation
 k8s.io/kube-openapi/pkg/validation/spec
-# k8s.io/kubectl v0.27.2
+# k8s.io/kubectl v0.27.3
 ## explicit; go 1.20
 k8s.io/kubectl/pkg/cmd/util
 k8s.io/kubectl/pkg/scheme
