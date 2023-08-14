@@ -86,12 +86,15 @@ func eventually(in <-chan event) event {
 }
 
 func TestIPIdentityWatcher(t *testing.T) {
+	var synced bool
 	st := storepkg.NewFactory(storepkg.MetricsProvider())
 	runnable := func(body func(ipcache *fakeIPCache), prefix string, opts ...IWOpt) func(t *testing.T) {
 		return func(t *testing.T) {
+			synced = false
 			ipcache := NewFakeIPCache()
 			backend := NewFakeBackend()
-			watcher := NewIPIdentityWatcher("foo", ipcache, st)
+			watcher := NewIPIdentityWatcher("foo", ipcache, st,
+				storepkg.RWSWithOnSyncCallback(func(ctx context.Context) { synced = true }))
 
 			var wg sync.WaitGroup
 			ctx, cancel := context.WithCancel(context.Background())
@@ -125,6 +128,7 @@ func TestIPIdentityWatcher(t *testing.T) {
 		require.Equal(t, NewEvent("delete", "10.0.1.0/24"), eventually(ipcache.events))
 		require.Equal(t, NewEvent("delete", "10.0.0.1"), eventually(ipcache.events))
 		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164"), eventually(ipcache.events))
+		require.True(t, synced, "The on-sync callback should have been executed")
 	}, "cilium/state/ip/v1/default/"))
 
 	t.Run("with cluster ID", runnable(func(ipcache *fakeIPCache) {
@@ -134,6 +138,7 @@ func TestIPIdentityWatcher(t *testing.T) {
 		require.Equal(t, NewEvent("delete", "10.0.1.0/24@10"), eventually(ipcache.events))
 		require.Equal(t, NewEvent("delete", "10.0.0.1@10"), eventually(ipcache.events))
 		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164@10"), eventually(ipcache.events))
+		require.True(t, synced, "The on-sync callback should have been executed")
 	}, "cilium/state/ip/v1/default/", WithClusterID(10)))
 
 	t.Run("with cached prefix", runnable(func(ipcache *fakeIPCache) {
@@ -143,5 +148,6 @@ func TestIPIdentityWatcher(t *testing.T) {
 		require.Equal(t, NewEvent("delete", "10.0.1.0/24"), eventually(ipcache.events))
 		require.Equal(t, NewEvent("delete", "10.0.0.1"), eventually(ipcache.events))
 		require.Equal(t, NewEvent("upsert", "f00d::a00:0:0:c164"), eventually(ipcache.events))
+		require.True(t, synced, "The on-sync callback should have been executed")
 	}, "cilium/cache/ip/v1/foo/", WithCachedPrefix(true)))
 }

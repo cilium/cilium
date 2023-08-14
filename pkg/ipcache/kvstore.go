@@ -177,7 +177,7 @@ type IPCacher interface {
 }
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher for the given cluster.
-func NewIPIdentityWatcher(clusterName string, ipc IPCacher, factory storepkg.Factory) *IPIdentityWatcher {
+func NewIPIdentityWatcher(clusterName string, ipc IPCacher, factory storepkg.Factory, opts ...storepkg.RWSOpt) *IPIdentityWatcher {
 	watcher := IPIdentityWatcher{
 		ipcache:     ipc,
 		clusterName: clusterName,
@@ -189,7 +189,7 @@ func NewIPIdentityWatcher(clusterName string, ipc IPCacher, factory storepkg.Fac
 		clusterName,
 		func() storepkg.Key { return &identity.IPIdentityPair{} },
 		&watcher,
-		storepkg.RWSWithOnSyncCallback(watcher.onSync),
+		append(opts, storepkg.RWSWithOnSyncCallback(watcher.onSync))...,
 	)
 	return &watcher
 }
