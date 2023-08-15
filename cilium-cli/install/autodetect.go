@@ -84,7 +84,6 @@ func (k *K8sInstaller) detectDatapathMode(withKPR bool) error {
 		k.params.DatapathMode = DatapathTunnel
 
 		if withKPR && k.params.KubeProxyReplacement == "" {
-			k.Log("ℹ️  kube-proxy-replacement disabled")
 			k.params.KubeProxyReplacement = "disabled"
 		}
 	case k8s.KindMinikube:
@@ -108,16 +107,12 @@ func (k *K8sInstaller) detectDatapathMode(withKPR bool) error {
 		}
 
 		if withKPR && k.params.KubeProxyReplacement == "" {
-			k.Log("ℹ️  kube-proxy-replacement disabled")
 			k.params.KubeProxyReplacement = "disabled"
 		}
 	default:
 		k.params.DatapathMode = DatapathTunnel
 	}
 
-	if k.params.DatapathMode != "" {
-		k.Log("🔮 Auto-detected datapath mode: %s", k.params.DatapathMode)
-	}
 	return nil
 }
 
