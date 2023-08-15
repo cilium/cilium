@@ -290,8 +290,7 @@ struct endpoint_key {
 	};
 	__u8 family;
 	__u8 key;
-	__u8 cluster_id;
-	__u8 pad;
+	__u16 cluster_id;
 } __packed;
 
 struct tunnel_key {
@@ -305,8 +304,8 @@ struct tunnel_key {
 		union v6addr	ip6;
 	};
 	__u8 family;
-	__u8 cluster_id;
-	__u16 pad;
+	__u8 pad;
+	__u16 cluster_id;
 } __packed;
 
 struct tunnel_value {
@@ -994,11 +993,11 @@ struct lb6_backend {
 	__be16 port;
 	__u8 proto;
 	__u8 flags;
-	__u8 cluster_id;	/* With this field, we can distinguish two
+	__u16 cluster_id;	/* With this field, we can distinguish two
 				 * backends that have the same IP address,
 				 * but belong to the different cluster.
 				 */
-	__u8 pad[3];
+	__u8 pad[2];
 };
 
 struct lb6_health {
@@ -1053,11 +1052,11 @@ struct lb4_backend {
 	__be16 port;		/* L4 port filter */
 	__u8 proto;		/* L4 protocol, currently not used (set to 0) */
 	__u8 flags;
-	__u8 cluster_id;	/* With this field, we can distinguish two
+	__u16 cluster_id;	/* With this field, we can distinguish two
 				 * backends that have the same IP address,
 				 * but belong to the different cluster.
 				 */
-	__u8 pad[3];
+	__u8 pad[2];
 };
 
 struct lb4_health {

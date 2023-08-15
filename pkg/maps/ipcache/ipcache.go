@@ -31,8 +31,8 @@ const (
 // Must be in sync with struct ipcache_key in <bpf/lib/maps.h>
 type Key struct {
 	Prefixlen uint32 `align:"lpm_key"`
-	Pad1      uint16 `align:"pad1"`
-	ClusterID uint8  `align:"cluster_id"`
+	ClusterID uint16 `align:"cluster_id"`
+	Pad1      uint8  `align:"pad1"`
 	Family    uint8  `align:"family"`
 	// represents both IPv6 and IPv4 (in the lowest four bytes)
 	IP types.IPv6 `align:"$union0"`
@@ -93,7 +93,7 @@ func getPrefixLen(prefixBits int) uint32 {
 
 // NewKey returns an Key based on the provided IP address, mask, and ClusterID.
 // The address family is automatically detected
-func NewKey(ip net.IP, mask net.IPMask, clusterID uint8) Key {
+func NewKey(ip net.IP, mask net.IPMask, clusterID uint16) Key {
 	result := Key{}
 
 	ones, _ := mask.Size()

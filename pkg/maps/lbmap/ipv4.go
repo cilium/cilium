@@ -224,8 +224,6 @@ func (v *RevNat4Value) New() bpf.MapValue { return &RevNat4Value{} }
 
 type pad2uint8 [2]uint8
 
-type pad3uint8 [3]uint8
-
 // Service4Key must match 'struct lb4_key' in "bpf/lib/common.h".
 type Service4Key struct {
 	Address     types.IPv4 `align:"address"`
@@ -435,8 +433,8 @@ type Backend4ValueV3 struct {
 	Port      uint16          `align:"port"`
 	Proto     u8proto.U8proto `align:"proto"`
 	Flags     uint8           `align:"flags"`
-	ClusterID uint8           `align:"cluster_id"`
-	Pad       pad3uint8       `align:"pad"`
+	ClusterID uint16          `align:"cluster_id"`
+	Pad       pad2uint8       `align:"pad"`
 }
 
 func NewBackend4ValueV3(addrCluster cmtypes.AddrCluster, port uint16, proto u8proto.U8proto, state loadbalancer.BackendState) (*Backend4ValueV3, error) {
@@ -456,7 +454,7 @@ func NewBackend4ValueV3(addrCluster cmtypes.AddrCluster, port uint16, proto u8pr
 		Port:      port,
 		Proto:     proto,
 		Flags:     flags,
-		ClusterID: uint8(clusterID),
+		ClusterID: uint16(clusterID),
 	}
 
 	ip4Array := addr.As4()

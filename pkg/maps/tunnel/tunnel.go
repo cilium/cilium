@@ -71,8 +71,8 @@ type TunnelIP struct {
 
 type TunnelKey struct {
 	TunnelIP
-	ClusterID uint8  `align:"cluster_id"`
-	Pad       uint16 `align:"pad"`
+	Pad       uint8  `align:"pad"`
+	ClusterID uint16 `align:"cluster_id"`
 }
 
 // String provides a string representation of the TunnelKey.
@@ -123,7 +123,7 @@ func newTunnelKey(ip net.IP, clusterID uint32) (*TunnelKey, error) {
 
 	result := TunnelKey{}
 	result.TunnelIP = newTunnelIP(ip)
-	result.ClusterID = uint8(clusterID)
+	result.ClusterID = uint16(clusterID)
 	return &result, nil
 }
 
