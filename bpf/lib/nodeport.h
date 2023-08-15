@@ -910,7 +910,8 @@ drop_err:
 #endif /* ENABLE_NAT_46X64_GATEWAY */
 
 static __always_inline int
-rev_nodeport_lb6(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext_err)
+nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
+			       __s8 *ext_err)
 {
 #ifdef ENABLE_NAT_46X64_GATEWAY
 	const bool nat_46x64_fib = nat46x64_cb_route(ctx);
@@ -1024,8 +1025,10 @@ fib_ipv4:
 	return fib_redirect(ctx, true, &fib_params, ext_err, &ifindex);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
-int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
+declare_tailcall_if(__or(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
+			 is_defined(IS_BPF_LXC)),
+		    CILIUM_CALL_IPV6_NODEPORT_REVNAT)
+int tail_nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_CT_REPLY,
@@ -1048,7 +1051,7 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	 */
 	ctx_skip_host_fw_set(ctx);
 #endif
-	ret = rev_nodeport_lb6(ctx, &trace, &ext_err);
+	ret = nodeport_rev_dnat_ingress_ipv6(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop;
 
@@ -1080,6 +1083,10 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
+	struct trace_ctx trace __maybe_unused = {
+		.reason = TRACE_REASON_CT_REPLY,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
 	__s8 ext_err = 0;
 	int ret;
 
@@ -1099,9 +1106,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 			 * inside a tail call here (because we don't
 			 * have BPF to BPF calls).
 			 */
-			ctx_skip_nodeport_set(ctx);
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
-			ret = DROP_MISSED_TAIL_CALL;
+			goto recircle;
 		}
 		goto drop_err;
 	}
@@ -1109,11 +1114,24 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 	ctx_snat_done_set(ctx);
 
 #if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID))
-	ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT);
-#else
+	ret = invoke_traced_tailcall_if(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
+					CILIUM_CALL_IPV6_NODEPORT_REVNAT,
+					nodeport_rev_dnat_ingress_ipv6,
+					&trace, &ext_err);
+	if (IS_ERR(ret))
+		goto drop_err;
+
+	if (ret == CTX_ACT_OK)
+		goto recircle;
+
+	edt_set_aggregate(ctx, 0);
+	cilium_capture_out(ctx);
+	return ret;
+#endif
+
+recircle:
 	ctx_skip_nodeport_set(ctx);
 	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
-#endif
 	ret = DROP_MISSED_TAIL_CALL;
 
  drop_err:
@@ -2341,7 +2359,8 @@ nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
  * of the bpf_host, bpf_overlay and of the bpf_lxc.
  */
 static __always_inline int
-rev_nodeport_lb4(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext_err)
+nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
+			       __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
@@ -2448,8 +2467,10 @@ redirect:
 	return fib_redirect(ctx, true, &fib_params, ext_err, &ifindex);
 }
 
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_REVNAT)
-int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
+declare_tailcall_if(__or(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
+			 is_defined(IS_BPF_LXC)),
+		    CILIUM_CALL_IPV4_NODEPORT_REVNAT)
+int tail_nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -2472,7 +2493,7 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	 */
 	ctx_skip_host_fw_set(ctx);
 #endif
-	ret = rev_nodeport_lb4(ctx, &trace, &ext_err);
+	ret = nodeport_rev_dnat_ingress_ipv4(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -2506,6 +2527,10 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
+	struct trace_ctx trace __maybe_unused = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
 	__s8 ext_err = 0;
 	int ret;
 
@@ -2525,9 +2550,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 			 * inside a tail call here (because we don't
 			 * have BPF to BPF calls).
 			 */
-			ctx_skip_nodeport_set(ctx);
-			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
-			ret = DROP_MISSED_TAIL_CALL;
+			goto recircle;
 		}
 		goto drop_err;
 	}
@@ -2543,15 +2566,29 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	/* If we're not in full DSR mode, reply traffic from remote backends
 	 * might pass back through the LB node and requires revDNAT.
 	 *
-	 * Also let rev_nodeport_lb4() redirect EgressGW reply traffic into
-	 * tunnel (see there for details).
+	 * Also let nodeport_rev_dnat_ingress_ipv4() redirect EgressGW
+	 * reply traffic into tunnel (see there for details).
 	 */
-	ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT);
-#else
-	/* There's no reason to continue in the RevDNAT path, just recircle back. */
+	ret = invoke_traced_tailcall_if(__not(is_defined(HAVE_LARGE_INSN_LIMIT)),
+					CILIUM_CALL_IPV4_NODEPORT_REVNAT,
+					nodeport_rev_dnat_ingress_ipv4,
+					&trace, &ext_err);
+		if (IS_ERR(ret))
+			goto drop_err;
+
+		/* No redirect needed: */
+		if (ret == CTX_ACT_OK)
+			goto recircle;
+
+		/* Redirected to egress interface: */
+		edt_set_aggregate(ctx, 0);
+		cilium_capture_out(ctx);
+		return ret;
+#endif
+
+recircle:
 	ctx_skip_nodeport_set(ctx);
 	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
-#endif
 	ret = DROP_MISSED_TAIL_CALL;
 
  drop_err:
