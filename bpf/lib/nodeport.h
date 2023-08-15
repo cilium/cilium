@@ -980,12 +980,8 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 		goto fib_lookup;
 	}
 out:
-	if (bpf_skip_recirculation(ctx))
-		return DROP_NAT_NO_MAPPING;
+	return CTX_ACT_OK;
 
-	ctx_skip_nodeport_set(ctx);
-	ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
-	return DROP_MISSED_TAIL_CALL;
 #ifdef TUNNEL_MODE
 encap_redirect:
 	src_port = tunnel_gen_src_port_v6(&tuple);
@@ -1055,6 +1051,18 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	ret = rev_nodeport_lb6(ctx, &ext_err);
 	if (IS_ERR(ret))
 		goto drop;
+
+	if (ret == CTX_ACT_OK) {
+		if (bpf_skip_recirculation(ctx)) {
+			ret = DROP_NAT_NO_MAPPING;
+			goto drop;
+		}
+
+		ctx_skip_nodeport_set(ctx);
+		ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_NETDEV);
+		return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
+					      CTX_ACT_DROP, METRIC_EGRESS);
+	}
 
 #ifndef IS_BPF_LXC
 	edt_set_aggregate(ctx, 0);
@@ -2410,12 +2418,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 		goto redirect;
 	}
 out:
-	if (bpf_skip_recirculation(ctx))
-		return DROP_NAT_NO_MAPPING;
-
-	ctx_skip_nodeport_set(ctx);
-	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
-	return DROP_MISSED_TAIL_CALL;
+	return CTX_ACT_OK;
 
 redirect:
 	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
@@ -2472,14 +2475,29 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 #endif
 	ret = rev_nodeport_lb4(ctx, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
+		goto drop_err;
+
+	if (ret == CTX_ACT_OK) {
+		if (bpf_skip_recirculation(ctx)) {
+			ret = DROP_NAT_NO_MAPPING;
+			goto drop_err;
+		}
+
+		ctx_skip_nodeport_set(ctx);
+		ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
+		return send_drop_notify_error(ctx, 0, DROP_MISSED_TAIL_CALL,
+					      CTX_ACT_DROP, METRIC_EGRESS);
+	}
 
 #ifndef IS_BPF_LXC
 	edt_set_aggregate(ctx, 0);
 #endif
 	cilium_capture_out(ctx);
 	return ret;
+
+drop_err:
+	return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+					  CTX_ACT_DROP, METRIC_EGRESS);
 }
 
 declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS)
