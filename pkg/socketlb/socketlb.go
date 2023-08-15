@@ -90,7 +90,7 @@ func Enable() (err error) {
 
 	coll, err := bpf.LoadCollection(spec, ebpf.CollectionOptions{
 		Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
-	})
+	}, true)
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {
 		if _, err := fmt.Fprintf(os.Stderr, "Verifier error: %s\nVerifier log: %v\n", err, ve); err != nil {

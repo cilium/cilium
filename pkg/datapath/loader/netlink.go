@@ -111,7 +111,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 		Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 	}
 	l.Debug("Loading Collection into kernel")
-	coll, err := bpf.LoadCollection(spec, opts)
+	coll, err := bpf.LoadCollection(spec, opts, true)
 	if errors.Is(err, ebpf.ErrMapIncompatible) {
 		// Temporarily rename bpffs pins of maps whose definitions have changed in
 		// a new version of a datapath ELF.
@@ -131,7 +131,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 
 		// Retry loading the Collection after starting map migration.
 		l.Debug("Retrying loading Collection into kernel after map migration")
-		coll, err = bpf.LoadCollection(spec, opts)
+		coll, err = bpf.LoadCollection(spec, opts, true)
 	}
 	var ve *ebpf.VerifierError
 	if errors.As(err, &ve) {

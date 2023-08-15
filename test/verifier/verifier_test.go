@@ -214,7 +214,7 @@ func TestVerifier(t *testing.T) {
 							LogSize:  (math.MaxUint32 >> 8), // 16MiB
 							LogLevel: ebpf.LogLevelBranch,
 						},
-					})
+					}, true)
 					var ve *ebpf.VerifierError
 					if errors.As(err, &ve) {
 						// Write full verifier log to a path on disk for offline analysis.

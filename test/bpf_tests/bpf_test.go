@@ -151,7 +151,7 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer) []*cove
 	}
 
 	if !collectCoverage {
-		coll, err = bpf.LoadCollection(spec, ebpf.CollectionOptions{})
+		coll, err = bpf.LoadCollection(spec, ebpf.CollectionOptions{}, false)
 	} else {
 		coll, cfg, err = coverbee.InstrumentAndLoadCollection(spec, ebpf.CollectionOptions{
 			Programs: ebpf.ProgramOptions{

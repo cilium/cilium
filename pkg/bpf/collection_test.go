@@ -47,7 +47,7 @@ func TestLoadCollectionResizeLogBuffer(t *testing.T) {
 			// expected to grow this sufficiently over multiple tries.
 			LogSize: 128,
 		},
-	})
+	}, true)
 	if err != nil {
 		t.Fatal("Error loading collection:", err)
 	}
@@ -99,7 +99,7 @@ func TestInlineGlobalData(t *testing.T) {
 		},
 	}
 
-	if err := inlineGlobalData(spec); err != nil {
+	if err := inlineGlobalData(spec, true); err != nil {
 		t.Fatal(err)
 	}
 

@@ -148,7 +148,7 @@ func UpdateInlineSettings(config *option.DaemonConfig, spec *ebpf.CollectionSpec
 // MapSpecs that differ (type/key/value/max/flags) from their pinned versions
 // will result in an ebpf.ErrMapIncompatible here and the map must be removed
 // before loading the CollectionSpec.
-func LoadCollection(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions) (*ebpf.Collection, error) {
+func LoadCollection(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions, inlineBSS bool) (*ebpf.Collection, error) {
 	if spec == nil {
 		return nil, errors.New("can't load nil CollectionSpec")
 	}
@@ -157,7 +157,7 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions) (*eb
 	// allowing the spec to be safely re-used by the caller.
 	spec = spec.Copy()
 
-	if err := inlineGlobalData(spec); err != nil {
+	if err := inlineGlobalData(spec, inlineBSS); err != nil {
 		return nil, fmt.Errorf("inlining global data: %w", err)
 	}
 
@@ -267,7 +267,7 @@ func classifyProgramTypes(spec *ebpf.CollectionSpec) error {
 // This works in conjunction with the __fetch macros in the datapath, which
 // emit direct array accesses instead of memory loads with an offset from the
 // map's pointer.
-func inlineGlobalData(spec *ebpf.CollectionSpec) error {
+func inlineGlobalData(spec *ebpf.CollectionSpec, inlineBSS bool) error {
 	vars, err := globalData(spec)
 	if err != nil {
 		return err
@@ -277,8 +277,10 @@ func inlineGlobalData(spec *ebpf.CollectionSpec) error {
 		return nil
 	}
 
-	// Don't attempt to create an empty map .bss in the kernel.
-	delete(spec.Maps, ".bss")
+	if inlineBSS {
+		// Don't attempt to create an empty map .bss in the kernel.
+		delete(spec.Maps, ".bss")
+	}
 
 	for _, prog := range spec.Programs {
 		for i, ins := range prog.Instructions {
@@ -288,7 +290,9 @@ func inlineGlobalData(spec *ebpf.CollectionSpec) error {
 
 			// The compiler inserts relocations for .bss for zero values.
 			if ins.Reference() == ".bss" {
-				prog.Instructions[i] = asm.LoadImm(ins.Dst, 0, asm.DWord)
+				if inlineBSS {
+					prog.Instructions[i] = asm.LoadImm(ins.Dst, 0, asm.DWord)
+				}
 				continue
 			}
 
