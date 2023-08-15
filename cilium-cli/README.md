@@ -63,7 +63,6 @@ To install Cilium while automatically detected:
     ✅ Detected minikube version "1.5.2"
     ℹ️  Cilium version not set, using default version "v1.9.1"
     🔮 Auto-detected cluster name: minikube
-    🔮 Auto-detected datapath mode: tunnel
     🔑 Found existing CA in secret cilium-ca
     🔑 Generating certificates for Hubble...
     🚀 Creating service accounts...
@@ -261,7 +260,6 @@ Install Cilium & enable ClusterMesh in Cluster 1
     🔮 Auto-detected Kubernetes kind: GKE
     ℹ️  Cilium version not set, using default version "v1.9.1"
     🔮 Auto-detected cluster name: gke-cilium-dev-us-west2-a-tgraf-cluster1
-    🔮 Auto-detected datapath mode: gke
     ✅ Detected GKE native routing CIDR: 10.52.0.0/14
     🚀 Creating resource quotas...
     🔑 Found existing CA in secret cilium-ca
@@ -288,7 +286,6 @@ Install Cilium in Cluster 2
     🔮 Auto-detected Kubernetes kind: GKE
     ℹ️  Cilium version not set, using default version "v1.9.1"
     🔮 Auto-detected cluster name: gke-cilium-dev-us-west2-a-tgraf-cluster2
-    🔮 Auto-detected datapath mode: gke
     ✅ Detected GKE native routing CIDR: 10.4.0.0/14
     🚀 Creating resource quotas...
     🔑 Found existing CA in secret cilium-ca
