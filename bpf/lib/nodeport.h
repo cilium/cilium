@@ -28,6 +28,8 @@
 #include "proxy_hairpin.h"
 #include "fib.h"
 
+/* test */
+
 #ifdef ENABLE_NODEPORT
 /* The IPv6 extension should be 8-bytes aligned */
 struct dsr_opt_v6 {
