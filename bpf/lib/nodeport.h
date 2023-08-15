@@ -2322,6 +2322,166 @@ nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
 	return NULL;
 }
 
+/* Reverse NAT handling of node-port traffic for the case where the
+ * backend i) was a local EP and bpf_lxc redirected to us, ii) was
+ * a remote backend and we got here after reverse SNAT from the
+ * tail_nodeport_nat_ingress_ipv4().
+ *
+ * Also, reverse NAT handling return path egress-gw traffic.
+ *
+ * CILIUM_CALL_IPV{4,6}_NODEPORT_REVNAT is plugged into CILIUM_MAP_CALLS
+ * of the bpf_host, bpf_overlay and of the bpf_lxc.
+ */
+static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_err)
+{
+	struct bpf_fib_lookup_padded fib_params = {
+		.l = {
+			.family		= AF_INET,
+			.ifindex	= ctx_get_ifindex(ctx),
+		},
+	};
+	enum trace_reason __maybe_unused reason = TRACE_REASON_UNKNOWN;
+	int ifindex = 0, ret, l3_off = ETH_HLEN, l4_off;
+	struct ipv4_ct_tuple tuple = {};
+	struct ct_state ct_state = {};
+	void *data, *data_end;
+	struct iphdr *ip4;
+	__u32 monitor = TRACE_PAYLOAD_LEN;
+	__u32 tunnel_endpoint __maybe_unused = 0;
+	__u32 dst_sec_identity __maybe_unused = 0;
+	bool check_revdnat = true;
+	bool has_l4_header;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	has_l4_header = ipv4_has_l4_header(ip4);
+
+	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	if (ret < 0) {
+		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
+		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
+			check_revdnat = false;
+		else
+			return ret;
+	}
+
+#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && !defined(IS_BPF_OVERLAY) && !defined(TUNNEL_MODE)
+	/* If we are not using TUNNEL_MODE, the gateway node needs to manually steer
+	 * any reply traffic for a remote pod into the tunnel (to avoid iptables
+	 * potentially dropping the packets).
+	 */
+	if (egress_gw_reply_needs_redirect(ip4, &tunnel_endpoint, &dst_sec_identity)) {
+		reason = TRACE_REASON_CT_REPLY;
+		goto redirect;
+	}
+#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
+
+	if (!check_revdnat)
+		goto out;
+
+	if (!ct_has_nodeport_egress_entry4(get_ct_map4(&tuple), &tuple, NULL, false))
+		goto out;
+
+	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
+			      CT_INGRESS, SCOPE_REVERSE, &ct_state, &monitor);
+	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
+		reason = TRACE_REASON_CT_REPLY;
+		ret = lb4_rev_nat(ctx, l3_off, l4_off, ct_state.rev_nat_index, false,
+				  &tuple, REV_NAT_F_TUPLE_SADDR, has_l4_header);
+		if (IS_ERR(ret))
+			return ret;
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+		ctx_snat_done_set(ctx);
+		ifindex = ct_state.ifindex;
+#if defined(TUNNEL_MODE)
+		{
+			struct remote_endpoint_info *info;
+
+			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
+			if (info && info->tunnel_endpoint) {
+				tunnel_endpoint = info->tunnel_endpoint;
+				dst_sec_identity = info->sec_identity;
+			}
+		}
+#endif
+
+		goto redirect;
+	}
+out:
+	if (bpf_skip_recirculation(ctx))
+		return DROP_NAT_NO_MAPPING;
+
+	ctx_skip_nodeport_set(ctx);
+	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
+	return DROP_MISSED_TAIL_CALL;
+
+redirect:
+	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
+	if (unlikely(ret != CTX_ACT_OK))
+		return ret;
+
+#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && !defined(IS_BPF_OVERLAY)) || defined(TUNNEL_MODE)
+	if (tunnel_endpoint) {
+		__be16 src_port = tunnel_gen_src_port_v4(&tuple);
+
+		ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
+						tunnel_endpoint, SECLABEL, dst_sec_identity,
+						reason, monitor, &ifindex);
+		if (IS_ERR(ret))
+			return ret;
+
+		if (ret == CTX_ACT_REDIRECT && ifindex)
+			return ctx_redirect(ctx, ifindex, 0);
+	}
+#endif
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	fib_params.l.ipv4_src = ip4->saddr;
+	fib_params.l.ipv4_dst = ip4->daddr;
+
+	return fib_redirect(ctx, true, &fib_params, ext_err, &ifindex);
+}
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_REVNAT)
+int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
+{
+	__s8 ext_err = 0;
+	int ret = 0;
+#if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
+	/* We only enforce the host policies if nodeport.h is included from
+	 * bpf_host.
+	 */
+	struct trace_ctx __maybe_unused trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
+	__u32 src_id = 0;
+
+	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_INGRESS);
+	/* We don't want to enforce host policies a second time if we jump back to
+	 * bpf_host's handle_ipv6.
+	 */
+	ctx_skip_host_fw_set(ctx);
+#endif
+	ret = rev_nodeport_lb4(ctx, &ext_err);
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_EGRESS);
+
+#ifndef IS_BPF_LXC
+	edt_set_aggregate(ctx, 0);
+#endif
+	cilium_capture_out(ctx);
+	return ret;
+}
+
 declare_tailcall_if(__not(is_defined(IS_BPF_LXC)), CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS)
 int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 {
@@ -2807,166 +2967,6 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	}
 
 	return CTX_ACT_OK;
-}
-
-/* Reverse NAT handling of node-port traffic for the case where the
- * backend i) was a local EP and bpf_lxc redirected to us, ii) was
- * a remote backend and we got here after reverse SNAT from the
- * tail_nodeport_nat_ingress_ipv4().
- *
- * Also, reverse NAT handling return path egress-gw traffic.
- *
- * CILIUM_CALL_IPV{4,6}_NODEPORT_REVNAT is plugged into CILIUM_MAP_CALLS
- * of the bpf_host, bpf_overlay and of the bpf_lxc.
- */
-static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_err)
-{
-	struct bpf_fib_lookup_padded fib_params = {
-		.l = {
-			.family		= AF_INET,
-			.ifindex	= ctx_get_ifindex(ctx),
-		},
-	};
-	enum trace_reason __maybe_unused reason = TRACE_REASON_UNKNOWN;
-	int ifindex = 0, ret, l3_off = ETH_HLEN, l4_off;
-	struct ipv4_ct_tuple tuple = {};
-	struct ct_state ct_state = {};
-	void *data, *data_end;
-	struct iphdr *ip4;
-	__u32 monitor = TRACE_PAYLOAD_LEN;
-	__u32 tunnel_endpoint __maybe_unused = 0;
-	__u32 dst_sec_identity __maybe_unused = 0;
-	bool check_revdnat = true;
-	bool has_l4_header;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
-	has_l4_header = ipv4_has_l4_header(ip4);
-
-	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
-	if (ret < 0) {
-		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
-		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
-			check_revdnat = false;
-		else
-			return ret;
-	}
-
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && !defined(IS_BPF_OVERLAY) && !defined(TUNNEL_MODE)
-	/* If we are not using TUNNEL_MODE, the gateway node needs to manually steer
-	 * any reply traffic for a remote pod into the tunnel (to avoid iptables
-	 * potentially dropping the packets).
-	 */
-	if (egress_gw_reply_needs_redirect(ip4, &tunnel_endpoint, &dst_sec_identity)) {
-		reason = TRACE_REASON_CT_REPLY;
-		goto redirect;
-	}
-#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
-
-	if (!check_revdnat)
-		goto out;
-
-	if (!ct_has_nodeport_egress_entry4(get_ct_map4(&tuple), &tuple, NULL, false))
-		goto out;
-
-	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
-			      CT_INGRESS, SCOPE_REVERSE, &ct_state, &monitor);
-	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
-		reason = TRACE_REASON_CT_REPLY;
-		ret = lb4_rev_nat(ctx, l3_off, l4_off, ct_state.rev_nat_index, false,
-				  &tuple, REV_NAT_F_TUPLE_SADDR, has_l4_header);
-		if (IS_ERR(ret))
-			return ret;
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
-		ctx_snat_done_set(ctx);
-		ifindex = ct_state.ifindex;
-#if defined(TUNNEL_MODE)
-		{
-			struct remote_endpoint_info *info;
-
-			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
-			if (info != NULL && info->tunnel_endpoint != 0) {
-				tunnel_endpoint = info->tunnel_endpoint;
-				dst_sec_identity = info->sec_identity;
-			}
-		}
-#endif
-
-		goto redirect;
-	}
-out:
-	if (bpf_skip_recirculation(ctx))
-		return DROP_NAT_NO_MAPPING;
-
-	ctx_skip_nodeport_set(ctx);
-	ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_NETDEV);
-	return DROP_MISSED_TAIL_CALL;
-
-redirect:
-	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
-	if (unlikely(ret != CTX_ACT_OK))
-		return ret;
-
-#if (defined(ENABLE_EGRESS_GATEWAY_COMMON) && !defined(IS_BPF_OVERLAY)) || defined(TUNNEL_MODE)
-	if (tunnel_endpoint) {
-		__be16 src_port = tunnel_gen_src_port_v4(&tuple);
-
-		ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
-						tunnel_endpoint, SECLABEL, dst_sec_identity,
-						reason, monitor, &ifindex);
-		if (IS_ERR(ret))
-			return ret;
-
-		if (ret == CTX_ACT_REDIRECT && ifindex)
-			return ctx_redirect(ctx, ifindex, 0);
-	}
-#endif
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
-	fib_params.l.ipv4_src = ip4->saddr;
-	fib_params.l.ipv4_dst = ip4->daddr;
-
-	return fib_redirect(ctx, true, &fib_params, ext_err, &ifindex);
-}
-
-__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_REVNAT)
-int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
-{
-	__s8 ext_err = 0;
-	int ret = 0;
-#if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
-	/* We only enforce the host policies if nodeport.h is included from
-	 * bpf_host.
-	 */
-	struct trace_ctx __maybe_unused trace = {
-		.reason = TRACE_REASON_UNKNOWN,
-		.monitor = 0,
-	};
-	__u32 src_id = 0;
-
-	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
-	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, src_id, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_INGRESS);
-	/* We don't want to enforce host policies a second time if we jump back to
-	 * bpf_host's handle_ipv6.
-	 */
-	ctx_skip_host_fw_set(ctx);
-#endif
-	ret = rev_nodeport_lb4(ctx, &ext_err);
-	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
-						  CTX_ACT_DROP, METRIC_EGRESS);
-
-#ifndef IS_BPF_LXC
-	edt_set_aggregate(ctx, 0);
-#endif
-	cilium_capture_out(ctx);
-	return ret;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD)
