@@ -12,7 +12,7 @@ export CILIUM_REPO:=quay.io/cilium/cilium
 export CLUSTERMESH_APISERVER_REPO:=quay.io/cilium/clustermesh-apiserver
 
 export CERTGEN_REPO:=quay.io/cilium/certgen
-export CERTGEN_VERSION:=v0.1.8@sha256:4a456552a5f192992a6edcec2febb1c54870d665173a33dc7d876129b199ddbd
+export CERTGEN_VERSION:=v0.1.9@sha256:89a0847753686444daabde9474b48340993bd19c7bea66a46e45b2974b82041f
 
 export CILIUM_ETCD_OPERATOR_REPO:=quay.io/cilium/cilium-etcd-operator
 export CILIUM_ETCD_OPERATOR_VERSION:=v2.0.7@sha256:04b8327f7f992693c2cb483b999041ed8f92efc8e14f2a5f3ab95574a65ea2dc
