@@ -105,6 +105,7 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 
 	struct __ctx_buff ctx_buff;
 	struct ipv4_ct_tuple tuple;
+	struct trace_ctx trace;
 
 	/* If there is an error in ct_lazy_lookup4, it will return a negative value. We */
 	/* can simply assume it to be -1 because the actually value does not matter. */
@@ -114,7 +115,7 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	/* an error occurs when snat_v4_track_connection is looking for the ipv4_ct_tuple. */
 	TEST("return -1 on error", {
 		if (snat_v4_track_connection(&ctx_buff, &tuple, true, ACTION_CREATE,
-					     NAT_DIR_EGRESS, 0) != -1) {
+					     NAT_DIR_EGRESS, 0, &trace) != -1) {
 			test_fail();
 		}
 	});
@@ -127,7 +128,7 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	/* successfully tracks ipv4_ct_tuple. */
 	TEST("return 0 on track", {
 		if (snat_v4_track_connection(&ctx_buff, &tuple, true, ACTION_CREATE,
-					     NAT_DIR_EGRESS, 0) != 0) {
+					     NAT_DIR_EGRESS, 0, &trace) != 0) {
 			test_fail();
 		}
 	});
@@ -143,7 +144,7 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	/* when snat_v4_track_connection is trying to create the ipv4_ct_tuple. */
 	TEST("return -1 on create error", {
 		if (snat_v4_track_connection(&ctx_buff, &tuple, true, ACTION_CREATE,
-					     NAT_DIR_EGRESS, 0) != -1) {
+					     NAT_DIR_EGRESS, 0, &trace) != -1) {
 			test_fail();
 		}
 	});
@@ -158,7 +159,7 @@ int bpf_test(__maybe_unused struct xdp_md *ctx)
 	/* successfully creates the ipv4_ct_tuple. */
 	TEST("return 0 on create success", {
 		if (snat_v4_track_connection(&ctx_buff, &tuple, true, ACTION_CREATE,
-					     NAT_DIR_EGRESS, 0) != 0) {
+					     NAT_DIR_EGRESS, 0, &trace) != 0) {
 			test_fail();
 		}
 	});
