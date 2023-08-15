@@ -146,7 +146,6 @@ func createOrUpdateKNP(ctx context.Context, client *k8s.Client, knp *networkingv
 	// Overload the field that should stay unchanged.
 	policy.ObjectMeta.Labels = knp.ObjectMeta.Labels
 	policy.Spec = knp.Spec
-	policy.Status = networkingv1.NetworkPolicyStatus{}
 
 	// Let's update the policy.
 	_, err = client.UpdateKubernetesNetworkPolicy(ctx, policy, metav1.UpdateOptions{})

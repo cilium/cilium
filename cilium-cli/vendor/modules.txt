@@ -430,13 +430,13 @@ github.com/google/certificate-transparency-go/jsonclient
 github.com/google/certificate-transparency-go/tls
 github.com/google/certificate-transparency-go/x509
 github.com/google/certificate-transparency-go/x509/pkix
-# github.com/google/gnostic v0.5.7-v3refs
-## explicit; go 1.12
-github.com/google/gnostic/compiler
-github.com/google/gnostic/extensions
-github.com/google/gnostic/jsonschema
-github.com/google/gnostic/openapiv2
-github.com/google/gnostic/openapiv3
+# github.com/google/gnostic-models v0.6.8
+## explicit; go 1.18
+github.com/google/gnostic-models/compiler
+github.com/google/gnostic-models/extensions
+github.com/google/gnostic-models/jsonschema
+github.com/google/gnostic-models/openapiv2
+github.com/google/gnostic-models/openapiv3
 # github.com/google/go-cmp v0.5.9
 ## explicit; go 1.13
 github.com/google/go-cmp/cmp
@@ -572,8 +572,8 @@ github.com/mholt/archiver/v3
 # github.com/mitchellh/copystructure v1.2.0
 ## explicit; go 1.15
 github.com/mitchellh/copystructure
-# github.com/mitchellh/go-wordwrap v1.0.0
-## explicit
+# github.com/mitchellh/go-wordwrap v1.0.1
+## explicit; go 1.14
 github.com/mitchellh/go-wordwrap
 # github.com/mitchellh/mapstructure v1.5.0
 ## explicit; go 1.14
@@ -832,8 +832,8 @@ go.opentelemetry.io/otel/metric/embedded
 # go.opentelemetry.io/otel/trace v1.16.0
 ## explicit; go 1.19
 go.opentelemetry.io/otel/trace
-# go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5
-## explicit; go 1.13
+# go.starlark.net v0.0.0-20230525235612-a134d8f9ddca
+## explicit; go 1.16
 go.starlark.net/internal/compile
 go.starlark.net/internal/spell
 go.starlark.net/resolve
@@ -1081,7 +1081,7 @@ helm.sh/helm/v3/pkg/storage/driver
 helm.sh/helm/v3/pkg/strvals
 helm.sh/helm/v3/pkg/time
 helm.sh/helm/v3/pkg/uploader
-# k8s.io/api v0.27.4
+# k8s.io/api v0.28.0-rc.0
 ## explicit; go 1.20
 k8s.io/api/admission/v1
 k8s.io/api/admission/v1beta1
@@ -1147,7 +1147,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
-# k8s.io/apimachinery v0.27.4
+# k8s.io/apimachinery v0.28.0-rc.0
 ## explicit; go 1.20
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -1177,6 +1177,7 @@ k8s.io/apimachinery/pkg/selection
 k8s.io/apimachinery/pkg/types
 k8s.io/apimachinery/pkg/util/cache
 k8s.io/apimachinery/pkg/util/diff
+k8s.io/apimachinery/pkg/util/dump
 k8s.io/apimachinery/pkg/util/duration
 k8s.io/apimachinery/pkg/util/errors
 k8s.io/apimachinery/pkg/util/framer
@@ -1195,6 +1196,7 @@ k8s.io/apimachinery/pkg/util/sets
 k8s.io/apimachinery/pkg/util/strategicpatch
 k8s.io/apimachinery/pkg/util/validation
 k8s.io/apimachinery/pkg/util/validation/field
+k8s.io/apimachinery/pkg/util/version
 k8s.io/apimachinery/pkg/util/wait
 k8s.io/apimachinery/pkg/util/yaml
 k8s.io/apimachinery/pkg/version
@@ -1205,12 +1207,13 @@ k8s.io/apimachinery/third_party/forked/golang/reflect
 # k8s.io/apiserver v0.27.4
 ## explicit; go 1.20
 k8s.io/apiserver/pkg/endpoints/deprecation
-# k8s.io/cli-runtime v0.27.3
+# k8s.io/cli-runtime v0.28.0-rc.0
 ## explicit; go 1.20
 k8s.io/cli-runtime/pkg/genericclioptions
+k8s.io/cli-runtime/pkg/genericiooptions
 k8s.io/cli-runtime/pkg/printers
 k8s.io/cli-runtime/pkg/resource
-# k8s.io/client-go v0.27.4 => github.com/cilium/client-go v0.27.2-fix
+# k8s.io/client-go v0.28.0-rc.0
 ## explicit; go 1.20
 k8s.io/client-go/applyconfigurations/admissionregistration/v1
 k8s.io/client-go/applyconfigurations/admissionregistration/v1alpha1
@@ -1420,7 +1423,7 @@ k8s.io/client-go/util/homedir
 k8s.io/client-go/util/jsonpath
 k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/workqueue
-# k8s.io/component-base v0.27.4
+# k8s.io/component-base v0.28.0-rc.0
 ## explicit; go 1.20
 k8s.io/component-base/version
 # k8s.io/klog/v2 v2.100.1
@@ -1431,7 +1434,7 @@ k8s.io/klog/v2/internal/clock
 k8s.io/klog/v2/internal/dbg
 k8s.io/klog/v2/internal/serialize
 k8s.io/klog/v2/internal/severity
-# k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
+# k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9
 ## explicit; go 1.19
 k8s.io/kube-openapi/pkg/builder3/util
 k8s.io/kube-openapi/pkg/cached
@@ -1446,7 +1449,7 @@ k8s.io/kube-openapi/pkg/spec3
 k8s.io/kube-openapi/pkg/util/proto
 k8s.io/kube-openapi/pkg/util/proto/validation
 k8s.io/kube-openapi/pkg/validation/spec
-# k8s.io/kubectl v0.27.3
+# k8s.io/kubectl v0.28.0-rc.0
 ## explicit; go 1.20
 k8s.io/kubectl/pkg/cmd/util
 k8s.io/kubectl/pkg/scheme
@@ -1456,7 +1459,7 @@ k8s.io/kubectl/pkg/util/openapi
 k8s.io/kubectl/pkg/util/templates
 k8s.io/kubectl/pkg/util/term
 k8s.io/kubectl/pkg/validation
-# k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
+# k8s.io/utils v0.0.0-20230505201702-9f6742963106
 ## explicit; go 1.18
 k8s.io/utils/buffer
 k8s.io/utils/clock
@@ -1486,7 +1489,7 @@ oras.land/oras-go/pkg/target
 ## explicit; go 1.18
 sigs.k8s.io/json
 sigs.k8s.io/json/internal/golang/encoding/json
-# sigs.k8s.io/kustomize/api v0.13.2
+# sigs.k8s.io/kustomize/api v0.13.5-0.20230601165947-6ce0bf390ce3
 ## explicit; go 1.19
 sigs.k8s.io/kustomize/api/filters/annotations
 sigs.k8s.io/kustomize/api/filters/fieldspec
@@ -1532,8 +1535,8 @@ sigs.k8s.io/kustomize/api/provider
 sigs.k8s.io/kustomize/api/resmap
 sigs.k8s.io/kustomize/api/resource
 sigs.k8s.io/kustomize/api/types
-# sigs.k8s.io/kustomize/kyaml v0.14.1
-## explicit; go 1.19
+# sigs.k8s.io/kustomize/kyaml v0.14.4-0.20230814161922-911ddcda40a8
+## explicit; go 1.20
 sigs.k8s.io/kustomize/kyaml/comments
 sigs.k8s.io/kustomize/kyaml/errors
 sigs.k8s.io/kustomize/kyaml/ext
@@ -1581,6 +1584,5 @@ sigs.k8s.io/structured-merge-diff/v4/value
 sigs.k8s.io/yaml
 # github.com/miekg/dns => github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc
 # go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
-# k8s.io/client-go => github.com/cilium/client-go v0.27.2-fix
 # sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.6.2
 # github.com/docker/docker => github.com/docker/docker v23.0.6+incompatible
