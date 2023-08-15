@@ -154,6 +154,15 @@ static __always_inline bool ctx_snat_done(struct xdp_md *ctx)
 	return ctx_load_meta(ctx, XFER_MARKER) & XFER_PKT_SNAT_DONE;
 }
 
+static __always_inline __u32 get_tunnel_id(__u32 identity)
+{
+#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+	if(identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
+		return WORLD_ID;
+#endif
+	return identity;
+}
+
 #ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
@@ -198,7 +207,7 @@ ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 			geneve->opt_len = (__u8)(opt_len >> 2);
 			geneve->protocol_type = bpf_htons(ETH_P_TEB);
 
-			seclabel = bpf_htonl(seclabel << 8);
+			seclabel = bpf_htonl(get_tunnel_id(seclabel) << 8);
 			memcpy(&geneve->vni, &seclabel, sizeof(__u32));
 		}
 		break;
@@ -211,7 +220,7 @@ ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 
 			vxlan->vx_flags = bpf_htonl(1U << 27);
 
-			seclabel = bpf_htonl(seclabel << 8);
+			seclabel = bpf_htonl(get_tunnel_id(seclabel) << 8);
 			memcpy(&vxlan->vx_vni, &seclabel, sizeof(__u32));
 		}
 		break;
