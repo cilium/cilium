@@ -396,7 +396,7 @@ type policyRepoGetter interface {
 // EndpointSyncControllerName returns the controller name to synchronize
 // endpoint in to kubernetes.
 func EndpointSyncControllerName(epID uint16) string {
-	return fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", epID)
+	return "sync-to-k8s-ciliumendpoint (" + strconv.FormatUint(uint64(epID), 10) + ")"
 }
 
 // SetAllocator sets the identity allocator for this endpoint.
@@ -475,9 +475,10 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
 func NewEndpointWithState(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, state State) *Endpoint {
+	endpointQueueName := "endpoint-" + strconv.FormatUint(uint64(ID), 10)
 	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, ID, "")
 	ep.state = state
-	ep.eventQueue = eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize)
+	ep.eventQueue = eventqueue.NewEventQueueBuffered(endpointQueueName, option.Config.EndpointQueueSize)
 
 	ep.UpdateLogger(nil)
 
@@ -1822,7 +1823,7 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blo
 		scopedLog.Info("Resolving identity labels (non-blocking)")
 	}
 
-	ctrlName := fmt.Sprintf("%s-%d", resolveIdentity, e.ID)
+	ctrlName := resolveIdentity + "-" + strconv.FormatUint(uint64(e.ID), 10)
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
 			Group: resolveIdentityControllerGroup,
@@ -1891,7 +1892,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) (
 	allocatedIdentity, _, err := e.allocator.AllocateIdentity(allocateCtx, newLabels, notifySelectorCache, identity.InvalidIdentity)
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
-		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))
+		e.LogStatus(Other, Warning, err.Error()+" (will retry)")
 		return false, err
 	}
 

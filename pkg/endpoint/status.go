@@ -4,7 +4,6 @@
 package endpoint
 
 import (
-	"fmt"
 	"sort"
 	"time"
 
@@ -57,7 +56,7 @@ func (s Status) String() string {
 	if s.Msg == "" {
 		return s.Code.String()
 	}
-	return fmt.Sprintf("%s - %s", s.Code, s.Msg)
+	return s.Code.String() + " - " + s.Msg
 }
 
 type StatusResponse struct {
