@@ -367,15 +367,15 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 static __always_inline int
 tail_handle_ipv6_cont(struct __ctx_buff *ctx, bool from_host)
 {
-	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	int ret;
 	__s8 ext_err = 0;
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = handle_ipv6_cont(ctx, proxy_identity, from_host, &ext_err);
+	ret = handle_ipv6_cont(ctx, src_sec_identity, from_host, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, proxy_identity, ret, ext_err,
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
@@ -395,17 +395,17 @@ int tail_handle_ipv6_cont_from_netdev(struct __ctx_buff *ctx)
 static __always_inline int
 tail_handle_ipv6(struct __ctx_buff *ctx, const bool from_host)
 {
-	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	int ret;
 	__s8 ext_err = 0;
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = handle_ipv6(ctx, proxy_identity, from_host, &ext_err);
+	ret = handle_ipv6(ctx, src_sec_identity, from_host, &ext_err);
 
 	/* TC_ACT_REDIRECT is not an error, but it means we should stop here. */
 	if (ret == CTX_ACT_OK) {
-		ctx_store_meta(ctx, CB_SRC_LABEL, proxy_identity);
+		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 		if (from_host)
 			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
 						 CILIUM_CALL_IPV6_CONT_FROM_HOST,
@@ -418,7 +418,7 @@ tail_handle_ipv6(struct __ctx_buff *ctx, const bool from_host)
 
 	/* Catch errors from both handle_ipv6 and invoke_tailcall_if here. */
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, proxy_identity, ret, ext_err,
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_INGRESS);
 
 	return ret;
@@ -781,15 +781,15 @@ skip_vtep:
 static __always_inline int
 tail_handle_ipv4_cont(struct __ctx_buff *ctx, bool from_host)
 {
-	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	int ret;
 	__s8 ext_err = 0;
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = handle_ipv4_cont(ctx, proxy_identity, from_host, &ext_err);
+	ret = handle_ipv4_cont(ctx, src_sec_identity, from_host, &ext_err);
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, proxy_identity, ret, ext_err,
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
@@ -809,17 +809,17 @@ int tail_handle_ipv4_cont_from_netdev(struct __ctx_buff *ctx)
 static __always_inline int
 tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_host)
 {
-	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
+	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	int ret;
 	__s8 ext_err = 0;
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = handle_ipv4(ctx, proxy_identity, ipcache_srcid, from_host, &ext_err);
+	ret = handle_ipv4(ctx, src_sec_identity, ipcache_srcid, from_host, &ext_err);
 
 	/* TC_ACT_REDIRECT is not an error, but it means we should stop here. */
 	if (ret == CTX_ACT_OK) {
-		ctx_store_meta(ctx, CB_SRC_LABEL, proxy_identity);
+		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 		if (from_host)
 			ret = invoke_tailcall_if(is_defined(ENABLE_HOST_FIREWALL),
 						 CILIUM_CALL_IPV4_CONT_FROM_HOST,
@@ -832,7 +832,7 @@ tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_ho
 
 	/* Catch errors from both handle_ipv4 and invoke_tailcall_if here. */
 	if (IS_ERR(ret))
-		return send_drop_notify_error_ext(ctx, proxy_identity, ret, ext_err,
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_INGRESS);
 
 	return ret;
