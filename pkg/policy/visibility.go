@@ -105,7 +105,7 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 		}
 
 		for _, prot := range protos {
-			pp := fmt.Sprintf("%d/%s", portInt, prot.String())
+			pp := strconv.FormatUint(portInt, 10) + "/" + prot.String()
 			if res, ok := dvp[pp]; ok {
 				if res.Parser != l7Protocol {
 					return nil, fmt.Errorf("duplicate annotations with different L7 protocols %s and %s for %s", res.Parser, l7Protocol, pp)
