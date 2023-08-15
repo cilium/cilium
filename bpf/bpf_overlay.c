@@ -220,12 +220,13 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	       .max_port = NODEPORT_PORT_MAX_NAT,
 	       .cluster_id = cluster_id_from_identity,
 	};
+	struct trace_ctx trace;
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	*src_sec_identity = identity;
 
-	ret = snat_v4_rev_nat(ctx, &target, ext_err);
+	ret = snat_v4_rev_nat(ctx, &target, &trace, ext_err);
 	if (ret != NAT_PUNT_TO_STACK && ret != DROP_NAT_NO_MAPPING) {
 		if (IS_ERR(ret))
 			return ret;
