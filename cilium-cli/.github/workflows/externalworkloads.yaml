@@ -29,7 +29,7 @@ env:
   zone: us-west2-a
   vmStartupScript: .github/gcp-vm-startup.sh
   # renovate: datasource=github-releases depName=cilium/cilium
-  cilium_version: v1.14.0
+  cilium_version: v1.14.1
   kubectl_version: v1.23.6
   USE_GKE_GCLOUD_AUTH_PLUGIN: True
 
