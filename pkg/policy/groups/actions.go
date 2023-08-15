@@ -5,7 +5,6 @@ package groups
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,7 +41,7 @@ func AddDerivativeCNPIfNeeded(clientset client.Clientset, cnp *cilium_v2.CiliumN
 		return true
 	}
 	controllerManager.UpdateController(
-		fmt.Sprintf("add-derivative-cnp-%s", cnp.ObjectMeta.Name),
+		"add-derivative-cnp-"+cnp.ObjectMeta.Name,
 		controller.ControllerParams{
 			Group: addDerivativeCNPControllerGroup,
 			DoFunc: func(ctx context.Context) error {
@@ -64,7 +63,7 @@ func AddDerivativeCCNPIfNeeded(clientset client.Clientset, cnp *cilium_v2.Cilium
 		return true
 	}
 	controllerManager.UpdateController(
-		fmt.Sprintf("add-derivative-ccnp-%s", cnp.ObjectMeta.Name),
+		"add-derivative-ccnp-"+cnp.ObjectMeta.Name,
 		controller.ControllerParams{
 			Group: addDerivativeCCNPControllerGroup,
 			DoFunc: func(ctx context.Context) error {
@@ -88,7 +87,7 @@ func UpdateDerivativeCNPIfNeeded(clientset client.Clientset, newCNP *cilium_v2.C
 		}).Info("New CNP does not have derivative policy, but old had. Deleting old policies")
 
 		controllerManager.UpdateController(
-			fmt.Sprintf("delete-derivative-cnp-%s", oldCNP.ObjectMeta.Name),
+			"delete-derivative-cnp-"+oldCNP.ObjectMeta.Name,
 			controller.ControllerParams{
 				Group: deleteDerivativeCNPControllerGroup,
 				DoFunc: func(ctx context.Context) error {
@@ -103,7 +102,7 @@ func UpdateDerivativeCNPIfNeeded(clientset client.Clientset, newCNP *cilium_v2.C
 	}
 
 	controllerManager.UpdateController(
-		fmt.Sprintf("update-derivative-cnp-%s", newCNP.ObjectMeta.Name),
+		"update-derivative-cnp-"+newCNP.ObjectMeta.Name,
 		controller.ControllerParams{
 			Group: updateDerivativeCNPControllerGroup,
 			DoFunc: func(ctx context.Context) error {
@@ -126,7 +125,7 @@ func UpdateDerivativeCCNPIfNeeded(clientset client.Clientset, newCCNP *cilium_v2
 		}).Info("New CCNP does not have derivative policy, but old had. Deleting old policies")
 
 		controllerManager.UpdateController(
-			fmt.Sprintf("delete-derivative-ccnp-%s", oldCCNP.ObjectMeta.Name),
+			"delete-derivative-ccnp-"+oldCCNP.ObjectMeta.Name,
 			controller.ControllerParams{
 				Group: deleteDerivativeCCNPControllerGroup,
 				DoFunc: func(ctx context.Context) error {
@@ -141,7 +140,7 @@ func UpdateDerivativeCCNPIfNeeded(clientset client.Clientset, newCCNP *cilium_v2
 	}
 
 	controllerManager.UpdateController(
-		fmt.Sprintf("update-derivative-ccnp-%s", newCCNP.ObjectMeta.Name),
+		"update-derivative-ccnp-"+newCCNP.ObjectMeta.Name,
 		controller.ControllerParams{
 			Group: updateDerivativeCCNPControllerGroup,
 			DoFunc: func(ctx context.Context) error {
@@ -173,7 +172,7 @@ func DeleteDerivativeCNP(ctx context.Context, clientset client.Clientset, cnp *c
 	err := clientset.CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).DeleteCollection(
 		ctx,
 		v1.DeleteOptions{},
-		v1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", parentCNP, cnp.ObjectMeta.UID)})
+		v1.ListOptions{LabelSelector: parentCNP + "=" + string(cnp.ObjectMeta.UID)})
 
 	if err != nil {
 		return err
@@ -198,7 +197,7 @@ func DeleteDerivativeCCNP(ctx context.Context, clientset client.Clientset, ccnp 
 	err := clientset.CiliumV2().CiliumClusterwideNetworkPolicies().DeleteCollection(
 		ctx,
 		v1.DeleteOptions{},
-		v1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", parentCNP, ccnp.ObjectMeta.UID)})
+		v1.ListOptions{LabelSelector: parentCNP + "=" + string(ccnp.ObjectMeta.UID)})
 	if err != nil {
 		return err
 	}
