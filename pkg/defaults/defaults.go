@@ -576,4 +576,6 @@ var (
 		"cilium_lb6_source_range":   "enabled,128,0",
 		"cilium_lb6_affinity_match": "enabled,128,0",
 	}
+
+	PolicyCIDRMatchMode = []string{}
 )

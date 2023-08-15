@@ -1208,6 +1208,9 @@ const (
 
 	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
 	EnableK8sNetworkPolicy = "enable-k8s-networkpolicy"
+
+	// PolicyCIDRMatchMode defines the entities that CIDR selectors can reach
+	PolicyCIDRMatchMode = "policy-cidr-match-mode"
 )
 
 // Default string arguments
@@ -2473,6 +2476,12 @@ type DaemonConfig struct {
 
 	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
 	EnableK8sNetworkPolicy bool
+
+	// PolicyCIDRMatchMode is the list of entities that can be selected by CIDR policy.
+	// Currently supported values:
+	// - world
+	// - world, remote-node
+	PolicyCIDRMatchMode []string
 }
 
 var (
@@ -2523,6 +2532,7 @@ var (
 		EnableVTEP:             defaults.EnableVTEP,
 		EnableBGPControlPlane:  defaults.EnableBGPControlPlane,
 		EnableK8sNetworkPolicy: defaults.EnableK8sNetworkPolicy,
+		PolicyCIDRMatchMode:    defaults.PolicyCIDRMatchMode,
 	}
 )
 
@@ -2791,6 +2801,28 @@ func (c *DaemonConfig) EgressGatewayCommonEnabled() bool {
 	return c.EnableIPv4EgressGateway
 }
 
+func (c *DaemonConfig) PolicyCIDRMatchesNodes() bool {
+	for _, mode := range c.PolicyCIDRMatchMode {
+		if mode == "nodes" {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *DaemonConfig) validatePolicyCIDRMatchMode() error {
+	// Currently, the only acceptable values is "nodes".
+	for _, mode := range c.PolicyCIDRMatchMode {
+		switch mode {
+		case "nodes":
+			continue
+		default:
+			return fmt.Errorf("unknown CIDR match mode: %s", mode)
+		}
+	}
+	return nil
+}
+
 // DirectRoutingDeviceRequired return whether the Direct Routing Device is needed under
 // the current configuration.
 func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
@@ -2928,6 +2960,10 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 		if err != nil {
 			return fmt.Errorf("Failed to validate VTEP configuration: %w", err)
 		}
+	}
+
+	if err := c.validatePolicyCIDRMatchMode(); err != nil {
+		return err
 	}
 
 	return nil
@@ -3617,6 +3653,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	// To support K8s NetworkPolicy
 	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
+	c.PolicyCIDRMatchMode = vp.GetStringSlice(PolicyCIDRMatchMode)
 }
 
 func (c *DaemonConfig) populateDevices(vp *viper.Viper) {
