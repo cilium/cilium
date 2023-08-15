@@ -22,9 +22,7 @@ const (
 )
 
 func getDerivativeName(obj v1.Object) string {
-	return fmt.Sprintf("%s-togroups-%s",
-		obj.GetName(),
-		obj.GetUID())
+	return obj.GetName() + "-togroups-" + string(obj.GetUID())
 }
 
 // createDerivativeCNP will return a new CNP based on the given rule.
