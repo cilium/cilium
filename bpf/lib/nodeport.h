@@ -133,7 +133,8 @@ static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple
 }
 
 static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
-						  const union v6addr *addr)
+						  const union v6addr *addr,
+						  struct trace_ctx *trace)
 {
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
@@ -144,7 +145,7 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	ipv6_addr_copy(&target.addr, addr);
 
 	ret = snat_v6_needed(ctx, addr) ?
-	      snat_v6_nat(ctx, &target) : CTX_ACT_OK;
+	      snat_v6_nat(ctx, &target, trace) : CTX_ACT_OK;
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 
@@ -825,6 +826,10 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
 	};
+	struct trace_ctx trace = {
+		.reason = (enum trace_reason)CT_NEW,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
 	int verdict = CTX_ACT_REDIRECT;
 	bool l2_hdr_required = true;
 	void *data, *data_end;
@@ -854,8 +859,8 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 					  WORLD_ID,
 					  info->sec_label,
 					  NOT_VTEP_DST,
-					  (enum trace_reason)CT_NEW,
-					  TRACE_PAYLOAD_LEN,
+					  trace.reason,
+					  trace.monitor,
 					  &fib_params.l.ifindex);
 		if (IS_ERR(ret))
 			goto drop_err;
@@ -865,7 +870,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		verdict = ret;
 	}
 #endif
-	ret = snat_v6_nat(ctx, &target);
+	ret = snat_v6_nat(ctx, &target, &trace);
 	if (IS_ERR(ret) && ret != NAT_PUNT_TO_STACK)
 		goto drop_err;
 
@@ -1353,6 +1358,10 @@ drop:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 {
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 	enum trace_point obs_point;
 	int ret;
 #if defined(TUNNEL_MODE) && defined(IS_BPF_OVERLAY)
@@ -1366,11 +1375,11 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = nodeport_snat_fwd_ipv6(ctx, &addr);
+	ret = nodeport_snat_fwd_ipv6(ctx, &addr, &trace);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 
-	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, TRACE_REASON_UNKNOWN, 0);
+	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason, trace.monitor);
 
 	return ret;
 }
@@ -1439,7 +1448,8 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 	return nodeport_uses_dsr(tuple->nexthdr);
 }
 
-static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx)
+static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
+						  struct trace_ctx *trace)
 {
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
@@ -1452,7 +1462,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx)
 
 	snat_needed = snat_v4_prepare_state(ctx, &target);
 	if (snat_needed)
-		ret = snat_v4_nat(ctx, &target);
+		ret = snat_v4_nat(ctx, &target, trace);
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
 
@@ -2033,6 +2043,10 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
 	};
+	struct trace_ctx trace = {
+		.reason = (enum trace_reason)CT_NEW,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
 	int verdict = CTX_ACT_REDIRECT;
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -2072,8 +2086,8 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 					  WORLD_ID,
 					  info->sec_label,
 					  NOT_VTEP_DST,
-					  (enum trace_reason)CT_NEW,
-					  TRACE_PAYLOAD_LEN,
+					  trace.reason,
+					  trace.monitor,
 					  &fib_params.l.ifindex);
 		if (IS_ERR(ret))
 			goto drop_err;
@@ -2083,7 +2097,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		verdict = ret;
 	}
 #endif
-	ret = snat_v4_nat(ctx, &target);
+	ret = snat_v4_nat(ctx, &target, &trace);
 	if (IS_ERR(ret) && ret != NAT_PUNT_TO_STACK)
 		goto drop_err;
 
@@ -2605,6 +2619,10 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 {
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = 0,
+	};
 	enum trace_point obs_point;
 	int ret;
 
@@ -2614,11 +2632,11 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 	obs_point = TRACE_TO_NETWORK;
 #endif
 
-	ret = nodeport_snat_fwd_ipv4(ctx);
+	ret = nodeport_snat_fwd_ipv4(ctx, &trace);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 
-	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, TRACE_REASON_UNKNOWN, 0);
+	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason, trace.monitor);
 
 	return ret;
 }
