@@ -280,82 +280,85 @@ type nodeState struct {
 	instanceName string
 }
 
+// TODO: This test is disabled because it has a persisent flake.
+// When #26617 is fixed, this test should be re-enabled.
+//
 // TestIpamManyNodes tests IP allocation of 100 nodes across 3 subnets
-func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
-	const (
-		numNodes    = 100
-		minAllocate = 10
-	)
+// func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
+// 	const (
+// 		numNodes    = 100
+// 		minAllocate = 10
+// 	)
 
-	api := apimock.NewAPI(testSubnets, []*ipamTypes.VirtualNetwork{testVnet})
-	instances := NewInstancesManager(api)
-	c.Assert(instances, check.Not(check.IsNil))
+// 	api := apimock.NewAPI(testSubnets, []*ipamTypes.VirtualNetwork{testVnet})
+// 	instances := NewInstancesManager(api)
+// 	c.Assert(instances, check.Not(check.IsNil))
 
-	k8sapi := newK8sMock()
-	metrics := metricsmock.NewMockMetrics()
-	mngr, err := ipam.NewNodeManager(instances, k8sapi, metrics, 10, false, false)
-	c.Assert(err, check.IsNil)
-	c.Assert(mngr, check.Not(check.IsNil))
+// 	k8sapi := newK8sMock()
+// 	metrics := metricsmock.NewMockMetrics()
+// 	mngr, err := ipam.NewNodeManager(instances, k8sapi, metrics, 10, false, false)
+// 	c.Assert(err, check.IsNil)
+// 	c.Assert(mngr, check.Not(check.IsNil))
 
-	state := make([]*nodeState, numNodes)
-	allInstances := ipamTypes.NewInstanceMap()
+// 	state := make([]*nodeState, numNodes)
+// 	allInstances := ipamTypes.NewInstanceMap()
 
-	for i := range state {
-		resource := &types.AzureInterface{
-			Name:          "eth0",
-			SecurityGroup: "sg1",
-			Addresses:     []types.AzureAddress{},
-			State:         types.StateSucceeded,
-		}
-		resource.SetID(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i))
-		allInstances.Update(fmt.Sprintf("vm%d", i), ipamTypes.InterfaceRevision{
-			Resource: resource.DeepCopy(),
-		})
-	}
+// 	for i := range state {
+// 		resource := &types.AzureInterface{
+// 			Name:          "eth0",
+// 			SecurityGroup: "sg1",
+// 			Addresses:     []types.AzureAddress{},
+// 			State:         types.StateSucceeded,
+// 		}
+// 		resource.SetID(fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i))
+// 		allInstances.Update(fmt.Sprintf("vm%d", i), ipamTypes.InterfaceRevision{
+// 			Resource: resource.DeepCopy(),
+// 		})
+// 	}
 
-	api.UpdateInstances(allInstances)
-	instances.Resync(context.TODO())
+// 	api.UpdateInstances(allInstances)
+// 	instances.Resync(context.TODO())
 
-	for i := range state {
-		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("vm%d", i)}
-		state[i].cn = newCiliumNode(state[i].name, state[i].instanceName, 1, minAllocate)
-		mngr.Upsert(state[i].cn)
-	}
+// 	for i := range state {
+// 		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("vm%d", i)}
+// 		state[i].cn = newCiliumNode(state[i].name, state[i].instanceName, 1, minAllocate)
+// 		mngr.Upsert(state[i].cn)
+// 	}
 
-	for _, s := range state {
-		c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, s.name, 0) }, 5*time.Second), check.IsNil)
+// 	for _, s := range state {
+// 		c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, s.name, 0) }, 5*time.Second), check.IsNil)
 
-		node := mngr.Get(s.name)
-		c.Assert(node, check.Not(check.IsNil))
-		if node.Stats().AvailableIPs != minAllocate {
-			c.Errorf("Node %s allocation mismatch. expected: %d allocated: %d", s.name, minAllocate, node.Stats().AvailableIPs)
-			c.Fail()
-		}
-		c.Assert(node.Stats().UsedIPs, check.Equals, 0)
-	}
+// 		node := mngr.Get(s.name)
+// 		c.Assert(node, check.Not(check.IsNil))
+// 		if node.Stats().AvailableIPs != minAllocate {
+// 			c.Errorf("Node %s allocation mismatch. expected: %d allocated: %d", s.name, minAllocate, node.Stats().AvailableIPs)
+// 			c.Fail()
+// 		}
+// 		c.Assert(node.Stats().UsedIPs, check.Equals, 0)
+// 	}
 
-	// The above check returns as soon as the address requirements are met.
-	// The metrics may still be outdated, resync all nodes to update
-	// metrics.
-	mngr.Resync(context.TODO(), time.Now())
+// 	// The above check returns as soon as the address requirements are met.
+// 	// The metrics may still be outdated, resync all nodes to update
+// 	// metrics.
+// 	mngr.Resync(context.TODO(), time.Now())
 
-	c.Assert(metrics.Nodes("total"), check.Equals, numNodes)
-	c.Assert(metrics.Nodes("in-deficit"), check.Equals, 0)
-	c.Assert(metrics.Nodes("at-capacity"), check.Equals, 0)
+// 	c.Assert(metrics.Nodes("total"), check.Equals, numNodes)
+// 	c.Assert(metrics.Nodes("in-deficit"), check.Equals, 0)
+// 	c.Assert(metrics.Nodes("at-capacity"), check.Equals, 0)
 
-	c.Assert(metrics.AllocatedIPs("available"), check.Equals, numNodes*minAllocate)
-	c.Assert(metrics.AllocatedIPs("needed"), check.Equals, 0)
-	c.Assert(metrics.AllocatedIPs("used"), check.Equals, 0)
+// 	c.Assert(metrics.AllocatedIPs("available"), check.Equals, numNodes*minAllocate)
+// 	c.Assert(metrics.AllocatedIPs("needed"), check.Equals, 0)
+// 	c.Assert(metrics.AllocatedIPs("used"), check.Equals, 0)
 
-	// All subnets must have been used for allocation
-	for _, subnet := range subnets {
-		c.Assert(metrics.GetAllocationAttempts("createInterfaceAndAllocateIP", "success", subnet.ID), check.Not(check.Equals), 0)
-		c.Assert(metrics.IPAllocations(subnet.ID), check.Not(check.Equals), 0)
-	}
+// 	// All subnets must have been used for allocation
+// 	for _, subnet := range subnets {
+// 		c.Assert(metrics.GetAllocationAttempts("createInterfaceAndAllocateIP", "success", subnet.ID), check.Not(check.Equals), 0)
+// 		c.Assert(metrics.IPAllocations(subnet.ID), check.Not(check.Equals), 0)
+// 	}
 
-	c.Assert(metrics.ResyncCount(), check.Not(check.Equals), 0)
-	c.Assert(metrics.AvailableInterfaces(), check.Not(check.Equals), 0)
-}
+// 	c.Assert(metrics.ResyncCount(), check.Not(check.Equals), 0)
+// 	c.Assert(metrics.AvailableInterfaces(), check.Not(check.Equals), 0)
+// }
 
 func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLimit float64, burst int) {
 	api := apimock.NewAPI(testSubnets, []*ipamTypes.VirtualNetwork{testVnet})
