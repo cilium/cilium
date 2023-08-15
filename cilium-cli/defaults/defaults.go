@@ -86,7 +86,7 @@ const (
 	// renovate: datasource=docker
 	ConnectivityCheckJSONMockImage = "quay.io/cilium/json-mock:v1.3.5@sha256:d5dfd0044540cbe01ad6a1932cfb1913587f93cac4f145471ca04777f26342a4"
 	// renovate: datasource=docker
-	ConnectivityDNSTestServerImage = "docker.io/coredns/coredns:1.11.0@sha256:cc3ebb05fbdba439d2d69813f162aa204b027098c8244fb3156e6e7c0f31c548"
+	ConnectivityDNSTestServerImage = "docker.io/coredns/coredns:1.11.1@sha256:1eeb4c7316bacb1d4c8ead65571cd92dd21e27359f0d4917f1a5822a73b75db1"
 
 	ConfigMapName = "cilium-config"
 
