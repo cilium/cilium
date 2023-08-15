@@ -909,9 +909,9 @@ drop_err:
 }
 #endif /* ENABLE_NAT_46X64_GATEWAY */
 
-static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_err)
+static __always_inline int
+rev_nodeport_lb6(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext_err)
 {
-	enum trace_reason __maybe_unused reason = TRACE_REASON_CT_REPLY;
 #ifdef ENABLE_NAT_46X64_GATEWAY
 	const bool nat_46x64_fib = nat46x64_cb_route(ctx);
 #endif
@@ -926,7 +926,6 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 	struct ct_state ct_state = {};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	__u32 monitor = TRACE_PAYLOAD_LEN;
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
 	__be16 src_port __maybe_unused = 0;
@@ -949,8 +948,9 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, __s8 *ext_er
 		goto out;
 
 	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
-			      CT_INGRESS, SCOPE_REVERSE, &ct_state, &monitor);
+			      CT_INGRESS, SCOPE_REVERSE, &ct_state, &trace->monitor);
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
+		trace->reason = TRACE_REASON_CT_REPLY;
 		ret = ipv6_l3(ctx, ETH_HLEN, NULL, NULL, METRIC_EGRESS);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
@@ -988,7 +988,7 @@ encap_redirect:
 
 	ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
 					tunnel_endpoint, SECLABEL, dst_sec_identity,
-					reason, monitor, &ifindex);
+					trace->reason, trace->monitor, &ifindex);
 	if (IS_ERR(ret))
 		return ret;
 
@@ -1027,16 +1027,16 @@ fib_ipv4:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_REVNAT)
 int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 {
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_CT_REPLY,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
 	__s8 ext_err = 0;
 	int ret = 0;
 #if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
 	/* We only enforce the host policies if nodeport.h is included from
 	 * bpf_host.
 	 */
-	struct trace_ctx __maybe_unused trace = {
-		.reason = TRACE_REASON_UNKNOWN,
-		.monitor = 0,
-	};
 	__u32 src_id = 0;
 
 	ret = ipv6_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
@@ -1048,7 +1048,7 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	 */
 	ctx_skip_host_fw_set(ctx);
 #endif
-	ret = rev_nodeport_lb6(ctx, &ext_err);
+	ret = rev_nodeport_lb6(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop;
 
@@ -2340,7 +2340,8 @@ nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
  * CILIUM_CALL_IPV{4,6}_NODEPORT_REVNAT is plugged into CILIUM_MAP_CALLS
  * of the bpf_host, bpf_overlay and of the bpf_lxc.
  */
-static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_err)
+static __always_inline int
+rev_nodeport_lb4(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded fib_params = {
 		.l = {
@@ -2348,13 +2349,11 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 			.ifindex	= ctx_get_ifindex(ctx),
 		},
 	};
-	enum trace_reason __maybe_unused reason = TRACE_REASON_UNKNOWN;
 	int ifindex = 0, ret, l3_off = ETH_HLEN, l4_off;
 	struct ipv4_ct_tuple tuple = {};
 	struct ct_state ct_state = {};
 	void *data, *data_end;
 	struct iphdr *ip4;
-	__u32 monitor = TRACE_PAYLOAD_LEN;
 	__u32 tunnel_endpoint __maybe_unused = 0;
 	__u32 dst_sec_identity __maybe_unused = 0;
 	bool check_revdnat = true;
@@ -2380,7 +2379,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 	 * potentially dropping the packets).
 	 */
 	if (egress_gw_reply_needs_redirect(ip4, &tunnel_endpoint, &dst_sec_identity)) {
-		reason = TRACE_REASON_CT_REPLY;
+		trace->reason = TRACE_REASON_CT_REPLY;
 		goto redirect;
 	}
 #endif /* ENABLE_EGRESS_GATEWAY_COMMON */
@@ -2392,9 +2391,9 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, __s8 *ext_er
 		goto out;
 
 	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
-			      CT_INGRESS, SCOPE_REVERSE, &ct_state, &monitor);
+			      CT_INGRESS, SCOPE_REVERSE, &ct_state, &trace->monitor);
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
-		reason = TRACE_REASON_CT_REPLY;
+		trace->reason = TRACE_REASON_CT_REPLY;
 		ret = lb4_rev_nat(ctx, l3_off, l4_off, ct_state.rev_nat_index, false,
 				  &tuple, REV_NAT_F_TUPLE_SADDR, has_l4_header);
 		if (IS_ERR(ret))
@@ -2431,7 +2430,7 @@ redirect:
 
 		ret = nodeport_add_tunnel_encap(ctx, IPV4_DIRECT_ROUTING, src_port,
 						tunnel_endpoint, SECLABEL, dst_sec_identity,
-						reason, monitor, &ifindex);
+						trace->reason, trace->monitor, &ifindex);
 		if (IS_ERR(ret))
 			return ret;
 
@@ -2452,16 +2451,16 @@ redirect:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_REVNAT)
 int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 {
+	struct trace_ctx trace = {
+		.reason = TRACE_REASON_UNKNOWN,
+		.monitor = TRACE_PAYLOAD_LEN,
+	};
 	__s8 ext_err = 0;
 	int ret = 0;
 #if defined(ENABLE_HOST_FIREWALL) && defined(IS_BPF_HOST)
 	/* We only enforce the host policies if nodeport.h is included from
 	 * bpf_host.
 	 */
-	struct trace_ctx __maybe_unused trace = {
-		.reason = TRACE_REASON_UNKNOWN,
-		.monitor = 0,
-	};
 	__u32 src_id = 0;
 
 	ret = ipv4_host_policy_ingress(ctx, &src_id, &trace, &ext_err);
@@ -2473,7 +2472,7 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	 */
 	ctx_skip_host_fw_set(ctx);
 #endif
-	ret = rev_nodeport_lb4(ctx, &ext_err);
+	ret = rev_nodeport_lb4(ctx, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
 
