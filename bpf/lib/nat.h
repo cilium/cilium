@@ -377,29 +377,18 @@ snat_v4_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 		csum_l4_offset_and_flags(nexthdr, &csum);
 
 		if (old_port != new_port) {
-			__be32 from, to;
-			int ret;
+			__be32 from = old_port;
+			__be32 to = new_port;
 
 			switch (nexthdr) {
 			case IPPROTO_TCP:
 			case IPPROTO_UDP:
-				ret = l4_modify_port(ctx, l4_off, port_off,
-						     &csum, new_port, old_port);
-				if (ret < 0)
-					return ret;
 				break;
 #ifdef ENABLE_SCTP
 			case IPPROTO_SCTP:
 				return DROP_CSUM_L4;
 #endif  /* ENABLE_SCTP */
 			case IPPROTO_ICMP:
-				if (l4_store_port(ctx, l4_off, port_off, new_port) < 0)
-					return DROP_WRITE_ERROR;
-
-				from = old_port;
-				to = new_port;
-				l4_sum = csum_diff(&from, 4, &to, 4, 0);
-
 				/* Not initialized by csum_l4_offset_and_flags(): */
 				csum.offset = offsetof(struct icmphdr, checksum);
 				/* No Pseudo-Hdr checksum for ICMPv4: */
@@ -408,6 +397,10 @@ snat_v4_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 			default:
 				return DROP_UNKNOWN_L4;
 			}
+
+			l4_sum = csum_diff(&from, 4, &to, 4, 0);
+			if (l4_store_port(ctx, l4_off, port_off, new_port) < 0)
+				return DROP_WRITE_ERROR;
 		}
 
 		if (csum.offset &&
@@ -1338,32 +1331,25 @@ snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off, int l4
 	csum_l4_offset_and_flags(nexthdr, &csum);
 
 	if (old_port != new_port) {
-		__be32 from, to;
-		int ret;
+		__be32 from = old_port;
+		__be32 to = new_port;
 
 		switch (nexthdr) {
 		case IPPROTO_TCP:
 		case IPPROTO_UDP:
-			ret = l4_modify_port(ctx, l4_off, port_off,
-					     &csum, new_port, old_port);
-			if (ret < 0)
-				return ret;
+		case IPPROTO_ICMPV6:
 			break;
 #ifdef ENABLE_SCTP
 		case IPPROTO_SCTP:
 			return DROP_CSUM_L4;
 #endif  /* ENABLE_SCTP */
-		case IPPROTO_ICMPV6:
-			if (l4_store_port(ctx, l4_off, port_off, new_port) < 0)
-				return DROP_WRITE_ERROR;
-
-			from = old_port;
-			to = new_port;
-			sum = csum_diff(&from, 4, &to, 4, sum);
-			break;
 		default:
 			return DROP_UNKNOWN_L4;
 		}
+
+		sum = csum_diff(&from, 4, &to, 4, sum);
+		if (l4_store_port(ctx, l4_off, port_off, new_port) < 0)
+			return DROP_WRITE_ERROR;
 	}
 
 	if (csum.offset &&
