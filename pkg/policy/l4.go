@@ -254,7 +254,7 @@ func (a AuthType) String() string {
 	case AuthTypeAlwaysFail:
 		return "test-always-fail"
 	}
-	return fmt.Sprintf("Unknown-auth-type-%d", a.Uint8())
+	return "Unknown-auth-type-" + strconv.FormatUint(uint64(a.Uint8()), 10)
 }
 
 // IsRedirect returns true if the L7Rules are a redirect.
@@ -1138,32 +1138,35 @@ func (l4 L4PolicyMap) containsAllL3L4(labels labels.LabelArray, ports []*models.
 	for _, l4Ctx := range ports {
 		portStr := l4Ctx.Name
 		if !iana.IsSvcName(portStr) {
-			portStr = fmt.Sprintf("%d", l4Ctx.Port)
+			portStr = strconv.FormatUint(uint64(l4Ctx.Port), 10)
 		}
 		lwrProtocol := l4Ctx.Protocol
 		var isUDPDeny, isTCPDeny, isSCTPDeny bool
 		switch lwrProtocol {
 		case "", models.PortProtocolANY:
-			tcpPort := fmt.Sprintf("%s/TCP", portStr)
+			tcpPort := portStr + "/TCP"
 			tcpFilter, tcpmatch := l4[tcpPort]
 			if tcpmatch {
 				tcpmatch, isTCPDeny = tcpFilter.matchesLabels(labels)
 			}
-			udpPort := fmt.Sprintf("%s/UDP", portStr)
+
+			udpPort := portStr + "/UDP"
 			udpFilter, udpmatch := l4[udpPort]
 			if udpmatch {
 				udpmatch, isUDPDeny = udpFilter.matchesLabels(labels)
 			}
-			sctpPort := fmt.Sprintf("%s/SCTP", portStr)
+
+			sctpPort := portStr + "/SCTP"
 			sctpFilter, sctpmatch := l4[sctpPort]
 			if sctpmatch {
 				sctpmatch, isSCTPDeny = sctpFilter.matchesLabels(labels)
 			}
+
 			if (!tcpmatch && !udpmatch && !sctpmatch) || (isTCPDeny && isUDPDeny && isSCTPDeny) {
 				return api.Denied
 			}
 		default:
-			port := fmt.Sprintf("%s/%s", portStr, lwrProtocol)
+			port := portStr + "/" + lwrProtocol
 			filter, match := l4[port]
 			if !match {
 				return api.Denied
