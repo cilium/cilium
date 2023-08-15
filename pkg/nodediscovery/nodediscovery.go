@@ -64,6 +64,10 @@ type k8sGetters interface {
 	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
 }
 
+type GetNodeAddresses interface {
+	GetNodeAddresses() []nodeTypes.Address
+}
+
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
 	Manager               nodemanager.NodeManager
@@ -76,6 +80,7 @@ type NodeDiscovery struct {
 	localNodeLock         lock.Mutex
 	localNode             nodeTypes.Node
 	clientset             client.Clientset
+	nodeAddressSources    []GetNodeAddresses
 }
 
 func enableLocalNodeRoute() bool {
@@ -131,6 +136,14 @@ func NewNodeDiscovery(manager nodemanager.NodeManager, clientset client.Clientse
 		NetConf:               netConf,
 		clientset:             clientset,
 	}
+}
+
+// WithAdditionalNodeAddressSource allows to register additional node address sources which are used
+// to populate the local node's IP addresses.
+func (n *NodeDiscovery) WithAdditionalNodeAddressSource(source GetNodeAddresses) {
+	n.localNodeLock.Lock()
+	defer n.localNodeLock.Unlock()
+	n.nodeAddressSources = append(n.nodeAddressSources, source)
 }
 
 // JoinCluster passes the node name to the kvstore and updates the local configuration on response.
@@ -287,6 +300,10 @@ func (n *NodeDiscovery) fillLocalNode() {
 			Type: addressing.NodeExternalIP,
 			IP:   node.GetK8sExternalIPv6(),
 		})
+	}
+
+	for _, source := range n.nodeAddressSources {
+		n.localNode.IPAddresses = append(n.localNode.IPAddresses, source.GetNodeAddresses()...)
 	}
 }
 
