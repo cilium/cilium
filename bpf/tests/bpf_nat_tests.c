@@ -562,6 +562,7 @@ int test_nat4_icmp_error_tcp_egress(__maybe_unused struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MIN_NAT,
 	};
 	struct ipv4_nat_entry state;
+	struct trace_ctx trace;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
 				  false, NULL);
@@ -570,7 +571,7 @@ int test_nat4_icmp_error_tcp_egress(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &target, NULL);
+	ret = snat_v4_nat(ctx, &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -671,6 +672,7 @@ int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 	    .max_port = NODEPORT_PORT_MIN_NAT,
 	};
 	struct ipv4_nat_entry state;
+	struct trace_ctx trace;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
 				  false, NULL);
@@ -679,7 +681,7 @@ int test_nat4_icmp_error_udp_egress(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &target, NULL);
+	ret = snat_v4_nat(ctx, &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -779,6 +781,7 @@ int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 	    .max_port = NODEPORT_PORT_MIN_NAT,
 	};
 	struct ipv4_nat_entry state;
+	struct trace_ctx trace;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
 				  false, NULL);
@@ -787,7 +790,7 @@ int test_nat4_icmp_error_icmp_egress(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &target, NULL);
+	ret = snat_v4_nat(ctx, &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -876,6 +879,7 @@ int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 	    .max_port = NODEPORT_PORT_MIN_NAT,
 	};
 	struct ipv4_nat_entry state;
+	struct trace_ctx trace;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
 				  false, NULL);
@@ -884,7 +888,7 @@ int test_nat4_icmp_error_sctp_egress(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_nat().
 	 */
-	ret = snat_v4_nat(ctx, &target, NULL);
+	ret = snat_v4_nat(ctx, &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
