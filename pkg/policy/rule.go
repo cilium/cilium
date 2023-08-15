@@ -5,6 +5,7 @@ package policy
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
@@ -345,7 +346,7 @@ func rulePortsCoverSearchContext(ports []api.PortProtocol, ctx *SearchContext) b
 			if dp.Name != "" {
 				tracePort.Port = dp.Name
 			} else {
-				tracePort.Port = fmt.Sprintf("%d", dp.Port)
+				tracePort.Port = strconv.FormatUint(uint64(dp.Port), 10)
 			}
 			if p.Covers(tracePort) {
 				return true
