@@ -828,7 +828,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 // clusterName is expected to be empty for main kvstore connection
 func makeSessionName(sessionPrefix string, opts *ExtraOptions) string {
 	if opts != nil && opts.ClusterName != "" {
-		return fmt.Sprintf("%s-%s", sessionPrefix, opts.ClusterName)
+		return sessionPrefix + "-" + opts.ClusterName
 	}
 	return sessionPrefix
 }
