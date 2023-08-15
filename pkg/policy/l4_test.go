@@ -7,7 +7,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"sort"
+	"strconv"
+	"testing"
 
 	. "github.com/cilium/checkmate"
 	"github.com/kr/pretty"
@@ -415,4 +418,24 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 
 	c.Assert(policy.HasEnvoyRedirect(), Equals, true)
 	c.Assert(policy.HasProxylibRedirect(), Equals, true)
+}
+
+func BenchmarkContainsAllL3L4(b *testing.B) {
+	r := rand.New(rand.NewSource(42))
+	id := uint16(r.Intn(65535))
+	port := uint16(r.Intn(65535))
+
+	b.ReportAllocs()
+	for i := 0; i < 1000; i++ {
+		b.StartTimer()
+		proxyID := ProxyID(id, true, "TCP", port)
+		if proxyID != strconv.FormatInt(int64(id), 10)+"ingress:TCP:8080" {
+			b.Failed()
+		}
+		_, _, _, _, err := ParseProxyID(proxyID)
+		if err != nil {
+			b.Failed()
+		}
+		b.StopTimer()
+	}
 }

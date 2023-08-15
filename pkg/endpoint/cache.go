@@ -4,8 +4,8 @@
 package endpoint
 
 import (
-	"fmt"
 	"net/netip"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 
@@ -105,7 +105,7 @@ func (ep *epInfoCache) GetID() uint64 {
 
 // StringID returns the endpoint's ID in a string.
 func (ep *epInfoCache) StringID() string {
-	return fmt.Sprintf("%d", ep.id)
+	return strconv.FormatUint(ep.id, 10)
 }
 
 // GetIdentity returns the security identity of the endpoint.

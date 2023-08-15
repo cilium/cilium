@@ -81,7 +81,7 @@ const (
 
 // NewCiliumID returns a new endpoint identifier of type CiliumLocalIdPrefix
 func NewCiliumID(id int64) string {
-	return fmt.Sprintf("%s:%d", CiliumLocalIdPrefix, id)
+	return NewID(CiliumLocalIdPrefix, strconv.FormatInt(id, 10))
 }
 
 // NewID returns a new endpoint identifier
