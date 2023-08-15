@@ -290,8 +290,7 @@ struct endpoint_key {
 	};
 	__u8 family;
 	__u8 key;
-	__u8 cluster_id;
-	__u8 pad;
+	__u16 cluster_id;
 } __packed;
 
 struct tunnel_key {
