@@ -1083,14 +1083,14 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
-	struct trace_ctx trace __maybe_unused = {
+	struct trace_ctx trace = {
 		.reason = TRACE_REASON_CT_REPLY,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
 	__s8 ext_err = 0;
 	int ret;
 
-	ret = snat_v6_rev_nat(ctx, &target, &ext_err);
+	ret = snat_v6_rev_nat(ctx, &target, &trace, &ext_err);
 	if (IS_ERR(ret)) {
 		if (ret == NAT_PUNT_TO_STACK ||
 		    /* DROP_NAT_NO_MAPPING is unwanted behavior in a
@@ -2527,14 +2527,14 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
-	struct trace_ctx trace __maybe_unused = {
+	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
 	__s8 ext_err = 0;
 	int ret;
 
-	ret = snat_v4_rev_nat(ctx, &target, &ext_err);
+	ret = snat_v4_rev_nat(ctx, &target, &trace, &ext_err);
 	if (IS_ERR(ret)) {
 		if (ret == NAT_PUNT_TO_STACK ||
 		    /* DROP_NAT_NO_MAPPING is unwanted behavior in a

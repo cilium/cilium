@@ -187,6 +187,7 @@ int test_nat4_icmp_error_tcp(__maybe_unused struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MIN_NAT + 1,
 	};
 	struct ipv4_nat_entry state;
+	struct trace_ctx trace;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
 				  false, NULL);
@@ -195,7 +196,7 @@ int test_nat4_icmp_error_tcp(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_rev_nat().
 	 */
-	ret = snat_v4_rev_nat(ctx, &target, NULL);
+	ret = snat_v4_rev_nat(ctx, &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -296,6 +297,7 @@ int test_nat4_icmp_error_udp(__maybe_unused struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MIN_NAT + 1,
 	};
 	struct ipv4_nat_entry state;
+	struct trace_ctx trace;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
 				  false, NULL);
@@ -304,7 +306,7 @@ int test_nat4_icmp_error_udp(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_rev_nat().
 	 */
-	ret = snat_v4_rev_nat(ctx, &target, NULL);
+	ret = snat_v4_rev_nat(ctx, &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -404,6 +406,7 @@ int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MIN_NAT + 1,
 	};
 	struct ipv4_nat_entry state;
+	struct trace_ctx trace;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
 				  false, NULL);
@@ -412,7 +415,7 @@ int test_nat4_icmp_error_icmp(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_rev_nat().
 	 */
-	ret = snat_v4_rev_nat(ctx, &target, NULL);
+	ret = snat_v4_rev_nat(ctx, &target, &trace, NULL);
 	assert(ret == 0);
 
 	__u16 proto;
@@ -501,6 +504,7 @@ int test_nat4_icmp_error_sctp(__maybe_unused struct __ctx_buff *ctx)
 		.max_port = NODEPORT_PORT_MIN_NAT + 1,
 	};
 	struct ipv4_nat_entry state;
+	struct trace_ctx trace;
 
 	ret = snat_v4_new_mapping(ctx, &tuple, &state, &target,
 				  false, NULL);
@@ -509,7 +513,7 @@ int test_nat4_icmp_error_sctp(__maybe_unused struct __ctx_buff *ctx)
 	/* This is the entry-point of the test, calling
 	 * snat_v4_rev_nat().
 	 */
-	ret = snat_v4_rev_nat(ctx, &target, NULL);
+	ret = snat_v4_rev_nat(ctx, &target, &trace, NULL);
 	assert(ret == DROP_CSUM_L4);
 
 	/* nothing really change with udp/tcp */
