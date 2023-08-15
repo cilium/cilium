@@ -464,6 +464,7 @@ func TestServiceFlags_String(t *testing.T) {
 }
 
 func benchmarkHash(b *testing.B, addr *L3n4Addr) {
+	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		addr.Hash()
@@ -488,4 +489,40 @@ func BenchmarkL3n4Addr_Hash_IPv6_Long(b *testing.B) {
 func BenchmarkL3n4Addr_Hash_IPv6_Max(b *testing.B) {
 	addr := NewL3n4Addr(TCP, cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"), 30303, 100)
 	benchmarkHash(b, addr)
+}
+
+func benchmarkString(b *testing.B, addr *L3n4Addr) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		addr.String()
+	}
+}
+
+func BenchmarkL3n4Addr_String_IPv4(b *testing.B) {
+	addr := NewL3n4Addr(TCP, cmtypes.MustParseAddrCluster("192.168.123.210"), 8080, ScopeInternal)
+	benchmarkString(b, addr)
+}
+
+func BenchmarkL3n4Addr_String_IPv6_Max(b *testing.B) {
+	addr := NewL3n4Addr(TCP, cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"), 30303, 100)
+	benchmarkString(b, addr)
+}
+
+func benchmarkStringWithProtocol(b *testing.B, addr *L3n4Addr) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		addr.StringWithProtocol()
+	}
+}
+
+func BenchmarkL3n4Addr_StringWithProtocol_IPv4(b *testing.B) {
+	addr := NewL3n4Addr(TCP, cmtypes.MustParseAddrCluster("192.168.123.210"), 8080, ScopeInternal)
+	benchmarkStringWithProtocol(b, addr)
+}
+
+func BenchmarkL3n4Addr_StringWithProtocol_IPv6_Max(b *testing.B) {
+	addr := NewL3n4Addr(TCP, cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"), 30303, 100)
+	benchmarkStringWithProtocol(b, addr)
 }
