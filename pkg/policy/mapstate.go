@@ -6,6 +6,7 @@ package policy
 import (
 	"fmt"
 	"net"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
@@ -71,7 +72,10 @@ type Key struct {
 
 // String returns a string representation of the Key
 func (k Key) String() string {
-	return fmt.Sprintf("Identity=%d,DestPort=%d,Nexthdr=%d,TrafficDirection=%d", k.Identity, k.DestPort, k.Nexthdr, k.TrafficDirection)
+	return "Identity=" + strconv.FormatUint(uint64(k.Identity), 10) +
+		",DestPort=" + strconv.FormatUint(uint64(k.DestPort), 10) +
+		",Nexthdr=" + strconv.FormatUint(uint64(k.Nexthdr), 10) +
+		",TrafficDirection=" + strconv.FormatUint(uint64(k.TrafficDirection), 10)
 }
 
 // IsIngress returns true if the key refers to an ingress policy key
@@ -382,7 +386,10 @@ func (e *MapStateEntry) DeepEqual(o *MapStateEntry) bool {
 
 // String returns a string representation of the MapStateEntry
 func (e MapStateEntry) String() string {
-	return fmt.Sprintf("ProxyPort=%d,IsDeny=%t,AuthType=%s,DerivedFromRules=%v", e.ProxyPort, e.IsDeny, e.AuthType.String(), e.DerivedFromRules)
+	return "ProxyPort=" + strconv.FormatUint(uint64(e.ProxyPort), 10) +
+		",IsDeny=" + strconv.FormatBool(e.IsDeny) +
+		",AuthType=" + e.AuthType.String() +
+		",DerivedFromRules=" + fmt.Sprintf("%v", e.DerivedFromRules)
 }
 
 // denyPreferredInsert inserts a key and entry into the map by given preference
