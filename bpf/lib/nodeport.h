@@ -1019,8 +1019,8 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	if (unlikely(ret != CTX_ACT_OK))
 		goto drop_err;
 
-	ret = __snat_v6_nat(ctx, &tuple, l4_off, true, &target, &trace,
-			    &ext_err);
+	ret = __snat_v6_nat(ctx, &tuple, l4_off, true, &target, TCP_SPORT_OFF,
+			    &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -2451,7 +2451,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		goto drop_err;
 
 	ret = __snat_v4_nat(ctx, &tuple, has_l4_header, l4_off,
-			    true, &target, &trace, &ext_err);
+			    true, &target, TCP_SPORT_OFF, &trace, &ext_err);
 	if (IS_ERR(ret))
 		goto drop_err;
 
