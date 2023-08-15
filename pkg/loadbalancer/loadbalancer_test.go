@@ -213,6 +213,154 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 	}
 }
 
+func TestL3n4AddrID_Strings(t *testing.T) {
+	tests := []struct {
+		name               string
+		fields             *L3n4AddrID
+		string             string
+		stringWithProtocol string
+	}{
+		{
+			name: "IPv4 no protocol",
+			fields: &L3n4AddrID{
+				L3n4Addr: L3n4Addr{
+					L4Addr: L4Addr{
+						Protocol: NONE,
+						Port:     9876,
+					},
+					AddrCluster: cmtypes.MustParseAddrCluster("1.1.1.1"),
+				},
+				ID: 1,
+			},
+			string:             "1.1.1.1:9876",
+			stringWithProtocol: "1.1.1.1:9876/NONE",
+		},
+		{
+			name: "IPv4 TCP",
+			fields: &L3n4AddrID{
+				L3n4Addr: L3n4Addr{
+					L4Addr: L4Addr{
+						Protocol: TCP,
+						Port:     9876,
+					},
+					AddrCluster: cmtypes.MustParseAddrCluster("2.2.2.2"),
+					Scope:       ScopeExternal,
+				},
+				ID: 1,
+			},
+			string:             "2.2.2.2:9876",
+			stringWithProtocol: "2.2.2.2:9876/TCP",
+		},
+		{
+			name: "IPv4 UDP",
+			fields: &L3n4AddrID{
+				L3n4Addr: L3n4Addr{
+					L4Addr: L4Addr{
+						Protocol: UDP,
+						Port:     9876,
+					},
+					AddrCluster: cmtypes.MustParseAddrCluster("3.3.3.3"),
+					Scope:       ScopeInternal,
+				},
+				ID: 1,
+			},
+			string:             "3.3.3.3:9876/i",
+			stringWithProtocol: "3.3.3.3:9876/UDP/i",
+		},
+		{
+			name: "IPv4 SCTP",
+			fields: &L3n4AddrID{
+				L3n4Addr: L3n4Addr{
+					L4Addr: L4Addr{
+						Protocol: SCTP,
+						Port:     9876,
+					},
+					AddrCluster: cmtypes.MustParseAddrCluster("4.4.4.4"),
+				},
+				ID: 1,
+			},
+			string:             "4.4.4.4:9876",
+			stringWithProtocol: "4.4.4.4:9876/SCTP",
+		},
+		{
+			name: "IPv6 no protocol",
+			fields: &L3n4AddrID{
+				L3n4Addr: L3n4Addr{
+					L4Addr: L4Addr{
+						Protocol: NONE,
+						Port:     9876,
+					},
+					AddrCluster: cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
+				},
+				ID: 1,
+			},
+			string:             "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876",
+			stringWithProtocol: "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/NONE",
+		},
+		{
+			name: "IPv6 TCP",
+			fields: &L3n4AddrID{
+				L3n4Addr: L3n4Addr{
+					L4Addr: L4Addr{
+						Protocol: TCP,
+						Port:     9876,
+					},
+					AddrCluster: cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
+					Scope:       ScopeExternal,
+				},
+				ID: 1,
+			},
+			string:             "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876",
+			stringWithProtocol: "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/TCP",
+		},
+		{
+			name: "IPv6 UDP",
+			fields: &L3n4AddrID{
+				L3n4Addr: L3n4Addr{
+					L4Addr: L4Addr{
+						Protocol: UDP,
+						Port:     9876,
+					},
+					AddrCluster: cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
+					Scope:       ScopeInternal,
+				},
+				ID: 1,
+			},
+			string:             "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/i",
+			stringWithProtocol: "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/UDP/i",
+		},
+		{
+			name: "IPv6 SCTP",
+			fields: &L3n4AddrID{
+				L3n4Addr: L3n4Addr{
+					L4Addr: L4Addr{
+						Protocol: SCTP,
+						Port:     9876,
+					},
+					AddrCluster: cmtypes.MustParseAddrCluster("1020:3040:5060:7080:90a0:b0c0:d0e0:f000"),
+				},
+				ID: 1,
+			},
+			string:             "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876",
+			stringWithProtocol: "[1020:3040:5060:7080:90a0:b0c0:d0e0:f000]:9876/SCTP",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := tt.fields
+			string := f.String()
+			if string != tt.string {
+				t.Errorf("L3n4AddrID.String() = %s, want %s", string, tt.string)
+			}
+			strWithProtocol := f.StringWithProtocol()
+			if strWithProtocol != tt.stringWithProtocol {
+				t.Errorf("L3n4AddrID.StringWithProtocol() = %s, want %s", strWithProtocol, tt.stringWithProtocol)
+			}
+		})
+	}
+}
+
 func TestNewSvcFlag(t *testing.T) {
 	type args struct {
 		svcType     SVCType
@@ -494,8 +642,9 @@ func BenchmarkL3n4Addr_Hash_IPv6_Max(b *testing.B) {
 func benchmarkString(b *testing.B, addr *L3n4Addr) {
 	b.ReportAllocs()
 	b.ResetTimer()
+	var length int
 	for i := 0; i < b.N; i++ {
-		addr.String()
+		length += len(addr.String())
 	}
 }
 
