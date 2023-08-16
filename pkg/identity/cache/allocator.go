@@ -48,6 +48,8 @@ type CachingIdentityAllocator struct {
 
 	localIdentities *localIdentityCache
 
+	localNodeIdentities *localIdentityCache
+
 	identitiesPath string
 
 	// This field exists is to hand out references that are either for sending
@@ -254,6 +256,7 @@ func NewCachingIdentityAllocator(owner IdentityAllocatorOwner) *CachingIdentityA
 	// Local identity cache can be created synchronously since it doesn't
 	// rely upon any external resources (e.g., external kvstore).
 	m.localIdentities = newLocalIdentityCache(identity.IdentityScopeLocal, identity.MinAllocatorLocalIdentity, identity.MaxAllocatorLocalIdentity, m.events)
+	m.localNodeIdentities = newLocalIdentityCache(identity.IdentityScopeRemoteNode, identity.MinAllocatorLocalIdentity, identity.MaxAllocatorLocalIdentity, m.events)
 
 	return m
 }
@@ -275,9 +278,9 @@ func (m *CachingIdentityAllocator) Close() {
 
 	m.IdentityAllocator.Delete()
 	if m.events != nil {
-		// Have the now only remaining writing party close the events channel,
-		// to ensure we don't panic with 'send on closed channel'.
 		m.localIdentities.close()
+		m.localNodeIdentities.close()
+		close(m.events)
 		m.events = nil
 	}
 
@@ -315,6 +318,8 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 			if allocated || isNewLocally {
 				if id.ID.HasLocalScope() {
 					metrics.Identity.WithLabelValues(identity.NodeLocalIdentityType).Inc()
+				} else if id.ID.HasRemoteNodeScope() {
+					metrics.Identity.WithLabelValues(identity.RemoteNodeIdentityType).Inc()
 				} else if id.ID.IsReservedIdentity() {
 					metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Inc()
 				} else {
@@ -354,6 +359,8 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	switch identity.ScopeForLabels(lbls) {
 	case identity.IdentityScopeLocal:
 		return m.localIdentities.lookupOrCreate(lbls, oldNID)
+	case identity.IdentityScopeRemoteNode:
+		return m.localNodeIdentities.lookupOrCreate(lbls, oldNID)
 	}
 
 	// This will block until the kvstore can be accessed and all identities
@@ -395,6 +402,8 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 		if released {
 			if id.ID.HasLocalScope() {
 				metrics.Identity.WithLabelValues(identity.NodeLocalIdentityType).Dec()
+			} else if id.ID.HasRemoteNodeScope() {
+				metrics.Identity.WithLabelValues(identity.RemoteNodeIdentityType).Dec()
 			} else if id.ID.IsReservedIdentity() {
 				metrics.Identity.WithLabelValues(identity.ReservedIdentityType).Dec()
 			} else {
@@ -417,6 +426,8 @@ func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Ide
 	switch identity.ScopeForLabels(id.Labels) {
 	case identity.IdentityScopeLocal:
 		return m.localIdentities.release(id), nil
+	case identity.IdentityScopeRemoteNode:
+		return m.localNodeIdentities.release(id), nil
 	}
 
 	// This will block until the kvstore can be accessed and all identities
