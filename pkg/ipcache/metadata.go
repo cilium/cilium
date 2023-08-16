@@ -427,18 +427,30 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	}
 
 	lbls := info.ToLabels()
-	if (lbls.Has(labels.LabelWorld[labels.IDNameWorld]) ||
-		lbls.Has(labels.LabelWorldIPv4[labels.IDNameWorldIPv4]) ||
-		lbls.Has(labels.LabelWorldIPv6[labels.IDNameWorldIPv6])) &&
-		(lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) ||
-			lbls.Has(labels.LabelHost[labels.IDNameHost])) {
-		// If the prefix is associated with both world and (remote-node or
-		// host), then the latter (remote-node or host) take precedence to
-		// avoid allocating a CIDR identity for an entity within the cluster.
+
+	// If we are restoring an identity in the remote-node identity scope, we need to
+	// unconditionally add remote-node and cidr labels back. We do not need to check
+	// if CIDR selection for nodes is enabled here, as we explicitly check further down
+	// when we remove CIDR labels for identities that should not have them.
+	if restoredIdentity.Scope() == identity.IdentityScopeRemoteNode {
+		lbls.MergeLabels(labels.LabelRemoteNode)
+		cidrLabels := cidrlabels.GetCIDRLabels(prefix)
+		lbls.MergeLabels(cidrLabels)
+	}
+
+	// If the prefix is associated with the host or remote-node, then
+	// force-remove the world label.
+	if lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) ||
+		lbls.Has(labels.LabelHost[labels.IDNameHost]) {
 		n := lbls.Remove(labels.LabelWorld)
 		n = n.Remove(labels.LabelWorldIPv4)
 		n = n.Remove(labels.LabelWorldIPv6)
-		n = n.Remove(cidrlabels.GetCIDRLabels(prefix))
+
+		// It is not allowed for nodes to have CIDR labels, unless policy-cidr-match-mode
+		// includes "nodes". Then CIDR labels are required.
+		if !option.Config.PolicyCIDRMatchesNodes() {
+			n = n.Remove(cidrlabels.GetCIDRLabels(prefix))
+		}
 		lbls = n
 	}
 

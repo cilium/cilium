@@ -197,14 +197,10 @@ func (l *localIdentityCache) GetIdentities() map[identity.NumericIdentity]*ident
 	return cache
 }
 
-// close closes the events channel. The local identity cache is the writing
-// party, hence also needs to close the channel.
+// close removes the events channel.
 func (l *localIdentityCache) close() {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	if l.events != nil {
-		close(l.events)
-		l.events = nil
-	}
+	l.events = nil
 }

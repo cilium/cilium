@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/cidr"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -120,11 +121,11 @@ func (s *IdentityTestSuite) TestScopeForLabels(c *C) {
 		},
 		{
 			lbls:  labels.NewLabelsFromModel([]string{"reserved:remote-node"}),
-			scope: IdentityScopeGlobal,
+			scope: IdentityScopeRemoteNode,
 		},
 		{
 			lbls:  labels.NewLabelsFromModel([]string{"reserved:remote-node", "reserved:kube-apiserver"}),
-			scope: IdentityScopeGlobal,
+			scope: IdentityScopeRemoteNode,
 		},
 	}
 
@@ -160,9 +161,10 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 		labels labels.Labels
 	}
 	tests := []struct {
-		name string
-		args labels.Labels
-		want *want
+		name           string
+		args           labels.Labels
+		want           *want
+		nodeCIDRPolicy bool
 	}{
 		{
 			name: "nil",
@@ -297,9 +299,42 @@ func TestLookupReservedIdentityByLabels(t *testing.T) {
 			}, ""),
 			want: nil,
 		},
+		{
+			name:           "remote-node-with-cidr-policy",
+			args:           labels.LabelRemoteNode,
+			nodeCIDRPolicy: true,
+			want:           nil,
+		},
+		{
+			name: "kube-apiserver-and-remote-node-cidr-policy",
+			args: labels.Map2Labels(map[string]string{
+				labels.LabelKubeAPIServer.String(): "",
+				labels.LabelRemoteNode.String():    "",
+			}, ""),
+			nodeCIDRPolicy: true,
+			want:           nil,
+		},
+		{
+			name: "remote-node-and-kube-apiserver-cidr-policy",
+			args: labels.Map2Labels(map[string]string{
+				labels.LabelRemoteNode.String():    "",
+				labels.LabelKubeAPIServer.String(): "",
+			}, ""),
+			nodeCIDRPolicy: true,
+			want:           nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			oldVal := option.Config.PolicyCIDRMatchMode
+			defer func() {
+				option.Config.PolicyCIDRMatchMode = oldVal
+			}()
+			if tt.nodeCIDRPolicy {
+				option.Config.PolicyCIDRMatchMode = []string{"nodes"}
+			} else {
+				option.Config.PolicyCIDRMatchMode = []string{}
+			}
 			id := LookupReservedIdentityByLabels(tt.args)
 			if tt.want == nil {
 				assert.Nil(t, id)

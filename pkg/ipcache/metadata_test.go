@@ -42,6 +42,14 @@ func TestInjectLabels(t *testing.T) {
 
 	ctx := context.Background()
 
+	// disable policy-cidr-selects-nodes, which affects identity management
+	oldVal := option.Config.PolicyCIDRMatchMode
+	defer func() {
+		option.Config.PolicyCIDRMatchMode = oldVal
+	}()
+
+	option.Config.PolicyCIDRMatchMode = []string{}
+
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
 	remaining, err := IPIdentityCache.InjectLabels(ctx, []netip.Prefix{worldPrefix})
 	assert.Len(t, remaining, 0)
@@ -60,7 +68,7 @@ func TestInjectLabels(t *testing.T) {
 
 	// Upsert node labels to the kube-apiserver to validate that the CIDR ID is
 	// deallocated and the kube-apiserver reserved ID is associated with this
-	// IP now.
+	// IP now (unless we are enabling policy-cidr-match-mode=remote-node).
 	IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.CustomResource, "node-uid", labels.LabelRemoteNode)
 	assert.Len(t, IPIdentityCache.metadata.m, 2)
 	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
@@ -68,11 +76,81 @@ func TestInjectLabels(t *testing.T) {
 	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.ipToIdentityCache, 2)
 	assert.False(t, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID.HasLocalScope())
+	assert.Equal(t, identity.ReservedIdentityKubeAPIServer, IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID)
+
+	// Insert another node, see that it gets the RemoteNode ID but not kube-apiserver
+	IPIdentityCache.metadata.upsertLocked(inClusterPrefix2, source.CustomResource, "node-uid", labels.LabelRemoteNode)
+	assert.Len(t, IPIdentityCache.metadata.m, 3)
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix2})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+	assert.Len(t, IPIdentityCache.ipToIdentityCache, 3)
+	assert.Equal(t, identity.ReservedIdentityRemoteNode, IPIdentityCache.ipToIdentityCache["10.0.0.5/32"].ID)
+
+	// Enable policy-cidr-selects-nodes, ensure that node now has a separate identity (in the node id scope)
+	option.Config.PolicyCIDRMatchMode = []string{"nodes"}
+
+	// Insert CIDR labels for the remote nodes (this is done by the node manager, but we need to test that it goes through)
+	IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.CustomResource, "node-uid-cidr", cidr.GetCIDRLabels(inClusterPrefix))
+	IPIdentityCache.metadata.upsertLocked(inClusterPrefix2, source.CustomResource, "node-uid-cidr", cidr.GetCIDRLabels(inClusterPrefix2))
+
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix, inClusterPrefix2})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+	assert.Len(t, IPIdentityCache.ipToIdentityCache, 3)
+	nid1 := IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID
+	nid2 := IPIdentityCache.ipToIdentityCache["10.0.0.5/32"].ID
+	assert.Equal(t, identity.IdentityScopeRemoteNode, nid1.Scope())
+	assert.Equal(t, identity.IdentityScopeRemoteNode, nid2.Scope())
+
+	// Ensure that all expected labels have been allocated
+	// -- prefix1 should have kube-apiserver, remote-node, and cidr
+	// -- prefix2 should have remote-node and cidr
+	id1 := IPIdentityCache.IdentityAllocator.LookupIdentityByID(ctx, nid1)
+	assert.NotNil(t, id1)
+	assert.True(t, id1.Labels.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]))
+	assert.True(t, id1.Labels.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]))
+	assert.True(t, id1.Labels.Has(labels.ParseLabel("cidr:10.0.0.4/32")))
+	assert.False(t, id1.Labels.Has(labels.ParseLabel("cidr:10.0.0.5/32")))
+
+	id2 := IPIdentityCache.IdentityAllocator.LookupIdentityByID(ctx, nid2)
+	assert.NotNil(t, id2)
+	assert.True(t, id2.Labels.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]))
+	assert.False(t, id2.Labels.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]))
+	assert.False(t, id2.Labels.Has(labels.ParseLabel("cidr:10.0.0.4/32")))
+	assert.True(t, id2.Labels.Has(labels.ParseLabel("cidr:10.0.0.5/32")))
+
+	// Remove remote-node label, ensure transition to local cidr identity space
+	IPIdentityCache.metadata.remove(inClusterPrefix, "node-uid", overrideIdentity(false), labels.LabelRemoteNode)
+	IPIdentityCache.metadata.remove(inClusterPrefix2, "node-uid", overrideIdentity(false), labels.LabelRemoteNode)
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix, inClusterPrefix2})
+	assert.NoError(t, err)
+	assert.Len(t, remaining, 0)
+
+	nid1 = IPIdentityCache.ipToIdentityCache["10.0.0.4/32"].ID
+	nid2 = IPIdentityCache.ipToIdentityCache["10.0.0.5/32"].ID
+	assert.Equal(t, identity.IdentityScopeLocal, nid1.Scope())
+	assert.Equal(t, identity.IdentityScopeLocal, nid2.Scope())
+
+	id1 = IPIdentityCache.IdentityAllocator.LookupIdentityByID(ctx, nid1)
+	assert.NotNil(t, id1)
+	assert.False(t, id1.Labels.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]))
+	assert.True(t, id1.Labels.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]))
+	assert.True(t, id1.Labels.Has(labels.ParseLabel("cidr:10.0.0.4/32")))
+	assert.False(t, id1.Labels.Has(labels.ParseLabel("cidr:10.0.0.5/32")))
+
+	id2 = IPIdentityCache.IdentityAllocator.LookupIdentityByID(ctx, nid2)
+	assert.NotNil(t, id2)
+	assert.False(t, id2.Labels.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]))
+	assert.False(t, id2.Labels.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]))
+	assert.False(t, id2.Labels.Has(labels.ParseLabel("cidr:10.0.0.4/32")))
+	assert.True(t, id2.Labels.Has(labels.ParseLabel("cidr:10.0.0.5/32")))
 
 	// Clean up.
-	IPIdentityCache.metadata.remove(inClusterPrefix, "node-uid", overrideIdentity(false), labels.LabelRemoteNode)
+	IPIdentityCache.metadata.remove(inClusterPrefix, "node-uid-cidr", overrideIdentity(false), labels.Labels{})
+	IPIdentityCache.metadata.remove(inClusterPrefix2, "node-uid-cidr", overrideIdentity(false), labels.Labels{})
 	IPIdentityCache.metadata.remove(inClusterPrefix, "kube-uid", overrideIdentity(false), labels.LabelKubeAPIServer)
-	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix})
+	remaining, err = IPIdentityCache.InjectLabels(ctx, []netip.Prefix{inClusterPrefix, inClusterPrefix2})
 	assert.NoError(t, err)
 	assert.Len(t, remaining, 0)
 	assert.Len(t, IPIdentityCache.metadata.m, 1)
