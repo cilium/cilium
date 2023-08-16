@@ -186,7 +186,10 @@ func (cm *ClusterMesh) newRemoteCluster(name string, status internal.StatusFunc)
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.synced.services.Stop() }),
 	)
 
-	rc.ipCacheWatcher = ipcache.NewIPIdentityWatcher(name, cm.conf.IPCache)
+	rc.ipCacheWatcher = ipcache.NewIPIdentityWatcher(
+		name, cm.conf.IPCache,
+		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.ipcache) }),
+	)
 
 	return rc
 }
@@ -205,6 +208,13 @@ type SyncedWaitFn func(ctx context.Context) error
 // received from all remote clusters, and synchronized with the BPF datapath.
 func (cm *ClusterMesh) ServicesSynced(ctx context.Context) error {
 	return cm.synced(ctx, func(rc *remoteCluster) SyncedWaitFn { return rc.synced.Services })
+}
+
+// IPIdentitiesSynced returns after that the initial list of ipcache entries and
+// identities has been received from all remote clusters, and synchronized with
+// the BPF datapath.
+func (cm *ClusterMesh) IPIdentitiesSynced(ctx context.Context) error {
+	return cm.synced(ctx, func(rc *remoteCluster) SyncedWaitFn { return rc.synced.IPIdentities })
 }
 
 func (cm *ClusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster) SyncedWaitFn) error {
