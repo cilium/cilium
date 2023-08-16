@@ -192,6 +192,17 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 						if routeConfig := hcmConfig.GetRouteConfig(); routeConfig != nil {
 							qualifyRouteConfigurationResourceNames(cecNamespace, cecName, routeConfig)
 						}
+
+						// Use default cilium routes if whether routeConfig, scopedRoutes nor RDS is defined
+						if hcmConfig.GetRouteConfig() == nil && hcmConfig.GetRds() == nil && hcmConfig.GetScopedRoutes() == nil {
+							clusterName := egressClusterName
+							if fc.GetFilterChainMatch() != nil && fc.GetFilterChainMatch().GetTransportProtocol() == "tls" {
+								clusterName = egressTLSClusterName
+							}
+
+							hcmConfig.RouteSpecifier = getDefaultRouteConfig(clusterName)
+						}
+
 						if listener.GetAddress() == nil {
 							foundCiliumL7Filter := false
 						loop:

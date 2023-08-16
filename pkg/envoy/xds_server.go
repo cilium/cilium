@@ -340,11 +340,7 @@ func getCiliumHttpFilter() *envoy_config_http.HttpFilter {
 }
 
 func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy_config_listener.FilterChain {
-	requestTimeout := int64(option.Config.HTTPRequestTimeout) // seconds
-	idleTimeout := int64(option.Config.HTTPIdleTimeout)       // seconds
-	maxGRPCTimeout := int64(option.Config.HTTPMaxGRPCTimeout) // seconds
-	numRetries := uint32(option.Config.HTTPRetryCount)
-	retryTimeout := int64(option.Config.HTTPRetryTimeout) //seconds
+	idleTimeout := int64(option.Config.HTTPIdleTimeout) // seconds
 
 	hcmConfig := &envoy_config_http.HttpConnectionManager{
 		StatPrefix:       "proxy",
@@ -360,54 +356,7 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 			},
 		},
 		StreamIdleTimeout: &durationpb.Duration{}, // 0 == disabled
-		RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
-			RouteConfig: &envoy_config_route.RouteConfiguration{
-				VirtualHosts: []*envoy_config_route.VirtualHost{{
-					Name:    "default_route",
-					Domains: []string{"*"},
-					Routes: []*envoy_config_route.Route{{
-						Match: &envoy_config_route.RouteMatch{
-							PathSpecifier: &envoy_config_route.RouteMatch_Prefix{Prefix: "/"},
-							Grpc:          &envoy_config_route.RouteMatch_GrpcRouteMatchOptions{},
-						},
-						Action: &envoy_config_route.Route_Route{
-							Route: &envoy_config_route.RouteAction{
-								ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{
-									Cluster: clusterName,
-								},
-								Timeout: &durationpb.Duration{Seconds: requestTimeout},
-								MaxStreamDuration: &envoy_config_route.RouteAction_MaxStreamDuration{
-									GrpcTimeoutHeaderMax: &durationpb.Duration{Seconds: maxGRPCTimeout},
-								},
-								RetryPolicy: &envoy_config_route.RetryPolicy{
-									RetryOn:       "5xx",
-									NumRetries:    &wrapperspb.UInt32Value{Value: numRetries},
-									PerTryTimeout: &durationpb.Duration{Seconds: retryTimeout},
-								},
-							},
-						},
-					}, {
-						Match: &envoy_config_route.RouteMatch{
-							PathSpecifier: &envoy_config_route.RouteMatch_Prefix{Prefix: "/"},
-						},
-						Action: &envoy_config_route.Route_Route{
-							Route: &envoy_config_route.RouteAction{
-								ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{
-									Cluster: clusterName,
-								},
-								Timeout: &durationpb.Duration{Seconds: requestTimeout},
-								//IdleTimeout: &durationpb.Duration{Seconds: idleTimeout},
-								RetryPolicy: &envoy_config_route.RetryPolicy{
-									RetryOn:       "5xx",
-									NumRetries:    &wrapperspb.UInt32Value{Value: numRetries},
-									PerTryTimeout: &durationpb.Duration{Seconds: retryTimeout},
-								},
-							},
-						},
-					}},
-				}},
-			},
-		},
+		RouteSpecifier:    getDefaultRouteConfig(clusterName),
 	}
 
 	if option.Config.HTTPNormalizePath {
@@ -448,6 +397,62 @@ func (s *xdsServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 	}
 
 	return chain
+}
+
+func getDefaultRouteConfig(clusterName string) *envoy_config_http.HttpConnectionManager_RouteConfig {
+	requestTimeout := int64(option.Config.HTTPRequestTimeout) // seconds
+	maxGRPCTimeout := int64(option.Config.HTTPMaxGRPCTimeout) // seconds
+	numRetries := uint32(option.Config.HTTPRetryCount)
+	retryTimeout := int64(option.Config.HTTPRetryTimeout) //seconds
+
+	return &envoy_config_http.HttpConnectionManager_RouteConfig{
+		RouteConfig: &envoy_config_route.RouteConfiguration{
+			VirtualHosts: []*envoy_config_route.VirtualHost{{
+				Name:    "default_route",
+				Domains: []string{"*"},
+				Routes: []*envoy_config_route.Route{{
+					Match: &envoy_config_route.RouteMatch{
+						PathSpecifier: &envoy_config_route.RouteMatch_Prefix{Prefix: "/"},
+						Grpc:          &envoy_config_route.RouteMatch_GrpcRouteMatchOptions{},
+					},
+					Action: &envoy_config_route.Route_Route{
+						Route: &envoy_config_route.RouteAction{
+							ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{
+								Cluster: clusterName,
+							},
+							Timeout: &durationpb.Duration{Seconds: requestTimeout},
+							MaxStreamDuration: &envoy_config_route.RouteAction_MaxStreamDuration{
+								GrpcTimeoutHeaderMax: &durationpb.Duration{Seconds: maxGRPCTimeout},
+							},
+							RetryPolicy: &envoy_config_route.RetryPolicy{
+								RetryOn:       "5xx",
+								NumRetries:    &wrapperspb.UInt32Value{Value: numRetries},
+								PerTryTimeout: &durationpb.Duration{Seconds: retryTimeout},
+							},
+						},
+					},
+				}, {
+					Match: &envoy_config_route.RouteMatch{
+						PathSpecifier: &envoy_config_route.RouteMatch_Prefix{Prefix: "/"},
+					},
+					Action: &envoy_config_route.Route_Route{
+						Route: &envoy_config_route.RouteAction{
+							ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{
+								Cluster: clusterName,
+							},
+							Timeout: &durationpb.Duration{Seconds: requestTimeout},
+							//IdleTimeout: &durationpb.Duration{Seconds: idleTimeout},
+							RetryPolicy: &envoy_config_route.RetryPolicy{
+								RetryOn:       "5xx",
+								NumRetries:    &wrapperspb.UInt32Value{Value: numRetries},
+								PerTryTimeout: &durationpb.Duration{Seconds: retryTimeout},
+							},
+						},
+					},
+				}},
+			}},
+		},
+	}
 }
 
 // getTcpFilterChainProto creates a TCP filter chain with the Cilium network filter.
