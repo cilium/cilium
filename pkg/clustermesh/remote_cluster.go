@@ -5,6 +5,7 @@ package clustermesh
 
 import (
 	"context"
+	"errors"
 	"path"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -61,7 +62,8 @@ type remoteCluster struct {
 	// status is the function which fills the common part of the status.
 	status common.StatusFunc
 
-	swg *lock.StoppableWaitGroup
+	// synced tracks the initial synchronization with the remote cluster.
+	synced synced
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config *cmtypes.CiliumClusterConfig, ready chan<- error) {
@@ -125,7 +127,9 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	mgr.Run(ctx)
 }
 
-func (rc *remoteCluster) Stop() {}
+func (rc *remoteCluster) Stop() {
+	rc.synced.stop()
+}
 
 func (rc *remoteCluster) Remove() {
 	// Draining shall occur only when the configuration for the remote cluster
@@ -203,4 +207,48 @@ func (rc *remoteCluster) ipCacheWatcherOpts(config *cmtypes.CiliumClusterConfig)
 	}
 
 	return opts
+}
+
+var (
+	// ErrRemoteClusterDisconnected is the error returned by wait for sync
+	// operations if the remote cluster is disconnected while still waiting.
+	ErrRemoteClusterDisconnected = errors.New("remote cluster disconnected")
+)
+
+type synced struct {
+	services *lock.StoppableWaitGroup
+	stopped  chan struct{}
+}
+
+func newSynced() synced {
+	return synced{
+		services: lock.NewStoppableWaitGroup(),
+		stopped:  make(chan struct{}),
+	}
+}
+
+// Services returns after that the initial list of shared services has been
+// received from the remote cluster, and synchronized with the BPF datapath,
+// the remote cluster is disconnected, or the given context is canceled.
+func (s *synced) Services(ctx context.Context) error {
+	return s.wait(ctx, s.services.WaitChannel())
+}
+
+func (s *synced) wait(ctx context.Context, chs ...<-chan struct{}) error {
+	for _, ch := range chs {
+		select {
+		case <-ch:
+			continue
+		case <-s.stopped:
+			return ErrRemoteClusterDisconnected
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
+	return nil
+}
+
+func (s *synced) stop() {
+	close(s.stopped)
 }

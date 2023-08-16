@@ -450,10 +450,10 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 
 		go func() {
 			if d.clientset.IsEnabled() {
-				// Also wait for all cluster mesh to be synchronized with the
+				// Also wait for all shared services to be synchronized with the
 				// datapath before proceeding.
 				if d.clustermesh != nil {
-					err := d.clustermesh.ClustersSynced(d.ctx)
+					err := d.clustermesh.ServicesSynced(d.ctx)
 					if err != nil {
 						log.WithError(err).Fatal("timeout while waiting for all clusters to be locally synchronized")
 					}

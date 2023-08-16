@@ -5,6 +5,7 @@ package clustermesh
 
 import (
 	"context"
+	"errors"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -17,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -149,7 +149,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 		mesh:    cm,
 		usedIDs: cm.conf.ClusterIDsManager,
 		status:  status,
-		swg:     lock.NewStoppableWaitGroup(),
+		synced:  newSynced(),
 	}
 
 	rc.remoteNodes = store.NewRestartableWatchStore(
@@ -162,8 +162,8 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 	rc.remoteServices = store.NewRestartableWatchStore(
 		name,
 		func() store.Key { return new(serviceStore.ClusterService) },
-		&remoteServiceObserver{remoteCluster: rc, swg: rc.swg},
-		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.swg.Stop() }),
+		&remoteServiceObserver{remoteCluster: rc, swg: rc.synced.services},
+		store.RWSWithOnSyncCallback(func(ctx context.Context) { rc.synced.services.Stop() }),
 	)
 
 	rc.ipCacheWatcher = ipcache.NewIPIdentityWatcher(name, cm.conf.IPCache)
@@ -178,21 +178,31 @@ func (cm *ClusterMesh) NumReadyClusters() int {
 	return cm.common.NumReadyClusters()
 }
 
-// ClustersSynced returns after all clusters were synchronized with the bpf
-// datapath.
-func (cm *ClusterMesh) ClustersSynced(ctx context.Context) error {
-	swgs := make([]*lock.StoppableWaitGroup, 0)
+// SyncedWaitFn is the type of a function to wait for the initial synchronization
+// of a given resource type from all remote clusters.
+type SyncedWaitFn func(ctx context.Context) error
+
+// ServicesSynced returns after that the initial list of shared services has been
+// received from all remote clusters, and synchronized with the BPF datapath.
+func (cm *ClusterMesh) ServicesSynced(ctx context.Context) error {
+	return cm.synced(ctx, func(rc *remoteCluster) SyncedWaitFn { return rc.synced.Services })
+}
+
+func (cm *ClusterMesh) synced(ctx context.Context, toWaitFn func(*remoteCluster) SyncedWaitFn) error {
+	waiters := make([]SyncedWaitFn, 0)
 	cm.common.ForEachRemoteCluster(func(rci common.RemoteCluster) error {
 		rc := rci.(*remoteCluster)
-		swgs = append(swgs, rc.swg)
+		waiters = append(waiters, toWaitFn(rc))
 		return nil
 	})
 
-	for _, swg := range swgs {
-		select {
-		case <-swg.WaitChannel():
-		case <-ctx.Done():
-			return ctx.Err()
+	for _, wait := range waiters {
+		err := wait(ctx)
+
+		// Ignore the error in case the given cluster was disconnected in
+		// the meanwhile, as we do not longer care about it.
+		if err != nil && !errors.Is(err, ErrRemoteClusterDisconnected) {
+			return err
 		}
 	}
 	return nil
