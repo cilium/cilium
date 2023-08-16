@@ -113,24 +113,32 @@ func (s SortableRoute) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
+// VirtualHostParameter is the parameter for NewVirtualHost
+type VirtualHostParameter struct {
+	HostNames           []string
+	HTTPSRedirect       bool
+	HostNameSuffixMatch bool
+	ListenerPort        uint32
+}
+
 // NewVirtualHostWithDefaults is same as NewVirtualHost but with a few
 // default mutator function. If there are multiple http routes having
 // the same path matching (e.g. exact, prefix or regex), the incoming
 // request will be load-balanced to multiple backends equally.
-func NewVirtualHostWithDefaults(hostnames []string, httpsRedirect bool, hostNameSuffixMatch bool, httpRoutes []model.HTTPRoute, mutators ...VirtualHostMutator) (*envoy_config_route_v3.VirtualHost, error) {
+func NewVirtualHostWithDefaults(httpRoutes []model.HTTPRoute, param VirtualHostParameter, mutators ...VirtualHostMutator) (*envoy_config_route_v3.VirtualHost, error) {
 	fns := append(mutators,
 		WithMaxStreamDuration(0),
 	)
-	return NewVirtualHost(hostnames, httpsRedirect, hostNameSuffixMatch, httpRoutes, fns...)
+	return NewVirtualHost(httpRoutes, param, fns...)
 }
 
 // NewVirtualHost creates a new VirtualHost with the given host and routes.
-func NewVirtualHost(hostnames []string, httpsRedirect bool, hostNameSuffixMatch bool, httpRoutes []model.HTTPRoute, mutators ...VirtualHostMutator) (*envoy_config_route_v3.VirtualHost, error) {
+func NewVirtualHost(httpRoutes []model.HTTPRoute, param VirtualHostParameter, mutators ...VirtualHostMutator) (*envoy_config_route_v3.VirtualHost, error) {
 	var routes SortableRoute
-	if httpsRedirect {
-		routes = envoyHTTPSRoutes(httpRoutes, hostnames, hostNameSuffixMatch)
+	if param.HTTPSRedirect {
+		routes = envoyHTTPSRoutes(httpRoutes, param.HostNames, param.HostNameSuffixMatch)
 	} else {
-		routes = envoyHTTPRoutes(httpRoutes, hostnames, hostNameSuffixMatch)
+		routes = envoyHTTPRoutes(httpRoutes, param.HostNames, param.HostNameSuffixMatch, param.ListenerPort)
 	}
 
 	// This is to make sure that the Exact match is always having higher priority.
@@ -140,7 +148,7 @@ func NewVirtualHost(hostnames []string, httpsRedirect bool, hostNameSuffixMatch 
 	sort.Stable(routes)
 
 	var domains []string
-	for _, host := range hostnames {
+	for _, host := range param.HostNames {
 		if host == wildCard {
 			domains = []string{wildCard}
 			break
@@ -200,7 +208,7 @@ func envoyHTTPSRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostName
 	return routes
 }
 
-func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool) []*envoy_config_route_v3.Route {
+func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameSuffixMatch bool, listenerPort uint32) []*envoy_config_route_v3.Route {
 	matchBackendMap := make(map[string][]model.HTTPRoute)
 	for _, r := range httpRoutes {
 		matchBackendMap[r.GetMatchKey()] = append(matchBackendMap[r.GetMatchKey()], r)
@@ -236,7 +244,7 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 		}
 
 		if hRoutes[0].RequestRedirect != nil {
-			route.Action = getRouteRedirect(hRoutes[0].RequestRedirect)
+			route.Action = getRouteRedirect(hRoutes[0].RequestRedirect, listenerPort)
 		} else {
 			route.Action = getRouteAction(backends, r.Rewrite)
 		}
@@ -277,8 +285,7 @@ func pathFullReplaceMutation(rewrite *model.HTTPURLRewriteFilter) routeActionMut
 		}
 		route.Route.RegexRewrite = &envoy_type_matcher_v3.RegexMatchAndSubstitute{
 			Pattern: &envoy_type_matcher_v3.RegexMatcher{
-				EngineType: &envoy_type_matcher_v3.RegexMatcher_GoogleRe2{},
-				Regex:      "^/.*$",
+				Regex: "^/.*$",
 			},
 			Substitution: rewrite.Path.Exact,
 		}
@@ -336,7 +343,7 @@ func getRouteAction(backends []model.Backend, rewrite *model.HTTPURLRewriteFilte
 	return routeAction
 }
 
-func getRouteRedirect(redirect *model.HTTPRequestRedirectFilter) *envoy_config_route_v3.Route_Redirect {
+func getRouteRedirect(redirect *model.HTTPRequestRedirectFilter, listenerPort uint32) *envoy_config_route_v3.Route_Redirect {
 	redirectAction := &envoy_config_route_v3.RedirectAction{}
 
 	if redirect.Scheme != nil {
@@ -351,6 +358,16 @@ func getRouteRedirect(redirect *model.HTTPRequestRedirectFilter) *envoy_config_r
 
 	if redirect.Port != nil {
 		redirectAction.PortRedirect = uint32(*redirect.Port)
+	} else {
+		if redirect.Scheme != nil {
+			if *redirect.Scheme == "https" {
+				redirectAction.PortRedirect = 443
+			} else if *redirect.Scheme == "http" {
+				redirectAction.PortRedirect = 80
+			}
+		} else {
+			redirectAction.PortRedirect = listenerPort
+		}
 	}
 
 	if redirect.StatusCode != nil {

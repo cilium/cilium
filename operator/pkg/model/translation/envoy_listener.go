@@ -133,10 +133,7 @@ func NewHTTPListener(name string, ciliumSecretNamespace string, tls map[model.TL
 		}
 
 		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
-			FilterChainMatch: &envoy_config_listener.FilterChainMatch{
-				ServerNames:       slices.SortedUnique(hostNames),
-				TransportProtocol: tlsTransportProtocol,
-			},
+			FilterChainMatch: toFilterChainMatch(hostNames),
 			Filters: []*envoy_config_listener.Filter{
 				{
 					Name: httpConnectionManagerType,
@@ -197,10 +194,7 @@ func NewSNIListener(name string, backendsForHost map[string][]string, mutatorFun
 
 	for backed, hostNames := range backendsForHost {
 		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
-			FilterChainMatch: &envoy_config_listener.FilterChainMatch{
-				ServerNames:       slices.SortedUnique(hostNames),
-				TransportProtocol: tlsTransportProtocol,
-			},
+			FilterChainMatch: toFilterChainMatch(hostNames),
 			Filters: []*envoy_config_listener.Filter{
 				{
 					Name: tcpProxyType,
@@ -279,4 +273,16 @@ func newTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) (*e
 			},
 		},
 	}, nil
+}
+
+func toFilterChainMatch(hostNames []string) *envoy_config_listener.FilterChainMatch {
+	res := &envoy_config_listener.FilterChainMatch{
+		TransportProtocol: tlsTransportProtocol,
+	}
+	// ServerNames must be sorted and unique, however, envoy don't support "*" as a server name
+	serverNames := slices.SortedUnique(hostNames)
+	if len(serverNames) > 1 || (len(serverNames) == 1 && serverNames[0] != "*") {
+		res.ServerNames = serverNames
+	}
+	return res
 }
