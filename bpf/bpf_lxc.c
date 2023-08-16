@@ -1049,6 +1049,16 @@ ct_recreate4:
 	 */
 	if (is_defined(ENABLE_ROUTING) || hairpin_flow ||
 	    is_defined(ENABLE_HOST_ROUTING)) {
+		/* Hairpin requests need to pass through the backend's to-container
+		 * path, to create a CT_INGRESS entry with .lb_loopback set. This
+		 * drives RevNAT in the backend's from-container path.
+		 *
+		 * Hairpin replies are fully RevNATed in the backend's from-container
+		 * path. Thus they don't match the CT_EGRESS entry, and we can't rely
+		 * on a CT_REPLY result that would provide bypass of ingress policy.
+		 * Thus manually skip the ingress policy path.
+		 */
+		bool bypass_ingress_policy = hairpin_flow && ct_status == CT_REPLY;
 		struct endpoint_info *ep;
 
 		/* Lookup IPv4 address, this will return a match if:
@@ -1074,8 +1084,8 @@ ct_recreate4:
 			policy_clear_mark(ctx);
 			/* If the packet is from L7 LB it is coming from the host */
 			return ipv4_local_delivery(ctx, ETH_HLEN, SECLABEL, ip4,
-						   ep, METRIC_EGRESS, from_l7lb, hairpin_flow,
-						   false, 0);
+						   ep, METRIC_EGRESS, from_l7lb,
+						   bypass_ingress_policy, false, 0);
 		}
 	}
 
@@ -1824,7 +1834,19 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, enum ct_status
 	 * define policy rules to allow pods to talk to themselves. We still
 	 * want to execute the conntrack logic so that replies can be correctly
 	 * matched.
+	 *
+	 * If ip4.saddr is IPV4_LOOPBACK, this is almost certainly a loopback
+	 * connection. Populate
+	 * - .loopback, so that policy enforcement is bypassed, and
+	 * - .rev_nat_index, so that replies can be RevNATed.
 	 */
+	if (ret == CT_NEW && ip4->saddr == IPV4_LOOPBACK &&
+	    ct_has_loopback_egress_entry4(get_ct_map4(tuple), tuple,
+					  &ct_state_new.rev_nat_index)) {
+		ct_state_new.loopback = true;
+		goto skip_policy_enforcement;
+	}
+
 	if (unlikely(ct_state->loopback))
 		goto skip_policy_enforcement;
 #endif /* ENABLE_PER_PACKET_LB && !DISABLE_LOOPBACK_LB */
