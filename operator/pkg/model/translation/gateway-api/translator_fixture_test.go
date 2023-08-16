@@ -2494,6 +2494,7 @@ var requestRedirectHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 									Action: &envoy_config_route_v3.Route_Redirect{
 										Redirect: &envoy_config_route_v3.RedirectAction{
 											HostRedirect: "example.com",
+											PortRedirect: 80,
 										},
 									},
 								},
@@ -2504,7 +2505,9 @@ var requestRedirectHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 										},
 									},
 									Action: &envoy_config_route_v3.Route_Redirect{
-										Redirect: &envoy_config_route_v3.RedirectAction{},
+										Redirect: &envoy_config_route_v3.RedirectAction{
+											PortRedirect: 80,
+										},
 									},
 								},
 								{
@@ -2516,6 +2519,7 @@ var requestRedirectHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 									Action: &envoy_config_route_v3.Route_Redirect{
 										Redirect: &envoy_config_route_v3.RedirectAction{
 											HostRedirect: "example.com",
+											PortRedirect: 80,
 										},
 									},
 								},
