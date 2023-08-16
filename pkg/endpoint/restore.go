@@ -193,8 +193,8 @@ func partitionEPDirNamesByRestoreStatus(eptsDirNames []string) (complete []strin
 // * regenerates the endpoint
 // Returns an error if any operation fails while trying to perform the above
 // operations.
-func (e *Endpoint) RegenerateAfterRestore() error {
-	if err := e.restoreIdentity(); err != nil {
+func (e *Endpoint) RegenerateAfterRestore(regenerator *Regenerator) error {
+	if err := e.restoreIdentity(regenerator); err != nil {
 		return err
 	}
 
@@ -212,7 +212,7 @@ func (e *Endpoint) RegenerateAfterRestore() error {
 	return nil
 }
 
-func (e *Endpoint) restoreIdentity() error {
+func (e *Endpoint) restoreIdentity(regenerator *Regenerator) error {
 	if err := e.rlockAlive(); err != nil {
 		e.logDisconnectedMutexAction(err, "before filtering labels during regenerating restored endpoint")
 		return err
@@ -296,6 +296,12 @@ func (e *Endpoint) restoreIdentity() error {
 	// the regenerated datapath always lookups from a ready ipcache map.
 	if option.Config.KVStore != "" {
 		ipcache.WaitForKVStoreSync()
+	}
+
+	// Wait for ipcache and identities synchronization from all remote clusters,
+	// to prevent disrupting cross-cluster connections on endpoint regeneration.
+	if err := regenerator.WaitForClusterMeshIPIdentitiesSync(e.aliveCtx); err != nil {
+		return err
 	}
 
 	if err := e.lockAlive(); err != nil {
