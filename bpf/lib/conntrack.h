@@ -941,37 +941,6 @@ static __always_inline int ct_create4(const void *map_main,
 		return DROP_CT_CREATE_FAILED;
 	}
 
-	if (ct_state->addr && ct_state->loopback) {
-		__u8 flags = tuple->flags;
-		__be32 saddr, daddr;
-
-		saddr = tuple->saddr;
-		daddr = tuple->daddr;
-
-		/* We are looping back into the origin endpoint through a
-		 * service, set up a conntrack tuple for the reply to ensure we
-		 * do rev NAT before attempting to route the destination
-		 * address which will not point back to the right source.
-		 */
-		tuple->flags = TUPLE_F_IN;
-		if (dir == CT_INGRESS) {
-			tuple->saddr = ct_state->addr;
-			tuple->daddr = ct_state->svc_addr;
-		} else {
-			tuple->saddr = ct_state->svc_addr;
-			tuple->daddr = ct_state->addr;
-		}
-
-		if (map_update_elem(map_main, tuple, &entry, 0) < 0) {
-			send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V4);
-			return DROP_CT_CREATE_FAILED;
-		}
-
-		tuple->saddr = saddr;
-		tuple->daddr = daddr;
-		tuple->flags = flags;
-	}
-
 	if (map_related != NULL) {
 		/* Create an ICMP entry to relate errors */
 		struct ipv4_ct_tuple icmp_tuple = {
@@ -995,6 +964,27 @@ static __always_inline int ct_create4(const void *map_main,
 	}
 	return 0;
 }
+
+#ifndef DISABLE_LOOPBACK_LB
+static __always_inline bool
+ct_has_loopback_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple,
+			      __u16 *rev_nat_index)
+{
+	__u8 flags = tuple->flags;
+	struct ct_entry *entry;
+
+	tuple->flags = TUPLE_F_OUT;
+	entry = map_lookup_elem(map, tuple);
+	tuple->flags = flags;
+
+	if (entry && entry->lb_loopback) {
+		*rev_nat_index = entry->rev_nat_index;
+		return true;
+	}
+
+	return false;
+}
+#endif
 
 /* The function tries to determine whether the flow identified by the given
  * CT_INGRESS tuple belongs to a NodePort traffic (i.e., outside client => N/S
