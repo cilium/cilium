@@ -354,6 +354,8 @@ Changed Metrics
   do not include client-side rate-limiting latency anymore.
   For checking client-side rate-limiting you can use corresponding
   ``*_api_limiter_wait_duration_seconds`` metrics.
+* The ``cilium_bpf_map_pressure`` for policy maps is now exposed as a single
+  label ``cilium_policy_*``, rather than a label per policy map of an endpoint.
 
 .. _earlier_upgrade_notes:
 
@@ -375,7 +377,7 @@ functional in general. The following is a list of operations that will not be
 available during the upgrade:
 
 * API-aware policy rules are enforced in user space proxies and are
-  running as part of the Cilium pod. Upgrading Cilium causes the proxy to 
+  running as part of the Cilium pod. Upgrading Cilium causes the proxy to
   restart, which results in a connectivity outage and causes the connection to reset.
 
 * Existing policy will remain effective but implementation of new policy rules
