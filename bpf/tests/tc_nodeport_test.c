@@ -41,6 +41,7 @@ struct {
 } entry_call_map __section(".maps") = {
 	.values = {
 		[0] = &cil_from_container,
+		[1] = &cil_to_container,
 	},
 };
 
@@ -215,10 +216,169 @@ int hairpin_flow_forward_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l4->dest != tcp_svc_one)
 		test_fatal("dst TCP port incorrect");
 
+	struct ipv4_ct_tuple tuple = {};
+	struct ct_entry *ct_entry;
+
+	/* Match the packet headers: */
+	tuple.flags = TUPLE_F_SERVICE;
+	tuple.nexthdr = IPPROTO_TCP;
+	tuple.saddr = v4_pod_one;
+	tuple.sport = tcp_src_one;
+	tuple.daddr = v4_svc_one;
+	tuple.dport = tcp_svc_one;
+
+	/* Ports are stored in reverse order: */
+	ipv4_ct_tuple_swap_ports(&tuple);
+
+	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT_SERVICE entry found");
+
+	/* Match the packet headers: */
+	tuple.flags = TUPLE_F_OUT;
+	tuple.nexthdr = IPPROTO_TCP;
+	tuple.saddr = IPV4_LOOPBACK;
+	tuple.sport = tcp_src_one;
+	tuple.daddr = v4_pod_one;
+	tuple.dport = tcp_svc_one;
+
+	/* Addrs are stored in reverse order: */
+	ipv4_ct_tuple_swap_addrs(&tuple);
+
+	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT_EGRESS entry found");
+	if (!ct_entry->lb_loopback)
+		test_fatal("CT_EGRESS entry doesn't have loopback flag");
+
 	test_finish();
 }
 
-PKTGEN("tc", "hairpin_flow_2_reverse_v4")
+/* Let backend's ingress path create its own CT entry: */
+PKTGEN("tc", "hairpin_flow_2_forward_ingress_v4")
+int hairpin_flow_forward_ingress_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	volatile const __u8 *src = mac_one;
+	volatile const __u8 *dst = mac_two;
+	struct ethhdr *l2;
+	struct tcphdr *l4;
+	struct iphdr *l3;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	/* Push ethernet header */
+	l2 = pktgen__push_ethhdr(&builder);
+	if (!l2)
+		return TEST_ERROR;
+
+	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
+
+	/* Push IPv4 header */
+	l3 = pktgen__push_default_iphdr(&builder);
+	if (!l3)
+		return TEST_ERROR;
+	l3->saddr = IPV4_LOOPBACK;
+	l3->daddr = v4_pod_one;
+
+	/* Push TCP header */
+	l4 = pktgen__push_default_tcphdr(&builder);
+	if (!l4)
+		return TEST_ERROR;
+
+	l4->source = tcp_src_one;
+	l4->dest = tcp_svc_one;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+/* Test that a packet in the forward direction is good. */
+SETUP("tc", "hairpin_flow_2_forward_ingress_v4")
+int hairpin_flow_forward_ingress_setup(struct __ctx_buff *ctx)
+{
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, &entry_call_map, 1);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "hairpin_flow_2_forward_ingress_v4")
+int hairpin_flow_forward_ingress_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+	struct iphdr *l3;
+	struct tcphdr *l4;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == TC_ACT_OK);
+
+	l3 = data + sizeof(__u32) + sizeof(struct ethhdr);
+
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->saddr != IPV4_LOOPBACK)
+		test_fatal("src IP changed");
+
+	if (l3->daddr != v4_pod_one)
+		test_fatal("dest IP changed");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (l4->source != tcp_src_one)
+		test_fatal("src TCP port changed");
+
+	if (l4->dest != tcp_svc_one)
+		test_fatal("dst TCP port changed");
+
+	struct ipv4_ct_tuple tuple = {};
+	struct ct_entry *ct_entry;
+
+	/* Match the packet headers: */
+	tuple.flags = TUPLE_F_IN;
+	tuple.nexthdr = IPPROTO_TCP;
+	tuple.saddr = IPV4_LOOPBACK;
+	tuple.sport = tcp_src_one;
+	tuple.daddr = v4_pod_one;
+	tuple.dport = tcp_svc_one;
+
+	/* Addrs are stored in reverse order: */
+	ipv4_ct_tuple_swap_addrs(&tuple);
+
+	ct_entry = map_lookup_elem(get_ct_map4(&tuple), &tuple);
+	if (!ct_entry)
+		test_fatal("no CT_INGRESS entry found");
+	if (!ct_entry->lb_loopback)
+		test_fatal("CT_INGRESS entry doesn't have loopback flag");
+
+	test_finish();
+}
+
+PKTGEN("tc", "hairpin_flow_3_reverse_v4")
 int hairpin_flow_reverse_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
@@ -271,7 +431,7 @@ int hairpin_flow_reverse_pktgen(struct __ctx_buff *ctx)
 }
 
 /* Test that a packet in the reverse direction gets translated back. */
-SETUP("tc", "hairpin_flow_2_reverse_v4")
+SETUP("tc", "hairpin_flow_3_reverse_v4")
 int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
 {
 	/* Jump into the entrypoint */
@@ -280,7 +440,7 @@ int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "hairpin_flow_2_reverse_v4")
+CHECK("tc", "hairpin_flow_3_reverse_v4")
 int hairpin_flow_rev_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
