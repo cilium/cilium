@@ -6,6 +6,7 @@ package lib
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -121,7 +122,7 @@ func (dc *DeletionFallbackClient) EndpointDelete(id string) error {
 		return dc.enqueueDeletionRequestLocked(id)
 	}
 
-	return fmt.Errorf("attempt to delete with no valid connection")
+	return errors.New("attempt to delete with no valid connection")
 }
 
 // EndpointDeleteMany deletes multiple endpoints based on the endpoint deletion request,
@@ -141,7 +142,7 @@ func (dc *DeletionFallbackClient) EndpointDeleteMany(req *models.EndpointBatchDe
 		return dc.enqueueDeletionRequestLocked(string(b))
 	}
 
-	return fmt.Errorf("attempt to delete with no valid connection")
+	return errors.New("attempt to delete with no valid connection")
 }
 
 // enqueueDeletionRequestLocked enqueues the encoded endpoint deletion request into the
