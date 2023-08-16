@@ -61,7 +61,10 @@ const (
 	// RouterMarkNodePort
 	MaskMultinodeNodeport = 0x80
 
-	// RTProto is the default protocol we install our fib rules and routes with
+	// RTProto is the protocol we install our fib rules and routes with. Use the
+	// kernel proto to make sure systemd-networkd doesn't interfere with these
+	// rules (see networkd config directive ManageForeignRoutingPolicyRules, set
+	// to 'yes' by default).
 	RTProto = unix.RTPROT_KERNEL
 
 	// RulePriorityWireguard is the priority of the rule used for routing packets to WireGuard device for encryption
