@@ -566,9 +566,11 @@ func (c *DNSCache) removeReverse(ip string, entry *cacheEntry) {
 // Note that all parameters must match, if provided. `time.Time{}` is the
 // match-all time parameter.
 // For example:
-//   ForceExpire(time.Time{}, 'cilium.io') expires all entries for cilium.io.
-//   ForceExpire(time.Now(), 'cilium.io') expires all entries for cilium.io
-//   that expired before the current time.
+//
+//	ForceExpire(time.Time{}, 'cilium.io') expires all entries for cilium.io.
+//	ForceExpire(time.Now(), 'cilium.io') expires all entries for cilium.io
+//	that expired before the current time.
+//
 // expireLookupsBefore requires a lookup to have a LookupTime before it in
 // order to remove it.
 // nameMatch will remove any DNS names that match.
@@ -704,12 +706,12 @@ func (c *DNSCache) UnmarshalJSON(raw []byte) error {
 // Special handling exists when the count of zombies is large. Overlimit
 // zombies are deleted in GC with the following preferences (this is cumulative
 // and in order of precedence):
-// - Zombies with zero AliveAt are evicted before those with a non-zero value
-//   (i.e. known connections marked by CT GC are evicted last)
-// - Zombies with an earlier DeletePendingAtTime are evicted first.
-//   Note: Upsert sets DeletePendingAt on every update, thus making GC prefer
-//   to evict IPs with less DNS churn on them.
-// - Zombies with the lowest count of DNS names in them are evicted first
+//   - Zombies with zero AliveAt are evicted before those with a non-zero value
+//     (i.e. known connections marked by CT GC are evicted last)
+//   - Zombies with an earlier DeletePendingAtTime are evicted first.
+//     Note: Upsert sets DeletePendingAt on every update, thus making GC prefer
+//     to evict IPs with less DNS churn on them.
+//   - Zombies with the lowest count of DNS names in them are evicted first
 type DNSZombieMapping struct {
 	// Names is the list of names that had DNS lookups with this IP. These may
 	// derive from unrelated DNS lookups. The list is maintained de-duplicated.
@@ -861,6 +863,21 @@ func (zombies *DNSZombieMappings) isZombieAlive(zombie *DNSZombieMapping, aliveN
 	return alive, overLimit
 }
 
+func compareTime(a, b time.Time) int {
+	if a.Equal(b) {
+		return 0
+	} else if a.Before(b) {
+		return -1
+	}
+	return 1
+}
+
+var zombieSortComparisons = []func(a, b *DNSZombieMapping) int{
+	func(a, b *DNSZombieMapping) int { return compareTime(a.AliveAt, b.AliveAt) },
+	func(a, b *DNSZombieMapping) int { return compareTime(a.DeletePendingAt, b.DeletePendingAt) },
+	func(a, b *DNSZombieMapping) int { return len(a.Names) - len(b.Names) },
+}
+
 // sortZombieMappingSlice sorts the provided slice by whether the connection is
 // marked alive or not, the oldest created connections, and tie-break by the
 // number of DNS names for that IP.
@@ -868,9 +885,17 @@ func (zombies *DNSZombieMappings) isZombieAlive(zombie *DNSZombieMapping, aliveN
 // Important zombies shuffle to the end of the slice.
 func sortZombieMappingSlice(alive []*DNSZombieMapping) {
 	sort.Slice(alive, func(i, j int) bool {
-		return alive[i].AliveAt.Before(alive[j].AliveAt) ||
-			alive[i].DeletePendingAt.Before(alive[j].DeletePendingAt) ||
-			len(alive[i].Names) < len(alive[j].Names)
+		a, b := alive[i], alive[j]
+		for _, compare := range zombieSortComparisons {
+			result := compare(a, b)
+			if result == 0 {
+				continue
+			} else if result < 0 {
+				return true
+			}
+			return false
+		}
+		return false
 	})
 }
 
@@ -1006,9 +1031,11 @@ func (zombies *DNSZombieMappings) SetCTGCTime(ctGCStart time.Time) {
 // expireLookupsBefore requires an zombie to have been enqueued before the
 // specified time in order to remove it.
 // For example:
-//   ForceExpire(time.Time{}, 'cilium.io') expires all entries for cilium.io.
-//   ForceExpire(time.Now(), 'cilium.io') expires all entries for cilium.io
-//   that expired before the current time.
+//
+//	ForceExpire(time.Time{}, 'cilium.io') expires all entries for cilium.io.
+//	ForceExpire(time.Now(), 'cilium.io') expires all entries for cilium.io
+//	that expired before the current time.
+//
 // nameMatch will remove that specific DNS name from zombies that include it,
 // deleting it when no DNS names remain.
 func (zombies *DNSZombieMappings) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.Regexp, cidr *net.IPNet) (namesAffected []string) {

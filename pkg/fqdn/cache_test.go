@@ -14,6 +14,7 @@ import (
 	"sort"
 	"time"
 
+	"golang.org/x/exp/slices"
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -1058,4 +1059,71 @@ func (ds *DNSCacheTestSuite) TestZombiesDumpAlive(c *C) {
 	cidrMatcher = func(ip net.IP) bool { return cidr.Contains(ip) }
 	alive = zombies.DumpAlive(cidrMatcher)
 	c.Assert(alive, HasLen, 0)
+}
+
+// Perm calls f with each permutation of a.
+func Perm[X any](a []X, f func([]X)) {
+	perm(a, f, 0)
+}
+
+// Permute the values at index i to len(a)-1.
+func perm[X any](a []X, f func([]X), i int) {
+	if i > len(a) {
+		f(a)
+		return
+	}
+	perm(a, f, i+1)
+	for j := i + 1; j < len(a); j++ {
+		a[i], a[j] = a[j], a[i]
+		perm(a, f, i+1)
+		a[i], a[j] = a[j], a[i]
+	}
+}
+
+func (ds *DNSCacheTestSuite) TestZombieSorting(c *C) {
+	t1 := time.Now()
+	t0 := t1.Add(-time.Second)
+	t2 := t1.Add(time.Second)
+
+	zombies := []*DNSZombieMapping{
+		// Entries with oldest AliveAt are first.
+		{
+			Names:           []string{"f"},
+			AliveAt:         t0,
+			DeletePendingAt: t0,
+		},
+		// Number of names is the tie-breaker.
+		{
+			Names:           []string{"e", "ee"},
+			AliveAt:         t0,
+			DeletePendingAt: t0,
+		},
+		// Then comes entries that expire later.
+		{
+			Names:           []string{"d"},
+			AliveAt:         t0,
+			DeletePendingAt: t1,
+		},
+		{
+			Names:           []string{"c"},
+			AliveAt:         t1,
+			DeletePendingAt: t1,
+		},
+		{
+			Names:           []string{"b"},
+			AliveAt:         t2,
+			DeletePendingAt: t2,
+		},
+		{
+			Names:           []string{"a", "aa"},
+			AliveAt:         t2,
+			DeletePendingAt: t2,
+		},
+	}
+
+	// Validate that all permutations of zombies sort to the same result.
+	Perm(slices.Clone(zombies), func(permutation []*DNSZombieMapping) {
+		sortZombieMappingSlice(permutation)
+		c.Assert(permutation, checker.DeepEquals, zombies)
+	})
 }

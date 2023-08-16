@@ -441,7 +441,15 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 	cachedSelectorTest := testSelectorCache.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	c.Assert(cachedSelectorTest, Not(IsNil))
 
-	rule1MapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, false, true)
+	baseMapStateEntry := NewMapStateEntry(cachedSelectorTest, labels.LabelArrayList{ruleLabel}, false, true)
+	worldMapStateEntry := baseMapStateEntry
+	worldMapStateEntry = worldMapStateEntry.WithOwners(cachedSelectorWorld)
+	worldMapStateEntry.setNets(testSelectorCache, uint32(identity.ReservedIdentityWorld))
+	id192MapStateEntry := baseMapStateEntry
+	id192MapStateEntry.setNets(testSelectorCache, 192)
+	id194MapStateEntry := baseMapStateEntry
+	id194MapStateEntry.setNets(testSelectorCache, 194)
+
 	allowEgressMapStateEntry := NewMapStateEntry(nil, labels.LabelArrayList{ruleLabelDenyAnyEgress}, false, false)
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -473,9 +481,9 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 			// Although we have calculated deny policies, the overall policy
 			// will still allow egress to world.
 			{TrafficDirection: trafficdirection.Egress.Uint8()}:                          allowEgressMapStateEntry,
-			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}: rule1MapStateEntry.WithOwners(cachedSelectorWorld),
-			{Identity: 192, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry,
-			{Identity: 194, DestPort: 80, Nexthdr: 6}:                                    rule1MapStateEntry,
+			{Identity: uint32(identity.ReservedIdentityWorld), DestPort: 80, Nexthdr: 6}: worldMapStateEntry,
+			{Identity: 192, DestPort: 80, Nexthdr: 6}:                                    id192MapStateEntry,
+			{Identity: 194, DestPort: 80, Nexthdr: 6}:                                    id194MapStateEntry,
 		},
 	}
 

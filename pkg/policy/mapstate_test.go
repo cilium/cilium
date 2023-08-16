@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-//go:build !privileged_tests
-
 package policy
 
 import (
 	"fmt"
+	"net"
+	"testing"
+	"time"
 
 	"gopkg.in/check.v1"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -44,6 +46,13 @@ func (e MapStateEntry) WithDependents(keys ...Key) MapStateEntry {
 		e.AddDependent(key)
 	}
 	return e
+}
+
+func (m MapState) clearNets() {
+	for k, v := range m {
+		v.nets = nil
+		m[k] = v
+	}
 }
 
 func (ds *PolicyTestSuite) TestPolicyKeyTrafficDirection(c *check.C) {
@@ -2059,6 +2068,7 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsertWithSubnets(c *check.
 		outcomeKeys := MapState{}
 		outcomeKeys.DenyPreferredInsert(aKey, aEntry, selectorCache)
 		outcomeKeys.DenyPreferredInsert(bKey, bEntry, selectorCache)
+		outcomeKeys.clearNets()
 		c.Assert(outcomeKeys, checker.DeepEquals, expectedKeys, check.Commentf(tt.name))
 	}
 	// Now test all cases with different traffic directions.
@@ -2075,6 +2085,72 @@ func (ds *PolicyTestSuite) TestMapState_DenyPreferredInsertWithSubnets(c *check.
 		outcomeKeys := MapState{}
 		outcomeKeys.DenyPreferredInsert(aKey, aEntry, selectorCache)
 		outcomeKeys.DenyPreferredInsert(bKey, bEntry, selectorCache)
+		outcomeKeys.clearNets()
 		c.Assert(outcomeKeys, checker.DeepEquals, expectedKeys, check.Commentf("different traffic directions %s", tt.name))
 	}
+}
+
+type testIdentities struct {
+	lbls labels.LabelArray
+}
+
+func (t *testIdentities) GetLabels(id identity.NumericIdentity) labels.LabelArray {
+	//fmt.Printf("GetLabels: %d\n", id)
+	return t.lbls
+}
+func TestFoo(t *testing.T) {
+	numKey := 10
+	protos := []uint8{0, 1, 6, 17, 58} // from u8proto
+	keys := make([]Key, numKey)
+	entries := make([]MapStateEntry, numKey)
+
+	_, net, _ := net.ParseCIDR("1.2.3.4/32")
+	lbls := cidr.GetCIDRLabels(net)
+
+	ids := &testIdentities{lbls.LabelArray()}
+	m := MapState{}
+	for i := range keys {
+		keys[i].Identity = uint32(i + 1)
+		keys[i].DestPort = uint16(i + 1)
+		keys[i].TrafficDirection = uint8(i % 2)
+		keys[i].Nexthdr = protos[0] //i%len(protos)]
+
+		entries[i].IsDeny = false // i%2 == 0
+		entries[i].DerivedFromRules = labels.LabelArrayList{}
+		entries[i].owners = map[MapStateOwner]struct{}{}
+		entries[i].dependents = Keys{}
+		m.DenyPreferredInsert(keys[i], entries[i], ids)
+	}
+
+	key := Key{
+		Identity:         uint32(numKey + 1),
+		DestPort:         123,
+		Nexthdr:          0,
+		TrafficDirection: 0,
+	}
+	entry := MapStateEntry{
+		ProxyPort:        0,
+		IsDeny:           true,
+		DerivedFromRules: []labels.LabelArray{},
+		owners:           nil,
+		dependents:       Keys{},
+	}
+	t0 := time.Now()
+	for i := 0; i < 10000; i++ {
+		e := entry
+		m.DenyPreferredInsert(key, e, ids)
+	}
+	fmt.Printf("nkeys: %d\n", len(m))
+
+	fmt.Printf("tdiff: %s\n", time.Now().Sub(t0)/10000)
+
+	/*
+		uncached := 0
+		for _, v := range m {
+			if v.cachedNets == nil {
+				uncached++
+			}
+			//fmt.Printf("%+v\n", v.cachedNets)
+		}
+		fmt.Printf("uncached: %d\n", uncached)*/
 }

@@ -123,8 +123,8 @@ type MapStateEntry struct {
 	// will be deleted once all of the owners are deleted.
 	dependents Keys
 
-	// cachedNets caches the subnets (if any) associated with this MapStateEntry.
-	cachedNets []*net.IPNet
+	// nets are the subnets (if any) associated with this MapStateEntry.
+	nets []*net.IPNet
 }
 
 // NewMapStateEntry creates a map state entry. If redirect is true, the
@@ -177,28 +177,23 @@ func (e *MapStateEntry) HasDependent(key Key) bool {
 	return ok
 }
 
-// getNets returns the most specific CIDR for an identity. For the "World" identity
-// it returns both IPv4 and IPv6.
-func (e *MapStateEntry) getNets(identities Identities, ident uint32) []*net.IPNet {
-	// Caching results is not dangerous in this situation as the entry
-	// is ephemerally tied to the lifecycle of the MapState object that
-	// it will be in.
-	if e.cachedNets != nil {
-		return e.cachedNets
+// setNets sets the most specific CIDR for an identity. For the "World" identity
+// it sets both IPv4 and IPv6.
+func (e *MapStateEntry) setNets(identities Identities, ident uint32) {
+	if identities == nil {
+		return
 	}
+
 	id := identity.NumericIdentity(ident)
 	if id == identity.ReservedIdentityWorld {
-		e.cachedNets = []*net.IPNet{
+		e.nets = []*net.IPNet{
 			{IP: net.IPv4zero, Mask: net.CIDRMask(0, net.IPv4len*8)},
 			{IP: net.IPv6zero, Mask: net.CIDRMask(0, net.IPv6len*8)},
 		}
-		return e.cachedNets
+		return
 	}
-	if identities == nil {
-		return nil
-	}
+
 	lbls := identities.GetLabels(id)
-	nets := make([]*net.IPNet, 0, 1)
 	var (
 		maskSize         int
 		mostSpecificCidr *net.IPNet
@@ -215,10 +210,8 @@ func (e *MapStateEntry) getNets(identities Identities, ident uint32) []*net.IPNe
 		}
 	}
 	if mostSpecificCidr != nil {
-		nets = append(nets, mostSpecificCidr)
+		e.nets = []*net.IPNet{mostSpecificCidr}
 	}
-	e.cachedNets = nets
-	return nets
 }
 
 // AddDependent adds 'key' to the set of dependent keys.
@@ -299,6 +292,7 @@ func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, delet
 	// TODO: Do we need to merge labels as well?
 	// Merge new owner to the updated entry without modifying 'entry' as it is being reused by the caller
 	updatedEntry.MergeReferences(&entry)
+
 	// Update (or insert) the entry
 	keys[key] = updatedEntry
 
@@ -373,8 +367,7 @@ func entryIdentityIsSupersetOf(primaryKey Key, primaryEntry MapStateEntry, compa
 		return false
 	}
 	return primaryKey.Identity == 0 && compareKey.Identity != 0 ||
-		ip.NetsContainsAny(primaryEntry.getNets(identities, primaryKey.Identity),
-			compareEntry.getNets(identities, compareKey.Identity))
+		ip.NetsContainsAny(primaryEntry.nets, compareEntry.nets)
 }
 
 // protocolsMatch checks to see if two given keys match on protocol.
@@ -395,6 +388,8 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 	if v, ok := keys[allCpy]; ok && v.IsDeny {
 		return
 	}
+	newEntry.setNets(identities, newKey.Identity)
+
 	if newEntry.IsDeny {
 		for k, v := range keys {
 			// Protocols and traffic directions that don't match ensure that the policies
