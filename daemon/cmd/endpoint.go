@@ -125,6 +125,28 @@ func (d *Daemon) getEndpointList(params GetEndpointParams) []*models.Endpoint {
 	return resEPs
 }
 
+func deleteEndpointHandler(d *Daemon, params DeleteEndpointParams) middleware.Responder {
+	log.WithField(logfields.Params, logfields.Repr(params)).Debug("DELETE /endpoint/ request")
+
+	r, err := d.apiLimiterSet.Wait(params.HTTPRequest.Context(), restapi.APIRequestEndpointDelete)
+	if err != nil {
+		return api.Error(http.StatusTooManyRequests, err)
+	}
+	defer r.Done()
+
+	if nerr, err := d.deleteEndpointByContainerID(params.Endpoint.ContainerID); err != nil {
+		r.Error(err)
+		if apierr, ok := err.(*api.APIError); ok {
+			return apierr
+		}
+		return api.Error(DeleteEndpointInvalidCode, err)
+	} else if nerr > 0 {
+		return NewDeleteEndpointErrors().WithPayload(int64(nerr))
+	} else {
+		return NewDeleteEndpointOK()
+	}
+}
+
 func getEndpointIDHandler(d *Daemon, params GetEndpointIDParams) middleware.Responder {
 	log.WithField(logfields.EndpointID, params.ID).Debug("GET /endpoint/{id} request")
 
@@ -716,6 +738,37 @@ func (d *Daemon) DeleteEndpoint(id string) (int, error) {
 		}
 		return d.deleteEndpoint(ep), nil
 	}
+}
+
+func (d *Daemon) deleteEndpointByContainerID(containerID string) (nErrors int, err error) {
+	if containerID == "" {
+		return 0, api.New(DeleteEndpointInvalidCode, "invalid container id")
+	}
+
+	eps := d.endpointManager.GetEndpointsByContainerID(containerID)
+	if len(eps) == 0 {
+		return 0, api.New(DeleteEndpointNotFoundCode, "endpoints not found")
+	}
+
+	for _, ep := range eps {
+		scopedLog := log.WithFields(logrus.Fields{
+			logfields.ContainerID:  containerID,
+			logfields.EndpointID:   ep.ID,
+			logfields.K8sPodName:   ep.GetK8sPodName(),
+			logfields.K8sNamespace: ep.GetK8sNamespace(),
+		})
+
+		if err = endpoint.APICanModify(ep); err != nil {
+			scopedLog.WithError(err).Warn("Skipped endpoint in batch delete request")
+			nErrors++
+			continue
+		}
+
+		scopedLog.Info("Delete endpoint by containerID request")
+		nErrors += d.deleteEndpoint(ep)
+	}
+
+	return nErrors, nil
 }
 
 // EndpointDeleted is a callback to satisfy EndpointManager.Subscriber,

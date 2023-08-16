@@ -9,7 +9,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
-	"github.com/cilium/cilium/pkg/clustermesh/internal"
+	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
@@ -22,7 +22,7 @@ import (
 )
 
 // remoteCluster implements the clustermesh business logic on top of
-// internal.RemoteCluster.
+// common.RemoteCluster.
 type remoteCluster struct {
 	// name is the name of the cluster
 	name string
@@ -34,7 +34,7 @@ type remoteCluster struct {
 	// mesh is the cluster mesh this remote cluster belongs to
 	mesh *ClusterMesh
 
-	usedIDs *ClusterMeshUsedIDs
+	usedIDs ClusterIDsManager
 
 	// mutex protects the following variables:
 	// - remoteIdentityCache
@@ -51,18 +51,21 @@ type remoteCluster struct {
 	// changes in the remote cluster
 	ipCacheWatcher *ipcache.IPIdentityWatcher
 
+	// ipCacheWatcherExtraOpts returns extra options for watching ipcache entries.
+	ipCacheWatcherExtraOpts IPCacheWatcherOptsFn
+
 	// remoteIdentityCache is a locally cached copy of the identity
 	// allocations in the remote cluster
 	remoteIdentityCache *allocator.RemoteCache
 
-	// status is the function which fills the internal part of the status.
-	status internal.StatusFunc
+	// status is the function which fills the common part of the status.
+	status common.StatusFunc
 
 	swg *lock.StoppableWaitGroup
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config *cmtypes.CiliumClusterConfig, ready chan<- error) {
-	if err := config.Validate(); err != nil {
+	if err := config.Validate(rc.mesh.conf.ConfigValidationMode); err != nil {
 		ready <- err
 		close(ready)
 		return
@@ -111,7 +114,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	})
 
 	mgr.Register(adapter(ipcache.IPIdentitiesPath), func(ctx context.Context) {
-		rc.ipCacheWatcher.Watch(ctx, backend, ipcache.WithCachedPrefix(capabilities.Cached))
+		rc.ipCacheWatcher.Watch(ctx, backend, rc.ipCacheWatcherOpts(config)...)
 	})
 
 	mgr.Register(adapter(identityCache.IdentitiesPath), func(ctx context.Context) {
@@ -136,7 +139,7 @@ func (rc *remoteCluster) Remove() {
 	rc.mesh.globalServices.onClusterDelete(rc.name)
 
 	if rc.config != nil {
-		rc.usedIDs.releaseClusterID(rc.config.ID)
+		rc.usedIDs.ReleaseClusterID(rc.config.ID)
 	}
 }
 
@@ -165,6 +168,10 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 	return status
 }
 
+func (rc *remoteCluster) ClusterConfigRequired() bool {
+	return rc.mesh.conf.ConfigValidationMode == types.Strict
+}
+
 func (rc *remoteCluster) onUpdateConfig(newConfig *cmtypes.CiliumClusterConfig) error {
 	oldConfig := rc.config
 
@@ -172,14 +179,28 @@ func (rc *remoteCluster) onUpdateConfig(newConfig *cmtypes.CiliumClusterConfig) 
 		return nil
 	}
 	if newConfig != nil {
-		if err := rc.usedIDs.reserveClusterID(newConfig.ID); err != nil {
+		if err := rc.usedIDs.ReserveClusterID(newConfig.ID); err != nil {
 			return err
 		}
 	}
 	if oldConfig != nil {
-		rc.usedIDs.releaseClusterID(oldConfig.ID)
+		rc.usedIDs.ReleaseClusterID(oldConfig.ID)
 	}
 	rc.config = newConfig
 
 	return nil
+}
+
+func (rc *remoteCluster) ipCacheWatcherOpts(config *cmtypes.CiliumClusterConfig) []ipcache.IWOpt {
+	var opts []ipcache.IWOpt
+
+	if config != nil {
+		opts = append(opts, ipcache.WithCachedPrefix(config.Capabilities.Cached))
+	}
+
+	if rc.ipCacheWatcherExtraOpts != nil {
+		opts = append(opts, rc.ipCacheWatcherExtraOpts(config)...)
+	}
+
+	return opts
 }

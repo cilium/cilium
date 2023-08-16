@@ -9,7 +9,9 @@ import (
 	"sort"
 
 	"github.com/cilium/cilium/api/v1/models"
+	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/api"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -361,6 +363,49 @@ func (m *BGPRouterManager) GetPeers(ctx context.Context) ([]*models.BgpPeer, err
 		}
 		res = append(res, getPeerResp.Peers...)
 	}
+	return res, nil
+}
+
+// GetRoutes retrieves routes from the RIB of underlying router
+func (m *BGPRouterManager) GetRoutes(ctx context.Context, params restapi.GetBgpRoutesParams) ([]*models.BgpRoute, error) {
+	m.RLock()
+	defer m.RUnlock()
+
+	// validate router ASN
+	if params.RouterAsn != nil {
+		if _, found := m.Servers[*params.RouterAsn]; !found {
+			return nil, fmt.Errorf("virtual router with ASN %d does not exist", *params.RouterAsn)
+		}
+	}
+
+	// validate that router ASN is set for the neighbor if there are multiple servers
+	if params.Neighbor != nil && len(m.Servers) > 1 && params.RouterAsn == nil {
+		return nil, fmt.Errorf("multiple virtual routers configured, router ASN must be specified")
+	}
+
+	var res []*models.BgpRoute
+	req, err := api.ToAgentGetRoutesRequest(params)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, s := range m.Servers {
+		if params.RouterAsn != nil && *params.RouterAsn != s.Config.LocalASN {
+			continue // return routes matching provided router ASN only
+		}
+		rs, err := s.Server.GetRoutes(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+
+		routes, err := api.ToAPIRoutes(rs.Routes, s.Config.LocalASN)
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, routes...)
+	}
+
 	return res, nil
 }
 

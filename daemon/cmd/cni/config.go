@@ -149,6 +149,8 @@ const chainedCNIEntry = `
 
 const cniControllerName = "write-cni-file"
 
+var cniControllerGroup = controller.NewGroup("write-cni-file")
+
 // startCNIConfWriter starts the CNI configuration file manager.
 //
 // This has two responsibilities:
@@ -192,6 +194,7 @@ func (c *cniConfigManager) Start(hive.HookContext) error {
 	// Install the CNI file controller
 	c.controller.UpdateController(cniControllerName,
 		controller.ControllerParams{
+			Group: cniControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				err := c.setupCNIConfFile()
 				if err != nil {

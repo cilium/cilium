@@ -64,6 +64,8 @@ import (
 
 const podApiGroup = resources.K8sAPIGroupPodV1Core
 
+var ciliumEndpointSyncPodLabelsControllerGroup = controller.NewGroup("sync-pod-labels-with-cilium-endpoint")
+
 // createAllPodsController is used in the rare configurations where CiliumEndpointCRD is disabled.
 // If kvstore and K8sEventHandover is enabled then we fall back to watching only local pods when
 // kvstore connects.
@@ -465,6 +467,7 @@ func updateCiliumEndpointLabels(clientset client.Clientset, ep *endpoint.Endpoin
 	// This is to make sure that the controller is also deleted once the endpoint is gone.
 	ep.UpdateController(controllerName,
 		controller.ControllerParams{
+			Group: ciliumEndpointSyncPodLabelsControllerGroup,
 			DoFunc: func(ctx context.Context) (err error) {
 				pod := ep.GetPod()
 				if pod == nil {

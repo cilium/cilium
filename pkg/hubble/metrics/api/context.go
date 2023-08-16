@@ -56,8 +56,8 @@ const ContextOptionsHelp = `
  destinationEgressContext  ::= identifier , { "|", identifier }
  destinationIngressContext ::= identifier , { "|", identifier }
  labels                    ::= label , { ",", label }
- identifier             ::= identity | namespace | pod | pod-name | dns | ip | reserved-identity | workload | workload-name | app
- label                     ::= source_ip | source_pod | source_namespace | source_workload | source_app | destination_ip | destination_pod | destination_namespace | destination_workload | destination_app | traffic_direction
+ identifier                ::= identity | namespace | pod | pod-name | dns | ip | reserved-identity | workload | workload-name | app
+ label                     ::= source_ip | source_pod | source_namespace | source_workload | source_workload_kind | source_app | destination_ip | destination_pod | destination_namespace | destination_workload | destination_workload_kind | destination_app | traffic_direction
 `
 
 var (
@@ -69,11 +69,13 @@ var (
 		"source_pod",
 		"source_namespace",
 		"source_workload",
+		"source_workload_kind",
 		"source_app",
 		"destination_ip",
 		"destination_pod",
 		"destination_namespace",
 		"destination_workload",
+		"destination_workload_kind",
 		"destination_app",
 		"traffic_direction",
 	}
@@ -309,6 +311,10 @@ func labelsContext(invertSourceDestination bool, wantedLabels labelsSet, flow *p
 				if workloads := source.GetWorkloads(); len(workloads) != 0 {
 					labelValue = workloads[0].Name
 				}
+			case "source_workload_kind":
+				if workloads := source.GetWorkloads(); len(workloads) != 0 {
+					labelValue = workloads[0].Kind
+				}
 			case "source_app":
 				labelValue = getK8sAppFromLabels(source.GetLabels())
 			case "destination_ip":
@@ -320,6 +326,10 @@ func labelsContext(invertSourceDestination bool, wantedLabels labelsSet, flow *p
 			case "destination_workload":
 				if workloads := destination.GetWorkloads(); len(workloads) != 0 {
 					labelValue = workloads[0].Name
+				}
+			case "destination_workload_kind":
+				if workloads := destination.GetWorkloads(); len(workloads) != 0 {
+					labelValue = workloads[0].Kind
 				}
 			case "destination_app":
 				labelValue = getK8sAppFromLabels(destination.GetLabels())

@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/stream"
 )
 
-// Cell invokes authManager which is responsible for request authentication.
+// Cell provides AuthManager which is responsible for request authentication.
 // It does this by registering to "auth required" signals from the signal package
 // and reacting upon received signal events.
 // Actual authentication gets performed by an auth handler which is
@@ -37,7 +37,7 @@ var Cell = cell.Module(
 
 	// The auth manager is the main entry point which gets registered to signal map and receives auth requests.
 	// In addition, it handles re-authentication and auth map garbage collection.
-	cell.Invoke(registerAuthManager),
+	cell.Provide(registerAuthManager),
 	cell.ProvidePrivate(
 		// Null auth handler provides support for auth type "null" - which always succeeds.
 		newMutualAuthHandler,
@@ -82,10 +82,10 @@ type authManagerParams struct {
 	PolicyRepo      *policy.Repository
 }
 
-func registerAuthManager(params authManagerParams) error {
+func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 	if !params.Config.MeshAuthEnabled {
 		params.Logger.Info("Authentication processing is disabled")
-		return nil
+		return nil, nil
 	}
 
 	// Instantiate & wire auth components
@@ -95,7 +95,7 @@ func registerAuthManager(params authManagerParams) error {
 
 	mgr, err := newAuthManager(params.Logger, params.AuthHandlers, mapCache, params.NodeIDHandler)
 	if err != nil {
-		return fmt.Errorf("failed to create auth manager: %w", err)
+		return nil, fmt.Errorf("failed to create auth manager: %w", err)
 	}
 
 	mapGC := newAuthMapGC(params.Logger, mapCache, params.NodeIDHandler, params.PolicyRepo)
@@ -118,17 +118,17 @@ func registerAuthManager(params authManagerParams) error {
 	)
 
 	if err := registerSignalAuthenticationJob(jobGroup, mgr, params.SignalManager, params.Config); err != nil {
-		return fmt.Errorf("failed to register signal authentication job: %w", err)
+		return nil, fmt.Errorf("failed to register signal authentication job: %w", err)
 	}
 	registerReAuthenticationJob(jobGroup, mgr, params.AuthHandlers)
 	registerGCJobs(jobGroup, params.Lifecycle, mapGC, params.Config, params.NodeManager, params.IdentityChanges)
 
 	params.Lifecycle.Append(jobGroup)
 
-	return nil
+	return mgr, nil
 }
 
-func registerReAuthenticationJob(jobGroup job.Group, mgr *authManager, authHandlers []authHandler) {
+func registerReAuthenticationJob(jobGroup job.Group, mgr *AuthManager, authHandlers []authHandler) {
 	for _, ah := range authHandlers {
 		if ah != nil && ah.subscribeToRotatedIdentities() != nil {
 			jobGroup.Add(job.Observer("auth re-authentication", mgr.handleCertificateRotationEvent, stream.FromChannel(ah.subscribeToRotatedIdentities())))
@@ -136,7 +136,7 @@ func registerReAuthenticationJob(jobGroup job.Group, mgr *authManager, authHandl
 	}
 }
 
-func registerSignalAuthenticationJob(jobGroup job.Group, mgr *authManager, sm signal.SignalManager, config config) error {
+func registerSignalAuthenticationJob(jobGroup job.Group, mgr *AuthManager, sm signal.SignalManager, config config) error {
 	var signalChannel = make(chan signalAuthKey, config.MeshAuthQueueSize)
 
 	// RegisterHandler registers signalChannel with SignalManager, but flow of events

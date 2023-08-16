@@ -28,6 +28,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+var syncLBMapsControllerGroup = controller.NewGroup("sync-lb-maps-with-k8s-services")
+
 type endpointRestoreState struct {
 	possible map[uint16]*endpoint.Endpoint
 	restored []*endpoint.Endpoint
@@ -199,7 +201,7 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) er
 	for _, ep := range state.possible {
 		scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 		if d.clientset.IsEnabled() {
-			scopedLog = scopedLog.WithField("k8sPodName", ep.GetK8sNamespaceAndPodName())
+			scopedLog = scopedLog.WithField(logfields.CEPName, ep.GetK8sNamespaceAndCEPName())
 		}
 
 		// We have to set the allocator for identities here during the Endpoint
@@ -419,7 +421,7 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
 			log.WithError(err).WithFields(logrus.Fields{
 				logfields.IPAddr:     ep.IPv4,
 				logfields.EndpointID: ep.ID,
-				logfields.K8sPodName: ep.GetK8sNamespaceAndPodName(),
+				logfields.CEPName:    ep.GetK8sNamespaceAndCEPName(),
 			}).Warn(
 				"Bypassing IP not available error on endpoint restore. This is " +
 					"to prevent errors upon Cilium upgrade and should not be " +
@@ -464,8 +466,10 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 				// elsewhere. This means that if, for instance, a user manually
 				// adds a service via the CLI into the BPF maps, that it will
 				// not be cleaned up by the daemon until it restarts.
-				controller.NewManager().UpdateController("sync-lb-maps-with-k8s-services",
+				controller.NewManager().UpdateController(
+					"sync-lb-maps-with-k8s-services",
 					controller.ControllerParams{
+						Group: syncLBMapsControllerGroup,
 						DoFunc: func(ctx context.Context) error {
 							return d.svc.SyncWithK8sFinished(d.k8sWatcher.K8sSvcCache.EnsureService)
 						},

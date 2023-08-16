@@ -193,9 +193,8 @@ __ipv6_host_policy_ingress(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		goto out;
 
 	/* Perform policy lookup */
-	verdict = policy_can_access_ingress(ctx, *src_sec_identity, HOST_ID, tuple->dport,
-					    tuple->nexthdr, ct_buffer->l4_off, false,
-					    &policy_match_type, &audited, ext_err, &proxy_port);
+	verdict = policy_can_ingress6(ctx, tuple, ct_buffer->l4_off, *src_sec_identity, HOST_ID,
+				      &policy_match_type, &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		auth_type = (__u8)*ext_err;
 		verdict = auth_lookup(ctx, HOST_ID, *src_sec_identity, tunnel_endpoint, auth_type);
@@ -470,10 +469,9 @@ __ipv4_host_policy_ingress(struct __ctx_buff *ctx, struct iphdr *ip4,
 #  endif
 
 	/* Perform policy lookup */
-	verdict = policy_can_access_ingress(ctx, *src_sec_identity, HOST_ID, tuple->dport,
-					    tuple->nexthdr, ct_buffer->l4_off,
-					    is_untracked_fragment,
-					    &policy_match_type, &audited, ext_err, &proxy_port);
+	verdict = policy_can_ingress4(ctx, tuple, ct_buffer->l4_off, is_untracked_fragment,
+				      *src_sec_identity, HOST_ID, &policy_match_type,
+				      &audited, ext_err, &proxy_port);
 	if (verdict == DROP_POLICY_AUTH_REQUIRED) {
 		auth_type = (__u8)*ext_err;
 		verdict = auth_lookup(ctx, HOST_ID, *src_sec_identity, tunnel_endpoint, auth_type);

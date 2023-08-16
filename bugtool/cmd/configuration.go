@@ -422,6 +422,9 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium lrp list",
 		"cilium cgroups list -o json",
 		"cilium statedb dump",
+		"cilium bgp peers",
+		"cilium bgp routes available ipv4 unicast",
+		"cilium bgp routes available ipv6 unicast",
 	}
 	var commands []string
 

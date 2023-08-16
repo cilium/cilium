@@ -32,6 +32,8 @@ import (
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
+var syncCNPStatusControllerGroup = controller.NewGroup("sync-cnp-policy-status")
+
 // ruleImportMetadataCache maps the unique identifier of a CiliumNetworkPolicy
 // (namespace and name) to metadata about the importing of the rule into the
 // agent's policy repository at the time said rule was imported (revision
@@ -345,6 +347,7 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 		ctrlName := cnp.GetControllerName()
 		k8sCM.UpdateController(ctrlName,
 			controller.ControllerParams{
+				Group: syncCNPStatusControllerGroup,
 				DoFunc: func(ctx context.Context) error {
 					return updateContext.UpdateStatus(ctx, cnp, rev, policyImportErr)
 				},
@@ -480,6 +483,7 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient c
 
 	k8sCM.UpdateController(ctrlName,
 		controller.ControllerParams{
+			Group: syncCNPStatusControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				return updateContext.UpdateStatus(ctx, cnp, meta.revision, meta.policyImportError)
 			},

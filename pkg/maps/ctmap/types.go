@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/tuple"
 )
 
@@ -94,6 +95,62 @@ func (m mapType) isTCP() bool {
 		return true
 	}
 	return false
+}
+
+func (m mapType) key() bpf.MapKey {
+	switch m {
+	case mapTypeIPv4TCPLocal, mapTypeIPv4AnyLocal:
+		return &CtKey4{}
+	case mapTypeIPv6TCPLocal, mapTypeIPv6AnyLocal:
+		return &CtKey6{}
+	case mapTypeIPv4TCPGlobal, mapTypeIPv4AnyGlobal:
+		return &CtKey4Global{}
+	case mapTypeIPv6TCPGlobal, mapTypeIPv6AnyGlobal:
+		return &CtKey6Global{}
+	default:
+		panic("Unexpected map type " + m.String())
+	}
+}
+
+func (m mapType) value() bpf.MapValue {
+	return &CtEntry{}
+}
+
+func (m mapType) maxEntries() int {
+	switch m {
+	case mapTypeIPv4TCPGlobal, mapTypeIPv6TCPGlobal:
+		if option.Config.CTMapEntriesGlobalTCP != 0 {
+			return option.Config.CTMapEntriesGlobalTCP
+		}
+		return option.CTMapEntriesGlobalTCPDefault
+
+	case mapTypeIPv4AnyGlobal, mapTypeIPv6AnyGlobal:
+		if option.Config.CTMapEntriesGlobalAny != 0 {
+			return option.Config.CTMapEntriesGlobalAny
+		}
+		return option.CTMapEntriesGlobalAnyDefault
+
+	case mapTypeIPv4TCPLocal, mapTypeIPv6TCPLocal, mapTypeIPv4AnyLocal, mapTypeIPv6AnyLocal:
+		return mapNumEntriesLocal
+
+	default:
+		panic("Unexpected map type " + m.String())
+	}
+}
+
+func (m mapType) bpfDefine() string {
+	switch m {
+	case mapTypeIPv4TCPLocal, mapTypeIPv4TCPGlobal:
+		return "CT_MAP_TCP4"
+	case mapTypeIPv6TCPLocal, mapTypeIPv6TCPGlobal:
+		return "CT_MAP_TCP6"
+	case mapTypeIPv4AnyLocal, mapTypeIPv4AnyGlobal:
+		return "CT_MAP_ANY4"
+	case mapTypeIPv6AnyLocal, mapTypeIPv6AnyGlobal:
+		return "CT_MAP_ANY6"
+	default:
+		panic("Unexpected map type " + m.String())
+	}
 }
 
 type CTMapIPVersion int

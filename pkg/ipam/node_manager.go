@@ -24,6 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
+var ipamNodeIntervalControllerGroup = controller.NewGroup("ipam-node-interval-refresh")
+
 // CiliumNodeGetterUpdater defines the interface used to interact with the k8s
 // apiserver to retrieve and update the CiliumNode custom resource
 type CiliumNodeGetterUpdater interface {
@@ -228,6 +230,7 @@ func (n *NodeManager) Start(ctx context.Context) error {
 		mngr := controller.NewManager()
 		mngr.UpdateController("ipam-node-interval-refresh",
 			controller.ControllerParams{
+				Group:       ipamNodeIntervalControllerGroup,
 				RunInterval: time.Minute,
 				DoFunc: func(ctx context.Context) error {
 					if syncTime, ok := n.instancesAPIResync(ctx); ok {

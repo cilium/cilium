@@ -37,6 +37,8 @@ const (
 	pendingAllocationTTL = 5 * time.Minute
 )
 
+var multiPoolControllerGroup = controller.NewGroup(multiPoolControllerName)
+
 type poolPair struct {
 	v4 *podCIDRPool
 	v6 *podCIDRPool
@@ -313,9 +315,11 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	if m.node == nil {
 		// This enables the upstream sync controller. It requires m.node to be populated.
 		// Note: The controller will only run after m.mutex is unlocked
-		m.controller.UpdateController(multiPoolControllerName, controller.ControllerParams{
-			DoFunc: m.updateCiliumNode,
-		})
+		m.controller.UpdateController(multiPoolControllerName,
+			controller.ControllerParams{
+				Group:  multiPoolControllerGroup,
+				DoFunc: m.updateCiliumNode,
+			})
 	}
 
 	for _, pool := range newNode.Spec.IPAM.Pools.Allocated {

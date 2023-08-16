@@ -581,6 +581,108 @@ void *pktgen__push_data(struct pktgen *builder, void *data, int len)
 	return pkt_data;
 }
 
+static __always_inline struct iphdr *
+pktgen__push_ipv4_packet(struct pktgen *builder,
+			 __u8 *smac, __u8 *dmac,
+			 __be32 saddr, __be32 daddr)
+{
+	struct ethhdr *l2;
+	struct iphdr *l3;
+
+	l2 = pktgen__push_ethhdr(builder);
+	if (!l2)
+		return NULL;
+
+	ethhdr__set_macs(l2, smac, dmac);
+
+	l3 = pktgen__push_default_iphdr(builder);
+	if (!l3)
+		return NULL;
+
+	l3->saddr = saddr;
+	l3->daddr = daddr;
+
+	return l3;
+}
+
+static __always_inline struct tcphdr *
+pktgen__push_ipv4_tcp_packet(struct pktgen *builder,
+			     __u8 *smac, __u8 *dmac,
+			     __be32 saddr, __be32 daddr,
+			     __be16 sport, __be16 dport)
+{
+	struct tcphdr *l4;
+	struct iphdr *l3;
+
+	l3 = pktgen__push_ipv4_packet(builder, smac, dmac, saddr, daddr);
+	if (!l3)
+		return NULL;
+
+	l4 = pktgen__push_default_tcphdr(builder);
+	if (!l4)
+		return NULL;
+
+	l4->source = sport;
+	l4->dest = dport;
+
+	return l4;
+}
+
+static __always_inline struct udphdr *
+pktgen__push_ipv4_udp_packet(struct pktgen *builder,
+			     __u8 *smac, __u8 *dmac,
+			     __be32 saddr, __be32 daddr,
+			     __be16 sport, __be16 dport)
+{
+	struct udphdr *l4;
+	struct iphdr *l3;
+
+	l3 = pktgen__push_ipv4_packet(builder, smac, dmac, saddr, daddr);
+	if (!l3)
+		return NULL;
+
+	l4 = pktgen__push_default_udphdr(builder);
+	if (!l4)
+		return NULL;
+
+	l4->source = sport;
+	l4->dest = dport;
+
+	return l4;
+}
+
+static __always_inline struct tcphdr *
+pktgen__push_ipv6_tcp_packet(struct pktgen *builder,
+			     __u8 *smac, __u8 *dmac,
+			     __u8 *saddr, __u8 *daddr,
+			     __be16 sport, __be16 dport)
+{
+	struct ipv6hdr *l3;
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+
+	l2 = pktgen__push_ethhdr(builder);
+	if (!l2)
+		return NULL;
+
+	ethhdr__set_macs(l2, smac, dmac);
+
+	l3 = pktgen__push_default_ipv6hdr(builder);
+	if (!l3)
+		return NULL;
+
+	ipv6hdr__set_addrs(l3, saddr, daddr);
+
+	l4 = pktgen__push_default_tcphdr(builder);
+	if (!l4)
+		return NULL;
+
+	l4->source = sport;
+	l4->dest = dport;
+
+	return l4;
+}
+
 /* Do a finishing pass on all the layers, which will set correct next layer
  * fields and length values. TODO checksum calculation?
  */

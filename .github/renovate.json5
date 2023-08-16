@@ -69,7 +69,8 @@
         ".github/workflows/**"
       ],
       excludeDepNames: [
-        "quay.io/lvh-images/kind"
+        "quay.io/lvh-images/kind",
+        "quay.io/cilium/kindest-node"
       ],
       "matchUpdateTypes": [
         "major",
@@ -186,6 +187,7 @@
         "contrib/coccinelle/Dockerfile",
         "images/cache/Dockerfile",
         "images/clustermesh-apiserver/Dockerfile",
+        "images/hubble-relay/Dockerfile",
         "images/operator/Dockerfile",
         "images/kvstoremesh/Dockerfile"
       ],
@@ -237,9 +239,7 @@
         "docker.io/library/golang",
         "go"
       ],
-      // Golang 1.20.0 had a regression which prevented us from upgrading it
-      // to 1.20 before the 1.13 release.
-      "allowedVersions": "<1.20",
+      "allowedVersions": "<1.21",
       "matchBaseBranches": [
         "v1.13"
       ]
@@ -249,7 +249,7 @@
         "docker.io/library/golang",
         "go"
       ],
-      "allowedVersions": "<1.20",
+      "allowedVersions": "<1.21",
       "matchBaseBranches": [
         "v1.12"
       ]
@@ -376,7 +376,8 @@
       "groupName": "all kind-images main",
       "groupSlug": "all-kind-images-main",
       "matchPackageNames": [
-        "kindest/node"
+        "kindest/node",
+        "quay.io/cilium/kindest-node"
       ],
       "matchUpdateTypes": [
         "digest",
@@ -393,12 +394,19 @@
       "enabled": false,
       "matchPackageNames": [
         "quay.io/lvh-images/kind",
-        "kindest/node"
+        "kindest/node",
+        "quay.io/cilium/kindest-node"
       ],
       "matchUpdateTypes": [
         "major",
         "minor"
       ],
+    },
+    {
+      "matchPackageNames": [
+        "quay.io/cilium/kindest-node"
+      ],
+      "ignoreUnstable": false,
     }
   ],
   "kubernetes": {

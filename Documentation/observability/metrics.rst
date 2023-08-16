@@ -426,8 +426,18 @@ Name                                     Labels                                 
 ======================================== ================================================== ========== ========================================================
 ``controllers_runs_total``               ``status``                                         Enabled    Number of times that a controller process was run
 ``controllers_runs_duration_seconds``    ``status``                                         Enabled    Duration in seconds of the controller process
+``controllers_group_runs_total``         ``status``, ``group_name``                         Enabled    Number of times that a controller process was run, labeled by controller group name
 ``controllers_failing``                                                                     Enabled    Number of failing controllers
 ======================================== ================================================== ========== ========================================================
+
+The ``controllers_group_runs_total`` metric reports the success and failure
+count of each controller within the system, labeled by controller group name
+and completion status. Due to the large number of controllers, enabling this
+metric is on a per-controller basis. This is configured using an allow-list
+which is passed as the ``controller-group-metrics`` configuration flag,
+or the ``prometheus.controllerGroupMetrics`` helm value. The current
+recommended default set of group names can be found in the values file of
+the Cilium Helm chart. The special names "all" and "none" are supported.
 
 SubProcess
 ~~~~~~~~~~
@@ -592,6 +602,24 @@ Name                                     Labels                                 
 ``lbipam_services_unsatisfied_total``                                                                      Enabled    Number of services which did not get requested IPs
 ======================================== ================================================================= ========== ========================================================
 
+Controllers
+~~~~~~~~~~~
+
+======================================== ================================================== ========== ========================================================
+Name                                     Labels                                             Default    Description
+======================================== ================================================== ========== ========================================================
+``controllers_group_runs_total``         ``status``, ``group_name``                         Enabled    Number of times that a controller process was run, labeled by controller group name
+======================================== ================================================== ========== ========================================================
+
+The ``controllers_group_runs_total`` metric reports the success and failure
+count of each controller within the system, labeled by controller group name
+and completion status. Due to the large number of controllers, enabling this
+metric is on a per-controller basis. This is configured using an allow-list
+which is passed as the ``controller-group-metrics`` configuration flag,
+or the ``prometheus.controllerGroupMetrics`` helm value. The current
+recommended default set of group names can be found in the values file of
+the Cilium Helm chart. The special names "all" and "none" are supported.
+
 
 Hubble
 ------
@@ -673,21 +701,23 @@ Hubble metrics can also be configured with a ``labelsContext`` which allows prov
 that should be added to the metric. Unlike ``sourceContext`` and ``destinationContext``, instead
 of different values being put into the same metric label, the ``labelsContext`` puts them into different label values.
 
-========================= ===============================================================================
-Option Value              Description
-========================= ===============================================================================
-``source_ip``             The source IP of the flow.
-``source_namespace``      The namespace of the pod if the flow source is from a Kubernetes pod.
-``source_pod``            The pod name if the flow source is from a Kubernetes pod.
-``source_workload``       The name of the source pod's workload (Deployment, Statefulset, Daemonset, ReplicationController, CronJob, Job, DeploymentConfig (OpenShift)).
-``source_app``            The app name of the source pod, derived from pod labels (``app.kubernetes.io/name``, ``k8s-app``, or ``app``).
-``destination_ip``        The destination IP of the flow.
-``destination_namespace`` The namespace of the pod if the flow destination is from a Kubernetes pod.
-``destination_pod``       The pod name if the flow destination is from a Kubernetes pod.
-``destination_workload``  The name of the destination pod's workload (Deployment, Statefulset, Daemonset, ReplicationController, CronJob, Job, DeploymentConfig (OpenShift)).
-``destination_app``       The app name of the source pod, derived from pod labels (``app.kubernetes.io/name``, ``k8s-app``, or ``app``).
-``traffic_direction``     Identifies the traffic direction of the flow. Possible values are ``ingress``, ``egress`` and ``unknown``.
-========================= ===============================================================================
+============================== ===============================================================================
+Option Value                   Description
+============================== ===============================================================================
+``source_ip``                  The source IP of the flow.
+``source_namespace``           The namespace of the pod if the flow source is from a Kubernetes pod.
+``source_pod``                 The pod name if the flow source is from a Kubernetes pod.
+``source_workload``            The name of the source pod's workload (Deployment, Statefulset, Daemonset, ReplicationController, CronJob, Job, DeploymentConfig (OpenShift)).
+``source_workload_kind``       The kind of the source pod's workload, for example, Deployment, Statefulset, Daemonset, ReplicationController, CronJob, Job, DeploymentConfig (OpenShift).
+``source_app``                 The app name of the source pod, derived from pod labels (``app.kubernetes.io/name``, ``k8s-app``, or ``app``).
+``destination_ip``             The destination IP of the flow.
+``destination_namespace``      The namespace of the pod if the flow destination is from a Kubernetes pod.
+``destination_pod``            The pod name if the flow destination is from a Kubernetes pod.
+``destination_workload``       The name of the destination pod's workload (Deployment, Statefulset, Daemonset, ReplicationController, CronJob, Job, DeploymentConfig (OpenShift)).
+``destination_workload_kind``  The kind of the destination pod's workload, for example, Deployment, Statefulset, Daemonset, ReplicationController, CronJob, Job, DeploymentConfig (OpenShift).
+``destination_app``            The app name of the source pod, derived from pod labels (``app.kubernetes.io/name``, ``k8s-app``, or ``app``).
+``traffic_direction``          Identifies the traffic direction of the flow. Possible values are ``ingress``, ``egress`` and ``unknown``.
+============================== ===============================================================================
 
 When specifying the flow context, multiple values can be specified by separating them via the ``,`` symbol.
 All labels listed are included in the metric, even if empty. For example, a metric configuration of
@@ -981,6 +1011,24 @@ Name                                           Labels                           
 ``api_limiter_wait_duration_seconds``          ``api_call``, ``value``          Mean, min, and max wait duration
 ============================================== ================================ ========================================================
 
+Controllers
+~~~~~~~~~~~
+
+======================================== ================================================== ========== ========================================================
+Name                                     Labels                                             Default    Description
+======================================== ================================================== ========== ========================================================
+``controllers_group_runs_total``         ``status``, ``group_name``                         Enabled    Number of times that a controller process was run, labeled by controller group name
+======================================== ================================================== ========== ========================================================
+
+The ``controllers_group_runs_total`` metric reports the success
+and failure count of each controller within the system, labeled by
+controller group name and completion status. Enabling this metric is
+on a per-controller basis. This is configured using an allow-list which
+is passed as the ``controller-group-metrics`` configuration flag.
+The current default set for ``clustermesh-apiserver`` found in the
+Cilium Helm chart is the special name "all", which enables the metric
+for all controller groups. The special name "none" is also supported.
+
 .. _kvstoremesh_metrics_reference:
 
 kvstoremesh
@@ -1036,3 +1084,21 @@ Name                                           Labels                           
 ``api_limiter_requests_in_flight``             ``api_call``  ``value``          Current and maximum allowed number of requests in flight
 ``api_limiter_wait_duration_seconds``          ``api_call``, ``value``          Mean, min, and max wait duration
 ============================================== ================================ ========================================================
+
+Controllers
+~~~~~~~~~~~
+
+======================================== ================================================== ========== ========================================================
+Name                                     Labels                                             Default    Description
+======================================== ================================================== ========== ========================================================
+``controllers_group_runs_total``         ``status``, ``group_name``                         Enabled    Number of times that a controller process was run, labeled by controller group name
+======================================== ================================================== ========== ========================================================
+
+The ``controllers_group_runs_total`` metric reports the success
+and failure count of each controller within the system, labeled by
+controller group name and completion status. Enabling this metric is
+on a per-controller basis. This is configured using an allow-list
+which is passed as the ``controller-group-metrics`` configuration
+flag. The current default set for ``kvstoremesh`` found in the
+Cilium Helm chart is the special name "all", which enables the metric
+for all controller groups. The special name "none" is also supported.

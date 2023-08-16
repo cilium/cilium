@@ -1,3 +1,83 @@
+# Release (2023-08-07)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/detective`: [v1.21.0](service/detective/CHANGELOG.md#v1210-2023-08-07)
+  * **Feature**: Updated the email validation regex to be in line with the TLD name specifications.
+* `github.com/aws/aws-sdk-go-v2/service/ivsrealtime`: [v1.4.0](service/ivsrealtime/CHANGELOG.md#v140-2023-08-07)
+  * **Feature**: Add QUOTA_EXCEEDED and PUBLISHER_NOT_FOUND to EventErrorCode for stage health events.
+* `github.com/aws/aws-sdk-go-v2/service/kinesisvideo`: [v1.18.0](service/kinesisvideo/CHANGELOG.md#v1180-2023-08-07)
+  * **Feature**: This release enables minimum of Images SamplingInterval to be as low as 200 milliseconds in Kinesis Video Stream Image feature.
+* `github.com/aws/aws-sdk-go-v2/service/kinesisvideoarchivedmedia`: [v1.16.0](service/kinesisvideoarchivedmedia/CHANGELOG.md#v1160-2023-08-07)
+  * **Feature**: This release enables minimum of Images SamplingInterval to be as low as 200 milliseconds in Kinesis Video Stream Image feature.
+* `github.com/aws/aws-sdk-go-v2/service/rekognition`: [v1.30.2](service/rekognition/CHANGELOG.md#v1302-2023-08-07)
+  * **Documentation**: This release adds code snippets for Amazon Rekognition Custom Labels.
+
+# Release (2023-08-04)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/acmpca`: [v1.22.2](service/acmpca/CHANGELOG.md#v1222-2023-08-04)
+  * **Documentation**: Documentation correction for AWS Private CA
+* `github.com/aws/aws-sdk-go-v2/service/connect`: [v1.64.0](service/connect/CHANGELOG.md#v1640-2023-08-04)
+  * **Feature**: Added a new API UpdateRoutingProfileAgentAvailabilityTimer to update agent availability timer of a routing profile.
+* `github.com/aws/aws-sdk-go-v2/service/datasync`: [v1.28.0](service/datasync/CHANGELOG.md#v1280-2023-08-04)
+  * **Feature**: Display cloud storage used capacity at a cluster level.
+* `github.com/aws/aws-sdk-go-v2/service/ecs`: [v1.29.2](service/ecs/CHANGELOG.md#v1292-2023-08-04)
+  * **Documentation**: This is a documentation update to address various tickets.
+* `github.com/aws/aws-sdk-go-v2/service/sagemaker`: [v1.100.0](service/sagemaker/CHANGELOG.md#v11000-2023-08-04)
+  * **Feature**: Including DataCaptureConfig key in the Amazon Sagemaker Search's transform job object
+
+# Release (2023-08-03)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/autoscaling`: [v1.30.2](service/autoscaling/CHANGELOG.md#v1302-2023-08-03)
+  * **Documentation**: Documentation changes related to Amazon EC2 Auto Scaling APIs.
+* `github.com/aws/aws-sdk-go-v2/service/cloud9`: [v1.18.2](service/cloud9/CHANGELOG.md#v1182-2023-08-03)
+  * **Documentation**: Updated the deprecation date for Amazon Linux. Doc only update.
+* `github.com/aws/aws-sdk-go-v2/service/databasemigrationservice`: [v1.30.0](service/databasemigrationservice/CHANGELOG.md#v1300-2023-08-03)
+  * **Feature**: The release makes public API for DMS Schema Conversion feature.
+* `github.com/aws/aws-sdk-go-v2/service/ec2`: [v1.110.0](service/ec2/CHANGELOG.md#v11100-2023-08-03)
+  * **Feature**: This release adds new parameter isPrimaryIPv6 to  allow assigning an IPv6 address as a primary IPv6 address to a network interface which cannot be changed to give equivalent functionality available for network interfaces with primary IPv4 address.
+* `github.com/aws/aws-sdk-go-v2/service/sagemaker`: [v1.99.0](service/sagemaker/CHANGELOG.md#v1990-2023-08-03)
+  * **Feature**: Amazon SageMaker now supports running training jobs on p5.48xlarge instance types.
+
+# Release (2023-08-02)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/budgets`: [v1.16.0](service/budgets/CHANGELOG.md#v1160-2023-08-02)
+  * **Feature**: As part of CAE tagging integration we need to update our budget names regex filter to prevent customers from using "/action/" in their budget names.
+* `github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider`: [v1.25.0](service/cognitoidentityprovider/CHANGELOG.md#v1250-2023-08-02)
+  * **Feature**: New feature that logs Cognito user pool error messages to CloudWatch logs.
+* `github.com/aws/aws-sdk-go-v2/service/glue`: [v1.60.0](service/glue/CHANGELOG.md#v1600-2023-08-02)
+  * **Feature**: This release includes additional Glue Streaming KAKFA SASL property types.
+* `github.com/aws/aws-sdk-go-v2/service/resiliencehub`: [v1.13.0](service/resiliencehub/CHANGELOG.md#v1130-2023-08-02)
+  * **Feature**: Drift Detection capability added when applications policy has moved from a meet to breach state. Customers will be able to exclude operational recommendations and receive credit in their resilience score. Customers can now add ARH permissions to an existing or new role.
+* `github.com/aws/aws-sdk-go-v2/service/sagemaker`: [v1.98.0](service/sagemaker/CHANGELOG.md#v1980-2023-08-02)
+  * **Feature**: SageMaker Inference Recommender introduces a new API GetScalingConfigurationRecommendation to recommend auto scaling policies based on completed Inference Recommender jobs.
+
+# Release (2023-08-01)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/batch`: [v1.26.0](service/batch/CHANGELOG.md#v1260-2023-08-01)
+  * **Feature**: This release adds support for price capacity optimized allocation strategy for Spot Instances.
+* `github.com/aws/aws-sdk-go-v2/service/databasemigrationservice`: [v1.29.0](service/databasemigrationservice/CHANGELOG.md#v1290-2023-08-01)
+  * **Feature**: Adding new API describe-engine-versions which provides information about the lifecycle of a replication instance's version.
+* `github.com/aws/aws-sdk-go-v2/service/internetmonitor`: [v1.5.0](service/internetmonitor/CHANGELOG.md#v150-2023-08-01)
+  * **Feature**: This release adds a new feature for Amazon CloudWatch Internet Monitor that enables customers to set custom thresholds, for performance and availability drops, for impact limited to a single city-network to trigger creation of a health event.
+* `github.com/aws/aws-sdk-go-v2/service/medialive`: [v1.34.0](service/medialive/CHANGELOG.md#v1340-2023-08-01)
+  * **Feature**: AWS Elemental Link devices now report their Availability Zone. Link devices now support the ability to change their Availability Zone.
+* `github.com/aws/aws-sdk-go-v2/service/polly`: [v1.29.0](service/polly/CHANGELOG.md#v1290-2023-08-01)
+  * **Feature**: Amazon Polly adds new French Belgian voice - Isabelle. Isabelle is available as Neural voice only.
+* `github.com/aws/aws-sdk-go-v2/service/rds`: [v1.50.0](service/rds/CHANGELOG.md#v1500-2023-08-01)
+  * **Feature**: Added support for deleted clusters PiTR.
+* `github.com/aws/aws-sdk-go-v2/service/sagemaker`: [v1.97.0](service/sagemaker/CHANGELOG.md#v1970-2023-08-01)
+  * **Feature**: Add Stairs TrafficPattern and FlatInvocations to RecommendationJobStoppingConditions
+
 # Release (2023-07-31)
 
 ## General Highlights

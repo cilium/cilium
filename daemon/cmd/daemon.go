@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/daemon/cmd/cni"
+	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
@@ -217,6 +218,9 @@ type Daemon struct {
 
 	// statedb for implementing /statedb/dump
 	db statedb.DB
+
+	// authManager for reporting the status of the auth system certificate provider
+	authManager *auth.AuthManager
 
 	// read-only map of all the hive settings
 	settings cellSettings
@@ -431,8 +435,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
-	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
-		option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
+	ctmap.InitMapInfo(option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
 	policymap.InitMapInfo(option.Config.PolicyMapEntries)
 
 	lbmapInitParams := lbmap.InitParams{
@@ -535,6 +538,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		l2announcer:          params.L2Announcer,
 		l7Proxy:              params.L7Proxy,
 		db:                   params.DB,
+		authManager:          params.AuthManager,
 		settings:             params.Settings,
 		healthProvider:       params.HealthProvider,
 		healthReporter:       params.HealthReporter,
@@ -1157,9 +1161,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// controller is to ensure that endpoints and host IPs entries are
 	// reinserted to the bpf maps if they are ever removed from them.
 	syncErrs := make(chan error, 1)
+	var syncHostIPsControllerGroup = controller.NewGroup("sync-host-ips")
 	d.controllers.UpdateController(
 		syncHostIPsController,
 		controller.ControllerParams{
+			Group: syncHostIPsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				err := d.syncHostIPs()
 				select {

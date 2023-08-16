@@ -4,15 +4,12 @@
 package ctmap
 
 import (
-	"unsafe"
-
 	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/ebpf/rlimit"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/nat"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
@@ -25,7 +22,7 @@ type CTMapPrivilegedTestSuite struct{}
 var _ = Suite(&CTMapPrivilegedTestSuite{})
 
 func init() {
-	InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
+	InitMapInfo(true, true, true)
 }
 
 func (k *CTMapPrivilegedTestSuite) SetUpSuite(c *C) {
@@ -103,9 +100,9 @@ func (k *CTMapPrivilegedTestSuite) TestCtGcIcmp(c *C) {
 	defer natMap.Map.Unpin()
 
 	ctMapName := MapNameAny4Global + "_test"
-	setupMapInfo(mapTypeIPv4AnyGlobal, ctMapName,
-		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
-		100, natMap)
+	mapInfo[mapTypeIPv4AnyGlobal] = mapAttributes{
+		natMap: natMap, natMapLock: mapInfo[mapTypeIPv4AnyGlobal].natMapLock,
+	}
 
 	ctMap := newMap(ctMapName, mapTypeIPv4AnyGlobal)
 	err = ctMap.OpenOrCreate()
@@ -212,18 +209,18 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	defer natMap.Map.Unpin()
 
 	ctMapAnyName := MapNameAny4Global + "_test"
-	setupMapInfo(mapTypeIPv4AnyGlobal, ctMapAnyName,
-		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
-		100, natMap)
+	mapInfo[mapTypeIPv4AnyGlobal] = mapAttributes{
+		natMap: natMap, natMapLock: mapInfo[mapTypeIPv4AnyGlobal].natMapLock,
+	}
 	ctMapAny := newMap(ctMapAnyName, mapTypeIPv4AnyGlobal)
 	err = ctMapAny.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer ctMapAny.Map.Unpin()
 
 	ctMapTCPName := MapNameTCP4Global + "_test"
-	setupMapInfo(mapTypeIPv4TCPGlobal, ctMapTCPName,
-		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
-		100, natMap)
+	mapInfo[mapTypeIPv4TCPGlobal] = mapAttributes{
+		natMap: natMap, natMapLock: mapInfo[mapTypeIPv4TCPGlobal].natMapLock,
+	}
 	ctMapTCP := newMap(ctMapTCPName, mapTypeIPv4TCPGlobal)
 	err = ctMapTCP.OpenOrCreate()
 	c.Assert(err, IsNil)
@@ -502,18 +499,18 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	defer natMapV6.Map.Unpin()
 
 	ctMapAnyName = MapNameAny6Global + "_test"
-	setupMapInfo(mapTypeIPv6AnyGlobal, ctMapAnyName,
-		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})),
-		100, natMapV6)
+	mapInfo[mapTypeIPv6AnyGlobal] = mapAttributes{
+		natMap: natMapV6, natMapLock: mapInfo[mapTypeIPv6AnyGlobal].natMapLock,
+	}
 	ctMapAnyV6 := newMap(ctMapAnyName, mapTypeIPv6AnyGlobal)
 	err = ctMapAnyV6.OpenOrCreate()
 	c.Assert(err, IsNil)
 	defer ctMapAnyV6.Map.Unpin()
 
 	ctMapTCPName = MapNameTCP6Global + "_test"
-	setupMapInfo(mapTypeIPv6TCPGlobal, ctMapTCPName,
-		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})),
-		100, natMapV6)
+	mapInfo[mapTypeIPv6TCPGlobal] = mapAttributes{
+		natMap: natMapV6, natMapLock: mapInfo[mapTypeIPv6TCPGlobal].natMapLock,
+	}
 	ctMapTCPV6 := newMap(ctMapTCPName, mapTypeIPv6TCPGlobal)
 	err = ctMapTCP.OpenOrCreate()
 	c.Assert(err, IsNil)

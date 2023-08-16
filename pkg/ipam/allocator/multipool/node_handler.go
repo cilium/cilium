@@ -29,6 +29,8 @@ type NodeHandler struct {
 	controllerManager *controller.Manager
 }
 
+var ipamMultipoolSyncControllerGroup = controller.NewGroup("ipam-multi-pool-sync")
+
 var _ allocator.NodeEventHandler = (*NodeHandler)(nil)
 
 func NewNodeHandler(manager *PoolAllocator, nodeUpdater ipam.CiliumNodeGetterUpdater) *NodeHandler {
@@ -89,6 +91,7 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 	// 1. It will retry allocations upon failure, e.g. if a pool does not exist yet.
 	// 2. Will try to synchronize the allocator's state with the CiliumNode CRD in k8s.
 	n.controllerManager.UpdateController(controllerName(resource.Name), controller.ControllerParams{
+		Group: ipamMultipoolSyncControllerGroup,
 		DoFunc: func(ctx context.Context) error {
 			// errorMessage is written to the resource status
 			errorMessage := ""

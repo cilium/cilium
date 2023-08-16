@@ -231,15 +231,12 @@ requirements have been met:
    .. image:: https://i1.wp.com/user-images.githubusercontent.com/3477155/52671177-5d0e0100-2ee8-11e9-8645-bdd923b7d93b.gif
        :align: center
 
-#. Once the PR is ready for review you can click the "Ready for review" button
-   at the bottom of the page and GitHub will notify reviewers that the PR is
-   ready to be reviewed.
+#. To notify reviewers that the PR is ready for review, click **Ready for
+   review** at the bottom of the page.
 
-#. Engage in the discussions raised by reviewers and address any feedback where
-   changes are requested. When you are actively changing your PR, set the PR to
-   draft PR mode to signal that reviewers do not need to actively review the PR
-   right now. When it is ready for review again, click "Ready for review", and
-   re-request review from the reviewers:
+#. Engage in any discussions raised by reviewers and address any changes
+   requested. Set the PR to draft PR mode while you address changes, then click
+   **Ready for review** to re-request review.
 
    .. image:: /images/cilium_request_review.png
 
@@ -249,7 +246,7 @@ Getting a pull request merged
 #. As you submit the pull request as described in the section :ref:`submit_pr`.
    One of the reviewers will start a CI run by replying with a comment
    ``/test`` as described in :ref:`trigger_phrases`. If you are an
-   `organization member`_, you may trigger the CI run yourself. CI consists of:
+   `organization member`_, you can trigger the CI run yourself. CI consists of:
 
    #. Static code analysis by Github Actions and Travis CI. Golang linter
       suggestions are added in-line on PRs. For other failed jobs, please refer

@@ -27,6 +27,8 @@ const (
 
 var (
 	lastPodRestart = map[string]time.Time{}
+
+	restartUnmanagedPodsControllerGroup = controller.NewGroup("restart-unmanaged-pods")
 )
 
 func enableUnmanagedController(ctx context.Context, wg *sync.WaitGroup, clientset k8sClient.Clientset) {
@@ -45,6 +47,7 @@ func enableUnmanagedController(ctx context.Context, wg *sync.WaitGroup, clientse
 
 	mgr.UpdateController("restart-unmanaged-pods",
 		controller.ControllerParams{
+			Group:       restartUnmanagedPodsControllerGroup,
 			RunInterval: time.Duration(operatorOption.Config.UnmanagedPodWatcherInterval) * time.Second,
 			DoFunc: func(ctx context.Context) error {
 				for podName, lastRestart := range lastPodRestart {

@@ -16,7 +16,7 @@ type Metrics struct {
 	TotalGlobalServices metric.Vec[metric.Gauge]
 }
 
-func newMetrics() Metrics {
+func NewMetrics() Metrics {
 	return Metrics{
 		TotalNodes: metric.NewGaugeVec(metric.GaugeOpts{
 			ConfigName: metrics.Namespace + "_" + subsystem + "_remote_cluster_nodes",

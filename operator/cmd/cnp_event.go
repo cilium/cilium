@@ -28,6 +28,8 @@ var (
 	// cnpStatusUpdateInterval is the amount of time between status updates
 	// being sent to the K8s apiserver for a given CNP.
 	cnpStatusUpdateInterval time.Duration
+
+	cnpToGroupsControllerGroup = controller.NewGroup("cilium-network-policy-to-groups")
 )
 
 func init() {
@@ -135,6 +137,7 @@ func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClie
 
 	mgr.UpdateController("cnp-to-groups",
 		controller.ControllerParams{
+			Group: cnpToGroupsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				groups.UpdateCNPInformation(clientset)
 				return nil

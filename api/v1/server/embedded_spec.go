@@ -51,6 +51,69 @@ func init() {
                 "$ref": "#/definitions/BgpPeer"
               }
             }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "501": {
+            "description": "BGP Control Plane disabled",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Disabled"
+          }
+        }
+      }
+    },
+    "/bgp/routes": {
+      "get": {
+        "description": "Retrieves routes from BGP Control Plane RIB filtered by parameters you specify",
+        "tags": [
+          "bgp"
+        ],
+        "summary": "Lists BGP routes from BGP Control Plane RIB.",
+        "parameters": [
+          {
+            "$ref": "#/parameters/bgp-table-type"
+          },
+          {
+            "$ref": "#/parameters/bgp-afi"
+          },
+          {
+            "$ref": "#/parameters/bgp-safi"
+          },
+          {
+            "$ref": "#/parameters/bgp-router-asn"
+          },
+          {
+            "$ref": "#/parameters/bgp-neighbor-address"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/BgpRoute"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "501": {
+            "description": "BGP Control Plane disabled",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Disabled"
           }
         }
       }
@@ -204,6 +267,40 @@ func init() {
           },
           "404": {
             "description": "Endpoints with provided parameters not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
+          }
+        }
+      },
+      "delete": {
+        "description": "Deletes a list of endpoints that have endpoints matching the provided properties\n",
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Deletes a list of endpoints",
+        "parameters": [
+          {
+            "$ref": "#/parameters/endpoint-batch-delete-request"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "206": {
+            "description": "Deleted with a number of errors encountered",
+            "schema": {
+              "type": "integer"
+            },
+            "x-go-name": "Errors"
+          },
+          "400": {
+            "description": "Invalid endpoint delete request",
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "No endpoints with provided parameters found"
           },
           "429": {
             "description": "Rate-limiting too many requests in the given time frame"
@@ -1843,6 +1940,19 @@ func init() {
         }
       }
     },
+    "BgpFamily": {
+      "description": "Address Family Indicator (AFI) and Subsequent Address Family Indicator (SAFI) of the path",
+      "properties": {
+        "afi": {
+          "description": "Address Family Indicator (AFI) of the path",
+          "type": "string"
+        },
+        "safi": {
+          "description": "Subsequent Address Family Indicator (SAFI) of the path",
+          "type": "string"
+        }
+      }
+    },
     "BgpGracefulRestart": {
       "description": "BGP graceful restart parameters negotiated with the peer.\n\n+k8s:deepcopy-gen=true",
       "properties": {
@@ -1853,6 +1963,56 @@ func init() {
         "restart-time-seconds": {
           "description": "This is the time advertised to peer for the BGP session to be re-established \nafter a restart. After this period, peer will remove stale routes. \n(RFC 4724 section 4.2)",
           "type": "integer"
+        }
+      }
+    },
+    "BgpNlri": {
+      "description": "Network Layer Reachability Information (NLRI) of the path",
+      "properties": {
+        "base64": {
+          "description": "Base64-encoded NLRI in the BGP UPDATE message format",
+          "type": "string"
+        }
+      }
+    },
+    "BgpPath": {
+      "description": "Single BGP routing Path containing BGP Network Layer Reachability Information (NLRI) and path attributes",
+      "properties": {
+        "age-nanoseconds": {
+          "description": "Age of the path (time since its creation) in nanoseconds",
+          "type": "integer"
+        },
+        "best": {
+          "description": "True value flags the best path towards the destination prefix",
+          "type": "boolean"
+        },
+        "family": {
+          "description": "Address Family Indicator (AFI) and Subsequent Address Family Indicator (SAFI) of the path",
+          "$ref": "#/definitions/BgpFamily"
+        },
+        "nlri": {
+          "description": "Network Layer Reachability Information of the path",
+          "$ref": "#/definitions/BgpNlri"
+        },
+        "path-attributes": {
+          "description": "List of BGP path attributes specific for the path",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpPathAttribute"
+          }
+        },
+        "stale": {
+          "description": "True value marks the path as stale",
+          "type": "boolean"
+        }
+      }
+    },
+    "BgpPathAttribute": {
+      "description": "Single BGP path attribute specific for the path",
+      "properties": {
+        "base64": {
+          "description": "Base64-encoded BGP path attribute in the BGP UPDATE message format",
+          "type": "string"
         }
       }
     },
@@ -1944,6 +2104,26 @@ func init() {
         "safi": {
           "description": "BGP subsequent address family indicator",
           "type": "string"
+        }
+      }
+    },
+    "BgpRoute": {
+      "description": "Single BGP route retrieved from the RIB of underlying router",
+      "properties": {
+        "paths": {
+          "description": "List of routing paths leading towards the prefix",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpPath"
+          }
+        },
+        "prefix": {
+          "description": "IP prefix of the route",
+          "type": "string"
+        },
+        "router-asn": {
+          "description": "Autonomous System Number (ASN) identifying a BGP virtual router instance",
+          "type": "integer"
         }
       }
     },
@@ -2483,6 +2663,16 @@ func init() {
         "status": {
           "description": "The desired and realized configuration state of the endpoint",
           "$ref": "#/definitions/EndpointStatus"
+        }
+      }
+    },
+    "EndpointBatchDeleteRequest": {
+      "description": "Properties selecting a batch of endpoints to delete.\n",
+      "type": "object",
+      "properties": {
+        "container-id": {
+          "description": "ID assigned by container runtime",
+          "type": "string"
         }
       }
     },
@@ -4585,6 +4775,10 @@ func init() {
       "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "auth-certificate-provider": {
+          "description": "Status of Mutual Authentication certificate provider",
+          "$ref": "#/definitions/Status"
+        },
         "bandwidth-manager": {
           "description": "Status of bandwidth manager",
           "$ref": "#/definitions/BandwidthManager"
@@ -4814,11 +5008,57 @@ func init() {
     }
   },
   "parameters": {
+    "bgp-afi": {
+      "type": "string",
+      "description": "Address Family Indicator (AFI) of a BGP route",
+      "name": "afi",
+      "in": "query",
+      "required": true
+    },
+    "bgp-neighbor-address": {
+      "type": "string",
+      "description": "IP address specifying a BGP neighbor.\nHas to be specified only when table type is adj-rib-in or adj-rib-out.\n",
+      "name": "neighbor",
+      "in": "query"
+    },
+    "bgp-router-asn": {
+      "type": "integer",
+      "description": "Autonomous System Number (ASN) identifying a BGP virtual router instance.\nIf not specified, all virtual router instances are selected.\n",
+      "name": "router_asn",
+      "in": "query"
+    },
+    "bgp-safi": {
+      "type": "string",
+      "description": "Subsequent Address Family Indicator (SAFI) of a BGP route",
+      "name": "safi",
+      "in": "query",
+      "required": true
+    },
+    "bgp-table-type": {
+      "enum": [
+        "loc-rib",
+        "adj-rib-in",
+        "adj-rib-out"
+      ],
+      "type": "string",
+      "description": "BGP Routing Information Base (RIB) table type",
+      "name": "table_type",
+      "in": "query",
+      "required": true
+    },
     "cidr": {
       "type": "string",
       "description": "A CIDR range of IPs",
       "name": "cidr",
       "in": "query"
+    },
+    "endpoint-batch-delete-request": {
+      "name": "endpoint",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "$ref": "#/definitions/EndpointBatchDeleteRequest"
+      }
     },
     "endpoint-change-request": {
       "name": "endpoint",
@@ -5015,6 +5255,92 @@ func init() {
                 "$ref": "#/definitions/BgpPeer"
               }
             }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "501": {
+            "description": "BGP Control Plane disabled",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Disabled"
+          }
+        }
+      }
+    },
+    "/bgp/routes": {
+      "get": {
+        "description": "Retrieves routes from BGP Control Plane RIB filtered by parameters you specify",
+        "tags": [
+          "bgp"
+        ],
+        "summary": "Lists BGP routes from BGP Control Plane RIB.",
+        "parameters": [
+          {
+            "enum": [
+              "loc-rib",
+              "adj-rib-in",
+              "adj-rib-out"
+            ],
+            "type": "string",
+            "description": "BGP Routing Information Base (RIB) table type",
+            "name": "table_type",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "Address Family Indicator (AFI) of a BGP route",
+            "name": "afi",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "Subsequent Address Family Indicator (SAFI) of a BGP route",
+            "name": "safi",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "description": "Autonomous System Number (ASN) identifying a BGP virtual router instance.\nIf not specified, all virtual router instances are selected.\n",
+            "name": "router_asn",
+            "in": "query"
+          },
+          {
+            "type": "string",
+            "description": "IP address specifying a BGP neighbor.\nHas to be specified only when table type is adj-rib-in or adj-rib-out.\n",
+            "name": "neighbor",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/BgpRoute"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          },
+          "501": {
+            "description": "BGP Control Plane disabled",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            },
+            "x-go-name": "Disabled"
           }
         }
       }
@@ -5173,6 +5499,45 @@ func init() {
           },
           "404": {
             "description": "Endpoints with provided parameters not found"
+          },
+          "429": {
+            "description": "Rate-limiting too many requests in the given time frame"
+          }
+        }
+      },
+      "delete": {
+        "description": "Deletes a list of endpoints that have endpoints matching the provided properties\n",
+        "tags": [
+          "endpoint"
+        ],
+        "summary": "Deletes a list of endpoints",
+        "parameters": [
+          {
+            "name": "endpoint",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/EndpointBatchDeleteRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "206": {
+            "description": "Deleted with a number of errors encountered",
+            "schema": {
+              "type": "integer"
+            },
+            "x-go-name": "Errors"
+          },
+          "400": {
+            "description": "Invalid endpoint delete request",
+            "x-go-name": "Invalid"
+          },
+          "404": {
+            "description": "No endpoints with provided parameters found"
           },
           "429": {
             "description": "Rate-limiting too many requests in the given time frame"
@@ -6990,6 +7355,19 @@ func init() {
         }
       }
     },
+    "BgpFamily": {
+      "description": "Address Family Indicator (AFI) and Subsequent Address Family Indicator (SAFI) of the path",
+      "properties": {
+        "afi": {
+          "description": "Address Family Indicator (AFI) of the path",
+          "type": "string"
+        },
+        "safi": {
+          "description": "Subsequent Address Family Indicator (SAFI) of the path",
+          "type": "string"
+        }
+      }
+    },
     "BgpGracefulRestart": {
       "description": "BGP graceful restart parameters negotiated with the peer.\n\n+k8s:deepcopy-gen=true",
       "properties": {
@@ -7000,6 +7378,56 @@ func init() {
         "restart-time-seconds": {
           "description": "This is the time advertised to peer for the BGP session to be re-established \nafter a restart. After this period, peer will remove stale routes. \n(RFC 4724 section 4.2)",
           "type": "integer"
+        }
+      }
+    },
+    "BgpNlri": {
+      "description": "Network Layer Reachability Information (NLRI) of the path",
+      "properties": {
+        "base64": {
+          "description": "Base64-encoded NLRI in the BGP UPDATE message format",
+          "type": "string"
+        }
+      }
+    },
+    "BgpPath": {
+      "description": "Single BGP routing Path containing BGP Network Layer Reachability Information (NLRI) and path attributes",
+      "properties": {
+        "age-nanoseconds": {
+          "description": "Age of the path (time since its creation) in nanoseconds",
+          "type": "integer"
+        },
+        "best": {
+          "description": "True value flags the best path towards the destination prefix",
+          "type": "boolean"
+        },
+        "family": {
+          "description": "Address Family Indicator (AFI) and Subsequent Address Family Indicator (SAFI) of the path",
+          "$ref": "#/definitions/BgpFamily"
+        },
+        "nlri": {
+          "description": "Network Layer Reachability Information of the path",
+          "$ref": "#/definitions/BgpNlri"
+        },
+        "path-attributes": {
+          "description": "List of BGP path attributes specific for the path",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpPathAttribute"
+          }
+        },
+        "stale": {
+          "description": "True value marks the path as stale",
+          "type": "boolean"
+        }
+      }
+    },
+    "BgpPathAttribute": {
+      "description": "Single BGP path attribute specific for the path",
+      "properties": {
+        "base64": {
+          "description": "Base64-encoded BGP path attribute in the BGP UPDATE message format",
+          "type": "string"
         }
       }
     },
@@ -7091,6 +7519,26 @@ func init() {
         "safi": {
           "description": "BGP subsequent address family indicator",
           "type": "string"
+        }
+      }
+    },
+    "BgpRoute": {
+      "description": "Single BGP route retrieved from the RIB of underlying router",
+      "properties": {
+        "paths": {
+          "description": "List of routing paths leading towards the prefix",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BgpPath"
+          }
+        },
+        "prefix": {
+          "description": "IP prefix of the route",
+          "type": "string"
+        },
+        "router-asn": {
+          "description": "Autonomous System Number (ASN) identifying a BGP virtual router instance",
+          "type": "integer"
         }
       }
     },
@@ -7705,6 +8153,16 @@ func init() {
         "status": {
           "description": "The desired and realized configuration state of the endpoint",
           "$ref": "#/definitions/EndpointStatus"
+        }
+      }
+    },
+    "EndpointBatchDeleteRequest": {
+      "description": "Properties selecting a batch of endpoints to delete.\n",
+      "type": "object",
+      "properties": {
+        "container-id": {
+          "description": "ID assigned by container runtime",
+          "type": "string"
         }
       }
     },
@@ -10251,6 +10709,10 @@ func init() {
       "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "auth-certificate-provider": {
+          "description": "Status of Mutual Authentication certificate provider",
+          "$ref": "#/definitions/Status"
+        },
         "bandwidth-manager": {
           "description": "Status of bandwidth manager",
           "$ref": "#/definitions/BandwidthManager"
@@ -10480,11 +10942,57 @@ func init() {
     }
   },
   "parameters": {
+    "bgp-afi": {
+      "type": "string",
+      "description": "Address Family Indicator (AFI) of a BGP route",
+      "name": "afi",
+      "in": "query",
+      "required": true
+    },
+    "bgp-neighbor-address": {
+      "type": "string",
+      "description": "IP address specifying a BGP neighbor.\nHas to be specified only when table type is adj-rib-in or adj-rib-out.\n",
+      "name": "neighbor",
+      "in": "query"
+    },
+    "bgp-router-asn": {
+      "type": "integer",
+      "description": "Autonomous System Number (ASN) identifying a BGP virtual router instance.\nIf not specified, all virtual router instances are selected.\n",
+      "name": "router_asn",
+      "in": "query"
+    },
+    "bgp-safi": {
+      "type": "string",
+      "description": "Subsequent Address Family Indicator (SAFI) of a BGP route",
+      "name": "safi",
+      "in": "query",
+      "required": true
+    },
+    "bgp-table-type": {
+      "enum": [
+        "loc-rib",
+        "adj-rib-in",
+        "adj-rib-out"
+      ],
+      "type": "string",
+      "description": "BGP Routing Information Base (RIB) table type",
+      "name": "table_type",
+      "in": "query",
+      "required": true
+    },
     "cidr": {
       "type": "string",
       "description": "A CIDR range of IPs",
       "name": "cidr",
       "in": "query"
+    },
+    "endpoint-batch-delete-request": {
+      "name": "endpoint",
+      "in": "body",
+      "required": true,
+      "schema": {
+        "$ref": "#/definitions/EndpointBatchDeleteRequest"
+      }
     },
     "endpoint-change-request": {
       "name": "endpoint",

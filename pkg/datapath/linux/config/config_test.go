@@ -13,13 +13,14 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/ebpf/rlimit"
 
+	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -43,21 +44,23 @@ var (
 
 func (s *ConfigSuite) SetUpSuite(c *C) {
 	testutils.PrivilegedTest(c)
-
-	ctmap.InitMapInfo(option.CTMapEntriesGlobalTCPDefault, option.CTMapEntriesGlobalAnyDefault, true, true, true)
 }
 
-func (s *ConfigSuite) SetUpTest(c *C) {
-	err := rlimit.RemoveMemlock()
-	c.Assert(err, IsNil)
+func setup(tb testing.TB) {
+	tb.Helper()
+
+	require.NoError(tb, rlimit.RemoveMemlock(), "Failed to remove memory limits")
+
 	node.SetTestLocalNodeStore()
 	node.InitDefaultPrefix("")
 	node.SetInternalIPv4Router(ipv4DummyAddr.AsSlice())
 	node.SetIPv4Loopback(ipv4DummyAddr.AsSlice())
+
+	tb.Cleanup(node.UnsetTestLocalNodeStore)
 }
 
-func (s *ConfigSuite) TearDownTest(c *C) {
-	node.UnsetTestLocalNodeStore()
+func (s *ConfigSuite) SetUpTest(c *C) {
+	setup(c)
 }
 
 type badWriter struct{}
@@ -326,4 +329,58 @@ return false;`, main1.Index, main2.Index))
 	m, err = vlanFilterMacros()
 	c.Assert(err, IsNil)
 	c.Assert(m, Equals, "return true")
+}
+
+func TestWriteNodeConfigExtraDefines(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	setup(t)
+
+	var buffer bytes.Buffer
+
+	// Assert that configurations are propagated when all generated extra defines are valid
+	cfg := HeaderfileWriter{nodeExtraDefineFns: []dpdef.Fn{
+		func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
+		func() (dpdef.Map, error) { return dpdef.Map{"BAZ": "0x3"}, nil },
+	}}
+
+	buffer.Reset()
+	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
+
+	output := buffer.String()
+	require.Contains(t, output, "define FOO 0x1\n")
+	require.Contains(t, output, "define BAR 0x2\n")
+	require.Contains(t, output, "define BAZ 0x3\n")
+
+	// Assert that an error is returned when one extra define function returns an error
+	cfg = HeaderfileWriter{nodeExtraDefineFns: []dpdef.Fn{
+		func() (dpdef.Map, error) { return nil, errors.New("failing on purpose") },
+	}}
+
+	buffer.Reset()
+	require.Error(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
+
+	// Assert that an error is returned when one extra define would overwrite an already existing entry
+	cfg = HeaderfileWriter{nodeExtraDefineFns: []dpdef.Fn{
+		func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
+		func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x3"}, nil },
+	}}
+
+	buffer.Reset()
+	require.Error(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
+}
+
+func TestNewHeaderfileWriter(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	setup(t)
+
+	a := dpdef.Map{"A": "1"}
+	var buffer bytes.Buffer
+
+	_, err := NewHeaderfileWriter([]dpdef.Map{a, a}, nil)
+	require.Error(t, err, "duplicate keys should be rejected")
+
+	cfg, err := NewHeaderfileWriter([]dpdef.Map{a}, nil)
+	require.NoError(t, err)
+	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
+	require.Contains(t, buffer.String(), "define A 1\n")
 }

@@ -663,14 +663,14 @@ func cmdDel(args *skel.CmdArgs) error {
 		return err
 	}
 
-	id := endpointid.NewCNIAttachmentID(args.ContainerID, args.IfName)
-	if err := c.EndpointDelete(id); err != nil {
-		// EndpointDelete returns an error in the following scenarios:
-		// DeleteEndpointIDInvalid: Invalid delete parameters, no need to retry
-		// DeleteEndpointIDNotFound: No need to retry
-		// DeleteEndpointIDErrors: Errors encountered while deleting,
-		//                         the endpoint is always deleted though, no
-		//                         need to retry
+	req := &models.EndpointBatchDeleteRequest{ContainerID: args.ContainerID}
+	if err := c.EndpointDeleteMany(req); err != nil {
+		// EndpointDeleteMany returns an error in the following scenarios:
+		// DeleteEndpointInvalid: Invalid delete parameters, no need to retry
+		// DeleteEndpointNotFound: No need to retry
+		// DeleteEndpointErrors: Errors encountered while deleting,
+		//                       the endpoint is always deleted though, no
+		//                       need to retry
 		log.WithError(err).Warning("Errors encountered while deleting endpoint")
 	}
 

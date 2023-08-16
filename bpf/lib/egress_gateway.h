@@ -8,10 +8,6 @@
 
 #include "maps.h"
 
-#if defined(ENABLE_EGRESS_GATEWAY)
-#define ENABLE_EGRESS_GATEWAY_COMMON
-#endif
-
 #ifdef ENABLE_EGRESS_GATEWAY_COMMON
 
 /* EGRESS_STATIC_PREFIX represents the size in bits of the static prefix part of
@@ -26,6 +22,7 @@
 #define EGRESS_GATEWAY_NO_GATEWAY (0)
 #define EGRESS_GATEWAY_EXCLUDED_CIDR bpf_htonl(1)
 
+#ifdef ENABLE_EGRESS_GATEWAY
 static __always_inline
 struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
 {
@@ -36,10 +33,12 @@ struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 
 	};
 	return map_lookup_elem(&EGRESS_POLICY_MAP, &key);
 }
+#endif /* ENABLE_EGRESS_GATEWAY */
 
 static __always_inline
-bool egress_gw_request_needs_redirect(struct iphdr *ip4, int ct_status,
-				      __u32 *tunnel_endpoint)
+bool egress_gw_request_needs_redirect(struct iphdr *ip4 __maybe_unused,
+				      int ct_status __maybe_unused,
+				      __u32 *tunnel_endpoint __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
 	struct egress_gw_policy_entry *egress_gw_policy;
@@ -85,7 +84,9 @@ bool egress_gw_request_needs_redirect(struct iphdr *ip4, int ct_status,
 }
 
 static __always_inline
-bool egress_gw_snat_needed(__be32 saddr, __be32 daddr, __be32 *snat_addr)
+bool egress_gw_snat_needed(__be32 saddr __maybe_unused,
+			   __be32 daddr __maybe_unused,
+			   __be32 *snat_addr __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
 	struct egress_gw_policy_entry *egress_gw_policy;
@@ -106,8 +107,9 @@ bool egress_gw_snat_needed(__be32 saddr, __be32 daddr, __be32 *snat_addr)
 }
 
 static __always_inline
-bool egress_gw_reply_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint,
-				    __u32 *dst_sec_identity)
+bool egress_gw_reply_needs_redirect(struct iphdr *ip4 __maybe_unused,
+				    __u32 *tunnel_endpoint __maybe_unused,
+				    __u32 *dst_sec_identity __maybe_unused)
 {
 #if defined(ENABLE_EGRESS_GATEWAY)
 	struct egress_gw_policy_entry *egress_policy;

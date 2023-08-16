@@ -576,6 +576,8 @@ func (p *Proxy) createNewRedirect(
 				return 0, fmt.Errorf("failed to create redirect implementation: %w", err), nil, nil
 			}
 		}
+
+		break
 	}
 
 	scopedLog.

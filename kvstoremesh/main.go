@@ -15,6 +15,7 @@ import (
 	kmopt "github.com/cilium/cilium/kvstoremesh/option"
 	"github.com/cilium/cilium/pkg/clustermesh/kvstoremesh"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
@@ -59,6 +60,7 @@ func init() {
 			PprofAddress: kmopt.PprofAddress,
 			PprofPort:    kmopt.PprofPort,
 		}),
+		controller.Cell,
 
 		gops.Cell(defaults.GopsPortKVStoreMesh),
 		kmmetrics.Cell,

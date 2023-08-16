@@ -36,6 +36,7 @@ cilium-operator-aws [flags]
       --cnp-status-update-interval duration                  Interval between CNP status updates sent to the k8s-apiserver per-CNP (default 1s)
       --config string                                        Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                                    Configuration directory that contains a file for each option
+      --controller-group-metrics strings                     List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
   -D, --debug                                                Enable debugging mode
       --ec2-api-endpoint string                              AWS API endpoint for the EC2 service
       --enable-cilium-endpoint-slice                         If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.

@@ -40,6 +40,16 @@ var gwFixture = []client.Object{
 		},
 	},
 
+	&corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cilium-gateway-valid-gateway",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"pre-existing-annotation": "true",
+			},
+		},
+	},
+
 	// Service in another namespace
 	&corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -278,6 +288,7 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, corev1.ServiceTypeLoadBalancer, lb.Spec.Type)
 		require.Equal(t, "valid-gateway", lb.Labels["io.cilium.gateway/owning-gateway"])
+		require.Equal(t, "true", lb.Annotations["pre-existing-annotation"])
 
 		// Update LB status
 		lb.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{
@@ -507,6 +518,151 @@ hEKCKf/N3gE1oMrTxVzUDQ==
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equalf(t, tt.want, isValidPemFormat(tt.args.b), "isValidPemFormat(%v)", tt.args.b)
+		})
+	}
+}
+
+func Test_sectionNameMatched(t *testing.T) {
+	httpListener := &gatewayv1beta1.Listener{
+		Name:     "http",
+		Port:     80,
+		Hostname: model.AddressOf[gatewayv1beta1.Hostname]("*.cilium.io"),
+		Protocol: "HTTP",
+	}
+	httpNoMatchListener := &gatewayv1beta1.Listener{
+		Name:     "http-no-match",
+		Port:     8080,
+		Hostname: model.AddressOf[gatewayv1beta1.Hostname]("*.cilium.io"),
+		Protocol: "HTTP",
+	}
+	gw := &gatewayv1beta1.Gateway{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Gateway",
+			APIVersion: gatewayv1beta1.GroupName,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "valid-gateway",
+			Namespace: "default",
+		},
+		Spec: gatewayv1beta1.GatewaySpec{
+			GatewayClassName: "cilium",
+			Listeners: []gatewayv1beta1.Listener{
+				*httpListener,
+				*httpNoMatchListener,
+			},
+		},
+	}
+	type args struct {
+		routeNamespace string
+		listener       *gatewayv1beta1.Listener
+		refs           []gatewayv1beta1.ParentReference
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "Matching Section name",
+			args: args{
+				listener: httpListener,
+				refs: []gatewayv1beta1.ParentReference{
+					{
+						Kind:        (*gatewayv1beta1.Kind)(model.AddressOf("Gateway")),
+						Name:        "valid-gateway",
+						SectionName: (*gatewayv1beta1.SectionName)(model.AddressOf("http")),
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Not matching Section name",
+			args: args{
+				listener: httpNoMatchListener,
+				refs: []gatewayv1beta1.ParentReference{
+					{
+						Kind:        (*gatewayv1beta1.Kind)(model.AddressOf("Gateway")),
+						Name:        "valid-gateway",
+						SectionName: (*gatewayv1beta1.SectionName)(model.AddressOf("http")),
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Matching Port number",
+			args: args{
+				listener: httpListener,
+				refs: []gatewayv1beta1.ParentReference{
+					{
+						Kind: (*gatewayv1beta1.Kind)(model.AddressOf("Gateway")),
+						Name: "valid-gateway",
+						Port: (*gatewayv1beta1.PortNumber)(model.AddressOf[int32](80)),
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "No matching Port number",
+			args: args{
+				listener: httpNoMatchListener,
+				refs: []gatewayv1beta1.ParentReference{
+					{
+						Kind: (*gatewayv1beta1.Kind)(model.AddressOf("Gateway")),
+						Name: "valid-gateway",
+						Port: (*gatewayv1beta1.PortNumber)(model.AddressOf[int32](80)),
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "Matching both Section name and Port number",
+			args: args{
+				listener: httpListener,
+				refs: []gatewayv1beta1.ParentReference{
+					{
+						Kind:        (*gatewayv1beta1.Kind)(model.AddressOf("Gateway")),
+						Name:        "valid-gateway",
+						SectionName: (*gatewayv1beta1.SectionName)(model.AddressOf("http")),
+						Port:        (*gatewayv1beta1.PortNumber)(model.AddressOf[int32](80)),
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Matching any listener (httpListener)",
+			args: args{
+				listener: httpListener,
+				refs: []gatewayv1beta1.ParentReference{
+					{
+						Kind: (*gatewayv1beta1.Kind)(model.AddressOf("Gateway")),
+						Name: "valid-gateway",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Matching any listener (httpNoMatchListener)",
+			args: args{
+				listener: httpNoMatchListener,
+				refs: []gatewayv1beta1.ParentReference{
+					{
+						Kind: (*gatewayv1beta1.Kind)(model.AddressOf("Gateway")),
+						Name: "valid-gateway",
+					},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, parentRefMatched(gw, tt.args.listener, "default", tt.args.refs), "parentRefMatched(%v, %v, %v, %v)", gw, tt.args.listener, tt.args.routeNamespace, tt.args.refs)
 		})
 	}
 }

@@ -121,7 +121,6 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 					logfields.Interface:                     policyGwc.iface,
 					logfields.EgressIP:                      policyGwc.egressIP,
 				})
-
 				logger.WithError(err).Error("Failed to derive policy gateway configuration")
 			}
 		}

@@ -86,6 +86,8 @@ var ignoredELFPrefixes = []string{
 	"ETH_HLEN",
 }
 
+var templateDirWatcherControllerGroup = controller.NewGroup("template-dir-watcher")
+
 // RestoreTemplates populates the object cache from templates on the filesystem
 // at the specified path.
 func RestoreTemplates(stateDir string) error {
@@ -136,6 +138,7 @@ func newObjectCache(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfigur
 	oc.Update(nodeCfg)
 	controller.NewManager().UpdateController("template-dir-watcher",
 		controller.ControllerParams{
+			Group:  templateDirWatcherControllerGroup,
 			DoFunc: oc.watchTemplatesDirectory,
 			// No run interval but needs to re-run on errors.
 		})

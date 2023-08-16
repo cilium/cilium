@@ -249,6 +249,29 @@ paths:
           description: Endpoints with provided parameters not found
         '429':
           description: Rate-limiting too many requests in the given time frame
+    delete:
+      summary: Deletes a list of endpoints
+      description: |
+        Deletes a list of endpoints that have endpoints matching the provided properties
+      tags:
+        - endpoint
+      parameters:
+        - "$ref": "#/parameters/endpoint-batch-delete-request"
+      responses:
+        '200':
+          description: Success
+        '206':
+          description: Deleted with a number of errors encountered
+          x-go-name: Errors
+          schema:
+            type: integer
+        '400':
+          description: Invalid endpoint delete request
+          x-go-name: Invalid
+        '404':
+          description: No endpoints with provided parameters found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
   "/endpoint/{id}/config":
     get:
       summary: Retrieve endpoint configuration
@@ -1079,6 +1102,43 @@ paths:
             type: array
             items:
               "$ref": "#/definitions/BgpPeer"
+        '500':
+          description: Internal Server Error
+          schema:
+            "$ref": "#/definitions/Error"
+        '501':
+          description: BGP Control Plane disabled
+          x-go-name: Disabled
+          schema:
+            "$ref": "#/definitions/Error"
+  "/bgp/routes":
+    get:
+      summary: Lists BGP routes from BGP Control Plane RIB.
+      description: Retrieves routes from BGP Control Plane RIB filtered by parameters you specify
+      tags:
+        - bgp
+      parameters:
+        - "$ref": "#/parameters/bgp-table-type"
+        - "$ref": "#/parameters/bgp-afi"
+        - "$ref": "#/parameters/bgp-safi"
+        - "$ref": "#/parameters/bgp-router-asn"
+        - "$ref": "#/parameters/bgp-neighbor-address"
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/BgpRoute"
+        '500':
+          description: Internal Server Error
+          schema:
+            "$ref": "#/definitions/Error"
+        '501':
+          description: BGP Control Plane disabled
+          x-go-name: Disabled
+          schema:
+            "$ref": "#/definitions/Error"
 parameters:
   endpoint-id:
     name: id
@@ -1106,6 +1166,12 @@ parameters:
     required: true
     schema:
       "$ref": "#/definitions/EndpointChangeRequest"
+  endpoint-batch-delete-request:
+    name: endpoint
+    in: body
+    required: true
+    schema:
+      "$ref": "#/definitions/EndpointBatchDeleteRequest"
   identity-id:
     name: id
     description: |
@@ -1235,6 +1301,44 @@ parameters:
     required: false
     in: query
     type: string
+  bgp-table-type:
+    name: table_type
+    description: BGP Routing Information Base (RIB) table type
+    required: true
+    in: query
+    type: string
+    enum:
+    - loc-rib
+    - adj-rib-in
+    - adj-rib-out
+  bgp-afi:
+    name: afi
+    description: Address Family Indicator (AFI) of a BGP route
+    required: true
+    in: query
+    type: string
+  bgp-safi:
+    name: safi
+    description: Subsequent Address Family Indicator (SAFI) of a BGP route
+    required: true
+    in: query
+    type: string
+  bgp-router-asn:
+    name: router_asn
+    description: |
+      Autonomous System Number (ASN) identifying a BGP virtual router instance.
+      If not specified, all virtual router instances are selected.
+    required: false
+    in: query
+    type: integer
+  bgp-neighbor-address:
+    name: neighbor
+    description: |
+      IP address specifying a BGP neighbor.
+      Has to be specified only when table type is adj-rib-in or adj-rib-out.
+    required: false
+    in: query
+    type: string
 
 definitions:
   ModulesHealth:
@@ -1348,6 +1452,14 @@ definitions:
         type: boolean
       datapath-configuration:
         "$ref": "#/definitions/EndpointDatapathConfiguration"
+  EndpointBatchDeleteRequest:
+    description: |
+      Properties selecting a batch of endpoints to delete.
+    type: object
+    properties:
+      container-id:
+        description: ID assigned by container runtime
+        type: string
   EndpointDatapathConfiguration:
     description: Datapath configuration to be used for the endpoint
     type: object
@@ -2021,6 +2133,9 @@ definitions:
       cni-chaining:
         description: Status of CNI chaining
         "$ref": "#/definitions/CNIChainingStatus"
+      auth-certificate-provider:
+        description: Status of Mutual Authentication certificate provider
+        "$ref": "#/definitions/Status"
   Status:
     description: Status of an individual component
     type: object
@@ -3779,3 +3894,61 @@ definitions:
           after a restart. After this period, peer will remove stale routes. 
           (RFC 4724 section 4.2)
         type: integer
+  BgpRoute:
+    description: Single BGP route retrieved from the RIB of underlying router
+    properties:
+      router-asn:
+        description: Autonomous System Number (ASN) identifying a BGP virtual router instance
+        type: integer
+      prefix:
+        description: IP prefix of the route
+        type: string
+      paths:
+        description: List of routing paths leading towards the prefix
+        type: array
+        items:
+          "$ref": "#/definitions/BgpPath"
+  BgpPath:
+    description: Single BGP routing Path containing BGP Network Layer Reachability Information (NLRI) and path attributes
+    properties:
+      family:
+        description: Address Family Indicator (AFI) and Subsequent Address Family Indicator (SAFI) of the path
+        "$ref": "#/definitions/BgpFamily"
+      nlri:
+        description: Network Layer Reachability Information of the path
+        "$ref": "#/definitions/BgpNlri"
+      path-attributes:
+        description: List of BGP path attributes specific for the path
+        type: array
+        items:
+          "$ref": "#/definitions/BgpPathAttribute"
+      age-nanoseconds:
+        description: Age of the path (time since its creation) in nanoseconds
+        type: integer
+      best:
+        description: True value flags the best path towards the destination prefix
+        type: boolean
+      stale:
+        description: True value marks the path as stale
+        type: boolean
+  BgpFamily:
+    description: Address Family Indicator (AFI) and Subsequent Address Family Indicator (SAFI) of the path
+    properties:
+      afi:
+        description: Address Family Indicator (AFI) of the path
+        type: string
+      safi:
+        description: Subsequent Address Family Indicator (SAFI) of the path
+        type: string
+  BgpNlri:
+    description: Network Layer Reachability Information (NLRI) of the path
+    properties:
+      base64:
+        description: Base64-encoded NLRI in the BGP UPDATE message format
+        type: string
+  BgpPathAttribute:
+    description: Single BGP path attribute specific for the path
+    properties:
+      base64:
+        description: Base64-encoded BGP path attribute in the BGP UPDATE message format
+        type: string

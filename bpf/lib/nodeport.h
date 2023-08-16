@@ -791,7 +791,6 @@ create_ct:
 
 		ct_state_new.src_sec_id = WORLD_ID;
 		ct_state_new.dsr = 1;
-		ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 		ret = ct_create6(get_ct_map6(tuple), NULL, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, false, false, ext_err);
 		if (!IS_ERR(ret))
@@ -2263,7 +2262,6 @@ create_ct:
 
 		ct_state_new.src_sec_id = WORLD_ID;
 		ct_state_new.dsr = 1;
-		ct_state_new.ifindex = (__u16)NATIVE_DEV_IFINDEX;
 		ret = ct_create4(get_ct_map4(tuple), NULL, tuple, ctx,
 				 CT_EGRESS, &ct_state_new, false, false, ext_err);
 		if (!IS_ERR(ret))

@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
@@ -171,6 +172,97 @@ func TestInjectExisting(t *testing.T) {
 	id, ok = IPIdentityCache.LookupByIP(prefix.String())
 	assert.True(t, ok)
 	assert.Equal(t, source.KubeAPIServer, id.Source)
+}
+
+// TestInjectWithLegacyAPIOverlap tests that a previously allocated identity
+// will continue to be used in the ipcache even if other users of newer APIs
+// also use the API, and that reference counting is properly balanced for this
+// pattern.This is a common occurrence on startup - and this tests ensures we
+// don't regress the known issue in GH-24502
+//
+// This differs from TestInjectExisting() by reusing the same identity, and by
+// not associating any new labels with the prefix.
+func TestInjectWithLegacyAPIOverlap(t *testing.T) {
+	cancel := setupTest(t)
+	defer cancel()
+
+	// mimic the "restore cidr" logic from daemon.go
+	// for every ip -> identity mapping in the bpf ipcache
+	// - allocate that identity
+	// - insert the cidr=>identity mapping back in to the go ipcache
+	identities := make(map[netip.Prefix]*identity.Identity)
+	prefix := netip.MustParsePrefix("172.19.0.5/32")
+	oldID := identity.NumericIdentity(16777219)
+	_, err := IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, []identity.NumericIdentity{oldID}, identities)
+	assert.NoError(t, err)
+	identityReferences := 1
+
+	IPIdentityCache.UpsertGeneratedIdentities(identities, nil)
+
+	// sanity check: ensure the cidr is correctly in the ipcache
+	id, ok := IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, int32(16777219), int32(id.ID))
+
+	// Simulate the first half of UpsertLabels -- insert the labels only in to the metadata cache
+	// This is to "force" a race condition
+	resource := types.NewResourceID(
+		types.ResourceKindCNP, "default", "policy")
+	labels := cidr.GetCIDRLabels(prefix)
+	IPIdentityCache.metadata.upsertLocked(prefix, source.CustomResource, resource, labels)
+
+	// Now, emulate policyAdd(), which calls AllocateCIDRs()
+	_, err = IPIdentityCache.AllocateCIDRs([]netip.Prefix{prefix}, []identity.NumericIdentity{oldID}, nil)
+	assert.NoError(t, err)
+	identityReferences++
+
+	// Now, trigger label injection
+	// This will allocate a new ID for the same /32 since the labels have changed
+	// It should only allocate once, even if we run it multiple times.
+	identityReferences++
+	for i := 0; i < 2; i++ {
+		IPIdentityCache.UpsertLabels(prefix, labels, source.CustomResource, resource)
+		// Need to wait for the label injector to finish; easiest just to remove it
+		IPIdentityCache.controllers.RemoveControllerAndWait(LabelInjectorName)
+	}
+
+	// Ensure the source is now correctly understood in the ipcache
+	id, ok = IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, source.CustomResource, id.Source)
+
+	// Release the identity references via the legacy API. As long as the
+	// external subsystems are balancing their references against the
+	// identities, then the remainder of the test will assert that the
+	// ipcache internals will properly reference-count the identities
+	// for users of the newer APIs where ipcache itself is responsible for
+	// reference counting.
+	for i := identityReferences; i > 1; i-- {
+		IPIdentityCache.releaseCIDRIdentities(context.Background(), []netip.Prefix{prefix})
+		identityReferences--
+	}
+
+	// sanity check: ensure the cidr is correctly in the ipcache
+	id, ok = IPIdentityCache.LookupByIP(prefix.String())
+	assert.True(t, ok)
+	assert.Equal(t, oldID.Uint32(), id.ID.Uint32())
+
+	// Check that the corresponding identity in the identity allocator
+	// is still allocated, which implies that it's reference counted
+	// correctly compared to the identityReferences variable in this test.
+	realID := IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
+	assert.True(t, realID != nil)
+	assert.Equal(t, id.ID.Uint32(), uint32(realID.ID))
+
+	// Remove the identity allocation via newer APIs
+	IPIdentityCache.RemoveLabels(prefix, labels, resource)
+	IPIdentityCache.controllers.RemoveControllerAndWait(LabelInjectorName)
+	identityReferences--
+	assert.Equal(t, identityReferences, 0)
+
+	// Assert that ipcache has released its final reference to the identity
+	realID = IPIdentityCache.IdentityAllocator.LookupIdentityByID(context.Background(), id.ID)
+	assert.True(t, realID == nil)
 }
 
 func TestFilterMetadataByLabels(t *testing.T) {

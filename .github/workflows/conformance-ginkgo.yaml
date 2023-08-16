@@ -83,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7  
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
@@ -118,7 +118,7 @@ jobs:
         uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.20.7
+          go-version: 1.21.0
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -149,7 +149,7 @@ jobs:
   wait-for-images:
     needs: setup-vars
     runs-on: ubuntu-latest
-    name: Build Ginkgo E2E
+    name: Wait for images
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
@@ -223,7 +223,7 @@ jobs:
           echo "matrix=$(jq -c . < /tmp/merged.json)" >> $GITHUB_OUTPUT
 
   setup-and-test:
-    needs: [setup-vars, build-ginkgo-binary, generate-matrix]
+    needs: [setup-vars, build-ginkgo-binary, generate-matrix, wait-for-images]
     runs-on:
       group: ginkgo-runners
     timeout-minutes: 35
@@ -318,7 +318,7 @@ jobs:
         uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.20.7
+          go-version: 1.21.0
 
       - name: Build Ginkgo
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -462,8 +462,21 @@ jobs:
     needs: setup-and-test
     runs-on: ubuntu-latest
     steps:
+      - name: Determine final commit status
+        id: commit-status
+        shell: bash
+        run: |
+          # When one of the prerequisites of setup-and-test fails, then that
+          # job gets skipped. Let's convert the status so that we correctly
+          # report that as a proper failure.
+          if [ "${{ needs.setup-and-test.result }}" != "skipped" ]; then
+            echo "status=${{ needs.setup-and-test.result }}" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+          fi
+
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7  
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
         with:
           sha: ${{ inputs.SHA || github.sha }}
-          status: ${{ needs.setup-and-test.result }}
+          status: ${{ steps.commit-status.outputs.status }}

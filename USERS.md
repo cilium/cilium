@@ -100,6 +100,12 @@ Users (Alphabetically)
       Q: @nitrikx
       L: https://www.backmarket.com/
 
+    * N: Berops
+      D: Cilium is used as a CNI plug-in in our open-source multi-cloud and hybrid-cloud Kubernetes platform - Claudie
+      U: CNI, Network Policies, Hubble
+      Q: @Bernard Halas
+      L: https://github.com/berops/claudie
+
     * N: ByteDance
       D: ByteDance is using Cilium as CNI plug-in for self-hosted Kubernetes.
       U: CNI, Networking

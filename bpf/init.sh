@@ -4,19 +4,19 @@
 
 # LIB=${1}
 RUNDIR=${2}
-PROCSYSNETDIR=${3}
-SYSCLASSNETDIR=${4}
+# PROCSYSNETDIR=${3}
+# SYSCLASSNETDIR=${4}
 IP4_HOST=${5}
 IP6_HOST=${6}
-MODE=${7}
-TUNNEL_PROTOCOL=${8}
+# MODE=${7}
+# TUNNEL_PROTOCOL=${8}
 # Only set if TUNNEL_PROTOCOL = "vxlan", "geneve"
-TUNNEL_PORT=${9}
+# TUNNEL_PORT=${9}
 # Only set if MODE = "direct"
 # NATIVE_DEVS=${10}
 HOST_DEV1=${11}
 HOST_DEV2=${12}
-MTU=${13}
+# MTU=${13}
 # SOCKETLB=${14}
 # SOCKETLB_PEER=${15}
 # CGROUP_ROOT=${16}
@@ -42,24 +42,6 @@ set -o pipefail
 
 # Remove old legacy files
 rm $RUNDIR/encap.state 2> /dev/null || true
-
-function setup_dev()
-{
-	local -r NAME=$1
-
-	ip link set $NAME up
-
-	if [ "$IP6_HOST" != "<nil>" ]; then
-		echo 1 > "${PROCSYSNETDIR}/ipv6/conf/${NAME}/forwarding"
-	fi
-
-	if [ "$IP4_HOST" != "<nil>" ]; then
-		echo 1 > "${PROCSYSNETDIR}/ipv4/conf/${NAME}/forwarding"
-		echo 0 > "${PROCSYSNETDIR}/ipv4/conf/${NAME}/rp_filter"
-		echo 1 > "${PROCSYSNETDIR}/ipv4/conf/${NAME}/accept_local"
-		echo 0 > "${PROCSYSNETDIR}/ipv4/conf/${NAME}/send_redirects"
-	fi
-}
 
 function move_local_rules_af()
 {
@@ -157,30 +139,6 @@ function setup_proxy_rules()
 	fi
 }
 
-function rnd_mac_addr()
-{
-    local lower=$(od /dev/urandom -N5 -t x1 -An | sed 's/ /:/g')
-    local upper=$(( 0x$(od /dev/urandom -N1 -t x1 -An | cut -d' ' -f2) & 0xfe | 0x02 ))
-    printf '%02x%s' $upper $lower
-}
-
-function create_encap_dev()
-{
-	TUNNEL_OPTS="external"
-	if [ "${TUNNEL_PORT}" != "<nil>" ]; then
-		TUNNEL_OPTS="dstport $TUNNEL_PORT $TUNNEL_OPTS"
-	fi
-	ip link add name $ENCAP_DEV address $(rnd_mac_addr) type $TUNNEL_PROTOCOL $TUNNEL_OPTS || encap_fail
-}
-
-function encap_fail()
-{
-	(>&2 echo "ERROR: Setup of encapsulation device $ENCAP_DEV has failed. Is another program using a $MODE device?")
-	(>&2 echo "Configured $MODE devices on the system:")
-	(>&2 ip link show type $MODE)
-	exit 1
-}
-
 if [ "$PROXY_RULE" = "true" ]; then
 # Decrease priority of the rule to identify local addresses
 move_local_rules
@@ -190,88 +148,3 @@ move_local_rules
 setup_proxy_rules
 fi
 
-if [ "$MODE" = "ipip" ]; then
-	if [ "$IP4_HOST" != "<nil>" ]; then
-		ENCAP_DEV="cilium_ipip4"
-		ip link show $ENCAP_DEV || {
-			# Upon module load it will create a non-removable tunl0
-			# device. Instead of creating an additional useless one,
-			# rename tunl0 with cilium prefix in a second step. If
-			# we to do 'ip link add name $ENCAP_DEV [...]' it would
-			# create two devices. :/
-			ip link add name tunl0 type ipip external || true
-			ip link set tunl0 name $ENCAP_DEV
-		}
-		setup_dev $ENCAP_DEV || encap_fail
-
-		ENCAP_IDX=$(cat "${SYSCLASSNETDIR}/${ENCAP_DEV}/ifindex")
-		sed -i '/^#.*ENCAP4_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
-		echo "#define ENCAP4_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
-	else
-		ip link del cilium_ipip4 2> /dev/null || true
-	fi
-	if [ "$IP6_HOST" != "<nil>" ]; then
-		ENCAP_DEV="cilium_ipip6"
-		ip link show $ENCAP_DEV || {
-			# For cilium_ipip6 device, we unfortunately cannot use the
-			# same workaround as cilium_ipip4. While the latter allows
-			# to set an existing tunl0 into collect_md mode, the default
-			# ip6tnl0 if present cannot. It's quite annoying, but if v6
-			# was built into the kernel, we might just need to live with
-			# it. Default device creation can still be worked around
-			# via boot param if the sysctl from agent won't do it.
-			ip link add name $ENCAP_DEV type ip6tnl external || true
-			ip link set sit0 name cilium_sit || true
-		}
-		setup_dev $ENCAP_DEV || encap_fail
-
-		ENCAP_IDX=$(cat "${SYSCLASSNETDIR}/${ENCAP_DEV}/ifindex")
-		sed -i '/^#.*ENCAP6_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
-		echo "#define ENCAP6_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
-	else
-		ip link del cilium_ipip6 2> /dev/null || true
-		ip link del cilium_sit   2> /dev/null || true
-	fi
-else
-	ip link del cilium_ipip4 2> /dev/null || true
-	ip link del cilium_ipip6 2> /dev/null || true
-	ip link del cilium_sit   2> /dev/null || true
-fi
-
-# Remove eventual existing encapsulation device from previous run
-case "${TUNNEL_PROTOCOL}" in
-  "<nil>")
-	ip link del cilium_vxlan 2> /dev/null || true
-	ip link del cilium_geneve 2> /dev/null || true
-    ;;
-  "vxlan")
-	ip link del cilium_geneve 2> /dev/null || true
-    ;;
-  "geneve")
-	ip link del cilium_vxlan 2> /dev/null || true
-    ;;
-  *)
-	(>&2 echo "ERROR: Unknown tunnel mode")
-    exit 1
-    ;;
-esac
-
-if [ "${TUNNEL_PROTOCOL}" != "<nil>" ]; then
-	ENCAP_DEV="cilium_${TUNNEL_PROTOCOL}"
-
-	ip link show $ENCAP_DEV || create_encap_dev
-
-	if [ "${TUNNEL_PORT}" != "<nil>" ]; then
-		ip -details link show $ENCAP_DEV | grep "dstport $TUNNEL_PORT" || {
-			ip link delete name $ENCAP_DEV type $TUNNEL_PROTOCOL
-			create_encap_dev
-		}
-	fi
-
-	ip link set $ENCAP_DEV mtu $MTU || encap_fail
-	setup_dev $ENCAP_DEV || encap_fail
-
-	ENCAP_IDX=$(cat "${SYSCLASSNETDIR}/${ENCAP_DEV}/ifindex")
-	sed -i '/^#.*ENCAP_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
-	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
-fi

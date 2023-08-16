@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/internal"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/stream"
@@ -277,15 +278,24 @@ func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, options op
 
 	stat := &spanstat.SpanStat{}
 
+	timer, cancel := inctimer.New()
+	defer cancel()
+
 	var err error
 	for i := 0; i <= jos.retry; i++ {
+		var timeout time.Duration
 		if i != 0 {
-			timeout := jos.backoff.When(jos)
+			timeout = jos.backoff.When(jos)
 			l.WithFields(logrus.Fields{
 				"backoff":     timeout,
 				"retry-count": i,
 			}).Debug("Delaying retry attempt")
-			time.Sleep(timeout)
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.After(timeout):
 		}
 
 		l.Debug("Starting one-shot job")

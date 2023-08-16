@@ -24,6 +24,9 @@ import (
 // swagger:model StatusResponse
 type StatusResponse struct {
 
+	// Status of Mutual Authentication certificate provider
+	AuthCertificateProvider *Status `json:"auth-certificate-provider,omitempty"`
+
 	// Status of bandwidth manager
 	BandwidthManager *BandwidthManager `json:"bandwidth-manager,omitempty"`
 
@@ -109,6 +112,10 @@ type StatusResponse struct {
 // Validate validates this status response
 func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	var res []error
+
+	if err := m.validateAuthCertificateProvider(formats); err != nil {
+		res = append(res, err)
+	}
 
 	if err := m.validateBandwidthManager(formats); err != nil {
 		res = append(res, err)
@@ -213,6 +220,25 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *StatusResponse) validateAuthCertificateProvider(formats strfmt.Registry) error {
+	if swag.IsZero(m.AuthCertificateProvider) { // not required
+		return nil
+	}
+
+	if m.AuthCertificateProvider != nil {
+		if err := m.AuthCertificateProvider.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("auth-certificate-provider")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("auth-certificate-provider")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -690,6 +716,10 @@ func (m *StatusResponse) validateStale(formats strfmt.Registry) error {
 func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.contextValidateAuthCertificateProvider(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidateBandwidthManager(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -789,6 +819,22 @@ func (m *StatusResponse) ContextValidate(ctx context.Context, formats strfmt.Reg
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *StatusResponse) contextValidateAuthCertificateProvider(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.AuthCertificateProvider != nil {
+		if err := m.AuthCertificateProvider.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("auth-certificate-provider")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("auth-certificate-provider")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 

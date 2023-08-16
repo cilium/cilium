@@ -36,7 +36,11 @@ const (
 	v6AllocatorType = "IPv6"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "pod-cidr")
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "pod-cidr")
+
+	ciliumNodesPodCidrControllerGroup = controller.NewGroup("update-cilium-nodes-pod-cidr")
+)
 
 // ErrAllocatorNotFound is an error that should be used in case the node tries
 // to allocate a CIDR for an allocator that does not exist.
@@ -204,8 +208,10 @@ func NewNodesPodCIDRManager(
 		TriggerFunc: func([]string) {
 			// Trigger execute UpdateController multiple times so that we
 			// keep retrying the sync against k8s in case of failure.
-			n.k8sReSyncController.UpdateController("update-cilium-nodes-pod-cidr",
+			n.k8sReSyncController.UpdateController(
+				"update-cilium-nodes-pod-cidr",
 				controller.ControllerParams{
+					Group: ciliumNodesPodCidrControllerGroup,
 					DoFunc: func(context.Context) error {
 						n.Mutex.Lock()
 						defer n.Mutex.Unlock()

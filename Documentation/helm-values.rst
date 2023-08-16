@@ -92,6 +92,10 @@
      - SPIRE Workload Attestor kubelet verification.
      - bool
      - ``true``
+   * - :spelling:ignore:`authentication.mutual.spire.install.agent.tolerations`
+     - SPIRE agent tolerations configuration ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - list
+     - ``[]``
    * - :spelling:ignore:`authentication.mutual.spire.install.enabled`
      - Enable SPIRE installation. This will only take effect only if authentication.mutual.spire.enabled is true
      - bool
@@ -100,6 +104,10 @@
      - SPIRE namespace to install into
      - string
      - ``"cilium-spire"``
+   * - :spelling:ignore:`authentication.mutual.spire.install.server.affinity`
+     - SPIRE server affinity configuration
+     - object
+     - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.annotations`
      - SPIRE server annotations
      - object
@@ -140,6 +148,10 @@
      - SPIRE server labels
      - object
      - ``{}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.server.nodeSelector`
+     - SPIRE server nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+     - object
+     - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.service.annotations`
      - Annotations to be added to the SPIRE server service
      - object
@@ -156,6 +168,10 @@
      - SPIRE server service account
      - object
      - ``{"create":true,"name":"spire-server"}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.server.tolerations`
+     - SPIRE server tolerations configuration ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - list
+     - ``[]``
    * - :spelling:ignore:`authentication.mutual.spire.serverAddress`
      - SPIRE server address used by Cilium Operator  If k8s Service DNS along with port number is used (e.g. :raw-html-m2r:`<service-name>`.\ :raw-html-m2r:`<namespace>`.svc(.*):\ :raw-html-m2r:`<port-number>` format), Cilium Operator will resolve its address by looking up the clusterIP from Service resource.  Example values: 10.0.0.1:8081, spire-server.cilium-spire.svc:8081
      - string
@@ -2523,7 +2539,11 @@
    * - :spelling:ignore:`prometheus`
      - Configure prometheus metrics on the configured port at /metrics
      - object
-     - ``{"enabled":false,"metrics":null,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"trustCRDsExist":false}}``
+     - ``{"controllerGroupMetrics":["write-cni-file","sync-host-ips","sync-lb-maps-with-k8s-services"],"enabled":false,"metrics":null,"port":9962,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":[{"replacement":"${1}","sourceLabels":["__meta_kubernetes_pod_node_name"],"targetLabel":"node"}],"trustCRDsExist":false}}``
+   * - :spelling:ignore:`prometheus.controllerGroupMetrics`
+     - - Enable controller group metrics for monitoring specific Cilium subsystems. The list is a list of controller group names. The special values of "all" and "none" are supported. The set of controller group names is not guaranteed to be stable between Cilium versions.
+     - list
+     - ``["write-cni-file","sync-host-ips","sync-lb-maps-with-k8s-services"]``
    * - :spelling:ignore:`prometheus.metrics`
      - Metrics that should be enabled or disabled from the default metric list. The list is expected to be separated by a space. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar). ref: https://docs.cilium.io/en/stable/observability/metrics/
      - string

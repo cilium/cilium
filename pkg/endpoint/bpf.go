@@ -54,6 +54,8 @@ const (
 
 var (
 	handleNoHostInterfaceOnce sync.Once
+
+	syncPolicymapControllerGroup = controller.NewGroup("sync-policymap")
 )
 
 // policyMapPath returns the path to the policy map of endpoint.
@@ -97,11 +99,11 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to create a base64: %s", err))
 	}
 
-	if e.containerID == "" {
+	if cid := e.GetContainerID(); cid == "" {
 		fmt.Fprintf(fw, " * Docker Network ID: %s\n", e.dockerNetworkID)
 		fmt.Fprintf(fw, " * Docker Endpoint ID: %s\n", e.dockerEndpointID)
 	} else {
-		fmt.Fprintf(fw, " * Container ID: %s\n", e.containerID)
+		fmt.Fprintf(fw, " * Container ID: %s\n", cid)
 		fmt.Fprintf(fw, " * Container Interface: %s\n", e.containerIfName)
 	}
 
@@ -1376,6 +1378,7 @@ func (e *Endpoint) syncPolicyMapController() {
 	ctrlName := fmt.Sprintf("sync-policymap-%d", e.ID)
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
+			Group: syncPolicymapControllerGroup,
 			DoFunc: func(ctx context.Context) (reterr error) {
 				// Failure to lock is not an error, it means
 				// that the endpoint was disconnected and we

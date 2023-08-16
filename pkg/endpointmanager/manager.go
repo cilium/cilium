@@ -37,6 +37,8 @@ var (
 	log         = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint-manager")
 	metricsOnce sync.Once
 	launchTime  = 30 * time.Second
+
+	endpointGCControllerGroup = controller.NewGroup("endpoint-gc")
 )
 
 // compile time check - endpointManager must implement
@@ -116,6 +118,7 @@ func (mgr *endpointManager) WithPeriodicEndpointGC(ctx context.Context, checkHea
 	mgr.checkHealth = checkHealth
 	mgr.controllers.UpdateController("endpoint-gc",
 		controller.ControllerParams{
+			Group:       endpointGCControllerGroup,
 			DoFunc:      mgr.markAndSweep,
 			RunInterval: interval,
 			Context:     ctx,
@@ -203,10 +206,10 @@ func (mgr *endpointManager) InitMetrics(registry *metrics.Registry) {
 	})
 }
 
-// AllocateID checks if the ID can be reused. If it cannot, returns an error.
+// allocateID checks if the ID can be reused. If it cannot, returns an error.
 // If an ID of 0 is provided, a new ID is allocated. If a new ID cannot be
 // allocated, returns an error.
-func (mgr *endpointManager) AllocateID(currID uint16) (uint16, error) {
+func (mgr *endpointManager) allocateID(currID uint16) (uint16, error) {
 	var newID uint16
 	if currID != 0 {
 		if err := idallocator.Reuse(currID); err != nil {
@@ -355,6 +358,20 @@ func (mgr *endpointManager) GetEndpointsByPodName(namespacedName string) []*endp
 	return eps
 }
 
+// GetEndpointsByContainerID looks up endpoints by container ID
+func (mgr *endpointManager) GetEndpointsByContainerID(containerID string) []*endpoint.Endpoint {
+	mgr.mutex.RLock()
+	defer mgr.mutex.RUnlock()
+
+	eps := make([]*endpoint.Endpoint, 0, 1)
+	for _, ep := range mgr.endpoints {
+		if ep.GetContainerID() == containerID {
+			eps = append(eps, ep)
+		}
+	}
+	return eps
+}
+
 // ReleaseID releases the ID of the specified endpoint from the endpointManager.
 // Returns an error if the ID cannot be released.
 func (mgr *endpointManager) ReleaseID(ep *endpoint.Endpoint) error {
@@ -364,14 +381,7 @@ func (mgr *endpointManager) ReleaseID(ep *endpoint.Endpoint) error {
 // unexpose removes the endpoint from the endpointmanager, so subsequent
 // lookups will no longer find the endpoint.
 func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
-	// Fetch the identifiers; this will only fail if the endpoint is
-	// already disconnected, in which case we don't need to proceed with
-	// the rest of cleaning up the endpoint.
-	identifiers, err := ep.Identifiers()
-	if err != nil {
-		// Already disconnecting
-		return
-	}
+	identifiers := ep.Identifiers()
 	previousState := ep.GetState()
 
 	mgr.mutex.Lock()
@@ -379,12 +389,12 @@ func (mgr *endpointManager) unexpose(ep *endpoint.Endpoint) {
 
 	// This must be done before the ID is released for the endpoint!
 	mgr.removeIDLocked(ep.ID)
-	mgr.RemoveIPv6Address(ep.IPv6)
+	mgr.mcastManager.RemoveAddress(ep.IPv6)
 
 	// We haven't yet allocated the ID for a restoring endpoint, so no
 	// need to release it.
 	if previousState != endpoint.StateRestoring {
-		if err = mgr.ReleaseID(ep); err != nil {
+		if err := mgr.ReleaseID(ep); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				"state":                   previousState,
 				logfields.CNIAttachmentID: identifiers[endpointid.CNIAttachmentIdPrefix],
@@ -511,10 +521,7 @@ func (mgr *endpointManager) UpdateReferences(ep *endpoint.Endpoint) error {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
 
-	identifiers, err := ep.Identifiers()
-	if err != nil {
-		return err
-	}
+	identifiers := ep.Identifiers()
 	mgr.updateReferencesLocked(ep, identifiers)
 
 	return nil
@@ -526,16 +533,6 @@ func (mgr *endpointManager) removeReferencesLocked(identifiers endpointid.Identi
 		id := endpointid.NewID(prefix, identifiers[prefix])
 		delete(mgr.endpointsAux, id)
 	}
-}
-
-// AddIPv6Address notifies an addition of an IPv6 address
-func (mgr *endpointManager) AddIPv6Address(ipv6 netip.Addr) {
-	mgr.mcastManager.AddAddress(ipv6)
-}
-
-// RemoveAIPv6ddress notifies a removal of an IPv6 address
-func (mgr *endpointManager) RemoveIPv6Address(ipv6 netip.Addr) {
-	mgr.mcastManager.RemoveAddress(ipv6)
 }
 
 // RegenerateAllEndpoints calls a setState for each endpoint and
@@ -609,16 +606,16 @@ func (mgr *endpointManager) GetPolicyEndpoints() map[policy.Endpoint]struct{} {
 }
 
 func (mgr *endpointManager) expose(ep *endpoint.Endpoint) error {
-	newID, err := mgr.AllocateID(ep.ID)
+	newID, err := mgr.allocateID(ep.ID)
 	if err != nil {
 		return err
 	}
 
 	mgr.mutex.Lock()
 	// Get a copy of the identifiers before exposing the endpoint
-	identifiers := ep.IdentifiersLocked()
+	identifiers := ep.Identifiers()
 	ep.Start(newID)
-	mgr.AddIPv6Address(ep.IPv6)
+	mgr.mcastManager.AddAddress(ep.IPv6)
 	mgr.updateIDReferenceLocked(ep)
 	mgr.updateReferencesLocked(ep, identifiers)
 	mgr.mutex.Unlock()
@@ -650,6 +647,7 @@ func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 		logfields.IPv4:        ep.GetIPv4Address(),
 		logfields.IPv6:        ep.GetIPv6Address(),
 		logfields.K8sPodName:  ep.GetK8sNamespaceAndPodName(),
+		logfields.CEPName:     ep.GetK8sNamespaceAndCEPName(),
 	})
 
 	err = mgr.expose(ep)

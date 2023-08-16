@@ -198,7 +198,10 @@ func (ipc *IPCache) AddListener(listener IPIdentityMappingListener) {
 }
 
 // Update a controller for this IPCache
-func (ipc *IPCache) UpdateController(name string, params controller.ControllerParams) {
+func (ipc *IPCache) UpdateController(
+	name string,
+	params controller.ControllerParams,
+) {
 	ipc.controllers.UpdateController(name, params)
 }
 

@@ -52,6 +52,8 @@ var (
 
 	// ErrNotImplemented is the error which is returned when a functionality is not implemented.
 	ErrNotImplemented = errors.New("not implemented")
+
+	consulLeaseKeepaliveControllerGroup = controller.NewGroup("consul-lease-keepalive")
 )
 
 func init() {
@@ -239,8 +241,10 @@ func newConsulClient(ctx context.Context, config *consulAPI.Config, opts *ExtraO
 		statusCheckErrors: make(chan error, 128),
 	}
 
-	client.controllers.UpdateController(fmt.Sprintf("consul-lease-keepalive-%p", c),
+	client.controllers.UpdateController(
+		fmt.Sprintf("consul-lease-keepalive-%p", c),
 		controller.ControllerParams{
+			Group: consulLeaseKeepaliveControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				wo := &consulAPI.WriteOptions{}
 				_, _, err := c.Session().Renew(lease, wo.WithContext(ctx))

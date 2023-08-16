@@ -9,6 +9,8 @@ The following API flags are compatible with the ``cilium-agent`` flag
 ===================== ====================
 Flag Name             Description
 ===================== ====================
+DeleteEndpoint        Deletes a list of endpoints that have endpoints matching the
+                      provided properties
 DeleteEndpointID      Deletes the endpoint specified by the ID. Deletion is
                       imminent and atomic, if the deletion request is valid and
                       the endpoint exists, deletion will occur even if errors are
@@ -29,6 +31,8 @@ DeleteServiceID       -
 GetBGPPeers           Retrieves current operational state of BGP peers created by
                       Cilium BGP virtual router. This includes session state,
                       uptime, information per address family, etc.
+GetBGPRoutes          Retrieves routes from BGP Control Plane RIB filtered by
+                      parameters you specify
 GetCgroupDumpMetadata -
 GetClusterNodes       -
 GetConfig             Returns the configuration of the Cilium daemon.

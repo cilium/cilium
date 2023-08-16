@@ -201,6 +201,13 @@ data:
     {{ . }}
   {{- end }}
   {{- end }}
+  {{- if .Values.prometheus.controllerGroupMetrics }}
+  # A space-separated list of controller groups for which to enable metrics.
+  # The special values of "all" and "none" are supported.
+  controller-group-metrics: {{- range .Values.prometheus.controllerGroupMetrics }}
+    {{ . }}
+  {{- end }}
+  {{- end }}
 {{- end }}
 
 {{- if not .Values.envoy.enabled }}

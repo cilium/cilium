@@ -171,6 +171,6 @@ type EndpointSliceList struct {
 	// +optional
 	slim_metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	// List of endpoint slices
+	// items is the list of endpoint slices
 	Items []EndpointSlice `json:"items" protobuf:"bytes,2,rep,name=items"`
 }

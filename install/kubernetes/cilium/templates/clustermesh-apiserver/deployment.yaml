@@ -165,6 +165,7 @@ spec:
         - --enable-external-workloads={{ .Values.externalWorkloads.enabled }}
         {{- if .Values.clustermesh.apiserver.metrics.enabled }}
         - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.port }}
+        - --controller-group-metrics=all
         {{- end }}
         {{- with .Values.clustermesh.apiserver.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
@@ -244,6 +245,7 @@ spec:
         - --clustermesh-config=/var/lib/cilium/clustermesh
         {{- if .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled }}
         - --prometheus-serve-addr=:{{ .Values.clustermesh.apiserver.metrics.kvstoremesh.port }}
+        - --controller-group-metrics=all
         {{- end }}
         {{- with .Values.clustermesh.apiserver.kvstoremesh.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}

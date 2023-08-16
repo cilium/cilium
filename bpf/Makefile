@@ -3,8 +3,6 @@
 
 include ../Makefile.defs
 
-.PHONY: all bpf_all build_all subdirs install clean gen_compile_commands
-
 SUBDIRS = custom
 BPF_SIMPLE = bpf_network.o bpf_alignchecker.o
 BPF_SIMPLE_C = $(patsubst %.o,%.c,${BPF_SIMPLE})
@@ -13,38 +11,8 @@ BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_xdp.o $(BPF_SIMPLE)
 
 KERNEL ?= netnext
 
-include ./Makefile.bpf
-
-all: bpf_all
-
-bpf_all: $(BPF) subdirs
-
-build_all: force
-	@touch $(BUILD_PERMUTATIONS_DEP)
-	@$(ECHO_CHECK)/*.c BUILD_PERMUTATIONS=1
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) bpf_all BUILD_PERMUTATIONS=1
-
-testdata:
-	${CLANG} ${FLAGS} --target=bpf -Wall -Werror \
-	-c ../pkg/alignchecker/testdata/bpf_foo.c \
-	-o ../pkg/alignchecker/testdata/bpf_foo.o
-
-BUILD_PERMUTATIONS ?= ""
-
 BPF_SIMPLE_OPTIONS += \
 	-DENABLE_IPV4=1 -DENABLE_IPV6=1 -DENABLE_IPSEC=1
-
-$(BPF_SIMPLE_LL): $(BPF_SIMPLE_C)
-	@$(ECHO_CC)
-	$(QUIET) ${CLANG} ${BPF_SIMPLE_OPTIONS} ${CLANG_FLAGS} -c $(patsubst %.ll,%.c,$@) -o $@
-
-$(BPF_SIMPLE): $(BPF_SIMPLE_LL)
-	@$(ECHO_CC)
-	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
-
-# Hack to get make to replace : with a space
-null :=
-space := ${null} ${null}
 
 # The following option combinations are compile tested
 LB_OPTIONS = \
@@ -61,6 +29,7 @@ LB_OPTIONS = \
 	-DENABLE_IPV4:-DENABLE_IPV6:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DENABLE_NODEPORT:-DENABLE_NODEPORT_ACCELERATION:-DENABLE_SESSION_AFFINITY: \
 	-DENABLE_IPV4:-DENABLE_IPV6:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DENABLE_NODEPORT:-DENABLE_NODEPORT_ACCELERATION:-DENABLE_SESSION_AFFINITY:-DENABLE_L7_LB: \
 	-DENABLE_IPV4:-DENABLE_IPV6:-DENCAP_IFINDEX:-DENABLE_NODEPORT:-DENABLE_NODEPORT_ACCELERATION:-DENABLE_SESSION_AFFINITY:-DENABLE_L7_LB:-DENABLE_EGRESS_GATEWAY:-DENABLE_MASQUERADE_IPV4:-DENABLE_MASQUERADE_IPV6: \
+	-DENABLE_IPV4:-DENABLE_IPV6:-DENCAP_IFINDEX:-DENABLE_NODEPORT:-DENABLE_NODEPORT_ACCELERATION:-DENABLE_SESSION_AFFINITY:-DENABLE_L7_LB:-DENABLE_EGRESS_GATEWAY_COMMON:-DENABLE_MASQUERADE_IPV4:-DENABLE_MASQUERADE_IPV6: \
 	-DENABLE_IPV4:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DENABLE_NODEPORT:-DENABLE_NODEPORT_ACCELERATION:-DENABLE_SESSION_AFFINITY: \
 	-DENABLE_IPV4:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DENABLE_NODEPORT:-DENABLE_NODEPORT_ACCELERATION:-DENABLE_SESSION_AFFINITY:-DENABLE_L7_LB: \
 	-DENABLE_IPV6:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DENABLE_NODEPORT:-DENABLE_NODEPORT_ACCELERATION:-DENABLE_SESSION_AFFINITY: \
@@ -100,21 +69,6 @@ MAX_LB_OPTIONS = $(MAX_BASE_OPTIONS) -DENABLE_NAT_46X64=1 -DENABLE_NAT_46X64_GAT
 MAX_LB_OPTIONS += -DLB_SELECTION=1 -DLB_SELECTION_MAGLEV=1
 endif
 
-bpf_sock.ll: bpf_sock.c $(LIB)
-	$(QUIET) set -e; \
-	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
-		$(foreach OPTS,$(LB_OPTIONS), \
-			$(ECHO_CC) " [$(subst :,=1$(space),$(OPTS))]"; \
-			${CLANG} $(subst :,=1$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
-			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
-	fi
-	@$(ECHO_CC)
-	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
-
-bpf_sock.o: bpf_sock.ll
-	@$(ECHO_CC)
-	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
-
 ifndef MAX_OVERLAY_OPTIONS
 MAX_OVERLAY_OPTIONS = $(MAX_BASE_OPTIONS) -DENCAP_IFINDEX=1 -DTUNNEL_MODE=1
 MAX_OVERLAY_OPTIONS += -DLB_SELECTION=1 -DLB_SELECTION_MAGLEV=1
@@ -126,21 +80,6 @@ MAX_OVERLAY_OPTIONS += -DENABLE_HIGH_SCALE_IPCACHE=1
 endif
 endif
 
-bpf_overlay.ll: bpf_overlay.c $(LIB)
-	$(QUIET) set -e; \
-	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
-		$(foreach OPTS,$(LB_OPTIONS), \
-			$(ECHO_CC) " [$(subst :,=1$(space),$(OPTS)) -DENCAP_IFINDEX=1]"; \
-			${CLANG} $(subst :,=1$(space),$(OPTS)) -DENCAP_IFINDEX=1 ${CLANG_FLAGS} -c $< -o $@; \
-			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
-	fi
-	@$(ECHO_CC)
-	$(QUIET) ${CLANG} ${MAX_OVERLAY_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
-
-bpf_overlay.o: bpf_overlay.ll
-	@$(ECHO_CC)
-	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
-
 HOST_OPTIONS = $(LXC_OPTIONS) \
 	-DDISABLE_LOOPBACK_LB:-DENABLE_IPV4:-DENABLE_IPV6:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DENABLE_HOST_FIREWALL: \
 	-DDISABLE_LOOPBACK_LB:-DENABLE_IPV4:-DENABLE_IPV6:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DPOLICY_VERDICT_NOTIFY:-DENABLE_HOST_FIREWALL: \
@@ -149,6 +88,7 @@ HOST_OPTIONS = $(LXC_OPTIONS) \
 	-DDISABLE_LOOPBACK_LB:-DENABLE_IPV4:-DENABLE_IPV6:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DPOLICY_VERDICT_NOTIFY:-DENABLE_IPSEC:-DHAVE_FIB_LOOKUP:-DENABLE_DSR: \
 	-DDISABLE_LOOPBACK_LB:-DENABLE_IPV4:-DENABLE_IPV6:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DPOLICY_VERDICT_NOTIFY:-DENABLE_NODEPORT:-DENABLE_MASQUERADE_IPV4:-DENABLE_MASQUERADE_IPV6: \
 	-DDISABLE_LOOPBACK_LB:-DENABLE_IPV4:-DENABLE_IPV6:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DPOLICY_VERDICT_NOTIFY:-DENABLE_NODEPORT:-DENABLE_MASQUERADE_IPV4:-DENABLE_MASQUERADE_IPV6:-DENABLE_EGRESS_GATEWAY: \
+	-DDISABLE_LOOPBACK_LB:-DENABLE_IPV4:-DENABLE_IPV6:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DPOLICY_VERDICT_NOTIFY:-DENABLE_NODEPORT:-DENABLE_MASQUERADE_IPV4:-DENABLE_MASQUERADE_IPV6:-DENABLE_EGRESS_GATEWAY_COMMON: \
 	-DDISABLE_LOOPBACK_LB:-DENABLE_IPV4:-DENABLE_IPV6:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DPOLICY_VERDICT_NOTIFY:-DENABLE_IPSEC:-DENABLE_NODEPORT:-DENABLE_MASQUERADE_IPV4:-DENABLE_MASQUERADE_IPV6: \
 	-DDISABLE_LOOPBACK_LB:-DENABLE_IPV4:-DENABLE_IPV6:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DPOLICY_VERDICT_NOTIFY:-DENABLE_IPSEC:-DHAVE_FIB_LOOKUP:-DENABLE_NODEPORT:-DENABLE_MASQUERADE_IPV4:-DENABLE_MASQUERADE_IPV6: \
 	-DDISABLE_LOOPBACK_LB:-DENABLE_IPV4:-DENABLE_IPV6:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DPOLICY_VERDICT_NOTIFY:-DENABLE_NODEPORT:-DENABLE_DSR: \
@@ -175,21 +115,6 @@ MAX_HOST_OPTIONS += -DENABLE_HIGH_SCALE_IPCACHE=1
 endif
 endif
 
-bpf_host.ll: bpf_host.c $(LIB)
-	$(QUIET) set -e; \
-	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
-		$(foreach OPTS,$(HOST_OPTIONS), \
-			$(ECHO_CC) " [$(subst :,=1$(space),$(OPTS))]"; \
-			${CLANG} $(subst :,=1$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
-			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
-	fi
-	@$(ECHO_CC)
-	$(QUIET) ${CLANG} ${MAX_HOST_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
-
-bpf_host.o: bpf_host.ll
-	@$(ECHO_CC)
-	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
-
 XDP_OPTIONS = $(LB_OPTIONS) \
 	-DDISABLE_LOOPBACK_LB:-DENABLE_IPV4:-DENABLE_IPV6:-DENABLE_DSR:-DFROM_HOST: \
 	-DDISABLE_LOOPBACK_LB:-DENABLE_NODEPORT_ACCELERATION:-DENABLE_IPV4:-DENABLE_IPV6:-DENABLE_NODEPORT:-DENABLE_MASQUERADE_IPV4:-DENABLE_MASQUERADE_IPV6: \
@@ -210,21 +135,6 @@ MAX_XDP_OPTIONS = $(MAX_BASE_OPTIONS) -DENABLE_PREFILTER=1
 MAX_XDP_OPTIONS += -DLB_SELECTION=1 -DLB_SELECTION_MAGLEV=1
 endif
 
-bpf_xdp.ll: bpf_xdp.c $(LIB)
-	$(QUIET) set -e; \
-	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
-		$(foreach OPTS,$(XDP_OPTIONS), \
-			$(ECHO_CC) " [$(subst :,=1$(space),$(OPTS))]"; \
-			${CLANG} $(subst :,=1$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
-			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
-	fi
-	@$(ECHO_CC)
-	$(QUIET) ${CLANG} ${MAX_XDP_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
-
-bpf_xdp.o: bpf_xdp.ll
-	@$(ECHO_CC)
-	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
-
 # The following option combinations are compile tested
 LXC_OPTIONS = \
 	 -DALLOW_ICMP_FRAG_NEEDED: \
@@ -235,6 +145,7 @@ LXC_OPTIONS = \
 	 -DENABLE_IPV4:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DPOLICY_VERDICT_NOTIFY: \
 	 -DENABLE_IPV4:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DPOLICY_VERDICT_NOTIFY:-DENABLE_IPSEC: \
 	 -DENABLE_IPV4:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DPOLICY_VERDICT_NOTIFY:-DENABLE_EGRESS_GATEWAY: \
+	 -DENABLE_IPV4:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DPOLICY_VERDICT_NOTIFY:-DENABLE_EGRESS_GATEWAY_COMMON: \
 	 -DENABLE_IPV4:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DPOLICY_VERDICT_NOTIFY:-DENABLE_IPV4_FRAGMENTS: \
 	 -DENABLE_IPV6:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DPOLICY_VERDICT_NOTIFY: \
 	 -DENABLE_IPV6:-DENCAP_IFINDEX:-DTUNNEL_MODE:-DPOLICY_VERDICT_NOTIFY:-DENABLE_IPSEC: \
@@ -268,6 +179,101 @@ ifeq ($(KERNEL),netnext)
 MAX_HOST_OPTIONS += -DENABLE_HIGH_SCALE_IPCACHE=1
 endif
 endif
+
+# Add the ability to override variables
+-include Makefile.override
+
+include ./Makefile.bpf
+
+.PHONY: all bpf_all build_all subdirs install clean gen_compile_commands
+
+all: bpf_all
+
+bpf_all: $(BPF) subdirs
+
+build_all: force
+	@touch $(BUILD_PERMUTATIONS_DEP)
+	@$(ECHO_CHECK)/*.c BUILD_PERMUTATIONS=1
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) bpf_all BUILD_PERMUTATIONS=1
+
+testdata:
+	${CLANG} ${FLAGS} --target=bpf -Wall -Werror \
+	-c ../pkg/alignchecker/testdata/bpf_foo.c \
+	-o ../pkg/alignchecker/testdata/bpf_foo.o
+
+BUILD_PERMUTATIONS ?= ""
+
+$(BPF_SIMPLE_LL): $(BPF_SIMPLE_C)
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${BPF_SIMPLE_OPTIONS} ${CLANG_FLAGS} -c $(patsubst %.ll,%.c,$@) -o $@
+
+$(BPF_SIMPLE): $(BPF_SIMPLE_LL)
+	@$(ECHO_CC)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
+
+# Hack to get make to replace : with a space
+null :=
+space := ${null} ${null}
+
+bpf_sock.ll: bpf_sock.c $(LIB)
+	$(QUIET) set -e; \
+	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
+		$(foreach OPTS,$(LB_OPTIONS), \
+			$(ECHO_CC) " [$(subst :,=1$(space),$(OPTS))]"; \
+			${CLANG} $(subst :,=1$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
+			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
+	fi
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+
+bpf_sock.o: bpf_sock.ll
+	@$(ECHO_CC)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
+
+bpf_overlay.ll: bpf_overlay.c $(LIB)
+	$(QUIET) set -e; \
+	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
+		$(foreach OPTS,$(LB_OPTIONS), \
+			$(ECHO_CC) " [$(subst :,=1$(space),$(OPTS)) -DENCAP_IFINDEX=1]"; \
+			${CLANG} $(subst :,=1$(space),$(OPTS)) -DENCAP_IFINDEX=1 ${CLANG_FLAGS} -c $< -o $@; \
+			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
+	fi
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${MAX_OVERLAY_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+
+bpf_overlay.o: bpf_overlay.ll
+	@$(ECHO_CC)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
+
+bpf_host.ll: bpf_host.c $(LIB)
+	$(QUIET) set -e; \
+	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
+		$(foreach OPTS,$(HOST_OPTIONS), \
+			$(ECHO_CC) " [$(subst :,=1$(space),$(OPTS))]"; \
+			${CLANG} $(subst :,=1$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
+			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
+	fi
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${MAX_HOST_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+
+bpf_host.o: bpf_host.ll
+	@$(ECHO_CC)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
+
+bpf_xdp.ll: bpf_xdp.c $(LIB)
+	$(QUIET) set -e; \
+	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
+		$(foreach OPTS,$(XDP_OPTIONS), \
+			$(ECHO_CC) " [$(subst :,=1$(space),$(OPTS))]"; \
+			${CLANG} $(subst :,=1$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
+			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
+	fi
+	@$(ECHO_CC)
+	$(QUIET) ${CLANG} ${MAX_XDP_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+
+bpf_xdp.o: bpf_xdp.ll
+	@$(ECHO_CC)
+	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
 bpf_lxc.ll: bpf_lxc.c $(LIB)
 	$(QUIET) set -e; \

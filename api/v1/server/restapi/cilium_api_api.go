@@ -57,6 +57,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		BinProducer:  runtime.ByteStreamProducer(),
 		JSONProducer: runtime.JSONProducer(),
 
+		EndpointDeleteEndpointHandler: endpoint.DeleteEndpointHandlerFunc(func(params endpoint.DeleteEndpointParams) middleware.Responder {
+			return middleware.NotImplemented("operation endpoint.DeleteEndpoint has not yet been implemented")
+		}),
 		EndpointDeleteEndpointIDHandler: endpoint.DeleteEndpointIDHandlerFunc(func(params endpoint.DeleteEndpointIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation endpoint.DeleteEndpointID has not yet been implemented")
 		}),
@@ -80,6 +83,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		}),
 		BgpGetBgpPeersHandler: bgp.GetBgpPeersHandlerFunc(func(params bgp.GetBgpPeersParams) middleware.Responder {
 			return middleware.NotImplemented("operation bgp.GetBgpPeers has not yet been implemented")
+		}),
+		BgpGetBgpRoutesHandler: bgp.GetBgpRoutesHandlerFunc(func(params bgp.GetBgpRoutesParams) middleware.Responder {
+			return middleware.NotImplemented("operation bgp.GetBgpRoutes has not yet been implemented")
 		}),
 		DaemonGetCgroupDumpMetadataHandler: daemon.GetCgroupDumpMetadataHandlerFunc(func(params daemon.GetCgroupDumpMetadataParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetCgroupDumpMetadata has not yet been implemented")
@@ -255,6 +261,8 @@ type CiliumAPIAPI struct {
 	//   - application/json
 	JSONProducer runtime.Producer
 
+	// EndpointDeleteEndpointHandler sets the operation handler for the delete endpoint operation
+	EndpointDeleteEndpointHandler endpoint.DeleteEndpointHandler
 	// EndpointDeleteEndpointIDHandler sets the operation handler for the delete endpoint ID operation
 	EndpointDeleteEndpointIDHandler endpoint.DeleteEndpointIDHandler
 	// PolicyDeleteFqdnCacheHandler sets the operation handler for the delete fqdn cache operation
@@ -271,6 +279,8 @@ type CiliumAPIAPI struct {
 	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
 	// BgpGetBgpPeersHandler sets the operation handler for the get bgp peers operation
 	BgpGetBgpPeersHandler bgp.GetBgpPeersHandler
+	// BgpGetBgpRoutesHandler sets the operation handler for the get bgp routes operation
+	BgpGetBgpRoutesHandler bgp.GetBgpRoutesHandler
 	// DaemonGetCgroupDumpMetadataHandler sets the operation handler for the get cgroup dump metadata operation
 	DaemonGetCgroupDumpMetadataHandler daemon.GetCgroupDumpMetadataHandler
 	// DaemonGetClusterNodesHandler sets the operation handler for the get cluster nodes operation
@@ -441,6 +451,9 @@ func (o *CiliumAPIAPI) Validate() error {
 		unregistered = append(unregistered, "JSONProducer")
 	}
 
+	if o.EndpointDeleteEndpointHandler == nil {
+		unregistered = append(unregistered, "endpoint.DeleteEndpointHandler")
+	}
 	if o.EndpointDeleteEndpointIDHandler == nil {
 		unregistered = append(unregistered, "endpoint.DeleteEndpointIDHandler")
 	}
@@ -464,6 +477,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.BgpGetBgpPeersHandler == nil {
 		unregistered = append(unregistered, "bgp.GetBgpPeersHandler")
+	}
+	if o.BgpGetBgpRoutesHandler == nil {
+		unregistered = append(unregistered, "bgp.GetBgpRoutesHandler")
 	}
 	if o.DaemonGetCgroupDumpMetadataHandler == nil {
 		unregistered = append(unregistered, "daemon.GetCgroupDumpMetadataHandler")
@@ -693,6 +709,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
+	o.handlers["DELETE"]["/endpoint"] = endpoint.NewDeleteEndpoint(o.context, o.EndpointDeleteEndpointHandler)
+	if o.handlers["DELETE"] == nil {
+		o.handlers["DELETE"] = make(map[string]http.Handler)
+	}
 	o.handlers["DELETE"]["/endpoint/{id}"] = endpoint.NewDeleteEndpointID(o.context, o.EndpointDeleteEndpointIDHandler)
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
@@ -722,6 +742,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/bgp/peers"] = bgp.NewGetBgpPeers(o.context, o.BgpGetBgpPeersHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/bgp/routes"] = bgp.NewGetBgpRoutes(o.context, o.BgpGetBgpRoutesHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}

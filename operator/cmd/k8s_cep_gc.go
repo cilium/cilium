@@ -23,6 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+var k8sCiliumEndpointGCControllerGroup = controller.NewGroup("to-k8s-ciliumendpoint-gc")
+
 // enableCiliumEndpointSyncGC starts the node-singleton sweeper for
 // CiliumEndpoint objects where the managing node is no longer running. These
 // objects are created by the sync-to-k8s-ciliumendpoint controller on each
@@ -71,6 +73,7 @@ func enableCiliumEndpointSyncGC(ctx context.Context, wg *sync.WaitGroup, clients
 
 	mgr.UpdateController(controllerName,
 		controller.ControllerParams{
+			Group:       k8sCiliumEndpointGCControllerGroup,
 			RunInterval: gcInterval,
 			DoFunc: func(ctx context.Context) error {
 				return doCiliumEndpointSyncGC(ctx, clientset, cns, once, cancel, scopedLog)

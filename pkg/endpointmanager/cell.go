@@ -60,6 +60,9 @@ type EndpointsLookup interface {
 	// GetEndpointsByPodName looks up endpoints by namespace + pod name, e.g. "prod/pod-0"
 	GetEndpointsByPodName(name string) []*endpoint.Endpoint
 
+	// GetEndpointsByContainerID looks up endpoints by container ID
+	GetEndpointsByContainerID(containerID string) []*endpoint.Endpoint
+
 	// GetEndpoints returns a slice of all endpoints present in endpoint manager.
 	GetEndpoints() []*endpoint.Endpoint
 

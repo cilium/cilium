@@ -4,6 +4,7 @@
 package egressgateway
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -173,29 +175,34 @@ type Params struct {
 	Lifecycle hive.Lifecycle
 }
 
-func NewEgressGatewayManager(p Params) (*Manager, error) {
+func NewEgressGatewayManager(p Params) (out struct {
+	cell.Out
+
+	*Manager
+	defines.NodeOut
+}, err error) {
 	dcfg := p.DaemonConfig
 
 	if !dcfg.EnableIPv4EgressGateway {
-		return nil, nil
+		return out, nil
 	}
 
 	if dcfg.IdentityAllocationMode == option.IdentityAllocationModeKVstore {
-		return nil, errors.New("egress gateway is not supported in KV store identity allocation mode")
+		return out, errors.New("egress gateway is not supported in KV store identity allocation mode")
 	}
 
 	if dcfg.EnableHighScaleIPcache {
-		return nil, errors.New("egress gateway is not supported in high scale IPcache mode")
+		return out, errors.New("egress gateway is not supported in high scale IPcache mode")
 	}
 
 	if !dcfg.MasqueradingEnabled() || !dcfg.EnableBPFMasquerade {
-		return nil, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
+		return out, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 	}
 
 	if !dcfg.EnableRemoteNodeIdentity {
 		// datapath code depends on remote node identities to distinguish between
 		// cluster-local and cluster-egress traffic.
-		return nil, fmt.Errorf("egress gateway requires remote node identities (--%s=\"true\")", option.EnableRemoteNodeIdentity)
+		return out, fmt.Errorf("egress gateway requires remote node identities (--%s=\"true\")", option.EnableRemoteNodeIdentity)
 	}
 
 	if dcfg.EnableL7Proxy {
@@ -204,6 +211,19 @@ func NewEgressGatewayManager(p Params) (*Manager, error) {
 				"if the same endpoint is selected both by an egress gateway and a L7 policy, endpoint traffic will not go through egress gateway.", option.EnableL7Proxy)
 	}
 
+	out.Manager, err = newEgressGatewayManager(p)
+	if err != nil {
+		return out, err
+	}
+
+	out.NodeDefines = map[string]string{
+		"ENABLE_EGRESS_GATEWAY": "1",
+	}
+
+	return out, nil
+}
+
+func newEgressGatewayManager(p Params) (*Manager, error) {
 	// here we try to mimic the same exponential backoff retry logic used by
 	// the identity allocator, where the minimum retry timeout is set to 20
 	// milliseconds and the max number of attempts is 16 (so 20ms * 2^16 ==
@@ -685,6 +705,38 @@ func (manager *Manager) policyMatchesMinusExcludedCIDRs(sourceIP net.IP, f func(
 func (manager *Manager) regenerateGatewayConfigs() {
 	for _, policyConfig := range manager.policyConfigs {
 		policyConfig.regenerateGatewayConfig(manager)
+	}
+
+	if !manager.installRoutes {
+		return
+	}
+
+	// We can only have one default route per interface. Warn if there are
+	// conflicts on the desired egress IP per interface.
+	policyByInterfaceIndex := make(map[int]*PolicyConfig)
+	for _, policyConfig := range manager.policyConfigs {
+		gwc := policyConfig.gatewayConfig
+
+		if !gwc.localNodeConfiguredAsGateway {
+			continue
+		}
+
+		currentPolicy := policyByInterfaceIndex[gwc.ifaceIndex]
+		if currentPolicy == nil {
+			policyByInterfaceIndex[gwc.ifaceIndex] = policyConfig
+			continue
+		}
+
+		currentEgressIP := currentPolicy.gatewayConfig.egressIP
+		if gwc.egressIP.IP.Equal(currentEgressIP.IP) && bytes.Equal(gwc.egressIP.Mask, currentEgressIP.Mask) {
+			continue
+		}
+
+		log.WithFields(logrus.Fields{
+			logfields.CiliumEgressGatewayPolicyName: policyConfig.id,
+			logfields.Interface:                     policyConfig.policyGwConfig.iface,
+			logfields.EgressIP:                      policyConfig.policyGwConfig.egressIP,
+		}).Errorf("Conflict with policy %s: Selects the same egress interface but uses a different egress IP (%s).", currentPolicy.id, currentEgressIP.String())
 	}
 }
 

@@ -59,6 +59,7 @@ type serverParams struct {
 	Logger     logrus.FieldLogger
 	Spec       *Spec
 
+	EndpointDeleteEndpointHandler        endpoint.DeleteEndpointHandler
 	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler
 	PolicyDeleteFqdnCacheHandler         policy.DeleteFqdnCacheHandler
 	IpamDeleteIpamIPHandler              ipam.DeleteIpamIPHandler
@@ -67,6 +68,7 @@ type serverParams struct {
 	RecorderDeleteRecorderIDHandler      recorder.DeleteRecorderIDHandler
 	ServiceDeleteServiceIDHandler        service.DeleteServiceIDHandler
 	BgpGetBgpPeersHandler                bgp.GetBgpPeersHandler
+	BgpGetBgpRoutesHandler               bgp.GetBgpRoutesHandler
 	DaemonGetCgroupDumpMetadataHandler   daemon.GetCgroupDumpMetadataHandler
 	DaemonGetClusterNodesHandler         daemon.GetClusterNodesHandler
 	DaemonGetConfigHandler               daemon.GetConfigHandler
@@ -119,6 +121,7 @@ func newForCell(p serverParams) (*Server, error) {
 
 	// Construct the API from the provided handlers
 
+	api.EndpointDeleteEndpointHandler = p.EndpointDeleteEndpointHandler
 	api.EndpointDeleteEndpointIDHandler = p.EndpointDeleteEndpointIDHandler
 	api.PolicyDeleteFqdnCacheHandler = p.PolicyDeleteFqdnCacheHandler
 	api.IpamDeleteIpamIPHandler = p.IpamDeleteIpamIPHandler
@@ -127,6 +130,7 @@ func newForCell(p serverParams) (*Server, error) {
 	api.RecorderDeleteRecorderIDHandler = p.RecorderDeleteRecorderIDHandler
 	api.ServiceDeleteServiceIDHandler = p.ServiceDeleteServiceIDHandler
 	api.BgpGetBgpPeersHandler = p.BgpGetBgpPeersHandler
+	api.BgpGetBgpRoutesHandler = p.BgpGetBgpRoutesHandler
 	api.DaemonGetCgroupDumpMetadataHandler = p.DaemonGetCgroupDumpMetadataHandler
 	api.DaemonGetClusterNodesHandler = p.DaemonGetClusterNodesHandler
 	api.DaemonGetConfigHandler = p.DaemonGetConfigHandler

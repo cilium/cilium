@@ -16,6 +16,7 @@ permissions:
 
 jobs:
   build-and-push:
+    timeout-minutes: 45
     environment: release
     runs-on: ubuntu-20.04
     strategy:

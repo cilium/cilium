@@ -52,8 +52,11 @@ type LocalClientBuilder struct {
 func (b LocalClientBuilder) Client(target string) (Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), b.DialTimeout)
 	defer cancel()
-	// the connection is local so we assume WithInsecure() is safe in this context
-	conn, err := grpc.DialContext(ctx, target, grpc.WithInsecure(), grpc.WithBlock())
+	// The connection is local, so we assume using insecure connection is safe in
+	// this context.
+	conn, err := grpc.DialContext(ctx, target,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock())
 	if err != nil {
 		return nil, err
 	}

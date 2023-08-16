@@ -28,9 +28,13 @@ import (
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
-// ErrMaxLookup is returned when the maximum number of map element lookups has
-// been reached.
-var ErrMaxLookup = errors.New("maximum number of lookups reached")
+var (
+	// ErrMaxLookup is returned when the maximum number of map element lookups has
+	// been reached.
+	ErrMaxLookup = errors.New("maximum number of lookups reached")
+
+	bpfMapSyncControllerGroup = controller.NewGroup("bpf-map-sync")
+)
 
 type MapKey interface {
 	fmt.Stringer
@@ -84,9 +88,12 @@ type Map struct {
 	// was last scheduled
 	errorResolverLastScheduled time.Time
 
-	// outstandingErrors is the number of outsanding errors syncing with
-	// the kernel
-	outstandingErrors int
+	// outstandingErrors states whether there are outstanding errors, occurred while
+	// syncing an entry with the kernel, that need to be resolved. This variable exists
+	// to avoid iterating over the full cache to check if reconciliation is necessary,
+	// but it is possible that it gets out of sync if an error is automatically
+	// resolved while performing a subsequent Update/Delete operation on the same key.
+	outstandingErrors bool
 
 	// pressureGauge is a metric that tracks the pressure on this map
 	pressureGauge *metrics.GaugeWithThreshold
@@ -213,7 +220,7 @@ func (m *Map) NonPrefixedName() string {
 //
 // m.lock must be held for writing
 func (m *Map) scheduleErrorResolver() {
-	m.outstandingErrors++
+	m.outstandingErrors = true
 
 	if time.Since(m.errorResolverLastScheduled) <= errorResolverSchedulerMinInterval {
 		return
@@ -225,6 +232,7 @@ func (m *Map) scheduleErrorResolver() {
 		time.Sleep(errorResolverSchedulerDelay)
 		mapControllers.UpdateController(m.controllerName(),
 			controller.ControllerParams{
+				Group:       bpfMapSyncControllerGroup,
 				DoFunc:      m.resolveErrors,
 				RunInterval: errorResolverSchedulerMinInterval,
 			},
@@ -1047,7 +1055,22 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 		return nil
 	}
 
-	if m.outstandingErrors == 0 {
+	if !m.outstandingErrors {
+		return nil
+	}
+
+	outstanding := 0
+	for _, e := range m.cache {
+		switch e.DesiredAction {
+		case Insert, Delete:
+			outstanding++
+		}
+	}
+
+	// Errors appear to have already been resolved. This can happen if a subsequent
+	// Update/Delete operation acting on the same key succeeded.
+	if outstanding == 0 {
+		m.outstandingErrors = false
 		return nil
 	}
 
@@ -1056,7 +1079,7 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 	}
 
 	scopedLogger := m.scopedLogger()
-	scopedLogger.WithField("remaining", m.outstandingErrors).
+	scopedLogger.WithField("remaining", outstanding).
 		Debug("Starting periodic BPF map error resolver")
 
 	resolved := 0
@@ -1077,7 +1100,7 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 				e.DesiredAction = OK
 				e.LastError = nil
 				resolved++
-				m.outstandingErrors--
+				outstanding--
 			} else {
 				e.LastError = err
 				nerr++
@@ -1093,7 +1116,7 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 			if err == nil || errors.Is(err, ebpf.ErrKeyNotExist) {
 				delete(m.cache, k)
 				resolved++
-				m.outstandingErrors--
+				outstanding--
 			} else {
 				e.LastError = err
 				nerr++
@@ -1112,14 +1135,15 @@ func (m *Map) resolveErrors(ctx context.Context) error {
 	m.updatePressureMetric()
 
 	scopedLogger.WithFields(logrus.Fields{
-		"remaining": m.outstandingErrors,
+		"remaining": outstanding,
 		"resolved":  resolved,
 		"scanned":   scanned,
 		"duration":  time.Since(started),
 	}).Debug("BPF map error resolver completed")
 
-	if m.outstandingErrors > 0 {
-		return fmt.Errorf("%d map sync errors", m.outstandingErrors)
+	m.outstandingErrors = outstanding > 0
+	if m.outstandingErrors {
+		return fmt.Errorf("%d map sync errors", outstanding)
 	}
 
 	return nil

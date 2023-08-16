@@ -98,6 +98,11 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	// default to a new default logger
 	baseLogger := logging.InitializeDefaultLogger()
 
+	// Set log format based on daemon config
+	baseLogger.SetFormatter(logging.GetFormatter(
+		logging.LogOptions(option.Config.LogOpt).GetLogFormat(),
+	))
+
 	// If this endpoint is set to debug ensure it will print debug by giving it
 	// an independent logger.
 	// If this endpoint is not set to debug, it will use the log level set by the user.
@@ -110,13 +115,14 @@ func (e *Endpoint) UpdateLogger(fields map[string]interface{}) {
 	f := logrus.Fields{
 		logfields.LogSubsys:              subsystem,
 		logfields.EndpointID:             e.ID,
-		logfields.ContainerID:            e.getShortContainerIDLocked(),
+		logfields.ContainerID:            e.GetShortContainerID(),
 		logfields.ContainerInterface:     e.containerIfName,
 		logfields.DatapathPolicyRevision: e.policyRevision,
 		logfields.DesiredPolicyRevision:  e.nextPolicyRevision,
 		logfields.IPv4:                   e.GetIPv4Address(),
 		logfields.IPv6:                   e.GetIPv6Address(),
 		logfields.K8sPodName:             e.GetK8sNamespaceAndPodName(),
+		logfields.CEPName:                e.GetK8sNamespaceAndCEPName(),
 	}
 
 	if e.SecurityIdentity != nil {
@@ -169,7 +175,7 @@ func (e *Endpoint) updatePolicyLogger(fields map[string]interface{}) {
 		f := logrus.Fields{
 			logfields.LogSubsys:              subsystem,
 			logfields.EndpointID:             e.ID,
-			logfields.ContainerID:            e.getShortContainerIDLocked(),
+			logfields.ContainerID:            e.GetShortContainerID(),
 			logfields.DatapathPolicyRevision: e.policyRevision,
 			logfields.DesiredPolicyRevision:  e.nextPolicyRevision,
 			logfields.IPv4:                   e.GetIPv4Address(),

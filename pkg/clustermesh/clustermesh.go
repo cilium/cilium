@@ -5,12 +5,12 @@ package clustermesh
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
-	"github.com/cilium/cilium/pkg/clustermesh/internal"
+	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -33,7 +33,7 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 type Configuration struct {
 	cell.In
 
-	internal.Config
+	common.Config
 
 	// ClusterIDName is the id/name of the local cluster. This is used for logging and metrics
 	types.ClusterIDName
@@ -61,8 +61,19 @@ type Configuration struct {
 	// ServiceIPGetter, if not nil, is used to create a custom dialer for service resolution.
 	ServiceIPGetter k8s.ServiceIPGetter
 
-	Metrics         Metrics
-	InternalMetrics internal.Metrics
+	// ConfigValidationMode defines whether the CiliumClusterConfig is always
+	// expected to be exposed by remote clusters.
+	ConfigValidationMode types.ValidationMode `optional:"true"`
+
+	// IPCacheWatcherExtraOpts returns extra options for watching ipcache entries.
+	IPCacheWatcherExtraOpts IPCacheWatcherOptsFn `optional:"true"`
+
+	// ClusterIDsManager handles the reservation of the ClusterIDs associated
+	// with remote clusters, to ensure their uniqueness.
+	ClusterIDsManager clusterIDsManager
+
+	Metrics       Metrics
+	CommonMetrics common.Metrics
 }
 
 // RemoteIdentityWatcher is any type which provides identities that have been
@@ -80,53 +91,24 @@ type RemoteIdentityWatcher interface {
 	RemoveRemoteIdentities(name string)
 }
 
+// IPCacheWatcherOptsFn is a function which returns extra options for watching
+// ipcache entries.
+type IPCacheWatcherOptsFn func(config *cmtypes.CiliumClusterConfig) []ipcache.IWOpt
+
 // ClusterMesh is a cache of multiple remote clusters
 type ClusterMesh struct {
 	// conf is the configuration, it is immutable after NewClusterMesh()
 	conf Configuration
 
-	// internal implements the common logic to connect to remote clusters.
-	internal internal.ClusterMesh
+	// common implements the common logic to connect to remote clusters.
+	common common.ClusterMesh
 
-	usedIDs *ClusterMeshUsedIDs
 	// globalServices is a list of all global services. The datastructure
 	// is protected by its own mutex inside the structure.
 	globalServices *globalServiceCache
 
 	// nodeName is the name of the local node. This is used for logging and metrics
 	nodeName string
-}
-
-type ClusterMeshUsedIDs struct {
-	usedClusterIDs      map[uint32]struct{}
-	usedClusterIDsMutex lock.Mutex
-}
-
-func newClusterMeshUsedIDs() *ClusterMeshUsedIDs {
-	return &ClusterMeshUsedIDs{
-		usedClusterIDs: make(map[uint32]struct{}),
-	}
-}
-
-func (cm *ClusterMeshUsedIDs) reserveClusterID(clusterID uint32) error {
-	cm.usedClusterIDsMutex.Lock()
-	defer cm.usedClusterIDsMutex.Unlock()
-
-	if _, ok := cm.usedClusterIDs[clusterID]; ok {
-		// ClusterID already used
-		return fmt.Errorf("clusterID %d is already used", clusterID)
-	}
-
-	cm.usedClusterIDs[clusterID] = struct{}{}
-
-	return nil
-}
-
-func (cm *ClusterMeshUsedIDs) releaseClusterID(clusterID uint32) {
-	cm.usedClusterIDsMutex.Lock()
-	defer cm.usedClusterIDsMutex.Unlock()
-
-	delete(cm.usedClusterIDs, clusterID)
 }
 
 // NewClusterMesh creates a new remote cluster cache based on the
@@ -139,34 +121,33 @@ func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
 	nodeName := nodeTypes.GetName()
 	cm := &ClusterMesh{
 		conf:     c,
-		usedIDs:  newClusterMeshUsedIDs(),
 		nodeName: nodeName,
 		globalServices: newGlobalServiceCache(
 			c.Metrics.TotalGlobalServices.WithLabelValues(c.ClusterName, nodeName),
 		),
 	}
 
-	cm.internal = internal.NewClusterMesh(internal.Configuration{
+	cm.common = common.NewClusterMesh(common.Configuration{
 		Config:                       c.Config,
 		ClusterIDName:                c.ClusterIDName,
 		ClusterSizeDependantInterval: c.ClusterSizeDependantInterval,
 		ServiceIPGetter:              c.ServiceIPGetter,
 
-		NewRemoteCluster: cm.newRemoteCluster,
+		NewRemoteCluster: cm.NewRemoteCluster,
 
 		NodeName: nodeName,
-		Metrics:  c.InternalMetrics,
+		Metrics:  c.CommonMetrics,
 	})
 
-	lifecycle.Append(&cm.internal)
+	lifecycle.Append(&cm.common)
 	return cm
 }
 
-func (cm *ClusterMesh) newRemoteCluster(name string, status internal.StatusFunc) internal.RemoteCluster {
+func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) common.RemoteCluster {
 	rc := &remoteCluster{
 		name:    name,
 		mesh:    cm,
-		usedIDs: cm.usedIDs,
+		usedIDs: cm.conf.ClusterIDsManager,
 		status:  status,
 		swg:     lock.NewStoppableWaitGroup(),
 	}
@@ -186,6 +167,7 @@ func (cm *ClusterMesh) newRemoteCluster(name string, status internal.StatusFunc)
 	)
 
 	rc.ipCacheWatcher = ipcache.NewIPIdentityWatcher(name, cm.conf.IPCache)
+	rc.ipCacheWatcherExtraOpts = cm.conf.IPCacheWatcherExtraOpts
 
 	return rc
 }
@@ -193,14 +175,14 @@ func (cm *ClusterMesh) newRemoteCluster(name string, status internal.StatusFunc)
 // NumReadyClusters returns the number of remote clusters to which a connection
 // has been established
 func (cm *ClusterMesh) NumReadyClusters() int {
-	return cm.internal.NumReadyClusters()
+	return cm.common.NumReadyClusters()
 }
 
 // ClustersSynced returns after all clusters were synchronized with the bpf
 // datapath.
 func (cm *ClusterMesh) ClustersSynced(ctx context.Context) error {
 	swgs := make([]*lock.StoppableWaitGroup, 0)
-	cm.internal.ForEachRemoteCluster(func(rci internal.RemoteCluster) error {
+	cm.common.ForEachRemoteCluster(func(rci common.RemoteCluster) error {
 		rc := rci.(*remoteCluster)
 		swgs = append(swgs, rc.swg)
 		return nil
@@ -222,7 +204,7 @@ func (cm *ClusterMesh) Status() (status *models.ClusterMeshStatus) {
 		NumGlobalServices: int64(cm.globalServices.size()),
 	}
 
-	cm.internal.ForEachRemoteCluster(func(rci internal.RemoteCluster) error {
+	cm.common.ForEachRemoteCluster(func(rci common.RemoteCluster) error {
 		rc := rci.(*remoteCluster)
 		status.Clusters = append(status.Clusters, rc.Status())
 		return nil

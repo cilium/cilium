@@ -22,6 +22,7 @@ type Loader interface {
 	EndpointHash(cfg EndpointConfiguration) (string, error)
 	Unload(ep Endpoint)
 	Reinitialize(ctx context.Context, o BaseProgramOwner, deviceMTU int, iptMgr IptablesManager, p Proxy) error
+	HostDatapathInitialized() <-chan struct{}
 }
 
 // BaseProgramOwner is any type for which a loader is building base programs.

@@ -40,6 +40,7 @@ type handlersOut struct {
 	DaemonGetNodeIdsHandler            daemon.GetNodeIdsHandler
 	DaemonPatchConfigHandler           daemon.PatchConfigHandler
 
+	EndpointDeleteEndpointHandler        endpoint.DeleteEndpointHandler
 	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler
 	EndpointGetEndpointHandler           endpoint.GetEndpointHandler
 	EndpointGetEndpointIDConfigHandler   endpoint.GetEndpointIDConfigHandler
@@ -87,7 +88,8 @@ type handlersOut struct {
 	ServiceGetServiceIDHandler    service.GetServiceIDHandler
 	ServicePutServiceIDHandler    service.PutServiceIDHandler
 
-	BgpGetBgpPeersHandler bgp.GetBgpPeersHandler
+	BgpGetBgpPeersHandler  bgp.GetBgpPeersHandler
+	BgpGetBgpRoutesHandler bgp.GetBgpRoutesHandler
 }
 
 // apiHandler implements Handle() for the given parameter type.
@@ -141,6 +143,7 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 
 	if cfg.DatapathMode != datapathOption.DatapathModeLBOnly {
 		// /endpoint/
+		out.EndpointDeleteEndpointHandler = wrapAPIHandler(dp, deleteEndpointHandler)
 		out.EndpointGetEndpointHandler = wrapAPIHandler(dp, getEndpointHandler)
 
 		// /endpoint/{id}
@@ -239,8 +242,11 @@ func ciliumAPIHandlers(dp promise.Promise[*Daemon], cfg *option.DaemonConfig, _ 
 	// /node/ids
 	out.DaemonGetNodeIdsHandler = wrapAPIHandler(dp, getNodeIDHandlerHandler)
 
-	// /bgp
+	// /bgp/peers
 	out.BgpGetBgpPeersHandler = wrapAPIHandler(dp, getBGPPeersHandler)
+
+	// /bgp/routes
+	out.BgpGetBgpRoutesHandler = wrapAPIHandler(dp, getBGPRoutesHandler)
 
 	return
 }
