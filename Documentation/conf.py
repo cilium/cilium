@@ -174,7 +174,7 @@ todo_include_todos = False
 spelling_exclude_patterns = ['_api/v1/*/README.md']
 
 # Add custom filters for spell checks.
-spelling_filters = [cilium_spellfilters.WireGuardFilter]
+spelling_filters = ["cilium_spellfilters.WireGuardFilter"]
 
 # Ignore some warnings from MyST parser
 suppress_warnings = ['myst.header']
