@@ -292,7 +292,7 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 		if (dir == CT_INGRESS) {
 			__sync_fetch_and_add(&entry->rx_packets, 1);
 			__sync_fetch_and_add(&entry->rx_bytes, ctx_full_len(ctx));
-		} else if (dir == CT_EGRESS) {
+		} else if (dir == CT_EGRESS || dir == CT_SERVICE) {
 			__sync_fetch_and_add(&entry->tx_packets, 1);
 			__sync_fetch_and_add(&entry->tx_bytes, ctx_full_len(ctx));
 		}
@@ -924,13 +924,15 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
+#ifdef CONNTRACK_ACCOUNTING
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
 		entry.rx_bytes = ctx_full_len(ctx);
-	} else if (dir == CT_EGRESS) {
+	} else if (dir == CT_EGRESS || dir == CT_SERVICE) {
 		entry.tx_packets = 1;
 		entry.tx_bytes = ctx_full_len(ctx);
 	}
+#endif
 
 	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.rev_nat_index, ct_state->src_sec_id, 0);
 
@@ -1001,13 +1003,15 @@ static __always_inline int ct_create4(const void *map_main,
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);
 
+#ifdef CONNTRACK_ACCOUNTING
 	if (dir == CT_INGRESS) {
 		entry.rx_packets = 1;
 		entry.rx_bytes = ctx_full_len(ctx);
-	} else if (dir == CT_EGRESS) {
+	} else if (dir == CT_EGRESS || dir == CT_SERVICE) {
 		entry.tx_packets = 1;
 		entry.tx_bytes = ctx_full_len(ctx);
 	}
+#endif
 
 	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.rev_nat_index,
 		    ct_state->src_sec_id, 0);

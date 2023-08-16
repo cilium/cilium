@@ -1308,7 +1308,7 @@ func initEnv(vp *viper.Viper) {
 	option.Config.Opts.SetBool(option.TraceNotify, true)
 	option.Config.Opts.SetBool(option.PolicyVerdictNotify, true)
 	option.Config.Opts.SetBool(option.PolicyTracing, option.Config.EnableTracing)
-	option.Config.Opts.SetBool(option.ConntrackAccounting, true)
+	option.Config.Opts.SetBool(option.ConntrackAccounting, false)
 	option.Config.Opts.SetBool(option.ConntrackLocal, false)
 	option.Config.Opts.SetBool(option.PolicyAuditMode, option.Config.PolicyAuditMode)
 	option.Config.Opts.SetBool(option.PolicyAccounting, option.Config.PolicyAccounting)
