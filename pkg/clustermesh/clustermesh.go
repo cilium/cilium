@@ -156,6 +156,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 		name,
 		cm.conf.NodeKeyCreator,
 		cm.conf.NodeObserver,
+		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.nodes) }),
 		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalNodes.WithLabelValues(cm.conf.ClusterName, cm.nodeName, rc.name)),
 	)
 
@@ -184,6 +185,12 @@ func (cm *ClusterMesh) NumReadyClusters() int {
 // SyncedWaitFn is the type of a function to wait for the initial synchronization
 // of a given resource type from all remote clusters.
 type SyncedWaitFn func(ctx context.Context) error
+
+// NodesSynced returns after that the initial list of nodes has been received
+// from all remote clusters, and synchronized with the different subscribers.
+func (cm *ClusterMesh) NodesSynced(ctx context.Context) error {
+	return cm.synced(ctx, func(rc *remoteCluster) SyncedWaitFn { return rc.synced.Nodes })
+}
 
 // ServicesSynced returns after that the initial list of shared services has been
 // received from all remote clusters, and synchronized with the BPF datapath.

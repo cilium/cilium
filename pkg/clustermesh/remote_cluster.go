@@ -217,6 +217,7 @@ var (
 
 type synced struct {
 	services   *lock.StoppableWaitGroup
+	nodes      chan struct{}
 	ipcache    chan struct{}
 	identities *lock.StoppableWaitGroup
 	stopped    chan struct{}
@@ -233,10 +234,18 @@ func newSynced() synced {
 
 	return synced{
 		services:   lock.NewStoppableWaitGroup(),
+		nodes:      make(chan struct{}),
 		ipcache:    make(chan struct{}),
 		identities: idswg,
 		stopped:    make(chan struct{}),
 	}
+}
+
+// Nodes returns after that the initial list of nodes has been received
+// from the remote cluster, and synchronized with the different subscribers,
+// the remote cluster is disconnected, or the given context is canceled.
+func (s *synced) Nodes(ctx context.Context) error {
+	return s.wait(ctx, s.nodes)
 }
 
 // Services returns after that the initial list of shared services has been
