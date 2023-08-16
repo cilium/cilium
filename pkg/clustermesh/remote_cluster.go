@@ -120,7 +120,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	})
 
 	mgr.Register(adapter(identityCache.IdentitiesPath), func(ctx context.Context) {
-		rc.remoteIdentityCache.Watch(ctx, func(ctx context.Context) {})
+		rc.remoteIdentityCache.Watch(ctx, func(context.Context) { rc.synced.identities.Done() })
 	})
 
 	close(ready)
@@ -216,14 +216,26 @@ var (
 )
 
 type synced struct {
-	services *lock.StoppableWaitGroup
-	stopped  chan struct{}
+	services   *lock.StoppableWaitGroup
+	ipcache    chan struct{}
+	identities *lock.StoppableWaitGroup
+	stopped    chan struct{}
 }
 
 func newSynced() synced {
+	// Use a StoppableWaitGroup for identities, instead of a plain channel to
+	// avoid having to deal with the possibility of a closed channel if already
+	// synced (as the callback is executed every time the etcd connection
+	// is restarted, differently from the other resource types).
+	idswg := lock.NewStoppableWaitGroup()
+	idswg.Add()
+	idswg.Stop()
+
 	return synced{
-		services: lock.NewStoppableWaitGroup(),
-		stopped:  make(chan struct{}),
+		services:   lock.NewStoppableWaitGroup(),
+		ipcache:    make(chan struct{}),
+		identities: idswg,
+		stopped:    make(chan struct{}),
 	}
 }
 
@@ -232,6 +244,14 @@ func newSynced() synced {
 // the remote cluster is disconnected, or the given context is canceled.
 func (s *synced) Services(ctx context.Context) error {
 	return s.wait(ctx, s.services.WaitChannel())
+}
+
+// IPIdentities returns after that the initial list of ipcache entries and
+// identities has been received from the remote cluster, and synchronized
+// with the BPF datapath, the remote cluster is disconnected, or the given
+// context is canceled.
+func (s *synced) IPIdentities(ctx context.Context) error {
+	return s.wait(ctx, s.ipcache, s.identities.WaitChannel())
 }
 
 func (s *synced) wait(ctx context.Context, chs ...<-chan struct{}) error {
