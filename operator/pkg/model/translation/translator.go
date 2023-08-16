@@ -188,9 +188,9 @@ func (i *defaultTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []cil
 
 	for _, l := range m.HTTP {
 		for _, r := range l.Routes {
-			port := "insecure"
+			port := insecureHost
 			if l.TLS != nil {
-				port = "secure"
+				port = secureHost
 			}
 
 			if len(r.Hostnames) == 0 {
@@ -216,7 +216,12 @@ func (i *defaultTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []cil
 		// Add HTTPs redirect virtual host for secure host
 		if port == insecureHost && i.enforceHTTPs {
 			for _, h := range slices.Unique(portHostName[secureHost]) {
-				vhs, _ := NewVirtualHostWithDefaults([]string{h}, true, i.hostNameSuffixMatch, hostNameRoutes[h])
+				vhs, _ := NewVirtualHostWithDefaults(hostNameRoutes[h], VirtualHostParameter{
+					HostNames:           []string{h},
+					HTTPSRedirect:       true,
+					HostNameSuffixMatch: i.hostNameSuffixMatch,
+					ListenerPort:        m.HTTP[0].Port,
+				})
 				virtualhosts = append(virtualhosts, vhs)
 				redirectedHost[h] = struct{}{}
 			}
@@ -231,7 +236,12 @@ func (i *defaultTranslator) getEnvoyHTTPRouteConfiguration(m *model.Model) []cil
 			if !exists {
 				continue
 			}
-			vhs, _ := NewVirtualHostWithDefaults([]string{h}, false, i.hostNameSuffixMatch, routes)
+			vhs, _ := NewVirtualHostWithDefaults(routes, VirtualHostParameter{
+				HostNames:           []string{h},
+				HTTPSRedirect:       false,
+				HostNameSuffixMatch: i.hostNameSuffixMatch,
+				ListenerPort:        m.HTTP[0].Port,
+			})
 			virtualhosts = append(virtualhosts, vhs)
 		}
 
