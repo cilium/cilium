@@ -264,7 +264,7 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) er
 	return nil
 }
 
-func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (restoreComplete chan struct{}) {
+func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState, endpointsRegenerator *endpoint.Regenerator) (restoreComplete chan struct{}) {
 	restoreComplete = make(chan struct{}, 0)
 
 	log.WithField("numRestored", len(state.restored)).Info("Regenerating restored endpoints")
@@ -317,9 +317,14 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 		// for that to succeed, it must be reloaded first, before the bpf_lxc
 		// programs stop writing the IP into skb->cb.
 		for _, ep := range state.restored {
+			// Cap the timeout used to wait for remote cluster synchronization
+			// to avoid blocking the agent startup, as this regeneration is
+			// performed synchronously.
+			endpointsRegenerator.CapTimeoutForSynchronousRegeneration()
+
 			if ep.IsHost() {
 				log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
-				if err := ep.RegenerateAfterRestore(); err != nil {
+				if err := ep.RegenerateAfterRestore(endpointsRegenerator); err != nil {
 					log.WithField(logfields.EndpointID, ep.ID).WithError(err).Debug("error regenerating restored host endpoint")
 					epRegenerated <- false
 				} else {
@@ -337,7 +342,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 		}
 		log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
-			if err := ep.RegenerateAfterRestore(); err != nil {
+			if err := ep.RegenerateAfterRestore(endpointsRegenerator); err != nil {
 				log.WithField(logfields.EndpointID, ep.ID).WithError(err).Debug("error regenerating during restore")
 				epRegenerated <- false
 				return
@@ -436,14 +441,14 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) (err error) {
 	return nil
 }
 
-func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struct{} {
+func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState, endpointsRegenerator *endpoint.Regenerator) chan struct{} {
 	bootstrapStats.restore.Start()
 	var restoreComplete chan struct{}
 	if option.Config.RestoreState {
-		// When we regenerate restored endpoints, it is guaranteed tha we have
+		// When we regenerate restored endpoints, it is guaranteed that we have
 		// received the full list of policies present at the time the daemon
 		// is bootstrapped.
-		restoreComplete = d.regenerateRestoredEndpoints(restoredEndpoints)
+		restoreComplete = d.regenerateRestoredEndpoints(restoredEndpoints, endpointsRegenerator)
 		go func() {
 			<-restoreComplete
 		}()
