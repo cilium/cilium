@@ -109,7 +109,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 		}
 
 		if !linkFound {
-			return fmt.Errorf("no link found inside container")
+			return errors.New("no link found inside container")
 		}
 
 		if pluginCtx.NetConf.EnableRouteMTU {
