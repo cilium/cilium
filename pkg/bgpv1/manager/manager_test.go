@@ -13,7 +13,6 @@ import (
 	"k8s.io/utils/pointer"
 
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/bgp"
-	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
@@ -159,7 +158,6 @@ func TestGetRoutes(t *testing.T) {
 					RouterID:   "127.0.0.1",
 					ListenPort: -1,
 				},
-				CState: &agent.ControlPlaneState{},
 			}
 			testSC, err := NewServerWithConfig(context.Background(), srvParams)
 			require.NoError(t, err)
