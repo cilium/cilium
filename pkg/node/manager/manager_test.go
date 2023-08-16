@@ -870,11 +870,11 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 	go func() {
 		<-nh1.NodeValidateImplementationEvent
 		s := <-hr.Wait()
-		assert.Error(s.Err)
+		assert.Equal(s.Event, "Degraded")
 		nh1.NodeValidateImplementationEventError = nil
 		<-nh1.NodeValidateImplementationEvent
 		s = <-hr.Wait()
-		assert.NoError(s.Err)
+		assert.Equal(s.Event, "OK")
 		close(done)
 	}()
 	// Start the manager
