@@ -3083,7 +3083,7 @@ health_encap_v4(struct __ctx_buff *ctx, __u32 tunnel_ep,
 	 * as it is being received.
 	 */
 	memset(&key, 0, sizeof(key));
-	key.tunnel_id = seclabel == HOST_ID ? LOCAL_NODE_ID : seclabel;
+	key.tunnel_id = get_tunnel_id(seclabel == HOST_ID ? LOCAL_NODE_ID : seclabel);
 	key.remote_ipv4 = bpf_htonl(tunnel_ep);
 	key.tunnel_ttl = IPDEFTTL;
 
@@ -3101,7 +3101,7 @@ health_encap_v6(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
 	struct bpf_tunnel_key key;
 
 	memset(&key, 0, sizeof(key));
-	key.tunnel_id = seclabel == HOST_ID ? LOCAL_NODE_ID : seclabel;
+	key.tunnel_id = get_tunnel_id(seclabel == HOST_ID ? LOCAL_NODE_ID : seclabel);
 	key.remote_ipv6[0] = tunnel_ep->p1;
 	key.remote_ipv6[1] = tunnel_ep->p2;
 	key.remote_ipv6[2] = tunnel_ep->p3;

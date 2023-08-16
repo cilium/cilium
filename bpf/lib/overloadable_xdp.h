@@ -163,6 +163,21 @@ static __always_inline __u32 get_tunnel_id(__u32 identity)
 	return identity;
 }
 
+static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __u16 proto  __maybe_unused)
+{
+#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+	if (tunnel_id == WORLD_ID) {
+		switch (proto) {
+		case bpf_htons(ETH_P_IP):
+			return WORLD_IPV4_ID;
+		case bpf_htons(ETH_P_IPV6):
+			return WORLD_IPV6_ID;
+		}
+        }
+#endif
+        return tunnel_id;
+}
+
 #ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,

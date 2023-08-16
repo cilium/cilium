@@ -75,13 +75,15 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	if (decrypted) {
-		if (info)
-			*identity = key.tunnel_id = info->sec_identity;
+		if (info) {
+			*identity = info->sec_identity;
+			key.tunnel_id = get_tunnel_id(info->sec_identity);
+		}
 	} else {
 		key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 		if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
-		*identity = key.tunnel_id;
+		*identity = get_id_from_tunnel_id(key.tunnel_id, ctx_get_protocol(ctx));
 
 		/* Any node encapsulating will map any HOST_ID source to be
 		 * presented as REMOTE_NODE_ID, therefore any attempt to signal
@@ -320,16 +322,18 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	/* If packets are decrypted the key has already been pushed into metadata. */
 	if (decrypted) {
-		if (info)
-			*identity = key.tunnel_id = info->sec_identity;
+		if (info) {
+			*identity = info->sec_identity;
+			key.tunnel_id = get_tunnel_id(info->sec_identity);
+		}
 	} else {
 #ifdef ENABLE_HIGH_SCALE_IPCACHE
-		key.tunnel_id = *identity;
+		key.tunnel_id = get_tunnel_id(*identity);
 #else
 		key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 		if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
-		*identity = key.tunnel_id;
+		*identity = get_id_from_tunnel_id(key.tunnel_id, ctx_get_protocol(ctx));
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
 
 		if (*identity == HOST_ID)
