@@ -17,6 +17,7 @@ import (
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -142,17 +143,33 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			}
 
 			// Inject Cilium bpf metadata listener filter, if not already present.
-			found := false
-			for _, lf := range listener.ListenerFilters {
-				if lf.Name == "cilium.bpf_metadata" {
-					found = true
+			{
+				found := false
+				for _, lf := range listener.ListenerFilters {
+					if lf.Name == "cilium.bpf_metadata" {
+						found = true
+						break
+					}
+				}
+				if !found {
+					listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* egress */, useOriginalSourceAddr, isL7LB))
 				}
 			}
-			if !found {
-				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* egress */, useOriginalSourceAddr, isL7LB))
+
+			// Inject listener socket option for Cilium datapath, if not already present.
+			{
+				found := false
+				for _, so := range listener.SocketOptions {
+					if so.Level == unix.SOL_SOCKET && so.Name == unix.SO_MARK {
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* egress */))
+				}
 			}
-			// Inject listener socket option for Cilium datapath
-			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* egress */))
 
 			// Fill in SDS & RDS config source if unset
 			for _, fc := range listener.FilterChains {
