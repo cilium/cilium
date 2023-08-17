@@ -438,6 +438,10 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 
 	netNs, err := ns.GetNS(args.Netns)
 	if err != nil {
+		if errors.As(err, &ns.NSPathNotExistErr{}) {
+			logger.Errorf("Pod's netns %s has gone, nothing to do", args.Netns)
+			return nil
+		}
 		return fmt.Errorf("failed to open netns %q: %w", args.Netns, err)
 	}
 	defer netNs.Close()
