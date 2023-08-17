@@ -890,6 +890,12 @@ func (a *crdAllocator) Dump() (map[string]string, string) {
 	return allocs, status
 }
 
+func (a *crdAllocator) Capacity() uint64 {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+	return uint64(a.store.totalPoolSize(a.family))
+}
+
 // RestoreFinished marks the status of restoration as done
 func (a *crdAllocator) RestoreFinished() {
 	a.store.restoreCloseOnce.Do(func() {

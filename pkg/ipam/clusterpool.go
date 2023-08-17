@@ -419,6 +419,11 @@ func (c *clusterPoolAllocator) Dump() (map[string]string, string) {
 	return ipToOwner, fmt.Sprintf("%d/%d allocated from %d pod CIDRs", usedIPs, availableIPs, numPodCIDRs)
 }
 
+func (c *clusterPoolAllocator) Capacity() uint64 {
+	_, _, availableIPs, _, _ := c.pool.dump()
+	return uint64(availableIPs)
+}
+
 func (c *clusterPoolAllocator) RestoreFinished() {
 	sharedCRDWatcher.restoreFinished()
 }

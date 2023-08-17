@@ -718,6 +718,24 @@ func (c *multiPoolAllocator) Dump() (map[string]string, string) {
 	return c.manager.dump(c.family)
 }
 
+func (c *multiPoolAllocator) Capacity() uint64 {
+	var capacity uint64
+	for _, pool := range c.manager.pools {
+		var p *podCIDRPool
+		switch c.family {
+		case IPv4:
+			p = pool.v4
+		case IPv6:
+			p = pool.v6
+		}
+		if p == nil {
+			continue
+		}
+		capacity += uint64(p.capacity())
+	}
+	return uint64(capacity)
+}
+
 func (c *multiPoolAllocator) RestoreFinished() {
 	c.manager.restoreFinished(c.family)
 }

@@ -168,6 +168,22 @@ func (p *podCIDRPool) dump() (ipToOwner map[string]string, usedIPs, freeIPs, num
 	return
 }
 
+func (p *podCIDRPool) capacity() (freeIPs int) {
+	// TODO(gandro): Use the Snapshot interface to avoid locking during dump
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	for _, ipAllocator := range p.ipAllocators {
+		cidrNet := ipAllocator.CIDR()
+		cidrStr := cidrNet.String()
+		if _, removed := p.removed[cidrStr]; !removed {
+			freeIPs += ipAllocator.Free()
+		}
+	}
+
+	return
+}
+
 func (p *podCIDRPool) calculateIPsLocked() (totalUsed, totalFree int) {
 	// Compute the total number of free and used IPs for all non-released pod
 	// CIDRs.

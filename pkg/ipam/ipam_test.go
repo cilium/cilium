@@ -120,6 +120,10 @@ func (f fakePoolAllocator) Dump() (map[string]string, string) {
 	return result, fmt.Sprintf("%d pools", len(f.pools))
 }
 
+func (f fakePoolAllocator) Capacity() uint64 {
+	return uint64(0)
+}
+
 func (f fakePoolAllocator) RestoreFinished() {}
 
 func (s *IPAMSuite) TestLock(c *C) {

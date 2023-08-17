@@ -39,5 +39,9 @@ func (n *noOpAllocator) Dump() (map[string]string, string) {
 	return nil, "delegated to plugin"
 }
 
+func (n *noOpAllocator) Capacity() uint64 {
+	return uint64(0)
+}
+
 func (n *noOpAllocator) RestoreFinished() {
 }
