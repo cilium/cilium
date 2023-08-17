@@ -315,7 +315,7 @@ Annotations:
   Upgrading from Cilium 1.14.x or earlier to 1.15.y or later does not
   trigger this problem. Downgrading from Cilium 1.15.y or later to Cilium
   1.14.x or earlier may trigger this problem.
-  
+
 .. _upgrade_cilium_cli_helm_mode:
 
 Cilium CLI
@@ -339,6 +339,11 @@ Helm Options
 * Values ``clustermesh.apiserver.tls.ca.cert`` and ``clustermesh.apiserver.tls.ca.key``
   were deprecated in Cilium 1.14 in favor of ``tls.ca.cert`` and ``tls.ca.key`` respectively,
   and have been removed. The ```clustermesh-apiserver-ca-cert`` secret is no longer generated.
+
+Added Metrics
+~~~~~~~~~~~~~
+
+* ``cilium_ipam_capacity``
 
 Changed Metrics
 ~~~~~~~~~~~~~~~

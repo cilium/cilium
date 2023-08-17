@@ -94,6 +94,7 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, pool Pool, needSyncUpstrea
 				return
 			}
 		}
+		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.IPv4Allocator.Capacity()))
 	} else {
 		family = IPv6
 		if ipam.IPv6Allocator == nil {
@@ -110,6 +111,7 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, pool Pool, needSyncUpstrea
 				return
 			}
 		}
+		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.IPv6Allocator.Capacity()))
 	}
 
 	// If the allocator did not populate the pool, we assume it does not
@@ -134,8 +136,10 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, pool Pool, nee
 	switch family {
 	case IPv6:
 		allocator = ipam.IPv6Allocator
+		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.IPv6Allocator.Capacity()))
 	case IPv4:
 		allocator = ipam.IPv4Allocator
+		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.IPv4Allocator.Capacity()))
 
 	default:
 		err = fmt.Errorf("unknown address \"%s\" family requested", family)
@@ -276,6 +280,7 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 		}
 
 		ipam.IPv4Allocator.Release(ip, pool)
+		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.IPv4Allocator.Capacity()))
 	} else {
 		family = IPv6
 		if ipam.IPv6Allocator == nil {
@@ -283,6 +288,7 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 		}
 
 		ipam.IPv6Allocator.Release(ip, pool)
+		metrics.IPAMCapacity.WithLabelValues(string(family)).Set(float64(ipam.IPv6Allocator.Capacity()))
 	}
 
 	owner := ipam.releaseIPOwner(ip, pool)
@@ -292,6 +298,7 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 	}).Debugf("Released IP")
 	delete(ipam.expirationTimers, ip.String())
 
+	metrics.IpamEvent.WithLabelValues(metricRelease, string(family)).Inc()
 	metrics.IpamEvent.WithLabelValues(metricRelease, string(family)).Inc()
 	return nil
 }

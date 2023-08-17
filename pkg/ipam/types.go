@@ -74,6 +74,10 @@ type Allocator interface {
 	// overall health information if available.
 	Dump() (map[string]string, string)
 
+	// Capacity returns the total IPAM allocator capacity (not the current
+	// available).
+	Capacity() uint64
+
 	// RestoreFinished marks the status of restoration as done
 	RestoreFinished()
 }

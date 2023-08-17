@@ -89,5 +89,9 @@ func (h *hostScopeAllocator) Dump() (map[string]string, string) {
 	return alloc, status
 }
 
+func (h *hostScopeAllocator) Capacity() uint64 {
+	return ip.CountIPsInCIDR(h.allocCIDR).Uint64()
+}
+
 // RestoreFinished marks the status of restoration as done
 func (h *hostScopeAllocator) RestoreFinished() {}

@@ -477,6 +477,7 @@ IPAM
 ======================================== ============================================ ========== ========================================================
 Name                                     Labels                                       Default    Description
 ======================================== ============================================ ========== ========================================================
+``ipam_capacity``                        ``family``                                   Enabled    Total number of IPs in the IPAM pool labeled by family
 ``ipam_events_total``                                                                 Enabled    Number of IPAM events received labeled by action and datapath family type
 ``ip_addresses``                         ``family``                                   Enabled    Number of allocated IP addresses
 ======================================== ============================================ ========== ========================================================
