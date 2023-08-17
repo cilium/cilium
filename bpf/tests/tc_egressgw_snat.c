@@ -191,6 +191,8 @@ int egressgw_skip_excluded_cidr_snat_check(const struct __ctx_buff *ctx)
 
 	test_init();
 
+	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32);
+
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -229,8 +231,6 @@ int egressgw_skip_excluded_cidr_snat_check(const struct __ctx_buff *ctx)
 
 	if (l4->dest != EXTERNAL_SVC_PORT)
 		test_fatal("dst port has changed");
-
-	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32);
 
 	test_finish();
 }
