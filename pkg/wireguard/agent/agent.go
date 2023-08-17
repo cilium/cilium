@@ -7,6 +7,7 @@
 package agent
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/clustermesh"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -271,7 +273,13 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.Configuration) erro
 	return nil
 }
 
-func (a *Agent) RestoreFinished() error {
+func (a *Agent) RestoreFinished(cm *clustermesh.ClusterMesh) error {
+	if cm != nil {
+		// Wait until we received the initial list of nodes from all remote clusters,
+		// otherwise we might remove valid peers and disrupt existing connections.
+		cm.NodesSynced(context.Background())
+	}
+
 	a.Lock()
 	defer a.Unlock()
 
