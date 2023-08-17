@@ -1702,9 +1702,11 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 	restoreComplete := d.initRestore(restoredEndpoints, params.EndpointRegenerator)
 
 	if params.WGAgent != nil {
-		if err := params.WGAgent.RestoreFinished(); err != nil {
-			log.WithError(err).Error("Failed to set up wireguard peers")
-		}
+		go func() {
+			if err := params.WGAgent.RestoreFinished(d.clustermesh); err != nil {
+				log.WithError(err).Error("Failed to set up wireguard peers")
+			}
+		}()
 	}
 
 	if d.endpointManager.HostEndpointExists() {
