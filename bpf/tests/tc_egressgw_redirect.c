@@ -83,7 +83,7 @@ PKTGEN("tc", "tc_egressgw_skip_excluded_cidr_redirect")
 int egressgw_skip_excluded_cidr_redirect_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
-			.test = TEST_REDIRECT,
+			.test = TEST_REDIRECT_EXCL_CIDR,
 		});
 }
 
