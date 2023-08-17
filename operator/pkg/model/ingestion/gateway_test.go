@@ -1533,6 +1533,50 @@ var rewritePathHTTPListeners = []model.HTTPListener{
 	},
 }
 
+var mirrorHTTPInput = Input{
+	GatewayClass: gatewayv1beta1.GatewayClass{},
+	Gateway:      sameNamespaceGateway,
+	HTTPRoutes:   mirrorPathHTTPRoutes,
+	Services:     allServices,
+}
+
+var mirrorHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{Prefix: "/mirror"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				RequestMirror: &model.HTTPRequestMirror{
+					Backend: &model.Backend{
+						Name:      "infra-backend-v2",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 func TestHTTPGatewayAPI(t *testing.T) {
 	tests := map[string]struct {
 		input Input
@@ -1601,6 +1645,10 @@ func TestHTTPGatewayAPI(t *testing.T) {
 		"Conformance/HTTPRouteRewritePath": {
 			input: rewritePathHTTPInput,
 			want:  rewritePathHTTPListeners,
+		},
+		"Conformance/HTTPRouteRequestMirror": {
+			input: mirrorHTTPInput,
+			want:  mirrorHTTPListeners,
 		},
 	}
 

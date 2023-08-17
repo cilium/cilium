@@ -171,3 +171,33 @@ func Test_pathPrefixMutation(t *testing.T) {
 		require.Equal(t, res.Route.PrefixRewrite, "/prefix")
 	})
 }
+
+func Test_requestMirrorMutation(t *testing.T) {
+	t.Run("no mirror", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		res := requestMirrorMutation(nil)(route)
+		require.Equal(t, route, res)
+	})
+
+	t.Run("with mirror", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		mirror := &model.HTTPRequestMirror{
+			Backend: &model.Backend{
+				Name:      "dummy-service",
+				Namespace: "default",
+				Port: &model.BackendPort{
+					Port: 8080,
+					Name: "http",
+				},
+			},
+		}
+
+		res := requestMirrorMutation(mirror)(route)
+		require.Len(t, res.Route.RequestMirrorPolicies, 1)
+		require.Equal(t, res.Route.RequestMirrorPolicies[0].Cluster, "default/dummy-service:8080")
+	})
+}

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -49,6 +50,11 @@ func TestConformance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error initializing Kubernetes client: %v", err)
 	}
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		t.Fatalf("Error initializing Kubernetes REST client: %v", err)
+	}
+
 	_ = v1alpha2.AddToScheme(c.Scheme())
 	_ = v1beta1.AddToScheme(c.Scheme())
 
@@ -62,6 +68,7 @@ func TestConformance(t *testing.T) {
 
 	cSuite := suite.New(suite.Options{
 		Client:               c,
+		Clientset:            clientset,
 		GatewayClassName:     *flags.GatewayClassName,
 		Debug:                *flags.ShowDebug,
 		CleanupBaseResources: *flags.CleanupBaseResources,

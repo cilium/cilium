@@ -246,7 +246,7 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 		if hRoutes[0].RequestRedirect != nil {
 			route.Action = getRouteRedirect(hRoutes[0].RequestRedirect, listenerPort)
 		} else {
-			route.Action = getRouteAction(backends, r.Rewrite)
+			route.Action = getRouteAction(backends, r.Rewrite, r.RequestMirror)
 		}
 		routes = append(routes, &route)
 		delete(matchBackendMap, r.GetMatchKey())
@@ -293,13 +293,28 @@ func pathFullReplaceMutation(rewrite *model.HTTPURLRewriteFilter) routeActionMut
 	}
 }
 
-func getRouteAction(backends []model.Backend, rewrite *model.HTTPURLRewriteFilter) *envoy_config_route_v3.Route_Route {
+func requestMirrorMutation(mirror *model.HTTPRequestMirror) routeActionMutation {
+	return func(route *envoy_config_route_v3.Route_Route) *envoy_config_route_v3.Route_Route {
+		if mirror == nil || mirror.Backend == nil {
+			return route
+		}
+		route.Route.RequestMirrorPolicies = []*envoy_config_route_v3.RouteAction_RequestMirrorPolicy{
+			{
+				Cluster: fmt.Sprintf("%s/%s:%s", mirror.Backend.Namespace, mirror.Backend.Name, mirror.Backend.Port.GetPort()),
+			},
+		}
+		return route
+	}
+}
+
+func getRouteAction(backends []model.Backend, rewrite *model.HTTPURLRewriteFilter, mirror *model.HTTPRequestMirror) *envoy_config_route_v3.Route_Route {
 	var routeAction *envoy_config_route_v3.Route_Route
 
 	var mutators = []routeActionMutation{
 		hostRewriteMutation(rewrite),
 		pathPrefixMutation(rewrite),
 		pathFullReplaceMutation(rewrite),
+		requestMirrorMutation(mirror),
 	}
 
 	if len(backends) == 1 {
