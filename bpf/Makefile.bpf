@@ -21,10 +21,7 @@ else
 LLC_FLAGS += -mcpu=v2
 endif
 
-# BUILD_PERMUTATIONS_DEP is a dummy file dependency that ensures all targets
-# are rebuilt when the 'build_all' target is run.
-BUILD_PERMUTATIONS_DEP := .rebuild_all
-LIB := $(shell find $(ROOT_DIR)/bpf -name '*.h') $(BUILD_PERMUTATIONS_DEP)
+LIB := $(shell find $(ROOT_DIR)/bpf -name '*.h')
 BPF_C := $(patsubst %.o,%.c,$(BPF))
 BPF_ASM := $(patsubst %.o,%.s,$(BPF))
 
@@ -45,10 +42,6 @@ endif
 # Define all at the top here so that Makefiles which include this one will hit
 # the 'all' target first (which we expect to be overridden by the includer).
 all:
-
-.PHONY: $(BUILD_PERMUTATIONS_DEP)
-$(BUILD_PERMUTATIONS_DEP):
-	@touch $(BUILD_PERMUTATIONS_DEP)
 
 force:
 

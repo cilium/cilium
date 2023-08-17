@@ -192,7 +192,6 @@ all: bpf_all
 bpf_all: $(BPF) subdirs
 
 build_all: force
-	@touch $(BUILD_PERMUTATIONS_DEP)
 	@$(ECHO_CHECK)/*.c BUILD_PERMUTATIONS=1
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) bpf_all BUILD_PERMUTATIONS=1
 
@@ -200,8 +199,6 @@ testdata:
 	${CLANG} ${FLAGS} --target=bpf -Wall -Werror \
 	-c ../pkg/alignchecker/testdata/bpf_foo.c \
 	-o ../pkg/alignchecker/testdata/bpf_foo.o
-
-BUILD_PERMUTATIONS ?= ""
 
 $(BPF_SIMPLE_LL): $(BPF_SIMPLE_C)
 	@$(ECHO_CC)
@@ -215,76 +212,59 @@ $(BPF_SIMPLE): $(BPF_SIMPLE_LL)
 null :=
 space := ${null} ${null}
 
-bpf_sock.ll: bpf_sock.c $(LIB)
-	$(QUIET) set -e; \
-	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
-		$(foreach OPTS,$(LB_OPTIONS), \
-			$(ECHO_CC) " [$(subst :,=1$(space),$(OPTS))]"; \
-			${CLANG} $(subst :,=1$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
-			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
-	fi
+ifneq ($(BUILD_PERMUTATIONS),)
+define PERMUTATION_template =
+$(1)::
+	@$$(ECHO_CC) " [$(subst :,=1$(space),$(2))]"
+	$$(QUIET) $${CLANG} $(subst :,=1$(space),$(2)) $${CLANG_FLAGS} -c $(patsubst %.ll,%.c,$(1)) -o- | $${LLC} $${LLC_FLAGS} -o /dev/null -
+endef
+endif
+
+bpf_sock.ll:: bpf_sock.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${MAX_LB_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+
+$(foreach OPTS,$(LB_OPTIONS),$(eval $(call PERMUTATION_template,bpf_sock.ll,$(OPTS))))
 
 bpf_sock.o: bpf_sock.ll
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
-bpf_overlay.ll: bpf_overlay.c $(LIB)
-	$(QUIET) set -e; \
-	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
-		$(foreach OPTS,$(LB_OPTIONS), \
-			$(ECHO_CC) " [$(subst :,=1$(space),$(OPTS)) -DENCAP_IFINDEX=1]"; \
-			${CLANG} $(subst :,=1$(space),$(OPTS)) -DENCAP_IFINDEX=1 ${CLANG_FLAGS} -c $< -o $@; \
-			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
-	fi
+bpf_overlay.ll:: bpf_overlay.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${MAX_OVERLAY_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+
+$(foreach OPTS,$(LB_OPTIONS),$(eval $(call PERMUTATION_template,bpf_overlay.ll,$(OPTS) -DENCAP_IFINDEX=1)))
 
 bpf_overlay.o: bpf_overlay.ll
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
-bpf_host.ll: bpf_host.c $(LIB)
-	$(QUIET) set -e; \
-	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
-		$(foreach OPTS,$(HOST_OPTIONS), \
-			$(ECHO_CC) " [$(subst :,=1$(space),$(OPTS))]"; \
-			${CLANG} $(subst :,=1$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
-			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
-	fi
+bpf_host.ll:: bpf_host.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${MAX_HOST_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+
+$(foreach OPTS,$(HOST_OPTIONS),$(eval $(call PERMUTATION_template,bpf_host.ll,$(OPTS) -DENCAP_IFINDEX=1)))
 
 bpf_host.o: bpf_host.ll
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
-bpf_xdp.ll: bpf_xdp.c $(LIB)
-	$(QUIET) set -e; \
-	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
-		$(foreach OPTS,$(XDP_OPTIONS), \
-			$(ECHO_CC) " [$(subst :,=1$(space),$(OPTS))]"; \
-			${CLANG} $(subst :,=1$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
-			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
-	fi
+bpf_xdp.ll:: bpf_xdp.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${MAX_XDP_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+
+$(foreach OPTS,$(XDP_OPTIONS),$(eval $(call PERMUTATION_template,bpf_xdp.ll,$(OPTS))))
 
 bpf_xdp.o: bpf_xdp.ll
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
-bpf_lxc.ll: bpf_lxc.c $(LIB)
-	$(QUIET) set -e; \
-	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
-		$(foreach OPTS,$(LXC_OPTIONS), \
-			$(ECHO_CC) " [$(subst :,=1$(space),$(OPTS))]"; \
-			${CLANG} $(subst :,=1$(space),$(OPTS)) ${CLANG_FLAGS} -c $< -o $@; \
-			${LLC} ${LLC_FLAGS} -o /dev/null $@; ) \
-	fi
+bpf_lxc.ll:: bpf_lxc.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${MAX_LXC_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
+
+$(foreach OPTS,$(LXC_OPTIONS),$(eval $(call PERMUTATION_template,bpf_lxc.ll,$(OPTS))))
 
 bpf_lxc.o: bpf_lxc.ll
 	@$(ECHO_CC)
