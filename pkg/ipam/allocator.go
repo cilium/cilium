@@ -127,7 +127,7 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, pool Pool, needSyncUpstrea
 	}).Debugf("Allocated specific IP")
 
 	ipam.registerIPOwner(ip, owner, pool)
-	metrics.IpamEvent.WithLabelValues(metricAllocate, string(family)).Inc()
+	metrics.IPAMEvent.WithLabelValues(metricAllocate, string(family)).Inc()
 	return
 }
 
@@ -181,7 +181,7 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, pool Pool, nee
 				"owner": owner,
 			}).Debugf("Allocated random IP")
 			ipam.registerIPOwner(result.IP, owner, pool)
-			metrics.IpamEvent.WithLabelValues(metricAllocate, string(family)).Inc()
+			metrics.IPAMEvent.WithLabelValues(metricAllocate, string(family)).Inc()
 			return
 		}
 
@@ -298,8 +298,8 @@ func (ipam *IPAM) releaseIPLocked(ip net.IP, pool Pool) error {
 	}).Debugf("Released IP")
 	delete(ipam.expirationTimers, ip.String())
 
-	metrics.IpamEvent.WithLabelValues(metricRelease, string(family)).Inc()
-	metrics.IpamEvent.WithLabelValues(metricRelease, string(family)).Inc()
+	metrics.IPAMEvent.WithLabelValues(metricRelease, string(family)).Inc()
+	metrics.IPAMEvent.WithLabelValues(metricRelease, string(family)).Inc()
 	return nil
 }
 

@@ -461,9 +461,9 @@ var (
 
 	// IPAM events
 
-	// IpamEvent is the number of IPAM events received labeled by action and
+	// IPAMEvent is the number of IPAM events received labeled by action and
 	// datapath family type
-	IpamEvent = NoOpCounterVec
+	IPAMEvent = NoOpCounterVec
 
 	// IPAMCapacity tracks the total number of IPs that could be allocated. To
 	// get the current number of available IPs, it would be this metric
@@ -618,7 +618,7 @@ type LegacyMetrics struct {
 	KubernetesAPICallsTotal          metric.Vec[metric.Counter]
 	KubernetesCNPStatusCompletion    metric.Vec[metric.Observer]
 	TerminatingEndpointsEvents       metric.Counter
-	IpamEvent                        metric.Vec[metric.Counter]
+	IPAMEvent                        metric.Vec[metric.Counter]
 	IPAMCapacity                     metric.Vec[metric.Gauge]
 	KVStoreOperationsDuration        metric.Vec[metric.Observer]
 	KVStoreEventsQueueDuration       metric.Vec[metric.Observer]
@@ -1035,7 +1035,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Number of terminating endpoint events received from Kubernetes",
 		}),
 
-		IpamEvent: metric.NewCounterVec(metric.CounterOpts{
+		IPAMEvent: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_ipam_events_total",
 			Namespace:  Namespace,
 			Name:       "ipam_events_total",
@@ -1336,7 +1336,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	KubernetesAPICallsTotal = lm.KubernetesAPICallsTotal
 	KubernetesCNPStatusCompletion = lm.KubernetesCNPStatusCompletion
 	TerminatingEndpointsEvents = lm.TerminatingEndpointsEvents
-	IpamEvent = lm.IpamEvent
+	IPAMEvent = lm.IPAMEvent
 	IPAMCapacity = lm.IPAMCapacity
 	KVStoreOperationsDuration = lm.KVStoreOperationsDuration
 	KVStoreEventsQueueDuration = lm.KVStoreEventsQueueDuration
