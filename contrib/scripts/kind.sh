@@ -169,10 +169,7 @@ if [ "${secondary_network_flag}" = true ]; then
       "${secondary_network}"
   fi
 
-  nodes=$(docker ps -a --filter label=io.x-k8s.kind.cluster=${cluster_name:-kind} --format {{.Names}})
-  for node in $nodes; do
-    docker network connect ${secondary_network} $node
-  done
+  kind get nodes --name kind | xargs -L1 docker network connect ${secondary_network}
 fi
 
 if [ "${xdp}" = true ]; then
