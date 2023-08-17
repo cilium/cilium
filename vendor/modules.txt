@@ -213,7 +213,7 @@ github.com/cilium/linters/timeafter
 # github.com/cilium/lumberjack/v2 v2.3.0
 ## explicit; go 1.13
 github.com/cilium/lumberjack/v2
-# github.com/cilium/proxy v0.0.0-20230717091635-46b594d97d19
+# github.com/cilium/proxy v0.0.0-20230816061101-bad30dbe3f4c
 ## explicit; go 1.20
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/contrib/envoy/extensions/filters/network/mysql_proxy/v3
@@ -230,6 +230,7 @@ github.com/cilium/proxy/go/envoy/config/overload/v3
 github.com/cilium/proxy/go/envoy/config/ratelimit/v3
 github.com/cilium/proxy/go/envoy/config/route/v3
 github.com/cilium/proxy/go/envoy/config/trace/v3
+github.com/cilium/proxy/go/envoy/extensions/access_loggers/wasm/v3
 github.com/cilium/proxy/go/envoy/extensions/clusters/dynamic_forward_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/common/dynamic_forward_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/common/ratelimit/v3
@@ -240,6 +241,7 @@ github.com/cilium/proxy/go/envoy/extensions/filters/http/local_ratelimit/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/ratelimit/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/http/set_metadata/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/http/wasm/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/connection_limit/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/ext_authz/v3
@@ -250,10 +252,13 @@ github.com/cilium/proxy/go/envoy/extensions/filters/network/ratelimit/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_cluster/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_dynamic_forward_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/network/wasm/v3
+github.com/cilium/proxy/go/envoy/extensions/stat_sinks/wasm/v3
 github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3
 github.com/cilium/proxy/go/envoy/extensions/upstreams/http/http/v3
 github.com/cilium/proxy/go/envoy/extensions/upstreams/http/tcp/v3
 github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3
+github.com/cilium/proxy/go/envoy/extensions/wasm/v3
 github.com/cilium/proxy/go/envoy/service/cluster/v3
 github.com/cilium/proxy/go/envoy/service/discovery/v3
 github.com/cilium/proxy/go/envoy/service/endpoint/v3
