@@ -20,11 +20,11 @@ import (
 // then io.EOF error is returned.
 func First[T any](ctx context.Context, src Observable[T]) (item T, err error) {
 	subCtx, cancel := context.WithCancel(ctx)
-	taken := uint32(0)
+	var taken atomic.Bool
 	errs := make(chan error)
 	src.Observe(subCtx,
 		func(x T) {
-			if !atomic.CompareAndSwapUint32(&taken, 0, 1) {
+			if !taken.CompareAndSwap(false, true) {
 				return
 			}
 			item = x
@@ -37,7 +37,7 @@ func First[T any](ctx context.Context, src Observable[T]) (item T, err error) {
 
 	err = <-errs
 
-	if atomic.LoadUint32(&taken) == 1 {
+	if taken.Load() {
 		// We got the item, ignore any error.
 		err = nil
 	} else if err == nil {
@@ -53,12 +53,12 @@ func First[T any](ctx context.Context, src Observable[T]) (item T, err error) {
 // io.EOF error is returned.
 func Last[T any](ctx context.Context, src Observable[T]) (item T, err error) {
 	errs := make(chan error)
-	taken := uint32(0)
+	var taken atomic.Bool
 	src.Observe(
 		ctx,
 		func(x T) {
 			item = x
-			atomic.StoreUint32(&taken, 1)
+			taken.Store(true)
 		},
 		func(err error) {
 			errs <- err
@@ -66,7 +66,7 @@ func Last[T any](ctx context.Context, src Observable[T]) (item T, err error) {
 		})
 
 	err = <-errs
-	if atomic.LoadUint32(&taken) == 1 {
+	if taken.Load() {
 		// We got the item, ignore any error.
 		err = nil
 	} else if err == nil {

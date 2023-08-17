@@ -103,7 +103,7 @@ func (s *MetalLBSpeaker) run(ctx context.Context) {
 		// previous to this iteration, we processed an event
 		// which indicates the speaker should yield. shut
 		// it down.
-		if s.shutdown > 0 { // atomic load not necessary, we are the only writer.
+		if s.shutdown.Load() {
 			l.Info("speaker shutting down.")
 			return
 		}

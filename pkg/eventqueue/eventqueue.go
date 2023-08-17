@@ -103,7 +103,7 @@ func (q *EventQueue) Enqueue(ev *Event) (<-chan interface{}, error) {
 	}
 
 	// Events can only be enqueued once.
-	if atomic.AddInt32(&ev.enqueued, 1) > 1 {
+	if !ev.enqueued.CompareAndSwap(false, true) {
 		return nil, fmt.Errorf("unable to Enqueue event; event has already had Enqueue called on it")
 	}
 
@@ -158,9 +158,8 @@ type Event struct {
 	// enqueued, dequeued, etc.
 	stats eventStatistics
 
-	// enqueued is an atomic boolean that specifies whether this event has
-	// been enqueued on an EventQueue.
-	enqueued int32
+	// enqueued specifies whether this event has been enqueued on an EventQueue.
+	enqueued atomic.Bool
 }
 
 type eventStatistics struct {

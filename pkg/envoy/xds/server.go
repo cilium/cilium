@@ -73,7 +73,7 @@ type Server struct {
 
 	// lastStreamID is the identifier of the last processed stream.
 	// It is incremented atomically when starting the handling of a new stream.
-	lastStreamID uint64
+	lastStreamID atomic.Uint64
 }
 
 // ResourceTypeConfiguration is the configuration of the XDS server for a
@@ -120,7 +120,7 @@ func getXDSRequestFields(req *envoy_service_discovery.DiscoveryRequest) logrus.F
 // HandleRequestStream receives and processes the requests from an xDS stream.
 func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, defaultTypeURL string) error {
 	// increment stream count
-	streamID := atomic.AddUint64(&s.lastStreamID, 1)
+	streamID := s.lastStreamID.Add(1)
 
 	reqStreamLog := log.WithField(logfields.XDSStreamID, streamID)
 
