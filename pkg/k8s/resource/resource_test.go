@@ -590,9 +590,9 @@ func TestResource_Retries(t *testing.T) {
 		fakeClient, cs = k8sClient.NewFakeClientset()
 	)
 
-	rateLimiterUsed := counter{}
+	var rateLimiterUsed atomic.Int64
 	rateLimiter := func() workqueue.RateLimiter {
-		rateLimiterUsed.Inc()
+		rateLimiterUsed.Add(1)
 		return workqueue.DefaultControllerRateLimiter()
 	}
 
@@ -618,7 +618,7 @@ func TestResource_Retries(t *testing.T) {
 		events := nodes.Events(ctx, resource.WithRateLimiter(rateLimiter()), resource.WithErrorHandler(RetryFiveTimes))
 		ev := <-events
 		assert.NoError(t, err)
-		assert.Equal(t, int64(1), rateLimiterUsed.Get())
+		assert.Equal(t, int64(1), rateLimiterUsed.Load())
 		ev.Done(nil)
 		cancel()
 		_, ok := <-events
@@ -630,12 +630,12 @@ func TestResource_Retries(t *testing.T) {
 		xs := nodes.Events(ctx, resource.WithErrorHandler(RetryFiveTimes))
 
 		expectedErr := errors.New("sync")
-		numRetries := counter{}
+		var numRetries atomic.Int64
 
 		for ev := range xs {
 			switch ev.Kind {
 			case resource.Sync:
-				numRetries.Inc()
+				numRetries.Add(1)
 				ev.Done(expectedErr)
 			case resource.Upsert:
 				ev.Done(nil)
@@ -644,7 +644,7 @@ func TestResource_Retries(t *testing.T) {
 			}
 		}
 
-		assert.Equal(t, int64(5), numRetries.Get(), "expected to see 5 retries for sync")
+		assert.Equal(t, int64(5), numRetries.Load(), "expected to see 5 retries for sync")
 	}
 
 	var node = &corev1.Node{
@@ -667,21 +667,21 @@ func TestResource_Retries(t *testing.T) {
 		xs := nodes.Events(ctx, resource.WithErrorHandler(RetryFiveTimes))
 
 		expectedErr := errors.New("update")
-		numRetries := counter{}
+		var numRetries atomic.Int64
 
 		for ev := range xs {
 			switch ev.Kind {
 			case resource.Sync:
 				ev.Done(nil)
 			case resource.Upsert:
-				numRetries.Inc()
+				numRetries.Add(1)
 				ev.Done(expectedErr)
 			case resource.Delete:
 				t.Fatalf("unexpected delete of %s", ev.Key)
 			}
 		}
 
-		assert.Equal(t, int64(5), numRetries.Get(), "expected to see 5 retries for update")
+		assert.Equal(t, int64(5), numRetries.Load(), "expected to see 5 retries for update")
 	}
 
 	// Test that delete events are retried
@@ -689,7 +689,7 @@ func TestResource_Retries(t *testing.T) {
 		xs := nodes.Events(ctx, resource.WithErrorHandler(RetryFiveTimes))
 
 		expectedErr := errors.New("delete")
-		numRetries := counter{}
+		var numRetries atomic.Int64
 
 		for ev := range xs {
 			switch ev.Kind {
@@ -701,12 +701,12 @@ func TestResource_Retries(t *testing.T) {
 					"", node.Name)
 				ev.Done(nil)
 			case resource.Delete:
-				numRetries.Inc()
+				numRetries.Add(1)
 				ev.Done(expectedErr)
 			}
 		}
 
-		assert.Equal(t, int64(5), numRetries.Get(), "expected to see 5 retries for delete")
+		assert.Equal(t, int64(5), numRetries.Load(), "expected to see 5 retries for delete")
 	}
 
 	err = hive.Stop(ctx)
@@ -918,13 +918,3 @@ var nodesResource = cell.Provide(
 		return resource.New[*corev1.Node](lc, lw)
 	},
 )
-
-type counter struct{ int64 }
-
-func (c *counter) Inc() {
-	atomic.AddInt64(&c.int64, 1)
-}
-
-func (c *counter) Get() int64 {
-	return atomic.LoadInt64(&c.int64)
-}
