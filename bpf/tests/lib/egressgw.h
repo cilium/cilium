@@ -40,6 +40,7 @@ static __always_inline __be16 client_port(enum egressgw_test t)
 	return CLIENT_PORT + (__be16)t;
 }
 
+#ifdef ENABLE_EGRESS_GATEWAY
 static __always_inline void add_egressgw_policy_entry(__be32 saddr, __be32 daddr, __u8 cidr,
 						      __be32 gateway_ip, __be32 egress_ip)
 {
@@ -67,6 +68,7 @@ static __always_inline void del_egressgw_policy_entry(__be32 saddr, __be32 daddr
 
 	map_delete_elem(&EGRESS_POLICY_MAP, &in_key);
 }
+#endif /* ENABLE_EGRESS_GATEWAY */
 
 #ifndef SKIP_POLICY_MAP
 static __always_inline void add_allow_all_egress_policy(void)
