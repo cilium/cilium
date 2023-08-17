@@ -144,9 +144,19 @@ type HTTPRouteRule struct {
 }
 
 func (t *HTTPRouteRule) GetBackendRefs() []gatewayv1beta1.BackendRef {
-	refs := []gatewayv1beta1.BackendRef{}
+	var refs []gatewayv1beta1.BackendRef
 	for _, backend := range t.Rule.BackendRefs {
 		refs = append(refs, backend.BackendRef)
+	}
+	for _, f := range t.Rule.Filters {
+		if f.Type == gatewayv1beta1.HTTPRouteFilterRequestMirror {
+			if f.RequestMirror == nil {
+				continue
+			}
+			refs = append(refs, gatewayv1beta1.BackendRef{
+				BackendObjectReference: f.RequestMirror.BackendRef,
+			})
+		}
 	}
 	return refs
 }

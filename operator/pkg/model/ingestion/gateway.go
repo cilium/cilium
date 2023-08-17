@@ -89,31 +89,28 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 				var responseHeaderFilter *model.HTTPHeaderFilter
 				var requestRedirectFilter *model.HTTPRequestRedirectFilter
 				var rewriteFilter *model.HTTPURLRewriteFilter
-				if len(rule.Filters) > 0 {
-					for _, f := range rule.Filters {
-						if f.Type == gatewayv1beta1.HTTPRouteFilterRequestHeaderModifier {
-							requestHeaderFilter = &model.HTTPHeaderFilter{
-								HeadersToAdd:    toHTTPHeaders(f.RequestHeaderModifier.Add),
-								HeadersToSet:    toHTTPHeaders(f.RequestHeaderModifier.Set),
-								HeadersToRemove: f.RequestHeaderModifier.Remove,
-							}
-						}
+				var requestMirror *model.HTTPRequestMirror
 
-						if f.Type == gatewayv1beta1.HTTPRouteFilterResponseHeaderModifier {
-							responseHeaderFilter = &model.HTTPHeaderFilter{
-								HeadersToAdd:    toHTTPHeaders(f.ResponseHeaderModifier.Add),
-								HeadersToSet:    toHTTPHeaders(f.ResponseHeaderModifier.Set),
-								HeadersToRemove: f.ResponseHeaderModifier.Remove,
-							}
+				for _, f := range rule.Filters {
+					switch f.Type {
+					case gatewayv1beta1.HTTPRouteFilterRequestHeaderModifier:
+						requestHeaderFilter = &model.HTTPHeaderFilter{
+							HeadersToAdd:    toHTTPHeaders(f.RequestHeaderModifier.Add),
+							HeadersToSet:    toHTTPHeaders(f.RequestHeaderModifier.Set),
+							HeadersToRemove: f.RequestHeaderModifier.Remove,
 						}
-
-						if f.Type == gatewayv1beta1.HTTPRouteFilterRequestRedirect {
-							requestRedirectFilter = toHTTPRequestRedirectFilter(f.RequestRedirect)
+					case gatewayv1beta1.HTTPRouteFilterResponseHeaderModifier:
+						responseHeaderFilter = &model.HTTPHeaderFilter{
+							HeadersToAdd:    toHTTPHeaders(f.ResponseHeaderModifier.Add),
+							HeadersToSet:    toHTTPHeaders(f.ResponseHeaderModifier.Set),
+							HeadersToRemove: f.ResponseHeaderModifier.Remove,
 						}
-
-						if f.Type == gatewayv1beta1.HTTPRouteFilterURLRewrite {
-							rewriteFilter = toHTTPRewriteFilter(f.URLRewrite)
-						}
+					case gatewayv1beta1.HTTPRouteFilterRequestRedirect:
+						requestRedirectFilter = toHTTPRequestRedirectFilter(f.RequestRedirect)
+					case gatewayv1beta1.HTTPRouteFilterURLRewrite:
+						rewriteFilter = toHTTPRewriteFilter(f.URLRewrite)
+					case gatewayv1beta1.HTTPRouteFilterRequestMirror:
+						requestMirror = toHTTPRequestMirror(f.RequestMirror, r.Namespace)
 					}
 				}
 
@@ -126,6 +123,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 						ResponseHeaderModifier: responseHeaderFilter,
 						RequestRedirect:        requestRedirectFilter,
 						Rewrite:                rewriteFilter,
+						RequestMirror:          requestMirror,
 					})
 				}
 
@@ -142,6 +140,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 						ResponseHeaderModifier: responseHeaderFilter,
 						RequestRedirect:        requestRedirectFilter,
 						Rewrite:                rewriteFilter,
+						RequestMirror:          requestMirror,
 					})
 				}
 			}
@@ -281,6 +280,12 @@ func toHTTPRewriteFilter(rewrite *gatewayv1beta1.HTTPURLRewriteFilter) *model.HT
 	}
 }
 
+func toHTTPRequestMirror(mirror *gatewayv1beta1.HTTPRequestMirrorFilter, ns string) *model.HTTPRequestMirror {
+	return &model.HTTPRequestMirror{
+		Backend: model.AddressOf(backendRefToModelBackend(mirror.BackendRef, ns)),
+	}
+}
+
 func toHostname(hostname *gatewayv1beta1.Hostname) string {
 	if hostname != nil {
 		return (string)(*hostname)
@@ -298,6 +303,12 @@ func serviceExists(svcName, svcNamespace string, services []corev1.Service) bool
 }
 
 func backendToModelBackend(be gatewayv1beta1.BackendRef, defaultNamespace string) model.Backend {
+	res := backendRefToModelBackend(be.BackendObjectReference, defaultNamespace)
+	res.Weight = be.Weight
+	return res
+}
+
+func backendRefToModelBackend(be gatewayv1beta1.BackendObjectReference, defaultNamespace string) model.Backend {
 	ns := helpers.NamespaceDerefOr(be.Namespace, defaultNamespace)
 	var port *model.BackendPort
 
@@ -311,7 +322,6 @@ func backendToModelBackend(be gatewayv1beta1.BackendRef, defaultNamespace string
 		Name:      string(be.Name),
 		Namespace: ns,
 		Port:      port,
-		Weight:    be.Weight,
 	}
 }
 
