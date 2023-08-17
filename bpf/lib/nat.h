@@ -1729,7 +1729,7 @@ snat_v6_rev_nat(struct __ctx_buff *ctx, const struct ipv6_nat_target *target,
 		__s8 *ext_err __maybe_unused)
 {
 	struct icmp6hdr icmp6hdr __align_stack_8;
-	struct ipv6_nat_entry *state;
+	struct ipv6_nat_entry *state = NULL;
 	struct ipv6_ct_tuple tuple = {};
 	__u32 off, inner_l3_off;
 	void *data, *data_end;
