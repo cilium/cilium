@@ -63,10 +63,14 @@ func (p *IPSecSuitePrivileged) TestInvalidLoadKeys(c *C) {
 
 func (p *IPSecSuitePrivileged) TestLoadKeys(c *C) {
 	keys := bytes.NewReader(keysDat)
-	_, _, err := loadIPSecKeys(keys)
+	_, spi, err := loadIPSecKeys(keys)
+	c.Assert(err, IsNil)
+	err = SetIPSecSPI(spi)
 	c.Assert(err, IsNil)
 	keys = bytes.NewReader(keysAeadDat)
-	_, _, err = loadIPSecKeys(keys)
+	_, spi, err = loadIPSecKeys(keys)
+	c.Assert(err, IsNil)
+	err = SetIPSecSPI(spi)
 	c.Assert(err, IsNil)
 }
 
