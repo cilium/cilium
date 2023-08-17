@@ -254,6 +254,11 @@ func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
 // given IP. It is optional (may be nil) and is propagated to the listeners.
 // k8sMeta contains Kubernetes-specific metadata such as pod namespace and pod
 // name belonging to the IP (may be nil).
+//
+// When deleting ipcache entries that were previously inserted via this
+// function, ensure that the corresponding delete occurs via Delete().
+//
+// Deprecated: Prefer UpsertLabels() instead.
 func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (namedPortsChanged bool, err error) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
@@ -526,6 +531,17 @@ func (ipc *IPCache) RemoveLabels(cidr netip.Prefix, lbls labels.Labels, resource
 // that must occur to associate the specified labels with the prefix, and push
 // any datapath updates necessary to implement the logic associated with the
 // metadata currently associated with the 'prefix'.
+//
+// Callers must arrange for RemoveIdentityOverride() to eventually be called
+// to reverse this operation if the underlying resource is removed.
+//
+// Use with caution: For most use cases, UpsertLabels() is a better API to
+// allow metadata to be associated with the prefix. This will delegate identity
+// resolution to the IPCache internally, which provides better compatibility
+// between various features that may use the IPCache to associate metadata with
+// the same netip prefixes. Using this API may cause feature incompatibilities
+// with users of other APIs such as UpsertLabels(), UpsertMetadata() and other
+// variations on inserting metadata into the IPCache.
 func (ipc *IPCache) OverrideIdentity(prefix netip.Prefix, identityLabels labels.Labels, src source.Source, resource ipcacheTypes.ResourceID) {
 	ipc.UpsertMetadata(prefix, src, resource, overrideIdentity(true), identityLabels)
 }
@@ -689,6 +705,8 @@ func (ipc *IPCache) DeleteOnMetadataMatch(IP string, source source.Source, names
 }
 
 // Delete removes the provided IP-to-security-identity mapping from the IPCache.
+//
+// Deprecated: Prefer RemoveLabels() or RemoveIdentity() instead.
 func (ipc *IPCache) Delete(IP string, source source.Source) (namedPortsChanged bool) {
 	ipc.mutex.Lock()
 	defer ipc.mutex.Unlock()
