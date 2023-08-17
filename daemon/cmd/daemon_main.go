@@ -994,8 +994,14 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	)
 	option.BindEnv(vp, option.HubbleMonitorEvents)
 
-	flags.StringSlice(option.HubbleRedact, []string{}, "List of Hubble redact options")
-	option.BindEnv(vp, option.HubbleRedact)
+	flags.Bool(option.HubbleRedactEnabled, defaults.HubbleRedactEnabled, "Hubble redact sensitive information from flows")
+	option.BindEnv(vp, option.HubbleRedactEnabled)
+
+	flags.Bool(option.HubbleRedactHttpURLQuery, defaults.HubbleRedactHttpURLQuery, "Hubble redact http URL query from flows")
+	option.BindEnv(vp, option.HubbleRedactHttpURLQuery)
+
+	flags.Bool(option.HubbleRedactKafkaApiKey, defaults.HubbleRedactKafkaApiKey, "Hubble redact Kafka API key from flows")
+	option.BindEnv(vp, option.HubbleRedactKafkaApiKey)
 
 	flags.StringSlice(option.DisableIptablesFeederRules, []string{}, "Chains to ignore when installing feeder rules.")
 	option.BindEnv(vp, option.DisableIptablesFeederRules)

@@ -1037,18 +1037,28 @@ hubble:
   # -- Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
 
-  # -- Configures the list of redact options for Hubble.
+  # -- Configures the redact options for Hubble.
   # Example:
   #
   #   redact:
-  #   - http-url-query
-  #   - kafka-api-key
+  #     enabled: true
+  #     http:
+  #       urlQuery: true
+  #     kafka:
+  #       apiKey: false
   #
-  # You can specify the list of options from the helm CLI:
+  # You can specify the options from the helm CLI:
   #
-  #   --set hubble.redact="{http-url-query,kafka-api-key}"
+  #   --set hubble.redact.enabled="true"
+  #   --set hubble.redact.http.urlQuery="true"
+  #   --set hubble.redact.kafka.apiKey="false"
   #
-  redact: ~
+  redact:
+    enabled: false
+    http:
+        urlQuery: false
+    kafka:
+        apiKey: false
 
   # -- An additional address for Hubble to listen to.
   # Set this field ":4244" if you are enabling Hubble Relay, as it assumes that

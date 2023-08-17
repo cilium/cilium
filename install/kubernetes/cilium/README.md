@@ -414,7 +414,7 @@ contributors across the globe, there is almost always someone available to help.
 | hubble.peerService.clusterDomain | string | `"cluster.local"` | The cluster domain to use to query the Hubble Peer service. It should be the local cluster. |
 | hubble.peerService.targetPort | int | `4244` | Target Port for the Peer service, must match the hubble.listenAddress' port. |
 | hubble.preferIpv6 | bool | `false` | Whether Hubble should prefer to announce IPv6 or IPv4 addresses if both are available. |
-| hubble.redact | string | `nil` | Configures the list of redact options for Hubble. Example:    redact:   - http-url-query   - kafka-api-key  You can specify the list of options from the helm CLI:    --set hubble.redact="{http-url-query,kafka-api-key}"  |
+| hubble.redact | object | `{"enabled":false,"http":{"urlQuery":false},"kafka":{"apiKey":false}}` | Configures the redact options for Hubble. Example:    redact:     enabled: true     http:       urlQuery: true     kafka:       apiKey: false  You can specify the options from the helm CLI:    --set hubble.redact.enabled="true"   --set hubble.redact.http.urlQuery="true"   --set hubble.redact.kafka.apiKey="false"  |
 | hubble.relay.affinity | object | `{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}` | Affinity for hubble-replay |
 | hubble.relay.dialTimeout | string | `nil` | Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s"). |
 | hubble.relay.enabled | bool | `false` | Enable Hubble Relay (requires hubble.enabled=true) |

@@ -866,9 +866,17 @@ data:
   enable-hubble-open-metrics: {{ .Values.hubble.metrics.enableOpenMetrics | quote }}
 {{- end }}
 {{- if .Values.hubble.redact }}
-  # A space separated list of redact options for Hubble.
-  hubble-redact: {{- range .Values.hubble.redact }}
-    {{.}}
+{{- if eq .Values.hubble.redact.enabled true }}
+  # Enables hubble redact capabilities
+  hubble-redact-enabled: "true"
+{{- if .Values.hubble.redact.http }}
+  # Enables redaction of the http URL query part in flows
+  hubble-redact-http-urlquery: {{ .Values.hubble.redact.http.urlQuery | quote }}
+{{- end }}
+{{- if .Values.hubble.redact.kafka }}
+  # Enables redaction of the Kafka API key part in flows
+  hubble-redact-kafka-apikey: {{ .Values.hubble.redact.kafka.apiKey | quote }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values.hubble "listenAddress" }}
