@@ -315,6 +315,10 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 				namespaceNamePortMap[be.Namespace] = namePortMap
 			}
 			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
+
+			if r.RequestMirror != nil && r.RequestMirror.Backend != nil {
+				mergeBackendsInNamespaceNamePortMap([]model.Backend{*r.RequestMirror.Backend}, namespaceNamePortMap)
+			}
 		}
 	}
 
@@ -334,6 +338,9 @@ func getNamespaceNamePortsMapForHTTP(m *model.Model) map[string]map[string][]str
 	for _, l := range m.HTTP {
 		for _, r := range l.Routes {
 			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
+			if r.RequestMirror != nil && r.RequestMirror.Backend != nil {
+				mergeBackendsInNamespaceNamePortMap([]model.Backend{*r.RequestMirror.Backend}, namespaceNamePortMap)
+			}
 		}
 	}
 	return namespaceNamePortMap
