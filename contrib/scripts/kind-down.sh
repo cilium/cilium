@@ -19,5 +19,5 @@ done
 
 docker network rm ${default_network}
 if docker network inspect "${secondary_network}" >/dev/null 2>&1; then
-  docker network rm ${secondary_network}
+    docker network rm ${secondary_network}
 fi
