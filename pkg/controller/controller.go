@@ -12,6 +12,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -64,6 +65,8 @@ type ControllerParams struct {
 	// The Group.Name must NOT be dynamically generated from a
 	// resource identifier in order to limit metrics cardinality.
 	Group Group
+
+	HealthReporter cell.HealthReporter
 
 	// DoFunc is the function that will be run until it succeeds and/or
 	// using the interval RunInterval if not 0.
@@ -265,7 +268,7 @@ func (c *controller) runController(params ControllerParams) {
 			switch err := err.(type) {
 			case ExitReason:
 				// This is actually not an error case, but it causes an exit
-				c.recordSuccess()
+				c.recordSuccess(params.HealthReporter)
 				c.lastError = err // This will be shown in the controller status
 
 				// Don't exit the goroutine, since that only happens when the
@@ -277,7 +280,7 @@ func (c *controller) runController(params ControllerParams) {
 			default:
 				c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
 					WithError(err).Debug("Controller run failed")
-				c.recordError(err)
+				c.recordError(err, params.HealthReporter)
 
 				if !params.NoErrorRetry {
 					if params.ErrorRetryBaseDuration != time.Duration(0) {
@@ -298,7 +301,7 @@ func (c *controller) runController(params ControllerParams) {
 				}
 			}
 		} else {
-			c.recordSuccess()
+			c.recordSuccess(params.HealthReporter)
 
 			// reset error retries after successful attempt
 			errorRetries = 1
@@ -343,7 +346,7 @@ shutdown:
 
 	if err := params.StopFunc(context.TODO()); err != nil {
 		c.mutex.Lock()
-		c.recordError(err)
+		c.recordError(err, params.HealthReporter)
 		c.mutex.Unlock()
 		c.getLogger().WithField(fieldConsecutiveErrors, errorRetries).
 			WithError(err).Warn("Error on Controller stop")
@@ -366,7 +369,10 @@ func (c *controller) getLogger() *logrus.Entry {
 
 // recordError updates all statistic collection variables on error
 // c.mutex must be held.
-func (c *controller) recordError(err error) {
+func (c *controller) recordError(err error, hr cell.HealthReporter) {
+	if hr != nil {
+		hr.Degraded(c.name, err)
+	}
 	c.lastError = err
 	c.lastErrorStamp = time.Now()
 	c.failureCount++
@@ -381,7 +387,11 @@ func (c *controller) recordError(err error) {
 
 // recordSuccess updates all statistic collection variables on success
 // c.mutex must be held.
-func (c *controller) recordSuccess() {
+func (c *controller) recordSuccess(hr cell.HealthReporter) {
+	if hr != nil {
+		hr.OK(c.name)
+	}
+
 	c.lastError = nil
 	c.lastSuccessStamp = time.Now()
 	c.successCount++
