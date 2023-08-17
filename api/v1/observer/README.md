@@ -145,6 +145,7 @@ GetDebugEventsResponse contains a Cilium datapath debug events.
 | since | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Since this time for returned flows. Incompatible with `number`. |
 | until | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Until this time for returned flows. Incompatible with `number`. |
 | experimental | [GetFlowsRequest.Experimental](#observer-GetFlowsRequest-Experimental) |  |  |
+| extensions | [google.protobuf.Any](#google-protobuf-Any) |  | extensions can be used to add arbitrary additional metadata to GetFlowsRequest. This can be used to extend functionality for other Hubble compatible APIs, or experiment with new functionality without needing to change the public API. |
 
 
 
