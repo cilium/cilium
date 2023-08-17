@@ -384,11 +384,11 @@ func TestRing_Read(t *testing.T) {
 			r := &Ring{
 				mask:      tt.fields.mask,
 				data:      tt.fields.data,
-				write:     tt.fields.write,
 				dataLen:   uint64(len(tt.fields.data)),
 				cycleExp:  tt.fields.cycleExp,
 				cycleMask: ^uint64(0) >> tt.fields.cycleExp,
 			}
+			r.write.Store(tt.fields.write)
 			got, got1 := r.read(tt.args.read)
 			if tt.want.GetLostEvent() != nil {
 				assert.NotNil(t, got)
@@ -479,16 +479,16 @@ func TestRing_Write(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &Ring{
-				mask:  tt.fields.len,
-				data:  tt.fields.data,
-				write: tt.fields.write,
+				mask: tt.fields.len,
+				data: tt.fields.data,
 			}
+			r.write.Store(tt.fields.write)
 			r.Write(tt.args.event)
 			want := &Ring{
-				mask:  tt.want.len,
-				data:  tt.want.data,
-				write: tt.want.write,
+				mask: tt.want.len,
+				data: tt.want.data,
 			}
+			want.write.Store(tt.want.write)
 			reflect.DeepEqual(want, r)
 		})
 	}
@@ -525,10 +525,10 @@ func TestRing_LastWriteParallel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &Ring{
-				mask:  tt.fields.len,
-				data:  tt.fields.data,
-				write: tt.fields.write,
+				mask: tt.fields.len,
+				data: tt.fields.data,
 			}
+			r.write.Store(tt.fields.write)
 			if got := r.LastWriteParallel(); got != tt.want {
 				t.Errorf("Ring.LastWriteParallel() = %v, want %v", got, tt.want)
 			}
@@ -567,10 +567,10 @@ func TestRing_LastWrite(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &Ring{
-				mask:  tt.fields.len,
-				data:  tt.fields.data,
-				write: tt.fields.write,
+				mask: tt.fields.len,
+				data: tt.fields.data,
 			}
+			r.write.Store(tt.fields.write)
 			if got := r.LastWrite(); got != tt.want {
 				t.Errorf("Ring.LastWrite() = %v, want %v", got, tt.want)
 			}

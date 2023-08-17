@@ -61,7 +61,7 @@ type LocalObserverServer struct {
 	startTime time.Time
 
 	// numObservedFlows counts how many flows have been observed
-	numObservedFlows uint64
+	numObservedFlows atomic.Uint64
 
 	namespaceManager NamespaceManager
 }
@@ -159,7 +159,7 @@ nextEvent:
 				}
 			}
 
-			atomic.AddUint64(&s.numObservedFlows, 1)
+			s.numObservedFlows.Add(1)
 		}
 
 		for _, f := range s.opts.OnDecodedEvent {
@@ -214,7 +214,7 @@ func (s *LocalObserverServer) ServerStatus(
 		Version:   build.ServerVersion.String(),
 		MaxFlows:  s.GetRingBuffer().Cap(),
 		NumFlows:  s.GetRingBuffer().Len(),
-		SeenFlows: atomic.LoadUint64(&s.numObservedFlows),
+		SeenFlows: s.numObservedFlows.Load(),
 		UptimeNs:  uint64(time.Since(s.startTime).Nanoseconds()),
 	}, nil
 }

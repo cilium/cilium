@@ -83,7 +83,7 @@ func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
 
 func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
 	repo := NewPolicyRepository(nil, nil, nil, nil)
-	repo.revision = 42
+	repo.revision.Store(42)
 	cache := repo.policyCache
 
 	identity1 := ep1.GetSecurityIdentity()

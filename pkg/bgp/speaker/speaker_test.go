@@ -314,9 +314,9 @@ func TestSpeakerOnUpdateNode(t *testing.T) {
 	// MockSession.Set
 	// MockMetalLBSpeaker.SetNodeLabels
 	// MockMetalLBSpeaker.PeerSession
-	var callCount int32
+	var callCount atomic.Int32
 	go func() {
-		for atomic.LoadInt32(&callCount) != 3 {
+		for callCount.Load() != 3 {
 			// should be a very short spin if tests are
 			// passing.
 		}
@@ -332,7 +332,7 @@ func TestSpeakerOnUpdateNode(t *testing.T) {
 			rr.Lock()
 			rr.advs = advs
 			rr.Unlock()
-			atomic.AddInt32(&callCount, 1)
+			callCount.Add(1)
 			return nil
 		},
 	}
@@ -346,11 +346,11 @@ func TestSpeakerOnUpdateNode(t *testing.T) {
 			rr.Lock()
 			rr.labels = labels
 			rr.Unlock()
-			atomic.AddInt32(&callCount, 1)
+			callCount.Add(1)
 			return types.SyncStateSuccess
 		},
 		GetBGPController_: func() *metallbspr.BGPController {
-			atomic.AddInt32(&callCount, 1)
+			callCount.Add(1)
 			return &metallbspr.BGPController{
 				SvcAds: make(map[string][]*metallbbgp.Advertisement),
 				Peers: []*metallbspr.Peer{
@@ -424,9 +424,9 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 	// the 2 calls we expect:
 	// MockSession.Set
 	// MockMetalLBSpeaker.PeerSession
-	var callCount int32
+	var callCount atomic.Int32
 	go func() {
-		for atomic.LoadInt32(&callCount) != 2 {
+		for callCount.Load() != 2 {
 			// should be a very short spin if tests are
 			// passing.
 		}
@@ -442,7 +442,7 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 			rr.Lock()
 			rr.advs = advs
 			rr.Unlock()
-			atomic.AddInt32(&callCount, 1)
+			callCount.Add(1)
 			return nil
 		},
 	}
@@ -451,7 +451,7 @@ func TestSpeakerOnDeleteNode(t *testing.T) {
 	// will return our mock session.
 	mock := &mock.MockMetalLBSpeaker{
 		PeerSession_: func() []metallbspr.Session {
-			atomic.AddInt32(&callCount, 1)
+			callCount.Add(1)
 			return []metallbspr.Session{mockSession}
 		},
 		GetBGPController_: func() *metallbspr.BGPController {

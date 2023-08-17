@@ -175,7 +175,7 @@ func (k *k8sNodeMock) Create(n *v2.CiliumNode) (*v2.CiliumNode, error) {
 }
 
 func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
-	var reSyncCalls int32
+	var reSyncCalls atomic.Int32
 	type fields struct {
 		k8sReSyncController *controller.Manager
 		k8sReSync           *trigger.Trigger
@@ -198,8 +198,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 		{
 			name: "test-1 - should release the v4 CIDR",
 			testSetup: func() *fields {
-				atomic.StoreInt32(&reSyncCalls, 0)
-				atomic.StoreInt32(&reSyncCalls, 0)
+				reSyncCalls.Store(0)
 				return &fields{
 					canAllocateNodes: true,
 					v4ClusterCIDRs: []cidralloc.CIDRAllocator{
@@ -221,7 +220,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 					},
 					ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{},
 					k8sReSync: mustNewTrigger(func() {
-						atomic.AddInt32(&reSyncCalls, 1)
+						reSyncCalls.Add(1)
 					}, time.Millisecond),
 				}
 			},
@@ -233,7 +232,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 						op: k8sOpDelete,
 					},
 				})
-				c.Assert(atomic.LoadInt32(&reSyncCalls), Equals, int32(1))
+				c.Assert(reSyncCalls.Load(), Equals, int32(1))
 			},
 			args: args{
 				node: &v2.CiliumNode{
@@ -246,7 +245,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 		{
 			name: "test-2 - should be a no op since the node is not allocated",
 			testSetup: func() *fields {
-				atomic.StoreInt32(&reSyncCalls, 0)
+				reSyncCalls.Store(0)
 				return &fields{
 					canAllocateNodes: true,
 					ciliumNodesToK8s: map[string]*ciliumNodeK8sOp{},
@@ -254,7 +253,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 			},
 			testPostRun: func(fields *fields) {
 				c.Assert(fields.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{})
-				c.Assert(atomic.LoadInt32(&reSyncCalls), Equals, int32(0))
+				c.Assert(reSyncCalls.Load(), Equals, int32(0))
 			},
 			args: args{
 				node: &v2.CiliumNode{
@@ -289,7 +288,7 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 }
 
 func (s *PodCIDRSuite) TestNodesPodCIDRManager_Resync(c *C) {
-	var reSyncCalls int32
+	var reSyncCalls atomic.Int32
 	type fields struct {
 		k8sReSync *trigger.Trigger
 	}
@@ -304,13 +303,13 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Resync(c *C) {
 			testSetup: func() *fields {
 				return &fields{
 					k8sReSync: mustNewTrigger(func() {
-						atomic.AddInt32(&reSyncCalls, 1)
+						reSyncCalls.Add(1)
 					}, time.Millisecond),
 				}
 			},
 			testPostRun: func(fields *fields) {
 				time.Sleep(2 * time.Millisecond)
-				c.Assert(atomic.LoadInt32(&reSyncCalls), Equals, int32(1))
+				c.Assert(reSyncCalls.Load(), Equals, int32(1))
 			},
 		},
 	}

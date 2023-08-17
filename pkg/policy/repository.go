@@ -114,7 +114,7 @@ type Repository struct {
 	// revision is the revision of the policy repository. It will be
 	// incremented whenever the policy repository is changed.
 	// Always positive (>0).
-	revision uint64
+	revision atomic.Uint64
 
 	// RepositoryChangeQueue is a queue which serializes changes to the policy
 	// repository.
@@ -190,11 +190,11 @@ func NewStoppedPolicyRepository(
 ) *Repository {
 	selectorCache := NewSelectorCache(idAllocator, idCache)
 	repo := &Repository{
-		revision:      1,
 		selectorCache: selectorCache,
 		certManager:   certManager,
 		secretManager: secretManager,
 	}
+	repo.revision.Store(1)
 	repo.policyCache = NewPolicyCache(repo, true)
 	return repo
 }
@@ -627,7 +627,7 @@ func (p *Repository) NumRules() int {
 
 // GetRevision returns the revision of the policy repository
 func (p *Repository) GetRevision() uint64 {
-	return atomic.LoadUint64(&p.revision)
+	return p.revision.Load()
 }
 
 // Empty returns 'true' if repository has no rules, 'false' otherwise.
@@ -674,7 +674,7 @@ func (p *Repository) TranslateRules(translator Translator) (*TranslationResult, 
 // BumpRevision allows forcing policy regeneration
 func (p *Repository) BumpRevision() {
 	metrics.PolicyRevision.Inc()
-	atomic.AddUint64(&p.revision, 1)
+	p.revision.Add(1)
 }
 
 // GetRulesList returns the current policy
