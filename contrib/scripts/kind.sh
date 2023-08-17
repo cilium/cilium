@@ -49,6 +49,8 @@ operator_port_prefix="${OPERATORPORTPREFIX:=${default_operator_port_prefix}}"
 
 bridge_dev="br-${default_network}"
 bridge_dev_secondary="${bridge_dev}2"
+v4_prefix_secondary="192.168.0.0/16"
+v4_range_secondary="192.168.0.0/24"
 v6_prefix="fc00:c111::/64"
 v6_prefix_secondary="fc00:c112::/64"
 CILIUM_ROOT="$(git rev-parse --show-toplevel)"
@@ -165,6 +167,8 @@ if [ "${secondary_network_flag}" = true ]; then
     docker network create -d=bridge \
       -o "com.docker.network.bridge.enable_ip_masquerade=false" \
       -o "com.docker.network.bridge.name=${bridge_dev_secondary}" \
+      --subnet "${v4_prefix_secondary}" \
+      --ip-range "${v4_range_secondary}" \
       --ipv6 --subnet "${v6_prefix_secondary}" \
       "${secondary_network}"
   fi
