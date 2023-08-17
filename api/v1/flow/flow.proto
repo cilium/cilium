@@ -3,6 +3,7 @@
 
 syntax = "proto3";
 
+import "google/protobuf/any.proto";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -114,6 +115,11 @@ message Flow {
     // duplicating logic from the old parser. This field will be removed once we
     // fully migrate to the new parser.
     string Summary = 100000 [deprecated=true];
+
+    // extensions can be used to add arbitrary additional metadata to flows.
+    // This can be used to extend functionality for other Hubble compatible
+    // APIs, or experiment with new functionality without needing to change the public API.
+    google.protobuf.Any extensions = 150000;
 }
 
 enum FlowType {
