@@ -82,13 +82,12 @@ parameters, API keys, and others.
    By default, Hubble does not redact potentially sensitive information
    present in `Layer 7 Hubble Flows <https://github.com/cilium/cilium/tree/master/api/v1/flow#flow-Layer7>`_.
 
-To harden security, Cilium provides the ``--hubble-redact`` option which
-accepts a comma-separated list of values that control how Hubble handles
-sensitive information present in Layer 7 flows. More specifically, it offers
-the following features and values for supported Layer 7 protocols:
+To harden security, Cilium provides the ``--hubble-redact-enabled`` option which
+enables Hubble to handle sensitive information present in Layer 7 flows.
+More specifically, it offers the following features for supported Layer 7 protocols:
 
-* For HTTP: redacting URL query (GET) parameters (``--hubble-redact=http-url-query``)
-* For Kafka: redacting API key (``--hubble-redact=kafka-api-key``)
+* For HTTP: redacting URL query (GET) parameters (``--hubble-redact-http-urlquery``)
+* For Kafka: redacting API key (``--hubble-redact-kafka-apikey``)
 
 For more information on configuring Cilium, see :ref:`Cilium Configuration <configuration>`.
 

@@ -132,6 +132,7 @@ allowlist
 amd
 ansible
 api
+apiKey
 apiKeys
 apiserver
 arithmetics
@@ -686,6 +687,7 @@ uprobes
 uptime
 uretprobes
 url
+urlQuery
 userspace
 uuid
 vCPU

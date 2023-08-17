@@ -66,7 +66,12 @@ func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, opts
 }
 
 func (p *Parser) httpSummary(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP, flow *flowpb.Flow) string {
-	httpRequest := fmt.Sprintf("%s %s", http.Method, http.URL)
+	uri, _ := url.Parse(http.URL.String())
+	if p.opts.RedactHTTPQuery {
+		uri.RawQuery = ""
+		uri.Fragment = ""
+	}
+	httpRequest := http.Method + " " + uri.String()
 	switch flowType {
 	case accesslog.TypeRequest:
 		return fmt.Sprintf("%s %s", http.Protocol, httpRequest)
