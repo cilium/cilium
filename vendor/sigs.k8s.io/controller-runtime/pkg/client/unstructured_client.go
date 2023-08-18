@@ -224,11 +224,11 @@ func (uc *unstructuredClient) List(ctx context.Context, obj ObjectList, opts ...
 
 func (uc *unstructuredClient) GetSubResource(ctx context.Context, obj, subResourceObj Object, subResource string, opts ...SubResourceGetOption) error {
 	if _, ok := obj.(runtime.Unstructured); !ok {
-		return fmt.Errorf("unstructured client did not understand object: %T", subResource)
+		return fmt.Errorf("unstructured client did not understand object: %T", obj)
 	}
 
 	if _, ok := subResourceObj.(runtime.Unstructured); !ok {
-		return fmt.Errorf("unstructured client did not understand object: %T", obj)
+		return fmt.Errorf("unstructured client did not understand object: %T", subResourceObj)
 	}
 
 	if subResourceObj.GetName() == "" {
@@ -255,11 +255,11 @@ func (uc *unstructuredClient) GetSubResource(ctx context.Context, obj, subResour
 
 func (uc *unstructuredClient) CreateSubResource(ctx context.Context, obj, subResourceObj Object, subResource string, opts ...SubResourceCreateOption) error {
 	if _, ok := obj.(runtime.Unstructured); !ok {
-		return fmt.Errorf("unstructured client did not understand object: %T", subResourceObj)
+		return fmt.Errorf("unstructured client did not understand object: %T", obj)
 	}
 
 	if _, ok := subResourceObj.(runtime.Unstructured); !ok {
-		return fmt.Errorf("unstructured client did not understand object: %T", obj)
+		return fmt.Errorf("unstructured client did not understand object: %T", subResourceObj)
 	}
 
 	if subResourceObj.GetName() == "" {

@@ -311,16 +311,16 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1b
 		return fmt.Errorf("load balancer status is not ready")
 	}
 
-	var addresses []gatewayv1beta1.GatewayAddress
+	var addresses []gatewayv1beta1.GatewayStatusAddress
 	for _, s := range svc.Status.LoadBalancer.Ingress {
 		if len(s.IP) != 0 {
-			addresses = append(addresses, gatewayv1beta1.GatewayAddress{
+			addresses = append(addresses, gatewayv1beta1.GatewayStatusAddress{
 				Type:  GatewayAddressTypePtr(gatewayv1beta1.IPAddressType),
 				Value: s.IP,
 			})
 		}
 		if len(s.Hostname) != 0 {
-			addresses = append(addresses, gatewayv1beta1.GatewayAddress{
+			addresses = append(addresses, gatewayv1beta1.GatewayStatusAddress{
 				Type:  GatewayAddressTypePtr(gatewayv1beta1.HostnameAddressType),
 				Value: s.Hostname,
 			})

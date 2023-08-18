@@ -39,10 +39,10 @@ var GatewayObservedGenerationBump = suite.ConformanceTest{
 	Description: "A Gateway in the gateway-conformance-infra namespace should update the observedGeneration in all of its Status.Conditions after an update to the spec",
 	Features: []suite.SupportedFeature{
 		suite.SupportGateway,
+		suite.SupportGatewayPort8080,
 	},
 	Manifests: []string{"tests/gateway-observed-generation-bump.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
-
 		gwNN := types.NamespacedName{Name: "gateway-observed-generation-bump", Namespace: "gateway-conformance-infra"}
 
 		t.Run("observedGeneration should increment", func(t *testing.T) {
@@ -52,12 +52,12 @@ var GatewayObservedGenerationBump = suite.ConformanceTest{
 			namespaces := []string{"gateway-conformance-infra"}
 			kubernetes.NamespacesMustBeReady(t, s.Client, s.TimeoutConfig, namespaces)
 
+			// Sanity check
+			kubernetes.GatewayMustHaveLatestConditions(t, s.Client, s.TimeoutConfig, gwNN)
+
 			original := &v1beta1.Gateway{}
 			err := s.Client.Get(ctx, gwNN, original)
 			require.NoErrorf(t, err, "error getting Gateway: %v", err)
-
-			// Sanity check
-			kubernetes.GatewayMustHaveLatestConditions(t, s.TimeoutConfig, original)
 
 			all := v1beta1.NamespacesFromAll
 
@@ -79,12 +79,12 @@ var GatewayObservedGenerationBump = suite.ConformanceTest{
 			// Ensure the generation and observedGeneration sync up
 			kubernetes.NamespacesMustBeReady(t, s.Client, s.TimeoutConfig, namespaces)
 
+			// Sanity check
+			kubernetes.GatewayMustHaveLatestConditions(t, s.Client, s.TimeoutConfig, gwNN)
+
 			updated := &v1beta1.Gateway{}
 			err = s.Client.Get(ctx, gwNN, updated)
 			require.NoErrorf(t, err, "error getting Gateway: %v", err)
-
-			// Sanity check
-			kubernetes.GatewayMustHaveLatestConditions(t, s.TimeoutConfig, updated)
 
 			require.NotEqual(t, original.Generation, updated.Generation, "generation should change after an update")
 		})

@@ -2,8 +2,8 @@
 # See the OWNERS_ALIASES file at https://github.com/kubernetes-sigs/gateway-api/blob/main/OWNERS_ALIASES for a list of members for each alias.
 
 approvers:
-  - sig-network-leads
-  - gateway-api-maintainers
+  - gateway-api-conformance-approvers
+  - gateway-api-mesh-leads
 
 reviewers:
   - gateway-api-conformance-reviewers

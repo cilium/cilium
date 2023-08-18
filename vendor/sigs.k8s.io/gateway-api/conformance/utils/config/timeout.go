@@ -51,6 +51,10 @@ type TimeoutConfig struct {
 	// Max value for conformant implementation: None
 	HTTPRouteMustHaveCondition time.Duration
 
+	// TLSRouteMustHaveCondition represents the maximum time for an TLSRoute to have the supplied Condition.
+	// Max value for conformant implementation: None
+	TLSRouteMustHaveCondition time.Duration
+
 	// RouteMustHaveParents represents the maximum time for an xRoute to have parents in status that match the expected parents.
 	// Max value for conformant implementation: None
 	RouteMustHaveParents time.Duration
@@ -95,6 +99,7 @@ func DefaultTimeoutConfig() TimeoutConfig {
 		GWCMustBeAccepted:              180 * time.Second,
 		HTTPRouteMustNotHaveParents:    60 * time.Second,
 		HTTPRouteMustHaveCondition:     60 * time.Second,
+		TLSRouteMustHaveCondition:      60 * time.Second,
 		RouteMustHaveParents:           60 * time.Second,
 		ManifestFetchTimeout:           10 * time.Second,
 		MaxTimeToConsistency:           30 * time.Second,
@@ -148,5 +153,8 @@ func SetupTimeoutConfig(timeoutConfig *TimeoutConfig) {
 	}
 	if timeoutConfig.LatestObservedGenerationSet == 0 {
 		timeoutConfig.LatestObservedGenerationSet = defaultTimeoutConfig.LatestObservedGenerationSet
+	}
+	if timeoutConfig.TLSRouteMustHaveCondition == 0 {
+		timeoutConfig.TLSRouteMustHaveCondition = defaultTimeoutConfig.TLSRouteMustHaveCondition
 	}
 }

@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 )
 
-func ExpectMirroredRequest(t *testing.T, client client.Client, clientset *clientset.Clientset, ns, mirrorPod, path string) {
+func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clientset.Interface, ns, mirrorPod, path string) {
 	if mirrorPod == "" {
 		t.Fatalf("MirroredTo wasn't provided in the testcase, this test should only check http request mirror.")
 	}
@@ -53,7 +53,6 @@ func ExpectMirroredRequest(t *testing.T, client client.Client, clientset *client
 			}
 		}
 		return mirrored
-
 	}, 60*time.Second, time.Second, "Mirrored request log wasn't found")
 
 	t.Log("Mirrored request log found")

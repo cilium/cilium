@@ -42,7 +42,7 @@ type MeshPod struct {
 	Name      string
 	Namespace string
 	Address   string
-	rc        *rest.RESTClient
+	rc        rest.Interface
 	rcfg      *rest.Config
 }
 
@@ -88,17 +88,6 @@ func makeRequest(r http.Request) []string {
 		args = append(args, "-H", fmt.Sprintf("%v: %v", k, v))
 	}
 	return args
-}
-
-func (m *MeshPod) SendRequest(t *testing.T, exp http.ExpectedResponse) {
-	resp, err := m.request(makeRequest(exp.Request))
-	if err != nil {
-		t.Fatalf("Got error: %v", err)
-	}
-	t.Logf("Got resp %v", resp)
-	if err := compareRequest(exp, resp); err != nil {
-		t.Fatalf("expectations failed: %v", err)
-	}
 }
 
 func compareRequest(exp http.ExpectedResponse, resp Response) error {
@@ -160,9 +149,10 @@ func (m *MeshPod) request(args []string) (Response, error) {
 }
 
 func ConnectToApp(t *testing.T, s *suite.ConformanceTestSuite, app MeshApplication) MeshPod {
-	// hardcoded, for now
-	ns := "gateway-conformance-mesh"
+	return ConnectToAppInNamespace(t, s, app, "gateway-conformance-mesh")
+}
 
+func ConnectToAppInNamespace(t *testing.T, s *suite.ConformanceTestSuite, app MeshApplication, ns string) MeshPod {
 	lbls, _ := klabels.Parse(string(app))
 
 	podsList := v1.PodList{}
@@ -181,7 +171,7 @@ func ConnectToApp(t *testing.T, s *suite.ConformanceTestSuite, app MeshApplicati
 		Name:      podName,
 		Namespace: podNamespace,
 		Address:   pod.Status.PodIP,
-		rc:        s.RESTClient,
+		rc:        s.Clientset.CoreV1().RESTClient(),
 		rcfg:      s.RestConfig,
 	}
 }
