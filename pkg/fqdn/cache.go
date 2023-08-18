@@ -80,6 +80,16 @@ func (s ipEntries) getIPs(now time.Time) []net.IP {
 	return ip.KeepUniqueIPs(ips) // sorts IPs
 }
 
+func (s ipEntries) getIPsUnsorted(now time.Time) []net.IP {
+	ips := make([]net.IP, 0, len(s)) // worst case size
+	for ip, entry := range s {
+		if entry != nil && !entry.isExpiredBy(now) {
+			ips = append(ips, net.ParseIP(ip))
+		}
+	}
+
+	return ips
+}
 // DNSCache manages DNS data that will expire after a certain TTL. Information
 // is tracked per-IP address, retaining the latest-expiring DNS data for each
 // address.
@@ -429,7 +439,7 @@ func (c *DNSCache) lookupByRegexpByTime(now time.Time, re *regexp.Regexp) (match
 
 	for name, entry := range c.forward {
 		if re.MatchString(name) {
-			if ips := entry.getIPs(now); len(ips) > 0 {
+			if ips := entry.getIPsUnsorted(now); len(ips) > 0 {
 				matches[name] = append(matches[name], ips...)
 			}
 		}
