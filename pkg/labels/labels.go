@@ -448,6 +448,15 @@ func (l Labels) Remove(from Labels) Labels {
 	return result
 }
 
+func (l Label) formatForKVStoreInto(buf *bytes.Buffer) {
+	buf.WriteString(l.Source)
+	buf.WriteRune(':')
+	buf.WriteString(l.Key)
+	buf.WriteRune('=')
+	buf.WriteString(l.Value)
+	buf.WriteRune(';')
+}
+
 // FormatForKVStore returns the label as a formatted string, ending in
 // a semicolon
 //
@@ -483,10 +492,10 @@ func (l Labels) SortedList() []byte {
 	}
 	sort.Strings(keys)
 
-	b := make([]byte, 0, len(keys)*2)
+	b := make([]byte, 0, len(keys)*50)
 	buf := bytes.NewBuffer(b)
 	for _, k := range keys {
-		buf.Write(l[k].FormatForKVStore())
+		l[k].formatForKVStoreInto(buf)
 	}
 
 	return buf.Bytes()
