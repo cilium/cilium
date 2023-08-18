@@ -6,7 +6,7 @@ package dnsproxy
 import (
 	"net"
 
-	"github.com/miekg/dns"
+	"github.com/cilium/dns"
 )
 
 type noopSessionUDPFactory struct{}
