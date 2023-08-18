@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/policy/correlation"
 )
 
 // Parser is a parser for L3/L4 payloads
@@ -217,6 +218,10 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.Interface = p.decodeNetworkInterface(tn, dbg)
 	decoded.ProxyPort = decodeProxyPort(dbg, tn)
 	decoded.Summary = summary
+
+	if p.endpointGetter != nil {
+		correlation.CorrelatePolicy(p.endpointGetter, decoded)
+	}
 
 	return nil
 }

@@ -12,11 +12,13 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -26,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
@@ -34,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var log *logrus.Logger
@@ -363,17 +367,50 @@ func TestDecodeDropNotify(t *testing.T) {
 }
 
 func TestDecodePolicyVerdictNotify(t *testing.T) {
-	var remoteLabel identity.NumericIdentity = 123
+	localIP := "1.2.3.4"
+	localID := uint64(1234)
+	remoteIP := "5.6.7.8"
+	remoteID := uint64(5678)
+	dstPort := uint32(443)
+
 	identityGetter := &testutils.FakeIdentityGetter{
 		OnGetIdentity: func(securityIdentity uint32) (*identity.Identity, error) {
-			if securityIdentity == uint32(remoteLabel) {
-				return &identity.Identity{Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label"})}, nil
+			if securityIdentity == uint32(remoteID) {
+				return &identity.Identity{ID: identity.NumericIdentity(remoteID), Labels: labels.NewLabelsFromModel([]string{"k8s:dst=label"})}, nil
 			}
 			return nil, fmt.Errorf("identity not found for %d", securityIdentity)
 		},
 	}
 
-	parser, err := New(log, &testutils.NoopEndpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter)
+	policyLabel := utils.GetPolicyLabels("foo-namespace", "web-policy", "1234-5678", utils.ResourceTypeCiliumNetworkPolicy)
+	policyKey := policy.Key{
+		Identity:         uint32(remoteID),
+		DestPort:         uint16(dstPort),
+		Nexthdr:          uint8(u8proto.TCP),
+		TrafficDirection: trafficdirection.Egress.Uint8(),
+	}
+	ep := &testutils.FakeEndpointInfo{
+		ID:           localID,
+		Identity:     identity.NumericIdentity(localID),
+		IPv4:         net.ParseIP(localIP),
+		PodName:      "xwing",
+		PodNamespace: "default",
+		Labels:       []string{"a", "b", "c"},
+		PolicyMap: map[policy.Key]labels.LabelArrayList{
+			policyKey: {policyLabel},
+		},
+		PolicyRevision: 1,
+	}
+	endpointGetter := &testutils.FakeEndpointGetter{
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint v1.EndpointInfo, ok bool) {
+			if ip == netip.MustParseAddr(localIP) {
+				return ep, true
+			}
+			return nil, false
+		},
+	}
+
+	parser, err := New(log, endpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, &testutils.NoopLinkGetter)
 	require.NoError(t, err)
 
 	// PolicyVerdictNotify for forwarded flow
@@ -384,10 +421,24 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 		Type:        byte(monitorAPI.MessageTypePolicyVerdict),
 		SubType:     0,
 		Flags:       flags,
-		RemoteLabel: remoteLabel,
+		RemoteLabel: identity.NumericIdentity(remoteID),
 		Verdict:     0, // CTX_ACT_OK
+		Source:      uint16(localID),
 	}
-	data, err := testutils.CreateL3L4Payload(pvn)
+	eth := layers.Ethernet{
+		EthernetType: layers.EthernetTypeIPv4,
+		SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+		DstMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+	}
+	ip := layers.IPv4{
+		SrcIP:    net.ParseIP(localIP),
+		DstIP:    net.ParseIP(remoteIP),
+		Protocol: layers.IPProtocolTCP,
+	}
+	tcp := layers.TCP{
+		DstPort: layers.TCPPort(dstPort),
+	}
+	data, err := testutils.CreateL3L4Payload(pvn, &eth, &ip, &tcp)
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
@@ -400,13 +451,30 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
 	assert.Equal(t, []string{"k8s:dst=label"}, f.GetDestination().GetLabels())
 
+	expectedPolicy := []*flowpb.Policy{
+		{
+			Name:      "web-policy",
+			Namespace: "foo-namespace",
+			Labels: []string{
+				"k8s:io.cilium.k8s.policy.derived-from=CiliumNetworkPolicy",
+				"k8s:io.cilium.k8s.policy.name=web-policy",
+				"k8s:io.cilium.k8s.policy.namespace=foo-namespace",
+				"k8s:io.cilium.k8s.policy.uid=1234-5678",
+			},
+			Revision: 1,
+		},
+	}
+	if diff := cmp.Diff(expectedPolicy, f.GetEgressAllowedBy(), protocmp.Transform()); diff != "" {
+		t.Errorf("not equal (-want +got):\n%s", diff)
+	}
+
 	// PolicyVerdictNotify for dropped flow
 	flags = monitorAPI.PolicyIngress
 	pvn = monitor.PolicyVerdictNotify{
 		Type:        byte(monitorAPI.MessageTypePolicyVerdict),
 		SubType:     0,
 		Flags:       flags,
-		RemoteLabel: remoteLabel,
+		RemoteLabel: identity.NumericIdentity(remoteID),
 		Verdict:     -151, // drop reason: Stale or unroutable IP
 	}
 	data, err = testutils.CreateL3L4Payload(pvn)
@@ -485,13 +553,6 @@ func TestDecodeTrafficDirection(t *testing.T) {
 		return trafficdirection.Invalid
 	}
 
-	type policyGetter interface {
-		GetRealizedPolicyRuleLabelsForKey(key policy.Key) (
-			derivedFrom labels.LabelArrayList,
-			revision uint64,
-			ok bool,
-		)
-	}
 	policyLabel := labels.LabelArrayList{labels.ParseLabelArray("foo=bar")}
 	policyKey := policy.Key{
 		Identity:         remoteID,
@@ -633,7 +694,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 
 	ep, ok := endpointGetter.GetEndpointInfo(netip.MustParseAddr(localIP))
 	assert.Equal(t, true, ok)
-	lbls, rev, ok := ep.(policyGetter).GetRealizedPolicyRuleLabelsForKey(policy.Key{
+	lbls, rev, ok := ep.GetRealizedPolicyRuleLabelsForKey(policy.Key{
 		Identity:         f.GetDestination().GetIdentity(),
 		TrafficDirection: directionFromProto(f.GetTrafficDirection()).Uint8(),
 	})

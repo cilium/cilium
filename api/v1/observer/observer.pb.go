@@ -342,6 +342,7 @@ type UDP = flow.UDP
 type SCTP = flow.SCTP
 type ICMPv4 = flow.ICMPv4
 type ICMPv6 = flow.ICMPv6
+type Policy = flow.Policy
 type EventTypeFilter = flow.EventTypeFilter
 type CiliumEventType = flow.CiliumEventType
 type FlowFilter = flow.FlowFilter

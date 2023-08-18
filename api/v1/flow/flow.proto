@@ -120,6 +120,11 @@ message Flow {
     // This can be used to extend functionality for other Hubble compatible
     // APIs, or experiment with new functionality without needing to change the public API.
     google.protobuf.Any extensions = 150000;
+
+    // The CiliumNetworkPolicies allowing the egress of the flow.
+    repeated Policy egress_allowed_by = 21001;
+    // The CiliumNetworkPolicies allowing the ingress of the flow.
+    repeated Policy ingress_allowed_by = 21002;
 }
 
 enum FlowType {
@@ -420,6 +425,13 @@ enum DebugCapturePoint {
     DBG_CAPTURE_PROXY_POST = 9;
     DBG_CAPTURE_SNAT_PRE = 10;
     DBG_CAPTURE_SNAT_POST = 11;
+}
+
+message Policy {
+	string name = 1;
+	string namespace = 2;
+	repeated string labels = 3;
+	uint64 revision = 4;
 }
 
 // EventTypeFilter is a filter describing a particular event type
