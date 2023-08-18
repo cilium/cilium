@@ -28,7 +28,7 @@ import (
 
 // DumpEchoLogs returns logs of the echoserver pod in
 // in the given namespace and with the given name.
-func DumpEchoLogs(ns, name string, c client.Client, cs *clientset.Clientset) ([][]byte, error) {
+func DumpEchoLogs(ns, name string, c client.Client, cs clientset.Interface) ([][]byte, error) {
 	var logs [][]byte
 
 	pods := new(corev1.PodList)

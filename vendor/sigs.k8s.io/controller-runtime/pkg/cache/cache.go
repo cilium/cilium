@@ -236,6 +236,11 @@ func New(config *rest.Config, opts Options) (Cache, error) {
 }
 
 func defaultOpts(config *rest.Config, opts Options) (Options, error) {
+	config = rest.CopyConfig(config)
+	if config.UserAgent == "" {
+		config.UserAgent = rest.DefaultKubernetesUserAgent()
+	}
+
 	logger := log.WithName("setup")
 
 	// Use the rest HTTP client for the provided config if unset

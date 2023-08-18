@@ -118,9 +118,9 @@ require (
 	k8s.io/code-generator v0.28.0-rc.0
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2
-	sigs.k8s.io/controller-runtime v0.15.0
-	sigs.k8s.io/controller-tools v0.11.4
-	sigs.k8s.io/gateway-api v0.7.1
+	sigs.k8s.io/controller-runtime v0.15.1
+	sigs.k8s.io/controller-tools v0.12.1
+	sigs.k8s.io/gateway-api v0.8.0-rc1
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -161,7 +161,7 @@ require (
 	github.com/emicklei/go-restful/v3 v3.10.2 // indirect
 	github.com/envoyproxy/protoc-gen-validate v0.10.1 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
-	github.com/fatih/color v1.14.1 // indirect
+	github.com/fatih/color v1.15.0 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/go-kit/kit v0.12.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
@@ -172,7 +172,7 @@ require (
 	github.com/go-openapi/analysis v0.21.4 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
-	github.com/gobuffalo/flect v0.3.0 // indirect
+	github.com/gobuffalo/flect v1.0.2 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/google/cel-go v0.16.0 // indirect

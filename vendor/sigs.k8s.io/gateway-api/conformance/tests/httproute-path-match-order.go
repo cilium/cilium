@@ -45,31 +45,32 @@ var HTTPRoutePathMatchOrder = suite.ConformanceTest{
 		gwAddr := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
 		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
-		testCases := []http.ExpectedResponse{{
-			Request:   http.Request{Path: "/match/exact/one"},
-			Backend:   "infra-backend-v3",
-			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/match/exact"},
-			Backend:   "infra-backend-v2",
-			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/match"},
-			Backend:   "infra-backend-v1",
-			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/match/prefix/one/any"},
-			Backend:   "infra-backend-v2",
-			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/match/prefix/any"},
-			Backend:   "infra-backend-v1",
-			Namespace: ns,
-		}, {
-			Request:   http.Request{Path: "/match/any"},
-			Backend:   "infra-backend-v3",
-			Namespace: ns,
-		},
+		testCases := []http.ExpectedResponse{
+			{
+				Request:   http.Request{Path: "/match/exact/one"},
+				Backend:   "infra-backend-v3",
+				Namespace: ns,
+			}, {
+				Request:   http.Request{Path: "/match/exact"},
+				Backend:   "infra-backend-v2",
+				Namespace: ns,
+			}, {
+				Request:   http.Request{Path: "/match"},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
+			}, {
+				Request:   http.Request{Path: "/match/prefix/one/any"},
+				Backend:   "infra-backend-v2",
+				Namespace: ns,
+			}, {
+				Request:   http.Request{Path: "/match/prefix/any"},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
+			}, {
+				Request:   http.Request{Path: "/match/any"},
+				Backend:   "infra-backend-v3",
+				Namespace: ns,
+			},
 		}
 
 		for i := range testCases {

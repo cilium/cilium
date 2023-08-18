@@ -18,6 +18,7 @@ package suite
 
 import (
 	"embed"
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -35,7 +36,7 @@ import (
 // conformance tests.
 type ConformanceTestSuite struct {
 	Client            client.Client
-	Clientset         *clientset.Clientset
+	Clientset         clientset.Interface
 	RESTClient        *rest.RESTClient
 	RestConfig        *rest.Config
 	RoundTripper      roundtripper.RoundTripper
@@ -55,8 +56,7 @@ type ConformanceTestSuite struct {
 // Options can be used to initialize a ConformanceTestSuite.
 type Options struct {
 	Client           client.Client
-	Clientset        *clientset.Clientset
-	RESTClient       *rest.RESTClient
+	Clientset        clientset.Interface
 	RestConfig       *rest.Config
 	GatewayClassName string
 	Debug            bool
@@ -88,11 +88,12 @@ func New(s Options) *ConformanceTestSuite {
 		roundTripper = &roundtripper.DefaultRoundTripper{Debug: s.Debug, TimeoutConfig: s.TimeoutConfig}
 	}
 
-	if s.EnableAllSupportedFeatures == true {
+	switch {
+	case s.EnableAllSupportedFeatures == true:
 		s.SupportedFeatures = AllFeatures
-	} else if s.SupportedFeatures == nil {
+	case s.SupportedFeatures == nil:
 		s.SupportedFeatures = StandardCoreFeatures
-	} else {
+	default:
 		for feature := range StandardCoreFeatures {
 			s.SupportedFeatures.Insert(feature)
 		}
@@ -109,7 +110,6 @@ func New(s Options) *ConformanceTestSuite {
 	suite := &ConformanceTestSuite{
 		Client:           s.Client,
 		Clientset:        s.Clientset,
-		RESTClient:       s.RESTClient,
 		RestConfig:       s.RestConfig,
 		RoundTripper:     roundTripper,
 		GatewayClassName: s.GatewayClassName,
@@ -140,14 +140,15 @@ func New(s Options) *ConformanceTestSuite {
 // Setup ensures the base resources required for conformance tests are installed
 // in the cluster. It also ensures that all relevant resources are ready.
 func (suite *ConformanceTestSuite) Setup(t *testing.T) {
-	t.Logf("Test Setup: Ensuring GatewayClass has been accepted")
-	suite.ControllerName = kubernetes.GWCMustHaveAcceptedConditionTrue(t, suite.Client, suite.TimeoutConfig, suite.GatewayClassName)
-
-	suite.Applier.GatewayClass = suite.GatewayClassName
-	suite.Applier.ControllerName = suite.ControllerName
 	suite.Applier.FS = suite.FS
 
 	if suite.SupportedFeatures.Has(SupportGateway) {
+		t.Logf("Test Setup: Ensuring GatewayClass has been accepted")
+		suite.ControllerName = kubernetes.GWCMustHaveAcceptedConditionTrue(t, suite.Client, suite.TimeoutConfig, suite.GatewayClassName)
+
+		suite.Applier.GatewayClass = suite.GatewayClassName
+		suite.Applier.ControllerName = suite.ControllerName
+
 		t.Logf("Test Setup: Applying base manifests")
 		suite.Applier.MustApplyWithCleanup(t, suite.Client, suite.TimeoutConfig, suite.BaseManifests, suite.Cleanup)
 
@@ -157,6 +158,8 @@ func (suite *ConformanceTestSuite) Setup(t *testing.T) {
 		secret = kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-infra", "tls-validity-checks-certificate", []string{"*", "*.org"})
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
 		secret = kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-infra", "tls-passthrough-checks-certificate", []string{"abc.example.com"})
+		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
+		secret = kubernetes.MustCreateSelfSignedCertSecret(t, "gateway-conformance-app-backend", "tls-passthrough-checks-certificate", []string{"abc.example.com"})
 		suite.Applier.MustApplyObjectsWithCleanup(t, suite.Client, suite.TimeoutConfig, []client.Object{secret}, suite.Cleanup)
 
 		t.Logf("Test Setup: Ensuring Gateways and Pods from base manifests are ready")
@@ -170,9 +173,10 @@ func (suite *ConformanceTestSuite) Setup(t *testing.T) {
 	if suite.SupportedFeatures.Has(SupportMesh) {
 		t.Logf("Test Setup: Applying base manifests")
 		suite.Applier.MustApplyWithCleanup(t, suite.Client, suite.TimeoutConfig, suite.MeshManifests, suite.Cleanup)
-		t.Logf("Test Setup: Ensuring Gateways and Pods from base manifests are ready")
+		t.Logf("Test Setup: Ensuring Gateways and Pods from mesh manifests are ready")
 		namespaces := []string{
 			"gateway-conformance-mesh",
+			"gateway-conformance-mesh-consumer",
 			"gateway-conformance-app-backend",
 			"gateway-conformance-web-backend",
 		}
@@ -217,8 +221,7 @@ func (test *ConformanceTest) Run(t *testing.T, suite *ConformanceTestSuite) {
 
 	// check that the test should not be skipped
 	if suite.SkipTests.Has(test.ShortName) {
-		t.Logf("Skipping %s", test.ShortName)
-		return
+		t.Skipf("Skipping %s: test explicitly skipped", test.ShortName)
 	}
 
 	for _, manifestLocation := range test.Manifests {
@@ -227,4 +230,42 @@ func (test *ConformanceTest) Run(t *testing.T, suite *ConformanceTestSuite) {
 	}
 
 	test.Test(t, suite)
+}
+
+// ParseSupportedFeatures parses flag arguments and converts the string to
+// sets.Set[suite.SupportedFeature]
+func ParseSupportedFeatures(f string) sets.Set[SupportedFeature] {
+	if f == "" {
+		return nil
+	}
+	res := sets.Set[SupportedFeature]{}
+	for _, value := range strings.Split(f, ",") {
+		res.Insert(SupportedFeature(value))
+	}
+	return res
+}
+
+// ParseNamespaceLables parses flag arguments and converts the string to
+// map[string]string containing label key/value pairs.
+func ParseNamespaceLabels(f string) map[string]string {
+	if f == "" {
+		return nil
+	}
+	res := map[string]string{}
+	for _, kv := range strings.Split(f, ",") {
+		parts := strings.Split(kv, "=")
+		if len(parts) == 2 {
+			res[parts[0]] = parts[1]
+		}
+	}
+	return res
+}
+
+// ParseSkipTests parses flag arguments and converts the string to
+// []string containing the tests to be skipped.
+func ParseSkipTests(t string) []string {
+	if t == "" {
+		return nil
+	}
+	return strings.Split(t, ",")
 }

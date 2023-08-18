@@ -513,8 +513,15 @@ type MatchingLabels map[string]string
 // ApplyToList applies this configuration to the given list options.
 func (m MatchingLabels) ApplyToList(opts *ListOptions) {
 	// TODO(directxman12): can we avoid reserializing this over and over?
-	sel := labels.SelectorFromValidatedSet(map[string]string(m))
-	opts.LabelSelector = sel
+	if opts.LabelSelector == nil {
+		opts.LabelSelector = labels.NewSelector()
+	}
+	// If there's already a selector, we need to AND the two together.
+	noValidSel := labels.SelectorFromValidatedSet(map[string]string(m))
+	reqs, _ := noValidSel.Requirements()
+	for _, req := range reqs {
+		opts.LabelSelector = opts.LabelSelector.Add(req)
+	}
 }
 
 // ApplyToDeleteAllOf applies this configuration to the given an List options.
@@ -528,14 +535,17 @@ type HasLabels []string
 
 // ApplyToList applies this configuration to the given list options.
 func (m HasLabels) ApplyToList(opts *ListOptions) {
-	sel := labels.NewSelector()
+	if opts.LabelSelector == nil {
+		opts.LabelSelector = labels.NewSelector()
+	}
+	// TODO: ignore invalid labels will result in an empty selector.
+	// This is inconsistent to the that of MatchingLabels.
 	for _, label := range m {
 		r, err := labels.NewRequirement(label, selection.Exists, nil)
 		if err == nil {
-			sel = sel.Add(*r)
+			opts.LabelSelector = opts.LabelSelector.Add(*r)
 		}
 	}
-	opts.LabelSelector = sel
 }
 
 // ApplyToDeleteAllOf applies this configuration to the given an List options.

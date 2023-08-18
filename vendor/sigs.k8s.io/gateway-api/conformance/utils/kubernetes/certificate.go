@@ -79,7 +79,6 @@ func generateRSACert(hosts []string, keyOut, certOut io.Writer) error {
 
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
-
 	if err != nil {
 		return fmt.Errorf("failed to generate serial number: %w", err)
 	}
@@ -107,7 +106,6 @@ func generateRSACert(hosts []string, keyOut, certOut io.Writer) error {
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
-
 	if err != nil {
 		return fmt.Errorf("failed to create certificate: %w", err)
 	}
