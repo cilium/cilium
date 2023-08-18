@@ -27,7 +27,7 @@ diff="$(git diff)"
 if [ -n "$diff" ]; then
 	echo "Ungenerated source code:"
 	echo "$diff"
-	echo "Please run make generate-k8s-api & make manifests and submit your changes"
+	echo "Please run make 'generate-k8s-api && make manifests' and submit your changes"
 	exit 1
 fi
 
