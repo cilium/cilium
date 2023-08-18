@@ -50,6 +50,11 @@ spec:
               readOnly: false
             - name: spire-agent
               mountPath: /var/run/secrets/tokens
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
           livenessProbe:
             httpGet:
               path: /live
