@@ -133,13 +133,18 @@ func (elf *ELF) copy(w io.WriteSeeker, r *io.SectionReader, intOptions map[strin
 
 processSymbols:
 	for _, symbol := range elf.symbols.sort() {
-		scopedLog := log.WithField("symbol", symbol.name)
+		// Use the symbol's name without config prefix for lookups and logging.
+		name := strings.TrimPrefix(symbol.name, configPrefix)
+
+		scopedLog := log.WithField("symbol", name)
 
 		// Figure out the value to substitute
 		var value []byte
 		switch symbol.kind {
 		case symbolData:
-			if v, exists := intOptions[symbol.name]; exists {
+			// intOptions doesn't contain symbols with the config prefix, but symbols
+			// found in the ELF do.
+			if v, exists := intOptions[name]; exists {
 				value = make([]byte, symbol.size)
 				switch uintptr(symbol.size) {
 				case unsafe.Sizeof(uint64(0)):
@@ -149,15 +154,15 @@ processSymbols:
 				case unsafe.Sizeof(uint16(0)):
 					elf.metadata.ByteOrder.PutUint16(value, uint16(v))
 				default:
-					return fmt.Errorf("substitute symbol %s: unsupported size %d", symbol.name, symbol.size)
+					return fmt.Errorf("substitute symbol %s: unsupported size %d", name, symbol.size)
 				}
 			}
 
 		case symbolString:
-			v, exists := strOptions[symbol.name]
+			v, exists := strOptions[name]
 			if exists {
 				if uint64(len(v)) != symbol.size {
-					return fmt.Errorf("symbol substitution value %q (len %d) must equal length of symbol name %q (len %d)", v, len(v), symbol.name, symbol.size)
+					return fmt.Errorf("symbol substitution value %q (len %d) must equal length of symbol name %q (len %d)", v, len(v), name, symbol.size)
 				}
 				value = []byte(v)
 			}
@@ -165,7 +170,7 @@ processSymbols:
 
 		if value == nil {
 			for _, prefix := range ignoredPrefixes {
-				if strings.HasPrefix(symbol.name, prefix) {
+				if strings.HasPrefix(name, prefix) {
 					continue processSymbols
 				}
 			}
@@ -175,16 +180,16 @@ processSymbols:
 
 		// Encode the value at the given offset in the destination file.
 		if err := elf.writeValue(w, symbol.offset, value); err != nil {
-			return fmt.Errorf("failed to substitute %s: %s", symbol.name, err)
+			return fmt.Errorf("failed to substitute %s: %s", name, err)
 		}
 
 		if symbol.offsetBTF != 0 {
 			if err := elf.writeValue(w, symbol.offsetBTF, value); err != nil {
-				return fmt.Errorf("failed to substitute %s BTF: %s", symbol.name, err)
+				return fmt.Errorf("failed to substitute %s BTF: %s", name, err)
 			}
 		}
 
-		processedOptions[symbol.name] = struct{}{}
+		processedOptions[name] = struct{}{}
 	}
 
 	// Check for additional options that weren't applied

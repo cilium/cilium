@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	dataSection   = ".data"
+	dataSection   = ".rodata.config"
+	configPrefix  = "__config_"
 	mapSection    = "maps"
 	btfMapSection = ".maps"
 
@@ -175,7 +176,7 @@ func (s *symbols) extractFrom(e *elf.File) error {
 		// in the .data section.
 		// This implements substitution of static data.
 		case section.Name == dataSection:
-			// Offset from start of binary to variable inside .data
+			// Offset from start of binary to variable inside .rodata.config
 			offset := section.Offset + sym.Value
 			dataOffsets[sym.Name] = newVariable(sym.Name, offset, sym.Size)
 			log.WithField(fieldSymbol, sym.Name).Debugf("Found variable with offset %d", offset)
