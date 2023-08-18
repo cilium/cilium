@@ -29,8 +29,10 @@ func (s *K8sSuite) TestParseNode(c *C) {
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name: "node1",
 			Annotations: map[string]string{
-				annotation.V4CIDRName: "10.254.0.0/16",
-				annotation.V6CIDRName: "f00d:aaaa:bbbb:cccc:dddd:eeee::/112",
+				annotation.V4CIDRName:     "10.254.0.0/16",
+				annotation.V6CIDRName:     "f00d:aaaa:bbbb:cccc:dddd:eeee::/112",
+				annotation.CiliumHostIP:   "10.254.9.9",
+				annotation.CiliumHostIPv6: "fd00:10:244:1::8ace",
 			},
 			Labels: map[string]string{
 				"type": "m5.xlarge",
@@ -48,6 +50,11 @@ func (s *K8sSuite) TestParseNode(c *C) {
 	c.Assert(n.IPv6AllocCIDR, NotNil)
 	c.Assert(n.IPv6AllocCIDR.String(), Equals, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112")
 	c.Assert(n.Labels["type"], Equals, "m5.xlarge")
+	c.Assert(len(n.IPAddresses), Equals, 2)
+	c.Assert(n.IPAddresses[0].IP.String(), Equals, "10.254.9.9")
+	c.Assert(n.IPAddresses[0].Type, Equals, nodeAddressing.NodeCiliumInternalIP)
+	c.Assert(n.IPAddresses[1].IP.String(), Equals, "fd00:10:244:1::8ace")
+	c.Assert(n.IPAddresses[1].Type, Equals, nodeAddressing.NodeCiliumInternalIP)
 
 	// No IPv6 annotation
 	k8sNode = &slim_corev1.Node{
