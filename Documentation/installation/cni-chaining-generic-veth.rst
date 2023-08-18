@@ -37,8 +37,10 @@ plugin is required which understands the device model of the underlying plugin.
 Writing such a plugin is trivial, contact us on `Cilium Slack`_ for more
 details.
 
-Create a CNI configuration to define your chaining configuration
+Use a cluster-wide custom CNI to define your chaining configuration
 ================================================================
+
+Use this option when you need a common CNI configuration on all nodes.
 
 Create a ``chaining.yaml`` file based on the following template to specify the
 desired CNI chaining configuration:
@@ -73,8 +75,8 @@ Deploy the :term:`ConfigMap`:
 
    kubectl apply -f chaining.yaml
 
-Deploy Cilium with the portmap plugin enabled
-=============================================
+Deploy Cilium with custom CNI config
+====================================
 
 .. include:: k8s-install-download-release.rst
 
@@ -89,3 +91,29 @@ Deploy Cilium release via Helm:
       --set cni.configMap=cni-configuration \\
       --set routingMode=native \\
       --set enableIPv4Masquerade=false
+
+The ``routingMode=native`` flag instructs Cilium not to manage network routing, assuming you will use the other CNI plugins.
+Similarly, ``enableIPv4Masquerade=false`` instructs Cilium to not to set IPV4Masquerading, leaving the task to other CNI plugins to manage.
+
+
+Extend existing named CNI configuration
+=================================================
+
+Use this option when the existing CNI configuration for your cluster has node specific values
+and you can't use a single cluster-wide CNI configuration. Review the named CNI configurations by manually
+examining the CNI configurations on each node. For example, a Kind cluster typically has a CNI configuration named "kindnet".
+
+Deploy Cilium by extending existing CNI
+====================================
+
+   .. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+      --namespace=kube-system \\
+      --set cni.chainingMode=generic-veth \\
+      --set cni.chainingTarget=<CNI-name> \\
+      --set routingMode=native \\
+      --set enableIPv4Masquerade=false
+
+Replace ``<CNI-name>`` with the name of the CNI configuration you want to extend by appending the Cilium CNI plugin
+to the end of its plugin chain. For example, in a Kind cluster you use  ``--set cni.chainingTarget=kindnet``
