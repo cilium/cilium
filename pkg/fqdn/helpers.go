@@ -4,15 +4,10 @@
 package fqdn
 
 import (
+	"fmt"
 	"net"
-	"regexp"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/fqdn/dns"
-	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
-	"github.com/cilium/cilium/pkg/fqdn/re"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -26,11 +21,11 @@ func (n *NameManager) MapSelectorsToIPsLocked(fqdnSelectors map[api.FQDNSelector
 	missing := make(map[api.FQDNSelector]struct{}) // a set to dedup missing dnsNames
 	selectorIPMapping = make(map[api.FQDNSelector][]net.IP)
 
-	log.WithField("fqdnSelectors", fqdnSelectors).Debug("mapSelectorsToIPs")
+	//log.WithField("fqdnSelectors", fqdnSelectors).Debug("mapSelectorsToIPs")
 
 	// Map each FQDNSelector to set of CIDRs
 	for ToFQDN := range fqdnSelectors {
-		ipsSelected := make([]net.IP, 0)
+		ipsSelected := make(map[string]net.IP)
 		// lookup matching DNS names
 		if len(ToFQDN.MatchName) > 0 {
 			dnsName := prepareMatchName(ToFQDN.MatchName)
@@ -44,46 +39,50 @@ func (n *NameManager) MapSelectorsToIPsLocked(fqdnSelectors map[api.FQDNSelector
 				missing[ToFQDN] = struct{}{}
 			}
 
-			log.WithFields(logrus.Fields{
+			/*log.WithFields(logrus.Fields{
 				"DNSName":   dnsName,
 				"IPs":       lookupIPs,
 				"matchName": ToFQDN.MatchName,
-			}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
-			ipsSelected = append(ipsSelected, lookupIPs...)
+			}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")*/
+			for _, ip := range lookupIPs {
+				ipsSelected[string(ip)] = ip
+			}
 		}
 
 		if len(ToFQDN.MatchPattern) > 0 {
-			// lookup matching DNS names
-			dnsPattern := matchpattern.Sanitize(ToFQDN.MatchPattern)
-			patternREStr := matchpattern.ToRegexp(dnsPattern)
-			var (
-				err       error
-				patternRE *regexp.Regexp
-			)
-
-			if patternRE, err = re.CompileRegex(patternREStr); err != nil {
-				log.WithError(err).Error("Error compiling matchPattern")
+			patternRE, ok := n.allSelectors[ToFQDN]
+			if !ok {
+				panic(fmt.Sprintf("BUG: Missing selector: %+v", ToFQDN))
 			}
+
+			// lookup matching DNS names
 			lookupIPs := n.cache.LookupByRegexp(patternRE)
 
 			// Mark this pattern missing; it will be unmarked in the loop below
 			missing[ToFQDN] = struct{}{}
 
-			for name, ips := range lookupIPs {
+			for _, ips := range lookupIPs {
 				if len(ips) > 0 {
-					log.WithFields(logrus.Fields{
+					/*log.WithFields(logrus.Fields{
 						"DNSName":      name,
 						"IPs":          ips,
 						"matchPattern": ToFQDN.MatchPattern,
-					}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")
+					}).Debug("Emitting matching DNS Name -> IPs for FQDNSelector")*/
 					delete(missing, ToFQDN)
-					ipsSelected = append(ipsSelected, ips...)
+
+					for _, ip := range ips {
+						ipsSelected[string(ip)] = ip
+					}
 				}
 			}
 		}
 
-		ips := ip.KeepUniqueIPs(ipsSelected)
-		if len(ips) > 0 {
+		//ips := ip.KeepUniqueIPs(ipsSelected)
+		if len(ipsSelected) > 0 {
+			ips := make([]net.IP, 0, len(ipsSelected))
+			for _, ip := range ipsSelected {
+				ips = append(ips, ip)
+			}
 			selectorIPMapping[ToFQDN] = ips
 		}
 	}
