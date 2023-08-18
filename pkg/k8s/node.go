@@ -139,6 +139,7 @@ func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node 
 
 	k8sNodeAddHostIP(annotation.CiliumHostIP, annotation.CiliumHostIPAlias)
 	k8sNodeAddHostIP(annotation.CiliumHostIPv6, annotation.CiliumHostIPv6Alias)
+	newNode.IPAddresses = addrs
 
 	if key, ok := annotation.Get(k8sNode, annotation.CiliumEncryptionKey, annotation.CiliumEncryptionKeyAlias); ok {
 		if u, err := strconv.ParseUint(key, 10, 8); err == nil {
