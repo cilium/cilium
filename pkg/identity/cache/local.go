@@ -122,7 +122,8 @@ func (l *localIdentityCache) release(id *identity.Identity) bool {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	if id, ok := l.identitiesByLabels[string(id.Labels.SortedList())]; ok {
+	stringRepresentation := string(id.Labels.SortedList())
+	if id, ok := l.identitiesByLabels[stringRepresentation]; ok {
 		switch {
 		case id.ReferenceCount > 1:
 			id.ReferenceCount--
@@ -131,7 +132,6 @@ func (l *localIdentityCache) release(id *identity.Identity) bool {
 		case id.ReferenceCount == 1:
 			// Release is only attempted once, when the reference count is
 			// hitting the last use
-			stringRepresentation := string(id.Labels.SortedList())
 			delete(l.identitiesByLabels, stringRepresentation)
 			delete(l.identitiesByID, id.ID)
 
