@@ -305,7 +305,7 @@ generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observ
 
 define generate_k8s_api
 	$(QUIET) cd "./vendor/k8s.io/code-generator" && \
-	bash ./generate-internal-groups.sh $(1) \
+	bash ./kube_codegen.sh $(1) \
 	    $(2) \
 	    "" \
 	    $(3) \
