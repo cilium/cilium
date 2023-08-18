@@ -17,7 +17,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/miekg/dns"
+	"github.com/cilium/dns"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/sys/unix"
@@ -88,7 +88,7 @@ type DNSProxy struct {
 	// design now.
 	NotifyOnDNSMsg NotifyOnDNSMsgFunc
 
-	// DNSServers are the miekg/dns server instances.
+	// DNSServers are the cilium/dns server instances.
 	// Depending on the configuration, these might be
 	// TCPv4, UDPv4, TCPv6 and/or UDPv4.
 	// They handle DNS parsing etc. for us.
@@ -1168,7 +1168,7 @@ func evaluateAddress(address string, port uint16, bindPort uint16, ipFamily ipfa
 // for a given request.
 // Originally, DNS was limited to 512 byte responses. EDNS0 allows for larger
 // sizes. In either case, responses can apply DNS compression, and the original
-// RFCs require clients to accept this. In miekg/dns there is a comment that BIND
+// RFCs require clients to accept this. In cilium/dns there is a comment that BIND
 // does not support compression, so we retain the ability to suppress this.
 func shouldCompressResponse(request, response *dns.Msg) bool {
 	ednsOptions := request.IsEdns0()
