@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/cilium/cilium/pkg/labels"
 )
@@ -17,7 +18,7 @@ import (
 //
 // For IPv6 addresses, it converts ":" into "-" as EndpointSelectors don't
 // support colons inside the name section of a label.
-func maskedIPToLabelString(ip netip.Addr, prefix int) string {
+func maskedIPToLabel(ip netip.Addr, prefix int) labels.Label {
 	ipStr := ip.String()
 	ipNoColons := strings.Replace(ipStr, ":", "-", -1)
 
@@ -34,28 +35,24 @@ func maskedIPToLabelString(ip netip.Addr, prefix int) string {
 	}
 	var str strings.Builder
 	str.Grow(
-		len(labels.LabelSourceCIDR) +
-			len(preZero) +
+		len(preZero) +
 			len(ipNoColons) +
 			len(postZero) +
 			2 /*len of prefix*/ +
-			2, /* ':' '/' */
+			1, /* '/' */
 	)
-	str.WriteString(labels.LabelSourceCIDR)
-	str.WriteRune(':')
 	str.WriteString(preZero)
 	str.WriteString(ipNoColons)
 	str.WriteString(postZero)
 	str.WriteRune('/')
 	str.WriteString(strconv.Itoa(prefix))
-	return str.String()
+	return labels.Label{Key: str.String(), Source: labels.LabelSourceCIDR}
 }
 
 // IPStringToLabel parses a string and returns it as a CIDR label.
 //
 // If ip is not a valid IP address or CIDR Prefix, returns an error.
 func IPStringToLabel(ip string) (labels.Label, error) {
-	var lblString string
 	// factored out of netip.ParsePrefix to avoid allocating an empty netip.Prefix in case it's
 	// an IP and not a CIDR.
 	i := strings.LastIndexByte(ip, '/')
@@ -64,15 +61,14 @@ func IPStringToLabel(ip string) (labels.Label, error) {
 		if err != nil {
 			return labels.Label{}, fmt.Errorf("%q is not an IP address: %w", ip, err)
 		}
-		lblString = maskedIPToLabelString(parsedIP, parsedIP.BitLen())
+		return maskedIPToLabel(parsedIP, parsedIP.BitLen()), nil
 	} else {
 		parsedPrefix, err := netip.ParsePrefix(ip)
 		if err != nil {
 			return labels.Label{}, fmt.Errorf("%q is not a CIDR: %w", ip, err)
 		}
-		lblString = maskedIPToLabelString(parsedPrefix.Masked().Addr(), parsedPrefix.Bits())
+		return maskedIPToLabel(parsedPrefix.Masked().Addr(), parsedPrefix.Bits()), nil
 	}
-	return labels.ParseLabel(lblString), nil
 }
 
 // GetCIDRLabels turns a CIDR into a set of labels representing the cidr itself
@@ -85,23 +81,78 @@ func IPStringToLabel(ip string) (labels.Label, error) {
 //
 // The identity reserved:world is always added as it includes any CIDR.
 func GetCIDRLabels(prefix netip.Prefix) labels.Labels {
+	addr := prefix.Addr()
 	ones := prefix.Bits()
-	result := make([]string, 0, ones+1)
+	lbls := make(labels.Labels, 1 /* this CIDR */ +ones /* the prefixes */ +1 /*world label*/)
 
 	// If ones is zero, then it's the default CIDR prefix /0 which should
 	// just be regarded as reserved:world. In all other cases, we need
 	// to generate the set of prefixes starting from the /0 up to the
 	// specified prefix length.
-	if ones > 0 {
-		ip := prefix.Addr()
-		for i := 0; i <= ones; i++ {
-			p := netip.PrefixFrom(ip, i)
-			label := maskedIPToLabelString(p.Masked().Addr(), i)
-			result = append(result, label)
+	if ones == 0 {
+		lbls[worldLabel.Key] = worldLabel
+		return lbls
+	}
+
+	cache := cidrLabelsCache.Get().(map[netip.Prefix][]labels.Label)
+	computeCIDRLabels(
+		cache,
+		lbls,
+		nil, // avoid allocating space for the intermediate results until we need it
+		addr,
+		ones,
+		0,
+	)
+	cidrLabelsCache.Put(cache)
+	lbls[worldLabel.Key] = worldLabel
+
+	return lbls
+}
+
+// cidrLabelsCache stores the partial computations for CIDR labels.
+// This both avoids repeatedly computing the prefixes and makes sure the
+// CIDR strings are reused to reduce memory usage.
+// Stored in a sync.Pool to allow GC to garbage collect the cache if needed.
+// With lots of contention, multiple cache maps might exist.
+//
+// Stores e.g. for prefix "10.0.0.0/8" the labels ["10.0.0.0/8", ..., "0.0.0.0/0"].
+var cidrLabelsCache = sync.Pool{
+	New: func() any { return make(map[netip.Prefix][]labels.Label) },
+}
+
+var worldLabel = labels.Label{Key: labels.IDNameWorld, Source: labels.LabelSourceReserved}
+
+func computeCIDRLabels(cache map[netip.Prefix][]labels.Label, lbls labels.Labels, results []labels.Label, addr netip.Addr, ones, i int) []labels.Label {
+	if i > ones {
+		return results
+	}
+
+	prefix := netip.PrefixFrom(addr, i)
+
+	if cachedLbls, ok := cache[prefix]; ok {
+		for _, lbl := range cachedLbls {
+			lbls[lbl.Key] = lbl
+		}
+		if results == nil {
+			return cachedLbls
+		} else {
+			return append(results, cachedLbls...)
 		}
 	}
 
-	result = append(result, labels.LabelSourceReserved+":"+labels.IDNameWorld)
+	// Compute the label for this prefix (e.g. "cidr:10.0.0.0/8")
+	prefixLabel := maskedIPToLabel(prefix.Masked().Addr(), i)
+	lbls[prefixLabel.Key] = prefixLabel
 
-	return labels.NewLabelsFromModel(result)
+	// Keep computing the rest (e.g. "cidr:10.0.0.0/7", ...).
+	results = computeCIDRLabels(
+		cache,
+		lbls,
+		append(results, prefixLabel),
+		addr, ones, i+1,
+	)
+	// Cache the resulting labels derived from this prefix, e.g. /8, /7, ...
+	cache[prefix] = results[i:]
+
+	return results
 }
