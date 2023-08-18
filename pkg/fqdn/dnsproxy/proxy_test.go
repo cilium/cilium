@@ -19,7 +19,7 @@ import (
 	"time"
 
 	. "github.com/cilium/checkmate"
-	"github.com/miekg/dns"
+	"github.com/cilium/dns"
 	"golang.org/x/exp/maps"
 	"sigs.k8s.io/yaml"
 

@@ -19,6 +19,7 @@ require (
 	github.com/cilium/checkmate v1.0.3
 	github.com/cilium/coverbee v0.3.2
 	github.com/cilium/deepequal-gen v0.0.0-20230330134849-754271daeec2
+	github.com/cilium/dns v1.1.51-0.20230303133941-d3bcb3008ed2
 	github.com/cilium/ebpf v0.11.0
 	github.com/cilium/fake v0.5.0
 	github.com/cilium/linters v0.0.0-20230822071834-30df268c15f9
@@ -59,7 +60,6 @@ require (
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/mdlayher/arp v0.0.0-20220221190821-c37aaafac7f9
 	github.com/mdlayher/ethernet v0.0.0-20220221185849-529eae5b6118
-	github.com/miekg/dns v1.1.43
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.27.7
@@ -256,8 +256,6 @@ require (
 )
 
 replace (
-	github.com/miekg/dns => github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc
-
 	go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
 
 	// Using private fork of controller-tools. See commit msg for more context
