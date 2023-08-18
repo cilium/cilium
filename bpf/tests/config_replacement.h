@@ -87,11 +87,6 @@
 
 #endif /* ___EP_CONFIG____ */
 
-#define DEFINE_MAC(NAME, a1, a2, a3, a4, a5, a6) \
-DEFINE_U32_I(NAME, 1) = (__u32)(__u8)(a1) << 24 | (__u32)(__u8)(a2) << 16 | \
-			(__u32)(__u8)(a3) << 8  | (__u32)(__u8)(a4); \
-DEFINE_U32_I(NAME, 2) = (__u32)(__u8)(a5) << 8  | (__u32)(__u8)(a6)
-
 #ifndef NODE_MAC
 #define NODE_MAC_1 (0xde) << 24 | (0xad) << 16 | (0xbe) << 8 | (0xef)
 #define NODE_MAC_2 (0xc0) << 8 | (0xde)
