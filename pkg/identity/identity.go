@@ -207,21 +207,22 @@ func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 		return identity
 	}
 
-	for _, lbl := range lbls {
-		var createID bool
-		switch {
-		// If the set of labels contain a fixed identity then and exists in
-		// the map of reserved IDs then return the identity of that reserved ID.
-		case lbl.Key == labels.LabelKeyFixedIdentity:
-			id := GetReservedID(lbl.Value)
-			if id != IdentityUnknown && IsUserReservedIdentity(id) {
-				return LookupReservedIdentity(id)
-			}
-			// If a fixed identity was not found then we return nil to avoid
-			// falling to a reserved identity.
-			return nil
+	// If the set of labels contain a fixed identity then and exists in
+	// the map of reserved IDs then return the identity of that reserved ID.
+	if lbl, ok := lbls[labels.LabelKeyFixedIdentity]; ok {
+		id := GetReservedID(lbl.Value)
+		if id != IdentityUnknown && IsUserReservedIdentity(id) {
+			id := LookupReservedIdentity(id)
+			return id
+		}
+		// If a fixed identity was not found then we return nil to avoid
+		// falling to a reserved identity.
+		return nil
+	}
 
-		case lbl.Source == labels.LabelSourceReserved:
+	for _, lbl := range lbls {
+		if lbl.Source == labels.LabelSourceReserved {
+			var createID bool
 			id := GetReservedID(lbl.Key)
 			switch {
 			case id == ReservedIdentityKubeAPIServer && lbls.Has(labels.LabelHost[labels.IDNameHost]):
