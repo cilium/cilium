@@ -133,23 +133,15 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 not_esp:
 #endif
 
-	/* Lookup IPv6 address in list of local endpoints */
+	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip6_endpoint(ip6);
-	if (ep) {
-		/* Let through packets to the node-ip so they are processed by
-		 * the local ip stack.
-		 */
-		if (ep->flags & ENDPOINT_F_HOST)
-			goto to_host;
-
+	if (ep && !(ep->flags & ENDPOINT_F_HOST))
 		return ipv6_local_delivery(ctx, l3_off, *identity, ep,
 					   METRIC_INGRESS, false, false);
-	}
 
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
 	 */
-to_host:
 #ifdef HOST_IFINDEX
 	if (1) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
@@ -413,24 +405,16 @@ skip_vtep:
 not_esp:
 #endif
 
-	/* Lookup IPv4 address in list of local endpoints */
+	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip4_endpoint(ip4);
-	if (ep) {
-		/* Let through packets to the node-ip so they are processed by
-		 * the local ip stack.
-		 */
-		if (ep->flags & ENDPOINT_F_HOST)
-			goto to_host;
-
+	if (ep && !(ep->flags & ENDPOINT_F_HOST))
 		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, ip4, ep,
 					   METRIC_INGRESS, false, false, true,
 					   0);
-	}
 
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
 	 */
-to_host:
 	return ipv4_host_delivery(ctx, ip4);
 }
 
