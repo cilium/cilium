@@ -12,6 +12,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cilium/dns"
+
 	"github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/api"
@@ -19,8 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
-
-	"github.com/miekg/dns"
 )
 
 // mockLogRecord is a log entry similar to the one used in fqdn.go for
