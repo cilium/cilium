@@ -271,7 +271,6 @@ func CompareRequest(t *testing.T, req *roundtripper.Request, cReq *roundtripper.
 				} else if strings.Join(actualVal, ",") != expectedVal {
 					return fmt.Errorf("expected %s header to be set to %s, got %s", name, expectedVal, strings.Join(actualVal, ","))
 				}
-
 			}
 		}
 
@@ -366,7 +365,6 @@ func CompareRequest(t *testing.T, req *roundtripper.Request, cReq *roundtripper.
 
 // GetTestCaseName gets the user-defined test case name or generates one from expected response to a given request.
 func (er *ExpectedResponse) GetTestCaseName(i int) string {
-
 	// If TestCase name is provided then use that or else generate one.
 	if er.TestCaseName != "" {
 		return er.TestCaseName

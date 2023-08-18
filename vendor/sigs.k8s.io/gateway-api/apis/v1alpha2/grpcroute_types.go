@@ -223,8 +223,15 @@ type GRPCRouteRule struct {
 	// - Implementation-specific custom filters have no API guarantees across
 	//   implementations.
 	//
-	// Specifying a core filter multiple times has unspecified or
-	// implementation-specific conformance.
+	// Specifying the same filter multiple times is not supported unless explicitly
+	// indicated in the filter.
+	//
+	// If an implementation can not support a combination of filters, it must clearly
+	// document that limitation. In cases where incompatible or unsupported
+	// filters are specified and cause the `Accepted` condition to be set to status
+	// `False`, implementations may use the `IncompatibleFilters` reason to specify
+	// this configuration error.
+	//
 	// Support: Core
 	//
 	// +optional
@@ -508,6 +515,10 @@ type GRPCRouteFilter struct {
 	// Requests are sent to the specified destination, but responses from
 	// that destination are ignored.
 	//
+	// This filter can be used multiple times within the same rule. Note that
+	// not all implementations will be able to support mirroring to multiple
+	// backends.
+	//
 	// Support: Extended
 	//
 	// +optional
@@ -520,6 +531,7 @@ type GRPCRouteFilter struct {
 	//
 	// Support: Implementation-specific
 	//
+	// This filter can be used multiple times within the same rule.
 	// +optional
 	ExtensionRef *LocalObjectReference `json:"extensionRef,omitempty"`
 }

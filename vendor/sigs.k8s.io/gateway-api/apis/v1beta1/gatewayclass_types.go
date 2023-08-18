@@ -57,6 +57,9 @@ type GatewayClass struct {
 
 	// Status defines the current state of GatewayClass.
 	//
+	// Implementations MUST populate status on all GatewayClass resources which
+	// specify their controller name.
+	//
 	// +kubebuilder:default={conditions: {{type: "Accepted", status: "Unknown", message: "Waiting for controller", reason: "Waiting", lastTransitionTime: "1970-01-01T00:00:00Z"}}}
 	Status GatewayClassStatus `json:"status,omitempty"`
 }
@@ -78,6 +81,8 @@ type GatewayClassSpec struct {
 	// This field is not mutable and cannot be empty.
 	//
 	// Support: Core
+	//
+	// +kubebuilder:validation:XValidation:message="Value is immutable",rule="self == oldSelf"
 	ControllerName GatewayController `json:"controllerName"`
 
 	// ParametersRef is a reference to a resource that contains the configuration
