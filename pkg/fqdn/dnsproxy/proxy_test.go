@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/miekg/dns"
+	"github.com/cilium/dns"
 	. "gopkg.in/check.v1"
 	"sigs.k8s.io/yaml"
 

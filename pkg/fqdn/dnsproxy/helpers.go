@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/miekg/dns"
+	"github.com/cilium/dns"
 )
 
 // lookupTargetDNSServer finds the intended DNS target server for a specific
