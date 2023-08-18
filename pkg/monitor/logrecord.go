@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/miekg/dns"
+	"github.com/cilium/dns"
 
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
