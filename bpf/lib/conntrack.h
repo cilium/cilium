@@ -29,6 +29,12 @@ enum ct_scope {
 	SCOPE_BIDIR,
 };
 
+enum ct_entry_type {
+	CT_ENTRY_ANY		= 0,
+	CT_ENTRY_NODEPORT	= (1 << 0),
+	CT_ENTRY_DSR		= (1 << 1),
+};
+
 #ifdef ENABLE_IPV4
 struct ct_buffer4 {
 	struct ipv4_ct_tuple tuple;
@@ -210,11 +216,33 @@ ct_entry_expired_rebalance(const struct ct_entry *entry)
 	return READ_ONCE(entry->last_tx_report) + wait_time <= bpf_mono_now();
 }
 
+static __always_inline bool
+ct_entry_matches_types(const struct ct_entry *entry __maybe_unused,
+		       __u32 ct_entry_types)
+{
+	if (ct_entry_types == CT_ENTRY_ANY)
+		return true;
+
+#ifdef ENABLE_NODEPORT
+	if ((ct_entry_types & CT_ENTRY_NODEPORT) &&
+	    entry->node_port && entry->rev_nat_index)
+		return true;
+
+# ifdef ENABLE_DSR
+	if ((ct_entry_types & CT_ENTRY_DSR) && entry->dsr)
+		return true;
+# endif
+#endif
+
+	return false;
+}
+
 /* Returns CT_NEW, CT_REOPENED or CT_ESTABLISHED. */
 static __always_inline enum ct_status
 __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
-	    enum ct_action action, enum ct_dir dir, struct ct_state *ct_state,
-	    bool is_tcp, union tcp_flags seen_flags, __u32 *monitor)
+	    enum ct_action action, enum ct_dir dir, __u32 ct_entry_types,
+	    struct ct_state *ct_state, bool is_tcp, union tcp_flags seen_flags,
+	    __u32 *monitor)
 {
 	bool syn = seen_flags.value & TCP_FLAG_SYN;
 	struct ct_entry *entry;
@@ -223,6 +251,9 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 
 	entry = map_lookup_elem(map, tuple);
 	if (entry) {
+		if (!ct_entry_matches_types(entry, ct_entry_types))
+			goto ct_new;
+
 		cilium_dbg(ctx, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
 #ifdef HAVE_LARGE_INSN_LIMIT
 		if (dir == CT_SERVICE && syn &&
@@ -494,7 +525,7 @@ DEFINE_FUNC_CT_IS_REPLY(6)
 
 static __always_inline int
 __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ctx,
-	     int l4_off, enum ct_dir dir, enum ct_scope scope,
+	     int l4_off, enum ct_dir dir, enum ct_scope scope, __u32 ct_entry_types,
 	     struct ct_state *ct_state, __u32 *monitor)
 {
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
@@ -520,8 +551,8 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 	case SCOPE_REVERSE:
 	case SCOPE_BIDIR:
 		/* Lookup in the reverse direction first: */
-		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state, is_tcp,
-				  tcp_flags, monitor);
+		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
+				  ct_state, is_tcp, tcp_flags, monitor);
 		if (ret != CT_NEW) {
 			if (likely(ret == CT_ESTABLISHED || ret == CT_REOPENED)) {
 				if (unlikely(tuple->flags & TUPLE_F_RELATED))
@@ -539,8 +570,8 @@ __ct_lookup6(const void *map, struct ipv6_ct_tuple *tuple, struct __ctx_buff *ct
 		ipv6_ct_tuple_reverse(tuple);
 		fallthrough;
 	case SCOPE_FORWARD:
-		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state,
-				  is_tcp, tcp_flags, monitor);
+		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
+				  ct_state, is_tcp, tcp_flags, monitor);
 	}
 
 out:
@@ -552,11 +583,13 @@ out:
 static __always_inline int
 ct_lazy_lookup6(const void *map, struct ipv6_ct_tuple *tuple,
 		struct __ctx_buff *ctx, int l4_off, enum ct_dir dir,
-		enum ct_scope scope, struct ct_state *ct_state, __u32 *monitor)
+		enum ct_scope scope, __u32 ct_entry_types,
+		struct ct_state *ct_state, __u32 *monitor)
 {
 	tuple->flags = ct_lookup_select_tuple_type(dir, scope);
 
-	return __ct_lookup6(map, tuple, ctx, l4_off, dir, scope, ct_state, monitor);
+	return __ct_lookup6(map, tuple, ctx, l4_off, dir, scope,
+			    ct_entry_types, ct_state, monitor);
 }
 
 /* Offset must point to IPv6 */
@@ -575,7 +608,7 @@ static __always_inline int ct_lookup6(const void *map,
 		return ret;
 
 	return __ct_lookup6(map, tuple, ctx, l4_off, dir, SCOPE_BIDIR,
-			    ct_state, monitor);
+			    CT_ENTRY_ANY, ct_state, monitor);
 }
 
 static __always_inline int
@@ -757,7 +790,7 @@ DEFINE_FUNC_CT_IS_REPLY(4)
 static __always_inline int
 __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ctx,
 	     int l4_off, bool has_l4_header, enum ct_dir dir, enum ct_scope scope,
-	     struct ct_state *ct_state, __u32 *monitor)
+	     __u32 ct_entry_types, struct ct_state *ct_state, __u32 *monitor)
 {
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags tcp_flags = { .value = 0 };
@@ -784,8 +817,8 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 	case SCOPE_REVERSE:
 	case SCOPE_BIDIR:
 		/* Lookup in the reverse direction first: */
-		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state, is_tcp,
-				  tcp_flags, monitor);
+		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
+				  ct_state, is_tcp, tcp_flags, monitor);
 		if (ret != CT_NEW) {
 			if (likely(ret == CT_ESTABLISHED || ret == CT_REOPENED)) {
 				if (unlikely(tuple->flags & TUPLE_F_RELATED))
@@ -803,8 +836,8 @@ __ct_lookup4(const void *map, struct ipv4_ct_tuple *tuple, struct __ctx_buff *ct
 		ipv4_ct_tuple_reverse(tuple);
 		fallthrough;
 	case SCOPE_FORWARD:
-		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state,
-				  is_tcp, tcp_flags, monitor);
+		ret = __ct_lookup(map, ctx, tuple, action, dir, ct_entry_types,
+				  ct_state, is_tcp, tcp_flags, monitor);
 	}
 
 out:
@@ -821,6 +854,8 @@ out:
  * @arg dir		lookup direction
  * @arg scope		CT scope. For SCOPE_FORWARD, the tuple also needs to
  *			be in forward layout.
+ * @arg ct_entry_types	a mask of CT_ENTRY_* values that selects the expected
+ *			entry type(s)
  * @arg ct_state	returned CT entry
  * @arg monitor		monitor feedback for trace aggregation
  *
@@ -835,13 +870,13 @@ out:
 static __always_inline int
 ct_lazy_lookup4(const void *map, struct ipv4_ct_tuple *tuple,
 		struct __ctx_buff *ctx, int l4_off, bool has_l4_header,
-		enum ct_dir dir, enum ct_scope scope,
+		enum ct_dir dir, enum ct_scope scope, __u32 ct_entry_types,
 		struct ct_state *ct_state, __u32 *monitor)
 {
 	tuple->flags = ct_lookup_select_tuple_type(dir, scope);
 
 	return __ct_lookup4(map, tuple, ctx, l4_off, has_l4_header,
-			    dir, scope, ct_state, monitor);
+			    dir, scope, ct_entry_types, ct_state, monitor);
 }
 
 /* Offset must point to IPv4 header */
@@ -860,7 +895,7 @@ static __always_inline int ct_lookup4(const void *map,
 		return ret;
 
 	return __ct_lookup4(map, tuple, ctx, off, has_l4_header,
-			    dir, SCOPE_BIDIR, ct_state, monitor);
+			    dir, SCOPE_BIDIR, CT_ENTRY_ANY, ct_state, monitor);
 }
 
 /* Offset must point to IPv6 */
