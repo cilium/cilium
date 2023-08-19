@@ -1391,7 +1391,7 @@ skip_service_lookup:
 		__ipv6_ct_tuple_reverse(&tuple);
 
 		ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
-				      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_ANY,
+				      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_NODEPORT,
 				      &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
@@ -2891,7 +2891,7 @@ skip_service_lookup:
 		__ipv4_ct_tuple_reverse(&tuple);
 
 		ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
-				      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_ANY,
+				      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_NODEPORT,
 				      &ct_state, &monitor);
 		switch (ret) {
 		case CT_NEW:
