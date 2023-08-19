@@ -946,13 +946,10 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		return ret;
 	}
 
-	if (!ct_has_nodeport_egress_entry6(get_ct_map6(&tuple), &tuple, NULL, false))
-		goto out;
-
 	ret = ct_lazy_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
-			      CT_INGRESS, SCOPE_REVERSE, CT_ENTRY_ANY,
+			      CT_INGRESS, SCOPE_REVERSE, CT_ENTRY_NODEPORT,
 			      &ct_state, &trace->monitor);
-	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
+	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 		ret = ipv6_l3(ctx, ETH_HLEN, NULL, NULL, METRIC_EGRESS);
 		if (unlikely(ret != CTX_ACT_OK))
@@ -2414,13 +2411,10 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	if (!check_revdnat)
 		goto out;
 
-	if (!ct_has_nodeport_egress_entry4(get_ct_map4(&tuple), &tuple, NULL, false))
-		goto out;
-
 	ret = ct_lazy_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, has_l4_header,
-			      CT_INGRESS, SCOPE_REVERSE, CT_ENTRY_ANY,
+			      CT_INGRESS, SCOPE_REVERSE, CT_ENTRY_NODEPORT,
 			      &ct_state, &trace->monitor);
-	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
+	if (ret == CT_REPLY) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 		ret = lb4_rev_nat(ctx, l3_off, l4_off, ct_state.rev_nat_index, false,
 				  &tuple, REV_NAT_F_TUPLE_SADDR, has_l4_header);
