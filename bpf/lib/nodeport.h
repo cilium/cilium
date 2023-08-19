@@ -783,7 +783,7 @@ nodeport_dsr_ingress_ipv6(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	__ipv6_ct_tuple_reverse(tuple);
 
 	ret = ct_lazy_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off,
-			      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_ANY,
+			      CT_EGRESS, SCOPE_FORWARD, CT_ENTRY_DSR,
 			      &ct_state, &monitor);
 	switch (ret) {
 	case CT_NEW:
@@ -803,7 +803,7 @@ create_ct:
 			return ret;
 		break;
 	case CT_ESTABLISHED:
-		if ((tuple->nexthdr == IPPROTO_TCP && port) || !ct_state.dsr)
+		if (tuple->nexthdr == IPPROTO_TCP && port)
 			goto create_ct;
 		break;
 	default:
@@ -2280,7 +2280,7 @@ nodeport_dsr_ingress_ipv4(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 
 	ret = ct_lazy_lookup4(get_ct_map4(tuple), tuple, ctx, l4_off,
 			      has_l4_header, CT_EGRESS, SCOPE_FORWARD,
-			      CT_ENTRY_ANY, &ct_state, &monitor);
+			      CT_ENTRY_DSR, &ct_state, &monitor);
 	switch (ret) {
 	case CT_NEW:
 	/* Maybe we can be a bit more selective about CT_REOPENED?
@@ -2312,7 +2312,7 @@ create_ct:
 		 * Otherwise we tolerate DSR info on an established connection.
 		 * TODO: how do we know if we need to refresh the SNAT entry?
 		 */
-		if ((tuple->nexthdr == IPPROTO_TCP && port) || !ct_state.dsr)
+		if (tuple->nexthdr == IPPROTO_TCP && port)
 			goto create_ct;
 		break;
 	default:
