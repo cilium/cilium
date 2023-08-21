@@ -17,9 +17,11 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/mattn/go-shellwords"
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -1217,7 +1219,81 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 		}
 	}
 
-	// Masquerade all egress traffic leaving the node
+	// Masquerade egress traffic leaving the node based on source routing
+	//
+	// If this option is enabled, then it takes precedence over the catch-all
+	// MASQUERADE further below.
+	if option.Config.EnableMasqueradeRouteSource {
+		devices := option.Config.GetDevices()
+		if len(option.Config.MasqueradeInterfaces) > 0 {
+			devices = option.Config.MasqueradeInterfaces
+		}
+		family := netlink.FAMILY_V4
+		if prog == ip6tables {
+			family = netlink.FAMILY_V6
+		}
+		if routes, err := netlink.RouteList(nil, family); err == nil {
+			for _, r := range routes {
+				var link netlink.Link
+				match := false
+				if r.LinkIndex > 0 {
+					link, err = netlink.LinkByIndex(r.LinkIndex)
+					if err != nil {
+						continue
+					}
+					// Routes are dedicated to the specific interface, so we
+					// need to install the SNAT rules also for that interface
+					// via -o. If we cannot correlate to anything because no
+					// devices were specified, we need to bail out.
+					if len(devices) == 0 {
+						return fmt.Errorf("cannot correlate source route device for generating masquerading rules")
+					}
+					for _, device := range devices {
+						if device == link.Attrs().Name {
+							match = true
+							break
+						}
+					}
+				} else {
+					// There might be next hop groups where ifindex is zero
+					// and the underlying next hop devices might not be known
+					// to Cilium. In this case, assume match and don't encode
+					// -o device.
+					match = true
+				}
+				_, exclusionCIDR, err := net.ParseCIDR(snatDstExclusionCIDR)
+				if !match || r.Src == nil ||
+					cidr.Equal(r.Dst, cidr.ZeroNet(r.Family)) ||
+					(err == nil && cidr.Equal(r.Dst, exclusionCIDR)) {
+					continue
+				}
+				progArgs := []string{
+					"-t", "nat",
+					"-A", ciliumPostNatChain,
+					"-s", allocRange,
+					"-d", r.Dst.String(),
+				}
+				if link != nil {
+					progArgs = append(
+						progArgs,
+						"-o", link.Attrs().Name)
+				}
+				progArgs = append(
+					progArgs,
+					"-m", "comment", "--comment", "cilium snat non-cluster via source route",
+					"-j", "SNAT",
+					"--to-source", r.Src.String())
+				if option.Config.IPTablesRandomFully {
+					progArgs = append(progArgs, "--random-fully")
+				}
+				if err := prog.runProg(progArgs); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// Masquerade all egress traffic leaving the node (catch-all)
 	//
 	// This rule must be first as the node ipset rule as it has different
 	// exclusion criteria than the other rules in this table.

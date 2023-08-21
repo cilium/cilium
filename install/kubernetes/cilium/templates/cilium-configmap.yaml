@@ -556,6 +556,7 @@ data:
 {{- else if eq $defaultBpfMasquerade "true" }}
   enable-bpf-masquerade: {{ $defaultBpfMasquerade | quote }}
 {{- end }}
+  enable-masquerade-to-route-source: {{ .Values.enableMasqueradeRouteSource | quote }}
 {{- if hasKey .Values "egressMasqueradeInterfaces" }}
   egress-masquerade-interfaces: {{ .Values.egressMasqueradeInterfaces }}
 {{- end }}
