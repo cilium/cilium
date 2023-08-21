@@ -372,6 +372,9 @@ const (
 	// EnableBPFMasquerade masquerades packets from endpoints leaving the host with BPF instead of iptables
 	EnableBPFMasquerade = "enable-bpf-masquerade"
 
+	// EnableMasqueradeRouteSource masquerades to the source route IP address instead of the interface one
+	EnableMasqueradeRouteSource = "enable-masquerade-to-route-source"
+
 	// DeriveMasqIPAddrFromDevice is device name which IP addr is used for BPF masquerades
 	DeriveMasqIPAddrFromDevice = "derive-masquerade-ip-addr-from-device"
 
@@ -1797,29 +1800,31 @@ type DaemonConfig struct {
 
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
-	EnableIPv4Masquerade       bool
-	EnableIPv6Masquerade       bool
-	EnableBPFMasquerade        bool
-	DeriveMasqIPAddrFromDevice string
-	EnableBPFClockProbe        bool
-	EnableIPMasqAgent          bool
-	EnableIPv4EgressGateway    bool
-	EnableEnvoyConfig          bool
-	EnableIngressController    bool
-	EnableGatewayAPI           bool
-	EnvoyConfigTimeout         time.Duration
-	IPMasqAgentConfigPath      string
-	InstallIptRules            bool
-	MonitorAggregation         string
-	PreAllocateMaps            bool
-	IPv6NodeAddr               string
-	IPv4NodeAddr               string
-	SidecarIstioProxyImage     string
-	SocketPath                 string
-	TracePayloadlen            int
-	Version                    string
-	PrometheusServeAddr        string
-	ToFQDNsMinTTL              int
+	EnableIPv4Masquerade        bool
+	EnableIPv6Masquerade        bool
+	EnableBPFMasquerade         bool
+	EnableMasqueradeRouteSource bool
+	EnableIPMasqAgent           bool
+	DeriveMasqIPAddrFromDevice  string
+	IPMasqAgentConfigPath       string
+
+	EnableBPFClockProbe     bool
+	EnableIPv4EgressGateway bool
+	EnableEnvoyConfig       bool
+	EnableIngressController bool
+	EnableGatewayAPI        bool
+	EnvoyConfigTimeout      time.Duration
+	InstallIptRules         bool
+	MonitorAggregation      string
+	PreAllocateMaps         bool
+	IPv6NodeAddr            string
+	IPv4NodeAddr            string
+	SidecarIstioProxyImage  string
+	SocketPath              string
+	TracePayloadlen         int
+	Version                 string
+	PrometheusServeAddr     string
+	ToFQDNsMinTTL           int
 
 	// DNSMaxIPsPerRestoredRule defines the maximum number of IPs to maintain
 	// for each FQDN selector in endpoint's restored DNS rules
@@ -3193,6 +3198,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableIPv4Masquerade = vp.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = vp.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
 	c.EnableBPFMasquerade = vp.GetBool(EnableBPFMasquerade)
+	c.EnableMasqueradeRouteSource = vp.GetBool(EnableMasqueradeRouteSource)
 	c.DeriveMasqIPAddrFromDevice = vp.GetString(DeriveMasqIPAddrFromDevice)
 	c.EnablePMTUDiscovery = vp.GetBool(EnablePMTUDiscovery)
 	c.IPv6NAT46x64CIDR = defaults.IPv6NAT46x64CIDR

@@ -1649,14 +1649,17 @@ maglev: {}
 # -- Enables masquerading of IPv4 traffic leaving the node from endpoints.
 enableIPv4Masquerade: true
 
-# -- Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
-enableIPv6BIGTCP: false
+# -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
+enableIPv6Masquerade: true
+
+# -- Enables masquerading to the source of the route for traffic leaving the node from endpoints.
+enableMasqueradeRouteSource: false
 
 # -- Enables IPv4 BIG TCP support which increases maximum IPv4 GSO/GRO limits for nodes and pods
 enableIPv4BIGTCP: false
 
-# -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
-enableIPv6Masquerade: true
+# -- Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
+enableIPv6BIGTCP: false
 
 # -- Enables egress gateway to redirect and SNAT the traffic that leaves the
 # cluster.
