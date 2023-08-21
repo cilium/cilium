@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/workerpool"
 	"github.com/mholt/archiver/v3"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -894,6 +895,47 @@ func (c *Collector) Run() error {
 				}
 				if err := c.WriteYAML(ciliumOperatorDeploymentFileName, v); err != nil {
 					return fmt.Errorf("failed to collect the Cilium operator deployment: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting the Cilium operator metrics",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				pods, err := c.Client.ListPods(ctx, c.Options.CiliumOperatorNamespace, metav1.ListOptions{LabelSelector: defaults.OperatorPodSelector})
+				if err != nil {
+					return fmt.Errorf("failed to get the Cilium operator pods: %w", err)
+				}
+				err = c.submitMetricsSubtask(pods, defaults.OperatorContainerName, defaults.OperatorMetricsPortName, ciliumOperatorPodMetricsFileName)
+				if err != nil {
+					return fmt.Errorf("failed to collect the Cilium operator metrics: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting the clustermesh metrics",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				// clustermesh-apiserver runs in the same namespace as operator
+				pods, err := c.Client.ListPods(ctx, c.Options.CiliumOperatorNamespace, metav1.ListOptions{LabelSelector: defaults.ClusterMeshPodSelector})
+				if err != nil {
+					return fmt.Errorf("failed to get the Cilium clustermesh pods: %w", err)
+				}
+				err = c.submitMetricsSubtask(pods, defaults.ClusterMeshContainerName, defaults.ClusterMeshMetricsPortName, clustermeshMetricsFileName)
+				if err != nil {
+					return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
+				}
+				err = c.submitMetricsSubtask(pods, defaults.ClusterMeshKVStoreMeshContainerName, defaults.ClusterMeshKVStoreMeshMetricsPortName, clustermeshKVStoreMeshMetricsFileName)
+				if err != nil {
+					return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
+				}
+				err = c.submitMetricsSubtask(pods, defaults.ClusterMeshEtcdContainerName, defaults.ClusterMeshEtcdMetricsPortName, clustermeshEtcdMetricsFileName)
+				if err != nil {
+					return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
 				}
 				return nil
 			},
@@ -2135,6 +2177,49 @@ func (c *Collector) submitKVStoreTasks(ctx context.Context, pod *corev1.Pod) err
 	}
 
 	return nil
+}
+
+// submitMetricsSubtask submits tasks to collect metrics from pods.
+func (c *Collector) submitMetricsSubtask(pods *corev1.PodList, containerName, portName, filenameTmpl string) error {
+	for _, p := range pods.Items {
+		p := p
+		if p.Status.Phase != v1.PodRunning {
+			continue
+		}
+		err := c.Pool.Submit(fmt.Sprintf("metrics-%s-%s-%s", p.Name, containerName, portName), func(ctx context.Context) error {
+			port, err := getPodMetricsPort(p, containerName, portName)
+			if err != nil {
+				return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w - this is expected if prometheus metrics are disabled", err)
+			}
+			rsp, err := c.Client.ProxyGet(ctx, p.Namespace, fmt.Sprintf("%s:%d", p.Name, port), "metrics")
+			if err != nil {
+				return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
+			}
+			if err := c.WriteString(fmt.Sprintf(filenameTmpl, p.Name), rsp); err != nil {
+				return fmt.Errorf("failed to collect the Cilium clustermesh metrics: %w", err)
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to submit metrics task for %q: %w", p.Name, err)
+		}
+	}
+	return nil
+}
+
+func getPodMetricsPort(pod corev1.Pod, containerName, portName string) (int32, error) {
+	for _, container := range pod.Spec.Containers {
+		if container.Name != containerName {
+			continue
+		}
+		for _, port := range container.Ports {
+			if port.Name == portName {
+				return port.ContainerPort, nil
+			}
+		}
+	}
+
+	return 0, fmt.Errorf("failed to find port %s in container %s in pod %s", portName, containerName, pod.Name)
 }
 
 func buildNodeNameList(nodes *corev1.NodeList, filter string) ([]string, error) {

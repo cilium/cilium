@@ -33,8 +33,10 @@ const (
 
 	OperatorServiceAccountName = "cilium-operator"
 	OperatorClusterRoleName    = "cilium-operator"
+	OperatorPodSelector        = "io.cilium/app=operator"
 	OperatorSecretsRoleName    = "cilium-operator-secrets"
 	OperatorContainerName      = "cilium-operator"
+	OperatorMetricsPortName    = "prometheus"
 	OperatorDeploymentName     = "cilium-operator"
 	OperatorResourceQuota      = "cilium-operator-resource-quota"
 	OperatorImage              = "quay.io/cilium/operator-generic"
@@ -61,6 +63,12 @@ const (
 
 	ClusterMeshDeploymentName             = "clustermesh-apiserver"
 	ClusterMeshContainerName              = "apiserver"
+	ClusterMeshPodSelector                = "k8s-app=clustermesh-apiserver"
+	ClusterMeshMetricsPortName            = "apiserv-metrics"
+	ClusterMeshKVStoreMeshContainerName   = "kvstoremesh"
+	ClusterMeshKVStoreMeshMetricsPortName = "kvmesh-metrics"
+	ClusterMeshEtcdContainerName          = "etcd"
+	ClusterMeshEtcdMetricsPortName        = "etcd-metrics"
 	ClusterMeshServiceAccountName         = "clustermesh-apiserver"
 	ClusterMeshClusterRoleName            = "clustermesh-apiserver"
 	ClusterMeshApiserverImage             = "quay.io/cilium/clustermesh-apiserver"
