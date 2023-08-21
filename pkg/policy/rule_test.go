@@ -2539,7 +2539,7 @@ func (ds *PolicyTestSuite) TestMatches(c *C) {
 	notSelectedIdentity := identity.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key: notSelectedEpLabels})
 
 	hostLabels := labels.Labels{selectedEpLabels.Key: selectedEpLabels}
-	hostLabels.MergeLabels(labels.LabelHost)
+	hostLabels = hostLabels.MergeLabels(labels.LabelHost)
 	hostIdentity := identity.NewIdentity(identity.ReservedIdentityHost, hostLabels)
 
 	// notSelectedEndpoint is not selected by rule, so we it shouldn't be added

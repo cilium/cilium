@@ -68,14 +68,11 @@ func (ipc *IPCache) UpsertMetadata(prefix string, lbls labels.Labels) {
 }
 
 func (m *metadata) upsert(prefix string, lbls labels.Labels) {
-	l := labels.NewLabelsFromModel(nil)
-	l.MergeLabels(lbls)
-
 	m.Lock()
 	if cur, ok := m.m[prefix]; ok {
-		l.MergeLabels(cur)
+		lbls = lbls.MergeLabels(cur)
 	}
-	m.m[prefix] = l
+	m.m[prefix] = lbls
 	m.Unlock()
 }
 
@@ -289,8 +286,7 @@ func (ipc *IPCache) injectLabelsForCIDR(p string, lbls labels.Labels) (*identity
 		return nil, false, err
 	}
 
-	allLbls := cidrlabels.GetCIDRLabels(cidr)
-	allLbls.MergeLabels(lbls)
+	allLbls := labels.MergeLabels(cidrlabels.GetCIDRLabels(cidr), lbls)
 
 	log.WithFields(logrus.Fields{
 		logfields.CIDR:   cidr,
@@ -436,8 +432,9 @@ func (ipc *IPCache) removeLabelsFromIPs(
 // leftover labels are returned, if any. If there are leftover labels, the
 // caller must allocate a new identity and do the following *in order* to avoid
 // drops:
-//   1) policy recalculation must be implemented into the datapath and
-//   2) new identity must have a new entry upserted into the IPCache
+//  1. policy recalculation must be implemented into the datapath and
+//  2. new identity must have a new entry upserted into the IPCache
+//
 // Note: GH-17962, triggering policy recalculation doesn't actually *implement*
 // the changes into datapath (because it's an async call), this is a known
 // issue. There's a very small window for drops when two policies select the
@@ -520,7 +517,7 @@ func (ipc *IPCache) removeLabels(prefix string, lbls labels.Labels, src source.S
 	// where the existing identity had >1 refcount, meaning that something was
 	// referring to it.
 	allLbls := labels.NewLabelsFromModel(nil)
-	allLbls.MergeLabels(realID.Labels)
+	allLbls = allLbls.MergeLabels(realID.Labels)
 	allLbls = allLbls.Remove(lbls)
 
 	return allLbls
@@ -540,29 +537,29 @@ func sourceByLabels(d source.Source, lbls labels.Labels) source.Source {
 // The following diagram describes the relationship between the label injector
 // triggered here and the callers/callees.
 //
-//      +------------+  (1)        (1)  +-----------------------------+
-//      | EP Watcher +-----+      +-----+ CN Watcher / Node Discovery |
-//      +-----+------+   W |      | W   +------+----------------------+
-//            |            |      |            |
-//            |            v      v            |
-//            |            +------+            |
-//            |            | IDMD |            |
-//            |            +------+            |
-//            |               ^                |
-//            |               |                |
-//            |           (3) |R               |
-//            | (2)    +------+--------+   (2) |
-//            +------->|Label Injector |<------+
-//           Trigger   +-------+-------+ Trigger
-//                         (4) |W
-//                             |
-//                             v
-//                           +---+
-//                           |IPC|
-//                           +---+
-//      legend:
-//      * W means write
-//      * R means read
+//	+------------+  (1)        (1)  +-----------------------------+
+//	| EP Watcher +-----+      +-----+ CN Watcher / Node Discovery |
+//	+-----+------+   W |      | W   +------+----------------------+
+//	      |            |      |            |
+//	      |            v      v            |
+//	      |            +------+            |
+//	      |            | IDMD |            |
+//	      |            +------+            |
+//	      |               ^                |
+//	      |               |                |
+//	      |           (3) |R               |
+//	      | (2)    +------+--------+   (2) |
+//	      +------->|Label Injector |<------+
+//	     Trigger   +-------+-------+ Trigger
+//	                   (4) |W
+//	                       |
+//	                       v
+//	                     +---+
+//	                     |IPC|
+//	                     +---+
+//	legend:
+//	* W means write
+//	* R means read
 func (ipc *IPCache) TriggerLabelInjection(src source.Source) {
 	// GH-17829: Would also be nice to have an end-to-end test to validate
 	//           on upgrade that there are no connectivity drops when this

@@ -57,7 +57,7 @@ func (ipc *IPCache) AllocateCIDRs(
 		}
 
 		lbls := cidr.GetCIDRLabels(p)
-		lbls.MergeLabels(ipc.metadata.getLocked(p.IP.String()))
+		lbls = labels.MergeLabels(lbls, ipc.metadata.getLocked(p.IP.String()))
 		oldNID := identity.InvalidIdentity
 		if oldNIDs != nil && len(oldNIDs) > i {
 			oldNID = oldNIDs[i]

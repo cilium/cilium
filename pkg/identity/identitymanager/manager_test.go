@@ -88,7 +88,7 @@ func (s *IdentityManagerTestSuite) TestHostIdentityLifecycle(c *C) {
 	c.Assert(idm.identities[hostIdentity.ID].refCount, Equals, uint(1))
 
 	newHostLabels := labels.NewLabelsFromModel([]string{"id=foo"})
-	newHostLabels.MergeLabels(labels.LabelHost)
+	newHostLabels = newHostLabels.MergeLabels(labels.LabelHost)
 	newHostIdentity := identity.NewIdentity(identity.ReservedIdentityHost, newHostLabels)
 	idm.RemoveOldAddNew(hostIdentity, newHostIdentity)
 	c.Assert(idm.identities[hostIdentity.ID].refCount, Equals, uint(1))

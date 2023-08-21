@@ -85,7 +85,7 @@ func (s *LabelsSuite) TestMergeLabels(c *C) {
 		"key1": NewLabel("key1", "value3", "source4"),
 		"key2": NewLabel("key2", "value3", "source4"),
 	}
-	to.MergeLabels(from)
+	to = to.MergeLabels(from)
 	from["key1"] = NewLabel("key1", "changed", "source4")
 	c.Assert(to, checker.DeepEquals, want)
 }

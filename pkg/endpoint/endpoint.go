@@ -1682,13 +1682,12 @@ func (e *Endpoint) InitWithNodeLabels(ctx context.Context, launchTime time.Durat
 		return
 	}
 
-	epLabels := labels.Labels{}
-	epLabels.MergeLabels(labels.LabelHost)
+	epLabels := labels.LabelHost
 
 	// Initialize with known node labels.
 	newLabels := labels.Map2Labels(node.GetLabels(), labels.LabelSourceK8s)
 	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
-	epLabels.MergeLabels(newIdtyLabels)
+	epLabels = epLabels.MergeLabels(newIdtyLabels)
 
 	// Give the endpoint a security identity
 	newCtx, cancel := context.WithTimeout(ctx, launchTime)
@@ -2046,8 +2045,9 @@ type policySignal struct {
 
 // WaitForPolicyRevision returns a channel that is closed when one or more of
 // the following conditions have met:
-//  - the endpoint is disconnected state
-//  - the endpoint's policy revision reaches the wanted revision
+//   - the endpoint is disconnected state
+//   - the endpoint's policy revision reaches the wanted revision
+//
 // When the done callback is non-nil it will be called just before the channel is closed.
 func (e *Endpoint) WaitForPolicyRevision(ctx context.Context, rev uint64, done func(ts time.Time)) <-chan struct{} {
 	// NOTE: unconditionalLock is used here because this method handles endpoint in disconnected state on its own

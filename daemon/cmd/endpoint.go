@@ -393,8 +393,8 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			if err := ep.SetK8sMetadata(cp); err != nil {
 				return invalidDataError(ep, fmt.Errorf("Invalid ContainerPorts %v: %s", cp, err))
 			}
-			addLabels.MergeLabels(identityLabels)
-			infoLabels.MergeLabels(info)
+			addLabels = addLabels.MergeLabels(identityLabels)
+			infoLabels = infoLabels.MergeLabels(info)
 			if _, ok := annotations[bandwidth.IngressBandwidth]; ok {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,

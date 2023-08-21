@@ -130,7 +130,7 @@ type Label struct {
 	Source string `json:"source"`
 }
 
-// Labels is a map of labels where the map's key is the same as the label's key.
+// Labels is an immutable map of labels where the map's key is the same as the label's key.
 type Labels map[string]Label
 
 // GetPrintableModel turns the Labels into a sorted list of strings
@@ -430,10 +430,24 @@ func (l Labels) GetModel() []string {
 // fmt.Printf("%+v\n", to)
 //
 //	Labels{Label{key1, value3, source4}, Label{key2, value3, source4}}
-func (l Labels) MergeLabels(from Labels) {
-	for k, v := range from {
-		l[k] = v
+func (l Labels) MergeLabels(from Labels) Labels {
+	return MergeLabels(l, from)
+}
+
+func MergeLabels(a, b Labels) Labels {
+	if len(a) == 0 {
+		return b
+	} else if len(b) == 0 {
+		return a
 	}
+	lbls := make(Labels)
+	for k, v := range a {
+		lbls[k] = v
+	}
+	for k, v := range b {
+		lbls[k] = v
+	}
+	return lbls
 }
 
 // Remove is similar to MergeLabels, but returns a new Labels object with the
