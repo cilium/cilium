@@ -218,6 +218,10 @@ func (s *Status) parseStatusResponse(deployment, podName string, r *models.Statu
 		s.parseCiliumSubsystemStatus(deployment, podName, "Kvstore", r.Kvstore)
 	}
 
+	if r.AuthCertificateProvider != nil {
+		s.parseCiliumSubsystemStatus(deployment, podName, "AuthCertificateProvider", r.AuthCertificateProvider)
+	}
+
 	if len(r.Controllers) > 0 {
 		for _, ctrl := range r.Controllers {
 			if ctrl.Status == nil || ctrl.Status.ConsecutiveFailureCount == 0 {
