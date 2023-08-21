@@ -608,20 +608,20 @@ func ParseLabel(str string) Label {
 func parseLabel(str string, delim byte) (lbl Label) {
 	src, next := parseSource(str, delim)
 	if src != "" {
-		lbl.Source = src
+		lbl.Source = intern.String(src)
 	} else {
 		lbl.Source = LabelSourceUnspec
 	}
 
 	i := strings.IndexByte(next, '=')
 	if i < 0 {
-		lbl.Key = next
+		lbl.Key = intern.String(next)
 	} else {
 		if i == 0 && src == LabelSourceReserved {
-			lbl.Key = next[i+1:]
+			lbl.Key = intern.String(next[i+1:])
 		} else {
-			lbl.Key = next[:i]
-			lbl.Value = next[i+1:]
+			lbl.Key = intern.String(next[:i])
+			lbl.Value = intern.String(next[i+1:])
 		}
 	}
 	return lbl
