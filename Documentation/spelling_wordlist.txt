@@ -128,6 +128,7 @@ allocateLoadBalancerNodePorts
 allocator
 allocators
 allowedConfigOverrides
+allowlist
 amd
 ansible
 api
@@ -251,6 +252,7 @@ decrypted
 deepcopy
 deletetopic
 demux
+denylist
 dereference
 deserialization
 detections
