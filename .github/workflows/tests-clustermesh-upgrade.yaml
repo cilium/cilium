@@ -59,9 +59,9 @@ env:
   cilium_cli_version: v0.15.6
   cilium_cli_ci_version:
 
-  cilium_helm_repository: https://helm.cilium.io/
+  cilium_helm_repository: oci://quay.io/cilium-charts-dev/cilium
   # renovate: datasource=github-releases depName=cilium/cilium
-  cilium_stable_version: 1.14.0
+  cilium_stable_version: 1.14.1-dev.24-HEAD-d890bb9b31
 
   clusterName1: cluster1-${{ github.run_id }}
   clusterName2: cluster2-${{ github.run_id }}
@@ -132,7 +132,13 @@ jobs:
             SHA="${{ github.sha }}"
           fi
 
+          SHA=ef401c60bc85b6728ac0b6f5bc891dc2d3a5534e
+
           CILIUM_STABLE_IMAGE_SETTINGS=" \
+            --set=image.useDigest=false \
+            --set=operator.image.useDigest=false \
+            --set=hubble.relay.image.useDigest=false \
+            --set=clustermesh.apiserver.image.useDigest=false \
             --repository ${{ env.cilium_helm_repository }} \
             --version ${{ env.cilium_stable_version }}"
 
