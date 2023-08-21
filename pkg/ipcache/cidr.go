@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
 
 	"github.com/sirupsen/logrus"
 
@@ -104,11 +103,13 @@ func (ipc *IPCache) AllocateCIDRsForIPs(
 	return ipc.AllocateCIDRs(ip.GetCIDRPrefixesFromIPs(prefixes), nil, newlyAllocatedIdentities)
 }
 
-func cidrLabelToPrefix(label string) (string, bool) {
-	if !strings.HasPrefix(label, labels.LabelSourceCIDR) {
-		return "", false
+func cidrLabelToPrefix(lbls labels.Labels) (string, bool) {
+	for _, label := range lbls {
+		if label.Source == labels.LabelSourceCIDR {
+			return label.Key, true
+		}
 	}
-	return strings.TrimPrefix(label, labels.LabelSourceCIDR+":"), true
+	return "", false
 }
 
 // UpsertGeneratedIdentities unconditionally upserts 'newlyAllocatedIdentities'
@@ -130,7 +131,7 @@ func (ipc *IPCache) UpsertGeneratedIdentities(newlyAllocatedIdentities map[strin
 	toUpsert := make(map[string]*identity.Identity)
 	ipc.mutex.RLock()
 	for _, id := range usedIdentities {
-		prefix, ok := cidrLabelToPrefix(id.CIDRLabel.String())
+		prefix, ok := cidrLabelToPrefix(id.CIDRLabel)
 		if !ok {
 			log.WithFields(logrus.Fields{
 				logfields.Identity: id.ID,
@@ -256,7 +257,7 @@ func (ipc *IPCache) ReleaseCIDRIdentitiesByID(ctx context.Context, identities []
 	prefixes := make([]string, 0, len(identities))
 	for _, nid := range identities {
 		if id := ipc.IdentityAllocator.LookupIdentityByID(ctx, nid); id != nil {
-			prefix, ok := cidrLabelToPrefix(id.CIDRLabel.String())
+			prefix, ok := cidrLabelToPrefix(id.CIDRLabel)
 			if !ok {
 				log.WithFields(logrus.Fields{
 					logfields.Identity: nid,
