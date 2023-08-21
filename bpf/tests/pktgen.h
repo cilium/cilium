@@ -79,9 +79,13 @@ static volatile const __u8 v6_node_three[] = {0xfd, 0x07, 0, 0, 0, 0, 0, 0,
 					   0, 0, 0, 0, 0, 0, 0, 3};
 
 /* Source port to be used by a client */
-#define tcp_src_one	__bpf_htons(22334)
-#define tcp_src_two	__bpf_htons(33445)
-#define tcp_src_three	__bpf_htons(44556)
+#define tcp_src_one	__bpf_htons(22330)
+#define tcp_src_two	__bpf_htons(33440)
+#define tcp_src_three	__bpf_htons(44550)
+
+#define tcp_dst_one	__bpf_htons(22331)
+#define tcp_dst_two	__bpf_htons(33441)
+#define tcp_dst_three	__bpf_htons(44551)
 
 #define tcp_svc_one	__bpf_htons(80)
 #define tcp_svc_two	__bpf_htons(443)
