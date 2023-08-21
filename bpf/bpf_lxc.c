@@ -1406,8 +1406,7 @@ out:
 #ifdef ENABLE_IPV6
 static __always_inline int
 ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
-	    struct ipv6_ct_tuple *tuple_out, __s8 *ext_err, __u16 *proxy_port,
-	    bool from_host __maybe_unused)
+	    struct ipv6_ct_tuple *tuple_out, __s8 *ext_err, __u16 *proxy_port)
 {
 	struct ct_state *ct_state, ct_state_new = {};
 	struct ipv6_ct_tuple *tuple;
@@ -1552,15 +1551,6 @@ skip_policy_enforcement:
 	send_trace_notify6(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV6, &orig_sip,
 			   LXC_ID, ifindex, trace.reason, trace.monitor);
 
-#if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
-	/* See comment in IPv4 path. */
-	ctx_change_type(ctx, PACKET_HOST);
-#else
-	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
-	if (ifindex)
-		return redirect_ep(ctx, ifindex, from_host);
-#endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
-
 	return CTX_ACT_OK;
 }
 
@@ -1579,12 +1569,25 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
-	ret = ipv6_policy(ctx, ifindex, src_label, &tuple, &ext_err, &proxy_port,
-			  from_host);
-	if (ret == POLICY_ACT_PROXY_REDIRECT) {
+	ret = ipv6_policy(ctx, ifindex, src_label, &tuple, &ext_err, &proxy_port);
+	switch (ret) {
+	case POLICY_ACT_PROXY_REDIRECT:
 		ret = ctx_redirect_to_proxy6(ctx, &tuple, proxy_port, from_host);
 		proxy_redirect = true;
+		break;
+	case CTX_ACT_OK:
+#if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
+		/* See comment in IPv4 path. */
+		ctx_change_type(ctx, PACKET_HOST);
+#else
+		if (ifindex)
+			ret = redirect_ep(ctx, ifindex, from_host);
+#endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
+		break;
+	default:
+		break;
 	}
+
 	if (IS_ERR(ret))
 		return send_drop_notify_ext(ctx, src_label, SECLABEL_IPV6, LXC_ID,
 					ret, ext_err, CTX_ACT_DROP, METRIC_INGRESS);
@@ -1663,11 +1666,20 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 #endif
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = ipv6_policy(ctx, 0, src_sec_identity, NULL, &ext_err, &proxy_port,
-			  true);
-	if (ret == POLICY_ACT_PROXY_REDIRECT) {
+	ret = ipv6_policy(ctx, 0, src_sec_identity, NULL, &ext_err, &proxy_port);
+	switch (ret) {
+	case POLICY_ACT_PROXY_REDIRECT:
 		ret = ctx_redirect_to_proxy_hairpin_ipv6(ctx, proxy_port);
 		proxy_redirect = true;
+		break;
+	case CTX_ACT_OK:
+#if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
+		/* See comment in IPv4 path. */
+		ctx_change_type(ctx, PACKET_HOST);
+#endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
+		break;
+	default:
+		break;
 	}
 out:
 	if (IS_ERR(ret))
@@ -1705,7 +1717,7 @@ TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS, tail_ipv6_ct_ingress, CT_INGRESS,
 static __always_inline int
 ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label,
 	    struct ipv4_ct_tuple *tuple_out, __s8 *ext_err, __u16 *proxy_port,
-	    bool from_host __maybe_unused, bool from_tunnel)
+	    bool from_tunnel)
 {
 	struct ct_state *ct_state, ct_state_new = {};
 	struct ipv4_ct_tuple *tuple;
@@ -1878,22 +1890,6 @@ skip_policy_enforcement:
 	send_trace_notify4(ctx, TRACE_TO_LXC, src_label, SECLABEL_IPV4, orig_sip,
 			   LXC_ID, ifindex, trace.reason, trace.monitor);
 
-#if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
-	/* In tunneling mode, we execute this code to send the packet from
-	 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
-	 * redirect() because that would bypass conntrack and the reverse DNAT.
-	 * Thus, we send packets to the stack, but since they have the wrong
-	 * Ethernet addresses, we need to mark them as PACKET_HOST or the kernel
-	 * will drop them.
-	 * See #14646 for details.
-	 */
-	ctx_change_type(ctx, PACKET_HOST);
-#else
-	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
-	if (ifindex)
-		return redirect_ep(ctx, ifindex, from_host);
-#endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
-
 	return CTX_ACT_OK;
 }
 
@@ -1916,11 +1912,32 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_FROM_TUNNEL, 0);
 
 	ret = ipv4_policy(ctx, ifindex, src_label, &tuple, &ext_err, &proxy_port,
-			  from_host, from_tunnel);
-	if (ret == POLICY_ACT_PROXY_REDIRECT) {
+			  from_tunnel);
+	switch (ret) {
+	case POLICY_ACT_PROXY_REDIRECT:
 		ret = ctx_redirect_to_proxy4(ctx, &tuple, proxy_port, from_host);
 		proxy_redirect = true;
+		break;
+	case CTX_ACT_OK:
+#if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
+		/* In tunneling mode, we execute this code to send the packet from
+		 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
+		 * redirect() because that would bypass conntrack and the reverse DNAT.
+		 * Thus, we send packets to the stack, but since they have the wrong
+		 * Ethernet addresses, we need to mark them as PACKET_HOST or the kernel
+		 * will drop them.
+		 * See #14646 for details.
+		 */
+		ctx_change_type(ctx, PACKET_HOST);
+#else
+		if (ifindex)
+			ret = redirect_ep(ctx, ifindex, from_host);
+#endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
+		break;
+	default:
+		break;
 	}
+
 	if (IS_ERR(ret))
 		return send_drop_notify_ext(ctx, src_label, SECLABEL_IPV4, LXC_ID,
 					ret, ext_err, CTX_ACT_DROP, METRIC_INGRESS);
@@ -1994,10 +2011,27 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	ret = ipv4_policy(ctx, 0, src_sec_identity, NULL, &ext_err, &proxy_port,
-			  true, false);
-	if (ret == POLICY_ACT_PROXY_REDIRECT) {
+			  false);
+	switch (ret) {
+	case POLICY_ACT_PROXY_REDIRECT:
 		ret = ctx_redirect_to_proxy_hairpin_ipv4(ctx, proxy_port);
 		proxy_redirect = true;
+		break;
+	case CTX_ACT_OK:
+#if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
+		/* In tunneling mode, we execute this code to send the packet from
+		 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
+		 * redirect() because that would bypass conntrack and the reverse DNAT.
+		 * Thus, we send packets to the stack, but since they have the wrong
+		 * Ethernet addresses, we need to mark them as PACKET_HOST or the kernel
+		 * will drop them.
+		 * See #14646 for details.
+		 */
+		ctx_change_type(ctx, PACKET_HOST);
+#endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
+		break;
+	default:
+		break;
 	}
 out:
 	if (IS_ERR(ret))
