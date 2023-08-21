@@ -82,15 +82,19 @@ func (s ipEntries) getIPs(now time.Time) []net.IP {
 }
 
 func (s ipEntries) getIPsUnsorted(now time.Time) []netip.Addr {
-	ips := make([]netip.Addr, 0, len(s)) // worst case size
+	ips := make([]netip.Addr, len(s)) // worst case size
+	idx := 0
 	for ip, entry := range s {
 		if entry != nil && !entry.isExpiredBy(now) {
-			ips = append(ips, ip)
+			ips[idx] = ip
+			idx++
 		}
 	}
+	ips = ips[:idx]
 
 	return ips
 }
+
 // DNSCache manages DNS data that will expire after a certain TTL. Information
 // is tracked per-IP address, retaining the latest-expiring DNS data for each
 // address.
@@ -440,29 +444,26 @@ func (c *DNSCache) lookupByTimeUnsorted(now time.Time, name string) (ips []netip
 	return entries.getIPsUnsorted(now)
 }
 
-// LookupByRegexp returns all non-expired cache entries that match re as a map
-// of name -> IPs
-func (c *DNSCache) LookupByRegexp(re *regexp.Regexp) (matches map[string][]netip.Addr) {
+// LookupByRegexp returns all non-expired cache entries that match re
+func (c *DNSCache) LookupByRegexp(re *regexp.Regexp) (matches []netip.Addr) {
 	return c.lookupByRegexpByTime(c.lastCleanup, re)
 }
 
-// lookupByRegexpByTime takes a timestamp for expiration comparisons, and is
-// only intended for testing.
-func (c *DNSCache) lookupByRegexpByTime(now time.Time, re *regexp.Regexp) (matches map[string][]netip.Addr) {
-	matches = make(map[string][]netip.Addr)
-
+// lookupByRegexpByTime takes a timestamp for expiration comparisons.
+func (c *DNSCache) lookupByRegexpByTime(now time.Time, re *regexp.Regexp) ([]netip.Addr) {
 	c.RLock()
 	defer c.RUnlock()
 
+	var res []netip.Addr
 	for name, entry := range c.forward {
 		if re.MatchString(name) {
 			if ips := entry.getIPsUnsorted(now); len(ips) > 0 {
-				matches[name] = append(matches[name], ips...)
+				res = append(res, ips...)
 			}
 		}
 	}
 
-	return matches
+	return res
 }
 
 // LookupIP returns all DNS names in entries that include that IP. The cache
