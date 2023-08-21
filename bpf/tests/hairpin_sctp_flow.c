@@ -67,7 +67,6 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	struct pktgen builder;
 	volatile const __u8 *src = mac_one;
 	volatile const __u8 *dst = mac_two;
-	struct ethhdr *l2;
 	struct iphdr *l3;
 	struct sctphdr *l4;
 	__u16 revnat_id = 1;
@@ -75,21 +74,10 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-
+	l3 = pktgen__push_ipv4_packet(&builder, (__u8 *)src, (__u8 *)dst,
+				      v4_pod_one, v4_svc_one);
 	if (!l3)
 		return TEST_ERROR;
-	l3->saddr = v4_pod_one;
-	l3->daddr = v4_svc_one;
 
 	/* Push SCTP header */
 	l4 = pktgen__push_sctphdr(&builder);
@@ -261,7 +249,6 @@ SETUP("tc", "hairpin_sctp_flow_3_reverse_v4")
 int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
 	volatile const __u8 *src = mac_one;
 	volatile const __u8 *dst = mac_two;
 	struct iphdr *l3;
@@ -270,24 +257,12 @@ int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-
+	l3 = pktgen__push_ipv4_packet(&builder, (__u8 *)src, (__u8 *)dst,
+				      v4_pod_one, IPV4_LOOPBACK);
 	if (!l3)
 		return TEST_ERROR;
 
-	l3->saddr = v4_pod_one;
-	l3->daddr = IPV4_LOOPBACK;
-
-	/* Push TCP header */
+	/* Push SCTP header */
 	l4 = pktgen__push_sctphdr(&builder);
 
 	if (!l4 || (void *)l4 + sizeof(struct sctphdr) > ctx_data_end(ctx))
