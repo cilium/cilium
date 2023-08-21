@@ -150,7 +150,7 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	 * packet to.
 	 */
 	backend.address = v4_pod_one;
-	backend.port = tcp_svc_one;
+	backend.port = tcp_dst_one;
 	backend.proto = IPPROTO_TCP;
 	backend.flags = 0;
 	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
@@ -213,7 +213,7 @@ int hairpin_flow_forward_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l4->source != tcp_src_one)
 		test_fatal("src TCP port was changed");
 
-	if (l4->dest != tcp_svc_one)
+	if (l4->dest != tcp_dst_one)
 		test_fatal("dst TCP port incorrect");
 
 	struct ipv4_ct_tuple tuple = {};
@@ -240,7 +240,7 @@ int hairpin_flow_forward_check(__maybe_unused const struct __ctx_buff *ctx)
 	tuple.saddr = IPV4_LOOPBACK;
 	tuple.sport = tcp_src_one;
 	tuple.daddr = v4_pod_one;
-	tuple.dport = tcp_svc_one;
+	tuple.dport = tcp_dst_one;
 
 	/* Addrs are stored in reverse order: */
 	ipv4_ct_tuple_swap_addrs(&tuple);
@@ -289,7 +289,7 @@ int hairpin_flow_forward_ingress_pktgen(struct __ctx_buff *ctx)
 		return TEST_ERROR;
 
 	l4->source = tcp_src_one;
-	l4->dest = tcp_svc_one;
+	l4->dest = tcp_dst_one;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 
@@ -352,7 +352,7 @@ int hairpin_flow_forward_ingress_check(__maybe_unused const struct __ctx_buff *c
 	if (l4->source != tcp_src_one)
 		test_fatal("src TCP port changed");
 
-	if (l4->dest != tcp_svc_one)
+	if (l4->dest != tcp_dst_one)
 		test_fatal("dst TCP port changed");
 
 	struct ipv4_ct_tuple tuple = {};
@@ -364,7 +364,7 @@ int hairpin_flow_forward_ingress_check(__maybe_unused const struct __ctx_buff *c
 	tuple.saddr = IPV4_LOOPBACK;
 	tuple.sport = tcp_src_one;
 	tuple.daddr = v4_pod_one;
-	tuple.dport = tcp_svc_one;
+	tuple.dport = tcp_dst_one;
 
 	/* Addrs are stored in reverse order: */
 	ipv4_ct_tuple_swap_addrs(&tuple);
@@ -411,11 +411,10 @@ int hairpin_flow_reverse_pktgen(struct __ctx_buff *ctx)
 
 	/* Push TCP header */
 	l4 = pktgen__push_default_tcphdr(&builder);
-
 	if (!l4)
 		return TEST_ERROR;
 
-	l4->source = tcp_svc_one;
+	l4->source = tcp_dst_one;
 	l4->dest = tcp_src_one;
 	l4->ack = 1;
 
