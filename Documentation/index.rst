@@ -103,6 +103,7 @@ get started and experiment with Cilium.
    observability/grafana
    observability/metrics
    observability/visibility
+   observability/hubble-exporter
 
 .. toctree::
    :maxdepth: 2
