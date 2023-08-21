@@ -10,6 +10,8 @@ import (
 	"net"
 	"sort"
 	"strings"
+
+	"github.com/josharian/intern"
 )
 
 const (
@@ -227,9 +229,9 @@ func NewLabel(key string, value string, source string) Label {
 	}
 
 	return Label{
-		Key:    key,
-		Value:  value,
-		Source: source,
+		Key:    intern.String(key),
+		Value:  intern.String(value),
+		Source: intern.String(source),
 	}
 }
 
