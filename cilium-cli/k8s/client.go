@@ -845,6 +845,22 @@ func (c *Client) GetPodsTable(_ context.Context) (*metav1.Table, error) {
 	return unstructuredSliceToTable(objects)
 }
 
+func (c *Client) ProxyGet(ctx context.Context, namespace, name, url string) (string, error) {
+	res := c.Clientset.CoreV1().RESTClient().Get().
+		Namespace(namespace).
+		Resource("pods").
+		Name(name).
+		SubResource("proxy").
+		Suffix(url).
+		Do(ctx)
+
+	rawbody, err := res.Raw()
+	if err != nil {
+		return "", err
+	}
+	return string(rawbody), nil
+}
+
 func (c *Client) ListUnstructured(ctx context.Context, gvr schema.GroupVersionResource, namespace *string, o metav1.ListOptions) (*unstructured.UnstructuredList, error) {
 	if namespace == nil {
 		return c.DynamicClientset.Resource(gvr).List(ctx, o)
