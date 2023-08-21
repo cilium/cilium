@@ -103,7 +103,7 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 
 	lb_v4_add_service(v4_svc_one, tcp_svc_one, 1, revnat_id);
 	lb_v4_add_backend(v4_svc_one, tcp_svc_one, 1, 124,
-			  v4_pod_one, tcp_svc_one, IPPROTO_TCP, 0);
+			  v4_pod_one, tcp_dst_one, IPPROTO_TCP, 0);
 
 	/* Add an IPCache entry for pod 1 */
 	ipcache_v4_add_entry(v4_pod_one, 0, 112233, 0, 0);
@@ -156,7 +156,7 @@ int hairpin_flow_forward_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (l4->source != tcp_src_one)
 		test_fatal("src TCP port was changed");
 
-	if (l4->dest != tcp_svc_one)
+	if (l4->dest != tcp_dst_one)
 		test_fatal("dst TCP port incorrect");
 
 	struct ipv4_ct_tuple tuple = {};
@@ -183,7 +183,7 @@ int hairpin_flow_forward_check(__maybe_unused const struct __ctx_buff *ctx)
 	tuple.saddr = IPV4_LOOPBACK;
 	tuple.sport = tcp_src_one;
 	tuple.daddr = v4_pod_one;
-	tuple.dport = tcp_svc_one;
+	tuple.dport = tcp_dst_one;
 
 	/* Addrs are stored in reverse order: */
 	ipv4_ct_tuple_swap_addrs(&tuple);
@@ -213,7 +213,7 @@ int hairpin_flow_forward_ingress_pktgen(struct __ctx_buff *ctx)
 	l4 = pktgen__push_ipv4_tcp_packet(&builder,
 					  (__u8 *)src, (__u8 *)dst,
 					  IPV4_LOOPBACK, v4_pod_one,
-					  tcp_src_one, tcp_svc_one);
+					  tcp_src_one, tcp_dst_one);
 	if (!l4)
 		return TEST_ERROR;
 
@@ -278,7 +278,7 @@ int hairpin_flow_forward_ingress_check(__maybe_unused const struct __ctx_buff *c
 	if (l4->source != tcp_src_one)
 		test_fatal("src TCP port changed");
 
-	if (l4->dest != tcp_svc_one)
+	if (l4->dest != tcp_dst_one)
 		test_fatal("dst TCP port changed");
 
 	struct ipv4_ct_tuple tuple = {};
@@ -290,7 +290,7 @@ int hairpin_flow_forward_ingress_check(__maybe_unused const struct __ctx_buff *c
 	tuple.saddr = IPV4_LOOPBACK;
 	tuple.sport = tcp_src_one;
 	tuple.daddr = v4_pod_one;
-	tuple.dport = tcp_svc_one;
+	tuple.dport = tcp_dst_one;
 
 	/* Addrs are stored in reverse order: */
 	ipv4_ct_tuple_swap_addrs(&tuple);
@@ -319,7 +319,7 @@ int hairpin_flow_reverse_pktgen(struct __ctx_buff *ctx)
 	l4 = pktgen__push_ipv4_tcp_packet(&builder,
 					  (__u8 *)src, (__u8 *)dst,
 					  v4_pod_one, IPV4_LOOPBACK,
-					  tcp_svc_one, tcp_src_one);
+					  tcp_dst_one, tcp_src_one);
 	if (!l4)
 		return TEST_ERROR;
 
