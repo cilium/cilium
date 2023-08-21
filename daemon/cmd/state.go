@@ -444,9 +444,6 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 		// received the full list of policies present at the time the daemon
 		// is bootstrapped.
 		restoreComplete = d.regenerateRestoredEndpoints(restoredEndpoints)
-		go func() {
-			<-restoreComplete
-		}()
 
 		go func() {
 			if d.clientset.IsEnabled() {
