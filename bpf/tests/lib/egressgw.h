@@ -25,11 +25,13 @@ enum egressgw_test {
 	TEST_REDIRECT_EXCL_CIDR       = 4,
 	TEST_REDIRECT_SKIP_NO_GATEWAY = 5,
 	TEST_XDP_REPLY                = 6,
+	TEST_FIB                      = 7,
 };
 
 struct egressgw_test_ctx {
 	__u16 test;
 	enum ct_dir dir;
+	bool redirect;
 	__u64 tx_packets;
 	__u64 rx_packets;
 	__u32 status_code;
@@ -183,14 +185,25 @@ static __always_inline int egressgw_snat_check(const struct __ctx_buff *ctx,
 		if (l3->daddr != CLIENT_IP)
 			test_fatal("dst IP hasn't been revSNATed to client IP");
 	} else { /* CT_EGRESS */
-		if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
-			test_fatal("src MAC is not the client MAC")
+		if (test_ctx.redirect) {
+			if (memcmp(l2->h_source, (__u8 *)mac_zero, ETH_ALEN) != 0)
+				test_fatal("src MAC is not the secondary iface MAC")
 
-		if (memcmp(l2->h_dest, (__u8 *)ext_svc_mac, ETH_ALEN) != 0)
-			test_fatal("dst MAC is not the external svc MAC")
+			if (memcmp(l2->h_dest, (__u8 *)mac_zero, ETH_ALEN) != 0)
+				test_fatal("dst MAC is not the external svc MAC")
 
-		if (l3->saddr != EGRESS_IP)
-			test_fatal("src IP hasn't been NATed to egress gateway IP");
+			if (l3->saddr != EGRESS_IP2)
+				test_fatal("src IP hasn't been NATed to egress gateway IP 2");
+		} else {
+			if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
+				test_fatal("src MAC is not the client MAC")
+
+			if (memcmp(l2->h_dest, (__u8 *)ext_svc_mac, ETH_ALEN) != 0)
+				test_fatal("dst MAC is not the external svc MAC")
+
+			if (l3->saddr != EGRESS_IP)
+				test_fatal("src IP hasn't been NATed to egress gateway IP");
+		}
 
 		if (l3->daddr != EXTERNAL_SVC_IP)
 			test_fatal("dst IP has changed");
