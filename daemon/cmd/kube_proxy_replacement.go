@@ -453,7 +453,7 @@ func finishKubeProxyReplacementInit() error {
 		}
 	}
 
-	option.Config.NodePortNat46X64 = option.Config.EnableIPv4 && option.Config.EnableIPv6 &&
+	option.Config.NodePortNat46X64 = option.Config.IsDualStack() &&
 		option.Config.NodePortMode == option.NodePortModeSNAT &&
 		probes.HaveLargeInstructionLimit() == nil
 
@@ -461,14 +461,6 @@ func finishKubeProxyReplacementInit() error {
 		link, err := netlink.LinkByName(iface)
 		if err != nil {
 			return fmt.Errorf("Cannot retrieve %s link: %w", iface, err)
-		}
-		if strings.ContainsAny(iface, "=;") {
-			// Because we pass IPV{4,6}_NODEPORT addresses to bpf/init.sh
-			// in a form "$IFACE_NAME1=$IPV{4,6}_ADDR1;$IFACE_NAME2=...",
-			// we need to restrict the iface names. Otherwise, bpf/init.sh
-			// won't properly parse the mappings.
-			return fmt.Errorf("%s link name contains '=' or ';' character which is not allowed",
-				iface)
 		}
 		if idx := link.Attrs().Index; idx > math.MaxUint16 {
 			return fmt.Errorf("%s link ifindex %d exceeds max(uint16)", iface, idx)

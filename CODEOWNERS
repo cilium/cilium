@@ -249,7 +249,6 @@
 /bpf/lib/egress_gateway.h @cilium/egress-gateway
 Makefile* @cilium/build
 /bpf/Makefile* @cilium/loader
-/bpf/init.sh @cilium/loader
 /bpf/custom/Makefile* @cilium/build @cilium/loader
 /bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
 /bpf/lib/encrypt.h @cilium/ipsec
@@ -363,6 +362,8 @@ Makefile* @cilium/build
 /images/hubble-relay @cilium/sig-hubble
 /images/runtime/update-cilium-runtime-image.sh @cilium/github-sec
 /install/kubernetes/ @cilium/sig-k8s @cilium/helm
+/install/kubernetes/cilium/**/cilium-envoy @cilium/sig-k8s @cilium/helm @cilium/sig-servicemesh
+/install/kubernetes/cilium/**/spire @cilium/sig-k8s @cilium/helm @cilium/sig-servicemesh
 /install/kubernetes/cilium/templates/hubble* @cilium/sig-k8s @cilium/helm @cilium/sig-hubble
 /kvstoremesh @cilium/sig-clustermesh
 /LICENSE @cilium/tophat

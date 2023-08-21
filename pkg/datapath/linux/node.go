@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -1905,6 +1906,16 @@ func (n *linuxNodeHandler) NodeValidateImplementation(nodeToValidate nodeTypes.N
 	return n.nodeUpdate(nil, &nodeToValidate, false)
 }
 
+// AllNodeValidateImplementation is called to validate the implementation of the
+// node in the datapath for all existing nodes
+func (n *linuxNodeHandler) AllNodeValidateImplementation() {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	for _, updateNode := range n.nodes {
+		n.nodeUpdate(nil, updateNode, false)
+	}
+}
+
 // NodeNeighDiscoveryEnabled returns whether node neighbor discovery is enabled
 func (n *linuxNodeHandler) NodeNeighDiscoveryEnabled() bool {
 	return n.enableNeighDiscovery
@@ -2150,88 +2161,59 @@ func NodeDeviceNameWithDefaultRoute() (string, error) {
 	return link.Attrs().Name, nil
 }
 
-func deleteOldLocalRule(family int, rule route.Rule) error {
-	var familyStr string
-
-	// sanity check, nothing to do if the rule is the same
-	if linux_defaults.RTProto == unix.RTPROT_UNSPEC {
-		return nil
+// NodeEnsureLocalRoutingRule moves the kernel's default '0: from all lookup
+// local' ip rule up to priority 100 to create space for Cilium to install rules
+// with a lower pref (meaning a higher priority).
+//
+// Cilium's 'new' rule is always installed before removing the default one with
+// pref 0 to avoid breaking local packet delivery.
+func NodeEnsureLocalRoutingRule() error {
+	// Equivalent of 'ip rule add from all lookup local pref 100 proto 2'.
+	r := route.Rule{
+		Table:    unix.RT_TABLE_LOCAL,
+		Priority: linux_defaults.RulePriorityLocalLookup,
+		Protocol: linux_defaults.RTProto,
+		Mark:     -1,
+		Mask:     -1,
 	}
 
-	if family == netlink.FAMILY_V4 {
-		familyStr = "IPv4"
-	} else {
-		familyStr = "IPv6"
-	}
-
-	localRules, err := route.ListRules(family, &rule)
-	if err != nil {
-		return fmt.Errorf("could not list local %s rules: %w", familyStr, err)
-	}
-
-	// we need to check for the old rule and make sure it's before the new one
-	oldPos := -1
-	found := false
-	for pos, rule := range localRules {
-		// mark the first unspec rule that matches
-		if oldPos == -1 && rule.Protocol == unix.RTPROT_UNSPEC {
-			oldPos = pos
+	if option.Config.EnableIPv4 {
+		if err := route.ReplaceRule(r); err != nil {
+			return fmt.Errorf("replace local ipv4 rule: %w", err)
 		}
 
-		if rule.Protocol == linux_defaults.RTProto {
-			// mark it as found only if it's before the new one
-			if oldPos != -1 {
-				found = true
-			}
-			break
+		if err := deleteDefaultLocalRule(netlink.FAMILY_V4); err != nil {
+			return fmt.Errorf("remove default local ipv4 rule: %w", err)
 		}
 	}
 
-	if found {
-		err := route.DeleteRule(family, rule)
-		if err != nil {
-			return fmt.Errorf("could not delete old %s local rule: %w", familyStr, err)
+	if option.Config.EnableIPv6 {
+		if err := route.ReplaceRuleIPv6(r); err != nil {
+			return fmt.Errorf("replace local ipv6 rule: %w", err)
 		}
-		log.WithFields(logrus.Fields{"family": familyStr}).Info("Deleting old local lookup rule")
+
+		if err := deleteDefaultLocalRule(netlink.FAMILY_V6); err != nil {
+			return fmt.Errorf("remove default local ipv6 rule: %w", err)
+		}
 	}
 
 	return nil
 }
 
-// NodeEnsureLocalIPRule checks if Cilium local lookup rule (usually 100)
-// was installed and has proper protocol
-func NodeEnsureLocalIPRule() error {
-	// we have the Cilium local lookup rule only if the proxy rule is present
-	if !option.Config.InstallIptRules || !option.Config.EnableL7Proxy {
+// deleteDefaultLocalRule removes a rule with pref 0 pointing to routing table
+// 255 (local). Returns nil if the rule is not present.
+func deleteDefaultLocalRule(family int) error {
+	rule := route.Rule{
+		Table:    unix.RT_TABLE_LOCAL,
+		Priority: 0,
+	}
+
+	err := route.DeleteRule(family, rule)
+	if errors.Is(err, syscall.ENOENT) {
 		return nil
 	}
-
-	localRule := route.Rule{Priority: linux_defaults.RulePriorityLocalLookup, Table: unix.RT_TABLE_LOCAL, Mark: -1, Mask: -1, Protocol: linux_defaults.RTProto}
-	oldRule := localRule
-	oldRule.Protocol = unix.RTPROT_UNSPEC
-
-	if option.Config.EnableIPv4 {
-		err := route.ReplaceRule(localRule)
-		if err != nil {
-			return fmt.Errorf("could not replace IPv4 local rule: %w", err)
-		}
-
-		err = deleteOldLocalRule(netlink.FAMILY_V4, oldRule)
-		if err != nil {
-			return err
-		}
-	}
-
-	if option.Config.EnableIPv6 {
-		err := route.ReplaceRuleIPv6(localRule)
-		if err != nil {
-			return fmt.Errorf("could not replace IPv6 local rule: %w", err)
-		}
-
-		err = deleteOldLocalRule(netlink.FAMILY_V6, oldRule)
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return fmt.Errorf("delete default local rule: %w", err)
 	}
 
 	return nil

@@ -1350,6 +1350,233 @@ var responseHeaderModifierHTTPListeners = []model.HTTPListener{
 	},
 }
 
+var rewriteHostHTTPInput = Input{
+	GatewayClass: gatewayv1beta1.GatewayClass{},
+	Gateway:      sameNamespaceGateway,
+	HTTPRoutes:   rewriteHostHTTPRoutes,
+	Services:     allServices,
+}
+
+var rewriteHostHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				Hostnames: []string{"rewrite.example"},
+				PathMatch: model.StringMatch{Prefix: "/one"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Rewrite: &model.HTTPURLRewriteFilter{
+					HostName: model.AddressOf("one.example.org"),
+				},
+			},
+			{
+				Hostnames: []string{"rewrite.example"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v2",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Rewrite: &model.HTTPURLRewriteFilter{
+					HostName: model.AddressOf("example.org"),
+				},
+			},
+		},
+	},
+}
+
+var rewritePathHTTPInput = Input{
+	GatewayClass: gatewayv1beta1.GatewayClass{},
+	Gateway:      sameNamespaceGateway,
+	HTTPRoutes:   rewritePathHTTPRoutes,
+	Services:     allServices,
+}
+
+var rewritePathHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{Prefix: "/prefix/one"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Rewrite: &model.HTTPURLRewriteFilter{
+					Path: &model.StringMatch{
+						Prefix: "/one",
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/full/one"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Rewrite: &model.HTTPURLRewriteFilter{
+					Path: &model.StringMatch{
+						Exact: "/one",
+					},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/full/rewrite-path-and-modify-headers"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Rewrite: &model.HTTPURLRewriteFilter{
+					Path: &model.StringMatch{
+						Exact: "/test",
+					},
+				},
+				RequestHeaderFilter: &model.HTTPHeaderFilter{
+					HeadersToAdd: []model.Header{
+						{
+							Name:  "X-Header-Add",
+							Value: "header-val-1",
+						},
+						{
+							Name:  "X-Header-Add-Append",
+							Value: "header-val-2",
+						},
+					},
+					HeadersToSet: []model.Header{
+						{
+							Name:  "X-Header-Set",
+							Value: "set-overwrites-values",
+						},
+					},
+					HeadersToRemove: []string{"X-Header-Remove"},
+				},
+			},
+			{
+				PathMatch: model.StringMatch{Prefix: "/prefix/rewrite-path-and-modify-headers"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				Rewrite: &model.HTTPURLRewriteFilter{
+					Path: &model.StringMatch{
+						Prefix: "/prefix",
+					},
+				},
+				RequestHeaderFilter: &model.HTTPHeaderFilter{
+					HeadersToAdd: []model.Header{
+						{
+							Name:  "X-Header-Add",
+							Value: "header-val-1",
+						},
+						{
+							Name:  "X-Header-Add-Append",
+							Value: "header-val-2",
+						},
+					},
+					HeadersToSet: []model.Header{
+						{
+							Name:  "X-Header-Set",
+							Value: "set-overwrites-values",
+						},
+					},
+					HeadersToRemove: []string{"X-Header-Remove"},
+				},
+			},
+		},
+	},
+}
+
+var mirrorHTTPInput = Input{
+	GatewayClass: gatewayv1beta1.GatewayClass{},
+	Gateway:      sameNamespaceGateway,
+	HTTPRoutes:   mirrorPathHTTPRoutes,
+	Services:     allServices,
+}
+
+var mirrorHTTPListeners = []model.HTTPListener{
+	{
+		Name: "http",
+		Sources: []model.FullyQualifiedResource{
+			{
+				Name:      "same-namespace",
+				Namespace: "gateway-conformance-infra",
+			},
+		},
+		Port:     80,
+		Hostname: "*",
+		Routes: []model.HTTPRoute{
+			{
+				PathMatch: model.StringMatch{Prefix: "/mirror"},
+				Backends: []model.Backend{
+					{
+						Name:      "infra-backend-v1",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+				RequestMirror: &model.HTTPRequestMirror{
+					Backend: &model.Backend{
+						Name:      "infra-backend-v2",
+						Namespace: "gateway-conformance-infra",
+						Port: &model.BackendPort{
+							Port: 8080,
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
 func TestHTTPGatewayAPI(t *testing.T) {
 	tests := map[string]struct {
 		input Input
@@ -1410,6 +1637,18 @@ func TestHTTPGatewayAPI(t *testing.T) {
 		"Conformance/HTTPRouteResponseHeaderModifier": {
 			input: responseHeaderModifierHTTPInput,
 			want:  responseHeaderModifierHTTPListeners,
+		},
+		"Conformance/HTTPRouteRewriteHost": {
+			input: rewriteHostHTTPInput,
+			want:  rewriteHostHTTPListeners,
+		},
+		"Conformance/HTTPRouteRewritePath": {
+			input: rewritePathHTTPInput,
+			want:  rewritePathHTTPListeners,
+		},
+		"Conformance/HTTPRouteRequestMirror": {
+			input: mirrorHTTPInput,
+			want:  mirrorHTTPListeners,
 		},
 	}
 

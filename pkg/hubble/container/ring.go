@@ -88,7 +88,7 @@ type Ring struct {
 	mask uint64
 	// write is the last position used to write into the 'data'. This
 	// field ANDed with 'mask' gives the index position of 'data' to be written.
-	write uint64
+	write atomic.Uint64
 	// cycleExp is the exponent of 2^x of 'dataLen'. Since 'mask' is always
 	// 'dataLen'-1 and 'dataLen' is always 2^x we can calculate the writing
 	// cycle by doing 'write' / '2^cycleExp', or since we want better performance we
@@ -150,7 +150,7 @@ func (r *Ring) dataStoreAtomic(dataIdx uint64, e *v1.Event) {
 
 // Len returns the number of elements in the ring buffer, similar to builtin `len()`.
 func (r *Ring) Len() uint64 {
-	write := atomic.LoadUint64(&r.write)
+	write := r.write.Load()
 	if write >= r.dataLen {
 		return r.Cap()
 	}
@@ -176,7 +176,7 @@ func (r *Ring) Write(entry *v1.Event) {
 
 	r.notifyMu.Lock()
 
-	write := atomic.AddUint64(&r.write, 1)
+	write := r.write.Add(1)
 	writeIdx := (write - 1) & r.mask
 	r.dataStoreAtomic(writeIdx, entry)
 
@@ -196,20 +196,20 @@ func (r *Ring) LastWriteParallel() uint64 {
 	// internal buffer. We can be 100% sure that the element, as long
 	// Write(*v1.Event) calls are serialized, that the r.write - 2 was
 	// written.
-	return atomic.LoadUint64(&r.write) - 2
+	return r.write.Load() - 2
 }
 
 // LastWrite returns the last element written.
 // Note: If Write(*v1.Event) is being executed concurrently with Read(uint64)
 // please use LastWriteParallel instead.
 func (r *Ring) LastWrite() uint64 {
-	return atomic.LoadUint64(&r.write) - 1
+	return r.write.Load() - 1
 }
 
 // OldestWrite returns the oldest element written.
 // Note: It should only be used to read from the beginning of the buffer.
 func (r *Ring) OldestWrite() uint64 {
-	write := atomic.LoadUint64(&r.write)
+	write := r.write.Load()
 	if write > r.dataLen {
 		return write - r.dataLen
 	}
@@ -241,7 +241,7 @@ func (r *Ring) read(read uint64) (*v1.Event, error) {
 	readIdx := read & r.mask
 	event := r.dataLoadAtomic(readIdx)
 
-	lastWrite := atomic.LoadUint64(&r.write) - 1
+	lastWrite := r.write.Load() - 1
 	lastWriteIdx := lastWrite & r.mask
 
 	// for simplicity, assume that 'cycle', 'write' and 'index' are uint8
@@ -300,7 +300,7 @@ func (r *Ring) readFrom(ctx context.Context, read uint64, ch chan<- *v1.Event) {
 		readIdx := read & r.mask
 		event := r.dataLoadAtomic(readIdx)
 
-		lastWrite := atomic.LoadUint64(&r.write) - 1
+		lastWrite := r.write.Load() - 1
 		lastWriteIdx := lastWrite & r.mask
 		writeCycle := lastWrite >> r.cycleExp
 		readCycle := read >> r.cycleExp
@@ -362,7 +362,7 @@ func (r *Ring) readFrom(ctx context.Context, read uint64, ch chan<- *v1.Event) {
 			// if the lock on notifyMu is held, otherwise a write can occur
 			// before we obtain the notifyCh instance.
 			r.notifyMu.Lock()
-			if lastWrite != atomic.LoadUint64(&r.write)-1 {
+			if lastWrite != r.write.Load()-1 {
 				// A write has occurred - retry
 				r.notifyMu.Unlock()
 				read--

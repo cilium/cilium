@@ -61,7 +61,10 @@ const (
 	// RouterMarkNodePort
 	MaskMultinodeNodeport = 0x80
 
-	// RTProto is the default protocol we install our fib rules and routes with
+	// RTProto is the protocol we install our fib rules and routes with. Use the
+	// kernel proto to make sure systemd-networkd doesn't interfere with these
+	// rules (see networkd config directive ManageForeignRoutingPolicyRules, set
+	// to 'yes' by default).
 	RTProto = unix.RTPROT_KERNEL
 
 	// RulePriorityWireguard is the priority of the rule used for routing packets to WireGuard device for encryption
@@ -72,6 +75,12 @@ const (
 	// (RulePriorityEgressv2 = 111) or the AWS CNI (10) to install the IP
 	// rules for routing EP traffic to the correct ENI interface
 	RulePriorityEgressGateway = 8
+
+	// RulePriorityProxyIngress is the priority of the routing rule installed by
+	// the proxy package for redirecting inbound packets to the proxy. Priority 10
+	// used to be for outgoing packets from the proxy (see PROXY_RT_TABLE in older
+	// versions), but is no longer used.
+	RulePriorityProxyIngress = 9
 
 	// RulePriorityIngress is the priority of the rule used for ingress routing
 	// of endpoints. This priority is after encryption and proxy rules, and

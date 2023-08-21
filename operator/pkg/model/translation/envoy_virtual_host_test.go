@@ -10,6 +10,9 @@ import (
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/operator/pkg/model"
 )
 
 func TestSortableRoute(t *testing.T) {
@@ -119,4 +122,82 @@ func TestSortableRoute(t *testing.T) {
 	// More Header match comes first
 	assert.True(t, len(arr[4].Match.GetHeaders()) == 2)
 	assert.True(t, len(arr[5].Match.GetHeaders()) == 1)
+}
+
+func Test_hostRewriteMutation(t *testing.T) {
+	t.Run("no host rewrite", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		res := hostRewriteMutation(nil)(route)
+		require.Equal(t, route, res)
+	})
+
+	t.Run("with host rewrite", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		rewrite := &model.HTTPURLRewriteFilter{
+			HostName: model.AddressOf("example.com"),
+		}
+
+		res := hostRewriteMutation(rewrite)(route)
+		require.Equal(t, res.Route.HostRewriteSpecifier, &envoy_config_route_v3.RouteAction_HostRewriteLiteral{
+			HostRewriteLiteral: "example.com",
+		})
+	})
+}
+
+func Test_pathPrefixMutation(t *testing.T) {
+	t.Run("no prefix rewrite", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		res := pathPrefixMutation(nil)(route)
+		require.Equal(t, route, res)
+	})
+
+	t.Run("with prefix rewrite", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		rewrite := &model.HTTPURLRewriteFilter{
+			Path: &model.StringMatch{
+				Prefix: "/prefix",
+			},
+		}
+
+		res := pathPrefixMutation(rewrite)(route)
+		require.Equal(t, res.Route.PrefixRewrite, "/prefix")
+	})
+}
+
+func Test_requestMirrorMutation(t *testing.T) {
+	t.Run("no mirror", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		res := requestMirrorMutation(nil)(route)
+		require.Equal(t, route, res)
+	})
+
+	t.Run("with mirror", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		mirror := &model.HTTPRequestMirror{
+			Backend: &model.Backend{
+				Name:      "dummy-service",
+				Namespace: "default",
+				Port: &model.BackendPort{
+					Port: 8080,
+					Name: "http",
+				},
+			},
+		}
+
+		res := requestMirrorMutation(mirror)(route)
+		require.Len(t, res.Route.RequestMirrorPolicies, 1)
+		require.Equal(t, res.Route.RequestMirrorPolicies[0].Cluster, "default/dummy-service:8080")
+	})
 }

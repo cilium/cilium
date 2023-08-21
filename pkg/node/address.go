@@ -836,7 +836,7 @@ func SetTestLocalNodeStore() {
 
 	// Set the localNode global variable temporarily so that the legacy getters
 	// and setters can access it.
-	localNode = newTestLocalNodeStore()
+	localNode = NewTestLocalNodeStore(LocalNode{})
 }
 
 func UnsetTestLocalNodeStore() {

@@ -6,6 +6,7 @@ package endpointmanager
 import (
 	"context"
 
+	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/endpoint"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
@@ -38,6 +39,7 @@ func (mgr *endpointManager) OnAddNode(newNode *slim_corev1.Node,
 	swg *lock.StoppableWaitGroup) error {
 
 	node.SetLabels(newNode.GetLabels())
+	node.SetAnnotations(newNode.GetAnnotations())
 
 	nodeEP := mgr.GetHostEndpoint()
 	if nodeEP == nil {
@@ -61,17 +63,37 @@ func (mgr *endpointManager) OnUpdateNode(oldNode, newNode *slim_corev1.Node,
 	oldNodeLabels := oldNode.GetLabels()
 	newNodeLabels := newNode.GetLabels()
 
-	nodeEP := mgr.GetHostEndpoint()
-	if nodeEP == nil {
-		log.Error("Host endpoint not found")
-		return nil
+	oldNodeAnnotations := oldNode.GetAnnotations()
+	newNodeAnnotations := newNode.GetAnnotations()
+
+	labelsEqual := comparator.MapStringEquals(oldNodeLabels, newNodeLabels)
+	annotationsEqual := comparator.MapStringEquals(oldNodeAnnotations, newNodeAnnotations)
+
+	// if labels have changed we need to recompute security ID.
+	if !labelsEqual {
+		nodeEP := mgr.GetHostEndpoint()
+		if nodeEP == nil {
+			log.Error("Host endpoint not found")
+			return nil
+		}
+		err := nodeEP.UpdateLabelsFrom(oldNodeLabels, newNodeLabels, labels.LabelSourceK8s)
+		if err != nil {
+			return err
+		}
 	}
 
-	node.SetLabels(newNodeLabels)
-
-	err := nodeEP.UpdateLabelsFrom(oldNodeLabels, newNodeLabels, labels.LabelSourceK8s)
-	if err != nil {
-		return err
+	// Perform a SetMultiAttributes if both labels and annotations has changed,
+	// since these Set operations will wake up Observers on LocalNodeStore its
+	// better to perform one update if multiple attributes change.
+	if !labelsEqual && !annotationsEqual {
+		node.SetMultiAttributes(func(n *node.LocalNode) {
+			n.Labels = newNodeLabels
+			n.Annotations = newNodeAnnotations
+		})
+	} else if !labelsEqual {
+		node.SetLabels(newNodeLabels)
+	} else if !annotationsEqual {
+		node.SetAnnotations(newNodeAnnotations)
 	}
 
 	return nil

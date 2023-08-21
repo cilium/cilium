@@ -338,9 +338,6 @@ const (
 	// BPFClockSource denotes the internal clock source (ktime vs jiffies)
 	BPFClockSource = "bpfClockSource"
 
-	// BPFInsnSet denotes the instruction set version
-	BPFInsnSet = "bpfInsnSet"
-
 	// CiliumLocalRedirectPolicyName is the name of a CiliumLocalRedirectPolicy
 	CiliumLocalRedirectName = "ciliumLocalRedirectPolicyName"
 

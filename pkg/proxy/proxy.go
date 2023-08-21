@@ -423,9 +423,35 @@ func (p *Proxy) SetProxyPort(name string, proxyType ProxyType, port uint16, ingr
 	return nil
 }
 
-// ReinstallRules is called by daemon reconfiguration to re-install proxy ports rules that
-// were removed during the removal of all Cilium rules.
-func (p *Proxy) ReinstallRules(ctx context.Context) error {
+// ReinstallRoutingRules ensures the presence of routing rules and tables needed
+// to route packets to the L7 proxy.
+func (p *Proxy) ReinstallRoutingRules() error {
+	if option.Config.EnableIPv4 {
+		if err := installRoutesIPv4(); err != nil {
+			return err
+		}
+	} else {
+		if err := removeRoutesIPv4(); err != nil {
+			return err
+		}
+	}
+
+	if option.Config.EnableIPv6 {
+		if err := installRoutesIPv6(); err != nil {
+			return err
+		}
+	} else {
+		if err := removeRoutesIPv6(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ReinstallIPTablesRules is called by daemon reconfiguration to reinstall
+// proxy ports rules that were removed during the removal of all Cilium rules.
+func (p *Proxy) ReinstallIPTablesRules(ctx context.Context) error {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 	for name, pp := range p.proxyPorts {

@@ -427,13 +427,17 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	}
 
 	lbls := info.ToLabels()
-	if lbls.Has(labels.LabelWorld[labels.IDNameWorld]) &&
+	if (lbls.Has(labels.LabelWorld[labels.IDNameWorld]) ||
+		lbls.Has(labels.LabelWorldIPv4[labels.IDNameWorldIPv4]) ||
+		lbls.Has(labels.LabelWorldIPv6[labels.IDNameWorldIPv6])) &&
 		(lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) ||
 			lbls.Has(labels.LabelHost[labels.IDNameHost])) {
 		// If the prefix is associated with both world and (remote-node or
 		// host), then the latter (remote-node or host) take precedence to
 		// avoid allocating a CIDR identity for an entity within the cluster.
 		n := lbls.Remove(labels.LabelWorld)
+		n = n.Remove(labels.LabelWorldIPv4)
+		n = n.Remove(labels.LabelWorldIPv6)
 		n = n.Remove(cidrlabels.GetCIDRLabels(prefix))
 		lbls = n
 	}
@@ -479,7 +483,9 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	// which could theoretically fail if we ever allocate a very large
 	// number of identities.
 	id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(ctx, lbls, false, restoredIdentity)
-	if lbls.Has(labels.LabelWorld[labels.IDNameWorld]) {
+	if lbls.Has(labels.LabelWorld[labels.IDNameWorld]) ||
+		lbls.Has(labels.LabelWorldIPv4[labels.IDNameWorldIPv4]) ||
+		lbls.Has(labels.LabelWorldIPv6[labels.IDNameWorldIPv6]) {
 		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
 	}
 	return id, isNew, err

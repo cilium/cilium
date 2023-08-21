@@ -219,6 +219,30 @@ __revalidate_data_pull(struct __ctx_buff *ctx, void **data, void **data_end,
 					l3_off);
 }
 
+static __always_inline __u32 get_tunnel_id(__u32 identity)
+{
+#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+	if (identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
+		return WORLD_ID;
+#endif
+	return identity;
+}
+
+static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __u16 proto  __maybe_unused)
+{
+#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+	if (tunnel_id == WORLD_ID) {
+		switch (proto) {
+		case bpf_htons(ETH_P_IP):
+			return WORLD_IPV4_ID;
+		case bpf_htons(ETH_P_IPV6):
+			return WORLD_IPV6_ID;
+		}
+	}
+#endif
+	return tunnel_id;
+}
+
 /* revalidate_data_pull() initializes the provided pointers from the ctx and
  * ensures that the data is pulled in for access. Should be used the first
  * time that the ctx data is accessed, subsequent calls can be made to

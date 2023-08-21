@@ -91,11 +91,11 @@ type MetalLBSpeaker struct {
 	// Speaker will shut itself down when this is 1,
 	// ensuring no other events are processed after the
 	// final withdraw of routes.
-	shutdown int32
+	shutdown atomic.Bool
 }
 
 func (s *MetalLBSpeaker) shutDown() bool {
-	return atomic.LoadInt32(&s.shutdown) > 0
+	return s.shutdown.Load()
 }
 
 // OnUpdateService notifies the Speaker of an update to a service.

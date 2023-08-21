@@ -6,9 +6,13 @@
 #include "pktgen.h"
 #define ROUTER_IP
 #define SECLABEL
+#define SECLABEL_IPV4
+#define SECLABEL_IPV6
 #include "config_replacement.h"
 #undef ROUTER_IP
 #undef SECLABEL
+#undef SECLABEL_IPV4
+#undef SECLABEL_IPV6
 
 #define NODE_ID 2333
 #define ENCRYPT_KEY 3

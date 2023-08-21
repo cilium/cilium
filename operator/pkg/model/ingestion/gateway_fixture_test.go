@@ -1861,3 +1861,317 @@ var responseHeaderModifierHTTPRoutes = []gatewayv1beta1.HTTPRoute{
 		},
 	},
 }
+
+// https://github.com/kubernetes-sigs/gateway-api/blob/v0.7.1/conformance/tests/httproute-rewrite-host.yaml
+var rewriteHostHTTPRoutes = []gatewayv1beta1.HTTPRoute{
+	{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rewrite-host",
+			Namespace: "gateway-conformance-infra",
+		},
+		Spec: gatewayv1beta1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
+				ParentRefs: []gatewayv1beta1.ParentReference{
+					{
+						Name: "same-namespace",
+					},
+				},
+			},
+			Hostnames: []gatewayv1beta1.Hostname{
+				"rewrite.example",
+			},
+			Rules: []gatewayv1beta1.HTTPRouteRule{
+				{
+					Matches: []gatewayv1beta1.HTTPRouteMatch{
+						{
+							Path: &gatewayv1beta1.HTTPPathMatch{
+								Type:  model.AddressOf[gatewayv1beta1.PathMatchType](gatewayv1beta1.PathMatchPathPrefix),
+								Value: model.AddressOf("/one"),
+							},
+						},
+					},
+					Filters: []gatewayv1beta1.HTTPRouteFilter{
+						{
+							Type: "URLRewrite",
+							URLRewrite: &gatewayv1beta1.HTTPURLRewriteFilter{
+								Hostname: model.AddressOf[gatewayv1beta1.PreciseHostname]("one.example.org"),
+							},
+						},
+					},
+					BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1beta1.BackendRef{
+								BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+									Name: "infra-backend-v1",
+									Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+								},
+							},
+						},
+					},
+				},
+				{
+					Filters: []gatewayv1beta1.HTTPRouteFilter{
+						{
+							Type: "URLRewrite",
+							URLRewrite: &gatewayv1beta1.HTTPURLRewriteFilter{
+								Hostname: model.AddressOf[gatewayv1beta1.PreciseHostname]("example.org"),
+							},
+						},
+					},
+					BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1beta1.BackendRef{
+								BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+									Name: "infra-backend-v2",
+									Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+// https://github.com/kubernetes-sigs/gateway-api/blob/v0.7.1/conformance/tests/httproute-rewrite-path.yaml
+var rewritePathHTTPRoutes = []gatewayv1beta1.HTTPRoute{
+	{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "rewrite-path",
+			Namespace: "gateway-conformance-infra",
+		},
+		Spec: gatewayv1beta1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
+				ParentRefs: []gatewayv1beta1.ParentReference{
+					{
+						Name: "same-namespace",
+					},
+				},
+			},
+			Rules: []gatewayv1beta1.HTTPRouteRule{
+				{
+					Matches: []gatewayv1beta1.HTTPRouteMatch{
+						{
+							Path: &gatewayv1beta1.HTTPPathMatch{
+								Type:  model.AddressOf[gatewayv1beta1.PathMatchType](gatewayv1beta1.PathMatchPathPrefix),
+								Value: model.AddressOf("/prefix/one"),
+							},
+						},
+					},
+					Filters: []gatewayv1beta1.HTTPRouteFilter{
+						{
+							Type: "URLRewrite",
+							URLRewrite: &gatewayv1beta1.HTTPURLRewriteFilter{
+								Path: &gatewayv1beta1.HTTPPathModifier{
+									Type:               "ReplacePrefixMatch",
+									ReplacePrefixMatch: model.AddressOf("/one"),
+								},
+							},
+						},
+					},
+					BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1beta1.BackendRef{
+								BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+									Name: "infra-backend-v1",
+									Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+								},
+							},
+						},
+					},
+				},
+				{
+					Matches: []gatewayv1beta1.HTTPRouteMatch{
+						{
+							Path: &gatewayv1beta1.HTTPPathMatch{
+								Type:  model.AddressOf[gatewayv1beta1.PathMatchType](gatewayv1beta1.PathMatchPathPrefix),
+								Value: model.AddressOf("/full/one"),
+							},
+						},
+					},
+					Filters: []gatewayv1beta1.HTTPRouteFilter{
+						{
+							Type: "URLRewrite",
+							URLRewrite: &gatewayv1beta1.HTTPURLRewriteFilter{
+								Path: &gatewayv1beta1.HTTPPathModifier{
+									Type:            "ReplaceFullPath",
+									ReplaceFullPath: model.AddressOf("/one"),
+								},
+							},
+						},
+					},
+					BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1beta1.BackendRef{
+								BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+									Name: "infra-backend-v1",
+									Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+								},
+							},
+						},
+					},
+				},
+				{
+					Matches: []gatewayv1beta1.HTTPRouteMatch{
+						{
+							Path: &gatewayv1beta1.HTTPPathMatch{
+								Type:  model.AddressOf[gatewayv1beta1.PathMatchType](gatewayv1beta1.PathMatchPathPrefix),
+								Value: model.AddressOf("/full/rewrite-path-and-modify-headers"),
+							},
+						},
+					},
+					Filters: []gatewayv1beta1.HTTPRouteFilter{
+						{
+							Type: "URLRewrite",
+							URLRewrite: &gatewayv1beta1.HTTPURLRewriteFilter{
+								Path: &gatewayv1beta1.HTTPPathModifier{
+									Type:            "ReplaceFullPath",
+									ReplaceFullPath: model.AddressOf("/test"),
+								},
+							},
+						},
+						{
+							Type: "RequestHeaderModifier",
+							RequestHeaderModifier: &gatewayv1beta1.HTTPHeaderFilter{
+								Set: []gatewayv1beta1.HTTPHeader{
+									{
+										Name:  "X-Header-Set",
+										Value: "set-overwrites-values",
+									},
+								},
+								Add: []gatewayv1beta1.HTTPHeader{
+									{
+										Name:  "X-Header-Add",
+										Value: "header-val-1",
+									},
+									{
+										Name:  "X-Header-Add-Append",
+										Value: "header-val-2",
+									},
+								},
+								Remove: []string{"X-Header-Remove"},
+							},
+						},
+					},
+					BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1beta1.BackendRef{
+								BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+									Name: "infra-backend-v1",
+									Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+								},
+							},
+						},
+					},
+				},
+				{
+					Matches: []gatewayv1beta1.HTTPRouteMatch{
+						{
+							Path: &gatewayv1beta1.HTTPPathMatch{
+								Type:  model.AddressOf[gatewayv1beta1.PathMatchType](gatewayv1beta1.PathMatchPathPrefix),
+								Value: model.AddressOf("/prefix/rewrite-path-and-modify-headers"),
+							},
+						},
+					},
+					Filters: []gatewayv1beta1.HTTPRouteFilter{
+						{
+							Type: "URLRewrite",
+							URLRewrite: &gatewayv1beta1.HTTPURLRewriteFilter{
+								Path: &gatewayv1beta1.HTTPPathModifier{
+									Type:               "ReplacePrefixMatch",
+									ReplacePrefixMatch: model.AddressOf("/prefix"),
+								},
+							},
+						},
+						{
+							Type: "RequestHeaderModifier",
+							RequestHeaderModifier: &gatewayv1beta1.HTTPHeaderFilter{
+								Set: []gatewayv1beta1.HTTPHeader{
+									{
+										Name:  "X-Header-Set",
+										Value: "set-overwrites-values",
+									},
+								},
+								Add: []gatewayv1beta1.HTTPHeader{
+									{
+										Name:  "X-Header-Add",
+										Value: "header-val-1",
+									},
+									{
+										Name:  "X-Header-Add-Append",
+										Value: "header-val-2",
+									},
+								},
+								Remove: []string{"X-Header-Remove"},
+							},
+						},
+					},
+					BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1beta1.BackendRef{
+								BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+									Name: "infra-backend-v1",
+									Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+// https://github.com/kubernetes-sigs/gateway-api/blob/v0.7.1/conformance/tests/httproute-request-mirror.yaml
+var mirrorPathHTTPRoutes = []gatewayv1beta1.HTTPRoute{
+	{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "request-mirror",
+			Namespace: "gateway-conformance-infra",
+		},
+		Spec: gatewayv1beta1.HTTPRouteSpec{
+			CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
+				ParentRefs: []gatewayv1beta1.ParentReference{
+					{
+						Name: "same-namespace",
+					},
+				},
+			},
+			Rules: []gatewayv1beta1.HTTPRouteRule{
+				{
+					Matches: []gatewayv1beta1.HTTPRouteMatch{
+						{
+							Path: &gatewayv1beta1.HTTPPathMatch{
+								Type:  model.AddressOf[gatewayv1beta1.PathMatchType](gatewayv1beta1.PathMatchPathPrefix),
+								Value: model.AddressOf("/mirror"),
+							},
+						},
+					},
+					Filters: []gatewayv1beta1.HTTPRouteFilter{
+						{
+							Type: "RequestMirror",
+							RequestMirror: &gatewayv1beta1.HTTPRequestMirrorFilter{
+								BackendRef: gatewayv1beta1.BackendObjectReference{
+									Name:      "infra-backend-v2",
+									Namespace: model.AddressOf[gatewayv1beta1.Namespace]("gateway-conformance-infra"),
+									Port:      model.AddressOf[gatewayv1beta1.PortNumber](8080),
+								},
+							},
+						},
+					},
+					BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						{
+							BackendRef: gatewayv1beta1.BackendRef{
+								BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+									Name: "infra-backend-v1",
+									Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}

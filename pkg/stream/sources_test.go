@@ -30,7 +30,7 @@ func TestMulticast(t *testing.T) {
 	subErrs := make(chan error, numSubs)
 	defer close(subErrs)
 
-	numReady := int32(0)
+	var numReady atomic.Uint32
 
 	for i := 0; i < numSubs; i++ {
 		go func() {
@@ -43,7 +43,7 @@ func TestMulticast(t *testing.T) {
 				case item := <-items:
 					if item == 0 {
 						if !ready {
-							atomic.AddInt32(&numReady, 1)
+							numReady.Add(1)
 							ready = true
 						}
 					} else {
@@ -65,7 +65,7 @@ func TestMulticast(t *testing.T) {
 	connect(ctx)
 
 	// Synchronize with the subscriptions
-	for atomic.LoadInt32(&numReady) != int32(numSubs) {
+	for numReady.Load() != uint32(numSubs) {
 		in <- 0
 	}
 

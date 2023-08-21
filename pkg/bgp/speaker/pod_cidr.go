@@ -5,7 +5,6 @@ package speaker
 
 import (
 	"sync"
-	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	metallbbgp "go.universe.tf/metallb/pkg/bgp"
@@ -63,7 +62,7 @@ func (s *MetalLBSpeaker) withdraw() {
 	)
 	// flip this bool so we start rejecting new events from
 	// entering the queue.
-	atomic.AddInt32(&s.shutdown, 1)
+	s.shutdown.Store(true)
 	var wg sync.WaitGroup // waitgroup here since we don't care about errors
 	for _, session := range s.speaker.PeerSessions() {
 		wg.Add(1)

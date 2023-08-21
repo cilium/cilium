@@ -35,6 +35,10 @@ func (dm *DeviceManager) Detect(k8sEnabled bool) ([]string, error) {
 		hasWildcard = hasWildcard || strings.HasSuffix(name, "+")
 	}
 
+	if len(userDevices) == 0 && !option.Config.AreDevicesRequired() {
+		return nil, nil
+	}
+
 	devs, _ := tables.SelectedDevices(dm.params.DeviceTable.Reader(dm.params.DB.ReadTxn()))
 	names := tables.DeviceNames(devs)
 

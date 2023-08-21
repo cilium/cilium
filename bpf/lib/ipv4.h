@@ -9,6 +9,9 @@
 #include "dbg.h"
 #include "metrics.h"
 
+#define IPV4_SADDR_OFF		offsetof(struct iphdr, saddr)
+#define IPV4_DADDR_OFF		offsetof(struct iphdr, daddr)
+
 struct ipv4_frag_id {
 	__be32	daddr;
 	__be32	saddr;

@@ -100,6 +100,10 @@
      - Enable SPIRE installation. This will only take effect only if authentication.mutual.spire.enabled is true
      - bool
      - ``true``
+   * - :spelling:ignore:`authentication.mutual.spire.install.init`
+     - SPIRE init-configuration image
+     - object
+     - ``{"image":"docker.io/library/busybox:1.35.0@sha256:223ae047b1065bd069aac01ae3ac8088b3ca4a527827e283b85112f29385fb1b"}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -315,7 +319,7 @@
    * - :spelling:ignore:`certgen`
      - Configure certificate generation for Hubble integration. If hubble.tls.auto.method=cronJob, these values are used for the Kubernetes CronJob which will be scheduled regularly to (re)generate any certificates not provided manually.
      - object
-     - ``{"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"image":{"digest":"sha256:4a456552a5f192992a6edcec2febb1c54870d665173a33dc7d876129b199ddbd","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.1.8","useDigest":true},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
+     - ``{"annotations":{"cronJob":{},"job":{}},"extraVolumeMounts":[],"extraVolumes":[],"image":{"digest":"sha256:89a0847753686444daabde9474b48340993bd19c7bea66a46e45b2974b82041f","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/certgen","tag":"v0.1.9","useDigest":true},"podLabels":{},"tolerations":[],"ttlSecondsAfterFinished":1800}``
    * - :spelling:ignore:`certgen.annotations`
      - Annotations to be added to the hubble-certgen initial Job and CronJob
      - object
@@ -1055,7 +1059,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:4332565a692b329d56a48aae6dc2c71609a491b49de08ba03a50daae6532dcfb","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.26.4-7311bd3bf1a5fcd8192de39efcde3137e0133d43","useDigest":true}``
+     - ``{"digest":"sha256:ec4f5a3b9504288b4de1db00893bd0ef79187c501a63e08bce11e2fb3de88920","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.26.4-bad30dbe3f4c33c4a6e6747236f7c6d84b380d0d","useDigest":true}``
    * - :spelling:ignore:`envoy.livenessProbe.failureThreshold`
      - failure threshold of liveness probe
      - int
