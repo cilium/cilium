@@ -346,6 +346,10 @@ func (c *fakeClient) GetPodsTable(_ context.Context) (*metav1.Table, error) {
 	panic("implement me")
 }
 
+func (c *fakeClient) ProxyGet(_ context.Context, namespace, name, url string) (string, error) {
+	return fmt.Sprintf("Get from %s/%s/%s", namespace, name, url), nil
+}
+
 func (c *fakeClient) GetSecret(_ context.Context, _, _ string, _ metav1.GetOptions) (*corev1.Secret, error) {
 	panic("implement me")
 }
