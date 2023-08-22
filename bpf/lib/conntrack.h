@@ -246,7 +246,9 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 			ct_state->proxy_redirect = entry->proxy_redirect;
 			ct_state->from_l7lb = entry->from_l7lb;
 			ct_state->from_tunnel = entry->from_tunnel;
+#ifndef HAVE_FIB_IFINDEX
 			ct_state->ifindex = entry->ifindex;
+#endif
 		}
 #ifdef CONNTRACK_ACCOUNTING
 		/* FIXME: This is slow, per-cpu counters? */
@@ -868,8 +870,9 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	} else if (dir == CT_INGRESS || dir == CT_EGRESS) {
 		entry.node_port = ct_state->node_port;
 		entry.dsr = ct_state->dsr;
+#ifndef HAVE_FIB_IFINDEX
 		entry.ifindex = ct_state->ifindex;
-
+#endif
 		/* Note if this is a proxy connection so that replies can be redirected
 		 * back to the proxy.
 		 */
@@ -944,8 +947,9 @@ static __always_inline int ct_create4(const void *map_main,
 		entry.node_port = ct_state->node_port;
 		entry.dsr = ct_state->dsr;
 		entry.from_tunnel = ct_state->from_tunnel;
+#ifndef HAVE_FIB_IFINDEX
 		entry.ifindex = ct_state->ifindex;
-
+#endif
 		/* Note if this is a proxy connection so that replies can be redirected
 		 * back to the proxy.
 		 */
