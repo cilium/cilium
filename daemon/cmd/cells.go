@@ -38,7 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/signal"
-	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb2"
 )
 
 var (
@@ -96,7 +96,7 @@ var (
 
 		// DB provides an extendable in-memory database with rich transactions
 		// and multi-version concurrency control through immutable radix trees.
-		statedb.Cell,
+		statedb2.Cell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
