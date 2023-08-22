@@ -256,6 +256,8 @@ data:
   enable-gateway-api: "true"
   enable-gateway-api-secrets-sync: {{ .Values.gatewayAPI.secretsNamespace.sync | quote }}
   gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+  ingress-lb-annotation-prefixes: {{ .Values.gatewayAPI.gatewayLBAnnotationPrefixes | join " " | quote }}
+
 {{- end }}
 
 {{- if hasKey .Values "loadBalancer" }}

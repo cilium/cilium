@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/pem"
 	"fmt"
+	"strings"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -124,6 +125,20 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		scopedLog.WithError(err).Error("Unable to translate resources")
 		setGatewayAccepted(gw, false, "Unable to translate resources")
 		return fail(err)
+	}
+
+	// Propagate Gateway annotation if required.
+	if svc != nil {
+		for key, value := range gw.GetAnnotations() {
+			for _, prefix := range r.lbAnnotationPrefixes {
+				if strings.HasPrefix(key, prefix) {
+					if svc.Annotations == nil {
+						svc.Annotations = make(map[string]string)
+					}
+					svc.Annotations[key] = value
+				}
+			}
+		}
 	}
 
 	if err = r.ensureService(ctx, svc); err != nil {

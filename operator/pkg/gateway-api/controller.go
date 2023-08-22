@@ -56,7 +56,7 @@ type Controller struct {
 
 // NewController returns a new gateway controller, which is implemented
 // using the controller-runtime library.
-func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSeconds int) (*Controller, error) {
+func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSeconds int, lbAnnotationPrefixes []string) (*Controller, error) {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		// Disable controller metrics server in favour of cilium's metrics server.
@@ -79,12 +79,13 @@ func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSe
 	}
 
 	gwReconciler := &gatewayReconciler{
-		Client:             mgr.GetClient(),
-		Scheme:             mgr.GetScheme(),
-		SecretsNamespace:   secretsNamespace,
-		Model:              m,
-		controllerName:     controllerName,
-		IdleTimeoutSeconds: idleTimeoutSeconds,
+		Client:               mgr.GetClient(),
+		Scheme:               mgr.GetScheme(),
+		SecretsNamespace:     secretsNamespace,
+		Model:                m,
+		controllerName:       controllerName,
+		lbAnnotationPrefixes: lbAnnotationPrefixes,
+		IdleTimeoutSeconds:   idleTimeoutSeconds,
 	}
 	if err = gwReconciler.SetupWithManager(mgr); err != nil {
 		return nil, err

@@ -166,6 +166,9 @@ var gwFixture = []client.Object{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "valid-gateway",
 			Namespace: "default",
+			Annotations: map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing",
+			},
 		},
 		Spec: gatewayv1beta1.GatewaySpec{
 			GatewayClassName: "cilium",
@@ -203,7 +206,7 @@ var gwFixture = []client.Object{
 		},
 	},
 
-	/// Valid TLSRoute gateway
+	// / Valid TLSRoute gateway
 	&gatewayv1beta1.Gateway{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Gateway",
@@ -233,7 +236,7 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		WithObjects(gwFixture...).
 		WithStatusSubresource(&gatewayv1beta1.Gateway{}).
 		Build()
-	r := &gatewayReconciler{Client: c}
+	r := &gatewayReconciler{Client: c, lbAnnotationPrefixes: []string{"service.beta.kubernetes.io"}}
 
 	t.Run("non-existent gateway", func(t *testing.T) {
 		result, err := r.Reconcile(context.Background(), ctrl.Request{
@@ -287,6 +290,7 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		err = c.Get(context.Background(), client.ObjectKey{Namespace: "default", Name: "cilium-gateway-valid-gateway"}, lb)
 		require.NoError(t, err)
 		require.Equal(t, corev1.ServiceTypeLoadBalancer, lb.Spec.Type)
+		require.Equal(t, "internet-facing", lb.Annotations["service.beta.kubernetes.io/aws-load-balancer-type"])
 		require.Equal(t, "valid-gateway", lb.Labels["io.cilium.gateway/owning-gateway"])
 		require.Equal(t, "true", lb.Annotations["pre-existing-annotation"])
 
@@ -355,6 +359,7 @@ func Test_gatewayReconciler_Reconcile(t *testing.T) {
 		err = c.Get(context.Background(), client.ObjectKey{Namespace: "default", Name: "cilium-gateway-valid-tlsroute-gateway"}, lb)
 		require.NoError(t, err)
 		require.Equal(t, corev1.ServiceTypeLoadBalancer, lb.Spec.Type)
+		require.Equal(t, "internet-facing", lb.Annotations["service.beta.kubernetes.io/aws-load-balancer-type"])
 		require.Equal(t, "valid-tlsroute-gateway", lb.Labels["io.cilium.gateway/owning-gateway"])
 
 		// Update LB status

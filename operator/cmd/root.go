@@ -731,6 +731,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			operatorOption.Config.EnableGatewayAPISecretsSync,
 			operatorOption.Config.GatewayAPISecretsNamespace,
 			operatorOption.Config.ProxyIdleTimeoutSeconds,
+			operatorOption.Config.GatewayLBAnnotationPrefixes,
 		)
 		if err != nil {
 			log.WithError(err).WithField(logfields.LogSubsys, gatewayapi.Subsys).Fatal(

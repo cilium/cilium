@@ -19,6 +19,8 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "option")
 
 var IngressLBAnnotationsDefault = []string{"service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"}
 
+var GatewayLBAnnotationsDefault = []string{"service.beta.kubernetes.io", "service.kubernetes.io", "cloud.google.com"}
+
 const (
 	// EndpointGCIntervalDefault is the default time for the CEP GC
 	EndpointGCIntervalDefault = 5 * time.Minute
@@ -288,6 +290,10 @@ const (
 
 	// GatewayAPISecretsNamespace is the namespace having tls secrets used by GatewayAPI and CEC.
 	GatewayAPISecretsNamespace = "gateway-api-secrets-namespace"
+
+	// GatewayLBAnnotationPrefixes are the annotations which are needed to propagate
+	// from Ingress to the Load Balancer
+	GatewayLBAnnotationPrefixes = "gateway-lb-annotation-prefixes"
 
 	// ProxyIdleTimeoutSeconds is the idle timeout for proxy connections to upstream clusters
 	ProxyIdleTimeoutSeconds = "proxy-idle-timeout-seconds"
@@ -564,6 +570,10 @@ type OperatorConfig struct {
 	// GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC for Gateway API.
 	GatewayAPISecretsNamespace string
 
+	// GatewayLBAnnotationPrefixes GatewayLBAnnotations are the annotation prefixes,
+	// which are used to filter annotations to propagate from Gateway to the Load Balancer
+	GatewayLBAnnotationPrefixes []string
+
 	// ProxyIdleTimeoutSeconds is the idle timeout for the proxy to upstream cluster
 	ProxyIdleTimeoutSeconds int
 
@@ -638,6 +648,10 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.EnforceIngressHTTPS = vp.GetBool(EnforceIngressHttps)
 	c.IngressSecretsNamespace = vp.GetString(IngressSecretsNamespace)
 	c.GatewayAPISecretsNamespace = vp.GetString(GatewayAPISecretsNamespace)
+	c.GatewayLBAnnotationPrefixes = vp.GetStringSlice(GatewayLBAnnotationPrefixes)
+	if len(c.GatewayLBAnnotationPrefixes) == 0 {
+		c.GatewayLBAnnotationPrefixes = GatewayLBAnnotationsDefault
+	}
 	c.ProxyIdleTimeoutSeconds = vp.GetInt(ProxyIdleTimeoutSeconds)
 	if c.ProxyIdleTimeoutSeconds == 0 {
 		c.ProxyIdleTimeoutSeconds = DefaultProxyIdleTimeoutSeconds

@@ -38,6 +38,8 @@ type gatewayReconciler struct {
 	SecretsNamespace   string
 	IdleTimeoutSeconds int
 
+	lbAnnotationPrefixes []string
+
 	controllerName string
 	Model          *internalModel
 }
