@@ -61,6 +61,7 @@ type configuration struct {
 	clusterID               uint32
 	serviceProxyName        string
 	enableExternalWorkloads bool
+	maxConnectedClusters    uint32
 }
 
 func (c configuration) LocalClusterName() string {
@@ -93,6 +94,16 @@ var (
 			// Overwrite the metrics namespace with the one specific for the ClusterMesh API Server
 			metrics.Namespace = metrics.CiliumClusterMeshAPIServerNamespace
 			option.Config.Populate(vp)
+
+			// If MaxConnectedClusters is set other than default, initialize ClusterIDMax
+			// and the dependant identity allocation variables.
+			if option.Config.MaxConnectedClusters != defaults.MaxConnectedClusters {
+				if err := cmtypes.InitClusterIDMax(option.Config.MaxConnectedClusters); err != nil {
+					log.Fatalf("option --%s: %v", option.MaxConnectedClusters, err)
+				}
+				log.Infof("Extended Clustermesh enabled with %d maximum clusters", cmtypes.ClusterIDMax)
+			}
+
 			if option.Config.Debug {
 				log.Logger.SetLevel(logrus.DebugLevel)
 			}
@@ -270,6 +281,9 @@ func runApiserver() error {
 	// the flag is not configured (for instance by the legacy cilium CLI).
 	flags.BoolVar(&cfg.enableExternalWorkloads, option.EnableExternalWorkloads, true, "Enable support for external workloads")
 	option.BindEnv(vp, option.EnableExternalWorkloads)
+
+	flags.Uint32Var(&cfg.maxConnectedClusters, option.MaxConnectedClusters, defaults.MaxConnectedClusters, "Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available.")
+	option.BindEnv(vp, option.MaxConnectedClusters)
 
 	vp.BindPFlags(flags)
 
@@ -538,6 +552,7 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, backe
 		Capabilities: cmtypes.CiliumClusterConfigCapabilities{
 			SyncedCanaries: true,
 		},
+		MaxConnectedClusters: cfg.maxConnectedClusters,
 	}
 
 	if err := cmutils.SetClusterConfig(context.Background(), cfg.clusterName, &config, backend); err != nil {
