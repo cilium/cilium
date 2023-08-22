@@ -21,10 +21,6 @@ import (
 )
 
 const (
-	// ClusterIDShift specifies the number of bits the cluster ID will be
-	// shifted
-	ClusterIDShift = 16
-
 	// Identities also have scopes, which is defined by the high 8 bits.
 	// 0x00 -- Global and reserved identities. Reserved identities are
 	//         not allocated like global identities, but are known
@@ -596,7 +592,7 @@ func (id NumericIdentity) IsReservedIdentity() bool {
 
 // ClusterID returns the cluster ID associated with the identity
 func (id NumericIdentity) ClusterID() uint32 {
-	return (uint32(id) >> 16) & 0xFF
+	return (uint32(id) >> uint32(GetClusterIDShift())) & cmtypes.ClusterIDMax
 }
 
 // GetAllReservedIdentities returns a list of all reserved numeric identities

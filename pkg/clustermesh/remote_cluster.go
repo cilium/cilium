@@ -69,7 +69,7 @@ type remoteCluster struct {
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config *cmtypes.CiliumClusterConfig, ready chan<- error) {
-	if err := config.Validate(rc.mesh.conf.ConfigValidationMode); err != nil {
+	if err := rc.mesh.conf.ClusterInfo.ValidateRemoteConfig(rc.ClusterConfigRequired(), config); err != nil {
 		ready <- err
 		close(ready)
 		return

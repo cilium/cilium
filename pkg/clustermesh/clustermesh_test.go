@@ -17,7 +17,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -108,8 +107,11 @@ func TestClusterMesh(t *testing.T) {
 	// feature. We should be able to connect to such a cluster for
 	// compatibility.
 	for i, name := range []string{"test2", "cluster1", "cluster2"} {
-		config := cmtypes.CiliumClusterConfig{
+		config := types.CiliumClusterConfig{
 			ID: uint32(i + 1),
+			Capabilities: types.CiliumClusterConfigCapabilities{
+				MaxConnectedClusters: 255,
+			},
 		}
 
 		if name == "cluster2" {
@@ -139,7 +141,7 @@ func TestClusterMesh(t *testing.T) {
 	storeFactory := store.NewFactory(store.MetricsProvider())
 	cm := NewClusterMesh(hivetest.Lifecycle(t), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
-		ClusterInfo:           types.ClusterInfo{ID: 255, Name: "test2"},
+		ClusterInfo:           types.ClusterInfo{ID: 255, Name: "test2", MaxConnectedClusters: 255},
 		NodeKeyCreator:        testNodeCreator,
 		NodeObserver:          &testObserver{},
 		RemoteIdentityWatcher: mgr,
@@ -176,8 +178,11 @@ func TestClusterMesh(t *testing.T) {
 	}, timeout, tick, "Cluster IDs were not reserved correctly")
 
 	// Reconnect cluster with changed ClusterID
-	config := cmtypes.CiliumClusterConfig{
+	config := types.CiliumClusterConfig{
 		ID: 255,
+		Capabilities: types.CiliumClusterConfigCapabilities{
+			MaxConnectedClusters: 255,
+		},
 	}
 	err := cmutils.SetClusterConfig(ctx, "cluster1", &config, kvstore.Client())
 	require.NoErrorf(t, err, "Failed to set cluster config for cluster1")
