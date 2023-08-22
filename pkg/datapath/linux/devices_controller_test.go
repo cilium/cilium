@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb2"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -203,12 +203,12 @@ func TestDevicesController(t *testing.T) {
 	withFreshNetNS(t, func(ns netns.NsHandle) {
 
 		var (
-			db           statedb.DB
-			devicesTable statedb.Table[*tables.Device]
-			routesTable  statedb.Table[*tables.Route]
+			db           *statedb2.DB
+			devicesTable statedb2.Table[*tables.Device]
+			routesTable  statedb2.Table[*tables.Route]
 		)
 		h := hive.New(
-			statedb.Cell,
+			statedb2.Cell,
 			tables.Cell,
 			DevicesControllerCell,
 			cell.Provide(func() (*netlinkFuncs, error) {
@@ -221,7 +221,7 @@ func TestDevicesController(t *testing.T) {
 				return DevicesConfig{}
 			}),
 
-			cell.Invoke(func(db_ statedb.DB, devicesTable_ statedb.Table[*tables.Device], routesTable_ statedb.Table[*tables.Route]) {
+			cell.Invoke(func(db_ *statedb2.DB, devicesTable_ statedb2.Table[*tables.Device], routesTable_ statedb2.Table[*tables.Route]) {
 				db = db_
 				devicesTable = devicesTable_
 				routesTable = routesTable_
@@ -239,11 +239,10 @@ func TestDevicesController(t *testing.T) {
 			// Get the new set of devices
 			for {
 				txn := db.ReadTxn()
-				devs, devsInvalidated := tables.SelectedDevices(devicesTable.Reader(txn))
+				devs, devsInvalidated := tables.SelectedDevices(devicesTable, txn)
 
-				routesIter, err := routesTable.Reader(txn).Get(statedb.All)
-				require.NoError(t, err)
-				routes := statedb.Collect[*tables.Route](routesIter)
+				routesIter, routesIterInvalidated := routesTable.All(txn)
+				routes := statedb2.Collect(routesIter)
 
 				if step.check(t, devs, routes) {
 					break
@@ -251,10 +250,10 @@ func TestDevicesController(t *testing.T) {
 
 				// Wait for a changes and try again.
 				select {
-				case <-routesIter.Invalidated():
+				case <-routesIterInvalidated:
 				case <-devsInvalidated:
 				case <-ctx.Done():
-					db.WriteJSON(os.Stdout)
+					txn.WriteJSON(os.Stdout)
 					t.Fatalf("Test case %q timed out while waiting for devices. Last devices seen: %+v", step.name, devs)
 				}
 			}
@@ -281,11 +280,11 @@ func TestDevicesController_Wildcards(t *testing.T) {
 	withFreshNetNS(t, func(ns netns.NsHandle) {
 
 		var (
-			db           statedb.DB
-			devicesTable statedb.Table[*tables.Device]
+			db           *statedb2.DB
+			devicesTable statedb2.Table[*tables.Device]
 		)
 		h := hive.New(
-			statedb.Cell,
+			statedb2.Cell,
 			tables.Cell,
 			DevicesControllerCell,
 			cell.Provide(func() DevicesConfig {
@@ -294,7 +293,7 @@ func TestDevicesController_Wildcards(t *testing.T) {
 				}
 			}),
 			cell.Provide(func() (*netlinkFuncs, error) { return makeNetlinkFuncs(ns) }),
-			cell.Invoke(func(db_ statedb.DB, devicesTable_ statedb.Table[*tables.Device]) {
+			cell.Invoke(func(db_ *statedb2.DB, devicesTable_ statedb2.Table[*tables.Device]) {
 				db = db_
 				devicesTable = devicesTable_
 			}))
@@ -305,8 +304,8 @@ func TestDevicesController_Wildcards(t *testing.T) {
 		require.NoError(t, createDummy("nonviable", "192.168.1.1/24", false))
 
 		for {
-			devices := devicesTable.Reader(db.ReadTxn())
-			devs, invalidated := tables.SelectedDevices(devices)
+			rxn := db.ReadTxn()
+			devs, invalidated := tables.SelectedDevices(devicesTable, rxn)
 
 			if len(devs) == 1 && devs[0].Name == "dummy0" {
 				break
@@ -330,8 +329,8 @@ func TestDevicesController_Restarts(t *testing.T) {
 	defer cancel()
 
 	var (
-		db           statedb.DB
-		devicesTable statedb.Table[*tables.Device]
+		db           *statedb2.DB
+		devicesTable statedb2.Table[*tables.Device]
 	)
 
 	logging.SetLogLevelToDebug()
@@ -436,12 +435,12 @@ func TestDevicesController_Restarts(t *testing.T) {
 	}
 
 	h := hive.New(
-		statedb.Cell,
+		statedb2.Cell,
 		tables.Cell,
 		DevicesControllerCell,
 		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Provide(func() *netlinkFuncs { return &funcs }),
-		cell.Invoke(func(db_ statedb.DB, devicesTable_ statedb.Table[*tables.Device]) {
+		cell.Invoke(func(db_ *statedb2.DB, devicesTable_ statedb2.Table[*tables.Device]) {
 			db = db_
 			devicesTable = devicesTable_
 		}))
@@ -450,9 +449,9 @@ func TestDevicesController_Restarts(t *testing.T) {
 	assert.NoError(t, err)
 
 	for {
-		iter, err := devicesTable.Reader(db.ReadTxn()).Get(statedb.All)
-		require.NoError(t, err)
-		devs := statedb.Collect[*tables.Device](iter)
+		rxn := db.ReadTxn()
+		iter, invalidated := devicesTable.All(rxn)
+		devs := statedb2.Collect(iter)
 
 		// We expect the 'stale' device to have been flushed by the restart
 		// and for the 'dummy' to have appeared.
@@ -462,9 +461,9 @@ func TestDevicesController_Restarts(t *testing.T) {
 
 		select {
 		case <-ctx.Done():
-			db.WriteJSON(os.Stdout)
+			rxn.WriteJSON(os.Stdout)
 			t.Fatalf("Test timed out while waiting for device, last seen: %v", devs)
-		case <-iter.Invalidated():
+		case <-invalidated:
 		}
 	}
 

@@ -39,7 +39,8 @@ func (dm *DeviceManager) Detect(k8sEnabled bool) ([]string, error) {
 		return nil, nil
 	}
 
-	devs, _ := tables.SelectedDevices(dm.params.DeviceTable.Reader(dm.params.DB.ReadTxn()))
+	rxn := dm.params.DB.ReadTxn()
+	devs, _ := tables.SelectedDevices(dm.params.DeviceTable, rxn)
 	names := tables.DeviceNames(devs)
 
 	if len(names) == 0 && hasWildcard {
@@ -110,8 +111,10 @@ func (dm *DeviceManager) Listen(ctx context.Context) (chan []string, error) {
 
 		prevDevices := dm.initialDevices
 		for {
-			iter, invalidated := tables.SelectedDevices(dm.params.DeviceTable.Reader(dm.params.DB.ReadTxn()))
-			newDevices := tables.DeviceNames(iter)
+			rxn := dm.params.DB.ReadTxn()
+			devices, invalidated := tables.SelectedDevices(dm.params.DeviceTable, rxn)
+			newDevices := tables.DeviceNames(devices)
+
 			if slices.Equal(prevDevices, newDevices) {
 				continue
 			}

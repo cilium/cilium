@@ -31,7 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb2"
 )
 
 // DevicesControllerCell registers a controller that subscribes to network devices
@@ -76,9 +76,9 @@ type devicesControllerParams struct {
 
 	Config      DevicesConfig
 	Log         logrus.FieldLogger
-	DB          statedb.DB
-	DeviceTable statedb.Table[*tables.Device]
-	RouteTable  statedb.Table[*tables.Route]
+	DB          *statedb2.DB
+	DeviceTable statedb2.Table[*tables.Device]
+	RouteTable  statedb2.Table[*tables.Route]
 
 	// netlinkFuncs is optional and used by tests to verify error handling behavior.
 	NetlinkFuncs *netlinkFuncs `optional:"true"`
@@ -260,22 +260,20 @@ func (dc *devicesController) initialize() error {
 		})
 	}
 
-	txn := dc.params.DB.WriteTxn()
+	txn := dc.params.DB.WriteTxn(dc.params.DeviceTable, dc.params.RouteTable)
 
 	// Flush existing data from potential prior run.
-	dc.params.DeviceTable.Writer(txn).DeleteAll(statedb.All)
-	dc.params.RouteTable.Writer(txn).DeleteAll(statedb.All)
+	dc.params.DeviceTable.DeleteAll(txn)
+	dc.params.RouteTable.DeleteAll(txn)
 
 	// Process the initial batch.
 	dc.processBatch(txn, batch)
 
-	iter, _ := tables.SelectedDevices(dc.params.DeviceTable.Reader(txn))
-	names := tables.DeviceNames(iter)
+	devs, _ := tables.SelectedDevices(dc.params.DeviceTable, txn)
+	names := tables.DeviceNames(devs)
 	dc.log.WithField(logfields.Devices, names).Info("Detected initial devices")
 
-	if err := txn.Commit(); err != nil {
-		return fmt.Errorf("failed to commit initial batch: %w", err)
-	}
+	txn.Commit()
 
 	select {
 	case <-dc.initialized:
@@ -332,13 +330,10 @@ func (dc *devicesController) processUpdates(
 
 		case <-ticker.C:
 			if len(batch) > 0 {
-				txn := dc.params.DB.WriteTxn()
+				txn := dc.params.DB.WriteTxn(dc.params.DeviceTable, dc.params.RouteTable)
 				dc.processBatch(txn, batch)
-				if err := txn.Commit(); err != nil {
-					dc.log.WithError(err).Warnf("Failed to commit devices and routes, retrying later")
-				} else {
-					batch = map[int][]any{}
-				}
+				txn.Commit()
+				batch = map[int][]any{}
 			}
 		}
 	}
@@ -368,15 +363,9 @@ func populateFromLink(d *tables.Device, link netlink.Link) {
 // processBatch processes a batch of address, link and route updates.
 // The address and link updates are merged into a device object and upserted
 // into the device table.
-func (dc *devicesController) processBatch(txn statedb.WriteTransaction, batch map[int][]any) {
-	devicesWriter := dc.params.DeviceTable.Writer(txn)
-	routesWriter := dc.params.RouteTable.Writer(txn)
-
+func (dc *devicesController) processBatch(txn statedb2.WriteTxn, batch map[int][]any) {
 	for index, updates := range batch {
-		d, err := devicesWriter.First(tables.DeviceByIndex(index))
-		if err != nil {
-			panic("BUG: DeviceByIndex is broken")
-		}
+		d, _, _ := dc.params.DeviceTable.First(txn, tables.DeviceIDIndex.Query(index))
 		if d == nil {
 			// Unseen device. We may receive address updates before link updates
 			// and thus the only thing we know at this point is the index.
@@ -414,9 +403,15 @@ func (dc *devicesController) processBatch(txn statedb.WriteTransaction, batch ma
 				r.Gw, _ = netip.AddrFromSlice(u.Gw)
 
 				if u.Type == unix.RTM_NEWROUTE {
-					routesWriter.Insert(&r)
+					_, _, err := dc.params.RouteTable.Insert(txn, &r)
+					if err != nil {
+						dc.log.WithError(err).WithField(logfields.Route, r).Warn("Failed to insert route")
+					}
 				} else {
-					routesWriter.Delete(&r)
+					_, _, err := dc.params.RouteTable.Delete(txn, &r)
+					if err != nil {
+						dc.log.WithError(err).WithField(logfields.Route, r).Warn("Failed to delete route")
+					}
 				}
 			case netlink.LinkUpdate:
 				if u.Header.Type == unix.RTM_DELLINK {
@@ -433,13 +428,16 @@ func (dc *devicesController) processBatch(txn statedb.WriteTransaction, batch ma
 		if deviceDeleted {
 			// Remove the deleted device. The routes table will be cleaned up from the
 			// route updates.
-			devicesWriter.DeleteAll(tables.DeviceByIndex(index))
+			dc.params.DeviceTable.Delete(txn, d)
 		} else {
 			// Recheck the viability of the device after the updates have been applied.
-			d.Selected = dc.isSelectedDevice(d, routesWriter) && len(d.Addrs) > 0
+			d.Selected = dc.isSelectedDevice(d, txn) && len(d.Addrs) > 0
 
 			// Create or update the device.
-			devicesWriter.Insert(d)
+			_, _, err := dc.params.DeviceTable.Insert(txn, d)
+			if err != nil {
+				dc.log.WithError(err).WithField(logfields.Device, d).Warn("Failed to insert route")
+			}
 		}
 	}
 }
@@ -454,7 +452,7 @@ const (
 
 // isSelectedDevice checks if the device is selected or not. We still maintain its state in
 // case it later becomes selected.
-func (dc *devicesController) isSelectedDevice(d *tables.Device, routes statedb.TableReader[*tables.Route]) bool {
+func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb2.WriteTxn) bool {
 	if d.Name == "" {
 		// Looks like we have seen the addresses for this device before the initial link update,
 		// hence it has no name. Definitely not selected yet!
@@ -513,7 +511,7 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, routes statedb.T
 		// the device manually).
 		// This is a workaround for kubernetes-in-docker. We want to avoid
 		// veth devices in general as they may be leftovers from another CNI.
-		if !dc.filter.nonEmpty() && !tables.HasDefaultRoute(routes, d.Index) {
+		if !dc.filter.nonEmpty() && !tables.HasDefaultRoute(dc.params.RouteTable, txn, d.Index) {
 			log.Debug("Not selecting veth device as it has no default route")
 			return false
 		}
@@ -526,7 +524,7 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, routes statedb.T
 		return false
 	}
 
-	if !hasGlobalRoute(d.Index, routes) {
+	if !hasGlobalRoute(d.Index, dc.params.RouteTable, txn) {
 		log.Debug("Not selecting device as it has no global unicast routes")
 		return false
 	}
@@ -536,17 +534,17 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, routes statedb.T
 	return true
 }
 
-func hasGlobalRoute(devIndex int, routes statedb.TableReader[*tables.Route]) bool {
-	iter, err := routes.Get(tables.RouteByLinkIndex(devIndex))
-	if err != nil {
-		panic("BUG: RouteByLinkIndex is broken")
-	}
-	for route, ok := iter.Next(); ok; route, ok = iter.Next() {
-		if route.Dst.Addr().IsGlobalUnicast() {
-			return true
+func hasGlobalRoute(devIndex int, tbl statedb2.Table[*tables.Route], rxn statedb2.ReadTxn) bool {
+	iter, _ := tbl.Get(rxn, tables.RouteLinkIndex.Query(devIndex))
+	hasGlobal := false
+	for r, _, ok := iter.Next(); ok; r, _, ok = iter.Next() {
+		if r.Dst.Addr().IsGlobalUnicast() {
+			hasGlobal = true
+			break
 		}
 	}
-	return false
+
+	return hasGlobal
 }
 
 // deviceFilter implements filtering device names either by

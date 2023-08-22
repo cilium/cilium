@@ -3,7 +3,13 @@
 
 package index
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
+
+func Int(n int) Key {
+	return Uint64(uint64(n))
+}
 
 func Uint64(n uint64) Key {
 	buf := make([]byte, 8)
