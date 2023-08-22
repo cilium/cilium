@@ -5,6 +5,7 @@ package envoy
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -23,6 +24,7 @@ var Cell = cell.Module(
 	cell.Provide(newEnvoyAdminClient),
 	cell.ProvidePrivate(newEnvoyAccessLogServer),
 	cell.ProvidePrivate(newLocalEndpointStore),
+	cell.ProvidePrivate(newArtifactCopier),
 	cell.Invoke(registerEnvoyVersionCheck),
 )
 
@@ -37,6 +39,10 @@ type xdsServerParams struct {
 	// This ensures that the access log server is ready before it gets used by the
 	// Cilium Envoy filter after receiving the resources via xDS server.
 	AccessLogServer *AccessLogServer
+
+	// Depend on ArtifactCopier to enforce init order and ensure that the additional artifacts are copied
+	// before starting the xDS server (and starting to configure Envoy).
+	ArtifactCopier *ArtifactCopier
 }
 
 func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
@@ -147,4 +153,22 @@ func newLocalEndpointStore() *LocalEndpointStore {
 	return &LocalEndpointStore{
 		networkPolicyEndpoints: make(map[string]endpoint.EndpointUpdater),
 	}
+}
+
+func newArtifactCopier(lifecycle hive.Lifecycle) *ArtifactCopier {
+	artifactCopier := &ArtifactCopier{
+		sourcePath: "/envoy-artifacts",
+		targetPath: filepath.Join(option.Config.RunDir, "envoy", "artifacts"),
+	}
+
+	lifecycle.Append(hive.Hook{
+		OnStart: func(startContext hive.HookContext) error {
+			if err := artifactCopier.Copy(); err != nil {
+				return fmt.Errorf("failed to copy artifacts to envoy: %w", err)
+			}
+			return nil
+		},
+	})
+
+	return artifactCopier
 }
