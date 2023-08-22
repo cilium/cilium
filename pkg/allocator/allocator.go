@@ -906,7 +906,7 @@ type RemoteCache struct {
 	allocator *Allocator
 	cache     *cache
 
-	watchFunc func(ctx context.Context, remote *RemoteCache)
+	watchFunc func(ctx context.Context, remote *RemoteCache, onSync func(context.Context))
 }
 
 func (a *Allocator) NewRemoteCache(remoteName string, remoteAlloc *Allocator) *RemoteCache {
@@ -924,7 +924,7 @@ func (a *Allocator) NewRemoteCache(remoteName string, remoteAlloc *Allocator) *R
 // kvstore will be maintained in the RemoteCache structure returned and will
 // start being reported in the identities returned by the ForeachCache()
 // function. RemoteName should be unique per logical "remote".
-func (a *Allocator) WatchRemoteKVStore(ctx context.Context, rc *RemoteCache) {
+func (a *Allocator) WatchRemoteKVStore(ctx context.Context, rc *RemoteCache, onSync func(context.Context)) {
 	scopedLog := log.WithField(logfields.ClusterName, rc.name)
 	scopedLog.Info("Starting remote kvstore watcher")
 
@@ -981,6 +981,9 @@ func (a *Allocator) WatchRemoteKVStore(ctx context.Context, rc *RemoteCache) {
 		rc.cache.mutex.RUnlock()
 	}
 
+	// Execute the on-sync callback handler.
+	onSync(ctx)
+
 	<-ctx.Done()
 	rc.close()
 	scopedLog.Info("Stopped remote kvstore watcher")
@@ -1002,8 +1005,8 @@ func (a *Allocator) RemoveRemoteKVStore(remoteName string) {
 
 // Watch starts watching the remote kvstore and synchronize the identities in
 // the local cache. It blocks until the context is closed.
-func (rc *RemoteCache) Watch(ctx context.Context) {
-	rc.watchFunc(ctx, rc)
+func (rc *RemoteCache) Watch(ctx context.Context, onSync func(context.Context)) {
+	rc.watchFunc(ctx, rc, onSync)
 }
 
 // NumEntries returns the number of entries in the remote cache
