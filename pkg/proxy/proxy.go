@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/revert"
 )
@@ -54,25 +55,6 @@ type IPCacheManager interface {
 	LookupByIP(IP string) (ipcache.Identity, bool)
 }
 
-type ProxyType string
-
-func (p ProxyType) String() string {
-	return (string)(p)
-}
-
-const (
-	// ProxyTypeAny represents the case where no proxy type is provided.
-	ProxyTypeAny ProxyType = ""
-	// ProxyTypeHTTP specifies the Envoy HTTP proxy type
-	ProxyTypeHTTP ProxyType = "http"
-	// ProxyTypeDNS specifies the staticly configured DNS proxy type
-	ProxyTypeDNS ProxyType = "dns"
-	// ProxyTypeCRD specifies a proxy configured via CiliumEnvoyConfig CRD
-	ProxyTypeCRD ProxyType = "crd"
-
-	DNSProxyName = "cilium-dns-egress"
-)
-
 type ProxyPort struct {
 	// isStatic is true when the listener on the proxy port is incapable
 	// of stopping and/or being reconfigured with a new proxy port once it has been
@@ -80,7 +62,7 @@ type ProxyPort struct {
 	// static listeners (currently only DNS proxy).
 	isStatic bool
 	// proxy type this port applies to (immutable)
-	proxyType ProxyType
+	proxyType types.ProxyType
 	// 'true' for ingress, 'false' for egress (immutable)
 	ingress bool
 	// ProxyPort is the desired proxy listening port number.
@@ -178,27 +160,27 @@ var (
 	// proxyPorts is a map of all supported proxy ports
 	proxyPorts = map[string]*ProxyPort{
 		"cilium-http-egress": {
-			proxyType: ProxyTypeHTTP,
+			proxyType: types.ProxyTypeHTTP,
 			ingress:   false,
 			localOnly: true,
 		},
 		"cilium-http-ingress": {
-			proxyType: ProxyTypeHTTP,
+			proxyType: types.ProxyTypeHTTP,
 			ingress:   true,
 			localOnly: true,
 		},
-		DNSProxyName: {
-			proxyType: ProxyTypeDNS,
+		types.DNSProxyName: {
+			proxyType: types.ProxyTypeDNS,
 			ingress:   false,
 			localOnly: true,
 		},
 		"cilium-proxylib-egress": {
-			proxyType: ProxyTypeAny,
+			proxyType: types.ProxyTypeAny,
 			ingress:   false,
 			localOnly: true,
 		},
 		"cilium-proxylib-ingress": {
-			proxyType: ProxyTypeAny,
+			proxyType: types.ProxyTypeAny,
 			ingress:   true,
 			localOnly: true,
 		},
@@ -330,24 +312,24 @@ func (p *Proxy) releaseProxyPort(name string) error {
 
 // findProxyPortByType returns a ProxyPort matching the given type, listener name, and direction, if
 // found.  Must be called with proxyPortsMutex held!
-func findProxyPortByType(l7Type ProxyType, listener string, ingress bool) (string, *ProxyPort) {
+func findProxyPortByType(l7Type types.ProxyType, listener string, ingress bool) (string, *ProxyPort) {
 	portType := l7Type
 	switch l7Type {
-	case ProxyTypeCRD:
+	case types.ProxyTypeCRD:
 		// CRD proxy ports are dynamically created, look up by name
-		if pp, ok := proxyPorts[listener]; ok && pp.proxyType == ProxyTypeCRD {
+		if pp, ok := proxyPorts[listener]; ok && pp.proxyType == types.ProxyTypeCRD {
 			return listener, pp
 		}
 		log.Debugf("findProxyPortByType: can not find crd listener %s from %v", listener, proxyPorts)
 		return "", nil
-	case ProxyTypeDNS, ProxyTypeHTTP:
+	case types.ProxyTypeDNS, types.ProxyTypeHTTP:
 		// Look up by the given type
 	default:
 		// "Unknown" parsers are assumed to be Proxylib (TCP) parsers, which
 		// is registered with an empty string.
 		// This works also for explicit TCP and TLS parser types, which are backed by the
 		// TCP Proxy filter chain.
-		portType = ProxyTypeAny
+		portType = types.ProxyTypeAny
 	}
 	// proxyPorts is small enough to not bother indexing it.
 	for name, pp := range proxyPorts {
@@ -358,7 +340,7 @@ func findProxyPortByType(l7Type ProxyType, listener string, ingress bool) (strin
 	return "", nil
 }
 
-func proxyTypeNotFoundError(proxyType ProxyType, listener string, ingress bool) error {
+func proxyTypeNotFoundError(proxyType types.ProxyType, listener string, ingress bool) error {
 	dir := "egress"
 	if ingress {
 		dir = "ingress"
@@ -394,7 +376,7 @@ func (p *Proxy) AllocateProxyPort(name string, ingress, localOnly bool) (uint16,
 	defer proxyPortsMutex.Unlock()
 	pp := proxyPorts[name]
 	if pp == nil {
-		pp = &ProxyPort{proxyType: ProxyTypeCRD, ingress: ingress, localOnly: localOnly}
+		pp = &ProxyPort{proxyType: types.ProxyTypeCRD, ingress: ingress, localOnly: localOnly}
 	}
 
 	// Allocate a new port only if a port was never allocated before.
@@ -431,7 +413,7 @@ func (p *Proxy) ReleaseProxyPort(name string) error {
 // Another call to AckProxyPort(name) is needed to update the datapath rules accordingly.
 // This should only be called for proxies that have a static listener that is already listening on
 // 'port'. May only be called once per proxy.
-func (p *Proxy) SetProxyPort(name string, proxyType ProxyType, port uint16, ingress bool) error {
+func (p *Proxy) SetProxyPort(name string, proxyType types.ProxyType, port uint16, ingress bool) error {
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
 	pp := proxyPorts[name]
@@ -514,7 +496,7 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 		redir.mutex.Lock()
 
 		// Only consider configured (but not necessarily acked) proxy ports for update
-		if redir.listener.configured && redir.listener.proxyType == ProxyType(l4.GetL7Parser()) {
+		if redir.listener.configured && redir.listener.proxyType == types.ProxyType(l4.GetL7Parser()) {
 			updateRevertFunc := redir.updateRules(l4)
 			revertStack.Push(updateRevertFunc)
 			var implUpdateRevertFunc revert.RevertFunc
@@ -549,9 +531,9 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 		revertStack.Push(removeRevertFunc)
 	}
 
-	ppName, pp := findProxyPortByType(ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress())
+	ppName, pp := findProxyPortByType(types.ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress())
 	if pp == nil {
-		err = proxyTypeNotFoundError(ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress())
+		err = proxyTypeNotFoundError(types.ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress())
 		return 0, err, nil, nil
 	}
 
@@ -584,7 +566,7 @@ func (p *Proxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolic
 		case policy.ParserTypeDNS:
 			redir.implementation, err = createDNSRedirect(redir, p.defaultEndpointInfoRegistry)
 		default:
-			if pp.proxyType == ProxyTypeCRD {
+			if pp.proxyType == types.ProxyTypeCRD {
 				// CRD Listeners already exist, create a no-op implementation
 				redir.implementation = &CRDRedirect{}
 				err = nil
