@@ -90,7 +90,6 @@ import (
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
 )
@@ -214,9 +213,6 @@ type Daemon struct {
 	cniConfigManager cni.CNIConfigManager
 
 	l2announcer *l2announcer.L2Announcer
-
-	// statedb for implementing /statedb/dump
-	db statedb.DB
 
 	// authManager for reporting the status of the auth system certificate provider
 	authManager *auth.AuthManager
@@ -536,7 +532,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		monitorAgent:         params.MonitorAgent,
 		l2announcer:          params.L2Announcer,
 		l7Proxy:              params.L7Proxy,
-		db:                   params.DB,
 		authManager:          params.AuthManager,
 		settings:             params.Settings,
 		healthProvider:       params.HealthProvider,
