@@ -126,10 +126,6 @@ type XDSServer interface {
 	// RemoveAllNetworkPolicies removes all network policies from the set published
 	// to L7 proxies.
 	RemoveAllNetworkPolicies()
-
-	// getLocalEndpoint returns the endpoint info for the local endpoint on which
-	// the network policy of the given name if enforced, or nil if not found.
-	getLocalEndpoint(endpointIP string) endpoint.EndpointUpdater
 }
 
 type xdsServer struct {
@@ -183,16 +179,14 @@ type xdsServer struct {
 	// Exported for testing only!
 	NetworkPolicyMutator xds.AckingResourceMutator
 
-	// networkPolicyEndpoints maps endpoint IP to the info on the local endpoint.
-	// mutex must be held when accessing this.
-	networkPolicyEndpoints map[string]endpoint.EndpointUpdater
-
 	// stopFunc contains the function which stops the xDS gRPC server.
 	stopFunc context.CancelFunc
 
 	// IPCache is used for tracking IP->Identity mappings and propagating
 	// them to the proxy via NPHDS in the cases described
 	ipCache IPCacheEventSource
+
+	localEndpointStore *LocalEndpointStore
 }
 
 func toAny(pb proto.Message) *anypb.Any {
@@ -204,13 +198,13 @@ func toAny(pb proto.Message) *anypb.Any {
 }
 
 // newXDSServer creates a new xDS GRPC server.
-func newXDSServer(envoySocketDir string, ipCache IPCacheEventSource) (*xdsServer, error) {
+func newXDSServer(envoySocketDir string, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore) (*xdsServer, error) {
 	return &xdsServer{
-		socketPath:             getXDSSocketPath(envoySocketDir),
-		accessLogPath:          getAccessLogSocketPath(envoySocketDir),
-		ipCache:                ipCache,
-		listeners:              make(map[string]*Listener),
-		networkPolicyEndpoints: make(map[string]endpoint.EndpointUpdater),
+		socketPath:         getXDSSocketPath(envoySocketDir),
+		accessLogPath:      getAccessLogSocketPath(envoySocketDir),
+		ipCache:            ipCache,
+		listeners:          make(map[string]*Listener),
+		localEndpointStore: localEndpointStore,
 	}, nil
 }
 
@@ -1701,8 +1695,8 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy
 	revertFunc := s.NetworkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
 	revertUpdatedNetworkPolicyEndpoints := make(map[string]endpoint.EndpointUpdater, len(ips))
 	for _, ip := range ips {
-		revertUpdatedNetworkPolicyEndpoints[ip] = s.networkPolicyEndpoints[ip]
-		s.networkPolicyEndpoints[ip] = ep
+		revertUpdatedNetworkPolicyEndpoints[ip] = s.localEndpointStore.getLocalEndpoint(ip)
+		s.localEndpointStore.setLocalEndpoint(ip, ep)
 	}
 
 	return nil, func() error {
@@ -1713,9 +1707,9 @@ func (s *xdsServer) UpdateNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy
 
 		for ip, ep := range revertUpdatedNetworkPolicyEndpoints {
 			if ep == nil {
-				delete(s.networkPolicyEndpoints, ip)
+				s.localEndpointStore.removeLocalEndpoint(ip)
 			} else {
-				s.networkPolicyEndpoints[ip] = ep
+				s.localEndpointStore.setLocalEndpoint(ip, ep)
 			}
 		}
 
@@ -1739,11 +1733,11 @@ func (s *xdsServer) RemoveNetworkPolicy(ep endpoint.EndpointInfoSource) {
 
 	ip := ep.GetIPv6Address()
 	if ip != "" {
-		delete(s.networkPolicyEndpoints, ip)
+		s.localEndpointStore.removeLocalEndpoint(ip)
 	}
 	ip = ep.GetIPv4Address()
 	if ip != "" {
-		delete(s.networkPolicyEndpoints, ip)
+		s.localEndpointStore.removeLocalEndpoint(ip)
 		// Delete node resources held in the cache for the endpoint (e.g., sidecar)
 		s.NetworkPolicyMutator.DeleteNode(ip)
 	}
@@ -1766,11 +1760,4 @@ func (s *xdsServer) GetNetworkPolicies(resourceNames []string) (map[string]*cili
 		}
 	}
 	return networkPolicies, nil
-}
-
-func (s *xdsServer) getLocalEndpoint(endpointIP string) endpoint.EndpointUpdater {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	return s.networkPolicyEndpoints[endpointIP]
 }
