@@ -470,8 +470,13 @@ func finishKubeProxyReplacementInit() error {
 			return fmt.Errorf("%s link name contains '=' or ';' character which is not allowed",
 				iface)
 		}
-		if idx := link.Attrs().Index; idx > math.MaxUint16 {
-			return fmt.Errorf("%s link ifindex %d exceeds max(uint16)", iface, idx)
+		// In the case where the fib lookup does not return the outgoing ifindex
+		// the datapath needs to store it in our CT map, and the map's field is
+		// limited to 16 bit.
+		if probes.HaveFibIfindex() != nil {
+			if idx := link.Attrs().Index; idx > math.MaxUint16 {
+				return fmt.Errorf("%s link ifindex %d exceeds max(uint16)", iface, idx)
+			}
 		}
 	}
 
