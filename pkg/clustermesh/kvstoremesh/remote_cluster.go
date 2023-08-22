@@ -33,6 +33,8 @@ type remoteCluster struct {
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+	// mesh is the cluster mesh this remote cluster belongs to
+	mesh *KVStoreMesh
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, srccfg *types.CiliumClusterConfig, ready chan<- error) {
@@ -45,6 +47,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 
 	if srccfg != nil {
 		dstcfg.ID = srccfg.ID
+		dstcfg.MaxConnectedClusters = srccfg.MaxConnectedClusters
 	}
 
 	if err := cmutils.SetClusterConfig(ctx, rc.name, &dstcfg, rc.localBackend); err != nil {
@@ -110,7 +113,9 @@ func (rc *remoteCluster) Remove() {
 	// disappear once the associated lease expires.
 }
 
-func (rc *remoteCluster) ClusterConfigRequired() bool { return false }
+func (rc *remoteCluster) ClusterConfigRequired() bool {
+	return rc.mesh.common.ExtendedClustermeshEnabled()
+}
 
 type reflector struct {
 	watcher store.WatchStore

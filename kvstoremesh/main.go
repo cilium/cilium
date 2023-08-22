@@ -86,9 +86,13 @@ func main() {
 	}
 }
 
-func cfgAdapter(lc hive.Lifecycle, cfg kmopt.KVStoreMeshConfig) (types.ClusterIDName, error) {
+func cfgAdapter(lc hive.Lifecycle, cfg kmopt.KVStoreMeshConfig) (types.ClusterIDName, types.ClustermeshSize, error) {
 	lc.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
+			if err := types.InitClusterIDMax(cfg.MaxConnectedClusters); err != nil {
+				return fmt.Errorf("option --%s: %v", option.MaxConnectedClusters, err)
+			}
+
 			if err := types.ValidateClusterID(cfg.ClusterID); err != nil {
 				return err
 			}
@@ -104,5 +108,5 @@ func cfgAdapter(lc hive.Lifecycle, cfg kmopt.KVStoreMeshConfig) (types.ClusterID
 	return types.ClusterIDName{
 		ClusterID:   cfg.ClusterID,
 		ClusterName: cfg.ClusterName,
-	}, nil
+	}, types.ClustermeshSize(cfg.MaxConnectedClusters), nil
 }

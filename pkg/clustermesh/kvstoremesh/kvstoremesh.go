@@ -36,15 +36,18 @@ type params struct {
 	BackendPromise promise.Promise[kvstore.BackendOperations]
 
 	Metrics common.Metrics
+
+	MaxConnectedClusters types.ClustermeshSize
 }
 
 func newKVStoreMesh(lc hive.Lifecycle, params params) *KVStoreMesh {
 	km := KVStoreMesh{backendPromise: params.BackendPromise}
 	km.common = common.NewClusterMesh(common.Configuration{
-		Config:           params.Config,
-		ClusterIDName:    params.ClusterIDName,
-		NewRemoteCluster: km.newRemoteCluster,
-		Metrics:          params.Metrics,
+		Config:               params.Config,
+		ClusterIDName:        params.ClusterIDName,
+		NewRemoteCluster:     km.newRemoteCluster,
+		Metrics:              params.Metrics,
+		MaxConnectedClusters: params.MaxConnectedClusters,
 	})
 
 	lc.Append(&km)
@@ -83,6 +86,7 @@ func (km *KVStoreMesh) newRemoteCluster(name string, _ common.StatusFunc) common
 		services:   newReflector(km.backend, name, serviceStore.ServiceStorePrefix),
 		identities: newReflector(km.backend, name, identityCache.IdentitiesPath),
 		ipcache:    newReflector(km.backend, name, ipcache.IPIdentitiesPath),
+		mesh:       km,
 	}
 
 	run := func(fn func(context.Context)) {
