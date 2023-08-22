@@ -1,0 +1,51 @@
+cilium_source = [
+    'bpf/',
+    'bugtool/',
+    'cilium/',
+    'cilium-health/',
+    'daemon/',
+    'images/cilium/',
+    'images/runtime/',
+    'plugins/',
+    'tools/',
+    'pkg/',
+    'go.mod',
+    'go.sum'
+]
+
+operator_source = [
+    'images/cilium/',
+    'images/runtime/',
+    'operator/'
+]
+
+hubble_relay_source = [
+    'hubble-relay',
+    'images/hubble-relay',
+    'images/runtime/',
+    'pkg/',
+]
+
+ignore_files = [
+    'bpf/.rebuild_all',
+    'bpf/**/*tmp',
+    'bpf/**/*ll',
+    'bpf/**/*o',
+    'bpf/cilium-probe-kernel-hz',
+    'bugtool/cilium-bugtool',
+    'bugtool/cilium-bugtool',
+    'cilium/cilium',
+    'cilium-health/cilium-health',
+    'cilium-health/responder/cilium-health-responder',
+    'daemon/cilium-agent',
+    'plugins/cilium-cni/cilium-cni',
+    'plugins/cilium-docker/cilium-docker',
+    'tools/alignchecker',
+    'tools/maptool',
+    'tools/sysctlfix',
+    'tools/mount/cilium-mount',
+    'operator/cilium-operator*',
+    'hubble-relay/hubble-relay*',
+    '**/*tmp*',
+    '**/*_test.go'
+]
