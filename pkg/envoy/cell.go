@@ -21,9 +21,9 @@ var Cell = cell.Module(
 
 	cell.Provide(newEnvoyXDSServer),
 	cell.Provide(newEnvoyAdminClient),
-	cell.Invoke(registerEnvoyAccessLogServer),
-	cell.Invoke(registerEnvoyVersionCheck),
+	cell.ProvidePrivate(newEnvoyAccessLogServer),
 	cell.ProvidePrivate(newLocalEndpointStore),
+	cell.Invoke(registerEnvoyVersionCheck),
 )
 
 type xdsServerParams struct {
@@ -32,6 +32,11 @@ type xdsServerParams struct {
 	Lifecycle          hive.Lifecycle
 	IPCache            *ipcache.IPCache
 	LocalEndpointStore *LocalEndpointStore
+
+	// Depend on access log server to enforce init order.
+	// This ensures that the access log server is ready before it gets used by the
+	// Cilium Envoy filter after receiving the resources via xDS server.
+	AccessLogServer *AccessLogServer
 }
 
 func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
@@ -79,10 +84,10 @@ type accessLogServerParams struct {
 	LocalEndpointStore *LocalEndpointStore
 }
 
-func registerEnvoyAccessLogServer(params accessLogServerParams) {
+func newEnvoyAccessLogServer(params accessLogServerParams) *AccessLogServer {
 	if !option.Config.EnableL7Proxy {
 		log.Debug("L7 proxies are disabled - not starting Envoy AccessLog server")
-		return
+		return nil
 	}
 
 	accessLogServer := newAccessLogServer(GetSocketDir(option.Config.RunDir), params.LocalEndpointStore)
@@ -99,6 +104,8 @@ func registerEnvoyAccessLogServer(params accessLogServerParams) {
 			return nil
 		},
 	})
+
+	return accessLogServer
 }
 
 type versionCheckParams struct {
