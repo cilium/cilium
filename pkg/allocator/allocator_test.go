@@ -511,12 +511,13 @@ func TestObserveAllocatorChanges(t *testing.T) {
 
 func TestWatchRemoteKVStore(t *testing.T) {
 	var wg sync.WaitGroup
+	var synced bool
 
 	run := func(ctx context.Context, rc *RemoteCache) context.CancelFunc {
 		ctx, cancel := context.WithCancel(ctx)
 		wg.Add(1)
 		go func() {
-			rc.Watch(ctx)
+			rc.Watch(ctx, func(context.Context) { synced = true })
 			wg.Done()
 		}()
 		return cancel
@@ -525,6 +526,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	stop := func(cancel context.CancelFunc) {
 		cancel()
 		wg.Wait()
+		synced = false
 	}
 
 	global := Allocator{remoteCaches: make(map[string]*RemoteCache)}
@@ -564,6 +566,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	}, 1*time.Second, 10*time.Millisecond)
 
 	require.True(t, rc.Synced(), "The cache should now be synchronized")
+	require.True(t, synced, "The on-sync callback should have been executed")
 	stop(cancel)
 	require.False(t, rc.Synced(), "The cache should no longer be synchronized when stopped")
 
@@ -608,6 +611,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: kvstore.EventTypeModify}, <-events)
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(7), Key: TestAllocatorKey("foo"), Typ: kvstore.EventTypeModify}, <-events)
 	require.False(t, rc.Synced(), "The cache should not be synchronized if the ListDone event has not been received")
+	require.False(t, synced, "The on-sync callback should not have been executed if the ListDone event has not been received")
 
 	stop(cancel)
 

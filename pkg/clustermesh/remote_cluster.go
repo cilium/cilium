@@ -118,7 +118,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 	})
 
 	mgr.Register(adapter(identityCache.IdentitiesPath), func(ctx context.Context) {
-		rc.remoteIdentityCache.Watch(ctx)
+		rc.remoteIdentityCache.Watch(ctx, func(ctx context.Context) {})
 	})
 
 	close(ready)
