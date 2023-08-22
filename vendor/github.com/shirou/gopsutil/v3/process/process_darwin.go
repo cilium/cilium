@@ -10,11 +10,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tklauser/go-sysconf"
-	"golang.org/x/sys/unix"
-
 	"github.com/shirou/gopsutil/v3/internal/common"
 	"github.com/shirou/gopsutil/v3/net"
+	"github.com/tklauser/go-sysconf"
+	"golang.org/x/sys/unix"
 )
 
 // copied from sys/sysctl.h
@@ -82,6 +81,8 @@ func (p *Process) NameWithContext(ctx context.Context) (string, error) {
 			extendedName := filepath.Base(cmdName)
 			if strings.HasPrefix(extendedName, p.name) {
 				name = extendedName
+			} else {
+				name = cmdName
 			}
 		}
 	}

@@ -18,7 +18,7 @@ func Avg() (*AvgStat, error) {
 }
 
 func AvgWithContext(ctx context.Context) (*AvgStat, error) {
-	stat, err := fileAvgWithContext(ctx)
+	stat, err := fileAvgWithContext()
 	if err != nil {
 		stat, err = sysinfoAvgWithContext()
 	}
@@ -40,8 +40,8 @@ func sysinfoAvgWithContext() (*AvgStat, error) {
 	}, nil
 }
 
-func fileAvgWithContext(ctx context.Context) (*AvgStat, error) {
-	values, err := readLoadAvgFromFile(ctx)
+func fileAvgWithContext() (*AvgStat, error) {
+	values, err := readLoadAvgFromFile()
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func Misc() (*MiscStat, error) {
 }
 
 func MiscWithContext(ctx context.Context) (*MiscStat, error) {
-	filename := common.HostProcWithContext(ctx, "stat")
+	filename := common.HostProc("stat")
 	out, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -107,7 +107,7 @@ func MiscWithContext(ctx context.Context) (*MiscStat, error) {
 
 	}
 
-	procsTotal, err := getProcsTotal(ctx)
+	procsTotal, err := getProcsTotal()
 	if err != nil {
 		return ret, err
 	}
@@ -116,16 +116,16 @@ func MiscWithContext(ctx context.Context) (*MiscStat, error) {
 	return ret, nil
 }
 
-func getProcsTotal(ctx context.Context) (int64, error) {
-	values, err := readLoadAvgFromFile(ctx)
+func getProcsTotal() (int64, error) {
+	values, err := readLoadAvgFromFile()
 	if err != nil {
 		return 0, err
 	}
 	return strconv.ParseInt(strings.Split(values[3], "/")[1], 10, 64)
 }
 
-func readLoadAvgFromFile(ctx context.Context) ([]string, error) {
-	loadavgFilename := common.HostProcWithContext(ctx, "loadavg")
+func readLoadAvgFromFile() ([]string, error) {
+	loadavgFilename := common.HostProc("loadavg")
 	line, err := ioutil.ReadFile(loadavgFilename)
 	if err != nil {
 		return nil, err

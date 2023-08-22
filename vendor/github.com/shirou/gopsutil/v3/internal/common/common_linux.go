@@ -31,11 +31,7 @@ func DoSysctrl(mib string) ([]string, error) {
 }
 
 func NumProcs() (uint64, error) {
-	return NumProcsWithContext(context.Background())
-}
-
-func NumProcsWithContext(ctx context.Context) (uint64, error) {
-	f, err := os.Open(HostProcWithContext(ctx))
+	f, err := os.Open(HostProc())
 	if err != nil {
 		return 0, err
 	}
@@ -71,7 +67,7 @@ func BootTimeWithContext(ctx context.Context) (uint64, error) {
 		statFile = "uptime"
 	}
 
-	filename := HostProcWithContext(ctx, statFile)
+	filename := HostProc(statFile)
 	lines, err := ReadLines(filename)
 	if os.IsPermission(err) {
 		var info syscall.Sysinfo_t
@@ -143,7 +139,7 @@ func VirtualizationWithContext(ctx context.Context) (string, string, error) {
 	}
 	cachedVirtMutex.RUnlock()
 
-	filename := HostProcWithContext(ctx, "xen")
+	filename := HostProc("xen")
 	if PathExists(filename) {
 		system = "xen"
 		role = "guest" // assume guest
@@ -158,7 +154,7 @@ func VirtualizationWithContext(ctx context.Context) (string, string, error) {
 		}
 	}
 
-	filename = HostProcWithContext(ctx, "modules")
+	filename = HostProc("modules")
 	if PathExists(filename) {
 		contents, err := ReadLines(filename)
 		if err == nil {
@@ -181,7 +177,7 @@ func VirtualizationWithContext(ctx context.Context) (string, string, error) {
 		}
 	}
 
-	filename = HostProcWithContext(ctx, "cpuinfo")
+	filename = HostProc("cpuinfo")
 	if PathExists(filename) {
 		contents, err := ReadLines(filename)
 		if err == nil {
@@ -194,7 +190,7 @@ func VirtualizationWithContext(ctx context.Context) (string, string, error) {
 		}
 	}
 
-	filename = HostProcWithContext(ctx, "bus/pci/devices")
+	filename = HostProc("bus/pci/devices")
 	if PathExists(filename) {
 		contents, err := ReadLines(filename)
 		if err == nil {
@@ -204,7 +200,7 @@ func VirtualizationWithContext(ctx context.Context) (string, string, error) {
 		}
 	}
 
-	filename = HostProcWithContext(ctx)
+	filename = HostProc()
 	if PathExists(filepath.Join(filename, "bc", "0")) {
 		system = "openvz"
 		role = "host"
@@ -255,15 +251,15 @@ func VirtualizationWithContext(ctx context.Context) (string, string, error) {
 		}
 	}
 
-	if PathExists(HostEtcWithContext(ctx, "os-release")) {
-		p, _, err := GetOSReleaseWithContext(ctx)
+	if PathExists(HostEtc("os-release")) {
+		p, _, err := GetOSRelease()
 		if err == nil && p == "coreos" {
 			system = "rkt" // Is it true?
 			role = "host"
 		}
 	}
 
-	if PathExists(HostRootWithContext(ctx, ".dockerenv")) {
+	if PathExists(HostRoot(".dockerenv")) {
 		system = "docker"
 		role = "guest"
 	}
@@ -282,11 +278,7 @@ func VirtualizationWithContext(ctx context.Context) (string, string, error) {
 }
 
 func GetOSRelease() (platform string, version string, err error) {
-	return GetOSReleaseWithContext(context.Background())
-}
-
-func GetOSReleaseWithContext(ctx context.Context) (platform string, version string, err error) {
-	contents, err := ReadLines(HostEtcWithContext(ctx, "os-release"))
+	contents, err := ReadLines(HostEtc("os-release"))
 	if err != nil {
 		return "", "", nil // return empty
 	}
