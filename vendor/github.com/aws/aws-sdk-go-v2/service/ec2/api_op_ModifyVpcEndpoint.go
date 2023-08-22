@@ -46,7 +46,7 @@ type ModifyVpcEndpointInput struct {
 	AddRouteTableIds []string
 
 	// (Interface endpoint) The IDs of the security groups to associate with the
-	// network interface.
+	// endpoint network interfaces.
 	AddSecurityGroupIds []string
 
 	// (Interface and Gateway Load Balancer endpoints) The IDs of the subnets in which
@@ -79,7 +79,7 @@ type ModifyVpcEndpointInput struct {
 	RemoveRouteTableIds []string
 
 	// (Interface endpoint) The IDs of the security groups to disassociate from the
-	// network interface.
+	// endpoint network interfaces.
 	RemoveSecurityGroupIds []string
 
 	// (Interface endpoint) The IDs of the subnets from which to remove the endpoint.
@@ -88,6 +88,9 @@ type ModifyVpcEndpointInput struct {
 	// (Gateway endpoint) Specify true to reset the policy document to the default
 	// policy. The default policy allows full access to the service.
 	ResetPolicy *bool
+
+	// The subnet configurations for the endpoint.
+	SubnetConfigurations []types.SubnetConfiguration
 
 	noSmithyDocumentSerde
 }

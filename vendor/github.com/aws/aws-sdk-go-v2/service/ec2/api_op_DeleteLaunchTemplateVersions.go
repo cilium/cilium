@@ -16,10 +16,15 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Deletes one or more versions of a launch template. You cannot delete the
-// default version of a launch template; you must first assign a different version
-// as the default. If the default version is the only version for the launch
-// template, you must delete the entire launch template using DeleteLaunchTemplate .
+// Deletes one or more versions of a launch template. You can't delete the default
+// version of a launch template; you must first assign a different version as the
+// default. If the default version is the only version for the launch template, you
+// must delete the entire launch template using DeleteLaunchTemplate . You can
+// delete up to 200 launch template versions in a single request. To delete more
+// than 200 versions in a single request, use DeleteLaunchTemplate , which deletes
+// the launch template and all of its versions. For more information, see Delete a
+// launch template version (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/manage-launch-template-versions.html#delete-launch-template-version)
+// in the EC2 User Guide.
 func (c *Client) DeleteLaunchTemplateVersions(ctx context.Context, params *DeleteLaunchTemplateVersionsInput, optFns ...func(*Options)) (*DeleteLaunchTemplateVersionsOutput, error) {
 	if params == nil {
 		params = &DeleteLaunchTemplateVersionsInput{}
@@ -37,7 +42,8 @@ func (c *Client) DeleteLaunchTemplateVersions(ctx context.Context, params *Delet
 
 type DeleteLaunchTemplateVersionsInput struct {
 
-	// The version numbers of one or more launch template versions to delete.
+	// The version numbers of one or more launch template versions to delete. You can
+	// specify up to 200 launch template version numbers.
 	//
 	// This member is required.
 	Versions []string

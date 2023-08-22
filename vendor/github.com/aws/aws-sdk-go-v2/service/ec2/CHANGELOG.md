@@ -1,3 +1,25 @@
+# v1.114.0 (2023-08-21)
+
+* **Feature**: The DeleteKeyPair API has been updated to return the keyPairId when an existing key pair is deleted.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.113.1 (2023-08-18)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.113.0 (2023-08-17)
+
+* **Feature**: Adds support for SubnetConfigurations to allow users to select their own IPv4 and IPv6 addresses for Interface VPC endpoints
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.112.0 (2023-08-15)
+
+* **Feature**: Documentation updates for Elastic Compute Cloud (EC2).
+
+# v1.111.0 (2023-08-11)
+
+* **Feature**: Amazon EC2 P5 instances, powered by the latest NVIDIA H100 Tensor Core GPUs, deliver the highest performance in EC2 for deep learning (DL) and HPC applications. M7i-flex and M7i instances are next-generation general purpose instances powered by custom 4th Generation Intel Xeon Scalable processors.
+
 # v1.110.1 (2023-08-07)
 
 * **Dependency Update**: Updated to the latest SDK module versions
