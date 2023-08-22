@@ -440,7 +440,8 @@ func startServer(
 	config := cmtypes.CiliumClusterConfig{
 		ID: cinfo.ID,
 		Capabilities: cmtypes.CiliumClusterConfigCapabilities{
-			SyncedCanaries: true,
+			SyncedCanaries:       true,
+			MaxConnectedClusters: cinfo.MaxConnectedClusters,
 		},
 	}
 
