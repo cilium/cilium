@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package dnsproxy
+package ipfamily
 
-type ipFamily struct {
+type IPFamily struct {
 	Name        string
 	IPv4Enabled bool
 	IPv6Enabled bool
@@ -12,8 +12,8 @@ type ipFamily struct {
 	Localhost   string
 }
 
-func ipv4Family() ipFamily {
-	return ipFamily{
+func IPv4() IPFamily {
+	return IPFamily{
 		Name:        "ipv4",
 		IPv4Enabled: true,
 		IPv6Enabled: false,
@@ -23,8 +23,8 @@ func ipv4Family() ipFamily {
 	}
 }
 
-func ipv6Family() ipFamily {
-	return ipFamily{
+func IPv6() IPFamily {
+	return IPFamily{
 		Name:        "ipv6",
 		IPv4Enabled: false,
 		IPv6Enabled: true,
