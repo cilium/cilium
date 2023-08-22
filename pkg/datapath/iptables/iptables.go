@@ -1189,7 +1189,7 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 	snatDstExclusionCIDR, allocRange, hostMasqueradeIP string) error {
 	if option.Config.NodeIpsetNeeded() {
 		// Exclude traffic to nodes from masquerade.
-		if err := createIpset(prog.getIpset(), prog.getProg() == "ip6tables"); err != nil {
+		if err := createIpset(prog.getIpset(), prog == ip6tables); err != nil {
 			return err
 		}
 
