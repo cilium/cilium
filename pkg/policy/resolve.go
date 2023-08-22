@@ -138,10 +138,12 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 	// Must come after the 'insertUser()' above to guarantee
 	// PolicyMapChanges will contain all changes that are applied
 	// after the computation of PolicyMapState has started.
+	p.SelectorCache.mutex.RLock()
 	calculatedPolicy.computeDesiredL4PolicyMapEntries()
 	if !isHost {
 		calculatedPolicy.PolicyMapState.DetermineAllowLocalhostIngress()
 	}
+	p.SelectorCache.mutex.RUnlock()
 
 	return calculatedPolicy
 }
@@ -198,10 +200,8 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapSt
 // have completed.
 // PolicyOwner (aka Endpoint) is also locked during this call.
 func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
-	// Lock selector cache to synchronize with the concurrent identity
-	// updates.
-	p.SelectorCache.mutex.RLock()
-	p.SelectorCache.mutex.RUnlock()
+	p.selectorPolicy.SelectorCache.mutex.RLock()
+	defer p.selectorPolicy.SelectorCache.mutex.RUnlock()
 	return p.policyMapChanges.consumeMapChanges(p.PolicyMapState, p.SelectorCache)
 }
 
