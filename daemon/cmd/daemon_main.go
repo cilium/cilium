@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/clustermesh"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
@@ -1129,6 +1130,10 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.EnableK8sNetworkPolicy)
 	option.BindEnv(vp, option.EnableK8sNetworkPolicy)
 
+	flags.Uint32(option.MaxConnectedClusters, defaults.MaxConnectedClusters, "Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available.")
+	flags.MarkHidden(option.MaxConnectedClusters)
+	option.BindEnv(vp, option.MaxConnectedClusters)
+
 	if err := vp.BindPFlags(flags); err != nil {
 		log.Fatalf("BindPFlags failed: %s", err)
 	}
@@ -1543,6 +1548,16 @@ func initEnv(vp *viper.Viper) {
 				option.BypassIPAvailabilityUponRestore,
 			)
 		}
+	}
+
+	// If MaxConnectedClusters is set other than default, initialize ClusterIDMax
+	// and the dependant identity allocation variables.
+	if option.Config.MaxConnectedClusters != defaults.MaxConnectedClusters {
+		if err := cmtypes.InitClusterIDMax(option.Config.MaxConnectedClusters); err != nil {
+			log.Fatalf("option --%s: %v", option.MaxConnectedClusters, err)
+		}
+		log.Infof("Extended Clustermesh enabled with %d maximum clusters", cmtypes.ClusterIDMax)
+		identity.InitClusterIDShift()
 	}
 }
 

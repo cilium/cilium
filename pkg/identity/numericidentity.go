@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -18,10 +19,6 @@ import (
 )
 
 const (
-	// ClusterIDShift specifies the number of bits the cluster ID will be
-	// shifted
-	ClusterIDShift = 16
-
 	// LocalIdentityFlag is the bit in the numeric identity that identifies
 	// a numeric identity to have local scope
 	LocalIdentityFlag = NumericIdentity(1 << 24)
@@ -66,6 +63,13 @@ const (
 )
 
 var (
+	// ClusterIDLen is the number of bits that represent a cluster ID in a numeric identity
+	ClusterIDLen int = int(math.Log2(float64(cmtypes.ClusterIDMax + 1)))
+
+	// ClusterIDShift is the number of bits to shift a cluster ID in a numeric
+	// identity and is equal to the number of bits that represent a cluster-local identity.
+	ClusterIDShift int = NumericIdentityBitlength - ClusterIDLen
+
 	// MinimalAllocationIdentity is the minimum numeric identity handed out
 	// by the identity allocator.
 	MinimalAllocationIdentity = MinimalNumericIdentity
@@ -365,6 +369,15 @@ func InitWellKnownIdentities(c Configuration) int {
 	return len(WellKnown)
 }
 
+// InitClusterIDShift sets variables that control the bit allocation of cluster
+// ID in a numeric identity.
+func InitClusterIDShift() {
+	// ClusterIDLen is the number of bits that represent a cluster ID in a numeric identity
+	ClusterIDLen = int(math.Log2(float64(cmtypes.ClusterIDMax + 1)))
+	// ClusterIDShift is the number of bits to shift a cluster ID in a numeric identity
+	ClusterIDShift = NumericIdentityBitlength - ClusterIDLen
+}
+
 // InitMinMaxIdentityAllocation sets the minimal and maximum for identities that
 // should be allocated in the cluster.
 func InitMinMaxIdentityAllocation(c Configuration) {
@@ -475,6 +488,10 @@ func DelReservedNumericIdentity(identity NumericIdentity) error {
 //	   24: LocalIdentityFlag: Indicates that the identity has a local scope
 type NumericIdentity uint32
 
+// NumericIdentityBitlength is the number of bits used on the wire for a
+// NumericIdentity
+const NumericIdentityBitlength = 24
+
 // MaxNumericIdentity is the maximum value of a NumericIdentity.
 const MaxNumericIdentity = math.MaxUint32
 
@@ -538,7 +555,7 @@ func (id NumericIdentity) IsReservedIdentity() bool {
 
 // ClusterID returns the cluster ID associated with the identity
 func (id NumericIdentity) ClusterID() uint32 {
-	return (uint32(id) >> 16) & 0xFF
+	return (uint32(id) >> uint32(ClusterIDShift)) & cmtypes.ClusterIDMax
 }
 
 // GetAllReservedIdentities returns a list of all reserved numeric identities

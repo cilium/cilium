@@ -32,6 +32,9 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(func(cfg *option.DaemonConfig) types.ClusterIDName {
 		return types.ClusterIDName{ClusterID: cfg.ClusterID, ClusterName: cfg.ClusterName}
 	}),
+	cell.ProvidePrivate(func(cfg *option.DaemonConfig) types.ClustermeshSize {
+		return types.ClustermeshSize(cfg.MaxConnectedClusters)
+	}),
 	cell.ProvidePrivate(idsMgrProvider),
 
 	cell.Config(common.Config{}),

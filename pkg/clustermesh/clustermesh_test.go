@@ -112,7 +112,8 @@ func TestClusterMesh(t *testing.T) {
 	// compatibility.
 	for i, name := range []string{"test2", "cluster1", "cluster2"} {
 		config := cmtypes.CiliumClusterConfig{
-			ID: uint32(i + 1),
+			ID:                   uint32(i + 1),
+			MaxConnectedClusters: 255,
 		}
 
 		if name == "cluster2" {
@@ -149,6 +150,7 @@ func TestClusterMesh(t *testing.T) {
 		ClusterIDsManager:     usedIDs,
 		Metrics:               NewMetrics(),
 		CommonMetrics:         common.MetricsProvider(subsystem)(),
+		MaxConnectedClusters:  types.ClustermeshSize(255),
 	})
 	require.NotNil(t, cm, "Failed to initialize clustermesh")
 
@@ -179,7 +181,8 @@ func TestClusterMesh(t *testing.T) {
 
 	// Reconnect cluster with changed ClusterID
 	config := cmtypes.CiliumClusterConfig{
-		ID: 255,
+		ID:                   255,
+		MaxConnectedClusters: 255,
 	}
 	err := cmutils.SetClusterConfig(ctx, "cluster1", &config, kvstore.Client())
 	require.NoErrorf(t, err, "Failed to set cluster config for cluster1")

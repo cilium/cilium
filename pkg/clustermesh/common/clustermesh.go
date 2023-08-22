@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -57,6 +58,8 @@ type Configuration struct {
 
 	// Metrics holds the different clustermesh metrics.
 	Metrics Metrics
+
+	MaxConnectedClusters types.ClustermeshSize
 }
 
 // ClusterMesh is a cache of multiple remote clusters
@@ -124,6 +127,7 @@ func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		metricLastFailureTimestamp: cm.conf.Metrics.LastFailureTimestamp.WithLabelValues(cm.conf.ClusterName, cm.conf.NodeName, name),
 		metricReadinessStatus:      cm.conf.Metrics.ReadinessStatus.WithLabelValues(cm.conf.ClusterName, cm.conf.NodeName, name),
 		metricTotalFailures:        cm.conf.Metrics.TotalFailures.WithLabelValues(cm.conf.ClusterName, cm.conf.NodeName, name),
+		mesh:                       cm,
 	}
 
 	rc.RemoteCluster = cm.conf.NewRemoteCluster(name, rc.status)
@@ -175,7 +179,6 @@ func (cm *ClusterMesh) remove(name string) {
 func (cm *ClusterMesh) NumReadyClusters() int {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
-
 	nready := 0
 	for _, cm := range cm.clusters {
 		if cm.isReady() {
@@ -197,4 +200,8 @@ func (cm *ClusterMesh) ForEachRemoteCluster(fn func(RemoteCluster) error) error 
 	}
 
 	return nil
+}
+
+func (cm *ClusterMesh) ExtendedClustermeshEnabled() bool {
+	return cm.conf.MaxConnectedClusters != defaults.MaxConnectedClusters
 }

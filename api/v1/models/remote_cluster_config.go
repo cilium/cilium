@@ -28,6 +28,9 @@ type RemoteClusterConfig struct {
 	// Whether the remote cluster information is locally cached by kvstoremesh
 	Kvstoremesh bool `json:"kvstoremesh,omitempty"`
 
+	// The maximum number of clusters this cluster can support in a Clustermesh
+	MaxConnectedClusters int64 `json:"max-connected-clusters,omitempty"`
+
 	// Whether the configuration is required to be present
 	Required bool `json:"required,omitempty"`
 

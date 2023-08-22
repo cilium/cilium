@@ -2583,6 +2583,9 @@ definitions:
       sync-canaries:
         description: Whether the remote cluster supports per-prefix "synced" canaries
         type: boolean
+      max-connected-clusters:
+        description: The maximum number of clusters this cluster can support in a Clustermesh
+        type: integer
   MonitorStatus:
     description: Status of the node monitor
     properties:

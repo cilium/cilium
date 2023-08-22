@@ -1199,6 +1199,13 @@ const (
 
 	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
 	EnableK8sNetworkPolicy = "enable-k8s-networkpolicy"
+
+	// MaxConnectedClusters sets the maximum number of clusters that can be
+	// connected in a clustermesh.
+	// The value is used to determine the bit allocation for cluster ID and
+	// identity in a numeric identity. Values > 255 will decrease the number of
+	// allocatable identities.
+	MaxConnectedClusters = "max-connected-clusters"
 )
 
 // Default string arguments
@@ -2448,6 +2455,13 @@ type DaemonConfig struct {
 
 	// EnableK8sNetworkPolicy enables support for K8s NetworkPolicy.
 	EnableK8sNetworkPolicy bool
+
+	// MaxConnectedClusters sets the maximum number of clusters that can be
+	// connected in a clustermesh.
+	// The value is used to determine the bit allocation for cluster ID and
+	// identity in a numeric identity. Values > 255 will decrease the number of
+	// allocatable identities.
+	MaxConnectedClusters uint32
 }
 
 var (
@@ -2498,6 +2512,7 @@ var (
 		EnableVTEP:             defaults.EnableVTEP,
 		EnableBGPControlPlane:  defaults.EnableBGPControlPlane,
 		EnableK8sNetworkPolicy: defaults.EnableK8sNetworkPolicy,
+		MaxConnectedClusters:   defaults.MaxConnectedClusters,
 	}
 )
 
@@ -3601,6 +3616,9 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 
 	// To support K8s NetworkPolicy
 	c.EnableK8sNetworkPolicy = vp.GetBool(EnableK8sNetworkPolicy)
+
+	// Set maximum number of clusters to support in clustermesh
+	c.MaxConnectedClusters = vp.GetUint32(MaxConnectedClusters)
 }
 
 func (c *DaemonConfig) populateDevices(vp *viper.Viper) {

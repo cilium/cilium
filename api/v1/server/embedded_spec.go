@@ -4545,6 +4545,10 @@ func init() {
           "description": "Whether the remote cluster information is locally cached by kvstoremesh",
           "type": "boolean"
         },
+        "max-connected-clusters": {
+          "description": "The maximum number of clusters this cluster can support in a Clustermesh",
+          "type": "integer"
+        },
         "required": {
           "description": "Whether the configuration is required to be present",
           "type": "boolean"
@@ -10410,6 +10414,10 @@ func init() {
         "kvstoremesh": {
           "description": "Whether the remote cluster information is locally cached by kvstoremesh",
           "type": "boolean"
+        },
+        "max-connected-clusters": {
+          "description": "The maximum number of clusters this cluster can support in a Clustermesh",
+          "type": "integer"
         },
         "required": {
           "description": "Whether the configuration is required to be present",

@@ -173,7 +173,7 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 }
 
 func (rc *remoteCluster) ClusterConfigRequired() bool {
-	return rc.mesh.conf.ConfigValidationMode == types.Strict
+	return (rc.mesh.conf.ConfigValidationMode == types.Strict) || rc.mesh.common.ExtendedClustermeshEnabled()
 }
 
 func (rc *remoteCluster) onUpdateConfig(newConfig *cmtypes.CiliumClusterConfig) error {

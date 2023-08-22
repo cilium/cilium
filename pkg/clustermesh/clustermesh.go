@@ -74,6 +74,8 @@ type Configuration struct {
 
 	Metrics       Metrics
 	CommonMetrics common.Metrics
+
+	MaxConnectedClusters types.ClustermeshSize
 }
 
 // RemoteIdentityWatcher is any type which provides identities that have been
@@ -135,8 +137,9 @@ func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
 
 		NewRemoteCluster: cm.NewRemoteCluster,
 
-		NodeName: nodeName,
-		Metrics:  c.CommonMetrics,
+		NodeName:             nodeName,
+		Metrics:              c.CommonMetrics,
+		MaxConnectedClusters: c.MaxConnectedClusters,
 	})
 
 	lifecycle.Append(&cm.common)

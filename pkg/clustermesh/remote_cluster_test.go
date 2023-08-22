@@ -84,6 +84,7 @@ func TestRemoteClusterRun(t *testing.T) {
 				Capabilities: types.CiliumClusterConfigCapabilities{
 					SyncedCanaries: true,
 				},
+				MaxConnectedClusters: 255,
 			},
 			kvs: map[string]string{
 				"cilium/state/nodes/v1/foo/bar":      `{"name": "bar"}`,
@@ -104,6 +105,7 @@ func TestRemoteClusterRun(t *testing.T) {
 					SyncedCanaries: true,
 					Cached:         true,
 				},
+				MaxConnectedClusters: 255,
 			},
 			kvs: map[string]string{
 				"cilium/cache/nodes/v1/foo/bar":          `{"name": "bar"}`,

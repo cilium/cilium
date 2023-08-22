@@ -57,6 +57,9 @@ type remoteCluster struct {
 	// connect to the etcd cluster of the remote cluster
 	configPath string
 
+	// mesh is the cluster mesh this remote cluster belongs to
+	mesh *ClusterMesh
+
 	// clusterSizeDependantInterval allows to calculate intervals based on cluster size.
 	clusterSizeDependantInterval kvstore.ClusterSizeDependantIntervalFunc
 
@@ -189,6 +192,11 @@ func (rc *remoteCluster) restartRemoteConnection() {
 					return err
 				}
 
+				if err := rc.validateConnection(config); err != nil {
+					rc.getLogger().WithError(err).Error("Terminating remote cluster connection due to invalid remote cluster configuration")
+					rc.releaseOldConnection()
+					return err
+				}
 				ctx, cancel := context.WithCancel(ctx)
 				rc.wg.Add(1)
 				go func() {
@@ -310,6 +318,7 @@ func (rc *remoteCluster) getClusterConfig(ctx context.Context, backend kvstore.B
 			rc.config.ClusterID = int64(config.ID)
 			rc.config.Kvstoremesh = config.Capabilities.Cached
 			rc.config.SyncCanaries = config.Capabilities.SyncedCanaries
+			rc.config.MaxConnectedClusters = int64(config.MaxConnectedClusters)
 			rc.mutex.Unlock()
 		}
 
@@ -433,4 +442,12 @@ func (rc *remoteCluster) status() *models.RemoteCluster {
 	}
 
 	return status
+}
+
+func (rc *remoteCluster) validateConnection(cfg *cmtypes.CiliumClusterConfig) error {
+	if rc.mesh.ExtendedClustermeshEnabled() && (rc.mesh.conf.MaxConnectedClusters != cmtypes.ClustermeshSize(cfg.MaxConnectedClusters)) {
+		return fmt.Errorf("mismatched MaxConnectedClusters; local=%d, remote=%d", rc.mesh.conf.MaxConnectedClusters, cfg.MaxConnectedClusters)
+	}
+
+	return nil
 }
