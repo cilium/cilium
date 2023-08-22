@@ -83,7 +83,8 @@ func TestRemoteClusterRun(t *testing.T) {
 			name: "remote cluster supports sync canaries",
 			srccfg: &types.CiliumClusterConfig{
 				Capabilities: types.CiliumClusterConfigCapabilities{
-					SyncedCanaries: true,
+					SyncedCanaries:       true,
+					MaxConnectedClusters: 255,
 				},
 			},
 			kvs: map[string]string{
@@ -102,8 +103,9 @@ func TestRemoteClusterRun(t *testing.T) {
 			name: "remote cluster supports both sync canaries and cached prefixes",
 			srccfg: &types.CiliumClusterConfig{
 				Capabilities: types.CiliumClusterConfigCapabilities{
-					SyncedCanaries: true,
-					Cached:         true,
+					SyncedCanaries:       true,
+					Cached:               true,
+					MaxConnectedClusters: 255,
 				},
 			},
 			kvs: map[string]string{
@@ -153,6 +155,7 @@ func TestRemoteClusterRun(t *testing.T) {
 					ClusterIDsManager:     NewClusterMeshUsedIDs(),
 					Metrics:               NewMetrics(),
 					StoreFactory:          store,
+					ClusterInfo:           types.ClusterInfo{MaxConnectedClusters: 255},
 				},
 				globalServices: newGlobalServiceCache(metrics.NoOpGauge),
 			}
