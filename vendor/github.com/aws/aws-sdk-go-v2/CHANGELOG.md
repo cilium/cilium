@@ -1,3 +1,139 @@
+# Release (2023-08-21)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2`: v1.21.0
+  * **Feature**: Add support for polly SynthesizeSpeech GET request presigner
+* `github.com/aws/aws-sdk-go-v2/service/cloud9`: [v1.18.6](service/cloud9/CHANGELOG.md#v1186-2023-08-21)
+  * **Documentation**: Doc only update to add Ubuntu 22.04 as an Image ID option for Cloud9
+* `github.com/aws/aws-sdk-go-v2/service/ec2`: [v1.114.0](service/ec2/CHANGELOG.md#v11140-2023-08-21)
+  * **Feature**: The DeleteKeyPair API has been updated to return the keyPairId when an existing key pair is deleted.
+* `github.com/aws/aws-sdk-go-v2/service/finspace`: [v1.12.0](service/finspace/CHANGELOG.md#v1120-2023-08-21)
+  * **Feature**: Allow customers to manage outbound traffic from their Kx Environment when attaching a transit gateway by providing network acl entries. Allow the customer to choose how they want to update the databases on a cluster allowing updates to possibly be faster than usual.
+* `github.com/aws/aws-sdk-go-v2/service/polly`: [v1.30.0](service/polly/CHANGELOG.md#v1300-2023-08-21)
+  * **Feature**: Add support for polly SynthesizeSpeech GET request presigner
+* `github.com/aws/aws-sdk-go-v2/service/rds`: [v1.51.0](service/rds/CHANGELOG.md#v1510-2023-08-21)
+  * **Feature**: Adding support for RDS Aurora Global Database Unplanned Failover
+* `github.com/aws/aws-sdk-go-v2/service/route53domains`: [v1.17.3](service/route53domains/CHANGELOG.md#v1173-2023-08-21)
+  * **Documentation**: Fixed typos in description fields
+
+# Release (2023-08-18)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/codecommit`: [v1.16.0](service/codecommit/CHANGELOG.md#v1160-2023-08-18)
+  * **Feature**: Add new ListFileCommitHistory operation to retrieve commits which introduced changes to a specific file.
+* `github.com/aws/aws-sdk-go-v2/service/securityhub`: [v1.36.0](service/securityhub/CHANGELOG.md#v1360-2023-08-18)
+  * **Feature**: Added Inspector Lambda code Vulnerability section to ASFF, including GeneratorDetails, EpssScore, ExploitAvailable, and CodeVulnerabilities.
+
+# Release (2023-08-17)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2`: v1.20.2
+  * **Bug Fix**: Sign `X-Amz-Server-Side-Encryption-Context` header to fix signing for PutObject requests that set `SSEKMSEncryptionContext`.
+* `github.com/aws/aws-sdk-go-v2/service/ec2`: [v1.113.0](service/ec2/CHANGELOG.md#v11130-2023-08-17)
+  * **Feature**: Adds support for SubnetConfigurations to allow users to select their own IPv4 and IPv6 addresses for Interface VPC endpoints
+* `github.com/aws/aws-sdk-go-v2/service/gamelift`: [v1.22.0](service/gamelift/CHANGELOG.md#v1220-2023-08-17)
+  * **Feature**: Amazon GameLift updates its instance types support.
+* `github.com/aws/aws-sdk-go-v2/service/s3control`: [v1.32.3](service/s3control/CHANGELOG.md#v1323-2023-08-17)
+  * **Announcement**: BREAKFIX: corrected function spelling in environment config from GetS3DisableMultRegionAccessPoints to GetS3DisableMultiRegionAccessPoints
+  * **Bug Fix**: Adds DisableMRAP option to config loader, and DisableMRAP client resolver to achieve parity with other S3 options in the config loader. Additionally, added breakfix to correct spelling.
+
+# Release (2023-08-16)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/cloudwatch`: [v1.27.3](service/cloudwatch/CHANGELOG.md#v1273-2023-08-16)
+  * **Documentation**: Doc-only update to incorporate several doc bug fixes
+
+# Release (2023-08-15)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/chimesdkmeetings`: [v1.17.0](service/chimesdkmeetings/CHANGELOG.md#v1170-2023-08-15)
+  * **Feature**: Updated API documentation to include additional exceptions.
+* `github.com/aws/aws-sdk-go-v2/service/ec2`: [v1.112.0](service/ec2/CHANGELOG.md#v11120-2023-08-15)
+  * **Feature**: Documentation updates for Elastic Compute Cloud (EC2).
+* `github.com/aws/aws-sdk-go-v2/service/glue`: [v1.61.0](service/glue/CHANGELOG.md#v1610-2023-08-15)
+  * **Feature**: AWS Glue Crawlers can now accept SerDe overrides from a custom csv classifier. The two SerDe options are LazySimpleSerDe and OpenCSVSerDe. In case, the user wants crawler to do the selection, "None" can be selected for this purpose.
+* `github.com/aws/aws-sdk-go-v2/service/pi`: [v1.19.0](service/pi/CHANGELOG.md#v1190-2023-08-15)
+  * **Feature**: AWS Performance Insights for Amazon RDS is launching Performance Analysis On Demand, a new feature that allows you to analyze database performance metrics and find out the performance issues. You can now use SDK to create, list, get, delete, and manage tags of performance analysis reports.
+* `github.com/aws/aws-sdk-go-v2/service/route53domains`: [v1.17.0](service/route53domains/CHANGELOG.md#v1170-2023-08-15)
+  * **Feature**: Provide explanation if CheckDomainTransferability return false. Provide requestId if a request is already submitted.  Add sensitive protection for customer information
+* `github.com/aws/aws-sdk-go-v2/service/sagemaker`: [v1.102.0](service/sagemaker/CHANGELOG.md#v11020-2023-08-15)
+  * **Feature**: SageMaker Inference Recommender now provides SupportedResponseMIMETypes from DescribeInferenceRecommendationsJob response
+
+# Release (2023-08-14)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/mediapackage`: [v1.23.0](service/mediapackage/CHANGELOG.md#v1230-2023-08-14)
+  * **Feature**: Fix SDK logging of certain fields.
+* `github.com/aws/aws-sdk-go-v2/service/omics`: [v1.8.0](service/omics/CHANGELOG.md#v180-2023-08-14)
+  * **Feature**: This release provides support for annotation store versioning and cross account sharing for Omics Analytics
+* `github.com/aws/aws-sdk-go-v2/service/transfer`: [v1.33.4](service/transfer/CHANGELOG.md#v1334-2023-08-14)
+  * **Documentation**: Documentation updates for AWS Transfer Family
+
+# Release (2023-08-11)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/amplifybackend`: [v1.16.0](service/amplifybackend/CHANGELOG.md#v1160-2023-08-11)
+  * **Feature**: Adds sensitive trait to required input shapes.
+* `github.com/aws/aws-sdk-go-v2/service/configservice`: [v1.36.0](service/configservice/CHANGELOG.md#v1360-2023-08-11)
+  * **Feature**: Updated ResourceType enum with new resource types onboarded by AWS Config in July 2023.
+* `github.com/aws/aws-sdk-go-v2/service/ec2`: [v1.111.0](service/ec2/CHANGELOG.md#v11110-2023-08-11)
+  * **Feature**: Amazon EC2 P5 instances, powered by the latest NVIDIA H100 Tensor Core GPUs, deliver the highest performance in EC2 for deep learning (DL) and HPC applications. M7i-flex and M7i instances are next-generation general purpose instances powered by custom 4th Generation Intel Xeon Scalable processors.
+* `github.com/aws/aws-sdk-go-v2/service/quicksight`: [v1.41.0](service/quicksight/CHANGELOG.md#v1410-2023-08-11)
+  * **Feature**: New Authentication method for Account subscription - IAM Identity Center. Hierarchy layout support, default column width support and related style properties for pivot table visuals. Non-additive topic field aggregations for Topic API
+* `github.com/aws/aws-sdk-go-v2/service/ses`: [v1.16.3](service/ses/CHANGELOG.md#v1163-2023-08-11)
+  * **Documentation**: Doc only updates to include: 1) Clarified which part of an email address where it's okay to have Punycode when it contains non-ASCII characters for the SendRawEmail action and other actions where this is applicable. 2) Updated S3Action description with new MB max bucket size from 30 to 40.
+* `github.com/aws/aws-sdk-go-v2/service/swf`: [v1.17.0](service/swf/CHANGELOG.md#v1170-2023-08-11)
+  * **Feature**: This release adds new API parameters to override workflow task list for workflow executions.
+
+# Release (2023-08-10)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/cloudtrail`: [v1.28.3](service/cloudtrail/CHANGELOG.md#v1283-2023-08-10)
+  * **Documentation**: Documentation updates for CloudTrail.
+* `github.com/aws/aws-sdk-go-v2/service/connect`: [v1.65.0](service/connect/CHANGELOG.md#v1650-2023-08-10)
+  * **Feature**: This release adds APIs to provision agents that are global / available in multiple AWS regions and distribute them across these regions by percentage.
+* `github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2`: [v1.21.0](service/elasticloadbalancingv2/CHANGELOG.md#v1210-2023-08-10)
+  * **Feature**: This release enables configuring security groups for Network Load Balancers
+* `github.com/aws/aws-sdk-go-v2/service/omics`: [v1.7.0](service/omics/CHANGELOG.md#v170-2023-08-10)
+  * **Feature**: This release adds instanceType to GetRunTask & ListRunTasks responses.
+* `github.com/aws/aws-sdk-go-v2/service/secretsmanager`: [v1.21.0](service/secretsmanager/CHANGELOG.md#v1210-2023-08-10)
+  * **Feature**: Add additional InvalidRequestException to list of possible exceptions for ListSecret.
+* `github.com/aws/aws-sdk-go-v2/service/transfer`: [v1.33.3](service/transfer/CHANGELOG.md#v1333-2023-08-10)
+  * **Documentation**: Documentation updates for AW Transfer Family
+
+# Release (2023-08-09)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/chimesdkvoice`: [v1.8.0](service/chimesdkvoice/CHANGELOG.md#v180-2023-08-09)
+  * **Feature**: Updating CreatePhoneNumberOrder, UpdatePhoneNumber and BatchUpdatePhoneNumbers APIs, adding phone number name
+* `github.com/aws/aws-sdk-go-v2/service/fsx`: [v1.32.0](service/fsx/CHANGELOG.md#v1320-2023-08-09)
+  * **Feature**: For FSx for Lustre, add new data repository task type, RELEASE_DATA_FROM_FILESYSTEM, to release files that have been archived to S3. For FSx for Windows, enable support for configuring and updating SSD IOPS, and for updating storage type. For FSx for OpenZFS, add new deployment type, MULTI_AZ_1.
+* `github.com/aws/aws-sdk-go-v2/service/globalaccelerator`: [v1.17.3](service/globalaccelerator/CHANGELOG.md#v1173-2023-08-09)
+  * **Documentation**: Documentation update for dualstack EC2 endpoint support
+* `github.com/aws/aws-sdk-go-v2/service/guardduty`: [v1.26.0](service/guardduty/CHANGELOG.md#v1260-2023-08-09)
+  * **Feature**: Added autoEnable ALL to UpdateOrganizationConfiguration and DescribeOrganizationConfiguration APIs.
+* `github.com/aws/aws-sdk-go-v2/service/sagemaker`: [v1.101.0](service/sagemaker/CHANGELOG.md#v11010-2023-08-09)
+  * **Feature**: This release adds support for cross account access for SageMaker Model Cards through AWS RAM.
+
+# Release (2023-08-08)
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2/service/backup`: [v1.24.0](service/backup/CHANGELOG.md#v1240-2023-08-08)
+  * **Feature**: This release introduces a new logically air-gapped vault (Preview) in AWS Backup that stores immutable backup copies, which are locked by default and isolated with encryption using AWS owned keys. Logically air-gapped vault (Preview) allows secure recovery of application data across accounts.
+* `github.com/aws/aws-sdk-go-v2/service/elasticache`: [v1.29.0](service/elasticache/CHANGELOG.md#v1290-2023-08-08)
+  * **Feature**: Added support for cluster mode in online migration and test migration API
+* `github.com/aws/aws-sdk-go-v2/service/servicecatalog`: [v1.21.0](service/servicecatalog/CHANGELOG.md#v1210-2023-08-08)
+  * **Feature**: Introduce support for HashiCorp Terraform Cloud in Service Catalog by addying TERRAFORM_CLOUD product type in CreateProduct and CreateProvisioningArtifact API.
+
 # Release (2023-08-07)
 
 ## General Highlights

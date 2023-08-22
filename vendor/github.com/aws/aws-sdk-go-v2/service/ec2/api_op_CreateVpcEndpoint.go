@@ -88,13 +88,16 @@ type CreateVpcEndpointInput struct {
 	RouteTableIds []string
 
 	// (Interface endpoint) The IDs of the security groups to associate with the
-	// endpoint network interface. If this parameter is not specified, we use the
+	// endpoint network interfaces. If this parameter is not specified, we use the
 	// default security group for the VPC.
 	SecurityGroupIds []string
 
+	// The subnet configurations for the endpoint.
+	SubnetConfigurations []types.SubnetConfiguration
+
 	// (Interface and Gateway Load Balancer endpoints) The IDs of the subnets in which
-	// to create an endpoint network interface. For a Gateway Load Balancer endpoint,
-	// you can specify only one subnet.
+	// to create endpoint network interfaces. For a Gateway Load Balancer endpoint, you
+	// can specify only one subnet.
 	SubnetIds []string
 
 	// The tags to associate with the endpoint.
