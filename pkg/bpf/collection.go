@@ -241,18 +241,9 @@ func inlineGlobalData(spec *ebpf.CollectionSpec) error {
 		return nil
 	}
 
-	// Don't attempt to create an empty map .bss in the kernel.
-	delete(spec.Maps, ".bss")
-
 	for _, prog := range spec.Programs {
 		for i, ins := range prog.Instructions {
 			if !ins.IsLoadFromMap() || ins.Src != asm.PseudoMapValue {
-				continue
-			}
-
-			// The compiler inserts relocations for .bss for zero values.
-			if ins.Reference() == ".bss" {
-				prog.Instructions[i] = asm.LoadImm(ins.Dst, 0, asm.DWord)
 				continue
 			}
 
