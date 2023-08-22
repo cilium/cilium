@@ -9,6 +9,7 @@ import (
 	"context"
 	"net"
 	"runtime"
+	"sort"
 	"time"
 
 	. "github.com/cilium/checkmate"
@@ -24,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb2"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -245,6 +246,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(err, IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
+		sort.Strings(devices)
 		c.Assert(devices, checker.DeepEquals, []string{"bond0", "dummy0", "dummy1", "dummy_v6", "veth0"})
 		option.Config.SetDevices([]string{})
 		dm.Stop()
@@ -658,7 +660,7 @@ func delRoutes(iface string) error {
 func newDeviceManagerForTests() (dm *DeviceManager, err error) {
 	ns, _ := netns.Get()
 	h := hive.New(
-		statedb.Cell,
+		statedb2.Cell,
 		tables.Cell,
 		DevicesControllerCell,
 		cell.Provide(func() DevicesConfig {
