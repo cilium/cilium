@@ -16,9 +16,11 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// Creates a subnet CIDR reservation. For information about subnet CIDR
-// reservations, see Subnet CIDR reservations (https://docs.aws.amazon.com/vpc/latest/userguide/subnet-cidr-reservation.html)
-// in the Amazon Virtual Private Cloud User Guide.
+// Creates a subnet CIDR reservation. For more information, see Subnet CIDR
+// reservations (https://docs.aws.amazon.com/vpc/latest/userguide/subnet-cidr-reservation.html)
+// in the Amazon Virtual Private Cloud User Guide and Assign prefixes to network
+// interfaces (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-eni.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 func (c *Client) CreateSubnetCidrReservation(ctx context.Context, params *CreateSubnetCidrReservationInput, optFns ...func(*Options)) (*CreateSubnetCidrReservationOutput, error) {
 	if params == nil {
 		params = &CreateSubnetCidrReservationInput{}
@@ -41,14 +43,11 @@ type CreateSubnetCidrReservationInput struct {
 	// This member is required.
 	Cidr *string
 
-	// The type of reservation. The following are valid values:
-	//   - prefix : The Amazon EC2 Prefix Delegation feature assigns the IP addresses
-	//   to network interfaces that are associated with an instance. For information
-	//   about Prefix Delegation, see Prefix Delegation for Amazon EC2 network
-	//   interfaces (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-prefix-delegation.html)
-	//   in the Amazon Elastic Compute Cloud User Guide.
-	//   - explicit : You manually assign the IP addresses to resources that reside in
-	//   your subnet.
+	// The type of reservation. The reservation type determines how the reserved IP
+	// addresses are assigned to resources.
+	//   - prefix - Amazon Web Services assigns the reserved IP addresses to network
+	//   interfaces.
+	//   - explicit - You assign the reserved IP addresses to network interfaces.
 	//
 	// This member is required.
 	ReservationType types.SubnetCidrReservationType

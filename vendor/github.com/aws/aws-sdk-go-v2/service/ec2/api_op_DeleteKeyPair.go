@@ -49,6 +49,13 @@ type DeleteKeyPairInput struct {
 }
 
 type DeleteKeyPairOutput struct {
+
+	// The ID of the key pair.
+	KeyPairId *string
+
+	// Is true if the request succeeds, and an error otherwise.
+	Return *bool
+
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
 

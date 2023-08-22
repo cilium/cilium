@@ -45733,6 +45733,40 @@ func awsEc2query_serializeDocumentStorageLocation(v *types.StorageLocation, valu
 	return nil
 }
 
+func awsEc2query_serializeDocumentSubnetConfiguration(v *types.SubnetConfiguration, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Ipv4 != nil {
+		objectKey := object.Key("Ipv4")
+		objectKey.String(*v.Ipv4)
+	}
+
+	if v.Ipv6 != nil {
+		objectKey := object.Key("Ipv6")
+		objectKey.String(*v.Ipv6)
+	}
+
+	if v.SubnetId != nil {
+		objectKey := object.Key("SubnetId")
+		objectKey.String(*v.SubnetId)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentSubnetConfigurationsList(v []types.SubnetConfiguration, value query.Value) error {
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		if err := awsEc2query_serializeDocumentSubnetConfiguration(&v[i], av); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func awsEc2query_serializeDocumentSubnetIdStringList(v []string, value query.Value) error {
 	array := value.Array("SubnetId")
 
@@ -51824,6 +51858,13 @@ func awsEc2query_serializeOpDocumentCreateVpcEndpointInput(v *CreateVpcEndpointI
 	if v.ServiceName != nil {
 		objectKey := object.Key("ServiceName")
 		objectKey.String(*v.ServiceName)
+	}
+
+	if v.SubnetConfigurations != nil {
+		objectKey := object.FlatKey("SubnetConfiguration")
+		if err := awsEc2query_serializeDocumentSubnetConfigurationsList(v.SubnetConfigurations, objectKey); err != nil {
+			return err
+		}
 	}
 
 	if v.SubnetIds != nil {
@@ -63444,6 +63485,13 @@ func awsEc2query_serializeOpDocumentModifyVpcEndpointInput(v *ModifyVpcEndpointI
 	if v.ResetPolicy != nil {
 		objectKey := object.Key("ResetPolicy")
 		objectKey.Boolean(*v.ResetPolicy)
+	}
+
+	if v.SubnetConfigurations != nil {
+		objectKey := object.FlatKey("SubnetConfiguration")
+		if err := awsEc2query_serializeDocumentSubnetConfigurationsList(v.SubnetConfigurations, objectKey); err != nil {
+			return err
+		}
 	}
 
 	if v.VpcEndpointId != nil {
