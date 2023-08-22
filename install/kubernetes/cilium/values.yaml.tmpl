@@ -3163,10 +3163,24 @@ authentication:
         enabled: true
         # -- SPIRE namespace to install into
         namespace: cilium-spire
+        # -- init container image of SPIRE agent and server
+        initImage:
+          override: ~
+          repository: "${SPIRE_INIT_REPO}"
+          tag: "${SPIRE_INIT_VERSION}"
+          digest: "${SPIRE_INIT_DIGEST}"
+          useDigest: true
+          pullPolicy: "${PULL_POLICY}"
         # SPIRE agent configuration
         agent:
           # -- SPIRE agent image
-          image: ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823
+          image:
+            override: ~
+            repository: "${SPIRE_AGENT_REPO}"
+            tag: "${SPIRE_AGENT_VERSION}"
+            digest: "${SPIRE_AGENT_DIGEST}"
+            useDigest: true
+            pullPolicy: "${PULL_POLICY}"
           # -- SPIRE agent service account
           serviceAccount:
             create: true
@@ -3182,7 +3196,13 @@ authentication:
           tolerations: []
         server:
           # -- SPIRE server image
-          image: ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f
+          image:
+            override: ~
+            repository: "${SPIRE_SERVER_REPO}"
+            tag: "${SPIRE_SERVER_VERSION}"
+            digest: "${SPIRE_SERVER_DIGEST}"
+            useDigest: true
+            pullPolicy: "${PULL_POLICY}"
           # -- SPIRE server service account
           serviceAccount:
             create: true

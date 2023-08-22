@@ -3166,10 +3166,24 @@ authentication:
         enabled: true
         # -- SPIRE namespace to install into
         namespace: cilium-spire
+        # -- init container image of SPIRE agent and server
+        initImage:
+          override: ~
+          repository: "docker.io/library/busybox"
+          tag: "1.35.0"
+          digest: "sha256:223ae047b1065bd069aac01ae3ac8088b3ca4a527827e283b85112f29385fb1b"
+          useDigest: true
+          pullPolicy: "Always"
         # SPIRE agent configuration
         agent:
           # -- SPIRE agent image
-          image: ghcr.io/spiffe/spire-agent:1.6.3@sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823
+          image:
+            override: ~
+            repository: "ghcr.io/spiffe/spire-agent"
+            tag: "1.6.3"
+            digest: "sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823"
+            useDigest: true
+            pullPolicy: "Always"
           # -- SPIRE agent service account
           serviceAccount:
             create: true
@@ -3185,7 +3199,13 @@ authentication:
           tolerations: []
         server:
           # -- SPIRE server image
-          image: ghcr.io/spiffe/spire-server:1.6.3@sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f
+          image:
+            override: ~
+            repository: "ghcr.io/spiffe/spire-server"
+            tag: "1.6.3"
+            digest: "sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a78e0e4dc20c9a816ad7f"
+            useDigest: true
+            pullPolicy: "Always"
           # -- SPIRE server service account
           serviceAccount:
             create: true

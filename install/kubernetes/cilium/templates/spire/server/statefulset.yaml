@@ -36,14 +36,20 @@ spec:
       {{- end }}
       containers:
       - name: cilium-init
-        image: docker.io/library/busybox:1.35.0@sha256:223ae047b1065bd069aac01ae3ac8088b3ca4a527827e283b85112f29385fb1b
+        image: {{ include "cilium.image" .Values.authentication.mutual.spire.install.initImage | quote }}
+        imagePullPolicy: {{ .Values.authentication.mutual.spire.install.initImage.pullPolicy }}
         command:
           - /bin/sh
           - -c
           - |
             {{- tpl (.Files.Get "files/spire/init.bash") . | nindent 12 }}
       - name: spire-server
+        {{- if eq (typeOf .Values.authentication.mutual.spire.install.server.image) "string" }}
         image: {{ .Values.authentication.mutual.spire.install.server.image }}
+        {{- else }}
+        image: {{ include "cilium.image" .Values.authentication.mutual.spire.install.server.image | quote }}
+        imagePullPolicy: {{ .Values.authentication.mutual.spire.install.server.image.pullPolicy }}
+        {{- end }}
         args:
         - -config
         - /run/spire/config/server.conf
