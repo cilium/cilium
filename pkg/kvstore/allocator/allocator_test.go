@@ -637,7 +637,7 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 
 	wg.Add(1)
 	go func() {
-		rc.Watch(ctx)
+		rc.Watch(ctx, func(ctx context.Context) {})
 		wg.Done()
 	}()
 
