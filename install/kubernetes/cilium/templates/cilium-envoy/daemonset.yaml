@@ -175,6 +175,9 @@ spec:
         - name: envoy-sockets
           mountPath: /var/run/cilium/envoy/sockets
           readOnly: false
+        - name: envoy-artifacts
+          mountPath: /var/run/cilium/envoy/artifacts
+          readOnly: true
         - name: envoy-config
           mountPath: /var/run/cilium/envoy/
           readOnly: true
@@ -223,6 +226,10 @@ spec:
       - name: envoy-sockets
         hostPath:
           path: "{{ .Values.daemon.runPath }}/envoy/sockets"
+          type: DirectoryOrCreate
+      - name: envoy-artifacts
+        hostPath:
+          path: "{{ .Values.daemon.runPath }}/envoy/artifacts"
           type: DirectoryOrCreate
       - name: envoy-config
         configMap:
