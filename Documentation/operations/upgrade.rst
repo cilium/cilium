@@ -340,6 +340,10 @@ Helm Options
   were deprecated in Cilium 1.14 in favor of ``tls.ca.cert`` and ``tls.ca.key`` respectively,
   and have been removed. The ```clustermesh-apiserver-ca-cert`` secret is no longer generated.
 
+* Values ``authentication.mutual.spire.install.agent.image`` and ``authentication.mutual.spire.install.server.image``
+  changed their type from a string to a structured definition that decouples repository and tag. This improves the
+  usage in offline environments.
+
 Added Metrics
 ~~~~~~~~~~~~~
 

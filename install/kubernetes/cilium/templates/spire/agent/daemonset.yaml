@@ -29,7 +29,8 @@ spec:
       serviceAccountName: {{ .Values.authentication.mutual.spire.install.agent.serviceAccount.name }}
       initContainers:
         - name: init
-          image: docker.io/library/busybox:1.35.0@sha256:223ae047b1065bd069aac01ae3ac8088b3ca4a527827e283b85112f29385fb1b
+          image: {{ include "cilium.image" .Values.authentication.mutual.spire.install.initImage | quote }}
+          imagePullPolicy: {{ .Values.authentication.mutual.spire.install.initImage.pullPolicy }}
           command:
             - /bin/sh
             - -c
@@ -37,7 +38,12 @@ spec:
               {{- tpl (.Files.Get "files/spire/wait-for-spire.bash") . | nindent 14 }}
       containers:
         - name: spire-agent
+          {{- if eq (typeOf .Values.authentication.mutual.spire.install.agent.image) "string" }}
           image: {{ .Values.authentication.mutual.spire.install.agent.image }}
+          {{- else }}
+          image: {{ include "cilium.image" .Values.authentication.mutual.spire.install.agent.image | quote }}
+          imagePullPolicy: {{ .Values.authentication.mutual.spire.install.agent.image.pullPolicy }}
+          {{- end }}
           args: ["-config", "/run/spire/config/agent.conf"]
           volumeMounts:
             - name: spire-config
