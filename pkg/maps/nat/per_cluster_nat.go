@@ -20,8 +20,9 @@ const (
 	perClusterOuterMapPrefix = "cilium_per_cluster_snat_"
 	perClusterIPv4OuterMap   = perClusterOuterMapPrefix + "v4_external"
 	perClusterIPv6OuterMap   = perClusterOuterMapPrefix + "v6_external"
-	perClusterMapMaxEntries  = cmtypes.ClusterIDMax + 1
 )
+
+var perClusterMapMaxEntries = cmtypes.ClusterIDMax + 1
 
 // ClusterOuterMapName returns the name of the outer per-cluster NAT map
 // for the given IP family. It can be overwritten for testing purposes.
@@ -137,7 +138,7 @@ func newPerClusterNATMap(family IPFamily, innerMapEntries int) *perClusterNATMap
 		ebpf.ArrayOfMaps,
 		&PerClusterNATMapKey{},
 		&PerClusterNATMapVal{},
-		perClusterMapMaxEntries,
+		int(perClusterMapMaxEntries),
 		0,
 		inner,
 	)

@@ -69,8 +69,8 @@ type ClusterMesh struct {
 	configWatcher *configDirectoryWatcher
 }
 
-// NewClusterMesh creates a new remote cluster cache based on the
-// provided configuration
+// NewClusterMesh initializes the cluster ID range and creates a new remote
+// cluster cache based on the provided configuration.
 func NewClusterMesh(c Configuration) ClusterMesh {
 	return ClusterMesh{
 		conf:     c,
@@ -175,7 +175,6 @@ func (cm *ClusterMesh) remove(name string) {
 func (cm *ClusterMesh) NumReadyClusters() int {
 	cm.mutex.RLock()
 	defer cm.mutex.RUnlock()
-
 	nready := 0
 	for _, cm := range cm.clusters {
 		if cm.isReady() {

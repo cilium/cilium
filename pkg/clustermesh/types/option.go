@@ -17,29 +17,40 @@ const (
 
 	// OptClusterID is the name of the OptClusterID option
 	OptClusterID = "cluster-id"
+
+	// OptMaxConnectedClusters is the name of the OptMaxConnectedClusters option
+	OptMaxConnectedClusters = "max-connected-clusters"
 )
 
 // ClusterInfo groups together the ClusterID and the ClusterName
 type ClusterInfo struct {
-	ID   uint32 `mapstructure:"cluster-id"`
-	Name string `mapstructure:"cluster-name"`
+	ID                   uint32 `mapstructure:"cluster-id"`
+	Name                 string `mapstructure:"cluster-name"`
+	MaxConnectedClusters uint32 `mapstructure:"max-connected-clusters"`
 }
 
 // DefaultClusterInfo represents the default ClusterInfo values.
 var DefaultClusterInfo = ClusterInfo{
-	ID:   0,
-	Name: defaults.ClusterName,
+	ID:                   0,
+	Name:                 defaults.ClusterName,
+	MaxConnectedClusters: defaults.MaxConnectedClusters,
 }
 
 // Flags implements the cell.Flagger interface, to register the given flags.
 func (def ClusterInfo) Flags(flags *pflag.FlagSet) {
 	flags.Uint32(OptClusterID, def.ID, "Unique identifier of the cluster")
 	flags.String(OptClusterName, def.Name, "Name of the cluster")
+	flags.Uint32(OptMaxConnectedClusters, def.MaxConnectedClusters, "Maximum number of clusters to be connected in a clustermesh. Increasing this value will reduce the maximum number of identities available")
 }
 
-// Validate validates that the ClusterID is in the valid range (including ClusterID == 0),
+// Validate validates that MaxConnectedClusters is configured with a supported
+// value, that the ClusterID is in the valid range (including ClusterID == 0),
 // and that the ClusterName is different from the default value if the ClusterID != 0.
 func (c ClusterInfo) Validate() error {
+	if err := InitClusterIDMax(c.MaxConnectedClusters); err != nil {
+		return fmt.Errorf("option --%s: %v", OptMaxConnectedClusters, err)
+	}
+
 	if c.ID < ClusterIDMin || c.ID > ClusterIDMax {
 		return fmt.Errorf("invalid cluster id %d: must be in range %d..%d",
 			c.ID, ClusterIDMin, ClusterIDMax)

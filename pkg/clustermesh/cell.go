@@ -27,6 +27,7 @@ var Cell = cell.Module(
 		return nodeStore.NewNodeObserver(mgr), mgr.ClusterSizeDependantInterval
 	}),
 	cell.ProvidePrivate(func() store.KeyCreator { return nodeStore.KeyCreator }),
+
 	cell.ProvidePrivate(idsMgrProvider),
 
 	cell.Config(common.Config{}),

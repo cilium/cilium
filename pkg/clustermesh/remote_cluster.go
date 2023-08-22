@@ -69,7 +69,7 @@ type remoteCluster struct {
 }
 
 func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperations, config *cmtypes.CiliumClusterConfig, ready chan<- error) {
-	if err := config.Validate(rc.mesh.conf.ConfigValidationMode); err != nil {
+	if err := rc.Validate(config); err != nil {
 		ready <- err
 		close(ready)
 		return
@@ -175,7 +175,7 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 }
 
 func (rc *remoteCluster) ClusterConfigRequired() bool {
-	return rc.mesh.conf.ConfigValidationMode == types.Strict
+	return (rc.mesh.conf.ConfigValidationMode == types.Strict) || rc.mesh.ExtendedClustermeshEnabled()
 }
 
 func (rc *remoteCluster) onUpdateConfig(newConfig *cmtypes.CiliumClusterConfig) error {
@@ -282,4 +282,28 @@ func (s *synced) wait(ctx context.Context, chs ...<-chan struct{}) error {
 
 func (s *synced) stop() {
 	close(s.stopped)
+}
+
+// Validate validates the remote cluster configuration to ensure compatibility
+// with the Clustermesh configuration. When the validation mode is
+// BackwardCompatible, a missing configuration or with ID=0 is allowed for
+// backward compatibility, otherwise it is flagged as an error.
+func (rc *remoteCluster) Validate(config *types.CiliumClusterConfig) error {
+	if config == nil || config.ID == 0 {
+		if rc.ClusterConfigRequired() {
+			return errors.New("remote cluster is missing cluster configuration")
+		}
+
+		return nil
+	}
+
+	if err := cmtypes.ValidateClusterID(config.ID); err != nil {
+		return err
+	}
+
+	if err := rc.mesh.ValidateConnection(config); err != nil {
+		return err
+	}
+
+	return nil
 }

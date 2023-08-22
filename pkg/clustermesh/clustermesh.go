@@ -6,12 +6,14 @@ package clustermesh
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -239,4 +241,17 @@ func (cm *ClusterMesh) Status() (status *models.ClusterMeshStatus) {
 	})
 
 	return
+}
+
+func (cm *ClusterMesh) ExtendedClustermeshEnabled() bool {
+	return cm.conf.ClusterInfo.MaxConnectedClusters != defaults.MaxConnectedClusters
+}
+
+// ValidateConnection validates a remote cluster config against runtime Clustermesh options
+func (cm *ClusterMesh) ValidateConnection(cfg *cmtypes.CiliumClusterConfig) error {
+	if cm.ExtendedClustermeshEnabled() && (cm.conf.ClusterInfo.MaxConnectedClusters != cfg.Capabilities.MaxConnectedClusters) {
+		return fmt.Errorf("mismatched MaxConnectedClusters; local=%d, remote=%d", cm.conf.ClusterInfo.MaxConnectedClusters, cfg.Capabilities.MaxConnectedClusters)
+	}
+
+	return nil
 }

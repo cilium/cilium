@@ -83,7 +83,8 @@ func TestRemoteClusterRun(t *testing.T) {
 			name: "remote cluster supports sync canaries",
 			srccfg: &types.CiliumClusterConfig{
 				Capabilities: types.CiliumClusterConfigCapabilities{
-					SyncedCanaries: true,
+					SyncedCanaries:       true,
+					MaxConnectedClusters: 255,
 				},
 			},
 			kvs: map[string]string{
@@ -102,8 +103,9 @@ func TestRemoteClusterRun(t *testing.T) {
 			name: "remote cluster supports both sync canaries and cached prefixes",
 			srccfg: &types.CiliumClusterConfig{
 				Capabilities: types.CiliumClusterConfigCapabilities{
-					SyncedCanaries: true,
-					Cached:         true,
+					SyncedCanaries:       true,
+					Cached:               true,
+					MaxConnectedClusters: 255,
 				},
 			},
 			kvs: map[string]string{
@@ -153,6 +155,7 @@ func TestRemoteClusterRun(t *testing.T) {
 					ClusterIDsManager:     NewClusterMeshUsedIDs(),
 					Metrics:               NewMetrics(),
 					StoreFactory:          store,
+					ClusterInfo:           types.ClusterInfo{MaxConnectedClusters: 255},
 				},
 				globalServices: newGlobalServiceCache(metrics.NoOpGauge),
 			}
@@ -233,4 +236,77 @@ func TestIPCacheWatcherOpts(t *testing.T) {
 			assert.Len(t, rc.ipCacheWatcherOpts(tt.config), tt.expected)
 		})
 	}
+}
+
+func TestRemoteClusterValidate(t *testing.T) {
+	tests := []struct {
+		name      string
+		cfg       *types.CiliumClusterConfig
+		mode      types.ValidationMode
+		assertion func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool
+	}{
+		{
+			name:      "Nil config (Backward)",
+			cfg:       nil,
+			mode:      types.BackwardCompatible,
+			assertion: assert.NoError,
+		},
+		{
+			name:      "Nil config (Strict)",
+			cfg:       nil,
+			mode:      types.Strict,
+			assertion: assert.Error,
+		},
+		{
+			name:      "Empty config (Backward)",
+			cfg:       &types.CiliumClusterConfig{},
+			mode:      types.BackwardCompatible,
+			assertion: assert.NoError,
+		},
+		{
+			name:      "Empty config (Strict)",
+			cfg:       &types.CiliumClusterConfig{},
+			mode:      types.Strict,
+			assertion: assert.Error,
+		},
+		{
+			name:      "Valid config (Backward)",
+			cfg:       &types.CiliumClusterConfig{ID: 255},
+			mode:      types.BackwardCompatible,
+			assertion: assert.NoError,
+		},
+		{
+			name:      "Valid config (Strict)",
+			cfg:       &types.CiliumClusterConfig{ID: 255, Capabilities: types.CiliumClusterConfigCapabilities{MaxConnectedClusters: 255}},
+			mode:      types.Strict,
+			assertion: assert.NoError,
+		},
+		{
+			name:      "Invalid config (Backward)",
+			cfg:       &types.CiliumClusterConfig{ID: 256},
+			mode:      types.BackwardCompatible,
+			assertion: assert.Error,
+		},
+		{
+			name:      "Invalid config (Strict)",
+			cfg:       &types.CiliumClusterConfig{ID: 256},
+			mode:      types.Strict,
+			assertion: assert.Error,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rc := &remoteCluster{
+				mesh: &ClusterMesh{
+					conf: Configuration{
+						ConfigValidationMode: tt.mode,
+					},
+				},
+				config: tt.cfg,
+			}
+			tt.assertion(t, rc.Validate(tt.cfg))
+		})
+	}
+
 }

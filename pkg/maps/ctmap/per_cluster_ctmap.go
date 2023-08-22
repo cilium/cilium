@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	perClusterCTMapMaxEntries = cmtypes.ClusterIDMax + 1
-
 	perClusterCTOuterMapPrefix = "cilium_per_cluster_ct_"
 )
+
+var perClusterCTMapMaxEntries = cmtypes.ClusterIDMax + 1
 
 // ClusterOuterMapName returns the name of the outer per-cluster CT map
 // for the given type. It can be overwritten for testing purposes.
@@ -271,7 +271,7 @@ func newPerClusterCTMap(m mapType) *PerClusterCTMap {
 		ebpf.ArrayOfMaps,
 		&PerClusterCTMapKey{},
 		&PerClusterCTMapVal{},
-		perClusterCTMapMaxEntries,
+		int(perClusterCTMapMaxEntries),
 		0,
 		inner,
 	)

@@ -19,10 +19,6 @@ import (
 )
 
 const (
-	// ClusterIDShift specifies the number of bits the cluster ID will be
-	// shifted
-	ClusterIDShift = 16
-
 	// Identities also have scopes, which is defined by the high 8 bits.
 	// 0x00 -- Global and reserved identities. Reserved identities are
 	//         not allocated like global identities, but are known
@@ -86,6 +82,13 @@ const (
 )
 
 var (
+	// ClusterIDLen is the number of bits that represent a cluster ID in a numeric identity
+	ClusterIDLen int = int(math.Log2(float64(cmtypes.ClusterIDMax + 1)))
+
+	// ClusterIDShift is the number of bits to shift a cluster ID in a numeric
+	// identity and is equal to the number of bits that represent a cluster-local identity.
+	ClusterIDShift int = NumericIdentityBitlength - ClusterIDLen
+
 	// MinimalAllocationIdentity is the minimum numeric identity handed out
 	// by the identity allocator.
 	MinimalAllocationIdentity = MinimalNumericIdentity
@@ -387,6 +390,15 @@ func InitWellKnownIdentities(c Configuration, cinfo cmtypes.ClusterInfo) int {
 	return len(WellKnown)
 }
 
+// InitClusterIDShift sets variables that control the bit allocation of cluster
+// ID in a numeric identity.
+func InitClusterIDShift() {
+	// ClusterIDLen is the number of bits that represent a cluster ID in a numeric identity
+	ClusterIDLen = int(math.Log2(float64(cmtypes.ClusterIDMax + 1)))
+	// ClusterIDShift is the number of bits to shift a cluster ID in a numeric identity
+	ClusterIDShift = NumericIdentityBitlength - ClusterIDLen
+}
+
 // InitMinMaxIdentityAllocation sets the minimal and maximum for identities that
 // should be allocated in the cluster.
 func InitMinMaxIdentityAllocation(c Configuration, cinfo cmtypes.ClusterInfo) {
@@ -497,6 +509,10 @@ func DelReservedNumericIdentity(identity NumericIdentity) error {
 //	   24: LocalIdentityFlag: Indicates that the identity has a local scope
 type NumericIdentity uint32
 
+// NumericIdentityBitlength is the number of bits used on the wire for a
+// NumericIdentity
+const NumericIdentityBitlength = 24
+
 // MaxNumericIdentity is the maximum value of a NumericIdentity.
 const MaxNumericIdentity = math.MaxUint32
 
@@ -560,7 +576,7 @@ func (id NumericIdentity) IsReservedIdentity() bool {
 
 // ClusterID returns the cluster ID associated with the identity
 func (id NumericIdentity) ClusterID() uint32 {
-	return (uint32(id) >> 16) & 0xFF
+	return (uint32(id) >> uint32(ClusterIDShift)) & cmtypes.ClusterIDMax
 }
 
 // GetAllReservedIdentities returns a list of all reserved numeric identities
