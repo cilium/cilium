@@ -1116,7 +1116,9 @@ struct ct_state {
 	__be32 svc_addr;
 #endif
 	__u32 src_sec_id;
+#ifndef HAVE_FIB_IFINDEX
 	__u16 ifindex;
+#endif
 	__u32 backend_id;	/* Backend ID in lb4_backends */
 };
 
