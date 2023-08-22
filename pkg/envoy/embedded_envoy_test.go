@@ -62,7 +62,9 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	log.Debugf("run directory: %s", testRunDir)
 
-	xdsServer, err := newXDSServer(testRunDir, testipcache.NewMockIPCache())
+	localEndpointStore := newLocalEndpointStore()
+
+	xdsServer, err := newXDSServer(testRunDir, testipcache.NewMockIPCache(), localEndpointStore)
 	c.Assert(xdsServer, NotNil)
 	c.Assert(err, IsNil)
 
@@ -70,7 +72,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 	c.Assert(err, IsNil)
 	defer xdsServer.stop()
 
-	accessLogServer := newAccessLogServer(testRunDir, xdsServer)
+	accessLogServer := newAccessLogServer(testRunDir, localEndpointStore)
 	c.Assert(accessLogServer, NotNil)
 	err = accessLogServer.start()
 	c.Assert(err, IsNil)
@@ -153,14 +155,16 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	log.Debugf("run directory: %s", testRunDir)
 
-	xdsServer, err := newXDSServer(testRunDir, testipcache.NewMockIPCache())
+	localEndpointStore := newLocalEndpointStore()
+
+	xdsServer, err := newXDSServer(testRunDir, testipcache.NewMockIPCache(), localEndpointStore)
 	c.Assert(xdsServer, NotNil)
 	c.Assert(err, IsNil)
 	err = xdsServer.start()
 	c.Assert(err, IsNil)
 	defer xdsServer.stop()
 
-	accessLogServer := newAccessLogServer(testRunDir, xdsServer)
+	accessLogServer := newAccessLogServer(testRunDir, localEndpointStore)
 	c.Assert(accessLogServer, NotNil)
 	err = accessLogServer.start()
 	c.Assert(err, IsNil)

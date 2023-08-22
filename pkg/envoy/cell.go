@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/proxy/endpoint"
 )
 
 // Cell initializes and manages the Envoy proxy and its control-plane components like xDS- and accesslog server.
@@ -22,17 +23,19 @@ var Cell = cell.Module(
 	cell.Provide(newEnvoyAdminClient),
 	cell.Invoke(registerEnvoyAccessLogServer),
 	cell.Invoke(registerEnvoyVersionCheck),
+	cell.ProvidePrivate(newLocalEndpointStore),
 )
 
 type xdsServerParams struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
-	IPCache   *ipcache.IPCache
+	Lifecycle          hive.Lifecycle
+	IPCache            *ipcache.IPCache
+	LocalEndpointStore *LocalEndpointStore
 }
 
 func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
-	xdsServer, err := newXDSServer(GetSocketDir(option.Config.RunDir), params.IPCache)
+	xdsServer, err := newXDSServer(GetSocketDir(option.Config.RunDir), params.IPCache, params.LocalEndpointStore)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Envoy xDS server: %w", err)
 	}
@@ -72,8 +75,8 @@ func newEnvoyAdminClient() *EnvoyAdminClient {
 type accessLogServerParams struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
-	XdsServer XDSServer
+	Lifecycle          hive.Lifecycle
+	LocalEndpointStore *LocalEndpointStore
 }
 
 func registerEnvoyAccessLogServer(params accessLogServerParams) {
@@ -82,7 +85,7 @@ func registerEnvoyAccessLogServer(params accessLogServerParams) {
 		return
 	}
 
-	accessLogServer := newAccessLogServer(GetSocketDir(option.Config.RunDir), params.XdsServer)
+	accessLogServer := newAccessLogServer(GetSocketDir(option.Config.RunDir), params.LocalEndpointStore)
 
 	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(startContext hive.HookContext) error {
@@ -131,4 +134,10 @@ func registerEnvoyVersionCheck(params versionCheckParams) {
 			return nil
 		},
 	})
+}
+
+func newLocalEndpointStore() *LocalEndpointStore {
+	return &LocalEndpointStore{
+		networkPolicyEndpoints: make(map[string]endpoint.EndpointUpdater),
+	}
 }
