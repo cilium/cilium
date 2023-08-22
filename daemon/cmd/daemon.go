@@ -936,9 +936,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		case !option.Config.EnableRemoteNodeIdentity:
 			err = fmt.Errorf("BPF masquerade requires remote node identities (--%s=\"true\")",
 				option.EnableRemoteNodeIdentity)
-		case option.Config.EgressMasqueradeInterfaces != "":
+		case len(option.Config.MasqueradeInterfaces) > 0:
 			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
-				option.EgressMasqueradeInterfaces, option.Devices)
+				option.MasqueradeInterfaces, option.Devices)
 		case option.Config.TunnelingEnabled() && !option.Config.EnableSocketLB:
 			err = fmt.Errorf("BPF masquerade requires socket-LB (--%s=\"false\")",
 				option.EnableSocketLB)

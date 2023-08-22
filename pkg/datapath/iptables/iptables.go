@@ -1198,11 +1198,11 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 			"-A", ciliumPostNatChain,
 		}
 
-		// If EgressMasqueradeInterfaces is set, we need to mirror base condition
-		// of the "cilium masquerade non-cluster" rule below, as the allocRange might
-		// not be valid in such setups (e.g. in ENI mode).
-		if option.Config.EgressMasqueradeInterfaces != "" {
-			progArgs = append(progArgs, "-o", option.Config.EgressMasqueradeInterfaces)
+		// If MasqueradeInterfaces is set, we need to mirror base condition of the
+		// "cilium masquerade non-cluster" rule below, as the allocRange might not
+		// be valid in such setups (e.g. in ENI mode).
+		if len(option.Config.MasqueradeInterfaces) > 0 {
+			progArgs = append(progArgs, "-o", strings.Join(option.Config.MasqueradeInterfaces, ","))
 		} else {
 			progArgs = append(progArgs, "-s", allocRange)
 		}
@@ -1237,11 +1237,10 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 		"-A", ciliumPostNatChain,
 		"!", "-d", snatDstExclusionCIDR,
 	}
-
-	if option.Config.EgressMasqueradeInterfaces != "" {
+	if len(option.Config.MasqueradeInterfaces) > 0 {
 		progArgs = append(
 			progArgs,
-			"-o", option.Config.EgressMasqueradeInterfaces)
+			"-o", strings.Join(option.Config.MasqueradeInterfaces, ","))
 	} else {
 		progArgs = append(
 			progArgs,

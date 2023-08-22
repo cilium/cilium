@@ -908,9 +908,9 @@ const (
 	// IPv6NativeRoutingCIDR describes a v6 CIDR in which pod IPs are routable
 	IPv6NativeRoutingCIDR = "ipv6-native-routing-cidr"
 
-	// EgressMasqueradeInterfaces is the selector used to select interfaces
-	// subject to egress masquerading
-	EgressMasqueradeInterfaces = "egress-masquerade-interfaces"
+	// MasqueradeInterfaces is the selector used to select interfaces subject to
+	// egress masquerading
+	MasqueradeInterfaces = "egress-masquerade-interfaces"
 
 	// PolicyTriggerInterval is the amount of time between triggers of policy
 	// updates are invoked.
@@ -2147,8 +2147,11 @@ type DaemonConfig struct {
 	// IPv6NativeRoutingCIDR describes a CIDR in which pod IPs are routable
 	IPv6NativeRoutingCIDR *cidr.CIDR
 
-	// EgressMasqueradeInterfaces is the selector used to select interfaces
-	// subject to egress masquerading
+	// MasqueradeInterfaces is the selector used to select interfaces subject
+	// to egress masquerading. EgressMasqueradeInterfaces is the same but as
+	// a string representation. It's deprecated and can be removed once the GH
+	// issue https://github.com/cilium/cilium-cli/issues/1896 is fixed.
+	MasqueradeInterfaces       []string
 	EgressMasqueradeInterfaces string
 
 	// PolicyTriggerInterval is the amount of time between when policy updates
@@ -3044,7 +3047,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableWellKnownIdentities = vp.GetBool(EnableWellKnownIdentities)
 	c.EnableXDPPrefilter = vp.GetBool(EnableXDPPrefilter)
 	c.DisableCiliumEndpointCRD = vp.GetBool(DisableCiliumEndpointCRDName)
-	c.EgressMasqueradeInterfaces = vp.GetString(EgressMasqueradeInterfaces)
+	c.MasqueradeInterfaces = vp.GetStringSlice(MasqueradeInterfaces)
+	c.EgressMasqueradeInterfaces = strings.Join(c.MasqueradeInterfaces, ",")
 	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
 	c.EnableSocketLB = vp.GetBool(EnableSocketLB)
 	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
