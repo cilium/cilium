@@ -297,15 +297,14 @@ func (txn *txn) Delete(meta TableMeta, data any) (any, bool, error) {
 }
 
 func (txn *txn) Abort() {
-	txn.db.metrics.WriteTxnDuration.With(prometheus.Labels{
-		"tables":  txn.tableNames,
-		"package": txn.packageName,
-	}).Observe(time.Since(txn.acquiredAt).Seconds())
-
 	if txn.writeTxns == nil {
 		return
 	}
 	txn.smus.Unlock()
+	txn.db.metrics.WriteTxnDuration.With(prometheus.Labels{
+		"tables":  txn.tableNames,
+		"package": txn.packageName,
+	}).Observe(time.Since(txn.acquiredAt).Seconds())
 	*txn = zeroTxn
 }
 
