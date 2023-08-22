@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
 	endpointtest "github.com/cilium/cilium/pkg/proxy/endpoint/test"
+	"github.com/cilium/cilium/pkg/proxy/types"
 	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
 
 	. "github.com/cilium/checkmate"
@@ -57,9 +58,9 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(port1a, Equals, port1)
 
-	name, pp := findProxyPortByType(ProxyTypeCRD, "listener1", false)
+	name, pp := findProxyPortByType(types.ProxyTypeCRD, "listener1", false)
 	c.Assert(name, Equals, "listener1")
-	c.Assert(pp.proxyType, Equals, ProxyTypeCRD)
+	c.Assert(pp.proxyType, Equals, types.ProxyTypeCRD)
 	c.Assert(pp.proxyPort, Equals, port)
 	c.Assert(pp.ingress, Equals, false)
 	c.Assert(pp.localOnly, Equals, true)
@@ -86,7 +87,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	port2, err := p.AllocateProxyPort("listener1", true, false)
 	c.Assert(err, IsNil)
 	c.Assert(port2, Not(Equals), port)
-	c.Assert(pp.proxyType, Equals, ProxyTypeCRD)
+	c.Assert(pp.proxyType, Equals, types.ProxyTypeCRD)
 	c.Assert(pp.ingress, Equals, false)
 	c.Assert(pp.localOnly, Equals, true)
 	c.Assert(pp.proxyPort, Equals, port2)
@@ -139,7 +140,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(port3, Not(Equals), uint16(0))
 	c.Assert(port3, Not(Equals), port2)
 	c.Assert(port3, Not(Equals), port1)
-	c.Assert(pp.proxyType, Equals, ProxyTypeCRD)
+	c.Assert(pp.proxyType, Equals, types.ProxyTypeCRD)
 	c.Assert(pp.ingress, Equals, false)
 	c.Assert(pp.localOnly, Equals, true)
 	c.Assert(pp.proxyPort, Equals, port3)
@@ -170,7 +171,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	port4, err := p.AllocateProxyPort("listener1", true, true)
 	c.Assert(err, IsNil)
 	c.Assert(port4, Equals, port3)
-	c.Assert(pp.proxyType, Equals, ProxyTypeCRD)
+	c.Assert(pp.proxyType, Equals, types.ProxyTypeCRD)
 	c.Assert(pp.ingress, Equals, false)
 	c.Assert(pp.localOnly, Equals, true)
 	c.Assert(pp.proxyPort, Equals, port4)

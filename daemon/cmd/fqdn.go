@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -356,7 +357,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
-	port, err := proxy.GetProxyPort(proxy.DNSProxyName)
+	port, err := proxy.GetProxyPort(proxytypes.DNSProxyName)
 	if err != nil {
 		return err
 	}
@@ -364,7 +365,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		port = uint16(option.Config.ToFQDNsProxyPort)
 	} else if port == 0 {
 		// Try locate old DNS proxy port number from the datapath, and reuse it if it's not open
-		oldPort := d.datapath.GetProxyPort(proxy.DNSProxyName)
+		oldPort := d.datapath.GetProxyPort(proxytypes.DNSProxyName)
 		openLocalPorts := proxy.OpenLocalPorts()
 		if _, alreadyOpen := openLocalPorts[oldPort]; !alreadyOpen {
 			port = oldPort
@@ -378,7 +379,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		d.notifyOnDNSMsg, option.Config.DNSProxyConcurrencyLimit, option.Config.DNSProxyConcurrencyProcessingGracePeriod)
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
-		err = d.l7Proxy.SetProxyPort(proxy.DNSProxyName, proxy.ProxyTypeDNS, proxy.DefaultDNSProxy.GetBindPort(), false)
+		err = d.l7Proxy.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, proxy.DefaultDNSProxy.GetBindPort(), false)
 		if err == nil && port == proxy.DefaultDNSProxy.GetBindPort() {
 			log.Infof("Reusing previous DNS proxy port: %d", port)
 		}
@@ -398,7 +399,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 // called after iptables has been initailized, and only after
 // successful bootstrapFQDN().
 func (d *Daemon) updateDNSDatapathRules(ctx context.Context) error {
-	return d.l7Proxy.AckProxyPort(ctx, proxy.DNSProxyName)
+	return d.l7Proxy.AckProxyPort(ctx, proxytypes.DNSProxyName)
 }
 
 // updateSelectors propagates the mapping of FQDNSelector to identity, as well
