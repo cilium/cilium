@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/netip"
 	"runtime/pprof"
 	"time"
@@ -19,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
-	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb2"
 	"github.com/cilium/cilium/pkg/types"
 
 	"github.com/sirupsen/logrus"
@@ -42,8 +41,8 @@ type params struct {
 
 	Lifecycle           hive.Lifecycle
 	Logger              logrus.FieldLogger
-	L2AnnouncementTable statedb.Table[*tables.L2AnnounceEntry]
-	StateDB             statedb.DB
+	L2AnnouncementTable statedb2.Table[*tables.L2AnnounceEntry]
+	StateDB             *statedb2.DB
 	L2ResponderMap      l2respondermap.Map
 	NetLink             linkByNamer
 	JobRegistry         job.Registry
@@ -83,6 +82,17 @@ func (p *l2ResponderReconciler) run(ctx context.Context) error {
 	// got out of sync or the map was changed underneath us.
 	ticker := time.NewTicker(5 * time.Minute)
 
+	tbl := p.params.L2AnnouncementTable
+	txn := p.params.StateDB.WriteTxn(tbl)
+	tracker, err := tbl.DeleteTracker(txn, "l2-responder-reconciler")
+	if err != nil {
+		txn.Abort()
+		return fmt.Errorf("delete tracker: %w", err)
+	}
+	txn.Commit()
+
+	defer tracker.Close()
+
 	// At startup, do an initial full reconciliation
 	maxRev, err := p.fullReconciliation()
 	if err != nil {
@@ -90,7 +100,7 @@ func (p *l2ResponderReconciler) run(ctx context.Context) error {
 	}
 
 	for ctx.Err() == nil {
-		maxRev = p.cycle(ctx, maxRev, ticker.C)
+		maxRev = p.cycle(ctx, tracker, maxRev, ticker.C)
 	}
 
 	return nil
@@ -98,33 +108,64 @@ func (p *l2ResponderReconciler) run(ctx context.Context) error {
 
 func (p *l2ResponderReconciler) cycle(
 	ctx context.Context,
-	maxRevIn uint64,
+	tracker *statedb2.DeleteTracker[*tables.L2AnnounceEntry],
+	maxRevIn statedb2.Revision,
 	fullReconciliation <-chan time.Time,
-) (maxRev uint64) {
-	tbl := p.params.L2AnnouncementTable
-	db := p.params.StateDB
+) (maxRev statedb2.Revision) {
+	arMap := p.params.L2ResponderMap
+	rtx := p.params.StateDB.ReadTxn()
 	log := p.params.Logger
 
-	// Get an `iter` which invalidates on any changes.
-	r := tbl.Reader(db.ReadTxn())
-	iter, err := r.Get(statedb.All)
+	lr := cachingLinkResolver{nl: p.params.NetLink}
+
+	// Partial reconciliation
+	maxRev, invalid, err := tracker.Process(rtx, maxRevIn, func(e *tables.L2AnnounceEntry, deleted bool, rev uint64) error {
+		// Ignore IPv6 addresses, L2 is IPv4 only
+		if e.IP.Is6() {
+			return nil
+		}
+
+		idx, err := lr.LinkIndex(e.NetworkInterface)
+		if err != nil {
+			return fmt.Errorf("link index: %w", err)
+		}
+
+		if deleted {
+			err = arMap.Delete(e.IP, uint32(idx))
+			if err != nil {
+				return fmt.Errorf("delete %s@%d: %w", e.IP, idx, err)
+			}
+
+			return nil
+		}
+
+		err = garpOnNewEntry(arMap, e.IP, idx)
+		if err != nil {
+			return err
+		}
+
+		err = arMap.Create(e.IP, uint32(idx))
+		if err != nil {
+			return fmt.Errorf("create %s@%d: %w", e.IP, idx, err)
+		}
+
+		return nil
+	})
 	if err != nil {
-		log.WithError(err).Error("Error getting all desired proxy table entries")
+		log.WithError(err).Error("error during partial reconciliation")
 	}
 
 	select {
 	case <-ctx.Done():
+		// Shutdown
 		return 0
 
-	case <-iter.Invalidated():
-		maxRev, err = p.partialReconciliation(maxRevIn)
-		if err != nil {
-			log.WithError(err).Error("Error(s) while partial reconciling l2 responder map")
-		}
-
+	case <-invalid:
+		// There are pending changes in the table, return from the cycle
 		return maxRev
 
 	case <-fullReconciliation:
+		// Full reconciliation timer fired, perform full reconciliation
 
 		// The existing `iter` is the result of a `All` query, so this will return all
 		// entries in the table for full reconciliation.
@@ -135,84 +176,6 @@ func (p *l2ResponderReconciler) cycle(
 
 		return maxRev
 	}
-}
-
-func (p *l2ResponderReconciler) partialReconciliation(maxRevIn uint64) (maxRev uint64, err error) {
-	var errs error
-
-	maxRev = maxRevIn
-
-	arMap := p.params.L2ResponderMap
-	tbl := p.params.L2AnnouncementTable
-	db := p.params.StateDB
-	log := p.params.Logger
-	lr := cachingLinkResolver{nl: p.params.NetLink}
-
-	log.Debug("l2 announcer table invalidated, performing partial reconciliation")
-
-	// Get all changes since the revision we processes
-	r := tbl.Reader(db.ReadTxn())
-	iter, err := r.LowerBound(statedb.ByRevision(maxRevIn))
-	if err != nil {
-		log.WithError(err).Error("Error getting last changes")
-	}
-
-	// A list of desired entries which have been soft deleted
-	var toDelete []*tables.L2AnnounceEntry
-
-	statedb.ProcessEach(iter, func(e *tables.L2AnnounceEntry) error {
-		if e.Revision > maxRev {
-			maxRev = e.Revision
-		}
-
-		// Ignore IPv6 addresses, L2 is IPv4 only
-		if e.IP.To4() == nil {
-			return nil
-		}
-
-		idx, err := lr.LinkIndex(e.NetworkInterface)
-		if err != nil {
-			errs = errors.Join(errs, fmt.Errorf("link index: %w", err))
-			return nil
-		}
-
-		if e.Deleted {
-			toDelete = append(toDelete, e)
-			err = arMap.Delete(e.IP, uint32(idx))
-			if err != nil {
-				errs = errors.Join(errs, fmt.Errorf("delete %s@%d: %w", e.IP, idx, err))
-			}
-			return nil
-		}
-
-		err = garpOnNewEntry(arMap, e.IP, idx)
-		if err != nil {
-			errs = errors.Join(errs, err)
-		}
-
-		err = arMap.Create(e.IP, uint32(idx))
-		if err != nil {
-			errs = errors.Join(errs, fmt.Errorf("create %s@%d: %w", e.IP, idx, err))
-		}
-
-		return nil
-	})
-
-	// Hard delete, soft deleted entries
-	if len(toDelete) > 0 {
-		txn := db.WriteTxn()
-		w := tbl.Writer(txn)
-		for _, e := range toDelete {
-			if err = w.Delete(e); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("delete from table: %w", err))
-			}
-		}
-		if err = txn.Commit(); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("commit deletion to table: %w", err))
-		}
-	}
-
-	return maxRev, errs
 }
 
 func (p *l2ResponderReconciler) fullReconciliation() (maxRev uint64, err error) {
@@ -227,11 +190,8 @@ func (p *l2ResponderReconciler) fullReconciliation() (maxRev uint64, err error) 
 	log.Debug("l2 announcer table full reconciliation")
 
 	// Get all desired entries in the table
-	r := tbl.Reader(db.ReadTxn())
-	iter, err := r.Get(statedb.All)
-	if err != nil {
-		log.WithError(err).Error("Error getting all desired proxy table entries")
-	}
+	rtx := db.ReadTxn()
+	iter, _ := tbl.All(rtx)
 
 	// Prepare index for desired entries based on map key
 	type desiredEntry struct {
@@ -240,22 +200,9 @@ func (p *l2ResponderReconciler) fullReconciliation() (maxRev uint64, err error) 
 	}
 	desiredMap := make(map[l2respondermap.L2ResponderKey]desiredEntry)
 
-	// A list of desired entries which have been soft deleted
-	var tblEntriesToDelete []*tables.L2AnnounceEntry
-
-	statedb.ProcessEach(iter, func(e *tables.L2AnnounceEntry) error {
-		// Track the max revision number, used for partial reconciliation afterwards
-		if e.Revision > maxRev {
-			maxRev = e.Revision
-		}
-
-		if e.Deleted {
-			tblEntriesToDelete = append(tblEntriesToDelete, e)
-			return nil
-		}
-
+	statedb2.ProcessEach(iter, func(e *tables.L2AnnounceEntry, _ uint64) error {
 		// Ignore IPv6 addresses, L2 is IPv4 only
-		if e.IP.To4() == nil {
+		if e.IP.Is6() {
 			return nil
 		}
 
@@ -266,7 +213,7 @@ func (p *l2ResponderReconciler) fullReconciliation() (maxRev uint64, err error) 
 		}
 
 		desiredMap[l2respondermap.L2ResponderKey{
-			IP:      types.IPv4(e.IP.To4()),
+			IP:      types.IPv4(e.IP.As4()),
 			IfIndex: uint32(idx),
 		}] = desiredEntry{
 			entry: e,
@@ -274,20 +221,6 @@ func (p *l2ResponderReconciler) fullReconciliation() (maxRev uint64, err error) 
 
 		return nil
 	})
-
-	// Hard delete, soft deleted entries
-	if len(tblEntriesToDelete) > 0 {
-		txn := db.WriteTxn()
-		w := tbl.Writer(txn)
-		for _, e := range tblEntriesToDelete {
-			if err = w.Delete(e); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("delete from table: %w", err))
-			}
-		}
-		if err = txn.Commit(); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("commit deletion to table: %w", err))
-		}
-	}
 
 	// Loop over all map values, use the desired entries index to see which we want to delete.
 	var toDelete []*l2respondermap.L2ResponderKey
@@ -302,7 +235,7 @@ func (p *l2ResponderReconciler) fullReconciliation() (maxRev uint64, err error) 
 
 	// Delete all unwanted map values
 	for _, del := range toDelete {
-		if err := arMap.Delete(del.IP[:], del.IfIndex); err != nil {
+		if err := arMap.Delete(netip.AddrFrom4(del.IP), del.IfIndex); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("delete %s@%d: %w", del.IP, del.IfIndex, err))
 		}
 	}
@@ -313,12 +246,12 @@ func (p *l2ResponderReconciler) fullReconciliation() (maxRev uint64, err error) 
 			continue
 		}
 
-		err = garpOnNewEntry(arMap, key.IP[:], int(key.IfIndex))
+		err = garpOnNewEntry(arMap, netip.AddrFrom4(key.IP), int(key.IfIndex))
 		if err != nil {
 			errs = errors.Join(errs, err)
 		}
 
-		if err := arMap.Create(key.IP[:], key.IfIndex); err != nil {
+		if err := arMap.Create(netip.AddrFrom4(key.IP), key.IfIndex); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("create %s@%d: %w", key.IP, key.IfIndex, err))
 		}
 	}
@@ -329,17 +262,15 @@ func (p *l2ResponderReconciler) fullReconciliation() (maxRev uint64, err error) 
 // If the given IP and network interface index does not yet exist in the l2 responder map,
 // a failover might have taken place. Therefor we should send out a gARP reply to let
 // the local network know the IP has moved to minimize downtime due to ARP caching.
-func garpOnNewEntry(arMap l2respondermap.Map, ip net.IP, ifIndex int) error {
+func garpOnNewEntry(arMap l2respondermap.Map, ip netip.Addr, ifIndex int) error {
 	_, err := arMap.Lookup(ip, uint32(ifIndex))
 	if !errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
 	}
 
-	if netIP, ok := netip.AddrFromSlice(ip); ok {
-		err = garp.SendOnInterfaceIdx(ifIndex, netIP)
-		if err != nil {
-			return fmt.Errorf("garp %s@%d: %w", ip, ifIndex, err)
-		}
+	err = garp.SendOnInterfaceIdx(ifIndex, ip)
+	if err != nil {
+		return fmt.Errorf("garp %s@%d: %w", ip, ifIndex, err)
 	}
 
 	return nil

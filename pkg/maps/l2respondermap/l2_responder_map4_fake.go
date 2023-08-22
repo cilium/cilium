@@ -4,7 +4,7 @@
 package l2respondermap
 
 import (
-	"net"
+	"net/netip"
 )
 
 func NewFakeMap() Map {
@@ -15,12 +15,12 @@ type fakeMap struct {
 	entries map[L2ResponderKey]L2ResponderStats
 }
 
-func (fm *fakeMap) Create(ip net.IP, ifIndex uint32) error {
+func (fm *fakeMap) Create(ip netip.Addr, ifIndex uint32) error {
 	fm.entries[newAuthKey(ip, ifIndex)] = L2ResponderStats{}
 	return nil
 }
 
-func (fm *fakeMap) Lookup(ip net.IP, ifIndex uint32) (*L2ResponderStats, error) {
+func (fm *fakeMap) Lookup(ip netip.Addr, ifIndex uint32) (*L2ResponderStats, error) {
 	entry, found := fm.entries[newAuthKey(ip, ifIndex)]
 	if found {
 		return &entry, nil
@@ -29,7 +29,7 @@ func (fm *fakeMap) Lookup(ip net.IP, ifIndex uint32) (*L2ResponderStats, error) 
 	return nil, nil
 }
 
-func (fm *fakeMap) Delete(ip net.IP, ifIndex uint32) error {
+func (fm *fakeMap) Delete(ip netip.Addr, ifIndex uint32) error {
 	delete(fm.entries, newAuthKey(ip, ifIndex))
 	return nil
 }

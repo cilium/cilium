@@ -58,7 +58,7 @@ func (dt *DeleteTracker[Obj]) Close() {
 	table := txn.getTable(dt.table.Name())
 	table.deleteTrackers, _, _ = table.deleteTrackers.Delete([]byte(dt.trackerName))
 	txn.Commit()
-	txn.db.metrics.TableDeleteTrackerCount.With(prometheus.Labels{
+	db.metrics.TableDeleteTrackerCount.With(prometheus.Labels{
 		"table": dt.table.Name(),
 	}).Dec()
 
