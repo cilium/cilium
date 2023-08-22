@@ -7,8 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"net"
-
-	"github.com/vishvananda/netlink"
 )
 
 // NewCIDR returns a new CIDR using a net.IPNet
@@ -105,12 +103,12 @@ func Equal(n, o *net.IPNet) bool {
 // ZeroNet generates a zero net.IPNet object for the given address family
 func ZeroNet(family int) *net.IPNet {
 	switch family {
-	case netlink.FAMILY_V4:
+	case FAMILY_V4:
 		return &net.IPNet{
 			IP:   net.IPv4zero,
 			Mask: net.CIDRMask(0, 8*net.IPv4len),
 		}
-	case netlink.FAMILY_V6:
+	case FAMILY_V6:
 		return &net.IPNet{
 			IP:   net.IPv6zero,
 			Mask: net.CIDRMask(0, 8*net.IPv6len),
