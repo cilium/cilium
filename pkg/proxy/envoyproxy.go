@@ -13,6 +13,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/revert"
 )
 
@@ -31,7 +32,7 @@ type envoyProxyIntegration struct {
 
 // createRedirect creates a redirect with corresponding proxy configuration. This will launch a proxy instance.
 func (p *envoyProxyIntegration) createRedirect(r *Redirect, wg *completion.WaitGroup) (RedirectImplementation, error) {
-	if r.listener.proxyType == ProxyTypeCRD {
+	if r.listener.proxyType == types.ProxyTypeCRD {
 		// CRD Listeners already exist, create a no-op implementation
 		return &CRDRedirect{}, nil
 	}
