@@ -51,6 +51,7 @@ func (s *AccessLogServer) start() error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
+		log.Infof("Envoy: Starting access log server listening on %s", socketListener.Addr())
 		for {
 			// Each Envoy listener opens a new connection over the Unix domain socket.
 			// Multiple worker threads serving the listener share that same connection
