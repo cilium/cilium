@@ -14,9 +14,8 @@ import (
 	"strings"
 	"syscall"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/shirou/gopsutil/v3/internal/common"
+	"golang.org/x/sys/unix"
 )
 
 type Signal = syscall.Signal
@@ -109,8 +108,8 @@ func PidExistsWithContext(ctx context.Context, pid int32) (bool, error) {
 		return false, err
 	}
 
-	if isMount(common.HostProcWithContext(ctx)) { // if /<HOST_PROC>/proc exists and is mounted, check if /<HOST_PROC>/proc/<PID> folder exists
-		_, err := os.Stat(common.HostProcWithContext(ctx, strconv.Itoa(int(pid))))
+	if isMount(common.HostProc()) { // if /<HOST_PROC>/proc exists and is mounted, check if /<HOST_PROC>/proc/<PID> folder exists
+		_, err := os.Stat(common.HostProc(strconv.Itoa(int(pid))))
 		if os.IsNotExist(err) {
 			return false, nil
 		}
@@ -122,7 +121,7 @@ func PidExistsWithContext(ctx context.Context, pid int32) (bool, error) {
 	if err == nil {
 		return true, nil
 	}
-	if errors.Is(err, os.ErrProcessDone) {
+	if err.Error() == "os: process already finished" {
 		return false, nil
 	}
 	var errno syscall.Errno

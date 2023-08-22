@@ -9,7 +9,7 @@ set -o pipefail
 set -o nounset
 
 # renovate: datasource=github-releases depName=google/gops
-gops_version="v0.3.28"
+gops_version="v0.3.27"
 
 mkdir -p /go/src/github.com/google
 cd /go/src/github.com/google
