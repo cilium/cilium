@@ -8,16 +8,16 @@
 Configuring Hubble exporter
 ***************************
 
-**Hubble Exporter** is an option of ``cilium-agent`` that allows to write
-Hubble flows to a file. This can be later consumed as logs. It supports file
-rotation, size limits, filters and field masks.
+**Hubble Exporter** is a feature of ``cilium-agent`` that lets you write
+Hubble flows to a file for later consumption as logs. Hubble Exporter supports file
+rotation, size limits, filters, and field masks.
 
 Basic Configuration
 ===================
 
-**Hubble Exporter** is configured via Config Map (default name:
-``cilium-config``). This feature is disabled until a value of
-``hubble-export-file-path`` is set.
+Configure **Hubble Exporter** with Config Map with a default name of
+``cilium-config``. Hubble Exporter is disabled until you set a file path value
+for ``hubble-export-file-path``.
 
 .. code-block:: shell-session
 
@@ -32,39 +32,33 @@ Restart ``cilium-agent`` to apply the change:
 
     kubectl -n kube-system rollout restart ds/cilium-agent
 
-Verify that change was applied (it can take a few minutes before first flow is
+Verify that the change was applied (it can take a few minutes before the first flow is
 logged):
 
 .. code-block:: shell-session
 
     kubectl -n kube-system exec ds/cilium -- tail -f /var/run/cilium/hubble/events.log
 
-Configure your logging solution to consume logs from the specified location.
+Configure your logging solution to consume logs from your Hubble export file path.
 
-Other configuration options:
+Other configuration options include:
 
-- ``hubble-export-file-max-size-mb``:
-  Size in MB at which to rotate Hubble export file. (default 10)
+- ``hubble-export-file-max-size-mb``: size in MB at which to rotate the Hubble export file. (default 10)
 
-- ``hubble-export-file-max-backups``:
-  Number of rotated Hubble export files to keep. (default 5)
+- ``hubble-export-file-max-backups``: number of rotated Hubble export files to keep. (default 5)
 
-- ``hubble-export-file-compress``:
-  Compress rotated Hubble export files.
+- ``hubble-export-file-compress``: compress rotated Hubble export files. (default false)
 
 Performance tuning
 ==================
 
-Configuration options impacting performance of **Hubble exporter**:
+Configuration options impacting performance of **Hubble exporter** include:
 
-- ``hubble-export-allowlist``:
-  Specify allowlist as JSON encoded FlowFilters to Hubble exporter.
+- ``hubble-export-allowlist``: specify an allowlist as JSON encoded FlowFilters to Hubble exporter.
 
-- ``hubble-export-denylist``:
-  Specify denylist as JSON encoded FlowFilters to Hubble exporter.
+- ``hubble-export-denylist``: specify a denylist as JSON encoded FlowFilters to Hubble exporter.
 
-- ``hubble-export-fieldmask``:
-  Specify list of fields to use for field mask in Hubble exporter.
+- ``hubble-export-fieldmask``: specify a list of fields to use for field masking in Hubble exporter.
 
 Filters
 -------
@@ -74,7 +68,7 @@ Flow Filters`_ for more examples).
 
 .. _Specifying Raw Flow Filters: https://github.com/cilium/hubble#specifying-raw-flow-filters
 
-For example to filter flows with verdict ``DENIED`` or ``ERROR`` run:
+For example, to filter flows with verdict ``DENIED`` or ``ERROR``, run:
 
 .. code-block:: shell-session
 
@@ -82,7 +76,7 @@ For example to filter flows with verdict ``DENIED`` or ``ERROR`` run:
     allowlist:
     - '{"verdict":["DROPPED","ERROR"]}'
 
-and paste the output to ``hubble-export-allowlist`` in ``cilium-config``
+Then paste the output to ``hubble-export-allowlist`` in ``cilium-config``
 Config Map:
 
 .. code-block:: shell-session
@@ -92,8 +86,8 @@ Config Map:
       hubble-export-allowlist: '{"verdict":["DROPPED","ERROR"]}'
     EOF
 
-The same can be done to filter out some data. For example all flows in
-``kube-system`` namespace:
+You can do the same to selectively filter data. For example, to filter all flows in the
+``kube-system`` namespace, run:
 
 .. code-block:: shell-session
 
@@ -102,7 +96,7 @@ The same can be done to filter out some data. For example all flows in
     - '{"source_pod":["kube-system/"]}'
     - '{"destination_pod":["kube-system/"]}'
 
-and paste the output to ``hubble-export-denylist`` in ``cilium-config`` Config
+Then paste the output to ``hubble-export-denylist`` in ``cilium-config`` Config
 Map:
 
 .. code-block:: shell-session
@@ -115,25 +109,26 @@ Map:
 Field mask
 ----------
 
-Currently, field masks can't be generated with ``hubble``. It is a list of field names from `flow proto`_ definition.
+Field mask can't be generated with ``hubble``. Field mask is a list of field
+names from the `flow proto`_ definition.
 
 .. _flow proto: https://github.com/cilium/cilium/blob/main/api/v1/flow/flow.proto
 
-Examples:
+Examples include:
 
- - Keep most of the information with notable exception of pod labels:
+ - To keep all information except pod labels:
 
    .. code-block:: shell-session
 
        hubble-export-fieldmask: time source.identity source.namespace source.pod_name destination.identity destination.namespace destination.pod_name source_service destination_service l4 IP ethernet l7 Type node_name is_reply event_type verdict Summary
 
- - Keep only timestamp, verdict, ports, IP addresses, node name, pod name and namespace:
+ - To keep only timestamp, verdict, ports, IP addresses, node name, pod name, and namespace:
 
    .. code-block:: shell-session
 
        hubble-export-fieldmask: time source.namespace source.pod_name destination.namespace destination.pod_name l4 IP node_name is_reply verdict
 
-Complete example:
+The following is a complete example of configuring Hubble Exporter.
 
  - Configuration:
 
