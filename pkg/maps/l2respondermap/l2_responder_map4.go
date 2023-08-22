@@ -6,6 +6,7 @@ package l2respondermap
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -24,9 +25,9 @@ const (
 var Cell = cell.Provide(NewMap)
 
 type Map interface {
-	Create(ip net.IP, ifIndex uint32) error
-	Lookup(ip net.IP, ifIndex uint32) (*L2ResponderStats, error)
-	Delete(ip net.IP, ifIndex uint32) error
+	Create(ip netip.Addr, ifIndex uint32) error
+	Lookup(ip netip.Addr, ifIndex uint32) (*L2ResponderStats, error)
+	Delete(ip netip.Addr, ifIndex uint32) error
 	IterateWithCallback(cb IterateCallback) error
 }
 
@@ -73,19 +74,19 @@ func newMap(lifecycle hive.Lifecycle, maxEntries int) (*l2ResponderMap, error) {
 }
 
 // Create creates a new entry for the given IP and IfIndex tuple.
-func (m *l2ResponderMap) Create(ip net.IP, ifIndex uint32) error {
+func (m *l2ResponderMap) Create(ip netip.Addr, ifIndex uint32) error {
 	key := newAuthKey(ip, ifIndex)
 	return m.Map.Put(key, L2ResponderStats{})
 }
 
 // Delete deletes the entry associated with the provided IP and IfIndex tuple.
-func (m *l2ResponderMap) Delete(ip net.IP, ifIndex uint32) error {
+func (m *l2ResponderMap) Delete(ip netip.Addr, ifIndex uint32) error {
 	key := newAuthKey(ip, ifIndex)
 	return m.Map.Delete(key)
 }
 
 // Lookup returns the stats object associated with the provided IP and IfIndex tuple.
-func (m *l2ResponderMap) Lookup(ip net.IP, ifIndex uint32) (*L2ResponderStats, error) {
+func (m *l2ResponderMap) Lookup(ip netip.Addr, ifIndex uint32) (*L2ResponderStats, error) {
 	key := newAuthKey(ip, ifIndex)
 	val := L2ResponderStats{}
 
@@ -123,9 +124,9 @@ func (k *L2ResponderKey) String() string {
 	return fmt.Sprintf("ip=%s, ifIndex=%d", net.IP(k.IP[:]), k.IfIndex)
 }
 
-func newAuthKey(ip net.IP, ifIndex uint32) L2ResponderKey {
+func newAuthKey(ip netip.Addr, ifIndex uint32) L2ResponderKey {
 	return L2ResponderKey{
-		IP:      types.IPv4(ip.To4()),
+		IP:      types.IPv4(ip.As4()),
 		IfIndex: ifIndex,
 	}
 }
