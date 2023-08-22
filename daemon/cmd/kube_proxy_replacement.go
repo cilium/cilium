@@ -457,13 +457,18 @@ func finishKubeProxyReplacementInit() error {
 		option.Config.NodePortMode == option.NodePortModeSNAT &&
 		probes.HaveLargeInstructionLimit() == nil
 
-	for _, iface := range option.Config.GetDevices() {
-		link, err := netlink.LinkByName(iface)
-		if err != nil {
-			return fmt.Errorf("Cannot retrieve %s link: %w", iface, err)
-		}
-		if idx := link.Attrs().Index; idx > math.MaxUint16 {
-			return fmt.Errorf("%s link ifindex %d exceeds max(uint16)", iface, idx)
+	// In the case where the fib lookup does not return the outgoing ifindex
+	// the datapath needs to store it in our CT map, and the map's field is
+	// limited to 16 bit.
+	if probes.HaveFibIfindex() != nil {
+		for _, iface := range option.Config.GetDevices() {
+			link, err := netlink.LinkByName(iface)
+			if err != nil {
+				return fmt.Errorf("Cannot retrieve %s link: %w", iface, err)
+			}
+			if idx := link.Attrs().Index; idx > math.MaxUint16 {
+				return fmt.Errorf("%s link ifindex %d exceeds max(uint16)", iface, idx)
+			}
 		}
 	}
 

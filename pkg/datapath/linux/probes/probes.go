@@ -91,6 +91,7 @@ type ProgramHelper struct {
 
 type miscFeatures struct {
 	HaveLargeInsnLimit bool
+	HaveFibIfindex     bool
 }
 
 type FeatureProbes struct {
@@ -381,6 +382,13 @@ func HaveBoundedLoops() error {
 	return nil
 }
 
+// HaveFibIfindex checks if kernel has d1c362e1dd68 ("bpf: Always return target
+// ifindex in bpf_fib_lookup") which is 5.10+. This got merged in the same kernel
+// as the new redirect helpers.
+func HaveFibIfindex() error {
+	return features.HaveProgramHelper(ebpf.SchedCLS, asm.FnRedirectPeer)
+}
+
 // HaveV2ISA is a wrapper around features.HaveV2ISA() to check if the kernel
 // supports the V2 ISA.
 // On unexpected probe results this function will terminate with log.Fatal().
@@ -562,6 +570,7 @@ func ExecuteHeaderProbes() *FeatureProbes {
 	}
 
 	probes.Misc.HaveLargeInsnLimit = (HaveLargeInstructionLimit() == nil)
+	probes.Misc.HaveFibIfindex = (HaveFibIfindex() == nil)
 
 	return &probes
 }
@@ -582,10 +591,7 @@ func writeCommonHeader(writer io.Writer, probes *FeatureProbes) error {
 		"HAVE_LARGE_INSN_LIMIT": probes.Misc.HaveLargeInsnLimit,
 		"HAVE_SET_RETVAL":       probes.ProgramHelpers[ProgramHelper{ebpf.CGroupSock, asm.FnSetRetval}],
 		"HAVE_FIB_NEIGH":        probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnRedirectNeigh}],
-		// Check if kernel has d1c362e1dd68 ("bpf: Always return target ifindex
-		// in bpf_fib_lookup") which is 5.10+. This got merged in the same kernel
-		// as the new redirect helpers.
-		"HAVE_FIB_IFINDEX": probes.ProgramHelpers[ProgramHelper{ebpf.SchedCLS, asm.FnRedirectPeer}],
+		"HAVE_FIB_IFINDEX":      probes.Misc.HaveFibIfindex,
 	}
 
 	return writeFeatureHeader(writer, features, true)
