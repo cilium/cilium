@@ -7,11 +7,60 @@ import (
 	"fmt"
 	"net/netip"
 
-	"github.com/hashicorp/go-memdb"
-	"golang.org/x/sys/unix"
+	"github.com/cilium/cilium/pkg/statedb2"
+	"github.com/cilium/cilium/pkg/statedb2/index"
 
-	"github.com/cilium/cilium/pkg/statedb"
+	"golang.org/x/sys/unix"
 )
+
+var (
+	RouteIDIndex = statedb2.Index[*Route, RouteID]{
+		Name: "id",
+		FromObject: func(r *Route) index.KeySet {
+			return index.NewKeySet(
+				RouteID{
+					Table:     r.Table,
+					LinkIndex: r.LinkIndex,
+					Dst:       r.Dst,
+				}.Key(),
+			)
+		},
+		FromKey: func(id RouteID) []byte {
+			return id.Key()
+		},
+		Unique: true,
+	}
+
+	RouteLinkIndex = statedb2.Index[*Route, int]{
+		Name: "LinkIndex",
+		FromObject: func(r *Route) index.KeySet {
+			return index.NewKeySet(index.Int(r.LinkIndex))
+		},
+		FromKey: func(linkIndex int) []byte {
+			return index.Int(linkIndex)
+		},
+	}
+
+	RouteTableCell = statedb2.NewTableCell[*Route](
+		"routes",
+		RouteIDIndex,
+		RouteLinkIndex,
+	)
+)
+
+type RouteID struct {
+	Table     int
+	LinkIndex int
+	Dst       netip.Prefix
+}
+
+func (id RouteID) Key() []byte {
+	key := append(index.Uint64(uint64(id.Table)), '+')
+	key = append(key, index.Uint64(uint64(id.Table))...)
+	key = append(key, '+')
+	key = append(key, index.NetIPPrefix(id.Dst)...)
+	return key
+}
 
 type Route struct {
 	Table     int
@@ -33,55 +82,15 @@ func (r *Route) String() string {
 		r.Dst, r.Src, r.Table, r.LinkIndex)
 }
 
-const (
-	linkIndexIndex statedb.Index = "LinkIndex"
-)
-
-var (
-	routeTableSchema = &memdb.TableSchema{
-		Name: "routes",
-		Indexes: map[string]*memdb.IndexSchema{
-			"id": {
-				Name:         "id",
-				AllowMissing: false,
-				Unique:       true,
-				Indexer: &memdb.CompoundIndex{
-					Indexes: []memdb.Indexer{
-						&memdb.IntFieldIndex{Field: "Table"},
-						&memdb.IntFieldIndex{Field: "LinkIndex"},
-						&statedb.NetIPPrefixFieldIndex{Field: "Dst"},
-					},
-				},
-			},
-			string(linkIndexIndex): {
-				Name:         string(linkIndexIndex),
-				AllowMissing: false,
-				Unique:       false,
-				Indexer:      &memdb.IntFieldIndex{Field: "LinkIndex"},
-			}},
-	}
-)
-
-func RouteByLinkIndex(index int) statedb.Query {
-	return statedb.Query{Index: linkIndexIndex, Args: []any{index}}
-}
-
-func HasDefaultRoute(reader statedb.TableReader[*Route], linkIndex int) bool {
+func HasDefaultRoute(tbl statedb2.Table[*Route], rxn statedb2.ReadTxn, linkIndex int) bool {
 	// Device has a default route when a route exists in the main table
 	// with a zero destination.
 	for _, prefix := range []netip.Prefix{zeroPrefixV4, zeroPrefixV6} {
-		q := statedb.Query{
-			Index: "id",
-			Args: []any{
-				unix.RT_TABLE_MAIN,
-				linkIndex,
-				prefix,
-			},
-		}
-		r, err := reader.First(q)
-		if err != nil {
-			panic(fmt.Sprintf("Internal error: Query %+v is malformed (%s)", q, err))
-		}
+		r, _, _ := tbl.First(rxn, RouteIDIndex.Query(RouteID{
+			unix.RT_TABLE_MAIN,
+			linkIndex,
+			prefix,
+		}))
 		if r != nil {
 			return true
 		}
