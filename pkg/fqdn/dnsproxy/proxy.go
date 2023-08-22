@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
+	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	ippkg "github.com/cilium/cilium/pkg/ip"
@@ -1101,12 +1102,12 @@ func bindToAddr(address string, port uint16, handler dns.Handler, ipv4, ipv6 boo
 	// Global singleton sessionUDPFactory which is used for IPv4 & IPv6
 	sessUdpFactory := &sessionUDPFactory{ipv4Enabled: ipv4, ipv6Enabled: ipv6}
 
-	var ipFamilies []ipFamily
+	var ipFamilies []ipfamily.IPFamily
 	if ipv4 {
-		ipFamilies = append(ipFamilies, ipv4Family())
+		ipFamilies = append(ipFamilies, ipfamily.IPv4())
 	}
 	if ipv6 {
-		ipFamilies = append(ipFamilies, ipv6Family())
+		ipFamilies = append(ipFamilies, ipfamily.IPv6())
 	}
 
 	for _, ipf := range ipFamilies {
@@ -1138,7 +1139,7 @@ func bindToAddr(address string, port uint16, handler dns.Handler, ipv4, ipv6 boo
 	return dnsServers, bindPort, nil
 }
 
-func evaluateAddress(address string, port uint16, bindPort uint16, ipFamily ipFamily) string {
+func evaluateAddress(address string, port uint16, bindPort uint16, ipFamily ipfamily.IPFamily) string {
 	addr := ipFamily.Localhost
 
 	if address != "" {
