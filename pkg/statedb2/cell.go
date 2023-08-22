@@ -17,7 +17,10 @@ var Cell = cell.Module(
 	"statedb",
 	"In-memory transactional database",
 
-	cell.Provide(newHiveDB),
+	cell.Provide(
+		newHiveDB,
+		newDumpHandler,
+	),
 	cell.Metric(NewMetrics),
 )
 
