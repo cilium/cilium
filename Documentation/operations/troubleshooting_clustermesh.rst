@@ -76,7 +76,7 @@ Manual Verification of Setup
 
     If the configuration is not found, check the following:
 
-    * The Kubernetes secret ``clustermesh-secrets`` is imported correctly.
+    * The Kubernetes secret ``cilium-clustermesh`` is imported correctly.
 
     * The secret contains a file for each remote cluster with the filename
       matching the name of the remote cluster.
@@ -111,7 +111,7 @@ Manual Verification of Setup
       control plane available.
 
     * Validate that a local node in the source cluster can reach the IP
-      specified in the ``hostAliases`` section. The ``clustermesh-secrets``
+      specified in the ``hostAliases`` section. The ``cilium-clustermesh``
       secret contains a configuration file for each remote cluster, it will
       point to a logical name representing the remote cluster:
 
