@@ -487,7 +487,7 @@ Makefile* @cilium/build
 /pkg/slices @cilium/sig-foundations
 /pkg/source @cilium/ipcache
 /pkg/status/ @cilium/sig-agent
-/pkg/statedb @cilium/sig-foundations
+/pkg/statedb2 @cilium/sig-foundations
 /pkg/stream @cilium/sig-foundations
 /pkg/sysctl @cilium/sig-datapath
 /pkg/testutils/ @cilium/ci-structure
