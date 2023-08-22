@@ -50,7 +50,7 @@ func IOCounters(pernic bool) ([]IOCountersStat, error) {
 }
 
 func IOCountersWithContext(ctx context.Context, pernic bool) ([]IOCountersStat, error) {
-	filename := common.HostProcWithContext(ctx, "net/dev")
+	filename := common.HostProc("net/dev")
 	return IOCountersByFileWithContext(ctx, pernic, filename)
 }
 
@@ -157,7 +157,7 @@ var netProtocols = []string{
 	"udplite",
 }
 
-// ProtoCounters returns network statistics for the entire system
+// NetProtoCounters returns network statistics for the entire system
 // If protocols is empty then all protocols are returned, otherwise
 // just the protocols in the list are returned.
 // Available protocols:
@@ -177,7 +177,7 @@ func ProtoCountersWithContext(ctx context.Context, protocols []string) ([]ProtoC
 		protos[p] = true
 	}
 
-	filename := common.HostProcWithContext(ctx, "net/snmp")
+	filename := common.HostProc("net/snmp")
 	lines, err := common.ReadLines(filename)
 	if err != nil {
 		return nil, err
@@ -230,8 +230,8 @@ func FilterCounters() ([]FilterStat, error) {
 }
 
 func FilterCountersWithContext(ctx context.Context) ([]FilterStat, error) {
-	countfile := common.HostProcWithContext(ctx, "sys/net/netfilter/nf_conntrack_count")
-	maxfile := common.HostProcWithContext(ctx, "sys/net/netfilter/nf_conntrack_max")
+	countfile := common.HostProc("sys/net/netfilter/nf_conntrack_count")
+	maxfile := common.HostProc("sys/net/netfilter/nf_conntrack_max")
 
 	count, err := common.ReadInts(countfile)
 	if err != nil {
@@ -260,7 +260,7 @@ func ConntrackStats(percpu bool) ([]ConntrackStat, error) {
 
 // ConntrackStatsWithContext returns more detailed info about the conntrack table
 func ConntrackStatsWithContext(ctx context.Context, percpu bool) ([]ConntrackStat, error) {
-	return conntrackStatsFromFile(common.HostProcWithContext(ctx, "net/stat/nf_conntrack"), percpu)
+	return conntrackStatsFromFile(common.HostProc("net/stat/nf_conntrack"), percpu)
 }
 
 // conntrackStatsFromFile returns more detailed info about the conntrack table
@@ -459,7 +459,7 @@ func connectionsPidMaxWithoutUidsWithContext(ctx context.Context, kind string, p
 	if !ok {
 		return nil, fmt.Errorf("invalid kind, %s", kind)
 	}
-	root := common.HostProcWithContext(ctx)
+	root := common.HostProc()
 	var err error
 	var inodes map[string][]inodeMap
 	if pid == 0 {
@@ -531,7 +531,7 @@ func statsFromInodesWithContext(ctx context.Context, root string, pid int32, tma
 			if !skipUids {
 				// fetch process owner Real, effective, saved set, and filesystem UIDs
 				proc := process{Pid: conn.Pid}
-				conn.Uids, _ = proc.getUids(ctx)
+				conn.Uids, _ = proc.getUids()
 			}
 
 			ret = append(ret, conn)
@@ -599,7 +599,7 @@ func Pids() ([]int32, error) {
 func PidsWithContext(ctx context.Context) ([]int32, error) {
 	var ret []int32
 
-	d, err := os.Open(common.HostProcWithContext(ctx))
+	d, err := os.Open(common.HostProc())
 	if err != nil {
 		return nil, err
 	}
@@ -631,8 +631,8 @@ type process struct {
 }
 
 // Uids returns user ids of the process as a slice of the int
-func (p *process) getUids(ctx context.Context) ([]int32, error) {
-	err := p.fillFromStatus(ctx)
+func (p *process) getUids() ([]int32, error) {
+	err := p.fillFromStatus()
 	if err != nil {
 		return []int32{}, err
 	}
@@ -640,9 +640,9 @@ func (p *process) getUids(ctx context.Context) ([]int32, error) {
 }
 
 // Get status from /proc/(pid)/status
-func (p *process) fillFromStatus(ctx context.Context) error {
+func (p *process) fillFromStatus() error {
 	pid := p.Pid
-	statPath := common.HostProcWithContext(ctx, strconv.Itoa(int(pid)), "status")
+	statPath := common.HostProc(strconv.Itoa(int(pid)), "status")
 	contents, err := ioutil.ReadFile(statPath)
 	if err != nil {
 		return err

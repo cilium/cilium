@@ -143,6 +143,12 @@
         "github.com/cilium/proxy",
       ],
       "matchPackagePatterns": [
+        // We can't update these libraries until github.com/shoenig/go-m1cpu
+        // is added as an exception to the list of licenses into CNCF.
+        "github.com/google/gops/*",
+        // We can't update these libraries until github.com/shoenig/go-m1cpu
+        // is added as an exception to the list of licenses into CNCF.
+        "github.com/shirou/gopsutil/*",
         // Once we decide to spend cycles on ginkgo v2 we should update the
         // dependency manually.
         "github.com/onsi/ginkgo",

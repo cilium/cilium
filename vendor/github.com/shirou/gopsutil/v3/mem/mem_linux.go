@@ -14,9 +14,8 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/shirou/gopsutil/v3/internal/common"
+	"golang.org/x/sys/unix"
 )
 
 type VirtualMemoryExStat struct {
@@ -37,7 +36,7 @@ func VirtualMemory() (*VirtualMemoryStat, error) {
 }
 
 func VirtualMemoryWithContext(ctx context.Context) (*VirtualMemoryStat, error) {
-	vm, _, err := fillFromMeminfoWithContext(ctx)
+	vm, _, err := fillFromMeminfoWithContext()
 	if err != nil {
 		return nil, err
 	}
@@ -49,15 +48,15 @@ func VirtualMemoryEx() (*VirtualMemoryExStat, error) {
 }
 
 func VirtualMemoryExWithContext(ctx context.Context) (*VirtualMemoryExStat, error) {
-	_, vmEx, err := fillFromMeminfoWithContext(ctx)
+	_, vmEx, err := fillFromMeminfoWithContext()
 	if err != nil {
 		return nil, err
 	}
 	return vmEx, nil
 }
 
-func fillFromMeminfoWithContext(ctx context.Context) (*VirtualMemoryStat, *VirtualMemoryExStat, error) {
-	filename := common.HostProcWithContext(ctx, "meminfo")
+func fillFromMeminfoWithContext() (*VirtualMemoryStat, *VirtualMemoryExStat, error) {
+	filename := common.HostProc("meminfo")
 	lines, _ := common.ReadLines(filename)
 
 	// flag if MemAvailable is in /proc/meminfo (kernel 3.14+)
@@ -154,13 +153,13 @@ func fillFromMeminfoWithContext(ctx context.Context) (*VirtualMemoryStat, *Virtu
 				return ret, retEx, err
 			}
 			retEx.Unevictable = t * 1024
-		case "Writeback":
+		case "WriteBack":
 			t, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return ret, retEx, err
 			}
 			ret.WriteBack = t * 1024
-		case "WritebackTmp":
+		case "WriteBackTmp":
 			t, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return ret, retEx, err
@@ -318,7 +317,7 @@ func fillFromMeminfoWithContext(ctx context.Context) (*VirtualMemoryStat, *Virtu
 
 	if !memavail {
 		if activeFile && inactiveFile && sReclaimable {
-			ret.Available = calculateAvailVmem(ctx, ret, retEx)
+			ret.Available = calculateAvailVmem(ret, retEx)
 		} else {
 			ret.Available = ret.Cached + ret.Free
 		}
@@ -351,7 +350,7 @@ func SwapMemoryWithContext(ctx context.Context) (*SwapMemoryStat, error) {
 	} else {
 		ret.UsedPercent = 0
 	}
-	filename := common.HostProcWithContext(ctx, "vmstat")
+	filename := common.HostProc("vmstat")
 	lines, _ := common.ReadLines(filename)
 	for _, l := range lines {
 		fields := strings.Fields(l)
@@ -403,10 +402,10 @@ func SwapMemoryWithContext(ctx context.Context) (*SwapMemoryStat, error) {
 // calculateAvailVmem is a fallback under kernel 3.14 where /proc/meminfo does not provide
 // "MemAvailable:" column. It reimplements an algorithm from the link below
 // https://github.com/giampaolo/psutil/pull/890
-func calculateAvailVmem(ctx context.Context, ret *VirtualMemoryStat, retEx *VirtualMemoryExStat) uint64 {
+func calculateAvailVmem(ret *VirtualMemoryStat, retEx *VirtualMemoryExStat) uint64 {
 	var watermarkLow uint64
 
-	fn := common.HostProcWithContext(ctx, "zoneinfo")
+	fn := common.HostProc("zoneinfo")
 	lines, err := common.ReadLines(fn)
 	if err != nil {
 		return ret.Free + ret.Cached // fallback under kernel 2.6.13
@@ -458,18 +457,18 @@ func SwapDevices() ([]*SwapDevice, error) {
 }
 
 func SwapDevicesWithContext(ctx context.Context) ([]*SwapDevice, error) {
-	swapsFilePath := common.HostProcWithContext(ctx, swapsFilename)
+	swapsFilePath := common.HostProc(swapsFilename)
 	f, err := os.Open(swapsFilePath)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	return parseSwapsFile(ctx, f)
+	return parseSwapsFile(f)
 }
 
-func parseSwapsFile(ctx context.Context, r io.Reader) ([]*SwapDevice, error) {
-	swapsFilePath := common.HostProcWithContext(ctx, swapsFilename)
+func parseSwapsFile(r io.Reader) ([]*SwapDevice, error) {
+	swapsFilePath := common.HostProc(swapsFilename)
 	scanner := bufio.NewScanner(r)
 	if !scanner.Scan() {
 		if err := scanner.Err(); err != nil {
