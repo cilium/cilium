@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
@@ -1030,7 +1031,12 @@ func (m *IptablesManager) doGetProxyPort(prog iptablesInterface, name string) ui
 		return 0
 	}
 
-	re := regexp.MustCompile(name + ".*TPROXY redirect (0.0.0.0|::):([1-9][0-9]*) mark")
+	re := regexp.MustCompile(
+		name + ".*TPROXY redirect " +
+			"(0.0.0.0|" + ipfamily.IPv4().Localhost +
+			"|::|" + ipfamily.IPv6().Localhost + ")" +
+			":([1-9][0-9]*) mark",
+	)
 	strs := re.FindAllString(rules, -1)
 	if len(strs) == 0 {
 		return 0

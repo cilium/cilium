@@ -1140,6 +1140,10 @@ func bindToAddr(address string, port uint16, handler dns.Handler, ipv4, ipv6 boo
 }
 
 func evaluateAddress(address string, port uint16, bindPort uint16, ipFamily ipfamily.IPFamily) string {
+	// If the address is ever changed, ensure that the change is also reflected
+	// where the proxy bind address is referenced in the iptables rules. See
+	// (*IptablesManager).doGetProxyPort().
+
 	addr := ipFamily.Localhost
 
 	if address != "" {
