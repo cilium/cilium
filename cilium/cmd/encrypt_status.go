@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/prometheus/procfs"
@@ -30,7 +31,7 @@ type void struct{}
 var (
 	voidType    void
 	countErrors int
-	regex       = regexp.MustCompile("oseq[[:blank:]](0[xX][[:xdigit:]]+)?")
+	regex       = regexp.MustCompile("oseq[[:blank:]]0[xX]([[:xdigit:]]+)")
 )
 
 var encryptStatusCmd = &cobra.Command{
@@ -89,13 +90,17 @@ func countUniqueIPsecKeys() int {
 	return len(keys)
 }
 
-func extractMaxSequenceNumber(ipOutput string) string {
-	maxSeqNum := "0"
+func extractMaxSequenceNumber(ipOutput string) int64 {
+	maxSeqNum := int64(0)
 	lines := strings.Split(ipOutput, "\n")
 	for _, line := range lines {
 		matched := regex.FindStringSubmatchIndex(line)
 		if matched != nil {
-			oseq := line[matched[2]:matched[3]]
+			oseq, err := strconv.ParseInt(line[matched[2]:matched[3]], 16, 64)
+			if err != nil {
+				Fatalf("Failed to parse sequence number '%s': %s",
+					line[matched[2]:matched[3]], err)
+			}
 			if oseq > maxSeqNum {
 				maxSeqNum = oseq
 			}
@@ -111,10 +116,10 @@ func maxSequenceNumber() string {
 	}
 	commandOutput := string(out)
 	maxSeqNum := extractMaxSequenceNumber(commandOutput)
-	if maxSeqNum == "0" {
+	if maxSeqNum == 0 {
 		return "N/A"
 	}
-	return fmt.Sprintf("%s/0xffffffff", maxSeqNum)
+	return fmt.Sprintf("0x%x/0xffffffff", maxSeqNum)
 }
 
 func getEncryptionMode() {
