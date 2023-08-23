@@ -48,7 +48,7 @@ const (
 type MapState map[Key]MapStateEntry
 
 type Identities interface {
-	GetLabels(identity.NumericIdentity) labels.LabelArray
+	GetNetsLocked(identity.NumericIdentity) []*net.IPNet
 }
 
 // Key is the userspace representation of a policy key in BPF. It is
@@ -125,9 +125,6 @@ type MapStateEntry struct {
 	// dependents contains the keys for entries create based on this entry. These entries
 	// will be deleted once all of the owners are deleted.
 	dependents Keys
-
-	// cachedNets caches the subnets (if any) associated with this MapStateEntry.
-	cachedNets []*net.IPNet
 }
 
 // NewMapStateEntry creates a map state entry. If redirect is true, the
@@ -183,46 +180,22 @@ func (e *MapStateEntry) HasDependent(key Key) bool {
 
 // getNets returns the most specific CIDR for an identity. For the "World" identity
 // it returns both IPv4 and IPv6.
-func (e *MapStateEntry) getNets(identities Identities, ident uint32) []*net.IPNet {
-	// Caching results is not dangerous in this situation as the entry
-	// is ephemerally tied to the lifecycle of the MapState object that
-	// it will be in.
-	if e.cachedNets != nil {
-		return e.cachedNets
-	}
+func getNets(identities Identities, ident uint32) []*net.IPNet {
+	// World identities are handled explicitly for two reasons:
+	// 1. 'identities' may be nil, but world identities are still expected to be considered
+	// 2. SelectorCache is not be informed of reserved/world identities in all test cases
 	id := identity.NumericIdentity(ident)
 	if id == identity.ReservedIdentityWorld {
-		e.cachedNets = []*net.IPNet{
+		return []*net.IPNet{
 			{IP: net.IPv4zero, Mask: net.CIDRMask(0, net.IPv4len*8)},
 			{IP: net.IPv6zero, Mask: net.CIDRMask(0, net.IPv6len*8)},
 		}
-		return e.cachedNets
 	}
 	// CIDR identities have a local scope, so we can skip the rest if id is not of local scope.
 	if !id.HasLocalScope() || identities == nil {
 		return nil
 	}
-	lbls := identities.GetLabels(id)
-	var (
-		maskSize         int
-		mostSpecificCidr *net.IPNet
-	)
-	for _, lbl := range lbls {
-		if lbl.Source == labels.LabelSourceCIDR {
-			_, netIP, err := net.ParseCIDR(lbl.Key)
-			if err == nil {
-				if ms, _ := netIP.Mask.Size(); ms > maskSize {
-					mostSpecificCidr = netIP
-					maskSize = ms
-				}
-			}
-		}
-	}
-	if mostSpecificCidr != nil {
-		e.cachedNets = []*net.IPNet{mostSpecificCidr}
-		return e.cachedNets
-	}
-	return nil
+	return identities.GetNetsLocked(id)
 }
 
 // AddDependent adds 'key' to the set of dependent keys.
@@ -417,18 +390,18 @@ func (keys MapState) deleteKeyWithChanges(key Key, owner MapStateOwner, adds, de
 	}
 }
 
-// entryIdentityIsSupersetOf compares two entries and keys to see if the primary identity contains
+// identityIsSupersetOf compares two entries and keys to see if the primary identity contains
 // the compared identity. This means that either that primary identity is 0 (i.e. it is a superset
 // of every other identity), or one of the subnets of the primary identity fully contains or is
 // equal to one of the subnets in the compared identity (note:this covers cases like "reserved:world").
-func entryIdentityIsSupersetOf(primaryKey Key, primaryEntry MapStateEntry, compareKey Key, compareEntry MapStateEntry, identities Identities) bool {
+func identityIsSupersetOf(primaryIdentity, compareIdentity uint32, identities Identities) bool {
 	// If the identities are equal then neither is a superset (for the purposes of our business logic).
-	if primaryKey.Identity == compareKey.Identity {
+	if primaryIdentity == compareIdentity {
 		return false
 	}
-	return primaryKey.Identity == 0 && compareKey.Identity != 0 ||
-		ip.NetsContainsAny(primaryEntry.getNets(identities, primaryKey.Identity),
-			compareEntry.getNets(identities, compareKey.Identity))
+	return primaryIdentity == 0 && compareIdentity != 0 ||
+		ip.NetsContainsAny(getNets(identities, primaryIdentity),
+			getNets(identities, compareIdentity))
 }
 
 // protocolsMatch checks to see if two given keys match on protocol.
@@ -469,7 +442,7 @@ func (keys MapState) DenyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 				continue
 			}
 			if !v.IsDeny {
-				if entryIdentityIsSupersetOf(k, v, newKey, newEntry, identities) {
+				if identityIsSupersetOf(k.Identity, newKey.Identity, identities) {
 					if newKey.PortProtoIsBroader(k) {
 						// If this iterated-allow-entry is a superset of the new-entry
 						// and it has a more specific port-protocol than the new-entry
@@ -486,7 +459,7 @@ func (keys MapState) DenyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 						newEntry.AddDependent(newKeyCpy)
 					}
 				} else if (newKey.Identity == k.Identity ||
-					entryIdentityIsSupersetOf(newKey, newEntry, k, v, identities)) &&
+					identityIsSupersetOf(newKey.Identity, k.Identity, identities)) &&
 					(newKey.PortProtoIsBroader(k) || newKey.PortProtoIsEqual(k)) {
 					// If the new-entry is a superset (or equal) of the iterated-allow-entry and
 					// the new-entry has a broader (or equal) port-protocol then we
@@ -494,7 +467,7 @@ func (keys MapState) DenyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 					keys.deleteKeyWithChanges(k, nil, adds, deletes, old)
 				}
 			} else if (newKey.Identity == k.Identity ||
-				entryIdentityIsSupersetOf(k, v, newKey, newEntry, identities)) &&
+				identityIsSupersetOf(k.Identity, newKey.Identity, identities)) &&
 				k.DestPort == 0 && k.Nexthdr == 0 &&
 				!v.HasDependent(newKey) {
 				// If this iterated-deny-entry is a supserset (or equal) of the new-entry and
@@ -507,7 +480,7 @@ func (keys MapState) DenyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 				// but there *may* be performance tradeoffs.
 				return
 			} else if (newKey.Identity == k.Identity ||
-				entryIdentityIsSupersetOf(newKey, newEntry, k, v, identities)) &&
+				identityIsSupersetOf(newKey.Identity, k.Identity, identities)) &&
 				newKey.DestPort == 0 && newKey.Nexthdr == 0 &&
 				!newEntry.HasDependent(k) {
 				// If this iterated-deny-entry is a subset (or equal) of the new-entry and
@@ -531,7 +504,7 @@ func (keys MapState) DenyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 			}
 			// NOTE: We do not delete redundant allow entries.
 			if v.IsDeny {
-				if entryIdentityIsSupersetOf(newKey, newEntry, k, v, identities) {
+				if identityIsSupersetOf(newKey.Identity, k.Identity, identities) {
 					if k.PortProtoIsBroader(newKey) {
 						// If the new-entry is *only* superset of the iterated-deny-entry
 						// and the new-entry has a more specific port-protocol than the
@@ -550,7 +523,7 @@ func (keys MapState) DenyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 						keys[k] = v
 					}
 				} else if (k.Identity == newKey.Identity ||
-					entryIdentityIsSupersetOf(k, v, newKey, newEntry, identities)) &&
+					identityIsSupersetOf(k.Identity, newKey.Identity, identities)) &&
 					(k.PortProtoIsBroader(newKey) || k.PortProtoIsEqual(newKey)) &&
 					!v.HasDependent(newKey) {
 					// If the iterated-deny-entry is a superset (or equal) of the new-entry and has a
