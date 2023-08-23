@@ -307,7 +307,6 @@ var (
 		"cluster-name":             "cluster.name",
 		"ipam":                     "ipam.mode",
 		"ipv4-native-routing-cidr": "ipv4NativeRoutingCIDR",
-		"kube-proxy-replacement":   "kubeProxyReplacement",
 		"node-encryption":          "encryption.nodeEncryption",
 		"operator-image":           "operator.image.override",
 	}
@@ -332,7 +331,6 @@ type Parameters struct {
 	IPv4NativeRoutingCIDR string
 	ClusterID             int
 	IPAM                  string
-	KubeProxyReplacement  string
 	Azure                 AzureParameters
 	RestartUnmanagedPods  bool
 	Encryption            string
@@ -390,7 +388,7 @@ type Parameters struct {
 	// APIVersions defines extra kubernetes api resources that can be passed to helm for capabilities validation,
 	// specifically for CRDs.
 	APIVersions []string
-	// UserSetKubeProxyReplacement will be set as true if user passes helm opt or commadline flag for the Kube-Proxy replacement.
+	// UserSetKubeProxyReplacement will be set as true if user passes helm opt for the Kube-Proxy replacement.
 	UserSetKubeProxyReplacement bool
 
 	// DryRun writes resources to be installed to stdout without actually installing them. For Helm

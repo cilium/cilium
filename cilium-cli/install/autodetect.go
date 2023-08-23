@@ -51,7 +51,7 @@ func (k *K8sUninstaller) autodetect(ctx context.Context) {
 	}
 }
 
-func (k *K8sInstaller) detectDatapathMode(withKPR bool) error {
+func (k *K8sInstaller) detectDatapathMode() error {
 	if k.params.DatapathMode != "" {
 		k.Log("ℹ️  Custom datapath mode: %s", k.params.DatapathMode)
 		return nil
@@ -82,10 +82,6 @@ func (k *K8sInstaller) detectDatapathMode(withKPR bool) error {
 	switch k.flavor.Kind {
 	case k8s.KindKind:
 		k.params.DatapathMode = DatapathTunnel
-
-		if withKPR && k.params.KubeProxyReplacement == "" {
-			k.params.KubeProxyReplacement = "disabled"
-		}
 	case k8s.KindMinikube:
 		k.params.DatapathMode = DatapathTunnel
 	case k8s.KindEKS:
@@ -104,10 +100,6 @@ func (k *K8sInstaller) detectDatapathMode(withKPR bool) error {
 			k.params.DatapathMode = DatapathAKSBYOCNI
 		} else {
 			k.params.DatapathMode = DatapathAzure
-		}
-
-		if withKPR && k.params.KubeProxyReplacement == "" {
-			k.params.KubeProxyReplacement = "disabled"
 		}
 	default:
 		k.params.DatapathMode = DatapathTunnel
@@ -173,7 +165,7 @@ func (k *K8sInstaller) autodetectAndValidate(ctx context.Context, helmValues map
 		k.Log("ℹ️  Using cluster name %q", k.params.ClusterName)
 	}
 
-	if err := k.detectDatapathMode(true); err != nil {
+	if err := k.detectDatapathMode(); err != nil {
 		return err
 	}
 
@@ -284,7 +276,7 @@ func (k *K8sInstaller) autoEnableBPFMasq() error {
 	}
 
 	// Auto-enable BPF masquerading if KPR=strict and IPv6=disabled
-	foundKPRStrict := k.params.KubeProxyReplacement == "strict"
+	foundKPRStrict := false
 	foundMasq := false
 	enabledIPv6 := false
 	for _, param := range vals {
