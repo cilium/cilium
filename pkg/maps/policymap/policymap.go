@@ -422,7 +422,7 @@ func newMap(path string) *PolicyMap {
 			&PolicyEntry{},
 			MaxEntries,
 			flags,
-		),
+		).WithGroupName("endpoint_policy"),
 	}
 }
 

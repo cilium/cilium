@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 )
 
 type MapSpec = ciliumebpf.MapSpec
@@ -168,6 +169,7 @@ func (m *Map) OpenOrCreate() error {
 	m.path = path
 
 	registerMap(m)
+	metrics.UpdateMapCapacity(m.spec.Name, m.spec.MaxEntries)
 	return nil
 }
 

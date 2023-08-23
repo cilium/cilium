@@ -183,6 +183,8 @@ const (
 	// LabelMapName is the label for the BPF map name
 	LabelMapName = "map_name"
 
+	LabelMapGroup = "map_group"
+
 	// LabelVersion is the label for the version number
 	LabelVersion = "version"
 
@@ -511,6 +513,9 @@ var (
 	// bpf map.
 	BPFMapOps = NoOpCounterVec
 
+	// BPFMapCapacity is the max capacity of bpf maps, labelled by map group classification.
+	BPFMapCapacity = NoOpGaugeVec
+
 	// TriggerPolicyUpdateTotal is the metric to count total number of
 	// policy update triggers
 	TriggerPolicyUpdateTotal = NoOpCounterVec
@@ -620,6 +625,7 @@ type LegacyMetrics struct {
 	IPCacheEventsTotal               metric.Vec[metric.Counter]
 	BPFSyscallDuration               metric.Vec[metric.Observer]
 	BPFMapOps                        metric.Vec[metric.Counter]
+	BPFMapCapacity                   metric.Vec[metric.Gauge]
 	TriggerPolicyUpdateTotal         metric.Vec[metric.Counter]
 	TriggerPolicyUpdateFolds         metric.Gauge
 	TriggerPolicyUpdateCallDuration  metric.Vec[metric.Observer]
@@ -1110,6 +1116,14 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:       "Total operations on map, tagged by map name",
 		}, []string{LabelMapName, LabelOperation, LabelOutcome}),
 
+		BPFMapCapacity: metric.NewGaugeVec(metric.GaugeOpts{
+			ConfigName: Namespace + "_" + SubsystemBPF + "_map_capacity",
+			Namespace:  Namespace,
+			Subsystem:  SubsystemBPF,
+			Name:       "map_capacity",
+			Help:       "Capacity of map, tagged by map group. All maps with a capacity of 65536 are grouped under 'default'",
+		}, []string{LabelMapGroup}),
+
 		TriggerPolicyUpdateTotal: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_" + SubsystemTriggers + "_policy_update_total",
 			Namespace:  Namespace,
@@ -1257,6 +1271,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 
 	v := version.GetCiliumVersion()
 	lm.VersionMetric.WithLabelValues(v.Version, v.Revision, v.Arch)
+	lm.BPFMapCapacity.WithLabelValues("default").Set(DefaultMapCapacity)
 
 	BootstrapTimes = lm.BootstrapTimes
 	APIInteractions = lm.APIInteractions
@@ -1322,6 +1337,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	IPCacheEventsTotal = lm.IPCacheEventsTotal
 	BPFSyscallDuration = lm.BPFSyscallDuration
 	BPFMapOps = lm.BPFMapOps
+	BPFMapCapacity = lm.BPFMapCapacity
 	TriggerPolicyUpdateTotal = lm.TriggerPolicyUpdateTotal
 	TriggerPolicyUpdateFolds = lm.TriggerPolicyUpdateFolds
 	TriggerPolicyUpdateCallDuration = lm.TriggerPolicyUpdateCallDuration
@@ -1501,4 +1517,17 @@ func BoolToFloat64(v bool) float64 {
 		return 1
 	}
 	return 0
+}
+
+// In general, most bpf maps are allocated to occupy a 16-bit key size.
+// To reduce the number of metrics that need to be emitted for map capacity,
+// we assume a default map size of 2^16 entries for all maps, which can be
+// assumed unless specified otherwise.
+const DefaultMapCapacity = 65536
+
+func UpdateMapCapacity(groupName string, capacity uint32) {
+	if capacity == 0 || capacity == DefaultMapCapacity {
+		return
+	}
+	BPFMapCapacity.WithLabelValues(groupName).Set(float64(capacity))
 }
