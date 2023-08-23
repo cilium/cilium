@@ -26,9 +26,7 @@ import (
 func (k *K8sInstaller) Upgrade(ctx context.Context) error {
 	k.autodetect(ctx)
 
-	// no need to determine KPR setting on upgrade, keep the setting configured with the old
-	// version.
-	if err := k.detectDatapathMode(false); err != nil {
+	if err := k.detectDatapathMode(); err != nil {
 		return err
 	}
 

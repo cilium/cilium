@@ -258,12 +258,6 @@ func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
 			helmMapOpts["ipam.mode"] = k.params.IPAM
 		}
 
-		// TODO: remove when removing "kube-proxy-replacement" flag (marked as
-		// deprecated), kept for backwards compatibility
-		if k.params.KubeProxyReplacement != "" && k.params.UserSetKubeProxyReplacement {
-			helmMapOpts["kubeProxyReplacement"] = k.params.KubeProxyReplacement
-		}
-
 		// TODO: remove when removing "config" flag (marked as deprecated), kept
 		// for backwards compatibility
 		if k.bgpEnabled() {
