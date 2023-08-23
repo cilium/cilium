@@ -13,6 +13,7 @@ import (
 
 type CertificateRotationEvent struct {
 	Identity identity.NumericIdentity
+	Deleted  bool
 }
 
 type CertificateProvider interface {

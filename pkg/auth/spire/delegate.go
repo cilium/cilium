@@ -184,6 +184,7 @@ func (s *SpireDelegateClient) handleX509SVIDUpdate(svids []*delegatedidentityv1.
 
 	s.svidStoreMutex.RLock()
 	updatedKeys := []string{}
+	deletedKeys := []string{}
 
 	for _, svid := range svids {
 
@@ -210,11 +211,43 @@ func (s *SpireDelegateClient) handleX509SVIDUpdate(svids []*delegatedidentityv1.
 		newSvidStore[key] = svid
 
 	}
+
+	// check for deleted keys
+	for key := range s.svidStore {
+		if _, exists := newSvidStore[key]; !exists {
+			deletedKeys = append(deletedKeys, key)
+		}
+	}
+
 	s.svidStoreMutex.RUnlock()
 
 	s.svidStoreMutex.Lock()
 	s.svidStore = newSvidStore
 	s.svidStoreMutex.Unlock()
+
+	for _, key := range deletedKeys {
+		// we send an update event to re-trigger a handshake if needed
+		id, err := s.spiffeIDToNumericIdentity(key)
+		if err != nil {
+			s.log.
+				WithError(err).
+				WithField("spiffe_id", key).
+				Error("Failed to convert SPIFFE ID to numeric identity")
+			continue
+		}
+		select {
+		case s.rotatedIdentitiesChan <- certs.CertificateRotationEvent{Identity: id, Deleted: true}:
+			s.log.
+				WithField("spiffe_id", key).
+				Debug("X509-SVID has been deleted, signaling this")
+		default:
+			if s.logLimiter.Allow() {
+				s.log.
+					WithField("identity", id).
+					Warn("Skip sending deleted identity as channel is full")
+			}
+		}
+	}
 
 	for _, key := range updatedKeys {
 		// we send an update event to re-trigger a handshake if needed
