@@ -51,3 +51,5 @@ workflows:
     paths-ignore-regex: (test|Documentation)/
   tests-l4lb.yaml:
     paths-regex: (bpf|daemon|images|pkg|test/l4lb|vendor)/
+  tests-ipsec-upgrade.yaml:
+    paths-ignore-regex: (test|Documentation)/
