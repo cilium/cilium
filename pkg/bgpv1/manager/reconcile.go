@@ -9,6 +9,7 @@ import (
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -49,6 +50,11 @@ var ConfigReconcilers = cell.ProvidePrivate(
 	NewLBServiceReconciler,
 )
 
+type PreflightReconcilerParams struct {
+	cell.In
+	BGPCPSignaler *signaler.BGPCPSignaler
+}
+
 type PreflightReconcilerOut struct {
 	cell.Out
 
@@ -66,11 +72,15 @@ type PreflightReconcilerOut struct {
 //
 // permanent configurations for BgpServers (ones that cannot be changed after creation)
 // are router ID and local listening port.
-type PreflightReconciler struct{}
+type PreflightReconciler struct {
+	signaler *signaler.BGPCPSignaler
+}
 
-func NewPreflightReconciler() PreflightReconcilerOut {
+func NewPreflightReconciler(params PreflightReconcilerParams) PreflightReconcilerOut {
 	return PreflightReconcilerOut{
-		Reconciler: &PreflightReconciler{},
+		Reconciler: &PreflightReconciler{
+			signaler: params.BGPCPSignaler,
+		},
 	}
 }
 
@@ -150,6 +160,11 @@ func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 			RouteSelectionOptions: &types.RouteSelectionOptions{
 				AdvertiseInactiveRoutes: true,
 			},
+		},
+		OnFIBEvent: func() {
+			if r.signaler != nil {
+				r.signaler.Event(struct{}{})
+			}
 		},
 	}
 

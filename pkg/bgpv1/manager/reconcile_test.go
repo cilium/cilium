@@ -129,7 +129,7 @@ func TestPreflightReconciler(t *testing.T) {
 				LocalASN: 64125,
 			}
 
-			preflightReconciler := NewPreflightReconciler().Reconciler
+			preflightReconciler := NewPreflightReconciler(PreflightReconcilerParams{}).Reconciler
 			params := ReconcileParams{
 				CurrentServer: testSC,
 				DesiredConfig: newc,
@@ -1325,7 +1325,7 @@ func TestReconcileAfterServerReinit(t *testing.T) {
 		"cilium.io/bgp-virtual-router.64125": fmt.Sprintf("router-id=%s,local-port=%d", newRouterID, localPort),
 	}
 
-	preflightReconciler := NewPreflightReconciler().Reconciler
+	preflightReconciler := NewPreflightReconciler(PreflightReconcilerParams{}).Reconciler
 
 	// Trigger pre flight reconciler
 	err = preflightReconciler.Reconcile(context.Background(), params)
