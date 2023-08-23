@@ -339,6 +339,8 @@ type Endpoint struct {
 	noTrackPort uint16
 
 	ciliumEndpointUID types.UID
+
+	lastFullSync time.Time
 }
 
 type namedPortsGetter interface {

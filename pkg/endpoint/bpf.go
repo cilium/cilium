@@ -1399,6 +1399,11 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 		return err
 	}
 
+	if time.Since(e.lastFullSync) < time.Minute {
+		// Full sync was done recently, skip.
+		return nil
+	}
+
 	currentMap, err := e.dumpPolicyMapToMapState()
 
 	// If map is unable to be dumped, attempt to close map and open it again.
@@ -1435,6 +1440,10 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 	if diffCount > 0 {
 		e.getLogger().WithField(logfields.Count, diffCount).Warning("Policy map sync fixed errors, consider running with debug verbose = policy to get detailed dumps")
 		e.PolicyDebug(logrus.Fields{"dumpedDiffs": diffs}, "syncPolicyMapWithDump")
+	}
+
+	if err == nil {
+		e.lastFullSync = time.Now()
 	}
 
 	return err
