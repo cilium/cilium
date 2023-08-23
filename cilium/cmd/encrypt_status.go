@@ -89,14 +89,9 @@ func countUniqueIPsecKeys() int {
 	return len(keys)
 }
 
-func maxSequenceNumber() string {
+func extractMaxSequenceNumber(ipOutput string) string {
 	maxSeqNum := "0"
-	out, err := exec.Command("ip", "xfrm", "state", "list", "reqid", ciliumReqId).Output()
-	if err != nil {
-		Fatalf("Cannot get xfrm states: %s", err)
-	}
-	commandOutput := string(out)
-	lines := strings.Split(commandOutput, "\n")
+	lines := strings.Split(ipOutput, "\n")
 	for _, line := range lines {
 		matched := regex.FindStringSubmatchIndex(line)
 		if matched != nil {
@@ -106,6 +101,16 @@ func maxSequenceNumber() string {
 			}
 		}
 	}
+	return maxSeqNum
+}
+
+func maxSequenceNumber() string {
+	out, err := exec.Command("ip", "xfrm", "state", "list", "reqid", ciliumReqId).Output()
+	if err != nil {
+		Fatalf("Cannot get xfrm states: %s", err)
+	}
+	commandOutput := string(out)
+	maxSeqNum := extractMaxSequenceNumber(commandOutput)
 	if maxSeqNum == "0" {
 		return "N/A"
 	}
