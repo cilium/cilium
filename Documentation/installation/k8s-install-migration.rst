@@ -208,7 +208,7 @@ When installing Cilium on the nodes, Cilium will create a new network interface 
 Depending on your Tigera Operator settings (for example if you use the ``interface`` or ``skipInterface`` options), you might want to adjust the parameters to ensure ``cilium_host`` is not considered. 
 You can set ``firstFound`` to ``false`` and use ``kubernetes: NodeInternalIP`` instead, so Calico uses the node's internal IP as its main interface. 
 
-We can Patch the Tigera Operator's configuration with:
+Patch the Tigera Operator's configuration with:
 
 .. code-block:: shell-session
 
