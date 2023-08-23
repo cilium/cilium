@@ -453,7 +453,6 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 func (m MapState) clearCaches() {
 	for k, v := range m {
 		v.owners = make(map[MapStateOwner]struct{})
-		v.cachedNets = nil
 		m[k] = v
 	}
 }
