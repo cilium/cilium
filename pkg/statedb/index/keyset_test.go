@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/pkg/statedb2/index"
+	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
 func TestKeySet_FromEmpty(t *testing.T) {

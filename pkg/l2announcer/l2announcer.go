@@ -31,7 +31,7 @@ import (
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb2"
+	"github.com/cilium/cilium/pkg/statedb"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
@@ -72,8 +72,8 @@ type l2AnnouncerParams struct {
 	Services             resource.Resource[*slim_corev1.Service]
 	L2AnnouncementPolicy resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]
 	LocalNodeResource    daemon_k8s.LocalCiliumNodeResource
-	L2AnnounceTable      statedb2.Table[*tables.L2AnnounceEntry]
-	StateDB              *statedb2.DB
+	L2AnnounceTable      statedb.Table[*tables.L2AnnounceEntry]
+	StateDB              *statedb.DB
 	JobRegistry          job.Registry
 }
 
@@ -846,7 +846,7 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 	// If we are not the leader, we should not have any proxy entries for the service.
 	if !ss.currentlyLeader {
 		// Remove origin from entries, and delete if no origins left
-		err := statedb2.ProcessEach(entriesIter, func(e *tables.L2AnnounceEntry, _ uint64) error {
+		err := statedb.ProcessEach(entriesIter, func(e *tables.L2AnnounceEntry, _ uint64) error {
 			// Copy, since modifying objects directly is not allowed.
 			e = e.DeepCopy()
 
@@ -877,7 +877,7 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 	}
 
 	// Loop over existing entries, delete undesired entries
-	err := statedb2.ProcessEach(entriesIter, func(e *tables.L2AnnounceEntry, _ uint64) error {
+	err := statedb.ProcessEach(entriesIter, func(e *tables.L2AnnounceEntry, _ uint64) error {
 		key := fmt.Sprintf("%s/%s", e.IP, e.NetworkInterface)
 
 		_, desired := desiredEntries[key]

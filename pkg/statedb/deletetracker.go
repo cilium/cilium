@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package statedb2
+package statedb
 
 import (
 	"sync/atomic"
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/cilium/cilium/pkg/statedb2/index"
+	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
 type DeleteTracker[Obj any] struct {

@@ -17,7 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/rate"
-	"github.com/cilium/cilium/pkg/statedb2"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 var reconcilerCell = cell.Module(
@@ -29,8 +29,8 @@ var reconcilerCell = cell.Module(
 type reconcilerParams struct {
 	cell.In
 
-	Backends  statedb2.Table[Backend]
-	DB        *statedb2.DB
+	Backends  statedb.Table[Backend]
+	DB        *statedb.DB
 	Lifecycle hive.Lifecycle
 	Log       logrus.FieldLogger
 	Registry  job.Registry
@@ -65,7 +65,7 @@ func (r *reconciler) reconcileLoop(ctx context.Context) error {
 	defer deleteTracker.Close()
 
 	txn := r.DB.ReadTxn()
-	minRevision := statedb2.Revision(0)
+	minRevision := statedb.Revision(0)
 
 	// Limit processing rate to 10 op/s.
 	burst := int64(10)
@@ -86,7 +86,7 @@ func (r *reconciler) reconcileLoop(ctx context.Context) error {
 		newRevision, watch, processErr := deleteTracker.Process(
 			txn,
 			minRevision,
-			func(be Backend, deleted bool, rev statedb2.Revision) error {
+			func(be Backend, deleted bool, rev statedb.Revision) error {
 				if err := limiter.Wait(ctx); err != nil {
 					return err
 				}
@@ -133,7 +133,7 @@ func (r *reconciler) reconcileLoop(ctx context.Context) error {
 	}
 }
 
-func (r *reconciler) validate(txn statedb2.ReadTxn) {
+func (r *reconciler) validate(txn statedb.ReadTxn) {
 
 	iter, _ := r.Backends.All(txn)
 	n := 0

@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
-	"github.com/cilium/cilium/pkg/statedb2"
+	"github.com/cilium/cilium/pkg/statedb"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -24,24 +24,24 @@ import (
 
 type fixture struct {
 	reconciler         *l2ResponderReconciler
-	proxyNeighborTable statedb2.Table[*tables.L2AnnounceEntry]
-	stateDB            *statedb2.DB
+	proxyNeighborTable statedb.Table[*tables.L2AnnounceEntry]
+	stateDB            *statedb.DB
 	mockNetlink        *mockNeighborNetlink
 	respondermap       l2respondermap.Map
 }
 
 func newFixture() *fixture {
 	var (
-		tbl statedb2.Table[*tables.L2AnnounceEntry]
-		db  *statedb2.DB
+		tbl statedb.Table[*tables.L2AnnounceEntry]
+		db  *statedb.DB
 		jr  job.Registry
 	)
 
 	hive.New(
-		statedb2.Cell,
+		statedb.Cell,
 		tables.Cell,
 		job.Cell,
-		cell.Invoke(func(d *statedb2.DB, t statedb2.Table[*tables.L2AnnounceEntry], j job.Registry) {
+		cell.Invoke(func(d *statedb.DB, t statedb.Table[*tables.L2AnnounceEntry], j job.Registry) {
 			db = d
 			tbl = t
 			jr = j

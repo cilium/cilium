@@ -7,8 +7,8 @@ import (
 	"net/netip"
 
 	"github.com/cilium/cilium/pkg/k8s/resource"
-	"github.com/cilium/cilium/pkg/statedb2"
-	"github.com/cilium/cilium/pkg/statedb2/index"
+	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/index"
 
 	"golang.org/x/exp/slices"
 )
@@ -41,7 +41,7 @@ func (pne *L2AnnounceEntry) DeepCopy() *L2AnnounceEntry {
 }
 
 var (
-	L2AnnounceIDIndex = statedb2.Index[*L2AnnounceEntry, L2AnnounceKey]{
+	L2AnnounceIDIndex = statedb.Index[*L2AnnounceEntry, L2AnnounceKey]{
 		Name: "id",
 		FromObject: func(b *L2AnnounceEntry) index.KeySet {
 			return index.NewKeySet(b.Key())
@@ -52,7 +52,7 @@ var (
 		Unique: true,
 	}
 
-	L2AnnounceOriginIndex = statedb2.Index[*L2AnnounceEntry, resource.Key]{
+	L2AnnounceOriginIndex = statedb.Index[*L2AnnounceEntry, resource.Key]{
 		Name: "origin",
 		FromObject: func(b *L2AnnounceEntry) index.KeySet {
 			return index.StringerSlice(b.Origins)
@@ -62,7 +62,7 @@ var (
 		},
 	}
 
-	L2AnnounceTableCell = statedb2.NewTableCell[*L2AnnounceEntry](
+	L2AnnounceTableCell = statedb.NewTableCell[*L2AnnounceEntry](
 		"l2-announce",
 		L2AnnounceIDIndex,
 		L2AnnounceOriginIndex,

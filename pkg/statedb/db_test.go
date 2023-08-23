@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package statedb2
+package statedb
 
 import (
 	"bytes"
@@ -19,7 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/statedb2/index"
+	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
 func TestMain(m *testing.M) {
@@ -629,5 +629,5 @@ func Test_callerPackage(t *testing.T) {
 	pkg := func() string {
 		return callerPackage()
 	}()
-	require.Equal(t, "pkg/statedb2", pkg)
+	require.Equal(t, "pkg/statedb", pkg)
 }

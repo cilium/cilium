@@ -7,14 +7,14 @@ import (
 	"fmt"
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/statedb2"
-	"github.com/cilium/cilium/pkg/statedb2/index"
+	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/index"
 
 	"golang.org/x/sys/unix"
 )
 
 var (
-	RouteIDIndex = statedb2.Index[*Route, RouteID]{
+	RouteIDIndex = statedb.Index[*Route, RouteID]{
 		Name: "id",
 		FromObject: func(r *Route) index.KeySet {
 			return index.NewKeySet(
@@ -31,7 +31,7 @@ var (
 		Unique: true,
 	}
 
-	RouteLinkIndex = statedb2.Index[*Route, int]{
+	RouteLinkIndex = statedb.Index[*Route, int]{
 		Name: "LinkIndex",
 		FromObject: func(r *Route) index.KeySet {
 			return index.NewKeySet(index.Int(r.LinkIndex))
@@ -41,7 +41,7 @@ var (
 		},
 	}
 
-	RouteTableCell = statedb2.NewTableCell[*Route](
+	RouteTableCell = statedb.NewTableCell[*Route](
 		"routes",
 		RouteIDIndex,
 		RouteLinkIndex,
@@ -82,7 +82,7 @@ func (r *Route) String() string {
 		r.Dst, r.Src, r.Table, r.LinkIndex)
 }
 
-func HasDefaultRoute(tbl statedb2.Table[*Route], rxn statedb2.ReadTxn, linkIndex int) bool {
+func HasDefaultRoute(tbl statedb.Table[*Route], rxn statedb.ReadTxn, linkIndex int) bool {
 	// Device has a default route when a route exists in the main table
 	// with a zero destination.
 	for _, prefix := range []netip.Prefix{zeroPrefixV4, zeroPrefixV6} {
