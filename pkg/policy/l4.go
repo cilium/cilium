@@ -488,7 +488,7 @@ type ChangeState struct {
 // 'p.PolicyMapState' using denyPreferredInsertWithChanges().
 // Keys and old values of any added or deleted entries are added to 'changes'.
 // The implementation of 'identities' is also in a locked state.
-func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, features policyFeatures, entryCb entryCallback, changes ChangeState) {
+func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, entryCb entryCallback, changes ChangeState) {
 	port := uint16(l4Filter.Port)
 	proto := uint8(l4Filter.U8Proto)
 
@@ -552,7 +552,7 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, f
 		if cs.IsWildcard() {
 			keyToAdd.Identity = 0
 			if entryCb(keyToAdd, &entry) {
-				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, identities, features, changes)
+				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
 
 				if port == 0 {
 					// Allow-all
@@ -582,18 +582,18 @@ func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, identities Identities, f
 		for _, id := range idents {
 			keyToAdd.Identity = id.Uint32()
 			if entryCb(keyToAdd, &entry) {
-				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, identities, features, changes)
+				p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
 				// If Cilium is in dual-stack mode then the "World" identity
 				// needs to be split into two identities to represent World
 				// IPv6 and IPv4 traffic distinctly from one another.
 				if id == identity.ReservedIdentityWorld && option.Config.IsDualStack() {
 					keyToAdd.Identity = identity.ReservedIdentityWorldIPv4.Uint32()
 					if entryCb(keyToAdd, &entry) {
-						p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, identities, features, changes)
+						p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
 					}
 					keyToAdd.Identity = identity.ReservedIdentityWorldIPv6.Uint32()
 					if entryCb(keyToAdd, &entry) {
-						p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, identities, features, changes)
+						p.PolicyMapState.denyPreferredInsertWithChanges(keyToAdd, entry, p.SelectorCache, features, changes)
 					}
 				}
 			}
