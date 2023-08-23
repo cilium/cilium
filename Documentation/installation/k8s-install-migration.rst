@@ -193,6 +193,34 @@ Preparation
         $ cilium install --helm-values values-migration.yaml --helm-auto-gen-values values-initial.yaml
         $ cat values-initial.yaml
 
+.. note::
+In case you are migrating from Calico you need to ensure that Calico doesn't use Cilium's interfaces during the migration.
+
+Calico has several modes of operation to decide which network interface to use by default on nodes that it manages. This is configured using the Tigera Operator's spec.calicoNetwork.nodeAddressAutodetectionV4 (and respectively nodeAddressAutodetectionV6 for IPv6) parameter.
+By default, it is set to ``firstFound: true``, which will use the first detected network interface on the node. Check this value with:
+
+.. code-block:: shell-session
+
+      kubectl get installations.operator.tigera.io default \
+  -o jsonpath='{.spec.calicoNetwork.nodeAddressAutodetectionV4}{"\n"}'
+
+When installing Cilium on the nodes, Cilium will create a new network interface called ``cilium_host``. If Calico decides to use it as its default interface, Calico node routing will start failing. For this reason, we want to make sure that Calico ignores the ``cilium_host`` interface. 
+Depending on your Tigera Operator settings (for example if you use the interface or skipInterface options), you might want to adjust the parameters to ensure ``cilium_host`` is not considered. 
+We can set ``firstFound`` to ``false`` and use ``kubernetes: NodeInternalIP`` instead, so Calico uses the node's internal IP as its main interface. 
+
+We can Patch the Tigera Operator's configuration with:
+
+.. code-block:: shell-session
+
+     kubectl patch installations.operator.tigera.io default --type=merge \
+  --patch '{"spec": {"calicoNetwork": {"nodeAddressAutodetectionV4": {"firstFound": false, "kubernetes": "NodeInternalIP"}}}}'
+
+Just to make sure that the values have taken effect we can check the value again:
+
+.. code-block:: shell-session
+
+     kubectl get installations.operator.tigera.io default \
+  -o jsonpath='{.spec.calicoNetwork.nodeAddressAutodetectionV4}{"\n"}'
 
 5.  Install cilium using :ref:`helm <k8s_install_helm>`.
 
