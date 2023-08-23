@@ -41,9 +41,7 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 			params.Namespace = namespace
 
 			cmd.Flags().Visit(func(f *pflag.Flag) {
-				if f.Name == "kube-proxy-replacement" {
-					params.UserSetKubeProxyReplacement = true
-				} else if f.Name == "helm-set" && strings.Contains(f.Value.String(), "kubeProxyReplacement") {
+				if f.Name == "helm-set" && strings.Contains(f.Value.String(), "kubeProxyReplacement") {
 					params.UserSetKubeProxyReplacement = true
 				}
 			})
@@ -75,9 +73,6 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	cmd.Flags().IntVar(&params.ClusterID, "cluster-id", 0, "Unique cluster identifier for multi-cluster")
 	cmd.Flags().MarkDeprecated("cluster-id", "This can now be overridden via `helm-set` (Helm value: `cluster.id`).")
 	cmd.Flags().StringVar(&params.InheritCA, "inherit-ca", "", "Inherit/import CA from another cluster")
-	// It can be deprecated since we have a helm option for it
-	cmd.Flags().StringVar(&params.KubeProxyReplacement, "kube-proxy-replacement", "disabled", "Enable/disable kube-proxy replacement { disabled | partial | strict }")
-	cmd.Flags().MarkDeprecated("kube-proxy-replacement", "This can now be overridden via `helm-set` (Helm value: `kubeProxyReplacement`).")
 	cmd.Flags().BoolVar(&params.RestartUnmanagedPods, "restart-unmanaged-pods", true, "Restart pods which are not being managed by Cilium")
 	cmd.Flags().StringVar(&params.Encryption, "encryption", "disabled", "Enable encryption of all workloads traffic { disabled | ipsec | wireguard }")
 	// It can be deprecated since we have a helm option for it
