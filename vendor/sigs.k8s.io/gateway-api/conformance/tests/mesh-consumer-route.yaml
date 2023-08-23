@@ -5,7 +5,8 @@ metadata:
   namespace: gateway-conformance-mesh-consumer
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: echo-v1
     namespace: gateway-conformance-mesh
   rules:

@@ -201,8 +201,10 @@ type CommonRouteSpec struct {
 	//
 	// +optional
 	// +kubebuilder:validation:MaxItems=32
-	// <gateway:standard:validation:XValidation:message="sectionName must be unique when parentRefs includes 2 or more references to the same parent",rule="self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind == p2.kind && ((!has(p1.__namespace__) && !has(p2.__namespace__)) || (!has(p1.__namespace__) && p2.__namespace__ == '') || (p1.__namespace__ == '' && !has(p2.__namespace__)) || (p1.__namespace__ == p2.__namespace__)) && p1.name == p2.name && ((!has(p1.sectionName) && !has(p2.sectionName)) || (!has(p1.sectionName) && p2.sectionName == '') || (p1.sectionName == '' && !has(p2.sectionName)) || (p1.sectionName == p2.sectionName))))">
-	// <gateway:experimental:validation:XValidation:message="sectionName or port must be unique when parentRefs includes 2 or more references to the same parent",rule="self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind == p2.kind && ((!has(p1.__namespace__) && !has(p2.__namespace__)) || (!has(p1.__namespace__) && p2.__namespace__ == '') || (p1.__namespace__ == '' && !has(p2.__namespace__)) || (p1.__namespace__ == p2.__namespace__)) && p1.name == p2.name && ((!has(p1.sectionName) && !has(p2.sectionName)) || (!has(p1.sectionName) && p2.sectionName == '') || (p1.sectionName == '' && !has(p2.sectionName)) || (p1.sectionName == p2.sectionName)) && ((!has(p1.port) && !has(p2.port)) || (!has(p1.port) && p2.port == 0) || (p1.port == 0 && !has(p2.port)) || (p1.port == p2.port))))">
+	// <gateway:standard:validation:XValidation:message="sectionName must be specified when parentRefs includes 2 or more references to the same parent",rule="self.all(p1, self.all(p2, p1.group == p2.group && p1.kind == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__) || p1.__namespace__ == '') && (!has(p2.__namespace__) || p2.__namespace__ == '')) || (has(p1.__namespace__) && has(p2.__namespace__) && p1.__namespace__ == p2.__namespace__ )) ? (((!has(p1.sectionName) || p1.sectionName == '') && (!has(p2.sectionName) || p2.sectionName == '')) || (has(p1.sectionName) && p1.sectionName != '' && has(p2.sectionName) && p2.sectionName != '')) : true))">
+	// <gateway:standard:validation:XValidation:message="sectionName must be unique when parentRefs includes 2 or more references to the same parent",rule="self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__) || p1.__namespace__ == '') && (!has(p2.__namespace__) || p2.__namespace__ == '')) || (has(p1.__namespace__) && has(p2.__namespace__) && p1.__namespace__ == p2.__namespace__ )) && (((!has(p1.sectionName) || p1.sectionName == '') && (!has(p2.sectionName) || p2.sectionName == '')) || (has(p1.sectionName) && has(p2.sectionName) && p1.sectionName == p2.sectionName))))">
+	// <gateway:experimental:validation:XValidation:message="sectionName or port must be specified when parentRefs includes 2 or more references to the same parent",rule="self.all(p1, self.all(p2, p1.group == p2.group && p1.kind == p2.kind && p1.name == p2.name && ( ( (!has(p1.__namespace__) || p1.__namespace__ == '') && (!has(p2.__namespace__) || p2.__namespace__ == '') ) || ( has(p1.__namespace__) && has(p2.__namespace__) && p1.__namespace__ == p2.__namespace__ ) ) ? ( ( ( (!has(p1.sectionName) || p1.sectionName == '') && (!has(p2.sectionName) || p2.sectionName == '') && (!has(p1.port) || p1.port == 0) && (!has(p2.port) || p2.port == 0) ) || ( ( (has(p1.sectionName) && p1.sectionName != '') || (has(p1.port) && p1.port != 0) ) && ( (has(p2.sectionName) && p2.sectionName != '') || (has(p2.port) && p2.port != 0) ) ) ) ): true ))">
+	// <gateway:experimental:validation:XValidation:message="sectionName or port must be unique when parentRefs includes 2 or more references to the same parent",rule="self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__) || p1.__namespace__ == '') && (!has(p2.__namespace__) || p2.__namespace__ == '')) || (has(p1.__namespace__) && has(p2.__namespace__) && p1.__namespace__ == p2.__namespace__ )) && (((!has(p1.sectionName) || p1.sectionName == '') && (!has(p2.sectionName) || p2.sectionName == '')) || ( has(p1.sectionName) && has(p2.sectionName) && p1.sectionName == p2.sectionName)) && (((!has(p1.port) || p1.port == 0) && (!has(p2.port) || p2.port == 0)) || (has(p1.port) && has(p2.port) && p1.port == p2.port))))">
 	ParentRefs []ParentReference `json:"parentRefs,omitempty"`
 }
 
@@ -607,6 +609,12 @@ type AddressType string
 // +kubebuilder:validation:Pattern=`^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$`
 // +k8s:deepcopy-gen=false
 type HeaderName string
+
+// Duration is a string value representing a duration in time. The format is as specified
+// in GEP-2257, a strict subset of the syntax parsed by Golang time.ParseDuration.
+//
+// +kubebuilder:validation:Pattern=`^([0-9]{1,5}(h|m|s|ms)){1,4}$`
+type Duration string
 
 const (
 	// A textual representation of a numeric IP address. IPv4

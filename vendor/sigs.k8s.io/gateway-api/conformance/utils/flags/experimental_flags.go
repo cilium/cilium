@@ -1,6 +1,3 @@
-//go:build experimental
-// +build experimental
-
 /*
 Copyright 2023 The Kubernetes Authors.
 
@@ -27,7 +24,7 @@ import "flag"
 var (
 	ImplementationOrganization = flag.String("organization", "", "Implementation's Organization to issue conformance to")
 	ImplementationProject      = flag.String("project", "", "Implementation's project to issue conformance to")
-	ImplementationUrl          = flag.String("url", "", "Implementation's url to issue conformance to")
+	ImplementationURL          = flag.String("url", "", "Implementation's url to issue conformance to")
 	ImplementationVersion      = flag.String("version", "", "Implementation's version to issue conformance to")
 	ImplementationContact      = flag.String("contact", "", "Comma-separated list of contact information for the maintainers")
 	ConformanceProfiles        = flag.String("conformance-profiles", "", "Comma-separated list of the conformance profiles to run")

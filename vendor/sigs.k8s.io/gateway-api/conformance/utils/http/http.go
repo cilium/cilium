@@ -52,8 +52,8 @@ type ExpectedResponse struct {
 	Backend   string
 	Namespace string
 
-	// MirroredTo is the destination pod of the mirrored request.
-	MirroredTo string
+	// MirroredTo is the destination BackendRefs of the mirrored request.
+	MirroredTo []BackendRef
 
 	// User Given TestCase name
 	TestCaseName string
@@ -87,6 +87,11 @@ type Response struct {
 	AbsentHeaders []string
 }
 
+type BackendRef struct {
+	Name      string
+	Namespace string
+}
+
 // MakeRequestAndExpectEventuallyConsistentResponse makes a request with the given parameters,
 // understanding that the request may fail for some amount of time.
 //
@@ -112,7 +117,7 @@ func MakeRequest(t *testing.T, expected *ExpectedResponse, gwAddr, protocol, sch
 	}
 
 	path, query, _ := strings.Cut(expected.Request.Path, "?")
-	reqURL := url.URL{Scheme: scheme, Host: calculateHost(gwAddr, scheme), Path: path, RawQuery: query}
+	reqURL := url.URL{Scheme: scheme, Host: CalculateHost(t, gwAddr, scheme), Path: path, RawQuery: query}
 
 	t.Logf("Making %s request to %s", expected.Request.Method, reqURL.String())
 
@@ -140,14 +145,21 @@ func MakeRequest(t *testing.T, expected *ExpectedResponse, gwAddr, protocol, sch
 	return req
 }
 
-// calculateHost will calculate the Host header as per [HTTP spec]. To
+// CalculateHost will calculate the Host header as per [HTTP spec]. To
 // summarize, host will not include any port if it is implied from the scheme. In
 // case of any error, the input gwAddr will be returned as the default.
 //
 // [HTTP spec]: https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.23
-func calculateHost(gwAddr, scheme string) string {
-	host, port, err := net.SplitHostPort(gwAddr)
+func CalculateHost(t *testing.T, gwAddr, scheme string) string {
+	host, port, err := net.SplitHostPort(gwAddr) // note: this will strip brackets of an IPv6 address
+	if err != nil && strings.Contains(err.Error(), "too many colons in address") {
+		// This is an IPv6 address; assume it's valid ipv6
+		// Assume caller won't add a port without brackets
+		gwAddr = "[" + gwAddr + "]"
+		host, port, err = net.SplitHostPort(gwAddr)
+	}
 	if err != nil {
+		t.Logf("Failed to parse host %q: %v", gwAddr, err)
 		return gwAddr
 	}
 	if strings.ToLower(scheme) == "http" && port == "80" {

@@ -33,6 +33,7 @@ var MeshFrontendHostname = suite.ConformanceTest{
 	Description: "Mesh parentRef matches Service IP (not Host)",
 	Features: []suite.SupportedFeature{
 		suite.SupportMesh,
+		suite.SupportHTTPResponseHeaderModification,
 	},
 	Manifests: []string{"tests/mesh-frontend.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {

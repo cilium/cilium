@@ -5,7 +5,6 @@ linters:
     - asciicheck
     - bidichk
     - bodyclose
-    - depguard
     - dogsled
     - dupl
     - errcheck
@@ -13,6 +12,7 @@ linters:
     - errorlint
     - exhaustive
     - exportloopref
+    - ginkgolinter
     - goconst
     - gocritic
     - gocyclo
@@ -62,10 +62,6 @@ linters-settings:
     go: "1.20"
   stylecheck:
     go: "1.20"
-  depguard:
-    include-go-root: true
-    packages:
-      - io/ioutil # https://go.dev/doc/go1.16#ioutil
   revive:
     rules:
       # The following rules are recommended https://github.com/mgechev/revive#recommended-configuration

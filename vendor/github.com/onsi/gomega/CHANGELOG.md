@@ -1,3 +1,30 @@
+## 1.27.10
+
+### Fixes
+- fix: go 1.21 adding goroutine ID to creator+location (#685) [bdc7803]
+
+## 1.27.9
+
+### Fixes
+- Prevent nil-dereference in format.Object for boxed nil error (#681) [3b31fc3]
+
+### Maintenance
+- Bump golang.org/x/net from 0.11.0 to 0.12.0 (#679) [360849b]
+- chore: use String() instead of fmt.Sprintf (#678) [86f3659]
+- Bump golang.org/x/net from 0.10.0 to 0.11.0 (#674) [642ead0]
+- chore: unnecessary use of fmt.Sprintf (#677) [ceb9ca6]
+- Bump github.com/onsi/ginkgo/v2 from 2.10.0 to 2.11.0 (#675) [a2087d8]
+- docs: fix ContainSubstring references (#673) [fc9a89f]
+- Bump github.com/onsi/ginkgo/v2 from 2.9.7 to 2.10.0 (#671) [9076019]
+
+## 1.27.8
+
+### Fixes
+- HaveExactElement should not call FailureMessage if a submatcher returned an error [096f392]
+
+### Maintenance
+- Bump github.com/onsi/ginkgo/v2 from 2.9.5 to 2.9.7 (#669) [8884bee]
+
 ## 1.27.7
 
 ### Fixes

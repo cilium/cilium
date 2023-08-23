@@ -20,7 +20,7 @@ Package fake provides a fake client for testing.
 A fake client is backed by its simple object store indexed by GroupVersionResource.
 You can create a fake client with optional objects.
 
-	client := NewFakeClientWithScheme(scheme, initObjs...) // initObjs is a slice of runtime.Object
+	client := NewClientBuilder().WithScheme(scheme).WithObj(initObjs...).Build()
 
 You can invoke the methods defined in the Client interface.
 

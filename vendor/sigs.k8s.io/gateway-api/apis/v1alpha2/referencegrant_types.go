@@ -48,8 +48,6 @@ import (
 // support ReferenceGrant MUST NOT permit cross-namespace references which have
 // no grant, and MUST respond to the removal of a grant by revoking the access
 // that the grant allowed.
-//
-// Support: Core
 type ReferenceGrant v1beta1.ReferenceGrant
 
 // +kubebuilder:object:root=true

@@ -188,6 +188,9 @@ func (l *delegatingLogSink) WithValues(tags ...interface{}) logr.LogSink {
 // provided, instead of the temporary initial one, if this method
 // has not been previously called.
 func (l *delegatingLogSink) Fulfill(actual logr.LogSink) {
+	if actual == nil {
+		actual = NullLogSink{}
+	}
 	if l.promise != nil {
 		l.promise.Fulfill(actual)
 	}

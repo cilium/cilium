@@ -71,6 +71,7 @@ func (d *Decoder) DecodeRaw(rawObj runtime.RawExtension, into runtime.Object) er
 			return err
 		}
 		unstructuredInto.SetUnstructuredContent(object)
+		return nil
 	}
 
 	deserializer := d.codecs.UniversalDeserializer()

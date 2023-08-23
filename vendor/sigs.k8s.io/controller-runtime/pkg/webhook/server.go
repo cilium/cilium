@@ -77,37 +77,33 @@ type Options struct {
 	// It will be defaulted to 9443 if unspecified.
 	Port int
 
-	// CertDir is the directory that contains the server key and certificate. The
-	// server key and certificate.
+	// CertDir is the directory that contains the server key and certificate. Defaults to
+	// <temp-dir>/k8s-webhook-server/serving-certs.
 	CertDir string
 
 	// CertName is the server certificate name. Defaults to tls.crt.
 	//
-	// Note: This option should only be set when TLSOpts does not override GetCertificate.
+	// Note: This option is only used when TLSOpts does not set GetCertificate.
 	CertName string
 
 	// KeyName is the server key name. Defaults to tls.key.
 	//
-	// Note: This option should only be set when TLSOpts does not override GetCertificate.
+	// Note: This option is only used when TLSOpts does not set GetCertificate.
 	KeyName string
 
 	// ClientCAName is the CA certificate name which server used to verify remote(client)'s certificate.
 	// Defaults to "", which means server does not verify client's certificate.
 	ClientCAName string
 
-	// TLSVersion is the minimum version of TLS supported. Accepts
-	// "", "1.0", "1.1", "1.2" and "1.3" only ("" is equivalent to "1.0" for backwards compatibility)
-	// Deprecated: Use TLSOpts instead.
-	TLSMinVersion string
-
-	// TLSOpts is used to allow configuring the TLS config used for the server
+	// TLSOpts is used to allow configuring the TLS config used for the server.
+	// This also allows providing a certificate via GetCertificate.
 	TLSOpts []func(*tls.Config)
 
 	// WebhookMux is the multiplexer that handles different webhooks.
 	WebhookMux *http.ServeMux
 }
 
-// NewServer constructs a new Server from the provided options.
+// NewServer constructs a new webhook.Server from the provided options.
 func NewServer(o Options) Server {
 	return &DefaultServer{
 		Options: o,
@@ -187,42 +183,15 @@ func (s *DefaultServer) Register(path string, hook http.Handler) {
 	regLog.Info("Registering webhook")
 }
 
-// tlsVersion converts from human-readable TLS version (for example "1.1")
-// to the values accepted by tls.Config (for example 0x301).
-func tlsVersion(version string) (uint16, error) {
-	switch version {
-	// default is previous behaviour
-	case "":
-		return tls.VersionTLS10, nil
-	case "1.0":
-		return tls.VersionTLS10, nil
-	case "1.1":
-		return tls.VersionTLS11, nil
-	case "1.2":
-		return tls.VersionTLS12, nil
-	case "1.3":
-		return tls.VersionTLS13, nil
-	default:
-		return 0, fmt.Errorf("invalid TLSMinVersion %v: expects 1.0, 1.1, 1.2, 1.3 or empty", version)
-	}
-}
-
 // Start runs the server.
 // It will install the webhook related resources depend on the server configuration.
 func (s *DefaultServer) Start(ctx context.Context) error {
 	s.defaultingOnce.Do(s.setDefaults)
 
-	baseHookLog := log.WithName("webhooks")
-	baseHookLog.Info("Starting webhook server")
-
-	tlsMinVersion, err := tlsVersion(s.Options.TLSMinVersion)
-	if err != nil {
-		return err
-	}
+	log.Info("Starting webhook server")
 
 	cfg := &tls.Config{ //nolint:gosec
 		NextProtos: []string{"h2"},
-		MinVersion: tlsMinVersion,
 	}
 	// fallback TLS config ready, will now mutate if passer wants full control over it
 	for _, op := range s.Options.TLSOpts {

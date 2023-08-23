@@ -19,6 +19,7 @@ package http
 import (
 	"fmt"
 	"regexp"
+	"sync"
 	"testing"
 	"time"
 
@@ -29,31 +30,44 @@ import (
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 )
 
-func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clientset.Interface, ns, mirrorPod, path string) {
-	if mirrorPod == "" {
-		t.Fatalf("MirroredTo wasn't provided in the testcase, this test should only check http request mirror.")
+func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clientset.Interface, mirrorPods []BackendRef, path string) {
+	for i, mirrorPod := range mirrorPods {
+		if mirrorPod.Name == "" {
+			t.Fatalf("Mirrored BackendRef[%d].Name wasn't provided in the testcase, this test should only check http request mirror.", i)
+		}
 	}
 
-	require.Eventually(t, func() bool {
-		var mirrored bool
-		mirrorLogRegexp := regexp.MustCompile(fmt.Sprintf("Echoing back request made to \\%s to client", path))
+	var wg sync.WaitGroup
+	wg.Add(len(mirrorPods))
 
-		t.Log("Searching for the mirrored request log")
-		t.Logf("Reading \"%s/%s\" logs", ns, mirrorPod)
-		logs, err := kubernetes.DumpEchoLogs(ns, mirrorPod, client, clientset)
-		if err != nil {
-			t.Logf("could not read \"%s/%s\" logs: %v", ns, mirrorPod, err)
-			return false
-		}
+	for _, mirrorPod := range mirrorPods {
+		go func(mirrorPod BackendRef) {
+			defer wg.Done()
 
-		for _, log := range logs {
-			if mirrorLogRegexp.MatchString(string(log)) {
-				mirrored = true
-				break
-			}
-		}
-		return mirrored
-	}, 60*time.Second, time.Second, "Mirrored request log wasn't found")
+			require.Eventually(t, func() bool {
+				var mirrored bool
+				mirrorLogRegexp := regexp.MustCompile(fmt.Sprintf("Echoing back request made to \\%s to client", path))
 
-	t.Log("Mirrored request log found")
+				t.Log("Searching for the mirrored request log")
+				t.Logf(`Reading "%s/%s" logs`, mirrorPod.Namespace, mirrorPod.Name)
+				logs, err := kubernetes.DumpEchoLogs(mirrorPod.Namespace, mirrorPod.Name, client, clientset)
+				if err != nil {
+					t.Logf(`Couldn't read "%s/%s" logs: %v`, mirrorPod.Namespace, mirrorPod.Name, err)
+					return false
+				}
+
+				for _, log := range logs {
+					if mirrorLogRegexp.MatchString(string(log)) {
+						mirrored = true
+						break
+					}
+				}
+				return mirrored
+			}, 60*time.Second, time.Second, fmt.Sprintf(`Couldn't find mirrored request in "%s/%s" logs`, mirrorPod.Namespace, mirrorPod.Name))
+		}(mirrorPod)
+	}
+
+	wg.Wait()
+
+	t.Log("Found mirrored request log in all desired backends")
 }

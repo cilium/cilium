@@ -239,6 +239,34 @@ func NamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig config.T
 	require.NoErrorf(t, waitErr, "error waiting for %s namespaces to be ready", strings.Join(namespaces, ", "))
 }
 
+// MeshNamespacesMustBeReady waits until all Pods are marked Ready. This is
+// intended to be used for mesh tests and does not require any Gateways to
+// exist. This will cause the test to halt if the specified timeout is exceeded.
+func MeshNamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig config.TimeoutConfig, namespaces []string) {
+	t.Helper()
+
+	waitErr := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, timeoutConfig.NamespacesMustBeReady, true, func(ctx context.Context) (bool, error) {
+		for _, ns := range namespaces {
+			podList := &v1.PodList{}
+			err := c.List(ctx, podList, client.InNamespace(ns))
+			if err != nil {
+				t.Errorf("Error listing Pods: %v", err)
+			}
+			for _, pod := range podList.Items {
+				if !findPodConditionInList(t, pod.Status.Conditions, "Ready", "True") &&
+					pod.Status.Phase != v1.PodSucceeded &&
+					pod.DeletionTimestamp == nil {
+					t.Logf("%s/%s Pod not ready yet", ns, pod.Name)
+					return false, nil
+				}
+			}
+		}
+		t.Logf("Pods in %s namespaces ready", strings.Join(namespaces, ", "))
+		return true, nil
+	})
+	require.NoErrorf(t, waitErr, "error waiting for %s namespaces to be ready", strings.Join(namespaces, ", "))
+}
+
 // GatewayAndHTTPRoutesMustBeAccepted waits until the specified Gateway has an IP
 // address assigned to it and the Route has a ParentRef referring to the
 // Gateway. The test will fail if these conditions are not met before the

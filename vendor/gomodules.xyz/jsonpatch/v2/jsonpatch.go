@@ -1,6 +1,7 @@
 package jsonpatch
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -64,6 +65,9 @@ func NewOperation(op, path string, value interface{}) Operation {
 //
 // An error will be returned if any of the two documents are invalid.
 func CreatePatch(a, b []byte) ([]Operation, error) {
+	if bytes.Equal(a, b) {
+		return []Operation{}, nil
+	}
 	var aI interface{}
 	var bI interface{}
 	err := json.Unmarshal(a, &aI)
