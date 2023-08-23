@@ -27,8 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
-	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
@@ -196,24 +194,6 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	return err
 }
 
-// policyIdentitiesLabelLookup is an implementation of the policy.Identites interface.
-type policyIdentitiesLabelLookup struct {
-	*Endpoint
-}
-
-// GetLabels implements the policy.Identites interface{} method GetLabels,
-// which allows Endpoint.addNewRedirectsFromDesiredPolicy to call `l4.ToMapState`
-// with a label cache. This enables `l4.ToMapstate` to look up CIDRs associated with
-// identites to make a final determination about whether they should even be inserted into
-// an Endpoint's policy map.
-func (p *policyIdentitiesLabelLookup) GetLabels(id identity.NumericIdentity) labels.LabelArray {
-	ident := p.allocator.LookupIdentityByID(context.Background(), id)
-	if ident != nil {
-		return ident.LabelArray
-	}
-	return nil
-}
-
 // addNewRedirectsFromDesiredPolicy must be called while holding the endpoint lock for
 // writing. On success, returns nil; otherwise, returns an error indicating the
 // problem that occurred while adding an l7 redirect for the specified policy.
@@ -239,6 +219,8 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 
 	adds := make(policy.Keys)
 	old := make(policy.MapState)
+
+	selectorCache := e.desiredPolicy.SelectorCache
 
 	for _, l4 := range m {
 		// Deny policies do not support redirects
@@ -320,13 +302,12 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				direction = trafficdirection.Egress
 			}
 
-			idLookup := &policyIdentitiesLabelLookup{e}
-			keysFromFilter := l4.ToMapState(e, direction, idLookup)
+			keysFromFilter := l4.ToMapState(e, direction, selectorCache)
 			for keyFromFilter, entry := range keysFromFilter {
 				if entry.IsRedirectEntry() {
 					entry.ProxyPort = redirectPort
 				}
-				e.desiredPolicy.PolicyMapState.DenyPreferredInsertWithChanges(keyFromFilter, entry, adds, nil, old, idLookup)
+				e.desiredPolicy.PolicyMapState.DenyPreferredInsertWithChanges(keyFromFilter, entry, adds, nil, old, selectorCache)
 			}
 		}
 	}
