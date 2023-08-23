@@ -19,6 +19,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
@@ -87,6 +88,7 @@ import (
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
+	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/service"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/source"
@@ -312,7 +314,7 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 // that the most up-to-date information has been retrieved. At this point, the
 // daemon is aware of all the necessary information to restore the appropriate
 // IP.
-func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
+func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) error {
 	var (
 		cidrs  []*cidr.CIDR
 		fromFS net.IP
@@ -343,12 +345,7 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 	}
 
 	restoredIP := node.RestoreHostIPs(ipv6, fromK8s, fromFS, cidrs)
-	if err := removeOldRouterState(ipv6, restoredIP); err != nil {
-		log.WithError(err).Warnf(
-			"Failed to remove old router IPs (restored IP: %s) from cilium_host. Manual intervention is required to remove all other old IPs.",
-			restoredIP,
-		)
-	}
+	return removeOldRouterState(ipv6, restoredIP)
 }
 
 // removeOldRouterState will try to ensure that the only IP assigned to the
@@ -356,12 +353,13 @@ func (d *Daemon) restoreCiliumHostIPs(ipv6 bool, fromK8s net.IP) {
 // then it attempts to clear all IPs from the interface.
 func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 	l, err := netlink.LinkByName(defaults.HostDevice)
-	if errors.As(err, &netlink.LinkNotFoundError{}) && restoredIP == nil {
-		// There's no old state remove as the host device doesn't exist and
-		// there's no restored IP anyway.
-		return nil
-	} else if err != nil {
-		return err
+	if err != nil {
+		if errors.As(err, &netlink.LinkNotFoundError{}) && restoredIP == nil {
+			// There's no old state remove as the host device doesn't exist and
+			// there's no restored IP anyway.
+			return nil
+		}
+		return resiliency.NewRetryableErrWithTag(err, resiliency.ResUnavailable)
 	}
 
 	family := netlink.FAMILY_V4
@@ -370,7 +368,7 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 	}
 	addrs, err := netlink.AddrList(l, family)
 	if err != nil {
-		return err
+		return resiliency.NewRetryableErrWithTag(err, resiliency.ResExt)
 	}
 
 	isRestoredIP := func(a netlink.Addr) bool {
@@ -382,20 +380,17 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 
 	log.Info("More than one stale router IP was found on the cilium_host device after restoration, cleaning up old router IPs.")
 
-	var errs []error
 	for _, a := range addrs {
 		if isRestoredIP(a) {
 			continue
 		}
 		if err := netlink.AddrDel(l, &a); err != nil {
-			errs = append(errs, fmt.Errorf("failed to remove IP %s: %w", a.IP, err))
+			e := fmt.Errorf("failed to remove IP %s: %w", a.IP, err)
+			err = errors.Join(err, resiliency.NewRetryableErrWithTag(e, resiliency.ResExt))
 		}
 	}
-	if len(errs) > 0 {
-		return fmt.Errorf("failed to remove all old router IPs: %v", errs)
-	}
 
-	return nil
+	return err
 }
 
 // newDaemon creates and returns a new Daemon with the parameters set in c.
@@ -1065,13 +1060,30 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// router IPs from the K8s resources if we weren't able to restore them
 	// from the fs. We must do this after IPAM because we must wait until the
 	// K8s resources have been synced. Part 2/2 of restoration.
-	if option.Config.EnableIPv4 {
-		d.restoreCiliumHostIPs(false, router4FromK8s)
-	}
+	ipv6, router := false, router4FromK8s
 	if option.Config.EnableIPv6 {
-		d.restoreCiliumHostIPs(true, router6FromK8s)
+		ipv6, router = true, router6FromK8s
 	}
 
+	bo := wait.Backoff{
+		Duration: 500 * time.Millisecond,
+		Factor:   1,
+		Jitter:   0.1,
+		Steps:    3,
+	}
+	err = wait.ExponentialBackoffWithContext(ctx, bo, func(ctx context.Context) (done bool, err error) {
+		if err = d.restoreCiliumHostIPs(ipv6, router); err != nil {
+			if resiliency.IsRetryable(err) {
+				log.WithError(err).Warnf("Failed to remove old router IPs from cilium_host. Retrying...")
+				return false, err
+			}
+			return true, err
+		}
+		return true, nil
+	})
+	if err != nil {
+		log.WithError(err).Error("Restore host ips failed. Manual intervention is required to remove all other old IPs.")
+	}
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.
