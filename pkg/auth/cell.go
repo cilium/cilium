@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/auth/spire"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
@@ -83,6 +84,7 @@ type authManagerParams struct {
 	NodeIDHandler   types.NodeIDHandler
 	IdentityChanges stream.Observable[cache.IdentityChange]
 	NodeManager     nodeManager.NodeManager
+	EndpointManager endpointmanager.EndpointManager
 	PolicyRepo      *policy.Repository
 }
 
@@ -102,7 +104,7 @@ func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 		return nil, fmt.Errorf("failed to create auth manager: %w", err)
 	}
 
-	mapGC := newAuthMapGC(params.Logger, mapCache, params.NodeIDHandler, params.PolicyRepo)
+	mapGC := newAuthMapGC(params.Logger, mapCache, params.NodeIDHandler, params.PolicyRepo, params.EndpointManager)
 
 	// Register auth components to lifecycle hooks & jobs
 
@@ -125,7 +127,7 @@ func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 		return nil, fmt.Errorf("failed to register signal authentication job: %w", err)
 	}
 	registerReAuthenticationJob(jobGroup, mgr, params.AuthHandlers)
-	registerGCJobs(jobGroup, params.Lifecycle, mapGC, params.Config, params.NodeManager, params.IdentityChanges)
+	registerGCJobs(jobGroup, params.Lifecycle, mapGC, params.Config, params.NodeManager, params.EndpointManager, params.IdentityChanges)
 
 	params.Lifecycle.Append(jobGroup)
 
@@ -154,14 +156,16 @@ func registerSignalAuthenticationJob(jobGroup job.Group, mgr *AuthManager, sm si
 	return nil
 }
 
-func registerGCJobs(jobGroup job.Group, lifecycle hive.Lifecycle, mapGC *authMapGarbageCollector, cfg config, nodeManager nodeManager.NodeManager, identityChanges stream.Observable[cache.IdentityChange]) {
+func registerGCJobs(jobGroup job.Group, lifecycle hive.Lifecycle, mapGC *authMapGarbageCollector, cfg config, nodeManager nodeManager.NodeManager, endpointManager endpointmanager.EndpointManager, identityChanges stream.Observable[cache.IdentityChange]) {
 	lifecycle.Append(hive.Hook{
 		OnStart: func(hookContext hive.HookContext) error {
 			mapGC.subscribeToNodeEvents(nodeManager)
+			mapGC.subscribeToEndpointEvents(endpointManager)
 			return nil
 		},
 		OnStop: func(hookContext hive.HookContext) error {
 			nodeManager.Unsubscribe(mapGC)
+			endpointManager.Unsubscribe(mapGC)
 			return nil
 		},
 	})
