@@ -53,10 +53,10 @@ Manual Verification of Setup
  #. Validate that required TLS secrets are setup properly. By default, the below
     TLS secrets must be available in cilium installed namespace
 
-    * clustermesh-apiserver-admin-certs, which is used by etcd container in clustermesh-apiserver deployment.
+    * clustermesh-apiserver-admin-cert, which is used by etcd container in clustermesh-apiserver deployment.
       Not applicable if external etcd cluster is used.
 
-    * clustermesh-apiserver-client-certs, which is used by apiserver container in clustermesh-apiserver deployment
+    * clustermesh-apiserver-client-cert, which is used by apiserver container in clustermesh-apiserver deployment
       to establish connection to etcd cluster (either internal or external).
 
     * cilium-ca, which is CA used to generate the above two certs.
