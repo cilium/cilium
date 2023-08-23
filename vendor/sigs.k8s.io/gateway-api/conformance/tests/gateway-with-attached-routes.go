@@ -28,7 +28,7 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, GatewayWithAttachedRoutes)
+	ConformanceTests = append(ConformanceTests, GatewayWithAttachedRoutes, GatewayWithAttachedRoutesWithPort8080)
 }
 
 var GatewayWithAttachedRoutes = suite.ConformanceTest{
@@ -76,7 +76,18 @@ var GatewayWithAttachedRoutes = suite.ConformanceTest{
 
 			kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, gwNN, listeners)
 		})
+	},
+}
 
+var GatewayWithAttachedRoutesWithPort8080 = suite.ConformanceTest{
+	ShortName:   "GatewayWithAttachedRoutesWithPort8080",
+	Description: "A Gateway in the gateway-conformance-infra namespace should be attached to routes.",
+	Features: []suite.SupportedFeature{
+		suite.SupportGateway,
+		suite.SupportGatewayPort8080,
+	},
+	Manifests: []string{"tests/gateway-with-attached-routes-with-port-8080.yaml"},
+	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		t.Run("Gateway listener should have attached route by specifying the sectionName", func(t *testing.T) {
 			gwNN := types.NamespacedName{Name: "gateway-with-two-listeners-and-one-attached-route", Namespace: "gateway-conformance-infra"}
 			listeners := []v1beta1.ListenerStatus{

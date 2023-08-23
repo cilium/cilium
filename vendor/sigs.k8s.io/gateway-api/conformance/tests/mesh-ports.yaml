@@ -5,7 +5,8 @@ metadata:
   namespace: gateway-conformance-mesh
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: echo-v1
     port: 80
   rules:
@@ -26,7 +27,8 @@ metadata:
   namespace: gateway-conformance-mesh
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: echo-v2
   rules:
   - filters:

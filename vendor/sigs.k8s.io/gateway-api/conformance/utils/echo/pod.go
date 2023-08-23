@@ -56,12 +56,12 @@ const (
 func (m *MeshPod) MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T, exp http.ExpectedResponse, timeoutConfig config.TimeoutConfig) {
 	t.Helper()
 
-	req := makeRequest(exp.Request)
-
 	http.AwaitConvergence(t, timeoutConfig.RequiredConsecutiveSuccesses, timeoutConfig.MaxTimeToConsistency, func(elapsed time.Duration) bool {
-		resp, err := m.request(makeRequest(exp.Request))
+		req := makeRequest(t, exp.Request)
+
+		resp, err := m.request(req)
 		if err != nil {
-			t.Logf("Request failed, not ready yet: %v (after %v)", err.Error(), elapsed)
+			t.Logf("Request %v failed, not ready yet: %v (after %v)", req, err.Error(), elapsed)
 			return false
 		}
 		t.Logf("Got resp %v", resp)
@@ -75,12 +75,13 @@ func (m *MeshPod) MakeRequestAndExpectEventuallyConsistentResponse(t *testing.T,
 	t.Logf("Request passed")
 }
 
-func makeRequest(r http.Request) []string {
+func makeRequest(t *testing.T, r http.Request) []string {
 	protocol := strings.ToLower(r.Protocol)
 	if protocol == "" {
 		protocol = "http"
 	}
-	args := []string{"client", fmt.Sprintf("%s://%s%s", protocol, r.Host, r.Path)}
+	host := http.CalculateHost(t, r.Host, protocol)
+	args := []string{"client", fmt.Sprintf("%s://%s%s", protocol, host, r.Path)}
 	if r.Method != "" {
 		args = append(args, "--method="+r.Method)
 	}

@@ -1,6 +1,3 @@
-//go:build experimental
-// +build experimental
-
 /*
 Copyright 2023 The Kubernetes Authors.
 
@@ -30,7 +27,7 @@ limitations under the License.
 // features, then you should not use them. If you would like to opt into these
 // unreleased features use Go build tags to enable them, e.g.:
 //
-//   $ GOFLAGS='-tags=experimental' go test ./conformance/... -args ${CONFORMANCE_ARGS}
+//   $ go test ./conformance/... -args ${CONFORMANCE_ARGS}
 //
 // Please note that everything here is considered experimental and subject to
 // change. Expect breaking changes and/or complete removals if you start using

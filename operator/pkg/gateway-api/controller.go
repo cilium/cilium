@@ -19,6 +19,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -61,8 +62,10 @@ func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSe
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		// Disable controller metrics server in favour of cilium's metrics server.
-		MetricsBindAddress: "0",
-		Logger:             logrusr.New(log, logrusr.WithName("controller-runtime")),
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+		Logger: logrusr.New(log, logrusr.WithName("controller-runtime")),
 	})
 	if err != nil {
 		return nil, err

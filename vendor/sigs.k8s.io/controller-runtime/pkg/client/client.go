@@ -77,10 +77,12 @@ type CacheOptions struct {
 	// Reader is a cache-backed reader that will be used to read objects from the cache.
 	// +required
 	Reader Reader
-	// DisableFor is a list of objects that should not be read from the cache.
+	// DisableFor is a list of objects that should never be read from the cache.
+	// Objects configured here always result in a live lookup.
 	DisableFor []Object
 	// Unstructured is a flag that indicates whether the cache-backed client should
 	// read unstructured objects or lists from the cache.
+	// If false, unstructured objects will always result in a live lookup.
 	Unstructured bool
 }
 
@@ -342,9 +344,11 @@ func (c *client) Get(ctx context.Context, key ObjectKey, obj Object, opts ...Get
 	if isUncached, err := c.shouldBypassCache(obj); err != nil {
 		return err
 	} else if !isUncached {
+		// Attempt to get from the cache.
 		return c.cache.Get(ctx, key, obj, opts...)
 	}
 
+	// Perform a live lookup.
 	switch obj.(type) {
 	case runtime.Unstructured:
 		return c.unstructuredClient.Get(ctx, key, obj, opts...)
@@ -362,9 +366,11 @@ func (c *client) List(ctx context.Context, obj ObjectList, opts ...ListOption) e
 	if isUncached, err := c.shouldBypassCache(obj); err != nil {
 		return err
 	} else if !isUncached {
+		// Attempt to get from the cache.
 		return c.cache.List(ctx, obj, opts...)
 	}
 
+	// Perform a live lookup.
 	switch x := obj.(type) {
 	case runtime.Unstructured:
 		return c.unstructuredClient.List(ctx, obj, opts...)

@@ -28,6 +28,7 @@ type runnableCheck func(ctx context.Context) bool
 // runnables handles all the runnables for a manager by grouping them accordingly to their
 // type (webhooks, caches etc.).
 type runnables struct {
+	HTTPServers    *runnableGroup
 	Webhooks       *runnableGroup
 	Caches         *runnableGroup
 	LeaderElection *runnableGroup
@@ -37,6 +38,7 @@ type runnables struct {
 // newRunnables creates a new runnables object.
 func newRunnables(baseContext BaseContextFunc, errChan chan error) *runnables {
 	return &runnables{
+		HTTPServers:    newRunnableGroup(baseContext, errChan),
 		Webhooks:       newRunnableGroup(baseContext, errChan),
 		Caches:         newRunnableGroup(baseContext, errChan),
 		LeaderElection: newRunnableGroup(baseContext, errChan),
@@ -52,6 +54,8 @@ func newRunnables(baseContext BaseContextFunc, errChan chan error) *runnables {
 // The runnables added after Start are started directly.
 func (r *runnables) Add(fn Runnable) error {
 	switch runnable := fn.(type) {
+	case *server:
+		return r.HTTPServers.Add(fn, nil)
 	case hasCache:
 		return r.Caches.Add(fn, func(ctx context.Context) bool {
 			return runnable.GetCache().WaitForCacheSync(ctx)

@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
+
 	"sigs.k8s.io/controller-runtime/pkg/cache/internal"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -45,11 +46,28 @@ func (*ErrCacheNotStarted) Error() string {
 	return "the cache is not started, can not read objects"
 }
 
+var _ error = (*ErrCacheNotStarted)(nil)
+
+// ErrResourceNotCached indicates that the resource type
+// the client asked the cache for is not cached, i.e. the
+// corresponding informer does not exist yet.
+type ErrResourceNotCached struct {
+	GVK schema.GroupVersionKind
+}
+
+// Error returns the error
+func (r ErrResourceNotCached) Error() string {
+	return fmt.Sprintf("%s is not cached", r.GVK.String())
+}
+
+var _ error = (*ErrResourceNotCached)(nil)
+
 // informerCache is a Kubernetes Object cache populated from internal.Informers.
 // informerCache wraps internal.Informers.
 type informerCache struct {
 	scheme *runtime.Scheme
 	*internal.Informers
+	readerFailOnMissingInformer bool
 }
 
 // Get implements Reader.
@@ -59,7 +77,7 @@ func (ic *informerCache) Get(ctx context.Context, key client.ObjectKey, out clie
 		return err
 	}
 
-	started, cache, err := ic.Informers.Get(ctx, gvk, out)
+	started, cache, err := ic.getInformerForKind(ctx, gvk, out)
 	if err != nil {
 		return err
 	}
@@ -67,7 +85,7 @@ func (ic *informerCache) Get(ctx context.Context, key client.ObjectKey, out clie
 	if !started {
 		return &ErrCacheNotStarted{}
 	}
-	return cache.Reader.Get(ctx, key, out)
+	return cache.Reader.Get(ctx, key, out, opts...)
 }
 
 // List implements Reader.
@@ -77,7 +95,7 @@ func (ic *informerCache) List(ctx context.Context, out client.ObjectList, opts .
 		return err
 	}
 
-	started, cache, err := ic.Informers.Get(ctx, *gvk, cacheTypeObj)
+	started, cache, err := ic.getInformerForKind(ctx, *gvk, cacheTypeObj)
 	if err != nil {
 		return err
 	}
@@ -123,33 +141,53 @@ func (ic *informerCache) objectTypeForListObject(list client.ObjectList) (*schem
 	return &gvk, cacheTypeObj, nil
 }
 
-// GetInformerForKind returns the informer for the GroupVersionKind.
-func (ic *informerCache) GetInformerForKind(ctx context.Context, gvk schema.GroupVersionKind) (Informer, error) {
+func applyGetOptions(opts ...InformerGetOption) *internal.GetOptions {
+	cfg := &InformerGetOptions{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	return (*internal.GetOptions)(cfg)
+}
+
+// GetInformerForKind returns the informer for the GroupVersionKind. If no informer exists, one will be started.
+func (ic *informerCache) GetInformerForKind(ctx context.Context, gvk schema.GroupVersionKind, opts ...InformerGetOption) (Informer, error) {
 	// Map the gvk to an object
 	obj, err := ic.scheme.New(gvk)
 	if err != nil {
 		return nil, err
 	}
 
-	_, i, err := ic.Informers.Get(ctx, gvk, obj)
+	_, i, err := ic.Informers.Get(ctx, gvk, obj, applyGetOptions(opts...))
 	if err != nil {
 		return nil, err
 	}
-	return i.Informer, err
+	return i.Informer, nil
 }
 
-// GetInformer returns the informer for the obj.
-func (ic *informerCache) GetInformer(ctx context.Context, obj client.Object) (Informer, error) {
+// GetInformer returns the informer for the obj. If no informer exists, one will be started.
+func (ic *informerCache) GetInformer(ctx context.Context, obj client.Object, opts ...InformerGetOption) (Informer, error) {
 	gvk, err := apiutil.GVKForObject(obj, ic.scheme)
 	if err != nil {
 		return nil, err
 	}
 
-	_, i, err := ic.Informers.Get(ctx, gvk, obj)
+	_, i, err := ic.Informers.Get(ctx, gvk, obj, applyGetOptions(opts...))
 	if err != nil {
 		return nil, err
 	}
-	return i.Informer, err
+	return i.Informer, nil
+}
+
+func (ic *informerCache) getInformerForKind(ctx context.Context, gvk schema.GroupVersionKind, obj runtime.Object) (bool, *internal.Cache, error) {
+	if ic.readerFailOnMissingInformer {
+		cache, started, ok := ic.Informers.Peek(gvk, obj)
+		if !ok {
+			return false, nil, &ErrResourceNotCached{GVK: gvk}
+		}
+		return started, cache, nil
+	}
+
+	return ic.Informers.Get(ctx, gvk, obj, &internal.GetOptions{})
 }
 
 // NeedLeaderElection implements the LeaderElectionRunnable interface
@@ -158,11 +196,11 @@ func (ic *informerCache) NeedLeaderElection() bool {
 	return false
 }
 
-// IndexField adds an indexer to the underlying cache, using extraction function to get
-// value(s) from the given field.  This index can then be used by passing a field selector
+// IndexField adds an indexer to the underlying informer, using extractValue function to get
+// value(s) from the given field. This index can then be used by passing a field selector
 // to List. For one-to-one compatibility with "normal" field selectors, only return one value.
-// The values may be anything.  They will automatically be prefixed with the namespace of the
-// given object, if present.  The objects passed are guaranteed to be objects of the correct type.
+// The values may be anything. They will automatically be prefixed with the namespace of the
+// given object, if present. The objects passed are guaranteed to be objects of the correct type.
 func (ic *informerCache) IndexField(ctx context.Context, obj client.Object, field string, extractValue client.IndexerFunc) error {
 	informer, err := ic.GetInformer(ctx, obj)
 	if err != nil {
@@ -171,7 +209,7 @@ func (ic *informerCache) IndexField(ctx context.Context, obj client.Object, fiel
 	return indexByField(informer, field, extractValue)
 }
 
-func indexByField(indexer Informer, field string, extractor client.IndexerFunc) error {
+func indexByField(informer Informer, field string, extractValue client.IndexerFunc) error {
 	indexFunc := func(objRaw interface{}) ([]string, error) {
 		// TODO(directxman12): check if this is the correct type?
 		obj, isObj := objRaw.(client.Object)
@@ -184,7 +222,7 @@ func indexByField(indexer Informer, field string, extractor client.IndexerFunc) 
 		}
 		ns := meta.GetNamespace()
 
-		rawVals := extractor(obj)
+		rawVals := extractValue(obj)
 		var vals []string
 		if ns == "" {
 			// if we're not doubling the keys for the namespaced case, just create a new slice with same length
@@ -207,5 +245,5 @@ func indexByField(indexer Informer, field string, extractor client.IndexerFunc) 
 		return vals, nil
 	}
 
-	return indexer.AddIndexers(cache.Indexers{internal.FieldIndexName(field): indexFunc})
+	return informer.AddIndexers(cache.Indexers{internal.FieldIndexName(field): indexFunc})
 }

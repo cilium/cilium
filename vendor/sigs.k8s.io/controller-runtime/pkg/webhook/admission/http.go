@@ -93,7 +93,7 @@ func (wh *Webhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		wh.writeResponse(w, reviewResponse)
 		return
 	}
-	wh.getLogger(&req).V(4).Info("received request")
+	wh.getLogger(&req).V(5).Info("received request")
 
 	reviewResponse = wh.Handle(ctx, req)
 	wh.writeResponseTyped(w, reviewResponse, actualAdmRevGVK)
@@ -136,11 +136,11 @@ func (wh *Webhook) writeAdmissionResponse(w io.Writer, ar v1.AdmissionReview) {
 		}
 	} else {
 		res := ar.Response
-		if log := wh.getLogger(nil); log.V(4).Enabled() {
+		if log := wh.getLogger(nil); log.V(5).Enabled() {
 			if res.Result != nil {
 				log = log.WithValues("code", res.Result.Code, "reason", res.Result.Reason, "message", res.Result.Message)
 			}
-			log.V(4).Info("wrote response", "requestID", res.UID, "allowed", res.Allowed)
+			log.V(5).Info("wrote response", "requestID", res.UID, "allowed", res.Allowed)
 		}
 	}
 }

@@ -89,8 +89,16 @@ instead the reconcile function observes this when reading the cluster state and 
 */
 type Reconciler interface {
 	// Reconcile performs a full reconciliation for the object referred to by the Request.
-	// The Controller will requeue the Request to be processed again if an error is non-nil or
-	// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
+	//
+	// If the returned error is non-nil, the Result is ignored and the request will be
+	// requeued using exponential backoff. The only exception is if the error is a
+	// TerminalError in which case no requeuing happens.
+	//
+	// If the error is nil and the returned Result has a non-zero result.RequeueAfter, the request
+	// will be requeued after the specified duration.
+	//
+	// If the error is nil and result.RequeueAfter is zero and result.Reque is true, the request
+	// will be requeued using exponential backoff.
 	Reconcile(context.Context, Request) (Result, error)
 }
 
@@ -112,11 +120,15 @@ type terminalError struct {
 	err error
 }
 
+// This function will return nil if te.err is nil.
 func (te *terminalError) Unwrap() error {
 	return te.err
 }
 
 func (te *terminalError) Error() string {
+	if te.err == nil {
+		return "nil terminal error"
+	}
 	return "terminal error: " + te.err.Error()
 }
 

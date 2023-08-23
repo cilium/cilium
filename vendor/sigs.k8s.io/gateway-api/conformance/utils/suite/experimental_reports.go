@@ -1,6 +1,3 @@
-//go:build experimental
-// +build experimental
-
 /*
 Copyright 2023 The Kubernetes Authors.
 
@@ -21,6 +18,7 @@ package suite
 
 import (
 	"k8s.io/apimachinery/pkg/util/sets"
+
 	confv1a1 "sigs.k8s.io/gateway-api/conformance/apis/v1alpha1"
 )
 
@@ -66,7 +64,6 @@ func (p profileReportsMap) addTestResults(conformanceProfile ConformanceProfile,
 				report.Extended = &confv1a1.ExtendedStatus{}
 			}
 			report.Extended.Statistics.Passed++
-
 		} else {
 			report.Core.Statistics.Passed++
 		}
@@ -118,21 +115,23 @@ func (p profileReportsMap) list() (profileReports []confv1a1.ProfileReport) {
 func (p profileReportsMap) compileResults(supportedFeaturesMap map[ConformanceProfileName]sets.Set[SupportedFeature], unsupportedFeaturesMap map[ConformanceProfileName]sets.Set[SupportedFeature]) {
 	for key, report := range p {
 		// report the overall result for core features
-		if report.Core.Failed > 0 {
+		switch {
+		case report.Core.Failed > 0:
 			report.Core.Result = confv1a1.Failure
-		} else if report.Core.Skipped > 0 {
+		case report.Core.Skipped > 0:
 			report.Core.Result = confv1a1.Partial
-		} else {
+		default:
 			report.Core.Result = confv1a1.Success
 		}
 
 		if report.Extended != nil {
 			// report the overall result for extended features
-			if report.Extended.Failed > 0 {
+			switch {
+			case report.Extended.Failed > 0:
 				report.Extended.Result = confv1a1.Failure
-			} else if report.Extended.Skipped > 0 {
+			case report.Extended.Skipped > 0:
 				report.Extended.Result = confv1a1.Partial
-			} else {
+			default:
 				report.Extended.Result = confv1a1.Success
 			}
 		}

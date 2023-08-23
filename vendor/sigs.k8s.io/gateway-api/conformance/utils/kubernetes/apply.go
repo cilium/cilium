@@ -40,7 +40,8 @@ import (
 // Applier prepares manifests depending on the available options and applies
 // them to the Kubernetes cluster.
 type Applier struct {
-	NamespaceLabels map[string]string
+	NamespaceLabels      map[string]string
+	NamespaceAnnotations map[string]string
 
 	// GatewayClass will be used as the spec.gatewayClassName when applying Gateway resources
 	GatewayClass string
@@ -82,6 +83,23 @@ func (a Applier) prepareNamespace(t *testing.T, uObj *unstructured.Unstructured)
 		err = unstructured.SetNestedStringMap(uObj.Object, labels, "metadata", "labels")
 	}
 	require.NoErrorf(t, err, "error setting labels on Namespace %s", uObj.GetName())
+
+	annotations, _, err := unstructured.NestedStringMap(uObj.Object, "metadata", "annotations")
+	require.NoErrorf(t, err, "error getting annotations on Namespace %s", uObj.GetName())
+
+	for k, v := range a.NamespaceAnnotations {
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
+
+		annotations[k] = v
+	}
+
+	// SetNestedStringMap converts nil to an empty map
+	if annotations != nil {
+		err = unstructured.SetNestedStringMap(uObj.Object, annotations, "metadata", "annotations")
+	}
+	require.NoErrorf(t, err, "error setting annotations on Namespace %s", uObj.GetName())
 }
 
 // prepareResources uses the options from an Applier to tweak resources given by

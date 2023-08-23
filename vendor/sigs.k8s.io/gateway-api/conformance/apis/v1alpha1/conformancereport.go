@@ -1,6 +1,3 @@
-//go:build experimental
-// +build experimental
-
 /*
 Copyright 2023 The Kubernetes Authors.
 
@@ -71,7 +68,7 @@ type Implementation struct {
 	// addresses.
 	// Rather than Github usernames or email addresses you can provide a URL to the relevant
 	// support pages for the project. Ideally this would be something like the issue creation page
-	// on a repository, but for projects without a publicly exposed repository a general support 
+	// on a repository, but for projects without a publicly exposed repository a general support
 	// page URL can be provided.
 	Contact []string `json:"contact"`
 }

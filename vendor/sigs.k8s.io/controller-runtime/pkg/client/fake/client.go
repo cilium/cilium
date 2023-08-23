@@ -31,8 +31,6 @@ import (
 
 	// Using v4 to match upstream
 	jsonpatch "github.com/evanphx/json-patch"
-	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
-
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
@@ -52,10 +50,11 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/testing"
-	"sigs.k8s.io/controller-runtime/pkg/internal/field/selector"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	"sigs.k8s.io/controller-runtime/pkg/internal/field/selector"
 	"sigs.k8s.io/controller-runtime/pkg/internal/objectutil"
 )
 
@@ -88,19 +87,8 @@ const (
 
 // NewFakeClient creates a new fake client for testing.
 // You can choose to initialize it with a slice of runtime.Object.
-//
-// Deprecated: Please use NewClientBuilder instead.
 func NewFakeClient(initObjs ...runtime.Object) client.WithWatch {
 	return NewClientBuilder().WithRuntimeObjects(initObjs...).Build()
-}
-
-// NewFakeClientWithScheme creates a new fake client with the given scheme
-// for testing.
-// You can choose to initialize it with a slice of runtime.Object.
-//
-// Deprecated: Please use NewClientBuilder instead.
-func NewFakeClientWithScheme(clientScheme *runtime.Scheme, initObjs ...runtime.Object) client.WithWatch {
-	return NewClientBuilder().WithScheme(clientScheme).WithRuntimeObjects(initObjs...).Build()
 }
 
 // NewClientBuilder returns a new builder to create a fake client.
@@ -1177,7 +1165,7 @@ func allowsUnconditionalUpdate(gvk schema.GroupVersionKind) bool {
 		case "PodSecurityPolicy":
 			return true
 		}
-	case "rbac":
+	case "rbac.authorization.k8s.io":
 		switch gvk.Kind {
 		case "ClusterRole", "ClusterRoleBinding", "Role", "RoleBinding":
 			return true

@@ -14,19 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+/*
+Package server provides the metrics server implementation.
+*/
+package server
 
-// Statistics includes numerical summaries of the number of conformance tests
-// that passed, failed or were intentionally skipped.
-type Statistics struct {
-	// Passed indicates how many tests completed successfully.
-	Passed uint32
+import (
+	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
+)
 
-	// Skipped indicates how many tests were intentionally not run, whether due
-	// to lack of feature support or whether they were explicitly disabled in
-	// the test suite.
-	Skipped uint32
-
-	// Failed indicates how many tests were unsuccessful.
-	Failed uint32
-}
+var log = logf.RuntimeLog.WithName("metrics")

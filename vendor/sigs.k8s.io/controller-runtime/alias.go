@@ -110,6 +110,9 @@ var (
 	NewWebhookManagedBy = builder.WebhookManagedBy
 
 	// NewManager returns a new Manager for creating Controllers.
+	// Note that if ContentType in the given config is not set, "application/vnd.kubernetes.protobuf"
+	// will be used for all built-in resources of Kubernetes, and "application/json" is for other types
+	// including all CRD resources.
 	NewManager = manager.New
 
 	// CreateOrUpdate creates or updates the given object obj in the Kubernetes

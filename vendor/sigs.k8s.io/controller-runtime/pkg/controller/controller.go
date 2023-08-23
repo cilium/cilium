@@ -159,7 +159,9 @@ func NewUnmanaged(name string, mgr manager.Manager, options Options) (Controller
 	return &controller.Controller{
 		Do: options.Reconciler,
 		MakeQueue: func() workqueue.RateLimitingInterface {
-			return workqueue.NewNamedRateLimitingQueue(options.RateLimiter, name)
+			return workqueue.NewRateLimitingQueueWithConfig(options.RateLimiter, workqueue.RateLimitingQueueConfig{
+				Name: name,
+			})
 		},
 		MaxConcurrentReconciles: options.MaxConcurrentReconciles,
 		CacheSyncTimeout:        options.CacheSyncTimeout,

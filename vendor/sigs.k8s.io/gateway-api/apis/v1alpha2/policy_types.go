@@ -16,11 +16,11 @@ limitations under the License.
 
 package v1alpha2
 
-// PolicyTargetReference identifies an API object to apply policy to. This
-// should be used as part of Policy resources that can target Gateway API
-// resources. For more information on how this policy attachment model works,
-// and a sample Policy resource, refer to the policy attachment documentation
-// for Gateway API.
+// PolicyTargetReference identifies an API object to apply a direct or
+// inherited policy to. This should be used as part of Policy resources
+// that can target Gateway API resources. For more information on how this
+// policy attachment model works, and a sample Policy resource, refer to
+// the policy attachment documentation for Gateway API.
 type PolicyTargetReference struct {
 	// Group is the group of the target resource.
 	Group Group `json:"group"`
@@ -38,6 +38,33 @@ type PolicyTargetReference struct {
 	//
 	// +optional
 	Namespace *Namespace `json:"namespace,omitempty"`
+}
+
+// PolicyTargetReferenceWithSectionName identifies an API object to apply a direct
+// policy to. This should be used as part of Policy resources that can target
+// single resources. For more information on how this policy attachment mode
+// works, and a sample Policy resource, refer to the policy attachment documentation
+// for Gateway API.
+//
+// Note: This should only be used for direct policy attachment when references
+// to SectionName are actually needed. In all other cases, PolicyTargetReference
+// should be used.
+type PolicyTargetReferenceWithSectionName struct {
+	PolicyTargetReference `json:",inline"`
+
+	// SectionName is the name of a section within the target resource. When
+	// unspecified, this targetRef targets the entire resource. In the following
+	// resources, SectionName is interpreted as the following:
+	//
+	// * Gateway: Listener Name
+	// * Service: Port Name
+	//
+	// If a SectionName is specified, but does not exist on the targeted object,
+	// the Policy must fail to attach, and the policy implementation should record
+	// a `ResolvedRefs` or similar Condition in the Policy's status.
+	//
+	// +optional
+	SectionName *SectionName `json:"sectionName,omitempty"`
 }
 
 // PolicyConditionType is a type of condition for a policy. This type should be
