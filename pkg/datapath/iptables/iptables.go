@@ -1224,6 +1224,8 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 	// If this option is enabled, then it takes precedence over the catch-all
 	// MASQUERADE further below.
 	if option.Config.EnableMasqueradeRouteSource {
+		var defaultRoutes []netlink.Route
+
 		devices := option.Config.GetDevices()
 		if len(option.Config.MasqueradeInterfaces) > 0 {
 			devices = option.Config.MasqueradeInterfaces
@@ -1232,7 +1234,9 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 		if prog == ip6tables {
 			family = netlink.FAMILY_V6
 		}
+		initialPass := true
 		if routes, err := netlink.RouteList(nil, family); err == nil {
+		nextPass:
 			for _, r := range routes {
 				var link netlink.Link
 				match := false
@@ -1262,9 +1266,11 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 					match = true
 				}
 				_, exclusionCIDR, err := net.ParseCIDR(snatDstExclusionCIDR)
-				if !match || r.Src == nil ||
-					cidr.Equal(r.Dst, cidr.ZeroNet(r.Family)) ||
-					(err == nil && cidr.Equal(r.Dst, exclusionCIDR)) {
+				if !match || r.Src == nil || (err == nil && cidr.Equal(r.Dst, exclusionCIDR)) {
+					continue
+				}
+				if initialPass && cidr.Equal(r.Dst, cidr.ZeroNet(r.Family)) {
+					defaultRoutes = append(defaultRoutes, r)
 					continue
 				}
 				progArgs := []string{
@@ -1289,6 +1295,11 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 				if err := prog.runProg(progArgs); err != nil {
 					return err
 				}
+			}
+			if initialPass {
+				initialPass = false
+				routes = defaultRoutes
+				goto nextPass
 			}
 		}
 	}
