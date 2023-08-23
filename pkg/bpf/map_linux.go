@@ -103,6 +103,10 @@ type Map struct {
 
 	// contains optional event buffer which stores last n bpf map events.
 	events *eventsBuffer
+
+	// group is the metric group name for this map, it classifies maps of the same
+	// type that share the same metric group.
+	group string
 }
 
 func (m *Map) Type() ebpf.MapType {
@@ -155,6 +159,13 @@ func (m *Map) Flags() uint32 {
 	return 0
 }
 
+func (m *Map) updateMetrics() {
+	if m.group == "" {
+		return
+	}
+	metrics.UpdateMapCapacity(m.group, m.MaxEntries())
+}
+
 // NewMap creates a new Map instance - object representing a BPF map
 func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 	maxEntries int, flags uint32) *Map {
@@ -174,6 +185,7 @@ func NewMap(name string, mapType ebpf.MapType, mapKey MapKey, mapValue MapValue,
 		name:  path.Base(name),
 		key:   mapKey,
 		value: mapValue,
+		group: name,
 	}
 }
 
@@ -273,6 +285,11 @@ func (m *Map) WithEvents(c option.BPFEventBufferConfig) *Map {
 	}).Debug("enabling events buffer")
 	m.eventsBufferEnabled = true
 	m.initEventsBuffer(c.MaxSize, c.TTL)
+	return m
+}
+
+func (m *Map) WithGroupName(group string) *Map {
+	m.group = group
 	return m
 }
 
@@ -390,6 +407,7 @@ func OpenMap(pinPath string, key MapKey, value MapValue) (*Map, error) {
 		value: value,
 	}
 
+	m.updateMetrics()
 	registerMap(pinPath, m)
 
 	return m, nil
@@ -486,6 +504,7 @@ func (m *Map) openOrCreate(pin bool) error {
 		return err
 	}
 
+	m.updateMetrics()
 	registerMap(m.path, m)
 
 	// Consume the MapSpec.
@@ -523,6 +542,7 @@ func (m *Map) open() error {
 		return fmt.Errorf("loading pinned map %s: %w", m.path, err)
 	}
 
+	m.updateMetrics()
 	registerMap(m.path, m)
 
 	m.m = em
