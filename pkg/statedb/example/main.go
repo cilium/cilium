@@ -13,7 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/statedb2"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 var Hive = hive.New(
@@ -21,7 +21,7 @@ var Hive = hive.New(
 	job.Cell,
 
 	// StateDB provides a transactional database to access and modify tables.
-	statedb2.Cell,
+	statedb.Cell,
 
 	// The backends table stores the desired state of the backends.
 	BackendTableCell,

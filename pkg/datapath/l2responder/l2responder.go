@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
-	"github.com/cilium/cilium/pkg/statedb2"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/types"
 
 	"github.com/sirupsen/logrus"
@@ -41,8 +41,8 @@ type params struct {
 
 	Lifecycle           hive.Lifecycle
 	Logger              logrus.FieldLogger
-	L2AnnouncementTable statedb2.Table[*tables.L2AnnounceEntry]
-	StateDB             *statedb2.DB
+	L2AnnouncementTable statedb.Table[*tables.L2AnnounceEntry]
+	StateDB             *statedb.DB
 	L2ResponderMap      l2respondermap.Map
 	NetLink             linkByNamer
 	JobRegistry         job.Registry
@@ -108,10 +108,10 @@ func (p *l2ResponderReconciler) run(ctx context.Context) error {
 
 func (p *l2ResponderReconciler) cycle(
 	ctx context.Context,
-	tracker *statedb2.DeleteTracker[*tables.L2AnnounceEntry],
-	maxRevIn statedb2.Revision,
+	tracker *statedb.DeleteTracker[*tables.L2AnnounceEntry],
+	maxRevIn statedb.Revision,
 	fullReconciliation <-chan time.Time,
-) (maxRev statedb2.Revision) {
+) (maxRev statedb.Revision) {
 	arMap := p.params.L2ResponderMap
 	rtx := p.params.StateDB.ReadTxn()
 	log := p.params.Logger
@@ -200,7 +200,7 @@ func (p *l2ResponderReconciler) fullReconciliation() (maxRev uint64, err error) 
 	}
 	desiredMap := make(map[l2respondermap.L2ResponderKey]desiredEntry)
 
-	statedb2.ProcessEach(iter, func(e *tables.L2AnnounceEntry, _ uint64) error {
+	statedb.ProcessEach(iter, func(e *tables.L2AnnounceEntry, _ uint64) error {
 		// Ignore IPv6 addresses, L2 is IPv4 only
 		if e.IP.Is6() {
 			return nil

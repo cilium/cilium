@@ -15,7 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
-	"github.com/cilium/cilium/pkg/statedb2"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 var controlCell = cell.Module(
@@ -28,8 +28,8 @@ var controlCell = cell.Module(
 type controlParams struct {
 	cell.In
 
-	Backends  statedb2.Table[Backend]
-	DB        *statedb2.DB
+	Backends  statedb.Table[Backend]
+	DB        *statedb.DB
 	Lifecycle hive.Lifecycle
 	Log       logrus.FieldLogger
 	Registry  job.Registry
@@ -71,7 +71,7 @@ func (c *control) controlLoop(ctx context.Context) error {
 	}
 }
 
-func (c *control) createBackend(txn statedb2.WriteTxn) {
+func (c *control) createBackend(txn statedb.WriteTxn) {
 	b := Backend{
 		ID:   BackendID(uuid.NewString()),
 		IP:   randomIP(),
@@ -80,9 +80,9 @@ func (c *control) createBackend(txn statedb2.WriteTxn) {
 	c.Backends.Insert(txn, b)
 }
 
-func (c *control) mutateBackend(txn statedb2.WriteTxn) {
+func (c *control) mutateBackend(txn statedb.WriteTxn) {
 	iter, _ := c.Backends.All(txn)
-	all := statedb2.Collect(iter)
+	all := statedb.Collect(iter)
 	if len(all) > 0 {
 		i := rand.Intn(len(all))
 		b := all[i]
@@ -91,9 +91,9 @@ func (c *control) mutateBackend(txn statedb2.WriteTxn) {
 	}
 }
 
-func (c *control) deleteBackend(txn statedb2.WriteTxn) {
+func (c *control) deleteBackend(txn statedb.WriteTxn) {
 	iter, _ := c.Backends.All(txn)
-	all := statedb2.Collect(iter)
+	all := statedb.Collect(iter)
 	if len(all) > 0 {
 		i := rand.Intn(len(all))
 		c.Backends.Delete(txn, all[i])

@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb2"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -660,7 +660,7 @@ func delRoutes(iface string) error {
 func newDeviceManagerForTests() (dm *DeviceManager, err error) {
 	ns, _ := netns.Get()
 	h := hive.New(
-		statedb2.Cell,
+		statedb.Cell,
 		tables.Cell,
 		DevicesControllerCell,
 		cell.Provide(func() DevicesConfig {

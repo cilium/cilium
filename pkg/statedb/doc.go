@@ -9,4 +9,4 @@
 // and insertion.
 //
 // See pkg/statedb/example for an example how to construct an application that uses this library.
-package statedb2
+package statedb

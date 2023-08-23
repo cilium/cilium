@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package statedb2_test
+package statedb_test
 
 import (
 	"context"
@@ -19,8 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/statedb2"
-	"github.com/cilium/cilium/pkg/statedb2/index"
+	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
 // Run test with "--debug" for log output.
@@ -60,7 +60,7 @@ func mkID() uint64 {
 	return uint64(rand.Int63n(numUniqueIDs))
 }
 
-var idIndex = statedb2.Index[fuzzObj, uint64]{
+var idIndex = statedb.Index[fuzzObj, uint64]{
 	Name: "id",
 	FromObject: func(obj fuzzObj) index.KeySet {
 		return index.NewKeySet(index.Uint64(obj.id))
@@ -72,11 +72,11 @@ var idIndex = statedb2.Index[fuzzObj, uint64]{
 }
 
 var (
-	tableFuzz1, _ = statedb2.NewTable[fuzzObj]("fuzz1", idIndex)
-	tableFuzz2, _ = statedb2.NewTable[fuzzObj]("fuzz2", idIndex)
-	tableFuzz3, _ = statedb2.NewTable[fuzzObj]("fuzz3", idIndex)
-	fuzzTables    = []statedb2.TableMeta{tableFuzz1, tableFuzz2, tableFuzz3}
-	fuzzDB, _     = statedb2.NewDB(fuzzTables, statedb2.NewMetrics())
+	tableFuzz1, _ = statedb.NewTable[fuzzObj]("fuzz1", idIndex)
+	tableFuzz2, _ = statedb.NewTable[fuzzObj]("fuzz2", idIndex)
+	tableFuzz3, _ = statedb.NewTable[fuzzObj]("fuzz3", idIndex)
+	fuzzTables    = []statedb.TableMeta{tableFuzz1, tableFuzz2, tableFuzz3}
+	fuzzDB, _     = statedb.NewDB(fuzzTables, statedb.NewMetrics())
 )
 
 func randomSubset[T any](xs []T) []T {
@@ -103,12 +103,12 @@ func (a *realActionLog) append(e actionLogEntry) {
 	a.Unlock()
 }
 
-func (a *realActionLog) validate(db *statedb2.DB, t *testing.T) {
+func (a *realActionLog) validate(db *statedb.DB, t *testing.T) {
 	a.Lock()
 	defer a.Unlock()
 
 	// Collapse the log down to objects that are alive at the end.
-	alive := map[statedb2.Table[fuzzObj]]sets.Set[uint64]{}
+	alive := map[statedb.Table[fuzzObj]]sets.Set[uint64]{}
 	for _, e := range a.log {
 		aliveThis, ok := alive[e.table]
 		if !ok {
@@ -148,15 +148,15 @@ const (
 )
 
 type actionLogEntry struct {
-	table statedb2.Table[fuzzObj]
+	table statedb.Table[fuzzObj]
 	act   int
 	id    uint64
 	value uint64
 }
 
-type action func(log *debugLogger, actLog actionLog, txn statedb2.WriteTxn, target statedb2.Table[fuzzObj])
+type action func(log *debugLogger, actLog actionLog, txn statedb.WriteTxn, target statedb.Table[fuzzObj])
 
-func insertAction(log *debugLogger, actLog actionLog, txn statedb2.WriteTxn, table statedb2.Table[fuzzObj]) {
+func insertAction(log *debugLogger, actLog actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
 	id := mkID()
 	value := rand.Uint64()
 	log.log("%s: Insert %d", table.Name(), id)
@@ -164,46 +164,46 @@ func insertAction(log *debugLogger, actLog actionLog, txn statedb2.WriteTxn, tab
 	actLog.append(actionLogEntry{table, actInsert, id, value})
 }
 
-func deleteAction(log *debugLogger, actLog actionLog, txn statedb2.WriteTxn, table statedb2.Table[fuzzObj]) {
+func deleteAction(log *debugLogger, actLog actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
 	id := mkID()
 	log.log("%s: Delete %d", table.Name(), id)
 	table.Delete(txn, fuzzObj{id, 0})
 	actLog.append(actionLogEntry{table, actDelete, id, 0})
 }
 
-func deleteAllAction(log *debugLogger, actLog actionLog, txn statedb2.WriteTxn, table statedb2.Table[fuzzObj]) {
+func deleteAllAction(log *debugLogger, actLog actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
 	log.log("%s: DeleteAll", table.Name())
 	table.DeleteAll(txn)
 	actLog.append(actionLogEntry{table, actDeleteAll, 0, 0})
 }
 
-func allAction(log *debugLogger, _ actionLog, txn statedb2.WriteTxn, table statedb2.Table[fuzzObj]) {
+func allAction(log *debugLogger, _ actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
 	iter, _ := table.All(txn)
-	log.log("%s: All => %d found", table.Name(), len(statedb2.Collect(iter)))
+	log.log("%s: All => %d found", table.Name(), len(statedb.Collect(iter)))
 }
 
-func getAction(log *debugLogger, _ actionLog, txn statedb2.WriteTxn, table statedb2.Table[fuzzObj]) {
+func getAction(log *debugLogger, _ actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
 	id := mkID()
 	iter, _ := table.Get(txn, idIndex.Query(mkID()))
-	log.log("%s: Get(%d) => %d found", table.Name(), id, len(statedb2.Collect(iter)))
+	log.log("%s: Get(%d) => %d found", table.Name(), id, len(statedb.Collect(iter)))
 }
 
-func firstAction(log *debugLogger, _ actionLog, txn statedb2.WriteTxn, table statedb2.Table[fuzzObj]) {
+func firstAction(log *debugLogger, _ actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
 	id := mkID()
 	_, rev, ok := table.First(txn, idIndex.Query(id))
 	log.log("%s: First(%d) => rev=%d, ok=%v", table.Name(), id, rev, ok)
 }
 
-func lastAction(log *debugLogger, _ actionLog, txn statedb2.WriteTxn, table statedb2.Table[fuzzObj]) {
+func lastAction(log *debugLogger, _ actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
 	id := mkID()
 	_, rev, ok := table.First(txn, idIndex.Query(id))
 	log.log("%s: First(%d) => rev=%d, ok=%v", table.Name(), id, rev, ok)
 }
 
-func lowerboundAction(log *debugLogger, _ actionLog, txn statedb2.WriteTxn, table statedb2.Table[fuzzObj]) {
+func lowerboundAction(log *debugLogger, _ actionLog, txn statedb.WriteTxn, table statedb.Table[fuzzObj]) {
 	id := mkID()
 	iter, _ := table.LowerBound(txn, idIndex.Query(id))
-	log.log("%s: LowerBound(%d) => %d found", table.Name(), id, len(statedb2.Collect(iter)))
+	log.log("%s: LowerBound(%d) => %d found", table.Name(), id, len(statedb.Collect(iter)))
 }
 
 var actions = []action{
@@ -254,7 +254,7 @@ func fuzzWorker(realActionLog *realActionLog, worker int, iterations int) {
 
 		for _, target := range targets {
 			act := randomAction()
-			act(log, actLog, txn, target.(statedb2.Table[fuzzObj]))
+			act(log, actLog, txn, target.(statedb.Table[fuzzObj]))
 			runtime.Gosched()
 		}
 		runtime.Gosched()

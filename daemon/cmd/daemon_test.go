@@ -45,7 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/statedb2"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -168,7 +168,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 		),
 		monitorAgent.Cell,
 		ControlPlane,
-		statedb2.Cell,
+		statedb.Cell,
 		tables.Cell,
 		job.Cell,
 		metrics.Cell,

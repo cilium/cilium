@@ -33,7 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
-	"github.com/cilium/cilium/pkg/statedb2"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 type agentHandle struct {
@@ -81,7 +81,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, dp *fa
 		),
 		monitorAgent.Cell,
 		tables.Cell,
-		statedb2.Cell,
+		statedb.Cell,
 		job.Cell,
 		metrics.Cell,
 		cmd.ControlPlane,

@@ -6,8 +6,8 @@ package main
 import (
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/statedb2"
-	"github.com/cilium/cilium/pkg/statedb2/index"
+	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
 type BackendID string
@@ -19,7 +19,7 @@ type Backend struct {
 }
 
 var (
-	BackendIDIndex = statedb2.Index[Backend, BackendID]{
+	BackendIDIndex = statedb.Index[Backend, BackendID]{
 		Name: "id",
 		FromObject: func(b Backend) index.KeySet {
 			return index.NewKeySet(index.String(string(b.ID)))
@@ -30,7 +30,7 @@ var (
 		Unique: true,
 	}
 
-	BackendIPIndex = statedb2.Index[Backend, netip.Addr]{
+	BackendIPIndex = statedb.Index[Backend, netip.Addr]{
 		Name: "ip",
 		FromObject: func(b Backend) index.KeySet {
 			return index.NewKeySet(index.NetIPAddr(b.IP))
@@ -41,7 +41,7 @@ var (
 		Unique: false,
 	}
 
-	BackendPortIndex = statedb2.Index[Backend, uint16]{
+	BackendPortIndex = statedb.Index[Backend, uint16]{
 		Name: "port",
 		FromObject: func(b Backend) index.KeySet {
 			return index.NewKeySet(index.Uint16(b.Port))
@@ -52,7 +52,7 @@ var (
 		Unique: true,
 	}
 
-	BackendTableCell = statedb2.NewTableCell[Backend](
+	BackendTableCell = statedb.NewTableCell[Backend](
 		"backends",
 		BackendIDIndex,
 		BackendIPIndex,

@@ -31,7 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/statedb2"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 // DevicesControllerCell registers a controller that subscribes to network devices
@@ -76,9 +76,9 @@ type devicesControllerParams struct {
 
 	Config      DevicesConfig
 	Log         logrus.FieldLogger
-	DB          *statedb2.DB
-	DeviceTable statedb2.Table[*tables.Device]
-	RouteTable  statedb2.Table[*tables.Route]
+	DB          *statedb.DB
+	DeviceTable statedb.Table[*tables.Device]
+	RouteTable  statedb.Table[*tables.Route]
 
 	// netlinkFuncs is optional and used by tests to verify error handling behavior.
 	NetlinkFuncs *netlinkFuncs `optional:"true"`
@@ -363,7 +363,7 @@ func populateFromLink(d *tables.Device, link netlink.Link) {
 // processBatch processes a batch of address, link and route updates.
 // The address and link updates are merged into a device object and upserted
 // into the device table.
-func (dc *devicesController) processBatch(txn statedb2.WriteTxn, batch map[int][]any) {
+func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]any) {
 	for index, updates := range batch {
 		d, _, _ := dc.params.DeviceTable.First(txn, tables.DeviceIDIndex.Query(index))
 		if d == nil {
@@ -452,7 +452,7 @@ const (
 
 // isSelectedDevice checks if the device is selected or not. We still maintain its state in
 // case it later becomes selected.
-func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb2.WriteTxn) bool {
+func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.WriteTxn) bool {
 	if d.Name == "" {
 		// Looks like we have seen the addresses for this device before the initial link update,
 		// hence it has no name. Definitely not selected yet!
@@ -534,7 +534,7 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb2.Wri
 	return true
 }
 
-func hasGlobalRoute(devIndex int, tbl statedb2.Table[*tables.Route], rxn statedb2.ReadTxn) bool {
+func hasGlobalRoute(devIndex int, tbl statedb.Table[*tables.Route], rxn statedb.ReadTxn) bool {
 	iter, _ := tbl.Get(rxn, tables.RouteLinkIndex.Query(devIndex))
 	hasGlobal := false
 	for r, _, ok := iter.Next(); ok; r, _, ok = iter.Next() {

@@ -9,12 +9,12 @@ import (
 
 	"golang.org/x/exp/slices"
 
-	"github.com/cilium/cilium/pkg/statedb2"
-	"github.com/cilium/cilium/pkg/statedb2/index"
+	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
 var (
-	DeviceIDIndex = statedb2.Index[*Device, int]{
+	DeviceIDIndex = statedb.Index[*Device, int]{
 		Name: "id",
 		FromObject: func(d *Device) index.KeySet {
 			return index.NewKeySet(index.Int(d.Index))
@@ -25,7 +25,7 @@ var (
 		Unique: true,
 	}
 
-	DeviceNameIndex = statedb2.Index[*Device, string]{
+	DeviceNameIndex = statedb.Index[*Device, string]{
 		Name: "name",
 		FromObject: func(d *Device) index.KeySet {
 			return index.NewKeySet(index.String(d.Name))
@@ -35,7 +35,7 @@ var (
 		},
 	}
 
-	DeviceSelectedIndex = statedb2.Index[*Device, bool]{
+	DeviceSelectedIndex = statedb.Index[*Device, bool]{
 		Name: "selected",
 		FromObject: func(d *Device) index.KeySet {
 			return index.NewKeySet(index.Bool(d.Selected))
@@ -45,7 +45,7 @@ var (
 		},
 	}
 
-	DeviceTableCell = statedb2.NewTableCell[*Device](
+	DeviceTableCell = statedb.NewTableCell[*Device](
 		"devices",
 		DeviceIDIndex,
 		DeviceNameIndex,
@@ -97,9 +97,9 @@ func (d *DeviceAddress) AsIP() net.IP {
 //
 // The invalidated channel is closed when devices have changed and
 // should be requeried with a new transaction.
-func SelectedDevices(tbl statedb2.Table[*Device], txn statedb2.ReadTxn) ([]*Device, <-chan struct{}) {
+func SelectedDevices(tbl statedb.Table[*Device], txn statedb.ReadTxn) ([]*Device, <-chan struct{}) {
 	iter, invalidated := tbl.Get(txn, DeviceSelectedIndex.Query(true))
-	return statedb2.Collect(iter), invalidated
+	return statedb.Collect(iter), invalidated
 }
 
 // DeviceNames extracts the device names from a slice of devices.
