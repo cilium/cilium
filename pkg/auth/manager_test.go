@@ -172,6 +172,28 @@ func Test_authManager_handleCertificateRotationEvent(t *testing.T) {
 	assert.True(t, handleAuthCalled)
 }
 
+func Test_authManager_handleCertificateDeletionEvent(t *testing.T) {
+	authHandlers := []authHandler{newAlwaysPassAuthHandler(logrus.New())}
+	aMap := &fakeAuthMap{
+		entries: map[authKey]authInfo{
+			{localIdentity: 1, remoteIdentity: 2, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
+			{localIdentity: 2, remoteIdentity: 3, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
+			{localIdentity: 3, remoteIdentity: 4, remoteNodeID: 1, authType: 100}: {expiration: time.Now()},
+		},
+	}
+
+	am, err := newAuthManager(logrus.New(), authHandlers, aMap, nil, time.Second)
+	assert.NoError(t, err)
+	assert.NotNil(t, am)
+
+	err = am.handleCertificateRotationEvent(context.Background(), certs.CertificateRotationEvent{
+		Identity: identity.NumericIdentity(2),
+		Deleted:  true,
+	})
+	assert.NoError(t, err)
+	assert.Len(t, aMap.entries, 1)
+}
+
 // Fake NodeIDHandler
 type fakeNodeIDHandler struct {
 	nodeIdMappings map[uint16]string
