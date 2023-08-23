@@ -96,6 +96,7 @@ jobs:
         with:
           filters: |
             src:
+              - 'pkg/**'
               - 'test/**'
 
       # Runs only if code under test/ is changed.
