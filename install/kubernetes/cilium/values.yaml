@@ -2476,7 +2476,7 @@ operator:
   # -- Enable prometheus metrics for cilium-operator on the configured port at
   # /metrics
   prometheus:
-    enabled: false
+    enabled: true
     port: 9963
     serviceMonitor:
       # -- Enable service monitors.
@@ -3084,7 +3084,7 @@ clustermesh:
 
       etcd:
         # -- Enables exporting etcd metrics in OpenMetrics format.
-        enabled: false
+        enabled: true
         # -- Set level of detail for etcd metrics; specify 'extensive' to include server side gRPC histogram metrics.
         mode: basic
         # -- Configure the port the etcd metric server listens on.

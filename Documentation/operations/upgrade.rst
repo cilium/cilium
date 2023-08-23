@@ -362,6 +362,10 @@ Helm Options
   changed their type from a string to a structured definition that decouples repository and tag. This improves the
   usage in offline environments.
 
+* Prometheus metrics for cilium-operator and clustermesh's kvstore are now enabled by default.
+  If you want to disable these prometheus metrics, set ``operator.prometheus.enabled=false``
+  and ``clustermesh.apiserver.metrics.etcd.enabled=false`` respectively.
+
 Added Metrics
 ~~~~~~~~~~~~~
 
