@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
@@ -89,6 +90,7 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/resiliency"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
@@ -1765,8 +1767,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		if restoreComplete != nil {
 			<-restoreComplete
 		}
-
-		// Only attempt CEP cleanup if cilium endpoint CRD is not disabled, otherwise the cep/ces
+		// Only attempt CEP cleanup if cilium endpoint CRD is enabled, otherwise the cep/ces
 		// watchers/indexers will not be initialized.
 		if params.Clientset.IsEnabled() && option.Config.EnableStaleCiliumEndpointCleanup && !option.Config.DisableCiliumEndpointCRD {
 			// Use restored endpoints to delete local CiliumEndpoints which are not in the restored endpoint cache.
@@ -1775,11 +1776,33 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 			// This must wait for both K8s watcher caches to be synced and local endpoint restoration to be complete.
 			// Note: Synchronization of endpoints to their CEPs may not be complete at this point, but we only have to
 			// know what endpoints exist post-restoration in our endpointManager cache to perform cleanup.
-			if err := d.cleanStaleCEPs(context.Background(), d.endpointManager, params.Clientset.CiliumV2(), option.Config.EnableCiliumEndpointSlice); err != nil {
-				log.WithError(err).Error("Failed to clean up stale CEPs")
+			var (
+				retries int
+				bo      = wait.Backoff{
+					Duration: 500 * time.Millisecond,
+					Factor:   1,
+					Jitter:   0.1,
+					Steps:    5,
+					Cap:      0,
+				}
+			)
+			err := wait.ExponentialBackoffWithContext(context.Background(), bo, func(ctx context.Context) (done bool, err error) {
+				if err := d.cleanStaleCEPs(ctx, d.endpointManager, d.clientset.CiliumV2(), option.Config.EnableCiliumEndpointSlice); err != nil {
+					retries++
+					log.WithError(err).WithField(logfields.Attempt, retries).Error("Failed to clean up stale CEPs")
+					if resiliency.IsRetryable(err) {
+						return false, nil
+					}
+					return true, err
+				}
+				return true, nil
+			})
+			if err != nil {
+				log.WithError(err).Error("Failed to clean up stale CEPs after multiple attempts")
 			}
 		}
 	}()
+
 	go func() {
 		if restoreComplete != nil {
 			<-restoreComplete
