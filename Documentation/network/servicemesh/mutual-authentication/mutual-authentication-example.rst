@@ -231,10 +231,10 @@ For brevity, you can search for some specific log messages:
 .. code-block:: shell-session
 
     $ kubectl -n kube-system -c cilium-agent logs cilium-9pshw --timestamps=true | grep "Policy is requiring authentication\|Validating Server SNI\|Validated certificate\|Successfully authenticated"
-    2023-07-04T17:58:28.795760597Z level=debug msg="Policy is requiring authentication" auth_type=spire local_identity=17947 remote_identity=39239 subsys=auth
+    2023-07-04T17:58:28.795760597Z level=debug msg="Policy is requiring authentication" key="localIdentity=17947, remoteIdentity=39239, remoteNodeID=54264, authType=spire" subsys=auth
     2023-07-04T17:58:28.800509503Z level=debug msg="Validating Server SNI" SNI ID=39239 subsys=auth
     2023-07-04T17:58:28.800525190Z level=debug msg="Validated certificate" subsys=auth uri-san="[spiffe://spiffe.cilium/identity/39239]"
-    2023-07-04T17:58:28.801441968Z level=debug msg="Successfully authenticated" auth_type=spire local_identity=17947 remote_identity=39239 remote_node_ip=10.0.1.175 subsys=auth
+    2023-07-04T17:58:28.801441968Z level=debug msg="Successfully authenticated" key="localIdentity=17947, remoteIdentity=39239, remoteNodeID=54264, authType=spire" remote_node_ip=10.0.1.175 subsys=auth
 
 When you apply a mutual authentication policy, the agent retrieves the identity of the source Pod, 
 connects to the node where the destination Pod is running and performs a mutual TLS handshake (with 
