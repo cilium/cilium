@@ -37,8 +37,8 @@ Installation
 ------------
 
 You can enable metrics for ``cilium-agent`` (including Envoy) with the Helm value
-``prometheus.enabled=true``. To enable metrics for ``cilium-operator``,
-use ``operator.prometheus.enabled=true``.
+``prometheus.enabled=true``. ``cilium-operator`` metrics are enabled by default,
+if you want to disable them, set Helm value ``operator.prometheus.enabled=false``.
 
 .. parsed-literal::
 

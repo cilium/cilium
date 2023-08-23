@@ -475,7 +475,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.metrics.etcd.enabled`
      - Enables exporting etcd metrics in OpenMetrics format.
      - bool
-     - ``false``
+     - ``true``
    * - :spelling:ignore:`clustermesh.apiserver.metrics.etcd.mode`
      - Set level of detail for etcd metrics; specify 'extensive' to include server side gRPC histogram metrics.
      - string
@@ -2363,7 +2363,7 @@
    * - :spelling:ignore:`operator.prometheus`
      - Enable prometheus metrics for cilium-operator on the configured port at /metrics
      - object
-     - ``{"enabled":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null}}``
+     - ``{"enabled":true,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null}}``
    * - :spelling:ignore:`operator.prometheus.serviceMonitor.annotations`
      - Annotations to add to ServiceMonitor cilium-operator
      - object

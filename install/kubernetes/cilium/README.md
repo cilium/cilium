@@ -168,7 +168,7 @@ contributors across the globe, there is almost always someone available to help.
 | clustermesh.apiserver.kvstoremesh.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}` | KVStoreMesh Security context |
 | clustermesh.apiserver.lifecycle | object | `{}` | lifecycle setting for the apiserver container |
 | clustermesh.apiserver.metrics.enabled | bool | `true` | Enables exporting apiserver metrics in OpenMetrics format. |
-| clustermesh.apiserver.metrics.etcd.enabled | bool | `false` | Enables exporting etcd metrics in OpenMetrics format. |
+| clustermesh.apiserver.metrics.etcd.enabled | bool | `true` | Enables exporting etcd metrics in OpenMetrics format. |
 | clustermesh.apiserver.metrics.etcd.mode | string | `"basic"` | Set level of detail for etcd metrics; specify 'extensive' to include server side gRPC histogram metrics. |
 | clustermesh.apiserver.metrics.etcd.port | int | `9963` | Configure the port the etcd metric server listens on. |
 | clustermesh.apiserver.metrics.kvstoremesh.enabled | bool | `true` | Enables exporting KVStoreMesh metrics in OpenMetrics format. |
@@ -640,7 +640,7 @@ contributors across the globe, there is almost always someone available to help.
 | operator.pprof.enabled | bool | `false` | Enable pprof for cilium-operator |
 | operator.pprof.port | int | `6061` | Configure pprof listen port for cilium-operator |
 | operator.priorityClassName | string | `""` | The priority class to use for cilium-operator |
-| operator.prometheus | object | `{"enabled":false,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null}}` | Enable prometheus metrics for cilium-operator on the configured port at /metrics |
+| operator.prometheus | object | `{"enabled":true,"port":9963,"serviceMonitor":{"annotations":{},"enabled":false,"interval":"10s","labels":{},"metricRelabelings":null,"relabelings":null}}` | Enable prometheus metrics for cilium-operator on the configured port at /metrics |
 | operator.prometheus.serviceMonitor.annotations | object | `{}` | Annotations to add to ServiceMonitor cilium-operator |
 | operator.prometheus.serviceMonitor.enabled | bool | `false` | Enable service monitors. This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml) |
 | operator.prometheus.serviceMonitor.interval | string | `"10s"` | Interval for scrape metrics. |
