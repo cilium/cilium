@@ -1,0 +1,50 @@
+variables:
+  CI_DOCKER_IMAGE: registry.ddbuild.io/images/docker:24.0.4-gbi-focal
+  DOCKER_CONTEXT: "."
+  DOCKER_BUILD_ARGS: ""
+
+.build-docker-image: &build-docker-image
+  stage: build
+  image: $CI_DOCKER_IMAGE
+  tags: ["runner:docker"]
+  rules:
+    # Automatically run the pipeline for all pushed tags
+    - if: $CI_COMMIT_TAG
+  script:
+    - set -x
+    - builder=$(docker buildx create --use)
+    - trap "docker buildx rm $builder" EXIT
+    # Construct valid --build-args arguments from the DOCKER_BUILD_ARGS variable
+    - BUILD_ARGS=""; IFS=$'\n'; for arg in $DOCKER_BUILD_ARGS; do BUILD_ARGS+=" $(echo "--build-arg $arg")"; done; IFS=$' ';
+    - IMAGE_TAG="registry.ddbuild.io/$IMAGE_NAME:$CI_COMMIT_TAG"
+    - docker buildx build --platform linux/amd64,linux/arm64 --tag $IMAGE_TAG --file $DOCKERFILE_PATH $BUILD_ARGS --label CILIUM_VERSION=$(cat VERSION) --label target=prod --push $DOCKER_CONTEXT
+
+build-docker-image-operator:
+  <<: *build-docker-image
+  variables:
+    IMAGE_NAME: cilium-operator
+    DOCKERFILE_PATH: images/operator/Dockerfile
+    DOCKER_BUILD_ARGS: |
+      BASE_IMAGE=registry.ddbuild.io/images/base/gbi-distroless:release
+      OPERATOR_VARIANT=operator
+
+build-docker-image-runtime:
+  <<: *build-docker-image
+  variables:
+    IMAGE_NAME: cilium-runtime
+    DOCKERFILE_PATH: images/runtime/Dockerfile
+    DOCKER_BUILD_ARGS: |
+      UBUNTU_IMAGE=registry.ddbuild.io/images/base/gbi-ubuntu_2004:release
+    DOCKER_CONTEXT: "./images/runtime"
+    TARGET: build
+
+build-docker-image-cilium:
+  <<: *build-docker-image
+  needs:
+    # The cilium image depends on the runtime image
+    - build-docker-image-runtime
+  variables:
+    IMAGE_NAME: cilium
+    DOCKERFILE_PATH: images/cilium/Dockerfile
+    DOCKER_BUILD_ARGS: |
+      CILIUM_RUNTIME_IMAGE=registry.ddbuild.io/cilium-runtime:$CI_COMMIT_TAG
