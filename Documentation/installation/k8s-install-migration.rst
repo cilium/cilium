@@ -220,7 +220,7 @@ Just to make sure that the values have taken effect we can check the value again
 .. code-block:: shell-session
 
      kubectl get installations.operator.tigera.io default \
-  -o jsonpath='{.spec.calicoNetwork.nodeAddressAutodetectionV4}{"\n"}'
+  -o jsonpath='{.spec.calicoNetwork.nodeAddressAutodetectionV4}'
 
 5.  Install cilium using :ref:`helm <k8s_install_helm>`.
 
