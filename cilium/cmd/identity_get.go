@@ -74,7 +74,7 @@ var identityGetCmd = &cobra.Command{
 }
 
 func init() {
-	identityCmd.AddCommand(identityGetCmd)
+	IdentityCmd.AddCommand(identityGetCmd)
 	identityGetCmd.Flags().StringSliceVar(&lookupLabels, "label", []string{}, "Label to lookup")
 	command.AddOutputOption(identityGetCmd)
 }

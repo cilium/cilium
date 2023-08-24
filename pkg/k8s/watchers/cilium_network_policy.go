@@ -32,6 +32,8 @@ import (
 	"github.com/cilium/cilium/pkg/spanstat"
 )
 
+var syncCNPStatusControllerGroup = controller.NewGroup("sync-cnp-policy-status")
+
 // ruleImportMetadataCache maps the unique identifier of a CiliumNetworkPolicy
 // (namespace and name) to metadata about the importing of the rule into the
 // agent's policy repository at the time said rule was imported (revision
@@ -227,23 +229,13 @@ func (k *K8sWatcher) onUpsert(
 ) error {
 	initialRecvTime := time.Now()
 
-	var (
-		equal  bool
-		action string
-	)
-
-	// wrap k.K8sEventReceived call into a naked func() to capture equal in the closure
 	defer func() {
-		k.K8sEventReceived(apiGroup, metricLabel, action, true, equal)
+		k.k8sResourceSynced.SetEventTimestamp(apiGroup)
 	}()
 
 	oldCNP, ok := cnpCache[key]
-	if !ok {
-		action = resources.MetricCreate
-	} else {
-		action = resources.MetricUpdate
+	if ok {
 		if oldCNP.DeepEqual(cnp) {
-			equal = true
 			return nil
 		}
 	}
@@ -252,9 +244,11 @@ func (k *K8sWatcher) onUpsert(
 		return nil
 	}
 
-	// check if this cnp was referencing or is now referencing a
+	// check if this cnp was referencing or is now referencing at least one non-empty
 	// CiliumCIDRGroup and update the relevant metric accordingly.
-	if len(getCIDRGroupRefs(cnp)) > 0 {
+	cidrGroupRefs := getCIDRGroupRefs(cnp)
+	cidrsSets, _ := cidrGroupRefsToCIDRsSets(cidrGroupRefs, cidrGroupCache)
+	if len(cidrsSets) > 0 {
 		cidrGroupPolicies[key] = struct{}{}
 	} else {
 		delete(cidrGroupPolicies, key)
@@ -280,8 +274,6 @@ func (k *K8sWatcher) onUpsert(
 		cnpCache[key] = cnpCpy
 	}
 
-	k.K8sEventProcessed(metricLabel, action, err == nil)
-
 	return err
 }
 
@@ -300,8 +292,7 @@ func (k *K8sWatcher) onDelete(
 	delete(cidrGroupPolicies, key)
 	metrics.CIDRGroupPolicies.Set(float64(len(cidrGroupPolicies)))
 
-	k.K8sEventProcessed(metricLabel, resources.MetricDelete, err == nil)
-	k.K8sEventReceived(apiGroup, metricLabel, resources.MetricDelete, true, true)
+	k.k8sResourceSynced.SetEventTimestamp(apiGroup)
 
 	return err
 }
@@ -356,6 +347,7 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 		ctrlName := cnp.GetControllerName()
 		k8sCM.UpdateController(ctrlName,
 			controller.ControllerParams{
+				Group: syncCNPStatusControllerGroup,
 				DoFunc: func(ctx context.Context) error {
 					return updateContext.UpdateStatus(ctx, cnp, rev, policyImportErr)
 				},
@@ -491,6 +483,7 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient c
 
 	k8sCM.UpdateController(ctrlName,
 		controller.ControllerParams{
+			Group: syncCNPStatusControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				return updateContext.UpdateStatus(ctx, cnp, meta.revision, meta.policyImportError)
 			},

@@ -54,6 +54,6 @@ var bpfVtepListCmd = &cobra.Command{
 }
 
 func init() {
-	bpfVtepCmd.AddCommand(bpfVtepListCmd)
+	BPFVtepCmd.AddCommand(bpfVtepListCmd)
 	command.AddOutputOption(bpfVtepListCmd)
 }

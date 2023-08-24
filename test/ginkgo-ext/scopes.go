@@ -301,7 +301,7 @@ func runAllAfterEach(cs *scope, testName string) {
 var afterFailedStatus map[string]bool = map[string]bool{}
 
 func testFailed(testName string) bool {
-	hasFailed, _ := afterEachFailed[testName]
+	hasFailed := afterEachFailed[testName]
 	return ginkgo.CurrentGinkgoTestDescription().Failed || hasFailed
 }
 
@@ -368,7 +368,7 @@ func RunAfterEach(cs *scope) {
 	afterEachStatus[testName] = true
 
 	// Run the afterFailed in case that something fails on afterEach
-	if hasFailed == false && afterEachFailed[testName] {
+	if !hasFailed && afterEachFailed[testName] {
 		GinkgoPrint("Something has failed on AfterEach, running AfterFailed functions")
 		afterFailedStatus[testName] = false
 		runAllAfterFail(cs, testName)

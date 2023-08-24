@@ -37,6 +37,8 @@
 #   Provide guidance around the best use of Cilium project continuous
 #   integration and testing infrastructure, including GitHub actions, VM
 #   helpers, testing frameworks, etc.
+# - @cilium/community:
+#   Maintain files that refer to Cilium community users such as USERS.md.
 # - @cilium/contributing:
 #   Encourage practices that ensure an inclusive contributor community. Review
 #   tooling and scripts used by contributors.
@@ -138,6 +140,8 @@
 #   Provide background on how the Cilium Endpoint package fits into the overall
 #   agent architecture, relationship with generation of policy / datapath
 #   constructs, serialization and restore from disk.
+# - @cilium/egress-gateway:
+#   Maintain the egress gateway control plane and datapath logic.
 # - @cilium/ipcache:
 #   Provide background on how the userspace IPCache structure fits into the
 #   overall agent architecture, ordering constraints with respect to network
@@ -242,10 +246,11 @@
 /api/v1/recorder/ @cilium/sig-hubble-api
 /api/v1/relay/ @cilium/sig-hubble-api
 /bpf/ @cilium/sig-datapath
+/bpf/lib/egress_gateway.h @cilium/egress-gateway
 Makefile* @cilium/build
 /bpf/Makefile* @cilium/loader
-/bpf/init.sh @cilium/loader
 /bpf/custom/Makefile* @cilium/build @cilium/loader
+/bpf/lib/auth.h @cilium/sig-datapath @cilium/sig-servicemesh
 /bpf/lib/encrypt.h @cilium/ipsec
 /bugtool/ @cilium/tophat
 /bugtool/cmd/ @cilium/cli
@@ -317,7 +322,7 @@ Makefile* @cilium/build
 /Documentation/network/concepts/ipam/azure* @cilium/sig-ipam @cilium/azure @cilium/docs-structure
 /Documentation/network/concepts/ipam/eni* @cilium/sig-ipam @cilium/aws @cilium/docs-structure
 /Documentation/network/ebpf/ @cilium/sig-datapath @cilium/docs-structure
-/Documentation/network/egress-gateway.rst @cilium/sig-datapath @cilium/docs-structure
+/Documentation/network/egress-gateway.rst @cilium/egress-gateway @cilium/docs-structure
 /Documentation/network/kubernetes/ @cilium/sig-k8s @cilium/docs-structure
 /Documentation/network/kubernetes/bandwidth-manager.rst @cilium/sig-datapath @cilium/docs-structure
 /Documentation/network/kubernetes/ipam* @cilium/sig-ipam @cilium/docs-structure
@@ -349,7 +354,6 @@ Makefile* @cilium/build
 /examples/policies/kubernetes/clustermesh/ @cilium/sig-clustermesh
 /FURTHER_READINGS.rst @cilium/docs-structure
 /hack/ @cilium/tophat
-*.Jenkinsfile @cilium/ci-structure
 /hubble-relay/ @cilium/sig-hubble
 /images @cilium/build
 /images/builder/install-protoc.sh @cilium/sig-hubble-api
@@ -358,8 +362,9 @@ Makefile* @cilium/build
 /images/hubble-relay @cilium/sig-hubble
 /images/runtime/update-cilium-runtime-image.sh @cilium/github-sec
 /install/kubernetes/ @cilium/sig-k8s @cilium/helm
+/install/kubernetes/cilium/**/cilium-envoy @cilium/sig-k8s @cilium/helm @cilium/sig-servicemesh
+/install/kubernetes/cilium/**/spire @cilium/sig-k8s @cilium/helm @cilium/sig-servicemesh
 /install/kubernetes/cilium/templates/hubble* @cilium/sig-k8s @cilium/helm @cilium/sig-hubble
-jenkinsfiles @cilium/ci-structure
 /kvstoremesh @cilium/sig-clustermesh
 /LICENSE @cilium/tophat
 /MAINTAINERS.md @cilium/contributing
@@ -380,6 +385,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/auth/ @cilium/sig-servicemesh
 /pkg/aws/ @cilium/aws
 /pkg/azure/ @cilium/azure
+/pkg/backoff/ @cilium/sig-agent
 /pkg/bandwidth/ @cilium/sig-datapath
 /pkg/bgp/ @cilium/sig-bgp
 /pkg/bgpv1/ @cilium/sig-bgp
@@ -409,7 +415,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/datapath/ipcache/ @cilium/ipcache
 /pkg/defaults @cilium/sig-agent
 /pkg/ebpf @cilium/sig-datapath
-/pkg/egressgateway/ @cilium/sig-datapath
+/pkg/egressgateway/ @cilium/egress-gateway
 /pkg/elf @cilium/sig-datapath
 /pkg/endpoint/ @cilium/endpoint
 /pkg/endpointmanager/ @cilium/endpoint
@@ -419,6 +425,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/fswatcher/ @cilium/sig-datapath @cilium/sig-hubble
 /pkg/health/ @cilium/sig-agent
 /pkg/hive/ @cilium/sig-foundations
+/pkg/hive/job/metrics.go @cilium/sig-foundations @cilium/metrics
 /pkg/hubble/ @cilium/sig-hubble
 /pkg/hubble/metrics @cilium/sig-hubble @cilium/sig-hubble-api
 /pkg/identity @cilium/sig-policy
@@ -435,8 +442,9 @@ jenkinsfiles @cilium/ci-structure
 /pkg/k8s/watchers/cilium_cidr_group.go @cilium/sig-policy
 /pkg/k8s/watchers/cilium_cidr_group_test.go @cilium/sig-policy
 /pkg/k8s/apis/cilium.io/client/crds/v2/ @cilium/sig-k8s
+/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumegressgatewaypolicies.yaml @cilium/egress-gateway
+/pkg/k8s/apis/cilium.io/v2/cegp_types.go @cilium/egress-gateway
 /pkg/k8s/apis/cilium.io/v2/ @cilium/api @cilium/sig-k8s
-/pkg/kafka/ @cilium/proxy
 /pkg/kvstore/ @cilium/kvstore
 /pkg/l2announcer/ @cilium/sig-agent
 /pkg/labels @cilium/sig-policy @cilium/api
@@ -448,6 +456,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/mac @cilium/sig-datapath
 /pkg/maglev @cilium/sig-lb
 /pkg/maps/ @cilium/sig-datapath
+/pkg/maps/egressmap @cilium/egress-gateway
 /pkg/mcastmanager @cilium/sig-datapath
 /pkg/metrics @cilium/metrics
 /pkg/modules/ @cilium/sig-datapath
@@ -478,7 +487,7 @@ jenkinsfiles @cilium/ci-structure
 /pkg/slices @cilium/sig-foundations
 /pkg/source @cilium/ipcache
 /pkg/status/ @cilium/sig-agent
-/pkg/statedb @cilium/sig-foundations
+/pkg/statedb2 @cilium/sig-foundations
 /pkg/stream @cilium/sig-foundations
 /pkg/sysctl @cilium/sig-datapath
 /pkg/testutils/ @cilium/ci-structure
@@ -489,7 +498,6 @@ jenkinsfiles @cilium/ci-structure
 /pkg/versioncheck/ @cilium/sig-agent
 /plugins/cilium-cni/ @cilium/sig-k8s
 /plugins/cilium-docker/ @cilium/docker
-/proxylib/ @cilium/proxy
 /README.rst @cilium/docs-structure
 /SECURITY.md @cilium/contributing
 /stable.txt @cilium/tophat
@@ -527,7 +535,7 @@ jenkinsfiles @cilium/ci-structure
 /test/runtime/chaos_agent.go @cilium/sig-agent @cilium/ci-structure
 /test/runtime/chaos_endpoint.go @cilium/endpoint @cilium/ci-structure
 /tools/ @cilium/contributing
-/USERS.md @cilium/tophat
+/USERS.md @cilium/community
 Vagrantfile @cilium/ci-structure
 /Vagrantfile @cilium/contributing
 /go.sum @cilium/vendor

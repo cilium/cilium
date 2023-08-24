@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bpfMaglevCmd represents the bpf lb maglev command
-var bpfMaglevCmd = &cobra.Command{
+// BPFMaglevCmd represents the bpf lb maglev command
+var BPFMaglevCmd = &cobra.Command{
 	Use:   "maglev",
 	Short: "Maglev lookup table",
 }
 
 func init() {
-	bpfLBCmd.AddCommand(bpfMaglevCmd)
+	BPFLBCmd.AddCommand(BPFMaglevCmd)
 }

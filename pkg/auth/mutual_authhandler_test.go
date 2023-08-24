@@ -22,6 +22,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/identity"
 )
@@ -83,6 +84,10 @@ func (f *fakeCertificateProvider) SNIToNumericIdentity(sni string) (identity.Num
 }
 
 func (f *fakeCertificateProvider) SubscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {
+	return nil
+}
+
+func (f *fakeCertificateProvider) Status() *models.Status {
 	return nil
 }
 

@@ -9,113 +9,173 @@ import (
 	"sync"
 
 	"github.com/cilium/ebpf/internal"
+
+	"golang.org/x/exp/slices"
 )
 
-type marshalOptions struct {
+type MarshalOptions struct {
+	// Target byte order. Defaults to the system's native endianness.
+	Order binary.ByteOrder
 	// Remove function linkage information for compatibility with <5.6 kernels.
 	StripFuncLinkage bool
 }
 
-// kernelMarshalOptions will generate BTF suitable for the current kernel.
-func kernelMarshalOptions() *marshalOptions {
-	return &marshalOptions{
+// KernelMarshalOptions will generate BTF suitable for the current kernel.
+func KernelMarshalOptions() *MarshalOptions {
+	return &MarshalOptions{
+		Order:            internal.NativeEndian,
 		StripFuncLinkage: haveFuncLinkage() != nil,
 	}
 }
 
 // encoder turns Types into raw BTF.
 type encoder struct {
-	marshalOptions
+	MarshalOptions
 
-	byteOrder binary.ByteOrder
-	pending   internal.Deque[Type]
-	buf       *bytes.Buffer
-	strings   *stringTableBuilder
-	ids       map[Type]TypeID
-	lastID    TypeID
+	pending internal.Deque[Type]
+	buf     *bytes.Buffer
+	strings *stringTableBuilder
+	ids     map[Type]TypeID
+	lastID  TypeID
 }
-
-var emptyBTFHeader = make([]byte, btfHeaderLen)
 
 var bufferPool = sync.Pool{
 	New: func() any {
-		return bytes.NewBuffer(make([]byte, btfHeaderLen+128))
+		buf := make([]byte, btfHeaderLen+128)
+		return &buf
 	},
 }
 
-func getBuffer() *bytes.Buffer {
-	buf := bufferPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	return buf
+func getByteSlice() *[]byte {
+	return bufferPool.Get().(*[]byte)
 }
 
-func putBuffer(buf *bytes.Buffer) {
+func putByteSlice(buf *[]byte) {
+	*buf = (*buf)[:0]
 	bufferPool.Put(buf)
 }
 
-// marshalTypes encodes a slice of types into BTF wire format.
+// Builder turns Types into raw BTF.
 //
-// types are guaranteed to be written in the order they are passed to this
-// function. The first type must always be Void.
+// The default value may be used and represents an empty BTF blob. Void is
+// added implicitly if necessary.
+type Builder struct {
+	// Explicitly added types.
+	types []Type
+	// IDs for all added types which the user knows about.
+	stableIDs map[Type]TypeID
+	// Explicitly added strings.
+	strings *stringTableBuilder
+}
+
+// NewBuilder creates a Builder from a list of types.
 //
-// Doesn't support encoding split BTF since it's not possible to load
-// that into the kernel and we don't have a use case for writing BTF
-// out again.
+// It is more efficient than calling [Add] individually.
 //
-// w should be retrieved from bufferPool. opts may be nil.
-func marshalTypes(w *bytes.Buffer, types []Type, stb *stringTableBuilder, opts *marshalOptions) error {
-	if len(types) < 1 {
-		return errors.New("types must contain at least Void")
+// Returns an error if adding any of the types fails.
+func NewBuilder(types []Type) (*Builder, error) {
+	b := &Builder{
+		make([]Type, 0, len(types)),
+		make(map[Type]TypeID, len(types)),
+		nil,
 	}
 
-	if _, ok := types[0].(*Void); !ok {
-		return fmt.Errorf("first type is %s, not Void", types[0])
-	}
-	types = types[1:]
-
-	if stb == nil {
-		stb = newStringTableBuilder(0)
-	}
-
-	e := encoder{
-		byteOrder: internal.NativeEndian,
-		buf:       w,
-		strings:   stb,
-		ids:       make(map[Type]TypeID, len(types)),
-	}
-
-	if opts != nil {
-		e.marshalOptions = *opts
-	}
-
-	// Ensure that passed types are marshaled in the exact order they were
-	// passed.
-	e.pending.Grow(len(types))
 	for _, typ := range types {
-		if err := e.allocateID(typ); err != nil {
-			return err
+		_, err := b.Add(typ)
+		if err != nil {
+			return nil, fmt.Errorf("add %s: %w", typ, err)
 		}
 	}
 
+	return b, nil
+}
+
+// Add a Type and allocate a stable ID for it.
+//
+// Adding the identical Type multiple times is valid and will return the same ID.
+//
+// See [Type] for details on identity.
+func (b *Builder) Add(typ Type) (TypeID, error) {
+	if b.stableIDs == nil {
+		b.stableIDs = make(map[Type]TypeID)
+	}
+
+	if _, ok := typ.(*Void); ok {
+		// Equality is weird for void, since it is a zero sized type.
+		return 0, nil
+	}
+
+	if ds, ok := typ.(*Datasec); ok {
+		if err := datasecResolveWorkaround(b, ds); err != nil {
+			return 0, err
+		}
+	}
+
+	id, ok := b.stableIDs[typ]
+	if ok {
+		return id, nil
+	}
+
+	b.types = append(b.types, typ)
+
+	id = TypeID(len(b.types))
+	if int(id) != len(b.types) {
+		return 0, fmt.Errorf("no more type IDs")
+	}
+
+	b.stableIDs[typ] = id
+	return id, nil
+}
+
+// Marshal encodes all types in the Marshaler into BTF wire format.
+//
+// opts may be nil.
+func (b *Builder) Marshal(buf []byte, opts *MarshalOptions) ([]byte, error) {
+	stb := b.strings
+	if stb == nil {
+		// Assume that most types are named. This makes encoding large BTF like
+		// vmlinux a lot cheaper.
+		stb = newStringTableBuilder(len(b.types))
+	} else {
+		// Avoid modifying the Builder's string table.
+		stb = b.strings.Copy()
+	}
+
+	if opts == nil {
+		opts = &MarshalOptions{Order: internal.NativeEndian}
+	}
+
 	// Reserve space for the BTF header.
-	_, _ = e.buf.Write(emptyBTFHeader)
+	buf = slices.Grow(buf, btfHeaderLen)[:btfHeaderLen]
+
+	w := internal.NewBuffer(buf)
+	defer internal.PutBuffer(w)
+
+	e := encoder{
+		MarshalOptions: *opts,
+		buf:            w,
+		strings:        stb,
+		lastID:         TypeID(len(b.types)),
+		ids:            make(map[Type]TypeID, len(b.types)),
+	}
+
+	// Ensure that types are marshaled in the exact order they were Add()ed.
+	// Otherwise the ID returned from Add() won't match.
+	e.pending.Grow(len(b.types))
+	for _, typ := range b.types {
+		e.pending.Push(typ)
+		e.ids[typ] = b.stableIDs[typ]
+	}
 
 	if err := e.deflatePending(); err != nil {
-		return err
+		return nil, err
 	}
 
 	length := e.buf.Len()
 	typeLen := uint32(length - btfHeaderLen)
 
-	// Reserve space for the string table.
 	stringLen := e.strings.Length()
-	e.buf.Grow(stringLen)
-	buf := e.strings.AppendEncoded(e.buf.Bytes())
-
-	// Add string table to the unread portion of the buffer, otherwise
-	// it isn't return by Bytes().
-	// The copy is optimized out since src == dst.
-	_, _ = e.buf.Write(buf[length:])
+	buf = e.strings.AppendEncoded(e.buf.Bytes())
 
 	// Fill out the header, and write it out.
 	header := &btfHeader{
@@ -129,12 +189,26 @@ func marshalTypes(w *bytes.Buffer, types []Type, stb *stringTableBuilder, opts *
 		StringLen: uint32(stringLen),
 	}
 
-	err := binary.Write(sliceWriter(buf[:btfHeaderLen]), e.byteOrder, header)
+	err := binary.Write(sliceWriter(buf[:btfHeaderLen]), e.Order, header)
 	if err != nil {
-		return fmt.Errorf("write header: %v", err)
+		return nil, fmt.Errorf("write header: %v", err)
 	}
 
-	return nil
+	return buf, nil
+}
+
+// addString adds a string to the resulting BTF.
+//
+// Adding the same string multiple times will return the same result.
+//
+// Returns an identifier into the string table or an error if the string
+// contains invalid characters.
+func (b *Builder) addString(str string) (uint32, error) {
+	if b.strings == nil {
+		b.strings = newStringTableBuilder(0)
+	}
+
+	return b.strings.Add(str)
 }
 
 func (e *encoder) allocateID(typ Type) error {
@@ -170,7 +244,7 @@ func (e *encoder) deflatePending() error {
 		if t == root {
 			// Force descending into the current root type even if it already
 			// has an ID. Otherwise we miss children of types that have their
-			// ID pre-allocated in marshalTypes.
+			// ID pre-allocated via Add.
 			return false
 		}
 
@@ -338,7 +412,7 @@ func (e *encoder) deflateType(typ Type) (err error) {
 		return err
 	}
 
-	return raw.Marshal(e.buf, e.byteOrder)
+	return raw.Marshal(e.buf, e.Order)
 }
 
 func (e *encoder) convertMembers(header *btfType, members []Member) ([]btfMember, error) {
@@ -441,29 +515,23 @@ func (e *encoder) deflateVarSecinfos(vars []VarSecinfo) []btfVarSecinfo {
 // The function is intended for the use of the ebpf package and may be removed
 // at any point in time.
 func MarshalMapKV(key, value Type) (_ *Handle, keyID, valueID TypeID, err error) {
-	spec := NewSpec()
+	var b Builder
 
 	if key != nil {
-		keyID, err = spec.Add(key)
+		keyID, err = b.Add(key)
 		if err != nil {
 			return nil, 0, 0, fmt.Errorf("add key type: %w", err)
 		}
 	}
 
 	if value != nil {
-		if ds, ok := value.(*Datasec); ok {
-			if err := datasecResolveWorkaround(spec, ds); err != nil {
-				return nil, 0, 0, err
-			}
-		}
-
-		valueID, err = spec.Add(value)
+		valueID, err = b.Add(value)
 		if err != nil {
 			return nil, 0, 0, fmt.Errorf("add value type: %w", err)
 		}
 	}
 
-	handle, err := NewHandle(spec)
+	handle, err := NewHandle(&b)
 	if err != nil {
 		// Check for 'full' map BTF support, since kernels between 4.18 and 5.2
 		// already support BTF blobs for maps without Var or Datasec just fine.

@@ -5,6 +5,7 @@ package bgpv1
 
 import (
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/bgpv1/manager"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -22,12 +23,8 @@ var Cell = cell.Module(
 	"BGP Control Plane",
 
 	// The Controller which is the entry point of the module
-	cell.Provide(agent.NewController),
+	cell.Provide(agent.NewController, signaler.NewBGPCPSignaler),
 	cell.ProvidePrivate(
-		// Signaler is used by all cells that observe resources to signal the controller to start reconciliation.
-		agent.NewSignaler,
-		// Local Node Store Specer provides the module with information about the current node.
-		agent.NewNodeSpecer,
 		// BGP Peering Policy resource provides the module with a stream of events for the BGPPeeringPolicy resource.
 		newBGPPeeringPolicyResource,
 		// goBGP is currently the only supported RouterManager, if more are

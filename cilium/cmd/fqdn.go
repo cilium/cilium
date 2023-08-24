@@ -65,7 +65,7 @@ func init() {
 	fqdnCacheCmd.AddCommand(fqdnCleanCacheCmd)
 	fqdnCmd.AddCommand(fqdnCacheCmd)
 	fqdnCmd.AddCommand(fqdnNames)
-	rootCmd.AddCommand(fqdnCmd)
+	RootCmd.AddCommand(fqdnCmd)
 
 	fqdnCleanCacheCmd.Flags().BoolVarP(&force, "force", "f", false, "Skip confirmation")
 	fqdnCleanCacheCmd.Flags().StringVarP(&fqdnCacheMatchPattern, "matchpattern", "p", "", "Delete cache entries with FQDNs that match matchpattern")

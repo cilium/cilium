@@ -22,11 +22,12 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-  kind_version: v0.19.0
+  kind_version: v0.20.0
   kind_config: .github/kind-config.yaml
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.7
+  cilium_cli_version: v0.15.6
   cilium_cli_ci_version:
+  CILIUM_CLI_MODE: helm
 
 jobs:
   installation-and-connectivity:
@@ -69,21 +70,21 @@ jobs:
             --helm-set=hubble.relay.enabled=true \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.relay.image.useDigest=false \
             --helm-set=cni.chainingMode=portmap \
             --helm-set-string=kubeProxyReplacement=strict \
             --helm-set=loadBalancer.l7.backend=envoy \
             --helm-set=tls.secretsBackend=k8s \
             --helm-set=envoy.enabled=true \
             --helm-set=bpf.monitorAggregation="none" \
-            --wait=false \
-            --version="
+            --wait=false"
           CONNECTIVITY_TEST_DEFAULTS="--flow-validation=disabled --hubble=false --collect-sysdump-on-failure"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@9fcfef089e5b7dd3212f2eac21ba8cfae6f05cca # v0.14.7
+        uses: cilium/cilium-cli@e718cf78ef55d95cfa0a5a0a935d6a224d567e1d # v0.15.6
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
@@ -95,7 +96,7 @@ jobs:
           persist-credentials: false
 
       - name: Create kind cluster
-        uses: helm/kind-action@fa81e57adff234b2908110485695db0f181f3c67 # v1.7.0
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
         with:
           version: ${{ env.kind_version }}
           config: ${{ env.kind_config }}
@@ -109,8 +110,9 @@ jobs:
           done
 
       - name: Install Cilium
+        id: install-cilium
         run: |
-          CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for Cilium status to be ready
         run: |
@@ -133,7 +135,7 @@ jobs:
           --junit-file "cilium-junits/${{ env.job_name }}.xml" --junit-property github_job_step="Run connectivity test"
 
       - name: Post-test information gathering
-        if: ${{ !success() }}
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status
@@ -154,7 +156,7 @@ jobs:
         with:
           name: cilium-junits
           path: cilium-junits/*.xml
-          retention-days: 2
+          retention-days: 5
 
       - name: Publish Test Results As GitHub Summary
         if: ${{ always() }}

@@ -1,6 +1,9 @@
 # Lint rules to ignore
 LINTIGNORESINGLEFIGHT='internal/sync/singleflight/singleflight.go:.+error should be the last type'
 LINT_IGNORE_S3MANAGER_INPUT='feature/s3/manager/upload.go:.+struct field SSEKMSKeyId should be SSEKMSKeyID'
+# Names of these are tied to endpoint rules and they're internal so ignore them
+LINT_IGNORE_AWSRULESFN_ARN='internal/endpoints/awsrulesfn/arn.go'
+LINT_IGNORE_AWSRULESFN_PARTITION='internal/endpoints/awsrulesfn/partition.go'
 
 UNIT_TEST_TAGS=
 BUILD_TAGS=-tags "example,codegen,integration,ec2env,perftest"
@@ -80,6 +83,13 @@ update-module-metadata download-modules-%
 generate: smithy-generate update-requires gen-repo-mod-replace update-module-metadata smithy-annotate-stable \
 gen-config-asserts gen-internal-codegen copy-attributevalue-feature gen-mod-dropreplace-smithy-. min-go-version-. \
 tidy-modules-. add-module-license-files gen-aws-ptrs format
+
+generate-tmpreplace-smithy: smithy-generate update-requires gen-repo-mod-replace update-module-metadata smithy-annotate-stable \
+gen-config-asserts gen-internal-codegen copy-attributevalue-feature gen-mod-replace-smithy-. min-go-version-. \
+tidy-modules-. add-module-license-files gen-aws-ptrs format gen-mod-dropreplace-smithy-. reset-sum
+
+reset-sum:
+	find . -name go.sum -exec git checkout -- {} \;
 
 smithy-generate:
 	cd codegen && ./gradlew clean build -Plog-tests && ./gradlew clean
@@ -460,7 +470,9 @@ lint:
 	@lint=`golint ./...`; \
 	dolint=`echo "$$lint" | grep -E -v \
 	-e ${LINT_IGNORE_S3MANAGER_INPUT} \
-	-e ${LINTIGNORESINGLEFIGHT}`; \
+	-e ${LINTIGNORESINGLEFIGHT} \
+	-e ${LINT_IGNORE_AWSRULESFN_ARN} \
+	-e ${LINT_IGNORE_AWSRULESFN_PARTITION}`; \
 	echo "$$dolint"; \
 	if [ "$$dolint" != "" ]; then exit 1; fi
 

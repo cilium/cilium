@@ -123,6 +123,7 @@ func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher, opts ..
 type options struct {
 	transform   cache.TransformFunc      // if non-nil, the object is transformed with this function before storing
 	sourceObj   func() k8sRuntime.Object // prototype for the object before it is transformed
+	indexers    cache.Indexers           // map of the optional custom indexers to be added to the underlying resource informer
 	metricScope string                   // the scope label used when recording metrics for the resource
 }
 
@@ -160,6 +161,13 @@ func WithLazyTransform(sourceObj func() k8sRuntime.Object, transform cache.Trans
 func WithMetric(scope string) ResourceOption {
 	return func(o *options) {
 		o.metricScope = scope
+	}
+}
+
+// WithIndexers sets additional custom indexers on the resource store.
+func WithIndexers(indexers cache.Indexers) ResourceOption {
+	return func(o *options) {
+		o.indexers = indexers
 	}
 }
 
@@ -207,7 +215,7 @@ func (r *resource[T]) metricEventProcessed(eventKind EventKind, status bool) {
 	}
 
 	result := "success"
-	if status == false {
+	if !status {
 		result = "failed"
 	}
 
@@ -295,7 +303,10 @@ func (r *resource[T]) startWhenNeeded() {
 			DeleteFunc: func(obj any) { r.pushDelete(obj) },
 		}
 
-	store, informer := cache.NewTransformingInformer(r.lw, r.opts.sourceObj(), 0, handlerFuncs, r.opts.transform)
+	store, informer := cache.NewTransformingIndexerInformer(
+		r.lw, r.opts.sourceObj(), 0, handlerFuncs,
+		r.opts.indexers, r.opts.transform,
+	)
 	r.storeResolver.Resolve(&typedStore[T]{store})
 
 	r.wg.Add(1)

@@ -16,8 +16,10 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.7
+  cilium_cli_version: v0.15.6
   cilium_cli_ci_version:
+  CILIUM_CLI_MODE: helm
+  # renovate: datasource=github-releases depName=kubernetes-sigs/kind
   KIND_VERSION: v0.17.0
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
@@ -92,7 +94,7 @@ jobs:
       - name: Set image tag
         id: sha
         run: |
-          if [ ${{ github.event.pull_request.head.sha }} != "" ]; then
+          if [ "${{ github.event.pull_request.head.sha }}" != "" ]; then
             echo tag=${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
           else
             echo tag=${{ github.sha }} >> $GITHUB_OUTPUT
@@ -105,7 +107,7 @@ jobs:
           test -z "$(git status --porcelain)" || (echo "please run 'make -C examples/kubernetes/connectivity-check fmt all' and submit your changes"; exit 1)
 
       - name: Create kind cluster
-        uses: helm/kind-action@fa81e57adff234b2908110485695db0f181f3c67 # v1.7.0
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
@@ -123,12 +125,7 @@ jobs:
         run: |
           CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
              --helm-set nodeinit.enabled=true \
-             --helm-set kubeProxyReplacement=partial \
-             --helm-set socketLB.enabled=false \
-             --helm-set externalIPs.enabled=true \
-             --helm-set nodePort.enabled=true \
-             --helm-set hostPort.enabled=true \
-             --helm-set bpf.masquerade=false \
+             --helm-set kubeProxyReplacement=true \
              --helm-set ipam.mode=kubernetes \
              --helm-set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
              --helm-set image.tag=${{ steps.sha.outputs.tag }} \
@@ -161,8 +158,9 @@ jobs:
           cilium version
 
       - name: Install Cilium
+        id: install-cilium
         run: |
-          CILIUM_CLI_MODE=helm cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
 
       - name: Wait for Cilium status to be ready
         run: |
@@ -197,7 +195,7 @@ jobs:
           cat metrics.prom | promtool check metrics
 
       - name: Report cluster failure status and capture cilium-sysdump
-        if: ${{ failure() }}
+        if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
         # The following is needed to prevent hubble from receiving an empty
         # file (EOF) on stdin and displaying no flows.
         shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'

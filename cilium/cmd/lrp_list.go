@@ -25,7 +25,7 @@ var lrpListCmd = &cobra.Command{
 }
 
 func init() {
-	lrpCmd.AddCommand(lrpListCmd)
+	LRPCmd.AddCommand(lrpListCmd)
 	command.AddOutputOption(lrpListCmd)
 }
 
@@ -61,7 +61,7 @@ func printLRPList(w *tabwriter.Writer, list []*models.LRPSpec) {
 		entry := fmt.Sprintf("%s\t%s\t%s\t%s", lrp.Namespace, lrp.Name, lrp.FrontendType, lrp.ServiceID)
 		fmt.Fprintln(w, entry)
 		for _, feM := range lrp.FrontendMappings {
-			fmt.Fprintln(w, fmt.Sprintf("\t|\t%s", getPrintableMapping(feM)))
+			fmt.Fprintf(w, "\t|\t%s\n", getPrintableMapping(feM))
 		}
 	}
 	w.Flush()

@@ -33,10 +33,6 @@ type API struct {
 // NewAPI returns a new mocked ECS API
 func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, securityGroups []*types.SecurityGroup) *API {
 	_, cidr, _ := net.ParseCIDR("10.0.0.0/8")
-	cidrRange, err := ipallocator.NewCIDRRange(cidr)
-	if err != nil {
-		panic(err)
-	}
 
 	api := &API{
 		unattached:     map[string]*eniTypes.ENI{},
@@ -44,7 +40,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 		subnets:        map[string]*ipamTypes.Subnet{},
 		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
 		securityGroups: map[string]*types.SecurityGroup{},
-		allocator:      cidrRange,
+		allocator:      ipallocator.NewCIDRRange(cidr),
 	}
 
 	api.UpdateSubnets(subnets)
@@ -90,6 +86,40 @@ func (a *API) UpdateENIs(enis map[string]ENIMap) {
 	a.mutex.Unlock()
 }
 
+func (a *API) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error) {
+	instance := ipamTypes.Instance{}
+	instance.Interfaces = map[string]ipamTypes.InterfaceRevision{}
+
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
+
+	for id, enis := range a.enis {
+		if id != instanceID {
+			continue
+		}
+		for ifaceID, eni := range enis {
+			if subnets != nil {
+				if subnet, ok := subnets[eni.VSwitch.VSwitchID]; ok && subnet.CIDR != nil {
+					eni.VSwitch.CIDRBlock = subnet.CIDR.String()
+					eni.ZoneID = subnet.AvailabilityZone
+				}
+			}
+
+			if vpcs != nil {
+				if vpc, ok := vpcs[eni.VPC.VPCID]; ok {
+					eni.VPC.CIDRBlock = vpc.PrimaryCIDR
+					eni.VPC.SecondaryCIDRs = vpc.CIDRs
+				}
+			}
+
+			eniRevision := ipamTypes.InterfaceRevision{Resource: eni.DeepCopy()}
+			instance.Interfaces[ifaceID] = eniRevision
+		}
+	}
+
+	return &instance, nil
+}
+
 func (a *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error) {
 	instances := ipamTypes.NewInstanceMap()
 
@@ -108,6 +138,7 @@ func (a *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap
 			if vpcs != nil {
 				if vpc, ok := vpcs[eni.VPC.VPCID]; ok {
 					eni.VPC.CIDRBlock = vpc.PrimaryCIDR
+					eni.VPC.SecondaryCIDRs = vpc.CIDRs
 				}
 			}
 

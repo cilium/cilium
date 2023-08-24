@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -98,5 +99,49 @@ func (s *ServiceGenericSuite) TestPortConfigurationDeepEqual(c *check.C) {
 		if got := tt.a.DeepEqual(&tt.b); got != tt.want {
 			c.Errorf("PortConfiguration.DeepEqual() = %v, want %v", got, tt.want)
 		}
+	}
+}
+
+func TestClusterServiceValidate(t *testing.T) {
+	tests := []struct {
+		name   string
+		svc    ClusterService
+		assert assert.ErrorAssertionFunc
+	}{
+		{
+			name:   "empty",
+			svc:    ClusterService{},
+			assert: assert.NoError,
+		},
+		{
+			name: "valid",
+			svc: ClusterService{
+				ClusterID: 99,
+				Frontends: map[string]PortConfiguration{"10.1.2.3": {}, "abcd::0001": {}},
+				Backends:  map[string]PortConfiguration{"10.3.2.1": {}, "dcba::0001": {}},
+			},
+			assert: assert.NoError,
+		},
+		{
+			name:   "invalid cluster ID",
+			svc:    ClusterService{ClusterID: 260},
+			assert: assert.Error,
+		},
+		{
+			name:   "invalid frontend IP",
+			svc:    ClusterService{Frontends: map[string]PortConfiguration{"10.1.2.3": {}, "invalid": {}}},
+			assert: assert.Error,
+		},
+		{
+			name:   "invalid backend IP",
+			svc:    ClusterService{Backends: map[string]PortConfiguration{"invalid": {}, "dcba::0001": {}}},
+			assert: assert.Error,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.assert(t, tt.svc.validate())
+		})
 	}
 }

@@ -27,6 +27,7 @@ import (
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
@@ -110,6 +111,7 @@ func init() {
 			PprofAddress: apiserverOption.PprofAddressAPIServer,
 			PprofPort:    apiserverOption.PprofPortAPIServer,
 		}),
+		controller.Cell,
 
 		gops.Cell(defaults.GopsPortApiserver),
 

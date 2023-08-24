@@ -17,32 +17,17 @@ import (
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/completion"
+	_ "github.com/cilium/cilium/pkg/envoy/resource"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	// Imports for Envoy extensions not used directly from Cilium Agent, but that we want to
-	// be registered for use in Cilium Envoy Config CRDs:
-	_ "github.com/cilium/proxy/go/envoy/extensions/clusters/dynamic_forward_proxy/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/dynamic_forward_proxy/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/ext_authz/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/local_ratelimit/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/ratelimit/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/http/set_metadata/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/connection_limit/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/ext_authz/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/local_ratelimit/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/ratelimit/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_cluster/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/filters/network/sni_dynamic_forward_proxy/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/http/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/tcp/v3"
 )
 
 const anyPort = "*"
@@ -158,17 +143,33 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			}
 
 			// Inject Cilium bpf metadata listener filter, if not already present.
-			found := false
-			for _, lf := range listener.ListenerFilters {
-				if lf.Name == "cilium.bpf_metadata" {
-					found = true
+			{
+				found := false
+				for _, lf := range listener.ListenerFilters {
+					if lf.Name == "cilium.bpf_metadata" {
+						found = true
+						break
+					}
+				}
+				if !found {
+					listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* egress */, useOriginalSourceAddr, isL7LB))
 				}
 			}
-			if !found {
-				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* egress */, useOriginalSourceAddr, isL7LB))
+
+			// Inject listener socket option for Cilium datapath, if not already present.
+			{
+				found := false
+				for _, so := range listener.SocketOptions {
+					if so.Level == unix.SOL_SOCKET && so.Name == unix.SO_MARK {
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* egress */))
+				}
 			}
-			// Inject listener socket option for Cilium datapath
-			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* egress */))
 
 			// Fill in SDS & RDS config source if unset
 			for _, fc := range listener.FilterChains {
@@ -432,9 +433,7 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 	return resources, nil
 }
 
-// UpsertEnvoyResources inserts or updates Envoy resources in 'resources' to the xDS cache,
-// from where they will be delivered to Envoy via xDS streaming gRPC.
-func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resources, portAllocator PortAllocator) error {
+func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources Resources, portAllocator PortAllocator) error {
 	if option.Config.Debug {
 		msg := ""
 		sep := ""
@@ -543,12 +542,7 @@ func (s *XDSServer) UpsertEnvoyResources(ctx context.Context, resources Resource
 	return nil
 }
 
-// UpdateEnvoyResources removes any resources in 'old' that are not
-// present in 'new' and then adds or updates all resources in 'new'.
-// Envoy does not support changing the listening port of an existing
-// listener, so if the port changes we have to delete the old listener
-// and then add the new one with the new port number.
-func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources, portAllocator PortAllocator) error {
+func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new Resources, portAllocator PortAllocator) error {
 	waitForDelete := false
 	var wg *completion.WaitGroup
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
@@ -747,8 +741,7 @@ func (s *XDSServer) UpdateEnvoyResources(ctx context.Context, old, new Resources
 	return nil
 }
 
-// DeleteEnvoyResources deletes all Envoy resources in 'resources'.
-func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resources, portAllocator PortAllocator) error {
+func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources Resources, portAllocator PortAllocator) error {
 	log.Debugf("DeleteEnvoyResources: Deleting %d listeners, %d routes, %d clusters, %d endpoints, and %d secrets...",
 		len(resources.Listeners), len(resources.Routes), len(resources.Clusters), len(resources.Endpoints), len(resources.Secrets))
 	var wg *completion.WaitGroup
@@ -806,7 +799,7 @@ func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 	return nil
 }
 
-func (s *XDSServer) UpsertEnvoyEndpoints(serviceName lb.ServiceName, backendMap map[string][]*lb.Backend) error {
+func (s *xdsServer) UpsertEnvoyEndpoints(serviceName lb.ServiceName, backendMap map[string][]*lb.Backend) error {
 	var resources Resources
 	lbEndpoints := []*envoy_config_endpoint.LbEndpoint{}
 	for port, bes := range backendMap {

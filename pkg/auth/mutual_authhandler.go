@@ -16,6 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -53,12 +54,15 @@ func newMutualAuthHandler(logger logrus.FieldLogger, lc hive.Lifecycle, cfg Mutu
 }
 
 type MutualAuthConfig struct {
-	MutualAuthListenerPort int `mapstructure:"mesh-auth-mutual-listener-port"`
+	MutualAuthListenerPort   int           `mapstructure:"mesh-auth-mutual-listener-port"`
+	MutualAuthConnectTimeout time.Duration `mapstructure:"mesh-auth-mutual-connect-timeout"`
 }
 
 func (cfg MutualAuthConfig) Flags(flags *pflag.FlagSet) {
 	flags.IntVar(&cfg.MutualAuthListenerPort, "mesh-auth-mutual-listener-port", 0,
 		"Port on which the Cilium Agent will perform mutual authentication handshakes between other Agents")
+	flags.DurationVar(&cfg.MutualAuthConnectTimeout, "mesh-auth-mutual-connect-timeout", 5*time.Second,
+		"Timeout for connecting to the remote node TCP socket")
 }
 
 type mutualAuthHandler struct {
@@ -87,7 +91,9 @@ func (m *mutualAuthHandler) authenticate(ar *authRequest) (*authResponse, error)
 	}
 
 	// set up TCP connection
-	conn, err := net.Dial("tcp", net.JoinHostPort(ar.remoteNodeIP, strconv.Itoa(m.cfg.MutualAuthListenerPort)))
+	conn, err := net.DialTimeout("tcp",
+		net.JoinHostPort(ar.remoteNodeIP, strconv.Itoa(m.cfg.MutualAuthListenerPort)),
+		m.cfg.MutualAuthConnectTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial %s:%d: %w", ar.remoteNodeIP, m.cfg.MutualAuthListenerPort, err)
 	}
@@ -276,4 +282,8 @@ func (m *mutualAuthHandler) verifyPeerCertificate(id *identity.NumericIdentity, 
 
 func (m *mutualAuthHandler) subscribeToRotatedIdentities() <-chan certs.CertificateRotationEvent {
 	return m.cert.SubscribeToRotatedIdentities()
+}
+
+func (m *mutualAuthHandler) certProviderStatus() *models.Status {
+	return m.cert.Status()
 }

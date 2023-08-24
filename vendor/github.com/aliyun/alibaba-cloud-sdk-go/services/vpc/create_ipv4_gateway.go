@@ -71,16 +71,23 @@ func (client *Client) CreateIpv4GatewayWithCallback(request *CreateIpv4GatewayRe
 // CreateIpv4GatewayRequest is the request struct for api CreateIpv4Gateway
 type CreateIpv4GatewayRequest struct {
 	*requests.RpcRequest
-	Ipv4GatewayDescription string           `position:"Query" name:"Ipv4GatewayDescription"`
-	ResourceOwnerId        requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken            string           `position:"Query" name:"ClientToken"`
-	Ipv4GatewayName        string           `position:"Query" name:"Ipv4GatewayName"`
-	ResourceGroupId        string           `position:"Query" name:"ResourceGroupId"`
-	DryRun                 requests.Boolean `position:"Query" name:"DryRun"`
-	ResourceOwnerAccount   string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount           string           `position:"Query" name:"OwnerAccount"`
-	OwnerId                requests.Integer `position:"Query" name:"OwnerId"`
-	VpcId                  string           `position:"Query" name:"VpcId"`
+	Ipv4GatewayDescription string                  `position:"Query" name:"Ipv4GatewayDescription"`
+	ResourceOwnerId        requests.Integer        `position:"Query" name:"ResourceOwnerId"`
+	ClientToken            string                  `position:"Query" name:"ClientToken"`
+	Ipv4GatewayName        string                  `position:"Query" name:"Ipv4GatewayName"`
+	ResourceGroupId        string                  `position:"Query" name:"ResourceGroupId"`
+	Tag                    *[]CreateIpv4GatewayTag `position:"Query" name:"Tag"  type:"Repeated"`
+	DryRun                 requests.Boolean        `position:"Query" name:"DryRun"`
+	ResourceOwnerAccount   string                  `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount           string                  `position:"Query" name:"OwnerAccount"`
+	OwnerId                requests.Integer        `position:"Query" name:"OwnerId"`
+	VpcId                  string                  `position:"Query" name:"VpcId"`
+}
+
+// CreateIpv4GatewayTag is a repeated param struct in CreateIpv4GatewayRequest
+type CreateIpv4GatewayTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // CreateIpv4GatewayResponse is the response struct for api CreateIpv4Gateway

@@ -6,8 +6,8 @@
 
 .. _bgp_control_plane:
 
-Cilium BGP Control Plane
-========================
+Cilium BGP Control Plane (Beta)
+===============================
 
 BGP Control Plane provides a way for Cilium to advertise routes to connected routers by using the
 `Border Gateway Protocol`_ (BGP). BGP Control Plane makes Pod networks and/or Services of type
@@ -46,7 +46,7 @@ instantiated and will begin listening for ``CiliumBGPPeeringPolicy``
 events.
 
 Currently, the ``BGP Control Plane`` will only work when IPAM mode is set to
-"cluster-pool", "cluster-pool-v2beta", and "kubernetes"
+"cluster-pool" or "kubernetes".
 
 CiliumBGPPeeringPolicy CRD
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -294,14 +294,14 @@ values, graceful restart configuration and others.
 
 Graceful Restart
 ''''''''''''''''
-The Cilium BGP control plane can be configured to act as a graceful restart 
+The Cilium BGP control plane can be configured to act as a graceful restart
 ``Restarting Speaker``. When you enable graceful restart, the BGP session will restart
 and the "graceful restart" capability will be advertised in the BGP OPEN message.
 
-In the event of a Cilium Agent restart, the peering BGP router does not withdraw 
+In the event of a Cilium Agent restart, the peering BGP router does not withdraw
 routes received from the Cilium BGP control plane immediately. The datapath
 continues to forward traffic during Agent restart, so there is no traffic
-disruption. 
+disruption.
 
 Configure graceful restart on per-neighbor basis, as follows:
 
@@ -326,7 +326,7 @@ Configure graceful restart on per-neighbor basis, as follows:
 
 Optionally, you can use the ``RestartTime`` parameter. ``RestartTime`` is the time
 advertised to the peer within which Cilium BGP control plane is expected to re-establish
-the BGP session after a restart. On expiration of ``RestartTime``, the peer removes 
+the BGP session after a restart. On expiration of ``RestartTime``, the peer removes
 the routes previously advertised by the Cilium BGP control plane.
 
 When the Cilium Agent restarts, it closes the BGP TCP socket, causing the emission of a
@@ -336,8 +336,8 @@ starts its ``RestartTime`` timer.
 The Cilium agent boot up time varies depending on the deployment. If using ``RestartTime``,
 you should set it to a duration greater than the time taken by the Cilium Agent to boot up.
 
-Default value of ``RestartTime`` is 120 seconds. More details on graceful restart and 
-``RestartTime`` can be found in `RFC-4724`_ and `RFC-8538`_. 
+Default value of ``RestartTime`` is 120 seconds. More details on graceful restart and
+``RestartTime`` can be found in `RFC-4724`_ and `RFC-8538`_.
 
 .. _RFC-4724 : https://www.rfc-editor.org/rfc/rfc4724.html
 .. _RFC-8538 : https://www.rfc-editor.org/rfc/rfc8538.html
@@ -349,7 +349,7 @@ By default, virtual routers will not announce services. Virtual routers will ann
 the ingress IPs of any LoadBalancer services that matches the ``.serviceSelector``
 of the virtual router.
 
-If you wish to announce ALL services within the cluster, a ``NotIn`` match expression 
+If you wish to announce ALL services within the cluster, a ``NotIn`` match expression
 with a dummy key and value can be used like:
 
 .. code-block:: yaml
@@ -447,8 +447,8 @@ and a ``Operator-Side`` control plane (not yet implemented).
 Both control planes are implemented by a ``Controller`` which follows
 the ``Kubernetes`` controller pattern.
 
-Both control planes primary listen for ``CiliumBGPPeeringPolicy`` CRDs,
-long with other Cilium and Kubernetes resources useful for implementing
+Both control planes primarily listen for ``CiliumBGPPeeringPolicy`` CRDs,
+along with other Cilium and Kubernetes resources used for implementing
 a BGP control plane.
 
 Agent-Side Architecture
@@ -467,23 +467,23 @@ Agent
 
 The ``Agent`` implements a controller located in ``pkg/bgpv1/agent/controller.go``.
 
-The controller listens for ``CiliumBGPPeeringPolicy`` changes and 
-determines if the policy applies to its current host. 
-It will then capture some information about Cilium's current state 
+The controller listens for ``CiliumBGPPeeringPolicy`` changes and
+determines if the policy applies to its current host.
+It will then capture some information about Cilium's current state
 and pass down the desired state to ``Manager``.
 
 Manager
 ^^^^^^^
 
 The ``Manager`` implements the interface ``BGPRouterManager``, which
-defines a declarative API between the ``Controller`` and instances of 
+defines a declarative API between the ``Controller`` and instances of
 BGP routers.
 
 The interface defines a single declarative method whose argument is the
 desired ``CiliumBGPPeeringPolicy`` (among a few others).
 
 The ``Manager`` is in charge of pushing the ``BGP Control Plane``
-to the desired ``CiliumBGPPeeringPolicy`` or returning an error if it 
+to the desired ``CiliumBGPPeeringPolicy`` or returning an error if it
 is not possible.
 
 Implementation Details
@@ -499,20 +499,20 @@ and translate into imperative router API calls :
 -  inform the caller if the policy cannot be applied
 
 The ``Manager`` evaluates each ``CiliumBGPVirtualRouter`` in isolation.
-While applying a ``CiliumBGPPeeringPolicy``, it will attempt to create each 
+While applying a ``CiliumBGPPeeringPolicy``, it will attempt to create each
 ``CiliumBGPVirtualRouter``.
 
-If a particular ``CiliumBGPVirtualRouter`` fails to instantiate, the error 
+If a particular ``CiliumBGPVirtualRouter`` fails to instantiate, the error
 message is logged, and the ``Manager`` will continue to the next
 ``CiliumBGPVirtualRouter``.
 
 It is worth expanding on how the ``Manager`` works internally.
 ``Manager`` views each ``CiliumBGPVirtualRouter`` as a BGP router instance.
-Each ``CiliumBGPVirtualRouter`` is defined by a local ASN, a router ID and a 
+Each ``CiliumBGPVirtualRouter`` is defined by a local ASN, a router ID and a
 list of ``CiliumBGPNeighbors`` with whom it will establish peering.
 
-This is enough for the ``Manager`` to create a ``Router`` instance. 
-``Manager`` groups ``Router`` instances by their local ASNs. 
+This is enough for the ``Manager`` to create a ``Router`` instance.
+``Manager`` groups ``Router`` instances by their local ASNs.
 
 .. note::
 

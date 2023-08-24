@@ -22,6 +22,6 @@ var bpfPolicyListCmd = &cobra.Command{
 }
 
 func init() {
-	bpfPolicyCmd.AddCommand(bpfPolicyListCmd)
+	BPFPolicyCmd.AddCommand(bpfPolicyListCmd)
 	command.AddOutputOption(bpfPolicyListCmd)
 }

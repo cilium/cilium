@@ -25,26 +25,31 @@ import (
 )
 
 const (
-	keyClusterName            = "cluster-name"
-	keyPprof                  = "pprof"
-	keyPprofAddress           = "pprof-address"
-	keyPprofPort              = "pprof-port"
-	keyGops                   = "gops"
-	keyGopsPort               = "gops-port"
-	keyDialTimeout            = "dial-timeout"
-	keyRetryTimeout           = "retry-timeout"
-	keyListenAddress          = "listen-address"
-	keyMetricsListenAddress   = "metrics-listen-address"
-	keyPeerService            = "peer-service"
-	keySortBufferMaxLen       = "sort-buffer-len-max"
-	keySortBufferDrainTimeout = "sort-buffer-drain-timeout"
-	keyTLSClientCertFile      = "tls-client-cert-file"
-	keyTLSClientKeyFile       = "tls-client-key-file"
-	keyTLSHubbleServerCAFiles = "tls-hubble-server-ca-files"
-	keyTLSClientDisabled      = "disable-client-tls"
-	keyTLSServerCertFile      = "tls-server-cert-file"
-	keyTLSServerKeyFile       = "tls-server-key-file"
-	keyTLSServerDisabled      = "disable-server-tls"
+	keyClusterName             = "cluster-name"
+	keyPprof                   = "pprof"
+	keyPprofAddress            = "pprof-address"
+	keyPprofPort               = "pprof-port"
+	keyGops                    = "gops"
+	keyGopsPort                = "gops-port"
+	keyDialTimeout             = "dial-timeout"
+	keyRetryTimeout            = "retry-timeout"
+	keyListenAddress           = "listen-address"
+	keyMetricsListenAddress    = "metrics-listen-address"
+	keyPeerService             = "peer-service"
+	keySortBufferMaxLen        = "sort-buffer-len-max"
+	keySortBufferDrainTimeout  = "sort-buffer-drain-timeout"
+	keyTLSHubbleClientCertFile = "tls-hubble-client-cert-file"
+	keyTLSClientCertFile       = "tls-client-cert-file" // Deprecated: replaced by keyTLSHubbleClientCertFile
+	keyTLSHubbleClientKeyFile  = "tls-hubble-client-key-file"
+	keyTLSClientKeyFile        = "tls-client-key-file" // Deprecated: replaced by keyTLSHubbleClientKeyFile
+	keyTLSHubbleServerCAFiles  = "tls-hubble-server-ca-files"
+	keyTLSClientDisabled       = "disable-client-tls"
+	keyTLSRelayServerCertFile  = "tls-relay-server-cert-file"
+	keyTLSServerCertFile       = "tls-server-cert-file" // Deprecated: replaced by keyTLSRelayServerCertFile
+	keyTLSRelayServerKeyFile   = "tls-relay-server-key-file"
+	keyTLSServerKeyFile        = "tls-server-key-file" // Deprecated: replaced by keyTLSRelayServerKeyFile
+	keyTLSRelayClientCAFiles   = "tls-relay-client-ca-files"
+	keyTLSServerDisabled       = "disable-server-tls"
 )
 
 // New creates a new serve command.
@@ -111,8 +116,20 @@ func New(vp *viper.Viper) *cobra.Command {
 		"",
 		"Path to the public key file for the client certificate to connect to Hubble server instances. The file must contain PEM encoded data.",
 	)
+	flags.MarkDeprecated(keyTLSClientCertFile, fmt.Sprintf("use --%s", keyTLSHubbleClientCertFile))
+	flags.String(
+		keyTLSHubbleClientCertFile,
+		"",
+		"Path to the public key file for the client certificate to connect to Hubble server instances. The file must contain PEM encoded data.",
+	)
 	flags.String(
 		keyTLSClientKeyFile,
+		"",
+		"Path to the private key file for the client certificate to connect to Hubble server instances. The file must contain PEM encoded data.",
+	)
+	flags.MarkDeprecated(keyTLSClientKeyFile, fmt.Sprintf("use --%s", keyTLSHubbleClientKeyFile))
+	flags.String(
+		keyTLSHubbleClientKeyFile,
 		"",
 		"Path to the private key file for the client certificate to connect to Hubble server instances. The file must contain PEM encoded data.",
 	)
@@ -126,10 +143,27 @@ func New(vp *viper.Viper) *cobra.Command {
 		"",
 		"Path to the public key file for the Hubble Relay server. The file must contain PEM encoded data.",
 	)
+	flags.MarkDeprecated(keyTLSServerCertFile, fmt.Sprintf("use --%s", keyTLSRelayServerCertFile))
+	flags.String(
+		keyTLSRelayServerCertFile,
+		"",
+		"Path to the public key file for the Hubble Relay server. The file must contain PEM encoded data.",
+	)
 	flags.String(
 		keyTLSServerKeyFile,
 		"",
 		"Path to the private key file for the Hubble Relay server. The file must contain PEM encoded data.",
+	)
+	flags.MarkDeprecated(keyTLSServerKeyFile, fmt.Sprintf("use --%s", keyTLSRelayServerKeyFile))
+	flags.String(
+		keyTLSRelayServerKeyFile,
+		"",
+		"Path to the private key file for the Hubble Relay server. The file must contain PEM encoded data.",
+	)
+	flags.StringSlice(
+		keyTLSRelayClientCAFiles,
+		[]string{},
+		"Paths to one or more public key files of the CA which sign certificates for Hubble Relay client instances.",
 	)
 	flags.Bool(
 		keyTLSClientDisabled,
@@ -183,8 +217,8 @@ func runServe(vp *viper.Viper) error {
 		tlsClientConfig, err := certloader.NewWatchedClientConfig(
 			logger.WithField("config", "tls-to-hubble"),
 			vp.GetStringSlice(keyTLSHubbleServerCAFiles),
-			vp.GetString(keyTLSClientCertFile),
-			vp.GetString(keyTLSClientKeyFile),
+			hubbleClientCertFile(vp),
+			hubbleClientKeyFile(vp),
 		)
 		if err != nil {
 			return err
@@ -199,9 +233,9 @@ func runServe(vp *viper.Viper) error {
 	} else {
 		tlsServerConfig, err := certloader.NewWatchedServerConfig(
 			logger.WithField("config", "tls-server"),
-			nil, // no caFiles, mTLS is not supported for Relay clients yet.
-			vp.GetString(keyTLSServerCertFile),
-			vp.GetString(keyTLSServerKeyFile),
+			vp.GetStringSlice(keyTLSRelayClientCAFiles),
+			relayServerCertFile(vp),
+			relayServerKeyFile(vp),
 		)
 		if err != nil {
 			return err
@@ -246,4 +280,32 @@ func runServe(vp *viper.Viper) error {
 		return err
 	}
 	return nil
+}
+
+func relayServerKeyFile(vp *viper.Viper) string {
+	if val := vp.GetString(keyTLSRelayServerKeyFile); val != "" {
+		return val
+	}
+	return vp.GetString(keyTLSServerKeyFile)
+}
+
+func relayServerCertFile(vp *viper.Viper) string {
+	if val := vp.GetString(keyTLSRelayServerCertFile); val != "" {
+		return val
+	}
+	return vp.GetString(keyTLSServerCertFile)
+}
+
+func hubbleClientKeyFile(vp *viper.Viper) string {
+	if val := vp.GetString(keyTLSHubbleClientKeyFile); val != "" {
+		return val
+	}
+	return vp.GetString(keyTLSClientKeyFile)
+}
+
+func hubbleClientCertFile(vp *viper.Viper) string {
+	if val := vp.GetString(keyTLSHubbleClientCertFile); val != "" {
+		return val
+	}
+	return vp.GetString(keyTLSClientCertFile)
 }

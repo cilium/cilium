@@ -12,7 +12,7 @@ debug: all
 
 include Makefile.defs
 
-SUBDIRS_CILIUM_CONTAINER := proxylib envoy bpf cilium daemon cilium-health bugtool tools/mount tools/sysctlfix
+SUBDIRS_CILIUM_CONTAINER := envoy bpf cilium daemon cilium-health bugtool tools/mount tools/sysctlfix
 SUBDIR_OPERATOR_CONTAINER := operator
 
 # Add the ability to override variables
@@ -39,15 +39,11 @@ BENCH_EVAL := "."
 BENCH ?= $(BENCH_EVAL)
 BENCHFLAGS_EVAL := -bench=$(BENCH) -run=^$ -benchtime=10s
 BENCHFLAGS ?= $(BENCHFLAGS_EVAL)
-SKIP_VET ?= "false"
 SKIP_KVSTORES ?= "false"
 SKIP_K8S_CODE_GEN_CHECK ?= "true"
 SKIP_CUSTOMVET_CHECK ?= "false"
 
 JOB_BASE_NAME ?= cilium_test
-
-GO_MAJOR_AND_MINOR_VERSION := $(shell awk '/^go/ { print $$2 }' go.mod)
-GO_INSTALLED_MAJOR_AND_MINOR_VERSION := $(shell $(GO) version | sed 's/go version go\([0-9]\+\).\([0-9]\+\)\(.[0-9]\+\)\?.*/\1.\2/')
 
 TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
 	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002 \
@@ -130,9 +126,6 @@ generate-cov: ## Generate HTML coverage report at coverage-all.html.
 
 integration-tests: start-kvstores ## Run Go tests including ones that are marked as integration tests.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C test/bpf/
-ifeq ($(SKIP_VET),"false")
-	$(MAKE) govet
-endif
 	@$(ECHO_CHECK) running integration tests...
 	INTEGRATION_TESTS=true $(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(TESTPKGS) $(GOTEST_BASE) $(GOTEST_COVER_OPTS) | $(GOTEST_FORMATTER)
 	$(MAKE) generate-cov
@@ -312,8 +305,9 @@ generate-hubble-api: api/v1/flow/flow.proto api/v1/peer/peer.proto api/v1/observ
 
 define generate_k8s_api
 	$(QUIET) cd "./vendor/k8s.io/code-generator" && \
-	bash ./generate-groups.sh $(1) \
+	bash ./kube_codegen.sh $(1) \
 	    $(2) \
+	    "" \
 	    $(3) \
 	    $(4) \
 	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt" \
@@ -501,32 +495,34 @@ kind-clustermesh-images: kind-clustermesh-ready kind-build-clustermesh-apiserver
 	$(QUIET)kind load docker-image $(LOCAL_KVSTOREMESH_IMAGE) --name clustermesh1
 	$(QUIET)kind load docker-image $(LOCAL_KVSTOREMESH_IMAGE) --name clustermesh2
 
+ENABLE_KVSTOREMESH ?= false
 $(eval $(call KIND_ENV,kind-install-cilium-clustermesh))
 kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Cilium version into the clustermesh clusters and enable clustermesh.
 	@echo "  INSTALL cilium on clustermesh1 cluster"
-	kubectl config use kind-clustermesh1
-	-$(CILIUM_CLI) uninstall >/dev/null
-	$(CILIUM_CLI) install \
+	-$(CILIUM_CLI) --context=kind-clustermesh1 uninstall >/dev/null
+	$(CILIUM_CLI) --context=kind-clustermesh1 install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
-		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
-		--agent-image=$(LOCAL_AGENT_IMAGE) \
-		--operator-image=$(LOCAL_OPERATOR_IMAGE) \
-		--version=
+		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh1.yaml \
+		--set=image.override=$(LOCAL_AGENT_IMAGE) \
+		--set=operator.image.override=$(LOCAL_OPERATOR_IMAGE) \
+		--set=clustermesh.apiserver.image.override=$(LOCAL_CLUSTERMESH_IMAGE) \
+		--set=clustermesh.apiserver.kvstoremesh.image.override=$(LOCAL_KVSTOREMESH_IMAGE) \
+		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
+
 	@echo "  INSTALL cilium on clustermesh2 cluster"
-	kubectl config use kind-clustermesh2
-	-$(CILIUM_CLI) uninstall >/dev/null
-	$(CILIUM_CLI) install \
-		--inherit-ca kind-clustermesh1 \
+	-$(CILIUM_CLI) --context=kind-clustermesh2 uninstall >/dev/null
+	$(KUBECTL) --context=kind-clustermesh1 get secret -n kube-system cilium-ca -o yaml | \
+		$(KUBECTL) --context=kind-clustermesh2 replace --force -f -
+	$(CILIUM_CLI) --context=kind-clustermesh2 install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
-		--helm-values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
-		--agent-image=$(LOCAL_AGENT_IMAGE) \
-		--operator-image=$(LOCAL_OPERATOR_IMAGE) \
-		--version=
-	@echo "  Enabling clustermesh"
-	$(CILIUM_CLI) clustermesh enable --context kind-clustermesh1 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
-	$(CILIUM_CLI) clustermesh enable --context kind-clustermesh2 --service-type NodePort --apiserver-image $(LOCAL_CLUSTERMESH_IMAGE)
-	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
-	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
+		--values=$(ROOT_DIR)/contrib/testing/kind-clustermesh2.yaml \
+		--set=image.override=$(LOCAL_AGENT_IMAGE) \
+		--set=operator.image.override=$(LOCAL_OPERATOR_IMAGE) \
+		--set=clustermesh.apiserver.image.override=$(LOCAL_CLUSTERMESH_IMAGE) \
+		--set=clustermesh.apiserver.kvstoremesh.image.override=$(LOCAL_KVSTOREMESH_IMAGE) \
+		--set=clustermesh.apiserver.kvstoremesh.enabled=$(ENABLE_KVSTOREMESH)
+
+	@echo "  CONNECT the two clusters"
 	$(CILIUM_CLI) clustermesh connect --context kind-clustermesh1 --destination-context kind-clustermesh2
 	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
 	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
@@ -636,7 +632,7 @@ kind-debug: ## Create a local kind development environment with cilium-agent & c
 	@echo " - 23411: cilium-agent    (kind-worker)"
 	@echo " - 23511: cilium-operator (kind-worker)"
 
-precheck: check-go-version logging-subsys-field ## Peform build precheck for the source code.
+precheck: logging-subsys-field ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
 	$(QUIET) contrib/scripts/check-k8s-code-gen.sh
@@ -710,14 +706,6 @@ postcheck: build ## Run Cilium build postcheck (update-cmdref, build documentati
 
 licenses-all: ## Generate file with all the License from dependencies.
 	@$(GO) run ./tools/licensegen > LICENSE.all || ( rm -f LICENSE.all ; false )
-
-check-go-version: ## Check locally install Go version against required Go version.
-ifneq ($(GO_MAJOR_AND_MINOR_VERSION),$(GO_INSTALLED_MAJOR_AND_MINOR_VERSION))
-	@echo "Installed Go version $(GO_INSTALLED_MAJOR_AND_MINOR_VERSION) does not match requested Go version $(GO_MAJOR_AND_MINOR_VERSION)"
-	@exit 1
-else
-	@$(ECHO_CHECK) "Installed Go version $(GO_INSTALLED_MAJOR_AND_MINOR_VERSION) matches required version $(GO_MAJOR_AND_MINOR_VERSION)"
-endif
 
 dev-doctor: ## Run Cilium dev-doctor to validate local development environment.
 	$(QUIET)$(GO) version 2>/dev/null || ( echo "go not found, see https://golang.org/doc/install" ; false )

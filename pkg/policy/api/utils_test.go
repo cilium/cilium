@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/cilium/proxy/pkg/policy/api/kafka"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/re"
-	"github.com/cilium/cilium/pkg/policy/api/kafka"
 )
 
 // Hook up gocheck into the "go test" runner.

@@ -7,11 +7,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var bpfmountFSCmd = &cobra.Command{
+var BPFMountFSCmd = &cobra.Command{
 	Use:   "fs",
 	Short: "BPF filesystem mount",
 }
 
 func init() {
-	bpfCmd.AddCommand(bpfmountFSCmd)
+	BPFCmd.AddCommand(BPFMountFSCmd)
 }

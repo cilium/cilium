@@ -23,22 +23,16 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-type getIdentity struct {
-	d *Daemon
-}
-
-func newGetIdentityHandler(d *Daemon) GetIdentityHandler { return &getIdentity{d: d} }
-
-func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
+func getIdentityHandler(d *Daemon, params GetIdentityParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /identity request")
 
 	identities := []*models.Identity{}
 	if params.Labels == nil {
 		// if labels is nil, return all identities from the kvstore
 		// This is in response to "identity list" command
-		identities = h.d.identityAllocator.GetIdentities()
+		identities = d.identityAllocator.GetIdentities()
 	} else {
-		identity := h.d.identityAllocator.LookupIdentity(params.HTTPRequest.Context(), labels.NewLabelsFromModel(params.Labels))
+		identity := d.identityAllocator.LookupIdentity(params.HTTPRequest.Context(), labels.NewLabelsFromModel(params.Labels))
 		if identity == nil {
 			return NewGetIdentityIDNotFound()
 		}
@@ -49,15 +43,9 @@ func (h *getIdentity) Handle(params GetIdentityParams) middleware.Responder {
 	return NewGetIdentityOK().WithPayload(identities)
 }
 
-type getIdentityID struct {
-	c cache.IdentityAllocator
-}
+func getIdentityIDHandler(d *Daemon, params GetIdentityIDParams) middleware.Responder {
+	c := d.identityAllocator
 
-func newGetIdentityIDHandler(c cache.IdentityAllocator) GetIdentityIDHandler {
-	return &getIdentityID{c: c}
-}
-
-func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /identity/<ID> request")
 
 	nid, err := identity.ParseNumericIdentity(params.ID)
@@ -65,7 +53,7 @@ func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder 
 		return NewGetIdentityIDBadRequest()
 	}
 
-	identity := h.c.LookupIdentityByID(params.HTTPRequest.Context(), nid)
+	identity := c.LookupIdentityByID(params.HTTPRequest.Context(), nid)
 	if identity == nil {
 		return NewGetIdentityIDNotFound()
 	}
@@ -73,13 +61,7 @@ func (h *getIdentityID) Handle(params GetIdentityIDParams) middleware.Responder 
 	return NewGetIdentityIDOK().WithPayload(identitymodel.CreateModel(identity))
 }
 
-type getIdentityEndpoints struct{}
-
-func newGetIdentityEndpointsIDHandler(d *Daemon) GetIdentityEndpointsHandler {
-	return &getIdentityEndpoints{}
-}
-
-func (h *getIdentityEndpoints) Handle(params GetIdentityEndpointsParams) middleware.Responder {
+func getIdentityEndpointsHandler(d *Daemon, params GetIdentityEndpointsParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /identity/endpoints request")
 
 	identities := identitymanager.GetIdentityModels()

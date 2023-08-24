@@ -47,6 +47,6 @@ var serviceGetCmd = &cobra.Command{
 }
 
 func init() {
-	serviceCmd.AddCommand(serviceGetCmd)
+	ServiceCmd.AddCommand(serviceGetCmd)
 	command.AddOutputOption(serviceGetCmd)
 }

@@ -22,7 +22,7 @@ spec:
     matchNames:
     - {{ .Release.Namespace }}
   endpoints:
-  - port: metrics
+  - port: envoy-metrics
     interval: {{ .Values.envoy.prometheus.serviceMonitor.interval | quote }}
     honorLabels: true
     path: /metrics

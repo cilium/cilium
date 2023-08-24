@@ -13,8 +13,8 @@ BGP
    :maxdepth: 2
    :glob:
 
-   kube-router
-   bird
-   bgp
    bgp-control-plane
    lb-ipam
+   bgp
+   kube-router
+   bird

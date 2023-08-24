@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 )
@@ -41,8 +42,8 @@ type EndpointsLookup interface {
 	// LookupCiliumID looks up endpoint by endpoint ID
 	LookupCiliumID(id uint16) *endpoint.Endpoint
 
-	// LookupContainerID looks up endpoint by container ID
-	LookupContainerID(id string) *endpoint.Endpoint
+	// LookupCNIAttachmentID looks up endpoint by CNI attachment ID
+	LookupCNIAttachmentID(id string) *endpoint.Endpoint
 
 	// LookupIPv4 looks up endpoint by IPv4 address
 	LookupIPv4(ipv4 string) *endpoint.Endpoint
@@ -53,8 +54,14 @@ type EndpointsLookup interface {
 	// LookupIP looks up endpoint by IP address
 	LookupIP(ip netip.Addr) (ep *endpoint.Endpoint)
 
-	// LookupPodName looks up endpoint by namespace + pod name, e.g. "prod/pod-0"
-	LookupPodName(name string) *endpoint.Endpoint
+	// LookupCEPName looks up endpoints by namespace + cep name, e.g. "prod/cep-0"
+	LookupCEPName(name string) (ep *endpoint.Endpoint)
+
+	// GetEndpointsByPodName looks up endpoints by namespace + pod name, e.g. "prod/pod-0"
+	GetEndpointsByPodName(name string) []*endpoint.Endpoint
+
+	// GetEndpointsByContainerID looks up endpoints by container ID
+	GetEndpointsByContainerID(containerID string) []*endpoint.Endpoint
 
 	// GetEndpoints returns a slice of all endpoints present in endpoint manager.
 	GetEndpoints() []*endpoint.Endpoint
@@ -103,10 +110,6 @@ type EndpointManager interface {
 	EndpointsModify
 	subscriber.Node
 	EndpointResourceSynchronizer
-
-	// InitMetrics hooks the EndpointManager into the metrics subsystem. This can
-	// only be done once, globally, otherwise the metrics library will panic.
-	InitMetrics()
 
 	// Subscribe to endpoint events.
 	Subscribe(s Subscriber)
@@ -162,9 +165,10 @@ var (
 type endpointManagerParams struct {
 	cell.In
 
-	Lifecycle hive.Lifecycle
-	Config    EndpointManagerConfig
-	Clientset client.Clientset
+	Lifecycle       hive.Lifecycle
+	Config          EndpointManagerConfig
+	Clientset       client.Clientset
+	MetricsRegistry *metrics.Registry
 }
 
 type endpointManagerOut struct {
@@ -194,7 +198,7 @@ func newDefaultEndpointManager(p endpointManagerParams) endpointManagerOut {
 		})
 	}
 
-	mgr.InitMetrics()
+	mgr.InitMetrics(p.MetricsRegistry)
 
 	return endpointManagerOut{
 		Lookup:  mgr,

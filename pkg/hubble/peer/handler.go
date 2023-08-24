@@ -37,6 +37,10 @@ func newHandler(withoutTLSInfo bool, addressPref serviceoption.AddressFamilyPref
 	}
 }
 
+func (h *handler) Name() string {
+	return "hubble-peer"
+}
+
 // Ensure that Service implements the NodeHandler interface so that it can be
 // notified of nodes updates by the daemon's node manager.
 var _ datapath.NodeHandler = (*handler)(nil)
@@ -91,6 +95,10 @@ func (h *handler) NodeDelete(n types.Node) error {
 	case <-h.stop:
 	}
 	return nil
+}
+
+// AllNodeValidateImplementation implements
+func (h handler) AllNodeValidateImplementation() {
 }
 
 // NodeValidateImplementation implements

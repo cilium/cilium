@@ -29,7 +29,7 @@ var serviceListCmd = &cobra.Command{
 var clustermeshAffinity bool
 
 func init() {
-	serviceCmd.AddCommand(serviceListCmd)
+	ServiceCmd.AddCommand(serviceListCmd)
 	serviceListCmd.Flags().BoolVar(&clustermeshAffinity, "clustermesh-affinity", false, "Print clustermesh affinity if available")
 	command.AddOutputOption(serviceListCmd)
 }

@@ -5,6 +5,7 @@ package envoy
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -81,9 +82,9 @@ type EmbeddedEnvoy struct {
 	admin  *EnvoyAdminClient
 }
 
-// StartEmbeddedEnvoy starts an Envoy proxy instance.
-func StartEmbeddedEnvoy(runDir, logPath string, baseID uint64) *EmbeddedEnvoy {
-	e := &EmbeddedEnvoy{
+// startEmbeddedEnvoy starts an Envoy proxy instance.
+func startEmbeddedEnvoy(runDir, logPath string, baseID uint64) (*EmbeddedEnvoy, error) {
+	envoy := &EmbeddedEnvoy{
 		stopCh: make(chan struct{}),
 		errCh:  make(chan error, 1),
 		admin:  NewEnvoyAdminClientForSocket(GetSocketDir(runDir)),
@@ -99,7 +100,7 @@ func StartEmbeddedEnvoy(runDir, logPath string, baseID uint64) *EmbeddedEnvoy {
 	createBootstrap(bootstrapPath, nodeId, ingressClusterName,
 		xdsSocketPath, egressClusterName, ingressClusterName, getAdminSocketPath(GetSocketDir(runDir)))
 
-	log.Debugf("Envoy: Starting: %v", *e)
+	log.Debugf("Envoy: Starting: %v", *envoy)
 
 	// make it a buffered channel, so we can not only
 	// read the written value but also skip it in
@@ -176,27 +177,27 @@ func StartEmbeddedEnvoy(runDir, logPath string, baseID uint64) *EmbeddedEnvoy {
 			case <-crashCh:
 				// Start Envoy again
 				continue
-			case <-e.stopCh:
+			case <-envoy.stopCh:
 				log.Infof("Envoy: Stopping proxy with pid %d", cmd.Process.Pid)
-				if err := e.admin.quit(); err != nil {
+				if err := envoy.admin.quit(); err != nil {
 					log.WithError(err).Fatalf("Envoy: Envoy admin quit failed, killing process with pid %d", cmd.Process.Pid)
 
 					if err := cmd.Process.Kill(); err != nil {
 						log.WithError(err).Fatal("Envoy: Stopping Envoy failed")
-						e.errCh <- err
+						envoy.errCh <- err
 					}
 				}
-				close(e.errCh)
+				close(envoy.errCh)
 				return
 			}
 		}
 	}()
 
 	if <-started {
-		return e
+		return envoy, nil
 	}
 
-	return nil
+	return nil, errors.New("failed to start embedded Envoy server")
 }
 
 // newEnvoyLogPiper creates a writer that parses and logs log messages written by Envoy.
@@ -267,7 +268,7 @@ func newEnvoyLogPiper() io.WriteCloser {
 	return writer
 }
 
-// Stop kills the Envoy process started with StartEmbeddedEnvoy. The gRPC API streams are terminated
+// Stop kills the Envoy process started with startEmbeddedEnvoy. The gRPC API streams are terminated
 // first.
 func (e *EmbeddedEnvoy) Stop() error {
 	close(e.stopCh)
@@ -458,4 +459,20 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 	if err != nil {
 		log.WithError(err).Fatal("Envoy: Error writing Envoy bootstrap file")
 	}
+}
+
+// getEmbeddedEnvoyVersion returns the envoy binary version string
+func getEmbeddedEnvoyVersion() (string, error) {
+	out, err := exec.Command(ciliumEnvoy, "--version").Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to execute '%s --version': %w", ciliumEnvoy, err)
+	}
+	envoyVersionString := strings.TrimSpace(string(out))
+
+	envoyVersionArray := strings.Fields(envoyVersionString)
+	if len(envoyVersionArray) < 3 {
+		return "", fmt.Errorf("failed to extract version from truncated Envoy version string")
+	}
+
+	return envoyVersionArray[2], nil
 }

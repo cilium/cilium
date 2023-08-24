@@ -24,6 +24,7 @@
 #include "bpf_lxc.c"
 
 #include "lib/egressgw.h"
+#include "lib/policy.h"
 
 #define FROM_CONTAINER 0
 
@@ -55,7 +56,7 @@ int egressgw_redirect_setup(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24, GATEWAY_NODE_IP, 0);
 
 	/* Avoid policy drop */
-	add_allow_all_egress_policy();
+	policy_add_egress_allow_all_entry();
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
@@ -70,7 +71,7 @@ int egressgw_redirect_check(const struct __ctx_buff *ctx)
 			.status_code = TC_ACT_REDIRECT,
 	});
 
-	del_allow_all_egress_policy();
+	policy_delete_egress_entry();
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
 
 	return ret;
@@ -83,7 +84,7 @@ PKTGEN("tc", "tc_egressgw_skip_excluded_cidr_redirect")
 int egressgw_skip_excluded_cidr_redirect_pktgen(struct __ctx_buff *ctx)
 {
 	return egressgw_pktgen(ctx, (struct egressgw_test_ctx) {
-			.test = TEST_REDIRECT,
+			.test = TEST_REDIRECT_EXCL_CIDR,
 		});
 }
 
@@ -94,7 +95,7 @@ int egressgw_skip_excluded_cidr_redirect_setup(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_EXCLUDED_CIDR, 0);
 
 	/* Avoid policy drop */
-	add_allow_all_egress_policy();
+	policy_add_egress_allow_all_entry();
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
@@ -109,7 +110,7 @@ int egressgw_skip_excluded_cidr_redirect_check(const struct __ctx_buff *ctx)
 			.status_code = TC_ACT_OK,
 	});
 
-	del_allow_all_egress_policy();
+	policy_delete_egress_entry();
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP & 0xffffff, 24);
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32);
 
@@ -134,7 +135,7 @@ int egressgw_skip_no_gateway_redirect_setup(struct __ctx_buff *ctx)
 	add_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32, EGRESS_GATEWAY_NO_GATEWAY, 0);
 
 	/* Avoid policy drop */
-	add_allow_all_egress_policy();
+	policy_add_egress_allow_all_entry();
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
@@ -163,7 +164,7 @@ int egressgw_skip_no_gateway_redirect_check(const struct __ctx_buff *ctx)
 		test_fatal("metrics entry not found");
 	assert(entry->count == 1);
 
-	del_allow_all_egress_policy();
+	policy_delete_egress_entry();
 	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32);
 
 	test_finish();

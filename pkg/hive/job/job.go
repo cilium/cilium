@@ -5,7 +5,7 @@ package job
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"runtime/pprof"
 	"sync"
 	"time"
@@ -16,7 +16,9 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/internal"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/stream"
 )
 
@@ -25,7 +27,12 @@ import (
 // sure multiple goroutines properly shutdown takes a lot of boilerplate. Job groups make it easy to queue, spawn, and
 // collect jobs with minimal boilerplate. The registry maintains references to all groups which will allow us to add
 // automatic metrics collection and/or status reporting in the future.
-var Cell = cell.Provide(newRegistry)
+var Cell = cell.Module(
+	"jobs",
+	"Jobs",
+	cell.Provide(newRegistry),
+	cell.Metric(newJobMetrics),
+)
 
 // A Registry creates Groups, it maintains references to these groups for the purposes of collecting information
 // centralized like metrics.
@@ -37,14 +44,21 @@ type registry struct {
 	logger     logrus.FieldLogger
 	shutdowner hive.Shutdowner
 
+	metrics *jobMetrics
+
 	mu     lock.Mutex
 	groups []Group
 }
 
-func newRegistry(logger logrus.FieldLogger, shutdowner hive.Shutdowner) Registry {
+func newRegistry(
+	logger logrus.FieldLogger,
+	shutdowner hive.Shutdowner,
+	metrics *jobMetrics,
+) Registry {
 	return &registry{
 		logger:     logger,
 		shutdowner: shutdowner,
+		metrics:    metrics,
 	}
 }
 
@@ -57,6 +71,7 @@ func (c *registry) NewGroup(opts ...groupOpt) Group {
 	var options options
 	options.logger = c.logger
 	options.shutdowner = c.shutdowner
+	options.metrics = c.metrics
 
 	for _, opt := range opts {
 		opt(&options)
@@ -102,6 +117,7 @@ type options struct {
 	pprofLabels pprof.LabelSet
 	logger      logrus.FieldLogger
 	shutdowner  hive.Shutdowner
+	metrics     *jobMetrics
 }
 
 type groupOpt func(o *options)
@@ -191,6 +207,10 @@ func (jg *group) Add(jobs ...Job) {
 // The given function is expected to exit as soon as the context given to it expires, this is especially important for
 // blocking or long running jobs.
 func OneShot(name string, fn OneShotFunc, opts ...jobOneShotOpt) Job {
+	if fn == nil {
+		panic("`fn` must not be nil")
+	}
+
 	job := &jobOneShot{
 		name: name,
 		fn:   fn,
@@ -219,6 +239,15 @@ func WithShutdown() jobOneShotOpt {
 	}
 }
 
+// WithMetrics option enabled metrics collection for this one shot job. This option should only be used
+// for short running jobs. Metrics use the jobs name as label, so if jobs are spawned dynamically
+// make sure to use the same job name to keep metric cardinality low.
+func WithMetrics() jobOneShotOpt {
+	return func(jos *jobOneShot) {
+		jos.metrics = true
+	}
+}
+
 // OneShotFunc is the function type which is invoked by a one shot job. The given function is expected to exit as soon
 // as the context given to it expires, this is especially important for blocking or long running jobs.
 type OneShotFunc func(ctx context.Context) error
@@ -232,6 +261,7 @@ type jobOneShot struct {
 	retry           int
 	backoff         workqueue.RateLimiter
 	shutdownOnError bool
+	metrics         bool
 }
 
 func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, options options) {
@@ -246,39 +276,54 @@ func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, options op
 		"func": internal.FuncNameAndLocation(jos.fn),
 	})
 
-	if jos.fn == nil {
-		l.Error("can't start a nil one shot job")
-		return
-	}
+	stat := &spanstat.SpanStat{}
+
+	timer, cancel := inctimer.New()
+	defer cancel()
 
 	var err error
 	for i := 0; i <= jos.retry; i++ {
+		var timeout time.Duration
 		if i != 0 {
-			timeout := jos.backoff.When(jos)
+			timeout = jos.backoff.When(jos)
 			l.WithFields(logrus.Fields{
 				"backoff":     timeout,
 				"retry-count": i,
 			}).Debug("Delaying retry attempt")
-			time.Sleep(timeout)
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.After(timeout):
 		}
 
 		l.Debug("Starting one-shot job")
 
+		if jos.metrics {
+			stat.Start()
+		}
+
 		err = jos.fn(ctx)
+
+		if jos.metrics {
+			sec := stat.End(true).Seconds()
+			options.metrics.OneShotRunDuration.WithLabelValues(jos.name).Observe(sec)
+			stat.Reset()
+		}
 
 		if err == nil {
 			l.Debug("one-shot job finished")
 			return
-		} else {
+		} else if !errors.Is(err, context.Canceled) {
 			l.WithError(err).Error("one-shot job errored")
+			options.metrics.JobErrorsTotal.WithLabelValues(jos.name).Inc()
 		}
 	}
 
 	if options.shutdowner != nil && jos.shutdownOnError {
 		options.shutdowner.Shutdown(hive.ShutdownWithError(err))
 	}
-
-	return
 }
 
 // Timer creates a timer job which can be added to a Group. Timer jobs invoke the given function at the specified
@@ -292,6 +337,10 @@ func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, options op
 // expires. This is especially important for long running functions. The signal created by a Trigger is coalesced so
 // multiple calls to trigger before the invocation takes place can result in just a single invocation.
 func Timer(name string, fn TimerFunc, interval time.Duration, opts ...timerOpt) Job {
+	if fn == nil {
+		panic("`fn` must not be nil")
+	}
+
 	job := &jobTimer{
 		name:     name,
 		fn:       fn,
@@ -365,11 +414,6 @@ func (jt *jobTimer) start(ctx context.Context, wg *sync.WaitGroup, options optio
 		"func": internal.FuncNameAndLocation(jt.fn),
 	})
 
-	if jt.fn == nil {
-		l.Error(fmt.Errorf("can't start a nil one timer job"))
-		return
-	}
-
 	timer := time.NewTicker(jt.interval)
 	defer timer.Stop()
 
@@ -379,6 +423,8 @@ func (jt *jobTimer) start(ctx context.Context, wg *sync.WaitGroup, options optio
 	}
 
 	l.Debug("Starting timer job")
+
+	stat := &spanstat.SpanStat{}
 
 	for {
 		select {
@@ -390,12 +436,19 @@ func (jt *jobTimer) start(ctx context.Context, wg *sync.WaitGroup, options optio
 
 		l.Debug("Timer job triggered")
 
+		stat.Start()
+
 		err := jt.fn(ctx)
+
+		sec := stat.End(true).Seconds()
+		options.metrics.TimerRunDuration.WithLabelValues(jt.name).Observe(sec)
+		stat.Reset()
 
 		if err == nil {
 			l.Debug("Timer job finished")
-		} else {
+		} else if !errors.Is(err, context.Canceled) {
 			l.WithError(err).Error("Timer job errored")
+			options.metrics.JobErrorsTotal.WithLabelValues(jt.name).Inc()
 			if jt.shutdown != nil {
 				jt.shutdown.Shutdown(hive.ShutdownWithError(err))
 			}
@@ -413,6 +466,10 @@ func (jt *jobTimer) start(ctx context.Context, wg *sync.WaitGroup, options optio
 // `observable`. If the `observable` completes, the job stops. The context given to the observable is also canceled
 // once the group stops.
 func Observer[T any](name string, fn ObserverFunc[T], observable stream.Observable[T], opts ...observerOpt[T]) Job {
+	if fn == nil {
+		panic("`fn` must not be nil")
+	}
+
 	job := &jobObserver[T]{
 		name:       name,
 		fn:         fn,
@@ -452,20 +509,26 @@ func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, options
 		"func": internal.FuncNameAndLocation(jo.fn),
 	})
 
-	if jo.fn == nil {
-		l.Error("can't start a nil observer job")
-		return
-	}
-
 	l.Debug("Observer job started")
 
 	done := make(chan struct{})
 
-	var err error
+	var (
+		stat = &spanstat.SpanStat{}
+		err  error
+	)
 	jo.observable.Observe(ctx, func(t T) {
+		stat.Start()
+
 		err := jo.fn(ctx, t)
-		if err != nil {
+
+		sec := stat.End(true).Seconds()
+		options.metrics.ObserverRunDuration.WithLabelValues(jo.name).Observe(sec)
+		stat.Reset()
+
+		if err != nil && !errors.Is(err, context.Canceled) {
 			l.WithError(err).Error("Observer job errored")
+			options.metrics.JobErrorsTotal.WithLabelValues(jo.name).Inc()
 			if jo.shutdown != nil {
 				jo.shutdown.Shutdown(hive.ShutdownWithError(
 					err,
@@ -484,6 +547,4 @@ func (jo *jobObserver[T]) start(ctx context.Context, wg *sync.WaitGroup, options
 	} else {
 		l.WithError(err).Debug("Observer job stopped")
 	}
-
-	return
 }

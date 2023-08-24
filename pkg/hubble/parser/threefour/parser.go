@@ -4,8 +4,6 @@
 package threefour
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 	"net/netip"
 	"strings"
@@ -98,20 +96,21 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		return errors.ErrEmptyData
 	}
 
+	eventType := data[0]
+
 	var packetOffset int
-	var eventType uint8
-	eventType = data[0]
 	var dn *monitor.DropNotify
 	var tn *monitor.TraceNotify
 	var pvn *monitor.PolicyVerdictNotify
 	var dbg *monitor.DebugCapture
 	var eventSubType uint8
 	var authType flow.AuthType
+
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
 		packetOffset = monitor.DropNotifyLen
 		dn = &monitor.DropNotify{}
-		if err := binary.Read(bytes.NewReader(data), byteorder.Native, dn); err != nil {
+		if err := monitor.DecodeDropNotify(data, dn); err != nil {
 			return fmt.Errorf("failed to parse drop: %v", err)
 		}
 		eventSubType = dn.SubType
@@ -133,7 +132,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		packetOffset = (int)(tn.DataOffset())
 	case monitorAPI.MessageTypePolicyVerdict:
 		pvn = &monitor.PolicyVerdictNotify{}
-		if err := binary.Read(bytes.NewReader(data), byteorder.Native, pvn); err != nil {
+		if err := monitor.DecodePolicyVerdictNotify(data, pvn); err != nil {
 			return fmt.Errorf("failed to parse policy verdict: %v", err)
 		}
 		eventSubType = pvn.SubType
@@ -141,7 +140,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		authType = flow.AuthType(pvn.GetAuthType())
 	case monitorAPI.MessageTypeCapture:
 		dbg = &monitor.DebugCapture{}
-		if err := binary.Read(bytes.NewReader(data), byteorder.Native, dbg); err != nil {
+		if err := monitor.DecodeDebugCapture(data, dbg); err != nil {
 			return fmt.Errorf("failed to parse debug capture: %w", err)
 		}
 		eventSubType = dbg.SubType

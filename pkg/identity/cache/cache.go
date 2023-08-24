@@ -142,23 +142,21 @@ func (w *identityWatcher) watch(events allocator.AllocatorEventRecvChan) {
 			deleted := IdentityCache{}
 		First:
 			for {
+				event, ok := <-events
 				// Wait for one identity add or delete or stop
-				select {
-				case event, ok := <-events:
-					if !ok {
-						// 'events' was closed
-						return
+				if !ok {
+					// 'events' was closed
+					return
+				}
+				// Collect first added and deleted labels
+				switch event.Typ {
+				case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
+					if collectEvent(event, added, deleted) {
+						// First event collected
+						break First
 					}
-					// Collect first added and deleted labels
-					switch event.Typ {
-					case kvstore.EventTypeCreate, kvstore.EventTypeDelete:
-						if collectEvent(event, added, deleted) {
-							// First event collected
-							break First
-						}
-					default:
-						// Ignore modify events
-					}
+				default:
+					// Ignore modify events
 				}
 			}
 

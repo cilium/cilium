@@ -26,6 +26,10 @@ spec:
     spec:
       serviceAccountName: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}
       shareProcessNamespace: true
+      {{- with .Values.authentication.mutual.spire.install.server.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- if gt (len .Values.authentication.mutual.spire.install.server.initContainers) 0 }}
       initContainers:
         {{- toYaml .Values.authentication.mutual.spire.install.server.initContainers | nindent 8 }}
@@ -39,7 +43,7 @@ spec:
           - |
             {{- tpl (.Files.Get "files/spire/init.bash") . | nindent 12 }}
       - name: spire-server
-        image: ghcr.io/spiffe/spire-server:1.5.1
+        image: {{ .Values.authentication.mutual.spire.install.server.image }}
         args:
         - -config
         - /run/spire/config/server.conf
@@ -72,6 +76,22 @@ spec:
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 5
+        {{- with .Values.authentication.mutual.spire.install.server.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- with .Values.authentication.mutual.spire.install.server.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.authentication.mutual.spire.install.server.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.authentication.mutual.spire.install.server.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
       volumes:
       - name: spire-config
         configMap:

@@ -391,6 +391,9 @@ enum DropReason {
     INVALID_CLUSTER_ID = 192;
     UNSUPPORTED_PROTOCOL_FOR_DSR_ENCAP = 193;
     NO_EGRESS_GATEWAY = 194;
+    UNENCRYPTED_TRAFFIC = 195;
+    TTL_EXCEEDED = 196;
+    NO_NODE_ID = 197;
 }
 
 enum TrafficDirection {

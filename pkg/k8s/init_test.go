@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -66,15 +67,13 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 				return true, n1copy, nil
 			})
 
-		node1Slim, err := TransformToNode(node1.DeepCopy())
-		c.Assert(err, checker.Equals, nil)
-		node1Cilium := ParseNode(node1Slim.(*slim_corev1.Node), source.Unspec)
+		node1Cilium := ParseNode(toSlimNode(node1.DeepCopy()), source.Unspec)
 		node1Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
 		useNodeCIDR(node1Cilium)
 		c.Assert(node.GetIPv4AllocRange().String(), Equals, "10.2.0.0/16")
 		// IPv6 Node range is not checked because it shouldn't be changed.
 
-		_, err = AnnotateNode(fakeK8sClient, "node1", *node1Cilium, 0)
+		_, err := AnnotateNode(fakeK8sClient, "node1", *node1Cilium, 0)
 
 		c.Assert(err, IsNil)
 
@@ -124,9 +123,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 				return true, n2Copy, nil
 			})
 
-		node2Slim, err := TransformToNode(node2.DeepCopy())
-		c.Assert(err, checker.Equals, nil)
-		node2Cilium := ParseNode(node2Slim.(*slim_corev1.Node), source.Unspec)
+		node2Cilium := ParseNode(toSlimNode(node2.DeepCopy()), source.Unspec)
 		node2Cilium.SetCiliumInternalIP(net.ParseIP("10.254.0.1"))
 		useNodeCIDR(node2Cilium)
 
@@ -179,5 +176,30 @@ func (s *K8sSuite) TestRemovalOfNodeAnnotations(c *C) {
 	case <-time.Tick(10 * time.Second):
 		c.Errorf("d.fakeK8sClient.CoreV1().Nodes().Update() was not called")
 		c.FailNow()
+	}
+}
+
+func toSlimNode(node *v1.Node) *slim_corev1.Node {
+	return &slim_corev1.Node{
+		TypeMeta: slim_metav1.TypeMeta{
+			Kind:       node.TypeMeta.Kind,
+			APIVersion: node.TypeMeta.APIVersion,
+		},
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:            node.ObjectMeta.Name,
+			Namespace:       node.ObjectMeta.Namespace,
+			UID:             node.ObjectMeta.UID,
+			ResourceVersion: node.ObjectMeta.ResourceVersion,
+			Labels:          node.ObjectMeta.Labels,
+			Annotations:     node.ObjectMeta.Annotations,
+		},
+		Spec: slim_corev1.NodeSpec{
+			PodCIDR:  node.Spec.PodCIDR,
+			PodCIDRs: node.Spec.PodCIDRs,
+			Taints:   convertToTaints(node.Spec.Taints),
+		},
+		Status: slim_corev1.NodeStatus{
+			Addresses: convertToAddress(node.Status.Addresses),
+		},
 	}
 }

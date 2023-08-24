@@ -210,7 +210,7 @@ func TestTranslate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			lator := tt.translator()
 			args := tt.args()
-			tr := NewK8sTranslator(lator.sid, lator.oldEPs, lator.newEPs, lator.revert, lator.labels)
+			tr := NewK8sTranslator(lator.sid, lator.oldEPs, lator.newEPs, lator.labels)
 			err := tr.Translate(args.rule, args.result)
 			assert.Equal(t, tt.expected, err)
 			assert.Equal(t, tt.expectedResult, args.result)
@@ -262,9 +262,9 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 		Labels: tag1,
 	}
 
-	translator := NewK8sTranslator(serviceInfo, Endpoints{}, endpointInfo, false, map[string]string{})
+	translator := NewK8sTranslator(serviceInfo, Endpoints{}, endpointInfo, map[string]string{})
 
-	_, _, err := repo.Add(rule1, []policy.Endpoint{})
+	_, _, err := repo.Add(rule1)
 	c.Assert(err, IsNil)
 
 	result, err := repo.TranslateRules(translator)
@@ -276,7 +276,7 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 	c.Assert(len(rule.ToCIDRSet), Equals, 1)
 	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epAddrCluster.Addr().String()+"/32")
 
-	translator = NewK8sTranslator(serviceInfo, endpointInfo, endpointInfo, true, map[string]string{})
+	translator = NewK8sTranslator(serviceInfo, endpointInfo, Endpoints{}, map[string]string{})
 	result, err = repo.TranslateRules(translator)
 	c.Assert(result.NumToServicesRules, Equals, 1)
 
@@ -318,7 +318,7 @@ func (s *K8sSuite) TestServiceMatches(c *C) {
 		},
 	}
 
-	translator := NewK8sTranslator(serviceInfo, Endpoints{}, endpointInfo, false, svcLabels)
+	translator := NewK8sTranslator(serviceInfo, Endpoints{}, endpointInfo, svcLabels)
 	c.Assert(translator.serviceMatches(service), Equals, true)
 }
 
@@ -368,9 +368,9 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 		Labels: tag1,
 	}
 
-	translator := NewK8sTranslator(serviceInfo, Endpoints{}, endpointInfo, false, svcLabels)
+	translator := NewK8sTranslator(serviceInfo, Endpoints{}, endpointInfo, svcLabels)
 
-	_, _, err := repo.Add(rule1, []policy.Endpoint{})
+	_, _, err := repo.Add(rule1)
 	c.Assert(err, IsNil)
 
 	result, err := repo.TranslateRules(translator)
@@ -382,7 +382,7 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 	c.Assert(len(rule.ToCIDRSet), Equals, 1)
 	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epAddrCluster.Addr().String()+"/32")
 
-	translator = NewK8sTranslator(serviceInfo, endpointInfo, endpointInfo, true, svcLabels)
+	translator = NewK8sTranslator(serviceInfo, endpointInfo, Endpoints{}, svcLabels)
 	result, err = repo.TranslateRules(translator)
 
 	rule = repo.SearchRLocked(tag1)[0].Egress[0]
@@ -423,7 +423,7 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 		Namespace: "default",
 	}
 
-	translator := NewK8sTranslator(serviceInfo, Endpoints{}, endpointInfo, false, map[string]string{})
+	translator := NewK8sTranslator(serviceInfo, Endpoints{}, endpointInfo, map[string]string{})
 	_, err := translator.generateToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
 	cidrs := rule.ToCIDRSet.StringSlice()
@@ -575,7 +575,7 @@ func (s *K8sSuite) TestDontDeleteUserRules(c *C) {
 		Namespace: "default",
 	}
 
-	translator := NewK8sTranslator(serviceInfo, Endpoints{}, endpointInfo, false, map[string]string{})
+	translator := NewK8sTranslator(serviceInfo, Endpoints{}, endpointInfo, map[string]string{})
 	_, err := translator.generateToCidrFromEndpoint(rule, endpointInfo)
 	c.Assert(err, IsNil)
 

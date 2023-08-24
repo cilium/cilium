@@ -130,11 +130,13 @@ The Maintainers may also choose to delegate working with the CNCF to non-Maintai
 Code of Conduct
 ~~~~~~~~~~~~~~~
 
-`Code of Conduct <https://github.com/cilium/cilium/blob/main/CODE_OF_CONDUCT.md>`__
-violations by community members will be discussed and resolved on the private
-committers Slack channel. If the reported Code of Conduct violator is a Maintainer, the 
-Maintainers will instead designate two Maintainers to work with the
-`CNCF CoC Committee <https://www.cncf.io/conduct/procedures/>`__.  
+`Code of Conduct`_ violations by community members will be discussed and
+resolved on the private committers channel on `Cilium Slack`_. If the reported
+Code of Conduct violator is a Maintainer, the Maintainers will instead
+designate two Maintainers to work with the `CNCF CoC Committee`_.
+
+.. _Code of Conduct: https://github.com/cilium/cilium/blob/main/CODE_OF_CONDUCT.md
+.. _CNCF CoC Committee: https://www.cncf.io/conduct/procedures/
 
 Granting Commit Access
 ----------------------
@@ -165,7 +167,7 @@ demonstrated the following in their interaction with the project:
 The process to grant commit access to a candidate is simple:
 
 -  An existing committer nominates the candidate by sending a message in the
-   #committers Slack channel to all existing committers with information
+   ``#committers`` Slack channel to all existing committers with information
    substantiating the contributions of the candidate in the areas described
    above.
 
@@ -203,7 +205,7 @@ The process to grant commit access to a candidate is simple:
        discussion, those remarks may optionally be summarized and re-posted
        to the channel. The final vote summary does not need to be deleted.
 
-    #. Invite the new committer to the #committers Slack channel.
+    #. Invite the new committer to the ``#committers`` Slack channel.
 
     #. Add the new committer to the list in MAINTAINERS.md_.
 
@@ -349,8 +351,8 @@ decide an issue. If the maintainers themselves cannot decide an issue, the
 issue will be resolved by voting. The voting process is a simple majority in
 which each committer and each maintainer receives one vote.
 
-Votes are done in the Slack channel #committers using Slack polls. A failure to
-vote is an implicit abstention.
+Votes are done in the Slack channel ``#committers`` using Slack polls. A
+failure to vote is an implicit abstention.
 
 .. _vote_limit:
 

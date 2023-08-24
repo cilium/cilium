@@ -197,7 +197,7 @@ func TestGetIdentity(t *testing.T) {
 			}()
 			go backend.ListAndWatch(ctx, FakeHandler{}, stopChan)
 			if err != nil {
-				t.Fatalf("Can't create CRD Backedn: %s", err)
+				t.Fatalf("Can't create CRD Backend: %s", err)
 			}
 
 			for _, identity := range tc.identities {

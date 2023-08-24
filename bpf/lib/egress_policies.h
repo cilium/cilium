@@ -9,109 +9,6 @@
 
 #include "maps.h"
 
-#ifdef ENABLE_EGRESS_GATEWAY
-
-/* EGRESS_STATIC_PREFIX represents the size in bits of the static prefix part of
- * an egress policy key (i.e. the source IP).
- */
-#define EGRESS_STATIC_PREFIX (sizeof(__be32) * 8)
-#define EGRESS_PREFIX_LEN(PREFIX) (EGRESS_STATIC_PREFIX + (PREFIX))
-#define EGRESS_IPV4_PREFIX EGRESS_PREFIX_LEN(32)
-/* These are special IP values in the CIDR 0.0.0.0/8 range that map to specific
- * case for in the egress gateway policies handling.
- */
-#define EGRESS_GATEWAY_NO_GATEWAY (0)
-#define EGRESS_GATEWAY_EXCLUDED_CIDR bpf_htonl(1)
-
-static __always_inline
-struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
-{
-	struct egress_gw_policy_key key = {
-		.lpm_key = { EGRESS_IPV4_PREFIX, {} },
-		.saddr = saddr,
-		.daddr = daddr,
-	};
-	return map_lookup_elem(&EGRESS_POLICY_MAP, &key);
-}
-
-static __always_inline
-bool egress_gw_request_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint)
-{
-	struct egress_gw_policy_entry *egress_gw_policy;
-	struct endpoint_info *gateway_node_ep;
-
-	egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
-	if (!egress_gw_policy)
-		return false;
-
-	switch (egress_gw_policy->gateway_ip) {
-	case EGRESS_GATEWAY_NO_GATEWAY:
-		/* If no gateway is found we return that the connection is
-		 * "redirected" and the caller will handle this special case
-		 * and drop the traffic.
-		 */
-		*tunnel_endpoint = EGRESS_GATEWAY_NO_GATEWAY;
-		return true;
-	case EGRESS_GATEWAY_EXCLUDED_CIDR:
-		return false;
-	}
-
-	/* If the gateway node is the local node, then just let the
-	 * packet go through, as it will be SNATed later on by
-	 * handle_nat_fwd().
-	 */
-	gateway_node_ep = __lookup_ip4_endpoint(egress_gw_policy->gateway_ip);
-	if (gateway_node_ep && (gateway_node_ep->flags & ENDPOINT_F_HOST))
-		return false;
-
-	*tunnel_endpoint = egress_gw_policy->gateway_ip;
-	return true;
-}
-
-static __always_inline
-bool egress_gw_snat_needed(struct iphdr *ip4, __be32 *snat_addr)
-{
-	struct egress_gw_policy_entry *egress_gw_policy;
-
-	egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
-	if (!egress_gw_policy)
-		return false;
-
-	if (egress_gw_policy->gateway_ip == EGRESS_GATEWAY_NO_GATEWAY ||
-	    egress_gw_policy->gateway_ip == EGRESS_GATEWAY_EXCLUDED_CIDR)
-		return false;
-
-	*snat_addr = egress_gw_policy->egress_ip;
-	return true;
-}
-
-static __always_inline
-bool egress_gw_reply_needs_redirect(struct iphdr *ip4, __u32 *tunnel_endpoint,
-				    __u32 *dst_sec_identity)
-{
-	struct egress_gw_policy_entry *egress_policy;
-	struct remote_endpoint_info *info;
-
-	/* Find a matching policy by looking up the reverse address tuple: */
-	egress_policy = lookup_ip4_egress_gw_policy(ip4->daddr, ip4->saddr);
-	if (!egress_policy)
-		return false;
-
-	if (egress_policy->gateway_ip == EGRESS_GATEWAY_NO_GATEWAY ||
-	    egress_policy->gateway_ip == EGRESS_GATEWAY_EXCLUDED_CIDR)
-		return false;
-
-	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
-	if (!info || info->tunnel_endpoint == 0)
-		return false;
-
-	*tunnel_endpoint = info->tunnel_endpoint;
-	*dst_sec_identity = info->sec_identity;
-	return true;
-}
-
-#endif /* ENABLE_EGRESS_GATEWAY */
-
 #ifdef ENABLE_SRV6
 struct srv6_srh {
 	struct ipv6_rt_hdr rthdr;
@@ -653,17 +550,17 @@ int tail_srv6_encap(struct __ctx_buff *ctx)
 
 	ret = srv6_handling(ctx, vrf_id, &dst_sid);
 	if (ret < 0)
-		return send_drop_notify_error(ctx, SECLABEL, ret, CTX_ACT_DROP,
+		return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
 
 #ifdef ENABLE_IPV6
 	ret = srv6_refib(ctx, &ext_err);
 	if (ret < 0)
-		return send_drop_notify_ext(ctx, SECLABEL, 0, 0, ret, ext_err,
+		return send_drop_notify_ext(ctx, SECLABEL_IPV6, 0, 0, ret, ext_err,
 					   CTX_ACT_DROP, METRIC_EGRESS);
 #endif
 
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
+	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, 0, 0, 0,
 			  TRACE_REASON_UNKNOWN, 0);
 
 	return ret;
@@ -682,11 +579,11 @@ int tail_srv6_decap(struct __ctx_buff *ctx)
 	if (ret < 0)
 		goto error_drop;
 
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, 0, 0, 0,
+	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, 0, 0, 0,
 			  TRACE_REASON_UNKNOWN, 0);
 	return CTX_ACT_OK;
 error_drop:
-		return send_drop_notify_error(ctx, SECLABEL, ret, CTX_ACT_DROP,
+		return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
 }
 
@@ -697,7 +594,7 @@ int tail_srv6_reply(struct __ctx_buff *ctx)
 
 	ret = srv6_reply(ctx);
 	if (ret < 0)
-		return send_drop_notify_error(ctx, SECLABEL, ret, CTX_ACT_DROP,
+		return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
 	return CTX_ACT_OK;
 }

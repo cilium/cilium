@@ -11,6 +11,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
@@ -27,7 +28,7 @@ type GRPCClientConnBuilder struct {
 	Options []grpc.DialOption
 
 	// TLSConfig is used to build transport credentials for the connection.
-	// If not provided, grpc.WithInsecure() is added to Options before creating
+	// If not provided, insecure credentials are added to Options before creating
 	// a new ClientConn.
 	TLSConfig certloader.ClientConfigBuilder
 }
@@ -50,7 +51,7 @@ func (b GRPCClientConnBuilder) ClientConn(target, hostname string) (poolTypes.Cl
 	copy(opts, b.Options)
 
 	if b.TLSConfig == nil {
-		opts = append(opts, grpc.WithInsecure())
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
 		// NOTE: gosec is unable to resolve the constant and warns about "TLS
 		// MinVersion too low".

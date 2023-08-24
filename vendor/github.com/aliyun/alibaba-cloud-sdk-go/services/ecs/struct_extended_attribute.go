@@ -28,6 +28,7 @@ type ExtendedAttribute struct {
 	PunishDomain       string                                       `json:"PunishDomain" xml:"PunishDomain"`
 	Rack               string                                       `json:"Rack" xml:"Rack"`
 	CanAccept          string                                       `json:"CanAccept" xml:"CanAccept"`
+	ResponseResult     string                                       `json:"ResponseResult" xml:"ResponseResult"`
 	MigrationOptions   MigrationOptions                             `json:"MigrationOptions" xml:"MigrationOptions"`
 	InactiveDisks      InactiveDisksInDescribeInstanceHistoryEvents `json:"InactiveDisks" xml:"InactiveDisks"`
 }

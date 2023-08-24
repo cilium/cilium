@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"sync"
 
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/sys"
@@ -79,8 +80,8 @@ func (h *btfHeader) stringStart() int64 {
 	return int64(h.HdrLen + h.StringOff)
 }
 
-// NewSpec creates a Spec containing only Void.
-func NewSpec() *Spec {
+// newSpec creates a Spec containing only Void.
+func newSpec() *Spec {
 	return &Spec{
 		[]Type{(*Void)(nil)},
 		map[Type]TypeID{(*Void)(nil): 0},
@@ -297,6 +298,107 @@ func indexTypes(types []Type, firstTypeID TypeID) (map[Type]TypeID, map[essentia
 	return typeIDs, typesByName
 }
 
+// LoadKernelSpec returns the current kernel's BTF information.
+//
+// Defaults to /sys/kernel/btf/vmlinux and falls back to scanning the file system
+// for vmlinux ELFs. Returns an error wrapping ErrNotSupported if BTF is not enabled.
+func LoadKernelSpec() (*Spec, error) {
+	spec, _, err := kernelSpec()
+	if err != nil {
+		return nil, err
+	}
+	return spec.Copy(), nil
+}
+
+var kernelBTF struct {
+	sync.RWMutex
+	spec *Spec
+	// True if the spec was read from an ELF instead of raw BTF in /sys.
+	fallback bool
+}
+
+// FlushKernelSpec removes any cached kernel type information.
+func FlushKernelSpec() {
+	kernelBTF.Lock()
+	defer kernelBTF.Unlock()
+
+	kernelBTF.spec, kernelBTF.fallback = nil, false
+}
+
+func kernelSpec() (*Spec, bool, error) {
+	kernelBTF.RLock()
+	spec, fallback := kernelBTF.spec, kernelBTF.fallback
+	kernelBTF.RUnlock()
+
+	if spec == nil {
+		kernelBTF.Lock()
+		defer kernelBTF.Unlock()
+
+		spec, fallback = kernelBTF.spec, kernelBTF.fallback
+	}
+
+	if spec != nil {
+		return spec, fallback, nil
+	}
+
+	spec, fallback, err := loadKernelSpec()
+	if err != nil {
+		return nil, false, err
+	}
+
+	kernelBTF.spec, kernelBTF.fallback = spec, fallback
+	return spec, fallback, nil
+}
+
+func loadKernelSpec() (_ *Spec, fallback bool, _ error) {
+	fh, err := os.Open("/sys/kernel/btf/vmlinux")
+	if err == nil {
+		defer fh.Close()
+
+		spec, err := loadRawSpec(fh, internal.NativeEndian, nil)
+		return spec, false, err
+	}
+
+	file, err := findVMLinux()
+	if err != nil {
+		return nil, false, err
+	}
+	defer file.Close()
+
+	spec, err := loadSpecFromELF(file)
+	return spec, true, err
+}
+
+// findVMLinux scans multiple well-known paths for vmlinux kernel images.
+func findVMLinux() (*internal.SafeELFFile, error) {
+	release, err := internal.KernelRelease()
+	if err != nil {
+		return nil, err
+	}
+
+	// use same list of locations as libbpf
+	// https://github.com/libbpf/libbpf/blob/9a3a42608dbe3731256a5682a125ac1e23bced8f/src/btf.c#L3114-L3122
+	locations := []string{
+		"/boot/vmlinux-%s",
+		"/lib/modules/%s/vmlinux-%[1]s",
+		"/lib/modules/%s/build/vmlinux",
+		"/usr/lib/modules/%s/kernel/vmlinux",
+		"/usr/lib/debug/boot/vmlinux-%s",
+		"/usr/lib/debug/boot/vmlinux-%s.debug",
+		"/usr/lib/debug/lib/modules/%s/vmlinux",
+	}
+
+	for _, loc := range locations {
+		file, err := internal.OpenSafeELFFile(fmt.Sprintf(loc, release))
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		return file, err
+	}
+
+	return nil, fmt.Errorf("no BTF found for kernel version %s: %w", release, internal.ErrNotSupported)
+}
+
 // parseBTFHeader parses the header of the .BTF section.
 func parseBTFHeader(r io.Reader, bo binary.ByteOrder) (*btfHeader, error) {
 	var header btfHeader
@@ -491,35 +593,6 @@ func (sw sliceWriter) Write(p []byte) (int, error) {
 	}
 
 	return copy(sw, p), nil
-}
-
-// Add a Type to the Spec, making it queryable via [TypeByName], etc.
-//
-// Adding the identical Type multiple times is valid and will return a stable ID.
-//
-// See [Type] for details on identity.
-func (s *Spec) Add(typ Type) (TypeID, error) {
-	if typ == nil {
-		return 0, fmt.Errorf("can't add nil Type")
-	}
-
-	if id, err := s.TypeID(typ); err == nil {
-		return id, nil
-	}
-
-	id, err := s.nextTypeID()
-	if err != nil {
-		return 0, err
-	}
-
-	s.typeIDs[typ] = id
-	s.types = append(s.types, typ)
-
-	if name := newEssentialName(typ.TypeName()); name != "" {
-		s.namedTypes[name] = append(s.namedTypes[name], typ)
-	}
-
-	return id, nil
 }
 
 // nextTypeID returns the next unallocated type ID or an error if there are no
@@ -773,16 +846,19 @@ var haveFuncLinkage = internal.NewFeatureTest("BTF func linkage", "5.6", func() 
 })
 
 func probeBTF(typ Type) error {
-	buf := getBuffer()
-	defer putBuffer(buf)
+	b, err := NewBuilder([]Type{typ})
+	if err != nil {
+		return err
+	}
 
-	if err := marshalTypes(buf, []Type{&Void{}, typ}, nil, nil); err != nil {
+	buf, err := b.Marshal(nil, nil)
+	if err != nil {
 		return err
 	}
 
 	fd, err := sys.BtfLoad(&sys.BtfLoadAttr{
-		Btf:     sys.NewSlicePointer(buf.Bytes()),
-		BtfSize: uint32(buf.Len()),
+		Btf:     sys.NewSlicePointer(buf),
+		BtfSize: uint32(len(buf)),
 	})
 
 	if err == nil {

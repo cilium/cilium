@@ -10,13 +10,10 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 
-	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/ethtool"
@@ -34,36 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/socketlb"
 	"github.com/cilium/cilium/pkg/sysctl"
-)
-
-const (
-	initArgLib int = iota
-	initArgRundir
-	initArgProcSysNetDir
-	initArgSysDir
-	initArgIPv4NodeIP
-	initArgIPv6NodeIP
-	initArgMode
-	initArgTunnelProtocol
-	initArgTunnelPort
-	initArgDevices
-	initArgHostDev1
-	initArgHostDev2
-	initArgMTU
-	initArgSocketLB
-	initArgSocketLBPeer
-	initArgCgroupRoot
-	initArgBpffsRoot
-	initArgNodePort
-	initArgNodePortBind
-	initBPFCPU
-	initArgNrCPUs
-	initArgEndpointRoutes
-	initArgProxyRule
-	initTCFilterPriority
-	initDefaultRTProto
-	initLocalRulePriority
-	initArgMax
+	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // firstInitialization is true when Reinitialize() is called for the first
@@ -251,6 +219,13 @@ func (l *Loader) reinitializeOverlay(ctx context.Context, encapProto string) err
 	if option.Config.EnableNodePort {
 		opts = append(opts, "-DDISABLE_LOOPBACK_LB")
 	}
+	if option.Config.IsDualStack() {
+		opts = append(opts, fmt.Sprintf("-DSECLABEL_IPV4=%d", identity.ReservedIdentityWorldIPv4))
+		opts = append(opts, fmt.Sprintf("-DSECLABEL_IPV6=%d", identity.ReservedIdentityWorldIPv6))
+	} else {
+		opts = append(opts, fmt.Sprintf("-DSECLABEL_IPV4=%d", identity.ReservedIdentityWorld))
+		opts = append(opts, fmt.Sprintf("-DSECLABEL_IPV6=%d", identity.ReservedIdentityWorld))
+	}
 
 	if err := l.replaceOverlayDatapath(ctx, opts, iface); err != nil {
 		return fmt.Errorf("failed to load overlay programs: %w", err)
@@ -265,6 +240,13 @@ func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string)
 		return nil
 	}
 	for _, dev := range option.Config.GetDevices() {
+		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach bpf_host
+		// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
+		// So We need to exclude cilium_wg0 not to attach the XDP program when XDP acceleration
+		// is enabled, otherwise we will get "operation not supported" error.
+		if dev == wgTypes.IfaceName {
+			continue
+		}
 		if err := compileAndLoadXDPProg(ctx, dev, option.Config.XDPMode, extraCArgs); err != nil {
 			return err
 		}
@@ -286,8 +268,6 @@ func (l *Loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwne
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
 func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
-	args := make([]string, initArgMax)
-
 	sysSettings := []sysctl.Setting{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
 		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
@@ -303,32 +283,17 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	l.init(o.Datapath(), o.LocalConfig())
 
-	var mode baseDeviceMode
 	encapProto := option.TunnelDisabled
-	switch {
-	case option.Config.TunnelingEnabled():
-		mode = tunnelMode
+	if option.Config.TunnelingEnabled() {
 		encapProto = option.Config.TunnelProtocol
-	case option.Config.EnableHealthDatapath:
-		mode = option.DSRDispatchIPIP
-		sysSettings = append(sysSettings,
-			sysctl.Setting{Name: "net.core.fb_tunnels_only_for_init_net",
-				Val: "2", IgnoreErr: true})
-	default:
-		mode = directMode
 	}
-	args[initArgMode] = string(mode)
 
 	var nodeIPv4, nodeIPv6 net.IP
-	args[initArgIPv4NodeIP] = "<nil>"
-	args[initArgIPv6NodeIP] = "<nil>"
 	if option.Config.EnableIPv4 {
 		nodeIPv4 = node.GetInternalIPv4Router()
-		args[initArgIPv4NodeIP] = nodeIPv4.String()
 	}
 	if option.Config.EnableIPv6 {
 		nodeIPv6 = node.GetIPv6Router()
-		args[initArgIPv6NodeIP] = nodeIPv6.String()
 		// Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
 		// interface (https://github.com/docker/libnetwork/issues/1720)
 		// Enable IPv6 for now
@@ -337,12 +302,39 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	// Datapath initialization
-	hostDev1, hostDev2, err := SetupBaseDevice(deviceMTU)
+	hostDev1, _, err := SetupBaseDevice(deviceMTU)
 	if err != nil {
-		return fmt.Errorf("failed to setup base devices in mode %s: %w", mode, err)
+		return fmt.Errorf("failed to setup base devices: %w", err)
 	}
-	args[initArgHostDev1] = hostDev1.Attrs().Name
-	args[initArgHostDev2] = hostDev2.Attrs().Name
+
+	if option.Config.EnableHealthDatapath {
+		sysSettings = append(
+			sysSettings,
+			sysctl.Setting{
+				Name: "net.core.fb_tunnels_only_for_init_net", Val: "2", IgnoreErr: true,
+			},
+		)
+		if err := setupIPIPDevices(option.Config.IPv4Enabled(), option.Config.IPv6Enabled()); err != nil {
+			return fmt.Errorf("unable to create ipip encapsulation devices for health datapath")
+		}
+	}
+
+	if !option.Config.TunnelingEnabled() {
+		if option.Config.EgressGatewayCommonEnabled() || option.Config.EnableHighScaleIPcache {
+			// Tunnel is required for egress traffic under this config
+			encapProto = option.Config.TunnelProtocol
+		}
+	}
+	if !option.Config.TunnelingEnabled() &&
+		option.Config.EnableNodePort &&
+		option.Config.NodePortMode != option.NodePortModeSNAT &&
+		option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve {
+		encapProto = option.TunnelGeneve
+	}
+
+	if err := setupTunnelDevice(encapProto, option.Config.TunnelPort, deviceMTU); err != nil {
+		return fmt.Errorf("failed to setup %s tunnel device: %w", encapProto, err)
+	}
 
 	if option.Config.IPAM == ipamOption.IPAMENI {
 		var err error
@@ -368,8 +360,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		log.WithError(err).Warn("Unable to write netdev header")
 		return err
 	}
-	args[initArgProcSysNetDir] = filepath.Join(o.Datapath().Procfs(), "sys", "net")
-	args[initArgSysDir] = filepath.Join("/sys", "class", "net")
 
 	if option.Config.EnableXDPPrefilter {
 		scopedLog := log.WithField(logfields.Devices, option.Config.GetDevices())
@@ -388,94 +378,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		o.SetPrefilter(preFilter)
 	}
 
-	args[initArgLib] = "<nil>"
-	args[initArgRundir] = option.Config.StateDir
-
-	args[initArgMTU] = fmt.Sprintf("%d", deviceMTU)
-
-	args[initArgSocketLB] = "<nil>"
-	args[initArgSocketLBPeer] = "<nil>"
-	args[initArgCgroupRoot] = "<nil>"
-	args[initArgBpffsRoot] = "<nil>"
-
-	if len(option.Config.GetDevices()) != 0 {
-		args[initArgDevices] = strings.Join(option.Config.GetDevices(), ";")
-	} else {
-		args[initArgDevices] = "<nil>"
-	}
-
-	if !option.Config.TunnelingEnabled() {
-		if option.Config.EnableIPv4EgressGateway || option.Config.EnableHighScaleIPcache {
-			// Tunnel is required for egress traffic under this config
-			encapProto = option.Config.TunnelProtocol
-		}
-	}
-
-	if !option.Config.TunnelingEnabled() &&
-		option.Config.EnableNodePort &&
-		option.Config.NodePortMode != option.NodePortModeSNAT &&
-		option.Config.LoadBalancerDSRDispatch == option.DSRDispatchGeneve {
-		encapProto = option.TunnelGeneve
-	}
-
-	// set init.sh args based on encapProto
-	args[initArgTunnelProtocol] = "<nil>"
-	args[initArgTunnelPort] = "<nil>"
-	if encapProto != option.TunnelDisabled {
-		args[initArgTunnelProtocol] = encapProto
-		args[initArgTunnelPort] = fmt.Sprintf("%d", option.Config.TunnelPort)
-	}
-
-	if option.Config.EnableNodePort {
-		args[initArgNodePort] = "true"
-	} else {
-		args[initArgNodePort] = "false"
-	}
-
-	args[initArgNodePortBind] = "<nil>"
-
-	args[initBPFCPU] = "<nil>"
-	args[initArgNrCPUs] = "<nil>"
-
-	if option.Config.EnableEndpointRoutes {
-		args[initArgEndpointRoutes] = "true"
-	} else {
-		args[initArgEndpointRoutes] = "false"
-	}
-
-	clockSource := []string{"ktime", "jiffies"}
-	log.WithFields(logrus.Fields{
-		logfields.BPFInsnSet:     args[initBPFCPU],
-		logfields.BPFClockSource: clockSource[option.Config.ClockSource],
-	}).Info("Setting up BPF datapath")
-
-	if option.Config.InstallIptRules && option.Config.EnableL7Proxy {
-		args[initArgProxyRule] = "true"
-	} else {
-		args[initArgProxyRule] = "false"
-	}
-
-	args[initTCFilterPriority] = "<nil>"
-	args[initDefaultRTProto] = strconv.Itoa(linux_defaults.RTProto)
-	args[initLocalRulePriority] = strconv.Itoa(linux_defaults.RulePriorityLocalLookup)
-
-	// "Legacy" datapath inizialization with the init.sh script
-	// TODO(mrostecki): Rewrite the whole init.sh in Go, step by step.
-	for i, arg := range args {
-		if arg == "" {
-			log.Warningf("empty argument passed to bpf/init.sh at position %d", i)
-		}
-	}
-
 	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
 	defer cancel()
-
-	prog := filepath.Join(option.Config.BpfDir, "init.sh")
-	cmd := exec.CommandContext(ctx, prog, args...)
-	cmd.Env = os.Environ()
-	if _, err := cmd.CombinedOutput(log, true); err != nil {
-		return err
-	}
 
 	if option.Config.EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
@@ -533,8 +437,12 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	// Reinstall proxy rules for any running proxies if needed
-	if p != nil {
-		if err := p.ReinstallRules(ctx); err != nil {
+	if option.Config.EnableL7Proxy {
+		if err := p.ReinstallRoutingRules(); err != nil {
+			return err
+		}
+
+		if err := p.ReinstallIPTablesRules(ctx); err != nil {
 			return err
 		}
 	}

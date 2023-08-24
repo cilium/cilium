@@ -1,0 +1,22 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: mutual-auth-echo
+spec:
+  endpointSelector:
+    matchLabels:
+      app: echo
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: pod-worker
+    authentication:
+      mode: "required"
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/headers"

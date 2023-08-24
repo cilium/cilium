@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
 	"github.com/cilium/cilium/api/v1/server/restapi/recorder"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
+	"github.com/cilium/cilium/api/v1/server/restapi/statedb"
 
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/hive"
@@ -58,6 +59,7 @@ type serverParams struct {
 	Logger     logrus.FieldLogger
 	Spec       *Spec
 
+	EndpointDeleteEndpointHandler        endpoint.DeleteEndpointHandler
 	EndpointDeleteEndpointIDHandler      endpoint.DeleteEndpointIDHandler
 	PolicyDeleteFqdnCacheHandler         policy.DeleteFqdnCacheHandler
 	IpamDeleteIpamIPHandler              ipam.DeleteIpamIPHandler
@@ -66,6 +68,7 @@ type serverParams struct {
 	RecorderDeleteRecorderIDHandler      recorder.DeleteRecorderIDHandler
 	ServiceDeleteServiceIDHandler        service.DeleteServiceIDHandler
 	BgpGetBgpPeersHandler                bgp.GetBgpPeersHandler
+	BgpGetBgpRoutesHandler               bgp.GetBgpRoutesHandler
 	DaemonGetCgroupDumpMetadataHandler   daemon.GetCgroupDumpMetadataHandler
 	DaemonGetClusterNodesHandler         daemon.GetClusterNodesHandler
 	DaemonGetConfigHandler               daemon.GetConfigHandler
@@ -79,6 +82,7 @@ type serverParams struct {
 	PolicyGetFqdnCacheHandler            policy.GetFqdnCacheHandler
 	PolicyGetFqdnCacheIDHandler          policy.GetFqdnCacheIDHandler
 	PolicyGetFqdnNamesHandler            policy.GetFqdnNamesHandler
+	DaemonGetHealthHandler               daemon.GetHealthHandler
 	DaemonGetHealthzHandler              daemon.GetHealthzHandler
 	PolicyGetIPHandler                   policy.GetIPHandler
 	PolicyGetIdentityHandler             policy.GetIdentityHandler
@@ -98,6 +102,7 @@ type serverParams struct {
 	RecorderGetRecorderMasksHandler      recorder.GetRecorderMasksHandler
 	ServiceGetServiceHandler             service.GetServiceHandler
 	ServiceGetServiceIDHandler           service.GetServiceIDHandler
+	StatedbGetStatedbDumpHandler         statedb.GetStatedbDumpHandler
 	DaemonPatchConfigHandler             daemon.PatchConfigHandler
 	EndpointPatchEndpointIDHandler       endpoint.PatchEndpointIDHandler
 	EndpointPatchEndpointIDConfigHandler endpoint.PatchEndpointIDConfigHandler
@@ -116,6 +121,7 @@ func newForCell(p serverParams) (*Server, error) {
 
 	// Construct the API from the provided handlers
 
+	api.EndpointDeleteEndpointHandler = p.EndpointDeleteEndpointHandler
 	api.EndpointDeleteEndpointIDHandler = p.EndpointDeleteEndpointIDHandler
 	api.PolicyDeleteFqdnCacheHandler = p.PolicyDeleteFqdnCacheHandler
 	api.IpamDeleteIpamIPHandler = p.IpamDeleteIpamIPHandler
@@ -124,6 +130,7 @@ func newForCell(p serverParams) (*Server, error) {
 	api.RecorderDeleteRecorderIDHandler = p.RecorderDeleteRecorderIDHandler
 	api.ServiceDeleteServiceIDHandler = p.ServiceDeleteServiceIDHandler
 	api.BgpGetBgpPeersHandler = p.BgpGetBgpPeersHandler
+	api.BgpGetBgpRoutesHandler = p.BgpGetBgpRoutesHandler
 	api.DaemonGetCgroupDumpMetadataHandler = p.DaemonGetCgroupDumpMetadataHandler
 	api.DaemonGetClusterNodesHandler = p.DaemonGetClusterNodesHandler
 	api.DaemonGetConfigHandler = p.DaemonGetConfigHandler
@@ -137,6 +144,7 @@ func newForCell(p serverParams) (*Server, error) {
 	api.PolicyGetFqdnCacheHandler = p.PolicyGetFqdnCacheHandler
 	api.PolicyGetFqdnCacheIDHandler = p.PolicyGetFqdnCacheIDHandler
 	api.PolicyGetFqdnNamesHandler = p.PolicyGetFqdnNamesHandler
+	api.DaemonGetHealthHandler = p.DaemonGetHealthHandler
 	api.DaemonGetHealthzHandler = p.DaemonGetHealthzHandler
 	api.PolicyGetIPHandler = p.PolicyGetIPHandler
 	api.PolicyGetIdentityHandler = p.PolicyGetIdentityHandler
@@ -156,6 +164,7 @@ func newForCell(p serverParams) (*Server, error) {
 	api.RecorderGetRecorderMasksHandler = p.RecorderGetRecorderMasksHandler
 	api.ServiceGetServiceHandler = p.ServiceGetServiceHandler
 	api.ServiceGetServiceIDHandler = p.ServiceGetServiceIDHandler
+	api.StatedbGetStatedbDumpHandler = p.StatedbGetStatedbDumpHandler
 	api.DaemonPatchConfigHandler = p.DaemonPatchConfigHandler
 	api.EndpointPatchEndpointIDHandler = p.EndpointPatchEndpointIDHandler
 	api.EndpointPatchEndpointIDConfigHandler = p.EndpointPatchEndpointIDConfigHandler
@@ -358,6 +367,12 @@ func (s *Server) SetAPI(api *restapi.CiliumAPIAPI) {
 
 	s.api = api
 	s.handler = configureAPI(api)
+}
+
+// GetAPI returns the configured API. Modifications on the API must be performed
+// before server is started.
+func (s *Server) GetAPI() *restapi.CiliumAPIAPI {
+	return s.api
 }
 
 func (s *Server) hasScheme(scheme string) bool {

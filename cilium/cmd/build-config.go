@@ -44,7 +44,7 @@ var buildConfigCmd = &cobra.Command{
 
 func init() {
 	buildConfigHive.RegisterFlags(buildConfigCmd.Flags())
-	rootCmd.AddCommand(buildConfigCmd)
+	RootCmd.AddCommand(buildConfigCmd)
 }
 
 type buildConfigCfg struct {

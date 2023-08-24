@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// metricsCmd represents the metrics command.
-var metricsCmd = &cobra.Command{
+// MetricsCmd represents the metrics command.
+var MetricsCmd = &cobra.Command{
 	Use:   "metrics",
 	Short: "Access metric status",
 }
 
 func init() {
-	rootCmd.AddCommand(metricsCmd)
+	RootCmd.AddCommand(MetricsCmd)
 }

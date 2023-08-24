@@ -4,15 +4,12 @@
 package debug
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/monitor"
@@ -47,7 +44,7 @@ func (p *Parser) Decode(data []byte, cpu int) (*flowpb.DebugEvent, error) {
 	}
 
 	dbg := &monitor.DebugMsg{}
-	if err := binary.Read(bytes.NewReader(data), byteorder.Native, dbg); err != nil {
+	if err := monitor.DecodeDebugMsg(data, dbg); err != nil {
 		return nil, fmt.Errorf("failed to parse debug event: %w", err)
 	}
 

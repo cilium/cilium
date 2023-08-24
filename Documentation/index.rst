@@ -84,7 +84,6 @@ get started and experiment with Cilium.
    network/external-toc
    network/servicemesh/index
    network/vtep
-   network/lb-ipam
    network/l2-announcements
 
 .. toctree::
@@ -104,6 +103,7 @@ get started and experiment with Cilium.
    observability/grafana
    observability/metrics
    observability/visibility
+   observability/hubble-exporter
 
 .. toctree::
    :maxdepth: 2

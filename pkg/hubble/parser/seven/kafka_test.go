@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/defaults"
+	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
@@ -15,6 +17,7 @@ func Test_decodeKafka(t *testing.T) {
 	type args struct {
 		flowType accesslog.FlowType
 		kafka    *accesslog.LogRecordKafka
+		opts     *options.Options
 	}
 	tests := []struct {
 		name string
@@ -34,6 +37,7 @@ func Test_decodeKafka(t *testing.T) {
 						Topic: "my-topic",
 					},
 				},
+				opts: &options.Options{RedactKafkaAPIKey: false},
 			},
 			want: &flowpb.Layer7_Kafka{
 				Kafka: &flowpb.Kafka{
@@ -57,6 +61,7 @@ func Test_decodeKafka(t *testing.T) {
 						Topic: "my-topic",
 					},
 				},
+				opts: &options.Options{RedactKafkaAPIKey: false},
 			},
 			want: &flowpb.Layer7_Kafka{
 				Kafka: &flowpb.Kafka{
@@ -78,6 +83,7 @@ func Test_decodeKafka(t *testing.T) {
 					APIKey:        "publish",
 					CorrelationID: 3,
 				},
+				opts: &options.Options{RedactKafkaAPIKey: false},
 			},
 			want: &flowpb.Layer7_Kafka{
 				Kafka: &flowpb.Kafka{
@@ -88,10 +94,36 @@ func Test_decodeKafka(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "redact-api-key",
+			args: args{
+				flowType: accesslog.TypeResponse,
+				kafka: &accesslog.LogRecordKafka{
+					ErrorCode:     1,
+					APIVersion:    2,
+					APIKey:        "my-key",
+					CorrelationID: 3,
+					Topic: accesslog.KafkaTopic{
+						Topic: "my-topic",
+					},
+				},
+				opts: &options.Options{RedactKafkaAPIKey: true},
+			},
+			want: &flowpb.Layer7_Kafka{
+				Kafka: &flowpb.Kafka{
+					ErrorCode:     1,
+					ApiVersion:    2,
+					ApiKey:        defaults.SensitiveValueRedacted,
+					CorrelationId: 3,
+					Topic:         "my-topic",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := decodeKafka(tt.args.flowType, tt.args.kafka); !reflect.DeepEqual(got, tt.want) {
+			got := decodeKafka(tt.args.flowType, tt.args.kafka, tt.args.opts)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("decodeKafka() = %v, want %v", got, tt.want)
 			}
 		})

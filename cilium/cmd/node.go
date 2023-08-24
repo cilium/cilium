@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// nodeCmd represents the node command
-var nodeCmd = &cobra.Command{
+// NodeCmd represents the node command
+var NodeCmd = &cobra.Command{
 	Use:   "node",
 	Short: "Manage cluster nodes",
 }
 
 func init() {
-	rootCmd.AddCommand(nodeCmd)
+	RootCmd.AddCommand(NodeCmd)
 }

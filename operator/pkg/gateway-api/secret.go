@@ -69,7 +69,7 @@ func (r *secretSyncer) enqueueRequestForGatewayTLS() handler.EventHandler {
 				continue
 			}
 			for _, cert := range l.TLS.CertificateRefs {
-				if !IsSecret(cert) {
+				if !helpers.IsSecret(cert) {
 					continue
 				}
 				s := types.NamespacedName{

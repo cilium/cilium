@@ -183,7 +183,7 @@ func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Objec
 			}
 
 			for _, cert := range l.TLS.CertificateRefs {
-				if !IsSecret(cert) {
+				if !helpers.IsSecret(cert) {
 					continue
 				}
 				ns := helpers.NamespaceDerefOr(cert.Namespace, gw.GetNamespace())

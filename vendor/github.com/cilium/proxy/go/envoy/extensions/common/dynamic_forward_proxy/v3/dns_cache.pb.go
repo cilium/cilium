@@ -178,7 +178,6 @@ type DnsCacheConfig struct {
 	// Setting this timeout will ensure that queries succeed or fail within the specified time frame
 	// and are then retried using the standard refresh rates. Defaults to 5s if not set.
 	DnsQueryTimeout *durationpb.Duration `protobuf:"bytes,11,opt,name=dns_query_timeout,json=dnsQueryTimeout,proto3" json:"dns_query_timeout,omitempty"`
-	// [#not-implemented-hide:]
 	// Configuration to flush the DNS cache to long term storage.
 	KeyValueConfig *v32.KeyValueStoreConfig `protobuf:"bytes,13,opt,name=key_value_config,json=keyValueConfig,proto3" json:"key_value_config,omitempty"`
 }

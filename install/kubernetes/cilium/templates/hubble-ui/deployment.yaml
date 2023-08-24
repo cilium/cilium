@@ -60,6 +60,14 @@ spec:
         env:
           {{- toYaml . | trim | nindent 12 }}
         {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8081
         {{- with .Values.hubble.ui.frontend.resources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
@@ -102,7 +110,19 @@ spec:
           value: "hubble-relay:80"
         {{- end }}
         {{- with .Values.hubble.ui.backend.extraEnv }}
-        {{- toYaml . | trim | nindent 10 }}
+        {{- toYaml . | trim | nindent 8 }}
+        {{- end }}
+        {{- if .Values.hubble.ui.backend.livenessProbe.enabled }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8090
+        {{- end }}
+        {{- if .Values.hubble.ui.backend.readinessProbe.enabled }}
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8090
         {{- end }}
         ports:
         - name: grpc
@@ -175,7 +195,7 @@ spec:
                 - key: ca.crt
                   path: hubble-relay-ca.crt
           {{- else }}
-          - configMap:
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
               name: {{ .Values.tls.caBundle.name }}
               items:
                 - key: {{ .Values.tls.caBundle.key }}

@@ -61,6 +61,68 @@ var HTTPRouteMethodMatching = suite.ConformanceTest{
 			},
 		}
 
+		// Combinations of method matching with other core matches.
+		testCases = append(testCases, []http.ExpectedResponse{
+			{
+				Request:   http.Request{Path: "/path1", Method: "GET"},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
+			},
+			{
+				Request:   http.Request{Headers: map[string]string{"version": "one"}, Path: "/", Method: "PUT"},
+				Backend:   "infra-backend-v2",
+				Namespace: ns,
+			},
+			{
+				Request:   http.Request{Headers: map[string]string{"version": "two"}, Path: "/path2", Method: "POST"},
+				Backend:   "infra-backend-v3",
+				Namespace: ns,
+			},
+		}...)
+
+		// Ensure that combinations of matches which are OR'd together match
+		// even if only one of them is used in the request.
+		testCases = append(testCases, []http.ExpectedResponse{
+			{
+				Request:   http.Request{Path: "/path3", Method: "PATCH"},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
+			},
+			{
+				Request:   http.Request{Headers: map[string]string{"version": "three"}, Path: "/path4", Method: "DELETE"},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
+			},
+		}...)
+
+		// Ensure that combinations of match types which are ANDed together do not match
+		// when only a subset of match types is used in the request.
+		testCases = append(testCases, []http.ExpectedResponse{
+			{
+				Request:  http.Request{Path: "/", Method: "PUT"},
+				Response: http.Response{StatusCode: 404},
+			},
+			{
+				Request:  http.Request{Path: "/path4", Method: "DELETE"},
+				Response: http.Response{StatusCode: 404},
+			},
+		}...)
+
+		// For requests that satisfy multiple matches, ensure precedence order
+		// defined by the Gateway API spec is maintained.
+		testCases = append(testCases, []http.ExpectedResponse{
+			{
+				Request:   http.Request{Path: "/path5", Method: "PATCH"},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
+			},
+			{
+				Request:   http.Request{Headers: map[string]string{"version": "four"}, Path: "/", Method: "PATCH"},
+				Backend:   "infra-backend-v2",
+				Namespace: ns,
+			},
+		}...)
+
 		for i := range testCases {
 			// Declare tc here to avoid loop variable
 			// reuse issues across parallel tests.

@@ -77,6 +77,6 @@ func dumpMaglevTable(name string, ipv6 bool) (map[string][]string, error) {
 }
 
 func init() {
-	bpfMaglevCmd.AddCommand(bpfMaglevListCmd)
+	BPFMaglevCmd.AddCommand(bpfMaglevListCmd)
 	command.AddOutputOption(bpfMaglevListCmd)
 }

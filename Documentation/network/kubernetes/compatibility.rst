@@ -6,8 +6,9 @@
 
 .. _k8scompatibility:
 
+************************
 Kubernetes Compatibility
-========================
+************************
 
 Cilium is compatible with multiple Kubernetes API Groups. Some are deprecated
 or beta, and may only be available in specific versions of Kubernetes.
@@ -17,12 +18,12 @@ with Cilium. Older Kubernetes versions not listed in this table do not have
 Cilium support. Newer Kubernetes versions, while not listed, will depend on the
 backward compatibility offered by Kubernetes.
 
-+------------------------------------------------+---------------------------+----------------------------------+
-| k8s Version                                    | k8s NetworkPolicy API     | CiliumNetworkPolicy              |
-+------------------------------------------------+---------------------------+----------------------------------+
-|                                                |                           | ``cilium.io/v2`` has a           |
-| 1.19, 1.20, 1.21, 1.22, 1.23, 1.24, 1.25, 1.26 | * `networking.k8s.io/v1`_ | :term:`CustomResourceDefinition` |
-+------------------------------------------------+---------------------------+----------------------------------+
++------------------------------------------------------------+---------------------------+----------------------------------+
+| k8s Version                                                | k8s NetworkPolicy API     | CiliumNetworkPolicy              |
++------------------------------------------------------------+---------------------------+----------------------------------+
+|                                                            |                           | ``cilium.io/v2`` has a           |
+| 1.19, 1.20, 1.21, 1.22, 1.23, 1.24, 1.25, 1.26, 1.27, 1.28 | * `networking.k8s.io/v1`_ | :term:`CustomResourceDefinition` |
++------------------------------------------------------------+---------------------------+----------------------------------+
 
 Cilium CRD schema validation
 ============================
@@ -40,4 +41,4 @@ validation version:
 
 .. include:: compatibility-table.rst
 
-.. _networking.k8s.io/v1: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#networkpolicy-v1-networking-k8s-io
+.. _networking.k8s.io/v1: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.25/#networkpolicy-v1-networking-k8s-io

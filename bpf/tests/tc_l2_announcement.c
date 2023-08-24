@@ -72,7 +72,7 @@ static __always_inline int build_packet(struct __ctx_buff *ctx)
 	ethhdr__set_macs(l2, (__u8 *)src, (__u8 *)dst);
 
 	/* Push ARP header */
-	l3 = pktgen__push_arphdr_ethernet(&builder);
+	l3 = pktgen__push_default_arphdr_ethernet(&builder);
 
 	if (!l3)
 		return TEST_ERROR;

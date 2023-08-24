@@ -68,7 +68,7 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context) (types.GetPeerStateRespo
 			// Uptime is time since session got established.
 			// It is calculated by difference in time from uptime timestamp till now.
 			if peer.State.SessionState == gobgp.PeerState_ESTABLISHED && peer.Timers != nil && peer.Timers.State != nil {
-				peerState.UptimeNanoseconds = int64(time.Now().Sub(peer.Timers.State.Uptime.AsTime()))
+				peerState.UptimeNanoseconds = int64(time.Since(peer.Timers.State.Uptime.AsTime()))
 			}
 		}
 
@@ -219,4 +219,64 @@ func toAgentSafi(s gobgp.Family_Safi) types.Safi {
 	default:
 		return types.SafiUnknown
 	}
+}
+
+func toGoBGPTableType(t types.TableType) (gobgp.TableType, error) {
+	switch t {
+	case types.TableTypeLocRIB:
+		return gobgp.TableType_LOCAL, nil
+	case types.TableTypeAdjRIBIn:
+		return gobgp.TableType_ADJ_IN, nil
+	case types.TableTypeAdjRIBOut:
+		return gobgp.TableType_ADJ_OUT, nil
+	default:
+		return gobgp.TableType_LOCAL, fmt.Errorf("unknown table type %d", t)
+	}
+}
+
+// GetRoutes retrieves routes from the RIB of underlying router
+func (g *GoBGPServer) GetRoutes(ctx context.Context, r *types.GetRoutesRequest) (*types.GetRoutesResponse, error) {
+	errs := []error{}
+	var routes []*types.Route
+
+	fn := func(destination *gobgp.Destination) {
+		paths, err := ToAgentPaths(destination.Paths)
+		if err != nil {
+			errs = append(errs, err)
+			return
+		}
+		routes = append(routes, &types.Route{
+			Prefix: destination.Prefix,
+			Paths:  paths,
+		})
+	}
+
+	tt, err := toGoBGPTableType(r.TableType)
+	if err != nil {
+		return nil, fmt.Errorf("invalid table type: %w", err)
+	}
+
+	family := &gobgp.Family{
+		Afi:  gobgp.Family_Afi(r.Family.Afi),
+		Safi: gobgp.Family_Safi(r.Family.Safi),
+	}
+
+	var neighbor string
+	if r.Neighbor.IsValid() {
+		neighbor = r.Neighbor.String()
+	}
+
+	req := &gobgp.ListPathRequest{
+		TableType: tt,
+		Family:    family,
+		Name:      neighbor,
+	}
+
+	if err := g.server.ListPath(ctx, req, fn); err != nil {
+		return nil, err
+	}
+
+	return &types.GetRoutesResponse{
+		Routes: routes,
+	}, nil
 }

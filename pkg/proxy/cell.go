@@ -4,13 +4,9 @@
 package proxy
 
 import (
-	"fmt"
-
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/envoy"
-	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/ipcache"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/logger"
@@ -25,61 +21,63 @@ var Cell = cell.Module(
 	"L7 Proxy provides support for L7 network policies",
 
 	cell.Provide(newProxy),
+	cell.Provide(newEnvoyProxyIntegration),
+	cell.Provide(newDNSProxyIntegration),
 	cell.ProvidePrivate(endpoint.NewEndpointInfoRegistry),
 )
 
 type proxyParams struct {
 	cell.In
 
-	Lifecycle            hive.Lifecycle
-	IPCache              *ipcache.IPCache
-	Datapath             datapath.Datapath
-	EndpointInfoRegistry logger.EndpointInfoRegistry
-	MonitorAgent         monitoragent.Agent
+	Datapath              datapath.Datapath
+	EndpointInfoRegistry  logger.EndpointInfoRegistry
+	MonitorAgent          monitoragent.Agent
+	EnvoyProxyIntegration *envoyProxyIntegration
+	DNSProxyIntegration   *dnsProxyIntegration
+	XdsServer             envoy.XDSServer
 }
 
-func newProxy(params proxyParams) (*Proxy, error) {
+func newProxy(params proxyParams) *Proxy {
 	if !option.Config.EnableL7Proxy {
 		log.Info("L7 proxies are disabled")
 		if option.Config.EnableEnvoyConfig {
 			log.Warningf("%s is not functional when L7 proxies are disabled", option.EnableEnvoyConfig)
 		}
-		return nil, nil
+		return nil
 	}
 
 	configureProxyLogger(params.EndpointInfoRegistry, params.MonitorAgent, option.Config.AgentLabels)
 
 	// FIXME: Make the port range configurable.
-	proxy := createProxy(10000, 20000, option.Config.RunDir, params.Datapath, params.IPCache, params.EndpointInfoRegistry)
+	return createProxy(10000, 20000, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration, params.XdsServer)
+}
 
-	params.Lifecycle.Append(hive.Hook{
-		OnStart: func(startContext hive.HookContext) error {
-			xdsServer, err := envoy.StartXDSServer(proxy.ipcache, envoy.GetSocketDir(proxy.runDir))
-			if err != nil {
-				return fmt.Errorf("failed to start Envoy xDS server: %w", err)
-			}
-			proxy.XDSServer = xdsServer
+type envoyProxyIntegrationParams struct {
+	cell.In
 
-			accessLogServer, err := envoy.StartAccessLogServer(envoy.GetSocketDir(proxy.runDir), proxy.XDSServer)
-			if err != nil {
-				return fmt.Errorf("failed to start Envoy AccessLog server: %w", err)
-			}
-			proxy.accessLogServer = accessLogServer
+	Datapath    datapath.Datapath
+	XdsServer   envoy.XDSServer
+	AdminClient *envoy.EnvoyAdminClient
+}
 
-			return nil
-		},
-		OnStop: func(stopContext hive.HookContext) error {
-			if proxy.XDSServer != nil {
-				proxy.XDSServer.Stop()
-			}
-			if proxy.accessLogServer != nil {
-				proxy.accessLogServer.Stop()
-			}
-			return nil
-		},
-	})
+func newEnvoyProxyIntegration(params envoyProxyIntegrationParams) *envoyProxyIntegration {
+	if !option.Config.EnableL7Proxy {
+		return nil
+	}
 
-	return proxy, nil
+	return &envoyProxyIntegration{
+		xdsServer:   params.XdsServer,
+		datapath:    params.Datapath,
+		adminClient: params.AdminClient,
+	}
+}
+
+func newDNSProxyIntegration() *dnsProxyIntegration {
+	if !option.Config.EnableL7Proxy {
+		return nil
+	}
+
+	return &dnsProxyIntegration{}
 }
 
 func configureProxyLogger(eir logger.EndpointInfoRegistry, monitorAgent monitoragent.Agent, agentLabels []string) {

@@ -27,6 +27,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #include "bpf_host.c"
 
 #include "lib/egressgw.h"
+#include "lib/ipcache.h"
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
@@ -103,15 +104,7 @@ SETUP("tc", "tc_egressgw_snat1_2_reply")
 int egressgw_snat1_2_reply_setup(struct __ctx_buff *ctx)
 {
 	/* install ipcache entry for the CLIENT_IP: */
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(32),
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = CLIENT_IP,
-	};
-	struct remote_endpoint_info cache_value = {
-		.tunnel_endpoint = CLIENT_NODE_IP,
-	};
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(CLIENT_IP, 0, 0, CLIENT_NODE_IP, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
@@ -198,6 +191,8 @@ int egressgw_skip_excluded_cidr_snat_check(const struct __ctx_buff *ctx)
 
 	test_init();
 
+	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32);
+
 	data = (void *)(long)ctx_data(ctx);
 	data_end = (void *)(long)ctx->data_end;
 
@@ -236,8 +231,6 @@ int egressgw_skip_excluded_cidr_snat_check(const struct __ctx_buff *ctx)
 
 	if (l4->dest != EXTERNAL_SVC_PORT)
 		test_fatal("dst port has changed");
-
-	del_egressgw_policy_entry(CLIENT_IP, EXTERNAL_SVC_IP, 32);
 
 	test_finish();
 }

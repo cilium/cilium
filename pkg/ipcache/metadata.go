@@ -22,6 +22,7 @@ import (
 	cidrlabels "github.com/cilium/cilium/pkg/labels/cidr"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
 
@@ -31,6 +32,8 @@ var (
 	ErrLocalIdentityAllocatorUninitialized = errors.New("local identity allocator uninitialized")
 
 	LabelInjectorName = "ipcache-inject-labels"
+
+	injectLabelsControllerGroup = controller.NewGroup("ipcache-inject-labels")
 )
 
 // metadata contains the ipcache metadata. Mainily it holds a map which maps IP
@@ -272,8 +275,28 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 			// iteration of the loop, then we must balance the
 			// allocation from the prior InjectLabels() call by
 			// releasing the previous reference.
-			previouslyAllocatedIdentities[prefix] = oldID
-
+			entry, entryToBeReplaced := entriesToReplace[prefix]
+			if !oldID.createdFromMetadata && entryToBeReplaced {
+				// If the previous ipcache entry for the prefix
+				// was not managed by this function, then the
+				// previous ipcache user to inject the IPCache
+				// entry retains its own reference to the
+				// Security Identity. Given that this function
+				// is going to assume responsibility for the
+				// IPCache entry now, this path must retain its
+				// own reference to the Security Identity to
+				// ensure that if the other owner ever releases
+				// their reference, this reference stays live.
+				if option.Config.Debug {
+					log.WithFields(logrus.Fields{
+						logfields.Prefix:      prefix,
+						logfields.OldIdentity: oldID.ID,
+						logfields.Identity:    entry.identity.ID,
+					}).Debug("Acquiring Identity reference")
+				}
+			} else {
+				previouslyAllocatedIdentities[prefix] = oldID
+			}
 			// If all associated metadata for this prefix has been removed,
 			// and the existing IPCache entry was never touched by any other
 			// subsystem using the old Upsert API, then we can safely remove
@@ -404,13 +427,17 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	}
 
 	lbls := info.ToLabels()
-	if lbls.Has(labels.LabelWorld[labels.IDNameWorld]) &&
+	if (lbls.Has(labels.LabelWorld[labels.IDNameWorld]) ||
+		lbls.Has(labels.LabelWorldIPv4[labels.IDNameWorldIPv4]) ||
+		lbls.Has(labels.LabelWorldIPv6[labels.IDNameWorldIPv6])) &&
 		(lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) ||
 			lbls.Has(labels.LabelHost[labels.IDNameHost])) {
 		// If the prefix is associated with both world and (remote-node or
 		// host), then the latter (remote-node or host) take precedence to
 		// avoid allocating a CIDR identity for an entity within the cluster.
 		n := lbls.Remove(labels.LabelWorld)
+		n = n.Remove(labels.LabelWorldIPv4)
+		n = n.Remove(labels.LabelWorldIPv6)
 		n = n.Remove(cidrlabels.GetCIDRLabels(prefix))
 		lbls = n
 	}
@@ -456,7 +483,9 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 	// which could theoretically fail if we ever allocate a very large
 	// number of identities.
 	id, isNew, err := ipc.IdentityAllocator.AllocateIdentity(ctx, lbls, false, restoredIdentity)
-	if lbls.Has(labels.LabelWorld[labels.IDNameWorld]) {
+	if lbls.Has(labels.LabelWorld[labels.IDNameWorld]) ||
+		lbls.Has(labels.LabelWorldIPv4[labels.IDNameWorldIPv4]) ||
+		lbls.Has(labels.LabelWorldIPv6[labels.IDNameWorldIPv6]) {
 		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
 	}
 	return id, isNew, err
@@ -561,6 +590,7 @@ func (ipc *IPCache) TriggerLabelInjection() {
 	ipc.UpdateController(
 		LabelInjectorName,
 		controller.ControllerParams{
+			Group:   injectLabelsControllerGroup,
 			Context: ipc.Configuration.Context,
 			DoFunc: func(ctx context.Context) error {
 				var err error

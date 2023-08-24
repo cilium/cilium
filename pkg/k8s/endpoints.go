@@ -77,7 +77,6 @@ func (in *Endpoints) DeepCopyInto(out *Endpoints) {
 			(*out)[key] = outVal
 		}
 	}
-	return
 }
 
 func (in *Endpoints) DeepCopy() *Endpoints {

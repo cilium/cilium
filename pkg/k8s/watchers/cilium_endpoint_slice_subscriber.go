@@ -24,7 +24,7 @@ type endpointWatcher interface {
 }
 
 type localEndpointCache interface {
-	LookupPodName(namespacedName string) *endpoint.Endpoint
+	LookupCEPName(namespacedName string) *endpoint.Endpoint
 }
 
 type cesSubscriber struct {
@@ -51,7 +51,7 @@ func (cs *cesSubscriber) OnAdd(ces *cilium_v2a1.CiliumEndpointSlice) {
 			"CEPName": CEPName,
 		}).Debug("CES added, calling CoreEndpointUpdate")
 		cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ces.Endpoints[i], ces.Namespace)
-		if p := cs.epCache.LookupPodName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
+		if p := cs.epCache.LookupCEPName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
 			timeSinceCepCreated := time.Since(p.GetCreatedAt())
 			metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
 		}
@@ -88,7 +88,7 @@ func (cs *cesSubscriber) OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlic
 			cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(oldCEP, oldCES.Namespace)
 			// LocalNode already has the latest CEP.
 			// Hence, skip processing endpointupdate for localNode CEPs.
-			if p := cs.epCache.LookupPodName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
+			if p := cs.epCache.LookupCEPName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
 				continue
 			}
 			cs.deleteCEPfromCES(CEPName, newCES.GetName(), cep)
@@ -103,7 +103,7 @@ func (cs *cesSubscriber) OnUpdate(oldCES, newCES *cilium_v2a1.CiliumEndpointSlic
 				"CEPName": CEPName,
 			}).Debug("CEP inserted, calling endpointUpdated")
 			cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(newCEP, newCES.Namespace)
-			if p := cs.epCache.LookupPodName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
+			if p := cs.epCache.LookupCEPName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
 				timeSinceCepCreated := time.Since(p.GetCreatedAt())
 				metrics.EndpointPropagationDelay.WithLabelValues().Observe(timeSinceCepCreated.Seconds())
 			}
@@ -139,7 +139,7 @@ func (cs *cesSubscriber) OnDelete(ces *cilium_v2a1.CiliumEndpointSlice) {
 		cep := k8s.ConvertCoreCiliumEndpointToTypesCiliumEndpoint(&ces.Endpoints[i], ces.Namespace)
 		// LocalNode already deleted the CEP.
 		// Hence, skip processing endpointDeleted for localNode CEPs.
-		if p := cs.epCache.LookupPodName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
+		if p := cs.epCache.LookupCEPName(k8sUtils.GetObjNamespaceName(cep)); p != nil {
 			continue
 		}
 		// Delete CEP if and only if that CEP is owned by a CES, that was used during CES updated.

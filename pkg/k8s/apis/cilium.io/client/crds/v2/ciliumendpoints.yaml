@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.4
+    controller-gen.kubebuilder.io/version: v0.12.1
   creationTimestamp: null
   name: ciliumendpoints.cilium.io
 spec:
@@ -135,11 +134,16 @@ spec:
                   the endpoint apart from the pod name. This includes container runtime
                   IDs.
                 properties:
+                  cni-attachment-id:
+                    description: ID assigned to this attachment by container runtime
+                    type: string
                   container-id:
-                    description: ID assigned by container runtime
+                    description: ID assigned by container runtime (deprecated, may
+                      not be unique)
                     type: string
                   container-name:
-                    description: Name assigned to container
+                    description: Name assigned to container (deprecated, may not be
+                      unique)
                     type: string
                   docker-endpoint-id:
                     description: Docker endpoint ID
@@ -148,14 +152,16 @@ spec:
                     description: Docker network ID
                     type: string
                   k8s-namespace:
-                    description: K8s namespace for this endpoint
+                    description: K8s namespace for this endpoint (deprecated, may
+                      not be unique)
                     type: string
                   k8s-pod-name:
-                    description: K8s pod name for this endpoint
+                    description: K8s pod name for this endpoint (deprecated, may not
+                      be unique)
                     type: string
                   pod-name:
-                    description: K8s pod for this endpoint(Deprecated, use K8sPodName
-                      and K8sNamespace instead)
+                    description: K8s pod for this endpoint (deprecated, may not be
+                      unique)
                     type: string
                 type: object
               health:

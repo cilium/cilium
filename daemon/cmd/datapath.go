@@ -49,6 +49,8 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
+var metricsmapBPFPromSyncControllerGroup = controller.NewGroup("metricsmap-bpf-prom-sync")
+
 // LocalConfig returns the local configuration of the daemon's nodediscovery.
 func (d *Daemon) LocalConfig() *datapath.LocalNodeConfiguration {
 	d.nodeDiscovery.WaitForLocalNodeInit()
@@ -193,13 +195,19 @@ func (d *Daemon) syncHostIPs() error {
 			}
 		}
 
+		ipv4Ident := identity.ReservedIdentityWorldIPv4
+		ipv4Label := labels.LabelWorldIPv4
+		if !option.Config.EnableIPv6 {
+			ipv4Ident = identity.ReservedIdentityWorld
+			ipv4Label = labels.LabelWorld
+		}
 		specialIdentities = append(specialIdentities, ipIDLabel{
 			identity.IPIdentityPair{
 				IP:   net.IPv4zero,
 				Mask: net.CIDRMask(0, net.IPv4len*8),
-				ID:   identity.ReservedIdentityWorld,
+				ID:   ipv4Ident,
 			},
-			labels.LabelWorld,
+			ipv4Label,
 		})
 	}
 
@@ -226,13 +234,19 @@ func (d *Daemon) syncHostIPs() error {
 			}
 		}
 
+		ipv6Ident := identity.ReservedIdentityWorldIPv6
+		ipv6Label := labels.LabelWorldIPv6
+		if !option.Config.EnableIPv4 {
+			ipv6Ident = identity.ReservedIdentityWorld
+			ipv6Label = labels.LabelWorld
+		}
 		specialIdentities = append(specialIdentities, ipIDLabel{
 			identity.IPIdentityPair{
 				IP:   net.IPv6zero,
 				Mask: net.CIDRMask(0, net.IPv6len*8),
-				ID:   identity.ReservedIdentityWorld,
+				ID:   ipv6Ident,
 			},
-			labels.LabelWorld,
+			ipv6Label,
 		})
 	}
 
@@ -257,7 +271,7 @@ func (d *Daemon) syncHostIPs() error {
 		delete(existingEndpoints, ipIDLblsPair.IP.String())
 
 		lbls := ipIDLblsPair.Labels
-		if ipIDLblsPair.ID == identity.ReservedIdentityWorld {
+		if ipIDLblsPair.ID.IsWorld() {
 			p := netip.PrefixFrom(ippkg.MustAddrFromIP(ipIDLblsPair.IP), 0)
 			d.ipcache.OverrideIdentity(p, lbls, source.Local, daemonResourceID)
 		} else {
@@ -414,21 +428,25 @@ func (d *Daemon) initMaps() error {
 		datapathIpcache.NewListener(d, d, d.ipcache),
 	})
 
-	if option.Config.EnableIPv4 && option.Config.EnableIPMasqAgent {
-		if err := ipmasq.IPMasq4Map().OpenOrCreate(); err != nil {
-			return fmt.Errorf("initializing IPv4 masquerading map: %w", err)
+	if option.Config.EnableIPMasqAgent {
+		if option.Config.EnableIPv4Masquerade {
+			if err := ipmasq.IPMasq4Map().OpenOrCreate(); err != nil {
+				return fmt.Errorf("initializing IPv4 masquerading map: %w", err)
+			}
 		}
-	}
-	if option.Config.EnableIPv6 && option.Config.EnableIPMasqAgent {
-		if err := ipmasq.IPMasq6Map().OpenOrCreate(); err != nil {
-			return fmt.Errorf("initializing IPv6 masquerading map: %w", err)
+		if option.Config.EnableIPv6Masquerade {
+			if err := ipmasq.IPMasq6Map().OpenOrCreate(); err != nil {
+				return fmt.Errorf("initializing IPv6 masquerading map: %w", err)
+			}
 		}
 	}
 
 	// Start the controller for periodic sync of the metrics map with
 	// the prometheus server.
-	controller.NewManager().UpdateController("metricsmap-bpf-prom-sync",
+	controller.NewManager().UpdateController(
+		"metricsmap-bpf-prom-sync",
 		controller.ControllerParams{
+			Group:       metricsmapBPFPromSyncControllerGroup,
 			DoFunc:      metricsmap.SyncMetricsMap,
 			RunInterval: 5 * time.Second,
 			Context:     d.ctx,
@@ -489,6 +507,9 @@ func setupIPSec() (int, uint8, error) {
 
 	authKeySize, spi, err := ipsec.LoadIPSecKeysFile(option.Config.IPSecKeyFile)
 	if err != nil {
+		return 0, 0, err
+	}
+	if err := ipsec.SetIPSecSPI(spi); err != nil {
 		return 0, 0, err
 	}
 	node.SetIPsecKeyIdentity(spi)

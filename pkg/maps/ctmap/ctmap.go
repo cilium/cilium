@@ -12,7 +12,6 @@ import (
 	"reflect"
 	"strings"
 	"time"
-	"unsafe"
 
 	"github.com/sirupsen/logrus"
 
@@ -99,15 +98,8 @@ const (
 )
 
 var globalDeleteLock [mapTypeMax]lock.Mutex
-var natMapsLock [mapTypeMax]*lock.Mutex
 
 type mapAttributes struct {
-	mapKey     bpf.MapKey
-	keySize    int
-	mapValue   bpf.MapValue
-	valueSize  int
-	maxEntries int
-	bpfDefine  string
 	natMapLock *lock.Mutex // Serializes concurrent accesses to natMap
 	natMap     *nat.Map
 }
@@ -130,77 +122,20 @@ type CtMapRecord struct {
 	Value CtEntry
 }
 
-func setupMapInfo(m mapType, define string, mapKey bpf.MapKey, keySize int, maxEntries int, nat *nat.Map) {
-	mapInfo[m] = mapAttributes{
-		bpfDefine: define,
-		mapKey:    mapKey,
-		keySize:   keySize,
-		// the value type is CtEntry for all CT maps
-		mapValue:   &CtEntry{},
-		valueSize:  SizeofCtEntry,
-		maxEntries: maxEntries,
-		natMapLock: natMapsLock[m],
-		natMap:     nat,
-	}
-}
-
 // InitMapInfo builds the information about different CT maps for the
-// combination of L3/L4 protocols, using the specified limits on TCP vs non-TCP
-// maps.
-func InitMapInfo(tcpMaxEntries, anyMaxEntries int, v4, v6, nodeport bool) {
-	mapInfo = make(map[mapType]mapAttributes, mapTypeMax)
-
+// combination of L3/L4 protocols.
+func InitMapInfo(v4, v6, nodeport bool) {
 	global4Map, global6Map := nat.GlobalMaps(v4, v6, nodeport)
-
-	// SNAT also only works if the CT map is global so all local maps will be nil
-	natMaps := map[mapType]*nat.Map{
-		mapTypeIPv4TCPLocal:  nil,
-		mapTypeIPv6TCPLocal:  nil,
-		mapTypeIPv4TCPGlobal: global4Map,
-		mapTypeIPv6TCPGlobal: global6Map,
-		mapTypeIPv4AnyLocal:  nil,
-		mapTypeIPv6AnyLocal:  nil,
-		mapTypeIPv4AnyGlobal: global4Map,
-		mapTypeIPv6AnyGlobal: global6Map,
-	}
 	global4MapLock := &lock.Mutex{}
 	global6MapLock := &lock.Mutex{}
-	natMapsLock[mapTypeIPv4TCPGlobal] = global4MapLock
-	natMapsLock[mapTypeIPv6TCPGlobal] = global6MapLock
-	natMapsLock[mapTypeIPv4AnyGlobal] = global4MapLock
-	natMapsLock[mapTypeIPv6AnyGlobal] = global6MapLock
 
-	setupMapInfo(mapTypeIPv4TCPLocal, "CT_MAP_TCP4",
-		&CtKey4{}, int(unsafe.Sizeof(CtKey4{})),
-		mapNumEntriesLocal, natMaps[mapTypeIPv4TCPLocal])
-
-	setupMapInfo(mapTypeIPv6TCPLocal, "CT_MAP_TCP6",
-		&CtKey6{}, int(unsafe.Sizeof(CtKey6{})),
-		mapNumEntriesLocal, natMaps[mapTypeIPv6TCPLocal])
-
-	setupMapInfo(mapTypeIPv4TCPGlobal, "CT_MAP_TCP4",
-		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
-		tcpMaxEntries, natMaps[mapTypeIPv4TCPGlobal])
-
-	setupMapInfo(mapTypeIPv6TCPGlobal, "CT_MAP_TCP6",
-		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})),
-		tcpMaxEntries, natMaps[mapTypeIPv6TCPGlobal])
-
-	setupMapInfo(mapTypeIPv4AnyLocal, "CT_MAP_ANY4",
-		&CtKey4{}, int(unsafe.Sizeof(CtKey4{})),
-		mapNumEntriesLocal, natMaps[mapTypeIPv4AnyLocal])
-
-	setupMapInfo(mapTypeIPv6AnyLocal, "CT_MAP_ANY6",
-		&CtKey6{}, int(unsafe.Sizeof(CtKey6{})),
-		mapNumEntriesLocal, natMaps[mapTypeIPv6AnyLocal])
-
-	setupMapInfo(mapTypeIPv4AnyGlobal, "CT_MAP_ANY4",
-		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
-		anyMaxEntries, natMaps[mapTypeIPv4AnyGlobal])
-
-	setupMapInfo(mapTypeIPv6AnyGlobal, "CT_MAP_ANY6",
-		&CtKey6Global{}, int(unsafe.Sizeof(CtKey6Global{})),
-		anyMaxEntries, natMaps[mapTypeIPv6AnyGlobal])
+	// SNAT also only works if the CT map is global so all local maps will be nil
+	mapInfo = map[mapType]mapAttributes{
+		mapTypeIPv4TCPGlobal: {natMap: global4Map, natMapLock: global4MapLock},
+		mapTypeIPv6TCPGlobal: {natMap: global6Map, natMapLock: global6MapLock},
+		mapTypeIPv4AnyGlobal: {natMap: global4Map, natMapLock: global4MapLock},
+		mapTypeIPv6AnyGlobal: {natMap: global6Map, natMapLock: global6MapLock},
+	}
 }
 
 // CtEndpoint represents an endpoint for the functions required to manage
@@ -334,13 +269,13 @@ func newMap(mapName string, m mapType) *Map {
 	result := &Map{
 		Map: *bpf.NewMap(mapName,
 			ebpf.LRUHash,
-			mapInfo[m].mapKey,
-			mapInfo[m].mapValue,
-			mapInfo[m].maxEntries,
+			m.key(),
+			m.value(),
+			m.maxEntries(),
 			0,
 		),
 		mapType: m,
-		define:  mapInfo[m].bpfDefine,
+		define:  m.bpfDefine(),
 	}
 	return result
 }
@@ -368,13 +303,11 @@ func doGC6(m *Map, filter *GCFilter) gcStats {
 		natMap = ctMap.natMap
 	} else {
 		// per-cluster map handling
-		if nat.PerClusterNATMaps != nil {
-			natm, err := nat.PerClusterNATMaps.GetClusterNATMap(m.clusterID, false)
-			if err != nil {
-				log.WithError(err).Error("Unable to get per-cluster NAT map")
-			} else {
-				natMap = natm
-			}
+		natm, err := nat.GetClusterNATMap(m.clusterID, nat.IPv6)
+		if err != nil {
+			log.WithError(err).Error("Unable to get per-cluster NAT map")
+		} else {
+			natMap = natm
 		}
 	}
 
@@ -469,13 +402,11 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 		natMap = ctMap.natMap
 	} else {
 		// per-cluster map handling
-		if nat.PerClusterNATMaps != nil {
-			natm, err := nat.PerClusterNATMaps.GetClusterNATMap(m.clusterID, true)
-			if err != nil {
-				log.WithError(err).Error("Unable to get per-cluster NAT map")
-			} else {
-				natMap = natm
-			}
+		natm, err := nat.GetClusterNATMap(m.clusterID, nat.IPv4)
+		if err != nil {
+			log.WithError(err).Error("Unable to get per-cluster NAT map")
+		} else {
+			natMap = natm
 		}
 	}
 
@@ -660,10 +591,10 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 			if !ctEntryExist(ctMap, ctKey) {
 				// No egress CT entry is found, delete the orphan ingress SNAT entry
 				if deleted, _ := natMap.Delete(natKey); deleted {
-					stats.IngressDeleted += 1
+					stats.IngressDeleted++
 				}
 			} else {
-				stats.IngressAlive += 1
+				stats.IngressAlive++
 			}
 		} else if natKey.GetFlags()&tuple.TUPLE_F_OUT == tuple.TUPLE_F_OUT {
 			ingressCTKey := ingressCTKeyFromEgressNatKey(natKey)
@@ -675,15 +606,19 @@ func PurgeOrphanNATEntries(ctMapTCP, ctMapAny *Map) *NatGCStats {
 				!ctEntryExist(ctMap, dsrCTKey) {
 				// No relevant CT entries were found, delete the orphan egress NAT entry
 				if deleted, _ := natMap.Delete(natKey); deleted {
-					stats.EgressDeleted += 1
+					stats.EgressDeleted++
 				}
 			} else {
-				stats.EgressAlive += 1
+				stats.EgressAlive++
 			}
 		}
 	}
 
-	natMap.DumpReliablyWithCallback(cb, stats.DumpStats)
+	if err := natMap.DumpReliablyWithCallback(cb, stats.DumpStats); err != nil {
+		log.WithError(err).Error("NATmap dump failed during GC")
+	} else {
+		natMap.UpdatePressureMetricWithSize(int32(stats.IngressAlive + stats.EgressAlive))
+	}
 
 	return &stats
 }
@@ -805,9 +740,9 @@ func WriteBPFMacros(fw io.Writer, e CtEndpoint) {
 	for _, m := range maps(e, true, true) {
 		fmt.Fprintf(fw, "#define %s %s\n", m.define, m.Name())
 		if m.mapType.isTCP() {
-			mapEntriesTCP = mapInfo[m.mapType].maxEntries
+			mapEntriesTCP = m.mapType.maxEntries()
 		} else {
-			mapEntriesAny = mapInfo[m.mapType].maxEntries
+			mapEntriesAny = m.mapType.maxEntries()
 		}
 	}
 	fmt.Fprintf(fw, "#define CT_MAP_SIZE_TCP %d\n", mapEntriesTCP)

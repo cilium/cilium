@@ -34,7 +34,8 @@ Validate that the current CNI plugin is using veth
 If the CNI plugin you are chaining with is currently not using veth then the
 ``generic-veth`` plugin is not suitable. In that case, a full CNI chaining
 plugin is required which understands the device model of the underlying plugin.
-Writing such a plugin is trivial, contact us on :ref:`slack` for more details.
+Writing such a plugin is trivial, contact us on `Cilium Slack`_ for more
+details.
 
 Create a CNI configuration to define your chaining configuration
 ================================================================

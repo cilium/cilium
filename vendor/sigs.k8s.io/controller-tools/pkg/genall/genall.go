@@ -100,6 +100,8 @@ type Runtime struct {
 	GenerationContext
 	// OutputRules defines how to output artifacts for each Generator.
 	OutputRules OutputRules
+	// ErrorWriter defines where to write error messages.
+	ErrorWriter io.Writer
 }
 
 // GenerationContext defines the common information needed for each Generator
@@ -133,7 +135,7 @@ func (g GenerationContext) WriteYAML(itemPath string, objs ...interface{}) error
 		if err != nil {
 			return err
 		}
-		n, err := out.Write(append([]byte("\n---\n"), yamlContent...))
+		n, err := out.Write(append([]byte("---\n"), yamlContent...))
 		if err != nil {
 			return err
 		}
@@ -188,8 +190,12 @@ func (g Generators) ForRoots(rootPaths ...string) (*Runtime, error) {
 func (r *Runtime) Run() bool {
 	// TODO(directxman12): we could make this parallel,
 	// but we'd need to ensure all underlying machinery is threadsafe
+
+	if r.ErrorWriter == nil {
+		r.ErrorWriter = os.Stderr
+	}
 	if len(r.Generators) == 0 {
-		fmt.Fprintln(os.Stderr, "no generators to run")
+		fmt.Fprintln(r.ErrorWriter, "no generators to run")
 		return true
 	}
 
@@ -205,7 +211,7 @@ func (r *Runtime) Run() bool {
 		}
 
 		if err := (*gen).Generate(&ctx); err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			fmt.Fprintln(r.ErrorWriter, err)
 			hadErrs = true
 		}
 	}

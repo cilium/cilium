@@ -23,6 +23,8 @@ var Cell = cell.Module(
 	cell.Provide(newLBIPAM),
 	// Invoke an empty function which takes an LBIPAM to force its construction.
 	cell.Invoke(func(*LBIPAM) {}),
+	// Provide LB-IPAM related metrics
+	cell.Metric(newMetrics),
 )
 
 type LBIPAMParams struct {
@@ -39,4 +41,6 @@ type LBIPAMParams struct {
 	SvcResource  resource.Resource[*slim_core_v1.Service]
 
 	DaemonConfig *option.DaemonConfig
+
+	Metrics *ipamMetrics
 }

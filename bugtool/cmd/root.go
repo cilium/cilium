@@ -452,7 +452,7 @@ func writeCmdToFile(cmdDir, prompt string, k8sPods []string, enableMarkdown bool
 			fmt.Fprint(f, string(output))
 		} else if enableMarkdown && len(output) > 0 {
 			// Write prompt as header and the output as body, and/or error but delete empty output.
-			fmt.Fprint(f, fmt.Sprintf("# %s\n\n```\n%s\n```\n", prompt, output))
+			fmt.Fprintf(f, "# %s\n\n```\n%s\n```\n", prompt, output)
 		}
 	}
 

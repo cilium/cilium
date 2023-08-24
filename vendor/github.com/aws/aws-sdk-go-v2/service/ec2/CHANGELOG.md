@@ -1,3 +1,83 @@
+# v1.114.0 (2023-08-21)
+
+* **Feature**: The DeleteKeyPair API has been updated to return the keyPairId when an existing key pair is deleted.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.113.1 (2023-08-18)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.113.0 (2023-08-17)
+
+* **Feature**: Adds support for SubnetConfigurations to allow users to select their own IPv4 and IPv6 addresses for Interface VPC endpoints
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.112.0 (2023-08-15)
+
+* **Feature**: Documentation updates for Elastic Compute Cloud (EC2).
+
+# v1.111.0 (2023-08-11)
+
+* **Feature**: Amazon EC2 P5 instances, powered by the latest NVIDIA H100 Tensor Core GPUs, deliver the highest performance in EC2 for deep learning (DL) and HPC applications. M7i-flex and M7i instances are next-generation general purpose instances powered by custom 4th Generation Intel Xeon Scalable processors.
+
+# v1.110.1 (2023-08-07)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.110.0 (2023-08-03)
+
+* **Feature**: This release adds new parameter isPrimaryIPv6 to  allow assigning an IPv6 address as a primary IPv6 address to a network interface which cannot be changed to give equivalent functionality available for network interfaces with primary IPv4 address.
+
+# v1.109.1 (2023-08-01)
+
+* No change notes available for this release.
+
+# v1.109.0 (2023-07-31)
+
+* **Feature**: Adds support for smithy-modeled endpoint resolution. A new rules-based endpoint resolution will be added to the SDK which will supercede and deprecate existing endpoint resolution. Specifically, EndpointResolver will be deprecated while BaseEndpoint and EndpointResolverV2 will take its place. For more information, please see the Endpoints section in our Developer Guide.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.108.1 (2023-07-28)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.108.0 (2023-07-27)
+
+* **Feature**: SDK and documentation updates for Amazon Elastic Block Store APIs
+
+# v1.107.0 (2023-07-25)
+
+* **Feature**: This release adds an instance's peak and baseline network bandwidth as well as the memory sizes of an instance's inference accelerators to DescribeInstanceTypes.
+
+# v1.106.0 (2023-07-24)
+
+* **Feature**: Add "disabled" enum value to SpotInstanceState.
+
+# v1.105.1 (2023-07-19)
+
+* **Documentation**: Amazon EC2 documentation updates.
+
+# v1.105.0 (2023-07-17)
+
+* **Feature**: Add Nitro TPM support on DescribeInstanceTypes
+
+# v1.104.0 (2023-07-13)
+
+* **Feature**: This release adds support for the C7gn and Hpc7g instances. C7gn instances are powered by AWS Graviton3 processors and the fifth-generation AWS Nitro Cards. Hpc7g instances are powered by AWS Graviton 3E processors and provide up to 200 Gbps network bandwidth.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.103.0 (2023-07-06)
+
+* **Feature**: Add Nitro Enclaves support on DescribeInstanceTypes
+
+# v1.102.0 (2023-06-20)
+
+* **Feature**: Adds support for targeting Dedicated Host allocations by assetIds in AWS Outposts
+
+# v1.101.0 (2023-06-19)
+
+* **Feature**: API changes to AWS Verified Access to include data from trust providers in logs
+
 # v1.100.1 (2023-06-15)
 
 * No change notes available for this release.

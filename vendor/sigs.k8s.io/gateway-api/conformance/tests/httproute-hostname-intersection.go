@@ -69,6 +69,13 @@ var HTTPRouteHostnameIntersection = suite.ConformanceTest{
 					Backend:   "infra-backend-v1",
 					Namespace: ns,
 				},
+				// Port value within the Host header MUST not be considered while
+				// performing match against hostname.
+				http.ExpectedResponse{
+					Request:   http.Request{Host: "very.specific.com:1234", Path: "/s1"},
+					Backend:   "infra-backend-v1",
+					Namespace: ns,
+				},
 				http.ExpectedResponse{
 					Request:  http.Request{Host: "non.matching.com", Path: "/s1"},
 					Response: http.Response{StatusCode: 404},

@@ -9,6 +9,9 @@ import (
 
 var Cell = cell.Module(
 	"datapath-tables",
-	"Datapath tables",
-	L2AnnouncementTableCell,
+	"Datapath state tables",
+
+	L2AnnounceTableCell,
+	DeviceTableCell,
+	RouteTableCell,
 )

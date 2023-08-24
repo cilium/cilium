@@ -27,7 +27,6 @@ import (
 	"io"
 	"math/big"
 	"net"
-	"strings"
 	"testing"
 	"time"
 
@@ -50,9 +49,7 @@ func MustCreateSelfSignedCertSecret(t *testing.T, namespace, secretName string, 
 
 	var serverKey, serverCert bytes.Buffer
 
-	host := strings.Join(hosts, ",")
-
-	require.NoError(t, generateRSACert(host, &serverKey, &serverCert), "failed to generate RSA certificate")
+	require.NoError(t, generateRSACert(hosts, &serverKey, &serverCert), "failed to generate RSA certificate")
 
 	data := map[string][]byte{
 		corev1.TLSCertKey:       serverCert.Bytes(),
@@ -72,7 +69,7 @@ func MustCreateSelfSignedCertSecret(t *testing.T, namespace, secretName string, 
 }
 
 // generateRSACert generates a basic self signed certificate valid for a year
-func generateRSACert(host string, keyOut, certOut io.Writer) error {
+func generateRSACert(hosts []string, keyOut, certOut io.Writer) error {
 	priv, err := rsa.GenerateKey(rand.Reader, rsaBits)
 	if err != nil {
 		return fmt.Errorf("failed to generate key: %w", err)
@@ -82,7 +79,6 @@ func generateRSACert(host string, keyOut, certOut io.Writer) error {
 
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
-
 	if err != nil {
 		return fmt.Errorf("failed to generate serial number: %w", err)
 	}
@@ -101,7 +97,6 @@ func generateRSACert(host string, keyOut, certOut io.Writer) error {
 		BasicConstraintsValid: true,
 	}
 
-	hosts := strings.Split(host, ",")
 	for _, h := range hosts {
 		if ip := net.ParseIP(h); ip != nil {
 			template.IPAddresses = append(template.IPAddresses, ip)
@@ -111,7 +106,6 @@ func generateRSACert(host string, keyOut, certOut io.Writer) error {
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
-
 	if err != nil {
 		return fmt.Errorf("failed to create certificate: %w", err)
 	}

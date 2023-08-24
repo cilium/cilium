@@ -51,7 +51,7 @@ programs attached to endpoints and devices. This includes:
 )
 
 func init() {
-	rootCmd.AddCommand(monitorCmd)
+	RootCmd.AddCommand(monitorCmd)
 	monitorCmd.Flags().BoolVar(&printer.Hex, "hex", false, "Do not dissect, print payload in HEX")
 	monitorCmd.Flags().VarP(&printer.EventTypes, "type", "t", fmt.Sprintf("Filter by event types %v", monitor.GetAllTypes()))
 	monitorCmd.Flags().Var(&printer.FromSource, "from", "Filter by source endpoint id")

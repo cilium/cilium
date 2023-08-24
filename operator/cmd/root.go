@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/lbipam"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/components"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
@@ -45,7 +46,9 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis"
+	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
@@ -58,31 +61,43 @@ import (
 )
 
 var (
-	binaryName = filepath.Base(os.Args[0])
-
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, binaryName)
-
-	rootCmd = &cobra.Command{
-		Use:   binaryName,
-		Short: "Run " + binaryName,
-	}
-
-	leaderElectionResourceLockName = "cilium-operator-resource-lock"
-
-	// Use a Go context so we can tell the leaderelection code when we
-	// want to step down
-	leaderElectionCtx       context.Context
-	leaderElectionCtxCancel context.CancelFunc
-
-	// isLeader is an atomic boolean value that is true when the Operator is
-	// elected leader. Otherwise, it is false.
-	isLeader atomic.Bool
-
-	// OperatorCell are the operator specific cells without infrastructure cells.
-	// Used also in tests.
-	OperatorCell = cell.Module(
+	Operator = cell.Module(
 		"operator",
 		"Cilium Operator",
+
+		Infrastructure,
+		ControlPlane,
+	)
+
+	Infrastructure = cell.Module(
+		"operator-infra",
+		"Operator Infrastructure",
+
+		// Register the pprof HTTP handlers, to get runtime profiling data.
+		pprof.Cell,
+		cell.ProvidePrivate(func(cfg operatorPprofConfig) pprof.Config {
+			return pprof.Config{
+				Pprof:        cfg.OperatorPprof,
+				PprofAddress: cfg.OperatorPprofAddress,
+				PprofPort:    cfg.OperatorPprofPort,
+			}
+		}),
+		cell.Config(operatorPprofConfig{
+			OperatorPprofAddress: operatorOption.PprofAddressOperator,
+			OperatorPprofPort:    operatorOption.PprofPortOperator,
+		}),
+
+		// Runs the gops agent, a tool to diagnose Go processes.
+		gops.Cell(defaults.GopsPortOperator),
+
+		// Provides Clientset, API for accessing Kubernetes objects.
+		k8sClient.Cell,
+	)
+
+	// ControlPlane implements the control functions.
+	ControlPlane = cell.Module(
+		"operator-controlplane",
+		"Operator Control Plane",
 
 		cell.Invoke(
 			registerOperatorHooks,
@@ -114,6 +129,7 @@ var (
 			isLeader.Load,
 		),
 		api.MetricsHandlerCell,
+		controller.Cell,
 		operatorApi.SpecCell,
 		api.ServerCell,
 
@@ -140,13 +156,66 @@ var (
 		),
 	)
 
-	operatorHive *hive.Hive = newOperatorHive()
+	binaryName = filepath.Base(os.Args[0])
 
-	Vp *viper.Viper = operatorHive.Viper()
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, binaryName)
+
+	FlagsHooks []ProviderFlagsHooks
+
+	leaderElectionResourceLockName = "cilium-operator-resource-lock"
+
+	// Use a Go context so we can tell the leaderelection code when we
+	// want to step down
+	leaderElectionCtx       context.Context
+	leaderElectionCtxCancel context.CancelFunc
+
+	// isLeader is an atomic boolean value that is true when the Operator is
+	// elected leader. Otherwise, it is false.
+	isLeader atomic.Bool
 )
 
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+func NewOperatorCmd(h *hive.Hive) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   binaryName,
+		Short: "Run " + binaryName,
+		Run: func(cobraCmd *cobra.Command, args []string) {
+			cmdRefDir := h.Viper().GetString(option.CMDRef)
+			if cmdRefDir != "" {
+				genMarkdown(cobraCmd, cmdRefDir)
+				os.Exit(0)
+			}
+
+			initEnv(h.Viper())
+
+			if err := h.Run(); err != nil {
+				log.Fatal(err)
+			}
+		},
+	}
+
+	h.RegisterFlags(cmd.Flags())
+
+	// Enable fallback to direct API probing to check for support of Leases in
+	// case Discovery API fails.
+	h.Viper().Set(option.K8sEnableAPIDiscovery, true)
+
+	cmd.AddCommand(
+		MetricsCmd,
+		h.Command(),
+	)
+
+	InitGlobalFlags(cmd, h.Viper())
+	for _, hook := range FlagsHooks {
+		hook.RegisterProviderFlag(cmd, h.Viper())
+	}
+
+	cobra.OnInitialize(option.InitConfig(cmd, "Cilium-Operator", "cilium-operators", h.Viper()))
+
+	return cmd
+}
+
+func Execute(cmd *cobra.Command) {
+	if err := cmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
@@ -174,55 +243,7 @@ func registerOperatorHooks(lc hive.Lifecycle, llc *LeaderLifecycle, clientset k8
 	})
 }
 
-func newOperatorHive() *hive.Hive {
-	h := hive.New(
-		pprof.Cell,
-		cell.ProvidePrivate(func(cfg operatorPprofConfig) pprof.Config {
-			return pprof.Config{
-				Pprof:        cfg.OperatorPprof,
-				PprofAddress: cfg.OperatorPprofAddress,
-				PprofPort:    cfg.OperatorPprofPort,
-			}
-		}),
-		cell.Config(operatorPprofConfig{
-			OperatorPprofAddress: operatorOption.PprofAddressOperator,
-			OperatorPprofPort:    operatorOption.PprofPortOperator,
-		}),
-
-		gops.Cell(defaults.GopsPortOperator),
-		k8sClient.Cell,
-		OperatorCell,
-	)
-	h.RegisterFlags(rootCmd.Flags())
-
-	// Enable fallback to direct API probing to check for support of Leases in
-	// case Discovery API fails.
-	h.Viper().Set(option.K8sEnableAPIDiscovery, true)
-
-	return h
-}
-
-func init() {
-	rootCmd.AddCommand(MetricsCmd)
-	rootCmd.AddCommand(operatorHive.Command())
-
-	rootCmd.Run = func(cobraCmd *cobra.Command, args []string) {
-		cmdRefDir := operatorHive.Viper().GetString(option.CMDRef)
-		if cmdRefDir != "" {
-			genMarkdown(cobraCmd, cmdRefDir)
-			os.Exit(0)
-		}
-
-		initEnv()
-
-		if err := operatorHive.Run(); err != nil {
-			log.Fatal(err)
-		}
-	}
-}
-
-func initEnv() {
-	vp := operatorHive.Viper()
+func initEnv(vp *viper.Viper) {
 	// Prepopulate option.Config with options from CLI.
 	option.Config.Populate(vp)
 	operatorOption.Config.Populate(vp)
@@ -532,7 +553,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 									logfields.ServiceNamespace: k8sSvc.Namespace,
 								}).Error("Failed to transform k8s service")
 							} else {
-								slimSvc := k8s.ObjToV1Services(slimSvcObj)
+								slimSvc := k8s.CastInformerEvent[slim_corev1.Service](slimSvcObj)
 								if slimSvc == nil {
 									// This will never happen but still log it
 									scopedLog.WithFields(logrus.Fields{
@@ -553,7 +574,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 					log := log.WithField(logfields.LogSubsys, "etcd")
 					goopts = &kvstore.ExtraOptions{
 						DialOption: []grpc.DialOption{
-							grpc.WithContextDialer(k8s.CreateCustomDialer(svcGetter, log)),
+							grpc.WithContextDialer(k8s.CreateCustomDialer(svcGetter, log, true)),
 						},
 					}
 				}
@@ -646,13 +667,29 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	}
 
 	if legacy.clientset.IsEnabled() {
-		if operatorOption.Config.EndpointGCInterval != 0 {
+		// Conditionally start the CiliumEndpoint garbage collector.
+		// The GC needs to continually run long-term if EndpointGCInterval is non-zero and if CiliumEndpoint CRDs
+		// are enabled. Otherwise, the GC still needs to run once to account for the case in which a user transitions
+		// from CiliumEndpoint CRD mode to kvstore mode, and to check if there are any stale CEPs that need to be
+		// purged.
+		if operatorOption.Config.EndpointGCInterval != 0 && !option.Config.DisableCiliumEndpointCRD {
 			enableCiliumEndpointSyncGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer, false)
 		} else {
-			// Even if the EndpointGC is disabled we still want it to run at least
-			// once. This is to prevent leftover CEPs from populating ipcache with
-			// stale entries.
-			enableCiliumEndpointSyncGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer, true)
+			// Check if CEP CRD is available, as it could be missing if CEPs are not enabled.
+			// If the CRD is not available, then no garbage collection needs to be done.
+			_, err := legacy.clientset.ApiextensionsV1().CustomResourceDefinitions().Get(
+				legacy.ctx, k8sconstv2.CEPName, metav1.GetOptions{ResourceVersion: "0"},
+			)
+
+			if err == nil {
+				enableCiliumEndpointSyncGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer, true)
+			} else if k8sErrors.IsNotFound(err) {
+				log.WithError(err).Info("CiliumEndpoint CRD cannot be found, skipping garbage collection")
+			} else {
+				log.WithError(err).Error(
+					"Unable to determine if CiliumEndpoint CRD is installed, cannot start garbage collector",
+				)
+			}
 		}
 
 		err = enableCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)

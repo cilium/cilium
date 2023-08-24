@@ -3,6 +3,10 @@
 
 package fake
 
+import (
+	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
+)
+
 type FakeCNIConfigManager struct{}
 
 func (f *FakeCNIConfigManager) GetMTU() int {
@@ -12,4 +16,8 @@ func (f *FakeCNIConfigManager) GetMTU() int {
 // GetChainingMode returns the configured CNI chaining mode
 func (f *FakeCNIConfigManager) GetChainingMode() string {
 	return "none"
+}
+
+func (f *FakeCNIConfigManager) GetCustomNetConf() *cnitypes.NetConf {
+	return nil
 }

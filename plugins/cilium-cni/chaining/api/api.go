@@ -11,6 +11,7 @@ import (
 	cniTypesVer "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/plugins/cilium-cni/lib"
@@ -30,10 +31,11 @@ const (
 
 // PluginContext is the context given to chaining plugins
 type PluginContext struct {
-	Logger  *logrus.Entry
-	Args    *skel.CmdArgs
-	CniArgs types.ArgsSpec
-	NetConf *types.NetConf
+	Logger     *logrus.Entry
+	Args       *skel.CmdArgs
+	CniArgs    types.ArgsSpec
+	NetConf    *types.NetConf
+	CiliumConf *models.DaemonConfigurationStatus
 	//Client  *client.Client
 }
 

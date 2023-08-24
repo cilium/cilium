@@ -6,6 +6,7 @@ package lib
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock/lockfile"
@@ -117,36 +119,61 @@ func (dc *DeletionFallbackClient) EndpointDelete(id string) error {
 	// fall-back mode
 	if dc.lockfile != nil {
 		dc.logger.WithField(logfields.EndpointID, id).Info("Queueing deletion request for endpoint")
-
-		// sanity check: if there are too many queued deletes, just return error
-		// back up to the kubelet. If we get here, it's either because something
-		// has gone wrong with the kubelet, or the agent has been down for a very
-		// long time. To guard aganst long agent startup times (when it empties the
-		// queue), limit us to 256 queued deletions. If this does, indeed, overflow,
-		// then the kubelet will get the failure and eventually retry deletion.
-		files, err := os.ReadDir(defaults.DeleteQueueDir)
-		if err != nil {
-			dc.logger.WithField(logfields.Path, defaults.DeleteQueueDir).WithError(err).Error("failed to list deletion queue directory")
-			return err
-		}
-		if len(files) > maxDeletionFiles {
-			return fmt.Errorf("deletion queue directory %s has too many entries; aborting", defaults.DeleteQueueDir)
-		}
-
-		// hash endpoint id for a random filename
-		h := sha256.New()
-		h.Write([]byte(id))
-		filename := fmt.Sprintf("%x.delete", h.Sum(nil))
-		path := filepath.Join(defaults.DeleteQueueDir, filename)
-
-		err = os.WriteFile(path, []byte(id), 0644)
-		if err != nil {
-			dc.logger.WithField(logfields.Path, path).WithError(err).Error("failed to write deletion file")
-			return fmt.Errorf("failed to write deletion file %s: %w", path, err)
-		}
-		dc.logger.Info("wrote queued deletion file")
-		return nil
+		return dc.enqueueDeletionRequestLocked(id)
 	}
 
-	return fmt.Errorf("attempt to delete with no valid connection")
+	return errors.New("attempt to delete with no valid connection")
+}
+
+// EndpointDeleteMany deletes multiple endpoints based on the endpoint deletion request,
+// either by directly accessing the API or dropping in a queued-deletion file.
+func (dc *DeletionFallbackClient) EndpointDeleteMany(req *models.EndpointBatchDeleteRequest) error {
+	if dc.cli != nil {
+		return dc.cli.EndpointDeleteMany(req)
+	}
+
+	// fall-back mode
+	if dc.lockfile != nil {
+		dc.logger.WithField(logfields.Request, req).Info("Queueing endpoint batch deletion request")
+		b, err := req.MarshalBinary()
+		if err != nil {
+			return fmt.Errorf("failed to marshal endpoint delete request: %w", err)
+		}
+		return dc.enqueueDeletionRequestLocked(string(b))
+	}
+
+	return errors.New("attempt to delete with no valid connection")
+}
+
+// enqueueDeletionRequestLocked enqueues the encoded endpoint deletion request into the
+// endpoint deletion queue. Requires the caller to hold the deletion queue lock.
+func (dc *DeletionFallbackClient) enqueueDeletionRequestLocked(contents string) error {
+	// sanity check: if there are too many queued deletes, just return error
+	// back up to the kubelet. If we get here, it's either because something
+	// has gone wrong with the kubelet, or the agent has been down for a very
+	// long time. To guard aganst long agent startup times (when it empties the
+	// queue), limit us to 256 queued deletions. If this does, indeed, overflow,
+	// then the kubelet will get the failure and eventually retry deletion.
+	files, err := os.ReadDir(defaults.DeleteQueueDir)
+	if err != nil {
+		dc.logger.WithField(logfields.Path, defaults.DeleteQueueDir).WithError(err).Error("failed to list deletion queue directory")
+		return err
+	}
+	if len(files) > maxDeletionFiles {
+		return fmt.Errorf("deletion queue directory %s has too many entries; aborting", defaults.DeleteQueueDir)
+	}
+
+	// hash endpoint id for a random filename
+	h := sha256.New()
+	h.Write([]byte(contents))
+	filename := fmt.Sprintf("%x.delete", h.Sum(nil))
+	path := filepath.Join(defaults.DeleteQueueDir, filename)
+
+	err = os.WriteFile(path, []byte(contents), 0644)
+	if err != nil {
+		dc.logger.WithField(logfields.Path, path).WithError(err).Error("failed to write deletion file")
+		return fmt.Errorf("failed to write deletion file %s: %w", path, err)
+	}
+	dc.logger.Info("wrote queued deletion file")
+	return nil
 }

@@ -74,10 +74,18 @@ type DescribeRouterInterfacesRequest struct {
 	ResourceOwnerId        requests.Integer                  `position:"Query" name:"ResourceOwnerId"`
 	IncludeReservationData requests.Boolean                  `position:"Query" name:"IncludeReservationData"`
 	PageNumber             requests.Integer                  `position:"Query" name:"PageNumber"`
+	ResourceGroupId        string                            `position:"Query" name:"ResourceGroupId"`
 	PageSize               requests.Integer                  `position:"Query" name:"PageSize"`
 	ResourceOwnerAccount   string                            `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerId                requests.Integer                  `position:"Query" name:"OwnerId"`
+	Tags                   *[]DescribeRouterInterfacesTags   `position:"Query" name:"Tags"  type:"Repeated"`
 	Filter                 *[]DescribeRouterInterfacesFilter `position:"Query" name:"Filter"  type:"Repeated"`
+}
+
+// DescribeRouterInterfacesTags is a repeated param struct in DescribeRouterInterfacesRequest
+type DescribeRouterInterfacesTags struct {
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // DescribeRouterInterfacesFilter is a repeated param struct in DescribeRouterInterfacesRequest

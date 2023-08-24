@@ -36,7 +36,7 @@ var policyDeleteCmd = &cobra.Command{
 }
 
 func init() {
-	policyCmd.AddCommand(policyDeleteCmd)
+	PolicyCmd.AddCommand(policyDeleteCmd)
 	policyDeleteCmd.Flags().BoolVarP(&confirmDeleteAll, "all", "", false, "Delete all policies")
 	command.AddOutputOption(policyDeleteCmd)
 }

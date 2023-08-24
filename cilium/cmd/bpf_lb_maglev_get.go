@@ -95,6 +95,6 @@ func dumpMaglevServiceBackends(mapName string, svcID uint16) (string, error) {
 }
 
 func init() {
-	bpfMaglevCmd.AddCommand(bpfMaglevGetCmd)
+	BPFMaglevCmd.AddCommand(bpfMaglevGetCmd)
 	command.AddOutputOption(bpfMaglevGetCmd)
 }

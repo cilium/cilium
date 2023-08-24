@@ -41,7 +41,7 @@ func (m *fakeIPCache) ForEachListener(f func(listener IPIdentityMappingListener)
 
 func (m *fakeIPCache) OnIPIdentityCacheGC() { m.events <- NewEvent("sync", "") }
 func (m *fakeIPCache) OnIPIdentityCacheChange(modType CacheModification, cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP,
-	oldID *Identity, newID Identity, encryptKey uint8, nodeID uint16, k8sMeta *K8sMetadata) {
+	oldID *Identity, newID Identity, encryptKey uint8, k8sMeta *K8sMetadata) {
 }
 
 func (fb *fakeBackend) ListAndWatch(ctx context.Context, _, prefix string, _ int) *kvstore.Watcher {

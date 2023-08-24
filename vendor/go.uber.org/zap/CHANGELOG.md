@@ -3,6 +3,27 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## 1.25.0 (1 Aug 2023)
+
+This release contains several improvements including performance, API additions,
+and two new experimental packages whose APIs are unstable and may change in the
+future.
+
+Enhancements:
+* [#1246][]: Add `zap/exp/zapslog` package for integration with slog.
+* [#1273][]: Add `Name` to `Logger` which returns the Logger's name if one is set.
+* [#1281][]: Add `zap/exp/expfield` package which contains helper methods
+`Str` and `Strs` for constructing String-like zap.Fields.
+* [#1310][]: Reduce stack size on `Any`. 
+
+Thanks to @knight42, @dzakaammar, @bcspragu, and @rexywork for their contributions
+to this release.
+
+[#1246]: https://github.com/uber-go/zap/pull/1246
+[#1273]: https://github.com/uber-go/zap/pull/1273
+[#1281]: https://github.com/uber-go/zap/pull/1281
+[#1310]: https://github.com/uber-go/zap/pull/1310
+
 ## 1.24.0 (30 Nov 2022)
 
 Enhancements:

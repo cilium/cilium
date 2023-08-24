@@ -29,7 +29,7 @@ for release in $(grep "Release Notes" README.rst \
     fi
 
     current=$(grep -F $release README.rst \
-              | sed 's/.*\('"$MIN_REGEX"'\).*/\1/')
+              | sed 's/.*\('"$MIN_REGEX"'\).*/\1/' | head -n 1)
     old_date=$(git log -1 -s --format="%cI" $current | sed "$REGEX_FILTER_DATE")
     new_date=$(git log -1 -s --format="%cI" $latest | sed "$REGEX_FILTER_DATE")
     elease=$(echo $release | sed 's/v//')

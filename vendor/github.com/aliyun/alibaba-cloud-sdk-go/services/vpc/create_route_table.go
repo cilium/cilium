@@ -71,15 +71,22 @@ func (client *Client) CreateRouteTableWithCallback(request *CreateRouteTableRequ
 // CreateRouteTableRequest is the request struct for api CreateRouteTable
 type CreateRouteTableRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	Description          string           `position:"Query" name:"Description"`
-	RouteTableName       string           `position:"Query" name:"RouteTableName"`
-	AssociateType        string           `position:"Query" name:"AssociateType"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	VpcId                string           `position:"Query" name:"VpcId"`
+	ResourceOwnerId      requests.Integer       `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string                 `position:"Query" name:"ClientToken"`
+	Description          string                 `position:"Query" name:"Description"`
+	RouteTableName       string                 `position:"Query" name:"RouteTableName"`
+	AssociateType        string                 `position:"Query" name:"AssociateType"`
+	Tag                  *[]CreateRouteTableTag `position:"Query" name:"Tag"  type:"Repeated"`
+	ResourceOwnerAccount string                 `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string                 `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer       `position:"Query" name:"OwnerId"`
+	VpcId                string                 `position:"Query" name:"VpcId"`
+}
+
+// CreateRouteTableTag is a repeated param struct in CreateRouteTableRequest
+type CreateRouteTableTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // CreateRouteTableResponse is the response struct for api CreateRouteTable

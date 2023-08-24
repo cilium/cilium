@@ -16,25 +16,39 @@ Namespaces
 
 `Namespaces <https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/>`_
 are used to create virtual clusters within a Kubernetes cluster. All Kubernetes objects
-including NetworkPolicy and CiliumNetworkPolicy belong to a particular
-namespace. Depending on how a policy is being defined and created, Kubernetes
-namespaces are automatically being taken into account:
+including `NetworkPolicy` and `CiliumNetworkPolicy` belong to a particular
+namespace.
 
-* Network policies created and imported as `CiliumNetworkPolicy` CRD and
-  `NetworkPolicy` apply within the namespace, i.e. the policy only applies
-  to pods within that namespace. It is however possible to grant access to and
-  from pods in other namespaces as described below.
+Known Pitfalls
+~~~~~~~~~~~~~~
 
-* Network policies imported directly via the :ref:`api_ref` apply to all
-  namespaces unless a namespace selector is specified as described below.
+Depending on how a policy is defined and created, Kubernetes namespaces are automatically taken into account.
 
-.. note:: While specification of the namespace via the label
-	  ``k8s:io.kubernetes.pod.namespace`` in the ``fromEndpoints`` and
-	  ``toEndpoints`` fields is deliberately supported. Specification of the
-	  namespace in the ``endpointSelector`` is prohibited as it would
-	  violate the namespace isolation principle of Kubernetes. The
-	  ``endpointSelector`` always applies to pods of the namespace which is
-	  associated with the CiliumNetworkPolicy resource itself.
+Network policies imported directly with the :ref:`api_ref` apply to all
+namespaces unless a namespace selector is specified as described in
+:ref:`example_cnp_ns_boundaries`.
+
+Network policies created and imported as `CiliumNetworkPolicy` CRD and
+`NetworkPolicy` apply within the namespace. In other words, the policy **only** applies
+to pods within that namespace. It's possible, however, to grant access to and
+from pods in other namespaces as described in :ref:`example_cnp_across_ns`.
+
+Specifying the namespace by way of the label
+``k8s:io.kubernetes.pod.namespace`` in the ``fromEndpoints`` and
+``toEndpoints`` fields is supported as described in 
+:ref:`example_cnp_egress_to_kube_system`.
+However, Kubernetes prohibits specifying the namespace in the ``endpointSelector``,
+as it would violate the namespace isolation principle of Kubernetes. The
+``endpointSelector`` always applies to pods in the namespace 
+associated with the `CiliumNetworkPolicy` resource itself.
+
+Using namespace-specific information like
+``io.cilium.k8s.namespace.labels`` within a ``fromEndpoints`` or
+``toEndpoints`` is supported only for a `CiliumClusterwideNetworkPolicy`
+and not a `CiliumNetworkPolicy`. Hence, ``io.cilium.k8s.namespace.labels``
+will be ignored in `CiliumNetworkPolicy` resources.
+
+.. _example_cnp_ns_boundaries:
 
 Example: Enforce namespace boundaries
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -65,6 +79,8 @@ namespace.
 
         .. literalinclude:: ../../../examples/policies/kubernetes/namespace/isolate-namespaces.json
 
+.. _example_cnp_across_ns:
+
 Example: Expose pods across namespaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -88,6 +104,8 @@ for a fully functional example including pods deployed to different namespaces.
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/kubernetes/namespace/namespace-policy.json
+
+.. _example_cnp_egress_to_kube_system:
 
 Example: Allow egress to kube-dns in kube-system namespace
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

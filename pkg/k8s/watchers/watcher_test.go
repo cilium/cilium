@@ -113,6 +113,10 @@ func (f *fakeSvcManager) DeleteService(frontend loadbalancer.L3n4Addr) (bool, er
 	panic("OnDeleteService(loadbalancer.L3n4Addr) (bool, error) was called and is not set!")
 }
 
+func (f *fakeSvcManager) GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.SVC, bool) {
+	return nil, false
+}
+
 func (f *fakeSvcManager) UpsertService(p *loadbalancer.SVC) (bool, loadbalancer.ID, error) {
 	if f.OnUpsertService != nil {
 		return f.OnUpsertService(p)

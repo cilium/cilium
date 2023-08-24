@@ -34,6 +34,10 @@ mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex _
 
 #include <bpf_lxc.c>
 
+#include "lib/endpoint.h"
+#include "lib/ipcache.h"
+#include "lib/lb.h"
+
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
 	__uint(key_size, sizeof(__u32));
@@ -66,14 +70,6 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	struct iphdr *l3;
 	struct sctphdr *l4;
 	__u16 revnat_id = 1;
-	struct lb4_key lb_svc_key = {};
-	struct lb4_service lb_svc_value = {};
-	struct lb4_reverse_nat revnat_value = {};
-	struct lb4_backend backend = {};
-	struct ipcache_key cache_key = {};
-	struct remote_endpoint_info cache_value = {};
-	struct endpoint_key ep_key = {};
-	struct endpoint_info ep_value = {};
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
@@ -108,49 +104,14 @@ int hairpin_flow_forward_setup(struct __ctx_buff *ctx)
 	/* Calc lengths, set protocol fields and calc checksums */
 	pktgen__finish(&builder);
 
-	/* Register a fake LB backend with endpoint ID 124 for our service */
-	lb_svc_key.address = v4_svc_one;
-	lb_svc_key.dport = tcp_svc_one;
-	lb_svc_key.scope = LB_LOOKUP_SCOPE_EXT;
-
-	/* Create a service with only one backend */
-	lb_svc_value.count = 1;
-	lb_svc_value.flags = SVC_FLAG_ROUTABLE;
-	lb_svc_value.rev_nat_index = revnat_id;
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-
-	/* Insert a reverse NAT entry for the above service */
-	revnat_value.address = v4_svc_one;
-	revnat_value.port = tcp_svc_one;
-	map_update_elem(&LB4_REVERSE_NAT_MAP, &revnat_id, &revnat_value, BPF_ANY);
-
-	/* A backend between 1 and .count is chosen, since we have only one backend
-	 * it is always backend_slot 1. Point it to backend_id 124.
-	 */
-	lb_svc_key.backend_slot = 1;
-	lb_svc_value.backend_id = 124;
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-
-	/* Create backend id 124 which contains the IP and port to send the
-	 * packet to.
-	 */
-	backend.address = v4_pod_one;
-	backend.port = tcp_svc_one;
-	backend.proto = IPPROTO_SCTP;
-	backend.flags = 0;
-	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
+	lb_v4_add_service(v4_svc_one, tcp_svc_one, 1, revnat_id);
+	lb_v4_add_backend(v4_svc_one, tcp_svc_one, 1, 124,
+			  v4_pod_one, tcp_svc_one, IPPROTO_SCTP, 0);
 
 	/* Add an IPCache entry for pod 1 */
-	cache_key.lpm_key.prefixlen = 32;
-	cache_key.family = ENDPOINT_KEY_IPV4;
-	cache_key.ip4 = v4_pod_one;
-	/* a random sec id for the pod */
-	cache_value.sec_identity = 112233;
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(v4_pod_one, 0, 112233, 0, 0);
 
-	ep_key.ip4 = v4_pod_one;
-	ep_key.family = ENDPOINT_KEY_IPV4;
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
+	endpoint_v4_add_entry(v4_pod_one, 0, 0, 0, NULL, NULL);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, 0);

@@ -8,14 +8,13 @@ import (
 	"os"
 	"testing"
 
+	. "github.com/cilium/checkmate"
+
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
 	endpointtest "github.com/cilium/cilium/pkg/proxy/endpoint/test"
-	testipcache "github.com/cilium/cilium/pkg/testutils/ipcache"
-
-	. "github.com/cilium/checkmate"
 )
 
 func Test(t *testing.T) { TestingT(t) }
@@ -42,13 +41,13 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	err := os.MkdirAll(socketDir, 0700)
 	c.Assert(err, IsNil)
 
-	p := createProxy(10000, 20000, testRunDir, mockDatapathUpdater, testipcache.NewMockIPCache(), nil)
+	p := createProxy(10000, 20000, mockDatapathUpdater, nil, nil, nil)
 
 	port, err := p.AllocateProxyPort("listener1", false, true)
 	c.Assert(err, IsNil)
 	c.Assert(port, Not(Equals), 0)
 
-	port1, err := GetProxyPort("listener1")
+	port1, err := p.GetProxyPort("listener1")
 	c.Assert(err, IsNil)
 	c.Assert(port1, Equals, port)
 
@@ -57,7 +56,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(port1a, Equals, port1)
 
-	name, pp := findProxyPortByType(ProxyTypeCRD, "listener1", false)
+	name, pp := p.findProxyPortByType(ProxyTypeCRD, "listener1", false)
 	c.Assert(name, Equals, "listener1")
 	c.Assert(pp.proxyType, Equals, ProxyTypeCRD)
 	c.Assert(pp.proxyPort, Equals, port)
@@ -72,7 +71,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(err, IsNil)
 
 	// ProxyPort lingers and can still be found, but it's port is zeroed
-	port1b, err := GetProxyPort("listener1")
+	port1b, err := p.GetProxyPort("listener1")
 	c.Assert(err, IsNil)
 	c.Assert(port1b, Equals, uint16(0))
 	c.Assert(pp.proxyPort, Equals, uint16(0))
@@ -131,7 +130,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(pp.rulesPort, Equals, port2)
 
 	// mimic some other process taking the port
-	allocatedPorts[port2] = true
+	p.allocatedPorts[port2] = true
 
 	// Allocate again, this time a different port is allocated
 	port3, err := p.AllocateProxyPort("listener1", true, true)
@@ -162,7 +161,7 @@ func (s *ProxySuite) TestPortAllocator(c *C) {
 	c.Assert(pp.proxyPort, Equals, uint16(0))
 	c.Assert(pp.rulesPort, Equals, port3)
 
-	inuse, exists := allocatedPorts[port3]
+	inuse, exists := p.allocatedPorts[port3]
 	c.Assert(exists, Equals, true)
 	c.Assert(inuse, Equals, false)
 
@@ -210,7 +209,7 @@ func (s *ProxySuite) TestCreateOrUpdateRedirectMissingListener(c *C) {
 	err := os.MkdirAll(socketDir, 0700)
 	c.Assert(err, IsNil)
 
-	p := createProxy(10000, 20000, testRunDir, mockDatapathUpdater, testipcache.NewMockIPCache(), nil)
+	p := createProxy(10000, 20000, mockDatapathUpdater, nil, nil, nil)
 
 	ep := &endpointtest.ProxyUpdaterMock{
 		Id:       1000,

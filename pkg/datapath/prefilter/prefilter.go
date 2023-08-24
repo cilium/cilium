@@ -146,7 +146,7 @@ func (p *PreFilter) Delete(revision int64, cidrs []net.IPNet) error {
 			return fmt.Errorf("No map enabled for CIDR string %s", cidr.String())
 		}
 		// Lets check obvious cases first, so we don't need to painfully unroll
-		if p.maps[which].CIDRExists(cidr) == false {
+		if !p.maps[which].CIDRExists(cidr) {
 			return fmt.Errorf("No map entry for CIDR string %s", cidr.String())
 		}
 	}

@@ -8,6 +8,8 @@ import (
 	"net"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
@@ -48,7 +50,7 @@ const (
 type MapState map[Key]MapStateEntry
 
 type Identities interface {
-	GetLabels(identity.NumericIdentity) labels.LabelArray
+	GetLabelsLocked(identity.NumericIdentity) labels.LabelArray
 }
 
 // Key is the userspace representation of a policy key in BPF. It is
@@ -112,10 +114,15 @@ type MapStateEntry struct {
 	// IsDeny is true when the policy should be denied.
 	IsDeny bool
 
+	// hasAuthType is 'DefaultAuthType' when policy has no explicit AuthType set. In this case the
+	// value of AuthType is derived from more generic entries covering this entry.
+	hasAuthType HasAuthType
+
 	// AuthType is non-zero when authentication is required for the traffic to be allowed.
 	AuthType AuthType
 
 	// DerivedFromRules tracks the policy rules this entry derives from
+	// In sorted order.
 	DerivedFromRules labels.LabelArrayList
 
 	// Owners collects the keys in the map and selectors in the policy that require this key to be present.
@@ -136,7 +143,7 @@ type MapStateEntry struct {
 // 'cs' is used to keep track of which policy selectors need this entry. If it is 'nil' this entry
 // will become sticky and cannot be completely removed via incremental updates. Even in this case
 // the entry may be overridden or removed by a deny entry.
-func NewMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, redirect, deny bool, authType AuthType) MapStateEntry {
+func NewMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, redirect, deny bool, hasAuth HasAuthType, authType AuthType) MapStateEntry {
 	var proxyPort uint16
 	if redirect {
 		// Any non-zero value will do, as the callers replace this with the
@@ -149,6 +156,7 @@ func NewMapStateEntry(cs MapStateOwner, derivedFrom labels.LabelArrayList, redir
 		ProxyPort:        proxyPort,
 		DerivedFromRules: derivedFrom,
 		IsDeny:           deny,
+		hasAuthType:      hasAuth,
 		AuthType:         authType,
 		owners:           map[MapStateOwner]struct{}{cs: {}},
 	}
@@ -191,18 +199,29 @@ func (e *MapStateEntry) getNets(identities Identities, ident uint32) []*net.IPNe
 		return e.cachedNets
 	}
 	id := identity.NumericIdentity(ident)
-	if id == identity.ReservedIdentityWorld {
+	switch id {
+	case identity.ReservedIdentityWorld:
 		e.cachedNets = []*net.IPNet{
 			{IP: net.IPv4zero, Mask: net.CIDRMask(0, net.IPv4len*8)},
 			{IP: net.IPv6zero, Mask: net.CIDRMask(0, net.IPv6len*8)},
 		}
 		return e.cachedNets
+	case identity.ReservedIdentityWorldIPv4:
+		e.cachedNets = []*net.IPNet{
+			{IP: net.IPv4zero, Mask: net.CIDRMask(0, net.IPv4len*8)},
+		}
+		return e.cachedNets
+	case identity.ReservedIdentityWorldIPv6:
+		e.cachedNets = []*net.IPNet{
+			{IP: net.IPv6zero, Mask: net.CIDRMask(0, net.IPv6len*8)},
+		}
+		return e.cachedNets
 	}
-	if identities == nil {
+	// CIDR identities have a local scope, so we can skip the rest if id is not of local scope.
+	if !id.HasLocalScope() || identities == nil {
 		return nil
 	}
-	lbls := identities.GetLabels(id)
-	nets := make([]*net.IPNet, 0, 1)
+	lbls := identities.GetLabelsLocked(id)
 	var (
 		maskSize         int
 		mostSpecificCidr *net.IPNet
@@ -219,31 +238,78 @@ func (e *MapStateEntry) getNets(identities Identities, ident uint32) []*net.IPNe
 		}
 	}
 	if mostSpecificCidr != nil {
-		nets = append(nets, mostSpecificCidr)
+		e.cachedNets = []*net.IPNet{mostSpecificCidr}
+		return e.cachedNets
 	}
-	e.cachedNets = nets
-	return nets
+	return nil
 }
 
 // AddDependent adds 'key' to the set of dependent keys.
-func (owner Key) AddDependent(keys MapState, key Key) {
+func (keys MapState) AddDependent(owner Key, dependent Key, changes ChangeState) {
 	if e, exists := keys[owner]; exists {
-		e.AddDependent(key)
+		keys.addDependentOnEntry(owner, e, dependent, changes)
+	}
+}
+
+// addDependentOnEntry adds 'dependent' to the set of dependent keys of 'e'.
+func (keys MapState) addDependentOnEntry(owner Key, e MapStateEntry, dependent Key, changes ChangeState) {
+	if _, exists := e.dependents[dependent]; !exists {
+		if changes.Old != nil {
+			changes.Old[owner] = e
+		}
+		e.AddDependent(dependent)
 		keys[owner] = e
 	}
 }
 
 // RemoveDependent removes 'key' from the list of dependent keys.
 // This is called when a dependent entry is being deleted.
-func (keys MapState) RemoveDependent(owner Key, dependent Key) {
+// If 'old' is not nil, then old value is added there before any modifications.
+func (keys MapState) RemoveDependent(owner Key, dependent Key, old MapState) {
 	if e, exists := keys[owner]; exists {
+		old.insertIfNotExists(owner, e)
 		e.RemoveDependent(dependent)
 		keys[owner] = e
 	}
 }
 
-// MergeReferences adds owners and dependents from entry 'entry' to 'e'. 'entry' is not modified.
-func (e *MapStateEntry) MergeReferences(entry *MapStateEntry) {
+// Merge adds owners, dependents, and DerivedFromRules from a new 'entry' to an existing
+// entry 'e'. 'entry' is not modified.
+// IsDeny, ProxyPort, and AuthType are merged by giving precedence to deny over non-deny, proxy
+// redirection over no proxy redirection, and explicit auth type over default auth type.
+func (e *MapStateEntry) Merge(entry *MapStateEntry) {
+	// Deny is sticky
+	if !e.IsDeny {
+		e.IsDeny = entry.IsDeny
+	}
+
+	// Deny entries have no proxy redirection nor auth requirement
+	if e.IsDeny {
+		e.ProxyPort = 0
+		e.hasAuthType = DefaultAuthType
+		e.AuthType = AuthTypeDisabled
+	} else {
+		// Proxy port takes precedence, but may be updated
+		if entry.ProxyPort != 0 {
+			e.ProxyPort = entry.ProxyPort
+		}
+
+		// Explicit auth takes precedence over defaulted one.
+		if entry.hasAuthType == ExplicitAuthType {
+			if e.hasAuthType == ExplicitAuthType {
+				// Numerically higher AuthType takes precedence when both are explicitly defined
+				if entry.AuthType > e.AuthType {
+					e.AuthType = entry.AuthType
+				}
+			} else {
+				e.hasAuthType = ExplicitAuthType
+				e.AuthType = entry.AuthType
+			}
+		} else if e.hasAuthType == DefaultAuthType {
+			e.AuthType = entry.AuthType // new default takes precedence
+		}
+	}
+
 	if e.owners == nil && len(entry.owners) > 0 {
 		e.owners = make(map[MapStateOwner]struct{}, len(entry.owners))
 	}
@@ -254,6 +320,11 @@ func (e *MapStateEntry) MergeReferences(entry *MapStateEntry) {
 	// merge dependents
 	for k := range entry.dependents {
 		e.AddDependent(k)
+	}
+
+	// merge DerivedFromRules
+	if len(entry.DerivedFromRules) > 0 {
+		e.DerivedFromRules.MergeSorted(entry.DerivedFromRules)
 	}
 }
 
@@ -272,61 +343,116 @@ func (e *MapStateEntry) DatapathEqual(o *MapStateEntry) bool {
 	return e.IsDeny == o.IsDeny && e.ProxyPort == o.ProxyPort && e.AuthType == o.AuthType
 }
 
-// String returns a string representation of the MapStateEntry
-func (e MapStateEntry) String() string {
-	return fmt.Sprintf("ProxyPort=%d,IsDeny=%t,AuthType=%s", e.ProxyPort, e.IsDeny, e.AuthType.String())
+// DeepEqual is a manually generated deepequal function, deeply comparing the
+// receiver with other. in must be non-nil.
+// Defined manually due to deepequal-gen not supporting interface types.
+// 'cachedNets' member is ignored in comparison, as it is a cached value and
+// makes no functional difference.
+func (e *MapStateEntry) DeepEqual(o *MapStateEntry) bool {
+	if !e.DatapathEqual(o) {
+		return false
+	}
+
+	if !e.DerivedFromRules.DeepEqual(&o.DerivedFromRules) {
+		return false
+	}
+
+	if len(e.owners) != len(o.owners) {
+		return false
+	}
+	for k := range o.owners {
+		if _, exists := e.owners[k]; !exists {
+			return false
+		}
+	}
+
+	if len(e.dependents) != len(o.dependents) {
+		return false
+	}
+	for k := range o.dependents {
+		if _, exists := e.dependents[k]; !exists {
+			return false
+		}
+	}
+
+	// ignoring cachedNets
+
+	return true
 }
 
-// DenyPreferredInsert inserts a key and entry into the map by given preference
+// String returns a string representation of the MapStateEntry
+func (e MapStateEntry) String() string {
+	return fmt.Sprintf("ProxyPort=%d,IsDeny=%t,AuthType=%s,DerivedFromRules=%v", e.ProxyPort, e.IsDeny, e.AuthType.String(), e.DerivedFromRules)
+}
+
+// denyPreferredInsert inserts a key and entry into the map by given preference
 // to deny entries, and L3-only deny entries over L3-L4 allows.
 // This form may be used when a full policy is computed and we are not yet interested
 // in accumulating incremental changes.
-func (keys MapState) DenyPreferredInsert(newKey Key, newEntry MapStateEntry, identities Identities) {
-	keys.denyPreferredInsertWithChanges(newKey, newEntry, nil, nil, identities)
+// Caller may insert the same MapStateEntry multiple times for different Keys, but all from the same
+// owner.
+func (keys MapState) denyPreferredInsert(newKey Key, newEntry MapStateEntry, identities Identities, features policyFeatures) {
+	// Enforce nil values from NewMapStateEntry
+	newEntry.dependents = nil
+	newEntry.cachedNets = nil
+
+	keys.denyPreferredInsertWithChanges(newKey, newEntry, identities, features, ChangeState{})
 }
 
-// addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes'
-func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, deletes Keys) {
+// addKeyWithChanges adds a 'key' with value 'entry' to 'keys' keeping track of incremental changes in 'adds' and 'deletes', and any changed or removed old values in 'old', if not nil.
+func (keys MapState) addKeyWithChanges(key Key, entry MapStateEntry, changes ChangeState) {
 	// Keep all owners that need this entry so that it is deleted only if all the owners delete their contribution
-	updatedEntry := entry
 	oldEntry, exists := keys[key]
 	if exists {
-		// keep the existing owners of the old entry
-		updatedEntry.owners = oldEntry.owners
-		// keep the existing dependent entries
-		updatedEntry.dependents = oldEntry.dependents
-	} else if len(entry.owners) > 0 {
-		// create a new owners map
-		updatedEntry.owners = make(map[MapStateOwner]struct{}, len(entry.owners))
+		// Deny entry can only be overridden by another deny entry
+		if oldEntry.IsDeny && !entry.IsDeny {
+			return
+		}
+
+		if entry.DeepEqual(&oldEntry) {
+			return // nothing to do
+		}
+
+		// Save old value before any changes, if desired
+		if changes.Old != nil {
+			changes.Old.insertIfNotExists(key, oldEntry)
+		}
+
+		oldEntry.Merge(&entry)
+		keys[key] = oldEntry
+	} else {
+		// Newly inserted entries must have their own containers, so that they
+		// remain separate when new owners/dependents are added to existing entries
+		entry.DerivedFromRules = slices.Clone(entry.DerivedFromRules)
+		entry.owners = maps.Clone(entry.owners)
+		entry.dependents = maps.Clone(entry.dependents)
+		keys[key] = entry
 	}
 
-	// TODO: Do we need to merge labels as well?
-	// Merge new owner to the updated entry without modifying 'entry' as it is being reused by the caller
-	updatedEntry.MergeReferences(&entry)
-	// Update (or insert) the entry
-	keys[key] = updatedEntry
-
 	// Record an incremental Add if desired and entry is new or changed
-	if adds != nil && (!exists || !oldEntry.DatapathEqual(&entry)) {
-		adds[key] = struct{}{}
+	if changes.Adds != nil && (!exists || !oldEntry.DatapathEqual(&entry)) {
+		changes.Adds[key] = struct{}{}
 		// Key add overrides any previous delete of the same key
-		if deletes != nil {
-			delete(deletes, key)
+		if changes.Deletes != nil {
+			delete(changes.Deletes, key)
 		}
 	}
 }
 
 // deleteKeyWithChanges deletes a 'key' from 'keys' keeping track of incremental changes in 'adds' and 'deletes'.
 // The key is unconditionally deleted if 'cs' is nil, otherwise only the contribution of this 'cs' is removed.
-func (keys MapState) deleteKeyWithChanges(key Key, owner MapStateOwner, adds, deletes Keys) {
+func (keys MapState) deleteKeyWithChanges(key Key, owner MapStateOwner, changes ChangeState) {
 	if entry, exists := keys[key]; exists {
+		// Save old value before any changes, if desired
+		oldAdded := changes.Old.insertIfNotExists(key, entry)
+
 		if owner != nil {
 			// remove the contribution of the given selector only
 			if _, exists = entry.owners[owner]; exists {
 				// Remove the contribution of this selector from the entry
 				delete(entry.owners, owner)
 				if ownerKey, ok := owner.(Key); ok {
-					keys.RemoveDependent(ownerKey, key)
+					keys.RemoveDependent(ownerKey, key, changes.Old)
 				}
 				// key is not deleted if other owners still need it
 				if len(entry.owners) > 0 {
@@ -334,6 +460,9 @@ func (keys MapState) deleteKeyWithChanges(key Key, owner MapStateOwner, adds, de
 				}
 			} else {
 				// 'owner' was not found, do not change anything
+				if oldAdded {
+					delete(changes.Old, key)
+				}
 				return
 			}
 		}
@@ -345,7 +474,7 @@ func (keys MapState) deleteKeyWithChanges(key Key, owner MapStateOwner, adds, de
 			for owner := range entry.owners {
 				if owner != nil {
 					if ownerKey, ok := owner.(Key); ok {
-						keys.RemoveDependent(ownerKey, key)
+						keys.RemoveDependent(ownerKey, key, changes.Old)
 					}
 				}
 			}
@@ -353,13 +482,13 @@ func (keys MapState) deleteKeyWithChanges(key Key, owner MapStateOwner, adds, de
 
 		// Check if dependent entries need to be deleted as well
 		for k := range entry.dependents {
-			keys.deleteKeyWithChanges(k, key, adds, deletes)
+			keys.deleteKeyWithChanges(k, key, changes)
 		}
-		if deletes != nil {
-			deletes[key] = struct{}{}
+		if changes.Deletes != nil {
+			changes.Deletes[key] = struct{}{}
 			// Remove a potential previously added key
-			if adds != nil {
-				delete(adds, key)
+			if changes.Adds != nil {
+				delete(changes.Adds, key)
 			}
 		}
 
@@ -376,6 +505,60 @@ func entryIdentityIsSupersetOf(primaryKey Key, primaryEntry MapStateEntry, compa
 	if primaryKey.Identity == compareKey.Identity {
 		return false
 	}
+
+	// Consider an identity that selects a broader CIDR as a superset of
+	// an identity that selects a narrower CIDR. For instance, an identity
+	// corresponding to 192.0.0.0/16 is a superset of the identity that
+	// corresponds to 192.0.2.3/32.
+	//
+	// The reasons we need to do this are surprisingly complex, taking into
+	// consideration design decisions around the handling of ToFQDNs policy
+	// and how L4PolicyMap/L4Filter structures cache the policies with
+	// respect to specific CIDRs. More specifically:
+	// - At the time of initial L4Filter creation, it is not known which
+	//   specific CIDRs (or corresponding identities) are selected by a
+	//   toFQDNs rule in the policy engine.
+	// - It is possible to have a CIDR deny rule that should deny peers
+	//   that are allowed by a ToFQDNs statement. The precedence rules in
+	//   the API for such policy conflicts define that the deny should take
+	//   precedence.
+	// - Consider a case where there is a deny rule for 192.0.0.0/16 with
+	//   an allow rule for cilium.io, and one of the IP addresses for
+	//   cilium.io is 192.0.2.3.
+	// - If the IP for cilium.io was known at initial policy computation
+	//   time, then we would calculate the MapState from the L4Filters and
+	//   immediately determine that there is a conflict between the
+	//   L4Filter that denies 192.0.0.0/16 vs. the allow for 192.0.2.3.
+	//   From this we could immediately discard the "allow to 192.0.2.3"
+	//   policymap entry during policy calculation. This would satisfy the
+	//   API constraint that deny rules take precedence over allow rules.
+	//   However, this is not the case for ToFQDNs -- the IPs are not known
+	//   until DNS resolution time by the selected application / endpoint.
+	// - In order to make ToFQDNs policy implementation efficient, it uses
+	//   a shorter incremental policy computation path that attempts to
+	//   directly implement the ToFQDNs allow into a MapState entry without
+	//   reaching back up to the L4Filter layer to iterate all selectors
+	//   to determine traffic reachability for this newly learned IP.
+	// - As such, when the new ToFQDNs allow for the 192.0.2.3 IP address
+	//   is implemented, we must iterate back through all existing MapState
+	//   entries to determine whether any of the other map entries already
+	//   denies this traffic by virtue of the IP prefix being a superset of
+	//   this new allow. This allows us to ensure that the broader CIDR
+	//   deny semantics are correctly applied when there is a combination
+	//   of CIDR deny rules and ToFQDNs allow rules.
+	//
+	// An alternative to this approach might be to change the ToFQDNs
+	// policy calculation layer to reference back to the L4Filter layer,
+	// and perhaps introduce additional CIDR caching somewhere there so
+	// that this policy computation can be efficient while handling DNS
+	// responses. As of the writing of this message, such there is no
+	// active proposal to implement this proposal. As a result, any time
+	// there is an incremental policy update for a new map entry, we must
+	// iterate through all entries in the map and re-evaluate superset
+	// relationships for deny entries to ensure that policy precedence is
+	// correctly implemented between the new and old entries, taking into
+	// account whether the identities may represent CIDRs that have a
+	// superset relationship.
 	return primaryKey.Identity == 0 && compareKey.Identity != 0 ||
 		ip.NetsContainsAny(primaryEntry.getNets(identities, primaryKey.Identity),
 			compareEntry.getNets(identities, compareKey.Identity))
@@ -388,11 +571,29 @@ func protocolsMatch(a, b Key) bool {
 	return a.Nexthdr == 0 || b.Nexthdr == 0 || a.Nexthdr == b.Nexthdr
 }
 
+// RevertChanges undoes changes to 'keys' as indicated by 'changes.adds' and 'changes.old' collected via
+// denyPreferredInsertWithChanges().
+func (keys MapState) RevertChanges(changes ChangeState) {
+	for k := range changes.Adds {
+		delete(keys, k)
+	}
+	// 'old' contains all the original values of both modified and deleted entries
+	for k, v := range changes.Old {
+		keys[k] = v
+	}
+}
+
 // denyPreferredInsertWithChanges contains the most important business logic for policy insertions. It inserts
 // a key and entry into the map by giving preference to deny entries, and L3-only deny entries over L3-L4 allows.
 // Incremental changes performed are recorded in 'adds' and 'deletes', if not nil.
 // See https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw#gid=2109052536 for details
-func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStateEntry, adds, deletes Keys, identities Identities) {
+func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStateEntry, identities Identities, features policyFeatures, changes ChangeState) {
+	// Skip deny rules processing if the policy in this direction has no deny rules
+	if !features.contains(denyRules) {
+		keys.authPreferredInsert(newKey, newEntry, features, changes)
+		return
+	}
+
 	allCpy := allKey
 	allCpy.TrafficDirection = newKey.TrafficDirection
 	// If we have a deny "all" we don't accept any kind of map entry.
@@ -416,8 +617,8 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 						newKeyCpy := newKey
 						newKeyCpy.DestPort = k.DestPort
 						newKeyCpy.Nexthdr = k.Nexthdr
-						l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, false, true, AuthTypeDisabled)
-						keys.addKeyWithChanges(newKeyCpy, l3l4DenyEntry, adds, deletes)
+						l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
+						keys.addKeyWithChanges(newKeyCpy, l3l4DenyEntry, changes)
 						// L3-only entries can be deleted incrementally so we need to track their
 						// effects on other entries so that those effects can be reverted when the
 						// identity is removed.
@@ -429,7 +630,7 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 					// If the new-entry is a superset (or equal) of the iterated-allow-entry and
 					// the new-entry has a broader (or equal) port-protocol then we
 					// should delete the iterated-allow-entry
-					keys.deleteKeyWithChanges(k, nil, adds, deletes)
+					keys.deleteKeyWithChanges(k, nil, changes)
 				}
 			} else if (newKey.Identity == k.Identity ||
 				entryIdentityIsSupersetOf(k, v, newKey, newEntry, identities)) &&
@@ -456,10 +657,10 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 				//
 				// NOTE: This condition could be broader to reject more deny entries,
 				// but there *may* be performance tradeoffs.
-				keys.deleteKeyWithChanges(k, nil, adds, deletes)
+				keys.deleteKeyWithChanges(k, nil, changes)
 			}
 		}
-		keys.addKeyWithChanges(newKey, newEntry, adds, deletes)
+		keys.addKeyWithChanges(newKey, newEntry, changes)
 	} else {
 		for k, v := range keys {
 			// Protocols and traffic directions that don't match ensure that the policies
@@ -479,13 +680,12 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 						denyKeyCpy := k
 						denyKeyCpy.DestPort = newKey.DestPort
 						denyKeyCpy.Nexthdr = newKey.Nexthdr
-						l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, false, true, AuthTypeDisabled)
-						keys.addKeyWithChanges(denyKeyCpy, l3l4DenyEntry, adds, deletes)
+						l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
+						keys.addKeyWithChanges(denyKeyCpy, l3l4DenyEntry, changes)
 						// L3-only entries can be deleted incrementally so we need to track their
 						// effects on other entries so that those effects can be reverted when the
 						// identity is removed.
-						v.AddDependent(denyKeyCpy)
-						keys[k] = v
+						keys.addDependentOnEntry(k, v, denyKeyCpy, changes)
 					}
 				} else if (k.Identity == newKey.Identity ||
 					entryIdentityIsSupersetOf(k, v, newKey, newEntry, identities)) &&
@@ -498,24 +698,205 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 				}
 			}
 		}
-		keys.redirectPreferredInsert(newKey, newEntry, adds, deletes)
+		keys.authPreferredInsert(newKey, newEntry, features, changes)
 	}
 }
 
-// redirectPreferredInsert inserts a new entry giving priority to L7-redirects by
-// not overwriting a L7-redirect entry with a non-redirect entry.
-func (keys MapState) redirectPreferredInsert(key Key, entry MapStateEntry, adds, deletes Keys) {
-	// Do not overwrite the entry, but only merge owners if the old entry is a deny or redirect.
-	// This prevents an existing deny or redirect being overridden by a non-deny or a non-redirect.
-	// Merging owners from the new entry to the existing one has no datapath impact so we skip
-	// adding anything to 'adds' here.
-	if oldEntry, exists := keys[key]; exists && (oldEntry.IsRedirectEntry() || oldEntry.IsDeny) {
-		oldEntry.MergeReferences(&entry)
-		keys[key] = oldEntry
-		return
+// IsSuperSetOf checks if the receiver Key is a superset of the argument Key, and returns a
+// specificity score of the receiver key (higher score is more specific), if so. Being a superset
+// means that the receiver key would match all the traffic of the argument key without being the
+// same key. Hence, a L3-only key is not a superset of a L4-only key, as the L3-only key would match
+// the traffic for the given L3 only, while the L4-only key matches traffic on the given port for
+// all the L3's.
+// Returns 0 if the receiver key is not a superset of the argument key.
+//
+// Specificity score for all possible superset wildcard patterns. Datapath requires proto to be specified if port is specified.
+// x. L3/proto/port
+//  1. */*/*
+//  2. */proto/*
+//  3. */proto/port
+//  4. ID/*/*
+//  5. ID/proto/*
+//     ( ID/proto/port can not be superset of anything )
+func (k Key) IsSuperSetOf(other Key) int {
+	if k.TrafficDirection != other.TrafficDirection {
+		return 0 // TrafficDirection must match for 'k' to be a superset of 'other'
 	}
-	// Otherwise write the entry to the map
-	keys.addKeyWithChanges(key, entry, adds, deletes)
+	if k.Identity == 0 {
+		if other.Identity == 0 {
+			if k.Nexthdr == 0 { // k.DestPort == 0 is implied
+				if other.Nexthdr != 0 {
+					return 1 // */*/* is a superset of */proto/x
+				} // else both are */*/*
+			} else if k.Nexthdr == other.Nexthdr {
+				if k.DestPort == 0 && other.DestPort != 0 {
+					return 2 // */proto/* is a superset of */proto/port
+				} // else more specific or different ports
+			} // else more specific or different protocol
+		} else {
+			// Wildcard L3 is a superset of a specific L3 only if wildcard L3 is also wildcard L4, or the L4's match between the keys
+			if k.Nexthdr == 0 { // k.DestPort == 0 is implied
+				return 1 // */*/* is a superset of ID/x/x
+			} else if k.Nexthdr == other.Nexthdr {
+				if k.DestPort == 0 {
+					return 2 // */proto/* is a superset of ID/proto/x
+				} else if k.DestPort == other.DestPort {
+					return 3 // */proto/port is a superset of ID/proto/port
+				} // else more specific or different ports
+			} // else more specific or different protocol
+		}
+	} else if k.Identity == other.Identity {
+		if k.Nexthdr == 0 {
+			if other.Nexthdr != 0 {
+				return 4 // ID/*/* is a superset of ID/proto/x
+			} // else both are ID/*/*
+		} else if k.Nexthdr == other.Nexthdr {
+			if k.DestPort == 0 && other.DestPort != 0 {
+				return 5 // ID/proto/* is a superset of ID/proto/port
+			} // else more specific or different ports
+		} // else more specific or different protocol
+	} // else more specific or different identity
+	return 0
+}
+
+// authPreferredInsert applies AuthType of a more generic entry to more specific entries, if not
+// explicitly specified.
+//
+// This function is expected to be called for a map insertion after deny
+// entry evaluation. If there is a map entry that is a superset of 'newKey'
+// which denies traffic matching 'newKey', then this function should not be called.
+func (keys MapState) authPreferredInsert(newKey Key, newEntry MapStateEntry, features policyFeatures, changes ChangeState) {
+	if features.contains(authRules) {
+		if newEntry.hasAuthType == DefaultAuthType {
+			// New entry has a default auth type.
+			// Fill in the AuthType from more generic entries with an explicit auth type
+			maxSpecificity := 0
+			l3l4keys := make(MapState)
+			for k, v := range keys {
+				// Only consider the same Traffic direction
+				if newKey.TrafficDirection != k.TrafficDirection {
+					continue
+				}
+				// Skip deny entries, they have no effect on authentication requirements,
+				// and we should not create any new (non-deny) entries based on a combination
+				// of an existing deny and the new non-deny entry.
+				if v.IsDeny {
+					continue
+				}
+
+				// Nothing to be done if entry has default AuthType
+				if v.hasAuthType == DefaultAuthType {
+					continue
+				}
+
+				// Find out if 'k' is an identity-port-proto superset of 'newKey'
+				if specificity := k.IsSuperSetOf(newKey); specificity > 0 {
+					if specificity > maxSpecificity {
+						// AuthType from the most specific superset is
+						// applied to 'newEntry'
+						newEntry.AuthType = v.AuthType
+						maxSpecificity = specificity
+					}
+				} else {
+					// Check if a new L3L4 entry must be created due to L3-only
+					// 'k' specifying an explicit AuthType and an L4-only 'newKey' not
+					// having an explicit AuthType. In this case AuthType should
+					// only override the AuthType for the L3 & L4 combination,
+					// not L4 in general.
+					//
+					// These need to be collected and only added if there is a
+					// superset key of newKey with an explicit auth type. In
+					// this case AuthType of the new L4-only entry was
+					// overridden by a more generic entry and 'max_specificity >
+					// 0' after the loop.
+					if k.Identity != 0 && k.Nexthdr == 0 && newKey.Identity == 0 && newKey.Nexthdr != 0 {
+						newKeyCpy := k
+						newKeyCpy.DestPort = newKey.DestPort
+						newKeyCpy.Nexthdr = newKey.Nexthdr
+						l3l4AuthEntry := NewMapStateEntry(k, v.DerivedFromRules, false, false, DefaultAuthType, v.AuthType)
+						l3l4AuthEntry.DerivedFromRules.MergeSorted(newEntry.DerivedFromRules)
+						l3l4keys[newKeyCpy] = l3l4AuthEntry
+					}
+				}
+			}
+			// Add collected L3/L4 entries if the auth type of the new entry was not
+			// overridden by a more generic entry. If it was overridden, the new L3L4
+			// entries are not needed as the L4-only entry with an overridden AuthType
+			// will be matched before the L3-only entries in the datapath.
+			if maxSpecificity == 0 {
+				for k, v := range l3l4keys {
+					keys.addKeyWithChanges(k, v, changes)
+					// L3-only entries can be deleted incrementally so we need to track their
+					// effects on other entries so that those effects can be reverted when the
+					// identity is removed.
+					newEntry.AddDependent(k)
+				}
+			}
+		} else {
+			// New entry has an explicit auth type.
+			// Check if the new entry is the most specific superset of any other entry
+			// with the default auth type, and propagate the auth type from the new
+			// entry to such entries.
+			explicitSubsetKeys := make(Keys)
+			defaultSubsetKeys := make(map[Key]int)
+			for k, v := range keys {
+				// Only consider the same Traffic direction
+				if newKey.TrafficDirection != k.TrafficDirection {
+					continue
+				}
+				// Skip deny entries, they have no effect on authentication requirements,
+				// and we should not create any new (non-deny) entries based on a combination
+				// of an existing deny and the new non-deny entry.
+				if v.IsDeny {
+					continue
+				}
+
+				// Find out if 'newKey' is a superset of 'k'
+				if specificity := newKey.IsSuperSetOf(k); specificity > 0 {
+					if v.hasAuthType == ExplicitAuthType {
+						// store for later comparison
+						explicitSubsetKeys[k] = struct{}{}
+					} else {
+						defaultSubsetKeys[k] = specificity
+					}
+				} else if v.hasAuthType == DefaultAuthType {
+					// Check if a new L3L4 entry must be created due to L3-only
+					// 'newKey' with an explicit AuthType and an L4-only 'k' not
+					// having an explicit AuthType. In this case AuthType should
+					// only override the AuthType for the L3 & L4 combination,
+					// not L4 in general.
+					if newKey.Identity != 0 && newKey.Nexthdr == 0 && k.Identity == 0 && k.Nexthdr != 0 {
+						newKeyCpy := newKey
+						newKeyCpy.DestPort = k.DestPort
+						newKeyCpy.Nexthdr = k.Nexthdr
+						l3l4AuthEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, false, false, DefaultAuthType, newEntry.AuthType)
+						l3l4AuthEntry.DerivedFromRules.MergeSorted(v.DerivedFromRules)
+						keys.addKeyWithChanges(newKeyCpy, l3l4AuthEntry, changes)
+						// L3-only entries can be deleted incrementally so we need to track their
+						// effects on other entries so that those effects can be reverted when the
+						// identity is removed.
+						newEntry.AddDependent(newKeyCpy)
+					}
+				}
+			}
+			// Find out if this newKey is the most specific superset for all the subset keys with default auth type
+		Next:
+			for k, specificity := range defaultSubsetKeys {
+				for l := range explicitSubsetKeys {
+					if s := l.IsSuperSetOf(k); s > specificity {
+						// k has a more specific superset key than the newKey, skip
+						continue Next
+					}
+				}
+				// newKey is the most specific superset with an explicit auth type,
+				// propagate auth type from newEntry to the entry of k
+				v := keys[k]
+				v.AuthType = newEntry.AuthType
+				keys.addKeyWithChanges(k, v, changes) // Update the map value
+			}
+		}
+	}
+	keys.addKeyWithChanges(newKey, newEntry, changes)
 }
 
 var visibilityDerivedFromLabels = labels.LabelArray{
@@ -524,12 +905,21 @@ var visibilityDerivedFromLabels = labels.LabelArray{
 
 var visibilityDerivedFrom = labels.LabelArrayList{visibilityDerivedFromLabels}
 
-func (keys MapState) insertIfNotExists(key Key, entry MapStateEntry) {
+// insertIfNotExists only inserts `key=value` if `key` does not exist in keys already
+// returns 'true' if 'key=entry' was added to 'keys'
+func (keys MapState) insertIfNotExists(key Key, entry MapStateEntry) bool {
 	if keys != nil {
 		if _, exists := keys[key]; !exists {
+			// new containers to keep this entry separate from the one that may remain in 'keys'
+			entry.DerivedFromRules = slices.Clone(entry.DerivedFromRules)
+			entry.owners = maps.Clone(entry.owners)
+			entry.dependents = maps.Clone(entry.dependents)
+
 			keys[key] = entry
+			return true
 		}
 	}
+	return false
 }
 
 // AddVisibilityKeys adjusts and expands PolicyMapState keys
@@ -576,7 +966,7 @@ func (keys MapState) insertIfNotExists(key Key, entry MapStateEntry) {
 // 'adds' and 'oldValues' are updated with the changes made. 'adds' contains both the added and
 // changed keys. 'oldValues' contains the old values for changed keys. This function does not
 // delete any keys.
-func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMeta *VisibilityMetadata, adds Keys, oldValues MapState) {
+func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMeta *VisibilityMetadata, changes ChangeState) {
 	direction := trafficdirection.Egress
 	if visMeta.Ingress {
 		direction = trafficdirection.Ingress
@@ -591,7 +981,7 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 		TrafficDirection: direction.Uint8(),
 	}
 
-	entry := NewMapStateEntry(nil, visibilityDerivedFrom, true, false, AuthTypeDisabled)
+	entry := NewMapStateEntry(nil, visibilityDerivedFrom, true, false, DefaultAuthType, AuthTypeDisabled)
 	entry.ProxyPort = redirectPort
 
 	_, haveAllowAllKey := keys[allowAllKey]
@@ -604,14 +994,7 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 			logfields.BPFMapKey:   key,
 			logfields.BPFMapValue: entry,
 		}, "AddVisibilityKeys: Changing L4-only ALLOW key for visibility redirect")
-
-		// keep the original value for reverting purposes
-		oldValues.insertIfNotExists(key, l4Only)
-
-		l4Only.ProxyPort = redirectPort
-		l4Only.DerivedFromRules = append(l4Only.DerivedFromRules, visibilityDerivedFromLabels)
-		keys[key] = l4Only
-		adds[key] = struct{}{}
+		keys.addKeyWithChanges(key, entry, changes)
 	}
 	if haveAllowAllKey && !haveL4OnlyKey {
 		// 2. If allow-all policy exists, add L4-only visibility redirect key if the L4-only
@@ -619,10 +1002,9 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 		e.PolicyDebug(logrus.Fields{
 			logfields.BPFMapKey:   key,
 			logfields.BPFMapValue: entry,
-		}, "AddVisibilityKeys: Adding L4-only ALLOW key for visibilty redirect")
+		}, "AddVisibilityKeys: Adding L4-only ALLOW key for visibility redirect")
 		addL4OnlyKey = true
-		keys[key] = entry
-		adds[key] = struct{}{}
+		keys.addKeyWithChanges(key, entry, changes)
 	}
 	//
 	// Loop through all L3 keys in the traffic direction of the new key
@@ -638,18 +1020,13 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 			if !v.IsDeny && v.ProxyPort == 0 {
 				// 3. Change all L3/L4 ALLOW keys on matching port that do not
 				//    already redirect to redirect.
-
-				// keep the original value for reverting purposes
-				oldValues.insertIfNotExists(k, v)
-
 				v.ProxyPort = redirectPort
-				v.DerivedFromRules = append(v.DerivedFromRules, visibilityDerivedFromLabels)
+				v.DerivedFromRules = visibilityDerivedFrom
 				e.PolicyDebug(logrus.Fields{
 					logfields.BPFMapKey:   k,
 					logfields.BPFMapValue: v,
 				}, "AddVisibilityKeys: Changing L3/L4 ALLOW key for visibility redirect")
-				keys[k] = v
-				adds[k] = struct{}{}
+				keys.addKeyWithChanges(k, v, changes)
 			}
 		} else if k.DestPort == 0 && k.Nexthdr == 0 {
 			//
@@ -663,44 +1040,33 @@ func (keys MapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMe
 				//    ALLOW redirect if no L3/L4 key already exists and no
 				//    L4-only key already exists and one is not added.
 				if _, ok := keys[k2]; !ok {
-					d2 := append(labels.LabelArrayList{visibilityDerivedFromLabels}, v.DerivedFromRules...)
-					v2 := NewMapStateEntry(k, d2, true, false, v.AuthType)
+					d2 := labels.LabelArrayList{visibilityDerivedFromLabels}
+					d2.MergeSorted(v.DerivedFromRules)
+					v2 := NewMapStateEntry(k, d2, true, false, v.hasAuthType, v.AuthType)
 					v2.ProxyPort = redirectPort
 					e.PolicyDebug(logrus.Fields{
 						logfields.BPFMapKey:   k2,
 						logfields.BPFMapValue: v2,
-					}, "AddVisibilityKeys: Extending L3-only ALLOW key to L3/L4 key for visibilty redirect")
-					keys[k2] = v2
-					adds[k2] = struct{}{}
-
-					// keep the original value for reverting purposes
-					oldValues.insertIfNotExists(k, v)
+					}, "AddVisibilityKeys: Extending L3-only ALLOW key to L3/L4 key for visibility redirect")
+					keys.addKeyWithChanges(k2, v2, changes)
 
 					// Mark the new entry as a dependent of 'v'
-					v.AddDependent(k2)
-					keys[k] = v
-					adds[k] = struct{}{} // dependent was added
+					keys.addDependentOnEntry(k, v, k2, changes)
 				}
 			} else if addL4OnlyKey && v.IsDeny {
 				// 5. If a new L4-only key was added: For each L3-only DENY
 				//    key add the corresponding L3/L4 DENY key if no L3/L4
 				//    key already exists.
 				if _, ok := keys[k2]; !ok {
-					v2 := NewMapStateEntry(k, v.DerivedFromRules, false, true, AuthTypeDisabled)
+					v2 := NewMapStateEntry(k, v.DerivedFromRules, false, true, DefaultAuthType, AuthTypeDisabled)
 					e.PolicyDebug(logrus.Fields{
 						logfields.BPFMapKey:   k2,
 						logfields.BPFMapValue: v2,
 					}, "AddVisibilityKeys: Extending L3-only DENY key to L3/L4 key to deny a port with visibility annotation")
-					keys[k2] = v2
-					adds[k2] = struct{}{}
-
-					// keep the original value for reverting purposes
-					oldValues.insertIfNotExists(k, v)
+					keys.addKeyWithChanges(k2, v2, changes)
 
 					// Mark the new entry as a dependent of 'v'
-					v.AddDependent(k2)
-					keys[k] = v
-					adds[k] = struct{}{} // dependent was added
+					keys.addDependentOnEntry(k, v, k2, changes)
 				}
 			}
 		}
@@ -718,8 +1084,8 @@ func (keys MapState) DetermineAllowLocalhostIngress() {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved),
 			},
 		}
-		es := NewMapStateEntry(nil, derivedFrom, false, false, AuthTypeDisabled)
-		keys.DenyPreferredInsert(localHostKey, es, nil)
+		es := NewMapStateEntry(nil, derivedFrom, false, false, ExplicitAuthType, AuthTypeDisabled) // Authentication never required for local host ingress
+		keys.denyPreferredInsert(localHostKey, es, nil, allFeatures)
 		if !option.Config.EnableRemoteNodeIdentity {
 			var isHostDenied bool
 			v, ok := keys[localHostKey]
@@ -729,15 +1095,16 @@ func (keys MapState) DetermineAllowLocalhostIngress() {
 					labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowRemoteHostIngress, labels.LabelSourceReserved),
 				},
 			}
-			es := NewMapStateEntry(nil, derivedFrom, false, isHostDenied, AuthTypeDisabled)
-			keys.DenyPreferredInsert(localRemoteNodeKey, es, nil)
+			es := NewMapStateEntry(nil, derivedFrom, false, isHostDenied, ExplicitAuthType, AuthTypeDisabled) // Authentication never required for remote node ingress
+			keys.denyPreferredInsert(localRemoteNodeKey, es, nil, allFeatures)
 		}
 	}
 }
 
 // AllowAllIdentities translates all identities in selectorCache to their
 // corresponding Keys in the specified direction (ingress, egress) which allows
-// all at L3, without requiring authentication.
+// all at L3.
+// Note that this is used when policy is not enforced, so authentication is explicitly not required.
 func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 	if ingress {
 		keyToAdd := Key{
@@ -751,7 +1118,7 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
 			},
 		}
-		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false, AuthTypeDisabled)
+		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false, ExplicitAuthType, AuthTypeDisabled)
 	}
 	if egress {
 		keyToAdd := Key{
@@ -765,19 +1132,19 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
 			},
 		}
-		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false, AuthTypeDisabled)
+		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false, ExplicitAuthType, AuthTypeDisabled)
 	}
 }
 
-func (keys MapState) AllowsL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
+func (keys MapState) deniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
 
 	// resolve named port
 	if port == 0 && l4.PortName != "" {
-		port = policyOwner.GetNamedPortLocked(l4.Ingress, l4.PortName, proto)
+		port = policyOwner.GetNamedPort(l4.Ingress, l4.PortName, proto)
 		if port == 0 {
-			return false
+			return true
 		}
 	}
 
@@ -793,10 +1160,10 @@ func (keys MapState) AllowsL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 		Nexthdr:          0,
 		TrafficDirection: dir,
 	}
-	// Are we explicitly denying any traffic?
+	// Are we explicitly denying all traffic?
 	v, ok := keys[anyKey]
 	if ok && v.IsDeny {
-		return false
+		return true
 	}
 
 	// Are we explicitly denying this L4-only traffic?
@@ -804,10 +1171,12 @@ func (keys MapState) AllowsL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 	anyKey.Nexthdr = proto
 	v, ok = keys[anyKey]
 	if ok && v.IsDeny {
-		return false
+		return true
 	}
 
-	return true
+	// The given L4 is not categorically denied.
+	// Traffic to/from a specific L3 on any of the selectors can still be denied.
+	return false
 }
 
 func (pms MapState) GetIdentities(log *logrus.Logger) (ingIdentities, egIdentities []int64) {
@@ -868,7 +1237,7 @@ type MapChange struct {
 // present in both 'adds' and 'deletes'.
 func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []identity.NumericIdentity,
 	port uint16, proto uint8, direction trafficdirection.TrafficDirection,
-	redirect, isDeny bool, authType AuthType, derivedFrom labels.LabelArrayList) {
+	redirect, isDeny bool, hasAuth HasAuthType, authType AuthType, derivedFrom labels.LabelArrayList) {
 	key := Key{
 		// The actual identity is set in the loops below
 		Identity: 0,
@@ -878,9 +1247,13 @@ func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []id
 		TrafficDirection: direction.Uint8(),
 	}
 
-	value := NewMapStateEntry(cs, derivedFrom, redirect, isDeny, authType)
+	value := NewMapStateEntry(cs, derivedFrom, redirect, isDeny, hasAuth, authType)
 
 	if option.Config.Debug {
+		authString := "default"
+		if hasAuth {
+			authString = authType.String()
+		}
 		log.WithFields(logrus.Fields{
 			logfields.EndpointSelector: cs,
 			logfields.AddedPolicyID:    adds,
@@ -889,7 +1262,7 @@ func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []id
 			logfields.Protocol:         proto,
 			logfields.TrafficDirection: direction,
 			logfields.IsRedirect:       redirect,
-			logfields.AuthType:         authType.String(),
+			logfields.AuthType:         authString,
 		}).Debug("AccumulateMapChanges")
 	}
 
@@ -907,25 +1280,27 @@ func (mc *MapChanges) AccumulateMapChanges(cs CachedSelector, adds, deletes []id
 
 // consumeMapChanges transfers the incremental changes from MapChanges to the caller,
 // while applying the changes to PolicyMapState.
-func (mc *MapChanges) consumeMapChanges(policyMapState MapState, identities Identities) (adds, deletes Keys) {
+func (mc *MapChanges) consumeMapChanges(policyMapState MapState, features policyFeatures, identities Identities) (adds, deletes Keys) {
 	mc.mutex.Lock()
-	adds = make(Keys, len(mc.changes))
-	deletes = make(Keys, len(mc.changes))
+	changes := ChangeState{
+		Adds:    make(Keys, len(mc.changes)),
+		Deletes: make(Keys, len(mc.changes)),
+	}
 
 	for i := range mc.changes {
 		if mc.changes[i].Add {
 			// insert but do not allow non-redirect entries to overwrite a redirect entry,
 			// nor allow non-deny entries to overwrite deny entries.
 			// Collect the incremental changes to the overall state in 'mc.adds' and 'mc.deletes'.
-			policyMapState.denyPreferredInsertWithChanges(mc.changes[i].Key, mc.changes[i].Value, adds, deletes, identities)
+			policyMapState.denyPreferredInsertWithChanges(mc.changes[i].Key, mc.changes[i].Value, identities, features, changes)
 		} else {
 			// Delete the contribution of this cs to the key and collect incremental changes
 			for cs := range mc.changes[i].Value.owners { // get the sole selector
-				policyMapState.deleteKeyWithChanges(mc.changes[i].Key, cs, adds, deletes)
+				policyMapState.deleteKeyWithChanges(mc.changes[i].Key, cs, changes)
 			}
 		}
 	}
 	mc.changes = nil
 	mc.mutex.Unlock()
-	return adds, deletes
+	return changes.Adds, changes.Deletes
 }

@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"strings"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -70,11 +71,14 @@ type Loader struct {
 	templateCache *objectCache
 
 	ipsecMu lock.Mutex // guards reinitializeIPSec
+
+	hostDpInitializedOnce sync.Once
+	hostDpInitialized     chan struct{}
 }
 
 // NewLoader returns a new loader.
 func NewLoader() *Loader {
-	return &Loader{}
+	return &Loader{hostDpInitialized: make(chan struct{})}
 }
 
 // Init initializes the datapath cache with base program hashes derived from
@@ -196,6 +200,90 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	return hostObj.Write(dstPath, opts, strings)
 }
 
+func isObsoleteDev(dev string) bool {
+	// exclude devices we never attach to/from_netdev to.
+	for _, prefix := range defaults.ExcludedDevicePrefixes {
+		if strings.HasPrefix(dev, prefix) {
+			return false
+		}
+	}
+
+	// exclude devices that will still be managed going forward.
+	for _, d := range option.Config.GetDevices() {
+		if dev == d {
+			return false
+		}
+	}
+
+	return true
+}
+
+// removeObsoleteNetdevPrograms removes cil_to_netdev and cil_from_netdev from devices
+// that cilium potentially doesn't manage anymore after a restart, e.g. if the set of
+// devices in option.Config.GetDevices() changes between restarts.
+//
+// This code assumes that the agent was upgraded from a prior version while maintaining
+// the same list of managed physical devices. This ensures that all tc bpf filters get
+// replaced using the naming convention of the 'current' agent build. For example,
+// before 1.13, most filters were named e.g. bpf_host.o:[to-host], to be changed to
+// cilium-<device> in 1.13, then to cil_to_host-<device> in 1.14. As a result, this
+// function only cleans up filters following the current naming scheme.
+func removeObsoleteNetdevPrograms() error {
+	links, err := netlink.LinkList()
+	if err != nil {
+		return fmt.Errorf("retrieving all netlink devices: %w", err)
+	}
+
+	// collect all devices that have netdev programs attached on either ingress or egress.
+	ingressDevs := []netlink.Link{}
+	egressDevs := []netlink.Link{}
+	for _, l := range links {
+		if !isObsoleteDev(l.Attrs().Name) {
+			continue
+		}
+
+		ingressFilters, err := netlink.FilterList(l, directionToParent(dirIngress))
+		if err != nil {
+			return fmt.Errorf("listing ingress filters: %w", err)
+		}
+		for _, filter := range ingressFilters {
+			if bpfFilter, ok := filter.(*netlink.BpfFilter); ok {
+				if strings.HasPrefix(bpfFilter.Name, symbolFromHostNetdevEp) {
+					ingressDevs = append(ingressDevs, l)
+				}
+			}
+		}
+
+		egressFilters, err := netlink.FilterList(l, directionToParent(dirEgress))
+		if err != nil {
+			return fmt.Errorf("listing egress filters: %w", err)
+		}
+		for _, filter := range egressFilters {
+			if bpfFilter, ok := filter.(*netlink.BpfFilter); ok {
+				if strings.HasPrefix(bpfFilter.Name, symbolToHostNetdevEp) {
+					egressDevs = append(egressDevs, l)
+				}
+			}
+		}
+	}
+
+	for _, dev := range ingressDevs {
+		err = RemoveTCFilters(dev.Attrs().Name, directionToParent(dirIngress))
+		if err != nil {
+			log.WithError(err).Errorf("couldn't remove ingress tc filters from %s", dev.Attrs().Name)
+		}
+	}
+
+	for _, dev := range egressDevs {
+		err = RemoveTCFilters(dev.Attrs().Name, directionToParent(dirEgress))
+		if err != nil {
+			log.WithError(err).Errorf("couldn't remove egress tc filters from %s", dev.Attrs().Name)
+		}
+	}
+
+	return nil
+}
+
 // reloadHostDatapath loads bpf_host programs attached to the host device
 // (usually cilium_host) and the native devices if any. To that end, it
 // uses a single object file, pointed to by objPath, compiled for the host
@@ -291,6 +379,16 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		// Defer map removal until all interfaces' progs have been replaced.
 		defer finalize()
 	}
+
+	// call at the end of the function so that we can easily detect if this removes necessary
+	// programs that have just been attached.
+	if err := removeObsoleteNetdevPrograms(); err != nil {
+		log.WithError(err).Error("Failed to remove obsolete netdev programs")
+	}
+
+	l.hostDpInitializedOnce.Do(func() {
+		close(l.hostDpInitialized)
+	})
 
 	return nil
 }
@@ -527,4 +625,10 @@ func (l *Loader) CallsMapPath(id uint16) string {
 // specified ID.
 func (l *Loader) CustomCallsMapPath(id uint16) string {
 	return bpf.LocalMapPath(callsmap.CustomCallsMapName, id)
+}
+
+// HostDatapathInitialized returns a channel which is closed when the
+// host datapath has been loaded for the first time.
+func (l *Loader) HostDatapathInitialized() <-chan struct{} {
+	return l.hostDpInitialized
 }

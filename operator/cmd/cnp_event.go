@@ -16,6 +16,7 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -27,6 +28,8 @@ var (
 	// cnpStatusUpdateInterval is the amount of time between status updates
 	// being sent to the K8s apiserver for a given CNP.
 	cnpStatusUpdateInterval time.Duration
+
+	cnpToGroupsControllerGroup = controller.NewGroup("cilium-network-policy-to-groups")
 )
 
 func init() {
@@ -75,7 +78,7 @@ func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClie
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				k8sEventMetric(resources.MetricCNP, resources.MetricCreate)
-				if cnp := k8s.ObjToSlimCNP(obj); cnp != nil {
+				if cnp := k8s.CastInformerEvent[types.SlimCNP](obj); cnp != nil {
 					// We need to deepcopy this structure because we are writing
 					// fields.
 					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
@@ -89,8 +92,8 @@ func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClie
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				k8sEventMetric(resources.MetricCNP, resources.MetricUpdate)
-				if oldCNP := k8s.ObjToSlimCNP(oldObj); oldCNP != nil {
-					if newCNP := k8s.ObjToSlimCNP(newObj); newCNP != nil {
+				if oldCNP := k8s.CastInformerEvent[types.SlimCNP](oldObj); oldCNP != nil {
+					if newCNP := k8s.CastInformerEvent[types.SlimCNP](newObj); newCNP != nil {
 						if oldCNP.DeepEqual(newCNP) {
 							return
 						}
@@ -107,7 +110,7 @@ func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClie
 			},
 			DeleteFunc: func(obj interface{}) {
 				k8sEventMetric(resources.MetricCNP, resources.MetricDelete)
-				cnp := k8s.ObjToSlimCNP(obj)
+				cnp := k8s.CastInformerEvent[types.SlimCNP](obj)
 				if cnp == nil {
 					return
 				}
@@ -134,6 +137,7 @@ func enableCNPWatcher(ctx context.Context, wg *sync.WaitGroup, clientset k8sClie
 
 	mgr.UpdateController("cnp-to-groups",
 		controller.ControllerParams{
+			Group: cnpToGroupsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				groups.UpdateCNPInformation(clientset)
 				return nil

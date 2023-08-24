@@ -42,6 +42,6 @@ var bpfEndpointListCmd = &cobra.Command{
 }
 
 func init() {
-	bpfEndpointCmd.AddCommand(bpfEndpointListCmd)
+	BPFEndpointCmd.AddCommand(bpfEndpointListCmd)
 	command.AddOutputOption(bpfEndpointListCmd)
 }

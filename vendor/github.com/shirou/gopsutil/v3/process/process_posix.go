@@ -14,9 +14,8 @@ import (
 	"strings"
 	"syscall"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/shirou/gopsutil/v3/internal/common"
+	"golang.org/x/sys/unix"
 )
 
 type Signal = syscall.Signal
@@ -122,7 +121,7 @@ func PidExistsWithContext(ctx context.Context, pid int32) (bool, error) {
 	if err == nil {
 		return true, nil
 	}
-	if errors.Is(err, os.ErrProcessDone) {
+	if err.Error() == "os: process already finished" {
 		return false, nil
 	}
 	var errno syscall.Errno

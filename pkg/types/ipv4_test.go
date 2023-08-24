@@ -25,8 +25,7 @@ type IPv4Suite struct{}
 var _ = check.Suite(&IPv4Suite{})
 
 func (s *IPv4Suite) TestIP(c *check.C) {
-	var expectedAddress net.IP
-	expectedAddress = []byte{10, 0, 0, 2}
+	var expectedAddress net.IP = []byte{10, 0, 0, 2}
 	result := testIPv4Address.IP()
 
 	c.Assert(result, checker.DeepEquals, expectedAddress)

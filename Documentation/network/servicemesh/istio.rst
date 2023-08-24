@@ -70,12 +70,11 @@ Start by deploying a set of web servers and client applications across three dif
 .. parsed-literal::
 
     kubectl create ns red
-    kubectl -n red apply -f <(istioctl kube-inject -f \ |SCM_WEB|\/examples/kubernetes-istio/httpbin.yaml)
-    kubectl -n red apply -f <(istioctl kube-inject -f \ |SCM_WEB|\/examples/kubernetes-istio/httpbin.yaml)
-    kubectl -n red apply -f <(istioctl kube-inject -f \ |SCM_WEB|\/examples/kubernetes-istio/netshoot.yaml)
+    kubectl -n red apply -f <(curl -s \ |SCM_WEB|\/examples/kubernetes-istio/httpbin.yaml | istioctl kube-inject -f -)
+    kubectl -n red apply -f <(curl -s \ |SCM_WEB|\/examples/kubernetes-istio/netshoot.yaml | istioctl kube-inject -f -)
     kubectl create ns blue
-    kubectl -n blue apply -f <(istioctl kube-inject -f \ |SCM_WEB|\/examples/kubernetes-istio/httpbin.yaml)
-    kubectl -n blue apply -f <(istioctl kube-inject -f \ |SCM_WEB|\/examples/kubernetes-istio/netshoot.yaml)
+    kubectl -n blue apply -f <(curl -s \ |SCM_WEB|\/examples/kubernetes-istio/httpbin.yaml | istioctl kube-inject -f -)
+    kubectl -n blue apply -f <(curl -s \ |SCM_WEB|\/examples/kubernetes-istio/netshoot.yaml | istioctl kube-inject -f -)
     kubectl create ns green
     kubectl -n green apply -f \ |SCM_WEB|\/examples/kubernetes-istio/netshoot.yaml
 

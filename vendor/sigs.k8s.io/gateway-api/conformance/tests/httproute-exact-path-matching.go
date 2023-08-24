@@ -63,6 +63,9 @@ var HTTPExactPathMatching = suite.ConformanceTest{
 			}, {
 				Request:  http.Request{Path: "/two/"},
 				Response: http.Response{StatusCode: 404},
+			}, {
+				Request:  http.Request{Path: "/Two"},
+				Response: http.Response{StatusCode: 404},
 			},
 		}
 

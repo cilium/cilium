@@ -379,6 +379,9 @@ multiple IPs to be requested at once.
 The service selector of the IP Pool still applies, requested IPs will not be allocated or assigned
 if the services don't match the pool's selector.
 
+Don't configure the annotation to request the first or last IP of an IP pool. They are reserved 
+for the network and broadcast addresses respectively.
+
 .. code-block:: yaml
 
     apiVersion: v1

@@ -15,6 +15,7 @@
 //	  - application/json
 //
 //	Produces:
+//	  - application/octet-stream
 //	  - application/json
 //
 // swagger:meta

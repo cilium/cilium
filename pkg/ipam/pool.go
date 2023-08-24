@@ -374,11 +374,7 @@ func (p *podCIDRPool) updatePool(podCIDRs []string) {
 		if _, ok := existingAllocators[cidrStr]; ok {
 			continue
 		}
-		ipAllocator, err := ipallocator.NewCIDRRange(cidrNet)
-		if err != nil {
-			log.WithError(err).WithField(logfields.CIDR, cidrStr).Error("cannot create *ipallocator.Range")
-			continue
-		}
+		ipAllocator := ipallocator.NewCIDRRange(cidrNet)
 		if ipAllocator.Free() == 0 {
 			log.WithField(logfields.CIDR, cidrNet.String()).Error("skipping too-small pod CIDR")
 			p.released[cidrNet.String()] = struct{}{}

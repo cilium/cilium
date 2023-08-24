@@ -697,6 +697,22 @@ func TestCheckIPAMDelegatedPlugin(t *testing.T) {
 			},
 			expectErr: fmt.Errorf("--local-router-ipv6 must be provided when IPv6 is enabled with --ipam=delegated-plugin"),
 		},
+		{
+			name: "IPAMDelegatedPlugin with ingress controller enabled",
+			d: &DaemonConfig{
+				IPAM:                    ipamOption.IPAMDelegatedPlugin,
+				EnableIngressController: true,
+			},
+			expectErr: fmt.Errorf("--enable-ingress-controller must be disabled with --ipam=delegated-plugin"),
+		},
+		{
+			name: "IPAMDelegatedPlugin with envoy config enabled",
+			d: &DaemonConfig{
+				IPAM:              ipamOption.IPAMDelegatedPlugin,
+				EnableEnvoyConfig: true,
+			},
+			expectErr: fmt.Errorf("--enable-envoy-config must be disabled with --ipam=delegated-plugin"),
+		},
 	}
 
 	for _, tt := range tests {

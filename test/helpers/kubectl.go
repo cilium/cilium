@@ -36,8 +36,9 @@ import (
 
 const (
 	// KubectlCmd Kubernetes controller command
-	KubectlCmd   = "kubectl"
-	kubeDNSLabel = "k8s-app=kube-dns"
+	KubectlCmd    = "kubectl"
+	kubeDNSLabel  = "k8s-app=kube-dns"
+	operatorLabel = "io.cilium/app=operator"
 
 	// DNSHelperTimeout is a predefined timeout value for K8s DNS commands. It
 	// must be larger than 5 minutes because kubedns has a hardcoded resync
@@ -273,7 +274,7 @@ func Init() {
 		os.Setenv("HUBBLE_RELAY_TAG", config.CiliumTestConfig.HubbleRelayTag)
 	}
 
-	if config.CiliumTestConfig.ProvisionK8s == false {
+	if !config.CiliumTestConfig.ProvisionK8s {
 		os.Setenv("SKIP_K8S_PROVISION", "true")
 	}
 
@@ -935,7 +936,7 @@ func (kub *Kubectl) GetPodOnNodeLabeledWithOffset(label string, podFilter string
 
 	var podName string
 
-	podsNodes, err := kub.GetPodsNodes(DefaultNamespace, fmt.Sprintf("%s", podFilter))
+	podsNodes, err := kub.GetPodsNodes(DefaultNamespace, podFilter)
 	gomega.ExpectWithOffset(callOffset, err).Should(gomega.BeNil(), "Cannot retrieve pods nodes with filter %q", podFilter)
 	gomega.Expect(podsNodes).ShouldNot(gomega.BeEmpty(), "No pod found in namespace %s with filter %q", DefaultNamespace, podFilter)
 	for pod, node := range podsNodes {
@@ -1315,26 +1316,22 @@ func (kub *Kubectl) PprofReport() {
 		}
 	}
 
-	for {
-		select {
-		case <-ticker.C:
-
-			testPath, err := CreateReportDirectory()
-			if err != nil {
-				log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
-				return
-			}
-
-			pods, err := kub.GetCiliumPods()
-			if err != nil {
-				log.Errorf("cannot get cilium pods")
-			}
-
-			for _, pod := range pods {
-				retrievePProf(pod, testPath)
-			}
-
+	for range ticker.C {
+		testPath, err := CreateReportDirectory()
+		if err != nil {
+			log.WithError(err).Errorf("cannot create test result path '%s'", testPath)
+			return
 		}
+
+		pods, err := kub.GetCiliumPods()
+		if err != nil {
+			log.Errorf("cannot get cilium pods")
+		}
+
+		for _, pod := range pods {
+			retrievePProf(pod, testPath)
+		}
+
 	}
 }
 
@@ -2166,6 +2163,19 @@ func (kub *Kubectl) ScaleUpDNS() *CmdRes {
 	return res
 }
 
+// SetCiliumOperatorReplicas sets the number of replicas for the cilium-operator.
+func (kub *Kubectl) SetCiliumOperatorReplicas(nReplicas int) *CmdRes {
+	res := kub.ExecShort(fmt.Sprintf("%s get deploy -n %s -l %s -o jsonpath='{.items[*].metadata.name}'", KubectlCmd, CiliumNamespace, operatorLabel))
+	if !res.WasSuccessful() {
+		return res
+	}
+
+	// kubectl -n kube-system patch deploy cilium-operator --patch '{"spec": { "replicas":1}}'
+	name := res.Stdout()
+	spec := fmt.Sprintf("{\"spec\": { \"replicas\":%d}}", nReplicas)
+	return kub.ExecShort(fmt.Sprintf("%s patch deploy -n %s %s --patch '%s'", KubectlCmd, CiliumNamespace, name, spec))
+}
+
 // redeployDNS deletes the kube-dns pods and does not wait for the deletion
 // to complete.
 func (kub *Kubectl) redeployDNS() *CmdRes {
@@ -2809,7 +2819,7 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 		close(queue)
 
 		for status := range queue {
-			if status == false {
+			if !status {
 				return false, nil
 			}
 		}
@@ -2905,7 +2915,6 @@ func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd strin
 			// Retry.
 		default:
 			kub.Logger().Warningf("command terminated with exit code %d on try %d", res.GetExitCode(), i)
-			break
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
@@ -2933,6 +2942,26 @@ func (kub *Kubectl) CiliumExecMustSucceedOnAll(ctx context.Context, cmd string, 
 	for _, pod := range pods {
 		kub.CiliumExecMustSucceed(ctx, pod, cmd, optionalDescription...).
 			ExpectSuccess("failed to execute %q on Cilium pod %s", cmd, pod)
+	}
+}
+
+// ExecUntilMatch executes the specified command repeatedly for the
+// specified pod until the given substring is present in stdout.
+// If the timeout is reached it will return an error.
+func (kub *Kubectl) ExecUntilMatch(namespace, pod, cmd, substr string) (*CmdRes, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+	defer cancel()
+	var res *CmdRes
+	for {
+		select {
+		case <-ctx.Done():
+			return res, fmt.Errorf("timeout waiting for %q to be present in stdout", substr)
+		default:
+			res = kub.ExecPodCmd(namespace, pod, cmd)
+			if strings.Contains(res.Stdout(), substr) {
+				return res, nil
+			}
+		}
 	}
 }
 
@@ -4354,7 +4383,7 @@ func (kub *Kubectl) WaitForEgressPolicyEntries(node string, expectedCount int) e
 	body := func() bool {
 		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
 		defer cancel()
-		cmd := fmt.Sprintf(`cilium bpf egress list | tail -n +2 | wc -l`)
+		cmd := "cilium bpf egress list | tail -n +2 | wc -l"
 		out := kub.CiliumExecContext(ctx, ciliumPod, cmd)
 		if !out.WasSuccessful() {
 			kub.Logger().

@@ -18,7 +18,7 @@ var Cell = cell.Module(
 )
 
 func newNodeMap(lifecycle hive.Lifecycle) bpf.MapOut[Map] {
-	nodeMap := newMap()
+	nodeMap := newMap(MapName)
 
 	lifecycle.Append(hive.Hook{
 		OnStart: func(context hive.HookContext) error {

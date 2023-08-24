@@ -56,6 +56,8 @@ var (
 	ctrlMgr = controller.NewManager()
 
 	mno markNodeOptions
+
+	markK8sNodeControllerGroup = controller.NewGroup("mark-k8s-node-taints-conditions")
 )
 
 func checkTaintForNextNodeItem(c kubernetes.Interface, nodeGetter slimNodeGetter, workQueue workqueue.RateLimitingInterface) bool {
@@ -470,6 +472,7 @@ func markNode(c kubernetes.Interface, nodeGetter slimNodeGetter, nodeName string
 
 	ctrlMgr.UpdateController(ctrlName,
 		controller.ControllerParams{
+			Group: markK8sNodeControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				if running && options.RemoveNodeTaint {
 					err := removeNodeTaint(ctx, c, nodeGetter, nodeName)

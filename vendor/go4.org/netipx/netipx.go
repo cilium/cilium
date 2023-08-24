@@ -545,3 +545,25 @@ func appendRangePrefixes(dst []netip.Prefix, makePrefix prefixMaker, a, b uint12
 	dst = appendRangePrefixes(dst, makePrefix, b.bitsClearedFrom(common+1), b)
 	return dst
 }
+
+// ComparePrefix is a compare function (returning -1, 0 or 1)
+// sorting prefixes first by address family (IPv4 before IPv6),
+// then by prefix length (smaller prefixes first), then by
+// address.
+func ComparePrefix(a, b netip.Prefix) int {
+	aa, ba := a.Addr(), b.Addr()
+	if al, bl := aa.BitLen(), ba.BitLen(); al != bl {
+		if al < bl {
+			return -1
+		}
+		return 1
+	}
+	ab, bb := a.Bits(), b.Bits()
+	if ab != bb {
+		if ab < bb {
+			return -1
+		}
+		return 1
+	}
+	return aa.Compare(ba)
+}

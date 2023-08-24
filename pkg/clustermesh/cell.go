@@ -4,7 +4,7 @@
 package clustermesh
 
 import (
-	"github.com/cilium/cilium/pkg/clustermesh/internal"
+	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -32,9 +32,10 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(func(cfg *option.DaemonConfig) types.ClusterIDName {
 		return types.ClusterIDName{ClusterID: cfg.ClusterID, ClusterName: cfg.ClusterName}
 	}),
+	cell.ProvidePrivate(idsMgrProvider),
 
-	cell.Config(internal.Config{}),
+	cell.Config(common.Config{}),
 
-	cell.Metric(newMetrics),
-	cell.Metric(internal.MetricsProvider(subsystem)),
+	cell.Metric(NewMetrics),
+	cell.Metric(common.MetricsProvider(subsystem)),
 )

@@ -34,6 +34,9 @@ make generate-operator-api
 # Generate all hubble api files
 make generate-hubble-api
 
+# Ensure new files are also considered in the diff
+git add --intent-to-add .
+
 # Check for diff
 diff="$(git diff)"
 

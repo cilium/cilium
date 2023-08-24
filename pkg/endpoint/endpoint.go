@@ -61,10 +61,17 @@ import (
 
 const (
 	maxLogs = 256
+
+	resolveIdentity = "resolve-identity"
+	resolveLabels   = "resolve-labels"
 )
 
 var (
 	EndpointMutableOptionLibrary = option.GetEndpointMutableOptionLibrary()
+
+	resolveIdentityControllerGroup = controller.NewGroup(resolveIdentity)
+
+	resolveLabelsControllerGroup = controller.NewGroup(resolveLabels)
 )
 
 // State is an enumeration for possible endpoint states.
@@ -126,18 +133,26 @@ type Endpoint struct {
 	// mutex protects write operations to this endpoint structure
 	mutex lock.RWMutex
 
-	// containerName is the name given to the endpoint by the container runtime
-	containerName string
+	// containerName is the name given to the endpoint by the container runtime.
+	// It is not mutable once set, but is not set on the initial endpoint creation
+	// when using the docker plugin. CNI-based clusters (read: all clusters) set
+	// this on endpoint creation.
+	containerName atomic.Pointer[string]
 
-	// containerID is the container ID that docker has assigned to the endpoint
-	containerID string
+	// containerID is the container ID that docker has assigned to the endpoint.
+	// It is not mutable once set, but is not set on the initial endpoint creation
+	// when using the docker plugin. CNI-based clusters (read: all clusters) set
+	// this on endpoint creation.
+	containerID atomic.Pointer[string]
 
 	// dockerNetworkID is the network ID of the libnetwork network if the
 	// endpoint is a docker managed container which uses libnetwork
+	// Constant after endpoint creation / restoration.
 	dockerNetworkID string
 
 	// dockerEndpointID is the Docker network endpoint ID if managed by
-	// libnetwork
+	// libnetwork.
+	// immutable.
 	dockerEndpointID string
 
 	// ifName is the name of the host facing interface (veth pair) which
@@ -146,6 +161,15 @@ type Endpoint struct {
 
 	// ifIndex is the interface index of the host face interface (veth pair)
 	ifIndex int
+
+	// containerIfName is the name of the container facing interface (veth pair).
+	// Immutable after Endpoint creation.
+	containerIfName string
+
+	// disableLegacyIdentifiers disables lookup using legacy endpoint identifiers
+	// (container name, container id, pod name) for this endpoint.
+	// Immutable after Endpoint creation.
+	disableLegacyIdentifiers bool
 
 	// OpLabels is the endpoint's label configuration
 	//
@@ -160,22 +184,27 @@ type Endpoint struct {
 	bps uint64
 
 	// mac is the MAC address of the endpoint
-	//
+	// Constant after endpoint creation / restoration.
 	mac mac.MAC // Container MAC address.
 
-	// IPv6 is the IPv6 address of the endpoint
+	// IPv6 is the IPv6 address of the endpoint.
+	// Constant after endpoint creation / restoration.
 	IPv6 netip.Addr
 
-	// IPv6IPAMPool is the IPAM address pool from which the IPv6 address has been allocated from
+	// IPv6IPAMPool is the IPAM address pool from which the IPv6 address has been allocated from.
+	// Constant after endpoint creation / restoration.
 	IPv6IPAMPool string
 
-	// IPv4 is the IPv4 address of the endpoint
+	// IPv4 is the IPv4 address of the endpoint.
+	// Constant after endpoint creation / restoration.
 	IPv4 netip.Addr
 
-	// IPv4IPAMPool is the IPAM address pool from which the IPv4 address has been allocated from
+	// IPv4IPAMPool is the IPAM address pool from which the IPv4 address has been allocated from.
+	// Constant after endpoint creation / restoration.
 	IPv4IPAMPool string
 
 	// nodeMAC is the MAC of the node (agent). The MAC is different for every endpoint.
+	// Constant after endpoint creation / restoration.
 	nodeMAC mac.MAC
 
 	// SecurityIdentity is the security identity of this endpoint. This is computed from
@@ -227,27 +256,28 @@ type Endpoint struct {
 	// compiled and installed.
 	bpfHeaderfileHash string
 
-	// K8sPodName is the Kubernetes pod name of the endpoint
+	// K8sPodName is the Kubernetes pod name of the endpoint.
+	// Immutable after Endpoint creation.
 	K8sPodName string
 
-	// K8sNamespace is the Kubernetes namespace of the endpoint
+	// K8sNamespace is the Kubernetes namespace of the endpoint.
+	// Immutable after Endpoint creation.
 	K8sNamespace string
 
 	// pod
-	pod *slim_corev1.Pod
+	pod atomic.Pointer[slim_corev1.Pod]
 
 	// k8sPorts contains container ports associated in the pod.
 	// It is used to enforce k8s network policies with port names.
-	k8sPorts types.NamedPortMap
+	k8sPorts atomic.Pointer[types.NamedPortMap]
 
 	// logLimiter rate limits potentially repeating warning logs
 	logLimiter logging.Limiter
 
-	// k8sPortsSet keep track when k8sPorts was set at least one time.
-	hasK8sMetadata bool
-
 	// policyRevision is the policy revision this endpoint is currently on
-	// to modify this field please use endpoint.setPolicyRevision instead
+	// to modify this field please use endpoint.setPolicyRevision instead.
+	//
+	// To write, both ep.mutex and ep.buildMutex must be held.
 	policyRevision uint64
 
 	// policyRevisionSignals contains a map of PolicyRevision signals that
@@ -270,7 +300,8 @@ type Endpoint struct {
 	proxyStatistics map[string]*models.ProxyStatistics
 
 	// nextPolicyRevision is the policy revision that the endpoint has
-	// updated to and that will become effective with the next regenerate
+	// updated to and that will become effective with the next regenerate.
+	// Must hold the endpoint mutex *and* buildMutex to write, and either to read.
 	nextPolicyRevision uint64
 
 	// forcePolicyCompute full endpoint policy recomputation
@@ -301,7 +332,8 @@ type Endpoint struct {
 	// realizedRedirects maps the ID of each proxy redirect that has been
 	// successfully added into a proxy for this endpoint, to the redirect's
 	// proxy port number.
-	// You must hold Endpoint.mutex to read or write it.
+	// You must hold Endpoint.mutex AND Endpoint.buildMutex to write to it,
+	// and either (or both) of those locks to read from it.
 	realizedRedirects map[string]uint16
 
 	// ctCleaned indicates whether the conntrack table has already been
@@ -314,8 +346,13 @@ type Endpoint struct {
 	// for all endpoints that have the same Identity.
 	selectorPolicy policy.SelectorPolicy
 
+	// desiredPolicy is the policy calculated during regeneration. After
+	// successful regeneration, it is copied to realizedPolicy
+	// To write, both ep.mutex and ep.buildMutex must be held.
 	desiredPolicy *policy.EndpointPolicy
 
+	// realizedPolicy is the policy that has most recently been applied.
+	// ep.mutex must be held.
 	realizedPolicy *policy.EndpointPolicy
 
 	visibilityPolicy *policy.VisibilityPolicy
@@ -344,6 +381,7 @@ type Endpoint struct {
 
 	noTrackPort uint16
 
+	// mutable! must hold the endpoint lock to read
 	ciliumEndpointUID k8sTypes.UID
 }
 
@@ -463,7 +501,7 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 		DNSZombies:       fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
 		state:            "",
 		status:           NewEndpointStatus(),
-		hasBPFProgram:    make(chan struct{}, 0),
+		hasBPFProgram:    make(chan struct{}),
 		desiredPolicy:    policy.NewEndpointPolicy(policyGetter.GetPolicyRepository()),
 		controllers:      controller.NewManager(),
 		regenFailedChan:  make(chan struct{}, 1),
@@ -829,7 +867,7 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 	ep.SetDefaultOpts(ep.Options)
 
 	// Initialize fields to values which are non-nil that are not serialized.
-	ep.hasBPFProgram = make(chan struct{}, 0)
+	ep.hasBPFProgram = make(chan struct{})
 	ep.desiredPolicy = policy.NewEndpointPolicy(policyGetter.GetPolicyRepository())
 	ep.realizedPolicy = ep.desiredPolicy
 	ep.controllers = controller.NewManager()
@@ -924,12 +962,15 @@ func (e *Endpoint) logStatusLocked(typ StatusType, code StatusCode, msg string) 
 		Timestamp: time.Now().UTC(),
 	}
 	e.status.addStatusLog(sts)
-	e.getLogger().WithFields(logrus.Fields{
-		"code":                   sts.Status.Code,
-		"type":                   sts.Status.Type,
-		logfields.EndpointState:  sts.Status.State,
-		logfields.PolicyRevision: e.policyRevision,
-	}).Debug(msg)
+
+	if logger := e.getLogger(); logging.CanLogAt(logger.Logger, logrus.DebugLevel) {
+		logger.WithFields(logrus.Fields{
+			"code":                   sts.Status.Code,
+			"type":                   sts.Status.Type,
+			logfields.EndpointState:  sts.Status.State,
+			logfields.PolicyRevision: e.policyRevision,
+		}).Debug(msg)
+	}
 }
 
 type UpdateValidationError struct {
@@ -1176,43 +1217,26 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 // GetK8sNamespace returns the name of the pod if the endpoint represents a
 // Kubernetes pod
 func (e *Endpoint) GetK8sNamespace() string {
-	e.unconditionalRLock()
+	// const after creation
 	ns := e.K8sNamespace
-	e.runlock()
 	return ns
 }
 
 // SetPod sets the pod related to this endpoint.
 func (e *Endpoint) SetPod(pod *slim_corev1.Pod) {
-	e.unconditionalLock()
-	e.pod = pod
-	e.unlock()
+	e.pod.Store(pod)
 }
 
 // GetPod retrieves the pod related to this endpoint
 func (e *Endpoint) GetPod() *slim_corev1.Pod {
-	e.unconditionalRLock()
-	pod := e.pod
-	e.runlock()
-	return pod
-}
-
-// SetK8sNamespace modifies the endpoint's pod name
-func (e *Endpoint) SetK8sNamespace(name string) {
-	e.unconditionalLock()
-	e.K8sNamespace = name
-	e.UpdateLogger(map[string]interface{}{
-		logfields.K8sPodName: e.getK8sNamespaceAndPodName(),
-	})
-	e.unlock()
+	return e.pod.Load()
 }
 
 // SetK8sMetadata sets the k8s container ports specified by kubernetes.
 // Note that once put in place, the new k8sPorts is never changed,
 // so that the map can be used concurrently without keeping locks.
-// Reading the 'e.k8sPorts' member (the "map pointer") *itself* requires the endpoint lock!
 // Can't really error out as that might break backwards compatibility.
-func (e *Endpoint) SetK8sMetadata(containerPorts []slim_corev1.ContainerPort) error {
+func (e *Endpoint) SetK8sMetadata(containerPorts []slim_corev1.ContainerPort) {
 	k8sPorts := make(types.NamedPortMap, len(containerPorts))
 	for _, cp := range containerPorts {
 		if cp.Name == "" {
@@ -1224,39 +1248,27 @@ func (e *Endpoint) SetK8sMetadata(containerPorts []slim_corev1.ContainerPort) er
 			continue
 		}
 	}
-	if len(k8sPorts) == 0 {
-		k8sPorts = nil // nil map with no storage
-	}
-	e.mutex.Lock()
-	e.hasK8sMetadata = true
-	e.k8sPorts = k8sPorts
-	e.mutex.Unlock()
-	return nil
+	e.k8sPorts.Store(&k8sPorts)
 }
 
 // GetK8sPorts returns the k8sPorts, which must not be modified by the caller
-func (e *Endpoint) GetK8sPorts() (k8sPorts types.NamedPortMap, err error) {
-	err = e.rlockAlive()
-	if err != nil {
-		return nil, err
+func (e *Endpoint) GetK8sPorts() (k8sPorts types.NamedPortMap) {
+	if p := e.k8sPorts.Load(); p != nil {
+		k8sPorts = *p
 	}
-	k8sPorts = e.k8sPorts
-	e.mutex.RUnlock()
-	return k8sPorts, nil
+	return k8sPorts
 }
 
 // HaveK8sMetadata returns true once hasK8sMetadata was set
 func (e *Endpoint) HaveK8sMetadata() (metadataSet bool) {
-	e.mutex.RLock()
-	metadataSet = e.hasK8sMetadata
-	e.mutex.RUnlock()
-	return
+	p := e.k8sPorts.Load()
+	return p != nil
 }
 
 // K8sNamespaceAndPodNameIsSet returns true if the pod name is set
 func (e *Endpoint) K8sNamespaceAndPodNameIsSet() bool {
 	e.unconditionalLock()
-	podName := e.getK8sNamespaceAndPodName()
+	podName := e.GetK8sNamespaceAndPodName()
 	e.unlock()
 	return podName != "" && podName != "/"
 }
@@ -1584,8 +1596,7 @@ type MetadataResolverCB func(ns, podName string) (pod *slim_corev1.Pod, _ []slim
 // will handle updates (such as pkg/k8s/watchers informers).
 func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 	done := make(chan struct{})
-	const controllerPrefix = "resolve-labels"
-	controllerName := fmt.Sprintf("%s-%s", controllerPrefix, e.GetK8sNamespaceAndPodName())
+	controllerName := resolveLabels + "-" + e.GetK8sNamespaceAndPodName()
 	go func() {
 		select {
 		case <-done:
@@ -1597,11 +1608,12 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 
 	e.controllers.UpdateController(controllerName,
 		controller.ControllerParams{
+			Group: resolveLabelsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
 				pod, cp, identityLabels, info, _, err := resolveMetadata(ns, podName)
 				if err != nil {
-					e.Logger(controllerPrefix).WithError(err).Warning("Unable to fetch kubernetes labels")
+					e.Logger(resolveLabels).WithError(err).Warning("Unable to fetch kubernetes labels")
 					return err
 				}
 				e.SetPod(pod)
@@ -1770,11 +1782,7 @@ func (e *Endpoint) UpdateLabelsFrom(oldLbls, newLbls map[string]string, source s
 func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 	// Check if the endpoint has since received a new identity revision, if
 	// so, abort as a new resolution routine will have been started.
-	if myChangeRev != e.identityRevision {
-		return true
-	}
-
-	return false
+	return myChangeRev != e.identityRevision
 }
 
 // runIdentityResolver resolves the numeric identity for the set of labels that
@@ -1814,9 +1822,10 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blo
 		scopedLog.Info("Resolving identity labels (non-blocking)")
 	}
 
-	ctrlName := fmt.Sprintf("resolve-identity-%d", e.ID)
+	ctrlName := fmt.Sprintf("%s-%d", resolveIdentity, e.ID)
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
+			Group: resolveIdentityControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				_, err := e.identityLabelsChanged(ctx, myChangeRev)
 				switch err {
@@ -2000,6 +2009,10 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) (
 // SetPolicyRevision sets the endpoint's policy revision with the given
 // revision.
 func (e *Endpoint) SetPolicyRevision(rev uint64) {
+	// Wait for any in-progress regenerations to finish.
+	e.buildMutex.Lock()
+	defer e.buildMutex.Unlock()
+
 	if err := e.lockAlive(); err != nil {
 		return
 	}

@@ -44,6 +44,7 @@ jobs:
               - 'hubble-relay/cmd/**'
               - 'install/kubernetes/**'
               - 'operator/cmd/**'
+              - README.rst
 
   # Runs only if code under Documentation or */cmd/ is changed as the docs
   # should be unaffected otherwise.
@@ -56,10 +57,7 @@ jobs:
       - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           persist-credentials: false
-      - name: Run pre-requisites for validation
-        run: |
-          make -C Documentation copy-api # necessary for check-build.sh
-      - uses: docker://cilium/docs-builder:2023-03-01@sha256:36b233afd73482c2bc7ed43f7a1537f09962015c34679b86c4ca1fa618d67b95
+      - uses: docker://quay.io/cilium/docs-builder:4b194c0facc5d1d3b9c0dfef3529ee7c661a6b73@sha256:095cf9621cf46c6c878e25c3a98f02ef3d0aed1154936663e352fd3fe5e7613d
         with:
           entrypoint: ./Documentation/check-build.sh
           args: html

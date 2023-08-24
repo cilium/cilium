@@ -19,9 +19,6 @@ type IDSuite struct{}
 var _ = Suite(&IDSuite{})
 
 func (s *IDSuite) TestSplitID(c *C) {
-	type args struct {
-		id string
-	}
 	type want struct {
 		prefixType      PrefixType
 		prefixTypeCheck Checker
@@ -29,121 +26,75 @@ func (s *IDSuite) TestSplitID(c *C) {
 		idCheck         Checker
 	}
 	tests := []struct {
-		name        string
-		setupArgs   func() args
-		setupWant   func() want
-		preTestRun  func()
-		postTestRun func()
+		name string
+		id   string
+		want want
 	}{
 		{
 			name: "ID without a prefix",
-			preTestRun: func() {
-			},
-			setupArgs: func() args {
-				return args{
-					"123456",
-				}
-			},
-			setupWant: func() want {
-				return want{
-					prefixType:      CiliumLocalIdPrefix,
-					prefixTypeCheck: Equals,
-					id:              "123456",
-					idCheck:         Equals,
-				}
-			},
-			postTestRun: func() {
+			id:   "123456",
+			want: want{
+				prefixType:      CiliumLocalIdPrefix,
+				prefixTypeCheck: Equals,
+				id:              "123456",
+				idCheck:         Equals,
 			},
 		},
 		{
 			name: "ID CiliumLocalIdPrefix prefix",
-			preTestRun: func() {
-			},
-			setupArgs: func() args {
-				return args{
-					string(CiliumLocalIdPrefix) + ":123456",
-				}
-			},
-			setupWant: func() want {
-				return want{
-					prefixType:      CiliumLocalIdPrefix,
-					prefixTypeCheck: Equals,
-					id:              "123456",
-					idCheck:         Equals,
-				}
-			},
-			postTestRun: func() {
+			id:   string(CiliumLocalIdPrefix) + ":123456",
+			want: want{
+				prefixType:      CiliumLocalIdPrefix,
+				prefixTypeCheck: Equals,
+				id:              "123456",
+				idCheck:         Equals,
 			},
 		},
 		{
 			name: "ID with PodNamePrefix prefix",
-			preTestRun: func() {
+			id:   string(PodNamePrefix) + ":default:foobar",
+			want: want{
+				prefixType:      PodNamePrefix,
+				prefixTypeCheck: Equals,
+				id:              "default:foobar",
+				idCheck:         Equals,
 			},
-			setupArgs: func() args {
-				return args{
-					string(PodNamePrefix) + ":default:foobar",
-				}
-			},
-			setupWant: func() want {
-				return want{
-					prefixType:      PodNamePrefix,
-					prefixTypeCheck: Equals,
-					id:              "default:foobar",
-					idCheck:         Equals,
-				}
-			},
-			postTestRun: func() {
+		},
+		{
+			name: "ID with CEPNamePrefix prefix",
+			id:   string(CEPNamePrefix) + ":default:baz-net1",
+			want: want{
+				prefixType:      CEPNamePrefix,
+				prefixTypeCheck: Equals,
+				id:              "default:baz-net1",
+				idCheck:         Equals,
 			},
 		},
 		{
 			name: "ID with ':'",
-			preTestRun: func() {
-			},
-			setupArgs: func() args {
-				return args{
-					":",
-				}
-			},
-			setupWant: func() want {
-				return want{
-					prefixType:      "",
-					prefixTypeCheck: Equals,
-					id:              "",
-					idCheck:         Equals,
-				}
-			},
-			postTestRun: func() {
+			id:   ":",
+			want: want{
+				prefixType:      "",
+				prefixTypeCheck: Equals,
+				id:              "",
+				idCheck:         Equals,
 			},
 		},
 		{
 			name: "Empty ID",
-			preTestRun: func() {
-			},
-			setupArgs: func() args {
-				return args{
-					"",
-				}
-			},
-			setupWant: func() want {
-				return want{
-					prefixType:      CiliumLocalIdPrefix,
-					prefixTypeCheck: Equals,
-					id:              "",
-					idCheck:         Equals,
-				}
-			},
-			postTestRun: func() {
+			id:   "",
+			want: want{
+				prefixType:      CiliumLocalIdPrefix,
+				prefixTypeCheck: Equals,
+				id:              "",
+				idCheck:         Equals,
 			},
 		},
 	}
 	for _, tt := range tests {
-		tt.preTestRun()
-		args := tt.setupArgs()
-		want := tt.setupWant()
-		prefixType, id := splitID(args.id)
-		c.Assert(prefixType, want.prefixTypeCheck, want.prefixType, Commentf("Test Name: %s", tt.name))
-		c.Assert(id, want.idCheck, want.id, Commentf("Test Name: %s", tt.name))
-		tt.postTestRun()
+		prefixType, id := splitID(tt.id)
+		c.Assert(prefixType, tt.want.prefixTypeCheck, tt.want.prefixType, Commentf("Test Name: %s", tt.name))
+		c.Assert(id, tt.want.idCheck, tt.want.id, Commentf("Test Name: %s", tt.name))
 	}
 }
 

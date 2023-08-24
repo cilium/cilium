@@ -129,11 +129,14 @@ func TestRestartableWatchStore(t *testing.T) {
 	observer := NewFakeObserver(t)
 	store := NewRestartableWatchStore("qux", KVPairCreator, observer)
 	require.Equal(t, uint64(0), store.NumEntries())
+	require.False(t, store.Synced())
 
 	// Watch the kvstore once, and assert that the expected events are propagated
 	rwsRun(store, "foo/bar", func() {
 		require.Equal(t, NewKVPair("key1", "value1A"), eventually(observer.updated))
+		require.False(t, store.Synced(), "The store should not yet be synced")
 		require.Equal(t, NewKVPair("key2", "value2A"), eventually(observer.updated))
+		require.Eventually(t, store.Synced, timeout, tick, "The store should now be synced")
 		require.Equal(t, NewKVPair("key2", "value2B"), eventually(observer.updated))
 		require.Equal(t, NewKVPair("key3", "value3A"), eventually(observer.updated))
 		require.Equal(t, NewKVPair("key3", "value3A"), eventually(observer.deleted))
@@ -148,6 +151,8 @@ func TestRestartableWatchStore(t *testing.T) {
 		{Typ: kvstore.EventTypeDelete, Key: "key3"},
 	}))
 
+	require.False(t, store.Synced(), "The store should no longer be synced, as stopped")
+
 	// Watch the kvstore a second time, and assert that the expected events (including
 	// stale keys deletions) are propagated, even though the watcher prefix changed.
 	rwsRun(store, "foo/baz", func() {
@@ -155,6 +160,7 @@ func TestRestartableWatchStore(t *testing.T) {
 		require.Equal(t, NewKVPair("key4", "value4A"), eventually(observer.updated))
 		require.Equal(t, NewKVPair("key2", "value2B"), eventually(observer.deleted))
 		require.Equal(t, NewKVPair("key2", "value2C"), eventually(observer.updated))
+		require.True(t, store.Synced(), "The store should be synced again")
 		require.Equal(t, uint64(3), store.NumEntries())
 	}, NewFakeLWBackend(t, "foo/baz/", []kvstore.KeyValueEvent{
 		{Typ: kvstore.EventTypeCreate, Key: "key1", Value: []byte("value1C")},

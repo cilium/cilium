@@ -332,7 +332,7 @@ func (c *DNSCache) GC(now time.Time, zombies *DNSZombieMappings) (affectedNames 
 		} {
 			for ip, entries := range m {
 				for _, entry := range entries {
-					zombies.Upsert(entry.ExpirationTime, ip.String(), entry.Name)
+					zombies.Upsert(entry.ExpirationTime, ip, entry.Name)
 				}
 			}
 		}
@@ -773,16 +773,15 @@ func NewDNSZombieMappings(max, perHostLimit int) *DNSZombieMappings {
 // Upsert enqueues the ip -> qname as a possible deletion
 // updatedExisting is true when an earlier enqueue existed and was updated
 // If an existing entry is updated, the later expiryTime is applied to the existing entry.
-func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, ipStr string, qname ...string) (updatedExisting bool) {
+func (zombies *DNSZombieMappings) Upsert(expiryTime time.Time, addr netip.Addr, qname ...string) (updatedExisting bool) {
 	zombies.Lock()
 	defer zombies.Unlock()
 
-	addr := netip.MustParseAddr(ipStr)
 	zombie, updatedExisting := zombies.deletes[addr]
 	if !updatedExisting {
 		zombie = &DNSZombieMapping{
 			Names:           slices.Unique(qname),
-			IP:              netip.MustParseAddr(ipStr),
+			IP:              addr,
 			DeletePendingAt: expiryTime,
 		}
 		zombies.deletes[addr] = zombie
@@ -942,9 +941,7 @@ func (zombies *DNSZombieMappings) GC() (alive, dead []*DNSZombieMapping) {
 		}
 
 		for _, dead := range dead[deadIdx:] {
-			if _, ok := possibleAlive[dead]; ok {
-				delete(possibleAlive, dead)
-			}
+			delete(possibleAlive, dead)
 		}
 
 		for zombie := range possibleAlive {

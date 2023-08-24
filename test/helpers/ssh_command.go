@@ -216,22 +216,20 @@ func (client *SSHClient) RunCommandInBackground(ctx context.Context, cmd *SSHCom
 	}
 
 	go func() {
-		select {
-		case <-ctx.Done():
-			_, err := stdin.Write([]byte{3})
-			if err != nil {
-				log.Errorf("write ^C error: %s", err)
-			}
-			err = session.Wait()
-			if err != nil {
-				log.Errorf("wait error: %s", err)
-			}
-			if err = session.Signal(ssh.SIGHUP); err != nil {
-				log.Errorf("failed to kill command: %s", err)
-			}
-			if err = session.Close(); err != nil {
-				log.Errorf("failed to close session: %s", err)
-			}
+		<-ctx.Done()
+		_, err := stdin.Write([]byte{3})
+		if err != nil {
+			log.Errorf("write ^C error: %s", err)
+		}
+		err = session.Wait()
+		if err != nil {
+			log.Errorf("wait error: %s", err)
+		}
+		if err = session.Signal(ssh.SIGHUP); err != nil {
+			log.Errorf("failed to kill command: %s", err)
+		}
+		if err = session.Close(); err != nil {
+			log.Errorf("failed to close session: %s", err)
 		}
 	}()
 	_, err = runCommand(session, cmd)

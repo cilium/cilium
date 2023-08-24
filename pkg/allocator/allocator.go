@@ -1015,8 +1015,34 @@ func (rc *RemoteCache) NumEntries() int {
 	return rc.cache.numEntries()
 }
 
+// Synced returns whether the initial list of entries has been retrieved from
+// the kvstore, and new events are currently being watched.
+func (rc *RemoteCache) Synced() bool {
+	if rc == nil {
+		return false
+	}
+
+	select {
+	case <-rc.cache.stopChan:
+		return false
+	default:
+		select {
+		case <-rc.cache.listDone:
+			return true
+		default:
+			return false
+		}
+	}
+}
+
 // close stops watching for identities in the kvstore associated with the
 // remote cache.
 func (rc *RemoteCache) close() {
 	rc.cache.allocator.Delete()
+}
+
+// Observe the identity changes. Conforms to stream.Observable.
+// Replays the current state of the cache when subscribing.
+func (a *Allocator) Observe(ctx context.Context, next func(AllocatorChange), complete func(error)) {
+	a.mainCache.Observe(ctx, next, complete)
 }

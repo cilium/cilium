@@ -204,13 +204,12 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, lbmap.SourceRange6MapName, lbmap.SourceRange4MapName)
 	}
 
-	if !option.Config.EnableIPMasqAgent {
-		if option.Config.EnableIPv4 {
-			maps = append(maps, ipmasq.MapNameIPv4)
-		}
-		if option.Config.EnableIPv6 {
-			maps = append(maps, ipmasq.MapNameIPv6)
-		}
+	if !(option.Config.EnableIPMasqAgent && option.Config.EnableIPv4Masquerade) {
+		maps = append(maps, ipmasq.MapNameIPv4)
+	}
+
+	if !(option.Config.EnableIPMasqAgent && option.Config.EnableIPv6Masquerade) {
+		maps = append(maps, ipmasq.MapNameIPv6)
 	}
 
 	if !option.Config.EnableXDPPrefilter {

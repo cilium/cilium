@@ -168,8 +168,7 @@ func (r *gatewayReconciler) ensureService(ctx context.Context, desired *corev1.S
 
 	temp := existing.DeepCopy()
 	temp.Spec = desired.Spec
-	temp.SetAnnotations(desired.GetAnnotations())
-	temp.SetLabels(desired.GetLabels())
+	setMergedLabelsAndAnnotations(temp, desired)
 
 	return r.Client.Patch(ctx, temp, client.MergeFrom(existing))
 }
@@ -186,8 +185,7 @@ func (r *gatewayReconciler) ensureEndpoints(ctx context.Context, desired *corev1
 
 	temp := existing.DeepCopy()
 	temp.Subsets = desired.Subsets
-	temp.SetAnnotations(desired.GetAnnotations())
-	temp.SetLabels(desired.GetLabels())
+	setMergedLabelsAndAnnotations(temp, desired)
 
 	return r.Client.Patch(ctx, temp, client.MergeFrom(existing))
 }
@@ -203,8 +201,7 @@ func (r *gatewayReconciler) ensureEnvoyConfig(ctx context.Context, desired *cili
 	}
 	temp := existing.DeepCopy()
 	temp.Spec = desired.Spec
-	temp.SetAnnotations(desired.GetAnnotations())
-	temp.SetLabels(desired.GetLabels())
+	setMergedLabelsAndAnnotations(temp, desired)
 
 	return r.Client.Patch(ctx, temp, client.MergeFrom(existing))
 }
@@ -232,11 +229,30 @@ func (r *gatewayReconciler) filterHTTPRoutesByGateway(ctx context.Context, gw *g
 func (r *gatewayReconciler) filterHTTPRoutesByListener(ctx context.Context, gw *gatewayv1beta1.Gateway, listener *gatewayv1beta1.Listener, routes []gatewayv1beta1.HTTPRoute) []gatewayv1beta1.HTTPRoute {
 	var filtered []gatewayv1beta1.HTTPRoute
 	for _, route := range routes {
-		if isAccepted(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) && len(computeHostsForListener(listener, route.Spec.Hostnames)) > 0 {
+		if isAccepted(ctx, gw, &route, route.Status.Parents) &&
+			isAllowed(ctx, r.Client, gw, &route) &&
+			len(computeHostsForListener(listener, route.Spec.Hostnames)) > 0 &&
+			parentRefMatched(gw, listener, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
 		}
 	}
 	return filtered
+}
+
+func parentRefMatched(gw *gatewayv1beta1.Gateway, listener *gatewayv1beta1.Listener, routeNamespace string, refs []gatewayv1beta1.ParentReference) bool {
+	for _, ref := range refs {
+		if string(ref.Name) == gw.GetName() && gw.GetNamespace() == helpers.NamespaceDerefOr(ref.Namespace, routeNamespace) {
+			if ref.SectionName == nil && ref.Port == nil {
+				return true
+			}
+			var sectionNameCheck = ref.SectionName == nil || *ref.SectionName == listener.Name
+			var portCheck = ref.Port == nil || *ref.Port == listener.Port
+			if sectionNameCheck && portCheck {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (r *gatewayReconciler) filterTLSRoutesByGateway(ctx context.Context, gw *gatewayv1beta1.Gateway, routes []gatewayv1alpha2.TLSRoute) []gatewayv1alpha2.TLSRoute {
@@ -252,7 +268,10 @@ func (r *gatewayReconciler) filterTLSRoutesByGateway(ctx context.Context, gw *ga
 func (r *gatewayReconciler) filterTLSRoutesByListener(ctx context.Context, gw *gatewayv1beta1.Gateway, listener *gatewayv1beta1.Listener, routes []gatewayv1alpha2.TLSRoute) []gatewayv1alpha2.TLSRoute {
 	var filtered []gatewayv1alpha2.TLSRoute
 	for _, route := range routes {
-		if isAccepted(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) && len(computeHostsForListener(listener, route.Spec.Hostnames)) > 0 {
+		if isAccepted(ctx, gw, &route, route.Status.Parents) &&
+			isAllowed(ctx, r.Client, gw, &route) &&
+			len(computeHostsForListener(listener, route.Spec.Hostnames)) > 0 &&
+			parentRefMatched(gw, listener, route.GetNamespace(), route.Spec.ParentRefs) {
 			filtered = append(filtered, route)
 		}
 	}
@@ -292,16 +311,16 @@ func (r *gatewayReconciler) setAddressStatus(ctx context.Context, gw *gatewayv1b
 		return fmt.Errorf("load balancer status is not ready")
 	}
 
-	var addresses []gatewayv1beta1.GatewayAddress
+	var addresses []gatewayv1beta1.GatewayStatusAddress
 	for _, s := range svc.Status.LoadBalancer.Ingress {
 		if len(s.IP) != 0 {
-			addresses = append(addresses, gatewayv1beta1.GatewayAddress{
+			addresses = append(addresses, gatewayv1beta1.GatewayStatusAddress{
 				Type:  GatewayAddressTypePtr(gatewayv1beta1.IPAddressType),
 				Value: s.IP,
 			})
 		}
 		if len(s.Hostname) != 0 {
-			addresses = append(addresses, gatewayv1beta1.GatewayAddress{
+			addresses = append(addresses, gatewayv1beta1.GatewayStatusAddress{
 				Type:  GatewayAddressTypePtr(gatewayv1beta1.HostnameAddressType),
 				Value: s.Hostname,
 			})
@@ -355,7 +374,7 @@ func (r *gatewayReconciler) setListenerStatus(ctx context.Context, gw *gatewayv1
 
 		if l.TLS != nil {
 			for _, cert := range l.TLS.CertificateRefs {
-				if !IsSecret(cert) {
+				if !helpers.IsSecret(cert) {
 					conds = merge(conds, metav1.Condition{
 						Type:               string(gatewayv1beta1.ListenerConditionResolvedRefs),
 						Status:             metav1.ConditionFalse,

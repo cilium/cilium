@@ -11,4 +11,4 @@ spec:
     - k8sServiceSelector:
         selector:
           matchLabels:
-            external: yes
+            external: "yes"

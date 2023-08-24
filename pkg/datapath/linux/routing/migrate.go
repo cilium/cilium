@@ -234,7 +234,7 @@ func (m *migrator) MigrateENIDatapath(compat bool) (int, int) {
 			scopedLog := log.WithField("rule", rule)
 			scopedLog.WithError(err).WithField("routes", routes).
 				Warnf("Failed to cleanup after successfully migrating endpoint to %s ENI datapath. "+
-					"It is recommended that theses routes are cleaned up (by running `ip route del`), as it is possible in the future "+
+					"It is recommended that these routes are cleaned up (by running `ip route del`), as it is possible in the future "+
 					"to collide with another endpoint with the same IP.", version)
 		}
 	}

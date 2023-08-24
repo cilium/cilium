@@ -42,6 +42,6 @@ var bpfTunnelListCmd = &cobra.Command{
 }
 
 func init() {
-	bpfTunnelCmd.AddCommand(bpfTunnelListCmd)
+	BPFTunnelCmd.AddCommand(bpfTunnelListCmd)
 	command.AddOutputOption(bpfTunnelListCmd)
 }

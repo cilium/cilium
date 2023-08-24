@@ -304,8 +304,8 @@ have ``external:yes`` set as the label.
 Limitations
 ~~~~~~~~~~~
 
-``toServices`` statements cannot be combined with ``toPorts`` statements in the
-same rule.
+``toServices`` statements must not be combined with ``toPorts`` statements in the
+same rule. If a rule combines both these statements, the policy is rejected.
 
 .. _Entities based:
 
@@ -359,10 +359,6 @@ world
 all
     The all entity represents the combination of all known clusters as well
     world and whitelists all communication.
-
-.. versionadded:: future
-   Allowing users to define custom entities is on the roadmap but has not been
-   implemented yet (see :gh-issue:`3553`).
 
 Access to/from local host
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1218,13 +1214,6 @@ Deny policies do not support: policy enforcement at L7, i.e., specifically
 denying an URL and ``toFQDNs``, i.e., specifically denying traffic to a specific
 domain name.
 
-
-Known issues
-------------
-
-There is currently a known issue (:gh-issue:`24502`) that makes the ``kube-apiserver``
-entity unreliable. Until this is resolved, it is recommended to grant access to the apiserver
-by CIDR or by the special ``world`` entity.
 
 Previous limitations and known issues
 -------------------------------------

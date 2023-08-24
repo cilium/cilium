@@ -5,7 +5,6 @@ package certloader
 
 import (
 	"crypto/tls"
-	"fmt"
 
 	"github.com/sirupsen/logrus"
 )
@@ -52,12 +51,11 @@ func (c *WatchedClientConfig) ClientConfig(base *tls.Config) *tls.Config {
 	keypair, caCertPool := c.KeypairAndCACertPool()
 	tlsConfig := base.Clone()
 	tlsConfig.RootCAs = caCertPool
-	tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-		if !c.IsMutualTLS() {
-			return nil, fmt.Errorf("mTLS client certificate requested, but not configured")
+	if c.IsMutualTLS() {
+		tlsConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			c.log.WithField("keypair-sn", keypairId(keypair)).Debugf("Client mtls handshake")
+			return keypair, nil
 		}
-		c.log.WithField("keypair-sn", keypairId(keypair)).Debugf("Client mtls handshake")
-		return keypair, nil
 	}
 
 	return tlsConfig

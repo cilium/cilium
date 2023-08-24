@@ -16,7 +16,7 @@ import (
 type Limiter struct {
 	semaphore   *semaphore.Weighted
 	burst       int64
-	currWeights int64
+	currWeights atomic.Int64
 	ticker      *time.Ticker
 	cancelFunc  context.CancelFunc
 	ctx         context.Context
@@ -36,12 +36,11 @@ func NewLimiter(interval time.Duration, b int64) *Limiter {
 	ticker := time.NewTicker(interval)
 	ctx, cancel := context.WithCancel(context.Background())
 	l := &Limiter{
-		semaphore:   semaphore.NewWeighted(b),
-		burst:       b,
-		ticker:      ticker,
-		currWeights: 0,
-		ctx:         ctx,
-		cancelFunc:  cancel,
+		semaphore:  semaphore.NewWeighted(b),
+		burst:      b,
+		ticker:     ticker,
+		ctx:        ctx,
+		cancelFunc: cancel,
 	}
 	go func() {
 		for {
@@ -50,8 +49,7 @@ func NewLimiter(interval time.Duration, b int64) *Limiter {
 			case <-l.ctx.Done():
 				return
 			}
-			currWeights := atomic.LoadInt64(&l.currWeights)
-			atomic.AddInt64(&l.currWeights, -currWeights)
+			currWeights := l.currWeights.Swap(0)
 			l.semaphore.Release(currWeights)
 		}
 	}()
@@ -82,7 +80,7 @@ func (lim *Limiter) AllowN(n int64) bool {
 	lim.assertAlive()
 	acq := lim.semaphore.TryAcquire(n)
 	if acq {
-		atomic.AddInt64(&lim.currWeights, n)
+		lim.currWeights.Add(n)
 		return true
 	}
 	return false
@@ -107,6 +105,6 @@ func (lim *Limiter) WaitN(ctx context.Context, n int64) error {
 	if err != nil {
 		return err
 	}
-	atomic.AddInt64(&lim.currWeights, n)
+	lim.currWeights.Add(n)
 	return nil
 }

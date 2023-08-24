@@ -4,10 +4,9 @@
 package gateway_api
 
 import (
-	"strings"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -49,34 +48,37 @@ func TestConformance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error initializing Kubernetes client: %v", err)
 	}
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		t.Fatalf("Error initializing Kubernetes REST client: %v", err)
+	}
+
 	_ = v1alpha2.AddToScheme(c.Scheme())
 	_ = v1beta1.AddToScheme(c.Scheme())
 
-	t.Logf("Running conformance tests with %s GatewayClass", *flags.GatewayClassName)
+	supportedFeatures := suite.ParseSupportedFeatures(*flags.SupportedFeatures)
+	exemptFeatures := suite.ParseSupportedFeatures(*flags.ExemptFeatures)
+	skipTests := suite.ParseSkipTests(*flags.SkipTests)
+	namespaceLabels := suite.ParseNamespaceLabels(*flags.NamespaceLabels)
 
-	supportedFeatures := parseSupportedFeatures(*flags.SupportedFeatures)
-	exemptFeatures := parseSupportedFeatures(*flags.ExemptFeatures)
-	for feature := range exemptFeatures {
-		supportedFeatures.Delete(feature)
-	}
+	t.Logf("Running conformance tests with %s GatewayClass\n cleanup: %t\n debug: %t\n enable all features: %t \n supported features: [%v]\n exempt features: [%v]",
+		*flags.GatewayClassName, *flags.CleanupBaseResources, *flags.ShowDebug, *flags.EnableAllSupportedFeatures, *flags.SupportedFeatures, *flags.ExemptFeatures)
 
 	cSuite := suite.New(suite.Options{
-		Client:               c,
-		GatewayClassName:     *flags.GatewayClassName,
-		Debug:                *flags.ShowDebug,
-		CleanupBaseResources: *flags.CleanupBaseResources,
-		SupportedFeatures:    supportedFeatures,
+		Client:     c,
+		RestConfig: cfg,
+		// This clientset is needed in addition to the client only because
+		// controller-runtime client doesn't support non CRUD sub-resources yet (https://github.com/kubernetes-sigs/controller-runtime/issues/452).
+		Clientset:                  clientset,
+		GatewayClassName:           *flags.GatewayClassName,
+		Debug:                      *flags.ShowDebug,
+		CleanupBaseResources:       *flags.CleanupBaseResources,
+		SupportedFeatures:          supportedFeatures,
+		ExemptFeatures:             exemptFeatures,
+		EnableAllSupportedFeatures: *flags.EnableAllSupportedFeatures,
+		NamespaceLabels:            namespaceLabels,
+		SkipTests:                  skipTests,
 	})
 	cSuite.Setup(t)
 	cSuite.Run(t, tests.ConformanceTests)
-}
-
-// parseSupportedFeatures parses flag arguments and converts the string to
-// map[suite.SupportedFeature]bool
-func parseSupportedFeatures(f string) sets.Set[suite.SupportedFeature] {
-	res := sets.New[suite.SupportedFeature]()
-	for _, value := range strings.Split(f, ",") {
-		res.Insert(suite.SupportedFeature(value))
-	}
-	return res
 }

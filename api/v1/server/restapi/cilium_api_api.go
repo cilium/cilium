@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/api/v1/server/restapi/prefilter"
 	"github.com/cilium/cilium/api/v1/server/restapi/recorder"
 	"github.com/cilium/cilium/api/v1/server/restapi/service"
+	"github.com/cilium/cilium/api/v1/server/restapi/statedb"
 )
 
 // NewCiliumAPIAPI creates a new CiliumAPI instance
@@ -53,8 +54,12 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 
 		JSONConsumer: runtime.JSONConsumer(),
 
+		BinProducer:  runtime.ByteStreamProducer(),
 		JSONProducer: runtime.JSONProducer(),
 
+		EndpointDeleteEndpointHandler: endpoint.DeleteEndpointHandlerFunc(func(params endpoint.DeleteEndpointParams) middleware.Responder {
+			return middleware.NotImplemented("operation endpoint.DeleteEndpoint has not yet been implemented")
+		}),
 		EndpointDeleteEndpointIDHandler: endpoint.DeleteEndpointIDHandlerFunc(func(params endpoint.DeleteEndpointIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation endpoint.DeleteEndpointID has not yet been implemented")
 		}),
@@ -78,6 +83,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		}),
 		BgpGetBgpPeersHandler: bgp.GetBgpPeersHandlerFunc(func(params bgp.GetBgpPeersParams) middleware.Responder {
 			return middleware.NotImplemented("operation bgp.GetBgpPeers has not yet been implemented")
+		}),
+		BgpGetBgpRoutesHandler: bgp.GetBgpRoutesHandlerFunc(func(params bgp.GetBgpRoutesParams) middleware.Responder {
+			return middleware.NotImplemented("operation bgp.GetBgpRoutes has not yet been implemented")
 		}),
 		DaemonGetCgroupDumpMetadataHandler: daemon.GetCgroupDumpMetadataHandlerFunc(func(params daemon.GetCgroupDumpMetadataParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetCgroupDumpMetadata has not yet been implemented")
@@ -117,6 +125,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		}),
 		PolicyGetFqdnNamesHandler: policy.GetFqdnNamesHandlerFunc(func(params policy.GetFqdnNamesParams) middleware.Responder {
 			return middleware.NotImplemented("operation policy.GetFqdnNames has not yet been implemented")
+		}),
+		DaemonGetHealthHandler: daemon.GetHealthHandlerFunc(func(params daemon.GetHealthParams) middleware.Responder {
+			return middleware.NotImplemented("operation daemon.GetHealth has not yet been implemented")
 		}),
 		DaemonGetHealthzHandler: daemon.GetHealthzHandlerFunc(func(params daemon.GetHealthzParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.GetHealthz has not yet been implemented")
@@ -174,6 +185,9 @@ func NewCiliumAPIAPI(spec *loads.Document) *CiliumAPIAPI {
 		}),
 		ServiceGetServiceIDHandler: service.GetServiceIDHandlerFunc(func(params service.GetServiceIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation service.GetServiceID has not yet been implemented")
+		}),
+		StatedbGetStatedbDumpHandler: statedb.GetStatedbDumpHandlerFunc(func(params statedb.GetStatedbDumpParams) middleware.Responder {
+			return middleware.NotImplemented("operation statedb.GetStatedbDump has not yet been implemented")
 		}),
 		DaemonPatchConfigHandler: daemon.PatchConfigHandlerFunc(func(params daemon.PatchConfigParams) middleware.Responder {
 			return middleware.NotImplemented("operation daemon.PatchConfig has not yet been implemented")
@@ -240,10 +254,15 @@ type CiliumAPIAPI struct {
 	//   - application/json
 	JSONConsumer runtime.Consumer
 
+	// BinProducer registers a producer for the following mime types:
+	//   - application/octet-stream
+	BinProducer runtime.Producer
 	// JSONProducer registers a producer for the following mime types:
 	//   - application/json
 	JSONProducer runtime.Producer
 
+	// EndpointDeleteEndpointHandler sets the operation handler for the delete endpoint operation
+	EndpointDeleteEndpointHandler endpoint.DeleteEndpointHandler
 	// EndpointDeleteEndpointIDHandler sets the operation handler for the delete endpoint ID operation
 	EndpointDeleteEndpointIDHandler endpoint.DeleteEndpointIDHandler
 	// PolicyDeleteFqdnCacheHandler sets the operation handler for the delete fqdn cache operation
@@ -260,6 +279,8 @@ type CiliumAPIAPI struct {
 	ServiceDeleteServiceIDHandler service.DeleteServiceIDHandler
 	// BgpGetBgpPeersHandler sets the operation handler for the get bgp peers operation
 	BgpGetBgpPeersHandler bgp.GetBgpPeersHandler
+	// BgpGetBgpRoutesHandler sets the operation handler for the get bgp routes operation
+	BgpGetBgpRoutesHandler bgp.GetBgpRoutesHandler
 	// DaemonGetCgroupDumpMetadataHandler sets the operation handler for the get cgroup dump metadata operation
 	DaemonGetCgroupDumpMetadataHandler daemon.GetCgroupDumpMetadataHandler
 	// DaemonGetClusterNodesHandler sets the operation handler for the get cluster nodes operation
@@ -286,6 +307,8 @@ type CiliumAPIAPI struct {
 	PolicyGetFqdnCacheIDHandler policy.GetFqdnCacheIDHandler
 	// PolicyGetFqdnNamesHandler sets the operation handler for the get fqdn names operation
 	PolicyGetFqdnNamesHandler policy.GetFqdnNamesHandler
+	// DaemonGetHealthHandler sets the operation handler for the get health operation
+	DaemonGetHealthHandler daemon.GetHealthHandler
 	// DaemonGetHealthzHandler sets the operation handler for the get healthz operation
 	DaemonGetHealthzHandler daemon.GetHealthzHandler
 	// PolicyGetIPHandler sets the operation handler for the get IP operation
@@ -324,6 +347,8 @@ type CiliumAPIAPI struct {
 	ServiceGetServiceHandler service.GetServiceHandler
 	// ServiceGetServiceIDHandler sets the operation handler for the get service ID operation
 	ServiceGetServiceIDHandler service.GetServiceIDHandler
+	// StatedbGetStatedbDumpHandler sets the operation handler for the get statedb dump operation
+	StatedbGetStatedbDumpHandler statedb.GetStatedbDumpHandler
 	// DaemonPatchConfigHandler sets the operation handler for the patch config operation
 	DaemonPatchConfigHandler daemon.PatchConfigHandler
 	// EndpointPatchEndpointIDHandler sets the operation handler for the patch endpoint ID operation
@@ -419,10 +444,16 @@ func (o *CiliumAPIAPI) Validate() error {
 		unregistered = append(unregistered, "JSONConsumer")
 	}
 
+	if o.BinProducer == nil {
+		unregistered = append(unregistered, "BinProducer")
+	}
 	if o.JSONProducer == nil {
 		unregistered = append(unregistered, "JSONProducer")
 	}
 
+	if o.EndpointDeleteEndpointHandler == nil {
+		unregistered = append(unregistered, "endpoint.DeleteEndpointHandler")
+	}
 	if o.EndpointDeleteEndpointIDHandler == nil {
 		unregistered = append(unregistered, "endpoint.DeleteEndpointIDHandler")
 	}
@@ -446,6 +477,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.BgpGetBgpPeersHandler == nil {
 		unregistered = append(unregistered, "bgp.GetBgpPeersHandler")
+	}
+	if o.BgpGetBgpRoutesHandler == nil {
+		unregistered = append(unregistered, "bgp.GetBgpRoutesHandler")
 	}
 	if o.DaemonGetCgroupDumpMetadataHandler == nil {
 		unregistered = append(unregistered, "daemon.GetCgroupDumpMetadataHandler")
@@ -485,6 +519,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.PolicyGetFqdnNamesHandler == nil {
 		unregistered = append(unregistered, "policy.GetFqdnNamesHandler")
+	}
+	if o.DaemonGetHealthHandler == nil {
+		unregistered = append(unregistered, "daemon.GetHealthHandler")
 	}
 	if o.DaemonGetHealthzHandler == nil {
 		unregistered = append(unregistered, "daemon.GetHealthzHandler")
@@ -542,6 +579,9 @@ func (o *CiliumAPIAPI) Validate() error {
 	}
 	if o.ServiceGetServiceIDHandler == nil {
 		unregistered = append(unregistered, "service.GetServiceIDHandler")
+	}
+	if o.StatedbGetStatedbDumpHandler == nil {
+		unregistered = append(unregistered, "statedb.GetStatedbDumpHandler")
 	}
 	if o.DaemonPatchConfigHandler == nil {
 		unregistered = append(unregistered, "daemon.PatchConfigHandler")
@@ -622,6 +662,8 @@ func (o *CiliumAPIAPI) ProducersFor(mediaTypes []string) map[string]runtime.Prod
 	result := make(map[string]runtime.Producer, len(mediaTypes))
 	for _, mt := range mediaTypes {
 		switch mt {
+		case "application/octet-stream":
+			result["application/octet-stream"] = o.BinProducer
 		case "application/json":
 			result["application/json"] = o.JSONProducer
 		}
@@ -667,6 +709,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
+	o.handlers["DELETE"]["/endpoint"] = endpoint.NewDeleteEndpoint(o.context, o.EndpointDeleteEndpointHandler)
+	if o.handlers["DELETE"] == nil {
+		o.handlers["DELETE"] = make(map[string]http.Handler)
+	}
 	o.handlers["DELETE"]["/endpoint/{id}"] = endpoint.NewDeleteEndpointID(o.context, o.EndpointDeleteEndpointIDHandler)
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
@@ -696,6 +742,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/bgp/peers"] = bgp.NewGetBgpPeers(o.context, o.BgpGetBgpPeersHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/bgp/routes"] = bgp.NewGetBgpRoutes(o.context, o.BgpGetBgpRoutesHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
@@ -748,6 +798,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/fqdn/names"] = policy.NewGetFqdnNames(o.context, o.PolicyGetFqdnNamesHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/health"] = daemon.NewGetHealth(o.context, o.DaemonGetHealthHandler)
 	if o.handlers["GET"] == nil {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
@@ -824,6 +878,10 @@ func (o *CiliumAPIAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/service/{id}"] = service.NewGetServiceID(o.context, o.ServiceGetServiceIDHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/statedb/dump"] = statedb.NewGetStatedbDump(o.context, o.StatedbGetStatedbDumpHandler)
 	if o.handlers["PATCH"] == nil {
 		o.handlers["PATCH"] = make(map[string]http.Handler)
 	}

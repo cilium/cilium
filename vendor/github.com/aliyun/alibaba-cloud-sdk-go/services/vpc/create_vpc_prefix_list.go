@@ -78,6 +78,7 @@ type CreateVpcPrefixListRequest struct {
 	ResourceGroupId       string                                  `position:"Query" name:"ResourceGroupId"`
 	IpVersion             string                                  `position:"Query" name:"IpVersion"`
 	PrefixListEntries     *[]CreateVpcPrefixListPrefixListEntries `position:"Query" name:"PrefixListEntries"  type:"Repeated"`
+	Tag                   *[]CreateVpcPrefixListTag               `position:"Query" name:"Tag"  type:"Repeated"`
 	DryRun                requests.Boolean                        `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount  string                                  `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount          string                                  `position:"Query" name:"OwnerAccount"`
@@ -96,6 +97,12 @@ type CreateVpcPrefixListPrefixListEntrys struct {
 type CreateVpcPrefixListPrefixListEntries struct {
 	Cidr        string `name:"Cidr"`
 	Description string `name:"Description"`
+}
+
+// CreateVpcPrefixListTag is a repeated param struct in CreateVpcPrefixListRequest
+type CreateVpcPrefixListTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // CreateVpcPrefixListResponse is the response struct for api CreateVpcPrefixList

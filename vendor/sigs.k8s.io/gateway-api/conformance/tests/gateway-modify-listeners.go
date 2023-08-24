@@ -43,7 +43,6 @@ var GatewayModifyListeners = suite.ConformanceTest{
 	},
 	Manifests: []string{"tests/gateway-modify-listeners.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
-
 		t.Run("should be able to add a listener that then becomes available for routing traffic", func(t *testing.T) {
 			gwNN := types.NamespacedName{Name: "gateway-add-listener", Namespace: "gateway-conformance-infra"}
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -51,12 +50,13 @@ var GatewayModifyListeners = suite.ConformanceTest{
 
 			namespaces := []string{"gateway-conformance-infra"}
 			kubernetes.NamespacesMustBeReady(t, s.Client, s.TimeoutConfig, namespaces)
+
+			// verify that the implementation is tracking the most recent resource changes
+			kubernetes.GatewayMustHaveLatestConditions(t, s.Client, s.TimeoutConfig, gwNN)
+
 			original := &v1beta1.Gateway{}
 			err := s.Client.Get(ctx, gwNN, original)
 			require.NoErrorf(t, err, "error getting Gateway: %v", err)
-
-			// verify that the implementation is tracking the most recent resource changes
-			kubernetes.GatewayMustHaveLatestConditions(t, s.TimeoutConfig, original)
 
 			all := v1beta1.NamespacesFromAll
 
@@ -79,9 +79,6 @@ var GatewayModifyListeners = suite.ConformanceTest{
 
 			// Ensure the generation and observedGeneration sync up
 			kubernetes.NamespacesMustBeReady(t, s.Client, s.TimeoutConfig, namespaces)
-			updated := &v1beta1.Gateway{}
-			err = s.Client.Get(ctx, gwNN, updated)
-			require.NoErrorf(t, err, "error getting Gateway: %v", err)
 
 			listeners := []v1beta1.ListenerStatus{
 				{
@@ -93,7 +90,7 @@ var GatewayModifyListeners = suite.ConformanceTest{
 					Conditions: []metav1.Condition{{
 						Type:   string(v1beta1.ListenerConditionAccepted),
 						Status: metav1.ConditionTrue,
-						Reason: "", //any reason
+						Reason: "", // any reason
 					}},
 					AttachedRoutes: 1,
 				},
@@ -106,7 +103,7 @@ var GatewayModifyListeners = suite.ConformanceTest{
 					Conditions: []metav1.Condition{{
 						Type:   string(v1beta1.ListenerConditionAccepted),
 						Status: metav1.ConditionTrue,
-						Reason: "", //any reason
+						Reason: "", // any reason
 					}},
 					AttachedRoutes: 1,
 				},
@@ -115,7 +112,11 @@ var GatewayModifyListeners = suite.ConformanceTest{
 			kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, gwNN, listeners)
 
 			// verify that the implementation continues to keep up to date with the resource changes we've been making
-			kubernetes.GatewayMustHaveLatestConditions(t, s.TimeoutConfig, updated)
+			kubernetes.GatewayMustHaveLatestConditions(t, s.Client, s.TimeoutConfig, gwNN)
+
+			updated := &v1beta1.Gateway{}
+			err = s.Client.Get(ctx, gwNN, updated)
+			require.NoErrorf(t, err, "error getting Gateway: %v", err)
 
 			require.NotEqual(t, original.Generation, updated.Generation, "generation should change after an update")
 		})
@@ -127,12 +128,13 @@ var GatewayModifyListeners = suite.ConformanceTest{
 
 			namespaces := []string{"gateway-conformance-infra"}
 			kubernetes.NamespacesMustBeReady(t, s.Client, s.TimeoutConfig, namespaces)
+
+			// verify that the implementation is tracking the most recent resource changes
+			kubernetes.GatewayMustHaveLatestConditions(t, s.Client, s.TimeoutConfig, gwNN)
+
 			original := &v1beta1.Gateway{}
 			err := s.Client.Get(ctx, gwNN, original)
 			require.NoErrorf(t, err, "error getting Gateway: %v", err)
-
-			// verify that the implementation is tracking the most recent resource changes
-			kubernetes.GatewayMustHaveLatestConditions(t, s.TimeoutConfig, original)
 
 			mutate := original.DeepCopy()
 			require.Equalf(t, 2, len(mutate.Spec.Listeners), "the gateway must have 2 listeners")
@@ -151,9 +153,6 @@ var GatewayModifyListeners = suite.ConformanceTest{
 
 			// Ensure the generation and observedGeneration sync up
 			kubernetes.NamespacesMustBeReady(t, s.Client, s.TimeoutConfig, namespaces)
-			updated := &v1beta1.Gateway{}
-			err = s.Client.Get(ctx, gwNN, updated)
-			require.NoErrorf(t, err, "error getting Gateway: %v", err)
 
 			listeners := []v1beta1.ListenerStatus{
 				{
@@ -165,7 +164,7 @@ var GatewayModifyListeners = suite.ConformanceTest{
 					Conditions: []metav1.Condition{{
 						Type:   string(v1beta1.ListenerConditionAccepted),
 						Status: metav1.ConditionTrue,
-						Reason: "", //any reason
+						Reason: "", // any reason
 					}},
 					AttachedRoutes: 1,
 				},
@@ -174,7 +173,11 @@ var GatewayModifyListeners = suite.ConformanceTest{
 			kubernetes.GatewayStatusMustHaveListeners(t, s.Client, s.TimeoutConfig, gwNN, listeners)
 
 			// verify that the implementation continues to keep up to date with the resource changes we've been making
-			kubernetes.GatewayMustHaveLatestConditions(t, s.TimeoutConfig, updated)
+			kubernetes.GatewayMustHaveLatestConditions(t, s.Client, s.TimeoutConfig, gwNN)
+
+			updated := &v1beta1.Gateway{}
+			err = s.Client.Get(ctx, gwNN, updated)
+			require.NoErrorf(t, err, "error getting Gateway: %v", err)
 
 			require.NotEqual(t, original.Generation, updated.Generation, "generation should change after an update")
 		})

@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
+	"net/netip"
 	"regexp"
 	"runtime/pprof"
 	"strings"
@@ -31,7 +31,7 @@ import (
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb2"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
@@ -72,8 +72,8 @@ type l2AnnouncerParams struct {
 	Services             resource.Resource[*slim_corev1.Service]
 	L2AnnouncementPolicy resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]
 	LocalNodeResource    daemon_k8s.LocalCiliumNodeResource
-	L2AnnounceTable      statedb.Table[*tables.L2AnnounceEntry]
-	StateDB              statedb.DB
+	L2AnnounceTable      statedb2.Table[*tables.L2AnnounceEntry]
+	StateDB              *statedb2.DB
 	JobRegistry          job.Registry
 }
 
@@ -166,16 +166,14 @@ func (l2a *L2Announcer) run(ctx context.Context) error {
 
 	// We have to first have a local node before we can start processing other events.
 	for {
-		select {
-		case event, more := <-localNodeChan:
-			// resource closed, shutting down
-			if !more {
-				return nil
-			}
+		event, more := <-localNodeChan
+		// resource closed, shutting down
+		if !more {
+			return nil
+		}
 
-			if err := l2a.processLocalNodeEvent(ctx, event); err != nil {
-				l2a.params.Logger.WithError(err).Warn("Error processing local node event")
-			}
+		if err := l2a.processLocalNodeEvent(ctx, event); err != nil {
+			l2a.params.Logger.WithError(err).Warn("Error processing local node event")
 		}
 
 		if l2a.localNode != nil {
@@ -837,22 +835,18 @@ func (l2a *L2Announcer) processLeaderEvent(event leaderElectionEvent) error {
 }
 
 func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) error {
-	txn := l2a.params.StateDB.WriteTxn()
-	w := l2a.params.L2AnnounceTable.Writer(txn)
+	tbl := l2a.params.L2AnnounceTable
+	txn := l2a.params.StateDB.WriteTxn(tbl)
+	defer txn.Abort()
 
-	rev := txn.Revision()
 	svcKey := serviceKey(ss.svc)
 
-	entriesIter, err := w.Get(tables.ByProxyOrigin(svcKey))
-	if err != nil {
-		txn.Abort()
-		return fmt.Errorf("get all entries with origin '%s': %w", svcKey, err)
-	}
+	entriesIter, _ := tbl.Get(txn, tables.L2AnnounceOriginIndex.Query(svcKey))
 
 	// If we are not the leader, we should not have any proxy entries for the service.
 	if !ss.currentlyLeader {
 		// Remove origin from entries, and delete if no origins left
-		err = statedb.ProcessEach(entriesIter, func(e *tables.L2AnnounceEntry) error {
+		err := statedb2.ProcessEach(entriesIter, func(e *tables.L2AnnounceEntry, _ uint64) error {
 			// Copy, since modifying objects directly is not allowed.
 			e = e.DeepCopy()
 
@@ -861,14 +855,7 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 				e.Origins = slices.Delete(e.Origins, idx, idx+1)
 			}
 
-			// Perform a soft delete
-			if len(e.Origins) == 0 {
-				e.Deleted = true
-			}
-
-			e.Revision = rev
-
-			err := w.Insert(e)
+			_, _, err := tbl.Delete(txn, e)
 			if err != nil {
 				return fmt.Errorf("update in table: %w", err)
 			}
@@ -878,10 +865,7 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 			return fmt.Errorf("failed to modify desired state: %w", err)
 		}
 
-		err = txn.Commit()
-		if err != nil {
-			return fmt.Errorf("commit delete entries: %w", err)
-		}
+		txn.Commit()
 
 		return nil
 	}
@@ -893,7 +877,7 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 	}
 
 	// Loop over existing entries, delete undesired entries
-	err = statedb.ProcessEach(entriesIter, func(e *tables.L2AnnounceEntry) error {
+	err := statedb2.ProcessEach(entriesIter, func(e *tables.L2AnnounceEntry, _ uint64) error {
 		key := fmt.Sprintf("%s/%s", e.IP, e.NetworkInterface)
 
 		_, desired := desiredEntries[key]
@@ -901,7 +885,7 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 			// Iterator only contains entries which already have the origin of the current svc.
 			// So no need to add it in the second step.
 			satisfiedEntries[key] = true
-			return err
+			return nil
 		}
 
 		// Entry is undesired.
@@ -915,20 +899,18 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 		}
 
 		if len(e.Origins) == 0 {
-			// Perform a soft delete, if no services want this IP + NetDev anymore
-			e.Deleted = true
+			// Delete, if no services want this IP + NetDev anymore
+			tbl.Delete(txn, e)
+			return nil
 		}
 
-		e.Revision = rev
-
-		err := w.Insert(e)
+		_, _, err := tbl.Insert(txn, e)
 		if err != nil {
 			return fmt.Errorf("update in table: %w", err)
 		}
 		return nil
 	})
 	if err != nil {
-		txn.Abort()
 		return fmt.Errorf("failed to modify desired state: %w", err)
 	}
 
@@ -939,36 +921,35 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 		}
 
 		entry := desiredEntries[key]
-		existing, err := w.First(tables.ByProxyIPAndInterface(entry.IP, entry.NetworkInterface))
+		existing, _, _ := tbl.First(txn, tables.L2AnnounceIDIndex.Query(tables.L2AnnounceKey{
+			IP:               entry.IP,
+			NetworkInterface: entry.NetworkInterface,
+		}))
 		if err != nil {
-			txn.Abort()
 			return fmt.Errorf("first: %w", err)
 		}
 
 		if existing == nil {
 			existing = &tables.L2AnnounceEntry{
-				IP:               entry.IP,
-				NetworkInterface: entry.NetworkInterface,
+				L2AnnounceKey: tables.L2AnnounceKey{
+					IP:               entry.IP,
+					NetworkInterface: entry.NetworkInterface,
+				},
 			}
 		}
 
 		// Add our new origin to the existing origins, or if existing is nil (no entry existed), nothing will change.
 		entry.Origins = append(existing.Origins, entry.Origins...)
-		entry.Revision = rev
 
 		// Insert or update
-		err = w.Insert(entry)
+		_, _, err = tbl.Insert(txn, entry)
 		if err != nil {
-			txn.Abort()
 			return fmt.Errorf("insert new: %w", err)
 		}
 		continue
 	}
 
-	err = txn.Commit()
-	if err != nil {
-		return fmt.Errorf("commit delete entries: %w", err)
-	}
+	txn.Commit()
 
 	return nil
 }
@@ -979,20 +960,24 @@ func (l2a *L2Announcer) desiredEntries(ss *selectedService) map[string]*tables.L
 	for _, policyKey := range ss.byPolicies {
 		selectedPolicy := l2a.selectedPolicies[policyKey]
 
-		var IPs []net.IP
+		var IPs []netip.Addr
 		if selectedPolicy.policy.Spec.LoadBalancerIPs {
 			for _, ingress := range ss.svc.Status.LoadBalancer.Ingress {
 				if ingress.IP == "" {
 					continue
 				}
 
-				IPs = append(IPs, net.ParseIP(ingress.IP))
+				if addr, err := netip.ParseAddr(ingress.IP); err == nil {
+					IPs = append(IPs, addr)
+				}
 			}
 		}
 
 		if selectedPolicy.policy.Spec.ExternalIPs {
 			for _, externalIP := range ss.svc.Spec.ExternalIPs {
-				IPs = append(IPs, net.ParseIP(externalIP))
+				if addr, err := netip.ParseAddr(externalIP); err == nil {
+					IPs = append(IPs, addr)
+				}
 			}
 		}
 
@@ -1002,9 +987,11 @@ func (l2a *L2Announcer) desiredEntries(ss *selectedService) map[string]*tables.L
 				entry, found := entries[key]
 				if !found {
 					entry = &tables.L2AnnounceEntry{
-						IP:               ip,
-						NetworkInterface: iface,
-						Origins:          []resource.Key{serviceKey(ss.svc)},
+						L2AnnounceKey: tables.L2AnnounceKey{
+							IP:               ip,
+							NetworkInterface: iface,
+						},
+						Origins: []resource.Key{serviceKey(ss.svc)},
 					}
 				}
 				entries[key] = entry

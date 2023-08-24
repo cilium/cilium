@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	k8s_metrics "k8s.io/client-go/tools/metrics"
@@ -25,7 +24,6 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/identity"
@@ -69,7 +67,6 @@ const (
 	k8sAPIGroupCiliumNodeV2                     = "cilium/v2::CiliumNode"
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
 	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
-	k8sAPIGroupCiliumEgressGatewayPolicyV2      = "cilium/v2::CiliumEgressGatewayPolicy"
 	k8sAPIGroupCiliumEndpointSliceV2Alpha1      = "cilium/v2alpha1::CiliumEndpointSlice"
 	k8sAPIGroupCiliumClusterwideEnvoyConfigV2   = "cilium/v2::CiliumClusterwideEnvoyConfig"
 	k8sAPIGroupCiliumEnvoyConfigV2              = "cilium/v2::CiliumEnvoyConfig"
@@ -96,9 +93,9 @@ func init() {
 	k8s_metrics.Register(k8s_metrics.RegisterOpts{
 		ClientCertExpiry:      nil,
 		ClientCertRotationAge: nil,
-		RequestLatency:        &k8sMetrics{},
-		RateLimiterLatency:    nil,
-		RequestResult:         &k8sMetrics{},
+		RequestLatency:        &requestLatencyAdapter{},
+		RateLimiterLatency:    &rateLimiterLatencyAdapter{},
+		RequestResult:         &resultAdapter{},
 	})
 }
 
@@ -113,9 +110,10 @@ var (
 )
 
 type endpointManager interface {
+	LookupCEPName(string) *endpoint.Endpoint
 	GetEndpoints() []*endpoint.Endpoint
 	GetHostEndpoint() *endpoint.Endpoint
-	LookupPodName(string) *endpoint.Endpoint
+	GetEndpointsByPodName(string) []*endpoint.Endpoint
 	WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error
 	UpdatePolicyMaps(context.Context, *sync.WaitGroup) *sync.WaitGroup
 }
@@ -140,6 +138,7 @@ type policyRepository interface {
 
 type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
+	GetDeepCopyServiceByFrontend(frontend loadbalancer.L3n4Addr) (*loadbalancer.SVC, bool)
 	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
 	RegisterL7LBService(serviceName, resourceName loadbalancer.ServiceName, ports []string, proxyPort uint16) error
 	RegisterL7LBServiceBackendSync(serviceName, resourceName loadbalancer.ServiceName, ports []string) error
@@ -163,8 +162,6 @@ type bgpSpeakerManager interface {
 	OnUpdateEndpoints(eps *k8s.Endpoints) error
 }
 type EgressGatewayManager interface {
-	OnAddEgressPolicy(config egressgateway.PolicyConfig)
-	OnDeleteEgressPolicy(configID types.NamespacedName)
 	OnUpdateEndpoint(endpoint *k8sTypes.CiliumEndpoint)
 	OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint)
 	OnUpdateNode(node nodeTypes.Node)
@@ -270,7 +267,12 @@ type K8sWatcher struct {
 
 	datapath datapath.Datapath
 
-	networkpolicyStore cache.Store
+	// networkPoliciesInitOnce is used to guarantee only one call to NetworkPoliciesInit is
+	// executed.
+	networkPoliciesInitOnce sync.Once
+	//networkPoliciesStoreSet is closed once the networkpolicyStore is set.
+	networkPoliciesStoreSet chan struct{}
+	networkpolicyStore      cache.Store
 
 	cfg WatcherConfiguration
 
@@ -296,39 +298,49 @@ func NewK8sWatcher(
 	serviceCache *k8s.ServiceCache,
 ) *K8sWatcher {
 	return &K8sWatcher{
-		clientset:             clientset,
-		K8sSvcCache:           serviceCache,
-		endpointManager:       endpointManager,
-		nodeDiscoverManager:   nodeDiscoverManager,
-		policyManager:         policyManager,
-		policyRepository:      policyRepository,
-		svcManager:            svcManager,
-		ipcache:               ipcache,
-		controllersStarted:    make(chan struct{}),
-		stop:                  make(chan struct{}),
-		podStoreSet:           make(chan struct{}),
-		datapath:              datapath,
-		redirectPolicyManager: redirectPolicyManager,
-		bgpSpeakerManager:     bgpSpeakerManager,
-		egressGatewayManager:  egressGatewayManager,
-		cgroupManager:         cgroupManager,
-		NodeChain:             subscriber.NewNodeChain(),
-		CiliumNodeChain:       subscriber.NewCiliumNodeChain(),
-		envoyConfigManager:    envoyConfigManager,
-		cfg:                   cfg,
-		resources:             resources,
+		clientset:               clientset,
+		K8sSvcCache:             serviceCache,
+		endpointManager:         endpointManager,
+		nodeDiscoverManager:     nodeDiscoverManager,
+		policyManager:           policyManager,
+		policyRepository:        policyRepository,
+		svcManager:              svcManager,
+		ipcache:                 ipcache,
+		controllersStarted:      make(chan struct{}),
+		stop:                    make(chan struct{}),
+		podStoreSet:             make(chan struct{}),
+		networkPoliciesStoreSet: make(chan struct{}),
+		datapath:                datapath,
+		redirectPolicyManager:   redirectPolicyManager,
+		bgpSpeakerManager:       bgpSpeakerManager,
+		egressGatewayManager:    egressGatewayManager,
+		cgroupManager:           cgroupManager,
+		NodeChain:               subscriber.NewNodeChain(),
+		CiliumNodeChain:         subscriber.NewCiliumNodeChain(),
+		envoyConfigManager:      envoyConfigManager,
+		cfg:                     cfg,
+		resources:               resources,
 	}
 }
 
-// k8sMetrics implements the LatencyMetric and ResultMetric interface from
-// k8s client-go package
-type k8sMetrics struct{}
+// requestLatencyAdapter implements the LatencyMetric interface from k8s client-go package
+type requestLatencyAdapter struct{}
 
-func (*k8sMetrics) Observe(_ context.Context, verb string, u url.URL, latency time.Duration) {
+func (*requestLatencyAdapter) Observe(_ context.Context, verb string, u url.URL, latency time.Duration) {
 	metrics.KubernetesAPIInteractions.WithLabelValues(u.Path, verb).Observe(latency.Seconds())
 }
 
-func (*k8sMetrics) Increment(_ context.Context, code string, method string, host string) {
+// rateLimiterLatencyAdapter implements the LatencyMetric interface from k8s client-go package
+type rateLimiterLatencyAdapter struct{}
+
+func (c *rateLimiterLatencyAdapter) Observe(_ context.Context, verb string, u url.URL, latency time.Duration) {
+	metrics.KubernetesAPIRateLimiterLatency.WithLabelValues(u.Path, verb).Observe(latency.Seconds())
+}
+
+// resultAdapter implements the ResultMetric interface from k8s client-go package
+type resultAdapter struct{}
+
+func (r *resultAdapter) Increment(_ context.Context, code, method, host string) {
 	metrics.KubernetesAPICallsTotal.WithLabelValues(host, method, code).Inc()
 	// The 'code' is set to '<error>' in case an error is returned from k8s
 	// more info:
@@ -412,7 +424,7 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2.CIDName):                  {skip, ""}, // Handled in pkg/k8s/identitybackend/
 	synced.CRDResourceName(v2.CLRPName):                 {start, k8sAPIGroupCiliumLocalRedirectPolicyV2},
 	synced.CRDResourceName(v2.CEWName):                  {skip, ""}, // Handled in clustermesh-apiserver/
-	synced.CRDResourceName(v2.CEGPName):                 {start, k8sAPIGroupCiliumEgressGatewayPolicyV2},
+	synced.CRDResourceName(v2.CEGPName):                 {skip, ""}, // Handled via Resource[T].
 	synced.CRDResourceName(v2alpha1.CESName):            {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
 	synced.CRDResourceName(v2.CCECName):                 {afterNodeInit, k8sAPIGroupCiliumClusterwideEnvoyConfigV2},
 	synced.CRDResourceName(v2.CECName):                  {afterNodeInit, k8sAPIGroupCiliumEnvoyConfigV2},
@@ -547,8 +559,7 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			go k.ciliumNodeInit(k.clientset, asyncControllers)
 		// Kubernetes built-in resources
 		case k8sAPIGroupNetworkingV1Core:
-			swgKNP := lock.NewStoppableWaitGroup()
-			k.networkPoliciesInit(k.clientset.Slim(), swgKNP)
+			k.NetworkPoliciesInit()
 		case resources.K8sAPIGroupServiceV1Core:
 			k.servicesInit()
 		case resources.K8sAPIGroupEndpointSliceOrEndpoint:
@@ -566,8 +577,6 @@ func (k *K8sWatcher) enableK8sWatchers(ctx context.Context, resourceNames []stri
 			// no-op; handled in k8sAPIGroupCiliumEndpointV2
 		case k8sAPIGroupCiliumLocalRedirectPolicyV2:
 			k.ciliumLocalRedirectPolicyInit(k.clientset)
-		case k8sAPIGroupCiliumEgressGatewayPolicyV2:
-			k.ciliumEgressGatewayPolicyInit(k.clientset)
 		case k8sAPIGroupCiliumClusterwideEnvoyConfigV2:
 			k.ciliumClusterwideEnvoyConfigInit(ctx, k.clientset)
 		case k8sAPIGroupCiliumEnvoyConfigV2:
@@ -594,13 +603,15 @@ func (k *K8sWatcher) k8sServiceHandler() {
 			logfields.K8sNamespace: event.ID.Namespace,
 		})
 
-		scopedLog.WithFields(logrus.Fields{
-			"action":        event.Action.String(),
-			"service":       event.Service.String(),
-			"old-service":   event.OldService.String(),
-			"endpoints":     event.Endpoints.String(),
-			"old-endpoints": event.OldEndpoints.String(),
-		}).Debug("Kubernetes service definition changed")
+		if logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel) {
+			scopedLog.WithFields(logrus.Fields{
+				"action":        event.Action.String(),
+				"service":       event.Service.String(),
+				"old-service":   event.OldService.String(),
+				"endpoints":     event.Endpoints.String(),
+				"old-endpoints": event.OldEndpoints.String(),
+			}).Debug("Kubernetes service definition changed")
+		}
 
 		switch event.Action {
 		case k8s.UpdateService:
@@ -623,7 +634,7 @@ func (k *K8sWatcher) k8sServiceHandler() {
 			if event.OldEndpoints != nil {
 				oldEP = *event.OldEndpoints
 			}
-			translator := k8s.NewK8sTranslator(event.ID, oldEP, *event.Endpoints, false, svc.Labels)
+			translator := k8s.NewK8sTranslator(event.ID, oldEP, *event.Endpoints, svc.Labels)
 			result, err := k.policyRepository.TranslateRules(translator)
 			if err != nil {
 				log.WithError(err).Error("Unable to repopulate egress policies from ToService rules")
@@ -649,9 +660,9 @@ func (k *K8sWatcher) k8sServiceHandler() {
 				return
 			}
 
-			// Use the current Endpoints object as the "old" object and "new"
-			// object due to deletion.
-			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, *event.Endpoints, true, svc.Labels)
+			// Use the current Endpoints object as the "old" object and an empty
+			// Endpoints as "new" object.
+			translator := k8s.NewK8sTranslator(event.ID, *event.Endpoints, k8s.Endpoints{}, svc.Labels)
 			result, err := k.policyRepository.TranslateRules(translator)
 			if err != nil {
 				log.WithError(err).Error("Unable to depopulate egress policies from ToService rules")
@@ -969,7 +980,7 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 // Kubernetes event
 func (k *K8sWatcher) K8sEventProcessed(scope, action string, status bool) {
 	result := "success"
-	if status == false {
+	if !status {
 		result = "failed"
 	}
 
@@ -1031,6 +1042,7 @@ func (k *K8sWatcher) SetIndexer(name string, indexer cache.Indexer) {
 func (k *K8sWatcher) GetStore(name string) cache.Store {
 	switch name {
 	case "networkpolicy":
+		<-k.networkPoliciesStoreSet
 		return k.networkpolicyStore
 	case "pod":
 		// Wait for podStore to get initialized.

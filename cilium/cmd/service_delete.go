@@ -55,6 +55,6 @@ var serviceDeleteCmd = &cobra.Command{
 }
 
 func init() {
-	serviceCmd.AddCommand(serviceDeleteCmd)
+	ServiceCmd.AddCommand(serviceDeleteCmd)
 	serviceDeleteCmd.Flags().BoolVarP(&deleteAll, "all", "", false, "Delete all services")
 }

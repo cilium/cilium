@@ -360,7 +360,7 @@ by ``pahole``:
 
 .. code-block:: shell-session
 
-     # clang [...] -O2 -target bpf -g -emit-llvm -c test_xdp_noinline.c -o - |
+     # clang [...] -O2 --target=bpf -g -emit-llvm -c test_xdp_noinline.c -o - |
        llc -march=bpf -mcpu=probe -mattr=dwarfris -filetype=obj -o test_xdp_noinline.o
      # pahole -J test_xdp_noinline.o
 

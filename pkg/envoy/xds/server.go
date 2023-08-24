@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"time"
 
 	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	"github.com/sirupsen/logrus"
@@ -74,7 +73,7 @@ type Server struct {
 
 	// lastStreamID is the identifier of the last processed stream.
 	// It is incremented atomically when starting the handling of a new stream.
-	lastStreamID uint64
+	lastStreamID atomic.Uint64
 }
 
 // ResourceTypeConfiguration is the configuration of the XDS server for a
@@ -92,12 +91,11 @@ type ResourceTypeConfiguration struct {
 // sources.
 // types maps each supported resource type URL to its corresponding resource
 // source and ACK observer.
-func NewServer(resourceTypes map[string]*ResourceTypeConfiguration,
-	resourceAccessTimeout time.Duration) *Server {
+func NewServer(resourceTypes map[string]*ResourceTypeConfiguration) *Server {
 	watchers := make(map[string]*ResourceWatcher, len(resourceTypes))
 	ackObservers := make(map[string]ResourceVersionAckObserver, len(resourceTypes))
 	for typeURL, resType := range resourceTypes {
-		w := NewResourceWatcher(typeURL, resType.Source, resourceAccessTimeout)
+		w := NewResourceWatcher(typeURL, resType.Source)
 		resType.Source.AddResourceVersionObserver(w)
 		watchers[typeURL] = w
 
@@ -122,7 +120,7 @@ func getXDSRequestFields(req *envoy_service_discovery.DiscoveryRequest) logrus.F
 // HandleRequestStream receives and processes the requests from an xDS stream.
 func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, defaultTypeURL string) error {
 	// increment stream count
-	streamID := atomic.AddUint64(&s.lastStreamID, 1)
+	streamID := s.lastStreamID.Add(1)
 
 	reqStreamLog := log.WithField(logfields.XDSStreamID, streamID)
 

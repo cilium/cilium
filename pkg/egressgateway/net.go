@@ -76,7 +76,20 @@ func listEgressIpRules() ([]netlink.Rule, error) {
 		Priority: linux_defaults.RulePriorityEgressGateway,
 	}
 
-	rules, err := route.ListRules(netlink.FAMILY_V4, &filter)
+	return listFilteredEgressIpRules(&filter)
+}
+
+func listEgressIpRulesForRoutingTable(RoutingTableIdx int) ([]netlink.Rule, error) {
+	filter := route.Rule{
+		Priority: linux_defaults.RulePriorityEgressGateway,
+		Table:    RoutingTableIdx,
+	}
+
+	return listFilteredEgressIpRules(&filter)
+}
+
+func listFilteredEgressIpRules(filter *route.Rule) ([]netlink.Rule, error) {
+	rules, err := route.ListRules(netlink.FAMILY_V4, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -90,18 +103,27 @@ func listEgressIpRules() ([]netlink.Rule, error) {
 	return rules, nil
 }
 
-func addEgressIpRule(endpointIP net.IP, dstCIDR *net.IPNet, egressIP net.IP, ifaceIndex int) error {
-	routingTableIdx := egressGatewayRoutingTableIdx(ifaceIndex)
+func newEgressIpRule(endpointIP net.IP, dstCIDR *net.IPNet, routingTableIdx int) *netlink.Rule {
+	rule := netlink.NewRule()
 
-	ipRule := route.Rule{
-		Priority: linux_defaults.RulePriorityEgressGateway,
-		From:     &net.IPNet{IP: endpointIP, Mask: net.CIDRMask(32, 32)},
-		To:       dstCIDR,
-		Table:    routingTableIdx,
-		Protocol: linux_defaults.RTProto,
-	}
+	rule.Family = netlink.FAMILY_V4
+	rule.Table = routingTableIdx
+	rule.Priority = linux_defaults.RulePriorityEgressGateway
+	rule.Src = &net.IPNet{IP: endpointIP, Mask: net.CIDRMask(32, 32)}
+	rule.Dst = dstCIDR
+	rule.Protocol = linux_defaults.RTProto
 
-	return route.ReplaceRule(ipRule)
+	return rule
+}
+
+func egressIPRuleMatches(ipRule *netlink.Rule, endpointIP net.IP, dstCIDR *net.IPNet) bool {
+	ipRuleMaskSize, _ := ipRule.Dst.Mask.Size()
+	dstCIDRMaskSize, _ := dstCIDR.Mask.Size()
+
+	// We already filtered for .Family, .Priority and .Table
+	return ipRule.Src.IP.Equal(endpointIP) &&
+		ipRuleMaskSize == dstCIDRMaskSize &&
+		ipRule.Dst.IP.Equal(dstCIDR.IP)
 }
 
 func getFirstIPInHostRange(ip net.IPNet) net.IP {
@@ -113,36 +135,22 @@ func getFirstIPInHostRange(ip net.IPNet) net.IP {
 	return out
 }
 
-func addEgressIpRoutes(egressIP net.IPNet, ifaceIndex int) error {
-	routingTableIdx := egressGatewayRoutingTableIdx(ifaceIndex)
+func addEgressIpRoutes(gwc *gatewayConfig) error {
+	routingTableIdx := egressGatewayRoutingTableIdx(gwc.ifaceIndex)
 
 	// The gateway for a subnet and VPC should always be the first IP of the
 	// host address range.
-	eniGatewayIP := getFirstIPInHostRange(egressIP)
+	eniGatewayIP := getFirstIPInHostRange(gwc.egressIP)
 
-	// Nexthop route to the VPC or subnet gateway
-	if err := netlink.RouteReplace(&netlink.Route{
-		LinkIndex: ifaceIndex,
-		Dst:       &net.IPNet{IP: eniGatewayIP, Mask: net.CIDRMask(32, 32)},
-		Scope:     netlink.SCOPE_LINK,
-		Table:     routingTableIdx,
-		Protocol:  linux_defaults.RTProto,
-	}); err != nil {
-		return fmt.Errorf("unable to add L2 nexthop route: %w", err)
+	IpRoute := route.Route{
+		Prefix:  net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)},
+		Nexthop: &eniGatewayIP,
+		Device:  gwc.ifaceName,
+		Proto:   linux_defaults.RTProto,
+		Table:   routingTableIdx,
 	}
 
-	// Default route to the VPC or subnet gateway
-	if err := netlink.RouteReplace(&netlink.Route{
-		LinkIndex: ifaceIndex,
-		Dst:       &net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 32)},
-		Table:     routingTableIdx,
-		Gw:        eniGatewayIP,
-		Protocol:  linux_defaults.RTProto,
-	}); err != nil {
-		return fmt.Errorf("unable to add L2 nexthop route: %w", err)
-	}
-
-	return nil
+	return route.Upsert(IpRoute)
 }
 
 func deleteIpRule(ipRule netlink.Rule) {
@@ -157,19 +165,6 @@ func deleteIpRule(ipRule netlink.Rule) {
 			Table:    ipRule.Table,
 			Protocol: linux_defaults.RTProto,
 		})
-}
-
-func deleteIpRouteTable(tableIndex int) {
-	routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4,
-		&netlink.Route{Table: tableIndex}, uint64(netlink.RT_FILTER_TABLE))
-	if err != nil {
-		log.WithError(err).Error("Cannot list IP routes")
-		return
-	}
-
-	for _, route := range routes {
-		deleteIpRoute(route)
-	}
 }
 
 func deleteIpRoute(ipRoute netlink.Route) {

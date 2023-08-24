@@ -4,6 +4,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -13,17 +14,24 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/cilium/cilium/api/v1/client/bgp"
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/command"
 )
 
 var BgpPeersCmd = &cobra.Command{
-	Use:   "peers",
-	Short: "List current state of all peers",
-	Long:  "List state of all peers defined in CiliumBGPPeeringPolicy",
+	Use:     "peers",
+	Aliases: []string{"neighbors"},
+	Short:   "List current state of all peers",
+	Long:    "List state of all peers defined in CiliumBGPPeeringPolicy",
 	Run: func(cmd *cobra.Command, args []string) {
 		res, err := client.Bgp.GetBgpPeers(nil)
 		if err != nil {
+			disabledErr := bgp.NewGetBgpPeersDisabled()
+			if errors.As(err, &disabledErr) {
+				fmt.Println("BGP Control Plane is disabled")
+				return
+			}
 			Fatalf("cannot get peers list: %s\n", err)
 		}
 
@@ -84,6 +92,6 @@ func NewTabWriter() *tabwriter.Writer {
 }
 
 func init() {
-	bgpCmd.AddCommand(BgpPeersCmd)
+	BgpCmd.AddCommand(BgpPeersCmd)
 	command.AddOutputOption(BgpPeersCmd)
 }

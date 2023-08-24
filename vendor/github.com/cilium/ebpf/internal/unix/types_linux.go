@@ -196,3 +196,7 @@ func Open(path string, mode int, perm uint32) (int, error) {
 func Fstat(fd int, stat *Stat_t) error {
 	return linux.Fstat(fd, stat)
 }
+
+func SetsockoptInt(fd, level, opt, value int) error {
+	return linux.SetsockoptInt(fd, level, opt, value)
+}

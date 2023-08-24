@@ -35,6 +35,14 @@ func (m mockStore[T]) IterKeys() resource.KeyIter {
 	panic("not implemented")
 }
 
+func (m mockStore[T]) IndexKeys(indexName, indexedValue string) ([]string, error) {
+	panic("not implemented")
+}
+
+func (m mockStore[T]) ByIndex(indexName, indexedValue string) ([]T, error) {
+	panic("not implemented")
+}
+
 func (m mockStore[T]) CacheStore() cache.Store {
 	panic("not implemented")
 }

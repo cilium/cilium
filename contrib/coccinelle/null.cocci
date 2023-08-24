@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium.
+//
 // spatch --sp-file null.cocci lib/*.h *.c *.h
 //
 // This script finds undefined behavior in BPF C code which LLVM

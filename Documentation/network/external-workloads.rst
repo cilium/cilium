@@ -70,25 +70,14 @@ Your cluster must be configured with support for external workloads
 enabled. This can be done with the cilium CLI tool by issuing ``cilium
 clustermesh enable`` after ``cilium install``:
 
-.. code-block:: shell-session
+.. parsed-literal::
 
-    cilium install --config tunnel-protocol=vxlan
-    cilium clustermesh enable
+    cilium install |CHART_VERSION| --set tunnel=vxlan
+    cilium clustermesh enable --service-type LoadBalancer --enable-external-workloads
 
-Config option ``tunnel-protocol=vxlan`` overrides any default that could
-otherwise be auto-detected for your k8s cluster. This is currently a
-requirement for external workload support.
-
-.. note::
-
-    If this fails indicating that ``--service-type`` needs to be
-    given, add ``--service-type NodePort`` to the second command
-    above, i.e. ``cilium clustermesh enable --service-type
-    NodePort``. This will allow you to go through this guide, but be
-    warned that NodePort service type makes your installation very
-    fragile, it will become non-functional if the node through which
-    the service is accessed is removed from the cluster or if it
-    otherwise becomes unreachable.
+The ``tunnel=vxlan`` Helm value sets ``tunnel-protocol`` Cilium configuration
+option to ``vxlan``. This is currently a requirement for external workload
+support.
 
 This will add a deployment for ``clustermesh-apiserver`` into your
 cluster, as well as the related cluster resources, such as TLS
@@ -201,7 +190,7 @@ Next you can check the status of the Cilium agent in your external workload:
 
 .. code-block:: shell-session
 
-    cilium status
+    sudo cilium status
 
 You should see something like:
 
@@ -239,7 +228,7 @@ From the external workload, ping the backend IP of ``clustermesh-apiserver`` ser
 
 .. code-block:: shell-session
 
-    ping $(cilium service list get -o jsonpath='{[?(@.spec.flags.name=="clustermesh-apiserver")].spec.backend-addresses[0].ip}')
+    ping $(sudo cilium service list get -o jsonpath='{[?(@.spec.flags.name=="clustermesh-apiserver")].spec.backend-addresses[0].ip}')
 
 The ping should keep running also when the following CCNP is applied in your cluster:
 

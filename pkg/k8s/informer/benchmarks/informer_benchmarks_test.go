@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -21,6 +20,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/k8s"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+
 	"github.com/cilium/cilium/pkg/k8s/informer"
 )
 
@@ -414,7 +415,7 @@ var nodeSampleJSON = `{
 `
 
 func (k *K8sIntegrationSuite) benchmarkInformer(ctx context.Context, nCycles int, newInformer bool, c *C) {
-	n := v1.Node{}
+	n := slim_corev1.Node{}
 	err := json.Unmarshal([]byte(nodeSampleJSON), &n)
 	n.ResourceVersion = "1"
 	c.Assert(err, IsNil)
@@ -423,8 +424,8 @@ func (k *K8sIntegrationSuite) benchmarkInformer(ctx context.Context, nCycles int
 
 	lw := &cache.ListWatch{
 		ListFunc: func(_ metav1.ListOptions) (runtime.Object, error) {
-			return &v1.NodeList{
-				Items: []v1.Node{n},
+			return &slim_corev1.NodeList{
+				Items: []slim_corev1.Node{n},
 			}, nil
 		},
 		WatchFunc: func(_ metav1.ListOptions) (watch.Interface, error) {
@@ -435,13 +436,13 @@ func (k *K8sIntegrationSuite) benchmarkInformer(ctx context.Context, nCycles int
 	if newInformer {
 		_, controller := informer.NewInformer(
 			lw,
-			&v1.Node{},
+			&slim_corev1.Node{},
 			0,
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {},
 				UpdateFunc: func(oldObj, newObj interface{}) {
-					if oldK8sNP := k8s.ObjToV1Node(oldObj); oldK8sNP != nil {
-						if newK8sNP := k8s.ObjToV1Node(newObj); newK8sNP != nil {
+					if oldK8sNP := k8s.CastInformerEvent[slim_corev1.Node](oldObj); oldK8sNP != nil {
+						if newK8sNP := k8s.CastInformerEvent[slim_corev1.Node](newObj); newK8sNP != nil {
 							if reflect.DeepEqual(oldK8sNP, newK8sNP) {
 								return
 							}
@@ -449,7 +450,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(ctx context.Context, nCycles int
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
-					k8sNP := k8s.ObjToV1Node(obj)
+					k8sNP := k8s.CastInformerEvent[slim_corev1.Node](obj)
 					if k8sNP == nil {
 						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 						if !ok {
@@ -458,7 +459,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(ctx context.Context, nCycles int
 						// Delete was not observed by the watcher but is
 						// removed from kube-apiserver. This is the last
 						// known state and the object no longer exists.
-						k8sNP = k8s.ObjToV1Node(deletedObj.Obj)
+						k8sNP = k8s.CastInformerEvent[slim_corev1.Node](deletedObj.Obj)
 						if k8sNP == nil {
 							return
 						}
@@ -466,13 +467,13 @@ func (k *K8sIntegrationSuite) benchmarkInformer(ctx context.Context, nCycles int
 					wg.Done()
 				},
 			},
-			k8s.TransformToNode,
+			nil,
 		)
 		go controller.Run(ctx.Done())
 	} else {
 		_, controller := cache.NewInformer(
 			lw,
-			&v1.Node{},
+			&slim_corev1.Node{},
 			0,
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {},
@@ -518,15 +519,15 @@ func (k *K8sIntegrationSuite) benchmarkInformer(ctx context.Context, nCycles int
 	c.StopTimer()
 }
 
-func OldEqualV1Node(node1, node2 *v1.Node) bool {
+func OldEqualV1Node(node1, node2 *slim_corev1.Node) bool {
 	// The only information we care about the node is it's annotations, in
 	// particularly the CiliumHostIP annotation.
 	return node1.GetObjectMeta().GetName() == node2.GetObjectMeta().GetName() &&
 		node1.GetAnnotations()[annotation.CiliumHostIP] == node2.GetAnnotations()[annotation.CiliumHostIP]
 }
 
-func OldCopyObjToV1Node(obj interface{}) *v1.Node {
-	node, ok := obj.(*v1.Node)
+func OldCopyObjToV1Node(obj interface{}) *slim_corev1.Node {
+	node, ok := obj.(*slim_corev1.Node)
 	if !ok {
 		return nil
 	}

@@ -46,38 +46,6 @@ func newPolicyObj(conf policyConfig) v2alpha1.CiliumBGPPeeringPolicy {
 	return policyObj
 }
 
-// nodeConfig data used to create/update node object
-type nodeConfig struct {
-	labels      map[string]string
-	annotations map[string]string
-	podCIDRs    []string
-}
-
-// newNodeObj creates new corev1.Node object based on passed config
-func newNodeObj(conf nodeConfig) slim_core_v1.Node {
-	nodeObj := slim_core_v1.Node{
-		ObjectMeta: slim_meta_v1.ObjectMeta{
-			Name:        "base-node",
-			Labels:      map[string]string{},
-			Annotations: map[string]string{},
-		},
-	}
-
-	if conf.labels != nil {
-		nodeObj.ObjectMeta.Labels = conf.labels
-	}
-
-	if conf.annotations != nil {
-		nodeObj.ObjectMeta.Annotations = conf.annotations
-	}
-
-	if conf.podCIDRs != nil {
-		nodeObj.Spec.PodCIDRs = conf.podCIDRs
-	}
-
-	return nodeObj
-}
-
 // lbSrvConfig contains lb service configuration data
 type lbSrvConfig struct {
 	name      string

@@ -33,11 +33,11 @@ static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 	int ret;
 
 	ret = ipv6_dec_hoplimit(ctx, l3_off);
-	if (IS_ERR(ret))
+	if (IS_ERR(ret)) {
+		if (ret == DROP_TTL_EXCEEDED)
+			return icmp6_send_time_exceeded(ctx, l3_off, direction);
+
 		return ret;
-	if (ret > 0) {
-		/* Hoplimit was reached */
-		return icmp6_send_time_exceeded(ctx, l3_off, direction);
 	}
 
 	if (smac && eth_store_saddr(ctx, smac, 0) < 0)
@@ -53,10 +53,12 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 				   const __u8 *smac, const __u8 *dmac,
 				   struct iphdr *ip4)
 {
-	if (ipv4_dec_ttl(ctx, l3_off, ip4)) {
-		/* FIXME: Send ICMP TTL */
-		return DROP_INVALID;
-	}
+	int ret;
+
+	ret = ipv4_dec_ttl(ctx, l3_off, ip4);
+	/* FIXME: Send ICMP TTL */
+	if (IS_ERR(ret))
+		return ret;
 
 	if (smac && eth_store_saddr(ctx, smac, 0) < 0)
 		return DROP_WRITE_ERROR;
@@ -132,8 +134,7 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off,
 					       __u32 seclabel,
 					       const struct endpoint_info *ep,
-					       __u8 direction, bool from_host,
-					       bool hairpin_flow)
+					       __u8 direction, bool from_host)
 {
 	mac_t router_mac = ep->node_mac;
 	mac_t lxc_mac = ep->mac;
@@ -141,12 +142,11 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
 
-	/* This will invalidate the size check */
 	ret = ipv6_l3(ctx, l3_off, (__u8 *)&router_mac, (__u8 *)&lxc_mac, direction);
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-	return l3_local_delivery(ctx, seclabel, ep, direction, from_host, hairpin_flow,
+	return l3_local_delivery(ctx, seclabel, ep, direction, from_host, false,
 				 false, 0);
 }
 #endif /* ENABLE_IPV6 */

@@ -28,6 +28,9 @@
 
 #define NEXTHDR_MAX             255
 
+#define IPV6_SADDR_OFF		offsetof(struct ipv6hdr, saddr)
+#define IPV6_DADDR_OFF		offsetof(struct ipv6hdr, daddr)
+
 static __always_inline int ipv6_optlen(const struct ipv6_opt_hdr *opthdr)
 {
 	return (opthdr->hdrlen + 1) << 3;
@@ -136,7 +139,7 @@ static __always_inline int ipv6_dec_hoplimit(struct __ctx_buff *ctx, int off)
 		return DROP_INVALID;
 
 	if (hl <= 1)
-		return 1;
+		return DROP_TTL_EXCEEDED;
 	hl--;
 	if (ctx_store_bytes(ctx, off + offsetof(struct ipv6hdr, hop_limit),
 			    &hl, sizeof(hl), BPF_F_RECOMPUTE_CSUM) < 0)

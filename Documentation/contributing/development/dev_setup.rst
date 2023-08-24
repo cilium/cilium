@@ -101,9 +101,11 @@ Cilium images:
   into the cluster.
 * ``make kind-image-operator``: Builds the Cilium Operator (generic) image only
   and loads it into the cluster.
-* ``make kind-image-debug``: Builds all Cilium images with optimizations
-  disabled and ``dlv`` embedded for live debugging enabled and loads the images
-  into the cluster.
+* ``make kind-debug``: Builds all Cilium images with optimizations disabled and
+  ``dlv`` embedded for live debugging enabled and loads the images into the
+  cluster.
+* ``make kind-debug-agent``: Like ``kind-debug``, but for the agent image only.
+  Use if only the agent image needs to be rebuilt for faster iteration.
 * ``make kind-install-cilium``: Installs Cilium into the cluster using the
   Cilium CLI.
 * ``make kind-down``: Tears down and deletes the cluster.
@@ -539,6 +541,55 @@ Making Changes
    This make target works both inside and outside the Vagrant VM, assuming that ``docker``
    is running in the environment.
 
+Update a golang version
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Minor version
+^^^^^^^^^^^^^
+
+Each Cilium release is tied to a specific version of Golang via an explicit constraint
+in our Renovate configuration.
+
+We aim to build and release all maintained Cilium branches using a Golang version
+that is actively supported. This needs to be balanced against the desire to avoid
+regressions in Golang that may impact Cilium. Golang supports two minor versions
+at any given time – when updating the version used by a Cilium branch, you should
+choose the older of the two supported versions.
+
+To update the minor version of Golang used by a release, you will first need to
+update the Renovate configuration found in ``.github/renovate.json5``. For each
+minor release, there will be a section that looks like this:
+
+.. code-block:: json
+
+    {
+      "matchPackageNames": [
+        "docker.io/library/golang",
+        "go"
+      ],
+      "allowedVersions": "<1.21",
+      "matchBaseBranches": [
+        "v1.14"
+      ]
+    }
+
+To allow Renovate to create a pull request that updates the minor Golang version,
+bump the ``allowedVersions`` constraint to include the desired minor version. Once
+this change has been merged, Renovate will create a pull request that updates the
+Golang version. Minor version updates may require further changes to ensure that
+all Cilium features are working correctly – use the CI to identify any issues that
+require further changes, and bring them to the attention of the Cilium maintainers
+in the pull request.
+
+Once the CI is passing, the PR will be merged as part of the standard version
+upgrade process.
+
+Patch version
+^^^^^^^^^^^^^
+
+New patch versions of Golang are picked up automatically by the CI; there should
+normally be no need to update the version manually.
+
 Add/update a golang dependency
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -602,11 +653,9 @@ Minor version
    deprecated fields from the upstream code. New functions / fields / structs
    added in upstream that are not used in Cilium, can be removed.
 
-#. Open files ``jenkinsfiles/{kubernetes-upstream,ginkgo-kernel}.Jenkinsfile``,
-   and bump the versions being tested. More important is to make sure the
-   pipeline used on all PRs are running with the new Kubernetes version by
-   default. Make sure the files ``contributing/testing/{ci,e2e}.rst`` are up to
-   date with these changes.
+#. Make sure the workflows used on all PRs are running with the new Kubernetes
+   version by default. Make sure the files ``contributing/testing/{ci,e2e}.rst``
+   are up to date with these changes.
 
 #. Update documentation files:
    - Documentation/contributing/testing/e2e.rst
@@ -656,18 +705,12 @@ Minor version
 
 #. Submit all your changes into a new PR.
 
-#. Ping the CI team to make changes in Jenkins (adding new pipeline and
-   dedicated test trigger ``/test-X.XX-4.19`` where ``X.XX`` is the new
-   Kubernetes version).
+#. Ensure that the target CI workflows are running and passing after updating
+   the target k8s versions in the GitHub action workflows.
 
-#. Run ``/test-upstream-k8s`` and the new ``/test-X.XX-4.19`` from the PR once
-   Jenkins is up-to-date.
-
-#. Once CI is green and PR has been merged, ping the CI team again so that they:
-   #. Rotate the Jenkins pipelines and triggers due to removed/added K8s versions.
-
-   #. Update the `Cilium CI matrix`_, ``.github/maintainers-little-helper.yaml``,
-      and GitHub required PR checks accordingly.
+#. Once CI is green and PR has been merged, ping the CI team again so that they
+   update the `Cilium CI matrix`_, ``.github/maintainers-little-helper.yaml``,
+   and GitHub required PR checks accordingly.
 
 .. _Cilium CI matrix: https://docs.google.com/spreadsheets/d/1TThkqvVZxaqLR-Ela4ZrcJ0lrTJByCqrbdCjnI32_X0
 

@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bpfSRv6Cmd represents the bpf command
-var bpfSRv6Cmd = &cobra.Command{
+// BPFSRv6Cmd represents the bpf command
+var BPFSRv6Cmd = &cobra.Command{
 	Use:   "srv6",
 	Short: "Manage the SRv6 routing rules",
 }
 
 func init() {
-	bpfCmd.AddCommand(bpfSRv6Cmd)
+	BPFCmd.AddCommand(BPFSRv6Cmd)
 }

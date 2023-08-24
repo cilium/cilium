@@ -11,7 +11,7 @@
 {{- $defaultBpfCtAnyMax := 262144 -}}
 {{- $enableIdentityMark := "true" -}}
 {{- $fragmentTracking := "true" -}}
-{{- $defaultKubeProxyReplacement := "disabled" -}}
+{{- $defaultKubeProxyReplacement := "false" -}}
 {{- $azureUsePrimaryAddress := "true" -}}
 
 {{- /* Default values when 1.8 was initially deployed */ -}}
@@ -50,12 +50,22 @@
   {{- $defaultKubeProxyReplacement = "disabled" -}}
 {{- end -}}
 
+{{- /* Default values when 1.14 was initially deployed */ -}}
+{{- if semverCompare ">=1.14" (default "1.14" .Values.upgradeCompatibility) -}}
+  {{- /* KPR default for 1.14 needed to override earlier version defaults set above when upgradeCompatibility is not specified */ -}}
+  {{- $defaultKubeProxyReplacement = "false" -}}
+{{- end -}}
+
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
-{{- $kubeProxyReplacement := (coalesce .Values.kubeProxyReplacement $defaultKubeProxyReplacement) -}}
-{{- if and (ne $kubeProxyReplacement "disabled") (ne $kubeProxyReplacement "partial") (ne $kubeProxyReplacement "strict") }}
-  {{ fail "kubeproxyReplacement must be explicitly set to a valid value (disabled, partial, or strict) to continue." }}
+{{- $stringValueKPR := (toString .Values.kubeProxyReplacement) -}}
+{{- if (eq $stringValueKPR "<nil>") }}
+  {{- $stringValueKPR = "" -}}
+{{- end}}
+{{- $kubeProxyReplacement := (coalesce $stringValueKPR $defaultKubeProxyReplacement) -}}
+{{- if and (ne $kubeProxyReplacement "disabled") (ne $kubeProxyReplacement "partial") (ne $kubeProxyReplacement "strict") (ne $kubeProxyReplacement "true") (ne $kubeProxyReplacement "false") }}
+  {{ fail "kubeProxyReplacement must be explicitly set to a valid value (true, false, disabled (deprecated), partial (deprecated), or strict (deprecated)) to continue." }}
 {{- end }}
 {{- $azureUsePrimaryAddress = (coalesce .Values.azure.usePrimaryAddress $azureUsePrimaryAddress) -}}
 {{- $socketLB := (coalesce .Values.socketLB .Values.hostServices) -}}
@@ -188,6 +198,13 @@ data:
   # list. (+metric_foo to enable metric_foo , -metric_bar to disable
   # metric_bar).
   metrics: {{- range .Values.prometheus.metrics }}
+    {{ . }}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.prometheus.controllerGroupMetrics }}
+  # A space-separated list of controller groups for which to enable metrics.
+  # The special values of "all" and "none" are supported.
+  controller-group-metrics: {{- range .Values.prometheus.controllerGroupMetrics }}
     {{ . }}
   {{- end }}
   {{- end }}
@@ -432,6 +449,10 @@ data:
 {{- else if eq .Values.tunnel "geneve" }}
   routing-mode: "tunnel"
   tunnel-protocol: "geneve"
+{{- else if not (or .Values.gke.enabled .Values.aksbyocni.enabled) }}
+  # Default case
+  routing-mode: "tunnel"
+  tunnel-protocol: "vxlan"
 {{- end }}
 
 {{- if .Values.routingMode }}
@@ -535,6 +556,7 @@ data:
 {{- else if eq $defaultBpfMasquerade "true" }}
   enable-bpf-masquerade: {{ $defaultBpfMasquerade | quote }}
 {{- end }}
+  enable-masquerade-to-route-source: {{ .Values.enableMasqueradeRouteSource | quote }}
 {{- if hasKey .Values "egressMasqueradeInterfaces" }}
   egress-masquerade-interfaces: {{ .Values.egressMasqueradeInterfaces }}
 {{- end }}
@@ -571,6 +593,14 @@ data:
   {{- if .Values.encryption.nodeEncryption }}
   encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
   {{- end }}
+{{- end }}
+
+{{- if .Values.encryption.strictMode.enabled }}
+  enable-encryption-strict-mode: {{ .Values.encryption.strictMode.enabled | quote }}
+
+  encryption-strict-mode-cidr: {{ .Values.encryption.strictMode.cidr | quote }}
+
+  encryption-strict-mode-allow-remote-node-identities: {{ .Values.encryption.strictMode.allowRemoteNodeIdentities | quote }}
 {{- end }}
 
   enable-xt-socket-fallback: {{ .Values.enableXTSocketFallback | quote }}
@@ -653,17 +683,17 @@ data:
 {{- end }}
 
 {{- if hasKey .Values "hostPort" }}
-{{- if eq $kubeProxyReplacement "partial" }}
+{{- if or (eq $kubeProxyReplacement "partial") (eq $kubeProxyReplacement "false") }}
   enable-host-port: {{ .Values.hostPort.enabled | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "externalIPs" }}
-{{- if eq $kubeProxyReplacement "partial" }}
+{{- if or (eq $kubeProxyReplacement "partial") (eq $kubeProxyReplacement "false") }}
   enable-external-ips: {{ .Values.externalIPs.enabled | quote }}
 {{- end }}
 {{- end }}
 {{- if hasKey .Values "nodePort" }}
-{{- if eq $kubeProxyReplacement "partial" }}
+{{- if or (eq $kubeProxyReplacement "partial") (eq $kubeProxyReplacement "false") }}
   enable-node-port: {{ .Values.nodePort.enabled | quote }}
 {{- end }}
 {{- if hasKey .Values.nodePort "range" }}
@@ -674,6 +704,11 @@ data:
 {{- end }}
 {{- if hasKey .Values.nodePort "enableHealthCheck" }}
   enable-health-check-nodeport: {{ .Values.nodePort.enableHealthCheck | quote}}
+{{- end }}
+{{- if .Values.gke.enabled }}
+  enable-health-check-loadbalancer-ip: "true"
+{{- else if hasKey .Values.nodePort "enableHealthCheckLoadBalancerIP" }}
+  enable-health-check-loadbalancer-ip: {{ .Values.nodePort.enableHealthCheckLoadBalancerIP | quote}}
 {{- end }}
   node-port-bind-protection: {{ .Values.nodePort.bindProtection | quote }}
   enable-auto-protect-node-port-range: {{ .Values.nodePort.autoProtectPortRange | quote }}
@@ -806,7 +841,7 @@ data:
 
 {{- if .Values.hubble.enabled }}
   # Enable Hubble gRPC service.
-  enable-hubble: {{ .Values.hubble.enabled  | quote }}
+  enable-hubble: {{ .Values.hubble.enabled | quote }}
   # UNIX domain socket for Hubble server to listen to.
   hubble-socket-path: {{ .Values.hubble.socketPath | quote }}
 {{- if hasKey .Values.hubble "eventQueueSize" }}
@@ -923,6 +958,9 @@ data:
 {{- end }}
 {{- if .Values.egressGateway.installRoutes }}
   install-egress-gateway-routes: "true"
+{{- end }}
+{{- if hasKey .Values.egressGateway "reconciliationTriggerInterval" }}
+  egress-gateway-reconciliation-trigger-interval: {{ .Values.egressGateway.reconciliationTriggerInterval | quote }}
 {{- end }}
 {{- if .Values.egressGateway.maxPolicyEntries }}
   egress-gateway-policy-map-max: {{ .Values.egressGateway.maxPolicyEntries }}
@@ -1045,6 +1083,11 @@ data:
   annotate-k8s-node: "true"
 {{- end }}
 
+{{- if hasKey .Values "k8sClientRateLimit" }}
+  k8s-client-qps: {{ .Values.k8sClientRateLimit.qps | quote }}
+  k8s-client-burst: {{ .Values.k8sClientRateLimit.burst | quote }}
+{{- end }}
+
 {{- if and .Values.operator.setNodeTaints (not .Values.operator.removeNodeTaints) -}}
   {{ fail "Cannot have operator.setNodeTaintsMaxNodes and not operator.removeNodeTaints = false" }}
 {{- end -}}
@@ -1097,10 +1140,6 @@ data:
   {{- end }}
 {{- end }}
 
-{{- if .Values.extraConfig }}
-  {{ toYaml .Values.extraConfig | nindent 2 }}
-{{- end }}
-
 {{- if hasKey .Values "agentNotReadyTaintKey" }}
   agent-not-ready-taint-key: {{ .Values.agentNotReadyTaintKey | quote }}
 {{- end }}
@@ -1108,12 +1147,13 @@ data:
   mesh-auth-enabled: {{ .Values.authentication.enabled | quote }}
   mesh-auth-queue-size: {{ .Values.authentication.queueSize | quote }}
   mesh-auth-rotated-identities-queue-size: {{ .Values.authentication.rotatedIdentitiesQueueSize | quote }}
-  mesh-auth-expired-gc-interval: {{ include "validateDuration" .Values.authentication.expiredGCInterval | quote }}
+  mesh-auth-gc-interval: {{ include "validateDuration" .Values.authentication.gcInterval | quote }}
 
 {{- if .Values.authentication.mutual.spire.enabled }}
   mesh-auth-mutual-enabled: "true"
   mesh-auth-mutual-listener-port: {{ .Values.authentication.mutual.port | quote }}
   mesh-auth-spire-agent-socket: {{ .Values.authentication.mutual.spire.agentSocketPath | quote }}
+  mesh-auth-mutual-connect-timeout: {{ include "validateDuration" .Values.authentication.mutual.connectTimeout | quote }}
   {{- if .Values.authentication.mutual.spire.serverAddress }}
   mesh-auth-spire-server-address: {{ .Values.authentication.mutual.spire.serverAddress | quote }}
   {{- else }}
@@ -1132,6 +1172,12 @@ data:
 
 {{- if .Values.envoy.log.path }}
   envoy-log: {{ .Values.envoy.log.path | quote }}
+{{- end }}
+
+# Extra config allows adding arbitrary properties to the cilium config.
+# By putting it at the end of the ConfigMap, it's also possible to override existing properties.
+{{- if .Values.extraConfig }}
+  {{ toYaml .Values.extraConfig | nindent 2 }}
 {{- end }}
 
 {{- end }}

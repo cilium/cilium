@@ -8,11 +8,11 @@ import (
 )
 
 // nodeidCmd represents the nodeid command
-var nodeIDCmd = &cobra.Command{
+var NodeIDCmd = &cobra.Command{
 	Use:   "nodeid",
 	Short: "List node IDs and associated information",
 }
 
 func init() {
-	rootCmd.AddCommand(nodeIDCmd)
+	RootCmd.AddCommand(NodeIDCmd)
 }

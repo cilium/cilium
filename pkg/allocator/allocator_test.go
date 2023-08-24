@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/stream"
 )
 
 const (
@@ -363,6 +365,64 @@ func (s *AllocatorSuite) TestAllocateCached(c *C) {
 	testAllocator(c, idpool.ID(256), randomTestName(), "a") // enable use of local cache
 }
 
+func TestObserveAllocatorChanges(t *testing.T) {
+	backend := newDummyBackend()
+	allocator, err := NewAllocator(TestAllocatorKey(""), backend, WithMin(idpool.ID(1)), WithMax(idpool.ID(256)), WithoutGC())
+	require.NoError(t, err)
+	require.NotNil(t, allocator)
+
+	numAllocations := 10
+
+	// Allocate few ids
+	for i := 0; i < numAllocations; i++ {
+		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
+		id, new, firstUse, err := allocator.Allocate(context.Background(), key)
+		require.NoError(t, err)
+		require.NotEqual(t, 0, id)
+		require.True(t, new)
+		require.True(t, firstUse)
+
+		// refcnt must be 1
+		require.Equal(t, uint64(1), allocator.localKeys.keys[allocator.encodeKey(key)].refcnt)
+	}
+
+	// Subscribe to the changes. This should replay the current state.
+	ctx, cancel := context.WithCancel(context.Background())
+	changes := stream.ToChannel[AllocatorChange](ctx, allocator)
+	for i := 0; i < numAllocations; i++ {
+		change := <-changes
+		// Since these are replayed in hash map traversal order, just validate that
+		// the fields are set.
+		require.True(t, strings.HasPrefix(change.Key.String(), "key0"))
+		require.NotEqual(t, 0, change.ID)
+		require.Equal(t, AllocatorChangeUpsert, change.Kind)
+	}
+
+	// After replay we should see a sync event.
+	change := <-changes
+	require.Equal(t, AllocatorChangeSync, change.Kind)
+
+	// Simulate changes to the allocations via the backend
+	go func() {
+		backend.(*dummyBackend).handler.OnAdd(idpool.ID(123), TestAllocatorKey("remote"))
+		backend.(*dummyBackend).handler.OnDelete(idpool.ID(123), TestAllocatorKey("remote"))
+	}()
+
+	// Check that we observe the allocation and the deletions.
+	change = <-changes
+	require.Equal(t, AllocatorChangeUpsert, change.Kind)
+	require.Equal(t, TestAllocatorKey("remote"), change.Key)
+
+	change = <-changes
+	require.Equal(t, AllocatorChangeDelete, change.Kind)
+	require.Equal(t, TestAllocatorKey("remote"), change.Key)
+
+	// Cancel the subscription and verify it completes.
+	cancel()
+	_, notClosed := <-changes
+	require.False(t, notClosed)
+}
+
 // The following tests are currently disabled as they are not 100% reliable in
 // the Jenkins CI.
 // These were copied from pkg/kvstore/allocator/allocator_test.go and don't
@@ -491,6 +551,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 	backend.AllocateID(ctx, idpool.ID(2), TestAllocatorKey("baz"))
 
 	rc := global.NewRemoteCache("remote", remote)
+	require.False(t, rc.Synced(), "The cache should not be synchronized")
 	cancel = run(ctx, rc)
 
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("foo"), Typ: kvstore.EventTypeModify}, <-events)
@@ -502,7 +563,9 @@ func TestWatchRemoteKVStore(t *testing.T) {
 		return global.remoteCaches["remote"] == rc
 	}, 1*time.Second, 10*time.Millisecond)
 
+	require.True(t, rc.Synced(), "The cache should now be synchronized")
 	stop(cancel)
+	require.False(t, rc.Synced(), "The cache should no longer be synchronized when stopped")
 
 	// Add a new remote cache with the same name, and assert that it overrides
 	// the previous one, and the proper events are emitted (including deletions
@@ -544,6 +607,7 @@ func TestWatchRemoteKVStore(t *testing.T) {
 
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(1), Key: TestAllocatorKey("qux"), Typ: kvstore.EventTypeModify}, <-events)
 	require.Equal(t, AllocatorEvent{ID: idpool.ID(7), Key: TestAllocatorKey("foo"), Typ: kvstore.EventTypeModify}, <-events)
+	require.False(t, rc.Synced(), "The cache should not be synchronized if the ListDone event has not been received")
 
 	stop(cancel)
 

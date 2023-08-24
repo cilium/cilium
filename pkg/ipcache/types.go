@@ -9,11 +9,11 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -137,7 +137,9 @@ func (s PrefixInfo) isValid() bool {
 
 func (s PrefixInfo) sortedBySourceThenResourceID() []ipcachetypes.ResourceID {
 	resourceIDs := maps.Keys(s)
-	slices.SortFunc(resourceIDs, func(a, b ipcachetypes.ResourceID) bool {
+	sort.Slice(resourceIDs, func(i, j int) bool {
+		a := resourceIDs[i]
+		b := resourceIDs[j]
 		if s[a].source != s[b].source {
 			return !source.AllowOverwrite(s[a].source, s[b].source)
 		}
@@ -256,13 +258,15 @@ func (s PrefixInfo) logConflicts(scopedLog *logrus.Entry) {
 
 		if info.tunnelPeer.IsValid() {
 			if tunnelPeer.IsValid() {
-				scopedLog.WithFields(logrus.Fields{
-					logfields.TunnelPeer:            tunnelPeer.String(),
-					logfields.Resource:              tunnelPeerResourceID,
-					logfields.ConflictingTunnelPeer: info.tunnelPeer.String(),
-					logfields.ConflictingResource:   resourceID,
-				}).Warning("Detected conflicting tunnel peer for prefix. " +
-					"This may cause connectivity issues for this address.")
+				if option.Config.TunnelingEnabled() {
+					scopedLog.WithFields(logrus.Fields{
+						logfields.TunnelPeer:            tunnelPeer.String(),
+						logfields.Resource:              tunnelPeerResourceID,
+						logfields.ConflictingTunnelPeer: info.tunnelPeer.String(),
+						logfields.ConflictingResource:   resourceID,
+					}).Warning("Detected conflicting tunnel peer for prefix. " +
+						"This may cause connectivity issues for this address.")
+				}
 			} else {
 				tunnelPeer = info.tunnelPeer
 				tunnelPeerResourceID = resourceID

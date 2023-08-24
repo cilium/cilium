@@ -32,6 +32,7 @@ type VSwitch struct {
 	Ipv6CidrBlock           string                  `json:"Ipv6CidrBlock" xml:"Ipv6CidrBlock"`
 	VSwitchName             string                  `json:"VSwitchName" xml:"VSwitchName"`
 	ShareType               string                  `json:"ShareType" xml:"ShareType"`
+	EnabledIpv6             bool                    `json:"EnabledIpv6" xml:"EnabledIpv6"`
 	RouteTable              RouteTable              `json:"RouteTable" xml:"RouteTable"`
 	Tags                    TagsInDescribeVSwitches `json:"Tags" xml:"Tags"`
 }

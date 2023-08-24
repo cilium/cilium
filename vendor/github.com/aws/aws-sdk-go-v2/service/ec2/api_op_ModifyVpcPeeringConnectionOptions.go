@@ -4,37 +4,31 @@ package ec2
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	internalauth "github.com/aws/aws-sdk-go-v2/internal/auth"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	smithyendpoints "github.com/aws/smithy-go/endpoints"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// We are retiring EC2-Classic. We recommend that you migrate from EC2-Classic to
-// a VPC. For more information, see Migrate from EC2-Classic to a VPC (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-migrate.html)
-// in the Amazon Elastic Compute Cloud User Guide. Modifies the VPC peering
-// connection options on one side of a VPC peering connection. You can do the
-// following:
-//   - Enable/disable communication over the peering connection between an
-//     EC2-Classic instance that's linked to your VPC (using ClassicLink) and instances
-//     in the peer VPC.
-//   - Enable/disable communication over the peering connection between instances
-//     in your VPC and an EC2-Classic instance that's linked to the peer VPC.
-//   - Enable/disable the ability to resolve public DNS hostnames to private IP
-//     addresses when queried from instances in the peer VPC.
-//
-// If the peered VPCs are in the same Amazon Web Services account, you can enable
-// DNS resolution for queries from the local VPC. This ensures that queries from
-// the local VPC resolve to private IP addresses in the peer VPC. This option is
-// not available if the peered VPCs are in different Amazon Web Services accounts
-// or different Regions. For peered VPCs in different Amazon Web Services accounts,
-// each Amazon Web Services account owner must initiate a separate request to
-// modify the peering connection options. For inter-region peering connections, you
-// must use the Region for the requester VPC to modify the requester VPC peering
-// options and the Region for the accepter VPC to modify the accepter VPC peering
-// options. To verify which VPCs are the accepter and the requester for a VPC
-// peering connection, use the DescribeVpcPeeringConnections command.
+// Modifies the VPC peering connection options on one side of a VPC peering
+// connection. If the peered VPCs are in the same Amazon Web Services account, you
+// can enable DNS resolution for queries from the local VPC. This ensures that
+// queries from the local VPC resolve to private IP addresses in the peer VPC. This
+// option is not available if the peered VPCs are in different Amazon Web Services
+// accounts or different Regions. For peered VPCs in different Amazon Web Services
+// accounts, each Amazon Web Services account owner must initiate a separate
+// request to modify the peering connection options. For inter-region peering
+// connections, you must use the Region for the requester VPC to modify the
+// requester VPC peering options and the Region for the accepter VPC to modify the
+// accepter VPC peering options. To verify which VPCs are the accepter and the
+// requester for a VPC peering connection, use the DescribeVpcPeeringConnections
+// command.
 func (c *Client) ModifyVpcPeeringConnectionOptions(ctx context.Context, params *ModifyVpcPeeringConnectionOptionsInput, optFns ...func(*Options)) (*ModifyVpcPeeringConnectionOptionsOutput, error) {
 	if params == nil {
 		params = &ModifyVpcPeeringConnectionOptionsInput{}
@@ -95,6 +89,9 @@ func (c *Client) addOperationModifyVpcPeeringConnectionOptionsMiddlewares(stack 
 	if err != nil {
 		return err
 	}
+	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
+		return err
+	}
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
@@ -122,13 +119,16 @@ func (c *Client) addOperationModifyVpcPeeringConnectionOptionsMiddlewares(stack 
 	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
 		return err
 	}
-	if err = addClientUserAgent(stack); err != nil {
+	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
 	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addModifyVpcPeeringConnectionOptionsResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = addOpModifyVpcPeeringConnectionOptionsValidationMiddleware(stack); err != nil {
@@ -149,6 +149,9 @@ func (c *Client) addOperationModifyVpcPeeringConnectionOptionsMiddlewares(stack 
 	if err = addRequestResponseLogging(stack, options); err != nil {
 		return err
 	}
+	if err = addendpointDisableHTTPSMiddleware(stack, options); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -159,4 +162,127 @@ func newServiceMetadataMiddleware_opModifyVpcPeeringConnectionOptions(region str
 		SigningName:   "ec2",
 		OperationName: "ModifyVpcPeeringConnectionOptions",
 	}
+}
+
+type opModifyVpcPeeringConnectionOptionsResolveEndpointMiddleware struct {
+	EndpointResolver EndpointResolverV2
+	BuiltInResolver  builtInParameterResolver
+}
+
+func (*opModifyVpcPeeringConnectionOptionsResolveEndpointMiddleware) ID() string {
+	return "ResolveEndpointV2"
+}
+
+func (m *opModifyVpcPeeringConnectionOptionsResolveEndpointMiddleware) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	if awsmiddleware.GetRequiresLegacyEndpoints(ctx) {
+		return next.HandleSerialize(ctx, in)
+	}
+
+	req, ok := in.Request.(*smithyhttp.Request)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown transport type %T", in.Request)
+	}
+
+	if m.EndpointResolver == nil {
+		return out, metadata, fmt.Errorf("expected endpoint resolver to not be nil")
+	}
+
+	params := EndpointParameters{}
+
+	m.BuiltInResolver.ResolveBuiltIns(&params)
+
+	var resolvedEndpoint smithyendpoints.Endpoint
+	resolvedEndpoint, err = m.EndpointResolver.ResolveEndpoint(ctx, params)
+	if err != nil {
+		return out, metadata, fmt.Errorf("failed to resolve service endpoint, %w", err)
+	}
+
+	req.URL = &resolvedEndpoint.URI
+
+	for k := range resolvedEndpoint.Headers {
+		req.Header.Set(
+			k,
+			resolvedEndpoint.Headers.Get(k),
+		)
+	}
+
+	authSchemes, err := internalauth.GetAuthenticationSchemes(&resolvedEndpoint.Properties)
+	if err != nil {
+		var nfe *internalauth.NoAuthenticationSchemesFoundError
+		if errors.As(err, &nfe) {
+			// if no auth scheme is found, default to sigv4
+			signingName := "ec2"
+			signingRegion := m.BuiltInResolver.(*builtInResolver).Region
+			ctx = awsmiddleware.SetSigningName(ctx, signingName)
+			ctx = awsmiddleware.SetSigningRegion(ctx, signingRegion)
+
+		}
+		var ue *internalauth.UnSupportedAuthenticationSchemeSpecifiedError
+		if errors.As(err, &ue) {
+			return out, metadata, fmt.Errorf(
+				"This operation requests signer version(s) %v but the client only supports %v",
+				ue.UnsupportedSchemes,
+				internalauth.SupportedSchemes,
+			)
+		}
+	}
+
+	for _, authScheme := range authSchemes {
+		switch authScheme.(type) {
+		case *internalauth.AuthenticationSchemeV4:
+			v4Scheme, _ := authScheme.(*internalauth.AuthenticationSchemeV4)
+			var signingName, signingRegion string
+			if v4Scheme.SigningName == nil {
+				signingName = "ec2"
+			} else {
+				signingName = *v4Scheme.SigningName
+			}
+			if v4Scheme.SigningRegion == nil {
+				signingRegion = m.BuiltInResolver.(*builtInResolver).Region
+			} else {
+				signingRegion = *v4Scheme.SigningRegion
+			}
+			if v4Scheme.DisableDoubleEncoding != nil {
+				// The signer sets an equivalent value at client initialization time.
+				// Setting this context value will cause the signer to extract it
+				// and override the value set at client initialization time.
+				ctx = internalauth.SetDisableDoubleEncoding(ctx, *v4Scheme.DisableDoubleEncoding)
+			}
+			ctx = awsmiddleware.SetSigningName(ctx, signingName)
+			ctx = awsmiddleware.SetSigningRegion(ctx, signingRegion)
+			break
+		case *internalauth.AuthenticationSchemeV4A:
+			v4aScheme, _ := authScheme.(*internalauth.AuthenticationSchemeV4A)
+			if v4aScheme.SigningName == nil {
+				v4aScheme.SigningName = aws.String("ec2")
+			}
+			if v4aScheme.DisableDoubleEncoding != nil {
+				// The signer sets an equivalent value at client initialization time.
+				// Setting this context value will cause the signer to extract it
+				// and override the value set at client initialization time.
+				ctx = internalauth.SetDisableDoubleEncoding(ctx, *v4aScheme.DisableDoubleEncoding)
+			}
+			ctx = awsmiddleware.SetSigningName(ctx, *v4aScheme.SigningName)
+			ctx = awsmiddleware.SetSigningRegion(ctx, v4aScheme.SigningRegionSet[0])
+			break
+		case *internalauth.AuthenticationSchemeNone:
+			break
+		}
+	}
+
+	return next.HandleSerialize(ctx, in)
+}
+
+func addModifyVpcPeeringConnectionOptionsResolveEndpointMiddleware(stack *middleware.Stack, options Options) error {
+	return stack.Serialize.Insert(&opModifyVpcPeeringConnectionOptionsResolveEndpointMiddleware{
+		EndpointResolver: options.EndpointResolverV2,
+		BuiltInResolver: &builtInResolver{
+			Region:       options.Region,
+			UseDualStack: options.EndpointOptions.UseDualStackEndpoint,
+			UseFIPS:      options.EndpointOptions.UseFIPSEndpoint,
+			Endpoint:     options.BaseEndpoint,
+		},
+	}, "ResolveEndpoint", middleware.After)
 }

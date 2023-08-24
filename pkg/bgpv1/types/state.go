@@ -3,6 +3,8 @@
 
 package types
 
+import "fmt"
+
 // SessionState as defined in rfc4271#section-8.2.2
 type SessionState uint32
 
@@ -49,6 +51,24 @@ const (
 	AfiOpaque  Afi = 16397
 )
 
+func (a *Afi) FromString(s string) error {
+	switch s {
+	case "ipv4":
+		*a = AfiIPv4
+	case "ipv6":
+		*a = AfiIPv6
+	case "l2vpn":
+		*a = AfiL2VPN
+	case "ls":
+		*a = AfiLS
+	case "opaque":
+		*a = AfiOpaque
+	default:
+		return fmt.Errorf("Unknown Afi: %s", s)
+	}
+	return nil
+}
+
 func (a Afi) String() string {
 	switch a {
 	case AfiUnknown:
@@ -89,6 +109,44 @@ const (
 	SafiFlowSpecVpn            Safi = 134
 	SafiKeyValue               Safi = 241
 )
+
+func (s *Safi) FromString(safi string) error {
+	switch safi {
+	case "unicast":
+		*s = SafiUnicast
+	case "multicast":
+		*s = SafiMulticast
+	case "mpls_label":
+		*s = SafiMplsLabel
+	case "encapsulation":
+		*s = SafiEncapsulation
+	case "vpls":
+		*s = SafiVpls
+	case "evpn":
+		*s = SafiEvpn
+	case "ls":
+		*s = SafiLs
+	case "sr_policy":
+		*s = SafiSrPolicy
+	case "mup":
+		*s = SafiMup
+	case "mpls_vpn":
+		*s = SafiMplsVpn
+	case "mpls_vpn_multicast":
+		*s = SafiMplsVpnMulticast
+	case "route_target_constraints":
+		*s = SafiRouteTargetConstraints
+	case "flowspec_unicast":
+		*s = SafiFlowSpecUnicast
+	case "flowspec_vpn":
+		*s = SafiFlowSpecVpn
+	case "key_value":
+		*s = SafiKeyValue
+	default:
+		return fmt.Errorf("Unknown Safi: %s", s)
+	}
+	return nil
+}
 
 func (s Safi) String() string {
 	switch s {

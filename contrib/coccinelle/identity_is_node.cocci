@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium.
 /// Find missing calls to identity_is_remote_node and identity_is_node.
 /// We want to use those functions whenever possible, to make sure
 /// KUBE_APISERVER_NODE_ID is properly accounted for and to prepare for

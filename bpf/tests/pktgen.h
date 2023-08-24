@@ -9,6 +9,7 @@
 #include <bpf/helpers.h>
 
 #include <lib/endian.h>
+#include <lib/tunnel.h>
 
 #include <linux/byteorder.h>
 #include <linux/ip.h>
@@ -17,6 +18,7 @@
 #include <linux/if_arp.h>
 #include <linux/if_ether.h>
 #include <linux/tcp.h>
+#include <linux/udp.h>
 
 /* A collection of pre-defined Ethernet MAC addresses, so tests can reuse them
  * without having to come up with custom addresses.
@@ -150,13 +152,18 @@ enum pkt_layer {
 	PKT_LAYER_SCTP,
 	PKT_LAYER_ESP,
 
+	/* Tunnel layers */
+	PKT_LAYER_GENEVE,
+	PKT_LAYER_VXLAN,
+
 	/* Packet data*/
 	PKT_LAYER_DATA,
 };
 
 #define IPV6_DEFAULT_HOPLIMIT 64
 
-#define PKT_BUILDER_LAYERS 6
+/* 3 outer headers + {VXLAN, GENEVE} + 3 inner headers. */
+#define PKT_BUILDER_LAYERS 7
 
 #define MAX_PACKET_OFF 0xffff
 
@@ -192,39 +199,46 @@ int pktgen__free_layer(const struct pktgen *builder)
 	return -1;
 }
 
+static __always_inline
+__attribute__((warn_unused_result))
+void *pktgen__push_rawhdr(struct pktgen *builder, __u32 hdrsize, enum pkt_layer type)
+{
+	struct __ctx_buff *ctx = builder->ctx;
+	void *layer = NULL;
+	int layer_idx;
+
+	/* Request additional tailroom, and check that we got it. */
+	ctx_adjust_troom(ctx, builder->cur_off + hdrsize - ctx_full_len(ctx));
+	if (ctx_data(ctx) + builder->cur_off + hdrsize > ctx_data_end(ctx))
+		return NULL;
+
+	/* Check that any value within the struct will not exceed a u16 which
+	 * is the max allowed offset within a packet from ctx->data.
+	 */
+	if (builder->cur_off >= MAX_PACKET_OFF - hdrsize)
+		return NULL;
+
+	layer = ctx_data(ctx) + builder->cur_off;
+	if ((void *)layer + hdrsize > ctx_data_end(ctx))
+		return NULL;
+
+	layer_idx = pktgen__free_layer(builder);
+	if (layer_idx < 0)
+		return NULL;
+
+	builder->layers[layer_idx] = type;
+	builder->layer_offsets[layer_idx] = builder->cur_off;
+	builder->cur_off += hdrsize;
+
+	return layer;
+}
+
 /* Push an empty ethernet header onto the packet */
 static __always_inline
 __attribute__((warn_unused_result))
 struct ethhdr *pktgen__push_ethhdr(struct pktgen *builder)
 {
-	struct __ctx_buff *ctx = builder->ctx;
-	struct ethhdr *layer;
-	int layer_idx;
-	void *data;
-
-	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct ethhdr) - ctx_full_len(ctx));
-	data = ctx_data(ctx);
-	if (data + builder->cur_off + sizeof(struct ethhdr) > ctx_data_end(ctx))
-		return 0;
-
-	/* Check that any value within the struct will not exceed a u16 which
-	 * is the max allowed offset within a packet from ctx->data.
-	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct ethhdr))
-		return 0;
-
-	layer = data + builder->cur_off;
-	layer_idx = pktgen__free_layer(builder);
-
-	if (layer_idx < 0)
-		return 0;
-
-	builder->layers[layer_idx] = PKT_LAYER_ETH;
-	builder->layer_offsets[layer_idx] = builder->cur_off;
-	builder->cur_off += sizeof(struct ethhdr);
-
-	return layer;
+	return pktgen__push_rawhdr(builder, sizeof(struct ethhdr), PKT_LAYER_ETH);
 }
 
 /* helper to set the source and destination mac address at the same time */
@@ -241,38 +255,11 @@ __attribute__((warn_unused_result))
 struct iphdr *pktgen__push_iphdr(struct pktgen *builder, __u32 option_bytes)
 {
 	__u32 length = sizeof(struct iphdr) + option_bytes;
-	struct __ctx_buff *ctx = builder->ctx;
-	void *data, *data_end;
-	struct iphdr *layer;
-	int layer_idx;
 
 	if (option_bytes > MAX_IPOPTLEN)
 		return 0;
 
-	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + length - ctx_full_len(ctx));
-	data = ctx_data(ctx);
-	data_end = ctx_data_end(ctx);
-	if (data + builder->cur_off + length > data_end)
-		return 0;
-
-	/* Check that any value within the struct will not exceed a u16 which
-	 * is the max allowed offset within a packet from ctx->data.
-	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - length)
-		return 0;
-
-	layer = data + builder->cur_off;
-	layer_idx = pktgen__free_layer(builder);
-
-	if (layer_idx < 0)
-		return 0;
-
-	builder->layers[layer_idx] = PKT_LAYER_IPV4;
-	builder->layer_offsets[layer_idx] = builder->cur_off;
-	builder->cur_off += length;
-
-	return layer;
+	return pktgen__push_rawhdr(builder, length, PKT_LAYER_IPV4);
 }
 
 /* helper to set the source and destination ipv6 address at the same time */
@@ -287,32 +274,7 @@ static __always_inline
 __attribute__((warn_unused_result))
 struct ipv6hdr *pktgen__push_ipv6hdr(struct pktgen *builder)
 {
-	struct __ctx_buff *ctx = builder->ctx;
-	struct ipv6hdr *layer;
-	int layer_idx;
-
-	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct ipv6hdr) - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + sizeof(struct ipv6hdr) > ctx_data_end(ctx))
-		return 0;
-
-	/* Check that any value within the struct will not exceed a u16 which
-	 * is the max allowed offset within a packet from ctx->data.
-	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct ipv6hdr))
-		return 0;
-
-	layer = ctx_data(ctx) + builder->cur_off;
-	layer_idx = pktgen__free_layer(builder);
-
-	if (layer_idx < 0)
-		return 0;
-
-	builder->layers[layer_idx] = PKT_LAYER_IPV6;
-	builder->layer_offsets[layer_idx] = builder->cur_off;
-	builder->cur_off += sizeof(struct ipv6hdr);
-
-	return layer;
+	return pktgen__push_rawhdr(builder, sizeof(struct ipv6hdr), PKT_LAYER_IPV6);
 }
 
 /* Push a IPv4 header with sane defaults and options onto the packet */
@@ -321,10 +283,12 @@ __attribute__((warn_unused_result))
 struct iphdr *pktgen__push_default_iphdr_with_options(struct pktgen *builder,
 						      __u8 option_words)
 {
-	struct iphdr *hdr = pktgen__push_iphdr(builder, option_words * 4);
+	__u32 length = option_words * 4;
+
+	struct iphdr *hdr = pktgen__push_iphdr(builder, length);
 
 	if (!hdr)
-		return 0;
+		return NULL;
 
 	hdr->version = 4;
 	hdr->ihl = 5 + option_words;
@@ -340,34 +304,6 @@ __attribute__((warn_unused_result))
 struct iphdr *pktgen__push_default_iphdr(struct pktgen *builder)
 {
 	return pktgen__push_default_iphdr_with_options(builder, 0);
-}
-
-static __always_inline
-__attribute__((warn_unused_result))
-void *pktgen__push_rawhdr(struct pktgen *builder, __u16 hdrsize, enum pkt_layer type)
-{
-	struct __ctx_buff *ctx = builder->ctx;
-	void *layer = NULL;
-	int layer_idx;
-
-	ctx_adjust_troom(ctx, builder->cur_off + hdrsize - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + hdrsize > ctx_data_end(ctx))
-		return NULL;
-
-	if (builder->cur_off >= MAX_PACKET_OFF - hdrsize)
-		return NULL;
-
-	layer = ctx_data(ctx) + builder->cur_off;
-	layer_idx = pktgen__free_layer(builder);
-
-	if (layer_idx < 0)
-		return NULL;
-
-	builder->layers[layer_idx] = type;
-	builder->layer_offsets[layer_idx] = builder->cur_off;
-	builder->cur_off += hdrsize;
-
-	return layer;
 }
 
 static __always_inline
@@ -401,9 +337,6 @@ struct ipv6_opt_hdr *pktgen__append_ipv6_extension_header(struct pktgen *builder
 	if (!hdr)
 		return NULL;
 
-	if ((void *)hdr + length > ctx_data_end(builder->ctx))
-		return NULL;
-
 	hdr->hdrlen = hdrlen;
 
 	return hdr;
@@ -419,9 +352,6 @@ struct ipv6hdr *pktgen__push_default_ipv6hdr(struct pktgen *builder)
 	if (!hdr)
 		return NULL;
 
-	if ((void *) hdr + sizeof(struct ipv6hdr) > ctx_data_end(builder->ctx))
-		return NULL;
-
 	memset(hdr, 0, sizeof(struct ipv6hdr));
 	hdr->version = 6;
 	hdr->hop_limit = IPV6_DEFAULT_HOPLIMIT;
@@ -434,39 +364,23 @@ static __always_inline
 __attribute__((warn_unused_result))
 struct arphdreth *pktgen__push_arphdr_ethernet(struct pktgen *builder)
 {
-	struct __ctx_buff *ctx = builder->ctx;
-	struct arphdreth *layer;
-	int layer_idx;
+	return pktgen__push_rawhdr(builder, sizeof(struct arphdreth), PKT_LAYER_ARP);
+}
 
-	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct arphdreth) - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + sizeof(struct arphdreth) > ctx_data_end(ctx))
-		return 0;
+static __always_inline
+__attribute__((warn_unused_result))
+struct arphdreth *pktgen__push_default_arphdr_ethernet(struct pktgen *builder)
+{
+	struct arphdreth *arp = pktgen__push_arphdr_ethernet(builder);
 
-	/* Check that any value within the struct will not exceed a u16 which
-	 * is the max allowed offset within a packet from ctx->data.
-	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct arphdreth))
-		return 0;
+	if (!arp)
+		return NULL;
 
-	layer = ctx_data(ctx) + builder->cur_off;
-	layer_idx = pktgen__free_layer(builder);
+	arp->ar_hrd = bpf_htons(ARPHRD_ETHER);
+	arp->ar_hln = ETH_ALEN;
+	arp->ar_pln = 4; /* Size of an IPv4 address */
 
-	if (layer_idx < 0)
-		return 0;
-
-	if ((void *) layer + sizeof(struct arphdreth) > ctx_data_end(ctx))
-		return 0;
-
-	builder->layers[layer_idx] = PKT_LAYER_ARP;
-	builder->layer_offsets[layer_idx] = builder->cur_off;
-	builder->cur_off += sizeof(struct arphdreth);
-
-	layer->ar_hrd = bpf_htons(ARPHRD_ETHER);
-	layer->ar_hln = ETH_ALEN;
-	layer->ar_pln = 4; /* Size of an IPv4 address */
-
-	return layer;
+	return arp;
 }
 
 /* Push an empty TCP header onto the packet */
@@ -474,32 +388,7 @@ static __always_inline
 __attribute__((warn_unused_result))
 struct tcphdr *pktgen__push_tcphdr(struct pktgen *builder)
 {
-	struct __ctx_buff *ctx = builder->ctx;
-	struct tcphdr *layer;
-	int layer_idx;
-
-	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct tcphdr) - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + sizeof(struct tcphdr) > ctx_data_end(ctx))
-		return 0;
-
-	/* Check that any value within the struct will not exceed a u16 which
-	 * is the max allowed offset within a packet from ctx->data.
-	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct tcphdr))
-		return 0;
-
-	layer = ctx_data(ctx) + builder->cur_off;
-	layer_idx = pktgen__free_layer(builder);
-
-	if (layer_idx < 0)
-		return 0;
-
-	builder->layers[layer_idx] = PKT_LAYER_TCP;
-	builder->layer_offsets[layer_idx] = builder->cur_off;
-	builder->cur_off += sizeof(struct tcphdr);
-
-	return layer;
+	return pktgen__push_rawhdr(builder, sizeof(struct tcphdr), PKT_LAYER_TCP);
 }
 
 /* Push a TCP header with sane defaults onto the packet */
@@ -510,8 +399,6 @@ struct tcphdr *pktgen__push_default_tcphdr(struct pktgen *builder)
 	struct tcphdr *hdr = pktgen__push_tcphdr(builder);
 
 	if (!hdr)
-		return 0;
-	if ((void *)hdr + sizeof(struct tcphdr) > ctx_data_end(builder->ctx))
 		return 0;
 
 	hdr->syn = 1;
@@ -531,32 +418,7 @@ static __always_inline
 __attribute__((warn_unused_result))
 struct ip_esp_hdr *pktgen__push_esphdr(struct pktgen *builder)
 {
-	struct __ctx_buff *ctx = builder->ctx;
-	struct ip_esp_hdr *layer;
-	int layer_idx;
-
-	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct ip_esp_hdr) - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + sizeof(struct ip_esp_hdr) > ctx_data_end(ctx))
-		return 0;
-
-	/* Check that any value within the struct will not exceed a u16 which
-	 * is the max allowed offset within a packet from ctx->data.
-	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct ip_esp_hdr))
-		return 0;
-
-	layer = ctx_data(ctx) + builder->cur_off;
-	layer_idx = pktgen__free_layer(builder);
-
-	if (layer_idx < 0)
-		return 0;
-
-	builder->layers[layer_idx] = PKT_LAYER_ESP;
-	builder->layer_offsets[layer_idx] = builder->cur_off;
-	builder->cur_off += sizeof(struct ip_esp_hdr);
-
-	return layer;
+	return pktgen__push_rawhdr(builder, sizeof(struct ip_esp_hdr), PKT_LAYER_ESP);
 }
 
 /* Push a ESP header with sane defaults onto the packet */
@@ -567,8 +429,6 @@ struct ip_esp_hdr *pktgen__push_default_esphdr(struct pktgen *builder)
 	struct ip_esp_hdr *hdr = pktgen__push_esphdr(builder);
 
 	if (!hdr)
-		return 0;
-	if ((void *)hdr + sizeof(struct ip_esp_hdr) > ctx_data_end(builder->ctx))
 		return 0;
 
 	hdr->spi = 1;
@@ -582,32 +442,93 @@ static __always_inline
 __attribute__((warn_unused_result))
 struct sctphdr *pktgen__push_sctphdr(struct pktgen *builder)
 {
-	struct __ctx_buff *ctx = builder->ctx;
-	struct sctphdr *layer;
-	int layer_idx;
+	return pktgen__push_rawhdr(builder, sizeof(struct sctphdr), PKT_LAYER_SCTP);
+}
 
-	/* Request additional tailroom, and check that we got it. */
-	ctx_adjust_troom(ctx, builder->cur_off + sizeof(struct sctphdr) - ctx_full_len(ctx));
-	if (ctx_data(ctx) + builder->cur_off + sizeof(struct sctphdr) > ctx_data_end(ctx))
-		return 0;
+/* Push an empty UDP header onto the packet */
+static __always_inline
+__attribute__((warn_unused_result))
+struct udphdr *pktgen__push_udphdr(struct pktgen *builder)
+{
+	return pktgen__push_rawhdr(builder, sizeof(struct udphdr), PKT_LAYER_UDP);
+}
 
-	/* Check that any value within the struct will not exceed a u16 which
-	 * is the max allowed offset within a packet from ctx->data.
-	 */
-	if (builder->cur_off >= MAX_PACKET_OFF - sizeof(struct sctphdr))
-		return 0;
+static __always_inline
+__attribute__((warn_unused_result))
+struct udphdr *pktgen__push_default_udphdr(struct pktgen *builder)
+{
+	struct udphdr *hdr = pktgen__push_udphdr(builder);
 
-	layer = ctx_data(ctx) + builder->cur_off;
-	layer_idx = pktgen__free_layer(builder);
+	if (!hdr)
+		return NULL;
 
-	if (layer_idx < 0)
-		return 0;
+	memset(hdr, 0, sizeof(*hdr));
 
-	builder->layers[layer_idx] = PKT_LAYER_SCTP;
-	builder->layer_offsets[layer_idx] = builder->cur_off;
-	builder->cur_off += sizeof(struct sctphdr);
+	return hdr;
+}
 
-	return layer;
+/* Push an empty VXLAN header onto the packet */
+static __always_inline
+__attribute__((warn_unused_result))
+struct vxlanhdr *pktgen__push_vxlanhdr(struct pktgen *builder)
+{
+	return pktgen__push_rawhdr(builder, sizeof(struct vxlanhdr), PKT_LAYER_VXLAN);
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+struct vxlanhdr *pktgen__push_default_vxlanhdr(struct pktgen *builder)
+{
+	struct vxlanhdr *hdr = pktgen__push_vxlanhdr(builder);
+
+	if (!hdr)
+		return NULL;
+
+	memset(hdr, 0, sizeof(*hdr));
+
+	hdr->vx_flags = bpf_htonl(1U << 27);
+
+	return hdr;
+}
+
+/* Push an empty GENEVE header onto the packet */
+static __always_inline
+__attribute__((warn_unused_result))
+struct genevehdr *pktgen__push_genevehdr(struct pktgen *builder,
+					 __u8 option_bytes)
+{
+	__u32 length = sizeof(struct genevehdr) + option_bytes;
+
+	return pktgen__push_rawhdr(builder, length, PKT_LAYER_GENEVE);
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+struct genevehdr *pktgen__push_default_genevehdr_with_options(struct pktgen *builder,
+							      __u8 option_bytes)
+{
+	struct genevehdr *hdr = pktgen__push_genevehdr(builder, option_bytes);
+
+	if (!hdr)
+		return NULL;
+
+	memset(hdr, 0, sizeof(*hdr) + option_bytes);
+
+	return hdr;
+}
+
+static __always_inline
+__attribute__((warn_unused_result))
+struct genevehdr *pktgen__push_default_genevehdr(struct pktgen *builder)
+{
+	struct genevehdr *hdr = pktgen__push_default_genevehdr_with_options(builder, 0);
+
+	if (!hdr)
+		return NULL;
+
+	memset(hdr, 0, sizeof(*hdr));
+
+	return hdr;
 }
 
 /* Push room for x bytes of data onto the packet */
@@ -660,6 +581,108 @@ void *pktgen__push_data(struct pktgen *builder, void *data, int len)
 	return pkt_data;
 }
 
+static __always_inline struct iphdr *
+pktgen__push_ipv4_packet(struct pktgen *builder,
+			 __u8 *smac, __u8 *dmac,
+			 __be32 saddr, __be32 daddr)
+{
+	struct ethhdr *l2;
+	struct iphdr *l3;
+
+	l2 = pktgen__push_ethhdr(builder);
+	if (!l2)
+		return NULL;
+
+	ethhdr__set_macs(l2, smac, dmac);
+
+	l3 = pktgen__push_default_iphdr(builder);
+	if (!l3)
+		return NULL;
+
+	l3->saddr = saddr;
+	l3->daddr = daddr;
+
+	return l3;
+}
+
+static __always_inline struct tcphdr *
+pktgen__push_ipv4_tcp_packet(struct pktgen *builder,
+			     __u8 *smac, __u8 *dmac,
+			     __be32 saddr, __be32 daddr,
+			     __be16 sport, __be16 dport)
+{
+	struct tcphdr *l4;
+	struct iphdr *l3;
+
+	l3 = pktgen__push_ipv4_packet(builder, smac, dmac, saddr, daddr);
+	if (!l3)
+		return NULL;
+
+	l4 = pktgen__push_default_tcphdr(builder);
+	if (!l4)
+		return NULL;
+
+	l4->source = sport;
+	l4->dest = dport;
+
+	return l4;
+}
+
+static __always_inline struct udphdr *
+pktgen__push_ipv4_udp_packet(struct pktgen *builder,
+			     __u8 *smac, __u8 *dmac,
+			     __be32 saddr, __be32 daddr,
+			     __be16 sport, __be16 dport)
+{
+	struct udphdr *l4;
+	struct iphdr *l3;
+
+	l3 = pktgen__push_ipv4_packet(builder, smac, dmac, saddr, daddr);
+	if (!l3)
+		return NULL;
+
+	l4 = pktgen__push_default_udphdr(builder);
+	if (!l4)
+		return NULL;
+
+	l4->source = sport;
+	l4->dest = dport;
+
+	return l4;
+}
+
+static __always_inline struct tcphdr *
+pktgen__push_ipv6_tcp_packet(struct pktgen *builder,
+			     __u8 *smac, __u8 *dmac,
+			     __u8 *saddr, __u8 *daddr,
+			     __be16 sport, __be16 dport)
+{
+	struct ipv6hdr *l3;
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+
+	l2 = pktgen__push_ethhdr(builder);
+	if (!l2)
+		return NULL;
+
+	ethhdr__set_macs(l2, smac, dmac);
+
+	l3 = pktgen__push_default_ipv6hdr(builder);
+	if (!l3)
+		return NULL;
+
+	ipv6hdr__set_addrs(l3, saddr, daddr);
+
+	l4 = pktgen__push_default_tcphdr(builder);
+	if (!l4)
+		return NULL;
+
+	l4->source = sport;
+	l4->dest = dport;
+
+	return l4;
+}
+
 /* Do a finishing pass on all the layers, which will set correct next layer
  * fields and length values. TODO checksum calculation?
  */
@@ -670,7 +693,9 @@ void pktgen__finish(const struct pktgen *builder)
 	struct iphdr *ipv4_layer;
 	struct ipv6hdr *ipv6_layer;
 	struct ipv6_opt_hdr *ipv6_opt_layer;
+	struct genevehdr *geneve_layer;
 	struct tcphdr *tcp_layer;
+	struct udphdr *udp_layer;
 	__u64 layer_off;
 	__u16 v4len;
 	__be16 v6len;
@@ -896,7 +921,17 @@ void pktgen__finish(const struct pktgen *builder)
 			break;
 
 		case PKT_LAYER_UDP:
-			/* No sizes or checksums for UDP, so nothing to do */
+			layer_off = builder->layer_offsets[i];
+			/* Check that any value within the struct will not exceed a u16 which
+			 * is the max allowed offset within a packet from ctx->data.
+			 */
+			if (layer_off >= MAX_PACKET_OFF - sizeof(struct udphdr))
+				return;
+
+			udp_layer = ctx_data(builder->ctx) + layer_off;
+			if ((void *)udp_layer + sizeof(struct udphdr) >
+			    ctx_data_end(builder->ctx))
+				return;
 			break;
 
 		case PKT_LAYER_ICMP:
@@ -909,6 +944,35 @@ void pktgen__finish(const struct pktgen *builder)
 
 		case PKT_LAYER_SCTP:
 			/* TODO implement checksum calc */
+			break;
+
+		case PKT_LAYER_GENEVE:
+			layer_off = builder->layer_offsets[i];
+			/* Check that any value within the struct will not exceed a u16 which
+			 * is the max allowed offset within a packet from ctx->data.
+			 */
+			if (layer_off >= MAX_PACKET_OFF - sizeof(struct genevehdr))
+				return;
+
+			geneve_layer = ctx_data(builder->ctx) + layer_off;
+			if ((void *)geneve_layer + sizeof(struct genevehdr) >
+			    ctx_data_end(builder->ctx))
+				return;
+
+			if (i + 1 >= PKT_BUILDER_LAYERS)
+				return;
+
+			switch (builder->layers[i + 1]) {
+			case PKT_LAYER_ETH:
+				geneve_layer->protocol_type = __bpf_htons(ETH_P_TEB);
+				break;
+			default:
+				break;
+			}
+
+			break;
+
+		case PKT_LAYER_VXLAN:
 			break;
 
 		case PKT_LAYER_DATA:

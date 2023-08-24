@@ -61,7 +61,7 @@ var bpfIPCacheGetCmd = &cobra.Command{
 }
 
 func init() {
-	bpfIPCacheCmd.AddCommand(bpfIPCacheGetCmd)
+	BPFIPCacheCmd.AddCommand(bpfIPCacheGetCmd)
 }
 
 func dumpIPCache() map[string][]string {

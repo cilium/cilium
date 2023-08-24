@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.4
+    controller-gen.kubebuilder.io/version: v0.12.1
   creationTimestamp: null
   name: ciliumnetworkpolicies.cilium.io
 spec:
@@ -67,16 +66,16 @@ spec:
                 items:
                   description: "EgressRule contains all rule types which can be applied
                     at egress, i.e. network traffic that originates inside the endpoint
-                    and exits the endpoint selected by the endpointSelector. \n   -
+                    and exits the endpoint selected by the endpointSelector. \n -
                     All members of this structure are optional. If omitted or empty,
-                    the     member will have no effect on the rule. \n   - If multiple
-                    members of the structure are specified, then all members     must
-                    match in order for the rule to take effect. The exception to this
-                    \    rule is the ToRequires member; the effects of any Requires
-                    field in any     rule will apply to all other rules as well. \n
-                    \  - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and
-                    ToGroups are     mutually exclusive. Only one of these members
-                    may be present within an     individual rule."
+                    the member will have no effect on the rule. \n - If multiple members
+                    of the structure are specified, then all members must match in
+                    order for the rule to take effect. The exception to this rule
+                    is the ToRequires member; the effects of any Requires field in
+                    any rule will apply to all other rules as well. \n - ToEndpoints,
+                    ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are mutually
+                    exclusive. Only one of these members may be present within an
+                    individual rule."
                   properties:
                     authentication:
                       description: Authentication is the required authentication type
@@ -283,7 +282,7 @@ spec:
                         type: string
                       type: array
                     toFQDNs:
-                      description: "ToFQDN allows whitelisting DNS names in place
+                      description: 'ToFQDN allows whitelisting DNS names in place
                         of IPs. The IPs that result from DNS resolution of `ToFQDN.MatchName`s
                         are added to the same EgressRule object as ToCIDRSet entries,
                         and behave accordingly. Any L4 and L7 rules within this EgressRule
@@ -296,15 +295,7 @@ spec:
                         egress policy when PolicyEnforcment=default. Note: If the
                         resolved IPs are IPs within the kubernetes cluster, the ToFQDN
                         rule will not apply to that IP. Note: ToFQDN cannot occur
-                        in the same policy as other To* rules. \n The current implementation
-                        has a number of limitations: - The DNS resolution originates
-                        from cilium-agent, and not from the pods. Differences between
-                        the responses seen by cilium agent and a particular pod will
-                        whitelist the incorrect IP. - DNS TTLs are ignored, and cilium-agent
-                        will repoll on a short interval (5 seconds). Each change to
-                        the DNS data will trigger a policy regeneration. This may
-                        result in delayed updates to the policy for an endpoint when
-                        the data changes often or the system is under load."
+                        in the same policy as other To* rules.'
                       items:
                         properties:
                           matchName:
@@ -321,14 +312,14 @@ spec:
                               \".\" matches all subdomains as well as the name to
                               the right. A trailing \".\" is automatically added when
                               missing. \n Examples: `*.cilium.io` matches subomains
-                              of cilium at that level   www.cilium.io and blog.cilium.io
+                              of cilium at that level www.cilium.io and blog.cilium.io
                               match, cilium.io and google.com do not `*cilium.io`
                               matches cilium.io and all subdomains ends with \"cilium.io\"
-                              \  except those containing \".\" separator, subcilium.io
-                              and sub-cilium.io match,   www.cilium.io and blog.cilium.io
+                              except those containing \".\" separator, subcilium.io
+                              and sub-cilium.io match, www.cilium.io and blog.cilium.io
                               does not sub*.cilium.io matches subdomains of cilium
-                              where the subdomain component begins with \"sub\"   sub.cilium.io
-                              and subdomain.cilium.io match, www.cilium.io,   blog.cilium.io,
+                              where the subdomain component begins with \"sub\" sub.cilium.io
+                              and subdomain.cilium.io match, www.cilium.io, blog.cilium.io,
                               cilium.io and google.com do not"
                             pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                             type: string
@@ -338,7 +329,7 @@ spec:
                       description: "ToGroups is a directive that allows the integration
                         with multiple outside providers. Currently, only AWS is supported,
                         and the rule can select by multiple sub directives: \n Example:
-                        toGroups: - aws:     securityGroupsIds:     - 'sg-XXXXXXXXXXXXX'"
+                        toGroups: - aws: securityGroupsIds: - 'sg-XXXXXXXXXXXXX'"
                       items:
                         description: ToGroups structure to store all kinds of new
                           integrations that needs a new derivative policy.
@@ -438,11 +429,11 @@ spec:
                                 description: 'Secret is the secret that contains the
                                   certificates and private key for the TLS context.
                                   By default, Cilium will search in this secret for
-                                  the following items:  - ''ca.crt''  - Which represents
-                                  the trusted CA to verify remote source.  - ''tls.crt''
-                                  - Which represents the public key certificate.  -
+                                  the following items: - ''ca.crt''  - Which represents
+                                  the trusted CA to verify remote source. - ''tls.crt''
+                                  - Which represents the public key certificate. -
                                   ''tls.key'' - Which represents the private key matching
-                                  the public key                certificate.'
+                                  the public key certificate.'
                                 properties:
                                   name:
                                     description: Name is the name of the secret.
@@ -527,16 +518,16 @@ spec:
                                         well as the name to the right. A trailing
                                         \".\" is automatically added when missing.
                                         \n Examples: `*.cilium.io` matches subomains
-                                        of cilium at that level   www.cilium.io and
+                                        of cilium at that level www.cilium.io and
                                         blog.cilium.io match, cilium.io and google.com
                                         do not `*cilium.io` matches cilium.io and
-                                        all subdomains ends with \"cilium.io\"   except
+                                        all subdomains ends with \"cilium.io\" except
                                         those containing \".\" separator, subcilium.io
-                                        and sub-cilium.io match,   www.cilium.io and
+                                        and sub-cilium.io match, www.cilium.io and
                                         blog.cilium.io does not sub*.cilium.io matches
                                         subdomains of cilium where the subdomain component
-                                        begins with \"sub\"   sub.cilium.io and subdomain.cilium.io
-                                        match, www.cilium.io,   blog.cilium.io, cilium.io
+                                        begins with \"sub\" sub.cilium.io and subdomain.cilium.io
+                                        match, www.cilium.io, blog.cilium.io, cilium.io
                                         and google.com do not"
                                       pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                       type: string
@@ -696,15 +687,15 @@ spec:
                                         such as \"produce\" or \"consume\". A Role
                                         automatically expands into all APIKeys required
                                         to perform the specified higher-level operation.
-                                        \n The following values are supported:  -
-                                        \"produce\": Allow producing to the topics
-                                        specified in the rule  - \"consume\": Allow
-                                        consuming from the topics specified in the
-                                        rule \n This field is incompatible with the
-                                        APIKey field, i.e APIKey and Role cannot both
-                                        be specified in the same rule. \n If omitted
-                                        or empty, and if APIKey is not specified,
-                                        then all keys are allowed."
+                                        \n The following values are supported: - \"produce\":
+                                        Allow producing to the topics specified in
+                                        the rule - \"consume\": Allow consuming from
+                                        the topics specified in the rule \n This field
+                                        is incompatible with the APIKey field, i.e
+                                        APIKey and Role cannot both be specified in
+                                        the same rule. \n If omitted or empty, and
+                                        if APIKey is not specified, then all keys
+                                        are allowed."
                                       enum:
                                       - produce
                                       - consume
@@ -777,11 +768,11 @@ spec:
                                 description: 'Secret is the secret that contains the
                                   certificates and private key for the TLS context.
                                   By default, Cilium will search in this secret for
-                                  the following items:  - ''ca.crt''  - Which represents
-                                  the trusted CA to verify remote source.  - ''tls.crt''
-                                  - Which represents the public key certificate.  -
+                                  the following items: - ''ca.crt''  - Which represents
+                                  the trusted CA to verify remote source. - ''tls.crt''
+                                  - Which represents the public key certificate. -
                                   ''tls.key'' - Which represents the private key matching
-                                  the public key                certificate.'
+                                  the public key certificate.'
                                 properties:
                                   name:
                                     description: Name is the name of the secret.
@@ -966,15 +957,15 @@ spec:
                   description: "EgressDenyRule contains all rule types which can be
                     applied at egress, i.e. network traffic that originates inside
                     the endpoint and exits the endpoint selected by the endpointSelector.
-                    \n   - All members of this structure are optional. If omitted
-                    or empty, the     member will have no effect on the rule. \n   -
-                    If multiple members of the structure are specified, then all members
-                    \    must match in order for the rule to take effect. The exception
-                    to this     rule is the ToRequires member; the effects of any
-                    Requires field in any     rule will apply to all other rules as
-                    well. \n   - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices
-                    and ToGroups are     mutually exclusive. Only one of these members
-                    may be present within an     individual rule."
+                    \n - All members of this structure are optional. If omitted or
+                    empty, the member will have no effect on the rule. \n - If multiple
+                    members of the structure are specified, then all members must
+                    match in order for the rule to take effect. The exception to this
+                    rule is the ToRequires member; the effects of any Requires field
+                    in any rule will apply to all other rules as well. \n - ToEndpoints,
+                    ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are mutually
+                    exclusive. Only one of these members may be present within an
+                    individual rule."
                   properties:
                     icmps:
                       description: "ICMPs is a list of ICMP rule identified by type
@@ -1169,7 +1160,7 @@ spec:
                       description: "ToGroups is a directive that allows the integration
                         with multiple outside providers. Currently, only AWS is supported,
                         and the rule can select by multiple sub directives: \n Example:
-                        toGroups: - aws:     securityGroupsIds:     - 'sg-XXXXXXXXXXXXX'"
+                        toGroups: - aws: securityGroupsIds: - 'sg-XXXXXXXXXXXXX'"
                       items:
                         description: ToGroups structure to store all kinds of new
                           integrations that needs a new derivative policy.
@@ -1456,15 +1447,14 @@ spec:
                   description: "IngressRule contains all rule types which can be applied
                     at ingress, i.e. network traffic that originates outside of the
                     endpoint and is entering the endpoint selected by the endpointSelector.
-                    \n   - All members of this structure are optional. If omitted
-                    or empty, the     member will have no effect on the rule. \n   -
-                    If multiple members are set, all of them need to match in order
-                    for     the rule to take effect. The exception to this rule is
-                    FromRequires field;     the effects of any Requires field in any
-                    rule will apply to all other     rules as well. \n   - FromEndpoints,
-                    FromCIDR, FromCIDRSet and FromEntities are mutually     exclusive.
-                    Only one of these members may be present within an individual
-                    \    rule."
+                    \n - All members of this structure are optional. If omitted or
+                    empty, the member will have no effect on the rule. \n - If multiple
+                    members are set, all of them need to match in order for the rule
+                    to take effect. The exception to this rule is FromRequires field;
+                    the effects of any Requires field in any rule will apply to all
+                    other rules as well. \n - FromEndpoints, FromCIDR, FromCIDRSet
+                    and FromEntities are mutually exclusive. Only one of these members
+                    may be present within an individual rule."
                   properties:
                     authentication:
                       description: Authentication is the required authentication type
@@ -1808,11 +1798,11 @@ spec:
                                 description: 'Secret is the secret that contains the
                                   certificates and private key for the TLS context.
                                   By default, Cilium will search in this secret for
-                                  the following items:  - ''ca.crt''  - Which represents
-                                  the trusted CA to verify remote source.  - ''tls.crt''
-                                  - Which represents the public key certificate.  -
+                                  the following items: - ''ca.crt''  - Which represents
+                                  the trusted CA to verify remote source. - ''tls.crt''
+                                  - Which represents the public key certificate. -
                                   ''tls.key'' - Which represents the private key matching
-                                  the public key                certificate.'
+                                  the public key certificate.'
                                 properties:
                                   name:
                                     description: Name is the name of the secret.
@@ -1897,16 +1887,16 @@ spec:
                                         well as the name to the right. A trailing
                                         \".\" is automatically added when missing.
                                         \n Examples: `*.cilium.io` matches subomains
-                                        of cilium at that level   www.cilium.io and
+                                        of cilium at that level www.cilium.io and
                                         blog.cilium.io match, cilium.io and google.com
                                         do not `*cilium.io` matches cilium.io and
-                                        all subdomains ends with \"cilium.io\"   except
+                                        all subdomains ends with \"cilium.io\" except
                                         those containing \".\" separator, subcilium.io
-                                        and sub-cilium.io match,   www.cilium.io and
+                                        and sub-cilium.io match, www.cilium.io and
                                         blog.cilium.io does not sub*.cilium.io matches
                                         subdomains of cilium where the subdomain component
-                                        begins with \"sub\"   sub.cilium.io and subdomain.cilium.io
-                                        match, www.cilium.io,   blog.cilium.io, cilium.io
+                                        begins with \"sub\" sub.cilium.io and subdomain.cilium.io
+                                        match, www.cilium.io, blog.cilium.io, cilium.io
                                         and google.com do not"
                                       pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                       type: string
@@ -2066,15 +2056,15 @@ spec:
                                         such as \"produce\" or \"consume\". A Role
                                         automatically expands into all APIKeys required
                                         to perform the specified higher-level operation.
-                                        \n The following values are supported:  -
-                                        \"produce\": Allow producing to the topics
-                                        specified in the rule  - \"consume\": Allow
-                                        consuming from the topics specified in the
-                                        rule \n This field is incompatible with the
-                                        APIKey field, i.e APIKey and Role cannot both
-                                        be specified in the same rule. \n If omitted
-                                        or empty, and if APIKey is not specified,
-                                        then all keys are allowed."
+                                        \n The following values are supported: - \"produce\":
+                                        Allow producing to the topics specified in
+                                        the rule - \"consume\": Allow consuming from
+                                        the topics specified in the rule \n This field
+                                        is incompatible with the APIKey field, i.e
+                                        APIKey and Role cannot both be specified in
+                                        the same rule. \n If omitted or empty, and
+                                        if APIKey is not specified, then all keys
+                                        are allowed."
                                       enum:
                                       - produce
                                       - consume
@@ -2147,11 +2137,11 @@ spec:
                                 description: 'Secret is the secret that contains the
                                   certificates and private key for the TLS context.
                                   By default, Cilium will search in this secret for
-                                  the following items:  - ''ca.crt''  - Which represents
-                                  the trusted CA to verify remote source.  - ''tls.crt''
-                                  - Which represents the public key certificate.  -
+                                  the following items: - ''ca.crt''  - Which represents
+                                  the trusted CA to verify remote source. - ''tls.crt''
+                                  - Which represents the public key certificate. -
                                   ''tls.key'' - Which represents the private key matching
-                                  the public key                certificate.'
+                                  the public key certificate.'
                                 properties:
                                   name:
                                     description: Name is the name of the secret.
@@ -2186,15 +2176,14 @@ spec:
                   description: "IngressDenyRule contains all rule types which can
                     be applied at ingress, i.e. network traffic that originates outside
                     of the endpoint and is entering the endpoint selected by the endpointSelector.
-                    \n   - All members of this structure are optional. If omitted
-                    or empty, the     member will have no effect on the rule. \n   -
-                    If multiple members are set, all of them need to match in order
-                    for     the rule to take effect. The exception to this rule is
-                    FromRequires field;     the effects of any Requires field in any
-                    rule will apply to all other     rules as well. \n   - FromEndpoints,
-                    FromCIDR, FromCIDRSet and FromEntities are mutually     exclusive.
-                    Only one of these members may be present within an individual
-                    \    rule."
+                    \n - All members of this structure are optional. If omitted or
+                    empty, the member will have no effect on the rule. \n - If multiple
+                    members are set, all of them need to match in order for the rule
+                    to take effect. The exception to this rule is FromRequires field;
+                    the effects of any Requires field in any rule will apply to all
+                    other rules as well. \n - FromEndpoints, FromCIDR, FromCIDRSet
+                    and FromEntities are mutually exclusive. Only one of these members
+                    may be present within an individual rule."
                   properties:
                     fromCIDR:
                       description: "FromCIDR is a list of IP blocks which the endpoint
@@ -2608,16 +2597,15 @@ spec:
                     description: "EgressRule contains all rule types which can be
                       applied at egress, i.e. network traffic that originates inside
                       the endpoint and exits the endpoint selected by the endpointSelector.
-                      \n   - All members of this structure are optional. If omitted
-                      or empty, the     member will have no effect on the rule. \n
-                      \  - If multiple members of the structure are specified, then
-                      all members     must match in order for the rule to take effect.
-                      The exception to this     rule is the ToRequires member; the
-                      effects of any Requires field in any     rule will apply to
-                      all other rules as well. \n   - ToEndpoints, ToCIDR, ToCIDRSet,
-                      ToEntities, ToServices and ToGroups are     mutually exclusive.
-                      Only one of these members may be present within an     individual
-                      rule."
+                      \n - All members of this structure are optional. If omitted
+                      or empty, the member will have no effect on the rule. \n - If
+                      multiple members of the structure are specified, then all members
+                      must match in order for the rule to take effect. The exception
+                      to this rule is the ToRequires member; the effects of any Requires
+                      field in any rule will apply to all other rules as well. \n
+                      - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and
+                      ToGroups are mutually exclusive. Only one of these members may
+                      be present within an individual rule."
                     properties:
                       authentication:
                         description: Authentication is the required authentication
@@ -2825,7 +2813,7 @@ spec:
                           type: string
                         type: array
                       toFQDNs:
-                        description: "ToFQDN allows whitelisting DNS names in place
+                        description: 'ToFQDN allows whitelisting DNS names in place
                           of IPs. The IPs that result from DNS resolution of `ToFQDN.MatchName`s
                           are added to the same EgressRule object as ToCIDRSet entries,
                           and behave accordingly. Any L4 and L7 rules within this
@@ -2838,16 +2826,7 @@ spec:
                           and will enforce egress policy when PolicyEnforcment=default.
                           Note: If the resolved IPs are IPs within the kubernetes
                           cluster, the ToFQDN rule will not apply to that IP. Note:
-                          ToFQDN cannot occur in the same policy as other To* rules.
-                          \n The current implementation has a number of limitations:
-                          - The DNS resolution originates from cilium-agent, and not
-                          from the pods. Differences between the responses seen by
-                          cilium agent and a particular pod will whitelist the incorrect
-                          IP. - DNS TTLs are ignored, and cilium-agent will repoll
-                          on a short interval (5 seconds). Each change to the DNS
-                          data will trigger a policy regeneration. This may result
-                          in delayed updates to the policy for an endpoint when the
-                          data changes often or the system is under load."
+                          ToFQDN cannot occur in the same policy as other To* rules.'
                         items:
                           properties:
                             matchName:
@@ -2864,16 +2843,16 @@ spec:
                                 without a following \".\" matches all subdomains as
                                 well as the name to the right. A trailing \".\" is
                                 automatically added when missing. \n Examples: `*.cilium.io`
-                                matches subomains of cilium at that level   www.cilium.io
+                                matches subomains of cilium at that level www.cilium.io
                                 and blog.cilium.io match, cilium.io and google.com
                                 do not `*cilium.io` matches cilium.io and all subdomains
-                                ends with \"cilium.io\"   except those containing
-                                \".\" separator, subcilium.io and sub-cilium.io match,
-                                \  www.cilium.io and blog.cilium.io does not sub*.cilium.io
-                                matches subdomains of cilium where the subdomain component
-                                begins with \"sub\"   sub.cilium.io and subdomain.cilium.io
-                                match, www.cilium.io,   blog.cilium.io, cilium.io
-                                and google.com do not"
+                                ends with \"cilium.io\" except those containing \".\"
+                                separator, subcilium.io and sub-cilium.io match, www.cilium.io
+                                and blog.cilium.io does not sub*.cilium.io matches
+                                subdomains of cilium where the subdomain component
+                                begins with \"sub\" sub.cilium.io and subdomain.cilium.io
+                                match, www.cilium.io, blog.cilium.io, cilium.io and
+                                google.com do not"
                               pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                               type: string
                           type: object
@@ -2882,8 +2861,7 @@ spec:
                         description: "ToGroups is a directive that allows the integration
                           with multiple outside providers. Currently, only AWS is
                           supported, and the rule can select by multiple sub directives:
-                          \n Example: toGroups: - aws:     securityGroupsIds:     -
-                          'sg-XXXXXXXXXXXXX'"
+                          \n Example: toGroups: - aws: securityGroupsIds: - 'sg-XXXXXXXXXXXXX'"
                         items:
                           description: ToGroups structure to store all kinds of new
                             integrations that needs a new derivative policy.
@@ -2985,11 +2963,11 @@ spec:
                                   description: 'Secret is the secret that contains
                                     the certificates and private key for the TLS context.
                                     By default, Cilium will search in this secret
-                                    for the following items:  - ''ca.crt''  - Which
-                                    represents the trusted CA to verify remote source.  -
-                                    ''tls.crt'' - Which represents the public key
-                                    certificate.  - ''tls.key'' - Which represents
-                                    the private key matching the public key                certificate.'
+                                    for the following items: - ''ca.crt''  - Which
+                                    represents the trusted CA to verify remote source.
+                                    - ''tls.crt'' - Which represents the public key
+                                    certificate. - ''tls.key'' - Which represents
+                                    the private key matching the public key certificate.'
                                   properties:
                                     name:
                                       description: Name is the name of the secret.
@@ -3074,17 +3052,17 @@ spec:
                                           as well as the name to the right. A trailing
                                           \".\" is automatically added when missing.
                                           \n Examples: `*.cilium.io` matches subomains
-                                          of cilium at that level   www.cilium.io
-                                          and blog.cilium.io match, cilium.io and
-                                          google.com do not `*cilium.io` matches cilium.io
-                                          and all subdomains ends with \"cilium.io\"
-                                          \  except those containing \".\" separator,
-                                          subcilium.io and sub-cilium.io match,   www.cilium.io
-                                          and blog.cilium.io does not sub*.cilium.io
-                                          matches subdomains of cilium where the subdomain
-                                          component begins with \"sub\"   sub.cilium.io
+                                          of cilium at that level www.cilium.io and
+                                          blog.cilium.io match, cilium.io and google.com
+                                          do not `*cilium.io` matches cilium.io and
+                                          all subdomains ends with \"cilium.io\" except
+                                          those containing \".\" separator, subcilium.io
+                                          and sub-cilium.io match, www.cilium.io and
+                                          blog.cilium.io does not sub*.cilium.io matches
+                                          subdomains of cilium where the subdomain
+                                          component begins with \"sub\" sub.cilium.io
                                           and subdomain.cilium.io match, www.cilium.io,
-                                          \  blog.cilium.io, cilium.io and google.com
+                                          blog.cilium.io, cilium.io and google.com
                                           do not"
                                         pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                         type: string
@@ -3246,9 +3224,9 @@ spec:
                                           such as \"produce\" or \"consume\". A Role
                                           automatically expands into all APIKeys required
                                           to perform the specified higher-level operation.
-                                          \n The following values are supported:  -
+                                          \n The following values are supported: -
                                           \"produce\": Allow producing to the topics
-                                          specified in the rule  - \"consume\": Allow
+                                          specified in the rule - \"consume\": Allow
                                           consuming from the topics specified in the
                                           rule \n This field is incompatible with
                                           the APIKey field, i.e APIKey and Role cannot
@@ -3331,11 +3309,11 @@ spec:
                                   description: 'Secret is the secret that contains
                                     the certificates and private key for the TLS context.
                                     By default, Cilium will search in this secret
-                                    for the following items:  - ''ca.crt''  - Which
-                                    represents the trusted CA to verify remote source.  -
-                                    ''tls.crt'' - Which represents the public key
-                                    certificate.  - ''tls.key'' - Which represents
-                                    the private key matching the public key                certificate.'
+                                    for the following items: - ''ca.crt''  - Which
+                                    represents the trusted CA to verify remote source.
+                                    - ''tls.crt'' - Which represents the public key
+                                    certificate. - ''tls.key'' - Which represents
+                                    the private key matching the public key certificate.'
                                   properties:
                                     name:
                                       description: Name is the name of the secret.
@@ -3524,16 +3502,15 @@ spec:
                     description: "EgressDenyRule contains all rule types which can
                       be applied at egress, i.e. network traffic that originates inside
                       the endpoint and exits the endpoint selected by the endpointSelector.
-                      \n   - All members of this structure are optional. If omitted
-                      or empty, the     member will have no effect on the rule. \n
-                      \  - If multiple members of the structure are specified, then
-                      all members     must match in order for the rule to take effect.
-                      The exception to this     rule is the ToRequires member; the
-                      effects of any Requires field in any     rule will apply to
-                      all other rules as well. \n   - ToEndpoints, ToCIDR, ToCIDRSet,
-                      ToEntities, ToServices and ToGroups are     mutually exclusive.
-                      Only one of these members may be present within an     individual
-                      rule."
+                      \n - All members of this structure are optional. If omitted
+                      or empty, the member will have no effect on the rule. \n - If
+                      multiple members of the structure are specified, then all members
+                      must match in order for the rule to take effect. The exception
+                      to this rule is the ToRequires member; the effects of any Requires
+                      field in any rule will apply to all other rules as well. \n
+                      - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and
+                      ToGroups are mutually exclusive. Only one of these members may
+                      be present within an individual rule."
                     properties:
                       icmps:
                         description: "ICMPs is a list of ICMP rule identified by type
@@ -3729,8 +3706,7 @@ spec:
                         description: "ToGroups is a directive that allows the integration
                           with multiple outside providers. Currently, only AWS is
                           supported, and the rule can select by multiple sub directives:
-                          \n Example: toGroups: - aws:     securityGroupsIds:     -
-                          'sg-XXXXXXXXXXXXX'"
+                          \n Example: toGroups: - aws: securityGroupsIds: - 'sg-XXXXXXXXXXXXX'"
                         items:
                           description: ToGroups structure to store all kinds of new
                             integrations that needs a new derivative policy.
@@ -4021,15 +3997,15 @@ spec:
                     description: "IngressRule contains all rule types which can be
                       applied at ingress, i.e. network traffic that originates outside
                       of the endpoint and is entering the endpoint selected by the
-                      endpointSelector. \n   - All members of this structure are optional.
-                      If omitted or empty, the     member will have no effect on the
-                      rule. \n   - If multiple members are set, all of them need to
-                      match in order for     the rule to take effect. The exception
-                      to this rule is FromRequires field;     the effects of any Requires
-                      field in any rule will apply to all other     rules as well.
-                      \n   - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities
-                      are mutually     exclusive. Only one of these members may be
-                      present within an individual     rule."
+                      endpointSelector. \n - All members of this structure are optional.
+                      If omitted or empty, the member will have no effect on the rule.
+                      \n - If multiple members are set, all of them need to match
+                      in order for the rule to take effect. The exception to this
+                      rule is FromRequires field; the effects of any Requires field
+                      in any rule will apply to all other rules as well. \n - FromEndpoints,
+                      FromCIDR, FromCIDRSet and FromEntities are mutually exclusive.
+                      Only one of these members may be present within an individual
+                      rule."
                     properties:
                       authentication:
                         description: Authentication is the required authentication
@@ -4377,11 +4353,11 @@ spec:
                                   description: 'Secret is the secret that contains
                                     the certificates and private key for the TLS context.
                                     By default, Cilium will search in this secret
-                                    for the following items:  - ''ca.crt''  - Which
-                                    represents the trusted CA to verify remote source.  -
-                                    ''tls.crt'' - Which represents the public key
-                                    certificate.  - ''tls.key'' - Which represents
-                                    the private key matching the public key                certificate.'
+                                    for the following items: - ''ca.crt''  - Which
+                                    represents the trusted CA to verify remote source.
+                                    - ''tls.crt'' - Which represents the public key
+                                    certificate. - ''tls.key'' - Which represents
+                                    the private key matching the public key certificate.'
                                   properties:
                                     name:
                                       description: Name is the name of the secret.
@@ -4466,17 +4442,17 @@ spec:
                                           as well as the name to the right. A trailing
                                           \".\" is automatically added when missing.
                                           \n Examples: `*.cilium.io` matches subomains
-                                          of cilium at that level   www.cilium.io
-                                          and blog.cilium.io match, cilium.io and
-                                          google.com do not `*cilium.io` matches cilium.io
-                                          and all subdomains ends with \"cilium.io\"
-                                          \  except those containing \".\" separator,
-                                          subcilium.io and sub-cilium.io match,   www.cilium.io
-                                          and blog.cilium.io does not sub*.cilium.io
-                                          matches subdomains of cilium where the subdomain
-                                          component begins with \"sub\"   sub.cilium.io
+                                          of cilium at that level www.cilium.io and
+                                          blog.cilium.io match, cilium.io and google.com
+                                          do not `*cilium.io` matches cilium.io and
+                                          all subdomains ends with \"cilium.io\" except
+                                          those containing \".\" separator, subcilium.io
+                                          and sub-cilium.io match, www.cilium.io and
+                                          blog.cilium.io does not sub*.cilium.io matches
+                                          subdomains of cilium where the subdomain
+                                          component begins with \"sub\" sub.cilium.io
                                           and subdomain.cilium.io match, www.cilium.io,
-                                          \  blog.cilium.io, cilium.io and google.com
+                                          blog.cilium.io, cilium.io and google.com
                                           do not"
                                         pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                         type: string
@@ -4638,9 +4614,9 @@ spec:
                                           such as \"produce\" or \"consume\". A Role
                                           automatically expands into all APIKeys required
                                           to perform the specified higher-level operation.
-                                          \n The following values are supported:  -
+                                          \n The following values are supported: -
                                           \"produce\": Allow producing to the topics
-                                          specified in the rule  - \"consume\": Allow
+                                          specified in the rule - \"consume\": Allow
                                           consuming from the topics specified in the
                                           rule \n This field is incompatible with
                                           the APIKey field, i.e APIKey and Role cannot
@@ -4723,11 +4699,11 @@ spec:
                                   description: 'Secret is the secret that contains
                                     the certificates and private key for the TLS context.
                                     By default, Cilium will search in this secret
-                                    for the following items:  - ''ca.crt''  - Which
-                                    represents the trusted CA to verify remote source.  -
-                                    ''tls.crt'' - Which represents the public key
-                                    certificate.  - ''tls.key'' - Which represents
-                                    the private key matching the public key                certificate.'
+                                    for the following items: - ''ca.crt''  - Which
+                                    represents the trusted CA to verify remote source.
+                                    - ''tls.crt'' - Which represents the public key
+                                    certificate. - ''tls.key'' - Which represents
+                                    the private key matching the public key certificate.'
                                   properties:
                                     name:
                                       description: Name is the name of the secret.
@@ -4762,15 +4738,15 @@ spec:
                     description: "IngressDenyRule contains all rule types which can
                       be applied at ingress, i.e. network traffic that originates
                       outside of the endpoint and is entering the endpoint selected
-                      by the endpointSelector. \n   - All members of this structure
-                      are optional. If omitted or empty, the     member will have
-                      no effect on the rule. \n   - If multiple members are set, all
-                      of them need to match in order for     the rule to take effect.
-                      The exception to this rule is FromRequires field;     the effects
-                      of any Requires field in any rule will apply to all other     rules
-                      as well. \n   - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities
-                      are mutually     exclusive. Only one of these members may be
-                      present within an individual     rule."
+                      by the endpointSelector. \n - All members of this structure
+                      are optional. If omitted or empty, the member will have no effect
+                      on the rule. \n - If multiple members are set, all of them need
+                      to match in order for the rule to take effect. The exception
+                      to this rule is FromRequires field; the effects of any Requires
+                      field in any rule will apply to all other rules as well. \n
+                      - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are
+                      mutually exclusive. Only one of these members may be present
+                      within an individual rule."
                     properties:
                       fromCIDR:
                         description: "FromCIDR is a list of IP blocks which the endpoint

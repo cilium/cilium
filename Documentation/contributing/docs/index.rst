@@ -9,16 +9,21 @@
 Documentation
 -------------
 
-This section describes the style and testing methods of Cilium documentation. Before contributing, please review the documentation style guide below.
-See the :ref:`clone and provision environment section <provision_environment>` to learn how to fork and clone the repository.
+This section provides guidance on the structure of Cilium documentation,
+describes its style, and explains how to test it. Before contributing, please
+review the structure recommendations and style guide.
+
+See the :ref:`clone and provision environment section <provision_environment>`
+to learn how to fork and clone the repository.
 
 .. toctree::
    :maxdepth: 2
    :glob:
 
+   docsstructure
    docsstyle
    docstest
 
-The best way to get help if you get stuck is to ask a question on the `Cilium
-Slack channel <https://cilium.herokuapp.com>`_.  With Cilium contributors
-across the globe, there is almost always someone available to help.
+The best way to get help if you get stuck is to ask a question on `Cilium
+Slack`_. With Cilium contributors across the globe, there is almost always
+someone available to help.

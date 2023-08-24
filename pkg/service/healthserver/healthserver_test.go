@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/google/go-cmp/cmp"
 )
 
 type ServiceHealthServerSuite struct{}
@@ -86,10 +87,13 @@ func (s *ServiceHealthServerSuite) Test_httpHealthServer_ServeHTTP(c *C) {
 	defer ts.Close()
 
 	// Set local endpoints, server must respond with HTTP 200
-	h.updateService(NewService("default", "svc", 1))
+	h.updateService(NewService("default", "svc", 2))
 	resp, err := http.Get(ts.URL)
 	c.Assert(err, IsNil)
 	c.Assert(resp.StatusCode, Equals, http.StatusOK)
+	assertRespHeader(c, resp, "Content-Type", "application/json")
+	assertRespHeader(c, resp, "X-Content-Type-Options", "nosniff")
+	assertRespHeader(c, resp, "X-Load-Balancing-Endpoint-Weight", "2")
 	resp.Body.Close()
 
 	// Remove local endpoints, server must respond with HTTP 503
@@ -98,4 +102,10 @@ func (s *ServiceHealthServerSuite) Test_httpHealthServer_ServeHTTP(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(resp.StatusCode, Equals, http.StatusServiceUnavailable)
 	resp.Body.Close()
+}
+
+func assertRespHeader(c *C, resp *http.Response, key, val string) {
+	if !cmp.Equal(resp.Header[key], []string{val}) {
+		c.Errorf("Want response header: %q: %q, got: %q, %q,", key, []string{val}, key, resp.Header[key])
+	}
 }

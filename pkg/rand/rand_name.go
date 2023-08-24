@@ -36,12 +36,6 @@ func RandomStringWithLen(n int) string {
 	return randomStringFromSliceWithLen(letterRunes, n)
 }
 
-// RandomLowercaseStringWithLen returns a random string of specified length
-// containing lowercase runes.
-func RandomLowercaseStringWithLen(n int) string {
-	return randomStringFromSliceWithLen(letterRunes[:26], n)
-}
-
 // RandomString returns a random string with a predefined length of 12.
 func RandomString() string {
 	return RandomStringWithLen(12)

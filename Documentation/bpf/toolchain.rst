@@ -144,7 +144,8 @@ In order to run through all BPF selftests, the following command is needed:
 
     $ sudo make run_tests
 
-If you see any failures, please contact us on Slack with the full test output.
+If you see any failures, please contact us on `Cilium Slack`_ with the full
+test output.
 
 Compiling iproute2
 ``````````````````
@@ -319,7 +320,7 @@ It can then be compiled and loaded into the kernel as follows:
 
 .. code-block:: shell-session
 
-    $ clang -O2 -Wall -target bpf -c xdp-example.c -o xdp-example.o
+    $ clang -O2 -Wall --target=bpf -c xdp-example.c -o xdp-example.o
     # ip link set dev em1 xdp obj xdp-example.o
 
 .. note:: Attaching an XDP BPF program to a network device as above requires
@@ -374,7 +375,7 @@ For debugging, clang can generate the assembler output as follows:
 
 .. code-block:: shell-session
 
-    $ clang -O2 -S -Wall -target bpf -c xdp-example.c -o xdp-example.S
+    $ clang -O2 -S -Wall --target=bpf -c xdp-example.c -o xdp-example.S
     $ cat xdp-example.S
         .text
         .section    prog,"ax",@progbits
@@ -405,7 +406,7 @@ the usual workflow by adding ``-g`` for compilation.
 
 .. code-block:: shell-session
 
-    $ clang -O2 -g -Wall -target bpf -c xdp-example.c -o xdp-example.o
+    $ clang -O2 -g -Wall --target=bpf -c xdp-example.c -o xdp-example.o
     $ llvm-objdump -S --no-show-raw-insn xdp-example.o
 
     xdp-example.o:        file format ELF64-BPF
@@ -466,7 +467,7 @@ can later on be passed to llc:
 
 .. code-block:: shell-session
 
-    $ clang -O2 -Wall -target bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
+    $ clang -O2 -Wall --target=bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
     $ llc xdp-example.bc -march=bpf -filetype=obj -o xdp-example.o
 
 The generated LLVM IR can also be dumped in human readable format through:
@@ -539,7 +540,7 @@ line. Note that ``-g`` is needed independently of whether ``llc``'s
 
 .. code-block:: shell-session
 
-    $ clang -O2 -g -Wall -target bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
+    $ clang -O2 -g -Wall --target=bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
     $ llc xdp-example.bc -march=bpf -mattr=dwarfris -filetype=obj -o xdp-example.o
 
 Alternatively, by using clang only to build a BPF program with debugging
@@ -548,7 +549,7 @@ elfutils version):
 
 .. code-block:: shell-session
 
-    $ clang -target bpf -O2 -g -c -Xclang -target-feature -Xclang +dwarfris -c xdp-example.c -o xdp-example.o
+    $ clang --target=bpf -O2 -g -c -Xclang -target-feature -Xclang +dwarfris -c xdp-example.c -o xdp-example.o
 
 After successful compilation ``pahole`` can be used to properly dump structures
 of the BPF program based on the DWARF information:
@@ -571,7 +572,7 @@ newly added BTF data. Full ``clang`` and ``pahole`` example combined:
 
 .. code-block:: shell-session
 
-    $ clang -target bpf -O2 -Wall -g -c -Xclang -target-feature -Xclang +dwarfris -c xdp-example.c -o xdp-example.o
+    $ clang --target=bpf -O2 -Wall -g -c -Xclang -target-feature -Xclang +dwarfris -c xdp-example.c -o xdp-example.o
     $ pahole -J xdp-example.o
 
 The presence of a ``.BTF`` section can be seen through ``readelf`` tool:
@@ -624,12 +625,12 @@ A full command line example with llc's ``-mcpu=probe``:
 
 .. code-block:: shell-session
 
-    $ clang -O2 -Wall -target bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
+    $ clang -O2 -Wall --target=bpf -emit-llvm -c xdp-example.c -o xdp-example.bc
     $ llc xdp-example.bc -march=bpf -mcpu=probe -filetype=obj -o xdp-example.o
 
 Generally, LLVM IR generation is architecture independent. There are
-however a few differences when using ``clang -target bpf`` versus
-leaving ``-target bpf`` out and thus using clang's default target which,
+however a few differences when using ``clang --target=bpf`` versus
+leaving ``--target=bpf`` out and thus using clang's default target which,
 depending on the underlying architecture, might be ``x86_64``, ``arm64``
 or others.
 
@@ -651,7 +652,7 @@ Quoting from the kernel's ``Documentation/bpf/bpf_devel_QA.txt``:
   option ``-fno-jump-tables`` can be used to disable switch table
   generation.
 
-* For clang ``-target bpf``, it is guaranteed that pointer or long /
+* For clang ``--target=bpf``, it is guaranteed that pointer or long /
   unsigned long types will always have a width of 64 bit, no matter
   whether underlying clang binary or default target (or kernel) is
   32 bit. However, when native clang target is used, then it will
@@ -663,7 +664,7 @@ Quoting from the kernel's ``Documentation/bpf/bpf_devel_QA.txt``:
 The native target is mostly needed in tracing for the case of walking
 the kernel's ``struct pt_regs`` that maps CPU registers, or other kernel
 structures where CPU's register width matters. In all other cases such
-as networking, the use of ``clang -target bpf`` is the preferred choice.
+as networking, the use of ``clang --target=bpf`` is the preferred choice.
 
 Also, LLVM started to support 32-bit subregisters and BPF ALU32 instructions since
 LLVM's release 7.0. A new code generation attribute ``alu32`` is added. When it is
@@ -685,7 +686,7 @@ At default code generation, the assembler will looks like:
 
 .. code-block:: shell-session
 
-    $ clang -target bpf -emit-llvm -S 32-bit-example.c
+    $ clang --target=bpf -emit-llvm -S 32-bit-example.c
     $ llc -march=bpf 32-bit-example.ll
     $ cat 32-bit-example.s
         cal:
@@ -932,7 +933,7 @@ describe some of the differences for the BPF model:
 
   .. code-block:: shell-session
 
-    $ clang -O2 -Wall -target bpf -c tc-example.c -o tc-example.o
+    $ clang -O2 -Wall --target=bpf -c tc-example.c -o tc-example.o
 
     # tc qdisc add dev em1 clsact
     # tc filter add dev em1 ingress bpf da obj tc-example.o sec ingress

@@ -46,7 +46,7 @@ var bpfPolicyGetCmd = &cobra.Command{
 }
 
 func init() {
-	bpfPolicyCmd.AddCommand(bpfPolicyGetCmd)
+	BPFPolicyCmd.AddCommand(bpfPolicyGetCmd)
 	bpfPolicyGetCmd.Flags().BoolVarP(&printIDs, "numeric", "n", false, "Do not resolve IDs")
 	bpfPolicyGetCmd.Flags().BoolVarP(&allList, "all", "", false, "Dump all policy maps")
 	command.AddOutputOption(bpfPolicyGetCmd)

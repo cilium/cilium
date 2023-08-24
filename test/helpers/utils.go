@@ -154,10 +154,8 @@ func RepeatUntilTrue(body func() bool, config *TimeoutConfig) error {
 			}
 			// Provide some form of rate-limiting here before running next
 			// execution in case body() returns at a fast rate.
-			select {
-			case <-ticker.C:
-				go asyncBody(bodyChan)
-			}
+			<-ticker.C
+			go asyncBody(bodyChan)
 		case <-done:
 			return fmt.Errorf("%s timeout expired", config.Timeout)
 		}
@@ -416,6 +414,8 @@ func getK8sSupportedConstraints(ciliumVersion string) (semver.Range, error) {
 		return nil, err
 	}
 	switch {
+	case IsCiliumV1_15(cst):
+		return versioncheck.MustCompile(">=1.16.0 <1.29.0"), nil
 	case IsCiliumV1_14(cst):
 		return versioncheck.MustCompile(">=1.16.0 <1.28.0"), nil
 	case IsCiliumV1_13(cst):
@@ -465,7 +465,7 @@ func failIfContainsBadLogMsg(logs, label string, blacklist map[string][]string) 
 					}
 				}
 				if !ok {
-					count, _ := uniqueFailures[msg]
+					count := uniqueFailures[msg]
 					uniqueFailures[msg] = count + 1
 				}
 			}
@@ -817,8 +817,5 @@ func SupportIPv6Connectivity() bool {
 // SupportIPv6ToOutside returns true if the CI environment supports IPv6
 // connectivity to the outside world.
 func SupportIPv6ToOutside() bool {
-	if os.Getenv("CILIUM_NO_IPV6_OUTSIDE") != "" {
-		return false
-	}
-	return true
+	return os.Getenv("CILIUM_NO_IPV6_OUTSIDE") == ""
 }

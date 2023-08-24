@@ -87,6 +87,6 @@ func listBandwidth(bpfBandwidthList map[string][]string) {
 }
 
 func init() {
-	bpfBandwidthCmd.AddCommand(bpfBandwidthListCmd)
+	BPFBandwidthCmd.AddCommand(bpfBandwidthListCmd)
 	command.AddOutputOption(bpfBandwidthListCmd)
 }

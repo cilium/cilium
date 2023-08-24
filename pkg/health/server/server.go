@@ -23,6 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -417,7 +419,38 @@ func NewServer(config Config) (*Server, error) {
 	server.Client = cl
 	server.Server = *server.newServer(config.HealthAPISpec)
 
-	server.httpPathServer = responder.NewServer(config.HTTPPathPort)
+	server.httpPathServer = responder.NewServers(getAddresses(), config.HTTPPathPort)
 
 	return server, nil
+}
+
+// Get internal node ipv4/ipv6 addresses based on config enabled.
+// If it fails to get either of internal node address, it returns "0.0.0.0" if ipv4 or "::" if ipv6.
+func getAddresses() []string {
+	addresses := make([]string, 0, 2)
+
+	// listen on all interfaces and all families in case of external-workloads
+	if option.Config.JoinCluster {
+		return []string{""}
+	}
+
+	if option.Config.EnableIPv4 {
+		if ipv4 := node.GetInternalIPv4(); ipv4 != nil {
+			addresses = append(addresses, ipv4.String())
+		} else {
+			// if Get ipv4 fails, then listen on all ipv4 addr.
+			addresses = append(addresses, "0.0.0.0")
+		}
+	}
+
+	if option.Config.EnableIPv6 {
+		if ipv6 := node.GetInternalIPv6(); ipv6 != nil {
+			addresses = append(addresses, ipv6.String())
+		} else {
+			// if Get ipv6 fails, then listen on all ipv6 addr.
+			addresses = append(addresses, "::")
+		}
+	}
+
+	return addresses
 }

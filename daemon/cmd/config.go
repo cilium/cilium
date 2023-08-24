@@ -22,16 +22,16 @@ import (
 // ConfigModifyEvent is a wrapper around the parameters for configModify.
 type ConfigModifyEvent struct {
 	params PatchConfigParams
-	h      *patchConfig
+	daemon *Daemon
 }
 
 // Handle implements pkg/eventqueue/EventHandler interface.
 func (c *ConfigModifyEvent) Handle(res chan interface{}) {
-	c.h.configModify(c.params, res)
+	c.configModify(c.params, res)
 }
 
-func (h *patchConfig) configModify(params PatchConfigParams, resChan chan interface{}) {
-	d := h.daemon
+func (c *ConfigModifyEvent) configModify(params PatchConfigParams, resChan chan interface{}) {
+	d := c.daemon
 
 	cfgSpec := params.Configuration
 
@@ -109,26 +109,17 @@ func (h *patchConfig) configModify(params PatchConfigParams, resChan chan interf
 	}
 
 	resChan <- NewPatchConfigOK()
-	return
 }
 
-type patchConfig struct {
-	daemon *Daemon
-}
-
-func NewPatchConfigHandler(d *Daemon) PatchConfigHandler {
-	return &patchConfig{daemon: d}
-}
-
-func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
+func patchConfigHandler(d *Daemon, params PatchConfigParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("PATCH /config request")
 
 	c := &ConfigModifyEvent{
 		params: params,
-		h:      h,
+		daemon: d,
 	}
 	cfgModEvent := eventqueue.NewEvent(c)
-	resChan, err := h.daemon.configModifyQueue.Enqueue(cfgModEvent)
+	resChan, err := d.configModifyQueue.Enqueue(cfgModEvent)
 	if err != nil {
 		msg := fmt.Errorf("enqueue of ConfigModifyEvent failed: %w", err)
 		return api.Error(PatchConfigFailureCode, msg)
@@ -143,18 +134,9 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	return api.Error(PatchConfigFailureCode, msg)
 }
 
-type getConfig struct {
-	daemon *Daemon
-}
-
-func NewGetConfigHandler(d *Daemon) GetConfigHandler {
-	return &getConfig{daemon: d}
-}
-
-func (h *getConfig) Handle(params GetConfigParams) middleware.Responder {
+func getConfigHandler(d *Daemon, params GetConfigParams) middleware.Responder {
 	log.WithField(logfields.Params, logfields.Repr(params)).Debug("GET /config request")
 
-	d := h.daemon
 	m := make(map[string]interface{})
 	option.Config.ConfigPatchMutex.RLock()
 	e := reflect.ValueOf(option.Config).Elem()

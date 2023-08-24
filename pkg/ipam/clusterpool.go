@@ -14,7 +14,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
-	"go.uber.org/multierr"
 	"golang.org/x/sys/unix"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -35,6 +34,8 @@ const (
 	clusterPoolStatusControllerName = "sync-clusterpool-status"
 	clusterPoolStatusTriggerName    = "sync-clusterpool-status-trigger"
 )
+
+var clusterPoolStatusControllerGroup = controller.NewGroup(clusterPoolStatusControllerName)
 
 // containsCIDR checks if the outer IPNet contains the inner IPNet
 func containsCIDR(outer, inner *net.IPNet) bool {
@@ -69,7 +70,7 @@ func cleanupUnreachableRoutes(podCIDR string) error {
 		return fmt.Errorf("failed to fetch unreachable routes: %w", err)
 	}
 
-	var deleteErr error
+	var errs error
 	for _, route := range routes {
 		if !containsCIDR(removedCIDR, route.Dst) {
 			continue
@@ -78,12 +79,12 @@ func cleanupUnreachableRoutes(podCIDR string) error {
 		err = netlink.RouteDel(&route)
 		if err != nil && !errors.Is(err, unix.ESRCH) {
 			// We ignore ESRCH, as it means the entry was already deleted
-			err = fmt.Errorf("failed to delete unreachable route for %s: %w", route.Dst.String(), err)
-			deleteErr = multierr.Append(deleteErr, err)
+			errs = errors.Join(errs, fmt.Errorf("failed to delete unreachable route for %s: %w",
+				route.Dst.String(), err),
+			)
 		}
 	}
-
-	return deleteErr
+	return errs
 }
 
 func podCIDRFamily(podCIDR string) Family {
@@ -305,9 +306,11 @@ func (c *crdWatcher) restoreFinished() {
 	}
 
 	// creating a new controller will execute DoFunc immediately
-	c.controller.UpdateController(clusterPoolStatusControllerName, controller.ControllerParams{
-		DoFunc: c.updateCiliumNodeStatus,
-	})
+	c.controller.UpdateController(clusterPoolStatusControllerName,
+		controller.ControllerParams{
+			Group:  clusterPoolStatusControllerGroup,
+			DoFunc: c.updateCiliumNodeStatus,
+		})
 	c.finishedRestore = true
 }
 

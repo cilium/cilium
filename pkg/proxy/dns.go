@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
 )
 
@@ -21,10 +20,9 @@ var (
 
 // dnsRedirect implements the Redirect interface for an l7 proxy
 type dnsRedirect struct {
-	redirect             *Redirect
-	endpointInfoRegistry logger.EndpointInfoRegistry
-	currentRules         policy.L7DataMap
-	proxyRuleUpdater     proxyRuleUpdater
+	redirect         *Redirect
+	currentRules     policy.L7DataMap
+	proxyRuleUpdater proxyRuleUpdater
 }
 
 // proxyRuleUpdater updates L7 proxy rules per endpoint.
@@ -73,13 +71,15 @@ func (dr *dnsRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, rev
 	}, nil
 }
 
-// creatednsRedirect creates a redirect to the dns proxy. The redirect structure passed
+type dnsProxyIntegration struct {
+}
+
+// createRedirect creates a redirect to the dns proxy. The redirect structure passed
 // in is safe to access for reading and writing.
-func createDNSRedirect(r *Redirect, endpointInfoRegistry logger.EndpointInfoRegistry) (RedirectImplementation, error) {
+func (p *dnsProxyIntegration) createRedirect(r *Redirect, wg *completion.WaitGroup) (RedirectImplementation, error) {
 	dr := &dnsRedirect{
-		redirect:             r,
-		endpointInfoRegistry: endpointInfoRegistry,
-		proxyRuleUpdater:     DefaultDNSProxy,
+		redirect:         r,
+		proxyRuleUpdater: DefaultDNSProxy,
 	}
 
 	log.WithFields(logrus.Fields{
@@ -87,6 +87,10 @@ func createDNSRedirect(r *Redirect, endpointInfoRegistry logger.EndpointInfoRegi
 	}).Debug("Creating DNS Proxy redirect")
 
 	return dr, dr.setRules(nil, r.rules)
+}
+
+func (p *dnsProxyIntegration) changeLogLevel(level logrus.Level) error {
+	return nil
 }
 
 func copyRules(rules policy.L7DataMap) policy.L7DataMap {

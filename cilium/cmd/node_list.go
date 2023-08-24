@@ -47,7 +47,7 @@ var nodeListCmd = &cobra.Command{
 }
 
 func init() {
-	nodeCmd.AddCommand(nodeListCmd)
+	NodeCmd.AddCommand(nodeListCmd)
 	command.AddOutputOption(nodeListCmd)
 }
 

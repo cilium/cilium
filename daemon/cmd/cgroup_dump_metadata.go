@@ -10,18 +10,8 @@ import (
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 )
 
-type getCgroupDumpMetadata struct {
-	daemon *Daemon
-}
-
-// NewGetCgroupDumpMetadataHandler returns the cgroup dump metadata handler for the agent
-func NewGetCgroupDumpMetadataHandler(d *Daemon) restapi.GetCgroupDumpMetadataHandler {
-	return &getCgroupDumpMetadata{daemon: d}
-}
-
-func (h *getCgroupDumpMetadata) Handle(params restapi.GetCgroupDumpMetadataParams) middleware.Responder {
+func getCgroupDumpMetadataHandler(d *Daemon, params restapi.GetCgroupDumpMetadataParams) middleware.Responder {
 	resp := models.CgroupDumpMetadata{}
-	d := h.daemon
 	metadata := d.cgroupManager.DumpPodMetadata()
 
 	for _, pm := range metadata {

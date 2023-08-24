@@ -32,8 +32,21 @@ import (
 )
 
 type MarshallingOption struct {
-	AddPath    map[RouteFamily]BGPAddPathMode
-	Attributes map[BGPAttrType]bool
+	AddPath        map[RouteFamily]BGPAddPathMode
+	Attributes     map[BGPAttrType]bool
+	ImplicitPrefix AddrPrefixInterface
+}
+
+// GetImplicitPrefix gets the implicit prefix associated with decoding/serialisation. This is used for
+// the MRT representation of MP_REACH_NLRI (see RFC 6396 4.3.4).
+func GetImplicitPrefix(options []*MarshallingOption) AddrPrefixInterface {
+	for _, opt := range options {
+		if opt != nil && opt.ImplicitPrefix != nil {
+			return opt.ImplicitPrefix
+		}
+	}
+
+	return nil
 }
 
 func IsAddPathEnabled(decode bool, f RouteFamily, options []*MarshallingOption) bool {
@@ -10367,7 +10380,7 @@ func (p *PathAttributeAsPath) String() string {
 	for _, param := range p.Value {
 		params = append(params, param.String())
 	}
-	return strings.Join(params, " ")
+	return "{AsPath: " + strings.Join(params, " ") + "}"
 }
 
 func (p *PathAttributeAsPath) MarshalJSON() ([]byte, error) {
@@ -10952,19 +10965,35 @@ func (p *PathAttributeMpReachNLRI) DecodeFromBytes(data []byte, options ...*Mars
 	if p.Length < 3 {
 		return NewMessageError(eCode, eSubCode, value, "mpreach header length is short")
 	}
-	afi := binary.BigEndian.Uint16(value[0:2])
-	safi := value[2]
+
+	var afi uint16
+	var safi uint8
+
+	// In MRT dumps, AFI+SAFI+NLRI is implicit based on RIB Entry Header, see RFC 6396 4.3.4
+	implicitPrefix := GetImplicitPrefix(options)
+	if implicitPrefix == nil {
+		afi = binary.BigEndian.Uint16(value[0:2])
+		safi = value[2]
+
+		value = value[3:]
+	} else {
+		afi = implicitPrefix.AFI()
+		safi = implicitPrefix.SAFI()
+
+		p.Value = []AddrPrefixInterface{implicitPrefix}
+	}
+
 	p.AFI = afi
 	p.SAFI = safi
 	_, err = NewPrefixFromRouteFamily(afi, safi)
 	if err != nil {
 		return NewMessageError(eCode, BGP_ERROR_SUB_INVALID_NETWORK_FIELD, eData, err.Error())
 	}
-	nexthoplen := int(value[3])
-	if len(value) < 4+nexthoplen {
+	nexthoplen := int(value[0])
+	if len(value) < 1+nexthoplen {
 		return NewMessageError(eCode, eSubCode, value, "mpreach nexthop length is short")
 	}
-	nexthopbin := value[4 : 4+nexthoplen]
+	nexthopbin := value[1 : 1+nexthoplen]
 	if nexthoplen > 0 {
 		v4addrlen := 4
 		v6addrlen := 16
@@ -10984,7 +11013,13 @@ func (p *PathAttributeMpReachNLRI) DecodeFromBytes(data []byte, options ...*Mars
 			return NewMessageError(eCode, eSubCode, value, "mpreach nexthop length is incorrect")
 		}
 	}
-	value = value[4+nexthoplen:]
+
+	// NLRI implicit for MRT dumps
+	if implicitPrefix != nil {
+		return nil
+	}
+
+	value = value[1+nexthoplen:]
 	// skip reserved
 	if len(value) == 0 {
 		return NewMessageError(eCode, eSubCode, value, "no skip byte")
@@ -11030,27 +11065,40 @@ func (p *PathAttributeMpReachNLRI) Serialize(options ...*MarshallingOption) ([]b
 	if p.LinkLocalNexthop != nil && p.LinkLocalNexthop.IsLinkLocalUnicast() {
 		nexthoplen = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
 	}
-	buf := make([]byte, 4+nexthoplen)
-	binary.BigEndian.PutUint16(buf[0:], afi)
-	buf[2] = safi
-	buf[3] = uint8(nexthoplen)
+	var buf []byte
+	includeNLRI := GetImplicitPrefix(options) == nil
+	if includeNLRI {
+		family := make([]byte, 3)
+		binary.BigEndian.PutUint16(family[0:], afi)
+		family[2] = safi
+
+		buf = append(buf, family...)
+	}
+	buf = append(buf, uint8(nexthoplen))
 	if nexthoplen != 0 {
+		nexthop := make([]byte, nexthoplen)
+
 		if p.Nexthop.To4() == nil {
-			copy(buf[4+offset:], p.Nexthop.To16())
+			copy(nexthop[offset:], p.Nexthop.To16())
+
 			if nexthoplen == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL {
-				copy(buf[4+offset+16:], p.LinkLocalNexthop.To16())
+				copy(nexthop[offset+16:], p.LinkLocalNexthop.To16())
 			}
 		} else {
-			copy(buf[4+offset:], p.Nexthop)
+			copy(nexthop[offset:], p.Nexthop)
 		}
+
+		buf = append(buf, nexthop...)
 	}
-	buf = append(buf, 0)
-	for _, prefix := range p.Value {
-		pbuf, err := prefix.Serialize(options...)
-		if err != nil {
-			return nil, err
+	if includeNLRI {
+		buf = append(buf, 0)
+		for _, prefix := range p.Value {
+			pbuf, err := prefix.Serialize(options...)
+			if err != nil {
+				return nil, err
+			}
+			buf = append(buf, pbuf...)
 		}
-		buf = append(buf, pbuf...)
 	}
 	return p.PathAttribute.Serialize(buf, options...)
 }

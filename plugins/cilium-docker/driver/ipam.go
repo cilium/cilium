@@ -43,7 +43,7 @@ func (driver *driver) getDefaultAddressSpaces(w http.ResponseWriter, r *http.Req
 
 func (driver *driver) getPoolResponse(req *api.RequestPoolRequest) *api.RequestPoolResponse {
 	addr := driver.conf.Addressing
-	if req.V6 == false {
+	if !req.V6 {
 		return &api.RequestPoolResponse{
 			PoolID: PoolIPv4,
 			Pool:   "0.0.0.0/0",

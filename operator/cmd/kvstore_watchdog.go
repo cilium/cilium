@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/allocator"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -17,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // keyPathFromLockPath returns the path of the given key that contains a lease
@@ -92,10 +95,21 @@ func startKvstoreWatchdog() {
 		defer hbTimerDone()
 		for {
 			ctx, cancel := context.WithTimeout(context.Background(), defaults.LockLeaseTTL)
+
 			err := kvstore.Client().Update(ctx, kvstore.HeartbeatPath, []byte(time.Now().Format(time.RFC3339)), true)
 			if err != nil {
 				log.WithError(err).Warning("Unable to update heartbeat key")
 			}
+
+			if option.Config.ClusterName != defaults.ClusterName && option.Config.ClusterID != 0 {
+				// The cluster config continues to be enforced also after the initial successful
+				// insertion to prevent issues in case of, e.g., unexpected lease expiration.
+				cfg := cmtypes.CiliumClusterConfig{ID: option.Config.ClusterID}
+				if err := cmutils.SetClusterConfig(ctx, option.Config.ClusterName, &cfg, kvstore.Client()); err != nil {
+					log.WithError(err).Warning("Unable to set local cluster config")
+				}
+			}
+
 			cancel()
 			<-hbTimer.After(kvstore.HeartbeatWriteInterval)
 		}

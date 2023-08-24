@@ -43,7 +43,7 @@ var encryptStatusCmd = &cobra.Command{
 }
 
 func init() {
-	encryptCmd.AddCommand(encryptStatusCmd)
+	CncryptCmd.AddCommand(encryptStatusCmd)
 	command.AddOutputOption(encryptStatusCmd)
 }
 

@@ -14,9 +14,8 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/shirou/gopsutil/v3/internal/common"
+	"golang.org/x/sys/unix"
 )
 
 type VirtualMemoryExStat struct {
@@ -154,13 +153,13 @@ func fillFromMeminfoWithContext() (*VirtualMemoryStat, *VirtualMemoryExStat, err
 				return ret, retEx, err
 			}
 			retEx.Unevictable = t * 1024
-		case "Writeback":
+		case "WriteBack":
 			t, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return ret, retEx, err
 			}
 			ret.WriteBack = t * 1024
-		case "WritebackTmp":
+		case "WriteBackTmp":
 			t, err := strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return ret, retEx, err

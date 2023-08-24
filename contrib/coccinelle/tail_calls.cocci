@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium.
 /// Find tail calls not followed by a call to send_drop_notify_error with
 /// DROP_MISSED_TAIL_CALL. Such code patterns may lead to missed tail calls not
 /// being logged.
 // Confidence: Medium
-// Copyright Authors of Cilium.
 // Comments:
 // Options: --include-headers
 

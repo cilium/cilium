@@ -7,8 +7,8 @@ include:
     region: ap-northeast-1
   - version: "1.25"
     region: us-east-2
-    default: true
   - version: "1.26"
     region: ca-central-1
   - version: "1.27"
     region: eu-north-1
+    default: true

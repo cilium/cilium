@@ -24,7 +24,6 @@ type RuleTranslator struct {
 	Service                  ServiceID
 	OldEndpoint, NewEndpoint Endpoints
 	ServiceLabels            map[string]string
-	Revert                   bool
 }
 
 // Translate calls TranslateEgress on all r.Egress rules
@@ -46,12 +45,12 @@ func (k RuleTranslator) TranslateEgress(r *api.EgressRule, result *policy.Transl
 	if err != nil {
 		return err
 	}
-	if !k.Revert {
-		err := k.populateEgress(r, result)
-		if err != nil {
-			return err
-		}
+
+	err = k.populateEgress(r, result)
+	if err != nil {
+		return err
 	}
+
 	if len(result.PrefixesToAdd) > 0 || len(result.PrefixesToRelease) > 0 {
 		release := slices.Diff(result.PrefixesToRelease, result.PrefixesToAdd)
 		add := slices.Diff(result.PrefixesToAdd, result.PrefixesToRelease)
@@ -239,7 +238,7 @@ func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 			if ok && (option.Config.EnableHighScaleIPcache || svc.IsExternal()) {
 				eps := ep.GetEndpoints()
 				if eps != nil {
-					t := NewK8sTranslator(ns, Endpoints{}, *eps, false, svc.Labels)
+					t := NewK8sTranslator(ns, Endpoints{}, *eps, svc.Labels)
 					// We don't need to check the translation result here because the k8s
 					// RuleTranslator above sets allocatePrefixes to be false.
 					err := t.Translate(rule, &policy.TranslationResult{})
@@ -259,7 +258,6 @@ func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 func NewK8sTranslator(
 	serviceInfo ServiceID,
 	oldEPs, newEPs Endpoints,
-	revert bool,
 	labels map[string]string,
 ) RuleTranslator {
 	return RuleTranslator{
@@ -267,6 +265,5 @@ func NewK8sTranslator(
 		OldEndpoint:   oldEPs,
 		NewEndpoint:   newEPs,
 		ServiceLabels: labels,
-		Revert:        revert,
 	}
 }

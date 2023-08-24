@@ -54,8 +54,8 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient client.Clientset, asyncC
 				UpdateFunc: func(oldObj, newObj interface{}) {
 					var valid, equal bool
 					defer func() { k.K8sEventReceived(apiGroup, metricCiliumEndpoint, resources.MetricUpdate, valid, equal) }()
-					if oldCE := k8s.ObjToCiliumEndpoint(oldObj); oldCE != nil {
-						if newCE := k8s.ObjToCiliumEndpoint(newObj); newCE != nil {
+					if oldCE := k8s.CastInformerEvent[types.CiliumEndpoint](oldObj); oldCE != nil {
+						if newCE := k8s.CastInformerEvent[types.CiliumEndpoint](newObj); newCE != nil {
 							valid = true
 							if oldCE.DeepEqual(newCE) {
 								equal = true
@@ -69,7 +69,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient client.Clientset, asyncC
 				DeleteFunc: func(obj interface{}) {
 					var valid, equal bool
 					defer func() { k.K8sEventReceived(apiGroup, metricCiliumEndpoint, resources.MetricDelete, valid, equal) }()
-					ciliumEndpoint := k8s.ObjToCiliumEndpoint(obj)
+					ciliumEndpoint := k8s.CastInformerEvent[types.CiliumEndpoint](obj)
 					if ciliumEndpoint == nil {
 						return
 					}

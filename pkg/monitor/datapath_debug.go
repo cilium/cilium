@@ -167,8 +167,8 @@ func ctLookup4Info1(n *DebugMsg) string {
 }
 
 func ctLookup4Info2(n *DebugMsg) string {
-	return fmt.Sprintf("nexthdr=%d flags=%d",
-		n.Arg1>>8, n.Arg1&0xFF)
+	return fmt.Sprintf("nexthdr=%d flags=%d dir=%d scope=%d",
+		n.Arg1>>8, n.Arg1&0xFF, n.Arg2, n.Arg3)
 }
 
 func ctCreate4Info(n *DebugMsg) string {
@@ -223,6 +223,11 @@ func ip6Str(arg1 uint32) string {
 	return fmt.Sprintf("%x:%x", ip6>>16, ip6&0xFFFF)
 }
 
+const (
+	// DebugMsgLen is the amount of packet data in a packet capture message
+	DebugMsgLen = 20
+)
+
 // DebugMsg is the message format of the debug message found in the BPF ring buffer
 type DebugMsg struct {
 	Type    uint8
@@ -232,6 +237,27 @@ type DebugMsg struct {
 	Arg1    uint32
 	Arg2    uint32
 	Arg3    uint32
+}
+
+// DecodeDebugMsg will decode 'data' into the provided DebugMsg structure
+func DecodeDebugMsg(data []byte, dbg *DebugMsg) error {
+	return dbg.decodeDebugMsg(data)
+}
+
+func (n *DebugMsg) decodeDebugMsg(data []byte) error {
+	if l := len(data); l < DebugMsgLen {
+		return fmt.Errorf("unexpected DebugMsg data length, expected %d but got %d", DebugMsgLen, l)
+	}
+
+	n.Type = data[0]
+	n.SubType = data[1]
+	n.Source = byteorder.Native.Uint16(data[2:4])
+	n.Hash = byteorder.Native.Uint32(data[4:8])
+	n.Arg1 = byteorder.Native.Uint32(data[8:12])
+	n.Arg2 = byteorder.Native.Uint32(data[12:16])
+	n.Arg3 = byteorder.Native.Uint32(data[16:20])
+
+	return nil
 }
 
 // DumpInfo prints a summary of a subset of the debug messages which are related
@@ -413,6 +439,28 @@ type DebugCapture struct {
 	// data
 }
 
+// DecodeDebugCapture will decode 'data' into the provided DebugCapture structure
+func DecodeDebugCapture(data []byte, dbg *DebugCapture) error {
+	return dbg.decodeDebugCapture(data)
+}
+
+func (n *DebugCapture) decodeDebugCapture(data []byte) error {
+	if l := len(data); l < DebugCaptureLen {
+		return fmt.Errorf("unexpected DebugCapture data length, expected %d but got %d", DebugCaptureLen, l)
+	}
+
+	n.Type = data[0]
+	n.SubType = data[1]
+	n.Source = byteorder.Native.Uint16(data[2:4])
+	n.Hash = byteorder.Native.Uint32(data[4:8])
+	n.Len = byteorder.Native.Uint32(data[8:12])
+	n.OrigLen = byteorder.Native.Uint32(data[12:16])
+	n.Arg1 = byteorder.Native.Uint32(data[16:20])
+	n.Arg2 = byteorder.Native.Uint32(data[20:24])
+
+	return nil
+}
+
 // DumpInfo prints a summary of the capture messages.
 func (n *DebugCapture) DumpInfo(data []byte, linkMonitor getters.LinkGetter) {
 	prefix := n.infoPrefix(linkMonitor)
@@ -492,7 +540,7 @@ func (n *DebugCapture) getJSON(data []byte, cpuPrefix string, linkMonitor getter
 func (n *DebugCapture) DumpJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
 	resp, err := n.getJSON(data, cpuPrefix, linkMonitor)
 	if err != nil {
-		fmt.Println(fmt.Sprintf(`{"type":"debug_capture_error","message":%q}`, err.Error()))
+		fmt.Printf(`{"type":"debug_capture_error","message":%q}`+"\n", err.Error())
 		return
 	}
 	fmt.Println(resp)

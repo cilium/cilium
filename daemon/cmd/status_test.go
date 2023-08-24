@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -35,7 +36,7 @@ func (g *GetNodesSuite) SetUpTest(c *C) {
 
 func (g *GetNodesSuite) SetUpSuite(c *C) {
 	var err error
-	nm, err = manager.New(&fakeConfig.Config{}, nil, manager.NewNodeMetrics())
+	nm, err = manager.New(&fakeConfig.Config{}, nil, manager.NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, IsNil)
 }
 
@@ -355,11 +356,8 @@ func (g *GetNodesSuite) Test_getNodesHandle(c *C) {
 		randGen.Seed(0)
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		h := &getNodes{
-			clients: args.clients,
-			d:       args.daemon,
-		}
-		responder := h.Handle(args.params)
+		h := &getNodes{clients: args.clients}
+		responder := h.Handle(args.daemon, args.params)
 		c.Assert(len(h.clients), checker.DeepEquals, len(want.clients))
 		for k, v := range h.clients {
 			wantClient, ok := want.clients[k]
@@ -410,13 +408,11 @@ func (g *GetNodesSuite) Test_cleanupClients(c *C) {
 		c.Log(tt.name)
 		args := tt.setupArgs()
 		want := tt.setupWanted()
-		h := &getNodes{
-			clients: args.clients,
-			d: &Daemon{
+		h := &getNodes{clients: args.clients}
+		h.cleanupClients(
+			&Daemon{
 				nodeDiscovery: nodediscovery.NewNodeDiscovery(nm, nil, mtu.NewConfiguration(0, false, false, false, false, 0, nil), &cnitypes.NetConf{}),
-			},
-		}
-		h.cleanupClients()
+			})
 		c.Assert(h.clients, checker.DeepEquals, want.clients)
 	}
 }

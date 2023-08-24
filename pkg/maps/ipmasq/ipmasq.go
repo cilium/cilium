@@ -4,7 +4,6 @@
 package ipmasq
 
 import (
-	"fmt"
 	"net"
 	"sync"
 
@@ -27,7 +26,7 @@ type Key4 struct {
 	Address   types.IPv4
 }
 
-func (k *Key4) String() string  { return fmt.Sprintf("%s", k.Address) }
+func (k *Key4) String() string  { return k.Address.String() }
 func (k *Key4) New() bpf.MapKey { return &Key4{} }
 
 type Key6 struct {
@@ -35,7 +34,7 @@ type Key6 struct {
 	Address   types.IPv6
 }
 
-func (k *Key6) String() string  { return fmt.Sprintf("%s", k.Address) }
+func (k *Key6) String() string  { return k.Address.String() }
 func (k *Key6) New() bpf.MapKey { return &Key6{} }
 
 type Value struct {
@@ -86,32 +85,48 @@ type IPMasqBPFMap struct{}
 
 func (*IPMasqBPFMap) Update(cidr net.IPNet) error {
 	if ip.IsIPv4(cidr.IP) {
-		return IPMasq4Map().Update(keyIPv4(cidr), &Value{})
+		if option.Config.EnableIPv4Masquerade {
+			return IPMasq4Map().Update(keyIPv4(cidr), &Value{})
+		}
 	} else {
-		return IPMasq6Map().Update(keyIPv6(cidr), &Value{})
+		if option.Config.EnableIPv6Masquerade {
+			return IPMasq6Map().Update(keyIPv6(cidr), &Value{})
+		}
 	}
+	return nil
 }
 
 func (*IPMasqBPFMap) Delete(cidr net.IPNet) error {
 	if ip.IsIPv4(cidr.IP) {
-		return IPMasq4Map().Delete(keyIPv4(cidr))
+		if option.Config.EnableIPv4Masquerade {
+			return IPMasq4Map().Delete(keyIPv4(cidr))
+		}
 	} else {
-		return IPMasq6Map().Delete(keyIPv6(cidr))
+		if option.Config.EnableIPv6Masquerade {
+			return IPMasq6Map().Delete(keyIPv6(cidr))
+		}
 	}
+	return nil
 }
 
-func (*IPMasqBPFMap) Dump() ([]net.IPNet, error) {
+// DumpForProtocols dumps the contents of the ip-masq-agent maps for IPv4
+// and/or IPv6, as requested by the caller.
+// Given that the package does not expose the maps directly, it's necessary to
+// specify which protocol we need when ipMasq4Map/ipMasq6Map, or config
+// options, have not been set, as is the case when calling from the CLI, for
+// example.
+func (*IPMasqBPFMap) DumpForProtocols(ipv4Needed, ipv6Needed bool) ([]net.IPNet, error) {
 	cidrs := []net.IPNet{}
-	if ipMasq4Map != nil {
-		if err := ipMasq4Map.DumpWithCallback(
+	if ipv4Needed {
+		if err := IPMasq4Map().DumpWithCallback(
 			func(keyIPv4 bpf.MapKey, _ bpf.MapValue) {
 				cidrs = append(cidrs, keyToIPNetIPv4(keyIPv4.(*Key4)))
 			}); err != nil {
 			return nil, err
 		}
 	}
-	if ipMasq6Map != nil {
-		if err := ipMasq6Map.DumpWithCallback(
+	if ipv6Needed {
+		if err := IPMasq6Map().DumpWithCallback(
 			func(keyIPv6 bpf.MapKey, _ bpf.MapValue) {
 				cidrs = append(cidrs, keyToIPNetIPv6(keyIPv6.(*Key6)))
 			}); err != nil {
@@ -119,6 +134,12 @@ func (*IPMasqBPFMap) Dump() ([]net.IPNet, error) {
 		}
 	}
 	return cidrs, nil
+}
+
+// Dump dumps the contents of the ip-masq-agent maps for IPv4 and/or IPv6, as
+// required based on configuration options.
+func (*IPMasqBPFMap) Dump() ([]net.IPNet, error) {
+	return (&IPMasqBPFMap{}).DumpForProtocols(option.Config.EnableIPv4Masquerade, option.Config.EnableIPv6Masquerade)
 }
 
 func keyIPv4(cidr net.IPNet) *Key4 {

@@ -78,6 +78,7 @@ type CreateLaunchTemplateRequest struct {
 	KeyPairName                    string                                  `position:"Query" name:"KeyPairName"`
 	SpotPriceLimit                 requests.Float                          `position:"Query" name:"SpotPriceLimit"`
 	ImageOwnerAlias                string                                  `position:"Query" name:"ImageOwnerAlias"`
+	DeletionProtection             requests.Boolean                        `position:"Query" name:"DeletionProtection"`
 	ResourceGroupId                string                                  `position:"Query" name:"ResourceGroupId"`
 	HostName                       string                                  `position:"Query" name:"HostName"`
 	SystemDiskIops                 requests.Integer                        `position:"Query" name:"SystemDisk.Iops"`

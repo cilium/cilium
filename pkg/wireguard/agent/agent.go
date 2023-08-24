@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-// This package contains the agent code used to configure the Wireguard tunnel
+// This package contains the agent code used to configure the WireGuard tunnel
 // between nodes. The code supports adding and removing peers at run-time
 // and the peer information is retrieved via the CiliumNode object.
 package agent
@@ -55,7 +55,7 @@ type wireguardClient interface {
 	ConfigureDevice(name string, cfg wgtypes.Config) error
 }
 
-// Agent needs to be initialized with Init(). In Init(), the Wireguard tunnel
+// Agent needs to be initialized with Init(). In Init(), the WireGuard tunnel
 // device will be created and the proper routes set.  During Init(), existing
 // peer keys are placed into `restoredPubKeys`.  Once RestoreFinished() is
 // called obsolete keys and peers are removed.  UpdatePeer() inserts or updates
@@ -78,7 +78,7 @@ type Agent struct {
 	nodeToNodeEncryption bool
 }
 
-// NewAgent creates a new Wireguard Agent
+// NewAgent creates a new WireGuard Agent
 func NewAgent(privKeyPath string, localNodeStore *node.LocalNodeStore) (*Agent, error) {
 	key, err := loadOrGeneratePrivKey(privKeyPath)
 	if err != nil {
@@ -113,6 +113,10 @@ func NewAgent(privKeyPath string, localNodeStore *node.LocalNodeStore) (*Agent, 
 	}, nil
 }
 
+func (a *Agent) Name() string {
+	return "wireguard-agent"
+}
+
 // Close is called when the agent stops
 func (a *Agent) Close() error {
 	a.RLock()
@@ -143,7 +147,7 @@ func (a *Agent) initUserspaceDevice(linkMTU int) (netlink.Link, error) {
 
 	uapiServer, err := ipc.UAPIListen(types.IfaceName, uapiSocket)
 	if err != nil {
-		return nil, fmt.Errorf("failed to start wireguard uapi server: %w", err)
+		return nil, fmt.Errorf("failed to start WireGuard UAPI server: %w", err)
 	}
 
 	scopedLog := log.WithField(logfields.LogSubsys, "wireguard-userspace")
@@ -164,7 +168,7 @@ func (a *Agent) initUserspaceDevice(linkMTU int) (netlink.Link, error) {
 			conn, err := uapiServer.Accept()
 			if err != nil {
 				scopedLog.WithError(err).
-					Error("failed to handle wireguard userspace connection")
+					Error("failed to handle WireGuard userspace connection")
 				return
 			}
 			go dev.IpcHandle(conn)
@@ -211,18 +215,18 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.Configuration) erro
 	err := netlink.LinkAdd(link)
 	if err != nil && !errors.Is(err, unix.EEXIST) {
 		if !errors.Is(err, unix.EOPNOTSUPP) {
-			return fmt.Errorf("failed to add wireguard device: %w", err)
+			return fmt.Errorf("failed to add WireGuard device: %w", err)
 		}
 
 		if !option.Config.EnableWireguardUserspaceFallback {
-			return fmt.Errorf("wireguard not supported by the Linux kernel (netlink: %w). "+
+			return fmt.Errorf("WireGuard not supported by the Linux kernel (netlink: %w). "+
 				"Please upgrade your kernel, manually install the kernel module "+
 				"(https://www.wireguard.com/install/), or set enable-wireguard-userspace-fallback=true", err)
 		}
 
 		link, err = a.initUserspaceDevice(linkMTU)
 		if err != nil {
-			return fmt.Errorf("wireguard userspace: %w", err)
+			return fmt.Errorf("WireGuard userspace: %w", err)
 		}
 	}
 
@@ -240,7 +244,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.Configuration) erro
 		FirewallMark: &fwMark,
 	}
 	if err := a.wgClient.ConfigureDevice(types.IfaceName, cfg); err != nil {
-		return fmt.Errorf("failed to configure wireguard device: %w", err)
+		return fmt.Errorf("failed to configure WireGuard device: %w", err)
 	}
 
 	// set MTU again explicitly in case we are re-using an existing device
@@ -254,7 +258,7 @@ func (a *Agent) Init(ipcache *ipcache.IPCache, mtuConfig mtu.Configuration) erro
 
 	dev, err := a.wgClient.Device(types.IfaceName)
 	if err != nil {
-		return fmt.Errorf("failed to obtain wireguard device: %w", err)
+		return fmt.Errorf("failed to obtain WireGuard device: %w", err)
 	}
 	for _, peer := range dev.Peers {
 		a.restoredPubKeys[peer.PublicKey] = struct{}{}
@@ -453,7 +457,7 @@ func (a *Agent) deletePeerByPubKey(pubKey wgtypes.Key) error {
 	return nil
 }
 
-// updatePeerByConfig updates the Wireguard kernel peer config based on peerConfig p
+// updatePeerByConfig updates the WireGuard kernel peer config based on peerConfig p
 func (a *Agent) updatePeerByConfig(p *peerConfig) error {
 	peer := wgtypes.PeerConfig{
 		PublicKey:         p.pubKey,
@@ -499,7 +503,7 @@ func loadOrGeneratePrivKey(filePath string) (key wgtypes.Key, err error) {
 
 // OnIPIdentityCacheChange implements ipcache.IPIdentityMappingListener
 func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrCluster cmtypes.PrefixCluster, oldHostIP, newHostIP net.IP,
-	_ *ipcache.Identity, _ ipcache.Identity, _ uint8, _ uint16, _ *ipcache.K8sMetadata) {
+	_ *ipcache.Identity, _ ipcache.Identity, _ uint8, _ *ipcache.K8sMetadata) {
 	ipnet := cidrCluster.AsIPNet()
 
 	// This function is invoked from the IPCache with the
@@ -557,7 +561,7 @@ func (a *Agent) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrC
 				logfields.NewNode:      newHostIP,
 				logfields.PubKey:       updatedPeer.pubKey,
 			}).WithError(err).
-				Error("Failed to update Wireguard peer after ipcache update")
+				Error("Failed to update WireGuard peer after ipcache update")
 		}
 	}
 }
@@ -567,7 +571,7 @@ func (a *Agent) OnIPIdentityCacheGC() {
 	// ignored
 }
 
-// Status returns the state of the Wireguard tunnel managed by this instance.
+// Status returns the state of the WireGuard tunnel managed by this instance.
 // If withPeers is true, then the details about each connected peer are
 // are populated as well.
 func (a *Agent) Status(withPeers bool) (*models.WireguardStatus, error) {
@@ -623,13 +627,13 @@ func (a *Agent) Status(withPeers bool) (*models.WireguardStatus, error) {
 	return status, nil
 }
 
-// peerConfig represents the kernel state of each Wireguard peer.
+// peerConfig represents the kernel state of each WireGuard peer.
 // In order to be able to add and remove individual IPs from the
-// `AllowedIPs` list, we store a `peerConfig` for each known Wireguard peer.
+// `AllowedIPs` list, we store a `peerConfig` for each known WireGuard peer.
 // When a peer is first discovered via node manager, we obtain the remote
 // peers `AllowedIPs` by querying Cilium's user-space copy of the IPCache
 // in the agent. In addition, we also subscribe to IPCache updates in the
-// Wireguard agent and update the `AllowedIPs` list of known peers
+// WireGuard agent and update the `AllowedIPs` list of known peers
 // accordingly.
 type peerConfig struct {
 	pubKey             wgtypes.Key

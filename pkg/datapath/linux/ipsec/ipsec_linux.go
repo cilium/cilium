@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -78,7 +79,7 @@ var (
 
 	// ipSecKeysGlobal can be accessed by multiple subsystems concurrently,
 	// so it should be accessed only through the getIPSecKeys and
-	// loadIPSecKeys functions, which will ensure the proper lock is held
+	// LoadIPSecKeys functions, which will ensure the proper lock is held
 	ipSecKeysGlobal = make(map[string]*ipSecKey)
 
 	// ipSecCurrentKeySPI is the SPI of the IPSec currently in use
@@ -132,8 +133,8 @@ func getIPSecKeys(ip net.IP) *ipSecKey {
 	defer ipSecLock.RUnlock()
 
 	key, scoped := ipSecKeysGlobal[ip.String()]
-	if scoped == false {
-		key, _ = ipSecKeysGlobal[""]
+	if !scoped {
+		key = ipSecKeysGlobal[""]
 	}
 	return key
 }
@@ -536,7 +537,8 @@ func matchesOnNodeID(mark *netlink.XfrmMark) bool {
 		mark.Mask&linux_defaults.IPsecMarkMaskNodeID == linux_defaults.IPsecMarkMaskNodeID
 }
 
-func ipsecDeleteXfrmState(nodeID uint16) {
+func ipsecDeleteXfrmState(nodeID uint16) error {
+	var errs error
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeID: nodeID,
 	})
@@ -544,18 +546,20 @@ func ipsecDeleteXfrmState(nodeID uint16) {
 	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
 		scopedLog.WithError(err).Warning("Failed to list XFRM states for deletion")
-		return
+		return err
 	}
 	for _, s := range xfrmStateList {
 		if matchesOnNodeID(s.Mark) && getNodeIDFromXfrmMark(s.Mark) == nodeID {
 			if err := netlink.XfrmStateDel(&s); err != nil {
 				scopedLog.WithError(err).Warning("Failed to delete XFRM state")
+				errs = errors.Join(errs, fmt.Errorf("failed to delete xfrm state (%s): %w", s.String(), err))
 			}
 		}
 	}
+	return errs
 }
 
-func ipsecDeleteXfrmPolicy(nodeID uint16) {
+func ipsecDeleteXfrmPolicy(nodeID uint16) error {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeID: nodeID,
 	})
@@ -563,15 +567,18 @@ func ipsecDeleteXfrmPolicy(nodeID uint16) {
 	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
 		scopedLog.WithError(err).Warning("Failed to list XFRM policies for deletion")
-		return
+		return fmt.Errorf("failed to list xfrm policies: %w", err)
 	}
+	var errs error
 	for _, p := range xfrmPolicyList {
 		if matchesOnNodeID(p.Mark) && getNodeIDFromXfrmMark(p.Mark) == nodeID {
 			if err := netlink.XfrmPolicyDel(&p); err != nil {
 				scopedLog.WithError(err).Warning("Failed to delete XFRM policy")
+				errs = errors.Join(errs, fmt.Errorf("failed to delete xfrm policy (%s): %w", p.String(), err))
 			}
 		}
 	}
+	return errs
 }
 
 /* UpsertIPsecEndpoint updates the IPSec context for a new endpoint inserted in
@@ -670,9 +677,8 @@ func UpsertIPsecEndpointPolicy(local, remote *net.IPNet, localTmpl, remoteTmpl n
 }
 
 // DeleteIPsecEndpoint deletes a endpoint associated with the remote IP address
-func DeleteIPsecEndpoint(nodeID uint16) {
-	ipsecDeleteXfrmState(nodeID)
-	ipsecDeleteXfrmPolicy(nodeID)
+func DeleteIPsecEndpoint(nodeID uint16) error {
+	return errors.Join(ipsecDeleteXfrmState(nodeID), ipsecDeleteXfrmPolicy(nodeID))
 }
 
 func isXfrmPolicyCilium(policy netlink.XfrmPolicy) bool {
@@ -755,13 +761,12 @@ func LoadIPSecKeysFile(path string) (int, uint8, error) {
 		return 0, 0, err
 	}
 	defer file.Close()
-	return loadIPSecKeys(file)
+	return LoadIPSecKeys(file)
 }
 
-func loadIPSecKeys(r io.Reader) (int, uint8, error) {
+func LoadIPSecKeys(r io.Reader) (int, uint8, error) {
 	var spi uint8
 	var keyLen int
-	scopedLog := log
 
 	ipSecLock.Lock()
 	defer ipSecLock.Unlock()
@@ -879,11 +884,17 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 		ipSecKeysRemovalTime[oldSpi] = time.Now()
 		ipSecCurrentKeySPI = spi
 	}
+	return keyLen, spi, nil
+}
+
+func SetIPSecSPI(spi uint8) error {
+	scopedLog := log
+
 	if err := encrypt.MapUpdateContext(0, spi); err != nil {
 		scopedLog.WithError(err).Warn("cilium_encrypt_state map updated failed:")
-		return 0, 0, err
+		return err
 	}
-	return keyLen, spi, nil
+	return nil
 }
 
 // DeleteIPsecEncryptRoute removes nodes in main routing table by walking
@@ -927,15 +938,21 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 			// package
 			node.SetIPsecKeyIdentity(spi)
 
-			// NodeValidateImplementation will eventually call
+			// AllNodeValidateImplementation will eventually call
 			// nodeUpdate(), which is responsible for updating the
 			// IPSec policies and states for all the different EPs
 			// with ipsec.UpsertIPsecEndpoint()
-			nodeHandler.NodeValidateImplementation(*nodediscovery.LocalNode())
+			nodeHandler.AllNodeValidateImplementation()
 
 			// Publish the updated node information to k8s/KVStore
 			nodediscovery.UpdateLocalNode()
 
+			// Push SPI update into BPF datapath now that XFRM state
+			// is configured.
+			if err := SetIPSecSPI(spi); err != nil {
+				log.WithError(err).Errorf("Failed to set IPsec SPI")
+				continue
+			}
 		case err := <-watcher.Errors:
 			log.WithError(err).WithField(logfields.Path, keyfilePath).
 				Warning("Error encountered while watching file with fsnotify")

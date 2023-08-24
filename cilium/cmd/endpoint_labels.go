@@ -51,7 +51,7 @@ var endpointLabelsCmd = &cobra.Command{
 }
 
 func init() {
-	endpointCmd.AddCommand(endpointLabelsCmd)
+	EndpointCmd.AddCommand(endpointLabelsCmd)
 	endpointLabelsCmd.Flags().StringSliceVarP(&toAdd, "add", "a", []string{}, "Add/enable labels")
 	endpointLabelsCmd.Flags().StringSliceVarP(&toDelete, "delete", "d", []string{}, "Delete/disable labels")
 }

@@ -62,6 +62,9 @@
 /* Include an actual datapath code */
 #include <bpf_lxc.c>
 
+#include "lib/ipcache.h"
+#include "lib/policy.h"
+
 /*
  * Tests
  */
@@ -86,31 +89,18 @@ pktgen_to_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)BACKEND_ROUTER_MAC, (__u8 *)BACKEND_MAC);
-
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = CLIENT_NODE_IP;
-	l3->daddr = BACKEND_IP;
-
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)BACKEND_ROUTER_MAC,
+					  (__u8 *)BACKEND_MAC,
+					  CLIENT_NODE_IP, BACKEND_IP,
+					  CLIENT_INTER_CLUSTER_SNAT_PORT, BACKEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
-	l4->source = CLIENT_INTER_CLUSTER_SNAT_PORT;
-	l4->dest = BACKEND_PORT;
 	l4->syn = syn ? 1 : 0;
 	l4->ack = ack ? 1 : 0;
 
@@ -128,31 +118,18 @@ pktgen_from_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)BACKEND_MAC, (__u8 *)BACKEND_ROUTER_MAC);
-
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = BACKEND_IP;
-	l3->daddr = CLIENT_NODE_IP;
-
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)BACKEND_MAC,
+					  (__u8 *)BACKEND_ROUTER_MAC,
+					  BACKEND_IP, CLIENT_NODE_IP,
+					  BACKEND_PORT, CLIENT_INTER_CLUSTER_SNAT_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
-	l4->source = BACKEND_PORT;
-	l4->dest = CLIENT_INTER_CLUSTER_SNAT_PORT;
 	l4->syn = syn ? 1 : 0;
 	l4->ack = ack ? 1 : 0;
 
@@ -178,18 +155,7 @@ int overlay_to_lxc_syn_setup(struct __ctx_buff *ctx)
 	 * Apply policy based on the remote "real"
 	 * identity instead of remote-node identity.
 	 */
-	struct policy_key policy_key = {
-		.sec_label = CLIENT_IDENTITY,
-		.dport = BACKEND_PORT,
-		.protocol = IPPROTO_TCP,
-		.egress = 0,
-	};
-
-	struct policy_entry policy_value = {
-		.deny = 0,
-	};
-
-	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);
+	policy_add_ingress_allow_entry(CLIENT_IDENTITY, IPPROTO_TCP, BACKEND_PORT);
 
 	/* Emulate metadata filled by ipv4_local_delivery on bpf_overlay */
 	ctx_store_meta(ctx, CB_SRC_LABEL, CLIENT_IDENTITY);
@@ -287,17 +253,7 @@ int lxc_to_overlay_synack_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "02_lxc_to_overlay_synack")
 int lxc_to_overlay_synack_setup(struct __ctx_buff *ctx)
 {
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(V4_CACHE_KEY_LEN),
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = CLIENT_NODE_IP,
-	};
-
-	struct remote_endpoint_info cache_value = {
-		.sec_identity = REMOTE_NODE_ID,
-	};
-
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(CLIENT_NODE_IP, 0, REMOTE_NODE_ID, 0, 0);
 
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
 

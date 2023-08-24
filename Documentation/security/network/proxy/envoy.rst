@@ -58,13 +58,14 @@ Known Limitations
 =================
 
 - Due to Pod-to-Pod communication with the Cilium Agent via UNIX domain sockets, Envoy DaemonSet isn't supported with SELinux enabled on the host. This is the default for Red Hat OpenShift.
-- Go Extensions (ProxyLib) aren't supported yet.
 
 *************
 Go Extensions
 *************
 
 .. note:: This feature is currently in beta phase.
+
+.. note:: The Go extensions proxylib framework is residing in cilium/proxy repository.
 
 This is a guide for developers who are interested in writing a Go extension to the 
 Envoy proxy as part of Cilium.   
@@ -80,7 +81,7 @@ In sum, you as the developer need only worry about the logic of parsing the prot
 and Cilium + Envoy + eBPF do the heavy-lifting.  
 
 This guide uses simple examples based on a hypothetical "r2d2" protocol 
-(see `proxylib/r2d2/r2d2parser.go <https://github.com/cilium/cilium/blob/main/proxylib/r2d2/r2d2parser.go>`_)
+(see `proxylib/r2d2/r2d2parser.go <https://github.com/cilium/proxy/blob/main/proxylib/r2d2/r2d2parser.go>`_)
 that might be used to talk to a simple protocol droid a long time ago in a galaxy far, far away.   
 But it also points to other real protocols like Memcached and Cassandra that already exist in the cilium/proxylib 
 directory.  
@@ -169,16 +170,16 @@ Step 4: Follow the Cilium Developer Guide
 
 It is easiest to start Cilium development by following the :ref:`dev_guide`
 
-After cloning Cilium: 
+After cloning cilium/proxy repo:
 
 .. code-block:: shell-session
 
-    $ cd cilium 
-    $ contrib/vagrant/start.sh 
+    $ cd proxy
+    $ vagrant up
     $ cd proxylib
 
-While this dev VM is running, you can open additional terminals to the Cilium dev VM
-by running ''vagrant ssh'' from within the cilium source directory.  
+While this dev VM is running, you can open additional terminals to the cilium/proxy dev VM
+by running ''vagrant ssh'' from within the cilium/proxy source directory.
 
 
 Step 5: Create New Proxy Skeleton 
@@ -202,7 +203,7 @@ Also, edit proxylib.go and add the following import line:
 
 :: 
 
-       _ "github.com/cilium/cilium/proxylib/newproto"
+       _ "github.com/cilium/proxy/proxylib/newproto"
 
 
 Step 6: Update OnData Method 
@@ -621,4 +622,4 @@ Getting Started Guides.  cilium/Documentation/gettingstarted/cassandra.rst is
 a good example to follow.   Also be sure to update Documentation/gettingstarted/index.rst
 with a link to this new getting started guide. 
 
-With that, you are ready to post this change for feedback from the Cilium community.  Congrats! 
+With that, you are ready to post this change for feedback from the Cilium community. Congrats!

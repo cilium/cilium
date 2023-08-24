@@ -89,6 +89,18 @@ type PolicyDescriptorType struct {
 	noSmithyDocumentSerde
 }
 
+// Reserved for future use.
+type ProvidedContext struct {
+
+	// Reserved for future use.
+	ContextAssertion *string
+
+	// Reserved for future use.
+	ProviderArn *string
+
+	noSmithyDocumentSerde
+}
+
 // You can pass custom key-value pair attributes when you assume a role or
 // federate a user. These are called session tags. You can then use the session
 // tags to control access to resources. For more information, see Tagging Amazon

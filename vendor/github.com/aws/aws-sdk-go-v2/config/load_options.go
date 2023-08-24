@@ -199,6 +199,9 @@ type LoadOptions struct {
 
 	// Specifies the SDK configuration mode for defaults.
 	DefaultsModeOptions DefaultsModeOptions
+
+	// The sdk app ID retrieved from env var or shared config to be added to request user agent header
+	AppID string
 }
 
 func (o LoadOptions) getDefaultsMode(ctx context.Context) (aws.DefaultsMode, bool, error) {
@@ -241,6 +244,11 @@ func (o LoadOptions) getRegion(ctx context.Context) (string, bool, error) {
 	return o.Region, true, nil
 }
 
+// getAppID returns AppID from config's LoadOptions
+func (o LoadOptions) getAppID(ctx context.Context) (string, bool, error) {
+	return o.AppID, len(o.AppID) > 0, nil
+}
+
 // WithRegion is a helper function to construct functional options
 // that sets Region on config's LoadOptions. Setting the region to
 // an empty string, will result in the region value being ignored.
@@ -249,6 +257,15 @@ func (o LoadOptions) getRegion(ctx context.Context) (string, bool, error) {
 func WithRegion(v string) LoadOptionsFunc {
 	return func(o *LoadOptions) error {
 		o.Region = v
+		return nil
+	}
+}
+
+// WithAppID is a helper function to construct functional options
+// that sets AppID on config's LoadOptions.
+func WithAppID(ID string) LoadOptionsFunc {
+	return func(o *LoadOptions) error {
+		o.AppID = ID
 		return nil
 	}
 }

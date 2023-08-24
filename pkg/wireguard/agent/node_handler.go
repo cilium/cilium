@@ -30,6 +30,11 @@ func (a *Agent) NodeDelete(node nodeTypes.Node) error {
 	return a.DeletePeer(node.Fullname())
 }
 
+// AllNodeValidateImplementation is called to validate the implementation of
+// all nodes in the datapath.
+func (a *Agent) AllNodeValidateImplementation() {
+}
+
 // NodeValidateImplementation is called to validate the implementation of
 // the node in the datapath. This function is intended to be run on an
 // interval to ensure that the datapath is consistently converged.
@@ -48,7 +53,7 @@ func (a *Agent) nodeUpsert(node nodeTypes.Node) error {
 	if err := a.UpdatePeer(node.Fullname(), node.WireguardPubKey, newIP4, newIP6); err != nil {
 		log.WithError(err).
 			WithField(logfields.NodeName, node.Fullname()).
-			Warning("Failed to update wireguard configuration for peer")
+			Warning("Failed to update WireGuard configuration for peer")
 	}
 
 	return nil

@@ -239,13 +239,20 @@ func Upsert(route Route) error {
 
 	link, err := netlink.LinkByName(route.Device)
 	if err != nil {
-		return fmt.Errorf("unable to lookup interface %s: %s", route.Device, err)
+		return fmt.Errorf("unable to lookup interface %s: %w", route.Device, err)
+	}
+
+	// Can't add local routes to an interface that's down ('lo' in new netns).
+	if link.Attrs().OperState == netlink.OperDown {
+		if err := netlink.LinkSetUp(link); err != nil {
+			return fmt.Errorf("unable to set interface up: %w", err)
+		}
 	}
 
 	routerNet := route.getNexthopAsIPNet()
 	if routerNet != nil {
 		if _, err := replaceNexthopRoute(route, link, routerNet); err != nil {
-			return fmt.Errorf("unable to add nexthop route: %s", err)
+			return fmt.Errorf("unable to add nexthop route: %w", err)
 		}
 
 		nexthopRouteCreated = true
@@ -267,7 +274,11 @@ func Upsert(route Route) error {
 
 	if err != nil {
 		if nexthopRouteCreated {
-			deleteNexthopRoute(route, link, routerNet)
+			if err2 := deleteNexthopRoute(route, link, routerNet); err2 != nil {
+				// TODO: If this fails, we may want to add some retry logic.
+				log.WithError(err2).
+					Errorf("unable to clean up nexthop route following failure to replace route")
+			}
 		}
 		return err
 	}

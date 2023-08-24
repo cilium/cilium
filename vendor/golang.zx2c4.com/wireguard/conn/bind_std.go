@@ -81,11 +81,10 @@ func NewStdNetBind() Bind {
 type StdNetEndpoint struct {
 	// AddrPort is the endpoint destination.
 	netip.AddrPort
-	// src is the current sticky source address and interface index, if supported.
-	src struct {
-		netip.Addr
-		ifidx int32
-	}
+	// src is the current sticky source address and interface index, if
+	// supported. Typically this is a PKTINFO structure from/for control
+	// messages, see unix.PKTINFO for an example.
+	src []byte
 }
 
 var (
@@ -104,21 +103,17 @@ func (*StdNetBind) ParseEndpoint(s string) (Endpoint, error) {
 }
 
 func (e *StdNetEndpoint) ClearSrc() {
-	e.src.ifidx = 0
-	e.src.Addr = netip.Addr{}
+	if e.src != nil {
+		// Truncate src, no need to reallocate.
+		e.src = e.src[:0]
+	}
 }
 
 func (e *StdNetEndpoint) DstIP() netip.Addr {
 	return e.AddrPort.Addr()
 }
 
-func (e *StdNetEndpoint) SrcIP() netip.Addr {
-	return e.src.Addr
-}
-
-func (e *StdNetEndpoint) SrcIfidx() int32 {
-	return e.src.ifidx
-}
+// See sticky_default,linux, etc for implementations of SrcIP and SrcIfidx.
 
 func (e *StdNetEndpoint) DstToBytes() []byte {
 	b, _ := e.AddrPort.MarshalBinary()
@@ -127,10 +122,6 @@ func (e *StdNetEndpoint) DstToBytes() []byte {
 
 func (e *StdNetEndpoint) DstToString() string {
 	return e.AddrPort.String()
-}
-
-func (e *StdNetEndpoint) SrcToString() string {
-	return e.src.Addr.String()
 }
 
 func listenNet(network string, port int) (*net.UDPConn, int, error) {

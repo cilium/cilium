@@ -62,17 +62,26 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	log.Debugf("run directory: %s", testRunDir)
 
-	xdsServer, err := StartXDSServer(testipcache.NewMockIPCache(), testRunDir)
-	c.Assert(err, IsNil)
-	defer xdsServer.Stop()
+	localEndpointStore := newLocalEndpointStore()
 
-	accessLogServer, err := StartAccessLogServer(testRunDir, xdsServer)
+	xdsServer, err := newXDSServer(testRunDir, testipcache.NewMockIPCache(), localEndpointStore)
+	c.Assert(xdsServer, NotNil)
 	c.Assert(err, IsNil)
-	defer accessLogServer.Stop()
+
+	err = xdsServer.start()
+	c.Assert(err, IsNil)
+	defer xdsServer.stop()
+
+	accessLogServer := newAccessLogServer(testRunDir, localEndpointStore)
+	c.Assert(accessLogServer, NotNil)
+	err = accessLogServer.start()
+	c.Assert(err, IsNil)
+	defer accessLogServer.stop()
 
 	// launch debug variant of the Envoy proxy
-	envoyProxy := StartEmbeddedEnvoy(testRunDir, filepath.Join(testRunDir, "cilium-envoy.log"), 0)
+	envoyProxy, err := startEmbeddedEnvoy(testRunDir, filepath.Join(testRunDir, "cilium-envoy.log"), 0)
 	c.Assert(envoyProxy, NotNil)
+	c.Assert(err, IsNil)
 	log.Debug("started Envoy")
 
 	log.Debug("adding metrics listener")
@@ -108,7 +117,7 @@ func (s *EnvoySuite) TestEnvoy(c *C) {
 
 	// Add listener3 again
 	log.Debug("adding listener 3")
-	xdsServer.AddListener("listener3", policy.L7ParserType("test.headerparser"), 8083, false, false, s.waitGroup)
+	xdsServer.AddListener("listener3", "test.headerparser", 8083, false, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	c.Assert(err, IsNil)
@@ -146,17 +155,25 @@ func (s *EnvoySuite) TestEnvoyNACK(c *C) {
 
 	log.Debugf("run directory: %s", testRunDir)
 
-	xdsServer, err := StartXDSServer(testipcache.NewMockIPCache(), testRunDir)
-	c.Assert(err, IsNil)
-	defer xdsServer.Stop()
+	localEndpointStore := newLocalEndpointStore()
 
-	accessLogServer, err := StartAccessLogServer(testRunDir, xdsServer)
+	xdsServer, err := newXDSServer(testRunDir, testipcache.NewMockIPCache(), localEndpointStore)
+	c.Assert(xdsServer, NotNil)
 	c.Assert(err, IsNil)
-	defer accessLogServer.Stop()
+	err = xdsServer.start()
+	c.Assert(err, IsNil)
+	defer xdsServer.stop()
+
+	accessLogServer := newAccessLogServer(testRunDir, localEndpointStore)
+	c.Assert(accessLogServer, NotNil)
+	err = accessLogServer.start()
+	c.Assert(err, IsNil)
+	defer accessLogServer.stop()
 
 	// launch debug variant of the Envoy proxy
-	envoyProxy := StartEmbeddedEnvoy(testRunDir, filepath.Join(testRunDir, "cilium-envoy.log"), 42)
+	envoyProxy, err := startEmbeddedEnvoy(testRunDir, filepath.Join(testRunDir, "cilium-envoy.log"), 42)
 	c.Assert(envoyProxy, NotNil)
+	c.Assert(err, IsNil)
 	log.Debug("started Envoy")
 
 	rName := "listener:22"

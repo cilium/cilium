@@ -6,13 +6,16 @@ package ciliumendpointslice
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
+	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -261,4 +264,30 @@ func TestUsedIdentitiesInCESs(t *testing.T) {
 	wantIdentities["50"] = true
 	gotIdentities = usedIdentitiesInCESs(cesStore)
 	assertEqualIDs(t, wantIdentities, gotIdentities)
+}
+
+func TestHandleErr(t *testing.T) {
+	t.Run("Cache is updated on conflict", func(t *testing.T) {
+		_, client := client.NewFakeClientset()
+		cesController := NewCESController(context.Background(), &sync.WaitGroup{}, client, 5, cesIdentityBasedSlicing, 10, 20)
+		manager := cesController.Manager
+
+		key := "some-ces"
+		initialCES := createCESWithIDs(key, []int64{1, 2})
+		initialCES.Generation = 1
+		manager.createCES(key)
+		manager.updateCESInCache(initialCES, true)
+		updatedCES := createCESWithIDs(key, []int64{1, 2})
+		updatedCES.Generation = 2
+		cesController.ciliumEndpointSliceStore.Add(updatedCES)
+
+		var err error = k8s_errors.NewConflict(
+			schema.GroupResource{Group: "", Resource: "ciliumendpointslices"},
+			key,
+			fmt.Errorf("conflict"))
+		cesController.handleErr(err, key)
+
+		managerCES, _ := manager.getCESFromCache(key)
+		assert.Equal(t, updatedCES.Generation, managerCES.Generation)
+	})
 }

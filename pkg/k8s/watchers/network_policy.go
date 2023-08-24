@@ -4,16 +4,15 @@
 package watchers
 
 import (
+	"context"
+	"sync/atomic"
+
 	"github.com/sirupsen/logrus"
-	"k8s.io/client-go/tools/cache"
 
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
-	slimclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned"
-	"github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -21,59 +20,51 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-func (k *K8sWatcher) networkPoliciesInit(slimClient slimclientset.Interface, swgKNPs *lock.StoppableWaitGroup) {
+func (k *K8sWatcher) NetworkPoliciesInit() {
+	k.networkPoliciesInitOnce.Do(func() {
+		var synced atomic.Bool
+		swg := lock.NewStoppableWaitGroup()
+		k.blockWaitGroupToSyncResources(k.stop, swg, func() bool { return synced.Load() }, k8sAPIGroupNetworkingV1Core)
+		go k.networkPolicyEventLoop(&synced)
+		swg.Wait()
+		k.k8sAPIGroups.AddAPI(k8sAPIGroupNetworkingV1Core)
+	})
+}
+
+func (k *K8sWatcher) networkPolicyEventLoop(synced *atomic.Bool) {
 	apiGroup := k8sAPIGroupNetworkingV1Core
-	store, policyController := informer.NewInformer(
-		utils.ListerWatcherFromTyped[*slim_networkingv1.NetworkPolicyList](
-			slimClient.NetworkingV1().NetworkPolicies("")),
-		&slim_networkingv1.NetworkPolicy{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				var valid, equal bool
-				defer func() { k.K8sEventReceived(apiGroup, metricKNP, resources.MetricCreate, valid, equal) }()
-				if k8sNP := k8s.ObjToV1NetworkPolicy(obj); k8sNP != nil {
-					valid = true
-					err := k.addK8sNetworkPolicyV1(k8sNP)
-					k.K8sEventProcessed(metricKNP, resources.MetricCreate, err == nil)
-				}
-			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				var valid, equal bool
-				defer func() { k.K8sEventReceived(apiGroup, metricKNP, resources.MetricUpdate, valid, equal) }()
-				if oldK8sNP := k8s.ObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
-					if newK8sNP := k8s.ObjToV1NetworkPolicy(newObj); newK8sNP != nil {
-						valid = true
-						if oldK8sNP.DeepEqual(newK8sNP) {
-							equal = true
-							return
-						}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-						err := k.updateK8sNetworkPolicyV1(oldK8sNP, newK8sNP)
-						k.K8sEventProcessed(metricKNP, resources.MetricUpdate, err == nil)
-					}
+	events := k.resources.NetworkPolicies.Events(ctx)
+	for {
+		select {
+		case <-k.stop:
+			cancel()
+		case event, ok := <-events:
+			if !ok {
+				return
+			}
+			var err error
+			switch event.Kind {
+			case resource.Sync:
+				var store resource.Store[*slim_networkingv1.NetworkPolicy]
+				synced.Store(true)
+				store, err = k.resources.NetworkPolicies.Store(ctx)
+				if err == nil {
+					k.networkpolicyStore = store.CacheStore()
+					close(k.networkPoliciesStoreSet)
 				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				var valid, equal bool
-				defer func() { k.K8sEventReceived(apiGroup, metricKNP, resources.MetricDelete, valid, equal) }()
-				k8sNP := k8s.ObjToV1NetworkPolicy(obj)
-				if k8sNP == nil {
-					return
-				}
-
-				valid = true
-				err := k.deleteK8sNetworkPolicyV1(k8sNP)
-				k.K8sEventProcessed(metricKNP, resources.MetricDelete, err == nil)
-			},
-		},
-		nil,
-	)
-	k.networkpolicyStore = store
-	k.blockWaitGroupToSyncResources(k.stop, swgKNPs, policyController.HasSynced, k8sAPIGroupNetworkingV1Core)
-	go policyController.Run(k.stop)
-
-	k.k8sAPIGroups.AddAPI(apiGroup)
+			case resource.Upsert:
+				k.k8sResourceSynced.SetEventTimestamp(apiGroup)
+				err = k.addK8sNetworkPolicyV1(event.Object)
+			case resource.Delete:
+				k.k8sResourceSynced.SetEventTimestamp(apiGroup)
+				err = k.deleteK8sNetworkPolicyV1(event.Object)
+			}
+			event.Done(err)
+		}
+	}
 }
 
 func (k *K8sWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy) error {
@@ -110,18 +101,6 @@ func (k *K8sWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolic
 	metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 	scopedLog.Info("NetworkPolicy successfully added")
 	return nil
-}
-
-func (k *K8sWatcher) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *slim_networkingv1.NetworkPolicy) error {
-	log.WithFields(logrus.Fields{
-		logfields.K8sAPIVersion:                 oldk8sNP.TypeMeta.APIVersion,
-		logfields.K8sNetworkPolicyName + ".old": oldk8sNP.ObjectMeta.Name,
-		logfields.K8sNamespace + ".old":         oldk8sNP.ObjectMeta.Namespace,
-		logfields.K8sNetworkPolicyName:          newk8sNP.ObjectMeta.Name,
-		logfields.K8sNamespace:                  newk8sNP.ObjectMeta.Namespace,
-	}).Debug("Received policy update")
-
-	return k.addK8sNetworkPolicyV1(newk8sNP)
 }
 
 func (k *K8sWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy) error {

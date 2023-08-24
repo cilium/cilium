@@ -61,13 +61,6 @@ func NewResourceID(kind ResourceKind, namespace, name string) ResourceID {
 	return ResourceID(str.String())
 }
 
-// NodeIDHandler is responsible for the management of node identities.
-type NodeIDHandler interface {
-	AllocateNodeID(net.IP) uint16
-	GetNodeIP(uint16) string
-	GetNodeID(nodeIP net.IP) (nodeID uint16, exists bool)
-}
-
 // TunnelPeer is the IP address of the host associated with this prefix. This is
 // typically used to establish a tunnel, e.g. in tunnel mode or for encryption.
 // This type implements ipcache.IPMetadata

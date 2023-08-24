@@ -47,7 +47,7 @@ func FuzzDenyPreferredInsert(f *testing.F) {
 		ff.GenerateStruct(&keys)
 		ff.GenerateStruct(&key)
 		ff.GenerateStruct(&entry)
-		keys.DenyPreferredInsert(key, entry, nil)
+		keys.denyPreferredInsert(key, entry, nil, allFeatures)
 	})
 }
 
@@ -77,6 +77,6 @@ func FuzzAccumulateMapChange(f *testing.F) {
 			t.Skip()
 		}
 		policyMaps := MapChanges{}
-		policyMaps.AccumulateMapChanges(csFoo, adds, deletes, port, proto, dir, redirect, deny, AuthTypeDisabled, nil)
+		policyMaps.AccumulateMapChanges(csFoo, adds, deletes, port, proto, dir, redirect, deny, DefaultAuthType, AuthTypeDisabled, nil)
 	})
 }

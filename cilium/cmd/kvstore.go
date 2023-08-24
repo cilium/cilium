@@ -53,7 +53,7 @@ func setupKvstore(ctx context.Context) {
 }
 
 func init() {
-	rootCmd.AddCommand(kvstoreCmd)
+	RootCmd.AddCommand(kvstoreCmd)
 	flags := kvstoreCmd.PersistentFlags()
 	flags.StringVar(&kvStore, "kvstore", "", "Key-Value Store type")
 	flags.Var(option.NewNamedMapOptions("kvstore-opts", &kvStoreOpts, nil), "kvstore-opt", "Key-Value Store options")

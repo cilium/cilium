@@ -25,16 +25,19 @@ type EndpointNetworking struct {
 	// IP4/6 addresses assigned to this Endpoint
 	Addressing []*AddressPair `json:"addressing"`
 
+	// Name of network device in container netns
+	ContainerInterfaceName string `json:"container-interface-name,omitempty"`
+
 	// host addressing
 	HostAddressing *NodeAddressing `json:"host-addressing,omitempty"`
 
 	// MAC address
 	HostMac string `json:"host-mac,omitempty"`
 
-	// Index of network device
+	// Index of network device in host netns
 	InterfaceIndex int64 `json:"interface-index,omitempty"`
 
-	// Name of network device
+	// Name of network device in host netns
 	InterfaceName string `json:"interface-name,omitempty"`
 
 	// MAC address

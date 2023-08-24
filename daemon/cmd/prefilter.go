@@ -14,23 +14,14 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 )
 
-type getPrefilter struct {
-	d *Daemon
-}
-
-// NewGetPrefilterHandler returns new get handler for api
-func NewGetPrefilterHandler(d *Daemon) GetPrefilterHandler {
-	return &getPrefilter{d: d}
-}
-
-func (h *getPrefilter) Handle(params GetPrefilterParams) middleware.Responder {
+func getPrefilterHandler(d *Daemon, params GetPrefilterParams) middleware.Responder {
 	var list []string
 	var revision int64
-	if h.d.preFilter == nil {
+	if d.preFilter == nil {
 		msg := fmt.Errorf("Prefilter is not enabled in daemon")
 		return api.Error(GetPrefilterFailureCode, msg)
 	}
-	list, revision = h.d.preFilter.Dump(list)
+	list, revision = d.preFilter.Dump(list)
 	spec := &models.PrefilterSpec{
 		Revision: revision,
 		Deny:     list,
@@ -44,17 +35,8 @@ func (h *getPrefilter) Handle(params GetPrefilterParams) middleware.Responder {
 	return NewGetPrefilterOK().WithPayload(status)
 }
 
-type patchPrefilter struct {
-	d *Daemon
-}
-
-// NewPatchPrefilterHandler returns new patch handler for api
-func NewPatchPrefilterHandler(d *Daemon) PatchPrefilterHandler {
-	return &patchPrefilter{d: d}
-}
-
-func (h *patchPrefilter) Handle(params PatchPrefilterParams) middleware.Responder {
-	if h.d.preFilter == nil {
+func patchPrefilterHandler(d *Daemon, params PatchPrefilterParams) middleware.Responder {
+	if d.preFilter == nil {
 		msg := fmt.Errorf("Prefilter is not enabled in daemon")
 		return api.Error(PatchPrefilterFailureCode, msg)
 	}
@@ -69,24 +51,15 @@ func (h *patchPrefilter) Handle(params PatchPrefilterParams) middleware.Responde
 		}
 		list = append(list, *cidr)
 	}
-	err := h.d.preFilter.Insert(spec.Revision, list)
+	err := d.preFilter.Insert(spec.Revision, list)
 	if err != nil {
 		return api.Error(PatchPrefilterFailureCode, err)
 	}
 	return NewPatchPrefilterOK()
 }
 
-type deletePrefilter struct {
-	d *Daemon
-}
-
-// NewDeletePrefilterHandler returns new patch handler for api
-func NewDeletePrefilterHandler(d *Daemon) DeletePrefilterHandler {
-	return &deletePrefilter{d: d}
-}
-
-func (h *deletePrefilter) Handle(params DeletePrefilterParams) middleware.Responder {
-	if h.d.preFilter == nil {
+func deletePrefilterHandler(d *Daemon, params DeletePrefilterParams) middleware.Responder {
+	if d.preFilter == nil {
 		msg := fmt.Errorf("Prefilter is not enabled in daemon")
 		return api.Error(DeletePrefilterFailureCode, msg)
 	}
@@ -101,7 +74,7 @@ func (h *deletePrefilter) Handle(params DeletePrefilterParams) middleware.Respon
 		}
 		list = append(list, *cidr)
 	}
-	err := h.d.preFilter.Delete(spec.Revision, list)
+	err := d.preFilter.Delete(spec.Revision, list)
 	if err != nil {
 		return api.Error(DeletePrefilterFailureCode, err)
 	}

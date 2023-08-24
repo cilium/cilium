@@ -175,9 +175,9 @@ const (
 
 	// CiliumStableHelmChartVersion should be the chart version that points
 	// to the v1.X branch
-	CiliumStableHelmChartVersion = "1.13"
+	CiliumStableHelmChartVersion = "1.14"
 	CiliumStableVersion          = "v" + CiliumStableHelmChartVersion
-	CiliumLatestHelmChartVersion = "1.14.0-dev"
+	CiliumLatestHelmChartVersion = "1.15.0-dev"
 
 	MonitorLogFileName = "monitor.log"
 
@@ -219,7 +219,6 @@ const (
 	NACKreceived        = "NACK received for version"                                // from https://github.com/cilium/cilium/issues/4003
 	RunInitFailed       = "JoinEP: "                                                 // from https://github.com/cilium/cilium/pull/5052
 	sizeMismatch        = "size mismatch for BPF map"                                // from https://github.com/cilium/cilium/issues/7851
-	emptyBPFInitArg     = "empty argument passed to bpf/init.sh"                     // from https://github.com/cilium/cilium/issues/10228
 	RemovingMapMsg      = "Removing map to allow for property upgrade"               // from https://github.com/cilium/cilium/pull/10626
 	logBufferMessage    = "Log buffer too small to dump verifier log"                // from https://github.com/cilium/cilium/issues/10517
 	ClangErrorsMsg      = " errors generated."                                       // from https://github.com/cilium/cilium/issues/10857
@@ -279,6 +278,7 @@ var (
 	IsCiliumV1_12 = versioncheck.MustCompile(">=1.11.90 <1.13.0")
 	IsCiliumV1_13 = versioncheck.MustCompile(">=1.12.90 <1.14.0")
 	IsCiliumV1_14 = versioncheck.MustCompile(">=1.13.90 <1.15.0")
+	IsCiliumV1_15 = versioncheck.MustCompile(">=1.14.90 <1.16.0")
 )
 
 // badLogMessages is a map which key is a part of a log message which indicates
@@ -290,7 +290,6 @@ var badLogMessages = map[string][]string{
 	NACKreceived:        nil,
 	RunInitFailed:       {"signal: terminated", "signal: killed"},
 	sizeMismatch:        {"globals/cilium_policy"},
-	emptyBPFInitArg:     nil,
 	RemovingMapMsg:      nil,
 	logBufferMessage:    nil,
 	ClangErrorsMsg:      nil,

@@ -5,9 +5,8 @@ package observer
 
 import (
 	"context"
+	"sort"
 	"time"
-
-	"golang.org/x/exp/slices"
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -22,7 +21,7 @@ const (
 
 type NamespaceManager interface {
 	GetNamespaces() []*observerpb.Namespace
-	AddNamespace(...*observerpb.Namespace)
+	AddNamespace(*observerpb.Namespace)
 }
 
 type namespaceRecord struct {
@@ -76,7 +75,9 @@ func (m *namespaceManager) GetNamespaces() []*observerpb.Namespace {
 	}
 	m.mu.RUnlock()
 
-	slices.SortFunc(namespaces, func(a, b *observerpb.Namespace) bool {
+	sort.Slice(namespaces, func(i, j int) bool {
+		a := namespaces[i]
+		b := namespaces[j]
 		if a.Cluster != b.Cluster {
 			return a.Cluster < b.Cluster
 		}
@@ -85,11 +86,10 @@ func (m *namespaceManager) GetNamespaces() []*observerpb.Namespace {
 	return namespaces
 }
 
-func (m *namespaceManager) AddNamespace(namespaces ...*observerpb.Namespace) {
+func (m *namespaceManager) AddNamespace(ns *observerpb.Namespace) {
 	m.mu.Lock()
-	for _, ns := range namespaces {
-		key := ns.GetCluster() + "/" + ns.GetNamespace()
-		m.namespaces[key] = namespaceRecord{namespace: ns, added: m.nowFunc()}
-	}
-	m.mu.Unlock()
+	defer m.mu.Unlock()
+
+	key := ns.GetCluster() + "/" + ns.GetNamespace()
+	m.namespaces[key] = namespaceRecord{namespace: ns, added: m.nowFunc()}
 }

@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bpfCmd represents the bpf command
-var bpfCmd = &cobra.Command{
+// BPFCmd represents the bpf command
+var BPFCmd = &cobra.Command{
 	Use:   "bpf",
 	Short: "Direct access to local BPF maps",
 }
 
 func init() {
-	rootCmd.AddCommand(bpfCmd)
+	RootCmd.AddCommand(BPFCmd)
 }

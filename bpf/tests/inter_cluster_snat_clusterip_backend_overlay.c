@@ -101,6 +101,8 @@ int mock_send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 /* Include an actual datapath code */
 #include <bpf_overlay.c>
 
+#include "lib/endpoint.h"
+
 /*
  * Tests
  */
@@ -125,31 +127,18 @@ pktgen_to_overlay(struct __ctx_buff *ctx, bool syn, bool ack)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)BACKEND_MAC, (__u8 *)BACKEND_ROUTER_MAC);
-
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = BACKEND_IP;
-	l3->daddr = CLIENT_NODE_IP;
-
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)BACKEND_MAC,
+					  (__u8 *)BACKEND_ROUTER_MAC,
+					  BACKEND_IP, CLIENT_NODE_IP,
+					  BACKEND_PORT, CLIENT_INTER_CLUSTER_SNAT_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
-	l4->source = BACKEND_PORT;
-	l4->dest = CLIENT_INTER_CLUSTER_SNAT_PORT;
 	l4->syn = syn ? 1 : 0;
 	l4->ack = ack ? 1 : 0;
 
@@ -167,31 +156,18 @@ pktgen_from_overlay(struct __ctx_buff *ctx, bool syn, bool ack)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)CLIENT_ROUTER_MAC, (__u8 *)BACKEND_ROUTER_MAC);
-
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = CLIENT_NODE_IP;
-	l3->daddr = BACKEND_IP;
-
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)CLIENT_ROUTER_MAC,
+					  (__u8 *)BACKEND_ROUTER_MAC,
+					  CLIENT_NODE_IP, BACKEND_IP,
+					  CLIENT_INTER_CLUSTER_SNAT_PORT, BACKEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
-	l4->source = CLIENT_INTER_CLUSTER_SNAT_PORT;
-	l4->dest = BACKEND_PORT;
 	l4->syn = syn ? 1 : 0;
 	l4->ack = ack ? 1 : 0;
 
@@ -216,17 +192,8 @@ int from_overlay_syn_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "01_from_overlay_syn")
 int from_overlay_syn_setup(struct __ctx_buff *ctx)
 {
-	struct endpoint_key ep_key = {
-		.ip4 = BACKEND_IP,
-		.family = ENDPOINT_KEY_IPV4,
-	};
-	struct endpoint_info ep_value = {
-		.ifindex = BACKEND_IFINDEX,
-	};
-	memcpy(&ep_value.mac, (__u8 *)BACKEND_MAC, ETH_ALEN);
-	memcpy(&ep_value.node_mac, (__u8 *)BACKEND_ROUTER_MAC, ETH_ALEN);
-
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
+	endpoint_v4_add_entry(BACKEND_IP, BACKEND_IFINDEX, 0, 0,
+			      (__u8 *)BACKEND_MAC, (__u8 *)BACKEND_ROUTER_MAC);
 
 	tail_call_static(ctx, &entry_call_map, FROM_OVERLAY);
 	return TEST_ERROR;

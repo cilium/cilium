@@ -20,22 +20,22 @@ func (s *SemaphoredMutexSuite) TestAdd(c *C) {
 	l := NewStoppableWaitGroup()
 
 	l.Add()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(1))
+	c.Assert(l.i.Load(), Equals, int64(1))
 	l.Add()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+	c.Assert(l.i.Load(), Equals, int64(2))
 	close(l.noopAdd)
 	l.Add()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+	c.Assert(l.i.Load(), Equals, int64(2))
 }
 
 func (s *SemaphoredMutexSuite) TestDone(c *C) {
 	l := NewStoppableWaitGroup()
 
-	atomic.StoreInt64(l.i, 4)
+	l.i.Store(4)
 	l.Done()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(3))
+	c.Assert(l.i.Load(), Equals, int64(3))
 	l.Done()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+	c.Assert(l.i.Load(), Equals, int64(2))
 	close(l.noopAdd)
 	select {
 	case _, ok := <-l.noopDone:
@@ -45,7 +45,7 @@ func (s *SemaphoredMutexSuite) TestDone(c *C) {
 	}
 
 	l.Done()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(1))
+	c.Assert(l.i.Load(), Equals, int64(1))
 	select {
 	case _, ok := <-l.noopDone:
 		// channel should not have been closed
@@ -54,7 +54,7 @@ func (s *SemaphoredMutexSuite) TestDone(c *C) {
 	}
 
 	l.Done()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(0))
+	c.Assert(l.i.Load(), Equals, int64(0))
 	select {
 	case _, ok := <-l.noopDone:
 		c.Assert(ok, Equals, false)
@@ -64,19 +64,19 @@ func (s *SemaphoredMutexSuite) TestDone(c *C) {
 	}
 
 	l.Done()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(0))
+	c.Assert(l.i.Load(), Equals, int64(0))
 }
 
 func (s *SemaphoredMutexSuite) TestStop(c *C) {
 	l := NewStoppableWaitGroup()
 
 	l.Add()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(1))
+	c.Assert(l.i.Load(), Equals, int64(1))
 	l.Add()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+	c.Assert(l.i.Load(), Equals, int64(2))
 	l.Stop()
 	l.Add()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+	c.Assert(l.i.Load(), Equals, int64(2))
 }
 
 func (s *SemaphoredMutexSuite) TestWait(c *C) {
@@ -89,15 +89,15 @@ func (s *SemaphoredMutexSuite) TestWait(c *C) {
 	}()
 
 	l.Add()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(1))
+	c.Assert(l.i.Load(), Equals, int64(1))
 	l.Add()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+	c.Assert(l.i.Load(), Equals, int64(2))
 	l.Stop()
 	l.Add()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+	c.Assert(l.i.Load(), Equals, int64(2))
 
 	l.Done()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(1))
+	c.Assert(l.i.Load(), Equals, int64(1))
 	select {
 	case _, ok := <-waitClosed:
 		// channel should not have been closed
@@ -106,7 +106,7 @@ func (s *SemaphoredMutexSuite) TestWait(c *C) {
 	}
 
 	l.Done()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(0))
+	c.Assert(l.i.Load(), Equals, int64(0))
 	select {
 	case _, ok := <-waitClosed:
 		// channel should have been closed
@@ -115,22 +115,22 @@ func (s *SemaphoredMutexSuite) TestWait(c *C) {
 	}
 
 	l.Done()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(0))
+	c.Assert(l.i.Load(), Equals, int64(0))
 }
 
 func (s *SemaphoredMutexSuite) TestWaitChannel(c *C) {
 	l := NewStoppableWaitGroup()
 
 	l.Add()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(1))
+	c.Assert(l.i.Load(), Equals, int64(1))
 	l.Add()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+	c.Assert(l.i.Load(), Equals, int64(2))
 	l.Stop()
 	l.Add()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(2))
+	c.Assert(l.i.Load(), Equals, int64(2))
 
 	l.Done()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(1))
+	c.Assert(l.i.Load(), Equals, int64(1))
 	select {
 	case _, ok := <-l.WaitChannel():
 		// channel should not have been closed
@@ -139,7 +139,7 @@ func (s *SemaphoredMutexSuite) TestWaitChannel(c *C) {
 	}
 
 	l.Done()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(0))
+	c.Assert(l.i.Load(), Equals, int64(0))
 	select {
 	case _, ok := <-l.WaitChannel():
 		// channel should have been closed
@@ -148,7 +148,7 @@ func (s *SemaphoredMutexSuite) TestWaitChannel(c *C) {
 	}
 
 	l.Done()
-	c.Assert(atomic.LoadInt64(l.i), Equals, int64(0))
+	c.Assert(l.i.Load(), Equals, int64(0))
 }
 
 func (s *SemaphoredMutexSuite) TestParallelism(c *C) {
@@ -170,7 +170,7 @@ func (s *SemaphoredMutexSuite) TestParallelism(c *C) {
 			}
 		}
 	}()
-	adds := int64(0)
+	var adds atomic.Int64
 	var wg sync.WaitGroup
 	wg.Add(10)
 	for i := 0; i < 10; i++ {
@@ -178,11 +178,11 @@ func (s *SemaphoredMutexSuite) TestParallelism(c *C) {
 			defer wg.Done()
 			for a := range in {
 				if a == 0 {
-					atomic.AddInt64(&adds, 1)
+					adds.Add(1)
 					l.Add()
 				} else {
 					l.Done()
-					atomic.AddInt64(&adds, -1)
+					adds.Add(-1)
 				}
 			}
 		}()
@@ -191,15 +191,14 @@ func (s *SemaphoredMutexSuite) TestParallelism(c *C) {
 	time.Sleep(time.Duration(rand.Intn(3-0)) * time.Second)
 	close(stop)
 	wg.Wait()
-	add := atomic.LoadInt64(&adds)
-	for ; add != 0; add = atomic.LoadInt64(&adds) {
+	for add := adds.Load(); add != 0; add = adds.Load() {
 		switch {
 		case add < 0:
-			atomic.AddInt64(&adds, 1)
+			adds.Add(1)
 			l.Add()
 		case add > 0:
 			l.Done()
-			atomic.AddInt64(&adds, -1)
+			adds.Add(-1)
 		}
 	}
 	l.Stop()

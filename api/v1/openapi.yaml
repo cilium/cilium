@@ -52,6 +52,25 @@ paths:
           description: Success
           schema:
             "$ref": "#/definitions/StatusResponse"
+  "/health":
+    get:
+      summary: Get modules health of Cilium daemon
+      description: |
+        Returns modules health and status information of the Cilium daemon.
+      tags:
+        - daemon
+      parameters:
+      - name: brief
+        description: |
+          Brief is a brief representation of the Cilium status.
+        in: header
+        required: false
+        type: boolean
+      responses:
+        '200':
+          description: Success
+          schema:
+            "$ref": "#/definitions/ModulesHealth"
   "/config":
     get:
       summary: Get configuration of Cilium daemon
@@ -228,6 +247,29 @@ paths:
               "$ref": "#/definitions/Endpoint"
         '404':
           description: Endpoints with provided parameters not found
+        '429':
+          description: Rate-limiting too many requests in the given time frame
+    delete:
+      summary: Deletes a list of endpoints
+      description: |
+        Deletes a list of endpoints that have endpoints matching the provided properties
+      tags:
+        - endpoint
+      parameters:
+        - "$ref": "#/parameters/endpoint-batch-delete-request"
+      responses:
+        '200':
+          description: Success
+        '206':
+          description: Deleted with a number of errors encountered
+          x-go-name: Errors
+          schema:
+            type: integer
+        '400':
+          description: Invalid endpoint delete request
+          x-go-name: Invalid
+        '404':
+          description: No endpoints with provided parameters found
         '429':
           description: Rate-limiting too many requests in the given time frame
   "/endpoint/{id}/config":
@@ -681,6 +723,20 @@ paths:
           x-go-name: Failure
           schema:
             "$ref": "#/definitions/Error"
+
+  "/statedb/dump":
+    get:
+      produces:
+      - application/octet-stream
+      summary: Dump StateDB contents
+      tags:
+      - statedb
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: string
+            format: binary
   "/recorder":
     get:
       summary: Retrieve list of all recorders
@@ -819,7 +875,7 @@ paths:
             "$ref": "#/definitions/Error"
   "/debuginfo":
     get:
-      summary: Retrieve information about the agent and evironment for debugging
+      summary: Retrieve information about the agent and environment for debugging
       tags:
       - daemon
       responses:
@@ -1046,6 +1102,43 @@ paths:
             type: array
             items:
               "$ref": "#/definitions/BgpPeer"
+        '500':
+          description: Internal Server Error
+          schema:
+            "$ref": "#/definitions/Error"
+        '501':
+          description: BGP Control Plane disabled
+          x-go-name: Disabled
+          schema:
+            "$ref": "#/definitions/Error"
+  "/bgp/routes":
+    get:
+      summary: Lists BGP routes from BGP Control Plane RIB.
+      description: Retrieves routes from BGP Control Plane RIB filtered by parameters you specify
+      tags:
+        - bgp
+      parameters:
+        - "$ref": "#/parameters/bgp-table-type"
+        - "$ref": "#/parameters/bgp-afi"
+        - "$ref": "#/parameters/bgp-safi"
+        - "$ref": "#/parameters/bgp-router-asn"
+        - "$ref": "#/parameters/bgp-neighbor-address"
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/BgpRoute"
+        '500':
+          description: Internal Server Error
+          schema:
+            "$ref": "#/definitions/Error"
+        '501':
+          description: BGP Control Plane disabled
+          x-go-name: Disabled
+          schema:
+            "$ref": "#/definitions/Error"
 parameters:
   endpoint-id:
     name: id
@@ -1058,9 +1151,11 @@ parameters:
       Supported endpoint id prefixes:
         - cilium-local: Local Cilium endpoint UUID, e.g. cilium-local:3389595
         - cilium-global: Global Cilium endpoint UUID, e.g. cilium-global:cluster1:nodeX:452343
-        - container-id: Container runtime ID, e.g. container-id:22222
-        - container-name: Container name, e.g. container-name:foobar
-        - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar
+        - cni-attachment-id: CNI attachment ID, e.g. cni-attachment-id:22222:eth0
+        - container-id: Container runtime ID, e.g. container-id:22222 (deprecated, may not be unique)
+        - container-name: Container name, e.g. container-name:foobar (deprecated, may not be unique)
+        - pod-name: pod name for this container if K8s is enabled, e.g. pod-name:default:foobar (deprecated, may not be unique)
+        - cep-name: cep name for this container if K8s is enabled, e.g. pod-name:default:foobar-net1
         - docker-endpoint: Docker libnetwork endpoint ID, e.g. docker-endpoint:4444
     in: path
     required: true
@@ -1071,6 +1166,12 @@ parameters:
     required: true
     schema:
       "$ref": "#/definitions/EndpointChangeRequest"
+  endpoint-batch-delete-request:
+    name: endpoint
+    in: body
+    required: true
+    schema:
+      "$ref": "#/definitions/EndpointBatchDeleteRequest"
   identity-id:
     name: id
     description: |
@@ -1200,8 +1301,73 @@ parameters:
     required: false
     in: query
     type: string
+  bgp-table-type:
+    name: table_type
+    description: BGP Routing Information Base (RIB) table type
+    required: true
+    in: query
+    type: string
+    enum:
+    - loc-rib
+    - adj-rib-in
+    - adj-rib-out
+  bgp-afi:
+    name: afi
+    description: Address Family Indicator (AFI) of a BGP route
+    required: true
+    in: query
+    type: string
+  bgp-safi:
+    name: safi
+    description: Subsequent Address Family Indicator (SAFI) of a BGP route
+    required: true
+    in: query
+    type: string
+  bgp-router-asn:
+    name: router_asn
+    description: |
+      Autonomous System Number (ASN) identifying a BGP virtual router instance.
+      If not specified, all virtual router instances are selected.
+    required: false
+    in: query
+    type: integer
+  bgp-neighbor-address:
+    name: neighbor
+    description: |
+      IP address specifying a BGP neighbor.
+      Has to be specified only when table type is adj-rib-in or adj-rib-out.
+    required: false
+    in: query
+    type: string
 
 definitions:
+  ModulesHealth:
+    description: Reports health status of agent's modules
+    properties:
+      modules:
+        description: List out modules health status
+        type: array
+        items:
+          "$ref": "#/definitions/ModuleHealth"
+  ModuleHealth:
+    description: Report module health status
+    properties:
+      module-id:
+        description: Describes the module identitier
+        type: string
+      level:
+        description: Describes the health status level
+        type: string
+      message:
+        description: Reports the associated health message
+        type: string
+      last-ok:
+        description: Time at which the last OK check occurred
+        type: string
+      last-updated:
+        description: Time of last health update
+        type: string
+
   Endpoint:
     description: An endpoint is a namespaced network interface to which cilium applies policies
     type: object
@@ -1241,11 +1407,14 @@ definitions:
         description: Docker network ID
         type: string
       interface-name:
-        description: Name of network device
+        description: Name of network device in host netns
         type: string
       interface-index:
-        description: Index of network device
+        description: Index of network device in host netns
         type: integer
+      container-interface-name:
+        description: Name of network device in container netns
+        type: string
       state:
         description: Current state of endpoint
         "$ref": "#/definitions/EndpointState"
@@ -1276,8 +1445,21 @@ definitions:
         description: |
           Whether to build an endpoint synchronously
         type: boolean
+      disable-legacy-identifiers:
+        description: >-
+          Disables lookup using legacy endpoint identifiers (container name,
+          container id, pod name) for this endpoint
+        type: boolean
       datapath-configuration:
         "$ref": "#/definitions/EndpointDatapathConfiguration"
+  EndpointBatchDeleteRequest:
+    description: |
+      Properties selecting a batch of endpoints to delete.
+    type: object
+    properties:
+      container-id:
+        description: ID assigned by container runtime
+        type: string
   EndpointDatapathConfiguration:
     description: Datapath configuration to be used for the endpoint
     type: object
@@ -1629,7 +1811,7 @@ definitions:
         type: object
         properties:
           wireguard:
-            description: Status of the Wireguard agent
+            description: Status of the WireGuard agent
             "$ref": "#/definitions/WireguardStatus"
   CgroupDumpMetadata:
     description: cgroup full metadata
@@ -1782,11 +1964,14 @@ definitions:
         description: MAC address
         type: string
       interface-name:
-        description: Name of network device
+        description: Name of network device in host netns
         type: string
       interface-index:
-        description: Index of network device
+        description: Index of network device in host netns
         type: integer
+      container-interface-name:
+        description: Name of network device in container netns
+        type: string
   EndpointIdentifiers:
     description: |-
       Unique identifiers for this endpoint from outside cilium
@@ -1794,11 +1979,14 @@ definitions:
       +deepequal-gen=true
     type: object
     properties:
+      cni-attachment-id:
+        description: ID assigned to this attachment by container runtime
+        type: string
       container-id:
-        description: ID assigned by container runtime
+        description: ID assigned by container runtime (deprecated, may not be unique)
         type: string
       container-name:
-        description: Name assigned to container
+        description: Name assigned to container (deprecated, may not be unique)
         type: string
       docker-endpoint-id:
         description: Docker endpoint ID
@@ -1807,13 +1995,13 @@ definitions:
         description: Docker network ID
         type: string
       pod-name:
-        description: K8s pod for this endpoint(Deprecated, use K8sPodName and K8sNamespace instead)
+        description: K8s pod for this endpoint (deprecated, may not be unique)
         type: string
       k8s-pod-name:
-        description: K8s pod name for this endpoint
+        description: K8s pod name for this endpoint (deprecated, may not be unique)
         type: string
       k8s-namespace:
-        description: K8s namespace for this endpoint
+        description: K8s namespace for this endpoint (deprecated, may not be unique)
         type: string
   Labels:
     description: Set of labels
@@ -1945,6 +2133,9 @@ definitions:
       cni-chaining:
         description: Status of CNI chaining
         "$ref": "#/definitions/CNIChainingStatus"
+      auth-certificate-provider:
+        description: Status of Mutual Authentication certificate provider
+        "$ref": "#/definitions/Status"
   Status:
     description: Status of an individual component
     type: object
@@ -2062,6 +2253,8 @@ definitions:
         - Strict
         - Probe
         - Partial
+        - 'True'
+        - 'False'
       devices:
         type: array
         items:
@@ -2315,8 +2508,17 @@ definitions:
         description: Name of the cluster
         type: string
       ready:
-        description: Indicates readiness of the remote cluser
+        description: Indicates readiness of the remote cluster
         type: boolean
+      connected:
+        description: Indicates whether the connection to the remote kvstore is established
+        type: boolean
+      synced:
+        description: Synchronization status about each resource type
+        "$ref": "#/definitions/RemoteClusterSynced"
+      config:
+        description: Cluster configuration exposed by the remote cluster
+        "$ref": "#/definitions/RemoteClusterConfig"
       num-nodes:
         description: Number of nodes in the cluster
         type: integer
@@ -2325,6 +2527,9 @@ definitions:
         type: integer
       num-identities:
         description: Number of identities in the cluster
+        type: integer
+      num-endpoints:
+        description: Number of endpoints in the cluster
         type: integer
       status:
         description: Status of the control plane
@@ -2336,6 +2541,48 @@ definitions:
         description: Time of last failure that occurred while attempting to reach the cluster
         type: string
         format: date-time
+  RemoteClusterSynced:
+    description: |-
+      Status of the synchronization with the remote cluster, about each resource
+      type. A given resource is considered to be synchronized if the initial
+      list of entries has been completely received from the remote cluster, and
+      new events are currently being watched.
+
+      +k8s:deepcopy-gen=true
+    properties:
+      nodes:
+        description: Nodes synchronization status
+        type: boolean
+      services:
+        description: Services synchronization status
+        type: boolean
+      endpoints:
+        description: Endpoints synchronization status
+        type: boolean
+      identities:
+        description: Identities synchronization status
+        type: boolean
+  RemoteClusterConfig:
+    description: |-
+      Cluster configuration exposed by the remote cluster
+
+      +k8s:deepcopy-gen=true
+    properties:
+      required:
+        description: Whether the configuration is required to be present
+        type: boolean
+      retrieved:
+        description: Whether the configuration has been correctly retrieved
+        type: boolean
+      cluster-id:
+        description: The Cluster ID advertised by the remote cluster
+        type: integer
+      kvstoremesh:
+        description: Whether the remote cluster information is locally cached by kvstoremesh
+        type: boolean
+      sync-canaries:
+        description: Whether the remote cluster supports per-prefix "synced" canaries
+        type: boolean
   MonitorStatus:
     description: Status of the node monitor
     properties:
@@ -3465,7 +3712,7 @@ definitions:
         type: string
         description: Human readable status/error/warning message
       wireguard:
-        description: Status of the Wireguard agent
+        description: Status of the WireGuard agent
         "$ref": "#/definitions/WireguardStatus"
   CNIChainingStatus:
     description: |-
@@ -3483,7 +3730,7 @@ definitions:
           - portmap
   WireguardStatus:
     description: |-
-      Status of the Wireguard agent
+      Status of the WireGuard agent
 
       +k8s:deepcopy-gen=true
     properties:
@@ -3491,13 +3738,13 @@ definitions:
         description: Node Encryption status
         type: string
       interfaces:
-        description: Wireguard interfaces managed by this Cilium instance
+        description: WireGuard interfaces managed by this Cilium instance
         type: array
         items:
           "$ref": "#/definitions/WireguardInterface"
   WireguardInterface:
     description: |-
-      Status of a Wireguard interface
+      Status of a WireGuard interface
 
       +k8s:deepcopy-gen=true
     properties:
@@ -3508,19 +3755,19 @@ definitions:
         description: Public key of this interface
         type: string
       listen-port:
-        description: Port on which the Wireguard endpoint is exposed
+        description: Port on which the WireGuard endpoint is exposed
         type: integer
       peer-count:
         description: Number of peers configured on this interface
         type: integer
       peers:
-        description: Optional list of wireguard peers
+        description: Optional list of WireGuard peers
         type: array
         items:
           "$ref": "#/definitions/WireguardPeer"
   WireguardPeer:
     description: |-
-      Status of a Wireguard peer
+      Status of a WireGuard peer
 
       +k8s:deepcopy-gen=true
     properties:
@@ -3647,3 +3894,61 @@ definitions:
           after a restart. After this period, peer will remove stale routes. 
           (RFC 4724 section 4.2)
         type: integer
+  BgpRoute:
+    description: Single BGP route retrieved from the RIB of underlying router
+    properties:
+      router-asn:
+        description: Autonomous System Number (ASN) identifying a BGP virtual router instance
+        type: integer
+      prefix:
+        description: IP prefix of the route
+        type: string
+      paths:
+        description: List of routing paths leading towards the prefix
+        type: array
+        items:
+          "$ref": "#/definitions/BgpPath"
+  BgpPath:
+    description: Single BGP routing Path containing BGP Network Layer Reachability Information (NLRI) and path attributes
+    properties:
+      family:
+        description: Address Family Indicator (AFI) and Subsequent Address Family Indicator (SAFI) of the path
+        "$ref": "#/definitions/BgpFamily"
+      nlri:
+        description: Network Layer Reachability Information of the path
+        "$ref": "#/definitions/BgpNlri"
+      path-attributes:
+        description: List of BGP path attributes specific for the path
+        type: array
+        items:
+          "$ref": "#/definitions/BgpPathAttribute"
+      age-nanoseconds:
+        description: Age of the path (time since its creation) in nanoseconds
+        type: integer
+      best:
+        description: True value flags the best path towards the destination prefix
+        type: boolean
+      stale:
+        description: True value marks the path as stale
+        type: boolean
+  BgpFamily:
+    description: Address Family Indicator (AFI) and Subsequent Address Family Indicator (SAFI) of the path
+    properties:
+      afi:
+        description: Address Family Indicator (AFI) of the path
+        type: string
+      safi:
+        description: Subsequent Address Family Indicator (SAFI) of the path
+        type: string
+  BgpNlri:
+    description: Network Layer Reachability Information (NLRI) of the path
+    properties:
+      base64:
+        description: Base64-encoded NLRI in the BGP UPDATE message format
+        type: string
+  BgpPathAttribute:
+    description: Single BGP path attribute specific for the path
+    properties:
+      base64:
+        description: Base64-encoded BGP path attribute in the BGP UPDATE message format
+        type: string

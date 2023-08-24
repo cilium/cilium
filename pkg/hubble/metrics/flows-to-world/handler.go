@@ -5,7 +5,6 @@ package flows_to_world
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -17,10 +16,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+const (
+	reservedWorldLbl     = pkglabels.LabelSourceReserved + ":" + pkglabels.IDNameWorld
+	reservedWorldIPv4Lbl = pkglabels.LabelSourceReserved + ":" + pkglabels.IDNameWorldIPv4
+	reservedWorldIPv6Lbl = pkglabels.LabelSourceReserved + ":" + pkglabels.IDNameWorldIPv6
+)
+
 type flowsToWorldHandler struct {
 	flowsToWorld *prometheus.CounterVec
 	context      *api.ContextOptions
-	worldLabel   string
 	anyDrop      bool
 	port         bool
 	synOnly      bool
@@ -53,7 +57,6 @@ func (h *flowsToWorldHandler) Init(registry *prometheus.Registry, options api.Op
 		Name:      "flows_to_world_total",
 		Help:      "Total number of flows to reserved:world",
 	}, labels)
-	h.worldLabel = fmt.Sprintf("%s:%s", pkglabels.LabelSourceReserved, pkglabels.IDNameWorld)
 	registry.MustRegister(h.flowsToWorld)
 	return nil
 }
@@ -82,7 +85,8 @@ func (h *flowsToWorldHandler) ListMetricVec() []*prometheus.MetricVec {
 
 func (h *flowsToWorldHandler) isReservedWorld(endpoint *flowpb.Endpoint) bool {
 	for _, label := range endpoint.Labels {
-		if label == h.worldLabel {
+		switch label {
+		case reservedWorldLbl, reservedWorldIPv4Lbl, reservedWorldIPv6Lbl:
 			return true
 		}
 	}

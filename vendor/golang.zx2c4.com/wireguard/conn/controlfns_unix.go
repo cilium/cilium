@@ -1,4 +1,4 @@
-//go:build !windows && !linux && !js
+//go:build !windows && !linux && !wasm
 
 /* SPDX-License-Identifier: MIT
  *

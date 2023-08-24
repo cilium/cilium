@@ -14,10 +14,12 @@ import (
 	"time"
 
 	check "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/hive/hivetest"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -128,11 +130,15 @@ func (i *ipcacheMock) RemoveIdentityOverride(prefix netip.Prefix, identityLabels
 type signalNodeHandler struct {
 	EnableNodeAddEvent                    bool
 	NodeAddEvent                          chan nodeTypes.Node
+	NodeAddEventError                     error
 	NodeUpdateEvent                       chan nodeTypes.Node
+	NodeUpdateEventError                  error
 	EnableNodeUpdateEvent                 bool
 	NodeDeleteEvent                       chan nodeTypes.Node
+	NodeDeleteEventError                  error
 	EnableNodeDeleteEvent                 bool
 	NodeValidateImplementationEvent       chan nodeTypes.Node
+	NodeValidateImplementationEventError  error
 	EnableNodeValidateImplementationEvent bool
 }
 
@@ -145,32 +151,39 @@ func newSignalNodeHandler() *signalNodeHandler {
 	}
 }
 
+func (s *signalNodeHandler) Name() string {
+	return "manager_test:signalNodeHandler"
+}
+
 func (n *signalNodeHandler) NodeAdd(newNode nodeTypes.Node) error {
 	if n.EnableNodeAddEvent {
 		n.NodeAddEvent <- newNode
 	}
-	return nil
+	return n.NodeAddEventError
 }
 
 func (n *signalNodeHandler) NodeUpdate(oldNode, newNode nodeTypes.Node) error {
 	if n.EnableNodeUpdateEvent {
 		n.NodeUpdateEvent <- newNode
 	}
-	return nil
+	return n.NodeUpdateEventError
 }
 
 func (n *signalNodeHandler) NodeDelete(node nodeTypes.Node) error {
 	if n.EnableNodeDeleteEvent {
 		n.NodeDeleteEvent <- node
 	}
-	return nil
+	return n.NodeDeleteEventError
+}
+
+func (n *signalNodeHandler) AllNodeValidateImplementation() {
 }
 
 func (n *signalNodeHandler) NodeValidateImplementation(node nodeTypes.Node) error {
 	if n.EnableNodeValidateImplementationEvent {
 		n.NodeValidateImplementationEvent <- node
 	}
-	return nil
+	return n.NodeValidateImplementationEventError
 }
 
 func (n *signalNodeHandler) NodeConfigurationChanged(config datapath.LocalNodeConfiguration) error {
@@ -194,7 +207,7 @@ func (s *managerTestSuite) TestNodeLifecycle(c *check.C) {
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	mngr.Subscribe(dp)
 	c.Assert(err, check.IsNil)
 
@@ -266,7 +279,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -348,7 +361,7 @@ func (s *managerTestSuite) TestMultipleSources(c *check.C) {
 func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := fake.NewNodeHandler()
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -369,7 +382,7 @@ func (s *managerTestSuite) BenchmarkUpdateAndDeleteCycle(c *check.C) {
 func (s *managerTestSuite) TestClusterSizeDependantInterval(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := fake.NewNodeHandler()
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -401,7 +414,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 	signalNodeHandler := newSignalNodeHandler()
 	signalNodeHandler.EnableNodeValidateImplementationEvent = true
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	mngr.Subscribe(signalNodeHandler)
 	c.Assert(err, check.IsNil)
 	defer mngr.Stop(context.TODO())
@@ -445,7 +458,7 @@ func (s *managerTestSuite) TestBackgroundSync(c *check.C) {
 func (s *managerTestSuite) TestIpcache(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -493,7 +506,7 @@ func (s *managerTestSuite) TestIpcache(c *check.C) {
 func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -569,7 +582,7 @@ func (s *managerTestSuite) TestIpcacheHealthIP(c *check.C) {
 func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&configMock{RemoteNodeIdentity: true}, ipcacheMock, NewNodeMetrics())
+	mngr, err := New(&configMock{RemoteNodeIdentity: true}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -645,7 +658,7 @@ func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
 	ipcacheMock := newIPcacheMock()
 	dp := newSignalNodeHandler()
-	mngr, err := New(&configMock{NodeEncryption: true, Encryption: true}, ipcacheMock, NewNodeMetrics())
+	mngr, err := New(&configMock{NodeEncryption: true, Encryption: true}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -740,7 +753,7 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 	dp.EnableNodeAddEvent = true
 	dp.EnableNodeUpdateEvent = true
 	dp.EnableNodeDeleteEvent = true
-	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics())
+	mngr, err := New(&configMock{}, ipcacheMock, NewNodeMetrics(), &hivetest.MockHealthReporter{})
 	c.Assert(err, check.IsNil)
 	mngr.Subscribe(dp)
 	defer mngr.Stop(context.TODO())
@@ -828,4 +841,42 @@ func (s *managerTestSuite) TestNode(c *check.C) {
 	c.Assert(ok, check.Equals, true)
 	// Needs to be the same as n2
 	c.Assert(n, checker.DeepEquals, *n1V2)
+}
+
+func TestNodeManagerEmitStatus(t *testing.T) {
+	// Tests health reporting on node manager.
+	assert := assert.New(t)
+
+	baseBackgroundSyncInterval = 1 * time.Millisecond
+	hr := hivetest.NewMockHealthReporter()
+	m, err := New(&configMock{}, newIPcacheMock(), NewNodeMetrics(), hr)
+	assert.NoError(err)
+
+	m.nodes[nodeTypes.Identity{
+		Name:    "node1",
+		Cluster: "c1",
+	}] = &nodeEntry{node: nodeTypes.Node{Name: "node1", Cluster: "c1"}}
+	m.nodeHandlers = make(map[datapath.NodeHandler]struct{})
+	nh1 := newSignalNodeHandler()
+	nh1.EnableNodeValidateImplementationEvent = true
+	// By default this is a buffered channel, by making it a non-buffered
+	// channel we can sync up iterations of background sync.
+	nh1.NodeValidateImplementationEvent = make(chan nodeTypes.Node)
+	nh1.NodeValidateImplementationEventError = fmt.Errorf("test error")
+	m.nodeHandlers[nh1] = struct{}{}
+
+	done := make(chan struct{})
+	go func() {
+		<-nh1.NodeValidateImplementationEvent
+		s := <-hr.Wait()
+		assert.Error(s.Err)
+		nh1.NodeValidateImplementationEventError = nil
+		<-nh1.NodeValidateImplementationEvent
+		s = <-hr.Wait()
+		assert.NoError(s.Err)
+		close(done)
+	}()
+	// Start the manager
+	assert.NoError(m.Start(context.Background()))
+	<-done
 }

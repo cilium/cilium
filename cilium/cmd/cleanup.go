@@ -72,7 +72,7 @@ const (
 )
 
 func init() {
-	rootCmd.AddCommand(cleanupCmd)
+	RootCmd.AddCommand(cleanupCmd)
 
 	cleanupCmd.Flags().BoolVarP(&cleanAll, allFlagName, "", false, "Remove all cilium state")
 	cleanupCmd.Flags().BoolVarP(&cleanBPF, bpfFlagName, "", false, "Remove BPF state")
@@ -280,7 +280,7 @@ func runCleanup() {
 	cleanBPF = vp.GetBool(bpfFlagName) || vp.GetBool(cleanBpfEnvVar)
 
 	// if no flags are specified then clean all
-	if (cleanAll || cleanBPF) == false {
+	if !(cleanAll || cleanBPF) {
 		cleanAll = true
 	}
 

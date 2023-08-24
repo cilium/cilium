@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
+	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
 var Cell = cell.Module(
@@ -41,6 +42,8 @@ type CNIConfigManager interface {
 
 	// GetChainingMode returns the configured CNI chaining mode
 	GetChainingMode() string
+
+	GetCustomNetConf() *cnitypes.NetConf
 }
 
 var defaultConfig = Config{

@@ -4,8 +4,10 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+.. _docs_style_guide:
+
 *******************
-Documentation Style
+Documentation style
 *******************
 
 .. |RST| replace:: reStructuredText
@@ -20,8 +22,24 @@ documentation. They have several objectives:
 
 - Help keep a consistent style throughout the documentation.
 
+- In the end, provide a better experience to users, and help them find the
+  information they need.
+
 See also :ref:`the documentation for testing <testing-documentation>` for
 instructions on how to preview documentation changes.
+
+General considerations
+----------------------
+
+Write in US English.
+For example, use "prioritize" instead of ":spelling:ignore:`prioritise`" and
+"color" instead of ":spelling:ignore:`colour`".
+
+Maintain a consistent style with the rest of the documentation when possible,
+or at least with the rest of the updated page.
+
+Omit hyphens when possible. For example, use "load balancing" instead of
+"load-balancing".
 
 Header
 ------
@@ -39,12 +57,11 @@ Use the following header when adding new files to the Documentation.
 One exception is |RST| fragments that are supposed to be sourced from other
 documentation files. Those do not need this header.
 
-Titles
-------
+Headings
+--------
 
-Prefer title case (capital letters on most words of the title) rather than
-sentence case for titles.
-See this link if necessary: https://titlecaseconverter.com/.
+Prefer sentence case (capital letter on first word) rather than
+title case for all headings.
 
 Body
 ----
@@ -53,7 +70,43 @@ Wrap the lines for long sentences or paragraphs. There is no fixed convention
 on the length of lines, but targeting a width of about 80 characters should be
 safe in most circumstances.
 
-Code Blocks
+Capitalization
+--------------
+
+Follow `the section on capitalization for API objects`_ from the Kubernetes
+style guide for when to (not) capitalize API objects. In particular:
+
+    When you refer specifically to interacting with an API object, use
+    `UpperCamelCase`_, also known as Pascal case.
+
+And:
+
+    When you are generally discussing an API object, use `sentence-style
+    capitalization`_
+
+For example, write "Gateway API", capitalized. Use "Gateway" when writing about
+an API object as an entity, and "gateway" for a specific instance.
+
+The following examples are correct::
+
+    - Gateway API is a subproject of Kubernetes SIG Network.
+    - Cilium is conformant to the Gateway API spec at version X.Y.Z.
+    - In order to expose this service, create a Gateway to hold the listener configuration.
+    - Traffic from the Internet passes through the gateway to get to the backend service.
+    - Now that you have created the "foo" gateway, you need to create some Routes.
+
+But the following examples are incorrect::
+
+    - The implementation of gateway API
+    - To create a gateway object, ...
+
+.. _the section on capitalization for API objects: https://kubernetes.io/docs/contribute/style/style-guide/#use-upper-camel-case-for-api-objects
+.. _UpperCamelCase: https://en.wikipedia.org/wiki/Camel_case
+.. _sentence-style capitalization: https://docs.microsoft.com/en-us/style-guide/text-formatting/using-type/use-sentence-style-capitalization
+
+.. _docs_style_code_blocks:
+
+Code blocks
 -----------
 
 Code snippets and other literal blocks usually fall under one of those three
@@ -253,6 +306,57 @@ Lists
     1. First item
     2. Second item
 
+- Be consistent with periods at the end of list items. In general, omit periods
+  from bulleted list items unless the items are complete sentences. But if one
+  list item requires a period, use periods for all items.
+
+  Prefer:
+
+  .. code-block:: rst
+
+    - This is one list item
+    - This is another list item
+
+  Avoid:
+
+  .. code-block:: rst
+
+    - This is one list item, period. We use punctuation.
+    - This list item should have a period too, but doesn't
+
+Callouts
+--------
+
+Use callouts effectively. For example, use the ``.. note::`` directive to
+highlight information that helps users in a specific context. Do not use it to
+avoid refactoring a section or paragraph.
+
+For example, when adding information about a new configuration flag that
+completes a feature, there is no need to append it as a note, given that it
+does not require particular attention from the reader. Avoid the following:
+
+.. parsed-literal::
+
+    Blinking pods are easier to spot in the dark. Use feature flag
+    \`\`--blinking-pods\`\` to make new pods blink twice when they launch. If
+    you create blinking pods often, sunglasses may help protect your eyes.
+
+    **\.. note::
+
+        Use the flag \`\`--blinking-pods-blink-number\`\` to change the number
+        of times pods blink on start-up.**
+
+Instead, merge the new content with the existing paragraph:
+
+.. parsed-literal::
+
+    Blinking pods are easier to spot in the dark. Use feature flag
+    \`\`--blinking-pods\`\` to make new pods blink when they launch. **By
+    default, blinking pods blink twice, but you can use the flag
+    \`\`--blinking-pods-blink-number\`\` to specify how many times they blink
+    on start-up.** If you create blinking pods often, sunglasses may help
+    protect your eyes.
+
 Roles
 -----
 
@@ -270,3 +374,170 @@ Roles
   .. code-block:: rst
 
     See `this GitHub issue <https://github.com/cilium/cilium/issues/1234>`__.
+
+Common pitfalls
+---------------
+
+There are best practices for writing documentation; follow them. In general,
+default to the `Kubernetes style guide`_, especially for `content best
+practices`_. The following subsections cover the most common feedback given for
+Cilium documentation Pull Requests.
+
+Use active voice
+~~~~~~~~~~~~~~~~
+
+Prefer::
+
+    Enable the flag.
+
+Avoid::
+
+    Ensure the flag is enabled.
+
+Use present tense
+~~~~~~~~~~~~~~~~~
+
+Prefer::
+
+    The service returns a response code.
+
+Avoid::
+
+    The service will return a response code.
+
+Address the user as "you", not "we"
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Prefer::
+
+    You can specify values to filter tags.
+
+Avoid::
+
+    We'll specify this value to filter tags.
+
+Use plain, direct language
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Prefer::
+
+    Always configure the bundle explicitly in production environments.
+
+Avoid::
+
+    It is recommended to always configure the bundle explicitly in production environments.
+
+Write for good localization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Assume that what you write will be localized with machine translation. Figures
+of speech often localize poorly, as do idioms like "above" and "below".
+
+Prefer::
+
+    The following example
+    To assist this process,
+
+Avoid::
+
+    The example below
+    To give this process a boost,
+
+Define abbreviations
+~~~~~~~~~~~~~~~~~~~~
+
+Define abbreviations when you first use them on a page.
+
+Prefer::
+
+    Certificate authority (CA)
+
+Avoid::
+
+    CA
+
+Don't use Latin abbreviations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Prefer::
+
+    - For example,
+    - In other words,
+    - by following the ...
+    - and others
+
+Avoid::
+
+    - e.g.
+    - i.e.
+    - via
+    - etc.
+
+Spell words fully
+~~~~~~~~~~~~~~~~~
+
+Prefer::
+
+    and
+
+Avoid::
+
+    &
+
+.. _Kubernetes style guide: https://kubernetes.io/docs/contribute/style/style-guide/
+.. _content best practices: https://kubernetes.io/docs/contribute/style/style-guide/#content-best-practices
+
+Specific language
+-----------------
+
+Use specific language. Avoid words like "this" (as a pronoun) and "it" when
+referring to concepts, actions, or process states. Be as specific as possible,
+even if specificity seems overly repetitive. This requirement exists for two
+reasons:
+
+1. Indirect language assumes too much clarity on the part of the writer and too
+   much understanding on the part of the reader.
+
+2. Specific language is easier to review and easier to localize.
+
+Words like "this" and "it" are indirect references. For example:
+
+.. code-block:: rst
+
+  Feature A requires all pods to be painted blue. This means that the Agent
+  must apply its "paint" action to all pods. To achieve this, use the dedicated
+  CLI invocation.
+
+In the preceding paragraph, the word "this" indirectly references both an
+inferred consequence ("this means") and a desired goal state ("to achieve
+this"). Instead, be as specific as possible:
+
+.. code-block:: rst
+
+  Feature A requires all pods to be painted blue. Consequently, the Agent must
+  apply its "paint" action to all pods. To make the Agent paint all pods blue,
+  use the dedicated CLI invocation.
+
+The following subsections contain more examples.
+
+Use specific wording rather than vague wording
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Prefer::
+
+    For each core, the Ingester attempts to spawn a worker pool.
+
+Avoid::
+
+    For each core, it attempts to spawn a worker pool.
+
+Use specific instructions rather than vague instructions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Prefer::
+
+    Set the annotation value to remote.
+
+Avoid::
+
+    Set it to remote.

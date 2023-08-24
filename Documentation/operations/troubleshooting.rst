@@ -406,7 +406,7 @@ may help. This controls the time interval between two garbage collection runs.
 
 By default ``--conntrack-gc-interval`` is set to 0 which translates to
 using a dynamic interval. In that case, the interval is updated after each
-garbage collection run depending on how many entries where garbage collected.
+garbage collection run depending on how many entries were garbage collected.
 If very few or no entries were garbage collected, the interval will increase;
 if many entries were garbage collected, it will decrease. The current interval
 value is reported in the Cilium agent logs.
@@ -792,6 +792,8 @@ Reporting a problem
 Before you report a problem, make sure to retrieve the necessary information
 from your cluster before the failure state is lost.
 
+.. _sysdump:
+
 Automatic log & state collection
 --------------------------------
 
@@ -927,14 +929,12 @@ you can also redirect to a file like
    away before sharing it with us.
 
 
-Slack Assistance
+Slack assistance
 ----------------
 
-The Cilium slack community is helpful first point of assistance to get help
-troubleshooting a problem or to discuss options on how to address a problem.
-
-The slack community is open to everyone. You can request an invite email by
-visiting `Slack <https://cilium.herokuapp.com/>`_.
+The `Cilium Slack`_ community is a helpful first point of assistance to get
+help troubleshooting a problem or to discuss options on how to address a
+problem. The community is open to anyone.
 
 Report an issue via GitHub
 --------------------------
@@ -943,7 +943,6 @@ If you believe to have found an issue in Cilium, please report a
 `GitHub issue`_ and make sure to attach a system dump as described above to
 ensure that developers have the best chance to reproduce the issue.
 
-.. _Slack channel: https://cilium.herokuapp.com
 .. _NodeSelector: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
 .. _RBAC: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
 .. _CNI: https://github.com/containernetworking/cni

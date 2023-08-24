@@ -25,7 +25,11 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-ipcache")
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-ipcache")
+
+	ipcacheBPFGCControllerGroup = controller.NewGroup("ipcache-bpf-garbage-collection")
+)
 
 // datapath is an interface to the datapath implementation, used to apply
 // changes that are made within this module.
@@ -117,7 +121,7 @@ func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
 // is not required to upsert the new pair.
 func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification, cidrCluster cmtypes.PrefixCluster,
 	oldHostIP, newHostIP net.IP, oldID *ipcache.Identity, newID ipcache.Identity,
-	encryptKey uint8, nodeID uint16, k8sMeta *ipcache.K8sMetadata) {
+	encryptKey uint8, k8sMeta *ipcache.K8sMetadata) {
 	cidr := cidrCluster.AsIPNet()
 
 	scopedLog := log
@@ -139,14 +143,13 @@ func (l *BPFListener) OnIPIdentityCacheChange(modType ipcache.CacheModification,
 
 	// Update BPF Maps.
 
-	key := ipcacheMap.NewKey(cidr.IP, cidr.Mask, 0)
+	key := ipcacheMap.NewKey(cidr.IP, cidr.Mask, uint8(cidrCluster.ClusterID()))
 
 	switch modType {
 	case ipcache.Upsert:
 		value := ipcacheMap.RemoteEndpointInfo{
 			SecurityIdentity: uint32(newID.ID),
 			Key:              encryptKey,
-			NodeID:           nodeID,
 		}
 
 		if newHostIP != nil {
@@ -252,6 +255,7 @@ func (l *BPFListener) OnIPIdentityCacheGC() {
 	// consistent state.
 	l.ipcache.UpdateController("ipcache-bpf-garbage-collection",
 		controller.ControllerParams{
+			Group: ipcacheBPFGCControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				wg, err := l.garbageCollect(ctx)
 				if err != nil {

@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/bgpv1/agent"
+	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -33,7 +33,7 @@ type diffStoreParams[T k8sRuntime.Object] struct {
 
 	Lifecycle hive.Lifecycle
 	Resource  resource.Resource[T]
-	Signaler  agent.Signaler
+	Signaler  *signaler.BGPCPSignaler
 }
 
 // diffStore takes a resource.Resource[T] and watches for events, it stores all of the keys that have been changed.
@@ -43,7 +43,7 @@ type diffStore[T k8sRuntime.Object] struct {
 	resource.Store[T]
 
 	resource resource.Resource[T]
-	signaler agent.Signaler
+	signaler *signaler.BGPCPSignaler
 
 	ctx      context.Context
 	cancel   context.CancelFunc

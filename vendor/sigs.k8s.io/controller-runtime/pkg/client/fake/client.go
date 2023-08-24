@@ -992,11 +992,11 @@ func copyNonStatusFrom(old, new runtime.Object) error {
 		}
 	}
 
-	newClientObject.SetResourceVersion(rv)
-
 	if err := fromMapStringAny(newMapStringAny, new); err != nil {
 		return fmt.Errorf("failed to convert back from map[string]any: %w", err)
 	}
+	newClientObject.SetResourceVersion(rv)
+
 	return nil
 }
 

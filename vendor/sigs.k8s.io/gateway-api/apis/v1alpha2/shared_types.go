@@ -50,10 +50,10 @@ type PortNumber = v1beta1.PortNumber
 // BackendRef defines how a Route should forward a request to a Kubernetes
 // resource.
 //
-// Note that when a namespace is specified, a ReferenceGrant object
-// is required in the referent namespace to allow that namespace's
-// owner to accept the reference. See the ReferenceGrant documentation
-// for details.
+// Note that when a namespace different than the local namespace is specified, a
+// ReferenceGrant object is required in the referent namespace to allow that
+// namespace's owner to accept the reference. See the ReferenceGrant
+// documentation for details.
 // +k8s:deepcopy-gen=false
 type BackendRef = v1beta1.BackendRef
 

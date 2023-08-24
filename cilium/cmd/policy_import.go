@@ -62,7 +62,7 @@ var policyImportCmd = &cobra.Command{
 }
 
 func init() {
-	policyCmd.AddCommand(policyImportCmd)
+	PolicyCmd.AddCommand(policyImportCmd)
 	policyImportCmd.Flags().BoolVarP(&printPolicy, "print", "", false, "Print policy after import")
 	command.AddOutputOption(policyImportCmd)
 }

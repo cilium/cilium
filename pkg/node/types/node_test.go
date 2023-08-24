@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -241,4 +242,34 @@ func (s *NodeSuite) TestNode_ToCiliumNode(c *C) {
 			NodeIdentity: uint64(12345),
 		},
 	})
+}
+
+func TestClusterServiceValidate(t *testing.T) {
+	tests := []struct {
+		name   string
+		node   Node
+		assert assert.ErrorAssertionFunc
+	}{
+		{
+			name:   "empty cluster ID",
+			node:   Node{},
+			assert: assert.NoError,
+		},
+		{
+			name:   "valid cluster ID",
+			node:   Node{ClusterID: 99},
+			assert: assert.NoError,
+		},
+		{
+			name:   "invalid cluster ID",
+			node:   Node{ClusterID: 260},
+			assert: assert.Error,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.assert(t, tt.node.validate())
+		})
+	}
 }

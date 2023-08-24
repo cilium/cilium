@@ -88,7 +88,7 @@ To enable IPv6 BIG TCP:
              --set bpf.masquerade=true \\
              --set ipv6.enabled=true \\
              --set enableIPv6BIGTCP=true \\
-             --set kubeProxyReplacement=strict
+             --set kubeProxyReplacement=true
 
 Note that after toggling the IPv6 BIG TCP option the Kubernetes Pods must be
 restarted for the changes to take effect.
@@ -145,7 +145,7 @@ To enable IPv4 BIG TCP:
              --set bpf.masquerade=true \\
              --set ipv4.enabled=true \\
              --set enableIPv4BIGTCP=true \\
-             --set kubeProxyReplacement=strict
+             --set kubeProxyReplacement=true
 
 Note that after toggling the IPv4 BIG TCP option the Kubernetes Pods
 must be restarted for the changes to take effect.
@@ -176,9 +176,11 @@ To enable the iptables connection-tracking bypass:
 
     .. group-tab:: Cilium CLI
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-          cilium install --config install-no-conntrack-iptables-rules=true
+          cilium install |CHART_VERSION| \
+            --set installNoConntrackIptablesRules=true \
+            --set kubeProxyReplacement=true
 
     .. group-tab:: Helm
 
@@ -187,7 +189,7 @@ To enable the iptables connection-tracking bypass:
            helm install cilium |CHART_RELEASE| \\
              --namespace kube-system \\
              --set installNoConntrackIptablesRules=true \\
-             --set kubeProxyReplacement=strict
+             --set kubeProxyReplacement=true
 
 Hubble
 ======
@@ -255,7 +257,7 @@ To enable the Bandwidth Manager:
            helm install cilium |CHART_RELEASE| \\
              --namespace kube-system \\
              --set bandwidthManager.enabled=true \\
-             --set kubeProxyReplacement=strict
+             --set kubeProxyReplacement=true
 
 To validate whether your installation is running with Bandwidth Manager,
 run ``cilium status`` in any of the Cilium pods and look for the line
@@ -303,7 +305,7 @@ To enable the Bandwidth Manager with BBR for Pods:
              --namespace kube-system \\
              --set bandwidthManager.enabled=true \\
              --set bandwidthManager.bbr=true \\
-             --set kubeProxyReplacement=strict
+             --set kubeProxyReplacement=true
 
 To validate whether your installation is running with BBR for Pods,
 run ``cilium status`` in any of the Cilium pods and look for the line
@@ -359,7 +361,7 @@ likely it is that various datapath optimizations can be used.
 
 In our Cilium release blogs, we also regularly highlight some of the eBPF based
 kernel work we conduct which implicitly helps Cilium's datapath performance
-such as `replacing retpolines with direct jumps in the eBPF JIT <https://cilium.io/blog/2020/02/18/cilium-17#linux-kernel-changes>`_.
+such as `replacing retpolines with direct jumps in the eBPF JIT <https://cilium.io/blog/2020/02/18/cilium-17#upstream-linux>`_.
 
 Moreover, the kernel allows to configure several options which will help maximize
 network performance.

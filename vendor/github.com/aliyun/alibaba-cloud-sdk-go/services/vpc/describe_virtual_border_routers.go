@@ -73,11 +73,19 @@ type DescribeVirtualBorderRoutersRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId        requests.Integer                      `position:"Query" name:"ResourceOwnerId"`
 	PageNumber             requests.Integer                      `position:"Query" name:"PageNumber"`
+	ResourceGroupId        string                                `position:"Query" name:"ResourceGroupId"`
 	PageSize               requests.Integer                      `position:"Query" name:"PageSize"`
 	IncludeCrossAccountVbr requests.Boolean                      `position:"Query" name:"IncludeCrossAccountVbr"`
 	ResourceOwnerAccount   string                                `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerId                requests.Integer                      `position:"Query" name:"OwnerId"`
+	Tags                   *[]DescribeVirtualBorderRoutersTags   `position:"Query" name:"Tags"  type:"Repeated"`
 	Filter                 *[]DescribeVirtualBorderRoutersFilter `position:"Query" name:"Filter"  type:"Repeated"`
+}
+
+// DescribeVirtualBorderRoutersTags is a repeated param struct in DescribeVirtualBorderRoutersRequest
+type DescribeVirtualBorderRoutersTags struct {
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // DescribeVirtualBorderRoutersFilter is a repeated param struct in DescribeVirtualBorderRoutersRequest

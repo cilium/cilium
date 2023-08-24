@@ -32,6 +32,7 @@ cilium-operator-generic [flags]
       --cnp-status-update-interval duration                  Interval between CNP status updates sent to the k8s-apiserver per-CNP (default 1s)
       --config string                                        Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                                    Configuration directory that contains a file for each option
+      --controller-group-metrics strings                     List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
   -D, --debug                                                Enable debugging mode
       --enable-cilium-endpoint-slice                         If set to true, the CiliumEndpointSlice feature is enabled. If any CiliumEndpoints resources are created, updated, or deleted in the cluster, all those changes are broadcast as CiliumEndpointSlice updates to all of the Cilium agents.
       --enable-cilium-operator-server-access strings         List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
@@ -67,7 +68,7 @@ cilium-operator-generic [flags]
       --limit-ipam-api-qps float                             Queries per second limit when accessing external IPAM APIs (default 4)
       --log-driver strings                                   Logging endpoints to use for example syslog
       --log-opt map                                          Log driver options for cilium-operator, configmap example for syslog driver: {"syslog.level":"info","syslog.facility":"local4"}
-      --mesh-auth-mutual-enabled                             The flag to enable mutual authentication for the SPIRE server.
+      --mesh-auth-mutual-enabled                             The flag to enable mutual authentication for the SPIRE server (beta).
       --mesh-auth-spiffe-trust-domain string                 The trust domain for the SPIFFE identity. (default "spiffe.cilium")
       --mesh-auth-spire-agent-socket string                  The path for the SPIRE admin agent Unix socket. (default "/run/spire/sockets/agent/agent.sock")
       --mesh-auth-spire-server-address string                SPIRE server endpoint. (default "spire-server.spire.svc:8081")

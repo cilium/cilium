@@ -71,21 +71,28 @@ func (client *Client) CreateDhcpOptionsSetWithCallback(request *CreateDhcpOption
 // CreateDhcpOptionsSetRequest is the request struct for api CreateDhcpOptionsSet
 type CreateDhcpOptionsSetRequest struct {
 	*requests.RpcRequest
-	BootFileName              string           `position:"Query" name:"BootFileName"`
-	ResourceOwnerId           requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken               string           `position:"Query" name:"ClientToken"`
-	TFTPServerName            string           `position:"Query" name:"TFTPServerName"`
-	ResourceGroupId           string           `position:"Query" name:"ResourceGroupId"`
-	LeaseTime                 string           `position:"Query" name:"LeaseTime"`
-	DomainNameServers         string           `position:"Query" name:"DomainNameServers"`
-	DhcpOptionsSetDescription string           `position:"Query" name:"DhcpOptionsSetDescription"`
-	DryRun                    requests.Boolean `position:"Query" name:"DryRun"`
-	ResourceOwnerAccount      string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount              string           `position:"Query" name:"OwnerAccount"`
-	DomainName                string           `position:"Query" name:"DomainName"`
-	OwnerId                   requests.Integer `position:"Query" name:"OwnerId"`
-	DhcpOptionsSetName        string           `position:"Query" name:"DhcpOptionsSetName"`
-	Ipv6LeaseTime             string           `position:"Query" name:"Ipv6LeaseTime"`
+	BootFileName              string                     `position:"Query" name:"BootFileName"`
+	ResourceOwnerId           requests.Integer           `position:"Query" name:"ResourceOwnerId"`
+	ClientToken               string                     `position:"Query" name:"ClientToken"`
+	TFTPServerName            string                     `position:"Query" name:"TFTPServerName"`
+	ResourceGroupId           string                     `position:"Query" name:"ResourceGroupId"`
+	LeaseTime                 string                     `position:"Query" name:"LeaseTime"`
+	DomainNameServers         string                     `position:"Query" name:"DomainNameServers"`
+	Tag                       *[]CreateDhcpOptionsSetTag `position:"Query" name:"Tag"  type:"Repeated"`
+	DhcpOptionsSetDescription string                     `position:"Query" name:"DhcpOptionsSetDescription"`
+	DryRun                    requests.Boolean           `position:"Query" name:"DryRun"`
+	ResourceOwnerAccount      string                     `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount              string                     `position:"Query" name:"OwnerAccount"`
+	DomainName                string                     `position:"Query" name:"DomainName"`
+	OwnerId                   requests.Integer           `position:"Query" name:"OwnerId"`
+	DhcpOptionsSetName        string                     `position:"Query" name:"DhcpOptionsSetName"`
+	Ipv6LeaseTime             string                     `position:"Query" name:"Ipv6LeaseTime"`
+}
+
+// CreateDhcpOptionsSetTag is a repeated param struct in CreateDhcpOptionsSetRequest
+type CreateDhcpOptionsSetTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // CreateDhcpOptionsSetResponse is the response struct for api CreateDhcpOptionsSet

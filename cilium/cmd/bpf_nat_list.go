@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/nat"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // bpfNatListCmd represents the bpf_nat_list command
@@ -32,17 +31,12 @@ var bpfNatListCmd = &cobra.Command{
 			globalMaps[1] = ipv6
 			dumpNat(globalMaps)
 		} else if len(args) == 2 && args[0] == "cluster" {
-			err := nat.InitPerClusterNATMaps(nat.PerClusterNATOuterMapPrefix, true, getIpv6EnableStatus(), option.LimitTableMax)
-			if err != nil {
-				cmd.PrintErrf("Failed to initialize per-cluster SNAT maps: %s\n", err.Error())
-				return
-			}
 			clusterID, err := strconv.ParseUint(args[1], 10, 32)
 			if err != nil {
 				cmd.PrintErrf("Invalid ClusterID: %s", err.Error())
 				return
 			}
-			ipv4, ipv6, err := nat.ClusterMaps(uint32(clusterID), true, false)
+			ipv4, ipv6, err := nat.ClusterMaps(uint32(clusterID), true, getIpv6EnableStatus())
 			if err != nil {
 				cmd.PrintErrf("Failed to retrieve cluster maps: %s", err.Error())
 				return
@@ -59,7 +53,7 @@ var bpfNatListCmd = &cobra.Command{
 }
 
 func init() {
-	bpfNatCmd.AddCommand(bpfNatListCmd)
+	BPFNatCmd.AddCommand(bpfNatListCmd)
 	command.AddOutputOption(bpfNatListCmd)
 }
 

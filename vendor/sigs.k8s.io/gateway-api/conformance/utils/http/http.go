@@ -52,6 +52,9 @@ type ExpectedResponse struct {
 	Backend   string
 	Namespace string
 
+	// MirroredTo is the destination pod of the mirrored request.
+	MirroredTo string
+
 	// User Given TestCase name
 	TestCaseName string
 }
@@ -148,12 +151,23 @@ func calculateHost(gwAddr, scheme string) string {
 		return gwAddr
 	}
 	if strings.ToLower(scheme) == "http" && port == "80" {
-		return host
+		return ipv6SafeHost(host)
 	}
 	if strings.ToLower(scheme) == "https" && port == "443" {
-		return host
+		return ipv6SafeHost(host)
 	}
-	return host + ":" + port
+	return gwAddr
+}
+
+func ipv6SafeHost(host string) string {
+	// We assume that host is a literal IPv6 address if host has
+	// colons.
+	// Per https://datatracker.ietf.org/doc/html/rfc3986#section-3.2.2.
+	// This is like net.JoinHostPort, but we don't need a port.
+	if strings.Contains(host, ":") {
+		return "[" + host + "]"
+	}
+	return host
 }
 
 // AwaitConvergence runs the given function until it returns 'true' `threshold` times in a row.
@@ -257,7 +271,6 @@ func CompareRequest(t *testing.T, req *roundtripper.Request, cReq *roundtripper.
 				} else if strings.Join(actualVal, ",") != expectedVal {
 					return fmt.Errorf("expected %s header to be set to %s, got %s", name, expectedVal, strings.Join(actualVal, ","))
 				}
-
 			}
 		}
 
@@ -352,7 +365,6 @@ func CompareRequest(t *testing.T, req *roundtripper.Request, cReq *roundtripper.
 
 // GetTestCaseName gets the user-defined test case name or generates one from expected response to a given request.
 func (er *ExpectedResponse) GetTestCaseName(i int) string {
-
 	// If TestCase name is provided then use that or else generate one.
 	if er.TestCaseName != "" {
 		return er.TestCaseName

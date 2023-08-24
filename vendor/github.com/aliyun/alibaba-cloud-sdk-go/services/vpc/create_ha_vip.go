@@ -71,16 +71,23 @@ func (client *Client) CreateHaVipWithCallback(request *CreateHaVipRequest, callb
 // CreateHaVipRequest is the request struct for api CreateHaVip
 type CreateHaVipRequest struct {
 	*requests.RpcRequest
-	IpAddress            string           `position:"Query" name:"IpAddress"`
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	Description          string           `position:"Query" name:"Description"`
-	ResourceGroupId      string           `position:"Query" name:"ResourceGroupId"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	VSwitchId            string           `position:"Query" name:"VSwitchId"`
-	Name                 string           `position:"Query" name:"Name"`
+	IpAddress            string            `position:"Query" name:"IpAddress"`
+	ResourceOwnerId      requests.Integer  `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string            `position:"Query" name:"ClientToken"`
+	Description          string            `position:"Query" name:"Description"`
+	ResourceGroupId      string            `position:"Query" name:"ResourceGroupId"`
+	Tag                  *[]CreateHaVipTag `position:"Query" name:"Tag"  type:"Repeated"`
+	ResourceOwnerAccount string            `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string            `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer  `position:"Query" name:"OwnerId"`
+	VSwitchId            string            `position:"Query" name:"VSwitchId"`
+	Name                 string            `position:"Query" name:"Name"`
+}
+
+// CreateHaVipTag is a repeated param struct in CreateHaVipRequest
+type CreateHaVipTag struct {
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // CreateHaVipResponse is the response struct for api CreateHaVip

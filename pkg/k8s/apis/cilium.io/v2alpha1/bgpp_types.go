@@ -27,6 +27,8 @@ const (
 	DefaultBGPKeepAliveTimeSeconds = 30
 	// DefaultBGPGRRestartTimeSeconds defines default Restart Time for graceful restart (RFC 4724, section 4.2)
 	DefaultBGPGRRestartTimeSeconds = 120
+	// BGPLoadBalancerClass defines the BGP Control Plane load balancer class for Services.
+	BGPLoadBalancerClass = "io.cilium/bgp-control-plane"
 )
 
 // +genclient
@@ -94,9 +96,19 @@ type CiliumBGPNeighborGracefulRestart struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=2147483647
+	// +kubebuilder:validation:Maximum=4095
 	// +kubebuilder:default=120
 	RestartTimeSeconds *int32 `json:"restartTimeSeconds,omitempty"`
+}
+
+// CiliumBGPFamily represents a AFI/SAFI address family pair.
+type CiliumBGPFamily struct {
+	// +kubebuilder:validation:Enum=ipv4;ipv6;l2vpn;ls;opaque
+	// +kubebuilder:validation:Required
+	Afi string `json:"afi"`
+	// +kubebuilder:validation:Enum=unicast;multicast;mpls_label;encapsulation;vpls;evpn;ls;sr_policy;mup;mpls_vpn;mpls_vpn_multicast;route_target_constraints;flowspec_unicast;flowspec_vpn;key_value
+	// +kubebuilder:validation:Required
+	Safi string `json:"safi"`
 }
 
 // CiliumBGPNeighbor is a neighboring peer for use in a
@@ -146,7 +158,7 @@ type CiliumBGPNeighbor struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=3
-	// +kubebuilder:validation:Maximum=2147483647
+	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:default=90
 	HoldTimeSeconds *int32 `json:"holdTimeSeconds,omitempty"`
 	// KeepaliveTimeSeconds defines the initial value for the BGP KeepaliveTimer (RFC 4271, Section 8).
@@ -154,7 +166,7 @@ type CiliumBGPNeighbor struct {
 	//
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=2147483647
+	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:default=30
 	KeepAliveTimeSeconds *int32 `json:"keepAliveTimeSeconds,omitempty"`
 	// GracefulRestart defines graceful restart parameters which are negotiated
@@ -162,6 +174,14 @@ type CiliumBGPNeighbor struct {
 	//
 	// +kubebuilder:validation:Optional
 	GracefulRestart *CiliumBGPNeighborGracefulRestart `json:"gracefulRestart,omitempty"`
+	// Families, if provided, defines a set of AFI/SAFIs the speaker will
+	// negotiate with it's peer.
+	//
+	// If this slice is not provided the default families of IPv6 and IPv4 will
+	// be provided.
+	//
+	// +kubebuilder:validation:Optional
+	Families []CiliumBGPFamily `json:"families"`
 }
 
 // CiliumBGPVirtualRouter defines a discrete BGP virtual router configuration.
@@ -180,7 +200,12 @@ type CiliumBGPVirtualRouter struct {
 	// +kubebuilder:default=false
 	ExportPodCIDR *bool `json:"exportPodCIDR,omitempty"`
 	// ServiceSelector selects a group of load balancer services which this
-	// virtual router will announce.
+	// virtual router will announce. The loadBalancerClass for a service must
+	// be nil or specify a class supported by Cilium, e.g. "io.cilium/bgp-control-plane".
+	// Refer to the following document for additional details regarding load balancer
+	// classes:
+	//
+	//   https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class
 	//
 	// If empty / nil no services will be announced.
 	//
@@ -236,6 +261,18 @@ func (n *CiliumBGPNeighbor) SetDefaults() {
 	if n.GracefulRestart != nil && n.GracefulRestart.Enabled &&
 		(n.GracefulRestart.RestartTimeSeconds == nil || *n.GracefulRestart.RestartTimeSeconds == 0) {
 		n.GracefulRestart.RestartTimeSeconds = pointer.Int32(DefaultBGPGRRestartTimeSeconds)
+	}
+	if len(n.Families) == 0 {
+		n.Families = []CiliumBGPFamily{
+			{
+				Afi:  "ipv4",
+				Safi: "unicast",
+			},
+			{
+				Afi:  "ipv6",
+				Safi: "unicast",
+			},
+		}
 	}
 }
 

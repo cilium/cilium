@@ -86,6 +86,14 @@ func (mds *fakeDiffStore[T]) Delete(key resource.Key) {
 	mds.changed[key] = true
 }
 
+func (mds *fakeDiffStore[T]) IndexKeys(indexName, indexedValue string) ([]string, error) {
+	return nil, nil
+}
+
+func (mds *fakeDiffStore[T]) ByIndex(indexName, indexedValue string) ([]T, error) {
+	return nil, nil
+}
+
 func (mds *fakeDiffStore[T]) CacheStore() cache.Store {
 	return nil
 }

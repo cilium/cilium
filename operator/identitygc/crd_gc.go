@@ -21,6 +21,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+var crdIdentityGCControllerGroup = controller.NewGroup("crd-identity-gc")
+
 func (igc *GC) startCRDModeGC(ctx context.Context) error {
 	if igc.gcInterval == 0 {
 		igc.logger.Debug("CRD identity garbage collector disabled with interval set to 0")
@@ -32,6 +34,7 @@ func (igc *GC) startCRDModeGC(ctx context.Context) error {
 	igc.mgr = controller.NewManager()
 	igc.mgr.UpdateController("crd-identity-gc",
 		controller.ControllerParams{
+			Group:        crdIdentityGCControllerGroup,
 			RunInterval:  igc.gcInterval,
 			DoFunc:       igc.gc,
 			NoErrorRetry: true,

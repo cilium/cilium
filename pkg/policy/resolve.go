@@ -22,7 +22,7 @@ type selectorPolicy struct {
 	SelectorCache *SelectorCache
 
 	// L4Policy contains the computed L4 and L7 policy.
-	L4Policy *L4Policy
+	L4Policy L4Policy
 
 	// IngressPolicyEnabled specifies whether this policy contains any policy
 	// at ingress.
@@ -34,9 +34,7 @@ type selectorPolicy struct {
 }
 
 func (p *selectorPolicy) Attach(ctx PolicyContext) {
-	if p.L4Policy != nil {
-		p.L4Policy.Attach(ctx)
-	}
+	p.L4Policy.Attach(ctx)
 }
 
 // EndpointPolicy is a structure which contains the resolved policy across all
@@ -68,41 +66,35 @@ type PolicyOwner interface {
 	GetID() uint64
 	LookupRedirectPortLocked(ingress bool, protocol string, port uint16) uint16
 	GetNamedPort(ingress bool, name string, proto uint8) uint16
-	GetNamedPortLocked(ingress bool, name string, proto uint8) uint16
 	PolicyDebug(fields logrus.Fields, msg string)
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.
-func newSelectorPolicy(revision uint64, selectorCache *SelectorCache) *selectorPolicy {
+func newSelectorPolicy(selectorCache *SelectorCache) *selectorPolicy {
 	return &selectorPolicy{
-		Revision:      revision,
+		Revision:      0,
 		SelectorCache: selectorCache,
+		L4Policy:      NewL4Policy(0),
 	}
 }
 
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be fowarded.
 func (p *selectorPolicy) insertUser(user *EndpointPolicy) {
-	if p.L4Policy != nil {
-		p.L4Policy.insertUser(user)
-	}
+	p.L4Policy.insertUser(user)
 }
 
 // removeUser removes a user from the L4Policy so the EndpointPolicy
 // can be freed when not needed any more
 func (p *selectorPolicy) removeUser(user *EndpointPolicy) {
-	if p.L4Policy != nil {
-		p.L4Policy.removeUser(user)
-	}
+	p.L4Policy.removeUser(user)
 }
 
 // Detach releases resources held by a selectorPolicy to enable
 // successful eventual GC.  Note that the selectorPolicy itself if not
 // modified in any way, so that it can be used concurrently.
 func (p *selectorPolicy) Detach() {
-	if p.L4Policy != nil {
-		p.L4Policy.Detach(p.SelectorCache)
-	}
+	p.L4Policy.Detach(p.SelectorCache)
 }
 
 // DistillPolicy filters down the specified selectorPolicy (which acts
@@ -139,7 +131,7 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 	// PolicyMapChanges will contain all changes that are applied
 	// after the computation of PolicyMapState has started.
 	p.SelectorCache.mutex.RLock()
-	calculatedPolicy.computeDesiredL4PolicyMapEntries()
+	calculatedPolicy.toMapState()
 	if !isHost {
 		calculatedPolicy.PolicyMapState.DetermineAllowLocalhostIngress()
 	}
@@ -157,40 +149,78 @@ func (p *EndpointPolicy) Detach() {
 
 // computeDesiredL4PolicyMapEntries transforms the EndpointPolicy.L4Policy into
 // the datapath-friendly format inside EndpointPolicy.PolicyMapState.
-func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries() {
-
-	if p.L4Policy == nil {
-		return
-	}
-	p.computeDirectionL4PolicyMapEntries(p.PolicyMapState, p.L4Policy.Ingress, trafficdirection.Ingress)
-	p.computeDirectionL4PolicyMapEntries(p.PolicyMapState, p.L4Policy.Egress, trafficdirection.Egress)
+// Called with selectorcache locked for reading
+func (p *EndpointPolicy) toMapState() {
+	p.L4Policy.Ingress.toMapState(p)
+	p.L4Policy.Egress.toMapState(p)
 }
 
-func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapState, l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
-	for _, filter := range l4PolicyMap {
+// Called with selectorcache locked for reading
+func (l4policy L4DirectionPolicy) toMapState(p *EndpointPolicy) {
+	for _, l4 := range l4policy.PortRules {
 		lookupDone := false
 		proxyport := uint16(0)
-		keysFromFilter := filter.ToMapState(p.PolicyOwner, direction, p.SelectorCache)
-		for keyFromFilter, entry := range keysFromFilter {
+		l4.toMapState(p, p.SelectorCache, l4policy.features, func(keyFromFilter Key, entry *MapStateEntry) bool {
 			// Fix up the proxy port for entries that need proxy redirection
 			if entry.IsRedirectEntry() {
 				if !lookupDone {
 					// only lookup once for each filter
 					// Use 'destPort' from the key as it is already resolved
 					// from a named port if needed.
-					proxyport = p.PolicyOwner.LookupRedirectPortLocked(filter.Ingress, string(filter.Protocol), keyFromFilter.DestPort)
+					proxyport = p.PolicyOwner.LookupRedirectPortLocked(l4.Ingress, string(l4.Protocol), keyFromFilter.DestPort)
 					lookupDone = true
 				}
 				entry.ProxyPort = proxyport
 				// If the currently allocated proxy port is 0, this is a new
 				// redirect, for which no port has been allocated yet. Ignore
 				// it for now. This will be configured by
-				// e.addNewRedirectsFromDesiredPolicy() once the port has been allocated.
+				// UpdateRedirects() once the port has been allocated.
 				if !entry.IsRedirectEntry() {
-					continue
+					return false
 				}
 			}
-			policyMapState.DenyPreferredInsert(keyFromFilter, entry, p.SelectorCache)
+			return true
+		}, ChangeState{})
+	}
+}
+
+type getProxyPortFunc func(*L4Filter) (proxyPort uint16, ok bool)
+
+// UpdateRedirects updates redirects in the EndpointPolicy's PolicyMapState by using the provided
+// function to obtain a proxy port number to use. Changes to 'p.PolicyMapState' are collected in
+// 'adds' and 'updated' so that they can be reverted when needed.
+func (p *EndpointPolicy) UpdateRedirects(ingress bool, identities Identities, getProxyPort getProxyPortFunc, changes ChangeState) {
+	l4policy := &p.L4Policy.Ingress
+	if ingress {
+		l4policy = &p.L4Policy.Egress
+	}
+
+	// Selectorcache needs to be locked for toMapState (GetLabels()) call
+	p.SelectorCache.mutex.RLock()
+	l4policy.updateRedirects(p, identities, getProxyPort, changes)
+	p.SelectorCache.mutex.RUnlock()
+}
+
+func (l4policy L4DirectionPolicy) updateRedirects(p *EndpointPolicy, identities Identities, getProxyPort getProxyPortFunc, changes ChangeState) {
+	for _, l4 := range l4policy.PortRules {
+		if l4.IsRedirect() {
+			// Check if we are denying this specific L4 first regardless the L3, if there are any deny policies
+			if l4policy.features.contains(denyRules) && p.PolicyMapState.deniesL4(p.PolicyOwner, l4) {
+				continue
+			}
+
+			redirectPort, ok := getProxyPort(l4)
+			if !ok {
+				continue
+			}
+
+			// Set the proxy port in the policy map.
+			l4.toMapState(p, identities, l4policy.features, func(_ Key, entry *MapStateEntry) bool {
+				if entry.IsRedirectEntry() {
+					entry.ProxyPort = redirectPort
+				}
+				return true
+			}, changes)
 		}
 	}
 }
@@ -202,7 +232,8 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapSt
 func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes Keys) {
 	p.selectorPolicy.SelectorCache.mutex.Lock()
 	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
-	return p.policyMapChanges.consumeMapChanges(p.PolicyMapState, p.SelectorCache)
+	features := p.selectorPolicy.L4Policy.Ingress.features | p.selectorPolicy.L4Policy.Egress.features
+	return p.policyMapChanges.consumeMapChanges(p.PolicyMapState, features, p.SelectorCache)
 }
 
 // AllowsIdentity returns whether the specified policy allows
@@ -239,6 +270,6 @@ func (p *EndpointPolicy) AllowsIdentity(identity identity.NumericIdentity) (ingr
 // NewEndpointPolicy returns an empty EndpointPolicy stub.
 func NewEndpointPolicy(repo *Repository) *EndpointPolicy {
 	return &EndpointPolicy{
-		selectorPolicy: newSelectorPolicy(0, repo.GetSelectorCache()),
+		selectorPolicy: newSelectorPolicy(repo.GetSelectorCache()),
 	}
 }

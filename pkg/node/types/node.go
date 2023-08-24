@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -351,6 +352,34 @@ func (n *Node) GetK8sNodeIP() net.IP {
 	return externalIP
 }
 
+// GetNodeInternalIP returns the Internal IPv4 of node or nil.
+func (n *Node) GetNodeInternalIPv4() net.IP {
+	for _, addr := range n.IPAddresses {
+		if addr.IP.To4() == nil {
+			continue
+		}
+		if addr.Type == addressing.NodeInternalIP {
+			return addr.IP
+		}
+	}
+
+	return nil
+}
+
+// GetNodeInternalIP returns the Internal IPv6 of node or nil.
+func (n *Node) GetNodeInternalIPv6() net.IP {
+	for _, addr := range n.IPAddresses {
+		if addr.IP.To4() != nil {
+			continue
+		}
+		if addr.Type == addressing.NodeInternalIP {
+			return addr.IP
+		}
+	}
+
+	return nil
+}
+
 // GetCiliumInternalIP returns the CiliumInternalIP e.g. the IP associated
 // with cilium_host on the node.
 func (n *Node) GetCiliumInternalIP(ipv6 bool) net.IP {
@@ -615,7 +644,23 @@ func (n *Node) Unmarshal(_ string, data []byte) error {
 		return err
 	}
 
+	if err := newNode.validate(); err != nil {
+		return err
+	}
+
 	*n = newNode
+
+	return nil
+}
+
+func (n *Node) validate() error {
+	// Skip the ClusterID check if it matches the local one, as we assume that
+	// it has already been validated, and to allow it to be zero.
+	if n.ClusterID != option.Config.ClusterID {
+		if err := cmtypes.ValidateClusterID(n.ClusterID); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

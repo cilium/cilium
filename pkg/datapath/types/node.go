@@ -106,6 +106,10 @@ type LocalNodeConfiguration struct {
 // implementation can differ between the own local node and remote nodes by
 // calling node.IsLocal().
 type NodeHandler interface {
+	// Name identifies the handler, this is used in logging/reporting handler
+	// reconciliation errors.
+	Name() string
+
 	// NodeAdd is called when a node is discovered for the first time.
 	NodeAdd(newNode nodeTypes.Node) error
 
@@ -116,6 +120,10 @@ type NodeHandler interface {
 
 	// NodeDelete is called after a node has been deleted
 	NodeDelete(node nodeTypes.Node) error
+
+	// AllNodeValidateImplementation is called to validate the implementation
+	// of all nodes in the node cache.
+	AllNodeValidateImplementation()
 
 	// NodeValidateImplementation is called to validate the implementation of
 	// the node in the datapath. This function is intended to be run on an
@@ -140,10 +148,6 @@ type NodeNeighbors interface {
 }
 
 type NodeIDHandler interface {
-	// AllocateNodeID allocates a new ID for the given node (by IP) if one wasn't
-	// already assigned.
-	AllocateNodeID(net.IP) uint16
-
 	// GetNodeIP returns the string node IP that was previously registered as the given node ID.
 	GetNodeIP(uint16) string
 

@@ -550,6 +550,8 @@ func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterSer
 		s.externalEndpoints[id] = externalEndpoints
 	}
 
+	oldEPs, _ := s.correlateEndpoints(id)
+
 	// The cluster the service belongs to will match the current one when dealing with external
 	// workloads (and in that case all endpoints shall be always present), and not match in the
 	// cluster-mesh case (where remote endpoints shall be used only if it is shared).
@@ -559,7 +561,14 @@ func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterSer
 		scopedLog.Debugf("Updating backends to %+v", service.Backends)
 		backends := map[cmtypes.AddrCluster]*Backend{}
 		for ipString, portConfig := range service.Backends {
-			backends[cmtypes.MustParseAddrCluster(ipString)] = &Backend{Ports: portConfig}
+			addr, err := cmtypes.ParseAddrCluster(ipString)
+			if err != nil {
+				scopedLog.WithField(logfields.IPAddr, ipString).
+					Error("Skipping service backend due to invalid IP address")
+				continue
+			}
+
+			backends[addr] = &Backend{Ports: portConfig}
 		}
 		externalEndpoints.endpoints[service.Cluster] = &Endpoints{
 			Backends: backends,
@@ -579,7 +588,7 @@ func (s *ServiceCache) mergeServiceUpdateLocked(service *serviceStore.ClusterSer
 			Service:      svc,
 			OldService:   oldService,
 			Endpoints:    endpoints,
-			OldEndpoints: endpoints,
+			OldEndpoints: oldEPs,
 			SWG:          swg,
 		}
 	}
@@ -619,6 +628,8 @@ func (s *ServiceCache) mergeExternalServiceDeleteLocked(service *serviceStore.Cl
 	if ok {
 		scopedLog.Debug("Deleting external endpoints")
 
+		oldEPs, _ := s.correlateEndpoints(id)
+
 		delete(externalEndpoints.endpoints, service.Cluster)
 		if len(externalEndpoints.endpoints) == 0 {
 			delete(s.externalEndpoints, id)
@@ -636,7 +647,7 @@ func (s *ServiceCache) mergeExternalServiceDeleteLocked(service *serviceStore.Cl
 				ID:           id,
 				Service:      svc,
 				Endpoints:    endpoints,
-				OldEndpoints: endpoints,
+				OldEndpoints: oldEPs,
 				SWG:          swg,
 			}
 

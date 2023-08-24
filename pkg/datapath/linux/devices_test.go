@@ -9,16 +9,23 @@ import (
 	"context"
 	"net"
 	"runtime"
+	"sort"
 	"time"
 
 	. "github.com/cilium/checkmate"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
+	"golang.org/x/exp/slices"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb2"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -75,28 +82,33 @@ func (s *DevicesSuite) TearDownTest(c *C) {
 
 func (s *DevicesSuite) TestDetect(c *C) {
 	s.withFixture(c, func() {
-		dm, err := NewDeviceManager()
-		c.Assert(err, IsNil)
-
 		option.Config.SetDevices([]string{})
 		option.Config.DirectRoutingDevice = ""
+		option.Config.EnableNodePort = true
 		option.Config.NodePortAcceleration = option.NodePortAccelerationDisabled
 
 		// No devices, nothing to detect.
+		dm, err := newDeviceManagerForTests()
+		c.Assert(err, IsNil)
+
 		devices, err := dm.Detect(false)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{})
+		dm.Stop()
 
 		// Node IP not set, can still detect. Direct routing device shouldn't be detected.
 		option.Config.EnableNodePort = true
 		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
 		nodeSetIP(nil)
 
+		dm, err = newDeviceManagerForTests()
+		c.Assert(err, IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "")
+		dm.Stop()
 
 		// Manually specified devices, no detection is performed
 		option.Config.EnableNodePort = true
@@ -104,6 +116,8 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(createDummy("dummy1", "192.168.1.1/24", false), IsNil)
 		option.Config.SetDevices([]string{"dummy0"})
 
+		dm, err = newDeviceManagerForTests()
+		c.Assert(err, IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0"})
@@ -120,6 +134,8 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		option.Config.EnableIPv4 = true
 		option.Config.EnableIPv6 = false
 		option.Config.RoutingMode = option.RoutingModeNative
+		dm, err = newDeviceManagerForTests()
+		c.Assert(err, IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2"})
@@ -127,6 +143,7 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy1")
 		option.Config.DirectRoutingDevice = ""
 		option.Config.SetDevices([]string{})
+		dm.Stop()
 
 		// Tunnel routing mode with XDP, should find all devices and set direct
 		// routing device to the one with k8s node ip.
@@ -137,6 +154,8 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		option.Config.EnableNodePort = true
 		option.Config.NodePortAcceleration = option.NodePortAccelerationNative
 
+		dm, err = newDeviceManagerForTests()
+		c.Assert(err, IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2"})
@@ -147,68 +166,90 @@ func (s *DevicesSuite) TestDetect(c *C) {
 		option.Config.SetDevices([]string{})
 		option.Config.NodePortAcceleration = option.NodePortAccelerationDisabled
 		option.Config.RoutingMode = option.RoutingModeNative
+		dm.Stop()
 
 		// Use IPv6 node IP and enable IPv6NDP and check that multicast device is detected.
-		// Use an excluded device name to verify that device with NodeIP is still picked.
 		option.Config.EnableIPv6 = true
 		option.Config.EnableIPv6NDP = true
-		c.Assert(createDummy("cilium_foo", "2001:db8::face/64", true), IsNil)
+		c.Assert(createDummy("dummy_v6", "2001:db8::face/64", true), IsNil)
 		nodeSetIP(nil)
 		nodeSetIP(net.ParseIP("2001:db8::face"))
+		dm, err = newDeviceManagerForTests()
+		c.Assert(err, IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
-		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2"})
+		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy_v6"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
-		c.Assert(option.Config.DirectRoutingDevice, checker.Equals, "cilium_foo")
-		c.Assert(option.Config.IPv6MCastDevice, checker.DeepEquals, "cilium_foo")
+		c.Assert(option.Config.DirectRoutingDevice, checker.Equals, "dummy_v6")
+		c.Assert(option.Config.IPv6MCastDevice, checker.DeepEquals, "dummy_v6")
 		option.Config.DirectRoutingDevice = ""
 		option.Config.SetDevices([]string{})
+		dm.Stop()
 
 		// Only consider veth devices if they have a default route.
 		c.Assert(createVeth("veth0", "192.168.4.1/24", false), IsNil)
+		dm, err = newDeviceManagerForTests()
+		c.Assert(err, IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
-		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2"})
+		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy_v6"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		option.Config.SetDevices([]string{})
+		dm.Stop()
 
 		c.Assert(addRoute(addRouteParams{iface: "veth0", gw: "192.168.4.254", table: unix.RT_TABLE_MAIN}), IsNil)
+		dm, err = newDeviceManagerForTests()
+		c.Assert(err, IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
-		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2", "veth0"})
+		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy_v6", "veth0"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		option.Config.SetDevices([]string{})
+		dm.Stop()
 
 		// Detect devices that only have routes in non-main tables
 		c.Assert(addRoute(addRouteParams{iface: "dummy3", dst: "192.168.3.1/24", scope: unix.RT_SCOPE_LINK, table: 11}), IsNil)
+		dm, err = newDeviceManagerForTests()
+		c.Assert(err, IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
-		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2", "dummy3", "veth0"})
+		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy3", "dummy_v6", "veth0"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		option.Config.SetDevices([]string{})
+		dm.Stop()
 
 		// Skip bridge devices, and devices added to the bridge
 		c.Assert(createBridge("br0", "192.168.5.1/24", false), IsNil)
+		dm, err = newDeviceManagerForTests()
+		c.Assert(err, IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
-		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2", "dummy3", "veth0"})
+		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy3", "dummy_v6", "veth0"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		option.Config.SetDevices([]string{})
+		dm.Stop()
 
 		c.Assert(setMaster("dummy3", "br0"), IsNil)
+		dm, err = newDeviceManagerForTests()
+		c.Assert(err, IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
-		c.Assert(devices, checker.DeepEquals, []string{"cilium_foo", "dummy0", "dummy1", "dummy2", "veth0"})
+		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1", "dummy2", "dummy_v6", "veth0"})
 		c.Assert(option.Config.GetDevices(), checker.DeepEquals, devices)
 		option.Config.SetDevices([]string{})
+		dm.Stop()
 
 		// Don't skip bond devices, but do skip bond slaves.
 		c.Assert(createBond("bond0", "192.168.6.1/24", false), IsNil)
 		c.Assert(setBondMaster("dummy2", "bond0"), IsNil)
+		dm, err = newDeviceManagerForTests()
+		c.Assert(err, IsNil)
 		devices, err = dm.Detect(true)
 		c.Assert(err, IsNil)
-		c.Assert(devices, checker.DeepEquals, []string{"bond0", "cilium_foo", "dummy0", "dummy1", "veth0"})
+		sort.Strings(devices)
+		c.Assert(devices, checker.DeepEquals, []string{"bond0", "dummy0", "dummy1", "dummy_v6", "veth0"})
 		option.Config.SetDevices([]string{})
+		dm.Stop()
 	})
 }
 
@@ -220,37 +261,52 @@ func (s *DevicesSuite) TestExpandDevices(c *C) {
 		c.Assert(createDummy("other1", "192.168.3.4/24", false), IsNil)
 		c.Assert(createDummy("unmatched", "192.168.4.5/24", false), IsNil)
 
-		dm, err := NewDeviceManager()
-		c.Assert(err, IsNil)
-
 		// 1. Check expansion works and non-matching prefixes are ignored
 		option.Config.SetDevices([]string{"dummy+", "missing+", "other0+" /* duplicates: */, "dum+", "other0", "other1"})
-		c.Assert(dm.expandDevices(), IsNil)
-		c.Assert(option.Config.GetDevices(), checker.DeepEquals, []string{"dummy0", "dummy1", "other0", "other1"})
+		dm, err := newDeviceManagerForTests()
+		c.Assert(err, IsNil)
+		devs, err := dm.Detect(true)
+		c.Assert(err, IsNil)
+		c.Assert(devs, checker.DeepEquals, []string{"dummy0", "dummy1", "other0", "other1"})
+		dm.Stop()
 
 		// 2. Check that expansion fails if devices are specified but yields empty expansion
 		option.Config.SetDevices([]string{"none+"})
-		c.Assert(dm.expandDevices(), NotNil)
+		dm, err = newDeviceManagerForTests()
+		c.Assert(err, IsNil)
+		_, err = dm.Detect(true)
+		c.Assert(err, NotNil)
+		dm.Stop()
 	})
 }
 
 func (s *DevicesSuite) TestExpandDirectRoutingDevice(c *C) {
 	s.withFixture(c, func() {
+		option.Config.EnableNodePort = true
+		option.Config.RoutingMode = option.RoutingModeNative
+
 		c.Assert(createDummy("dummy0", "192.168.0.1/24", false), IsNil)
 		c.Assert(createDummy("dummy1", "192.168.1.2/24", false), IsNil)
 		c.Assert(createDummy("unmatched", "192.168.4.5/24", false), IsNil)
-
-		dm, err := NewDeviceManager()
-		c.Assert(err, IsNil)
+		nodeSetIP(net.ParseIP("192.168.0.1"))
 
 		// 1. Check expansion works and non-matching prefixes are ignored
 		option.Config.DirectRoutingDevice = "dummy+"
-		c.Assert(dm.expandDirectRoutingDevice(), IsNil)
+		dm, err := newDeviceManagerForTests()
+		c.Assert(err, IsNil)
+		_, err = dm.Detect(true)
+		c.Assert(err, IsNil)
 		c.Assert(option.Config.DirectRoutingDevice, Equals, "dummy0")
+		dm.Stop()
 
 		// 2. Check that expansion fails if directRoutingDevice is specified but yields empty expansion
 		option.Config.DirectRoutingDevice = "none+"
-		c.Assert(dm.expandDirectRoutingDevice(), NotNil)
+		dm, err = newDeviceManagerForTests()
+		c.Assert(err, IsNil)
+		_, err = dm.Detect(true)
+		c.Assert(err, NotNil)
+		c.Assert(option.Config.DirectRoutingDevice, Equals, "")
+		dm.Stop()
 	})
 }
 
@@ -259,23 +315,30 @@ func (s *DevicesSuite) TestListenForNewDevices(c *C) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		timeout := time.After(time.Second)
+		timeout := time.After(10 * time.Second)
 
 		option.Config.SetDevices([]string{})
-		dm, err := NewDeviceManager()
+		option.Config.EnableNodePort = true
+		c.Assert(createDummy("dummy0", "192.168.1.2/24", false), IsNil)
+
+		dm, err := newDeviceManagerForTests()
 		c.Assert(err, IsNil)
+		defer dm.Stop()
+
+		initialDevices, err := dm.Detect(false)
+		c.Assert(err, IsNil)
+		c.Assert(initialDevices, checker.DeepEquals, []string{"dummy0"})
 
 		devicesChan, err := dm.Listen(ctx)
 		c.Assert(err, IsNil)
 
 		// Create the IPv4 & IPv6 devices that should be detected.
-		c.Assert(createDummy("dummy0", "192.168.1.2/24", false), IsNil)
 		c.Assert(createDummy("dummy1", "2001:db8::face/64", true), IsNil)
 
 		// Create another device without an IP address or routes. This should be ignored.
 		c.Assert(createDummy("dummy2", "", false), IsNil)
 
-		// Create a veth device which should be detected. veth devices are used in test
+		// Create a veth device with default route that should be detected. veth devices are used in test
 		// setups.
 		c.Assert(createVeth("veth0", "192.168.2.2/24", false), IsNil)
 		c.Assert(addRoute(addRouteParams{iface: "veth0", gw: "192.168.2.254", table: unix.RT_TABLE_MAIN}), IsNil)
@@ -288,10 +351,14 @@ func (s *DevicesSuite) TestListenForNewDevices(c *C) {
 		// this may span multiple callbacks.
 		passed := false
 		for !passed {
+			var devices []string
 			select {
 			case <-timeout:
-				c.Fatal("Test timed out")
-			case devices := <-devicesChan:
+				c.Fatalf("Test timed out, last devices seen: %v", devices)
+			case devices = <-devicesChan:
+				if slices.Equal(devices, initialDevices) {
+					c.Fatalf("Expected Listen() to not emit the initial devices")
+				}
 				passed, _ = checker.DeepEqual(devices, []string{"dummy0", "dummy1", "veth0"})
 			}
 		}
@@ -303,11 +370,12 @@ func (s *DevicesSuite) TestListenForNewDevices(c *C) {
 		c.Assert(err, IsNil)
 
 		for !passed {
+			var devices []string
 			select {
 			case <-timeout:
-				c.Fatal("Test timed out")
-			case devices := <-devicesChan:
-				passed, _ = checker.DeepEqual(devices, []string{"dummy1"})
+				c.Fatalf("Test timed out, last devices seen: %v", devices)
+			case devices = <-devicesChan:
+				passed, _ = checker.DeepEqual(devices, []string{"dummy1", "veth0"})
 			}
 		}
 	})
@@ -318,11 +386,12 @@ func (s *DevicesSuite) TestListenForNewDevicesFiltered(c *C) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		timeout := time.After(time.Second)
+		timeout := time.After(5 * time.Second)
 
 		option.Config.SetDevices([]string{"dummy+"})
-		dm, err := NewDeviceManager()
+		dm, err := newDeviceManagerForTests()
 		c.Assert(err, IsNil)
+		defer dm.Stop()
 
 		devicesChan, err := dm.Listen(ctx)
 		c.Assert(err, IsNil)
@@ -353,16 +422,16 @@ func (s *DevicesSuite) TestListenAfterDelete(c *C) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		timeout := time.After(time.Second)
+		timeout := time.After(time.Second * 5)
 
 		option.Config.SetDevices([]string{"dummy+"})
-		dm, err := NewDeviceManager()
-		c.Assert(err, IsNil)
-
 		c.Assert(createDummy("dummy0", "192.168.1.2/24", false), IsNil)
 		c.Assert(createDummy("dummy1", "2001:db8::face/64", true), IsNil)
 
 		// Detect the devices
+		dm, err := newDeviceManagerForTests()
+		c.Assert(err, IsNil)
+		defer dm.Stop()
 		devices, err := dm.Detect(true)
 		c.Assert(err, IsNil)
 		c.Assert(devices, checker.DeepEquals, []string{"dummy0", "dummy1"})
@@ -380,9 +449,10 @@ func (s *DevicesSuite) TestListenAfterDelete(c *C) {
 
 		passed := false
 		for !passed {
+			var devices []string
 			select {
 			case <-timeout:
-				c.Fatal("Test timed out")
+				c.Fatalf("Test timed out, last seen devices: %v", devices)
 			case devices := <-devicesChan:
 				passed, _ = checker.DeepEqual(devices, []string{"dummy0"})
 			}
@@ -393,6 +463,8 @@ func (s *DevicesSuite) TestListenAfterDelete(c *C) {
 func (s *DevicesSuite) withFixture(c *C, test func()) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+
+	logging.SetLogLevelToDebug()
 
 	testNetNS, err := netns.New() // creates netns, and sets it to current
 	c.Assert(err, IsNil)
@@ -434,6 +506,14 @@ func createLink(linkTemplate netlink.Link, iface, ipAddr string, flagMulticast b
 	return nil
 }
 
+func deleteLink(name string) error {
+	link, err := netlink.LinkByName(name)
+	if err != nil {
+		return err
+	}
+	return netlink.LinkDel(link)
+}
+
 func createDummy(iface, ipAddr string, flagMulticast bool) error {
 	return createLink(&netlink.Dummy{}, iface, ipAddr, flagMulticast)
 }
@@ -450,6 +530,14 @@ func createBond(iface, ipAddr string, flagMulticast bool) error {
 	bond := netlink.NewLinkBond(netlink.LinkAttrs{})
 	bond.Mode = netlink.BOND_MODE_BALANCE_RR
 	return createLink(bond, iface, ipAddr, flagMulticast)
+}
+
+func setLinkUp(iface string) error {
+	link, err := netlink.LinkByName(iface)
+	if err != nil {
+		return err
+	}
+	return netlink.LinkSetUp(link)
 }
 
 func setMaster(iface string, master string) error {
@@ -473,8 +561,8 @@ func setBondMaster(iface string, master string) error {
 	if err != nil {
 		return err
 	}
-
 	netlink.LinkSetDown(link)
+	defer netlink.LinkSetUp(link)
 	return netlink.LinkSetBondSlave(link, masterLink.(*netlink.Bond))
 }
 
@@ -567,4 +655,22 @@ func delRoutes(iface string) error {
 	}
 
 	return nil
+}
+
+func newDeviceManagerForTests() (dm *DeviceManager, err error) {
+	ns, _ := netns.Get()
+	h := hive.New(
+		statedb2.Cell,
+		tables.Cell,
+		DevicesControllerCell,
+		cell.Provide(func() DevicesConfig {
+			return DevicesConfig{Devices: option.Config.GetDevices()}
+		}),
+		cell.Provide(func() (*netlinkFuncs, error) { return makeNetlinkFuncs(ns) }),
+		cell.Invoke(func(dm_ *DeviceManager) {
+			dm = dm_
+		}))
+	err = h.Start(context.TODO())
+	dm.hive = h
+	return
 }

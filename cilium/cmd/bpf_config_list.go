@@ -75,6 +75,6 @@ func printEntries(entries []configEntry) {
 }
 
 func init() {
-	bpfConfigCmd.AddCommand(bpfConfigListCmd)
+	BPFConfigCmd.AddCommand(bpfConfigListCmd)
 	command.AddOutputOption(bpfConfigListCmd)
 }

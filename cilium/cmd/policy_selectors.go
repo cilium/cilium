@@ -51,6 +51,6 @@ var policyCacheGetCmd = &cobra.Command{
 }
 
 func init() {
-	policyCmd.AddCommand(policyCacheGetCmd)
+	PolicyCmd.AddCommand(policyCacheGetCmd)
 	command.AddOutputOption(policyCacheGetCmd)
 }

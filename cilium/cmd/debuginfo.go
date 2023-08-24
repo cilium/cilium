@@ -87,7 +87,7 @@ var sections = map[string]addSection{
 }
 
 func init() {
-	rootCmd.AddCommand(debuginfoCmd)
+	RootCmd.AddCommand(debuginfoCmd)
 	debuginfoCmd.Flags().BoolVarP(&outputToFile, "file", "f", false, "Redirect output to file(s)")
 	debuginfoCmd.Flags().BoolVarP(&filePerCommand, "file-per-command", "", false, "Generate a single file per command")
 	debuginfoCmd.Flags().StringSliceVar(&outputOpts, "output", []string{}, "markdown| html| json| jsonpath='{}'")
@@ -323,7 +323,7 @@ func addEncryption(w *tabwriter.Writer, p *models.DebugInfo) {
 	printMD(w, "Cilium encryption\n", "")
 
 	if p.Encryption != nil && p.Encryption.Wireguard != nil {
-		fmt.Fprint(w, "##### Wireguard\n\n")
+		fmt.Fprint(w, "##### WireGuard\n\n")
 		printTicks(w)
 		for _, wg := range p.Encryption.Wireguard.Interfaces {
 			fmt.Fprintf(w, "interface: %s\n", wg.Name)
@@ -364,7 +364,6 @@ func writeJSONPathToOutput(buf bytes.Buffer, path string, suffix string, jsonPat
 	writeFile([]byte(jsonStr), fileName)
 
 	fmt.Printf("%s output at %s\n", jsonpathOutput, fileName)
-	return
 }
 
 func writeToOutput(buf bytes.Buffer, output outputType, path string, suffix string) {

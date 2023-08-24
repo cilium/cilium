@@ -5,6 +5,7 @@ package srv6map
 
 import (
 	"fmt"
+	"net"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -27,13 +28,22 @@ type SIDKey struct {
 }
 
 func (k *SIDKey) String() string {
-	return fmt.Sprintf("%s", k.SID)
+	return k.SID.String()
 }
 
 func NewSIDKey(sid types.IPv6) SIDKey {
 	result := SIDKey{}
 	result.SID = sid
 	return result
+}
+
+func NewSIDKeyFromIP(ip *net.IP) (*SIDKey, error) {
+	if ip.To4() != nil {
+		return nil, fmt.Errorf("ip must be an IPv6 address")
+	}
+	result := &SIDKey{}
+	copy(result.SID[:], []byte(*ip))
+	return result, nil
 }
 
 type SIDValue struct {
@@ -81,6 +91,15 @@ func CreateSIDMap() error {
 
 func OpenSIDMap() error {
 	return initSIDMap(false)
+}
+
+func (m *srv6SIDMap) Update(key SIDKey, vrfID uint32) error {
+	val := SIDValue{VRFID: vrfID}
+	return m.Map.Update(key, val, 0)
+}
+
+func (m *srv6SIDMap) Delete(key SIDKey) error {
+	return m.Map.Delete(key)
 }
 
 // SRv6SIDIterateCallback represents the signature of the callback function

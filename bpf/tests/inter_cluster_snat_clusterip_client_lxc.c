@@ -65,6 +65,10 @@
 /* Include an actual datapath code */
 #include <bpf_lxc.c>
 
+#include "lib/ipcache.h"
+#include "lib/lb.h"
+#include "lib/policy.h"
+
 /*
  * Tests
  */
@@ -89,31 +93,17 @@ pktgen_from_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)CLIENT_MAC, (__u8 *)CLIENT_ROUTER_MAC);
-
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = CLIENT_IP;
-	l3->daddr = FRONTEND_IP;
-
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)CLIENT_MAC, (__u8 *)CLIENT_ROUTER_MAC,
+					  CLIENT_IP, FRONTEND_IP,
+					  CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
-	l4->source = CLIENT_PORT;
-	l4->dest = FRONTEND_PORT;
 	l4->syn = syn ? 1 : 0;
 	l4->ack = ack ? 1 : 0;
 
@@ -131,31 +121,18 @@ pktgen_to_lxc(struct __ctx_buff *ctx, bool syn, bool ack)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)BACKEND_ROUTER_MAC, (__u8 *)CLIENT_MAC);
-
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = BACKEND_IP;
-	l3->daddr = CLIENT_IP;
-
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)BACKEND_ROUTER_MAC,
+					  (__u8 *)CLIENT_MAC,
+					  BACKEND_IP, CLIENT_IP,
+					  BACKEND_PORT, CLIENT_PORT);
 	if (!l4)
 		return TEST_ERROR;
 
-	l4->source = BACKEND_PORT;
-	l4->dest = CLIENT_PORT;
 	l4->syn = syn ? 1 : 0;
 	l4->ack = ack ? 1 : 0;
 
@@ -177,73 +154,16 @@ int lxc_to_overlay_syn_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "01_lxc_to_overlay_syn")
 int lxc_to_overlay_syn_setup(struct __ctx_buff *ctx)
 {
-	struct lb4_key lb_svc_key = {
-		.address = FRONTEND_IP,
-		.dport = FRONTEND_PORT,
-		.scope = LB_LOOKUP_SCOPE_EXT,
-	};
-	struct lb4_service lb_svc_value = {
-		.count = 1,
-		.rev_nat_index = 1,
-	};
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
 
-	lb_svc_key.backend_slot = 1;
-	lb_svc_value.backend_id = 1;
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
+	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, 1);
+	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 1,
+			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP,
+			  BACKEND_CLUSTER_ID);
 
-	struct lb4_reverse_nat revnat_value = {
-		.address = FRONTEND_IP,
-		.port = FRONTEND_PORT,
-	};
-	map_update_elem(&LB4_REVERSE_NAT_MAP, &lb_svc_value.rev_nat_index, &revnat_value, BPF_ANY);
+	ipcache_v4_add_entry(BACKEND_IP, BACKEND_CLUSTER_ID, BACKEND_IDENTITY,
+			     BACKEND_NODE_IP, 0);
 
-	struct lb4_backend backend = {
-		.address = BACKEND_IP,
-		.port = BACKEND_PORT,
-		.proto = IPPROTO_TCP,
-		.flags = BE_STATE_ACTIVE,
-
-		/* Encode cluster_id into backend. So that we can distinguish
-		 * the backends localted in the different clusters, but has
-		 * exactly the same IP.
-		 */
-		.cluster_id = BACKEND_CLUSTER_ID,
-	};
-	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
-
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(V4_CACHE_KEY_LEN),
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP,
-
-		/* Encode cluster_id into ipcache key. So that we can lookup
-		 * for the IP/Prefix located in the different clusters, but
-		 * overlapping.
-		 */
-		.cluster_id = BACKEND_CLUSTER_ID
-	};
-	struct remote_endpoint_info cache_value = {
-		.sec_identity = BACKEND_IDENTITY,
-
-		/* Assuming node IP is unique for now */
-		.tunnel_endpoint = BACKEND_NODE_IP,
-	};
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
-
-	struct policy_key policy_key = {
-		/* Policy enforcement is identity based. So, if above ipcache
-		 * lookup work correctly, this should work as well.
-		 */
-		.sec_label = BACKEND_IDENTITY,
-		.dport = BACKEND_PORT,
-		.protocol = IPPROTO_TCP,
-		.egress = 1,
-	};
-	struct policy_entry policy_value = {
-		.deny = 0,
-	};
-	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);
+	policy_add_egress_allow_entry(BACKEND_IDENTITY, IPPROTO_TCP, BACKEND_PORT);
 
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
 

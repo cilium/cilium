@@ -7,12 +7,74 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/lock/lockfile"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/promise"
 )
+
+var deletionQueueCell = cell.Group(
+	cell.Provide(newDeletionQueue),
+	cell.Invoke(unlockAfterAPIServer),
+)
+
+type deletionQueue struct {
+	lf            *lockfile.Lockfile
+	daemonPromise promise.Promise[*Daemon]
+}
+
+func (dq *deletionQueue) Start(ctx hive.HookContext) error {
+	d, err := dq.daemonPromise.Await(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := dq.lock(ctx); err != nil {
+		return err
+	}
+
+	bootstrapStats.deleteQueue.Start()
+	err = dq.processQueuedDeletes(d, ctx)
+	bootstrapStats.deleteQueue.EndError(err)
+	return err
+
+}
+
+func (dq *deletionQueue) Stop(ctx hive.HookContext) error {
+	return nil
+}
+
+func newDeletionQueue(lc hive.Lifecycle, p promise.Promise[*Daemon]) *deletionQueue {
+	dq := &deletionQueue{daemonPromise: p}
+	lc.Append(dq)
+	return dq
+}
+
+func (dq *deletionQueue) lock(ctx context.Context) error {
+	if err := os.MkdirAll(defaults.DeleteQueueDir, 0755); err != nil {
+		log.WithError(err).WithField(logfields.Path, defaults.DeleteQueueDir).Error("Failed to ensure CNI deletion queue directory exists")
+		return nil
+	}
+
+	var err error
+	dq.lf, err = lockfile.NewLockfile(defaults.DeleteQueueLockfile)
+	if err != nil {
+		log.WithError(err).WithField(logfields.Path, defaults.DeleteQueueLockfile).Warn("Failed to lock queued deletion directory, proceeding anyways. This may cause CNI deletions to be missed.")
+	} else {
+		err = dq.lf.Lock(ctx, true)
+		if err != nil {
+			log.WithError(err).WithField(logfields.Path, defaults.DeleteQueueLockfile).Warn("Failed to lock queued deletion directory, proceeding anyways. This may cause CNI deletions to be missed.")
+			dq.lf.Close()
+			dq.lf = nil
+		}
+	}
+	return nil
+}
 
 // processQueuedDeletes is the agent-side of the identity deletion queue.
 // The CNI plugin queues deletions when the agent is down, because
@@ -24,63 +86,67 @@ import (
 // all deletions. Then, we start up the agent server, then drop the lock.
 // Any CNI processes waiting in that period of time will, after getting
 // the lock.
-//
-// Returns a done function that drops the lock. It should be called
-// after the server is running.
-func (d *Daemon) processQueuedDeletes() func() {
-	if err := os.MkdirAll(defaults.DeleteQueueDir, 0755); err != nil {
-		log.WithError(err).WithField(logfields.Path, defaults.DeleteQueueDir).Error("Failed to ensure CNI deletion queue directory exists")
-		return func() {}
-	}
-
-	log.Infof("Processing queued endpoint deletion requests from %s", defaults.DeleteQueueDir)
-
-	var lf *lockfile.Lockfile
-	locked := false
-
-	unlock := func() {
-		if lf != nil && locked {
-			lf.Unlock()
-		}
-		if lf != nil {
-			lf.Close()
-		}
-	}
-
-	lf, err := lockfile.NewLockfile(defaults.DeleteQueueLockfile)
-	if err != nil {
-		log.WithError(err).WithField(logfields.Path, defaults.DeleteQueueLockfile).Warn("Failed to lock queued deletion directory, proceeding anyways. This may cause CNI deletions to be missed.")
-	} else {
-		ctx, cancel := context.WithTimeout(d.ctx, 10*time.Second)
-		defer cancel()
-		err = lf.Lock(ctx, true)
-		if err != nil {
-			log.WithError(err).WithField(logfields.Path, defaults.DeleteQueueLockfile).Warn("Failed to lock queued deletion directory, proceeding anyways. This may cause CNI deletions to be missed.")
-		} else {
-			locked = true
-		}
-	}
-
-	// OK, we have the lock; process the deletes
+func (dq *deletionQueue) processQueuedDeletes(d *Daemon, ctx context.Context) error {
 	files, err := filepath.Glob(defaults.DeleteQueueDir + "/*.delete")
 	if err != nil {
 		log.WithError(err).WithField(logfields.Path, defaults.DeleteQueueDir).Error("Failed to list queued CNI deletion requests. CNI deletions may be missed.")
 	}
 
-	log.Infof("processing %d queued deletion requests", len(files))
+	log.Infof("Processing %d queued deletion requests", len(files))
+
 	for _, file := range files {
-		// get the container id
-		epID, err := os.ReadFile(file)
+		err = d.processQueuedDeleteEntryLocked(file)
 		if err != nil {
 			log.WithError(err).WithField(logfields.Path, file).Error("Failed to read queued CNI deletion entry. Endpoint will not be deleted.")
-		} else {
-			_, _ = d.DeleteEndpoint(string(epID)) // this will log errors elsewhere
 		}
 
 		if err := os.Remove(file); err != nil {
-			log.WithError(err).WithField(logfields.Path, file).Error("Failed to remve queued CNI deletion entry, but deletion was successful.")
+			log.WithError(err).WithField(logfields.Path, file).Error("Failed to remove queued CNI deletion entry, but deletion was successful.")
 		}
 	}
 
-	return unlock
+	return nil
+}
+
+// unlockAfterAPIServer registers a start hook that runs after API server
+// has started and the deletion queue has been drained to unlock the
+// delete queue and thus allow CNI plugin to proceed.
+func unlockAfterAPIServer(lc hive.Lifecycle, _ *server.Server, dq *deletionQueue) {
+	lc.Append(hive.Hook{
+		OnStart: func(hive.HookContext) error {
+			if dq.lf != nil {
+				dq.lf.Unlock()
+				dq.lf.Close()
+			}
+			return nil
+		},
+	})
+}
+
+// processQueuedDeleteEntry processes the contents of the deletion queue entry
+// in file. Requires the caller to hold the deletion queue lock.
+func (d *Daemon) processQueuedDeleteEntryLocked(file string) error {
+	contents, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+
+	// Attempt to parse contents as a batch deletion request
+	var req models.EndpointBatchDeleteRequest
+	err = req.UnmarshalBinary(contents)
+	if err != nil {
+		// fall back on treating the file contents as an endpoint id (legacy behavior)
+		epID := string(contents)
+		log.
+			WithError(err).
+			WithField(logfields.EndpointID, epID).
+			Debug("Falling back on legacy deletion queue format")
+		_, _ = d.DeleteEndpoint(epID) // this will log errors elsewhere
+		return nil
+	}
+
+	// As with DeleteEndpoint, errors are logged elsewhere
+	_, _ = d.deleteEndpointByContainerID(req.ContainerID)
+
+	return nil
 }

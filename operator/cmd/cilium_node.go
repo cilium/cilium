@@ -34,6 +34,11 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
+var (
+	ccnpNodeGCControllerGroup = controller.NewGroup("cilium-clusterwide-network-policy-node-gc")
+	cnpNodeGCControllerGroup  = controller.NewGroup("cilium-network-policy-node-gc")
+)
+
 // ciliumNodeName is only used to implement NamedKey interface.
 type ciliumNodeName struct {
 	cluster string
@@ -78,7 +83,6 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 		connectedToKVStore     = make(chan struct{})
 
 		resourceEventHandler   = cache.ResourceEventHandlerFuncs{}
-		ciliumNodeConvertFunc  = k8s.TransformToCiliumNode
 		ciliumNodeManagerQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 		kvStoreQueue           = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	)
@@ -183,8 +187,8 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if oldNode := k8s.ObjToCiliumNode(oldObj); oldNode != nil {
-					if newNode := k8s.ObjToCiliumNode(newObj); newNode != nil {
+				if oldNode := k8s.CastInformerEvent[cilium_v2.CiliumNode](oldObj); oldNode != nil {
+					if newNode := k8s.CastInformerEvent[cilium_v2.CiliumNode](newObj); newNode != nil {
 						if oldNode.DeepEqual(newNode) {
 							return
 						}
@@ -220,10 +224,6 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 				}
 			},
 		}
-	} else {
-		// Since we won't be handling any events we don't need to convert
-		// objects.
-		ciliumNodeConvertFunc = nil
 	}
 
 	// TODO: The operator is currently storing a full copy of the
@@ -235,7 +235,7 @@ func (s *ciliumNodeSynchronizer) Start(ctx context.Context, wg *sync.WaitGroup) 
 		&cilium_v2.CiliumNode{},
 		0,
 		resourceEventHandler,
-		ciliumNodeConvertFunc,
+		nil,
 	)
 
 	wg.Add(1)
@@ -383,6 +383,13 @@ func RunCNPNodeStatusGC(ctx context.Context, wg *sync.WaitGroup, clientset k8sCl
 	runCNPNodeStatusGC("ccnp-node-gc", true, ctx, wg, clientset, nodeStore)
 }
 
+func npControllerNameToGroup(name string) controller.Group {
+	if strings.HasPrefix(name, "ccnp") {
+		return ccnpNodeGCControllerGroup
+	}
+	return cnpNodeGCControllerGroup
+}
+
 // runCNPNodeStatusGC runs the node status garbage collector for cilium network
 // policies. The policy corresponds to CiliumClusterwideNetworkPolicy if the clusterwide
 // parameter is true and CiliumNetworkPolicy otherwise.
@@ -410,6 +417,7 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ctx context.Context, wg *
 
 	mgr.UpdateController(name,
 		controller.ControllerParams{
+			Group:       npControllerNameToGroup(name),
 			RunInterval: operatorOption.Config.CNPNodeStatusGCInterval,
 			StopFunc: func(context.Context) error {
 				close(removeNodeFromCNP)

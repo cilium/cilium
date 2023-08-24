@@ -27,7 +27,7 @@ var recorderListCmd = &cobra.Command{
 }
 
 func init() {
-	recorderCmd.AddCommand(recorderListCmd)
+	RecorderCmd.AddCommand(recorderListCmd)
 	command.AddOutputOption(recorderListCmd)
 }
 

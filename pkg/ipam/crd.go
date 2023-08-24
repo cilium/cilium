@@ -233,6 +233,14 @@ func deriveVpcCIDRs(node *ciliumv2.CiliumNode) (primaryCIDR *cidr.CIDR, secondar
 		c, err := cidr.ParseCIDR(node.Spec.AlibabaCloud.CIDRBlock)
 		if err == nil {
 			primaryCIDR = c
+		}
+		for _, eni := range node.Status.AlibabaCloud.ENIs {
+			for _, sc := range eni.VPC.SecondaryCIDRs {
+				c, err = cidr.ParseCIDR(sc)
+				if err == nil {
+					secondaryCIDRs = append(secondaryCIDRs, c)
+				}
+			}
 			return
 		}
 	}

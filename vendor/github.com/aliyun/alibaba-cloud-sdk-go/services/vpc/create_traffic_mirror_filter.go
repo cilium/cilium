@@ -76,6 +76,7 @@ type CreateTrafficMirrorFilterRequest struct {
 	IngressRules                   *[]CreateTrafficMirrorFilterIngressRules `position:"Query" name:"IngressRules"  type:"Repeated"`
 	TrafficMirrorFilterName        string                                   `position:"Query" name:"TrafficMirrorFilterName"`
 	ResourceGroupId                string                                   `position:"Query" name:"ResourceGroupId"`
+	Tag                            *[]CreateTrafficMirrorFilterTag          `position:"Query" name:"Tag"  type:"Repeated"`
 	EgressRules                    *[]CreateTrafficMirrorFilterEgressRules  `position:"Query" name:"EgressRules"  type:"Repeated"`
 	DryRun                         requests.Boolean                         `position:"Query" name:"DryRun"`
 	ResourceOwnerAccount           string                                   `position:"Query" name:"ResourceOwnerAccount"`
@@ -93,6 +94,12 @@ type CreateTrafficMirrorFilterIngressRules struct {
 	Priority             string `name:"Priority"`
 	DestinationCidrBlock string `name:"DestinationCidrBlock"`
 	SourcePortRange      string `name:"SourcePortRange"`
+}
+
+// CreateTrafficMirrorFilterTag is a repeated param struct in CreateTrafficMirrorFilterRequest
+type CreateTrafficMirrorFilterTag struct {
+	Key   string `name:"Key"`
+	Value string `name:"Value"`
 }
 
 // CreateTrafficMirrorFilterEgressRules is a repeated param struct in CreateTrafficMirrorFilterRequest

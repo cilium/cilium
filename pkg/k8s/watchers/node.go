@@ -14,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -35,11 +34,8 @@ type NodeUpdate interface {
 }
 
 func nodeEventsAreEqual(oldNode, newNode *slim_corev1.Node) bool {
-	if !comparator.MapStringEquals(oldNode.GetLabels(), newNode.GetLabels()) {
-		return false
-	}
-
-	return true
+	return comparator.MapStringEquals(oldNode.GetLabels(), newNode.GetLabels()) &&
+		comparator.MapStringEquals(oldNode.GetAnnotations(), newNode.GetAnnotations())
 }
 
 func (k *K8sWatcher) NodesInit(k8sClient client.Clientset) {
@@ -79,15 +75,13 @@ func (k *K8sWatcher) nodeEventLoop(synced *atomic.Bool, swg *lock.StoppableWaitG
 			case resource.Upsert:
 				newNode := event.Object
 				if oldNode == nil {
-					k.K8sEventReceived(apiGroup, metricNode, resources.MetricCreate, true, false)
+					k.k8sResourceSynced.SetEventTimestamp(apiGroup)
 					errs = k.NodeChain.OnAddNode(newNode, swg)
-					k.K8sEventProcessed(metricNode, resources.MetricCreate, errs == nil)
 				} else {
 					equal := nodeEventsAreEqual(oldNode, newNode)
-					k.K8sEventReceived(apiGroup, metricNode, resources.MetricUpdate, true, equal)
+					k.k8sResourceSynced.SetEventTimestamp(apiGroup)
 					if !equal {
 						errs = k.NodeChain.OnUpdateNode(oldNode, newNode, swg)
-						k.K8sEventProcessed(metricNode, resources.MetricUpdate, errs == nil)
 					}
 				}
 				oldNode = newNode
@@ -130,11 +124,8 @@ func NewCiliumNodeUpdater(kvStoreNodeUpdater NodeUpdate) *ciliumNodeUpdater {
 }
 
 func (u *ciliumNodeUpdater) OnAddNode(newNode *slim_corev1.Node, swg *lock.StoppableWaitGroup) error {
-	// We don't need to run OnAddNode because Cilium will fetch the state from
-	// k8s upon initialization and will populate the KVStore [1] node with this
-	// information or create a Cilium Node CR [2].
-	// [1] https://github.com/cilium/cilium/blob/2bea69a54a00f10bec093347900cc66395269154/daemon/cmd/daemon.go#L1102
-	// [2] https://github.com/cilium/cilium/blob/2bea69a54a00f10bec093347900cc66395269154/daemon/cmd/daemon.go#L864-L868
+	u.updateCiliumNode(newNode)
+
 	return nil
 }
 

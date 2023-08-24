@@ -35,7 +35,7 @@ func EnableMapPreAllocation() {
 // take effect in that case. Also note that this does not take effect on
 // existing map although could be recreated later when objCheck() runs.
 func DisableMapPreAllocation() {
-	atomic.StoreUint32(&preAllocateMapSetting, 1)
+	atomic.StoreUint32(&preAllocateMapSetting, BPF_F_NO_PREALLOC)
 }
 
 // GetPreAllocateMapFlags returns the map flags for map which use conditional

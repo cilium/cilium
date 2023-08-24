@@ -6,22 +6,21 @@ package agent
 import (
 	"context"
 	"fmt"
-	"net/netip"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/workerpool"
 
+	"github.com/cilium/cilium/pkg/bgpv1/agent/signaler"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/ip"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimlabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slimmetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	nodeaddr "github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -34,82 +33,6 @@ var (
 	// multiple policies which apply to its host.
 	ErrMultiplePolicies = fmt.Errorf("more then one CiliumBGPPeeringPolicy applies to this node, please ensure only a single Policy matches this node's labels")
 )
-
-// Signaler multiplexes multiple event sources into a single level-triggered
-// event.
-//
-// Signaler should always be constructed with a channel of size 1.
-//
-// Use of a Signaler allows for bursts of events to be "rolled-up".
-// This is a suitable approach since the Controller checks the entire state of
-// the world on each iteration of its control loop.
-//
-// Additionally, this precludes any need for ordering between different event
-// sources.
-type Signaler struct {
-	Sig chan struct{}
-}
-
-// NewSignaler constructs a Signaler
-func NewSignaler() Signaler {
-	return Signaler{
-		Sig: make(chan struct{}, 1),
-	}
-}
-
-// Event adds an edge triggered event to the Signaler.
-//
-// A controller which uses this Signaler will be notified of this event some
-// time after.
-//
-// This signature adheres to the common event handling signatures of
-// cache.ResourceEventHandlerFuncs for convenience.
-func (s Signaler) Event(_ interface{}) {
-	select {
-	case s.Sig <- struct{}{}:
-	default:
-	}
-}
-
-// ControlPlaneState captures a subset of Cilium's runtime state.
-//
-// This state carries information interesting to various BGP sub-systems
-// and provides a contract for information a sub-system will be provided
-// about Cilium's runtime state.
-//
-// ControlPlaneState should be a point-in-time snapshot of Cilium's runtime
-// state and remain read-only to all sub systems its passed to.
-type ControlPlaneState struct {
-	// A list of configured PodCIDRs for the current Node.
-	PodCIDRs []string
-	// Parsed 'cilium.io/bgp-virtual-router' annotations of the the node this
-	// control plane is running on.
-	Annotations AnnotationMap
-	// The current IPv4 address of the agent, reachable externally.
-	IPv4 netip.Addr
-	// The current IPv6 address of the agent, reachable externally.
-	IPv6 netip.Addr
-	// The current node name
-	CurrentNodeName string
-}
-
-// ResolveRouterID resolves router ID, if we have an annotation and it can be
-// parsed into a valid ipv4 address use it. If not, determine if Cilium is
-// configured with an IPv4 address, if so use it. If neither, return an error,
-// we cannot assign an router ID.
-func (cstate *ControlPlaneState) ResolveRouterID(localASN int64) (string, error) {
-	if _, ok := cstate.Annotations[localASN]; ok {
-		if parsed, err := netip.ParseAddr(cstate.Annotations[localASN].RouterID); err == nil && !parsed.IsUnspecified() {
-			return parsed.String(), nil
-		}
-	}
-
-	if !cstate.IPv4.IsUnspecified() {
-		return cstate.IPv4.String(), nil
-	}
-
-	return "", fmt.Errorf("router id not specified by annotation and no IPv4 address assigned by cilium, cannot resolve router id for virtual router with local ASN %v", localASN)
-}
 
 type policyLister interface {
 	List() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error)
@@ -126,7 +49,7 @@ func (plf policyListerFunc) List() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error
 // Controller listens for events and drives BGP related sub-systems
 // to maintain a desired state.
 type Controller struct {
-	NodeSpec nodeSpecer
+	LocalNodeStore *node.LocalNodeStore
 	// PolicyResource provides a store of cached policies and allows us to observe changes to the objects in its
 	// store.
 	PolicyResource resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
@@ -139,7 +62,7 @@ type Controller struct {
 	// when it occurs the Controller will query each
 	// informer for the latest API information required
 	// to drive it's control loop.
-	Sig Signaler
+	Sig *signaler.BGPCPSignaler
 	// BGPMgr is an implementation of the BGPRouterManager interface
 	// and provides a declarative API for configuring BGP peers.
 	BGPMgr BGPRouterManager
@@ -152,11 +75,12 @@ type ControllerParams struct {
 	cell.In
 
 	Lifecycle      hive.Lifecycle
-	Sig            Signaler
+	Shutdowner     hive.Shutdowner
+	Sig            *signaler.BGPCPSignaler
 	RouteMgr       BGPRouterManager
 	PolicyResource resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
 	DaemonConfig   *option.DaemonConfig
-	NodeSpec       nodeSpecer
+	LocalNodeStore *node.LocalNodeStore
 }
 
 // NewController constructs a new BGP Control Plane Controller.
@@ -178,7 +102,7 @@ func NewController(params ControllerParams) (*Controller, error) {
 		Sig:            params.Sig,
 		BGPMgr:         params.RouteMgr,
 		PolicyResource: params.PolicyResource,
-		NodeSpec:       params.NodeSpec,
+		LocalNodeStore: params.LocalNodeStore,
 	}
 
 	params.Lifecycle.Append(&c)
@@ -238,9 +162,6 @@ func (c *Controller) Stop(ctx hive.HookContext) error {
 
 // Run places the Controller into its control loop.
 //
-// Kubernetes shared informers are started just before entering the long running
-// loop.
-//
 // When new events trigger a signal the control loop will be evaluated.
 //
 // A cancel of the provided ctx will kill the control loop along with the running
@@ -251,7 +172,12 @@ func (c *Controller) Run(ctx context.Context) {
 			"component": "Controller.Run",
 		})
 	)
-	l.Debug("Starting informers")
+	l.Info("Starting LocalNodeStore Observer")
+
+	// setup a reconciliation trigger on LocalNodeStore changes
+	c.LocalNodeStore.Observe(ctx, func(node node.LocalNode) { c.Sig.Event(struct{}{}) }, func(err error) {
+		l.WithError(err).Info("LocalNodeStore observe has yielded. Reconciliation will no longer be triggered for LocalNode changes")
+	})
 
 	// add an initial signal to kick things off
 	c.Sig.Event(struct{}{})
@@ -278,7 +204,8 @@ func (c *Controller) Run(ctx context.Context) {
 //
 // Policy selection follows the following rules:
 //   - A policy matches a node if said policy's "nodeSelector" field matches
-//     the node's labels
+//     the node's labels. If "nodeSelector" is omitted, it is unconditionally
+//     selected.
 //   - If (N > 1) policies match the provided *corev1.Node an error is returned.
 //     only a single policy may apply to a node to avoid ambiguity at this stage
 //     of development.
@@ -287,11 +214,10 @@ func PolicySelection(ctx context.Context, labels map[string]string, policies []*
 		l = log.WithFields(logrus.Fields{
 			"component": "PolicySelection",
 		})
-	)
-	// determine which policies match our node's labels.
-	var (
-		selected   *v2alpha1api.CiliumBGPPeeringPolicy
-		slimLabels = slimlabels.Set(labels)
+
+		// determine which policies match our node's labels.
+		selectedPolicy *v2alpha1api.CiliumBGPPeeringPolicy
+		slimLabels     = slimlabels.Set(labels)
 	)
 
 	// range over policies and see if any match this node's labels.
@@ -300,26 +226,38 @@ func PolicySelection(ctx context.Context, labels map[string]string, policies []*
 	// one policy applies to a node, we disconnect from all BGP peers and log
 	// an error.
 	for _, policy := range policies {
-		nodeSelector, err := slimmetav1.LabelSelectorAsSelector(policy.Spec.NodeSelector)
-		if err != nil {
-			l.WithError(err).Error("Failed to convert CiliumBGPPeeringPolicy's NodeSelector to a label.Selector interface")
-			continue
-		}
+		var selected bool
+
 		l.WithFields(logrus.Fields{
-			"policyNodeSelector": nodeSelector.String(),
+			"policyName":         policy.Name,
 			"nodeLabels":         slimLabels,
+			"policyNodeSelector": policy.Spec.NodeSelector.String(),
 		}).Debug("Comparing BGP policy node selector with node's labels")
-		if nodeSelector.Matches(slimLabels) {
-			if selected != nil {
+
+		if policy.Spec.NodeSelector == nil {
+			selected = true
+		} else {
+			nodeSelector, err := slimmetav1.LabelSelectorAsSelector(policy.Spec.NodeSelector)
+			if err != nil {
+				l.WithError(err).Error("Failed to convert CiliumBGPPeeringPolicy's NodeSelector to a label.Selector interface")
+				continue
+			}
+			if nodeSelector.Matches(slimLabels) {
+				selected = true
+			}
+		}
+
+		if selected {
+			if selectedPolicy != nil {
 				return nil, ErrMultiplePolicies
 			}
-			selected = policy
+			selectedPolicy = policy
 		}
 	}
 
 	// no policy was discovered, tell router manager to withdrawal peers if they
 	// are configured.
-	return selected, nil
+	return selectedPolicy, nil
 }
 
 // Reconcile is the control loop for the Controller.
@@ -339,6 +277,11 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		})
 	)
 
+	localNode, err := c.LocalNodeStore.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve local node: %w", err)
+	}
+
 	// retrieve all CiliumBGPPeeringPolicies
 	policies, err := c.PolicyLister.List()
 	if err != nil {
@@ -347,10 +290,7 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 	l.WithField("count", len(policies)).Debug("Successfully listed CiliumBGPPeeringPolicies")
 
 	// perform policy selection based on node.
-	labels, err := c.NodeSpec.Labels()
-	if err != nil {
-		return fmt.Errorf("failed to retrieve labels for Node: %w", err)
-	}
+	labels := localNode.Labels
 	policy, err := PolicySelection(ctx, labels, policies)
 	if err != nil {
 		l.WithError(err).Error("Policy selection failed")
@@ -374,46 +314,9 @@ func (c *Controller) Reconcile(ctx context.Context) error {
 		return fmt.Errorf("invalid BGP peering policy %s: %w", policy.Name, err)
 	}
 
-	// parse any virtual router specific attributes defined on this node via
-	// kubernetes annotations
-	//
-	// if we notice one or more malformed annotations report the errors up and
-	// fail reconciliation.
-	annotations, err := c.NodeSpec.Annotations()
-	if err != nil {
-		return fmt.Errorf("failed to retrieve Node's annotations: %w", err)
-	}
-
-	annoMap, err := NewAnnotationMap(annotations)
-	if err != nil {
-		return fmt.Errorf("failed to parse annotations: %w", err)
-	}
-
-	podCIDRs, err := c.NodeSpec.PodCIDRs()
-	if err != nil {
-		return fmt.Errorf("failed to retrieve Node's pod CIDR ranges: %w", err)
-	}
-
-	currentNodeName, err := c.NodeSpec.CurrentNodeName()
-	if err != nil {
-		return fmt.Errorf("failed to retrieve current node's name: %w", err)
-	}
-
-	ipv4, _ := ip.AddrFromIP(nodeaddr.GetIPv4())
-	ipv6, _ := ip.AddrFromIP(nodeaddr.GetIPv6())
-
-	// define our current point-in-time control plane state.
-	state := &ControlPlaneState{
-		PodCIDRs:        podCIDRs,
-		Annotations:     annoMap,
-		IPv4:            ipv4,
-		IPv6:            ipv6,
-		CurrentNodeName: currentNodeName,
-	}
-
 	// call bgp sub-systems required to apply this policy's BGP topology.
 	l.Debug("Asking configured BGPRouterManager to configure peering")
-	if err := c.BGPMgr.ConfigurePeers(ctx, policy, state); err != nil {
+	if err := c.BGPMgr.ConfigurePeers(ctx, policy, &localNode); err != nil {
 		return fmt.Errorf("failed to configure BGP peers, cannot apply BGP peering policy: %w", err)
 	}
 

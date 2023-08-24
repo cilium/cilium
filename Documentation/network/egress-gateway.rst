@@ -67,11 +67,14 @@ the gateway node.
 Incompatibility with other features
 -----------------------------------
 
-Egress gateway is currently partially incompatible with L7 policies.
+Egress gateway is partially incompatible with L7 policies.
 Specifically, when an egress gateway policy and an L7 policy both select the same
-endpoint, traffic from that endpoint will not go through egress gateway, even if
-the policy allows it. Full support will be added in an upcoming release once
-:gh-issue:`19642` is resolved.
+endpoint, traffic from that endpoint does not go through the egress gateway, even if
+the policy allows it. Full support depends on resolving :gh-issue:`19642`.
+
+Because egress gateway isn't compatible with identity allocation mode ``kvstore``,
+you must use Kubernetes as Cilium's identity store (``identityAllocationMode``
+set to ``crd``). This is the default setting for new installations.
 
 Egress gateway is not supported for IPv6 traffic.
 
@@ -90,7 +93,7 @@ The egress gateway feature and all the requirements can be enabled as follow:
                --reuse-values \\
                --set egressGateway.enabled=true \\
                --set bpf.masquerade=true \\
-               --set kubeProxyReplacement=strict \\
+               --set kubeProxyReplacement=true \\
                --set l7Proxy=false
 
     .. group-tab:: ConfigMap
@@ -100,7 +103,7 @@ The egress gateway feature and all the requirements can be enabled as follow:
             enable-bpf-masquerade: true
             enable-ipv4-egress-gateway: true
             enable-l7-proxy: false
-            kube-proxy-replacement: strict
+            kube-proxy-replacement: true
 
 Rollout both the agent pods and the operator pods to make the changes effective:
 
@@ -116,7 +119,7 @@ EKS's ENI mode
 ~~~~~~~~~~~~~~
 
 Based on the specific configuration of the cloud provider and network interfaces
-it is possible that traffic leaves a node from the wrong interface. This happens in 
+it is possible that traffic leaves a node from the wrong interface. This happens in
 particular on EKS in ENI mode.
 
 To work around this issue, Cilium can be instructed to install the necessary IP
@@ -464,7 +467,7 @@ Troubleshooting
 
 To troubleshoot a policy that is not behaving as expected, you can view the
 egress configuration in a cilium agent (the configuration is propagated to all agents,
-so it shouldn't matter which one you pick). 
+so it shouldn't matter which one you pick).
 
 .. code-block:: shell-session
 
@@ -478,7 +481,7 @@ policy's ``podSelector``. The Gateway IP address matches the (internal) IP addre
 of the egress node that matches the policy's ``nodeSelector``. The Egress IP is
 0.0.0.0 on all agents except for the one running on the egress gateway node,
 where you should see the Egress IP address being used for this traffic (which
-will be the ``egressIP`` from the policy, if specified).  
+will be the ``egressIP`` from the policy, if specified).
 
 If the egress list shown does not contain entries as expected to match your
 policy, check that the pod(s) and egress node are labeled correctly to match

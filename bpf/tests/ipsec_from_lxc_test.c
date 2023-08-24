@@ -19,6 +19,9 @@
 
 #include "bpf_lxc.c"
 
+#include "lib/ipcache.h"
+#include "lib/policy.h"
+
 #define FROM_CONTAINER 0
 
 struct {
@@ -32,33 +35,21 @@ struct {
 	},
 };
 
-PKTGEN("tc", "ipv4_ipsec_from_lxc")
-int ipv4_ipsec_from_lxc_pktgen(struct __ctx_buff *ctx)
+static __always_inline int
+pktgen_from_lxc(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	struct tcphdr *l4;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
-
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-	l3->saddr = v4_pod_one;
-	l3->daddr = v4_pod_two;
-
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)mac_one, (__u8 *)mac_two,
+					  v4_pod_one, v4_pod_two,
+					  tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
-	l4->source = tcp_src_one;
-	l4->dest = tcp_svc_one;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -68,28 +59,21 @@ int ipv4_ipsec_from_lxc_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipv4_ipsec_from_lxc")
-int ipv4_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
+PKTGEN("tc", "01_ipv4_from_lxc_no_node_id")
+int ipv4_from_lxc_no_node_id_pktgen(struct __ctx_buff *ctx)
 {
-	struct policy_key policy_key = { .egress = 1 };
-	struct policy_entry policy_value = {};
+	return pktgen_from_lxc(ctx);
+}
 
-	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);
+SETUP("tc", "01_ipv4_from_lxc_no_node_id")
+int ipv4_from_lxc_no_node_id_setup(struct __ctx_buff *ctx)
+{
+	policy_add_egress_allow_all_entry();
 
-	struct ipcache_key cache_key = {};
-	struct remote_endpoint_info cache_value = {};
-
-	cache_key.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(32);
-	cache_key.family = ENDPOINT_KEY_IPV4;
-	cache_key.ip4 = v4_pod_two;
-	cache_value.sec_identity = 233;
-	cache_value.tunnel_endpoint = v4_node_two;
-	cache_value.node_id = NODE_ID;
-	cache_value.key = ENCRYPT_KEY;
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(v4_pod_two, 0, 233, v4_node_two, ENCRYPT_KEY);
 
 	__u32 encrypt_key = 0;
-	struct encrypt_config encrypt_value = { .encrypt_key = 3 };
+	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY };
 
 	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
 
@@ -97,8 +81,59 @@ int ipv4_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "ipv4_ipsec_from_lxc")
-int ipv4_ipsec_from_lxc_check(__maybe_unused const struct __ctx_buff *ctx)
+CHECK("tc", "01_ipv4_from_lxc_no_node_id")
+int ipv4_from_lxc_no_node_id_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	struct metrics_value *entry = NULL;
+	struct metrics_key key = {};
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(*status_code) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_DROP);
+
+	key.reason = (__u8)-DROP_NO_NODE_ID;
+	key.dir = METRIC_EGRESS;
+	entry = map_lookup_elem(&METRICS_MAP, &key);
+	if (!entry)
+		test_fatal("metrics entry not found");
+	assert(entry->count == 1);
+
+	test_finish();
+}
+
+PKTGEN("tc", "02_ipv4_from_lxc_encrypt")
+int ipv4_from_lxc_encrypt_pktgen(struct __ctx_buff *ctx)
+{
+	return pktgen_from_lxc(ctx);
+}
+
+SETUP("tc", "02_ipv4_from_lxc_encrypt")
+int ipv4_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
+{
+	struct node_key node_ip = {};
+	__u32 node_id = NODE_ID;
+
+	node_ip.family = ENDPOINT_KEY_IPV4;
+	node_ip.ip4 = v4_node_two;
+	map_update_elem(&NODE_MAP, &node_ip, &node_id, BPF_ANY);
+
+	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
+	return TEST_ERROR;
+}
+
+CHECK("tc", "02_ipv4_from_lxc_encrypt")
+int ipv4_from_lxc_encrypt_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -119,7 +154,7 @@ int ipv4_ipsec_from_lxc_check(__maybe_unused const struct __ctx_buff *ctx)
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
 	assert(ctx->mark == (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
-	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL);
+	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL_IPV4);
 
 	l2 = data + sizeof(*status_code);
 
@@ -167,32 +202,109 @@ int ipv4_ipsec_from_lxc_check(__maybe_unused const struct __ctx_buff *ctx)
 	test_finish();
 }
 
-PKTGEN("tc", "ipv6_ipsec_from_lxc")
-int ipv6_ipsec_from_lxc_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "03_ipv4_from_lxc_new_local_key")
+int ipv4_from_lxc_new_local_key_pktgen(struct __ctx_buff *ctx)
+{
+	return pktgen_from_lxc(ctx);
+}
+
+SETUP("tc", "03_ipv4_from_lxc_new_local_key")
+int ipv4_from_lxc_new_local_key_setup(struct __ctx_buff *ctx)
+{
+	/* The new key is configured locally but not yet on the destination node.
+	 */
+	__u32 encrypt_key = 0;
+	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY + 1 };
+
+	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
+
+	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
+	return TEST_ERROR;
+}
+
+CHECK("tc", "03_ipv4_from_lxc_new_local_key")
+int ipv4_from_lxc_new_local_key_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(*status_code) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_OK);
+	assert(ctx->mark == (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
+	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL_IPV4);
+
+	test_finish();
+}
+
+PKTGEN("tc", "04_ipv4_from_lxc_new_remote_key")
+int ipv4_from_lxc_new_remote_key_pktgen(struct __ctx_buff *ctx)
+{
+	return pktgen_from_lxc(ctx);
+}
+
+SETUP("tc", "04_ipv4_from_lxc_new_remote_key")
+int ipv4_from_lxc_new_remote_key_setup(struct __ctx_buff *ctx)
+{
+	/* The new key is configured on the destination node but not yet locally.
+	 */
+	ipcache_v4_add_entry(v4_pod_two, 0, 233, v4_node_two, ENCRYPT_KEY + 1);
+
+	__u32 encrypt_key = 0;
+	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY };
+
+	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
+
+	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
+	return TEST_ERROR;
+}
+
+CHECK("tc", "04_ipv4_from_lxc_new_remote_key")
+int ipv4_from_lxc_new_remote_key_check(__maybe_unused const struct __ctx_buff *ctx)
+{
+	void *data;
+	void *data_end;
+	__u32 *status_code;
+
+	test_init();
+
+	data = (void *)(long)ctx->data;
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(*status_code) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+	assert(*status_code == CTX_ACT_OK);
+	assert(ctx->mark == (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
+	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL_IPV4);
+
+	test_finish();
+}
+
+PKTGEN("tc", "05_ipv6_from_lxc_encrypt")
+int ipv6_from_lxc_encrypt_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
-	struct ipv6hdr *l3;
 	struct tcphdr *l4;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
-
-	l3 = pktgen__push_default_ipv6hdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-	ipv6hdr__set_addrs(l3, (__u8 *)v6_pod_one, (__u8 *)v6_pod_two);
-
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv6_tcp_packet(&builder,
+					  (__u8 *)mac_one, (__u8 *)mac_two,
+					  (__u8 *)v6_pod_one, (__u8 *)&v6_pod_two,
+					  tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
-	l4->source = tcp_src_one;
-	l4->dest = tcp_svc_one;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -202,37 +314,31 @@ int ipv6_ipsec_from_lxc_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipv6_ipsec_from_lxc")
-int ipv6_ipsec_from_lxc_setup(struct __ctx_buff *ctx)
+SETUP("tc", "05_ipv6_from_lxc_encrypt")
+int ipv6_from_lxc_encrypt_setup(struct __ctx_buff *ctx)
 {
-	struct policy_key policy_key = { .egress = 1 };
-	struct policy_entry policy_value = {};
+	policy_add_egress_allow_all_entry();
 
-	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);
-
-	struct ipcache_key cache_key = {};
-	struct remote_endpoint_info cache_value = {};
-
-	cache_key.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(128);
-	cache_key.family = ENDPOINT_KEY_IPV6;
-	memcpy(&cache_key.ip6, (__u8 *)v6_pod_two, 16);
-	cache_value.sec_identity = 233;
-	cache_value.tunnel_endpoint = v4_node_two;
-	cache_value.node_id = NODE_ID;
-	cache_value.key = ENCRYPT_KEY;
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v6_add_entry((union v6addr *)v6_pod_two, 0, 233, v4_node_two, ENCRYPT_KEY);
 
 	__u32 encrypt_key = 0;
-	struct encrypt_config encrypt_value = { .encrypt_key = 3 };
+	struct encrypt_config encrypt_value = { .encrypt_key = ENCRYPT_KEY };
 
 	map_update_elem(&ENCRYPT_MAP, &encrypt_key, &encrypt_value, BPF_ANY);
+
+	struct node_key node_ip = {};
+	__u32 node_id = NODE_ID;
+
+	node_ip.family = ENDPOINT_KEY_IPV4;
+	node_ip.ip4 = v4_node_two;
+	map_update_elem(&NODE_MAP, &node_ip, &node_id, BPF_ANY);
 
 	tail_call_static(ctx, &entry_call_map, FROM_CONTAINER);
 	return TEST_ERROR;
 }
 
-CHECK("tc", "ipv6_ipsec_from_lxc")
-int ipv6_ipsec_from_lxc_check(__maybe_unused const struct __ctx_buff *ctx)
+CHECK("tc", "05_ipv6_from_lxc_encrypt")
+int ipv6_from_lxc_encrypt_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -253,7 +359,7 @@ int ipv6_ipsec_from_lxc_check(__maybe_unused const struct __ctx_buff *ctx)
 	status_code = data;
 	assert(*status_code == CTX_ACT_OK);
 	assert(ctx->mark == (NODE_ID << 16 | ENCRYPT_KEY << 12 | MARK_MAGIC_ENCRYPT));
-	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL);
+	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == SECLABEL_IPV6);
 
 	l2 = data + sizeof(*status_code);
 

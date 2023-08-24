@@ -107,7 +107,11 @@ include:
     cliFocus: "K8sDatapathConfig Encapsulation|K8sDatapathConfig Etcd|K8sDatapathConfig Etcd|K8sDatapathConfig MonitorAggregation"
 
   ###
+  # K8sDatapathConfig WireGuard encryption strict mode Pod-to-pod traffic is encrypted in tunneling mode with per-endpoint routes
+  # K8sDatapathConfig WireGuard encryption strict mode Pod-to-pod traffic is encrypted in native routing mode with per-endpoint routes
+  # K8sDatapathConfig WireGuard encryption strict mode Pod-to-pod traffic is encrypted in native routing mode with per-endpoint routes and overlapping node and pod CIDRs
   # K8sDatapathConfig Check BPF masquerading with ip-masq-agent DirectRouting
+  # K8sDatapathConfig Check BPF masquerading with ip-masq-agent DirectRouting, IPv4 only
   # K8sDatapathConfig Check BPF masquerading with ip-masq-agent VXLAN
   # K8sDatapathConfig High-scale IPcache Test ingress policy enforcement with GENEVE and endpoint routes
   # K8sDatapathConfig High-scale IPcache Test ingress policy enforcement with VXLAN and no endpoint routes
@@ -116,7 +120,7 @@ include:
   # K8sDatapathConfig IPv6 masquerading across K8s nodes, skipped due to native routing CIDR
   # K8sDatapathConfig Transparent encryption DirectRouting Check connectivity with transparent encryption and direct routing with bpf_host
   - focus: "f09-datapath-misc-2"
-    cliFocus: "K8sDatapathConfig Check|K8sDatapathConfig IPv4Only|K8sDatapathConfig High-scale|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only|K8sDatapathConfig IPv6|K8sDatapathConfig Transparent"
+    cliFocus: "K8sDatapathConfig WireGuard encryption strict mode|K8sDatapathConfig Check|K8sDatapathConfig IPv4Only|K8sDatapathConfig High-scale|K8sDatapathConfig Iptables|K8sDatapathConfig IPv4Only|K8sDatapathConfig IPv6|K8sDatapathConfig Transparent"
 
   ###
   # K8sAgentHubbleTest Hubble Observe Test FQDN Policy with Relay
@@ -216,82 +220,96 @@ include:
 exclude:
   # The bandwidth test is disabled and hubble tests are not meant
   # to run on net-next.
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f10-agent-hubble-bandwidth"
-
-  # Cilium "v1.13" is not supported in K8s "1.27". Skipping upgrade/downgrade tests.
-  - k8s-version: "1.27"
-    focus: "f19-update"
 
   # These tests are meant to run with kube-proxy which is not available
   # with net-next
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f16-datapath-service-ew-2"
 
   # These tests are meant to run with kube-proxy which is not available
   # with net-next
-  - k8s-version: "1.27"
+  - k8s-version: "1.28"
     focus: "f17-datapath-service-ew-kube-proxy"
 
-  # These tests require an external node which is only available on 1.27
+  # These tests require an external node which is only available on 1.28
   # / net-next so there's no point on running them
-  - k8s-version: "1.26"
+  - k8s-version: "1.27"
     focus: "f05-agent-policy-multi-node-2"
 
   # These tests require kernel net-next so there's no point on running them
-  - k8s-version: "1.26"
+  - k8s-version: "1.27"
     focus: "f11-datapath-service-ns-tc"
 
-  - k8s-version: "1.26"
+  - k8s-version: "1.27"
     focus: "f12-datapath-service-ns-misc"
 
-  - k8s-version: "1.26"
+  - k8s-version: "1.27"
     focus: "f13-datapath-service-ns-xdp-1"
 
-  - k8s-version: "1.26"
+  - k8s-version: "1.27"
     focus: "f14-datapath-service-ns-xdp-2"
 
   # These tests require are not intended to run on kernel 5.4, thus we can ignore them
-  - k8s-version: "1.25"
+  - k8s-version: "1.26"
     focus: "f01-agent-chaos"
 
-  - k8s-version: "1.25"
+  - k8s-version: "1.26"
     focus: "f03-agent-policy"
 
-  - k8s-version: "1.25"
+  - k8s-version: "1.26"
     focus: "f04-agent-policy-multi-node-1"
 
-  - k8s-version: "1.25"
+  - k8s-version: "1.26"
     focus: "f05-agent-policy-multi-node-2"
 
-  - k8s-version: "1.25"
+  - k8s-version: "1.26"
     focus: "f11-datapath-service-ns-tc"
 
-  - k8s-version: "1.25"
+  - k8s-version: "1.26"
     focus: "f12-datapath-service-ns-misc"
 
-  - k8s-version: "1.25"
+  - k8s-version: "1.26"
     focus: "f13-datapath-service-ns-xdp-1"
 
-  - k8s-version: "1.25"
+  - k8s-version: "1.26"
     focus: "f14-datapath-service-ns-xdp-2"
 
-  - k8s-version: "1.25"
+  - k8s-version: "1.26"
     focus: "f15-datapath-service-ew-1"
 
-  - k8s-version: "1.25"
+  - k8s-version: "1.26"
     focus: "f16-datapath-service-ew-2"
 
-  - k8s-version: "1.25"
+  - k8s-version: "1.26"
     focus: "f17-datapath-service-ew-kube-proxy"
 
-  - k8s-version: "1.25"
+  - k8s-version: "1.26"
     focus: "f18-datapath-bgp-custom-lrp"
 
-  - k8s-version: "1.25"
+  - k8s-version: "1.26"
     focus: "f20-kafka"
 
-  # These tests require an external node which is only available on 1.27
+  # These tests require an external node which is only available on 1.28
+  # / net-next so there's no point on running them
+  - k8s-version: "1.25"
+    focus: "f05-agent-policy-multi-node-2"
+
+  # These tests require kernel net-next so there's no point on running them
+  - k8s-version: "1.25"
+    focus: "f11-datapath-service-ns-tc"
+
+  - k8s-version: "1.25"
+    focus: "f12-datapath-service-ns-misc"
+
+  - k8s-version: "1.25"
+    focus: "f13-datapath-service-ns-xdp-1"
+
+  - k8s-version: "1.25"
+    focus: "f14-datapath-service-ns-xdp-2"
+
+  # These tests require an external node which is only available on 1.28
   # / net-next so there's no point on running them
   - k8s-version: "1.24"
     focus: "f05-agent-policy-multi-node-2"
@@ -309,7 +327,7 @@ exclude:
   - k8s-version: "1.24"
     focus: "f14-datapath-service-ns-xdp-2"
 
-  # These tests require an external node which is only available on 1.27
+  # These tests require an external node which is only available on 1.28
   # / net-next so there's no point on running them
   - k8s-version: "1.23"
     focus: "f05-agent-policy-multi-node-2"
@@ -327,7 +345,7 @@ exclude:
   - k8s-version: "1.23"
     focus: "f14-datapath-service-ns-xdp-2"
 
-  # These tests require an external node which is only available on 1.27
+  # These tests require an external node which is only available on 1.28
   # / net-next so there's no point on running them
   - k8s-version: "1.22"
     focus: "f05-agent-policy-multi-node-2"
@@ -345,7 +363,7 @@ exclude:
   - k8s-version: "1.22"
     focus: "f14-datapath-service-ns-xdp-2"
 
-  # These tests require an external node which is only available on 1.27
+  # These tests require an external node which is only available on 1.28
   # / net-next so there's no point on running them
   - k8s-version: "1.21"
     focus: "f05-agent-policy-multi-node-2"
@@ -363,12 +381,12 @@ exclude:
   - k8s-version: "1.21"
     focus: "f14-datapath-service-ns-xdp-2"
 
-  # These tests require an external node which is only available on 1.27
+  # These tests require an external node which is only available on 1.28
   # / net-next so there's no point on running them
   - k8s-version: "1.20"
     focus: "f05-agent-policy-multi-node-2"
 
-  # These tests require kernel net-next so there's no point on running them
+  # These tests are always skipped so there's no point on running
   - k8s-version: "1.20"
     focus: "f11-datapath-service-ns-tc"
 
@@ -381,7 +399,7 @@ exclude:
   - k8s-version: "1.20"
     focus: "f14-datapath-service-ns-xdp-2"
 
-  # These tests require an external node which is only available on 1.27
+  # These tests require an external node which is only available on 1.28
   # / net-next so there's no point on running them
   - k8s-version: "1.19"
     focus: "f05-agent-policy-multi-node-2"

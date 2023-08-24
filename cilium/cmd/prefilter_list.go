@@ -23,12 +23,11 @@ var preFilterListCmd = &cobra.Command{
 }
 
 func init() {
-	preFilterCmd.AddCommand(preFilterListCmd)
+	PreFilterCmd.AddCommand(preFilterListCmd)
 	command.AddOutputOption(preFilterListCmd)
 }
 
 func listFilters(cmd *cobra.Command, args []string) {
-	var str string
 	spec, err := client.GetPrefilter()
 	if err != nil {
 		Fatalf("Cannot get CIDR list: %s", err)
@@ -45,11 +44,9 @@ func listFilters(cmd *cobra.Command, args []string) {
 		Fatalf("Cannot get CIDR list: empty response")
 	}
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-	str = fmt.Sprintf("Revision: %d", spec.Status.Realized.Revision)
-	fmt.Fprintln(w, str)
+	fmt.Fprintf(w, "Revision: %d\n", spec.Status.Realized.Revision)
 	for _, pfx := range spec.Status.Realized.Deny {
-		str = fmt.Sprintf("%s", pfx)
-		fmt.Fprintln(w, str)
+		fmt.Fprintln(w, pfx)
 	}
 	w.Flush()
 }

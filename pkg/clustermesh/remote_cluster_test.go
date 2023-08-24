@@ -148,12 +148,12 @@ func TestRemoteClusterRun(t *testing.T) {
 					NodeObserver:          &testObserver{},
 					IPCache:               &ipc,
 					RemoteIdentityWatcher: allocator,
-					Metrics:               newMetrics(),
+					ClusterIDsManager:     NewClusterMeshUsedIDs(),
+					Metrics:               NewMetrics(),
 				},
 				globalServices: newGlobalServiceCache(metrics.NoOpGauge),
-				usedIDs:        newClusterMeshUsedIDs(),
 			}
-			rc := cm.newRemoteCluster("foo", nil).(*remoteCluster)
+			rc := cm.NewRemoteCluster("foo", nil).(*remoteCluster)
 			ready := make(chan error)
 
 			remoteClient := &remoteEtcdClientWrapper{
@@ -193,6 +193,41 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			// Assert that synced canaries have been watched if expected
 			require.Equal(t, tt.srccfg != nil && tt.srccfg.Capabilities.SyncedCanaries, remoteClient.syncedCanariesWatched)
+		})
+	}
+}
+
+func TestIPCacheWatcherOpts(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   *types.CiliumClusterConfig
+		extra    IPCacheWatcherOptsFn
+		expected int
+	}{
+		{
+			name:     "nil config",
+			expected: 0,
+		},
+		{
+			name:     "non-nil config",
+			config:   &types.CiliumClusterConfig{},
+			expected: 1,
+		},
+		{
+			name: "with extra opts",
+			extra: func(config *types.CiliumClusterConfig) []ipcache.IWOpt {
+				return []ipcache.IWOpt{ipcache.WithClusterID(10), ipcache.WithSelfDeletionProtection()}
+			},
+			expected: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rc := remoteCluster{ipCacheWatcherExtraOpts: tt.extra}
+			// Asserting the number of returned options, because it is not
+			// possible to compare them, being functions.
+			assert.Len(t, rc.ipCacheWatcherOpts(tt.config), tt.expected)
 		})
 	}
 }

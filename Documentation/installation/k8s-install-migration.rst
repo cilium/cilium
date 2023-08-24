@@ -188,9 +188,9 @@ Preparation
     This will consume the template and auto-detect any other relevant Helm values.
     Review these values for your particular installation.
 
-    .. code-block:: shell-session
+    .. parsed-literal::
 
-        $ cilium install --helm-values values-migration.yaml --helm-auto-gen-values values-initial.yaml
+        $ cilium install |CHART_VERSION| --values values-migration.yaml --dry-run-helm-values > values-initial.yaml
         $ cat values-initial.yaml
 
 .. note::
@@ -349,12 +349,12 @@ Perform these steps once the cluster is fully migrated.
 
     You can do this manually, or via the ``cilium`` tool (this will not apply changes to the cluster):
 
-    .. code-block:: shell-session
+    .. parsed-literal::
 
-      $ cilium install --helm-values values-initial.yaml --helm-auto-gen-values values-final.yaml \
-        --helm-set operator.unmanagedPodWatcher.restart=true --helm-set cni.customConf=false \
-        --helm-set policyEnforcementMode=default \
-        --helm-set bpf.hostLegacyRouting=false # optional, can cause brief interruptions
+      $ cilium install |CHART_VERSION| --values values-initial.yaml --dry-run-helm-values \
+        --set operator.unmanagedPodWatcher.restart=true --set cni.customConf=false \
+        --set policyEnforcementMode=default \
+        --set bpf.hostLegacyRouting=false > values-final.yaml # optional, can cause brief interruptions
       $ diff values-initial.yaml values-final.yaml
 
     Then, apply the changes to the cluster:

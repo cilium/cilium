@@ -48,33 +48,23 @@
   {{- end }}
 {{- end }}
 
-{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled (eq .Values.loadBalancer.l7.backend "envoy") }}
   {{- if hasKey .Values "l7Proxy" }}
     {{- if not .Values.l7Proxy }}
-      {{ fail "Ingress or Gateway API controller requires .Values.l7Proxy to be set to 'true'" }}
+      {{ fail "Ingress or Gateway API controller or Envoy L7 Load Balancer  requires .Values.l7Proxy to be set to 'true'" }}
     {{- end }}
   {{- end }}
 {{- end }}
 
-{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
-  {{- if hasKey .Values "kubeProxyReplacement" }}
-    {{- if and (ne .Values.kubeProxyReplacement "partial") (ne .Values.kubeProxyReplacement "strict") }}
-      {{ fail "Ingress/Gateway API controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
-    {{- end }}
-  {{- else }}
-    {{ fail "Ingress/Gateway API controller requires .Values.kubeProxyReplacement to be set to either 'partial' or 'strict'" }}
+{{- if or .Values.envoyConfig.enabled .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
+  {{- if or (eq (toString .Values.kubeProxyReplacement) "disabled") (and (not (hasKey .Values "kubeProxyReplacement")) (not (semverCompare ">=1.14" (default "1.14" .Values.upgradeCompatibility)))) }}
+    {{ fail "Ingress/Gateway API controller and EnvoyConfig require .Values.kubeProxyReplacement to be explicitly set to 'false' or 'true'" }}
   {{- end }}
 {{- end }}
 
 {{- if .Values.authentication.mutual.spire.enabled }}
   {{- if not .Values.authentication.enabled }}
     {{ fail "SPIRE integration requires .Values.authentication.enabled=true and .Values.authentication.mutual.spire.enabled=true" }}
-  {{- end }}
-{{- end }}
-
-{{- if .Values.authentication.mutual.spire.install.enabled }}
-  {{- if not .Values.authentication.mutual.spire.enabled }}
-    {{ fail "SPIRE installation requires .Values.authentication.mutual.enabled=true and .Values.authentication.mutual.spire.enabled=true" }}
   {{- end }}
 {{- end }}
 

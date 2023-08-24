@@ -28,18 +28,19 @@ enum egressgw_test {
 };
 
 struct egressgw_test_ctx {
-	enum egressgw_test test;
+	__u16 test;
 	enum ct_dir dir;
 	__u64 tx_packets;
 	__u64 rx_packets;
 	__u32 status_code;
 };
 
-static __always_inline __be16 client_port(enum egressgw_test t)
+static __always_inline __be16 client_port(__u16 t)
 {
-	return CLIENT_PORT + (__be16)t;
+	return CLIENT_PORT + bpf_htons(t);
 }
 
+#ifdef ENABLE_EGRESS_GATEWAY
 static __always_inline void add_egressgw_policy_entry(__be32 saddr, __be32 daddr, __u8 cidr,
 						      __be32 gateway_ip, __be32 egress_ip)
 {
@@ -67,29 +68,7 @@ static __always_inline void del_egressgw_policy_entry(__be32 saddr, __be32 daddr
 
 	map_delete_elem(&EGRESS_POLICY_MAP, &in_key);
 }
-
-#ifndef SKIP_POLICY_MAP
-static __always_inline void add_allow_all_egress_policy(void)
-{
-	struct policy_key policy_key = {
-		.egress = 1,
-	};
-	struct policy_entry policy_value = {
-		.deny = 0,
-	};
-
-	map_update_elem(&POLICY_MAP, &policy_key, &policy_value, BPF_ANY);
-}
-
-static __always_inline void del_allow_all_egress_policy(void)
-{
-	struct policy_key policy_key = {
-		.egress = 1,
-	};
-
-	map_delete_elem(&POLICY_MAP, &policy_key);
-}
-#endif
+#endif /* ENABLE_EGRESS_GATEWAY */
 
 static __always_inline int egressgw_pktgen(struct __ctx_buff *ctx,
 					   struct egressgw_test_ctx test_ctx)

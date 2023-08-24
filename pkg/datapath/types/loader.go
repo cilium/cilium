@@ -22,6 +22,7 @@ type Loader interface {
 	EndpointHash(cfg EndpointConfiguration) (string, error)
 	Unload(ep Endpoint)
 	Reinitialize(ctx context.Context, o BaseProgramOwner, deviceMTU int, iptMgr IptablesManager, p Proxy) error
+	HostDatapathInitialized() <-chan struct{}
 }
 
 // BaseProgramOwner is any type for which a loader is building base programs.
@@ -44,7 +45,8 @@ type PreFilter interface {
 // Proxy is any type which installs rules related to redirecting traffic to
 // a proxy.
 type Proxy interface {
-	ReinstallRules(ctx context.Context) error
+	ReinstallRoutingRules() error
+	ReinstallIPTablesRules(ctx context.Context) error
 }
 
 // IptablesManager manages iptables rules.

@@ -132,11 +132,8 @@ func (m *CgroupManager) GetPodMetadataForContainer(cgroupId uint64) *PodMetadata
 		eventType:      podGetMetadataEvent,
 		podMetadataOut: podMetaOut,
 	}
-	select {
 	// We either receive pod metadata, or zero value when the channel is closed.
-	case pm := <-podMetaOut:
-		return pm
-	}
+	return <-podMetaOut
 }
 
 func (m *CgroupManager) DumpPodMetadata() []*FullPodMetadata {
@@ -149,10 +146,7 @@ func (m *CgroupManager) DumpPodMetadata() []*FullPodMetadata {
 		eventType:      podDumpMetadataEvent,
 		allMetadataOut: allMetaOut,
 	}
-	select {
-	case cm := <-allMetaOut:
-		return cm
-	}
+	return <-allMetaOut
 }
 
 // Close should only be called once from daemon close.

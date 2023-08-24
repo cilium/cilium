@@ -1,0 +1,92 @@
+# See https://golangci-lint.run/usage/configuration/ for available options.
+# Also https://github.com/cilium/cilium/blob/main/.golangci.yaml as a
+# reference.
+run:
+  go: '1.20'
+  timeout: 1m
+linters:
+  disable-all: true
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - containedctx
+    - contextcheck
+    - decorder
+    - dogsled
+    - dupl
+    - dupword
+    - durationcheck
+    - errchkjson
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - exportloopref
+    - forcetypeassert
+    - gocheckcompilerdirectives
+    - gocognit
+    - goconst
+    - gocritic
+    - godot
+    - goerr113
+    - gofmt
+    - goheader
+    - goimports
+    - gomnd
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - grouper
+    - ineffassign
+    - interfacebloat
+    - ireturn
+    - makezero
+    - mirror
+    - misspell
+    - musttag
+    - nakedret
+    - nestif
+    - nilerr
+    - noctx
+    - nosprintfhostport
+    - prealloc
+    - predeclared
+    - reassign
+    - revive
+    - rowserrcheck
+    - staticcheck
+    - tagalign
+    - tenv
+    - thelper
+    - tparallel
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - wastedassign
+linters-settings:
+  gocritic:
+    disabled-checks:
+      - exitAfterDefer
+      - singleCaseSwitch
+  goheader:
+    template: |-
+      SPDX-License-Identifier: Apache-2.0
+      Copyright Authors of Cilium
+  gosec:
+    # available rules: https://github.com/securego/gosec#available-rules
+    includes: [] # include all available rules
+    excludes:
+      - G104 # Audit errors not checked
+      - G307 # Deferring a method which returns an error
+  govet:
+    enable-all: true
+issues:
+  exclude-use-default: false # default rules exclude doc comments check :(
+  exclude-rules:
+    - linters: [goerr113]
+      text: "do not define dynamic errors, use wrapped static errors instead"

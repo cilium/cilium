@@ -40,6 +40,8 @@ repository in the Cilium project:
   Provide guidance around the best use of Cilium project continuous
   integration and testing infrastructure, including GitHub actions, VM
   helpers, testing frameworks, etc.
+- `@cilium/community <https://github.com/orgs/cilium/teams/community>`__:
+  Maintain files that refer to Cilium community users such as USERS.md.
 - `@cilium/contributing <https://github.com/orgs/cilium/teams/contributing>`__:
   Encourage practices that ensure an inclusive contributor community. Review
   tooling and scripts used by contributors.
@@ -141,6 +143,8 @@ external software and protocols:
   Provide background on how the Cilium Endpoint package fits into the overall
   agent architecture, relationship with generation of policy / datapath
   constructs, serialization and restore from disk.
+- `@cilium/egress-gateway <https://github.com/orgs/cilium/teams/egress-gateway>`__:
+  Maintain the egress gateway control plane and datapath logic.
 - `@cilium/ipcache <https://github.com/orgs/cilium/teams/ipcache>`__:
   Provide background on how the userspace IPCache structure fits into the
   overall agent architecture, ordering constraints with respect to network

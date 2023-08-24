@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// preFilterCmd represents the prefilter command
-var preFilterCmd = &cobra.Command{
+// PreFilterCmd represents the prefilter command
+var PreFilterCmd = &cobra.Command{
 	Use:   "prefilter",
 	Short: "Manage XDP CIDR filters",
 }
 
 func init() {
-	rootCmd.AddCommand(preFilterCmd)
+	RootCmd.AddCommand(PreFilterCmd)
 }

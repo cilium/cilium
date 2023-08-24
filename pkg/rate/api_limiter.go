@@ -389,6 +389,10 @@ func (p *APILimiterParameters) mergeUserConfig(config string) error {
 	return nil
 }
 
+func (l *APILimiter) Parameters() APILimiterParameters {
+	return l.params
+}
+
 func (l *APILimiter) delayedAdjustment(current, min, max float64) (n float64) {
 	n = current * l.adjustmentFactor
 	n = current + ((n - current) * l.params.DelayedAdjustmentFactor)

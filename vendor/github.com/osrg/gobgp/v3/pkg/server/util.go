@@ -108,3 +108,9 @@ func setsockoptIpTtl(sc syscall.RawConn, family int, value int) error {
 	}
 	return setsockOptInt(sc, level, name, value)
 }
+
+func setsockoptTcpMss(sc syscall.RawConn, family int, value uint16) error {
+	level := syscall.IPPROTO_TCP
+	name := syscall.TCP_MAXSEG
+	return setsockOptInt(sc, level, name, int(value))
+}

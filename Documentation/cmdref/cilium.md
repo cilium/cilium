@@ -44,6 +44,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium preflight](cilium_preflight.md)	 - Cilium upgrade helper
 * [cilium recorder](cilium_recorder.md)	 - Introspect or mangle pcap recorder
 * [cilium service](cilium_service.md)	 - Manage services & loadbalancers
+* [cilium statedb](cilium_statedb.md)	 - Inspect StateDB
 * [cilium status](cilium_status.md)	 - Display status of daemon
 * [cilium version](cilium_version.md)	 - Print version information
 

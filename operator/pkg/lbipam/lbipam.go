@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -69,7 +68,7 @@ func newLBIPAM(params LBIPAMParams) *LBIPAM {
 
 	var lbClasses []string
 	if params.DaemonConfig.EnableBGPControlPlane {
-		lbClasses = append(lbClasses, "io.cilium/bgp-control-plane")
+		lbClasses = append(lbClasses, cilium_api_v2alpha1.BGPLoadBalancerClass)
 	}
 
 	jobGroup := params.JobRegistry.NewGroup(
@@ -91,6 +90,7 @@ func newLBIPAM(params LBIPAMParams) *LBIPAM {
 		ipv4Enabled:  option.Config.IPv4Enabled(),
 		ipv6Enabled:  option.Config.IPv6Enabled(),
 		jobGroup:     jobGroup,
+		metrics:      params.Metrics,
 	}
 
 	jobGroup.Add(
@@ -127,6 +127,8 @@ type LBIPAM struct {
 	serviceStore serviceStore
 
 	jobGroup job.Group
+
+	metrics *ipamMetrics
 
 	// Only used during testing.
 	initDoneCallbacks []func()
@@ -468,7 +470,7 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 }
 
 func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
-	var errors []error
+	var errs error
 	// Remove bad allocations which are no longer valid
 	for allocIdx := len(sv.AllocatedIPs) - 1; allocIdx >= 0; allocIdx-- {
 		alloc := sv.AllocatedIPs[allocIdx]
@@ -484,10 +486,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 		// If origin pool no longer exists, remove allocation
 		pool, found := ipam.pools[alloc.Origin.originPool]
 		if !found {
-			err := releaseAllocIP()
-			if err != nil {
-				errors = append(errors, err)
-			}
+			errs = errors.Join(errs, releaseAllocIP())
 			continue
 		}
 
@@ -495,15 +494,12 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 		if pool.Spec.ServiceSelector != nil {
 			selector, err := slim_meta_v1.LabelSelectorAsSelector(pool.Spec.ServiceSelector)
 			if err != nil {
-				errors = append(errors, fmt.Errorf("Making selector from pool '%s' label selector", pool.Name))
+				errs = errors.Join(errs, fmt.Errorf("Making selector from pool '%s' label selector", pool.Name))
 				continue
 			}
 
 			if !selector.Matches(sv.Labels) {
-				err := releaseAllocIP()
-				if err != nil {
-					errors = append(errors, err)
-				}
+				errs = errors.Join(errs, releaseAllocIP())
 				continue
 			}
 		}
@@ -519,10 +515,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 			}
 			// If allocated IP has not been requested, remove it
 			if !found {
-				err := releaseAllocIP()
-				if err != nil {
-					errors = append(errors, err)
-				}
+				errs = errors.Join(errs, releaseAllocIP())
 				continue
 			}
 		} else {
@@ -531,31 +524,20 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 			if isIPv6(alloc.IP) {
 				// Service has an IPv6 address, but its spec doesn't request it anymore, so take it away
 				if !sv.RequestedFamilies.IPv6 {
-					err := releaseAllocIP()
-					if err != nil {
-						errors = append(errors, err)
-					}
+					errs = errors.Join(errs, releaseAllocIP())
 					continue
 				}
 
 			} else {
 				// Service has an IPv4 address, but its spec doesn't request it anymore, so take it away
 				if !sv.RequestedFamilies.IPv4 {
-					err := releaseAllocIP()
-					if err != nil {
-						errors = append(errors, err)
-					}
+					errs = errors.Join(errs, releaseAllocIP())
 					continue
 				}
 			}
 		}
 	}
-
-	if len(errors) > 0 {
-		return multierr.Combine(errors...)
-	}
-
-	return nil
+	return errs
 }
 
 func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool, err error) {
@@ -1094,12 +1076,7 @@ func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2alpha1
 			return fmt.Errorf("Error parsing cidr '%s': %w", cidrBlock.Cidr, err)
 		}
 
-		lbRange, err := NewLBRange(cidr, pool)
-		if err != nil {
-			return fmt.Errorf("Error making LB Range for '%s': %w", cidrBlock.Cidr, err)
-		}
-
-		ipam.rangesStore.Add(lbRange)
+		ipam.rangesStore.Add(newLBRange(cidr, pool))
 	}
 
 	// Unmark new pools so they get a conflict: False condition set, otherwise kubectl will report a blank field.
@@ -1158,12 +1135,7 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 			continue
 		}
 
-		newRange, err := NewLBRange(&newCIDR, pool)
-		if err != nil {
-			return fmt.Errorf("Error while making new LB range for CIDR '%s': %w", newCIDR.String(), err)
-		}
-
-		ipam.rangesStore.Add(newRange)
+		ipam.rangesStore.Add(newLBRange(&newCIDR, pool))
 	}
 
 	existingRanges, _ = ipam.rangesStore.GetRangesForPool(pool.GetName())
@@ -1245,6 +1217,9 @@ func (ipam *LBIPAM) updateAllPoolCounts(ctx context.Context) error {
 		}
 	}
 
+	ipam.metrics.MatchingServices.Set(float64(len(ipam.serviceStore.satisfied) + len(ipam.serviceStore.unsatisfied)))
+	ipam.metrics.UnsatisfiedServices.Set(float64(len(ipam.serviceStore.unsatisfied)))
+
 	return nil
 }
 
@@ -1275,6 +1250,9 @@ func (ipam *LBIPAM) updatePoolCounts(pool *cilium_api_v2alpha1.CiliumLoadBalance
 		ipam.setPoolCondition(pool, ciliumPoolIPsUsedCondition, meta_v1.ConditionUnknown, "noreason", strconv.Itoa(totalCounts.Used)) {
 		modifiedPoolStatus = true
 	}
+
+	ipam.metrics.AvailableIPs.WithLabelValues(pool.Name).Set(float64(totalCounts.Available))
+	ipam.metrics.UsedIPs.WithLabelValues(pool.Name).Set(float64(totalCounts.Used))
 
 	return modifiedPoolStatus
 }
@@ -1379,6 +1357,9 @@ func (ipam *LBIPAM) deleteRangeAllocations(ctx context.Context, delRange *LBRang
 
 func (ipam *LBIPAM) handlePoolDeleted(ctx context.Context, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {
 	delete(ipam.pools, pool.GetName())
+
+	ipam.metrics.AvailableIPs.DeleteLabelValues(pool.Name)
+	ipam.metrics.UsedIPs.DeleteLabelValues(pool.Name)
 
 	poolRanges, _ := ipam.rangesStore.GetRangesForPool(pool.GetName())
 	for _, poolRange := range poolRanges {
@@ -1522,6 +1503,8 @@ func (ipam *LBIPAM) markPoolConflicting(
 		return nil
 	}
 
+	ipam.metrics.ConflictingPools.Inc()
+
 	ipam.logger.WithFields(logrus.Fields{
 		"pool1-name": targetPool.Name,
 		"pool1-cidr": ipNetStr(targetRange.allocRange.CIDR()),
@@ -1564,6 +1547,8 @@ func (ipam *LBIPAM) unmarkPool(ctx context.Context, targetPool *cilium_api_v2alp
 	for _, poolRange := range targetPoolRanges {
 		poolRange.internallyDisabled = false
 	}
+
+	ipam.metrics.ConflictingPools.Dec()
 
 	if ipam.setPoolCondition(targetPool, ciliumPoolConflict, meta_v1.ConditionFalse, "resolved", "") {
 		err := ipam.patchPoolStatus(ctx, targetPool)

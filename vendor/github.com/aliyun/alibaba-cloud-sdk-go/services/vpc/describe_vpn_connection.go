@@ -104,8 +104,6 @@ type DescribeVpnConnectionResponse struct {
 	TransitRouterId            string                                            `json:"TransitRouterId" xml:"TransitRouterId"`
 	TransitRouterName          string                                            `json:"TransitRouterName" xml:"TransitRouterName"`
 	CrossAccountAuthorized     bool                                              `json:"CrossAccountAuthorized" xml:"CrossAccountAuthorized"`
-	DisasterRecoveryZoneNo     string                                            `json:"DisasterRecoveryZoneNo" xml:"DisasterRecoveryZoneNo"`
-	DisasterRecoveryInternetIp string                                            `json:"DisasterRecoveryInternetIp" xml:"DisasterRecoveryInternetIp"`
 	EnableTunnelsBgp           bool                                              `json:"EnableTunnelsBgp" xml:"EnableTunnelsBgp"`
 	IkeConfig                  IkeConfig                                         `json:"IkeConfig" xml:"IkeConfig"`
 	IpsecConfig                IpsecConfig                                       `json:"IpsecConfig" xml:"IpsecConfig"`

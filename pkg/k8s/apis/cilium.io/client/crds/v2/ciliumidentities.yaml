@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.11.4
+    controller-gen.kubebuilder.io/version: v0.12.1
   creationTimestamp: null
   name: ciliumidentities.cilium.io
 spec:
@@ -42,8 +41,7 @@ spec:
           places in the SecurityLabels field. These also include the source and are
           used to define the identity. The labels under metav1.ObjectMeta can be used
           when searching for CiliumIdentity instances that include particular labels.
-          This can be done with invocations such as: \n \tkubectl get ciliumid -l
-          'foo=bar'"
+          This can be done with invocations such as: \n kubectl get ciliumid -l 'foo=bar'"
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation

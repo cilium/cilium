@@ -8,28 +8,15 @@
 #include "dbg.h"
 #include "trace.h"
 #include "l3.h"
-#include "lib/wireguard.h"
+
+#if __ctx_is == __ctx_skb
+#include "encrypt.h"
+#include "wireguard.h"
+#endif /* __ctx_is == __ctx_skb */
+
 #include "high_scale_ipcache.h"
 
 #ifdef HAVE_ENCAP
-#ifdef ENABLE_IPSEC
-static __always_inline int
-encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u8 key, __u16 node_id,
-			 __u32 seclabel)
-{
-	/* IPSec is performed by the stack on any packets with the
-	 * MARK_MAGIC_ENCRYPT bit set. During the process though we
-	 * lose the lxc context (seclabel and tunnel endpoint). The
-	 * tunnel endpoint can be looked up from daddr but the sec
-	 * label is stashed in the mark and extracted in bpf_host
-	 * to send ctx onto tunnel for encap.
-	 */
-	set_encrypt_key_mark(ctx, key, node_id);
-	set_identity_meta(ctx, seclabel);
-	return CTX_ACT_OK;
-}
-#endif /* ENABLE_IPSEC */
-
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 		    __be32 tunnel_endpoint,
@@ -65,7 +52,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_un
 	int ifindex;
 	int ret = 0;
 
-#ifdef ENABLE_WIREGUARD
+#if defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb
 	/* Redirect the packet to the WireGuard tunnel device for encryption
 	 * if needed.
 	 *
@@ -78,7 +65,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_un
 	ret = wg_maybe_redirect_to_encrypt(ctx);
 	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
 		return ret;
-#endif /* ENABLE_WIREGUARD */
+#endif /* defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb */
 
 	ret = __encap_with_nodeid(ctx, src_ip, 0, tunnel_endpoint, seclabel, dstid,
 				  vni, trace->reason, trace->monitor,
@@ -96,7 +83,6 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_un
  */
 static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
-			       __u16 node_id __maybe_unused,
 			       __u32 seclabel, __u32 dstid,
 			       const struct trace_ctx *trace)
 {
@@ -110,8 +96,7 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
  */
 static __always_inline int
 __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
-			 __u8 encrypt_key __maybe_unused,
-			 __u16 node_id __maybe_unused, __u32 seclabel,
+			 __u8 encrypt_key __maybe_unused, __u32 seclabel,
 			 __u32 dstid, const struct trace_ctx *trace)
 {
 	int ifindex __maybe_unused;
@@ -119,16 +104,16 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 
 #ifdef ENABLE_IPSEC
 	if (encrypt_key)
-		return encap_and_redirect_ipsec(ctx, encrypt_key, node_id,
-						seclabel);
+		return set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint,
+					 seclabel);
 #endif
 
-#if !defined(ENABLE_NODEPORT) && (defined(ENABLE_IPSEC) || defined(ENABLE_HOST_FIREWALL))
-	/* For IPSec and the host firewall, traffic from a pod to a remote node
-	 * is sent through the tunnel. In the case of node --> VIP@remote pod,
-	 * packets may be DNATed when they enter the remote node. If kube-proxy
-	 * is used, the response needs to go through the stack on the way to
-	 * the tunnel, to apply the correct reverse DNAT.
+#if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
+	/* For the host firewall, traffic from a pod to a remote node is sent
+	 * through the tunnel. In the case of node --> VIP@remote pod, packets may
+	 * be DNATed when they enter the remote node. If kube-proxy is used, the
+	 * response needs to go through the stack on the way to the tunnel, to
+	 * apply the correct reverse DNAT.
 	 * See #14674 for details.
 	 */
 	ret = __encap_with_nodeid(ctx, 0, 0, tunnel_endpoint, seclabel, dstid,
@@ -142,7 +127,7 @@ __encap_and_redirect_lxc(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
 #else
 	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel_endpoint,
 						seclabel, dstid, NOT_VTEP_DST, trace);
-#endif /* !ENABLE_NODEPORT && (ENABLE_IPSEC || ENABLE_HOST_FIREWALL) */
+#endif /* !ENABLE_NODEPORT && ENABLE_HOST_FIREWALL */
 }
 
 #if defined(TUNNEL_MODE) || defined(ENABLE_HIGH_SCALE_IPCACHE)
@@ -162,7 +147,6 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 		       __u32 dst_ip __maybe_unused,
 		       __u8 encrypt_key __maybe_unused,
 		       struct tunnel_key *key __maybe_unused,
-		       __u16 node_id __maybe_unused,
 		       __u32 seclabel, __u32 dstid,
 		       const struct trace_ctx *trace)
 {
@@ -177,8 +161,8 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 #else /* ENABLE_HIGH_SCALE_IPCACHE */
 	if (tunnel_endpoint)
 		return __encap_and_redirect_lxc(ctx, tunnel_endpoint,
-						encrypt_key, node_id, seclabel,
-						dstid, trace);
+						encrypt_key, seclabel, dstid,
+						trace);
 
 	tunnel = map_lookup_elem(&TUNNEL_MAP, key);
 	if (!tunnel)
@@ -188,8 +172,8 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx,
 	if (tunnel->key) {
 		__u8 min_encrypt_key = get_min_encrypt_key(tunnel->key);
 
-		return encap_and_redirect_ipsec(ctx, min_encrypt_key, node_id,
-						seclabel);
+		return set_ipsec_encrypt(ctx, min_encrypt_key, tunnel->ip4,
+					 seclabel);
 	}
 # endif
 	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel->ip4, seclabel,
@@ -284,7 +268,7 @@ set_geneve_dsr_opt6(__be16 port, const union v6addr *addr,
 	gopt->hdr.opt_class = bpf_htons(DSR_GENEVE_OPT_CLASS);
 	gopt->hdr.type = DSR_GENEVE_OPT_TYPE;
 	gopt->hdr.length = DSR_IPV6_GENEVE_OPT_LEN;
-	ipv6_addr_copy(&gopt->addr, addr);
+	ipv6_addr_copy((union v6addr *)&gopt->addr, addr);
 	gopt->port = port;
 }
 #endif

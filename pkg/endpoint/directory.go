@@ -10,6 +10,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -47,28 +48,48 @@ func (e *Endpoint) backupDirectoryPath() string {
 }
 
 // moveNewFilesTo copies all files, that do not exist in newDir, from oldDir.
+// It assumes that oldDir and newDir are an endpoint's old and new state
+// directories (see synchronizeDirectories below).
 func moveNewFilesTo(oldDir, newDir string) error {
-	oldFiles, err := os.ReadDir(oldDir)
+	var err error
+
+	oldDirFile, err := os.Open(oldDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open old endpoint state dir: %w", err)
 	}
-	newFiles, err := os.ReadDir(newDir)
+	defer oldDirFile.Close()
+
+	oldFiles, err := oldDirFile.Readdirnames(-1)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to list old endpoint state dir: %w", err)
 	}
 
+	newDirFile, err := os.Open(newDir)
+	if err != nil {
+		return fmt.Errorf("failed to open new endpoint state dir: %w", err)
+	}
+	defer newDirFile.Close()
+
+	newFiles, err := newDirFile.Readdirnames(-1)
+	if err != nil {
+		return fmt.Errorf("failed to list new endpoint state dir: %w", err)
+	}
+
+	newFilesHash := make(map[string]struct{}, len(newFiles))
+	for _, f := range newFiles {
+		newFilesHash[f] = struct{}{}
+	}
+
+	var ok bool
+
 	for _, oldFile := range oldFiles {
-		exists := false
-		for _, newFile := range newFiles {
-			if oldFile.Name() == newFile.Name() {
-				exists = true
-				break
+		if _, ok = newFilesHash[oldFile]; !ok {
+			if err := os.Rename(filepath.Join(oldDir, oldFile), filepath.Join(newDir, oldFile)); err != nil {
+				return fmt.Errorf("failed to move endpoint state file: %w", err)
 			}
 		}
-		if !exists {
-			os.Rename(filepath.Join(oldDir, oldFile.Name()), filepath.Join(newDir, oldFile.Name()))
-		}
 	}
+
 	return nil
 }
 
@@ -80,6 +101,8 @@ func moveNewFilesTo(oldDir, newDir string) error {
 // Must be called with endpoint.mutex Lock()ed.
 func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool) error {
 	scopedLog := e.getLogger()
+	debugLogEnabled := logging.CanLogAt(scopedLog.Logger, logrus.DebugLevel)
+
 	scopedLog.Debug("synchronizing directories")
 
 	tmpDir := e.NextDirectoryPath()
@@ -101,10 +124,13 @@ func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool)
 		e.removeDirectory(backupDir)
 
 		// Move the current endpoint directory to a backup location
-		scopedLog.WithFields(logrus.Fields{
-			"originalDirectory": origDir,
-			"backupDirectory":   backupDir,
-		}).Debug("moving current directory to backup location")
+		if debugLogEnabled {
+			scopedLog.WithFields(logrus.Fields{
+				"originalDirectory": origDir,
+				"backupDirectory":   backupDir,
+			}).Debug("moving current directory to backup location")
+		}
+
 		if err := os.Rename(origDir, backupDir); err != nil {
 			return fmt.Errorf("unable to rename current endpoint directory: %s", err)
 		}
@@ -142,10 +168,13 @@ func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool)
 	// simple move
 	default:
 		// Make temporary directory the new endpoint directory
-		scopedLog.WithFields(logrus.Fields{
-			"temporaryDirectory": tmpDir,
-			"originalDirectory":  origDir,
-		}).Debug("attempting to make temporary directory new directory for endpoint programs")
+		if debugLogEnabled {
+			scopedLog.WithFields(logrus.Fields{
+				"temporaryDirectory": tmpDir,
+				"originalDirectory":  origDir,
+			}).Debug("attempting to make temporary directory new directory for endpoint programs")
+		}
+
 		if err := os.Rename(tmpDir, origDir); err != nil {
 			return fmt.Errorf("atomic endpoint directory move failed: %s", err)
 		}
@@ -159,7 +188,9 @@ func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool)
 }
 
 func (e *Endpoint) removeDirectory(path string) error {
-	e.getLogger().WithField("directory", path).Debug("removing directory")
+	if logger := e.getLogger(); logging.CanLogAt(logger.Logger, logrus.DebugLevel) {
+		logger.WithField("directory", path).Debug("removing directory")
+	}
 	return os.RemoveAll(path)
 }
 

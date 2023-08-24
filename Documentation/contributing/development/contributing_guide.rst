@@ -10,6 +10,10 @@
 How To Contribute
 =================
 
+This document shows how to contribute as a community contributor.
+:ref:`Guidance for reviewers and committers <reviewer_committer>` is also
+available.
+
 Cilium Feature Proposals
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -73,7 +77,7 @@ requirements have been met:
    bisecting of commits in the event of a bug affecting the tree.
 #. All code is covered by unit and/or runtime tests where feasible.
 #. All changes have been tested and checked for regressions by running the
-   existing testsuite against your changes. See the :ref:`testsuite` section
+   existing testsuite against your changes. See the :ref:`testsuite-legacy` section
    for additional details.
 #. All commits contain a well written commit description including a title,
    description and a ``Fixes: #XXX`` line if the commit addresses a particular
@@ -222,29 +226,34 @@ requirements have been met:
    request description box there is a button for creating the pull request.
    Click the arrow and choose "Create draft pull request". If your PR is still a
    work in progress, please select this mode. You will still be able to run the
-   CI against it. Once the PR is ready for review you can click in "Ready for
-   review" button at the bottom of the page" and reviewers will start reviewing.
-   When you are actively changing your PR, set it back to draft PR mode to
-   signal that reviewers do not need to spend time reviewing the PR right now.
-   When it is ready for review again, mark it as such.
+   CI against it.
 
-.. image:: https://i1.wp.com/user-images.githubusercontent.com/3477155/52671177-5d0e0100-2ee8-11e9-8645-bdd923b7d93b.gif
-    :align: center
+   .. image:: https://i1.wp.com/user-images.githubusercontent.com/3477155/52671177-5d0e0100-2ee8-11e9-8645-bdd923b7d93b.gif
+       :align: center
+
+#. To notify reviewers that the PR is ready for review, click **Ready for
+   review** at the bottom of the page.
+
+#. Engage in any discussions raised by reviewers and address any changes
+   requested. Set the PR to draft PR mode while you address changes, then click
+   **Ready for review** to re-request review.
+
+   .. image:: /images/cilium_request_review.png
 
 Getting a pull request merged
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #. As you submit the pull request as described in the section :ref:`submit_pr`.
    One of the reviewers will start a CI run by replying with a comment
-   ``/test`` as described in :ref:`trigger_phrases`. If you are a core team
-   member, you may trigger the CI run yourself. CI consists of:
+   ``/test`` as described in :ref:`trigger_phrases`. If you are an
+   `organization member`_, you can trigger the CI run yourself. CI consists of:
 
    #. Static code analysis by Github Actions and Travis CI. Golang linter
       suggestions are added in-line on PRs. For other failed jobs, please refer
       to build log for required action (e.g. Please run ``go mod tidy && go mod
       vendor`` and submit your changes, etc).
 
-   #. :ref:`ci_jenkins`: Will run a series of tests:
+   #. :ref:`ci_gha`: Will run a series of tests:
 
       #. Unit tests
       #. Single node runtime tests
@@ -270,7 +279,9 @@ Getting a pull request merged
 
 #. Once the PR has been reviewed and the CI tests have passed, the PR will be
    merged by one of the repository owners. In case this does not happen, ping
-   us on Slack in the #development channel.
+   us on `Cilium Slack`_ in the ``#development`` channel.
+
+.. _organization member: https://github.com/cilium/community/blob/main/CONTRIBUTOR-LADDER.md#organization-member
 
 Handling large pull requests
 ----------------------------
@@ -310,240 +321,8 @@ below the commit that introduced the changes and replace the work ``pick`` with
 Once this is done you can perform push force into your branch and request for
 your PR to be merged.
 
-
-Pull requests review process for committers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Every committer in the `committers team <https://github.com/orgs/cilium/teams/committers/members>`_
-belongs to `one or more other teams in the Cilium organization <https://github.com/orgs/cilium/teams/team/teams>`_
-If you would like to be added or removed from any team, please contact any
-of the `maintainers <https://github.com/orgs/cilium/teams/cilium-maintainers/members>`_.
-
-Once a PR is opened by a contributor, GitHub will automatically pick which `teams <https://github.com/orgs/cilium/teams/team/teams>`_
-should review the PR using the ``CODEOWNERS`` file. Each committer can see
-the PRs they need to review by filtering by reviews requested.
-A good filter is provided in this `link <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+user-review-requested%3A%40me+sort%3Aupdated-asc>`_
-so make sure to bookmark it.
-
-Reviewers are expected to focus their review on the areas of the code where
-GitHub requested their review. For small PRs, it may make sense to simply
-review the entire PR. However, if the PR is quite large then it can help
-to narrow the area of focus to one particular aspect of the code. When leaving
-a review, share which areas you focused on and which areas you think that
-other reviewers should look into. This will help others to focus on aspects
-of review that have not been covered as deeply.
-
-Belonging to a team does not mean that a committer should know every single
-line of code the team is maintaining. For this reason it is recommended
-that once you have reviewed a PR, if you feel that another pair of eyes is
-needed, you should re-request a review from the appropriate team. In the
-example below, the committer belonging to the CI team is re-requesting a
-review for other team members to review the PR. This allows other team
-members belonging to the CI team to see the PR as part of the PRs that
-require review in the `filter <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+review-requested%3A%40me+sort%3Aupdated-asc>`_.
-
-.. image:: ../../images/re-request-review.png
-   :align: center
-   :scale: 50%
-
-When all review objectives for all ``CODEOWNERS`` are met, all required CI
-tests have passed and a proper release label as been set, you may set the
-``ready-to-merge`` label to indicate that all criteria have been met.
-Maintainer's little helper might set this label automatically if the previous
-requirements were met.
-
-+--------------------------+---------------------------+
-| Labels                   | When to set               |
-+==========================+===========================+
-| ``ready-to-merge``       | PR is ready to be merged  |
-+--------------------------+---------------------------+
-
-Code Owners
------------
-
-.. include:: ../../codeowners.rst
-
-Weekly duties
-~~~~~~~~~~~~~
-
-Some members of the committers team will have rotational duties that change
-every week. The following steps describe how to perform those duties. Please
-submit changes to these steps if you have found a better way to perform each
-duty.
-
-* `People with the top hat this week <https://github.com/orgs/cilium/teams/tophat/members>`_
-
-Pull request review process
----------------------------
-
-.. note::
-
-   These instructions assume that whoever is reviewing is a member of the
-   Cilium GitHub organization or has the status of a committer. This is
-   required to obtain the privileges to modify GitHub labels on the pull
-   request.
-
-Dedicated expectation time for review duties: Follow the next steps 1 to 2
-times per day.
-
-#. Review all PRs needing a review `from you <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+team-review-requested%3Acilium%2Ftophat+sort%3Aupdated-asc>`_;
-
-#. If this PR was opened by a non-committer (e.g. external contributor) please
-   assign yourself to that PR and make sure to keep track the PR gets reviewed
-   and merged. This may extend beyond your assigned week for Janitor duty.
-
-   If the contributor is a Cilium committer, then they are responsible for
-   getting the PR in a ready to be merged state by adding the ``ready-to-merge``
-   label, once all reviews have been addressed and CI checks are successful, so
-   that the janitor can merge it (see below).
-
-   If this PR is a backport PR (e.g. with the label ``kind/backport``) and
-   no-one else has reviewed the PR, review the changes as a sanity check.
-   If any individual commits deviate from the original patch, request review from
-   the original author to validate that the backport was correctly applied.
-
-#. Review overall correctness of the PR according to the rules specified in the
-   section :ref:`submit_pr`.
-
-   Set the labels accordingly, a bot called maintainer's little helper might
-   automatically help you with this.
-
-
-   +--------------------------------+---------------------------------------------------------------------------+
-   | Labels                         | When to set                                                               |
-   +================================+===========================================================================+
-   | ``dont-merge/needs-sign-off``  | Some commits are not signed off                                           |
-   +--------------------------------+---------------------------------------------------------------------------+
-   | ``needs-rebase``               | PR is outdated and needs to be rebased                                    |
-   +--------------------------------+---------------------------------------------------------------------------+
-
-#. Validate that bugfixes are marked with ``kind/bug`` and validate whether the
-   assessment of backport requirements as requested by the submitter conforms
-   to the :ref:`backport_criteria`.
-
-
-   +--------------------------+---------------------------------------------------------------------------+
-   | Labels                   | When to set                                                               |
-   +==========================+===========================================================================+
-   | ``needs-backport/X.Y``   | PR needs to be backported to these stable releases                        |
-   +--------------------------+---------------------------------------------------------------------------+
-
-#. If the PR is subject to backport, validate that the PR does not mix bugfix
-   and refactoring of code as it will heavily complicate the backport process.
-   Demand for the PR to be split.
-
-#. Validate the ``release-note/*`` label and check the PR title for release
-   note suitability. Put yourself into the perspective of a future release
-   notes reader with lack of context and ensure the title is precise but brief.
-
-   +-----------------------------------+--------------------------------------------------------------------------------------------------------+
-   | Labels                            | When to set                                                                                            |
-   +===================================+========================================================================================================+
-   | ``dont-merge/needs-release-note`` | Do NOT merge PR, needs a release note                                                                  |
-   +-----------------------------------+--------------------------------------------------------------------------------------------------------+
-   | ``release-note/bug``              | This is a non-trivial bugfix and is a user-facing bug                                                  |
-   +-----------------------------------+--------------------------------------------------------------------------------------------------------+
-   | ``release-note/major``            | This is a major feature addition, e.g. Add MongoDB support                                             |
-   +-----------------------------------+--------------------------------------------------------------------------------------------------------+
-   | ``release-note/minor``            | This is a minor feature addition, e.g. Add support for a Kubernetes version                            |
-   +-----------------------------------+--------------------------------------------------------------------------------------------------------+
-   | ``release-note/misc``             | This is a not user-facing change , e.g. Refactor endpoint package, a bug fix of a non-released feature |
-   +-----------------------------------+--------------------------------------------------------------------------------------------------------+
-   | ``release-note/ci``               | This is a CI feature or bug fix.                                                                       |
-   +-----------------------------------+--------------------------------------------------------------------------------------------------------+
-
-#. Check for upgrade compatibility impact and if in doubt, set the label
-   ``upgrade-impact`` and discuss in the Slack channel or in the weekly meeting.
-
-   +--------------------------+---------------------------------------------------------------------------+
-   | Labels                   | When to set                                                               |
-   +==========================+===========================================================================+
-   | ``upgrade-impact``       | The code changes have a potential upgrade impact                          |
-   +--------------------------+---------------------------------------------------------------------------+
-
-#. When all review objectives for all ``CODEOWNERS`` are met, all CI tests have
-   passed, and all reviewers have approved the requested changes, merge the PR
-   by clicking in the "Rebase and merge" button.
-
-#. Merge PRs with the ``ready-to-merge`` label set `here <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+sort%3Aupdated-asc+label%3Aready-to-merge+>`_
-
-#. If the PR is a backport PR, update the labels of cherry-picked PRs with the command included at the end of the original post. For example:
-
-   .. code-block:: shell-session
-
-       $ for pr in 12589 12568; do contrib/backporting/set-labels.py $pr done 1.8; done
-
-Triage issues
--------------
-
-Dedicated expectation time for triage duties: 15/30 minutes per
-day. Works best if done first thing in the working day.
-
-#. Ensure that:
-
-   #. `Issues opened by community users are tracked down <https://github.com/cilium/cilium/issues?q=is%3Aissue+is%3Aopen+no%3Aassignee+sort%3Aupdated-desc>`_:
-
-       #. Add the label ``kind/community-report``;
-       #. If feasible, try to reproduce the issue described;
-       #. Assign a member that is responsible for that code section to that GitHub
-          issue;
-       #. If it is a relevant bug to the rest of the committers, bring the issue
-          up in the weekly meeting. For example:
-
-          * The issue may impact an upcoming release; or
-          * The resolution is unclear and assistance is needed to make progress; or
-          * The issue needs additional attention from core contributors to
-            confirm the resolution is the right path.
-
-   #. `Issues recently commented are not left out unanswered <https://github.com/cilium/cilium/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Akind%2Fcommunity-report>`_:
-
-       #. If there is someone already assigned to that GitHub issue and that
-          committer hasn't provided an answer to that user for a while, ping
-          that committer directly on Slack;
-       #. If the issue cannot be solved, bring the issue up in the weekly
-          meeting.
-
-Backporting community PRs
--------------------------
-
-Dedicated expectation time for backporting duties: 60 minutes, twice per
-week depending on releases that need to be performed at the moment.
-
-Even if the next release is not imminently planned, it is still important to
-perform backports to keep the process smooth and to catch potential regressions
-in stable branches as soon as possible. If backports are delayed, this can also
-delay releases which is important to avoid especially if there are
-security-sensitive bug fixes that require an immediate release.
-
-If you can't backport a PR due technical constraints feel free to contact the
-original author of that PR directly so they can backport the PR themselves.
-
-Follow the :ref:`backport_process` guide to know how to perform this task.
-
-Coordination
-++++++++++++
-
-In general, the committer with the top hat should coordinate with other core
-team members in the #launchpad Slack channel in order to understand the status
-of the review, triage and backport duties. This is especially important when
-the top hat is rotated from one committer to another, as well as when a release
-is planned for the upcoming week.
-
-An example interaction in #launchpad:
-
-::
-
-    Starting backport round for v1.7 and v1.8 now
-
-If there are many backports to be done, then splitting up the rounds can be
-beneficial. Typically, backporters opt to start a round in the beginning of the
-week and then another near the end of the week.
-
-By the start / end of the week, if there are other backport PRs that haven't
-been merged, then please coordinate with the previous / next backporter to
-check what the status is and establish who will work on getting the backports
-into the tree (for instance by investigating CI failures and addressing review
-feedback). Ensure that the responsibility for driving the PRs forward is clear.
+Reviewers should apply the documented :ref:`review_process` when providing
+feedback to a PR.
 
 .. _dev_coo:
 

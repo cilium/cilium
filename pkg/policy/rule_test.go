@@ -9,13 +9,13 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/cilium/proxy/pkg/policy/api/kafka"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/policy/api/kafka"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -66,20 +66,20 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	}
 
 	expected := NewL4Policy(0)
-	expected.Ingress["80/TCP"] = &L4Filter{
+	expected.Ingress.PortRules["80/TCP"] = &L4Filter{
 		Port: 80, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: "http", PerSelectorPolicies: l7map, Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
-	expected.Ingress["8080/TCP"] = &L4Filter{
+	expected.Ingress.PortRules["8080/TCP"] = &L4Filter{
 		Port: 8080, Protocol: api.ProtoTCP, U8Proto: 6,
 		wildcard: wildcardCachedSelector,
 		L7Parser: "http", PerSelectorPolicies: l7map, Ingress: true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
 
-	expected.Egress["3000/TCP"] = &L4Filter{
+	expected.Egress.PortRules["3000/TCP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
 		wildcard: wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
@@ -87,7 +87,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		},
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
-	expected.Egress["3000/UDP"] = &L4Filter{
+	expected.Egress.PortRules["3000/UDP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
 		wildcard: wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
@@ -95,7 +95,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		},
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
-	expected.Egress["3000/SCTP"] = &L4Filter{
+	expected.Egress.PortRules["3000/SCTP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
 		wildcard: wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
@@ -108,17 +108,17 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	egressState := traceState{}
 	res := NewL4Policy(0)
 	var err error
-	res.Ingress, err =
+	res.Ingress.PortRules, err =
 		rule1.resolveIngressPolicy(testPolicyContext, toBar, &ingressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res.Ingress, Not(IsNil))
 
-	res.Egress, err =
+	res.Egress.PortRules, err =
 		rule1.resolveEgressPolicy(testPolicyContext, fromBar, &egressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res.Egress, Not(IsNil))
 
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(&res, checker.Equals, &expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 1)
 
@@ -183,7 +183,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	}
 
 	expected = NewL4Policy(0)
-	expected.Ingress["80/TCP"] = &L4Filter{
+	expected.Ingress.PortRules["80/TCP"] = &L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  6,
@@ -200,7 +200,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		Ingress:    true,
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
-	expected.Egress["3000/TCP"] = &L4Filter{
+	expected.Egress.PortRules["3000/TCP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoTCP, U8Proto: 6, Ingress: false,
 		wildcard: wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
@@ -208,7 +208,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		},
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
-	expected.Egress["3000/UDP"] = &L4Filter{
+	expected.Egress.PortRules["3000/UDP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoUDP, U8Proto: 17, Ingress: false,
 		wildcard: wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
@@ -216,7 +216,7 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 		},
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
-	expected.Egress["3000/SCTP"] = &L4Filter{
+	expected.Egress.PortRules["3000/SCTP"] = &L4Filter{
 		Port: 3000, Protocol: api.ProtoSCTP, U8Proto: 132, Ingress: false,
 		wildcard: wildcardCachedSelector,
 		PerSelectorPolicies: L7DataMap{
@@ -233,18 +233,18 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	ctx := SearchContext{To: labels.ParseSelectLabelArray("bar"), Trace: TRACE_VERBOSE}
 	ctx.Logging = stdlog.New(buffer, "", 0)
 
-	res.Ingress, err = rule2.resolveIngressPolicy(testPolicyContext, &ctx, &ingressState, L4PolicyMap{}, nil, nil)
+	res.Ingress.PortRules, err = rule2.resolveIngressPolicy(testPolicyContext, &ctx, &ingressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res.Ingress, Not(IsNil))
 
 	c.Log(buffer)
 
-	res.Egress, err = rule2.resolveEgressPolicy(testPolicyContext, fromBar, &egressState, L4PolicyMap{}, nil, nil)
+	res.Egress.PortRules, err = rule2.resolveEgressPolicy(testPolicyContext, fromBar, &egressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res.Egress, Not(IsNil))
 
-	c.Assert(len(res.Ingress), Equals, 1)
-	c.Assert(res, checker.DeepEquals, expected)
+	c.Assert(len(res.Ingress.PortRules), Equals, 1)
+	c.Assert(&res, checker.Equals, &expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 1)
 
@@ -1101,7 +1101,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 	}
 
 	expected := NewL4Policy(0)
-	expected.Ingress["8/ICMP"] = &L4Filter{
+	expected.Ingress.PortRules["8/ICMP"] = &L4Filter{
 		Port:     8,
 		Protocol: api.ProtoICMP,
 		U8Proto:  u8proto.ProtoIDs["icmp"],
@@ -1112,7 +1112,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 		},
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
-	expected.Egress["8/ICMP"] = &L4Filter{
+	expected.Egress.PortRules["8/ICMP"] = &L4Filter{
 		Port:     8,
 		Protocol: api.ProtoICMP,
 		U8Proto:  u8proto.ProtoIDs["icmp"],
@@ -1127,17 +1127,17 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 	ingressState := traceState{}
 	egressState := traceState{}
 	res := NewL4Policy(0)
-	res.Ingress, err =
+	res.Ingress.PortRules, err =
 		rule1.resolveIngressPolicy(testPolicyContext, toBar, &ingressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res.Ingress, Not(IsNil))
 
-	res.Egress, err =
+	res.Egress.PortRules, err =
 		rule1.resolveEgressPolicy(testPolicyContext, fromBar, &egressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res.Egress, Not(IsNil))
 
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(&res, checker.Equals, &expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 1)
 	c.Assert(egressState.selectedRules, Equals, 1)
@@ -1168,7 +1168,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 	}
 
 	expected = NewL4Policy(0)
-	expected.Ingress["80/TCP"] = &L4Filter{
+	expected.Ingress.PortRules["80/TCP"] = &L4Filter{
 		Port:     80,
 		Protocol: api.ProtoTCP,
 		U8Proto:  u8proto.ProtoIDs["tcp"],
@@ -1179,7 +1179,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 		},
 		RuleOrigin: map[CachedSelector]labels.LabelArrayList{wildcardCachedSelector: {nil}},
 	}
-	expected.Ingress["8/ICMP"] = &L4Filter{
+	expected.Ingress.PortRules["8/ICMP"] = &L4Filter{
 		Port:     8,
 		Protocol: api.ProtoICMP,
 		U8Proto:  u8proto.ProtoIDs["icmp"],
@@ -1193,12 +1193,12 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 
 	ingressState = traceState{}
 	res = NewL4Policy(0)
-	res.Ingress, err =
+	res.Ingress.PortRules, err =
 		rule2.resolveIngressPolicy(testPolicyContext, toBar, &ingressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res.Ingress, Not(IsNil))
 
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(&res, checker.Equals, &expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 1)
 
@@ -1223,7 +1223,7 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 	}
 
 	expected = NewL4Policy(0)
-	expected.Ingress["128/ICMPV6"] = &L4Filter{
+	expected.Ingress.PortRules["128/ICMPV6"] = &L4Filter{
 		Port:     128,
 		Protocol: api.ProtoICMPv6,
 		U8Proto:  u8proto.ProtoIDs["icmpv6"],
@@ -1237,12 +1237,12 @@ func (ds *PolicyTestSuite) TestICMPPolicy(c *C) {
 
 	ingressState = traceState{}
 	res = NewL4Policy(0)
-	res.Ingress, err =
+	res.Ingress.PortRules, err =
 		rule3.resolveIngressPolicy(testPolicyContext, toBar, &ingressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res.Ingress, Not(IsNil))
 
-	c.Assert(res, checker.Equals, expected)
+	c.Assert(&res, checker.Equals, &expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
 	c.Assert(ingressState.matchedRules, Equals, 1)
 }
@@ -1436,9 +1436,9 @@ func (ds *PolicyTestSuite) TestL3RuleLabels(c *C) {
 
 			rule := &rule{Rule: apiRule}
 
-			_, err = rule.resolveIngressPolicy(testPolicyContext, toBar, &traceState{}, finalPolicy.Ingress, nil, nil)
+			_, err = rule.resolveIngressPolicy(testPolicyContext, toBar, &traceState{}, finalPolicy.Ingress.PortRules, nil, nil)
 			c.Assert(err, IsNil)
-			_, err = rule.resolveEgressPolicy(testPolicyContext, fromBar, &traceState{}, finalPolicy.Egress, nil, nil)
+			_, err = rule.resolveEgressPolicy(testPolicyContext, fromBar, &traceState{}, finalPolicy.Egress.PortRules, nil, nil)
 			c.Assert(err, IsNil)
 		}
 		// For debugging the test:
@@ -1446,8 +1446,8 @@ func (ds *PolicyTestSuite) TestL3RuleLabels(c *C) {
 
 		type expectedResult map[string]labels.LabelArrayList
 		mapDirectionalResultsToExpectedOutput := map[*L4Filter]expectedResult{
-			finalPolicy.Ingress[api.PortProtocolAny]: test.expectedIngressLabels,
-			finalPolicy.Egress[api.PortProtocolAny]:  test.expectedEgressLabels,
+			finalPolicy.Ingress.PortRules[api.PortProtocolAny]: test.expectedIngressLabels,
+			finalPolicy.Egress.PortRules[api.PortProtocolAny]:  test.expectedEgressLabels,
 		}
 		for filter, exp := range mapDirectionalResultsToExpectedOutput {
 			if len(exp) > 0 {
@@ -1571,22 +1571,22 @@ func (ds *PolicyTestSuite) TestL4RuleLabels(c *C) {
 
 			rule := &rule{Rule: apiRule}
 
-			rule.resolveIngressPolicy(testPolicyContext, toBar, &traceState{}, finalPolicy.Ingress, nil, nil)
-			rule.resolveEgressPolicy(testPolicyContext, fromBar, &traceState{}, finalPolicy.Egress, nil, nil)
+			rule.resolveIngressPolicy(testPolicyContext, toBar, &traceState{}, finalPolicy.Ingress.PortRules, nil, nil)
+			rule.resolveEgressPolicy(testPolicyContext, fromBar, &traceState{}, finalPolicy.Egress.PortRules, nil, nil)
 		}
 
-		c.Assert(len(finalPolicy.Ingress), Equals, len(test.expectedIngressLabels), Commentf(test.description))
+		c.Assert(len(finalPolicy.Ingress.PortRules), Equals, len(test.expectedIngressLabels), Commentf(test.description))
 		for portProto := range test.expectedIngressLabels {
-			out, found := finalPolicy.Ingress[portProto]
+			out, found := finalPolicy.Ingress.PortRules[portProto]
 			c.Assert(found, Equals, true, Commentf(test.description))
 			c.Assert(out, NotNil, Commentf(test.description))
 			c.Assert(len(out.RuleOrigin), checker.Equals, 1, Commentf(test.description))
 			c.Assert(out.RuleOrigin[out.wildcard], checker.DeepEquals, test.expectedIngressLabels[portProto], Commentf(test.description))
 		}
 
-		c.Assert(len(finalPolicy.Egress), Equals, len(test.expectedEgressLabels), Commentf(test.description))
+		c.Assert(len(finalPolicy.Egress.PortRules), Equals, len(test.expectedEgressLabels), Commentf(test.description))
 		for portProto := range test.expectedEgressLabels {
-			out, found := finalPolicy.Egress[portProto]
+			out, found := finalPolicy.Egress.PortRules[portProto]
 			c.Assert(found, Equals, true, Commentf(test.description))
 			c.Assert(out, Not(IsNil), Commentf(test.description))
 			c.Assert(len(out.RuleOrigin), checker.Equals, 1, Commentf(test.description))

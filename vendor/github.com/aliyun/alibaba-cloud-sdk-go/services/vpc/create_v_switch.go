@@ -71,18 +71,25 @@ func (client *Client) CreateVSwitchWithCallback(request *CreateVSwitchRequest, c
 // CreateVSwitchRequest is the request struct for api CreateVSwitch
 type CreateVSwitchRequest struct {
 	*requests.RpcRequest
-	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	ClientToken          string           `position:"Query" name:"ClientToken"`
-	Description          string           `position:"Query" name:"Description"`
-	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
-	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
-	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
-	Ipv6CidrBlock        requests.Integer `position:"Query" name:"Ipv6CidrBlock"`
-	VpcIpv6CidrBlock     string           `position:"Query" name:"VpcIpv6CidrBlock"`
-	VpcId                string           `position:"Query" name:"VpcId"`
-	VSwitchName          string           `position:"Query" name:"VSwitchName"`
-	CidrBlock            string           `position:"Query" name:"CidrBlock"`
-	ZoneId               string           `position:"Query" name:"ZoneId"`
+	ResourceOwnerId      requests.Integer    `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string              `position:"Query" name:"ClientToken"`
+	Description          string              `position:"Query" name:"Description"`
+	Tag                  *[]CreateVSwitchTag `position:"Query" name:"Tag"  type:"Repeated"`
+	ResourceOwnerAccount string              `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string              `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer    `position:"Query" name:"OwnerId"`
+	Ipv6CidrBlock        requests.Integer    `position:"Query" name:"Ipv6CidrBlock"`
+	VpcIpv6CidrBlock     string              `position:"Query" name:"VpcIpv6CidrBlock"`
+	VpcId                string              `position:"Query" name:"VpcId"`
+	VSwitchName          string              `position:"Query" name:"VSwitchName"`
+	CidrBlock            string              `position:"Query" name:"CidrBlock"`
+	ZoneId               string              `position:"Query" name:"ZoneId"`
+}
+
+// CreateVSwitchTag is a repeated param struct in CreateVSwitchRequest
+type CreateVSwitchTag struct {
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // CreateVSwitchResponse is the response struct for api CreateVSwitch

@@ -283,6 +283,18 @@ func GetIPv4() net.IP {
 	return clone(n.GetNodeIP(false))
 }
 
+// GetInternalIPv4 returns node internal ipv4 address else return nil.
+func GetInternalIPv4() net.IP {
+	n := getLocalNode()
+	return clone(n.GetNodeInternalIPv4())
+}
+
+// GetInternalIPv6 returns node internal ipv6 address else return nil.
+func GetInternalIPv6() net.IP {
+	n := getLocalNode()
+	return clone(n.GetNodeInternalIPv6())
+}
+
 // GetCiliumEndpointNodeIP is the node IP that will be referenced by CiliumEndpoints with endpoints
 // running on this node.
 func GetCiliumEndpointNodeIP() string {
@@ -413,11 +425,11 @@ func AutoComplete() error {
 	InitDefaultPrefix(option.Config.DirectRoutingDevice)
 
 	if option.Config.EnableIPv6 && GetIPv6AllocRange() == nil {
-		return fmt.Errorf("IPv6 allocation CIDR is not configured. Please specificy --%s", option.IPv6Range)
+		return fmt.Errorf("IPv6 allocation CIDR is not configured. Please specify --%s", option.IPv6Range)
 	}
 
 	if option.Config.EnableIPv4 && GetIPv4AllocRange() == nil {
-		return fmt.Errorf("IPv4 allocation CIDR is not configured. Please specificy --%s", option.IPv4Range)
+		return fmt.Errorf("IPv4 allocation CIDR is not configured. Please specify --%s", option.IPv4Range)
 	}
 
 	return nil
@@ -824,7 +836,7 @@ func SetTestLocalNodeStore() {
 
 	// Set the localNode global variable temporarily so that the legacy getters
 	// and setters can access it.
-	localNode = newTestLocalNodeStore()
+	localNode = NewTestLocalNodeStore(LocalNode{})
 }
 
 func UnsetTestLocalNodeStore() {

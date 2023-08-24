@@ -4,7 +4,7 @@
 package kvstoremesh
 
 import (
-	"github.com/cilium/cilium/pkg/clustermesh/internal"
+	"github.com/cilium/cilium/pkg/clustermesh/common"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
@@ -14,7 +14,7 @@ var Cell = cell.Module(
 
 	cell.Provide(newKVStoreMesh),
 
-	cell.Config(internal.Config{}),
+	cell.Config(common.Config{}),
 
-	cell.Metric(internal.MetricsProvider("")),
+	cell.Metric(common.MetricsProvider("")),
 )

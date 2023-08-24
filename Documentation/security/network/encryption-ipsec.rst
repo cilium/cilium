@@ -66,9 +66,11 @@ Enable Encryption in Cilium
        If you are deploying Cilium with the Cilium CLI, pass the following
        options:
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-          cilium install --encryption ipsec
+          cilium install |CHART_VERSION| \
+             --set encryption.enabled=true \
+             --set encryption.type=ipsec
 
     .. group-tab:: Helm
 
@@ -109,9 +111,12 @@ interface as follows:
 
     .. group-tab:: Cilium CLI
 
-       .. code-block:: shell-session
+       .. parsed-literal::
 
-          cilium install --encryption ipsec --config encrypt-interface=ethX
+          cilium install |CHART_VERSION| \
+             --set encryption.enabled=true \
+             --set encryption.type=ipsec \
+             --set encryption.ipsec.interface=ethX
 
     .. group-tab:: Helm
 
@@ -151,6 +156,8 @@ commands:
        15:16:21.627523 IP 10.60.0.1 > 10.60.1.1: ESP(spi=0x00000001,seq=0x579f), length 180
        15:16:21.627699 IP 10.60.1.1 > 10.60.0.1: ESP(spi=0x00000001,seq=0x57e4), length 100
        15:16:21.628408 IP 10.60.1.1 > 10.60.0.1: ESP(spi=0x00000001,seq=0x57e5), length 100
+
+.. _ipsec_key_rotation:
 
 Key Rotation
 ============
@@ -202,6 +209,74 @@ Troubleshooting
    reaches its maximum value, it will also result in errors. The number of
    keys in use should be 2 during a key rotation and always 1 otherwise.
 
+ * All XFRM errors correspond to a packet drop in the kernel. Except for
+   ``XfrmFwdHdrError`` and ``XfrmInError``, all XFRM errors indicate a bug in
+   Cilium or an operational mistake. ``XfrmOutStateSeqError``,
+   ``XfrmInStateProtoError``, and ``XfrmInNoStates`` may be caused by
+   operational mistakes, as detailed in the following points.
+
+ * If the sequence number reaches its maximum value for any XFRM OUT state, it
+   will result in packet drops and XFRM errors of type
+   ``XfrmOutStateSeqError``. A key rotation resets all sequence numbers.
+   Rotate keys frequently to avoid this issue.
+
+ * After a key rotation, if the old key is cleaned up before the
+   configuration of the new key is installed on all nodes, it results in
+   ``XfrmInNoStates`` errors. The old key is removed from nodes after a default
+   interval of 5 minutes by default. By default, all agents watch for key
+   updates and update their configuration within 1 minute after the key is
+   changed, leaving plenty of time before the old key is removed. If you expect
+   the key rotation to take longer for some reason (for example, in the case of
+   Cluster Mesh if several clusters need to be updated), you can increase the
+   delay before cleanup with agent flag ``ipsec-key-rotation-duration``.
+
+ * ``XfrmInStateProtoError`` errors can happen if the key is updated without
+   incrementing the SPI (also called ``KEYID`` in :ref:`ipsec_key_rotation`
+   instructions above). It can be fixed by performing a new key rotation,
+   properly.
+
+ * ``XfrmFwdHdrError`` and ``XfrmInError`` happen when the kernel fails to
+   lookup the route for a packet it decrypted. This can legitimately happen
+   when a pod was deleted but some packets are still in transit. Note these
+   errors can also happen under memory pressure when the kernel fails to
+   allocate memory.
+
+ * The following table documents the known explanations for several XFRM errors
+   that were observed in the past. Many other error types exist, but they are
+   usually for Linux subfeatures that Cilium doesn't use (e.g., XFRM
+   expiration).
+
+   =======================  ==================================================
+   Error                    Known explanation
+   =======================  ==================================================
+   XfrmInError              The kernel (1) decrypted and tried to route a
+                            packet for a pod that was deleted or (2) failed to
+                            allocate memory.
+   XfrmInNoStates           Bug in the XFRM configuration for decryption.
+   XfrmInStateProtoError    There is a key mismatch between nodes.
+   XfrmInTmplMismatch       Bug in the XFRM configuration for decryption.
+   XfrmInNoPols             Bug in the XFRM configuration for decryption.
+   XfrmInPolBlock           Explicit drop, not used by Cilium.
+   XfrmOutNoStates          Bug in the XFRM configuration for encryption.
+   XfrmOutStateSeqError     The sequence number of an encryption XFRM
+                            configuration reached its maximum value.
+   XfrmOutPolBlock          Cilium dropped packets that would have otherwise
+                            left the node in plain-text.
+   XfrmFwdHdrError          The kernel (1) decrypted and tried to route a
+                            packet for a pod that was deleted or (2) failed to
+                            allocate memory.
+   =======================  ==================================================
+
+ * In addition to the above XFRM errors, packet drops of type ``No node ID
+   found`` (code 197) may also occur under normal operations. These drops can
+   happen if a pod attempts to send traffic to a pod on a new node for which
+   the Cilium agent didn't yet receive the CiliumNode object. It can also
+   happen if the IP address of the destination node changed and the agent
+   didn't receive the updated CiliumNode object yet. In both cases, the IPsec
+   configuration in the kernel isn't ready yet, so Cilium drops the packets at
+   the source. These drops will stop once the CiliumNode information is
+   propagated across the cluster.
+
 Disabling Encryption
 ====================
 
@@ -215,4 +290,8 @@ Limitations
       top of other CNI plugins. For more information, see :gh-issue:`15596`.
     * :ref:`HostPolicies` are not currently supported with IPsec encryption.
     * IPsec encryption is not currently supported in combination with IPv6-only clusters.
-    * IPsec encryption is not supported on clusters with more than 65535 nodes.
+    * IPsec encryption is not supported on clusters or clustermeshes with more
+      than 65535 nodes.
+    * Decryption with Cilium IPsec is limited to a single CPU core per IPsec
+      tunnel. This may affect performance in case of high throughput between
+      two nodes.

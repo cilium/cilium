@@ -12,20 +12,19 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/auth/spire"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
-	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/k8s"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/maps/authmap"
+	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/stream"
 )
 
-// Cell invokes authManager which is responsible for request authentication.
+// Cell provides AuthManager which is responsible for request authentication.
 // It does this by registering to "auth required" signals from the signal package
 // and reacting upon received signal events.
 // Actual authentication gets performed by an auth handler which is
@@ -36,67 +35,72 @@ var Cell = cell.Module(
 
 	spire.Cell,
 
-	// The manager is the main entry point which gets registered to signal map and receives auth requests.
-	cell.Invoke(newManager),
+	// The auth manager is the main entry point which gets registered to signal map and receives auth requests.
+	// In addition, it handles re-authentication and auth map garbage collection.
+	cell.Provide(registerAuthManager),
 	cell.ProvidePrivate(
 		// Null auth handler provides support for auth type "null" - which always succeeds.
 		newMutualAuthHandler,
 		// Always fail auth handler provides support for auth type "always-fail" - which always fails.
 		newAlwaysFailAuthHandler,
 	),
-	// Providing k8s resource Node & Identity privately to avoid further usage of them in other agent components
-	cell.ProvidePrivate(
-		// TODO: use node manager to get events of all nodes, including the ones of other clusters (ClusterMesh)
-		// https://github.com/cilium/cilium/issues/25899
-		k8s.CiliumNodeResource,
-		// TODO: add support for KVStore. K8s identity events are only provided for CRD based identity backend.
-		// https://github.com/cilium/cilium/issues/25898
-		k8s.CiliumIdentityResource,
-	),
 	cell.Config(config{
-		MeshAuthEnabled:           true,
-		MeshAuthQueueSize:         1024,
-		MeshAuthExpiredGCInterval: 15 * time.Minute,
+		MeshAuthEnabled:    true,
+		MeshAuthQueueSize:  1024,
+		MeshAuthGCInterval: 5 * time.Minute,
 	}),
 	cell.Config(MutualAuthConfig{}),
 )
 
 type config struct {
-	MeshAuthEnabled           bool
-	MeshAuthQueueSize         int
-	MeshAuthExpiredGCInterval time.Duration
+	MeshAuthEnabled    bool
+	MeshAuthQueueSize  int
+	MeshAuthGCInterval time.Duration
 }
 
 func (r config) Flags(flags *pflag.FlagSet) {
-	flags.Bool("mesh-auth-enabled", r.MeshAuthEnabled, "Enable authentication processing & garbage collection")
+	flags.Bool("mesh-auth-enabled", r.MeshAuthEnabled, "Enable authentication processing & garbage collection (beta)")
 	flags.Int("mesh-auth-queue-size", r.MeshAuthQueueSize, "Queue size for the auth manager")
-	flags.Duration("mesh-auth-expired-gc-interval", r.MeshAuthExpiredGCInterval, "Interval in which expired auth entries are attempted to be garbage collected")
+	flags.Duration("mesh-auth-gc-interval", r.MeshAuthGCInterval, "Interval in which auth entries are attempted to be garbage collected")
 }
 
 type authManagerParams struct {
 	cell.In
 
-	Logger           logrus.FieldLogger
-	Lifecycle        hive.Lifecycle
-	JobRegistry      job.Registry
-	Config           config
-	IPCache          *ipcache.IPCache
-	AuthHandlers     []authHandler `group:"authHandlers"`
-	AuthMap          authmap.Map
-	SignalManager    signal.SignalManager
-	CiliumIdentities resource.Resource[*ciliumv2.CiliumIdentity]
-	CiliumNodes      resource.Resource[*ciliumv2.CiliumNode]
-	PolicyRepo       *policy.Repository
+	Logger      logrus.FieldLogger
+	Lifecycle   hive.Lifecycle
+	JobRegistry job.Registry
+
+	Config       config
+	AuthMap      authmap.Map
+	AuthHandlers []authHandler `group:"authHandlers"`
+
+	SignalManager   signal.SignalManager
+	NodeIDHandler   types.NodeIDHandler
+	IdentityChanges stream.Observable[cache.IdentityChange]
+	NodeManager     nodeManager.NodeManager
+	PolicyRepo      *policy.Repository
 }
 
-func newManager(params authManagerParams) error {
+func registerAuthManager(params authManagerParams) (*AuthManager, error) {
 	if !params.Config.MeshAuthEnabled {
 		params.Logger.Info("Authentication processing is disabled")
-		return nil
+		return nil, nil
 	}
+
+	// Instantiate & wire auth components
 
 	mapWriter := newAuthMapWriter(params.Logger, params.AuthMap)
 	mapCache := newAuthMapCache(params.Logger, mapWriter)
+
+	mgr, err := newAuthManager(params.Logger, params.AuthHandlers, mapCache, params.NodeIDHandler)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create auth manager: %w", err)
+	}
+
+	mapGC := newAuthMapGC(params.Logger, mapCache, params.NodeIDHandler, params.PolicyRepo)
+
+	// Register auth components to lifecycle hooks & jobs
 
 	params.Lifecycle.Append(hive.Hook{
 		OnStart: func(hookContext hive.HookContext) error {
@@ -113,27 +117,18 @@ func newManager(params authManagerParams) error {
 		job.WithPprofLabels(pprof.Labels("cell", "auth")),
 	)
 
-	mgr, err := newAuthManager(params.Logger, params.AuthHandlers, mapCache, params.IPCache)
-	if err != nil {
-		return fmt.Errorf("failed to create auth manager: %w", err)
-	}
-
 	if err := registerSignalAuthenticationJob(jobGroup, mgr, params.SignalManager, params.Config); err != nil {
-		return fmt.Errorf("failed to register signal authentication job: %w", err)
+		return nil, fmt.Errorf("failed to register signal authentication job: %w", err)
 	}
-
 	registerReAuthenticationJob(jobGroup, mgr, params.AuthHandlers)
-
-	mapGC := newAuthMapGC(params.Logger, mapCache, params.IPCache, params.PolicyRepo)
-
-	registerGCJobs(jobGroup, mapGC, params)
+	registerGCJobs(jobGroup, params.Lifecycle, mapGC, params.Config, params.NodeManager, params.IdentityChanges)
 
 	params.Lifecycle.Append(jobGroup)
 
-	return nil
+	return mgr, nil
 }
 
-func registerReAuthenticationJob(jobGroup job.Group, mgr *authManager, authHandlers []authHandler) {
+func registerReAuthenticationJob(jobGroup job.Group, mgr *AuthManager, authHandlers []authHandler) {
 	for _, ah := range authHandlers {
 		if ah != nil && ah.subscribeToRotatedIdentities() != nil {
 			jobGroup.Add(job.Observer("auth re-authentication", mgr.handleCertificateRotationEvent, stream.FromChannel(ah.subscribeToRotatedIdentities())))
@@ -141,7 +136,7 @@ func registerReAuthenticationJob(jobGroup job.Group, mgr *authManager, authHandl
 	}
 }
 
-func registerSignalAuthenticationJob(jobGroup job.Group, mgr *authManager, sm signal.SignalManager, config config) error {
+func registerSignalAuthenticationJob(jobGroup job.Group, mgr *AuthManager, sm signal.SignalManager, config config) error {
 	var signalChannel = make(chan signalAuthKey, config.MeshAuthQueueSize)
 
 	// RegisterHandler registers signalChannel with SignalManager, but flow of events
@@ -150,25 +145,25 @@ func registerSignalAuthenticationJob(jobGroup job.Group, mgr *authManager, sm si
 		return fmt.Errorf("failed to set up signal channel for datapath authentication required events: %w", err)
 	}
 
-	jobGroup.Add(job.Observer("auth request processing", mgr.handleAuthRequest, stream.FromChannel(signalChannel)))
+	jobGroup.Add(job.Observer("auth request-authentication", mgr.handleAuthRequest, stream.FromChannel(signalChannel)))
 
 	return nil
 }
 
-func registerGCJobs(jobGroup job.Group, mapGC *authMapGarbageCollector, params authManagerParams) {
-	// Add identities based auth gc if k8s client is enabled
-	if params.CiliumIdentities != nil {
-		jobGroup.Add(job.Observer[resource.Event[*ciliumv2.CiliumIdentity]]("auth identities gc", mapGC.handleCiliumIdentityEvent, params.CiliumIdentities))
-	}
+func registerGCJobs(jobGroup job.Group, lifecycle hive.Lifecycle, mapGC *authMapGarbageCollector, cfg config, nodeManager nodeManager.NodeManager, identityChanges stream.Observable[cache.IdentityChange]) {
+	lifecycle.Append(hive.Hook{
+		OnStart: func(hookContext hive.HookContext) error {
+			mapGC.subscribeToNodeEvents(nodeManager)
+			return nil
+		},
+		OnStop: func(hookContext hive.HookContext) error {
+			nodeManager.Unsubscribe(mapGC)
+			return nil
+		},
+	})
 
-	// Add node based auth gc if k8s client is enabled
-	if params.CiliumNodes != nil {
-		jobGroup.Add(job.Observer[resource.Event[*ciliumv2.CiliumNode]]("auth nodes gc", mapGC.handleCiliumNodeEvent, params.CiliumNodes))
-	}
-
-	jobGroup.Add(job.Timer("auth policies gc", mapGC.cleanupEntriesWithoutAuthPolicy, params.Config.MeshAuthExpiredGCInterval))
-
-	jobGroup.Add(job.Timer("auth expiration gc", mapGC.cleanupExpiredEntries, params.Config.MeshAuthExpiredGCInterval))
+	jobGroup.Add(job.Observer("auth gc-identity-events", mapGC.handleIdentityChange, identityChanges))
+	jobGroup.Add(job.Timer("auth gc-cleanup", mapGC.cleanup, cfg.MeshAuthGCInterval))
 }
 
 type authHandlerResult struct {

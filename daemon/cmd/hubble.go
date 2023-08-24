@@ -165,11 +165,14 @@ func (d *Daemon) launchHubble() {
 			exporteroption.WithPath(option.Config.HubbleExportFilePath),
 			exporteroption.WithMaxSizeMB(option.Config.HubbleExportFileMaxSizeMB),
 			exporteroption.WithMaxBackups(option.Config.HubbleExportFileMaxBackups),
+			exporteroption.WithAllowList(option.Config.HubbleExportAllowlist),
+			exporteroption.WithDenyList(option.Config.HubbleExportDenylist),
+			exporteroption.WithFieldMask(option.Config.HubbleExportFieldmask),
 		}
 		if option.Config.HubbleExportFileCompress {
 			exporterOpts = append(exporterOpts, exporteroption.WithCompress())
 		}
-		hubbleExporter, err := exporter.NewExporter(logger, exporterOpts...)
+		hubbleExporter, err := exporter.NewExporter(d.ctx, logger, exporterOpts...)
 		if err != nil {
 			logger.WithError(err).Error("Failed to configure Hubble export")
 		} else {

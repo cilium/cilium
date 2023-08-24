@@ -17,6 +17,7 @@
 #define ENABLE_HOST_ROUTING
 
 #define DISABLE_LOOPBACK_LB
+#define ENABLE_SKIP_FIB		1
 
 /* Skip ingress policy checks, not needed to validate hairpin flow */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
@@ -38,6 +39,9 @@ static volatile const __u8 *backend_mac = mac_four;
 #define SECCTX_FROM_IPCACHE 1
 
 #include "bpf_host.c"
+
+#include "lib/endpoint.h"
+#include "lib/ipcache.h"
 
 #define FROM_NETDEV	0
 #define TO_NETDEV	1
@@ -125,27 +129,10 @@ int nodeport_dsr_backend_setup(struct __ctx_buff *ctx)
 	union v6addr backend_ip = BACKEND_IP;
 
 	/* add local backend */
-	struct endpoint_info ep_value = {};
+	endpoint_v6_add_entry(&backend_ip, 0, 0, 0,
+			      (__u8 *)backend_mac, (__u8 *)node_mac);
 
-	memcpy(&ep_value.mac, (__u8 *)backend_mac, ETH_ALEN);
-	memcpy(&ep_value.node_mac, (__u8 *)node_mac, ETH_ALEN);
-
-	struct endpoint_key ep_key = {
-		.family = ENDPOINT_KEY_IPV6,
-	};
-	ipv6_addr_copy((union v6addr *)&ep_key.ip6, &backend_ip);
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
-
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(128),
-		.family = ENDPOINT_KEY_IPV6,
-	};
-	ipv6_addr_copy((union v6addr *)&cache_key.ip6, &backend_ip);
-
-	struct remote_endpoint_info cache_value = {
-		.sec_identity = 112233,
-	};
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v6_add_entry(&backend_ip, 0, 112233, 0, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
@@ -266,36 +253,18 @@ int build_reply(struct __ctx_buff *ctx)
 	union v6addr backend_ip = BACKEND_IP;
 	union v6addr client_ip = CLIENT_IP;
 	struct pktgen builder;
-	struct ipv6hdr *l3;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)node_mac, (__u8 *)client_mac);
-
-	/* Push IPv6 header */
-	l3 = pktgen__push_default_ipv6hdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	ipv6_addr_copy((union v6addr *)&l3->saddr, &backend_ip);
-	ipv6_addr_copy((union v6addr *)&l3->daddr, &client_ip);
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv6_tcp_packet(&builder,
+					  (__u8 *)node_mac, (__u8 *)client_mac,
+					  (__u8 *)&backend_ip, (__u8 *)&client_ip,
+					  BACKEND_PORT, CLIENT_PORT);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->source = BACKEND_PORT;
-	l4->dest = CLIENT_PORT;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)

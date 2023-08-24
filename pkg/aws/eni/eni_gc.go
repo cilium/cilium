@@ -14,7 +14,11 @@ import (
 
 const gcENIControllerName = "ipam-eni-gc"
 
-var controllerManager = controller.NewManager()
+var (
+	controllerManager = controller.NewManager()
+
+	gcENIControllerGroup = controller.NewGroup(gcENIControllerName)
+)
 
 type GarbageCollectionParams struct {
 	// RunInterval is both the GC interval and also the minimum amount of time
@@ -32,6 +36,7 @@ func StartENIGarbageCollector(ctx context.Context, api EC2API, params GarbageCol
 
 	var enisMarkedForDeletion []string
 	controllerManager.UpdateController(gcENIControllerName, controller.ControllerParams{
+		Group: gcENIControllerGroup,
 		DoFunc: func(ctx context.Context) error {
 			// Unfortunately, the EC2 API does not allow us to determine the age of
 			// a network interface. To mitigate a race where Cilium just created a new

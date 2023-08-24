@@ -63,6 +63,8 @@ const (
 	dnsSourceConnection = "connection"
 )
 
+var dnsGCControllerGroup = controller.NewGroup("dns-garbage-collector-job")
+
 func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, identityAllocator secIDCache.IdentityAllocator) (map[policyApi.FQDNSelector][]*identity.Identity, []*identity.Identity, map[netip.Prefix]*identity.Identity, error) {
 	var err error
 
@@ -193,6 +195,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	dnsGCJobName := "dns-garbage-collector-job"
 	dnsGCJobInterval := 1 * time.Minute
 	controller.NewManager().UpdateController(dnsGCJobName, controller.ControllerParams{
+		Group:       dnsGCControllerGroup,
 		RunInterval: dnsGCJobInterval,
 		DoFunc: func(ctx context.Context) error {
 			var (
@@ -356,7 +359,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 
 	// Once we stop returning errors from StartDNSProxy this should live in
 	// StartProxySupport
-	port, err := proxy.GetProxyPort(proxy.DNSProxyName)
+	port, err := d.l7Proxy.GetProxyPort(proxy.DNSProxyName)
 	if err != nil {
 		return err
 	}
@@ -398,6 +401,10 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 // called after iptables has been initailized, and only after
 // successful bootstrapFQDN().
 func (d *Daemon) updateDNSDatapathRules(ctx context.Context) error {
+	if option.Config.DryMode || !option.Config.EnableL7Proxy {
+		return nil
+	}
+
 	return d.l7Proxy.AckProxyPort(ctx, proxy.DNSProxyName)
 }
 
@@ -712,17 +719,9 @@ func ipToInt(addr net.IP) *big.Int {
 	return i
 }
 
-type getFqdnCache struct {
-	daemon *Daemon
-}
-
-func NewGetFqdnCacheHandler(d *Daemon) GetFqdnCacheHandler {
-	return &getFqdnCache{daemon: d}
-}
-
-func (h *getFqdnCache) Handle(params GetFqdnCacheParams) middleware.Responder {
+func getFqdnCacheHandler(d *Daemon, params GetFqdnCacheParams) middleware.Responder {
 	// endpoints we want data from
-	endpoints := h.daemon.endpointManager.GetEndpoints()
+	endpoints := d.endpointManager.GetEndpoints()
 
 	CIDRStr := ""
 	if params.Cidr != nil {
@@ -750,17 +749,9 @@ func (h *getFqdnCache) Handle(params GetFqdnCacheParams) middleware.Responder {
 	return NewGetFqdnCacheOK().WithPayload(lookups)
 }
 
-type deleteFqdnCache struct {
-	daemon *Daemon
-}
-
-func NewDeleteFqdnCacheHandler(d *Daemon) DeleteFqdnCacheHandler {
-	return &deleteFqdnCache{daemon: d}
-}
-
-func (h *deleteFqdnCache) Handle(params DeleteFqdnCacheParams) middleware.Responder {
+func deleteFqdnCacheHandler(d *Daemon, params DeleteFqdnCacheParams) middleware.Responder {
 	// endpoints we want to modify
-	endpoints := h.daemon.endpointManager.GetEndpoints()
+	endpoints := d.endpointManager.GetEndpoints()
 
 	matchPatternStr := ""
 	if params.Matchpattern != nil {
@@ -768,29 +759,21 @@ func (h *deleteFqdnCache) Handle(params DeleteFqdnCacheParams) middleware.Respon
 	}
 
 	namesToRegen, err := deleteDNSLookups(
-		h.daemon.dnsNameManager.GetDNSCache(),
+		d.dnsNameManager.GetDNSCache(),
 		endpoints,
 		time.Now(),
 		matchPatternStr)
 	if err != nil {
 		return api.Error(DeleteFqdnCacheBadRequestCode, err)
 	}
-	h.daemon.dnsNameManager.ForceGenerateDNS(context.TODO(), namesToRegen)
+	d.dnsNameManager.ForceGenerateDNS(context.TODO(), namesToRegen)
 	return NewDeleteFqdnCacheOK()
 }
 
-type getFqdnCacheID struct {
-	daemon *Daemon
-}
-
-func NewGetFqdnCacheIDHandler(d *Daemon) GetFqdnCacheIDHandler {
-	return &getFqdnCacheID{daemon: d}
-}
-
-func (h *getFqdnCacheID) Handle(params GetFqdnCacheIDParams) middleware.Responder {
+func getFqdnCacheIDHandler(d *Daemon, params GetFqdnCacheIDParams) middleware.Responder {
 	var endpoints []*endpoint.Endpoint
 	if params.ID != "" {
-		ep, err := h.daemon.endpointManager.Lookup(params.ID)
+		ep, err := d.endpointManager.Lookup(params.ID)
 		switch {
 		case err != nil:
 			return api.Error(GetFqdnCacheIDBadRequestCode, err)
@@ -827,16 +810,8 @@ func (h *getFqdnCacheID) Handle(params GetFqdnCacheIDParams) middleware.Responde
 	return NewGetFqdnCacheIDOK().WithPayload(lookups)
 }
 
-type getFqdnNamesHandler struct {
-	daemon *Daemon
-}
-
-func NewGetFqdnNamesHandler(d *Daemon) GetFqdnNamesHandler {
-	return &getFqdnNamesHandler{daemon: d}
-}
-
-func (h *getFqdnNamesHandler) Handle(params GetFqdnNamesParams) middleware.Responder {
-	payload := h.daemon.dnsNameManager.GetModel()
+func getFqdnNamesHandler(d *Daemon, params GetFqdnNamesParams) middleware.Responder {
+	payload := d.dnsNameManager.GetModel()
 	return NewGetFqdnNamesOK().WithPayload(payload)
 }
 

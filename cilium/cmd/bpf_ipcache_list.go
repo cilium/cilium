@@ -54,6 +54,6 @@ var bpfIPCacheListCmd = &cobra.Command{
 }
 
 func init() {
-	bpfIPCacheCmd.AddCommand(bpfIPCacheListCmd)
+	BPFIPCacheCmd.AddCommand(bpfIPCacheListCmd)
 	command.AddOutputOption(bpfIPCacheListCmd)
 }

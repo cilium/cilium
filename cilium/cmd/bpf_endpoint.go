@@ -7,11 +7,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var bpfEndpointCmd = &cobra.Command{
+var BPFEndpointCmd = &cobra.Command{
 	Use:   "endpoint",
 	Short: "Local endpoint map",
 }
 
 func init() {
-	bpfCmd.AddCommand(bpfEndpointCmd)
+	BPFCmd.AddCommand(BPFEndpointCmd)
 }

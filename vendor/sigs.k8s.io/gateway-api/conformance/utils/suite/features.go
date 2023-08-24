@@ -55,15 +55,8 @@ var StandardCoreFeatures = sets.New(
 // -----------------------------------------------------------------------------
 
 const (
-	// This option indicates GatewayClass will update the observedGeneration in
-	// it's conditions when reconciling (extended conformance).
-	//
-	// NOTE: we intend to make this core and require implementations to do it
-	//       as we expect this is something every implementation should be able
-	//       to do and it's ideal behavior.
-	//
-	//       See: https://github.com/kubernetes-sigs/gateway-api/issues/1780
-	SupportGatewayClassObservedGenerationBump SupportedFeature = "GatewayClassObservedGenerationBump"
+	// This option indicates that the Gateway can also use port 8080
+	SupportGatewayPort8080 SupportedFeature = "GatewayPort8080"
 )
 
 // StandardExtendedFeatures are extra generic features that implementations may
@@ -72,7 +65,7 @@ const (
 // TODO: we need clarity for standard vs experimental features.
 // See: https://github.com/kubernetes-sigs/gateway-api/issues/1891
 var StandardExtendedFeatures = sets.New(
-	SupportGatewayClassObservedGenerationBump,
+	SupportGatewayPort8080,
 ).Insert(StandardCoreFeatures.UnsortedList()...)
 
 // -----------------------------------------------------------------------------
@@ -137,6 +130,9 @@ const (
 
 	// This option indicates support for HTTPRoute path rewrite (experimental conformance)
 	SupportHTTPRoutePathRewrite SupportedFeature = "HTTPRoutePathRewrite"
+
+	// This option indicates support for HTTPRoute request mirror (extended conformance).
+	SupportHTTPRouteRequestMirror SupportedFeature = "HTTPRouteRequestMirror"
 )
 
 // HTTPExtendedFeatures includes all the supported features for HTTPRoute
@@ -151,7 +147,8 @@ var HTTPExtendedFeatures = sets.New(
 	SupportHTTPRoutePathRedirect,
 	SupportHTTPRouteHostRewrite,
 	SupportHTTPRoutePathRewrite,
-).Insert(HTTPCoreFeatures.UnsortedList()...)
+	SupportHTTPRouteRequestMirror,
+)
 
 // -----------------------------------------------------------------------------
 // Features - TLSRoute Conformance (Core)
@@ -194,6 +191,7 @@ var MeshCoreFeatures = sets.New(
 var AllFeatures = sets.New[SupportedFeature]().
 	Insert(StandardExtendedFeatures.UnsortedList()...).
 	Insert(ExperimentalExtendedFeatures.UnsortedList()...).
+	Insert(HTTPCoreFeatures.UnsortedList()...).
 	Insert(HTTPExtendedFeatures.UnsortedList()...).
 	Insert(TLSCoreFeatures.UnsortedList()...).
 	Insert(MeshCoreFeatures.UnsortedList()...)

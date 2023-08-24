@@ -67,12 +67,22 @@ func extractDoc(node ast.Node, decl *ast.GenDecl) string {
 		// chop off the extraneous last part
 		outLines = outLines[:len(outLines)-1]
 	}
-	// respect double-newline meaning actual newline
+
 	for i, line := range outLines {
+		// Trim any extranous whitespace,
+		// for handling /*…*/-style comments,
+		// which have whitespace preserved in go/ast:
+		line = strings.TrimSpace(line)
+
+		// Respect that double-newline means
+		// actual newline:
 		if line == "" {
 			outLines[i] = "\n"
+		} else {
+			outLines[i] = line
 		}
 	}
+
 	return strings.Join(outLines, " ")
 }
 

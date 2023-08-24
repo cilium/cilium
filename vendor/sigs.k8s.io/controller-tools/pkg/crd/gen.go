@@ -20,10 +20,8 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
-	"os"
 
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	apiextlegacy "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	crdmarkers "sigs.k8s.io/controller-tools/pkg/crd/markers"
@@ -33,30 +31,20 @@ import (
 	"sigs.k8s.io/controller-tools/pkg/version"
 )
 
+// The identifier for v1 CustomResourceDefinitions.
+const v1 = "v1"
+
 // The default CustomResourceDefinition version to generate.
-const defaultVersion = "v1"
+const defaultVersion = v1
 
 // +controllertools:marker:generateHelp
 
 // Generator generates CustomResourceDefinition objects.
 type Generator struct {
-	// TrivialVersions indicates that we should produce a single-version CRD.
+	// IgnoreUnexportedFields indicates that we should skip unexported fields.
 	//
-	// Single "trivial-version" CRDs are compatible with older (pre 1.13)
-	// Kubernetes API servers.  The storage version's schema will be used as
-	// the CRD's schema.
-	//
-	// Only works with the v1beta1 CRD version.
-	TrivialVersions bool `marker:",optional"`
-
-	// PreserveUnknownFields indicates whether or not we should turn off pruning.
-	//
-	// Left unspecified, it'll default to true when only a v1beta1 CRD is
-	// generated (to preserve compatibility with older versions of this tool),
-	// or false otherwise.
-	//
-	// It's required to be false for v1 CRDs.
-	PreserveUnknownFields *bool `marker:",optional"`
+	// Left unspecified, the default is false.
+	IgnoreUnexportedFields *bool `marker:",optional"`
 
 	// AllowDangerousTypes allows types which are usually omitted from CRD generation
 	// because they are not recommended.
@@ -77,6 +65,8 @@ type Generator struct {
 
 	// CRDVersions specifies the target API versions of the CRD type itself to
 	// generate. Defaults to v1.
+	//
+	// Currently, the only supported value is v1.
 	//
 	// The first version listed will be assumed to be the "default" version and
 	// will not get a version suffix in the output filename.
@@ -100,7 +90,8 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 		Collector: ctx.Collector,
 		Checker:   ctx.Checker,
 		// Perform defaulting here to avoid ambiguity later
-		AllowDangerousTypes: g.AllowDangerousTypes != nil && *g.AllowDangerousTypes == true,
+		IgnoreUnexportedFields: g.IgnoreUnexportedFields != nil && *g.IgnoreUnexportedFields == true,
+		AllowDangerousTypes:    g.AllowDangerousTypes != nil && *g.AllowDangerousTypes == true,
 		// Indicates the parser on whether to register the ObjectMeta type or not
 		GenerateEmbeddedObjectMeta: g.GenerateEmbeddedObjectMeta != nil && *g.GenerateEmbeddedObjectMeta == true,
 	}
@@ -146,38 +137,8 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 			versionedCRDs[i] = conv
 		}
 
-		if g.TrivialVersions {
-			for i, crd := range versionedCRDs {
-				if crdVersions[i] == "v1beta1" {
-					toTrivialVersions(crd.(*apiextlegacy.CustomResourceDefinition))
-				}
-			}
-		}
-
-		// *If* we're only generating v1beta1 CRDs, default to `preserveUnknownFields: (unset)`
-		// for compatibility purposes.  In any other case, default to false, since that's
-		// the sensible default and is required for v1.
-		v1beta1Only := len(crdVersions) == 1 && crdVersions[0] == "v1beta1"
-		switch {
-		case (g.PreserveUnknownFields == nil || *g.PreserveUnknownFields) && v1beta1Only:
-			crd := versionedCRDs[0].(*apiextlegacy.CustomResourceDefinition)
-			crd.Spec.PreserveUnknownFields = nil
-		case g.PreserveUnknownFields == nil, g.PreserveUnknownFields != nil && !*g.PreserveUnknownFields:
-			// it'll be false here (coming from v1) -- leave it as such
-		default:
-			return fmt.Errorf("you may only set PreserveUnknownFields to true with v1beta1 CRDs")
-		}
-
 		for i, crd := range versionedCRDs {
-			// defaults are not allowed to be specified in v1beta1 CRDs and
-			// decriptions are not allowed on the metadata regardless of version
-			// strip them before writing to a file
-			if crdVersions[i] == "v1beta1" {
-				removeDefaultsFromSchemas(crd.(*apiextlegacy.CustomResourceDefinition))
-				removeDescriptionFromMetadataLegacy(crd.(*apiextlegacy.CustomResourceDefinition))
-			} else {
-				removeDescriptionFromMetadata(crd.(*apiext.CustomResourceDefinition))
-			}
+			removeDescriptionFromMetadata(crd.(*apiext.CustomResourceDefinition))
 			var fileName string
 			if i == 0 {
 				fileName = fmt.Sprintf("%s_%s.yaml", crdRaw.Spec.Group, crdRaw.Spec.Names.Plural)
@@ -212,71 +173,6 @@ func removeDescriptionFromMetadataProps(v *apiext.JSONSchemaProps) {
 	}
 }
 
-func removeDescriptionFromMetadataLegacy(crd *apiextlegacy.CustomResourceDefinition) {
-	if crd.Spec.Validation != nil {
-		removeDescriptionFromMetadataPropsLegacy(crd.Spec.Validation.OpenAPIV3Schema)
-	}
-	for _, versionSpec := range crd.Spec.Versions {
-		if versionSpec.Schema != nil {
-			removeDescriptionFromMetadataPropsLegacy(versionSpec.Schema.OpenAPIV3Schema)
-		}
-	}
-}
-
-func removeDescriptionFromMetadataPropsLegacy(v *apiextlegacy.JSONSchemaProps) {
-	if m, ok := v.Properties["metadata"]; ok {
-		meta := &m
-		if meta.Description != "" {
-			meta.Description = ""
-			v.Properties["metadata"] = m
-
-		}
-	}
-}
-
-// removeDefaultsFromSchemas will remove all instances of default values being
-// specified across all defined API versions
-func removeDefaultsFromSchemas(crd *apiextlegacy.CustomResourceDefinition) {
-	if crd.Spec.Validation != nil {
-		removeDefaultsFromSchemaProps(crd.Spec.Validation.OpenAPIV3Schema)
-	}
-
-	for _, versionSpec := range crd.Spec.Versions {
-		if versionSpec.Schema != nil {
-			removeDefaultsFromSchemaProps(versionSpec.Schema.OpenAPIV3Schema)
-		}
-	}
-}
-
-// removeDefaultsFromSchemaProps will recurse into JSONSchemaProps to remove
-// all instances of default values being specified
-func removeDefaultsFromSchemaProps(v *apiextlegacy.JSONSchemaProps) {
-	if v == nil {
-		return
-	}
-
-	if v.Default != nil {
-		fmt.Fprintln(os.Stderr, "Warning: default unsupported in CRD version v1beta1, v1 required. Removing defaults.")
-	}
-
-	// nil-out the default field
-	v.Default = nil
-	for name, prop := range v.Properties {
-		// iter var reference is fine -- we handle the persistence of the modfications on the line below
-		//nolint:gosec
-		removeDefaultsFromSchemaProps(&prop)
-		v.Properties[name] = prop
-	}
-	if v.Items != nil {
-		removeDefaultsFromSchemaProps(v.Items.Schema)
-		for i := range v.Items.JSONSchemas {
-			props := v.Items.JSONSchemas[i]
-			removeDefaultsFromSchemaProps(&props)
-			v.Items.JSONSchemas[i] = props
-		}
-	}
-}
-
 // FixTopLevelMetadata resets the schema for the top-level metadata field which is needed for CRD validation
 func FixTopLevelMetadata(crd apiext.CustomResourceDefinition) {
 	for _, v := range crd.Spec.Versions {
@@ -287,32 +183,6 @@ func FixTopLevelMetadata(crd apiext.CustomResourceDefinition) {
 			}
 		}
 	}
-}
-
-// toTrivialVersions strips out all schemata except for the storage schema,
-// and moves that up into the root object.  This makes the CRD compatible
-// with pre 1.13 clusters.
-func toTrivialVersions(crd *apiextlegacy.CustomResourceDefinition) {
-	var canonicalSchema *apiextlegacy.CustomResourceValidation
-	var canonicalSubresources *apiextlegacy.CustomResourceSubresources
-	var canonicalColumns []apiextlegacy.CustomResourceColumnDefinition
-	for i, ver := range crd.Spec.Versions {
-		if ver.Storage == true {
-			canonicalSchema = ver.Schema
-			canonicalSubresources = ver.Subresources
-			canonicalColumns = ver.AdditionalPrinterColumns
-		}
-		crd.Spec.Versions[i].Schema = nil
-		crd.Spec.Versions[i].Subresources = nil
-		crd.Spec.Versions[i].AdditionalPrinterColumns = nil
-	}
-	if canonicalSchema == nil {
-		return
-	}
-
-	crd.Spec.Validation = canonicalSchema
-	crd.Spec.Subresources = canonicalSubresources
-	crd.Spec.AdditionalPrinterColumns = canonicalColumns
 }
 
 // addAttribution adds attribution info to indicate controller-gen tool was used

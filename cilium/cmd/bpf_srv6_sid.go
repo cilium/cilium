@@ -81,6 +81,6 @@ func printSRv6SIDList(sidList []srv6SID) {
 }
 
 func init() {
-	bpfSRv6Cmd.AddCommand(bpfSRv6SIDListCmd)
+	BPFSRv6Cmd.AddCommand(bpfSRv6SIDListCmd)
 	command.AddOutputOption(bpfSRv6SIDListCmd)
 }

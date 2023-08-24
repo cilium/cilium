@@ -172,7 +172,7 @@ func TestRetryFuncs(t *testing.T) {
 			}
 		}
 	}
-	tdiff := time.Now().Sub(t0)
+	tdiff := time.Since(t0)
 	expectedDiff := time.Duration(1+2+4+8+10+10) * time.Millisecond
 
 	if tdiff < expectedDiff || tdiff > 2*expectedDiff {

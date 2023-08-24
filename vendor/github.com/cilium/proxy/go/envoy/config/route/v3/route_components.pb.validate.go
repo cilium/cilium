@@ -5942,6 +5942,8 @@ func (m *FilterConfig) validate(all bool) error {
 
 	// no validation rules for IsOptional
 
+	// no validation rules for Disabled
+
 	if len(errors) > 0 {
 		return FilterConfigMultiError(errors)
 	}
@@ -10853,6 +10855,8 @@ func (m *RateLimit_Action_MetaData) validate(all bool) error {
 		}
 		errors = append(errors, err)
 	}
+
+	// no validation rules for SkipIfAbsent
 
 	if len(errors) > 0 {
 		return RateLimit_Action_MetaDataMultiError(errors)

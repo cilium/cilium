@@ -72,6 +72,6 @@ func printMapEntries(m *models.BPFMap) {
 }
 
 func init() {
-	mapCmd.AddCommand(mapGetCmd)
+	MAPCmd.AddCommand(mapGetCmd)
 	command.AddOutputOption(mapGetCmd)
 }

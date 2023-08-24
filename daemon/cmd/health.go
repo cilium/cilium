@@ -20,10 +20,12 @@ import (
 	"github.com/cilium/cilium/pkg/pidfile"
 )
 
+var healthControllerGroup = controller.NewGroup("cilium-health")
+
 func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup) {
 	// Launch cilium-health in the same process (and namespace) as cilium.
 	log.Info("Launching Cilium health daemon")
-	if ch, err := health.Launch(spec); err != nil {
+	if ch, err := health.Launch(spec, d.datapath.Loader().HostDatapathInitialized()); err != nil {
 		log.WithError(err).Fatal("Failed to launch cilium-health")
 	} else {
 		d.ciliumHealth = ch
@@ -51,8 +53,10 @@ func (d *Daemon) initHealth(spec *healthApi.Spec, cleaner *daemonCleanup) {
 	// Wait for the API, then launch the controller
 	var client *health.Client
 
-	controller.NewManager().UpdateController(defaults.HealthEPName,
+	controller.NewManager().UpdateController(
+		defaults.HealthEPName,
 		controller.ControllerParams{
+			Group: healthControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				var err error
 

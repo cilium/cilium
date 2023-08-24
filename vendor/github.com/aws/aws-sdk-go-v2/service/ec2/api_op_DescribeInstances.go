@@ -6,10 +6,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	internalauth "github.com/aws/aws-sdk-go-v2/internal/auth"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	smithy "github.com/aws/smithy-go"
+	smithyendpoints "github.com/aws/smithy-go/endpoints"
 	"github.com/aws/smithy-go/middleware"
 	smithytime "github.com/aws/smithy-go/time"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
@@ -62,7 +65,7 @@ type DescribeInstancesInput struct {
 	//   - architecture - The instance architecture ( i386 | x86_64 | arm64 ).
 	//   - availability-zone - The Availability Zone of the instance.
 	//   - block-device-mapping.attach-time - The attach time for an EBS volume mapped
-	//   to the instance, for example, 2010-09-15T17:15:20.000Z .
+	//   to the instance, for example, 2022-09-15T17:15:20.000Z .
 	//   - block-device-mapping.delete-on-termination - A Boolean that indicates
 	//   whether the EBS volume is deleted on instance termination.
 	//   - block-device-mapping.device-name - The device name specified in the block
@@ -70,11 +73,29 @@ type DescribeInstancesInput struct {
 	//   - block-device-mapping.status - The status for the EBS volume ( attaching |
 	//   attached | detaching | detached ).
 	//   - block-device-mapping.volume-id - The volume ID of the EBS volume.
+	//   - boot-mode - The boot mode that was specified by the AMI ( legacy-bios | uefi
+	//   | uefi-preferred ).
 	//   - capacity-reservation-id - The ID of the Capacity Reservation into which the
 	//   instance was launched.
+	//   - capacity-reservation-specification.capacity-reservation-preference - The
+	//   instance's Capacity Reservation preference ( open | none ).
+	//   -
+	//   capacity-reservation-specification.capacity-reservation-target.capacity-reservation-id
+	//   - The ID of the targeted Capacity Reservation.
+	//   -
+	//   capacity-reservation-specification.capacity-reservation-target.capacity-reservation-resource-group-arn
+	//   - The ARN of the targeted Capacity Reservation group.
 	//   - client-token - The idempotency token you provided when you launched the
 	//   instance.
+	//   - current-instance-boot-mode - The boot mode that is used to launch the
+	//   instance at launch or start ( legacy-bios | uefi ).
 	//   - dns-name - The public DNS name of the instance.
+	//   - ebs-optimized - A Boolean that indicates whether the instance is optimized
+	//   for Amazon EBS I/O.
+	//   - ena-support - A Boolean that indicates whether the instance is enabled for
+	//   enhanced networking with ENA.
+	//   - enclave-options.enabled - A Boolean that indicates whether the instance is
+	//   enabled for Amazon Web Services Nitro Enclaves.
 	//   - hibernation-options.configured - A Boolean that indicates whether the
 	//   instance is enabled for hibernation. A value of true means that the instance
 	//   is enabled for hibernation.
@@ -84,6 +105,10 @@ type DescribeInstancesInput struct {
 	//   xen is used for both Xen and Nitro hypervisors.
 	//   - iam-instance-profile.arn - The instance profile associated with the
 	//   instance. Specified as an ARN.
+	//   - iam-instance-profile.id - The instance profile associated with the instance.
+	//   Specified as an ID.
+	//   - iam-instance-profile.name - The instance profile associated with the
+	//   instance. Specified as an name.
 	//   - image-id - The ID of the image used to launch the instance.
 	//   - instance-id - The ID of the instance.
 	//   - instance-lifecycle - Indicates whether this is a Spot Instance or a
@@ -99,6 +124,7 @@ type DescribeInstancesInput struct {
 	//   - instance.group-id - The ID of the security group for the instance.
 	//   - instance.group-name - The name of the security group for the instance.
 	//   - ip-address - The public IPv4 address of the instance.
+	//   - ipv6-address - The IPv6 address of the instance.
 	//   - kernel-id - The kernel ID.
 	//   - key-name - The name of the key pair used when the instance was launched.
 	//   - launch-index - When launching multiple instances, this is the index for the
@@ -107,20 +133,29 @@ type DescribeInstancesInput struct {
 	//   format in the UTC time zone (YYYY-MM-DDThh:mm:ss.sssZ), for example,
 	//   2021-09-29T11:04:43.305Z . You can use a wildcard ( * ), for example,
 	//   2021-09-29T* , which matches an entire day.
-	//   - metadata-options.http-tokens - The metadata request authorization state (
-	//   optional | required )
-	//   - metadata-options.http-put-response-hop-limit - The HTTP metadata request put
-	//   response hop limit (integer, possible values 1 to 64 )
+	//   - license-pool -
+	//   - maintenance-options.auto-recovery - The current automatic recovery behavior
+	//   of the instance ( disabled | default ).
 	//   - metadata-options.http-endpoint - The status of access to the HTTP metadata
 	//   endpoint on your instance ( enabled | disabled )
+	//   - metadata-options.http-protocol-ipv4 - Indicates whether the IPv4 endpoint is
+	//   enabled ( disabled | enabled ).
+	//   - metadata-options.http-protocol-ipv6 - Indicates whether the IPv6 endpoint is
+	//   enabled ( disabled | enabled ).
+	//   - metadata-options.http-put-response-hop-limit - The HTTP metadata request put
+	//   response hop limit (integer, possible values 1 to 64 )
+	//   - metadata-options.http-tokens - The metadata request authorization state (
+	//   optional | required )
 	//   - metadata-options.instance-metadata-tags - The status of access to instance
 	//   tags from the instance metadata ( enabled | disabled )
+	//   - metadata-options.state - The state of the metadata option changes ( pending
+	//   | applied ).
 	//   - monitoring-state - Indicates whether detailed monitoring is enabled (
 	//   disabled | enabled ).
-	//   - network-interface.addresses.private-ip-address - The private IPv4 address
-	//   associated with the network interface.
 	//   - network-interface.addresses.primary - Specifies whether the IPv4 address of
 	//   the network interface is the primary private IPv4 address.
+	//   - network-interface.addresses.private-ip-address - The private IPv4 address
+	//   associated with the network interface.
 	//   - network-interface.addresses.association.public-ip - The ID of the
 	//   association of an Elastic IP address (IPv4) with a network interface.
 	//   - network-interface.addresses.association.ip-owner-id - The owner ID of the
@@ -178,7 +213,24 @@ type DescribeInstancesInput struct {
 	//   - placement-group-name - The name of the placement group for the instance.
 	//   - placement-partition-number - The partition in which the instance is located.
 	//   - platform - The platform. To list only Windows instances, use windows .
+	//   - platform-details - The platform ( Linux/UNIX | Red Hat BYOL Linux | Red Hat
+	//   Enterprise Linux | Red Hat Enterprise Linux with HA | Red Hat Enterprise
+	//   Linux with SQL Server Standard and HA | Red Hat Enterprise Linux with SQL
+	//   Server Enterprise and HA | Red Hat Enterprise Linux with SQL Server Standard |
+	//   Red Hat Enterprise Linux with SQL Server Web | Red Hat Enterprise Linux with
+	//   SQL Server Enterprise | SQL Server Enterprise | SQL Server Standard | SQL
+	//   Server Web | SUSE Linux | Ubuntu Pro | Windows | Windows BYOL | Windows with
+	//   SQL Server Enterprise | Windows with SQL Server Standard | Windows with SQL
+	//   Server Web ).
 	//   - private-dns-name - The private IPv4 DNS name of the instance.
+	//   - private-dns-name-options.enable-resource-name-dns-a-record - A Boolean that
+	//   indicates whether to respond to DNS queries for instance hostnames with DNS A
+	//   records.
+	//   - private-dns-name-options.enable-resource-name-dns-aaaa-record - A Boolean
+	//   that indicates whether to respond to DNS queries for instance hostnames with DNS
+	//   AAAA records.
+	//   - private-dns-name-options.hostname-type - The type of hostname ( ip-name |
+	//   resource-name ).
 	//   - private-ip-address - The private IPv4 address of the instance.
 	//   - product-code - The product code associated with the AMI used to launch the
 	//   instance.
@@ -216,6 +268,17 @@ type DescribeInstancesInput struct {
 	//   - tag-key - The key of a tag assigned to the resource. Use this filter to find
 	//   all resources that have a tag with a specific key, regardless of the tag value.
 	//   - tenancy - The tenancy of an instance ( dedicated | default | host ).
+	//   - tpm-support - Indicates if the instance is configured for NitroTPM support (
+	//   v2.0 ).
+	//   - usage-operation - The usage operation value for the instance ( RunInstances
+	//   | RunInstances:00g0 | RunInstances:0010 | RunInstances:1010 |
+	//   RunInstances:1014 | RunInstances:1110 | RunInstances:0014 | RunInstances:0210
+	//   | RunInstances:0110 | RunInstances:0100 | RunInstances:0004 |
+	//   RunInstances:0200 | RunInstances:000g | RunInstances:0g00 | RunInstances:0002
+	//   | RunInstances:0800 | RunInstances:0102 | RunInstances:0006 |
+	//   RunInstances:0202 ).
+	//   - usage-operation-update-time - The time that the usage operation was last
+	//   updated, for example, 2022-09-15T17:15:20.000Z .
 	//   - virtualization-type - The virtualization type of the instance ( paravirtual
 	//   | hvm ).
 	//   - vpc-id - The ID of the VPC that the instance is running in.
@@ -262,6 +325,9 @@ func (c *Client) addOperationDescribeInstancesMiddlewares(stack *middleware.Stac
 	if err != nil {
 		return err
 	}
+	if err = addlegacyEndpointContextSetter(stack, options); err != nil {
+		return err
+	}
 	if err = addSetLoggerMiddleware(stack, options); err != nil {
 		return err
 	}
@@ -289,13 +355,16 @@ func (c *Client) addOperationDescribeInstancesMiddlewares(stack *middleware.Stac
 	if err = awsmiddleware.AddRecordResponseTiming(stack); err != nil {
 		return err
 	}
-	if err = addClientUserAgent(stack); err != nil {
+	if err = addClientUserAgent(stack, options); err != nil {
 		return err
 	}
 	if err = smithyhttp.AddErrorCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
+		return err
+	}
+	if err = addDescribeInstancesResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
 	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opDescribeInstances(options.Region), middleware.Before); err != nil {
@@ -311,6 +380,9 @@ func (c *Client) addOperationDescribeInstancesMiddlewares(stack *middleware.Stac
 		return err
 	}
 	if err = addRequestResponseLogging(stack, options); err != nil {
+		return err
+	}
+	if err = addendpointDisableHTTPSMiddleware(stack, options); err != nil {
 		return err
 	}
 	return nil
@@ -1298,4 +1370,127 @@ func newServiceMetadataMiddleware_opDescribeInstances(region string) *awsmiddlew
 		SigningName:   "ec2",
 		OperationName: "DescribeInstances",
 	}
+}
+
+type opDescribeInstancesResolveEndpointMiddleware struct {
+	EndpointResolver EndpointResolverV2
+	BuiltInResolver  builtInParameterResolver
+}
+
+func (*opDescribeInstancesResolveEndpointMiddleware) ID() string {
+	return "ResolveEndpointV2"
+}
+
+func (m *opDescribeInstancesResolveEndpointMiddleware) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	if awsmiddleware.GetRequiresLegacyEndpoints(ctx) {
+		return next.HandleSerialize(ctx, in)
+	}
+
+	req, ok := in.Request.(*smithyhttp.Request)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown transport type %T", in.Request)
+	}
+
+	if m.EndpointResolver == nil {
+		return out, metadata, fmt.Errorf("expected endpoint resolver to not be nil")
+	}
+
+	params := EndpointParameters{}
+
+	m.BuiltInResolver.ResolveBuiltIns(&params)
+
+	var resolvedEndpoint smithyendpoints.Endpoint
+	resolvedEndpoint, err = m.EndpointResolver.ResolveEndpoint(ctx, params)
+	if err != nil {
+		return out, metadata, fmt.Errorf("failed to resolve service endpoint, %w", err)
+	}
+
+	req.URL = &resolvedEndpoint.URI
+
+	for k := range resolvedEndpoint.Headers {
+		req.Header.Set(
+			k,
+			resolvedEndpoint.Headers.Get(k),
+		)
+	}
+
+	authSchemes, err := internalauth.GetAuthenticationSchemes(&resolvedEndpoint.Properties)
+	if err != nil {
+		var nfe *internalauth.NoAuthenticationSchemesFoundError
+		if errors.As(err, &nfe) {
+			// if no auth scheme is found, default to sigv4
+			signingName := "ec2"
+			signingRegion := m.BuiltInResolver.(*builtInResolver).Region
+			ctx = awsmiddleware.SetSigningName(ctx, signingName)
+			ctx = awsmiddleware.SetSigningRegion(ctx, signingRegion)
+
+		}
+		var ue *internalauth.UnSupportedAuthenticationSchemeSpecifiedError
+		if errors.As(err, &ue) {
+			return out, metadata, fmt.Errorf(
+				"This operation requests signer version(s) %v but the client only supports %v",
+				ue.UnsupportedSchemes,
+				internalauth.SupportedSchemes,
+			)
+		}
+	}
+
+	for _, authScheme := range authSchemes {
+		switch authScheme.(type) {
+		case *internalauth.AuthenticationSchemeV4:
+			v4Scheme, _ := authScheme.(*internalauth.AuthenticationSchemeV4)
+			var signingName, signingRegion string
+			if v4Scheme.SigningName == nil {
+				signingName = "ec2"
+			} else {
+				signingName = *v4Scheme.SigningName
+			}
+			if v4Scheme.SigningRegion == nil {
+				signingRegion = m.BuiltInResolver.(*builtInResolver).Region
+			} else {
+				signingRegion = *v4Scheme.SigningRegion
+			}
+			if v4Scheme.DisableDoubleEncoding != nil {
+				// The signer sets an equivalent value at client initialization time.
+				// Setting this context value will cause the signer to extract it
+				// and override the value set at client initialization time.
+				ctx = internalauth.SetDisableDoubleEncoding(ctx, *v4Scheme.DisableDoubleEncoding)
+			}
+			ctx = awsmiddleware.SetSigningName(ctx, signingName)
+			ctx = awsmiddleware.SetSigningRegion(ctx, signingRegion)
+			break
+		case *internalauth.AuthenticationSchemeV4A:
+			v4aScheme, _ := authScheme.(*internalauth.AuthenticationSchemeV4A)
+			if v4aScheme.SigningName == nil {
+				v4aScheme.SigningName = aws.String("ec2")
+			}
+			if v4aScheme.DisableDoubleEncoding != nil {
+				// The signer sets an equivalent value at client initialization time.
+				// Setting this context value will cause the signer to extract it
+				// and override the value set at client initialization time.
+				ctx = internalauth.SetDisableDoubleEncoding(ctx, *v4aScheme.DisableDoubleEncoding)
+			}
+			ctx = awsmiddleware.SetSigningName(ctx, *v4aScheme.SigningName)
+			ctx = awsmiddleware.SetSigningRegion(ctx, v4aScheme.SigningRegionSet[0])
+			break
+		case *internalauth.AuthenticationSchemeNone:
+			break
+		}
+	}
+
+	return next.HandleSerialize(ctx, in)
+}
+
+func addDescribeInstancesResolveEndpointMiddleware(stack *middleware.Stack, options Options) error {
+	return stack.Serialize.Insert(&opDescribeInstancesResolveEndpointMiddleware{
+		EndpointResolver: options.EndpointResolverV2,
+		BuiltInResolver: &builtInResolver{
+			Region:       options.Region,
+			UseDualStack: options.EndpointOptions.UseDualStackEndpoint,
+			UseFIPS:      options.EndpointOptions.UseFIPSEndpoint,
+			Endpoint:     options.BaseEndpoint,
+		},
+	}, "ResolveEndpoint", middleware.After)
 }

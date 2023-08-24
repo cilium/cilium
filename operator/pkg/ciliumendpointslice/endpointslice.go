@@ -11,6 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"
+	"k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -19,7 +20,6 @@ import (
 	"github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	capi_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	csv2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -186,8 +186,6 @@ func (c *CiliumEndpointSliceController) Run(ces cache.Indexer, stopCh <-chan str
 	}()
 
 	<-stopCh
-
-	return
 }
 
 // Upon warm boot[restart], Iterate over all CEPs which we got from the api-server
@@ -260,7 +258,7 @@ func (c *CiliumEndpointSliceController) removeStaleAndDuplicatedCEPEntries() {
 // Note: CESs are synced locally before CES controller running and this is required.
 func syncCESsInLocalCache(cesStore cache.Store, manager operations) {
 	for _, obj := range cesStore.List() {
-		ces := obj.(*v2alpha1.CiliumEndpointSlice)
+		ces := obj.(*capi_v2a1.CiliumEndpointSlice)
 		// If CES is already cached locally, do nothing.
 		if _, err := manager.getCESFromCache(ces.GetName()); err == nil {
 			continue
@@ -274,7 +272,6 @@ func syncCESsInLocalCache(cesStore cache.Store, manager operations) {
 
 	}
 	log.Debug("Successfully synced all CESs locally")
-	return
 }
 
 // worker runs a worker thread that just dequeues items, processes them, and
@@ -318,6 +315,14 @@ func (c *CiliumEndpointSliceController) handleErr(err error, key interface{}) {
 		metrics.CiliumEndpointSliceSyncErrors.Inc()
 	}
 
+	if errors.IsConflict(err) {
+		// Update metadata of the object from store on conflict
+		obj, exists, err := c.ciliumEndpointSliceStore.GetByKey(key.(string))
+		if err == nil && exists {
+			c.Manager.updateCESInCache(obj.(*capi_v2a1.CiliumEndpointSlice), false)
+		}
+	}
+
 	if c.queue.NumRequeues(key) < maxRetries {
 		c.queue.AddRateLimited(key)
 		return
@@ -343,7 +348,7 @@ func (c *CiliumEndpointSliceController) syncCES(key string) error {
 	// Check the CES exists is in cesStore i.e. in api-server copy of CESs, if exist update or delete the CES.
 	obj, exists, err := c.ciliumEndpointSliceStore.GetByKey(key)
 	if err == nil && exists {
-		ces := obj.(*v2alpha1.CiliumEndpointSlice)
+		ces := obj.(*capi_v2a1.CiliumEndpointSlice)
 		// Delete the CES, only if CEP count is zero in local copy of CES and api-server copy of CES,
 		// else Update the CES
 		if len(ces.Endpoints) == 0 && c.Manager.getCEPCountInCES(key) == 0 {
@@ -401,7 +406,7 @@ func usedIdentitiesInCESs(cesStore cache.Store) map[string]bool {
 
 	cesObjList := cesStore.List()
 	for _, cesObj := range cesObjList {
-		ces, ok := cesObj.(*v2alpha1.CiliumEndpointSlice)
+		ces, ok := cesObj.(*capi_v2a1.CiliumEndpointSlice)
 		if !ok {
 			continue
 		}

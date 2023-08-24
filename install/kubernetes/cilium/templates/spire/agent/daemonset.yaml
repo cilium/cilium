@@ -50,6 +50,11 @@ spec:
               readOnly: false
             - name: spire-agent
               mountPath: /var/run/secrets/tokens
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
           livenessProbe:
             httpGet:
               path: /live
@@ -64,6 +69,10 @@ spec:
               port: 4251
             initialDelaySeconds: 5
             periodSeconds: 5
+      {{- with .Values.authentication.mutual.spire.install.agent.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
       volumes:
         - name: spire-config
           configMap:

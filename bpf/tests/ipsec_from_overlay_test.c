@@ -6,9 +6,13 @@
 #include "pktgen.h"
 #define ROUTER_IP
 #define SECLABEL
+#define SECLABEL_IPV4
+#define SECLABEL_IPV6
 #include "config_replacement.h"
 #undef ROUTER_IP
 #undef SECLABEL
+#undef SECLABEL_IPV4
+#undef SECLABEL_IPV6
 
 #define NODE_ID 2333
 #define ENCRYPT_KEY 3
@@ -70,6 +74,8 @@ static volatile const __u8 *DEST_EP_MAC = mac_three;
 static volatile const __u8 *DEST_NODE_MAC = mac_four;
 
 #include "bpf_overlay.c"
+
+#include "lib/endpoint.h"
 
 #define FROM_OVERLAY 0
 #define ESP_SEQUENCE 69865
@@ -312,29 +318,17 @@ PKTGEN("tc", "ipv4_without_encrypt_ipsec_from_overlay")
 int ipv4_without_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	struct tcphdr *l4;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
-
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-	l3->saddr = v4_pod_one;
-	l3->daddr = v4_pod_two;
-
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)mac_one, (__u8 *)mac_two,
+					  v4_pod_one, v4_pod_two,
+					  tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
-	l4->source = tcp_src_one;
-	l4->dest = tcp_svc_one;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -347,21 +341,8 @@ int ipv4_without_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv4_without_encrypt_ipsec_from_overlay")
 int ipv4_without_encrypt_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 {
-	struct endpoint_info ep_value = {
-		.ifindex = DEST_IFINDEX,
-		.lxc_id = DEST_LXC_ID,
-
-	};
-
-	memcpy(&ep_value.mac, (__u8 *)DEST_EP_MAC, ETH_ALEN);
-	memcpy(&ep_value.node_mac, (__u8 *)DEST_NODE_MAC, ETH_ALEN);
-
-	struct endpoint_key ep_key = {
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = v4_pod_two,
-	};
-
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
+	endpoint_v4_add_entry(v4_pod_two, DEST_IFINDEX, DEST_LXC_ID, 0,
+			      (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
 
 	ctx->mark = MARK_MAGIC_DECRYPT;
 	tail_call_static(ctx, &entry_call_map, FROM_OVERLAY);
@@ -441,28 +422,17 @@ PKTGEN("tc", "ipv6_without_encrypt_ipsec_from_overlay")
 int ipv6_without_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
-	struct ethhdr *l2;
-	struct ipv6hdr *l3;
 	struct tcphdr *l4;
 	void *data;
 
 	pktgen__init(&builder, ctx);
 
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-	ethhdr__set_macs(l2, (__u8 *)mac_one, (__u8 *)mac_two);
-
-	l3 = pktgen__push_default_ipv6hdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-	ipv6hdr__set_addrs(l3, (__u8 *)v6_pod_one, (__u8 *)v6_pod_two);
-
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv6_tcp_packet(&builder,
+					  (__u8 *)mac_one, (__u8 *)mac_two,
+					  (__u8 *)v6_pod_one, (__u8 *)v6_pod_two,
+					  tcp_src_one, tcp_svc_one);
 	if (!l4)
 		return TEST_ERROR;
-	l4->source = tcp_src_one;
-	l4->dest = tcp_svc_one;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -475,21 +445,8 @@ int ipv6_without_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 SETUP("tc", "ipv6_without_encrypt_ipsec_from_overlay")
 int ipv6_without_encrypt_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 {
-	struct endpoint_info ep_value = {
-		.ifindex = DEST_IFINDEX,
-		.lxc_id = DEST_LXC_ID,
-
-	};
-
-	memcpy(&ep_value.mac, (__u8 *)DEST_EP_MAC, ETH_ALEN);
-	memcpy(&ep_value.node_mac, (__u8 *)DEST_NODE_MAC, ETH_ALEN);
-
-	struct endpoint_key ep_key = {
-		.family = ENDPOINT_KEY_IPV6,
-	};
-
-	memcpy(&ep_key.ip6, (__u8 *)v6_pod_two, 16);
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
+	endpoint_v6_add_entry((union v6addr *)v6_pod_two, DEST_IFINDEX, DEST_LXC_ID,
+			      0, (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
 
 	ctx->mark = MARK_MAGIC_DECRYPT;
 	tail_call_static(ctx, &entry_call_map, FROM_OVERLAY);

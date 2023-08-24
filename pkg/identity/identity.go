@@ -224,71 +224,53 @@ func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 		return identity
 	}
 
-	for _, lbl := range lbls {
-		var createID bool
-		switch {
+	// Check if a fixed identity exists.
+	if lbl, exists := lbls[labels.LabelKeyFixedIdentity]; exists {
 		// If the set of labels contain a fixed identity then and exists in
 		// the map of reserved IDs then return the identity of that reserved ID.
-		case lbl.Key == labels.LabelKeyFixedIdentity:
-			id := GetReservedID(lbl.Value)
-			if id != IdentityUnknown && IsUserReservedIdentity(id) {
-				return LookupReservedIdentity(id)
-			}
-			// If a fixed identity was not found then we return nil to avoid
-			// falling to a reserved identity.
-			return nil
-
-		case lbl.Source == labels.LabelSourceReserved:
-			id := GetReservedID(lbl.Key)
-			switch {
-			case id == ReservedIdentityKubeAPIServer && lbls.Has(labels.LabelHost[labels.IDNameHost]):
-				// Due to Golang map iteration order (random) we might get the
-				// ID returned as kube-apiserver. If there's a local host
-				// label, then we know this is local host reserved ID, so
-				// change it as such. All local host traffic should always be
-				// considered host (and not kube-apiserver).
-				//
-				// The kube-apiserver label can be a part of a few identities:
-				//   * host
-				//   * kube-apiserver reserved identity (contains remote-node
-				//     label)
-				//   * (maybe) CIDR
-				id = ReservedIdentityHost
-				fallthrough
-			case id == ReservedIdentityKubeAPIServer && lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]):
-				createID = true
-
-			case id == ReservedIdentityRemoteNode && lbls.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]):
-				// Due to Golang map iteration order (random) we might get the
-				// ID returned as remote-node. If there's a kube-apiserver
-				// label, then we know this is kube-apiserver reserved ID, so
-				// change it as such. Only traffic to non-kube-apiserver nodes
-				// should be considered as remote-node.
-				id = ReservedIdentityKubeAPIServer
-				fallthrough
-			case id == ReservedIdentityHost || id == ReservedIdentityRemoteNode:
-				// If it contains the reserved, local host or remote node
-				// identity, return it with the new list of labels. This is to
-				// ensure that the local node  or remote node retain their
-				// identity regardless of label changes.
-				createID = true
-			}
-
-			if createID {
-				return NewIdentity(id, lbls)
-			}
-
-			// If it doesn't contain a fixed-identity then make sure the set of
-			// labels only contains a single label and that label is of the
-			// reserved type. This is to prevent users from adding
-			// cilium-reserved labels into the workloads.
-			if len(lbls) != 1 {
-				return nil
-			}
-			if id != IdentityUnknown && !IsUserReservedIdentity(id) {
-				return LookupReservedIdentity(id)
-			}
+		id := GetReservedID(lbl.Value)
+		if id != IdentityUnknown && IsUserReservedIdentity(id) {
+			return LookupReservedIdentity(id)
 		}
+		// If a fixed identity was not found then we return nil to avoid
+		// falling to a reserved identity.
+		return nil
+	}
+
+	// If there is no reserved label, return nil.
+	if !lbls.IsReserved() {
+		return nil
+	}
+
+	var nid NumericIdentity
+	if lbls.Has(labels.LabelHost[labels.IDNameHost]) {
+		nid = ReservedIdentityHost
+	} else if lbls.Has(labels.LabelRemoteNode[labels.IDNameRemoteNode]) {
+		nid = ReservedIdentityRemoteNode
+		if lbls.Has(labels.LabelKubeAPIServer[labels.IDNameKubeAPIServer]) {
+			// If there's a kube-apiserver label, then we know this is
+			// kube-apiserver reserved ID, so change it as such.
+			// Only traffic from non-kube-apiserver nodes should be
+			// considered as remote-node.
+			nid = ReservedIdentityKubeAPIServer
+		}
+	}
+
+	if nid != IdentityUnknown {
+		return NewIdentity(nid, lbls)
+	}
+
+	// We have handled all the cases where multiple labels can be present.
+	// So, we make sure the set of labels only contains a single label and
+	// that label is of the reserved type. This is to prevent users from
+	// adding cilium-reserved labels into the workloads.
+	if len(lbls) != 1 {
+		return nil
+	}
+
+	nid = GetReservedID(lbls.ToSlice()[0].Key)
+	if nid != IdentityUnknown && !IsUserReservedIdentity(nid) {
+		return LookupReservedIdentity(nid)
 	}
 	return nil
 }

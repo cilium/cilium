@@ -71,7 +71,7 @@ func (cfg ClientConfig) Flags(flags *pflag.FlagSet) {
 	flags.BoolVar(&cfg.MutualAuthEnabled,
 		"mesh-auth-mutual-enabled",
 		false,
-		"The flag to enable mutual authentication for the SPIRE server.")
+		"The flag to enable mutual authentication for the SPIRE server (beta).")
 	flags.StringVar(&cfg.SpireAgentSocketPath,
 		"mesh-auth-spire-agent-socket",
 		"/run/spire/sockets/agent/agent.sock",

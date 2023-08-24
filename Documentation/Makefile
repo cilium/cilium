@@ -16,7 +16,7 @@ SPHINX_OPTS := "-j=auto"
 default: html
 
 define build_image
-  $(ECHO_DOCKER)
+  $(ECHO_DOCKER) $(3)
   # Pre-pull FROM docker image due to Buildkit sometimes failing to pull them.
   grep -m 1 "^FROM " $(1) | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
   $(QUIET)tar c $(REQUIREMENTS) Dockerfile \
@@ -93,10 +93,6 @@ api-flaggen:
 		2>/dev/null \
 		> configuration/api-restrictions-table.rst
 
-copy-api:
-	@$(ECHO_GEN)_api
-	$(QUIET)cp -r ../api/. _api
-
 update-helm-values: $(HELM_VALUES) ## Update the Helm reference documentation.
 
 HELM_DOCS_ROOT_PATH := $(DOCKER_CTR_ROOT_DIR)
@@ -109,18 +105,20 @@ M2R := $(DOCKER_CTR) $(HELM_TOOLBOX_IMAGE) python3 /usr/bin/m2r2
 .PHONY: update-helm-values FORCE
 $(HELM_VALUES): TMP_FILE_1 := helm-values.tmp
 $(HELM_VALUES): TMP_FILE_2 := helm-values.awk
+$(HELM_VALUES): TMP_FILE_3 := helm-values.sed
 $(HELM_VALUES): FORCE
 	$(QUIET)$(HELM_DOCS) -d -c $(HELM_DOCS_CHARTS_DIR) -t $(HELM_DOCS_OUTPUT_DIR)/$(TMP_FILE_1).tmpl > $(TMP_FILE_1)
 	$(QUIET)awk -F'|' '{print "|"$$2"|"$$5"|"$$3"|"$$4"|"}' $(TMP_FILE_1) > $(TMP_FILE_2)
 	$(QUIET)$(M2R) --overwrite $(TMP_FILE_2)
-	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $@)" > $@
-	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2)
+	$(QUIET)$(SED) 's/^\(   \* - \)\([[:print:]]\{1,\}\)$$/\1:spelling:ignore:`\2`/' $@ > $(TMP_FILE_3)
+	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $(TMP_FILE_3))" > $@
+	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2) $(TMP_FILE_3)
 
-epub latex html: builder-image copy-api update-helm-values ## Check documentation and render it under the specified format.
+epub latex html: builder-image update-helm-values ## Check documentation and render it under the specified format.
 	@$(ECHO_GEN)_build/$@
 	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
 
-html-netlify: copy-api
+html-netlify:
 	@$(ECHO_GEN)_build/$@
 	$(QUIET) SKIP_LINT=1 ./check-build.sh html $(SPHINX_OPTS)
 

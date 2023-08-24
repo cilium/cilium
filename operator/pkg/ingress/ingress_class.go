@@ -84,17 +84,17 @@ func (i *ingressClassManager) Run() {
 }
 
 func (i *ingressClassManager) handleAddIngressClass(obj interface{}) {
-	if ic := k8s.ObjToV1IngressClass(obj); ic != nil {
+	if ic := k8s.CastInformerEvent[slim_networkingv1.IngressClass](obj); ic != nil {
 		i.queue.Add(ingressClassAddedEvent{ingressClass: ic})
 	}
 }
 
 func (i *ingressClassManager) handleUpdateIngressClass(oldObj, newObj interface{}) {
-	oldIngressClass := k8s.ObjToV1IngressClass(oldObj)
+	oldIngressClass := k8s.CastInformerEvent[slim_networkingv1.IngressClass](oldObj)
 	if oldIngressClass == nil {
 		return
 	}
-	newIngressClass := k8s.ObjToV1IngressClass(newObj)
+	newIngressClass := k8s.CastInformerEvent[slim_networkingv1.IngressClass](newObj)
 	if newIngressClass == nil {
 		return
 	}
@@ -105,7 +105,7 @@ func (i *ingressClassManager) handleUpdateIngressClass(oldObj, newObj interface{
 }
 
 func (i *ingressClassManager) handleDeleteIngressClass(obj interface{}) {
-	if ic := k8s.ObjToV1IngressClass(obj); ic != nil {
+	if ic := k8s.CastInformerEvent[slim_networkingv1.IngressClass](obj); ic != nil {
 		i.queue.Add(ingressClassDeletedEvent{ingressClass: ic})
 	}
 }
@@ -162,7 +162,7 @@ func (i *ingressClassManager) handleIngressClassDeletedEvent(event ingressClassD
 	log.WithField(logfields.IngressClass, event.ingressClass).Debug("Handling ingress class delete")
 
 	if event.ingressClass.GetName() == ciliumIngressClassName {
-		i.ingressQueue.Add(ciliumIngressClassDeletedEvent{ingressClass: event.ingressClass})
+		i.ingressQueue.Add(ciliumIngressClassDeletedEvent(event))
 	}
 	return nil
 }

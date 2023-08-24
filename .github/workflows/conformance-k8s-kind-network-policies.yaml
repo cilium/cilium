@@ -22,12 +22,14 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-  kind_version: v0.19.0
+  kind_version: v0.20.0
   cluster_name: cilium-testing
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.7
+  cilium_cli_version: v0.15.6
   cilium_cli_ci_version:
-  k8s_version: v1.27.1
+  CILIUM_CLI_MODE: helm
+  # renovate: datasource=docker depName=quay.io/cilium/kindest-node
+  k8s_version: v1.28.0-rc.0
 
 jobs:
   kubernetes-e2e-net-conformance:
@@ -79,7 +81,7 @@ jobs:
         run: |
           cat <<EOF | /usr/local/bin/kind create cluster \
             --name ${{ env.cluster_name}}           \
-            --image kindest/node:${{ env.k8s_version }}  \
+            --image quay.io/cilium/kindest-node:${{ env.k8s_version }}  \
             -v7 --wait 1m --retain --config=-
           kind: Cluster
           apiVersion: kind.x-k8s.io/v1alpha4
@@ -124,7 +126,7 @@ jobs:
       - name: Set up job variables
         id: vars
         run: |
-          if [ ${{ github.event.pull_request }} ]; then
+          if [ "${{ github.event.pull_request }}" ]; then
             SHA=${{ github.event.pull_request.head.sha }}
           else
             SHA=${{ github.sha }}
@@ -145,22 +147,17 @@ jobs:
             --helm-set=clustermesh.apiserver.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.relay.image.useDigest=false \
             --helm-set=cni.chainingMode=portmap \
-            --helm-set-string=kubeProxyReplacement=strict \
+            --helm-set=kubeProxyReplacement=true \
             --helm-set=sessionAffinity=true \
             --helm-set=identityChangeGracePeriod="0s" \
-            --rollback=false \
-            --config monitor-aggregation=none \
-            --version="
-          HUBBLE_ENABLE_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-            --relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci:${SHA} \
-            --relay-version=${SHA}"
+            --helm-set=bpf.monitorAggregation=none"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
-          echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@9fcfef089e5b7dd3212f2eac21ba8cfae6f05cca # v0.14.7
+        uses: cilium/cilium-cli@e718cf78ef55d95cfa0a5a0a935d6a224d567e1d # v0.15.6
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
@@ -180,6 +177,7 @@ jobs:
           done
 
       - name: Install Cilium
+        id: install-cilium
         run: |
           cilium install --wait ${{ steps.vars.outputs.cilium_install_defaults }}
 
@@ -210,9 +208,9 @@ jobs:
           # Run tests
           export KUBERNETES_CONFORMANCE_TEST='y'
           export E2E_REPORT_DIR=${PWD}/_artifacts
-          /usr/local/bin/ginkgo --nodes=25                \
+          /usr/local/bin/ginkgo --nodes=5                \
             --focus="(HostPort.*\[Conformance\].*|Services.*\[Conformance\].*|Net.*ol.*)"     \
-            --skip="(HostPort.validates.that.there.is.no.conflict.between.pods.with.same.hostPort.but.different.hostIP.and.protocol|should.allow.egress.access.to.server.in.CIDR.block|should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block|should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed|Feature:SCTPConnectivity)" \
+            --skip="(Legacy|HostPort.validates.that.there.is.no.conflict.between.pods.with.same.hostPort.but.different.hostIP.and.protocol|should.allow.egress.access.to.server.in.CIDR.block|should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block|should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed|Feature:SCTPConnectivity)" \
             /usr/local/bin/e2e.test                       \
             --                                            \
             --kubeconfig=${PWD}/_artifacts/kubeconfig.conf     \
@@ -222,7 +220,7 @@ jobs:
             --disable-log-dump=true
 
       - name: Post-test information gathering
-        if: ${{ !success() }}
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status

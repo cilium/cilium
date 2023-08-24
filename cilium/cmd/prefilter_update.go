@@ -26,7 +26,7 @@ var preFilterUpdateCmd = &cobra.Command{
 }
 
 func init() {
-	preFilterCmd.AddCommand(preFilterUpdateCmd)
+	PreFilterCmd.AddCommand(preFilterUpdateCmd)
 	preFilterUpdateCmd.Flags().Uint64VarP(&revision, "revision", "", 0, "Update revision")
 	preFilterUpdateCmd.Flags().StringSliceVarP(&cidrs, "cidr", "", []string{}, "List of CIDR prefixes to block")
 }

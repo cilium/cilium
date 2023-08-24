@@ -31,7 +31,7 @@ func main() {
 	// Shutdown gracefully to halt server and remove pidfile
 	ctx, cancel := signal.NotifyContext(context.Background(), unix.SIGINT, unix.SIGHUP, unix.SIGTERM, unix.SIGQUIT)
 
-	srv := responder.NewServer(listen)
+	srv := responder.NewServers([]string{""}, listen)
 	defer srv.Shutdown()
 	go func() {
 		if err := srv.Serve(); !errors.Is(err, http.ErrServerClosed) {

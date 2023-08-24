@@ -4,6 +4,7 @@
 package podcidr
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"sort"
@@ -11,7 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool/cidralloc"
 
 	"github.com/sirupsen/logrus"
-	"go.uber.org/multierr"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	ipPkg "github.com/cilium/cilium/pkg/ip"
@@ -78,7 +78,7 @@ func (a *nodeAction) performNodeAction(
 	if len(a.reuse) > 0 {
 		_, err := allocateIPNet(allocType, allocators, a.reuse)
 		if err != nil {
-			errs = multierr.Append(errs, err)
+			errs = errors.Join(errs, err)
 		} else {
 			result = append(result, a.reuse...)
 			changed = true
@@ -94,7 +94,7 @@ func (a *nodeAction) performNodeAction(
 	if a.allocateNext {
 		_, cidr, err := allocateFirstFreeCIDR(allocators)
 		if err != nil {
-			errs = multierr.Append(errs, err)
+			errs = errors.Join(errs, err)
 		} else {
 			result = append(result, cidr)
 			changed = true
@@ -273,7 +273,7 @@ func (n *NodesPodCIDRManager) allocateNodeV2(node *v2.CiliumNode) (cn *v2.Cilium
 
 	v4PodCIDRs, v4Changed, v4Errors := v4Action.performNodeAction(n.v4CIDRAllocators, v4AllocatorType, allocated.v4PodCIDRs)
 	v6PodCIDRs, v6Changed, v6Errors := v6Action.performNodeAction(n.v6CIDRAllocators, v6AllocatorType, allocated.v6PodCIDRs)
-	err = multierr.Combine(v4Errors, v6Errors)
+	err = errors.Join(v4Errors, v6Errors)
 
 	updateStatus = err != nil
 	updateSpec = (v4Changed || v4Action.needsResync) || (v6Changed || v6Action.needsResync)

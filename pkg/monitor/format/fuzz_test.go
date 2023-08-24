@@ -41,6 +41,5 @@ func FuzzFormatEvent(f *testing.F) {
 		mf := NewMonitorFormatter(0, nil)
 
 		mf.FormatEvent(pl)
-		return
 	})
 }

@@ -7,11 +7,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var bpfTunnelCmd = &cobra.Command{
+var BPFTunnelCmd = &cobra.Command{
 	Use:   "tunnel",
 	Short: "Tunnel endpoint map",
 }
 
 func init() {
-	bpfCmd.AddCommand(bpfTunnelCmd)
+	BPFCmd.AddCommand(BPFTunnelCmd)
 }

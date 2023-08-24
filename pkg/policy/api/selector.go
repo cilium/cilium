@@ -234,6 +234,8 @@ var (
 		labels.IDNameHost:       newReservedEndpointSelector(labels.IDNameHost),
 		labels.IDNameRemoteNode: newReservedEndpointSelector(labels.IDNameRemoteNode),
 		labels.IDNameWorld:      newReservedEndpointSelector(labels.IDNameWorld),
+		labels.IDNameWorldIPv4:  newReservedEndpointSelector(labels.IDNameWorldIPv4),
+		labels.IDNameWorldIPv6:  newReservedEndpointSelector(labels.IDNameWorldIPv6),
 	}
 )
 
@@ -342,7 +344,7 @@ func (n *EndpointSelector) ConvertToLabelSelectorRequirementSlice() []slim_metav
 
 // sanitize returns an error if the EndpointSelector's LabelSelector is invalid.
 func (n *EndpointSelector) sanitize() error {
-	errList := validation.ValidateLabelSelector(n.LabelSelector, nil)
+	errList := validation.ValidateLabelSelector(n.LabelSelector, validation.LabelSelectorValidationOptions{AllowInvalidLabelValueInSelector: false}, nil)
 	if len(errList) > 0 {
 		return fmt.Errorf("invalid label selector: %s", errList.ToAggregate().Error())
 	}

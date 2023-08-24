@@ -6,7 +6,7 @@
 
 .. _testing-documentation:
 
-Documentation Testing
+Documentation testing
 =====================
 
 First, start a local document server that automatically refreshes when you save files for
@@ -29,6 +29,7 @@ For Windows
 ~~~~~~~~~~~
 
 .. Note::
+
     The preferred method is to upgrade to Windows 10 version 1903 Build 18362 or higher, you can upgrade to Windows Subsystem for Linux ``WSL2`` and run ``make`` in Linux.
 
 #. Verify you have access to the ``make`` command in your ``WSL2`` terminal.
@@ -36,7 +37,7 @@ For Windows
 #. Set up docker to use `WSL2 <https://docs.docker.com/desktop/windows/wsl/>`_ as backend.
 #. Start docker desktop.
 
-Preview Documentation Locally
+Preview documentation locally
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Navigate to the root of the folder where you cloned the project, then run the code below in your terminal:
@@ -44,7 +45,6 @@ Navigate to the root of the folder where you cloned the project, then run the co
 .. code-block:: shell-session
 
     $ make render-docs
-
 
 This will build a docker image and start a docker container. Preview the documentation at http://localhost:9081/ as you make changes. After making changes to
 Cilium documentation you should check that you did not introduce any new warnings or errors, and also
@@ -66,7 +66,7 @@ you can build the docs:
 
       READTHEDOCS_VERSION=v1.7 make render-docs
 
-    
-Submit Local Changes on GitHub (Pull Request)
+Submit local changes on GitHub (Pull Request)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 See the :ref:`submit a pull request <submit_pr>` section of the contributing guide.

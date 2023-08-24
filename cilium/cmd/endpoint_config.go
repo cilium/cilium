@@ -33,7 +33,7 @@ var endpointConfigCmd = &cobra.Command{
 }
 
 func init() {
-	endpointCmd.AddCommand(endpointConfigCmd)
+	EndpointCmd.AddCommand(endpointConfigCmd)
 	endpointConfigCmd.Flags().BoolVarP(&listOptions, "list-options", "", false, "List available options")
 	command.AddOutputOption(endpointConfigCmd)
 }

@@ -43,7 +43,7 @@ var policyValidateCmd = &cobra.Command{
 }
 
 func init() {
-	policyCmd.AddCommand(policyValidateCmd)
+	PolicyCmd.AddCommand(policyValidateCmd)
 	policyValidateCmd.Flags().BoolVarP(&printPolicy, "print", "", false, "Print policy after validation")
 	policyValidateCmd.Flags().BoolVarP(&policyVerbose, "verbose", "v", true, "Enable verbose output")
 }

@@ -25,8 +25,8 @@ var (
 	verbose = false
 )
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
+// RootCmd represents the base command when called without any subcommands
+var RootCmd = &cobra.Command{
 	Use:   "cilium",
 	Short: "CLI",
 	Long:  `CLI for interacting with the local Cilium Agent`,
@@ -35,7 +35,7 @@ var rootCmd = &cobra.Command{
 // Execute adds all child commands to the root command sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
@@ -47,14 +47,14 @@ func init() {
 	}
 
 	cobra.OnInitialize(initConfig)
-	flags := rootCmd.PersistentFlags()
+	flags := RootCmd.PersistentFlags()
 	flags.StringVar(&cfgFile, "config", "", "Config file (default is $HOME/.cilium.yaml)")
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	flags.StringP("host", "H", "", "URI to server-side API")
 	vp.BindPFlags(flags)
-	rootCmd.AddCommand(newCmdCompletion(os.Stdout))
-	rootCmd.SetOut(os.Stdout)
-	rootCmd.SetErr(os.Stderr)
+	RootCmd.AddCommand(newCmdCompletion(os.Stdout))
+	RootCmd.SetOut(os.Stdout)
+	RootCmd.SetErr(os.Stderr)
 }
 
 // initConfig reads in config file and ENV variables if set.

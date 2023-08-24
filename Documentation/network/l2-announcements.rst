@@ -6,9 +6,11 @@
 
 .. _l2_announcements:
 
-************************************
-L2 Announcements / L2 Aware LB
-************************************
+*************************************
+L2 Announcements / L2 Aware LB (Beta)
+*************************************
+
+.. include:: ../beta.rst
 
 L2 Announcements is a feature which makes services visible and reachable on 
 the local area network. This feature is primarily intended for on-premises
@@ -39,7 +41,9 @@ The L2 Announcements feature and all the requirements can be enabled as follows:
                --namespace kube-system \\
                --reuse-values \\
                --set l2announcements.enabled=true \\
-               --set kubeProxyReplacement=strict \\
+               --set k8sClientRateLimit.qps={QPS} \\
+               --set k8sClientRateLimit.burst={BURST} \\
+               --set kubeProxyReplacement=true \\
                --set k8sServiceHost=${API_SERVER_IP} \\
                --set k8sServicePort=${API_SERVER_PORT}
                
@@ -49,12 +53,19 @@ The L2 Announcements feature and all the requirements can be enabled as follows:
         .. code-block:: yaml
 
             enable-l2-announcements: true
-            kube-proxy-replacement: strict
+            kube-proxy-replacement: true
+            k8s-client-qps: {QPS}
+            k8s-client-burst: {BURST}
+
+.. warning::
+  Sizing the client rate limit (``k8sClientRateLimit.qps`` and ``k8sClientRateLimit.burst``) 
+  is important when using this feature due to increased API usage. See :ref:`sizing_client_rate_limit` for sizing guidelines.
 
 Prerequisites
 #############
 
-* Kube Proxy replacement mode must be enabled and set to ``strict`` mode, see :ref:`kubeproxy-free` for details.
+* Kube Proxy replacement mode must be enabled. For more information, see
+  :ref:`kubeproxy-free`.
 
 * All devices on which L2 Aware LB will be announced should be enabled and included in the 
   ``--devices`` flag or ``devices`` Helm option if explicitly set, see :ref:`NodePort Devices`.
@@ -90,8 +101,9 @@ where, and how. This is an example policy using all optional fields:
         matchLabels:
           color: blue
       nodeSelector:
-        matchLabels:
-          role: worker
+        matchExpressions:
+          - key: node-role.kubernetes.io/control-plane
+            operator: DoesNotExist
       interfaces:
       - ^eth[0-9]+
       externalIPs: true
@@ -289,9 +301,11 @@ There are three Helm options that can be tuned with regards to leases:
                --namespace kube-system \\
                --reuse-values \\
                --set l2announcements.enabled=true \\
-               --set kubeProxyReplacement=strict \\
+               --set kubeProxyReplacement=true \\
                --set k8sServiceHost=${API_SERVER_IP} \\
                --set k8sServicePort=${API_SERVER_PORT} \\
+               --set k8sClientRateLimit.qps={QPS} \\
+               --set k8sClientRateLimit.burst={BURST} \\
                --set l2announcements.leaseDuration=3s \\
                --set l2announcements.leaseRenewDeadline=1s \\
                --set l2announcements.leaseRetryPeriod=200ms
@@ -301,15 +315,50 @@ There are three Helm options that can be tuned with regards to leases:
         .. code-block:: yaml
 
             enable-l2-announcements: true
-            kube-proxy-replacement: strict
+            kube-proxy-replacement: true
             l2-announcements-lease-duration: 3s
             l2-announcements-renew-deadline: 1s
             l2-announcements-retry-period: 200ms
+            k8s-client-qps: {QPS}
+            k8s-client-burst: {BURST}
 
 There is a trade-off between fast failure detection and CPU + network usage. 
 Each service incurs a CPU and network overhead, so clusters with smaller amounts
 of services can more easily afford faster failover times. Larger clusters might
 need to increase parameters if the overhead is too high.
+
+.. _sizing_client_rate_limit:
+
+Sizing client rate limit
+========================
+
+The leader election process continually generates API traffic, the exact amount
+depends on the configured lease duration, configured renew deadline, and amount
+of services using the feature.
+
+The default client rate limit is 5 QPS with allowed bursts up to 10 QPS. this
+default limit is quickly reached when utilizing L2 announcements and thus users
+should size the client rate limit accordingly.
+
+In a worst case scenario, services are distributed unevenly, so we will assume
+a peek load based on the renew deadline. In complex scenarios with multiple 
+policies over disjunct sets of node, max QPS per node will be lower.
+
+.. code-block:: text
+
+  QPS = #services * (1 / leaseRenewDeadline)
+
+  // example
+  #services = 65
+  leaseRenewDeadline = 2s
+  QPS = 65 * (1 / 2s) = 32.5 QPS
+
+Setting the base QPS to around the calculated value should be sufficient, given
+in multi-node scenarios leases are spread around nodes, and non-holders participating
+in the election have a lower QPS.
+
+The burst QPS should be slightly higher to allow for bursts of traffic caused
+by other features which also use the API server.
 
 Failover
 --------
@@ -330,3 +379,39 @@ has been reached.
 .. note::
    Since this feature has no IPv6 support yet, only ARP messages are sent, no 
    Unsolicited Neighbor Advertisements are sent.
+
+.. _l2_pod_announcements:
+
+L2 Pod Announcements
+####################
+
+L2 Pod Announcements announce Pod IP addresses on the L2 network using
+Gratuitous ARP replies. When enabled, the node transmits Gratuitous ARP
+replies for every locally created pod, on the configured network
+interface. This feature is enabled separately from the above L2
+announcements feature.
+
+To enable L2 Pod Announcements, set the following:
+
+.. tabs::
+    .. group-tab:: Helm
+
+        .. parsed-literal::
+
+            $ helm upgrade cilium |CHART_RELEASE| \\
+               --namespace kube-system \\
+               --reuse-values \\
+               --set l2podAnnouncements.enabled=true \\
+               --set l2podAnnouncements.interface=eth0
+
+
+    .. group-tab:: ConfigMap
+
+        .. code-block:: yaml
+
+            enable-l2-pod-announcements: true
+            l2-pod-announcements-interface: eth0
+
+.. note::
+   Since this feature has no IPv6 support yet, only ARP messages are
+   sent, no Unsolicited Neighbor Advertisements are sent.

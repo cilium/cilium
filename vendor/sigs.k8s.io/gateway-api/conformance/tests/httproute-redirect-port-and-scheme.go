@@ -40,6 +40,7 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 		suite.SupportGateway,
 		suite.SupportHTTPRoute,
 		suite.SupportHTTPRoutePortRedirect,
+		suite.SupportGatewayPort8080,
 	},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
 		ns := "gateway-conformance-infra"
@@ -59,7 +60,7 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 		gwAddr443 := kubernetes.GatewayAndHTTPRoutesMustBeAccepted(t, suite.Client, suite.TimeoutConfig, suite.ControllerName, kubernetes.NewGatewayRef(gwNN), routeNN)
 		kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
-		certNN := types.NamespacedName{Name: "tls-validity-checks-certificate", Namespace: string(ns)}
+		certNN := types.NamespacedName{Name: "tls-validity-checks-certificate", Namespace: ns}
 		cPem, keyPem, err := GetTLSSecret(suite.Client, certNN)
 		if err != nil {
 			t.Fatalf("unexpected error finding TLS secret: %v", err)
@@ -218,6 +219,7 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 		testCases = []http.ExpectedResponse{
 			{
 				Request: http.Request{
+					Host:             "example.org",
 					Path:             "/scheme-nil-and-port-nil",
 					UnfollowRedirect: true,
 				},
@@ -230,6 +232,7 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 			},
 			{
 				Request: http.Request{
+					Host:             "example.org",
 					Path:             "/scheme-nil-and-port-443",
 					UnfollowRedirect: true,
 				},
@@ -242,6 +245,7 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 			},
 			{
 				Request: http.Request{
+					Host:             "example.org",
 					Path:             "/scheme-nil-and-port-8443",
 					UnfollowRedirect: true,
 				},
@@ -255,6 +259,7 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 			},
 			{
 				Request: http.Request{
+					Host:             "example.org",
 					Path:             "/scheme-http-and-port-nil",
 					UnfollowRedirect: true,
 				},
@@ -267,6 +272,7 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 			},
 			{
 				Request: http.Request{
+					Host:             "example.org",
 					Path:             "/scheme-http-and-port-80",
 					UnfollowRedirect: true,
 				},
@@ -279,6 +285,7 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 			},
 			{
 				Request: http.Request{
+					Host:             "example.org",
 					Path:             "/scheme-http-and-port-8080",
 					UnfollowRedirect: true,
 				},
@@ -296,7 +303,7 @@ var HTTPRouteRedirectPortAndScheme = suite.ConformanceTest{
 			tc := testCases[i]
 			t.Run("https-listener-on-443/"+tc.GetTestCaseName(i), func(t *testing.T) {
 				t.Parallel()
-				tls.MakeTLSRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr443, cPem, keyPem, "example", tc)
+				tls.MakeTLSRequestAndExpectEventuallyConsistentResponse(t, suite.RoundTripper, suite.TimeoutConfig, gwAddr443, cPem, keyPem, "example.org", tc)
 			})
 		}
 	},

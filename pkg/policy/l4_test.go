@@ -149,7 +149,9 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			c.Assert(r.GetAuthType(), Equals, AuthTypeDisabled)
+			hasAuth, authType := r.GetAuthType()
+			c.Assert(hasAuth, Equals, DefaultAuthType)
+			c.Assert(authType, Equals, AuthTypeDisabled)
 		}
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 
@@ -157,7 +159,9 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			c.Assert(r.GetAuthType(), Equals, AuthTypeDisabled)
+			hasAuth, authType := r.GetAuthType()
+			c.Assert(hasAuth, Equals, DefaultAuthType)
+			c.Assert(authType, Equals, AuthTypeDisabled)
 		}
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 	}
@@ -188,7 +192,9 @@ func (s *PolicyTestSuite) TestCreateL4FilterAuthRequired(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			c.Assert(r.GetAuthType(), Equals, AuthTypeDisabled)
+			hasAuth, authType := r.GetAuthType()
+			c.Assert(hasAuth, Equals, ExplicitAuthType)
+			c.Assert(authType, Equals, AuthTypeDisabled)
 		}
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 
@@ -196,7 +202,9 @@ func (s *PolicyTestSuite) TestCreateL4FilterAuthRequired(c *C) {
 		c.Assert(err, IsNil)
 		c.Assert(len(filter.PerSelectorPolicies), Equals, 1)
 		for _, r := range filter.PerSelectorPolicies {
-			c.Assert(r.GetAuthType(), Equals, AuthTypeDisabled)
+			hasAuth, authType := r.GetAuthType()
+			c.Assert(hasAuth, Equals, ExplicitAuthType)
+			c.Assert(authType, Equals, AuthTypeDisabled)
 		}
 		c.Assert(filter.redirectType(), Equals, redirectTypeEnvoy)
 	}
@@ -247,14 +255,14 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 	c.Assert(pretty.Sprintf("%+ v", model.Ingress), checker.DeepEquals, "[]")
 
 	policy := L4Policy{
-		Egress: L4PolicyMap{
+		Egress: L4DirectionPolicy{PortRules: L4PolicyMap{
 			"8080/TCP": {
 				Port:     8080,
 				Protocol: api.ProtoTCP,
 				Ingress:  false,
 			},
-		},
-		Ingress: L4PolicyMap{
+		}},
+		Ingress: L4DirectionPolicy{PortRules: L4PolicyMap{
 			"80/TCP": {
 				Port: 80, Protocol: api.ProtoTCP,
 				L7Parser: "http",
@@ -307,7 +315,7 @@ func (s *PolicyTestSuite) TestJSONMarshal(c *C) {
 				},
 				Ingress: true,
 			},
-		},
+		}},
 	}
 
 	policy.Attach(testPolicyContext)

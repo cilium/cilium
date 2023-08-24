@@ -69,18 +69,13 @@ type LBRange struct {
 	originPool string
 }
 
-func NewLBRange(cidr *net.IPNet, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) (*LBRange, error) {
-	allocRange, err := ipallocator.NewCIDRRange(cidr)
-	if err != nil {
-		return nil, fmt.Errorf("new cidr range: %w", err)
-	}
-
+func newLBRange(cidr *net.IPNet, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) *LBRange {
 	return &LBRange{
-		allocRange:         allocRange,
+		allocRange:         ipallocator.NewCIDRRange(cidr),
 		internallyDisabled: false,
 		externallyDisabled: pool.Spec.Disabled,
 		originPool:         pool.GetName(),
-	}, nil
+	}
 }
 
 func (lr *LBRange) Disabled() bool {

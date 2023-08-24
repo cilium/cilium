@@ -37,7 +37,7 @@ CONTAINER_ENGINE?=docker
 DOCKER_FLAGS?=
 DOCKER_BUILD_FLAGS?=
 
-# use gsed if avaiable, otherwise use sed.
+# use gsed if available, otherwise use sed.
 # gsed is needed for MacOS to make in-place replacement work correctly.
 SED ?= $(if $(shell command -v gsed),gsed,sed)
 
@@ -66,6 +66,7 @@ CONSUL_IMAGE=consul:1.7.2
 
 export CILIUM_CLI ?= cilium
 export GO ?= go
+export KUBECTL ?= kubectl
 
 # go build/test/clean flags
 # these are declared here so they are treated explicitly
@@ -94,8 +95,8 @@ endif
 endif
 
 # renovate: datasource=docker depName=golangci/golangci-lint
-GOLANGCILINT_WANT_VERSION = v1.53.3
-GOLANGCILINT_IMAGE_SHA = sha256:1e0e2867b387bf68762427db499a963e43582b06819992db205fc31daa75ceea
+GOLANGCILINT_WANT_VERSION = v1.54.2
+GOLANGCILINT_IMAGE_SHA = sha256:2082f5379c48c46e447bc1b890512f3aa9339db5eeed1a483a34aae9476ba6ee
 GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
@@ -121,7 +122,7 @@ endif
 ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/images/cilium/Dockerfile),)
     CILIUM_ENVOY_REF=$(shell sed -E -e 's/^FROM (--[^ ]* )*([^ ]*) as cilium-envoy/\2/p;d' < $(ROOT_DIR)/images/cilium/Dockerfile)
     CILIUM_ENVOY_SHA=$(shell echo $(CILIUM_ENVOY_REF) | sed -E -e 's/[^/]*\/[^:]*:(.*-)?([^:@]*).*/\2/p;d')
-    GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/proxy.requiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
+    GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.requiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
 endif
 
 # Use git only if in a Git repo, otherwise find the files from the file system

@@ -5,6 +5,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -25,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/stream"
 )
 
 var (
@@ -78,6 +80,9 @@ type IdentityAllocatorOwner interface {
 // identities based of sets of labels, and caching information about identities
 // locally.
 type IdentityAllocator interface {
+	// Identity changes are observable.
+	stream.Observable[IdentityChange]
+
 	// WaitForInitialGlobalIdentities waits for the initial set of global
 	// security identities to have been received.
 	WaitForInitialGlobalIdentities(context.Context) error
@@ -481,4 +486,67 @@ func (m *CachingIdentityAllocator) RemoveRemoteIdentities(name string) {
 	if m.IdentityAllocator != nil {
 		m.IdentityAllocator.RemoveRemoteKVStore(name)
 	}
+}
+
+type IdentityChangeKind string
+
+const (
+	IdentityChangeSync   IdentityChangeKind = IdentityChangeKind(allocator.AllocatorChangeSync)
+	IdentityChangeUpsert IdentityChangeKind = IdentityChangeKind(allocator.AllocatorChangeUpsert)
+	IdentityChangeDelete IdentityChangeKind = IdentityChangeKind(allocator.AllocatorChangeDelete)
+)
+
+type IdentityChange struct {
+	Kind   IdentityChangeKind
+	ID     identity.NumericIdentity
+	Labels labels.Labels
+}
+
+// Observe the identity changes. Conforms to stream.Observable.
+// Replays the current state of the cache when subscribing.
+func (m *CachingIdentityAllocator) Observe(ctx context.Context, next func(IdentityChange), complete func(error)) {
+	// This short-lived go routine serves the purpose of waiting for the global identity allocator becoming ready
+	// before starting to observe the underlying allocator for changes.
+	// m.IdentityAllocator is backed by a stream.FuncObservable, that will start its own
+	// go routine. Therefore, the current go routine will stop and free the lock on the setupMutex after the registration.
+	go func() {
+		if err := m.WaitForInitialGlobalIdentities(ctx); err != nil {
+			complete(ctx.Err())
+			return
+		}
+
+		m.setupMutex.Lock()
+		defer m.setupMutex.Unlock()
+
+		if m.IdentityAllocator == nil {
+			complete(errors.New("allocator no longer initialized"))
+			return
+		}
+
+		// Observe the underlying allocator for changes and map the events to identities.
+		stream.Map[allocator.AllocatorChange, IdentityChange](
+			m.IdentityAllocator,
+			func(change allocator.AllocatorChange) IdentityChange {
+				return IdentityChange{
+					Kind:   IdentityChangeKind(change.Kind),
+					ID:     identity.NumericIdentity(change.ID),
+					Labels: mapLabels(change.Key),
+				}
+			},
+		).Observe(ctx, next, complete)
+	}()
+}
+
+func mapLabels(allocatorKey allocator.AllocatorKey) labels.Labels {
+	var idLabels labels.Labels = nil
+
+	if allocatorKey != nil {
+		idLabels = labels.Labels{}
+		for k, v := range allocatorKey.GetAsMap() {
+			label := labels.ParseLabel(k + "=" + v)
+			idLabels[label.Key] = label
+		}
+	}
+
+	return idLabels
 }

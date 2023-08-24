@@ -22,10 +22,13 @@ import (
 // swagger:model EndpointIdentifiers
 type EndpointIdentifiers struct {
 
-	// ID assigned by container runtime
+	// ID assigned to this attachment by container runtime
+	CniAttachmentID string `json:"cni-attachment-id,omitempty"`
+
+	// ID assigned by container runtime (deprecated, may not be unique)
 	ContainerID string `json:"container-id,omitempty"`
 
-	// Name assigned to container
+	// Name assigned to container (deprecated, may not be unique)
 	ContainerName string `json:"container-name,omitempty"`
 
 	// Docker endpoint ID
@@ -34,13 +37,13 @@ type EndpointIdentifiers struct {
 	// Docker network ID
 	DockerNetworkID string `json:"docker-network-id,omitempty"`
 
-	// K8s namespace for this endpoint
+	// K8s namespace for this endpoint (deprecated, may not be unique)
 	K8sNamespace string `json:"k8s-namespace,omitempty"`
 
-	// K8s pod name for this endpoint
+	// K8s pod name for this endpoint (deprecated, may not be unique)
 	K8sPodName string `json:"k8s-pod-name,omitempty"`
 
-	// K8s pod for this endpoint(Deprecated, use K8sPodName and K8sNamespace instead)
+	// K8s pod for this endpoint (deprecated, may not be unique)
 	PodName string `json:"pod-name,omitempty"`
 }
 

@@ -2005,6 +2005,8 @@ func (m *RateLimitConfig_Action_MetaData) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	// no validation rules for SkipIfAbsent
+
 	if len(errors) > 0 {
 		return RateLimitConfig_Action_MetaDataMultiError(errors)
 	}

@@ -824,6 +824,123 @@ func (x *ExtensionConfigSource) GetTypeUrls() []string {
 	return nil
 }
 
+// A placeholder proto for the registration for the REST subscription implementation.
+type RestSubscription struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *RestSubscription) Reset() {
+	*x = RestSubscription{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_envoy_config_core_v3_config_source_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *RestSubscription) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestSubscription) ProtoMessage() {}
+
+func (x *RestSubscription) ProtoReflect() protoreflect.Message {
+	mi := &file_envoy_config_core_v3_config_source_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestSubscription.ProtoReflect.Descriptor instead.
+func (*RestSubscription) Descriptor() ([]byte, []int) {
+	return file_envoy_config_core_v3_config_source_proto_rawDescGZIP(), []int{7}
+}
+
+// A placeholder proto for the registration for the filesystem subscription implementation.
+type FilesystemSubscription struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *FilesystemSubscription) Reset() {
+	*x = FilesystemSubscription{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_envoy_config_core_v3_config_source_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *FilesystemSubscription) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FilesystemSubscription) ProtoMessage() {}
+
+func (x *FilesystemSubscription) ProtoReflect() protoreflect.Message {
+	mi := &file_envoy_config_core_v3_config_source_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FilesystemSubscription.ProtoReflect.Descriptor instead.
+func (*FilesystemSubscription) Descriptor() ([]byte, []int) {
+	return file_envoy_config_core_v3_config_source_proto_rawDescGZIP(), []int{8}
+}
+
+// A placeholder proto for the registration for the filesystem collection subscription implementation.
+type FilesystemCollectionSubscription struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *FilesystemCollectionSubscription) Reset() {
+	*x = FilesystemCollectionSubscription{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_envoy_config_core_v3_config_source_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *FilesystemCollectionSubscription) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FilesystemCollectionSubscription) ProtoMessage() {}
+
+func (x *FilesystemCollectionSubscription) ProtoReflect() protoreflect.Message {
+	mi := &file_envoy_config_core_v3_config_source_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FilesystemCollectionSubscription.ProtoReflect.Descriptor instead.
+func (*FilesystemCollectionSubscription) Descriptor() ([]byte, []int) {
+	return file_envoy_config_core_v3_config_source_proto_rawDescGZIP(), []int{9}
+}
+
 var File_envoy_config_core_v3_config_source_proto protoreflect.FileDescriptor
 
 var file_envoy_config_core_v3_config_source_proto_rawDesc = []byte{
@@ -1003,20 +1120,25 @@ var file_envoy_config_core_v3_config_source_proto_rawDesc = []byte{
 	0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x57, 0x69, 0x74, 0x68, 0x6f, 0x75, 0x74, 0x57, 0x61, 0x72,
 	0x6d, 0x69, 0x6e, 0x67, 0x12, 0x25, 0x0a, 0x09, 0x74, 0x79, 0x70, 0x65, 0x5f, 0x75, 0x72, 0x6c,
 	0x73, 0x18, 0x04, 0x20, 0x03, 0x28, 0x09, 0x42, 0x08, 0xfa, 0x42, 0x05, 0x92, 0x01, 0x02, 0x08,
-	0x01, 0x52, 0x08, 0x74, 0x79, 0x70, 0x65, 0x55, 0x72, 0x6c, 0x73, 0x2a, 0x40, 0x0a, 0x0a, 0x41,
-	0x70, 0x69, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x15, 0x0a, 0x04, 0x41, 0x55, 0x54,
-	0x4f, 0x10, 0x00, 0x1a, 0x0b, 0x08, 0x01, 0x8a, 0xf4, 0x9b, 0xb3, 0x05, 0x03, 0x33, 0x2e, 0x30,
-	0x12, 0x13, 0x0a, 0x02, 0x56, 0x32, 0x10, 0x01, 0x1a, 0x0b, 0x08, 0x01, 0x8a, 0xf4, 0x9b, 0xb3,
-	0x05, 0x03, 0x33, 0x2e, 0x30, 0x12, 0x06, 0x0a, 0x02, 0x56, 0x33, 0x10, 0x02, 0x42, 0x85, 0x01,
-	0x0a, 0x22, 0x69, 0x6f, 0x2e, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x70, 0x72, 0x6f, 0x78, 0x79, 0x2e,
-	0x65, 0x6e, 0x76, 0x6f, 0x79, 0x2e, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x63, 0x6f, 0x72,
-	0x65, 0x2e, 0x76, 0x33, 0x42, 0x11, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x53, 0x6f, 0x75, 0x72,
-	0x63, 0x65, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x42, 0x67, 0x69, 0x74, 0x68, 0x75,
-	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x70, 0x72, 0x6f, 0x78, 0x79,
-	0x2f, 0x67, 0x6f, 0x2d, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2d, 0x70, 0x6c, 0x61, 0x6e,
-	0x65, 0x2f, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x2f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2f, 0x63,
-	0x6f, 0x72, 0x65, 0x2f, 0x76, 0x33, 0x3b, 0x63, 0x6f, 0x72, 0x65, 0x76, 0x33, 0xba, 0x80, 0xc8,
-	0xd1, 0x06, 0x02, 0x10, 0x02, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x01, 0x52, 0x08, 0x74, 0x79, 0x70, 0x65, 0x55, 0x72, 0x6c, 0x73, 0x22, 0x12, 0x0a, 0x10, 0x52,
+	0x65, 0x73, 0x74, 0x53, 0x75, 0x62, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x22,
+	0x18, 0x0a, 0x16, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x53, 0x75, 0x62,
+	0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x22, 0x0a, 0x20, 0x46, 0x69, 0x6c,
+	0x65, 0x73, 0x79, 0x73, 0x74, 0x65, 0x6d, 0x43, 0x6f, 0x6c, 0x6c, 0x65, 0x63, 0x74, 0x69, 0x6f,
+	0x6e, 0x53, 0x75, 0x62, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x2a, 0x40, 0x0a,
+	0x0a, 0x41, 0x70, 0x69, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x15, 0x0a, 0x04, 0x41,
+	0x55, 0x54, 0x4f, 0x10, 0x00, 0x1a, 0x0b, 0x08, 0x01, 0x8a, 0xf4, 0x9b, 0xb3, 0x05, 0x03, 0x33,
+	0x2e, 0x30, 0x12, 0x13, 0x0a, 0x02, 0x56, 0x32, 0x10, 0x01, 0x1a, 0x0b, 0x08, 0x01, 0x8a, 0xf4,
+	0x9b, 0xb3, 0x05, 0x03, 0x33, 0x2e, 0x30, 0x12, 0x06, 0x0a, 0x02, 0x56, 0x33, 0x10, 0x02, 0x42,
+	0x85, 0x01, 0x0a, 0x22, 0x69, 0x6f, 0x2e, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x70, 0x72, 0x6f, 0x78,
+	0x79, 0x2e, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x2e, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x63,
+	0x6f, 0x72, 0x65, 0x2e, 0x76, 0x33, 0x42, 0x11, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x53, 0x6f,
+	0x75, 0x72, 0x63, 0x65, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x42, 0x67, 0x69, 0x74,
+	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x70, 0x72, 0x6f,
+	0x78, 0x79, 0x2f, 0x67, 0x6f, 0x2d, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2d, 0x70, 0x6c,
+	0x61, 0x6e, 0x65, 0x2f, 0x65, 0x6e, 0x76, 0x6f, 0x79, 0x2f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67,
+	0x2f, 0x63, 0x6f, 0x72, 0x65, 0x2f, 0x76, 0x33, 0x3b, 0x63, 0x6f, 0x72, 0x65, 0x76, 0x33, 0xba,
+	0x80, 0xc8, 0xd1, 0x06, 0x02, 0x10, 0x02, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1032,47 +1154,50 @@ func file_envoy_config_core_v3_config_source_proto_rawDescGZIP() []byte {
 }
 
 var file_envoy_config_core_v3_config_source_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_envoy_config_core_v3_config_source_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_envoy_config_core_v3_config_source_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_envoy_config_core_v3_config_source_proto_goTypes = []interface{}{
-	(ApiVersion)(0),                // 0: envoy.config.core.v3.ApiVersion
-	(ApiConfigSource_ApiType)(0),   // 1: envoy.config.core.v3.ApiConfigSource.ApiType
-	(*ApiConfigSource)(nil),        // 2: envoy.config.core.v3.ApiConfigSource
-	(*AggregatedConfigSource)(nil), // 3: envoy.config.core.v3.AggregatedConfigSource
-	(*SelfConfigSource)(nil),       // 4: envoy.config.core.v3.SelfConfigSource
-	(*RateLimitSettings)(nil),      // 5: envoy.config.core.v3.RateLimitSettings
-	(*PathConfigSource)(nil),       // 6: envoy.config.core.v3.PathConfigSource
-	(*ConfigSource)(nil),           // 7: envoy.config.core.v3.ConfigSource
-	(*ExtensionConfigSource)(nil),  // 8: envoy.config.core.v3.ExtensionConfigSource
-	(*GrpcService)(nil),            // 9: envoy.config.core.v3.GrpcService
-	(*durationpb.Duration)(nil),    // 10: google.protobuf.Duration
-	(*TypedExtensionConfig)(nil),   // 11: envoy.config.core.v3.TypedExtensionConfig
-	(*wrapperspb.UInt32Value)(nil), // 12: google.protobuf.UInt32Value
-	(*wrapperspb.DoubleValue)(nil), // 13: google.protobuf.DoubleValue
-	(*WatchedDirectory)(nil),       // 14: envoy.config.core.v3.WatchedDirectory
-	(*v3.Authority)(nil),           // 15: xds.core.v3.Authority
-	(*anypb.Any)(nil),              // 16: google.protobuf.Any
+	(ApiVersion)(0),                          // 0: envoy.config.core.v3.ApiVersion
+	(ApiConfigSource_ApiType)(0),             // 1: envoy.config.core.v3.ApiConfigSource.ApiType
+	(*ApiConfigSource)(nil),                  // 2: envoy.config.core.v3.ApiConfigSource
+	(*AggregatedConfigSource)(nil),           // 3: envoy.config.core.v3.AggregatedConfigSource
+	(*SelfConfigSource)(nil),                 // 4: envoy.config.core.v3.SelfConfigSource
+	(*RateLimitSettings)(nil),                // 5: envoy.config.core.v3.RateLimitSettings
+	(*PathConfigSource)(nil),                 // 6: envoy.config.core.v3.PathConfigSource
+	(*ConfigSource)(nil),                     // 7: envoy.config.core.v3.ConfigSource
+	(*ExtensionConfigSource)(nil),            // 8: envoy.config.core.v3.ExtensionConfigSource
+	(*RestSubscription)(nil),                 // 9: envoy.config.core.v3.RestSubscription
+	(*FilesystemSubscription)(nil),           // 10: envoy.config.core.v3.FilesystemSubscription
+	(*FilesystemCollectionSubscription)(nil), // 11: envoy.config.core.v3.FilesystemCollectionSubscription
+	(*GrpcService)(nil),                      // 12: envoy.config.core.v3.GrpcService
+	(*durationpb.Duration)(nil),              // 13: google.protobuf.Duration
+	(*TypedExtensionConfig)(nil),             // 14: envoy.config.core.v3.TypedExtensionConfig
+	(*wrapperspb.UInt32Value)(nil),           // 15: google.protobuf.UInt32Value
+	(*wrapperspb.DoubleValue)(nil),           // 16: google.protobuf.DoubleValue
+	(*WatchedDirectory)(nil),                 // 17: envoy.config.core.v3.WatchedDirectory
+	(*v3.Authority)(nil),                     // 18: xds.core.v3.Authority
+	(*anypb.Any)(nil),                        // 19: google.protobuf.Any
 }
 var file_envoy_config_core_v3_config_source_proto_depIdxs = []int32{
 	1,  // 0: envoy.config.core.v3.ApiConfigSource.api_type:type_name -> envoy.config.core.v3.ApiConfigSource.ApiType
 	0,  // 1: envoy.config.core.v3.ApiConfigSource.transport_api_version:type_name -> envoy.config.core.v3.ApiVersion
-	9,  // 2: envoy.config.core.v3.ApiConfigSource.grpc_services:type_name -> envoy.config.core.v3.GrpcService
-	10, // 3: envoy.config.core.v3.ApiConfigSource.refresh_delay:type_name -> google.protobuf.Duration
-	10, // 4: envoy.config.core.v3.ApiConfigSource.request_timeout:type_name -> google.protobuf.Duration
+	12, // 2: envoy.config.core.v3.ApiConfigSource.grpc_services:type_name -> envoy.config.core.v3.GrpcService
+	13, // 3: envoy.config.core.v3.ApiConfigSource.refresh_delay:type_name -> google.protobuf.Duration
+	13, // 4: envoy.config.core.v3.ApiConfigSource.request_timeout:type_name -> google.protobuf.Duration
 	5,  // 5: envoy.config.core.v3.ApiConfigSource.rate_limit_settings:type_name -> envoy.config.core.v3.RateLimitSettings
-	11, // 6: envoy.config.core.v3.ApiConfigSource.config_validators:type_name -> envoy.config.core.v3.TypedExtensionConfig
+	14, // 6: envoy.config.core.v3.ApiConfigSource.config_validators:type_name -> envoy.config.core.v3.TypedExtensionConfig
 	0,  // 7: envoy.config.core.v3.SelfConfigSource.transport_api_version:type_name -> envoy.config.core.v3.ApiVersion
-	12, // 8: envoy.config.core.v3.RateLimitSettings.max_tokens:type_name -> google.protobuf.UInt32Value
-	13, // 9: envoy.config.core.v3.RateLimitSettings.fill_rate:type_name -> google.protobuf.DoubleValue
-	14, // 10: envoy.config.core.v3.PathConfigSource.watched_directory:type_name -> envoy.config.core.v3.WatchedDirectory
-	15, // 11: envoy.config.core.v3.ConfigSource.authorities:type_name -> xds.core.v3.Authority
+	15, // 8: envoy.config.core.v3.RateLimitSettings.max_tokens:type_name -> google.protobuf.UInt32Value
+	16, // 9: envoy.config.core.v3.RateLimitSettings.fill_rate:type_name -> google.protobuf.DoubleValue
+	17, // 10: envoy.config.core.v3.PathConfigSource.watched_directory:type_name -> envoy.config.core.v3.WatchedDirectory
+	18, // 11: envoy.config.core.v3.ConfigSource.authorities:type_name -> xds.core.v3.Authority
 	6,  // 12: envoy.config.core.v3.ConfigSource.path_config_source:type_name -> envoy.config.core.v3.PathConfigSource
 	2,  // 13: envoy.config.core.v3.ConfigSource.api_config_source:type_name -> envoy.config.core.v3.ApiConfigSource
 	3,  // 14: envoy.config.core.v3.ConfigSource.ads:type_name -> envoy.config.core.v3.AggregatedConfigSource
 	4,  // 15: envoy.config.core.v3.ConfigSource.self:type_name -> envoy.config.core.v3.SelfConfigSource
-	10, // 16: envoy.config.core.v3.ConfigSource.initial_fetch_timeout:type_name -> google.protobuf.Duration
+	13, // 16: envoy.config.core.v3.ConfigSource.initial_fetch_timeout:type_name -> google.protobuf.Duration
 	0,  // 17: envoy.config.core.v3.ConfigSource.resource_api_version:type_name -> envoy.config.core.v3.ApiVersion
 	7,  // 18: envoy.config.core.v3.ExtensionConfigSource.config_source:type_name -> envoy.config.core.v3.ConfigSource
-	16, // 19: envoy.config.core.v3.ExtensionConfigSource.default_config:type_name -> google.protobuf.Any
+	19, // 19: envoy.config.core.v3.ExtensionConfigSource.default_config:type_name -> google.protobuf.Any
 	20, // [20:20] is the sub-list for method output_type
 	20, // [20:20] is the sub-list for method input_type
 	20, // [20:20] is the sub-list for extension type_name
@@ -1173,6 +1298,42 @@ func file_envoy_config_core_v3_config_source_proto_init() {
 				return nil
 			}
 		}
+		file_envoy_config_core_v3_config_source_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*RestSubscription); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_envoy_config_core_v3_config_source_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*FilesystemSubscription); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_envoy_config_core_v3_config_source_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*FilesystemCollectionSubscription); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	file_envoy_config_core_v3_config_source_proto_msgTypes[5].OneofWrappers = []interface{}{
 		(*ConfigSource_Path)(nil),
@@ -1187,7 +1348,7 @@ func file_envoy_config_core_v3_config_source_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_envoy_config_core_v3_config_source_proto_rawDesc,
 			NumEnums:      2,
-			NumMessages:   7,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

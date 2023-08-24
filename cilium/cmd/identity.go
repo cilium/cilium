@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// identityCmd represents the identity command
-var identityCmd = &cobra.Command{
+// IdentityCmd represents the identity command
+var IdentityCmd = &cobra.Command{
 	Use:   "identity",
 	Short: "Manage security identities",
 }
 
 func init() {
-	rootCmd.AddCommand(identityCmd)
+	RootCmd.AddCommand(IdentityCmd)
 }

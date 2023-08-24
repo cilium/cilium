@@ -34,6 +34,10 @@
 
 #include <bpf_xdp.c>
 
+#include "lib/endpoint.h"
+#include "lib/ipcache.h"
+#include "lib/lb.h"
+
 static volatile const __u8 *client_mac = mac_one;
 static volatile const __u8 *lb_mac = mac_two;
 
@@ -59,35 +63,17 @@ int nodeport_nat_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)lb_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = LB_IP;
-	l3->daddr = BACKEND_IP;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  LB_IP, BACKEND_IP,
+					  LB_PORT, BACKEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->source = LB_PORT;
-	l4->dest = BACKEND_PORT;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -102,60 +88,14 @@ int nodeport_nat_backend_pktgen(struct __ctx_buff *ctx)
 SETUP("xdp", "xdp_nodeport_nat_backend")
 int nodeport_nat_backend_setup(struct __ctx_buff *ctx)
 {
-	/* Register a fake LB backend matching our packet. */
-	struct lb4_key lb_svc_key = {
-		.address = FRONTEND_IP,
-		.dport = FRONTEND_PORT,
-		.scope = LB_LOOKUP_SCOPE_EXT,
-	};
-	/* Create a service with only one backend */
-	struct lb4_service lb_svc_value = {
-		.count = 1,
-		.flags = SVC_FLAG_ROUTABLE,
-	};
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-	/* We need to register both in the external and internal scopes for the
-	 * packet to be redirected to a neighboring node
-	 */
-	lb_svc_key.scope = LB_LOOKUP_SCOPE_INT;
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-
-	/* A backend between 1 and .count is chosen, since we have only one backend
-	 * it is always backend_slot 1. Point it to backend_id 124.
-	 */
-	lb_svc_key.scope = LB_LOOKUP_SCOPE_EXT;
-	lb_svc_key.backend_slot = 1;
-	lb_svc_value.backend_id = 124;
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-
-	/* Create backend id 124 which contains the IP and port to send the
-	 * packet to.
-	 */
-	struct lb4_backend backend = {
-		.address = BACKEND_IP,
-		.port = BACKEND_PORT,
-		.proto = IPPROTO_TCP,
-		.flags = BE_STATE_ACTIVE,
-	};
-	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
+	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, 1, 1);
+	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
+			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 
 	/* add local backend */
-	struct endpoint_info ep_value = {};
-	struct endpoint_key ep_key = {
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP,
-	};
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
+	endpoint_v4_add_entry(BACKEND_IP, 0, 0, 0, NULL, NULL);
 
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = 32,
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP,
-	};
-	struct remote_endpoint_info cache_value = {
-		.sec_identity = 112233,
-	};
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(BACKEND_IP, 0, 112233, 0, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_XDP);

@@ -95,6 +95,8 @@ type ListTrafficMirrorFiltersResponse struct {
 	NextToken            string                `json:"NextToken" xml:"NextToken"`
 	RequestId            string                `json:"RequestId" xml:"RequestId"`
 	TotalCount           string                `json:"TotalCount" xml:"TotalCount"`
+	MaxResults           int                   `json:"MaxResults" xml:"MaxResults"`
+	Count                int                   `json:"Count" xml:"Count"`
 	TrafficMirrorFilters []TrafficMirrorFilter `json:"TrafficMirrorFilters" xml:"TrafficMirrorFilters"`
 }
 

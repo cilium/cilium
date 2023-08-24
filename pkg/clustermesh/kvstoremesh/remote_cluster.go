@@ -110,6 +110,8 @@ func (rc *remoteCluster) Remove() {
 	// disappear once the associated lease expires.
 }
 
+func (rc *remoteCluster) ClusterConfigRequired() bool { return false }
+
 type reflector struct {
 	watcher store.WatchStore
 	syncer  syncer

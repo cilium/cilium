@@ -88,6 +88,6 @@ func printNodeIDList(nodeIDList []nodeID) {
 }
 
 func init() {
-	bpfNodeIDCmd.AddCommand(bpfNodeIDListCmd)
+	BPFNodeIDCmd.AddCommand(bpfNodeIDListCmd)
 	command.AddOutputOption(bpfNodeIDListCmd)
 }

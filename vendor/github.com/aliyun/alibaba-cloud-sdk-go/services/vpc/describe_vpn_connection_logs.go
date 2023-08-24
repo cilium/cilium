@@ -80,6 +80,7 @@ type DescribeVpnConnectionLogsRequest struct {
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 	VpnConnectionId      string           `position:"Query" name:"VpnConnectionId"`
+	TunnelId             string           `position:"Query" name:"TunnelId"`
 	To                   requests.Integer `position:"Query" name:"To"`
 }
 

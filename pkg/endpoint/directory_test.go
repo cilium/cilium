@@ -4,8 +4,11 @@
 package endpoint
 
 import (
+	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"testing"
 
 	check "github.com/cilium/checkmate"
 
@@ -75,4 +78,46 @@ func (s *EndpointSuite) TestMoveNewFilesTo(c *check.C) {
 			compareDir(tt.args.newDir, tt.wantNewDir)
 		}
 	}
+}
+
+func benchmarkMoveNewFilesTo(b *testing.B, numFiles int) {
+	oldDir := b.TempDir()
+	newDir := b.TempDir()
+	numDuplicates := int(math.Round(float64(numFiles) * 0.25))
+
+	for n := 0; n < numFiles; n++ {
+		name := fmt.Sprintf("file%d", n)
+		if err := os.WriteFile(filepath.Join(oldDir, name), []byte{}, os.FileMode(0644)); err != nil {
+			b.Fatal(err)
+		}
+
+		if n < numDuplicates {
+			if err := os.WriteFile(filepath.Join(newDir, name), []byte{}, os.FileMode(0644)); err != nil {
+				b.Fatal(err)
+			}
+		}
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := moveNewFilesTo(oldDir, newDir); err != nil {
+			b.Fatal(err)
+		}
+	}
+	b.StopTimer()
+
+	os.RemoveAll(oldDir)
+	os.RemoveAll(newDir)
+}
+
+func BenchmarkMoveNewFilesTo1(b *testing.B) {
+	benchmarkMoveNewFilesTo(b, 1)
+}
+
+func BenchmarkMoveNewFilesTo5(b *testing.B) {
+	benchmarkMoveNewFilesTo(b, 5)
+}
+
+func BenchmarkMoveNewFilesTo10(b *testing.B) {
+	benchmarkMoveNewFilesTo(b, 10)
 }

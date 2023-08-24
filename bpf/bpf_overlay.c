@@ -31,6 +31,7 @@
 #include "lib/identity.h"
 #include "lib/nodeport.h"
 #include "lib/clustermesh.h"
+#include "lib/wireguard.h"
 
 #ifdef ENABLE_VTEP
 #include "lib/arp.h"
@@ -43,7 +44,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 				       __u32 *identity,
 				       __s8 *ext_err __maybe_unused)
 {
-	int ret, l3_off = ETH_HLEN, hdrlen;
+	int ret, l3_off = ETH_HLEN;
 	struct remote_endpoint_info *info;
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
@@ -74,13 +75,15 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	if (decrypted) {
-		if (info)
-			*identity = key.tunnel_id = info->sec_identity;
+		if (info) {
+			*identity = info->sec_identity;
+			key.tunnel_id = get_tunnel_id(info->sec_identity);
+		}
 	} else {
 		key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 		if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
-		*identity = key.tunnel_id;
+		*identity = get_id_from_tunnel_id(key.tunnel_id, ctx_get_protocol(ctx));
 
 		/* Any node encapsulating will map any HOST_ID source to be
 		 * presented as REMOTE_NODE_ID, therefore any attempt to signal
@@ -122,8 +125,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		ctx_change_type(ctx, PACKET_HOST);
 
 		send_trace_notify(ctx, TRACE_TO_STACK, *identity, 0, 0,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
-				  TRACE_PAYLOAD_LEN);
+				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
 
 		return CTX_ACT_OK;
 	}
@@ -131,30 +133,15 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 not_esp:
 #endif
 
-	/* Lookup IPv6 address in list of local endpoints */
+	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip6_endpoint(ip6);
-	if (ep) {
-		__u8 nexthdr;
-
-		/* Let through packets to the node-ip so they are processed by
-		 * the local ip stack.
-		 */
-		if (ep->flags & ENDPOINT_F_HOST)
-			goto to_host;
-
-		nexthdr = ip6->nexthdr;
-		hdrlen = ipv6_hdrlen(ctx, &nexthdr);
-		if (hdrlen < 0)
-			return hdrlen;
-
+	if (ep && !(ep->flags & ENDPOINT_F_HOST))
 		return ipv6_local_delivery(ctx, l3_off, *identity, ep,
-					   METRIC_INGRESS, false, false);
-	}
+					   METRIC_INGRESS, false);
 
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
 	 */
-to_host:
 #ifdef HOST_IFINDEX
 	if (1) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
@@ -227,12 +214,13 @@ static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 	       .max_port = NODEPORT_PORT_MAX_NAT,
 	       .cluster_id = cluster_id_from_identity,
 	};
+	struct trace_ctx trace;
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
 	*src_sec_identity = identity;
 
-	ret = snat_v4_rev_nat(ctx, &target, ext_err);
+	ret = snat_v4_rev_nat(ctx, &target, &trace, ext_err);
 	if (ret != NAT_PUNT_TO_STACK && ret != DROP_NAT_NO_MAPPING) {
 		if (IS_ERR(ret))
 			return ret;
@@ -327,16 +315,18 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	/* If packets are decrypted the key has already been pushed into metadata. */
 	if (decrypted) {
-		if (info)
-			*identity = key.tunnel_id = info->sec_identity;
+		if (info) {
+			*identity = info->sec_identity;
+			key.tunnel_id = get_tunnel_id(info->sec_identity);
+		}
 	} else {
 #ifdef ENABLE_HIGH_SCALE_IPCACHE
-		key.tunnel_id = *identity;
+		key.tunnel_id = get_tunnel_id(*identity);
 #else
 		key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 		if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
-		*identity = key.tunnel_id;
+		*identity = get_id_from_tunnel_id(key.tunnel_id, ctx_get_protocol(ctx));
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
 
 		if (*identity == HOST_ID)
@@ -351,7 +341,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 			if (!vtep)
 				goto skip_vtep;
 			if (vtep->tunnel_endpoint) {
-				if (*identity != WORLD_ID)
+				if (identity_is_world_ipv4(*identity))
 					return DROP_INVALID_VNI;
 			}
 		}
@@ -407,8 +397,7 @@ skip_vtep:
 		ctx_change_type(ctx, PACKET_HOST);
 
 		send_trace_notify(ctx, TRACE_TO_STACK, *identity, 0, 0,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
-				  TRACE_PAYLOAD_LEN);
+				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
 
 		return CTX_ACT_OK;
 	}
@@ -416,24 +405,16 @@ skip_vtep:
 not_esp:
 #endif
 
-	/* Lookup IPv4 address in list of local endpoints */
+	/* Deliver to local (non-host) endpoint: */
 	ep = lookup_ip4_endpoint(ip4);
-	if (ep) {
-		/* Let through packets to the node-ip so they are processed by
-		 * the local ip stack.
-		 */
-		if (ep->flags & ENDPOINT_F_HOST)
-			goto to_host;
-
+	if (ep && !(ep->flags & ENDPOINT_F_HOST))
 		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, ip4, ep,
 					   METRIC_INGRESS, false, false, true,
 					   0);
-	}
 
 	/* A packet entering the node from the tunnel and not going to a local
 	 * endpoint has to be going to the local host.
 	 */
-to_host:
 	return ipv4_host_delivery(ctx, ip4);
 }
 
@@ -495,8 +476,8 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 	if (info->tunnel_endpoint) {
 		ret = __encap_and_redirect_with_nodeid(ctx, 0, info->tunnel_endpoint,
-						       LOCAL_NODE_ID, WORLD_ID,
-						       WORLD_ID, &trace);
+						       LOCAL_NODE_ID, WORLD_IPV4_ID,
+						       WORLD_IPV4_ID, &trace);
 		if (IS_ERR(ret))
 			goto drop_err;
 
@@ -587,8 +568,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPSEC
 	if (is_esp(ctx, proto))
 		send_trace_notify(ctx, TRACE_FROM_OVERLAY, 0, 0, 0,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
-				  TRACE_PAYLOAD_LEN);
+				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
 	else
 #endif
 	{
@@ -671,8 +651,21 @@ out:
 __section_entry
 int cil_to_overlay(struct __ctx_buff *ctx)
 {
+	struct trace_ctx __maybe_unused trace;
 	int ret = TC_ACT_OK;
 	__u32 cluster_id __maybe_unused = 0;
+	__s8 ext_err = 0;
+
+	/* When WireGuard strict mode is enabled, we have additional information
+	 * regarding to which CIDRs packets must encrypted. We have to check the
+	 * packets against the CIDRs before encapsulation. If the packet is not
+	 * encrypted, we drop it.
+	 */
+	#if defined(TUNNEL_MODE) && defined(ENCRYPTION_STRICT_MODE)
+	if (!strict_allow(ctx))
+		return send_drop_notify_error(ctx, 0, DROP_UNENCRYPTED_TRAFFIC,
+					      CTX_ACT_DROP, METRIC_EGRESS);
+	#endif
 
 #ifdef ENABLE_BANDWIDTH_MANAGER
 	/* In tunneling mode, we should do this as close as possible to the
@@ -703,11 +696,12 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 	cluster_id = ctx_get_cluster_id_mark(ctx);
 #endif
-	ret = handle_nat_fwd(ctx, cluster_id);
+	ret = handle_nat_fwd(ctx, cluster_id, &trace, &ext_err);
 out:
 #endif
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
+						  CTX_ACT_DROP, METRIC_EGRESS);
 	return ret;
 }
 

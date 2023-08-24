@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// lrpCmd represents the lrp command
-var lrpCmd = &cobra.Command{
+// LRPCmd represents the lrp command
+var LRPCmd = &cobra.Command{
 	Use:   "lrp",
 	Short: "Manage local redirect policies",
 }
 
 func init() {
-	rootCmd.AddCommand(lrpCmd)
+	RootCmd.AddCommand(LRPCmd)
 }

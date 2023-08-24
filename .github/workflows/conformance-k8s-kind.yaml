@@ -22,13 +22,14 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-  kind_version: v0.19.0
+  kind_version: v0.20.0
   cluster_name: cilium-testing
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.14.7
+  cilium_cli_version: v0.15.6
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
-  k8s_version: v1.27.1
+  # renovate: datasource=docker depName=quay.io/cilium/kindest-node
+  k8s_version: v1.28.0-rc.0
 
 jobs:
   kubernetes-e2e:
@@ -80,7 +81,7 @@ jobs:
         run: |
           cat <<EOF | /usr/local/bin/kind create cluster \
             --name ${{ env.cluster_name}}           \
-            --image kindest/node:${{ env.k8s_version }}  \
+            --image quay.io/cilium/kindest-node:${{ env.k8s_version }}  \
             -v7 --wait 1m --retain --config=-
           kind: Cluster
           apiVersion: kind.x-k8s.io/v1alpha4
@@ -146,6 +147,7 @@ jobs:
             --helm-set=clustermesh.apiserver.image.useDigest=false \
             --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
             --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.relay.image.useDigest=false \
             --helm-set=cni.chainingMode=portmap \
             --helm-set-string=kubeProxyReplacement=strict \
             --helm-set=sessionAffinity=true \
@@ -154,7 +156,7 @@ jobs:
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@9fcfef089e5b7dd3212f2eac21ba8cfae6f05cca # v0.14.7
+        uses: cilium/cilium-cli@e718cf78ef55d95cfa0a5a0a935d6a224d567e1d # v0.15.6
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
@@ -174,6 +176,7 @@ jobs:
           done
 
       - name: Install Cilium
+        id: install-cilium
         run: |
           cilium install --wait ${{ steps.vars.outputs.cilium_install_defaults }}
 
@@ -217,7 +220,7 @@ jobs:
             --disable-log-dump=true
 
       - name: Post-test information gathering
-        if: ${{ !success() }}
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
         run: |
           kubectl get pods --all-namespaces -o wide
           cilium status

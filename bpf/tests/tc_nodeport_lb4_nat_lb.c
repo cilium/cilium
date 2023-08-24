@@ -22,6 +22,7 @@
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
+#define CLIENT_IP_2		v4_ext_two
 
 #define FRONTEND_IP_LOCAL	v4_svc_one
 #define FRONTEND_IP_REMOTE	v4_svc_two
@@ -33,6 +34,11 @@
 #define BACKEND_IP_LOCAL	v4_pod_one
 #define BACKEND_IP_REMOTE	v4_pod_two
 #define BACKEND_PORT		__bpf_htons(8080)
+
+#define NATIVE_DEV_IFINDEX	24
+#define DEFAULT_IFACE		NATIVE_DEV_IFINDEX
+#define BACKEND_IFACE		25
+#define SVC_EGRESS_IFACE	26
 
 #define fib_lookup mock_fib_lookup
 
@@ -46,15 +52,24 @@ static volatile const __u8 *remote_backend_mac = mac_five;
 static __be16 nat_source_port;
 static bool fail_fib;
 
+#define fib_lookup mock_fib_lookup
+
 long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 		     __maybe_unused int plen, __maybe_unused __u32 flags)
 {
 	if (fail_fib)
 		return BPF_FIB_LKUP_RET_NO_NEIGH;
 
+	params->ifindex = DEFAULT_IFACE;
+
 	if (params->ipv4_dst == BACKEND_IP_REMOTE) {
 		__bpf_memcpy_builtin(params->smac, (__u8 *)lb_mac, ETH_ALEN);
 		__bpf_memcpy_builtin(params->dmac, (__u8 *)remote_backend_mac, ETH_ALEN);
+	} else if (params->ipv4_src == FRONTEND_IP_LOCAL &&
+		   params->ipv4_dst == CLIENT_IP_2) {
+		__bpf_memcpy_builtin(params->smac, (__u8 *)lb_mac, ETH_ALEN);
+		__bpf_memcpy_builtin(params->dmac, (__u8 *)client_mac, ETH_ALEN);
+		params->ifindex = SVC_EGRESS_IFACE;
 	} else {
 		__bpf_memcpy_builtin(params->smac, (__u8 *)lb_mac, ETH_ALEN);
 		__bpf_memcpy_builtin(params->dmac, (__u8 *)client_mac, ETH_ALEN);
@@ -63,9 +78,44 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 	return 0;
 }
 
+#define ctx_redirect mock_ctx_redirect
+
+static __always_inline __maybe_unused int
+mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
+		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
+{
+	void *data = (void *)(long)ctx_data(ctx);
+	void *data_end = (void *)(long)ctx->data_end;
+	struct iphdr *ip4;
+
+	ip4 = data + sizeof(struct ethhdr);
+	if ((void *)ip4 + sizeof(*ip4) > data_end)
+		return CTX_ACT_DROP;
+
+	/* Forward to backend: */
+	if (ip4->saddr == CLIENT_IP && ifindex == BACKEND_IFACE)
+		return CTX_ACT_REDIRECT;
+	if (ip4->saddr == CLIENT_IP_2 && ifindex == BACKEND_IFACE)
+		return CTX_ACT_REDIRECT;
+	if (ip4->saddr == LB_IP && ifindex == DEFAULT_IFACE)
+		return CTX_ACT_REDIRECT;
+
+	/* Redirected reply: */
+	if (ip4->daddr == CLIENT_IP_2 && ifindex == SVC_EGRESS_IFACE)
+		return CTX_ACT_REDIRECT;
+	if (ip4->saddr == FRONTEND_IP_REMOTE && ifindex == DEFAULT_IFACE)
+		return CTX_ACT_REDIRECT;
+
+	return CTX_ACT_DROP;
+}
+
 #define SECCTX_FROM_IPCACHE 1
 
 #include "bpf_host.c"
+
+#include "lib/endpoint.h"
+#include "lib/ipcache.h"
+#include "lib/lb.h"
 
 #define FROM_NETDEV	0
 #define TO_NETDEV	1
@@ -91,35 +141,17 @@ int nodeport_local_backend_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)lb_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = CLIENT_IP;
-	l3->daddr = FRONTEND_IP_LOCAL;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  CLIENT_IP, FRONTEND_IP_LOCAL,
+					  CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->source = CLIENT_PORT;
-	l4->dest = FRONTEND_PORT;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -136,72 +168,15 @@ int nodeport_local_backend_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
 
-	/* Register a fake LB backend matching our packet. */
-	struct lb4_key lb_svc_key = {
-		.address = FRONTEND_IP_LOCAL,
-		.dport = FRONTEND_PORT,
-		.scope = LB_LOOKUP_SCOPE_EXT,
-	};
-	/* Create a service with only one backend */
-	struct lb4_service lb_svc_value = {
-		.count = 1,
-		.flags = SVC_FLAG_ROUTABLE,
-		.rev_nat_index = revnat_id,
-	};
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-	/* We need to register both in the external and internal scopes for the
-	 * packet to be redirected to a neighboring node
-	 */
-	lb_svc_key.scope = LB_LOOKUP_SCOPE_INT;
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-
-	/* A backend between 1 and .count is chosen, since we have only one backend
-	 * it is always backend_slot 1. Point it to backend_id 124.
-	 */
-	lb_svc_key.scope = LB_LOOKUP_SCOPE_EXT;
-	lb_svc_key.backend_slot = 1;
-	lb_svc_value.backend_id = 124;
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-
-	/* Insert a reverse NAT entry for the above service */
-	struct lb4_reverse_nat revnat_value = {
-		.address = FRONTEND_IP_LOCAL,
-		.port = FRONTEND_PORT,
-	};
-	map_update_elem(&LB4_REVERSE_NAT_MAP, &revnat_id, &revnat_value, BPF_ANY);
-
-	/* Create backend id 124 which contains the IP and port to send the
-	 * packet to.
-	 */
-	struct lb4_backend backend = {
-		.address = BACKEND_IP_LOCAL,
-		.port = BACKEND_PORT,
-		.proto = IPPROTO_TCP,
-		.flags = BE_STATE_ACTIVE,
-	};
-	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
+	lb_v4_add_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, revnat_id);
+	lb_v4_add_backend(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 124,
+			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_TCP, 0);
 
 	/* add local backend */
-	struct endpoint_info ep_value = {};
+	endpoint_v4_add_entry(BACKEND_IP_LOCAL, BACKEND_IFACE, 0, 0,
+			      (__u8 *)local_backend_mac, (__u8 *)node_mac);
 
-	memcpy(&ep_value.mac, (__u8 *)local_backend_mac, ETH_ALEN);
-	memcpy(&ep_value.node_mac, (__u8 *)node_mac, ETH_ALEN);
-
-	struct endpoint_key ep_key = {
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP_LOCAL,
-	};
-	map_update_elem(&ENDPOINTS_MAP, &ep_key, &ep_value, BPF_ANY);
-
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = 32,
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP_LOCAL,
-	};
-	struct remote_endpoint_info cache_value = {
-		.sec_identity = 112233,
-	};
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(BACKEND_IP_LOCAL, 0, 112233, 0, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
@@ -268,35 +243,17 @@ int nodeport_local_backend_reply_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)lb_mac, (__u8 *)client_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = BACKEND_IP_LOCAL;
-	l3->daddr = CLIENT_IP;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)lb_mac, (__u8 *)client_mac,
+					  BACKEND_IP_LOCAL, CLIENT_IP,
+					  BACKEND_PORT, CLIENT_PORT);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->source = BACKEND_PORT;
-	l4->dest = CLIENT_PORT;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -370,6 +327,289 @@ int nodeport_local_backend_reply_check(const struct __ctx_buff *ctx)
 	test_finish();
 }
 
+/* Same scenario as above, but for a different CLIENT_IP_2. Here replies
+ * should leave via a non-default interface.
+ */
+PKTGEN("tc", "tc_nodeport_local_backend_redirect")
+int nodeport_local_backend_redirect_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  CLIENT_IP_2, FRONTEND_IP_LOCAL,
+					  CLIENT_PORT, FRONTEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_nodeport_local_backend_redirect")
+int nodeport_local_backend_redirect_setup(struct __ctx_buff *ctx)
+{
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_nodeport_local_backend_redirect")
+int nodeport_local_backend_redirect_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
+		test_fatal("src MAC is not the node MAC")
+	if (memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) != 0)
+		test_fatal("dst MAC is not the endpoint MAC")
+
+	if (l3->saddr != CLIENT_IP_2)
+		test_fatal("src IP has changed");
+
+	if (l3->daddr != BACKEND_IP_LOCAL)
+		test_fatal("dst IP hasn't been NATed to local backend IP");
+
+	if (l4->source != CLIENT_PORT)
+		test_fatal("src port has changed");
+
+	if (l4->dest != BACKEND_PORT)
+		test_fatal("dst TCP port hasn't been NATed to backend port");
+
+	test_finish();
+}
+
+/* Test that to-netdev respects the routing needed for CLIENT_IP_2,
+ * and redirects the packet to the correct egress interface.
+ */
+PKTGEN("tc", "tc_nodeport_local_backend_redirect_reply")
+int nodeport_local_backend_redirect_reply_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)lb_mac, (__u8 *)client_mac,
+					  BACKEND_IP_LOCAL, CLIENT_IP_2,
+					  BACKEND_PORT, CLIENT_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_nodeport_local_backend_redirect_reply")
+int nodeport_local_backend_redirect_reply_setup(struct __ctx_buff *ctx)
+{
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, &entry_call_map, TO_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_nodeport_local_backend_redirect_reply")
+int nodeport_local_backend_redirect_reply_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (memcmp(l2->h_source, (__u8 *)lb_mac, ETH_ALEN) != 0)
+		test_fatal("src MAC is not the LB MAC")
+	if (memcmp(l2->h_dest, (__u8 *)client_mac, ETH_ALEN) != 0)
+		test_fatal("dst MAC is not the client MAC")
+
+	if (l3->saddr != BACKEND_IP_LOCAL)
+		test_fatal("src IP has changed");
+
+	if (l3->daddr != CLIENT_IP_2)
+		test_fatal("dst IP has changed");
+
+	if (l4->source != BACKEND_PORT)
+		test_fatal("src port has changed");
+
+	if (l4->dest != CLIENT_PORT)
+		test_fatal("dst port has changed");
+
+	test_finish();
+}
+
+/* Test that a SVC request (UDP) to a local backend
+ * - gets DNATed (but not SNATed)
+ * - gets redirected by TC (as ENABLE_HOST_ROUTING is set)
+ */
+PKTGEN("tc", "tc_nodeport_udp_local_backend")
+int nodeport_udp_local_backend_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct udphdr *l4;
+	void *data;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_udp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  CLIENT_IP, FRONTEND_IP_LOCAL,
+					  CLIENT_PORT, FRONTEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
+	if (!data)
+		return TEST_ERROR;
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP("tc", "tc_nodeport_udp_local_backend")
+int nodeport_udp_local_backend_setup(struct __ctx_buff *ctx)
+{
+	__u16 revnat_id = 2;
+
+	lb_v4_add_service(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, revnat_id);
+	lb_v4_add_backend(FRONTEND_IP_LOCAL, FRONTEND_PORT, 1, 125,
+			  BACKEND_IP_LOCAL, BACKEND_PORT, IPPROTO_UDP, 0);
+
+	/* Jump into the entrypoint */
+	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
+	/* Fail if we didn't jump */
+	return TEST_ERROR;
+}
+
+CHECK("tc", "tc_nodeport_udp_local_backend")
+int nodeport_udp_local_backend_check(const struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct udphdr *l4;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+
+	test_init();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct iphdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	l4 = (void *)l3 + sizeof(struct iphdr);
+	if ((void *)l4 + sizeof(*l4) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (memcmp(l2->h_source, (__u8 *)node_mac, ETH_ALEN) != 0)
+		test_fatal("src MAC is not the node MAC")
+	if (memcmp(l2->h_dest, (__u8 *)local_backend_mac, ETH_ALEN) != 0)
+		test_fatal("dst MAC is not the endpoint MAC")
+
+	if (l3->saddr != CLIENT_IP)
+		test_fatal("src IP has changed");
+
+	if (l3->daddr != BACKEND_IP_LOCAL)
+		test_fatal("dst IP hasn't been NATed to local backend IP");
+
+	if (l4->source != CLIENT_PORT)
+		test_fatal("src port has changed");
+
+	if (l4->dest != BACKEND_PORT)
+		test_fatal("dst port hasn't been NATed to backend port");
+
+	test_finish();
+}
+
 /* Test that a SVC request that is LBed to a NAT remote backend
  * - gets DNATed and SNATed,
  * - gets redirected back out by TC
@@ -379,35 +619,17 @@ int nodeport_nat_fwd_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)client_mac, (__u8 *)lb_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = CLIENT_IP;
-	l3->daddr = FRONTEND_IP_REMOTE;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  CLIENT_IP, FRONTEND_IP_REMOTE,
+					  CLIENT_PORT, FRONTEND_PORT);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->source = CLIENT_PORT;
-	l4->dest = FRONTEND_PORT;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)
@@ -424,60 +646,11 @@ int nodeport_nat_fwd_setup(struct __ctx_buff *ctx)
 {
 	__u16 revnat_id = 1;
 
-	/* Register a fake LB backend matching our packet. */
-	struct lb4_key lb_svc_key = {
-		.address = FRONTEND_IP_REMOTE,
-		.dport = FRONTEND_PORT,
-		.scope = LB_LOOKUP_SCOPE_EXT,
-	};
-	/* Create a service with only one backend */
-	struct lb4_service lb_svc_value = {
-		.count = 1,
-		.flags = SVC_FLAG_ROUTABLE,
-		.rev_nat_index = revnat_id,
-	};
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-	/* We need to register both in the external and internal scopes for the
-	 * packet to be redirected to a neighboring node
-	 */
-	lb_svc_key.scope = LB_LOOKUP_SCOPE_INT;
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
+	lb_v4_add_service(FRONTEND_IP_REMOTE, FRONTEND_PORT, 1, revnat_id);
+	lb_v4_add_backend(FRONTEND_IP_REMOTE, FRONTEND_PORT, 1, 124,
+			  BACKEND_IP_REMOTE, BACKEND_PORT, IPPROTO_TCP, 0);
 
-	/* A backend between 1 and .count is chosen, since we have only one backend
-	 * it is always backend_slot 1. Point it to backend_id 124.
-	 */
-	lb_svc_key.scope = LB_LOOKUP_SCOPE_EXT;
-	lb_svc_key.backend_slot = 1;
-	lb_svc_value.backend_id = 124;
-	map_update_elem(&LB4_SERVICES_MAP_V2, &lb_svc_key, &lb_svc_value, BPF_ANY);
-
-	/* Insert a reverse NAT entry for the above service */
-	struct lb4_reverse_nat revnat_value = {
-		.address = FRONTEND_IP_REMOTE,
-		.port = FRONTEND_PORT,
-	};
-	map_update_elem(&LB4_REVERSE_NAT_MAP, &revnat_id, &revnat_value, BPF_ANY);
-
-	/* Create backend id 124 which contains the IP and port to send the
-	 * packet to.
-	 */
-	struct lb4_backend backend = {
-		.address = BACKEND_IP_REMOTE,
-		.port = BACKEND_PORT,
-		.proto = IPPROTO_TCP,
-		.flags = BE_STATE_ACTIVE,
-	};
-	map_update_elem(&LB4_BACKEND_MAP, &lb_svc_value.backend_id, &backend, BPF_ANY);
-
-	struct ipcache_key cache_key = {
-		.lpm_key.prefixlen = 32,
-		.family = ENDPOINT_KEY_IPV4,
-		.ip4 = BACKEND_IP_REMOTE,
-	};
-	struct remote_endpoint_info cache_value = {
-		.sec_identity = 112233,
-	};
-	map_update_elem(&IPCACHE_MAP, &cache_key, &cache_value, BPF_ANY);
+	ipcache_v4_add_entry(BACKEND_IP_REMOTE, 0, 112233, 0, 0);
 
 	/* Jump into the entrypoint */
 	tail_call_static(ctx, &entry_call_map, FROM_NETDEV);
@@ -544,35 +717,17 @@ static __always_inline int build_reply(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
-	struct ethhdr *l2;
-	struct iphdr *l3;
 	void *data;
 
 	/* Init packet builder */
 	pktgen__init(&builder, ctx);
 
-	/* Push ethernet header */
-	l2 = pktgen__push_ethhdr(&builder);
-	if (!l2)
-		return TEST_ERROR;
-
-	ethhdr__set_macs(l2, (__u8 *)remote_backend_mac, (__u8 *)lb_mac);
-
-	/* Push IPv4 header */
-	l3 = pktgen__push_default_iphdr(&builder);
-	if (!l3)
-		return TEST_ERROR;
-
-	l3->saddr = BACKEND_IP_REMOTE;
-	l3->daddr = LB_IP;
-
-	/* Push TCP header */
-	l4 = pktgen__push_default_tcphdr(&builder);
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)remote_backend_mac, (__u8 *)lb_mac,
+					  BACKEND_IP_REMOTE, LB_IP,
+					  BACKEND_PORT, nat_source_port);
 	if (!l4)
 		return TEST_ERROR;
-
-	l4->source = BACKEND_PORT;
-	l4->dest = nat_source_port;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
 	if (!data)

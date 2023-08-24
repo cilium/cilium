@@ -1,36 +1,34 @@
-project: "https://github.com/cilium/cilium/projects/226"
-column: "In progress"
 move-to-projects-for-labels-xored:
+  v1.14:
+    needs-backport/1.14:
+      project: "https://github.com/cilium/cilium/projects/241"
+      column: "Needs backport from main"
+    backport-pending/1.14:
+      project: "https://github.com/cilium/cilium/projects/241"
+      column: "Backport pending to v1.14"
+    backport-done/1.14:
+      project: "https://github.com/cilium/cilium/projects/241"
+      column: "Backport done to v1.14"
   v1.13:
     needs-backport/1.13:
-      project: "https://github.com/cilium/cilium/projects/236"
+      project: "https://github.com/cilium/cilium/projects/244"
       column: "Needs backport from main"
     backport-pending/1.13:
-      project: "https://github.com/cilium/cilium/projects/236"
+      project: "https://github.com/cilium/cilium/projects/244"
       column: "Backport pending to v1.13"
     backport-done/1.13:
-      project: "https://github.com/cilium/cilium/projects/236"
+      project: "https://github.com/cilium/cilium/projects/244"
       column: "Backport done to v1.13"
   v1.12:
     needs-backport/1.12:
-      project: "https://github.com/cilium/cilium/projects/237"
+      project: "https://github.com/cilium/cilium/projects/243"
       column: "Needs backport from main"
     backport-pending/1.12:
-      project: "https://github.com/cilium/cilium/projects/237"
+      project: "https://github.com/cilium/cilium/projects/243"
       column: "Backport pending to v1.12"
     backport-done/1.12:
-      project: "https://github.com/cilium/cilium/projects/237"
+      project: "https://github.com/cilium/cilium/projects/243"
       column: "Backport done to v1.12"
-  v1.11:
-    needs-backport/1.11:
-      project: "https://github.com/cilium/cilium/projects/238"
-      column: "Needs backport from main"
-    backport-pending/1.11:
-      project: "https://github.com/cilium/cilium/projects/238"
-      column: "Backport pending to v1.11"
-    backport-done/1.11:
-      project: "https://github.com/cilium/cilium/projects/238"
-      column: "Backport done to v1.11"
 require-msgs-in-commit:
   - msg: "Signed-off-by"
     helper: "https://docs.cilium.io/en/stable/contributing/development/contributing_guide/#developer-s-certificate-of-origin"

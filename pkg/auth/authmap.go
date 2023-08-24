@@ -28,7 +28,7 @@ type authKey struct {
 }
 
 func (r authKey) String() string {
-	return fmt.Sprintf("localIdentity=%d, remoteIdentity=%d, remoteNodeID=%d, authType=%d", r.localIdentity, r.remoteIdentity, r.remoteNodeID, r.authType)
+	return fmt.Sprintf("localIdentity=%d, remoteIdentity=%d, remoteNodeID=%d, authType=%s", r.localIdentity, r.remoteIdentity, r.remoteNodeID, r.authType)
 }
 
 type authInfo struct {

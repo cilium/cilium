@@ -152,6 +152,12 @@ func (m *mapper) getMapper() meta.RESTMapper {
 // addKnownGroupAndReload reloads the mapper with updated information about missing API group.
 // versions can be specified for partial updates, for instance for v1beta1 version only.
 func (m *mapper) addKnownGroupAndReload(groupName string, versions ...string) error {
+	// versions will here be [""] if the forwarded Version value of
+	// GroupVersionResource (in calling method) was not specified.
+	if len(versions) == 1 && versions[0] == "" {
+		versions = nil
+	}
+
 	// If no specific versions are set by user, we will scan all available ones for the API group.
 	// This operation requires 2 requests: /api and /apis, but only once. For all subsequent calls
 	// this data will be taken from cache.

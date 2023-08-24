@@ -52,5 +52,5 @@ var bpfVtepUpdateCmd = &cobra.Command{
 }
 
 func init() {
-	bpfVtepCmd.AddCommand(bpfVtepUpdateCmd)
+	BPFVtepCmd.AddCommand(bpfVtepUpdateCmd)
 }

@@ -4,6 +4,7 @@
 package linux
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -22,43 +23,6 @@ const (
 	minNodeID = 1
 	maxNodeID = idpool.ID(^uint16(0))
 )
-
-// AllocateNodeID allocates a new ID for the given node (by IP) if one wasn't
-// already assigned.
-func (n *linuxNodeHandler) AllocateNodeID(nodeIP net.IP) uint16 {
-	if len(nodeIP) == 0 || nodeIP.IsUnspecified() {
-		// This should never happen. If it ever does, we may have an unexpected
-		// call to AllocateNodeID.
-		log.Warning("Attempt to allocate a node ID for an empty node IP address")
-		return 0
-	}
-
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
-	if nodeID, exists := n.getNodeIDForIP(nodeIP); exists {
-		// Don't allocate a node ID if one already exists.
-		return nodeID
-	}
-
-	nodeID := uint16(n.nodeIDs.AllocateID())
-	if nodeID == uint16(idpool.NoID) {
-		log.Error("No more IDs available for nodes")
-		return nodeID
-	} else {
-		log.WithFields(logrus.Fields{
-			logfields.NodeID: nodeID,
-			logfields.IPAddr: nodeIP,
-		}).Debug("Allocated new node ID for node IP address")
-	}
-	if err := n.mapNodeID(nodeIP.String(), nodeID); err != nil {
-		log.WithError(err).WithFields(logrus.Fields{
-			logfields.NodeID: nodeID,
-			logfields.IPAddr: nodeIP.String(),
-		}).Error("Failed to map node IP address to allocated ID")
-	}
-	return nodeID
-}
 
 func (n *linuxNodeHandler) GetNodeIP(nodeID uint16) string {
 	n.mutex.RLock()
@@ -109,7 +73,9 @@ func (n *linuxNodeHandler) getNodeIDForNode(node *nodeTypes.Node) uint16 {
 // been assigned. If any of the node IPs have an ID associated, then all other
 // node IPs receive the same. This might happen if we allocated a node ID from
 // the ipcache, where we don't have all node IPs but only one.
-func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
+func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) (uint16, error) {
+	var errs error
+
 	// Did we already allocate a node ID for any IP of that node?
 	nodeID := n.getNodeIDForNode(node)
 
@@ -117,6 +83,7 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 		nodeID = uint16(n.nodeIDs.AllocateID())
 		if nodeID == uint16(idpool.NoID) {
 			log.WithField(logfields.NodeName, node.Name).Error("No more IDs available for nodes")
+			errs = errors.Join(errs, fmt.Errorf("no available node ID %q", node.Name))
 		} else {
 			log.WithFields(logrus.Fields{
 				logfields.NodeID:   nodeID,
@@ -135,43 +102,56 @@ func (n *linuxNodeHandler) allocateIDForNode(node *nodeTypes.Node) uint16 {
 				logfields.NodeID: nodeID,
 				logfields.IPAddr: ip,
 			}).Error("Failed to map node IP address to allocated ID")
+			errs = errors.Join(errs,
+				fmt.Errorf("failed to map IP %q with node ID %q: %w", nodeID, nodeID, err))
 		}
 	}
-	return nodeID
+	return nodeID, errs
 }
 
 // deallocateIDForNode deallocates the node ID for the given node, if it was allocated.
-func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) {
-	nodeID := n.nodeIDsByIPs[oldNode.IPAddresses[0].IP.String()]
+func (n *linuxNodeHandler) deallocateIDForNode(oldNode *nodeTypes.Node) error {
+	var errs error
+	nodeIPs := make(map[string]bool)
+	nodeID := n.getNodeIDForNode(oldNode)
+
+	// Check that all node IDs of the node had the same node ID.
 	for _, addr := range oldNode.IPAddresses {
+		nodeIPs[addr.IP.String()] = true
 		id := n.nodeIDsByIPs[addr.IP.String()]
 		if nodeID != id {
 			log.WithFields(logrus.Fields{
 				logfields.NodeName: oldNode.Name,
 				logfields.IPAddr:   addr.IP,
 			}).Errorf("Found two node IDs (%d and %d) for the same node", id, nodeID)
+			errs = errors.Join(errs, fmt.Errorf("found two node IDs (%d and %d) for the same node", id, nodeID))
 		}
 	}
 
-	n.deallocateNodeIDLocked(nodeID)
+	errs = errors.Join(n.deallocateNodeIDLocked(nodeID, nodeIPs, oldNode.Name))
+	return errs
 }
 
-// DeallocateNodeID deallocates the given node ID, if it was allocated.
-func (n *linuxNodeHandler) DeallocateNodeID(nodeID uint16) {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-	n.deallocateNodeIDLocked(nodeID)
-}
-
-func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16) {
+func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16, nodeIPs map[string]bool, nodeName string) error {
+	var errs error
 	for ip, id := range n.nodeIDsByIPs {
-		if nodeID == id {
-			if err := n.unmapNodeID(ip); err != nil {
-				log.WithError(err).WithFields(logrus.Fields{
-					logfields.NodeID: nodeID,
-					logfields.IPAddr: ip,
-				}).Warn("Failed to remove a node IP to node ID mapping")
-			}
+		if nodeID != id {
+			continue
+		}
+		// Check that only IPs of this node had this node ID.
+		if _, isIPOfOldNode := nodeIPs[ip]; !isIPOfOldNode {
+			log.WithFields(logrus.Fields{
+				logfields.NodeName: nodeName,
+				logfields.IPAddr:   ip,
+				logfields.NodeID:   id,
+			}).Errorf("Found a foreign IP address with the ID of the current node")
+		}
+
+		if err := n.unmapNodeID(ip); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.NodeID: nodeID,
+				logfields.IPAddr: ip,
+			}).Warn("Failed to remove a node IP to node ID mapping")
 		}
 	}
 
@@ -179,6 +159,7 @@ func (n *linuxNodeHandler) deallocateNodeIDLocked(nodeID uint16) {
 		log.WithField(logfields.NodeID, nodeID).Warn("Attempted to deallocate a node ID that wasn't allocated")
 	}
 	log.WithField(logfields.NodeID, nodeID).Debug("Deallocate node ID")
+	return errs
 }
 
 // mapNodeID adds a node ID <> IP mapping into the local in-memory map of the
@@ -228,6 +209,25 @@ func (n *linuxNodeHandler) unmapNodeID(ip string) error {
 	}
 
 	return nil
+}
+
+// diffAndUnmapNodeIPs takes two lists of node IP addresses: new and old ones.
+// It unmaps the node IP to node ID mapping for all the old IP addresses that
+// are not in the list of new IP addresses.
+func (n *linuxNodeHandler) diffAndUnmapNodeIPs(oldIPs, newIPs []nodeTypes.Address) {
+nextOldIP:
+	for _, oldAddr := range oldIPs {
+		for _, newAddr := range newIPs {
+			if newAddr.IP.Equal(oldAddr.IP) {
+				continue nextOldIP
+			}
+		}
+		if err := n.unmapNodeID(oldAddr.IP.String()); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.IPAddr: oldAddr,
+			}).Warn("Failed to remove a node IP to node ID mapping")
+		}
+	}
 }
 
 // DumpNodeIDs returns all node IDs and their associated IP addresses.

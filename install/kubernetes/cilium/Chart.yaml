@@ -2,8 +2,8 @@ apiVersion: v2
 name: cilium
 displayName: Cilium
 home: https://cilium.io/
-version: 1.14.0-dev
-appVersion: 1.14.0-dev
+version: 1.15.0-dev
+appVersion: 1.15.0-dev
 kubeVersion: ">= 1.16.0-0"
 icon: https://cdn.jsdelivr.net/gh/cilium/cilium@main/Documentation/images/logo-solo.svg
 description: eBPF-based Networking, Security, and Observability
@@ -74,7 +74,7 @@ annotations:
       description: |
         Cilium Endpoint represents the status of individual pods or nodes in
         the cluster which are managed by Cilium, including enforcement status,
-        IP addressing and whether the networking is succesfully operational.
+        IP addressing and whether the networking is successfully operational.
     - kind: CiliumEndpointSlice
       version: v2alpha1
       name: ciliumendpointslices.cilium.io
@@ -82,7 +82,7 @@ annotations:
       description: |
         Cilium Endpoint Slice represents the status of groups of pods or nodes
         in the cluster which are managed by Cilium, including enforcement status,
-        IP addressing and whether the networking is succesfully operational.
+        IP addressing and whether the networking is successfully operational.
     - kind: CiliumEgressGatewayPolicy
       version: v2
       name: ciliumegressgatewaypolicies.cilium.io

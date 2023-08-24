@@ -16,3 +16,4 @@ Configuring IPAM Modes
 
    ipam-crd
    ipam-cluster-pool
+   ipam-multi-pool

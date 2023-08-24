@@ -115,10 +115,13 @@ func (s *EndpointSuite) TestGetCiliumEndpointStatusSuccessfulControllers(c *chec
 	e := s.newEndpoint(c, endpointGeneratorSpec{})
 	cepA := e.GetCiliumEndpointStatus(&endpointStatusConfiguration{})
 
+	controllerGroup := controller.NewGroup("controller")
+
 	// Run successful controllers in the background
 	for i := 0; i < 50; i++ {
 		e.controllers.UpdateController(fmt.Sprintf("controller-%d", i),
 			controller.ControllerParams{
+				Group: controllerGroup,
 				DoFunc: func(ctx context.Context) error {
 					return nil
 				},

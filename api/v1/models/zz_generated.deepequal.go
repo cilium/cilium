@@ -58,6 +58,9 @@ func (in *EndpointIdentifiers) DeepEqual(other *EndpointIdentifiers) bool {
 		return false
 	}
 
+	if in.CniAttachmentID != other.CniAttachmentID {
+		return false
+	}
 	if in.ContainerID != other.ContainerID {
 		return false
 	}

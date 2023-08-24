@@ -71,34 +71,42 @@ func (client *Client) CreateRouterInterfaceWithCallback(request *CreateRouterInt
 // CreateRouterInterfaceRequest is the request struct for api CreateRouterInterface
 type CreateRouterInterfaceRequest struct {
 	*requests.RpcRequest
-	AccessPointId            string           `position:"Query" name:"AccessPointId"`
-	OppositeRouterId         string           `position:"Query" name:"OppositeRouterId"`
-	OppositeAccessPointId    string           `position:"Query" name:"OppositeAccessPointId"`
-	ResourceOwnerId          requests.Integer `position:"Query" name:"ResourceOwnerId"`
-	Role                     string           `position:"Query" name:"Role"`
-	ClientToken              string           `position:"Query" name:"ClientToken"`
-	HealthCheckTargetIp      string           `position:"Query" name:"HealthCheckTargetIp"`
-	Description              string           `position:"Query" name:"Description"`
-	Spec                     string           `position:"Query" name:"Spec"`
-	FastLinkMode             requests.Boolean `position:"Query" name:"FastLinkMode"`
-	OppositeInterfaceId      string           `position:"Query" name:"OppositeInterfaceId"`
-	InstanceChargeType       string           `position:"Query" name:"InstanceChargeType"`
-	Period                   requests.Integer `position:"Query" name:"Period"`
-	AutoPay                  requests.Boolean `position:"Query" name:"AutoPay"`
-	PromotionOptionNo        string           `position:"Query" name:"PromotionOptionNo"`
-	AvailableZoneId          string           `position:"Query" name:"AvailableZoneId"`
-	ResourceOwnerAccount     string           `position:"Query" name:"ResourceOwnerAccount"`
-	OppositeRegionId         string           `position:"Query" name:"OppositeRegionId"`
-	OwnerAccount             string           `position:"Query" name:"OwnerAccount"`
-	OwnerId                  requests.Integer `position:"Query" name:"OwnerId"`
-	OppositeInterfaceOwnerId string           `position:"Query" name:"OppositeInterfaceOwnerId"`
-	RouterType               string           `position:"Query" name:"RouterType"`
-	AutoRenew                requests.Boolean `position:"Query" name:"AutoRenew"`
-	HealthCheckSourceIp      string           `position:"Query" name:"HealthCheckSourceIp"`
-	RouterId                 string           `position:"Query" name:"RouterId"`
-	OppositeRouterType       string           `position:"Query" name:"OppositeRouterType"`
-	Name                     string           `position:"Query" name:"Name"`
-	PricingCycle             string           `position:"Query" name:"PricingCycle"`
+	AccessPointId            string                       `position:"Query" name:"AccessPointId"`
+	OppositeAccessPointId    string                       `position:"Query" name:"OppositeAccessPointId"`
+	ResourceOwnerId          requests.Integer             `position:"Query" name:"ResourceOwnerId"`
+	Spec                     string                       `position:"Query" name:"Spec"`
+	ResourceGroupId          string                       `position:"Query" name:"ResourceGroupId"`
+	Period                   requests.Integer             `position:"Query" name:"Period"`
+	OppositeRegionId         string                       `position:"Query" name:"OppositeRegionId"`
+	OwnerId                  requests.Integer             `position:"Query" name:"OwnerId"`
+	OppositeInterfaceOwnerId string                       `position:"Query" name:"OppositeInterfaceOwnerId"`
+	Tags                     *[]CreateRouterInterfaceTags `position:"Query" name:"Tags"  type:"Repeated"`
+	AutoRenew                requests.Boolean             `position:"Query" name:"AutoRenew"`
+	OppositeRouterType       string                       `position:"Query" name:"OppositeRouterType"`
+	Name                     string                       `position:"Query" name:"Name"`
+	PricingCycle             string                       `position:"Query" name:"PricingCycle"`
+	OppositeRouterId         string                       `position:"Query" name:"OppositeRouterId"`
+	Role                     string                       `position:"Query" name:"Role"`
+	ClientToken              string                       `position:"Query" name:"ClientToken"`
+	HealthCheckTargetIp      string                       `position:"Query" name:"HealthCheckTargetIp"`
+	Description              string                       `position:"Query" name:"Description"`
+	FastLinkMode             requests.Boolean             `position:"Query" name:"FastLinkMode"`
+	OppositeInterfaceId      string                       `position:"Query" name:"OppositeInterfaceId"`
+	InstanceChargeType       string                       `position:"Query" name:"InstanceChargeType"`
+	AutoPay                  requests.Boolean             `position:"Query" name:"AutoPay"`
+	PromotionOptionNo        string                       `position:"Query" name:"PromotionOptionNo"`
+	AvailableZoneId          string                       `position:"Query" name:"AvailableZoneId"`
+	ResourceOwnerAccount     string                       `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount             string                       `position:"Query" name:"OwnerAccount"`
+	RouterType               string                       `position:"Query" name:"RouterType"`
+	HealthCheckSourceIp      string                       `position:"Query" name:"HealthCheckSourceIp"`
+	RouterId                 string                       `position:"Query" name:"RouterId"`
+}
+
+// CreateRouterInterfaceTags is a repeated param struct in CreateRouterInterfaceRequest
+type CreateRouterInterfaceTags struct {
+	Value string `name:"Value"`
+	Key   string `name:"Key"`
 }
 
 // CreateRouterInterfaceResponse is the response struct for api CreateRouterInterface

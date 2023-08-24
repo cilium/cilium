@@ -76,6 +76,7 @@ func (mgr *endpointManager) sweepEndpoints(markedEndpoints []uint16) {
 			logfields.EndpointID:  ep.StringID(),
 			logfields.ContainerID: ep.GetShortContainerID(),
 			logfields.K8sPodName:  ep.GetK8sNamespaceAndPodName(),
+			logfields.CEPName:     ep.GetK8sNamespaceAndCEPName(),
 			logfields.URL:         "https://github.com/kubernetes/kubernetes/issues/86944",
 		}).Warning("Stray endpoint found. You may be affected by upstream Kubernetes issue #86944.")
 		errs := mgr.RemoveEndpoint(ep, endpoint.DeleteConfig{

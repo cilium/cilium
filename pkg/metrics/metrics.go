@@ -314,6 +314,7 @@ var (
 	CIDRGroupTranslationTimeStats = NoOpHistogram
 
 	// CIDRGroupPolicies is the number of CNPs and CCNPs referencing at least one CiliumCIDRGroup.
+	// CNPs with empty or non-existing CIDRGroupRefs are not considered
 	CIDRGroupPolicies = NoOpGauge
 
 	// Identity
@@ -411,8 +412,8 @@ var (
 
 	// Services
 
-	// ServicesCount number of services
-	ServicesCount = NoOpCounterVec
+	// ServicesEventsCount counts the number of services
+	ServicesEventsCount = NoOpCounterVec
 
 	// Errors and warnings
 
@@ -443,6 +444,9 @@ var (
 	// KubernetesAPIInteractions is the total time taken to process an API call made
 	// to the kube-apiserver
 	KubernetesAPIInteractions = NoOpObserverVec
+
+	// KubernetesAPIRateLimiterLatency is the client side rate limiter latency metric
+	KubernetesAPIRateLimiterLatency = NoOpObserverVec
 
 	// KubernetesAPICallsTotal is the counter for all API calls made to
 	// kube-apiserver.
@@ -605,7 +609,7 @@ type LegacyMetrics struct {
 	ConntrackGCDuration              metric.Vec[metric.Observer]
 	ConntrackDumpResets              metric.Vec[metric.Counter]
 	SignalsHandled                   metric.Vec[metric.Counter]
-	ServicesCount                    metric.Vec[metric.Counter]
+	ServicesEventsCount              metric.Vec[metric.Counter]
 	ErrorsWarnings                   metric.Vec[metric.Counter]
 	ControllerRuns                   metric.Vec[metric.Counter]
 	ControllerRunsDuration           metric.Vec[metric.Observer]
@@ -613,6 +617,7 @@ type LegacyMetrics struct {
 	KubernetesEventProcessed         metric.Vec[metric.Counter]
 	KubernetesEventReceived          metric.Vec[metric.Counter]
 	KubernetesAPIInteractions        metric.Vec[metric.Observer]
+	KubernetesAPIRateLimiterLatency  metric.Vec[metric.Observer]
 	KubernetesAPICallsTotal          metric.Vec[metric.Counter]
 	KubernetesCNPStatusCompletion    metric.Vec[metric.Observer]
 	TerminatingEndpointsEvents       metric.Counter
@@ -944,7 +949,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 				"labeled by signal type, data and completion status",
 		}, []string{LabelSignalType, LabelSignalData, LabelStatus}),
 
-		ServicesCount: metric.NewCounterVec(metric.CounterOpts{
+		ServicesEventsCount: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_services_events_total",
 			Namespace:  Namespace,
 			Name:       "services_events_total",
@@ -999,6 +1004,15 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Subsystem:  SubsystemK8sClient,
 			Name:       "api_latency_time_seconds",
 			Help:       "Duration of processed API calls labeled by path and method.",
+		}, []string{LabelPath, LabelMethod}),
+
+		KubernetesAPIRateLimiterLatency: metric.NewHistogramVec(metric.HistogramOpts{
+			ConfigName: Namespace + "_" + SubsystemK8sClient + "_rate_limiter_duration_seconds",
+			Namespace:  Namespace,
+			Subsystem:  SubsystemK8sClient,
+			Name:       "rate_limiter_duration_seconds",
+			Help:       "Kubernetes client rate limiter latency in seconds. Broken down by path and method.",
+			Buckets:    []float64{0.005, 0.025, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 15.0, 30.0, 60.0},
 		}, []string{LabelPath, LabelMethod}),
 
 		KubernetesAPICallsTotal: metric.NewCounterVec(metric.CounterOpts{
@@ -1323,7 +1337,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	ConntrackGCDuration = lm.ConntrackGCDuration
 	ConntrackDumpResets = lm.ConntrackDumpResets
 	SignalsHandled = lm.SignalsHandled
-	ServicesCount = lm.ServicesCount
+	ServicesEventsCount = lm.ServicesEventsCount
 	ErrorsWarnings = lm.ErrorsWarnings
 	ControllerRuns = lm.ControllerRuns
 	ControllerRunsDuration = lm.ControllerRunsDuration
@@ -1331,6 +1345,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	KubernetesEventProcessed = lm.KubernetesEventProcessed
 	KubernetesEventReceived = lm.KubernetesEventReceived
 	KubernetesAPIInteractions = lm.KubernetesAPIInteractions
+	KubernetesAPIRateLimiterLatency = lm.KubernetesAPIRateLimiterLatency
 	KubernetesAPICallsTotal = lm.KubernetesAPICallsTotal
 	KubernetesCNPStatusCompletion = lm.KubernetesCNPStatusCompletion
 	TerminatingEndpointsEvents = lm.TerminatingEndpointsEvents
@@ -1425,15 +1440,6 @@ func Reinitialize() {
 	if err == nil {
 		reg.Reinitialize()
 	}
-}
-
-// MustRegister adds the collector to the registry, exposing this metric to
-// prometheus scrapes.
-// It will panic on error.
-func MustRegister(c ...prometheus.Collector) {
-	withRegistry(func(reg *Registry) {
-		reg.MustRegister(c...)
-	})
 }
 
 // Register registers a collector

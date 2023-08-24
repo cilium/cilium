@@ -11,9 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tklauser/go-sysconf"
-
 	"github.com/shirou/gopsutil/v3/internal/common"
+	"github.com/tklauser/go-sysconf"
 )
 
 var ClocksPerSec = float64(100)

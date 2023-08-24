@@ -14,13 +14,11 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/k8s/watchers/resources"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/metrics"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 )
 
@@ -32,10 +30,6 @@ var (
 	k8sSvcCacheSynced = make(chan struct{})
 	kvs               store.SyncStore
 )
-
-func k8sEventMetric(scope, action string) {
-	metrics.EventTS.WithLabelValues(metrics.LabelEventSourceK8s, scope, action)
-}
 
 func k8sServiceHandler(ctx context.Context, clusterName string, shared bool, clusterID uint32) {
 	serviceHandler := func(event k8s.ServiceEvent) {
@@ -114,12 +108,7 @@ type ServiceSyncParameters struct {
 // will be synchronized. For clustermesh we only need to synchronize shared services, while for
 // VM support we need to sync all the services.
 func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg ServiceSyncParameters) {
-	kvstoreReady := make(chan struct{}, 0)
-
-	endpointMetric := resources.MetricEndpoint
-	if k8s.SupportsEndpointSlice() {
-		endpointMetric = resources.MetricEndpointSlice
-	}
+	kvstoreReady := make(chan struct{})
 
 	wg.Add(1)
 	go func() {
@@ -196,10 +185,8 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 						onSync()
 					}
 				case resource.Upsert:
-					k8sEventMetric(resources.MetricService, resources.MetricUpdate)
 					K8sSvcCache.UpdateService(ev.Object, swg)
 				case resource.Delete:
-					k8sEventMetric(resources.MetricService, resources.MetricDelete)
 					K8sSvcCache.DeleteService(ev.Object, swg)
 				}
 				ev.Done(nil)
@@ -217,10 +204,8 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 						onSync()
 					}
 				case resource.Upsert:
-					k8sEventMetric(endpointMetric, resources.MetricUpdate)
 					K8sSvcCache.UpdateEndpoints(ev.Object, swg)
 				case resource.Delete:
-					k8sEventMetric(endpointMetric, resources.MetricDelete)
 					K8sSvcCache.DeleteEndpoints(ev.Object.EndpointSliceID, swg)
 				}
 				ev.Done(nil)

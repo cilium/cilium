@@ -719,7 +719,7 @@ func (b *ControllerSuite) testStressRateLimiter(c *check.C, nGoRoutines int) {
 
 	var (
 		sem                = semaphore.NewWeighted(100)
-		completed, retries int32
+		completed, retries atomic.Uint32
 	)
 
 	go func() {
@@ -735,22 +735,22 @@ func (b *ControllerSuite) testStressRateLimiter(c *check.C, nGoRoutines int) {
 					if err == nil {
 						time.Sleep(5 * time.Millisecond)
 						req.Done()
-						atomic.AddInt32(&completed, 1)
+						completed.Add(1)
 						sem.Release(1)
 						return
 					}
-					atomic.AddInt32(&retries, 1)
+					retries.Add(1)
 				}
 			}()
 		}
 	}()
 
 	c.Assert(testutils.WaitUntil(func() bool {
-		return atomic.LoadInt32(&completed) == int32(nGoRoutines)
+		return completed.Load() == uint32(nGoRoutines)
 	}, 5*time.Second), check.IsNil)
 
 	log.Infof("%+v", a)
-	log.Infof("Total retries: %v", atomic.LoadInt32(&retries))
+	log.Infof("Total retries: %v", retries.Load())
 }
 
 func (b *ControllerSuite) TestReservationCancel(c *check.C) {
@@ -768,7 +768,7 @@ func (b *ControllerSuite) TestReservationCancel(c *check.C) {
 	req, err := a.Wait(context.Background())
 	c.Assert(err, check.IsNil)
 
-	var completed int32
+	var completed atomic.Uint32
 
 	// All of these requests must fail due to having to wait too long as
 	// the only parallel request slot is occupied. The rate limiter should
@@ -777,12 +777,12 @@ func (b *ControllerSuite) TestReservationCancel(c *check.C) {
 		go func() {
 			_, err := a.Wait(context.Background())
 			c.Assert(err, check.Not(check.IsNil))
-			atomic.AddInt32(&completed, 1)
+			completed.Add(1)
 		}()
 	}
 
 	c.Assert(testutils.WaitUntil(func() bool {
-		return atomic.LoadInt32(&completed) == 20
+		return completed.Load() == 20
 	}, time.Second), check.IsNil)
 
 	req.Done()

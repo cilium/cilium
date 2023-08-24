@@ -19,11 +19,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sync/semaphore"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
 	"github.com/cilium/cilium/daemon/cmd/cni"
+	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bgp/speaker"
 	bgpv1 "github.com/cilium/cilium/pkg/bgpv1/agent"
@@ -50,6 +50,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -84,7 +85,6 @@ import (
 	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/rate"
-	ratemetrics "github.com/cilium/cilium/pkg/rate/metrics"
 	"github.com/cilium/cilium/pkg/recorder"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
@@ -92,7 +92,6 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
-	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
 const (
@@ -161,8 +160,6 @@ type Daemon struct {
 	// ipam is the IP address manager of the agent
 	ipam *ipam.IPAM
 
-	netConf *cnitypes.NetConf
-
 	endpointManager endpointmanager.EndpointManager
 
 	identityAllocator CachingIdentityAllocator
@@ -216,6 +213,15 @@ type Daemon struct {
 	cniConfigManager cni.CNIConfigManager
 
 	l2announcer *l2announcer.L2Announcer
+
+	// authManager for reporting the status of the auth system certificate provider
+	authManager *auth.AuthManager
+
+	// read-only map of all the hive settings
+	settings cellSettings
+	// enable modules health support
+	healthProvider cell.Health
+	healthReporter cell.HealthReporter
 }
 
 func (d *Daemon) initDNSProxyContext(size int) {
@@ -284,10 +290,10 @@ func (d *Daemon) init() error {
 			return fmt.Errorf("failed while reinitializing datapath: %w", err)
 		}
 
-		if err := linuxdatapath.NodeEnsureLocalIPRule(); errors.Is(err, unix.EEXIST) {
-			log.WithError(err).Warn("Failed to ensure local IP rules")
-		} else if err != nil {
-			return fmt.Errorf("failed to ensure local IP rules: %w", err)
+		if option.Config.EnableL7Proxy {
+			if err := linuxdatapath.NodeEnsureLocalRoutingRule(); err != nil {
+				return fmt.Errorf("ensuring local routing rule: %w", err)
+			}
 		}
 	}
 
@@ -394,34 +400,14 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 
 // newDaemon creates and returns a new Daemon with the parameters set in c.
 func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams) (*Daemon, *endpointRestoreState, error) {
-	var (
-		err           error
-		netConf       *cnitypes.NetConf
-		configuredMTU = option.Config.MTU
-	)
+	var err error
 
 	bootstrapStats.daemonInit.Start()
-
-	// Validate the daemon-specific global options.
-	if err := option.Config.Validate(Vp); err != nil {
-		return nil, nil, fmt.Errorf("invalid daemon configuration: %s", err)
-	}
 
 	// Validate configuration options that depend on other cells.
 	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !params.Clientset.IsEnabled() &&
 		option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
 		return nil, nil, fmt.Errorf("CRD Identity allocation mode requires k8s to be configured")
-	}
-
-	if mtu := params.CNIConfigManager.GetMTU(); mtu > 0 {
-		configuredMTU = mtu
-		log.WithField("mtu", configuredMTU).Info("Overwriting MTU based on CNI configuration")
-	}
-
-	apiLimiterSet, err := rate.NewAPILimiterSet(option.Config.APIRateLimit, apiRateLimitDefaults, ratemetrics.APILimiterObserver())
-	if err != nil {
-		log.WithError(err).Error("unable to configure API rate limiting")
-		return nil, nil, fmt.Errorf("unable to configure API rate limiting: %w", err)
 	}
 
 	// Check the kernel if we can make use of managed neighbor entries which
@@ -444,8 +430,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("unable to initialize kube-proxy replacement options: %w", err)
 	}
 
-	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
-		option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
+	ctmap.InitMapInfo(option.Config.EnableIPv4, option.Config.EnableIPv6, option.Config.EnableNodePort)
 	policymap.InitMapInfo(option.Config.PolicyMapEntries)
 
 	lbmapInitParams := lbmap.InitParams{
@@ -490,6 +475,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if externalIP == nil {
 		externalIP = node.GetIPv6()
 	}
+	configuredMTU := option.Config.MTU
+	if mtu := params.CNIConfigManager.GetMTU(); mtu > 0 {
+		configuredMTU = mtu
+		log.WithField("mtu", configuredMTU).Info("Overwriting MTU based on CNI configuration")
+	}
 	// ExternalIP could be nil but we are covering that case inside NewConfiguration
 	mtuConfig = mtu.NewConfiguration(
 		authKeySize,
@@ -512,12 +502,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
 	}
 
-	nd := nodediscovery.NewNodeDiscovery(params.NodeManager, params.Clientset, mtuConfig, netConf)
-
-	devMngr, err := linuxdatapath.NewDeviceManager()
-	if err != nil {
-		return nil, nil, err
-	}
+	nd := nodediscovery.NewNodeDiscovery(params.NodeManager, params.Clientset, mtuConfig, params.CNIConfigManager.GetCustomNetConf())
 
 	d := Daemon{
 		ctx:               ctx,
@@ -525,14 +510,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		prefixLengths:     createPrefixLengthCounter(),
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex:  new(lock.RWMutex),
-		netConf:           netConf,
 		mtuConfig:         mtuConfig,
 		datapath:          params.Datapath,
-		deviceManager:     devMngr,
+		deviceManager:     params.DeviceManager,
 		nodeDiscovery:     nd,
 		nodeLocalStore:    params.LocalNodeStore,
 		endpointCreations: newEndpointCreationManager(params.Clientset),
-		apiLimiterSet:     apiLimiterSet,
+		apiLimiterSet:     params.APILimiterSet,
 		controllers:       controller.NewManager(),
 		// **NOTE** The global identity allocator is not yet initialized here; that
 		// happens below via InitIdentityAllocator(). Only the local identity
@@ -548,6 +532,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		monitorAgent:         params.MonitorAgent,
 		l2announcer:          params.L2Announcer,
 		l7Proxy:              params.L7Proxy,
+		authManager:          params.AuthManager,
+		settings:             params.Settings,
+		healthProvider:       params.HealthProvider,
+		healthReporter:       params.HealthReporter,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
@@ -624,7 +612,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	d.svc = service.NewService(&d, d.l7Proxy, d.datapath.LBMap())
 
-	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
+	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc, params.Resources.LocalPods)
 	if option.Config.BGPAnnounceLBIP || option.Config.BGPAnnouncePodCIDR {
 		log.WithField("url", "https://github.com/cilium/cilium/issues/22246").
 			Warn("You are using the legacy BGP feature, which will only receive security updates and bugfixes. " +
@@ -684,7 +672,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	d.k8sWatcher.RegisterNodeSubscriber(watchers.NewCiliumNodeUpdater(d.nodeDiscovery))
 
 	d.redirectPolicyManager.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
-	d.redirectPolicyManager.RegisterGetStores(d.k8sWatcher)
 	if option.Config.BGPAnnounceLBIP {
 		d.bgpSpeaker.RegisterSvcCache(d.k8sWatcher.K8sSvcCache)
 	}
@@ -893,8 +880,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	if params.WGAgent != nil && option.Config.EnableWireguard {
 		if err := params.WGAgent.Init(d.ipcache, d.mtuConfig); err != nil {
-			log.WithError(err).Error("failed to initialize wireguard agent")
-			return nil, nil, fmt.Errorf("failed to initialize wireguard agent: %w", err)
+			log.WithError(err).Error("failed to initialize WireGuard agent")
+			return nil, nil, fmt.Errorf("failed to initialize WireGuard agent: %w", err)
 		}
 
 		params.NodeManager.Subscribe(params.WGAgent)
@@ -910,14 +897,16 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	devices, err := d.deviceManager.Detect(params.Clientset.IsEnabled())
-	if err != nil {
-		if option.Config.AreDevicesRequired() {
-			// Fail hard if devices are required to function.
-			return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
+	var devices []string
+	if d.deviceManager != nil {
+		if _, err := d.deviceManager.Detect(params.Clientset.IsEnabled()); err != nil {
+			if option.Config.AreDevicesRequired() {
+				// Fail hard if devices are required to function.
+				return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
+			}
+			log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
+			disableNodePort()
 		}
-		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
-		disableNodePort()
 	}
 
 	if d.l2announcer != nil {
@@ -942,9 +931,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		case !option.Config.EnableRemoteNodeIdentity:
 			err = fmt.Errorf("BPF masquerade requires remote node identities (--%s=\"true\")",
 				option.EnableRemoteNodeIdentity)
-		case option.Config.EgressMasqueradeInterfaces != "":
+		case len(option.Config.MasqueradeInterfaces) > 0:
 			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
-				option.EgressMasqueradeInterfaces, option.Devices)
+				option.MasqueradeInterfaces, option.Devices)
 		case option.Config.TunnelingEnabled() && !option.Config.EnableSocketLB:
 			err = fmt.Errorf("BPF masquerade requires socket-LB (--%s=\"false\")",
 				option.EnableSocketLB)
@@ -963,23 +952,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			}
 		}
 	}
-	if option.Config.EnableIPv4EgressGateway {
-		// datapath code depends on remote node identities to distinguish between cluser-local and
-		// cluster-egress traffic
-		if !option.Config.EnableRemoteNodeIdentity {
-			log.WithError(err).Errorf("egress gateway requires remote node identities (--%s=\"true\").",
-				option.EnableRemoteNodeIdentity)
-			return nil, nil, fmt.Errorf("egress gateway requires remote node identities (--%s=\"true\").",
-				option.EnableRemoteNodeIdentity)
-		}
 
-		if option.Config.EnableL7Proxy {
-			log.WithField(logfields.URL, "https://github.com/cilium/cilium/issues/19642").
-				Warningf("both egress gateway and L7 proxy (--%s) are enabled. This is currently not fully supported: "+
-					"if the same endpoint is selected both by an egress gateway and a L7 policy, endpoint traffic will not go through egress gateway.", option.EnableL7Proxy)
-		}
-	}
 	if option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
+		if option.Config.EnableMasqueradeRouteSource {
+			log.Error("BPF masquerading does not yet support masquerading to source IP from routing layer")
+			return nil, nil, fmt.Errorf("BPF masquerading to route source (--%s=\"true\") currently not supported with BPF-based masquerading (--%s=\"true\")", option.EnableMasqueradeRouteSource, option.EnableBPFMasquerade)
+		}
 		// TODO(brb) nodeport constraints will be lifted once the SNAT BPF code has been refactored
 		if err := node.InitBPFMasqueradeAddrs(option.Config.GetDevices()); err != nil {
 			log.WithError(err).Error("failed to determine BPF masquerade addrs")
@@ -988,9 +966,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	} else if option.Config.EnableIPMasqAgent {
 		log.WithError(err).Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
 		return nil, nil, fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
-	} else if option.Config.EnableIPv4EgressGateway {
-		log.WithError(err).Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
-		return nil, nil, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 	} else if !option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
 		log.Infof("Auto-disabling %q feature since IPv4 and IPv6 masquerading are disabled",
 			option.EnableBPFMasquerade)
@@ -1184,9 +1159,11 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// controller is to ensure that endpoints and host IPs entries are
 	// reinserted to the bpf maps if they are ever removed from them.
 	syncErrs := make(chan error, 1)
+	var syncHostIPsControllerGroup = controller.NewGroup("sync-host-ips")
 	d.controllers.UpdateController(
 		syncHostIPsController,
 		controller.ControllerParams{
+			Group: syncHostIPsControllerGroup,
 			DoFunc: func(ctx context.Context) error {
 				err := d.syncHostIPs()
 				select {
@@ -1215,7 +1192,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	identitymanager.Subscribe(d.policy)
 
 	// Start listening to changed devices if requested.
-	if option.Config.EnableRuntimeDeviceDetection {
+	if option.Config.EnableRuntimeDeviceDetection && d.deviceManager != nil {
 		if option.Config.AreDevicesRequired() {
 			devicesChan, err := d.deviceManager.Listen(ctx)
 			if err != nil {
@@ -1337,7 +1314,10 @@ func changedOption(key string, value option.OptionSetting, data interface{}) {
 			logging.SetLogLevelToDebug()
 		}
 		// Reflect log level change to proxies
-		proxy.ChangeLogLevel(logging.GetLevel(logging.DefaultLogger))
+		// Might not be initialized yet
+		if option.Config.EnableL7Proxy {
+			d.l7Proxy.ChangeLogLevel(logging.GetLevel(logging.DefaultLogger))
+		}
 	}
 	d.policy.BumpRevision() // force policy recalculation
 }

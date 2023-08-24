@@ -68,6 +68,12 @@ type Config struct {
 	//
 	// See the `aws.EndpointResolverWithOptions` documentation for additional
 	// usage information.
+	//
+	// Deprecated: with the release of endpoint resolution v2 in API clients,
+	// EndpointResolver and EndpointResolverWithOptions are deprecated.
+	// Providing a value for this field will likely prevent you from using
+	// newer endpoint-related service features. See API client options
+	// EndpointResolverV2 and BaseEndpoint.
 	EndpointResolverWithOptions EndpointResolverWithOptions
 
 	// RetryMaxAttempts specifies the maximum number attempts an API client
@@ -132,6 +138,14 @@ type Config struct {
 	// `config.LoadDefaultConfig`. You should not populate this structure
 	// programmatically, or rely on the values here within your applications.
 	RuntimeEnvironment RuntimeEnvironment
+
+	// AppId is an optional application specific identifier that can be set.
+	// When set it will be appended to the User-Agent header of every request
+	// in the form of App/{AppId}. This variable is sourced from environment
+	// variable AWS_SDK_UA_APP_ID or the shared config profile attribute sdk_ua_app_id.
+	// See https://docs.aws.amazon.com/sdkref/latest/guide/settings-reference.html for
+	// more information on environment variables and shared config settings.
+	AppID string
 }
 
 // NewConfig returns a new Config pointer that can be chained with builder

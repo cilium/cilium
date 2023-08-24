@@ -22,3 +22,13 @@ readinessProbe:
   failureThreshold: 9999
 startupProbe:
   failureThreshold: 9999
+clustermesh:
+  useAPIServer: true
+  apiserver:
+    image:
+      pullPolicy: Never
+    kvstoremesh:
+      image:
+        pullPolicy: Never
+    service:
+      nodePort: 32379

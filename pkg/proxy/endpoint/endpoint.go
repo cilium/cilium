@@ -5,7 +5,6 @@ package endpoint
 
 import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
@@ -15,17 +14,9 @@ type EndpointInfoSource interface {
 	GetID() uint64
 	GetIPv4Address() string
 	GetIPv6Address() string
-	GetIdentityLocked() identity.NumericIdentity
-	GetLabels() []string
 	HasSidecarProxy() bool
-	// ConntrackName assumes that the caller has *not* acquired any mutexes
-	// that may be associated with this EndpointInfoSource. It is (unfortunately)
-	// up to the caller to know when to use this vs. ConntrackNameLocked, which
-	// assumes that the caller has acquired any needed mutexes of the
-	// implementation.
-	ConntrackName() string
 	ConntrackNameLocked() string
-	GetNamedPortLocked(ingress bool, name string, proto uint8) uint16
+	GetNamedPort(ingress bool, name string, proto uint8) uint16
 }
 
 // EndpointUpdater returns information about an endpoint being proxied and

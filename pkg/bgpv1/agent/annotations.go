@@ -5,6 +5,7 @@ package agent
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"net/netip"
 	"strconv"
@@ -101,6 +102,18 @@ func (e ErrMulti) Error() string {
 		s.WriteString(err.Error() + ",")
 	}
 	return s.String()
+}
+
+func (a AnnotationMap) ResolveRouterID(localASN int64) (string, error) {
+	if _, ok := a[localASN]; ok {
+		var err error
+		var parsed netip.Addr
+		if parsed, err = netip.ParseAddr(a[localASN].RouterID); err == nil && !parsed.IsUnspecified() {
+			return parsed.String(), nil
+		}
+		return "", fmt.Errorf("failed to parse RouterID for local ASN %v: %w", localASN, err)
+	}
+	return "", fmt.Errorf("router id not specified by annotation, cannot resolve router id for local ASN %v", localASN)
 }
 
 // NewAnnotationMap parses a Node's annotations into a AnnotationMap

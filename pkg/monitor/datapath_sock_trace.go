@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -30,6 +31,10 @@ const (
 
 const TraceSockNotifyFlagIPv6 uint8 = 0x1
 
+const (
+	TraceSockNotifyLen = 38
+)
+
 // TraceSockNotify is message format for socket trace notifications sent from datapath.
 // Keep this in sync to the datapath structure (trace_sock_notify) defined in
 // bpf/lib/trace_sock.h
@@ -42,6 +47,28 @@ type TraceSockNotify struct {
 	CgroupId   uint64
 	L4Proto    uint8
 	Flags      uint8
+}
+
+// DecodeTraceSockNotify will decode 'data' into the provided TraceSocNotify structure
+func DecodeTraceSockNotify(data []byte, sock *TraceSockNotify) error {
+	return sock.decodeTraceSockNotify(data)
+}
+
+func (t *TraceSockNotify) decodeTraceSockNotify(data []byte) error {
+	if l := len(data); l < TraceSockNotifyLen {
+		return fmt.Errorf("unexpected TraceSockNotify data length, expected %d but got %d", TraceSockNotifyLen, l)
+	}
+
+	t.Type = data[0]
+	t.XlatePoint = data[1]
+	copy(t.DstIP[:], data[2:18])
+	t.DstPort = byteorder.Native.Uint16(data[18:20])
+	t.SockCookie = byteorder.Native.Uint64(data[20:28])
+	t.CgroupId = byteorder.Native.Uint64(data[28:36])
+	t.L4Proto = data[36]
+	t.Flags = data[37]
+
+	return nil
 }
 
 func (t *TraceSockNotify) DumpDebug(prefix string) {

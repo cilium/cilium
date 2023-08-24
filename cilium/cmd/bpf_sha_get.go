@@ -32,7 +32,7 @@ var bpfShaGetCmd = &cobra.Command{
 }
 
 func init() {
-	bpfTemplateCmd.AddCommand(bpfShaGetCmd)
+	BPFTemplateCmd.AddCommand(bpfShaGetCmd)
 	command.AddOutputOption(bpfShaGetCmd)
 }
 
@@ -49,7 +49,7 @@ func dumpSha(sha string) {
 			Fatalf("Error preparing regex for parsing JSON: %s\n", err)
 		}
 
-		jsonEncStr := regex.FindString(fmt.Sprintf("%s", text))
+		jsonEncStr := regex.FindString(string(text))
 		if jsonEncStr == "" {
 			Fatalf("No JSON embedded in the file.")
 		}

@@ -9,6 +9,7 @@ import (
 
 	. "github.com/cilium/checkmate"
 
+	"github.com/cilium/cilium/pkg/cgroups"
 	"github.com/cilium/cilium/pkg/checker"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
@@ -30,6 +31,7 @@ var (
 	fsMockSystemdNested = fsMock{
 		getFullPath(nestedSystemdCgroupBasePath): struct{}{},
 	}
+	cgroupRoot             = cgroups.GetCgroupRoot()
 	cDefaultPath           = cgroupRoot + "/kubepods/burstable/pod1858680e-b044-4fd5-9dd4-f137e30e2180/" + c1Id
 	cDefaultGuaranteedPath = cgroupRoot + "/kubepods/pod1858680e-b044-4fd5-9dd4-f137e30e2180/" + c1Id
 	cSystemdPath           = cgroupRoot + "/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod1858680e_b044_4fd5_9dd4_f137e30e2180.slice/" + "cri-containerd-" + c1Id + ".scope"

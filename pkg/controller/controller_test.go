@@ -55,14 +55,14 @@ func (b *ControllerSuite) TestStopFunc(c *C) {
 }
 
 func (b *ControllerSuite) TestSelfExit(c *C) {
-	var iterations uint32
+	var iterations atomic.Uint32
 	waitChan := make(chan bool)
 
 	mngr := Manager{}
 	mngr.UpdateController("test", ControllerParams{
 		RunInterval: 100 * time.Millisecond,
 		DoFunc: func(ctx context.Context) error {
-			atomic.AddUint32(&iterations, 1)
+			iterations.Add(1)
 			return NewExitReason("test exit")
 		},
 		StopFunc: func(ctx context.Context) error {
@@ -75,7 +75,7 @@ func (b *ControllerSuite) TestSelfExit(c *C) {
 		c.Error("Controller exited")
 	case <-time.After(time.Second):
 	}
-	c.Assert(atomic.LoadUint32(&iterations), Equals, uint32(1))
+	c.Assert(iterations.Load(), Equals, uint32(1))
 
 	// The controller is inactive, and waiting for the next update or stop.
 	// A controller will only stop when explicitly removed and stopped.

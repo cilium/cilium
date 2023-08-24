@@ -1,0 +1,95 @@
+triggers:
+  /test:
+    workflows:
+    - conformance-aks.yaml
+    - conformance-aws-cni.yaml
+    - conformance-clustermesh.yaml
+    - conformance-e2e.yaml
+    - conformance-ipsec-e2e.yaml
+    - conformance-eks.yaml
+    - conformance-externalworkloads.yaml
+    - conformance-gateway-api.yaml
+    - conformance-ginkgo.yaml
+    - conformance-gke.yaml
+    - conformance-ingress.yaml
+    - conformance-runtime.yaml
+    - integration-test.yaml
+    - tests-datapath-verifier.yaml
+    - tests-l4lb.yaml
+    - tests-ipsec-upgrade.yaml
+  /ci-aks:
+    workflows:
+    - conformance-aks.yaml
+  /ci-awscni:
+    workflows:
+    - conformance-aws-cni.yaml
+  /ci-multicluster:
+    workflows:
+    - conformance-clustermesh.yaml
+  /ci-e2e:
+    workflows:
+    - conformance-e2e.yaml
+  /ci-ipsec-upgrade:
+    workflows:
+    - tests-ipsec-upgrade.yaml
+  /ci-ipsec-e2e:
+    workflows:
+    - conformance-ipsec-e2e.yaml
+  /ci-eks:
+    workflows:
+    - conformance-eks.yaml
+  /ci-external-workloads:
+    workflows:
+    - conformance-externalworkloads.yaml
+  /ci-gateway-api:
+    workflows:
+    - conformance-gateway-api.yaml
+  /ci-ginkgo:
+    workflows:
+    - conformance-ginkgo.yaml
+  /ci-gke:
+    workflows:
+    - conformance-gke.yaml
+  /ci-ingress:
+    workflows:
+    - conformance-ingress.yaml
+  /ci-verifier:
+    workflows:
+    - tests-datapath-verifier.yaml
+  /ci-l4lb:
+    workflows:
+    - tests-l4lb.yaml
+
+workflows:
+  conformance-aks.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-aws-cni.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-clustermesh.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-e2e.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-ipsec-e2e.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-eks.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-externalworkloads.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-gateway-api.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-ginkgo.yaml:
+    paths-ignore-regex: Documentation/
+  conformance-gke.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-ingress.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-runtime.yaml:
+    paths-ignore-regex: Documentation/
+  integration-test.yaml:
+    paths-ignore-regex: Documentation/
+  tests-datapath-verifier.yaml:
+    paths-regex: (bpf|test/verifier|vendor)/
+  tests-l4lb.yaml:
+    paths-regex: (bpf|daemon|images|pkg|test/l4lb|vendor)/
+  tests-ipsec-upgrade.yaml:
+    paths-ignore-regex: (test|Documentation)/

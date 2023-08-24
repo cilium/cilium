@@ -21,6 +21,7 @@ import (
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/hive"
@@ -365,6 +366,217 @@ func TestResource_WithTransform(t *testing.T) {
 
 }
 
+func TestResource_WithoutIndexers(t *testing.T) {
+	var (
+		node = &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "test-node-1",
+				ResourceVersion: "0",
+			},
+		}
+		nodeResource   resource.Resource[*corev1.Node]
+		fakeClient, cs = k8sClient.NewFakeClientset()
+	)
+
+	fakeClient.KubernetesFakeClientset.Tracker().Create(
+		corev1.SchemeGroupVersion.WithResource("nodes"),
+		node.DeepCopy(), "")
+
+	hive := hive.New(
+		cell.Provide(func() k8sClient.Clientset { return cs }),
+		cell.Provide(
+			func(lc hive.Lifecycle, cs k8sClient.Clientset) resource.Resource[*corev1.Node] {
+				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](cs.CoreV1().Nodes())
+				return resource.New[*corev1.Node](lc, lw)
+			},
+		),
+
+		cell.Invoke(func(r resource.Resource[*corev1.Node]) {
+			nodeResource = r
+		}),
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	if err := hive.Start(ctx); err != nil {
+		t.Fatalf("hive.Start failed: %s", err)
+	}
+
+	events := nodeResource.Events(ctx)
+
+	// wait for the upsert event
+	ev, ok := <-events
+	require.True(t, ok)
+	require.Equal(t, resource.Upsert, ev.Kind)
+	ev.Done(nil)
+
+	// wait for the sync event
+	ev, ok = <-events
+	require.True(t, ok)
+	assert.Equal(t, resource.Sync, ev.Kind)
+	ev.Done(nil)
+
+	// get a reference to the store
+	store, err := nodeResource.Store(ctx)
+	if err != nil {
+		t.Fatalf("unexpected non-nil error from Store(), got: %q", err)
+	}
+
+	indexName, indexValue := "index-name", "index-value"
+
+	// ByIndex should not find any objects
+	_, err = store.ByIndex(indexName, indexValue)
+	if err == nil {
+		t.Fatalf("expected non-nil error from store.ByIndex(%q, %q), got nil", indexName, indexValue)
+	}
+
+	// IndexKeys should not find any keys
+	_, err = store.IndexKeys(indexName, indexValue)
+	if err == nil {
+		t.Fatalf("unexpected non-nil error from store.IndexKeys(%q, %q), got nil", indexName, indexValue)
+	}
+
+	// Stop the hive to stop the resource.
+	if err := hive.Stop(ctx); err != nil {
+		t.Fatalf("hive.Stop failed: %s", err)
+	}
+
+	// No more events should be observed.
+	ev, ok = <-events
+	if ok {
+		t.Fatalf("unexpected event still in channel: %v", ev)
+	}
+}
+
+func TestResource_WithIndexers(t *testing.T) {
+	var (
+		nodes = [...]*corev1.Node{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-node-1",
+					Labels: map[string]string{
+						"key": "node-1",
+					},
+					ResourceVersion: "0",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-node-2",
+					Labels: map[string]string{
+						"key": "node-2",
+					},
+					ResourceVersion: "0",
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-node-3",
+					Labels: map[string]string{
+						"key": "node-3",
+					},
+					ResourceVersion: "0",
+				},
+			},
+		}
+		nodeResource   resource.Resource[*corev1.Node]
+		fakeClient, cs = k8sClient.NewFakeClientset()
+
+		indexName = "node-index-key"
+		indexFunc = func(obj interface{}) ([]string, error) {
+			switch t := obj.(type) {
+			case *corev1.Node:
+				return []string{t.Name}, nil
+			}
+			return nil, errors.New("object is not a *corev1.Node")
+		}
+	)
+
+	for _, node := range nodes {
+		fakeClient.KubernetesFakeClientset.Tracker().Create(
+			corev1.SchemeGroupVersion.WithResource("nodes"),
+			node.DeepCopy(), "")
+	}
+
+	hive := hive.New(
+		cell.Provide(func() k8sClient.Clientset { return cs }),
+		cell.Provide(
+			func(lc hive.Lifecycle, cs k8sClient.Clientset) resource.Resource[*corev1.Node] {
+				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](cs.CoreV1().Nodes())
+				return resource.New[*corev1.Node](
+					lc, lw,
+					resource.WithIndexers(cache.Indexers{indexName: indexFunc}),
+				)
+			},
+		),
+
+		cell.Invoke(func(r resource.Resource[*corev1.Node]) {
+			nodeResource = r
+		}),
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	if err := hive.Start(ctx); err != nil {
+		t.Fatalf("hive.Start failed: %s", err)
+	}
+
+	events := nodeResource.Events(ctx)
+
+	// wait for the upsert events
+	for i := 0; i < len(nodes); i++ {
+		ev, ok := <-events
+		require.True(t, ok)
+		require.Equal(t, resource.Upsert, ev.Kind)
+		ev.Done(nil)
+	}
+
+	// wait for the sync event
+	ev, ok := <-events
+	require.True(t, ok)
+	assert.Equal(t, resource.Sync, ev.Kind)
+	ev.Done(nil)
+
+	// get a reference to the store
+	store, err := nodeResource.Store(ctx)
+	if err != nil {
+		t.Fatalf("unexpected non-nil error from Store(), got: %q", err)
+	}
+
+	indexValue := "test-node-2"
+
+	// retrieve a specific node by its value for the indexer key
+	found, err := store.ByIndex(indexName, indexValue)
+	if err != nil {
+		t.Fatalf("unexpected non-nil error from store.ByIndex(%q, %q), got: %q", indexName, indexValue, err)
+	}
+	require.Len(t, found, 1)
+	require.Equal(t, found[0].Name, indexValue)
+	require.Len(t, found[0].Labels, 1)
+	require.Equal(t, found[0].Labels["key"], "node-2")
+
+	// retrieve the keys of the stored objects whose set of indexed values includes a specific value
+	keys, err := store.IndexKeys(indexName, indexValue)
+	if err != nil {
+		t.Fatalf("unexpected non-nil error from store.IndexKeys(%q, %q), got: %q", indexName, indexValue, err)
+	}
+	require.Len(t, keys, 1)
+	require.Equal(t, []string{indexValue}, keys)
+
+	// Stop the hive to stop the resource.
+	if err := hive.Stop(ctx); err != nil {
+		t.Fatalf("hive.Stop failed: %s", err)
+	}
+
+	// No more events should be observed.
+	ev, ok = <-events
+	if ok {
+		t.Fatalf("unexpected event still in channel: %v", ev)
+	}
+}
+
 var RetryFiveTimes resource.ErrorHandler = func(key resource.Key, numRetries int, err error) resource.ErrorAction {
 	if numRetries >= 4 {
 		return resource.ErrorActionStop
@@ -378,9 +590,9 @@ func TestResource_Retries(t *testing.T) {
 		fakeClient, cs = k8sClient.NewFakeClientset()
 	)
 
-	rateLimiterUsed := counter{}
+	var rateLimiterUsed atomic.Int64
 	rateLimiter := func() workqueue.RateLimiter {
-		rateLimiterUsed.Inc()
+		rateLimiterUsed.Add(1)
 		return workqueue.DefaultControllerRateLimiter()
 	}
 
@@ -406,7 +618,7 @@ func TestResource_Retries(t *testing.T) {
 		events := nodes.Events(ctx, resource.WithRateLimiter(rateLimiter()), resource.WithErrorHandler(RetryFiveTimes))
 		ev := <-events
 		assert.NoError(t, err)
-		assert.Equal(t, int64(1), rateLimiterUsed.Get())
+		assert.Equal(t, int64(1), rateLimiterUsed.Load())
 		ev.Done(nil)
 		cancel()
 		_, ok := <-events
@@ -418,12 +630,12 @@ func TestResource_Retries(t *testing.T) {
 		xs := nodes.Events(ctx, resource.WithErrorHandler(RetryFiveTimes))
 
 		expectedErr := errors.New("sync")
-		numRetries := counter{}
+		var numRetries atomic.Int64
 
 		for ev := range xs {
 			switch ev.Kind {
 			case resource.Sync:
-				numRetries.Inc()
+				numRetries.Add(1)
 				ev.Done(expectedErr)
 			case resource.Upsert:
 				ev.Done(nil)
@@ -432,7 +644,7 @@ func TestResource_Retries(t *testing.T) {
 			}
 		}
 
-		assert.Equal(t, int64(5), numRetries.Get(), "expected to see 5 retries for sync")
+		assert.Equal(t, int64(5), numRetries.Load(), "expected to see 5 retries for sync")
 	}
 
 	var node = &corev1.Node{
@@ -455,21 +667,21 @@ func TestResource_Retries(t *testing.T) {
 		xs := nodes.Events(ctx, resource.WithErrorHandler(RetryFiveTimes))
 
 		expectedErr := errors.New("update")
-		numRetries := counter{}
+		var numRetries atomic.Int64
 
 		for ev := range xs {
 			switch ev.Kind {
 			case resource.Sync:
 				ev.Done(nil)
 			case resource.Upsert:
-				numRetries.Inc()
+				numRetries.Add(1)
 				ev.Done(expectedErr)
 			case resource.Delete:
 				t.Fatalf("unexpected delete of %s", ev.Key)
 			}
 		}
 
-		assert.Equal(t, int64(5), numRetries.Get(), "expected to see 5 retries for update")
+		assert.Equal(t, int64(5), numRetries.Load(), "expected to see 5 retries for update")
 	}
 
 	// Test that delete events are retried
@@ -477,7 +689,7 @@ func TestResource_Retries(t *testing.T) {
 		xs := nodes.Events(ctx, resource.WithErrorHandler(RetryFiveTimes))
 
 		expectedErr := errors.New("delete")
-		numRetries := counter{}
+		var numRetries atomic.Int64
 
 		for ev := range xs {
 			switch ev.Kind {
@@ -489,12 +701,12 @@ func TestResource_Retries(t *testing.T) {
 					"", node.Name)
 				ev.Done(nil)
 			case resource.Delete:
-				numRetries.Inc()
+				numRetries.Add(1)
 				ev.Done(expectedErr)
 			}
 		}
 
-		assert.Equal(t, int64(5), numRetries.Get(), "expected to see 5 retries for delete")
+		assert.Equal(t, int64(5), numRetries.Load(), "expected to see 5 retries for delete")
 	}
 
 	err = hive.Stop(ctx)
@@ -706,13 +918,3 @@ var nodesResource = cell.Provide(
 		return resource.New[*corev1.Node](lc, lw)
 	},
 )
-
-type counter struct{ int64 }
-
-func (c *counter) Inc() {
-	atomic.AddInt64(&c.int64, 1)
-}
-
-func (c *counter) Get() int64 {
-	return atomic.LoadInt64(&c.int64)
-}

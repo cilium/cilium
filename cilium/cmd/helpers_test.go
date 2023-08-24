@@ -24,27 +24,27 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
 	buf := bytes.NewBufferString("not json at all")
 	res, err := expandNestedJSON(*buf)
 	c.Assert(err, IsNil)
-	c.Assert(string(res.Bytes()), Equals, `not json at all`)
+	c.Assert(res.String(), Equals, `not json at all`)
 
 	buf = bytes.NewBufferString(`{\n\"notEscapedJson\": \"foo\"}`)
 	res, err = expandNestedJSON(*buf)
 	c.Assert(err, IsNil)
-	c.Assert(string(res.Bytes()), Equals, `{\n\"notEscapedJson\": \"foo\"}`)
+	c.Assert(res.String(), Equals, `{\n\"notEscapedJson\": \"foo\"}`)
 
 	buf = bytes.NewBufferString(`nonjson={\n\"notEscapedJson\": \"foo\"}`)
 	res, err = expandNestedJSON(*buf)
 	c.Assert(err, IsNil)
-	c.Assert(string(res.Bytes()), Equals, `nonjson={\n\"notEscapedJson\": \"foo\"}`)
+	c.Assert(res.String(), Equals, `nonjson={\n\"notEscapedJson\": \"foo\"}`)
 
 	buf = bytes.NewBufferString(`nonjson:morenonjson={\n\"notEscapedJson\": \"foo\"}`)
 	res, err = expandNestedJSON(*buf)
 	c.Assert(err, IsNil)
-	c.Assert(string(res.Bytes()), Equals, `nonjson:morenonjson={\n\"notEscapedJson\": \"foo\"}`)
+	c.Assert(res.String(), Equals, `nonjson:morenonjson={\n\"notEscapedJson\": \"foo\"}`)
 
 	buf = bytes.NewBufferString(`{"foo": ["{\n  \"port\": 8080,\n  \"protocol\": \"TCP\"\n}"]}`)
 	res, err = expandNestedJSON(*buf)
 	c.Assert(err, IsNil)
-	c.Assert(string(res.Bytes()), Equals, `{"foo": [{
+	c.Assert(res.String(), Equals, `{"foo": [{
   "port": 8080,
   "protocol": "TCP"
 }]}`)
@@ -54,7 +54,7 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
 ]`)
 	res, err = expandNestedJSON(*buf)
 	c.Assert(err, IsNil)
-	c.Assert(string(res.Bytes()), Equals, `"foo": [
+	c.Assert(res.String(), Equals, `"foo": [
   bar:baz/alice={
 				  "bob": {
 				    "charlie": 4
@@ -68,7 +68,7 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
 ]`)
 	res, err = expandNestedJSON(*buf)
 	c.Assert(err, IsNil)
-	c.Assert(string(res.Bytes()), Equals, `"foo": [
+	c.Assert(res.String(), Equals, `"foo": [
   bar:baz/alice={
 				  "bob": {
 				    "charlie": 4
@@ -289,7 +289,7 @@ func (s *CMDHelpersSuite) TestExpandNestedJSON(c *C) {
 ]`)
 	res, err = expandNestedJSON(*buf)
 	c.Assert(err, IsNil)
-	c.Assert(string(res.Bytes()), Equals, `[
+	c.Assert(res.String(), Equals, `[
   {
     "id": 2669,
     "spec": {

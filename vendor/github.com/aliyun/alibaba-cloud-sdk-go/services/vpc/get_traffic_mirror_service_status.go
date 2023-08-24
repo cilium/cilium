@@ -71,7 +71,11 @@ func (client *Client) GetTrafficMirrorServiceStatusWithCallback(request *GetTraf
 // GetTrafficMirrorServiceStatusRequest is the request struct for api GetTrafficMirrorServiceStatus
 type GetTrafficMirrorServiceStatusRequest struct {
 	*requests.RpcRequest
-	OwnerId requests.Integer `position:"Query" name:"OwnerId"`
+	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	ClientToken          string           `position:"Query" name:"ClientToken"`
+	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
+	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
+	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`
 }
 
 // GetTrafficMirrorServiceStatusResponse is the response struct for api GetTrafficMirrorServiceStatus

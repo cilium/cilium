@@ -53,11 +53,19 @@ const (
 	maxRetryCount       = 10
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubsys)
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubsys)
+
+	localNodeToKVStoreControllerGroup = controller.NewGroup("local-node-to-kv-store")
+)
 
 type k8sGetters interface {
 	GetK8sNode(ctx context.Context, nodeName string) (*slim_corev1.Node, error)
 	GetCiliumNode(ctx context.Context, nodeName string) (*ciliumv2.CiliumNode, error)
+}
+
+type GetNodeAddresses interface {
+	GetNodeAddresses() []nodeTypes.Address
 }
 
 // NodeDiscovery represents a node discovery action
@@ -72,6 +80,7 @@ type NodeDiscovery struct {
 	localNodeLock         lock.Mutex
 	localNode             nodeTypes.Node
 	clientset             client.Clientset
+	nodeAddressSources    []GetNodeAddresses
 }
 
 func enableLocalNodeRoute() bool {
@@ -127,6 +136,14 @@ func NewNodeDiscovery(manager nodemanager.NodeManager, clientset client.Clientse
 		NetConf:               netConf,
 		clientset:             clientset,
 	}
+}
+
+// WithAdditionalNodeAddressSource allows to register additional node address sources which are used
+// to populate the local node's IP addresses.
+func (n *NodeDiscovery) WithAdditionalNodeAddressSource(source GetNodeAddresses) {
+	n.localNodeLock.Lock()
+	defer n.localNodeLock.Unlock()
+	n.nodeAddressSources = append(n.nodeAddressSources, source)
 }
 
 // JoinCluster passes the node name to the kvstore and updates the local configuration on response.
@@ -284,14 +301,20 @@ func (n *NodeDiscovery) fillLocalNode() {
 			IP:   node.GetK8sExternalIPv6(),
 		})
 	}
+
+	for _, source := range n.nodeAddressSources {
+		n.localNode.IPAddresses = append(n.localNode.IPAddresses, source.GetNodeAddresses()...)
+	}
 }
 
 func (n *NodeDiscovery) updateLocalNode() {
 	if option.Config.KVStore != "" && !option.Config.JoinCluster {
 		go func() {
 			<-n.Registered
-			controller.NewManager().UpdateController("propagating local node change to kv-store",
+			controller.NewManager().UpdateController(
+				"propagating local node change to kv-store",
 				controller.ControllerParams{
+					Group: localNodeToKVStoreControllerGroup,
 					DoFunc: func(ctx context.Context) error {
 						n.localNodeLock.Lock()
 						localNode := n.localNode.DeepCopy()

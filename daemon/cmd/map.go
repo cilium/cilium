@@ -76,6 +76,11 @@ func (fw *flushWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
+func getMapNameEventsHandler(d *Daemon, params restapi.GetMapNameEventsParams) middleware.Responder {
+	g := &getMapNameEvents{daemon: d, mapGetter: mapGetterImpl{}}
+	return g.Handle(params)
+}
+
 func (h *getMapNameEvents) Handle(params restapi.GetMapNameEventsParams) middleware.Responder {
 	follow := false
 	if params.Follow != nil {
@@ -135,15 +140,7 @@ func (h *getMapNameEvents) Handle(params restapi.GetMapNameEventsParams) middlew
 	})
 }
 
-type getMapName struct {
-	daemon *Daemon
-}
-
-func NewGetMapNameHandler(d *Daemon) restapi.GetMapNameHandler {
-	return &getMapName{daemon: d}
-}
-
-func (h *getMapName) Handle(params restapi.GetMapNameParams) middleware.Responder {
+func getMapNameHandler(_ *Daemon, params restapi.GetMapNameParams) middleware.Responder {
 	m := bpf.GetMap(params.Name)
 	if m == nil {
 		return restapi.NewGetMapNameNotFound()
@@ -152,15 +149,7 @@ func (h *getMapName) Handle(params restapi.GetMapNameParams) middleware.Responde
 	return restapi.NewGetMapNameOK().WithPayload(m.GetModel())
 }
 
-type getMap struct {
-	daemon *Daemon
-}
-
-func NewGetMapHandler(d *Daemon) restapi.GetMapHandler {
-	return &getMap{daemon: d}
-}
-
-func (h *getMap) Handle(params restapi.GetMapParams) middleware.Responder {
+func getMapHandler(_ *Daemon, params restapi.GetMapParams) middleware.Responder {
 	mapList := &models.BPFMapList{
 		Maps: append(bpf.GetOpenMaps(), ebpf.GetOpenMaps()...),
 	}

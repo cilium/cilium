@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
 #include <bpf/ctx/skb.h>

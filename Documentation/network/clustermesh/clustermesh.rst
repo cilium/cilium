@@ -48,12 +48,12 @@ Additional Requirements for Native-routed Datapath Modes
 * Cilium in each cluster must be configured with a native routing CIDR that
   covers all the PodCIDR ranges across all connected clusters. Cluster CIDRs are
   typically allocated from the ``10.0.0.0/8`` private address space. When this
-  is a case a native routing CIDR such as ``10.0.0.0/9`` should cover all
+  is the case a native routing CIDR such as ``10.0.0.0/8`` should cover all
   clusters:
 
- * ConfigMap option ``ipv4-native-routing-cidr=10.0.0.0/9``
- * Helm option ``--set ipv4NativeRoutingCIDR=10.0.0.0/9``
- * ``cilium install`` option ``--helm-set ipv4NativeRoutingCIDR=10.0.0.0/9``
+ * ConfigMap option ``ipv4-native-routing-cidr=10.0.0.0/8``
+ * Helm option ``--set ipv4NativeRoutingCIDR=10.0.0.0/8``
+ * ``cilium install`` option ``--set ipv4NativeRoutingCIDR=10.0.0.0/8``
 
 * In addition to nodes, pods in all clusters must have IP connectivity between each other. This
   requirement is typically met by establishing peering or VPN tunnels between
@@ -68,6 +68,12 @@ Install the Cilium CLI
 ======================
 
 .. include:: ../../installation/cli-download.rst
+
+.. warning::
+
+  Don't use the Cilium CLI *helm* mode to enable Cluster Mesh or connect clusters
+  configured using the Cilium CLI operating in *classic* mode, as the two modes are
+  not compatible with each other.
 
 Prepare the Clusters
 ####################
@@ -86,7 +92,7 @@ time of Cilium:
 
  * ConfigMap options ``cluster-name`` and ``cluster-id``
  * Helm options ``cluster.name`` and ``cluster.id``
- * ``cilium install`` options ``--cluster-name`` and ``--cluster-id``
+ * Cilium CLI install options ``--set cluster.name`` and ``--set cluster.id``
 
 .. important::
 
@@ -102,15 +108,13 @@ If you are planning to run Hubble Relay across clusters, it is best to share a
 certificate authority (CA) between the clusters as it will enable mTLS across
 clusters to just work.
 
-The easiest way to establish this is to pass ``--inherit-ca`` to the
-``install`` command when installing additional clusters:
+You can propagate the CA copying the Kubernetes secret containing the CA
+from one cluster to another:
 
 .. code-block:: shell-session
 
-   cilium install --context $CLUSTER2 [...] --inherit-ca $CLUSTER1
-
-If you are not using ``cilium install`` for the installation, simply propagate
-the Kubernetes secret containing the CA from one cluster to the other.
+  kubectl --context=$CLUSTER1 get secret -n kube-system cilium-ca -o yaml | \
+    kubectl --context $CLUSTER2 create -f -
 
 .. _enable_clustermesh:
 
@@ -129,32 +133,15 @@ clusters.
    cilium clustermesh enable --context $CLUSTER1
    cilium clustermesh enable --context $CLUSTER2
 
-You should be seeing output similar to the following:
+.. note::
 
-.. code-block:: shell-session
+   You can additionally opt in to :ref:`kvstoremesh` when enabling
+   Cluster Mesh. Make sure to configure the Cilium CLI in *helm* mode and run:
 
-    ✨ Validating cluster configuration...
-    ✅ Valid cluster identification found: name="gke-cilium-dev-us-west2-a-test-cluster1" id="1"
-    🔑 Found existing CA in secret cilium-ca
-    🔑 Generating certificates for ClusterMesh...
-    2021/01/08 23:11:48 [INFO] generate received request
-    2021/01/08 23:11:48 [INFO] received CSR
-    2021/01/08 23:11:48 [INFO] generating key: ecdsa-256
-    2021/01/08 23:11:48 [INFO] encoded CSR
-    2021/01/08 23:11:48 [INFO] signed certificate with serial number 670714666407590575359066679305478681356106905869
-    2021/01/08 23:11:48 [INFO] generate received request
-    2021/01/08 23:11:48 [INFO] received CSR
-    2021/01/08 23:11:48 [INFO] generating key: ecdsa-256
-    2021/01/08 23:11:49 [INFO] encoded CSR
-    2021/01/08 23:11:49 [INFO] signed certificate with serial number 591065363597916136413807294935737333774847803115
-    2021/01/08 23:11:49 [INFO] generate received request
-    2021/01/08 23:11:49 [INFO] received CSR
-    2021/01/08 23:11:49 [INFO] generating key: ecdsa-256
-    2021/01/08 23:11:49 [INFO] encoded CSR
-    2021/01/08 23:11:49 [INFO] signed certificate with serial number 212022707754116737648249489711560171325685820957
-    ✨ Deploying clustermesh-apiserver...
-    🔮 Auto-exposing service within GCP VPC (cloud.google.com/load-balancer-type=internal)
+   .. code-block:: shell-session
 
+     cilium clustermesh enable --context $CLUSTER1 --enable-kvstoremesh
+     cilium clustermesh enable --context $CLUSTER2 --enable-kvstoremesh
 
 .. important::
 
@@ -204,25 +191,6 @@ direction. The connection will automatically be established in both directions:
 
     cilium clustermesh connect --context $CLUSTER1 --destination-context $CLUSTER2
 
-
-The output should look something like this:
-
-.. code-block:: shell-session
-
-    ✨ Extracting access information of cluster gke-cilium-dev-us-west2-a-test-cluster2...
-    🔑 Extracting secrets from cluster gke-cilium-dev-us-west2-a-test-cluster2...
-    ℹ️  Found ClusterMesh service IPs: [10.168.15.209]
-    ✨ Extracting access information of cluster gke-cilium-dev-us-west2-a-test-cluster1...
-    🔑 Extracting secrets from cluster gke-cilium-dev-us-west2-a-test-cluster1...
-    ℹ️  Found ClusterMesh service IPs: [10.168.15.208]
-    ✨ Connecting cluster gke_cilium-dev_us-west2-a_test-cluster1 -> gke_cilium-dev_us-west2-a_test-cluster2...
-    🔑 Patching existing secret cilium-clustermesh...
-    ✨ Patching DaemonSet with IP aliases cilium-clustermesh...
-    ✨ Connecting cluster gke_cilium-dev_us-west2-a_test-cluster2 -> gke_cilium-dev_us-west2-a_test-cluster1...
-    🔑 Patching existing secret cilium-clustermesh...
-    ✨ Patching DaemonSet with IP aliases cilium-clustermesh...
-
-
 It may take a bit for the clusters to be connected. You can run ``cilium
 clustermesh status --wait`` to wait for the connection to be successful:
 
@@ -237,12 +205,12 @@ The output will look something like this:
     ✅ Cluster access information is available:
       - 10.168.0.89:2379
     ✅ Service "clustermesh-apiserver" of type "LoadBalancer" found
-    ⌛ Waiting (12s) for clusters to be connected: 2 clusters have errors
-    ⌛ Waiting (25s) for clusters to be connected: 2 clusters have errors
-    ⌛ Waiting (38s) for clusters to be connected: 2 clusters have errors
-    ⌛ Waiting (51s) for clusters to be connected: 2 clusters have errors
-    ⌛ Waiting (1m4s) for clusters to be connected: 2 clusters have errors
-    ⌛ Waiting (1m17s) for clusters to be connected: 1 clusters have errors
+    ⌛ Waiting (12s) for clusters to be connected: 2 nodes are not ready
+    ⌛ Waiting (25s) for clusters to be connected: 2 nodes are not ready
+    ⌛ Waiting (38s) for clusters to be connected: 2 nodes are not ready
+    ⌛ Waiting (51s) for clusters to be connected: 2 nodes are not ready
+    ⌛ Waiting (1m4s) for clusters to be connected: 2 nodes are not ready
+    ⌛ Waiting (1m17s) for clusters to be connected: 1 nodes are not ready
     ✅ All 2 nodes are connected to all clusters [min:1 / avg:1.0 / max:1]
     🔌 Cluster Connections:
     - cilium-cli-ci-multicluster-2-168: 2/2 configured, 2/2 connected

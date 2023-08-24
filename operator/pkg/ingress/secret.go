@@ -98,16 +98,16 @@ func newSyncSecretsManager(clientset k8sClient.Clientset, namespace string, maxR
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				if secret := k8s.ObjToV1Secret(obj); secret != nil {
+				if secret := k8s.CastInformerEvent[slim_corev1.Secret](obj); secret != nil {
 					manager.queue.Add(secretAddedEvent{secret: secret})
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				oldSecret := k8s.ObjToV1Secret(oldObj)
+				oldSecret := k8s.CastInformerEvent[slim_corev1.Secret](oldObj)
 				if oldSecret == nil {
 					return
 				}
-				newSecret := k8s.ObjToV1Secret(newObj)
+				newSecret := k8s.CastInformerEvent[slim_corev1.Secret](newObj)
 				if newSecret == nil {
 					return
 				}
@@ -117,7 +117,7 @@ func newSyncSecretsManager(clientset k8sClient.Clientset, namespace string, maxR
 				manager.queue.Add(secretUpdatedEvent{oldSecret: oldSecret, newSecret: newSecret})
 			},
 			DeleteFunc: func(obj interface{}) {
-				if secret := k8s.ObjToV1Secret(obj); secret != nil {
+				if secret := k8s.CastInformerEvent[slim_corev1.Secret](obj); secret != nil {
 					manager.queue.Add(secretDeletedEvent{secret: secret})
 				}
 			},
@@ -248,14 +248,16 @@ func (sm *syncSecretManager) handleIngressUpsertedEvent(ingress *slim_networking
 		if err != nil {
 			return err
 		}
-		if !exists {
-			return fmt.Errorf("secret does not exist: %s", key)
-		}
 
 		sm.lock.Lock()
-		sm.watchedSecretMap[key] = getSyncedSecretKey(sm.namespace, secret.GetNamespace(), secret.GetName())
+		sm.watchedSecretMap[key] = getSyncedSecretKey(sm.namespace, ingress.GetNamespace(), tls.SecretName)
 		sm.lock.Unlock()
 
+		// the secret might be created after Ingress object, just skip it for now.
+		// The sync will be handled as part of Secret creation later.
+		if !exists {
+			return nil
+		}
 		// proceed to sync secret
 		err = sm.syncSecret(secret)
 		if err != nil {

@@ -28,6 +28,7 @@ Everybody listed is a committer as per governance definition.
  * [Joe Stringer] (Isovalent)
  * [John Fastabend] (Isovalent)
  * [Julian Wiedmann] (Isovalent)
+ * [Jussi Mäki] (Isovalent)
  * [Kornilios Kourtis] (Isovalent)
  * [Laurent Bernaille] (Datadog)
  * [Liz Rice] (Isovalent)
@@ -91,6 +92,7 @@ project.
 [Joe Stringer]: https://github.com/joestringer
 [John Fastabend]: https://github.com/jrfastab
 [Julian Wiedmann]: https://github.com/julianwiedmann
+[Jussi Mäki]: https://github.com/joamaki
 [Kornilios Kourtis]: https://github.com/kkourt
 [Laurent Bernaille]: https://github.com/lbernail
 [Liz Rice]: https://github.com/lizrice

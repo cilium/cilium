@@ -4,19 +4,25 @@
 package cmd
 
 import (
+	"github.com/sirupsen/logrus"
+
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	"github.com/cilium/cilium/api/v1/server"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/daemon/restapi"
+	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/clustermesh"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
 	dptypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
@@ -24,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/l2announcer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
@@ -31,7 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/signal"
-	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb2"
 )
 
 var (
@@ -72,11 +79,24 @@ var (
 		// Provide option.Config via hive so cells can depend on the agent config.
 		cell.Provide(func() *option.DaemonConfig { return option.Config }),
 
-		// Provides an in-memory transactional database for internal state
-		statedb.Cell,
-
 		// Provides a global job registry which cells can use to spawn job groups.
 		job.Cell,
+
+		// Cilium API served over UNIX sockets. Accessed by the 'cilium' utility (not cilium-cli).
+		server.Cell,
+		cell.Invoke(configureAPIServer),
+
+		// Cilium API handlers
+		cell.Provide(ciliumAPIHandlers),
+
+		// Processes endpoint deletions that occurred while the agent was down.
+		// This starts before the API server as ciliumAPIHandlers() depends on
+		// the 'deletionQueue' provided by this cell.
+		deletionQueueCell,
+
+		// DB provides an extendable in-memory database with rich transactions
+		// and multi-version concurrency control through immutable radix trees.
+		statedb2.Cell,
 	)
 
 	// ControlPlane implement the per-node control functions. These are pure
@@ -94,6 +114,11 @@ var (
 		// Provide a LocalNodeInitializer that is invoked when LocalNodeStore is started.
 		// This fills in the initial state before it is accessed by other sub-systems.
 		cell.Provide(newLocalNodeInitializer),
+
+		// Controller provides flags and configuration related
+		// to Controller management, concurrent control loops
+		// which run throughout the system on specified intervals
+		controller.Cell,
 
 		// Shared resources provide access to k8s resources as event streams or as
 		// read-only stores.
@@ -121,6 +146,13 @@ var (
 		// makes different L7 proxies (Envoy, DNS proxy) usable to Cilium endpoints through
 		// a common Proxy 'redirect' abstraction.
 		proxy.Cell,
+
+		// Envoy cell which is the control-plane for the Envoy proxy.
+		// It is used to provide support for Ingress, GatewayAPI and L7 network policies (e.g. HTTP).
+		envoy.Cell,
+
+		// Cilium REST API handlers
+		restapi.Cell,
 
 		// The BGP Control Plane which enables various BGP related interop.
 		bgpv1.Cell,
@@ -151,3 +183,30 @@ var (
 		l2announcer.Cell,
 	)
 )
+
+func configureAPIServer(cfg *option.DaemonConfig, s *server.Server, swaggerSpec *server.Spec) {
+	s.EnabledListeners = []string{"unix"}
+	s.SocketPath = cfg.SocketPath
+	s.ReadTimeout = apiTimeout
+	s.WriteTimeout = apiTimeout
+
+	msg := "Required API option %s is disabled. This may prevent Cilium from operating correctly"
+	hint := "Consider enabling this API in " + server.AdminEnableFlag
+	for _, requiredAPI := range []string{
+		"GetConfig",        // CNI: Used to detect detect IPAM mode
+		"GetHealthz",       // Kubelet: daemon health checks
+		"PutEndpointID",    // CNI: Provision the network for a new Pod
+		"DeleteEndpointID", // CNI: Clean up networking for a deleted Pod
+		"PostIPAM",         // CNI: Reserve IPs for new Pods
+		"DeleteIPAMIP",     // CNI: Release IPs for deleted Pods
+	} {
+		if _, denied := swaggerSpec.DeniedAPIs[requiredAPI]; denied {
+			log.WithFields(logrus.Fields{
+				logfields.Hint:   hint,
+				logfields.Params: requiredAPI,
+			}).Warning(msg)
+		}
+	}
+	api.DisableAPIs(swaggerSpec.DeniedAPIs, s.GetAPI().AddMiddlewareFor)
+
+}

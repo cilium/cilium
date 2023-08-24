@@ -64,27 +64,18 @@ type Range struct {
 	alloc allocator.Interface
 }
 
-// NewAllocatorCIDRRange creates a Range over a net.IPNet, calling allocatorFactory to construct the backing store.
-func NewAllocatorCIDRRange(cidr *net.IPNet, allocatorFactory allocator.AllocatorFactory) (*Range, error) {
-	max := RangeSize(cidr)
+// NewCIDRRange creates a Range over a net.IPNet, calling allocator.NewAllocationMap to construct
+// the backing store.
+func NewCIDRRange(cidr *net.IPNet) *Range {
 	base := bigForIP(cidr.IP)
-	rangeSpec := cidr.String()
+	max := maximum(0, int(RangeSize(cidr)-2)) // don't use the network broadcast,
 
-	r := Range{
-		net:  cidr,
-		base: base.Add(base, big.NewInt(1)), // don't use the network base
-		max:  maximum(0, int(max-2)),        // don't use the network broadcast,
+	return &Range{
+		net:   cidr,
+		base:  base.Add(base, big.NewInt(1)), // don't use the network base
+		max:   max,
+		alloc: allocator.NewAllocationMap(int(max), cidr.String()),
 	}
-	var err error
-	r.alloc, err = allocatorFactory(r.max, rangeSpec)
-	return &r, err
-}
-
-// Helper that wraps NewAllocatorCIDRRange, for creating a range backed by an in-memory store.
-func NewCIDRRange(cidr *net.IPNet) (*Range, error) {
-	return NewAllocatorCIDRRange(cidr, func(max int, rangeSpec string) (allocator.Interface, error) {
-		return allocator.NewAllocationMap(max, rangeSpec), nil
-	})
 }
 
 func maximum(a, b int) int {

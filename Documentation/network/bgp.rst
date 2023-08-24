@@ -6,9 +6,9 @@
 
 .. _bgp:
 
-**********
-BGP (beta)
-**********
+*************************************
+MetalLB BGP ControlPlane (deprecated)
+*************************************
 
 .. warning::
   This feature will only receive security updates and bug fixes. It is recommended
@@ -19,9 +19,9 @@ BGP provides a way to advertise routes using traditional networking protocols
 to allow Cilium-managed services to be accessible outside the cluster.
 
 This document explains how to configure Cilium's native support for announcing
-``LoadBalancer`` IPs of ``Services`` and a Kubernetes node's Pod CIDR range via BGP. 
-It leverages `MetalLB's <https://metallb.universe.tf/>`_ simple and effective 
-implementation of IP allocation and the minimal BGP protocol support to do this. 
+``LoadBalancer`` IPs of ``Services`` and a Kubernetes node's Pod CIDR range via BGP.
+It leverages `MetalLB's <https://metallb.universe.tf/>`_ simple and effective
+implementation of IP allocation and the minimal BGP protocol support to do this.
 The configuration for Cilium is the same as MetalLB's configuration.
 
 Specifically, if a ``Service`` of type ``LoadBalancer`` is created, Cilium will
@@ -147,7 +147,7 @@ Validate BGP announcements
 ==========================
 
 To see whether Cilium is announcing the external IP of the ``Service`` or the Pod CIDR range of your
-Kubernetes nodes, check the node's routing table that's running your BGP router. 
+Kubernetes nodes, check the node's routing table that's running your BGP router.
 
 Alternatively, you can run ``tcpdump`` inside the Cilium pod (it'll need to be
 ``apt install``'d) to see BGP messages like so:

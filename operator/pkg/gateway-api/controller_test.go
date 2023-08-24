@@ -333,7 +333,7 @@ func Test_success(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := success()
-			if !tt.wantErr(t, err, fmt.Sprintf("success()")) {
+			if !tt.wantErr(t, err, "success()") {
 				return
 			}
 			assert.Equalf(t, tt.want, got, "success()")

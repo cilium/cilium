@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// serviceCmd represents the service command
-var serviceCmd = &cobra.Command{
+// ServiceCmd represents the service command
+var ServiceCmd = &cobra.Command{
 	Use:   "service",
 	Short: "Manage services & loadbalancers",
 }
 
 func init() {
-	rootCmd.AddCommand(serviceCmd)
+	RootCmd.AddCommand(ServiceCmd)
 }
