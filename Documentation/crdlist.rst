@@ -1,3 +1,8 @@
+- CiliumBGPAdvertisement
+- CiliumBGPClusterConfig
+- CiliumBGPNodeConfig
+- CiliumBGPNodeConfigOverride
+- CiliumBGPPeerConfig
 - CiliumBGPPeeringPolicy
 - CiliumCIDRGroup
 - CiliumClusterwideEnvoyConfig

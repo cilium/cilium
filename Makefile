@@ -233,6 +233,11 @@ CRDS_CILIUM_V2 := ciliumnetworkpolicies \
                   ciliumclusterwideenvoyconfigs
 CRDS_CILIUM_V2ALPHA1 := ciliumendpointslices \
                         ciliumbgppeeringpolicies \
+                        ciliumbgpclusterconfigs \
+                        ciliumbgppeerconfigs \
+                        ciliumbgpadvertisements \
+                        ciliumbgpnodeconfigs \
+                        ciliumbgpnodeconfigoverrides \
                         ciliumloadbalancerippools \
                         ciliumnodeconfigs \
                         ciliumcidrgroups \

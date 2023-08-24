@@ -168,16 +168,6 @@ type CiliumBGPPathAttributes struct {
 	LocalPreference *int64 `json:"localPreference,omitempty"`
 }
 
-// CiliumBGPFamily represents a AFI/SAFI address family pair.
-type CiliumBGPFamily struct {
-	// +kubebuilder:validation:Enum=ipv4;ipv6;l2vpn;ls;opaque
-	// +kubebuilder:validation:Required
-	Afi string `json:"afi"`
-	// +kubebuilder:validation:Enum=unicast;multicast;mpls_label;encapsulation;vpls;evpn;ls;sr_policy;mup;mpls_vpn;mpls_vpn_multicast;route_target_constraints;flowspec_unicast;flowspec_vpn;key_value
-	// +kubebuilder:validation:Required
-	Safi string `json:"safi"`
-}
-
 // CiliumBGPNeighbor is a neighboring peer for use in a
 // CiliumBGPVirtualRouter configuration.
 type CiliumBGPNeighbor struct {
