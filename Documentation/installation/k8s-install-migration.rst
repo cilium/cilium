@@ -197,7 +197,7 @@ Preparation
 In case you are migrating from Calico you need to ensure that Calico doesn't accidently switch Cilium's interfaces during the migration.
 
 Calico has several modes of operation to decide which network interface to use by default on nodes that it manages. This is configured using the Tigera Operator's ``spec.calicoNetwork.nodeAddressAutodetectionV4`` (and respectively ``nodeAddressAutodetectionV6`` for IPv6) parameter.
-By default, it is set to ``firstFound: true``, which will use the first detected network interface on the node. Check this value with:
+By default, the parameter is set to ``firstFound: true``, which uses the first detected network interface on the node. Check this value with:
 
 .. code-block:: shell-session
 
