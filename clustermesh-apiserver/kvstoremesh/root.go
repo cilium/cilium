@@ -47,6 +47,14 @@ func NewCmd(h *hive.Hive) *cobra.Command {
 
 func registerClusterInfoValidator(lc hive.Lifecycle, cinfo types.ClusterInfo) {
 	lc.Append(hive.Hook{
-		OnStart: func(hive.HookContext) error { return cinfo.ValidateStrict() },
+		OnStart: func(hive.HookContext) error {
+			if err := cinfo.InitClusterIDMax(); err != nil {
+				return err
+			}
+			if err := cinfo.ValidateStrict(); err != nil {
+				return err
+			}
+			return nil
+		},
 	})
 }
