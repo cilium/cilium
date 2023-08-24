@@ -135,52 +135,73 @@ out_send:
 
 #ifdef ENABLE_IPV6
 static __always_inline int
-fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
-		struct ipv6hdr *ip6, const bool needs_l2_check,
-		__s8 *fib_err, int iif, int *oif)
+fib_redirect_params_v6(struct __ctx_buff *ctx,
+		       struct bpf_fib_lookup_padded *fib_params,
+		       int l3_off, struct ipv6hdr *ip6,
+		       const bool needs_l2_check,
+		       __s8 *fib_err, int iif, int *oif)
 {
-	struct bpf_fib_lookup_padded fib_params = {
-		.l = {
-			.family		= AF_INET6,
-			.ifindex	= iif,
-		},
-	};
 	int ret;
 
-	ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_src,
+	memset(fib_params, 0, sizeof(*fib_params));
+	fib_params->l.family = AF_INET6;
+	fib_params->l.ifindex = iif;
+	ipv6_addr_copy((union v6addr *)fib_params->l.ipv6_src,
 		       (union v6addr *)&ip6->saddr);
-	ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
+	ipv6_addr_copy((union v6addr *)fib_params->l.ipv6_dst,
 		       (union v6addr *)&ip6->daddr);
 
 	ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 
-	return fib_redirect(ctx, needs_l2_check, &fib_params, fib_err, oif);
+	return fib_redirect(ctx, needs_l2_check, fib_params, fib_err, oif);
+}
+
+static __always_inline int
+fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
+		struct ipv6hdr *ip6, const bool needs_l2_check,
+		__s8 *fib_err, int iif, int *oif)
+{
+	struct bpf_fib_lookup_padded fib_params;
+
+	return fib_redirect_params_v6(ctx, &fib_params, l3_off, ip6,
+				      needs_l2_check, fib_err, iif, oif);
 }
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
 static __always_inline int
-fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
-		struct iphdr *ip4, const bool needs_l2_check,
-		__s8 *fib_err, int iif, int *oif)
+fib_redirect_params_v4(struct __ctx_buff *ctx,
+		       struct bpf_fib_lookup_padded *fib_params,
+		       int l3_off, struct iphdr *ip4,
+		       const bool needs_l2_check,
+		       __s8 *fib_err, int iif, int *oif)
 {
-	struct bpf_fib_lookup_padded fib_params = {
-		.l = {
-			.family		= AF_INET,
-			.ifindex	= iif,
-			.ipv4_src	= ip4->saddr,
-			.ipv4_dst	= ip4->daddr,
-		},
-	};
 	int ret;
+
+	memset(fib_params, 0, sizeof(*fib_params));
+	fib_params->l.family = AF_INET;
+	fib_params->l.ifindex = iif;
+	fib_params->l.ipv4_src = ip4->saddr;
+	fib_params->l.ipv4_dst = ip4->daddr;
 
 	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 
-	return fib_redirect(ctx, needs_l2_check, &fib_params, fib_err, oif);
+	return fib_redirect(ctx, needs_l2_check, fib_params, fib_err, oif);
+}
+
+static __always_inline int
+fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
+		struct iphdr *ip4, const bool needs_l2_check,
+		__s8 *fib_err, int iif, int *oif)
+{
+	struct bpf_fib_lookup_padded fib_params;
+
+	return fib_redirect_params_v4(ctx, &fib_params, l3_off, ip4,
+				      needs_l2_check, fib_err, iif, oif);
 }
 #endif /* ENABLE_IPV4 */
 #endif /* __LIB_FIB_H_ */
