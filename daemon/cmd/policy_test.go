@@ -351,8 +351,8 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		uint32(qaFooSecLblsCtx.ID),
 		// The prodFoo* identities are allowed by FromEndpoints but rejected by
 		// FromRequires, so they are not included in the remote policies:
-		// uint64(prodFooSecLblsCtx.ID),
-		// uint64(prodFooJoeSecLblsCtx.ID),
+		// uint32(prodFooSecLblsCtx.ID),
+		// uint32(prodFooJoeSecLblsCtx.ID),
 	}
 	sort.Slice(expectedRemotePolicies, func(i, j int) bool {
 		return expectedRemotePolicies[i] < expectedRemotePolicies[j]
