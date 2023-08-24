@@ -491,49 +491,24 @@ srv6_store_meta_sid(struct __ctx_buff *ctx, const union v6addr *sid)
 static __always_inline int
 srv6_refib(struct __ctx_buff *ctx, int *ext_err)
 {
-	struct bpf_fib_lookup_padded params = {0};
-	__u32 old_oif = ctx_get_ifindex(ctx);
+	__u32 oif = 0, iif = ctx_get_ifindex(ctx);
+	struct bpf_fib_lookup_padded params;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
+	__s8 fib_err;
+	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
-
-	*ext_err = (__s8)fib_lookup_v6(ctx,
-				       &params,
-				       &ip6->saddr,
-				       &ip6->daddr,
-				       BPF_FIB_LOOKUP_OUTPUT);
-
-	switch (*ext_err) {
-	case BPF_FIB_LKUP_RET_SUCCESS:
-		/* We found an oif and ARP was successful.
-		 * We may need to redirect to the appropriate oif, if not
-		 * rewrite the layer 2 and continue processing.
-		 */
-		if (old_oif != params.l.ifindex)
-			return fib_do_redirect(ctx, true, &params,
-					      (__s8 *)ext_err, (int *)&old_oif);
-
-		if (eth_store_daddr(ctx, params.l.dmac, 0) < 0)
-			return DROP_WRITE_ERROR;
-
-		break;
-	case BPF_FIB_LKUP_RET_NO_NEIGH:
-		/* In this case, we found an oif, but ARP failed.
-		 * We can't rule out that oif is a veth, in which ARP is not
-		 * strictly necessary to deliver the packet, since the kernel
-		 * can fill in the veth pair's dmac without it, we lets deliver
-		 * or redirect.
-		 */
-		if (old_oif != params.l.ifindex)
-			return fib_do_redirect(ctx, true, &params,
-					      (__s8 *)ext_err, (int *)&old_oif);
-		break;
-	default:
+	ret = fib_redirect_params_v6(ctx, &params, &params, 0, ip6,
+				     false, &fib_err, iif, &oif)
+	if (!fib_ok(ret)) {
+		*ext_err = fib_err;
 		return DROP_NO_FIB;
-	};
-	return CTX_ACT_OK;
+	}
+	if (iif == params.l.ifindex)
+		return CTX_ACT_OK;
+	return ret;
 }
 #endif /* ENABLE_IPV6 */
 
