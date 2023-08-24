@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1385,17 +1386,14 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 		}
 	}
 
-	// Use map to remove duplicates
-	remoteMap := make(map[uint32]struct{})
+	// Get selections for each selector and count how many there are
+	sels := make([][]uint32, 0, len(selectors))
 	wildcardFound := false
+	var count int
 	for sel, l7 := range selectors {
 		if sel.IsWildcard() {
 			wildcardFound = true
 			break
-		}
-
-		for _, id := range sel.GetSelections() {
-			remoteMap[uint32(id)] = struct{}{}
 		}
 
 		if l7.IsRedirect() {
@@ -1404,26 +1402,32 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 			// l7.IsRedirect() will always return false.
 			log.Warningf("L3-only rule for selector %v surprisingly requires proxy redirection (%v)!", sel, *l7)
 		}
+
+		selections := sel.GetSelections()
+		if len(selections) == 0 {
+			continue
+		}
+		count += len(selections)
+		sels = append(sels, selections.AsUint32Slice())
 	}
+
+	var remotePolicies []uint32
 
 	if wildcardFound {
 		// Optimize the policy if the endpoint selector is a wildcard by
 		// keeping remote policies list empty to match all remote policies.
-		remoteMap = nil
-	} else if len(remoteMap) == 0 {
+	} else if count == 0 {
 		// No remote policies would match this rule. Discard it.
 		return nil
+	} else {
+		// allocate slice and copy selected identities
+		remotePolicies = make([]uint32, 0, count)
+		for _, selections := range sels {
+			remotePolicies = append(remotePolicies, selections...)
+		}
+		slices.Sort(remotePolicies)
+		remotePolicies = slices.Compact(remotePolicies)
 	}
-
-	// Convert to a sorted slice
-	remotePolicies := make([]uint32, 0, len(remoteMap))
-	for id := range remoteMap {
-		remotePolicies = append(remotePolicies, id)
-	}
-	sort.Slice(remotePolicies, func(i, j int) bool {
-		return remotePolicies[i] < remotePolicies[j]
-	})
-
 	return &cilium.PortNetworkPolicyRule{
 		RemotePolicies: remotePolicies,
 	}

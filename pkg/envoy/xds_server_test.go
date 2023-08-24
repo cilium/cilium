@@ -463,6 +463,31 @@ func (s *ServerSuite) TestGetHTTPRule(c *C) {
 	c.Assert(canShortCircuit, Equals, true)
 }
 
+func (s *ServerSuite) Test_getWildcardNetworkPolicyRule(c *C) {
+	perSelectorPoliciesWithWildcard := policy.L7DataMap{
+		cachedSelector1:           nil,
+		cachedRequiresV2Selector1: nil,
+		wildcardCachedSelector:    nil,
+	}
+
+	obtained := getWildcardNetworkPolicyRule(perSelectorPoliciesWithWildcard)
+	c.Assert(obtained, checker.ExportedEquals,
+		&cilium.PortNetworkPolicyRule{})
+
+	// both cachedSelector2 and cachedSelector2 select identity 1001, but duplicates must have been removed
+	perSelectorPolicies := policy.L7DataMap{
+		cachedSelector2:           nil,
+		cachedSelector1:           nil,
+		cachedRequiresV2Selector1: nil,
+	}
+
+	obtained = getWildcardNetworkPolicyRule(perSelectorPolicies)
+	c.Assert(obtained, checker.ExportedEquals,
+		&cilium.PortNetworkPolicyRule{
+			RemotePolicies: []uint32{1001, 1002, 1003},
+		})
+}
+
 func (s *ServerSuite) TestGetPortNetworkPolicyRule(c *C) {
 	obtained, canShortCircuit := getPortNetworkPolicyRule(cachedSelector1, cachedSelector1.IsWildcard(), policy.ParserTypeHTTP, L7Rules12)
 	c.Assert(obtained, checker.ExportedEquals, ExpectedPortNetworkPolicyRule12)
