@@ -5,6 +5,7 @@ package gobgp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/netip"
 
@@ -22,6 +23,9 @@ const (
 
 	// idleHoldTimeAfterResetSeconds defines time BGP session will stay idle after neighbor reset.
 	idleHoldTimeAfterResetSeconds = 5
+
+	// globalPolicyAssignmentName is a special GoBGP policy assignment name that refers to the router-global policy
+	globalPolicyAssignmentName = "global"
 )
 
 var (
@@ -377,6 +381,114 @@ func (g *GoBGPServer) WithdrawPath(ctx context.Context, p types.PathRequest) err
 		Uuid: p.Path.UUID,
 	})
 	return err
+}
+
+// AddRoutePolicy adds a new routing policy into the global policies of the server.
+//
+// The same RoutePolicy can be later passed to RemoveRoutePolicy to remove it from the
+// global policies of the server.
+//
+// Note that we use the global server policies here, as per-neighbor policies can be used only
+// in the route-server mode of GoBGP, which we are not using in Cilium.
+
+// AddRoutePolicy adds a new routing policy into the global policies of the server.
+func (g *GoBGPServer) AddRoutePolicy(ctx context.Context, r types.RoutePolicyRequest) error {
+	if r.Policy == nil {
+		return fmt.Errorf("nil policy in the RoutePolicyRequest")
+	}
+	policy, definedSets := toGoBGPPolicy(r.Policy)
+
+	for i, ds := range definedSets {
+		err := g.server.AddDefinedSet(ctx, &gobgp.AddDefinedSetRequest{DefinedSet: ds})
+		if err != nil {
+			g.deleteDefinedSets(ctx, definedSets[:i]) // clean up already created defined sets
+			return fmt.Errorf("failed adding policy defined set %s: %w", ds.Name, err)
+		}
+	}
+
+	err := g.server.AddPolicy(ctx, &gobgp.AddPolicyRequest{Policy: policy})
+	if err != nil {
+		g.deleteDefinedSets(ctx, definedSets) // clean up defined sets
+		return fmt.Errorf("failed adding policy %s: %w", policy.Name, err)
+	}
+
+	// Note that we are using global policy assignment here (per-neighbor policies work only in the route-server mode)
+	assignment := g.getGlobalPolicyAssignment(policy, r.Policy.Type)
+	err = g.server.AddPolicyAssignment(ctx, &gobgp.AddPolicyAssignmentRequest{Assignment: assignment})
+	if err != nil {
+		g.deletePolicy(ctx, policy)           // clean up policy
+		g.deleteDefinedSets(ctx, definedSets) // clean up defined sets
+		return fmt.Errorf("failed adding policy assignment %s: %w", assignment.Name, err)
+	}
+
+	return nil
+}
+
+// RemoveRoutePolicy removes a routing policy from the global policies of the server.
+func (g *GoBGPServer) RemoveRoutePolicy(ctx context.Context, r types.RoutePolicyRequest) error {
+	if r.Policy == nil {
+		return fmt.Errorf("nil policy in the RoutePolicyRequest")
+	}
+	policy, definedSets := toGoBGPPolicy(r.Policy)
+
+	assignment := g.getGlobalPolicyAssignment(policy, r.Policy.Type)
+	err := g.server.DeletePolicyAssignment(ctx, &gobgp.DeletePolicyAssignmentRequest{Assignment: assignment})
+	if err != nil {
+		return fmt.Errorf("failed deleting policy assignment %s: %w", assignment.Name, err)
+	}
+
+	err = g.deletePolicy(ctx, policy)
+	if err != nil {
+		return err
+	}
+
+	err = g.deleteDefinedSets(ctx, definedSets)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (g *GoBGPServer) getGlobalPolicyAssignment(policy *gobgp.Policy, policyType types.RoutePolicyType) *gobgp.PolicyAssignment {
+	return &gobgp.PolicyAssignment{
+		Name:          globalPolicyAssignmentName,
+		Direction:     toGoBGPPolicyDirection(policyType),
+		DefaultAction: gobgp.RouteAction_NONE, // no change to the default action
+		Policies:      []*gobgp.Policy{policy},
+	}
+}
+
+func (g *GoBGPServer) deletePolicy(ctx context.Context, policy *gobgp.Policy) error {
+	req := &gobgp.DeletePolicyRequest{
+		Policy:             policy,
+		PreserveStatements: false, // delete all statements as well
+		All:                true,  // clean up completely (without this, policy name would still exist internally)
+	}
+	err := g.server.DeletePolicy(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed deleting policy %s: %w", policy.Name, err)
+	}
+	return nil
+}
+
+func (g *GoBGPServer) deleteDefinedSets(ctx context.Context, definedSets []*gobgp.DefinedSet) error {
+	var errs error
+	for _, ds := range definedSets {
+		req := &gobgp.DeleteDefinedSetRequest{
+			DefinedSet: ds,
+			All:        true, // clean up completely (without this, defined set name would still exist internally)
+		}
+		err := g.server.DeleteDefinedSet(ctx, req)
+		if err != nil {
+			// log and store the error, but continue cleanup with next defined sets
+			errs = errors.Join(errs, fmt.Errorf("failed deleting defined set %s: %w", ds.Name, err))
+		}
+	}
+	if errs != nil {
+		g.logger.WithError(errs).Error("Error by deleting policy defined sets")
+	}
+	return errs
 }
 
 // Stop closes gobgp server
