@@ -615,7 +615,7 @@ var ExpectedPerPortPoliciesL7 = []*cilium.PortNetworkPolicy{
 		Port:     9090,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
-			// RemotePolicies: []uint64{1001, 1002}, // Effective wildcard due to only one selector in the policy
+			// RemotePolicies: []uint32{1001, 1002}, // Effective wildcard due to only one selector in the policy
 			L7Proto: "tester",
 			L7: &cilium.PortNetworkPolicyRule_L7Rules{
 				L7Rules: &cilium.L7NetworkPolicyRules{
@@ -667,7 +667,7 @@ var ExpectedPerPortPoliciesKafka = []*cilium.PortNetworkPolicy{
 		Port:     9092,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
-			// RemotePolicies: []uint64{1001, 1002}, // Effective wildcard due to only one selector in the policy
+			// RemotePolicies: []uint32{1001, 1002}, // Effective wildcard due to only one selector in the policy
 			L7Proto: "kafka",
 			L7: &cilium.PortNetworkPolicyRule_KafkaRules{
 				KafkaRules: &cilium.KafkaNetworkPolicyRules{
@@ -724,7 +724,7 @@ var ExpectedPerPortPoliciesMySQL = []*cilium.PortNetworkPolicy{
 		Port:     3306,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
-			// RemotePolicies: []uint64{1001, 1002}, // Effective wildcard due to only one selector in the policy
+			// RemotePolicies: []uint32{1001, 1002}, // Effective wildcard due to only one selector in the policy
 			L7Proto: "envoy.filters.network.mysql_proxy",
 			L7: &cilium.PortNetworkPolicyRule_L7Rules{
 				L7Rules: &cilium.L7NetworkPolicyRules{
