@@ -116,7 +116,7 @@ func getConfigFromCiliumAgent(client *client.Client) (*models.DaemonConfiguratio
 	return configResult.Status, nil
 }
 
-func allocateIPsWithCiliumAgent(client *client.Client, cniArgs types.ArgsSpec, ipamPoolName string) (*models.IPAMResponse, func(context.Context), error) {
+func allocateIPsWithCiliumAgent(client *client.Client, cniArgs *types.ArgsSpec, ipamPoolName string) (*models.IPAMResponse, func(context.Context), error) {
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
 
 	ipam, err := client.IPAMAllocate("", podName, ipamPoolName, true)
@@ -387,8 +387,8 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		logger.Debugf("CNI Previous result: %#v", n.PrevResult)
 	}
 
-	cniArgs := types.ArgsSpec{}
-	if err = cniTypes.LoadArgs(args.Args, &cniArgs); err != nil {
+	cniArgs := &types.ArgsSpec{}
+	if err = cniTypes.LoadArgs(args.Args, cniArgs); err != nil {
 		return fmt.Errorf("unable to extract CNI arguments: %w", err)
 	}
 	logger.Debugf("CNI Args: %#v", cniArgs)
@@ -631,8 +631,8 @@ func cmdDel(args *skel.CmdArgs) error {
 
 	logger.Debugf("CNI NetConf: %#v", n)
 
-	cniArgs := types.ArgsSpec{}
-	if err = cniTypes.LoadArgs(args.Args, &cniArgs); err != nil {
+	cniArgs := &types.ArgsSpec{}
+	if err = cniTypes.LoadArgs(args.Args, cniArgs); err != nil {
 		return fmt.Errorf("unable to extract CNI arguments: %w", err)
 	}
 	logger.Debugf("CNI Args: %#v", cniArgs)
@@ -736,8 +736,8 @@ func cmdCheck(args *skel.CmdArgs) error {
 		logger.Debugf("CNI Previous result: %#v", n.PrevResult)
 	}
 
-	cniArgs := types.ArgsSpec{}
-	if err = cniTypes.LoadArgs(args.Args, &cniArgs); err != nil {
+	cniArgs := &types.ArgsSpec{}
+	if err = cniTypes.LoadArgs(args.Args, cniArgs); err != nil {
 		return cniTypes.NewError(cniTypes.ErrInvalidNetworkConfig, "InvalidArgs",
 			fmt.Sprintf("unable to extract CNI arguments: %s", err))
 	}
