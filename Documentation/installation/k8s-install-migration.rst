@@ -205,7 +205,7 @@ By default, it is set to ``firstFound: true``, which will use the first detected
   -o jsonpath='{.spec.calicoNetwork.nodeAddressAutodetectionV4}{"\n"}'
 
 If Calico decides to use ``cilium_host`` as its default interface, Calico node routing will start failing. For this reason, we want to make sure that Calico ignores the ``cilium_host`` interface. 
-Depending on your Tigera Operator settings (for example if you use the ``interface`` or ``skipInterface`` options), you might want to adjust the parameters to ensure ``cilium_host`` is not considered. 
+Depending on your Tigera Operator settings (for example, if you use the ``interface`` or ``skipInterface`` options), you can adjust the parameters to ensure ``cilium_host`` is not considered. 
 You can set ``firstFound`` to ``false`` and use ``kubernetes: NodeInternalIP`` instead, so Calico uses the node's internal IP as its main interface. 
 
 Patch the Tigera Operator's configuration with:
