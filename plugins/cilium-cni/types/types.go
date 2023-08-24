@@ -6,7 +6,6 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
@@ -99,10 +98,8 @@ func LoadNetConf(bytes []byte) (*NetConf, error) {
 // ArgsSpec is the specification of additional arguments of the CNI ADD call
 type ArgsSpec struct {
 	cniTypes.CommonArgs
-	IP                         net.IP
-	K8S_POD_NAME               cniTypes.UnmarshallableString
-	K8S_POD_NAMESPACE          cniTypes.UnmarshallableString
-	K8S_POD_INFRA_CONTAINER_ID cniTypes.UnmarshallableString
+	K8S_POD_NAME      cniTypes.UnmarshallableString
+	K8S_POD_NAMESPACE cniTypes.UnmarshallableString
 }
 
 // Args contains arbitrary information a scheduler
