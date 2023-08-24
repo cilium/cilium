@@ -71,7 +71,7 @@ jobs:
           version: v3.8.2
 
       - name: Set up AWS CLI credentials
-        uses: aws-actions/configure-aws-credentials@5fd3084fc36e372ff1fff382a39b10d03659f355 # v2.2.0
+        uses: aws-actions/configure-aws-credentials@ef93a73b1313f148011965ef7361f667f371f58b # v3.0.0
         with:
           aws-access-key-id: ${{ secrets.AWS_PR_SA_ID }}
           aws-secret-access-key: ${{ secrets.AWS_PR_SA_KEY }}
