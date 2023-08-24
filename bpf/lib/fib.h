@@ -254,28 +254,6 @@ out_send:
 }
 
 #ifdef ENABLE_IPV6
-/* fib_lookup_v6 will perform a fib lookup with the src and dest addresses
- * provided.
- *
- * after the function returns 'fib_params' will have the results of the fib lookup
- * if successful.
- */
-static __always_inline int
-fib_lookup_v6(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
-	      const struct in6_addr *ipv6_src, const struct in6_addr *ipv6_dst,
-	      int flags)
-{
-	fib_params->l.family	= AF_INET6;
-	fib_params->l.ifindex	= ctx_get_ifindex(ctx);
-
-	ipv6_addr_copy((union v6addr *)&fib_params->l.ipv6_src,
-		       (union v6addr *)ipv6_src);
-	ipv6_addr_copy((union v6addr *)&fib_params->l.ipv6_dst,
-		       (union v6addr *)ipv6_dst);
-
-	return fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), flags);
-};
-
 static __always_inline int
 fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 		struct ipv6hdr *ip6, const bool needs_l2_check,
@@ -303,23 +281,6 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-/* fib_lookup_v4 will perform a fib lookup with the src and dest addresses
- * provided.
- *
- * after the function returns 'fib_params' will have the results of the fib lookup
- * if successful.
- */
-static __always_inline int
-fib_lookup_v4(struct __ctx_buff *ctx, struct bpf_fib_lookup_padded *fib_params,
-	      __be32 ipv4_src, __be32 ipv4_dst, int flags) {
-	fib_params->l.family	= AF_INET;
-	fib_params->l.ifindex	= ctx_get_ifindex(ctx);
-	fib_params->l.ipv4_src	= ipv4_src;
-	fib_params->l.ipv4_dst	= ipv4_dst;
-
-	return fib_lookup(ctx, &fib_params->l, sizeof(fib_params->l), flags);
-}
-
 static __always_inline int
 fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 		struct iphdr *ip4, const bool needs_l2_check,
