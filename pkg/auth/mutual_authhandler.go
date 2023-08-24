@@ -18,6 +18,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
@@ -25,10 +27,16 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 )
 
+type endpointGetter interface {
+	GetEndpoints() []*endpoint.Endpoint
+}
+
 type mutualAuthParams struct {
 	cell.In
 
 	CertificateProvider certs.CertificateProvider
+
+	EndpointManager endpointmanager.EndpointManager
 }
 
 func newMutualAuthHandler(logger logrus.FieldLogger, lc hive.Lifecycle, cfg MutualAuthConfig, params mutualAuthParams) authHandlerResult {
@@ -41,9 +49,10 @@ func newMutualAuthHandler(logger logrus.FieldLogger, lc hive.Lifecycle, cfg Mutu
 	}
 
 	mAuthHandler := &mutualAuthHandler{
-		cfg:  cfg,
-		log:  logger,
-		cert: params.CertificateProvider,
+		cfg:             cfg,
+		log:             logger,
+		cert:            params.CertificateProvider,
+		endpointManager: params.EndpointManager,
 	}
 
 	lc.Append(hive.Hook{OnStart: mAuthHandler.onStart, OnStop: mAuthHandler.onStop})
@@ -74,6 +83,8 @@ type mutualAuthHandler struct {
 	cert certs.CertificateProvider
 
 	cancelSocketListen context.CancelFunc
+
+	endpointManager endpointGetter
 }
 
 func (m *mutualAuthHandler) authenticate(ar *authRequest) (*authResponse, error) {
@@ -211,6 +222,23 @@ func (m *mutualAuthHandler) GetCertificateForIncomingConnection(info *tls.Client
 	id, err := m.cert.SNIToNumericIdentity(info.ServerName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get identity for SNI %s: %w", info.ServerName, err)
+	}
+
+	// this checks if the requested Security ID is present on the local node
+	if m.endpointManager == nil {
+		return nil, errors.New("endpoint manager is not loaded")
+	}
+	localEPs := m.endpointManager.GetEndpoints()
+	matched := false
+	for _, ep := range localEPs {
+		if ep.SecurityIdentity != nil && ep.SecurityIdentity.ID == id {
+			matched = true
+			break
+		}
+	}
+
+	if !matched {
+		return nil, fmt.Errorf("no local endpoint present for identity %s", id.String())
 	}
 
 	return m.cert.GetCertificateForIdentity(id)

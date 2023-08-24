@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/auth/certs"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
 )
 
@@ -32,6 +33,22 @@ var (
 	id1001 = identity.NumericIdentity(1001)
 	idbad1 = identity.NumericIdentity(9999)
 )
+
+type fakeEndpointGetter struct{}
+
+func (f *fakeEndpointGetter) GetEndpoints() []*endpoint.Endpoint {
+	ep := []*endpoint.Endpoint{}
+
+	for _, id := range []identity.NumericIdentity{id1000, id1001, idbad1} {
+		ep = append(ep, &endpoint.Endpoint{
+			SecurityIdentity: &identity.Identity{
+				ID: id,
+			},
+		})
+	}
+
+	return ep
+}
 
 type fakeCertificateProvider struct {
 	certMap    map[string]*x509.Certificate
@@ -121,7 +138,7 @@ func generateTestCertificates(t *testing.T) (map[string]*x509.Certificate, map[s
 	leafCerts := make(map[string]*x509.Certificate)
 	leafPrivKeys := make(map[string]*ecdsa.PrivateKey)
 
-	for i := 1000; i <= 1001; i++ {
+	for i := 1000; i <= 1002; i++ {
 		certURL, err := url.Parse(fmt.Sprintf("spiffe://spiffe.cilium/identity/%d", i))
 		if err != nil {
 			t.Fatalf("failed to parse URL: %v", err)
@@ -277,7 +294,16 @@ func Test_mutualAuthHandler_GetCertificateForIncomingConnection(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "no certificate for non existing identity",
+			name: "no certificate for non existing endpoint identity",
+			args: args{
+				info: &tls.ClientHelloInfo{
+					ServerName: "1002.spiffe.cilium",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "no certificate for non existing security identity",
 			args: args{
 				info: &tls.ClientHelloInfo{
 					ServerName: "9999.spiffe.cilium",
@@ -298,9 +324,10 @@ func Test_mutualAuthHandler_GetCertificateForIncomingConnection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &mutualAuthHandler{
-				cfg:  MutualAuthConfig{MutualAuthListenerPort: 1234},
-				log:  logrus.New(),
-				cert: &fakeCertificateProvider{certMap: certMap, caPool: caPool, privkeyMap: keyMap},
+				cfg:             MutualAuthConfig{MutualAuthListenerPort: 1234},
+				log:             logrus.New(),
+				cert:            &fakeCertificateProvider{certMap: certMap, caPool: caPool, privkeyMap: keyMap},
+				endpointManager: &fakeEndpointGetter{},
 			}
 			got, err := m.GetCertificateForIncomingConnection(tt.args.info)
 			if (err != nil) != tt.wantErr {
@@ -328,9 +355,10 @@ func Test_mutualAuthHandler_authenticate(t *testing.T) {
 	certMap, keyMap, caPool := generateTestCertificates(t)
 
 	mAuthHandler := &mutualAuthHandler{
-		cfg:  MutualAuthConfig{MutualAuthListenerPort: getRandomOpenPort(t)},
-		log:  logrus.New(),
-		cert: &fakeCertificateProvider{certMap: certMap, caPool: caPool, privkeyMap: keyMap},
+		cfg:             MutualAuthConfig{MutualAuthListenerPort: getRandomOpenPort(t)},
+		log:             logrus.New(),
+		cert:            &fakeCertificateProvider{certMap: certMap, caPool: caPool, privkeyMap: keyMap},
+		endpointManager: &fakeEndpointGetter{},
 	}
 	mAuthHandler.onStart(context.Background())
 	defer mAuthHandler.onStop(context.Background())
