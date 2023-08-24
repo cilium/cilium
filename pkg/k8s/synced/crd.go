@@ -42,7 +42,6 @@ func agentCRDResourceNames() []string {
 		CRDResourceName(v2.CCNPName),
 		CRDResourceName(v2.CNName),
 		CRDResourceName(v2.CIDName),
-		CRDResourceName(v2alpha1.CNCName),
 		CRDResourceName(v2alpha1.CCGName),
 		CRDResourceName(v2alpha1.CPIPName),
 	}
@@ -100,6 +99,7 @@ func AllCiliumCRDResourceNames() []string {
 	return append(
 		AgentCRDResourceNames(),
 		CRDResourceName(v2.CEWName),
+		CRDResourceName(v2alpha1.CNCName),
 	)
 }
 
