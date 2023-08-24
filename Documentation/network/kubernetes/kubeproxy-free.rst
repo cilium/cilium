@@ -1590,6 +1590,10 @@ Limitations
       which uses eBPF cgroup hooks to implement the service translation. Using it with libceph
       deployments currently requires support for the getpeername(2) hook address translation in
       eBPF, which is only available for kernels v5.8 and higher.
+    * In order to support nfs in the kernel with the socket-LB feature, ensure that
+      kernel commit ``0bdf399342c5 ("net: Avoid address overwrite in kernel_connect")``
+      is part of your underlying kernel. Linux kernels v6.6 and higher support it. Older
+      stable kernels are TBD. For a more detailed discussion see :gh-issue:`21541`.
     * Cilium's DSR NodePort mode currently does not operate well in environments with
       TCP Fast Open (TFO) enabled. It is recommended to switch to ``snat`` mode in this
       situation.
