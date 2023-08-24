@@ -71,6 +71,7 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 {
 	struct bpf_redir_neigh nh_params;
 	struct bpf_redir_neigh *nh = NULL;
+	union macaddr smac = NATIVE_DEV_MAC_BY_IFINDEX(*oif);
 	union macaddr *dmac = 0;
 	int ret;
 
@@ -153,8 +154,6 @@ fib_do_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 			else
 				return redirect_neigh(*oif, NULL, 0, 0);
 		} else {
-			union macaddr smac = NATIVE_DEV_MAC_BY_IFINDEX(*oif);
-
 			if (!dmac) {
 				*fib_ret = BPF_FIB_MAP_NO_NEIGH;
 				return DROP_NO_FIB;
