@@ -111,6 +111,40 @@ annotations:
       description: |
         Cilium BGP Peering Policy instructs Cilium to create specific BGP peering
         configurations.
+    - kind: CiliumBGPClusterConfig
+      version: v2alpha1
+      name: ciliumbgpclusterconfigs.cilium.io
+      displayName: Cilium BGP Cluster Config
+      description: |
+        Cilium BGP Cluster Config instructs Cilium operator to create specific BGP cluster
+        configurations.
+    - kind: CiliumBGPPeerConfig
+      version: v2alpha1
+      name: ciliumbgppeerconfigs.cilium.io
+      displayName: Cilium BGP Peer Config
+      description: |
+        CiliumBGPPeerConfig is a common set of BGP peer configurations. It can be referenced 
+        by multiple peers from CiliumBGPClusterConfig.
+    - kind: CiliumBGPAdvertisement
+      version: v2alpha1
+      name: ciliumbgpadvertisements.cilium.io
+      displayName: Cilium BGP Advertisement
+      description: |
+        CiliumBGPAdvertisement is used to define source of BGP advertisement as well as BGP attributes 
+        to be advertised with those prefixes.
+    - kind: CiliumBGPNodeConfig
+      version: v2alpha1
+      name: ciliumbgpnodeconfigs.cilium.io
+      displayName: Cilium BGP Node Config
+      description: |
+        CiliumBGPNodeConfig is read only node specific BGP configuration. It is constructed by Cilium operator.
+        It will also contain node local BGP state information.
+    - kind: CiliumBGPNodeConfigOverride
+      version: v2alpha1
+      name: ciliumbgpnodeconfigoverrides.cilium.io
+      displayName: Cilium BGP Node Config Override
+      description: |
+        CiliumBGPNodeConfigOverride can be used to override node specific BGP configuration.
     - kind: CiliumLoadBalancerIPPool
       version: v2alpha1
       name: ciliumloadbalancerippools.cilium.io

@@ -63,6 +63,16 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumNodes().Informer()}, nil
 
 		// Group=cilium.io, Version=v2alpha1
+	case v2alpha1.SchemeGroupVersion.WithResource("ciliumbgpadvertisements"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2alpha1().CiliumBGPAdvertisements().Informer()}, nil
+	case v2alpha1.SchemeGroupVersion.WithResource("ciliumbgpclusterconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2alpha1().CiliumBGPClusterConfigs().Informer()}, nil
+	case v2alpha1.SchemeGroupVersion.WithResource("ciliumbgpnodeconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2alpha1().CiliumBGPNodeConfigs().Informer()}, nil
+	case v2alpha1.SchemeGroupVersion.WithResource("ciliumbgpnodeconfigoverrides"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2alpha1().CiliumBGPNodeConfigOverrides().Informer()}, nil
+	case v2alpha1.SchemeGroupVersion.WithResource("ciliumbgppeerconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2alpha1().CiliumBGPPeerConfigs().Informer()}, nil
 	case v2alpha1.SchemeGroupVersion.WithResource("ciliumbgppeeringpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2alpha1().CiliumBGPPeeringPolicies().Informer()}, nil
 	case v2alpha1.SchemeGroupVersion.WithResource("ciliumcidrgroups"):

@@ -40,6 +40,31 @@ const (
 	// BGPPName is the full name of Cilium BGP Peering Policy
 	BGPPName = BGPPPluralName + "." + CustomResourceDefinitionGroup
 
+	// BGPClusterConfig (BGPCC)
+	BGPCCPluralName     = "ciliumbgpclusterconfigs"
+	BGPCCKindDefinition = "CiliumBGPClusterConfig"
+	BGPCCName           = BGPCCPluralName + "." + CustomResourceDefinitionGroup
+
+	// BGPPeerConfig (BGPPC)
+	BGPPCPluralName     = "ciliumbgppeerconfigs"
+	BGPPCKindDefinition = "CiliumBGPPeerConfig"
+	BGPPCName           = BGPPCPluralName + "." + CustomResourceDefinitionGroup
+
+	// BGPAdvertisement (BGPA)
+	BGPAPluralName     = "ciliumbgpadvertisements"
+	BGPAKindDefinition = "CiliumBGPAdvertisement"
+	BGPAName           = BGPAPluralName + "." + CustomResourceDefinitionGroup
+
+	// BGPNodeConfig (BGPNC)
+	BGPNCPluralName     = "ciliumbgpnodeconfigs"
+	BGPNCKindDefinition = "CiliumBGPNodeConfig"
+	BGPNCName           = BGPNCPluralName + "." + CustomResourceDefinitionGroup
+
+	// BGPNodeConfigOverride (BGPNCO)
+	BGPNCOPluralName     = "ciliumbgpnodeconfigoverrides"
+	BGPNCOKindDefinition = "CiliumBGPNodeConfigOverride"
+	BGPNCOName           = BGPNCOPluralName + "." + CustomResourceDefinitionGroup
+
 	// Cilium Load Balancer IP Pool (IPPool)
 
 	// PoolPluralName is the plural name of Cilium Load Balancer IP Pool
@@ -136,6 +161,18 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumL2AnnouncementPolicyList{},
 		&CiliumPodIPPool{},
 		&CiliumPodIPPoolList{},
+
+		// new BGP types
+		&CiliumBGPClusterConfig{},
+		&CiliumBGPClusterConfigList{},
+		&CiliumBGPPeerConfig{},
+		&CiliumBGPPeerConfigList{},
+		&CiliumBGPAdvertisement{},
+		&CiliumBGPAdvertisementList{},
+		&CiliumBGPNodeConfig{},
+		&CiliumBGPNodeConfigList{},
+		&CiliumBGPNodeConfigOverride{},
+		&CiliumBGPNodeConfigOverrideList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
