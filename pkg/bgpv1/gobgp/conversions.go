@@ -94,3 +94,121 @@ func ToAgentPaths(paths []*gobgp.Path) ([]*types.Path, error) {
 
 	return ps, nil
 }
+
+func toGoBGPPolicy(apiPolicy *types.RoutePolicy) (*gobgp.Policy, []*gobgp.DefinedSet) {
+	var definedSets []*gobgp.DefinedSet
+
+	policy := &gobgp.Policy{
+		Name: apiPolicy.Name,
+	}
+	for i, stmt := range apiPolicy.Statements {
+		statement, dSets := toGoBGPPolicyStatement(stmt, policyStatementName(apiPolicy.Name, i))
+		policy.Statements = append(policy.Statements, statement)
+		definedSets = append(definedSets, dSets...)
+	}
+
+	return policy, definedSets
+}
+
+func toGoBGPPolicyStatement(apiStatement *types.RoutePolicyStatement, name string) (*gobgp.Statement, []*gobgp.DefinedSet) {
+	var definedSets []*gobgp.DefinedSet
+
+	s := &gobgp.Statement{
+		Name:       name,
+		Conditions: &gobgp.Conditions{},
+		Actions: &gobgp.Actions{
+			RouteAction: toGoBGPRouteAction(apiStatement.Actions.RouteAction),
+		},
+	}
+
+	// defined set to match neighbor
+	if len(apiStatement.Conditions.MatchNeighbors) > 0 {
+		ds := &gobgp.DefinedSet{
+			DefinedType: gobgp.DefinedType_NEIGHBOR,
+			Name:        policyNeighborDefinedSetName(name),
+			List:        apiStatement.Conditions.MatchNeighbors,
+		}
+		s.Conditions.NeighborSet = &gobgp.MatchSet{
+			Type: gobgp.MatchSet_ANY, // any of the configured neighbors
+			Name: ds.Name,
+		}
+		definedSets = append(definedSets, ds)
+	}
+
+	// defined set to match prefixes
+	if len(apiStatement.Conditions.MatchPrefixes) > 0 {
+		ds := &gobgp.DefinedSet{
+			DefinedType: gobgp.DefinedType_PREFIX,
+			Name:        policyPrefixDefinedSetName(name),
+		}
+		for _, prefix := range apiStatement.Conditions.MatchPrefixes {
+			p := &gobgp.Prefix{
+				IpPrefix:      prefix.CIDR.String(),
+				MaskLengthMin: uint32(prefix.PrefixLenMin),
+				MaskLengthMax: uint32(prefix.PrefixLenMax),
+			}
+			ds.Prefixes = append(ds.Prefixes, p)
+		}
+		s.Conditions.PrefixSet = &gobgp.MatchSet{
+			Type: gobgp.MatchSet_ANY, // any of the configured prefixes
+			Name: ds.Name,
+		}
+		definedSets = append(definedSets, ds)
+	}
+
+	// community actions
+	if len(apiStatement.Actions.AddCommunities) > 0 {
+		s.Actions.Community = &gobgp.CommunityAction{
+			Type:        gobgp.CommunityAction_ADD,
+			Communities: apiStatement.Actions.AddCommunities,
+		}
+	}
+	if len(apiStatement.Actions.AddLargeCommunities) > 0 {
+		s.Actions.LargeCommunity = &gobgp.CommunityAction{
+			Type:        gobgp.CommunityAction_ADD,
+			Communities: apiStatement.Actions.AddLargeCommunities,
+		}
+	}
+
+	// local preference actions
+	if apiStatement.Actions.SetLocalPreference != nil {
+		// Local preference only makes sense for iBGP sessions. However, it can be applied
+		// unconditionally here - it would have no effect on eBGP peers matching this policy.
+		s.Actions.LocalPref = &gobgp.LocalPrefAction{
+			Value: uint32(*apiStatement.Actions.SetLocalPreference),
+		}
+	}
+	return s, definedSets
+}
+
+func policyStatementName(policyName string, cnt int) string {
+	return fmt.Sprintf("%s-%d", policyName, cnt)
+}
+
+func policyNeighborDefinedSetName(policyStatementName string) string {
+	return fmt.Sprintf(policyStatementName + "-neighbor")
+}
+
+func policyPrefixDefinedSetName(policyStatementName string) string {
+	return fmt.Sprintf(policyStatementName + "-prefix")
+}
+
+func toGoBGPRouteAction(a types.RoutePolicyAction) gobgp.RouteAction {
+	switch a {
+	case types.RoutePolicyActionAccept:
+		return gobgp.RouteAction_ACCEPT
+	case types.RoutePolicyActionReject:
+		return gobgp.RouteAction_REJECT
+	}
+	return gobgp.RouteAction_NONE
+}
+
+func toGoBGPPolicyDirection(policyType types.RoutePolicyType) gobgp.PolicyDirection {
+	switch policyType {
+	case types.RoutePolicyTypeExport:
+		return gobgp.PolicyDirection_EXPORT
+	case types.RoutePolicyTypeImport:
+		return gobgp.PolicyDirection_IMPORT
+	}
+	return gobgp.PolicyDirection_UNKNOWN
+}

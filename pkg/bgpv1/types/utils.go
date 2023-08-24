@@ -61,3 +61,23 @@ func NewPathForPrefix(prefix netip.Prefix) (path *Path) {
 
 	return
 }
+
+// DeepEqual is a manually created deepequal function, deeply comparing the receiver with another.
+// It compares fields with types that do not implement the `DeepEqual` method
+// and calls the generated private `deepEqual` method which compares the rest of the fields.
+func (m *RoutePolicyPrefixMatch) DeepEqual(other *RoutePolicyPrefixMatch) bool {
+	// Compare netip.Prefix field (does not implement the `DeepEqual` method)
+	if m.CIDR != other.CIDR {
+		return false
+	}
+	// Call generated `deepEqual` method which compares all fields except 'CIDR'
+	return m.deepEqual(other)
+}
+
+type PolicyPrefixMatchList []*RoutePolicyPrefixMatch
+
+// Less is a comparator of two RoutePolicyPrefixMatch rules to be used for sorting purposes
+func (l PolicyPrefixMatchList) Less(i, j int) bool {
+	return l[i].CIDR.Bits() < l[j].CIDR.Bits() || l[i].CIDR.Addr().Less(l[j].CIDR.Addr()) ||
+		l[i].PrefixLenMin < l[j].PrefixLenMin || l[i].PrefixLenMax < l[j].PrefixLenMax
+}

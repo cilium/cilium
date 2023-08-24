@@ -57,6 +57,106 @@ type PathResponse struct {
 	Path *Path
 }
 
+// RoutePolicyPrefixMatch can be used to match a CIDR prefix in a routing policy.
+// It can be used to perform exact prefix length matches (if CIDR.Bits() == PrefixLenMin == PrefixLenMax),
+// or variable prefix length matches.
+//
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
+type RoutePolicyPrefixMatch struct {
+	// CIDR is a prefix to match with.
+	// +deepequal-gen=false
+	CIDR netip.Prefix
+	// PrefixLenMin is the minimal prefix length that will match if it falls under CIDR.
+	PrefixLenMin int
+	// PrefixLenMax is the maximal prefix length that will match if it falls under CIDR.
+	PrefixLenMax int
+}
+
+// RoutePolicyConditions represent conditions of a policy statement.
+//
+// +deepequal-gen=true
+type RoutePolicyConditions struct {
+	// MatchNeighbors matches ANY of the provided BGP neighbor IP addresses. If empty matches all neighbors.
+	MatchNeighbors []string
+	// MatchPrefixes matches ANY of the provided prefixes. If empty matches all prefixes.
+	MatchPrefixes []*RoutePolicyPrefixMatch
+}
+
+// RoutePolicyAction defines the action taken on a route matched by a routing policy.
+type RoutePolicyAction int
+
+const (
+	// RoutePolicyActionNone does not affect processing of a route.
+	// The policy evaluation continues with the next policy statements / other policies.
+	RoutePolicyActionNone RoutePolicyAction = iota
+	// RoutePolicyActionAccept accepts a route into the RIB / adjacency RIB.
+	// No further policy statements / policies are evaluated for the route.
+	RoutePolicyActionAccept
+	// RoutePolicyActionReject rejects a route from the RIB / adjacency RIB.
+	// No further policy statements / policies are evaluated for the route.
+	RoutePolicyActionReject
+)
+
+// RoutePolicyActions define policy actions taken on route matched by a routing policy.
+//
+// +deepequal-gen=true
+type RoutePolicyActions struct {
+	// RouteAction defines an action taken on the matched route.
+	RouteAction RoutePolicyAction
+	// AddCommunities defines a list of BGP standard community values to be added to the matched route.
+	// If empty, no communities will be added.
+	AddCommunities []string
+	// AddCommunities defines a list of BGP large community values to be added to the matched route.
+	// If empty, no communities will be added.
+	AddLargeCommunities []string
+	// SetLocalPreference define a BGP local preference value to be set on the matched route.
+	// If nil, no local preference is set.
+	SetLocalPreference *int64
+}
+
+// RoutePolicyStatement represents a single statement of a routing RoutePolicy. It contains conditions for
+// matching a route and actions taken if a route matches the conditions.
+//
+// +deepequal-gen=true
+type RoutePolicyStatement struct {
+	// Conditions of the statement. If ALL of them match a route, the Actions are taken on the route.
+	Conditions RoutePolicyConditions
+	// Actions define actions taken on a matched route.
+	Actions RoutePolicyActions
+}
+
+// RoutePolicyType defines the type of routing policy.
+type RoutePolicyType int
+
+const (
+	// RoutePolicyTypeExport represents export routing policy type (affecting how the routes from RIB are advertised to peers).
+	RoutePolicyTypeExport RoutePolicyType = iota
+	// RoutePolicyTypeImport represents import routing policy type (affecting how the routes are imported into RIB).
+	RoutePolicyTypeImport
+)
+
+// RoutePolicy represents a BGP routing policy, also called "route map" in some BGP implementations.
+// It can contain multiple Statements that are evaluated in the given order. Each Statement
+// contains conditions for matching a route and actions taken if a route matches the conditions.
+// Whenever a Statement matches a route and the action taken on it is to either accept or reject the route,
+// the policy evaluation for the given route stops, and no further Statements nor other RoutePolicies are evaluated.
+//
+// +deepequal-gen=true
+type RoutePolicy struct {
+	// Name is a unique string identifier of the policy for the given router.
+	Name string
+	// RoutePolicyType is the type of the policy.
+	Type RoutePolicyType
+	// Statements is an ordered list of policy statements.
+	Statements []*RoutePolicyStatement
+}
+
+// RoutePolicyRequest contains parameters for adding or removing a routing policy.
+type RoutePolicyRequest struct {
+	Policy *RoutePolicy
+}
+
 // GetPeerStateResponse contains state of peers configured in given instance
 type GetPeerStateResponse struct {
 	Peers []*models.BgpPeer
@@ -131,6 +231,12 @@ type Router interface {
 
 	// WithdrawPath  removes BGP Path from all peers
 	WithdrawPath(ctx context.Context, p PathRequest) error
+
+	// AddRoutePolicy adds a new routing policy into the underlying router.
+	AddRoutePolicy(ctx context.Context, p RoutePolicyRequest) error
+
+	// RemoveRoutePolicy removes a routing policy from the underlying router.
+	RemoveRoutePolicy(ctx context.Context, p RoutePolicyRequest) error
 
 	// GetPeerState returns status of BGP peers
 	GetPeerState(ctx context.Context) (GetPeerStateResponse, error)
