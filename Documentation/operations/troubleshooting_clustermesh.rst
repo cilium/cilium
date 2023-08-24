@@ -106,14 +106,16 @@ Manual Verification of Setup
 
     If the connection fails, check the following:
 
-    * Validate that the ``hostAliases`` section in the Cilium DaemonSet maps
+    * When KVStoreMesh is disabled, validate that the ``hostAliases`` section in the Cilium DaemonSet maps
       each remote cluster to the IP of the LoadBalancer that makes the remote
-      control plane available.
+      control plane available; When KVStoreMesh is enabled,
+      validate that the ``hostAliases`` section in the clustermesh-apiserver Deployment.
 
     * Validate that a local node in the source cluster can reach the IP
-      specified in the ``hostAliases`` section. The ``clustermesh-secrets``
+      specified in the ``hostAliases`` section. When KVStoreMesh is disabled, the ``clustermesh-secrets``
       secret contains a configuration file for each remote cluster, it will
-      point to a logical name representing the remote cluster:
+      point to a logical name representing the remote cluster;
+      When KVStoreMesh is enabled, it exists in the ``cilium-kvstoremesh`` secret.
 
     .. code-block:: yaml
 
@@ -122,8 +124,9 @@ Manual Verification of Setup
 
       The name will *NOT* be resolvable via DNS outside of the cilium pod. The
       name is mapped to an IP using ``hostAliases``. Run ``kubectl -n
-      kube-system get ds cilium -o yaml`` and grep for the FQDN to retrieve the
-      IP that is configured. Then use ``curl`` to validate that the port is
+      kube-system get daemonset cilium -o yaml`` when KVStoreMesh is disabled,
+      or run ``kubectl -n kube-system get deployment clustermesh-apiserver -o yaml`` when KVStoreMesh is enabled,
+      grep for the FQDN to retrieve the IP that is configured. Then use ``curl`` to validate that the port is
       reachable.
 
     * A firewall between the local cluster and the remote cluster may drop the
