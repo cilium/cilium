@@ -43,6 +43,7 @@ type ConnectivityTest struct {
 	// CiliumVersion is the detected or assumed version of the Cilium agent
 	CiliumVersion semver.Version
 
+	// Features contains the features enabled on the running Cilium cluster
 	Features FeatureSet
 
 	// Parameters to the test suite, specified by the CLI user.
