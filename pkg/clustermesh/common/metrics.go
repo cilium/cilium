@@ -23,35 +23,31 @@ func MetricsProvider(subsystem string) func() Metrics {
 	return func() Metrics {
 		return Metrics{
 			TotalRemoteClusters: metric.NewGaugeVec(metric.GaugeOpts{
-				ConfigName: metrics.Namespace + "_" + subsystem + "_remote_clusters",
-				Namespace:  metrics.Namespace,
-				Subsystem:  subsystem,
-				Name:       "remote_clusters",
-				Help:       "The total number of remote clusters meshed with the local cluster",
+				Namespace: metrics.Namespace,
+				Subsystem: subsystem,
+				Name:      "remote_clusters",
+				Help:      "The total number of remote clusters meshed with the local cluster",
 			}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName}),
 
 			LastFailureTimestamp: metric.NewGaugeVec(metric.GaugeOpts{
-				ConfigName: metrics.Namespace + "_" + subsystem + "_remote_cluster_last_failure_ts",
-				Namespace:  metrics.Namespace,
-				Subsystem:  subsystem,
-				Name:       "remote_cluster_last_failure_ts",
-				Help:       "The timestamp of the last failure of the remote cluster",
+				Namespace: metrics.Namespace,
+				Subsystem: subsystem,
+				Name:      "remote_cluster_last_failure_ts",
+				Help:      "The timestamp of the last failure of the remote cluster",
 			}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
 
 			ReadinessStatus: metric.NewGaugeVec(metric.GaugeOpts{
-				ConfigName: metrics.Namespace + "_" + subsystem + "_remote_cluster_readiness_status",
-				Namespace:  metrics.Namespace,
-				Subsystem:  subsystem,
-				Name:       "remote_cluster_readiness_status",
-				Help:       "The readiness status of the remote cluster",
+				Namespace: metrics.Namespace,
+				Subsystem: subsystem,
+				Name:      "remote_cluster_readiness_status",
+				Help:      "The readiness status of the remote cluster",
 			}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
 
 			TotalFailures: metric.NewGaugeVec(metric.GaugeOpts{
-				ConfigName: metrics.Namespace + "_" + subsystem + "_remote_cluster_failures",
-				Namespace:  metrics.Namespace,
-				Subsystem:  subsystem,
-				Name:       "remote_cluster_failures",
-				Help:       "The total number of failures related to the remote cluster",
+				Namespace: metrics.Namespace,
+				Subsystem: subsystem,
+				Name:      "remote_cluster_failures",
+				Help:      "The total number of failures related to the remote cluster",
 			}, []string{metrics.LabelSourceCluster, metrics.LabelSourceNodeName, metrics.LabelTargetCluster}),
 		}
 	}
