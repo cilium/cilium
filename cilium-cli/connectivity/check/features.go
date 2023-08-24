@@ -93,7 +93,7 @@ func (s FeatureStatus) String() string {
 	return fmt.Sprintf("%s:%s", str, s.Mode)
 }
 
-// FeatureSet contains the status
+// FeatureSet contains the FeatureStatus of a collection of Features.
 type FeatureSet map[Feature]FeatureStatus
 
 // MatchRequirements returns true if the FeatureSet fs satisfies all the
