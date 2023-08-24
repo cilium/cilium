@@ -62,6 +62,10 @@ func (c ClusterInfo) Validate() error {
 // ValidateStrict validates that the ClusterID is in the valid range, but not 0,
 // and that the ClusterName is different from the default value.
 func (c ClusterInfo) ValidateStrict() error {
+	if err := InitClusterIDMax(c.MaxConnectedClusters); err != nil {
+		return fmt.Errorf("option --%s: %v", OptMaxConnectedClusters, err)
+	}
+
 	if err := ValidateClusterID(c.ID); err != nil {
 		return err
 	}
