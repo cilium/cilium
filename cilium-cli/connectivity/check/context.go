@@ -17,14 +17,15 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/cilium/cilium/api/v1/observer"
-	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium/api/v1/observer"
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/junit"
@@ -313,7 +314,7 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, setupAndValida
 			return fmt.Errorf("unable to create hubble client: %s", err)
 		}
 	}
-	if ct.Features.MatchRequirements(RequireFeatureEnabled(FeatureNodeWithoutCilium)) {
+	if match, _ := ct.Features.MatchRequirements(RequireFeatureEnabled(FeatureNodeWithoutCilium)); match {
 		if err := ct.detectPodCIDRs(ctx); err != nil {
 			return fmt.Errorf("unable to detect pod CIDRs: %w", err)
 		}
@@ -413,9 +414,8 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 }
 
 // skip marks the Test as skipped.
-func (ct *ConnectivityTest) skip(t *Test) {
-	ct.Log()
-	ct.Logf("[=] Skipping Test [%s]", t.Name())
+func (ct *ConnectivityTest) skip(t *Test, reason string) {
+	ct.Logf("[=] Skipping Test [%s] (%s)", t.Name(), reason)
 	t.skipped = true
 }
 
