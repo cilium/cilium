@@ -124,6 +124,7 @@ static __always_inline bool dsr_is_too_big(struct __ctx_buff *ctx __maybe_unused
 	return false;
 }
 
+//XXX todo as well
 static __always_inline int
 nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 				 struct bpf_fib_lookup_padded *fib_params,
