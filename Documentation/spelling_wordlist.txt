@@ -495,6 +495,7 @@ networkpolicy
 newproto
 newprotoparser
 nfp
+nfs
 nftables
 nginx
 nodePort
