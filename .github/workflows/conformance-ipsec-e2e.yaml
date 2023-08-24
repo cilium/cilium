@@ -284,7 +284,39 @@ jobs:
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
               --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})"
 
-            ./contrib/scripts/kind-down.sh
+      - name: Rotate IPsec Key & Test (${{ join(matrix.*, ', ') }})
+        uses: cilium/cilium/.github/actions/conn-disrupt-test@48023b9f6df4fffa80162f418ae2344d33e36b11
+        with:
+          job-name: conformance-ipsec-e2e-key-rotation-${{ matrix.name }}
+          operation-cmd: |
+            cd /host/
+
+            KEYID=\$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | cut -c 1)
+            if [[ \$KEYID -ge 15 ]]; then KEYID=0; fi
+            data=\$(echo "{\"stringData\":{\"keys\":\"\$(((\$KEYID+1))) "rfc4106\(gcm\(aes\)\)" 59f4d92cccede1b1abc920104ca61cd552782e12 128\"}}")
+            kubectl patch secret -n kube-system cilium-ipsec-keys -p="\$data" -v=1
+
+            # Wait until key rotation starts
+            while true; do
+              keys_in_use=\$(kubectl -n kube-system exec daemonset/cilium -- cilium encrypt status | awk '/Keys in use/ {print \$NF}')
+              if [[ \$keys_in_use == 2 ]]; then
+                break
+              fi
+              echo "Waiting until key rotation starts"
+              sleep 30s
+            done
+
+            # Wait until key rotation completes
+            # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
+            sleep \$((4*60))
+            while true; do
+              keys_in_use=\$(kubectl -n kube-system exec daemonset/cilium -- cilium encrypt status | awk '/Keys in use/ {print \$NF}')
+              if [[ \$keys_in_use == 1 ]]; then
+                break
+              fi
+              echo "Waiting until key rotation completes"
+              sleep 30s
+            done
 
       - name: Fetch artifacts
         if: ${{ !success() }}
