@@ -215,7 +215,7 @@ Patch the Tigera Operator's configuration with:
      kubectl patch installations.operator.tigera.io default --type=merge \
   --patch '{"spec": {"calicoNetwork": {"nodeAddressAutodetectionV4": {"firstFound": false, "kubernetes": "NodeInternalIP"}}}}'
 
-Just to make sure that the values have taken effect we can check the value again:
+Verify the values have taken effect:
 
 .. code-block:: shell-session
 
