@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -73,8 +74,9 @@ type Test struct {
 	// to install podCIDR => nodeIP routes before running the test
 	installIPRoutesFromOutsideToPodCIDRs bool
 
-	// requiredCiliumVSN is a required Cilium VSN for this test to be run
-	requiredCiliumVSN semver.Range
+	// versionRange is the version range the Cilium agent needs to be in in order
+	// for the test to run.
+	versionRange string
 
 	// Scenarios registered to this test.
 	scenarios map[Scenario][]*Action
@@ -136,17 +138,20 @@ func (t *Test) scenarioName(s Scenario) string {
 	return fmt.Sprintf("%s/%s", t.Name(), s.Name())
 }
 
-// scenarioEnabled returns true if the given scenario is enabled based on the
-// set of enabled tests, and if the given scenario also meets the feature
-// requirements of the deployed cilium installation
+// scenarioEnabled returns true if the given scenario is enabled by the user.
 func (t *Test) scenarioEnabled(s Scenario) bool {
+	return t.Context().params.testEnabled(t.scenarioName(s))
+}
+
+// scenarioRequirements returns true if the Cilium deployment meets the
+// requirements of the given Scenario.
+func (t *Test) scenarioRequirements(s Scenario) (bool, string) {
 	var reqs []FeatureRequirement
 	if cs, ok := s.(ConditionalScenario); ok {
 		reqs = cs.Requirements()
 	}
 
-	return t.Context().params.testEnabled(t.scenarioName(s)) &&
-		t.Context().Features.MatchRequirements(reqs...)
+	return t.Context().Features.MatchRequirements(reqs...)
 }
 
 // Context returns the enclosing context of the Test.
@@ -184,32 +189,61 @@ func (t *Test) setup(ctx context.Context) error {
 
 // skip adds Scenario s to the Test's list of skipped Scenarios.
 // This list is kept for reporting purposes.
-func (t *Test) skip(s Scenario) {
+func (t *Test) skip(s Scenario, reason string) {
 	t.scenariosSkipped = append(t.scenariosSkipped, s)
-	t.Logf("[-] Skipping Scenario [%s]", t.scenarioName(s))
+	t.Logf("[-] Skipping Scenario [%s] (%s)", t.scenarioName(s), reason)
 }
 
-// willRun returns false if all of the Test's Scenarios will be skipped, or
-// if any of its FeatureRequirements does not match, or a required Cilium vsn
-// does not match.
-func (t *Test) willRun() bool {
-	var sc int
-
-	if !t.Context().Features.MatchRequirements(t.requirements...) {
-		return false
+// versionInRange returns true if the given (running) version is within the
+// range allowed by the test. The second return value is a string mentioning the
+// given version and the expected range.
+func (t *Test) versionInRange(version semver.Version) (bool, string) {
+	if t.versionRange == "" {
+		return true, "no version requirement"
 	}
 
-	if t.requiredCiliumVSN != nil && !t.requiredCiliumVSN(t.Context().CiliumVersion) {
-		return false
+	vr := versioncheck.MustCompile(t.versionRange)
+	if !vr(version) {
+		return false, fmt.Sprintf("requires Cilium version %v but running %s", t.versionRange, version)
 	}
 
+	return true, "running version within range"
+}
+
+// willRun returns false if all of the Test's Scenarios are skipped by the user,
+// if any of its FeatureRequirements are not met, or if the running Cilium
+// version is not within range of the one specified using WithCiliumVersion.
+//
+// Currently, only a single reason is communicated for skipping a test.
+// Following the principle of least surprise, the checks in this method are
+// ordered to return the least-obvious reason first. If the user is explicitly
+// excluding tests, they're most likely interested in other reasons why their
+// test is not being executed.
+func (t *Test) willRun() (bool, string) {
+	// Check if the running Cilium version is within range of the value specified
+	// in WithCiliumVersion.
+	if ver, reason := t.versionInRange(t.Context().CiliumVersion); !ver {
+		return false, reason
+	}
+
+	// Check the Test's specified feature requirements.
+	if req, reason := t.Context().Features.MatchRequirements(t.requirements...); !req {
+		return false, reason
+	}
+
+	// Skip the whole Test if all of its Scenarios are excluded by the user's
+	// filter.
+	var skipped int
 	for s := range t.scenarios {
 		if !t.Context().params.testEnabled(t.scenarioName(s)) {
-			sc++
+			skipped++
 		}
 	}
+	if skipped == len(t.scenarios) {
+		return false, "skipped by user"
+	}
 
-	return sc != len(t.scenarios)
+	return true, ""
 }
 
 // finalize runs all the Test's registered finalizers.
@@ -243,8 +277,8 @@ func (t *Test) Run(ctx context.Context) error {
 	}
 
 	// Skip the Test if all of its Scenarios are skipped.
-	if !t.willRun() {
-		t.Context().skip(t)
+	if run, reason := t.willRun(); !run {
+		t.Context().skip(t, reason)
 		return nil
 	}
 
@@ -277,7 +311,12 @@ func (t *Test) Run(ctx context.Context) error {
 		}
 
 		if !t.scenarioEnabled(s) {
-			t.skip(s)
+			t.skip(s, "skipped by user")
+			continue
+		}
+
+		if req, reason := t.scenarioRequirements(s); !req {
+			t.skip(s, reason)
 			continue
 		}
 
@@ -543,11 +582,16 @@ func (t *Test) WithIPRoutesFromOutsideToPodCIDRs() *Test {
 	return t
 }
 
-// WithCiliumVersion adds a requirement for a Cilium vsn in order for the test
-// to run.
-func (t *Test) WithCiliumVersion(vsn string) *Test {
-	t.requiredCiliumVSN = versioncheck.MustCompile(vsn)
-
+// WithCiliumVersion limits test execution to Cilium versions that fall within
+// the given range. The input string is passed to [semver.ParseRange], see
+// package semver. Simple examples: ">1.0.0 <2.0.0" or ">=1.14.0".
+func (t *Test) WithCiliumVersion(vr string) *Test {
+	// Compile the input but don't store the result. A semver.Range is a func()
+	// that doesn't implement String(), so the original version constraint cannot
+	// be recovered to display to the user. The original constraint is echoed in
+	// Test/Scenario skip messages together with the running Cilium version.
+	_ = versioncheck.MustCompile(vr)
+	t.versionRange = vr
 	return t
 }
 

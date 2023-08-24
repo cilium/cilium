@@ -9,13 +9,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/versioncheck"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/utils"
@@ -97,29 +98,29 @@ type FeatureSet map[Feature]FeatureStatus
 
 // MatchRequirements returns true if the FeatureSet fs satisfies all the
 // requirements in reqs. Returns true for empty requirements list.
-func (fs FeatureSet) MatchRequirements(reqs ...FeatureRequirement) bool {
+func (fs FeatureSet) MatchRequirements(reqs ...FeatureRequirement) (bool, string) {
 	for _, req := range reqs {
 		status := fs[req.feature]
 		if req.requiresEnabled && (req.enabled != status.Enabled) {
-			return false
+			return false, fmt.Sprintf("feature %s is disabled", req.feature)
 		}
 		if req.requiresMode && (req.mode != status.Mode) {
-			return false
+			return false, fmt.Sprintf("requires feature %s mode %s, got %s", req.feature, req.mode, status.Mode)
 		}
 	}
 
-	return true
+	return true, ""
 }
 
 // IPFamilies returns the list of enabled IP families.
 func (fs FeatureSet) IPFamilies() []IPFamily {
 	var families []IPFamily
 
-	if fs.MatchRequirements(RequireFeatureEnabled(FeatureIPv4)) {
+	if match, _ := fs.MatchRequirements(RequireFeatureEnabled(FeatureIPv4)); match {
 		families = append(families, IPFamilyV4)
 	}
 
-	if fs.MatchRequirements(RequireFeatureEnabled(FeatureIPv6)) {
+	if match, _ := fs.MatchRequirements(RequireFeatureEnabled(FeatureIPv6)); match {
 		families = append(families, IPFamilyV6)
 	}
 
