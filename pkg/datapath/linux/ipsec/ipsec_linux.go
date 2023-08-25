@@ -923,7 +923,7 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 	for {
 		select {
 		case event := <-watcher.Events:
-			if !event.Op.Has(fsnotify.Create) || !event.Op.Has(fsnotify.Write) {
+			if event.Op&(fsnotify.Create|fsnotify.Write) == 0 {
 				continue
 			}
 
