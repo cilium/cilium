@@ -12,11 +12,14 @@ root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
 
-image="quay.io/cilium/cilium-envoy"
-image_tag="$(yq '.envoy.image.tag' ./install/kubernetes/cilium/values.yaml.tmpl)"
-image_sha256="$(yq '.envoy.image.digest' ./install/kubernetes/cilium/values.yaml.tmpl)"
+image="$(yq '.envoy.image.repository' ./install/kubernetes/cilium/values.yaml)"
+image_tag="$(yq '.envoy.image.tag' ./install/kubernetes/cilium/values.yaml)"
+image_sha256="$(yq '.envoy.image.digest' ./install/kubernetes/cilium/values.yaml)"
 
-sed -i -E "s|(FROM ${image}:)(.*)(@sha256:[0-9a-z]*)( as cilium-envoy)|\1${image_tag}@${image_sha256}\4|" ./images/cilium/Dockerfile
+# pre-check for sed, in case that this script may fail to detect change when the `sed` command fails to replace the string and return code 0
+image_regular="(FROM ${image}:)(.*)(@sha256:[0-9a-z]*)( as cilium-envoy)"
+grep -E "${image_regular}" ./images/cilium/Dockerfile &>/dev/null || exit 1
+sed -i -E "s|${image_regular}|\1${image_tag}@${image_sha256}\4|" ./images/cilium/Dockerfile
 
 echo "Checking for different Cilium Envoy images"
 git diff --exit-code ./images/cilium/Dockerfile
