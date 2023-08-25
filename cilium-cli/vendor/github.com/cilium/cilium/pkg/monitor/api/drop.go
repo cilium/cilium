@@ -91,6 +91,7 @@ var errors = map[uint8]string{
 	193: "Unsupported packet protocol for DSR encapsulation",
 	194: "No egress gateway found",
 	196: "TTL exceeded",
+	197: "No node ID found",
 }
 
 func extendedReason(reason uint8, extError int8) string {

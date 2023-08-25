@@ -169,6 +169,7 @@ const DropReason_INVALID_CLUSTER_ID = flow.DropReason_INVALID_CLUSTER_ID
 const DropReason_UNSUPPORTED_PROTOCOL_FOR_DSR_ENCAP = flow.DropReason_UNSUPPORTED_PROTOCOL_FOR_DSR_ENCAP
 const DropReason_NO_EGRESS_GATEWAY = flow.DropReason_NO_EGRESS_GATEWAY
 const DropReason_TTL_EXCEEDED = flow.DropReason_TTL_EXCEEDED
+const DropReason_NO_NODE_ID = flow.DropReason_NO_NODE_ID
 
 var DropReason_name = flow.DropReason_name
 var DropReason_value = flow.DropReason_value
