@@ -193,7 +193,11 @@ func (in *KProbeSpec) DeepCopyInto(out *KProbeSpec) {
 		*out = make([]KProbeArg, len(*in))
 		copy(*out, *in)
 	}
-	out.ReturnArg = in.ReturnArg
+	if in.ReturnArg != nil {
+		in, out := &in.ReturnArg, &out.ReturnArg
+		*out = new(KProbeArg)
+		**out = **in
+	}
 	if in.Selectors != nil {
 		in, out := &in.Selectors, &out.Selectors
 		*out = make([]KProbeSelector, len(*in))
@@ -221,6 +225,11 @@ func (in *ListSpec) DeepCopyInto(out *ListSpec) {
 		in, out := &in.Values, &out.Values
 		*out = make([]string, len(*in))
 		copy(*out, *in)
+	}
+	if in.Pattern != nil {
+		in, out := &in.Pattern, &out.Pattern
+		*out = new(string)
+		**out = **in
 	}
 	return
 }
