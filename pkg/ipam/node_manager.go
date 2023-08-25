@@ -157,6 +157,7 @@ type MetricsNodeAPI interface {
 	SetIPAvailable(node string, cap int)
 	SetIPUsed(node string, used int)
 	SetIPNeeded(node string, needed int)
+	DeleteNode(node string)
 }
 
 // nodeMap is a mapping of node names to ENI nodes
@@ -383,6 +384,9 @@ func (n *NodeManager) Delete(resource *v2.CiliumNode) {
 	n.mutex.Lock()
 
 	if node, ok := n.nodes[resource.Name]; ok {
+		// Stop target_node metrics related to this node being emitted.
+		n.metricsAPI.DeleteNode(node.name)
+
 		if node.poolMaintainer != nil {
 			node.poolMaintainer.Shutdown()
 		}
