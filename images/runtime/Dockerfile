@@ -70,4 +70,4 @@ RUN /test/bin/cst -C /test/bpftool
 RUN /test/bin/cst -C /test/iproute2
 
 # Datadog modification: do not squash the layers to not lose GBI labels
-FROM rootfs
+FROM rootfs as release
