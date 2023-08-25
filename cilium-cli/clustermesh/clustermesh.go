@@ -121,6 +121,8 @@ func (k *K8sClusterMesh) generateService() (*corev1.Service, error) {
 			k.Log("⚠️  Using service type NodePort may fail when nodes are removed from the cluster!")
 		}
 		svc.Spec.Type = corev1.ServiceType(k.params.ServiceType)
+
+		svc.ObjectMeta.Annotations = k.params.ServiceAnnotations
 	} else {
 		switch k.flavor.Kind {
 		case k8s.KindGKE:
@@ -460,6 +462,7 @@ type K8sClusterMesh struct {
 type Parameters struct {
 	Namespace            string
 	ServiceType          string
+	ServiceAnnotations   map[string]string
 	DestinationContext   string
 	Wait                 bool
 	WaitDuration         time.Duration
