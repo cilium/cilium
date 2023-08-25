@@ -1345,18 +1345,24 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 	return currentMap, err
 }
 
-// syncPolicyMapWithDump attempts to synchronize the PolicyMap for this endpoint to
-// contain the set of PolicyKeys represented by the endpoint's desiredMapState.
-// It checks the current contents of the endpoint's PolicyMap and deletes any
-// PolicyKeys that are not present in the endpoint's desiredMapState. It then
-// adds any keys that are not present in the map. When a key from desiredMapState
-// is inserted successfully to the endpoint's BPF PolicyMap, it is added to the
-// endpoint's realizedMapState field. Returns an error if the endpoint's BPF
-// PolicyMap is unable to be dumped, or any update operation to the map fails.
+// syncPolicyMapWithDump is invoked periodically to perform a full reconciliation
+// of the endpoint's PolicyMap against the BPF maps to catch cases where either
+// due to kernel issue or user intervention the agent's view of the PolicyMap
+// state has diverged from the kernel. A warning is logged if this method finds
+// such an discrepancy.
+//
+// Returns an error if the endpoint's BPF PolicyMap is unable to be dumped,
+// or any update operation to the map fails.
 // Must be called with e.mutex Lock()ed.
 func (e *Endpoint) syncPolicyMapWithDump() error {
 	if e.policyMap == nil {
 		return fmt.Errorf("not syncing PolicyMap state for endpoint because PolicyMap is nil")
+	}
+
+	// Endpoint not yet fully initialized or currently regenerating. Skip the check
+	// this round.
+	if e.getState() != StateReady {
+		return nil
 	}
 
 	// Apply pending policy map changes first so that desired map is up-to-date before
@@ -1407,11 +1413,17 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 	return err
 }
 
-func (e *Endpoint) syncPolicyMapController() {
+const (
+	// syncPolicyMapInterval is the interval for periodic full reconciliation of
+	// the policy map to catch unexpected discrepancies with agent and kernel state.
+	syncPolicyMapInterval = 15 * time.Minute
+)
+
+func (e *Endpoint) startSyncPolicyMapController() {
 	ctrlName := fmt.Sprintf("sync-policymap-%d", e.ID)
-	e.controllers.UpdateController(ctrlName,
+	e.controllers.CreateController(ctrlName,
 		controller.ControllerParams{
-			DoFunc: func(ctx context.Context) (reterr error) {
+			DoFunc: func(ctx context.Context) error {
 				// Failure to lock is not an error, it means
 				// that the endpoint was disconnected and we
 				// should exit gracefully.
@@ -1421,7 +1433,10 @@ func (e *Endpoint) syncPolicyMapController() {
 				defer e.unlock()
 				return e.syncPolicyMapWithDump()
 			},
-			RunInterval: 1 * time.Minute,
+			StopFunc: func(ctx context.Context) error {
+				return nil
+			},
+			RunInterval: syncPolicyMapInterval,
 			Context:     e.aliveCtx,
 		},
 	)
