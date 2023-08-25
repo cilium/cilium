@@ -18,7 +18,7 @@ spec:
     k8s-app: hubble-ui
   ports:
     - name: http
-      port: 80
+      port: {{ .Values.hubble.ui.service.servicePort }}
       targetPort: 8081
       {{- if and (eq "NodePort" .Values.hubble.ui.service.type) .Values.hubble.ui.service.nodePort }}
       nodePort: {{ .Values.hubble.ui.service.nodePort }}

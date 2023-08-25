@@ -1815,7 +1815,7 @@
    * - :spelling:ignore:`hubble.ui.service`
      - hubble-ui service configuration.
      - object
-     - ``{"annotations":{},"nodePort":31235,"type":"ClusterIP"}``
+     - ``{"annotations":{},"nodePort":31235,"servicePort":80,"type":"ClusterIP"}``
    * - :spelling:ignore:`hubble.ui.service.annotations`
      - Annotations to be added for the Hubble UI service
      - object
@@ -1824,6 +1824,10 @@
      - - The port to use when the service type is set to NodePort.
      - int
      - ``31235``
+   * - :spelling:ignore:`hubble.ui.service.servicePort`
+     - - The service port to use by Hubble UI service
+     - int
+     - ``80``
    * - :spelling:ignore:`hubble.ui.service.type`
      - - The type of service used for Hubble UI access, either ClusterIP or NodePort.
      - string
