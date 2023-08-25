@@ -347,8 +347,8 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	qaBarNetworkPolicy := networkPolicies[QAIPv4Addr.String()]
 	c.Assert(qaBarNetworkPolicy, Not(IsNil))
-	expectedRemotePolicies := []uint64{
-		uint64(qaFooSecLblsCtx.ID),
+	expectedRemotePolicies := []uint32{
+		uint32(qaFooSecLblsCtx.ID),
 		// The prodFoo* identities are allowed by FromEndpoints but rejected by
 		// FromRequires, so they are not included in the remote policies:
 		// uint64(prodFooSecLblsCtx.ID),
@@ -389,12 +389,12 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 
 	prodBarNetworkPolicy := networkPolicies[ProdIPv4Addr.String()]
 	c.Assert(prodBarNetworkPolicy, Not(IsNil))
-	expectedRemotePolicies = []uint64{
+	expectedRemotePolicies = []uint32{
 		// The qaFoo identity is allowed by FromEndpoints but rejected by
 		// FromRequires, so it is not included in the remote policies:
 		// uint64(qaFooSecLblsCtx.ID),
-		uint64(prodFooSecLblsCtx.ID),
-		uint64(prodFooJoeSecLblsCtx.ID),
+		uint32(prodFooSecLblsCtx.ID),
+		uint32(prodFooJoeSecLblsCtx.ID),
 	}
 	sort.Slice(expectedRemotePolicies, func(i, j int) bool {
 		return expectedRemotePolicies[i] < expectedRemotePolicies[j]
@@ -499,7 +499,7 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{},
 					{
-						RemotePolicies: []uint64{uint64(qaFooSecLblsCtx.ID)},
+						RemotePolicies: []uint32{uint32(qaFooSecLblsCtx.ID)},
 						L7:             &PNPAllowGETbarLog,
 					},
 				},
@@ -670,7 +670,7 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
-						RemotePolicies: []uint64{uint64(qaJoeSecLblsCtx.ID)},
+						RemotePolicies: []uint32{uint32(qaJoeSecLblsCtx.ID)},
 					},
 				},
 			},
@@ -962,7 +962,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
-						RemotePolicies: []uint64{uint64(qaFooID.ID)},
+						RemotePolicies: []uint32{uint32(qaFooID.ID)},
 					},
 				},
 			},

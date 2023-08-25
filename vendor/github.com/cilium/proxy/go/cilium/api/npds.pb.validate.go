@@ -528,27 +528,6 @@ func (m *PortNetworkPolicyRule) validate(all bool) error {
 
 	// no validation rules for Name
 
-	_PortNetworkPolicyRule_RemotePolicies_Unique := make(map[uint64]struct{}, len(m.GetRemotePolicies()))
-
-	for idx, item := range m.GetRemotePolicies() {
-		_, _ = idx, item
-
-		if _, exists := _PortNetworkPolicyRule_RemotePolicies_Unique[item]; exists {
-			err := PortNetworkPolicyRuleValidationError{
-				field:  fmt.Sprintf("RemotePolicies[%v]", idx),
-				reason: "repeated value must contain unique items",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		} else {
-			_PortNetworkPolicyRule_RemotePolicies_Unique[item] = struct{}{}
-		}
-
-		// no validation rules for RemotePolicies[idx]
-	}
-
 	if all {
 		switch v := interface{}(m.GetDownstreamTlsContext()).(type) {
 		case interface{ ValidateAll() error }:
