@@ -52,7 +52,7 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, __be16 proxy_port, const b
 	if (IS_ERR(ret))
 		return ret;
 
-	cilium_dbg(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port, 0);
+	cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
 
 	/* Note that the actual __ctx_buff preparation for submitting the
 	 * packet to the proxy will occur in a subsequent program via

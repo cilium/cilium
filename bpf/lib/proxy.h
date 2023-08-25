@@ -211,7 +211,7 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 #endif
 		ctx->mark = MARK_MAGIC_TO_PROXY | proxy_port << 16;
 
-	cilium_dbg(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port, 0);
+	cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
 
 #ifdef ENABLE_TPROXY
 	if (proxy_port && !from_host) {
@@ -353,7 +353,7 @@ ctx_redirect_to_proxy_first(struct __ctx_buff *ctx, __be16 proxy_port)
 #endif /* ENABLE_TPROXY */
 
 mark: __maybe_unused;
-	cilium_dbg(ctx, DBG_CAPTURE_PROXY_POST, proxy_port, 0);
+	cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_POST, proxy_port);
 	ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
 	ctx_change_type(ctx, PACKET_HOST);
 
