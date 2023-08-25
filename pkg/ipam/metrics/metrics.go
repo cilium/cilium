@@ -264,6 +264,15 @@ func (p *prometheusMetrics) SetIPNeeded(node string, usage int) {
 	p.NeededIPs.WithLabelValues(node).Set(float64(usage))
 }
 
+// DeleteNode removes all per-node metrics for a particular node (i.e. those labeled with "target_node").
+// This is to ensure that when a Node/CiliumNode delete event happens that the operator will no longer report
+// metrics for that node.
+func (p *prometheusMetrics) DeleteNode(node string) {
+	p.AvailableIPs.DeleteLabelValues(node)
+	p.UsedIPs.DeleteLabelValues(node)
+	p.NeededIPs.DeleteLabelValues(node)
+}
+
 type triggerMetrics struct {
 	total        prometheus.Counter
 	folds        prometheus.Gauge
@@ -349,6 +358,7 @@ func (m *NoOpMetrics) SetIPNeeded(node string, n int)                           
 func (m *NoOpMetrics) PoolMaintainerTrigger() trigger.MetricsObserver                            { return &NoOpMetricsObserver{} }
 func (m *NoOpMetrics) K8sSyncTrigger() trigger.MetricsObserver                                   { return &NoOpMetricsObserver{} }
 func (m *NoOpMetrics) ResyncTrigger() trigger.MetricsObserver                                    { return &NoOpMetricsObserver{} }
+func (m *NoOpMetrics) DeleteNode(n string)                                                       {}
 
 func merge(slices ...[]float64) []float64 {
 	result := make([]float64, 1)
