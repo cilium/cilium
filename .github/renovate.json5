@@ -211,6 +211,34 @@
       ]
     },
     {
+      "groupName": "spire-images",
+      "matchFiles": [
+        "install/kubernetes/cilium/values.yaml.tmpl"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/spiffe/spire-agent",
+        "ghcr.io/spiffe/spire-server"
+      ],
+      "matchBaseBranches": [
+        "main",
+      ],
+      "allowedVersions": ">1.6",
+    },
+    {
+      "groupName": "spire-images",
+      "matchFiles": [
+        "install/kubernetes/cilium/values.yaml.tmpl"
+      ],
+      "matchPackageNames": [
+        "ghcr.io/spiffe/spire-agent",
+        "ghcr.io/spiffe/spire-server"
+      ],
+      "matchBaseBranches": [
+        "v1.14",
+      ],
+      "allowedVersions": "<1.7",
+    },
+    {
       "matchPackageNames": [
         "docker.io/library/ubuntu"
       ],
@@ -234,7 +262,7 @@
       "matchPackageNames": [
         "docker.io/library/busybox"
       ],
-      "allowedVersions": "<=1.35",
+      "allowedVersions": ">=1.35",
       "matchPaths": [
         "install/kubernetes/cilium/templates/spire/**"
       ],
