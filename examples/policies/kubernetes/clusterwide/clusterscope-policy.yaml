@@ -1,0 +1,13 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: "clusterwide-policy-example"
+spec:
+  description: "Policy for selective ingress allow to a pod from only a pod with given label"
+  endpointSelector:
+    matchLabels:
+      name: leia
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        name: luke

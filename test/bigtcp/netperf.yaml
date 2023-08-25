@@ -1,0 +1,41 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    # This pod will act as a server.
+    app.kubernetes.io/name: netperf-server
+  name: netperf-server
+spec:
+  containers:
+  - name: netperf
+    image: cilium/netperf
+    ports:
+    - containerPort: 12865
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app.kubernetes.io/name: netperf-client
+  # This pod will act as a client.
+  name: netperf-client
+spec:
+  affinity:
+    # Prevents the client from being scheduled to the
+    # same node as the server.
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - netperf-server
+        topologyKey: kubernetes.io/hostname
+  containers:
+  - name: netperf
+    args:
+    - sleep
+    - infinity
+    image: cilium/netperf

@@ -1,0 +1,16 @@
+{{- if and .Values.operator.enabled .Values.serviceAccounts.operator.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cilium-operator
+  labels:
+    app.kubernetes.io/part-of: cilium
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cilium-operator
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.serviceAccounts.operator.name | quote }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

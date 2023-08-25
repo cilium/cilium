@@ -1,0 +1,22 @@
+{{- if and .Values.hubble.enabled .Values.hubble.relay.enabled .Values.hubble.relay.podDisruptionBudget.enabled }}
+{{- $component := .Values.hubble.relay.podDisruptionBudget }}
+apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
+kind: PodDisruptionBudget
+metadata:
+  name: hubble-relay
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: hubble-relay
+    app.kubernetes.io/name: hubble-relay
+    app.kubernetes.io/part-of: cilium
+spec:
+  {{- with $component.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  {{- with $component.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+  selector:
+    matchLabels:
+      k8s-app: hubble-relay
+{{- end }}

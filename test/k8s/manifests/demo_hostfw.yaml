@@ -1,0 +1,129 @@
+# Deploys client and server pods on all nodes (using DaemonSets) both in host
+# and dedicated network namespaces.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: testserver
+spec:
+  selector:
+    matchLabels:
+      zgroup: testServer
+  template:
+    metadata:
+      labels:
+        zgroup: testServer
+        test: hostfw
+    spec:
+      containers:
+      - name: web
+        image: quay.io/cilium/echoserver:1.10.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+      - name: udp
+        image: quay.io/cilium/echoserver-udp:v2020.01.30
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 69
+          protocol: UDP
+      terminationGracePeriodSeconds: 0
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/control-plane
+      - effect: NoSchedule
+        key: node.cloudprovider.kubernetes.io/uninitialized
+        value: "true"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: testclient
+spec:
+  selector:
+    matchLabels:
+      zgroup: testClient
+  template:
+    metadata:
+      labels:
+        zgroup: testClient
+        test: hostfw
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: web
+        image: quay.io/cilium/demo-client:1.0
+        imagePullPolicy: IfNotPresent
+        command: [ "sleep" ]
+        args:
+          - "1000h"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: testserver-host
+spec:
+  selector:
+    matchLabels:
+      zgroup: testServerHost
+  template:
+    metadata:
+      labels:
+        zgroup: testServerHost
+        test: hostfw
+    spec:
+      hostNetwork: true
+      containers:
+      - name: web
+        image: quay.io/cilium/echoserver:1.10.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+      - name: udp
+        image: quay.io/cilium/echoserver-udp:v2020.01.30
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 69
+          protocol: UDP
+      terminationGracePeriodSeconds: 0
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/control-plane
+      - effect: NoSchedule
+        key: node.cloudprovider.kubernetes.io/uninitialized
+        value: "true"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: testclient-host
+spec:
+  selector:
+    matchLabels:
+      zgroup: testClientHost
+  template:
+    metadata:
+      labels:
+        zgroup: testClientHost
+        test: hostfw
+    spec:
+      hostNetwork: true
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: web
+        image: quay.io/cilium/demo-client:1.0
+        imagePullPolicy: IfNotPresent
+        command: [ "sleep" ]
+        args:
+          - "1000h"

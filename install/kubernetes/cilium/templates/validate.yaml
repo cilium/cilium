@@ -1,0 +1,76 @@
+{{/* validate hubble config */}}
+{{- if and .Values.hubble.ui.enabled (not .Values.hubble.ui.standalone.enabled) }}
+  {{- if not .Values.hubble.relay.enabled }}
+    {{ fail "Hubble UI requires .Values.hubble.relay.enabled=true" }}
+  {{- end }}
+{{- end }}
+{{- if and .Values.hubble.ui.enabled .Values.hubble.ui.standalone.enabled .Values.hubble.relay.tls.server.enabled }}
+  {{- if not .Values.hubble.ui.standalone.tls.certsVolume }}
+    {{ fail "Hubble UI in standalone with Hubble Relay server TLS enabled requires providing .Values.hubble.ui.standalone.tls.certsVolume for mounting client certificates in the backend pod" }}
+  {{- end }}
+{{- end }}
+{{- if .Values.hubble.relay.enabled }}
+  {{- if not .Values.hubble.enabled }}
+    {{ fail "Hubble Relay requires .Values.hubble.enabled=true" }}
+  {{- end }}
+{{- end }}
+
+{{/* validate service monitoring CRDs */}}
+{{- if or (and .Values.prometheus.enabled .Values.prometheus.serviceMonitor.enabled) (and .Values.operator.prometheus.enabled .Values.operator.prometheus.serviceMonitor.enabled) (and .Values.proxy.prometheus.enabled .Values.envoy.prometheus.enabled .Values.envoy.prometheus.serviceMonitor.enabled) (and .Values.proxy.prometheus.enabled .Values.hubble.relay.prometheus.enabled .Values.hubble.relay.prometheus.serviceMonitor.enabled) }}
+  {{- if not (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
+      {{- if not .Values.prometheus.serviceMonitor.trustCRDsExist }}
+          {{ fail "Service Monitor requires monitoring.coreos.com/v1 CRDs. Please refer to https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml or set .Values.prometheus.serviceMonitor.trustCRDsExist=true" }}
+      {{- end }}
+  {{- end }}
+{{- end }}
+
+{{- if and .Values.hubble.enabled .Values.hubble.tls.enabled .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "certmanager") }}
+  {{- if not .Values.hubble.tls.auto.certManagerIssuerRef }}
+    {{ fail "Hubble TLS certgen method=certmanager requires that user specifies .Values.hubble.tls.auto.certManagerIssuerRef" }}
+  {{- end }}
+{{- end }}
+
+{{- if and (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) .Values.clustermesh.apiserver.tls.auto.enabled (eq .Values.clustermesh.apiserver.tls.auto.method "certmanager") }}
+  {{- if not .Values.clustermesh.apiserver.tls.auto.certManagerIssuerRef }}
+    {{ fail "ClusterMesh TLS certgen method=certmanager requires that user specifies .Values.clustermesh.apiserver.tls.auto.certManagerIssuerRef" }}
+  {{- end }}
+{{- end }}
+
+{{/* validate hubble-ui specific config */}}
+{{- if and .Values.hubble.ui.enabled
+  (ne .Values.hubble.ui.backend.image.tag "latest")
+  (ne .Values.hubble.ui.frontend.image.tag "latest") }}
+  {{- if regexReplaceAll "@.*$" .Values.hubble.ui.backend.image.tag "" | trimPrefix "v" | semverCompare "<0.9.0" }}
+    {{ fail "Hubble UI requires hubble.ui.backend.image.tag to be '>=v0.9.0'" }}
+  {{- end }}
+  {{- if regexReplaceAll "@.*$" .Values.hubble.ui.frontend.image.tag "" | trimPrefix "v" | semverCompare "<0.9.0" }}
+    {{ fail "Hubble UI requires hubble.ui.frontend.image.tag to be '>=v0.9.0'" }}
+  {{- end }}
+{{- end }}
+
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled (eq .Values.loadBalancer.l7.backend "envoy") }}
+  {{- if hasKey .Values "l7Proxy" }}
+    {{- if not .Values.l7Proxy }}
+      {{ fail "Ingress or Gateway API controller or Envoy L7 Load Balancer  requires .Values.l7Proxy to be set to 'true'" }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+
+{{- if or .Values.envoyConfig.enabled .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
+  {{- if or (eq (toString .Values.kubeProxyReplacement) "disabled") (and (not (hasKey .Values "kubeProxyReplacement")) (not (semverCompare ">=1.14" (default "1.14" .Values.upgradeCompatibility)))) }}
+    {{ fail "Ingress/Gateway API controller and EnvoyConfig require .Values.kubeProxyReplacement to be explicitly set to 'false' or 'true'" }}
+  {{- end }}
+{{- end }}
+
+{{- if .Values.authentication.mutual.spire.enabled }}
+  {{- if not .Values.authentication.enabled }}
+    {{ fail "SPIRE integration requires .Values.authentication.enabled=true and .Values.authentication.mutual.spire.enabled=true" }}
+  {{- end }}
+{{- end }}
+
+{{/* validate Cilium operator */}}
+{{- if eq .Values.enableCiliumEndpointSlice true }}
+  {{- if eq .Values.disableEndpointCRD true }}
+    {{ fail "if Cilium Endpoint Slice is enabled (.Values.enableCiliumEndpointSlice=true), it requires .Values.disableEndpointCRD=false" }}
+  {{- end }}
+{{- end }}

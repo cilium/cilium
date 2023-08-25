@@ -1,0 +1,110 @@
+{{- if .Values.nodeinit.enabled }}
+---
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: cilium-node-init
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cilium-node-init
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: cilium-node-init
+spec:
+  selector:
+    matchLabels:
+      app: cilium-node-init
+  {{- with .Values.nodeinit.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | trim | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.nodeinit.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if not .Values.securityContext.privileged }}
+        # Set app AppArmor's profile to "unconfined". The value of this annotation
+        # can be modified as long users know which profiles they have available
+        # in AppArmor.
+        container.apparmor.security.beta.kubernetes.io/node-init: "unconfined"
+        {{- end }}
+      labels:
+        app: cilium-node-init
+        app.kubernetes.io/part-of: cilium
+        app.kubernetes.io/name: cilium-node-init
+        {{- with .Values.nodeinit.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: node-init
+          image: {{ include "cilium.image" .Values.nodeinit.image | quote }}
+          imagePullPolicy: {{ .Values.nodeinit.image.pullPolicy }}
+          lifecycle:
+            {{- if .Values.nodeinit.revertReconfigureKubelet }}
+            preStop:
+              exec:
+                command:
+                  - nsenter
+                  - --target=1
+                  - --mount
+                  - --
+                  - /bin/bash
+                  - -c
+                  - |
+                    {{- tpl (.Files.Get "files/nodeinit/prestop.bash") . | nindent 20 }}
+            {{- end }}
+          env:
+          {{- with .Values.nodeinit.extraEnv }}
+          {{- toYaml . | trim | nindent 10 }}
+          {{- end }}
+          # STARTUP_SCRIPT is the script run on node bootstrap. Node
+          # bootstrapping can be customized in this script. This script is invoked
+          # using nsenter, so it runs in the host's network and mount namespace using
+          # the host's userland tools!
+          - name: STARTUP_SCRIPT
+            value: |
+              {{- tpl (.Files.Get "files/nodeinit/startup.bash") . | nindent 14 }}
+          {{- with .Values.nodeinit.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          {{- with .Values.nodeinit.securityContext }}
+          securityContext:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
+          {{- with .Values.nodeinit.extraVolumeMounts }}
+          volumeMounts:
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+      {{- with .Values.nodeinit.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeinit.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeinit.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      hostPID: true
+      hostNetwork: true
+      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.nodeinit.priorityClassName "system-node-critical") }}
+      {{- if .Values.serviceAccounts.nodeinit.enabled }}
+      serviceAccount: {{ .Values.serviceAccounts.nodeinit.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.nodeinit.name | quote }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.nodeinit.automount }}
+      {{- end }}
+      {{- with .Values.nodeinit.extraVolumes }}
+      volumes:
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+{{- end }}

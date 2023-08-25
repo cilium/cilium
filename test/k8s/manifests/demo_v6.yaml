@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: app1-service-ipv6
+spec:
+  ipFamilies:
+  - IPv6
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+  - name: tftp
+    port: 69
+    protocol: UDP
+  selector:
+    id: app1

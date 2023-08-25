@@ -1,0 +1,263 @@
+name: ConformanceGatewayAPI
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+
+  push:
+    branches:
+      - main
+      - ft/main/**
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.15.6
+  cilium_cli_ci_version:
+  CILIUM_CLI_MODE: helm
+  # renovate: datasource=github-releases depName=kubernetes-sigs/kind
+  kind_version: v0.20.0
+  kind_config: .github/kind-config.yaml
+  gateway_api_version: v0.8.0-rc1
+  metallb_version: 0.12.1
+  timeout: 5m
+
+jobs:
+  commit-status-start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  gateway-api-conformance-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - crd-channel: experimental
+        - crd-channel: standard
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@e718cf78ef55d95cfa0a5a0a935d6a224d567e1d # v0.15.6
+        with:
+          release-version: ${{ env.cilium_cli_version }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
+
+      - name: Set image tag
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+          echo sha=${SHA} >> $GITHUB_OUTPUT
+          
+          SUPPORTED_FEATURES="ReferenceGrant,HTTPRoute,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,GatewayClassObservedGenerationBump,HTTPRouteHostRewrite,HTTPRoutePathRewrite,HTTPRouteSchemeRedirect,HTTPRoutePathRedirect,HTTPRoutePortRedirect,HTTPRouteRequestMirror"
+          if [ ${{ matrix.crd-channel }} == "experimental" ]; then
+            SUPPORTED_FEATURES+=",HTTPResponseHeaderModification,RouteDestinationPortMatching"
+          fi
+
+          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+            --helm-set=debug.enabled=true \
+            --helm-set=debug.verbose=envoy \
+            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set kubeProxyReplacement=true \
+            --helm-set=securityContext.privileged=true \
+            --helm-set=gatewayAPI.enabled=true"
+
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo skipped_tests=${SKIPPED_TESTS} >> $GITHUB_OUTPUT
+          echo supported_features=${SUPPORTED_FEATURES} >> $GITHUB_OUTPUT
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Create kind cluster
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        with:
+          version: ${{ env.kind_version }}
+          config: ${{ env.kind_config }}
+
+      - name: Install Go
+        uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.21.0
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Install Gateway API CRDs
+        run: |
+          # Install Gateway CRDs
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_gatewayclasses.yaml
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_gateways.yaml
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_httproutes.yaml
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/${{ matrix.crd-channel }}/gateway.networking.k8s.io_referencegrants.yaml
+          ## TLSRoute is only available in experimental channel in v0.7.0
+          kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api/${{ env.gateway_api_version }}/config/crd/experimental/gateway.networking.k8s.io_tlsroutes.yaml
+
+          # To make sure that Gateway API CRs are available
+          kubectl wait --for condition=Established crd/gatewayclasses.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/gateways.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/httproutes.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/tlsroutes.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+          kubectl wait --for condition=Established crd/referencegrants.gateway.networking.k8s.io --timeout=${{ env.timeout }}
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+          kubectl -n kube-system get pods
+
+      - name: Install metallb for LB service
+        timeout-minutes: 10
+        run: |
+          KIND_NET_CIDR=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Subnet}}')
+          METALLB_IP_START=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200@")
+          METALLB_IP_END=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.250@")
+          METALLB_IP_RANGE="${METALLB_IP_START}-${METALLB_IP_END}"
+          
+          cat << EOF > metallb_values.yaml
+          configInline:
+            address-pools:
+            - name: default
+              protocol: layer2
+              addresses:
+              - ${METALLB_IP_RANGE}
+          psp:
+            create: false
+          EOF
+          
+          helm install --namespace metallb-system \
+            --create-namespace \
+            --repo https://metallb.github.io/metallb metallb metallb \
+            --version ${{ env.metallb_version }} \
+            --values metallb_values.yaml \
+            --wait
+
+      - name: Run Gateway API conformance test
+        timeout-minutes: 30
+        run: |
+          cat << EOF | kubectl apply -f -
+          apiVersion: gateway.networking.k8s.io/v1beta1
+          kind: GatewayClass
+          metadata:
+            name: cilium
+          spec:
+            controllerName: io.cilium/gateway-controller
+          EOF
+          
+          GATEWAY_API_CONFORMANCE_TESTS=1 go test \
+            -p 4 \
+            -v ./operator/pkg/gateway-api \
+            --gateway-class cilium \
+            --supported-features "${{ steps.vars.outputs.supported_features }}" \
+            -test.run "TestConformance" \
+            -test.skip "${{ steps.vars.outputs.skipped_tests }}"
+
+      - name: Post-test information gathering
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
+        run: |
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-out
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip
+          retention-days: 5
+
+  commit-status-final:
+    if: ${{ always() }}
+    needs: gateway-api-conformance-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7  
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.gateway-api-conformance-test.result }}

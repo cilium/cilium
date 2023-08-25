@@ -1,0 +1,20 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "kiam-redirect"
+  namespace: default
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "169.254.169.254"
+      toPorts:
+        - port: "80"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: kiam
+        component: "agent"
+    toPorts:
+      - port: "8181"
+        protocol: TCP

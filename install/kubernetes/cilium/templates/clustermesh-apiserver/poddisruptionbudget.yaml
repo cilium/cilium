@@ -1,0 +1,22 @@
+{{- if and (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) .Values.clustermesh.apiserver.podDisruptionBudget.enabled }}
+{{- $component := .Values.clustermesh.apiserver.podDisruptionBudget }}
+apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
+kind: PodDisruptionBudget
+metadata:
+  name: clustermesh-apiserver
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: clustermesh-apiserver
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: clustermesh-apiserver
+spec:
+  {{- with $component.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  {{- with $component.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+  selector:
+    matchLabels:
+      k8s-app: clustermesh-apiserver
+{{- end }}

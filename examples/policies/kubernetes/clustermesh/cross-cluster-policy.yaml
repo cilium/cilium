@@ -1,0 +1,16 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "allow-cross-cluster"
+  description: "Allow x-wing in cluster1 to contact rebel-base in cluster2"
+spec:
+  endpointSelector:
+    matchLabels:
+      name: x-wing
+      io.cilium.k8s.policy.cluster: cluster1
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        name: rebel-base
+        io.kubernetes.pod.namespace: default
+        io.cilium.k8s.policy.cluster: cluster2

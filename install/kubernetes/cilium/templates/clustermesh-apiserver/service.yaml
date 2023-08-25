@@ -1,0 +1,33 @@
+{{- if (or .Values.externalWorkloads.enabled  .Values.clustermesh.useAPIServer) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: clustermesh-apiserver
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: clustermesh-apiserver
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: clustermesh-apiserver
+  {{- with .Values.clustermesh.apiserver.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.clustermesh.apiserver.service.type }}
+  selector:
+    k8s-app: clustermesh-apiserver
+  ports:
+  - port: 2379
+    {{- if and (eq "NodePort" .Values.clustermesh.apiserver.service.type) .Values.clustermesh.apiserver.service.nodePort }}
+    nodePort: {{ .Values.clustermesh.apiserver.service.nodePort }}
+    {{- end }}
+  {{- if and (eq "LoadBalancer" .Values.clustermesh.apiserver.service.type) .Values.clustermesh.apiserver.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.clustermesh.apiserver.service.loadBalancerIP }}
+  {{- end }}
+  {{- if .Values.clustermesh.apiserver.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.clustermesh.apiserver.service.externalTrafficPolicy }}
+  {{- end }}
+  {{- if .Values.clustermesh.apiserver.service.internalTrafficPolicy }}
+  internalTrafficPolicy: {{ .Values.clustermesh.apiserver.service.internalTrafficPolicy }}
+  {{- end }}
+{{- end }}

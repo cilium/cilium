@@ -1,0 +1,116 @@
+name: build-commits
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on: [pull_request]
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build_commits:
+    name: Check if build works for every commit
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - name: Configure git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "github-actions@users.noreply.github.com"
+
+      - name: Install Go
+        uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.21.0
+
+      - name: Set clang directory
+        id: set_clang_dir
+        run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
+
+      - name: Cache LLVM and Clang
+        id: cache-llvm
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        with:
+          path: ${{ steps.set_clang_dir.outputs.clang_dir }}
+          key: llvm-10.0
+
+      - name: Install LLVM and Clang prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libtinfo5
+
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@c135b3937686fd69c2651507aabc9925a8f9eee8 # v1.8.3
+        with:
+          version: "10.0"
+          directory: ${{ steps.set_clang_dir.outputs.clang_dir }}
+          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+
+      - name: Install ginkgo
+        run: |
+          go install github.com/onsi/ginkgo/ginkgo@cc0216944b25a88d3259699a029d4e601fb8a222 # v1.12.1
+
+      - name: Checkout code
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Check if build works for every commit
+        run: |
+          PR_COMMITS_API_JSON=$(curl \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            ${{ github.event.pull_request.commits_url }})
+          PR_FIRST_SHA=$(echo "$PR_COMMITS_API_JSON" | jq -r ".[0].sha")
+          PR_PARENT_SHA=$(git rev-parse "${PR_FIRST_SHA}^")
+          git rebase --exec "make build -j $(nproc)" $PR_PARENT_SHA
+
+      - name: Check bpf code changes
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+        id: bpf-tree
+        with:
+          filters: |
+            src:
+              - 'bpf/**'
+
+      # Runs only if code under bpf/ is changed.
+      - name: Check if datapath build works for every commit
+        if: steps.bpf-tree.outputs.src == 'true'
+        run: |
+          PR_COMMITS_API_JSON=$(curl \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            ${{ github.event.pull_request.commits_url }})
+          PR_FIRST_SHA=$(echo "$PR_COMMITS_API_JSON" | jq -r ".[0].sha")
+          PR_PARENT_SHA=$(git rev-parse "${PR_FIRST_SHA}^")
+          git rebase --exec "make -C bpf build_all -j $(nproc)" $PR_PARENT_SHA
+
+      - name: Check test code changes
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+        id: test-tree
+        with:
+          filters: |
+            src:
+              - 'pkg/**'
+              - 'test/**'
+
+      # Runs only if code under test/ is changed.
+      - name: Check if ginkgo test suite build works for every commit
+        if: steps.test-tree.outputs.src == 'true'
+        run: |
+         PR_COMMITS_API_JSON=$(curl \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            ${{ github.event.pull_request.commits_url }})
+          PR_FIRST_SHA=$(echo "$PR_COMMITS_API_JSON" | jq -r ".[0].sha")
+          PR_PARENT_SHA=$(git rev-parse "${PR_FIRST_SHA}^")
+          git rebase --exec "make -C test build -j $(nproc) && make -C test build-darwin" $PR_PARENT_SHA
+
+      - name: Failed commit during the build
+        if: ${{ failure() }}
+        run: git --no-pager log --format=%B -n 1

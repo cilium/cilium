@@ -1,0 +1,6 @@
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled -}}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.authentication.mutual.spire.install.namespace }}
+{{- end }}

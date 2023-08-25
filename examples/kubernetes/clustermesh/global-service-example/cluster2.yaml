@@ -1,0 +1,91 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rebel-base
+  annotations:
+    service.cilium.io/global: "true"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+  selector:
+    name: rebel-base
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rebel-base
+spec:
+  selector:
+    matchLabels:
+      name: rebel-base
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        name: rebel-base
+    spec:
+      containers:
+      - name: rebel-base
+        image: docker.io/nginx:1.15.8
+        volumeMounts:
+          - name: html
+            mountPath: /usr/share/nginx/html/
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          periodSeconds: 1
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+      volumes:
+        - name: html
+          configMap:
+            name: rebel-base-response
+            items:
+              - key: message
+                path: index.html
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rebel-base-response
+data:
+  message: "{\"Galaxy\": \"Alderaan\", \"Cluster\": \"Cluster-2\"}\n"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: x-wing
+spec:
+  selector:
+    matchLabels:
+      name: x-wing
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        name: x-wing
+    spec:
+      containers:
+      - name: x-wing-container
+        image: quay.io/cilium/json-mock:v1.3.3@sha256:f26044a2b8085fcaa8146b6b8bb73556134d7ec3d5782c6a04a058c945924ca0
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - -o
+            - /dev/null
+            - localhost
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - -o
+            - /dev/null
+            - localhost

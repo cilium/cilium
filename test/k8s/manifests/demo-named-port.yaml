@@ -1,0 +1,123 @@
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: app1-account
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: app2-account
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app1-service
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+  - name: tftp
+    port: 69
+    protocol: UDP
+  selector:
+    id: app1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app1
+spec:
+  selector:
+    matchLabels:
+      id: app1
+      zgroup: testapp
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        id: app1
+        zgroup: testapp
+    spec:
+      serviceAccountName: app1-account
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: web
+        image: docker.io/cilium/demo-httpd:1.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: "http-80"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+      - name: udp
+        image: quay.io/cilium/echoserver-udp:v2020.01.30
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 69
+          protocol: UDP
+      nodeSelector:
+        "cilium.io/ci-node": k8s1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app2
+spec:
+  selector:
+    matchLabels:
+      id: app2
+      zgroup: testapp
+      appSecond: "true"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        id: app2
+        zgroup: testapp
+        appSecond: "true"
+    spec:
+      serviceAccountName: app2-account
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: app-frontend
+        image: quay.io/cilium/demo-client:1.0
+        imagePullPolicy: IfNotPresent
+        command: [ "sleep" ]
+        args:
+          - "1000h"
+      # k8s/services.go:"Checks service on same node" requires the pod to be
+      # scheduled on the same node as app1
+      nodeSelector:
+        "cilium.io/ci-node": k8s1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app3
+spec:
+  selector:
+    matchLabels:
+      id: app3
+      zgroup: testapp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        id: app3
+        zgroup: testapp
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: app-frontend
+        image: quay.io/cilium/demo-client:1.0
+        imagePullPolicy: IfNotPresent
+        command: [ "sleep" ]
+        args:
+          - "1000h"
+        ports:
+        - containerPort: 80
+      nodeSelector:
+        "cilium.io/ci-node": k8s1

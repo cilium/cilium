@@ -1,0 +1,20 @@
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: foo
+specs:
+- endpointSelector:
+    matchLabels:
+      any:id: foo
+  ingress:
+  - fromEndpoints:
+    - {}
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: UDP
+      rules:
+        http:
+        - method: GET
+          path: /private

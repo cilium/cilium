@@ -1,0 +1,32 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "tofqdn-dns-visibility"
+spec:
+  endpointSelector:
+    matchLabels:
+      any:org: alliance
+  egress:
+  - toEndpoints:
+    - matchLabels:
+       "k8s:io.kubernetes.pod.namespace": kube-system
+       "k8s:k8s-app": kube-dns
+    toPorts:
+      - ports:
+         - port: "53"
+           protocol: ANY
+        rules:
+          dns:
+            - matchName: "cilium.io"
+            - matchPattern: "*.cilium.io"
+            - matchPattern: "*.api.cilium.io"
+
+  - toFQDNs:
+      - matchName: "cilium.io"
+      - matchName: "sub.cilium.io"
+      - matchName: "service1.api.cilium.io"
+      - matchPattern: "special*service.api.cilium.io"
+    toPorts:
+      - ports:
+         - port: "80"
+           protocol: TCP

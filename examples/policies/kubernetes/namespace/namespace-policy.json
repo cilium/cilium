@@ -1,0 +1,11 @@
+[{
+    "labels": [{"key": "name", "value": "k8s-svc-account"}],
+    "endpointSelector": {
+        "matchLabels": {"name":"leia", "k8s:io.kubernetes.pod.namespace":"ns1"}
+    },
+    "ingress": [{
+        "fromEndpoints": [{
+	    "matchLabels":{"name": "luke", "k8s:io.kubernetes.pod.namespace":"ns2"}
+        }]
+    }]
+}]

@@ -1,0 +1,172 @@
+name: BPF checks
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request: {}
+  push:
+    branches:
+      - main
+      - ft/main/**
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    runs-on: ubuntu-latest
+    outputs:
+      bpf-tree: ${{ steps.changes.outputs.bpf-tree }}
+      coccinelle: ${{ steps.changes.outputs.coccinelle }}
+      bpf-tests-runner: ${{ steps.changes.outputs.bpf-tests-runner }}
+    steps:
+      - name: Checkout code
+        if: ${{ !github.event.pull_request }}
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          persist-credentials: false
+      - name: Check code changes
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+        id: changes
+        with:
+          # For `push` events, compare against the `ref` base branch
+          # For `pull_request` events, this is ignored and will compare against the pull request base branch
+          base: ${{ github.ref }}
+          filters: |
+            bpf-tree:
+              - 'bpf/**'
+            coccinelle:
+              - 'contrib/coccinelle/**'
+            bpf-tests-runner:
+              - 'test/bpf_tests/**'
+              - 'pkg/bpf/**'
+
+  checkpatch:
+    name: checkpatch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Run checkpatch.pl
+        run: |
+          make -C bpf checkpatch || (echo "Run 'make -C bpf checkpatch' locally to investigate reports"; exit 1)
+
+  # Runs only if code under bpf/ or contrib/coccinnelle/ is changed.
+  coccicheck:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.coccinelle == 'true' }}
+    name: coccicheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          persist-credentials: false
+      - uses: docker://cilium/coccicheck:2.4@sha256:24abe3fbb8e829fa41a68a3b76cb4df84fd5a87a7d1d6254c1c1fe5effb5bd1b
+        with:
+          entrypoint: ./contrib/coccinelle/check-cocci.sh
+        # Note: Setting COCCINELLE_HOME can be removed, here and in the
+        # messages in the .cocci files, next time we upgrade coccinelle.
+        # The issue was fixed, after v1.1.1 that we're using, in
+        # https://gitlab.inria.fr/coccinelle/coccinelle/-/commit/540888ff426e.
+        env:
+          COCCINELLE_HOME: /usr/local/lib/coccinelle
+
+  set_clang_dir:
+    name: Set clang directory
+    runs-on: ubuntu-latest
+    outputs:
+      clang_dir: ${{ steps.set_dir.outputs.clang_dir }}
+    steps:
+    - name: Set directory
+      id: set_dir
+      run: echo "clang_dir=$HOME/.clang" >> $GITHUB_OUTPUT
+
+  # Runs only if code under bpf/ is changed.
+  build_all:
+    needs: [check_changes, set_clang_dir]
+    if: ${{ needs.check_changes.outputs.bpf-tree == 'true' }}
+    name: build datapath
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.21.0
+      - name: Cache LLVM and Clang
+        id: cache-llvm
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        with:
+          path: ${{ needs.set_clang_dir.outputs.clang_dir }}
+          key: llvm-10.0
+      - name: Install LLVM and Clang prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libtinfo5
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@c135b3937686fd69c2651507aabc9925a8f9eee8 # v1.8.3
+        with:
+          version: "10.0"
+          directory: ${{ needs.set_clang_dir.outputs.clang_dir }}
+          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+      - name: Checkout code
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Build all BPF datapath permutations
+        env:
+          V: 0
+        run: |
+          make --quiet -C bpf build_all || (echo "Run 'make -C bpf build_all' locally to investigate build breakages"; exit 1)
+
+  bpf_tests:
+    needs: [check_changes, set_clang_dir]
+    if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.bpf-tests-runner == 'true' }}
+    name: BPF unit/integration Tests
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
+        with:
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.21.0
+      - name: Cache LLVM and Clang
+        id: cache-llvm
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        with:
+          path: ${{ needs.set_clang_dir.outputs.clang_dir }}
+          key: llvm-10.0
+      - name: Install LLVM and Clang prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libtinfo5
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@c135b3937686fd69c2651507aabc9925a8f9eee8 # v1.8.3
+        with:
+          version: "10.0"
+          directory: ${{ needs.set_clang_dir.outputs.clang_dir }}
+          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+      - name: Checkout code
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Run BPF tests with code coverage reporting
+        env:
+          # Disable coverage report for these test cases since they are hitting
+          # https://github.com/cilium/coverbee/issues/7
+          NOCOVER_PATTERN: "inter_cluster_snat_clusterip.*|l4lb_ipip_health_check_host.o|nodeport_geneve_dsr_*|session_affinity_test.o|tc_egressgw_redirect.o|tc_egressgw_snat.o|tc_nodeport_lb4_dsr_backend.o|tc_nodeport_lb4_dsr_lb.o|tc_nodeport_lb4_nat_backend.o|tc_nodeport_lb4_nat_lb.o|tc_nodeport_lb6_dsr_backend.o|tc_nodeport_lb6_dsr_lb.o|xdp_egressgw_reply.o|xdp_nodeport_lb4_dsr_lb.o|xdp_nodeport_lb4_nat_backend.o|xdp_nodeport_lb4_nat_lb.o|xdp_nodeport_lb4_test.o|xdp_nodeport_lb6_dsr_lb.o|bpf_nat_tests.o"
+        run: |
+          make -C test run_bpf_tests COVER=1 NOCOVER="$NOCOVER_PATTERN" || (echo "Run 'make -C test run_bpf_tests COVER=1 NOCOVER=\"$NOCOVER_PATTERN\"' locally to investigate failures"; exit 1)
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: bpf-code-coverage-report
+          path: bpf-coverage.html

@@ -1,0 +1,115 @@
+name: Failing Test (Jenkins)
+description: Report test failures in Cilium CI jobs (Jenkins)
+title: 'CI: '
+labels: ["area/CI", "ci/flake"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        - Set title to be in the format `CI: <test-name>`.
+        - Copy-paste the output the test failure.
+        - Upload the zip file generated from that test failure.
+        - Copy-paste the link of the CI build where that test failure has happened.
+        - Include any output from logs that you think may be relevant (to ease GitHub searches).
+  - type: textarea
+    id: test-name
+    attributes:
+      label: Test Name
+      description: Test suite and name of the test which failed
+      placeholder: K8sFQDNTest Validate that FQDN policy continues to work after being updated
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: failure-output
+    attributes:
+      label: Failure Output
+      description: Failure message for the test.
+      placeholder: |
+        FAIL: Can't connect to to a valid target when it should work
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: stack-trace
+    attributes:
+      label: Stack Trace
+      description: Stack trace for the failure, as reported by Jenkins. This will be automatically formatted into code, so no need for backticks.
+      placeholder: |
+        /home/jenkins/workspace/Cilium-PR-K8s-1.22-kernel-4.19/src/github.com/cilium/cilium/test/ginkgo-ext/scopes.go:527
+        Can't connect to to a valid target when it should work
+        Expected command: kubectl exec -n default app2-58757b7dd5-pvvvw -- curl --path-as-is -s -D /dev/stderr --fail --connect-timeout 5 --max-time 20 --retry 5 http://vagrant-cache.ci.cilium.io -w "time-> DNS: '%{time_namelookup}(%{remote_ip})', Connect: '%{time_connect}',Transfer '%{time_starttransfer}', total '%{time_total}'"
+        To succeed, but it failed:
+        Exitcode: 28
+        Err: exit status 28
+        Stdout:
+             time-> DNS: '0.000016()', Connect: '0.000000',Transfer '0.000000', total '5.000836'
+        Stderr:
+             command terminated with exit code 28
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: stack-output
+    attributes:
+      label: Standard Output
+      description: Standard output messages for the failure, as reported by Jenkins. This will be automatically formatted into code, so no need for backticks.
+      placeholder: |
+        Cilium pods: [cilium-9gp4w cilium-vpsn6]
+        Netpols loaded:
+        CiliumNetworkPolicies loaded: default::fqdn-proxy-policy.yaml
+        Endpoint Policy Enforcement:
+        Pod   Ingress   Egress
+        Cilium agent 'cilium-9gp4w': Status: Ok  Health: Ok Nodes "" ContainerRuntime:  Kubernetes: Ok KVstore: Ok Controllers: Total 37 Failed 0
+        Cilium agent 'cilium-vpsn6': Status: Ok  Health: Ok Nodes "" ContainerRuntime:  Kubernetes: Ok KVstore: Ok Controllers: Total 33 Failed 0
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: stack-error
+    attributes:
+      label: Standard Error
+      description: Standard error messages for the failure, as reported by Jenkins. This will be automatically formatted into code, so no need for backticks.
+      placeholder: |
+        03:10:39 STEP: Validating APP2 policy connectivity
+        03:10:44 STEP: Updating the policy to include an extra FQDN allow statement
+        03:10:45 STEP: Validating APP2 policy connectivity after policy change
+        FAIL: Can't connect to to a valid target when it should work
+        Expected command: kubectl exec -n default app2-58757b7dd5-pvvvw -- curl --path-as-is -s -D /dev/stderr --fail --connect-timeout 5 --max-time 20 --retry 5 http://vagrant-cache.ci.cilium.io -w "time-> DNS: '%{time_namelookup}(%{remote_ip})', Connect: '%{time_connect}',Transfer '%{time_starttransfer}', total '%{time_total}'"
+        To succeed, but it failed:
+        Exitcode: 28
+        Err: exit status 28
+        ...
+        Stdout:
+             time-> DNS: '0.000016()', Connect: '0.000000',Transfer '0.000000', total '5.000836'
+        Stderr:
+             command terminated with exit code 28
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Resources
+      description: |
+        Copy-paste the link of the CI build where that test failure has happen.
+        Upload the zip file generated from that test failure.
+
+        Tip: You can attach the zip file by clicking this area to highlight it and then dragging the file in.
+      placeholder: |
+        - Jenkins URL: https://jenkins.cilium.io/job/Cilium-PR-K8s-1.22-kernel-4.19/92/
+        - ZIP file(s):
+            - [test_results.zip](https://github.com/cilium/cilium/files/1234567/7fcfe7ee_K8sUpdates_Tests_upgrade_and_downgrade_from_a_Cilium_stable_image_to_main.zip)
+      value: |
+        - Jenkins URL: 
+        - ZIP file(s): 
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Anything else?
+      description: |
+        Include any output from logs that you think may be relevant (to ease GitHub searches).
+
+        Provide other helpful information, if any.
+    validations:
+      required: false

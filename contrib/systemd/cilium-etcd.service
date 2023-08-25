@@ -1,0 +1,27 @@
+[Unit]
+Description=cilium-etcd
+Documentation=https://github.com/cilium/cilium
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=0
+ExecStartPre=/usr/bin/docker pull quay.io/coreos/etcd:v3.1.0
+ExecStartPre=-/usr/bin/docker rm -f cilium-etcd
+ExecStartPre=/usr/bin/docker create \
+ -v /usr/share/ca-certificates/:/etc/ssl/certs \
+ -p 4001:4001 -p 2380:2380 -p 2379:2379 \
+ --name cilium-etcd \
+ quay.io/coreos/etcd:v3.1.0 \
+ etcd -name etcd0 \
+ -advertise-client-urls http://127.0.0.1:2379,http://127.0.0.1:4001 \
+ -listen-client-urls http://0.0.0.0:2379,http://0.0.0.0:4001 \
+ -initial-cluster-token etcd-cluster-1 \
+ -initial-cluster-state new
+
+ExecStart=-/usr/bin/docker start cilium-etcd
+ExecStop=-/usr/bin/docker rm -f cilium-etcd
+
+[Install]
+WantedBy=multi-user.target

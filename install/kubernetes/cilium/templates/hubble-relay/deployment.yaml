@@ -1,0 +1,162 @@
+{{- if and .Values.hubble.enabled .Values.hubble.relay.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hubble-relay
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: hubble-relay
+    app.kubernetes.io/name: hubble-relay
+    app.kubernetes.io/part-of: cilium
+spec:
+  replicas: {{ .Values.hubble.relay.replicas }}
+  selector:
+    matchLabels:
+      k8s-app: hubble-relay
+  {{- with .Values.hubble.relay.updateStrategy }}
+  strategy:
+    {{- toYaml .  | trim | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.hubble.relay.rollOutPods }}
+        # ensure pods roll when configmap updates
+        cilium.io/hubble-relay-configmap-checksum: {{ include (print $.Template.BasePath "/hubble-relay/configmap.yaml") . | sha256sum | quote }}
+        {{- end }}
+        {{- with .Values.hubble.relay.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        k8s-app: hubble-relay
+        app.kubernetes.io/name: hubble-relay
+        app.kubernetes.io/part-of: cilium
+        {{- with .Values.hubble.relay.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.hubble.relay.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: hubble-relay
+          {{- with .Values.hubble.relay.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          image: {{ include "cilium.image" .Values.hubble.relay.image | quote }}
+          imagePullPolicy: {{ .Values.hubble.relay.image.pullPolicy }}
+          command:
+            - hubble-relay
+          args:
+            - serve
+          {{- if .Values.debug.enabled }}
+            - --debug
+          {{- end }}
+          ports:
+            - name: grpc
+              containerPort: {{ .Values.hubble.relay.listenPort }}
+            {{- if .Values.hubble.relay.prometheus.enabled }}
+            - name: prometheus
+              containerPort: {{ .Values.hubble.relay.prometheus.port }}
+              protocol: TCP
+            {{- end }}
+          readinessProbe:
+            tcpSocket:
+              port: grpc
+          livenessProbe:
+            tcpSocket:
+              port: grpc
+          {{- with .Values.hubble.relay.extraEnv }}
+          env:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          {{- with .Values.hubble.relay.resources }}
+          resources:
+            {{- toYaml . | trim | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+          - name: config
+            mountPath: /etc/hubble-relay
+            readOnly: true
+          {{- if .Values.hubble.tls.enabled }}
+          - name: tls
+            mountPath: /var/lib/hubble-relay/tls
+            readOnly: true
+          {{- end }}
+          terminationMessagePolicy: FallbackToLogsOnError
+      restartPolicy: Always
+      priorityClassName: {{ .Values.hubble.relay.priorityClassName }}
+      serviceAccount: {{ .Values.serviceAccounts.relay.name | quote }}
+      serviceAccountName: {{ .Values.serviceAccounts.relay.name | quote }}
+      automountServiceAccountToken: {{ .Values.serviceAccounts.relay.automount }}
+      terminationGracePeriodSeconds: {{ .Values.hubble.relay.terminationGracePeriodSeconds }}
+      {{- with .Values.hubble.relay.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hubble.relay.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- range $constraint := . }}
+      - {{ toYaml $constraint | nindent 8 | trim }}
+          {{- if not $constraint.labelSelector }}
+        labelSelector:
+          matchLabels:
+            k8s-app: hubble-relay
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- with .Values.hubble.relay.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      {{- with .Values.hubble.relay.tolerations }}
+      tolerations:
+        {{- toYaml . | trim | nindent 8 }}
+      {{- end }}
+      volumes:
+      - name: config
+        configMap:
+          name: hubble-relay-config
+          items:
+          - key: config.yaml
+            path: config.yaml
+      {{- if .Values.hubble.tls.enabled }}
+      - name: tls
+        projected:
+          # note: the leading zero means this number is in octal representation: do not remove it
+          defaultMode: 0400
+          sources:
+          - secret:
+              name: hubble-relay-client-certs
+              items:
+                - key: tls.crt
+                  path: client.crt
+                - key: tls.key
+                  path: client.key
+          {{- if not .Values.tls.caBundle.enabled }}
+                - key: ca.crt
+                  path: hubble-server-ca.crt
+          {{- else }}
+          - {{ .Values.tls.caBundle.useSecret | ternary "secret" "configMap" }}:
+              name: {{ .Values.tls.caBundle.name }}
+              items:
+                - key: {{ .Values.tls.caBundle.key }}
+                  path: hubble-server-ca.crt
+          {{- end }}
+          {{- if .Values.hubble.relay.tls.server.enabled }}
+          - secret:
+              name: hubble-relay-server-certs
+              items:
+                - key: tls.crt
+                  path: server.crt
+                - key: tls.key
+                  path: server.key
+          {{- end }}
+      {{- end }}
+{{- end }}

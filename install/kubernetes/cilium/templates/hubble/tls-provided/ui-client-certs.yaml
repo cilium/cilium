@@ -1,0 +1,12 @@
+{{- if and .Values.hubble.enabled .Values.hubble.tls.enabled (not .Values.hubble.tls.auto.enabled) .Values.hubble.ui.enabled .Values.hubble.relay.enabled .Values.hubble.relay.tls.server.enabled }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hubble-ui-client-certs
+  namespace: {{ .Release.Namespace }}
+type: kubernetes.io/tls
+data:
+  ca.crt:  {{ .Values.tls.ca.cert }}
+  tls.crt: {{ .Values.hubble.ui.tls.client.cert | required "missing hubble.ui.tls.client.cert" }}
+  tls.key: {{ .Values.hubble.ui.tls.client.key  | required "missing hubble.ui.tls.client.key"  }}
+{{- end }}

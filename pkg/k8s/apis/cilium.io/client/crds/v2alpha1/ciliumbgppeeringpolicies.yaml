@@ -1,0 +1,339 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.12.1
+  creationTimestamp: null
+  name: ciliumbgppeeringpolicies.cilium.io
+spec:
+  group: cilium.io
+  names:
+    categories:
+    - cilium
+    - ciliumbgp
+    kind: CiliumBGPPeeringPolicy
+    listKind: CiliumBGPPeeringPolicyList
+    plural: ciliumbgppeeringpolicies
+    shortNames:
+    - bgpp
+    singular: ciliumbgppeeringpolicy
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: CiliumBGPPeeringPolicy is a Kubernetes third-party resource for
+          instructing Cilium's BGP control plane to create virtual BGP routers.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec is a human readable description of a BGP peering policy
+            properties:
+              nodeSelector:
+                description: "NodeSelector selects a group of nodes where this BGP
+                  Peering Policy applies. \n If empty / nil this policy applies to
+                  all nodes."
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: A label selector requirement is a selector that
+                        contains values, a key, and an operator that relates the key
+                        and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: operator represents a key's relationship to
+                            a set of values. Valid operators are In, NotIn, Exists
+                            and DoesNotExist.
+                          enum:
+                          - In
+                          - NotIn
+                          - Exists
+                          - DoesNotExist
+                          type: string
+                        values:
+                          description: values is an array of string values. If the
+                            operator is In or NotIn, the values array must be non-empty.
+                            If the operator is Exists or DoesNotExist, the values
+                            array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      description: MatchLabelsValue represents the value from the
+                        MatchLabels {key,value} pair.
+                      maxLength: 63
+                      pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
+                      type: string
+                    description: matchLabels is a map of {key,value} pairs. A single
+                      {key,value} in the matchLabels map is equivalent to an element
+                      of matchExpressions, whose key field is "key", the operator
+                      is "In", and the values array contains only "value". The requirements
+                      are ANDed.
+                    type: object
+                type: object
+              virtualRouters:
+                description: A list of CiliumBGPVirtualRouter(s) which instructs the
+                  BGP control plane how to instantiate virtual BGP routers.
+                items:
+                  description: CiliumBGPVirtualRouter defines a discrete BGP virtual
+                    router configuration.
+                  properties:
+                    exportPodCIDR:
+                      default: false
+                      description: ExportPodCIDR determines whether to export the
+                        Node's private CIDR block to the configured neighbors.
+                      type: boolean
+                    localASN:
+                      description: LocalASN is the ASN of this virtual router. Supports
+                        extended 32bit ASNs
+                      format: int64
+                      maximum: 4294967295
+                      minimum: 0
+                      type: integer
+                    neighbors:
+                      description: Neighbors is a list of neighboring BGP peers for
+                        this virtual router
+                      items:
+                        description: CiliumBGPNeighbor is a neighboring peer for use
+                          in a CiliumBGPVirtualRouter configuration.
+                        properties:
+                          connectRetryTimeSeconds:
+                            default: 120
+                            description: ConnectRetryTimeSeconds defines the initial
+                              value for the BGP ConnectRetryTimer (RFC 4271, Section
+                              8).
+                            format: int32
+                            maximum: 2147483647
+                            minimum: 1
+                            type: integer
+                          eBGPMultihopTTL:
+                            default: 1
+                            description: EBGPMultihopTTL controls the multi-hop feature
+                              for eBGP peers. Its value defines the Time To Live (TTL)
+                              value used in BGP packets sent to the neighbor. The
+                              value 1 implies that eBGP multi-hop feature is disabled
+                              (only a single hop is allowed). This field is ignored
+                              for iBGP peers.
+                            format: int32
+                            maximum: 255
+                            minimum: 1
+                            type: integer
+                          families:
+                            description: "Families, if provided, defines a set of
+                              AFI/SAFIs the speaker will negotiate with it's peer.
+                              \n If this slice is not provided the default families
+                              of IPv6 and IPv4 will be provided."
+                            items:
+                              description: CiliumBGPFamily represents a AFI/SAFI address
+                                family pair.
+                              properties:
+                                afi:
+                                  enum:
+                                  - ipv4
+                                  - ipv6
+                                  - l2vpn
+                                  - ls
+                                  - opaque
+                                  type: string
+                                safi:
+                                  enum:
+                                  - unicast
+                                  - multicast
+                                  - mpls_label
+                                  - encapsulation
+                                  - vpls
+                                  - evpn
+                                  - ls
+                                  - sr_policy
+                                  - mup
+                                  - mpls_vpn
+                                  - mpls_vpn_multicast
+                                  - route_target_constraints
+                                  - flowspec_unicast
+                                  - flowspec_vpn
+                                  - key_value
+                                  type: string
+                              required:
+                              - afi
+                              - safi
+                              type: object
+                            type: array
+                          gracefulRestart:
+                            description: GracefulRestart defines graceful restart
+                              parameters which are negotiated with this neighbor.
+                              If empty / nil, the graceful restart capability is disabled.
+                            properties:
+                              enabled:
+                                description: Enabled flag, when set enables graceful
+                                  restart capability.
+                                type: boolean
+                              restartTimeSeconds:
+                                default: 120
+                                description: RestartTimeSeconds is the estimated time
+                                  it will take for the BGP session to be re-established
+                                  with peer after a restart. After this period, peer
+                                  will remove stale routes. This is described RFC
+                                  4724 section 4.2.
+                                format: int32
+                                maximum: 4095
+                                minimum: 1
+                                type: integer
+                            required:
+                            - enabled
+                            type: object
+                          holdTimeSeconds:
+                            default: 90
+                            description: HoldTimeSeconds defines the initial value
+                              for the BGP HoldTimer (RFC 4271, Section 4.2). Updating
+                              this value will cause a session reset.
+                            format: int32
+                            maximum: 65535
+                            minimum: 3
+                            type: integer
+                          keepAliveTimeSeconds:
+                            default: 30
+                            description: KeepaliveTimeSeconds defines the initial
+                              value for the BGP KeepaliveTimer (RFC 4271, Section
+                              8). It can not be larger than HoldTimeSeconds. Updating
+                              this value will cause a session reset.
+                            format: int32
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
+                          peerASN:
+                            description: PeerASN is the ASN of the peer BGP router.
+                              Supports extended 32bit ASNs
+                            format: int64
+                            maximum: 4294967295
+                            minimum: 0
+                            type: integer
+                          peerAddress:
+                            description: PeerAddress is the IP address of the peer.
+                              This must be in CIDR notation and use a /32 to express
+                              a single host.
+                            format: cidr
+                            type: string
+                          peerPort:
+                            default: 179
+                            description: PeerPort is the TCP port of the peer. 1-65535
+                              is the range of valid port numbers that can be specified.
+                              If unset, defaults to 179.
+                            format: int32
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
+                        required:
+                        - peerASN
+                        - peerAddress
+                        type: object
+                      minItems: 1
+                      type: array
+                    serviceSelector:
+                      description: "ServiceSelector selects a group of load balancer
+                        services which this virtual router will announce. The loadBalancerClass
+                        for a service must be nil or specify a class supported by
+                        Cilium, e.g. \"io.cilium/bgp-control-plane\". Refer to the
+                        following document for additional details regarding load balancer
+                        classes: \n https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class
+                        \n If empty / nil no services will be announced."
+                      properties:
+                        matchExpressions:
+                          description: matchExpressions is a list of label selector
+                            requirements. The requirements are ANDed.
+                          items:
+                            description: A label selector requirement is a selector
+                              that contains values, a key, and an operator that relates
+                              the key and values.
+                            properties:
+                              key:
+                                description: key is the label key that the selector
+                                  applies to.
+                                type: string
+                              operator:
+                                description: operator represents a key's relationship
+                                  to a set of values. Valid operators are In, NotIn,
+                                  Exists and DoesNotExist.
+                                enum:
+                                - In
+                                - NotIn
+                                - Exists
+                                - DoesNotExist
+                                type: string
+                              values:
+                                description: values is an array of string values.
+                                  If the operator is In or NotIn, the values array
+                                  must be non-empty. If the operator is Exists or
+                                  DoesNotExist, the values array must be empty. This
+                                  array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                        matchLabels:
+                          additionalProperties:
+                            description: MatchLabelsValue represents the value from
+                              the MatchLabels {key,value} pair.
+                            maxLength: 63
+                            pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
+                            type: string
+                          description: matchLabels is a map of {key,value} pairs.
+                            A single {key,value} in the matchLabels map is equivalent
+                            to an element of matchExpressions, whose key field is
+                            "key", the operator is "In", and the values array contains
+                            only "value". The requirements are ANDed.
+                          type: object
+                      type: object
+                  required:
+                  - localASN
+                  - neighbors
+                  type: object
+                minItems: 1
+                type: array
+            required:
+            - virtualRouters
+            type: object
+        required:
+        - metadata
+        type: object
+    served: true
+    storage: true
+    subresources: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

@@ -1,0 +1,57 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: header-matching
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  # Matches "version: one"
+  - matches:
+    - headers:
+      - name: version
+        value: one
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+  # Matches "version: two"
+  - matches:
+    - headers:
+      - name: version
+        value: two
+    backendRefs:
+    - name: infra-backend-v2
+      port: 8080
+  # Matches "version: two" AND "color: orange"
+  - matches:
+    - headers:
+      - name: version
+        value: two
+      - name: color
+        value: orange
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+  # Matches "color: blue" OR "color: green"
+  - matches:
+    - headers:
+      - name: color
+        value: blue
+    - headers:
+      - name: color
+        value: green
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+  # Matches "color: red" OR "color: yellow"
+  - matches:
+    - headers:
+      - name: color
+        value: red
+    - headers:
+      - name: color
+        value: yellow
+    backendRefs:
+    - name: infra-backend-v2
+      port: 8080

@@ -1,0 +1,6 @@
+include: list(include('includeItem'))
+---
+includeItem:
+  version: str()
+  region: str()
+  default: bool(required=False)

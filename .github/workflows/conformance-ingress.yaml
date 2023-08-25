@@ -1,0 +1,305 @@
+name: ConformanceIngress
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+  push:
+    branches:
+      - main
+      - ft/main/**
+    paths-ignore:
+      - 'Documentation/**'
+      - 'test/**'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'push' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.15.6
+  cilium_cli_ci_version:
+  CILIUM_CLI_MODE: helm
+  # renovate: datasource=github-releases depName=kubernetes-sigs/kind
+  kind_version: v0.20.0
+  kind_config: .github/kind-config.yaml
+  metallb_version: 0.12.1
+  timeout: 5m
+
+jobs:
+  commit-status-start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  ingress-conformance-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - name: Without XDP
+          kube-proxy-replacement: true
+          enable-node-port: false
+          bpf-lb-acceleration: disabled
+          loadbalancer-mode: dedicated
+          default-ingress-controller: false
+        - name: With XDP
+          kube-proxy-replacement: true
+          enable-node-port: false
+          bpf-lb-acceleration: native
+          loadbalancer-mode: dedicated
+          default-ingress-controller: false
+        - name: With Shared LB
+          kube-proxy-replacement: true
+          enable-node-port: false
+          bpf-lb-acceleration: disabled
+          loadbalancer-mode: shared
+          default-ingress-controller: false
+        - name: With Default Ingress Controller
+          kube-proxy-replacement: true
+          enable-node-port: false
+          bpf-lb-acceleration: disabled
+          loadbalancer-mode: dedicated
+          default-ingress-controller: true
+        - name: Without KPR
+          kube-proxy-replacement: false
+          enable-node-port: true
+          bpf-lb-acceleration: disabled
+          loadbalancer-mode: dedicated
+          default-ingress-controller: false
+
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@e718cf78ef55d95cfa0a5a0a935d6a224d567e1d # v0.15.6
+        with:
+          release-version: ${{ env.cilium_cli_version }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
+
+      - name: Set image tag
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.SHA }}"
+          else
+            SHA="${{ github.sha }}"
+          fi
+          echo sha=${SHA} >> $GITHUB_OUTPUT
+
+          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+            --helm-set=debug.enabled=true \
+            --helm-set=debug.verbose=envoy \
+            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=securityContext.privileged=true \
+            --helm-set kubeProxyReplacement=${{ matrix.kube-proxy-replacement }} \
+            --helm-set nodePort.enabled=${{ matrix.enable-node-port }} \
+            --helm-set=ingressController.enabled=true \
+            --helm-set=ingressController.loadbalancerMode=${{ matrix.loadbalancer-mode }} \
+            --helm-set=ingressController.default=${{ matrix.default-ingress-controller }} \
+            --helm-set=extraConfig.bpf-lb-acceleration=${{ matrix.bpf-lb-acceleration }}"
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Create kind cluster
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        with:
+          version: ${{ env.kind_version }}
+          config: ${{ env.kind_config }}
+
+      - name: Checkout ingress-controller-conformance
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          # Use the forked repo with retry mechanism
+          # Please refer to https://github.com/kubernetes-sigs/ingress-controller-conformance/pull/101 for more details.
+          repository: cilium/ingress-controller-conformance
+          path: ingress-controller-conformance
+          ref: 010bbae21b71d9785660b87908dfe2ba8cd2f25d
+          persist-credentials: false
+
+      - name: Install Ingress conformance test tool
+        timeout-minutes: 10
+        run: |
+          cd ingress-controller-conformance
+          make build
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for Cilium to be ready
+        run: |
+          cilium status --wait
+          kubectl get pods -n kube-system
+
+      - name: Install metallb for LB service
+        timeout-minutes: 10
+        run: |
+          KIND_NET_CIDR=$(docker network inspect kind -f '{{(index .IPAM.Config 0).Subnet}}')
+          METALLB_IP_START=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.200@")
+          METALLB_IP_END=$(echo ${KIND_NET_CIDR} | sed "s@0.0/16@255.250@")
+          METALLB_IP_RANGE="${METALLB_IP_START}-${METALLB_IP_END}"
+          
+          cat << EOF > metallb_values.yaml
+          configInline:
+            address-pools:
+            - name: default
+              protocol: layer2
+              addresses:
+              - ${METALLB_IP_RANGE}
+          psp:
+            create: false
+          EOF
+          
+          helm install --namespace metallb-system \
+            --create-namespace \
+            --repo https://metallb.github.io/metallb metallb metallb \
+            --version ${{ env.metallb_version }} \
+            --values metallb_values.yaml \
+            --wait
+
+      - name: Create sample workload
+        timeout-minutes: 5
+        run: |
+          kubectl apply -n default -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
+          if [ ${{ matrix.default-ingress-controller }} = "true" ]; then
+            # remove ingressClassName line from basic-ingress.yaml
+            sed -i '/ingressClassName/d' examples/kubernetes/servicemesh/basic-ingress.yaml
+            kubectl apply -n default -f examples/kubernetes/servicemesh/basic-ingress.yaml
+            kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
+          fi
+
+          kubectl apply -n default -f examples/kubernetes/servicemesh/basic-ingress.yaml
+          kubectl wait -n default --for=condition=Ready --all pod --timeout=${{ env.timeout }}
+
+      - name: Run Sanity check (external)
+        timeout-minutes: 5
+        run: |
+          lb=$(kubectl get ingress basic-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"
+          curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail -- http://"$lb"/details/1
+
+      - name: Run Sanity check (internal to NodePort)
+        if: ${{ matrix.kube-proxy-replacement == 'true' }}
+        timeout-minutes: 5
+        run: |
+          if [ ${{ matrix.loadbalancer-mode }} = "dedicated" ]; then
+            node_port=$(kubectl get svc cilium-ingress-basic-ingress -o jsonpath='{.spec.ports[?(@.port==80)].nodePort}')
+          else
+            node_port=$(kubectl get -n kube-system svc cilium-ingress -o jsonpath='{.spec.ports[?(@.port==80)].nodePort}')
+          fi
+          docker exec -i chart-testing-control-plane curl -s -v --connect-timeout 5 --max-time 20 --retry 3 --fail http://localhost:$node_port/details/1 
+
+      - name: Cleanup Sanity check
+        timeout-minutes: 5
+        run: |
+          # Clean up after sanity check to avoid any conflicts with the conformance test
+          kubectl delete -n default -f examples/kubernetes/servicemesh/basic-ingress.yaml
+          kubectl delete -n default -f https://raw.githubusercontent.com/istio/istio/release-1.11/samples/bookinfo/platform/kube/bookinfo.yaml
+          kubectl wait ingress basic-ingress --for=delete
+
+      - name: Run Ingress conformance test
+        timeout-minutes: 30
+        run: |
+          cd ingress-controller-conformance
+          ./ingress-controller-conformance -ingress-class cilium -wait-time-for-ingress-status 60s -wait-time-for-ready 60s
+
+      - name: Post-test information gathering
+        if: ${{ !success() && steps.install-cilium.outcome != 'skipped' }}
+        run: |
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-out
+        shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+
+      - name: Upload artifacts
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip
+          retention-days: 5
+
+  commit-status-final:
+    if: ${{ always() }}
+    needs: ingress-conformance-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set final commit status
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7  
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.ingress-conformance-test.result }}

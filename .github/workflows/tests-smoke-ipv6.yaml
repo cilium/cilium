@@ -1,0 +1,188 @@
+name: Smoke Test with IPv6
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request: {}
+  push:
+    branches:
+      - main
+      - ft/main/**
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+env:
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.15.6
+  cilium_cli_ci_version:
+  CILIUM_CLI_MODE: helm
+  # renovate: datasource=github-releases depName=kubernetes-sigs/kind
+  KIND_VERSION: v0.17.0
+  KIND_CONFIG: .github/kind-config-ipv6.yaml
+  # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action
+  CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check-internal.yaml
+  TIMEOUT: 5m
+  LOG_TIME: 30m
+
+jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    runs-on: ubuntu-20.04
+    outputs:
+      tested: ${{ steps.tested-tree.outputs.src }}
+    steps:
+      - name: Checkout code
+        if: ${{ !github.event.pull_request }}
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          persist-credentials: false
+      - name: Check code changes
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+        id: tested-tree
+        with:
+          # For `push` events, compare against the `ref` base branch
+          # For `pull_request` events, this is ignored and will compare against the pull request base branch
+          base: ${{ github.ref }}
+          filters: |
+            src:
+              - '!(test|Documentation)/**'
+
+  conformance-test-ipv6:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.tested == 'true' }}
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout main branch to access local actions
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Checkout
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          persist-credentials: false
+
+      - name: Set image tag
+        id: sha
+        run: |
+          if [ "${{ github.event.pull_request.head.sha }}" != "" ]; then
+            echo tag=${{ github.event.pull_request.head.sha }} >> $GITHUB_OUTPUT
+          else
+            echo tag=${{ github.sha }} >> $GITHUB_OUTPUT
+          fi
+
+      - name: Precheck generated connectivity manifest files
+        run: |
+          make -C examples/kubernetes/connectivity-check fmt
+          make -C examples/kubernetes/connectivity-check all
+          test -z "$(git status --porcelain)" || (echo "please run 'make -C examples/kubernetes/connectivity-check fmt all' and submit your changes"; exit 1)
+
+      - name: Enable IPv6 in docker
+        run: |
+          sudo cat /etc/docker/daemon.json || true
+          # Keep existing config like cgroup-parent in github action
+          sudo sh -c "echo '{ \"exec-opts\": [\"native.cgroupdriver=cgroupfs\"], \"cgroup-parent\": \"/actions_job\", \"ipv6\": true, \"fixed-cidr-v6\": \"2001:db8:1::/64\" }' > /etc/docker/daemon.json"
+          sudo cat /etc/docker/daemon.json
+          sudo ip -6 route add 2001:db8:1::/64 dev docker0
+          sudo sysctl net.ipv6.conf.default.forwarding=1
+          sudo sysctl net.ipv6.conf.all.forwarding=1
+          sudo systemctl restart docker
+
+      - name: Create kind cluster
+        uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
+        with:
+          version: ${{ env.KIND_VERSION }}
+          config: ${{ env.KIND_CONFIG }}
+
+      - name: Wait for images to be available
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.sha.outputs.tag }} &> /dev/null; do sleep 45s; done
+          done
+
+      - name: Set up install variables
+        id: vars
+        run: |
+          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+            --helm-set nodeinit.enabled=true \
+            --helm-set kubeProxyReplacement=true \
+            --helm-set ipam.mode=kubernetes \
+            --helm-set image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --helm-set image.tag=${{ steps.sha.outputs.tag }} \
+            --helm-set image.pullPolicy=IfNotPresent \
+            --helm-set image.useDigest=false \
+            --helm-set hubble.enabled=true \
+            --helm-set hubble.relay.enabled=true \
+            --helm-set hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+            --helm-set hubble.relay.image.tag=${{ steps.sha.outputs.tag }} \
+            --helm-set hubble.relay.image.pullPolicy=IfNotPresent \
+            --helm-set hubble.relay.image.useDigest=false \
+            --helm-set operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --helm-set operator.image.suffix=-ci \
+            --helm-set operator.image.tag=${{ steps.sha.outputs.tag }} \
+            --helm-set operator.image.pullPolicy=IfNotPresent \
+            --helm-set operator.image.useDigest=false \
+            --helm-set ipv6.enabled=true \
+            --helm-set ipv4.enabled=false \
+            --helm-set routingMode=native \
+            --helm-set autoDirectNodeRoutes=true \
+            --helm-set ipv6NativeRoutingCIDR=2001:db8:1::/64 \
+            --helm-set ingressController.enabled=true \
+            --helm-set bpf.monitorAggregation=none"
+
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+
+      - name: Install Cilium CLI
+        run: |
+          curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ env.cilium_cli_version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
+          sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+          sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
+          rm cilium-linux-amd64.tar.gz{,.sha256sum}
+          cilium version
+
+      - name: Install Cilium
+        id: install-cilium
+        run: |
+          cilium install ${{ steps.vars.outputs.cilium_install_defaults }}
+
+      - name: Wait for Cilium status to be ready
+        run: |
+          cilium status --wait
+          kubectl -n kube-system get pods
+
+      - name: Port forward Relay
+        run: |
+          cilium hubble port-forward&
+          sleep 10s
+          [[ $(pgrep -f "cilium.*hubble.*port-forward|kubectl.*port-forward.*hubble-relay" | wc -l) == 2 ]]
+
+      - name: Run conformance test (e.g. connectivity check without external 1.1.1.1 and www.google.com)
+        run: |
+          kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
+          kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
+
+      - name: Report cluster failure status and capture cilium-sysdump
+        if: ${{ failure() && steps.install-cilium.outcome != 'skipped' }}
+        # The following is needed to prevent hubble from receiving an empty
+        # file (EOF) on stdin and displaying no flows.
+        shell: 'script -q -e -c "bash --noprofile --norc -eo pipefail {0}"'
+        run: |
+          echo "=== Retrieve cluster state ==="
+          kubectl get pods --all-namespaces -o wide
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-out
+
+      - name: Upload cilium-sysdump
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        if: ${{ failure() }}
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip

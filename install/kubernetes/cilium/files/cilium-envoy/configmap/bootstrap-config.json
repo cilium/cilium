@@ -1,0 +1,323 @@
+{
+  "node": {
+    "id": "host~127.0.0.1~no-id~localdomain",
+    "cluster": "ingress-cluster"
+  },
+  "staticResources": {
+    "listeners": [
+      {{- if and .Values.proxy.prometheus.enabled .Values.envoy.prometheus.enabled }}
+      {
+        "name": "envoy-prometheus-metrics-listener",
+        "address": {
+          "socket_address": {
+            "address": "0.0.0.0",
+            "port_value": {{ .Values.proxy.prometheus.port | default .Values.envoy.prometheus.port }}
+          }
+        },
+        "filter_chains": [
+          {
+            "filters": [
+              {
+                "name": "envoy.filters.network.http_connection_manager",
+                "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+                  "stat_prefix": "envoy-prometheus-metrics-listener",
+                  "route_config": {
+                    "virtual_hosts": [
+                      {
+                        "name": "prometheus_metrics_route",
+                        "domains": [
+                          "*"
+                        ],
+                        "routes": [
+                          {
+                            "name": "prometheus_metrics_route",
+                            "match": {
+                              "prefix": "/metrics"
+                            },
+                            "route": {
+                              "cluster": "envoy-admin",
+                              "prefix_rewrite": "/stats/prometheus"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "http_filters": [
+                    {
+                      "name": "envoy.filters.http.router",
+                      "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                      }
+                    }
+                  ],
+                  "stream_idle_timeout": "0s"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {{- end }}
+      {
+        "name": "envoy-health-listener",
+        "address": {
+          "socket_address": {
+            "address": {{ .Values.ipv4.enabled | ternary "127.0.0.1" "::1" | quote }},
+            "port_value": {{ .Values.envoy.healthPort }}
+          }
+        },
+        {{- if and .Values.ipv4.enabled .Values.ipv6.enabled }}
+        "additional_addresses": [
+          {
+            "address": {
+              "socket_address": {
+                "address": "::1",
+                "port_value": {{ .Values.envoy.healthPort }}
+              }
+            }
+          }
+        ],
+        {{- end }}
+        "filter_chains": [
+          {
+            "filters": [
+              {
+                "name": "envoy.filters.network.http_connection_manager",
+                "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+                  "stat_prefix": "envoy-health-listener",
+                  "route_config": {
+                    "virtual_hosts": [
+                      {
+                        "name": "health",
+                        "domains": [
+                          "*"
+                        ],
+                        "routes": [
+                          {
+                            "name": "health",
+                            "match": {
+                              "prefix": "/healthz"
+                            },
+                            "route": {
+                              "cluster": "envoy-admin",
+                              "prefix_rewrite": "/ready"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "http_filters": [
+                    {
+                      "name": "envoy.filters.http.router",
+                      "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                      }
+                    }
+                  ],
+                  "stream_idle_timeout": "0s"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "clusters": [
+      {
+        "name": "ingress-cluster",
+        "type": "ORIGINAL_DST",
+        "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "lbPolicy": "CLUSTER_PROVIDED",
+        "typedExtensionProtocolOptions": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+            "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+            "commonHttpProtocolOptions": {
+              "idleTimeout": "{{ .Values.envoy.idleTimeoutDurationSeconds }}s",
+              "maxConnectionDuration": "{{ .Values.envoy.maxConnectionDurationSeconds }}s",
+              "maxRequestsPerConnection": {{ .Values.envoy.maxRequestsPerConnection }}
+            },
+            "useDownstreamProtocolConfig": {}
+          }
+        },
+        "cleanupInterval": "{{ .Values.envoy.connectTimeoutSeconds }}.500s"
+      },
+      {
+        "name": "egress-cluster-tls",
+        "type": "ORIGINAL_DST",
+        "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "lbPolicy": "CLUSTER_PROVIDED",
+        "typedExtensionProtocolOptions": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+            "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+            "commonHttpProtocolOptions": {
+              "idleTimeout": "{{ .Values.envoy.idleTimeoutDurationSeconds }}s",
+              "maxConnectionDuration": "{{ .Values.envoy.maxConnectionDurationSeconds }}s",
+              "maxRequestsPerConnection": {{ .Values.envoy.maxRequestsPerConnection }}
+            },
+            "upstreamHttpProtocolOptions": {},
+            "useDownstreamProtocolConfig": {}
+          }
+        },
+        "cleanupInterval": "{{ .Values.envoy.connectTimeoutSeconds }}.500s",
+        "transportSocket": {
+          "name": "cilium.tls_wrapper",
+          "typedConfig": {
+            "@type": "type.googleapis.com/cilium.UpstreamTlsWrapperContext"
+          }
+        }
+      },
+      {
+        "name": "egress-cluster",
+        "type": "ORIGINAL_DST",
+        "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "lbPolicy": "CLUSTER_PROVIDED",
+        "typedExtensionProtocolOptions": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+            "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+            "commonHttpProtocolOptions": {
+              "idleTimeout": "{{ .Values.envoy.idleTimeoutDurationSeconds }}s",
+              "maxConnectionDuration": "{{ .Values.envoy.maxConnectionDurationSeconds }}s",
+              "maxRequestsPerConnection": {{ .Values.envoy.maxRequestsPerConnection }}
+            },
+            "useDownstreamProtocolConfig": {}
+          }
+        },
+        "cleanupInterval": "{{ .Values.envoy.connectTimeoutSeconds }}.500s"
+      },
+      {
+        "name": "ingress-cluster-tls",
+        "type": "ORIGINAL_DST",
+        "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "lbPolicy": "CLUSTER_PROVIDED",
+        "typedExtensionProtocolOptions": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+            "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+            "commonHttpProtocolOptions": {
+              "idleTimeout": "{{ .Values.envoy.idleTimeoutDurationSeconds }}s",
+              "maxConnectionDuration": "{{ .Values.envoy.maxConnectionDurationSeconds }}s",
+              "maxRequestsPerConnection": {{ .Values.envoy.maxRequestsPerConnection }}
+            },
+            "upstreamHttpProtocolOptions": {},
+            "useDownstreamProtocolConfig": {}
+          }
+        },
+        "cleanupInterval": "{{ .Values.envoy.connectTimeoutSeconds }}.500s",
+        "transportSocket": {
+          "name": "cilium.tls_wrapper",
+          "typedConfig": {
+            "@type": "type.googleapis.com/cilium.UpstreamTlsWrapperContext"
+          }
+        }
+      },
+      {
+        "name": "xds-grpc-cilium",
+        "type": "STATIC",
+        "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "loadAssignment": {
+          "clusterName": "xds-grpc-cilium",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "endpoint": {
+                    "address": {
+                      "pipe": {
+                        "path": "/var/run/cilium/envoy/sockets/xds.sock"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "typedExtensionProtocolOptions": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+            "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+            "explicitHttpConfig": {
+              "http2ProtocolOptions": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "envoy-admin",
+        "type": "STATIC",
+        "connectTimeout": "{{ .Values.envoy.connectTimeoutSeconds }}s",
+        "loadAssignment": {
+          "clusterName": "envoy-admin",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "endpoint": {
+                    "address": {
+                      "pipe": {
+                        "path": "/var/run/cilium/envoy/sockets/admin.sock"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "dynamicResources": {
+    "ldsConfig": {
+      "apiConfigSource": {
+        "apiType": "GRPC",
+        "transportApiVersion": "V3",
+        "grpcServices": [
+          {
+            "envoyGrpc": {
+              "clusterName": "xds-grpc-cilium"
+            }
+          }
+        ],
+        "setNodeOnFirstMessageOnly": true
+      },
+      "resourceApiVersion": "V3"
+    },
+    "cdsConfig": {
+      "apiConfigSource": {
+        "apiType": "GRPC",
+        "transportApiVersion": "V3",
+        "grpcServices": [
+          {
+            "envoyGrpc": {
+              "clusterName": "xds-grpc-cilium"
+            }
+          }
+        ],
+        "setNodeOnFirstMessageOnly": true
+      },
+      "resourceApiVersion": "V3"
+    }
+  },
+  "layeredRuntime": {
+    "layers": [
+      {
+        "name": "static_layer_0",
+        "staticLayer": {
+          "overload": {
+            "global_downstream_max_connections": 50000
+          }
+        }
+      }
+    ]
+  },
+  "admin": {
+    "address": {
+      "pipe": {
+        "path": "/var/run/cilium/envoy/sockets/admin.sock"
+      }
+    }
+  }
+}

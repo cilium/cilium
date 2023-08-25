@@ -1,0 +1,24 @@
+name: Scruffy
+on:
+  workflow_dispatch:
+  schedule:
+    # Run the GC every Monday at 9am
+    - cron: "0 9 * * 1"
+
+permissions: read-all
+
+jobs:
+  scruffy:
+    if: github.repository_owner == 'cilium'
+    name: scruffy
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          fetch-depth: 0
+      - uses: docker://quay.io/cilium/scruffy:v0.0.3@sha256:ca997451b739cbf03c204cb2523a671c31c61edc606aa5d20dc3560bc7f25bc7
+        with:
+          entrypoint: scruffy
+          args: --git-repository=./ --stable-branches=origin/main,origin/v1.12,origin/v1.13,origin/v1.14
+        env:
+          QUAY_TOKEN: ${{ secrets.SCRUFFY_QUAY_TOKEN }}

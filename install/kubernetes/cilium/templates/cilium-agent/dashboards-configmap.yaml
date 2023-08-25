@@ -1,0 +1,25 @@
+{{- if .Values.dashboards.enabled }}
+{{- $files := .Files.Glob "files/cilium-agent/dashboards/*.json" }}
+{{- range $path, $fileContents := $files }}
+{{- $dashboardName := regexReplaceAll "(^.*/)(.*)\\.json$" $path "${2}" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $dashboardName | trunc 63 | trimSuffix "-" }}
+  namespace: {{ $.Values.dashboards.namespace | default $.Release.Namespace }}
+  labels:
+    k8s-app: cilium
+    app.kubernetes.io/name: cilium-agent
+    app.kubernetes.io/part-of: cilium
+    {{- if $.Values.dashboards.label }}
+    {{ $.Values.dashboards.label }}: {{ ternary $.Values.dashboards.labelValue "1" (not (empty $.Values.dashboards.labelValue)) | quote }}
+    {{- end }}
+  {{- with $.Values.dashboards.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  {{ $dashboardName }}.json: {{ $.Files.Get $path | toJson }}
+{{- end }}
+{{- end }}

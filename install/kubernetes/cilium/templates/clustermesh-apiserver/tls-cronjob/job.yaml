@@ -1,0 +1,17 @@
+{{- if and (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) .Values.clustermesh.apiserver.tls.auto.enabled (eq .Values.clustermesh.apiserver.tls.auto.method "cronJob") }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: clustermesh-apiserver-generate-certs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: clustermesh-apiserver-generate-certs
+    app.kubernetes.io/part-of: cilium
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    {{- with .Values.certgen.annotations.job }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{ include "clustermesh-apiserver-generate-certs.job.spec" . }}
+{{- end }}

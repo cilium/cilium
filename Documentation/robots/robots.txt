@@ -1,0 +1,9 @@
+User-agent: *
+
+Disallow: /
+
+Allow: /en/stable
+
+Allow: /en/latest
+
+Sitemap: https://docs.cilium.io/en/latest/_static/sitemap-index.xml

@@ -1,0 +1,21 @@
+{{- if ne .Values.clustermesh.apiserver.tls.authMode "legacy" }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clustermesh-remote-users
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+data:
+  users.yaml: |
+    users:
+    {{- if .Values.clustermesh.apiserver.kvstoremesh.enabled }}
+    - name: remote-{{ .Values.cluster.name }}
+      role: remote
+    {{- end }}
+    {{- range .Values.clustermesh.config.clusters }}
+    - name: remote-{{ .name }}
+      role: remote
+    {{- end }}
+{{- end }}

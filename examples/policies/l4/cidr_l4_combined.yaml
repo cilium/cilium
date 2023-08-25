@@ -1,0 +1,15 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "cidr-l4-rule"
+spec:
+  endpointSelector:
+    matchLabels:
+      role: crawler
+  egress:
+  - toCIDR:
+    - 192.0.2.0/24
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP

@@ -1,0 +1,16 @@
+{{- if .Values.etcd.managed }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: etcd-operator
+  labels:
+    app.kubernetes.io/part-of: cilium
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: etcd-operator
+subjects:
+- kind: ServiceAccount
+  name: cilium-etcd-sa
+  namespace: {{ .Release.Namespace }}
+{{- end }}

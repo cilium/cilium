@@ -1,0 +1,38 @@
+linters:
+  enable:
+    - bodyclose
+    - deadcode
+    - dogsled
+    - dupl
+    - errcheck
+    - gocritic
+    - godox
+    - gofmt
+    - goimports
+    - golint
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - interfacer
+    - maligned
+    - nakedret
+    - prealloc
+    - scopelint
+    - staticcheck
+    - structcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - varcheck
+    - whitespace
+issues:
+  exclude-rules:
+    - text: "Consider preallocating `output`"
+      linters:
+        - prealloc
+    - text: "Consider preallocating `labels`"
+      linters:
+        - prealloc

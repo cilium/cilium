@@ -1,0 +1,24 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "default"
+specs:
+  - endpointSelector:
+      matchLabels:
+        app: httpbin
+    ingress:
+    - fromEndpoints:
+      - matchExpressions:
+          - key: io.kubernetes.pod.namespace
+            operator: In
+            values:
+            - red
+            - blue
+      toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+        rules:
+          http:
+          - method: "GET"
+            path: "/ip"

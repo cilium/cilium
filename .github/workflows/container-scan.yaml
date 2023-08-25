@@ -1,0 +1,53 @@
+name: Container vulnerability scan
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  container-scan:
+    if: github.repository_owner == 'cilium'
+    name: scan-container
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        image: [
+          {name: cilium, dockerfile: ./images/cilium/Dockerfile},
+          {name: clustermesh-apiserver, dockerfile: ./images/clustermesh-apiserver/Dockerfile},
+          {name: docker-plugin, dockerfile: ./images/cilium-docker-plugin/Dockerfile},
+          {name: hubble-relay, dockerfile: ./images/hubble-relay/Dockerfile},
+          {name: kvstoremesh, dockerfile: ./images/kvstoremesh/Dockerfile},
+          {name: operator-generic, dockerfile: ./images/operator/Dockerfile},
+        ]
+        branch: [v1.12, v1.13, v1.14]
+        exclude:
+          - image: {name: kvstoremesh, dockerfile: ./images/kvstoremesh/Dockerfile}
+            branch: v1.12
+          - image: {name: kvstoremesh, dockerfile: ./images/kvstoremesh/Dockerfile}
+            branch: v1.13
+    steps:
+      - name: Checkout
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          ref: ${{ matrix.branch }}
+          persist-credentials: false
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4c0219f9ac95b02789c1075625400b2acbff50b1 # v2.9.1
+      - name: Build local container
+        uses: docker/build-push-action@2eb1c1961a95fc15694676618e422e8ba1d63825 # v4.1.1
+        with:
+          context: . 
+          tags: ${{ matrix.image.name }}:${{ matrix.branch }}
+          push: false
+          load: true
+          file: ${{ matrix.image.dockerfile }}
+          build-args: |
+            OPERATOR_VARIANT=${{ matrix.image.name }}
+      - name: Scan image
+        uses: anchore/scan-action@24fd7c9060f3c96848dd1929fac8d796fb5ae4b4 # v3.3.6
+        with:
+          image: ${{ matrix.image.name }}:${{ matrix.branch }}
+          output-format: table
+          severity-cutoff: critical

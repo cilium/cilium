@@ -1,0 +1,29 @@
+{{- if and .Values.hubble.enabled .Values.hubble.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: hubble-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: hubble
+    app.kubernetes.io/name: hubble
+    app.kubernetes.io/part-of: cilium
+  annotations:
+    {{- with .Values.hubble.metrics.serviceAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if not .Values.hubble.metrics.serviceMonitor.enabled }}
+    prometheus.io/scrape: "true"
+    prometheus.io/port: {{ .Values.hubble.metrics.port | quote }}
+    {{- end }}
+spec:
+  clusterIP: None
+  type: ClusterIP
+  ports:
+  - name: hubble-metrics
+    port: {{ .Values.hubble.metrics.port }}
+    protocol: TCP
+    targetPort: hubble-metrics
+  selector:
+    k8s-app: cilium
+{{- end }}

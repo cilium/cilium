@@ -1,0 +1,178 @@
+syntax = "proto3";
+package spire.api.server.entry.v1;
+option go_package = "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1;entryv1";
+
+import "spire/api/types/entry.proto";
+import "spire/api/types/federateswith.proto";
+import "spire/api/types/selector.proto";
+import "spire/api/types/spiffeid.proto";
+import "spire/api/types/status.proto";
+import "google/protobuf/wrappers.proto";
+
+// Manages registration entries stored by the SPIRE Server.
+service Entry {
+    // Count entries.
+    //
+    // The caller must be local or present an admin X509-SVID.
+    rpc CountEntries(CountEntriesRequest) returns (CountEntriesResponse);
+
+    // Lists entries.
+    //
+    // The caller must be local or present an admin X509-SVID.
+    rpc ListEntries(ListEntriesRequest) returns (ListEntriesResponse);
+
+    // Gets an entry. If the entry does not exist, NOT_FOUND is returned.
+    //
+    // The caller must be local or present an admin X509-SVID.
+    rpc GetEntry(GetEntryRequest) returns (spire.api.types.Entry);
+
+    // Batch creates one or more entries.
+    //
+    // The caller must be local or present an admin X509-SVID.
+    rpc BatchCreateEntry(BatchCreateEntryRequest) returns (BatchCreateEntryResponse);
+
+    // Batch updates one or more entries.
+    //
+    // The caller must be local or present an admin X509-SVID.
+    rpc BatchUpdateEntry(BatchUpdateEntryRequest) returns (BatchUpdateEntryResponse);
+
+    // Batch deletes one or more entries.
+    //
+    // The caller must be local or present an admin X509-SVID.
+    rpc BatchDeleteEntry(BatchDeleteEntryRequest) returns (BatchDeleteEntryResponse);
+
+    // Gets the entries the caller is authorized for.
+    //
+    // The caller must present an active agent X509-SVID. See the Agent
+    // AttestAgent/RenewAgent RPCs.
+    rpc GetAuthorizedEntries(GetAuthorizedEntriesRequest) returns (GetAuthorizedEntriesResponse);
+}
+
+message CountEntriesRequest {
+}
+
+message CountEntriesResponse {
+    int32 count = 1;
+}
+
+message ListEntriesRequest {
+    message Filter {
+        spire.api.types.SPIFFEID by_spiffe_id = 1;
+        spire.api.types.SPIFFEID by_parent_id = 2;
+        spire.api.types.SelectorMatch by_selectors = 3;
+        spire.api.types.FederatesWithMatch by_federates_with = 4;
+        google.protobuf.StringValue by_hint = 5;
+    }
+
+    // Filters the entries returned in the response.
+    Filter filter = 1;
+
+    // An output mask indicating the entry fields set in the response.
+    spire.api.types.EntryMask output_mask = 2;
+
+    // The maximum number of results to return. The server may further
+    // constrain this value, or if zero, choose its own.
+    int32 page_size = 3;
+
+    // The next_page_token value returned from a previous request, if any.
+    string page_token = 4;
+}
+
+message ListEntriesResponse {
+    // The list of entries.
+    repeated spire.api.types.Entry entries = 1;
+
+    // The page token for the next request. Empty if there are no more results.
+    // This field should be checked by clients even when a page_size was not
+    // requested, since the server may choose its own (see page_size).
+    string next_page_token = 2;
+}
+
+message GetEntryRequest {
+    // Required. ID of the entry to get.
+    string id = 1;
+
+    // An output mask indicating the entry fields set in the response.
+    spire.api.types.EntryMask output_mask = 2;
+}
+
+message BatchCreateEntryRequest {
+    // The entries to be created. The entry ID field is output only, and will
+    // be ignored here.
+    repeated spire.api.types.Entry entries = 1;
+
+    // An output mask indicating the entry fields set in the response.
+    spire.api.types.EntryMask output_mask = 2;
+}
+
+message BatchCreateEntryResponse {
+    message Result {
+        // The status of creating the entry. If status code will be
+        // ALREADY_EXISTS if a similar entry already exists. An entry is
+        // similar if it has the same spiffe_id, parent_id, and selectors.
+        spire.api.types.Status status = 1;
+
+        // The entry that was created (.e.g status code is OK) or that already
+        // exists (i.e. status code is ALREADY_EXISTS).
+        //
+        // If the status code is any other value, this field will not be set.
+        spire.api.types.Entry entry = 2;
+    }
+
+    // Result for each entry in the request (order is maintained).
+    repeated Result results = 1;
+}
+
+message BatchUpdateEntryRequest {
+    // The entries to be updated.
+    repeated spire.api.types.Entry entries = 1;
+
+    // An input mask indicating what entry fields should be updated.
+    spire.api.types.EntryMask input_mask = 2;
+
+    // An output mask indicating what entry fields are set in the response.
+    spire.api.types.EntryMask output_mask = 3;
+}
+
+message BatchUpdateEntryResponse {
+    message Result {
+        // The status of creating the entry.
+        spire.api.types.Status status = 1;
+
+        // The entry that was updated. If the status is OK, it will be the
+        // entry that was updated. If the status is any other value, this field
+        // will not be set.
+        spire.api.types.Entry entry = 2;
+    }
+
+    // Result for each entry in the request (order is maintained).
+    repeated Result results = 1;
+}
+
+message BatchDeleteEntryRequest {
+    // IDs of the entries to delete.
+    repeated string ids = 1;
+}
+
+message BatchDeleteEntryResponse {
+    message Result {
+        // The status of creating the entry.
+        spire.api.types.Status status = 1;
+
+        // The ID of the entry that was deleted.
+        string id = 2;
+    }
+
+    // Result for each entry ID in the request (order is maintained).
+    repeated Result results = 1;
+}
+
+message GetAuthorizedEntriesRequest {
+    // An output mask indicating which fields are set in the response.
+    spire.api.types.EntryMask output_mask = 1;
+}
+
+message GetAuthorizedEntriesResponse {
+    // The authorized entries.
+    repeated spire.api.types.Entry entries = 1;
+}

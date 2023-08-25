@@ -1,0 +1,125 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frr
+  namespace: kube-system
+  labels:
+    app: frr
+spec:
+  nodeName: {{ .OutsideNodeName }}
+  hostNetwork: true
+  initContainers:
+  - name: init
+    image: busybox:1.28
+    securityContext:
+      privileged: true
+    command:
+      - "/bin/sh"
+      - "-c"
+      - |
+        #!/usr/bin/env bash
+
+        set -o errexit
+        set -o pipefail
+        set -o nounset
+
+        mkdir -p /etc/frr
+        cat << EOF > /etc/frr/zebra.conf
+        # ! -*- zebra -*-
+        # !
+        # ! zebra sample configuration file
+        # !
+        hostname Router
+        password zebra
+        enable password zebra
+        EOF
+
+        cat << EOF > /etc/frr/daemons
+        # This file tells the frr package which daemons to start.
+        #
+        # Sample configurations for these daemons can be found in
+        # /usr/share/doc/frr/examples/.
+        #
+        # ATTENTION:
+        #
+        # When activating a daemon for the first time, a config file, even if it is
+        # empty, has to be present *and* be owned by the user and group "frr", else
+        # the daemon will not be started by /etc/init.d/frr. The permissions should
+        # be u=rw,g=r,o=.
+        # When using "vtysh" such a config file is also needed. It should be owned by
+        # group "frrvty" and set to ug=rw,o= though. Check /etc/pam.d/frr, too.
+        #
+        # The watchfrr and zebra daemons are always started.
+        #
+        bgpd=yes
+        ospfd=no
+        ospf6d=no
+        ripd=no
+        ripngd=no
+        isisd=no
+        pimd=no
+        ldpd=no
+        nhrpd=no
+        eigrpd=no
+        babeld=no
+        sharpd=no
+        pbrd=no
+        bfdd=no
+        fabricd=no
+        vrrpd=no
+        #
+        # If this option is set the /etc/init.d/frr script automatically loads
+        # the config via "vtysh -b" when the servers are started.
+        # Check /etc/pam.d/frr if you intend to use "vtysh"!
+        #
+        vtysh_enable=yes
+        zebra_options="  -A 127.0.0.1 -s 90000000"
+        bgpd_options="   -A 127.0.0.1"
+        ospfd_options="  -A 127.0.0.1"
+        ospf6d_options=" -A ::1"
+        ripd_options="   -A 127.0.0.1"
+        ripngd_options=" -A ::1"
+        isisd_options="  -A 127.0.0.1"
+        pimd_options="   -A 127.0.0.1"
+        ldpd_options="   -A 127.0.0.1"
+        nhrpd_options="  -A 127.0.0.1"
+        eigrpd_options=" -A 127.0.0.1"
+        babeld_options=" -A 127.0.0.1"
+        sharpd_options=" -A 127.0.0.1"
+        pbrd_options="   -A 127.0.0.1"
+        staticd_options="-A 127.0.0.1"
+        bfdd_options="   -A 127.0.0.1"
+        fabricd_options="-A 127.0.0.1"
+        vrrpd_options="  -A 127.0.0.1"
+        EOF
+
+        tee /etc/frr/bgpd.conf <<EOF
+        hostname bgpd
+        password zebra
+        router bgp 64512
+        {{- range .Nodes }}
+          neighbor {{ . }} remote-as 64512
+          neighbor {{ . }} next-hop-self
+        {{- end }}
+
+        log stdout debugging
+        EOF
+    volumeMounts:
+    - mountPath: /etc/frr
+      name: conf-dir
+  containers:
+  - name: frr
+    securityContext:
+      privileged: true
+    image: docker.io/frrouting/frr:v7.5.1
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+    - mountPath: /etc/frr
+      name: conf-dir
+  tolerations: # tolerate all taints
+  - key: ""
+    operator: "Exists"
+  volumes:
+  - name: conf-dir
+    emptyDir:
+      medium: "Memory"

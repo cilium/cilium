@@ -1,0 +1,11 @@
+name: Set environment variables
+description: Set environment variables
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        echo "QUAY_ORGANIZATION=cilium" >> $GITHUB_ENV
+        echo "QUAY_ORGANIZATION_DEV=cilium" >> $GITHUB_ENV
+        # no prod yet
+        echo "QUAY_CHARTS_ORGANIZATION_DEV=cilium-charts-dev" >> $GITHUB_ENV

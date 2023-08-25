@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+changed_files="$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD)"
+
+if [ ! -z "${changed_files}" ]; then
+	cilium-net-policy import -p .
+fi

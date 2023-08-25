@@ -1,0 +1,149 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Hubble
+
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+package recorder;
+
+option go_package = "github.com/cilium/cilium/api/v1/recorder";
+
+// Recorder implements the Hubble module for capturing network packets
+service Recorder {
+    // Record can start and stop a single recording. The recording is
+    // automatically stopped if the client aborts this rpc call.
+    rpc Record (stream RecordRequest) returns (stream RecordResponse);
+}
+
+message RecordRequest {
+    oneof request_type {
+        // start starts a new recording with the given parameters.
+        StartRecording start = 1;
+        // stop stops the running recording.
+        StopRecording stop = 2;
+    }
+}
+
+message StartRecording {
+    // filesink configures the outfile of this recording
+    // Future alternative sink configurations may be added as a
+    // backwards-compatible change by moving this field into a oneof.
+    FileSinkConfiguration filesink = 1;
+
+    // include list for this recording. Packets matching any of the provided
+    // filters will be recorded.
+    repeated Filter include = 2;
+
+    // max_capture_length specifies the maximum packet length.
+    // Full packet length will be captured if absent/zero.
+    uint32 max_capture_length = 3;
+
+    // stop_condition defines conditions which will cause the recording to
+    // stop early after any of the stop conditions has been hit
+    StopCondition stop_condition = 4;
+}
+
+// StopCondition defines one or more conditions which cause the recording to
+// stop after they have been hit. Stop conditions are ignored if they are
+// absent or zero-valued. If multiple conditions are defined, the recording
+// stops after the first one is hit.
+message StopCondition {
+    // bytes_captured_count stops the recording after at least this many bytes
+    // have been captured. Note: The resulting file might be slightly larger due
+    // to added pcap headers.
+    uint64 bytes_captured_count = 1;
+    // packets_captured_count stops the recording after at least this many packets have
+    // been captured.
+    uint64 packets_captured_count = 2;
+    // time_elapsed stops the recording after this duration has elapsed.
+    google.protobuf.Duration time_elapsed = 3;
+}
+
+// FileSinkConfiguration configures the file output. Possible future additions
+// might be the selection of the output volume. The initial implementation will
+// only support a single volume which is configured as a cilium-agent CLI flag.
+message FileSinkConfiguration {
+    // file_prefix is an optional prefix for the file name.
+    // Defaults to `hubble` if empty. Must match the following regex if not
+    // empty: ^[a-z][a-z0-9]{0,19}$
+    // The generated filename will be of format
+    //  <file_prefix>_<unixtime>_<unique_random>_<node_name>.pcap
+    string file_prefix = 1;
+}
+
+message Filter {
+    // source_cidr. Must not be empty.
+    // Set to 0.0.0.0/0 to match any IPv4 source address (::/0 for IPv6).
+    string source_cidr = 1;
+    // source_port. Matches any source port if empty.
+    uint32 source_port = 2;
+    // destination_cidr. Must not be empty.
+    // Set to 0.0.0.0/0 to match any IPv4 destination address (::/0 for IPv6).
+    string destination_cidr = 3;
+    // destination_port. Matches any destination port if empty.
+    uint32 destination_port = 4;
+    // protocol. Matches any protocol if empty.
+    Protocol protocol = 5;
+}
+
+
+// Protocol is a one of the supported protocols for packet capture
+enum Protocol {
+    PROTOCOL_ANY = 0;
+    PROTOCOL_TCP = 6;
+    PROTOCOL_UDP = 17;
+    PROTOCOL_SCTP = 132;
+}
+
+message StopRecording {}
+
+message RecordResponse {
+    // name of the node where this recording is happening
+    string node_name = 1;
+    // time at which this event was observed on the above node
+    google.protobuf.Timestamp time = 2;
+
+    // Note: In this initial design, any fatal error will be returned as
+    // gRPC errors and are not part of the regular response type.
+    // It is a forward-compatible change to introduce additional more
+    // granular or structured error responses here.
+    oneof response_type {
+        // running means that the recording is capturing packets. This is
+        // emitted in regular intervals
+        RecordingRunningResponse running = 3;
+        // stopped means the recording has stopped
+        RecordingStoppedResponse stopped = 4;
+    }
+}
+
+message RecordingStatistics {
+    // bytes_captured is the total amount of bytes captured in the recording
+    uint64 bytes_captured = 1;
+    // packets_captured is the total amount of packets captured the recording
+    uint64 packets_captured = 2;
+    // packets_lost is the total amount of packets matching the filter during
+    // the recording, but never written to the sink because it was overloaded.
+    uint64 packets_lost = 3;
+    // bytes_lost is the total amount of bytes matching the filter during
+    // the recording, but never written to the sink because it was overloaded.
+    uint64 bytes_lost = 4;
+}
+
+message RecordingRunningResponse {
+    // stats for the running recording
+    RecordingStatistics stats = 1;
+}
+
+message RecordingStoppedResponse {
+    // stats for the recording
+    RecordingStatistics stats = 1;
+    // filesink contains the path to the captured file
+    FileSinkResult filesink = 2;
+}
+
+message FileSinkResult {
+    // file_path is the absolute path to the captured pcap file
+    string file_path = 1;
+}

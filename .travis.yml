@@ -1,0 +1,33 @@
+language: go
+
+dist: focal
+sudo: required
+
+# renovate: datasource=golang-version depName=go
+go: "1.21.0"
+
+jobs:
+  include:
+    - arch: arm64-graviton2
+      virt: vm
+      group: edge
+
+if: branch = main OR type = pull_request
+
+addons:
+  apt:
+    packages:
+      - kernel-package
+      - gnupg
+      - libncurses5
+
+before_install: ./.travis/prepare.sh
+
+before_script:
+  - export DOCKER_BUILD_FLAGS=--quiet
+  - export PATH=/usr/local/clang/bin:$PATH
+
+script: ./.travis/build.sh
+
+notifications:
+  email: false

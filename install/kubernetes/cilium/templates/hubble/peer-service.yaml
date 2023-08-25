@@ -1,0 +1,26 @@
+{{- if and .Values.agent .Values.hubble.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: hubble-peer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: cilium
+    app.kubernetes.io/part-of: cilium
+    app.kubernetes.io/name: hubble-peer
+spec:
+  selector:
+    k8s-app: cilium
+  ports:
+  - name: peer-service
+    {{- if .Values.hubble.peerService.servicePort }}
+    port: {{ .Values.hubble.peerService.servicePort }}
+    {{- else }}
+    port: {{ .Values.hubble.tls.enabled | ternary 443 80 }}
+    {{- end }}
+    protocol: TCP
+    targetPort: {{ .Values.hubble.peerService.targetPort }}
+{{- if semverCompare ">=1.22-0" .Capabilities.KubeVersion.GitVersion }}
+  internalTrafficPolicy: Local
+{{- end }}
+{{- end }}

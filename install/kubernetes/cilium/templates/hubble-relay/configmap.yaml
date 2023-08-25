@@ -1,0 +1,47 @@
+{{- if and .Values.hubble.enabled .Values.hubble.relay.enabled }}
+{{- $peerSvcPort := .Values.hubble.peerService.servicePort -}}
+{{- if not .Values.hubble.peerService.servicePort }}
+{{- $peerSvcPort = (.Values.hubble.tls.enabled | ternary 443 80) -}}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-relay-config
+  namespace: {{ .Release.Namespace }}
+data:
+  config.yaml: |
+    cluster-name: {{ .Values.cluster.name }}
+    peer-service: "hubble-peer.{{ .Release.Namespace }}.svc.{{ .Values.hubble.peerService.clusterDomain }}:{{ $peerSvcPort }}"
+    listen-address: {{ .Values.hubble.relay.listenHost }}:{{ .Values.hubble.relay.listenPort }}
+    gops: {{ .Values.hubble.relay.gops.enabled }}
+    gops-port: {{ .Values.hubble.relay.gops.port | quote }}
+    {{- if .Values.hubble.relay.pprof.enabled }}
+    pprof: {{ .Values.hubble.relay.pprof.enabled | quote }}
+    pprof-address: {{ .Values.hubble.relay.pprof.address | quote }}
+    pprof-port: {{ .Values.hubble.relay.pprof.port | quote }}
+    {{- end }}
+    {{- if .Values.hubble.relay.prometheus.enabled }}
+    metrics-listen-address: ":{{ .Values.hubble.relay.prometheus.port }}"
+    {{- end }}
+    dial-timeout: {{ .Values.hubble.relay.dialTimeout }}
+    retry-timeout: {{ .Values.hubble.relay.retryTimeout }}
+    sort-buffer-len-max: {{ .Values.hubble.relay.sortBufferLenMax }}
+    sort-buffer-drain-timeout: {{ .Values.hubble.relay.sortBufferDrainTimeout }}
+    {{- if .Values.hubble.tls.enabled }}
+    tls-hubble-client-cert-file: /var/lib/hubble-relay/tls/client.crt
+    tls-hubble-client-key-file: /var/lib/hubble-relay/tls/client.key
+    tls-hubble-server-ca-files: /var/lib/hubble-relay/tls/hubble-server-ca.crt
+    {{- else }}
+    disable-client-tls: true
+    {{- end }}
+    {{- if and .Values.hubble.tls.enabled .Values.hubble.relay.tls.server.enabled }}
+    tls-relay-server-cert-file: /var/lib/hubble-relay/tls/server.crt
+    tls-relay-server-key-file: /var/lib/hubble-relay/tls/server.key
+    {{- if .Values.hubble.relay.tls.server.mtls }}
+    tls-relay-client-ca-files: /var/lib/hubble-relay/tls/hubble-server-ca.crt
+    {{- end }}
+    {{- else }}
+    disable-server-tls: true
+    {{- end }}
+{{- end }}

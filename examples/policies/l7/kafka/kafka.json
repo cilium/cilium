@@ -1,0 +1,22 @@
+[{
+  "labels": [{"key": "name", "value": "rule1"}],
+  "endpointSelector": {"matchLabels": {"app": "kafka"}},
+  "ingress": [{
+    "fromEndpoints": [
+      {"matchLabels": {"app": "empire-hq"}}
+    ],
+    "toPorts": [{
+      "ports": [
+        {"port": "9092", "protocol": "TCP"}
+      ],
+      "rules": {
+        "kafka": [
+            {"apiKey": "apiversions"},
+            {"apiKey": "metadata"},
+            {"apiKey": "produce", "topic": "deathstar-plans"},
+            {"apiKey": "produce", "topic": "empire-announce"}
+        ]
+      }
+    }]
+  }]
+}]

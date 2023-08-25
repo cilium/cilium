@@ -1,0 +1,24 @@
+{{- if and .Values.operator.enabled .Values.operator.podDisruptionBudget.enabled }}
+{{- $component := .Values.operator.podDisruptionBudget }}
+apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
+kind: PodDisruptionBudget
+metadata:
+  name: cilium-operator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    io.cilium/app: operator
+    name: cilium-operator
+    app.kubernetes.io/name: cilium-operator
+    app.kubernetes.io/part-of: cilium
+spec:
+  {{- with $component.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  {{- with $component.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+  selector:
+    matchLabels:
+      io.cilium/app: operator
+      name: cilium-operator
+{{- end }}

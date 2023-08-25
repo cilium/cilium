@@ -1,0 +1,84 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: httproute-listener-hostname-matching
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: listener-1
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+    hostname: bar.com
+  - name: listener-2
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+    hostname: foo.bar.com
+  - name: listener-3
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+    hostname: "*.bar.com"
+  - name: listener-4
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+    hostname: "*.foo.com"
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: backend-v1
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: httproute-listener-hostname-matching
+    namespace: gateway-conformance-infra
+    sectionName: listener-1
+  rules:
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: backend-v2
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: httproute-listener-hostname-matching
+    namespace: gateway-conformance-infra
+    sectionName: listener-2
+  rules:
+  - backendRefs:
+    - name: infra-backend-v2
+      port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: backend-v3
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: httproute-listener-hostname-matching
+    namespace: gateway-conformance-infra
+    sectionName: listener-3
+  - name: httproute-listener-hostname-matching
+    namespace: gateway-conformance-infra
+    sectionName: listener-4
+  rules:
+  - backendRefs:
+    - name: infra-backend-v3
+      port: 8080

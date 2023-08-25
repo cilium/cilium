@@ -1,0 +1,29 @@
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled -}}
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}
+  namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: spire-server
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}
+  namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}-pod
+  namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}-pod
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}
+  namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+{{- end }}

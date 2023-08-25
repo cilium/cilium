@@ -1,0 +1,75 @@
+{{- if and .Values.agent (not .Values.preflight.enabled) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cilium-config-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cilium-config-agent
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceAccounts.cilium.name | quote }}
+    namespace: {{ .Release.Namespace }}
+{{- end}}
+
+{{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.ingressController.enabled .Values.ingressController.secretsNamespace.name}}
+--- 
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cilium-secrets
+  namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cilium-ingress-secrets
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceAccounts.cilium.name | quote }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+
+{{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.gatewayAPI.enabled .Values.gatewayAPI.secretsNamespace.name}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cilium-gateway-secrets
+  namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cilium-gateway-secrets
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.serviceAccounts.cilium.name | quote }}
+  namespace: {{ .Release.Namespace }}
+{{- end}}
+
+{{- if and .Values.agent (not .Values.preflight.enabled) .Values.serviceAccounts.cilium.create .Values.envoyConfig.enabled .Values.envoyConfig.secretsNamespace.name}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cilium-envoy-config-secrets
+  namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cilium-envoy-config-secrets
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.serviceAccounts.cilium.name | quote }}
+  namespace: {{ .Release.Namespace }}
+{{- end}}

@@ -1,0 +1,17 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "l4-policy-demo"
+spec:
+  description: "L4 policy for allowing all traffic in demo DS"
+  endpointSelector:
+    matchLabels:
+      zgroup: testDS
+  ingress:
+  - toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+    - ports:
+      - port: "69"
+        protocol: UDP

@@ -1,0 +1,63 @@
+name: Documentation Updates
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request: {}
+  push:
+    branches:
+      - main
+      - ft/main/**
+
+permissions: read-all
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+jobs:
+  check_changes:
+    name: Deduce required tests from code changes
+    runs-on: ubuntu-20.04
+    outputs:
+      docs-tree: ${{ steps.docs-tree.outputs.src }}
+    steps:
+      - name: Checkout code
+        if: ${{ !github.event.pull_request }}
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          persist-credentials: false
+      - name: Check code changes
+        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+        id: docs-tree
+        with:
+          # For `push` events, compare against the `ref` base branch
+          # For `pull_request` events, this is ignored and will compare against the pull request base branch
+          base: ${{ github.ref }}
+          filters: |
+            src:
+              - .github/workflows/documentation.yaml
+              - 'Documentation/**'
+              - 'bugtool/cmd/**'
+              - 'cilium/cmd/**'
+              - 'cilium-health/cmd/**'
+              - 'daemon/cmd/**'
+              - 'hubble-relay/cmd/**'
+              - 'install/kubernetes/**'
+              - 'operator/cmd/**'
+              - README.rst
+
+  # Runs only if code under Documentation or */cmd/ is changed as the docs
+  # should be unaffected otherwise.
+  build-html:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.docs-tree == 'true' }}
+    name: Validate & Build HTML
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          persist-credentials: false
+      - uses: docker://quay.io/cilium/docs-builder:4b194c0facc5d1d3b9c0dfef3529ee7c661a6b73@sha256:095cf9621cf46c6c878e25c3a98f02ef3d0aed1154936663e352fd3fe5e7613d
+        with:
+          entrypoint: ./Documentation/check-build.sh
+          args: html

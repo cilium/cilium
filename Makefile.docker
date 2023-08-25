@@ -1,0 +1,158 @@
+# Copyright Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
+DOCKER_BUILDER := default
+
+# Export with value expected by docker
+export DOCKER_BUILDKIT=1
+
+# Docker Buildx support. If ARCH is defined, a builder instance 'cross'
+# on the local node is configured for amd64 and arm64 platform targets.
+# Otherwise build on the current (typically default) builder for the host
+# platform only.
+ifdef ARCH
+  # Default to multi-arch builds, always create the builder for all the platforms we support
+  DOCKER_PLATFORMS := linux/arm64,linux/amd64
+  DOCKER_BUILDER := $(shell docker buildx ls | grep -E -e "[a-zA-Z0-9-]+ \*" | cut -d ' ' -f1)
+  ifneq (,$(filter $(DOCKER_BUILDER),default desktop-linux))
+    DOCKER_BUILDKIT_DRIVER :=
+    ifdef DOCKER_BUILDKIT_IMAGE
+      DOCKER_BUILDKIT_DRIVER := --driver docker-container --driver-opt image=$(DOCKER_BUILDKIT_IMAGE)
+    endif
+    BUILDER_SETUP := $(shell docker buildx create --platform $(DOCKER_PLATFORMS) $(DOCKER_BUILDKIT_DRIVER) --use)
+  endif
+  # Override default for a single platform
+  ifneq ($(ARCH),multi)
+    DOCKER_PLATFORMS := linux/$(ARCH)
+  endif
+  DOCKER_FLAGS += --push --platform $(DOCKER_PLATFORMS)
+else
+  ifeq ($(findstring --output,$(DOCKER_FLAGS)),)
+    ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
+      # ARCH, --output, and --push are not specified, build for the host platform without pushing, mimicking regular docker build
+      DOCKER_FLAGS += --load
+    endif
+  endif
+endif
+DOCKER_BUILDER := $(shell docker buildx ls | grep -E -e "[a-zA-Z0-9-]+ \*" | cut -d ' ' -f1)
+
+##@ Docker Images
+.PHONY: builder-info
+builder-info: ## Print information about the docker builder that will be used for building images.
+	@echo "Using Docker Buildx builder \"$(DOCKER_BUILDER)\" with build flags \"$(DOCKER_FLAGS)\"."
+
+# Generic rule for augmented .dockerignore files.
+GIT_IGNORE_FILES := $(shell find . -not -path "./vendor*" -name .gitignore -print)
+.PRECIOUS: %.dockerignore
+%.dockerignore: $(GIT_IGNORE_FILES) Makefile.docker
+	@-mkdir -p $(dir $@)
+	@echo "/hack" > $@
+	@echo ".git" >> $@
+	@echo "/Makefile.docker" >> $@
+	@echo $(dir $(GIT_IGNORE_FILES)) | tr ' ' '\n' | xargs -P1 -n1 -I {DIR} sed \
+		-e '# Remove lines with white space, comments and files that must be passed to docker, "$$" due to make. #' \
+			-e '/^[[:space:]]*$$/d' -e '/^#/d' -e '/GIT_VERSION/d' \
+		-e '# Apply pattern in all directories if it contains no "/", keep "!" up front. #' \
+			-e '/^[^!/][^/]*$$/s<^<**/<' -e '/^![^/]*$$/s<^!<!**/<' \
+		-e '# Prepend with the directory name, keep "!" up front. #' \
+			-e '/^[^!]/s<^<{DIR}<' -e '/^!/s<^!<!{DIR}<'\
+		-e '# Remove leading "./", keep "!" up front. #' \
+			-e 's<^\./<<' -e 's<^!\./<!<' \
+		-e '# Append newline to the last line if missing. GNU sed does not do this automatically. #' \
+			-e '$$a\' \
+		{DIR}.gitignore >> $@
+
+DOCKER_REGISTRY ?= quay.io
+ifeq ($(findstring /,$(DOCKER_DEV_ACCOUNT)),/)
+    # DOCKER_DEV_ACCOUNT already contains '/', assume it specifies a registry
+    IMAGE_REPOSITORY := $(DOCKER_DEV_ACCOUNT)
+else
+    IMAGE_REPOSITORY := $(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)
+endif
+
+#
+# Template for Docker images. Paramaters are:
+# $(1) image target name
+# $(2) Dockerfile path
+# $(3) image name stem (e.g., cilium, cilium-operator, etc)
+# $(4) image tag
+# $(5) target
+#
+define DOCKER_IMAGE_TEMPLATE
+.PHONY: $(1)
+$(1): GIT_VERSION $(2) $(2).dockerignore GIT_VERSION builder-info
+	$(ECHO_DOCKER)$(2) $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$${UNSTRIPPED}:$(4)
+	$(eval IMAGE_NAME := $(subst %,$$$$*,$(3)))
+ifeq ($(5),debug)
+	@export NOSTRIP=1
+endif
+	$(QUIET) $(CONTAINER_ENGINE) buildx build -f $(subst %,$$*,$(2)) \
+		$(DOCKER_BUILD_FLAGS) $(DOCKER_FLAGS) \
+		$(if $(BASE_IMAGE),--build-arg BASE_IMAGE=$(BASE_IMAGE),) \
+		--build-arg NOSTRIP=$${NOSTRIP} \
+		--build-arg NOOPT=${NOOPT} \
+		--build-arg LOCKDEBUG=${LOCKDEBUG} \
+		--build-arg RACE=${RACE}\
+		--build-arg V=${V} \
+		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
+		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
+		--build-arg OPERATOR_VARIANT=$(IMAGE_NAME) \
+		--build-arg DEBUG_HOLD=$(DEBUG_HOLD) \
+		--target $(5) \
+		-t $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$${UNSTRIPPED}$(DOCKER_IMAGE_SUFFIX):$(4) .
+ifneq ($(KIND_LOAD),)
+	sleep 1
+	kind load docker-image $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$${UNSTRIPPED}$(DOCKER_IMAGE_SUFFIX):$(4)
+else
+    ifeq ($(findstring --push,$(DOCKER_FLAGS)),)
+	@echo 'Define "DOCKER_FLAGS=--push" to push the build results.'
+    else
+	$(CONTAINER_ENGINE) buildx imagetools inspect $(IMAGE_REPOSITORY)/$(IMAGE_NAME)$${UNSTRIPPED}$(DOCKER_IMAGE_SUFFIX):$(4)
+	@echo '^^^ Images pushed, multi-arch manifest should be above. ^^^'
+    endif
+endif
+
+$(1)-unstripped: NOSTRIP=1
+$(1)-unstripped: UNSTRIPPED=-unstripped
+$(1)-unstripped: $(1)
+	@echo
+endef
+
+# docker-cilium-image
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-cilium-image,images/cilium/Dockerfile,cilium,$(DOCKER_IMAGE_TAG),release))
+
+# dev-docker-image
+$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-image,images/cilium/Dockerfile,cilium-dev,$(DOCKER_IMAGE_TAG),release))
+
+# dev-docker-image-debug
+$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-image-debug,images/cilium/Dockerfile,cilium-dev,$(DOCKER_IMAGE_TAG),debug))
+
+# docker-plugin-image
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-plugin-image,images/cilium-docker-plugin/Dockerfile,docker-plugin,$(DOCKER_IMAGE_TAG),release))
+
+# docker-hubble-relay-image
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-hubble-relay-image,images/hubble-relay/Dockerfile,hubble-relay,$(DOCKER_IMAGE_TAG),release))
+
+# docker-clustermesh-apiserver-image
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-clustermesh-apiserver-image,images/clustermesh-apiserver/Dockerfile,clustermesh-apiserver,$(DOCKER_IMAGE_TAG),release))
+
+# docker-kvstoremesh-image
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-kvstoremesh-image,images/kvstoremesh/Dockerfile,kvstoremesh,$(DOCKER_IMAGE_TAG),release))
+
+# docker-operator-images.
+# We eat the ending of "operator" in to the stem ('%') to allow this pattern
+# to build also 'docker-operator-image', where the stem would be empty otherwise.
+$(eval $(call DOCKER_IMAGE_TEMPLATE,docker-opera%-image,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG),release))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-opera%-image,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG),release))
+$(eval $(call DOCKER_IMAGE_TEMPLATE,dev-docker-opera%-image-debug,images/operator/Dockerfile,opera%,$(DOCKER_IMAGE_TAG),debug))
+
+#
+# docker-*-all targets are mainly used from the CI
+#
+docker-images-all: docker-cilium-image docker-plugin-image docker-hubble-relay-image docker-clustermesh-apiserver-image docker-kvstoremesh-image docker-operator-images-all ## Build all Cilium related docker images.
+
+docker-images-all-unstripped: docker-cilium-image-unstripped docker-plugin-image-unstripped docker-hubble-relay-image-unstripped docker-clustermesh-apiserver-image-unstripped docker-kvstoremesh-image-unstripped docker-operator-images-all-unstripped ## Build all Cilium related unstripped docker images.
+
+docker-operator-images-all: docker-operator-image docker-operator-aws-image docker-operator-azure-image docker-operator-alibabacloud-image docker-operator-generic-image ## Build all variants of cilium-operator images.
+
+docker-operator-images-all-unstripped: docker-operator-image-unstripped docker-operator-aws-image-unstripped docker-operator-azure-image-unstripped docker-operator-alibabacloud-image-unstripped docker-operator-generic-image-unstripped ## Build all variants of unstripped cilium-operator images.

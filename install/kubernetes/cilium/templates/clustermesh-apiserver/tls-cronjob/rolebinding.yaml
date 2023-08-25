@@ -1,0 +1,17 @@
+{{- if and (or .Values.externalWorkloads.enabled .Values.clustermesh.useAPIServer) .Values.clustermesh.apiserver.tls.auto.enabled (eq .Values.clustermesh.apiserver.tls.auto.method "cronJob") .Values.serviceAccounts.clustermeshcertgen.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: clustermesh-apiserver-generate-certs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/part-of: cilium
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: clustermesh-apiserver-generate-certs
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.serviceAccounts.clustermeshcertgen.name | quote }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

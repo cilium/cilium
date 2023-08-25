@@ -1,0 +1,63 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+		{
+			"name": "Launch test for current package",
+			"type": "go",
+			"request": "launch",
+			"mode": "test",
+			"program": "${relativeFileDirname}",
+		},
+		{
+			"name": "Attach to kind-control-plane-1",
+			"type": "go",
+			"request": "attach",
+			"mode": "remote",
+			"port":23401,
+			"host":"127.0.0.1",
+			"showLog": true,
+			"trace": "log",
+			"logOutput": "rpc",
+			"substitutePath": [{"from": "${workspaceFolder}", "to": "/go/src/github.com/cilium/cilium"}],
+		},
+		{
+			"name": "Attach to kind-worker-1",
+			"type": "go",
+			"request": "attach",
+			"mode": "remote",
+			"port":23411,
+			"host":"127.0.0.1",
+			"showLog": true,
+			"trace": "log",
+			"logOutput": "rpc",
+			"substitutePath": [{"from": "${workspaceFolder}", "to": "/go/src/github.com/cilium/cilium"}],
+		},
+		{
+			"name": "Attach to kind-worker-2",
+			"type": "go",
+			"request": "attach",
+			"mode": "remote",
+			"port":23412,
+			"host":"127.0.0.1",
+			"showLog": true,
+			"trace": "log",
+			"logOutput": "rpc",
+			"substitutePath": [{"from": "${workspaceFolder}", "to": "/go/src/github.com/cilium/cilium"}],
+		},
+		{
+			"name": "Attach to Cilium Operator",
+			"type": "go",
+			"request": "attach",
+			"mode": "remote",
+			"port":23511,
+			"host":"127.0.0.1",
+			"showLog": true,
+			"trace": "log",
+			"logOutput": "rpc",
+			"substitutePath": [{"from": "${workspaceFolder}", "to": "/go/src/github.com/cilium/cilium"}],
+		}
+	]
+}

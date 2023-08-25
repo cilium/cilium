@@ -1,0 +1,22 @@
+# CLOMonitor metadata file
+
+exemptions:
+  - check: slack_presence
+    reason: "The Cilium slack community can be found at http://slack.cilium.io/" # Justification of this exemption
+
+  - check: dangerous_workflow
+    reason: >
+      "It is safe to run code checkout '${{ github.event.pull_request.head.sha }}' 
+      and 'github.event.pull_request.head.ref' in .github/workflows/build-images-base.yaml 
+      as this workflow is only permitted to be executed after an explicit approval of a 
+      subset of committers."
+
+  - check: signed_releases
+    reason: >
+      "All Cilium release images are cryptographically signed during build by cosign. 
+      Images are hosted in Quay. OpenSSF Scorecard check is currently limited to repositories 
+      hosted on GitHub, and does not support other source hosting repositories."
+
+  - check: token_permissions
+    reason: >
+      "Reason to use every non-read-only token in GitHub workflows is commented in the respective workflow files."

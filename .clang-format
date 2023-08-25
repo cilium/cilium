@@ -1,0 +1,180 @@
+# Configuration file for clang-format.
+# Intended for clang-format >= 15.
+#
+# The list and meaning of the options is available at:
+#
+#   https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+---
+# BasedOnStyle                              # No base style in use
+# AccessModifierOffset                      # We don't use access modifiers
+AlignAfterOpenBracket: Align
+AlignArrayOfStructures: Left
+AlignConsecutiveAssignments: false
+AlignConsecutiveBitFields:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+AlignConsecutiveDeclarations: false
+AlignConsecutiveMacros:
+  Enabled: true
+  AcrossEmptyLines: true
+  AcrossComments: true
+AlignEscapedNewlines: Left
+AlignOperands: true
+AlignTrailingComments: true
+AllowAllArgumentsOnNextLine: false
+# AllowAllConstructorInitializersOnNextLine # Deprecated
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+# AllowShortLambdasOnASingleLine            # We don't use lambdas
+AllowShortLoopsOnASingleLine: false
+# AlwaysBreakAfterDefinitionReturnType      # Deprecated
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: false
+# AlwaysBreakTemplateDeclarations           # We don't use templates
+# AttributeMacros                           # Unused at this time
+BinPackArguments: true
+BinPackParameters: true
+BitFieldColonSpacing: None
+BraceWrapping:
+  AfterCaseLabel: true
+  # AfterClass                              # We don't use classes
+  AfterControlStatement: Never
+  AfterEnum: false
+  AfterFunction: true
+  # AfterNamespace                          # We don't use namespaces
+  # AfterObjCDeclaration                    # We don't use ObjC
+  AfterStruct: false
+  AfterUnion: false
+  AfterExternBlock: false
+  # BeforeCatch                             # We don't use try/catch
+  BeforeElse: false
+  # BeforeLambdaBody                        # We don't use lambdas
+  BeforeWhile: false
+  IndentBraces: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  # SplitEmptyNamespace                     # We don't use namespaces
+# BreakAfterJavaFieldAnnotations            # We don't use Java
+BreakBeforeBinaryOperators: None
+BreakBeforeBraces: Custom
+# BreakBeforeConceptDeclarations            # We don't use concepts
+BreakBeforeTernaryOperators: false
+# BreakConstructorInitializers              # We don't use constructors
+# BreakInheritanceList                      # We don't use inheritance
+BreakStringLiterals: false
+ColumnLimit: 80
+# CommentPragmas                            # Unused at this time
+# CompactNamespaces                         # We don't use namespaces
+# ConstructorInitializerAllOnOneLineOrOnePerLine # Deprecated
+# ConstructorInitializerIndentWidth         # We don't use constructors
+ContinuationIndentWidth: 8
+Cpp11BracedListStyle: false
+# DeriveLineEnding                          # Deprecated
+DerivePointerAlignment: false
+DisableFormat: false
+# EmptyLineAfterAccessModifier              # We don't use access modifiers
+# EmptyLineBeforeAccessModifier             # We don't use access modifiers
+# ExperimentalAutoDetectBinPacking          # Experimental, "Use at your own risk"
+# FixNamespaceComments                      # We don't use namespaces
+# ForEachMacros                             # Unused at this time
+# IfMacros                                  # Unused at this time
+IncludeBlocks: Preserve
+# IncludeCategories                         # Unused at this time
+# IncludeIsMainRegex                        # Unused at this time
+# IncludeIsMainSourceRegex                  # Unused at this time
+# IndentAccessModifiers                     # We don't use access modifiers
+IndentCaseBlocks: false
+IndentCaseLabels: false
+# IndentExternBlock                         # We don't use extern blocks
+IndentGotoLabels: false
+IndentPPDirectives: AfterHash
+# IndentRequiresClause                      # We don't use equire clauses
+IndentWidth: 8
+IndentWrappedFunctionNames: false
+InsertBraces: false
+# InsertTrailingCommas                      # We don't use JavaScript
+# JavaImportGroups                          # We don't use Java
+# JavaScriptQuotes                          # We don't use JavaScript
+# JavaScriptWrapImports                     # We don't use JavaScript
+KeepEmptyLinesAtTheStartOfBlocks: false
+# LambdaBodyIndentation                     # We don't use lambdas
+Language: Cpp
+# MacroBlockBegin                           # Unused at this time
+# MacroBlockEnd                             # Unused at this time
+MaxEmptyLinesToKeep: 1
+# NamespaceIndentation                      # We don't use namespaces
+# NamespaceMacros                           # We don't use namespaces
+# ObjCBinPackProtocolList                   # We don't use ObjC
+# ObjCBlockIndentWidth                      # We don't use ObjC
+# ObjCBreakBeforeNestedBlockParam           # We don't use ObjC
+# ObjCSpaceAfterProperty                    # We don't use ObjC
+# ObjCSpaceBeforeProtocolList               # We don't use ObjC
+PPIndentWidth: 1
+# PackConstructorInitializers               # We don't use constructors
+
+# Penalties decide in what order (weighting) things should be done if a line is
+# too long: 100 = try everything else before this.
+# See https://stackoverflow.com/a/46749925
+PenaltyBreakAssignment: 10
+PenaltyBreakBeforeFirstCallParameter: 0
+PenaltyBreakComment: 0
+PenaltyBreakFirstLessLess: 0
+PenaltyBreakOpenParenthesis: 100
+PenaltyBreakString: 10
+# PenaltyBreakTemplateDeclaration           # We don't use templates
+PenaltyExcessCharacter: 100
+PenaltyIndentedWhitespace: 100
+PenaltyReturnTypeOnItsOwnLine: 100
+
+PointerAlignment: Right
+QualifierAlignment: Leave
+# QualifierOrder                            # Unused at this time
+# RawStringFormats                          # Unused at this time
+# ReferenceAlignment                        # We don't use references
+ReflowComments: false
+RemoveBracesLLVM: false
+# RequiresClausePosition                    # We don't use require clauses
+SeparateDefinitionBlocks: Leave
+# ShortNamespaceLines                       # We don't use namespaces
+SortIncludes: Never
+# SortJavaStaticImport                      # We don't use Java
+# SortUsingDeclarations                     # We don't use using declarations
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+# SpaceAfterTemplateKeyword                 # We don't use templates
+SpaceAroundPointerQualifiers: Default
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCaseColon: false
+# SpaceBeforeCpp11BracedList                # We don't use C++11 braced lists to initialize objects
+# SpaceBeforeCtorInitializerColon           # We don't use constructors
+# SpaceBeforeInheritanceColon               # We don't use inheritance
+SpaceBeforeParens: ControlStatements
+# SpaceBeforeParensOptions                  # No need for custom SpaceBeforeParens options
+# SpaceBeforeRangeBasedForLoopColon         # We don't use range-based for loops
+SpaceBeforeSquareBrackets: false
+SpaceInEmptyBlock: false
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+# SpacesInAngles                            # We don't use templates
+SpacesInCStyleCastParentheses: false
+SpacesInConditionalStatement: false
+SpacesInContainerLiterals: false
+SpacesInLineCommentPrefix:
+  Minimum: 1
+  Maximum: 1
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+Standard: C++03
+# StatementAttributeLikeMacros              # Unused at this time
+# StatementMacros                           # Unused at this time
+TabWidth: 8
+# TypenameMacros                            # Unused at this time
+# UseCRLF # Deprecated
+UseTab: Always
+# WhitespaceSensitiveMacros                 # Unused at this time
+...

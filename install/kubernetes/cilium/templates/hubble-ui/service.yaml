@@ -1,0 +1,26 @@
+{{- if and (or .Values.hubble.enabled .Values.hubble.ui.standalone.enabled) .Values.hubble.ui.enabled }}
+kind: Service
+apiVersion: v1
+metadata:
+  name: hubble-ui
+  namespace: {{ .Release.Namespace }}
+  {{- if .Values.hubble.ui.service.annotations }}
+  annotations:
+    {{- toYaml .Values.hubble.ui.service.annotations | nindent 4 }}
+  {{- end }}
+  labels:
+    k8s-app: hubble-ui
+    app.kubernetes.io/name: hubble-ui
+    app.kubernetes.io/part-of: cilium
+spec:
+  type: {{ .Values.hubble.ui.service.type | quote }}
+  selector:
+    k8s-app: hubble-ui
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8081
+      {{- if and (eq "NodePort" .Values.hubble.ui.service.type) .Values.hubble.ui.service.nodePort }}
+      nodePort: {{ .Values.hubble.ui.service.nodePort }}
+      {{- end }}
+{{- end }}

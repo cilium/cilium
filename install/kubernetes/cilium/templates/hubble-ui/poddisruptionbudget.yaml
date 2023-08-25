@@ -1,0 +1,22 @@
+{{- if and (or .Values.hubble.enabled .Values.hubble.ui.standalone.enabled) .Values.hubble.ui.enabled .Values.hubble.ui.podDisruptionBudget.enabled }}
+{{- $component := .Values.hubble.ui.podDisruptionBudget }}
+apiVersion: {{ include "podDisruptionBudget.apiVersion" . }}
+kind: PodDisruptionBudget
+metadata:
+  name: hubble-ui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: hubble-ui
+    app.kubernetes.io/name: hubble-ui
+    app.kubernetes.io/part-of: cilium
+spec:
+  {{- with $component.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  {{- with $component.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+  selector:
+    matchLabels:
+      k8s-app: hubble-ui
+{{- end }}

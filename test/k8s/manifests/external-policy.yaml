@@ -1,0 +1,13 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "external-policy"
+spec:
+  endpointSelector:
+    matchLabels:
+      "test": "toservices"
+  egress:
+  - toServices:
+    - k8sService:
+        serviceName: external-service
+        namespace: default

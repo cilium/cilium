@@ -1,0 +1,201 @@
+move-to-projects-for-labels-xored:
+  v1.14:
+    needs-backport/1.14:
+      project: "https://github.com/cilium/cilium/projects/247"
+      column: "Needs backport from main"
+    backport-pending/1.14:
+      project: "https://github.com/cilium/cilium/projects/247"
+      column: "Backport pending to v1.14"
+    backport-done/1.14:
+      project: "https://github.com/cilium/cilium/projects/247"
+      column: "Backport done to v1.14"
+  v1.13:
+    needs-backport/1.13:
+      project: "https://github.com/cilium/cilium/projects/245"
+      column: "Needs backport from main"
+    backport-pending/1.13:
+      project: "https://github.com/cilium/cilium/projects/245"
+      column: "Backport pending to v1.13"
+    backport-done/1.13:
+      project: "https://github.com/cilium/cilium/projects/245"
+      column: "Backport done to v1.13"
+  v1.12:
+    needs-backport/1.12:
+      project: "https://github.com/cilium/cilium/projects/248"
+      column: "Needs backport from main"
+    backport-pending/1.12:
+      project: "https://github.com/cilium/cilium/projects/248"
+      column: "Backport pending to v1.12"
+    backport-done/1.12:
+      project: "https://github.com/cilium/cilium/projects/248"
+      column: "Backport done to v1.12"
+require-msgs-in-commit:
+  - msg: "Signed-off-by"
+    helper: "https://docs.cilium.io/en/stable/contributing/development/contributing_guide/#developer-s-certificate-of-origin"
+    set-labels:
+      - "dont-merge/needs-sign-off"
+block-pr-with:
+  labels-unset:
+    - regex-label: "release-note/.*"
+      set-labels:
+        - "dont-merge/needs-release-note-label"
+  labels-set:
+    - regex-label: "dont-merge/.*"
+      helper: "Blocking mergeability of PR as 'dont-merge/.*' labels are set"
+flake-tracker:
+  issue-tracker-config:
+    issue-labels:
+    - ci/flake
+  jenkins-config:
+    jenkins-url: https://jenkins.cilium.io
+    regex-trigger: (^/test)
+    stable-jobs:
+    - cilium-main-k8s-1.16-kernel-4.19
+    - cilium-main-k8s-1.17-kernel-4.19
+    - cilium-main-k8s-1.18-kernel-4.19
+    - cilium-main-k8s-1.19-kernel-4.19
+    - cilium-main-k8s-1.20-kernel-4.19
+    - cilium-main-k8s-1.21-kernel-4.19
+    - cilium-main-k8s-1.22-kernel-4.19
+    - cilium-main-k8s-1.23-kernel-4.19
+    - cilium-main-k8s-1.24-kernel-4.19
+    - cilium-main-k8s-1.24-kernel-5.4
+    - cilium-main-k8s-1.25-kernel-4.19
+    - cilium-main-k8s-1.26-kernel-net-next
+    - cilium-main-k8s-upstream
+    pr-jobs:
+      Cilium-PR-K8s-1.16-kernel-4.19:
+        correlate-with-stable-jobs:
+        - cilium-main-k8s-1.16-kernel-4.19
+        - cilium-main-k8s-1.17-kernel-4.19
+        - cilium-main-k8s-1.18-kernel-4.19
+        - cilium-main-k8s-1.19-kernel-4.19
+        - cilium-main-k8s-1.20-kernel-4.19
+        - cilium-main-k8s-1.21-kernel-4.19
+        - cilium-main-k8s-1.22-kernel-4.19
+        - cilium-main-k8s-1.23-kernel-4.19
+        - cilium-main-k8s-1.24-kernel-4.19
+        - cilium-main-k8s-1.25-kernel-4.19
+      Cilium-PR-K8s-1.17-kernel-4.19:
+        correlate-with-stable-jobs:
+        - cilium-main-k8s-1.16-kernel-4.19
+        - cilium-main-k8s-1.17-kernel-4.19
+        - cilium-main-k8s-1.18-kernel-4.19
+        - cilium-main-k8s-1.19-kernel-4.19
+        - cilium-main-k8s-1.20-kernel-4.19
+        - cilium-main-k8s-1.21-kernel-4.19
+        - cilium-main-k8s-1.22-kernel-4.19
+        - cilium-main-k8s-1.23-kernel-4.19
+        - cilium-main-k8s-1.24-kernel-4.19
+        - cilium-main-k8s-1.25-kernel-4.19
+      Cilium-PR-K8s-1.18-kernel-4.19:
+        correlate-with-stable-jobs:
+        - cilium-main-k8s-1.16-kernel-4.19
+        - cilium-main-k8s-1.17-kernel-4.19
+        - cilium-main-k8s-1.18-kernel-4.19
+        - cilium-main-k8s-1.19-kernel-4.19
+        - cilium-main-k8s-1.20-kernel-4.19
+        - cilium-main-k8s-1.21-kernel-4.19
+        - cilium-main-k8s-1.22-kernel-4.19
+        - cilium-main-k8s-1.23-kernel-4.19
+        - cilium-main-k8s-1.24-kernel-4.19
+        - cilium-main-k8s-1.25-kernel-4.19
+      Cilium-PR-K8s-1.19-kernel-4.19:
+        correlate-with-stable-jobs:
+        - cilium-main-k8s-1.16-kernel-4.19
+        - cilium-main-k8s-1.17-kernel-4.19
+        - cilium-main-k8s-1.18-kernel-4.19
+        - cilium-main-k8s-1.19-kernel-4.19
+        - cilium-main-k8s-1.20-kernel-4.19
+        - cilium-main-k8s-1.21-kernel-4.19
+        - cilium-main-k8s-1.22-kernel-4.19
+        - cilium-main-k8s-1.23-kernel-4.19
+        - cilium-main-k8s-1.24-kernel-4.19
+        - cilium-main-k8s-1.25-kernel-4.19
+      Cilium-PR-K8s-1.20-kernel-4.19:
+        correlate-with-stable-jobs:
+        - cilium-main-k8s-1.16-kernel-4.19
+        - cilium-main-k8s-1.17-kernel-4.19
+        - cilium-main-k8s-1.18-kernel-4.19
+        - cilium-main-k8s-1.19-kernel-4.19
+        - cilium-main-k8s-1.20-kernel-4.19
+        - cilium-main-k8s-1.21-kernel-4.19
+        - cilium-main-k8s-1.22-kernel-4.19
+        - cilium-main-k8s-1.23-kernel-4.19
+        - cilium-main-k8s-1.24-kernel-4.19
+        - cilium-main-k8s-1.25-kernel-4.19
+      Cilium-PR-K8s-1.21-kernel-4.19:
+        correlate-with-stable-jobs:
+        - cilium-main-k8s-1.16-kernel-4.19
+        - cilium-main-k8s-1.17-kernel-4.19
+        - cilium-main-k8s-1.18-kernel-4.19
+        - cilium-main-k8s-1.19-kernel-4.19
+        - cilium-main-k8s-1.20-kernel-4.19
+        - cilium-main-k8s-1.21-kernel-4.19
+        - cilium-main-k8s-1.22-kernel-4.19
+        - cilium-main-k8s-1.23-kernel-4.19
+        - cilium-main-k8s-1.24-kernel-4.19
+        - cilium-main-k8s-1.25-kernel-4.19
+      Cilium-PR-K8s-1.22-kernel-4.19:
+        correlate-with-stable-jobs:
+        - cilium-main-k8s-1.16-kernel-4.19
+        - cilium-main-k8s-1.17-kernel-4.19
+        - cilium-main-k8s-1.18-kernel-4.19
+        - cilium-main-k8s-1.19-kernel-4.19
+        - cilium-main-k8s-1.20-kernel-4.19
+        - cilium-main-k8s-1.21-kernel-4.19
+        - cilium-main-k8s-1.22-kernel-4.19
+        - cilium-main-k8s-1.23-kernel-4.19
+        - cilium-main-k8s-1.24-kernel-4.19
+        - cilium-main-k8s-1.25-kernel-4.19
+      Cilium-PR-K8s-1.23-kernel-4.19:
+        correlate-with-stable-jobs:
+        - cilium-main-k8s-1.16-kernel-4.19
+        - cilium-main-k8s-1.17-kernel-4.19
+        - cilium-main-k8s-1.18-kernel-4.19
+        - cilium-main-k8s-1.19-kernel-4.19
+        - cilium-main-k8s-1.20-kernel-4.19
+        - cilium-main-k8s-1.21-kernel-4.19
+        - cilium-main-k8s-1.22-kernel-4.19
+        - cilium-main-k8s-1.23-kernel-4.19
+        - cilium-main-k8s-1.24-kernel-4.19
+        - cilium-main-k8s-1.25-kernel-4.19
+      Cilium-PR-K8s-1.24-kernel-4.19:
+        correlate-with-stable-jobs:
+        - cilium-main-k8s-1.16-kernel-4.19
+        - cilium-main-k8s-1.17-kernel-4.19
+        - cilium-main-k8s-1.18-kernel-4.19
+        - cilium-main-k8s-1.19-kernel-4.19
+        - cilium-main-k8s-1.20-kernel-4.19
+        - cilium-main-k8s-1.21-kernel-4.19
+        - cilium-main-k8s-1.22-kernel-4.19
+        - cilium-main-k8s-1.23-kernel-4.19
+        - cilium-main-k8s-1.24-kernel-4.19
+        - cilium-main-k8s-1.25-kernel-4.19
+      Cilium-PR-K8s-1.24-kernel-5.4:
+        correlate-with-stable-jobs:
+        - cilium-main-k8s-1.24-kernel-5.4
+      Cilium-PR-K8s-1.25-kernel-4.19:
+        correlate-with-stable-jobs:
+        - cilium-main-k8s-1.16-kernel-4.19
+        - cilium-main-k8s-1.17-kernel-4.19
+        - cilium-main-k8s-1.18-kernel-4.19
+        - cilium-main-k8s-1.19-kernel-4.19
+        - cilium-main-k8s-1.20-kernel-4.19
+        - cilium-main-k8s-1.21-kernel-4.19
+        - cilium-main-k8s-1.22-kernel-4.19
+        - cilium-main-k8s-1.23-kernel-4.19
+        - cilium-main-k8s-1.24-kernel-4.19
+        - cilium-main-k8s-1.25-kernel-4.19
+      Cilium-PR-K8s-1.26-kernel-net-next:
+        correlate-with-stable-jobs:
+        - cilium-main-k8s-1.26-kernel-net-next
+      Cilium-PR-K8s-Upstream:
+        correlate-with-stable-jobs:
+        - cilium-main-k8s-upstream
+  max-flakes-per-test: 5
+  flake-similarity: 0.85
+  ignore-failures:
+  - failed due to BeforeAll failure
+  - Cilium cannot be installed
+  - cilium pre-flight checks failed

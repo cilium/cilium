@@ -1,0 +1,121 @@
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+*.so.*
+*.d
+
+# LLVM IR files
+*.ll
+*.ll-*
+
+# Folders
+_obj
+_test
+_build/
+
+# Architecture specific extensions/prefixes
+*.cgo1.go
+*.cgo2.c
+_cgo_defun.c
+_cgo_gotypes.go
+_cgo_export.*
+
+_testmain.go
+
+*.exe
+*.test
+*.prof
+
+*.swn
+*.swp
+.vagrant
+vagrant.kubeconfig
+coverage.out
+coverage-all.out
+coverage-all.html
+coverage-all-tmp.out
+bpf-coverage.html
+bpf-coverage.cover
+
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/launch.json
+!.vscode/extensions.json
+*.plist
+
+*_bash_completion
+*.swo
+outgoing
+
+*cscope.files
+*cscope.out
+*cscope.in.out
+*cscope.po.out
+*tags
+.gdb_history
+
+man/
+
+test/envoy/cilium-files
+test/test_results*
+test/.vagrant
+test/tmp.yaml
+test/*_manifest.yaml
+test/*.xml
+test/*.json
+test/*.log
+test/bpf/_results
+test/cilium-[0-9a-f]*.yaml
+test/*tmp
+test/cilium-istioctl
+
+# Updates E2E Test
+old-charts/
+
+# generated test files
+test/k8s/manifests/cnp-second-namespaces.yaml
+test/cilium.conf.ginkgo
+external-workload-ca.crt
+external-workload-tls.crt
+external-workload-tls.key
+
+# GKE temporary files
+test/gke/cluster-name
+test/gke/cluster-uri
+test/gke/cluster-version
+test/gke/gke-kubeconfig
+test/gke/resize-kubeconfig
+test/gke/registry-adder.yaml
+
+# Emacs backup files
+*~
+
+# generated from make targets
+*.ok
+*.build_all
+LICENSE.all
+
+# Temporary files that allow build containers/VMs work without git
+# Not to be ignored by docker.
+GIT_VERSION
+
+# The following files get created during image builds
+.buildx
+.buildx_builder
+
+# Local developer config to be executed in the dev VM and CI VMs started locally
+.devvmrc
+
+# Generated dockerignore files
+images/*/Dockerfile.dockerignore
+
+# Local Emacs files
+.dir-locals.el
+
+# Clangd cache for indexed bpf code
+bpf/.cache
+
+# Include dummy bpf object necessary for XDP_TX
+!test/l4lb/bpf_xdp_veth_host.o

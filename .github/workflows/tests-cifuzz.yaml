@@ -1,0 +1,30 @@
+name: CIFuzz
+on:
+  pull_request:
+    paths-ignore:
+      - 'Documentation/**'
+permissions: read-all
+jobs:
+  Fuzzing:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Build Fuzzers
+      id: build
+      uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@723bdbc7a8ee1e95af24284583b25d41efc0bd41
+      with:
+        oss-fuzz-project-name: 'cilium'
+        dry-run: false
+        language: go
+    - name: Run Fuzzers
+      uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@723bdbc7a8ee1e95af24284583b25d41efc0bd41
+      with:
+        oss-fuzz-project-name: 'cilium'
+        fuzz-seconds: 600
+        dry-run: false
+        language: go
+    - name: Upload Crash
+      uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+      if: failure() && steps.build.outcome == 'success'
+      with:
+        name: artifacts
+        path: ./out/artifacts

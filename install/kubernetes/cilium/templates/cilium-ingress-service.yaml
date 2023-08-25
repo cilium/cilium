@@ -1,0 +1,57 @@
+{{- if .Values.ingressController.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.ingressController.service.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    cilium.io/ingress: "true"
+    {{- if .Values.ingressController.service.labels }}
+    {{- toYaml .Values.ingressController.service.labels | nindent 4 }}
+    {{- end }}
+  {{- if .Values.ingressController.service.annotations }}
+  annotations:
+    {{- toYaml .Values.ingressController.service.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    nodePort: {{ .Values.ingressController.service.insecureNodePort }}
+  - name: https
+    port: 443
+    protocol: TCP
+    nodePort: {{ .Values.ingressController.service.secureNodePort }}
+  type: {{ .Values.ingressController.service.type }}
+  {{- if semverCompare ">=1.24-0" .Capabilities.KubeVersion.Version -}}
+  {{- if .Values.ingressController.service.loadBalancerClass }}
+  loadBalancerClass: {{ .Values.ingressController.service.loadBalancerClass }}
+  {{- end }}
+  {{- if (not (kindIs "invalid" .Values.ingressController.service.allocateLoadBalancerNodePorts)) }}
+  allocateLoadBalancerNodePorts: {{ .Values.ingressController.service.allocateLoadBalancerNodePorts }}
+  {{- end }}
+  {{- end -}}
+  {{- if .Values.ingressController.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.ingressController.service.loadBalancerIP }}
+  {{- end }}
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: {{ .Values.ingressController.service.name }}
+  namespace: {{ .Release.Namespace }}
+  {{- if .Values.ingressController.service.labels }}
+  labels:
+    {{- toYaml .Values.ingressController.service.labels | nindent 4 }}
+  {{- end }}
+  {{- if .Values.ingressController.service.annotations }}
+  annotations:
+    {{- toYaml .Values.ingressController.service.annotations | nindent 4 }}
+  {{- end }}
+subsets:
+- addresses:
+  - ip: "192.192.192.192"
+  ports:
+  - port: 9999
+{{- end }}

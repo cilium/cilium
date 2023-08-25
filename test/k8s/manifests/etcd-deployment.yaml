@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: "stateless-etcd"
+spec:
+  ports:
+  - port: 4379
+    name: api
+  type: ClusterIP
+  selector:
+    name: "stateless-etcd"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "stateless-etcd"
+  labels:
+    name: "stateless-etcd"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: "stateless-etcd"
+  template:
+    metadata:
+      labels:
+        name: "stateless-etcd"
+    spec:
+      hostNetwork: true
+      containers:
+      - name: "etcd"
+        image: "quay.io/coreos/etcd:v3.4.7"
+        env:
+        - name: ETCDCTL_API
+          value: "3"
+        - name: HOSTNAME_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        command:
+          - "/usr/local/bin/etcd"
+        args:
+          - --name=clustermesh-apiserver
+          - --listen-client-urls=http://0.0.0.0:4379
+          - --advertise-client-urls=http://$(HOSTNAME_IP):4379
+          - --initial-cluster-token=clustermesh-apiserver
+          - --initial-cluster-state=new
+          - --auto-compaction-retention=1

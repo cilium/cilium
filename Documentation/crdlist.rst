@@ -1,0 +1,17 @@
+- CiliumBGPPeeringPolicy
+- CiliumCIDRGroup
+- CiliumClusterwideEnvoyConfig
+- :ref:`CiliumClusterwideNetworkPolicy<CiliumClusterwideNetworkPolicy>`
+- CiliumEgressGatewayPolicy
+- :ref:`CiliumEndpoint<CiliumEndpoint>`
+- :ref:`CiliumEndpointSlice<CiliumEndpointSlice>`
+- CiliumEnvoyConfig
+- CiliumExternalWorkload
+- CiliumIdentity
+- CiliumL2AnnouncementPolicy
+- CiliumLoadBalancerIPPool
+- CiliumLocalRedirectPolicy
+- :ref:`CiliumNetworkPolicy<CiliumNetworkPolicy>`
+- CiliumNode
+- CiliumNodeConfig
+- CiliumPodIPPool
