@@ -75,16 +75,16 @@ func (tp *TracingPolicyNamespaced) TpNamespace() string {
 type TracingPolicySpec struct {
 	// +kubebuilder:validation:Optional
 	// A list of kprobe specs.
-	KProbes []KProbeSpec `json:"kprobes"`
+	KProbes []KProbeSpec `json:"kprobes,omitempty"`
 	// +kubebuilder:validation:Optional
 	// A list of tracepoint specs.
-	Tracepoints []TracepointSpec `json:"tracepoints"`
+	Tracepoints []TracepointSpec `json:"tracepoints,omitempty"`
 	// +kubebuilder:validation:Optional
 	// Enable loader events
-	Loader bool `json:"loader"`
+	Loader bool `json:"loader,omitempty"`
 	// +kubebuilder:validation:Optional
 	// A list of uprobe specs.
-	UProbes []UProbeSpec `json:"uprobes"`
+	UProbes []UProbeSpec `json:"uprobes,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// PodSelector selects pods that this policy applies to
@@ -92,7 +92,7 @@ type TracingPolicySpec struct {
 
 	// +kubebuilder:validation:Optional
 	// A list of list specs.
-	Lists []ListSpec `json:"lists"`
+	Lists []ListSpec `json:"lists,omitempty"`
 }
 
 func (tp *TracingPolicy) TpName() string {
@@ -120,17 +120,17 @@ type KProbeSpec struct {
 	Syscall bool `json:"syscall"`
 	// +kubebuilder:validation:Optional
 	// A list of function arguments to include in the trace output.
-	Args []KProbeArg `json:"args"`
+	Args []KProbeArg `json:"args,omitempty"`
 	// +kubebuilder:validation:Optional
 	// A return argument to include in the trace output.
-	ReturnArg KProbeArg `json:"returnArg"`
+	ReturnArg *KProbeArg `json:"returnArg,omitempty"`
 	// +kubebuilder:validation:Optional
 	// An action to perform on the return argument.
 	// Available actions are: Post;TrackSock;UntrackSock
-	ReturnArgAction string `json:"returnArgAction"`
+	ReturnArgAction string `json:"returnArgAction,omitempty"`
 	// +kubebuilder:validation:Optional
 	// Selectors to apply before producing trace output. Selectors are ORed.
-	Selectors []KProbeSelector `json:"selectors"`
+	Selectors []KProbeSelector `json:"selectors,omitempty"`
 }
 
 type KProbeArg struct {
@@ -178,31 +178,31 @@ type BinarySelector struct {
 type KProbeSelector struct {
 	// +kubebuilder:validation:Optional
 	// A list of process ID filters. MatchPIDs are ANDed.
-	MatchPIDs []PIDSelector `json:"matchPIDs"`
+	MatchPIDs []PIDSelector `json:"matchPIDs,omitempty"`
 	// +kubebuilder:validation:Optional
 	// A list of argument filters. MatchArgs are ANDed.
-	MatchArgs []ArgSelector `json:"matchArgs"`
+	MatchArgs []ArgSelector `json:"matchArgs,omitempty"`
 	// +kubebuilder:validation:Optional
 	// A list of actions to execute when this selector matches
-	MatchActions []ActionSelector `json:"matchActions"`
+	MatchActions []ActionSelector `json:"matchActions,omitempty"`
 	// +kubebuilder:validation:Optional
 	// A list of argument filters. MatchArgs are ANDed.
-	MatchReturnArgs []ArgSelector `json:"matchReturnArgs"`
+	MatchReturnArgs []ArgSelector `json:"matchReturnArgs,omitempty"`
 	// +kubebuilder:validation:Optional
 	// A list of binary exec name filters.
-	MatchBinaries []BinarySelector `json:"matchBinaries"`
+	MatchBinaries []BinarySelector `json:"matchBinaries,omitempty"`
 	// +kubebuilder:validation:Optional
 	// A list of namespaces and IDs
-	MatchNamespaces []NamespaceSelector `json:"matchNamespaces"`
+	MatchNamespaces []NamespaceSelector `json:"matchNamespaces,omitempty"`
 	// +kubebuilder:validation:Optional
 	// IDs for namespace changes
-	MatchNamespaceChanges []NamespaceChangesSelector `json:"matchNamespaceChanges"`
+	MatchNamespaceChanges []NamespaceChangesSelector `json:"matchNamespaceChanges,omitempty"`
 	// +kubebuilder:validation:Optional
 	// A list of capabilities and IDs
-	MatchCapabilities []CapabilitiesSelector `json:"matchCapabilities"`
+	MatchCapabilities []CapabilitiesSelector `json:"matchCapabilities,omitempty"`
 	// +kubebuilder:validation:Optional
 	// IDs for capabilities changes
-	MatchCapabilityChanges []CapabilitiesSelector `json:"matchCapabilityChanges"`
+	MatchCapabilityChanges []CapabilitiesSelector `json:"matchCapabilityChanges,omitempty"`
 }
 
 type NamespaceChangesSelector struct {
@@ -345,8 +345,8 @@ type ListSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum=syscalls;generated_syscalls;generated_ftrace
 	// Indicates the type of the list values.
-	Type string `json:"type"`
+	Type string `json:"type,omitempty"`
 	// +kubebuilder:validation:Optional
 	// Pattern for 'generated' lists.
-	Pattern string `json:"pattern"`
+	Pattern *string `json:"pattern,omitempty"`
 }
