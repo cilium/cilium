@@ -825,6 +825,10 @@ func initializeFlags() {
 	flags.Int(option.PolicyMapEntriesName, policymap.MaxEntries, "Maximum number of entries in endpoint policy map (per endpoint)")
 	option.BindEnv(Vp, option.PolicyMapEntriesName)
 
+	flags.Duration(option.PolicyMapFullReconciliationIntervalName, 15*time.Minute, "Interval for full reconciliation of endpoint policy map")
+	option.BindEnv(Vp, option.PolicyMapFullReconciliationIntervalName)
+	flags.MarkHidden(option.PolicyMapFullReconciliationIntervalName)
+
 	flags.Int(option.SockRevNatEntriesName, option.SockRevNATMapEntriesDefault, "Maximum number of entries for the SockRevNAT BPF map")
 	option.BindEnv(Vp, option.SockRevNatEntriesName)
 
