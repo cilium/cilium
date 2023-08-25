@@ -145,11 +145,26 @@ func addENIRules(sysSettings []sysctl.Setting, nodeAddressing types.NodeAddressi
 		Val:       "2",
 		IgnoreErr: false,
 	})
-	if err := route.ReplaceRule(route.Rule{
+	// Delete old nodeport rule if it exists
+	oldRule := route.Rule{
 		Priority: linux_defaults.RulePriorityNodeport,
 		Mark:     linux_defaults.MarkMultinodeNodeport,
 		Mask:     linux_defaults.MaskMultinodeNodeport,
 		Table:    route.MainTable,
+	}
+	if err := route.DeleteRule(oldRule); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("unable to delete old ip rule for ENI multi-node NodePort: %w", err)
+		}
+	}
+	// Install updated ip rule for ENI multi-node NodePort
+	if err := route.ReplaceRule(route.Rule{
+		Priority: linux_defaults.RulePriorityNodeport,
+		Mark:     linux_defaults.MarkMultinodeNodeport,
+		// Avoid selecting this rule when we're carrying identity with mark. See corresponding primary ENI iptables rule
+		// to restore connmark for more details
+		Mask:  linux_defaults.MagicMarkIdentity | linux_defaults.MaskMultinodeNodeport,
+		Table: route.MainTable,
 	}); err != nil {
 		return nil, fmt.Errorf("unable to install ip rule for ENI multi-node NodePort: %w", err)
 	}
