@@ -72,6 +72,9 @@ Install Cilium
 
    Install Cilium with ``--set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"`` to match k3s default podCIDR 10.42.0.0/16.
 
+.. note::
+    If you are using Rancher Desktop, you may need to override the cni path by adding the additional flag ``--set 'cni.binPath=/usr/libexec/cni'``
+
 Install Cilium by running:
 
 .. parsed-literal::
