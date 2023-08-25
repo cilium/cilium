@@ -119,8 +119,8 @@ github.com/cilium/charts v0.0.0-20230815110222-84cbc90ed50d h1:2+JU1MgEoMyej440m
 github.com/cilium/charts v0.0.0-20230815110222-84cbc90ed50d/go.mod h1:M3C9VOlFvRzuV+a01t07Tw4uFLSfkCH3L542IWjf6BU=
 github.com/cilium/checkmate v1.0.3 h1:CQC5eOmlAZeEjPrVZY3ZwEBH64lHlx9mXYdUehEwI5w=
 github.com/cilium/checkmate v1.0.3/go.mod h1:KiBTasf39/F2hf2yAmHw21YFl3hcEyP4Yk6filxc12A=
-github.com/cilium/cilium v1.14.0 h1:ksJqRrJAOB9DeDHHz/WlzMrf+3TAul+roiINWJKuTn4=
-github.com/cilium/cilium v1.14.0/go.mod h1:wGU07LiyM1zQcuogqnF2TUaoIdyLz4D0ImmK0GoXHVY=
+github.com/cilium/cilium v1.14.1 h1:8yj+DVgv7bvBkqiKL3F/nPB6ddNTnnnbye6gznAsXH4=
+github.com/cilium/cilium v1.14.1/go.mod h1:ghd9LkTSbRPtJal0Bsdq1ise+j5Ezy14xgaM2o3XLCI=
 github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc h1:tNEOByqRaBwlf1ANK/U/sd5oOIkxkPkpCVqaabxvU84=
 github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc/go.mod h1:e3IlAVfNqAllflbibAZEWOXOQ+Ynzk/dDozDxY7XnME=
 github.com/cilium/hubble v0.12.0 h1:0Sc68tCa3jY1x4VqEWp63+r34/e5jmh4p3CWrf5afU8=
