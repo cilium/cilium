@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   go-mod:
-    name: Check GO Module
+    name: Check Go Modules
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
