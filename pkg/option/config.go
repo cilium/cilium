@@ -627,6 +627,10 @@ const (
 	// PolicyMapEntriesName configures max entries for BPF policymap.
 	PolicyMapEntriesName = "bpf-policy-map-max"
 
+	// PolicyMapFullReconciliationInterval sets the interval for performing the full
+	// reconciliation of the endpoint policy map.
+	PolicyMapFullReconciliationIntervalName = "bpf-policy-map-full-reconciliation-interval"
+
 	// SockRevNatEntriesName configures max entries for BPF sock reverse nat
 	// entries.
 	SockRevNatEntriesName = "bpf-sock-rev-map-max"
@@ -1459,6 +1463,10 @@ type DaemonConfig struct {
 	// PolicyMapEntries is the maximum number of peer identities that an
 	// endpoint may allow traffic to exchange traffic with.
 	PolicyMapEntries int
+
+	// PolicyMapFullReconciliationInterval is the interval at which to perform
+	// the full reconciliation of the endpoint policy map.
+	PolicyMapFullReconciliationInterval time.Duration
 
 	// SockRevNatEntries is the maximum number of sock rev nat mappings
 	// allowed in the BPF rev nat table
@@ -3530,6 +3538,7 @@ func (c *DaemonConfig) calculateBPFMapSizes() error {
 	c.NATMapEntriesGlobal = viper.GetInt(NATMapEntriesGlobalName)
 	c.NeighMapEntriesGlobal = viper.GetInt(NeighMapEntriesGlobalName)
 	c.PolicyMapEntries = viper.GetInt(PolicyMapEntriesName)
+	c.PolicyMapFullReconciliationInterval = viper.GetDuration(PolicyMapFullReconciliationIntervalName)
 	c.SockRevNatEntries = viper.GetInt(SockRevNatEntriesName)
 	c.LBMapEntries = viper.GetInt(LBMapEntriesName)
 	c.LBServiceMapEntries = viper.GetInt(LBServiceMapMaxEntries)
