@@ -947,6 +947,7 @@ struct ct_entry {
 	__u16 rev_nat_index;
 	/* In the kernel ifindex is u32, so we need to check in cilium-agent
 	 * that ifindex of a NodePort device is <= MAX(u16).
+	 * Unused when HAVE_FIB_INDEX is available.
 	 */
 	__u16 ifindex;
 
