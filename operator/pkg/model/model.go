@@ -19,12 +19,12 @@ type Model struct {
 func (m *Model) GetListeners() []Listener {
 	var listeners []Listener
 
-	for _, l := range m.HTTP {
-		listeners = append(listeners, &l)
+	for i := range m.HTTP {
+		listeners = append(listeners, &m.HTTP[i])
 	}
 
-	for _, l := range m.TLS {
-		listeners = append(listeners, &l)
+	for i := range m.TLS {
+		listeners = append(listeners, &m.TLS[i])
 	}
 
 	return listeners

@@ -13,8 +13,18 @@ var testTLSListener = TLSListener{
 	Port: 443,
 }
 
+var testTLSListener2 = TLSListener{
+	Name: "test-tls-listener2",
+	Port: 443,
+}
+
 var testHTTPListener = HTTPListener{
 	Name: "test-http-listener",
+	Port: 80,
+}
+
+var testHTTPListener2 = HTTPListener{
+	Name: "test-http-listener2",
 	Port: 80,
 }
 
@@ -31,24 +41,24 @@ func TestModel_GetListeners(t *testing.T) {
 		{
 			name: "Combine HTTP and TLS listeners",
 			fields: fields{
-				HTTP: []HTTPListener{testHTTPListener},
-				TLS:  []TLSListener{testTLSListener},
+				HTTP: []HTTPListener{testHTTPListener, testHTTPListener2},
+				TLS:  []TLSListener{testTLSListener, testTLSListener2},
 			},
-			want: []Listener{&testHTTPListener, &testTLSListener},
+			want: []Listener{&testHTTPListener, &testHTTPListener2, &testTLSListener, &testTLSListener2},
 		},
 		{
 			name: "Only HTTP listeners",
 			fields: fields{
-				HTTP: []HTTPListener{testHTTPListener},
+				HTTP: []HTTPListener{testHTTPListener, testHTTPListener2},
 			},
-			want: []Listener{&testHTTPListener},
+			want: []Listener{&testHTTPListener, &testHTTPListener2},
 		},
 		{
 			name: "Only TLS listeners",
 			fields: fields{
-				TLS: []TLSListener{testTLSListener},
+				TLS: []TLSListener{testTLSListener, testTLSListener2},
 			},
-			want: []Listener{&testTLSListener},
+			want: []Listener{&testTLSListener, &testTLSListener2},
 		},
 		{
 			name:   "No listeners",
