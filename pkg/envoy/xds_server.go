@@ -1306,7 +1306,7 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser
 	// keeping remote policies list empty to match all remote policies.
 	if !wildcard {
 		for _, id := range sel.GetSelections() {
-			r.RemotePolicies = append(r.RemotePolicies, uint64(id))
+			r.RemotePolicies = append(r.RemotePolicies, (uint32)(id))
 		}
 
 		// No remote policies would match this rule. Discard it.
@@ -1399,9 +1399,9 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 				return nil
 			}
 			// convert from []uint32 to []uint64
-			remotePolicies := make([]uint64, len(selections))
+			remotePolicies := make([]uint32, len(selections))
 			for i, id := range selections {
-				remotePolicies[i] = uint64(id)
+				remotePolicies[i] = uint32(id)
 			}
 			return &cilium.PortNetworkPolicyRule{
 				RemotePolicies: remotePolicies,
@@ -1410,7 +1410,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 	}
 
 	// Use map to remove duplicates
-	remoteMap := make(map[uint64]struct{})
+	remoteMap := make(map[uint32]struct{})
 	wildcardFound := false
 	for sel, l7 := range selectors {
 		if sel.IsWildcard() {
@@ -1419,7 +1419,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 		}
 
 		for _, id := range sel.GetSelections() {
-			remoteMap[uint64(id)] = struct{}{}
+			remoteMap[uint32(id)] = struct{}{}
 		}
 
 		if l7.IsRedirect() {
@@ -1440,7 +1440,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 	}
 
 	// Convert to a sorted slice
-	remotePolicies := make([]uint64, 0, len(remoteMap))
+	remotePolicies := make([]uint32, 0, len(remoteMap))
 	for id := range remoteMap {
 		remotePolicies = append(remotePolicies, id)
 	}
