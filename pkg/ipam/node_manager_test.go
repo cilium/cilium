@@ -204,8 +204,6 @@ func (e *IPAMSuite) TestNodeManagerGet(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	// instances.Resync(context.TODO())
-
 	node1 := newCiliumNode("node1", 0, 0, 0)
 	mngr.Upsert(node1)
 
@@ -214,6 +212,36 @@ func (e *IPAMSuite) TestNodeManagerGet(c *check.C) {
 
 	mngr.Delete(node1)
 	c.Assert(mngr.Get("node1"), check.IsNil)
+	c.Assert(mngr.Get("node2"), check.IsNil)
+}
+
+func (e *IPAMSuite) TestNodeManagerDelete(c *check.C) {
+	am := newAllocationImplementationMock()
+	c.Assert(am, check.Not(check.IsNil))
+	metrics := metricsmock.NewMockMetrics()
+	mngr, err := NewNodeManager(am, k8sapi, metrics, 10, false, false)
+	c.Assert(err, check.IsNil)
+	c.Assert(mngr, check.Not(check.IsNil))
+
+	node1 := newCiliumNode("node-foo", 0, 0, 0)
+	mngr.Upsert(node1)
+
+	c.Assert(mngr.Get("node-foo"), check.Not(check.IsNil))
+	c.Assert(mngr.Get("node2"), check.IsNil)
+
+	mngr.Resync(context.Background(), time.Now())
+	avail, used, needed := metrics.GetPerNodeMetrics("node-foo")
+	c.Assert(avail, check.Not(check.IsNil))
+	c.Assert(used, check.Not(check.IsNil))
+	c.Assert(needed, check.Not(check.IsNil))
+	mngr.Delete(node1)
+	// Following a node Delete, we expect the per-node metrics for that Node to be
+	// deleted.
+	avail, used, needed = metrics.GetPerNodeMetrics("node-foo")
+	c.Assert(avail, check.IsNil)
+	c.Assert(used, check.IsNil)
+	c.Assert(needed, check.IsNil)
+	c.Assert(mngr.Get("node-foo"), check.IsNil)
 	c.Assert(mngr.Get("node2"), check.IsNil)
 }
 
