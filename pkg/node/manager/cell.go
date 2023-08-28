@@ -65,8 +65,8 @@ type NodeManager interface {
 	StartNeighborRefresh(nh datapath.NodeNeighbors)
 }
 
-func newAllNodeManager(lc hive.Lifecycle, ipCache *ipcache.IPCache, nodeMetrics *nodeMetrics, healthReporter cell.HealthReporter) (NodeManager, error) {
-	mngr, err := New(option.Config, ipCache, nodeMetrics, healthReporter)
+func newAllNodeManager(lc hive.Lifecycle, ipCache *ipcache.IPCache, nodeMetrics *nodeMetrics, healthScope cell.Scope) (NodeManager, error) {
+	mngr, err := New(option.Config, ipCache, nodeMetrics, healthScope)
 	if err != nil {
 		return nil, err
 	}
