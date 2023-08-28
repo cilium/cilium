@@ -30,7 +30,7 @@ move-to-projects-for-labels-xored:
       project: "https://github.com/cilium/cilium/projects/248"
       column: "Backport done to v1.12"
 require-msgs-in-commit:
-  - msg: "Signed-off-by"
+  - regexpMsg: "(?m)^Signed-off-by:"
     helper: "https://docs.cilium.io/en/stable/contributing/development/contributing_guide/#developer-s-certificate-of-origin"
     set-labels:
       - "dont-merge/needs-sign-off"
