@@ -640,6 +640,11 @@ Users (Alphabetically)
       U: CNI (instead of amazon-vpc-cni-k8s), Hubble, Datadog Integration for Prometheus metrics
       Q: @liorrozen
       
+    * N: Twilio
+      D: Twilio Segment is using Cilium across their k8s-based compute platform
+      U: CNI, EKS direct routing, kube-proxy replacement, Hubble, CiliumNetworkPolicies
+      Q: @msaah
+      
     * N: ungleich
       D: ungleich is using Cilium as part of IPv6-only Kubernetes deployments.
       U: CNI, IPv6 only networking, BGP, eBPF
