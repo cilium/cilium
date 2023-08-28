@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
@@ -79,6 +80,9 @@ var (
 
 		// Provide the modular metrics registry, metric HTTP server and legacy metrics cell.
 		metrics.Cell,
+
+		// Provides cilium_datapath_drop/forward Prometheus metrics.
+		metricsmap.Cell,
 
 		// Provide option.Config via hive so cells can depend on the agent config.
 		cell.Provide(func() *option.DaemonConfig { return option.Config }),
