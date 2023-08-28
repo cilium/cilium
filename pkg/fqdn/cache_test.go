@@ -313,6 +313,24 @@ func (ds *DNSCacheTestSuite) TestCountIPs(c *C) {
 	c.Assert(int(ips), Equals, len(names)*2)
 }
 
+func (ds *DNSCacheTestSuite) TestNames(c *C) {
+	nameToAddr := map[string]netip.Addr{
+		"test1.com": netip.MustParseAddr("1.1.1.1"),
+		"test2.com": netip.MustParseAddr("2.2.2.2"),
+		"test3.com": netip.MustParseAddr("3.3.3.3")}
+	sharedIP := netip.MustParseAddr("8.8.8.8")
+	cache := NewDNSCache(0)
+
+	// Insert 3 records all sharing one IP and 1 unique IP.
+	cache.Update(now, "test1.com", []netip.Addr{sharedIP, nameToAddr["test1.com"]}, 5)
+	cache.Update(now, "test2.com", []netip.Addr{sharedIP, nameToAddr["test2.com"]}, 5)
+	cache.Update(now, "test3.com", []netip.Addr{sharedIP, nameToAddr["test3.com"]}, 5)
+
+	names := cache.Names()
+	sort.Strings(names)
+	c.Assert(names, checker.DeepEquals, []string{"test1.com", "test2.com", "test3.com"})
+}
+
 /* Benchmarks
  * These are here to help gauge the relative costs of operations in DNSCache.
  * Note: some are on arrays `size` elements, so the benchmark "op time" is too
@@ -1277,4 +1295,18 @@ func Test_sortZombieMappingSlice(t *testing.T) {
 			validateZombieSort(t, tt.args.zombies)
 		})
 	}
+}
+
+func (ds *DNSCacheTestSuite) TestZombiesNames(c *C) {
+	now := time.Now()
+	zombies := NewDNSZombieMappings(defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+
+	zombies.Upsert(now, netip.MustParseAddr("1.1.1.1"), "test.com")
+	zombies.Upsert(now, netip.MustParseAddr("2.2.2.2"), "example.com")
+	zombies.Upsert(now, netip.MustParseAddr("3.3.3.3"), "example.org")
+	zombies.Upsert(now, netip.MustParseAddr("4.4.4.4"), "example.org")
+
+	names := zombies.Names()
+	sort.Strings(names)
+	c.Assert(names, checker.DeepEquals, []string{"example.com", "example.org", "test.com"})
 }

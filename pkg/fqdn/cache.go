@@ -595,6 +595,18 @@ func (c *DNSCache) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.
 	return slices.Unique(namesAffected)
 }
 
+// Names returns the FQDN entries in the cache
+func (c *DNSCache) Names() (names []string) {
+	c.RLock()
+	defer c.RUnlock()
+
+	names = make([]string, 0, len(c.forward))
+	for name := range c.forward {
+		names = append(names, name)
+	}
+	return names
+}
+
 func (c *DNSCache) forceExpireByNames(expireLookupsBefore time.Time, names []string) (namesAffected []string) {
 	for _, name := range names {
 		entries, exists := c.forward[name]
@@ -768,6 +780,18 @@ func NewDNSZombieMappings(max, perHostLimit int) *DNSZombieMappings {
 		max:          max,
 		perHostLimit: perHostLimit,
 	}
+}
+
+// Names returns the FQDN entries referred to in the DNSZombieMappings
+func (zombies *DNSZombieMappings) Names() []string {
+	zombies.Lock()
+	defer zombies.Unlock()
+
+	names := make([]string, 0, len(zombies.deletes))
+	for _, zombie := range zombies.deletes {
+		names = append(names, zombie.Names...)
+	}
+	return slices.Unique(names)
 }
 
 // Upsert enqueues the ip -> qname as a possible deletion
