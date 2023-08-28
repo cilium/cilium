@@ -442,6 +442,20 @@ func (c *Collector) Run() error {
 				return nil
 			},
 		},
+		{
+			Description: "Collecting Kubernetes metrics",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				result, err := c.Client.GetRaw(ctx, "/metrics")
+				if err != nil {
+					return fmt.Errorf("failed to collect Kubernetes metrics: %w", err)
+				}
+				if err := c.WriteString(kubernetesMetricsFileName, result); err != nil {
+					return fmt.Errorf("failed to collect Kubernetes metrics: %w", err)
+				}
+				return nil
+			},
+		},
 	}
 
 	ciliumTasks := []Task{

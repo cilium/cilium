@@ -86,6 +86,7 @@ const (
 	kubernetesEventsFileName                 = "k8s-events-<ts>.yaml"
 	kubernetesEventsTableFileName            = "k8s-events-<ts>.html"
 	kubernetesLeasesFileName                 = "k8s-leases-<ts>.yaml"
+	kubernetesMetricsFileName                = "k8s-metrics-<ts>.yaml"
 	kubernetesNamespacesFileName             = "k8s-namespaces-<ts>.yaml"
 	kubernetesNetworkPoliciesFileName        = "k8s-networkpolicies-<ts>.yaml"
 	kubernetesNodesFileName                  = "k8s-nodes-<ts>.yaml"

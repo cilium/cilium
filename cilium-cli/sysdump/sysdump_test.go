@@ -283,6 +283,10 @@ func (c *fakeClient) GetPod(_ context.Context, _, _ string, _ metav1.GetOptions)
 	panic("implement me")
 }
 
+func (c *fakeClient) GetRaw(_ context.Context, _ string) (string, error) {
+	panic("implement me")
+}
+
 func (c *fakeClient) CreatePod(_ context.Context, _ string, _ *corev1.Pod, _ metav1.CreateOptions) (*corev1.Pod, error) {
 	panic("implement me")
 }
