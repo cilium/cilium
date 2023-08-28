@@ -5,16 +5,12 @@ package ipam
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/cidr"
@@ -24,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
-	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -36,72 +31,6 @@ const (
 )
 
 var clusterPoolStatusControllerGroup = controller.NewGroup(clusterPoolStatusControllerName)
-
-// containsCIDR checks if the outer IPNet contains the inner IPNet
-func containsCIDR(outer, inner *net.IPNet) bool {
-	outerMask, _ := outer.Mask.Size()
-	innerMask, _ := inner.Mask.Size()
-	return outerMask <= innerMask && outer.Contains(inner.IP)
-}
-
-// cleanupUnreachableRoutes remove all unreachable routes for the given pod CIDR.
-// This is only needed if EnableUnreachableRoutes has been set.
-func cleanupUnreachableRoutes(podCIDR string) error {
-	_, removedCIDR, err := net.ParseCIDR(podCIDR)
-	if err != nil {
-		return err
-	}
-
-	var family int
-	switch podCIDRFamily(podCIDR) {
-	case IPv4:
-		family = netlink.FAMILY_V4
-	case IPv6:
-		family = netlink.FAMILY_V6
-	default:
-		return errors.New("unknown pod cidr family")
-	}
-
-	routes, err := netlink.RouteListFiltered(family, &netlink.Route{
-		Table: unix.RT_TABLE_MAIN,
-		Type:  unix.RTN_UNREACHABLE,
-	}, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_TYPE)
-	if err != nil {
-		return fmt.Errorf("failed to fetch unreachable routes: %w", err)
-	}
-
-	var errs error
-	for _, route := range routes {
-		if !containsCIDR(removedCIDR, route.Dst) {
-			continue
-		}
-
-		err = netlink.RouteDel(&route)
-		if err != nil && !errors.Is(err, unix.ESRCH) {
-			// We ignore ESRCH, as it means the entry was already deleted
-			errs = errors.Join(errs, fmt.Errorf("failed to delete unreachable route for %s: %w",
-				route.Dst.String(), err),
-			)
-		}
-	}
-	return errs
-}
-
-func podCIDRFamily(podCIDR string) Family {
-	if strings.Contains(podCIDR, ":") {
-		return IPv6
-	}
-	return IPv4
-}
-
-type nodeUpdater interface {
-	Update(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, opts metav1.UpdateOptions) (*ciliumv2.CiliumNode, error)
-	UpdateStatus(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, opts metav1.UpdateOptions) (*ciliumv2.CiliumNode, error)
-}
-
-type nodeWatcher interface {
-	RegisterCiliumNodeSubscriber(s subscriber.CiliumNode)
-}
 
 type crdWatcher struct {
 	mutex *lock.Mutex

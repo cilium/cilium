@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -183,6 +184,15 @@ func (p pendingAllocationsPerOwner) removeExpiredEntries(now time.Time, pool Poo
 // pendingForPool returns how many IP allocations are pending for the given family
 func (p pendingAllocationsPerOwner) pendingForFamily(family Family) int {
 	return len(p[family])
+}
+
+type nodeUpdater interface {
+	Update(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, opts metav1.UpdateOptions) (*ciliumv2.CiliumNode, error)
+	UpdateStatus(ctx context.Context, ciliumNode *ciliumv2.CiliumNode, opts metav1.UpdateOptions) (*ciliumv2.CiliumNode, error)
+}
+
+type nodeWatcher interface {
+	RegisterCiliumNodeSubscriber(s subscriber.CiliumNode)
 }
 
 type multiPoolManager struct {
