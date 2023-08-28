@@ -345,6 +345,17 @@ func (c *Client) GetPod(ctx context.Context, namespace, name string, opts metav1
 	return c.Clientset.CoreV1().Pods(namespace).Get(ctx, name, opts)
 }
 
+func (c *Client) GetRaw(ctx context.Context, path string) (string, error) {
+	result := c.Clientset.CoreV1().RESTClient().Get().AbsPath(path).Do(ctx)
+
+	response, err := result.Raw()
+	if err != nil {
+		return "", err
+	}
+	return string(response), nil
+
+}
+
 func (c *Client) CreatePod(ctx context.Context, namespace string, pod *corev1.Pod, opts metav1.CreateOptions) (*corev1.Pod, error) {
 	return c.Clientset.CoreV1().Pods(namespace).Create(ctx, pod, opts)
 }
