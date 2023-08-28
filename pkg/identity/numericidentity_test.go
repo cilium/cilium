@@ -4,13 +4,16 @@
 package identity
 
 import (
+	"sync"
 	"testing"
 
 	. "github.com/cilium/checkmate"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
 
 func (s *IdentityTestSuite) TestLocalIdentity(c *C) {
@@ -67,5 +70,48 @@ func TestGetAllReservedIdentities(t *testing.T) {
 		// NOTE: identity 0 is unknown, so the reserved identities start at 1
 		// hence the plus one here.
 		require.Equal(t, uint32(i+1), id.Uint32())
+	}
+}
+
+func TestGetClusterIDShift(t *testing.T) {
+	resetClusterIDInit := func() { clusterIDInit = sync.Once{} }
+
+	tests := []struct {
+		name                   string
+		maxConnectedClusters   uint32
+		expectedClusterIDShift int
+	}{
+		{
+			name:                 "clustermesh255",
+			maxConnectedClusters: 255,
+
+			expectedClusterIDShift: 16,
+		},
+		{
+			name:                   "clustermesh511",
+			maxConnectedClusters:   511,
+			expectedClusterIDShift: 15,
+		},
+	}
+
+	// cleanup state from any previous tests
+	resetClusterIDInit()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Cleanup(resetClusterIDInit)
+			cmtypes.InitClusterIDMax(tt.maxConnectedClusters)
+			assert.Equal(t, tt.expectedClusterIDShift, GetClusterIDShift())
+
+			// ensure we cannot change the clusterIDShift after it has been initialized
+			for _, tc := range tests {
+				if tc.name == tt.name {
+					// skip the current test case itself
+					continue
+				}
+				cmtypes.InitClusterIDMax(tc.maxConnectedClusters)
+				assert.NotEqual(t, tc.expectedClusterIDShift, GetClusterIDShift())
+			}
+		})
 	}
 }

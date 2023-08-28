@@ -10,6 +10,7 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"sync"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -82,12 +83,16 @@ const (
 )
 
 var (
-	// ClusterIDLen is the number of bits that represent a cluster ID in a numeric identity
-	ClusterIDLen int = int(math.Log2(float64(cmtypes.ClusterIDMax + 1)))
+	// clusterIDInit ensures that clusterIDLen and clusterIDShift can only be
+	// set once, and only if we haven't used either value elsewhere already.
+	clusterIDInit sync.Once
 
-	// ClusterIDShift is the number of bits to shift a cluster ID in a numeric
+	// clusterIDLen is the number of bits that represent a cluster ID in a numeric identity
+	clusterIDLen int = int(math.Log2(float64(cmtypes.ClusterIDMax + 1)))
+
+	// clusterIDShift is the number of bits to shift a cluster ID in a numeric
 	// identity and is equal to the number of bits that represent a cluster-local identity.
-	ClusterIDShift int = NumericIdentityBitlength - ClusterIDLen
+	clusterIDShift int = NumericIdentityBitlength - clusterIDLen
 
 	// MinimalAllocationIdentity is the minimum numeric identity handed out
 	// by the identity allocator.
@@ -95,7 +100,7 @@ var (
 
 	// MaximumAllocationIdentity is the maximum numeric identity handed out
 	// by the identity allocator
-	MaximumAllocationIdentity = NumericIdentity((1<<ClusterIDShift)*(option.Config.ClusterID+1) - 1)
+	MaximumAllocationIdentity = NumericIdentity((1<<clusterIDShift)*(option.Config.ClusterID+1) - 1)
 )
 
 const (
@@ -390,13 +395,29 @@ func InitWellKnownIdentities(c Configuration, cinfo cmtypes.ClusterInfo) int {
 	return len(WellKnown)
 }
 
-// InitClusterIDShift sets variables that control the bit allocation of cluster
+// GetClusterIDLen returns the number of bits that represent a cluster ID in a numeric identity.
+// A sync.Once is used to ensure we only initialize clusterIDShift once.
+
+func GetClusterIDLen() int {
+	clusterIDInit.Do(initClusterIDShift)
+	return clusterIDLen
+}
+
+// GetClusterIDShift returns the number of bits to shift a cluster ID in a numeric
+// identity and is equal to the number of bits that represent a cluster-local identity.
+// A sync.Once is used to ensure we only initialize clusterIDShift once.
+func GetClusterIDShift() int {
+	clusterIDInit.Do(initClusterIDShift)
+	return clusterIDShift
+}
+
+// initClusterIDShift sets variables that control the bit allocation of cluster
 // ID in a numeric identity.
-func InitClusterIDShift() {
+func initClusterIDShift() {
 	// ClusterIDLen is the number of bits that represent a cluster ID in a numeric identity
-	ClusterIDLen = int(math.Log2(float64(cmtypes.ClusterIDMax + 1)))
+	clusterIDLen = int(math.Log2(float64(cmtypes.ClusterIDMax + 1)))
 	// ClusterIDShift is the number of bits to shift a cluster ID in a numeric identity
-	ClusterIDShift = NumericIdentityBitlength - ClusterIDLen
+	clusterIDShift = NumericIdentityBitlength - clusterIDLen
 }
 
 // InitMinMaxIdentityAllocation sets the minimal and maximum for identities that
@@ -405,10 +426,10 @@ func InitMinMaxIdentityAllocation(c Configuration, cinfo cmtypes.ClusterInfo) {
 	if cinfo.ID > 0 {
 		// For ClusterID > 0, the identity range just starts from cluster shift,
 		// no well-known-identities need to be reserved from the range.
-		MinimalAllocationIdentity = NumericIdentity((1 << ClusterIDShift) * cinfo.ID)
+		MinimalAllocationIdentity = NumericIdentity((1 << GetClusterIDShift()) * cinfo.ID)
 		// The maximum identity also needs to be recalculated as ClusterID
 		// may be overwritten by runtime parameters.
-		MaximumAllocationIdentity = NumericIdentity((1<<ClusterIDShift)*(cinfo.ID+1) - 1)
+		MaximumAllocationIdentity = NumericIdentity((1<<GetClusterIDShift())*(cinfo.ID+1) - 1)
 	}
 }
 
@@ -576,7 +597,7 @@ func (id NumericIdentity) IsReservedIdentity() bool {
 
 // ClusterID returns the cluster ID associated with the identity
 func (id NumericIdentity) ClusterID() uint32 {
-	return (uint32(id) >> uint32(ClusterIDShift)) & cmtypes.ClusterIDMax
+	return (uint32(id) >> uint32(GetClusterIDShift())) & cmtypes.ClusterIDMax
 }
 
 // GetAllReservedIdentities returns a list of all reserved numeric identities

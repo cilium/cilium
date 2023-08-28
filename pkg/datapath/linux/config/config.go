@@ -106,11 +106,11 @@ func (h *HeaderfileWriter) WriteClusterConfig(w io.Writer) error {
 	fw := bufio.NewWriter(w)
 
 	cDefinesMap["CLUSTER_ID_MAX"] = fmt.Sprintf("%d", option.Config.MaxConnectedClusters)
-	cDefinesMap["CLUSTER_ID_LEN"] = fmt.Sprintf("%d", identity.ClusterIDLen)
+	cDefinesMap["CLUSTER_ID_LEN"] = fmt.Sprintf("%d", identity.GetClusterIDLen())
 
-	identityMax := (1 << identity.ClusterIDShift) - 1
+	identityMax := (1 << identity.GetClusterIDShift()) - 1
 	cDefinesMap["IDENTITY_MAX"] = fmt.Sprintf("%d", identityMax)
-	cDefinesMap["IDENTITY_LEN"] = fmt.Sprintf("%d", identity.ClusterIDShift)
+	cDefinesMap["IDENTITY_LEN"] = fmt.Sprintf("%d", identity.GetClusterIDShift())
 
 	// Since golang maps are unordered, we sort the keys in the map
 	// to get a consistent written format to the writer. This maintains
