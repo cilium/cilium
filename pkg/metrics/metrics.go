@@ -96,6 +96,9 @@ const (
 	// LabelValueOutcomeFail is used as an unsuccessful outcome of an operation
 	LabelValueOutcomeFail = "fail"
 
+	// LabelDropReason is used to describe reason for dropping a packets/bytes
+	LabelDropReason = "reason"
+
 	// LabelEventSourceAPI marks event-related metrics that come from the API
 	LabelEventSourceAPI = "api"
 
@@ -598,10 +601,6 @@ type LegacyMetrics struct {
 	ProxyReceived                    metric.Counter
 	ProxyUpstreamTime                metric.Vec[metric.Observer]
 	ProxyDatapathUpdateTimeout       metric.Counter
-	DropCount                        metric.Vec[metric.Counter]
-	DropBytes                        metric.Vec[metric.Counter]
-	ForwardCount                     metric.Vec[metric.Counter]
-	ForwardBytes                     metric.Vec[metric.Counter]
 	ConntrackGCRuns                  metric.Vec[metric.Counter]
 	ConntrackGCKeyFallbacks          metric.Vec[metric.Counter]
 	ConntrackGCSize                  metric.Vec[metric.Gauge]
@@ -853,38 +852,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:      "proxy_datapath_update_timeout_total",
 			Help:      "Number of total datapath update timeouts due to FQDN IP updates",
 		}),
-
-		DropCount: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: Namespace + "_drop_count_total",
-			Namespace:  Namespace,
-			Name:       "drop_count_total",
-			Help:       "Total dropped packets, tagged by drop reason and ingress/egress direction",
-		},
-			[]string{"reason", LabelDirection}),
-
-		DropBytes: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: Namespace + "_drop_bytes_total",
-			Namespace:  Namespace,
-			Name:       "drop_bytes_total",
-			Help:       "Total dropped bytes, tagged by drop reason and ingress/egress direction",
-		},
-			[]string{"reason", LabelDirection}),
-
-		ForwardCount: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: Namespace + "_forward_count_total",
-			Namespace:  Namespace,
-			Name:       "forward_count_total",
-			Help:       "Total forwarded packets, tagged by ingress/egress direction",
-		},
-			[]string{LabelDirection}),
-
-		ForwardBytes: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: Namespace + "_forward_bytes_total",
-			Namespace:  Namespace,
-			Name:       "forward_bytes_total",
-			Help:       "Total forwarded bytes, tagged by ingress/egress direction",
-		},
-			[]string{LabelDirection}),
 
 		ConntrackGCRuns: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_" + SubsystemDatapath + "_conntrack_gc_runs_total",
@@ -1326,10 +1293,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 	ProxyReceived = lm.ProxyReceived
 	ProxyUpstreamTime = lm.ProxyUpstreamTime
 	ProxyDatapathUpdateTimeout = lm.ProxyDatapathUpdateTimeout
-	DropCount = lm.DropCount
-	DropBytes = lm.DropBytes
-	ForwardCount = lm.ForwardCount
-	ForwardBytes = lm.ForwardBytes
 	ConntrackGCRuns = lm.ConntrackGCRuns
 	ConntrackGCKeyFallbacks = lm.ConntrackGCKeyFallbacks
 	ConntrackGCSize = lm.ConntrackGCSize
@@ -1444,11 +1407,13 @@ func Reinitialize() {
 
 // Register registers a collector
 func Register(c prometheus.Collector) error {
+	var err error
+
 	withRegistry(func(reg *Registry) {
-		reg.Register(c)
+		err = reg.Register(c)
 	})
 
-	return nil
+	return err
 }
 
 // RegisterList registers a list of collectors. If registration of one

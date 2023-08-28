@@ -4,7 +4,7 @@
 package metricsmap
 
 import (
-	"context"
+	"sync"
 	"unsafe"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -89,7 +90,6 @@ func (m metricsMap) IterateWithCallback(cb IterateCallback) error {
 	return m.Map.IterateWithCallback(&Key{}, &Values{}, func(k, v interface{}) {
 		key := k.(*Key)
 		values := v.(*Values)
-
 		cb(key, values)
 	})
 }
@@ -137,46 +137,131 @@ func (vs Values) Bytes() uint64 {
 	return b
 }
 
-func updateMetric(getCounter func() (prometheus.Counter, error), newValue float64) {
-	counter, err := getCounter()
+// metricsMapCollector implements Prometheus Collector interface
+type metricsmapCollector struct {
+	droppedCountDesc *prometheus.Desc
+	droppedByteDesc  *prometheus.Desc
+	forwardCountDesc *prometheus.Desc
+	forwardByteDesc  *prometheus.Desc
+
+	// eBPF code seems to expose multiple reasons for forwarded metrics
+	// as opposed to what is stated in bpf/lib/metrics.h comments.
+	// IterateWithCallback iterates through BPF map for each reason and direction.
+	// Since we do not have "reason" label on forwarded metrics, we would end up collecting
+	// same forwarded metric multiple times which is not allowed by prometheus client.
+	// See https://github.com/prometheus/client_golang/issues/242
+	//
+	// forwarded and dropped metrics maps are used to sum all values by desired set of labels
+	forwardedMetricsMap map[forwardLabels]metricValues
+	droppedMetricsMap   map[dropLabels]metricValues
+}
+
+type forwardLabels struct {
+	direction string
+}
+
+type dropLabels struct {
+	direction string
+	reason    string
+}
+
+type metricValues struct {
+	bytes float64
+	count float64
+}
+
+func newMetricsMapCollector() prometheus.Collector {
+	return &metricsmapCollector{
+		droppedMetricsMap:   make(map[dropLabels]metricValues),
+		forwardedMetricsMap: make(map[forwardLabels]metricValues),
+		droppedByteDesc: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.Namespace, metrics.SubsystemDatapath, "drop_bytes_total"),
+			"Total dropped bytes, tagged by drop reason and ingress/egress direction",
+			[]string{metrics.LabelDropReason, metrics.LabelDirection}, nil,
+		),
+		droppedCountDesc: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.Namespace, metrics.SubsystemDatapath, "drop_count_total"),
+			"Total dropped packets, tagged by drop reason and ingress/egress direction",
+			[]string{metrics.LabelDropReason, metrics.LabelDirection}, nil,
+		),
+		forwardCountDesc: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.Namespace, metrics.SubsystemDatapath, "forward_count_total"),
+			"Total forwarded packets, tagged by ingress/egress direction",
+			[]string{metrics.LabelDirection}, nil,
+		),
+		forwardByteDesc: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.Namespace, metrics.SubsystemDatapath, "forward_bytes_total"),
+			"Total forwarded bytes, tagged by ingress/egress direction",
+			[]string{metrics.LabelDirection}, nil,
+		),
+	}
+}
+
+func (mc *metricsmapCollector) Collect(ch chan<- prometheus.Metric) {
+	err := Metrics.IterateWithCallback(func(key *Key, values *Values) {
+		if key.IsDrop() {
+			labels := dropLabels{
+				direction: key.Direction(),
+				reason:    key.DropForwardReason(),
+			}
+
+			v := lookupOrCreateMetricsMapValues(mc.droppedMetricsMap, labels)
+			v.bytes += float64(values.Bytes())
+			v.count += float64(values.Count())
+			mc.droppedMetricsMap[labels] = v
+		} else {
+			labels := forwardLabels{
+				direction: key.Direction(),
+			}
+
+			v := lookupOrCreateMetricsMapValues(mc.forwardedMetricsMap, labels)
+			v.bytes += float64(values.Bytes())
+			v.count += float64(values.Count())
+			mc.forwardedMetricsMap[labels] = v
+		}
+	})
 	if err != nil {
-		log.WithError(err).Warn("Failed to update prometheus metrics")
+		log.WithError(err).Warn("Failed to read metrics from BPF map")
+		// do not update partial metrics
 		return
 	}
 
-	oldValue := metrics.GetCounterValue(counter)
-	if newValue > oldValue {
-		counter.Add(newValue - oldValue)
+	for labels, value := range mc.forwardedMetricsMap {
+		mc.updateCounterMetric(mc.forwardCountDesc, ch, value.count, labels.direction)
+		mc.updateCounterMetric(mc.forwardByteDesc, ch, value.bytes, labels.direction)
+	}
+
+	for labels, value := range mc.droppedMetricsMap {
+		mc.updateCounterMetric(mc.droppedCountDesc, ch, value.count, labels.reason, labels.direction)
+		mc.updateCounterMetric(mc.droppedByteDesc, ch, value.bytes, labels.reason, labels.direction)
 	}
 }
 
-// updatePrometheusMetrics checks the metricsmap key value pair
-// and determines which prometheus metrics along with respective labels
-// need to be updated.
-func updatePrometheusMetrics(key *Key, values *Values) {
-	updateMetric(func() (prometheus.Counter, error) {
-		if key.IsDrop() {
-			return metrics.DropCount.GetMetricWithLabelValues(key.DropForwardReason(), key.Direction())
-		}
-		return metrics.ForwardCount.GetMetricWithLabelValues(key.Direction())
-	}, float64(values.Count()))
-
-	updateMetric(func() (prometheus.Counter, error) {
-		if key.IsDrop() {
-			return metrics.DropBytes.GetMetricWithLabelValues(key.DropForwardReason(), key.Direction())
-		}
-		return metrics.ForwardBytes.GetMetricWithLabelValues(key.Direction())
-	}, float64(values.Bytes()))
+// Helper function that returns metricValues if key is present in map.
+// Otherwise, metricValues for key will be created and returned.
+func lookupOrCreateMetricsMapValues[K comparable](m map[K]metricValues, key K) metricValues {
+	if entry, ok := m[key]; ok {
+		return entry
+	}
+	return m[key]
 }
 
-// SyncMetricsMap is called periodically to sync off the metrics map by
-// aggregating it into drops (by drop reason and direction) and
-// forwards (by direction) with the prometheus server.
-func SyncMetricsMap(ctx context.Context) error {
-	return Metrics.IterateWithCallback(func(key *Key, values *Values) {
-		updatePrometheusMetrics(key, values)
-	})
+func (mc *metricsmapCollector) updateCounterMetric(desc *prometheus.Desc, metricsChan chan<- prometheus.Metric, value float64, labelValues ...string) {
+	metricsChan <- prometheus.MustNewConstMetric(
+		desc,
+		prometheus.CounterValue,
+		value,
+		labelValues...)
 }
+
+func (mc *metricsmapCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- mc.forwardByteDesc
+	ch <- mc.forwardCountDesc
+	ch <- mc.droppedCountDesc
+	ch <- mc.droppedByteDesc
+}
+
+var once sync.Once
 
 func init() {
 	Metrics.Map = ebpf.NewMap(&ebpf.MapSpec{
@@ -186,5 +271,14 @@ func init() {
 		ValueSize:  uint32(unsafe.Sizeof(Value{})),
 		MaxEntries: MaxEntries,
 		Pinning:    ebpf.PinByName,
+	})
+
+	// Register metrics map collector only once
+	once.Do(func() {
+		err := metrics.Register(newMetricsMapCollector())
+		if err != nil {
+			log.WithError(err).Error("Failed to register metrics map collector to Prometheus registry. " +
+				"cilium_datapath_drop/forward metrics will not be collected")
+		}
 	})
 }
