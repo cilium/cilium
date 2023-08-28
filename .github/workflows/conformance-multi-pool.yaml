@@ -91,9 +91,8 @@ jobs:
             --helm-set=kubeProxyReplacement=strict \
             --helm-set=bpf.masquerade=true \
             --helm-set=bpf.hostLegacyRouting=true\
-            --helm-set=ipv4NativeRoutingCIDR=10.0.0.0/8 \
             --helm-set=ipMasqAgent.enabled=true \
-            --helm-set=ipMasqAgent.config.nonMasqueradeCIDRs='{192.168.0.0/16}' \
+            --helm-set=ipMasqAgent.config.nonMasqueradeCIDRs='{10.0.0.0/8,192.168.0.0/16}' \
             --helm-set=ipam.mode=multi-pool \
             --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.cidrs='{10.10.0.0/16}' \
             --helm-set=ipam.operator.autoCreateCiliumPodIPPools.default.ipv4.maskSize=24 \
