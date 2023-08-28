@@ -21,10 +21,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/controller"
-	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 )
 
@@ -60,19 +58,6 @@ func mustNewTrigger(f func(), minInterval time.Duration) *trigger.Trigger {
 		panic(err)
 	}
 	return t
-}
-
-var defaultIPAMModes = []string{ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2}
-
-func runWithIPAMModes(ipamModes []string, testFunc func(mode string)) {
-	oldIPAMMode := option.Config.IPAM
-	defer func() {
-		option.Config.IPAM = oldIPAMMode
-	}()
-	for _, ipamMode := range ipamModes {
-		option.Config.IPAM = ipamMode
-		testFunc(ipamMode)
-	}
 }
 
 type mockCIDRAllocator struct {
@@ -265,26 +250,23 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Delete(c *C) {
 		},
 	}
 
-	runWithIPAMModes(defaultIPAMModes, func(ipamMode string) {
-		for _, tt := range tests {
-			c.Logf("Running %q (ipam: %s)", tt.name, ipamMode)
-			tt.fields = tt.testSetup()
-			n := &NodesPodCIDRManager{
-				k8sReSyncController: tt.fields.k8sReSyncController,
-				k8sReSync:           tt.fields.k8sReSync,
-				canAllocatePodCIDRs: tt.fields.canAllocateNodes,
-				v4CIDRAllocators:    tt.fields.v4ClusterCIDRs,
-				v6CIDRAllocators:    tt.fields.v6ClusterCIDRs,
-				nodes:               tt.fields.nodes,
-				ciliumNodesToK8s:    tt.fields.ciliumNodesToK8s,
-			}
-			n.Delete(tt.args.node)
-
-			if tt.testPostRun != nil {
-				tt.testPostRun(tt.fields)
-			}
+	for _, tt := range tests {
+		tt.fields = tt.testSetup()
+		n := &NodesPodCIDRManager{
+			k8sReSyncController: tt.fields.k8sReSyncController,
+			k8sReSync:           tt.fields.k8sReSync,
+			canAllocatePodCIDRs: tt.fields.canAllocateNodes,
+			v4CIDRAllocators:    tt.fields.v4ClusterCIDRs,
+			v6CIDRAllocators:    tt.fields.v6ClusterCIDRs,
+			nodes:               tt.fields.nodes,
+			ciliumNodesToK8s:    tt.fields.ciliumNodesToK8s,
 		}
-	})
+		n.Delete(tt.args.node)
+
+		if tt.testPostRun != nil {
+			tt.testPostRun(tt.fields)
+		}
+	}
 }
 
 func (s *PodCIDRSuite) TestNodesPodCIDRManager_Resync(c *C) {
@@ -549,26 +531,23 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_Upsert(c *C) {
 		},
 	}
 
-	runWithIPAMModes(defaultIPAMModes, func(ipamMode string) {
-		for _, tt := range tests {
-			c.Logf("Running %q (ipam: %s)", tt.name, ipamMode)
-			tt.fields = tt.testSetup()
-			n := &NodesPodCIDRManager{
-				k8sReSyncController: tt.fields.k8sReSyncController,
-				k8sReSync:           tt.fields.k8sReSync,
-				canAllocatePodCIDRs: tt.fields.canAllocateNodes,
-				v4CIDRAllocators:    tt.fields.v4ClusterCIDRs,
-				v6CIDRAllocators:    tt.fields.v6ClusterCIDRs,
-				nodes:               tt.fields.nodes,
-				ciliumNodesToK8s:    tt.fields.ciliumNodesToK8s,
-			}
-			n.Upsert(tt.args.node)
-
-			if tt.testPostRun != nil {
-				tt.testPostRun(tt.fields)
-			}
+	for _, tt := range tests {
+		tt.fields = tt.testSetup()
+		n := &NodesPodCIDRManager{
+			k8sReSyncController: tt.fields.k8sReSyncController,
+			k8sReSync:           tt.fields.k8sReSync,
+			canAllocatePodCIDRs: tt.fields.canAllocateNodes,
+			v4CIDRAllocators:    tt.fields.v4ClusterCIDRs,
+			v6CIDRAllocators:    tt.fields.v6ClusterCIDRs,
+			nodes:               tt.fields.nodes,
+			ciliumNodesToK8s:    tt.fields.ciliumNodesToK8s,
 		}
-	})
+		n.Upsert(tt.args.node)
+
+		if tt.testPostRun != nil {
+			tt.testPostRun(tt.fields)
+		}
+	}
 }
 
 func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
