@@ -285,25 +285,6 @@ spec:
                       logic takes over to continue allocating IPs.
                     minimum: 0
                     type: integer
-                  pod-cidr-allocation-threshold:
-                    description: PodCIDRAllocationThreshold defines the minimum number
-                      of free IPs which must be available to this node via its pod
-                      CIDR pool. If the total number of IP addresses in the pod CIDR
-                      pool is less than this value, the pod CIDRs currently in-use
-                      by this node will be marked as depleted and cilium-operator
-                      will allocate a new pod CIDR to this node. This value effectively
-                      defines the buffer of IP addresses available immediately without
-                      requiring cilium-operator to get involved.
-                    minimum: 0
-                    type: integer
-                  pod-cidr-release-threshold:
-                    description: PodCIDRReleaseThreshold defines the maximum number
-                      of free IPs which may be available to this node via its pod
-                      CIDR pool. While the total number of free IP addresses in the
-                      pod CIDR pool is larger than this value, cilium-agent will attempt
-                      to release currently unused pod CIDRs.
-                    minimum: 0
-                    type: integer
                   podCIDRs:
                     description: PodCIDRs is the list of CIDRs available to the node
                       for allocation. When an IP is used, the IP will be added to
