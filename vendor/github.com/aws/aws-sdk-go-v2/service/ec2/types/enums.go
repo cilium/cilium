@@ -3468,6 +3468,22 @@ const (
 	InstanceTypeM7iFlex2xlarge  InstanceType = "m7i-flex.2xlarge"
 	InstanceTypeM7iFlex4xlarge  InstanceType = "m7i-flex.4xlarge"
 	InstanceTypeM7iFlex8xlarge  InstanceType = "m7i-flex.8xlarge"
+	InstanceTypeM7aMedium       InstanceType = "m7a.medium"
+	InstanceTypeM7aLarge        InstanceType = "m7a.large"
+	InstanceTypeM7aXlarge       InstanceType = "m7a.xlarge"
+	InstanceTypeM7a2xlarge      InstanceType = "m7a.2xlarge"
+	InstanceTypeM7a4xlarge      InstanceType = "m7a.4xlarge"
+	InstanceTypeM7a8xlarge      InstanceType = "m7a.8xlarge"
+	InstanceTypeM7a12xlarge     InstanceType = "m7a.12xlarge"
+	InstanceTypeM7a16xlarge     InstanceType = "m7a.16xlarge"
+	InstanceTypeM7a24xlarge     InstanceType = "m7a.24xlarge"
+	InstanceTypeM7a32xlarge     InstanceType = "m7a.32xlarge"
+	InstanceTypeM7a48xlarge     InstanceType = "m7a.48xlarge"
+	InstanceTypeM7aMetal48xl    InstanceType = "m7a.metal-48xl"
+	InstanceTypeHpc7a12xlarge   InstanceType = "hpc7a.12xlarge"
+	InstanceTypeHpc7a24xlarge   InstanceType = "hpc7a.24xlarge"
+	InstanceTypeHpc7a48xlarge   InstanceType = "hpc7a.48xlarge"
+	InstanceTypeHpc7a96xlarge   InstanceType = "hpc7a.96xlarge"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -4155,6 +4171,22 @@ func (InstanceType) Values() []InstanceType {
 		"m7i-flex.2xlarge",
 		"m7i-flex.4xlarge",
 		"m7i-flex.8xlarge",
+		"m7a.medium",
+		"m7a.large",
+		"m7a.xlarge",
+		"m7a.2xlarge",
+		"m7a.4xlarge",
+		"m7a.8xlarge",
+		"m7a.12xlarge",
+		"m7a.16xlarge",
+		"m7a.24xlarge",
+		"m7a.32xlarge",
+		"m7a.48xlarge",
+		"m7a.metal-48xl",
+		"hpc7a.12xlarge",
+		"hpc7a.24xlarge",
+		"hpc7a.48xlarge",
+		"hpc7a.96xlarge",
 	}
 }
 

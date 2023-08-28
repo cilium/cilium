@@ -1,3 +1,7 @@
+# v1.115.0 (2023-08-24)
+
+* **Feature**: Amazon EC2 M7a instances, powered by 4th generation AMD EPYC processors, deliver up to 50% higher performance compared to M6a instances. Amazon EC2 Hpc7a instances, powered by 4th Gen AMD EPYC processors, deliver up to 2.5x better performance compared to Amazon EC2 Hpc6a instances.
+
 # v1.114.0 (2023-08-21)
 
 * **Feature**: The DeleteKeyPair API has been updated to return the keyPairId when an existing key pair is deleted.
