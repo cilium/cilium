@@ -4,99 +4,16 @@
 package ipam
 
 import (
-	"context"
-	"fmt"
 	"net"
 	"testing"
 	"time"
 
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
-	"github.com/cilium/cilium/pkg/lock"
 )
-
-type fakeK8sCiliumNodeAPI struct {
-	mutex lock.Mutex
-	node  *ciliumv2.CiliumNode
-	sub   subscriber.CiliumNode
-
-	onUpsertEvent func()
-	onDeleteEvent func()
-}
-
-func (f *fakeK8sCiliumNodeAPI) RegisterCiliumNodeSubscriber(s subscriber.CiliumNode) {
-	f.sub = s
-}
-
-// UpdateStatus implements nodeUpdater
-func (f *fakeK8sCiliumNodeAPI) UpdateStatus(_ context.Context, ciliumNode *ciliumv2.CiliumNode, _ v1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
-	err := f.updateNode(ciliumNode)
-	return ciliumNode, err
-}
-
-// UpdateStatus implements nodeUpdater
-func (f *fakeK8sCiliumNodeAPI) Update(_ context.Context, ciliumNode *ciliumv2.CiliumNode, _ v1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
-	err := f.updateNode(ciliumNode)
-	return ciliumNode, err
-}
-
-// currentNode returns a the current snapshot of the node
-func (f *fakeK8sCiliumNodeAPI) currentNode() *ciliumv2.CiliumNode {
-	f.mutex.Lock()
-	defer f.mutex.Unlock()
-
-	return f.node.DeepCopy()
-}
-
-// updateNode is to be invoked by the test code to simulate updates by the operator
-func (f *fakeK8sCiliumNodeAPI) updateNode(newNode *ciliumv2.CiliumNode) error {
-	f.mutex.Lock()
-	oldNode := f.node
-	if oldNode == nil {
-		f.mutex.Unlock()
-		return fmt.Errorf("failed to update CiliumNode %q: node not found", newNode.Name)
-	}
-	f.node = newNode.DeepCopy()
-
-	sub := f.sub
-	onUpsertEvent := f.onUpsertEvent
-	f.mutex.Unlock()
-
-	var err error
-	if sub != nil {
-		err = sub.OnUpdateCiliumNode(oldNode, newNode, nil)
-	}
-	if onUpsertEvent != nil {
-		onUpsertEvent()
-	}
-
-	return err
-}
-
-// deleteNode is to be invoked by the test code to simulate an unexpected node deletion
-func (f *fakeK8sCiliumNodeAPI) deleteNode() error {
-	f.mutex.Lock()
-	oldNode := f.node
-	f.node = nil
-
-	sub := f.sub
-	onDeleteEvent := f.onDeleteEvent
-	f.mutex.Unlock()
-
-	var err error
-	if sub != nil {
-		err = sub.OnDeleteCiliumNode(oldNode, nil)
-	}
-	if onDeleteEvent != nil {
-		onDeleteEvent()
-	}
-	return err
-}
 
 func TestPodCIDRPool(t *testing.T) {
 	for _, tc := range []struct {
