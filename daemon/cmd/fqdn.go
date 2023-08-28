@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
@@ -33,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	secIDCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -154,6 +156,36 @@ func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[pol
 	return d.endpointManager.UpdatePolicyMaps(ctx, notifyWg)
 }
 
+// deletedEndpointNameCollector collects the FQDN entries from deleted endpoints'
+// DNSCaches which can then be used to GC the FQDN entries in cases where endpoints
+// matching FQDN policies still remain, but do not contact these names.
+type deletedEndpointNameCollector struct {
+	lock.Mutex
+	names []string
+}
+
+// EndpointCreated implements endpointmanager.Subscriber.
+func (*deletedEndpointNameCollector) EndpointCreated(ep *endpoint.Endpoint) {
+}
+
+// EndpointDeleted implements endpointmanager.Subscriber.
+func (dc *deletedEndpointNameCollector) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) {
+	dc.Lock()
+	defer dc.Unlock()
+
+	dc.names = append(dc.names, ep.DNSHistory.Names()...)
+}
+
+func (dc *deletedEndpointNameCollector) gather() []string {
+	dc.Lock()
+	defer dc.Unlock()
+	names := dc.names
+	dc.names = nil
+	return fqdn.KeepUniqueNames(names)
+}
+
+var _ endpointmanager.Subscriber = &deletedEndpointNameCollector{}
+
 // bootstrapFQDN initializes the toFQDNs related subsystems: dnsNameManager and the DNS proxy.
 // dnsNameManager will use the default resolver and, implicitly, the
 // default DNS cache. The proxy binds to all interfaces, and uses the
@@ -172,6 +204,12 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	rg := fqdn.NewNameManager(cfg)
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(rg)
 	d.dnsNameManager = rg
+
+	// Collect names from deleted endpoints to avoid leaving around FQDNs that
+	// other remaining endpoints refer to but don't contact.
+	var deletedEndpointNameCollector deletedEndpointNameCollector
+	d.endpointManager.Subscribe(&deletedEndpointNameCollector)
+	defer d.endpointManager.Unsubscribe(&deletedEndpointNameCollector)
 
 	// Controller to cleanup TTL expired entries from the DNS policies.
 	// dns-garbage-collector-job runs the logic to remove stale or undesired
@@ -192,8 +230,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		RunInterval: dnsGCJobInterval,
 		DoFunc: func(ctx context.Context) error {
 			var (
-				GCStart      = time.Now()
-				namesToClean []string
+				GCStart = time.Now()
 
 				// activeConnections holds DNSName -> single IP entries that have been
 				// marked active by the CT GC. Since we expire in this controller, we
@@ -202,6 +239,8 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 				activeConnectionsTTL = int(2 * dnsGCJobInterval.Seconds())
 				activeConnections    = fqdn.NewDNSCache(activeConnectionsTTL)
 			)
+
+			namesToClean := deletedEndpointNameCollector.gather()
 
 			// Cleanup each endpoint cache, deferring deletions via DNSZombies.
 			endpoints := d.endpointManager.GetEndpoints()

@@ -621,6 +621,18 @@ func (c *DNSCache) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.
 	return KeepUniqueNames(namesAffected)
 }
 
+// Names returns the FQDN entries in the cache
+func (c *DNSCache) Names() (names []string) {
+	c.Lock()
+	defer c.Unlock()
+
+	names = make([]string, 0, len(c.forward))
+	for name := range c.forward {
+		names = append(names, name)
+	}
+	return names
+}
+
 func (c *DNSCache) forceExpireByNames(expireLookupsBefore time.Time, names []string) (namesAffected []string) {
 	for _, name := range names {
 		entries, exists := c.forward[name]
