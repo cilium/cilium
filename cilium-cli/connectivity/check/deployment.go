@@ -6,6 +6,7 @@ package check
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -1319,6 +1320,25 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			Outside:   ok,
 		}
 		ct.hostNetNSPodsByNode[pod.Spec.NodeName] = p
+
+		if iface := ct.params.SecondaryNetworkIface; iface != "" {
+			if ct.Features[FeatureIPv4].Enabled {
+				cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
+				addr, err := ct.client.ExecInPod(ctx, pod.Namespace, pod.Name, "", cmd)
+				if err != nil {
+					return fmt.Errorf("failed to fetch secondary network ip addr: %w", err)
+				}
+				ct.secondaryNetworkNodeIPv4[pod.Spec.NodeName] = strings.TrimSuffix(addr.String(), "\n")
+			}
+			if ct.Features[FeatureIPv4].Enabled {
+				cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet6 -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
+				addr, err := ct.client.ExecInPod(ctx, pod.Namespace, pod.Name, "", cmd)
+				if err != nil {
+					return fmt.Errorf("failed to fetch secondary network ip addr: %w", err)
+				}
+				ct.secondaryNetworkNodeIPv6[pod.Spec.NodeName] = strings.TrimSuffix(addr.String(), "\n")
+			}
+		}
 	}
 
 	var logOnce sync.Once

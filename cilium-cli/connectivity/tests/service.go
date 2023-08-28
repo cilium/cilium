@@ -152,7 +152,7 @@ func (s *podToRemoteNodePort) Run(ctx context.Context, t *check.Test) {
 
 				// If src and dst pod are running on different nodes,
 				// call the Cilium Pod's host IP on the service's NodePort.
-				curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &pod, svc, node, true)
+				curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &pod, svc, node, true, false)
 
 				i++
 			}
@@ -188,7 +188,7 @@ func (s *podToLocalNodePort) Run(ctx context.Context, t *check.Test) {
 					if pod.Pod.Status.HostIP == addr.Address {
 						// If src and dst pod are running on the same node,
 						// call the Cilium Pod's host IP on the service's NodePort.
-						curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &pod, svc, node, true)
+						curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &pod, svc, node, true, false)
 
 						i++
 					}
@@ -200,14 +200,32 @@ func (s *podToLocalNodePort) Run(ctx context.Context, t *check.Test) {
 
 func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 	name string, pod *check.Pod, svc check.Service, node *corev1.Node,
-	validateFlows bool) {
+	validateFlows bool, secondaryNetwork bool) {
 
 	// Get the NodePort allocated to the Service.
 	np := uint32(svc.Service.Spec.Ports[0].NodePort)
 
+	addrs := make([]corev1.NodeAddress, len(node.Status.Addresses))
+	copy(addrs, node.Status.Addresses)
+
+	if secondaryNetwork {
+		if t.Context().Features[check.FeatureIPv4].Enabled {
+			addrs = append(addrs, corev1.NodeAddress{
+				Type:    "SecondaryNetworkIPv4",
+				Address: t.Context().SecondaryNetworkNodeIPv4()[node.Name],
+			})
+		}
+		if t.Context().Features[check.FeatureIPv6].Enabled {
+			addrs = append(addrs, corev1.NodeAddress{
+				Type:    "SecondaryNetworkIPv6",
+				Address: t.Context().SecondaryNetworkNodeIPv6()[node.Name],
+			})
+		}
+	}
+
 	t.ForEachIPFamily(func(ipFam check.IPFamily) {
 
-		for _, addr := range node.Status.Addresses {
+		for _, addr := range addrs {
 			if check.GetIPFamily(addr.Address) != ipFam {
 				continue
 			}
@@ -273,7 +291,7 @@ func (s *outsideToNodePort) Run(ctx context.Context, t *check.Test) {
 		for _, node := range t.Context().Nodes() {
 			node := node // copy to avoid memory aliasing when using reference
 
-			curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &clientPod, svc, node, validateFlows)
+			curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &clientPod, svc, node, validateFlows, t.Context().Params().SecondaryNetworkIface != "")
 			i++
 		}
 	}

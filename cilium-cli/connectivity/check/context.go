@@ -66,7 +66,9 @@ type ConnectivityTest struct {
 	ingressService    map[string]Service
 	externalWorkloads map[string]ExternalWorkload
 
-	hostNetNSPodsByNode map[string]Pod
+	hostNetNSPodsByNode      map[string]Pod
+	secondaryNetworkNodeIPv4 map[string]string // node name => secondary ip
+	secondaryNetworkNodeIPv6 map[string]string // node name => secondary ip
 
 	tests     []*Test
 	testNames map[string]struct{}
@@ -182,24 +184,26 @@ func NewConnectivityTest(client *k8s.Client, p Parameters, version string) (*Con
 	}
 
 	k := &ConnectivityTest{
-		client:              client,
-		params:              p,
-		version:             version,
-		ciliumPods:          make(map[string]Pod),
-		echoPods:            make(map[string]Pod),
-		echoExternalPods:    make(map[string]Pod),
-		clientPods:          make(map[string]Pod),
-		perfClientPods:      make(map[string]Pod),
-		perfServerPod:       make(map[string]Pod),
-		PerfResults:         make(map[PerfTests]PerfResult),
-		echoServices:        make(map[string]Service),
-		ingressService:      make(map[string]Service),
-		externalWorkloads:   make(map[string]ExternalWorkload),
-		hostNetNSPodsByNode: make(map[string]Pod),
-		nodes:               make(map[string]*corev1.Node),
-		tests:               []*Test{},
-		testNames:           make(map[string]struct{}),
-		lastFlowTimestamps:  make(map[string]time.Time),
+		client:                   client,
+		params:                   p,
+		version:                  version,
+		ciliumPods:               make(map[string]Pod),
+		echoPods:                 make(map[string]Pod),
+		echoExternalPods:         make(map[string]Pod),
+		clientPods:               make(map[string]Pod),
+		perfClientPods:           make(map[string]Pod),
+		perfServerPod:            make(map[string]Pod),
+		PerfResults:              make(map[PerfTests]PerfResult),
+		echoServices:             make(map[string]Service),
+		ingressService:           make(map[string]Service),
+		externalWorkloads:        make(map[string]ExternalWorkload),
+		hostNetNSPodsByNode:      make(map[string]Pod),
+		secondaryNetworkNodeIPv4: make(map[string]string),
+		secondaryNetworkNodeIPv6: make(map[string]string),
+		nodes:                    make(map[string]*corev1.Node),
+		tests:                    []*Test{},
+		testNames:                make(map[string]struct{}),
+		lastFlowTimestamps:       make(map[string]time.Time),
 	}
 
 	return k, nil
@@ -876,6 +880,14 @@ func (ct *ConnectivityTest) ClientPods() map[string]Pod {
 
 func (ct *ConnectivityTest) HostNetNSPodsByNode() map[string]Pod {
 	return ct.hostNetNSPodsByNode
+}
+
+func (ct *ConnectivityTest) SecondaryNetworkNodeIPv4() map[string]string {
+	return ct.secondaryNetworkNodeIPv4
+}
+
+func (ct *ConnectivityTest) SecondaryNetworkNodeIPv6() map[string]string {
+	return ct.secondaryNetworkNodeIPv6
 }
 
 func (ct *ConnectivityTest) PerfServerPod() map[string]Pod {
