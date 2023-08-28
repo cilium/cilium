@@ -333,6 +333,13 @@ To migrate a classic mode Cilium installation to Helm mode, you need to
 uninstall Cilium using classic mode Cilium CLI, and then re-install Cilium
 using Helm mode Cilium CLI.
 
+Removed Options
+~~~~~~~~~~~~~~~
+
+* The previously deprecated ``cluster-pool-v2beta`` IPAM mode has been removed.
+  The functionality to dynamically allocate Pod CIDRs is now provided by the more
+  flexible ``multi-pool`` IPAM mode.
+
 Helm Options
 ~~~~~~~~~~~~
 
