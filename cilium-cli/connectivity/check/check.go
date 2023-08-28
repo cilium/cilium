@@ -69,6 +69,7 @@ type Parameters struct {
 	ConnDisruptTestRestartsPath   string
 	ConnDisruptTestXfrmErrorsPath string
 	FlushCT                       bool
+	SecondaryNetworkIface         string
 
 	K8sVersion           string
 	HelmChartDirectory   string
