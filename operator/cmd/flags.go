@@ -149,7 +149,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 				return "cilium-operator-azure"
 			case ipamOption.IPAMAlibabaCloud:
 				return "cilium-operator-alibabacloud"
-			case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2, ipamOption.IPAMCRD:
+			case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool, ipamOption.IPAMCRD:
 				return "cilium-operator-generic"
 			default:
 				return ""

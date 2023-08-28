@@ -473,7 +473,6 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	case ipamOption.IPAMAzure,
 		ipamOption.IPAMENI,
 		ipamOption.IPAMClusterPool,
-		ipamOption.IPAMClusterPoolV2,
 		ipamOption.IPAMMultiPool,
 		ipamOption.IPAMAlibabaCloud:
 		alloc, providerBuiltin := allocatorProviders[ipamMode]
@@ -650,7 +649,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		}
 	}
 
-	if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMClusterPoolV2 || option.Config.IPAM == ipamOption.IPAMMultiPool {
+	if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMMultiPool {
 		// We will use CiliumNodes as the source of truth for the podCIDRs.
 		// Once the CiliumNodes are synchronized with the operator we will
 		// be able to watch for K8s Node events which they will be used
