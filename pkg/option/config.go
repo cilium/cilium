@@ -3479,7 +3479,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	}
 
 	switch c.IPAM {
-	case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool, ipamOption.IPAMClusterPoolV2:
+	case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool:
 		if c.EnableIPv4 {
 			c.K8sRequireIPv4PodCIDR = true
 		}

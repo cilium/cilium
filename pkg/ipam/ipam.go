@@ -74,10 +74,6 @@ type Owner interface {
 	// resource. The function must block until the custom resource has been
 	// created.
 	UpdateCiliumNodeResource()
-
-	// LocalAllocCIDRsUpdated informs the agent that the local allocation CIDRs have
-	// changed.
-	LocalAllocCIDRsUpdated(ipv4AllocCIDRs, ipv6AllocCIDRs []*cidr.CIDR)
 }
 
 // K8sEventRegister is used to register and handle events as they are processed
@@ -129,17 +125,6 @@ func NewIPAM(nodeAddressing types.NodeAddressing, c Configuration, owner Owner, 
 
 		if c.IPv4Enabled() {
 			ipam.IPv4Allocator = newHostScopeAllocator(nodeAddressing.IPv4().AllocationCIDR().IPNet)
-		}
-	case ipamOption.IPAMClusterPoolV2:
-		log.
-			WithField(logfields.Hint, "IPAM mode cluster-pool-v2beta is deprecated. Please use multi-pool IPAM instead.").
-			Info("Initializing ClusterPool v2 IPAM")
-
-		if c.IPv6Enabled() {
-			ipam.IPv6Allocator = newClusterPoolAllocator(IPv6, c, owner, k8sEventReg, clientset)
-		}
-		if c.IPv4Enabled() {
-			ipam.IPv4Allocator = newClusterPoolAllocator(IPv4, c, owner, k8sEventReg, clientset)
 		}
 	case ipamOption.IPAMMultiPool:
 		log.Info("Initializing MultiPool IPAM")
