@@ -145,7 +145,7 @@
       "matchPackagePatterns": [
         // We can't update these libraries until github.com/shoenig/go-m1cpu
         // is added as an exception to the list of licenses into CNCF.
-        "*google/gops/*",
+        ".*google/gops/*",
         // We can't update these libraries until github.com/shoenig/go-m1cpu
         // is added as an exception to the list of licenses into CNCF.
         "github.com/shirou/gopsutil/*",
