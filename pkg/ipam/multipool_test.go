@@ -82,26 +82,6 @@ func (f *fakeK8sCiliumNodeAPI) updateNode(newNode *ciliumv2.CiliumNode) error {
 	return err
 }
 
-// deleteNode is to be invoked by the test code to simulate an unexpected node deletion
-func (f *fakeK8sCiliumNodeAPI) deleteNode() error {
-	f.mutex.Lock()
-	oldNode := f.node
-	f.node = nil
-
-	sub := f.sub
-	onDeleteEvent := f.onDeleteEvent
-	f.mutex.Unlock()
-
-	var err error
-	if sub != nil {
-		err = sub.OnDeleteCiliumNode(oldNode, nil)
-	}
-	if onDeleteEvent != nil {
-		onDeleteEvent()
-	}
-	return err
-}
-
 func Test_MultiPoolManager(t *testing.T) {
 	fakeConfig := &testConfiguration{}
 	fakeOwner := &ownerMock{}

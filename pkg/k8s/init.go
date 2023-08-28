@@ -64,7 +64,7 @@ func retrieveNodeInformation(ctx context.Context, nodeGetter k8sGetter, nodeName
 	mightAutoDetectDevices := option.MightAutoDetectDevices()
 	var n *nodeTypes.Node
 
-	if option.Config.IPAM == ipamOption.IPAMClusterPool || option.Config.IPAM == ipamOption.IPAMClusterPoolV2 {
+	if option.Config.IPAM == ipamOption.IPAMClusterPool {
 		ciliumNode, err := nodeGetter.GetCiliumNode(ctx, nodeName)
 		if err != nil {
 			// If no CIDR is required, retrieving the node information is

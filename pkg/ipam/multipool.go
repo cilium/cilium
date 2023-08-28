@@ -515,10 +515,10 @@ func (m *multiPoolManager) upsertPoolLocked(poolName Pool, podCIDRs []types.IPAM
 	if !ok {
 		pool = &poolPair{}
 		if m.conf.IPv4Enabled() {
-			pool.v4 = newPodCIDRPool(nil)
+			pool.v4 = newPodCIDRPool()
 		}
 		if m.conf.IPv6Enabled() {
-			pool.v6 = newPodCIDRPool(nil)
+			pool.v6 = newPodCIDRPool()
 		}
 	}
 
