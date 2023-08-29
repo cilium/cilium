@@ -416,32 +416,6 @@ func (s *PolicyAPITestSuite) TestL7RulesWithNonTCPProtocols(c *C) {
 	err = validPortRule.Sanitize()
 	c.Assert(err, IsNil)
 
-	// Rule is invalid because Listener is not allowed on ingress (yet)
-	invalidPortRule = Rule{
-		EndpointSelector: WildcardEndpointSelector,
-		Ingress: []IngressRule{
-			{
-				IngressCommonRule: IngressCommonRule{
-					FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
-				},
-				ToPorts: []PortRule{{
-					Ports: []PortProtocol{
-						{Port: "443", Protocol: ProtoTCP},
-					},
-					Listener: &Listener{
-						EnvoyConfig: &EnvoyConfig{
-							Name: "test-config",
-						},
-						Name: "myCustomListener",
-					},
-				}},
-			},
-		},
-	}
-	err = invalidPortRule.Sanitize()
-	c.Assert(err, Not(IsNil))
-	c.Assert(err.Error(), Equals, "Listener is not allowed on ingress (myCustomListener)")
-
 	// Rule is invalid because Listener is not allowed with L7 rules
 	invalidPortRule = Rule{
 		EndpointSelector: WildcardEndpointSelector,

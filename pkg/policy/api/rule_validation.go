@@ -383,11 +383,11 @@ func (pr *PortRule) sanitize(ingress bool) error {
 
 	listener := pr.Listener
 	if listener != nil {
-		// For now we have only tested custom listener support on the egress path.  TODO
-		// (jrajahalme): Lift this limitation in follow-up work once proper testing has been
-		// done on the ingress path.
+		// Autoconfiguration for CEC defaults to direction 'egress' for BPF metadata listener filter and listener socket mark options.
+		// In case of direction 'ingress', these two configurations need to be provided by the listener defined in the CiliumEnvoyConfig.
+		// Therefore, a warning gets emitted if an ingress CNP references a custom listener.
 		if ingress {
-			return fmt.Errorf("Listener is not allowed on ingress (%s)", listener.Name)
+			log.Warnf("Custom Listener %s is used on the ingress path. Please ensure that it contains the Cilium BPF Metadata listener filter and socket mark options.", listener.Name)
 		}
 		// There is no quarantee that Listener will support Cilium policy enforcement.  Even
 		// now proxylib-based enforcement (e.g, Kafka) may work, but has not been tested.
