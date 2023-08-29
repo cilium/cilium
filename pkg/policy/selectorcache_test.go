@@ -612,6 +612,21 @@ func (ds *SelectorCacheTestSuite) TestIdentityUpdatesMultipleUsers(c *C) {
 	c.Assert(len(sc.selectors), Equals, 0)
 }
 
+func (ds *SelectorCacheTestSuite) TestSelectorManagerCanGetBeforeSet(c *C) {
+	defer func() {
+		r := recover()
+		c.Assert(r, Equals, nil)
+	}()
+
+	selectorManager := selectorManager{
+		key:   "test",
+		users: make(map[CachedSelectionUser]struct{}),
+	}
+	selections := selectorManager.GetSelections()
+	c.Assert(selections, Not(Equals), nil)
+	c.Assert(len(selections), Equals, 0)
+}
+
 func testNewSelectorCache(ids cache.IdentityCache) *SelectorCache {
 	sc := NewSelectorCache(testidentity.NewMockIdentityAllocator(ids), ids)
 	sc.SetLocalIdentityNotifier(testidentity.NewDummyIdentityNotifier())
