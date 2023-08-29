@@ -18,7 +18,7 @@ jobs:
   check_changes:
     name: Deduce required tests from code changes
     if: ${{ github.event_name == 'pull_request' }}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       go-changes: ${{ steps.go-changes.outputs.src }}
     steps:
@@ -36,7 +36,7 @@ jobs:
   analyze:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.go-changes == 'true' || github.event_name != 'pull_request' }}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     permissions:
       security-events: write
     steps:

@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   build-and-push-prs:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         include:
@@ -228,7 +228,7 @@ jobs:
   # note: we only build on pushes to v1.12 branch
   build-and-push-with-qemu:
     if: ${{ github.event_name == 'push' }}
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         include:
@@ -288,7 +288,7 @@ jobs:
     if: ${{ always() &&
       (needs.build-and-push-with-qemu.result == 'success' || needs.build-and-push-with-qemu.result == 'skipped') }}
     name: Display Digests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [build-and-push-prs, build-and-push-with-qemu]
     steps:
       - name: Downloading Image Digests
