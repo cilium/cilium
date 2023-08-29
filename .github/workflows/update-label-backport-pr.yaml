@@ -1,0 +1,35 @@
+---
+    # A reusable workflow designed to be called from the context of a specific
+    # branch whenever a backport PR is merged. The workflow scans the backport PR
+    # body to get the list of the backported PRs and updates their labels, replacing
+    # all "backport-pending/<version>" with "backport-done/<version>".
+    name: Update labels of backported PRs
+    on:
+      workflow_call:
+        inputs:
+          pr-body:
+            required: true
+            type: string
+            description: "The PR description containing all the references to the backported PRs."
+          branch:
+            required: true
+            type: string
+            description: "The stable branch version."
+
+    jobs:
+      backport-label-updater:
+        name: Update labels of backported PRs
+        runs-on: ubuntu-latest
+        permissions:
+          pull-requests: write # Adding and removing labels
+        steps:
+          - name: Update labels in backported PRs
+            env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            run: |
+              echo '${{ inputs.pr-body }}' | sed -En "/upstream-prs/ { n; p }" | cut -d ';' -f 1 | grep -Eo '[0-9]+' | while read -r pr; do
+                echo "Removing label backport-pending/${{ inputs.branch }} from pr #${pr}."
+                gh pr edit ${pr} --repo "${GITHUB_REPOSITORY}" --remove-label backport-pending/"${{ inputs.branch }}"
+                echo "Adding label backport-done/${{ inputs.branch }} to pr #${pr}."
+                gh pr edit ${pr} --repo "${GITHUB_REPOSITORY}" --add-label backport-done/"${{ inputs.branch }}"
+              done
