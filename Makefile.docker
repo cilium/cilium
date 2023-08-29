@@ -63,8 +63,8 @@ GIT_IGNORE_FILES := $(shell find . -not -path "./vendor*" -name .gitignore -prin
 		{DIR}.gitignore >> $@
 
 DOCKER_REGISTRY ?= quay.io
-ifeq ($(findstring /,$(DOCKER_DEV_ACCOUNT)),/)
-    # DOCKER_DEV_ACCOUNT already contains '/', assume it specifies a registry
+ifneq (,$(or $(findstring /,$(DOCKER_DEV_ACCOUNT)), $(findstring :,$(DOCKER_DEV_ACCOUNT))))
+    # DOCKER_DEV_ACCOUNT already contains '/' or ':' (like localhost:5000), assume it specifies a registry
     IMAGE_REPOSITORY := $(DOCKER_DEV_ACCOUNT)
 else
     IMAGE_REPOSITORY := $(DOCKER_REGISTRY)/$(DOCKER_DEV_ACCOUNT)
