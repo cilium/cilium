@@ -1,0 +1,69 @@
+name: Check Documentation Links
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/check-links-cron.yaml'
+
+permissions: read-all
+
+jobs:
+  links-checker:
+    name: Documentation links checker
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        with:
+          persist-credentials: false
+      - name: Check Documentation links
+        uses: docker://quay.io/cilium/docs-builder:9eb38bbec80e56a8a498b0cac42456e42cfe7f04@sha256:9936a2f648cb25cad6cf1fe5772ad1a5800d0033eb88b0dce77ad70a083661d9
+        with:
+          entrypoint: ./Documentation/check-links.sh
+      - name: Upload Documentation links report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: links-report
+          path: ./Documentation/_build/filtered_links_warnings.txt
+  create_issue:
+    name: Create issue
+    needs: links-checker
+    if: ${{ always() }}
+    runs-on: ubuntu-20.04
+    permissions:
+      issues: write
+    env:
+      ISSUE_NAME: 'Documentation: broken links automatic report'
+    steps:
+      - name: Search for existing issue number
+        id: search-issue
+        run: |
+          set -ex
+          encoded_issue_name=$(echo "$ISSUE_NAME" | sed 's/ /%20/g')
+          response=$(curl -s -X GET "https://api.github.com/search/issues?q=$encoded_issue_name+repo:cilium/cilium+state:open+label:automated-issue&type=Issues")
+          issue_number=$(echo "$response" | jq -r '.items[0].number // empty')
+          echo "issue_number=$issue_number" >> $GITHUB_OUTPUT
+          echo $issue_number
+      - uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        name: Download Documentation links report
+        if: ${{ needs.links-checker.outputs.status == 'failure' }}
+        with:
+          name: links-report
+          path: ./
+      - name: Create or update issue with report
+        uses: peter-evans/create-issue-from-file@433e51abf769039ee20ba1293a088ca19d573b7f # v4.0.1
+        with:
+          title: ${{ env.ISSUE_NAME }}
+          content-filepath: ${{ github.workspace }}/filtered_links_warnings.txt
+          issue-number: ${{ steps.search-issue.outputs.issue_number }}
+          labels: automated-issue
+      - name: Close automated issue
+        if: ${{ needs.links-checker.outputs.exit_code == 0 && steps.search-issue.outputs.issue_number != '' }}
+        uses: peter-evans/close-issue@276d7966e389d888f011539a86c8920025ea0626 # v3.0.1
+        with:
+          issue-number: ${{ steps.search-issue.outputs.issue_number }}
+          comment: '[Periodic links check](https://github.com/cilium/cilium/actions/workflows/check-links-cron.yaml) no longer finds broken links, closing issue.'
