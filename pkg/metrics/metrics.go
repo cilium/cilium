@@ -313,13 +313,13 @@ var (
 
 	// CIDRGroup
 
+	// CIDRGroupsReferenced is the number of CNPs and CCNPs referencing at least one CiliumCIDRGroup.
+	// CNPs with empty or non-existing CIDRGroupRefs are not considered.
+	CIDRGroupsReferenced = NoOpGauge
+
 	// CIDRGroupTranslationTimeStats is the time taken to translate the policy field `FromCIDRGroupRef`
 	// after the referenced CIDRGroups have been updated or deleted.
 	CIDRGroupTranslationTimeStats = NoOpHistogram
-
-	// CIDRGroupPolicies is the number of CNPs and CCNPs referencing at least one CiliumCIDRGroup.
-	// CNPs with empty or non-existing CIDRGroupRefs are not considered
-	CIDRGroupPolicies = NoOpGauge
 
 	// Identity
 
@@ -571,8 +571,8 @@ type LegacyMetrics struct {
 	PolicyChangeTotal                metric.Vec[metric.Counter]
 	PolicyEndpointStatus             metric.Vec[metric.Gauge]
 	PolicyImplementationDelay        metric.Vec[metric.Observer]
+	CIDRGroupsReferenced             metric.Gauge
 	CIDRGroupTranslationTimeStats    metric.Histogram
-	CIDRGroupPolicies                metric.Gauge
 	Identity                         metric.Vec[metric.Gauge]
 	EventTS                          metric.Vec[metric.Gauge]
 	EventLagK8s                      metric.Gauge
@@ -733,21 +733,21 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Help:      "Time between a policy change and it being fully deployed into the datapath",
 		}, []string{LabelPolicySource}),
 
+		CIDRGroupsReferenced: metric.NewGauge(metric.GaugeOpts{
+			ConfigName: Namespace + "cidrgroups_referenced",
+
+			Namespace: Namespace,
+			Name:      "cidrgroups_referenced",
+			Help:      "Number of CNPs and CCNPs referencing at least one CiliumCIDRGroup. CNPs with empty or non-existing CIDRGroupRefs are not considered",
+		}),
+
 		CIDRGroupTranslationTimeStats: metric.NewHistogram(metric.HistogramOpts{
-			ConfigName: Namespace + "_cidrgroup_translation_time_stats_seconds",
+			ConfigName: Namespace + "cidrgroup_translation_time_stats_seconds",
 			Disabled:   true,
 
 			Namespace: Namespace,
 			Name:      "cidrgroup_translation_time_stats_seconds",
 			Help:      "CIDRGroup translation time stats",
-		}),
-
-		CIDRGroupPolicies: metric.NewGauge(metric.GaugeOpts{
-			ConfigName: Namespace + "_cidrgroup_policies",
-
-			Namespace: Namespace,
-			Name:      "cidrgroup_policies",
-			Help:      "Number of CNPs and CCNPs referencing at least one CiliumCIDRGroup",
 		}),
 
 		Identity: metric.NewGaugeVec(metric.GaugeOpts{
@@ -1273,8 +1273,8 @@ func NewLegacyMetrics() *LegacyMetrics {
 	PolicyChangeTotal = lm.PolicyChangeTotal
 	PolicyEndpointStatus = lm.PolicyEndpointStatus
 	PolicyImplementationDelay = lm.PolicyImplementationDelay
+	CIDRGroupsReferenced = lm.CIDRGroupsReferenced
 	CIDRGroupTranslationTimeStats = lm.CIDRGroupTranslationTimeStats
-	CIDRGroupPolicies = lm.CIDRGroupPolicies
 	Identity = lm.Identity
 	EventTS = lm.EventTS
 	EventLagK8s = lm.EventLagK8s
