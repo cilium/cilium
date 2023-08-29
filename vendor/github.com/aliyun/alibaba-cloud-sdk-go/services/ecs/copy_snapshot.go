@@ -84,6 +84,7 @@ type CopySnapshotRequest struct {
 	Encrypted                      requests.Boolean   `position:"Query" name:"Encrypted"`
 	RetentionDays                  requests.Integer   `position:"Query" name:"RetentionDays"`
 	KMSKeyId                       string             `position:"Query" name:"KMSKeyId"`
+	DestinationStorageLocationArn  string             `position:"Query" name:"DestinationStorageLocationArn"`
 }
 
 // CopySnapshotTag is a repeated param struct in CopySnapshotRequest

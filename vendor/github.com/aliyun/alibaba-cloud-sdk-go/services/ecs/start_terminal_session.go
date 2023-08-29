@@ -72,6 +72,8 @@ func (client *Client) StartTerminalSessionWithCallback(request *StartTerminalSes
 type StartTerminalSessionRequest struct {
 	*requests.RpcRequest
 	ResourceOwnerId      requests.Integer `position:"Query" name:"ResourceOwnerId"`
+	CommandLine          string           `position:"Query" name:"CommandLine"`
+	TargetServer         string           `position:"Query" name:"TargetServer"`
 	ResourceOwnerAccount string           `position:"Query" name:"ResourceOwnerAccount"`
 	OwnerAccount         string           `position:"Query" name:"OwnerAccount"`
 	OwnerId              requests.Integer `position:"Query" name:"OwnerId"`

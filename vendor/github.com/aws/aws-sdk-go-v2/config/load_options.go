@@ -172,6 +172,10 @@ type LoadOptions struct {
 	// the region, the client's requests are sent to.
 	S3UseARNRegion *bool
 
+	// S3DisableMultiRegionAccessPoints specifies if the S3 service should disable
+	// the S3 Multi-Region access points feature.
+	S3DisableMultiRegionAccessPoints *bool
+
 	// EnableEndpointDiscovery specifies if endpoint discovery is enable for
 	// the client.
 	EnableEndpointDiscovery aws.EndpointDiscoveryEnableState
@@ -872,6 +876,26 @@ func (o LoadOptions) GetS3UseARNRegion(ctx context.Context) (v bool, found bool,
 func WithS3UseARNRegion(v bool) LoadOptionsFunc {
 	return func(o *LoadOptions) error {
 		o.S3UseARNRegion = &v
+		return nil
+	}
+}
+
+// GetS3DisableMultiRegionAccessPoints returns whether to disable
+// the S3 multi-region access points feature.
+func (o LoadOptions) GetS3DisableMultiRegionAccessPoints(ctx context.Context) (v bool, found bool, err error) {
+	if o.S3DisableMultiRegionAccessPoints == nil {
+		return false, false, nil
+	}
+	return *o.S3DisableMultiRegionAccessPoints, true, nil
+}
+
+// WithS3DisableMultiRegionAccessPoints is a helper function to construct functional options
+// that can be used to set S3DisableMultiRegionAccessPoints on LoadOptions.
+// If multiple WithS3DisableMultiRegionAccessPoints calls are made, the last call overrides
+// the previous call values.
+func WithS3DisableMultiRegionAccessPoints(v bool) LoadOptionsFunc {
+	return func(o *LoadOptions) error {
+		o.S3DisableMultiRegionAccessPoints = &v
 		return nil
 	}
 }
