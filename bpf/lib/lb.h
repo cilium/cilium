@@ -1093,6 +1093,52 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 			     ct_state, has_l4_header);
 }
 
+/** Extract IPv4 CT tuple from packet
+ * @arg ctx		Packet
+ * @arg ip4		Pointer to L3 header
+ * @arg l3_off		Offset to L3 header
+ * @arg l4_off		Offset to L4 header
+ * @arg tuple		CT tuple
+ *
+ * Returns:
+ *   - CTX_ACT_OK on successful extraction
+ *   - DROP_UNKNOWN_L4 if packet should be ignore (sent to stack)
+ *   - Negative error code
+ */
+static __always_inline int
+lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4_off,
+		  struct ipv4_ct_tuple *tuple)
+{
+	int ret;
+
+	tuple->nexthdr = ip4->protocol;
+	tuple->daddr = ip4->daddr;
+	tuple->saddr = ip4->saddr;
+
+	*l4_off = l3_off + ipv4_hdrlen(ip4);
+
+	switch (tuple->nexthdr) {
+	case IPPROTO_TCP:
+	case IPPROTO_UDP:
+#ifdef ENABLE_IPV4_FRAGMENTS
+		ret = ipv4_handle_fragmentation(ctx, ip4, *l4_off,
+						CT_EGRESS,
+						(struct ipv4_frag_l4ports *)&tuple->dport,
+						NULL);
+#else
+		ret = l4_load_ports(ctx, *l4_off, &tuple->dport);
+#endif
+
+		if (IS_ERR(ret))
+			return ret;
+		return 0;
+	case IPPROTO_ICMP:
+		return DROP_NO_SERVICE;
+	default:
+		return DROP_UNKNOWN_L4;
+	}
+}
+
 /** Extract IPv4 LB key from packet
  * @arg ctx		Packet
  * @arg ip4		Pointer to L3 header

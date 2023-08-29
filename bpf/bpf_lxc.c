@@ -1966,6 +1966,76 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	return ret;
 }
 
+static __always_inline bool
+ipv4_to_endpoint_is_hairpin_flow(struct __ctx_buff *ctx, struct iphdr *ip4)
+{
+	__be16 client_port, backend_port, service_port;
+	struct ipv4_ct_tuple tuple = {};
+	struct lb4_backend *backend;
+	__be32 pod_ip, service_ip;
+	struct ct_entry *entry;
+	struct ct_map *map;
+	int err, l4_off;
+
+	/* Extract the tuple from the packet so we can freely access addrs and ports.
+	 * All values are in network byte order.
+	 */
+	err = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
+	if (IS_ERR(err))
+		return false;
+
+	/* If the packet originates from a regular, non-loopback address, it will look
+	 * like service_ip:client_port -> pod_ip:service_port.
+	 *
+	 * In order to determine whether the packet has been hairpinned, we need to
+	 * obtain the backend (listen) port first, requiring a CT lookup with the
+	 * TUPLE_F_SERVICE flag, followed by a backend lookup. After this, the regular
+	 * CT TUPLE_F_OUT lookup can proceed.
+	 */
+	service_ip = tuple.saddr;
+	pod_ip = tuple.daddr;
+	client_port = tuple.sport;
+	service_port = tuple.dport;
+
+	tuple.daddr = service_ip;
+	tuple.saddr = pod_ip;
+	tuple.dport = client_port;
+	tuple.sport = service_port;
+
+	tuple.flags = TUPLE_F_SERVICE;
+
+	map = get_ct_map4(&tuple);
+	entry = map_lookup_elem(map, &tuple);
+	if (!entry)
+		return false;
+
+	backend = lb4_lookup_backend(ctx, entry->backend_id);
+	if (!backend)
+		return false;
+
+	backend_port = backend->port;
+
+	/* Now the backend (listen) port inside the container is known, an egress CT
+	 * lookup can be performed.
+	 */
+	tuple.daddr = IPV4_LOOPBACK;
+	tuple.saddr = pod_ip;
+	tuple.dport = backend_port;
+	tuple.sport = client_port;
+
+	tuple.flags = TUPLE_F_OUT;
+
+	map = get_ct_map4(&tuple);
+	entry = map_lookup_elem(map, &tuple);
+	if (entry)
+		/* The packet is considered hairpinned if its egress CT entry has the
+		 * loopback flag set.
+		 */
+		return entry->lb_loopback == 1;
+
+	return false;
+}
+
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_TO_ENDPOINT)
 int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 {
@@ -2013,6 +2083,23 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 	update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
 #endif
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
+
+	/* Check if packet is locally hairpinned (pod reaching itself through a
+	 * service) and skip the policy check if that is the case. Otherwise, pods may
+	 * need to explicitly allow traffic to themselves in some network
+	 * configurations.
+	 */
+	if (ipv4_to_endpoint_is_hairpin_flow(ctx, ip4)) {
+		send_trace_notify4(ctx, TRACE_TO_LXC,
+				   ctx_load_meta(ctx, CB_SRC_LABEL),
+				   SECLABEL, ip4->saddr, LXC_ID,
+				   ctx->ingress_ifindex,
+				   TRACE_REASON_UNKNOWN, 0);
+
+		/* Skip policy check for hairpinned flow */
+		ret = CTX_ACT_OK;
+		goto out;
+	}
 
 	ret = ipv4_policy(ctx, 0, src_identity, &ct_status, NULL,
 			  &proxy_port, true);
