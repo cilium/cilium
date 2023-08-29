@@ -1137,10 +1137,6 @@ struct ct_state {
 	      reserved1:1,	/* Was auth_required, not used in production anywhere */
 	      from_tunnel:1,	/* Connection is from tunnel */
 	      reserved:8;
-#ifndef DISABLE_LOOPBACK_LB
-	__be32 addr;
-	__be32 svc_addr;
-#endif
 	__u32 src_sec_id;
 #ifndef HAVE_FIB_IFINDEX
 	__u16 ifindex;
