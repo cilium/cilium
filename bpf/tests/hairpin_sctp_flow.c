@@ -177,8 +177,6 @@ int hairpin_flow_forward_ingress_pktgen(struct __ctx_buff *ctx)
 
 	if (!l4)
 		return TEST_ERROR;
-	if ((void *)l4 + sizeof(struct sctphdr) > ctx_data_end(ctx))
-		return TEST_ERROR;
 
 	l4->source = tcp_src_one;
 	l4->dest = tcp_svc_one;
@@ -265,7 +263,7 @@ int hairpin_flow_rev_setup(struct __ctx_buff *ctx)
 	/* Push SCTP header */
 	l4 = pktgen__push_sctphdr(&builder);
 
-	if (!l4 || (void *)l4 + sizeof(struct sctphdr) > ctx_data_end(ctx))
+	if (!l4)
 		return TEST_ERROR;
 
 	l4->source = tcp_svc_one;
