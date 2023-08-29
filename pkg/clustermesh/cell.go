@@ -5,7 +5,6 @@ package clustermesh
 
 import (
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	"github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -13,7 +12,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 var Cell = cell.Module(
@@ -29,9 +27,6 @@ var Cell = cell.Module(
 		return nodeStore.NewNodeObserver(mgr), mgr.ClusterSizeDependantInterval
 	}),
 	cell.ProvidePrivate(func() store.KeyCreator { return nodeStore.KeyCreator }),
-	cell.ProvidePrivate(func(cfg *option.DaemonConfig) types.ClusterIDName {
-		return types.ClusterIDName{ClusterID: cfg.ClusterID, ClusterName: cfg.ClusterName}
-	}),
 	cell.ProvidePrivate(idsMgrProvider),
 
 	cell.Config(common.Config{}),

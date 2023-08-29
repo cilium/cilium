@@ -498,7 +498,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	})
 	if option.Config.EnableWellKnownIdentities {
 		// Must be done before calling policy.NewPolicyRepository() below.
-		num := identity.InitWellKnownIdentities(option.Config)
+		num := identity.InitWellKnownIdentities(option.Config, params.ClusterInfo)
 		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
 	}
 
@@ -812,7 +812,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	treatRemoteNodeAsHost := option.Config.AlwaysAllowLocalhost() && !option.Config.EnableRemoteNodeIdentity
-	policyAPI.InitEntities(option.Config.ClusterName, treatRemoteNodeAsHost)
+	policyAPI.InitEntities(params.ClusterInfo.Name, treatRemoteNodeAsHost)
 
 	bootstrapStats.restore.Start()
 	// fetch old endpoints before k8s is configured.
@@ -1055,7 +1055,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.nodeDiscovery.JoinCluster(nodeTypes.GetName())
 
 		// Start services watcher
-		serviceStore.JoinClusterServices(d.k8sWatcher.K8sSvcCache, option.Config)
+		serviceStore.JoinClusterServices(d.k8sWatcher.K8sSvcCache, option.Config.ClusterName)
 	}
 
 	// Start IPAM

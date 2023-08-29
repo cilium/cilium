@@ -21,7 +21,6 @@ import (
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive/hivetest"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -32,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
-	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/rand"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -76,7 +74,6 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 
 	kvstore.Client().DeletePrefix(context.TODO(), "cilium/state/services/v1/"+s.randomName)
 	s.svcCache = k8s.NewServiceCache(fakeDatapath.NewNodeAddressing())
-	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
@@ -108,7 +105,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	store := store.NewFactory(store.MetricsProvider())
 	s.mesh = NewClusterMesh(hivetest.Lifecycle(c), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
-		ClusterIDName:         types.ClusterIDName{ClusterID: 255, ClusterName: "test2"},
+		ClusterInfo:           types.ClusterInfo{ID: 255, Name: "test2"},
 		NodeKeyCreator:        testNodeCreator,
 		NodeObserver:          &testObserver{},
 		ServiceMerger:         s.svcCache,

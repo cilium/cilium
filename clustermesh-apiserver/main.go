@@ -52,18 +52,8 @@ import (
 )
 
 type configuration struct {
-	clusterName             string
-	clusterID               uint32
 	serviceProxyName        string
 	enableExternalWorkloads bool
-}
-
-func (c configuration) LocalClusterName() string {
-	return c.clusterName
-}
-
-func (c configuration) LocalClusterID() uint32 {
-	return c.clusterID
 }
 
 func (c configuration) K8sServiceProxyNameValue() string {
@@ -112,9 +102,11 @@ func init() {
 		k8sClient.Cell,
 		apiserverK8s.ResourcesCell,
 
-		cell.Provide(func() *option.DaemonConfig {
-			return option.Config
-		}),
+		// We don't validate that the ClusterID is different from 0 (and the
+		// ClusterName is not the default one), because they are valid in
+		// case we only use the external workloads feature, and not clustermesh.
+		cell.Config(cmtypes.DefaultClusterInfo),
+		cell.Invoke(func(cinfo cmtypes.ClusterInfo) error { return cinfo.Validate() }),
 
 		kvstore.Cell(kvstore.EtcdBackendName),
 		cell.Provide(func() *kvstore.ExtraOptions { return nil }),
@@ -134,6 +126,7 @@ func init() {
 type parameters struct {
 	cell.In
 
+	ClusterInfo    cmtypes.ClusterInfo
 	Clientset      k8sClient.Clientset
 	Resources      apiserverK8s.Resources
 	BackendPromise promise.Promise[kvstore.BackendOperations]
@@ -152,7 +145,7 @@ func registerHooks(lc hive.Lifecycle, params parameters) error {
 				return err
 			}
 
-			startServer(ctx, params.Clientset, backend, params.Resources, params.StoreFactory)
+			startServer(ctx, params.ClusterInfo, params.Clientset, backend, params.Resources, params.StoreFactory)
 			return nil
 		},
 	})
@@ -169,12 +162,6 @@ func runApiserver() error {
 
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeCRD, "Method to use for identity allocation")
 	option.BindEnv(vp, option.IdentityAllocationMode)
-
-	flags.Uint32Var(&cfg.clusterID, option.ClusterIDName, 0, "Cluster ID")
-	option.BindEnv(vp, option.ClusterIDName)
-
-	flags.StringVar(&cfg.clusterName, option.ClusterName, "default", "Cluster name")
-	option.BindEnv(vp, option.ClusterName)
 
 	flags.StringVar(&cfg.serviceProxyName, option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
 	option.BindEnv(vp, option.K8sServiceProxyName)
@@ -214,8 +201,8 @@ type identitySynchronizer struct {
 	encoder func([]byte) string
 }
 
-func newIdentitySynchronizer(ctx context.Context, backend kvstore.BackendOperations, factory store.Factory) synchronizer {
-	identitiesStore := factory.NewSyncStore(cfg.LocalClusterName(), backend,
+func newIdentitySynchronizer(ctx context.Context, cinfo cmtypes.ClusterInfo, backend kvstore.BackendOperations, factory store.Factory) synchronizer {
+	identitiesStore := factory.NewSyncStore(cinfo.Name, backend,
 		path.Join(identityCache.IdentitiesPath, "id"),
 		store.WSSWithSyncedKeyOverride(identityCache.IdentitiesPath))
 	go identitiesStore.Run(ctx)
@@ -285,20 +272,21 @@ func (n *nodeStub) GetKeyName() string {
 }
 
 type nodeSynchronizer struct {
-	store store.SyncStore
+	clusterInfo cmtypes.ClusterInfo
+	store       store.SyncStore
 }
 
-func newNodeSynchronizer(ctx context.Context, backend kvstore.BackendOperations, factory store.Factory) synchronizer {
-	nodesStore := factory.NewSyncStore(cfg.LocalClusterName(), backend, nodeStore.NodeStorePrefix)
+func newNodeSynchronizer(ctx context.Context, cinfo cmtypes.ClusterInfo, backend kvstore.BackendOperations, factory store.Factory) synchronizer {
+	nodesStore := factory.NewSyncStore(cinfo.Name, backend, nodeStore.NodeStorePrefix)
 	go nodesStore.Run(ctx)
 
-	return &nodeSynchronizer{store: nodesStore}
+	return &nodeSynchronizer{clusterInfo: cinfo, store: nodesStore}
 }
 
 func (ns *nodeSynchronizer) upsert(ctx context.Context, _ resource.Key, obj runtime.Object) error {
 	n := nodeTypes.ParseCiliumNode(obj.(*ciliumv2.CiliumNode))
-	n.Cluster = cfg.clusterName
-	n.ClusterID = cfg.clusterID
+	n.Cluster = ns.clusterInfo.Name
+	n.ClusterID = ns.clusterInfo.ID
 
 	scopedLog := log.WithField(logfields.Node, n.Name)
 	scopedLog.Info("Upserting node in etcd")
@@ -313,7 +301,7 @@ func (ns *nodeSynchronizer) upsert(ctx context.Context, _ resource.Key, obj runt
 
 func (ns *nodeSynchronizer) delete(ctx context.Context, key resource.Key) error {
 	n := nodeStub{
-		cluster: cfg.clusterName,
+		cluster: ns.clusterInfo.Name,
 		name:    key.Name,
 	}
 
@@ -340,8 +328,8 @@ type endpointSynchronizer struct {
 	cache map[string]ipmap
 }
 
-func newEndpointSynchronizer(ctx context.Context, backend kvstore.BackendOperations, factory store.Factory) synchronizer {
-	endpointsStore := factory.NewSyncStore(cfg.LocalClusterName(), backend,
+func newEndpointSynchronizer(ctx context.Context, cinfo cmtypes.ClusterInfo, backend kvstore.BackendOperations, factory store.Factory) synchronizer {
+	endpointsStore := factory.NewSyncStore(cinfo.Name, backend,
 		path.Join(ipcache.IPIdentitiesPath, ipcache.DefaultAddressSpace),
 		store.WSSWithSyncedKeyOverride(ipcache.IPIdentitiesPath))
 	go endpointsStore.Run(ctx)
@@ -443,10 +431,17 @@ func synchronize[T runtime.Object](ctx context.Context, r resource.Resource[T], 
 	}
 }
 
-func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, backend kvstore.BackendOperations, resources apiserverK8s.Resources, factory store.Factory) {
+func startServer(
+	startCtx hive.HookContext,
+	cinfo cmtypes.ClusterInfo,
+	clientset k8sClient.Clientset,
+	backend kvstore.BackendOperations,
+	resources apiserverK8s.Resources,
+	factory store.Factory,
+) {
 	log.WithFields(logrus.Fields{
-		"cluster-name": cfg.clusterName,
-		"cluster-id":   cfg.clusterID,
+		"cluster-name": cinfo.Name,
+		"cluster-id":   cinfo.ID,
 	}).Info("Starting clustermesh-apiserver...")
 
 	synced.SyncCRDs(startCtx, clientset, synced.ClusterMeshAPIServerResourceNames(), &synced.Resources{}, &synced.APIGroups{})
@@ -454,18 +449,18 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, backe
 	var err error
 
 	config := cmtypes.CiliumClusterConfig{
-		ID: cfg.clusterID,
+		ID: cinfo.ID,
 		Capabilities: cmtypes.CiliumClusterConfigCapabilities{
 			SyncedCanaries: true,
 		},
 	}
 
-	if err := cmutils.SetClusterConfig(context.Background(), cfg.clusterName, &config, backend); err != nil {
+	if err := cmutils.SetClusterConfig(context.Background(), cinfo.Name, &config, backend); err != nil {
 		log.WithError(err).Fatal("Unable to set local cluster config on kvstore")
 	}
 
 	if cfg.enableExternalWorkloads {
-		mgr := NewVMManager(clientset, backend)
+		mgr := NewVMManager(cinfo, clientset, backend)
 		_, err = store.JoinSharedStore(store.Configuration{
 			Backend:              backend,
 			Prefix:               nodeStore.NodeRegisterStorePrefix,
@@ -479,17 +474,17 @@ func startServer(startCtx hive.HookContext, clientset k8sClient.Clientset, backe
 	}
 
 	ctx := context.Background()
-	go synchronize(ctx, resources.CiliumIdentities, newIdentitySynchronizer(ctx, backend, factory))
-	go synchronize(ctx, resources.CiliumNodes, newNodeSynchronizer(ctx, backend, factory))
-	go synchronize(ctx, resources.CiliumSlimEndpoints, newEndpointSynchronizer(ctx, backend, factory))
+	go synchronize(ctx, resources.CiliumIdentities, newIdentitySynchronizer(ctx, cinfo, backend, factory))
+	go synchronize(ctx, resources.CiliumNodes, newNodeSynchronizer(ctx, cinfo, backend, factory))
+	go synchronize(ctx, resources.CiliumSlimEndpoints, newEndpointSynchronizer(ctx, cinfo, backend, factory))
 	operatorWatchers.StartSynchronizingServices(ctx, &sync.WaitGroup{}, operatorWatchers.ServiceSyncParameters{
-		ServiceSyncConfiguration: cfg,
-		Clientset:                clientset,
-		Services:                 resources.Services,
-		Endpoints:                resources.Endpoints,
-		Backend:                  backend,
-		SharedOnly:               !cfg.enableExternalWorkloads,
-		StoreFactory:             factory,
+		ClusterInfo:  cinfo,
+		Clientset:    clientset,
+		Services:     resources.Services,
+		Endpoints:    resources.Endpoints,
+		Backend:      backend,
+		SharedOnly:   !cfg.enableExternalWorkloads,
+		StoreFactory: factory,
 	})
 
 	log.Info("Initialization complete")

@@ -33,7 +33,7 @@ type KVStoreMesh struct {
 type params struct {
 	cell.In
 
-	types.ClusterIDName
+	ClusterInfo types.ClusterInfo
 	common.Config
 
 	BackendPromise promise.Promise[kvstore.BackendOperations]
@@ -49,7 +49,7 @@ func newKVStoreMesh(lc hive.Lifecycle, params params) *KVStoreMesh {
 	}
 	km.common = common.NewClusterMesh(common.Configuration{
 		Config:           params.Config,
-		ClusterIDName:    params.ClusterIDName,
+		ClusterInfo:      params.ClusterInfo,
 		NewRemoteCluster: km.newRemoteCluster,
 		Metrics:          params.Metrics,
 	})

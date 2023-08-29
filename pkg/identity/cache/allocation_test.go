@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/checker"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	cacheKey "github.com/cilium/cilium/pkg/identity/key"
 	"github.com/cilium/cilium/pkg/idpool"
@@ -228,7 +229,7 @@ func (ias *IdentityAllocatorSuite) TestEventWatcherBatching(c *C) {
 }
 
 func (ias *IdentityAllocatorSuite) TestGetIdentityCache(c *C) {
-	identity.InitWellKnownIdentities(&fakeConfig.Config{})
+	identity.InitWellKnownIdentities(&fakeConfig.Config{}, cmtypes.ClusterInfo{Name: "default", ID: 5})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := NewCachingIdentityAllocator(newDummyOwner())
 	<-mgr.InitIdentityAllocator(nil)
@@ -246,7 +247,7 @@ func (ias *IdentityAllocatorSuite) TestAllocator(c *C) {
 	lbls3 := labels.NewLabelsFromSortedList("id=bar;user=susan")
 
 	owner := newDummyOwner()
-	identity.InitWellKnownIdentities(&fakeConfig.Config{})
+	identity.InitWellKnownIdentities(&fakeConfig.Config{}, cmtypes.ClusterInfo{Name: "default", ID: 5})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := NewCachingIdentityAllocator(owner)
 	<-mgr.InitIdentityAllocator(nil)
@@ -331,7 +332,7 @@ func (ias *IdentityAllocatorSuite) TestLocalAllocation(c *C) {
 	lbls1 := labels.NewLabelsFromSortedList("cidr:192.0.2.3/32")
 
 	owner := newDummyOwner()
-	identity.InitWellKnownIdentities(&fakeConfig.Config{})
+	identity.InitWellKnownIdentities(&fakeConfig.Config{}, cmtypes.ClusterInfo{Name: "default", ID: 5})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := NewCachingIdentityAllocator(owner)
 	<-mgr.InitIdentityAllocator(nil)

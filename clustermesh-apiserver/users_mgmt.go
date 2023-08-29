@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/fswatcher"
 	"github.com/cilium/cilium/pkg/hive"
@@ -57,6 +58,7 @@ type usersConfigFile struct {
 
 type usersManager struct {
 	UsersManagementConfig
+	clusterInfo cmtypes.ClusterInfo
 
 	client        kvstore.BackendOperationsUserMgmt
 	clientPromise promise.Promise[kvstore.BackendOperationsUserMgmt]
@@ -68,7 +70,12 @@ type usersManager struct {
 	wg   sync.WaitGroup
 }
 
-func registerUsersManager(lc hive.Lifecycle, cfg UsersManagementConfig, clientPromise promise.Promise[kvstore.BackendOperationsUserMgmt]) error {
+func registerUsersManager(
+	lc hive.Lifecycle,
+	cfg UsersManagementConfig,
+	cinfo cmtypes.ClusterInfo,
+	clientPromise promise.Promise[kvstore.BackendOperationsUserMgmt],
+) error {
 	if !cfg.ClusterUsersEnabled {
 		log.Info("etcd users management disabled")
 		return nil
@@ -167,7 +174,7 @@ func (us *usersManager) sync(ctx context.Context) error {
 	}
 
 	for _, user := range users.Users {
-		if user.Name == cfg.clusterName {
+		if user.Name == us.clusterInfo.Name {
 			continue
 		}
 

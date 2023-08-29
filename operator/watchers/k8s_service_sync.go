@@ -9,11 +9,11 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -31,13 +31,13 @@ var (
 	kvs               store.SyncStore
 )
 
-func k8sServiceHandler(ctx context.Context, clusterName string, shared bool, clusterID uint32) {
+func k8sServiceHandler(ctx context.Context, cinfo cmtypes.ClusterInfo, shared bool) {
 	serviceHandler := func(event k8s.ServiceEvent) {
 		defer event.SWG.Done()
 
 		svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
-		svc.Cluster = clusterName
-		svc.ClusterID = clusterID
+		svc.Cluster = cinfo.Name
+		svc.ClusterID = cinfo.ID
 
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.K8sSvcName:   event.ID.Name,
@@ -82,20 +82,8 @@ func k8sServiceHandler(ctx context.Context, clusterName string, shared bool, clu
 	}
 }
 
-// ServiceSyncConfiguration is the required configuration for StartSynchronizingServices
-type ServiceSyncConfiguration interface {
-	// LocalClusterName must return the local cluster name
-	LocalClusterName() string
-
-	// LocalClusterID must return the local cluster id
-	LocalClusterID() uint32
-
-	utils.ServiceConfiguration
-}
-
 type ServiceSyncParameters struct {
-	ServiceSyncConfiguration
-
+	ClusterInfo  cmtypes.ClusterInfo
 	Clientset    k8sClient.Clientset
 	Services     resource.Resource[*slim_corev1.Service]
 	Endpoints    resource.Resource[*k8s.Endpoints]
@@ -120,7 +108,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 			cfg.Backend = kvstore.Client()
 		}
 
-		store := cfg.StoreFactory.NewSyncStore(cfg.LocalClusterName(),
+		store := cfg.StoreFactory.NewSyncStore(cfg.ClusterInfo.Name,
 			cfg.Backend, serviceStore.ServiceStorePrefix)
 		kvs = store
 		close(kvstoreReady)
@@ -136,7 +124,7 @@ func StartSynchronizingServices(ctx context.Context, wg *sync.WaitGroup, cfg Ser
 		<-kvstoreReady
 
 		log.Info("Starting to synchronize Kubernetes services to kvstore")
-		k8sServiceHandler(ctx, cfg.LocalClusterName(), cfg.SharedOnly, cfg.LocalClusterID())
+		k8sServiceHandler(ctx, cfg.ClusterInfo, cfg.SharedOnly)
 	}()
 
 	// Start populating the service cache with Kubernetes services and endpoints

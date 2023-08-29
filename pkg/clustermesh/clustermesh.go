@@ -35,8 +35,8 @@ type Configuration struct {
 
 	common.Config
 
-	// ClusterIDName is the id/name of the local cluster. This is used for logging and metrics
-	types.ClusterIDName
+	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
+	ClusterInfo types.ClusterInfo
 
 	// NodeKeyCreator is the function used to create node instances as
 	// nodes are being discovered in remote clusters
@@ -115,7 +115,7 @@ type ClusterMesh struct {
 // NewClusterMesh creates a new remote cluster cache based on the
 // provided configuration
 func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
-	if c.ClusterID == 0 || c.ClusterMeshConfig == "" {
+	if c.ClusterInfo.ID == 0 || c.ClusterMeshConfig == "" {
 		return nil
 	}
 
@@ -124,13 +124,13 @@ func NewClusterMesh(lifecycle hive.Lifecycle, c Configuration) *ClusterMesh {
 		conf:     c,
 		nodeName: nodeName,
 		globalServices: newGlobalServiceCache(
-			c.Metrics.TotalGlobalServices.WithLabelValues(c.ClusterName, nodeName),
+			c.Metrics.TotalGlobalServices.WithLabelValues(c.ClusterInfo.Name, nodeName),
 		),
 	}
 
 	cm.common = common.NewClusterMesh(common.Configuration{
 		Config:                       c.Config,
-		ClusterIDName:                c.ClusterIDName,
+		ClusterInfo:                  c.ClusterInfo,
 		ClusterSizeDependantInterval: c.ClusterSizeDependantInterval,
 		ServiceIPGetter:              c.ServiceIPGetter,
 
@@ -158,7 +158,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 		cm.conf.NodeKeyCreator,
 		cm.conf.NodeObserver,
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.nodes) }),
-		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalNodes.WithLabelValues(cm.conf.ClusterName, cm.nodeName, rc.name)),
+		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalNodes.WithLabelValues(cm.conf.ClusterInfo.Name, cm.nodeName, rc.name)),
 	)
 
 	rc.remoteServices = cm.conf.StoreFactory.NewWatchStore(

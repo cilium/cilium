@@ -40,8 +40,8 @@ type RemoteClusterCreatorFunc func(name string, status StatusFunc) RemoteCluster
 type Configuration struct {
 	Config
 
-	// ClusterIDName is the id/name of the local cluster. This is used for logging and metrics
-	types.ClusterIDName
+	// ClusterInfo is the id/name of the local cluster. This is used for logging and metrics
+	ClusterInfo types.ClusterInfo
 
 	// NewRemoteCluster is a function returning a new implementation of the remote cluster business logic.
 	NewRemoteCluster RemoteClusterCreatorFunc
@@ -121,9 +121,9 @@ func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 		changed:     make(chan bool, configNotificationsChannelSize),
 		controllers: controller.NewManager(),
 
-		metricLastFailureTimestamp: cm.conf.Metrics.LastFailureTimestamp.WithLabelValues(cm.conf.ClusterName, cm.conf.NodeName, name),
-		metricReadinessStatus:      cm.conf.Metrics.ReadinessStatus.WithLabelValues(cm.conf.ClusterName, cm.conf.NodeName, name),
-		metricTotalFailures:        cm.conf.Metrics.TotalFailures.WithLabelValues(cm.conf.ClusterName, cm.conf.NodeName, name),
+		metricLastFailureTimestamp: cm.conf.Metrics.LastFailureTimestamp.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
+		metricReadinessStatus:      cm.conf.Metrics.ReadinessStatus.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
+		metricTotalFailures:        cm.conf.Metrics.TotalFailures.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName, name),
 	}
 
 	rc.RemoteCluster = cm.conf.NewRemoteCluster(name, rc.status)
@@ -131,7 +131,7 @@ func (cm *ClusterMesh) newRemoteCluster(name, path string) *remoteCluster {
 }
 
 func (cm *ClusterMesh) add(name, path string) {
-	if name == cm.conf.ClusterName {
+	if name == cm.conf.ClusterInfo.Name {
 		log.WithField(fieldClusterName, name).Debug("Ignoring configuration for own cluster")
 		return
 	}
@@ -145,7 +145,7 @@ func (cm *ClusterMesh) add(name, path string) {
 		inserted = true
 	}
 
-	cm.conf.Metrics.TotalRemoteClusters.WithLabelValues(cm.conf.ClusterName, cm.conf.NodeName).Set(float64(len(cm.clusters)))
+	cm.conf.Metrics.TotalRemoteClusters.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName).Set(float64(len(cm.clusters)))
 	cm.mutex.Unlock()
 
 	log.WithField(fieldClusterName, name).Debug("Remote cluster configuration added")
@@ -163,7 +163,7 @@ func (cm *ClusterMesh) remove(name string) {
 	if cluster, ok := cm.clusters[name]; ok {
 		cluster.onRemove()
 		delete(cm.clusters, name)
-		cm.conf.Metrics.TotalRemoteClusters.WithLabelValues(cm.conf.ClusterName, cm.conf.NodeName).Set(float64(len(cm.clusters)))
+		cm.conf.Metrics.TotalRemoteClusters.WithLabelValues(cm.conf.ClusterInfo.Name, cm.conf.NodeName).Set(float64(len(cm.clusters)))
 	}
 	cm.mutex.Unlock()
 

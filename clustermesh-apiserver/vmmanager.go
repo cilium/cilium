@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
@@ -38,6 +39,8 @@ import (
 )
 
 type VMManager struct {
+	clusterInfo cmtypes.ClusterInfo
+
 	ciliumClient      clientset.Interface
 	identityAllocator *identityCache.CachingIdentityAllocator
 
@@ -47,15 +50,16 @@ type VMManager struct {
 	backend kvstore.BackendOperations
 }
 
-func NewVMManager(clientset k8sClient.Clientset, backend kvstore.BackendOperations) *VMManager {
+func NewVMManager(cinfo cmtypes.ClusterInfo, clientset k8sClient.Clientset, backend kvstore.BackendOperations) *VMManager {
 	m := &VMManager{
+		clusterInfo:  cinfo,
 		ciliumClient: clientset,
 		backend:      backend,
 	}
 	m.identityAllocator = identityCache.NewCachingIdentityAllocator(m)
 
 	if option.Config.EnableWellKnownIdentities {
-		identity.InitWellKnownIdentities(option.Config)
+		identity.InitWellKnownIdentities(option.Config, cinfo)
 	}
 	m.identityAllocator.InitIdentityAllocator(clientset)
 	m.startCiliumExternalWorkloadWatcher(clientset)
@@ -107,7 +111,7 @@ func (m *VMManager) GetNodeSuffix() string {
 	return "vm-allocator"
 }
 
-func nodeOverrideFromCEW(n *nodeTypes.RegisterNode, cew *ciliumv2.CiliumExternalWorkload) *nodeTypes.RegisterNode {
+func (m *VMManager) nodeOverrideFromCEW(n *nodeTypes.RegisterNode, cew *ciliumv2.CiliumExternalWorkload) *nodeTypes.RegisterNode {
 	nk := n.DeepCopy()
 
 	nk.Labels = make(map[string]string, len(cew.Labels))
@@ -124,9 +128,9 @@ func nodeOverrideFromCEW(n *nodeTypes.RegisterNode, cew *ciliumv2.CiliumExternal
 	}
 
 	// Override cluster
-	nk.Cluster = cfg.clusterName
-	nk.ClusterID = cfg.clusterID
-	nk.Labels[k8sConst.PolicyLabelCluster] = cfg.clusterName
+	nk.Cluster = m.clusterInfo.Name
+	nk.ClusterID = m.clusterInfo.ID
+	nk.Labels[k8sConst.PolicyLabelCluster] = m.clusterInfo.Name
 
 	// Override CIDRs if defined
 	if cew.Spec.IPv4AllocCIDR != "" {
@@ -174,7 +178,7 @@ func (m *VMManager) OnUpdate(k store.Key) {
 
 		if n.NodeIdentity == 0 {
 			// Phase 1: Initial registration with zero ID, return configuration
-			nk := nodeOverrideFromCEW(n, cew)
+			nk := m.nodeOverrideFromCEW(n, cew)
 
 			log.Debugf("CEW: VM Cilium Node updated: %v -> %v", n, nk)
 			// FIXME: GH-17909 Balance this call with a call to release the identity.
@@ -197,7 +201,7 @@ func (m *VMManager) OnUpdate(k store.Key) {
 			// Phase 2: non-zero ID registration with addresses
 
 			// Override again, just in case the external node is misbehaving
-			nk := nodeOverrideFromCEW(n, cew)
+			nk := m.nodeOverrideFromCEW(n, cew)
 
 			id := m.LookupNodeIdentity(nk)
 			if id == nil || id.ID.Uint32() != nk.NodeIdentity {

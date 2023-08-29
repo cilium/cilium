@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -209,9 +210,7 @@ func (w wellKnownIdentities) lookupByNumericIdentity(identity NumericIdentity) *
 }
 
 type Configuration interface {
-	LocalClusterName() string
 	CiliumNamespaceName() string
-	LocalClusterID() uint32
 }
 
 func k8sLabel(key string, value string) string {
@@ -220,7 +219,7 @@ func k8sLabel(key string, value string) string {
 
 // InitWellKnownIdentities establishes all well-known identities. Returns the
 // number of well-known identities initialized.
-func InitWellKnownIdentities(c Configuration) int {
+func InitWellKnownIdentities(c Configuration, cinfo cmtypes.ClusterInfo) int {
 	// etcd-operator labels
 	//   k8s:io.cilium.k8s.policy.serviceaccount=cilium-etcd-sa
 	//   k8s:io.kubernetes.pod.namespace=<NAMESPACE>
@@ -230,7 +229,7 @@ func InitWellKnownIdentities(c Configuration) int {
 		"k8s:io.cilium/app=etcd-operator",
 		k8sLabel(api.PodNamespaceLabel, c.CiliumNamespaceName()),
 		k8sLabel(api.PolicyLabelServiceAccount, "cilium-etcd-sa"),
-		k8sLabel(api.PolicyLabelCluster, c.LocalClusterName()),
+		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
 	}
 	WellKnown.add(ReservedETCDOperator, etcdOperatorLabels)
 	WellKnown.add(ReservedETCDOperator2, append(etcdOperatorLabels,
@@ -252,7 +251,7 @@ func InitWellKnownIdentities(c Configuration) int {
 		"k8s:io.cilium/app=etcd-operator",
 		k8sLabel(api.PodNamespaceLabel, c.CiliumNamespaceName()),
 		k8sLabel(api.PolicyLabelServiceAccount, "default"),
-		k8sLabel(api.PolicyLabelCluster, c.LocalClusterName()),
+		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
 	}
 	WellKnown.add(ReservedCiliumKVStore, ciliumEtcdLabels)
 	WellKnown.add(ReservedCiliumKVStore2, append(ciliumEtcdLabels,
@@ -267,7 +266,7 @@ func InitWellKnownIdentities(c Configuration) int {
 		"k8s:k8s-app=kube-dns",
 		k8sLabel(api.PodNamespaceLabel, "kube-system"),
 		k8sLabel(api.PolicyLabelServiceAccount, "kube-dns"),
-		k8sLabel(api.PolicyLabelCluster, c.LocalClusterName()),
+		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
 	}
 	WellKnown.add(ReservedKubeDNS, kubeDNSLabels)
 	WellKnown.add(ReservedKubeDNS2, append(kubeDNSLabels,
@@ -284,7 +283,7 @@ func InitWellKnownIdentities(c Configuration) int {
 		"k8s:eks.amazonaws.com/component=kube-dns",
 		k8sLabel(api.PodNamespaceLabel, "kube-system"),
 		k8sLabel(api.PolicyLabelServiceAccount, "kube-dns"),
-		k8sLabel(api.PolicyLabelCluster, c.LocalClusterName()),
+		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
 	}
 	WellKnown.add(ReservedEKSKubeDNS, eksKubeDNSLabels)
 	WellKnown.add(ReservedEKSKubeDNS2, append(eksKubeDNSLabels,
@@ -301,7 +300,7 @@ func InitWellKnownIdentities(c Configuration) int {
 		"k8s:eks.amazonaws.com/component=coredns",
 		k8sLabel(api.PodNamespaceLabel, "kube-system"),
 		k8sLabel(api.PolicyLabelServiceAccount, "coredns"),
-		k8sLabel(api.PolicyLabelCluster, c.LocalClusterName()),
+		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
 	}
 	WellKnown.add(ReservedEKSCoreDNS, eksCoreDNSLabels)
 	WellKnown.add(ReservedEKSCoreDNS2, append(eksCoreDNSLabels,
@@ -316,7 +315,7 @@ func InitWellKnownIdentities(c Configuration) int {
 		"k8s:k8s-app=kube-dns",
 		k8sLabel(api.PodNamespaceLabel, "kube-system"),
 		k8sLabel(api.PolicyLabelServiceAccount, "coredns"),
-		k8sLabel(api.PolicyLabelCluster, c.LocalClusterName()),
+		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
 	}
 	WellKnown.add(ReservedCoreDNS, coreDNSLabels)
 	WellKnown.add(ReservedCoreDNS2, append(coreDNSLabels,
@@ -337,7 +336,7 @@ func InitWellKnownIdentities(c Configuration) int {
 		"k8s:app.kubernetes.io/name=cilium-operator",
 		k8sLabel(api.PodNamespaceLabel, c.CiliumNamespaceName()),
 		k8sLabel(api.PolicyLabelServiceAccount, "cilium-operator"),
-		k8sLabel(api.PolicyLabelCluster, c.LocalClusterName()),
+		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
 	}
 	WellKnown.add(ReservedCiliumOperator, ciliumOperatorLabels)
 	WellKnown.add(ReservedCiliumOperator2, append(ciliumOperatorLabels,
@@ -358,27 +357,27 @@ func InitWellKnownIdentities(c Configuration) int {
 		"k8s:app.kubernetes.io/part-of: cilium",
 		k8sLabel(api.PodNamespaceLabel, c.CiliumNamespaceName()),
 		k8sLabel(api.PolicyLabelServiceAccount, "cilium-etcd-operator"),
-		k8sLabel(api.PolicyLabelCluster, c.LocalClusterName()),
+		k8sLabel(api.PolicyLabelCluster, cinfo.Name),
 	}
 	WellKnown.add(ReservedCiliumEtcdOperator, ciliumEtcdOperatorLabels)
 	WellKnown.add(ReservedCiliumEtcdOperator2, append(ciliumEtcdOperatorLabels,
 		k8sLabel(api.PodNamespaceMetaNameLabel, c.CiliumNamespaceName())))
 
-	InitMinMaxIdentityAllocation(c)
+	InitMinMaxIdentityAllocation(c, cinfo)
 
 	return len(WellKnown)
 }
 
 // InitMinMaxIdentityAllocation sets the minimal and maximum for identities that
 // should be allocated in the cluster.
-func InitMinMaxIdentityAllocation(c Configuration) {
-	if c.LocalClusterID() > 0 {
+func InitMinMaxIdentityAllocation(c Configuration, cinfo cmtypes.ClusterInfo) {
+	if cinfo.ID > 0 {
 		// For ClusterID > 0, the identity range just starts from cluster shift,
 		// no well-known-identities need to be reserved from the range.
-		MinimalAllocationIdentity = NumericIdentity((1 << ClusterIDShift) * c.LocalClusterID())
+		MinimalAllocationIdentity = NumericIdentity((1 << ClusterIDShift) * cinfo.ID)
 		// The maximum identity also needs to be recalculated as ClusterID
 		// may be overwritten by runtime parameters.
-		MaximumAllocationIdentity = NumericIdentity((1<<ClusterIDShift)*(c.LocalClusterID()+1) - 1)
+		MaximumAllocationIdentity = NumericIdentity((1<<ClusterIDShift)*(cinfo.ID+1) - 1)
 	}
 }
 

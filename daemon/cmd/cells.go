@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/auth"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/clustermesh"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -181,6 +182,7 @@ var (
 		cell.Provide(func(dp dptypes.Datapath) *k8s.ServiceCache { return k8s.NewServiceCache(dp.LocalNodeAddressing()) }),
 
 		// ClusterMesh is the Cilium's multicluster implementation.
+		cell.Config(cmtypes.DefaultClusterInfo),
 		clustermesh.Cell,
 
 		// L2announcer resolves l2announcement policies, services, node labels and devices into a list of IPs+netdevs

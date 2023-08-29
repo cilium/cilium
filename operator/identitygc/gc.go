@@ -12,6 +12,7 @@ import (
 
 	authIdentity "github.com/cilium/cilium/operator/auth/identity"
 	"github.com/cilium/cilium/pkg/allocator"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -35,8 +36,9 @@ type params struct {
 	Identity           resource.Resource[*v2.CiliumIdentity]
 	AuthIdentityClient authIdentity.Provider
 
-	Cfg       Config
-	SharedCfg SharedConfig
+	Cfg         Config
+	SharedCfg   SharedConfig
+	ClusterInfo cmtypes.ClusterInfo
 }
 
 // GC represents the Cilium identities periodic GC.
@@ -47,6 +49,7 @@ type GC struct {
 	identity           resource.Resource[*v2.CiliumIdentity]
 	authIdentityClient authIdentity.Provider
 
+	clusterInfo    cmtypes.ClusterInfo
 	allocationMode string
 
 	gcInterval       time.Duration
@@ -89,6 +92,7 @@ func registerGC(p params) {
 		clientset:          p.Clientset.CiliumV2().CiliumIdentities(),
 		identity:           p.Identity,
 		authIdentityClient: p.AuthIdentityClient,
+		clusterInfo:        p.ClusterInfo,
 		allocationMode:     p.SharedCfg.IdentityAllocationMode,
 		gcInterval:         p.Cfg.Interval,
 		heartbeatTimeout:   p.Cfg.HeartbeatTimeout,
@@ -102,9 +106,7 @@ func registerGC(p params) {
 			p.Cfg.RateLimit,
 		),
 		allocationCfg: identityAllocationConfig{
-			clusterName:  p.SharedCfg.ClusterName,
 			k8sNamespace: p.SharedCfg.K8sNamespace,
-			clusterID:    p.SharedCfg.ClusterID,
 		},
 	}
 	p.Lifecycle.Append(hive.Hook{
@@ -135,19 +137,9 @@ func registerGC(p params) {
 
 // identityAllocationConfig is a helper struct that satisfies the Configuration interface.
 type identityAllocationConfig struct {
-	clusterName  string
 	k8sNamespace string
-	clusterID    uint32
-}
-
-func (cfg identityAllocationConfig) LocalClusterName() string {
-	return cfg.clusterName
 }
 
 func (cfg identityAllocationConfig) CiliumNamespaceName() string {
 	return cfg.k8sNamespace
-}
-
-func (cfg identityAllocationConfig) LocalClusterID() uint32 {
-	return cfg.clusterID
 }
