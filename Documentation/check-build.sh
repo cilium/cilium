@@ -87,10 +87,6 @@ build_with_spellchecker() {
         -E -n --color -w "${warnings}" -W --keep-going 2>/dev/null
 }
 
-build_with_linkchecker() {
-    sphinx-build -b linkcheck -d "${build_dir}/doctrees" . "${spelldir}" -q -E
-}
-
 run_linter() {
     local CONF_PY_ROLES CONF_PY_SUBSTITUTIONS ignored_messages
 
@@ -154,15 +150,6 @@ else
   fi
 fi
 
-# TODO: Fix broken links and re-enable this
-# (https://github.com/cilium/cilium/issues/10601)
-# echo "Checking links..."
-# if ! build_with_linkchecker ; then
-#     echo "Link check failed!"
-#     exit 1
-# fi
-
-echo ""
 echo "Building documentation (${target})..."
 sphinx-build -M "${target}" "${script_dir}" "${build_dir}" $@ \
     ${read_all_opt} -n --color -w "${warnings}" 2>/dev/null
