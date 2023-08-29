@@ -270,6 +270,31 @@ http_strict_mode = False
 # Try as hard as possible to find references
 default_role = 'any'
 
+# -- Options for Link Check output ----------------------------------------
+
+linkcheck_ignore = [
+    # Local links
+    'http://127.0.0.1',
+    'http://localhost',
+    'http://192.168.60.13',
+    'https://192.168.60.11',
+
+    # URLs that are not reachable(invalid or test links)
+    'https://bookinfo.cilium.rocks',
+    'dns:query',
+
+    # Needs authentication
+    'https://github.com/cilium/cilium/projects/new',
+    'https://github.com/cilium/cilium/settings/branches',
+    'https://jenkins.cilium.io/job/',
+    'https://jenkins.cilium.io/view/'
+]
+
+linkcheck_anchors = False
+linkcheck_retries = 5
+
+tls_verify = False
+
 def setup(app):
     app.add_css_file('parsed-literal.css')
     app.add_css_file('copybutton.css')
