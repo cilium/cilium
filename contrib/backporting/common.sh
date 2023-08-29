@@ -4,7 +4,8 @@
 
 set -e
 
-RELEASE_REGEX="[0-9]\+\.[0-9]\+\.[0-9]\+\(-\(\(rc\)\|\(snapshot\)\)\(\.\)\?[0-9]\+\)\?$"
+RELEASE_REGEX="[0-9]\+\.[0-9]\+\.[0-9]\+\(-\(\(rc\)\|\(pre\)\)\(\.\)\?[0-9]\+\)\?$"
+RELEASE_FORMAT_MSG="Expected X.Y.Z-[rc.N|pre.N]"
 
 get_remote () {
   local remote
