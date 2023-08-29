@@ -134,7 +134,7 @@ to add or remove yourself from any team, please submit a PR against the
 `community repository`_.
 
 Once a contributor opens a PR, GitHub automatically picks which `teams
-<cilium_teams>`_ should review the PR using the ``CODEOWNERS`` file. Each
+<cilium_teams_>`_ should review the PR using the ``CODEOWNERS`` file. Each
 reviewer can see the PRs they need to review by filtering by reviews
 requested. A good filter is provided in this `link <user_review_filter_>`_ so
 make sure to bookmark it.

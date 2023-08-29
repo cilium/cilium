@@ -1,5 +1,3 @@
-.. _k8s_alibabacloud_eni:
-
 To install Cilium on `ACK (Alibaba Cloud Container Service for Kubernetes) <https://www.alibabacloud.com/help/doc-detail/86745.htm>`_, perform the following steps:
 
 **Disable ACK CNI (ACK Only):**
@@ -106,7 +104,6 @@ As soon as you have the access tokens, the following secret needs to be added,
 with each empty string replaced by the associated value as a base64-encoded string:
 
 .. code-block:: yaml
-    :name: cilium-secret.yaml
 
     apiVersion: v1
     kind: Secret
