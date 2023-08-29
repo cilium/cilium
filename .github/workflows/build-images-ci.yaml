@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   build-and-push-prs:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         include:
@@ -346,7 +346,7 @@ jobs:
   image-digests:
     if: ${{ always() }}
     name: Display Digests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: build-and-push-prs
     steps:
       - name: Downloading Image Digests
