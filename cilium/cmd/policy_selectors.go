@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"sort"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -26,7 +27,10 @@ var policyCacheGetCmd = &cobra.Command{
 			}
 		} else if resp != nil {
 			w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-
+			// Sort to keep output stable
+			sort.Slice(resp, func(i, j int) bool {
+				return resp[i].Selector < resp[j].Selector
+			})
 			fmt.Fprintf(w, "SELECTOR\tUSERS\tIDENTITIES\n")
 			for _, mapping := range resp {
 				first := true
