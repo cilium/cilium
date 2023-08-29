@@ -253,7 +253,7 @@ func (k *K8sWatcher) onUpsert(
 	} else {
 		delete(cidrGroupPolicies, key)
 	}
-	metrics.CIDRGroupPolicies.Set(float64(len(cidrGroupPolicies)))
+	metrics.CIDRGroupsReferenced.Set(float64(len(cidrGroupPolicies)))
 
 	// We need to deepcopy this structure because we are writing
 	// fields.
@@ -290,7 +290,7 @@ func (k *K8sWatcher) onDelete(
 	delete(cache, key)
 
 	delete(cidrGroupPolicies, key)
-	metrics.CIDRGroupPolicies.Set(float64(len(cidrGroupPolicies)))
+	metrics.CIDRGroupsReferenced.Set(float64(len(cidrGroupPolicies)))
 
 	k.k8sResourceSynced.SetEventTimestamp(apiGroup)
 
