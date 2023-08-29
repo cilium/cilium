@@ -4,28 +4,28 @@ include:
   - k8s-version: "1.27"
     ip-family: "dual"
     # renovate: datasource=docker
-    kube-image: "kindest/node:v1.27.1@sha256:b7d12ed662b873bd8510879c1846e87c7e676a79fefc93e17b2a52989d3ff42b"
+    kube-image: "kindest/node:v1.27.3@sha256:3966ac761ae0136263ffdb6cfd4db23ef8a83cba8a463690e98317add2c9ba72"
     # We don't want to update bpf-next after branching
     kernel: "bpf-next-20230526.105339@sha256:4133d4e09b1e86ac175df8d899873180281bb4220dc43e2566c47b0241637411"
 
   - k8s-version: "1.26"
     ip-family: "dual"
     # renovate: datasource=docker
-    kube-image: "kindest/node:v1.26.4@sha256:f4c0d87be03d6bea69f5e5dc0adb678bb498a190ee5c38422bf751541cebe92e"
+    kube-image: "kindest/node:v1.26.6@sha256:6e2d8b28a5b601defe327b98bd1c2d1930b49e5d8c512e1895099e4504007adb"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
     kernel: "4.19-20230824.161940@sha256:c2430167ab9956ec766482aede79f7d1e2bbc3e44de9644ab18f166ce9d2b949"
 
   - k8s-version: "1.25"
     ip-family: "dual"
     # renovate: datasource=docker
-    kube-image: "kindest/node:v1.25.9@sha256:c08d6c52820aa42e533b70bce0c2901183326d86dcdcbedecc9343681db45161"
+    kube-image: "kindest/node:v1.25.11@sha256:227fa11ce74ea76a0474eeefb84cb75d8dad1b08638371ecf0e86259b35be0c8"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
     kernel: "5.4-20230824.161940@sha256:5c6b36651561c61d3e222993c5a3dd1888084bb6b56c8e4b888f9086865c70ec"
 
   - k8s-version: "1.24"
     ip-family: "dual"
     # renovate: datasource=docker
-    kube-image: "kindest/node:v1.24.13@sha256:cea86276e698af043af20143f4bf0509e730ec34ed3b7fa790cc0bea091bc5dd"
+    kube-image: "kindest/node:v1.24.15@sha256:7db4f8bea3e14b82d12e044e25e34bd53754b7f2b0e9d56df21774e6f66a70ab"
     # renovate: datasource=docker depName=quay.io/lvh-images/kind
     kernel: "4.19-20230824.161940@sha256:c2430167ab9956ec766482aede79f7d1e2bbc3e44de9644ab18f166ce9d2b949"
 
