@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	kmmetrics "github.com/cilium/cilium/kvstoremesh/metrics"
+	cmmetrics "github.com/cilium/cilium/clustermesh-apiserver/metrics"
 	kmopt "github.com/cilium/cilium/kvstoremesh/option"
 	"github.com/cilium/cilium/pkg/clustermesh/kvstoremesh"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
@@ -63,7 +63,7 @@ func init() {
 		controller.Cell,
 
 		gops.Cell(defaults.GopsPortKVStoreMesh),
-		kmmetrics.Cell,
+		cmmetrics.Cell,
 
 		cell.Config(kmopt.KVStoreMeshConfig{}),
 		cell.Config(cmtypes.DefaultClusterInfo),

@@ -11,26 +11,23 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/option"
 )
 
 var Cell = cell.Module(
-	"clustermesh-apiserver-metrics",
-	"ClusterMesh apiserver metrics",
+	"metrics",
+	"Metrics",
 
 	cell.Config(MetricsConfig{}),
 	cell.Invoke(registerMetricsManager),
 )
-
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "metrics")
 
 type MetricsConfig struct {
 	// PrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
@@ -42,6 +39,7 @@ func (def MetricsConfig) Flags(flags *pflag.FlagSet) {
 }
 
 type metricsManager struct {
+	logger   logrus.FieldLogger
 	registry *prometheus.Registry
 	server   http.Server
 
@@ -50,14 +48,15 @@ type metricsManager struct {
 
 type params struct {
 	cell.In
+	Logger logrus.FieldLogger
 
 	MetricsConfig
-
 	Metrics []metric.WithMetadata `group:"hive-metrics"`
 }
 
 func registerMetricsManager(lc hive.Lifecycle, params params) error {
 	manager := metricsManager{
+		logger:   params.Logger,
 		registry: prometheus.NewPedanticRegistry(),
 		server:   http.Server{Addr: params.PrometheusServeAddr},
 		metrics:  params.Metrics,
@@ -66,14 +65,14 @@ func registerMetricsManager(lc hive.Lifecycle, params params) error {
 	if params.PrometheusServeAddr != "" {
 		lc.Append(&manager)
 	} else {
-		log.Info("Prometheus metrics are disabled")
+		manager.logger.Info("Prometheus metrics are disabled")
 	}
 
 	return nil
 }
 
 func (mm *metricsManager) Start(hive.HookContext) error {
-	log.Info("Registering metrics")
+	mm.logger.Info("Registering metrics")
 
 	mm.registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	mm.registry.MustRegister(collectors.NewGoCollector(
@@ -105,9 +104,9 @@ func (mm *metricsManager) Start(hive.HookContext) error {
 	mm.server.Handler = mux
 
 	go func() {
-		log.WithField("address", mm.server.Addr).Info("Starting metrics server")
+		mm.logger.WithField("address", mm.server.Addr).Info("Starting metrics server")
 		if err := mm.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			log.WithError(err).Fatal("Unable to start metrics server")
+			mm.logger.WithError(err).Fatal("Unable to start metrics server")
 		}
 	}()
 
@@ -115,10 +114,10 @@ func (mm *metricsManager) Start(hive.HookContext) error {
 }
 
 func (mm *metricsManager) Stop(ctx hive.HookContext) error {
-	log.Info("Stopping metrics server")
+	mm.logger.Info("Stopping metrics server")
 
 	if err := mm.server.Shutdown(ctx); err != nil {
-		log.WithError(err).Error("Shutdown metrics server failed")
+		mm.logger.WithError(err).Error("Shutdown metrics server failed")
 		return err
 	}
 
