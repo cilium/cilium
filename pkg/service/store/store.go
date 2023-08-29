@@ -193,20 +193,14 @@ func (c *clusterServiceObserver) OnDelete(key store.NamedKey) {
 	}
 }
 
-// Configuration is the required configuration for the service store
-type Configuration interface {
-	// LocalClusterName must return the name of the local cluster
-	LocalClusterName() string
-}
-
 // JoinClusterServices starts a controller for syncing services from the kvstore
-func JoinClusterServices(merger ServiceMerger, cfg Configuration) {
+func JoinClusterServices(merger ServiceMerger, clusterName string) {
 	swg := lock.NewStoppableWaitGroup()
 
 	log.Info("Enumerating cluster services")
 	// JoinSharedStore performs initial sync of services
 	_, err := store.JoinSharedStore(store.Configuration{
-		Prefix: path.Join(ServiceStorePrefix, cfg.LocalClusterName()),
+		Prefix: path.Join(ServiceStorePrefix, clusterName),
 		KeyCreator: func() store.Key {
 			return &ClusterService{}
 		},

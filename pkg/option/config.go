@@ -551,12 +551,6 @@ const (
 	// ciliumEnvPrefix is the prefix used for environment variables
 	ciliumEnvPrefix = "CILIUM_"
 
-	// ClusterName is the name of the ClusterName option
-	ClusterName = "cluster-name"
-
-	// ClusterIDName is the name of the ClusterID option
-	ClusterIDName = "cluster-id"
-
 	// CNIChainingMode configures which CNI plugin Cilium is chained with.
 	CNIChainingMode = "cni-chaining-mode"
 
@@ -2740,16 +2734,6 @@ func (c *DaemonConfig) EndpointStatusIsEnabled(option string) bool {
 	return ok
 }
 
-// LocalClusterName returns the name of the cluster Cilium is deployed in
-func (c *DaemonConfig) LocalClusterName() string {
-	return c.ClusterName
-}
-
-// LocalClusterID returns the ID of the cluster local to the Cilium agent.
-func (c *DaemonConfig) LocalClusterID() uint32 {
-	return c.ClusterID
-}
-
 // K8sServiceProxyName returns the required value for the
 // service.kubernetes.io/service-proxy-name label in order for services to be
 // handled.
@@ -2888,16 +2872,12 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 			SingleClusterRouteName, RoutingMode, RoutingModeNative)
 	}
 
-	if c.ClusterID < clustermeshTypes.ClusterIDMin || c.ClusterID > clustermeshTypes.ClusterIDMax {
-		return fmt.Errorf("invalid cluster id %d: must be in range %d..%d",
-			c.ClusterID, clustermeshTypes.ClusterIDMin, clustermeshTypes.ClusterIDMax)
+	cinfo := clustermeshTypes.ClusterInfo{
+		ID:   c.ClusterID,
+		Name: c.ClusterName,
 	}
-
-	if c.ClusterID != 0 {
-		if c.ClusterName == defaults.ClusterName {
-			return fmt.Errorf("cannot use default cluster name (%s) with option %s",
-				defaults.ClusterName, ClusterIDName)
-		}
+	if err := cinfo.Validate(); err != nil {
+		return err
 	}
 
 	if err := c.checkMapSizeLimits(); err != nil {
@@ -3044,8 +3024,8 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.AutoCreateCiliumNodeResource = vp.GetBool(AutoCreateCiliumNodeResource)
 	c.BPFRoot = vp.GetString(BPFRoot)
 	c.CGroupRoot = vp.GetString(CGroupRoot)
-	c.ClusterID = vp.GetUint32(ClusterIDName)
-	c.ClusterName = vp.GetString(ClusterName)
+	c.ClusterID = vp.GetUint32(clustermeshTypes.OptClusterID)
+	c.ClusterName = vp.GetString(clustermeshTypes.OptClusterName)
 	c.DatapathMode = vp.GetString(DatapathMode)
 	c.Debug = vp.GetBool(DebugArg)
 	c.DebugVerbose = vp.GetStringSlice(DebugVerbose)

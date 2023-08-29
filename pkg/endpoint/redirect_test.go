@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
-	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -136,7 +135,6 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 	// Setup dependencies for endpoint.
 	kvstore.SetupDummy(c, "etcd")
 
-	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 	idAllocatorOwner := &DummyIdentityAllocatorOwner{}
 
 	mgr := NewCachingIdentityAllocator(idAllocatorOwner)
@@ -362,7 +360,6 @@ func (s *RedirectSuite) TestRedirectWithDeny(c *check.C) {
 	defer policy.SetPolicyEnabled(oldPolicyEnable)
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
-	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 	idAllocatorOwner := &DummyIdentityAllocatorOwner{}
 
 	mgr := NewCachingIdentityAllocator(idAllocatorOwner)

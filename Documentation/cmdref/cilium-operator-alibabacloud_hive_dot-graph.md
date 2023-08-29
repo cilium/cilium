@@ -17,6 +17,8 @@ cilium-operator-alibabacloud hive dot-graph [flags]
 ### Options inherited from parent commands
 
 ```
+      --cluster-id uint32                                    Unique identifier of the cluster
+      --cluster-name string                                  Name of the cluster (default "default")
       --controller-group-metrics strings                     List of controller group names for which to to enable metrics. Accepts 'all' and 'none'. The set of controller group names available is not guaranteed to be stable between Cilium versions.
       --enable-cilium-operator-server-access strings         List of cilium operator APIs which are administratively enabled. Supports '*'. (default [*])
       --enable-k8s                                           Enable the k8s clientset (default true)

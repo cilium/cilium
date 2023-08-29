@@ -5,11 +5,6 @@ package fake
 
 type Config struct{}
 
-// LocalClusterName returns the name of the cluster Cilium is deployed in
-func (f *Config) LocalClusterName() string {
-	return "default"
-}
-
 // CiliumNamespaceName returns the name of the namespace in which Cilium is
 // deployed in
 func (f *Config) CiliumNamespaceName() string {
@@ -35,9 +30,4 @@ func (f *Config) EncryptionEnabled() bool {
 // NodeEncryptionEnabled returns true if node encryption is enabled
 func (f *Config) NodeEncryptionEnabled() bool {
 	return true
-}
-
-// LocalClusterID returns a dummy cluster ID.
-func (f *Config) LocalClusterID() uint32 {
-	return 5
 }

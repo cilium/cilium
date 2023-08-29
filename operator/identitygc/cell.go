@@ -82,13 +82,7 @@ type SharedConfig struct {
 	// EnableMetrics enables prometheus metrics
 	EnableMetrics bool
 
-	// ClusterName is the name of the cluster
-	ClusterName string
-
 	// K8sNamespace is the name of the namespace in which Cilium is
 	// deployed in when running in Kubernetes mode
 	K8sNamespace string
-
-	// ClusterID is the unique identifier of the cluster
-	ClusterID uint32
 }

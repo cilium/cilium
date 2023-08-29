@@ -71,9 +71,3 @@ func (c *CiliumClusterConfig) Validate(mode ValidationMode) error {
 
 	return nil
 }
-
-// ClusterIDName groups together the ClusterID and the ClusterName
-type ClusterIDName struct {
-	ClusterID   uint32
-	ClusterName string
-}

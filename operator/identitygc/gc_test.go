@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/cilium/operator/auth/spire"
 	"github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/operator/watchers"
-	"github.com/cilium/cilium/pkg/defaults"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -43,6 +43,8 @@ func TestIdentitiesGC(t *testing.T) {
 	var authIdentityClient authIdentity.Provider
 
 	hive := hive.New(
+		cell.Config(cmtypes.DefaultClusterInfo),
+
 		// provide a fake clientset
 		k8sClient.FakeClientCell,
 		// provide a fake spire client
@@ -64,9 +66,7 @@ func TestIdentitiesGC(t *testing.T) {
 			return SharedConfig{
 				IdentityAllocationMode: option.IdentityAllocationModeCRD,
 				EnableMetrics:          false,
-				ClusterName:            defaults.ClusterName,
 				K8sNamespace:           "",
-				ClusterID:              0,
 			}
 		}),
 
