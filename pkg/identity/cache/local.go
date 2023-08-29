@@ -80,11 +80,15 @@ func (l *localIdentityCache) getNextFreeNumericIdentity(idCandidate identity.Num
 // in as the 'oldNID' parameter; identity.InvalidIdentity must be passed if no
 // previous numeric identity exists. 'oldNID' will be reallocated if available.
 func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.NumericIdentity) (*identity.Identity, bool, error) {
+	// Not converting to string saves an allocation, as byte key lookups into
+	// string maps are optimized by the compiler, see
+	// https://github.com/golang/go/issues/3512.
+	repr := lbls.SortedList()
+
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	stringRepresentation := string(lbls.SortedList())
-	if id, ok := l.identitiesByLabels[stringRepresentation]; ok {
+	if id, ok := l.identitiesByLabels[string(repr)]; ok {
 		id.ReferenceCount++
 		return id, false, nil
 	}
@@ -101,7 +105,7 @@ func (l *localIdentityCache) lookupOrCreate(lbls labels.Labels, oldNID identity.
 		ReferenceCount: 1,
 	}
 
-	l.identitiesByLabels[stringRepresentation] = id
+	l.identitiesByLabels[string(repr)] = id
 	l.identitiesByID[numericIdentity] = id
 
 	if l.events != nil {
@@ -122,7 +126,7 @@ func (l *localIdentityCache) release(id *identity.Identity) bool {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	if id, ok := l.identitiesByLabels[string(id.Labels.SortedList())]; ok {
+	if id, ok := l.identitiesByID[id.ID]; ok {
 		switch {
 		case id.ReferenceCount > 1:
 			id.ReferenceCount--
@@ -131,8 +135,7 @@ func (l *localIdentityCache) release(id *identity.Identity) bool {
 		case id.ReferenceCount == 1:
 			// Release is only attempted once, when the reference count is
 			// hitting the last use
-			stringRepresentation := string(id.Labels.SortedList())
-			delete(l.identitiesByLabels, stringRepresentation)
+			delete(l.identitiesByLabels, string(id.Labels.SortedList()))
 			delete(l.identitiesByID, id.ID)
 
 			if l.events != nil {
