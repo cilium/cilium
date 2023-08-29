@@ -379,6 +379,10 @@ Changed Metrics
 * The ``cilium_bpf_map_pressure`` for policy maps is now exposed as a single
   label ``cilium_policy_*``, rather than a label per policy map of an endpoint.
 * ``cilium_policy_l7_total`` now has label ``proxy_type`` to distinguish between fqdn and envoy proxy requests.
+* The ``cilium_cidrgroup_policies`` metric has been renamed to
+  ``cilium_cidrgroups_referenced`` for better clarity.
+* The ``cilium_cidrgroup_translation_time_stats_seconds`` has been disabled by
+  default.
 
 .. _earlier_upgrade_notes:
 

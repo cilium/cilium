@@ -538,6 +538,16 @@ Name                               Labels                           Default     
 ``jobs_observer_run_seconds``      ``job``                          Enabled      Histogram of observer job run duration
 ================================== ================================ ============ ========================================================
 
+CIDRGroups
+~~~~~~~~~~
+
+=================================================== ===================== =============================
+Name                                                Labels                Default    Description
+=================================================== ===================== =============================
+``cidrgroups_referenced``                                                 Enabled    Number of CNPs and CCNPs referencing at least one CiliumCIDRGroup. CNPs with empty or non-existing CIDRGroupRefs are not considered
+``cidrgroup_translation_time_stats_seconds``                              Disabled   CIDRGroup translation time stats
+=================================================== ===================== =============================
+
 .. _metrics_api_rate_limiting:
 
 API Rate Limiting
