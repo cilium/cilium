@@ -806,7 +806,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 
 #ifdef ENABLE_PER_PACKET_LB
 	/* Restore ct_state from per packet lb handling in the previous tail call. */
-	lb4_ctx_restore_state(ctx, &ct_state_new, ip4->daddr, &proxy_port, &cluster_id);
+	lb4_ctx_restore_state(ctx, &ct_state_new, &proxy_port, &cluster_id);
 	hairpin_flow = ct_state_new.loopback;
 #endif /* ENABLE_PER_PACKET_LB */
 

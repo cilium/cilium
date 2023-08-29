@@ -1676,7 +1676,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	if (saddr == backend->address) {
 		new_saddr = IPV4_LOOPBACK;
 		state->loopback = 1;
-		state->svc_addr = saddr;
 	}
 
 	if (!state->loopback)
@@ -1728,16 +1727,12 @@ static __always_inline void lb4_ctx_store_state(struct __ctx_buff *ctx,
  */
 static __always_inline void
 lb4_ctx_restore_state(struct __ctx_buff *ctx, struct ct_state *state,
-		       __u32 daddr __maybe_unused, __u16 *proxy_port,
-		       __u32 *cluster_id __maybe_unused)
+		       __u16 *proxy_port, __u32 *cluster_id __maybe_unused)
 {
 	__u32 meta = ctx_load_meta(ctx, CB_CT_STATE);
 #ifndef DISABLE_LOOPBACK_LB
-	if (meta & 1) {
+	if (meta & 1)
 		state->loopback = 1;
-		state->addr = IPV4_LOOPBACK;
-		state->svc_addr = daddr; /* backend address after xlate */
-	}
 #endif
 	state->rev_nat_index = meta >> 16;
 
