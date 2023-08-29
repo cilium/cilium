@@ -441,10 +441,10 @@ func (o *ContextOptions) getLabelValues(invert bool, flow *pb.Flow) (labels []st
 	if invert {
 		sourceLabel, destinationLabel = destinationLabel, sourceLabel
 	}
-	if len(o.Source) != 0 {
+	if o.includeSourceLabel() {
 		labels = append(labels, sourceLabel)
 	}
-	if len(o.Destination) != 0 {
+	if o.includeDestinationLabel() {
 		labels = append(labels, destinationLabel)
 	}
 	return
@@ -514,15 +514,23 @@ func (o *ContextOptions) GetLabelNames() (labels []string) {
 		}
 	}
 
-	if len(o.Source) != 0 {
+	if o.includeSourceLabel() {
 		labels = append(labels, "source")
 	}
 
-	if len(o.Destination) != 0 {
+	if o.includeDestinationLabel() {
 		labels = append(labels, "destination")
 	}
 
 	return
+}
+
+func (o *ContextOptions) includeSourceLabel() bool {
+	return len(o.Source) != 0 || len(o.SourceIngress) != 0 || len(o.SourceEgress) != 0
+}
+
+func (o *ContextOptions) includeDestinationLabel() bool {
+	return len(o.Destination) != 0 || len(o.DestinationIngress) != 0 || len(o.DestinationEgress) != 0
 }
 
 // Status returns the configuration status of context options suitable for use
