@@ -120,16 +120,22 @@ func (baseResponse *BaseResponse) String() string {
 	resultBuilder := bytes.Buffer{}
 	// statusCode
 	// resultBuilder.WriteString("\n")
-	resultBuilder.WriteString(fmt.Sprintf("%s %s\n", baseResponse.originHttpResponse.Proto, baseResponse.originHttpResponse.Status))
+	if baseResponse.originHttpResponse != nil {
+		resultBuilder.WriteString(fmt.Sprintf("%s %s\n", baseResponse.originHttpResponse.Proto, baseResponse.originHttpResponse.Status))
+	}
 	// httpHeaders
 	//resultBuilder.WriteString("Headers:\n")
-	for key, value := range baseResponse.httpHeaders {
-		resultBuilder.WriteString(key + ": " + strings.Join(value, ";") + "\n")
+	if baseResponse.httpHeaders != nil {
+		for key, value := range baseResponse.httpHeaders {
+			resultBuilder.WriteString(key + ": " + strings.Join(value, ";") + "\n")
+		}
+		resultBuilder.WriteString("\n")
 	}
-	resultBuilder.WriteString("\n")
+
 	// content
 	//resultBuilder.WriteString("Content:\n")
 	resultBuilder.WriteString(baseResponse.httpContentString + "\n")
+
 	return resultBuilder.String()
 }
 

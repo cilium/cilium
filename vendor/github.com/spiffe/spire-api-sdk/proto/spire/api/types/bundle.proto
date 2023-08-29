@@ -23,6 +23,9 @@ message Bundle {
 message X509Certificate {
     // The ASN.1 DER encoded bytes of the X.509 certificate.
     bytes asn1 = 1;
+
+    // This authority is no longer secure and must not be used.
+    bool tainted = 2;
 }
 
 message JWTKey {
@@ -35,6 +38,9 @@ message JWTKey {
     // When the key expires (seconds since Unix epoch). If zero, the key does
     // not expire.
     int64 expires_at = 3;
+
+    // This authority is no longer secure and must not be used
+    bool tainted = 4;
 }
 
 message BundleMask {
