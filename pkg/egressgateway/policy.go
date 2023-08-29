@@ -261,6 +261,10 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	}
 
 	egressGateway := cegp.Spec.EgressGateway
+	if egressGateway == nil {
+		return nil, fmt.Errorf("CiliumEgressGatewayPolicy's egressGateway can't be empty")
+	}
+
 	if egressGateway.Interface != "" && egressGateway.EgressIP != "" {
 		return nil, fmt.Errorf("CiliumEgressGatewayPolicy's gateway configuration can't specify both an interface and an egress IP")
 	}
