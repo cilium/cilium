@@ -1270,6 +1270,21 @@ func useDefaultListenersTLSsecret(listeners []model.HTTPListener) []model.HTTPLi
 	return ret
 }
 
+func removeIngressHTTPRuleValues(ing slim_networkingv1.Ingress) slim_networkingv1.Ingress {
+	var rules []slim_networkingv1.IngressRule
+
+	for _, r := range ing.Spec.Rules {
+		r.HTTP = nil
+		rules = append(rules, r)
+	}
+
+	ret := slim_networkingv1.Ingress{}
+	ing.DeepCopyInto(&ret)
+	ret.Spec.Rules = rules
+
+	return ret
+}
+
 type testcase struct {
 	ingress       slim_networkingv1.Ingress
 	defaultSecret bool
@@ -1277,7 +1292,6 @@ type testcase struct {
 }
 
 func TestIngress(t *testing.T) {
-
 	tests := map[string]testcase{
 		"conformance default backend test": {
 			ingress: defaultBackend,
@@ -1290,6 +1304,10 @@ func TestIngress(t *testing.T) {
 		"conformance default backend (legacy + new) test": {
 			ingress: defaultBackendLegacyOverride,
 			want:    defaultBackendListeners,
+		},
+		"cilium test ingress without http rules": {
+			ingress: removeIngressHTTPRuleValues(hostRules),
+			want:    []model.HTTPListener{},
 		},
 		"conformance host rules test": {
 			ingress: hostRules,
