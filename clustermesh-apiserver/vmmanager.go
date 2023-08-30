@@ -6,21 +6,22 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"path"
 	"sort"
 
-	k8sv1 "k8s.io/api/core/v1"
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/cidr"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
@@ -29,14 +30,97 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labels"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 )
+
+var externalWorkloadsCell = cell.Module(
+	"external-workloads",
+	"External workloads",
+
+	cell.Config(
+		// The default value is set to true to match the existing behavior in case
+		// the flag is not configured (for instance by the legacy cilium CLI).
+		ExternalWorkloadsConfig{EnableExternalWorkloads: true},
+	),
+
+	cell.Provide(externalWorkloadsProvider),
+	cell.Invoke(func(*VMManager) {}),
+)
+
+type ExternalWorkloadsConfig struct {
+	EnableExternalWorkloads bool
+}
+
+func (def ExternalWorkloadsConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool("enable-external-workloads", def.EnableExternalWorkloads, "Enable support for external workloads")
+}
+
+func externalWorkloadsProvider(
+	lc hive.Lifecycle,
+
+	cfg ExternalWorkloadsConfig,
+	clusterInfo cmtypes.ClusterInfo,
+
+	clientset k8sClient.Clientset,
+	ciliumExternalWorkloads resource.Resource[*ciliumv2.CiliumExternalWorkload],
+	backendPromise promise.Promise[kvstore.BackendOperations],
+) *VMManager {
+	if !cfg.EnableExternalWorkloads {
+		return nil
+	}
+
+	// External workloads require CRD allocation mode
+	option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD
+	option.Config.AllocatorListTimeout = defaults.AllocatorListTimeout
+
+	mgr := &VMManager{
+		clusterInfo:  clusterInfo,
+		ciliumClient: clientset,
+	}
+
+	lc.Append(hive.Hook{
+		OnStart: func(ctx hive.HookContext) error {
+			synced.SyncCRDs(ctx, clientset, synced.ClusterMeshAPIServerResourceNames(), &synced.Resources{}, &synced.APIGroups{})
+
+			ewstore, err := ciliumExternalWorkloads.Store(ctx)
+			if err != nil {
+				return fmt.Errorf("unable to retrieve CiliumExternalWorkloads store: %w", err)
+			}
+
+			backend, err := backendPromise.Await(ctx)
+			if err != nil {
+				return err
+			}
+
+			mgr.ciliumExternalWorkloadStore = ewstore
+			mgr.backend = backend
+			mgr.identityAllocator = identityCache.NewCachingIdentityAllocator(mgr)
+			mgr.identityAllocator.InitIdentityAllocator(clientset)
+
+			if _, err = store.JoinSharedStore(store.Configuration{
+				Backend:              backend,
+				Prefix:               nodeStore.NodeRegisterStorePrefix,
+				KeyCreator:           nodeStore.RegisterKeyCreator,
+				SharedKeyDeleteDelay: defaults.NodeDeleteDelay,
+				Observer:             mgr,
+			}); err != nil {
+				return fmt.Errorf("unable to set up node register store: %w", err)
+			}
+
+			return nil
+		},
+	})
+
+	return mgr
+}
 
 type VMManager struct {
 	clusterInfo cmtypes.ClusterInfo
@@ -44,59 +128,9 @@ type VMManager struct {
 	ciliumClient      clientset.Interface
 	identityAllocator *identityCache.CachingIdentityAllocator
 
-	ciliumExternalWorkloadStore    cache.Store
-	ciliumExternalWorkloadInformer cache.Controller
+	ciliumExternalWorkloadStore resource.Store[*ciliumv2.CiliumExternalWorkload]
 
 	backend kvstore.BackendOperations
-}
-
-func NewVMManager(cinfo cmtypes.ClusterInfo, clientset k8sClient.Clientset, backend kvstore.BackendOperations) *VMManager {
-	m := &VMManager{
-		clusterInfo:  cinfo,
-		ciliumClient: clientset,
-		backend:      backend,
-	}
-	m.identityAllocator = identityCache.NewCachingIdentityAllocator(m)
-
-	if option.Config.EnableWellKnownIdentities {
-		identity.InitWellKnownIdentities(option.Config, cinfo)
-	}
-	m.identityAllocator.InitIdentityAllocator(clientset)
-	m.startCiliumExternalWorkloadWatcher(clientset)
-	return m
-}
-
-func (m *VMManager) startCiliumExternalWorkloadWatcher(clientset k8sClient.Clientset) {
-	m.ciliumExternalWorkloadStore, m.ciliumExternalWorkloadInformer = informer.NewInformer(
-		cache.NewListWatchFromClient(clientset.CiliumV2().RESTClient(),
-			ciliumv2.CEWPluralName, k8sv1.NamespaceAll, fields.Everything()),
-		&ciliumv2.CiliumExternalWorkload{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj interface{}) {
-				if cew, ok := obj.(*ciliumv2.CiliumExternalWorkload); ok {
-					log.Debugf("Added CEW: %v", cew)
-				}
-			},
-			UpdateFunc: func(_, newObj interface{}) {
-				if cew, ok := newObj.(*ciliumv2.CiliumExternalWorkload); ok {
-					log.Debugf("Updated CEW: %v", cew)
-				}
-			},
-			DeleteFunc: func(obj interface{}) {
-				deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-				if ok {
-					obj = deletedObj.Obj
-				}
-				if cew, ok := obj.(*ciliumv2.CiliumExternalWorkload); ok {
-					log.Debugf("Deleted CEW: %v", cew)
-				}
-			},
-		},
-		nil,
-	)
-
-	go m.ciliumExternalWorkloadInformer.Run(wait.NeverStop)
 }
 
 //
@@ -165,14 +199,9 @@ func (m *VMManager) nodeOverrideFromCEW(n *nodeTypes.RegisterNode, cew *ciliumv2
 func (m *VMManager) OnUpdate(k store.Key) {
 	if n, ok := k.(*nodeTypes.RegisterNode); ok {
 		// Only handle registration events if CiliumExternalWorkload CRD with a matching name exists
-		cewObj, exists, _ := m.ciliumExternalWorkloadStore.GetByKey(n.Name)
+		cew, exists, _ := m.ciliumExternalWorkloadStore.GetByKey(resource.Key{Name: n.Name})
 		if !exists {
 			log.Warningf("CEW: CiliumExternalWorkload resource not found for: %v", n)
-			return
-		}
-		cew, ok := cewObj.(*ciliumv2.CiliumExternalWorkload)
-		if !ok {
-			log.Errorf("CEW: CiliumExternalWorkload %s not the right type: %T", n.Name, cewObj)
 			return
 		}
 
