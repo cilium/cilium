@@ -143,7 +143,7 @@ Make HTTPS Requests
         .. code-block:: shell-session
 
             # Download demo.proto file if you have not done before
-            $ curl -o demo.proto https://raw.githubusercontent.com/GoogleCloudPlatform/microservices-demo/master/pb/demo.proto
+            $ curl -o demo.proto https://raw.githubusercontent.com/GoogleCloudPlatform/microservices-demo/main/protos/demo.proto
             $ grpcurl -proto ./demo.proto -cacert minica.pem hipstershop.cilium.rocks:443 hipstershop.ProductCatalogService/ListProducts
 
     .. group-tab:: Cert Manager
