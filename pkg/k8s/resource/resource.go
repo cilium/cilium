@@ -117,6 +117,7 @@ func New[T k8sRuntime.Object](lc hive.Lifecycle, lw cache.ListerWatcher, opts ..
 	r.ctx, r.cancel = context.WithCancel(context.Background())
 	r.storeResolver, r.storePromise = promise.New[Store[T]]()
 	lc.Append(r)
+	r.initMetrics()
 	return r
 }
 
@@ -207,6 +208,25 @@ func (r *resource[T]) Store(ctx context.Context) (Store[T], error) {
 	}
 
 	return r.storePromise.Await(ctx)
+}
+
+func (r *resource[T]) initMetrics() {
+	if r.opts.metricScope == "" {
+		return
+	}
+
+	for _, kind := range []string{"updated", "deleted"} {
+		for _, result := range []string{"success", "failed"} {
+			metrics.KubernetesEventProcessed.WithLabelValues(r.opts.metricScope, kind, result)
+		}
+	}
+	for _, action := range []string{"update", "delete"} {
+		for _, valid := range []string{"true", "false"} {
+			for _, equal := range []string{"true", "false"} {
+				metrics.KubernetesEventReceived.WithLabelValues(r.opts.metricScope, action, valid, equal)
+			}
+		}
+	}
 }
 
 func (r *resource[T]) metricEventProcessed(eventKind EventKind, status bool) {
