@@ -71,8 +71,9 @@ type namespaceUpdater struct {
 }
 
 func getNamespaceLabels(ns *slim_corev1.Namespace) labels.Labels {
-	labelMap := map[string]string{}
-	for k, v := range ns.GetLabels() {
+	lbls := ns.GetLabels()
+	labelMap := make(map[string]string, len(lbls))
+	for k, v := range lbls {
 		labelMap[policy.JoinPath(ciliumio.PodNamespaceMetaLabels, k)] = v
 	}
 	return labels.Map2Labels(labelMap, labels.LabelSourceK8s)
