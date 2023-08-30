@@ -151,7 +151,7 @@ jobs:
 
     steps:
     - name: Checkout context ref
-      uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       with:
         ref: ${{ inputs.context-ref || github.sha }}
         persist-credentials: false
@@ -329,7 +329,7 @@ jobs:
     # in a Kubernetes cluster, so it won't have access to the privileged
     # environment from there.
     - name: Checkout SHA
-      uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       with:
         ref: ${{ steps.vars.outputs.sha }}
         persist-credentials: false
