@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package main
+package kvstoremesh
 
 import (
 	cmmetrics "github.com/cilium/cilium/clustermesh-apiserver/metrics"

@@ -234,11 +234,12 @@ spec:
         {{- end }}
       {{- if .Values.clustermesh.apiserver.kvstoremesh.enabled }}
       - name: kvstoremesh
-        image: {{ include "cilium.image" .Values.clustermesh.apiserver.kvstoremesh.image | quote }}
-        imagePullPolicy: {{ .Values.clustermesh.apiserver.kvstoremesh.image.pullPolicy }}
+        image: {{ include "cilium.image" .Values.clustermesh.apiserver.image | quote }}
+        imagePullPolicy: {{ .Values.clustermesh.apiserver.image.pullPolicy }}
         command:
-        - /usr/bin/kvstoremesh
+        - /usr/bin/clustermesh-apiserver
         args:
+        - kvstoremesh
         {{- if .Values.debug.enabled }}
         - --debug
         {{- end }}

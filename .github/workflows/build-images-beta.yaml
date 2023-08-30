@@ -50,9 +50,6 @@ jobs:
           - name: clustermesh-apiserver
             dockerfile: ./images/clustermesh-apiserver/Dockerfile
 
-          - name: kvstoremesh
-            dockerfile: ./images/kvstoremesh/Dockerfile
-
           - name: docker-plugin
             dockerfile: ./images/cilium-docker-plugin/Dockerfile
 

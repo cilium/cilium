@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/clustermesh-apiserver/clustermesh"
+	"github.com/cilium/cilium/clustermesh-apiserver/kvstoremesh"
 	"github.com/cilium/cilium/pkg/hive"
 )
 
@@ -21,6 +22,7 @@ func main() {
 
 	cmd.AddCommand(
 		clustermesh.NewCmd(hive.New(clustermesh.Cell)),
+		kvstoremesh.NewCmd(hive.New(kvstoremesh.Cell)),
 	)
 
 	if err := cmd.Execute(); err != nil {
