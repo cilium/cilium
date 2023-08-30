@@ -544,7 +544,6 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context, cachesSynced chan str
 
 // WatcherConfiguration is the required configuration for enableK8sWatchers
 type WatcherConfiguration interface {
-	utils.ServiceConfiguration
 	utils.IngressConfiguration
 	utils.GatewayAPIConfiguration
 	utils.PolicyConfiguration

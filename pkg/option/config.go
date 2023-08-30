@@ -139,9 +139,6 @@ const (
 	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
 	EnableExternalIPs = "enable-external-ips"
 
-	// K8sEnableEndpointSlice enables the k8s EndpointSlice feature into Cilium
-	K8sEnableEndpointSlice = "enable-k8s-endpoint-slice"
-
 	// EnableL7Proxy is the name of the option to enable L7 proxy
 	EnableL7Proxy = "enable-l7-proxy"
 
@@ -1105,10 +1102,6 @@ const (
 
 	// LBMaglevMapMaxEntries configures max entries of bpf map for Maglev.
 	LBMaglevMapMaxEntries = "bpf-lb-maglev-map-max"
-
-	// K8sServiceProxyName instructs Cilium to handle service objects only when
-	// service.kubernetes.io/service-proxy-name label equals the provided value.
-	K8sServiceProxyName = "k8s-service-proxy-name"
 
 	// CRDWaitTimeout is the timeout in which Cilium will exit if CRDs are not
 	// available.
@@ -2118,10 +2111,6 @@ type DaemonConfig struct {
 	// EnableLocalRedirectPolicy enables redirect policies to redirect traffic within nodes
 	EnableLocalRedirectPolicy bool
 
-	// K8sEnableEndpointSlice enables k8s endpoint slice feature that is used
-	// in kubernetes.
-	K8sEnableK8sEndpointSlice bool
-
 	// NodePortMin is the minimum port address for the NodePort range
 	NodePortMin int
 
@@ -2367,13 +2356,6 @@ type DaemonConfig struct {
 	// LBMaglevMapEntries is the maximum number of entries allowed in BPF lbmap for maglev.
 	LBMaglevMapEntries int
 
-	// K8sServiceProxyName is the value of service.kubernetes.io/service-proxy-name label,
-	// that identifies the service objects Cilium should handle.
-	// If the provided value is an empty string, Cilium will manage service objects when
-	// the label is not present. For more details -
-	// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/2447-Make-kube-proxy-service-abstraction-optional
-	K8sServiceProxyName string
-
 	// CRDWaitTimeout is the timeout in which Cilium will exit if CRDs are not
 	// available.
 	CRDWaitTimeout time.Duration
@@ -2521,7 +2503,6 @@ var (
 		IdentityAllocationMode:          IdentityAllocationModeKVstore,
 		AllowICMPFragNeeded:             defaults.AllowICMPFragNeeded,
 		EnableWellKnownIdentities:       defaults.EnableWellKnownIdentities,
-		K8sEnableK8sEndpointSlice:       defaults.K8sEnableEndpointSlice,
 		AllocatorListTimeout:            defaults.AllocatorListTimeout,
 		EnableICMPRules:                 defaults.EnableICMPRules,
 		UseCiliumInternalIPForIPsec:     defaults.UseCiliumInternalIPForIPsec,
@@ -2755,13 +2736,6 @@ func (c *DaemonConfig) UnreachableRoutesEnabled() bool {
 func (c *DaemonConfig) EndpointStatusIsEnabled(option string) bool {
 	_, ok := c.EndpointStatus[option]
 	return ok
-}
-
-// K8sServiceProxyName returns the required value for the
-// service.kubernetes.io/service-proxy-name label in order for services to be
-// handled.
-func (c *DaemonConfig) K8sServiceProxyNameValue() string {
-	return c.K8sServiceProxyName
 }
 
 // CiliumNamespaceName returns the name of the namespace in which Cilium is
@@ -3158,7 +3132,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.IPv6Range = vp.GetString(IPv6Range)
 	c.IPv6ServiceRange = vp.GetString(IPv6ServiceRange)
 	c.JoinCluster = vp.GetBool(JoinClusterName)
-	c.K8sEnableK8sEndpointSlice = vp.GetBool(K8sEnableEndpointSlice)
 	c.K8sRequireIPv4PodCIDR = vp.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = vp.GetBool(K8sRequireIPv6PodCIDRName)
 	c.K8sServiceCacheSize = uint(vp.GetInt(K8sServiceCacheSize))
@@ -3229,7 +3202,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.PolicyAuditMode = vp.GetBool(PolicyAuditModeArg)
 	c.EnableIPv4FragmentsTracking = vp.GetBool(EnableIPv4FragmentsTrackingName)
 	c.FragmentsMapEntries = vp.GetInt(FragmentsMapEntriesName)
-	c.K8sServiceProxyName = vp.GetString(K8sServiceProxyName)
 	c.CRDWaitTimeout = vp.GetDuration(CRDWaitTimeout)
 	c.LoadBalancerDSRDispatch = vp.GetString(LoadBalancerDSRDispatch)
 	c.LoadBalancerDSRL4Xlate = vp.GetString(LoadBalancerDSRL4Xlate)

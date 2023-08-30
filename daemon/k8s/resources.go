@@ -29,6 +29,7 @@ var (
 		"k8s-resources",
 		"Agent Kubernetes resources",
 
+		cell.Config(k8s.DefaultConfig),
 		cell.Provide(
 			k8s.ServiceResource,
 			k8s.EndpointsResource,

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
@@ -24,14 +25,38 @@ import (
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/utils"
-	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/k8s/version"
 )
 
-func ServiceResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Service], error) {
+// Config defines the configuration options for k8s resources.
+type Config struct {
+	EnableK8sEndpointSlice bool
+
+	// K8sServiceProxyName is the value of service.kubernetes.io/service-proxy-name label,
+	// that identifies the service objects Cilium should handle.
+	// If the provided value is an empty string, Cilium will manage service objects when
+	// the label is not present. For more details -
+	// https://github.com/kubernetes/enhancements/tree/master/keps/sig-network/2447-Make-kube-proxy-service-abstraction-optional
+	K8sServiceProxyName string
+}
+
+// DefaultConfig represents the default k8s resources config values.
+var DefaultConfig = Config{
+	EnableK8sEndpointSlice: true,
+}
+
+// Flags implements the cell.Flagger interface.
+func (def Config) Flags(flags *pflag.FlagSet) {
+	flags.Bool("enable-k8s-endpoint-slice", def.EnableK8sEndpointSlice, "Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it")
+	flags.String("k8s-service-proxy-name", def.K8sServiceProxyName, "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
+}
+
+// ServiceResource builds the Resource[Service] object.
+func ServiceResource(lc hive.Lifecycle, cfg Config, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_corev1.Service], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	optsModifier, err := utils.GetServiceAndEndpointListOptionsModifier(option.Config)
+	optsModifier, err := utils.GetServiceAndEndpointListOptionsModifier(cfg.K8sServiceProxyName)
 	if err != nil {
 		return nil, err
 	}
@@ -163,11 +188,11 @@ func CiliumPodIPPoolResource(lc hive.Lifecycle, cs client.Clientset, opts ...fun
 	return resource.New[*cilium_api_v2alpha1.CiliumPodIPPool](lc, lw, resource.WithMetric("CiliumPodIPPool")), nil
 }
 
-func EndpointsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resource[*Endpoints], error) {
+func EndpointsResource(lc hive.Lifecycle, cfg Config, cs client.Clientset) (resource.Resource[*Endpoints], error) {
 	if !cs.IsEnabled() {
 		return nil, nil
 	}
-	endpointsOptsModifier, err := utils.GetServiceAndEndpointListOptionsModifier(option.Config)
+	endpointsOptsModifier, err := utils.GetServiceAndEndpointListOptionsModifier(cfg.K8sServiceProxyName)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +201,12 @@ func EndpointsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resourc
 	if err != nil {
 		return nil, err
 	}
-	lw := &endpointsListerWatcher{cs: cs, endpointsOptsModifier: endpointsOptsModifier, endpointSlicesOptsModifier: endpointSliceOpsModifier}
+	lw := &endpointsListerWatcher{
+		cs:                         cs,
+		enableK8sEndpointSlice:     cfg.EnableK8sEndpointSlice,
+		endpointsOptsModifier:      endpointsOptsModifier,
+		endpointSlicesOptsModifier: endpointSliceOpsModifier,
+	}
 	return resource.New[*Endpoints](
 		lc,
 		lw,
@@ -190,6 +220,7 @@ func EndpointsResource(lc hive.Lifecycle, cs client.Clientset) (resource.Resourc
 // the resource before the client has been started and capabilities have been probed.
 type endpointsListerWatcher struct {
 	cs                         client.Clientset
+	enableK8sEndpointSlice     bool
 	endpointsOptsModifier      func(*metav1.ListOptions)
 	endpointSlicesOptsModifier func(*metav1.ListOptions)
 	sourceObj                  k8sRuntime.Object
@@ -205,8 +236,8 @@ func (lw *endpointsListerWatcher) getSourceObj() k8sRuntime.Object {
 
 func (lw *endpointsListerWatcher) getListerWatcher() cache.ListerWatcher {
 	lw.once.Do(func() {
-		if SupportsEndpointSlice() {
-			if SupportsEndpointSliceV1() {
+		if lw.enableK8sEndpointSlice && version.Capabilities().EndpointSlice {
+			if version.Capabilities().EndpointSliceV1 {
 				log.Info("Using discoveryv1.EndpointSlice")
 				lw.cachedListerWatcher = utils.ListerWatcherFromTyped[*slim_discoveryv1.EndpointSliceList](
 					lw.cs.Slim().DiscoveryV1().EndpointSlices(""),

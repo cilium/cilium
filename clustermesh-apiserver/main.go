@@ -52,12 +52,7 @@ import (
 )
 
 type configuration struct {
-	serviceProxyName        string
 	enableExternalWorkloads bool
-}
-
-func (c configuration) K8sServiceProxyNameValue() string {
-	return c.serviceProxyName
 }
 
 var (
@@ -163,17 +158,11 @@ func runApiserver() error {
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeCRD, "Method to use for identity allocation")
 	option.BindEnv(vp, option.IdentityAllocationMode)
 
-	flags.StringVar(&cfg.serviceProxyName, option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
-	option.BindEnv(vp, option.K8sServiceProxyName)
-
 	flags.Duration(option.AllocatorListTimeoutName, defaults.AllocatorListTimeout, "Timeout for listing allocator state before exiting")
 	option.BindEnv(vp, option.AllocatorListTimeoutName)
 
 	flags.Bool(option.EnableWellKnownIdentities, defaults.EnableWellKnownIdentities, "Enable well-known identities for known Kubernetes components")
 	option.BindEnv(vp, option.EnableWellKnownIdentities)
-
-	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, "Enable support of Kubernetes EndpointSlice")
-	option.BindEnv(vp, option.K8sEnableEndpointSlice)
 
 	// The default values is set to true to match the existing behavior in case
 	// the flag is not configured (for instance by the legacy cilium CLI).

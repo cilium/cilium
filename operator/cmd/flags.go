@@ -231,9 +231,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 		option.KVStoreOpt, "Key-value store options e.g. etcd.address=127.0.0.1:4001")
 	option.BindEnv(vp, option.KVStoreOpt)
 
-	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, "Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it")
-	option.BindEnv(vp, option.K8sEnableEndpointSlice)
-
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium Operator is deployed in")
 	option.BindEnv(vp, option.K8sNamespaceName)
 
@@ -270,9 +267,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Duration(operatorOption.LeaderElectionRetryPeriod, 2*time.Second,
 		"Duration that LeaderElector clients should wait between retries of the actions")
 	option.BindEnv(vp, operatorOption.LeaderElectionRetryPeriod)
-
-	flags.String(option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
-	option.BindEnv(vp, option.K8sServiceProxyName)
 
 	flags.Bool(option.BGPAnnounceLBIP, false, "Announces service IPs of type LoadBalancer via BGP")
 	option.BindEnv(vp, option.BGPAnnounceLBIP)
