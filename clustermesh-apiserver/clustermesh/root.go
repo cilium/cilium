@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package main
+package clustermesh
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
-	"os"
 	"path"
 	"sync"
 
@@ -16,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	apiserverK8s "github.com/cilium/cilium/clustermesh-apiserver/k8s"
+	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
@@ -48,8 +46,8 @@ var (
 
 func NewCmd(h *hive.Hive) *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "clustermesh-apiserver",
-		Short: "Run the ClusterMesh apiserver",
+		Use:   "clustermesh",
+		Short: "Run ClusterMesh",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := h.Run(); err != nil {
 				log.Fatal(err)
@@ -77,7 +75,7 @@ type parameters struct {
 	ExternalWorkloadsConfig
 	ClusterInfo    cmtypes.ClusterInfo
 	Clientset      k8sClient.Clientset
-	Resources      apiserverK8s.Resources
+	Resources      cmk8s.Resources
 	BackendPromise promise.Promise[kvstore.BackendOperations]
 	StoreFactory   store.Factory
 }
@@ -99,13 +97,6 @@ func registerHooks(lc hive.Lifecycle, params parameters) error {
 		},
 	})
 	return nil
-}
-
-func main() {
-	if err := NewCmd(hive.New(Cell)).Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
 }
 
 type identitySynchronizer struct {
@@ -349,7 +340,7 @@ func startServer(
 	allServices bool,
 	clientset k8sClient.Clientset,
 	backend kvstore.BackendOperations,
-	resources apiserverK8s.Resources,
+	resources cmk8s.Resources,
 	factory store.Factory,
 ) {
 	log.WithFields(logrus.Fields{
