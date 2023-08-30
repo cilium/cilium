@@ -11,22 +11,15 @@ import (
 	"os"
 	"path"
 	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	apiserverK8s "github.com/cilium/cilium/clustermesh-apiserver/k8s"
-	cmmetrics "github.com/cilium/cilium/clustermesh-apiserver/metrics"
-	apiserverOption "github.com/cilium/cilium/clustermesh-apiserver/option"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
-	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/identity"
@@ -38,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/kvstore/heartbeat"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
@@ -47,71 +39,36 @@ import (
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/pprof"
 	"github.com/cilium/cilium/pkg/promise"
 )
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "clustermesh-apiserver")
+)
 
-	vp       *viper.Viper
-	rootHive *hive.Hive
-
-	rootCmd = &cobra.Command{
+func NewCmd(h *hive.Hive) *cobra.Command {
+	rootCmd := &cobra.Command{
 		Use:   "clustermesh-apiserver",
 		Short: "Run the ClusterMesh apiserver",
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := rootHive.Run(); err != nil {
+			if err := h.Run(); err != nil {
 				log.Fatal(err)
 			}
 		},
 		PreRun: func(cmd *cobra.Command, args []string) {
 			// Overwrite the metrics namespace with the one specific for the ClusterMesh API Server
 			metrics.Namespace = metrics.CiliumClusterMeshAPIServerNamespace
-			option.Config.Populate(vp)
+			option.Config.Populate(h.Viper())
 			if option.Config.Debug {
 				log.Logger.SetLevel(logrus.DebugLevel)
 			}
-			option.LogRegisteredOptions(vp, log)
+			option.LogRegisteredOptions(h.Viper(), log)
 		},
 	}
-)
 
-func init() {
-	rootHive = hive.New(
-		pprof.Cell,
-		cell.Config(pprof.Config{
-			PprofAddress: apiserverOption.PprofAddressAPIServer,
-			PprofPort:    apiserverOption.PprofPortAPIServer,
-		}),
-		controller.Cell,
-
-		gops.Cell(defaults.GopsPortApiserver),
-
-		k8sClient.Cell,
-		apiserverK8s.ResourcesCell,
-
-		// We don't validate that the ClusterID is different from 0 (and the
-		// ClusterName is not the default one), because they are valid in
-		// case we only use the external workloads feature, and not clustermesh.
-		cell.Config(cmtypes.DefaultClusterInfo),
-		cell.Invoke(func(cinfo cmtypes.ClusterInfo) error { return cinfo.Validate() }),
-
-		kvstore.Cell(kvstore.EtcdBackendName),
-		cell.Provide(func() *kvstore.ExtraOptions { return nil }),
-		heartbeat.Cell,
-
-		healthAPIServerCell,
-		cmmetrics.Cell,
-		store.Cell,
-		usersManagementCell,
-		cell.Invoke(registerHooks),
-
-		externalWorkloadsCell,
-	)
-	rootHive.RegisterFlags(rootCmd.Flags())
-	rootCmd.AddCommand(rootHive.Command())
-	vp = rootHive.Viper()
+	h.RegisterFlags(rootCmd.Flags())
+	rootCmd.AddCommand(h.Command())
+	return rootCmd
 }
 
 type parameters struct {
@@ -144,25 +101,8 @@ func registerHooks(lc hive.Lifecycle, params parameters) error {
 	return nil
 }
 
-func runApiserver() error {
-	flags := rootCmd.Flags()
-	flags.BoolP(option.DebugArg, "D", false, "Enable debugging mode")
-	option.BindEnv(vp, option.DebugArg)
-
-	flags.Duration(option.CRDWaitTimeout, 5*time.Minute, "Cilium will exit if CRDs are not available within this duration upon startup")
-	option.BindEnv(vp, option.CRDWaitTimeout)
-
-	vp.BindPFlags(flags)
-
-	if err := rootCmd.Execute(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func main() {
-	if err := runApiserver(); err != nil {
+	if err := NewCmd(hive.New(Cell)).Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
