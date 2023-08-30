@@ -257,16 +257,16 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 
 	name := cegp.ObjectMeta.Name
 	if name == "" {
-		return nil, fmt.Errorf("CiliumEgressGatewayPolicy must have a name")
+		return nil, fmt.Errorf("must have a name")
 	}
 
 	egressGateway := cegp.Spec.EgressGateway
 	if egressGateway == nil {
-		return nil, fmt.Errorf("CiliumEgressGatewayPolicy's egressGateway can't be empty")
+		return nil, fmt.Errorf("egressGateway can't be empty")
 	}
 
 	if egressGateway.Interface != "" && egressGateway.EgressIP != "" {
-		return nil, fmt.Errorf("CiliumEgressGatewayPolicy's gateway configuration can't specify both an interface and an egress IP")
+		return nil, fmt.Errorf("gateway configuration can't specify both an interface and an egress IP")
 	}
 
 	policyGwc := &policyGatewayConfig{
@@ -278,8 +278,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	for _, cidrString := range cegp.Spec.DestinationCIDRs {
 		_, cidr, err := net.ParseCIDR(string(cidrString))
 		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{logfields.CiliumEgressGatewayPolicyName: name}).Warn("Error parsing cidr.")
-			return nil, err
+			return nil, fmt.Errorf("failed to parse destination CIDR %s: %s", cidrString, err)
 		}
 		dstCidrList = append(dstCidrList, cidr)
 	}
@@ -287,8 +286,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	for _, cidrString := range cegp.Spec.ExcludedCIDRs {
 		_, cidr, err := net.ParseCIDR(string(cidrString))
 		if err != nil {
-			log.WithError(err).WithFields(logrus.Fields{logfields.CiliumEgressGatewayPolicyName: name}).Warn("Error parsing cidr.")
-			return nil, err
+			return nil, fmt.Errorf("failed to parse excluded CIDR %s: %s", cidr, err)
 		}
 		excludedCIDRs = append(excludedCIDRs, cidr)
 	}
@@ -326,7 +324,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 				endpointSelectorList,
 				api.NewESFromK8sLabelSelector("", egressRule.PodSelector))
 		} else {
-			return nil, fmt.Errorf("CiliumEgressGatewayPolicy cannot have both nil namespace selector and nil pod selector")
+			return nil, fmt.Errorf("cannot have both nil namespace selector and nil pod selector")
 		}
 	}
 
