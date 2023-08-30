@@ -53,6 +53,9 @@ triggers:
   /ci-ingress:
     workflows:
     - conformance-ingress.yaml
+  /ci-integration:
+    workflows:
+    - integration-test.yaml
   /ci-runtime:
     workflows:
     - conformance-runtime.yaml
