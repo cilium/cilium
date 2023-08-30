@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package main
+package clustermesh
 
 import (
-	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/k8s"
+	cmk8s "github.com/cilium/cilium/clustermesh-apiserver/clustermesh/k8s"
 	cmmetrics "github.com/cilium/cilium/clustermesh-apiserver/metrics"
 	"github.com/cilium/cilium/clustermesh-apiserver/option"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -33,8 +33,8 @@ var Cell = cell.Module(
 
 	pprof.Cell,
 	cell.Config(pprof.Config{
-		PprofAddress: option.PprofAddressAPIServer,
-		PprofPort:    option.PprofPortAPIServer,
+		PprofAddress: option.PprofAddress,
+		PprofPort:    option.PprofPortClusterMesh,
 	}),
 	controller.Cell,
 

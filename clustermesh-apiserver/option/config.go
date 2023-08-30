@@ -13,10 +13,10 @@ import (
 
 const (
 	// PprofAddressAPIServer is the default value for pprof in the clustermesh-apiserver
-	PprofAddressAPIServer = "localhost"
+	PprofAddress = "localhost"
 
-	// PprofPortAPIServer is the default value for pprof in the clustermesh-apiserver
-	PprofPortAPIServer = 6063
+	// PprofPortClusterMesh is the default value for pprof in the clustermesh-apiserver (clustermesh)
+	PprofPortClusterMesh = 6063
 )
 
 // LegacyClusterMeshConfig is used to register the flags for the options which

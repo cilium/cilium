@@ -155,6 +155,7 @@ spec:
         command:
         - /usr/bin/clustermesh-apiserver
         args:
+        - clustermesh
         {{- if .Values.debug.enabled }}
         - --debug
         {{- end }}
