@@ -476,10 +476,6 @@
      - Additional KVStoreMesh volumeMounts.
      - list
      - ``[]``
-   * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.image`
-     - KVStoreMesh image.
-     - object
-     - ``{"digest":"","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/kvstoremesh-ci","tag":"latest","useDigest":false}``
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.lifecycle`
      - lifecycle setting for the KVStoreMesh container
      - object

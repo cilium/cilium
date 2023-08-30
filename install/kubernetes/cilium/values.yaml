@@ -2890,16 +2890,6 @@ clustermesh:
       # from the remote clusters in the local etcd instance.
       enabled: false
 
-      # -- KVStoreMesh image.
-      image:
-        override: ~
-        repository: "quay.io/cilium/kvstoremesh-ci"
-        tag: "latest"
-        # kvstoremesh-digest
-        digest: ""
-        useDigest: false
-        pullPolicy: "Always"
-
       # -- Additional KVStoreMesh arguments.
       extraArgs: []
 

@@ -44,9 +44,6 @@ runs:
           --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
           --helm-set=clustermesh.apiserver.image.tag=${SHA} \
           --helm-set=clustermesh.apiserver.image.useDigest=false \
-          --helm-set=clustermesh.apiserver.kvstoremesh.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/kvstoremesh-ci \
-          --helm-set=clustermesh.apiserver.kvstoremesh.image.tag=${SHA} \
-          --helm-set=clustermesh.apiserver.kvstoremesh.image.useDigest=false \
           --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
           --helm-set=hubble.relay.image.tag=${SHA} \
           --helm-set=hubble.relay.image.useDigest=false"

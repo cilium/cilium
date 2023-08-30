@@ -15,7 +15,6 @@ ifeq ($(RELEASE),yes)
     export CILIUM_OPERATOR_BASE_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/operator
     export CLUSTERMESH_APISERVER_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/clustermesh-apiserver
     export HUBBLE_RELAY_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/hubble-relay
-    export KVSTOREMESH_REPO:=${RELEASE_REGISTRY}/${RELEASE_ORG}/kvstoremesh
 else
     export CILIUM_BRANCH:=main
     export PULL_POLICY:=Always
@@ -25,7 +24,6 @@ else
     export CILIUM_VERSION:=latest
     export CLUSTERMESH_APISERVER_REPO:=${CI_REGISTRY}/${CI_ORG}/clustermesh-apiserver-ci
     export HUBBLE_RELAY_REPO:=${CI_REGISTRY}/${CI_ORG}/hubble-relay-ci
-    export KVSTOREMESH_REPO:=${CI_REGISTRY}/${CI_ORG}/kvstoremesh-ci
 endif
 
 ifndef CILIUM_BRANCH
@@ -66,4 +64,3 @@ export SPIRE_SERVER_DIGEST:=sha256:f4bc49fb0bd1d817a6c46204cc7ce943c73fb0a5496a7
 export SPIRE_AGENT_REPO:=ghcr.io/spiffe/spire-agent
 export SPIRE_AGENT_VERSION:=1.6.3
 export SPIRE_AGENT_DIGEST:=sha256:8eef9857bf223181ecef10d9bbcd2f7838f3689e9bd2445bede35066a732e823
-

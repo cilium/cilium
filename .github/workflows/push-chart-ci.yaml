@@ -135,11 +135,7 @@ jobs:
             "clustermesh.apiserver.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci",
             "clustermesh.apiserver.image.tag": "${{ steps.get-ref.outputs.sha }}",
             "clustermesh.apiserver.image.digest": "",
-            "clustermesh.apiserver.image.useDigest": false,
-            "clustermesh.apiserver.kvstoremesh.image.repository": "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/kvstoremesh-ci",
-            "clustermesh.apiserver.kvstoremesh.image.tag": "${{ steps.get-ref.outputs.sha }}",
-            "clustermesh.apiserver.kvstoremesh.image.digest": "",
-            "clustermesh.apiserver.kvstoremesh.image.useDigest": false
+            "clustermesh.apiserver.image.useDigest": false
           }
         registry: quay.io
         registry_namespace: ${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}

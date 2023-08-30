@@ -367,7 +367,6 @@ Makefile* @cilium/build
 /install/kubernetes/cilium/**/cilium-envoy @cilium/sig-k8s @cilium/helm @cilium/sig-servicemesh
 /install/kubernetes/cilium/**/spire @cilium/sig-k8s @cilium/helm @cilium/sig-servicemesh
 /install/kubernetes/cilium/templates/hubble* @cilium/sig-k8s @cilium/helm @cilium/sig-hubble
-/kvstoremesh @cilium/sig-clustermesh
 /LICENSE @cilium/tophat
 /MAINTAINERS.md @cilium/contributing
 /netlify.toml @cilium/ci-structure

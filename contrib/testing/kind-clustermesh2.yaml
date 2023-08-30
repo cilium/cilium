@@ -27,8 +27,5 @@ clustermesh:
   apiserver:
     image:
       pullPolicy: Never
-    kvstoremesh:
-      image:
-        pullPolicy: Never
     service:
       nodePort: 32380

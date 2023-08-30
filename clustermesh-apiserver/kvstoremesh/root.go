@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package main
+package kvstoremesh
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
@@ -52,11 +49,4 @@ func registerClusterInfoValidator(lc hive.Lifecycle, cinfo types.ClusterInfo) {
 	lc.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error { return cinfo.ValidateStrict() },
 	})
-}
-
-func main() {
-	if err := NewCmd(hive.New(Cell)).Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
 }
