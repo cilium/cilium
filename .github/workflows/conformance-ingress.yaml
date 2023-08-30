@@ -1,4 +1,4 @@
-name: Conformance Ingress
+name: Conformance Ingress (ci-ingress)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
