@@ -42,6 +42,9 @@ triggers:
   /ci-gke:
     workflows:
     - conformance-gke.yaml
+  /ci-runtime:
+    workflows:
+    - conformance-runtime.yaml
   /ci-verifier:
     workflows:
     - tests-datapath-verifier.yaml
