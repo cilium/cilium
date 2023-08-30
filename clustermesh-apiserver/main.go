@@ -51,10 +51,6 @@ import (
 	"github.com/cilium/cilium/pkg/promise"
 )
 
-type configuration struct {
-	enableExternalWorkloads bool
-}
-
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "clustermesh-apiserver")
 
@@ -79,8 +75,6 @@ var (
 			option.LogRegisteredOptions(vp, log)
 		},
 	}
-
-	cfg configuration
 )
 
 func init() {
@@ -112,6 +106,8 @@ func init() {
 		store.Cell,
 		usersManagementCell,
 		cell.Invoke(registerHooks),
+
+		externalWorkloadsCell,
 	)
 	rootHive.RegisterFlags(rootCmd.Flags())
 	rootCmd.AddCommand(rootHive.Command())
@@ -121,6 +117,7 @@ func init() {
 type parameters struct {
 	cell.In
 
+	ExternalWorkloadsConfig
 	ClusterInfo    cmtypes.ClusterInfo
 	Clientset      k8sClient.Clientset
 	Resources      apiserverK8s.Resources
@@ -140,7 +137,7 @@ func registerHooks(lc hive.Lifecycle, params parameters) error {
 				return err
 			}
 
-			startServer(ctx, params.ClusterInfo, params.Clientset, backend, params.Resources, params.StoreFactory)
+			startServer(ctx, params.ClusterInfo, params.EnableExternalWorkloads, params.Clientset, backend, params.Resources, params.StoreFactory)
 			return nil
 		},
 	})
@@ -154,20 +151,6 @@ func runApiserver() error {
 
 	flags.Duration(option.CRDWaitTimeout, 5*time.Minute, "Cilium will exit if CRDs are not available within this duration upon startup")
 	option.BindEnv(vp, option.CRDWaitTimeout)
-
-	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeCRD, "Method to use for identity allocation")
-	option.BindEnv(vp, option.IdentityAllocationMode)
-
-	flags.Duration(option.AllocatorListTimeoutName, defaults.AllocatorListTimeout, "Timeout for listing allocator state before exiting")
-	option.BindEnv(vp, option.AllocatorListTimeoutName)
-
-	flags.Bool(option.EnableWellKnownIdentities, defaults.EnableWellKnownIdentities, "Enable well-known identities for known Kubernetes components")
-	option.BindEnv(vp, option.EnableWellKnownIdentities)
-
-	// The default values is set to true to match the existing behavior in case
-	// the flag is not configured (for instance by the legacy cilium CLI).
-	flags.BoolVar(&cfg.enableExternalWorkloads, option.EnableExternalWorkloads, true, "Enable support for external workloads")
-	option.BindEnv(vp, option.EnableExternalWorkloads)
 
 	vp.BindPFlags(flags)
 
@@ -423,6 +406,7 @@ func synchronize[T runtime.Object](ctx context.Context, r resource.Resource[T], 
 func startServer(
 	startCtx hive.HookContext,
 	cinfo cmtypes.ClusterInfo,
+	allServices bool,
 	clientset k8sClient.Clientset,
 	backend kvstore.BackendOperations,
 	resources apiserverK8s.Resources,
@@ -435,8 +419,6 @@ func startServer(
 
 	synced.SyncCRDs(startCtx, clientset, synced.ClusterMeshAPIServerResourceNames(), &synced.Resources{}, &synced.APIGroups{})
 
-	var err error
-
 	config := cmtypes.CiliumClusterConfig{
 		ID: cinfo.ID,
 		Capabilities: cmtypes.CiliumClusterConfigCapabilities{
@@ -446,20 +428,6 @@ func startServer(
 
 	if err := cmutils.SetClusterConfig(context.Background(), cinfo.Name, &config, backend); err != nil {
 		log.WithError(err).Fatal("Unable to set local cluster config on kvstore")
-	}
-
-	if cfg.enableExternalWorkloads {
-		mgr := NewVMManager(cinfo, clientset, backend)
-		_, err = store.JoinSharedStore(store.Configuration{
-			Backend:              backend,
-			Prefix:               nodeStore.NodeRegisterStorePrefix,
-			KeyCreator:           nodeStore.RegisterKeyCreator,
-			SharedKeyDeleteDelay: defaults.NodeDeleteDelay,
-			Observer:             mgr,
-		})
-		if err != nil {
-			log.WithError(err).Fatal("Unable to set up node register store in etcd")
-		}
 	}
 
 	ctx := context.Background()
@@ -472,7 +440,7 @@ func startServer(
 		Services:     resources.Services,
 		Endpoints:    resources.Endpoints,
 		Backend:      backend,
-		SharedOnly:   !cfg.enableExternalWorkloads,
+		SharedOnly:   !allServices,
 		StoreFactory: factory,
 	})
 
