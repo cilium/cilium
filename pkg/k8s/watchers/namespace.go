@@ -25,7 +25,6 @@ func (k *K8sWatcher) namespacesInit() {
 	apiGroup := k8sAPIGroupNamespaceV1Core
 
 	var synced atomic.Bool
-	synced.Store(false)
 
 	k.blockWaitGroupToSyncResources(
 		k.stop,
