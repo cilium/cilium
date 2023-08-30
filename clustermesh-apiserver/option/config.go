@@ -17,6 +17,9 @@ const (
 
 	// PprofPortClusterMesh is the default value for pprof in the clustermesh-apiserver (clustermesh)
 	PprofPortClusterMesh = 6063
+
+	// PprofPortKVStoreMesh is the default value for pprof in clustermesh-apiserver (kvstoremesh)
+	PprofPortKVStoreMesh = 6064
 )
 
 // LegacyClusterMeshConfig is used to register the flags for the options which
@@ -34,4 +37,18 @@ var DefaultLegacyClusterMeshConfig = LegacyClusterMeshConfig{
 func (def LegacyClusterMeshConfig) Flags(flags *pflag.FlagSet) {
 	flags.BoolP(option.DebugArg, "D", def.Debug, "Enable debugging mode")
 	flags.Duration(option.CRDWaitTimeout, def.CRDWaitTimeout, "Cilium will exit if CRDs are not available within this duration upon startup")
+}
+
+// LegacyKVStoreMeshConfig is used to register the flags for the options which
+// are still accessed through the global DaemonConfig variable.
+type LegacyKVStoreMeshConfig struct {
+	Debug bool
+}
+
+var DefaultLegacyKVStoreMeshConfig = LegacyKVStoreMeshConfig{
+	Debug: false,
+}
+
+func (def LegacyKVStoreMeshConfig) Flags(flags *pflag.FlagSet) {
+	flags.BoolP(option.DebugArg, "D", def.Debug, "Enable debugging mode")
 }
