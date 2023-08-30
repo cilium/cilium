@@ -491,6 +491,14 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+_VERSION=\"(?<currentValue>.*)\""
       ]
+    },
+    {
+      "fileMatch": [
+        "^go.mod$",
+      ],
+      "matchStrings": [
+        "// renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+.+go (?<currentValue>.*)"
+      ]
     }
   ]
 }
