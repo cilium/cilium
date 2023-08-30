@@ -86,8 +86,8 @@ func (u *namespaceUpdater) update(newNS *slim_corev1.Namespace) error {
 	oldIdtyLabels, _ := labelsfilter.Filter(oldLabels)
 	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
 
-	// Do not perform any other operations the the old labels are the same as
-	// the new labels
+	// Do not perform any other operations if the old labels are the same as
+	// the new labels.
 	if oldIdtyLabels.DeepEqual(&newIdtyLabels) {
 		return nil
 	}
@@ -100,7 +100,7 @@ func (u *namespaceUpdater) update(newNS *slim_corev1.Namespace) error {
 			err := ep.ModifyIdentityLabels(newIdtyLabels, oldIdtyLabels)
 			if err != nil {
 				log.WithError(err).WithField(logfields.EndpointID, ep.ID).
-					Warningf("unable to update endpoint with new namespace labels")
+					Warning("unable to update endpoint with new identity labels from namespace labels")
 				failed = true
 			}
 		}
@@ -108,6 +108,7 @@ func (u *namespaceUpdater) update(newNS *slim_corev1.Namespace) error {
 	if failed {
 		return errors.New("unable to update some endpoints with new namespace labels")
 	}
+	u.oldLabels[newNS.Name] = newLabels
 	return nil
 }
 
