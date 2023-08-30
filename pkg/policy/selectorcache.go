@@ -33,6 +33,11 @@ type CachedSelector interface {
 	// be modified, as it is shared among multiple users.
 	GetSelections() identity.NumericIdentitySlice
 
+	// GetMetadataLabels returns metadata labels for additional context
+	// surrounding the selector. These are typically the labels associated with
+	// Cilium rules.
+	GetMetadataLabels() labels.LabelArray
+
 	// Selects return 'true' if the CachedSelector selects the given
 	// numeric identity.
 	Selects(nid identity.NumericIdentity) bool
@@ -349,6 +354,7 @@ type selectorManager struct {
 	selections       atomic.Pointer[identity.NumericIdentitySlice]
 	users            map[CachedSelectionUser]struct{}
 	cachedSelections map[identity.NumericIdentity]struct{}
+	metadataLbls     labels.LabelArray
 }
 
 // Equal is used by checker.Equals, and only considers the identity of the selector,
@@ -374,6 +380,10 @@ func (s *selectorManager) GetSelections() identity.NumericIdentitySlice {
 		return emptySelection
 	}
 	return *selections
+}
+
+func (s *selectorManager) GetMetadataLabels() labels.LabelArray {
+	return s.metadataLbls
 }
 
 // Selects return 'true' if the CachedSelector selects the given
@@ -815,7 +825,7 @@ func (sc *SelectorCache) updateFQDNSelector(fqdnSelec api.FQDNSelector, identiti
 // AddFQDNSelector adds the given api.FQDNSelector in to the selector cache. If
 // an identical EndpointSelector has already been cached, the corresponding
 // CachedSelector is returned, otherwise one is created and added to the cache.
-func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api.FQDNSelector) (cachedSelector CachedSelector, added bool) {
+func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, lbls labels.LabelArray, fqdnSelec api.FQDNSelector) (cachedSelector CachedSelector, added bool) {
 	key := fqdnSelec.String()
 
 	// Lock NameManager before the SelectorCache
@@ -840,6 +850,7 @@ func (sc *SelectorCache) AddFQDNSelector(user CachedSelectionUser, fqdnSelec api
 			key:              key,
 			users:            make(map[CachedSelectionUser]struct{}),
 			cachedSelections: make(map[identity.NumericIdentity]struct{}),
+			metadataLbls:     lbls,
 		},
 		selector: fqdnSelec,
 	}
@@ -905,7 +916,7 @@ func (sc *SelectorCache) FindCachedIdentitySelector(selector api.EndpointSelecto
 // selector cache. If an identical EndpointSelector has already been
 // cached, the corresponding CachedSelector is returned, otherwise one
 // is created and added to the cache.
-func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector api.EndpointSelector) (cachedSelector CachedSelector, added bool) {
+func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, lbls labels.LabelArray, selector api.EndpointSelector) (cachedSelector CachedSelector, added bool) {
 	// The key returned here may be different for equivalent
 	// labelselectors, if the selector's requirements are stored
 	// in different orders. When this happens we'll be tracking
@@ -926,6 +937,7 @@ func (sc *SelectorCache) AddIdentitySelector(user CachedSelectionUser, selector 
 			key:              key,
 			users:            make(map[CachedSelectionUser]struct{}),
 			cachedSelections: make(map[identity.NumericIdentity]struct{}),
+			metadataLbls:     lbls,
 		},
 		selector: selector,
 	}

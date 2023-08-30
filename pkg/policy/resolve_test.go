@@ -11,10 +11,12 @@ import (
 	. "github.com/cilium/checkmate"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
@@ -93,11 +95,12 @@ func GenerateL3IngressRules(numRules int) api.Rules {
 	}
 
 	var rules api.Rules
+	uuid := k8stypes.UID("11bba160-ddca-13e8-b697-0800273b04ff")
 	for i := 1; i <= numRules; i++ {
-
 		rule := api.Rule{
 			EndpointSelector: fooSelector,
 			Ingress:          []api.IngressRule{ingRule},
+			Labels:           utils.GetPolicyLabels("default", "l3-ingress", uuid, utils.ResourceTypeCiliumNetworkPolicy),
 		}
 		rule.Sanitize()
 		rules = append(rules, &rule)
@@ -119,11 +122,12 @@ func GenerateL3EgressRules(numRules int) api.Rules {
 	}
 
 	var rules api.Rules
+	uuid := k8stypes.UID("13bba160-ddca-13e8-b697-0800273b04ff")
 	for i := 1; i <= numRules; i++ {
-
 		rule := api.Rule{
 			EndpointSelector: fooSelector,
 			Egress:           []api.EgressRule{egRule},
+			Labels:           utils.GetPolicyLabels("default", "l3-egress", uuid, utils.ResourceTypeCiliumNetworkPolicy),
 		}
 		rule.Sanitize()
 		rules = append(rules, &rule)
@@ -156,11 +160,12 @@ func GenerateCIDRRules(numRules int) api.Rules {
 	}
 
 	var rules api.Rules
+	uuid := k8stypes.UID("12bba160-ddca-13e8-b697-0800273b04ff")
 	for i := 1; i <= numRules; i++ {
-
 		rule := api.Rule{
 			EndpointSelector: fooSelector,
 			Egress:           []api.EgressRule{egRule},
+			Labels:           utils.GetPolicyLabels("default", "cidr", uuid, utils.ResourceTypeCiliumNetworkPolicy),
 		}
 		rule.Sanitize()
 		rules = append(rules, &rule)

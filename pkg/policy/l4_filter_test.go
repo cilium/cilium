@@ -30,24 +30,24 @@ var (
 	c                      = cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	testSelectorCache      = testNewSelectorCache(c.GetIdentityCache())
 
-	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, api.WildcardEndpointSelector)
+	wildcardCachedSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, api.WildcardEndpointSelector)
 
-	cachedSelectorA, _    = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, endpointSelectorA)
-	cachedSelectorC, _    = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, endpointSelectorC)
-	cachedSelectorHost, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, hostSelector)
+	cachedSelectorA, _    = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, endpointSelectorA)
+	cachedSelectorC, _    = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, endpointSelectorC)
+	cachedSelectorHost, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, hostSelector)
 
 	fooSelector = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
 	bazSelector = api.NewESFromLabels(labels.ParseSelectLabel("baz"))
 
-	cachedFooSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, fooSelector)
-	cachedBazSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, bazSelector)
+	cachedFooSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, fooSelector)
+	cachedBazSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, bazSelector)
 
 	selFoo  = api.NewESFromLabels(labels.ParseSelectLabel("id=foo"))
 	selBar1 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar1"))
 	selBar2 = api.NewESFromLabels(labels.ParseSelectLabel("id=bar2"))
 
-	cachedSelectorBar1, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, selBar1)
-	cachedSelectorBar2, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, selBar2)
+	cachedSelectorBar1, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, selBar1)
+	cachedSelectorBar2, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, selBar2)
 )
 
 type testPolicyContextType struct {
