@@ -234,6 +234,7 @@ callbacks provided by other packages via daemon in cilium-agent.
   ``--tofqdns-proxy-response-max-delay`` command line argument but defaults to
   100ms. It can be exceeded if the system is under load.
 
+.. _isolating-source-toFQDNs-issues-identities-policy:
 
 Identities and Policy
 ~~~~~~~~~~~~~~~~~~~~~
