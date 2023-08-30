@@ -18,14 +18,6 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-type fakeCfg struct {
-	proxyName string
-}
-
-func (f *fakeCfg) K8sServiceProxyNameValue() string {
-	return f.proxyName
-}
-
 func TestServiceProxyName(t *testing.T) {
 	client := fake.NewSimpleClientset()
 
@@ -53,8 +45,7 @@ func TestServiceProxyName(t *testing.T) {
 	}
 
 	// Should return only test-svc-1 which has the service-proxy-name=foo
-	cfg := &fakeCfg{proxyName: "foo"}
-	optMod, _ := GetServiceAndEndpointListOptionsModifier(cfg)
+	optMod, _ := GetServiceAndEndpointListOptionsModifier("foo")
 	options := metav1.ListOptions{}
 	optMod(&options)
 	svcs, err := client.CoreV1().Services("test-ns").List(context.TODO(), options)
@@ -66,8 +57,7 @@ func TestServiceProxyName(t *testing.T) {
 	}
 
 	// Should return only test-svc-3 which doesn't have any service-proxy-name
-	cfg = &fakeCfg{proxyName: ""}
-	optMod, _ = GetServiceAndEndpointListOptionsModifier(cfg)
+	optMod, _ = GetServiceAndEndpointListOptionsModifier("")
 	options = metav1.ListOptions{}
 	optMod(&options)
 	svcs, err = client.CoreV1().Services("test-ns").List(context.TODO(), options)
@@ -105,8 +95,7 @@ func TestServiceEndpointsAndSlices(t *testing.T) {
 	}
 
 	// Should return only test-svc-1, since test-svc-2 is headless
-	cfg := &fakeCfg{}
-	optMod, _ := GetServiceAndEndpointListOptionsModifier(cfg)
+	optMod, _ := GetServiceAndEndpointListOptionsModifier("")
 	options := metav1.ListOptions{}
 	optMod(&options)
 	eps, err := client.CoreV1().Endpoints("test-ns").List(context.TODO(), options)

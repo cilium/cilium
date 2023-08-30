@@ -22,6 +22,7 @@ var (
 		"k8s-resources",
 		"Clustermesh-apiserver Kubernetes resources",
 
+		cell.Config(k8s.DefaultConfig),
 		cell.Provide(
 			k8s.ServiceResource,
 			k8s.EndpointsResource,

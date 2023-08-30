@@ -23,9 +23,6 @@ import (
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
-	"github.com/cilium/cilium/pkg/k8s/resource"
-	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -107,14 +104,10 @@ func newFixture(conf fixtureConfig) *fixture {
 
 	// Construct a new Hive with mocked out dependency cells.
 	f.hive = hive.New(
+		cell.Config(k8sPkg.DefaultConfig),
+
 		// service
-		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) resource.Resource[*slim_core_v1.Service] {
-			return resource.New[*slim_core_v1.Service](
-				lc, utils.ListerWatcherFromTyped[*slim_core_v1.ServiceList](
-					c.Slim().CoreV1().Services(""),
-				),
-			)
-		}),
+		cell.Provide(k8sPkg.ServiceResource),
 
 		// endpoints
 		cell.Provide(k8sPkg.EndpointsResource),

@@ -17,7 +17,6 @@ import (
 	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
-	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
@@ -495,16 +494,4 @@ func newExternalEndpoints() externalEndpoints {
 	return externalEndpoints{
 		endpoints: map[string]*Endpoints{},
 	}
-}
-
-// SupportsEndpointSlice returns true if cilium-operator or cilium-agent should
-// watch and process endpoint slices.
-func SupportsEndpointSlice() bool {
-	return version.Capabilities().EndpointSlice && option.Config.K8sEnableK8sEndpointSlice
-}
-
-// SupportsEndpointSliceV1 returns true if cilium-operator or cilium-agent should
-// watch and process endpoint slices V1.
-func SupportsEndpointSliceV1() bool {
-	return SupportsEndpointSlice() && version.Capabilities().EndpointSliceV1
 }

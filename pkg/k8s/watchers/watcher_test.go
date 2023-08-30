@@ -38,10 +38,6 @@ var emptyResources = agentK8s.Resources{}
 
 type fakeWatcherConfiguration struct{}
 
-func (f *fakeWatcherConfiguration) K8sServiceProxyNameValue() string {
-	return ""
-}
-
 func (f *fakeWatcherConfiguration) K8sIngressControllerEnabled() bool {
 	return false
 }
