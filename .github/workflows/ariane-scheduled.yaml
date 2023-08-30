@@ -20,6 +20,7 @@ jobs:
           - "1.12"
           - "1.13"
           - "1.14"
+    if: github.repository_owner == 'cilium'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout branch
