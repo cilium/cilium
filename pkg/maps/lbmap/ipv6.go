@@ -186,7 +186,7 @@ func (k *Service6Key) ToHost() ServiceKey {
 	return &h
 }
 
-// Service6Value must match 'struct lb6_service_v2' in "bpf/lib/common.h".
+// Service6Value must match 'struct lb6_service' in "bpf/lib/common.h".
 type Service6Value struct {
 	BackendID uint32    `align:"$union0"`
 	Count     uint16    `align:"count"`
@@ -224,7 +224,7 @@ func (s *Service6Value) SetSessionAffinityTimeoutSec(t uint32) {
 
 func (s *Service6Value) SetL7LBProxyPort(port uint16) {
 	// Go doesn't support union types, so we use BackendID to access the
-	// lb4_service.l7_lb_proxy_port field
+	// lb6_service.l7_lb_proxy_port field
 	s.BackendID = uint32(byteorder.HostToNetwork16(port))
 }
 

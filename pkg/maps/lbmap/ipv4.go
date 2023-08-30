@@ -289,7 +289,7 @@ func (k *Service4Key) ToHost() ServiceKey {
 	return &h
 }
 
-// Service4Value must match 'struct lb4_service_v2' in "bpf/lib/common.h".
+// Service4Value must match 'struct lb4_service' in "bpf/lib/common.h".
 type Service4Value struct {
 	BackendID uint32    `align:"$union0"`
 	Count     uint16    `align:"count"`
