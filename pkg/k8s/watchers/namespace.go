@@ -35,7 +35,7 @@ func (k *K8sWatcher) namespacesInit() {
 	k.k8sAPIGroups.AddAPI(apiGroup)
 
 	nsUpdater := namespaceUpdater{
-		oldLabels:       make(map[string]labels.Labels),
+		oldIdtyLabels:   make(map[string]labels.Labels),
 		endpointManager: k.endpointManager,
 	}
 
@@ -65,7 +65,7 @@ func (k *K8sWatcher) namespacesInit() {
 }
 
 type namespaceUpdater struct {
-	oldLabels map[string]labels.Labels
+	oldIdtyLabels map[string]labels.Labels
 
 	endpointManager endpointManager
 }
@@ -80,10 +80,9 @@ func getNamespaceLabels(ns *slim_corev1.Namespace) labels.Labels {
 }
 
 func (u *namespaceUpdater) update(newNS *slim_corev1.Namespace) error {
-	oldLabels := u.oldLabels[newNS.Name]
 	newLabels := getNamespaceLabels(newNS)
 
-	oldIdtyLabels, _ := labelsfilter.Filter(oldLabels)
+	oldIdtyLabels := u.oldIdtyLabels[newNS.Name]
 	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
 
 	// Do not perform any other operations if the old labels are the same as
@@ -108,7 +107,7 @@ func (u *namespaceUpdater) update(newNS *slim_corev1.Namespace) error {
 	if failed {
 		return errors.New("unable to update some endpoints with new namespace labels")
 	}
-	u.oldLabels[newNS.Name] = newLabels
+	u.oldIdtyLabels[newNS.Name] = newIdtyLabels
 	return nil
 }
 
