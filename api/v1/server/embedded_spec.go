@@ -4630,6 +4630,10 @@ func init() {
             "type": "integer"
           }
         },
+        "labels": {
+          "description": "Labels are the metadata labels associated with the selector",
+          "type": "object"
+        },
         "selector": {
           "description": "string form of selector",
           "type": "string"
@@ -10525,6 +10529,10 @@ func init() {
           "items": {
             "type": "integer"
           }
+        },
+        "labels": {
+          "description": "Labels are the metadata labels associated with the selector",
+          "type": "object"
         },
         "selector": {
           "description": "string form of selector",
