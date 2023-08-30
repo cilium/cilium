@@ -296,6 +296,19 @@ func BenchmarkGetCIDRLabels(b *testing.B) {
 	}
 }
 
+// This benchmarks Labels.SortedList(), but cannot live in the labels package
+// without causing an import cycle. We want to benchmark this specific case, as
+// it is excercised by toFQDN policies.
+func BenchmarkLabels_SortedListCIDRIDs(b *testing.B) {
+	lbls := GetCIDRLabels(netip.MustParsePrefix("123.123.123.123/32"))
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = lbls.SortedList()
+	}
+}
+
 func BenchmarkIPStringToLabel(b *testing.B) {
 	for _, ip := range []string{
 		"0.0.0.0/0",
