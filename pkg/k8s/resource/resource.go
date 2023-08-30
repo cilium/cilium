@@ -47,14 +47,42 @@ import (
 // The resource is lazy, e.g. it will not start the informer until a call
 // has been made to Events() or Store().
 type Resource[T k8sRuntime.Object] interface {
+	// Resource can be observed either via Observe() or via Events(). The observable
+	// is implemented in terms of Events() and same semantics apply.
 	stream.Observable[Event[T]]
 
 	// Events returns a channel of events. Each event must be marked as handled
-	// with a call to Done(), otherwise no new events for this key will be emitted.
+	// with a call to Done() which marks the key processed. No new events for this key
+	// will be emitted before Done() is called.
+	//
+	// A missing Done() will lead to an eventual panic (via finalizer on Event[T]).
+	// Panic on this situation is needed as otherwise no new events would be emitted
+	// and thus this needs to be enforced.
+	//
+	// A stream of Upsert events are emitted first to replay the current state of the
+	// store after which incremental upserts and deletes follow until the underlying
+	// store is synchronized after which a Sync event is emitted and further incremental
+	// updates:
+	//
+	//	(start observing), Upsert, Upsert, Upsert, (done replaying store contents), Upsert, Upsert,
+	//	  (store synchronized with API server), Sync, Upsert, Delete, Upsert, ...
+	//
+	// The emitting of the Sync event does not depend on whether or not Upsert events have
+	// all been marked Done() without an error. The sync event solely signals that the underlying
+	// store has synchronized and that Upsert events for objects in a synchronized store have been
+	// sent to the observer.
 	//
 	// When Done() is called with non-nil error the error handler is invoked, which
-	// can ignore, requeue the event or close the channel. The default error handler
+	// can ignore, requeue the event (by key) or close the channel. The default error handler
 	// will requeue.
+	//
+	// If an Upsert is retried and the object has been deleted, a Delete event will be emitted instead.
+	// Conversely if a Delete event is retried and the object has been recreated with the same key,
+	// an Upsert will be emitted instead.
+	//
+	// If an objects is created and immediately deleted, then a slow observer may not observe this at
+	// all. In all cases a Delete event is only emitted if the observer has seen an Upsert. Whether or
+	// not it had been successfully handled (via Done(nil)) does not affect this property.
 	Events(ctx context.Context, opts ...EventsOpt) <-chan Event[T]
 
 	// Store retrieves the read-only store for the resource. Blocks until
