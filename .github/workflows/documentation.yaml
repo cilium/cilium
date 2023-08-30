@@ -17,7 +17,7 @@ concurrency:
 jobs:
   check_changes:
     name: Deduce required tests from code changes
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       docs-tree: ${{ steps.docs-tree.outputs.src }}
     steps:
@@ -52,7 +52,7 @@ jobs:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.docs-tree == 'true' }}
     name: Validate & Build HTML
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0

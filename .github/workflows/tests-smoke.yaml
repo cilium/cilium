@@ -30,7 +30,7 @@ env:
 jobs:
   check_changes:
     name: Deduce required tests from code changes
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       tested: ${{ steps.tested-tree.outputs.src }}
     steps:

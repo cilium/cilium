@@ -26,7 +26,7 @@ jobs:
     name: Build and Push Images
     timeout-minutes: 45
     environment: release-base-images
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout default branch (trusted)
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
@@ -278,7 +278,7 @@ jobs:
 
   image-digests:
     name: Display Digests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: build-and-push
     steps:
       - name: Downloading Image Digests

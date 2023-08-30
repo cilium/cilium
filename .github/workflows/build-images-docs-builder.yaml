@@ -22,7 +22,7 @@ concurrency:
 jobs:
   build-and-push:
     name: Build and Push Image
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
     environment: docs-builder
     outputs:
@@ -91,7 +91,7 @@ jobs:
     name: Update Pull Request with new image reference
     needs: build-and-push
     if: needs.build-and-push.outputs.digest
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     environment: docs-builder
     steps:
@@ -144,7 +144,7 @@ jobs:
     name: Retrieve and display image digest
     needs: build-and-push
     if: needs.build-and-push.outputs.digest
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
       - name: Checkout default branch (trusted)
