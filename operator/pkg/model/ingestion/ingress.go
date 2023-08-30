@@ -91,6 +91,12 @@ func Ingress(ing slim_networkingv1.Ingress, defaultSecretNamespace, defaultSecre
 		}
 
 		l.Hostname = host
+		if rule.HTTP == nil {
+			log.WithField(logfields.Ingress, ing.Namespace+"/"+ing.Name).
+				Warn("Invalid Ingress rule without spec.rules.HTTP defined, skipping rule")
+			continue
+		}
+
 		for _, path := range rule.HTTP.Paths {
 
 			route := model.HTTPRoute{}
