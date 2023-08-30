@@ -157,15 +157,15 @@ var (
 	testSelectorCache       = policy.NewSelectorCache(fakeAllocator, cacheAllocator.GetIdentityCache())
 	dummySelectorCacheUser  = &DummySelectorCacheUser{}
 	DstID1Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst1=test"))
-	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, DstID1Selector)
+	cachedDstID1Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, DstID1Selector)
 	DstID2Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst2=test"))
-	cachedDstID2Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, DstID2Selector)
+	cachedDstID2Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, DstID2Selector)
 	DstID3Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst3=test"))
-	cachedDstID3Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, DstID3Selector)
+	cachedDstID3Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, DstID3Selector)
 	DstID4Selector          = api.NewESFromLabels(labels.ParseSelectLabel("k8s:Dst4=test"))
-	cachedDstID4Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, DstID4Selector)
+	cachedDstID4Selector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, DstID4Selector)
 
-	cachedWildcardSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, api.WildcardEndpointSelector)
+	cachedWildcardSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, api.WildcardEndpointSelector)
 
 	epID1   = uint64(111)
 	epID2   = uint64(222)
@@ -1093,6 +1093,10 @@ type selectorMock struct {
 }
 
 func (t selectorMock) GetSelections() identity.NumericIdentitySlice {
+	panic("implement me")
+}
+
+func (t selectorMock) GetMetadataLabels() labels.LabelArray {
 	panic("implement me")
 }
 

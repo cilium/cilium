@@ -707,7 +707,7 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressDenyFromRequires(c *C) {
 			Values:   []string{"bar2"},
 		},
 	})
-	expectedCachedSelector, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, expectedSelector)
+	expectedCachedSelector, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, expectedSelector)
 
 	expectedDenyPolicy := L4PolicyMap{
 		"80/TCP": &L4Filter{
@@ -787,8 +787,8 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressDenyFromRequires(c *C) {
 			Values:   []string{"bar2"},
 		},
 	})
-	expectedCachedSelector, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, expectedSelector)
-	expectedCachedSelector2, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, expectedSelector2)
+	expectedCachedSelector, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, expectedSelector)
+	expectedCachedSelector2, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, expectedSelector2)
 
 	expectedDenyPolicy := L4PolicyMap{
 		"0/ANY": &L4Filter{
@@ -1045,7 +1045,7 @@ func (ds *PolicyTestSuite) TestWildcardCIDRRulesEgressDeny(c *C) {
 	cidrSelectors := cidrSlice.GetAsEndpointSelectors()
 	var cachedSelectors CachedSelectorSlice
 	for i := range cidrSelectors {
-		c, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, cidrSelectors[i])
+		c, _ := testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, nil, cidrSelectors[i])
 		cachedSelectors = append(cachedSelectors, c)
 		defer testSelectorCache.RemoveSelector(c, dummySelectorCacheUser)
 	}
