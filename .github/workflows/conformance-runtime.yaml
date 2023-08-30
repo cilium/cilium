@@ -53,6 +53,10 @@ concurrency:
     }}
   cancel-in-progress: true
 
+env:
+  # renovate: datasource=golang-version depName=go
+  go-version: 1.21.0
+
 jobs:
   commit-status-start:
     name: Commit Status Start
@@ -371,11 +375,15 @@ jobs:
           provision: 'false'
           cmd: |
             cd /host
+            # The LVH image might ship with an arbitrary Go toolchain version,
+            # install the same Go toolchain version as current HEAD.
+            go install golang.org/dl/go${{ env.go-version }}@latest
+            go${{ env.go-version }} download
             # Install go-junit-report to generate junit files for the
             # privileged tests.
-            go install github.com/jstemmer/go-junit-report/v2@7fde4641acef5b92f397a8baf8309d1a45d608cc
+            go${{ env.go-version}} install github.com/jstemmer/go-junit-report/v2@7fde4641acef5b92f397a8baf8309d1a45d608cc
             export GOTEST_FORMATTER="/root/go/bin/go-junit-report -set-exit-code -iocopy -out test/runtime.xml"
-            make tests-privileged NO_COLOR=1
+            make tests-privileged NO_COLOR=1 GO=go${{ env.go-version }}
 
       - name: Debug failure on VM
         # Only debug the failure on the LVH that have Cilium running as a service,
