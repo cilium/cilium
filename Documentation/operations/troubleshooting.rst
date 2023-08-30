@@ -537,6 +537,101 @@ Opening the ``status``, we can drill down through ``policy.realized.l4``. Do
 your ``ingress`` and ``egress`` rules match what you expect? If not, the
 reference to the errant rules can be found in the ``derived-from-rules`` node.
 
+Policymap pressure and overflow
+-------------------------------
+
+The most important step in debugging policymap pressure is finding out which
+node(s) are impacted.
+
+The ``cilium_bpf_map_pressure{map_name="cilium_policy_*"}`` metric monitors the
+endpoint's BPF policymap pressure. This metric exposes the maximum BPF map
+pressure on the node, meaning the policymap experiencing the most pressure on a
+particular node.
+
+Once the node is known, the troubleshooting steps are as follows:
+
+1. Find the Cilium pod on the node experiencing the problematic policymap
+   pressure and obtain a shell via ``kubectl exec``.
+2. Use ``cilium policy selectors`` to get an overview of which selectors are
+   selecting many identities. The output of this command as of Cilium v1.15
+   additionally displays the namespace and name of the policy resource of each
+   selector.
+3. The type of selector tells you what sort of policy rule could be having an
+   impact. The three existing types of selectors are explained below, each with
+   specific steps depending on the selector. See the steps below corresponding
+   to the type of selector.
+4. Consider bumping the policymap size as a last resort. However, keep in mind
+   the following implications:
+
+   * Increased memory consumption for each policymap.
+   * Generally, as identities increase in the cluster, the more work Cilium
+     performs.
+   * At a broader level, if the policy posture is such that all or nearly all
+     identities are selected, this suggests that the posture is too permissive.
+
++---------------+------------------------------------------------------------------------------------------------------------+
+| Selector type | Form in ``cilium policy selectors`` output                                                                 |
++===============+============================================================================================================+
+| CIDR          | ``&LabelSelector{MatchLabels:map[string]string{cidr.1.1.1.1/32: ,}``                                       |
++---------------+------------------------------------------------------------------------------------------------------------+
+| FQDN          | ``MatchName: , MatchPattern: *``                                                                           |
++---------------+------------------------------------------------------------------------------------------------------------+
+| Label         | ``&LabelSelector{MatchLabels:map[string]string{any.name: curl,k8s.io.kubernetes.pod.namespace: default,}`` |
++---------------+------------------------------------------------------------------------------------------------------------+
+
+An example output of ``cilium policy selectors``:
+
+.. code-block:: shell-session
+
+    root@kind-worker:/home/cilium# cilium policy selectors
+    SELECTOR                                                                                                                                                            LABELS                          USERS   IDENTITIES
+    &LabelSelector{MatchLabels:map[string]string{k8s.io.kubernetes.pod.namespace: kube-system,k8s.k8s-app: kube-dns,},MatchExpressions:[]LabelSelectorRequirement{},}   default/tofqdn-dns-visibility   1       16500
+    &LabelSelector{MatchLabels:map[string]string{reserved.none: ,},MatchExpressions:[]LabelSelectorRequirement{},}                                                      default/tofqdn-dns-visibility   1
+    MatchName: , MatchPattern: *                                                                                                                                        default/tofqdn-dns-visibility   1       16777231
+                                                                                                                                                                                                                16777232
+                                                                                                                                                                                                                16777233
+                                                                                                                                                                                                                16860295
+                                                                                                                                                                                                                16860322
+                                                                                                                                                                                                                16860323
+                                                                                                                                                                                                                16860324
+                                                                                                                                                                                                                16860325
+                                                                                                                                                                                                                16860326
+                                                                                                                                                                                                                16860327
+                                                                                                                                                                                                                16860328
+    &LabelSelector{MatchLabels:map[string]string{any.name: netperf,k8s.io.kubernetes.pod.namespace: default,},MatchExpressions:[]LabelSelectorRequirement{},}           default/tofqdn-dns-visibility   1
+    &LabelSelector{MatchLabels:map[string]string{cidr.1.1.1.1/32: ,},MatchExpressions:[]LabelSelectorRequirement{},}                                                    default/tofqdn-dns-visibility   1       16860329
+    &LabelSelector{MatchLabels:map[string]string{cidr.1.1.1.2/32: ,},MatchExpressions:[]LabelSelectorRequirement{},}                                                    default/tofqdn-dns-visibility   1       16860330
+    &LabelSelector{MatchLabels:map[string]string{cidr.1.1.1.3/32: ,},MatchExpressions:[]LabelSelectorRequirement{},}                                                    default/tofqdn-dns-visibility   1       16860331
+
+From the output above, we see that all three selectors are in use. The
+significant action here is to determine which selector is selecting the most
+identities, because the policy containing that selector is the likely cause for
+the policymap pressure.
+
+Label
+~~~~~
+
+See section on :ref:`identity-relevant labels <identity-relevant-labels>`.
+
+Another aspect to consider is the permissiveness of the policies and whether it
+could be reduced.
+
+CIDR
+~~~~
+
+One way to reduce the number of identities selected by a CIDR selector is to
+broaden the range of the CIDR, if possible. For example, in the above example
+output, the policy contains a ``/32`` rule for each CIDR, rather than using a
+wider range like ``/30`` instead. Updating the policy with this rule creates an
+identity that represents all IPs within the ``/30`` and therefore, only
+requires the selector to select 1 identity.
+
+FQDN
+~~~~
+
+See section on :ref:`isolating the source of toFQDNs issues regarding
+identities and policy <isolating-source-toFQDNs-issues-identities-policy>`.
+
 etcd (kvstore)
 ==============
 
