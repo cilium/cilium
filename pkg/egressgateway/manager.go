@@ -432,15 +432,16 @@ func (manager *Manager) processCiliumEndpoints(ctx context.Context, wg *sync.Wai
 // onAddEgressPolicy parses the given policy config, and updates internal state
 // with the config fields.
 func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
+	logger := log.WithField(logfields.CiliumEgressGatewayPolicyName, policy.Name)
+
 	config, err := ParseCEGP(policy)
 	if err != nil {
+		logger.WithError(err).Warn("Failed to parse CiliumEgressGatewayPolicy")
 		return err
 	}
 
 	manager.Lock()
 	defer manager.Unlock()
-
-	logger := log.WithField(logfields.CiliumEgressGatewayPolicyName, config.id.Name)
 
 	if _, ok := manager.policyConfigs[config.id]; !ok {
 		logger.Debug("Added CiliumEgressGatewayPolicy")
