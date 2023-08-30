@@ -10,6 +10,7 @@ import (
 
 	. "github.com/cilium/checkmate"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
@@ -189,7 +190,7 @@ func (d DummyOwner) PolicyDebug(fields logrus.Fields, msg string) {
 	log.WithFields(fields).Info(msg)
 }
 
-func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Repository {
+func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, tb testing.TB) *Repository {
 	mgr := cache.NewCachingIdentityAllocator(&testidentity.IdentityAllocatorOwnerMock{})
 	ids := mgr.GetIdentityCache()
 	fakeAllocator := testidentity.NewMockIdentityAllocator(ids)
@@ -215,37 +216,36 @@ func bootstrapRepo(ruleGenFunc func(int) api.Rules, numRules int, c *C) *Reposit
 	rulez.UpdateRulesEndpointsCaches(epSet, epsToRegen, wg)
 	wg.Wait()
 
-	c.Assert(epSet.Len(), Equals, 0)
-	c.Assert(epsToRegen.Len(), Equals, 1)
+	require.Equal(tb, 0, epSet.Len())
+	require.Equal(tb, 1, epsToRegen.Len())
 
 	return testRepo
 }
 
-func (ds *PolicyTestSuite) BenchmarkRegenerateCIDRPolicyRules(c *C) {
-	testRepo := bootstrapRepo(GenerateCIDRRules, 1000, c)
-
-	c.ResetTimer()
-	for i := 0; i < c.N; i++ {
+func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
+	testRepo := bootstrapRepo(GenerateCIDRRules, 1000, b)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
 		ip, _ := testRepo.resolvePolicyLocked(fooIdentity)
 		_ = ip.DistillPolicy(DummyOwner{}, false)
 		ip.Detach()
 	}
 }
 
-func (ds *PolicyTestSuite) BenchmarkRegenerateL3IngressPolicyRules(c *C) {
-	testRepo := bootstrapRepo(GenerateL3IngressRules, 1000, c)
-	c.ResetTimer()
-	for i := 0; i < c.N; i++ {
+func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
+	testRepo := bootstrapRepo(GenerateL3IngressRules, 1000, b)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
 		ip, _ := testRepo.resolvePolicyLocked(fooIdentity)
 		_ = ip.DistillPolicy(DummyOwner{}, false)
 		ip.Detach()
 	}
 }
 
-func (ds *PolicyTestSuite) BenchmarkRegenerateL3EgressPolicyRules(c *C) {
-	testRepo := bootstrapRepo(GenerateL3EgressRules, 1000, c)
-	c.ResetTimer()
-	for i := 0; i < c.N; i++ {
+func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
+	testRepo := bootstrapRepo(GenerateL3EgressRules, 1000, b)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
 		ip, _ := testRepo.resolvePolicyLocked(fooIdentity)
 		_ = ip.DistillPolicy(DummyOwner{}, false)
 		ip.Detach()
