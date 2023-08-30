@@ -2864,6 +2864,9 @@ definitions:
       selector:
         description: string form of selector
         type: string
+      labels:
+        description: Labels are the metadata labels associated with the selector
+        type: object
       identities:
         description: identities mapping to this selector
         type: array

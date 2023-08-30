@@ -13,6 +13,7 @@ cilium policy selectors [flags]
 ```
   -h, --help            help for selectors
   -o, --output string   json| yaml| jsonpath='{}'
+  -v, --verbose         Show the full labels
 ```
 
 ### Options inherited from parent commands
