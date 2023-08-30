@@ -92,7 +92,7 @@ jobs:
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -116,7 +116,7 @@ jobs:
           ECHO_SERVER_IMAGE: k8s.gcr.io/ingressconformance/echoserver:v0.0.1@sha256:9b34b17f391f87fb2155f01da2f2f90b7a4a5c1110ed84cb5379faa4f570dc52
 
       - name: Checkout ingress-controller-conformance
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           repository: kubernetes-sigs/ingress-controller-conformance
           path: ingress-controller-conformance
