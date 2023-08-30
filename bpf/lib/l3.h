@@ -71,7 +71,8 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 #ifndef SKIP_POLICY_MAP
 static __always_inline int
 l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
-		  const struct endpoint_info *ep, __u8 direction __maybe_unused,
+		  const struct endpoint_info *ep __maybe_unused,
+		  __u8 direction __maybe_unused,
 		  bool from_host __maybe_unused, bool hairpin_flow __maybe_unused,
 		  bool from_tunnel __maybe_unused, __u32 cluster_id __maybe_unused)
 {
@@ -83,16 +84,6 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 	 */
 	update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
 #endif
-
-#ifndef DISABLE_LOOPBACK_LB
-	/* Skip ingress policy enforcement for hairpin traffic. As the hairpin
-	 * traffic is destined to a local pod (more specifically, the same pod
-	 * the traffic originated from, we skip the tail call for ingress policy
-	 * enforcement, and directly redirect it to the endpoint).
-	 */
-	if (unlikely(hairpin_flow))
-		return redirect_ep(ctx, ep->ifindex, from_host);
-#endif /* DISABLE_LOOPBACK_LB */
 
 #if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
 	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
@@ -113,6 +104,16 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 	return redirect_ep(ctx, ep->ifindex, from_host);
 # endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
 #else
+# ifndef DISABLE_LOOPBACK_LB
+	/* Skip ingress policy enforcement for hairpin traffic. As the hairpin
+	 * traffic is destined to a local pod (more specifically, the same pod
+	 * the traffic originated from) we skip the tail call for ingress policy
+	 * enforcement, and directly redirect it to the endpoint.
+	 */
+	if (unlikely(hairpin_flow))
+		return redirect_ep(ctx, ep->ifindex, from_host);
+# endif /* DISABLE_LOOPBACK_LB */
+
 	/* Jumps to destination pod's BPF program to enforce ingress policies. */
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
 	ctx_store_meta(ctx, CB_IFINDEX, ep->ifindex);
