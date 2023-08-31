@@ -405,7 +405,7 @@ Policy L7 (HTTP/Kafka)
 Name                                     Labels                                             Default    Description
 ======================================== ================================================== ========== ========================================================
 ``proxy_redirects``                      ``protocol``                                       Enabled    Number of redirects installed for endpoints
-``proxy_upstream_reply_seconds``                                                            Enabled    Seconds waited for upstream server to reply to a request
+``proxy_upstream_reply_seconds``         ``error``, ``protocol_l7``, ``scope``              Enabled    Seconds waited for upstream server to reply to a request
 ``proxy_datapath_update_timeout_total``                                                     Disabled   Number of total datapath update timeouts due to FQDN IP updates
 ``policy_l7_total``                      ``rule``, ``proxy_type``                           Enabled    Number of total L7 requests/responses
 ======================================== ================================================== ========== ========================================================
