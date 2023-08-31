@@ -346,22 +346,6 @@ var (
 	// ProxyPolicyL7Total is a count of all l7 requests handled by proxy
 	ProxyPolicyL7Total = NoOpCounterVec
 
-	// ProxyParseErrors is a count of failed parse errors on proxy
-	// Deprecated: in favor of ProxyPolicyL7Total
-	ProxyParseErrors = NoOpCounter
-
-	// ProxyForwarded is a count of all forwarded requests by proxy
-	// Deprecated: in favor of ProxyPolicyL7Total
-	ProxyForwarded = NoOpCounter
-
-	// ProxyDenied is a count of all denied requests by policy by the proxy
-	// Deprecated: in favor of ProxyPolicyL7Total
-	ProxyDenied = NoOpCounter
-
-	// ProxyReceived is a count of all received requests by the proxy
-	// Deprecated: in favor of ProxyPolicyL7Total
-	ProxyReceived = NoOpCounter
-
 	// ProxyUpstreamTime is how long the upstream server took to reply labeled
 	// by error, protocol and span time
 	ProxyUpstreamTime = NoOpObserverVec
@@ -597,10 +581,6 @@ type LegacyMetrics struct {
 	EventLagK8s                      metric.Gauge
 	ProxyRedirects                   metric.Vec[metric.Gauge]
 	ProxyPolicyL7Total               metric.Vec[metric.Counter]
-	ProxyParseErrors                 metric.Counter
-	ProxyForwarded                   metric.Counter
-	ProxyDenied                      metric.Counter
-	ProxyReceived                    metric.Counter
 	ProxyUpstreamTime                metric.Vec[metric.Observer]
 	ProxyDatapathUpdateTimeout       metric.Counter
 	DropCount                        metric.Vec[metric.Counter]
@@ -812,35 +792,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:       "policy_l7_total",
 			Help:       "Number of total proxy requests handled",
 		}, []string{"rule", "proxy_type"}),
-
-		ProxyParseErrors: metric.NewCounter(metric.CounterOpts{
-			ConfigName: Namespace + "_policy_l7_parse_errors_total",
-			Namespace:  Namespace,
-			Name:       "policy_l7_parse_errors_total",
-			Help:       "Number of total L7 parse errors",
-		}),
-
-		ProxyForwarded: metric.NewCounter(metric.CounterOpts{
-			ConfigName: Namespace + "_policy_l7_forwarded_total",
-			Namespace:  Namespace,
-			Name:       "policy_l7_forwarded_total",
-			Help:       "Number of total L7 forwarded requests/responses",
-		}),
-
-		ProxyDenied: metric.NewCounter(metric.CounterOpts{
-			ConfigName: Namespace + "_policy_l7_denied_total",
-			Namespace:  Namespace,
-			Name:       "policy_l7_denied_total",
-			Help:       "Number of total L7 denied requests/responses due to policy",
-		}),
-
-		ProxyReceived: metric.NewCounter(metric.CounterOpts{
-			ConfigName: Namespace + "_policy_l7_received_total",
-
-			Namespace: Namespace,
-			Name:      "policy_l7_received_total",
-			Help:      "Number of total L7 received requests/responses",
-		}),
 
 		ProxyUpstreamTime: metric.NewHistogramVec(metric.HistogramOpts{
 			ConfigName: Namespace + "_proxy_upstream_reply_seconds",
@@ -1342,10 +1293,6 @@ func NewLegacyMetrics() *LegacyMetrics {
 	EventLagK8s = lm.EventLagK8s
 	ProxyRedirects = lm.ProxyRedirects
 	ProxyPolicyL7Total = lm.ProxyPolicyL7Total
-	ProxyParseErrors = lm.ProxyParseErrors
-	ProxyForwarded = lm.ProxyForwarded
-	ProxyDenied = lm.ProxyDenied
-	ProxyReceived = lm.ProxyReceived
 	ProxyUpstreamTime = lm.ProxyUpstreamTime
 	ProxyDatapathUpdateTimeout = lm.ProxyDatapathUpdateTimeout
 	DropCount = lm.DropCount

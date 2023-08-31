@@ -540,6 +540,11 @@ To migrate a classic mode Cilium installation to Helm mode, you need to
 uninstall Cilium using classic mode Cilium CLI, and then re-install Cilium
 using Helm mode Cilium CLI.
 
+Removed Metrics
+~~~~~~~~~~~~~~~
+
+* Removed formerly deprecated metrics: ``cilium_policy_l7_parse_errors_total``, ``cilium_policy_l7_forwarded_total``, ``cilium_policy_l7_denied_total``, ``cilium_policy_l7_received_total`` (replaced by ``cilium_policy_l7_total``).
+
 Changed Metrics
 ~~~~~~~~~~~~~~~
 
