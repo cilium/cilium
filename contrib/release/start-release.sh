@@ -123,8 +123,6 @@ main() {
     logecho "  * If this is a prerelease, create a revert commit"
     logecho "* Push the PR to Github for review ('submit-release.sh')"
     logecho "* (After PR merge) Use 'tag-release.sh' to prepare tags/release"
-
-    # Leave $version-changes.txt around for prep-release.sh usage later
 }
 
 main "$@"

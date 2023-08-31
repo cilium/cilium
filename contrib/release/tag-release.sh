@@ -53,10 +53,6 @@ main() {
     fi
     local version="v$ersion"
 
-    if [[ ! -e $version-changes.txt ]]; then
-        common::exit 1 "Generate release notes via contrib/release/start-release.sh"
-    fi
-
     git fetch $REMOTE
 
     local commit="$(git rev-parse HEAD)"
@@ -75,14 +71,6 @@ main() {
     logrun -s git tag -a $ersion -s -m "Release $version"
     logrun -s git tag -a $version -s -m "Release $version"
     logrun -s git push $REMOTE $version $ersion
-
-    # Leave $version-changes.txt around so we can generate release notes later
-    echo -e "$ersion\n" > $version-release-summary.txt
-    echo "We are pleased to release Cilium $version." >>  $version-release-summary.txt
-    tail -n+4 $version-changes.txt >> $version-release-summary.txt
-    logecho "Creating Github draft release"
-    logrun hub release create -d -F $version-release-summary.txt $version
-    logecho "Browse to $RELEASES_URL to see the draft release"
 
     logecho
     logecho "Next steps:"

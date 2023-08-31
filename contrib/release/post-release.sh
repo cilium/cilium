@@ -44,9 +44,9 @@ handle_args() {
         exit 1
     fi
 
-    if [ ! -z "$2" ] && ! echo "$2" | grep -q "[0-9]\+\.[0-9]\+\.[0-9]\+"; then
+    if [ ! -z "$2" ] && ! echo "$2" | grep -q "$RELEASE_REGEX"; then
         usage 2>&1
-        common::exit 1 "Invalid VERSION ARG \"$2\"; Expected X.Y.Z"
+        common::exit 1 "Invalid VERSION ARG \"$2\"; $RELEASE_FORMAT_MSG"
     fi
 
     if [ -z "${GITHUB_TOKEN}" ]; then
@@ -65,6 +65,21 @@ main() {
 
     git checkout -b pr/$version-digests $version
     ${DIR}/pull-docker-manifests.sh "$@"
+
+    echo -e "$ersion\n" > $version-release-summary.txt
+    # Grab the release notes for the current release, stop before the next
+    # release. The start of line `## vX.Y.Z` lines will match in command.
+    tail -n+4 CHANGELOG.md | sed '/^## v.*$/q' >> $version-release-summary.txt
+    tail -n+2 digest-$version.txt >> $version-release-summary.txt
+    logecho "Creating Github draft release"
+    logrun hub release create -d -F $version-release-summary.txt $version
+    logecho "Browse to $RELEASES_URL to see the draft release"
+
+    if version_is_prerelease "$version"; then
+        # No digest updates for main branch for prereleases.
+        return
+    fi
+
     if grep -q update-helm-values Documentation/Makefile; then
         logrun make -C Documentation update-helm-values
     fi
