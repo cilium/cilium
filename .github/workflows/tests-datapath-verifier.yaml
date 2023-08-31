@@ -52,6 +52,8 @@ concurrency:
 
 env:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  # renovate: datasource=golang-version depName=go
+  go-version: 1.21.0
 
 jobs:
   commit-status-start:
@@ -110,6 +112,10 @@ jobs:
           cmd: |
             git config --global --add safe.directory /host
             uname -a
+            # The LVH image might ship with an arbitrary Go toolchain version,
+            # install the same Go toolchain version as current HEAD.
+            go install golang.org/dl/go${{ env.go-version }}@latest
+            go${{ env.go-version }} download
 
       - name: Run verifier tests
         uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
@@ -118,7 +124,7 @@ jobs:
           cmd: |
             cd /host/
             # Run with cgo disabled, LVH images don't ship with gcc.
-            CGO_ENABLED=0 go test -v -parallel=1 ./test/verifier -cilium-base-path /host -ci-kernel-version ${{ matrix.ci-kernel }}
+            CGO_ENABLED=0 go${{ env.go-version }} test -v -parallel=1 ./test/verifier -cilium-base-path /host -ci-kernel-version ${{ matrix.ci-kernel }}
 
       - name: Fetch artifacts
         if: ${{ !success() }}
