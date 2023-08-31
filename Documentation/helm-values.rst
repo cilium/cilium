@@ -2484,6 +2484,10 @@
      - Affinity for cilium-preflight
      - object
      - ``{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}``
+   * - :spelling:ignore:`preflight.annotations`
+     - Annotations added to all top-level preflight resources
+     - object
+     - ``{}``
    * - :spelling:ignore:`preflight.enabled`
      - Enable Cilium pre-flight resources (required for upgrade)
      - bool
