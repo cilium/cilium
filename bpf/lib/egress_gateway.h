@@ -36,7 +36,7 @@ struct egress_gw_policy_entry *lookup_ip4_egress_gw_policy(__be32 saddr, __be32 
 #endif /* ENABLE_EGRESS_GATEWAY */
 
 static __always_inline
-bool egress_gw_request_needs_redirect(struct iphdr *ip4 __maybe_unused,
+bool egress_gw_request_needs_redirect(struct ipv4_ct_tuple *rtuple __maybe_unused,
 				      int ct_status __maybe_unused,
 				      __u32 *tunnel_endpoint __maybe_unused)
 {
@@ -52,7 +52,8 @@ bool egress_gw_request_needs_redirect(struct iphdr *ip4 __maybe_unused,
 	if (ct_status == CT_REPLY || ct_status == CT_RELATED)
 		return false;
 
-	egress_gw_policy = lookup_ip4_egress_gw_policy(ip4->saddr, ip4->daddr);
+	egress_gw_policy = lookup_ip4_egress_gw_policy(ipv4_ct_reverse_tuple_saddr(rtuple),
+						       ipv4_ct_reverse_tuple_daddr(rtuple));
 	if (!egress_gw_policy)
 		return false;
 
