@@ -17,7 +17,6 @@ import (
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
-	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -153,21 +152,6 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 				}
 				if !found {
 					listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* egress */, useOriginalSourceAddr, isL7LB))
-				}
-			}
-
-			// Inject listener socket option for Cilium datapath, if not already present.
-			{
-				found := false
-				for _, so := range listener.SocketOptions {
-					if so.Level == unix.SOL_SOCKET && so.Name == unix.SO_MARK {
-						found = true
-						break
-					}
-				}
-
-				if !found {
-					listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* egress */))
 				}
 			}
 
@@ -419,9 +403,6 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 				resources.portAllocations = make(map[string]uint16)
 			}
 			resources.portAllocations[listener.Name] = port
-
-			// Inject Transparent to work with TPROXY
-			listener.Transparent = &wrapperspb.BoolValue{Value: true}
 		}
 		if validate {
 			if err := listener.Validate(); err != nil {
