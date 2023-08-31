@@ -105,6 +105,8 @@ jobs:
             kernel: '5.10-20230824.161940'
             kube-proxy: 'iptables'
             kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
             tunnel: 'vxlan'
             lb-mode: 'snat'
             endpoint-routes: 'true'
@@ -115,6 +117,8 @@ jobs:
             kernel: '5.15-20230824.161940'
             kube-proxy: 'iptables'
             kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
             tunnel: 'disabled'
             lb-mode: 'dsr'
             endpoint-routes: 'true'
@@ -137,6 +141,8 @@ jobs:
             kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'none'
             kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
             tunnel: 'disabled'
             lb-mode: 'snat'
             egress-gateway: 'true'
@@ -183,6 +189,8 @@ jobs:
             kernel: '5.10-20230824.161940'
             kube-proxy: 'iptables'
             kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
             tunnel: 'vxlan'
             encryption: 'wireguard'
             encryption-node: 'false'
@@ -195,6 +203,8 @@ jobs:
             kernel: '5.15-20230824.161940'
             kube-proxy: 'iptables'
             kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'false'
@@ -207,6 +217,8 @@ jobs:
             kernel: '6.0-20230824.161940'
             kube-proxy: 'none'
             kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
             tunnel: 'vxlan'
             encryption: 'wireguard'
             encryption-node: 'true'
@@ -218,6 +230,8 @@ jobs:
             kernel: 'bpf-next-20230420.212204'
             kube-proxy: 'none'
             kpr: 'true'
+            devices: '{eth0,eth1}'
+            secondary-network: 'true'
             tunnel: 'disabled'
             encryption: 'wireguard'
             encryption-node: 'true'
@@ -262,6 +276,7 @@ jobs:
           image-tag: ${{ steps.vars.outputs.sha }}
           chart-dir: './install/kubernetes/cilium'
           tunnel: ${{ matrix.tunnel }}
+          devices: ${{ matrix.devices }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv6: ${{ matrix.ipv6 }}
           kpr: ${{ matrix.kpr }}
@@ -352,11 +367,17 @@ jobs:
           cmd: |
             cd /host/
 
+            EXTRA=""
+            if [ "${{ matrix.secondary-network }}" = "true" ]; then
+              EXTRA="--secondary-network-iface=eth1"
+            fi
+
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-              --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})"
+              --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+              \$EXTRA
 
             ./contrib/scripts/kind-down.sh
 
