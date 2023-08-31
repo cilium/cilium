@@ -552,7 +552,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 			serverPort = uint16(serverPortUint64)
 		}
 	}
-	ep.UpdateProxyStatistics(strings.ToUpper(protocol), serverPort, false, !msg.Response, verdict)
+	ep.UpdateProxyStatistics("fqdn", strings.ToUpper(protocol), serverPort, false, !msg.Response, verdict)
 
 	if msg.Response && msg.Rcode == dns.RcodeSuccess && len(responseIPs) > 0 {
 		stat.PolicyGenerationTime.Start()
