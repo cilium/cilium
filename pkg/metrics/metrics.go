@@ -258,6 +258,9 @@ var (
 	// It must be thread-safe.
 	Endpoint metric.GaugeFunc
 
+	// EndpointMaxIfindex is the maximum observed interface index for existing endpoints
+	EndpointMaxIfindex = NoOpGauge
+
 	// EndpointRegenerationTotal is a count of the number of times any endpoint
 	// has been regenerated and success/fail outcome
 	EndpointRegenerationTotal = NoOpCounterVec
@@ -570,6 +573,7 @@ type LegacyMetrics struct {
 	NodeConnectivityStatus           metric.Vec[metric.Gauge]
 	NodeConnectivityLatency          metric.Vec[metric.Gauge]
 	Endpoint                         metric.GaugeFunc
+	EndpointMaxIfindex               metric.Gauge
 	EndpointRegenerationTotal        metric.Vec[metric.Counter]
 	EndpointStateCount               metric.Vec[metric.Gauge]
 	EndpointRegenerationTimeStats    metric.Vec[metric.Observer]
@@ -663,6 +667,14 @@ func NewLegacyMetrics() *LegacyMetrics {
 			Name:      "api_process_time_seconds",
 			Help:      "Duration of processed API calls labeled by path, method and return code.",
 		}, []string{LabelPath, LabelMethod, LabelAPIReturnCode}),
+
+		EndpointMaxIfindex: metric.NewGauge(metric.GaugeOpts{
+			ConfigName: Namespace + "_endpoint_max_ifindex",
+			Disabled:   true,
+			Namespace:  Namespace,
+			Name:       "endpoint_max_ifindex",
+			Help:       "Maximum interface index observed for existing endpoints",
+		}),
 
 		EndpointRegenerationTotal: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_endpoint_regenerations_total",
@@ -1288,6 +1300,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	NodeConnectivityStatus = lm.NodeConnectivityStatus
 	NodeConnectivityLatency = lm.NodeConnectivityLatency
 	Endpoint = lm.Endpoint
+	EndpointMaxIfindex = lm.EndpointMaxIfindex
 	EndpointRegenerationTotal = lm.EndpointRegenerationTotal
 	EndpointStateCount = lm.EndpointStateCount
 	EndpointRegenerationTimeStats = lm.EndpointRegenerationTimeStats
