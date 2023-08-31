@@ -362,6 +362,11 @@ Added Metrics
 * ``cilium_ipam_capacity``
 * ``cilium_endpoint_max_ifindex`` See `#27953 <https://github.com/cilium/cilium/pull/27953>`_ for configuration and usage information
 
+Removed Metrics
+~~~~~~~~~~~~~~~
+
+* Removed formerly deprecated metrics: ``cilium_policy_l7_parse_errors_total``, ``cilium_policy_l7_forwarded_total``, ``cilium_policy_l7_denied_total``, ``cilium_policy_l7_received_total`` (replaced by ``cilium_policy_l7_total``).
+
 Changed Metrics
 ~~~~~~~~~~~~~~~
 
