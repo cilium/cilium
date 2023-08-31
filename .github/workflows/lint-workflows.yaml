@@ -145,7 +145,8 @@ jobs:
         uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
         with:
           python-version: '3.10'
-      - run: pip install yamale
+      - name: Install yamela
+        run: pip install yamale
       - name: Checkout code
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
@@ -169,7 +170,8 @@ jobs:
         uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
         with:
           python-version: '3.10'
-      - run: pip install yamale
+      - name: Install yamela
+        run: pip install yamale
       - name: Checkout code
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
@@ -192,3 +194,34 @@ jobs:
             fi
           done
 
+  name-validation:
+    name: Validate Workflow Names
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        with:
+          persist-credentials: false
+          # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
+          path: src/github.com/cilium/cilium
+
+      - name: Validate Job and Step names
+        shell: bash
+        run: |
+          EXIT=0
+          cd src/github.com/cilium/cilium/.github/workflows
+          for FILE in *.yaml;do
+            JOBS=$(yq '.jobs | to_entries | .[] | select(.value.name == null) | "  " + .key' $FILE)
+            STEPS=$(yq '.jobs | to_entries | .[] as $job | $job.value.steps[] | {"key": $job.key, "name": .name} | select(.name == null) | "  "+.key' $FILE)
+            if [ "${JOBS}" != "" ];then
+              echo Jobs are missing name field, in file $FILE
+              echo "${JOBS}" | awk '{for (i=1; i<=NF; i++) print "  " $i}'
+              EXIT=1
+            fi
+            if [ "${STEPS}" != "" ];then
+              echo Steps are missing name field, under these Jobs in file $FILE
+              echo "${STEPS}" | awk '{for (i=1; i<=NF; i++) print "  " $i}'
+              EXIT=1
+            fi
+          done
+          exit ${EXIT}

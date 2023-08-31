@@ -91,7 +91,8 @@ jobs:
         ref: ${{ steps.get-ref.outputs.ref }}
         # required for git describe
         fetch-depth: 0
-    - id: get-version
+    - name: Get version
+      id: get-version
       run: |
         set -o pipefail
         set -e
