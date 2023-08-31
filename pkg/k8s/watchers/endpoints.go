@@ -26,7 +26,6 @@ func (k *K8sWatcher) endpointsInit() {
 	apiGroup := resources.K8sAPIGroupEndpointSliceOrEndpoint
 
 	var synced atomic.Bool
-	synced.Store(false)
 
 	k.blockWaitGroupToSyncResources(
 		k.stop,

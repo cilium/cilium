@@ -17,7 +17,6 @@ import (
 
 func (k *K8sWatcher) servicesInit() {
 	var synced atomic.Bool
-	synced.Store(false)
 	swgSvcs := lock.NewStoppableWaitGroup()
 
 	k.blockWaitGroupToSyncResources(
