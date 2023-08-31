@@ -112,7 +112,7 @@ check_table "commits/v1"
 
 git add README.rst stable.txt Documentation/_static/stable-version.json $ACTS_YAML
 if ! git diff-index --quiet HEAD -- README.rst stable.txt Documentation/_static/stable-version.json $ACTS_YAML; then
-    git commit -s -m "Update stable releases"
+    git commit -s -m "README: Update releases"
     echo "README.rst and stable.txt updated, submit the PR now."
 else
     echo "No new releases found."
