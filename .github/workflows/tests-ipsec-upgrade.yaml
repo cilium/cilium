@@ -144,6 +144,8 @@ jobs:
           encryption-node: ${{ matrix.encryption-node }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
+          mutual-auth: false
+          misc: 'bpfClockProbe=false,cni.uninstall=false'
 
       - name: Derive newest Cilium installation config
         id: cilium-newest-config
@@ -161,6 +163,8 @@ jobs:
           encryption-node: ${{ matrix.encryption-node }}
           egress-gateway: ${{ matrix.egress-gateway }}
           host-fw: ${{ matrix.host-fw }}
+          mutual-auth: false
+          misc: 'bpfClockProbe=false,cni.uninstall=false'
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
