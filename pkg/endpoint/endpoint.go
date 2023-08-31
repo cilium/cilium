@@ -1523,21 +1523,17 @@ func (e *Endpoint) UpdateProxyStatistics(proxyType, l4Protocol string, port uint
 	}
 
 	stats.Received++
-	metrics.ProxyReceived.Inc()
 	metrics.ProxyPolicyL7Total.WithLabelValues("received", proxyType).Inc()
 
 	switch verdict {
 	case accesslog.VerdictForwarded:
 		stats.Forwarded++
-		metrics.ProxyForwarded.Inc()
 		metrics.ProxyPolicyL7Total.WithLabelValues("forwarded", proxyType).Inc()
 	case accesslog.VerdictDenied:
 		stats.Denied++
-		metrics.ProxyDenied.Inc()
 		metrics.ProxyPolicyL7Total.WithLabelValues("denied", proxyType).Inc()
 	case accesslog.VerdictError:
 		stats.Error++
-		metrics.ProxyParseErrors.Inc()
 		metrics.ProxyPolicyL7Total.WithLabelValues("parse_errors", proxyType).Inc()
 	}
 }
