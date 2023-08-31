@@ -41,7 +41,6 @@ func nodeEventsAreEqual(oldNode, newNode *slim_corev1.Node) bool {
 func (k *K8sWatcher) NodesInit(k8sClient client.Clientset) {
 	k.nodesInitOnce.Do(func() {
 		var synced atomic.Bool
-		synced.Store(false)
 		swg := lock.NewStoppableWaitGroup()
 		k.blockWaitGroupToSyncResources(
 			k.stop,
