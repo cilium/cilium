@@ -28,7 +28,6 @@ import (
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	"github.com/cilium/proxy/pkg/policy/api/kafka"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -846,20 +845,6 @@ func getListenerFilter(isIngress bool, useOriginalSourceAddr bool, l7lb bool) *e
 	}
 }
 
-func getListenerSocketMarkOption(isIngress bool) *envoy_config_core.SocketOption {
-	socketMark := int64(0xB00)
-	if isIngress {
-		socketMark = 0xA00
-	}
-	return &envoy_config_core.SocketOption{
-		Description: "Listener socket mark",
-		Level:       unix.SOL_SOCKET,
-		Name:        unix.SO_MARK,
-		Value:       &envoy_config_core.SocketOption_IntValue{IntValue: socketMark},
-		State:       envoy_config_core.SocketOption_STATE_PREBIND,
-	}
-}
-
 func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool) *envoy_config_listener.Listener {
 	clusterName := egressClusterName
 	tlsClusterName := egressTLSClusterName
@@ -874,10 +859,6 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 		Name:                name,
 		Address:             addr,
 		AdditionalAddresses: additionalAddr,
-		Transparent:         &wrapperspb.BoolValue{Value: true},
-		SocketOptions: []*envoy_config_core.SocketOption{
-			getListenerSocketMarkOption(isIngress),
-		},
 		// FilterChains: []*envoy_config_listener.FilterChain
 		ListenerFilters: []*envoy_config_listener.ListenerFilter{
 			// Always insert tls_inspector as the first filter
