@@ -651,6 +651,18 @@ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 	ct_flip_tuple_dir4(tuple);
 }
 
+static __always_inline __be32
+ipv4_ct_reverse_tuple_saddr(const struct ipv4_ct_tuple *rtuple)
+{
+	return rtuple->daddr;
+}
+
+static __always_inline __be32
+ipv4_ct_reverse_tuple_daddr(const struct ipv4_ct_tuple *rtuple)
+{
+	return rtuple->saddr;
+}
+
 static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 						    int off,
 						    enum ct_dir dir __maybe_unused,
