@@ -129,7 +129,7 @@ type eventsBuffer struct {
 // off the buffer (or is not reading off it fast enough).
 type Handle struct {
 	c      chan *Event
-	closed *atomic.Value
+	closed atomic.Bool
 	closer *sync.Once
 	err    error
 }
@@ -154,8 +154,7 @@ func (h *Handle) close(err error) {
 }
 
 func (h *Handle) isClosed() bool {
-	v := h.closed.Load()
-	return v.(bool)
+	return h.closed.Load()
 }
 
 func (h *Handle) isFull() bool {
@@ -199,12 +198,9 @@ func (eb *eventsBuffer) dumpAndSubscribe(callback EventCallbackFunc, follow bool
 		return nil, nil
 	}
 
-	closed := &atomic.Value{}
-	closed.Store(false)
 	h := &Handle{
 		c:      make(chan *Event, eventSubChanBufferSize),
 		closer: &sync.Once{},
-		closed: closed,
 	}
 
 	eb.subsLock.Lock()
