@@ -8,6 +8,7 @@ source $DIR/../backporting/common.sh
 
 MAJ_REGEX='[0-9]\+\.[0-9]\+'
 VER_REGEX='[0-9]\+\.[0-9]\+\.[0-9]\+\(-\(pre\|rc\)\.[0-9]\+\)\?'
+PRE_REGEX='[0-9]\+\.[0-9]\+\.[0-9]\+-\(pre\|rc\)\.[0-9]\+'
 REGEX_FILTER_DATE='s/^\([-0-9]\+\).*/\1/'
 PROJECTS_REGEX='s/.*projects\/\([0-9]\+\).*/\1/'
 ACTS_YAML=".github/maintainers-little-helper.yaml"
@@ -31,10 +32,15 @@ update_release() {
     old_date=$(git log -1 -s --format="%cI" v$current | sed "$REGEX_FILTER_DATE")
     new_date=$(git log -1 -s --format="%cI" $latest | sed "$REGEX_FILTER_DATE")
     elease=$(echo $old_branch | sed 's/v//')
-    old_proj=$(grep -F "$elease" -A 1 $ACTS_YAML | grep projects | sort | uniq \
-               | sed "$PROJECTS_REGEX")
-    new_proj=$(git show $REMOTE/$old_branch:$ACTS_YAML | grep projects \
-               | sed "$PROJECTS_REGEX")
+
+    old_proj=""
+    new_proj=""
+    if grep -qF "$elease" $ACTS_YAML; then
+        old_proj=$(grep -F "$elease" -A 1 $ACTS_YAML | grep projects | sort | uniq \
+                   | sed "$PROJECTS_REGEX")
+        new_proj=$(git show $REMOTE/$old_branch:$ACTS_YAML | grep projects \
+                   | sed "$PROJECTS_REGEX")
+    fi
 
     printf "%10s %10s %10s %10s\n" "current" "old_date" "new_date" "elease"
     printf "%10s %10s %10s %10s\n" $current  $old_date  $new_date  $elease
@@ -44,8 +50,9 @@ update_release() {
     echo "  $latest on $new_date with project $new_proj"
     sed -i '/'$obj_regex'/s/'$old_branch'\(.*\)'$old_date'/'$new_branch'\1'$new_date'/g' README.rst
     sed -i '/'$obj_regex'/s/v'$current'/v'$latest'/g' README.rst
-    sed -i 's/\(projects\/\)'$old_proj'/\1'$new_proj'/g' $ACTS_YAML
-
+    if [ -n $old_proj ]; then
+        sed -i 's/\(projects\/\)'$old_proj'/\1'$new_proj'/g' $ACTS_YAML
+    fi
 }
 
 for release in $(grep "Release Notes" README.rst \
@@ -63,6 +70,17 @@ for release in $(grep "Release Notes" README.rst \
     fi
 
     update_release $release $latest "tree\/" "$VER_REGEX"
+done
+
+for release in $(grep "$PRE_REGEX" README.rst \
+                 | sed 's/.*commits\/\(v'"$MAJ_REGEX"'\).*/\1/'); do
+    latest=$(git describe --tags $REMOTE/main \
+             | sed 's/v//' | sed 's/\('"$PRE_REGEX"'\).*/\1/')
+    if grep -q -F $latest README.rst; then
+        continue
+    fi
+
+    update_release $release $latest "commits\/" "$PRE_REGEX"
 done
 
 git add README.rst stable.txt Documentation/_static/stable-version.json $ACTS_YAML
