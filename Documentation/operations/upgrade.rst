@@ -540,6 +540,11 @@ To migrate a classic mode Cilium installation to Helm mode, you need to
 uninstall Cilium using classic mode Cilium CLI, and then re-install Cilium
 using Helm mode Cilium CLI.
 
+Changed Metrics
+~~~~~~~~~~~~~~~
+
+* ``cilium_policy_l7_total`` now has label ``proxy_type`` to distinguish between fqdn and envoy proxy requests.
+
 .. _earlier_upgrade_notes:
 
 Earlier Upgrade Notes

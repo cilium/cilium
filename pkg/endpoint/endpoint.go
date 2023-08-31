@@ -1504,7 +1504,7 @@ func (e *Endpoint) getProxyStatisticsLocked(key string, l7Protocol string, port 
 
 // UpdateProxyStatistics updates the Endpoint's proxy  statistics to account
 // for a new observed flow with the given characteristics.
-func (e *Endpoint) UpdateProxyStatistics(l4Protocol string, port uint16, ingress, request bool, verdict accesslog.FlowVerdict) {
+func (e *Endpoint) UpdateProxyStatistics(proxyType, l4Protocol string, port uint16, ingress, request bool, verdict accesslog.FlowVerdict) {
 	e.proxyStatisticsMutex.Lock()
 	defer e.proxyStatisticsMutex.Unlock()
 
@@ -1524,21 +1524,21 @@ func (e *Endpoint) UpdateProxyStatistics(l4Protocol string, port uint16, ingress
 
 	stats.Received++
 	metrics.ProxyReceived.Inc()
-	metrics.ProxyPolicyL7Total.WithLabelValues("received").Inc()
+	metrics.ProxyPolicyL7Total.WithLabelValues("received", proxyType).Inc()
 
 	switch verdict {
 	case accesslog.VerdictForwarded:
 		stats.Forwarded++
 		metrics.ProxyForwarded.Inc()
-		metrics.ProxyPolicyL7Total.WithLabelValues("forwarded").Inc()
+		metrics.ProxyPolicyL7Total.WithLabelValues("forwarded", proxyType).Inc()
 	case accesslog.VerdictDenied:
 		stats.Denied++
 		metrics.ProxyDenied.Inc()
-		metrics.ProxyPolicyL7Total.WithLabelValues("denied").Inc()
+		metrics.ProxyPolicyL7Total.WithLabelValues("denied", proxyType).Inc()
 	case accesslog.VerdictError:
 		stats.Error++
 		metrics.ProxyParseErrors.Inc()
-		metrics.ProxyPolicyL7Total.WithLabelValues("parse_errors").Inc()
+		metrics.ProxyPolicyL7Total.WithLabelValues("parse_errors", proxyType).Inc()
 	}
 }
 
