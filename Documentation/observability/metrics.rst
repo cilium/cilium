@@ -398,8 +398,8 @@ Name                                       Labels                               
 ``policy_implementation_delay``            ``source``                                         Enabled    Time in seconds between a policy change and it being fully deployed into the datapath, labeled by the policy's source
 ========================================== ================================================== ========== ========================================================
 
-Policy L7 (HTTP/Kafka)
-~~~~~~~~~~~~~~~~~~~~~~
+Policy L7 (HTTP/Kafka/FQDN)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ======================================== ================================================== ========== ========================================================
 Name                                     Labels                                             Default    Description
