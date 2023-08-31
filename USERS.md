@@ -185,6 +185,11 @@ Users (Alphabetically)
       U: Networking, Security, Hubble UI for network visibility
       L: https://github.com/deckhouse/deckhouse
 
+    * N: Deezer
+      D: Deezer is using Cilium as CNI for all our on-prem clusters for its performance and security. We plan to leverage BGP features as well soon
+      U: CNI, Hubble, kube-proxy replacement, eBPF
+      L: https://github.com/deezer
+
     * N: DigitalOcean
       D: DigitalOcean is using Cilium as the CNI for Digital Ocean's managed Kubernetes Services (DOKS)
       U: Networking and network policy
