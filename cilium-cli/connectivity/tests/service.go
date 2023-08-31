@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/pkg/versioncheck"
@@ -205,8 +206,7 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 	// Get the NodePort allocated to the Service.
 	np := uint32(svc.Service.Spec.Ports[0].NodePort)
 
-	addrs := make([]corev1.NodeAddress, len(node.Status.Addresses))
-	copy(addrs, node.Status.Addresses)
+	addrs := slices.Clone(node.Status.Addresses)
 
 	if secondaryNetwork {
 		if t.Context().Features[check.FeatureIPv4].Enabled {
