@@ -83,7 +83,7 @@ body:
     validations:
       required: true
   - type: textarea
-    id: issue-filed
+    id: related-issues
     attributes:
       label: Related GitHub Issues
       description: |
@@ -91,7 +91,7 @@ body:
     validations:
       required: false
   - type: textarea
-    id: issue-filed
+    id: other-feedback
     attributes:
       label: Other Feedback
       description: |
