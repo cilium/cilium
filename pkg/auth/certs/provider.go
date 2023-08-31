@@ -25,6 +25,11 @@ type CertificateProvider interface {
 	// to send as trust chain for a certain identity as well as a private key
 	GetCertificateForIdentity(id identity.NumericIdentity) (*tls.Certificate, error)
 
+	// GetIdentityOfCertificate gives the identity that is encoded inside a certificate.
+	// it will not validate the certificate chain, it will only return the identity.
+	// To validate the certificate you should use ValidateIdentity.
+	GetIdentityOfCertificate(cert *x509.Certificate) (identity.NumericIdentity, error)
+
 	// ValidateIdentity will check if the SANs or other identity methods are valid
 	// for the given Cilium identity this function is needed as SPIFFE encodes the
 	// full ID in the URI SAN.

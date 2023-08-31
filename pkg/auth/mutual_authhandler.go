@@ -31,12 +31,17 @@ type endpointGetter interface {
 	GetEndpoints() []*endpoint.Endpoint
 }
 
+type policyGetter interface {
+	GetAuthTypes(localID, remoteID identity.NumericIdentity) policy.AuthTypes
+}
+
 type mutualAuthParams struct {
 	cell.In
 
 	CertificateProvider certs.CertificateProvider
 
-	EndpointManager endpointmanager.EndpointManager
+	EndpointManager  endpointmanager.EndpointManager
+	PolicyRepository *policy.Repository
 }
 
 func newMutualAuthHandler(logger logrus.FieldLogger, lc hive.Lifecycle, cfg MutualAuthConfig, params mutualAuthParams) authHandlerResult {
@@ -49,10 +54,11 @@ func newMutualAuthHandler(logger logrus.FieldLogger, lc hive.Lifecycle, cfg Mutu
 	}
 
 	mAuthHandler := &mutualAuthHandler{
-		cfg:             cfg,
-		log:             logger,
-		cert:            params.CertificateProvider,
-		endpointManager: params.EndpointManager,
+		cfg:              cfg,
+		log:              logger,
+		cert:             params.CertificateProvider,
+		endpointManager:  params.EndpointManager,
+		policyRepository: params.PolicyRepository,
 	}
 
 	lc.Append(hive.Hook{OnStart: mAuthHandler.onStart, OnStop: mAuthHandler.onStop})
@@ -84,7 +90,8 @@ type mutualAuthHandler struct {
 
 	cancelSocketListen context.CancelFunc
 
-	endpointManager endpointGetter
+	endpointManager  endpointGetter
+	policyRepository policyGetter
 }
 
 func (m *mutualAuthHandler) authenticate(ar *authRequest) (*authResponse, error) {
@@ -149,6 +156,14 @@ func (m *mutualAuthHandler) authenticate(ar *authRequest) (*authResponse, error)
 		return nil, fmt.Errorf("failed to perform TLS handshake: %w", err)
 	}
 
+	// read the first byte to check if the handshake had validated at the other end
+	// if this is not done the Go TLS library will not wait for the remote ValidatePeerCertificate
+	// function to have finished.
+	buf := make([]byte, 1)
+	if _, err := tlsConn.Read(buf); err != nil {
+		return nil, fmt.Errorf("failed to read from TLS socket: %w", err)
+	}
+
 	if expirationTime == nil {
 		return nil, fmt.Errorf("failed to get expiration time of peer certificate")
 	}
@@ -204,29 +219,68 @@ func (m *mutualAuthHandler) handleConnection(ctx context.Context, conn net.Conn)
 		return
 	}
 
+	var localID identity.NumericIdentity
+
 	tlsConn := tls.Server(conn, &tls.Config{
-		ClientAuth:     tls.RequireAndVerifyClientCert,
-		GetCertificate: m.GetCertificateForIncomingConnection,
-		MinVersion:     tls.VersionTLS13,
-		ClientCAs:      caBundle,
+		ClientAuth: tls.RequireAndVerifyClientCert,
+		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			id, cert, err := m.GetCertificateForIncomingConnection(info)
+			localID = id
+			return cert, err
+		},
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			peerID, err := m.cert.GetIdentityOfCertificate(getLeafCertificate(verifiedChains))
+			if err != nil {
+				return fmt.Errorf("failed to get identity of certificate: %w", err)
+			}
+
+			return m.validateAuthIsAllowed(localID, peerID)
+		},
+		MinVersion: tls.VersionTLS13,
+		ClientCAs:  caBundle,
 	})
 	defer tlsConn.Close()
 
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
-		m.log.WithError(err).Error("failed to perform TLS handshake")
+		m.log.WithError(err).Error("failed to perform incoming TLS handshake")
+	}
+
+	// write a byte to signal that the handshake was successful
+	if _, err := tlsConn.Write([]byte{0}); err != nil {
+		m.log.WithError(err).Warning("failed to write to TLS socket")
 	}
 }
 
-func (m *mutualAuthHandler) GetCertificateForIncomingConnection(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+func (m *mutualAuthHandler) validateAuthIsAllowed(localID, remoteID identity.NumericIdentity) error {
+	if localID == 0 {
+		return errors.New("no local identity was set in the handshake")
+	} else if remoteID == 0 {
+		return errors.New("no remote identity was set in the handshake")
+	}
+
+	if m.policyRepository == nil {
+		return errors.New("policy repository is not loaded")
+	}
+
+	types := m.policyRepository.GetAuthTypes(localID, remoteID)
+
+	if _, allowed := types[policy.AuthTypeSpire]; !allowed {
+		return fmt.Errorf("Identities %q and %q are not allowed to authenticate with SPIRE", localID.String(), remoteID.String())
+	}
+
+	return nil
+}
+
+func (m *mutualAuthHandler) GetCertificateForIncomingConnection(info *tls.ClientHelloInfo) (identity.NumericIdentity, *tls.Certificate, error) {
 	m.log.WithField("SNI", info.ServerName).Debug("Got new TLS connection")
 	id, err := m.cert.SNIToNumericIdentity(info.ServerName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get identity for SNI %s: %w", info.ServerName, err)
+		return id, nil, fmt.Errorf("failed to get identity for SNI %s: %w", info.ServerName, err)
 	}
 
 	// this checks if the requested Security ID is present on the local node
 	if m.endpointManager == nil {
-		return nil, errors.New("endpoint manager is not loaded")
+		return id, nil, errors.New("endpoint manager is not loaded")
 	}
 	localEPs := m.endpointManager.GetEndpoints()
 	matched := false
@@ -238,10 +292,11 @@ func (m *mutualAuthHandler) GetCertificateForIncomingConnection(info *tls.Client
 	}
 
 	if !matched {
-		return nil, fmt.Errorf("no local endpoint present for identity %s", id.String())
+		return id, nil, fmt.Errorf("no local endpoint present for identity %s", id.String())
 	}
 
-	return m.cert.GetCertificateForIdentity(id)
+	cert, err := m.cert.GetCertificateForIdentity(id)
+	return id, cert, err
 }
 
 func (m *mutualAuthHandler) onStart(ctx hive.HookContext) error {
@@ -314,4 +369,17 @@ func (m *mutualAuthHandler) subscribeToRotatedIdentities() <-chan certs.Certific
 
 func (m *mutualAuthHandler) certProviderStatus() *models.Status {
 	return m.cert.Status()
+}
+
+func getLeafCertificate(verifiedChains [][]*x509.Certificate) *x509.Certificate {
+	var leaf *x509.Certificate
+	for _, chain := range verifiedChains {
+		for _, cert := range chain {
+			if !cert.IsCA {
+				leaf = cert
+			}
+		}
+	}
+
+	return leaf
 }

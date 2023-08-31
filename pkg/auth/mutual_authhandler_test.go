@@ -26,12 +26,14 @@ import (
 	"github.com/cilium/cilium/pkg/auth/certs"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/policy"
 )
 
 var (
-	id1000 = identity.NumericIdentity(1000)
-	id1001 = identity.NumericIdentity(1001)
-	idbad1 = identity.NumericIdentity(9999)
+	id1000        = identity.NumericIdentity(1000)
+	id1001        = identity.NumericIdentity(1001)
+	idNotInPolicy = identity.NumericIdentity(1003)
+	idbad1        = identity.NumericIdentity(9999)
 )
 
 type fakeEndpointGetter struct{}
@@ -39,7 +41,7 @@ type fakeEndpointGetter struct{}
 func (f *fakeEndpointGetter) GetEndpoints() []*endpoint.Endpoint {
 	ep := []*endpoint.Endpoint{}
 
-	for _, id := range []identity.NumericIdentity{id1000, id1001, idbad1} {
+	for _, id := range []identity.NumericIdentity{id1000, id1001, idbad1, idNotInPolicy} {
 		ep = append(ep, &endpoint.Endpoint{
 			SecurityIdentity: &identity.Identity{
 				ID: id,
@@ -75,6 +77,12 @@ func (f *fakeCertificateProvider) GetCertificateForIdentity(id identity.NumericI
 		Leaf:        cert,
 	}
 	return &tlsCert, nil
+}
+
+func (f *fakeCertificateProvider) GetIdentityOfCertificate(cert *x509.Certificate) (identity.NumericIdentity, error) {
+	url := cert.URIs[0].String()
+	idStr := strings.TrimPrefix(url, "spiffe://spiffe.cilium/identity/")
+	return identity.ParseNumericIdentity(idStr)
 }
 
 func (f *fakeCertificateProvider) ValidateIdentity(id identity.NumericIdentity, cert *x509.Certificate) (bool, error) {
@@ -138,7 +146,7 @@ func generateTestCertificates(t *testing.T) (map[string]*x509.Certificate, map[s
 	leafCerts := make(map[string]*x509.Certificate)
 	leafPrivKeys := make(map[string]*ecdsa.PrivateKey)
 
-	for i := 1000; i <= 1002; i++ {
+	for i := 1000; i <= 1003; i++ {
 		certURL, err := url.Parse(fmt.Sprintf("spiffe://spiffe.cilium/identity/%d", i))
 		if err != nil {
 			t.Fatalf("failed to parse URL: %v", err)
@@ -282,6 +290,7 @@ func Test_mutualAuthHandler_GetCertificateForIncomingConnection(t *testing.T) {
 		args    args
 		wantURI string
 		wantErr bool
+		wantID  identity.NumericIdentity
 	}{
 		{
 			name: "valid certificate with SNI to match identity",
@@ -292,6 +301,7 @@ func Test_mutualAuthHandler_GetCertificateForIncomingConnection(t *testing.T) {
 			},
 			wantURI: "spiffe://spiffe.cilium/identity/1000",
 			wantErr: false,
+			wantID:  id1000,
 		},
 		{
 			name: "no certificate for non existing endpoint identity",
@@ -329,7 +339,7 @@ func Test_mutualAuthHandler_GetCertificateForIncomingConnection(t *testing.T) {
 				cert:            &fakeCertificateProvider{certMap: certMap, caPool: caPool, privkeyMap: keyMap},
 				endpointManager: &fakeEndpointGetter{},
 			}
-			got, err := m.GetCertificateForIncomingConnection(tt.args.info)
+			gotID, got, err := m.GetCertificateForIncomingConnection(tt.args.info)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("mutualAuthHandler.GetCertificateForIncomingConnection() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -345,6 +355,9 @@ func Test_mutualAuthHandler_GetCertificateForIncomingConnection(t *testing.T) {
 				if !reflect.DeepEqual(gotURI, tt.wantURI) {
 					t.Errorf("mutualAuthHandler.GetCertificateForIncomingConnection() = %v, want %v", got, tt.wantURI)
 				}
+				if gotID != tt.wantID {
+					t.Errorf("mutualAuthHandler.GetCertificateForIncomingConnection() = %v, want %v", gotID, tt.wantID)
+				}
 			}
 
 		})
@@ -354,11 +367,22 @@ func Test_mutualAuthHandler_GetCertificateForIncomingConnection(t *testing.T) {
 func Test_mutualAuthHandler_authenticate(t *testing.T) {
 	certMap, keyMap, caPool := generateTestCertificates(t)
 
+	policyRepo := &fakePolicyRepository{
+		needsAuth: map[identity.NumericIdentity]map[identity.NumericIdentity]policy.AuthTypes{
+			id1001: {
+				id1000: map[policy.AuthType]struct{}{
+					policy.AuthTypeSpire: {},
+				},
+			},
+		},
+	}
+
 	mAuthHandler := &mutualAuthHandler{
-		cfg:             MutualAuthConfig{MutualAuthListenerPort: getRandomOpenPort(t)},
-		log:             logrus.New(),
-		cert:            &fakeCertificateProvider{certMap: certMap, caPool: caPool, privkeyMap: keyMap},
-		endpointManager: &fakeEndpointGetter{},
+		cfg:              MutualAuthConfig{MutualAuthListenerPort: getRandomOpenPort(t)},
+		log:              logrus.New(),
+		cert:             &fakeCertificateProvider{certMap: certMap, caPool: caPool, privkeyMap: keyMap},
+		endpointManager:  &fakeEndpointGetter{},
+		policyRepository: policyRepo,
 	}
 	mAuthHandler.onStart(context.Background())
 	defer mAuthHandler.onStop(context.Background())
@@ -424,6 +448,17 @@ func Test_mutualAuthHandler_authenticate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "error on authenticate when an identity pair is not listed in policy",
+			args: args{
+				ar: &authRequest{
+					localIdentity:  id1000,
+					remoteIdentity: idNotInPolicy,
+					remoteNodeIP:   GetLoopBackIP(t),
+				},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -432,7 +467,7 @@ func Test_mutualAuthHandler_authenticate(t *testing.T) {
 				t.Errorf("mutualAuthHandler.authenticate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+			if !tt.wantErr && !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("mutualAuthHandler.authenticate() = %v, want %v", got, tt.want)
 			}
 		})

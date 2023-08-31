@@ -126,3 +126,10 @@ func (s *SpireDelegateClient) Status() *models.Status {
 		State: models.StatusStateOk,
 	}
 }
+
+func (s *SpireDelegateClient) GetIdentityOfCertificate(cert *x509.Certificate) (identity.NumericIdentity, error) {
+	if len(cert.URIs) == 0 {
+		return 0, errors.New("certificate has no URI SAN")
+	}
+	return s.spiffeIDToNumericIdentity(cert.URIs[0].String())
+}
