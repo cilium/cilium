@@ -495,7 +495,7 @@ func (n *Node) GetIPv6AllocCIDRs() []*cidr.CIDR {
 	if n.IPv6AllocCIDR != nil {
 		result = append(result, n.IPv6AllocCIDR)
 	}
-	if len(n.IPv4SecondaryAllocCIDRs) > 0 {
+	if len(n.IPv6SecondaryAllocCIDRs) > 0 {
 		result = append(result, n.IPv6SecondaryAllocCIDRs...)
 	}
 	return result
