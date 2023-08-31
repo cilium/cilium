@@ -6,6 +6,9 @@ DIR=$(dirname $(readlink -ne $BASH_SOURCE))
 source $DIR/lib/common.sh
 source $DIR/../backporting/common.sh
 
+set -e
+set -o pipefail
+
 MAJ_REGEX='[0-9]\+\.[0-9]\+'
 VER_REGEX='[0-9]\+\.[0-9]\+\.[0-9]\+\(-\(pre\|rc\)\.[0-9]\+\)\?'
 PRE_REGEX='[0-9]\+\.[0-9]\+\.[0-9]\+-\(pre\|rc\)\.[0-9]\+'
