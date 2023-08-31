@@ -20,9 +20,11 @@ env:
 
 jobs:
   preflight-clusterrole:
+    name: Preflight Clusterrole Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - name: Checout code
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           persist-credentials: false
       - name: Check pre-flight clusterrole
@@ -37,6 +39,7 @@ jobs:
              cilium-preflight/clusterrole.yaml
 
   cyclonus-test:
+    name: Cyclonus Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main branch to access local actions

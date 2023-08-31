@@ -61,13 +61,15 @@ jobs:
   coccicheck:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.coccinelle == 'true' }}
-    name: coccicheck
+    name: Run coccicheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - name: Checkout code
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           persist-credentials: false
-      - uses: docker://cilium/coccicheck:2.4@sha256:24abe3fbb8e829fa41a68a3b76cb4df84fd5a87a7d1d6254c1c1fe5effb5bd1b
+      - name: Run coccicheck
+        uses: docker://cilium/coccicheck:2.4@sha256:24abe3fbb8e829fa41a68a3b76cb4df84fd5a87a7d1d6254c1c1fe5effb5bd1b
         with:
           entrypoint: ./contrib/coccinelle/check-cocci.sh
         # Note: Setting COCCINELLE_HOME can be removed, here and in the
