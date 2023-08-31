@@ -151,8 +151,6 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 			if !found {
 				listener.ListenerFilters = append(listener.ListenerFilters, getListenerFilter(false /* egress */, useOriginalSourceAddr, isL7LB))
 			}
-			// Inject listener socket option for Cilium datapath
-			listener.SocketOptions = append(listener.SocketOptions, getListenerSocketMarkOption(false /* egress */))
 
 			// Fill in SDS & RDS config source if unset
 			for _, fc := range listener.FilterChains {
@@ -402,9 +400,6 @@ func ParseResources(cecNamespace string, cecName string, anySlice []cilium_v2.XD
 				resources.portAllocations = make(map[string]uint16)
 			}
 			resources.portAllocations[listener.Name] = port
-
-			// Inject Transparent to work with TPROXY
-			listener.Transparent = &wrapperspb.BoolValue{Value: true}
 		}
 		if validate {
 			if err := listener.Validate(); err != nil {

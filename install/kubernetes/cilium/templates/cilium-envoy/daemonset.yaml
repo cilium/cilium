@@ -61,7 +61,7 @@ spec:
         image: {{ include "cilium.image" .Values.envoy.image | quote }}
         imagePullPolicy: {{ .Values.envoy.image.pullPolicy }}
         command:
-        - /usr/bin/cilium-envoy
+        - /usr/bin/cilium-envoy-starter
         args:
         - '-c /var/run/cilium/envoy/bootstrap-config.json'
         - '--base-id 0'
