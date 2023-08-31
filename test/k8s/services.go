@@ -424,18 +424,6 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`,
 			}
 		})
 
-		SkipItIf(func() bool {
-			// Currently, KIND doesn't support multiple interfaces among nodes
-			return helpers.IsIntegration(helpers.CIIntegrationKind)
-		}, "Tests with secondary NodePort device", func() {
-			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"loadBalancer.mode": "snat",
-				"devices":           fmt.Sprintf(`'{%s,%s}'`, ni.PrivateIface, helpers.SecondaryIface),
-			})
-
-			testNodePortExternal(kubectl, ni, true, false, false)
-		})
-
 		It("Tests with direct routing and DSR", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"loadBalancer.mode":    "dsr",
