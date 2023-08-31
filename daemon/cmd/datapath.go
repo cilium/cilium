@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/maps/worldcidrsmap"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -283,6 +284,15 @@ func (d *Daemon) syncHostIPs() error {
 			d.ipcache.RemoveLabels(ippkg.IPToNetPrefix(ip), labels.LabelHost, daemonResourceID)
 		}
 	}
+
+	// we have a reference to all ifindex values, so we update the related metric
+	maxIfindex := uint32(0)
+	for _, endpoint := range existingEndpoints {
+		if endpoint.IfIndex > maxIfindex {
+			maxIfindex = endpoint.IfIndex
+		}
+	}
+	metrics.EndpointMaxIfindex.Set(float64(maxIfindex))
 
 	if option.Config.EnableVTEP {
 		err := setupVTEPMapping()

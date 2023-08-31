@@ -19,6 +19,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/version"
@@ -257,6 +258,9 @@ var (
 	// Endpoint is a function used to collect this metric.
 	// It must be thread-safe.
 	Endpoint metric.GaugeFunc
+
+	// EndpointMaxIfindex is the maximum observed interface index for existing endpoints
+	EndpointMaxIfindex = NoOpGauge
 
 	// EndpointRegenerationTotal is a count of the number of times any endpoint
 	// has been regenerated and success/fail outcome
@@ -573,6 +577,7 @@ type LegacyMetrics struct {
 	NodeConnectivityStatus           metric.Vec[metric.Gauge]
 	NodeConnectivityLatency          metric.Vec[metric.Gauge]
 	Endpoint                         metric.GaugeFunc
+	EndpointMaxIfindex               metric.Gauge
 	EndpointRegenerationTotal        metric.Vec[metric.Counter]
 	EndpointStateCount               metric.Vec[metric.Gauge]
 	EndpointRegenerationTimeStats    metric.Vec[metric.Observer]
@@ -1293,6 +1298,23 @@ func NewLegacyMetrics() *LegacyMetrics {
 		}),
 	}
 
+	ifindexOpts := metric.GaugeOpts{
+		ConfigName: Namespace + "_endpoint_max_ifindex",
+		Disabled:   true,
+		Namespace:  Namespace,
+		Name:       "endpoint_max_ifindex",
+		Help:       "Maximum interface index observed for existing endpoints",
+	}
+	// On kernels which do not provide ifindex via the FIB, Cilium needs
+	// to store it in the CT map, with a field limit of max(uint16).
+	// The EndpointMaxIfindex metric can be used to determine if that
+	// limit is approaching. However, it should only be enabled by
+	// default if we observe that the FIB is not providing the ifindex.
+	if probes.HaveFibIfindex() != nil {
+		ifindexOpts.Disabled = false
+	}
+	lm.EndpointMaxIfindex = metric.NewGauge(ifindexOpts)
+
 	v := version.GetCiliumVersion()
 	lm.VersionMetric.WithLabelValues(v.Version, v.Revision, v.Arch)
 
@@ -1301,6 +1323,7 @@ func NewLegacyMetrics() *LegacyMetrics {
 	NodeConnectivityStatus = lm.NodeConnectivityStatus
 	NodeConnectivityLatency = lm.NodeConnectivityLatency
 	Endpoint = lm.Endpoint
+	EndpointMaxIfindex = lm.EndpointMaxIfindex
 	EndpointRegenerationTotal = lm.EndpointRegenerationTotal
 	EndpointStateCount = lm.EndpointStateCount
 	EndpointRegenerationTimeStats = lm.EndpointRegenerationTimeStats
