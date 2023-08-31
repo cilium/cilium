@@ -808,11 +808,10 @@ func NewLegacyMetrics() *LegacyMetrics {
 
 		ProxyPolicyL7Total: metric.NewCounterVec(metric.CounterOpts{
 			ConfigName: Namespace + "_policy_l7_total",
-
-			Namespace: Namespace,
-			Name:      "policy_l7_total",
-			Help:      "Number of total proxy requests handled",
-		}, []string{"rule"}),
+			Namespace:  Namespace,
+			Name:       "policy_l7_total",
+			Help:       "Number of total proxy requests handled",
+		}, []string{"rule", "proxy_type"}),
 
 		ProxyParseErrors: metric.NewCounter(metric.CounterOpts{
 			ConfigName: Namespace + "_policy_l7_parse_errors_total",

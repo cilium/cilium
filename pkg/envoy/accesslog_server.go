@@ -148,7 +148,7 @@ func (s *AccessLogServer) handleConn(ctx context.Context, conn *net.UnixConn) {
 			if !request {
 				port = r.SourceEndpoint.Port
 			}
-			localEndpoint.UpdateProxyStatistics("TCP", port, ingress, request, r.Verdict)
+			localEndpoint.UpdateProxyStatistics("envoy", "TCP", port, ingress, request, r.Verdict)
 		}
 	}
 }
