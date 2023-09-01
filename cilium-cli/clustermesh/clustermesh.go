@@ -1655,6 +1655,7 @@ endpoints:
 EOF
 
 CILIUM_OPTS=" --join-cluster %[8]s --enable-endpoint-health-checking=false"
+CILIUM_OPTS+=" --cluster-name ${CLUSTER_NAME:-%[9]s} --cluster-id ${CLUSTER_ID:-%[10]s}"
 CILIUM_OPTS+=" --kvstore etcd --kvstore-opt etcd.config=/var/lib/cilium/etcd/config.yaml"
 if [ -n "$HOST_IP" ] ; then
     CILIUM_OPTS+=" --ipv4-node $HOST_IP"
@@ -1823,7 +1824,7 @@ func (k *K8sClusterMesh) WriteExternalWorkloadInstallScript(ctx context.Context,
 		daemonSet.Spec.Template.Spec.Containers[0].Image, clusterAddr,
 		configOverwrites,
 		string(ai.CA), string(ai.ExternalWorkloadCert), string(ai.ExternalWorkloadKey),
-		strconv.Itoa(k.params.Retries), sockLBOpt)
+		strconv.Itoa(k.params.Retries), sockLBOpt, ai.ClusterName, ai.ClusterID)
 	return nil
 }
 
