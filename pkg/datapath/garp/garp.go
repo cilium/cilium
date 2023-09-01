@@ -20,6 +20,10 @@ type Sender interface {
 	Send(netip.Addr) error
 }
 
+type InterfaceSender interface {
+	SendOnInterfaceIdx(int, netip.Addr) error
+}
+
 func newGARPSender(log logrus.FieldLogger, cfg Config) (Sender, error) {
 	if cfg.L2PodAnnouncementsInterface == "" {
 		return nil, nil
@@ -53,6 +57,22 @@ func (s *sender) Send(ip netip.Addr) error {
 	}
 
 	return err
+}
+
+// NewInterfaceSender creates a new interface sender.
+func NewInterfaceSender() InterfaceSender {
+	return &interfaceSender{}
+}
+
+type interfaceSender struct{}
+
+func (is *interfaceSender) SendOnInterfaceIdx(ifaceIdx int, ip netip.Addr) error {
+	iface, err := interfaceByIndex(ifaceIdx)
+	if err != nil {
+		return fmt.Errorf("gratuitous arp sender interface %d not found: %w", ifaceIdx, err)
+	}
+
+	return send(iface, ip)
 }
 
 func SendOnInterfaceIdx(ifaceIdx int, ip netip.Addr) error {

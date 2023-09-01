@@ -40,3 +40,10 @@ var Cell = cell.Module(
 
 	cell.Invoke(newGARPProcessor),
 )
+
+var SenderCell = cell.Module(
+	"garp-interface-sender",
+	"GARP interface sender",
+
+	cell.Provide(NewInterfaceSender),
+)
