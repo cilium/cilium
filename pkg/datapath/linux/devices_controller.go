@@ -379,10 +379,6 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 		for _, u := range updates {
 			switch u := u.(type) {
 			case netlink.AddrUpdate:
-				if u.Scope == unix.RT_SCOPE_LINK {
-					// Ignore link local addresses.
-					continue
-				}
 				addr := deviceAddressFromAddrUpdate(u)
 				if u.NewAddr {
 					d.Addrs = append(d.Addrs, addr)
