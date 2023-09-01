@@ -1,4 +1,4 @@
-name: Conformance E2E (ci-e2e)
+name: Conformance IPsec E2E (ci-ipsec-e2e)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -62,13 +62,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
-        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7  
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
         with:
           sha: ${{ inputs.SHA || github.sha }}
 
   setup-and-test:
-    runs-on: ubuntu-latest-4cores-16gb
     name: 'Setup & Test'
+    runs-on: ubuntu-latest-4cores-16gb
     env:
       job_name: 'Setup & Test'
     strategy:
@@ -80,167 +80,35 @@ jobs:
 
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '4.19-20230824.161940'
+            kernel: '4.19-20230810.091425'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'vxlan'
+            encryption: 'ipsec'
+            encryption-node: 'false'
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20230824.161940'
+            kernel: '5.4-20230810.091425'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
 
           - name: '3'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20230824.161940'
+            kernel: '5.10-20230810.091425'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'disabled'
+            encryption: 'ipsec'
+            encryption-node: 'false'
             endpoint-routes: 'true'
 
           - name: '4'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20230824.161940'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-
-          - name: '5'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20230824.161940'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'dsr'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-            host-fw: 'true'
-
-          - name: '6'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.0-20230824.161940'
-            kube-proxy: 'none'
-            kpr: 'true'
-            tunnel: 'vxlan'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            host-fw: 'true'
-            lb-acceleration: 'testing-only'
-
-          - name: '7'
-            # We don't want to update bpf-next after branching
-            kernel: 'bpf-next-20230420.212204'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-            lb-acceleration: 'testing-only'
-
-          - name: '8'
-            # We don't want to update bpf-next after branching
-            kernel: 'bpf-next-20230420.212204'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'geneve'
-            endpoint-routes: 'true'
-
-          - name: '9'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '4.19-20230824.161940'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'vxlan'
-            encryption: 'ipsec'
-            encryption-node: 'false'
-
-          - name: '10'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20230824.161940'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
-
-          - name: '11'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20230824.161940'
-            kube-proxy: 'iptables'
-            kpr: 'false'
-            tunnel: 'disabled'
-            encryption: 'ipsec'
-            encryption-node: 'false'
-            endpoint-routes: 'true'
-
-          - name: '12'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20230824.161940'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            lb-mode: 'snat'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-
-          - name: '13'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.15-20230824.161940'
-            kube-proxy: 'iptables'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'false'
-            lb-mode: 'dsr'
-            endpoint-routes: 'true'
-            egress-gateway: 'true'
-
-          - name: '14'
-            # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '6.0-20230824.161940'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'vxlan'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-
-          - name: '15'
-            # We don't want to update bpf-next after branching
-            kernel: 'bpf-next-20230420.212204'
-            kube-proxy: 'none'
-            kpr: 'true'
-            devices: '{eth0,eth1}'
-            secondary-network: 'true'
-            tunnel: 'disabled'
-            encryption: 'wireguard'
-            encryption-node: 'true'
-            lb-mode: 'snat'
-            egress-gateway: 'true'
-
-          - name: '16'
-            # We don't want to update bpf-next after branching
-            kernel: 'bpf-next-20230420.212204'
+            kernel: 'bpf-next-20230810.091425'
             kube-proxy: 'iptables'
             kpr: 'false'
             tunnel: 'geneve'
@@ -251,7 +119,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -267,30 +135,94 @@ jobs:
           else
             SHA="${{ github.sha }}"
           fi
-          echo sha=${SHA} >> $GITHUB_OUTPUT
 
-      - name: Derive Cilium installation config and junit type
-        id: cilium-config
-        uses: ./.github/actions/cilium-config
-        with:
-          image-tag: ${{ steps.vars.outputs.sha }}
-          chart-dir: './install/kubernetes/cilium'
-          tunnel: ${{ matrix.tunnel }}
-          devices: ${{ matrix.devices }}
-          endpoint-routes: ${{ matrix.endpoint-routes }}
-          ipv6: ${{ matrix.ipv6 }}
-          kpr: ${{ matrix.kpr }}
-          lb-mode: ${{ matrix.lb-mode }}
-          lb-acceleration: ${{ matrix.lb-acceleration }}
-          encryption: ${{ matrix.encryption }}
-          encryption-node: ${{ matrix.encryption-node }}
-          egress-gateway: ${{ matrix.egress-gateway }}
-          host-fw: ${{ matrix.host-fw }}
+          CILIUM_INSTALL_DEFAULTS="--wait \
+            --chart-directory=./install/kubernetes/cilium \
+            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.eventBufferCapacity=65535 \
+            --helm-set=bpf.monitorAggregation=none \
+            --helm-set=authentication.mutual.spire.enabled=true \
+            --helm-set=authentication.mutual.spire.install.enabled=true \
+            --nodes-without-cilium=kind-worker3 \
+            --helm-set-string=kubeProxyReplacement=${{ matrix.kpr }}"
+          TUNNEL="--helm-set-string=tunnelProtocol=${{ matrix.tunnel }}"
+          if [ "${{ matrix.tunnel }}" == "disabled" ]; then
+            TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16 --helm-set-string=tunnel=disabled"
+            TUNNEL="${TUNNEL} --helm-set-string=ipv6NativeRoutingCIDR=fd00:10:244::/56"
+          fi
+          LB_MODE=""
+          if [ "${{ matrix.lb-mode }}" != "" ]; then
+            LB_MODE="--helm-set-string=loadBalancer.mode=${{ matrix.lb-mode }}"
+          fi
+          ENDPOINT_ROUTES=""
+          if [ "${{ matrix.endpoint-routes }}" == "true" ]; then
+            ENDPOINT_ROUTES="--helm-set-string=endpointRoutes.enabled=true"
+          fi
+          IPV6=""
+          if [ "${{ matrix.ipv6 }}" != "false" ]; then
+            IPV6="--helm-set=ipv6.enabled=true"
+          fi
+          MASQ=""
+          if [ "${{ matrix.kpr }}" == "true" ]; then
+            # BPF-masq requires KPR=true.
+            MASQ="--helm-set=bpf.masquerade=true"
+            if [ "${{ matrix.host-fw }}" == "true" ]; then
+              # BPF IPv6 masquerade not currently supported with host firewall - GH-26074
+              MASQ="${MASQ} --helm-set=enableIPv6Masquerade=false"
+            fi
+          fi
+          EGRESS_GATEWAY=""
+          if [ "${{ matrix.egress-gateway }}" == "true" ]; then
+            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true --helm-set=debug.enabled=true"
+          fi
+          LB_ACCELERATION=""
+          if [ "${{ matrix.lb-acceleration }}" != "" ]; then
+            LB_ACCELERATION="--helm-set=loadBalancer.acceleration=${{ matrix.lb-acceleration }}"
+          fi
+
+          ENCRYPT=""
+          if [ "${{ matrix.encryption }}" != "" ]; then
+            ENCRYPT="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ matrix.encryption }}"
+            if [ "${{ matrix.encryption-node }}" != "" ]; then
+              ENCRYPT+=" --helm-set=encryption.nodeEncryption=${{ matrix.encryption-node }}"
+            fi
+          fi
+
+          HOST_FW=""
+          if [ "${{ matrix.host-fw }}" == "true" ]; then
+            HOST_FW="--helm-set=hostFirewall.enabled=true"
+          fi
+
+          CONFIG="${CILIUM_INSTALL_DEFAULTS} ${TUNNEL} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
+          echo "cilium_install_defaults=${CONFIG}" >> $GITHUB_OUTPUT
+
+          JUNIT=""
+          for NAME in ${{ matrix.kube-proxy }} ${{ matrix.tunnel }} ${{ matrix.lb-mode }} ${{ matrix.encryption }} ${{ matrix.endpoint-routes }}; do
+            if [[ "${NAME}" != "" ]] && [[ "${NAME}" != "disabled" ]] && [[ "${NAME}" != "none" ]]; then
+              if [[ "${JUNIT}" != "" ]]; then
+                JUNIT+="-"
+              fi
+              if [[ "${NAME}" == "true" ]];then
+                NAME="endpoint-routes"
+              fi
+              JUNIT+="${NAME}"
+            fi
+          done
+          echo junit_type="${JUNIT}" >> $GITHUB_OUTPUT
+          echo sha=${SHA} >> $GITHUB_OUTPUT
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
       - name: Checkout pull request branch (NOT TRUSTED)
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -315,25 +247,6 @@ jobs:
           cmd: |
             git config --global --add safe.directory /host
 
-      - name: Setup K8s cluster (${{ join(matrix.*, ', ') }})
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host/
-
-            IP_FAM="dual"
-            if [ "${{ matrix.ipv6 }}" == "false" ]; then
-              IP_FAM="ipv4"
-            fi
-            ./contrib/scripts/kind.sh --xdp --secondary-network "" 3 "" "" "${{ matrix.kube-proxy }}" \$IP_FAM
-
-            kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
-            if [ "${{ matrix.encryption }}" == "ipsec" ]; then
-              kubectl create -n kube-system secret generic cilium-ipsec-keys \
-                --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
-            fi
-
       - name: Wait for images to be available
         timeout-minutes: 30
         shell: bash
@@ -342,15 +255,20 @@ jobs:
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
-      - name: Install Cilium (${{ join(matrix.*, ', ') }})
+      - name: Run tests (${{ join(matrix.*, ', ') }})
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
           cmd: |
             cd /host/
+            ./contrib/scripts/kind.sh --xdp "" 3 "" "" "${{ matrix.kube-proxy }}" "dual"
+
+            kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+            kubectl create -n kube-system secret generic cilium-ipsec-keys \
+              --from-literal=keys="3 rfc4106(gcm(aes)) $(echo $(dd if=/dev/urandom count=20 bs=1 2> /dev/null | xxd -p -c 64)) 128"
 
             export CILIUM_CLI_MODE=helm
-            ./cilium-cli install ${{ steps.cilium-config.outputs.config }}
+            ./cilium-cli install ${{ steps.vars.outputs.cilium_install_defaults }}
             kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
             kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
@@ -360,26 +278,45 @@ jobs:
 
             mkdir -p cilium-junits
 
-      - name: Run tests (${{ join(matrix.*, ', ') }})
-        uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
-        with:
-          provision: 'false'
-          cmd: |
-            cd /host/
-
-            EXTRA=""
-            if [ "${{ matrix.secondary-network }}" = "true" ]; then
-              EXTRA="--secondary-network-iface=eth1"
-            fi
-
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-              --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
-              \$EXTRA
+              --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})"
 
-            ./contrib/scripts/kind-down.sh
+      - name: Rotate IPsec Key & Test (${{ join(matrix.*, ', ') }})
+        uses: cilium/cilium/.github/actions/conn-disrupt-test@d86f33b098a75f3d7d2dfd3ee6fa1ea033892de4
+        with:
+          job-name: conformance-ipsec-e2e-key-rotation-${{ matrix.name }}
+          operation-cmd: |
+            cd /host/
+
+            KEYID=\$(kubectl get secret -n kube-system cilium-ipsec-keys -o go-template --template={{.data.keys}} | base64 -d | cut -c 1)
+            if [[ \$KEYID -ge 15 ]]; then KEYID=0; fi
+            data=\$(echo "{\"stringData\":{\"keys\":\"\$(((\$KEYID+1))) "rfc4106\(gcm\(aes\)\)" 59f4d92cccede1b1abc920104ca61cd552782e12 128\"}}")
+            kubectl patch secret -n kube-system cilium-ipsec-keys -p="\$data" -v=1
+
+            # Wait until key rotation starts
+            while true; do
+              keys_in_use=\$(kubectl -n kube-system exec daemonset/cilium -- cilium encrypt status | awk '/Keys in use/ {print \$NF}')
+              if [[ \$keys_in_use == 2 ]]; then
+                break
+              fi
+              echo "Waiting until key rotation starts"
+              sleep 30s
+            done
+
+            # Wait until key rotation completes
+            # By default the key rotation cleanup delay is 5min, let's sleep 4min before actively polling
+            sleep \$((4*60))
+            while true; do
+              keys_in_use=\$(kubectl -n kube-system exec daemonset/cilium -- cilium encrypt status | awk '/Keys in use/ {print \$NF}')
+              if [[ \$keys_in_use == 1 ]]; then
+                break
+              fi
+              echo "Waiting until key rotation completes"
+              sleep 30s
+            done
 
       - name: Fetch artifacts
         if: ${{ !success() }}
@@ -392,6 +329,8 @@ jobs:
             ./cilium-cli status
             mkdir -p cilium-sysdumps
             ./cilium-cli sysdump --output-filename cilium-sysdump-${{ matrix.name }}-final
+            # To debug https://github.com/cilium/cilium/issues/26062
+            head -n -0 /proc/buddyinfo /proc/pagetypeinfo
 
       - name: Upload artifacts
         if: ${{ !success() }}
@@ -422,7 +361,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set final commit status
-        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7  
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
         with:
           sha: ${{ inputs.SHA || github.sha }}
           status: ${{ needs.setup-and-test.result }}
