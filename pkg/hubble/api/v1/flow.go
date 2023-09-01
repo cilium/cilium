@@ -11,7 +11,7 @@ import (
 // FlowProtocol returns the protocol best describing the flow. If available,
 // this is the L7 protocol name, then the L4 protocol name.
 func FlowProtocol(flow *pb.Flow) string {
-	switch flow.GetEventType().Type {
+	switch flow.GetEventType().GetType() {
 	case monitorAPI.MessageTypeAccessLog:
 		if l7 := flow.GetL7(); l7 != nil {
 			switch {
