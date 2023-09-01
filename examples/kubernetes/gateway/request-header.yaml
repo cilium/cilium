@@ -32,5 +32,5 @@ spec:
               - name: my-header-name
                 value: my-header-value
       backendRefs:
-        - name: echo
+        - name: echo-1
           port: 8080
