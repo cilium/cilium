@@ -282,7 +282,8 @@ jobs:
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-              --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})"
+              --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+              --flush-ct
 
       - name: Rotate IPsec Key & Test (${{ join(matrix.*, ', ') }})
         uses: cilium/cilium/.github/actions/conn-disrupt-test@6c12a0fff4e130afe16588ce24e212ba48b5b783
