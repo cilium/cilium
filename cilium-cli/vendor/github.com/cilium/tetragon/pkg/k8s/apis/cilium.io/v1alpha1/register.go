@@ -15,7 +15,7 @@ const (
 	// Used to determine if CRD needs to be updated in cluster
 	//
 	// Developers: Bump patch for each change in the CRD schema.
-	CustomResourceDefinitionSchemaVersion = "1.3.4"
+	CustomResourceDefinitionSchemaVersion = "0.10.0"
 
 	CRDVersion = "v1alpha1"
 
@@ -24,6 +24,9 @@ const (
 
 	// TPNamespacedCRDName is the full name of the TracingPolicy CRD.
 	TPNamespacedCRDName = TPNamespacedKindDefinition + "/" + CRDVersion
+
+	// PICRDName is the full name of the Tetragon Pod Info CRD.
+	PICRDName = PIKindDefinition + "/" + CRDVersion
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -55,6 +58,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&TracingPolicyList{},
 		&TracingPolicyNamespaced{},
 		&TracingPolicyNamespacedList{},
+		&PodInfo{},
+		&PodInfoList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
