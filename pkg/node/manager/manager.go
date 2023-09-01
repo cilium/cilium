@@ -386,6 +386,18 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels
 	if m.conf.RemoteNodeIdentitiesEnabled() {
 		if n.IsLocal() {
 			nodeLabels = labels.NewFrom(labels.LabelHost)
+			if option.Config.PolicyCIDRMatchesNodes() {
+				for _, address := range n.IPAddresses {
+					addr, ok := ip.AddrFromIP(address.IP)
+					if ok {
+						prefix, err := addr.Prefix(addr.BitLen())
+						if err == nil {
+							cidrLabels := cidrlabels.GetCIDRLabels(prefix)
+							nodeLabels.MergeLabels(cidrLabels)
+						}
+					}
+				}
+			}
 		} else if !identity.NumericIdentity(n.NodeIdentity).IsReservedIdentity() {
 			// This needs to match clustermesh-apiserver's VMManager.AllocateNodeIdentity
 			nodeLabels = labels.Map2Labels(n.Labels, labels.LabelSourceK8s)
