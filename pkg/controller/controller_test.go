@@ -33,6 +33,37 @@ func (b *ControllerSuite) TestUpdateRemoveController(c *C) {
 	c.Assert(mngr.RemoveController("not-exist"), Not(IsNil))
 }
 
+func (b *ControllerSuite) TestCreateController(c *C) {
+	var iterations uint32
+	mngr := NewManager()
+	created := mngr.CreateController("test", ControllerParams{
+		DoFunc: func(ctx context.Context) error {
+			atomic.AddUint32(&iterations, 1)
+			return nil
+		},
+		StopFunc: func(ctx context.Context) error {
+			return nil
+		},
+	})
+	c.Assert(created, Equals, true)
+
+	// Second creation is a no-op.
+	created = mngr.CreateController("test", ControllerParams{
+		DoFunc: func(ctx context.Context) error {
+			atomic.AddUint32(&iterations, 1)
+			return nil
+		},
+		StopFunc: func(ctx context.Context) error {
+			return nil
+		},
+	})
+	c.Assert(created, Equals, false)
+
+	c.Assert(mngr.RemoveControllerAndWait("test"), IsNil)
+
+	c.Assert(atomic.LoadUint32(&iterations), Equals, uint32(1))
+}
+
 func (b *ControllerSuite) TestStopFunc(c *C) {
 	stopFuncRan := false
 	waitChan := make(chan struct{})
