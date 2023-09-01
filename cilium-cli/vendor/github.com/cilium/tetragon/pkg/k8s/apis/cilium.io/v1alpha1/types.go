@@ -4,108 +4,22 @@
 package v1alpha1
 
 import (
-	"fmt"
-
-	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	ciliumio "github.com/cilium/tetragon/pkg/k8s/apis/cilium.io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	// Tracing Policy (TP)
+	// PodInfo (PI) is the custom resource that stores pod related information
 
-	// TPPluralName is the plural name of Cilium Tracing Policy
-	TPPluralName = "tracingpolicies"
+	// PIPluralName is the plural name of Tetragon Pod Info
+	PIPluralName = "podinfo"
 
-	// TPKindDefinition is the kind name of Cilium Tracing Policy
-	TPKindDefinition = "TracingPolicy"
+	// PIKindDefinition is the Kind name of the Tetragon Pod Info
+	PIKindDefinition = "PodInfo"
 
-	// TPName is the full name of Cilium Egress NAT Policy
-	TPName = TPPluralName + "." + ciliumio.GroupName
-
-	// TPNamespacedPluralName is the plural name of Cilium Tracing Policy
-	TPNamespacedPluralName = "tracingpoliciesnamespaced"
-
-	// TPNamespacedName
-	TPNamespacedName = TPNamespacedPluralName + "." + ciliumio.GroupName
-
-	// TPKindDefinition is the kind name of Cilium Tracing Policy
-	TPNamespacedKindDefinition = "TracingPolicyNamespaced"
+	// PIName is the full name of the Tetragon Pod Info
+	PIName = PIPluralName + "." + ciliumio.GroupName
 )
-
-// +genclient
-// +genclient:noStatus
-// +genclient:nonNamespaced
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:singular="tracingpolicy",path="tracingpolicies",scope="Cluster",shortName={}
-type TracingPolicy struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
-	// Tracing policy specification.
-	Spec TracingPolicySpec `json:"spec"`
-}
-
-// +genclient
-// +genclient:noStatus
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:singular="tracingpolicynamespaced",path="tracingpoliciesnamespaced",scope="Namespaced",shortName={}
-type TracingPolicyNamespaced struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
-	// Tracing policy specification.
-	Spec TracingPolicySpec `json:"spec"`
-}
-
-func (tp *TracingPolicyNamespaced) TpSpec() *TracingPolicySpec {
-	return &tp.Spec
-}
-
-func (tp *TracingPolicyNamespaced) TpInfo() string {
-	return fmt.Sprintf("%s (object:%d/%s) (type:%s/%s)", tp.ObjectMeta.Name, tp.ObjectMeta.Generation, tp.ObjectMeta.UID, tp.TypeMeta.Kind, tp.TypeMeta.APIVersion)
-}
-
-func (tp *TracingPolicyNamespaced) TpName() string {
-	return tp.ObjectMeta.Name
-}
-
-func (tp *TracingPolicyNamespaced) TpNamespace() string {
-	return tp.ObjectMeta.Namespace
-}
-
-type TracingPolicySpec struct {
-	// +kubebuilder:validation:Optional
-	// A list of kprobe specs.
-	KProbes []KProbeSpec `json:"kprobes,omitempty"`
-	// +kubebuilder:validation:Optional
-	// A list of tracepoint specs.
-	Tracepoints []TracepointSpec `json:"tracepoints,omitempty"`
-	// +kubebuilder:validation:Optional
-	// Enable loader events
-	Loader bool `json:"loader,omitempty"`
-	// +kubebuilder:validation:Optional
-	// A list of uprobe specs.
-	UProbes []UProbeSpec `json:"uprobes,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// PodSelector selects pods that this policy applies to
-	PodSelector *slimv1.LabelSelector `json:"podSelector,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	// A list of list specs.
-	Lists []ListSpec `json:"lists,omitempty"`
-}
-
-func (tp *TracingPolicy) TpName() string {
-	return tp.ObjectMeta.Name
-}
-
-func (tp *TracingPolicy) TpSpec() *TracingPolicySpec {
-	return &tp.Spec
-}
-
-func (tp *TracingPolicy) TpInfo() string {
-	return fmt.Sprintf("%s (object:%d/%s) (type:%s/%s)", tp.ObjectMeta.Name, tp.ObjectMeta.Generation, tp.ObjectMeta.UID, tp.TypeMeta.Kind, tp.TypeMeta.APIVersion)
-}
 
 type KProbeSpec struct {
 	// Name of the function to apply the kprobe spec to.
@@ -312,20 +226,6 @@ type TracepointSpec struct {
 	Selectors []KProbeSelector `json:"selectors"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type TracingPolicyList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-	Items           []TracingPolicy `json:"items"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type TracingPolicyNamespacedList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-	Items           []TracingPolicyNamespaced `json:"items"`
-}
-
 type UProbeSpec struct {
 	// Name of the traced binary
 	Path string `json:"path"`
@@ -349,4 +249,48 @@ type ListSpec struct {
 	// +kubebuilder:validation:Optional
 	// Pattern for 'generated' lists.
 	Pattern *string `json:"pattern,omitempty"`
+}
+
+type PodInfoSpec struct {
+	// Host networking requested for this pod. Use the host's network namespace.
+	// If this option is set, the ports that will be used must be specified.
+	HostNetwork bool `json:"hostNetwork,omitempty"`
+}
+
+type PodInfoStatus struct {
+	// IP address allocated to the pod. Routable at least within the cluster.
+	// Empty if not yet allocated.
+	PodIP string `json:"podIP,omitempty"`
+
+	// List of Ip addresses allocated to the pod. 0th entry must be same as PodIP.
+	PodIPs []PodIP `json:"podIPs,omitempty"`
+}
+
+type PodIP struct {
+	// IP is an IP address (IPv4 or IPv6) assigned to the pod
+	IP string `json:"IP,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:singular="podinfo",path="podinfo",scope="Namespaced",shortName={}
+
+// PodInfo is the Scheme for the Podinfo API
+type PodInfo struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   PodInfoSpec   `json:"spec,omitempty"`
+	Status PodInfoStatus `json:"status,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// PodInfoList contains a list of Podinfo
+type PodInfoList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []PodInfo `json:"items"`
 }
