@@ -63,6 +63,7 @@ func (m *Manager) updateController(name string, params ControllerParams) *Contro
 	}
 
 	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	if m.controllers == nil {
 		m.controllers = controllerMap{}
@@ -70,8 +71,6 @@ func (m *Manager) updateController(name string, params ControllerParams) *Contro
 
 	ctrl, exists := m.controllers[name]
 	if exists {
-		m.mutex.Unlock()
-
 		ctrl.getLogger().Debug("Updating existing controller")
 		ctrl.mutex.Lock()
 		ctrl.updateParamsLocked(params)
@@ -84,34 +83,57 @@ func (m *Manager) updateController(name string, params ControllerParams) *Contro
 		}
 
 		ctrl.getLogger().Debug("Controller update time: ", time.Since(start))
+		return ctrl
 	} else {
-		ctrl = &Controller{
-			name:       name,
-			uuid:       uuid.New().String(),
-			stop:       make(chan struct{}),
-			update:     make(chan struct{}, 1),
-			trigger:    make(chan struct{}, 1),
-			terminated: make(chan struct{}),
-		}
-		ctrl.updateParamsLocked(params)
-		ctrl.getLogger().Debug("Starting new controller")
+		return m.createControllerLocked(name, params)
+	}
+}
 
-		if params.Context == nil {
-			ctrl.ctxDoFunc, ctrl.cancelDoFunc = context.WithCancel(context.Background())
-		} else {
-			ctrl.ctxDoFunc, ctrl.cancelDoFunc = context.WithCancel(params.Context)
-		}
-		m.controllers[ctrl.name] = ctrl
-		m.mutex.Unlock()
+func (m *Manager) createControllerLocked(name string, params ControllerParams) *Controller {
+	ctrl := &Controller{
+		name:       name,
+		uuid:       uuid.New().String(),
+		stop:       make(chan struct{}),
+		update:     make(chan struct{}, 1),
+		trigger:    make(chan struct{}, 1),
+		terminated: make(chan struct{}),
+	}
+	ctrl.updateParamsLocked(params)
+	ctrl.getLogger().Debug("Starting new controller")
 
-		globalStatus.mutex.Lock()
-		globalStatus.controllers[ctrl.uuid] = ctrl
-		globalStatus.mutex.Unlock()
-
-		go ctrl.runController()
+	if params.Context == nil {
+		ctrl.ctxDoFunc, ctrl.cancelDoFunc = context.WithCancel(context.Background())
+	} else {
+		ctrl.ctxDoFunc, ctrl.cancelDoFunc = context.WithCancel(params.Context)
 	}
 
+	m.controllers[ctrl.name] = ctrl
+
+	globalStatus.mutex.Lock()
+	globalStatus.controllers[ctrl.uuid] = ctrl
+	globalStatus.mutex.Unlock()
+
+	go ctrl.runController()
 	return ctrl
+}
+
+// CreateController installs a new controller in the
+// manager.  If a controller with the name already exists
+// this method returns false without triggering, otherwise
+// creates the controller and runs it immediately.
+func (m *Manager) CreateController(name string, params ControllerParams) bool {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if m.controllers != nil {
+		if _, exists := m.controllers[name]; exists {
+			return false
+		}
+	} else {
+		m.controllers = controllerMap{}
+	}
+	m.createControllerLocked(name, params)
+	return true
 }
 
 func (m *Manager) removeController(ctrl *Controller) {
