@@ -18,18 +18,12 @@ import (
 )
 
 var _ = SkipDescribeIf(func() bool {
-	// Believe it or not, bpftool internally attempts to retrieve
-	// map info before updating a map, but BPF_OBJ_GET_INFO_BY_FD
-	// is not supported on kernel 4.9 (it was introduced in Linux
-	// 4.13). Skip on 4.9 kernels.
-	//
-	// This leaves us with 4.19 and net-next. Coverage should be
-	// identical on the two versions, so just run on net-next.
+	// Coverage should be identical across versions, so just run on
+	// net-next.
 	//
 	// Also skip on GKE because we do not have the source of the
 	// custom program available on a node, for the compiler pod to
-	// pick up (although technically, skipping 4.19 kernels already
-	// skips GKE).
+	// pick up.
 	return helpers.DoesNotRunOnNetNextKernel() ||
 		helpers.RunsOnGKE()
 }, "K8sDatapathCustomCalls", func() {
