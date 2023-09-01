@@ -466,3 +466,30 @@ var shutdownOnStartCell = cell.Invoke(func(lc hive.Lifecycle, shutdowner hive.Sh
 			return nil
 		}})
 })
+
+// Assert that we can reuse the same cell as part of multiple hives
+func TestSameCellMultipleHives(t *testing.T) {
+	var (
+		got1 string
+		got2 int
+	)
+
+	common := cell.Group(
+		cell.Config(Config{}),
+		cell.Provide(func() int { return 10 }),
+		cell.Invoke(func(_ Config, in1 string, in2 int) { got1, got2 = in1, in2 }),
+	)
+
+	h1 := hive.New(common, cell.Provide(func() string { return "foo" }))
+	h2 := hive.New(common, cell.Provide(func() string { return "bar" }))
+
+	require.NoError(t, h1.Start(context.TODO()))
+	require.Equal(t, "foo", got1)
+	require.Equal(t, 10, got2)
+	require.NoError(t, h2.Start(context.TODO()))
+	require.Equal(t, "bar", got1)
+	require.Equal(t, 10, got2)
+
+	require.NoError(t, h1.Stop(context.TODO()))
+	require.NoError(t, h1.Stop(context.TODO()))
+}
