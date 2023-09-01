@@ -136,7 +136,7 @@ func newCgroupManagerTest(pMock providerMock, cg cgroup) *CgroupManager {
 }
 
 func (m *ManagerSuite) SetUpTest(c *C) {
-	option.Config.EnableSocketLBTracing = true
+	option.Config.EnableSocketLBTracing()
 	nodetypes.SetName("n1")
 }
 
@@ -222,7 +222,7 @@ func (m *ManagerSuite) TestGetPodMetadataOnPodUpdate(c *C) {
 
 func (m *ManagerSuite) TestGetPodMetadataOnManagerDisabled(c *C) {
 	// Disable the feature flag.
-	option.Config.EnableSocketLBTracing = false
+	option.Config.DisableSocketLBTracing()
 	m.mm = newCgroupManagerTest(providerMock{}, cgroupMock{})
 	c1CId := uint64(1234)
 
@@ -233,7 +233,7 @@ func (m *ManagerSuite) TestGetPodMetadataOnManagerDisabled(c *C) {
 	c.Assert(got, checker.Equals, (*PodMetadata)(nil))
 
 	// Enable the feature flag, but the cgroup base path validation fails.
-	option.Config.EnableSocketLBTracing = true
+	option.Config.EnableSocketLBTracing()
 	m.mm.OnAddPod(pod1)
 
 	got = m.mm.GetPodMetadataForContainer(c1CId)

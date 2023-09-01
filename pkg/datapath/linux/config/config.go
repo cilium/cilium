@@ -373,7 +373,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableSocketLBPeer {
 			cDefinesMap["ENABLE_SOCKET_LB_PEER"] = "1"
 		}
-		if option.Config.EnableSocketLBTracing {
+		if option.Config.SocketLBTracingEnabled() {
 			cDefinesMap["TRACE_SOCK_NOTIFY"] = "1"
 		}
 
@@ -404,7 +404,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["ENABLE_MKE"] = "1"
 			cDefinesMap["MKE_HOST"] = fmt.Sprintf("%d", option.HostExtensionMKE)
 		}
-		if option.Config.EnableRecorder {
+		if option.Config.RecorderEnabled() {
 			cDefinesMap["ENABLE_CAPTURE"] = "1"
 			if option.Config.EnableIPv4 {
 				cDefinesMap["CAPTURE4_RULES"] = recorder.MapNameWcard4

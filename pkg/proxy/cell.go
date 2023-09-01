@@ -8,6 +8,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	monitoragent "github.com/cilium/cilium/pkg/monitor/agent"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/proxy/logger/endpoint"
@@ -46,7 +47,7 @@ func newProxy(params proxyParams) *Proxy {
 		return nil
 	}
 
-	configureProxyLogger(params.EndpointInfoRegistry, params.MonitorAgent, option.Config.AgentLabels)
+	configureProxyLogger(params.EndpointInfoRegistry, params.MonitorAgent, option.Config.AgentLabels, option.Config.EventGenerationEnabled(monitorAPI.MessageTypeNameL7))
 
 	// FIXME: Make the port range configurable.
 	return createProxy(10000, 20000, params.Datapath, params.EnvoyProxyIntegration, params.DNSProxyIntegration, params.XdsServer)
@@ -80,9 +81,11 @@ func newDNSProxyIntegration() *dnsProxyIntegration {
 	return &dnsProxyIntegration{}
 }
 
-func configureProxyLogger(eir logger.EndpointInfoRegistry, monitorAgent monitoragent.Agent, agentLabels []string) {
+func configureProxyLogger(eir logger.EndpointInfoRegistry, monitorAgent monitoragent.Agent, agentLabels []string, enableLogEvents bool) {
 	logger.SetEndpointInfoRegistry(eir)
-	logger.SetNotifier(logger.NewMonitorAgentLogRecordNotifier(monitorAgent))
+	if enableLogEvents {
+		logger.SetNotifier(logger.NewMonitorAgentLogRecordNotifier(monitorAgent))
+	}
 
 	if len(agentLabels) > 0 {
 		logger.SetMetadata(agentLabels)

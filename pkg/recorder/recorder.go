@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/recorder"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -96,7 +97,7 @@ func NewRecorder(ctx context.Context, owner datapath.BaseProgramOwner) (*Recorde
 		ctx:   ctx,
 		owner: owner,
 	}
-	if option.Config.EnableRecorder {
+	if option.Config.RecorderEnabled() {
 		maps := []*bpf.Map{}
 		if option.Config.EnableIPv4 {
 			t := &recorder.CaptureWcard4{}
@@ -446,9 +447,9 @@ func (r *Recorder) updateRecInfoLocked(riNew, riOld *RecInfo) error {
 // as well as triggering a reinitialization of the XDP datapath if the mask
 // set has changed.
 func (r *Recorder) UpsertRecorder(recInfoNew *RecInfo) (bool, error) {
-	if !option.Config.EnableRecorder {
-		return false, fmt.Errorf("Ignoring recorder request due to --%s being disabled in agent",
-			option.EnableRecorder)
+	if !option.Config.RecorderEnabled() {
+		return false, fmt.Errorf("Ignoring recorder request due to --%s=%s being disabled in agent",
+			option.MonitorEvents, monitorAPI.MessageTypeNameRecCapture)
 	}
 	recInfoCpy := recInfoNew.DeepCopy()
 	r.Lock()

@@ -25,8 +25,11 @@ import (
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/exp/slices"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	k8sLabels "k8s.io/apimachinery/pkg/labels"
+
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
@@ -330,9 +333,6 @@ const (
 	// EnableBBR enables BBR TCP congestion control for the node including Pods
 	EnableBBR = "enable-bbr"
 
-	// EnableRecorder enables the datapath pcap recorder
-	EnableRecorder = "enable-recorder"
-
 	// EnableLocalRedirectPolicy enables support for local redirect policy
 	EnableLocalRedirectPolicy = "enable-local-redirect-policy"
 
@@ -511,9 +511,6 @@ const (
 
 	// EnableSocketLB is the name for the option to enable the socket LB
 	EnableSocketLB = "bpf-lb-sock"
-
-	// EnableSocketLBTracing is the name for the option to enable the socket LB tracing
-	EnableSocketLBTracing = "trace-sock"
 
 	// BPFSocketLBHostnsOnly is the name of the BPFSocketLBHostnsOnly option
 	BPFSocketLBHostnsOnly = "bpf-lb-sock-hostns-only"
@@ -1032,9 +1029,8 @@ const (
 	// HubbleSkipUnknownCGroupIDs specifies if events with unknown cgroup ids should be skipped
 	HubbleSkipUnknownCGroupIDs = "hubble-skip-unknown-cgroup-ids"
 
-	// HubbleMonitorEvents specifies Cilium monitor events for Hubble to observe.
-	// By default, Hubble observes all monitor events.
-	HubbleMonitorEvents = "hubble-monitor-events"
+	// MonitorEvents specifies Cilium monitor events to be genated in bpf programs.
+	MonitorEvents = "monitor-events"
 
 	// HubbleRedactEnabled controls if sensitive information will be redacted from L7 flows
 	HubbleRedactEnabled = "hubble-redact-enabled"
@@ -1785,7 +1781,6 @@ type DaemonConfig struct {
 	Debug                         bool
 	DebugVerbose                  []string
 	EnableSocketLB                bool
-	EnableSocketLBTracing         bool
 	EnableSocketLBPeer            bool
 	EnablePolicy                  string
 	EnableTracing                 bool
@@ -2090,9 +2085,6 @@ type DaemonConfig struct {
 	// ResetQueueMapping resets the Pod's skb queue mapping
 	ResetQueueMapping bool
 
-	// EnableRecorder enables the datapath pcap recorder
-	EnableRecorder bool
-
 	// EnableMKE enables MKE specific 'chaining' for kube-proxy replacement
 	EnableMKE bool
 
@@ -2283,9 +2275,8 @@ type DaemonConfig struct {
 	// HubbleSkipUnknownCGroupIDs specifies if events with unknown cgroup ids should be skipped
 	HubbleSkipUnknownCGroupIDs bool
 
-	// HubbleMonitorEvents specifies Cilium monitor events for Hubble to observe.
-	// By default, Hubble observes all monitor events.
-	HubbleMonitorEvents []string
+	// MonitorEvents specifies Cilium monitor events to be generated.
+	MonitorEvents []string
 
 	// HubbleRedactEnabled controls if Hubble will be redacting sensitive information from L7 flows
 	HubbleRedactEnabled bool
@@ -2812,6 +2803,33 @@ func (c *DaemonConfig) DirectRoutingDeviceRequired() bool {
 	return (c.EnableNodePort || BPFHostRoutingEnabled || Config.EnableWireguard) && !c.TunnelingEnabled()
 }
 
+func (c *DaemonConfig) RecorderEnabled() bool {
+	return slices.Contains(c.MonitorEvents, monitorAPI.MessageTypeNameRecCapture)
+}
+
+func (c *DaemonConfig) SocketLBTracingEnabled() bool {
+	return slices.Contains(c.MonitorEvents, monitorAPI.MessageTypeNameTraceSock)
+}
+
+func (c *DaemonConfig) EnableSocketLBTracing() {
+	if !c.SocketLBTracingEnabled() {
+		c.MonitorEvents = append(c.MonitorEvents, monitorAPI.MessageTypeNameTraceSock)
+	}
+}
+
+func (c *DaemonConfig) DisableSocketLBTracing() {
+	for i, v := range c.MonitorEvents {
+		if v == monitorAPI.MessageTypeNameTraceSock {
+			c.MonitorEvents = append(c.MonitorEvents[:i], c.MonitorEvents[i+1:]...)
+			return
+		}
+	}
+}
+
+func (c *DaemonConfig) EventGenerationEnabled(eventType string) bool {
+	return slices.Contains(c.MonitorEvents, eventType)
+}
+
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
 	ip, cidr, err := net.ParseCIDR(c.IPv6ClusterAllocCIDR)
 	if err != nil {
@@ -3078,7 +3096,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EgressMasqueradeInterfaces = strings.Join(c.MasqueradeInterfaces, ",")
 	c.BPFSocketLBHostnsOnly = vp.GetBool(BPFSocketLBHostnsOnly)
 	c.EnableSocketLB = vp.GetBool(EnableSocketLB)
-	c.EnableSocketLBTracing = vp.GetBool(EnableSocketLBTracing)
 	c.EnableRemoteNodeIdentity = vp.GetBool(EnableRemoteNodeIdentity)
 	c.EnableBPFTProxy = vp.GetBool(EnableBPFTProxy)
 	c.EnableXTSocketFallback = vp.GetBool(EnableXTSocketFallbackName)
@@ -3107,7 +3124,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnableServiceTopology = vp.GetBool(EnableServiceTopology)
 	c.EnableBandwidthManager = vp.GetBool(EnableBandwidthManager)
 	c.EnableBBR = vp.GetBool(EnableBBR)
-	c.EnableRecorder = vp.GetBool(EnableRecorder)
 	c.EnableMKE = vp.GetBool(EnableMKE)
 	c.CgroupPathMKE = vp.GetString(CgroupPathMKE)
 	c.EnableHostFirewall = vp.GetBool(EnableHostFirewall)
@@ -3223,6 +3239,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.EnablePMTUDiscovery = vp.GetBool(EnablePMTUDiscovery)
 	c.IPv6NAT46x64CIDR = defaults.IPv6NAT46x64CIDR
 	c.IPAMCiliumNodeUpdateRate = vp.GetDuration(IPAMCiliumNodeUpdateRate)
+	c.MonitorEvents = vp.GetStringSlice(MonitorEvents)
 
 	c.populateLoadBalancerSettings(vp)
 	c.populateDevices(vp)
@@ -3577,7 +3594,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.HubbleRecorderStoragePath = vp.GetString(HubbleRecorderStoragePath)
 	c.HubbleRecorderSinkQueueSize = vp.GetInt(HubbleRecorderSinkQueueSize)
 	c.HubbleSkipUnknownCGroupIDs = vp.GetBool(HubbleSkipUnknownCGroupIDs)
-	c.HubbleMonitorEvents = vp.GetStringSlice(HubbleMonitorEvents)
 	c.HubbleRedactEnabled = vp.GetBool(HubbleRedactEnabled)
 	c.HubbleRedactHttpURLQuery = vp.GetBool(HubbleRedactHttpURLQuery)
 	c.HubbleRedactKafkaApiKey = vp.GetBool(HubbleRedactKafkaApiKey)

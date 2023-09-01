@@ -101,15 +101,6 @@ func (d *Daemon) launchHubble() {
 		parserOpts   []parserOptions.Option
 	)
 
-	if len(option.Config.HubbleMonitorEvents) > 0 {
-		monitorFilter, err := monitor.NewMonitorFilter(logger, option.Config.HubbleMonitorEvents)
-		if err != nil {
-			logger.WithError(err).Warn("Failed to initialize Hubble monitor event filter")
-		} else {
-			observerOpts = append(observerOpts, observeroption.WithOnMonitorEvent(monitorFilter))
-		}
-	}
-
 	if option.Config.HubbleMetricsServer != "" {
 		logger.WithFields(logrus.Fields{
 			"address": option.Config.HubbleMetricsServer,
@@ -221,7 +212,7 @@ func (d *Daemon) launchHubble() {
 		serveroption.WithInsecure(),
 	)
 
-	if option.Config.EnableRecorder && option.Config.EnableHubbleRecorderAPI {
+	if option.Config.RecorderEnabled() && option.Config.EnableHubbleRecorderAPI {
 		dispatch, err := sink.NewDispatch(option.Config.HubbleRecorderSinkQueueSize)
 		if err != nil {
 			logger.WithError(err).Error("Failed to initialize Hubble recorder sink dispatch")

@@ -52,7 +52,7 @@ func (cfg *kprConfig) set() {
 	option.Config.InstallNoConntrackIptRules = cfg.installNoConntrackIptRules
 	option.Config.EnableBPFMasquerade = cfg.enableBPFMasquerade
 	option.Config.EnableIPv4Masquerade = cfg.enableIPv4Masquerade
-	option.Config.EnableSocketLBTracing = true
+	option.Config.EnableSocketLBTracing()
 	option.Config.RoutingMode = cfg.routingMode
 	option.Config.TunnelProtocol = cfg.tunnelProtocol
 	option.Config.LoadBalancerDSRDispatch = cfg.dispatchMode
@@ -81,7 +81,7 @@ func (cfg *kprConfig) verify(c *C) {
 	c.Assert(option.Config.InstallNoConntrackIptRules, Equals, cfg.installNoConntrackIptRules)
 	c.Assert(option.Config.EnableBPFMasquerade, Equals, cfg.enableBPFMasquerade)
 	c.Assert(option.Config.EnableIPv4Masquerade, Equals, cfg.enableIPv4Masquerade)
-	c.Assert(option.Config.EnableSocketLBTracing, Equals, cfg.enableSocketLBTracing)
+	c.Assert(option.Config.SocketLBTracingEnabled(), Equals, cfg.enableSocketLBTracing)
 }
 
 func (s *KPRSuite) SetUpTest(c *C) {

@@ -20,6 +20,8 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/vishvananda/netlink"
 
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
@@ -66,7 +68,7 @@ func initKubeProxyReplacementOptions() error {
 
 		disableNodePort()
 		option.Config.EnableSocketLB = false
-		option.Config.EnableSocketLBTracing = false
+		option.Config.DisableSocketLBTracing()
 
 		return nil
 	}
@@ -271,7 +273,7 @@ func initKubeProxyReplacementOptions() error {
 		}
 	}
 	if option.Config.BPFSocketLBHostnsOnly {
-		option.Config.EnableSocketLBTracing = false
+		option.Config.DisableSocketLBTracing()
 	}
 
 	if option.Config.DryMode {
@@ -293,9 +295,9 @@ func probeKubeProxyReplacementOptions() error {
 			return err
 		}
 
-		if option.Config.EnableRecorder {
+		if option.Config.RecorderEnabled() {
 			if probes.HaveProgramHelper(ebpf.XDP, asm.FnKtimeGetBootNs) != nil {
-				return fmt.Errorf("pcap recorder --%s datapath needs kernel 5.8.0 or newer", option.EnableRecorder)
+				return fmt.Errorf("pcap recorder --%s=%s datapath needs kernel 5.8.0 or newer", option.MonitorEvents, monitorAPI.MessageTypeNameRecCapture)
 			}
 		}
 
@@ -349,14 +351,14 @@ func probeKubeProxyReplacementOptions() error {
 		}
 
 		if !option.Config.EnableSocketLB {
-			option.Config.EnableSocketLBTracing = false
+			option.Config.DisableSocketLBTracing()
 		}
 		if probes.HaveProgramHelper(ebpf.CGroupSockAddr, asm.FnPerfEventOutput) != nil {
-			option.Config.EnableSocketLBTracing = false
+			option.Config.DisableSocketLBTracing()
 			log.Warn("Disabling socket-LB tracing as it requires kernel 5.7 or newer")
 		}
 	} else {
-		option.Config.EnableSocketLBTracing = false
+		option.Config.DisableSocketLBTracing()
 	}
 
 	if option.Config.EnableSessionAffinity && option.Config.EnableSocketLB {

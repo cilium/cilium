@@ -175,7 +175,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, []string{"cilium_snat_v4_external", "cilium_snat_v6_external"}...)
 	}
 
-	if !option.Config.EnableRecorder {
+	if !option.Config.RecorderEnabled() {
 		maps = append(maps, []string{recorder.MapNameWcard4, recorder.MapNameWcard6,
 			"cilium_capture_cache", "cilium_ktime_cache"}...)
 	}

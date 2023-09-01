@@ -125,7 +125,6 @@ func BuildFilterList(ctx context.Context, ff []*flowpb.FlowFilter, auxFilters []
 // DefaultFilters is the list of default filters
 var DefaultFilters = []OnBuildFilter{
 	&UUIDFilter{},
-	&EventTypeFilter{},
 	&VerdictFilter{},
 	&ReplyFilter{},
 	&IdentityFilter{},

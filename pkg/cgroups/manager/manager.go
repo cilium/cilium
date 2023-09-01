@@ -210,7 +210,7 @@ func initManager(provider cgroupPathProvider, cg cgroup, channelSize int) *Cgrou
 }
 
 func (m *CgroupManager) enable() {
-	if !option.Config.EnableSocketLBTracing {
+	if !option.Config.SocketLBTracingEnabled() {
 		m.enabled = false
 		return
 	}

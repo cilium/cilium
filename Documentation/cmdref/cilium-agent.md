@@ -144,7 +144,6 @@ cilium-agent [flags]
       --enable-node-port                                          Enable NodePort type services by Cilium
       --enable-pmtu-discovery                                     Enable path MTU discovery to send ICMP fragmentation-needed replies to the client
       --enable-policy string                                      Enable policy enforcement (default "default")
-      --enable-recorder                                           Enable BPF datapath pcap recorder
       --enable-remote-node-identity                               Enable use of remote node identity (default true)
       --enable-runtime-device-detection                           Enable runtime device detection and datapath reconfiguration (experimental)
       --enable-sctp                                               Enable SCTP support (beta)
@@ -191,7 +190,6 @@ cilium-agent [flags]
       --hubble-listen-address string                              An additional address for Hubble server to listen to, e.g. ":4244"
       --hubble-metrics strings                                    List of Hubble metrics to enable.
       --hubble-metrics-server string                              Address to serve Hubble metrics on.
-      --hubble-monitor-events strings                             Cilium monitor events for Hubble to observe: [drop debug capture trace policy-verdict recorder trace-sock l7 agent]. By default, Hubble observes all monitor events.
       --hubble-prefer-ipv6                                        Prefer IPv6 addresses for announcing nodes when both address types are available.
       --hubble-recorder-sink-queue-size int                       Queue size of each Hubble recorder sink (default 1024)
       --hubble-recorder-storage-path string                       Directory in which pcap files created via the Hubble Recorder API are stored (default "/var/run/cilium/pcaps")
@@ -273,6 +271,7 @@ cilium-agent [flags]
       --monitor-aggregation string                                Level of monitor aggregation for traces from the datapath (default "None")
       --monitor-aggregation-flags strings                         TCP flags that trigger monitor reports when monitor aggregation is enabled (default [syn,fin,rst])
       --monitor-aggregation-interval duration                     Monitor report interval when monitor aggregation is enabled (default 5s)
+      --monitor-events strings                                    Cilium monitor events to generate: [drop debug capture trace policy-verdict recorder trace-sock l7 agent]. Specifying certain event types enables/disables event generation in bpf programs or pcap tracing. (default [drop,policy-verdict])
       --monitor-queue-size int                                    Size of the event queue when reading monitor events
       --mtu int                                                   Overwrite auto-detected MTU of underlying network
       --node-encryption-opt-out-labels string                     Label selector for nodes which will opt-out of node-to-node encryption (default "node-role.kubernetes.io/control-plane")
@@ -312,7 +311,6 @@ cilium-agent [flags]
       --tofqdns-proxy-port int                                    Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
       --tofqdns-proxy-response-max-delay duration                 The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information. (default 100ms)
       --trace-payloadlen int                                      Length of payload to capture when tracing (default 128)
-      --trace-sock                                                Enable tracing for socket-based LB (default true)
       --tunnel-port int                                           Tunnel port (default 8472 for "vxlan" and 6081 for "geneve")
       --tunnel-protocol string                                    Encapsulation protocol to use for the overlay ("vxlan" or "geneve") (default "vxlan")
       --version                                                   Print version information

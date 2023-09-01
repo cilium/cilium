@@ -315,9 +315,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableSocketLB, false, "Enable socket-based LB for E/W traffic")
 	option.BindEnv(vp, option.EnableSocketLB)
 
-	flags.Bool(option.EnableSocketLBTracing, true, "Enable tracing for socket-based LB")
-	option.BindEnv(vp, option.EnableSocketLBTracing)
-
 	flags.Bool(option.EnableAutoDirectRoutingName, defaults.EnableAutoDirectRouting, "Enable automatic L2 routing between nodes")
 	option.BindEnv(vp, option.EnableAutoDirectRoutingName)
 
@@ -563,9 +560,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableBBR, false, "Enable BBR for the bandwidth manager")
 	option.BindEnv(vp, option.EnableBBR)
-
-	flags.Bool(option.EnableRecorder, false, "Enable BPF datapath pcap recorder")
-	option.BindEnv(vp, option.EnableRecorder)
 
 	flags.Bool(option.EnableLocalRedirectPolicy, false, "Enable Local Redirect Policy")
 	option.BindEnv(vp, option.EnableLocalRedirectPolicy)
@@ -991,13 +985,16 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.HubbleSkipUnknownCGroupIDs, true, "Skip Hubble events with unknown cgroup ids")
 	option.BindEnv(vp, option.HubbleSkipUnknownCGroupIDs)
 
-	flags.StringSlice(option.HubbleMonitorEvents, []string{},
+	flags.StringSlice(option.MonitorEvents, []string{
+		monitorAPI.MessageTypeNameDrop,
+		monitorAPI.MessageTypeNamePolicyVerdict,
+	},
 		fmt.Sprintf(
-			"Cilium monitor events for Hubble to observe: [%s]. By default, Hubble observes all monitor events.",
+			"Cilium monitor events to generate: [%s]. Specifying certain event types enables/disables event generation in bpf programs or pcap tracing.",
 			strings.Join(monitorAPI.AllMessageTypeNames(), " "),
 		),
 	)
-	option.BindEnv(vp, option.HubbleMonitorEvents)
+	option.BindEnv(vp, option.MonitorEvents)
 
 	flags.Bool(option.HubbleRedactEnabled, defaults.HubbleRedactEnabled, "Hubble redact sensitive information from flows")
 	option.BindEnv(vp, option.HubbleRedactEnabled)
@@ -1318,11 +1315,12 @@ func initEnv(vp *viper.Viper) {
 	bpf.CheckOrMountFS(option.Config.BPFRoot)
 	cgroups.CheckOrMountCgrpFS(option.Config.CGroupRoot)
 
-	option.Config.Opts.SetBool(option.Debug, debugDatapath)
+	//FIXME - verify all event types - ie. capture
+	option.Config.Opts.SetBool(option.Debug, debugDatapath || option.Config.EventGenerationEnabled(monitorAPI.MessageTypeNameDebug))
 	option.Config.Opts.SetBool(option.DebugLB, debugDatapath)
-	option.Config.Opts.SetBool(option.DropNotify, true)
-	option.Config.Opts.SetBool(option.TraceNotify, true)
-	option.Config.Opts.SetBool(option.PolicyVerdictNotify, true)
+	option.Config.Opts.SetBool(option.DropNotify, option.Config.EventGenerationEnabled(monitorAPI.MessageTypeNameDrop))
+	option.Config.Opts.SetBool(option.TraceNotify, option.Config.EventGenerationEnabled(monitorAPI.MessageTypeNameTrace))
+	option.Config.Opts.SetBool(option.PolicyVerdictNotify, option.Config.EventGenerationEnabled(monitorAPI.MessageTypeNamePolicyVerdict))
 	option.Config.Opts.SetBool(option.PolicyTracing, option.Config.EnableTracing)
 	option.Config.Opts.SetBool(option.ConntrackAccounting, true)
 	option.Config.Opts.SetBool(option.ConntrackLocal, false)
@@ -1361,7 +1359,7 @@ func initEnv(vp *viper.Viper) {
 		option.Config.KubeProxyReplacement = option.KubeProxyReplacementFalse
 		option.Config.EnableSocketLB = true
 		// Socket-LB tracing relies on metadata that's retrieved from Kubernetes.
-		option.Config.EnableSocketLBTracing = false
+		option.Config.DisableSocketLBTracing()
 		option.Config.EnableHostPort = false
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
