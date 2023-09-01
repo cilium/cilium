@@ -284,7 +284,7 @@ Note that this is the identity in the monitor output for the HTTP connection.
 In cases where there is no matching identity for an IP in the fqdn cache it may
 simply be because no policy selects an associated domain. The policy system
 represents each ``toFQDNs:`` rule with a ``FQDNSelector`` instance. These
-receive updates from a global ``NameManage`` in the daemon.
+receive updates from a global ``NameManager`` in the daemon.
 They can be listed along with other selectors (roughly corresponding to any L3 rule):
 
 .. code-block:: shell-session
