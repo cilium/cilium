@@ -14,7 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 )
 
-// Cell contains all cells which are providing BPF Maps.
+// Cell contains cells which are providing BPF Maps and reconcilers.
 var Cell = cell.Module(
 	"maps",
 	"BPF Maps",
@@ -38,6 +38,6 @@ var Cell = cell.Module(
 	// Provides the node map which contains information about node IDs and their IP addresses.
 	nodemap.Cell,
 
-	// Provides access to the L2 responder map.
+	// Provides access to the L2 responder map and its reconciler.
 	l2respondermap.Cell,
 )

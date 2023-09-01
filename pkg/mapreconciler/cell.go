@@ -63,7 +63,7 @@ func NewReconciler[E Pair[K, V], K Marshalable, V any](opts ...Opt[E, K, V]) cel
 	) {
 		options := defaultOptions[E, K, V]()
 		for _, opt := range opts {
-			opt.apply(&options)
+			opt.Apply(&options)
 		}
 
 		group := jr.NewGroup(job.WithLogger(log))
@@ -103,12 +103,12 @@ func defaultOptions[E Pair[K, V], K Marshalable, V any]() options[E, K, V] {
 
 // Opt is an option for a reconciler.
 type Opt[E Pair[K, V], K Marshalable, V any] interface {
-	apply(*options[E, K, V])
+	Apply(*options[E, K, V])
 }
 
 type optFunc[E Pair[K, V], K Marshalable, V any] func(*options[E, K, V])
 
-func (f optFunc[E, K, V]) apply(o *options[E, K, V]) {
+func (f optFunc[E, K, V]) Apply(o *options[E, K, V]) {
 	f(o)
 }
 

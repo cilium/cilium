@@ -11,7 +11,7 @@ var Cell = cell.Module(
 	"datapath-tables",
 	"Datapath state tables",
 
-	L2AnnounceTableCell,
 	DeviceTableCell,
 	RouteTableCell,
+	L2ResponderTableCell,
 )

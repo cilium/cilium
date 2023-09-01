@@ -16,6 +16,7 @@ import (
 	"time"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -30,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
 
@@ -72,9 +74,12 @@ type l2AnnouncerParams struct {
 	Services             resource.Resource[*slim_corev1.Service]
 	L2AnnouncementPolicy resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]
 	LocalNodeResource    daemon_k8s.LocalCiliumNodeResource
-	L2AnnounceTable      statedb.Table[*tables.L2AnnounceEntry]
 	StateDB              *statedb.DB
-	JobRegistry          job.Registry
+	DevicesTable         statedb.Table[*tables.Device]
+	L2ResponderTable     statedb.Table[l2respondermap.L2ResponderEntry]
+	GARPSender           garp.InterfaceSender
+
+	JobRegistry job.Registry
 }
 
 // L2Announcer takes all L2 announcement policies and filters down to those that match the labels of the local node. It
@@ -91,15 +96,15 @@ type L2Announcer struct {
 	jobgroup job.Group
 
 	leaderChannel     chan leaderElectionEvent
-	devicesUpdatedSig chan struct{}
+	devicesUpdatedSig <-chan struct{}
 
 	// selectedPolicies matching the current node.
 	selectedPolicies map[resource.Key]*selectedPolicy
 	// Services which are selected by one or more policies for which we thus want to participate in leader election.
 	// Indexed by service key.
 	selectedServices map[resource.Key]*selectedService
-	// A list of devices which can be matched by the policies
-	devices []string
+	// current list of devices which can be matched by policies
+	devices []*tables.Device
 }
 
 func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
@@ -111,10 +116,9 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 			job.WithLogger(params.Logger),
 			job.WithPprofLabels(pprof.Labels("cell", "l2-announcer")),
 		),
-		selectedServices:  make(map[resource.Key]*selectedService),
-		selectedPolicies:  make(map[resource.Key]*selectedPolicy),
-		leaderChannel:     make(chan leaderElectionEvent, leaderElectionBufferSize),
-		devicesUpdatedSig: make(chan struct{}, 1),
+		selectedServices: make(map[resource.Key]*selectedService),
+		selectedPolicies: make(map[resource.Key]*selectedPolicy),
+		leaderChannel:    make(chan leaderElectionEvent, leaderElectionBufferSize),
 	}
 
 	// Can't operate or GC if client set is disabled
@@ -135,17 +139,6 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 	announcer.jobgroup.Add(job.Timer("l2-announcer lease-gc", announcer.leaseGC, time.Minute))
 
 	return announcer
-}
-
-// DevicesChanged can be invoked by an external component responsible for discovering all available network devices to
-// inform this component of all the devices we can use for L2 announcements.
-func (l2a *L2Announcer) DevicesChanged(devices []string) {
-	l2a.devices = devices
-
-	select {
-	case l2a.devicesUpdatedSig <- struct{}{}:
-	default:
-	}
 }
 
 func (l2a *L2Announcer) run(ctx context.Context) error {
@@ -180,6 +173,8 @@ func (l2a *L2Announcer) run(ctx context.Context) error {
 			break
 		}
 	}
+
+	l2a.processDevicesChanged(ctx)
 
 loop:
 	for {
@@ -267,6 +262,8 @@ func (l2a *L2Announcer) leaseGC(ctx context.Context) error {
 }
 
 func (l2a *L2Announcer) processDevicesChanged(ctx context.Context) error {
+	l2a.devices, l2a.devicesUpdatedSig = tables.SelectedDevices(l2a.params.DevicesTable, l2a.params.StateDB.ReadTxn())
+
 	var errs error
 
 	// Upsert every known policy which will re-evaluate device matching
@@ -439,7 +436,7 @@ func (l2a *L2Announcer) upsertPolicy(ctx context.Context, policy *cilium_api_v2a
 
 	// If no interface regexes are given, all devices match. Otherwise only devices matching the policy
 	// will be selected.
-	var selectedDevices []string
+	var selectedDevices []*tables.Device
 	if len(policy.Spec.Interfaces) == 0 {
 		selectedDevices = l2a.devices
 	} else {
@@ -457,7 +454,7 @@ func (l2a *L2Announcer) upsertPolicy(ctx context.Context, policy *cilium_api_v2a
 					continue
 				}
 
-				if regex.MatchString(device) {
+				if regex.MatchString(device.Name) {
 					selectedDevices = append(selectedDevices, device)
 				}
 			}
@@ -835,18 +832,19 @@ func (l2a *L2Announcer) processLeaderEvent(event leaderElectionEvent) error {
 }
 
 func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) error {
-	tbl := l2a.params.L2AnnounceTable
-	txn := l2a.params.StateDB.WriteTxn(tbl)
+	db := l2a.params.StateDB
+	tbl := l2a.params.L2ResponderTable
+	txn := db.WriteTxn(tbl)
 	defer txn.Abort()
 
 	svcKey := serviceKey(ss.svc)
 
-	entriesIter, _ := tbl.Get(txn, tables.L2AnnounceOriginIndex.Query(svcKey))
+	entriesIter, _ := tbl.Get(txn, tables.L2ResponderOriginIndex.Query(svcKey))
 
 	// If we are not the leader, we should not have any proxy entries for the service.
 	if !ss.currentlyLeader {
 		// Remove origin from entries, and delete if no origins left
-		err := statedb.ProcessEach(entriesIter, func(e *tables.L2AnnounceEntry, _ uint64) error {
+		err := statedb.ProcessEach(entriesIter, func(e l2respondermap.L2ResponderEntry, _ uint64) error {
 			// Copy, since modifying objects directly is not allowed.
 			e = e.DeepCopy()
 
@@ -857,12 +855,13 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 
 			_, _, err := tbl.Delete(txn, e)
 			if err != nil {
-				return fmt.Errorf("update in table: %w", err)
+				return fmt.Errorf("delete entry: %w", err)
 			}
+
 			return nil
 		})
 		if err != nil {
-			return fmt.Errorf("failed to modify desired state: %w", err)
+			return fmt.Errorf("modify desired state: %w", err)
 		}
 
 		txn.Commit()
@@ -871,14 +870,14 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 	}
 
 	desiredEntries := l2a.desiredEntries(ss)
-	satisfiedEntries := make(map[string]bool)
+	satisfiedEntries := make(map[l2respondermap.L2ResponderKey]bool)
 	for key := range desiredEntries {
 		satisfiedEntries[key] = false
 	}
 
 	// Loop over existing entries, delete undesired entries
-	err := statedb.ProcessEach(entriesIter, func(e *tables.L2AnnounceEntry, _ uint64) error {
-		key := fmt.Sprintf("%s/%s", e.IP, e.NetworkInterface)
+	err := statedb.ProcessEach(entriesIter, func(e l2respondermap.L2ResponderEntry, _ uint64) error {
+		key := e.Key()
 
 		_, desired := desiredEntries[key]
 		if desired {
@@ -900,19 +899,26 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 
 		if len(e.Origins) == 0 {
 			// Delete, if no services want this IP + NetDev anymore
-			tbl.Delete(txn, e)
+			_, _, err := tbl.Delete(txn, e)
+			if err != nil {
+				return fmt.Errorf("delete entry: %w", err)
+			}
+
 			return nil
 		}
 
 		_, _, err := tbl.Insert(txn, e)
 		if err != nil {
-			return fmt.Errorf("update in table: %w", err)
+			return fmt.Errorf("insert entry: %w", err)
 		}
+
 		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("failed to modify desired state: %w", err)
 	}
+
+	var toSend []l2respondermap.L2ResponderEntry
 
 	// loop over the desired states, add any that are missing
 	for key, satisfied := range satisfiedEntries {
@@ -921,42 +927,60 @@ func (l2a *L2Announcer) recalculateL2EntriesTableEntries(ss *selectedService) er
 		}
 
 		entry := desiredEntries[key]
-		existing, _, _ := tbl.First(txn, tables.L2AnnounceIDIndex.Query(tables.L2AnnounceKey{
-			IP:               entry.IP,
-			NetworkInterface: entry.NetworkInterface,
-		}))
-		if err != nil {
-			return fmt.Errorf("first: %w", err)
-		}
+		existing, _, found := tbl.First(txn, tables.L2ResponderPKIndex.Query(key))
 
-		if existing == nil {
-			existing = &tables.L2AnnounceEntry{
-				L2AnnounceKey: tables.L2AnnounceKey{
-					IP:               entry.IP,
-					NetworkInterface: entry.NetworkInterface,
+		if !found {
+			existing = l2respondermap.L2ResponderEntry{
+				L2ResponderKey: l2respondermap.L2ResponderKey{
+					IP:      entry.IP,
+					IfIndex: entry.IfIndex,
 				},
 			}
 		}
 
 		// Add our new origin to the existing origins, or if existing is nil (no entry existed), nothing will change.
 		entry.Origins = append(existing.Origins, entry.Origins...)
+		// Sort so the duplicate origins are adjacent
+		slices.SortFunc(entry.Origins, func(a, b resource.Key) int {
+			if a.String() == b.String() {
+				return 0
+			}
+			if a.String() < b.String() {
+				return -1
+			}
+
+			return 1
+		})
+		// Remove duplicates
+		entry.Origins = slices.CompactFunc(entry.Origins, func(a, b resource.Key) bool {
+			return a.String() == b.String()
+		})
 
 		// Insert or update
-		_, _, err = tbl.Insert(txn, entry)
+		_, hasOld, err := tbl.Insert(txn, entry)
 		if err != nil {
-			return fmt.Errorf("insert new: %w", err)
+			return fmt.Errorf("insert entry: %w", err)
 		}
+
+		if !hasOld {
+			toSend = append(toSend, entry)
+		}
+
 		continue
 	}
 
 	txn.Commit()
 
+	for _, entry := range toSend {
+		// Notify local network of the new entry
+		l2a.params.GARPSender.SendOnInterfaceIdx(int(entry.IfIndex), entry.IP.Addr())
+	}
+
 	return nil
 }
 
-func (l2a *L2Announcer) desiredEntries(ss *selectedService) map[string]*tables.L2AnnounceEntry {
-	entries := make(map[string]*tables.L2AnnounceEntry)
-
+func (l2a *L2Announcer) desiredEntries(ss *selectedService) map[l2respondermap.L2ResponderKey]l2respondermap.L2ResponderEntry {
+	entries := make(map[l2respondermap.L2ResponderKey]l2respondermap.L2ResponderEntry)
 	for _, policyKey := range ss.byPolicies {
 		selectedPolicy := l2a.selectedPolicies[policyKey]
 
@@ -983,15 +1007,15 @@ func (l2a *L2Announcer) desiredEntries(ss *selectedService) map[string]*tables.L
 
 		for _, ip := range IPs {
 			for _, iface := range selectedPolicy.selectedDevices {
-				key := fmt.Sprintf("%s/%s", ip.String(), iface)
+				key := l2respondermap.L2ResponderKey{
+					IP:      ip.As4(),
+					IfIndex: uint32(iface.Index),
+				}
 				entry, found := entries[key]
 				if !found {
-					entry = &tables.L2AnnounceEntry{
-						L2AnnounceKey: tables.L2AnnounceKey{
-							IP:               ip,
-							NetworkInterface: iface,
-						},
-						Origins: []resource.Key{serviceKey(ss.svc)},
+					entry = l2respondermap.L2ResponderEntry{
+						L2ResponderKey: key,
+						Origins:        []resource.Key{serviceKey(ss.svc)},
 					}
 				}
 				entries[key] = entry
@@ -1099,5 +1123,5 @@ type selectedPolicy struct {
 	serviceSelector labels.Selector
 	// a cached list of network devices selected by this policy based on the regular expressions in the policy
 	// and the latest known list of devices.
-	selectedDevices []string
+	selectedDevices []*tables.Device
 }

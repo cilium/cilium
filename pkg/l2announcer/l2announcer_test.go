@@ -5,12 +5,14 @@ package l2announcer
 
 import (
 	"context"
+	"net"
 	"net/netip"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -21,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
 
@@ -35,27 +38,35 @@ import (
 )
 
 type fixture struct {
-	announcer          *L2Announcer
-	proxyNeighborTable statedb.Table[*tables.L2AnnounceEntry]
-	stateDB            *statedb.DB
-	fakeSvcStore       *fakeStore[*slim_corev1.Service]
-	fakePolicyStore    *fakeStore[*v2alpha1.CiliumL2AnnouncementPolicy]
+	announcer        *L2Announcer
+	stateDB          *statedb.DB
+	devicesTable     statedb.Table[*tables.Device]
+	l2ResponderTable statedb.Table[l2respondermap.L2ResponderEntry]
+	fakeSvcStore     *fakeStore[*slim_corev1.Service]
+	fakePolicyStore  *fakeStore[*v2alpha1.CiliumL2AnnouncementPolicy]
 }
 
 func newFixture() *fixture {
 	var (
-		tbl statedb.Table[*tables.L2AnnounceEntry]
-		db  *statedb.DB
-		jr  job.Registry
+		l2ResponderTable statedb.Table[l2respondermap.L2ResponderEntry]
+		db               *statedb.DB
+		deviceTbl        statedb.Table[*tables.Device]
+		jr               job.Registry
 	)
 
 	hive.New(
 		statedb.Cell,
 		tables.Cell,
 		job.Cell,
-		cell.Invoke(func(d *statedb.DB, t statedb.Table[*tables.L2AnnounceEntry], j job.Registry) {
+		cell.Invoke(func(
+			d *statedb.DB,
+			dt statedb.Table[*tables.Device],
+			l2t statedb.Table[l2respondermap.L2ResponderEntry],
+			j job.Registry,
+		) {
 			db = d
-			tbl = t
+			l2ResponderTable = l2t
+			deviceTbl = dt
 			jr = j
 		}),
 	).Populate()
@@ -76,9 +87,11 @@ func newFixture() *fixture {
 		Clientset: &client.FakeClientset{
 			KubernetesFakeClientset: fake.NewSimpleClientset(),
 		},
-		L2AnnounceTable: tbl,
-		StateDB:         db,
-		JobRegistry:     jr,
+		StateDB:          db,
+		DevicesTable:     deviceTbl,
+		L2ResponderTable: l2ResponderTable,
+		GARPSender:       fakeGarpSender{},
+		JobRegistry:      jr,
 	}
 
 	// Setting stores normally happens in .run which we bypass for testing purposes
@@ -89,11 +102,12 @@ func newFixture() *fixture {
 	announcer.jobgroup.Start(context.Background())
 
 	return &fixture{
-		announcer:          announcer,
-		proxyNeighborTable: tbl,
-		stateDB:            db,
-		fakeSvcStore:       fakeSvcStore,
-		fakePolicyStore:    fakePolicyStore,
+		announcer:        announcer,
+		stateDB:          db,
+		devicesTable:     deviceTbl,
+		l2ResponderTable: l2ResponderTable,
+		fakeSvcStore:     fakeSvcStore,
+		fakePolicyStore:  fakePolicyStore,
 	}
 }
 
@@ -143,6 +157,12 @@ func (fr *fakeResource[T]) Store(context.Context) (resource.Store[T], error) {
 	}
 
 	return &fakeStore[T]{}, nil
+}
+
+type fakeGarpSender struct{}
+
+func (fgs fakeGarpSender) SendOnInterfaceIdx(int, netip.Addr) error {
+	return nil
 }
 
 func blueNode() *v2.CiliumNode {
@@ -195,12 +215,27 @@ func blueService() *slim_corev1.Service {
 	}
 }
 
+func eno01Device() *tables.Device {
+	return &tables.Device{
+		Index:        1,
+		MTU:          1500,
+		Name:         "eno01",
+		HardwareAddr: net.HardwareAddr{0, 1, 2, 3, 4, 5},
+		Flags:        net.FlagUp,
+		Selected:     true,
+		MasterIndex:  0,
+	}
+}
+
 // Test the happy path, make sure that we create proxy neighbor entries
 func TestHappyPath(t *testing.T) {
 	fix := newFixture()
 
-	fix.announcer.DevicesChanged([]string{"eno01"})
-	err := fix.announcer.processDevicesChanged(context.Background())
+	writeTxn := fix.stateDB.WriteTxn(fix.devicesTable)
+	_, _, err := fix.devicesTable.Insert(writeTxn, eno01Device())
+	assert.NoError(t, err)
+	writeTxn.Commit()
+	err = fix.announcer.processDevicesChanged(context.Background())
 	assert.NoError(t, err)
 
 	localNode := blueNode()
@@ -234,9 +269,8 @@ func TestHappyPath(t *testing.T) {
 		return
 	}
 
-	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
-	entries := statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ := fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 
 	err = fix.announcer.processLeaderEvent(leaderElectionEvent{
@@ -245,14 +279,13 @@ func TestHappyPath(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	rtx = fix.stateDB.ReadTxn()
-	iter, _ = fix.proxyNeighborTable.All(rtx)
-	entries = statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ = fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries = statedb.Collect(iter)
 	assert.Len(t, entries, 1)
-	assert.Equal(t, entries[0], &tables.L2AnnounceEntry{
-		L2AnnounceKey: tables.L2AnnounceKey{
-			IP:               netip.MustParseAddr(svc.Spec.ExternalIPs[0]),
-			NetworkInterface: policy.Spec.Interfaces[0],
+	assert.Equal(t, entries[0], l2respondermap.L2ResponderEntry{
+		L2ResponderKey: l2respondermap.L2ResponderKey{
+			IP:      netip.MustParseAddr(svc.Spec.ExternalIPs[0]).As4(),
+			IfIndex: uint32(eno01Device().Index),
 		},
 		Origins: []resource.Key{svcKey},
 	})
@@ -266,8 +299,11 @@ func TestHappyPath(t *testing.T) {
 // we should always end on the same result.
 func TestHappyPathPermutations(t *testing.T) {
 	addDevices := func(fix *fixture, tt *testing.T) {
-		fix.announcer.DevicesChanged([]string{"eno01"})
-		err := fix.announcer.processDevicesChanged(context.Background())
+		writeTxn := fix.stateDB.WriteTxn(fix.devicesTable)
+		_, _, err := fix.devicesTable.Insert(writeTxn, eno01Device())
+		assert.NoError(t, err)
+		writeTxn.Commit()
+		err = fix.announcer.processDevicesChanged(context.Background())
 		assert.NoError(t, err)
 	}
 	addPolicy := func(fix *fixture, tt *testing.T) {
@@ -322,9 +358,8 @@ func TestHappyPathPermutations(t *testing.T) {
 				fn.fn(fix, tt)
 			}
 
-			rtx := fix.stateDB.ReadTxn()
-			iter, _ := fix.proxyNeighborTable.All(rtx)
-			entries := statedb.Collect[*tables.L2AnnounceEntry](iter)
+			iter, _ := fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+			entries := statedb.Collect(iter)
 			assert.Len(tt, entries, 0)
 
 			if assert.Contains(tt, fix.announcer.selectedServices, serviceKey(blueService())) {
@@ -335,14 +370,13 @@ func TestHappyPathPermutations(t *testing.T) {
 				assert.NoError(tt, err)
 			}
 
-			rtx = fix.stateDB.ReadTxn()
-			iter, _ = fix.proxyNeighborTable.All(rtx)
-			entries = statedb.Collect[*tables.L2AnnounceEntry](iter)
+			iter, _ = fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+			entries = statedb.Collect(iter)
 			if assert.Len(tt, entries, 1) {
-				assert.Equal(tt, entries[0], &tables.L2AnnounceEntry{
-					L2AnnounceKey: tables.L2AnnounceKey{
-						IP:               netip.MustParseAddr(blueService().Spec.ExternalIPs[0]),
-						NetworkInterface: bluePolicy().Spec.Interfaces[0],
+				assert.Equal(tt, entries[0], l2respondermap.L2ResponderEntry{
+					L2ResponderKey: l2respondermap.L2ResponderKey{
+						IP:      netip.MustParseAddr(blueService().Spec.ExternalIPs[0]).As4(),
+						IfIndex: uint32(eno01Device().Index),
 					},
 					Origins: []resource.Key{serviceKey(blueService())},
 				})
@@ -377,8 +411,11 @@ func TestHappyPathPermutations(t *testing.T) {
 func TestPolicyRedundancy(t *testing.T) {
 	fix := newFixture()
 
-	fix.announcer.DevicesChanged([]string{"eno01"})
-	err := fix.announcer.processDevicesChanged(context.Background())
+	writeTxn := fix.stateDB.WriteTxn(fix.devicesTable)
+	_, _, err := fix.devicesTable.Insert(writeTxn, eno01Device())
+	assert.NoError(t, err)
+	writeTxn.Commit()
+	err = fix.announcer.processDevicesChanged(context.Background())
 	assert.NoError(t, err)
 
 	// Add local node
@@ -438,14 +475,13 @@ func TestPolicyRedundancy(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Assert selected service turned into Proxy Neighbor Entry
-	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
-	entries := statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ := fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 1)
-	assert.Equal(t, entries[0], &tables.L2AnnounceEntry{
-		L2AnnounceKey: tables.L2AnnounceKey{
-			IP:               netip.MustParseAddr(svc.Spec.ExternalIPs[0]),
-			NetworkInterface: policy.Spec.Interfaces[0],
+	assert.Equal(t, entries[0], l2respondermap.L2ResponderEntry{
+		L2ResponderKey: l2respondermap.L2ResponderKey{
+			IP:      netip.MustParseAddr(svc.Spec.ExternalIPs[0]).As4(),
+			IfIndex: uint32(eno01Device().Index),
 		},
 		Origins: []resource.Key{svcKey},
 	})
@@ -467,14 +503,13 @@ func TestPolicyRedundancy(t *testing.T) {
 	}, fix.announcer.selectedServices[svcKey].byPolicies)
 
 	// Assert Proxy Neighbor Entry still exists
-	rtx = fix.stateDB.ReadTxn()
-	iter, _ = fix.proxyNeighborTable.All(rtx)
-	entries = statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ = fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries = statedb.Collect(iter)
 	assert.Len(t, entries, 1)
-	assert.Equal(t, entries[0], &tables.L2AnnounceEntry{
-		L2AnnounceKey: tables.L2AnnounceKey{
-			IP:               netip.MustParseAddr(svc.Spec.ExternalIPs[0]),
-			NetworkInterface: policy.Spec.Interfaces[0],
+	assert.Equal(t, entries[0], l2respondermap.L2ResponderEntry{
+		L2ResponderKey: l2respondermap.L2ResponderKey{
+			IP:      netip.MustParseAddr(svc.Spec.ExternalIPs[0]).As4(),
+			IfIndex: uint32(eno01Device().Index),
 		},
 		Origins: []resource.Key{svcKey},
 	})
@@ -487,8 +522,11 @@ func TestPolicyRedundancy(t *testing.T) {
 func baseUpdateSetup(t *testing.T) *fixture {
 	fix := newFixture()
 
-	fix.announcer.DevicesChanged([]string{"eno01"})
-	err := fix.announcer.processDevicesChanged(context.Background())
+	writeTxn := fix.stateDB.WriteTxn(fix.devicesTable)
+	_, _, err := fix.devicesTable.Insert(writeTxn, eno01Device())
+	assert.NoError(t, err)
+	writeTxn.Commit()
+	err = fix.announcer.processDevicesChanged(context.Background())
 	assert.NoError(t, err)
 
 	localNode := blueNode()
@@ -544,9 +582,8 @@ func TestUpdateHostLabels_NoMatch(t *testing.T) {
 	assert.Len(t, fix.announcer.selectedServices, 0)
 
 	// Assert Proxy Neighbor Entry is deleted
-	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
-	entries := statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ := fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -602,9 +639,8 @@ func TestUpdateHostLabels_AdditionalMatch(t *testing.T) {
 	assert.Len(t, fix.announcer.selectedServices, 1)
 
 	// Check that proxy neighbor entries are still 1
-	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
-	entries := statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ := fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 1)
 
 	node := blueNode()
@@ -633,9 +669,8 @@ func TestUpdateHostLabels_AdditionalMatch(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Check that proxy neighbor entries are now 2
-	rtx = fix.stateDB.ReadTxn()
-	iter, _ = fix.proxyNeighborTable.All(rtx)
-	entries = statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ = fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries = statedb.Collect(iter)
 	assert.Len(t, entries, 2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -662,9 +697,8 @@ func TestUpdatePolicy_NoMatch(t *testing.T) {
 	assert.Len(t, fix.announcer.selectedServices, 0)
 
 	// Assert Proxy Neighbor Entry is deleted
-	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
-	entries := statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ := fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -717,9 +751,8 @@ func TestUpdatePolicy_AdditionalMatch(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Assert that entries for both are added
-	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
-	entries := statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ := fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -747,9 +780,8 @@ func TestUpdatePolicy_ChangeIPType(t *testing.T) {
 	assert.Len(t, fix.announcer.selectedServices, 1)
 
 	// Selected service has no LB ips, so all entries should be deleted
-	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
-	entries := statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ := fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 
 	svc := blueService()
@@ -767,14 +799,13 @@ func TestUpdatePolicy_ChangeIPType(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Adding a LB IP, check that we have an entry for that
-	rtx = fix.stateDB.ReadTxn()
-	iter, _ = fix.proxyNeighborTable.All(rtx)
-	entries = statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ = fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries = statedb.Collect(iter)
 	assert.Len(t, entries, 1)
-	assert.Contains(t, entries, &tables.L2AnnounceEntry{
-		L2AnnounceKey: tables.L2AnnounceKey{
-			IP:               netip.MustParseAddr("192.168.2.3"),
-			NetworkInterface: bluePolicy().Spec.Interfaces[0],
+	assert.Contains(t, entries, l2respondermap.L2ResponderEntry{
+		L2ResponderKey: l2respondermap.L2ResponderKey{
+			IP:      netip.MustParseAddr("192.168.2.3").As4(),
+			IfIndex: uint32(eno01Device().Index),
 		},
 		Origins: []resource.Key{resource.NewKey(svc)},
 	})
@@ -788,8 +819,16 @@ func TestUpdatePolicy_ChangeIPType(t *testing.T) {
 func TestUpdatePolicy_ChangeInterfaces(t *testing.T) {
 	fix := baseUpdateSetup(t)
 
-	fix.announcer.DevicesChanged([]string{"eno01", "eth0"})
-	err := fix.announcer.processDevicesChanged(context.Background())
+	writeTxn := fix.stateDB.WriteTxn(fix.devicesTable)
+	_, _, err := fix.devicesTable.Insert(writeTxn, eno01Device())
+	assert.NoError(t, err)
+	eth0 := eno01Device()
+	eth0.Name = "eth0"
+	eth0.Index = 2
+	_, _, err = fix.devicesTable.Insert(writeTxn, eth0)
+	assert.NoError(t, err)
+	writeTxn.Commit()
+	err = fix.announcer.processDevicesChanged(context.Background())
 	assert.NoError(t, err)
 
 	policy := bluePolicy()
@@ -807,14 +846,13 @@ func TestUpdatePolicy_ChangeInterfaces(t *testing.T) {
 	assert.Len(t, fix.announcer.selectedServices, 1)
 
 	// Check that the old entry is deleted and the new entry added
-	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
-	entries := statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ := fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 1)
-	assert.Contains(t, entries, &tables.L2AnnounceEntry{
-		L2AnnounceKey: tables.L2AnnounceKey{
-			IP:               netip.MustParseAddr(blueService().Spec.ExternalIPs[0]),
-			NetworkInterface: "eth0",
+	assert.Contains(t, entries, l2respondermap.L2ResponderEntry{
+		L2ResponderKey: l2respondermap.L2ResponderKey{
+			IP:      netip.MustParseAddr(blueService().Spec.ExternalIPs[0]).As4(),
+			IfIndex: uint32(eth0.Index),
 		},
 		Origins: []resource.Key{resource.NewKey(blueService())},
 	})
@@ -840,9 +878,8 @@ func TestUpdateService_DelIP(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Check that the entry for the IP was deleted
-	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
-	entries := statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ := fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -866,9 +903,8 @@ func TestUpdateService_AddIP(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Check that the interface on the proxy neighbor entry changed
-	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
-	entries := statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ := fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -892,9 +928,8 @@ func TestUpdateService_NoMatch(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Check that the entry got deleted
-	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
-	entries := statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ := fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -917,9 +952,8 @@ func TestDelService(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Check that the entry got deleted
-	rtx := fix.stateDB.ReadTxn()
-	iter, _ := fix.proxyNeighborTable.All(rtx)
-	entries := statedb.Collect[*tables.L2AnnounceEntry](iter)
+	iter, _ := fix.l2ResponderTable.All(fix.stateDB.ReadTxn())
+	entries := statedb.Collect(iter)
 	assert.Len(t, entries, 0)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -937,6 +971,7 @@ func TestL2AnnouncerLifecycle(t *testing.T) {
 	h := hive.New(
 		statedb.Cell,
 		tables.Cell,
+		garp.SenderCell,
 		job.Cell,
 		Cell,
 		cell.Provide(func() *option.DaemonConfig {

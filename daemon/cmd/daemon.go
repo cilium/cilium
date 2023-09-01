@@ -897,7 +897,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	var devices []string
 	if d.deviceManager != nil {
 		if _, err := d.deviceManager.Detect(params.Clientset.IsEnabled()); err != nil {
 			if option.Config.AreDevicesRequired() {
@@ -907,10 +906,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
 			disableNodePort()
 		}
-	}
-
-	if d.l2announcer != nil {
-		d.l2announcer.DevicesChanged(devices)
 	}
 
 	if err := finishKubeProxyReplacementInit(); err != nil {
@@ -1228,10 +1223,6 @@ func (d *Daemon) ReloadOnDeviceChange(devices []string) {
 		if err := node.InitBPFMasqueradeAddrs(devices); err != nil {
 			log.Warnf("InitBPFMasqueradeAddrs failed: %s", err)
 		}
-	}
-
-	if d.l2announcer != nil {
-		d.l2announcer.DevicesChanged(devices)
 	}
 
 	if option.Config.EnableNodePort {
