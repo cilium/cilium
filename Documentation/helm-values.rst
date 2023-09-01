@@ -373,6 +373,10 @@
      - Remove the CNI configuration and binary files on agent shutdown. Enable this if you're removing Cilium from the cluster. Disable this to prevent the CNI configuration file from being removed during agent upgrade, which can cause nodes to go unmanageable.
      - bool
      - ``true``
+   * - :spelling:ignore:`conntrackGCMaxInterval`
+     - Configure the maximum frequency for the garbage collection of the connection tracking table. Only affects the automatic computation for the frequency and has no effect when 'conntrackGCInterval' is set. This can be set to more frequently clean up unused identities created from ToFQDN policies.
+     - string
+     - ``""``
    * - :spelling:ignore:`containerRuntime`
      - Configure container runtime specific integration.
      - object

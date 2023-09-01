@@ -101,6 +101,10 @@ data:
   conntrack-gc-interval: {{ .Values.conntrackGCInterval | quote }}
 {{- end }}
 
+{{- if .Values.conntrackGCMaxInterval }}
+  conntrack-gc-max-interval: {{ .Values.conntrackGCMaxInterval | quote }}
+{{- end }}
+
 {{- if hasKey .Values "disableEnvoyVersionCheck" }}
   disable-envoy-version-check: {{ .Values.disableEnvoyVersionCheck | quote }}
 {{- end }}

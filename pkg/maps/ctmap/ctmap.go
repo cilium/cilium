@@ -566,13 +566,13 @@ func GC(m *Map, filter *GCFilter) int {
 // The consumer of the buffer invokes the function.
 //
 // The SNAT is being used for the following cases:
-// 1. By NodePort BPF on an intermediate node before fwd'ing request from outside
+//  1. By NodePort BPF on an intermediate node before fwd'ing request from outside
 //     to a destination node.
-// 2. A packet from local endpoint sent to outside (BPF-masq).
-// 3. A packet from a host local application (i.e. running in the host netns)
-//    This is needed to prevent SNAT from hijacking such connections.
-// 4. By DSR on a backend node to SNAT responses with service IP+port before
-//    sending to a client.
+//  2. A packet from local endpoint sent to outside (BPF-masq).
+//  3. A packet from a host local application (i.e. running in the host netns)
+//     This is needed to prevent SNAT from hijacking such connections.
+//  4. By DSR on a backend node to SNAT responses with service IP+port before
+//     sending to a client.
 //
 // In the case of 1-3, we always create a CT_EGRESS CT entry. This allows the
 // CT GC to remove corresponding SNAT entries. In the case of 4, will create
@@ -784,15 +784,27 @@ var cachedGCInterval time.Duration
 // last run
 func GetInterval(mapType bpf.MapType, maxDeleteRatio float64) (interval time.Duration) {
 	if val := option.Config.ConntrackGCInterval; val != time.Duration(0) {
-		interval = val
-		return
+		return val
 	}
 
-	if interval = cachedGCInterval; interval == time.Duration(0) {
-		interval = defaults.ConntrackGCStartingInterval
+	prevInterval := cachedGCInterval
+	if prevInterval == time.Duration(0) {
+		prevInterval = defaults.ConntrackGCStartingInterval
 	}
 
-	return calculateInterval(mapType, interval, maxDeleteRatio)
+	newInterval := calculateInterval(mapType, prevInterval, maxDeleteRatio)
+	if val := option.Config.ConntrackGCMaxInterval; val != time.Duration(0) && newInterval > val {
+		newInterval = val
+	}
+
+	if newInterval != prevInterval {
+		log.WithFields(logrus.Fields{
+			"newInterval": newInterval,
+			"deleteRatio": maxDeleteRatio,
+		}).Info("Conntrack garbage collector interval recalculated")
+	}
+
+	return newInterval
 }
 
 func calculateInterval(mapType bpf.MapType, prevInterval time.Duration, maxDeleteRatio float64) (interval time.Duration) {
@@ -831,13 +843,6 @@ func calculateInterval(mapType bpf.MapType, prevInterval time.Duration, maxDelet
 				interval = defaults.ConntrackGCMaxInterval
 			}
 		}
-	}
-
-	if interval != prevInterval {
-		log.WithFields(logrus.Fields{
-			"newInterval": interval,
-			"deleteRatio": maxDeleteRatio,
-		}).Info("Conntrack garbage collector interval recalculated")
 	}
 
 	cachedGCInterval = interval

@@ -431,6 +431,12 @@ cni:
 # connection tracking table.
 # conntrackGCInterval: "0s"
 
+# -- (string) Configure the maximum frequency for the garbage collection of the
+# connection tracking table. Only affects the automatic computation for the frequency
+# and has no effect when 'conntrackGCInterval' is set. This can be set to more frequently
+# clean up unused identities created from ToFQDN policies.
+conntrackGCMaxInterval: ""
+
 # -- Configure container runtime specific integration.
 containerRuntime:
   # -- Enables specific integrations for container runtimes.
