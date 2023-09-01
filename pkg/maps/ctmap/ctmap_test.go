@@ -63,6 +63,8 @@ func (t *CTMapTestSuite) TestInit(c *C) {
 }
 
 func (t *CTMapTestSuite) TestCalculateInterval(c *C) {
+	cachedGCInterval = time.Duration(0)
+
 	c.Assert(calculateInterval(bpf.MapTypeLRUHash, time.Minute, 0.1), Equals, time.Minute)  // no change
 	c.Assert(calculateInterval(bpf.MapTypeLRUHash, time.Minute, 0.2), Equals, time.Minute)  // no change
 	c.Assert(calculateInterval(bpf.MapTypeLRUHash, time.Minute, 0.25), Equals, time.Minute) // no change
@@ -78,6 +80,27 @@ func (t *CTMapTestSuite) TestCalculateInterval(c *C) {
 
 	c.Assert(calculateInterval(bpf.MapTypeLRUHash, 24*time.Hour, 0.01), Equals, defaults.ConntrackGCMaxLRUInterval)
 	c.Assert(calculateInterval(bpf.MapTypeHash, 24*time.Hour, 0.01), Equals, defaults.ConntrackGCMaxInterval)
+}
+
+func (t *CTMapTestSuite) TestGetInterval(c *C) {
+	cachedGCInterval = time.Minute
+	c.Assert(GetInterval(bpf.MapTypeLRUHash, 0.1), Equals, time.Minute)
+
+	// Setting ConntrackGCInterval overrides the calculation
+	oldInterval := option.Config.ConntrackGCInterval
+	option.Config.ConntrackGCInterval = 10 * time.Second
+	c.Assert(GetInterval(bpf.MapTypeLRUHash, 0.1), Equals, 10*time.Second)
+	option.Config.ConntrackGCInterval = oldInterval
+	c.Assert(GetInterval(bpf.MapTypeLRUHash, 0.1), Equals, time.Minute)
+
+	// Setting ConntrackGCMaxInterval limits the maximum interval
+	oldMaxInterval := option.Config.ConntrackGCMaxInterval
+	option.Config.ConntrackGCMaxInterval = 20 * time.Second
+	c.Assert(GetInterval(bpf.MapTypeLRUHash, 0.1), Equals, 20*time.Second)
+	option.Config.ConntrackGCMaxInterval = oldMaxInterval
+	c.Assert(GetInterval(bpf.MapTypeLRUHash, 0.1), Equals, time.Minute)
+
+	cachedGCInterval = time.Duration(0)
 }
 
 func (t *CTMapTestSuite) TestFilterMapsByProto(c *C) {

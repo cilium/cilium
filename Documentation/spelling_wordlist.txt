@@ -196,6 +196,7 @@ config
 configmap
 configs
 conntrack
+conntrackGCInterval
 containerd
 contrib
 coord
