@@ -71,7 +71,7 @@ jobs:
           fi
 
       - name: Wait for images to be available
-        timeout-minutes: 10
+        timeout-minutes: 30
         shell: bash
         run: |
           until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci:${{ steps.vars.outputs.tag }} &> /dev/null; do sleep 45s; done
