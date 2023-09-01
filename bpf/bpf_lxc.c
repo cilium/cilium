@@ -449,6 +449,9 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	if (ct_status == CT_REPLY || ct_status == CT_RELATED) {
 		/* Check if this is return traffic to an ingress proxy. */
 		if (ct_state->proxy_redirect) {
+			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV6,
+					  0, 0, 0, trace.reason,
+					  trace.monitor);
 			/* Stack will do a socket match and deliver locally. */
 			return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
 		}
@@ -854,6 +857,9 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 	if (ct_status == CT_REPLY || ct_status == CT_RELATED) {
 		/* Check if this is return traffic to an ingress proxy. */
 		if (ct_state->proxy_redirect) {
+			send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL_IPV4,
+					  0, 0, 0, trace.reason,
+					  trace.monitor);
 			/* Stack will do a socket match and deliver locally. */
 			return ctx_redirect_to_proxy4(ctx, tuple, 0, false);
 		}
