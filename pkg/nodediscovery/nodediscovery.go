@@ -149,7 +149,7 @@ func (n *NodeDiscovery) WithAdditionalNodeAddressSource(source GetNodeAddresses)
 // This allows cluster configuration to override local configuration.
 // Must be called on agent startup after IPAM is configured, but before the configuration is used.
 // nodeName is the name to be used in the local agent.
-func (n *NodeDiscovery) JoinCluster(nodeName string) {
+func (n *NodeDiscovery) JoinCluster(nodeName string) error {
 	var resp *nodeTypes.Node
 	maxRetryCount := 50
 	retryCount := 0
@@ -172,9 +172,14 @@ func (n *NodeDiscovery) JoinCluster(nodeName string) {
 		}
 	}
 
-	// Override local config based on the response
-	option.Config.ClusterID = resp.ClusterID
-	option.Config.ClusterName = resp.Cluster
+	if option.Config.ClusterID != resp.ClusterID {
+		return fmt.Errorf("remote ClusterID (%d) does not match the locally configured one (%d)", resp.ClusterID, option.Config.ClusterID)
+	}
+
+	if option.Config.ClusterName != resp.Cluster {
+		return fmt.Errorf("remote ClusterName (%s) does not match the locally configured one (%s)", resp.Cluster, option.Config.ClusterName)
+	}
+
 	node.SetLabels(resp.Labels)
 	if resp.IPv4AllocCIDR != nil {
 		node.SetIPv4AllocRange(resp.IPv4AllocCIDR)
@@ -183,6 +188,8 @@ func (n *NodeDiscovery) JoinCluster(nodeName string) {
 		node.SetIPv6NodeRange(resp.IPv6AllocCIDR)
 	}
 	identity.SetLocalNodeID(resp.NodeIdentity)
+
+	return nil
 }
 
 // start configures the local node and starts node discovery. This is called on
