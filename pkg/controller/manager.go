@@ -55,6 +55,7 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 	start := time.Now()
 
 	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
 	if m.controllers == nil {
 		m.controllers = controllerMap{}
@@ -70,34 +71,55 @@ func (m *Manager) updateController(name string, params ControllerParams) *manage
 		case ctrl.update <- ctrl.params:
 		default:
 		}
-		m.mutex.Unlock()
 
 		ctrl.getLogger().Debug("Controller update time: ", time.Since(start))
 	} else {
-		ctrl = &managedController{
-			controller: controller{
-				name:       name,
-				uuid:       uuid.New().String(),
-				stop:       make(chan struct{}),
-				update:     make(chan ControllerParams, 1),
-				trigger:    make(chan struct{}, 1),
-				terminated: make(chan struct{}),
-			},
-		}
-		ctrl.updateParamsLocked(params)
-		ctrl.getLogger().Debug("Starting new controller")
-
-		m.controllers[ctrl.name] = ctrl
-		m.mutex.Unlock()
-
-		globalStatus.mutex.Lock()
-		globalStatus.controllers[ctrl.uuid] = ctrl
-		globalStatus.mutex.Unlock()
-
-		go ctrl.runController(ctrl.params)
+		return m.createControllerLocked(name, params)
 	}
-
 	return ctrl
+}
+
+func (m *Manager) createControllerLocked(name string, params ControllerParams) *managedController {
+	ctrl := &managedController{
+		controller: controller{
+			name:       name,
+			uuid:       uuid.New().String(),
+			stop:       make(chan struct{}),
+			update:     make(chan ControllerParams, 1),
+			trigger:    make(chan struct{}, 1),
+			terminated: make(chan struct{}),
+		},
+	}
+	ctrl.updateParamsLocked(params)
+	ctrl.getLogger().Debug("Starting new controller")
+
+	m.controllers[ctrl.name] = ctrl
+
+	globalStatus.mutex.Lock()
+	globalStatus.controllers[ctrl.uuid] = ctrl
+	globalStatus.mutex.Unlock()
+
+	go ctrl.runController(ctrl.params)
+	return ctrl
+}
+
+// CreateController installs a new controller in the
+// manager.  If a controller with the name already exists
+// this method returns false without triggering, otherwise
+// creates the controller and runs it immediately.
+func (m *Manager) CreateController(name string, params ControllerParams) bool {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if m.controllers != nil {
+		if _, exists := m.controllers[name]; exists {
+			return false
+		}
+	} else {
+		m.controllers = controllerMap{}
+	}
+	m.createControllerLocked(name, params)
+	return true
 }
 
 func (m *Manager) removeController(ctrl *managedController) {
