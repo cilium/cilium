@@ -570,12 +570,12 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 
 			By("Testing hubble observe output")
 			err := hubbleRes.WaitUntilMatchFilterLine(
-				`{.flow.source.labels} -> {.flow.destination.ID} {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
-				fmt.Sprintf(`["reserved:host"] -> %s ["container:somelabel"] %s : DROPPED 1`, endpointID, endpointIP.IPV4))
+				`{.flow.source.identity} -> {.flow.destination.ID} {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
+				fmt.Sprintf(`1 -> %s ["container:somelabel"] %s : DROPPED 1`, endpointID, endpointIP.IPV4))
 			Expect(err).To(BeNil(), "Default drop on ingress failed")
 			hubbleRes.ExpectDoesNotContainFilterLine(
-				`{.flow.source.labels} -> {.flow.destination.ID} {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
-				fmt.Sprintf(`["reserved:host"] -> %s ["container:somelabel"] %s : FORWARDED 4`, endpointID, endpointIP.IPV4),
+				`{.flow.source.identity} -> {.flow.destination.ID} {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
+				fmt.Sprintf(`1 -> %s ["container:somelabel"] %s : FORWARDED 4`, endpointID, endpointIP.IPV4),
 				"Unexpected ingress traffic to endpoint")
 		})
 
@@ -592,13 +592,13 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 
 			By("Testing hubble observe output")
 			err := hubbleRes.WaitUntilMatchFilterLine(
-				`{.flow.source.ID} {.flow.source.labels} -> {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
-				fmt.Sprintf(`%s ["container:somelabel"] -> ["reserved:host"] %s : DROPPED 1`, endpointID, hostIP))
+				`{.flow.source.ID} {.flow.source.labels} -> {.flow.destination.identity} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
+				fmt.Sprintf(`%s ["container:somelabel"] -> 1 %s : DROPPED 1`, endpointID, hostIP))
 			Expect(err).To(BeNil(), "Default drop on egress failed")
 
 			hubbleRes.ExpectDoesNotContainFilterLine(
-				`{.flow.source.labels} {.flow.IP.source} -> {.flow.destination.ID} : {.flow.verdict} {.flow.reply} {.flow.event_type.type}`,
-				fmt.Sprintf(`["reserved:host"] %s -> %s : FORWARDED true 4`, hostIP, endpointID),
+				`{.flow.source.identity} {.flow.IP.source} -> {.flow.destination.ID} : {.flow.verdict} {.flow.reply} {.flow.event_type.type}`,
+				fmt.Sprintf(`1 %s -> %s : FORWARDED true 4`, hostIP, endpointID),
 				"Unexpected reply traffic to endpoint")
 		})
 
@@ -634,14 +634,14 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 				By("Testing hubble observe output")
 				// Checks for a ingress policy verdict event (type 5)
 				err := hubbleRes.WaitUntilMatchFilterLine(
-					`{.flow.source.labels} -> {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
-					fmt.Sprintf(`["reserved:host"] -> %s : AUDIT 5`, endpointIP.IPV4))
+					`{.flow.source.identity} -> {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
+					fmt.Sprintf(`1 -> %s : AUDIT 5`, endpointIP.IPV4))
 				Expect(err).To(BeNil(), "Default policy verdict on ingress failed")
 				// Checks for the subsequent trace:to-endpoint event (type 4)
-				hubbleRes.ExpectContainsFilterLine(
-					`{.flow.source.labels} -> {.flow.destination.ID} {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
-					fmt.Sprintf(`["reserved:host"] -> %s ["container:somelabel"] %s : FORWARDED 4`, endpointID, endpointIP.IPV4),
-					"No ingress traffic to endpoint")
+				err = hubbleRes.WaitUntilMatchFilterLine(
+					`{.flow.source.identity} -> {.flow.destination.ID} {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
+					fmt.Sprintf(`1 -> %s ["container:somelabel"] %s : FORWARDED 4`, endpointID, endpointIP.IPV4))
+				Expect(err).To(BeNil(), "No ingress traffic to endpoint")
 
 				By("Testing cilium monitor output")
 				auditVerdict := fmt.Sprintf("local EP ID %s, remote ID host, proto 1, ingress, action audit", endpointID)
@@ -674,13 +674,13 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 				By("Testing hubble observe output")
 				// Checks for the subsequent trace:to-endpoint event (type 4)
 				err := hubbleRes.WaitUntilMatchFilterLine(
-					`{.flow.source.labels} {.flow.IP.source} -> {.flow.destination.ID} : {.flow.verdict} {.flow.reply} {.flow.event_type.type}`,
-					fmt.Sprintf(`["reserved:host"] %s -> %s : FORWARDED true 4`, hostIP, endpointID))
+					`{.flow.source.identity} {.flow.IP.source} -> {.flow.destination.ID} : {.flow.verdict} {.flow.reply} {.flow.event_type.type}`,
+					fmt.Sprintf(`1 %s -> %s : FORWARDED true 4`, hostIP, endpointID))
 				Expect(err).To(BeNil(), "No ingress traffic to endpoint")
 				// Checks for a ingress policy verdict event (type 5)
 				hubbleRes.ExpectContainsFilterLine(
-					`{.flow.source.ID} -> {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
-					fmt.Sprintf(`%s -> ["reserved:host"] %s : AUDIT 5`, endpointID, hostIP),
+					`{.flow.source.ID} -> {.flow.destination.identity} {.flow.IP.destination} : {.flow.verdict} {.flow.event_type.type}`,
+					fmt.Sprintf(`%s -> 1 %s : AUDIT 5`, endpointID, hostIP),
 					"Default policy verdict on egress failed")
 
 				By("Testing cilium monitor output")
@@ -739,14 +739,14 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 
 			By("Testing hubble observe output")
 			err = hubbleRes.WaitUntilMatchFilterLineTimeout(
-				`{.flow.source.labels} -> {.flow.destination.ID} {.flow.IP.destination} : {.flow.verdict}`,
-				fmt.Sprintf(`["reserved:host"] -> %s %s : FORWARDED`, endpointID, endpointIP.IPV4), 10*time.Second)
+				`{.flow.source.identity} -> {.flow.destination.ID} {.flow.IP.destination} : {.flow.verdict}`,
+				fmt.Sprintf(`1 -> %s %s : FORWARDED`, endpointID, endpointIP.IPV4), 10*time.Second)
 			Expect(err).To(BeNil(), "Allow on ingress failed")
 
 			// Drop Reason 133 is "Policy denied"
 			hubbleRes.ExpectDoesNotContainFilterLine(
-				`{.flow.source.labels} -> {.flow.destination.ID} {.flow.IP.destination} : {.flow.verdict} {.flow.drop_reason}`,
-				fmt.Sprintf(`["reserved:host"] -> %s %s : DROPPED 133`, endpointID, endpointIP.IPV4),
+				`{.flow.source.identity} -> {.flow.destination.ID} {.flow.IP.destination} : {.flow.verdict} {.flow.drop_reason}`,
+				fmt.Sprintf(`1 -> %s %s : DROPPED 133`, endpointID, endpointIP.IPV4),
 				"Unexpected drop")
 		})
 
@@ -774,15 +774,15 @@ var _ = Describe("RuntimeAgentPolicies", func() {
 
 			By("Testing hubble observe output")
 			err = hubbleRes.WaitUntilMatchFilterLineTimeout(
-				`{.flow.source.ID} {.flow.source.labels} -> {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict}`,
-				fmt.Sprintf(`%s ["container:somelabel"] -> ["reserved:host"] %s : FORWARDED`, endpointID, hostIP),
+				`{.flow.source.ID} {.flow.source.labels} -> {.flow.destination.identity} {.flow.IP.destination} : {.flow.verdict}`,
+				fmt.Sprintf(`%s ["container:somelabel"] -> 1 %s : FORWARDED`, endpointID, hostIP),
 				10*time.Second)
 			Expect(err).To(BeNil(), "Allow on ingress failed")
 
 			// Drop Reason 133 is "Policy denied"
 			hubbleRes.ExpectDoesNotContainFilterLine(
-				`{.flow.source.ID} {.flow.source.labels} -> {.flow.destination.labels} {.flow.IP.destination} : {.flow.verdict} {.flow.drop_reason}`,
-				fmt.Sprintf(`%s ["container:somelabel"] -> ["reserved:host"] %s : DROPPED 133`, endpointID, hostIP),
+				`{.flow.source.ID} {.flow.source.labels} -> {.flow.destination.identity} {.flow.IP.destination} : {.flow.verdict} {.flow.drop_reason}`,
+				fmt.Sprintf(`%s ["container:somelabel"] -> 1 %s : DROPPED 133`, endpointID, hostIP),
 				"Unexpected drop")
 		})
 	})

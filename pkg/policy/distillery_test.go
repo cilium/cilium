@@ -1399,9 +1399,14 @@ var (
 		owners:           map[MapStateOwner]struct{}{},
 	}
 
-	worldIPIdentity    = localIdentity(16324)
-	worldCIDR          = api.CIDR("192.0.2.3/32")
-	lblWorldIP         = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, worldCIDR))
+	worldIPIdentity = localIdentity(16324)
+	worldCIDR       = api.CIDR("192.0.2.3/32")
+	lblWorldIP      = labels.ParseSelectLabelArray(fmt.Sprintf("%s:%s", labels.LabelSourceCIDR, worldCIDR))
+	hostIPv4        = api.CIDR("172.19.0.1/32")
+	hostIPv6        = api.CIDR("fc00:c111::3/64")
+	lblHostIPv4CIDR = cidr.GetCIDRLabels(netip.MustParsePrefix(string(hostIPv4)))
+	lblHostIPv6CIDR = cidr.GetCIDRLabels(netip.MustParsePrefix(string(hostIPv6)))
+
 	ruleL3AllowWorldIP = api.NewRule().WithIngressRules([]api.IngressRule{{
 		IngressCommonRule: api.IngressCommonRule{
 			FromCIDR: api.CIDRSlice{worldCIDR},
@@ -1452,6 +1457,21 @@ var (
 
 	mapKeyL3SmallerSubnetIngress = Key{worldIPIdentity.Uint32(), 0, 0, trafficdirection.Ingress.Uint8()}
 	mapKeyL3SmallerSubnetEgress  = Key{worldIPIdentity.Uint32(), 0, 0, trafficdirection.Egress.Uint8()}
+
+	ruleL3AllowHostEgress = api.NewRule().WithEgressRules([]api.EgressRule{{
+		EgressCommonRule: api.EgressCommonRule{
+			ToCIDRSet: api.CIDRRuleSlice{api.CIDRRule{Cidr: hostIPv4}, api.CIDRRule{Cidr: hostIPv6}},
+		},
+	}}).WithEndpointSelector(api.WildcardEndpointSelector)
+
+	mapKeyL3UnknownIngress = Key{identity.IdentityUnknown.Uint32(), 0, 0, trafficdirection.Ingress.Uint8()}
+	derivedFrom            = labels.LabelArrayList{
+		labels.LabelArray{
+			labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
+		},
+	}
+	mapEntryL3UnknownIngress = NewMapStateEntry(nil, derivedFrom, false, false, ExplicitAuthType, AuthTypeDisabled)
+	mapKeyL3HostEgress       = Key{identity.ReservedIdentityHost.Uint32(), 0, 0, trafficdirection.Egress.Uint8()}
 
 	ruleL3L4Port8080ProtoAnyDenyWorld = api.NewRule().WithIngressDenyRules([]api.IngressDenyRule{
 		{
@@ -1640,8 +1660,7 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL3L4Port8080ProtoSCTPWorldIPv6Egress:  mapEntryDeny,
 			mapKeyL3SmallerSubnetIngress:                mapEntryAllow,
 			mapKeyL3SmallerSubnetEgress:                 mapEntryAllow,
-		}},
-		{"broad_allow_is_a_portproto_subset_of_a_specific_deny", api.Rules{ruleL3AllowWorldSubnet, ruleL3DenyWorldIP}, MapState{
+		}}, {"broad_allow_is_a_portproto_subset_of_a_specific_deny", api.Rules{ruleL3AllowWorldSubnet, ruleL3DenyWorldIP}, MapState{
 
 			mapKeyL3L4Port8080ProtoTCPWorldSNIngress:  mapEntryAllow,
 			mapKeyL3L4Port8080ProtoTCPWorldSNEgress:   mapEntryAllow,
@@ -1660,6 +1679,57 @@ func Test_EnsureDeniesPrecedeAllows(t *testing.T) {
 			mapKeyL4Port8080ProtoSCTPWorldIPEgress:  mapEntryDeny,
 		}},
 	}
+
+	for _, tt := range tests {
+		repo := newPolicyDistillery(selectorCache)
+		for _, rule := range tt.rules {
+			if rule != nil {
+				_, _ = repo.AddList(api.Rules{rule})
+			}
+		}
+		t.Run(tt.test, func(t *testing.T) {
+			logBuffer := new(bytes.Buffer)
+			repo = repo.WithLogBuffer(logBuffer)
+			mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo, identity)
+			if err != nil {
+				t.Errorf("Policy resolution failure: %s", err)
+			}
+			if equal, err := checker.ExportedEqual(mapstate, tt.result); !equal {
+				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
+				t.Errorf("Policy test, %q, obtained didn't match expected for endpoint %s:\n%s", tt.test, labelsFoo, err)
+			}
+		})
+	}
+}
+
+func Test_EnsureEntitiesSelectableByCIDR(t *testing.T) {
+	// Cache policy enforcement value from when test was ran to avoid pollution
+	// across tests.
+	oldPolicyEnable := GetPolicyEnabled()
+	defer SetPolicyEnabled(oldPolicyEnable)
+
+	SetPolicyEnabled(option.DefaultEnforcement)
+	hostLabel := labels.NewFrom(labels.LabelHost)
+	hostLabel.MergeLabels(lblHostIPv4CIDR)
+	hostLabel.MergeLabels(lblHostIPv6CIDR)
+	identityCache := cache.IdentityCache{
+		identity.NumericIdentity(identityFoo): labelsFoo,
+		identity.ReservedIdentityHost:         hostLabel.LabelArray(),
+	}
+	selectorCache := testNewSelectorCache(identityCache)
+	identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(identityFoo), labelsFoo)
+
+	tests := []struct {
+		test   string
+		rules  api.Rules
+		result MapState
+	}{
+		{"host_cidr_select", api.Rules{ruleL3AllowHostEgress}, MapState{
+			mapKeyL3UnknownIngress: mapEntryL3UnknownIngress,
+			mapKeyL3HostEgress:     mapEntryAllow,
+		}},
+	}
+
 	for _, tt := range tests {
 		repo := newPolicyDistillery(selectorCache)
 		for _, rule := range tt.rules {
