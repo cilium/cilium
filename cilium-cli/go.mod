@@ -15,10 +15,10 @@ replace (
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cilium/charts v0.0.0-20230815110222-84cbc90ed50d
+	github.com/cilium/charts v0.0.0-20230831205213-5f743b02831f
 	github.com/cilium/cilium v1.14.1
 	github.com/cilium/hubble v0.12.0
-	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230825140014-ba1b9144068d
+	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230901071424-1b454b264062
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.4
 	github.com/go-openapi/strfmt v0.21.7
