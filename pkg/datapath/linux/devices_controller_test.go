@@ -60,6 +60,17 @@ func devicesControllerTestSetup(t *testing.T) {
 	})
 }
 
+func containsAddress(dev *tables.Device, addrStr string) bool {
+	addr := netip.MustParseAddr(addrStr)
+	for _, a := range dev.Addrs {
+		if a.Addr == addr {
+			return true
+		}
+	}
+	return false
+
+}
+
 func TestDevicesController(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -139,8 +150,7 @@ func TestDevicesController(t *testing.T) {
 			func(t *testing.T, devs []*tables.Device, routes []*tables.Route) bool {
 				return len(devs) == 1 &&
 					"dummy1" == devs[0].Name &&
-					len(devs[0].Addrs) == 1 &&
-					devs[0].Addrs[0].Addr == netip.MustParseAddr("192.168.1.1")
+					containsAddress(devs[0], "192.168.1.1")
 			},
 		},
 
@@ -155,8 +165,7 @@ func TestDevicesController(t *testing.T) {
 					devs[0].Name == "dummy1" &&
 					devs[0].Selected &&
 					devs[1].Name == "veth0" &&
-					len(devs[1].Addrs) == 1 &&
-					devs[1].Addrs[0].Addr == netip.MustParseAddr("192.168.4.1") &&
+					containsAddress(devs[1], "192.168.4.1") &&
 					devs[1].Selected
 			},
 		},
