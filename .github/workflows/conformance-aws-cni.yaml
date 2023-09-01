@@ -216,7 +216,7 @@ jobs:
           kubectl apply -f https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/release-1.11/config/master/aws-k8s-cni.yaml
 
       - name: Wait for images to be available
-        timeout-minutes: 10
+        timeout-minutes: 30
         shell: bash
         run: |
           for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
