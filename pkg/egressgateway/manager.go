@@ -160,6 +160,10 @@ type Manager struct {
 	// the node with the desired egress gateway state.
 	// The trigger is used to batch multiple updates together
 	reconciliationTrigger *trigger.Trigger
+
+	// reconciliationEventsCount keeps track of how many reconciliation
+	// events have occoured
+	reconciliationEventsCount uint64
 }
 
 type Params struct {
@@ -1019,4 +1023,6 @@ func (manager *Manager) reconcileLocked() {
 
 	// clear the events bitmap
 	manager.eventsBitmap = 0
+
+	manager.reconciliationEventsCount += 1
 }
