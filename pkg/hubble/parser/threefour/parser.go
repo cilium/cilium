@@ -186,8 +186,15 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	}
 
 	srcLabelID, dstLabelID := decodeSecurityIdentities(dn, tn, pvn)
-	srcEndpoint := p.epResolver.ResolveEndpoint(srcIP, srcLabelID)
-	dstEndpoint := p.epResolver.ResolveEndpoint(dstIP, dstLabelID)
+	datapathContext := common.DatapathContext{
+		SrcIP:                 srcIP,
+		SrcLabelID:            srcLabelID,
+		DstIP:                 dstIP,
+		DstLabelID:            dstLabelID,
+		TraceObservationPoint: decoded.TraceObservationPoint,
+	}
+	srcEndpoint := p.epResolver.ResolveEndpoint(srcIP, srcLabelID, datapathContext)
+	dstEndpoint := p.epResolver.ResolveEndpoint(dstIP, dstLabelID, datapathContext)
 	var sourceService, destinationService *pb.Service
 	if p.serviceGetter != nil {
 		sourceService = p.serviceGetter.GetServiceByAddr(srcIP, srcPort)

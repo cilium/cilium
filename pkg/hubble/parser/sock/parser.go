@@ -91,8 +91,14 @@ func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
 	srcIP, _ := ippkg.AddrFromIP(epIP)
 	srcPort := uint16(0) // source port is not known for TraceSock events
 
-	srcEndpoint := p.epResolver.ResolveEndpoint(srcIP, 0)
-	dstEndpoint := p.epResolver.ResolveEndpoint(dstIP, 0)
+	datapathContext := common.DatapathContext{
+		SrcIP:      srcIP,
+		SrcLabelID: 0,
+		DstIP:      dstIP,
+		DstLabelID: 0,
+	}
+	srcEndpoint := p.epResolver.ResolveEndpoint(srcIP, 0, datapathContext)
+	dstEndpoint := p.epResolver.ResolveEndpoint(dstIP, 0, datapathContext)
 
 	// On the reverse path, source and destination IP of the packet are reversed
 	isRevNat := decodeRevNat(sock.XlatePoint)
