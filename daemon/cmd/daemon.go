@@ -1050,7 +1050,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 		// This can override node addressing config, so do this before starting IPAM
 		log.WithField(logfields.NodeName, nodeTypes.GetName()).Debug("Calling JoinCluster()")
-		d.nodeDiscovery.JoinCluster(nodeTypes.GetName())
+		if err := d.nodeDiscovery.JoinCluster(nodeTypes.GetName()); err != nil {
+			return nil, nil, err
+		}
 
 		// Start services watcher
 		serviceStore.JoinClusterServices(d.k8sWatcher.K8sSvcCache, option.Config.ClusterName)

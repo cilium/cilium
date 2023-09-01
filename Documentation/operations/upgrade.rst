@@ -320,6 +320,12 @@ Annotations:
   labels ``reserved:init``, these policies must be converted to
   ``CiliumClusterwideNetworkPolicy`` by changing the resource type for the
   policy.
+* Cluster name and ID are no longer automatically inferred by Cilium agents
+  running on :ref:`external workloads <external_workloads>`.
+  If the cluster name and ID are different from the default values, you must
+  specify them as parameters.
+  Generate the installation script using Cilium CLI >=v0.15.8 to automatically
+  include these parameters.
 
 .. _upgrade_cilium_cli_helm_mode:
 
