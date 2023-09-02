@@ -37,7 +37,12 @@ func Test_decodeKafka(t *testing.T) {
 						Topic: "my-topic",
 					},
 				},
-				opts: &options.Options{RedactKafkaAPIKey: false},
+				opts: &options.Options{
+					HubbleRedactSettings: options.HubbleRedactSettings{
+						Enabled:           false,
+						RedactKafkaAPIKey: false,
+					},
+				},
 			},
 			want: &flowpb.Layer7_Kafka{
 				Kafka: &flowpb.Kafka{
@@ -61,7 +66,12 @@ func Test_decodeKafka(t *testing.T) {
 						Topic: "my-topic",
 					},
 				},
-				opts: &options.Options{RedactKafkaAPIKey: false},
+				opts: &options.Options{
+					HubbleRedactSettings: options.HubbleRedactSettings{
+						Enabled:           false,
+						RedactKafkaAPIKey: false,
+					},
+				},
 			},
 			want: &flowpb.Layer7_Kafka{
 				Kafka: &flowpb.Kafka{
@@ -83,7 +93,12 @@ func Test_decodeKafka(t *testing.T) {
 					APIKey:        "publish",
 					CorrelationID: 3,
 				},
-				opts: &options.Options{RedactKafkaAPIKey: false},
+				opts: &options.Options{
+					HubbleRedactSettings: options.HubbleRedactSettings{
+						Enabled:           false,
+						RedactKafkaAPIKey: false,
+					},
+				},
 			},
 			want: &flowpb.Layer7_Kafka{
 				Kafka: &flowpb.Kafka{
@@ -107,7 +122,12 @@ func Test_decodeKafka(t *testing.T) {
 						Topic: "my-topic",
 					},
 				},
-				opts: &options.Options{RedactKafkaAPIKey: true},
+				opts: &options.Options{
+					HubbleRedactSettings: options.HubbleRedactSettings{
+						Enabled:           true,
+						RedactKafkaAPIKey: true,
+					},
+				},
 			},
 			want: &flowpb.Layer7_Kafka{
 				Kafka: &flowpb.Kafka{

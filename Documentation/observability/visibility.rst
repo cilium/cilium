@@ -88,6 +88,7 @@ More specifically, it offers the following features for supported Layer 7 protoc
 
 * For HTTP: redacting URL query (GET) parameters (``--hubble-redact-http-urlquery``)
 * For Kafka: redacting API key (``--hubble-redact-kafka-apikey``)
+* For HTTP headers: redacting all headers except those defined in the ``--hubble-redact-http-headers-allow`` list or redacting only the headers defined in the ``--hubble-redact-http-headers-deny`` list
 
 For more information on configuring Cilium, see :ref:`Cilium Configuration <configuration>`.
 

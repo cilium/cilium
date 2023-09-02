@@ -15,7 +15,7 @@ import (
 func decodeKafka(flowType accesslog.FlowType, kafka *accesslog.LogRecordKafka, opts *options.Options) *flowpb.Layer7_Kafka {
 	// Conditionally exclude the API key from the flow.
 	var apiKey string
-	if opts.RedactKafkaAPIKey {
+	if opts.HubbleRedactSettings.RedactKafkaAPIKey {
 		apiKey = defaults.SensitiveValueRedacted
 	} else {
 		apiKey = kafka.APIKey

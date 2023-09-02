@@ -170,7 +170,7 @@ func TestDecodeL7HTTPRequestRemoveUrlQuery(t *testing.T) {
 	lr.SourceEndpoint.Port = 56789
 	lr.DestinationEndpoint.Port = 80
 
-	opts := []options.Option{options.Redact(nil, true, false)}
+	opts := []options.Option{options.Redact(nil, true, false, []string{}, []string{"authorization"})}
 	parser, err := New(log, nil, nil, nil, nil, opts...)
 	require.NoError(t, err)
 
@@ -422,4 +422,146 @@ func TestGetL7HTTPResponseTraceID(t *testing.T) {
 	assert.Empty(t, f.GetTraceContext().GetParent().GetTraceId())
 	_, ok = parser.traceContextCache.Get(requestID)
 	assert.False(t, ok, "request id should not be in the cache")
+}
+
+func TestDecodeL7HTTPRequestHeadersRedact(t *testing.T) {
+	requestPath, err := url.Parse("http://myhost/some/path")
+	require.NoError(t, err)
+	lr := &accesslog.LogRecord{
+		Type:                accesslog.TypeRequest,
+		Timestamp:           fakeTimestamp,
+		NodeAddressInfo:     fakeNodeInfo,
+		ObservationPoint:    accesslog.Ingress,
+		SourceEndpoint:      fakeSourceEndpoint,
+		DestinationEndpoint: fakeDestinationEndpoint,
+		IPVersion:           accesslog.VersionIPv4,
+		Verdict:             accesslog.VerdictForwarded,
+		TransportProtocol:   accesslog.TransportProtocol(u8proto.TCP),
+		ServiceInfo:         nil,
+		DropReason:          nil,
+		HTTP: &accesslog.LogRecordHTTP{
+			Code:     0,
+			Method:   "POST",
+			URL:      requestPath,
+			Protocol: "HTTP/1.1",
+			Headers: http.Header{
+				"Host":        {"myhost"},
+				"traceparent": {"asdf"},
+			},
+		},
+	}
+	lr.SourceEndpoint.Port = 56789
+	lr.DestinationEndpoint.Port = 80
+
+	opts := []options.Option{options.Redact(nil, true, false, []string{"host"}, []string{})}
+	parser, err := New(log, nil, nil, nil, nil, opts...)
+	require.NoError(t, err)
+
+	f := &flowpb.Flow{}
+	err = parser.Decode(lr, f)
+	require.NoError(t, err)
+	assert.Equal(t, &flowpb.HTTP{
+		Code:     0,
+		Method:   "POST",
+		Url:      "http://myhost/some/path",
+		Protocol: "HTTP/1.1",
+		Headers: []*flowpb.HTTPHeader{
+			{Key: "Host", Value: "myhost"},
+			{Key: "traceparent", Value: "HUBBLE_REDACTED"},
+		},
+	}, f.GetL7().GetHttp())
+
+	opts = []options.Option{options.Redact(nil, true, false, []string{}, []string{"host"})}
+	parser, err = New(log, nil, nil, nil, nil, opts...)
+	require.NoError(t, err)
+
+	f = &flowpb.Flow{}
+	err = parser.Decode(lr, f)
+	require.NoError(t, err)
+	assert.Equal(t, &flowpb.HTTP{
+		Code:     0,
+		Method:   "POST",
+		Url:      "http://myhost/some/path",
+		Protocol: "HTTP/1.1",
+		Headers: []*flowpb.HTTPHeader{
+			{Key: "Host", Value: "HUBBLE_REDACTED"},
+			{Key: "traceparent", Value: "asdf"},
+		},
+	}, f.GetL7().GetHttp())
+}
+
+func TestFilterHeader(t *testing.T) {
+	tests := []struct {
+		key            string
+		val            string
+		redactSettings options.HubbleRedactSettings
+		expectedVal    string
+	}{
+		{
+			key: "tracecontent",
+			val: "foo_not_redacted",
+			redactSettings: options.HubbleRedactSettings{
+				Enabled: true,
+				RedactHttpHeaders: options.HttpHeadersList{
+					Allow: map[string]struct{}{"tracecontent": {}},
+					Deny:  map[string]struct{}{},
+				},
+			},
+			expectedVal: "foo_not_redacted",
+		},
+		{
+			key: "tracecontent",
+			val: "foo",
+			redactSettings: options.HubbleRedactSettings{
+				Enabled: true,
+				RedactHttpHeaders: options.HttpHeadersList{
+					Allow: map[string]struct{}{},
+					Deny:  map[string]struct{}{"tracecontent": {}},
+				},
+			},
+			expectedVal: "HUBBLE_REDACTED",
+		},
+		{
+			key: "tracecontent",
+			val: "foo",
+			redactSettings: options.HubbleRedactSettings{
+				Enabled: true,
+				RedactHttpHeaders: options.HttpHeadersList{
+					Allow: map[string]struct{}{},
+					Deny:  map[string]struct{}{},
+				},
+			},
+			expectedVal: "HUBBLE_REDACTED",
+		},
+		{
+			key: "tracecontent",
+			val: "foo",
+			redactSettings: options.HubbleRedactSettings{
+				Enabled: true,
+				RedactHttpHeaders: options.HttpHeadersList{
+					Allow: map[string]struct{}{"host": {}},
+					Deny:  map[string]struct{}{},
+				},
+			},
+			expectedVal: "HUBBLE_REDACTED",
+		},
+		{
+			key: "tracecontent",
+			val: "foo",
+			redactSettings: options.HubbleRedactSettings{
+				Enabled: true,
+				RedactHttpHeaders: options.HttpHeadersList{
+					Allow: map[string]struct{}{},
+					Deny:  map[string]struct{}{"authorization": {}},
+				},
+			},
+			expectedVal: "foo",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			got := filterHeader(tt.key, tt.val, tt.redactSettings)
+			assert.Equal(t, tt.expectedVal, got)
+		})
+	}
 }

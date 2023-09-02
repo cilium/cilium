@@ -147,6 +147,8 @@ func (d *Daemon) launchHubble() {
 				logger,
 				option.Config.HubbleRedactHttpURLQuery,
 				option.Config.HubbleRedactKafkaApiKey,
+				option.Config.HubbleRedactHttpHeadersAllow,
+				option.Config.HubbleRedactHttpHeadersDeny,
 			),
 		)
 	}

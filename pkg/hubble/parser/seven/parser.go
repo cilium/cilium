@@ -46,9 +46,16 @@ func New(
 	opts ...options.Option,
 ) (*Parser, error) {
 	args := &options.Options{
-		CacheSize:         10000,
-		RedactHTTPQuery:   false,
-		RedactKafkaAPIKey: false,
+		CacheSize: 10000,
+		HubbleRedactSettings: options.HubbleRedactSettings{
+			Enabled:           false,
+			RedactHTTPQuery:   false,
+			RedactKafkaAPIKey: false,
+			RedactHttpHeaders: options.HttpHeadersList{
+				Allow: map[string]struct{}{},
+				Deny:  map[string]struct{}{},
+			},
+		},
 	}
 
 	for _, opt := range opts {
