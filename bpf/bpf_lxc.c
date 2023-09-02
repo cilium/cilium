@@ -606,7 +606,7 @@ ct_recreate6:
 			policy_clear_mark(ctx);
 			/* If the packet is from L7 LB it is coming from the host */
 			return ipv6_local_delivery(ctx, ETH_HLEN, SECLABEL_IPV6, ep,
-						   METRIC_EGRESS, from_l7lb);
+						   METRIC_EGRESS, from_l7lb, false);
 		}
 	}
 
@@ -1580,6 +1580,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
+	bool from_tunnel __maybe_unused = ctx_load_meta(ctx, CB_FROM_TUNNEL);
 	bool proxy_redirect __maybe_unused = false;
 	void *data, *data_end;
 	__u16 proxy_port = 0;
@@ -1588,6 +1589,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
+	ctx_store_meta(ctx, CB_FROM_TUNNEL, 0);
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
@@ -1604,11 +1606,14 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	case CTX_ACT_OK:
 #if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
 		/* See comment in IPv4 path. */
-		ctx_change_type(ctx, PACKET_HOST);
-#else
+		if (from_tunnel) {
+			ctx_change_type(ctx, PACKET_HOST);
+			break;
+		}
+#endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
+
 		if (ifindex)
 			ret = redirect_ep(ctx, ifindex, from_host);
-#endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
 		break;
 	default:
 		break;
@@ -1972,11 +1977,14 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 		 * will drop them.
 		 * See #14646 for details.
 		 */
-		ctx_change_type(ctx, PACKET_HOST);
-#else
+		if (from_tunnel) {
+			ctx_change_type(ctx, PACKET_HOST);
+			break;
+		}
+#endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
+
 		if (ifindex)
 			ret = redirect_ep(ctx, ifindex, from_host);
-#endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
 		break;
 	default:
 		break;

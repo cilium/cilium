@@ -321,7 +321,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		}
 #endif
 		return ipv6_local_delivery(ctx, l3_off, secctx, ep,
-					   METRIC_INGRESS, from_host);
+					   METRIC_INGRESS, from_host, false);
 	}
 
 	/* Below remainder is only relevant when traffic is pushed via cilium_host.
