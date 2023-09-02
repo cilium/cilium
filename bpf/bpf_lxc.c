@@ -1708,10 +1708,6 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 		proxy_redirect = true;
 		break;
 	case CTX_ACT_OK:
-#if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
-		/* See comment in IPv4 path. */
-		ctx_change_type(ctx, PACKET_HOST);
-#endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
 		break;
 	default:
 		break;
@@ -2166,17 +2162,6 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 		proxy_redirect = true;
 		break;
 	case CTX_ACT_OK:
-#if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
-		/* In tunneling mode, we execute this code to send the packet from
-		 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
-		 * redirect() because that would bypass conntrack and the reverse DNAT.
-		 * Thus, we send packets to the stack, but since they have the wrong
-		 * Ethernet addresses, we need to mark them as PACKET_HOST or the kernel
-		 * will drop them.
-		 * See #14646 for details.
-		 */
-		ctx_change_type(ctx, PACKET_HOST);
-#endif /* !ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
 		break;
 	default:
 		break;
