@@ -880,6 +880,20 @@ data:
 {{- if .Values.hubble.redact.http }}
   # Enables redaction of the http URL query part in flows
   hubble-redact-http-urlquery: {{ .Values.hubble.redact.http.urlQuery | quote }}
+{{- if .Values.hubble.redact.http.headers }}
+{{- if .Values.hubble.redact.http.headers.allow }}
+  # Redact all http headers that do not match this list
+  hubble-redact-http-headers-allow: {{- range .Values.hubble.redact.http.headers.allow }}
+    {{ . }}
+{{- end }}
+{{- end }}
+{{- if .Values.hubble.redact.http.headers.deny }}
+  # Redact all http headers that match this list
+  hubble-redact-http-headers-deny: {{- range .Values.hubble.redact.http.headers.deny }}
+    {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- if .Values.hubble.redact.kafka }}
   # Enables redaction of the Kafka API key part in flows

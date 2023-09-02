@@ -1009,6 +1009,12 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.HubbleRedactKafkaApiKey, defaults.HubbleRedactKafkaApiKey, "Hubble redact Kafka API key from flows")
 	option.BindEnv(vp, option.HubbleRedactKafkaApiKey)
 
+	flags.StringSlice(option.HubbleRedactHttpHeadersAllow, []string{}, "HTTP headers to keep visible in flows")
+	option.BindEnv(vp, option.HubbleRedactHttpHeadersAllow)
+
+	flags.StringSlice(option.HubbleRedactHttpHeadersDeny, []string{}, "HTTP headers to redact from flows")
+	option.BindEnv(vp, option.HubbleRedactHttpHeadersDeny)
+
 	flags.StringSlice(option.DisableIptablesFeederRules, []string{}, "Chains to ignore when installing feeder rules.")
 	option.BindEnv(vp, option.DisableIptablesFeederRules)
 

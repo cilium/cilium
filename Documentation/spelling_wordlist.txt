@@ -671,8 +671,10 @@ toGroups
 tofqdns
 tolerations
 toolchain
+traceparent
 tracepoint
 tracepoints
+tracestate
 transpiling
 tunnelProtocol
 ubuntu

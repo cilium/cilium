@@ -1513,9 +1513,25 @@
      - bool
      - ``false``
    * - :spelling:ignore:`hubble.redact`
-     - Configures the redact options for Hubble. Example:    redact:     enabled: true     http:       urlQuery: true     kafka:       apiKey: false  You can specify the options from the helm CLI:    --set hubble.redact.enabled="true"   --set hubble.redact.http.urlQuery="true"   --set hubble.redact.kafka.apiKey="false"
+     - Enables redacting sensitive information present in Layer 7 flows.
      - object
-     - ``{"enabled":false,"http":{"urlQuery":false},"kafka":{"apiKey":false}}``
+     - ``{"enabled":false,"http":{"headers":{"allow":[],"deny":[]},"urlQuery":false},"kafka":{"apiKey":false}}``
+   * - :spelling:ignore:`hubble.redact.http.headers.allow`
+     - List of HTTP headers to allow: headers not matching will be redacted. Note: ``allow`` and ``deny`` lists cannot be used both at the same time, only one can be present. Example:   redact:     enabled: true     http:       headers:         allow:           - traceparent           - tracestate           - Cache-Control  You can specify the options from the helm CLI:   --set hubble.redact.enabled="true"   --set hubble.redact.http.headers.allow="traceparent,tracestate,Cache-Control"
+     - list
+     - ``[]``
+   * - :spelling:ignore:`hubble.redact.http.headers.deny`
+     - List of HTTP headers to deny: matching headers will be redacted. Note: ``allow`` and ``deny`` lists cannot be used both at the same time, only one can be present. Example:   redact:     enabled: true     http:       headers:         deny:           - Authorization           - Proxy-Authorization  You can specify the options from the helm CLI:   --set hubble.redact.enabled="true"   --set hubble.redact.http.headers.deny="Authorization,Proxy-Authorization"
+     - list
+     - ``[]``
+   * - :spelling:ignore:`hubble.redact.http.urlQuery`
+     - Enables redacting URL query (GET) parameters. Example:    redact:     enabled: true     http:       urlQuery: true  You can specify the options from the helm CLI:    --set hubble.redact.enabled="true"   --set hubble.redact.http.urlQuery="true"
+     - bool
+     - ``false``
+   * - :spelling:ignore:`hubble.redact.kafka.apiKey`
+     - Enables redacting Kafka's API key. Example:    redact:     enabled: true     kafka:       apiKey: true  You can specify the options from the helm CLI:    --set hubble.redact.enabled="true"   --set hubble.redact.kafka.apiKey="true"
+     - bool
+     - ``false``
    * - :spelling:ignore:`hubble.relay.affinity`
      - Affinity for hubble-replay
      - object

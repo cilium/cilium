@@ -196,6 +196,8 @@ cilium-agent [flags]
       --hubble-recorder-sink-queue-size int                       Queue size of each Hubble recorder sink (default 1024)
       --hubble-recorder-storage-path string                       Directory in which pcap files created via the Hubble Recorder API are stored (default "/var/run/cilium/pcaps")
       --hubble-redact-enabled                                     Hubble redact sensitive information from flows
+      --hubble-redact-http-headers-allow strings                  HTTP headers to keep visible in flows
+      --hubble-redact-http-headers-deny strings                   HTTP headers to redact from flows
       --hubble-redact-http-urlquery                               Hubble redact http URL query from flows
       --hubble-redact-kafka-apikey                                Hubble redact Kafka API key from flows
       --hubble-skip-unknown-cgroup-ids                            Skip Hubble events with unknown cgroup ids (default true)
