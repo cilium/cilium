@@ -330,6 +330,7 @@ hashtable
 hashtables
 healthcheck
 healthz
+helloworld
 herokuapp
 hexData
 hostPath
