@@ -89,7 +89,7 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
 	set_identity_mark(ctx, seclabel);
 
-# if defined(IS_BPF_OVERLAY) && !defined(ENABLE_NODEPORT)
+# if !defined(ENABLE_NODEPORT)
 	/* In tunneling mode, we execute this code to send the packet from
 	 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
 	 * redirect() because that would bypass conntrack and the reverse DNAT.
@@ -97,11 +97,13 @@ l3_local_delivery(struct __ctx_buff *ctx, __u32 seclabel,
 	 * Ethernet addresses, we need to mark them as PACKET_HOST or the kernel
 	 * will drop them.
 	 */
-	ctx_change_type(ctx, PACKET_HOST);
-	return CTX_ACT_OK;
-# else
+	if (from_tunnel) {
+		ctx_change_type(ctx, PACKET_HOST);
+		return CTX_ACT_OK;
+	}
+# endif /* !ENABLE_NODEPORT */
+
 	return redirect_ep(ctx, ep->ifindex, from_host);
-# endif /* IS_BPF_OVERLAY && !ENABLE_NODEPORT */
 #else
 # ifndef DISABLE_LOOPBACK_LB
 	/* Skip ingress policy enforcement for hairpin traffic. As the hairpin
