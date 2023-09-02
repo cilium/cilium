@@ -80,4 +80,5 @@ Cilium's Ingress features:
 
    envoy-custom-listener
    envoy-traffic-management
+   envoy-circuit-breaker
    envoy-load-balancing
