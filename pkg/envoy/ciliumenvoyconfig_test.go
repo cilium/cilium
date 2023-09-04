@@ -7,18 +7,25 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/netip"
+	"testing"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
+	endpointv3 "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/node"
 
 	. "github.com/cilium/checkmate"
@@ -891,4 +898,49 @@ func (s *JSONSuite) TestListenersAddedOrDeleted(c *C) {
 	c.Assert(res, Equals, true)
 	res = new.ListenersAddedOrDeleted(&old)
 	c.Assert(res, Equals, true)
+}
+
+func TestGetEndpointsForLBBackends(t *testing.T) {
+	testAddr, err := netip.ParseAddr("192.128.1.1")
+	require.NoError(t, err)
+
+	serviceName := loadbalancer.ServiceName{
+		Namespace: "test-ns",
+		Name:      "test-name",
+		Cluster:   "test-cluster",
+	}
+	backends := map[string][]*loadbalancer.Backend{
+		"12000": {
+			{
+				L3n4Addr: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, types.AddrClusterFrom(testAddr, 0), 12000, 3),
+			},
+		},
+		"13000": {
+			{
+				L3n4Addr: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, types.AddrClusterFrom(testAddr, 0), 13000, 3),
+			},
+		},
+		"*": {
+			{
+				L3n4Addr: *loadbalancer.NewL3n4Addr(loadbalancer.TCP, types.AddrClusterFrom(testAddr, 0), 15000, 3),
+			},
+		},
+	}
+
+	endpoints := getEndpointsForLBBackends(serviceName, backends)
+	assert.Len(t, endpoints, 4)
+
+	var allClusterNames []string
+	for _, ep := range endpoints {
+		allClusterNames = append(allClusterNames, ep.GetClusterName())
+
+		assert.Len(t, ep.GetEndpoints(), 1)
+		assert.Len(t, ep.GetEndpoints()[0].GetLbEndpoints(), 1)
+		assert.Equal(t, ep.GetEndpoints()[0].GetLbEndpoints()[0].GetHostIdentifier().(*endpointv3.LbEndpoint_Endpoint).Endpoint.Address.GetAddress().(*envoy_config_core.Address_SocketAddress).SocketAddress.Address, "192.128.1.1")
+	}
+
+	assert.Contains(t, allClusterNames, "test-cluster/test-ns/test-name:12000")
+	assert.Contains(t, allClusterNames, "test-cluster/test-ns/test-name:13000")
+	assert.Contains(t, allClusterNames, "test-cluster/test-ns/test-name:*")
+	assert.Contains(t, allClusterNames, "test-cluster/test-ns/test-name")
 }
