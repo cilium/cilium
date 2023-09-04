@@ -43,7 +43,10 @@ func NewRoutePolicyReconciler(ipPoolStore BGPCPResourceStore[*v2alpha1api.Cilium
 }
 
 func (r *RoutePolicyReconciler) Priority() int {
-	return 70 // no specific reason for choosing this value, just making the order predictable
+	// Should reconcile after the NeighborReconciler (so have higher priority number),
+	// as neighbor resets are performed from this reconciler.
+	// This is not a hard requirement, just to avoid some warnings.
+	return 70
 }
 
 func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileParams) error {
@@ -94,6 +97,8 @@ func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileP
 		}
 	}
 
+	resetPeers := make(map[string]bool)
+
 	// add missing policies
 	for _, p := range toAdd {
 		l.Infof("Adding route policy %s to vrouter %d", p.Name, params.DesiredConfig.LocalASN)
@@ -101,6 +106,7 @@ func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileP
 		if err != nil {
 			return fmt.Errorf("failed adding route policy %v to vrouter %d: %w", p.Name, params.DesiredConfig.LocalASN, err)
 		}
+		resetPeers[peerAddressFromPolicy(p)] = true
 	}
 	// update modified policies
 	for _, p := range toUpdate {
@@ -116,6 +122,7 @@ func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileP
 		if err != nil {
 			return fmt.Errorf("failed adding route policy %v to vrouter %d: %w", p.Name, params.DesiredConfig.LocalASN, err)
 		}
+		resetPeers[peerAddressFromPolicy(p)] = true
 	}
 	// remove old policies
 	for _, p := range toRemove {
@@ -124,9 +131,23 @@ func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileP
 		if err != nil {
 			return fmt.Errorf("failed removing route policy %v from vrouter %d: %w", p.Name, params.DesiredConfig.LocalASN, err)
 		}
+		resetPeers[peerAddressFromPolicy(p)] = true
 	}
 
-	// TODO: reset affected BGP peers to apply the changes on already advertised routes
+	// soft-reset affected BGP peers to apply the changes on already advertised routes
+	for peer := range resetPeers {
+		l.Infof("Resetting peer %s on vrouter %d due to a routing policy change", peer, params.DesiredConfig.LocalASN)
+		req := types.ResetNeighborRequest{
+			PeerAddress:        peer,
+			Soft:               true,
+			SoftResetDirection: types.SoftResetDirectionOut, // we are using only export policies
+		}
+		err := params.CurrentServer.Server.ResetNeighbor(ctx, req)
+		if err != nil {
+			// non-fatal error (may happen if the neighbor is not up), just log it
+			l.Warnf("error by resetting peer %s after a routing policy change: %v", peer, err)
+		}
+	}
 
 	// reconciliation successful, update the cache of configured policies
 	params.CurrentServer.RoutePolicies = desiredPolicies
@@ -242,4 +263,17 @@ func policyStatement(neighborAddr string, prefixes []*types.RoutePolicyPrefixMat
 			AddLargeCommunities: largeCommunities,
 		},
 	}
+}
+
+// peerAddressFromPolicy returns the first neighbor address found in a routing policy.
+func peerAddressFromPolicy(p *types.RoutePolicy) string {
+	if p == nil {
+		return ""
+	}
+	for _, s := range p.Statements {
+		for _, m := range s.Conditions.MatchNeighbors {
+			return m
+		}
+	}
+	return ""
 }

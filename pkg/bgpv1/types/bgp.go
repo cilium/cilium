@@ -46,6 +46,23 @@ type NeighborRequest struct {
 	VR       *v2alpha1api.CiliumBGPVirtualRouter
 }
 
+// SoftResetDirection defines the direction in which a BGP soft reset should be performed
+type SoftResetDirection int
+
+const (
+	SoftResetDirectionIn SoftResetDirection = iota
+	SoftResetDirectionOut
+	SoftResetDirectionBoth
+)
+
+// ResetNeighborRequest contains parameters used when resetting a BGP peer
+type ResetNeighborRequest struct {
+	PeerAddress        string
+	Soft               bool
+	SoftResetDirection SoftResetDirection
+	AdminCommunication string
+}
+
 // PathRequest contains parameters for advertising or withdrawing a Path
 type PathRequest struct {
 	Path *Path
@@ -225,6 +242,9 @@ type Router interface {
 
 	// RemoveNeighbor removes BGP peer
 	RemoveNeighbor(ctx context.Context, n NeighborRequest) error
+
+	// ResetNeighbor resets BGP peering with the provided neighbor address
+	ResetNeighbor(ctx context.Context, r ResetNeighborRequest) error
 
 	// AdvertisePath advertises BGP Path to all configured peers
 	AdvertisePath(ctx context.Context, p PathRequest) (PathResponse, error)

@@ -212,3 +212,13 @@ func toGoBGPPolicyDirection(policyType types.RoutePolicyType) gobgp.PolicyDirect
 	}
 	return gobgp.PolicyDirection_UNKNOWN
 }
+
+func toGoBGPSoftResetDirection(direction types.SoftResetDirection) gobgp.ResetPeerRequest_SoftResetDirection {
+	switch direction {
+	case types.SoftResetDirectionIn:
+		return gobgp.ResetPeerRequest_IN
+	case types.SoftResetDirectionOut:
+		return gobgp.ResetPeerRequest_OUT
+	}
+	return gobgp.ResetPeerRequest_BOTH
+}
