@@ -29,7 +29,7 @@ focus:
 - "f15-datapath-service-ew-1"
 - "f16-datapath-service-ew-2"
 - "f17-datapath-service-ew-kube-proxy"
-- "f18-datapath-bgp-custom-lrp"
+- "f18-datapath-bgp-lrp"
 - "f19-update"
 - "f20-kafka"
 include:
@@ -196,12 +196,10 @@ include:
 
   ###
   # K8sDatapathBGPTests Tests LoadBalancer Connectivity to endpoint via LB
-  # K8sDatapathCustomCalls Basic test with byte-counter Loads byte-counter and gets consistent values
-  # K8sDatapathCustomCalls Basic test with byte-counter Loads byte-counter and gets consistent values, with per-endpoint routes
   # K8sDatapathLRPTests Checks local redirect policy LRP connectivity
   # K8sDatapathLRPTests Checks local redirect policy LRP restores service when removed
-  - focus: "f18-datapath-bgp-custom-lrp"
-    cliFocus: "K8sDatapathBGPTests|K8sDatapathCustomCalls|K8sDatapathLRPTests"
+  - focus: "f18-datapath-bgp-lrp"
+    cliFocus: "K8sDatapathBGPTests|K8sDatapathLRPTests"
 
   ###
   # K8sUpdates Tests upgrade and downgrade from a Cilium stable image to master
@@ -286,7 +284,7 @@ exclude:
     focus: "f17-datapath-service-ew-kube-proxy"
 
   - k8s-version: "1.25"
-    focus: "f18-datapath-bgp-custom-lrp"
+    focus: "f18-datapath-bgp-lrp"
 
   - k8s-version: "1.25"
     focus: "f20-kafka"
