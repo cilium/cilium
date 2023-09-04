@@ -563,6 +563,61 @@ kind-image: ## Build cilium and operator images and import them into kind.
 	$(MAKE) kind-image-agent
 	$(MAKE) kind-image-operator
 
+.PHONY: kind-install-cilium-fast
+kind-install-cilium-fast: kind-ready ## Install a local Cilium version into the cluster.
+	@echo "  INSTALL cilium"
+	# cilium-cli doesn't support idempotent installs, so we uninstall and
+	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
+	-$(CILIUM_CLI) uninstall >/dev/null
+	# cilium-cli's --wait flag doesn't work, so we just force it to run
+	# in the background instead and wait for the resources to be available.
+	# https://github.com/cilium/cilium-cli/issues/1070
+	$(CILIUM_CLI) install \
+		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		--helm-values=$(ROOT_DIR)/contrib/testing/kind-common.yaml \
+		--helm-values=$(ROOT_DIR)/contrib/testing/kind-fast.yaml \
+		--version= \
+		>/dev/null 2>&1 &
+
+.PHONY: kind-image-fast
+kind-image-fast: ## Build cilium, operator, clustermesh-apiserver and mount them into a volume for all available Kind clusters.
+	$(eval dst:=/cilium-binaries)
+	$(MAKE) -C cilium
+	$(MAKE) -C daemon
+	$(MAKE) -C operator cilium-operator-generic
+	$(MAKE) -C clustermesh-apiserver
+
+	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
+	    for node_name in $(shell kind get nodes -n "${cluster_name}"); do \
+			docker exec -ti $${node_name} mkdir -p "${dst}"; \
+			\
+			docker exec -ti $${node_name} rm -rf "${dst}/var/lib/cilium"; \
+			docker exec -ti $${node_name} mkdir -p "${dst}/var/lib/cilium"; \
+			docker cp "./bpf/" $${node_name}:"${dst}/var/lib/cilium/bpf"; \
+			docker exec -ti $${node_name} find "${dst}/var/lib/cilium/bpf" -type f -exec chmod 0644 {} + ;\
+			\
+			docker exec -ti $${node_name} rm -f "${dst}/cilium"; \
+			docker cp "./cilium/cilium" $${node_name}:"${dst}"; \
+			docker exec -ti $${node_name} chmod +x "${dst}/cilium"; \
+			\
+			docker exec -ti $${node_name} rm -f "${dst}/cilium-agent"; \
+			docker cp "./daemon/cilium-agent" $${node_name}:"${dst}"; \
+			docker exec -ti $${node_name} chmod +x "${dst}/cilium-agent"; \
+			\
+			docker exec -ti $${node_name} rm -f "${dst}/cilium-operator-generic"; \
+			docker cp "./operator/cilium-operator-generic" $${node_name}:"${dst}"; \
+			docker exec -ti $${node_name} chmod +x "${dst}/cilium-operator-generic"; \
+			\
+			docker exec -ti $${node_name} rm -f "${dst}/clustermesh-apiserver"; \
+			docker cp "./clustermesh-apiserver/clustermesh-apiserver" $${node_name}:"${dst}"; \
+			docker exec -ti $${node_name} chmod +x "${dst}/clustermesh-apiserver"; \
+			\
+			kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=cilium --force; \
+			kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l name=cilium-operator --force; \
+			kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=clustermesh-apiserver --force; \
+		done; \
+	done
+
 .PHONY: kind-install-cilium
 kind-install-cilium: kind-ready ## Install a local Cilium version into the cluster.
 	@echo "  INSTALL cilium"
@@ -574,6 +629,7 @@ kind-install-cilium: kind-ready ## Install a local Cilium version into the clust
 	# https://github.com/cilium/cilium-cli/issues/1070
 	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+		--helm-values=$(ROOT_DIR)/contrib/testing/kind-common.yaml \
 		--helm-values=$(ROOT_DIR)/contrib/testing/kind-values.yaml \
 		--version= \
 		>/dev/null 2>&1 &
