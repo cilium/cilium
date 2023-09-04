@@ -586,6 +586,7 @@ rn
 roadmap
 rollout
 routable
+routingMode
 rst
 runnable
 runtimes
@@ -668,6 +669,7 @@ toolchain
 tracepoint
 tracepoints
 transpiling
+tunnelProtocol
 ubuntu
 udp
 ui
