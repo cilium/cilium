@@ -78,6 +78,12 @@ acceleration (``--bpf-lb-acceleration=native``), the user must ensure that the
 host Iptables configuration allows packets through the ``FORWARD`` chain. Full
 support will be added in an upcoming release once :gh-issue:`19717` is resolved.
 
+Cluster Mesh
+------------
+
+Egress gateway is not compatible with the Cluster Mesh feature. The gateway selected
+by an egress gateway policy must be in the same cluster as the selected pods.
+
 Enable egress gateway
 =====================
 
