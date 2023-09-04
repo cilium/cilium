@@ -335,6 +335,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 		}
 	}
 
+	ep.InitDNSHistoryTrigger()
 	if err := epMgr.AddEndpoint(owner, ep, "Create cilium-health endpoint"); err != nil {
 		return nil, fmt.Errorf("Error while adding endpoint: %s", err)
 	}

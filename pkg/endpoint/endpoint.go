@@ -476,6 +476,7 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 func NewEndpointWithState(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, state State) *Endpoint {
 	endpointQueueName := "endpoint-" + strconv.FormatUint(uint64(ID), 10)
 	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, ID, "")
+	ep.InitDNSHistoryTrigger()
 	ep.state = state
 	ep.eventQueue = eventqueue.NewEventQueueBuffered(endpointQueueName, option.Config.EndpointQueueSize)
 
@@ -510,8 +511,6 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 		noTrackPort:      0,
 	}
 
-	ep.initDNSHistoryTrigger()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
@@ -523,7 +522,7 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 	return ep
 }
 
-func (e *Endpoint) initDNSHistoryTrigger() {
+func (e *Endpoint) InitDNSHistoryTrigger() {
 	// Note: This can only fail if the trigger func is nil.
 	var err error
 	e.dnsHistoryTrigger, err = trigger.NewTrigger(trigger.Parameters{
@@ -861,7 +860,7 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 		return nil, fmt.Errorf("failed to parse restored endpoint: %s", err)
 	}
 
-	ep.initDNSHistoryTrigger()
+	ep.InitDNSHistoryTrigger()
 
 	// Validate the options that were parsed
 	ep.SetDefaultOpts(ep.Options)

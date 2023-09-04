@@ -681,6 +681,8 @@ func (mgr *endpointManager) AddHostEndpoint(
 		return err
 	}
 
+	ep.InitDNSHistoryTrigger()
+
 	if err := mgr.AddEndpoint(owner, ep, reason); err != nil {
 		return err
 	}

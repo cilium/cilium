@@ -469,6 +469,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		}
 	}
 
+	ep.InitDNSHistoryTrigger()
 	// e.ID assigned here
 	err = d.endpointManager.AddEndpoint(owner, ep, "Create endpoint from API PUT")
 	if err != nil {
