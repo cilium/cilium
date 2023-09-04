@@ -803,8 +803,8 @@ func (s *XDSServer) UpsertEnvoyEndpoints(serviceName lb.ServiceName, backendMap 
 func getEndpointsForLBBackends(serviceName lb.ServiceName, backendMap map[string][]*lb.Backend) []*envoy_config_endpoint.ClusterLoadAssignment {
 	var endpoints []*envoy_config_endpoint.ClusterLoadAssignment
 
-	var lbEndpoints []*envoy_config_endpoint.LbEndpoint
 	for port, bes := range backendMap {
+		var lbEndpoints []*envoy_config_endpoint.LbEndpoint
 		for _, be := range bes {
 			if be.Protocol != lb.TCP {
 				// Only TCP services supported with Envoy for now
