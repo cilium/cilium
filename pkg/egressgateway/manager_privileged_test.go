@@ -146,6 +146,77 @@ func (k *EgressGatewayTestSuite) SetUpTest(c *C) {
 	c.Assert(k.manager, NotNil)
 }
 
+func (k *EgressGatewayTestSuite) TestEgressGatewayCEGPParser(c *C) {
+	// must specify name
+	policy := policyParams{
+		name:            "",
+		destinationCIDR: destCIDR,
+		iface:           testInterface1,
+	}
+
+	cegp, _ := newCEGP(&policy)
+	_, err := ParseCEGP(cegp)
+	c.Assert(err, NotNil)
+
+	// catch nil DestinationCIDR field
+	policy = policyParams{
+		name:  "policy-1",
+		iface: testInterface1,
+	}
+
+	cegp, _ = newCEGP(&policy)
+	cegp.Spec.DestinationCIDRs = nil
+	_, err = ParseCEGP(cegp)
+	c.Assert(err, NotNil)
+
+	// must specify at least one DestinationCIDR
+	policy = policyParams{
+		name:  "policy-1",
+		iface: testInterface1,
+	}
+
+	cegp, _ = newCEGP(&policy)
+	_, err = ParseCEGP(cegp)
+	c.Assert(err, NotNil)
+
+	// catch nil EgressGateway field
+	policy = policyParams{
+		name:            "policy-1",
+		destinationCIDR: destCIDR,
+		iface:           testInterface1,
+	}
+
+	cegp, _ = newCEGP(&policy)
+	cegp.Spec.EgressGateway = nil
+	_, err = ParseCEGP(cegp)
+	c.Assert(err, NotNil)
+
+	// must specify some sort of endpoint selector
+	policy = policyParams{
+		name:            "policy-1",
+		destinationCIDR: destCIDR,
+		iface:           testInterface1,
+	}
+
+	cegp, _ = newCEGP(&policy)
+	cegp.Spec.Selectors[0].NamespaceSelector = nil
+	cegp.Spec.Selectors[0].PodSelector = nil
+	_, err = ParseCEGP(cegp)
+	c.Assert(err, NotNil)
+
+	// can't specify both egress iface and IP
+	policy = policyParams{
+		name:            "policy-1",
+		destinationCIDR: destCIDR,
+		iface:           testInterface1,
+		egressIP:        egressIP1,
+	}
+
+	cegp, _ = newCEGP(&policy)
+	_, err = ParseCEGP(cegp)
+	c.Assert(err, NotNil)
+}
+
 func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	testInterface1Idx := createTestInterface(c, testInterface1, egressCIDR1)
 	testInterface2Idx := createTestInterface(c, testInterface2, egressCIDR2)
