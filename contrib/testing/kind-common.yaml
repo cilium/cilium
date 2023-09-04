@@ -1,0 +1,20 @@
+debug:
+  enabled: true
+operator:
+  nodeSelector:
+    kubernetes.io/os: linux
+    kubernetes.io/hostname: kind-worker
+ipam:
+  mode: kubernetes
+ipv6:
+  enabled: true
+ipv4:
+  enabled: true
+bpf:
+  monitorAggregation: none
+livenessProbe:
+  failureThreshold: 9999
+readinessProbe:
+  failureThreshold: 9999
+startupProbe:
+  failureThreshold: 9999
