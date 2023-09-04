@@ -73,19 +73,19 @@ jobs:
       matrix:
         include:
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '4.19-20230810.091425'
+          - kernel: '4.19-20230831.173504'
             ci-kernel: '419'
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '5.4-20230810.091425'
+          - kernel: '5.4-20230831.173504'
             ci-kernel: '54'
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '5.10-20230810.091425'
+          - kernel: '5.10-20230831.173504'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '5.15-20230810.091425'
+          - kernel: '5.15-20230831.173504'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: 'bpf-next-20230810.091425'
+          - kernel: 'bpf-next-20230902.012321'
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
