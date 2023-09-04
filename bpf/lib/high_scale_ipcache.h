@@ -67,7 +67,7 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 	if (proto != bpf_htons(ETH_P_IP))
 		return CTX_ACT_OK;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 	if (ip4->protocol != IPPROTO_UDP)
 		return CTX_ACT_OK;
