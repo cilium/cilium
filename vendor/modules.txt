@@ -207,7 +207,7 @@ github.com/cilium/ebpf/rlimit
 # github.com/cilium/fake v0.5.0
 ## explicit; go 1.19
 github.com/cilium/fake
-# github.com/cilium/linters v0.0.0-20230822071834-30df268c15f9
+# github.com/cilium/linters v0.0.0-20230829090456-44aa7d2bc675
 ## explicit; go 1.20
 github.com/cilium/linters
 github.com/cilium/linters/ioreadall
@@ -779,7 +779,7 @@ github.com/opencontainers/image-spec/specs-go/v1
 github.com/opentracing/opentracing-go
 github.com/opentracing/opentracing-go/ext
 github.com/opentracing/opentracing-go/log
-# github.com/osrg/gobgp/v3 v3.17.0
+# github.com/osrg/gobgp/v3 v3.18.0
 ## explicit; go 1.20
 github.com/osrg/gobgp/v3/api
 github.com/osrg/gobgp/v3/internal/pkg/config
@@ -988,7 +988,7 @@ go.mongodb.org/mongo-driver/bson/bsonrw
 go.mongodb.org/mongo-driver/bson/bsontype
 go.mongodb.org/mongo-driver/bson/primitive
 go.mongodb.org/mongo-driver/x/bsonx/bsoncore
-# go.opentelemetry.io/otel v1.16.0
+# go.opentelemetry.io/otel v1.17.0
 ## explicit; go 1.19
 go.opentelemetry.io/otel
 go.opentelemetry.io/otel/attribute
@@ -1001,11 +1001,11 @@ go.opentelemetry.io/otel/internal/global
 go.opentelemetry.io/otel/propagation
 go.opentelemetry.io/otel/semconv/internal
 go.opentelemetry.io/otel/semconv/v1.12.0
-# go.opentelemetry.io/otel/metric v1.16.0
+# go.opentelemetry.io/otel/metric v1.17.0
 ## explicit; go 1.19
 go.opentelemetry.io/otel/metric
 go.opentelemetry.io/otel/metric/embedded
-# go.opentelemetry.io/otel/trace v1.16.0
+# go.opentelemetry.io/otel/trace v1.17.0
 ## explicit; go 1.19
 go.opentelemetry.io/otel/trace
 # go.uber.org/dig v1.17.0
@@ -1108,7 +1108,7 @@ golang.org/x/oauth2/internal
 ## explicit; go 1.17
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.11.0
+# golang.org/x/sys v0.12.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
@@ -1116,7 +1116,7 @@ golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.11.0
+# golang.org/x/term v0.12.0
 ## explicit; go 1.17
 golang.org/x/term
 # golang.org/x/text v0.12.0
@@ -1145,7 +1145,7 @@ golang.org/x/text/width
 # golang.org/x/time v0.3.0
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.12.1-0.20230825192346-2191a27a6dc5
+# golang.org/x/tools v0.12.1-0.20230901210945-21090a2aa8d3
 ## explicit; go 1.18
 golang.org/x/tools/cmd/goimports
 golang.org/x/tools/cmd/stringer
