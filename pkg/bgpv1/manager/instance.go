@@ -35,6 +35,9 @@ type ServerWithConfig struct {
 
 	// Holds any announced Service routes.
 	ServiceAnnouncements map[resource.Key][]*types.Path
+
+	// Holds routing policies configured by the policy reconciler.
+	RoutePolicies map[string]*types.RoutePolicy
 }
 
 // NewServerWithConfig will start an underlying BgpServer utilizing types.ServerParameters
@@ -56,5 +59,6 @@ func NewServerWithConfig(ctx context.Context, params types.ServerParameters) (*S
 		Config:               nil,
 		PodCIDRAnnouncements: []*types.Path{},
 		ServiceAnnouncements: make(map[resource.Key][]*types.Path),
+		RoutePolicies:        make(map[string]*types.RoutePolicy),
 	}, nil
 }

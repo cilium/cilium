@@ -47,6 +47,7 @@ var ConfigReconcilers = cell.ProvidePrivate(
 	NewNeighborReconciler,
 	NewExportPodCIDRReconciler,
 	NewLBServiceReconciler,
+	NewRoutePolicyReconciler,
 )
 
 type PreflightReconcilerOut struct {
@@ -173,6 +174,7 @@ func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 	// Clear the shadow state since any advertisements will be gone now that the server has been recreated.
 	p.CurrentServer.PodCIDRAnnouncements = nil
 	p.CurrentServer.ServiceAnnouncements = make(map[resource.Key][]*types.Path)
+	p.CurrentServer.RoutePolicies = make(map[string]*types.RoutePolicy)
 
 	return nil
 }

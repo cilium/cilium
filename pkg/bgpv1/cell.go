@@ -34,6 +34,10 @@ var Cell = cell.Module(
 		manager.NewDiffStore[*slim_core_v1.Service],
 		// Create a endpoints DiffStore
 		manager.NewDiffStore[*k8s.Endpoints],
+		// CiliumLoadBalancerIPPool resource is used by the BGP CP to realize configured LB IP pools.
+		newLoadBalancerIPPoolResource,
+		// Create a CiliumLoadBalancerIPPool store which signals the BGP CP upon each resource event.
+		manager.NewBGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool],
 	),
 	// Provides the reconcilers used by the route manager to update the config
 	manager.ConfigReconcilers,
@@ -53,4 +57,17 @@ func newBGPPeeringPolicyResource(lc hive.Lifecycle, c client.Clientset, dc *opti
 		lc, utils.ListerWatcherFromTyped[*v2alpha1api.CiliumBGPPeeringPolicyList](
 			c.CiliumV2alpha1().CiliumBGPPeeringPolicies(),
 		), resource.WithMetric("CiliumBGPPeeringPolicy"))
+}
+
+func newLoadBalancerIPPoolResource(lc hive.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumLoadBalancerIPPool] {
+	if !dc.BGPControlPlaneEnabled() {
+		return nil
+	}
+	if !c.IsEnabled() {
+		return nil
+	}
+	return resource.New[*v2alpha1api.CiliumLoadBalancerIPPool](
+		lc, utils.ListerWatcherFromTyped[*v2alpha1api.CiliumLoadBalancerIPPoolList](
+			c.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
+		), resource.WithMetric("CiliumLoadBalancerIPPool"))
 }
