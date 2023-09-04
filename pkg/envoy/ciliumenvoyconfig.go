@@ -808,13 +808,25 @@ func (s *XDSServer) DeleteEnvoyResources(ctx context.Context, resources Resource
 
 func (s *XDSServer) UpsertEnvoyEndpoints(serviceName lb.ServiceName, backendMap map[string][]*lb.Backend) error {
 	var resources Resources
-	lbEndpoints := []*envoy_config_endpoint.LbEndpoint{}
+
+	resources.Endpoints = getEndpointsForLBBackends(serviceName, backendMap)
+
+	// Using context.TODO() is fine as we do not upsert listener resources here - the
+	// context ends up being used only if listener(s) are included in 'resources'.
+	return s.UpsertEnvoyResources(context.TODO(), resources, nil)
+}
+
+func getEndpointsForLBBackends(serviceName lb.ServiceName, backendMap map[string][]*lb.Backend) []*envoy_config_endpoint.ClusterLoadAssignment {
+	var endpoints []*envoy_config_endpoint.ClusterLoadAssignment
+
 	for port, bes := range backendMap {
+		var lbEndpoints []*envoy_config_endpoint.LbEndpoint
 		for _, be := range bes {
 			if be.Protocol != lb.TCP {
 				// Only TCP services supported with Envoy for now
 				continue
 			}
+
 			lbEndpoints = append(lbEndpoints, &envoy_config_endpoint.LbEndpoint{
 				HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
 					Endpoint: &envoy_config_endpoint.Endpoint{
@@ -832,6 +844,7 @@ func (s *XDSServer) UpsertEnvoyEndpoints(serviceName lb.ServiceName, backendMap 
 				},
 			})
 		}
+
 		endpoint := &envoy_config_endpoint.ClusterLoadAssignment{
 			ClusterName: fmt.Sprintf("%s:%s", serviceName.String(), port),
 			Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{
@@ -840,12 +853,12 @@ func (s *XDSServer) UpsertEnvoyEndpoints(serviceName lb.ServiceName, backendMap 
 				},
 			},
 		}
-		resources.Endpoints = append(resources.Endpoints, endpoint)
+		endpoints = append(endpoints, endpoint)
 
 		// for backward compatibility, if any port is allowed, publish one more
 		// endpoint having cluster name as service name.
 		if port == anyPort {
-			resources.Endpoints = append(resources.Endpoints, &envoy_config_endpoint.ClusterLoadAssignment{
+			endpoints = append(endpoints, &envoy_config_endpoint.ClusterLoadAssignment{
 				ClusterName: serviceName.String(),
 				Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{
 					{
@@ -855,9 +868,8 @@ func (s *XDSServer) UpsertEnvoyEndpoints(serviceName lb.ServiceName, backendMap 
 			})
 		}
 	}
-	// Using context.TODO() is fine as we do not upsert listener resources here - the
-	// context ends up being used only if listener(s) are included in 'resources'.
-	return s.UpsertEnvoyResources(context.TODO(), resources, nil)
+
+	return endpoints
 }
 
 func fillInTlsContextXDS(cecNamespace string, cecName string, tls *envoy_config_tls.CommonTlsContext) bool {
