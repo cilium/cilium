@@ -260,6 +260,11 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		return nil, fmt.Errorf("must have a name")
 	}
 
+	destinationCIDRs := cegp.Spec.DestinationCIDRs
+	if destinationCIDRs == nil {
+		return nil, fmt.Errorf("destinationCIDRs can't be empty")
+	}
+
 	egressGateway := cegp.Spec.EgressGateway
 	if egressGateway == nil {
 		return nil, fmt.Errorf("egressGateway can't be empty")
@@ -275,7 +280,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		egressIP:     net.ParseIP(egressGateway.EgressIP),
 	}
 
-	for _, cidrString := range cegp.Spec.DestinationCIDRs {
+	for _, cidrString := range destinationCIDRs {
 		_, cidr, err := net.ParseCIDR(string(cidrString))
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse destination CIDR %s: %s", cidrString, err)
