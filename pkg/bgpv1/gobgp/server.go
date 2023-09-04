@@ -346,6 +346,28 @@ func (g *GoBGPServer) RemoveNeighbor(ctx context.Context, n types.NeighborReques
 	return nil
 }
 
+// ResetNeighbor resets BGP peering with the provided neighbor address.
+func (g *GoBGPServer) ResetNeighbor(ctx context.Context, r types.ResetNeighborRequest) error {
+	// for this request we need a peer address without prefix
+	peerAddr := r.PeerAddress
+	if p, err := netip.ParsePrefix(r.PeerAddress); err == nil {
+		peerAddr = p.Addr().String()
+	}
+
+	resetReq := &gobgp.ResetPeerRequest{
+		Address:       peerAddr,
+		Communication: r.AdminCommunication,
+	}
+	if r.Soft {
+		resetReq.Soft = true
+		resetReq.Direction = toGoBGPSoftResetDirection(r.SoftResetDirection)
+	}
+	if err := g.server.ResetPeer(ctx, resetReq); err != nil {
+		return fmt.Errorf("failed while resetting peer %s: %w", r.PeerAddress, err)
+	}
+	return nil
+}
+
 // AdvertisePath will advertise the provided Path to any existing and all
 // subsequently added Neighbors currently peered with this BgpServer.
 //
