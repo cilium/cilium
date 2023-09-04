@@ -199,6 +199,10 @@ func NewEgressGatewayManager(p Params) (out struct {
 		return out, errors.New("egress gateway is not supported in high scale IPcache mode")
 	}
 
+	if dcfg.EnableCiliumEndpointSlice {
+		return out, errors.New("egress gateway is not supported in combination with the CiliumEndpointSlice feature")
+	}
+
 	if !dcfg.MasqueradingEnabled() || !dcfg.EnableBPFMasquerade {
 		return out, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 	}

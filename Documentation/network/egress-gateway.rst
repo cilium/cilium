@@ -79,6 +79,9 @@ set to ``crd``). This is the default setting for new installations.
 Egress gateway is not compatible with the Cluster Mesh feature. The gateway selected
 by an egress gateway policy must be in the same cluster as the selected pods.
 
+Egress gateway is not compatible with the CiliumEndpointSlice feature
+(see :gh-issue:`24833` for details).
+
 Egress gateway is not supported for IPv6 traffic.
 
 Enable egress gateway
