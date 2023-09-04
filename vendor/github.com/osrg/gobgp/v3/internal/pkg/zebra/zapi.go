@@ -44,6 +44,7 @@ const (
 	headerMarker      uint8 = 255
 	frrHeaderMarker   uint8 = 254
 	interfaceNameSize       = 20
+	osIfNameSize            = 16
 	maxPathNum              = 64
 	maxMplsLabel            = 16
 )
@@ -1917,12 +1918,27 @@ type interfaceUpdateBody struct {
 
 // Ref: zebra_interface_if_set_value in lib/zclient.c of Quagga1.2&FRR3&FRR4&FRR5&FRR6&FRR7.x&FRR8 (ZAPI3&4&5&6)
 func (b *interfaceUpdateBody) decodeFromBytes(data []byte, version uint8, software Software) error {
-	if len(data) < interfaceNameSize+33 {
-		return fmt.Errorf("lack of bytes. need %d but %d", interfaceNameSize+29, len(data))
+	ifNameSize := interfaceNameSize
+	if version == 6 && software.name == "frr" && software.version >= 8.3 {
+		ifNameSize = osIfNameSize
+	}
+	// version 2: index(4)+status(1)+flags(8)+metric(4)+mtu(4)+mtu6(4)+bandwidth(4)+hw_addr_len(4)
+	necessaryDataSize := ifNameSize + 33
+	if version > 3 {
+		necessaryDataSize += 6 // add ptmEnable(1)+ptmStatus(1)+speed(4)
+	}
+	if version > 2 {
+		necessaryDataSize += 4 // add linktype(4)
+	}
+	if version == 6 && software.name == "frr" && software.version >= 7.2 {
+		necessaryDataSize += 4 // add linkIfIndex(4)
+	}
+	if len(data) < necessaryDataSize {
+		return fmt.Errorf("lack of bytes. need %d but %d", necessaryDataSize, len(data))
 	}
 
-	b.name = strings.Trim(string(data[:interfaceNameSize]), "\u0000")
-	data = data[interfaceNameSize:]
+	b.name = strings.Trim(string(data[:ifNameSize]), "\u0000")
+	data = data[ifNameSize:]
 	b.index = binary.BigEndian.Uint32(data[0:4])
 	b.status = interfaceStatus(data[4])
 	b.flags = binary.BigEndian.Uint64(data[5:13])

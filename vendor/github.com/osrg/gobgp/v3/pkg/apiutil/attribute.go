@@ -2768,8 +2768,8 @@ func UnmarshalPrefixSID(psid *api.PrefixSID) (*bgp.PathAttributePrefixSID, error
 			return nil, fmt.Errorf("unknown or not implemented Prefix SID type: %+v", v)
 		}
 	}
-	// Final Path Attribute Length is 3 bytes of the header and 1 byte Reserved1
-	s.PathAttribute.Length += (3 + 1)
+	// Final Path Attribute Length is 3 bytes of the Path Attribute header longer
+	s.PathAttribute.Length += 3
 	return s, nil
 }
 
@@ -2813,7 +2813,7 @@ func UnmarshalSubTLVs(stlvs map[uint32]*api.SRv6TLV) (uint16, []bgp.PrefixSIDTLV
 				// SRv6 Information Sub TLV length consists 1 byte Resrved2, 16 bytes SID, 1 byte flags, 2 bytes Endpoint Behavior
 				// 1 byte Reserved3 and length of Sub Sub TLVs
 				info.SubTLV.Length = 1 + 16 + 1 + 2 + 1 + sstlvslength
-				// For total Srv6 Information Sub TLV length, adding 3 bytes of the Sub TLV header
+				// For total Prefix SID TLV length, adding 3 bytes of the TLV header + 1 byte of Reserved1
 				l += info.SubTLV.Length + 4
 				p = append(p, info)
 			}
