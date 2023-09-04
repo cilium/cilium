@@ -84,7 +84,6 @@ jobs:
             kpr: 'disabled'
             tunnel: 'disabled'
             encryption: 'ipsec'
-            ipv6: 'false' # until https://github.com/cilium/cilium/issues/26944 resolved
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
@@ -94,7 +93,6 @@ jobs:
             tunnel: 'disabled'
             encryption: 'ipsec'
             endpoint-routes: 'true'
-            ipv6: 'false' # until https://github.com/cilium/cilium/issues/26944 resolved
 
           - name: '3'
             # We don't want to update bpf-next after branching
@@ -104,7 +102,6 @@ jobs:
             tunnel: 'vxlan'
             encryption: 'ipsec'
             endpoint-routes: 'true'
-            ipv6: 'false' # until https://github.com/cilium/cilium/issues/26944 resolved
 
     timeout-minutes: 60
     steps:
