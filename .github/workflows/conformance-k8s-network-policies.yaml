@@ -9,7 +9,7 @@ permissions: read-all
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.6
+  cilium_cli_version: v0.15.7
   cilium_cli_ci_version:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
   KIND_VERSION: v0.17.0
@@ -123,7 +123,7 @@ jobs:
 
       - name: Install Cilium CLI
         if: ${{ failure() }}
-        uses: cilium/cilium-cli@e718cf78ef55d95cfa0a5a0a935d6a224d567e1d # v0.15.6
+        uses: cilium/cilium-cli@378f49e417f6fed5d4a814606139678f63a414bd # v0.15.7
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
