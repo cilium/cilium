@@ -2653,7 +2653,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`routingMode`
-     - Enable native-routing mode or tunneling mode.
+     - Enable native-routing mode or tunneling mode. Possible values:   - ""   - native   - tunnel
      - string
      - ``"tunnel"``
    * - :spelling:ignore:`sctp`
@@ -2785,15 +2785,15 @@
      - list
      - ``[{"operator":"Exists"}]``
    * - :spelling:ignore:`tunnel`
-     - Configure the encapsulation configuration for communication between nodes. Possible values:   - disabled   - vxlan (default)   - geneve
+     - Configure the encapsulation configuration for communication between nodes. Deprecated in favor of tunnelProtocol and routingMode. To be removed in 1.15. Possible values:   - disabled   - vxlan   - geneve
      - string
-     - ``""``
+     - ``"vxlan"``
    * - :spelling:ignore:`tunnelPort`
      - Configure VXLAN and Geneve tunnel port.
      - int
      - Port 8472 for VXLAN, Port 6081 for Geneve
    * - :spelling:ignore:`tunnelProtocol`
-     - Tunneling protocol to use in tunneling mode and for ad-hoc tunnels.
+     - Tunneling protocol to use in tunneling mode and for ad-hoc tunnels. Possible values:   - ""   - vxlan   - geneve
      - string
      - ``"vxlan"``
    * - :spelling:ignore:`updateStrategy`
