@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package testutils
+package testipam
 
 import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"

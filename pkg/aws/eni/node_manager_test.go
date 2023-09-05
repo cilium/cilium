@@ -23,6 +23,7 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/testutils"
+	testipam "github.com/cilium/cilium/pkg/testutils/ipam"
 )
 
 var (
@@ -459,7 +460,7 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 		time.Sleep(1 * time.Second)
 		node.PopulateIPReleaseStatus(obj)
 		// Fake acknowledge IPs for release like agent would.
-		testutils.FakeAcknowledgeReleaseIps(obj)
+		testipam.FakeAcknowledgeReleaseIps(obj)
 		node.UpdatedResource(obj)
 		// Resync one more time to process acknowledgements.
 		syncTime = instances.Resync(context.TODO())
