@@ -1694,6 +1694,9 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 		},
 		OnStop: func(hive.HookContext) error {
 			cancelDaemonCtx()
+			if daemon.statusCollector != nil {
+				daemon.statusCollector.Close()
+			}
 			cleaner.Clean()
 			wg.Wait()
 			return nil
