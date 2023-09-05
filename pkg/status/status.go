@@ -115,7 +115,6 @@ func NewCollector(probes []Probe, config Config) *Collector {
 }
 
 // Close exits all probes and shuts down the collector
-// TODO(brb): call it when daemon exits (after GH#6248).
 func (c *Collector) Close() {
 	close(c.stop)
 }
