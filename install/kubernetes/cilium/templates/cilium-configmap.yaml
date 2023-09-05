@@ -437,7 +437,7 @@ data:
   routing-mode: "tunnel"
   tunnel-protocol: "vxlan"
 {{- else if .Values.routingMode }}
-  routing-mode: "{{ .Values.routingMode }}"
+  routing-mode: {{ .Values.routingMode | quote }}
 {{- else }}
   {{- if eq .Values.tunnel "disabled" }}
   routing-mode: "native"
@@ -455,15 +455,15 @@ data:
 {{- end }}
 
 {{- if .Values.tunnelProtocol }}
-  tunnel-protocol: "{{ .Values.tunnelProtocol }}"
+  tunnel-protocol: {{ .Values.tunnelProtocol | quote }}
 {{- end }}
 
 {{- if .Values.tunnelPort }}
-  tunnel-port: "{{ .Values.tunnelPort }}"
+  tunnel-port: {{ .Values.tunnelPort | quote }}
 {{- end }}
 
 {{- if .Values.MTU }}
-  mtu: "{{ .Values.MTU }}"
+  mtu: {{ .Values.MTU | quote }}
 {{- end }}
 
 {{- if .Values.eni.enabled }}
