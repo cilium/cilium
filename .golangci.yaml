@@ -66,6 +66,10 @@ linters-settings:
   gomodguard:
     blocked:
       modules:
+        - github.com/miekg/dns:
+            recommendations:
+              - github.com/cilium/dns
+            reason: "use the cilium fork directly to avoid replace directives in go.mod, see https://github.com/cilium/cilium/pull/27582"
         - gopkg.in/check.v1:
             recommendations:
               - testing
