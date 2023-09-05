@@ -41,9 +41,10 @@ working condition after uninstalling the Cilium agent.`,
 }
 
 var (
-	cleanAll bool
-	cleanBPF bool
-	force    bool
+	cleanAll      bool
+	cleanBPF      bool
+	force         bool
+	customCNIConf string
 )
 
 const (
@@ -51,8 +52,9 @@ const (
 	bpfFlagName   = "bpf-state"
 	forceFlagName = "force"
 
-	cleanCiliumEnvVar = "CLEAN_CILIUM_STATE"
-	cleanBpfEnvVar    = "CLEAN_CILIUM_BPF_STATE"
+	cleanCiliumEnvVar           = "CLEAN_CILIUM_STATE"
+	cleanBpfEnvVar              = "CLEAN_CILIUM_BPF_STATE"
+	writeCNIConfWhenReadyEnvVar = "WRITE_CNI_CONF_WHEN_READY"
 
 	tcFilterParentIngress = 0xfffffff2
 	tcFilterParentEgress  = 0xfffffff3
@@ -83,6 +85,7 @@ func init() {
 
 	bindEnv(cleanCiliumEnvVar, cleanCiliumEnvVar)
 	bindEnv(cleanBpfEnvVar, cleanBpfEnvVar)
+	bindEnv(writeCNIConfWhenReadyEnvVar, writeCNIConfWhenReadyEnvVar)
 
 	if err := vp.BindPFlags(cleanupCmd.Flags()); err != nil {
 		Fatalf("viper failed to bind to flags: %v\n", err)
@@ -232,8 +235,13 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 		defaults.LibraryPath))
 	toBeRemoved = append(toBeRemoved, fmt.Sprintf("endpoint state in %s",
 		defaults.RuntimePath))
-	toBeRemoved = append(toBeRemoved, fmt.Sprintf("CNI configuration at %s, %s, %s, %s, %s",
-		cniConfigV1, cniConfigV2, cniConfigV3, cniConfigV4, cniConfigV5))
+	if customCNIConf != "" {
+		toBeRemoved = append(toBeRemoved, fmt.Sprintf("CNI configuration at %s, %s, %s, %s, %s, %s",
+			cniConfigV1, cniConfigV2, cniConfigV3, cniConfigV4, cniConfigV5, customCNIConf))
+	} else {
+		toBeRemoved = append(toBeRemoved, fmt.Sprintf("CNI configuration at %s, %s, %s, %s, %s",
+			cniConfigV1, cniConfigV2, cniConfigV3, cniConfigV4, cniConfigV5))
+	}
 	return toBeRemoved
 }
 
@@ -275,6 +283,8 @@ func runCleanup() {
 			"Found pidfile %s\n", defaults.PidFilePath)
 		os.Exit(1)
 	}
+
+	customCNIConf = vp.GetString(writeCNIConfWhenReadyEnvVar)
 
 	cleanAll = vp.GetBool(allFlagName) || vp.GetBool(cleanCiliumEnvVar)
 	cleanBPF = vp.GetBool(bpfFlagName) || vp.GetBool(cleanBpfEnvVar)
@@ -346,10 +356,16 @@ func removeCNI() error {
 	os.Remove(cniConfigV4)
 
 	err := os.Remove(cniConfigV5)
-	if os.IsNotExist(err) {
-		return nil
+	if err != nil && !os.IsNotExist(err) {
+		return err
 	}
-	return err
+	if customCNIConf != "" {
+		err = os.Remove(customCNIConf)
+		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 // revertCNIBackup removes the ".cilium_bak" suffix from all files in cniPath,
