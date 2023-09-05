@@ -473,7 +473,9 @@ func (a *Agent) updatePeerByConfig(p *peerConfig) error {
 		AllowedIPs:        p.allowedIPs,
 		ReplaceAllowedIPs: true,
 	}
-
+	if option.Config.WireguardPersistentKeepalive != 0 {
+		peer.PersistentKeepaliveInterval = &option.Config.WireguardPersistentKeepalive
+	}
 	cfg := wgtypes.Config{
 		ReplacePeers: false,
 		Peers:        []wgtypes.PeerConfig{peer},

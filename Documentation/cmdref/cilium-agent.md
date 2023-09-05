@@ -319,6 +319,7 @@ cilium-agent [flags]
       --vtep-endpoint strings                                     List of VTEP IP addresses
       --vtep-mac strings                                          List of VTEP MAC addresses for forwarding traffic outside the cluster
       --vtep-mask string                                          VTEP CIDR Mask for all VTEP CIDRs (default "255.255.255.0")
+      --wireguard-persistent-keepalive duration                   The Wireguard keepalive interval as a Go duration string
       --write-cni-conf-when-ready string                          Write the CNI configuration to the specified path when agent is ready
 ```
 
