@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/envoy"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -55,4 +56,11 @@ func NewHTTPConnectionManager(name, routeName string, mutationFunc ...HttpConnec
 			Value:   connectionManagerBytes,
 		},
 	}, nil
+}
+
+func WithXffNumTrustedHops() func(*httpConnectionManagerv3.HttpConnectionManager) *httpConnectionManagerv3.HttpConnectionManager {
+	return func(connectionManager *httpConnectionManagerv3.HttpConnectionManager) *httpConnectionManagerv3.HttpConnectionManager {
+		connectionManager.XffNumTrustedHops = operatorOption.Config.IngressProxyXffNumTrustedHops
+		return connectionManager
+	}
 }

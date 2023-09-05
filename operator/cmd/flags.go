@@ -325,6 +325,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(operatorOption.IngressLBAnnotationPrefixes, operatorOption.IngressLBAnnotationsDefault, "Annotation prefixes for propagating from Ingress to the Load Balancer service")
 	option.BindEnv(vp, operatorOption.IngressLBAnnotationPrefixes)
 
+	flags.Uint32(operatorOption.IngressDefaultXffNumTrustedHops, 0, "The number of additional ingress proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
+	option.BindEnv(vp, operatorOption.IngressDefaultXffNumTrustedHops)
+
 	flags.String(operatorOption.PodRestartSelector, "k8s-app=kube-dns", "cilium-operator will delete/restart any pods with these labels if the pod is not managed by Cilium. If this option is empty, then all pods may be restarted")
 	option.BindEnv(vp, operatorOption.PodRestartSelector)
 
