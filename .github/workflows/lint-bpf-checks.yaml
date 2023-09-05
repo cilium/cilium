@@ -65,7 +65,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Run coccicheck
-        uses: docker://cilium/coccicheck:2.0@sha256:6f0369994c426d0bc013fc443cc6a48a0734fb35467955d10f3fc9f7cbd9c7fe
+        uses: docker://cilium/coccicheck:2.4@sha256:24abe3fbb8e829fa41a68a3b76cb4df84fd5a87a7d1d6254c1c1fe5effb5bd1b
         with:
           entrypoint: ./contrib/coccinelle/check-cocci.sh
 
