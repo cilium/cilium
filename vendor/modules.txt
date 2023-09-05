@@ -45,7 +45,7 @@ github.com/Microsoft/go-winio/pkg/guid
 # github.com/alecthomas/participle/v2 v2.0.0-beta.4
 ## explicit; go 1.18
 github.com/alecthomas/participle/v2/lexer
-# github.com/aliyun/alibaba-cloud-sdk-go v1.62.528
+# github.com/aliyun/alibaba-cloud-sdk-go v1.62.540
 ## explicit; go 1.13
 github.com/aliyun/alibaba-cloud-sdk-go/sdk
 github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth
@@ -92,10 +92,10 @@ github.com/aws/aws-sdk-go-v2/internal/shareddefaults
 github.com/aws/aws-sdk-go-v2/internal/strings
 github.com/aws/aws-sdk-go-v2/internal/sync/singleflight
 github.com/aws/aws-sdk-go-v2/internal/timeconv
-# github.com/aws/aws-sdk-go-v2/config v1.18.37
+# github.com/aws/aws-sdk-go-v2/config v1.18.38
 ## explicit; go 1.15
 github.com/aws/aws-sdk-go-v2/config
-# github.com/aws/aws-sdk-go-v2/credentials v1.13.35
+# github.com/aws/aws-sdk-go-v2/credentials v1.13.36
 ## explicit; go 1.15
 github.com/aws/aws-sdk-go-v2/credentials
 github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds
@@ -125,7 +125,7 @@ github.com/aws/aws-sdk-go-v2/service/ec2/types
 # github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.35
 ## explicit; go 1.15
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url
-# github.com/aws/aws-sdk-go-v2/service/sso v1.13.5
+# github.com/aws/aws-sdk-go-v2/service/sso v1.13.6
 ## explicit; go 1.15
 github.com/aws/aws-sdk-go-v2/service/sso
 github.com/aws/aws-sdk-go-v2/service/sso/internal/endpoints
