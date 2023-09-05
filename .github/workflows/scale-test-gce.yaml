@@ -1,0 +1,153 @@
+name: Scale-test GCE 
+
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+  # Run twice a week
+  schedule:
+    - cron:  '0 0 * * 1,4'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+
+concurrency:
+  # Structure:
+  # - Workflow name
+  # - Event type
+  # - A unique identifier depending on event type:
+  #   - schedule: SHA
+  #   - workflow_dispatch: PR number
+  #
+  # This structure ensures a unique concurrency group name is generated for each
+  # type of testing, such that re-runs will cancel the previous run.
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'schedule' && github.sha) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number)
+    }}
+  cancel-in-progress: true
+
+env:
+  clusterName: scaletest-${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+  # renovate: datasource=github-releases depName=cilium/cilium-cli
+  cilium_cli_version: v0.15.6
+  cilium_cli_ci_version:
+  CILIUM_CLI_MODE: helm
+  check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+  USE_GKE_GCLOUD_AUTH_PLUGIN: True
+
+jobs:
+  installation-and-scaletest:
+    name: Installation and Scale Test 
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      job_name: "Installation and Scale Test"
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: 
+          - "main"
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set Environment Variables
+        uses: ./.github/actions/set-env-variables
+
+      - name: Set up job variables
+        id: vars
+        run: |
+          CILIUM_INSTALL_DEFAULTS="--cluster-name=${{ env.clusterName }}-${{ matrix.config.index }} \
+            --chart-directory=install/kubernetes/cilium \
+            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${SHA} \
+            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${SHA} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
+            --helm-set=clustermesh.apiserver.image.tag=${SHA} \
+            --helm-set=clustermesh.apiserver.image.useDigest=false \
+            --helm-set=hubble.relay.enabled=true \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.tag=${SHA} \
+            --helm-set=hubble.relay.image.useDigest=false \
+            --helm-set=agentNotReadyTaintKey=ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready \
+            --helm-set loadBalancer.l7.backend=envoy \
+            --helm-set tls.secretsBackend=k8s \
+            --helm-set=bpf.monitorAggregation=none \
+            --wait=false"
+
+          echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
+          echo hubble_enable_defaults=${HUBBLE_ENABLE_DEFAULTS} >> $GITHUB_OUTPUT
+          echo sha=${SHA} >> $GITHUB_OUTPUT
+          echo owner=${OWNER} >> $GITHUB_OUTPUT
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+
+      - name: Install Cilium CLI
+        uses: cilium/cilium-cli@e718cf78ef55d95cfa0a5a0a935d6a224d567e1d # v0.15.6
+        with:
+          release-version: ${{ env.cilium_cli_version }}
+          ci-version: ${{ env.cilium_cli_ci_version }}
+
+      - name: Set up gcloud credentials
+        id: 'auth'
+        uses: google-github-actions/auth@35b0e87d162680511bf346c299f71c9c5c379033 # v1.1.1
+        with:
+          credentials_json: '${{ secrets.GCP_PR_SA_KEY }}'
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@e30db14379863a8c79331b04a9969f4c1e225e0b # v1.1.1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          version: "405.0.0"
+
+      - name: Display gcloud CLI info
+        run: |
+          gcloud info
+
+      - name: Install kOps
+        run: |
+          curl -Lo kops https://github.com/kubernetes/kops/releases/download/v1.27.1/kops-linux-amd64
+          chmod +x kops
+          ./kops version
+
+#      - name: Wait for images to be available
+#        timeout-minutes: 10
+#        shell: bash
+#        run: |
+#          for image in cilium-ci operator-generic-ci hubble-relay-ci ; do
+#            until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
+#          done
