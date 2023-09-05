@@ -922,6 +922,8 @@ These values are shared with pkg/monitor/api/datapath_debug.go and bpf/lib/dbg.h
 | DBG_SK_LOOKUP4 | 62 |  |
 | DBG_SK_LOOKUP6 | 63 |  |
 | DBG_SK_ASSIGN | 64 |  |
+| DBG_L7_LB | 65 |  |
+| DBG_SKIP_POLICY | 66 |  |
 
 
 
