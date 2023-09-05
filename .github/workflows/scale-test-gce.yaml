@@ -147,14 +147,14 @@ jobs:
       # TODO: change name of cluster
       # TODO: add gs bucket as secret and create new one
       # TODO: parametrize zone
-      - name: Create cluster
-        run: |
-          ./kops create cluster marseel.k8s.local \
-          --zones europe-west1-c --state gs://kops-marseel-test2/ \
-          --project=${{ secrets.GCP_PROJECT_ID }} \
-          --yes --authorization RBAC \
-          --master-count 1 --control-plane-size n2-standard-4 \
-          --node-count 1
+      #- name: Create cluster
+      #  run: |
+      #    ./kops create cluster marseel.k8s.local \
+      #    --zones europe-west1-c --state gs://kops-marseel-test2/ \
+      #    --project=${{ secrets.GCP_PROJECT_ID }} \
+      #    --yes --authorization RBAC \
+      #    --master-count 1 --control-plane-size n2-standard-4 \
+      #    --node-count 1
 
       - name: Delete cluster
         if: ${{ always() }}
