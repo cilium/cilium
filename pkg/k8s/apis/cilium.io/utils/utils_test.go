@@ -194,6 +194,89 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			),
 		},
 		{
+			// CNP with endpoint selectors should always select the
+			// current namespace
+			name: "parse-init-policy-namespaced",
+			args: args{
+				namespace: slim_metav1.NamespaceDefault,
+				uid:       uuid,
+				rule: &api.Rule{
+					EndpointSelector: api.NewESFromMatchRequirements(
+						nil,
+						[]slim_metav1.LabelSelectorRequirement{
+							{
+								Key:      "reserved.init",
+								Operator: slim_metav1.LabelSelectorOpDoesNotExist,
+							},
+						},
+					),
+					Ingress: []api.IngressRule{
+						{
+							IngressCommonRule: api.IngressCommonRule{
+								FromEndpoints: []api.EndpointSelector{
+									{
+										LabelSelector: &slim_metav1.LabelSelector{},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: api.NewRule().WithEndpointSelector(
+				api.NewESFromMatchRequirements(
+					map[string]string{
+						namespace: "default",
+					},
+					[]slim_metav1.LabelSelectorRequirement{
+						{
+							Key:      "reserved.init",
+							Operator: slim_metav1.LabelSelectorOpDoesNotExist,
+						},
+					},
+				),
+			).WithIngressRules(
+				[]api.IngressRule{
+					{
+						IngressCommonRule: api.IngressCommonRule{
+							FromEndpoints: []api.EndpointSelector{
+								api.NewESFromK8sLabelSelector(
+									labels.LabelSourceK8sKeyPrefix,
+									&slim_metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											k8sConst.PodNamespaceLabel: "default",
+										},
+									}),
+							},
+						},
+					},
+				},
+			).WithLabels(
+				labels.LabelArray{
+					{
+						Key:    "io.cilium.k8s.policy.derived-from",
+						Value:  "CiliumNetworkPolicy",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.name",
+						Value:  "parse-init-policy-namespaced",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.namespace",
+						Value:  "default",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.uid",
+						Value:  string(uuid),
+						Source: labels.LabelSourceK8s,
+					},
+				},
+			),
+		},
+		{
 			name: "set-any-source-for-namespace",
 			args: args{
 				namespace: slim_metav1.NamespaceDefault,

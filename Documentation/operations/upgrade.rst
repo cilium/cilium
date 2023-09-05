@@ -304,6 +304,15 @@ Annotations:
 
 .. _1.14_upgrade_notes:
 
+1.14.2 Upgrade Notes
+--------------------
+
+* ``CiliumNetworkPolicy`` cannot match the ``reserved:init`` labels any more.
+  If you have ``CiliumNetworkPolicy`` resources that have a match for
+  labels ``reserved:init``, these policies must be converted to
+  ``CiliumClusterwideNetworkPolicy`` by changing the resource type for the
+  policy.
+
 1.14 Upgrade Notes
 ------------------
 * The default value of ``--tofqdns-min-ttl`` has changed from 3600 seconds to
