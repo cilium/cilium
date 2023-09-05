@@ -1,6 +1,7 @@
 name: Scale-test GCE 
 
 on:
+  pull_request: {} # for testing, do not merge
   workflow_dispatch:
     inputs:
       PR-number:
