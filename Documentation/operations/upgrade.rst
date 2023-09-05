@@ -315,6 +315,11 @@ Annotations:
   Upgrading from Cilium 1.14.x or earlier to 1.15.y or later does not
   trigger this problem. Downgrading from Cilium 1.15.y or later to Cilium
   1.14.x or earlier may trigger this problem.
+* ``CiliumNetworkPolicy`` cannot match the ``reserved:init`` labels any more.
+  If you have ``CiliumNetworkPolicy`` resources that have a match for
+  labels ``reserved:init``, these policies must be converted to
+  ``CiliumClusterwideNetworkPolicy`` by changing the resource type for the
+  policy.
 
 .. _upgrade_cilium_cli_helm_mode:
 
