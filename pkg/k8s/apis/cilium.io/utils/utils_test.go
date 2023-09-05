@@ -152,8 +152,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			// is for init policies.
 			name: "parse-init-policy",
 			args: args{
-				namespace: slim_metav1.NamespaceDefault,
-				uid:       uuid,
+				uid: uuid,
 				rule: &api.Rule{
 					EndpointSelector: api.NewESFromMatchRequirements(
 						map[string]string{
@@ -178,17 +177,12 @@ func Test_ParseToCiliumRule(t *testing.T) {
 				labels.LabelArray{
 					{
 						Key:    "io.cilium.k8s.policy.derived-from",
-						Value:  "CiliumNetworkPolicy",
+						Value:  "CiliumClusterwideNetworkPolicy",
 						Source: labels.LabelSourceK8s,
 					},
 					{
 						Key:    "io.cilium.k8s.policy.name",
 						Value:  "parse-init-policy",
-						Source: labels.LabelSourceK8s,
-					},
-					{
-						Key:    "io.cilium.k8s.policy.namespace",
-						Value:  "default",
 						Source: labels.LabelSourceK8s,
 					},
 					{
