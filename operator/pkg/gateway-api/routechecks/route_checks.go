@@ -51,7 +51,17 @@ func CheckBackendIsService(input Input) (bool, error) {
 				})
 
 				continueChecks = false
+				continue
+			}
+			if be.BackendObjectReference.Port == nil {
+				input.SetAllParentCondition(metav1.Condition{
+					Type:    string(gatewayv1alpha2.RouteConditionResolvedRefs),
+					Status:  metav1.ConditionFalse,
+					Reason:  string(gatewayv1beta1.RouteReasonInvalidKind),
+					Message: "Must have port for Service reference",
+				})
 
+				continueChecks = false
 				continue
 			}
 		}

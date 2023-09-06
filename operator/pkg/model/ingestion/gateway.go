@@ -73,6 +73,10 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 					if (be.Kind != nil && *be.Kind != "Service") || (be.Group != nil && *be.Group != corev1.GroupName) {
 						continue
 					}
+					if be.BackendRef.Port == nil {
+						// must have port for Service reference
+						continue
+					}
 					if serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), input.Services) {
 						bes = append(bes, backendToModelBackend(be.BackendRef, r.Namespace))
 					}
