@@ -80,7 +80,9 @@ func (n *NodeHandler) upsertLocked(resource *v2.CiliumNode) {
 	if !n.restoreFinished {
 		n.nodesPendingAllocation[resource.Name] = resource
 		_ = n.poolManager.AllocateToNode(resource)
+		return
 	}
+
 	n.createUpsertController(resource)
 }
 
