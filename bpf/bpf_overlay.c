@@ -667,6 +667,23 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 					      CTX_ACT_DROP, METRIC_EGRESS);
 	#endif
 
+	// TODO(brb) WG
+#if defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb
+	/* Redirect the packet to the WireGuard tunnel device for encryption
+	 * if needed.
+	 *
+	 * A packet which previously was a subject to VXLAN/Geneve
+	 * encapsulation (e.g., pod2pod) is going to be encapsulated only once,
+	 * i.e., by the WireGuard tunnel netdev. This is so just to be
+	 * compatible with < the v1.13 behavior in which the pod2pod bypassed
+	 * VXLAN/Geneve encapsulation when the WG feature was on.
+	 */
+	ret = wg_maybe_redirect_to_encrypt(ctx);
+	if (IS_ERR(ret) || ret == CTX_ACT_REDIRECT)
+		return ret;
+#endif /* defined(ENABLE_WIREGUARD) && __ctx_is == __ctx_skb */
+
+
 #ifdef ENABLE_BANDWIDTH_MANAGER
 	/* In tunneling mode, we should do this as close as possible to the
 	 * phys dev where FQ runs, but the issue is that the aggregate state
