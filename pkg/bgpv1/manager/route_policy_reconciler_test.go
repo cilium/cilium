@@ -357,7 +357,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				store.Upsert(obj)
 			}
 
-			policyReconciler := NewRoutePolicyReconciler(store).Reconciler
+			policyReconciler := NewRoutePolicyReconciler(store).Reconciler.(*RoutePolicyReconciler)
 			params := ReconcileParams{
 				CurrentServer: testSC,
 				DesiredConfig: testSC.Config,
@@ -377,7 +377,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 			require.NoError(t, err)
 
 			// validate cached vs. expected policies
-			validatePoliciesMatch(t, testSC.RoutePolicies, tt.initial.expectedPolicies)
+			validatePoliciesMatch(t, policyReconciler.getMetadata(params.CurrentServer.Config.LocalASN), tt.initial.expectedPolicies)
 
 			if tt.updated == nil {
 				return // not testing update / remove
@@ -393,7 +393,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 			require.NoError(t, err)
 
 			// validate cached vs. expected policies
-			validatePoliciesMatch(t, testSC.RoutePolicies, tt.updated.expectedPolicies)
+			validatePoliciesMatch(t, policyReconciler.getMetadata(params.CurrentServer.Config.LocalASN), tt.updated.expectedPolicies)
 		})
 	}
 }

@@ -350,12 +350,16 @@ func (m *BGPRouterManager) reconcileBGPConfig(ctx context.Context,
 	newc *v2alpha1api.CiliumBGPVirtualRouter,
 	node *node.LocalNode,
 	ciliumNode *v2api.CiliumNode) error {
+	l := log.WithFields(logrus.Fields{"component": "manager.reconcileBGPConfig"})
 	if sc.Config != nil {
 		if sc.Config.LocalASN != newc.LocalASN {
 			return fmt.Errorf("cannot reconcile two BgpServers with different local ASNs")
 		}
 	}
+	l.Debugf("Reconciling BGP config using %d reconcilers", len(m.Reconcilers))
+
 	for _, r := range m.Reconcilers {
+		oldServer := sc.Server
 		if err := r.Reconcile(ctx, ReconcileParams{
 			CurrentServer: sc,
 			DesiredConfig: newc,
@@ -364,7 +368,15 @@ func (m *BGPRouterManager) reconcileBGPConfig(ctx context.Context,
 		}); err != nil {
 			return fmt.Errorf("reconciliation of virtual router with local ASN %v failed: %w", newc.LocalASN, err)
 		}
+		if sc.Server != oldServer {
+			// server has changed, reset the reconcilers state
+			l.Infof("Resetting state of reconcilers for virtual router with ASN %d as the BGP server has been recreated", newc.LocalASN)
+			for _, toReset := range m.Reconcilers {
+				toReset.ResetServer(newc.LocalASN)
+			}
+		}
 	}
+
 	// all reconcilers succeeded so update Server's config with new peering config.
 	sc.Config = newc
 	return nil

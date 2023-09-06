@@ -30,14 +30,19 @@ type RoutePolicyReconcilerOut struct {
 	Reconciler ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
+// routePolicyReconcilerMetadata keeps a map of configured polices indexed by policy name
+type routePolicyReconcilerMetadata map[string]*types.RoutePolicy
+
 type RoutePolicyReconciler struct {
-	ipPoolStore BGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool]
+	ipPoolStore    BGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool]
+	serverMetadata map[int64]routePolicyReconcilerMetadata // cache of configured polices indexed by server ASN
 }
 
 func NewRoutePolicyReconciler(ipPoolStore BGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool]) RoutePolicyReconcilerOut {
 	return RoutePolicyReconcilerOut{
 		Reconciler: &RoutePolicyReconciler{
-			ipPoolStore: ipPoolStore,
+			ipPoolStore:    ipPoolStore,
+			serverMetadata: make(map[int64]routePolicyReconcilerMetadata),
 		},
 	}
 }
@@ -64,7 +69,7 @@ func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileP
 	}
 
 	// take currently configured policies from cache
-	currentPolicies := params.CurrentServer.RoutePolicies
+	currentPolicies := r.getMetadata(params.DesiredConfig.LocalASN)
 
 	// compile set of desired policies
 	desiredPolicies := make(map[string]*types.RoutePolicy)
@@ -113,7 +118,7 @@ func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileP
 		// As proper implementation of an update operation for complex policies would be quite involved,
 		// we resort to recreating the policies that need an update here.
 		l.Infof("Updating (re-creating) route policy %s in vrouter %d", p.Name, params.DesiredConfig.LocalASN)
-		existing := params.CurrentServer.RoutePolicies[p.Name]
+		existing := currentPolicies[p.Name]
 		err := params.CurrentServer.Server.RemoveRoutePolicy(ctx, types.RoutePolicyRequest{Policy: existing})
 		if err != nil {
 			return fmt.Errorf("failed removing route policy %v from vrouter %d: %w", existing.Name, params.DesiredConfig.LocalASN, err)
@@ -150,8 +155,23 @@ func (r *RoutePolicyReconciler) Reconcile(ctx context.Context, params ReconcileP
 	}
 
 	// reconciliation successful, update the cache of configured policies
-	params.CurrentServer.RoutePolicies = desiredPolicies
+	r.storeMetadata(params.DesiredConfig.LocalASN, desiredPolicies)
 	return nil
+}
+
+func (r *RoutePolicyReconciler) ResetServer(asn int64) {
+	r.serverMetadata[asn] = nil
+}
+
+func (r *RoutePolicyReconciler) getMetadata(asn int64) routePolicyReconcilerMetadata {
+	if _, found := r.serverMetadata[asn]; !found {
+		r.serverMetadata[asn] = make(routePolicyReconcilerMetadata)
+	}
+	return r.serverMetadata[asn]
+}
+
+func (r *RoutePolicyReconciler) storeMetadata(asn int64, meta routePolicyReconcilerMetadata) {
+	r.serverMetadata[asn] = meta
 }
 
 func (r *RoutePolicyReconciler) pathAttributesToPolicy(attrs v2alpha1api.CiliumBGPPathAttributes, neighborAddress string, params ReconcileParams) (*types.RoutePolicy, error) {

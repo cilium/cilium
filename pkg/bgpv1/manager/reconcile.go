@@ -42,6 +42,8 @@ type ConfigReconciler interface {
 	// Reconcile If the `Config` field in `params.sc` is nil the reconciler should unconditionally
 	// perform the reconciliation actions, as no previous configuration is present.
 	Reconcile(ctx context.Context, params ReconcileParams) error
+	// ResetServer is called whenever the reconcilers should reset their cached state of a BGP server.
+	ResetServer(asn int64)
 }
 
 var ConfigReconcilers = cell.ProvidePrivate(
@@ -174,13 +176,11 @@ func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 	// actions as if this is a new BgpServer.
 	p.CurrentServer.Config = nil
 
-	// Clear the shadow state since any advertisements will be gone now that the server has been recreated.
-	p.CurrentServer.PodCIDRAnnouncements = nil
-	p.CurrentServer.PodIPPoolAnnouncements = make(map[resource.Key][]*types.Path)
-	p.CurrentServer.ServiceAnnouncements = make(map[resource.Key][]*types.Path)
-	p.CurrentServer.RoutePolicies = make(map[string]*types.RoutePolicy)
-
 	return nil
+}
+
+func (r *PreflightReconciler) ResetServer(asn int64) {
+	// no state reset needed
 }
 
 type NeighborReconcilerOut struct {
@@ -324,19 +324,30 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	return nil
 }
 
+func (r *NeighborReconciler) ResetServer(asn int64) {
+	// no state reset needed
+}
+
 type ExportPodCIDRReconcilerOut struct {
 	cell.Out
 
 	Reconciler ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
-// exportPodCIDRReconciler is a ConfigReconcilerFunc which reconciles the
+// exportPodCIDRReconcilerMetadata keeps a list of all advertised Paths
+type exportPodCIDRReconcilerMetadata []*types.Path
+
+// ExportPodCIDRReconciler is a ConfigReconcilerFunc which reconciles the
 // advertisement of the private Kubernetes PodCIDR block.
-type ExportPodCIDRReconciler struct{}
+type ExportPodCIDRReconciler struct {
+	serverMetadata map[int64]exportPodCIDRReconcilerMetadata // cache of advertised Paths indexed by server ASN
+}
 
 func NewExportPodCIDRReconciler() ExportPodCIDRReconcilerOut {
 	return ExportPodCIDRReconcilerOut{
-		Reconciler: &ExportPodCIDRReconciler{},
+		Reconciler: &ExportPodCIDRReconciler{
+			serverMetadata: make(map[int64]exportPodCIDRReconcilerMetadata),
+		},
 	}
 }
 
@@ -373,7 +384,7 @@ func (r *ExportPodCIDRReconciler) Reconcile(ctx context.Context, p ReconcilePara
 		sc:   p.CurrentServer,
 		newc: p.DesiredConfig,
 
-		currentAdvertisements: p.CurrentServer.PodCIDRAnnouncements,
+		currentAdvertisements: r.getMetadata(p.DesiredConfig.LocalASN),
 		toAdvertise:           toAdvertise,
 	})
 
@@ -383,8 +394,20 @@ func (r *ExportPodCIDRReconciler) Reconcile(ctx context.Context, p ReconcilePara
 
 	// Update the server config's list of current advertisements only if the
 	// reconciliation logic didn't return any error
-	p.CurrentServer.PodCIDRAnnouncements = advertisements
+	r.storeMetadata(p.DesiredConfig.LocalASN, advertisements)
 	return nil
+}
+
+func (r *ExportPodCIDRReconciler) ResetServer(asn int64) {
+	r.serverMetadata[asn] = nil
+}
+
+func (r *ExportPodCIDRReconciler) getMetadata(asn int64) exportPodCIDRReconcilerMetadata {
+	return r.serverMetadata[asn]
+}
+
+func (r *ExportPodCIDRReconciler) storeMetadata(asn int64, meta exportPodCIDRReconcilerMetadata) {
+	r.serverMetadata[asn] = meta
 }
 
 type LBServiceReconcilerOut struct {
@@ -393,9 +416,13 @@ type LBServiceReconcilerOut struct {
 	Reconciler ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
+// lbServiceReconcilerMetadata keeps a map of services to the respective advertised Paths
+type lbServiceReconcilerMetadata map[resource.Key][]*types.Path
+
 type LBServiceReconciler struct {
-	diffStore   DiffStore[*slim_corev1.Service]
-	epDiffStore DiffStore[*k8s.Endpoints]
+	diffStore      DiffStore[*slim_corev1.Service]
+	epDiffStore    DiffStore[*k8s.Endpoints]
+	serverMetadata map[int64]lbServiceReconcilerMetadata // cache of announced Service routes indexed by server ASN
 }
 
 type localServices map[k8s.ServiceID]struct{}
@@ -407,8 +434,9 @@ func NewLBServiceReconciler(diffStore DiffStore[*slim_corev1.Service], epDiffSto
 
 	return LBServiceReconcilerOut{
 		Reconciler: &LBServiceReconciler{
-			diffStore:   diffStore,
-			epDiffStore: epDiffStore,
+			diffStore:      diffStore,
+			epDiffStore:    epDiffStore,
+			serverMetadata: make(map[int64]lbServiceReconcilerMetadata),
 		},
 	}
 }
@@ -447,6 +475,17 @@ func (r *LBServiceReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 	}
 
 	return nil
+}
+
+func (r *LBServiceReconciler) ResetServer(asn int64) {
+	r.serverMetadata[asn] = nil
+}
+
+func (r *LBServiceReconciler) getMetadata(asn int64) lbServiceReconcilerMetadata {
+	if _, found := r.serverMetadata[asn]; !found {
+		r.serverMetadata[asn] = make(lbServiceReconcilerMetadata)
+	}
+	return r.serverMetadata[asn]
 }
 
 func (r *LBServiceReconciler) resolveSvcFromEndpoints(eps *k8s.Endpoints) (*slim_corev1.Service, bool, error) {
@@ -504,15 +543,17 @@ func hasLocalEndpoints(svc *slim_corev1.Service, ls localServices) bool {
 // fullReconciliation reconciles all services, this is a heavy operation due to the potential amount of services and
 // thus should be avoided if partial reconciliation is an option.
 func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, ls localServices) error {
+	announcements := r.getMetadata(newc.LocalASN)
+
 	// Loop over all existing announcements, delete announcements for services which no longer exist
-	for svcKey := range sc.ServiceAnnouncements {
+	for svcKey := range announcements {
 		_, found, err := r.diffStore.GetByKey(svcKey)
 		if err != nil {
 			return fmt.Errorf("diffStore.GetByKey(); %w", err)
 		}
 		// if the service no longer exists, withdraw all associated routes
 		if !found {
-			if err := r.withdrawService(ctx, sc, svcKey); err != nil {
+			if err := r.withdrawService(ctx, sc, newc, svcKey); err != nil {
 				return fmt.Errorf("withdrawService(): %w", err)
 			}
 			continue
@@ -529,7 +570,7 @@ func (r *LBServiceReconciler) fullReconciliation(ctx context.Context, sc *Server
 		}
 		if !found {
 			// edgecase: If the service was removed between the call to IterKeys() and GetByKey()
-			if err := r.withdrawService(ctx, sc, svcKey); err != nil {
+			if err := r.withdrawService(ctx, sc, newc, svcKey); err != nil {
 				return fmt.Errorf("withdrawService(): %w", err)
 			}
 			continue
@@ -599,7 +640,7 @@ func (r *LBServiceReconciler) svcDiffReconciliation(ctx context.Context, sc *Ser
 
 	// Loop over the deleted services
 	for _, svcKey := range deleted {
-		if err := r.withdrawService(ctx, sc, svcKey); err != nil {
+		if err := r.withdrawService(ctx, sc, newc, svcKey); err != nil {
 			return fmt.Errorf("withdrawService(): %w", err)
 		}
 	}
@@ -664,6 +705,7 @@ func (r *LBServiceReconciler) svcDesiredRoutes(newc *v2alpha1api.CiliumBGPVirtua
 // Adding missing announcements or withdrawing unwanted ones.
 func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, svc *slim_corev1.Service, ls localServices) error {
 	svcKey := resource.NewKey(svc)
+	announcements := r.getMetadata(newc.LocalASN)
 
 	desiredCidrs, err := r.svcDesiredRoutes(newc, svc, ls)
 	if err != nil {
@@ -672,7 +714,7 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 
 	for _, desiredCidr := range desiredCidrs {
 		// If this route has already been announced, don't add it again
-		if slices.IndexFunc(sc.ServiceAnnouncements[svcKey], func(existing *types.Path) bool {
+		if slices.IndexFunc(announcements[svcKey], func(existing *types.Path) bool {
 			return desiredCidr.String() == existing.NLRI.String()
 		}) != -1 {
 			continue
@@ -685,12 +727,12 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 		if err != nil {
 			return fmt.Errorf("failed to advertise service route %v: %w", desiredCidr, err)
 		}
-		sc.ServiceAnnouncements[svcKey] = append(sc.ServiceAnnouncements[svcKey], advertPathResp.Path)
+		announcements[svcKey] = append(announcements[svcKey], advertPathResp.Path)
 	}
 
 	// Loop over announcements in reverse order so we can delete entries without effecting iteration.
-	for i := len(sc.ServiceAnnouncements[svcKey]) - 1; i >= 0; i-- {
-		announcement := sc.ServiceAnnouncements[svcKey][i]
+	for i := len(announcements[svcKey]) - 1; i >= 0; i-- {
+		announcement := announcements[svcKey][i]
 		// If the announcement is within the list of desired routes, don't remove it
 		if slices.IndexFunc(desiredCidrs, func(existing netip.Prefix) bool {
 			return existing.String() == announcement.NLRI.String()
@@ -703,21 +745,23 @@ func (r *LBServiceReconciler) reconcileService(ctx context.Context, sc *ServerWi
 		}
 
 		// Delete announcement from slice
-		sc.ServiceAnnouncements[svcKey] = slices.Delete(sc.ServiceAnnouncements[svcKey], i, i+1)
+		announcements[svcKey] = slices.Delete(announcements[svcKey], i, i+1)
 	}
 
 	return nil
 }
 
 // withdrawService removes all announcements for the given service
-func (r *LBServiceReconciler) withdrawService(ctx context.Context, sc *ServerWithConfig, key resource.Key) error {
-	advertisements := sc.ServiceAnnouncements[key]
+func (r *LBServiceReconciler) withdrawService(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, key resource.Key) error {
+	announcements := r.getMetadata(newc.LocalASN)
+
+	advertisements := announcements[key]
 	// Loop in reverse order so we can delete without effect to the iteration.
 	for i := len(advertisements) - 1; i >= 0; i-- {
 		advertisement := advertisements[i]
 		if err := sc.Server.WithdrawPath(ctx, types.PathRequest{Path: advertisement}); err != nil {
 			// Persist remaining advertisements
-			sc.ServiceAnnouncements[key] = advertisements
+			announcements[key] = advertisements
 			return fmt.Errorf("failed to withdraw deleted service route: %v: %w", advertisement.NLRI, err)
 		}
 
@@ -726,7 +770,7 @@ func (r *LBServiceReconciler) withdrawService(ctx context.Context, sc *ServerWit
 	}
 
 	// If all were withdrawn without error, we can delete the whole svc from the map
-	delete(sc.ServiceAnnouncements, key)
+	delete(announcements, key)
 
 	return nil
 }

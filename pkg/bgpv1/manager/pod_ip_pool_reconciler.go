@@ -25,8 +25,12 @@ type PodIPPoolReconcilerOut struct {
 	Reconciler ConfigReconciler `group:"bgp-config-reconciler"`
 }
 
+// podIPPoolReconcilerMetadata keeps a map of announced pod ip pool CIDRs keyed by pool name of the backing CiliumPodIPPool.
+type podIPPoolReconcilerMetadata map[resource.Key][]*types.Path
+
 type PodIPPoolReconciler struct {
-	poolStore BGPCPResourceStore[*v2alpha1api.CiliumPodIPPool]
+	poolStore      BGPCPResourceStore[*v2alpha1api.CiliumPodIPPool]
+	serverMetadata map[int64]podIPPoolReconcilerMetadata // cache of announced pod ip pool CIDRs indexed by server ASN
 }
 
 func NewPodIPPoolReconciler(poolStore BGPCPResourceStore[*v2alpha1api.CiliumPodIPPool]) PodIPPoolReconcilerOut {
@@ -36,7 +40,8 @@ func NewPodIPPoolReconciler(poolStore BGPCPResourceStore[*v2alpha1api.CiliumPodI
 
 	return PodIPPoolReconcilerOut{
 		Reconciler: &PodIPPoolReconciler{
-			poolStore: poolStore,
+			poolStore:      poolStore,
+			serverMetadata: make(map[int64]podIPPoolReconcilerMetadata),
 		},
 	}
 }
@@ -53,6 +58,17 @@ func (r *PodIPPoolReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 	}
 
 	return nil
+}
+
+func (r *PodIPPoolReconciler) ResetServer(asn int64) {
+	r.serverMetadata[asn] = nil
+}
+
+func (r *PodIPPoolReconciler) getMetadata(asn int64) podIPPoolReconcilerMetadata {
+	if _, found := r.serverMetadata[asn]; !found {
+		r.serverMetadata[asn] = make(podIPPoolReconcilerMetadata)
+	}
+	return r.serverMetadata[asn]
 }
 
 // populateLocalPools returns a map of allocated multi-pool IPAM CIDRs of the local CiliumNode,
@@ -91,15 +107,17 @@ func (r *PodIPPoolReconciler) fullReconciliation(ctx context.Context,
 	sc *ServerWithConfig,
 	newc *v2alpha1api.CiliumBGPVirtualRouter,
 	localPools map[string][]netip.Prefix) error {
+	podIPPoolAnnouncements := r.getMetadata(newc.LocalASN)
+
 	// Loop over all existing announcements, delete announcements for pod ip pools that no longer exist.
-	for poolKey := range sc.PodIPPoolAnnouncements {
+	for poolKey := range podIPPoolAnnouncements {
 		_, found, err := r.poolStore.GetByKey(poolKey)
 		if err != nil {
 			return fmt.Errorf("failed to get pod ip pool from resource store: %w", err)
 		}
 		// If the pod ip pool no longer exists, withdraw all associated routes.
 		if !found {
-			if err := r.withdrawPool(ctx, sc, poolKey); err != nil {
+			if err := r.withdrawPool(ctx, sc, newc, poolKey); err != nil {
 				return fmt.Errorf("failed to withdraw pod ip pool: %w", err)
 			}
 			continue
@@ -118,14 +136,15 @@ func (r *PodIPPoolReconciler) fullReconciliation(ctx context.Context,
 }
 
 // withdrawPool removes all announcements for the given pod ip pool.
-func (r *PodIPPoolReconciler) withdrawPool(ctx context.Context, sc *ServerWithConfig, key resource.Key) error {
-	advertisements := sc.PodIPPoolAnnouncements[key]
+func (r *PodIPPoolReconciler) withdrawPool(ctx context.Context, sc *ServerWithConfig, newc *v2alpha1api.CiliumBGPVirtualRouter, key resource.Key) error {
+	podIPPoolAnnouncements := r.getMetadata(newc.LocalASN)
+	advertisements := podIPPoolAnnouncements[key]
 	// Loop in reverse order so we can delete without effect to the iteration.
 	for i := len(advertisements) - 1; i >= 0; i-- {
 		advertisement := advertisements[i]
 		if err := sc.Server.WithdrawPath(ctx, types.PathRequest{Path: advertisement}); err != nil {
 			// Persist remaining advertisements
-			sc.PodIPPoolAnnouncements[key] = advertisements
+			podIPPoolAnnouncements[key] = advertisements
 			return fmt.Errorf("failed to withdraw deleted pod ip pool route: %v: %w", advertisement.NLRI, err)
 		}
 
@@ -134,7 +153,7 @@ func (r *PodIPPoolReconciler) withdrawPool(ctx context.Context, sc *ServerWithCo
 	}
 
 	// If all were withdrawn without error, we can delete the whole pod ip pool from the map
-	delete(sc.PodIPPoolAnnouncements, key)
+	delete(podIPPoolAnnouncements, key)
 
 	return nil
 }
@@ -147,6 +166,7 @@ func (r *PodIPPoolReconciler) reconcilePodIPPool(ctx context.Context,
 	pool *v2alpha1api.CiliumPodIPPool,
 	localPools map[string][]netip.Prefix) error {
 	poolKey := resource.NewKey(pool)
+	podIPPoolAnnouncements := r.getMetadata(newc.LocalASN)
 
 	desiredRoutes, err := r.poolDesiredRoutes(newc, pool, localPools)
 	if err != nil {
@@ -155,7 +175,7 @@ func (r *PodIPPoolReconciler) reconcilePodIPPool(ctx context.Context,
 
 	for _, desiredRoute := range desiredRoutes {
 		// If this route has already been announced, don't add it again
-		if slices.ContainsFunc(sc.PodIPPoolAnnouncements[poolKey], func(existing *types.Path) bool {
+		if slices.ContainsFunc(podIPPoolAnnouncements[poolKey], func(existing *types.Path) bool {
 			return desiredRoute.String() == existing.NLRI.String()
 		}) {
 			continue
@@ -168,12 +188,12 @@ func (r *PodIPPoolReconciler) reconcilePodIPPool(ctx context.Context,
 		if err != nil {
 			return fmt.Errorf("failed to advertise service route %v: %w", desiredRoute, err)
 		}
-		sc.PodIPPoolAnnouncements[poolKey] = append(sc.PodIPPoolAnnouncements[poolKey], advertPathResp.Path)
+		podIPPoolAnnouncements[poolKey] = append(podIPPoolAnnouncements[poolKey], advertPathResp.Path)
 	}
 
 	// Loop over announcements in reverse order so we can delete entries without effecting iteration.
-	for i := len(sc.PodIPPoolAnnouncements[poolKey]) - 1; i >= 0; i-- {
-		announcement := sc.PodIPPoolAnnouncements[poolKey][i]
+	for i := len(podIPPoolAnnouncements[poolKey]) - 1; i >= 0; i-- {
+		announcement := podIPPoolAnnouncements[poolKey][i]
 		// If the announcement is within the list of desired routes, don't remove it
 		if slices.ContainsFunc(desiredRoutes, func(existing netip.Prefix) bool {
 			return existing.String() == announcement.NLRI.String()
@@ -186,7 +206,7 @@ func (r *PodIPPoolReconciler) reconcilePodIPPool(ctx context.Context,
 		}
 
 		// Delete announcement from slice
-		sc.PodIPPoolAnnouncements[poolKey] = slices.Delete(sc.PodIPPoolAnnouncements[poolKey], i, i+1)
+		podIPPoolAnnouncements[poolKey] = slices.Delete(podIPPoolAnnouncements[poolKey], i, i+1)
 	}
 
 	return nil
