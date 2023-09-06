@@ -6,6 +6,7 @@ package gateway_api
 import (
 	"context"
 
+	"github.com/bombsimon/logrusr/v4"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sirupsen/logrus"
@@ -61,6 +62,7 @@ func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSe
 		Scheme: scheme,
 		// Disable controller metrics server in favour of cilium's metrics server.
 		MetricsBindAddress: "0",
+		Logger:             logrusr.New(log, logrusr.WithName("controller-runtime")),
 	})
 	if err != nil {
 		return nil, err
