@@ -265,6 +265,11 @@ func (in *CiliumBGPVirtualRouter) DeepCopyInto(out *CiliumBGPVirtualRouter) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.PodIPPoolSelector != nil {
+		in, out := &in.PodIPPoolSelector, &out.PodIPPoolSelector
+		*out = new(v1.LabelSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.ServiceSelector != nil {
 		in, out := &in.ServiceSelector, &out.ServiceSelector
 		*out = new(v1.LabelSelector)

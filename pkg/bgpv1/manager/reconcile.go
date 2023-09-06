@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/k8s"
+	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -29,6 +30,7 @@ type ReconcileParams struct {
 	CurrentServer *ServerWithConfig
 	DesiredConfig *v2alpha1api.CiliumBGPVirtualRouter
 	Node          *node.LocalNode
+	CiliumNode    *v2api.CiliumNode
 }
 
 // ConfigReconciler is a interface for reconciling a particular aspect
@@ -46,6 +48,7 @@ var ConfigReconcilers = cell.ProvidePrivate(
 	NewPreflightReconciler,
 	NewNeighborReconciler,
 	NewExportPodCIDRReconciler,
+	NewPodIPPoolReconciler,
 	NewLBServiceReconciler,
 	NewRoutePolicyReconciler,
 )
@@ -173,6 +176,7 @@ func (r *PreflightReconciler) Reconcile(ctx context.Context, p ReconcileParams) 
 
 	// Clear the shadow state since any advertisements will be gone now that the server has been recreated.
 	p.CurrentServer.PodCIDRAnnouncements = nil
+	p.CurrentServer.PodIPPoolAnnouncements = make(map[resource.Key][]*types.Path)
 	p.CurrentServer.ServiceAnnouncements = make(map[resource.Key][]*types.Path)
 	p.CurrentServer.RoutePolicies = make(map[string]*types.RoutePolicy)
 
@@ -735,4 +739,12 @@ func serviceLabelSet(svc *slim_corev1.Service) labels.Labels {
 	svcLabels["io.kubernetes.service.name"] = svc.Name
 	svcLabels["io.kubernetes.service.namespace"] = svc.Namespace
 	return labels.Set(svcLabels)
+}
+
+func podIPPoolLabelSet(pool *v2alpha1api.CiliumPodIPPool) labels.Labels {
+	poolLabels := maps.Clone(pool.Labels)
+	if poolLabels == nil {
+		poolLabels = make(map[string]string)
+	}
+	return labels.Set(poolLabels)
 }

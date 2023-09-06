@@ -292,6 +292,14 @@ func (in *CiliumBGPVirtualRouter) DeepEqual(other *CiliumBGPVirtualRouter) bool 
 		}
 	}
 
+	if (in.PodIPPoolSelector == nil) != (other.PodIPPoolSelector == nil) {
+		return false
+	} else if in.PodIPPoolSelector != nil {
+		if !in.PodIPPoolSelector.DeepEqual(other.PodIPPoolSelector) {
+			return false
+		}
+	}
+
 	if (in.ServiceSelector == nil) != (other.ServiceSelector == nil) {
 		return false
 	} else if in.ServiceSelector != nil {

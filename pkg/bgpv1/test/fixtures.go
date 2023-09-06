@@ -12,6 +12,7 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
+	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bgpv1"
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
@@ -20,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sPkg "github.com/cilium/cilium/pkg/k8s"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
@@ -86,6 +88,7 @@ type fixture struct {
 	hive          *hive.Hive
 	bgp           *agent.Controller
 	nodeStore     *node.LocalNodeStore
+	ciliumNode    daemon_k8s.LocalCiliumNodeResource
 }
 
 type fixtureConfig struct {
@@ -118,6 +121,17 @@ func newFixture(conf fixtureConfig) *fixture {
 
 		// endpoints
 		cell.Provide(k8sPkg.EndpointsResource),
+
+		// cilium node
+		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) daemon_k8s.LocalCiliumNodeResource {
+			store := resource.New[*cilium_api_v2.CiliumNode](
+				lc, utils.ListerWatcherFromTyped[*cilium_api_v2.CiliumNodeList](
+					c.CiliumV2().CiliumNodes(),
+				),
+			)
+			f.ciliumNode = store
+			return store
+		}),
 
 		// Provide the mocked client cells directly
 		cell.Provide(func() k8sClient.Clientset {

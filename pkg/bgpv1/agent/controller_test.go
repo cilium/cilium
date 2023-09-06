@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/agent"
 	"github.com/cilium/cilium/pkg/bgpv1/mock"
+	v2api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/node"
@@ -39,7 +40,7 @@ func TestControllerSanity(t *testing.T) {
 		// a mock List method for the controller's PolicyLister
 		plist func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error)
 		// a mock ConfigurePeers method for the controller's BGPRouterManager
-		configurePeers func(context.Context, *v2alpha1api.CiliumBGPPeeringPolicy, *node.LocalNode) error
+		configurePeers func(context.Context, *v2alpha1api.CiliumBGPPeeringPolicy, *node.LocalNode, *v2api.CiliumNode) error
 		// error nil or not
 		err error
 	}{
@@ -53,7 +54,7 @@ func TestControllerSanity(t *testing.T) {
 			plist: func() ([]*v2alpha1api.CiliumBGPPeeringPolicy, error) {
 				return []*v2alpha1api.CiliumBGPPeeringPolicy{wantPolicy}, nil
 			},
-			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, node *node.LocalNode) error {
+			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, node *node.LocalNode, ciliumNode *v2api.CiliumNode) error {
 				if !p.DeepEqual(wantPolicy) {
 					t.Fatalf("got: %+v, want: %+v", p, wantPolicy)
 				}
@@ -86,7 +87,7 @@ func TestControllerSanity(t *testing.T) {
 				}
 				return []*v2alpha1api.CiliumBGPPeeringPolicy{p}, nil
 			},
-			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, _ *node.LocalNode) error {
+			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, _ *node.LocalNode, _ *v2api.CiliumNode) error {
 				for _, r := range p.Spec.VirtualRouters {
 					for _, n := range r.Neighbors {
 						if n.PeerPort == nil ||
@@ -112,7 +113,7 @@ func TestControllerSanity(t *testing.T) {
 				"bgp-policy": "a",
 			},
 			annotations: map[string]string{},
-			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, _ *node.LocalNode) error {
+			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, _ *node.LocalNode, _ *v2api.CiliumNode) error {
 				return errors.New("")
 			},
 			err: errors.New(""),
@@ -141,7 +142,7 @@ func TestControllerSanity(t *testing.T) {
 				"bgp-policy": "a",
 			},
 			annotations: map[string]string{},
-			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, _ *node.LocalNode) error {
+			configurePeers: func(_ context.Context, p *v2alpha1api.CiliumBGPPeeringPolicy, _ *node.LocalNode, _ *v2api.CiliumNode) error {
 				return nil
 			},
 			err: errors.New(""),

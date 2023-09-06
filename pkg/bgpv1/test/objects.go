@@ -4,6 +4,10 @@
 package test
 
 import (
+	"net/netip"
+
+	ipam_types "github.com/cilium/cilium/pkg/ipam/types"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -70,4 +74,83 @@ func newLBServiceObj(conf lbSrvConfig) slim_core_v1.Service {
 	}
 
 	return srvObj
+}
+
+// ipPoolConfig data used to create a CiliumPodIPPool resource.
+type ipPoolConfig struct {
+	name   string
+	cidrs  []ipam_types.IPAMPodCIDR
+	labels map[string]string
+}
+
+// newIPPoolObj creates a CiliumPodIPPool resource based on the provided conf.
+func newIPPoolObj(conf ipPoolConfig) *v2alpha1.CiliumPodIPPool {
+	obj := &v2alpha1.CiliumPodIPPool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              conf.name,
+			UID:               uid,
+			CreationTimestamp: metav1.Now(),
+			Labels:            make(map[string]string),
+		},
+		Spec: v2alpha1.IPPoolSpec{
+			IPv4: &v2alpha1.IPv4PoolSpec{
+				CIDRs:    []v2alpha1.PoolCIDR{},
+				MaskSize: 24,
+			},
+			IPv6: &v2alpha1.IPv6PoolSpec{
+				CIDRs:    []v2alpha1.PoolCIDR{},
+				MaskSize: 64,
+			},
+		},
+	}
+
+	if conf.labels != nil {
+		obj.Labels = conf.labels
+	}
+
+	for _, cidr := range conf.cidrs {
+		if p := netip.MustParsePrefix(string(cidr)); p.Addr().Is4() {
+			obj.Spec.IPv4.CIDRs = append(obj.Spec.IPv4.CIDRs, v2alpha1.PoolCIDR(cidr))
+		}
+		if p := netip.MustParsePrefix(string(cidr)); p.Addr().Is6() {
+			obj.Spec.IPv6.CIDRs = append(obj.Spec.IPv6.CIDRs, v2alpha1.PoolCIDR(cidr))
+		}
+	}
+
+	return obj
+}
+
+// ciliumNodeConfig data used to create a CiliumNode resource.
+type ciliumNodeConfig struct {
+	name   string
+	allocs map[string][]string
+}
+
+// newCiliumNode creates a CiliumNode resource based on the provided conf.
+func newCiliumNode(conf *ciliumNodeConfig) *v2.CiliumNode {
+	obj := &v2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              conf.name,
+			UID:               uid,
+			CreationTimestamp: metav1.Now(),
+		},
+	}
+
+	if conf.allocs != nil {
+		var allocs []ipam_types.IPAMPoolAllocation
+		for pool, cidrs := range conf.allocs {
+			poolCIDRs := []ipam_types.IPAMPodCIDR{}
+			for _, c := range cidrs {
+				poolCIDRs = append(poolCIDRs, ipam_types.IPAMPodCIDR(c))
+			}
+			alloc := ipam_types.IPAMPoolAllocation{
+				Pool:  pool,
+				CIDRs: poolCIDRs,
+			}
+			allocs = append(allocs, alloc)
+		}
+		obj.Spec.IPAM.Pools.Allocated = allocs
+	}
+
+	return obj
 }
