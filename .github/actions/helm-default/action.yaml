@@ -31,22 +31,26 @@ runs:
       shell: bash
       run: |
         echo sha=${{ inputs.image-tag }} >> $GITHUB_OUTPUT
+        image_tag="${{ inputs.image-tag }}"
+        if [[ "${{ inputs.chart-dir }}" =~ *"downgrade"* ]]; then
+          image_tag="${{ inputs.image-tag }}-race"
+        fi
 
         CILIUM_INSTALL_DEFAULTS="--chart-directory=${{ inputs.chart-dir }} \
           --helm-set=hubble.relay.retryTimeout=5s \
           --helm-set=debug.metricsSamplingInterval=30s \
           --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
           --helm-set=image.useDigest=false \
-          --helm-set=image.tag=${{ inputs.image-tag }} \
+          --helm-set=image.tag=${image_tag} \
           --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
           --helm-set=operator.image.suffix=-ci \
-          --helm-set=operator.image.tag=${{ inputs.image-tag }} \
+          --helm-set=operator.image.tag=${image_tag} \
           --helm-set=operator.image.useDigest=false \
           --helm-set=clustermesh.apiserver.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/clustermesh-apiserver-ci \
-          --helm-set=clustermesh.apiserver.image.tag=${{ inputs.image-tag }} \
+          --helm-set=clustermesh.apiserver.image.tag=${image_tag} \
           --helm-set=clustermesh.apiserver.image.useDigest=false \
           --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-          --helm-set=hubble.relay.image.tag=${{ inputs.image-tag }} \
+          --helm-set=hubble.relay.image.tag=${image_tag} \
           --helm-set=hubble.relay.image.useDigest=false \
           --set-string=extraEnv[0].name=CILIUM_FEATURE_METRICS_WITH_DEFAULTS \
           --set-string=extraEnv[0].value=true \
