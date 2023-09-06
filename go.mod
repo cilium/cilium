@@ -17,6 +17,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.117.0
 	github.com/aws/smithy-go v1.14.2
 	github.com/blang/semver/v4 v4.0.0
+	github.com/bombsimon/logrusr/v4 v4.0.0
 	github.com/cilium/checkmate v1.0.3
 	github.com/cilium/coverbee v0.3.2
 	github.com/cilium/deepequal-gen v0.0.0-20230330134849-754271daeec2
