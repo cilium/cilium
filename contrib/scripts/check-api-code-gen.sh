@@ -39,10 +39,12 @@ git add --intent-to-add .
 
 # Check for diff
 diff="$(git diff)"
+diff_staged="$(git diff --staged)"
 
-if [ -n "$diff" ]; then
+if [ -n "$diff" ] || [ -n "$diff_staged" ]; then
 	echo "Ungenerated api source code:"
 	echo "$diff"
+	echo "$diff_staged"
 	echo "Please run 'make generate-api generate-health-api generate-hubble-api generate-operator-api' and submit your changes"
 	exit 1
 fi
