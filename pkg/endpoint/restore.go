@@ -507,7 +507,7 @@ type serializableEndpoint struct {
 
 // UnmarshalJSON expects that the contents of `raw` are a serializableEndpoint,
 // which is then converted into an Endpoint.
-func (ep *Endpoint) UnmarshalJSON(raw []byte) error {
+func (e *Endpoint) UnmarshalJSON(raw []byte) error {
 	// We may have to populate structures in the Endpoint manually to do the
 	// translation from serializableEndpoint --> Endpoint.
 	restoredEp := &serializableEndpoint{
@@ -519,40 +519,40 @@ func (ep *Endpoint) UnmarshalJSON(raw []byte) error {
 		return fmt.Errorf("error unmarshaling serializableEndpoint from base64 representation: %s", err)
 	}
 
-	ep.fromSerializedEndpoint(restoredEp)
+	e.fromSerializedEndpoint(restoredEp)
 	return nil
 }
 
 // MarshalJSON marshals the Endpoint as its serializableEndpoint representation.
-func (ep *Endpoint) MarshalJSON() ([]byte, error) {
-	return json.Marshal(ep.toSerializedEndpoint())
+func (e *Endpoint) MarshalJSON() ([]byte, error) {
+	return json.Marshal(e.toSerializedEndpoint())
 }
 
-func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
-	ep.ID = r.ID
-	ep.createdAt = time.Now()
-	ep.containerName.Store(&r.ContainerName)
-	ep.containerID.Store(&r.ContainerID)
-	ep.dockerNetworkID = r.DockerNetworkID
-	ep.dockerEndpointID = r.DockerEndpointID
-	ep.ifName = r.IfName
-	ep.ifIndex = r.IfIndex
-	ep.containerIfName = r.ContainerIfName
-	ep.disableLegacyIdentifiers = r.DisableLegacyIdentifiers
-	ep.OpLabels = r.OpLabels
-	ep.mac = r.LXCMAC
-	ep.IPv6 = r.IPv6
-	ep.IPv6IPAMPool = r.IPv6IPAMPool
-	ep.IPv4 = r.IPv4
-	ep.IPv4IPAMPool = r.IPv4IPAMPool
-	ep.nodeMAC = r.NodeMAC
-	ep.SecurityIdentity = r.SecurityIdentity
-	ep.DNSRules = r.DNSRules
-	ep.DNSHistory = r.DNSHistory
-	ep.DNSZombies = r.DNSZombies
-	ep.K8sPodName = r.K8sPodName
-	ep.K8sNamespace = r.K8sNamespace
-	ep.DatapathConfiguration = r.DatapathConfiguration
-	ep.Options = r.Options
-	ep.ciliumEndpointUID = r.CiliumEndpointUID
+func (e *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
+	e.ID = r.ID
+	e.createdAt = time.Now()
+	e.containerName.Store(&r.ContainerName)
+	e.containerID.Store(&r.ContainerID)
+	e.dockerNetworkID = r.DockerNetworkID
+	e.dockerEndpointID = r.DockerEndpointID
+	e.ifName = r.IfName
+	e.ifIndex = r.IfIndex
+	e.containerIfName = r.ContainerIfName
+	e.disableLegacyIdentifiers = r.DisableLegacyIdentifiers
+	e.OpLabels = r.OpLabels
+	e.mac = r.LXCMAC
+	e.IPv6 = r.IPv6
+	e.IPv6IPAMPool = r.IPv6IPAMPool
+	e.IPv4 = r.IPv4
+	e.IPv4IPAMPool = r.IPv4IPAMPool
+	e.nodeMAC = r.NodeMAC
+	e.SecurityIdentity = r.SecurityIdentity
+	e.DNSRules = r.DNSRules
+	e.DNSHistory = r.DNSHistory
+	e.DNSZombies = r.DNSZombies
+	e.K8sPodName = r.K8sPodName
+	e.K8sNamespace = r.K8sNamespace
+	e.DatapathConfiguration = r.DatapathConfiguration
+	e.Options = r.Options
+	e.ciliumEndpointUID = r.CiliumEndpointUID
 }

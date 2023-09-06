@@ -3147,6 +3147,10 @@ func init() {
         "state": {
           "description": "Current state of endpoint",
           "$ref": "#/definitions/EndpointState"
+        },
+        "workload": {
+          "description": "The workload information of the pod associated with this endpoint.",
+          "$ref": "#/definitions/Workload"
         }
       }
     },
@@ -5101,6 +5105,23 @@ func init() {
         },
         "node-encryption": {
           "description": "Node Encryption status",
+          "type": "string"
+        }
+      }
+    },
+    "Workload": {
+      "description": "Workloads are Deployment, Statefulset, Daemonset, ReplicationController, \nCronJob, Job, DeploymentConfig (OpenShift), etc).\n\n+deepequal-gen=true\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "kind": {
+          "description": "workload's kind including Deployment, Statefulset, Daemonset etc.",
+          "type": "string"
+        },
+        "name": {
+          "description": "workload's name",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "workload's namespace",
           "type": "string"
         }
       }
@@ -8804,6 +8825,10 @@ func init() {
         "state": {
           "description": "Current state of endpoint",
           "$ref": "#/definitions/EndpointState"
+        },
+        "workload": {
+          "description": "The workload information of the pod associated with this endpoint.",
+          "$ref": "#/definitions/Workload"
         }
       }
     },
@@ -11202,6 +11227,23 @@ func init() {
         },
         "node-encryption": {
           "description": "Node Encryption status",
+          "type": "string"
+        }
+      }
+    },
+    "Workload": {
+      "description": "Workloads are Deployment, Statefulset, Daemonset, ReplicationController, \nCronJob, Job, DeploymentConfig (OpenShift), etc).\n\n+deepequal-gen=true\n+k8s:deepcopy-gen=true",
+      "properties": {
+        "kind": {
+          "description": "workload's kind including Deployment, Statefulset, Daemonset etc.",
+          "type": "string"
+        },
+        "name": {
+          "description": "workload's name",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "workload's namespace",
           "type": "string"
         }
       }

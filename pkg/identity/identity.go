@@ -5,6 +5,7 @@ package identity
 
 import (
 	"encoding/json"
+	ciliumTypes "github.com/cilium/cilium/pkg/types"
 	"net"
 	"strconv"
 
@@ -56,15 +57,16 @@ type Identity struct {
 // This structure is written as JSON to the key-value store. Do NOT modify this
 // structure in ways which are not JSON forward compatible.
 type IPIdentityPair struct {
-	IP           net.IP          `json:"IP"`
-	Mask         net.IPMask      `json:"Mask"`
-	HostIP       net.IP          `json:"HostIP"`
-	ID           NumericIdentity `json:"ID"`
-	Key          uint8           `json:"Key"`
-	Metadata     string          `json:"Metadata"`
-	K8sNamespace string          `json:"K8sNamespace,omitempty"`
-	K8sPodName   string          `json:"K8sPodName,omitempty"`
-	NamedPorts   []NamedPort     `json:"NamedPorts,omitempty"`
+	IP           net.IP                `json:"IP"`
+	Mask         net.IPMask            `json:"Mask"`
+	HostIP       net.IP                `json:"HostIP"`
+	ID           NumericIdentity       `json:"ID"`
+	Key          uint8                 `json:"Key"`
+	Metadata     string                `json:"Metadata"`
+	K8sNamespace string                `json:"K8sNamespace,omitempty"`
+	K8sPodName   string                `json:"K8sPodName,omitempty"`
+	Workload     *ciliumTypes.Workload `json:"K8sWorkload,omitempty"`
+	NamedPorts   []NamedPort           `json:"NamedPorts,omitempty"`
 }
 
 // GetKeyName returns the kvstore key to be used for the IPIdentityPair

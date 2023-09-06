@@ -8,6 +8,12 @@ const (
 	// Annotations are any annotations for Pods
 	Annotations = "annotations"
 
+	// OwnerReference are the OwnerReferences for Pods
+	OwnerReference = "ownerReference"
+
+	// Workload is pod's workload info (workload is controller behind pod: Deployment, Statefulset, Daemonset, ReplicationController, CronJob, Job, DeploymentConfig (OpenShift), etc).
+	Workload = "workload"
+
 	// LogSubsys is the field denoting the subsystem when logging
 	LogSubsys = "subsys"
 

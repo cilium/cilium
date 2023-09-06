@@ -85,6 +85,11 @@ type EndpointStatus struct {
 	State string `json:"state,omitempty"`
 
 	NamedPorts models.NamedPorts `json:"named-ports,omitempty"`
+
+	// Workload is the workload information of the pod associated with this endpoint
+	//
+	// +kubebuilder:validation:Optional
+	Workload *models.Workload `json:"workload,omitempty"`
 }
 
 // EndpointStatusLogEntries is the maximum number of log entries in

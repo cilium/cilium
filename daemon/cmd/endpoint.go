@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/cilium/cilium/pkg/types"
 	"net"
 	"net/http"
 	"runtime"
@@ -427,6 +428,14 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			ep.SetK8sMetadata(cp)
 			addLabels.MergeLabels(identityLabels)
 			infoLabels.MergeLabels(info)
+			workload, err := types.GetWorkloadDataFromPod(pod)
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.K8sPodName:     ep.K8sNamespace + "/" + ep.K8sPodName,
+					logfields.OwnerReference: pod.ObjectMeta.OwnerReferences,
+				}).Warningf("Unable to fetch workload data from pod err: %s", err)
+			}
+			ep.SetWorkload(workload)
 			if _, ok := annotations[bandwidth.IngressBandwidth]; ok {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,

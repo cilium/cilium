@@ -74,6 +74,8 @@ type K8sMetadata struct {
 	Namespace string
 	// PodName is the Kubernetes pod name behind the IP
 	PodName string
+	// Workload is the Kubernetes workload behind the IP
+	Workload *types.Workload
 	// NamedPorts is the set of named ports for the pod
 	NamedPorts types.NamedPortMap
 }
@@ -889,6 +891,11 @@ func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
 			return false
 		}
 	}
+
+	if !m.Workload.Equals(o.Workload) {
+		return false
+	}
+
 	return m.Namespace == o.Namespace && m.PodName == o.PodName
 }
 

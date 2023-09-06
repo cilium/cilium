@@ -338,6 +338,20 @@ func (e *Endpoint) getNamedPortsModel() (np models.NamedPorts) {
 	return np
 }
 
+// getWorkloadModel returns the endpoint's Workload object.
+func (e *Endpoint) getWorkloadModel() *models.Workload {
+	w := e.Workload.Load()
+	if w == nil {
+		return nil
+	}
+
+	return &models.Workload{
+		Name:      w.Name,
+		Namespace: w.Namespace,
+		Kind:      w.Kind,
+	}
+}
+
 // GetNamedPortsModel returns the endpoint's NamedPorts object.
 func (e *Endpoint) GetNamedPortsModel() models.NamedPorts {
 	if err := e.rlockAlive(); err != nil {

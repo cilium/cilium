@@ -265,6 +265,10 @@ type Endpoint struct {
 	// Immutable after Endpoint creation.
 	K8sNamespace string
 
+	// Workload is the Kubernetes pod’s workload info
+	// May be nil
+	Workload atomic.Pointer[types.Workload]
+
 	// pod
 	pod atomic.Pointer[slim_corev1.Pod]
 
@@ -1284,6 +1288,16 @@ func (e *Endpoint) GetPod() *slim_corev1.Pod {
 	return e.pod.Load()
 }
 
+// SetWorkload sets the workload related to this endpoint.
+func (e *Endpoint) SetWorkload(workload *types.Workload) {
+	e.Workload.Store(workload)
+}
+
+// GetWorkload retrieves the workload related to this endpoint
+func (e *Endpoint) GetWorkload() *types.Workload {
+	return e.Workload.Load()
+}
+
 // SetK8sMetadata sets the k8s container ports specified by kubernetes.
 // Note that once put in place, the new k8sPorts is never changed,
 // so that the map can be used concurrently without keeping locks.
@@ -1666,6 +1680,14 @@ func (e *Endpoint) RunMetadataResolver(bwm bandwidth.Manager, resolveMetadata Me
 				}
 				e.SetPod(pod)
 				e.SetK8sMetadata(cp)
+				workload, err := types.GetWorkloadDataFromPod(pod)
+				if err != nil {
+					log.WithFields(logrus.Fields{
+						logfields.K8sPodName:     e.K8sNamespace + "/" + e.K8sPodName,
+						logfields.OwnerReference: pod.OwnerReferences,
+					}).Warningf("Unable to fetch workload data from pod err: %s", err)
+				}
+				e.SetWorkload(workload)
 				e.UpdateNoTrackRules(func(_, _ string) (noTrackPort string, err error) {
 					po, _, _, _, _, err := resolveMetadata(ns, podName)
 					if err != nil {

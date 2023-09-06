@@ -839,7 +839,7 @@ func (e *Endpoint) runIPIdentitySync(endpointIP netip.Addr) {
 				// store operations resulting in lock being held for a long time.
 				e.runlock()
 
-				if err := ipcache.UpsertIPToKVStore(ctx, endpointIP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, e.GetK8sPorts()); err != nil {
+				if err := ipcache.UpsertIPToKVStore(ctx, endpointIP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, e.GetWorkload(), e.GetK8sPorts()); err != nil {
 					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", endpointIP.String(), ID, err)
 				}
 				return nil

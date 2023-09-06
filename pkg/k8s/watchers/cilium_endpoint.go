@@ -186,9 +186,16 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 		return
 	}
 
+	workload := ciliumTypes.GetWorkloadFromModel(endpoint.Workload)
+	if workload == nil {
+		log.WithField("ciliumEndpoint", endpoint.GetNamespace()+"/"+endpoint.GetName()).
+			Debug("ciliumEndpoint has no workload information")
+	}
+
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace:  endpoint.Namespace,
 		PodName:    endpoint.Name,
+		Workload:   workload,
 		NamedPorts: make(ciliumTypes.NamedPortMap, len(endpoint.NamedPorts)),
 	}
 	for _, port := range endpoint.NamedPorts {

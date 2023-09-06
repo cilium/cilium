@@ -11,7 +11,6 @@ import (
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -130,11 +129,8 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 				Labels:    SortAndFilterLabels(r.log, ep.GetLabels(), identity.NumericIdentity(epIdentity)),
 				PodName:   ep.GetK8sPodName(),
 			}
-			if pod := ep.GetPod(); pod != nil {
-				workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)
-				if ok {
-					e.Workloads = []*pb.Workload{{Kind: workloadTypeMeta.Kind, Name: workload.Name}}
-				}
+			if workload := ep.GetWorkload(); workload != nil {
+				e.Workloads = []*pb.Workload{{Kind: workload.Kind, Name: workload.Name}}
 			}
 			return e
 		}
@@ -143,12 +139,17 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 	// for remote endpoints, assemble the information via ip and identity
 	numericIdentity := datapathSecurityIdentity
 	var namespace, podName string
+	var workloads []*pb.Workload
+
 	if r.ipGetter != nil {
 		if ipIdentity, ok := r.ipGetter.LookupSecIDByIP(ip); ok {
 			numericIdentity = resolveIdentityConflict(ipIdentity.ID, false)
 		}
 		if meta := r.ipGetter.GetK8sMetadata(ip); meta != nil {
 			namespace, podName = meta.Namespace, meta.PodName
+			if meta.Workload != nil {
+				workloads = []*pb.Workload{{Kind: meta.Workload.Kind, Name: meta.Workload.Name}}
+			}
 		}
 	}
 	var labels []string
@@ -166,5 +167,6 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 		Namespace: namespace,
 		Labels:    labels,
 		PodName:   podName,
+		Workloads: workloads,
 	}
 }

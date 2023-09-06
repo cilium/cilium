@@ -55,6 +55,9 @@ type EndpointStatus struct {
 	// Current state of endpoint
 	// Required: true
 	State *EndpointState `json:"state"`
+
+	// The workload information of the pod associated with this endpoint.
+	Workload *Workload `json:"workload,omitempty"`
 }
 
 // Validate validates this endpoint status
@@ -102,6 +105,10 @@ func (m *EndpointStatus) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateState(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateWorkload(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -319,6 +326,25 @@ func (m *EndpointStatus) validateState(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *EndpointStatus) validateWorkload(formats strfmt.Registry) error {
+	if swag.IsZero(m.Workload) { // not required
+		return nil
+	}
+
+	if m.Workload != nil {
+		if err := m.Workload.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("workload")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("workload")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 // ContextValidate validate this endpoint status based on the context it is used
 func (m *EndpointStatus) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
@@ -364,6 +390,10 @@ func (m *EndpointStatus) ContextValidate(ctx context.Context, formats strfmt.Reg
 	}
 
 	if err := m.contextValidateState(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.contextValidateWorkload(ctx, formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -535,6 +565,22 @@ func (m *EndpointStatus) contextValidateState(ctx context.Context, formats strfm
 				return ve.ValidateName("state")
 			} else if ce, ok := err.(*errors.CompositeError); ok {
 				return ce.ValidateName("state")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *EndpointStatus) contextValidateWorkload(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.Workload != nil {
+		if err := m.Workload.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("workload")
+			} else if ce, ok := err.(*errors.CompositeError); ok {
+				return ce.ValidateName("workload")
 			}
 			return err
 		}

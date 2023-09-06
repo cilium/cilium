@@ -861,6 +861,31 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 	specEqual := oldPod != nil && newPod.Spec.DeepEqual(&oldPod.Spec)
 	hostIPEqual := oldPod != nil && newPod.Status.HostIP != oldPod.Status.HostIP
 
+	ownerReferenceEqual := false
+	if oldPod != nil {
+		var (
+			oldOwnerReferences *slim_metav1.OwnerReference
+			newOwnerReferences *slim_metav1.OwnerReference
+		)
+		for _, ref := range oldPod.OwnerReferences {
+			if ref.Controller != nil && *ref.Controller {
+				oldOwnerReferences = &ref
+				break
+			}
+		}
+		for _, ref := range newPod.OwnerReferences {
+			if ref.Controller != nil && *ref.Controller {
+				newOwnerReferences = &ref
+				break
+			}
+		}
+		if newOwnerReferences != nil {
+			ownerReferenceEqual = newOwnerReferences.DeepEqual(oldOwnerReferences)
+		} else {
+			ownerReferenceEqual = oldOwnerReferences == nil
+		}
+	}
+
 	// only upsert HostPort Mapping if spec or ip slice is different
 	if !specEqual || !ipSliceEqual {
 		err := k.upsertHostPortMapping(oldPod, newPod, oldPodIPs, newPodIPs)
@@ -871,7 +896,7 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 
 	// is spec and hostIPs are the same there no need to perform the remaining
 	// operations
-	if specEqual && hostIPEqual {
+	if specEqual && hostIPEqual && ownerReferenceEqual {
 		return nil
 	}
 
@@ -882,9 +907,18 @@ func (k *K8sWatcher) updatePodHostData(oldPod, newPod *slim_corev1.Pod, oldPodIP
 
 	hostKey := node.GetIPsecKeyIdentity()
 
+	workload, err := ciliumTypes.GetWorkloadDataFromPod(newPod)
+	if err != nil {
+		logger.WithFields(logrus.Fields{
+			logfields.K8sPodName:     newPod.ObjectMeta.Namespace + "/" + newPod.ObjectMeta.Name,
+			logfields.OwnerReference: newPod.OwnerReferences,
+		}).Debug("cannot get workload data from pod")
+	}
+
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace: newPod.Namespace,
 		PodName:   newPod.Name,
+		Workload:  workload,
 	}
 
 	// Store Named ports, if any.

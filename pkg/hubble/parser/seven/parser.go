@@ -17,7 +17,6 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
-	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/time"
@@ -223,11 +222,8 @@ func (p *Parser) computeResponseTime(r *accesslog.LogRecord, timestamp time.Time
 
 func (p *Parser) updateEndpointWorkloads(ip netip.Addr, endpoint *flowpb.Endpoint) {
 	if ep, ok := p.endpointGetter.GetEndpointInfo(ip); ok {
-		if pod := ep.GetPod(); pod != nil {
-			workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)
-			if ok {
-				endpoint.Workloads = []*flowpb.Workload{{Kind: workloadTypeMeta.Kind, Name: workload.Name}}
-			}
+		if workload := ep.GetWorkload(); workload != nil {
+			endpoint.Workloads = []*flowpb.Workload{{Kind: workload.Kind, Name: workload.Name}}
 		}
 	}
 }

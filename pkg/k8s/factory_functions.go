@@ -491,6 +491,7 @@ func TransformToCiliumEndpoint(obj interface{}) (interface{}, error) {
 			Identity:   concreteObj.Status.Identity,
 			Networking: concreteObj.Status.Networking,
 			NamedPorts: concreteObj.Status.NamedPorts,
+			Workload:   concreteObj.Status.Workload,
 		}, nil
 	case *types.CiliumEndpoint:
 		return obj, nil
@@ -526,6 +527,7 @@ func TransformToCiliumEndpoint(obj interface{}) (interface{}, error) {
 				Identity:   ciliumEndpoint.Status.Identity,
 				Networking: ciliumEndpoint.Status.Networking,
 				NamedPorts: ciliumEndpoint.Status.NamedPorts,
+				Workload:   ciliumEndpoint.Status.Workload,
 			},
 		}, nil
 	default:

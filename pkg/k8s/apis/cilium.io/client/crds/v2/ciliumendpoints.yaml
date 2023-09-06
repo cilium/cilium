@@ -465,6 +465,21 @@ spec:
                 type: string
               visibility-policy-status:
                 type: string
+              workload:
+                description: Workload is the workload information of the pod associated
+                  with this endpoint
+                properties:
+                  kind:
+                    description: workload's kind including Deployment, Statefulset,
+                      Daemonset etc.
+                    type: string
+                  name:
+                    description: workload's name
+                    type: string
+                  namespace:
+                    description: workload's namespace
+                    type: string
+                type: object
             type: object
         required:
         - metadata
