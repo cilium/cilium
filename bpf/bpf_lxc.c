@@ -2098,6 +2098,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 				   TRACE_REASON_UNKNOWN, 0);
 
 		/* Skip policy check for hairpinned flow */
+		cilium_dbg(ctx, DBG_SKIP_POLICY, LXC_ID, src_sec_identity);
 		ret = CTX_ACT_OK;
 		goto out;
 	}
