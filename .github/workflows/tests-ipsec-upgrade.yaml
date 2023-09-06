@@ -52,8 +52,8 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.7
-  cilium_cli_ci_version:
+  cilium_cli_version:
+  cilium_cli_ci_version: 0c7e6dfd73c0f46e723cdec6591d8c4467247da1
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   cilium_stable_version: 1.14
 
@@ -261,9 +261,8 @@ jobs:
         uses: cilium/cilium/.github/actions/conn-disrupt-test@d86f33b098a75f3d7d2dfd3ee6fa1ea033892de4
         with:
           job-name: ipsec-upgrade-${{ matrix.name }}
-          # Disable no-missed-tail-calls due to https://github.com/cilium/cilium/issues/26739
           # Disable check-log-errors due to https://github.com/cilium/cilium-cli/issues/1858
-          extra-connectivity-test-flags: --test '!no-missed-tail-calls,!check-log-errors'
+          extra-connectivity-test-flags: --test '!check-log-errors'
           operation-cmd: |
             cd /host/
 
@@ -278,9 +277,8 @@ jobs:
         uses: cilium/cilium/.github/actions/conn-disrupt-test@d86f33b098a75f3d7d2dfd3ee6fa1ea033892de4
         with:
           job-name: ipsec-downgrade-${{ matrix.name }}
-          # Disable no-missed-tail-calls due to https://github.com/cilium/cilium/issues/26739
           # Disable check-log-errors due to https://github.com/cilium/cilium-cli/issues/1858
-          extra-connectivity-test-flags: --test '!no-missed-tail-calls,!check-log-errors'
+          extra-connectivity-test-flags: --test '!check-log-errors'
           operation-cmd: |
             cd /host/
 
