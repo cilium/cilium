@@ -2,6 +2,31 @@ name: Conformance Ginkgo (ci-ginkgo)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
+  workflow_call:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+        type: string
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+        type: string
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+        type: string
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+        type: string
+      is-workflow-call:
+        description: "Distinguish if it's a workflow_call event."
+        required: false
+        type: boolean
+        default: true
+
   workflow_dispatch:
     inputs:
       PR-number:
@@ -17,9 +42,11 @@ on:
         description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
         required: false
         default: '{}'
+
+
   # Run every 8 hours
   schedule:
-    - cron:  '0 1/8 * * *'
+    - cron: '0 1/8 * * *'
 
 # By specifying the access of one of the scopes, all of those that are not
 # specified are set to 'none'.
@@ -36,15 +63,21 @@ permissions:
 concurrency:
   # Structure:
   # - Workflow name
+  #   For workflow_call events, this is the name of the *parent* workflow.
   # - Event type
   # - A unique identifier depending on event type:
   #   - schedule: SHA
-  #   - workflow_dispatch: PR number
+  #   - workflow_dispatch: PR number.
+  # The 'ginkgo' string added to both schedule and workflow_dispatch ensures
+  # that for workflow_call events it doesn't conflict with other potential
+  # parallel workflow_call done to other workflows from the same parent
+  # workflow. As otherwise the group name would be identical.
   #
   # This structure ensures a unique concurrency group name is generated for each
   # type of testing, such that re-runs will cancel the previous run.
   group: |
     ${{ github.workflow }}
+    ginkgo
     ${{ github.event_name }}
     ${{
       (github.event_name == 'schedule' && github.sha) ||
@@ -69,6 +102,8 @@ jobs:
       SHA: ${{ steps.vars.outputs.SHA }}
       context-ref: ${{ steps.vars.outputs.context-ref }}
       owner: ${{ steps.vars.outputs.owner }}
+      detect-race: ${{ steps.vars.outputs.detect-race }}
+      image_tag_suffix: ${{ steps.vars.outputs.image_tag_suffix }}
     steps:
       - name: Set up job variables
         id: vars
@@ -84,9 +119,17 @@ jobs:
             OWNER="${OWNER//[.\/]/-}"
           fi
 
+          DETECT_RACE=$(echo '${{ inputs.extra-args }}' | jq -r '."detect-race" // false | tostring')
+          IMAGE_TAG_SUFFIX=""
+          if [ "${DETECT_RACE}" = "true" ]; then
+            IMAGE_TAG_SUFFIX="-race"
+          fi
+
           echo SHA=${SHA} >> $GITHUB_OUTPUT
           echo context-ref=${CONTEXT_REF} >> $GITHUB_OUTPUT
           echo owner=${OWNER} >> $GITHUB_OUTPUT
+          echo detect-race=${DETECT_RACE} >> $GITHUB_OUTPUT
+          echo image_tag_suffix=${IMAGE_TAG_SUFFIX} >> $GITHUB_OUTPUT
 
   commit-status-start:
     name: Commit Status Start
@@ -174,7 +217,7 @@ jobs:
       - name: Wait for images
         uses: ./.github/actions/wait-for-images
         with:
-          SHA: ${{ inputs.SHA || github.sha }}
+          SHA: ${{ inputs.SHA || github.sha }}${{ needs.setup-vars.outputs.image_tag_suffix }}
 
   generate-matrix:
     name: Generate Job Matrix from YAMLs
@@ -224,7 +267,25 @@ jobs:
             '.include |= map(select(.["k8s-version"] as $k | $prs[] | select($k == .))) + $focus[0].include |
             . + {"k8s-version": $prs} |
             .focus = $focus[0].focus | .exclude = $focus[0].exclude' \
-            main-k8s-versions.json> /tmp/merged.json
+            main-k8s-versions.json > /tmp/merged.json
+
+          # Parse flags from inputs and optionally restrict the matrix.
+          DETECT_RACE="${{ needs.setup-vars.outputs.detect-race }}"
+          ALL_TESTS=$(echo '${{ inputs.extra-args }}' | jq -r '."all-tests" // false | tostring')
+          if [ "${DETECT_RACE}" = "true" ] && [ "${ALL_TESTS}" != "true" ]; then
+            echo "::notice::Restricting matrix to focus 'f04-agent-policy-multi-node-1' (all-tests!=true) for quick data race detection on PRs."
+            jq '
+              # Keep only k8s-version entries and the single desired focus
+              .include |= map(select(has("k8s-version") or (.focus == "f04-agent-policy-multi-node-1"))) |
+              .focus = ["f04-agent-policy-multi-node-1"] |
+              # Drop the last k8s-version and remove matching include entries
+              ( .["k8s-version"] | if (type=="array" and length>0) then .[-1] else empty end ) as $last |
+              .["k8s-version"] |= (if (type=="array" and length>0) then .[0:-1] else . end) |
+              .include |= map(select((has("k8s-version") | not) or (.["k8s-version"] != $last)))
+            ' /tmp/merged.json > /tmp/merged.filtered.json
+            mv /tmp/merged.filtered.json /tmp/merged.json
+          fi
+
           echo "Generated matrix:"
           cat /tmp/merged.json
           echo "matrix=$(jq -c . < /tmp/merged.json)" >> $GITHUB_OUTPUT
@@ -409,17 +470,22 @@ jobs:
             # GitHub actions do not support IPv6 connectivity to outside
             # world.
             export CILIUM_NO_IPV6_OUTSIDE=true
+            # Race detection variables - only set when race detection is enabled
+            if [[ "${{ needs.setup-vars.outputs.detect-race }}" == "true" ]]; then
+              export RACE=1
+              export LOCKDEBUG=1
+            fi
             echo "/root/go/bin/ginkgo \
              --focus=\"${{ matrix.cliFocus }}\" \
              --skip=\"${{ matrix.cliSkip }}\" \
              --seed=1679952881 \
              -v -- \
              -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-             -cilium.tag=${{ needs.setup-vars.outputs.SHA }}  \
+             -cilium.tag=${{ needs.setup-vars.outputs.SHA }}${{ needs.setup-vars.outputs.image_tag_suffix }}  \
              -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-             -cilium.operator-tag=${{ needs.setup-vars.outputs.SHA }} \
+             -cilium.operator-tag=${{ needs.setup-vars.outputs.SHA }}${{ needs.setup-vars.outputs.image_tag_suffix }} \
              -cilium.hubble-relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-             -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }} \
+             -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }}${{ needs.setup-vars.outputs.image_tag_suffix }} \
              -cilium.kubeconfig=/root/.kube/config \
              -cilium.operator-suffix=-ci ${{ env.CILIUM_GINKGO_EXTRA_ARGS }}"
 
@@ -429,11 +495,11 @@ jobs:
                --ginkgo.seed=1679952881 \
                --ginkgo.v -- \
                -cilium.image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-               -cilium.tag=${{ needs.setup-vars.outputs.SHA }}  \
+               -cilium.tag=${{ needs.setup-vars.outputs.SHA }}${{ needs.setup-vars.outputs.image_tag_suffix }}  \
                -cilium.operator-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-               -cilium.operator-tag=${{ needs.setup-vars.outputs.SHA }} \
+               -cilium.operator-tag=${{ needs.setup-vars.outputs.SHA }}${{ needs.setup-vars.outputs.image_tag_suffix }} \
                -cilium.hubble-relay-image=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
-               -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }} \
+               -cilium.hubble-relay-tag=${{ needs.setup-vars.outputs.SHA }}${{ needs.setup-vars.outputs.image_tag_suffix }} \
                -cilium.kubeconfig=/root/.kube/config \
                -cilium.operator-suffix=-ci ${{ env.CILIUM_GINKGO_EXTRA_ARGS }}
 
@@ -497,7 +563,7 @@ jobs:
 
   merge-upload-and-status:
     name: Merge Upload and Status
-    if: ${{ always() }}
+    if: ${{ always() && !inputs.is-workflow-call }}
     needs: setup-and-test
     uses: ./.github/workflows/common-post-jobs.yaml
     secrets: inherit
