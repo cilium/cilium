@@ -19,7 +19,6 @@ Everybody listed is a committer as per governance definition.
  * [Dan Wendlandt] (Isovalent)
  * [Deepesh Pathak]
  * [Dylan Reimerink] (Isovalent)
- * [Eloy Coto] (Red Hat)
  * [Gilberto Bertin] (Isovalent)
  * [Glib Smaga] (Isovalent)
  * [Hemanth Malla] (Datadog)
@@ -60,6 +59,7 @@ Everybody listed is a committer as per governance definition.
 
 We would like to acknowledge previous committers and their huge contributions to our collective success:
 
+ * [Eloy Coto] (Red Hat)
  * [Ilya Dmitrichenko] (Docker)
  * [Ray Bejjani]
  * [Tom Payne]
