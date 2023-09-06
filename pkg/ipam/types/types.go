@@ -5,6 +5,7 @@ package types
 
 import (
 	"fmt"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/lock"
@@ -55,6 +56,19 @@ type AllocationMap map[string]AllocationIP
 //
 // +kubebuilder:validation:Format=cidr
 type IPAMPodCIDR string
+
+func (c *IPAMPodCIDR) ToPrefix() (*netip.Prefix, error) {
+	if c == nil {
+		return nil, fmt.Errorf("nil ipam cidr")
+	}
+
+	prefix, err := netip.ParsePrefix(string(*c))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ipam cidr %v: %w", c, err)
+	}
+
+	return &prefix, nil
+}
 
 // IPAMPoolAllocation describes an allocation of an IPAM pool from the operator to the
 // node. It contains the assigned PodCIDRs allocated from this pool

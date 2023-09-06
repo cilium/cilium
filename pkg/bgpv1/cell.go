@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/bgpv1/manager"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	ipam_option "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -38,6 +39,10 @@ var Cell = cell.Module(
 		newLoadBalancerIPPoolResource,
 		// Create a CiliumLoadBalancerIPPool store which signals the BGP CP upon each resource event.
 		manager.NewBGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool],
+		// Provides the module with a stream of events for the CiliumPodIPPool resource.
+		newCiliumPodIPPoolResource,
+		// Create a CiliumPodIPPool store which signals the BGP CP upon each resource event.
+		manager.NewBGPCPResourceStore[*v2alpha1api.CiliumPodIPPool],
 	),
 	// Provides the reconcilers used by the route manager to update the config
 	manager.ConfigReconcilers,
@@ -70,4 +75,19 @@ func newLoadBalancerIPPoolResource(lc hive.Lifecycle, c client.Clientset, dc *op
 		lc, utils.ListerWatcherFromTyped[*v2alpha1api.CiliumLoadBalancerIPPoolList](
 			c.CiliumV2alpha1().CiliumLoadBalancerIPPools(),
 		), resource.WithMetric("CiliumLoadBalancerIPPool"))
+}
+
+func newCiliumPodIPPoolResource(lc hive.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*v2alpha1api.CiliumPodIPPool] {
+	// Do not create this resource if:
+	//   1. The BGP Control Plane is disabled.
+	//   2. Kubernetes support is disabled and the clientset cannot be used.
+	//   3. Multi-pool IPAM is disabled.
+	if !dc.BGPControlPlaneEnabled() || !c.IsEnabled() || dc.IPAM != ipam_option.IPAMMultiPool {
+		return nil
+	}
+
+	return resource.New[*v2alpha1api.CiliumPodIPPool](
+		lc, utils.ListerWatcherFromTyped[*v2alpha1api.CiliumPodIPPoolList](
+			c.CiliumV2alpha1().CiliumPodIPPools(),
+		), resource.WithMetric("CiliumPodIPPool"))
 }
