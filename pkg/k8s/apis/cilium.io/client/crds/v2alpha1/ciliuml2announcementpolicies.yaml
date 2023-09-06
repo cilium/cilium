@@ -117,8 +117,11 @@ spec:
                 type: object
               serviceSelector:
                 description: "ServiceSelector selects a set of services which will
-                  be announced over L2 networks \n If nil this policy applies to all
-                  services."
+                  be announced over L2 networks. The loadBalancerClass for a service
+                  must be nil or specify a supported class, e.g. \"io.cilium/l2-announcer\".
+                  Refer to the following document for additional details regarding
+                  load balancer classes: \n https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class
+                  \n If nil this policy applies to all services."
                 properties:
                   matchExpressions:
                     description: matchExpressions is a list of label selector requirements.

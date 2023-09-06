@@ -9,6 +9,9 @@ import (
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
+// L2AnnounceLoadBalancerClass defines the L2 Announcer load balancer class for Services.
+const L2AnnounceLoadBalancerClass = "io.cilium/l2-announcer"
+
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -64,7 +67,12 @@ type CiliumL2AnnouncementPolicySpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	NodeSelector *slimv1.LabelSelector `json:"nodeSelector"`
-	// ServiceSelector selects a set of services which will be announced over L2 networks
+	// ServiceSelector selects a set of services which will be announced over L2 networks.
+	// The loadBalancerClass for a service must be nil or specify a supported class, e.g.
+	// "io.cilium/l2-announcer". Refer to the following document for additional details
+	// regarding load balancer classes:
+	//
+	//   https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class
 	//
 	// If nil this policy applies to all services.
 	//
