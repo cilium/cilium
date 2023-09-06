@@ -1286,14 +1286,14 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
 	if !wildcard {
-		for _, id := range sel.GetSelections() {
-			r.RemotePolicies = append(r.RemotePolicies, (uint32)(id))
-		}
+		selections := sel.GetSelections()
 
 		// No remote policies would match this rule. Discard it.
-		if len(r.RemotePolicies) == 0 {
+		if len(selections) == 0 {
 			return nil, true
 		}
+
+		r.RemotePolicies = selections.AsUint32Slice()
 	}
 
 	if l7Rules == nil {
@@ -1379,13 +1379,8 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 				// No remote policies would match this rule. Discard it.
 				return nil
 			}
-			// convert from []uint32 to []uint64
-			remotePolicies := make([]uint32, len(selections))
-			for i, id := range selections {
-				remotePolicies[i] = uint32(id)
-			}
 			return &cilium.PortNetworkPolicyRule{
-				RemotePolicies: remotePolicies,
+				RemotePolicies: selections.AsUint32Slice(),
 			}
 		}
 	}

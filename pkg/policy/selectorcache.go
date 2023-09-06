@@ -31,7 +31,7 @@ type CachedSelector interface {
 	// GetSelections returns the cached set of numeric identities
 	// selected by the CachedSelector.  The retuned slice must NOT
 	// be modified, as it is shared among multiple users.
-	GetSelections() []identity.NumericIdentity
+	GetSelections() identity.NumericIdentitySlice
 
 	// Selects return 'true' if the CachedSelector selects the given
 	// numeric identity.
@@ -337,7 +337,7 @@ func (sc *SelectorCache) SetLocalIdentityNotifier(pop identityNotifier) {
 
 var (
 	// Empty slice of numeric identities used for all selectors that select nothing
-	emptySelection []identity.NumericIdentity
+	emptySelection identity.NumericIdentitySlice
 	// wildcardSelectorKey is used to compare if a key is for a wildcard
 	wildcardSelectorKey = api.WildcardEndpointSelector.LabelSelector.String()
 	// noneSelectorKey is used to compare if a key is for "reserved:none"
@@ -346,7 +346,7 @@ var (
 
 type selectorManager struct {
 	key              string
-	selections       atomic.Pointer[[]identity.NumericIdentity]
+	selections       atomic.Pointer[identity.NumericIdentitySlice]
 	users            map[CachedSelectionUser]struct{}
 	cachedSelections map[identity.NumericIdentity]struct{}
 }
@@ -368,7 +368,7 @@ func (s *selectorManager) Equal(b *selectorManager) bool {
 // that case GetSelections() will return either the old or new version
 // of the selections. If the old version is returned, the user is
 // guaranteed to receive a notification including the update.
-func (s *selectorManager) GetSelections() []identity.NumericIdentity {
+func (s *selectorManager) GetSelections() identity.NumericIdentitySlice {
 	selections := s.selections.Load()
 	if selections == nil {
 		return emptySelection
@@ -442,7 +442,7 @@ func (s *selectorManager) numUsers() int {
 //
 // lock must be held
 func (s *selectorManager) updateSelections() {
-	selections := make([]identity.NumericIdentity, len(s.cachedSelections))
+	selections := make(identity.NumericIdentitySlice, len(s.cachedSelections))
 	i := 0
 	for nid := range s.cachedSelections {
 		selections[i] = nid
@@ -457,7 +457,7 @@ func (s *selectorManager) updateSelections() {
 	s.setSelections(&selections)
 }
 
-func (s *selectorManager) setSelections(selections *[]identity.NumericIdentity) {
+func (s *selectorManager) setSelections(selections *identity.NumericIdentitySlice) {
 	if len(*selections) > 0 {
 		s.selections.Store(selections)
 	} else {

@@ -10,6 +10,7 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"unsafe"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -499,6 +500,17 @@ type NumericIdentity uint32
 
 // MaxNumericIdentity is the maximum value of a NumericIdentity.
 const MaxNumericIdentity = math.MaxUint32
+
+type NumericIdentitySlice []NumericIdentity
+
+// AsUint32Slice returns the NumericIdentitySlice as a slice of uint32 without copying any data.
+// This is safe as long as the underlying type stays as uint32.
+func (nids NumericIdentitySlice) AsUint32Slice() []uint32 {
+	if len(nids) == 0 {
+		return nil
+	}
+	return unsafe.Slice((*uint32)(&nids[0]), len(nids))
+}
 
 func ParseNumericIdentity(id string) (NumericIdentity, error) {
 	nid, err := strconv.ParseUint(id, 0, 32)
