@@ -205,7 +205,7 @@ func (cs *testCachedSelector) deleteSelections(selections ...int) (deletes []ide
 
 // CachedSelector interface
 
-func (cs *testCachedSelector) GetSelections() []identity.NumericIdentity {
+func (cs *testCachedSelector) GetSelections() identity.NumericIdentitySlice {
 	return cs.selections
 }
 func (cs *testCachedSelector) Selects(nid identity.NumericIdentity) bool {

@@ -1092,7 +1092,7 @@ type selectorMock struct {
 	key string
 }
 
-func (t selectorMock) GetSelections() []identity.NumericIdentity {
+func (t selectorMock) GetSelections() identity.NumericIdentitySlice {
 	panic("implement me")
 }
 

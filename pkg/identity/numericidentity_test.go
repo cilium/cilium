@@ -69,3 +69,13 @@ func TestGetAllReservedIdentities(t *testing.T) {
 		require.Equal(t, uint32(i+1), id.Uint32())
 	}
 }
+
+func TestAsUint32Slice(t *testing.T) {
+	nids := NumericIdentitySlice{2, 42, 42, 1, 1024, 1}
+	uint32Slice := nids.AsUint32Slice()
+	require.NotNil(t, uint32Slice)
+	require.Len(t, uint32Slice, len(nids))
+	for i, nid := range nids {
+		require.Equal(t, nid.Uint32(), uint32Slice[i])
+	}
+}

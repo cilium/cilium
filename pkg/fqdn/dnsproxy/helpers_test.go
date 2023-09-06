@@ -210,7 +210,7 @@ type MockCachedSelector struct {
 	key string
 }
 
-func (m MockCachedSelector) GetSelections() []identity.NumericIdentity {
+func (m MockCachedSelector) GetSelections() identity.NumericIdentitySlice {
 	return nil
 }
 
