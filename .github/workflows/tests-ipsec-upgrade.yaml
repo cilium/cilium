@@ -55,7 +55,6 @@ env:
   cilium_cli_version: v0.15.7
   cilium_cli_ci_version:
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-  cilium_stable_version: 1.14
 
 jobs:
   commit-status-start:
@@ -123,13 +122,15 @@ jobs:
             SHA="${{ github.sha }}"
           fi
           echo sha=${SHA} >> $GITHUB_OUTPUT
+          CILIUM_DOWNGRADE_VERSION=$(contrib/scripts/print-downgrade-version.sh)
+          echo downgrade_version=${CILIUM_DOWNGRADE_VERSION} >> $GITHUB_OUTPUT
 
       - name: Derive stable Cilium installation config
         id: cilium-stable-config
         uses: ./.github/actions/cilium-config
         with:
-          image-tag: v${{ env.cilium_stable_version }}
-          chart-dir: './cilium-${{ env.cilium_stable_version }}/install/kubernetes/cilium/'
+          image-tag: ${{ steps.vars.outputs.downgrade_version }}
+          chart-dir: './cilium-${{ steps.vars.outputs.downgrade_version }}/install/kubernetes/cilium/'
           tunnel: ${{ matrix.tunnel }}
           endpoint-routes: ${{ matrix.endpoint-routes }}
           ipv6: ${{ matrix.ipv6 }}
@@ -170,11 +171,12 @@ jobs:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
 
-      - name: Download Helm charts for ${{ env.cilium_stable_version }}
-        shell: bash
-        run: |
-          wget https://github.com/cilium/cilium/archive/refs/heads/v${{ env.cilium_stable_version }}.tar.gz
-          tar -xf v${{ env.cilium_stable_version }}.tar.gz
+      - name: Checkout ${{ steps.vars.outputs.downgrade_version }} branch to get the Helm chart
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        with:
+          path: cilium-${{ steps.vars.outputs.downgrade_version }}
+          ref: ${{ steps.vars.outputs.downgrade_version }}
+          persist-credentials: false
 
       - name: Install Cilium CLI-cli
         uses: cilium/cilium-cli@378f49e417f6fed5d4a814606139678f63a414bd # v0.15.7
@@ -224,7 +226,7 @@ jobs:
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
-      - name: Install Cilium ${{ env.cilium_stable_version }} (${{ matrix.name }})
+      - name: Install Cilium ${{ steps.vars.outputs.downgrade_version }} (${{ matrix.name }})
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
@@ -238,7 +240,7 @@ jobs:
             kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-      - name: Test Cilium ${{ env.cilium_stable_version }} (${{ matrix.name }})
+      - name: Test Cilium ${{ steps.vars.outputs.downgrade_version }} (${{ matrix.name }})
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
@@ -274,7 +276,7 @@ jobs:
             kubectl get pods --all-namespaces -o wide
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
-      - name: Downgrade Cilium to ${{ env.cilium_stable_version }} & Test (${{ matrix.name }})
+      - name: Downgrade Cilium to ${{ steps.vars.outputs.downgrade_version }} & Test (${{ matrix.name }})
         uses: cilium/cilium/.github/actions/conn-disrupt-test@d86f33b098a75f3d7d2dfd3ee6fa1ea033892de4
         with:
           job-name: ipsec-downgrade-${{ matrix.name }}
