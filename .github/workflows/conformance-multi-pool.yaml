@@ -60,6 +60,15 @@ env:
   timeout: 5m
 
 jobs:
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set initial commit status
+        uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
   multi-pool-ipam-conformance-test:
     name: Install and Connectivity Test
     runs-on: ubuntu-latest
