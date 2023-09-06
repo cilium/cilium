@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bombsimon/logrusr/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -22,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	ctrlRuntime "sigs.k8s.io/controller-runtime"
 
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/operator/api"
@@ -273,7 +275,7 @@ func doCleanup() {
 }
 
 // runOperator implements the logic of leader election for cilium-operator using
-// built-in leader election capbility in kubernetes.
+// built-in leader election capability in kubernetes.
 // See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
 func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) {
 	isLeader.Store(false)
@@ -737,6 +739,9 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	}
 
 	if operatorOption.Config.EnableGatewayAPI {
+		// Setting global logger for controller-runtime
+		ctrlRuntime.SetLogger(logrusr.New(log, logrusr.WithName("controller-runtime")))
+
 		gatewayController, err := gatewayapi.NewController(
 			operatorOption.Config.EnableGatewayAPISecretsSync,
 			operatorOption.Config.GatewayAPISecretsNamespace,
