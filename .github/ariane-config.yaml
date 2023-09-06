@@ -12,6 +12,7 @@ triggers:
     - conformance-ginkgo.yaml
     - conformance-gke.yaml
     - conformance-ingress.yaml
+    - conformance-multi-pool.yaml
     - conformance-runtime.yaml
     - integration-test.yaml
     - tests-datapath-verifier.yaml
@@ -56,6 +57,9 @@ triggers:
   /ci-integration:
     workflows:
     - integration-test.yaml
+  /ci-multi-pool:
+    workflows:
+    - conformance-multi-pool.yaml
   /ci-runtime:
     workflows:
     - conformance-runtime.yaml
@@ -88,6 +92,8 @@ workflows:
   conformance-gke.yaml:
     paths-ignore-regex: (test|Documentation)/
   conformance-ingress.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  conformance-multi-pool.yaml:
     paths-ignore-regex: (test|Documentation)/
   conformance-runtime.yaml:
     paths-ignore-regex: Documentation/
