@@ -572,11 +572,11 @@ func (m *multiPoolManager) OnDeleteCiliumNode(node *ciliumv2.CiliumNode, swg *lo
 	return nil
 }
 
-func (m *multiPoolManager) dump(family Family) (allocated map[string]string, status string) {
+func (m *multiPoolManager) dump(family Family) (allocated map[Pool]map[string]string, status string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	allocated = map[string]string{}
+	allocated = map[Pool]map[string]string{}
 	for poolName, pool := range m.pools {
 		var p *podCIDRPool
 		switch family {
@@ -594,13 +594,16 @@ func (m *multiPoolManager) dump(family Family) (allocated map[string]string, sta
 			return nil, fmt.Sprintf("error: %s", err)
 		}
 
-		ipPrefix := ""
-		if poolName != PoolDefault {
-			ipPrefix = poolName.String() + "/"
+		if poolName == "" {
+			poolName = PoolDefault
+		}
+
+		if _, ok := allocated[poolName]; !ok {
+			allocated[poolName] = map[string]string{}
 		}
 
 		for ip, owner := range ipToOwner {
-			allocated[ipPrefix+ip] = owner
+			allocated[poolName][ip] = owner
 		}
 	}
 
@@ -724,7 +727,7 @@ func (c *multiPoolAllocator) AllocateNextWithoutSyncUpstream(owner string, pool 
 	return c.manager.allocateNext(owner, pool, c.family, false)
 }
 
-func (c *multiPoolAllocator) Dump() (map[string]string, string) {
+func (c *multiPoolAllocator) Dump() (map[Pool]map[string]string, string) {
 	return c.manager.dump(c.family)
 }
 

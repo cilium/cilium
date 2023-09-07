@@ -877,17 +877,17 @@ func (a *crdAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Pool) 
 }
 
 // Dump provides a status report and lists all allocated IP addresses
-func (a *crdAllocator) Dump() (map[string]string, string) {
+func (a *crdAllocator) Dump() (map[Pool]map[string]string, string) {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 
-	allocs := map[string]string{}
+	allocs := make(map[string]string, len(a.allocated))
 	for ip := range a.allocated {
 		allocs[ip] = ""
 	}
 
 	status := fmt.Sprintf("%d/%d allocated", len(allocs), a.store.totalPoolSize(a.family))
-	return allocs, status
+	return map[Pool]map[string]string{PoolDefault: allocs}, status
 }
 
 func (a *crdAllocator) Capacity() uint64 {
