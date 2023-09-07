@@ -163,7 +163,7 @@ have one or both set to ``true``.
 If ``externalIPs`` is ``true`` all IPs in `.spec.externalIPs <https://kubernetes.io/docs/concepts/services-networking/service/#external-ips>`__
 field are announced. These IPs are are managed by service authors.
 
-If ``loadBalancerIPs`` is ``true`` all IPs in the service's ``.status.loadbalacer.ingress`` field
+If ``loadBalancerIPs`` is ``true`` all IPs in the service's ``.status.loadbalancer.ingress`` field
 are announced. These can be assigned by :ref:`lb_ipam` which can be configured
 by cluster admins for better control over which IPs can be allocated.
 
