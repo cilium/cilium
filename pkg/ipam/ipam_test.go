@@ -52,23 +52,23 @@ func (f fakeMetadataFunc) GetIPPoolForPod(owner string) (pool string, err error)
 }
 
 type fakePoolAllocator struct {
-	pools map[string]Allocator
+	pools map[Pool]Allocator
 }
 
 func newFakePoolAllocator(poolMap map[string]string) *fakePoolAllocator {
-	pools := make(map[string]Allocator, len(poolMap))
+	pools := make(map[Pool]Allocator, len(poolMap))
 	for name, cidr := range poolMap {
 		_, ipnet, err := net.ParseCIDR(cidr)
 		if err != nil {
 			panic(fmt.Sprintf("failed to parse test cidr %s for pool %s", cidr, name))
 		}
-		pools[name] = newHostScopeAllocator(ipnet)
+		pools[Pool(name)] = newHostScopeAllocator(ipnet)
 	}
 	return &fakePoolAllocator{pools: pools}
 }
 
 func (f *fakePoolAllocator) Allocate(ip net.IP, owner string, pool Pool) (*AllocationResult, error) {
-	alloc, ok := f.pools[pool.String()]
+	alloc, ok := f.pools[pool]
 	if !ok {
 		return nil, fmt.Errorf("unknown pool %s", pool)
 	}
@@ -85,7 +85,7 @@ func (f fakePoolAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string, 
 }
 
 func (f fakePoolAllocator) Release(ip net.IP, pool Pool) error {
-	alloc, ok := f.pools[pool.String()]
+	alloc, ok := f.pools[pool]
 	if !ok {
 		return fmt.Errorf("unknown pool %s", pool)
 	}
@@ -93,7 +93,7 @@ func (f fakePoolAllocator) Release(ip net.IP, pool Pool) error {
 }
 
 func (f fakePoolAllocator) AllocateNext(owner string, pool Pool) (*AllocationResult, error) {
-	alloc, ok := f.pools[pool.String()]
+	alloc, ok := f.pools[pool]
 	if !ok {
 		return nil, fmt.Errorf("unknown pool %s", pool)
 	}
@@ -114,7 +114,7 @@ func (f fakePoolAllocator) Dump() (map[string]string, string) {
 	for name, alloc := range f.pools {
 		dump, _ := alloc.Dump()
 		for k, v := range dump {
-			result[name+":"+k] = v
+			result[string(name)+":"+k] = v
 		}
 	}
 	return result, fmt.Sprintf("%d pools", len(f.pools))
