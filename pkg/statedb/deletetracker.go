@@ -42,11 +42,11 @@ func (dt *DeleteTracker[Obj]) Deleted(txn ReadTxn, minRevision Revision) Iterato
 
 // Mark the revision up to which deleted objects have been processed. This sets
 // the low watermark for deleted object garbage collection.
-func (dt *DeleteTracker[Obj]) Mark(txn ReadTxn, upTo Revision) {
+func (dt *DeleteTracker[Obj]) Mark(upTo Revision) {
 	// Store the new low watermark and trigger a round of garbage collection.
 	dt.revision.Store(upTo)
 	select {
-	case txn.getTxn().db.gcTrigger <- struct{}{}:
+	case dt.db.gcTrigger <- struct{}{}:
 	default:
 	}
 }
@@ -99,7 +99,7 @@ func (dt *DeleteTracker[Obj]) Process(txn ReadTxn, minRevision Revision, process
 		if err != nil {
 			// Mark deleted objects processed up to previous revision since we may
 			// not have processed all objects with this revision fully yet.
-			dt.Mark(txn.getTxn(), rev-1)
+			dt.Mark(rev - 1)
 
 			// Processing failed, stop here and try again from this same revision.
 			closedWatch := make(chan struct{})
@@ -111,6 +111,6 @@ func (dt *DeleteTracker[Obj]) Process(txn ReadTxn, minRevision Revision, process
 
 	// Fully processed up to latest table revision. GC deleted objects
 	// and return the next revision.
-	dt.Mark(txn.getTxn(), upTo)
+	dt.Mark(upTo)
 	return upTo + 1, watch, nil
 }
