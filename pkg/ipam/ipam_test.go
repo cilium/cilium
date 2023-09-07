@@ -109,12 +109,15 @@ func (f fakePoolAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Po
 	return f.AllocateNext(owner, pool)
 }
 
-func (f fakePoolAllocator) Dump() (map[string]string, string) {
-	result := map[string]string{}
+func (f fakePoolAllocator) Dump() (map[Pool]map[string]string, string) {
+	result := map[Pool]map[string]string{}
 	for name, alloc := range f.pools {
 		dump, _ := alloc.Dump()
-		for k, v := range dump {
-			result[string(name)+":"+k] = v
+		if _, ok := result[name]; !ok {
+			result[name] = map[string]string{}
+		}
+		for k, v := range dump[name] {
+			result[name][k] = v
 		}
 	}
 	return result, fmt.Sprintf("%d pools", len(f.pools))

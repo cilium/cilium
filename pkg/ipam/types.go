@@ -68,11 +68,10 @@ type Allocator interface {
 	// upstream or fails if no more IPs are available
 	AllocateNextWithoutSyncUpstream(owner string, pool Pool) (*AllocationResult, error)
 
-	// Dump returns a map of all allocated IPs with the IP represented as
-	// key in the map. Dump must also provide a status one-liner to
-	// represent the overall status, e.g. number of IPs allocated and
-	// overall health information if available.
-	Dump() (map[string]string, string)
+	// Dump returns a map of all allocated IPs per pool with the IP represented as key in the
+	// map. Dump must also provide a status one-liner to represent the overall status, e.g.
+	// number of IPs allocated and overall health information if available.
+	Dump() (map[Pool]map[string]string, string)
 
 	// Capacity returns the total IPAM allocator capacity (not the current
 	// available).

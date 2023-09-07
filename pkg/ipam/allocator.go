@@ -312,40 +312,46 @@ func (ipam *IPAM) ReleaseIP(ip net.IP, pool Pool) error {
 	return ipam.releaseIPLocked(ip, pool)
 }
 
-func splitIPAndPool(ip string) (string, Pool) {
-	// IPs from non-default pools are prefixed with <pool name>/
-	if i := strings.LastIndexByte(ip, '/'); i >= 0 {
-		return ip[i+1:], Pool(ip[:i])
-	}
-	return ip, PoolDefault
-}
-
 // Dump dumps the list of allocated IP addresses
 func (ipam *IPAM) Dump() (allocv4 map[string]string, allocv6 map[string]string, status string) {
 	var st4, st6 string
+	var allocPerPool4, allocPerPool6 map[Pool]map[string]string
+
+	allocv4 = make(map[string]string)
+	allocv6 = make(map[string]string)
 
 	ipam.allocatorMutex.RLock()
 	defer ipam.allocatorMutex.RUnlock()
 
 	if ipam.IPv4Allocator != nil {
-		allocv4, st4 = ipam.IPv4Allocator.Dump()
+		allocPerPool4, st4 = ipam.IPv4Allocator.Dump()
 		st4 = "IPv4: " + st4
-		for ip := range allocv4 {
-			onlyIP, pool := splitIPAndPool(ip)
-			owner := ipam.getIPOwner(onlyIP, pool)
-			// If owner is not available, report IP but leave owner empty
-			allocv4[ip] = owner
+		for pool, alloc := range allocPerPool4 {
+			for ip := range alloc {
+				owner := ipam.getIPOwner(ip, pool)
+				ipPrefix := ""
+				if pool != PoolDefault {
+					ipPrefix = string(pool) + "/"
+				}
+				// If owner is not available, report IP but leave owner empty
+				allocv4[ipPrefix+ip] = owner
+			}
 		}
 	}
 
 	if ipam.IPv6Allocator != nil {
-		allocv6, st6 = ipam.IPv6Allocator.Dump()
+		allocPerPool6, st6 = ipam.IPv6Allocator.Dump()
 		st6 = "IPv6: " + st6
-		for ip := range allocv6 {
-			onlyIP, pool := splitIPAndPool(ip)
-			owner := ipam.getIPOwner(onlyIP, pool)
-			// If owner is not available, report IP but leave owner empty
-			allocv6[ip] = owner
+		for pool, alloc := range allocPerPool6 {
+			for ip := range alloc {
+				owner := ipam.getIPOwner(ip, pool)
+				ipPrefix := ""
+				if pool != PoolDefault {
+					ipPrefix = string(pool) + "/"
+				}
+				// If owner is not available, report IP but leave owner empty
+				allocv6[ipPrefix+ip] = owner
+			}
 		}
 	}
 

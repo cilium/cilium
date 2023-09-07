@@ -337,7 +337,9 @@ func Test_MultiPoolManager(t *testing.T) {
 	assert.Error(t, errors.New("all pod CIDR ranges are exhausted"), err)
 
 	ipv4Dump, _ := c.dump(IPv4)
-	assert.Len(t, ipv4Dump, numMarsIPs+1) // +1 from default pool
+	assert.Len(t, ipv4Dump, 2) // 2 pools: default + mars
+	assert.Len(t, ipv4Dump[PoolDefault], 1)
+	assert.Len(t, ipv4Dump[Pool("mars")], numMarsIPs)
 
 	// Ensure Requested numbers are bumped
 	assert.Equal(t, <-events, "upsert")
@@ -430,9 +432,13 @@ func Test_MultiPoolManager(t *testing.T) {
 	}, currentNode.Spec.IPAM.Pools.Allocated)
 
 	ipv4Dump, ipv4Summary := c.dump(IPv4)
-	assert.Equal(t, map[string]string{
-		defaultAllocation.IP.String():        "",
-		"mars/" + marsAllocation.IP.String(): "",
+	assert.Equal(t, map[Pool]map[string]string{
+		PoolDefault: {
+			defaultAllocation.IP.String(): "",
+		},
+		Pool("mars"): {
+			marsAllocation.IP.String(): "",
+		},
 	}, ipv4Dump)
 	assert.Equal(t, "2 IPAM pool(s) available", ipv4Summary)
 }
