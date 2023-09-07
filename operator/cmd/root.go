@@ -220,6 +220,9 @@ func NewOperatorCmd(h *hive.Hive) *cobra.Command {
 	// case Discovery API fails.
 	h.Viper().Set(option.K8sEnableAPIDiscovery, true)
 
+	// Overwrite the metrics namespace with the one specific for the Operator
+	metrics.Namespace = metrics.CiliumOperatorNamespace
+
 	cmd.AddCommand(
 		MetricsCmd,
 		h.Command(),

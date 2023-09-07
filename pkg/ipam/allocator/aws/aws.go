@@ -22,6 +22,7 @@ import (
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -79,7 +80,7 @@ func (a *AllocatorAWS) Init(ctx context.Context) error {
 	instancesFilters := ec2shim.NewTagsFilter(operatorOption.Config.IPAMInstanceTags)
 
 	if operatorOption.Config.EnableMetrics {
-		aMetrics = apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "ec2", operatorMetrics.Registry)
+		aMetrics = apiMetrics.NewPrometheusMetrics(metrics.Namespace, "ec2", operatorMetrics.Registry)
 	} else {
 		aMetrics = &apiMetrics.NoOpMetrics{}
 	}
@@ -115,7 +116,7 @@ func (a *AllocatorAWS) Start(ctx context.Context, getterUpdater ipam.CiliumNodeG
 	log.Info("Starting ENI allocator...")
 
 	if operatorOption.Config.EnableMetrics {
-		iMetrics = ipamMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, operatorMetrics.Registry)
+		iMetrics = ipamMetrics.NewPrometheusMetrics(metrics.Namespace, operatorMetrics.Registry)
 	} else {
 		iMetrics = &ipamMetrics.NoOpMetrics{}
 	}
