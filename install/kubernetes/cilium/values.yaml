@@ -1813,6 +1813,10 @@ nodePort:
 # ref: https://docs.cilium.io/en/stable/security/policy/intro/#policy-enforcement-modes
 policyEnforcementMode: "default"
 
+# -- policyCIDRMatchMode is a list of entities that may be selected by CIDR selector.
+# The possible value is "nodes".
+policyCIDRMatchMode:
+
 pprof:
   # -- Enable pprof for cilium-agent
   enabled: false

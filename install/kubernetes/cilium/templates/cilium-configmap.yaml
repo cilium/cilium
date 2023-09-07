@@ -189,6 +189,11 @@ data:
   enable-policy: "{{ lower .Values.policyEnforcementMode }}"
 {{- end }}
 
+{{- if hasKey .Values "policyCIDRMatchMode" }}
+  policy-cidr-match-mode: {{ join " " .Values.policyCIDRMatchMode | quote }}
+{{- end}}
+
+
 {{- if .Values.prometheus.enabled }}
   # If you want metrics enabled in all of your Cilium agents, set the port for
   # which the Cilium agents will have their metrics exposed.

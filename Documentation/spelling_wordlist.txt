@@ -528,6 +528,7 @@ pluggable
 pmdabcc
 png
 podCIDR
+policyCIDRMatchMode
 policymap
 poller
 portmap
