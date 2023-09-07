@@ -471,3 +471,32 @@ specs:
 		}
 	}
 }
+
+func (s *CNPValidationSuite) Test_GH28007(c *C) {
+	cnp := []byte(`apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: exampleapp
+  namespace: examplens
+spec:
+  egress:
+  - toEntities:
+    - world
+  endpointSelector:
+    matchExpressions:
+    - key: reserved:init
+      operator: DoesNotExist
+`)
+	jsnByte, err := yaml.YAMLToJSON(cnp)
+	c.Assert(err, IsNil)
+
+	us := unstructured.Unstructured{}
+	err = json.Unmarshal(jsnByte, &us)
+	c.Assert(err, IsNil)
+
+	validator, err := NewNPValidator()
+	c.Assert(err, IsNil)
+	err = validator.ValidateCNP(&us)
+	// Err can't be nil since validation should detect the policy is not correct.
+	c.Assert(err, Equals, errInitPolicyCNP)
+}
