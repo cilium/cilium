@@ -240,9 +240,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Duration(operatorOption.NodesGCInterval, 5*time.Minute, "GC interval for CiliumNodes")
 	option.BindEnv(vp, operatorOption.NodesGCInterval)
 
-	flags.String(operatorOption.OperatorPrometheusServeAddr, operatorOption.PrometheusServeAddr, "Address to serve Prometheus metrics")
-	option.BindEnv(vp, operatorOption.OperatorPrometheusServeAddr)
-
 	flags.Bool(operatorOption.SyncK8sServices, true, "Synchronize Kubernetes services to kvstore")
 	option.BindEnv(vp, operatorOption.SyncK8sServices)
 

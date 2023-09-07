@@ -18,7 +18,6 @@ import (
 	"github.com/cilium/cilium/api/v1/operator/models"
 	"github.com/cilium/cilium/api/v1/operator/server/restapi/metrics"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
-	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/safeio"
@@ -34,6 +33,14 @@ func TestMetricsHandlerWithoutMetrics(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	hive := hive.New(
+		operatorMetrics.Cell,
+		cell.Provide(func() operatorMetrics.SharedConfig {
+			return operatorMetrics.SharedConfig{
+				EnableMetrics:    false,
+				EnableGatewayAPI: false,
+			}
+		}),
+
 		MetricsHandlerCell,
 
 		// transform GetMetricsHandler in a http.HandlerFunc to use
@@ -89,6 +96,14 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	hive := hive.New(
+		operatorMetrics.Cell,
+		cell.Provide(func() operatorMetrics.SharedConfig {
+			return operatorMetrics.SharedConfig{
+				EnableMetrics:    true,
+				EnableGatewayAPI: false,
+			}
+		}),
+
 		MetricsHandlerCell,
 
 		// transform GetMetricsHandler in a http.HandlerFunc to use
@@ -103,14 +118,6 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 		cell.Invoke(func(lc hive.Lifecycle, hf http.HandlerFunc) {
 			lc.Append(hive.Hook{
 				OnStart: func(hive.HookContext) error {
-					// registering the metrics for the operator will start the
-					// prometheus server. To avoid port clashing while testing,
-					// let the kernel pick an available port.
-					operatorOption.Config.OperatorPrometheusServeAddr = "localhost:0"
-
-					// registers metrics for the cilium-operator
-					operatorMetrics.Register()
-
 					// set values for some operator metrics
 					operatorMetrics.IdentityGCSize.
 						WithLabelValues(operatorMetrics.LabelValueOutcomeAlive).
@@ -127,15 +134,13 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 
 					return nil
 				},
-				OnStop: func(ctx hive.HookContext) error {
-					// unregister metrics for cilium-operator
-					operatorMetrics.Unregister()
-
-					return nil
-				},
 			})
 		}),
 	)
+
+	// Enabling the metrics for the operator will also start the prometheus server.
+	// To avoid port clashing while testing, let the kernel pick an available port.
+	hive.Viper().Set(operatorMetrics.OperatorPrometheusServeAddr, "localhost:0")
 
 	if err := hive.Start(context.Background()); err != nil {
 		t.Fatalf("failed to start: %s", err)

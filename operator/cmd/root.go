@@ -94,6 +94,21 @@ var (
 
 		// Provides Clientset, API for accessing Kubernetes objects.
 		k8sClient.Cell,
+
+		// Provides the modular metrics registry, metric HTTP server and legacy metrics cell.
+		operatorMetrics.Cell,
+		cell.Provide(func(
+			operatorCfg *operatorOption.OperatorConfig,
+		) operatorMetrics.SharedConfig {
+			return operatorMetrics.SharedConfig{
+				// Cloud provider specific allocators needs to read operatorCfg.EnableMetrics
+				// to add their metrics when it's set to true. Therefore, we leave the flag as global
+				// instead of declaring it as part of the metrics cell.
+				// This should be changed once the IPAM allocator is modularized.
+				EnableMetrics:    operatorCfg.EnableMetrics,
+				EnableGatewayAPI: operatorCfg.EnableGatewayAPI,
+			}
+		}),
 	)
 
 	// ControlPlane implements the control functions.
@@ -297,10 +312,6 @@ func runOperator(lc *LeaderLifecycle, clientset k8sClient.Clientset, shutdowner 
 	isLeader.Store(false)
 
 	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
-
-	if operatorOption.Config.EnableMetrics {
-		operatorMetrics.Register()
-	}
 
 	if clientset.IsEnabled() {
 		capabilities := k8sversion.Capabilities()

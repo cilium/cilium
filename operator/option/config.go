@@ -23,8 +23,25 @@ const (
 	// EndpointGCIntervalDefault is the default time for the CEP GC
 	EndpointGCIntervalDefault = 5 * time.Minute
 
-	// PrometheusServeAddr is the default server address for operator metrics
-	PrometheusServeAddr = ":9963"
+	// CESMaxCEPsInCESDefault is the maximum number of cilium endpoints allowed in a CES
+	CESMaxCEPsInCESDefault = 100
+
+	// CESSlicingModeDefault is default method for grouping CEP in a CES.
+	CESSlicingModeDefault = "cesSliceModeIdentity"
+
+	// CESWriteQPSLimitDefault is the default rate limit for the CES work queue.
+	CESWriteQPSLimitDefault = 10
+
+	// CESWriteQPSLimitMax is the maximum rate limit for the CES work queue.
+	// CES work queue QPS limit cannot exceed this value, regardless of other config.
+	CESWriteQPSLimitMax = 50
+
+	// CESWriteQPSBurstDefault is the default burst rate for the CES work queue.
+	CESWriteQPSBurstDefault = 20
+
+	// CESWriteQPSBurstMax is the maximum burst rate for the CES work queue.
+	// CES work queue QPS burst cannot exceed this value, regardless of other config.
+	CESWriteQPSBurstMax = 100
 
 	// CNPStatusCleanupQPSDefault is the default rate for the CNP NodeStatus updates GC.
 	CNPStatusCleanupQPSDefault = 10
@@ -83,10 +100,6 @@ const (
 
 	// NodesGCInterval is the duration for which the cilium nodes are GC.
 	NodesGCInterval = "nodes-gc-interval"
-
-	// OperatorPrometheusServeAddr IP:Port on which to serve prometheus
-	// metrics (pass ":Port" to bind on all interfaces, "" is off).
-	OperatorPrometheusServeAddr = "operator-prometheus-serve-addr"
 
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices = "synchronize-k8s-services"
@@ -334,8 +347,6 @@ type OperatorConfig struct {
 	// will simply return.
 	EndpointGCInterval time.Duration
 
-	OperatorPrometheusServeAddr string
-
 	// SyncK8sServices synchronizes k8s services into the kvstore
 	SyncK8sServices bool
 
@@ -558,7 +569,6 @@ func (c *OperatorConfig) Populate(vp *viper.Viper) {
 	c.CNPStatusCleanupBurst = vp.GetInt(CNPStatusCleanupBurst)
 	c.EnableMetrics = vp.GetBool(EnableMetrics)
 	c.EndpointGCInterval = vp.GetDuration(EndpointGCInterval)
-	c.OperatorPrometheusServeAddr = vp.GetString(OperatorPrometheusServeAddr)
 	c.SyncK8sServices = vp.GetBool(SyncK8sServices)
 	c.SyncK8sNodes = vp.GetBool(SyncK8sNodes)
 	c.UnmanagedPodWatcherInterval = vp.GetInt(UnmanagedPodWatcherInterval)
