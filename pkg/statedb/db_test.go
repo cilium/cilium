@@ -79,6 +79,9 @@ func testWithDB(t testing.TB, withTags bool, test func(db *DB, table Table[testO
 		),
 
 		cell.Invoke(func(db_ *DB, table_ Table[testObject]) {
+			// Use a short GC interval.
+			db_.setGCRateLimitInterval(50 * time.Millisecond)
+
 			db = db_
 			table = table_
 		}),

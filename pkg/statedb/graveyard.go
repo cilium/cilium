@@ -15,11 +15,12 @@ import (
 )
 
 const (
-	// gcRateLimitInterval is the minium interval between garbage collections
-	gcRateLimitInterval = time.Second
+	// defaultGCRateLimitInterval is the default minimum interval between garbage collections.
+	// Currently not configurable. Overwritten by tests to minimize test times.
+	defaultGCRateLimitInterval = time.Second
 )
 
-func graveyardWorker(db *DB) {
+func graveyardWorker(db *DB, gcRateLimitInterval time.Duration) {
 	limiter := rate.NewLimiter(gcRateLimitInterval, 1)
 	defer limiter.Stop()
 	defer close(db.gcExited)
