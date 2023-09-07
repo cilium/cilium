@@ -100,7 +100,7 @@ jobs:
         uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.20.7
+          go-version: 1.20.8
       - name: Cache LLVM and Clang
         id: cache-llvm
         uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
@@ -138,7 +138,7 @@ jobs:
         uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.20.7
+          go-version: 1.20.8
       - name: Cache LLVM and Clang
         id: cache-llvm
         uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
