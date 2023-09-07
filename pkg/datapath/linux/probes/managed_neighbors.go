@@ -86,8 +86,8 @@ func haveManagedNeighbors() (outer error) {
 	neigh := netlink.Neigh{
 		LinkIndex: veth.Index,
 		IP:        net.IPv4(0, 0, 0, 1),
-		Flags:     netlink.NTF_EXT_LEARNED,
-		FlagsExt:  netlink.NTF_EXT_MANAGED,
+		Flags:     NTF_EXT_LEARNED,
+		FlagsExt:  NTF_EXT_MANAGED,
 	}
 
 	if err := netlink.NeighAdd(&neigh); err != nil {
@@ -103,10 +103,10 @@ func haveManagedNeighbors() (outer error) {
 		if !n.IP.Equal(neigh.IP) {
 			continue
 		}
-		if n.Flags != netlink.NTF_EXT_LEARNED {
+		if n.Flags != NTF_EXT_LEARNED {
 			continue
 		}
-		if n.FlagsExt != netlink.NTF_EXT_MANAGED {
+		if n.FlagsExt != NTF_EXT_MANAGED {
 			continue
 		}
 
