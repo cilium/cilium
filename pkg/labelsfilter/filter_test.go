@@ -95,7 +95,7 @@ func (s *LabelsPrefCfgSuite) TestDefaultFilterLabels(c *C) {
 		"io.kubernetes.container.name":                              "POD",
 		"io.kubernetes.container.restartCount":                      "0",
 		"io.kubernetes.container.terminationMessagePath":            "",
-		"io.kubernetes.pod.name":                                    "my-nginx-3800858182-07i3n",
+		"io.kubernetes.pod.name":                                    "my-nginx-0",
 		"io.kubernetes.pod.namespace":                               "default",
 		"app.kubernetes.io":                                         "my-nginx",
 		"kubernetes.io.foo":                                         "foo",
@@ -110,6 +110,8 @@ func (s *LabelsPrefCfgSuite) TestDefaultFilterLabels(c *C) {
 		"ignorE":                                                    "foo",
 		"annotation.kubernetes.io/config.seen":                      "2017-05-30T14:22:17.691491034Z",
 		"controller-revision-hash":                                  "123456",
+		"statefulset.kubernetes.io/pod-name":                        "my-nginx-0",
+		"apps.kubernetes.io/pod-index":                              "0",
 	}
 	allLabels := labels.Map2Labels(allNormalLabels, labels.LabelSourceContainer)
 	allLabels["host"] = labels.NewLabel("host", "", labels.LabelSourceReserved)
