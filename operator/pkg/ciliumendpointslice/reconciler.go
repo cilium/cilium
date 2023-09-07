@@ -11,7 +11,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/operator/metrics"
-	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -54,9 +53,7 @@ func newReconciler(
 
 func (r *reconciler) reconcileCES(cesName CESName) (err error) {
 	desiredCEPsNumber := r.cesManager.getCEPCountInCES(cesName)
-	if operatorOption.Config.EnableMetrics {
-		metrics.CiliumEndpointSliceDensity.Observe(float64(desiredCEPsNumber))
-	}
+	metrics.CiliumEndpointSliceDensity.Observe(float64(desiredCEPsNumber))
 	// Check the CES exists is in cesStore i.e. in api-server copy of CESs, if exist update or delete the CES.
 	cesObj, exists, err := r.cesStore.GetByKey(cesName.key())
 	if err != nil {
@@ -79,9 +76,7 @@ func (r *reconciler) reconcileCESCreate(cesName CESName) (err error) {
 		logfields.CESName: cesName.string(),
 	}).Debug("Reconciling CES Create.")
 	ceps := r.cesManager.getCEPinCES(cesName)
-	if operatorOption.Config.EnableMetrics {
-		metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPInsert).Observe(float64(len(ceps)))
-	}
+	metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPInsert).Observe(float64(len(ceps)))
 	newCES := &cilium_v2a1.CiliumEndpointSlice{
 		TypeMeta: meta_v1.TypeMeta{
 			Kind:       "CiliumEndpointSlice",
@@ -170,10 +165,8 @@ func (r *reconciler) reconcileCESUpdate(cesName CESName, cesObj *cilium_v2a1.Cil
 		cesEqual = false
 	}
 
-	if operatorOption.Config.EnableMetrics {
-		metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPInsert).Observe(float64(cepInserted + cepUpdated))
-		metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPRemove).Observe(float64(cepRemoved))
-	}
+	metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPInsert).Observe(float64(cepInserted + cepUpdated))
+	metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPRemove).Observe(float64(cepRemoved))
 
 	if !cesEqual {
 		r.logger.WithFields(logrus.Fields{
@@ -199,9 +192,7 @@ func (r *reconciler) reconcileCESDelete(ces *cilium_v2a1.CiliumEndpointSlice) (e
 	r.logger.WithFields(logrus.Fields{
 		logfields.CESName: ces.Name,
 	}).Debug("Reconciling CES Delete.")
-	if operatorOption.Config.EnableMetrics {
-		metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPRemove).Observe(float64(len(ces.Endpoints)))
-	}
+	metrics.CiliumEndpointsChangeCount.WithLabelValues(metrics.LabelValueCEPRemove).Observe(float64(len(ces.Endpoints)))
 	if err = r.client.CiliumEndpointSlices().Delete(
 		r.context, ces.Name, meta_v1.DeleteOptions{}); err != nil && !errors.Is(err, context.Canceled) {
 		r.logger.WithError(err).WithFields(logrus.Fields{
