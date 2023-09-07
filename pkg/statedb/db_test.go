@@ -6,6 +6,7 @@ package statedb
 import (
 	"bytes"
 	"context"
+	"errors"
 	"math/rand"
 	"testing"
 	"time"
@@ -162,41 +163,22 @@ func TestDB_DeleteTracker(t *testing.T) {
 			txn := db.WriteTxn(table)
 			table.Insert(txn, testObject{ID: 42, Tags: []string{"hello", "world"}})
 			table.Insert(txn, testObject{ID: 71, Tags: []string{"foo"}})
+			table.Insert(txn, testObject{ID: 83, Tags: []string{"bar"}})
 			txn.Commit()
 		}
 
-		txn := db.ReadTxn()
-		iter, watch := table.All(txn)
-		obj, _, ok := iter.Next()
-		require.True(t, ok)
-		require.EqualValues(t, 42, obj.ID)
-		obj, _, ok = iter.Next()
-		require.True(t, ok)
-		require.EqualValues(t, 71, obj.ID)
-		_, _, ok = iter.Next()
-		require.False(t, ok)
-
-		iter, _ = table.Get(txn, tagsIndex.Query("hello"))
-		obj, rev, ok := iter.Next()
-		require.True(t, ok)
-		require.EqualValues(t, 42, obj.ID)
-		require.EqualValues(t, 1, rev)
-		_, _, ok = iter.Next()
-		require.False(t, ok)
-
-		iter, _ = table.Get(txn, tagsIndex.Query("world"))
-		obj, rev, ok = iter.Next()
-		require.True(t, ok)
-		require.EqualValues(t, 42, obj.ID)
-		require.EqualValues(t, 1, rev)
-		_, _, ok = iter.Next()
-		require.False(t, ok)
-
+		// Create two delete trackers
 		wtxn := db.WriteTxn(table)
 		deleteTracker, err := table.DeleteTracker(wtxn, "test")
 		require.NoError(t, err, "failed to create DeleteTracker")
 		wtxn.Commit()
 
+		wtxn = db.WriteTxn(table)
+		deleteTracker2, err := table.DeleteTracker(wtxn, "test2")
+		require.NoError(t, err, "failed to create DeleteTracker")
+		wtxn.Commit()
+
+		// Delete 2/3 objects
 		{
 			txn := db.WriteTxn(table)
 			old, deleted, err := table.Delete(txn, testObject{ID: 42})
@@ -208,20 +190,29 @@ func TestDB_DeleteTracker(t *testing.T) {
 			require.EqualValues(t, 71, old.ID)
 			require.NoError(t, err)
 			txn.Commit()
+
+			// Reinsert and redelete to test updating graveyard with existing object.
+			txn = db.WriteTxn(table)
+			table.Insert(txn, testObject{ID: 71, Tags: []string{"foo"}})
+			txn.Commit()
+
+			txn = db.WriteTxn(table)
+			_, deleted, err = table.Delete(txn, testObject{ID: 71})
+			require.True(t, deleted)
+			require.NoError(t, err)
+			txn.Commit()
 		}
 
-		// Wait for the table to change.
-		<-watch
+		// 1 object should exist.
+		txn := db.ReadTxn()
+		iter, _ := table.All(txn)
+		objs := Collect(iter)
+		require.Len(t, objs, 1)
 
-		// No objects should exist.
-		txn = db.ReadTxn()
-		iter, _ = table.All(txn)
-		_, _, ok = iter.Next()
-		require.False(t, ok)
-
+		// Consume the deletions using the first delete tracker.
 		nExist := 0
 		nDeleted := 0
-		rev, _, err = deleteTracker.Process(
+		rev, _, err := deleteTracker.Process(
 			txn,
 			0,
 			func(obj testObject, deleted bool, _ Revision) error {
@@ -234,14 +225,89 @@ func TestDB_DeleteTracker(t *testing.T) {
 			})
 		require.NoError(t, err)
 		require.Equal(t, nDeleted, 2)
-		require.Equal(t, nExist, 0)
+		require.Equal(t, nExist, 1)
 		require.Equal(t, table.Revision(txn), rev-1)
 
+		// Since the second delete tracker has not processed the deletions,
+		// the graveyard index should still hold them.
+		require.False(t, db.graveyardIsEmpty())
+
+		// Consume the deletions using the second delete tracker, but
+		// with a failure first.
+		nExist = 0
+		nDeleted = 0
+		rev, _, err = deleteTracker2.Process(
+			txn,
+			0,
+			func(obj testObject, deleted bool, _ Revision) error {
+				if deleted {
+					nDeleted++
+					return errors.New("fail")
+				}
+				nExist++
+				return nil
+			})
+		require.Error(t, err)
+		require.Equal(t, nExist, 1) // Existing objects are iterated first.
+		require.Equal(t, nDeleted, 1)
+		nExist = 0
+		nDeleted = 0
+
+		// Process again from the failed revision.
+		rev, _, err = deleteTracker2.Process(
+			txn,
+			rev,
+			func(obj testObject, deleted bool, _ Revision) error {
+				if deleted {
+					nDeleted++
+				} else {
+					nExist++
+				}
+				return nil
+			})
+		require.NoError(t, err)
+		require.Equal(t, nDeleted, 2)
+		require.Equal(t, nExist, 0) // This was already processed.
+		require.Equal(t, table.Revision(txn), rev-1)
+
+		// Graveyard will now be GCd.
 		require.Eventually(t,
 			db.graveyardIsEmpty,
 			5*time.Second,
 			100*time.Millisecond,
 			"graveyard not garbage collected")
+
+		// After closing the first delete tracker, deletes are still for second one.
+		deleteTracker.Close()
+		{
+			txn := db.WriteTxn(table)
+			table.Insert(txn, testObject{ID: 77, Tags: []string{"hello"}})
+			txn.Commit()
+			txn = db.WriteTxn(table)
+			table.DeleteAll(txn)
+			txn.Commit()
+		}
+		require.False(t, db.graveyardIsEmpty())
+
+		// And finally after closing the second tracker deletions are no longer tracked.
+		deleteTracker2.Mark(table.Revision(db.ReadTxn()))
+		require.Eventually(t,
+			db.graveyardIsEmpty,
+			5*time.Second,
+			100*time.Millisecond,
+			"graveyard not garbage collected")
+
+		deleteTracker2.Close()
+		{
+			txn := db.WriteTxn(table)
+			table.Insert(txn, testObject{ID: 78, Tags: []string{"world"}})
+			txn.Commit()
+			txn = db.WriteTxn(table)
+			table.DeleteAll(txn)
+			txn.Commit()
+		}
+		require.True(t, db.graveyardIsEmpty())
+
 	})
 }
 
