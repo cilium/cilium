@@ -112,9 +112,9 @@ func (m *l2ResponderMap) IterateWithCallback(cb IterateCallback) error {
 	)
 }
 
-// AuthKey implements the bpf.MapKey interface.
+// L2ResponderKey implements the bpf.MapKey interface.
 //
-// Must be in sync with struct auth_key in <bpf/lib/common.h>
+// Must be in sync with struct l2_responder_v4_key in <bpf/lib/maps.h>
 type L2ResponderKey struct {
 	IP      types.IPv4 `align:"ip"`
 	IfIndex uint32     `align:"ifindex"`
@@ -133,7 +133,7 @@ func newAuthKey(ip netip.Addr, ifIndex uint32) L2ResponderKey {
 
 // L2ResponderStats implements the bpf.MapValue interface.
 //
-// Must be in sync with struct l2_responder_v4_stats in <bpf/lib/common.h>
+// Must be in sync with struct l2_responder_v4_stats in <bpf/lib/maps.h>
 type L2ResponderStats struct {
 	ResponsesSent uint64 `align:"responses_sent"`
 }
