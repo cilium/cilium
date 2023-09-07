@@ -43,6 +43,7 @@ cilium-operator-azure hive [flags]
       --operator-pprof                                       Enable serving pprof debugging API
       --operator-pprof-address string                        Address that pprof listens on (default "localhost")
       --operator-pprof-port uint16                           Port that pprof listens on (default 6061)
+      --operator-prometheus-serve-addr string                Address to serve Prometheus metrics (default ":9963")
       --skip-crd-creation                                    When true, Kubernetes Custom Resource Definitions will not be created
 ```
 
