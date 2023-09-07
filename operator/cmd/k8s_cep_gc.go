@@ -192,13 +192,9 @@ func doCiliumEndpointSyncGC(ctx context.Context, clientset k8sClient.Clientset, 
 }
 
 func successfulEndpointObjectGC() {
-	if operatorOption.Config.EnableMetrics {
-		metrics.EndpointGCObjects.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
-	}
+	metrics.EndpointGCObjects.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 }
 
 func failedEndpointObjectGC() {
-	if operatorOption.Config.EnableMetrics {
-		metrics.EndpointGCObjects.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
-	}
+	metrics.EndpointGCObjects.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 }

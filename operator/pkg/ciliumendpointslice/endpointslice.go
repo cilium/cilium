@@ -14,7 +14,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/operator/metrics"
-	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -243,13 +242,11 @@ func (c *Controller) processNextWorkItem() bool {
 
 	queueDelay := c.getAndResetCESProcessingDelay(key)
 	err := c.reconciler.reconcileCES(key)
-	if operatorOption.Config.EnableMetrics {
-		metrics.CiliumEndpointSliceQueueDelay.Observe(queueDelay)
-		if err != nil {
-			metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
-		} else {
-			metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
-		}
+	metrics.CiliumEndpointSliceQueueDelay.Observe(queueDelay)
+	if err != nil {
+		metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+	} else {
+		metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
 	}
 
 	c.handleErr(err, key)
@@ -264,9 +261,7 @@ func (c *Controller) handleErr(err error, key CESName) {
 	}
 
 	// Increment error count for sync errors
-	if operatorOption.Config.EnableMetrics {
-		metrics.CiliumEndpointSliceSyncErrors.Inc()
-	}
+	metrics.CiliumEndpointSliceSyncErrors.Inc()
 
 	if c.queue.NumRequeues(key) < maxRetries {
 		c.queue.AddRateLimited(key)
