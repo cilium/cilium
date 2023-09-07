@@ -414,6 +414,17 @@ func (ct *ConnectivityTest) Run(ctx context.Context) error {
 		wg.Wait()
 	}
 
+	// Delete conn disrupt pods after running tests. Otherwise, after calling
+	// --flush-ct they might get into crashloop state from which it takes time
+	// to recover, which makes subsequent tests to fail.
+	if ct.Params().IncludeConnDisruptTest && !ct.Params().ConnDisruptTestSetup {
+		for _, client := range ct.Clients() {
+			if err := ct.DeleteConnDisruptTestDeployment(ctx, client); err != nil {
+				return err
+			}
+		}
+	}
+
 	// Report the test results.
 	return ct.report()
 }
