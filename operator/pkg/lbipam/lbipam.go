@@ -73,6 +73,10 @@ func newLBIPAM(params LBIPAMParams) *LBIPAM {
 		lbClasses = append(lbClasses, cilium_api_v2alpha1.BGPLoadBalancerClass)
 	}
 
+	if params.DaemonConfig.EnableL2Announcements {
+		lbClasses = append(lbClasses, cilium_api_v2alpha1.L2AnnounceLoadBalancerClass)
+	}
+
 	jobGroup := params.JobRegistry.NewGroup(
 		job.WithLogger(params.Logger),
 		job.WithPprofLabels(pprof.Labels("cell", "lbipam")),
