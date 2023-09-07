@@ -2452,6 +2452,10 @@
      - Security Context for cilium-agent pods.
      - object
      - ``{}``
+   * - :spelling:ignore:`policyCIDRMatchMode`
+     - policyCIDRMatchMode is a list of entities that may be selected by CIDR selector. The possible value is "nodes".
+     - string
+     - ``nil``
    * - :spelling:ignore:`policyEnforcementMode`
      - The agent can be put into one of the three policy enforcement modes: default, always and never. ref: https://docs.cilium.io/en/stable/security/policy/intro/#policy-enforcement-modes
      - string
