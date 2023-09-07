@@ -285,7 +285,7 @@ jobs:
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
-      - name: Setup K8s cluster (${{ join(matrix.*, ', ') }})
+      - name: Setup K8s cluster
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
@@ -300,7 +300,7 @@ jobs:
 
             kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
 
-      - name: Install Cilium (${{ join(matrix.*, ', ') }})
+      - name: Install Cilium
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
@@ -318,7 +318,7 @@ jobs:
 
             mkdir -p cilium-junits
 
-      - name: Run tests (${{ join(matrix.*, ', ') }})
+      - name: Run tests
         uses: cilium/little-vm-helper@908ab1ff8a596a03cd5221a1f8602dc44c3f906d # v0.0.12
         with:
           provision: 'false'
