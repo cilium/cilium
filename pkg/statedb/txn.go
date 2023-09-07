@@ -268,7 +268,7 @@ func (txn *txn) Delete(meta TableMeta, data any) (any, bool, error) {
 	// Update revision index.
 	indexTree := txn.indexWriteTxn(tableName, RevisionIndex)
 	if _, ok := indexTree.Delete(revisionKey(obj.revision, idKey)); !ok {
-		panic("BUG: Revision entry not found")
+		panic("BUG: Object to be deleted not found from revision index")
 	}
 
 	// Then update secondary indexes.
@@ -285,9 +285,8 @@ func (txn *txn) Delete(meta TableMeta, data any) (any, bool, error) {
 	if txn.hasDeleteTrackers(tableName) {
 		graveyardIndex := txn.indexWriteTxn(tableName, GraveyardIndex)
 		obj.revision = revision
-		if old, existed := graveyardIndex.Insert(idKey, obj); existed {
-			txn.indexWriteTxn(tableName, GraveyardRevisionIndex).Delete(revisionKey(old.revision, idKey))
-			txn.pendingGraveyardDeltas[tableName]--
+		if _, existed := graveyardIndex.Insert(idKey, obj); existed {
+			panic("BUG: Double deletion! Deleted object already existed in graveyard")
 		}
 		txn.indexWriteTxn(tableName, GraveyardRevisionIndex).Insert(revisionKey(revision, idKey), obj)
 		txn.pendingGraveyardDeltas[tableName]++
