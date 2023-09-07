@@ -95,6 +95,11 @@ jobs:
           else
             echo tag=${{ github.sha }} >> $GITHUB_OUTPUT
           fi
+          if [ "${{ github.ref_name }}" == "${{ github.event.repository.default_branch }}" ]; then
+            echo floating_tag=latest >> $GITHUB_OUTPUT
+          else
+            echo floating_tag=${{ github.ref_name }} >> $GITHUB_OUTPUT
+          fi
 
       # Warning: since this is a privileged workflow, subsequent workflow job
       # steps must take care not to execute untrusted code.
@@ -161,7 +166,7 @@ jobs:
           push: ${{ github.event_name == 'push' }}
           platforms: linux/amd64,linux/arm64
           tags: |
-            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:latest
+            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}
           target: release
           build-args: |
@@ -181,7 +186,7 @@ jobs:
           push: ${{ github.event_name == 'push' }}
           platforms: linux/amd64
           tags: |
-            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:latest-race
+            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}-race
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
           build-args: |
@@ -204,7 +209,7 @@ jobs:
           push: ${{ github.event_name == 'push' }}
           platforms: linux/amd64
           tags: |
-            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:latest-unstripped
+            quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}-unstripped
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped
           target: release
           build-args: |
@@ -281,9 +286,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p image-digest/
-          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:latest@${{ steps.docker_build_ci_main.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:latest-race@${{ steps.docker_build_ci_main_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
-          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:latest-unstripped@${{ steps.docker_build_ci_main_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}@${{ steps.docker_build_ci_main.outputs.digest }}" > image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}-race@${{ steps.docker_build_ci_main_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
+          echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.floating_tag }}-unstripped@${{ steps.docker_build_ci_main_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
           echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}@${{ steps.docker_build_ci_main.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
           echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race@${{ steps.docker_build_ci_main_detect_race_condition.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
           echo "quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-unstripped@${{ steps.docker_build_ci_main_unstripped.outputs.digest }}" >> image-digest/${{ matrix.name }}.txt
