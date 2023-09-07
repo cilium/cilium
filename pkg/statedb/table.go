@@ -41,7 +41,7 @@ func NewTable[Obj any](
 
 	// Primary index must always be unique
 	if !primaryIndexer.isUnique() {
-		return nil, fmt.Errorf("primary index %q must be unique", primaryIndexer.indexName())
+		return nil, tableError(tableName, ErrPrimaryIndexNotUnique)
 	}
 
 	// Validate that indexes have unique ids.
@@ -49,13 +49,13 @@ func NewTable[Obj any](
 	indexNames.Insert(primaryIndexer.indexName())
 	for _, indexer := range secondaryIndexers {
 		if indexNames.Has(indexer.indexName()) {
-			return nil, fmt.Errorf("index %q already declared", indexer.indexName())
+			return nil, fmt.Errorf("index %q: %w", indexer.indexName(), ErrDuplicateIndex)
 		}
 		indexNames.Insert(indexer.indexName())
 	}
 	for name := range indexNames {
 		if strings.HasPrefix(name, reservedIndexPrefix) {
-			return nil, fmt.Errorf("index %q uses reserved prefix %q", name, reservedIndexPrefix)
+			return nil, fmt.Errorf("index %q: %w", name, ErrReservedPrefix)
 		}
 	}
 	return table, nil
