@@ -5,7 +5,6 @@ package statedb
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"runtime"
 	"strings"
@@ -104,7 +103,7 @@ func NewDB(tables []TableMeta, metrics Metrics) (*DB, error) {
 	for _, t := range tables {
 		name := t.Name()
 		if _, ok := db.tables[name]; ok {
-			return nil, fmt.Errorf("table %q already exists", name)
+			return nil, tableError(name, ErrDuplicateTable)
 		}
 		db.tables[name] = t
 		var table tableEntry

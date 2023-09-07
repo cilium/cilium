@@ -127,7 +127,7 @@ func (txn *txn) indexWriteTxn(name TableName, index IndexName) *iradix.Txn[objec
 func (txn *txn) newRevision(tableName TableName) (Revision, error) {
 	table, ok := txn.tables[tableName]
 	if !ok {
-		return 0, fmt.Errorf("table %q not locked for writing", tableName)
+		return 0, tableError(tableName, ErrTableNotLockedForWriting)
 	}
 	table.revision++
 	txn.db.metrics.TableRevision.With(prometheus.Labels{
@@ -138,7 +138,7 @@ func (txn *txn) newRevision(tableName TableName) (Revision, error) {
 
 func (txn *txn) Insert(meta TableMeta, data any) (any, bool, error) {
 	if txn.rootReadTxn == nil {
-		return nil, false, fmt.Errorf("transaction is closed")
+		return nil, false, ErrTransactionClosed
 	}
 
 	tableName := meta.Name()
@@ -227,11 +227,11 @@ func (txn *txn) getTable(name TableName) *tableEntry {
 
 func (txn *txn) addDeleteTracker(meta TableMeta, trackerName string, dt deleteTracker) error {
 	if txn.rootReadTxn == nil {
-		return fmt.Errorf("transaction is closed")
+		return ErrTransactionClosed
 	}
 	table, ok := txn.tables[meta.Name()]
 	if !ok {
-		return fmt.Errorf("table %q not locked for writing", meta.Name())
+		return tableError(meta.Name(), ErrTableNotLockedForWriting)
 	}
 	dt.setRevision(table.revision)
 	table.deleteTrackers, _, _ = table.deleteTrackers.Insert([]byte(trackerName), dt)
@@ -244,7 +244,7 @@ func (txn *txn) addDeleteTracker(meta TableMeta, trackerName string, dt deleteTr
 
 func (txn *txn) Delete(meta TableMeta, data any) (any, bool, error) {
 	if txn.rootReadTxn == nil {
-		return nil, false, fmt.Errorf("transaction is closed")
+		return nil, false, ErrTransactionClosed
 	}
 
 	tableName := meta.Name()
@@ -260,7 +260,7 @@ func (txn *txn) Delete(meta TableMeta, data any) (any, bool, error) {
 	idIndexTree := txn.indexWriteTxn(tableName, meta.primaryIndexer().name)
 	obj, existed := idIndexTree.Delete(idKey)
 	if !existed {
-		return nil, false, fmt.Errorf("object not found")
+		return nil, false, nil
 	}
 
 	txn.pendingObjectDeltas[tableName]--

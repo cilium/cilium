@@ -236,18 +236,19 @@ func TestDB_DeleteTracker(t *testing.T) {
 		// with a failure first.
 		nExist = 0
 		nDeleted = 0
+		failErr := errors.New("fail")
 		rev, _, err = deleteTracker2.Process(
 			txn,
 			0,
 			func(obj testObject, deleted bool, _ Revision) error {
 				if deleted {
 					nDeleted++
-					return errors.New("fail")
+					return failErr
 				}
 				nExist++
 				return nil
 			})
-		require.Error(t, err)
+		require.ErrorIs(t, err, failErr)
 		require.Equal(t, nExist, 1) // Existing objects are iterated first.
 		require.Equal(t, nDeleted, 1)
 		nExist = 0
@@ -479,6 +480,40 @@ func TestDB_FirstLast(t *testing.T) {
 		require.NotZero(t, rev, "expected non-zero revision")
 		require.ElementsMatch(t, obj.Tags, []string{"odd"})
 		require.EqualValues(t, 9, obj.ID)
+	})
+}
+
+func TestDB_CommitAbort(t *testing.T) {
+	testWithDB(t, false, func(db *DB, table Table[testObject]) {
+		txn := db.WriteTxn(table)
+		_, _, err := table.Insert(txn, testObject{ID: 123, Tags: nil})
+		require.NoError(t, err)
+		txn.Commit()
+
+		obj, rev, ok := table.First(db.ReadTxn(), idIndex.Query(123))
+		require.True(t, ok, "expected First(1) to return result")
+		require.NotZero(t, rev, "expected non-zero revision")
+		require.EqualValues(t, obj.ID, 123, "expected obj.ID to equal 123")
+		require.Nil(t, obj.Tags, "expected no tags")
+
+		_, _, err = table.Insert(txn, testObject{ID: 123, Tags: []string{"insert-after-commit"}})
+		require.ErrorIs(t, err, ErrTransactionClosed)
+		txn.Commit() // should be no-op
+
+		txn = db.WriteTxn(table)
+		txn.Abort()
+		_, _, err = table.Insert(txn, testObject{ID: 123, Tags: []string{"insert-after-abort"}})
+		require.ErrorIs(t, err, ErrTransactionClosed)
+		txn.Commit() // should be no-op
+
+		// Check that insert after commit and insert after abort do not change the
+		// table.
+		obj, newRev, ok := table.First(db.ReadTxn(), idIndex.Query(123))
+		require.True(t, ok, "expected object to exist")
+		require.Equal(t, rev, newRev, "expected unchanged revision")
+		require.EqualValues(t, obj.ID, 123, "expected obj.ID to equal 123")
+		require.Nil(t, obj.Tags, "expected no tags")
+
 	})
 }
 
