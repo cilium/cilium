@@ -355,6 +355,32 @@ func TestDB_All(t *testing.T) {
 	})
 }
 
+func TestDB_Revision(t *testing.T) {
+	testWithDB(t, false, func(db *DB, table Table[testObject]) {
+		startRevision := table.Revision(db.ReadTxn())
+
+		// On aborted write transactions the revision remains unchanged.
+		txn := db.WriteTxn(table)
+		_, _, err := table.Insert(txn, testObject{ID: 1})
+		require.NoError(t, err)
+		writeRevision := table.Revision(txn) // Returns new, but uncommitted revision
+		txn.Abort()
+		require.Equal(t, writeRevision, startRevision+1, "revision incremented on Insert")
+		readRevision := table.Revision(db.ReadTxn())
+		require.Equal(t, startRevision, readRevision, "aborted transaction does not change revision")
+
+		// Committed write transactions increment the revision
+		txn = db.WriteTxn(table)
+		_, _, err = table.Insert(txn, testObject{ID: 1})
+		require.NoError(t, err)
+		writeRevision = table.Revision(txn)
+		txn.Commit()
+		require.Equal(t, writeRevision, startRevision+1, "revision incremented on Insert")
+		readRevision = table.Revision(db.ReadTxn())
+		require.Equal(t, writeRevision, readRevision, "committed transaction changed revision")
+	})
+}
+
 func TestDB_FirstLast(t *testing.T) {
 	testWithDB(t, true, func(db *DB, table Table[testObject]) {
 		// Write test objects 1..10 to table with odd/even/odd/... tags.
