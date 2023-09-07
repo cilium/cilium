@@ -17,6 +17,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -102,6 +103,10 @@ func (n *NPValidator) ValidateCNP(cnp *unstructured.Unstructured) error {
 		return err
 	}
 
+	if err := checkInitLabelsPolicy(cnp); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -116,6 +121,16 @@ var (
 		"detailed discussion on the topic, see https://github.com/cilium/cilium/issues/12844"
 
 	logOnce sync.Once
+
+	// We can remove the check for this warning once 1.15 is the oldest supported Cilium version.
+	logInitPolicyCNP = "It seems you have a CiliumNetworkPolicy with a " +
+		"match on the 'reserved:init' labels. This label is not " +
+		"supported in CiliumNetworkPolicy any more. If you wish to " +
+		"define a policy for endpoints before they receive a full " +
+		"security identity, change the resource type for the policy " +
+		"to CiliumClusterwideNetworkPolicy."
+	errInitPolicyCNP  = fmt.Errorf("CiliumNetworkPolicy incorrectly matches reserved:init label")
+	logOnceInitPolicy sync.Once
 )
 
 // ValidateCCNP validates the given CCNP accordingly the CCNP validation schema.
@@ -210,4 +225,34 @@ func containsWildcardToFromEndpoint(rule *api.Rule) bool {
 	}
 
 	return false
+}
+
+func checkInitLabelsPolicy(cnp *unstructured.Unstructured) error {
+	cnpBytes, err := cnp.MarshalJSON()
+	if err != nil {
+		return err
+	}
+
+	resCNP := cilium_v2.CiliumNetworkPolicy{}
+	err = json.Unmarshal(cnpBytes, &resCNP)
+	if err != nil {
+		return err
+	}
+
+	for _, spec := range append(resCNP.Specs, resCNP.Spec) {
+		if spec == nil {
+			continue
+		}
+		podInitLbl := labels.LabelSourceReservedKeyPrefix + labels.IDNameInit
+		if spec.EndpointSelector.HasKey(podInitLbl) {
+			logOnceInitPolicy.Do(func() {
+				log.WithFields(logrus.Fields{
+					logfields.CiliumNetworkPolicyName: cnp.GetName(),
+				}).Error(logInitPolicyCNP)
+			})
+			return errInitPolicyCNP
+		}
+	}
+
+	return nil
 }
