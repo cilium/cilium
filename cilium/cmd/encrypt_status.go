@@ -84,6 +84,10 @@ func countUniqueIPsecKeys() int {
 		Fatalf("Cannot get xfrm state: %s", err)
 	}
 	for _, v := range xfrmStates {
+		if v.Aead == nil {
+			fmt.Printf("Warning: non-AEAD xfrm state found: %s\n", v.String())
+			continue
+		}
 		keys[string(v.Aead.Key)] = voidType
 	}
 
