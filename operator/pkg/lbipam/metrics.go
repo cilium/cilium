@@ -4,7 +4,7 @@
 package lbipam
 
 import (
-	"github.com/cilium/cilium/operator/metrics"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 

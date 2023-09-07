@@ -79,6 +79,9 @@ const (
 	// Cilium KVStoreMesh
 	CiliumKVStoreMeshNamespace = "cilium_kvstoremesh"
 
+	// CiliumOperatorNamespace is used to scope metrics from the Cilium Operator
+	CiliumOperatorNamespace = "cilium_operator"
+
 	// LabelError indicates the type of error (string)
 	LabelError = "error"
 

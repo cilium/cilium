@@ -9,7 +9,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
@@ -18,6 +17,7 @@ import (
 	ipamMetrics "github.com/cilium/cilium/pkg/ipam/metrics"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 )
@@ -75,7 +75,7 @@ func (a *AllocatorOperator) Start(ctx context.Context, updater ipam.CiliumNodeGe
 	)
 
 	if operatorOption.Config.EnableMetrics {
-		iMetrics = ipamMetrics.NewTriggerMetrics(operatorMetrics.Namespace, "k8s_sync")
+		iMetrics = ipamMetrics.NewTriggerMetrics(metrics.Namespace, "k8s_sync")
 	} else {
 		iMetrics = &ipamMetrics.NoOpMetricsObserver{}
 	}
