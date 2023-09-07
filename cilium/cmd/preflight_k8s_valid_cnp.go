@@ -18,7 +18,6 @@ import (
 	v2_validation "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/validator"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -101,20 +100,11 @@ func validateNPResources(
 	shortName string,
 ) error {
 	// Check if the crd is installed at all.
-	var err error
-	if k8sversion.Capabilities().APIExtensionsV1CRD {
-		_, err = clientset.ApiextensionsV1().CustomResourceDefinitions().Get(
-			ctx,
-			name+"."+ciliumGroup,
-			metav1.GetOptions{},
-		)
-	} else {
-		_, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(
-			ctx,
-			name+"."+ciliumGroup,
-			metav1.GetOptions{},
-		)
-	}
+	_, err := clientset.ApiextensionsV1().CustomResourceDefinitions().Get(
+		ctx,
+		name+"."+ciliumGroup,
+		metav1.GetOptions{},
+	)
 	switch {
 	case err == nil:
 	case k8sErrors.IsNotFound(err):

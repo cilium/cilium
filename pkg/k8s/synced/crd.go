@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -340,21 +339,10 @@ const (
 // client (v1 or v1beta1) in order to retrieve the CRDs in a
 // backwards-compatible way. This implements the cache.Getter interface.
 func (c *crdGetter) Get() *rest.Request {
-	var req *rest.Request
-
-	if k8sversion.Capabilities().APIExtensionsV1CRD {
-		req = c.api.ApiextensionsV1().
-			RESTClient().
-			Get().
-			Name("customresourcedefinitions")
-	} else {
-		req = c.api.ApiextensionsV1beta1().
-			RESTClient().
-			Get().
-			Name("customresourcedefinitions")
-	}
-
-	return req
+	return c.api.ApiextensionsV1().
+		RESTClient().
+		Get().
+		Name("customresourcedefinitions")
 }
 
 type crdGetter struct {

@@ -44,13 +44,6 @@ type ServerCapabilities struct {
 	// This capability was introduced in K8s version 1.14, prior to which
 	// we don't support HA mode for the cilium-operator.
 	LeasesResourceLock bool
-
-	// APIExtensionsV1CRD is set to true when the K8s server supports
-	// apiextensions/v1 CRDs. TODO: Add link to docs
-	//
-	// This capability was introduced in K8s version 1.16, prior to which
-	// apiextensions/v1beta1 CRDs were used exclusively.
-	APIExtensionsV1CRD bool
 }
 
 type cachedVersion struct {
@@ -73,14 +66,6 @@ var (
 	coordinationV1APIGroup   = "coordination.k8s.io/v1"
 	endpointSliceKind        = "EndpointSlice"
 	leaseKind                = "Lease"
-
-	// Constraint to check support for Lease type from coordination.k8s.io/v1.
-	// Support for Lease resource was introduced in K8s version 1.14.
-	isGEThanLeaseSupportConstraint = versioncheck.MustCompile(">=1.14.0")
-
-	// Constraint to check support for apiextensions/v1 CRD types. Support for
-	// v1 CRDs was introduced in K8s version 1.16.
-	isGEThanAPIExtensionsV1CRD = versioncheck.MustCompile(">=1.16.0")
 
 	// Constraint to check support for discovery/v1 types. Support for v1
 	// discovery was introduced in K8s version 1.21.
@@ -124,7 +109,6 @@ func updateVersion(version semver.Version) {
 	cached.version = version
 
 	cached.capabilities.MinimalVersionMet = isGEThanMinimalVersionConstraint(version)
-	cached.capabilities.APIExtensionsV1CRD = isGEThanAPIExtensionsV1CRD(version)
 	cached.capabilities.EndpointSliceV1 = isGEThanAPIDiscoveryV1(version)
 	cached.capabilities.EndpointSlice = isGEThanAPIDiscoveryV1Beta1(version)
 }
@@ -224,14 +208,6 @@ func leasesFallbackDiscovery(client kubernetes.Interface, apiDiscoveryEnabled bo
 		log.Debugf("Skipping Leases support fallback discovery")
 		return nil
 	}
-
-	cached.mutex.RLock()
-	// Here we check if we are running a K8s version that has support for Leases.
-	if !isGEThanLeaseSupportConstraint(cached.version) {
-		cached.mutex.RUnlock()
-		return nil
-	}
-	cached.mutex.RUnlock()
 
 	// Similar to endpointSlicesFallbackDiscovery here we fallback to probing the Kubernetes
 	// API directly. `kube-controller-manager` creates a lease in the kube-system namespace
