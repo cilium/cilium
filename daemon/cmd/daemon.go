@@ -899,7 +899,9 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// which can be modified after the device detection.
 	var devices []string
 	if d.deviceManager != nil {
-		if _, err := d.deviceManager.Detect(params.Clientset.IsEnabled()); err != nil {
+		if detected, err := d.deviceManager.Detect(params.Clientset.IsEnabled()); err == nil {
+			devices = append(devices, detected...)
+		} else {
 			if option.Config.AreDevicesRequired() {
 				// Fail hard if devices are required to function.
 				return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
