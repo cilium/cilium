@@ -23,7 +23,7 @@ func TestKeySet_FromEmpty(t *testing.T) {
 	ks.Append([]byte("foo"))
 	require.EqualValues(t, "foo", ks.First())
 	ks.Foreach(func(bs []byte) {
-		require.EqualValues(t, "foo", ks.First())
+		require.EqualValues(t, "foo", bs)
 	})
 	require.True(t, ks.Exists([]byte("foo")))
 
