@@ -941,7 +941,7 @@ nodeport_rev_dnat_ingress_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 #endif
 	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 	if (ret < 0) {
-		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
+		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			goto out;
 		return ret;
 	}
@@ -1285,7 +1285,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
-		if (ret == DROP_NO_SERVICE) {
+		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
 			is_svc_proto = false;
 			goto skip_service_lookup;
 		}
@@ -1470,7 +1470,7 @@ nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, struct trace_ctx *trace,
 
 	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 	if (ret < 0) {
-		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
+		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			return CTX_ACT_OK;
 		return ret;
 	}
@@ -2401,7 +2401,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
 	if (ret < 0) {
 		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
-		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
+		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			check_revdnat = false;
 		else
 			return ret;
@@ -2758,7 +2758,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	ret = lb4_extract_tuple(ctx, ip4, l3_off, &l4_off, &tuple);
 	if (IS_ERR(ret)) {
-		if (ret == DROP_NO_SERVICE) {
+		if (ret == DROP_UNSUPP_SERVICE_PROTO) {
 			is_svc_proto = false;
 			goto skip_service_lookup;
 		}
@@ -2977,7 +2977,7 @@ nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
 	if (ret < 0) {
 		/* If it's not a SVC protocol, we don't need to check for RevDNAT: */
-		if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
+		if (ret == DROP_UNSUPP_SERVICE_PROTO || ret == DROP_UNKNOWN_L4)
 			return CTX_ACT_OK;
 		return ret;
 	}
