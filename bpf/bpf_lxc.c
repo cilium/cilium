@@ -2149,7 +2149,12 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 			  &proxy_port, false);
 	switch (ret) {
 	case POLICY_ACT_PROXY_REDIRECT:
-		ret = ctx_redirect_to_proxy_hairpin_ipv4(ctx, proxy_port);
+		if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+			ret = DROP_INVALID;
+			goto out;
+		}
+
+		ret = ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4, proxy_port);
 		proxy_redirect = true;
 		break;
 	case CTX_ACT_OK:
