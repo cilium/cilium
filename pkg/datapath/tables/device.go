@@ -45,7 +45,7 @@ var (
 		},
 	}
 
-	DeviceTableCell = statedb.NewTableCell[*Device](
+	DeviceTableCell = statedb.NewProtectedTableCell[*Device](
 		"devices",
 		DeviceIDIndex,
 		DeviceNameIndex,

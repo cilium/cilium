@@ -12,6 +12,4 @@ var Cell = cell.Module(
 	"Datapath state tables",
 
 	L2AnnounceTableCell,
-	DeviceTableCell,
-	RouteTableCell,
 )

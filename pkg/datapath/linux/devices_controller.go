@@ -40,10 +40,22 @@ var DevicesControllerCell = cell.Module(
 	"devices-controller",
 	"Synchronizes the device and route tables with the kernel",
 
+	// This controller owns the device and route tables. This gives
+	// Table[*Device] to the world and RWTable[*Device] for us.
+	// But these cells are still usable directly in tests to provide
+	// the modules under test device and route test data.
+	tables.DeviceTableCell,
+	tables.RouteTableCell,
+
 	cell.Provide(
 		newDevicesController,
 		newDeviceManager,
 	),
+
+	// Always construct the devices controller. We provide the
+	// *devicesController for DeviceManager, but once it has been removed,
+	// this can be refactored to just do an invoke to register the
+	// controller jobs.
 	cell.Invoke(func(*devicesController) {}),
 )
 
