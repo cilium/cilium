@@ -24,7 +24,7 @@ import (
 
 type fixture struct {
 	reconciler         *l2ResponderReconciler
-	proxyNeighborTable statedb.Table[*tables.L2AnnounceEntry]
+	proxyNeighborTable statedb.RWTable[*tables.L2AnnounceEntry]
 	stateDB            *statedb.DB
 	mockNetlink        *mockNeighborNetlink
 	respondermap       l2respondermap.Map
@@ -32,7 +32,7 @@ type fixture struct {
 
 func newFixture() *fixture {
 	var (
-		tbl statedb.Table[*tables.L2AnnounceEntry]
+		tbl statedb.RWTable[*tables.L2AnnounceEntry]
 		db  *statedb.DB
 		jr  job.Registry
 	)
@@ -41,7 +41,7 @@ func newFixture() *fixture {
 		statedb.Cell,
 		tables.Cell,
 		job.Cell,
-		cell.Invoke(func(d *statedb.DB, t statedb.Table[*tables.L2AnnounceEntry], j job.Registry) {
+		cell.Invoke(func(d *statedb.DB, t statedb.RWTable[*tables.L2AnnounceEntry], j job.Registry) {
 			db = d
 			tbl = t
 			jr = j

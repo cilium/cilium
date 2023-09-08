@@ -62,10 +62,10 @@ const (
 	NO_INDEX_TAGS = false
 )
 
-func newTestDB(t testing.TB, secondaryIndexers ...Indexer[testObject]) (*DB, Table[testObject], Metrics) {
+func newTestDB(t testing.TB, secondaryIndexers ...Indexer[testObject]) (*DB, RWTable[testObject], Metrics) {
 	var (
 		db      *DB
-		table   Table[testObject]
+		table   RWTable[testObject]
 		metrics Metrics
 	)
 	logging.SetLogLevel(logrus.ErrorLevel)
@@ -78,7 +78,7 @@ func newTestDB(t testing.TB, secondaryIndexers ...Indexer[testObject]) (*DB, Tab
 			secondaryIndexers...,
 		),
 
-		cell.Invoke(func(db_ *DB, table_ Table[testObject], metrics_ Metrics) {
+		cell.Invoke(func(db_ *DB, table_ RWTable[testObject], metrics_ Metrics) {
 			// Use a short GC interval.
 			db_.setGCRateLimitInterval(50 * time.Millisecond)
 
@@ -158,6 +158,53 @@ func TestDB_LowerBound_ByRevision(t *testing.T) {
 	_, _, ok = iter.Next()
 	require.False(t, ok)
 
+}
+
+func TestDB_ProtectedCell(t *testing.T) {
+	type Writer struct {
+		t RWTable[testObject]
+	}
+
+	testMod := cell.Module(
+		"test-module",
+		"test",
+
+		NewProtectedTableCell[testObject](
+			"test",
+			idIndex,
+		),
+
+		cell.Provide(func(db *DB, rwtable RWTable[testObject], table Table[testObject]) *Writer {
+			// test-module has access to RWTable and Table and can wrap RWTable into a safe
+			// writer.
+			return &Writer{rwtable}
+		}),
+	)
+
+	// Outside the module we can access Table[testObject]
+	h := hive.New(
+		Cell, // DB
+		testMod,
+		cell.Invoke(func(db *DB, table Table[testObject], w *Writer) {
+		}),
+	)
+	require.NoError(t, h.Start(context.TODO()))
+	assert.NoError(t, h.Stop(context.TODO()))
+
+	// Outside the module we cannot access RWTable[testObject]
+	// Setting log level to fatal as this will log an error which would be confusing.
+	logging.SetLogLevel(logrus.FatalLevel)
+	t.Cleanup(func() {
+		logging.SetLogLevel(logrus.InfoLevel)
+	})
+	h = hive.New(
+		Cell, // DB
+		testMod,
+		cell.Invoke(func(db *DB, rwtable RWTable[testObject]) {
+			// outside of test-module we cannot access RWTable
+		}),
+	)
+	require.ErrorContains(t, h.Start(context.TODO()), "missing dependencies")
 }
 
 func TestDB_DeleteTracker(t *testing.T) {

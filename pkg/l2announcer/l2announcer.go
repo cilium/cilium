@@ -72,7 +72,7 @@ type l2AnnouncerParams struct {
 	Services             resource.Resource[*slim_corev1.Service]
 	L2AnnouncementPolicy resource.Resource[*cilium_api_v2alpha1.CiliumL2AnnouncementPolicy]
 	LocalNodeResource    daemon_k8s.LocalCiliumNodeResource
-	L2AnnounceTable      statedb.Table[*tables.L2AnnounceEntry]
+	L2AnnounceTable      statedb.RWTable[*tables.L2AnnounceEntry]
 	StateDB              *statedb.DB
 	JobRegistry          job.Registry
 }

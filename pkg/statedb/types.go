@@ -18,9 +18,10 @@ type (
 	Revision  = uint64
 )
 
+// Table provides methods for querying the contents of a table.
 type Table[Obj any] interface {
 	// TableMeta for querying table metadata that is independent of
-	// 'Obj' type. Provides the database access to table's indexers.
+	// 'Obj' type.
 	TableMeta
 
 	// Revision of the table. Constant for a read transaction, but
@@ -56,6 +57,21 @@ type Table[Obj any] interface {
 	// are not possible with a lower bound search.
 	LowerBound(ReadTxn, Query[Obj]) (iter Iterator[Obj], watch <-chan struct{})
 
+	// DeleteTracker creates a new delete tracker for the table.
+	//
+	// It starts tracking deletions performed against the table from the
+	// current revision. A WriteTxn against the target table is required to
+	// add the tracker to the table.
+	DeleteTracker(txn WriteTxn, trackerName string) (*DeleteTracker[Obj], error)
+}
+
+// RWTable provides methods for modifying the table under a write transaction
+// that targets this table.
+type RWTable[Obj any] interface {
+	// RWTable[Obj] is a superset of Table[Obj]. Queries made with a
+	// write transaction return the fresh uncommitted modifications if any.
+	Table[Obj]
+
 	// Insert an object into the table. Returns the object that was
 	// replaced if there was one. Error may be returned if the table
 	// is not locked for writing or if the write transaction has already
@@ -77,13 +93,8 @@ type Table[Obj any] interface {
 	// iteration of updates and deletions (see (*DeleteTracker[Obj]).Process).
 	Delete(WriteTxn, Obj) (oldObj Obj, hadOld bool, err error)
 
-	// DeleteAll deletes all objects from the table. Semantically the
-	// same as All() + Delete().
+	// DeleteAll removes all objects in the table.
 	DeleteAll(WriteTxn) error
-
-	// DeleteTracker creates a new delete tracker for the table
-	// starting from the given revision.
-	DeleteTracker(txn WriteTxn, trackerName string) (*DeleteTracker[Obj], error)
 }
 
 // TableMeta provides information about the table that is independent of
