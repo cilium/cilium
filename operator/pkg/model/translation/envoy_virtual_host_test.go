@@ -170,6 +170,19 @@ func Test_pathPrefixMutation(t *testing.T) {
 		res := pathPrefixMutation(rewrite)(route)
 		require.Equal(t, res.Route.PrefixRewrite, "/prefix")
 	})
+	t.Run("with empty prefix rewrite", func(t *testing.T) {
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		rewrite := &model.HTTPURLRewriteFilter{
+			Path: &model.StringMatch{
+				Prefix: "",
+			},
+		}
+
+		res := pathPrefixMutation(rewrite)(route)
+		require.Equal(t, res.Route.PrefixRewrite, "/")
+	})
 }
 
 func Test_requestMirrorMutation(t *testing.T) {
