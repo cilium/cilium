@@ -591,6 +591,9 @@ data:
     {{- if .Values.encryption.wireguard.userspaceFallback }}
   enable-wireguard-userspace-fallback: {{ .Values.encryption.wireguard.userspaceFallback | quote }}
     {{- end }}
+    {{- if .Values.encryption.wireguard.persistentKeepalive }}
+  wireguard-persistent-keepalive: {{ .Values.encryption.wireguard.persistentKeepalive | quote }}
+    {{- end }}
   {{- end }}
   {{- if .Values.encryption.nodeEncryption }}
   encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}

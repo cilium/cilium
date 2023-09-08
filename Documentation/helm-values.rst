@@ -960,6 +960,10 @@
      - Encryption method. Can be either ipsec or wireguard.
      - string
      - ``"ipsec"``
+   * - :spelling:ignore:`encryption.wireguard.persistentKeepalive`
+     - Controls Wireguard PersistentKeepalive option. Set 0s to disable.
+     - string
+     - ``"0s"``
    * - :spelling:ignore:`encryption.wireguard.userspaceFallback`
      - Enables the fallback to the user-space implementation.
      - bool
