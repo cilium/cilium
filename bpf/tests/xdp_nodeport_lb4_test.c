@@ -8,6 +8,7 @@
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 #define ENABLE_NODEPORT_ACCELERATION
+#define SERVICE_NO_BACKEND_RESPONSE 0
 
 #define fib_lookup mock_fib_lookup
 

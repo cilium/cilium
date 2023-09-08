@@ -18,6 +18,7 @@
 
 /* Enable code paths under test*/
 #define ENABLE_IPV4
+#define SERVICE_NO_BACKEND_RESPONSE 0
 
 /* Skip ingress policy checks, not needed to validate hairpin flow */
 #define USE_BPF_PROG_FOR_INGRESS_POLICY
