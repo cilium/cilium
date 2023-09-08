@@ -613,7 +613,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			testConnDisruptServerDeployment := newDeployment(deploymentParameters{
 				Name:           testConnDisruptServerDeploymentName,
 				Kind:           KindTestConnDisrupt,
-				Image:          "quay.io/cilium/test-connection-disruption:v0.0.4",
+				Image:          "quay.io/cilium/test-connection-disruption:v0.0.5",
 				Replicas:       3,
 				Labels:         map[string]string{"app": "test-conn-disrupt-server"},
 				Command:        []string{"tcd-server", "8000"},
@@ -665,12 +665,13 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			testConnDisruptClientDeployment := newDeployment(deploymentParameters{
 				Name:     testConnDisruptClientDeploymentName,
 				Kind:     KindTestConnDisrupt,
-				Image:    "quay.io/cilium/test-connection-disruption:v0.0.4",
+				Image:    "quay.io/cilium/test-connection-disruption:v0.0.5",
 				Replicas: 5,
 				Labels:   map[string]string{"app": "test-conn-disrupt-client"},
 				Port:     8000,
 				Command: []string{
 					"tcd-client",
+					"--dispatch-interval", "10", // 10ms
 					fmt.Sprintf("test-conn-disrupt.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
 				},
 				ReadinessProbe: readinessProbe,
