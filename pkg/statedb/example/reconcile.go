@@ -29,7 +29,7 @@ var reconcilerCell = cell.Module(
 type reconcilerParams struct {
 	cell.In
 
-	Backends  statedb.Table[Backend]
+	Backends  statedb.RWTable[Backend]
 	DB        *statedb.DB
 	Lifecycle hive.Lifecycle
 	Log       logrus.FieldLogger

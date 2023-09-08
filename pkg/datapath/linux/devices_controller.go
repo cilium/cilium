@@ -77,8 +77,8 @@ type devicesControllerParams struct {
 	Config      DevicesConfig
 	Log         logrus.FieldLogger
 	DB          *statedb.DB
-	DeviceTable statedb.Table[*tables.Device]
-	RouteTable  statedb.Table[*tables.Route]
+	DeviceTable statedb.RWTable[*tables.Device]
+	RouteTable  statedb.RWTable[*tables.Route]
 
 	// netlinkFuncs is optional and used by tests to verify error handling behavior.
 	NetlinkFuncs *netlinkFuncs `optional:"true"`

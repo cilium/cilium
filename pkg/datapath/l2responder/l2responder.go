@@ -41,7 +41,7 @@ type params struct {
 
 	Lifecycle           hive.Lifecycle
 	Logger              logrus.FieldLogger
-	L2AnnouncementTable statedb.Table[*tables.L2AnnounceEntry]
+	L2AnnouncementTable statedb.RWTable[*tables.L2AnnounceEntry]
 	StateDB             *statedb.DB
 	L2ResponderMap      l2respondermap.Map
 	NetLink             linkByNamer
