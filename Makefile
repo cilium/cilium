@@ -568,7 +568,7 @@ kind-install-cilium-fast: kind-ready ## Install a local Cilium version into the 
 	@echo "  INSTALL cilium"
 	# cilium-cli doesn't support idempotent installs, so we uninstall and
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
-	-$(CILIUM_CLI) uninstall >/dev/null
+	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
 	# cilium-cli's --wait flag doesn't work, so we just force it to run
 	# in the background instead and wait for the resources to be available.
 	# https://github.com/cilium/cilium-cli/issues/1070
@@ -623,7 +623,7 @@ kind-install-cilium: kind-ready ## Install a local Cilium version into the clust
 	@echo "  INSTALL cilium"
 	# cilium-cli doesn't support idempotent installs, so we uninstall and
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
-	-$(CILIUM_CLI) uninstall >/dev/null
+	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
 	# cilium-cli's --wait flag doesn't work, so we just force it to run
 	# in the background instead and wait for the resources to be available.
 	# https://github.com/cilium/cilium-cli/issues/1070
