@@ -592,6 +592,8 @@ func parseIPRule(sourceIP, destCIDR, egressIP string, ifaceIndex int) parsedIPRu
 }
 
 func assertIPRules(c *C, rules []ipRule) {
+	c.Helper()
+
 	err := tryAssertIPRules(rules)
 	c.Assert(err, IsNil)
 }
@@ -696,6 +698,8 @@ func parseEgressRule(sourceIP, destCIDR, egressIP, gatewayIP string) parsedEgres
 }
 
 func assertEgressRules(c *C, policyMap egressmap.PolicyMap, rules []egressRule) {
+	c.Helper()
+
 	err := tryAssertEgressRules(policyMap, rules)
 	c.Assert(err, IsNil)
 }
