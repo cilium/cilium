@@ -445,7 +445,6 @@ func TestDevicesController_Restarts(t *testing.T) {
 
 	h := hive.New(
 		statedb.Cell,
-		tables.Cell,
 		DevicesControllerCell,
 		cell.Provide(func() DevicesConfig { return DevicesConfig{} }),
 		cell.Provide(func() *netlinkFuncs { return &funcs }),
