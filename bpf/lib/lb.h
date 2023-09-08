@@ -550,7 +550,7 @@ lb6_extract_tuple(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
 			return DROP_CT_INVALID_HDR;
 		return 0;
 	case IPPROTO_ICMPV6:
-		return DROP_NO_SERVICE;
+		return DROP_UNSUPP_SERVICE_PROTO;
 	default:
 		return DROP_UNKNOWN_L4;
 	}
@@ -886,7 +886,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 			backend = lb6_lookup_backend(ctx, backend_id);
 			if (backend == NULL)
-				goto drop_no_service;
+				goto no_service;
 		}
 
 		state->backend_id = backend_id;
@@ -917,7 +917,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			if (!backend_id) {
 				backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 				if (!backend_id)
-					goto drop_no_service;
+					goto no_service;
 			}
 
 			state->rev_nat_index = svc->rev_nat_index;
@@ -940,11 +940,11 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 			svc = lb6_lookup_service(key, false, true);
 			if (!svc)
-				goto drop_no_service;
+				goto no_service;
 			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
 			backend = lb6_lookup_backend(ctx, backend_id);
 			if (!backend)
-				goto drop_no_service;
+				goto no_service;
 
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
@@ -975,7 +975,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 	return lb6_xlate(ctx, tuple->nexthdr, l3_off, l4_off,
 			 key, backend, skip_l3_xlate);
-drop_no_service:
+no_service:
 	ret = DROP_NO_SERVICE;
 drop_err:
 	tuple->flags = flags;
@@ -1200,7 +1200,7 @@ lb4_extract_tuple(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off, int *l4
 			return ret;
 		return 0;
 	case IPPROTO_ICMP:
-		return DROP_NO_SERVICE;
+		return DROP_UNSUPP_SERVICE_PROTO;
 	default:
 		return DROP_UNKNOWN_L4;
 	}
@@ -1565,7 +1565,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
 			backend = lb4_lookup_backend(ctx, backend_id);
 			if (backend == NULL)
-				goto drop_no_service;
+				goto no_service;
 		}
 
 		state->backend_id = backend_id;
@@ -1607,7 +1607,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			if (!backend_id) {
 				backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
 				if (!backend_id)
-					goto drop_no_service;
+					goto no_service;
 			}
 
 			state->rev_nat_index = svc->rev_nat_index;
@@ -1630,11 +1630,11 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 
 			svc = lb4_lookup_service(key, false, true);
 			if (!svc)
-				goto drop_no_service;
+				goto no_service;
 			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
 			backend = lb4_lookup_backend(ctx, backend_id);
 			if (!backend)
-				goto drop_no_service;
+				goto no_service;
 
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update_svc_entry(map, tuple, backend_id, svc->rev_nat_index);
@@ -1685,7 +1685,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	return lb4_xlate(ctx, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, key,
 			 backend, has_l4_header, skip_l3_xlate);
-drop_no_service:
+no_service:
 	ret = DROP_NO_SERVICE;
 drop_err:
 	tuple->flags = flags;
