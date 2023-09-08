@@ -165,9 +165,7 @@ tracked through the following links:
 
 Make sure that the Github labels are up-to-date, as this process will deal with
 all commits from PRs that have the ``needs-backport/X.Y`` label set (for a
-stable release version X.Y). If any PRs contain labels such as
-``backport-pending/X.Y``, ensure that the backport for that PR have been merged
-and if so, change the label to ``backport-done/X.Y``.
+stable release version X.Y).
 
 Creating the Backports Branch
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -309,9 +307,9 @@ Via GitHub Web Interface
 
           .. code-block:: RST
 
-                Once this PR is merged, you can update the PR labels via:
+                Once this PR is merged, a GitHub action will update the labels of these PRs:
                 ```upstream-prs
-                $ for pr in AAA BBB ; do contrib/backporting/set-labels.py $pr done VVV; done
+                AAA BBB
                 ```
 
        The ``upstream-prs`` tag `is required
@@ -341,15 +339,11 @@ The comment must not contain any other characters.
 After the Backports are Merged
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-After the backport PR is merged, if the person who merged the PR didn't take
-care of it already, mark all backported PRs with ``backport-done/X.Y`` label
-and clear the ``backport-pending/X.Y`` label(s). If the backport pull request
-description was generated using the scripts above, then the full command is
-listed in the pull request description.
-
-.. code-block:: shell-session
-
-   $ GITHUB_TOKEN=xxx for pr in 12589 12568; do contrib/backporting/set-labels.py $pr done 1.8; done
+After the backport PR is merged, the GH workflow "Call Backport Label Updater"
+should take care of marking all backported PRs with the ``backport-done/X.Y``
+label and clear the ``backport-pending/X.Y`` label(s).
+Verify that the workflow succeeded by looking `here
+<https://github.com/cilium/cilium/actions/workflows/call-backport-label-updater.yaml>`_.
 
 Backporting Guide for Others
 ----------------------------
@@ -369,13 +363,3 @@ be notified and asked to approve the backport commits. Confirm that:
 
 #. All the commits from the original PR have been indeed backported.
 #. In case of conflicts, the resulting changes look good.
-
-Merger
-~~~~~~
-
-When merging a backport PR, set the labels of the backported PRs to
-``done``. Typically, backport PRs include a line on how do that. E.g.,:
-
-.. code-block:: shell-session
-
-    $ GITHUB_TOKEN=xxx for pr in 12894 12621 12973 12977 12952; do contrib/backporting/set-labels.py $pr done 1.8; done

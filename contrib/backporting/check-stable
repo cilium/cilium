@@ -206,12 +206,11 @@ if [[ ${#stable_prs[@]} > 0 ]]; then
     generate_commit_list_for_pr $pr $merged_at
     echo ""
   done
-  echo "When you have backported the above commits, you can update the PR labels via this command:"
-  echo "$ for pr in ${stable_prs[@]}; do contrib/backporting/set-labels.py \$pr pending ${STABLE_BRANCH}; done"
+  echo "When you have backported the above commits, a GitHub action will automatically update the PR labels"
   if [[ ! -z $SUMMARY_LOG ]]; then
-    echo -e "\nOnce this PR is merged, you can update the PR labels via:" >> $SUMMARY_LOG
+    echo -e "\nOnce this PR is merged, a GitHub action will update the labels of these PRs:" >> $SUMMARY_LOG
     echo "\`\`\`upstream-prs" >> $SUMMARY_LOG
-    echo "$ for pr in ${stable_prs[@]}; do contrib/backporting/set-labels.py \$pr done ${STABLE_BRANCH}; done" >> $SUMMARY_LOG
+    echo "${stable_prs[@]}" >> $SUMMARY_LOG
     echo "\`\`\`" >> $SUMMARY_LOG
   fi
 fi

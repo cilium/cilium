@@ -118,13 +118,6 @@ Review process
    passed, and all reviewers have approved the requested changes, you can merge
    the PR by clicking on the "Rebase and merge" button.
 
-#. If the PR is a backport PR, update the labels of cherry-picked PRs with the
-   command included at the end of the original post. For example:
-
-   .. code-block:: shell-session
-
-       $ for pr in 26759 24099; do contrib/backporting/set-labels.py $pr done 1.13; done
-
 Reviewer Teams
 --------------
 
