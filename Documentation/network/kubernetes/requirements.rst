@@ -38,10 +38,10 @@ Enable CNI in Kubernetes
 ========================
 
 :term:`CNI` - Container Network Interface is the plugin layer used by Kubernetes to
-delegate networking configuration. CNI must be enabled in your Kubernetes
-cluster in order to install Cilium. This is done by passing
-``--network-plugin=cni`` to kubelet on all nodes. For more information, see
-the `Kubernetes CNI network-plugins documentation <https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/>`_.
+delegate networking configuration and is enabled by default in Kubernetes 1.24 and
+later. Previously, CNI plugins were managed by the kubelet using the ``--network-plugin=cni``
+command-line parameter. For more information, see the
+`Kubernetes CNI network-plugins documentation <https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/>`_.
 
 Enable automatic node CIDR allocation (Recommended)
 ===================================================

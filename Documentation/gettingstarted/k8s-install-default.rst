@@ -137,20 +137,13 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
        .. code-block:: shell-session
 
-          minikube start --network-plugin=cni --cni=false
+          minikube start --cni=cilium
 
        .. note::
 
-          From minikube v1.12.1+, cilium networking plugin can be enabled directly with
-          ``--cni=cilium`` parameter in ``minikube start`` command. However, this may not
-          install the latest version of cilium.
-
-          MacOS M1 users using a Minikube version < v1.28.0 with ``--cni=false`` will also need to run
-          ``minikube ssh -- sudo mount bpffs -t bpf /sys/fs/bpf`` in order to mount the BPF filesystem
-          ``bpffs`` to ``/sys/fs/bpf``.
-
-          It might be necessary to add ``--host-dns-resolver=false`` if using the Virtualbox provider,
-          otherwise DNS resolution may not work after Cilium installation.
+          - This may not install the latest version of cilium.
+          - It might be necessary to add ``--host-dns-resolver=false`` if using the Virtualbox provider,
+            otherwise DNS resolution may not work after Cilium installation.
 
     .. group-tab:: Rancher Desktop
 
