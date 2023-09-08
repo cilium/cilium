@@ -17,7 +17,7 @@ func NewTable[Obj any](
 	tableName TableName,
 	primaryIndexer Indexer[Obj],
 	secondaryIndexers ...Indexer[Obj],
-) (Table[Obj], error) {
+) (RWTable[Obj], error) {
 	toAnyIndexer := func(idx Indexer[Obj]) anyIndexer {
 		return anyIndexer{
 			name: idx.indexName(),
@@ -212,3 +212,4 @@ func (t *genTable[Obj]) sortableMutex() lock.SortableMutex {
 }
 
 var _ Table[bool] = &genTable[bool]{}
+var _ RWTable[bool] = &genTable[bool]{}
