@@ -260,8 +260,8 @@ disable the following two metrics as they generate too much data:
 
 You can then configure the agent with ``--metrics="-cilium_node_connectivity_status -cilium_node_connectivity_latency_seconds"``.
 
-Exported Metrics by Default
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Exported Metrics
+^^^^^^^^^^^^^^^^
 
 Endpoint
 ~~~~~~~~
