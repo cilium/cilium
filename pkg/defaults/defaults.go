@@ -527,6 +527,9 @@ const (
 	// TunnelProtocol is the default tunneling protocol
 	TunnelProtocol = "vxlan"
 
+	// ServiceNoBackendResponse is the default response for services without backends
+	ServiceNoBackendResponse = "reject"
+
 	// Use the CiliumInternalIPs (vs. NodeInternalIPs) for IPsec encapsulation.
 	UseCiliumInternalIPForIPsec = false
 

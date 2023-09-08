@@ -759,6 +759,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.String(option.RoutingMode, defaults.RoutingMode, fmt.Sprintf("Routing mode (%q or %q)", option.RoutingModeNative, option.RoutingModeTunnel))
 	option.BindEnv(vp, option.RoutingMode)
 
+	flags.String(option.ServiceNoBackendResponse, defaults.ServiceNoBackendResponse, "Response to traffic for a service without backends")
+	option.BindEnv(vp, option.ServiceNoBackendResponse)
+
 	flags.Int(option.TracePayloadlen, 128, "Length of payload to capture when tracing")
 	option.BindEnv(vp, option.TracePayloadlen)
 
