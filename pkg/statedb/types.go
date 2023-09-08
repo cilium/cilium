@@ -77,6 +77,8 @@ type Table[Obj any] interface {
 	// iteration of updates and deletions (see (*DeleteTracker[Obj]).Process).
 	Delete(WriteTxn, Obj) (oldObj Obj, hadOld bool, err error)
 
+	// DeleteAll deletes all objects from the table. Semantically the
+	// same as All() + Delete().
 	DeleteAll(WriteTxn) error
 
 	// DeleteTracker creates a new delete tracker for the table
@@ -96,7 +98,7 @@ type TableMeta interface {
 
 // Iterator for iterating objects returned from queries.
 type Iterator[Obj any] interface {
-	// Next returns the next object its revision if ok is true, otherwise
+	// Next returns the next object and its revision if ok is true, otherwise
 	// zero values to mean that the iteration has finished.
 	Next() (obj Obj, rev Revision, ok bool)
 }
@@ -109,8 +111,22 @@ type ReadTxn interface {
 }
 
 type WriteTxn interface {
+	// WriteTxn is always also a ReadTxn
 	ReadTxn
+
+	// Abort the current transaction. All changes are disgarded.
+	// It is safe to call Abort() after calling Commit(), e.g.
+	// the following pattern is strongly encouraged to make sure
+	// write transactions are always completed:
+	//
+	//  txn := db.WriteTxn(...)
+	//  defer txn.Abort()
+	//  ...
+	//  txn.Commit()
 	Abort()
+
+	// Commit the changes in the current transaction to the target tables.
+	// This is a no-op if Abort() or Commit() has already been called.
 	Commit()
 }
 
@@ -138,6 +154,9 @@ type Index[Obj any, Key any] struct {
 }
 
 var _ Indexer[struct{}] = &Index[struct{}, bool]{}
+
+// The nolint:unused below are needed due to linter not seeing
+// the use-sites due to generics.
 
 //nolint:unused
 func (i Index[Key, Obj]) indexName() string {
