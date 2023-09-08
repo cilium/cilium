@@ -297,9 +297,25 @@ func (txn *txn) Delete(meta TableMeta, data any) (any, bool, error) {
 }
 
 func (txn *txn) Abort() {
+	// If writeTxns is nil, this transaction has already been committed or aborted, and
+	// thus there is nothing to do. We allow this without failure to allow for defer
+	// pattern:
+	//
+	//  txn := db.WriteTxn(...)
+	//  defer txn.Abort()
+	//
+	//  ...
+	//  if err != nil {
+	//    // Transaction now aborted.
+	//    return err
+	//  }
+	//
+	//  txn.Commit()
+	//
 	if txn.writeTxns == nil {
 		return
 	}
+
 	txn.smus.Unlock()
 	txn.db.metrics.WriteTxnDuration.With(prometheus.Labels{
 		"tables":  txn.tableNames,
@@ -309,17 +325,37 @@ func (txn *txn) Abort() {
 }
 
 func (txn *txn) Commit() {
+	// We operate here under the following properties:
+	//
+	// - Each table that we're modifying has its SortableMutex locked and held by
+	//   the caller (via WriteTxn()). Concurrent updates to other tables are
+	//   allowed (but not to the root pointer), and thus there may be multiple parallel
+	//   Commit()'s in progress, but each of those will only process work for tables
+	//   they have locked, until root is to be updated.
+	//
+	// - Modifications to the root pointer (db.root) are made with the db.mu acquired,
+	//   and thus changes to it are always performed sequentially. The root pointer is
+	//   updated atomically, and thus readers see either an old root or a new root.
+	//   Both the old root and new root are immutable after they're made available via
+	//   the root pointer.
+	//
+	// - As the root is atomically swapped to a new immutable tree of tables of indexes,
+	//   a reader can acquire an immutable snapshot of all data in the database with a
+	//   simpler atomic pointer load.
+
+	// If writeTxns is nil, this transaction has already been committed or aborted, and
+	// thus there is nothing to do.
 	if txn.writeTxns == nil {
 		return
 	}
 
 	// Commit each individual changed index to each table.
 	// We don't notify yet (CommitOnly) as the root needs to be updated
-	// first.
+	// first as otherwise readers would wake up too early.
 	for tableIndex, subTxn := range txn.writeTxns {
 		table, ok := txn.modifiedTables[tableIndex.table]
 		if !ok {
-			panic("BUG: Table " + tableIndex.table + " not cached")
+			panic("BUG: Table " + tableIndex.table + " in writeTxns, but not in modifiedTables")
 		}
 		table.indexes, _, _ =
 			table.indexes.Insert([]byte(tableIndex.index), subTxn.CommitOnly())
@@ -327,32 +363,44 @@ func (txn *txn) Commit() {
 
 	db := txn.db
 
-	// Acquire the lock on the root tree to sequence the updates to it.
+	// Acquire the lock on the root tree to sequence the updates to it. We can acquire
+	// it after we've built up the new table entries above, since changes to those were
+	// protected by each table lock (that we're holding here).
 	db.mu.Lock()
+
+	// Since the root may have changed since the pointer was last read in WriteTxn(),
+	// load it again and modify the latest version that we now have immobilised by
+	// the root lock.
 	rootTxn := db.root.Load().Txn()
 
-	// Insert the modified tables into the root.
+	// Insert the modified tables into the root tree of tables.
 	for name, table := range txn.modifiedTables {
 		rootTxn.Insert([]byte(name), *table)
 	}
 
-	// Commit the new root.
+	// Commit the transaction to build the new root tree and then
+	// atomically store it.
 	newRoot := rootTxn.CommitOnly()
 	db.root.Store(newRoot)
 	db.mu.Unlock()
 
-	// Now that new root is available notify of the changes by closing the watch channels.
+	// With the root pointer updated, we can now release the tables for the next write transaction.
+	txn.smus.Unlock()
+
+	// Now that new root is committed, we can notify readers by closing the watch channels of
+	// mutated radix tree nodes in all changed indexes and on the root itself.
 	for _, subTxn := range txn.writeTxns {
 		subTxn.Notify()
 	}
 	rootTxn.Notify()
 
-	txn.smus.Unlock()
 	for name, delta := range txn.pendingObjectDeltas {
 		db.metrics.TableObjectCount.With(prometheus.Labels{
 			"table": name,
 		}).Add(delta)
 	}
+
+	// Zero out the transaction to make it inert.
 	*txn = zeroTxn
 }
 
