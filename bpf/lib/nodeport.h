@@ -1322,6 +1322,14 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		ret = lb6_local(get_ct_map6(&tuple), ctx, l3_off, l4_off,
 				&key, &tuple, svc, &ct_state_new,
 				skip_l3_xlate, ext_err);
+
+#if SERVICE_NO_BACKEND_RESPONSE == 1
+		if (ret == DROP_NO_SERVICE) {
+			ep_tail_call(ctx, CILIUM_CALL_IPV6_NO_SERVICE);
+			return DROP_MISSED_TAIL_CALL;
+		}
+#endif
+
 		if (IS_ERR(ret))
 			return ret;
 
@@ -2789,6 +2797,12 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 					&key, &tuple, svc, &ct_state_new,
 					has_l4_header, skip_l3_xlate, &cluster_id,
 					ext_err);
+#if SERVICE_NO_BACKEND_RESPONSE == 1
+			if (ret == DROP_NO_SERVICE) {
+				ep_tail_call(ctx, CILIUM_CALL_IPV4_NO_SERVICE);
+				return DROP_MISSED_TAIL_CALL;
+			}
+#endif
 		}
 		if (IS_ERR(ret))
 			return ret;
@@ -3131,6 +3145,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 
 	return ret;
 }
+
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_HEALTH_CHECK
