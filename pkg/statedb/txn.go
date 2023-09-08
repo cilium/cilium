@@ -22,7 +22,7 @@ type txn struct {
 	rootReadTxn            *iradix.Txn[tableEntry]            // read transaction onto the tree of tables
 	lastIndexReadTxn       lastIndexReadTxn                   // memoized result of the last indexReadTxn()
 	writeTxns              map[tableIndex]*iradix.Txn[object] // opened per-index write transactions
-	tables                 map[TableName]*tableEntry          // table entries being modified
+	modifiedTables         map[TableName]*tableEntry          // table entries being modified
 	smus                   lock.SortableMutexes               // the (sorted) table locks
 	acquiredAt             time.Time                          // the time at which the transaction acquired the locks
 	tableNames             string                             // plus-separated list of table names
@@ -45,9 +45,10 @@ type lastIndexReadTxn struct {
 var zeroTxn = txn{}
 
 func revisionKey(rev uint64, idKey []byte) []byte {
-	buf := make([]byte, 8+len(idKey))
+	const sizeofUint64 = 8
+	buf := make([]byte, sizeofUint64+len(idKey))
 	binary.BigEndian.PutUint64(buf, rev)
-	copy(buf[8:], idKey)
+	copy(buf[sizeofUint64:], idKey)
 	return buf
 }
 
@@ -57,7 +58,7 @@ func (txn *txn) getTxn() *txn {
 }
 
 func (txn *txn) GetRevision(name TableName) Revision {
-	if table, ok := txn.tables[name]; ok {
+	if table, ok := txn.modifiedTables[name]; ok {
 		// This is a write transaction preparing to modify the table with a
 		// new revision.
 		return table.revision
@@ -79,7 +80,7 @@ func (txn *txn) indexReadTxn(name TableName, index IndexName) *iradix.Txn[object
 		if ok {
 			return indexTxn.Clone()
 		}
-		if _, ok := txn.tables[name]; ok {
+		if _, ok := txn.modifiedTables[name]; ok {
 			// We're writing into this table, create a write transaction
 			// instead.
 			return txn.indexWriteTxn(name, index).Clone()
@@ -110,7 +111,7 @@ func (txn *txn) indexWriteTxn(name TableName, index IndexName) *iradix.Txn[objec
 	if indexTreeTxn, ok := txn.writeTxns[tableIndex{name, index}]; ok {
 		return indexTreeTxn
 	}
-	table, ok := txn.tables[name]
+	table, ok := txn.modifiedTables[name]
 	if !ok {
 		panic("BUG: Table '" + name + "' not found")
 	}
@@ -125,7 +126,7 @@ func (txn *txn) indexWriteTxn(name TableName, index IndexName) *iradix.Txn[objec
 }
 
 func (txn *txn) newRevision(tableName TableName) (Revision, error) {
-	table, ok := txn.tables[tableName]
+	table, ok := txn.modifiedTables[tableName]
 	if !ok {
 		return 0, tableError(tableName, ErrTableNotLockedForWriting)
 	}
@@ -211,25 +212,25 @@ func (txn *txn) Insert(meta TableMeta, data any) (any, bool, error) {
 }
 
 func (txn *txn) hasDeleteTrackers(name TableName) bool {
-	return txn.getTable(name).deleteTrackers.Len() > 0
-}
-
-func (txn *txn) getTable(name TableName) *tableEntry {
-	table, ok := txn.tables[name]
-	if ok {
-		return table
+	// Table is being modified, return the entry we're mutating,
+	// so we can read the latest changes.
+	table, ok := txn.modifiedTables[name]
+	if !ok {
+		// Table is not being modified, look it up from the root.
+		if t, ok := txn.rootReadTxn.Get([]byte(name)); ok {
+			table = &t
+		} else {
+			panic(fmt.Sprintf("BUG: table %q not found", name))
+		}
 	}
-	if t, ok := txn.rootReadTxn.Get([]byte(name)); ok {
-		return &t
-	}
-	panic(fmt.Sprintf("BUG: table %q not found", name))
+	return table.deleteTrackers.Len() > 0
 }
 
 func (txn *txn) addDeleteTracker(meta TableMeta, trackerName string, dt deleteTracker) error {
 	if txn.rootReadTxn == nil {
 		return ErrTransactionClosed
 	}
-	table, ok := txn.tables[meta.Name()]
+	table, ok := txn.modifiedTables[meta.Name()]
 	if !ok {
 		return tableError(meta.Name(), ErrTableNotLockedForWriting)
 	}
@@ -316,7 +317,7 @@ func (txn *txn) Commit() {
 	// We don't notify yet (CommitOnly) as the root needs to be updated
 	// first.
 	for tableIndex, subTxn := range txn.writeTxns {
-		table, ok := txn.tables[tableIndex.table]
+		table, ok := txn.modifiedTables[tableIndex.table]
 		if !ok {
 			panic("BUG: Table " + tableIndex.table + " not cached")
 		}
@@ -331,7 +332,7 @@ func (txn *txn) Commit() {
 	rootTxn := db.root.Load().Txn()
 
 	// Insert the modified tables into the root.
-	for name, table := range txn.tables {
+	for name, table := range txn.modifiedTables {
 		rootTxn.Insert([]byte(name), *table)
 	}
 

@@ -55,9 +55,13 @@ func (dt *DeleteTracker[Obj]) Close() {
 	// Remove the delete tracker from the table.
 	txn := dt.db.WriteTxn(dt.table).getTxn()
 	db := txn.db
-	table := txn.getTable(dt.table.Name())
+	table := txn.modifiedTables[dt.table.Name()]
+	if table == nil {
+		panic("BUG: Table missing from write transaction")
+	}
 	table.deleteTrackers, _, _ = table.deleteTrackers.Delete([]byte(dt.trackerName))
 	txn.Commit()
+
 	db.metrics.TableDeleteTrackerCount.With(prometheus.Labels{
 		"table": dt.table.Name(),
 	}).Dec()
