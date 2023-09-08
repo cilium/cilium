@@ -757,6 +757,7 @@ contributors across the globe, there is almost always someone available to help.
 | serviceAccounts.clustermeshcertgen | object | `{"annotations":{},"automount":true,"create":true,"name":"clustermesh-apiserver-generate-certs"}` | Clustermeshcertgen is used if clustermesh.apiserver.tls.auto.method=cronJob |
 | serviceAccounts.hubblecertgen | object | `{"annotations":{},"automount":true,"create":true,"name":"hubble-generate-certs"}` | Hubblecertgen is used if hubble.tls.auto.method=cronJob |
 | serviceAccounts.nodeinit.enabled | bool | `false` | Enabled is temporary until https://github.com/cilium/cilium-cli/issues/1396 is implemented. Cilium CLI doesn't create the SAs for node-init, thus the workaround. Helm is not affected by this issue. Name and automount can be configured, if enabled is set to true. Otherwise, they are ignored. Enabled can be removed once the issue is fixed. Cilium-nodeinit DS must also be fixed. |
+| serviceNoBackendResponse | string | `"reject"` | Configure what the response should be to traffic for a service without backends. "reject" only works on kernels >= 5.10, on lower kernels we fallback to "drop". Possible values:  - reject (default)  - drop |
 | sleepAfterInit | bool | `false` | Do not run Cilium agent when running with clean mode. Useful to completely uninstall Cilium as it will stop Cilium from starting and create artifacts in the node. |
 | socketLB | object | `{"enabled":false}` | Configure socket LB |
 | socketLB.enabled | bool | `false` | Enable socket LB |

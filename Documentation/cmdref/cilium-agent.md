@@ -303,6 +303,7 @@ cilium-agent [flags]
       --restore                                                   Restores state, if possible, from previous daemon (default true)
       --route-metric int                                          Overwrite the metric used by cilium when adding routes to its 'cilium_host' device
       --routing-mode string                                       Routing mode ("native" or "tunnel") (default "tunnel")
+      --service-no-backend-response string                        Response to traffic for a service without backends (default "reject")
       --sidecar-istio-proxy-image string                          Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")
       --socket-path string                                        Sets daemon's socket path to listen for connections (default "/var/run/cilium/cilium.sock")
       --state-dir string                                          Directory path to store runtime state (default "/var/run/cilium")

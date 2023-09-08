@@ -2279,6 +2279,13 @@ routingMode: ""
 # @default -- Port 8472 for VXLAN, Port 6081 for Geneve
 tunnelPort: 0
 
+# -- Configure what the response should be to traffic for a service without backends.
+# "reject" only works on kernels >= 5.10, on lower kernels we fallback to "drop".
+# Possible values:
+#  - reject (default)
+#  - drop
+serviceNoBackendResponse: reject
+
 # -- Configure the underlying network MTU to overwrite auto-detected MTU.
 MTU: 0
 
