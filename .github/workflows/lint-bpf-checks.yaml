@@ -160,15 +160,6 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Run BPF tests with code coverage reporting
-        env:
-          # Disable coverage report for these test cases since they are hitting
-          # https://github.com/cilium/coverbee/issues/7
-          NOCOVER_PATTERN: "inter_cluster_snat_clusterip.*|l4lb_ipip_health_check_host.o|nodeport_geneve_dsr_*|session_affinity_test.o|tc_egressgw_redirect.o|tc_egressgw_snat.o|tc_nodeport_lb4_dsr_backend.o|tc_nodeport_lb4_dsr_lb.o|tc_nodeport_lb4_nat_backend.o|tc_nodeport_lb4_nat_lb.o|tc_nodeport_lb6_dsr_backend.o|tc_nodeport_lb6_dsr_lb.o|xdp_egressgw_reply.o|xdp_nodeport_lb4_dsr_lb.o|xdp_nodeport_lb4_nat_backend.o|xdp_nodeport_lb4_nat_lb.o|xdp_nodeport_lb4_test.o|xdp_nodeport_lb6_dsr_lb.o|bpf_nat_tests.o"
+      - name: Run BPF tests
         run: |
-          make -C test run_bpf_tests COVER=1 NOCOVER="$NOCOVER_PATTERN" || (echo "Run 'make -C test run_bpf_tests COVER=1 NOCOVER=\"$NOCOVER_PATTERN\"' locally to investigate failures"; exit 1)
-      - name: Archive code coverage results
-        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
-        with:
-          name: bpf-code-coverage-report
-          path: bpf-coverage.html
+          make -C test run_bpf_tests || (echo "Run 'make -C test run_bpf_tests' locally to investigate failures"; exit 1)
