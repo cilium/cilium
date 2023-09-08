@@ -270,10 +270,16 @@ func hostRewriteMutation(rewrite *model.HTTPURLRewriteFilter) routeActionMutatio
 
 func pathPrefixMutation(rewrite *model.HTTPURLRewriteFilter) routeActionMutation {
 	return func(route *envoy_config_route_v3.Route_Route) *envoy_config_route_v3.Route_Route {
-		if rewrite == nil || rewrite.Path == nil || len(rewrite.Path.Prefix) == 0 {
+		if rewrite == nil || rewrite.Path == nil || len(rewrite.Path.Exact) != 0 || len(rewrite.Path.Regex) != 0 {
 			return route
 		}
-		route.Route.PrefixRewrite = rewrite.Path.Prefix
+		if len(rewrite.Path.Prefix) == 0 {
+			// Refer to: https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io%2fv1beta1.HTTPPathModifier
+			// ReplacePrefix is allowed to be empty.
+			route.Route.PrefixRewrite = "/"
+		} else {
+			route.Route.PrefixRewrite = rewrite.Path.Prefix
+		}
 		return route
 	}
 }
