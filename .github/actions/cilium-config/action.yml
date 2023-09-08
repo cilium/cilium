@@ -1,0 +1,141 @@
+name: cilium-config
+description: Derive Cilium installation config
+inputs:
+  image-tag:
+    description: 'SHA or tag'
+    required: true
+  chart-dir:
+    description: 'Path to Cilium charts directory'
+    required: true
+  tunnel:
+    description: '"disabled", "vxlan", "geneve"'
+    default: 'disabled'
+  endpoint-routes:
+    description: 'Enable endpoint routes'
+    default: false
+  ipv6:
+    description: 'Enable IPv6'
+    default: true
+  kpr:
+    description: 'Enable kube-proxy replacement'
+    default: false
+  lb-mode:
+    description: 'KPR load-balancer mode'
+    default: 'snat'
+  lb-acceleration:
+    description: 'KPR acceleration'
+    default: ''
+  encryption:
+    description: '"ipsec", "wireguard" or empty'
+    default: ''
+  encryption-node:
+    description: 'Enable node-to-node encryption (WireGuard only)'
+    default: false
+  egress-gateway:
+    description: 'Enable egress gateway'
+    default: false
+  host-fw:
+    description: 'Enable host firewall'
+    default: false
+  mutual-auth:
+    description: 'Enable mTLS-based Mutual Authentication'
+    default: true
+  devices:
+    description: 'List of native devices to attach datapath programs'
+    default: ''
+  misc:
+    description: 'Misc helm rarely set by a user coma separated values'
+    default: ''
+outputs:
+  config:
+    description: 'Cilium installation config'
+    value: ${{ steps.derive-config.outputs.config }}
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      id: derive-config
+      run: |
+        DEFAULTS="--wait \
+            --chart-directory=${{ inputs.chart-dir }} \
+            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+            --helm-set=image.useDigest=false \
+            --helm-set=image.tag=${{ inputs.image-tag }} \
+            --helm-set=debug.enabled=true \
+            --helm-set=debug.verbose=envoy \
+            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
+            --helm-set=operator.image.suffix=-ci \
+            --helm-set=operator.image.tag=${{ inputs.image-tag }} \
+            --helm-set=operator.image.useDigest=false \
+            --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
+            --helm-set=hubble.relay.image.tag=${{ inputs.image-tag }} \
+            --helm-set=hubble.relay.image.useDigest=false \
+            --helm-set=hubble.eventBufferCapacity=65535 \
+            --helm-set=bpf.monitorAggregation=none \
+            --helm-set=cluster.name=default \
+            --helm-set=authentication.mutual.spire.enabled=${{ inputs.mutual-auth }} \
+            --nodes-without-cilium=kind-worker3 \
+            --helm-set-string=kubeProxyReplacement=${{ inputs.kpr }} \
+            --set='${{ inputs.misc }}'"
+
+          TUNNEL="--helm-set-string=tunnelProtocol=${{ inputs.tunnel }}"
+          if [ "${{ inputs.tunnel }}" == "disabled" ]; then
+            TUNNEL="--helm-set-string=routingMode=native --helm-set-string=autoDirectNodeRoutes=true --helm-set-string=ipv4NativeRoutingCIDR=10.244.0.0/16 --helm-set-string=tunnel=disabled"
+            TUNNEL="${TUNNEL} --helm-set-string=ipv6NativeRoutingCIDR=fd00:10:244::/56"
+          fi
+
+          DEVICES=""
+          if [ "${{ inputs.devices }}" != "" ]; then
+            DEVICES="--helm-set=devices='${{ inputs.devices }}'"
+          fi
+
+          LB_MODE=""
+          if [ "${{ inputs.lb-mode }}" != "" ]; then
+            LB_MODE="--helm-set-string=loadBalancer.mode=${{ inputs.lb-mode }}"
+          fi
+
+          ENDPOINT_ROUTES=""
+          if [ "${{ inputs.endpoint-routes }}" == "true" ]; then
+            ENDPOINT_ROUTES="--helm-set-string=endpointRoutes.enabled=true"
+          fi
+
+          IPV6=""
+          if [ "${{ inputs.ipv6 }}" != "false" ]; then
+            IPV6="--helm-set=ipv6.enabled=true"
+          fi
+
+          MASQ=""
+          if [ "${{ inputs.kpr }}" == "true" ]; then
+            # BPF-masq requires KPR=true.
+            MASQ="--helm-set=bpf.masquerade=true"
+            if [ "${{ inputs.host-fw }}" == "true" ]; then
+              # BPF IPv6 masquerade not currently supported with host firewall - GH-26074
+              MASQ="${MASQ} --helm-set=enableIPv6Masquerade=false"
+            fi
+          fi
+
+          EGRESS_GATEWAY=""
+          if [ "${{ inputs.egress-gateway }}" == "true" ]; then
+            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true"
+          fi
+
+          LB_ACCELERATION=""
+          if [ "${{ inputs.lb-acceleration }}" != "" ]; then
+            LB_ACCELERATION="--helm-set=loadBalancer.acceleration=${{ inputs.lb-acceleration }}"
+          fi
+
+          ENCRYPT=""
+          if [ "${{ inputs.encryption }}" != "" ]; then
+            ENCRYPT="--helm-set=encryption.enabled=true --helm-set=encryption.type=${{ inputs.encryption }}"
+            if [ "${{ inputs.encryption-node }}" != "" ]; then
+              ENCRYPT+=" --helm-set=encryption.nodeEncryption=${{ inputs.encryption-node }}"
+            fi
+          fi
+
+          HOST_FW=""
+          if [ "${{ inputs.host-fw }}" == "true" ]; then
+            HOST_FW="--helm-set=hostFirewall.enabled=true"
+          fi
+
+          CONFIG="${DEFAULTS} ${TUNNEL} ${DEVICES} ${LB_MODE} ${ENDPOINT_ROUTES} ${IPV6} ${MASQ} ${EGRESS_GATEWAY} ${ENCRYPT} ${HOST_FW} ${LB_ACCELERATION}"
+          echo "config=${CONFIG}" >> $GITHUB_OUTPUT
