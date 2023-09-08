@@ -33,25 +33,6 @@ func ToAgentAfi(s string) types.Afi {
 	}
 }
 
-func ToAPIAfi(afi types.Afi) string {
-	switch afi {
-	case types.AfiUnknown:
-		return "unknown"
-	case types.AfiIPv4:
-		return "ipv4"
-	case types.AfiIPv6:
-		return "ipv6"
-	case types.AfiL2VPN:
-		return "l2vpn"
-	case types.AfiLS:
-		return "ls"
-	case types.AfiOpaque:
-		return "opaque"
-	default:
-		return "unknown"
-	}
-}
-
 func ToAgentSafi(s string) types.Safi {
 	switch s {
 	case "unicast":
@@ -86,45 +67,6 @@ func ToAgentSafi(s string) types.Safi {
 		return types.SafiKeyValue
 	default:
 		return types.SafiUnknown
-	}
-}
-
-func ToAPISafi(safi types.Safi) string {
-	switch safi {
-	case types.SafiUnknown:
-		return "unknown"
-	case types.SafiUnicast:
-		return "unicast"
-	case types.SafiMulticast:
-		return "multicast"
-	case types.SafiMplsLabel:
-		return "mpls_label"
-	case types.SafiEncapsulation:
-		return "encapsulation"
-	case types.SafiVpls:
-		return "vpls"
-	case types.SafiEvpn:
-		return "evpn"
-	case types.SafiLs:
-		return "ls"
-	case types.SafiSrPolicy:
-		return "sr_policy"
-	case types.SafiMup:
-		return "mup"
-	case types.SafiMplsVpn:
-		return "mpls_vpn"
-	case types.SafiMplsVpnMulticast:
-		return "mpls_vpn_multicast"
-	case types.SafiRouteTargetConstraints:
-		return "route_target_constraints"
-	case types.SafiFlowSpecUnicast:
-		return "flowspec_unicast"
-	case types.SafiFlowSpecVpn:
-		return "flowspec_vpn"
-	case types.SafiKeyValue:
-		return "key_value"
-	default:
-		return "unknown"
 	}
 }
 
@@ -176,8 +118,8 @@ func ToAgentGetRoutesRequest(params restapi.GetBgpRoutesParams) (*types.GetRoute
 
 func ToAPIFamily(f *types.Family) (*models.BgpFamily, error) {
 	return &models.BgpFamily{
-		Afi:  ToAPIAfi(f.Afi),
-		Safi: ToAPISafi(f.Safi),
+		Afi:  f.Afi.String(),
+		Safi: f.Safi.String(),
 	}, nil
 }
 
