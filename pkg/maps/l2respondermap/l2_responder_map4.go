@@ -75,19 +75,19 @@ func newMap(lifecycle hive.Lifecycle, maxEntries int) (*l2ResponderMap, error) {
 
 // Create creates a new entry for the given IP and IfIndex tuple.
 func (m *l2ResponderMap) Create(ip netip.Addr, ifIndex uint32) error {
-	key := newAuthKey(ip, ifIndex)
+	key := newL2ResponderKey(ip, ifIndex)
 	return m.Map.Put(key, L2ResponderStats{})
 }
 
 // Delete deletes the entry associated with the provided IP and IfIndex tuple.
 func (m *l2ResponderMap) Delete(ip netip.Addr, ifIndex uint32) error {
-	key := newAuthKey(ip, ifIndex)
+	key := newL2ResponderKey(ip, ifIndex)
 	return m.Map.Delete(key)
 }
 
 // Lookup returns the stats object associated with the provided IP and IfIndex tuple.
 func (m *l2ResponderMap) Lookup(ip netip.Addr, ifIndex uint32) (*L2ResponderStats, error) {
-	key := newAuthKey(ip, ifIndex)
+	key := newL2ResponderKey(ip, ifIndex)
 	val := L2ResponderStats{}
 
 	err := m.Map.Lookup(&key, &val)
@@ -97,10 +97,10 @@ func (m *l2ResponderMap) Lookup(ip netip.Addr, ifIndex uint32) (*L2ResponderStat
 
 // IterateCallback represents the signature of the callback function
 // expected by the IterateWithCallback method, which in turn is used to iterate
-// all the keys/values of an auth map.
+// all the keys/values of a L2 responder map.
 type IterateCallback func(*L2ResponderKey, *L2ResponderStats)
 
-// IterateWithCallback iterates through all the keys/values of an auth map,
+// IterateWithCallback iterates through all the keys/values of a L2 responder map,
 // passing each key/value pair to the cb callback.
 func (m *l2ResponderMap) IterateWithCallback(cb IterateCallback) error {
 	return m.Map.IterateWithCallback(&L2ResponderKey{}, &L2ResponderStats{},
@@ -124,7 +124,7 @@ func (k *L2ResponderKey) String() string {
 	return fmt.Sprintf("ip=%s, ifIndex=%d", net.IP(k.IP[:]), k.IfIndex)
 }
 
-func newAuthKey(ip netip.Addr, ifIndex uint32) L2ResponderKey {
+func newL2ResponderKey(ip netip.Addr, ifIndex uint32) L2ResponderKey {
 	return L2ResponderKey{
 		IP:      types.IPv4(ip.As4()),
 		IfIndex: ifIndex,
