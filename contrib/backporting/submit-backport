@@ -59,12 +59,12 @@ else
   hub pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY -r $REVIEWERS
 fi
 
-prs=$(grep "contrib/backporting/set-labels.py" $SUMMARY | sed -e 's/^.*for pr in \([0-9 ]\+\);.*$/\1/g')
+prs=$(sed -En "/upstream-prs/ { n; p }" < "$SUMMARY")
 echo -e "\nUpdating labels for PRs $prs\n" 2>&1
 echo -n "Set labels for all PRs above? [Y/n] "
 read set_all_labels
 if [ "$set_all_labels" != "n" ]; then
     for pr in $prs; do
-        $DIR/set-labels.py $pr pending $BRANCH;
+        $DIR/set-labels.py $pr $BRANCH;
     done
 fi
