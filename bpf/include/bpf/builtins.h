@@ -50,6 +50,11 @@ static __always_inline void __bpf_memzero(void *d, __u64 len)
 
 	d += len;
 
+	if (len > 1 && len % 2 == 1) {
+		__it_set(d, 8);
+		len -= 1;
+	}
+
 	switch (len) {
 	case 96:         __it_set(d, 64); fallthrough;
 	case 88: jmp_88: __it_set(d, 64); fallthrough;
