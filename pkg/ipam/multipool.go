@@ -156,7 +156,7 @@ func (p pendingAllocationsPerOwner) startExpirationAt(now time.Time, owner strin
 	p[family] = expires
 }
 
-// startExpiration removes the expiration timer for a pending allocation, this
+// removeExpiration removes the expiration timer for a pending allocation, this
 // happens either because the timer expired, or the allocation was fulfilled
 func (p pendingAllocationsPerOwner) removeExpiration(owner string, family Family) {
 	delete(p[family], owner)
