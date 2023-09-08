@@ -16,12 +16,12 @@ type fakeMap struct {
 }
 
 func (fm *fakeMap) Create(ip netip.Addr, ifIndex uint32) error {
-	fm.entries[newAuthKey(ip, ifIndex)] = L2ResponderStats{}
+	fm.entries[newL2ResponderKey(ip, ifIndex)] = L2ResponderStats{}
 	return nil
 }
 
 func (fm *fakeMap) Lookup(ip netip.Addr, ifIndex uint32) (*L2ResponderStats, error) {
-	entry, found := fm.entries[newAuthKey(ip, ifIndex)]
+	entry, found := fm.entries[newL2ResponderKey(ip, ifIndex)]
 	if found {
 		return &entry, nil
 	}
@@ -30,7 +30,7 @@ func (fm *fakeMap) Lookup(ip netip.Addr, ifIndex uint32) (*L2ResponderStats, err
 }
 
 func (fm *fakeMap) Delete(ip netip.Addr, ifIndex uint32) error {
-	delete(fm.entries, newAuthKey(ip, ifIndex))
+	delete(fm.entries, newL2ResponderKey(ip, ifIndex))
 	return nil
 }
 
