@@ -2789,7 +2789,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 			send_trace_notify(ctx, TRACE_TO_PROXY, src_sec_identity, 0,
 					  bpf_ntohs((__u16)svc->l7_lb_proxy_port), 0,
 					  TRACE_REASON_POLICY, monitor);
-			return ctx_redirect_to_proxy_hairpin_ipv4(ctx,
+			return ctx_redirect_to_proxy_hairpin_ipv4(ctx, ip4,
 								  (__be16)svc->l7_lb_proxy_port);
 		}
 #endif
