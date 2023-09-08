@@ -19,6 +19,7 @@ import (
 func TestGetPodMetadata(t *testing.T) {
 	ns := &slim_corev1.Namespace{
 		ObjectMeta: slim_metav1.ObjectMeta{
+			Name: "default",
 			Labels: map[string]string{
 				"kubernetes.io/metadata.name": "default",
 				"namespace-level-key":         "namespace-level-value",
