@@ -1111,6 +1111,16 @@ func NewDaemon(ctx context.Context, cancel context.CancelFunc, epMgr *endpointma
 		return nil, nil, err
 	}
 
+	// allocateIPs got us the routerIP so now we can create ipsec endpoint
+	// we must do this before publishing the router IP otherwise remote
+	// nodes could pick up the IP and send us outer headers we do not yet
+	// have xfrm rules for.
+	if option.Config.EnableIPSec {
+		if err := ipsec.Init(); err != nil {
+			log.WithError(err).Error("IPSec init failed")
+		}
+	}
+
 	// Must occur after d.allocateIPs(), see GH-14245 and its fix.
 	d.nodeDiscovery.StartDiscovery()
 
