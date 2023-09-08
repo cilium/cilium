@@ -467,6 +467,10 @@ data:
   tunnel-port: "{{ .Values.tunnelPort }}"
 {{- end }}
 
+{{- if .Values.serviceNoBackendResponse }}
+  service-no-backend-response: "{{ .Values.serviceNoBackendResponse }}"
+{{- end}}
+
 {{- if .Values.MTU }}
   mtu: "{{ .Values.MTU }}"
 {{- end }}

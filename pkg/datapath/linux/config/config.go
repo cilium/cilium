@@ -318,6 +318,13 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
+	switch option.Config.ServiceNoBackendResponse {
+	case option.ServiceNoBackendResponseReject:
+		cDefinesMap["SERVICE_NO_BACKEND_RESPONSE"] = "1"
+	case option.ServiceNoBackendResponseDrop:
+		cDefinesMap["SERVICE_NO_BACKEND_RESPONSE"] = "0"
+	}
+
 	if option.Config.EnableL2Announcements {
 		cDefinesMap["ENABLE_L2_ANNOUNCEMENTS"] = "1"
 		// If the agent is down for longer than the lease duration, stop responding
