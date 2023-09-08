@@ -178,7 +178,7 @@ func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
 	return &txn{
 		db:                     db,
 		rootReadTxn:            rootReadTxn,
-		tables:                 tableEntries,
+		modifiedTables:         tableEntries,
 		writeTxns:              make(map[tableIndex]*iradix.Txn[object]),
 		smus:                   smus,
 		acquiredAt:             acquiredAt,
