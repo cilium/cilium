@@ -1,5 +1,58 @@
 # Changelog
 
+## v1.12.14
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* bpf: lxc: support Pod->Service->Pod hairpinning with endpoint routes (Backport PR #27980, Upstream PR #27798, @ti-mo)
+* Fix a bug that affected the RevDNAT translation of IPv6 packets with extension headers. (Backport PR #27394, Upstream PR #27312, @julianwiedmann)
+* Fix a bug that could cause an incorrect max. sequence number to be reported by `cilium encrypt status` when IPsec is enabled. (Backport PR #27934, Upstream PR #27656, @pchaigno)
+* Fix bug limiting pod-to-pod network performance under high load when tunneling and IPSec are both enabled. (Backport PR #27394, Upstream PR #27168, @learnitall)
+* Fix bug that could cause packet drops of type XfrmOutPolBlock while rotating the IPsec key. (Backport PR #27588, Upstream PR #27319, @jrfastab)
+* Fix connectivity issues caused by missing conntrack entry when service pod connects to itself via clusterIP. (Backport PR #27980, Upstream PR #27602, @julianwiedmann)
+* IPSec fix for race on init resulting in Xfrm*In* errors and dropped packets (Backport PR #28029, Upstream PR #28012, @jrfastab)
+* k8s: Restrict configuring reserved:init policy via CNP (Backport PR #28040, Upstream PR #28007, @joestringer)
+* Prioritization of which DNS mappings to keep was suboptimal, leading to evictions of mappings related to alive connections, worsening performance of fqdn policies and causing spurious logging. (Backport PR #27934, Upstream PR #27572, @bimmlerd)
+* proxy: Ignore visibility annotation if proxy is disabled (Backport PR #27660, Upstream PR #27597, @sayboras)
+
+**CI Changes:**
+* .github/workflows: unify time to wait for images to become available (Backport PR #27934, Upstream PR #27706, @tklauser)
+* Add missing ariane trigger phrases (Backport PR #27980, Upstream PR #27822, @tklauser)
+* ci-ipsec-upgrade: Bump CLI to v0.15.5 (Backport PR #27394, Upstream PR #27230, @brb)
+* ci-ipsec-upgrade: Skip upon test/Documentation changes (Backport PR #27744, Upstream PR #27644, @brb)
+* ci: remove unavailable K8s 1.22 from GKE config (Backport PR #27394, Upstream PR #27365, @mhofstetter)
+* CI: Rename workflow names (Backport PR #27744, Upstream PR #27391, @brlbil)
+* CI: Update tested k8s version for aks (Backport PR #27660, Upstream PR #27457, @brlbil)
+* gh/workflows: Use cilium-config action in ci-ipsec-upgrade (Backport PR #27934, Upstream PR #27359, @brb)
+* ingress: Add conformance test for KPR=false (Backport PR #27980, Upstream PR #27304, @sayboras)
+
+**Misc Changes:**
+* chore(deps): update actions/checkout action to v4 (v1.12) (#27950, @renovate[bot])
+* chore(deps): update all github action dependencies (v1.12) (minor) (#27787, @renovate[bot])
+* chore(deps): update all lvh-images main (v1.12) (patch) (#27785, @renovate[bot])
+* chore(deps): update aws-actions/configure-aws-credentials action to v3 (v1.12) (#27788, @renovate[bot])
+* chore(deps): update cilium/coccicheck docker tag to v2.4 (v1.12) (#27949, @renovate[bot])
+* chore(deps): update dependency ubuntu to v22 (v1.12) (#27789, @renovate[bot])
+* chore(deps): update docker.io/library/alpine docker tag to v3.16.7 (v1.12) (#27786, @renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.20.7 (v1.12) (#27487, @renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.20.8 (v1.12) (#27992, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to 33a5cc2 (v1.12) (#27338, @renovate[bot])
+* docs: Document `DROP_NO_NODE_ID` for IPsec (Backport PR #27394, Upstream PR #27184, @pchaigno)
+* docs: Fix config option for spelling filters (Backport PR #27660, Upstream PR #27537, @qmonnet)
+* docs: Fix Documentation Makefile to make Helm reference updates compatible with macOS (Backport PR #27660, Upstream PR #27495, @ishuar)
+* docs: Harmonise references to Cilium Slack (Backport PR #27832, Upstream PR #27346, @qmonnet)
+* docs: Have Makefile print generated image tags when running with V=0 (Backport PR #27394, Upstream PR #27250, @qmonnet)
+* docs: update L7 traffic CiliumClusterwideEnvoyConfig example (Backport PR #27660, Upstream PR #27409, @tanjunchen)
+* docs: Update the microservices-demo link (Backport PR #27934, Upstream PR #27814, @haiyuewa)
+* Update Cilium certgen from v0.1.8 to v0.1.9 (Backport PR #27660, Upstream PR #27511, @rolinh)
+
+**Other Changes:**
+* [1.12] test: add namespace name in pod metadata test (#28034, @nebril)
+* doc: Migrate to .readthedocs.yaml configuration file v2 (#27569, @doniacld)
+* install: Update image digests for v1.12.13 (#27501, @asauber)
+
 ## v1.12.13
 
 Summary of Changes
