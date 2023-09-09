@@ -307,7 +307,7 @@ func (c *cniConfigManager) renderCNIConf() (cniConfig []byte, err error) {
 		}
 	} else {
 		c.log.Infof("Generating CNI configuration file with mode %s", c.config.CNIChainingMode)
-		tmpl := cniConfigs[c.config.CNIChainingMode]
+		tmpl := cniConfigs[strings.ToLower(c.config.CNIChainingMode)]
 		cniConfig = []byte(c.renderCNITemplate(tmpl))
 	}
 
