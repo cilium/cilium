@@ -45,7 +45,7 @@ Checking resources
           Reason:                Accepted
           Status:                True
           Type:                  Accepted
-          Message:               Gateway successfully configured
+          Message:               Gateway successfully reconciled
           Reason:                Programmed
           Status:                True
           Type:                  Programmed
