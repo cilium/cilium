@@ -77,7 +77,7 @@ jobs:
         fi
 
     - name: Set commit status to pending
-      uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
+      uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
       with:
         sha: ${{ steps.get-ref.outputs.sha }}
         status: pending
@@ -154,7 +154,7 @@ jobs:
 
     - name: Set commit status to success
       if: ${{ success() }}
-      uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
+      uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
       with:
         sha: ${{ steps.get-ref.outputs.sha }}
         status: success
@@ -162,7 +162,7 @@ jobs:
 
     - name: Set commit status to failure
       if: ${{ failure() }}
-      uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
+      uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
       with:
         sha: ${{ steps.get-ref.outputs.sha }}
         status: failure
@@ -170,7 +170,7 @@ jobs:
 
     - name: Set commit status to cancelled
       if: ${{ cancelled() }}
-      uses: myrotvorets/set-commit-status-action@243b4f7e597f62335408d58001edf8a02cf3e1fd # v1.1.7
+      uses: myrotvorets/set-commit-status-action@38f3f27c7d52fb381273e95542f07f0fba301307 # v2.0.0
       with:
         sha: ${{ steps.get-ref.outputs.sha }}
         status: error
