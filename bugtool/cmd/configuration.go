@@ -133,6 +133,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_auth_map", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_call_policy", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_calls_overlay_2", bpffsMountpoint),
+			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_calls_xdp", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_capture_cache", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_runtime_config", bpffsMountpoint),
 			fmt.Sprintf("bpftool map dump pinned %s/tc/globals/cilium_lxc", bpffsMountpoint),
