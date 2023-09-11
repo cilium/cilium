@@ -22,7 +22,7 @@ type Metrics struct {
 	// The amount of delete trackers for a given table.
 	TableDeleteTrackerCount metric.Vec[metric.Gauge]
 	// The amount of objects in the graveyard for a given table.
-	TableGraveyardObjects metric.Vec[metric.Gauge]
+	TableGraveyardObjectCount metric.Vec[metric.Gauge]
 	// The lowest revision of a given table that has been processed by the graveyard garbage collector.
 	TableGraveyardLowWatermark metric.Vec[metric.Gauge]
 	// The time it took to clean the graveyard for a given table.
@@ -55,7 +55,7 @@ func NewMetrics() Metrics {
 		TableObjectCount: metric.NewGaugeVec(metric.GaugeOpts{
 			Namespace: metrics.CiliumAgentNamespace,
 			Subsystem: "statedb",
-			Name:      "table_objects_total",
+			Name:      "table_objects",
 			Help:      "The amount of objects in a given table.",
 			Disabled:  true,
 		}, []string{"table"}),
@@ -69,14 +69,14 @@ func NewMetrics() Metrics {
 		TableDeleteTrackerCount: metric.NewGaugeVec(metric.GaugeOpts{
 			Namespace: metrics.CiliumAgentNamespace,
 			Subsystem: "statedb",
-			Name:      "table_delete_trackers_total",
+			Name:      "table_delete_trackers",
 			Help:      "The amount of delete trackers for a given table.",
 			Disabled:  true,
 		}, []string{"table"}),
-		TableGraveyardObjects: metric.NewGaugeVec(metric.GaugeOpts{
+		TableGraveyardObjectCount: metric.NewGaugeVec(metric.GaugeOpts{
 			Namespace: metrics.CiliumAgentNamespace,
 			Subsystem: "statedb",
-			Name:      "table_graveyard_objects_total",
+			Name:      "table_graveyard_objects",
 			Help:      "The amount of objects in the graveyard for a given table.",
 			Disabled:  true,
 		}, []string{"table"}),

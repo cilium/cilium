@@ -18,17 +18,15 @@ import (
 )
 
 type txn struct {
-	db                     *DB
-	rootReadTxn            *iradix.Txn[tableEntry]            // read transaction onto the tree of tables
-	lastIndexReadTxn       lastIndexReadTxn                   // memoized result of the last indexReadTxn()
-	writeTxns              map[tableIndex]*iradix.Txn[object] // opened per-index write transactions
-	modifiedTables         map[TableName]*tableEntry          // table entries being modified
-	smus                   lock.SortableMutexes               // the (sorted) table locks
-	acquiredAt             time.Time                          // the time at which the transaction acquired the locks
-	tableNames             string                             // plus-separated list of table names
-	packageName            string                             // name of the package that created the transaction
-	pendingObjectDeltas    map[TableName]float64              // the change in the number of objects made by this txn
-	pendingGraveyardDeltas map[TableName]float64              // the change in the number of graveyard objects made by this txn
+	db               *DB
+	rootReadTxn      *iradix.Txn[tableEntry]            // read transaction onto the tree of tables
+	lastIndexReadTxn lastIndexReadTxn                   // memoized result of the last indexReadTxn()
+	writeTxns        map[tableIndex]*iradix.Txn[object] // opened per-index write transactions
+	modifiedTables   map[TableName]*tableEntry          // table entries being modified
+	smus             lock.SortableMutexes               // the (sorted) table locks
+	acquiredAt       time.Time                          // the time at which the transaction acquired the locks
+	tableNames       string                             // plus-separated list of table names
+	packageName      string                             // name of the package that created the transaction
 }
 
 type tableIndex struct {
@@ -131,9 +129,6 @@ func (txn *txn) newRevision(tableName TableName) (Revision, error) {
 		return 0, tableError(tableName, ErrTableNotLockedForWriting)
 	}
 	table.revision++
-	txn.db.metrics.TableRevision.With(prometheus.Labels{
-		"table": tableName,
-	}).Set(float64(table.revision))
 	return table.revision, nil
 }
 
@@ -166,17 +161,14 @@ func (txn *txn) Insert(meta TableMeta, data any) (any, bool, error) {
 			panic("BUG: Old revision index entry not found")
 		}
 
-		txn.pendingObjectDeltas[tableName]--
 	}
 	revIndexTree.Insert(revisionKey(revision, idKey), obj)
-	txn.pendingObjectDeltas[tableName]++
 
 	// If it's new, possibly remove an older deleted object with the same
 	// primary key from the graveyard.
 	if !oldExists && txn.hasDeleteTrackers(tableName) {
 		if old, existed := txn.indexWriteTxn(tableName, GraveyardIndex).Delete(idKey); existed {
 			txn.indexWriteTxn(tableName, GraveyardRevisionIndex).Delete(revisionKey(old.revision, idKey))
-			txn.pendingGraveyardDeltas[tableName]--
 		}
 	}
 
@@ -264,8 +256,6 @@ func (txn *txn) Delete(meta TableMeta, data any) (any, bool, error) {
 		return nil, false, nil
 	}
 
-	txn.pendingObjectDeltas[tableName]--
-
 	// Update revision index.
 	indexTree := txn.indexWriteTxn(tableName, RevisionIndex)
 	if _, ok := indexTree.Delete(revisionKey(obj.revision, idKey)); !ok {
@@ -290,7 +280,6 @@ func (txn *txn) Delete(meta TableMeta, data any) (any, bool, error) {
 			panic("BUG: Double deletion! Deleted object already existed in graveyard")
 		}
 		txn.indexWriteTxn(tableName, GraveyardRevisionIndex).Insert(revisionKey(revision, idKey), obj)
-		txn.pendingGraveyardDeltas[tableName]++
 	}
 
 	return obj.data, true, nil
@@ -349,6 +338,8 @@ func (txn *txn) Commit() {
 		return
 	}
 
+	db := txn.db
+
 	// Commit each individual changed index to each table.
 	// We don't notify yet (CommitOnly) as the root needs to be updated
 	// first as otherwise readers would wake up too early.
@@ -359,9 +350,18 @@ func (txn *txn) Commit() {
 		}
 		table.indexes, _, _ =
 			table.indexes.Insert([]byte(tableIndex.index), subTxn.CommitOnly())
-	}
 
-	db := txn.db
+		// Update metrics
+		db.metrics.TableGraveyardObjectCount.With(
+			prometheus.Labels{"table": tableIndex.table},
+		).Set(float64(table.numDeletedObjects()))
+		db.metrics.TableObjectCount.With(
+			prometheus.Labels{"table": tableIndex.table},
+		).Set(float64(table.numObjects()))
+		db.metrics.TableRevision.With(
+			prometheus.Labels{"table": tableIndex.table},
+		).Set(float64(table.revision))
+	}
 
 	// Acquire the lock on the root tree to sequence the updates to it. We can acquire
 	// it after we've built up the new table entries above, since changes to those were
@@ -393,12 +393,6 @@ func (txn *txn) Commit() {
 		subTxn.Notify()
 	}
 	rootTxn.Notify()
-
-	for name, delta := range txn.pendingObjectDeltas {
-		db.metrics.TableObjectCount.With(prometheus.Labels{
-			"table": name,
-		}).Add(delta)
-	}
 
 	// Zero out the transaction to make it inert.
 	*txn = zeroTxn
