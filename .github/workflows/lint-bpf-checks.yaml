@@ -103,7 +103,7 @@ jobs:
           go-version: 1.20.8
       - name: Cache LLVM and Clang
         id: cache-llvm
-        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
         with:
           path: ${{ needs.set_clang_dir.outputs.clang_dir }}
           key: llvm-10.0
@@ -141,7 +141,7 @@ jobs:
           go-version: 1.20.8
       - name: Cache LLVM and Clang
         id: cache-llvm
-        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
+        uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84 # v3.3.2
         with:
           path: ${{ needs.set_clang_dir.outputs.clang_dir }}
           key: llvm-10.0
@@ -168,7 +168,7 @@ jobs:
         run: |
           make -C test run_bpf_tests COVER=1 NOCOVER="$NOCOVER_PATTERN" || (echo "Run 'make -C test run_bpf_tests COVER=1 NOCOVER=\"$NOCOVER_PATTERN\"' locally to investigate failures"; exit 1)
       - name: Archive code coverage results
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
           name: bpf-code-coverage-report
           path: bpf-coverage.html
