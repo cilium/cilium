@@ -43,7 +43,7 @@ spec:
           args:
           - -ec
           - |
-            cilium preflight validate-cnp;
+            cilium-dbg preflight validate-cnp;
             touch /tmp/ready-validate-cnp;
             sleep 1h;
           livenessProbe:

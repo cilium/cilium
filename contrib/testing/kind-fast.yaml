@@ -12,8 +12,8 @@ extraVolumes:
       path: /cilium-binaries/var/lib/cilium/bpf
       type: Directory
 extraVolumeMounts:
-  - name: cilium-cli-binary
-    mountPath: /usr/bin/cilium
+  - name: cilium-dbg-binary
+    mountPath: /usr/bin/cilium-dbg
     readOnly: true
   - name: cilium-agent-binary
     mountPath: /usr/bin/cilium-agent

@@ -24,7 +24,9 @@ var endpointGetCmd = &cobra.Command{
 	Use:     "get ( <endpoint identifier> | -l <endpoint labels> ) ",
 	Aliases: []string{"inspect, show"},
 	Short:   "Display endpoint information",
-	Example: "cilium endpoint get 4598, cilium endpoint get pod-name:default:foobar, cilium endpoint get -l id.baz",
+	Example: `  cilium-dbg endpoint get 4598
+  cilium-dbg endpoint get pod-name:default:foobar
+  cilium-dbg endpoint get -l id.baz`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(lbls) > 0 && len(args) > 0 {
 			Usagef(cmd, "Cannot provide both endpoint ID and labels arguments concurrently")

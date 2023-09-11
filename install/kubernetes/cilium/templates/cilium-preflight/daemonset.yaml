@@ -108,7 +108,7 @@ spec:
           args:
           - -ec
           - |
-            cilium preflight fqdn-poller --tofqdns-pre-cache {{ .Values.preflight.tofqdnsPreCache }};
+            cilium-dbg preflight fqdn-poller --tofqdns-pre-cache {{ .Values.preflight.tofqdnsPreCache }};
             touch /tmp/ready-tofqdns-precache;
           livenessProbe:
             exec:
