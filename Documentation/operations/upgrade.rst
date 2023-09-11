@@ -360,6 +360,7 @@ Added Metrics
 ~~~~~~~~~~~~~
 
 * ``cilium_ipam_capacity``
+* ``cilium_endpoint_max_ifindex`` See `#27953 <https://github.com/cilium/cilium/pull/27953>`_ for configuration and usage information
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
