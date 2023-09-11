@@ -882,78 +882,7 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace, __s8 *ext
 #endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV4 */
 
-#ifdef ENABLE_IPSEC
-#ifndef TUNNEL_MODE
-static __always_inline int
-do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
-{
-	int ret = 0;
-	__u32 tunnel_endpoint = 0;
-	void *data, *data_end;
-	__u32 tunnel_source = IPV4_ENCRYPT_IFACE;
-	struct iphdr *ip4;
-	__be32 sum;
-
-	tunnel_endpoint = ctx_load_meta(ctx, CB_ENCRYPT_DST);
-	ctx->mark = 0;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
-	/* We only need to replace the IPsec outer IP addresses if they are set to
-	 * 0.0.0.0 -> 192.168.0.0. In that case, it means the packet was
-	 * encapsulated by the old XFRM OUT state and we need this BPF logic.
-	 * Otherwise, it means the packet was encapsulated by the new XFRM OUT
-	 * states, which already set the proper outer IP addresses; nothing needed
-	 * here.
-	 * This whole function can be removed in 1.15.
-	 */
-	if (ip4->saddr != 0)
-		return 0;
-
-	/* When IP_POOLS is enabled ip addresses are not
-	 * assigned on a per node basis so lacking node
-	 * affinity we can not use IP address to assign the
-	 * destination IP. Instead rewrite it here from cb[].
-	 */
-	sum = csum_diff(&ip4->daddr, sizeof(__u32), &tunnel_endpoint,
-			sizeof(tunnel_endpoint), 0);
-	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, daddr),
-			    &tunnel_endpoint, sizeof(tunnel_endpoint), 0) < 0)
-		return DROP_WRITE_ERROR;
-	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-			    0, sum, 0) < 0)
-		return DROP_CSUM_L3;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-
-	sum = csum_diff(&ip4->saddr, sizeof(__u32), &tunnel_source,
-			sizeof(tunnel_source), 0);
-	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, saddr),
-			    &tunnel_source, sizeof(tunnel_source), 0) < 0)
-		return DROP_WRITE_ERROR;
-	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
-			    0, sum, 0) < 0)
-		return DROP_CSUM_L3;
-
-	return ret;
-}
-
-static __always_inline int
-do_netdev_encrypt(struct __ctx_buff *ctx __maybe_unused,
-		  __u32 src_id __maybe_unused)
-{
-	int ret;
-
-	ret = do_netdev_encrypt_pools(ctx);
-	if (ret)
-		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP, METRIC_INGRESS);
-
-	return CTX_ACT_OK;
-}
-
-#else /* TUNNEL_MODE */
+#if defined(ENABLE_IPSEC) && defined(TUNNEL_MODE)
 static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32 src_id)
 {
 	struct trace_ctx trace = {
@@ -994,14 +923,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx, __u32
 						src_id, 0, NOT_VTEP_DST,
 						&trace);
 }
-
-static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx,
-					     __u32 src_id)
-{
-	return do_netdev_encrypt_encap(ctx, src_id);
-}
-#endif /* TUNNEL_MODE */
-#endif /* ENABLE_IPSEC */
+#endif /* ENABLE_IPSEC && TUNNEL_MODE */
 
 #ifdef ENABLE_L2_ANNOUNCEMENTS
 static __always_inline int handle_l2_announcement(struct __ctx_buff *ctx)
@@ -1088,13 +1010,16 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 			send_trace_notify(ctx, TRACE_FROM_STACK, identity, 0, 0,
 					  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED,
 					  TRACE_PAYLOAD_LEN);
-			ret = do_netdev_encrypt(ctx, identity);
+			ret = CTX_ACT_OK;
+# ifdef TUNNEL_MODE
+			ret = do_netdev_encrypt_encap(ctx, identity);
 			if (IS_ERR(ret))
 				return send_drop_notify_error(ctx, identity, ret,
 							      CTX_ACT_DROP, METRIC_EGRESS);
+# endif /* TUNNEL_MODE */
 			return ret;
 		}
-#endif
+#endif /* ENABLE_IPSEC */
 
 		send_trace_notify(ctx, trace, identity, 0, 0,
 				  ctx->ingress_ifindex,
