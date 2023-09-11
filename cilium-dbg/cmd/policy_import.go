@@ -22,8 +22,8 @@ var replaceWithLabels []string
 var policyImportCmd = &cobra.Command{
 	Use:   "import <path>",
 	Short: "Import security policy in JSON format",
-	Example: `  cilium policy import ~/policy.json
-  cilium policy import ./policies/app/`,
+	Example: `  cilium-dbg policy import ~/policy.json
+  cilium-dbg policy import ./policies/app/`,
 	PreRun: requirePath,
 	Run: func(cmd *cobra.Command, args []string) {
 		path := args[0]

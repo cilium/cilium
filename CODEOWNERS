@@ -255,9 +255,9 @@ Makefile* @cilium/build
 /bpf/lib/encrypt.h @cilium/ipsec
 /bugtool/ @cilium/tophat
 /bugtool/cmd/ @cilium/cli
-/cilium/ @cilium/cli
-/cilium/cmd/encrypt* @cilium/ipsec @cilium/cli
-/cilium/cmd/preflight_k8s_valid_cnp.go @cilium/sig-k8s
+/cilium-dbg/ @cilium/cli
+/cilium-dbg/cmd/encrypt* @cilium/ipsec @cilium/cli
+/cilium-dbg/cmd/preflight_k8s_valid_cnp.go @cilium/sig-k8s
 /cilium-health/ @cilium/sig-agent
 /cilium-health/cmd/ @cilium/sig-agent @cilium/cli
 /clustermesh-apiserver @cilium/sig-clustermesh

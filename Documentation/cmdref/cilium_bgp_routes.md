@@ -16,13 +16,13 @@ cilium bgp routes <available | advertised> <afi> <safi> [vrouter <asn>] [peer|ne
 
 ```
   Get all IPv4 unicast routes available:
-    cilium bgp routes available ipv4 unicast
+    cilium-dbg bgp routes available ipv4 unicast
 
   Get all IPv6 unicast routes available for a specific vrouter:
-    cilium bgp routes available ipv6 unicast vrouter 65001
+    cilium-dbg bgp routes available ipv6 unicast vrouter 65001
 
   Get IPv4 unicast routes advertised to a specific peer:
-    cilium bgp routes advertised ipv4 unicast peer 10.0.0.1
+    cilium-dbg bgp routes advertised ipv4 unicast peer 10.0.0.1
 ```
 
 ### Options

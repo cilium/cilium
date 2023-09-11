@@ -5,7 +5,8 @@ ROOT_DIR := $(shell dirname "$(realpath $(lastword $(MAKEFILE_LIST)))")
 
 include ${ROOT_DIR}/../Makefile.defs
 
-TARGET := cilium
+TARGET := cilium-dbg
+TARGET_OLD := cilium
 
 .PHONY: all $(TARGET) clean install
 
@@ -25,6 +26,7 @@ install: install-binary install-bash-completion-only
 install-binary:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+	$(QUIET)ln -rs $(DESTDIR)$(BINDIR)/$(TARGET) $(DESTDIR)$(BINDIR)/$(TARGET_OLD)
 
 install-bash-completion: $(TARGET) install-bash-completion-only
 

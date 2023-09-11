@@ -38,13 +38,13 @@ var BgpRoutesCmd = &cobra.Command{
 	Short: "List routes in the BGP Control Plane's RIBs",
 	Long:  "List routes in the BGP Control Plane's Routing Information Bases (RIBs)",
 	Example: `  Get all IPv4 unicast routes available:
-    cilium bgp routes available ipv4 unicast
+    cilium-dbg bgp routes available ipv4 unicast
 
   Get all IPv6 unicast routes available for a specific vrouter:
-    cilium bgp routes available ipv6 unicast vrouter 65001
+    cilium-dbg bgp routes available ipv6 unicast vrouter 65001
 
   Get IPv4 unicast routes advertised to a specific peer:
-    cilium bgp routes advertised ipv4 unicast peer 10.0.0.1`,
+    cilium-dbg bgp routes advertised ipv4 unicast peer 10.0.0.1`,
 
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
