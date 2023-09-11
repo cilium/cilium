@@ -3484,6 +3484,30 @@ const (
 	InstanceTypeHpc7a24xlarge   InstanceType = "hpc7a.24xlarge"
 	InstanceTypeHpc7a48xlarge   InstanceType = "hpc7a.48xlarge"
 	InstanceTypeHpc7a96xlarge   InstanceType = "hpc7a.96xlarge"
+	InstanceTypeC7gdMedium      InstanceType = "c7gd.medium"
+	InstanceTypeC7gdLarge       InstanceType = "c7gd.large"
+	InstanceTypeC7gdXlarge      InstanceType = "c7gd.xlarge"
+	InstanceTypeC7gd2xlarge     InstanceType = "c7gd.2xlarge"
+	InstanceTypeC7gd4xlarge     InstanceType = "c7gd.4xlarge"
+	InstanceTypeC7gd8xlarge     InstanceType = "c7gd.8xlarge"
+	InstanceTypeC7gd12xlarge    InstanceType = "c7gd.12xlarge"
+	InstanceTypeC7gd16xlarge    InstanceType = "c7gd.16xlarge"
+	InstanceTypeM7gdMedium      InstanceType = "m7gd.medium"
+	InstanceTypeM7gdLarge       InstanceType = "m7gd.large"
+	InstanceTypeM7gdXlarge      InstanceType = "m7gd.xlarge"
+	InstanceTypeM7gd2xlarge     InstanceType = "m7gd.2xlarge"
+	InstanceTypeM7gd4xlarge     InstanceType = "m7gd.4xlarge"
+	InstanceTypeM7gd8xlarge     InstanceType = "m7gd.8xlarge"
+	InstanceTypeM7gd12xlarge    InstanceType = "m7gd.12xlarge"
+	InstanceTypeM7gd16xlarge    InstanceType = "m7gd.16xlarge"
+	InstanceTypeR7gdMedium      InstanceType = "r7gd.medium"
+	InstanceTypeR7gdLarge       InstanceType = "r7gd.large"
+	InstanceTypeR7gdXlarge      InstanceType = "r7gd.xlarge"
+	InstanceTypeR7gd2xlarge     InstanceType = "r7gd.2xlarge"
+	InstanceTypeR7gd4xlarge     InstanceType = "r7gd.4xlarge"
+	InstanceTypeR7gd8xlarge     InstanceType = "r7gd.8xlarge"
+	InstanceTypeR7gd12xlarge    InstanceType = "r7gd.12xlarge"
+	InstanceTypeR7gd16xlarge    InstanceType = "r7gd.16xlarge"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -4187,6 +4211,30 @@ func (InstanceType) Values() []InstanceType {
 		"hpc7a.24xlarge",
 		"hpc7a.48xlarge",
 		"hpc7a.96xlarge",
+		"c7gd.medium",
+		"c7gd.large",
+		"c7gd.xlarge",
+		"c7gd.2xlarge",
+		"c7gd.4xlarge",
+		"c7gd.8xlarge",
+		"c7gd.12xlarge",
+		"c7gd.16xlarge",
+		"m7gd.medium",
+		"m7gd.large",
+		"m7gd.xlarge",
+		"m7gd.2xlarge",
+		"m7gd.4xlarge",
+		"m7gd.8xlarge",
+		"m7gd.12xlarge",
+		"m7gd.16xlarge",
+		"r7gd.medium",
+		"r7gd.large",
+		"r7gd.xlarge",
+		"r7gd.2xlarge",
+		"r7gd.4xlarge",
+		"r7gd.8xlarge",
+		"r7gd.12xlarge",
+		"r7gd.16xlarge",
 	}
 }
 
@@ -5065,6 +5113,7 @@ const (
 	LocationTypeRegion             LocationType = "region"
 	LocationTypeAvailabilityZone   LocationType = "availability-zone"
 	LocationTypeAvailabilityZoneId LocationType = "availability-zone-id"
+	LocationTypeOutpost            LocationType = "outpost"
 )
 
 // Values returns all known values for LocationType. Note that this can be
@@ -5075,6 +5124,7 @@ func (LocationType) Values() []LocationType {
 		"region",
 		"availability-zone",
 		"availability-zone-id",
+		"outpost",
 	}
 }
 
