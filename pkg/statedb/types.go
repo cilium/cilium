@@ -236,3 +236,19 @@ type tableEntry struct {
 	deleteTrackers *iradix.Tree[deleteTracker]
 	revision       uint64
 }
+
+func (t *tableEntry) numObjects() int {
+	indexTree, ok := t.indexes.Get([]byte(RevisionIndex))
+	if ok {
+		return indexTree.Len()
+	}
+	return 0
+}
+
+func (t *tableEntry) numDeletedObjects() int {
+	indexTree, ok := t.indexes.Get([]byte(GraveyardIndex))
+	if ok {
+		return indexTree.Len()
+	}
+	return 0
+}

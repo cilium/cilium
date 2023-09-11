@@ -58,12 +58,13 @@ func graveyardWorker(db *DB, gcRateLimitInterval time.Duration) {
 			}
 
 			db.metrics.TableGraveyardLowWatermark.With(prometheus.Labels{
-				"table": string(tableName),
+				"table": tableName,
 			}).Set(float64(lowWatermark))
 
 			// Find objects to be deleted by iterating over the graveyard revision index up
 			// to the low watermark.
 			indexTree := txn.indexReadTxn(tableName, GraveyardRevisionIndex)
+
 			objIter := indexTree.Root().Iterator()
 			for key, obj, ok := objIter.Next(); ok; key, obj, ok = objIter.Next() {
 				if obj.revision > lowWatermark {
@@ -95,7 +96,6 @@ func graveyardWorker(db *DB, gcRateLimitInterval time.Duration) {
 					// The dead object still existed (and wasn't replaced by a create->delete),
 					// delete it from the primary index.
 					txn.indexWriteTxn(tableName, GraveyardIndex).Delete(key[8:])
-					txn.pendingGraveyardDeltas[tableName]--
 				}
 			}
 			cleaningTimes[tableName].End(true)
@@ -106,6 +106,18 @@ func graveyardWorker(db *DB, gcRateLimitInterval time.Duration) {
 			db.metrics.TableGraveyardCleaningDuration.With(prometheus.Labels{
 				"table": tableName,
 			}).Observe(stat.Total().Seconds())
+		}
+
+		// Update object count metrics.
+		txn = db.ReadTxn().getTxn()
+		tableIter = txn.rootReadTxn.Root().Iterator()
+		for name, table, ok := tableIter.Next(); ok; name, table, ok = tableIter.Next() {
+			db.metrics.TableGraveyardObjectCount.With(
+				prometheus.Labels{"table": string(name)},
+			).Set(float64(table.numDeletedObjects()))
+			db.metrics.TableObjectCount.With(
+				prometheus.Labels{"table": string(name)},
+			).Set(float64(table.numObjects()))
 		}
 	}
 }

@@ -176,16 +176,14 @@ func (db *DB) WriteTxn(table TableMeta, tables ...TableMeta) WriteTxn {
 	}).Observe(acquiredAt.Sub(lockAt).Seconds())
 
 	return &txn{
-		db:                     db,
-		rootReadTxn:            rootReadTxn,
-		modifiedTables:         tableEntries,
-		writeTxns:              make(map[tableIndex]*iradix.Txn[object]),
-		smus:                   smus,
-		acquiredAt:             acquiredAt,
-		tableNames:             strings.Join(tableNames, "+"),
-		packageName:            callerPkg,
-		pendingObjectDeltas:    make(map[string]float64),
-		pendingGraveyardDeltas: make(map[string]float64),
+		db:             db,
+		rootReadTxn:    rootReadTxn,
+		modifiedTables: tableEntries,
+		writeTxns:      make(map[tableIndex]*iradix.Txn[object]),
+		smus:           smus,
+		acquiredAt:     acquiredAt,
+		tableNames:     strings.Join(tableNames, "+"),
+		packageName:    callerPkg,
 	}
 }
 

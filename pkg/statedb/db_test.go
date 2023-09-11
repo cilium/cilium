@@ -12,6 +12,7 @@ import (
 	"time"
 
 	iradix "github.com/hashicorp/go-immutable-radix/v2"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
@@ -62,10 +64,11 @@ const (
 	NO_INDEX_TAGS = false
 )
 
-func newTestDB(t testing.TB, secondaryIndexers ...Indexer[testObject]) (*DB, Table[testObject]) {
+func newTestDB(t testing.TB, secondaryIndexers ...Indexer[testObject]) (*DB, Table[testObject], Metrics) {
 	var (
-		db    *DB
-		table Table[testObject]
+		db      *DB
+		table   Table[testObject]
+		metrics Metrics
 	)
 	logging.SetLogLevel(logrus.ErrorLevel)
 
@@ -77,12 +80,13 @@ func newTestDB(t testing.TB, secondaryIndexers ...Indexer[testObject]) (*DB, Tab
 			secondaryIndexers...,
 		),
 
-		cell.Invoke(func(db_ *DB, table_ Table[testObject]) {
+		cell.Invoke(func(db_ *DB, table_ Table[testObject], metrics_ Metrics) {
 			// Use a short GC interval.
 			db_.setGCRateLimitInterval(50 * time.Millisecond)
 
 			db = db_
 			table = table_
+			metrics = metrics_
 		}),
 	)
 
@@ -91,11 +95,11 @@ func newTestDB(t testing.TB, secondaryIndexers ...Indexer[testObject]) (*DB, Tab
 		assert.NoError(t, h.Stop(context.TODO()))
 		logging.SetLogLevel(logrus.InfoLevel)
 	})
-	return db, table
+	return db, table, metrics
 }
 
 func TestDB_LowerBound_ByRevision(t *testing.T) {
-	db, table := newTestDB(t, tagsIndex)
+	db, table, _ := newTestDB(t, tagsIndex)
 
 	{
 		txn := db.WriteTxn(table)
@@ -157,7 +161,12 @@ func TestDB_LowerBound_ByRevision(t *testing.T) {
 }
 
 func TestDB_DeleteTracker(t *testing.T) {
-	db, table := newTestDB(t)
+	db, table, metrics := newTestDB(t, tagsIndex)
+	metrics.TableRevision.SetEnabled(true)
+	metrics.TableObjectCount.SetEnabled(true)
+	metrics.TableGraveyardObjectCount.SetEnabled(true)
+	metrics.TableGraveyardLowWatermark.SetEnabled(true)
+	metrics.TableDeleteTrackerCount.SetEnabled(true)
 
 	{
 		txn := db.WriteTxn(table)
@@ -167,16 +176,20 @@ func TestDB_DeleteTracker(t *testing.T) {
 		txn.Commit()
 	}
 
+	// Check metrics
+	require.EqualValues(t, table.Revision(db.ReadTxn()), getGaugeForTable(t, metrics.TableRevision))
+	require.EqualValues(t, 3, getGaugeForTable(t, metrics.TableObjectCount))
+	require.EqualValues(t, 0, getGaugeForTable(t, metrics.TableGraveyardObjectCount))
+
 	// Create two delete trackers
 	wtxn := db.WriteTxn(table)
 	deleteTracker, err := table.DeleteTracker(wtxn, "test")
 	require.NoError(t, err, "failed to create DeleteTracker")
-	wtxn.Commit()
-
-	wtxn = db.WriteTxn(table)
 	deleteTracker2, err := table.DeleteTracker(wtxn, "test2")
 	require.NoError(t, err, "failed to create DeleteTracker")
 	wtxn.Commit()
+
+	require.EqualValues(t, 2, getGaugeForTable(t, metrics.TableDeleteTrackerCount))
 
 	// Delete 2/3 objects
 	{
@@ -208,6 +221,9 @@ func TestDB_DeleteTracker(t *testing.T) {
 	iter, _ := table.All(txn)
 	objs := Collect(iter)
 	require.Len(t, objs, 1)
+
+	require.EqualValues(t, 1, getGaugeForTable(t, metrics.TableObjectCount))
+	require.EqualValues(t, 2, getGaugeForTable(t, metrics.TableGraveyardObjectCount))
 
 	// Consume the deletions using the first delete tracker.
 	nExist := 0
@@ -274,21 +290,29 @@ func TestDB_DeleteTracker(t *testing.T) {
 	// Graveyard will now be GCd.
 	eventuallyGraveyardIsEmpty(t, db)
 
-	// After closing the first delete tracker, deletes are still for second one.
+	require.EqualValues(t, 1, getGaugeForTable(t, metrics.TableObjectCount))
+	require.EqualValues(t, 0, getGaugeForTable(t, metrics.TableGraveyardObjectCount))
+	require.EqualValues(t, table.Revision(db.ReadTxn()), getGaugeForTable(t, metrics.TableGraveyardLowWatermark))
+
+	// After closing the first delete tracker, deletes are still tracked for second one.
+	// Delete the last remaining object.
 	deleteTracker.Close()
 	{
 		txn := db.WriteTxn(table)
-		table.Insert(txn, testObject{ID: 77, Tags: []string{"hello"}})
-		txn.Commit()
-		txn = db.WriteTxn(table)
 		table.DeleteAll(txn)
 		txn.Commit()
 	}
 	require.False(t, db.graveyardIsEmpty())
 
+	require.EqualValues(t, 0, getGaugeForTable(t, metrics.TableObjectCount))
+	require.EqualValues(t, 1, getGaugeForTable(t, metrics.TableGraveyardObjectCount))
+
 	// And finally after closing the second tracker deletions are no longer tracked.
 	deleteTracker2.Mark(table.Revision(db.ReadTxn()))
 	eventuallyGraveyardIsEmpty(t, db)
+
+	require.EqualValues(t, 0, getGaugeForTable(t, metrics.TableObjectCount))
+	require.EqualValues(t, 0, getGaugeForTable(t, metrics.TableGraveyardObjectCount))
 
 	deleteTracker2.Close()
 	{
@@ -301,10 +325,12 @@ func TestDB_DeleteTracker(t *testing.T) {
 	}
 	require.True(t, db.graveyardIsEmpty())
 
+	require.EqualValues(t, 0, getGaugeForTable(t, metrics.TableObjectCount))
+	require.EqualValues(t, 0, getGaugeForTable(t, metrics.TableDeleteTrackerCount))
 }
 
 func TestDB_All(t *testing.T) {
-	db, table := newTestDB(t, tagsIndex)
+	db, table, _ := newTestDB(t, tagsIndex)
 
 	{
 		txn := db.WriteTxn(table)
@@ -348,7 +374,7 @@ func TestDB_All(t *testing.T) {
 }
 
 func TestDB_Revision(t *testing.T) {
-	db, table := newTestDB(t, tagsIndex)
+	db, table, _ := newTestDB(t, tagsIndex)
 
 	startRevision := table.Revision(db.ReadTxn())
 
@@ -374,7 +400,7 @@ func TestDB_Revision(t *testing.T) {
 }
 
 func TestDB_FirstLast(t *testing.T) {
-	db, table := newTestDB(t, tagsIndex)
+	db, table, _ := newTestDB(t, tagsIndex)
 
 	// Write test objects 1..10 to table with odd/even/odd/... tags.
 	{
@@ -473,12 +499,17 @@ func TestDB_FirstLast(t *testing.T) {
 }
 
 func TestDB_CommitAbort(t *testing.T) {
-	db, table := newTestDB(t, tagsIndex)
+	db, table, metrics := newTestDB(t, tagsIndex)
+	metrics.TableRevision.SetEnabled(true)
+	metrics.TableObjectCount.SetEnabled(true)
 
 	txn := db.WriteTxn(table)
 	_, _, err := table.Insert(txn, testObject{ID: 123, Tags: nil})
 	require.NoError(t, err)
 	txn.Commit()
+
+	require.EqualValues(t, 1, getGaugeForTable(t, metrics.TableObjectCount))
+	require.EqualValues(t, table.Revision(db.ReadTxn()), getGaugeForTable(t, metrics.TableRevision))
 
 	obj, rev, ok := table.First(db.ReadTxn(), idIndex.Query(123))
 	require.True(t, ok, "expected First(1) to return result")
@@ -506,7 +537,7 @@ func TestDB_CommitAbort(t *testing.T) {
 }
 
 func TestWriteJSON(t *testing.T) {
-	db, table := newTestDB(t, tagsIndex)
+	db, table, _ := newTestDB(t, tagsIndex)
 
 	buf := new(bytes.Buffer)
 	err := db.ReadTxn().WriteJSON(buf)
@@ -521,7 +552,7 @@ func TestWriteJSON(t *testing.T) {
 }
 
 func BenchmarkDB_WriteTxn_1(b *testing.B) {
-	db, table := newTestDB(b)
+	db, table, _ := newTestDB(b)
 	for i := 0; i < b.N; i++ {
 		txn := db.WriteTxn(table)
 		_, _, err := table.Insert(txn, testObject{ID: 123, Tags: nil})
@@ -531,7 +562,7 @@ func BenchmarkDB_WriteTxn_1(b *testing.B) {
 }
 
 func BenchmarkDB_WriteTxn_10(b *testing.B) {
-	db, table := newTestDB(b)
+	db, table, _ := newTestDB(b)
 	n := b.N
 	for n > 0 {
 		txn := db.WriteTxn(table)
@@ -551,7 +582,7 @@ func BenchmarkDB_WriteTxn_10(b *testing.B) {
 }
 
 func BenchmarkDB_RandomInsert(b *testing.B) {
-	db, table := newTestDB(b)
+	db, table, _ := newTestDB(b)
 
 	ids := []uint64{}
 	for i := 0; i < b.N; i++ {
@@ -574,7 +605,7 @@ func BenchmarkDB_RandomInsert(b *testing.B) {
 }
 
 func BenchmarkDB_SequentialInsert(b *testing.B) {
-	db, table := newTestDB(b)
+	db, table, _ := newTestDB(b)
 
 	b.ResetTimer()
 	txn := db.WriteTxn(table)
@@ -617,7 +648,7 @@ func BenchmarkDB_Baseline_Hashmap_Lookup(b *testing.B) {
 }
 
 func BenchmarkDB_DeleteTracker_Baseline(b *testing.B) {
-	db, table := newTestDB(b)
+	db, table, _ := newTestDB(b)
 
 	// Create b.N objects
 	txn := db.WriteTxn(table)
@@ -636,7 +667,7 @@ func BenchmarkDB_DeleteTracker_Baseline(b *testing.B) {
 }
 
 func BenchmarkDB_DeleteTracker(b *testing.B) {
-	db, table := newTestDB(b)
+	db, table, _ := newTestDB(b)
 
 	// Start tracking deletions from the start
 
@@ -673,7 +704,7 @@ func BenchmarkDB_DeleteTracker(b *testing.B) {
 }
 
 func BenchmarkDB_RandomLookup(b *testing.B) {
-	db, table := newTestDB(b)
+	db, table, _ := newTestDB(b)
 
 	wtxn := db.WriteTxn(table)
 	ids := []uint64{}
@@ -696,7 +727,7 @@ func BenchmarkDB_RandomLookup(b *testing.B) {
 }
 
 func BenchmarkDB_SequentialLookup(b *testing.B) {
-	db, table := newTestDB(b)
+	db, table, _ := newTestDB(b)
 	wtxn := db.WriteTxn(table)
 	ids := []uint64{}
 	for i := 0; i < b.N; i++ {
@@ -716,7 +747,7 @@ func BenchmarkDB_SequentialLookup(b *testing.B) {
 }
 
 func BenchmarkDB_FullIteration(b *testing.B) {
-	db, table := newTestDB(b)
+	db, table, _ := newTestDB(b)
 	wtxn := db.WriteTxn(table)
 	for i := 0; i < b.N; i++ {
 		_, _, err := table.Insert(wtxn, testObject{ID: uint64(i), Tags: nil})
@@ -747,4 +778,12 @@ func eventuallyGraveyardIsEmpty(t testing.TB, db *DB) {
 		5*time.Second,
 		100*time.Millisecond,
 		"graveyard not garbage collected")
+}
+
+var testTableLabels = prometheus.Labels{"table": "test"}
+
+func getGaugeForTable(t testing.TB, vec metric.Vec[metric.Gauge]) float64 {
+	gauge, err := vec.GetMetricWith(testTableLabels)
+	require.NoError(t, err)
+	return gauge.Get()
 }
