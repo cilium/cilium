@@ -7,7 +7,6 @@ package v1
 
 import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr"
 )
@@ -344,7 +343,7 @@ type IngressPortStatus struct {
 
 	// protocol is the protocol of the ingress port.
 	// The supported values are: "TCP", "UDP", "SCTP"
-	Protocol v1.Protocol `json:"protocol" protobuf:"bytes,2,opt,name=protocol,casttype=Protocol"`
+	Protocol slim_corev1.Protocol `json:"protocol" protobuf:"bytes,2,opt,name=protocol,casttype=Protocol"`
 
 	// error is to record the problem with the service port
 	// The format of the error shall comply with the following rules:

@@ -15,7 +15,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
@@ -117,7 +116,7 @@ func (feM *feMapping) GetModel() *models.FrontendMapping {
 
 type bePortInfo struct {
 	// l4Addr is the port and protocol
-	l4Addr lb.L4Addr
+	l4Addr loadbalancer.L4Addr
 	// name is the port name
 	name string
 }
@@ -262,7 +261,7 @@ func getSanitizedLRPConfig(name, namespace string, uid types.UID, spec v2.Cilium
 			return nil, fmt.Errorf("invalid backend port %v", err)
 		}
 		beP := bePortInfo{
-			l4Addr: lb.L4Addr{
+			l4Addr: loadbalancer.L4Addr{
 				Protocol: proto,
 				Port:     p,
 			},

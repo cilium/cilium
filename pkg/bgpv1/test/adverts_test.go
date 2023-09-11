@@ -10,7 +10,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/testutils"
 
@@ -357,7 +356,7 @@ func Test_LBEgressAdvertisement(t *testing.T) {
 			if step.op == "add" {
 				err = tracker.Add(&srvObj)
 			} else {
-				err = tracker.Update(slimv1.Unversioned.WithResource("services"), &srvObj, "")
+				err = tracker.Update(slim_metav1.Unversioned.WithResource("services"), &srvObj, "")
 			}
 			require.NoError(t, err, step.description)
 

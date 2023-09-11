@@ -14,7 +14,6 @@ import (
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/version"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 
@@ -129,7 +128,7 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 				_, err = client.ApiextensionsV1beta1().CustomResourceDefinitions().Create(
 					context.TODO(),
 					oldCRD,
-					v1.CreateOptions{},
+					metav1.CreateOptions{},
 				)
 				c.Assert(err, IsNil)
 
@@ -158,7 +157,7 @@ func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
 				_, err = client.ApiextensionsV1().CustomResourceDefinitions().Create(
 					context.TODO(),
 					oldCRD,
-					v1.CreateOptions{},
+					metav1.CreateOptions{},
 				)
 				c.Assert(err, IsNil)
 

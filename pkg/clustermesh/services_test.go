@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cmutils "github.com/cilium/cilium/pkg/clustermesh/utils"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
@@ -105,7 +104,7 @@ func (s *ClusterMeshServicesTestSuite) SetUpTest(c *C) {
 	store := store.NewFactory(store.MetricsProvider())
 	s.mesh = NewClusterMesh(hivetest.Lifecycle(c), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
-		ClusterInfo:           types.ClusterInfo{ID: 255, Name: "test2"},
+		ClusterInfo:           cmtypes.ClusterInfo{ID: 255, Name: "test2"},
 		NodeKeyCreator:        testNodeCreator,
 		NodeObserver:          &testObserver{},
 		ServiceMerger:         s.svcCache,

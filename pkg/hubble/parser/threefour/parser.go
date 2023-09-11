@@ -13,7 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	"github.com/cilium/cilium/api/v1/flow"
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/hubble/parser/common"
@@ -105,7 +104,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	var pvn *monitor.PolicyVerdictNotify
 	var dbg *monitor.DebugCapture
 	var eventSubType uint8
-	var authType flow.AuthType
+	var authType pb.AuthType
 
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
@@ -138,7 +137,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 		}
 		eventSubType = pvn.SubType
 		packetOffset = monitor.PolicyVerdictNotifyLen
-		authType = flow.AuthType(pvn.GetAuthType())
+		authType = pb.AuthType(pvn.GetAuthType())
 	case monitorAPI.MessageTypeCapture:
 		dbg = &monitor.DebugCapture{}
 		if err := monitor.DecodeDebugCapture(data, dbg); err != nil {
@@ -450,7 +449,7 @@ func decodeSecurityIdentities(dn *monitor.DropNotify, tn *monitor.TraceNotify, p
 func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) pb.TrafficDirection {
 	if dn != nil && dn.Source != 0 {
 		// If the local endpoint at which the drop occurred is the same as the
-		// source of the dropped packet, we assume it was an egress flow. This
+		// source of the dropped packet, we assume it was an egress pb. This
 		// implies that we also assume that dropped packets are not dropped
 		// reply packets of an ongoing connection.
 		if dn.Source == uint16(srcEP) {

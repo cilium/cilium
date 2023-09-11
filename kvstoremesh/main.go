@@ -13,7 +13,6 @@ import (
 	kmmetrics "github.com/cilium/cilium/kvstoremesh/metrics"
 	kmopt "github.com/cilium/cilium/kvstoremesh/option"
 	"github.com/cilium/cilium/pkg/clustermesh/kvstoremesh"
-	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -80,7 +79,7 @@ func init() {
 	rootCmd.AddCommand(rootHive.Command())
 }
 
-func registerClusterInfoValidator(lc hive.Lifecycle, cinfo types.ClusterInfo) {
+func registerClusterInfoValidator(lc hive.Lifecycle, cinfo cmtypes.ClusterInfo) {
 	lc.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error { return cinfo.ValidateStrict() },
 	})

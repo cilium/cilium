@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -82,7 +81,7 @@ type linuxNodeHandler struct {
 	ipsecMetricCollector prometheus.Collector
 	ipsecMetricOnce      sync.Once
 
-	prefixClusterMutatorFn func(node *types.Node) []cmtypes.PrefixClusterOpts
+	prefixClusterMutatorFn func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts
 }
 
 var (

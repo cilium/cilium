@@ -11,7 +11,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/clustermesh/common"
-	"github.com/cilium/cilium/pkg/clustermesh/types"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -81,7 +80,7 @@ func (rc *remoteCluster) Run(ctx context.Context, backend kvstore.BackendOperati
 		return
 	}
 
-	var capabilities types.CiliumClusterConfigCapabilities
+	var capabilities cmtypes.CiliumClusterConfigCapabilities
 	if config != nil {
 		capabilities = config.Capabilities
 	}
@@ -175,7 +174,7 @@ func (rc *remoteCluster) Status() *models.RemoteCluster {
 }
 
 func (rc *remoteCluster) ClusterConfigRequired() bool {
-	return rc.mesh.conf.ConfigValidationMode == types.Strict
+	return rc.mesh.conf.ConfigValidationMode == cmtypes.Strict
 }
 
 func (rc *remoteCluster) onUpdateConfig(newConfig *cmtypes.CiliumClusterConfig) error {

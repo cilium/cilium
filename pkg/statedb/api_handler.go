@@ -9,7 +9,6 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 
-	. "github.com/cilium/cilium/api/v1/server/restapi/statedb"
 	restapi "github.com/cilium/cilium/api/v1/server/restapi/statedb"
 )
 
@@ -24,7 +23,7 @@ type dumphandler struct {
 }
 
 // /statedb/dump
-func (h *dumphandler) Handle(params GetStatedbDumpParams) middleware.Responder {
+func (h *dumphandler) Handle(params restapi.GetStatedbDumpParams) middleware.Responder {
 	return middleware.ResponderFunc(func(w http.ResponseWriter, _ runtime.Producer) {
 		h.db.ReadTxn().WriteJSON(w)
 	})
