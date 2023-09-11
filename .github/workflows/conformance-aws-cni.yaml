@@ -58,7 +58,7 @@ env:
   CILIUM_CLI_MODE: helm
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
-  eksctl_version: v0.154.0
+  eksctl_version: v0.156.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.28.1
 
