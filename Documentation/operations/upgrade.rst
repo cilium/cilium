@@ -455,6 +455,7 @@ Added Metrics
 * ``cilium_operator_ipam_needed_ips``
 * ``kvstore_sync_queue_size``
 * ``kvstore_initial_sync_completed``
+* ``cilium_endpoint_max_ifindex`` See `#27953 <https://github.com/cilium/cilium/pull/27953>`_ for configuration and usage information
 
 You can now additionally configure the *clustermesh-apiserver* to expose a set
 of metrics about the synchronization process, kvstore operations, and the sidecar
@@ -559,7 +560,7 @@ functional in general. The following is a list of operations that will not be
 available during the upgrade:
 
 * API-aware policy rules are enforced in user space proxies and are
-  running as part of the Cilium pod. Upgrading Cilium causes the proxy to 
+  running as part of the Cilium pod. Upgrading Cilium causes the proxy to
   restart, which results in a connectivity outage and causes the connection to reset.
 
 * Existing policy will remain effective but implementation of new policy rules
