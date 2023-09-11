@@ -6,6 +6,7 @@ package check
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -671,7 +672,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Port:     8000,
 				Command: []string{
 					"tcd-client",
-					"--dispatch-interval", "10", // 10ms
+					"--dispatch-interval", strconv.Itoa(int(ct.params.ConnDisruptDispatchInterval)),
 					fmt.Sprintf("test-conn-disrupt.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
 				},
 				ReadinessProbe: readinessProbe,
