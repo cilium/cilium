@@ -59,6 +59,7 @@ func (m *GrpcWeb) validate(all bool) error {
 	if len(errors) > 0 {
 		return GrpcWebMultiError(errors)
 	}
+
 	return nil
 }
 

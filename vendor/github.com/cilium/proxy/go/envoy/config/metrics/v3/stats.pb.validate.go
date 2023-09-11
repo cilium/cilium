@@ -59,9 +59,18 @@ func (m *StatsSink) validate(all bool) error {
 
 	// no validation rules for Name
 
-	switch m.ConfigType.(type) {
-
+	switch v := m.ConfigType.(type) {
 	case *StatsSink_TypedConfig:
+		if v == nil {
+			err := StatsSinkValidationError{
+				field:  "ConfigType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetTypedConfig()).(type) {
@@ -92,11 +101,14 @@ func (m *StatsSink) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return StatsSinkMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -321,6 +333,7 @@ func (m *StatsConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return StatsConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -416,12 +429,33 @@ func (m *StatsMatcher) validate(all bool) error {
 
 	var errors []error
 
-	switch m.StatsMatcher.(type) {
-
+	oneofStatsMatcherPresent := false
+	switch v := m.StatsMatcher.(type) {
 	case *StatsMatcher_RejectAll:
+		if v == nil {
+			err := StatsMatcherValidationError{
+				field:  "StatsMatcher",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofStatsMatcherPresent = true
 		// no validation rules for RejectAll
-
 	case *StatsMatcher_ExclusionList:
+		if v == nil {
+			err := StatsMatcherValidationError{
+				field:  "StatsMatcher",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofStatsMatcherPresent = true
 
 		if all {
 			switch v := interface{}(m.GetExclusionList()).(type) {
@@ -453,6 +487,17 @@ func (m *StatsMatcher) validate(all bool) error {
 		}
 
 	case *StatsMatcher_InclusionList:
+		if v == nil {
+			err := StatsMatcherValidationError{
+				field:  "StatsMatcher",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofStatsMatcherPresent = true
 
 		if all {
 			switch v := interface{}(m.GetInclusionList()).(type) {
@@ -484,6 +529,9 @@ func (m *StatsMatcher) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofStatsMatcherPresent {
 		err := StatsMatcherValidationError{
 			field:  "StatsMatcher",
 			reason: "value is required",
@@ -492,12 +540,12 @@ func (m *StatsMatcher) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return StatsMatcherMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -595,9 +643,18 @@ func (m *TagSpecifier) validate(all bool) error {
 
 	// no validation rules for TagName
 
-	switch m.TagValue.(type) {
-
+	switch v := m.TagValue.(type) {
 	case *TagSpecifier_Regex:
+		if v == nil {
+			err := TagSpecifierValidationError{
+				field:  "TagValue",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if len(m.GetRegex()) > 1024 {
 			err := TagSpecifierValidationError{
@@ -611,13 +668,25 @@ func (m *TagSpecifier) validate(all bool) error {
 		}
 
 	case *TagSpecifier_FixedValue:
+		if v == nil {
+			err := TagSpecifierValidationError{
+				field:  "TagValue",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for FixedValue
-
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return TagSpecifierMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -798,6 +867,7 @@ func (m *HistogramBucketSettings) validate(all bool) error {
 	if len(errors) > 0 {
 		return HistogramBucketSettingsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -898,9 +968,20 @@ func (m *StatsdSink) validate(all bool) error {
 
 	// no validation rules for Prefix
 
-	switch m.StatsdSpecifier.(type) {
-
+	oneofStatsdSpecifierPresent := false
+	switch v := m.StatsdSpecifier.(type) {
 	case *StatsdSink_Address:
+		if v == nil {
+			err := StatsdSinkValidationError{
+				field:  "StatsdSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofStatsdSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetAddress()).(type) {
@@ -932,9 +1013,22 @@ func (m *StatsdSink) validate(all bool) error {
 		}
 
 	case *StatsdSink_TcpClusterName:
+		if v == nil {
+			err := StatsdSinkValidationError{
+				field:  "StatsdSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofStatsdSpecifierPresent = true
 		// no validation rules for TcpClusterName
-
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofStatsdSpecifierPresent {
 		err := StatsdSinkValidationError{
 			field:  "StatsdSpecifier",
 			reason: "value is required",
@@ -943,12 +1037,12 @@ func (m *StatsdSink) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return StatsdSinkMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1061,9 +1155,20 @@ func (m *DogStatsdSink) validate(all bool) error {
 
 	}
 
-	switch m.DogStatsdSpecifier.(type) {
-
+	oneofDogStatsdSpecifierPresent := false
+	switch v := m.DogStatsdSpecifier.(type) {
 	case *DogStatsdSink_Address:
+		if v == nil {
+			err := DogStatsdSinkValidationError{
+				field:  "DogStatsdSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofDogStatsdSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetAddress()).(type) {
@@ -1095,6 +1200,9 @@ func (m *DogStatsdSink) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofDogStatsdSpecifierPresent {
 		err := DogStatsdSinkValidationError{
 			field:  "DogStatsdSpecifier",
 			reason: "value is required",
@@ -1103,12 +1211,12 @@ func (m *DogStatsdSink) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return DogStatsdSinkMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1210,6 +1318,7 @@ func (m *HystrixSink) validate(all bool) error {
 	if len(errors) > 0 {
 		return HystrixSinkMultiError(errors)
 	}
+
 	return nil
 }
 

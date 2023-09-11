@@ -209,6 +209,7 @@ func (m *Router) validate(all bool) error {
 	if len(errors) > 0 {
 		return RouterMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -347,6 +348,7 @@ func (m *Router_UpstreamAccessLogOptions) validate(all bool) error {
 	if len(errors) > 0 {
 		return Router_UpstreamAccessLogOptionsMultiError(errors)
 	}
+
 	return nil
 }
 

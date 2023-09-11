@@ -72,6 +72,7 @@ func (m *BpfMetadata) validate(all bool) error {
 	if len(errors) > 0 {
 		return BpfMetadataMultiError(errors)
 	}
+
 	return nil
 }
 

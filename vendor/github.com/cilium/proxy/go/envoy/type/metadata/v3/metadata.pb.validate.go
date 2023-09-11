@@ -116,6 +116,7 @@ func (m *MetadataKey) validate(all bool) error {
 	if len(errors) > 0 {
 		return MetadataKeyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -211,9 +212,20 @@ func (m *MetadataKind) validate(all bool) error {
 
 	var errors []error
 
-	switch m.Kind.(type) {
-
+	oneofKindPresent := false
+	switch v := m.Kind.(type) {
 	case *MetadataKind_Request_:
+		if v == nil {
+			err := MetadataKindValidationError{
+				field:  "Kind",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofKindPresent = true
 
 		if all {
 			switch v := interface{}(m.GetRequest()).(type) {
@@ -245,6 +257,17 @@ func (m *MetadataKind) validate(all bool) error {
 		}
 
 	case *MetadataKind_Route_:
+		if v == nil {
+			err := MetadataKindValidationError{
+				field:  "Kind",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofKindPresent = true
 
 		if all {
 			switch v := interface{}(m.GetRoute()).(type) {
@@ -276,6 +299,17 @@ func (m *MetadataKind) validate(all bool) error {
 		}
 
 	case *MetadataKind_Cluster_:
+		if v == nil {
+			err := MetadataKindValidationError{
+				field:  "Kind",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofKindPresent = true
 
 		if all {
 			switch v := interface{}(m.GetCluster()).(type) {
@@ -307,6 +341,17 @@ func (m *MetadataKind) validate(all bool) error {
 		}
 
 	case *MetadataKind_Host_:
+		if v == nil {
+			err := MetadataKindValidationError{
+				field:  "Kind",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofKindPresent = true
 
 		if all {
 			switch v := interface{}(m.GetHost()).(type) {
@@ -338,6 +383,9 @@ func (m *MetadataKind) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofKindPresent {
 		err := MetadataKindValidationError{
 			field:  "Kind",
 			reason: "value is required",
@@ -346,12 +394,12 @@ func (m *MetadataKind) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return MetadataKindMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -447,9 +495,20 @@ func (m *MetadataKey_PathSegment) validate(all bool) error {
 
 	var errors []error
 
-	switch m.Segment.(type) {
-
+	oneofSegmentPresent := false
+	switch v := m.Segment.(type) {
 	case *MetadataKey_PathSegment_Key:
+		if v == nil {
+			err := MetadataKey_PathSegmentValidationError{
+				field:  "Segment",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofSegmentPresent = true
 
 		if utf8.RuneCountInString(m.GetKey()) < 1 {
 			err := MetadataKey_PathSegmentValidationError{
@@ -463,6 +522,9 @@ func (m *MetadataKey_PathSegment) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofSegmentPresent {
 		err := MetadataKey_PathSegmentValidationError{
 			field:  "Segment",
 			reason: "value is required",
@@ -471,12 +533,12 @@ func (m *MetadataKey_PathSegment) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return MetadataKey_PathSegmentMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -578,6 +640,7 @@ func (m *MetadataKind_Request) validate(all bool) error {
 	if len(errors) > 0 {
 		return MetadataKind_RequestMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -679,6 +742,7 @@ func (m *MetadataKind_Route) validate(all bool) error {
 	if len(errors) > 0 {
 		return MetadataKind_RouteMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -780,6 +844,7 @@ func (m *MetadataKind_Cluster) validate(all bool) error {
 	if len(errors) > 0 {
 		return MetadataKind_ClusterMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -881,6 +946,7 @@ func (m *MetadataKind_Host) validate(all bool) error {
 	if len(errors) > 0 {
 		return MetadataKind_HostMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -104,6 +104,7 @@ func (m *MongoProxy) validate(all bool) error {
 	if len(errors) > 0 {
 		return MongoProxyMultiError(errors)
 	}
+
 	return nil
 }
 

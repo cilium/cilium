@@ -1088,9 +1088,20 @@ func (m *HttpConnectionManager) validate(all bool) error {
 		}
 	}
 
-	switch m.RouteSpecifier.(type) {
-
+	oneofRouteSpecifierPresent := false
+	switch v := m.RouteSpecifier.(type) {
 	case *HttpConnectionManager_Rds:
+		if v == nil {
+			err := HttpConnectionManagerValidationError{
+				field:  "RouteSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRouteSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetRds()).(type) {
@@ -1122,6 +1133,17 @@ func (m *HttpConnectionManager) validate(all bool) error {
 		}
 
 	case *HttpConnectionManager_RouteConfig:
+		if v == nil {
+			err := HttpConnectionManagerValidationError{
+				field:  "RouteSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRouteSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetRouteConfig()).(type) {
@@ -1153,6 +1175,17 @@ func (m *HttpConnectionManager) validate(all bool) error {
 		}
 
 	case *HttpConnectionManager_ScopedRoutes:
+		if v == nil {
+			err := HttpConnectionManagerValidationError{
+				field:  "RouteSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRouteSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetScopedRoutes()).(type) {
@@ -1184,6 +1217,9 @@ func (m *HttpConnectionManager) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofRouteSpecifierPresent {
 		err := HttpConnectionManagerValidationError{
 			field:  "RouteSpecifier",
 			reason: "value is required",
@@ -1192,19 +1228,28 @@ func (m *HttpConnectionManager) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
-
-	switch m.StripPortMode.(type) {
-
+	switch v := m.StripPortMode.(type) {
 	case *HttpConnectionManager_StripAnyHostPort:
+		if v == nil {
+			err := HttpConnectionManagerValidationError{
+				field:  "StripPortMode",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for StripAnyHostPort
-
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return HttpConnectionManagerMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1373,6 +1418,7 @@ func (m *LocalReplyConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return LocalReplyConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1630,6 +1676,7 @@ func (m *ResponseMapper) validate(all bool) error {
 	if len(errors) > 0 {
 		return ResponseMapperMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1770,6 +1817,7 @@ func (m *Rds) validate(all bool) error {
 	if len(errors) > 0 {
 		return RdsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1913,6 +1961,7 @@ func (m *ScopedRouteConfigurationsList) validate(all bool) error {
 	if len(errors) > 0 {
 		return ScopedRouteConfigurationsListMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2092,9 +2141,20 @@ func (m *ScopedRoutes) validate(all bool) error {
 		}
 	}
 
-	switch m.ConfigSpecifier.(type) {
-
+	oneofConfigSpecifierPresent := false
+	switch v := m.ConfigSpecifier.(type) {
 	case *ScopedRoutes_ScopedRouteConfigurationsList:
+		if v == nil {
+			err := ScopedRoutesValidationError{
+				field:  "ConfigSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofConfigSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetScopedRouteConfigurationsList()).(type) {
@@ -2126,6 +2186,17 @@ func (m *ScopedRoutes) validate(all bool) error {
 		}
 
 	case *ScopedRoutes_ScopedRds:
+		if v == nil {
+			err := ScopedRoutesValidationError{
+				field:  "ConfigSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofConfigSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetScopedRds()).(type) {
@@ -2157,6 +2228,9 @@ func (m *ScopedRoutes) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofConfigSpecifierPresent {
 		err := ScopedRoutesValidationError{
 			field:  "ConfigSpecifier",
 			reason: "value is required",
@@ -2165,12 +2239,12 @@ func (m *ScopedRoutes) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return ScopedRoutesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2311,6 +2385,7 @@ func (m *ScopedRds) validate(all bool) error {
 	if len(errors) > 0 {
 		return ScopedRdsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2419,9 +2494,18 @@ func (m *HttpFilter) validate(all bool) error {
 
 	// no validation rules for IsOptional
 
-	switch m.ConfigType.(type) {
-
+	switch v := m.ConfigType.(type) {
 	case *HttpFilter_TypedConfig:
+		if v == nil {
+			err := HttpFilterValidationError{
+				field:  "ConfigType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetTypedConfig()).(type) {
@@ -2453,6 +2537,16 @@ func (m *HttpFilter) validate(all bool) error {
 		}
 
 	case *HttpFilter_ConfigDiscovery:
+		if v == nil {
+			err := HttpFilterValidationError{
+				field:  "ConfigType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetConfigDiscovery()).(type) {
@@ -2483,11 +2577,14 @@ func (m *HttpFilter) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return HttpFilterMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2615,6 +2712,7 @@ func (m *RequestIDExtension) validate(all bool) error {
 	if len(errors) > 0 {
 		return RequestIDExtensionMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2746,6 +2844,7 @@ func (m *EnvoyMobileHttpConnectionManager) validate(all bool) error {
 	if len(errors) > 0 {
 		return EnvoyMobileHttpConnectionManagerMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -3030,6 +3129,7 @@ func (m *HttpConnectionManager_Tracing) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpConnectionManager_TracingMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -3170,6 +3270,7 @@ func (m *HttpConnectionManager_InternalAddressConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpConnectionManager_InternalAddressConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -3312,6 +3413,7 @@ func (m *HttpConnectionManager_SetCurrentClientCertDetails) validate(all bool) e
 	if len(errors) > 0 {
 		return HttpConnectionManager_SetCurrentClientCertDetailsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -3488,6 +3590,7 @@ func (m *HttpConnectionManager_UpgradeConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpConnectionManager_UpgradeConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -3651,6 +3754,7 @@ func (m *HttpConnectionManager_PathNormalizationOptions) validate(all bool) erro
 	if len(errors) > 0 {
 		return HttpConnectionManager_PathNormalizationOptionsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -3764,19 +3868,39 @@ func (m *HttpConnectionManager_ProxyStatusConfig) validate(all bool) error {
 
 	// no validation rules for SetRecommendedResponseCode
 
-	switch m.ProxyName.(type) {
-
+	switch v := m.ProxyName.(type) {
 	case *HttpConnectionManager_ProxyStatusConfig_UseNodeId:
+		if v == nil {
+			err := HttpConnectionManager_ProxyStatusConfigValidationError{
+				field:  "ProxyName",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for UseNodeId
-
 	case *HttpConnectionManager_ProxyStatusConfig_LiteralProxyName:
+		if v == nil {
+			err := HttpConnectionManager_ProxyStatusConfigValidationError{
+				field:  "ProxyName",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for LiteralProxyName
-
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return HttpConnectionManager_ProxyStatusConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -3911,9 +4035,12 @@ func (m *HttpConnectionManager_HcmAccessLogOptions) validate(all bool) error {
 
 	// no validation rules for FlushAccessLogOnNewRequest
 
+	// no validation rules for FlushLogOnTunnelSuccessfullyEstablished
+
 	if len(errors) > 0 {
 		return HttpConnectionManager_HcmAccessLogOptionsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -4062,6 +4189,7 @@ func (m *ScopedRoutes_ScopeKeyBuilder) validate(all bool) error {
 	if len(errors) > 0 {
 		return ScopedRoutes_ScopeKeyBuilderMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -4163,9 +4291,20 @@ func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder) validate(all bool) error 
 
 	var errors []error
 
-	switch m.Type.(type) {
-
+	oneofTypePresent := false
+	switch v := m.Type.(type) {
 	case *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_:
+		if v == nil {
+			err := ScopedRoutes_ScopeKeyBuilder_FragmentBuilderValidationError{
+				field:  "Type",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofTypePresent = true
 
 		if all {
 			switch v := interface{}(m.GetHeaderValueExtractor()).(type) {
@@ -4197,6 +4336,9 @@ func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder) validate(all bool) error 
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofTypePresent {
 		err := ScopedRoutes_ScopeKeyBuilder_FragmentBuilderValidationError{
 			field:  "Type",
 			reason: "value is required",
@@ -4205,12 +4347,12 @@ func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder) validate(all bool) error 
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return ScopedRoutes_ScopeKeyBuilder_FragmentBuilderMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -4328,12 +4470,30 @@ func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor) vali
 
 	// no validation rules for ElementSeparator
 
-	switch m.ExtractType.(type) {
-
+	switch v := m.ExtractType.(type) {
 	case *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_Index:
+		if v == nil {
+			err := ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractorValidationError{
+				field:  "ExtractType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for Index
-
 	case *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_Element:
+		if v == nil {
+			err := ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractorValidationError{
+				field:  "ExtractType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetElement()).(type) {
@@ -4364,11 +4524,14 @@ func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor) vali
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractorMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -4509,6 +4672,7 @@ func (m *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvEle
 	if len(errors) > 0 {
 		return ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElementMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -57,9 +57,18 @@ func (m *StdoutAccessLog) validate(all bool) error {
 
 	var errors []error
 
-	switch m.AccessLogFormat.(type) {
-
+	switch v := m.AccessLogFormat.(type) {
 	case *StdoutAccessLog_LogFormat:
+		if v == nil {
+			err := StdoutAccessLogValidationError{
+				field:  "AccessLogFormat",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if m.GetLogFormat() == nil {
 			err := StdoutAccessLogValidationError{
@@ -101,11 +110,14 @@ func (m *StdoutAccessLog) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return StdoutAccessLogMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -202,9 +214,18 @@ func (m *StderrAccessLog) validate(all bool) error {
 
 	var errors []error
 
-	switch m.AccessLogFormat.(type) {
-
+	switch v := m.AccessLogFormat.(type) {
 	case *StderrAccessLog_LogFormat:
+		if v == nil {
+			err := StderrAccessLogValidationError{
+				field:  "AccessLogFormat",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if m.GetLogFormat() == nil {
 			err := StderrAccessLogValidationError{
@@ -246,11 +267,14 @@ func (m *StderrAccessLog) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return StderrAccessLogMultiError(errors)
 	}
+
 	return nil
 }
 

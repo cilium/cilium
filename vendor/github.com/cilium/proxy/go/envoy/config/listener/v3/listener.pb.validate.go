@@ -122,6 +122,7 @@ func (m *AdditionalAddress) validate(all bool) error {
 	if len(errors) > 0 {
 		return AdditionalAddressMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -257,6 +258,7 @@ func (m *ListenerCollection) validate(all bool) error {
 	if len(errors) > 0 {
 		return ListenerCollectionMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1001,6 +1003,21 @@ func (m *Listener) validate(all bool) error {
 		}
 	}
 
+	if wrapper := m.GetMaxConnectionsToAcceptPerSocketEvent(); wrapper != nil {
+
+		if wrapper.GetValue() <= 0 {
+			err := ListenerValidationError{
+				field:  "MaxConnectionsToAcceptPerSocketEvent",
+				reason: "value must be greater than 0",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if all {
 		switch v := interface{}(m.GetBindToPort()).(type) {
 		case interface{ ValidateAll() error }:
@@ -1034,9 +1051,18 @@ func (m *Listener) validate(all bool) error {
 
 	// no validation rules for IgnoreGlobalConnLimit
 
-	switch m.ListenerSpecifier.(type) {
-
+	switch v := m.ListenerSpecifier.(type) {
 	case *Listener_InternalListener:
+		if v == nil {
+			err := ListenerValidationError{
+				field:  "ListenerSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetInternalListener()).(type) {
@@ -1067,11 +1093,14 @@ func (m *Listener) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return ListenerMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1170,6 +1199,7 @@ func (m *ListenerManager) validate(all bool) error {
 	if len(errors) > 0 {
 		return ListenerManagerMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1269,6 +1299,7 @@ func (m *ValidationListenerManager) validate(all bool) error {
 	if len(errors) > 0 {
 		return ValidationListenerManagerMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1370,6 +1401,7 @@ func (m *ApiListenerManager) validate(all bool) error {
 	if len(errors) > 0 {
 		return ApiListenerManagerMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1500,6 +1532,7 @@ func (m *Listener_DeprecatedV1) validate(all bool) error {
 	if len(errors) > 0 {
 		return Listener_DeprecatedV1MultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1599,9 +1632,20 @@ func (m *Listener_ConnectionBalanceConfig) validate(all bool) error {
 
 	var errors []error
 
-	switch m.BalanceType.(type) {
-
+	oneofBalanceTypePresent := false
+	switch v := m.BalanceType.(type) {
 	case *Listener_ConnectionBalanceConfig_ExactBalance_:
+		if v == nil {
+			err := Listener_ConnectionBalanceConfigValidationError{
+				field:  "BalanceType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofBalanceTypePresent = true
 
 		if all {
 			switch v := interface{}(m.GetExactBalance()).(type) {
@@ -1633,6 +1677,17 @@ func (m *Listener_ConnectionBalanceConfig) validate(all bool) error {
 		}
 
 	case *Listener_ConnectionBalanceConfig_ExtendBalance:
+		if v == nil {
+			err := Listener_ConnectionBalanceConfigValidationError{
+				field:  "BalanceType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofBalanceTypePresent = true
 
 		if all {
 			switch v := interface{}(m.GetExtendBalance()).(type) {
@@ -1664,6 +1719,9 @@ func (m *Listener_ConnectionBalanceConfig) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofBalanceTypePresent {
 		err := Listener_ConnectionBalanceConfigValidationError{
 			field:  "BalanceType",
 			reason: "value is required",
@@ -1672,12 +1730,12 @@ func (m *Listener_ConnectionBalanceConfig) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return Listener_ConnectionBalanceConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1781,6 +1839,7 @@ func (m *Listener_InternalListenerConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return Listener_InternalListenerConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1885,6 +1944,7 @@ func (m *Listener_ConnectionBalanceConfig_ExactBalance) validate(all bool) error
 	if len(errors) > 0 {
 		return Listener_ConnectionBalanceConfig_ExactBalanceMultiError(errors)
 	}
+
 	return nil
 }
 
