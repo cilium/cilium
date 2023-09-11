@@ -14,7 +14,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.21.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.38
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.11
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.115.0
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.117.0
 	github.com/aws/smithy-go v1.14.2
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cilium/checkmate v1.0.3
@@ -23,7 +23,7 @@ require (
 	github.com/cilium/dns v1.1.51-0.20230303133941-d3bcb3008ed2
 	github.com/cilium/ebpf v0.11.0
 	github.com/cilium/fake v0.5.0
-	github.com/cilium/linters v0.0.0-20230829090456-44aa7d2bc675
+	github.com/cilium/linters v0.0.0-20230905071329-fa111e2c6672
 	github.com/cilium/lumberjack/v2 v2.3.0
 	github.com/cilium/proxy v0.0.0-20230825101411-5a76016dde9a
 	github.com/cilium/workerpool v1.2.0
@@ -95,19 +95,19 @@ require (
 	go.uber.org/zap v1.25.0
 	go.universe.tf/metallb v0.11.0
 	go4.org/netipx v0.0.0-20230824141953-6213f710f925
-	golang.org/x/crypto v0.12.0
-	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
+	golang.org/x/crypto v0.13.0
+	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 	golang.org/x/mod v0.12.0
-	golang.org/x/net v0.14.0
+	golang.org/x/net v0.15.0
 	golang.org/x/sync v0.3.0
 	golang.org/x/sys v0.12.0
 	golang.org/x/term v0.12.0
 	golang.org/x/time v0.3.0
-	golang.org/x/tools v0.12.1-0.20230901210945-21090a2aa8d3
+	golang.org/x/tools v0.13.0
 	golang.zx2c4.com/wireguard v0.0.0-20230704135630-469159ecf7d1
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230822172742-b8732ec3820d
-	google.golang.org/grpc v1.57.0
+	google.golang.org/grpc v1.58.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -158,7 +158,7 @@ require (
 	github.com/eapache/channels v1.1.0 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.2 // indirect
-	github.com/envoyproxy/protoc-gen-validate v0.10.1 // indirect
+	github.com/envoyproxy/protoc-gen-validate v1.0.2 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
@@ -237,8 +237,8 @@ require (
 	go.mongodb.org/mongo-driver v1.11.3 // indirect
 	go.opentelemetry.io/otel/metric v1.17.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/oauth2 v0.8.0 // indirect
-	golang.org/x/text v0.12.0 // indirect
+	golang.org/x/oauth2 v0.10.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
