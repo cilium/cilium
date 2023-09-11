@@ -449,9 +449,12 @@ func (d *Daemon) lookupIPsBySecID(nid identity.NumericIdentity) []string {
 //   - Report a monitor error event and proxy metrics when the proxy sees an
 //     error, and when it can't process something in this function
 //   - Report the verdict in a monitor event and emit proxy metrics
-//   - Insert the DNS data into the cache when msg is a DNS response and we
-//     can lookup the endpoint related to it
+//   - Insert the DNS data into the cache when msg is a DNS response, and we
+//     can lookup the endpoint related to it.
 //
+// It may return dnsproxy.ErrDNSRequestNoEndpoint{} error if the endpoint is nil.
+// Note that the caller should log beforehand the contextualized error.
+
 // epIPPort and serverAddr should match the original request, where epAddr is
 // the source for egress (the only case current).
 // serverID is the destination server security identity at the time of the DNS event.
@@ -509,12 +512,8 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		// cache if we don't know that an endpoint asked for it (this is
 		// asserted via ep != nil here and msg.Response && msg.Rcode ==
 		// dns.RcodeSuccess below).
-		err := dnsproxy.ErrDNSRequestNoEndpoint{}
-		log.WithFields(logrus.Fields{
-			logfields.L3n4Addr: epIPPort,
-		}).WithError(err).Error("cannot find matching endpoint")
 		endMetric()
-		return err
+		return dnsproxy.ErrDNSRequestNoEndpoint{}
 	}
 
 	// We determine the direction based on the DNS packet. The observation
