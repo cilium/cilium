@@ -285,7 +285,7 @@ jobs:
               --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})"
 
       - name: Rotate IPsec Key & Test (${{ join(matrix.*, ', ') }})
-        uses: cilium/cilium/.github/actions/conn-disrupt-test@d86f33b098a75f3d7d2dfd3ee6fa1ea033892de4
+        uses: cilium/cilium/.github/actions/conn-disrupt-test@824192af1ce1672a749a831dd151b3efe92d028a
         with:
           job-name: conformance-ipsec-e2e-key-rotation-${{ matrix.name }}
           operation-cmd: |
