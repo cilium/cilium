@@ -24,7 +24,7 @@ jobs:
         branch: [v1.11, v1.12, v1.13] 
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         ref: ${{ matrix.branch }}
       - name: Set environment variables
         uses: ./.github/actions/set-env-variables
