@@ -216,7 +216,7 @@ github.com/cilium/linters/timeafter
 # github.com/cilium/lumberjack/v2 v2.3.0
 ## explicit; go 1.13
 github.com/cilium/lumberjack/v2
-# github.com/cilium/proxy v0.0.0-20230825101411-5a76016dde9a
+# github.com/cilium/proxy v0.0.0-20230911173141-49b6a7c9c075
 ## explicit; go 1.20
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/contrib/envoy/extensions/filters/network/mysql_proxy/v3
@@ -233,6 +233,7 @@ github.com/cilium/proxy/go/envoy/config/overload/v3
 github.com/cilium/proxy/go/envoy/config/ratelimit/v3
 github.com/cilium/proxy/go/envoy/config/route/v3
 github.com/cilium/proxy/go/envoy/config/trace/v3
+github.com/cilium/proxy/go/envoy/data/accesslog/v3
 github.com/cilium/proxy/go/envoy/extensions/access_loggers/file/v3
 github.com/cilium/proxy/go/envoy/extensions/access_loggers/filters/cel/v3
 github.com/cilium/proxy/go/envoy/extensions/access_loggers/grpc/v3
@@ -1227,7 +1228,7 @@ google.golang.org/appengine/urlfetch
 # google.golang.org/genproto v0.0.0-20230803162519-f966b187b2e5
 ## explicit; go 1.19
 google.golang.org/genproto/internal
-# google.golang.org/genproto/googleapis/api v0.0.0-20230726155614-23370e0ffb3e
+# google.golang.org/genproto/googleapis/api v0.0.0-20230803162519-f966b187b2e5
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations

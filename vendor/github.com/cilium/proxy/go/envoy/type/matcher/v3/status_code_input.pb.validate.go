@@ -61,6 +61,7 @@ func (m *HttpResponseStatusCodeMatchInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpResponseStatusCodeMatchInputMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -165,6 +166,7 @@ func (m *HttpResponseStatusCodeClassMatchInput) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpResponseStatusCodeClassMatchInputMultiError(errors)
 	}
+
 	return nil
 }
 

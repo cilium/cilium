@@ -86,9 +86,25 @@ func (m *TlsInspector) validate(all bool) error {
 		}
 	}
 
+	if wrapper := m.GetInitialReadBufferSize(); wrapper != nil {
+
+		if val := wrapper.GetValue(); val <= 255 || val >= 65537 {
+			err := TlsInspectorValidationError{
+				field:  "InitialReadBufferSize",
+				reason: "value must be inside range (255, 65537)",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return TlsInspectorMultiError(errors)
 	}
+
 	return nil
 }
 

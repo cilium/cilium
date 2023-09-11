@@ -163,6 +163,7 @@ func (m *NetworkPolicy) validate(all bool) error {
 	if len(errors) > 0 {
 		return NetworkPolicyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -320,6 +321,7 @@ func (m *PortNetworkPolicy) validate(all bool) error {
 	if len(errors) > 0 {
 		return PortNetworkPolicyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -431,6 +433,7 @@ func (m *TLSContext) validate(all bool) error {
 	if len(errors) > 0 {
 		return TLSContextMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -588,9 +591,18 @@ func (m *PortNetworkPolicyRule) validate(all bool) error {
 
 	// no validation rules for L7Proto
 
-	switch m.L7.(type) {
-
+	switch v := m.L7.(type) {
 	case *PortNetworkPolicyRule_HttpRules:
+		if v == nil {
+			err := PortNetworkPolicyRuleValidationError{
+				field:  "L7",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetHttpRules()).(type) {
@@ -622,6 +634,16 @@ func (m *PortNetworkPolicyRule) validate(all bool) error {
 		}
 
 	case *PortNetworkPolicyRule_KafkaRules:
+		if v == nil {
+			err := PortNetworkPolicyRuleValidationError{
+				field:  "L7",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetKafkaRules()).(type) {
@@ -653,6 +675,16 @@ func (m *PortNetworkPolicyRule) validate(all bool) error {
 		}
 
 	case *PortNetworkPolicyRule_L7Rules:
+		if v == nil {
+			err := PortNetworkPolicyRuleValidationError{
+				field:  "L7",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetL7Rules()).(type) {
@@ -683,11 +715,14 @@ func (m *PortNetworkPolicyRule) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return PortNetworkPolicyRuleMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -834,6 +869,7 @@ func (m *HttpNetworkPolicyRules) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpNetworkPolicyRulesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -954,6 +990,7 @@ func (m *HeaderMatch) validate(all bool) error {
 	if len(errors) > 0 {
 		return HeaderMatchMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1120,6 +1157,7 @@ func (m *HttpNetworkPolicyRule) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpNetworkPolicyRuleMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1266,6 +1304,7 @@ func (m *KafkaNetworkPolicyRules) validate(all bool) error {
 	if len(errors) > 0 {
 		return KafkaNetworkPolicyRulesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1402,6 +1441,7 @@ func (m *KafkaNetworkPolicyRule) validate(all bool) error {
 	if len(errors) > 0 {
 		return KafkaNetworkPolicyRuleMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1575,6 +1615,7 @@ func (m *L7NetworkPolicyRules) validate(all bool) error {
 	if len(errors) > 0 {
 		return L7NetworkPolicyRulesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1714,6 +1755,7 @@ func (m *L7NetworkPolicyRule) validate(all bool) error {
 	if len(errors) > 0 {
 		return L7NetworkPolicyRuleMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1849,6 +1891,7 @@ func (m *NetworkPoliciesConfigDump) validate(all bool) error {
 	if len(errors) > 0 {
 		return NetworkPoliciesConfigDumpMultiError(errors)
 	}
+
 	return nil
 }
 

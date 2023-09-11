@@ -88,6 +88,7 @@ func (m *Wasm) validate(all bool) error {
 	if len(errors) > 0 {
 		return WasmMultiError(errors)
 	}
+
 	return nil
 }
 
