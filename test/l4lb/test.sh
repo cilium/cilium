@@ -135,11 +135,11 @@ docker exec -t lb-node docker exec -t cilium-lb \
 
 # Do not stop on error
 set +e
-# Issue 10 requests to LB (with 500ms timeout) which are expected to timeout
+# Issue 10 requests to LB, we expect all to fail due to a Failed connection
 for i in $(seq 1 10); do
     curl -o /dev/null -m 0.5 "${LB_VIP}:80"
-    # code 28 - Operation timeout
-    if [ ! "$?" -eq 28 ]; then
+    # code 7 - Failed to connect ... : No route to host
+    if [ ! "$?" -eq 7 ]; then
         exit -1;
     fi
 done

@@ -151,6 +151,14 @@ for i in $(seq 1 10); do
     curl -s -o /dev/null "${LB_VIP}:80" || (echo "Failed $i"; exit -1)
 done
 
+# Try and sleep until the LB2 comes up, seems to be no other way to detect when the service is ready.
+set +e
+for i in $(seq 1 10); do
+    curl -s -o /dev/null "[${LB_ALT}]:80" && break
+    sleep 1
+done
+set -e
+
 # Issue 10 requests to LB2
 for i in $(seq 1 10); do
     curl -s -o /dev/null "[${LB_ALT}]:80" || (echo "Failed $i"; exit -1)
