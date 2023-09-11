@@ -71,16 +71,16 @@ jobs:
       matrix:
         include:
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '4.19-20230824.161940'
+          - kernel: '4.19-20230905.214457'
             ci-kernel: '419'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '5.4-20230824.161940'
+          - kernel: '5.4-20230905.214457'
             ci-kernel: '54'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '5.10-20230824.161940'
+          - kernel: '5.10-20230905.214457'
             ci-kernel: '510'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: '5.15-20230824.161940'
+          - kernel: '5.15-20230905.214457'
             ci-kernel: '510'
             # We don't want to update bpf-next after branching
           - kernel: 'bpf-next-20230420.212204'
