@@ -30,7 +30,7 @@ Restart ``cilium-agent`` to apply the change:
 
 .. code-block:: shell-session
 
-    kubectl -n kube-system rollout restart ds/cilium-agent
+    kubectl -n kube-system rollout restart ds/cilium
 
 Verify that the change was applied (it can take a few minutes before the first flow is
 logged):
