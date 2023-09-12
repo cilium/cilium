@@ -8,6 +8,7 @@ package types
 // implementations
 type Datapath interface {
 	ConfigWriter
+	ConfigReader
 	IptablesManager
 
 	// Node must return the handler for node events

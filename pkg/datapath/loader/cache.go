@@ -110,6 +110,7 @@ func RestoreTemplates(stateDir string) error {
 type objectCache struct {
 	lock.Mutex
 	datapath.ConfigWriter
+	datapath.ConfigReader
 
 	workingDirectory string
 	baseHash         *datapathHash
@@ -126,9 +127,10 @@ type objectCache struct {
 	compileQueue map[string]*serializer.FunctionQueue
 }
 
-func newObjectCache(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration, workingDir string) *objectCache {
+func newObjectCache(c datapath.ConfigWriter, r datapath.ConfigReader, nodeCfg *datapath.LocalNodeConfiguration, workingDir string) *objectCache {
 	oc := &objectCache{
 		ConfigWriter:        c,
+		ConfigReader:        r,
 		workingDirectory:    workingDir,
 		newTemplates:        make(chan string, templateWatcherQueueSize),
 		templateWatcherDone: make(chan struct{}),
@@ -148,8 +150,8 @@ func newObjectCache(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfigur
 
 // NewObjectCache creates a new cache for datapath objects, basing the hash
 // upon the configuration of the datapath and the specified node configuration.
-func NewObjectCache(c datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) *objectCache {
-	return newObjectCache(c, nodeCfg, option.Config.StateDir)
+func NewObjectCache(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfiguration) *objectCache {
+	return newObjectCache(dp, dp, nodeCfg, option.Config.StateDir)
 }
 
 // Update may be called to update the base hash for configuration of datapath

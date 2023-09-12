@@ -83,7 +83,7 @@ func NewLoader() *Loader {
 
 // Init initializes the datapath cache with base program hashes derived from
 // the LocalNodeConfiguration.
-func (l *Loader) init(dp datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) {
+func (l *Loader) init(dp datapath.Datapath, nodeCfg *datapath.LocalNodeConfiguration) {
 	l.once.Do(func() {
 		l.templateCache = NewObjectCache(dp, nodeCfg)
 		ignorePrefixes := ignoredELFPrefixes

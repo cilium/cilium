@@ -4,6 +4,7 @@
 package types
 
 import (
+	"fmt"
 	"io"
 	"net/netip"
 
@@ -89,6 +90,13 @@ type EndpointConfiguration interface {
 	LoadTimeConfiguration
 }
 
+// ClusterConfiguration provides datapath implementations a clean interface
+// to access cluster-wide configuration when configuring the datapath.
+type ClusterConfiguration interface {
+	// GetOptions returns the configurable cluster-wide datapath options.
+	GetOptions() map[string]string
+}
+
 // ConfigWriter is anything which writes the configuration for various datapath
 // program types.
 type ConfigWriter interface {
@@ -112,7 +120,37 @@ type ConfigWriter interface {
 
 	// WriteClusterConfig writes the implementation-specific configuration of
 	// cluster-wide options into the specified writer.
-	WriteClusterConfig(w io.Writer) error
+	WriteClusterConfig(w io.Writer, cfg ClusterConfiguration) error
+}
+
+// ConfigReader is anything which reads the configuration of various datapath
+// program headerfiles.
+type ConfigReader interface {
+	// ValdateClusterConfig reads an existing cluster-wide options config file
+	// and validates it against the given configuration.
+	ValidateClusterConfig(r io.Reader, cfg ClusterConfiguration) error
+
+	// ReadConfigMacros reads the given headerfile and returns a map of the macro definitions.
+	ReadConfigMacros(r io.Reader) map[string]string
+}
+
+// ClusterConfig represents the configurable cluster-wide datapath options.
+type ClusterConfig struct {
+	MaxClusters uint32
+}
+
+// GetOptions returns the configurable cluster-wide datapath options.
+func (c ClusterConfig) GetOptions() map[string]string {
+	cDefinesMap := make(map[string]string)
+
+	cDefinesMap["CLUSTER_ID_MAX"] = fmt.Sprintf("%d", c.MaxClusters)
+	cDefinesMap["CLUSTER_ID_LEN"] = fmt.Sprintf("%d", identity.GetClusterIDLen())
+
+	identityMax := (1 << identity.GetClusterIDShift()) - 1
+	cDefinesMap["IDENTITY_MAX"] = fmt.Sprintf("%d", identityMax)
+	cDefinesMap["IDENTITY_LEN"] = fmt.Sprintf("%d", identity.GetClusterIDShift())
+
+	return cDefinesMap
 }
 
 // RemoteSNATDstAddrExclusionCIDRv4 returns a CIDR for SNAT exclusion. Any

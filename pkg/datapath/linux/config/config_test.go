@@ -204,6 +204,96 @@ func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
 	}
 }
 
+func (s *ConfigSuite) TestWriteClusterConfig(c *C) {
+	writeConfig(c, "cluster", func(w io.Writer, dp datapath.ConfigWriter) error {
+		return dp.WriteClusterConfig(w, &datapath.ClusterConfig{MaxClusters: 255})
+	})
+}
+
+func (s *ConfigSuite) TestValidateClusterConfig(c *C) {
+	// brokenClusterCfg simulates a broken config with a missing directive ("IDENTITY_MAX")
+	brokenClusterCfg := &TestClusterConfig{
+		maxClusters:  "255",
+		clusterIDLen: "8",
+		identityLen:  "16",
+	}
+
+	tests := []struct {
+		description string
+		oldCfg      datapath.ClusterConfiguration
+		newCfg      datapath.ClusterConfiguration
+		expected    Checker
+	}{
+		{
+			description: "valid config, clustermesh255",
+			oldCfg:      &datapath.ClusterConfig{MaxClusters: 255},
+			newCfg:      &datapath.ClusterConfig{MaxClusters: 255},
+			expected:    IsNil,
+		},
+		{
+			description: "valid config, clustermesh511",
+			oldCfg:      &datapath.ClusterConfig{MaxClusters: 511},
+			newCfg:      &datapath.ClusterConfig{MaxClusters: 511},
+			expected:    IsNil,
+		},
+		{
+			description: "invalid config, upgrade to clustermesh511",
+			oldCfg:      &datapath.ClusterConfig{MaxClusters: 255},
+			newCfg:      &datapath.ClusterConfig{MaxClusters: 511},
+			expected:    NotNil,
+		},
+		{
+			description: "invalid config, downgrade to clustermesh255",
+			oldCfg:      &datapath.ClusterConfig{MaxClusters: 511},
+			newCfg:      &datapath.ClusterConfig{MaxClusters: 255},
+			expected:    NotNil,
+		},
+		{
+			description: "replace broken config with valid config",
+			oldCfg:      brokenClusterCfg,
+			newCfg:      &datapath.ClusterConfig{MaxClusters: 255},
+			expected:    IsNil,
+		},
+		{
+			description: "replace broken config with invalid config",
+			oldCfg:      brokenClusterCfg,
+			newCfg:      &datapath.ClusterConfig{MaxClusters: 511},
+			expected:    NotNil,
+		},
+	}
+
+	for _, t := range tests {
+		c.Logf("Testing %s", t.description)
+
+		// write the initial config to represent an existing config file on disk
+		fw := &HeaderfileWriter{}
+		var buf bytes.Buffer
+		c.Assert(fw.WriteClusterConfig(&buf, t.oldCfg), IsNil)
+
+		fr := &HeaderfileReader{}
+		c.Assert(fr.ValidateClusterConfig(&buf, t.newCfg), t.expected)
+	}
+}
+
+type TestClusterConfig struct {
+	maxClusters  string
+	clusterIDLen string
+	identityMax  string
+	identityLen  string
+}
+
+// GetOptions allows cluster-wide datapath options to be directly configured in tests.
+func (t *TestClusterConfig) GetOptions() map[string]string {
+	cDefinesMap := make(map[string]string)
+
+	cDefinesMap["CLUSTER_ID_MAX"] = t.maxClusters
+	cDefinesMap["CLUSTER_ID_LEN"] = t.clusterIDLen
+	cDefinesMap["IDENTITY_MAX"] = t.identityMax
+	cDefinesMap["IDENTITY_LEN"] = t.identityLen
+
+	return cDefinesMap
+}
+
 func (s *ConfigSuite) TestWriteStaticData(c *C) {
 	cfg := &HeaderfileWriter{}
 	ep := &dummyEPCfg

@@ -133,7 +133,7 @@ func newDatapath(params datapathParams) types.Datapath {
 			return nil
 		}})
 
-	datapath := linuxdatapath.NewDatapath(datapathConfig, iptablesManager, params.WgAgent, params.NodeMap, params.ConfigWriter)
+	datapath := linuxdatapath.NewDatapath(datapathConfig, iptablesManager, params.WgAgent, params.NodeMap, params.ConfigWriter, params.ConfigReader)
 
 	params.LC.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
@@ -163,4 +163,5 @@ type datapathParams struct {
 	DeviceManager *linuxdatapath.DeviceManager
 
 	ConfigWriter types.ConfigWriter
+	ConfigReader types.ConfigReader
 }

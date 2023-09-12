@@ -75,7 +75,17 @@ func (f *FakeDatapath) WriteEndpointConfig(io.Writer, datapath.EndpointConfigura
 }
 
 // WriteClusterConfig pretends to write the cluster configuration to a writer.
-func (f *FakeDatapath) WriteClusterConfig(w io.Writer) error {
+func (f *FakeDatapath) WriteClusterConfig(io.Writer, datapath.ClusterConfiguration) error {
+	return nil
+}
+
+// WriteClusterConfig pretends to read config macros from a headerfile.
+func (f *FakeDatapath) ReadConfigMacros(r io.Reader) map[string]string {
+	return nil
+}
+
+// WriteClusterConfig pretends to validate an existing cluster configuration.
+func (f *FakeDatapath) ValidateClusterConfig(io.Reader, datapath.ClusterConfiguration) error {
 	return nil
 }
 

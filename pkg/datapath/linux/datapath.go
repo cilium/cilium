@@ -21,6 +21,7 @@ type DatapathConfiguration struct {
 
 type linuxDatapath struct {
 	datapath.ConfigWriter
+	datapath.ConfigReader
 	datapath.IptablesManager
 	node           *linuxNodeHandler
 	nodeAddressing datapath.NodeAddressing
@@ -32,9 +33,10 @@ type linuxDatapath struct {
 
 // NewDatapath creates a new Linux datapath
 func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager, wgAgent datapath.WireguardAgent,
-	nodeMap nodemap.Map, writer datapath.ConfigWriter) datapath.Datapath {
+	nodeMap nodemap.Map, writer datapath.ConfigWriter, reader datapath.ConfigReader) datapath.Datapath {
 	dp := &linuxDatapath{
 		ConfigWriter:    writer,
+		ConfigReader:    reader,
 		IptablesManager: ruleManager,
 		nodeAddressing:  NewNodeAddressing(),
 		config:          cfg,

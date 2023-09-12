@@ -21,5 +21,8 @@ var Cell = cell.Module(
 		}) (dptypes.ConfigWriter, error) {
 			return NewHeaderfileWriter(in.NodeExtraDefines, in.NodeExtraDefineFns)
 		},
+		func() dptypes.ConfigReader {
+			return NewHeaderfileReader()
+		},
 	),
 )

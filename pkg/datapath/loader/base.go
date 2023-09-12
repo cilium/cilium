@@ -78,9 +78,18 @@ func (l *Loader) writeNodeConfigHeader(o datapath.BaseProgramOwner) error {
 	return nil
 }
 
-func (l *Loader) writeClusterConfigHeader(dir string, o datapath.BaseProgramOwner) error {
+func (l *Loader) writeClusterConfigHeader(dir string) error {
 	clusterConfigPath := filepath.Join(dir, clusterConfigHeaderFileName)
 	log.WithField(logfields.Path, clusterConfigPath).Debug("writing configuration")
+
+	cfg := &datapath.ClusterConfig{MaxClusters: option.Config.MaxConnectedClusters}
+
+	if f, err := os.Open(clusterConfigPath); err == nil {
+		// File already exists, validate contents against desired config before recreating it
+		if err := l.templateCache.ValidateClusterConfig(f, cfg); err != nil {
+			return fmt.Errorf("failed to validate running configuration against existing cluster configuration file at %s: %w", clusterConfigPath, err)
+		}
+	}
 
 	f, err := os.Create(clusterConfigPath)
 	if err != nil {
@@ -88,7 +97,7 @@ func (l *Loader) writeClusterConfigHeader(dir string, o datapath.BaseProgramOwne
 	}
 	defer f.Close()
 
-	if err = l.templateCache.WriteClusterConfig(f); err != nil {
+	if err = l.templateCache.WriteClusterConfig(f, cfg); err != nil {
 		return fmt.Errorf("failed to write cluster configuration file at %s: %w", clusterConfigPath, err)
 	}
 	return nil
@@ -381,7 +390,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
-	if err := l.writeClusterConfigHeader("./", o); err != nil {
+	if err := l.writeClusterConfigHeader("./"); err != nil {
 		log.WithError(err).Warn("Unable to write cluster config header")
 		return err
 	}

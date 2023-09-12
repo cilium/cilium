@@ -333,7 +333,7 @@ func BenchmarkCompileOrLoad(b *testing.B) {
 	defer os.RemoveAll(epDir)
 
 	l := NewLoader()
-	l.templateCache = newObjectCache(&config.HeaderfileWriter{}, nil, tmpDir)
+	l.templateCache = newObjectCache(&config.HeaderfileWriter{}, &config.HeaderfileReader{}, nil, tmpDir)
 	if err := l.CompileOrLoad(ctx, &ep, nil); err != nil {
 		log.Warningf("Failure in %s: %s", tmpDir, err)
 		time.Sleep(1 * time.Minute)

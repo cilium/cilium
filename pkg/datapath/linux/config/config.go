@@ -100,17 +100,9 @@ func writeIncludes(w io.Writer) (int, error) {
 
 // WriteClusterConfig writes the configuration of cluster-wide options into the
 // specified writer.
-func (h *HeaderfileWriter) WriteClusterConfig(w io.Writer) error {
-	cDefinesMap := make(map[string]string)
-
+func (h *HeaderfileWriter) WriteClusterConfig(w io.Writer, cfg datapath.ClusterConfiguration) error {
+	cDefinesMap := cfg.GetOptions()
 	fw := bufio.NewWriter(w)
-
-	cDefinesMap["CLUSTER_ID_MAX"] = fmt.Sprintf("%d", option.Config.MaxConnectedClusters)
-	cDefinesMap["CLUSTER_ID_LEN"] = fmt.Sprintf("%d", identity.GetClusterIDLen())
-
-	identityMax := (1 << identity.GetClusterIDShift()) - 1
-	cDefinesMap["IDENTITY_MAX"] = fmt.Sprintf("%d", identityMax)
-	cDefinesMap["IDENTITY_LEN"] = fmt.Sprintf("%d", identity.GetClusterIDShift())
 
 	// Since golang maps are unordered, we sort the keys in the map
 	// to get a consistent written format to the writer. This maintains
@@ -138,6 +130,48 @@ func (h *HeaderfileWriter) WriteClusterConfig(w io.Writer) error {
 	}
 
 	return fw.Flush()
+}
+
+// HeaderfileReader is a wrapper type which implements datapath.ConfigReader.
+// It manages reading and validation of datapath program headerfiles.
+type HeaderfileReader struct{}
+
+func NewHeaderfileReader() *HeaderfileReader {
+	return &HeaderfileReader{}
+}
+
+// ValdateClusterConfig reads an existing cluster-wide options config file and
+// validates it against the given configuration.
+func (h *HeaderfileReader) ValidateClusterConfig(r io.Reader, cfg datapath.ClusterConfiguration) error {
+	cDefinesMap := cfg.GetOptions()
+
+	for key, currentVal := range h.ReadConfigMacros(r) {
+		if newVal, ok := cDefinesMap[key]; ok && newVal != currentVal {
+			return fmt.Errorf("cluster_config.h cannot be changed. %s was defined as %s, but new agent configuration would change it to %v", key, currentVal, newVal)
+		}
+	}
+
+	return nil
+}
+
+// ReadConfigMacros reads the given headerfile and returns a map of the macro definitions.
+func (h *HeaderfileReader) ReadConfigMacros(r io.Reader) map[string]string {
+	scanner := bufio.NewScanner(r)
+	cDefinesMap := make(map[string]string)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "#define") {
+			split := strings.Split(strings.Trim(line, " "), " ")
+			if len(split) < 3 {
+				// ignore invalid macros
+				continue
+			}
+			macroKey := split[1]
+			macroValue := split[2]
+			cDefinesMap[macroKey] = macroValue
+		}
+	}
+	return cDefinesMap
 }
 
 // WriteNodeConfig writes the local node configuration to the specified writer.
