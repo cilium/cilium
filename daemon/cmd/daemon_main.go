@@ -1440,6 +1440,13 @@ func initEnv(vp *viper.Viper) {
 		}
 	}
 
+	if err := probes.HaveSKBAdjustRoomL2RoomMACSupport(); err != nil {
+		if option.Config.ServiceNoBackendResponse != option.ServiceNoBackendResponseDrop {
+			log.Warn("The kernel does not support --service-no-backend-response=reject, falling back to --service-no-backend-response=drop")
+			option.Config.ServiceNoBackendResponse = option.ServiceNoBackendResponseDrop
+		}
+	}
+
 	k8s.SidecarIstioProxyImageRegexp, err = regexp.Compile(option.Config.SidecarIstioProxyImage)
 	if err != nil {
 		log.WithError(err).Fatal("Invalid sidecar-istio-proxy-image regular expression")
