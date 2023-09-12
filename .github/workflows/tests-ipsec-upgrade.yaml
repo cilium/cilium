@@ -237,6 +237,7 @@ jobs:
 
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
+            # TODO: After Cilium 1.15 release, update to cilium-dbg
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
       - name: Test Cilium ${{ steps.vars.outputs.downgrade_version }} (${{ matrix.name }})
@@ -273,7 +274,7 @@ jobs:
 
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
-            kubectl -n kube-system exec daemonset/cilium -- cilium status
+            kubectl -n kube-system exec daemonset/cilium -- cilium-dbg status
 
       - name: Downgrade Cilium to ${{ steps.vars.outputs.downgrade_version }} & Test (${{ matrix.name }})
         uses: cilium/cilium/.github/actions/conn-disrupt-test@8b7844deda7198f42948e48d50c4d0fde564e7d8
@@ -290,6 +291,7 @@ jobs:
 
             ./cilium-cli status --wait
             kubectl get pods --all-namespaces -o wide
+            # TODO: After Cilium 1.15 release, update to cilium-dbg
             kubectl -n kube-system exec daemonset/cilium -- cilium status
 
       - name: Fetch artifacts
