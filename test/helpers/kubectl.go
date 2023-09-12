@@ -2843,9 +2843,15 @@ func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd strin
 	for i := 0; i < limitTimes; i++ {
 		res = execute()
 		switch res.GetExitCode() {
+		case 0:
+			// Command succeeded. Return the result.
+			return res
 		case -1, 126:
-			// Retry.
+			// The preceding comments indicate that these return codes may occur frequently.
+			// To prevent excessive log entries in the default case, we catch these errors here
+			// and retry the command without generating additional log entries.
 		default:
+			// Command failed. Log failure and retry.
 			kub.Logger().Warningf("command terminated with exit code %d on try %d", res.GetExitCode(), i)
 			break
 		}
