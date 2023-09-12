@@ -1276,6 +1276,8 @@ func (d *Daemon) Close() {
 	}
 	identitymanager.RemoveAll()
 	d.cgroupManager.Close()
+
+	// Ensures all controllers are stopped!
 	d.controllers.RemoveAllAndWait()
 }
 

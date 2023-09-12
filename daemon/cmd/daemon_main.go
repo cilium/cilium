@@ -1627,6 +1627,7 @@ var daemonCell = cell.Module(
 	// by the debuginfo API
 	cell.ProvidePrivate(daemonSettings),
 	cell.Invoke(func(promise.Promise[*Daemon]) {}), // Force instantiation.
+	endpointBPFrogWatchdogCell,
 )
 
 type daemonParams struct {
