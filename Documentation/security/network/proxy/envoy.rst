@@ -474,11 +474,11 @@ Note that we run both containers with labels that will make it easy to refer to 
 network policy.   Note that we have the client container run the sleep command, as we will use 'docker exec' to 
 access the client CLI.  
 
-Use ''cilium endpoint list'' to identify the IP address of the protocol server.  
+Use ''cilium-dbg endpoint list'' to identify the IP address of the protocol server.  
 
 .. code-block:: shell-session
 
-  $ cilium endpoint list
+  $ cilium-dbg endpoint list
   ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])   IPv6                 IPv4            STATUS   
              ENFORCEMENT        ENFORCEMENT                                                                                     
   2987       Disabled           Disabled          31423      container:id=cass-server      f00d::a0b:0:0:bab    10.11.51.247    ready   
@@ -511,15 +511,15 @@ Go Cassandra parser.  This policy has a single empty rule, which matches all req
   }]
 
 
-A policy can be imported into cilium using ''cilium policy import'', after which another call to ''cilium endpoint list''
+A policy can be imported into cilium using ''cilium policy import'', after which another call to ''cilium-dbg endpoint list''
 confirms that ingress policy is now in place on the server.  If the above policy was saved to a file cass-allow-all.json, 
 one would run: 
 
 .. code-block:: shell-session
 
-    $ cilium policy import cass-allow-all.json
+    $ cilium-dbg policy import cass-allow-all.json
     Revision: 1
-    $ cilium endpoint list
+    $ cilium-dbg endpoint list
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])   IPv6                 IPv4            STATUS   
                ENFORCEMENT        ENFORCEMENT                                                                                     
     2987       Enabled            Disabled          31423      container:id=cass-server      f00d::a0b:0:0:bab    10.11.51.247    ready   
@@ -532,7 +532,7 @@ To remove this or any other policy, run:
 
 .. code-block:: shell-session
 
-    $ cilium policy delete --all 
+    $ cilium-dbg policy delete --all 
 
 To install a new policy, first delete, and then run ''cilium policy import'' again.  For example, the following policy would allow
 select statements on a specific set of tables to this Cassandra server, but deny all other queries. 

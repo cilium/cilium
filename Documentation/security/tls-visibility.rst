@@ -296,11 +296,11 @@ the HTTP-layer, meaning that cilium monitor will report each HTTP request and re
 To see this, open a new window and run the following command to identity the name of the
 cilium pod (e.g, cilium-97s78) that is running on the same Kubernetes worker node as the ``mediabot`` pod.
 
-Then start running cilium monitor in "L7 mode" to monitor for HTTP requests being reported by Cilium:
+Then start running cilium-dbg monitor in "L7 mode" to monitor for HTTP requests being reported by Cilium:
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it -n kube-system cilium-d5x8v -- cilium monitor -t l7
+    $ kubectl exec -it -n kube-system cilium-d5x8v -- cilium-dbg monitor -t l7
 
 Next in the original window, from the ``mediabot`` pod we can access ``artii.herokuapp.com`` via HTTPS:
 
@@ -314,7 +314,7 @@ Next in the original window, from the ``mediabot`` pod we can access ``artii.her
     ...
     ...
 
-Looking back at the cilium monitor window, you will see each individual HTTP request and response.  For example::
+Looking back at the cilium-dbg monitor window, you will see each individual HTTP request and response.  For example::
 
     -> Request http from 2585 ([k8s:class=mediabot k8s:org=empire k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.cilium.k8s.policy.cluster=default]) to 0 ([reserved:world]), identity 24948->2, verdict Forwarded GET https://artii.herokuapp.com/fonts_list => 0
     -> Response http to 2585 ([k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.cilium.k8s.policy.cluster=default k8s:class=mediabot k8s:org=empire]) from 0 ([reserved:world]), identity 24948->2, verdict Forwarded GET https://artii.herokuapp.com/fonts_list => 200

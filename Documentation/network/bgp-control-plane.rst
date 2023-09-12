@@ -399,11 +399,11 @@ The following command shows peering status:
 
 .. code-block:: shell-session
 
-   cilium# cilium bgp peers -h
+   cilium# cilium-dbg bgp peers -h
    List state of all peers defined in CiliumBGPPeeringPolicy
 
    Usage:
-     cilium bgp peers [flags]
+     cilium-dbg bgp peers [flags]
 
    Flags:
      -h, --help            help for peers
@@ -422,7 +422,7 @@ Cilium CLI displays the BGP peering status of all nodes.
 
 .. code-block:: shell-session
 
-   # cilium-cli bgp peers -h
+   # cilium bgp peers -h
    Gets BGP peering status from all nodes in the cluster
 
    Usage:

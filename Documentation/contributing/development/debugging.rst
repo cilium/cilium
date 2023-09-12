@@ -121,11 +121,11 @@ toFQDNs rules and events relating to those rules are also relevant.
 
 .. Note::
 
-    Be sure to run cilium monitor on the same node as the pod being debugged!
+    Be sure to run cilium-dbg monitor on the same node as the pod being debugged!
 
 .. code-block:: shell-session
 
-    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium monitor --related-to 3459
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium-dbg monitor --related-to 3459
     Listening for events on 4 CPUs with 64x4096 of shared memory
     Press Ctrl-C to quit
     level=info msg="Initializing dissection cache..." subsys=monitor
@@ -158,7 +158,7 @@ example.
 - If no L7 DNS requests appear, the proxy redirect is not in place. This may
   mean that the policy does not select this endpoint or there is an issue with
   the proxy redirection. Whether any redirects exist can be checked with
-  ``cilium status --all-redirects``.
+  ``cilium-dbg status --all-redirects``.
   In the past, a bug occurred with more permissive L3 rules overriding the
   proxy redirect, causing the proxy to never see the requests.
 - If the L7 DNS request is blocked, with an explicit denied message, then the
@@ -176,13 +176,13 @@ example.
   The pkg/proxy/dns.go file contains the DNS proxy implementation.
 
 If L7 DNS behaviour seems correct, see the sections below to further isolate
-the issue. This can be verified with ``cilium fqdn cache list``. The IPs in the
+the issue. This can be verified with ``cilium-dbg fqdn cache list``. The IPs in the
 response should appear in the cache for the appropriate endpoint. The lookup
 time is included in the json output of the command.
 
 .. code-block:: shell-session
 
-    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium fqdn cache list
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium-dbg fqdn cache list
     Endpoint   Source   FQDN         TTL    ExpirationTime             IPs
     3459       lookup   cilium.io.   3600   2020-04-21T15:04:27.146Z   104.198.14.52
 
@@ -255,14 +255,14 @@ multiple layers of cache:
   does apply the ``--tofqdns-min-ttl`` value but not the
   ``--tofqdns-endpoint-max-ip-per-hostname`` value.
 
-If an IP exists in the FQDN cache (check with ``cilium fqdn cache list``) then
+If an IP exists in the FQDN cache (check with ``cilium-dbg fqdn cache list``) then
 ``toFQDNs`` rules that select a domain name, either explicitly via
 ``matchName`` or via ``matchPattern``, should cause IPs for that domain to have
 allocated Security Identities. These can be listed with:
 
 .. code-block:: shell-session
 
-    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium identity list
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium-dbg identity list
     ID         LABELS
     1          reserved:host
     2          reserved:world
@@ -290,7 +290,7 @@ They can be listed along with other selectors (roughly corresponding to any L3 r
 
 .. code-block:: shell-session
 
-    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium policy selectors
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium-dbg policy selectors
     SELECTOR                                                                                                         USERS   IDENTITIES
     MatchName: , MatchPattern: *                                                                                     1       16777217
     &LabelSelector{MatchLabels:map[string]string{},MatchExpressions:[]LabelSelectorRequirement{},}                   2       1
@@ -378,7 +378,7 @@ Endpoint with the new CIDR Identity of the IP. This can be verified:
 
 .. code-block:: shell-session
 
-    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium bpf policy get 3459
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium-dbg bpf policy get 3459
     DIRECTION   LABELS (source:key[=value])   PORT/PROTO   PROXY PORT   BYTES   PACKETS
     Ingress     reserved:unknown              ANY          NONE         1367    7
     Ingress     reserved:host                 ANY          NONE         0       0
@@ -392,7 +392,7 @@ there may be cases where this doesn't occur:
 
 .. code-block:: shell-session
 
-    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium bpf policy get -n 3459
+    $ kubectl exec pod/cilium-sbp8v -n kube-system -- cilium-dbg bpf policy get -n 3459
     DIRECTION   IDENTITY   PORT/PROTO   PROXY PORT   BYTES   PACKETS
     Ingress     0          ANY          NONE         1367    7
     Ingress     1          ANY          NONE         0       0
@@ -410,7 +410,7 @@ specified port.
 An identity missing here can be an error in various places:
 
 - Policy doesn't actually allow this Endpoint to connect. A sanity check is to
-  use ``cilium endpoint list`` to see if cilium thinks it should have policy
+  use ``cilium-dbg endpoint list`` to see if cilium thinks it should have policy
   enforcement.
 - Endpoint regeneration is slow and the Policy Map has not been updated yet.
   This can occur in cases where we have leaked IPs from the DNS cache (i.e.

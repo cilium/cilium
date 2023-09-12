@@ -149,7 +149,7 @@ Verify that the custom resource is created.
 
 Verify that Cilium's eBPF kube-proxy replacement created a ``LocalRedirect``
 service entry with the backend IP address of that of the ``lrp-pod`` that was
-selected by the policy. Make sure that ``cilium service list`` is run
+selected by the policy. Make sure that ``cilium-dbg service list`` is run
 in Cilium pod running on the same node as ``lrp-pod``.
 
 .. code-block:: shell-session
@@ -159,7 +159,7 @@ in Cilium pod running on the same node as ``lrp-pod``.
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it -n kube-system cilium-5ngzd -- cilium service list
+    $ kubectl exec -it -n kube-system cilium-5ngzd -- cilium-dbg service list
     ID   Frontend               Service Type   Backend
     [...]
     4    172.20.0.51:80         ClusterIP      1 => 10.16.70.187:80
@@ -241,7 +241,7 @@ service entry.
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it -n kube-system ds/cilium -- cilium service list
+    $ kubectl exec -it -n kube-system ds/cilium -- cilium-dbg service list
     ID   Frontend               Service Type   Backend
     [...]
     4    172.20.0.51:80         ClusterIP
@@ -265,12 +265,12 @@ Verify that the custom resource is created.
 
 Verify that entry Cilium's eBPF kube-proxy replacement updated the
 service entry with type ``LocalRedirect`` and the node-local backend
-selected by the policy. Make sure to run ``cilium service list`` in Cilium pod
+selected by the policy. Make sure to run ``cilium-dbg service list`` in Cilium pod
 running on the same node as ``lrp-pod``.
 
 .. code-block:: shell-session
 
-    $ kubectl exec -it -n kube-system cilium-5ngzd -- cilium service list
+    $ kubectl exec -it -n kube-system cilium-5ngzd -- cilium-dbg service list
     ID   Frontend               Service Type       Backend
     [...]
     4    172.20.0.51:80         LocalRedirect      1 => 10.16.70.187:80

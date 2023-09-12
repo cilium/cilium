@@ -18,7 +18,7 @@ to your preferences:
 
 * ``debug`` - Sets to run Cilium in full debug mode, which enables verbose
   logging and configures eBPF programs to emit more visibility events into the
-  output of ``cilium monitor``.
+  output of ``cilium-dbg monitor``.
 
 * ``enable-ipv4`` - Enable IPv4 addressing support
 
@@ -43,7 +43,7 @@ to your preferences:
   reconnected to allow the new instance of Cilium to manage them.
 
 * ``monitor-aggregation`` - This option enables coalescing of tracing events in
-  ``cilium monitor`` to only include periodic updates from active flows, or any
+  ``cilium-dbg monitor`` to only include periodic updates from active flows, or any
   packets that involve an L4 connection state change. Valid options are
   ``none``, ``low``, ``medium``, ``maximum``.
 

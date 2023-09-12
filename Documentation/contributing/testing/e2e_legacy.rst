@@ -675,7 +675,7 @@ test an exhaustive data will be added.
 	$ head test/test_results/RuntimeKafkaKafkaPolicyIngress/logs
 	level=info msg=Starting testName=RuntimeKafka
 	level=info msg="Vagrant: running command \"vagrant ssh-config runtime\""
-	cmd: "sudo cilium status" exitCode: 0
+	cmd: "sudo cilium-dbg status" exitCode: 0
 	 KVStore:            Ok         Consul: 172.17.0.3:8300
 	ContainerRuntime:   Ok
 	Kubernetes:         Disabled

@@ -292,7 +292,7 @@ Next, start Cilium monitor, and limit the output to only "l7" type messages usin
 
 ::
 
-  root@minikube:~# cilium monitor -t l7
+  root@minikube:~# cilium-dbg monitor -t l7
   Listening for events on 2 CPUs with 64x4096 of shared memory
   Press Ctrl-C to quit
 
