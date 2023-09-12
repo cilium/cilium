@@ -10,6 +10,8 @@
 Upgrade Guide
 *************
 
+TODO: update this doc
+
 .. _upgrade_general:
 
 This upgrade guide is intended for Cilium running on Kubernetes. If you have
