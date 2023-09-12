@@ -22,6 +22,7 @@ jobs:
       bpf-tree: ${{ steps.changes.outputs.bpf-tree }}
       coccinelle: ${{ steps.changes.outputs.coccinelle }}
       bpf-tests-runner: ${{ steps.changes.outputs.bpf-tests-runner }}
+      workflow-description: ${{ steps.changes.outputs.workflow-description }}
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
@@ -43,6 +44,8 @@ jobs:
             bpf-tests-runner:
               - 'test/bpf_tests/**'
               - 'pkg/bpf/**'
+            workflow-description:
+              - '.github/workflows/lint-bpf-checks.yaml'
 
   checkpatch:
     name: Check Patch
@@ -60,7 +63,7 @@ jobs:
   # Runs only if code under bpf/ or contrib/coccinnelle/ is changed.
   coccicheck:
     needs: check_changes
-    if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.coccinelle == 'true' }}
+    if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.coccinelle == 'true' || needs.check_changes.outputs.workflow-description == 'true' }}
     name: Run coccicheck
     runs-on: ubuntu-latest
     steps:
@@ -92,7 +95,7 @@ jobs:
   # Runs only if code under bpf/ is changed.
   build_all:
     needs: [check_changes, set_clang_dir]
-    if: ${{ needs.check_changes.outputs.bpf-tree == 'true' }}
+    if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.workflow-description == 'true' }}
     name: Build Datapath
     runs-on: ubuntu-22.04
     steps:
@@ -130,7 +133,7 @@ jobs:
 
   bpf_tests:
     needs: [check_changes, set_clang_dir]
-    if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.bpf-tests-runner == 'true' }}
+    if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.bpf-tests-runner == 'true' || needs.check_changes.outputs.workflow-description == 'true' }}
     name: BPF unit/integration Tests
     runs-on: ubuntu-22.04
     steps:
