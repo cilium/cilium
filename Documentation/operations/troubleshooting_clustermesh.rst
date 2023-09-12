@@ -135,7 +135,7 @@ Manual Verification of Setup
 State Propagation
 -----------------
 
- #. Run ``cilium node list`` in one of the Cilium pods and validate that it
+ #. Run ``cilium-dbg node list`` in one of the Cilium pods and validate that it
     lists both local nodes and nodes from remote clusters. If this discovery
     does not work, validate the following:
 
@@ -144,7 +144,7 @@ State Propagation
 
       .. code-block:: shell-session
 
-          cilium kvstore get --recursive cilium/state/nodes/v1/
+          cilium-dbg kvstore get --recursive cilium/state/nodes/v1/
 
       .. note::
 
@@ -162,7 +162,7 @@ State Propagation
     * Make sure that the network allows the health checking traffic as
       specified in the section :ref:`firewall_requirements`.
 
- #. Validate that identities are synchronized correctly by running ``cilium
+ #. Validate that identities are synchronized correctly by running ``cilium-dbg
     identity list`` in one of the Cilium pods. It must list identities from all
     clusters. You can determine what cluster an identity belongs to by looking
     at the label ``io.cilium.k8s.policy.cluster``.
@@ -170,7 +170,7 @@ State Propagation
     If this fails:
 
     * Is the identity information available in the kvstore of each cluster? You
-      can confirm this by running ``cilium kvstore get --recursive
+      can confirm this by running ``cilium-dbg kvstore get --recursive
       cilium/state/identities/v1/``.
 
       .. note::
@@ -180,14 +180,14 @@ State Propagation
          kvstore is used for other clusters to discover all identities so it is
          important that local identities are listed.
 
- #. Validate that the IP cache is synchronized correctly by running ``cilium
-    bpf ipcache list`` or ``cilium map get cilium_ipcache``. The output must
+ #. Validate that the IP cache is synchronized correctly by running ``cilium-dbg
+    bpf ipcache list`` or ``cilium-dbg map get cilium_ipcache``. The output must
     contain pod IPs from local and remote clusters.
 
     If this fails:
 
     * Is the IP cache information available in the kvstore of each cluster? You
-      can confirm this by running ``cilium kvstore get --recursive
+      can confirm this by running ``cilium-dbg kvstore get --recursive
       cilium/state/ip/v1/``.
 
       .. note::
@@ -198,19 +198,19 @@ State Propagation
          that local identities are listed.
 
  #. When using global services, ensure that global services are configured with
-    endpoints from all clusters. Run ``cilium service list`` in any Cilium pod
+    endpoints from all clusters. Run ``cilium-dbg service list`` in any Cilium pod
     and validate that the backend IPs consist of pod IPs from all clusters
     running relevant backends. You can further validate the correct datapath
-    plumbing by running ``cilium bpf lb list`` to inspect the state of the eBPF
+    plumbing by running ``cilium-dbg bpf lb list`` to inspect the state of the eBPF
     maps.
 
     If this fails:
 
     * Are services available in the kvstore of each cluster? You can confirm
-      this by running ``cilium kvstore get --recursive
+      this by running ``cilium-dbg kvstore get --recursive
       cilium/state/services/v1/``.
 
-    * Run ``cilium debuginfo`` and look for the section ``k8s-service-cache``. In
+    * Run ``cilium-dbg debuginfo`` and look for the section ``k8s-service-cache``. In
       that section, you will find the contents of the service correlation
       cache. It will list the Kubernetes services and endpoints of the local
       cluster.  It will also have a section ``externalEndpoints`` which must

@@ -24,7 +24,7 @@ Manual Verification of Setup
 
     .. code-block:: shell-session
 
-        $ kubectl exec -n kube-system ds/cilium -- cilium status --verbose
+        $ kubectl exec -n kube-system ds/cilium -- cilium-dbg status --verbose
         ...
         KubeProxyReplacement Details:
         ...
@@ -185,7 +185,7 @@ backend service.
 
     .. code-block:: shell-session
 
-        $ kubectl exec -n kube-system ds/cilium -- cilium status
+        $ kubectl exec -n kube-system ds/cilium -- cilium-dbg status
         ...
         Controller Status:       49/49 healthy
         Proxy Status:            OK, ip 10.0.0.25, 6 redirects active on ports 10000-20000
@@ -274,8 +274,8 @@ backend service.
         Jul  7 13:08:16.757: 10.0.0.95:42509 <- default/details-v1-5498c86cf5-cnt9q:9080 to-stack FORWARDED (TCP Flags: ACK, FIN)
         Jul  7 13:08:16.757: 10.0.0.95:42509 -> default/details-v1-5498c86cf5-cnt9q:9080 to-endpoint FORWARDED (TCP Flags: ACK, FIN)
 
-        # Sample output of cilium monitor
-        $ ksysex ds/cilium -- cilium monitor
+        # Sample output of cilium-dbg monitor
+        $ ksysex ds/cilium -- cilium-dbg monitor
         level=info msg="Initializing dissection cache..." subsys=monitor
         -> endpoint 212 flow 0x3000e251 , identity ingress->61131 state new ifindex lxcfc90a8580fd6 orig-ip 10.0.0.192: 10.0.0.192:34219 -> 10.0.0.164:9080 tcp SYN
         -> stack flow 0x2481d648 , identity 61131->ingress state reply ifindex 0 orig-ip 0.0.0.0: 10.0.0.164:9080 -> 10.0.0.192:34219 tcp SYN, ACK

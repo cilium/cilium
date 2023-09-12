@@ -106,7 +106,7 @@ commands:
 
    .. code-block:: shell-session
 
-      cilium status | grep Encryption
+      cilium-dbg status | grep Encryption
 
       Encryption: Wireguard [cilium_wg0 (Pubkey: <..>, Port: 51871, Peers: 2)]
 
@@ -147,7 +147,7 @@ commands can be helpful:
 .. code-block:: shell-session
 
    # From node A:
-   cilium debuginfo --output json | jq .encryption
+   cilium-dbg debuginfo --output json | jq .encryption
    {
      "wireguard": {
        "interfaces": [
@@ -172,7 +172,7 @@ commands can be helpful:
      }
    }
    # From node B:
-   cilium debuginfo --output json | jq .encryption
+   cilium-dbg debuginfo --output json | jq .encryption
    {
      "wireguard": {
        "interfaces": [

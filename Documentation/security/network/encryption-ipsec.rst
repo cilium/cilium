@@ -199,11 +199,11 @@ Troubleshooting
      use ``--set encryption.ipsec.interface=ethX`` to set the encryption
      interface.
 
- * Run ``cilium encrypt status`` in the Cilium Pod:
+ * Run ``cilium-dbg encrypt status`` in the Cilium Pod:
 
    .. code-block:: shell-session
 
-       $ cilium encrypt status
+       $ cilium-dbg encrypt status
        Encryption: IPsec
        Keys in use: 1
        Max Seq. Number: 0x1e3/0xffffffff

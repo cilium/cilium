@@ -45,7 +45,7 @@ To configure the policy enforcement mode at runtime for all endpoints managed by
 
 .. code-block:: shell-session
 
-    $ cilium config PolicyEnforcement={default,always,never}
+    $ cilium-dbg config PolicyEnforcement={default,always,never}
 
 If you want to configure the policy enforcement mode at start-time for a particular agent, provide the following flag when launching the Cilium
 daemon:

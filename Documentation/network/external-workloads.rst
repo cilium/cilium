@@ -167,9 +167,9 @@ external workload. Then run the installation script:
     ./install-external-workload.sh
 
 This command launches the Cilium agent in a docker container named
-``cilium`` and copies the ``cilium`` node CLI to your host. This needs
+``cilium`` and copies the ``cilium-dbg`` node CLI to your host. This needs
 ``sudo`` permissions, so you may be asked for a password. Note that
-this ``cilium`` command is not the same as the ``cilium`` CLI used to
+this ``cilium-dbg`` command is not the same as the ``cilium`` CLI used to
 manage Cilium installation on a k8s cluster.
 
 This command waits until the node has been connected to the cluster
@@ -190,7 +190,7 @@ Next you can check the status of the Cilium agent in your external workload:
 
 .. code-block:: shell-session
 
-    sudo cilium status
+    sudo cilium-dbg status
 
 You should see something like:
 
@@ -228,7 +228,7 @@ From the external workload, ping the backend IP of ``clustermesh-apiserver`` ser
 
 .. code-block:: shell-session
 
-    ping $(sudo cilium service list get -o jsonpath='{[?(@.spec.flags.name=="clustermesh-apiserver")].spec.backend-addresses[0].ip}')
+    ping $(sudo cilium-dbg service list get -o jsonpath='{[?(@.spec.flags.name=="clustermesh-apiserver")].spec.backend-addresses[0].ip}')
 
 The ping should keep running also when the following CCNP is applied in your cluster:
 

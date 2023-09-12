@@ -39,7 +39,7 @@ Example
 
 .. code-block:: shell-session
 
-    $ cilium -H unix:///var/run/cilium/cilium.sock
+    $ cilium-dbg -H unix:///var/run/cilium/cilium.sock
     [...]
 
 

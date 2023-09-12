@@ -41,7 +41,7 @@ whether all pods have the status ``Running``:
    cilium-zmjj9   1/1       Running   0          4d
 
 If Cilium encounters a problem that it cannot recover from, it will
-automatically report the failure state via ``cilium status`` which is regularly
+automatically report the failure state via ``cilium-dbg status`` which is regularly
 queried by the Kubernetes liveness probe to automatically restart Cilium pods.
 If a Cilium pod is in state ``CrashLoopBackoff`` then this indicates a
 permanent failure scenario.
@@ -50,12 +50,12 @@ Detailed Status
 ~~~~~~~~~~~~~~~
 
 If a particular Cilium pod is not in running state, the status and health of
-the agent on that node can be retrieved by running ``cilium status`` in the
+the agent on that node can be retrieved by running ``cilium-dbg status`` in the
 context of that pod:
 
 .. code-block:: shell-session
 
-   $ kubectl -n kube-system exec cilium-2hq5z -- cilium status
+   $ kubectl -n kube-system exec cilium-2hq5z -- cilium-dbg status
    KVStore:                Ok   etcd: 1/1 connected: http://demo-etcd-lab--a.etcd.tgraf.test1.lab.corp.isovalent.link:2379 - 3.2.5 (Leader)
    ContainerRuntime:       Ok   docker daemon: OK
    Kubernetes:             Ok   OK
@@ -67,7 +67,7 @@ context of that pod:
    Proxy Status:           OK, ip 10.2.0.172, port-range 10000-20000
    Cluster health:   4/4 reachable   (2018-06-16T09:49:58Z)
 
-Alternatively, the ``k8s-cilium-exec.sh`` script can be used to run ``cilium
+Alternatively, the ``k8s-cilium-exec.sh`` script can be used to run ``cilium-dbg
 status`` on all nodes. This will provide detailed status and health information
 of all nodes in the cluster:
 
@@ -76,11 +76,11 @@ of all nodes in the cluster:
    curl -sLO https://raw.githubusercontent.com/cilium/cilium/main/contrib/k8s/k8s-cilium-exec.sh
    chmod +x ./k8s-cilium-exec.sh
 
-... and run ``cilium status`` on all nodes:
+... and run ``cilium-dbg status`` on all nodes:
 
 .. code-block:: shell-session
 
-   $ ./k8s-cilium-exec.sh cilium status
+   $ ./k8s-cilium-exec.sh cilium-dbg status
    KVStore:                Ok   Etcd: http://127.0.0.1:2379 - (Leader) 3.1.10
    ContainerRuntime:       Ok
    Kubernetes:             Ok   OK
@@ -93,7 +93,7 @@ of all nodes in the cluster:
    Cluster health:   1/1 reachable   (2018-02-27T00:24:34Z)
 
 Detailed information about the status of Cilium can be inspected with the
-``cilium status --verbose`` command. Verbose output includes detailed IPAM state
+``cilium-dbg status --verbose`` command. Verbose output includes detailed IPAM state
 (allocated addresses), Cilium controller status, and details of the Proxy
 status.
 
@@ -125,7 +125,7 @@ e.g.:
 
 .. code-block:: shell-session
 
-   $ cilium status
+   $ cilium-dbg status
    KVStore:                Ok   etcd: 1/1 connected: https://192.168.60.11:2379 - 3.2.7 (Leader)
    ContainerRuntime:       Ok
    Kubernetes:             Ok   OK
@@ -166,7 +166,7 @@ for the Hubble server to be enabled. When deploying Cilium with Helm, make sure
 to set the ``hubble.enabled=true`` value.
 
 To check if Hubble is enabled in your deployment, you may look for the
-following output in ``cilium status``:
+following output in ``cilium-dbg status``:
 
 .. code-block:: shell-session
 
@@ -375,13 +375,13 @@ Monitoring Datapath State
 Sometimes you may experience broken connectivity, which may be due to a
 number of different causes. A main cause can be unwanted packet drops on
 the networking level. The tool
-``cilium monitor`` allows you to quickly inspect and see if and where packet
+``cilium-dbg monitor`` allows you to quickly inspect and see if and where packet
 drops happen. Following is an example output (use ``kubectl exec`` as in
 previous examples if running with Kubernetes):
 
 .. code-block:: shell-session
 
-   $ kubectl -n kube-system exec -ti cilium-2hq5z -- cilium monitor --type drop
+   $ kubectl -n kube-system exec -ti cilium-2hq5z -- cilium-dbg monitor --type drop
    Listening for events on 2 CPUs with 64x4096 of shared memory
    Press Ctrl-C to quit
    xx drop (Policy denied) to endpoint 25729, identity 261->264: fd02::c0a8:210b:0:bf00 -> fd02::c0a8:210b:0:6481 EchoRequest
@@ -396,7 +396,7 @@ to violation of the Layer 3 policy.
 Handling drop (CT: Map insertion failed)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If connectivity fails and ``cilium monitor --type drop`` shows ``xx drop (CT:
+If connectivity fails and ``cilium-dbg monitor --type drop`` shows ``xx drop (CT:
 Map insertion failed)``, then it is likely that the connection tracking table
 is filling up and the automatic adjustment of the garbage collector interval is
 insufficient.
@@ -424,7 +424,7 @@ Enabling datapath debug messages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 By default, datapath debug messages are disabled, and therefore not shown in
-``cilium monitor -v`` output. To enable them, add ``"datapath"`` to
+``cilium-dbg monitor -v`` output. To enable them, add ``"datapath"`` to
 the ``debug-verbose`` option.
 
 Policy Troubleshooting
@@ -511,14 +511,14 @@ address and pod labels:
 
 .. code-block:: shell-session
 
-    kubectl -n kube-system exec -ti cilium-q8wvt -- cilium endpoint list
+    kubectl -n kube-system exec -ti cilium-q8wvt -- cilium-dbg endpoint list
 
 When you find the correct endpoint, the first column of every row is the
 endpoint ID. Use that to dump the full endpoint information:
 
 .. code-block:: shell-session
 
-    kubectl -n kube-system exec -ti cilium-q8wvt -- cilium endpoint get 59084
+    kubectl -n kube-system exec -ti cilium-q8wvt -- cilium-dbg endpoint get 59084
 
 .. image:: images/troubleshooting_policy.png
     :align: center
@@ -688,7 +688,7 @@ Services updates:
 Understanding etcd status
 -------------------------
 
-The etcd status is reported when running ``cilium status``. The following line
+The etcd status is reported when running ``cilium-dbg status``. The following line
 represents the status of etcd::
 
    KVStore:  Ok  etcd: 1/1 connected, lease-ID=29c6732d5d580cb5, lock lease-ID=29c6732d5d580cb7, has-quorum=true: https://192.168.60.11:2379 - 3.4.9 (Leader)
@@ -731,7 +731,7 @@ etcd health and potentially take action. The interval depends on the overall
 cluster size. The larger the cluster, the longer the `interval
 <https://pkg.go.dev/github.com/cilium/cilium/pkg/kvstore?tab=doc#ExtraOptions.StatusCheckInterval>`_:
 
- * If no etcd endpoints can be reached, Cilium will report failure in ``cilium
+ * If no etcd endpoints can be reached, Cilium will report failure in ``cilium-dbg
    status``. This will cause the liveness and readiness probe of Kubernetes to
    fail and Cilium will be restarted.
 
@@ -785,12 +785,12 @@ Troubleshooting steps:
    command does not describe the status of the other node, there may be an
    issue with the KV-Store.
 
-#. Run ``cilium monitor`` on the node of the source and destination endpoint.
+#. Run ``cilium-dbg monitor`` on the node of the source and destination endpoint.
    Look for packet drops.
 
    When running in :ref:`arch_overlay` mode:
 
-#. Run ``cilium bpf tunnel list`` and verify that each Cilium node is aware of
+#. Run ``cilium-dbg bpf tunnel list`` and verify that each Cilium node is aware of
    the other nodes in the cluster.  If not, check the logfile for errors.
 
 #. If nodes are being populated correctly, run ``tcpdump -n -i cilium_vxlan`` on
@@ -799,7 +799,7 @@ Troubleshooting steps:
 
    If packets are being dropped,
 
-   * verify that the node IP listed in ``cilium bpf tunnel list`` can reach each
+   * verify that the node IP listed in ``cilium-dbg bpf tunnel list`` can reach each
      other.
    * verify that the firewall on each node allows UDP port 8472.
 
@@ -994,29 +994,29 @@ Below is an approximate list of the kind of information in the archive.
 * ``kubectl get pods,svc for all namespaces``
 * ``uname``
 * ``uptime``
-* ``cilium bpf * list``
-* ``cilium endpoint get for each endpoint``
-* ``cilium endpoint list``
+* ``cilium-dbg bpf * list``
+* ``cilium-dbg endpoint get for each endpoint``
+* ``cilium-dbg endpoint list``
 * ``hostname``
-* ``cilium policy get``
-* ``cilium service list``
+* ``cilium-dbg policy get``
+* ``cilium-dbg service list``
 
 
 Debugging information
 ~~~~~~~~~~~~~~~~~~~~~
 
-If you are not running Kubernetes, you can use the ``cilium debuginfo`` command
+If you are not running Kubernetes, you can use the ``cilium-dbg debuginfo`` command
 to retrieve useful debugging information. If you are running Kubernetes, this
 command is automatically run as part of the system dump.
 
-``cilium debuginfo`` can print useful output from the Cilium API. The output
+``cilium-dbg debuginfo`` can print useful output from the Cilium API. The output
 format is in Markdown format so this can be used when reporting a bug on the
 `issue tracker`_.  Running without arguments will print to standard output, but
 you can also redirect to a file like
 
 .. code-block:: shell-session
 
-   cilium debuginfo -f debuginfo.md
+   cilium-dbg debuginfo -f debuginfo.md
 
 .. note::
 

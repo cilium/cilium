@@ -43,7 +43,7 @@ command line, e.g.:
 
 Cilium will pick up that pods have received these annotations, and will
 transparently redirect traffic to the proxy such that the output of
-``cilium monitor`` shows traffic being redirected to the proxy, e.g.:
+``cilium-dbg monitor`` shows traffic being redirected to the proxy, e.g.:
 
 ::
 
@@ -94,7 +94,7 @@ For more information on configuring Cilium, see :ref:`Cilium Configuration <conf
 Troubleshooting
 ---------------
 
-If L7 visibility is not appearing in ``cilium monitor`` or Hubble components,
+If L7 visibility is not appearing in ``cilium-dbg monitor`` or Hubble components,
 it is worth double-checking that:
 
  * No enforcement policy is applied in the direction specified in the
