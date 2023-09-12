@@ -221,10 +221,6 @@ func (k *K8sWatcher) endpointUpdated(oldEndpoint, endpoint *types.CiliumEndpoint
 			}
 		}
 	}
-
-	if k.egressGatewayManager != nil {
-		k.egressGatewayManager.OnUpdateEndpoint(endpoint)
-	}
 }
 
 func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
@@ -248,9 +244,6 @@ func (k *K8sWatcher) endpointDeleted(endpoint *types.CiliumEndpoint) {
 		if namedPortsChanged {
 			k.policyManager.TriggerPolicyUpdates(true, "Named ports deleted")
 		}
-	}
-	if k.egressGatewayManager != nil {
-		k.egressGatewayManager.OnDeleteEndpoint(endpoint)
 	}
 }
 

@@ -64,6 +64,7 @@ var (
 			k8s.CiliumClusterwideNetworkPolicyResource,
 			k8s.CiliumCIDRGroupResource,
 			k8s.CiliumNodeResource,
+			k8s.CiliumSlimEndpointResource,
 		),
 	)
 )
