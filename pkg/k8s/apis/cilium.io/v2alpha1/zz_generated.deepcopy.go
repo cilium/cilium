@@ -67,6 +67,11 @@ func (in *CiliumBGPNeighbor) DeepCopyInto(out *CiliumBGPNeighbor) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.AuthSecretRef != nil {
+		in, out := &in.AuthSecretRef, &out.AuthSecretRef
+		*out = new(string)
+		**out = **in
+	}
 	if in.EBGPMultihopTTL != nil {
 		in, out := &in.EBGPMultihopTTL, &out.EBGPMultihopTTL
 		*out = new(int32)

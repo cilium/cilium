@@ -81,6 +81,31 @@ var (
 			},
 		},
 	}
+	gbgpNeighConfPassword = &gobgpapi.Peer{
+		Conf: &gobgpapi.PeerConf{
+			NeighborAddress: dummies[ciliumLink].ipv4.Addr().String(),
+			PeerAsn:         ciliumASN,
+			AuthPassword:    "testing-123",
+		},
+		Transport: &gobgpapi.Transport{
+			RemoteAddress: dummies[ciliumLink].ipv4.Addr().String(),
+			RemotePort:    ciliumListenPort,
+			LocalAddress:  dummies[instance1Link].ipv4.Addr().String(),
+			PassiveMode:   false,
+		},
+		AfiSafis: []*gobgpapi.AfiSafi{
+			{
+				Config: &gobgpapi.AfiSafiConfig{
+					Family: gobgp.GoBGPIPv4Family,
+				},
+			},
+			{
+				Config: &gobgpapi.AfiSafiConfig{
+					Family: gobgp.GoBGPIPv6Family,
+				},
+			},
+		},
+	}
 
 	gobgpConf = gobgpConfig{
 		global: gobgpGlobal,
@@ -92,6 +117,12 @@ var (
 		global: gobgpGlobal2,
 		neighbors: []*gobgpapi.Peer{
 			gbgpNeighConf2,
+		},
+	}
+	gobgpConfPassword = gobgpConfig{
+		global: gobgpGlobal,
+		neighbors: []*gobgpapi.Peer{
+			gbgpNeighConfPassword,
 		},
 	}
 )

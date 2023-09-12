@@ -26,6 +26,9 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_meta_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	clientset_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/types"
@@ -77,6 +80,7 @@ type fixture struct {
 	config        fixtureConfig
 	fakeClientSet *k8sClient.FakeClientset
 	policyClient  v2alpha1.CiliumBGPPeeringPolicyInterface
+	secretClient  clientset_core_v1.SecretInterface
 	hive          *hive.Hive
 	bgp           *agent.Controller
 	nodeStore     *node.LocalNodeStore
@@ -85,6 +89,7 @@ type fixture struct {
 
 type fixtureConfig struct {
 	policy    cilium_api_v2alpha1.CiliumBGPPeeringPolicy
+	secret    slim_core_v1.Secret
 	ipam      string
 	bgpEnable bool
 }
@@ -93,6 +98,14 @@ func newFixtureConf() fixtureConfig {
 	policyCfg := policyConfig{
 		nodeSelector: baseBGPPolicy.nodeSelector,
 	}
+	secret := slim_core_v1.Secret{
+		ObjectMeta: slim_meta_v1.ObjectMeta{
+			Namespace: "bgp-secrets",
+			Name:      "a-secret",
+		},
+		Data: map[string]slim_core_v1.Bytes{"password": slim_core_v1.Bytes("testing-123")},
+	}
+
 	// deepcopy the VirtualRouters as the tests modify them
 	for _, vr := range baseBGPPolicy.virtualRouters {
 		policyCfg.virtualRouters = append(policyCfg.virtualRouters, *vr.DeepCopy())
@@ -100,6 +113,7 @@ func newFixtureConf() fixtureConfig {
 	return fixtureConfig{
 		policy:    newPolicyObj(policyCfg),
 		ipam:      ipamOption.IPAMKubernetes,
+		secret:    secret,
 		bgpEnable: true,
 	}
 }
@@ -111,9 +125,11 @@ func newFixture(conf fixtureConfig) *fixture {
 
 	f.fakeClientSet, _ = k8sClient.NewFakeClientset()
 	f.policyClient = f.fakeClientSet.CiliumFakeClientset.CiliumV2alpha1().CiliumBGPPeeringPolicies()
+	f.secretClient = f.fakeClientSet.SlimFakeClientset.CoreV1().Secrets("bgp-secrets")
 
 	// create initial bgp policy
 	f.fakeClientSet.CiliumFakeClientset.Tracker().Add(&conf.policy)
+	f.fakeClientSet.SlimFakeClientset.Tracker().Add(&conf.secret)
 
 	// Construct a new Hive with mocked out dependency cells.
 	f.hive = hive.New(
@@ -145,6 +161,7 @@ func newFixture(conf fixtureConfig) *fixture {
 		cell.Provide(func() *option.DaemonConfig {
 			return &option.DaemonConfig{
 				EnableBGPControlPlane: conf.bgpEnable,
+				BGPSecretsNamespace:   "bgp-secrets",
 				IPAM:                  conf.ipam,
 			}
 		}),

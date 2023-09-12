@@ -3826,6 +3826,9 @@ definitions:
       peer-address:
         description: IP Address of peer
         type: string
+      tcp-password-enabled:
+        description: Set when a TCP password is configured for communications with this peer
+        type: boolean
       ebgp-multihop-ttl:
         description: |
           Time To Live (TTL) value used in BGP packets sent to the eBGP neighbor.

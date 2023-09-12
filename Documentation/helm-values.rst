@@ -251,11 +251,23 @@
    * - :spelling:ignore:`bgpControlPlane`
      - This feature set enables virtual BGP routers to be created via CiliumBGPPeeringPolicy CRDs.
      - object
-     - ``{"enabled":false}``
+     - ``{"enabled":false,"secretsNamespace":{"create":true,"name":"cilium-bgp-secrets"}}``
    * - :spelling:ignore:`bgpControlPlane.enabled`
      - Enables the BGP control plane.
      - bool
      - ``false``
+   * - :spelling:ignore:`bgpControlPlane.secretsNamespace`
+     - SecretsNamespace is the namespace which BGP support will retrieve secrets from.
+     - object
+     - ``{"create":true,"name":"cilium-bgp-secrets"}``
+   * - :spelling:ignore:`bgpControlPlane.secretsNamespace.create`
+     - Create secrets namespace for BGP secrets.
+     - bool
+     - ``true``
+   * - :spelling:ignore:`bgpControlPlane.secretsNamespace.name`
+     - The name of the secret namespace to which Cilium agents are given read access
+     - string
+     - ``"cilium-bgp-secrets"``
    * - :spelling:ignore:`bpf.authMapMax`
      - Configure the maximum number of entries in auth map.
      - int

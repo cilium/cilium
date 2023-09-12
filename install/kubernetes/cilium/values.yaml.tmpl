@@ -406,6 +406,12 @@ bgp:
 bgpControlPlane:
   # -- Enables the BGP control plane.
   enabled: false
+  # -- SecretsNamespace is the namespace which BGP support will retrieve secrets from.
+  secretsNamespace:
+    # -- Create secrets namespace for BGP secrets.
+    create: true
+    # -- The name of the secret namespace to which Cilium agents are given read access
+    name: cilium-bgp-secrets
 
 pmtuDiscovery:
   # -- Enable path MTU discovery to send ICMP fragmentation-needed replies to

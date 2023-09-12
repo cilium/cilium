@@ -5,6 +5,7 @@ package manager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // We use similar local listen ports as the tests in the pkg/bgpv1/test package.
@@ -36,6 +38,20 @@ const (
 	localListenPort  = 1793
 	localListenPort2 = 1794
 )
+
+func FakeSecretStore(secrets map[string][]byte) resource.Store[*slim_corev1.Secret] {
+	store := newMockBGPCPResourceStore[*slim_corev1.Secret]()
+	for k, v := range secrets {
+		store.Upsert(&slim_corev1.Secret{
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Namespace: "bgp-secrets",
+				Name:      k,
+			},
+			Data: map[string]slim_corev1.Bytes{"password": slim_corev1.Bytes(v)},
+		})
+	}
+	return store
+}
 
 // TestPreflightReconciler ensures if a BgpServer must be recreated, due to
 // permanent configuration of the said server changing, its done so correctly.
@@ -183,8 +199,14 @@ func TestNeighborReconciler(t *testing.T) {
 		//
 		// this is the resulting neighbors we expect on the BgpServer.
 		newNeighbors []v2alpha1api.CiliumBGPNeighbor
+		// secretStore passed to the test, provides a way to fetch secrets (use FakeSecretStore above).
+		secretStore resource.Store[*slim_corev1.Secret]
 		// checks validates set timer values
 		checks checkTimers
+		// expected secret if set.
+		expectedSecret string
+		// expected password if set.
+		expectedPassword string
 		// error provided or nil
 		err error
 	}{
@@ -312,6 +334,50 @@ func TestNeighborReconciler(t *testing.T) {
 			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{},
 			err:          nil,
 		},
+		{
+			name:      "add neighbor with a password",
+			neighbors: []v2alpha1api.CiliumBGPNeighbor{},
+			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), AuthSecretRef: pointer.String("a-secret")},
+			},
+			secretStore:      FakeSecretStore(map[string][]byte{"a-secret": []byte("a-password")}),
+			expectedSecret:   "a-secret",
+			expectedPassword: "a-password",
+			err:              nil,
+		},
+		{
+			name: "neighbor's password secret not found",
+			neighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+			},
+			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), AuthSecretRef: pointer.String("bad-secret")},
+			},
+			secretStore: FakeSecretStore(map[string][]byte{}),
+			err:         nil,
+		},
+		{
+			name: "bad secret store, returns error",
+			neighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort)},
+			},
+			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), AuthSecretRef: pointer.String("a-secret")},
+			},
+			err: errors.New("fetch secret error"),
+		},
+		{
+			name: "neighbor's secret updated",
+			neighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), AuthSecretRef: pointer.String("a-secret")},
+			},
+			newNeighbors: []v2alpha1api.CiliumBGPNeighbor{
+				{PeerASN: 64124, PeerAddress: "192.168.0.1/32", PeerPort: pointer.Int32(v2alpha1api.DefaultBGPPeerPort), AuthSecretRef: pointer.String("another-secret")},
+			},
+			secretStore:      FakeSecretStore(map[string][]byte{"another-secret": []byte("another-password")}),
+			expectedSecret:   "another-secret",
+			expectedPassword: "another-password",
+		},
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
@@ -338,9 +404,20 @@ func TestNeighborReconciler(t *testing.T) {
 			for _, n := range tt.neighbors {
 				n.SetDefaults()
 				oldc.Neighbors = append(oldc.Neighbors, n)
+				// create a temp. reconciler so we can get secrets.
+				neighborReconciler := NewNeighborReconciler(tt.secretStore, &option.DaemonConfig{BGPSecretsNamespace: "bgp-secrets"}).Reconciler.(*NeighborReconciler)
+
+				tcpPassword, err := neighborReconciler.fetchPeerPassword(testSC, &n)
+				if err != nil {
+					t.Fatalf("Failed to fetch peer password for oldc: %v", err)
+				}
+				if tcpPassword != "" {
+					neighborReconciler.updatePeerPassword(testSC, &n, tcpPassword)
+				}
 				testSC.Server.AddNeighbor(context.Background(), types.NeighborRequest{
 					Neighbor: &n,
 					VR:       oldc,
+					Password: tcpPassword,
 				})
 			}
 			testSC.Config = oldc
@@ -353,7 +430,7 @@ func TestNeighborReconciler(t *testing.T) {
 			newc.Neighbors = append(newc.Neighbors, tt.newNeighbors...)
 			newc.SetDefaults()
 
-			neighborReconciler := NewNeighborReconciler().Reconciler
+			neighborReconciler := NewNeighborReconciler(tt.secretStore, &option.DaemonConfig{BGPSecretsNamespace: "bgp-secrets"}).Reconciler
 			params := ReconcileParams{
 				CurrentServer: testSC,
 				DesiredConfig: newc,
@@ -363,6 +440,13 @@ func TestNeighborReconciler(t *testing.T) {
 			err = neighborReconciler.Reconcile(context.Background(), params)
 			if (tt.err == nil) != (err == nil) {
 				t.Fatalf("want error: %v, got: %v", (tt.err == nil), err)
+			}
+
+			// clear out secret ref if one isn't expected
+			if tt.expectedSecret == "" {
+				for i := range tt.newNeighbors {
+					tt.newNeighbors[i].AuthSecretRef = nil
+				}
 			}
 
 			// check testSC for desired neighbors
@@ -397,6 +481,12 @@ func TestNeighborReconciler(t *testing.T) {
 						Enabled:            peer.GracefulRestart.Enabled,
 						RestartTimeSeconds: pointer.Int32(int32(peer.GracefulRestart.RestartTimeSeconds)),
 					}
+				}
+
+				// Check the API correctly reports a password was used.
+				require.Equal(t, tt.expectedPassword != "", peer.TCPPasswordEnabled)
+				if tt.expectedPassword != "" && peer.TCPPasswordEnabled {
+					toCiliumPeer.AuthSecretRef = pointer.String(tt.expectedSecret)
 				}
 
 				runningPeers = append(runningPeers, toCiliumPeer)

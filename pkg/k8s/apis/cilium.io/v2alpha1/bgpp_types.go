@@ -203,6 +203,10 @@ type CiliumBGPNeighbor struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=4294967295
 	PeerASN int64 `json:"peerASN"`
+	// AuthSecretRef is the name of the secret to use to fetch a TCP
+	// authentication password for this peer.
+	// +kubebuilder:validation:Optional
+	AuthSecretRef *string `json:"authSecretRef,omitempty"`
 	// EBGPMultihopTTL controls the multi-hop feature for eBGP peers.
 	// Its value defines the Time To Live (TTL) value used in BGP packets sent to the neighbor.
 	// The value 1 implies that eBGP multi-hop feature is disabled (only a single hop is allowed).
