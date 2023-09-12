@@ -630,11 +630,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	d.cgroupManager = manager.NewCgroupManager()
 
-	var egressGatewayWatcher watchers.EgressGatewayManager
-	if d.egressGatewayManager != nil {
-		egressGatewayWatcher = d.egressGatewayManager
-	}
-
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		params.Clientset,
 		d.endpointManager,
@@ -645,7 +640,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.datapath,
 		d.redirectPolicyManager,
 		d.bgpSpeaker,
-		egressGatewayWatcher,
 		d.l7Proxy,
 		option.Config,
 		d.ipcache,

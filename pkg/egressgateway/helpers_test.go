@@ -12,6 +12,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,8 +49,10 @@ func (fr fakeResource[T]) Observe(ctx context.Context, next func(event resource.
 }
 
 func (fr fakeResource[T]) Events(ctx context.Context, opts ...resource.EventsOpt) <-chan resource.Event[T] {
-	if opts != nil {
-		panic("opts not supported")
+	if len(opts) > 1 {
+		// Ideally we'd only ignore resource.WithRateLimit here, but that
+		// isn't possible.
+		panic("more than one option is not supported")
 	}
 	return fr
 }
@@ -156,4 +159,11 @@ func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig
 	}
 
 	return cegp, policy
+}
+
+func addEndpoint(tb testing.TB, endpoints fakeResource[*k8sTypes.CiliumEndpoint], ep *k8sTypes.CiliumEndpoint) {
+	endpoints.process(tb, resource.Event[*k8sTypes.CiliumEndpoint]{
+		Kind:   resource.Upsert,
+		Object: ep,
+	})
 }
