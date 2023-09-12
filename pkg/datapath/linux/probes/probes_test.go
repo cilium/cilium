@@ -313,6 +313,15 @@ func TestOuterSourceIPProbe(t *testing.T) {
 	}
 }
 
+func TestSKBAdjustRoomL2RoomMACSupportProbe(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	testutils.SkipOnOldKernel(t, "5.2", "BPF_ADJ_ROOM_MAC mode support in bpf_skb_adjust_room")
+
+	if err := HaveSKBAdjustRoomL2RoomMACSupport(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestIPv6Support(t *testing.T) {
 	if err := HaveIPv6Support(); err != nil {
 		t.Fatal(err)

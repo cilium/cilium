@@ -484,6 +484,57 @@ func HaveOuterSourceIPSupport() (err error) {
 	return nil
 }
 
+// HaveSKBAdjustRoomL2RoomMACSupport tests whether the kernel supports the `bpf_skb_adjust_room` helper
+// with the `BPF_ADJ_ROOM_MAC` mode. To do so, we create a program that requests the passed in SKB
+// to be expanded by 20 bytes. The helper checks the `mode` argument and will return -ENOSUPP if
+// the mode is unknown. Otherwise it should resize the SKB by 20 bytes and return 0.
+func HaveSKBAdjustRoomL2RoomMACSupport() (err error) {
+	defer func() {
+		if err != nil && !errors.Is(err, ebpf.ErrNotSupported) {
+			log.WithError(err).Fatal("failed to probe for bpf_skb_adjust_room L2 room MAC support")
+		}
+	}()
+
+	if err := rlimit.RemoveMemlock(); err != nil {
+		return err
+	}
+
+	progSpec := &ebpf.ProgramSpec{
+		Name:    "adjust_mac_room",
+		Type:    ebpf.SchedCLS,
+		License: "GPL",
+	}
+	progSpec.Instructions = asm.Instructions{
+		asm.Mov.Imm(asm.R2, 20), // len_diff
+		asm.Mov.Imm(asm.R3, 1),  // mode: BPF_ADJ_ROOM_MAC
+		asm.Mov.Imm(asm.R4, 0),  // flags: 0
+		asm.FnSkbAdjustRoom.Call(),
+		asm.Return(),
+	}
+	prog, err := ebpf.NewProgram(progSpec)
+	if err != nil {
+		return err
+	}
+	defer prog.Close()
+
+	// This is a Eth + IPv4 + UDP + data packet. The helper relies on a valid packed being passed in
+	// since it wants to know offsets of the different layers.
+	pkt := []byte{
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x0e, 0xf5, 0x16, 0x3d, 0x6b, 0xab, 0x08, 0x00, 0x45, 0x00,
+		0x00, 0x31, 0xce, 0xcb, 0x00, 0x00, 0x40, 0x11, 0xc5, 0x49, 0xc0, 0xa8, 0xb2, 0x56, 0xc0, 0xa8,
+		0xb2, 0xff, 0x5d, 0x83, 0x7e, 0x9c, 0x00, 0x1d, 0xc6, 0xae, 0x4d, 0x2d, 0x53, 0x45, 0x41, 0x52,
+		0x43, 0x48, 0x20, 0x2a, 0x20, 0x48, 0x54, 0x54, 0x50, 0x2f, 0x31, 0x2e, 0x31, 0x0d, 0x0a,
+	}
+	ret, _, err := prog.Test(pkt)
+	if err != nil {
+		return err
+	}
+	if ret != 0 {
+		return ebpf.ErrNotSupported
+	}
+	return nil
+}
+
 // HaveIPv6Support tests whether kernel can open an IPv6 socket. This will
 // also implicitly auto-load IPv6 kernel module if available and not yet
 // loaded.
