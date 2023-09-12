@@ -68,7 +68,7 @@ type Parameters struct {
 	ConnDisruptTestSetup          bool
 	ConnDisruptTestRestartsPath   string
 	ConnDisruptTestXfrmErrorsPath string
-	ConnDisruptDispatchInterval   uint
+	ConnDisruptDispatchInterval   time.Duration
 	FlushCT                       bool
 	SecondaryNetworkIface         string
 
