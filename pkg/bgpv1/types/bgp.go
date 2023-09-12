@@ -44,6 +44,8 @@ type Path struct {
 type NeighborRequest struct {
 	Neighbor *v2alpha1api.CiliumBGPNeighbor
 	VR       *v2alpha1api.CiliumBGPVirtualRouter
+	// Password is the "AuthSecret" in the Neighbor, fetched from a secret
+	Password string
 }
 
 // SoftResetDirection defines the direction in which a BGP soft reset should be performed

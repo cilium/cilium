@@ -61,6 +61,7 @@ type Controller struct {
 	PolicyResource resource.Resource[*v2alpha1api.CiliumBGPPeeringPolicy]
 	// PolicyLister is an interface which allows for the listing of all known policies
 	PolicyLister policyLister
+
 	// Sig informs the Controller that a Kubernetes
 	// event of interest has occurred.
 	//

@@ -60,6 +60,7 @@ func Test_NeighborAddDel(t *testing.T) {
 					PeerASN:              int64(gobgpASN),
 					HoldTimeSeconds:      pointer.Int32(9), // must be lower than default (90s) to be applied on the peer
 					KeepAliveTimeSeconds: pointer.Int32(1), // must be lower than HoldTime
+					AuthSecretRef:        pointer.String("a-secret"),
 				},
 				{
 					PeerAddress:          dummies[instance2Link].ipv4.String(),
@@ -92,6 +93,7 @@ func Test_NeighborAddDel(t *testing.T) {
 					PeerASN:              int64(gobgpASN),
 					HoldTimeSeconds:      pointer.Int32(6), // updated, must be lower than the previous value to be applied on the peer
 					KeepAliveTimeSeconds: pointer.Int32(1), // must be lower than HoldTime
+					AuthSecretRef:        pointer.String("a-secret"),
 				},
 				{
 					PeerAddress:          dummies[instance2Link].ipv4.String(),
@@ -128,7 +130,7 @@ func Test_NeighborAddDel(t *testing.T) {
 	defer testDone()
 
 	// test setup, we configure two gobgp instances here.
-	gobgpInstances, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf, gobgpConf2}, newFixtureConf())
+	gobgpInstances, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConfPassword, gobgpConf2}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpInstances, 2)
 	defer cleanup()

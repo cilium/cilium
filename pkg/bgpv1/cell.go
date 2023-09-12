@@ -16,7 +16,13 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+)
+
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "bgp-control-plane")
 )
 
 var Cell = cell.Module(
@@ -28,6 +34,10 @@ var Cell = cell.Module(
 	cell.ProvidePrivate(
 		// BGP Peering Policy resource provides the module with a stream of events for the BGPPeeringPolicy resource.
 		newBGPPeeringPolicyResource,
+		// Secret resource provides secrets in the BGP secret namepsace
+		newSecretResource,
+		// Create a slim Secret store for BGP secrets, which signals the BGP CP upon each resource event.
+		manager.NewBGPCPResourceStore[*slim_core_v1.Secret],
 		// goBGP is currently the only supported RouterManager, if more are
 		// implemented, provide the manager via a Cell that pics implementation based on configuration.
 		manager.NewBGPRouterManager,
@@ -90,4 +100,26 @@ func newCiliumPodIPPoolResource(lc hive.Lifecycle, c client.Clientset, dc *optio
 		lc, utils.ListerWatcherFromTyped[*v2alpha1api.CiliumPodIPPoolList](
 			c.CiliumV2alpha1().CiliumPodIPPools(),
 		), resource.WithMetric("CiliumPodIPPool"))
+}
+
+func newSecretResource(lc hive.Lifecycle, c client.Clientset, dc *option.DaemonConfig) resource.Resource[*slim_core_v1.Secret] {
+	// Do not create this resource if the BGP Control Plane is disabled
+	if !dc.BGPControlPlaneEnabled() {
+		return nil
+	}
+
+	if !c.IsEnabled() {
+		return nil
+	}
+
+	// Do not create this resource if the BGP namespace is not set
+	if dc.BGPSecretsNamespace == "" {
+		log.Warn("bgp-secrets-namespace not set, will not be able to use BGP control plane auth secrets")
+		return nil
+	}
+
+	return resource.New[*slim_core_v1.Secret](
+		lc, utils.ListerWatcherFromTyped[*slim_core_v1.SecretList](
+			c.Slim().CoreV1().Secrets(dc.BGPSecretsNamespace),
+		))
 }

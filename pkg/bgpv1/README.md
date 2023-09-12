@@ -352,15 +352,11 @@ This `Manager` groups `BgpServer` instances by their local ASNs.
 This leads to the following rule:
 * A `CiliumBGPPeeringPolicy` applying to node `A` must not have two or more `CiliumBGPVirtualRouters` with the same `localASN` fields.
 
-The `Manager` employs a set of `ConfigReconcilerFunc`(s) which perform the order-dependent reconciliation actions for each `BgpServer` it must reconcile.
+The `Manager` employs a set of `ConfigReconciler`(s) which perform the order-dependent reconciliation actions for each `BgpServer` it must reconcile.
 
-A `ConfigReconcilerFunc` is simply a function with a typed signature. 
+A `ConfigReconciler` is an interface where the reconciler is invoked via the `Reconcile` method.
 
-```go
-type ConfigReconcilerFunc func(ctx context.Context, params ReconcileParams) error
-``` 
-
-See the source code at `pkg/bgpv1/manager/reconcile.go` for a more in depth explanation of how each `ConfigReconcilerFunc` is called.
+See the source code at `pkg/bgpv1/manager/reconcile.go` for a more in depth explanation of how each `ConfigReconciler` is called.
 
 #### Router
 Underlying router implementation exposes imperative API for BGP related configuration, such as add/remove neighbor, add/remove routes etc. Currently, only gobgp is supported as
