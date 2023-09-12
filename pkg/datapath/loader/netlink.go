@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/vishvananda/netlink"
@@ -24,6 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
 )
+
+const qdiscClsact = "clsact"
 
 func directionToParent(dir string) uint32 {
 	switch dir {
@@ -44,7 +47,7 @@ func replaceQdisc(link netlink.Link) error {
 
 	qdisc := &netlink.GenericQdisc{
 		QdiscAttrs: attrs,
-		QdiscType:  "clsact",
+		QdiscType:  qdiscClsact,
 	}
 
 	return netlink.QdiscReplace(qdisc)
@@ -691,4 +694,62 @@ func renameDevice(from, to string) error {
 	}
 
 	return nil
+}
+
+// DeviceHasTCProgramLoaded checks whether a given device has tc filter/qdisc progs attached.
+func DeviceHasTCProgramLoaded(hostInterface string, checkEgress bool) (bool, error) {
+	const bpfProgPrefix = "cil_"
+
+	l, err := netlink.LinkByName(hostInterface)
+	if err != nil {
+		return false, fmt.Errorf("unable to find endpoint link by name: %w", err)
+	}
+
+	dd, err := netlink.QdiscList(l)
+	if err != nil {
+		return false, fmt.Errorf("unable to fetch qdisc list for endpoint: %w", err)
+	}
+	var found bool
+	for _, d := range dd {
+		if d.Type() == qdiscClsact {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return false, nil
+	}
+
+	ff, err := netlink.FilterList(l, netlink.HANDLE_MIN_INGRESS)
+	if err != nil {
+		return false, fmt.Errorf("unable to fetch ingress filter list: %w", err)
+	}
+	var filtersCount int
+	for _, f := range ff {
+		if filter, ok := f.(*netlink.BpfFilter); ok {
+			if strings.HasPrefix(filter.Name, bpfProgPrefix) {
+				filtersCount++
+			}
+		}
+	}
+	if filtersCount == 0 {
+		return false, nil
+	}
+	if !checkEgress {
+		return true, nil
+	}
+
+	ff, err = netlink.FilterList(l, netlink.HANDLE_MIN_EGRESS)
+	if err != nil {
+		return false, fmt.Errorf("unable to fetch egress filter list: %w", err)
+	}
+	filtersCount = 0
+	for _, f := range ff {
+		if filter, ok := f.(*netlink.BpfFilter); ok {
+			if strings.HasPrefix(filter.Name, bpfProgPrefix) {
+				filtersCount++
+			}
+		}
+	}
+	return len(ff) > 0 && filtersCount > 0, nil
 }
