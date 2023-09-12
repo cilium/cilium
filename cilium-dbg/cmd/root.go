@@ -27,7 +27,7 @@ var (
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   "cilium",
+	Use:   "cilium-dbg",
 	Short: "CLI",
 	Long:  `CLI for interacting with the local Cilium Agent`,
 }
@@ -93,14 +93,14 @@ const completionExample = `
 ## or, if running Bash 4.1+
 	brew install bash-completion@2
 ## afterwards you only need to run
-	cilium completion bash > $(brew --prefix)/etc/bash_completion.d/cilium
+	cilium-dbg completion bash > $(brew --prefix)/etc/bash_completion.d/cilium
 
 
 # Installing bash completion on Linux
 ## Load the cilium completion code for bash into the current shell
-	source <(cilium completion bash)
+	source <(cilium-dbg completion bash)
 ## Write bash completion code to a file and source if from .bash_profile
-	cilium completion bash > ~/.cilium/completion.bash.inc
+	cilium-dbg completion bash > ~/.cilium/completion.bash.inc
 	printf "
 	  # Cilium shell completion
 	  source '$HOME/.cilium/completion.bash.inc'
@@ -110,9 +110,9 @@ const completionExample = `
 
 # Installing zsh completion on Linux/macOS
 ## Load the cilium completion code for zsh into the current shell
-	source <(cilium completion zsh)
+	source <(cilium-dbg completion zsh)
 ## Write zsh completion code to a file and source if from .zshrc
-	cilium completion zsh > ~/.cilium/completion.zsh.inc
+	cilium-dbg completion zsh > ~/.cilium/completion.zsh.inc
 	printf "
 	  # Cilium shell completion
 	  source '$HOME/.cilium/completion.zsh.inc'
@@ -121,7 +121,7 @@ const completionExample = `
 
 # Installing fish completion on Linux/macOS
 ## Write fish completion code to fish specific location
-	cilium completion fish > ~/.config/fish/completions/cilium.fish
+	cilium-dbg completion fish > ~/.config/fish/completions/cilium.fish
 `
 
 func newCmdCompletion(out io.Writer) *cobra.Command {
