@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
@@ -111,6 +112,9 @@ type Manager struct {
 	// policies allows reading policy CRD from k8s.
 	policies resource.Resource[*Policy]
 
+	// nodesResource allows reading node CRD from k8s.
+	ciliumNodes resource.Resource[*cilium_api_v2.CiliumNode]
+
 	// policyConfigs stores policy configs indexed by policyID
 	policyConfigs map[policyID]*PolicyConfig
 
@@ -175,6 +179,7 @@ type Params struct {
 	IdentityAllocator identityCache.IdentityAllocator
 	PolicyMap         egressmap.PolicyMap
 	Policies          resource.Resource[*Policy]
+	Nodes             resource.Resource[*cilium_api_v2.CiliumNode]
 
 	Lifecycle hive.Lifecycle
 }
@@ -251,6 +256,7 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		reconciliationTriggerInterval: p.Config.EgressGatewayReconciliationTriggerInterval,
 		policyMap:                     p.PolicyMap,
 		policies:                      p.Policies,
+		ciliumNodes:                   p.Nodes,
 	}
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -331,9 +337,9 @@ func (manager *Manager) getIdentityLabels(securityIdentity uint32) (labels.Label
 // processEvents spawns a goroutine that waits for the agent to
 // sync with k8s and then runs the first reconciliation.
 func (manager *Manager) processEvents(ctx context.Context, cacheStatus k8s.CacheStatus) {
-	var globalSync, policySync bool
+	var globalSync, policySync, nodeSync bool
 	maybeTriggerReconcile := func() {
-		if !globalSync || !policySync {
+		if !globalSync || !policySync || !nodeSync {
 			return
 		}
 
@@ -350,6 +356,7 @@ func (manager *Manager) processEvents(ctx context.Context, cacheStatus k8s.Cache
 	}
 
 	policyEvents := manager.policies.Events(ctx)
+	nodeEvents := manager.ciliumNodes.Events(ctx)
 	for {
 		select {
 		case <-ctx.Done():
@@ -367,6 +374,15 @@ func (manager *Manager) processEvents(ctx context.Context, cacheStatus k8s.Cache
 				event.Done(nil)
 			} else {
 				manager.handlePolicyEvent(event)
+			}
+
+		case event := <-nodeEvents:
+			if event.Kind == resource.Sync {
+				nodeSync = true
+				maybeTriggerReconcile()
+				event.Done(nil)
+			} else {
+				manager.handleNodeEvent(event)
 			}
 		}
 	}
@@ -571,20 +587,22 @@ func (manager *Manager) OnDeleteEndpoint(endpoint *k8sTypes.CiliumEndpoint) {
 	manager.endpointEventsQueue.Add(id)
 }
 
-// OnUpdateNode is the event handler for node additions and updates.
-func (manager *Manager) OnUpdateNode(node nodeTypes.Node) {
-	manager.Lock()
-	defer manager.Unlock()
-	manager.nodeDataStore[node.Name] = node
-	manager.onChangeNodeLocked(eventUpdateNode)
-}
+// handleNodeEvent takes care of node upserts and removals.
+func (manager *Manager) handleNodeEvent(event resource.Event[*cilium_api_v2.CiliumNode]) {
+	defer event.Done(nil)
 
-// OnDeleteNode is the event handler for node deletions.
-func (manager *Manager) OnDeleteNode(node nodeTypes.Node) {
+	node := nodeTypes.ParseCiliumNode(event.Object)
+
 	manager.Lock()
 	defer manager.Unlock()
-	delete(manager.nodeDataStore, node.Name)
-	manager.onChangeNodeLocked(eventDeleteNode)
+
+	if event.Kind == resource.Upsert {
+		manager.nodeDataStore[node.Name] = node
+		manager.onChangeNodeLocked(eventUpdateNode)
+	} else {
+		delete(manager.nodeDataStore, node.Name)
+		manager.onChangeNodeLocked(eventDeleteNode)
+	}
 }
 
 func (manager *Manager) onChangeNodeLocked(e eventType) {
