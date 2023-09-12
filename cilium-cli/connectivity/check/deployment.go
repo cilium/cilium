@@ -672,7 +672,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Port:     8000,
 				Command: []string{
 					"tcd-client",
-					"--dispatch-interval", strconv.Itoa(int(ct.params.ConnDisruptDispatchInterval)),
+					"--dispatch-interval", strconv.Itoa(int(ct.params.ConnDisruptDispatchInterval.Milliseconds())),
 					fmt.Sprintf("test-conn-disrupt.%s.svc.cluster.local.:8000", ct.params.TestNamespace),
 				},
 				ReadinessProbe: readinessProbe,
