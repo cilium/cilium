@@ -759,6 +759,12 @@ func (m *Map) Dump(hash map[string][]string) error {
 	return nil
 }
 
+// BatchLookup returns the count of elements in the map by dumping the map
+// using batch lookup.
+func (m *Map) BatchLookup(cursor *ebpf.BatchCursor, keysOut, valuesOut interface{}, opts *ebpf.BatchOptions) (int, error) {
+	return m.m.BatchLookup(cursor, keysOut, valuesOut, opts)
+}
+
 // DumpIfExists dumps the contents of the map into hash via Dump() if the map
 // file exists
 func (m *Map) DumpIfExists(hash map[string][]string) error {

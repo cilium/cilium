@@ -4,12 +4,19 @@
 package ctmap
 
 import (
-	. "github.com/cilium/checkmate"
+	"math/rand"
+	"net/netip"
+	"testing"
 
+	. "github.com/cilium/checkmate"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/fake"
+	"github.com/stretchr/testify/assert"
+	mapsexp "golang.org/x/exp/maps"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/nat"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
@@ -881,4 +888,100 @@ func (k *CTMapPrivilegedTestSuite) TestOrphanNatGC(c *C) {
 	err = natMap.Map.Dump(buf)
 	c.Assert(err, IsNil)
 	c.Assert(len(buf), Equals, 0)
+}
+
+// TestCount checks whether the CT map batch lookup dumps the count of the
+// entire map.
+func TestCount(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	// Set the max size of the map explicitly so we can provide enough buffer
+	// for the LRU map to avoid eviction that makes the assertions within this
+	// test indeterministic and consequently cause flakes.
+	prev := option.Config.CTMapEntriesGlobalTCP
+	defer func() { option.Config.CTMapEntriesGlobalTCP = prev }()
+	option.Config.CTMapEntriesGlobalTCP = 524288
+	size := 8192 // choose a reasonbly large map that does not make test time too long.
+
+	m := newMap(MapNameTCP4Global+"_test", mapTypeIPv4TCPGlobal)
+	err := m.OpenOrCreate()
+	assert.NoError(t, err)
+	assert.NoError(t, m.Map.Unpin())
+
+	cache := populateFakeDataCTMap4(t, m, size)
+	initial := len(cache)
+
+	batchCount, err := m.Count()
+	assert.Equal(t, initial, batchCount)
+	assert.NoError(t, err)
+
+	for _, k := range mapsexp.Keys(cache)[:size/4] {
+		k := k
+		if err := m.Delete(k); err != nil {
+			t.Fatal(err)
+		}
+		delete(cache, k)
+
+		batchCount, err := m.Count()
+		assert.Equal(t, len(cache), batchCount)
+		assert.NoError(t, err)
+	}
+
+	batchCount, err = m.Count()
+	assert.Equal(t, len(cache), batchCount)
+	assert.NoError(t, err)
+
+	var count int
+	assert.NoError(t, m.DumpWithCallback(func(_ bpf.MapKey, _ bpf.MapValue) { count++ }))
+	assert.Equal(t, count, batchCount)
+	assert.Equal(t, len(cache), batchCount)
+}
+
+func populateFakeDataCTMap4(tb testing.TB, m CtMap, size int) map[*CtKey4Global]struct{} {
+	tb.Helper()
+
+	protos := []int{int(u8proto.ANY), int(u8proto.ICMP), int(u8proto.TCP), int(u8proto.UDP), int(u8proto.ICMPv6), int(u8proto.SCTP)}
+	flags := []int{tuple.TUPLE_F_IN, tuple.TUPLE_F_OUT, tuple.TUPLE_F_RELATED, tuple.TUPLE_F_SERVICE}
+	genKey := func() *CtKey4Global {
+		return &CtKey4Global{
+			TupleKey4Global: tuple.TupleKey4Global{
+				TupleKey4: tuple.TupleKey4{
+					DestAddr:   netip.MustParseAddr(fake.IP(fake.WithIPv4())).As4(),
+					SourceAddr: netip.MustParseAddr(fake.IP(fake.WithIPv4())).As4(),
+					DestPort:   uint16(fake.Port()),
+					SourcePort: uint16(fake.Port()),
+					NextHeader: u8proto.U8proto(protos[rand.Intn(len(protos))]),
+					Flags:      uint8(flags[rand.Intn(len(flags))]),
+				},
+			},
+		}
+	}
+	value := &CtEntry{
+		RxPackets:        4,
+		RxBytes:          216,
+		TxPackets:        4,
+		TxBytes:          216,
+		Lifetime:         37459,
+		Flags:            SeenNonSyn | RxClosing,
+		RevNAT:           0,
+		TxFlagsSeen:      0x02,
+		RxFlagsSeen:      0x14,
+		SourceSecurityID: 40653,
+		LastTxReport:     15856,
+		LastRxReport:     15856,
+	}
+
+	cache := make(map[*CtKey4Global]struct{}, size)
+	for len(cache) < size {
+		key := genKey()
+		if _, needGenerate := cache[key]; needGenerate {
+			continue
+		}
+		if err := m.Update(key, value); err != nil {
+			tb.Fatal(err)
+		}
+		cache[key] = struct{}{}
+	}
+
+	return cache
 }

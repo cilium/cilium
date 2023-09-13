@@ -10,8 +10,10 @@ import (
 
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/inctimer"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -37,7 +39,8 @@ type PerClusterCTMapsRetriever func() []*ctmap.Map
 type parameters struct {
 	cell.In
 
-	Logger logrus.FieldLogger
+	Lifecycle hive.Lifecycle
+	Logger    logrus.FieldLogger
 
 	DaemonConfig    *option.DaemonConfig
 	EndpointManager EndpointManager
@@ -58,10 +61,11 @@ type GC struct {
 	signalHandler    SignalHandler
 
 	perClusterCTMapsRetriever PerClusterCTMapsRetriever
+	controllerManager         *controller.Manager
 }
 
 func New(params parameters) *GC {
-	return &GC{
+	gc := &GC{
 		logger: params.Logger,
 
 		ipv4: params.DaemonConfig.EnableIPv4,
@@ -70,7 +74,17 @@ func New(params parameters) *GC {
 		endpointsManager: params.EndpointManager,
 		nodeAddressing:   params.Datapath.LocalNodeAddressing(),
 		signalHandler:    params.SignalManager,
+
+		controllerManager: controller.NewManager(),
 	}
+	params.Lifecycle.Append(hive.Hook{
+		// OnStart not yet defined pending further modularization of CT map GC.
+		OnStop: func(hive.HookContext) error {
+			gc.controllerManager.RemoveAllAndWait()
+			return nil
+		},
+	})
+	return gc
 }
 
 // Enable enables the connection tracking garbage collection.
@@ -191,6 +205,9 @@ func (gc *GC) Enable(restoredEndpoints []*endpoint.Endpoint) {
 	case <-time.After(30 * time.Second):
 		gc.logger.Fatal("Timeout while waiting for initial conntrack scan")
 	}
+
+	// Not supporting BPF map pressure for local CT maps as of yet.
+	ctmap.CalculateCTMapPressure(gc.controllerManager, ctmap.GlobalMaps(gc.ipv4, gc.ipv6)...)
 }
 
 // runGC run CT's garbage collector for the given endpoint. `isLocal` refers if

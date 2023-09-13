@@ -4,6 +4,8 @@
 package ctmap
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -18,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -108,6 +111,8 @@ type CtMap interface {
 	Path() (string, error)
 	DumpEntries() (string, error)
 	DumpWithCallback(bpf.DumpCallback) error
+	Count() (int, error)
+	Update(key bpf.MapKey, value bpf.MapValue) error
 }
 
 // A "Record" designates a map entry (key + value), but avoid "entry" because of
@@ -238,6 +243,69 @@ func (m *Map) DumpEntries() (string, error) {
 	return DoDumpEntries(m)
 }
 
+// Count batch dumps the Map m and returns the count of the entries.
+func (m *Map) Count() (count int, err error) {
+	global := m.mapType.isGlobal()
+	v4 := m.mapType.isIPv4()
+	switch {
+	case global && v4:
+		return countBatch[CtKey4Global](m)
+	case global && !v4:
+		return countBatch[CtKey6Global](m)
+	case !global && v4:
+		return countBatch[CtKey4](m)
+	case !global && !v4:
+		return countBatch[CtKey6](m)
+	}
+	return
+}
+
+func countBatch[T any](m *Map) (count int, err error) {
+	// If we have a hash map of N = 2^n elements, then the first collision is
+	// expected [at random] when we insert around sqrt(2*N) elements. For
+	// example, for a map of size 1024, this is around 45 elements. In normal
+	// life input is not uniformly distributed, so there could be more
+	// collisions.
+	//
+	// In practice, we can expect maximum collision lengths (# of elements in a
+	// bucket ~= chunkSize) to be around 30-40. So anything like chunk_size=10%
+	// of map size should be pretty safe. If the chunkSize is not enough, then
+	// the kernel returns ENOSPC. In this case, it is possible to just set
+	// chunkSize *= 2 and try again. However, with the current chunkSize of
+	// 4096, we observe no issues dumping the maximum size of a CT map. As
+	// explained a bit below, 4096 was an optimal number considering idle
+	// memory usage and benchmarks (see commit msg).
+	//
+	// Credits to Anton for the above explanation of htab maps.
+	const chunkSize uint32 = 4096
+
+	// We can reuse the following buffers as the batch lookup does not care for
+	// the contents of the map. This saves on redundant memory allocations.
+	//
+	// The following is the number of KiB total that is allocated by Go for the
+	// following buffers based on the data type:
+	//   >>> (14*4096) / 1024 # CT IPv4 map key
+	//   56.0
+	//   >>> (38*4096) / 1024 # CT IPv6 map key
+	//   152.0
+	//   >>> (56*4096) / 1024 # CT map value
+	//   224.0
+	kout := make([]T, chunkSize)
+	vout := make([]CtEntry, chunkSize)
+
+	var cursor ebpf.BatchCursor
+	for {
+		c, batchErr := m.BatchLookup(&cursor, kout, vout, nil)
+		count += c
+		if batchErr != nil {
+			if errors.Is(batchErr, ebpf.ErrKeyNotExist) {
+				return count, nil // end of map, we're done iterating
+			}
+			return count, batchErr
+		}
+	}
+}
+
 // OpenCTMap is a convenience function to open CT maps. It is the
 // responsibility of the caller to ensure that m.Close() is called after this
 // function.
@@ -258,7 +326,7 @@ func newMap(mapName string, m mapType) *Map {
 			m.value(),
 			m.maxEntries(),
 			0,
-		),
+		).WithPressureMetric(),
 		mapType: m,
 		define:  m.bpfDefine(),
 	}
@@ -854,4 +922,47 @@ func calculateInterval(prevInterval time.Duration, maxDeleteRatio float64) (inte
 	cachedGCInterval = interval
 
 	return
+}
+
+// CalculateCTMapPressure is a controller that calculates the BPF CT map
+// pressure and pubishes it as part of the BPF map pressure metric.
+func CalculateCTMapPressure(mgr *controller.Manager, allMaps ...*Map) {
+	ctx, cancel := context.WithCancelCause(context.Background())
+	mgr.UpdateController("ct-map-pressure", controller.ControllerParams{
+		Group: controller.Group{
+			Name: "ct-map-pressure",
+		},
+		DoFunc: func(context.Context) error {
+			var errs error
+			for _, m := range allMaps {
+				path, err := OpenCTMap(m)
+				if err != nil {
+					msg := "Skipping CT map pressure calculation"
+					scopedLog := log.WithError(err).WithField(logfields.Path, path)
+					if os.IsNotExist(err) {
+						scopedLog.Debug(msg)
+					} else {
+						scopedLog.Warn(msg)
+					}
+					continue
+				}
+				defer m.Close()
+
+				count, err := m.Count()
+				if errors.Is(err, ebpf.ErrNotSupported) {
+					// We don't have batch ops, so cancel context to kill this
+					// controller.
+					cancel(err)
+					return err
+				}
+				if err != nil {
+					errs = errors.Join(errs, fmt.Errorf("failed to dump CT map %v: %w", m.Name(), err))
+				}
+				m.UpdatePressureMetricWithSize(int32(count))
+			}
+			return errs
+		},
+		RunInterval: 30 * time.Second,
+		Context:     ctx,
+	})
 }
