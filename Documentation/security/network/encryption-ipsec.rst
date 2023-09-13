@@ -182,6 +182,11 @@ included and should be monotonically increasing every re-key with a rollover
 from 15 to 1. The Cilium agent will default to ``KEYID`` of zero if its not
 specified in the secret.
 
+If you are using Cluster Mesh, you must apply the key rotation procedure
+to all clusters in the mesh. You might need to increase the transition time to
+allow for the new keys to be deployed and applied across all clusters,
+which you can do with the agent flag ``ipsec-key-rotation-duration``.
+
 Troubleshooting
 ===============
 
@@ -227,7 +232,7 @@ Troubleshooting
    updates and update their configuration within 1 minute after the key is
    changed, leaving plenty of time before the old key is removed. If you expect
    the key rotation to take longer for some reason (for example, in the case of
-   Cluster Mesh if several clusters need to be updated), you can increase the
+   Cluster Mesh where several clusters need to be updated), you can increase the
    delay before cleanup with agent flag ``ipsec-key-rotation-duration``.
 
  * ``XfrmInStateProtoError`` errors can happen if the key is updated without
