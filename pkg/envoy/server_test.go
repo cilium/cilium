@@ -770,8 +770,6 @@ func (s *ServerSuite) TestGetNetworkPolicyMySQL(c *C) {
 	c.Assert(obtained, checker.ExportedEquals, expected)
 }
 
-var emptyL4Policy = &policy.L4Policy{}
-
 var kafkaIngressVisibilityPolicy = &policy.VisibilityPolicy{
 	Ingress: policy.DirectionalVisibilityPolicy{
 		"9092/TCP": &policy.VisibilityMetadata{ //"<Ingress/9092/TCP/Kafka>"
@@ -786,7 +784,8 @@ var kafkaIngressVisibilityPolicy = &policy.VisibilityPolicy{
 
 func (s *ServerSuite) TestGetNetworkPolicyProxylibVisibility(c *C) {
 	// No visibility gets allow-all policies
-	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, emptyL4Policy, false, false)
+	// Allow-all policies are generated also when l4 filter is nil when policy is not enforced.
+	obtained := getNetworkPolicy(ep, nil, []string{IPv4Addr}, nil, false, false)
 
 	expected := &cilium.NetworkPolicy{
 		EndpointIps:            []string{IPv4Addr},
@@ -798,7 +797,7 @@ func (s *ServerSuite) TestGetNetworkPolicyProxylibVisibility(c *C) {
 
 	c.Assert(obtained, checker.ExportedEquals, expected)
 
-	obtained = getNetworkPolicy(ep, kafkaIngressVisibilityPolicy, []string{IPv4Addr}, emptyL4Policy, false, false)
+	obtained = getNetworkPolicy(ep, kafkaIngressVisibilityPolicy, []string{IPv4Addr}, nil, false, false)
 
 	// Visibility policies still contain the allow-all policies, when policy is not enforced
 	expected = &cilium.NetworkPolicy{
