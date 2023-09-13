@@ -8,10 +8,15 @@ metadata:
     {{- with .Values.hubble.relay.prometheus.serviceMonitor.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+  {{- if or .Values.hubble.relay.prometheus.serviceMonitor.annotations .Values.hubble.relay.annotations }}
   annotations:
-    {{- with .Values.hubble.relay.prometheus.serviceMonitor.annotations }}
-    {{- toYaml . | nindent 4 }}
+    {{- with .Values.hubble.relay.annotations }}
+      {{- toYaml . | nindent 4 }}
     {{- end }}
+    {{- with .Values.hubble.relay.prometheus.serviceMonitor.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
 spec:
   selector:
     matchLabels:

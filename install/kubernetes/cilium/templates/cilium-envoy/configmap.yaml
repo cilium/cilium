@@ -6,6 +6,10 @@ kind: ConfigMap
 metadata:
   name: cilium-envoy-config
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.envoy.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 data:
 {{- (tpl (.Files.Glob "files/cilium-envoy/configmap/bootstrap-config.json").AsConfig .) | nindent 2 }}
 

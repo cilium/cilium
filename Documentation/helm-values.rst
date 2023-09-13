@@ -40,6 +40,10 @@
      - Annotate k8s node upon initialization with Cilium's metadata.
      - bool
      - ``false``
+   * - :spelling:ignore:`annotations`
+     - Annotations to be added to all top-level cilium-agent objects (resources under templates/cilium-agent)
+     - object
+     - ``{}``
    * - :spelling:ignore:`apiRateLimit`
      - The api-rate-limit option can be used to overwrite individual settings of the default configuration for rate limiting calls to the Cilium Agent API
      - string
@@ -68,6 +72,10 @@
      - SPIRE socket path where the SPIRE workload agent is listening. Applies to both the Cilium Agent and Operator
      - string
      - ``"/run/spire/sockets/agent/agent.sock"``
+   * - :spelling:ignore:`authentication.mutual.spire.annotations`
+     - Annotations to be added to all top-level spire objects (resources under templates/spire)
+     - object
+     - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.connectionTimeout`
      - SPIRE connection timeout
      - string
@@ -388,6 +396,10 @@
      - Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
      - string
      - ``"default"``
+   * - :spelling:ignore:`clustermesh.annotations`
+     - Annotations to be added to all top-level clustermesh objects (resources under templates/clustermesh-apiserver and templates/clustermesh-config)
+     - object
+     - ``{}``
    * - :spelling:ignore:`clustermesh.apiserver.affinity`
      - Affinity for clustermesh.apiserver
      - object
@@ -623,7 +635,11 @@
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto`
      - Configure automatic TLS certificates generation. A Kubernetes CronJob is used the generate any certificates not provided by the user at installation time.
      - object
-     - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm"}``
+     - ``{"annotations":{},"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm"}``
+   * - :spelling:ignore:`clustermesh.apiserver.tls.auto.annotations`
+     - Annotations to be added to all auto-generate tls resources
+     - object
+     - ``{}``
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto.certManagerIssuerRef`
      - certmanager issuer used when clustermesh.apiserver.tls.auto.method=certmanager.
      - object
@@ -1036,6 +1052,10 @@
      - Affinity for cilium-envoy.
      - object
      - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium-envoy"}},"topologyKey":"kubernetes.io/hostname"}]}}``
+   * - :spelling:ignore:`envoy.annotations`
+     - Annotations to be added to all top-level cilium-envoy objects (resources under templates/cilium-envoy)
+     - object
+     - ``{}``
    * - :spelling:ignore:`envoy.connectTimeoutSeconds`
      - Time in seconds after which a TCP connection attempt times out
      - int
@@ -1224,6 +1244,10 @@
      - The name of the secret namespace to which Cilium agents are given read access.
      - string
      - ``"cilium-secrets"``
+   * - :spelling:ignore:`etcd.annotations`
+     - Annotations to be added to all top-level etcd-operator objects (resources under templates/etcd-operator)
+     - object
+     - ``{}``
    * - :spelling:ignore:`etcd.clusterDomain`
      - Cluster domain for cilium-etcd-operator.
      - string
@@ -1404,6 +1428,10 @@
      - Enable hostPort service support.
      - bool
      - ``false``
+   * - :spelling:ignore:`hubble.annotations`
+     - Annotations to be added to all top-level hubble objects (resources under templates/hubble)
+     - object
+     - ``{}``
    * - :spelling:ignore:`hubble.enabled`
      - Enable Hubble (true by default).
      - bool
@@ -1480,6 +1508,10 @@
      - Affinity for hubble-replay
      - object
      - ``{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}``
+   * - :spelling:ignore:`hubble.relay.annotations`
+     - Annotations to be added to all top-level hubble-relay objects (resources under templates/hubble-relay)
+     - object
+     - ``{}``
    * - :spelling:ignore:`hubble.relay.dialTimeout`
      - Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
      - string
@@ -1671,11 +1703,15 @@
    * - :spelling:ignore:`hubble.tls`
      - TLS configuration for Hubble
      - object
-     - ``{"auto":{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"},"enabled":true,"server":{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
+     - ``{"auto":{"annotations":{},"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"},"enabled":true,"server":{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
    * - :spelling:ignore:`hubble.tls.auto`
      - Configure automatic TLS certificates generation.
      - object
-     - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"}``
+     - ``{"annotations":{},"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"}``
+   * - :spelling:ignore:`hubble.tls.auto.annotations`
+     - Annotations to be added to all auto-generate tls resources
+     - object
+     - ``{}``
    * - :spelling:ignore:`hubble.tls.auto.certManagerIssuerRef`
      - certmanager issuer used when hubble.tls.auto.method=certmanager.
      - object
@@ -1714,6 +1750,10 @@
      - ``[]``
    * - :spelling:ignore:`hubble.ui.affinity`
      - Affinity for hubble-ui
+     - object
+     - ``{}``
+   * - :spelling:ignore:`hubble.ui.annotations`
+     - Annotations to be added to all top-level hubble-ui objects (resources under templates/hubble-ui)
      - object
      - ``{}``
    * - :spelling:ignore:`hubble.ui.backend.extraEnv`
@@ -2196,6 +2236,10 @@
      - Affinity for cilium-nodeinit
      - object
      - ``{}``
+   * - :spelling:ignore:`nodeinit.annotations`
+     - Annotations to be added to all top-level nodeinit objects (resources under templates/cilium-nodeinit)
+     - object
+     - ``{}``
    * - :spelling:ignore:`nodeinit.bootstrapFile`
      - bootstrapFile is the location of the file where the bootstrap timestamp is written by the node-init DaemonSet
      - string
@@ -2264,6 +2308,10 @@
      - Affinity for cilium-operator
      - object
      - ``{"podAntiAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"io.cilium/app":"operator"}},"topologyKey":"kubernetes.io/hostname"}]}}``
+   * - :spelling:ignore:`operator.annotations`
+     - Annotations to be added to all top-level cilium-operator objects (resources under templates/cilium-operator)
+     - object
+     - ``{}``
    * - :spelling:ignore:`operator.dashboards`
      - Grafana dashboards for cilium-operator grafana can import dashboards based on the label and value ref: https://github.com/grafana/helm-charts/tree/main/charts/grafana#sidecar-for-dashboards
      - object
@@ -2485,7 +2533,7 @@
      - object
      - ``{"podAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":[{"labelSelector":{"matchLabels":{"k8s-app":"cilium"}},"topologyKey":"kubernetes.io/hostname"}]}}``
    * - :spelling:ignore:`preflight.annotations`
-     - Annotations added to all top-level preflight resources
+     - Annotations to be added to all top-level preflight objects (resources under templates/cilium-preflight)
      - object
      - ``{}``
    * - :spelling:ignore:`preflight.enabled`

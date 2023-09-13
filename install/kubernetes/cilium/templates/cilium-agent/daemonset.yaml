@@ -16,6 +16,10 @@ kind: DaemonSet
 metadata:
   name: cilium
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     k8s-app: cilium
     app.kubernetes.io/part-of: cilium

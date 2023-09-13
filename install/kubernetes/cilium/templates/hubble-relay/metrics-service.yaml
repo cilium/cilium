@@ -5,6 +5,10 @@ apiVersion: v1
 metadata:
   name: hubble-relay-metrics
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.hubble.relay.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     k8s-app: hubble-relay
 spec:

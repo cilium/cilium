@@ -5,6 +5,10 @@ metadata:
   name: clustermesh-apiserver
   labels:
     app.kubernetes.io/part-of: cilium
+  {{- with .Values.clustermesh.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

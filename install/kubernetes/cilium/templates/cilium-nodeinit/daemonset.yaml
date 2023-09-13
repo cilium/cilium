@@ -5,6 +5,10 @@ apiVersion: apps/v1
 metadata:
   name: cilium-node-init
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.nodeinit.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     app: cilium-node-init
     app.kubernetes.io/part-of: cilium

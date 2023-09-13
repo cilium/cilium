@@ -6,6 +6,7 @@ diff=$(diff \
  -I '^[ ]\{2\}name: cilium.*' \
  -I '^Keep file in sync with.*' \
  -I '{{- if.*' \
+ -I '^[ ]\{2\}{{- with.*' \
  cilium-agent/clusterrole.yaml \
  cilium-preflight/clusterrole.yaml)
 

@@ -5,6 +5,10 @@ kind: Service
 metadata:
   name: cilium-agent
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     k8s-app: cilium
     app.kubernetes.io/name: cilium-agent

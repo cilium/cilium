@@ -9,6 +9,10 @@ metadata:
     app.kubernetes.io/part-of: cilium
   name: cilium-etcd-operator
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.etcd.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   replicas: 1
   selector:
