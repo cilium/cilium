@@ -9,6 +9,10 @@ kind: ConfigMap
 metadata:
   name: hubble-relay-config
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.hubble.relay.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 data:
   config.yaml: |
     cluster-name: {{ .Values.cluster.name }}

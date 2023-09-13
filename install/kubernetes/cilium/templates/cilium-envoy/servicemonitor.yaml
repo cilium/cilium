@@ -10,10 +10,15 @@ metadata:
     {{- with .Values.envoy.prometheus.serviceMonitor.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+  {{- if or .Values.envoy.prometheus.serviceMonitor .Values.envoy.annotations }}
   annotations:
-    {{- with .Values.envoy.prometheus.serviceMonitor.annotations }}
-    {{- toYaml . | nindent 4 }}
+    {{- with .Values.envoy.annotations }}
+      {{- toYaml . | nindent 4 }}
     {{- end }}
+    {{- with .Values.envoy.prometheus.serviceMonitor }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
 spec:
   selector:
     matchLabels:

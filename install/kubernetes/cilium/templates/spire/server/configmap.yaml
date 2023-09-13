@@ -4,6 +4,10 @@ kind: ConfigMap
 metadata:
   name: spire-server
   namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+  {{- with .Values.authentication.mutual.spire.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 data:
   server.conf: |
     server {

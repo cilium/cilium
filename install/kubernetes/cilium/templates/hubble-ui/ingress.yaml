@@ -12,9 +12,14 @@ metadata:
   {{- with .Values.hubble.ui.ingress.labels }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- with .Values.hubble.ui.ingress.annotations }}
+    {{- if or .Values.hubble.ui.ingress.annotations .Values.hubble.ui.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- with .Values.hubble.ui.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.hubble.ui.ingress.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- end }}
 spec:
   {{- if .Values.hubble.ui.ingress.className }}

@@ -9,10 +9,15 @@ metadata:
     {{- with .Values.hubble.metrics.serviceMonitor.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+  {{- if or .Values.hubble.metrics.serviceMonitor.annotations .Values.hubble.annotations }}
   annotations:
-    {{- with .Values.hubble.metrics.serviceMonitor.annotations }}
-    {{- toYaml . | nindent 4 }}
+    {{- with .Values.hubble.annotations }}
+      {{- toYaml . | nindent 4 }}
     {{- end }}
+    {{- with .Values.hubble.metrics.serviceMonitor.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
 spec:
   selector:
     matchLabels:

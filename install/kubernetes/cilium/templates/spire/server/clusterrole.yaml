@@ -4,6 +4,10 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}
+  {{- with .Values.authentication.mutual.spire.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 rules:
 # ClusterRole to allow spire-server node attestor to query Token Review API
 - apiGroups: [ "authentication.k8s.io" ]

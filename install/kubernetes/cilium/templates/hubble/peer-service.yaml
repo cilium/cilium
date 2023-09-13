@@ -4,6 +4,10 @@ kind: Service
 metadata:
   name: hubble-peer
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.hubble.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     k8s-app: cilium
     app.kubernetes.io/part-of: cilium

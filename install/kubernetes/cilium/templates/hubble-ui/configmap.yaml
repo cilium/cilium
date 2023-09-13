@@ -5,6 +5,10 @@ kind: ConfigMap
 metadata:
   name: hubble-ui-nginx
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.hubble.ui.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 data:
   nginx.conf: {{ include "hubble-ui.nginx.conf" . | trim | quote }}
 {{- end }}
