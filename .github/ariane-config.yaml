@@ -32,9 +32,15 @@ triggers:
   /ci-external-workloads:
     workflows:
     - conformance-externalworkloads.yaml
+  /ci-gateway-api:
+    workflows:
+    - conformance-gateway-api.yaml
   /ci-gke:
     workflows:
     - conformance-gke.yaml
+  /ci-ingress:
+    workflows:
+    - conformance-ingress.yaml
   /ci-l4lb:
     workflows:
     - tests-l4lb.yaml
