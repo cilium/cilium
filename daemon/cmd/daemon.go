@@ -1272,6 +1272,7 @@ func (d *Daemon) Close() {
 	}
 	identitymanager.RemoveAll()
 	d.cgroupManager.Close()
+	d.controllers.RemoveAllAndWait()
 }
 
 // TriggerReloadWithoutCompile causes all BPF programs and maps to be reloaded,
