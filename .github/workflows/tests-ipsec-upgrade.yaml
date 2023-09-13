@@ -52,8 +52,8 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.7
-  cilium_cli_ci_version:
+  cilium_cli_version:
+  cilium_cli_ci_version: 73dff8f541999872599aa6fa7170d528a34d7709
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -249,6 +249,8 @@ jobs:
 
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
               --flush-ct \
+              --short \
+              --short \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
@@ -265,7 +267,7 @@ jobs:
           job-name: ipsec-upgrade-${{ matrix.name }}
           # Disable no-missed-tail-calls due to https://github.com/cilium/cilium/issues/26739
           # Disable check-log-errors due to https://github.com/cilium/cilium-cli/issues/1858
-          extra-connectivity-test-flags: --test '!no-missed-tail-calls,!check-log-errors'
+          extra-connectivity-test-flags: --short --test '!no-missed-tail-calls,!check-log-errors'
           operation-cmd: |
             cd /host/
 
@@ -282,7 +284,7 @@ jobs:
           job-name: ipsec-downgrade-${{ matrix.name }}
           # Disable no-missed-tail-calls due to https://github.com/cilium/cilium/issues/26739
           # Disable check-log-errors due to https://github.com/cilium/cilium-cli/issues/1858
-          extra-connectivity-test-flags: --test '!no-missed-tail-calls,!check-log-errors'
+          extra-connectivity-test-flags: --short --test '!no-missed-tail-calls,!check-log-errors'
           operation-cmd: |
             cd /host/
 

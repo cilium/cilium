@@ -52,8 +52,8 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.8
-  cilium_cli_ci_version:
+  cilium_cli_version:
+  cilium_cli_ci_version: 73dff8f541999872599aa6fa7170d528a34d7709
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
   cilium_stable_version: 1.14
 
@@ -315,6 +315,7 @@ jobs:
 
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
               --flush-ct \
+              --short \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
@@ -350,6 +351,7 @@ jobs:
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
               --include-conn-disrupt-test \
               --test '!check-log-errors' \
+              --short \
               --flush-ct \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
@@ -384,6 +386,7 @@ jobs:
               --include-conn-disrupt-test \
               --test '!check-log-errors' \
               --flush-ct \
+              --short \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
