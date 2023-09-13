@@ -4,7 +4,6 @@
 package egressgateway
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -17,8 +16,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
-	"github.com/vishvananda/netlink"
-	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
@@ -131,11 +128,6 @@ type Manager struct {
 	// identityAllocator is used to fetch identity labels for endpoint updates
 	identityAllocator identityCache.IdentityAllocator
 
-	// installRoutes indicates if the manager should install additional IP
-	// routes/rules to steer egress gateway traffic to the correct interface
-	// with the egress IP assigned to
-	installRoutes bool
-
 	// policyMap communicates the active policies to the dapath.
 	policyMap egressmap.PolicyMap
 
@@ -231,7 +223,6 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		policyConfigsBySourceIP:       make(map[string][]*PolicyConfig),
 		epDataStore:                   make(map[endpointID]*endpointMetadata),
 		identityAllocator:             p.IdentityAllocator,
-		installRoutes:                 p.Config.InstallEgressGatewayRoutes,
 		reconciliationTriggerInterval: p.Config.EgressGatewayReconciliationTriggerInterval,
 		policyMap:                     p.PolicyMap,
 		policies:                      p.Policies,
@@ -617,244 +608,9 @@ func (manager *Manager) policyMatches(sourceIP net.IP, f func(net.IP, *net.IPNet
 	return false
 }
 
-// policyMatchesMinusExcludedCIDRs returns true if there exists at least one
-// policy matching the given parameters.
-//
-// This method takes:
-//   - a source IP: this is an optimization that allows to iterate only through
-//     policies that reference an endpoint with the given source IP
-//   - a callback function f: this function is invoked for each policy and for
-//     each combination of the policy's endpoints and computed destinations (i.e.
-//     the effective destination CIDR space, defined as the diff between the
-//     destination and the excluded CIDRs).
-//
-// The callback f takes as arguments:
-// - the given endpoint
-// - the destination CIDR
-// - the gatewayConfig of the  policy
-//
-// This method returns true whenever the f callback matches one of the endpoint
-// and CIDR tuples (i.e. whenever one callback invocation returns true)
-func (manager *Manager) policyMatchesMinusExcludedCIDRs(sourceIP net.IP, f func(net.IP, *net.IPNet, *gatewayConfig) bool) bool {
-	for _, policy := range manager.policyConfigsBySourceIP[sourceIP.String()] {
-		cidrs := policy.destinationMinusExcludedCIDRs()
-
-		for _, ep := range policy.matchedEndpoints {
-			for _, endpointIP := range ep.ips {
-				if !endpointIP.Equal(sourceIP) {
-					continue
-				}
-
-				for _, cidr := range cidrs {
-					if f(endpointIP, cidr, &policy.gatewayConfig) {
-						return true
-					}
-				}
-			}
-		}
-	}
-
-	return false
-}
-
 func (manager *Manager) regenerateGatewayConfigs() {
 	for _, policyConfig := range manager.policyConfigs {
 		policyConfig.regenerateGatewayConfig(manager)
-	}
-
-	if !manager.installRoutes {
-		return
-	}
-
-	// We can only have one default route per interface. Warn if there are
-	// conflicts on the desired egress IP per interface.
-	policyByInterfaceIndex := make(map[int]*PolicyConfig)
-	for _, policyConfig := range manager.policyConfigs {
-		gwc := policyConfig.gatewayConfig
-
-		if !gwc.localNodeConfiguredAsGateway {
-			continue
-		}
-
-		currentPolicy := policyByInterfaceIndex[gwc.ifaceIndex]
-		if currentPolicy == nil {
-			policyByInterfaceIndex[gwc.ifaceIndex] = policyConfig
-			continue
-		}
-
-		currentEgressIP := currentPolicy.gatewayConfig.egressIP
-		if gwc.egressIP.IP.Equal(currentEgressIP.IP) && bytes.Equal(gwc.egressIP.Mask, currentEgressIP.Mask) {
-			continue
-		}
-
-		log.WithFields(logrus.Fields{
-			logfields.CiliumEgressGatewayPolicyName: policyConfig.id,
-			logfields.Interface:                     policyConfig.policyGwConfig.iface,
-			logfields.EgressIP:                      policyConfig.policyGwConfig.egressIP,
-		}).Errorf("Conflict with policy %s: Selects the same egress interface but uses a different egress IP (%s).", currentPolicy.id, currentEgressIP.String())
-	}
-}
-
-func (manager *Manager) addMissingIpRulesAndRoutes(isRetry bool) (shouldRetry bool) {
-	if !manager.installRoutes {
-		return false
-	}
-
-	for _, policyConfig := range manager.policyConfigs {
-		gwc := &policyConfig.gatewayConfig
-
-		if !gwc.localNodeConfiguredAsGateway || len(policyConfig.matchedEndpoints) == 0 {
-			continue
-		}
-
-		logger := log.WithFields(logrus.Fields{
-			logfields.EgressIP:  gwc.egressIP.IP,
-			logfields.LinkIndex: gwc.ifaceIndex,
-		})
-
-		if err := addEgressIpRoutes(gwc); err != nil {
-			logger.WithError(err).Warn("Can't add IP routes")
-		} else {
-			logger.Debug("Added IP routes")
-		}
-
-		routingTableIdx := egressGatewayRoutingTableIdx(gwc.ifaceIndex)
-
-		ipRules, err := listEgressIpRulesForRoutingTable(routingTableIdx)
-		if err != nil {
-			logger.WithError(err).Warn("Can't fetch IP rules")
-			continue
-		}
-
-		addIPRulesForConfig := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) {
-			logger := log.WithFields(logrus.Fields{
-				logfields.SourceIP:        endpointIP,
-				logfields.DestinationCIDR: dstCIDR.String(),
-				logfields.EgressIP:        gwc.egressIP.IP,
-				logfields.LinkIndex:       gwc.ifaceIndex,
-			})
-
-			// check if the corresponding IP rule already exists
-			for _, ipRule := range ipRules {
-				if egressIPRuleMatches(&ipRule, endpointIP, dstCIDR) {
-					return
-				}
-			}
-
-			// insert the missing rule
-			newRule := newEgressIpRule(endpointIP, dstCIDR, routingTableIdx)
-
-			if err := netlink.RuleAdd(newRule); err != nil {
-				if isRetry {
-					logger.WithError(err).Warn("Can't add IP rule")
-				} else {
-					logger.WithError(err).Debug("Can't add IP rule, will retry")
-					shouldRetry = true
-				}
-			} else {
-				logger.Debug("Added IP rule")
-			}
-		}
-
-		policyConfig.forEachEndpointAndDestination(addIPRulesForConfig)
-	}
-
-	return
-}
-
-func (manager *Manager) removeUnusedIpRulesAndRoutes() {
-	logger := log.WithFields(logrus.Fields{})
-
-	ipRules, err := listEgressIpRules()
-	if err != nil {
-		logger.WithError(err).Warn("Cannot list IP rules")
-		return
-	}
-
-	// Delete all IP rules that don't have a matching egress gateway rule
-nextIpRule:
-	for _, ipRule := range ipRules {
-		matchFunc := func(endpointIP net.IP, dstCIDR *net.IPNet, gwc *gatewayConfig) bool {
-			if !manager.installRoutes {
-				return false
-			}
-
-			if !gwc.localNodeConfiguredAsGateway {
-				return false
-			}
-
-			if ipRule.Table != egressGatewayRoutingTableIdx(gwc.ifaceIndex) {
-				return false
-			}
-
-			// no need to check also ipRule.Src.IP.Equal(endpointIP) as we are iterating
-			// over the slice of policies returned by the
-			// policyConfigsBySourceIP[ipRule.Src.IP.String()] map
-			return ipRule.Dst.String() == dstCIDR.String()
-		}
-
-		if manager.policyMatchesMinusExcludedCIDRs(ipRule.Src.IP, matchFunc) {
-			continue nextIpRule
-		}
-
-		deleteIpRule(ipRule)
-	}
-
-	// Build a list of all the network interfaces that are being actively used by egress gateway,
-	// and by which policy they are selected.
-	activeEgressGwIfaceIndexes := make(map[int]*PolicyConfig)
-	for _, policyConfig := range manager.policyConfigs {
-		gwc := &policyConfig.gatewayConfig
-
-		if !gwc.localNodeConfiguredAsGateway {
-			continue
-		}
-
-		// check if the policy selects at least one endpoint
-		if len(policyConfig.matchedEndpoints) == 0 {
-			continue
-		}
-
-		activeEgressGwIfaceIndexes[gwc.ifaceIndex] = policyConfig
-	}
-
-	// Fetch all IP routes, and delete the unused EgressGW-specific routes:
-	routes, err := netlink.RouteListFiltered(netlink.FAMILY_V4, &netlink.Route{
-		Table: unix.RT_TABLE_UNSPEC,
-	}, netlink.RT_FILTER_TABLE)
-
-	if err != nil {
-		logger.WithError(err).Error("Cannot list IP routes")
-		return
-	}
-
-	for _, route := range routes {
-		linkIndex := route.LinkIndex
-
-		// Keep the route if it was not created by EgressGW.
-		if route.Table != egressGatewayRoutingTableIdx(linkIndex) {
-			continue
-		}
-
-		policyConfig := activeEgressGwIfaceIndexes[linkIndex]
-
-		// Keep the route if it still matches the policy on this interface.
-		if policyConfig != nil {
-			/* Only take a closer look at next-hop routes for now: */
-			if route.Scope != netlink.SCOPE_LINK {
-				continue
-			}
-
-			eniGatewayIP := getFirstIPInHostRange(policyConfig.gatewayConfig.egressIP)
-			routeMaskSize, routeMaskTotal := route.Dst.Mask.Size()
-
-			if route.Dst.IP.Equal(eniGatewayIP) &&
-				routeMaskSize == 32 && routeMaskTotal == 32 {
-				continue
-			}
-		}
-
-		deleteIpRoute(route)
 	}
 }
 
@@ -958,13 +714,6 @@ func (manager *Manager) reconcileLocked() {
 	}
 
 	manager.regenerateGatewayConfigs()
-
-	shouldRetry := manager.addMissingIpRulesAndRoutes(false)
-	manager.removeUnusedIpRulesAndRoutes()
-
-	if shouldRetry {
-		manager.addMissingIpRulesAndRoutes(true)
-	}
 
 	// The order of the next 2 function calls matters, as by first adding missing policies and
 	// only then removing obsolete ones we make sure there will be no connectivity disruption
