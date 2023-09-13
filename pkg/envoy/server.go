@@ -1395,7 +1395,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 func getDirectionNetworkPolicy(ep endpoint.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool, vis policy.DirectionalVisibilityPolicy, dir string) []*cilium.PortNetworkPolicy {
 	// TODO: integrate visibility with enforced policy
 	if !policyEnforced {
-		PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis))
+		PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(vis)+1)
 		// Always allow all ports
 		PerPortPolicies = append(PerPortPolicies, allowAllTCPPortNetworkPolicy)
 		for _, visMeta := range vis {
@@ -1533,17 +1533,22 @@ func getNetworkPolicy(ep endpoint.EndpointUpdater, vis *policy.VisibilityPolicy,
 		EndpointId:       ep.GetID(),
 		ConntrackMapName: ep.ConntrackNameLocked(),
 	}
-	// If no policy, deny all traffic. Otherwise, convert the policies for ingress and egress.
-	if l4Policy != nil {
-		var visIngress policy.DirectionalVisibilityPolicy
-		var visEgress policy.DirectionalVisibilityPolicy
-		if vis != nil {
-			visIngress = vis.Ingress
-			visEgress = vis.Egress
-		}
-		p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Ingress.PortRules, ingressPolicyEnforced, visIngress, "ingress")
-		p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, l4Policy.Egress.PortRules, egressPolicyEnforced, visEgress, "egress")
+
+	var visIngress policy.DirectionalVisibilityPolicy
+	var visEgress policy.DirectionalVisibilityPolicy
+	if vis != nil {
+		visIngress = vis.Ingress
+		visEgress = vis.Egress
 	}
+	var ingressMap policy.L4PolicyMap
+	var egressMap policy.L4PolicyMap
+	if l4Policy != nil {
+		ingressMap = l4Policy.Ingress.PortRules
+		egressMap = l4Policy.Egress.PortRules
+	}
+	p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, ingressMap, ingressPolicyEnforced, visIngress, "ingress")
+	p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, egressMap, egressPolicyEnforced, visEgress, "egress")
+
 	return p
 }
 
