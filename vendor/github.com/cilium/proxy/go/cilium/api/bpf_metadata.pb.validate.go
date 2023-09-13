@@ -69,6 +69,8 @@ func (m *BpfMetadata) validate(all bool) error {
 
 	// no validation rules for Ipv6SourceAddress
 
+	// no validation rules for EnforcePolicyOnL7Lb
+
 	if len(errors) > 0 {
 		return BpfMetadataMultiError(errors)
 	}

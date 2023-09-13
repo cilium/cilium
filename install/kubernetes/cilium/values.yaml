@@ -1934,9 +1934,9 @@ envoy:
   image:
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.27.0-e8543968fd3d6198b52640ef0b978cecfbaadcd7"
+    tag: "v1.27.0-6b9ff340bc4058c9063b74aeeadd58fdc724c32e"
     pullPolicy: "Always"
-    digest: "sha256:4c1c6a8b3f4b643effcd7eaed57cbd3e03ce766acf6849b75d12128d3901019e"
+    digest: "sha256:cfdbc99947fc042187afa72cd271619be3546e2f4e1f6899f31a2659bc21fee4"
     useDigest: true
 
   # -- Additional containers added to the cilium Envoy DaemonSet.
