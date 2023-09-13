@@ -368,7 +368,6 @@ func updateCEPUID(scopedLog *logrus.Entry, e *endpoint.Endpoint, localCEP *ciliu
 	//
 	// The intent here is to check if a given pod is running on the same node
 	// this cilium is running on before taking over its CEP.
-	nodeIP := node.GetCiliumEndpointNodeIP()
 	pod := e.GetPod()
 	if pod == nil {
 		return fmt.Errorf("endpoint sync cannot take ownership of CEP: no pod")
@@ -377,9 +376,13 @@ func updateCEPUID(scopedLog *logrus.Entry, e *endpoint.Endpoint, localCEP *ciliu
 	if podHostIP == "" {
 		return fmt.Errorf("endpoint sync cannot take ownership of CEP: no pod HostIP")
 	}
-	if podHostIP != nodeIP {
-		return fmt.Errorf("endpoint sync cannot take ownership of CEP that is not local: CEP's pod %q, pod's hostIP %q, cilium nodeIP %q)",
-			e.GetK8sPodName(), podHostIP, nodeIP)
+	if nodeIP := node.GetIPv4().String(); podHostIP != nodeIP {
+		// Also checking node ipv6 for k8s dual stack with ipv6 preference where
+		// podHostIP is gonna be node ipv6
+		if nodeIPV6 := node.GetIPv6().String(); podHostIP != nodeIPV6 {
+			return fmt.Errorf("endpoint sync cannot take ownership of CEP that is not local: CEP's pod %q, pod's hostIP %q, cilium nodeIP %q)",
+				e.GetK8sPodName(), podHostIP, nodeIP)
+		}
 	}
 
 	// If the endpoint has a CEP UID, which does not match the current CEP, we cannot take
