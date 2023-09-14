@@ -26,7 +26,7 @@ require (
 	github.com/cilium/fake v0.5.0
 	github.com/cilium/linters v0.0.0-20230905071329-fa111e2c6672
 	github.com/cilium/lumberjack/v2 v2.3.0
-	github.com/cilium/proxy v0.0.0-20230911173141-49b6a7c9c075
+	github.com/cilium/proxy v0.0.0-20230914115435-e8543968fd3d
 	github.com/cilium/workerpool v1.2.0
 	github.com/containernetworking/cni v1.1.2
 	github.com/containernetworking/plugins v1.3.0
