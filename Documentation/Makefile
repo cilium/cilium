@@ -61,6 +61,7 @@ DOCKER_RUN := $(DOCKER_CTR) $(DOCS_BUILDER_IMG)
 
 ##@ Auto-generated Contents Updates and Validation
 
+.PHONY: update-cmdref
 update-cmdref: builder-image cilium-build ## Update the command reference documents (agent, bugtool, operators, etc.).
 	@$(ECHO_GEN)cmdref
 	-$(QUIET)rm -rf cmdref/cilium*.md
@@ -72,20 +73,6 @@ codeowners.rst: $(ROOT_DIR)/CODEOWNERS
 
 .PHONY: update-codeowners
 update-codeowners: codeowners.rst ## Update the description of the code owner teams.
-
-check: builder-image update-cmdref update-helm-values update-codeowners ## Validate command and Helm references, policy examples, and others.
-	@$(ECHO_CHECK) cmdref
-	$(QUIET) ./check-cmdref.sh
-	@$(ECHO_CHECK) $(HELM_VALUES)
-	$(QUIET) ./check-helmvalues.sh
-	@$(ECHO_CHECK) examples
-	$(QUIET)$(DOCKER_RUN) ./check-examples.sh
-	@$(ECHO_CHECK) codeowners.rst
-	$(QUIET) ./check-codeowners.sh
-
-ifeq ($(V),0)
-SPHINX_OPTS += -q
-endif
 
 update-helm-values: $(HELM_VALUES) ## Update the Helm reference documentation.
 
@@ -108,9 +95,23 @@ $(HELM_VALUES): FORCE
 	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $(TMP_FILE_3))" > $@
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2) $(TMP_FILE_3)
 
+check: builder-image update-cmdref update-helm-values update-codeowners ## Validate command and Helm references, policy examples, and others.
+	@$(ECHO_CHECK) cmdref
+	$(QUIET) ./check-cmdref.sh
+	@$(ECHO_CHECK) $(HELM_VALUES)
+	$(QUIET) ./check-helmvalues.sh
+	@$(ECHO_CHECK) examples
+	$(QUIET)$(DOCKER_RUN) ./check-examples.sh
+	@$(ECHO_CHECK) codeowners.rst
+	$(QUIET) ./check-codeowners.sh
+
 ##@ Build
 
-epub latex html: builder-image ## Check documentation and render it under the specified format.
+ifeq ($(V),0)
+SPHINX_OPTS += -q
+endif
+
+html epub latex: builder-image ## Check documentation and render it under the specified format.
 	@$(ECHO_GEN)_build/$@
 	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
 
