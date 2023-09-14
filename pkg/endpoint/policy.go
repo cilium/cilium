@@ -214,7 +214,6 @@ func (e *Endpoint) regeneratePolicy() (*policyGenerateResult, error) {
 	stats := &policyRegenerationStatistics{}
 	stats.totalTime.Start()
 	defer func() {
-		stats.totalTime.End(err == nil)
 		e.updatePolicyRegenerationStatistics(stats, forcePolicyCompute, err)
 	}()
 
