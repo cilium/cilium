@@ -36,6 +36,7 @@ var Cell = cell.Module(
 	"Cilium Endpoint Slice Controller",
 	cell.Config(defaultConfig),
 	cell.Invoke(registerController),
+	cell.Metric(NewMetrics),
 )
 
 type Config struct {

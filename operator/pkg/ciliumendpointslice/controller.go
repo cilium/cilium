@@ -34,6 +34,8 @@ type params struct {
 
 	Cfg       Config
 	SharedCfg SharedConfig
+
+	Metrics *Metrics
 }
 
 type Controller struct {
@@ -69,6 +71,8 @@ type Controller struct {
 	enqueuedAtLock lock.Mutex
 
 	wp *workerpool.WorkerPool
+
+	metrics *Metrics
 }
 
 // registerController creates and initializes the CES controller
@@ -87,6 +91,7 @@ func registerController(p params) {
 		writeQPSLimit:       p.Cfg.CESWriteQPSLimit,
 		writeQPSBurst:       p.Cfg.CESWriteQPSBurst,
 		enqueuedAt:          make(map[CESName]time.Time),
+		metrics:             p.Metrics,
 	}
 
 	p.Lifecycle.Append(cesController)

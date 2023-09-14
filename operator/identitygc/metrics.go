@@ -47,6 +47,9 @@ func NewMetrics() *Metrics {
 }
 
 type Metrics struct {
+	// IdentityGCSize records the identity GC results
 	IdentityGCSize metric.Vec[metric.Gauge]
+
+	// IdentityGCRuns records how many times identity GC has run
 	IdentityGCRuns metric.Vec[metric.Gauge]
 }
