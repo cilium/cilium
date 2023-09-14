@@ -563,19 +563,28 @@ kind-image: ## Build cilium and operator images and import them into kind.
 	$(MAKE) kind-image-agent
 	$(MAKE) kind-image-operator
 
+define KIND_VALUES_FAST_FILES
+--helm-values=$(ROOT_DIR)/contrib/testing/kind-common.yaml \
+--helm-values=$(ROOT_DIR)/contrib/testing/kind-fast.yaml
+endef
+
+ifneq ("$(wildcard $(ROOT_DIR)/contrib/testing/kind-custom.yaml)","")
+	KIND_VALUES_FAST_FILES := $(KIND_VALUES_FAST_FILES) --helm-values=$(ROOT_DIR)/contrib/testing/kind-custom.yaml
+endif
+
 .PHONY: kind-install-cilium-fast
 kind-install-cilium-fast: kind-ready ## Install a local Cilium version into the cluster.
 	@echo "  INSTALL cilium"
 	# cilium-cli doesn't support idempotent installs, so we uninstall and
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
 	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
+
 	# cilium-cli's --wait flag doesn't work, so we just force it to run
 	# in the background instead and wait for the resources to be available.
 	# https://github.com/cilium/cilium-cli/issues/1070
 	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
-		--helm-values=$(ROOT_DIR)/contrib/testing/kind-common.yaml \
-		--helm-values=$(ROOT_DIR)/contrib/testing/kind-fast.yaml \
+		$(KIND_VALUES_FAST_FILES) \
 		--version= \
 		>/dev/null 2>&1 &
 
@@ -652,19 +661,28 @@ kind-image-fast-clustermesh-apiserver: kind-ready build-clustermesh-apiserver ##
 .PHONY: kind-image-fast
 kind-image-fast: kind-image-fast-agent kind-image-fast-operator kind-image-fast-clustermesh-apiserver ## Build all binaries and copy them to kind nodes.
 
+define KIND_VALUES_FILES
+--helm-values=$(ROOT_DIR)/contrib/testing/kind-common.yaml \
+--helm-values=$(ROOT_DIR)/contrib/testing/kind-values.yaml
+endef
+
+ifneq ("$(wildcard $(ROOT_DIR)/contrib/testing/kind-custom.yaml)","")
+	KIND_VALUES_FILES := $(KIND_VALUES_FILES) --helm-values=$(ROOT_DIR)/contrib/testing/kind-custom.yaml
+endif
+
 .PHONY: kind-install-cilium
 kind-install-cilium: kind-ready ## Install a local Cilium version into the cluster.
 	@echo "  INSTALL cilium"
 	# cilium-cli doesn't support idempotent installs, so we uninstall and
 	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
 	-@$(CILIUM_CLI) uninstall >/dev/null 2>&1 || true
+
 	# cilium-cli's --wait flag doesn't work, so we just force it to run
 	# in the background instead and wait for the resources to be available.
 	# https://github.com/cilium/cilium-cli/issues/1070
 	$(CILIUM_CLI) install \
 		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
-		--helm-values=$(ROOT_DIR)/contrib/testing/kind-common.yaml \
-		--helm-values=$(ROOT_DIR)/contrib/testing/kind-values.yaml \
+		$(KIND_VALUES_FILES) \
 		--version= \
 		>/dev/null 2>&1 &
 
