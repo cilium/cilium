@@ -176,7 +176,7 @@ spelling_exclude_patterns = ['_api/v1/*/README.md']
 spelling_filters = ["cilium_spellfilters.WireGuardFilter"]
 
 # Ignore some warnings from MyST parser
-suppress_warnings = ['myst.header']
+suppress_warnings = ['myst.header', 'myst.xref_missing']
 
 googleanalytics_id = 'G-V9SYWYG92Y'
 
