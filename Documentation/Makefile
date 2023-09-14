@@ -53,6 +53,7 @@ DOCKER_CTR_BASE := $(CONTAINER_ENGINE) container run --rm \
 DOCKER_CTR := $(DOCKER_CTR_BASE) \
 		--env READTHEDOCS_VERSION=$(READTHEDOCS_VERSION) \
 		--env SKIP_LINT=$(SKIP_LINT) \
+		--env INCREMENTAL=$(INCREMENTAL) \
 		--user "$(shell id -u):$(shell id -g)"
 DOCKER_RUN := $(DOCKER_CTR) $(DOCS_BUILDER_IMG)
 

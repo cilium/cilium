@@ -124,8 +124,10 @@ run_linter() {
 read_all_opt=""
 
 if [ -n "${SKIP_LINT-}" ]; then
-  # Read all files for final build if we don't read them all with linting
-  read_all_opt="-E"
+  if [ -z "${INCREMENTAL-}" ]; then
+    # Read all files for final build if we don't read them all with linting
+    read_all_opt="-E"
+  fi
 
   echo "Skipping syntax and spelling validations..."
 else
