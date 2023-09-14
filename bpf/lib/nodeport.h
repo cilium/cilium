@@ -1533,6 +1533,14 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
+	/* contrary to tail_handle_snat_fwd_ipv4, we don't check for
+	 *
+	 *     ret == CTX_ACT_OK
+	 *
+	 * in order to emit the event, as egress gateway is not yet supported
+	 * for IPv6, and so it's not possible yet for masqueraded traffic to get
+	 * redirected to another interface
+	 */
 	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason, trace.monitor);
 
 	return ret;
@@ -3060,7 +3068,13 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 		return send_drop_notify_error_ext(ctx, 0, ret, ext_err,
 						  CTX_ACT_DROP, METRIC_EGRESS);
 
-	send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason, trace.monitor);
+	/* Don't emit a trace event if the packet has been redirected to another
+	 * interface.
+	 * This can happen for egress gateway traffic that needs to egress from
+	 * the interface to which the egress IP is assigned to.
+	 */
+	if (ret == CTX_ACT_OK)
+		send_trace_notify(ctx, obs_point, 0, 0, 0, 0, trace.reason, trace.monitor);
 
 	return ret;
 }
