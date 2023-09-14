@@ -28,8 +28,13 @@ base-image: Dockerfile ## Build the docs-base image for updating the requirement
 	$(call build_image,$<,docs-base,$(DOCS_BASE_IMG))
 
 DOCS_BUILDER_IMG ?= cilium/docs-builder
+ifndef SKIP_BUILDER_IMAGE
 builder-image: Dockerfile $(REQUIREMENTS) ## Build the docs-builder image for rendering and checking the documentation.
 	$(call build_image,$<,docs-builder,$(DOCS_BUILDER_IMG))
+else
+builder-image:
+	@echo "SKIP_BUILDER_IMAGE set, assuming image is already present and up-to-date."
+endif
 
 # cilium must have all build artifacts present for
 # documentation to be generated correctly.
