@@ -138,7 +138,7 @@ func (c *Controller) Start(ctx hive.HookContext) error {
 	} else {
 		c.manager = newCESManagerFcfs(c.maxCEPsInCES, c.logger)
 	}
-	c.reconciler = newReconciler(c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpoint, c.ciliumEndpointSlice, c.context)
+	c.reconciler = newReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpoint, c.ciliumEndpointSlice)
 
 	c.initializeQueue()
 

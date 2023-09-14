@@ -32,22 +32,22 @@ type reconciler struct {
 
 // newReconciler creates and initializes a new reconciler.
 func newReconciler(
+	ctx context.Context,
 	client clientset.CiliumV2alpha1Interface,
 	cesMgr operations,
 	logger logrus.FieldLogger,
 	ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint],
 	ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
-	ctx context.Context,
 ) *reconciler {
 	cepStore, _ := ciliumEndpoint.Store(ctx)
 	cesStore, _ := ciliumEndpointSlice.Store(ctx)
 	return &reconciler{
+		context:    ctx,
 		logger:     logger,
 		client:     client,
 		cesManager: cesMgr,
 		cepStore:   cepStore,
 		cesStore:   cesStore,
-		context:    ctx,
 	}
 }
 
