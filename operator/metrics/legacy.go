@@ -21,9 +21,6 @@ type RegisterGatherer interface {
 }
 
 const (
-	// LabelStatus marks the status of a resource or completed task
-	LabelStatus = "status"
-
 	// LabelOutcome indicates whether the outcome of the operation was successful or not
 	LabelOutcome = "outcome"
 
@@ -38,12 +35,6 @@ const (
 	// LabelValueOutcomeFail is used as an unsuccessful outcome of an operation
 	LabelValueOutcomeFail = "fail"
 
-	// LabelValueOutcomeAlive is used as outcome of alive identity entries
-	LabelValueOutcomeAlive = "alive"
-
-	// LabelValueOutcomeDeleted is used as outcome of deleted identity entries
-	LabelValueOutcomeDeleted = "deleted"
-
 	// LabelValueCEPInsert is used to indicate the number of CEPs inserted in a CES
 	LabelValueCEPInsert = "cepinserted"
 
@@ -52,12 +43,6 @@ const (
 )
 
 var (
-	// IdentityGCSize records the identity GC results
-	IdentityGCSize = metrics.NoOpGaugeVec
-
-	// IdentityGCRuns records how many times identity GC has run
-	IdentityGCRuns = metrics.NoOpGaugeVec
-
 	// EndpointGCObjects records the number of times endpoint objects have been
 	// garbage-collected.
 	EndpointGCObjects = metrics.NoOpCounterVec
@@ -84,8 +69,6 @@ var (
 )
 
 type legacyMetrics struct {
-	IdentityGCSize                metric.Vec[metric.Gauge]
-	IdentityGCRuns                metric.Vec[metric.Gauge]
 	EndpointGCObjects             metric.Vec[metric.Counter]
 	CiliumEndpointSliceDensity    metric.Histogram
 	CiliumEndpointsChangeCount    metric.Vec[metric.Observer]
@@ -96,18 +79,6 @@ type legacyMetrics struct {
 
 func newLegacyMetrics() *legacyMetrics {
 	lm := &legacyMetrics{
-		IdentityGCSize: metric.NewGaugeVec(metric.GaugeOpts{
-			Namespace: metrics.CiliumOperatorNamespace,
-			Name:      "identity_gc_entries",
-			Help:      "The number of alive and deleted identities at the end of a garbage collector run",
-		}, []string{LabelStatus}),
-
-		IdentityGCRuns: metric.NewGaugeVec(metric.GaugeOpts{
-			Namespace: metrics.CiliumOperatorNamespace,
-			Name:      "identity_gc_runs",
-			Help:      "The number of times identity garbage collector has run",
-		}, []string{LabelOutcome}),
-
 		EndpointGCObjects: metric.NewCounterVec(metric.CounterOpts{
 			Namespace: metrics.CiliumOperatorNamespace,
 			Name:      "endpoint_gc_objects",
@@ -147,8 +118,6 @@ func newLegacyMetrics() *legacyMetrics {
 		}),
 	}
 
-	IdentityGCSize = lm.IdentityGCSize
-	IdentityGCRuns = lm.IdentityGCRuns
 	EndpointGCObjects = lm.EndpointGCObjects
 	CiliumEndpointSliceDensity = lm.CiliumEndpointSliceDensity
 	CiliumEndpointsChangeCount = lm.CiliumEndpointsChangeCount

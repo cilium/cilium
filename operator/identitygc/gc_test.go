@@ -37,6 +37,7 @@ func TestIdentitiesGC(t *testing.T) {
 
 	hive := hive.New(
 		cell.Config(cmtypes.DefaultClusterInfo),
+		cell.Metric(NewMetrics),
 
 		// provide a fake clientset
 		k8sClient.FakeClientCell,

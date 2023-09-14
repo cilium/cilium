@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
-	"github.com/cilium/cilium/operator/metrics"
 	"github.com/cilium/cilium/pkg/controller"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -156,14 +155,14 @@ func (igc *GC) gc(ctx context.Context) error {
 
 	if ctx.Err() == nil {
 		igc.successfulRuns++
-		metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeSuccess).Set(float64(igc.successfulRuns))
+		igc.metrics.IdentityGCRuns.WithLabelValues(LabelValueOutcomeSuccess).Set(float64(igc.successfulRuns))
 	} else {
 		igc.failedRuns++
-		metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeFail).Set(float64(igc.failedRuns))
+		igc.metrics.IdentityGCRuns.WithLabelValues(LabelValueOutcomeFail).Set(float64(igc.failedRuns))
 	}
 	aliveEntries := totalEntries - deletedEntries
-	metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeAlive).Set(float64(aliveEntries))
-	metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeDeleted).Set(float64(deletedEntries))
+	igc.metrics.IdentityGCSize.WithLabelValues(LabelValueOutcomeAlive).Set(float64(aliveEntries))
+	igc.metrics.IdentityGCSize.WithLabelValues(LabelValueOutcomeDeleted).Set(float64(deletedEntries))
 
 	igc.heartbeatStore.gc()
 

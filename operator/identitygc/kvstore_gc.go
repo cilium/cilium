@@ -10,7 +10,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/operator/metrics"
 	"github.com/cilium/cilium/pkg/allocator"
 	ciliumIdentity "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -56,7 +55,7 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 			igc.logger.WithError(err).Warning("Unable to run security identity garbage collector")
 
 			igc.failedRuns++
-			metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeFail).Set(float64(igc.failedRuns))
+			igc.metrics.IdentityGCRuns.WithLabelValues(LabelValueOutcomeFail).Set(float64(igc.failedRuns))
 		} else {
 			// Best effort to run auth identity GC
 			err = igc.runAuthGC(ctx, keysToDeletePrev)
@@ -69,10 +68,10 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 			keysToDeletePrev = keysToDelete
 
 			igc.successfulRuns++
-			metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeSuccess).Set(float64(igc.successfulRuns))
+			igc.metrics.IdentityGCRuns.WithLabelValues(LabelValueOutcomeSuccess).Set(float64(igc.successfulRuns))
 
-			metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeAlive).Set(float64(gcStats.Alive))
-			metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeDeleted).Set(float64(gcStats.Deleted))
+			igc.metrics.IdentityGCSize.WithLabelValues(LabelValueOutcomeAlive).Set(float64(gcStats.Alive))
+			igc.metrics.IdentityGCSize.WithLabelValues(LabelValueOutcomeDeleted).Set(float64(gcStats.Deleted))
 		}
 
 		if igc.gcInterval <= gcDuration {
