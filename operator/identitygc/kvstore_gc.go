@@ -55,10 +55,8 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 		if err != nil {
 			igc.logger.WithError(err).Warning("Unable to run security identity garbage collector")
 
-			if igc.enableMetrics {
-				igc.failedRuns++
-				metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeFail).Set(float64(igc.failedRuns))
-			}
+			igc.failedRuns++
+			metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeFail).Set(float64(igc.failedRuns))
 		} else {
 			// Best effort to run auth identity GC
 			err = igc.runAuthGC(ctx, keysToDeletePrev)
@@ -70,13 +68,11 @@ func (igc *GC) runKVStoreModeGC(ctx context.Context) error {
 
 			keysToDeletePrev = keysToDelete
 
-			if igc.enableMetrics {
-				igc.successfulRuns++
-				metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeSuccess).Set(float64(igc.successfulRuns))
+			igc.successfulRuns++
+			metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeSuccess).Set(float64(igc.successfulRuns))
 
-				metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeAlive).Set(float64(gcStats.Alive))
-				metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeDeleted).Set(float64(gcStats.Deleted))
-			}
+			metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeAlive).Set(float64(gcStats.Alive))
+			metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeDeleted).Set(float64(gcStats.Deleted))
 		}
 
 		if igc.gcInterval <= gcDuration {

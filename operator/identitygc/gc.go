@@ -81,7 +81,6 @@ type GC struct {
 	allocationCfg identityAllocationConfig
 	allocator     *allocator.Allocator
 
-	enableMetrics bool
 	// counters for GC failed/successful runs
 	failedRuns     int
 	successfulRuns int

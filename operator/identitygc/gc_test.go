@@ -58,7 +58,6 @@ func TestIdentitiesGC(t *testing.T) {
 		cell.Provide(func() SharedConfig {
 			return SharedConfig{
 				IdentityAllocationMode: option.IdentityAllocationModeCRD,
-				EnableMetrics:          false,
 				K8sNamespace:           "",
 			}
 		}),
