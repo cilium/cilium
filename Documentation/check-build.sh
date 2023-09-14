@@ -118,7 +118,7 @@ run_linter() {
         --ignore-roles "${CONF_PY_ROLES},spelling:ignore" \
         --ignore-substitutions "${CONF_PY_SUBSTITUTIONS}" \
        -r . ../README.rst 2>&1 | \
-       grep -v 'CRITICAL:rstcheck_core.checker:An `AttributeError` error occured. This is most propably due to a code block directive (code/code-block/sourcecode) without a specified language.'
+       grep -v 'WARNING:rstcheck_core.checker:An `AttributeError` error occured. This is most probably due to a code block directive (code/code-block/sourcecode) without a specified language.'
 }
 
 read_all_opt=""
