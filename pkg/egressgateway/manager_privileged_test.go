@@ -228,7 +228,7 @@ func (k *EgressGatewayTestSuite) TestEgressGatewayManager(c *C) {
 	close(k.cacheStatus)
 	k.policies.sync(c)
 
-	reconciliationEventsCount := egressGatewayManager.reconciliationEventsCount
+	reconciliationEventsCount := egressGatewayManager.reconciliationEventsCount.Load()
 
 	node1 := newCiliumNode(node1, node1IP, nodeGroup1Labels)
 	egressGatewayManager.OnUpdateNode(node1)
@@ -583,8 +583,9 @@ func createTestInterface(tb testing.TB, iface string, addr string) int {
 
 func waitForReconciliationRun(tb testing.TB, egressGatewayManager *Manager, currentRun uint64) uint64 {
 	for i := 0; i < 100; i++ {
-		if egressGatewayManager.reconciliationEventsCount > currentRun {
-			return egressGatewayManager.reconciliationEventsCount
+		count := egressGatewayManager.reconciliationEventsCount.Load()
+		if count > currentRun {
+			return count
 		}
 
 		time.Sleep(10 * time.Millisecond)
