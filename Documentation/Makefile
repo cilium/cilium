@@ -61,15 +61,18 @@ DOCKER_RUN := $(DOCKER_CTR) $(DOCS_BUILDER_IMG)
 
 ##@ Auto-generated Contents Updates and Validation
 
+.PHONY: api-flaggen
+api-flaggen: ## Update the table of API flags restrictions.
+	@$(ECHO_GEN) api-flags
+	$(QUIET)$(GO) run $(ROOT_DIR)/tools/api-flaggen \
+		2>/dev/null \
+		> configuration/api-restrictions-table.rst
+
+.PHONY: update-cmdref
 update-cmdref: builder-image cilium-build ## Update the command reference documents (agent, bugtool, operators, etc.).
 	@$(ECHO_GEN)cmdref
 	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
-
-.PHONY: update-crdlist
-update-crdlist: ## Update the list of CRDs.
-	@$(ECHO_GEN)crdlist
-	make -C ../ generate-crd-docs
 
 codeowners.rst: $(ROOT_DIR)/CODEOWNERS
 	@$(ECHO_GEN)$@
@@ -78,30 +81,10 @@ codeowners.rst: $(ROOT_DIR)/CODEOWNERS
 .PHONY: update-codeowners
 update-codeowners: codeowners.rst ## Update the description of the code owner teams.
 
-check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners ## Validate command and Helm references, policy examples, and others.
-	@$(ECHO_CHECK) cmdref
-	$(QUIET) ./check-cmdref.sh
-	@$(ECHO_CHECK) $(HELM_VALUES)
-	$(QUIET) ./check-helmvalues.sh
-	@$(ECHO_CHECK) examples
-	$(QUIET)$(DOCKER_RUN) ./check-examples.sh
-	@$(ECHO_CHECK) codeowners.rst
-	$(QUIET) ./check-codeowners.sh
-	@$(ECHO_CHECK) configuration/api-restrictions-table.rst
-	$(QUIET) ./check-flaggen.sh
-	@$(ECHO_CHECK) crdlist.rst
-	$(QUIET) ./check-crdlist.sh
-
-ifeq ($(V),0)
-SPHINX_OPTS += -q
-endif
-
-.PHONY: api-flaggen
-api-flaggen: ## Update the table of API flags restrictions.
-	@$(ECHO_GEN) api-flags
-	$(QUIET)$(GO) run $(ROOT_DIR)/tools/api-flaggen \
-		2>/dev/null \
-		> configuration/api-restrictions-table.rst
+.PHONY: update-crdlist
+update-crdlist: ## Update the list of CRDs.
+	@$(ECHO_GEN)crdlist
+	make -C ../ generate-crd-docs
 
 update-helm-values: $(HELM_VALUES) ## Update the Helm reference documentation.
 
@@ -124,9 +107,27 @@ $(HELM_VALUES): FORCE
 	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $(TMP_FILE_3))" > $@
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2) $(TMP_FILE_3)
 
+check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners ## Validate command and Helm references, policy examples, and others.
+	@$(ECHO_CHECK) cmdref
+	$(QUIET) ./check-cmdref.sh
+	@$(ECHO_CHECK) $(HELM_VALUES)
+	$(QUIET) ./check-helmvalues.sh
+	@$(ECHO_CHECK) examples
+	$(QUIET)$(DOCKER_RUN) ./check-examples.sh
+	@$(ECHO_CHECK) codeowners.rst
+	$(QUIET) ./check-codeowners.sh
+	@$(ECHO_CHECK) configuration/api-restrictions-table.rst
+	$(QUIET) ./check-flaggen.sh
+	@$(ECHO_CHECK) crdlist.rst
+	$(QUIET) ./check-crdlist.sh
+
 ##@ Build
 
-epub latex html: builder-image ## Check documentation and render it under the specified format.
+ifeq ($(V),0)
+SPHINX_OPTS += -q
+endif
+
+html epub latex: builder-image ## Check documentation and render it under the specified format.
 	@$(ECHO_GEN)_build/$@
 	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
 
