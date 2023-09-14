@@ -79,9 +79,6 @@ type SharedConfig struct {
 	// IdentityAllocationMode specifies what mode to use for identity allocation
 	IdentityAllocationMode string
 
-	// EnableMetrics enables prometheus metrics
-	EnableMetrics bool
-
 	// K8sNamespace is the name of the namespace in which Cilium is
 	// deployed in when running in Kubernetes mode
 	K8sNamespace string

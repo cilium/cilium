@@ -137,7 +137,6 @@ var (
 		) identitygc.SharedConfig {
 			return identitygc.SharedConfig{
 				IdentityAllocationMode: daemonCfg.IdentityAllocationMode,
-				EnableMetrics:          operatorCfg.EnableMetrics,
 				K8sNamespace:           daemonCfg.CiliumNamespaceName(),
 			}
 		}),

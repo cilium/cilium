@@ -154,18 +154,16 @@ func (igc *GC) gc(ctx context.Context) error {
 		}
 	}
 
-	if igc.enableMetrics {
-		if ctx.Err() == nil {
-			igc.successfulRuns++
-			metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeSuccess).Set(float64(igc.successfulRuns))
-		} else {
-			igc.failedRuns++
-			metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeFail).Set(float64(igc.failedRuns))
-		}
-		aliveEntries := totalEntries - deletedEntries
-		metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeAlive).Set(float64(aliveEntries))
-		metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeDeleted).Set(float64(deletedEntries))
+	if ctx.Err() == nil {
+		igc.successfulRuns++
+		metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeSuccess).Set(float64(igc.successfulRuns))
+	} else {
+		igc.failedRuns++
+		metrics.IdentityGCRuns.WithLabelValues(metrics.LabelValueOutcomeFail).Set(float64(igc.failedRuns))
 	}
+	aliveEntries := totalEntries - deletedEntries
+	metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeAlive).Set(float64(aliveEntries))
+	metrics.IdentityGCSize.WithLabelValues(metrics.LabelValueOutcomeDeleted).Set(float64(deletedEntries))
 
 	igc.heartbeatStore.gc()
 
