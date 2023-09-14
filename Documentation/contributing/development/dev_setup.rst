@@ -119,7 +119,7 @@ makefile targets:
 For Linux and Mac OS
 ^^^^^^^^^^^^^^^^^^^^
 
-Makefile targets automate building Cilium images:
+Makefile targets automate building and installing Cilium images:
 
 * ``make kind-image``: Builds all Cilium images and loads them into the
   cluster.
@@ -151,6 +151,18 @@ code, in an pre-existing running Cilium container.
 
 * ``make kind-image-fast``: Builds all Cilium binaries and loads them into all
   kind clusters available in the host.
+
+Configuration for Cilium
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Makefile targets that install Cilium pass the following list of Helm
+values (YAML files) to the Cilium CLI.
+
+* ``contrib/testing/kind-common.yaml``: Shared between normal and fast installation modes.
+* ``contrib/testing/kind-values.yaml``: Used by normal installation mode.
+* ``contrib/testing/kind-fast.yaml``: Used by fast installation mode.
+* ``contrib/testing/kind-custom.yaml``: User defined custom values that are applied if
+  the file is present. The file is ignored by Git as specified in ``contrib/testing/.gitignore``.
 
 .. _configurations_for_clusters:
 
