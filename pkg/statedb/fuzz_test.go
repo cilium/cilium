@@ -271,6 +271,8 @@ func fuzzWorker(realActionLog *realActionLog, worker int, iterations int) {
 }
 
 func TestDB_Fuzz(t *testing.T) {
+	t.Parallel()
+
 	fuzzDB.Start(context.TODO())
 	defer fuzzDB.Stop(context.TODO())
 
