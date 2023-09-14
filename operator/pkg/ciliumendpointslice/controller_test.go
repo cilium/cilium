@@ -45,6 +45,7 @@ func TestRegisterController(t *testing.T) {
 				EnableCiliumEndpointSlice: true,
 			}
 		}),
+		cell.Metric(NewMetrics),
 		cell.Invoke(func(p params) error {
 			registerController(p)
 			return nil
@@ -92,6 +93,7 @@ func TestNotRegisterControllerWithCESDisabled(t *testing.T) {
 				EnableCiliumEndpointSlice: false,
 			}
 		}),
+		cell.Metric(NewMetrics),
 		cell.Invoke(func(p params) error {
 			registerController(p)
 			return nil

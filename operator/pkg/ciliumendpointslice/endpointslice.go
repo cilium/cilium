@@ -13,7 +13,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/cilium/cilium/operator/metrics"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -138,7 +137,7 @@ func (c *Controller) Start(ctx hive.HookContext) error {
 	} else {
 		c.manager = newCESManagerFcfs(c.maxCEPsInCES, c.logger)
 	}
-	c.reconciler = newReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpoint, c.ciliumEndpointSlice)
+	c.reconciler = newReconciler(c.context, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.ciliumEndpoint, c.ciliumEndpointSlice, c.metrics)
 
 	c.initializeQueue()
 
@@ -242,11 +241,11 @@ func (c *Controller) processNextWorkItem() bool {
 
 	queueDelay := c.getAndResetCESProcessingDelay(key)
 	err := c.reconciler.reconcileCES(key)
-	metrics.CiliumEndpointSliceQueueDelay.Observe(queueDelay)
+	c.metrics.CiliumEndpointSliceQueueDelay.Observe(queueDelay)
 	if err != nil {
-		metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+		c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelValueOutcomeFail).Inc()
 	} else {
-		metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+		c.metrics.CiliumEndpointSliceSyncTotal.WithLabelValues(LabelValueOutcomeSuccess).Inc()
 	}
 
 	c.handleErr(err, key)
@@ -261,7 +260,7 @@ func (c *Controller) handleErr(err error, key CESName) {
 	}
 
 	// Increment error count for sync errors
-	metrics.CiliumEndpointSliceSyncErrors.Inc()
+	c.metrics.CiliumEndpointSliceSyncErrors.Inc()
 
 	if c.queue.NumRequeues(key) < maxRetries {
 		c.queue.AddRateLimited(key)
