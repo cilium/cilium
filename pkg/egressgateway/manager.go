@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -163,7 +164,7 @@ type Manager struct {
 
 	// reconciliationEventsCount keeps track of how many reconciliation
 	// events have occoured
-	reconciliationEventsCount uint64
+	reconciliationEventsCount atomic.Uint64
 }
 
 type Params struct {
@@ -1028,5 +1029,5 @@ func (manager *Manager) reconcileLocked() {
 	// clear the events bitmap
 	manager.eventsBitmap = 0
 
-	manager.reconciliationEventsCount += 1
+	manager.reconciliationEventsCount.Add(1)
 }
