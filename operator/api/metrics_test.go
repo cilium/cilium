@@ -119,12 +119,6 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 			lc.Append(hive.Hook{
 				OnStart: func(hive.HookContext) error {
 					// set values for some operator metrics
-					operatorMetrics.IdentityGCSize.
-						WithLabelValues(operatorMetrics.LabelValueOutcomeAlive).
-						Set(float64(12))
-					operatorMetrics.IdentityGCRuns.
-						WithLabelValues(operatorMetrics.LabelValueOutcomeSuccess).
-						Set(float64(15))
 					operatorMetrics.EndpointGCObjects.
 						WithLabelValues(operatorMetrics.LabelValueOutcomeSuccess).
 						Inc()
@@ -161,26 +155,6 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 		t.Fatalf("error while unmarshaling response body: %s", err)
 	}
 
-	if err := testMetric(
-		metrics,
-		"cilium_operator_identity_gc_entries",
-		float64(12),
-		map[string]string{
-			operatorMetrics.LabelStatus: operatorMetrics.LabelValueOutcomeAlive,
-		},
-	); err != nil {
-		t.Fatalf("error while inspecting metric: %s", err)
-	}
-	if err := testMetric(
-		metrics,
-		"cilium_operator_identity_gc_runs",
-		float64(15),
-		map[string]string{
-			operatorMetrics.LabelOutcome: operatorMetrics.LabelValueOutcomeSuccess,
-		},
-	); err != nil {
-		t.Fatalf("error while inspecting metric: %s", err)
-	}
 	if err := testMetric(
 		metrics,
 		"cilium_operator_endpoint_gc_objects",

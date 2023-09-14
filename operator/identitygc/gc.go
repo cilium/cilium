@@ -42,6 +42,8 @@ type params struct {
 	Cfg         Config
 	SharedCfg   SharedConfig
 	ClusterInfo cmtypes.ClusterInfo
+
+	Metrics *Metrics
 }
 
 // GC represents the Cilium identities periodic GC.
@@ -84,6 +86,7 @@ type GC struct {
 	// counters for GC failed/successful runs
 	failedRuns     int
 	successfulRuns int
+	metrics        *Metrics
 }
 
 func registerGC(p params) {
@@ -114,6 +117,7 @@ func registerGC(p params) {
 		allocationCfg: identityAllocationConfig{
 			k8sNamespace: p.SharedCfg.K8sNamespace,
 		},
+		metrics: p.Metrics,
 	}
 	p.Lifecycle.Append(hive.Hook{
 		OnStart: func(ctx hive.HookContext) error {

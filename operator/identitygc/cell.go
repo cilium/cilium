@@ -43,6 +43,8 @@ var Cell = cell.Module(
 
 	// Invoke forces the instantiation of the identity gc
 	cell.Invoke(registerGC),
+
+	cell.Metric(NewMetrics),
 )
 
 // Config contains the configuration for the identity-gc.
