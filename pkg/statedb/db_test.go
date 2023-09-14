@@ -99,6 +99,8 @@ func newTestDB(t testing.TB, secondaryIndexers ...Indexer[testObject]) (*DB, Tab
 }
 
 func TestDB_LowerBound_ByRevision(t *testing.T) {
+	t.Parallel()
+
 	db, table, _ := newTestDB(t, tagsIndex)
 
 	{
@@ -161,6 +163,8 @@ func TestDB_LowerBound_ByRevision(t *testing.T) {
 }
 
 func TestDB_DeleteTracker(t *testing.T) {
+	t.Parallel()
+
 	db, table, metrics := newTestDB(t, tagsIndex)
 	metrics.TableRevision.SetEnabled(true)
 	metrics.TableObjectCount.SetEnabled(true)
@@ -330,6 +334,8 @@ func TestDB_DeleteTracker(t *testing.T) {
 }
 
 func TestDB_All(t *testing.T) {
+	t.Parallel()
+
 	db, table, _ := newTestDB(t, tagsIndex)
 
 	{
@@ -374,6 +380,8 @@ func TestDB_All(t *testing.T) {
 }
 
 func TestDB_Revision(t *testing.T) {
+	t.Parallel()
+
 	db, table, _ := newTestDB(t, tagsIndex)
 
 	startRevision := table.Revision(db.ReadTxn())
@@ -400,6 +408,8 @@ func TestDB_Revision(t *testing.T) {
 }
 
 func TestDB_FirstLast(t *testing.T) {
+	t.Parallel()
+
 	db, table, _ := newTestDB(t, tagsIndex)
 
 	// Write test objects 1..10 to table with odd/even/odd/... tags.
@@ -499,6 +509,8 @@ func TestDB_FirstLast(t *testing.T) {
 }
 
 func TestDB_CommitAbort(t *testing.T) {
+	t.Parallel()
+
 	db, table, metrics := newTestDB(t, tagsIndex)
 	metrics.TableRevision.SetEnabled(true)
 	metrics.TableObjectCount.SetEnabled(true)
@@ -537,6 +549,8 @@ func TestDB_CommitAbort(t *testing.T) {
 }
 
 func TestWriteJSON(t *testing.T) {
+	t.Parallel()
+
 	db, table, _ := newTestDB(t, tagsIndex)
 
 	buf := new(bytes.Buffer)
@@ -766,6 +780,8 @@ func BenchmarkDB_FullIteration(b *testing.B) {
 }
 
 func Test_callerPackage(t *testing.T) {
+	t.Parallel()
+
 	pkg := func() string {
 		return callerPackage()
 	}()
