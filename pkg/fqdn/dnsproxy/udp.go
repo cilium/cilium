@@ -51,8 +51,10 @@ type sessionUDP struct {
 	oob   []byte
 }
 
-var rawconn4 *net.IPConn // raw socket for sending IPv4
-var rawconn6 *net.IPConn // raw socket for sending IPv6
+var (
+	rawconn4 *net.IPConn // raw socket for sending IPv4
+	rawconn6 *net.IPConn // raw socket for sending IPv6
+)
 
 // Set the socket options needed for tranparent proxying for the listening socket
 // IP(V6)_TRANSPARENT allows socket to receive packets with any destination address/port
@@ -111,7 +113,8 @@ func listenConfig(mark int, ipv4, ipv6 bool) *net.ListenConfig {
 			}
 
 			return opErr
-		}}
+		},
+	}
 }
 
 func bindUDP(addr string, ipv4, ipv6 bool) (*net.IPConn, error) {
@@ -123,10 +126,13 @@ func bindUDP(addr string, ipv4, ipv6 bool) (*net.IPConn, error) {
 	return conn.(*net.IPConn), nil
 }
 
-// NOTE: udpOnce is used in SetSocketOptions below, but assumes we have a
-// global singleton sessionUDPFactory. This is created in StartDNSProxy in
+// NOTE: udpIPv4Once and udpIPv6Once are used in SetSocketOptions below, but assumes we have
+// one global singleton sessionUDPFactory per IP family. These are created in StartDNSProxy in
 // order to have option.Config.EnableIPv{4,6} parsed correctly.
-var udpOnce sync.Once
+var (
+	udpIPv4Once sync.Once
+	udpIPv6Once sync.Once
+)
 
 // SetSocketOptions set's up 'conn' to be used with a SessionUDP.
 func (f *sessionUDPFactory) SetSocketOptions(conn *net.UDPConn) error {
@@ -141,13 +147,19 @@ func (f *sessionUDPFactory) SetSocketOptions(conn *net.UDPConn) error {
 	//   checking that a route exists from the source address before
 	//   the source address is replaced with the (transparently) changed one
 	var err error
-	udpOnce.Do(func() {
+	udpIPv4Once.Do(func() {
 		if f.ipv4Enabled {
 			rawconn4, err = bindUDP("127.0.0.1", true, false) // raw socket for sending IPv4
 			if err != nil {
 				return
 			}
 		}
+	})
+	if err != nil {
+		return fmt.Errorf("failed to open raw UDP IPv4 socket for DNS Proxy: %w", err)
+	}
+
+	udpIPv6Once.Do(func() {
 		if f.ipv6Enabled {
 			rawconn6, err = bindUDP("::1", false, true) // raw socket for sending IPv6
 			if err != nil {
@@ -156,8 +168,9 @@ func (f *sessionUDPFactory) SetSocketOptions(conn *net.UDPConn) error {
 		}
 	})
 	if err != nil {
-		return fmt.Errorf("failed to open raw UDP sockets for DNS Proxy: %w", err)
+		return fmt.Errorf("failed to open raw UDP IPv6 socket for DNS Proxy: %w", err)
 	}
+
 	return nil
 }
 
