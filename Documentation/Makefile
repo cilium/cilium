@@ -152,7 +152,7 @@ update-requirements: base-image $(REQUIREMENTS_NODEP) ## Regenerate the requirem
 		bash -c "pip install -r $(REQUIREMENTS_NODEP) && pip freeze -r $(REQUIREMENTS_NODEP) >> $(REQUIREMENTS)"
 
 clean: ## Clean up all artefacts from documentation.
-	-$(QUIET)rm -rf _build _api _exts/__pycache__ _preview Pipfile Pipfile.lock
+	-$(QUIET)rm -rf _build _exts/__pycache__ _preview Pipfile Pipfile.lock
 
 help: ## Display help for the Makefile.
 	$(call print_help_from_makefile)
