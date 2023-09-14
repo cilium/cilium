@@ -69,7 +69,7 @@ func TestSyncCESsInLocalCache(t *testing.T) {
 		}),
 	)
 	hive.Start(context.Background())
-	r = newReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice, context.Background())
+	r = newReconciler(context.Background(), fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, ciliumEndpoint, ciliumEndpointSlice)
 	cesStore, _ := ciliumEndpointSlice.Store(context.Background())
 	cesController := &Controller{
 		logger:              log,
