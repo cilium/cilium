@@ -23,6 +23,8 @@ define build_image
     | $(CONTAINER_ENGINE) build $(DOCKER_BUILD_FLAGS) --target $(2) --tag $(3) -
 endef
 
+##@ Development Images
+
 DOCS_BASE_IMG ?= cilium/docs-base
 base-image: Dockerfile ## Build the docs-base image for updating the requirements.txt file.
 	$(call build_image,$<,docs-base,$(DOCS_BASE_IMG))
@@ -57,13 +59,15 @@ DOCKER_CTR := $(DOCKER_CTR_BASE) \
 		--user "$(shell id -u):$(shell id -g)"
 DOCKER_RUN := $(DOCKER_CTR) $(DOCS_BUILDER_IMG)
 
+##@ Auto-generated Contents Updates and Validation
+
 update-cmdref: builder-image cilium-build ## Update the command reference documents (agent, bugtool, operators, etc.).
 	@$(ECHO_GEN)cmdref
 	-$(QUIET)rm -rf cmdref/cilium*.md
 	$(QUIET)$(DOCKER_RUN) ./update-cmdref.sh
 
 .PHONY: update-crdlist
-update-crdlist:
+update-crdlist: ## Update the list of CRDs.
 	@$(ECHO_GEN)crdlist
 	make -C ../ generate-crd-docs
 
@@ -72,9 +76,9 @@ codeowners.rst: $(ROOT_DIR)/CODEOWNERS
 	$(QUIET)$(DOCKER_RUN) ./update-codeowners.sh
 
 .PHONY: update-codeowners
-update-codeowners: codeowners.rst
+update-codeowners: codeowners.rst ## Update the description of the code owner teams.
 
-check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners ## Validate command and Helm references, as well as policy examples.
+check: builder-image api-flaggen update-cmdref update-crdlist update-helm-values update-codeowners ## Validate command and Helm references, policy examples, and others.
 	@$(ECHO_CHECK) cmdref
 	$(QUIET) ./check-cmdref.sh
 	@$(ECHO_CHECK) $(HELM_VALUES)
@@ -93,7 +97,7 @@ SPHINX_OPTS += -q
 endif
 
 .PHONY: api-flaggen
-api-flaggen:
+api-flaggen: ## Update the table of API flags restrictions.
 	@$(ECHO_GEN) api-flags
 	$(QUIET)$(GO) run $(ROOT_DIR)/tools/api-flaggen \
 		2>/dev/null \
@@ -120,6 +124,8 @@ $(HELM_VALUES): FORCE
 	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $(TMP_FILE_3))" > $@
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2) $(TMP_FILE_3)
 
+##@ Build
+
 epub latex html: builder-image ## Check documentation and render it under the specified format.
 	@$(ECHO_GEN)_build/$@
 	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
@@ -137,7 +143,9 @@ live-preview: builder-image ## Build and serve the documentation locally.
 			$(DOCS_BUILDER_IMG) \
 		sphinx-autobuild --open-browser --host 0.0.0.0 $(SPHINX_OPTS) --ignore *.swp -Q . _preview
 
-update-requirements: base-image $(REQUIREMENTS_NODEP)
+##@ Development
+
+update-requirements: base-image $(REQUIREMENTS_NODEP) ## Regenerate the requirements.txt file from requirements-min/requirements.txt.
 	@echo '## Auto-generated from $(REQUIREMENTS_NODEP) with "make update-requirements"' > $(REQUIREMENTS)
 	$(QUIET)$(DOCKER_CTR_BASE) $(DOCS_BASE_IMG) \
 		bash -c "pip install -r $(REQUIREMENTS_NODEP) && pip freeze -r $(REQUIREMENTS_NODEP) >> $(REQUIREMENTS)"
