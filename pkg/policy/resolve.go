@@ -61,6 +61,14 @@ type EndpointPolicy struct {
 	PolicyOwner PolicyOwner
 }
 
+func (e *EndpointPolicy) DeepCopy() *EndpointPolicy {
+	return &EndpointPolicy{
+		selectorPolicy: e.selectorPolicy,
+		PolicyMapState: e.PolicyMapState.DeepCopy(),
+		PolicyOwner:    e.PolicyOwner,
+	}
+}
+
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	GetID() uint64

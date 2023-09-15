@@ -528,6 +528,7 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 		status:           NewEndpointStatus(),
 		hasBPFProgram:    make(chan struct{}),
 		desiredPolicy:    policy.NewEndpointPolicy(policyGetter.GetPolicyRepository()),
+		realizedPolicy:   policy.NewEndpointPolicy(policyGetter.GetPolicyRepository()),
 		controllers:      controller.NewManager(),
 		regenFailedChan:  make(chan struct{}, 1),
 		allocator:        allocator,
@@ -540,8 +541,6 @@ func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, nam
 	ctx, cancel := context.WithCancel(context.Background())
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
-
-	ep.realizedPolicy = ep.desiredPolicy
 
 	ep.SetDefaultOpts(option.Config.Opts)
 
@@ -883,6 +882,8 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 	return eptsID
 }
 
+// parseEndpoint parses and returns an endpoint from base64 header data retrieved
+// during endpoint restore.
 // parseEndpoint parses the given bEp which is in the form of:
 // common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
 // Note that the parse'd endpoint's identity is only partially restored. The
@@ -912,7 +913,7 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 	// Initialize fields to values which are non-nil that are not serialized.
 	ep.hasBPFProgram = make(chan struct{})
 	ep.desiredPolicy = policy.NewEndpointPolicy(policyGetter.GetPolicyRepository())
-	ep.realizedPolicy = ep.desiredPolicy
+	ep.realizedPolicy = policy.NewEndpointPolicy(policyGetter.GetPolicyRepository())
 	ep.controllers = controller.NewManager()
 	ep.regenFailedChan = make(chan struct{}, 1)
 

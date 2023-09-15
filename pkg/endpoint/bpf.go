@@ -491,6 +491,9 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects map[string]bool, proxyWai
 // Returns the policy revision number when the regeneration has called,
 // Whether the new state dir is populated with all new BPF state files,
 // and an error if something failed.
+//
+// regenerateBPF should also sync the realizedPolicy map with the endpoint
+// policy bpf map state.
 func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint64, stateDirComplete bool, reterr error) {
 	var (
 		err                 error
@@ -535,6 +538,10 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 
 	// No need to compile BPF in dry mode.
 	if option.Config.DryMode {
+		// Because we're not applying any bpf map changes, we assume that the
+		// the realizedState should now reflect the desired state. As in the
+		// case where syncPolicyMap() succeeds.
+		e.realizedPolicy = e.desiredPolicy.DeepCopy()
 		return e.nextPolicyRevision, false, nil
 	}
 
@@ -1230,12 +1237,6 @@ func (e *Endpoint) syncPolicyMap() error {
 	err := e.applyPolicyMapChanges()
 	if err != nil {
 		return err
-	}
-
-	// Nothing to do if the desired policy is already fully realized.
-	if e.realizedPolicy == e.desiredPolicy {
-		e.PolicyDebug(nil, "syncPolicyMap(): not syncing as desired == realized")
-		return nil
 	}
 
 	// Diffs between the maps are expected here, so do not bother collecting them

@@ -537,13 +537,6 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 		e.startSyncPolicyMapController()
 	}
 
-	if e.desiredPolicy != e.realizedPolicy {
-		// Remove references to the old policy
-		e.realizedPolicy.Detach()
-		// Set realized state to desired state.
-		e.realizedPolicy = e.desiredPolicy
-	}
-
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
 	e.setPolicyRevision(revision)

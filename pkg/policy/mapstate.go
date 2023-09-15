@@ -80,6 +80,14 @@ type mapState struct {
 	denies map[Key]MapStateEntry
 }
 
+func (m MapState) DeepCopy() MapState {
+	nm := make(MapState, len(m))
+	for k, v := range m {
+		nm[k] = v.DeepCopy()
+	}
+	return nm
+}
+
 type Identities interface {
 	GetNetsLocked(identity.NumericIdentity) []*net.IPNet
 }
@@ -166,6 +174,17 @@ type MapStateEntry struct {
 	// dependents contains the keys for entries create based on this entry. These entries
 	// will be deleted once all of the owners are deleted.
 	dependents Keys
+}
+
+func (e *MapStateEntry) DeepCopy() MapStateEntry {
+	nm := *e
+	nm.DerivedFromRules = make(labels.LabelArrayList, len(e.DerivedFromRules))
+	copy(nm.DerivedFromRules, e.DerivedFromRules)
+	nm.owners = make(map[MapStateOwner]struct{}, len(e.owners))
+	nm.dependents = make(Keys, len(e.dependents))
+	maps.Copy(nm.owners, e.owners)
+	maps.Copy(nm.dependents, e.dependents)
+	return nm
 }
 
 // NewMapStateEntry creates a map state entry. If redirect is true, the
