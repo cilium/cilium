@@ -1109,33 +1109,33 @@ func bindToAddr(address string, port uint16, handler dns.Handler, ipv4, ipv6 boo
 		ipFamilies = append(ipFamilies, ipfamily.IPv6())
 	}
 
-	for _, ipf := range ipFamilies {
-		lc := listenConfig(linux_defaults.MagicMarkEgress, ipf.IPv4Enabled, ipf.IPv6Enabled)
+	for _, ipFamily := range ipFamilies {
+		lc := listenConfig(linux_defaults.MagicMarkEgress, ipFamily)
 
-		tcpListener, err := lc.Listen(context.Background(), ipf.TCPAddress, evaluateAddress(address, port, bindPort, ipf))
+		tcpListener, err := lc.Listen(context.Background(), ipFamily.TCPAddress, evaluateAddress(address, port, bindPort, ipFamily))
 		if err != nil {
-			return nil, 0, fmt.Errorf("failed to listen on %s: %w", ipf.TCPAddress, err)
+			return nil, 0, fmt.Errorf("failed to listen on %s: %w", ipFamily.TCPAddress, err)
 		}
 		dnsServers = append(dnsServers, &dns.Server{
 			Listener: tcpListener, Handler: handler,
 			// Net & Addr are only set for logging purposes and aren't used if using ActivateAndServe.
-			Net: ipf.TCPAddress, Addr: tcpListener.Addr().String(),
+			Net: ipFamily.TCPAddress, Addr: tcpListener.Addr().String(),
 		})
 
 		bindPort = uint16(tcpListener.Addr().(*net.TCPAddr).Port)
 
-		udpConn, err := lc.ListenPacket(context.Background(), ipf.UDPAddress, evaluateAddress(address, port, bindPort, ipf))
+		udpConn, err := lc.ListenPacket(context.Background(), ipFamily.UDPAddress, evaluateAddress(address, port, bindPort, ipFamily))
 		if err != nil {
-			return nil, 0, fmt.Errorf("failed to listen on %s: %w", ipf.UDPAddress, err)
+			return nil, 0, fmt.Errorf("failed to listen on %s: %w", ipFamily.UDPAddress, err)
 		}
-		sessionUDPFactory, ferr := NewSessionUDPFactory(ipf)
+		sessionUDPFactory, ferr := NewSessionUDPFactory(ipFamily)
 		if ferr != nil {
-			return nil, 0, fmt.Errorf("failed to create UDP session factory for %s: %w", ipf.UDPAddress, err)
+			return nil, 0, fmt.Errorf("failed to create UDP session factory for %s: %w", ipFamily.UDPAddress, err)
 		}
 		dnsServers = append(dnsServers, &dns.Server{
 			PacketConn: udpConn, Handler: handler, SessionUDPFactory: sessionUDPFactory,
 			// Net & Addr are only set for logging purposes and aren't used if using ActivateAndServe.
-			Net: ipf.UDPAddress, Addr: udpConn.LocalAddr().String(),
+			Net: ipFamily.UDPAddress, Addr: udpConn.LocalAddr().String(),
 		})
 	}
 

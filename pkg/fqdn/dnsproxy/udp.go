@@ -42,37 +42,21 @@ var udpOOBSize = func() int {
 //     checking that a route exists from the source address before
 //     the source address is replaced with the (transparently) changed one
 func NewSessionUDPFactory(ipFamily ipfamily.IPFamily) (dns.SessionUDPFactory, error) {
-	var err error
-	var rawconn4 *net.IPConn
-	var rawconn6 *net.IPConn
-
-	if ipFamily.IPv4Enabled {
-		rawconn4, err = bindUDP("127.0.0.1", true, false) // raw socket for sending IPv4
-		if err != nil {
-			return nil, fmt.Errorf("failed to open raw UDP IPv4 socket for DNS Proxy: %w", err)
-		}
+	rawResponseConn, err := bindResponseUDPConnection(ipFamily)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open raw UDP %s socket for DNS Proxy: %w", ipFamily.Name, err)
 	}
 
-	if ipFamily.IPv6Enabled {
-		rawconn6, err = bindUDP("::1", false, true) // raw socket for sending IPv6
-		if err != nil {
-			return nil, fmt.Errorf("failed to open raw UDP IPv6 socket for DNS Proxy: %w", err)
-		}
-	}
-
-	return &sessionUDPFactory{
-		responseConn4: rawconn4,
-		responseConn6: rawconn6,
-	}, nil
+	return &sessionUDPFactory{rawResponseConn: rawResponseConn}, nil
 }
 
 type sessionUDPFactory struct {
 	// A pool for UDP message buffers.
 	udpPool sync.Pool
 
-	// responseConn4 and responseConn6 are used to send the response
+	// rawResponseConn is used to send the response
 	// See sessionUDP.WriteResponse
-	responseConn4, responseConn6 *net.IPConn
+	rawResponseConn *net.IPConn
 }
 
 // sessionUDP implements the dns.SessionUDP, holding the remote address and the associated
@@ -89,35 +73,38 @@ type sessionUDP struct {
 // Set the socket options needed for tranparent proxying for the listening socket
 // IP(V6)_TRANSPARENT allows socket to receive packets with any destination address/port
 // IP(V6)_RECVORIGDSTADDR tells the kernel to pass the original destination address/port on recvmsg
-// The socket may be receiving both IPv4 and IPv6 data, so set both options, if enabled.
-func transparentSetsockopt(fd int, ipv4, ipv6 bool) error {
-	if ipv6 {
-		if err := unix.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_TRANSPARENT, 1); err != nil {
-			return fmt.Errorf("setsockopt(IPV6_TRANSPARENT) failed: %w", err)
-		}
-		if err := unix.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_RECVORIGDSTADDR, 1); err != nil {
-			return fmt.Errorf("setsockopt(IPV6_RECVORIGDSTADDR) failed: %w", err)
-		}
-	}
-	if ipv4 {
+// By design, a socket of a DNS Server can only receive IPv4 or IPv6 traffic.
+func transparentSetsockopt(fd int, ipFamily ipfamily.IPFamily) error {
+	switch ipFamily {
+	case ipfamily.IPv4():
 		if err := unix.SetsockoptInt(fd, unix.SOL_IP, unix.IP_TRANSPARENT, 1); err != nil {
 			return fmt.Errorf("setsockopt(IP_TRANSPARENT) failed: %w", err)
 		}
 		if err := unix.SetsockoptInt(fd, unix.SOL_IP, unix.IP_RECVORIGDSTADDR, 1); err != nil {
 			return fmt.Errorf("setsockopt(IP_RECVORIGDSTADDR) failed: %w", err)
 		}
+	case ipfamily.IPv6():
+		if err := unix.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_TRANSPARENT, 1); err != nil {
+			return fmt.Errorf("setsockopt(IPV6_TRANSPARENT) failed: %w", err)
+		}
+		if err := unix.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_RECVORIGDSTADDR, 1); err != nil {
+			return fmt.Errorf("setsockopt(IPV6_RECVORIGDSTADDR) failed: %w", err)
+		}
+	default:
+		return fmt.Errorf("unknown ipfamily: %s", ipFamily.Name)
 	}
+
 	return nil
 }
 
 // listenConfig sets the socket options for the fqdn proxy transparent socket.
 // Note that it is also used for TCP sockets.
-func listenConfig(mark int, ipv4, ipv6 bool) *net.ListenConfig {
+func listenConfig(mark int, ipFamily ipfamily.IPFamily) *net.ListenConfig {
 	return &net.ListenConfig{
 		Control: func(_, _ string, c syscall.RawConn) error {
 			var opErr error
 			err := c.Control(func(fd uintptr) {
-				if err := transparentSetsockopt(int(fd), ipv4, ipv6); err != nil {
+				if err := transparentSetsockopt(int(fd), ipFamily); err != nil {
 					opErr = err
 					return
 				}
@@ -147,11 +134,11 @@ func listenConfig(mark int, ipv4, ipv6 bool) *net.ListenConfig {
 	}
 }
 
-func bindUDP(addr string, ipv4, ipv6 bool) (*net.IPConn, error) {
+func bindResponseUDPConnection(ipFamily ipfamily.IPFamily) (*net.IPConn, error) {
 	// Mark outgoing packets as proxy egress return traffic (0x0b00)
-	conn, err := listenConfig(0xb00, ipv4, ipv6).ListenPacket(context.Background(), "ip:udp", addr)
+	conn, err := listenConfig(0xb00, ipFamily).ListenPacket(context.Background(), "ip:udp", ipFamily.Localhost)
 	if err != nil {
-		return nil, fmt.Errorf("failed to bind UDP for address %s: %w", addr, err)
+		return nil, fmt.Errorf("failed to bind UDP for address %s: %w", ipFamily.Localhost, err)
 	}
 	return conn.(*net.IPConn), nil
 }
@@ -235,11 +222,8 @@ func (s *sessionUDP) WriteResponse(b []byte) (int, error) {
 	dst := net.IPAddr{
 		IP: s.raddr.IP,
 	}
-	if s.raddr.IP.To4() == nil {
-		n, _, err = s.f.responseConn6.WriteMsgIP(buf, s.controlMessage(s.laddr), &dst)
-	} else {
-		n, _, err = s.f.responseConn4.WriteMsgIP(buf, s.controlMessage(s.laddr), &dst)
-	}
+
+	n, _, err = s.f.rawResponseConn.WriteMsgIP(buf, s.controlMessage(s.laddr), &dst)
 	if err != nil {
 		log.WithError(err).Warning("WriteMsgIP failed")
 	} else {
