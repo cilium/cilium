@@ -1043,14 +1043,21 @@ func (e *Endpoint) SkipStateClean() {
 
 // PolicyMapPressureEvent represents an event for a policymap pressure metric
 // update that is sent via the policyMapPressureUpdater interface.
-type PolicyMapPressureEvent struct{ Value float64 }
+type PolicyMapPressureEvent struct {
+	Value      float64
+	EndpointID uint16
+}
 type policyMapPressureUpdater interface {
 	Update(PolicyMapPressureEvent)
+	Remove(uint16)
 }
 
 func (e *Endpoint) updatePolicyMapPressureMetric() {
 	value := float64(e.realizedPolicy.GetPolicyMap().Len()) / float64(e.policyMap.MaxEntries())
-	e.PolicyMapPressureUpdater.Update(PolicyMapPressureEvent{value})
+	e.PolicyMapPressureUpdater.Update(PolicyMapPressureEvent{
+		Value:      value,
+		EndpointID: e.ID,
+	})
 }
 
 func (e *Endpoint) deletePolicyKey(keyToDelete policy.Key, incremental bool) bool {
