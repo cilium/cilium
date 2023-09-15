@@ -75,23 +75,11 @@ type sessionUDP struct {
 // IP(V6)_RECVORIGDSTADDR tells the kernel to pass the original destination address/port on recvmsg
 // By design, a socket of a DNS Server can only receive IPv4 or IPv6 traffic.
 func transparentSetsockopt(fd int, ipFamily ipfamily.IPFamily) error {
-	switch ipFamily {
-	case ipfamily.IPv4():
-		if err := unix.SetsockoptInt(fd, unix.SOL_IP, unix.IP_TRANSPARENT, 1); err != nil {
-			return fmt.Errorf("setsockopt(IP_TRANSPARENT) failed: %w", err)
-		}
-		if err := unix.SetsockoptInt(fd, unix.SOL_IP, unix.IP_RECVORIGDSTADDR, 1); err != nil {
-			return fmt.Errorf("setsockopt(IP_RECVORIGDSTADDR) failed: %w", err)
-		}
-	case ipfamily.IPv6():
-		if err := unix.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_TRANSPARENT, 1); err != nil {
-			return fmt.Errorf("setsockopt(IPV6_TRANSPARENT) failed: %w", err)
-		}
-		if err := unix.SetsockoptInt(fd, unix.SOL_IPV6, unix.IPV6_RECVORIGDSTADDR, 1); err != nil {
-			return fmt.Errorf("setsockopt(IPV6_RECVORIGDSTADDR) failed: %w", err)
-		}
-	default:
-		return fmt.Errorf("unknown ipfamily: %s", ipFamily.Name)
+	if err := unix.SetsockoptInt(fd, ipFamily.SocketOptsFamily, ipFamily.SocketOptsTransparent, 1); err != nil {
+		return fmt.Errorf("setsockopt(IP_TRANSPARENT) for %s failed: %w", ipFamily.Name, err)
+	}
+	if err := unix.SetsockoptInt(fd, ipFamily.SocketOptsFamily, ipFamily.SocketOptsRecvOrigDstAddr, 1); err != nil {
+		return fmt.Errorf("setsockopt(IP_RECVORIGDSTADDR) for %s failed: %w", ipFamily.Name, err)
 	}
 
 	return nil
