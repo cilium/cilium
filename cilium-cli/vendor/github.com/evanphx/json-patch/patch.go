@@ -359,7 +359,7 @@ func findObject(pd *container, path string) (container, string) {
 
 		next, ok := doc.get(decodePatchKey(part))
 
-		if next == nil || ok != nil {
+		if next == nil || ok != nil || next.raw == nil {
 			return nil, ""
 		}
 
@@ -568,6 +568,29 @@ func (p Patch) replace(doc *container, op Operation) error {
 		return errors.Wrapf(err, "replace operation failed to decode path")
 	}
 
+	if path == "" {
+		val := op.value()
+
+		if val.which == eRaw {
+			if !val.tryDoc() {
+				if !val.tryAry() {
+					return errors.Wrapf(err, "replace operation value must be object or array")
+				}
+			}
+		}
+
+		switch val.which {
+		case eAry:
+			*doc = &val.ary
+		case eDoc:
+			*doc = &val.doc
+		case eRaw:
+			return errors.Wrapf(err, "replace operation hit impossible case")
+		}
+
+		return nil
+	}
+
 	con, key := findObject(doc, path)
 
 	if con == nil {
@@ -634,6 +657,25 @@ func (p Patch) test(doc *container, op Operation) error {
 		return errors.Wrapf(err, "test operation failed to decode path")
 	}
 
+	if path == "" {
+		var self lazyNode
+
+		switch sv := (*doc).(type) {
+		case *partialDoc:
+			self.doc = *sv
+			self.which = eDoc
+		case *partialArray:
+			self.ary = *sv
+			self.which = eAry
+		}
+
+		if self.equal(op.value()) {
+			return nil
+		}
+
+		return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)
+	}
+
 	con, key := findObject(doc, path)
 
 	if con == nil {
@@ -646,7 +688,7 @@ func (p Patch) test(doc *container, op Operation) error {
 	}
 
 	if val == nil {
-		if op.value().raw == nil {
+		if op.value() == nil || op.value().raw == nil {
 			return nil
 		}
 		return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)

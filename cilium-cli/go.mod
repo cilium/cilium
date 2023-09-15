@@ -15,10 +15,10 @@ replace (
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/cilium/charts v0.0.0-20230901091647-7b38eb320edd
-	github.com/cilium/cilium v1.14.1
+	github.com/cilium/charts v0.0.0-20230913190306-2ddb61e40eb8
+	github.com/cilium/cilium v1.14.2
 	github.com/cilium/hubble v0.12.0
-	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230907211620-84f1a3735ef1
+	github.com/cilium/tetragon/pkg/k8s v0.0.0-20230914174503-882f17cd8b7c
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.4
 	github.com/go-openapi/strfmt v0.21.7
@@ -84,7 +84,7 @@ require (
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.2 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.0.2 // indirect
-	github.com/evanphx/json-patch v5.6.0+incompatible
+	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
@@ -211,8 +211,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/apiextensions-apiserver v0.27.5
-	k8s.io/apiserver v0.27.5 // indirect
+	k8s.io/apiextensions-apiserver v0.27.6
+	k8s.io/apiserver v0.27.6 // indirect
 	k8s.io/component-base v0.28.0-rc.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9 // indirect
 	k8s.io/kubectl v0.28.0-rc.0 // indirect
