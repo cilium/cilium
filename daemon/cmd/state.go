@@ -176,7 +176,7 @@ func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) er
 		return nil
 	}
 
-	var emf endpointMetadataFetcher
+	var emf endpoint.EndpointMetadataFetcher
 	if option.Config.EnableHighScaleIPcache {
 		emf = &uncachedEndpointMetadataFetcher{slimcli: d.clientset.Slim()}
 	} else {

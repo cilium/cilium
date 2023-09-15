@@ -62,7 +62,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/l2announcer"
 	"github.com/cilium/cilium/pkg/labels"
@@ -169,7 +168,7 @@ type Daemon struct {
 	k8sWatcher *watchers.K8sWatcher
 
 	// endpointMetadataFetcher knows how to fetch Kubernetes metadata for endpoints.
-	endpointMetadataFetcher endpointMetadataFetcher
+	endpointMetadataFetcher endpoint.EndpointMetadataFetcher
 
 	// healthEndpointRouting is the information required to set up the health
 	// endpoint's routing in ENI or Azure IPAM mode
@@ -1350,8 +1349,4 @@ func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) er
 		return nil
 	}
 	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, notification)
-}
-
-type endpointMetadataFetcher interface {
-	Fetch(nsName, podName string) (*slim_corev1.Namespace, *slim_corev1.Pod, error)
 }

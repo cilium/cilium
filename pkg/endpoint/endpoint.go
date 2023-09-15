@@ -394,6 +394,11 @@ type NamedPortsGetter interface {
 	GetNamedPorts() (npm types.NamedPortMultiMap)
 }
 
+// EndpointMetadataFetcher wraps a method to fetch Kubernetes metadata of an endpoint
+type EndpointMetadataFetcher interface {
+	Fetch(nsName, podName string) (*slim_corev1.Namespace, *slim_corev1.Pod, error)
+}
+
 // EndpointSyncControllerName returns the controller name to synchronize
 // endpoint in to kubernetes.
 func EndpointSyncControllerName(epID uint16) string {
