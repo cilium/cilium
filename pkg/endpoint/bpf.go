@@ -243,23 +243,22 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 	}
 	mapState := e.desiredPolicy.PolicyMapState
 
-	adds := make(policy.Keys)
-	old := make(policy.MapState)
+	insertedDesiredMapState := make(map[policy.Key]struct{})
+	updatedDesiredMapState := make(policy.MapState)
 
 	for _, l4 := range m {
 		// Deny policies do not support redirects
 		if l4.IsRedirect() {
 
-			// Check if we are denying this specific L4 first regardless the L3
-			if mapState.DeniesL4(e, l4) {
+			// Check if we are allowing this specific L4 first
+			if !mapState.AllowsL4(e, l4) {
 				continue
 			}
 
 			var redirectPort uint16
-			// Only create a redirect if the proxy is NOT running in a sidecar container
-			// or the parser is not HTTP. If running in a sidecar container and the parser
-			// is HTTP, just allow traffic to the port at L4 by setting the proxy port
-			// to 0.
+			// Only create a redirect if the proxy is NOT running in a sidecar
+			// container. If running in a sidecar container, just allow traffic
+			// to the port at L4 by setting the proxy port to 0.
 			if !e.hasSidecarProxy || l4.L7Parser != policy.ParserTypeHTTP {
 				var finalizeFunc revert.FinalizeFunc
 				var revertFunc revert.RevertFunc
@@ -320,13 +319,22 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				direction = trafficdirection.Egress
 			}
 
-			idLookup := &policyIdentitiesLabelLookup{e}
-			keysFromFilter := l4.ToMapState(e, direction, idLookup)
+			keysFromFilter := l4.ToMapState(e, direction, &policyIdentitiesLabelLookup{e})
+
 			for keyFromFilter, entry := range keysFromFilter {
+				if oldEntry, ok := e.desiredPolicy.PolicyMapState[keyFromFilter]; ok {
+					// Keep the original old entry for revert if there are duplicate keys,
+					// which are possible due to named ports resolving to the same number.
+					if _, isDup := updatedDesiredMapState[keyFromFilter]; !isDup {
+						updatedDesiredMapState[keyFromFilter] = oldEntry
+					}
+				} else {
+					insertedDesiredMapState[keyFromFilter] = struct{}{}
+				}
 				if entry.IsRedirectEntry() {
 					entry.ProxyPort = redirectPort
 				}
-				e.desiredPolicy.PolicyMapState.DenyPreferredInsertWithChanges(keyFromFilter, entry, adds, nil, old, idLookup)
+				e.desiredPolicy.PolicyMapState[keyFromFilter] = entry
 			}
 		}
 	}
@@ -339,7 +347,13 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 		}
 		e.proxyStatisticsMutex.Unlock()
 
-		e.desiredPolicy.PolicyMapState.RevertChanges(adds, old)
+		// Restore the desired policy map state.
+		for key := range insertedDesiredMapState {
+			delete(e.desiredPolicy.PolicyMapState, key)
+		}
+		for key, entry := range updatedDesiredMapState {
+			e.desiredPolicy.PolicyMapState[key] = entry
+		}
 		return nil
 	})
 
