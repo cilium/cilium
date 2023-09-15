@@ -563,15 +563,11 @@ func (keys MapState) DenyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 // redirectPreferredInsert inserts a new entry giving priority to L7-redirects by
 // not overwriting a L7-redirect entry with a non-redirect entry.
 func (keys MapState) redirectPreferredInsert(key Key, entry MapStateEntry, adds, deletes Keys, old MapState) {
-	// Do not overwrite the entry, but only merge owners if the old entry is a deny or if the
-	// old entry is redirect and the new entry is not a redirect.  This prevents an existing
-	// deny entry being overridden, but allows redirect entries to be overridden by other
-	// redirect entries.
+	// Do not overwrite the entry, but only merge owners if the old entry is a deny or redirect.
+	// This prevents an existing deny or redirect being overridden by a non-deny or a non-redirect.
 	// Merging owners from the new entry to the existing one has no datapath impact so we skip
 	// adding anything to 'adds' here.
-	// Merging owners has the effect of keeping the shared entry alive as long as one of the owners exists.
-	if oldEntry, exists := keys[key]; exists &&
-		(!entry.IsRedirectEntry() && oldEntry.IsRedirectEntry() || oldEntry.IsDeny) {
+	if oldEntry, exists := keys[key]; exists && (oldEntry.IsRedirectEntry() || oldEntry.IsDeny) {
 		// Save old value before any changes, if desired
 		if old != nil && !entry.DeepEqual(&oldEntry) {
 			old.insertIfNotExists(key, oldEntry)
@@ -839,7 +835,7 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 	}
 }
 
-func (keys MapState) DeniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
+func (keys MapState) AllowsL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
 
@@ -847,7 +843,7 @@ func (keys MapState) DeniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 	if port == 0 && l4.PortName != "" {
 		port = policyOwner.GetNamedPortLocked(l4.Ingress, l4.PortName, proto)
 		if port == 0 {
-			return true
+			return false
 		}
 	}
 
@@ -863,10 +859,10 @@ func (keys MapState) DeniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 		Nexthdr:          0,
 		TrafficDirection: dir,
 	}
-	// Are we explicitly denying all traffic?
+	// Are we explicitly denying any traffic?
 	v, ok := keys[anyKey]
 	if ok && v.IsDeny {
-		return true
+		return false
 	}
 
 	// Are we explicitly denying this L4-only traffic?
@@ -874,12 +870,10 @@ func (keys MapState) DeniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 	anyKey.Nexthdr = proto
 	v, ok = keys[anyKey]
 	if ok && v.IsDeny {
-		return true
+		return false
 	}
 
-	// The given L4 is not categorically denied.
-	// Traffic to/from a specific L3 on any of the selectors can still be denied.
-	return false
+	return true
 }
 
 func (pms MapState) GetIdentities(log *logrus.Logger) (ingIdentities, egIdentities []int64) {
