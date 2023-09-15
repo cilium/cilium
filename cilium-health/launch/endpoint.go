@@ -38,7 +38,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/sysctl"
 )
 
@@ -223,7 +222,7 @@ type EndpointAdder interface {
 // cleanup of prior cilium-health endpoint instances.
 func LaunchAsEndpoint(baseCtx context.Context,
 	owner regeneration.Owner,
-	policyGetter policyRepoGetter,
+	policyGetter endpoint.PolicyRepoGetter,
 	ipcache *ipcache.IPCache,
 	mtuConfig mtu.Configuration,
 	bigTCPConfig bigtcp.Configuration,
@@ -349,10 +348,6 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	metrics.SubprocessStart.WithLabelValues(ciliumHealth).Inc()
 
 	return client, nil
-}
-
-type policyRepoGetter interface {
-	GetPolicyRepository() *policy.Repository
 }
 
 type routingConfigurer interface {

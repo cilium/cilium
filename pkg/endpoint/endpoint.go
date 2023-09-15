@@ -118,10 +118,10 @@ type Endpoint struct {
 	owner regeneration.Owner
 
 	// policyGetter can get the policy.Repository object.
-	policyGetter policyRepoGetter
+	policyGetter PolicyRepoGetter
 
 	// namedPortsGetter can get the ipcache.IPCache object.
-	namedPortsGetter namedPortsGetter
+	namedPortsGetter NamedPortsGetter
 
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
@@ -384,12 +384,14 @@ type Endpoint struct {
 	ciliumEndpointUID k8sTypes.UID
 }
 
-type namedPortsGetter interface {
-	GetNamedPorts() (npm types.NamedPortMultiMap)
+// PolicyRepoGetter wraps a method that return a reference to the policy repository
+type PolicyRepoGetter interface {
+	GetPolicyRepository() *policy.Repository
 }
 
-type policyRepoGetter interface {
-	GetPolicyRepository() *policy.Repository
+// NamedPortsGetter wraps a method that returns a getter for the named ports map
+type NamedPortsGetter interface {
+	GetNamedPorts() (npm types.NamedPortMultiMap)
 }
 
 // EndpointSyncControllerName returns the controller name to synchronize
@@ -473,7 +475,7 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 }
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
-func NewEndpointWithState(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, state State) *Endpoint {
+func NewEndpointWithState(owner regeneration.Owner, policyGetter PolicyRepoGetter, namedPortsGetter NamedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, state State) *Endpoint {
 	endpointQueueName := "endpoint-" + strconv.FormatUint(uint64(ID), 10)
 	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, ID, "")
 	ep.state = state
@@ -486,7 +488,7 @@ func NewEndpointWithState(owner regeneration.Owner, policyGetter policyRepoGette
 	return ep
 }
 
-func createEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, ifName string) *Endpoint {
+func createEndpoint(owner regeneration.Owner, policyGetter PolicyRepoGetter, namedPortsGetter NamedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, ifName string) *Endpoint {
 	ep := &Endpoint{
 		owner:            owner,
 		policyGetter:     policyGetter,
@@ -537,7 +539,7 @@ func (e *Endpoint) initDNSHistoryTrigger() {
 }
 
 // CreateHostEndpoint creates the endpoint corresponding to the host.
-func CreateHostEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator) (*Endpoint, error) {
+func CreateHostEndpoint(owner regeneration.Owner, policyGetter PolicyRepoGetter, namedPortsGetter NamedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator) (*Endpoint, error) {
 	mac, err := link.GetHardwareAddr(defaults.HostDevice)
 	if err != nil {
 		return nil, err
@@ -844,7 +846,7 @@ func FilterEPDir(dirFiles []os.DirEntry) []string {
 // common.CiliumCHeaderPrefix + common.Version + ":" + endpointBase64
 // Note that the parse'd endpoint's identity is only partially restored. The
 // caller must call `SetIdentity()` to make the returned endpoint's identity useful.
-func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, bEp []byte) (*Endpoint, error) {
+func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter PolicyRepoGetter, namedPortsGetter NamedPortsGetter, bEp []byte) (*Endpoint, error) {
 	// TODO: Provide a better mechanism to update from old version once we bump
 	// TODO: cilium version.
 	epSlice := bytes.Split(bEp, []byte{':'})

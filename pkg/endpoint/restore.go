@@ -74,8 +74,8 @@ func hasHostObjectFile(epDir string) bool {
 
 // ReadEPsFromDirNames returns a mapping of endpoint ID to endpoint of endpoints
 // from a list of directory names that can possible contain an endpoint.
-func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGetter policyRepoGetter,
-	namedPortsGetter namedPortsGetter, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
+func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, policyGetter PolicyRepoGetter,
+	namedPortsGetter NamedPortsGetter, basePath string, eptsDirNames []string) map[uint16]*Endpoint {
 
 	completeEPDirNames, incompleteEPDirNames := partitionEPDirNamesByRestoreStatus(eptsDirNames)
 

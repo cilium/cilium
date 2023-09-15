@@ -670,7 +670,7 @@ func (mgr *endpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 func (mgr *endpointManager) AddHostEndpoint(
 	ctx context.Context,
 	owner regeneration.Owner,
-	policyGetter policyRepoGetter,
+	policyGetter endpoint.PolicyRepoGetter,
 	ipcache *ipcache.IPCache,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
@@ -690,10 +690,6 @@ func (mgr *endpointManager) AddHostEndpoint(
 	ep.InitWithNodeLabels(ctx, launchTime)
 
 	return nil
-}
-
-type policyRepoGetter interface {
-	GetPolicyRepository() *policy.Repository
 }
 
 // InitHostEndpointLabels initializes the host endpoint's labels with the

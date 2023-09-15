@@ -83,7 +83,7 @@ type EndpointsModify interface {
 	AddHostEndpoint(
 		ctx context.Context,
 		owner regeneration.Owner,
-		policyGetter policyRepoGetter,
+		policyGetter endpoint.PolicyRepoGetter,
 		ipcache *ipcache.IPCache,
 		proxy endpoint.EndpointProxy,
 		allocator cache.IdentityAllocator,
