@@ -11,12 +11,6 @@ import (
 )
 
 const (
-	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
-	// Used to determine if CRD needs to be updated in cluster
-	//
-	// Developers: Bump patch for each change in the CRD schema.
-	CustomResourceDefinitionSchemaVersion = "0.12.0"
-
 	CRDVersion = "v1alpha1"
 
 	// TPCRDName is the full name of the TracingPolicy CRD.

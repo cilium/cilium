@@ -6,14 +6,17 @@ package utils
 import (
 	"net"
 	"sort"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/pkg/ip"
+	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
+	labelsPkg "github.com/cilium/cilium/pkg/labels"
 )
 
 const (
@@ -218,4 +221,60 @@ func GetClusterIPByFamily(ipFamily slim_corev1.IPFamily, service *slim_corev1.Se
 	}
 
 	return ""
+}
+
+// SanitizePodLabels makes sure that no important pod labels were overridden manually
+func SanitizePodLabels(labels map[string]string, namespace *slim_corev1.Namespace, serviceAccount, clusterName string) map[string]string {
+	sanitizedLabels := make(map[string]string)
+
+	for k, v := range labels {
+		sanitizedLabels[k] = v
+	}
+	// Sanitize namespace labels
+	for k, v := range namespace.GetLabels() {
+		sanitizedLabels[joinPath(k8sconst.PodNamespaceMetaLabels, k)] = v
+	}
+	// Sanitize namespace name label
+	sanitizedLabels[k8sconst.PodNamespaceLabel] = namespace.ObjectMeta.Name
+	// Sanitize service account name
+	if serviceAccount != "" {
+		sanitizedLabels[k8sconst.PolicyLabelServiceAccount] = serviceAccount
+	} else {
+		delete(sanitizedLabels, k8sconst.PolicyLabelServiceAccount)
+	}
+	// Sanitize cluster name
+	sanitizedLabels[k8sconst.PolicyLabelCluster] = clusterName
+
+	return sanitizedLabels
+}
+
+// StripPodSpecialLabels strips labels that are not supposed to be coming from a k8s pod object
+func StripPodSpecialLabels(labels map[string]string) map[string]string {
+	sanitizedLabels := make(map[string]string)
+	forbiddenKeys := map[string]struct{}{
+		k8sconst.PodNamespaceMetaLabels:    {},
+		k8sconst.PolicyLabelServiceAccount: {},
+		k8sconst.PolicyLabelCluster:        {},
+		k8sconst.PodNamespaceLabel:         {},
+	}
+	for k, v := range labels {
+		// If the key contains the prefix for namespace labels then we will
+		// ignore it.
+		if strings.HasPrefix(k, k8sconst.PodNamespaceMetaLabels) {
+			continue
+		}
+		// If the key belongs to any of the forbiddenKeys then we will ignore
+		// it.
+		_, ok := forbiddenKeys[k]
+		if ok {
+			continue
+		}
+		sanitizedLabels[k] = v
+	}
+	return sanitizedLabels
+}
+
+// joinPath mimics JoinPath from pkg/policy/utils, which could not be imported here due to circular dependency
+func joinPath(a, b string) string {
+	return a + labelsPkg.PathDelimiter + b
 }
