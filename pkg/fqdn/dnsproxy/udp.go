@@ -20,6 +20,7 @@ import (
 	"golang.org/x/net/ipv6"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -30,14 +31,48 @@ var udpOOBSize = func() int {
 	return int(unsafe.Sizeof(hdr) + unsafe.Sizeof(addr))
 }()
 
+// Set up new SessionUDPFactory with dedicated raw socket for sending responses.
+//   - Must use a raw UDP socket for sending responses so that we can send
+//     from a specific port without binding to it.
+//   - The raw UDP socket must be bound to a specific IP address to prevent
+//     it receiving ALL UDP packets on the host.
+//   - We use oob data to override the source IP address when sending
+//   - Must use separate sockets for IPv4/IPv6, as sending to a v6-mapped
+//     v4 address from a socket bound to "::1" does not work due to kernel
+//     checking that a route exists from the source address before
+//     the source address is replaced with the (transparently) changed one
+func NewSessionUDPFactory(ipFamily ipfamily.IPFamily) (dns.SessionUDPFactory, error) {
+	var err error
+	var rawconn4 *net.IPConn
+	var rawconn6 *net.IPConn
+
+	if ipFamily.IPv4Enabled {
+		rawconn4, err = bindUDP("127.0.0.1", true, false) // raw socket for sending IPv4
+		if err != nil {
+			return nil, fmt.Errorf("failed to open raw UDP IPv4 socket for DNS Proxy: %w", err)
+		}
+	}
+
+	if ipFamily.IPv6Enabled {
+		rawconn6, err = bindUDP("::1", false, true) // raw socket for sending IPv6
+		if err != nil {
+			return nil, fmt.Errorf("failed to open raw UDP IPv6 socket for DNS Proxy: %w", err)
+		}
+	}
+
+	return &sessionUDPFactory{
+		responseConn4: rawconn4,
+		responseConn6: rawconn6,
+	}, nil
+}
+
 type sessionUDPFactory struct {
 	// A pool for UDP message buffers.
 	udpPool sync.Pool
 
-	// ipv4Enabled and ipv6Enabled are used when setting up the proxy sockets
-	// later, and determine if we bind to 127.0.0.1 and ::1, respectively.
-	// See sessionUDPFactory.SetSocketOptions
-	ipv4Enabled, ipv6Enabled bool
+	// responseConn4 and responseConn6 are used to send the response
+	// See sessionUDP.WriteResponse
+	responseConn4, responseConn6 *net.IPConn
 }
 
 // sessionUDP implements the dns.SessionUDP, holding the remote address and the associated
@@ -50,11 +85,6 @@ type sessionUDP struct {
 	m     []byte
 	oob   []byte
 }
-
-var (
-	rawconn4 *net.IPConn // raw socket for sending IPv4
-	rawconn6 *net.IPConn // raw socket for sending IPv6
-)
 
 // Set the socket options needed for tranparent proxying for the listening socket
 // IP(V6)_TRANSPARENT allows socket to receive packets with any destination address/port
@@ -84,7 +114,7 @@ func transparentSetsockopt(fd int, ipv4, ipv6 bool) error {
 // Note that it is also used for TCP sockets.
 func listenConfig(mark int, ipv4, ipv6 bool) *net.ListenConfig {
 	return &net.ListenConfig{
-		Control: func(network, address string, c syscall.RawConn) error {
+		Control: func(_, _ string, c syscall.RawConn) error {
 			var opErr error
 			err := c.Control(func(fd uintptr) {
 				if err := transparentSetsockopt(int(fd), ipv4, ipv6); err != nil {
@@ -126,51 +156,10 @@ func bindUDP(addr string, ipv4, ipv6 bool) (*net.IPConn, error) {
 	return conn.(*net.IPConn), nil
 }
 
-// NOTE: udpIPv4Once and udpIPv6Once are used in SetSocketOptions below, but assumes we have
-// one global singleton sessionUDPFactory per IP family. These are created in StartDNSProxy in
-// order to have option.Config.EnableIPv{4,6} parsed correctly.
-var (
-	udpIPv4Once sync.Once
-	udpIPv6Once sync.Once
-)
-
 // SetSocketOptions set's up 'conn' to be used with a SessionUDP.
-func (f *sessionUDPFactory) SetSocketOptions(conn *net.UDPConn) error {
-	// Set up the raw socket for sending responses.
-	// - Must use a raw UDP socket for sending responses so that we can send
-	//   from a specific port without binding to it.
-	// - The raw UDP socket must be bound to a specific IP address to prevent
-	//   it receiving ALL UDP packets on the host.
-	// - We use oob data to override the source IP address when sending
-	// - Must use separate sockets for IPv4/IPv6, as sending to a v6-mapped
-	//   v4 address from a socket bound to "::1" does not work due to kernel
-	//   checking that a route exists from the source address before
-	//   the source address is replaced with the (transparently) changed one
-	var err error
-	udpIPv4Once.Do(func() {
-		if f.ipv4Enabled {
-			rawconn4, err = bindUDP("127.0.0.1", true, false) // raw socket for sending IPv4
-			if err != nil {
-				return
-			}
-		}
-	})
-	if err != nil {
-		return fmt.Errorf("failed to open raw UDP IPv4 socket for DNS Proxy: %w", err)
-	}
-
-	udpIPv6Once.Do(func() {
-		if f.ipv6Enabled {
-			rawconn6, err = bindUDP("::1", false, true) // raw socket for sending IPv6
-			if err != nil {
-				return
-			}
-		}
-	})
-	if err != nil {
-		return fmt.Errorf("failed to open raw UDP IPv6 socket for DNS Proxy: %w", err)
-	}
-
+func (f *sessionUDPFactory) SetSocketOptions(_ *net.UDPConn) error {
+	// Response connections (IPv4 & IPv6) will be used to response.
+	// They are already properly setup in NewSessionUDPFactory.
 	return nil
 }
 
@@ -227,6 +216,7 @@ func (s *sessionUDP) RemoteAddr() net.Addr { return s.raddr }
 func (s *sessionUDP) LocalAddr() net.Addr { return s.laddr }
 
 // WriteResponse writes a response to a request received earlier
+// It uses the raw udp connections (IPv4 or IPv6) from its sessionUDPFactory.
 func (s *sessionUDP) WriteResponse(b []byte) (int, error) {
 	// Must give the UDP header to get the source port right.
 	// Reuse the msg buffer, figure out if golang can do gatter-scather IO
@@ -246,9 +236,9 @@ func (s *sessionUDP) WriteResponse(b []byte) (int, error) {
 		IP: s.raddr.IP,
 	}
 	if s.raddr.IP.To4() == nil {
-		n, _, err = rawconn6.WriteMsgIP(buf, s.controlMessage(s.laddr), &dst)
+		n, _, err = s.f.responseConn6.WriteMsgIP(buf, s.controlMessage(s.laddr), &dst)
 	} else {
-		n, _, err = rawconn4.WriteMsgIP(buf, s.controlMessage(s.laddr), &dst)
+		n, _, err = s.f.responseConn4.WriteMsgIP(buf, s.controlMessage(s.laddr), &dst)
 	}
 	if err != nil {
 		log.WithError(err).Warning("WriteMsgIP failed")
@@ -271,7 +261,7 @@ func parseDstFromOOB(oob []byte) (*net.UDPAddr, error) {
 			// Address family is in native byte order
 			family := *(*uint16)(unsafe.Pointer(&msg.Data[unsafe.Offsetof(pp.Family)]))
 			if family != unix.AF_INET {
-				return nil, fmt.Errorf("original destination is not IPv4.")
+				return nil, fmt.Errorf("original destination is not IPv4")
 			}
 			// Port is in big-endian byte order
 			if err = binary.Read(bytes.NewReader(msg.Data), binary.BigEndian, pp); err != nil {
@@ -288,7 +278,7 @@ func parseDstFromOOB(oob []byte) (*net.UDPAddr, error) {
 			// Address family is in native byte order
 			family := *(*uint16)(unsafe.Pointer(&msg.Data[unsafe.Offsetof(pp.Family)]))
 			if family != unix.AF_INET6 {
-				return nil, fmt.Errorf("original destination is not IPv6.")
+				return nil, fmt.Errorf("original destination is not IPv6")
 			}
 			// Scope ID is in native byte order
 			scopeId := *(*uint32)(unsafe.Pointer(&msg.Data[unsafe.Offsetof(pp.Scope_id)]))
@@ -304,7 +294,7 @@ func parseDstFromOOB(oob []byte) (*net.UDPAddr, error) {
 			return laddr, nil
 		}
 	}
-	return nil, fmt.Errorf("No original destination found!")
+	return nil, fmt.Errorf("no original destination found")
 }
 
 // correctSource returns the oob data with the given source address
