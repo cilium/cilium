@@ -1128,8 +1128,12 @@ func bindToAddr(address string, port uint16, handler dns.Handler, ipv4, ipv6 boo
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to listen on %s: %w", ipf.UDPAddress, err)
 		}
+		sessionUDPFactory, ferr := NewSessionUDPFactory(ipf)
+		if ferr != nil {
+			return nil, 0, fmt.Errorf("failed to create UDP session factory for %s: %w", ipf.UDPAddress, err)
+		}
 		dnsServers = append(dnsServers, &dns.Server{
-			PacketConn: udpConn, Handler: handler, SessionUDPFactory: &sessionUDPFactory{ipv4Enabled: ipf.IPv4Enabled, ipv6Enabled: ipf.IPv6Enabled},
+			PacketConn: udpConn, Handler: handler, SessionUDPFactory: sessionUDPFactory,
 			// Net & Addr are only set for logging purposes and aren't used if using ActivateAndServe.
 			Net: ipf.UDPAddress, Addr: udpConn.LocalAddr().String(),
 		})
