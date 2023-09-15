@@ -404,8 +404,15 @@ func (e *Endpoint) InitEndpointScope(parent cell.Scope) {
 }
 
 func (e *Endpoint) Close() {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
 	if e.closeHealthReporter != nil {
 		e.closeHealthReporter()
+	}
+
+	if e.PolicyMapPressureUpdater != nil {
+		e.PolicyMapPressureUpdater.Remove(e.ID)
 	}
 }
 
