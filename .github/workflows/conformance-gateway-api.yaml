@@ -103,31 +103,24 @@ jobs:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
 
+      - name: Get Cilium's default values
+        id: default_vars
+        uses: ./.github/actions/helm-default
+        with:
+          image-tag: ${{ inputs.SHA }}
+
       - name: Set image tag
         id: vars
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            SHA="${{ inputs.SHA }}"
-          else
-            SHA="${{ github.sha }}"
-          fi
-          echo sha=${SHA} >> $GITHUB_OUTPUT
+          echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
           
           SUPPORTED_FEATURES="ReferenceGrant,HTTPRoute,TLSRoute,HTTPRouteQueryParamMatching,HTTPRouteMethodMatching,GatewayClassObservedGenerationBump,HTTPRouteHostRewrite,HTTPRoutePathRewrite,HTTPRouteSchemeRedirect,HTTPRoutePathRedirect,HTTPRoutePortRedirect,HTTPRouteRequestMirror"
           if [ ${{ matrix.crd-channel }} == "experimental" ]; then
             SUPPORTED_FEATURES+=",HTTPResponseHeaderModification,RouteDestinationPortMatching"
           fi
 
-          CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
-            --helm-set=debug.enabled=true \
+          CILIUM_INSTALL_DEFAULTS="${{ steps.default_vars.outputs.cilium_install_defaults }} \
             --helm-set=debug.verbose=envoy \
-            --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
-            --helm-set=image.useDigest=false \
-            --helm-set=image.tag=${SHA} \
-            --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
-            --helm-set=operator.image.suffix=-ci \
-            --helm-set=operator.image.tag=${SHA} \
-            --helm-set=operator.image.useDigest=false \
             --helm-set kubeProxyReplacement=true \
             --helm-set=gatewayAPI.enabled=true"
 
