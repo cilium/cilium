@@ -26,10 +26,15 @@ runs:
         else
           SHA="${{ github.sha }}"
         fi
-        echo sha=${SHA} >> $GITHUB_OUTPUT
 
         CILIUM_INSTALL_DEFAULTS="--chart-directory=${{ inputs.chart-dir }} \
-          --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
+          --helm-set=debug.enabled=true \
+          --helm-set=bpf.monitorAggregation=none"
+
+        # only add SHA to the image tags if it was set
+        if [ -n "${SHA}" ]; then
+          echo sha=${SHA} >> $GITHUB_OUTPUT
+          CILIUM_INSTALL_DEFAULTS+=" --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
           --helm-set=image.useDigest=false \
           --helm-set=image.tag=${SHA} \
           --helm-set=operator.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/operator \
@@ -44,8 +49,11 @@ runs:
           --helm-set=clustermesh.apiserver.kvstoremesh.image.useDigest=false \
           --helm-set=hubble.relay.image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/hubble-relay-ci \
           --helm-set=hubble.relay.image.tag=${SHA} \
-          --helm-set=hubble.relay.image.useDigest=false \
-          --helm-set=debug.enabled=true \
-          --helm-set=bpf.monitorAggregation=none"
+          --helm-set=hubble.relay.image.useDigest=false"
+        fi
+
+        if [ -f "${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml" ]; then
+          CILIUM_INSTALL_DEFAULTS+=" --values=${{ inputs.chart-dir }}/../../../.github/actions/helm-default/ci-required-values.yaml"
+        fi
 
         echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
