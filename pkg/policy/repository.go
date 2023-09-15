@@ -111,6 +111,9 @@ type Repository struct {
 	Mutex lock.RWMutex
 	rules ruleSlice
 
+	// rulesIndexByK8sUID indexes the rules by k8s UID.
+	rulesIndexByK8sUID map[string]*rule
+
 	// revision is the revision of the policy repository. It will be
 	// incremented whenever the policy repository is changed.
 	// Always positive (>0).
@@ -190,10 +193,11 @@ func NewStoppedPolicyRepository(
 ) *Repository {
 	selectorCache := NewSelectorCache(idAllocator, idCache)
 	repo := &Repository{
-		revision:      1,
-		selectorCache: selectorCache,
-		certManager:   certManager,
-		secretManager: secretManager,
+		rulesIndexByK8sUID: map[string]*rule{},
+		revision:           1,
+		selectorCache:      selectorCache,
+		certManager:        certManager,
+		secretManager:      secretManager,
 	}
 	repo.policyCache = NewPolicyCache(repo, true)
 	return repo
@@ -367,6 +371,13 @@ func (p *Repository) AllowsEgressRLocked(ctx *SearchContext) api.Decision {
 func (p *Repository) SearchRLocked(lbls labels.LabelArray) api.Rules {
 	result := api.Rules{}
 
+	if uid := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PolicyLabelUID); uid != "" {
+		r, ok := p.rulesIndexByK8sUID[uid]
+		if ok {
+			result = append(result, &r.Rule)
+		}
+		return result
+	}
 	for _, r := range p.rules {
 		if r.Labels.Contains(lbls) {
 			result = append(result, &r.Rule)
@@ -406,6 +417,9 @@ func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 			metadata: newRuleMetadata(),
 		}
 		newList[i] = newRule
+		if uid := rules[i].Labels.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PolicyLabelUID); uid != "" {
+			p.rulesIndexByK8sUID[uid] = newRule
+		}
 	}
 
 	p.rules = append(p.rules, newList...)
@@ -516,6 +530,9 @@ func (p *Repository) DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, ui
 	if deleted > 0 {
 		p.BumpRevision()
 		p.rules = new
+		if uid := lbls.Get(labels.LabelSourceK8sKeyPrefix + k8sConst.PolicyLabelUID); uid != "" {
+			delete(p.rulesIndexByK8sUID, uid)
+		}
 		metrics.Policy.Sub(float64(deleted))
 	}
 
