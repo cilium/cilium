@@ -21,7 +21,7 @@ type BPFMetricsMapSuite struct{}
 var _ = Suite(&BPFMetricsMapSuite{})
 
 func (s *BPFMetricsMapSuite) TestDumpMetrics(c *C) {
-	metricsMap := []interface{}{
+	metricsMap := []*mockmaps.MetricsMockMap{
 		mockmaps.NewMetricsMockMap(
 			[]mockmaps.MetricsRecord{
 				{
@@ -75,9 +75,9 @@ func (s *BPFMetricsMapSuite) TestDumpMetrics(c *C) {
 		},
 	}
 
-	rawDump := dumpAndRead(metricsMap, func(maps []interface{}, args ...interface{}) {
+	rawDump := dumpAndRead(metricsMap, func(maps []*mockmaps.MetricsMockMap, args ...interface{}) {
 		for _, m := range maps {
-			listMetrics(m.(*mockmaps.MetricsMockMap))
+			listMetrics(m)
 		}
 	}, c)
 

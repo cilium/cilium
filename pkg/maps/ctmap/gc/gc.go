@@ -216,10 +216,7 @@ func (gc *GC) runGC(e *endpoint.Endpoint, ipv4, ipv6, triggeredBySignal bool, fi
 		maps = ctmap.LocalMaps(e, ipv4, ipv6)
 	}
 	for _, m := range maps {
-		path, err := m.Path()
-		if err == nil {
-			err = m.Open()
-		}
+		path, err := ctmap.OpenCTMap(m)
 		if err != nil {
 			msg := "Skipping CT garbage collection"
 			scopedLog := gc.logger.WithError(err).WithField(logfields.Path, path)

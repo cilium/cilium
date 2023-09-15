@@ -27,7 +27,7 @@ var bpfNatListCmd = &cobra.Command{
 		common.RequireRootPrivilege("cilium bpf nat list")
 		if len(args) == 0 {
 			ipv4, ipv6 := nat.GlobalMaps(true, getIpv6EnableStatus(), true)
-			globalMaps := make([]interface{}, 2)
+			globalMaps := make([]nat.NatMap, 2)
 			globalMaps[0] = ipv4
 			globalMaps[1] = ipv6
 			dumpNat(globalMaps)
@@ -42,7 +42,7 @@ var bpfNatListCmd = &cobra.Command{
 				cmd.PrintErrf("Failed to retrieve cluster maps: %s", err.Error())
 				return
 			}
-			clusterMaps := make([]interface{}, 2)
+			clusterMaps := make([]nat.NatMap, 2)
 			clusterMaps[0] = ipv4
 			clusterMaps[1] = ipv6
 			dumpNat(clusterMaps)
@@ -58,16 +58,16 @@ func init() {
 	command.AddOutputOption(bpfNatListCmd)
 }
 
-func dumpNat(maps []interface{}, args ...interface{}) {
+func dumpNat(maps []nat.NatMap, args ...interface{}) {
 	entries := make([]nat.NatMapRecord, 0)
 
 	for _, m := range maps {
 		if m == nil || reflect.ValueOf(m).IsNil() {
 			continue
 		}
-		path, err := m.(nat.NatMap).Path()
+		path, err := m.Path()
 		if err == nil {
-			err = m.(nat.NatMap).Open()
+			err = m.Open()
 		}
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -76,7 +76,7 @@ func dumpNat(maps []interface{}, args ...interface{}) {
 			}
 			Fatalf("Unable to open %s: %s", path, err)
 		}
-		defer m.(nat.NatMap).Close()
+		defer m.Close()
 		// Plain output prints immediately, JSON/YAML output holds until it
 		// collected values from all maps to have one consistent object
 		if command.OutputOption() {
@@ -84,7 +84,7 @@ func dumpNat(maps []interface{}, args ...interface{}) {
 				record := nat.NatMapRecord{Key: key.(nat.NatKey), Value: value.(nat.NatEntry)}
 				entries = append(entries, record)
 			}
-			if err = m.(nat.NatMap).DumpWithCallback(callback); err != nil {
+			if err = m.DumpWithCallback(callback); err != nil {
 				Fatalf("Error while collecting BPF map entries: %s", err)
 			}
 		} else {
@@ -96,7 +96,7 @@ func dumpNat(maps []interface{}, args ...interface{}) {
 			if err != nil {
 				Fatalf("Error while dumping BPF Map: %s", err)
 			}
-			out, err := nat.DumpEntriesWithTimeDiff(m.(nat.NatMap), clockSource)
+			out, err := nat.DumpEntriesWithTimeDiff(m, clockSource)
 			if err != nil {
 				Fatalf("Error while dumping BPF Map: %s", err)
 			}
