@@ -238,6 +238,17 @@ func (m *Map) DumpEntries() (string, error) {
 	return DoDumpEntries(m)
 }
 
+// OpenCTMap is a convenience function to open CT maps. It is the
+// responsibility of the caller to ensure that m.Close() is called after this
+// function.
+func OpenCTMap(m CtMap) (path string, err error) {
+	path, err = m.Path()
+	if err == nil {
+		err = m.Open()
+	}
+	return
+}
+
 // newMap creates a new CT map of the specified type with the specified name.
 func newMap(mapName string, m mapType) *Map {
 	result := &Map{
