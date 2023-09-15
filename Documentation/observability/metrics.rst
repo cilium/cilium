@@ -387,11 +387,11 @@ Name                                       Labels                               
 ========================================== ================================================== ========== ========================================================
 ``policy``                                                                                    Enabled    Number of policies currently loaded
 ``policy_regeneration_total``                                                                 Enabled    Total number of policies regenerated successfully
-``policy_regeneration_time_stats_seconds`` ``scope``                                          Enabled    Policy regeneration time stats labeled by the scope
+``policy_regeneration_time_stats_seconds`` ``scope``, ``status``                              Enabled    Policy regeneration time stats labeled by the scope
 ``policy_max_revision``                                                                       Enabled    Highest policy revision number in the agent
-``policy_import_errors_total``                                                                Enabled    Number of times a policy import has failed
-``policy_change_total``                                                                       Enabled    Number of policy changes by outcome
-``policy_endpoint_enforcement_status``                                                        Enabled    Number of endpoints labeled by policy enforcement status
+``policy_import_errors_total``                                                                Enabled    Number of times a policy (i.e. CRD) import has failed to validate.
+``policy_change_total``                    ``outcome``                                        Enabled    Number of policy changes by outcome
+``policy_endpoint_enforcement_status``     ``enforcement``                                    Enabled    Number of endpoints labeled by policy enforcement status
 ``policy_implementation_delay``            ``source``                                         Enabled    Time in seconds between a policy change and it being fully deployed into the datapath, labeled by the policy's source
 ========================================== ================================================== ========== ========================================================
 
@@ -464,7 +464,7 @@ Kubernetes
 Name                                        Labels                                             Default    Description
 =========================================== ================================================== ========== ========================================================
 ``kubernetes_events_received_total``        ``scope``, ``action``, ``validity``, ``equal``     Enabled    Number of Kubernetes events received
-``kubernetes_events_total``                 ``scope``, ``action``, ``outcome``                 Enabled    Number of Kubernetes events processed
+``kubernetes_events_total``                 ``scope``, ``action``, ``status``                  Enabled    Number of Kubernetes events processed
 ``k8s_cnp_status_completion_seconds``       ``attempts``, ``outcome``                          Enabled    Duration in seconds in how long it took to complete a CNP status update
 ``k8s_terminating_endpoints_events_total``                                                     Enabled    Number of terminating endpoint events received from Kubernetes
 =========================================== ================================================== ========== ========================================================
@@ -487,7 +487,7 @@ IPAM
 Name                                     Labels                                       Default    Description
 ======================================== ============================================ ========== ========================================================
 ``ipam_capacity``                        ``family``                                   Enabled    Total number of IPs in the IPAM pool labeled by family
-``ipam_events_total``                                                                 Enabled    Number of IPAM events received labeled by action and datapath family type
+``ipam_events_total``                    ``actions``, ``family``                      Enabled    Number of IPAM events received labeled by action and datapath family type
 ``ip_addresses``                         ``family``                                   Enabled    Number of allocated IP addresses
 ======================================== ============================================ ========== ========================================================
 
@@ -507,12 +507,12 @@ Name                                     Labels                                 
 Agent
 ~~~~~
 
-================================ ================================ ========== ========================================================
-Name                             Labels                           Default    Description
-================================ ================================ ========== ========================================================
-``agent_bootstrap_seconds``      ``scope``, ``outcome``           Enabled    Duration of various bootstrap phases
-``api_process_time_seconds``                                      Enabled    Processing time of all the API calls made to the cilium-agent, labeled by API method, API path and returned HTTP code.
-================================ ================================ ========== ========================================================
+================================== ===================================== ========== ========================================================
+Name                               Labels                                Default    Description
+================================== ===================================== ========== ========================================================
+``agent_bootstrap_seconds``        ``scope``, ``outcome``                Enabled    Duration of various bootstrap phases
+``agent_api_process_time_seconds`` ``path``, ``method``, ``return_code`` Enabled    Processing time of all the API calls made to the cilium-agent, labeled by API method, API path and returned HTTP code.
+================================== ===================================== ========== ========================================================
 
 FQDN
 ~~~~
@@ -812,11 +812,11 @@ This metric supports :ref:`Context Options<hubble_context_options>`.
 ``flow``
 ~~~~~~~~
 
-================================ ======================================== ========== ===================================
-Name                             Labels                                   Default    Description
-================================ ======================================== ========== ===================================
-``flows_processed_total``        ``type``, ``subtype``, ``verdict``       Disabled   Total number of flows processed
-================================ ======================================== ========== ===================================
+================================ ================================================= ========== ===================================
+Name                             Labels                                            Default    Description
+================================ ================================================= ========== ===================================
+``flows_processed_total``        ``protocol``, ``type``, ``subtype``, ``verdict``       Disabled   Total number of flows processed
+================================ ============================================== ========== ===================================
 
 Options
 """""""
