@@ -39,8 +39,8 @@ var DefaultOptions []observeroption.Option
 // that's meant to be run embedded inside the Cilium process. It ignores all
 // the state change events since the state is available locally.
 type LocalObserverServer struct {
-	// ring buffer that contains the references of all flows
-	ring *container.Ring
+	// event buffer that contains the references of all flows
+	eventBuffer container.EventReadWriter
 
 	// events is the channel used by the writer(s) to send the flow data
 	// into the observer server.
@@ -82,13 +82,38 @@ func NewLocalServer(
 	}
 
 	logger.WithFields(logrus.Fields{
-		"maxFlows":       opts.MaxFlows,
 		"eventQueueSize": opts.MonitorBuffer,
 	}).Info("Configuring Hubble server")
 
+	const (
+		flowStorageRingBuffer = iota
+		flowStorageBadgerDBDisk
+		flowStorageBadgerDBInMemory
+		flowStorageStateDB
+	)
+
+	flowStorage := flowStorageBadgerDBDisk
+
+	var eventBuffer container.EventReadWriter
+	switch flowStorage {
+	case flowStorageBadgerDBDisk, flowStorageBadgerDBInMemory:
+		inMemory := flowStorage == flowStorageBadgerDBInMemory
+		eventTTL := 5 * time.Minute
+		var err error
+		eventBuffer, err = container.NewBadgerDB(inMemory, eventTTL)
+		if err != nil {
+			logger.WithError(err).Error("failed in NewEventBuffer")
+			return nil, err
+		}
+	case flowStorageRingBuffer:
+		eventBuffer = container.NewRing(opts.MaxFlows)
+	case flowStorageStateDB:
+		panic("not implemented")
+	}
+
 	s := &LocalObserverServer{
 		log:              logger,
-		ring:             container.NewRing(opts.MaxFlows),
+		eventBuffer:      eventBuffer,
 		events:           make(chan *observerTypes.MonitorEvent, opts.MonitorBuffer),
 		stopped:          make(chan struct{}),
 		payloadParser:    payloadParser,
@@ -171,7 +196,9 @@ nextEvent:
 				continue nextEvent
 			}
 		}
-		s.GetRingBuffer().Write(ev)
+		if err := s.eventBuffer.Write(ev); err != nil {
+			s.log.WithError(err).WithField("event", ev).Info("failed in eventBuffer.Write")
+		}
 	}
 	close(s.GetStopped())
 }
@@ -179,11 +206,6 @@ nextEvent:
 // GetEventsChannel returns the event channel to receive flowpb.Payload events.
 func (s *LocalObserverServer) GetEventsChannel() chan *observerTypes.MonitorEvent {
 	return s.events
-}
-
-// GetRingBuffer implements GRPCServer.GetRingBuffer.
-func (s *LocalObserverServer) GetRingBuffer() *container.Ring {
-	return s.ring
 }
 
 // GetLogger implements GRPCServer.GetLogger.
@@ -211,9 +233,9 @@ func (s *LocalObserverServer) ServerStatus(
 	ctx context.Context, req *observerpb.ServerStatusRequest,
 ) (*observerpb.ServerStatusResponse, error) {
 	return &observerpb.ServerStatusResponse{
-		Version:   build.ServerVersion.String(),
-		MaxFlows:  s.GetRingBuffer().Cap(),
-		NumFlows:  s.GetRingBuffer().Len(),
+		Version: build.ServerVersion.String(),
+		// MaxFlows:  s.GetRingBuffer().Cap(),
+		// NumFlows:  s.GetRingBuffer().Len(),
 		SeenFlows: s.numObservedFlows.Load(),
 		UptimeNs:  uint64(time.Since(s.startTime).Nanoseconds()),
 	}, nil
@@ -262,28 +284,18 @@ func (s *LocalObserverServer) GetFlows(
 
 	start := time.Now()
 	log := s.GetLogger()
-	ring := s.GetRingBuffer()
 
 	i := uint64(0)
 	defer func() {
 		log.WithFields(logrus.Fields{
 			"number_of_flows": i,
-			"buffer_size":     ring.Cap(),
 			"whitelist":       logFilters(req.Whitelist),
 			"blacklist":       logFilters(req.Blacklist),
 			"took":            time.Since(start),
 		}).Debug("GetFlows finished")
 	}()
 
-	ringReader, err := newRingReader(ring, req, whitelist, blacklist)
-	if err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		return err
-	}
-
-	eventsReader, err := newEventsReader(ringReader, req, log, whitelist, blacklist)
+	eventsReader, err := newEventsReader(s.eventBuffer, req, log, whitelist, blacklist)
 	if err != nil {
 		return err
 	}
@@ -313,7 +325,7 @@ nextEvent:
 
 		switch ev := e.Event.(type) {
 		case *flowpb.Flow:
-			eventsReader.eventCount++
+			// eventsReader.eventCount++
 			for _, f := range s.opts.OnFlowDelivery {
 				stop, err := f.OnFlowDelivery(ctx, ev)
 				switch {
@@ -377,26 +389,16 @@ func (s *LocalObserverServer) GetAgentEvents(
 
 	start := time.Now()
 	log := s.GetLogger()
-	ring := s.GetRingBuffer()
 
 	i := uint64(0)
 	defer func() {
 		log.WithFields(logrus.Fields{
 			"number_of_agent_events": i,
-			"buffer_size":            ring.Cap(),
 			"took":                   time.Since(start),
 		}).Debug("GetAgentEvents finished")
 	}()
 
-	ringReader, err := newRingReader(ring, req, whitelist, blacklist)
-	if err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		return err
-	}
-
-	eventsReader, err := newEventsReader(ringReader, req, log, whitelist, blacklist)
+	eventsReader, err := newEventsReader(s.eventBuffer, req, log, whitelist, blacklist)
 	if err != nil {
 		return err
 	}
@@ -442,26 +444,16 @@ func (s *LocalObserverServer) GetDebugEvents(
 
 	start := time.Now()
 	log := s.GetLogger()
-	ring := s.GetRingBuffer()
 
 	i := uint64(0)
 	defer func() {
 		log.WithFields(logrus.Fields{
 			"number_of_debug_events": i,
-			"buffer_size":            ring.Cap(),
 			"took":                   time.Since(start),
 		}).Debug("GetDebugEvents finished")
 	}()
 
-	ringReader, err := newRingReader(ring, req, whitelist, blacklist)
-	if err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		return err
-	}
-
-	eventsReader, err := newEventsReader(ringReader, req, log, whitelist, blacklist)
+	eventsReader, err := newEventsReader(s.eventBuffer, req, log, whitelist, blacklist)
 	if err != nil {
 		return err
 	}
@@ -518,7 +510,7 @@ var (
 // eventsReader reads flows using a RingReader. It applies the GetFlows request
 // criteria (blacklist, whitelist, follow, ...) before returning events.
 type eventsReader struct {
-	ringReader           *container.RingReader
+	eventIterator        container.EventIterator
 	whitelist, blacklist filters.FilterFuncs
 	maxEvents            uint64
 	follow, timeRange    bool
@@ -526,10 +518,10 @@ type eventsReader struct {
 	since, until         *time.Time
 }
 
-// newEventsReader creates a new eventsReader that uses the given RingReader to
-// read through the ring buffer. Only events that match the request criteria
+// newEventsReader creates a new eventsReader that uses the given EventReader to
+// read through the events. Only events that match the request criteria
 // are returned.
-func newEventsReader(r *container.RingReader, req genericRequest, log logrus.FieldLogger, whitelist, blacklist filters.FilterFuncs) (*eventsReader, error) {
+func newEventsReader(r container.EventReader, req genericRequest, log logrus.FieldLogger, whitelist, blacklist filters.FilterFuncs) (*eventsReader, error) {
 	log.WithFields(logrus.Fields{
 		"req":       req,
 		"whitelist": whitelist,
@@ -538,12 +530,12 @@ func newEventsReader(r *container.RingReader, req genericRequest, log logrus.Fie
 
 	since, until := req.GetSince(), req.GetUntil()
 	reader := &eventsReader{
-		ringReader: r,
-		whitelist:  whitelist,
-		blacklist:  blacklist,
-		maxEvents:  req.GetNumber(),
-		follow:     req.GetFollow(),
-		timeRange:  since != nil || until != nil,
+		eventIterator: r.Iterator(),
+		whitelist:     whitelist,
+		blacklist:     blacklist,
+		maxEvents:     req.GetNumber(),
+		follow:        req.GetFollow(),
+		timeRange:     since != nil || until != nil,
 	}
 
 	if since != nil {
@@ -576,12 +568,13 @@ func (r *eventsReader) Next(ctx context.Context) (*v1.Event, error) {
 		var e *v1.Event
 		var err error
 		if r.follow {
-			e = r.ringReader.NextFollow(ctx)
+			// TODO
 		} else {
 			if r.maxEvents > 0 && (r.eventCount >= r.maxEvents) {
+				r.eventIterator.Close()
 				return nil, io.EOF
 			}
-			e, err = r.ringReader.Next()
+			e, err = r.eventIterator.Next()
 			if err != nil {
 				return nil, err
 			}
@@ -643,69 +636,4 @@ func validateRequest(req genericRequest) error {
 		return status.Errorf(codes.InvalidArgument, "first cannot be specified with follow")
 	}
 	return nil
-}
-
-// newRingReader creates a new RingReader that starts at the correct ring
-// offset to match the flow request.
-func newRingReader(ring *container.Ring, req genericRequest, whitelist, blacklist filters.FilterFuncs) (*container.RingReader, error) {
-	since := req.GetSince()
-
-	// since takes precedence over Number (--first and --last)
-	if req.GetFirst() && since == nil {
-		// Start from the beginning of the ring.
-		return container.NewRingReader(ring, ring.OldestWrite()), nil
-	}
-
-	if req.GetFollow() && req.GetNumber() == 0 && since == nil {
-		// no need to rewind
-		return container.NewRingReader(ring, ring.LastWriteParallel()), nil
-	}
-
-	var sinceTime time.Time
-	if since != nil {
-		if err := since.CheckValid(); err != nil {
-			return nil, err
-		}
-		sinceTime = since.AsTime()
-	}
-
-	idx := ring.LastWriteParallel()
-	reader := container.NewRingReader(ring, idx)
-
-	var eventCount uint64
-	// We need to find out what the right index is; that is the index with the
-	// oldest entry that is within time range boundaries (if any is defined)
-	// or until we find enough events.
-	// In order to avoid buffering events, we have to rewind first to find the
-	// correct index, then create a new reader that starts from there
-	for i := ring.Len(); i > 0; i, idx = i-1, idx-1 {
-		e, err := reader.Previous()
-		lost := e.GetLostEvent()
-		if lost != nil && lost.Source == flowpb.LostEventSource_HUBBLE_RING_BUFFER {
-			idx++ // we went backward 1 too far
-			break
-		} else if err != nil {
-			return nil, err
-		}
-		// Note: LostEvent type is ignored here and this is expected as lost
-		// events will never be explicitly requested by the caller
-		_, isLostEvent := e.Event.(*flowpb.LostEvent)
-		if isLostEvent || !filters.Apply(whitelist, blacklist, e) {
-			continue
-		}
-		eventCount++
-		if since != nil {
-			if err := e.Timestamp.CheckValid(); err != nil {
-				return nil, err
-			}
-			ts := e.Timestamp.AsTime()
-			if ts.Before(sinceTime) {
-				idx++ // we went backward 1 too far
-				break
-			}
-		} else if eventCount == req.GetNumber() {
-			break // we went backward far enough
-		}
-	}
-	return container.NewRingReader(ring, idx), nil
 }

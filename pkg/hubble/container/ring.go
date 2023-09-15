@@ -109,6 +109,11 @@ type Ring struct {
 	notifyCh chan struct{}
 }
 
+var (
+	_ EventReadWriter = (*Ring)(nil)
+	_ EventIterator   = (*ringIterator)(nil)
+)
+
 // NewRing creates a ring buffer where n specifies the capacity.
 func NewRing(n Capacity) *Ring {
 	// n.Cap() should already be a mask of one's but let's ensure it is
@@ -165,7 +170,7 @@ func (r *Ring) Cap() uint64 {
 // Write writes the given event into the ring buffer in the next available
 // writing block. The entry must not be nil, otherwise readFrom will block when
 // reading back this event.
-func (r *Ring) Write(entry *v1.Event) {
+func (r *Ring) Write(entry *v1.Event) error {
 	// We need to lock the notification mutex when updating r.write, otherwise
 	// there is a race condition where a readFrom goroutine goes to sleep
 	// after we sent out the notification.
@@ -187,6 +192,7 @@ func (r *Ring) Write(entry *v1.Event) {
 	}
 
 	r.notifyMu.Unlock()
+	return nil
 }
 
 // LastWriteParallel returns the last element written.
@@ -215,7 +221,6 @@ func (r *Ring) OldestWrite() uint64 {
 	}
 	return 0
 }
-
 func getLostEvent() *v1.Event {
 	metrics.LostEvents.WithLabelValues(strings.ToLower(flowpb.LostEventSource_HUBBLE_RING_BUFFER.String())).Inc()
 	now := time.Now().UTC()
@@ -395,4 +400,21 @@ func (r *Ring) readFrom(ctx context.Context, read uint64, ch chan<- *v1.Event) {
 			}
 		}
 	}
+}
+
+type ringIterator struct {
+	reader *RingReader
+}
+
+func (r *Ring) Iterator() EventIterator {
+	reader := NewRingReader(r)
+	return &ringIterator{reader: reader}
+}
+
+func (ri *ringIterator) Next() (*v1.Event, error) {
+	return ri.reader.Next()
+}
+
+func (ri *ringIterator) Close() error {
+	return ri.reader.Close()
 }

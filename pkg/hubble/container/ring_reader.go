@@ -22,10 +22,9 @@ type RingReader struct {
 	wg            sync.WaitGroup
 }
 
-// NewRingReader creates a new RingReader that starts reading the ring at the
-// position given by start.
-func NewRingReader(ring *Ring, start uint64) *RingReader {
-	return newRingReader(ring, start, 1000)
+func NewRingReader(ring *Ring) *RingReader {
+	idx := ring.OldestWrite()
+	return newRingReader(ring, idx, 1000)
 }
 
 func newRingReader(ring *Ring, start uint64, bufferLen int) *RingReader {

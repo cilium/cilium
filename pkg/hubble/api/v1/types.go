@@ -4,6 +4,7 @@
 package v1
 
 import (
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
@@ -14,7 +15,7 @@ type Event struct {
 	// Timestamp when event was observed in Hubble
 	Timestamp *timestamppb.Timestamp
 	// Event contains the actual event
-	Event interface{}
+	Event proto.Message
 }
 
 // GetFlow returns the decoded flow, or nil if the event is nil or not a flow
@@ -63,3 +64,13 @@ func (ev *Event) GetLostEvent() *pb.LostEvent {
 	}
 	return nil
 }
+
+// func (ev *Event) GetEventProto() proto.Message {
+// 	if ev == nil || ev.Event == nil {
+// 		return nil
+// 	}
+// 	if m, ok := ev.Event.(proto.Message); ok {
+// 		return m
+// 	}
+// 	return nil
+// }
