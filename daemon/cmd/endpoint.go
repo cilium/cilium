@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -167,26 +166,6 @@ func getEndpointIDHandler(d *Daemon, params GetEndpointIDParams) middleware.Resp
 	} else {
 		return NewGetEndpointIDOK().WithPayload(ep.GetModel())
 	}
-}
-
-// fetchK8sMetadataForEndpoint wraps the k8s package to fetch and provide
-// endpoint metadata. It implements endpoint.MetadataResolverCB.
-// The returned pod is deepcopied which means the its fields can be written
-// into.
-func (d *Daemon) fetchK8sMetadataForEndpoint(nsName, podName string) (*slim_corev1.Pod, []slim_corev1.ContainerPort, labels.Labels, labels.Labels, map[string]string, error) {
-	ns, p, err := d.endpointMetadataFetcher.Fetch(nsName, podName)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-
-	containerPorts, lbls, annotations, err := k8s.GetPodMetadata(ns, p)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-
-	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
-	identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
-	return p, containerPorts, identityLabels, infoLabels, annotations, nil
 }
 
 type cachedEndpointMetadataFetcher struct {
@@ -420,7 +399,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	defer d.endpointCreations.EndCreateRequest(ep)
 
 	if ep.K8sNamespaceAndPodNameIsSet() && d.clientset.IsEnabled() {
-		pod, cp, identityLabels, info, annotations, err := d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName)
+		pod, cp, identityLabels, info, annotations, err := d.endpointMetadataResolver(ep.K8sNamespace, ep.K8sPodName)
 		if err != nil {
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
 		} else {
@@ -465,7 +444,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		// If there are labels, but no pod namespace, then it's
 		// likely that there are no k8s labels at all. Resolve.
 		if _, k8sLabelsConfigured = addLabels[k8sConst.PodNamespaceLabel]; !k8sLabelsConfigured {
-			ep.RunMetadataResolver(d.fetchK8sMetadataForEndpoint)
+			ep.RunMetadataResolver(d.endpointMetadataResolver)
 		}
 	}
 

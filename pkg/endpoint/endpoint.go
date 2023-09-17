@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/k8s"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -1588,6 +1589,27 @@ func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
 // MetadataResolverCB provides an implementation for resolving the endpoint
 // metadata for an endpoint such as the associated labels and annotations.
 type MetadataResolverCB func(ns, podName string) (pod *slim_corev1.Pod, _ []slim_corev1.ContainerPort, identityLabels labels.Labels, infoLabels labels.Labels, annotations map[string]string, err error)
+
+// NewMetadataResolverCB returns a MetadataResolverCB that wraps an EndpointMetadataFetcher
+// to fetch and provide endpoint metadata.
+// The returned pod is deepcopied which means the its fields can be written into.
+func NewMetadataResolverCB(emf EndpointMetadataFetcher) MetadataResolverCB {
+	return func(nsName, podName string) (*slim_corev1.Pod, []slim_corev1.ContainerPort, labels.Labels, labels.Labels, map[string]string, error) {
+		ns, p, err := emf.Fetch(nsName, podName)
+		if err != nil {
+			return nil, nil, nil, nil, nil, err
+		}
+
+		containerPorts, lbls, annotations, err := k8s.GetPodMetadata(ns, p)
+		if err != nil {
+			return nil, nil, nil, nil, nil, err
+		}
+
+		k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
+		identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
+		return p, containerPorts, identityLabels, infoLabels, annotations, nil
+	}
+}
 
 // RunMetadataResolver starts a controller associated with the received
 // endpoint which will periodically attempt to resolve the metadata for the

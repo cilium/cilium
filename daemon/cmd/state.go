@@ -78,7 +78,7 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 		// which the endpoint manager will begin processing the events off the
 		// queue.
 		ep.InitEventQueue()
-		ep.RunMetadataResolver(d.fetchK8sMetadataForEndpoint)
+		ep.RunMetadataResolver(d.endpointMetadataResolver)
 	}
 
 	if err := ep.ValidateConnectorPlumbing(checkLink); err != nil {
@@ -100,7 +100,7 @@ func (d *Daemon) getPodForEndpoint(ep *endpoint.Endpoint) error {
 		err error
 	)
 	if option.Config.EnableHighScaleIPcache {
-		pod, _, _, _, _, err = d.fetchK8sMetadataForEndpoint(ep.K8sNamespace, ep.K8sPodName)
+		pod, _, _, _, _, err = d.endpointMetadataResolver(ep.K8sNamespace, ep.K8sPodName)
 	} else {
 		d.k8sWatcher.WaitForCacheSync(resources.K8sAPIGroupPodV1Core)
 		pod, err = d.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)

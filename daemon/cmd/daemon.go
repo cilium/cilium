@@ -170,6 +170,10 @@ type Daemon struct {
 	// endpointMetadataFetcher knows how to fetch Kubernetes metadata for endpoints.
 	endpointMetadataFetcher endpoint.EndpointMetadataFetcher
 
+	// endpointMetadataResolver is a callback that wraps an endpointMetadataFetcher to fetch
+	// additional metadata for endpoints.
+	endpointMetadataResolver endpoint.MetadataResolverCB
+
 	// healthEndpointRouting is the information required to set up the health
 	// endpoint's routing in ENI or Azure IPAM mode
 	healthEndpointRouting *linuxrouting.RoutingInfo
@@ -1070,6 +1074,8 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	if option.Config.EnableIPv6 {
 		d.restoreCiliumHostIPs(true, router6FromK8s)
 	}
+
+	d.endpointMetadataResolver = endpoint.NewMetadataResolverCB(d.endpointMetadataFetcher)
 
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
