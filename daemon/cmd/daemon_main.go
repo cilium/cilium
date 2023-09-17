@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/egressgateway"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/hive"
@@ -1634,6 +1635,7 @@ type daemonParams struct {
 	CacheStatus          k8s.CacheStatus
 	NodeManager          nodeManager.NodeManager
 	EndpointManager      endpointmanager.EndpointManager
+	EndpointRestorer     *endpointstate.Restorer
 	CertManager          certificatemanager.CertificateManager
 	SecretManager        certificatemanager.SecretManager
 	IdentityAllocator    CachingIdentityAllocator
@@ -1711,7 +1713,7 @@ func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
 }
 
 // startDaemon starts the old unmodular part of the cilium-agent.
-func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daemonCleanup, params daemonParams) {
+func startDaemon(d *Daemon, restoredEndpoints *endpointstate.RestoreState, cleaner *daemonCleanup, params daemonParams) {
 	log.Info("Initializing daemon")
 
 	// This validation needs to be done outside of the agent until
@@ -1723,7 +1725,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 
 	bootstrapStats.enableConntrack.Start()
 	log.Info("Starting connection tracking garbage collector")
-	params.CTNATMapGC.Enable(restoredEndpoints.restored)
+	params.CTNATMapGC.Enable(restoredEndpoints.Restored)
 	bootstrapStats.enableConntrack.End(true)
 
 	bootstrapStats.k8sInit.Start()
@@ -1733,7 +1735,19 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 		<-params.CacheStatus
 	}
 	bootstrapStats.k8sInit.End(true)
-	restoreComplete := d.initRestore(restoredEndpoints, params.EndpointRegenerator)
+
+	bootstrapStats.restore.Start()
+
+	// When we regenerate restored endpoints, it is guaranteed that we have
+	// received the full list of policies present at the time the daemon
+	// is bootstrapped.
+	d.endpointRestorer.RegenerateRestoredEndpoints(restoredEndpoints)
+
+	if option.Config.RestoreState && d.clientset.IsEnabled() {
+		go d.removeStaleK8sServices()
+	}
+
+	bootstrapStats.restore.End(true)
 
 	if params.WGAgent != nil {
 		go func() {
@@ -1764,9 +1778,8 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}
 
 	go func() {
-		if restoreComplete != nil {
-			<-restoreComplete
-		}
+		d.endpointRestorer.WaitForRestore(d.ctx)
+
 		// Only attempt CEP cleanup if cilium endpoint CRD is enabled, otherwise the cep/ces
 		// watchers/indexers will not be initialized.
 		if params.Clientset.IsEnabled() && option.Config.EnableStaleCiliumEndpointCleanup && !option.Config.DisableCiliumEndpointCRD {
@@ -1804,9 +1817,7 @@ func startDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *da
 	}()
 
 	go func() {
-		if restoreComplete != nil {
-			<-restoreComplete
-		}
+		d.endpointRestorer.WaitForRestore(d.ctx)
 		d.dnsNameManager.CompleteBootstrap()
 
 		ms := maps.NewMapSweeper(&EndpointMapManager{

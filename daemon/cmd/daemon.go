@@ -48,6 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -160,6 +161,8 @@ type Daemon struct {
 	ipam *ipam.IPAM
 
 	endpointManager endpointmanager.EndpointManager
+
+	endpointRestorer *endpointstate.Restorer
 
 	identityAllocator CachingIdentityAllocator
 
@@ -402,7 +405,7 @@ func removeOldRouterState(ipv6 bool, restoredIP net.IP) error {
 }
 
 // newDaemon creates and returns a new Daemon with the parameters set in c.
-func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams) (*Daemon, *endpointRestoreState, error) {
+func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams) (*Daemon, *endpointstate.RestoreState, error) {
 	var err error
 
 	bootstrapStats.daemonInit.Start()
@@ -518,6 +521,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		deviceManager:     params.DeviceManager,
 		nodeDiscovery:     nd,
 		nodeLocalStore:    params.LocalNodeStore,
+		endpointRestorer:  params.EndpointRestorer,
 		endpointCreations: newEndpointCreationManager(params.Clientset),
 		apiLimiterSet:     params.APILimiterSet,
 		controllers:       controller.NewManager(),
@@ -814,14 +818,14 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 	bootstrapStats.restore.Start()
 	// fetch old endpoints before k8s is configured.
-	restoredEndpoints, err := d.fetchOldEndpoints(option.Config.StateDir)
+	restoredEndpoints, err := d.endpointRestorer.FetchOldEndpoints(d.ctx, &d, &d, d.ipcache, option.Config.StateDir)
 	if err != nil {
 		log.WithError(err).Error("Unable to read existing endpoints")
 	}
 	bootstrapStats.restore.End(true)
 
 	bootstrapStats.fqdn.Start()
-	err = d.bootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
+	err = d.bootstrapFQDN(restoredEndpoints.Possible, option.Config.ToFQDNsPreCache)
 	if err != nil {
 		bootstrapStats.fqdn.EndError(err)
 		return nil, restoredEndpoints, err
@@ -1075,12 +1079,19 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.restoreCiliumHostIPs(true, router6FromK8s)
 	}
 
+	var emf endpoint.EndpointMetadataFetcher
+	if option.Config.EnableHighScaleIPcache {
+		emf = &uncachedEndpointMetadataFetcher{slimcli: d.clientset.Slim()}
+	} else {
+		emf = &cachedEndpointMetadataFetcher{k8sWatcher: d.k8sWatcher}
+	}
+	d.endpointMetadataFetcher = emf
 	d.endpointMetadataResolver = endpoint.NewMetadataResolverCB(d.endpointMetadataFetcher)
 
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.
-	err = d.restoreOldEndpoints(restoredEndpoints, true)
+	err = d.endpointRestorer.RestoreOldEndpoints(d.ctx, restoredEndpoints, emf, d.identityAllocator, d.ipam, true)
 	if err != nil {
 		log.WithError(err).Error("Unable to restore existing endpoints")
 	}
