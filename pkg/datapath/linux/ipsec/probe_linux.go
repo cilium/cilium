@@ -54,13 +54,15 @@ func createDummyXfrmState(state *netlink.XfrmState) error {
 // ProbeXfrmStateOutputMask probes the kernel to determine if it supports
 // setting the xfrm state output mask (Linux 4.19+). It returns an error if
 // the output mask is not supported or if an error occurred, nil otherwise.
-func ProbeXfrmStateOutputMask() error {
+func ProbeXfrmStateOutputMask() (e error) {
 	state := initDummyXfrmState()
 	err := createDummyXfrmState(state)
 	if err != nil {
 		return err
 	}
-	defer netlink.XfrmStateDel(state)
+	defer func() {
+		e = errors.Join(e, netlink.XfrmStateDel(state))
+	}()
 
 	var probedState *netlink.XfrmState
 	if probedState, err = netlink.XfrmStateGet(state); err != nil {
@@ -72,5 +74,5 @@ func ProbeXfrmStateOutputMask() error {
 	if probedState.OutputMark.Mask != linux_defaults.RouteMarkMask {
 		return errors.New("incorrect value for probed IPSec output mask attribute")
 	}
-	return nil
+	return
 }

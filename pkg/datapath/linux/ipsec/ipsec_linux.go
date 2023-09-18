@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/resiliency"
 )
 
 type IPSecDir string
@@ -205,10 +206,13 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 		}
 	}
 
-	oldXFRMMark := &netlink.XfrmMark{
-		Value: ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, uint8(new.Spi)),
-		Mask:  linux_defaults.IPsecOldMarkMaskOut,
-	}
+	var (
+		oldXFRMMark = &netlink.XfrmMark{
+			Value: ipSecXfrmMarkSetSPI(linux_defaults.RouteMarkEncrypt, uint8(new.Spi)),
+			Mask:  linux_defaults.IPsecOldMarkMaskOut,
+		}
+		errs = resiliency.NewErrorSet("failed to delete old xfrm states", len(states))
+	)
 	for _, s := range states {
 		// This is the XFRM OUT state from a previous Cilium version.
 		// Because its mark matches the new mark (0xXXXX3e00/0xffffff00 ∈
@@ -228,7 +232,7 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 			xfrmMarkEqual(s.Mark, oldXFRMMark) && s.Spi == new.Spi {
 			err := netlink.XfrmStateDel(&s)
 			if err != nil {
-				scopedLog.WithError(err).Error("Failed to remove old XFRM state")
+				errs.Add(fmt.Errorf("failed to remove old xfrm state %s: %w", s.String(), err))
 			} else {
 				scopedLog.Infof("Temporarily removed old XFRM state")
 				defer func(oldXFRMState netlink.XfrmState) {
@@ -238,6 +242,10 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 				}(s)
 			}
 		}
+	}
+	if err := errs.Error(); err != nil {
+		scopedLog.WithError(err).Error("Failed to clean up old XFRM state")
+		return err
 	}
 
 	// It doesn't exist so let's attempt to add it.
@@ -267,25 +275,27 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 // the kernel used to reject our check with EEXIST. That logic is upstream in
 // __xfrm_state_lookup.
 func xfrmDeleteConflictingState(states []netlink.XfrmState, new *netlink.XfrmState) (bool, error) {
-	deletedSomething := false
+	var (
+		deletedSomething bool
+		errs             = resiliency.NewErrorSet("failed to delete conflicting XFRM states", len(states))
+	)
 	for _, s := range states {
 		if new.Spi == s.Spi && (new.Mark == nil) == (s.Mark == nil) &&
 			(new.Mark == nil || new.Mark.Value&new.Mark.Mask&s.Mark.Mask == s.Mark.Value) &&
 			xfrmIPEqual(new.Src, s.Src) && xfrmIPEqual(new.Dst, s.Dst) {
-			err := netlink.XfrmStateDel(&s)
-			if err == nil {
-				deletedSomething = true
-				log.WithFields(logrus.Fields{
-					logfields.SPI:           s.Spi,
-					logfields.SourceIP:      s.Src,
-					logfields.DestinationIP: s.Dst,
-				}).Info("Removed a conflicting XFRM state")
-			} else {
-				return deletedSomething, fmt.Errorf("Failed to remove a conflicting XFRM state: %w", err)
+			if err := netlink.XfrmStateDel(&s); err != nil {
+				errs.Add(err)
+				continue
 			}
+			deletedSomething = true
+			log.WithFields(logrus.Fields{
+				logfields.SPI:           s.Spi,
+				logfields.SourceIP:      s.Src,
+				logfields.DestinationIP: s.Dst,
+			}).Info("Removed a conflicting XFRM state")
 		}
 	}
-	return deletedSomething, nil
+	return deletedSomething, errs.Error()
 }
 
 // This function compares two IP addresses and returns true if they are equal.
@@ -538,7 +548,6 @@ func matchesOnNodeID(mark *netlink.XfrmMark) bool {
 }
 
 func ipsecDeleteXfrmState(nodeID uint16) error {
-	var errs error
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeID: nodeID,
 	})
@@ -548,15 +557,17 @@ func ipsecDeleteXfrmState(nodeID uint16) error {
 		scopedLog.WithError(err).Warning("Failed to list XFRM states for deletion")
 		return err
 	}
+
+	errs := resiliency.NewErrorSet(fmt.Sprintf("failed to delete node (%d) xfrm states", nodeID), len(xfrmStateList))
 	for _, s := range xfrmStateList {
 		if matchesOnNodeID(s.Mark) && getNodeIDFromXfrmMark(s.Mark) == nodeID {
 			if err := netlink.XfrmStateDel(&s); err != nil {
-				scopedLog.WithError(err).Warning("Failed to delete XFRM state")
-				errs = errors.Join(errs, fmt.Errorf("failed to delete xfrm state (%s): %w", s.String(), err))
+				errs.Add(fmt.Errorf("failed to delete xfrm state (%s): %w", s.String(), err))
 			}
 		}
 	}
-	return errs
+
+	return errs.Error()
 }
 
 func ipsecDeleteXfrmPolicy(nodeID uint16) error {
@@ -569,16 +580,20 @@ func ipsecDeleteXfrmPolicy(nodeID uint16) error {
 		scopedLog.WithError(err).Warning("Failed to list XFRM policies for deletion")
 		return fmt.Errorf("failed to list xfrm policies: %w", err)
 	}
-	var errs error
+	errs := resiliency.NewErrorSet("failed to delete xfrm policies", len(xfrmPolicyList))
 	for _, p := range xfrmPolicyList {
 		if matchesOnNodeID(p.Mark) && getNodeIDFromXfrmMark(p.Mark) == nodeID {
 			if err := netlink.XfrmPolicyDel(&p); err != nil {
-				scopedLog.WithError(err).Warning("Failed to delete XFRM policy")
-				errs = errors.Join(errs, fmt.Errorf("failed to delete xfrm policy (%s): %w", p.String(), err))
+				errs.Add(fmt.Errorf("unable to delete xfrm policy %s: %w", p.String(), err))
 			}
 		}
 	}
-	return errs
+	if err := errs.Error(); err != nil {
+		scopedLog.WithError(err).Warning("Failed to delete XFRM policy")
+		return err
+	}
+
+	return nil
 }
 
 /* UpsertIPsecEndpoint updates the IPSec context for a new endpoint inserted in
@@ -715,27 +730,39 @@ func isXfrmStateCilium(state netlink.XfrmState) bool {
 }
 
 // DeleteXfrm remove any remaining XFRM policy or state from tables
-func DeleteXfrm() {
+func DeleteXfrm() error {
 	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
-	if err == nil {
-		for _, p := range xfrmPolicyList {
-			if isXfrmPolicyCilium(p) {
-				if err := netlink.XfrmPolicyDel(&p); err != nil {
-					log.WithError(err).Warning("deleting xfrm policy failed")
-				}
+	if err != nil {
+		return err
+	}
+
+	ee := resiliency.NewErrorSet("failed to delete XFRM policies", len(xfrmPolicyList))
+	for _, p := range xfrmPolicyList {
+		if isXfrmPolicyCilium(p) {
+			if err := netlink.XfrmPolicyDel(&p); err != nil {
+				ee.Add(err)
 			}
 		}
 	}
+	if err := ee.Error(); err != nil {
+		return err
+	}
+
 	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
-	if err == nil {
-		for _, s := range xfrmStateList {
-			if isXfrmStateCilium(s) {
-				if err := netlink.XfrmStateDel(&s); err != nil {
-					log.WithError(err).Warning("deleting old xfrm state failed")
-				}
+	if err != nil {
+		log.WithError(err).Warning("unable to fetch xfrm state list")
+		return err
+	}
+	ee = resiliency.NewErrorSet("failed to delete XFRM states", len(xfrmStateList))
+	for _, s := range xfrmStateList {
+		if isXfrmStateCilium(s) {
+			if err := netlink.XfrmStateDel(&s); err != nil {
+				ee.Add(err)
 			}
 		}
 	}
+
+	return ee.Error()
 }
 
 func decodeIPSecKey(keyRaw string) (int, []byte, error) {
@@ -1017,43 +1044,37 @@ func ipSecSPICanBeReclaimed(spi uint8, reclaimTimestamp time.Time) bool {
 	return true
 }
 
-func deleteStaleXfrmStates(reclaimTimestamp time.Time) {
-	scopedLog := log.WithField(logfields.SPI, ipSecCurrentKeySPI)
-
+func deleteStaleXfrmStates(reclaimTimestamp time.Time) error {
 	xfrmStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
-		scopedLog.WithError(err).Warning("Failed to list XFRM states")
-		return
+		return err
 	}
 
+	errs := resiliency.NewErrorSet("failed to delete stale xfrm states", len(xfrmStateList))
 	for _, s := range xfrmStateList {
 		stateSPI := uint8(s.Spi)
-
 		if !ipSecSPICanBeReclaimed(stateSPI, reclaimTimestamp) {
 			continue
 		}
-
-		scopedLog = log.WithField(logfields.OldSPI, stateSPI)
-
-		scopedLog.Info("Deleting stale XFRM state")
 		if err := netlink.XfrmStateDel(&s); err != nil {
-			scopedLog.WithError(err).Warning("Deleting stale XFRM state failed")
+			errs.Add(fmt.Errorf("failed to delete stale xfrm state spi (%d): %w", stateSPI, err))
 		}
 	}
+
+	return errs.Error()
 }
 
-func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) {
+func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) error {
 	scopedLog := log.WithField(logfields.SPI, ipSecCurrentKeySPI)
 
 	xfrmPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
-		scopedLog.WithError(err).Warning("Failed to list XFRM policies")
-		return
+		return err
 	}
 
+	errs := resiliency.NewErrorSet("failed to delete stale xfrm policies", len(xfrmPolicyList))
 	for _, p := range xfrmPolicyList {
 		policySPI := getSPIFromXfrmPolicy(&p)
-
 		if !ipSecSPICanBeReclaimed(policySPI, reclaimTimestamp) {
 			continue
 		}
@@ -1067,13 +1088,14 @@ func deleteStaleXfrmPolicies(reclaimTimestamp time.Time) {
 			continue
 		}
 
-		scopedLog = log.WithField(logfields.OldSPI, policySPI)
-
+		scopedLog = scopedLog.WithField(logfields.OldSPI, policySPI)
 		scopedLog.Info("Deleting stale XFRM policy")
 		if err := netlink.XfrmPolicyDel(&p); err != nil {
-			scopedLog.WithError(err).Warning("Deleting stale XFRM policy failed")
+			errs.Add(fmt.Errorf("failed to delete stale xfrm policy spi (%d): %w", policySPI, err))
 		}
 	}
+
+	return errs.Error()
 }
 
 func isDefaultDropPolicy(p *netlink.XfrmPolicy) bool {
@@ -1102,8 +1124,13 @@ func doReclaimStaleKeys() {
 
 	reclaimTimestamp := time.Now()
 
-	deleteStaleXfrmStates(reclaimTimestamp)
-	deleteStaleXfrmPolicies(reclaimTimestamp)
+	scopedLog := log.WithField(logfields.SPI, ipSecCurrentKeySPI)
+	if err := deleteStaleXfrmStates(reclaimTimestamp); err != nil {
+		scopedLog.WithError(err).Warning("Failed to delete stale XFRM states")
+	}
+	if err := deleteStaleXfrmPolicies(reclaimTimestamp); err != nil {
+		scopedLog.WithError(err).Warning("Failed to delete stale XFRM policies")
+	}
 }
 
 func StartStaleKeysReclaimer(ctx context.Context) {
