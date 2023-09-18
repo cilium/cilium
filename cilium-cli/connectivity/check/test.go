@@ -164,13 +164,13 @@ func (t *Test) setup(ctx context.Context) error {
 
 	// Apply Secrets to the cluster.
 	if err := t.applySecrets(ctx); err != nil {
-		t.ciliumLogs(ctx)
+		t.CiliumLogs(ctx)
 		return fmt.Errorf("applying Secrets: %w", err)
 	}
 
 	// Apply CNPs & KNPs to the cluster.
 	if err := t.applyPolicies(ctx); err != nil {
-		t.ciliumLogs(ctx)
+		t.CiliumLogs(ctx)
 		return fmt.Errorf("applying network policies: %w", err)
 	}
 
