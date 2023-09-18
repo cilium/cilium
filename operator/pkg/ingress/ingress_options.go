@@ -7,6 +7,7 @@ package ingress
 type Options struct {
 	MaxRetries              int
 	EnforcedHTTPS           bool
+	UseProxyProtocol        bool
 	EnabledSecretsSync      bool
 	SecretsNamespace        string
 	LBAnnotationPrefixes    []string
@@ -37,6 +38,14 @@ type Option func(o *Options) error
 func WithMaxRetries(maxRetries int) Option {
 	return func(o *Options) error {
 		o.MaxRetries = maxRetries
+		return nil
+	}
+}
+
+// WithProxyProtocol sets the listeners to use proxy protocol.
+func WithProxyProtocol(proxyProtocol bool) Option {
+	return func(o *Options) error {
+		o.UseProxyProtocol = proxyProtocol
 		return nil
 	}
 }

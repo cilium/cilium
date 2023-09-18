@@ -36,6 +36,7 @@ type defaultTranslator struct {
 	namespace        string
 	secretsNamespace string
 	enforceHTTPs     bool
+	useProxyProtocol bool
 
 	// hostNameSuffixMatch is a flag to control whether the host name suffix match.
 	// Hostnames that are prefixed with a wildcard label (`*.`) are interpreted
@@ -47,12 +48,13 @@ type defaultTranslator struct {
 }
 
 // NewTranslator returns a new translator
-func NewTranslator(name, namespace, secretsNamespace string, enforceHTTPs bool, hostNameSuffixMatch bool, idleTimeoutSeconds int) Translator {
+func NewTranslator(name, namespace, secretsNamespace string, enforceHTTPs bool, useProxyProtocol bool, hostNameSuffixMatch bool, idleTimeoutSeconds int) Translator {
 	return &defaultTranslator{
 		name:                name,
 		namespace:           namespace,
 		secretsNamespace:    secretsNamespace,
 		enforceHTTPs:        enforceHTTPs,
+		useProxyProtocol:    useProxyProtocol,
 		hostNameSuffixMatch: hostNameSuffixMatch,
 		idleTimeoutSeconds:  idleTimeoutSeconds,
 	}
@@ -151,7 +153,11 @@ func (i *defaultTranslator) getHTTPRouteListener(m *model.Model) []ciliumv2.XDSR
 		}
 	}
 
-	l, _ := NewHTTPListenerWithDefaults("listener", i.secretsNamespace, tlsMap)
+	mutatorFuncs := []ListenerMutator{}
+	if i.useProxyProtocol {
+		mutatorFuncs = append(mutatorFuncs, WithProxyProtocol())
+	}
+	l, _ := NewHTTPListenerWithDefaults("listener", i.secretsNamespace, tlsMap, mutatorFuncs...)
 	return []ciliumv2.XDSResource{l}
 }
 
@@ -175,7 +181,11 @@ func (i *defaultTranslator) getTLSRouteListener(m *model.Model) []ciliumv2.XDSRe
 		return nil
 	}
 
-	l, _ := NewSNIListenerWithDefaults("listener", backendsMap)
+	mutatorFuncs := []ListenerMutator{}
+	if i.useProxyProtocol {
+		mutatorFuncs = append(mutatorFuncs, WithProxyProtocol())
+	}
+	l, _ := NewSNIListenerWithDefaults("listener", backendsMap, mutatorFuncs...)
 	return []ciliumv2.XDSResource{l}
 }
 

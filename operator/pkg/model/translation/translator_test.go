@@ -188,6 +188,33 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 	}
 }
 
+func TestSharedIngressTranslator_getHTTPRouteListenerProxy(t *testing.T) {
+	i := &defaultTranslator{
+		name:             "cilium-ingress",
+		namespace:        "kube-system",
+		secretsNamespace: "cilium-secrets",
+		useProxyProtocol: true,
+	}
+	res := i.getHTTPRouteListener(&model.Model{
+		HTTP: []model.HTTPListener{
+			{
+				TLS: []model.TLSSecret{
+					{
+						Name:      "dummy-secret",
+						Namespace: "dummy-namespace",
+					},
+				},
+			},
+		},
+	})
+	require.Len(t, res, 1)
+	listener := &envoy_config_listener.Listener{}
+	err := proto.Unmarshal(res[0].GetValue(), listener)
+	require.NoError(t, err)
+
+	require.Len(t, listener.ListenerFilters, 2)
+}
+
 func TestSharedIngressTranslator_getHTTPRouteListener(t *testing.T) {
 	i := &defaultTranslator{
 		name:             "cilium-ingress",

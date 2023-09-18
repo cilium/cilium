@@ -715,6 +715,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 		ingressController, err := ingress.NewController(
 			legacy.clientset,
 			ingress.WithHTTPSEnforced(operatorOption.Config.EnforceIngressHTTPS),
+			ingress.WithProxyProtocol(operatorOption.Config.EnableIngressProxyProtocol),
 			ingress.WithSecretsSyncEnabled(operatorOption.Config.EnableIngressSecretsSync),
 			ingress.WithSecretsNamespace(operatorOption.Config.IngressSecretsNamespace),
 			ingress.WithLBAnnotationPrefixes(operatorOption.Config.IngressLBAnnotationPrefixes),

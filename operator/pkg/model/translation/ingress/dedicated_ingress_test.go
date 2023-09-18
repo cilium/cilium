@@ -170,8 +170,9 @@ func Test_getEndpointForIngress(t *testing.T) {
 
 func Test_translator_Translate(t *testing.T) {
 	type args struct {
-		m            *model.Model
-		enforceHTTPs bool
+		m                *model.Model
+		enforceHTTPs     bool
+		useProxyProtocol bool
 	}
 	tests := []struct {
 		name    string
@@ -209,6 +210,17 @@ func Test_translator_Translate(t *testing.T) {
 			},
 			want: pathRulesListenersCiliumEnvoyConfig,
 		},
+		{
+			name: "Conformance/ProxyProtocol",
+			args: args{
+				m: &model.Model{
+					HTTP: proxyProtocolListeners,
+				},
+				enforceHTTPs:     true,
+				useProxyProtocol: true,
+			},
+			want: proxyProtoListenersCiliumEnvoyConfig,
+		},
 	}
 
 	for _, tt := range tests {
@@ -216,6 +228,7 @@ func Test_translator_Translate(t *testing.T) {
 			trans := &DedicatedIngressTranslator{
 				secretsNamespace:   "cilium-secrets",
 				enforceHTTPs:       tt.args.enforceHTTPs,
+				useProxyProtocol:   tt.args.useProxyProtocol,
 				idleTimeoutSeconds: 60,
 			}
 
