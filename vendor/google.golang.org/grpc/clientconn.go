@@ -1091,8 +1091,8 @@ func (ac *addrConn) updateAddrs(addrs []resolver.Address) {
 	ac.cancel()
 	ac.ctx, ac.cancel = context.WithCancel(ac.cc.ctx)
 
-	// We have to defer here because GracefulClose => Close => onClose, which
-	// requires locking ac.mu.
+	// We have to defer here because GracefulClose => onClose, which requires
+	// locking ac.mu.
 	if ac.transport != nil {
 		defer ac.transport.GracefulClose()
 		ac.transport = nil
@@ -1680,16 +1680,7 @@ func (ac *addrConn) tearDown(err error) {
 	ac.updateConnectivityState(connectivity.Shutdown, nil)
 	ac.cancel()
 	ac.curAddr = resolver.Address{}
-	if err == errConnDrain && curTr != nil {
-		// GracefulClose(...) may be executed multiple times when
-		// i) receiving multiple GoAway frames from the server; or
-		// ii) there are concurrent name resolver/Balancer triggered
-		// address removal and GoAway.
-		// We have to unlock and re-lock here because GracefulClose => Close => onClose, which requires locking ac.mu.
-		ac.mu.Unlock()
-		curTr.GracefulClose()
-		ac.mu.Lock()
-	}
+
 	channelz.AddTraceEvent(logger, ac.channelzID, 0, &channelz.TraceEventDesc{
 		Desc:     "Subchannel deleted",
 		Severity: channelz.CtInfo,
@@ -1703,6 +1694,29 @@ func (ac *addrConn) tearDown(err error) {
 	// being deleted right away.
 	channelz.RemoveEntry(ac.channelzID)
 	ac.mu.Unlock()
+
+	// We have to release the lock before the call to GracefulClose/Close here
+	// because both of them call onClose(), which requires locking ac.mu.
+	if curTr != nil {
+		if err == errConnDrain {
+			// Close the transport gracefully when the subConn is being shutdown.
+			//
+			// GracefulClose() may be executed multiple times if:
+			// - multiple GoAway frames are received from the server
+			// - there are concurrent name resolver or balancer triggered
+			//   address removal and GoAway
+			curTr.GracefulClose()
+		} else {
+			// Hard close the transport when the channel is entering idle or is
+			// being shutdown. In the case where the channel is being shutdown,
+			// closing of transports is also taken care of by cancelation of cc.ctx.
+			// But in the case where the channel is entering idle, we need to
+			// explicitly close the transports here. Instead of distinguishing
+			// between these two cases, it is simpler to close the transport
+			// unconditionally here.
+			curTr.Close(err)
+		}
+	}
 }
 
 func (ac *addrConn) getState() connectivity.State {
