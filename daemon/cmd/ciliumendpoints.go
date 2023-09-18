@@ -100,7 +100,7 @@ func (d *Daemon) deleteCiliumEndpoint(
 				return nil
 			}
 			logwf.WithError(err).Error("Failed to get possibly stale ciliumendpoints from apiserver")
-			return resiliency.NewRetryableErr(err)
+			return resiliency.Retryable(err)
 		}
 		if cep.Status.Networking.NodeIP != node.GetCiliumEndpointNodeIP() {
 			logwf.WithError(err).Debug("Stale CEP fetched apiserver no longer references this Node, skipping.")
@@ -127,7 +127,7 @@ func (d *Daemon) deleteCiliumEndpoint(
 			return nil
 		}
 		logwf.Error("Could not delete stale CEP")
-		return resiliency.NewRetryableErr(err)
+		return resiliency.Retryable(err)
 	}
 
 	return nil

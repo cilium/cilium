@@ -9,5 +9,5 @@ import (
 
 // IsRetryable checks if an error can be retried.
 func IsRetryable(e error) bool {
-	return errors.As(e, new(RetryableErr))
+	return errors.As(e, new(retryableErr))
 }
