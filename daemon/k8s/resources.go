@@ -62,6 +62,7 @@ var (
 			k8s.CiliumNetworkPolicyResource,
 			k8s.CiliumClusterwideNetworkPolicyResource,
 			k8s.CiliumCIDRGroupResource,
+			k8s.CiliumPodIPPoolResource,
 		),
 	)
 )
@@ -92,4 +93,5 @@ type Resources struct {
 	CiliumNetworkPolicies            resource.Resource[*cilium_api_v2.CiliumNetworkPolicy]
 	CiliumClusterwideNetworkPolicies resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy]
 	CIDRGroups                       resource.Resource[*cilium_api_v2alpha1.CiliumCIDRGroup]
+	CiliumPodIPPool                  resource.Resource[*cilium_api_v2alpha1.CiliumPodIPPool]
 }
