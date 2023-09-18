@@ -100,6 +100,7 @@ type MtuConfiguration interface {
 
 type Metadata interface {
 	GetIPPoolForPod(owner string) (pool string, err error)
+	GetIPPoolForPodOnFamily(owner string, family Family) (pool string, err error)
 }
 
 // NewIPAM returns a new IP address manager

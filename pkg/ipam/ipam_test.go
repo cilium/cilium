@@ -51,6 +51,10 @@ func (f fakeMetadataFunc) GetIPPoolForPod(owner string) (pool string, err error)
 	return f(owner)
 }
 
+func (f fakeMetadataFunc) GetIPPoolForPodOnFamily(owner string, family Family) (pool string, err error) {
+	return "", nil
+}
+
 type fakePoolAllocator struct {
 	pools map[Pool]Allocator
 }

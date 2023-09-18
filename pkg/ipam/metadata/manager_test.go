@@ -5,6 +5,8 @@ package metadata
 
 import (
 	"errors"
+	"github.com/cilium/cilium/pkg/ipam"
+	cilium_v2_alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"testing"
 
 	"k8s.io/client-go/tools/cache"
@@ -55,6 +57,12 @@ func podKey(ns, name string) resource.Key {
 }
 
 func namespaceKey(name string) resource.Key {
+	return resource.Key{
+		Name: name,
+	}
+}
+
+func ipPoolKey(name string) resource.Key {
 	return resource.Key{
 		Name: name,
 	}
@@ -152,6 +160,161 @@ func TestManager_GetIPPoolForPod(t *testing.T) {
 			}
 			if gotPool != tt.wantPool {
 				t.Errorf("GetIPPoolForPod() gotPool = %v, want %v", gotPool, tt.wantPool)
+			}
+		})
+	}
+}
+
+func TestManager_GetIPPoolForPodOnFamily(t *testing.T) {
+	m := &Manager{
+		namespaceStore: mockStore[*slim_core_v1.Namespace]{
+			namespaceKey("default"): &slim_core_v1.Namespace{},
+		},
+		podStore: mockStore[*slim_core_v1.Pod]{
+			podKey("default", "client"): &slim_core_v1.Pod{
+				ObjectMeta: slim_meta_v1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.IPAMPoolKey: "dual-pool",
+					},
+				},
+			},
+			podKey("default", "client2"): &slim_core_v1.Pod{
+				ObjectMeta: slim_meta_v1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.IPAMPoolKey: "ipv4-pool",
+					},
+				},
+			},
+			podKey("default", "client3"): &slim_core_v1.Pod{
+				ObjectMeta: slim_meta_v1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.IPAMPoolKey: "ipv6-pool",
+					},
+				},
+			},
+		},
+		ipPoolStore: mockStore[*cilium_v2_alpha1.CiliumPodIPPool]{
+			ipPoolKey(ipamOption.PoolDefault): &cilium_v2_alpha1.CiliumPodIPPool{
+				Spec: cilium_v2_alpha1.IPPoolSpec{
+					IPv4: &cilium_v2_alpha1.IPv4PoolSpec{
+						CIDRs:    []cilium_v2_alpha1.PoolCIDR{"10.10.0.0/16"},
+						MaskSize: 24,
+					},
+					IPv6: &cilium_v2_alpha1.IPv6PoolSpec{
+						CIDRs:    []cilium_v2_alpha1.PoolCIDR{"fd00:100::/80"},
+						MaskSize: 96,
+					},
+				},
+			},
+			ipPoolKey("dual-pool"): &cilium_v2_alpha1.CiliumPodIPPool{
+				Spec: cilium_v2_alpha1.IPPoolSpec{
+					IPv4: &cilium_v2_alpha1.IPv4PoolSpec{
+						CIDRs:    []cilium_v2_alpha1.PoolCIDR{"10.11.0.0/16"},
+						MaskSize: 24,
+					},
+					IPv6: &cilium_v2_alpha1.IPv6PoolSpec{
+						CIDRs:    []cilium_v2_alpha1.PoolCIDR{"fd00:101::/80"},
+						MaskSize: 96,
+					},
+				},
+			},
+			ipPoolKey("ipv4-pool"): &cilium_v2_alpha1.CiliumPodIPPool{
+				Spec: cilium_v2_alpha1.IPPoolSpec{
+					IPv4: &cilium_v2_alpha1.IPv4PoolSpec{
+						CIDRs:    []cilium_v2_alpha1.PoolCIDR{"10.12.0.0/16"},
+						MaskSize: 24,
+					},
+				},
+			},
+			ipPoolKey("ipv6-pool"): &cilium_v2_alpha1.CiliumPodIPPool{
+				Spec: cilium_v2_alpha1.IPPoolSpec{
+					IPv6: &cilium_v2_alpha1.IPv6PoolSpec{
+						CIDRs:    []cilium_v2_alpha1.PoolCIDR{"fd00:102::/80"},
+						MaskSize: 96,
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name     string
+		owner    string
+		family   ipam.Family
+		wantPool string
+		wantErr  error
+	}{
+		{
+			name:     "dual-stack mode and pools have dual ip family, request ipv4",
+			owner:    "default/client",
+			family:   "IPv4",
+			wantPool: "dual-pool",
+		},
+		{
+			name:     "dual-stack mode and pools have dual ip family, request ipv6",
+			owner:    "default/client",
+			family:   "IPv6",
+			wantPool: "dual-pool",
+		},
+		{
+			name:     "dual-stack mode and pools only have ipv4 family, request ipv4",
+			owner:    "default/client2",
+			family:   "IPv4",
+			wantPool: "ipv4-pool",
+		},
+		{
+			name:     "dual-stack mode and pools only have ipv4 family, request ipv6",
+			owner:    "default/client2",
+			family:   "IPv6",
+			wantPool: ipamOption.PoolDefault,
+		},
+		{
+			name:     "dual-stack mode and pools only have ipv6 family, request ipv4",
+			owner:    "default/client3",
+			family:   "IPv4",
+			wantPool: ipamOption.PoolDefault,
+		},
+		{
+			name:     "dual-stack mode and pools only have ipv6 family, request ipv6",
+			owner:    "default/client3",
+			family:   "IPv6",
+			wantPool: "ipv6-pool",
+		},
+		{
+			name:     "ipv4 mode and pools only have ipv4 family",
+			owner:    "default/client2",
+			family:   "IPv4",
+			wantPool: "ipv4-pool",
+		},
+		{
+			name:     "ipv4 mode and pools only have ipv6 family",
+			owner:    "default/client3",
+			family:   "IPv4",
+			wantPool: ipamOption.PoolDefault,
+		},
+		{
+			name:     "ipv6 mode and pools only have ipv6 family",
+			owner:    "default/client3",
+			family:   "IPv6",
+			wantPool: "ipv6-pool",
+		},
+		{
+			name:     "ipv6 mode and pools only have ipv4 family",
+			owner:    "default/client2",
+			family:   "IPv6",
+			wantPool: ipamOption.PoolDefault,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotPool, err := m.GetIPPoolForPodOnFamily(tt.owner, tt.family)
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("GetIPPoolForPodOnFamily() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotPool != tt.wantPool {
+				t.Errorf("GetIPPoolForPodOnFamily() gotPool = %v, want %v", gotPool, tt.wantPool)
 			}
 		})
 	}

@@ -5,6 +5,8 @@ package metadata
 
 import (
 	"fmt"
+	"github.com/cilium/cilium/pkg/ipam"
+	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -33,6 +35,7 @@ type ResourceNotFound struct {
 	Resource  string
 	Name      string
 	Namespace string
+	IPPool    string
 }
 
 func (r *ResourceNotFound) Error() string {
@@ -59,6 +62,8 @@ type Manager struct {
 	namespaceStore    resource.Store[*slim_core_v1.Namespace]
 	podResource       k8s.LocalPodResource
 	podStore          resource.Store[*slim_core_v1.Pod]
+	ipPoolResource    resource.Resource[*cilium_v2alpha1.CiliumPodIPPool]
+	ipPoolStore       resource.Store[*cilium_v2alpha1.CiliumPodIPPool]
 }
 
 func (m *Manager) Start(ctx hive.HookContext) (err error) {
@@ -72,12 +77,18 @@ func (m *Manager) Start(ctx hive.HookContext) (err error) {
 		return fmt.Errorf("failed to obtain pod store: %w", err)
 	}
 
+	m.ipPoolStore, err = m.ipPoolResource.Store(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to obtain ipPool store: %w", err)
+	}
+
 	return nil
 }
 
 func (m *Manager) Stop(ctx hive.HookContext) error {
 	m.namespaceStore = nil
 	m.podStore = nil
+	m.ipPoolStore = nil
 	return nil
 }
 
@@ -134,4 +145,43 @@ func (m *Manager) GetIPPoolForPod(owner string) (pool string, err error) {
 
 	// Fallback to default pool
 	return ipamOption.PoolDefault, nil
+}
+
+func (m *Manager) GetIPPoolForPodOnFamily(owner string, family ipam.Family) (pool string, err error) {
+	if m.ipPoolStore == nil {
+		return "", &ManagerStoppedError{}
+	}
+
+	pool, err = m.GetIPPoolForPod(owner)
+	if err != nil {
+		return "", fmt.Errorf("unable to determine IPAM pool for owner %q: %w", owner, err)
+	}
+
+	if pool == ipamOption.PoolDefault {
+		return pool, nil
+	}
+
+	ippool, ok, err := m.ipPoolStore.GetByKey(resource.Key{
+		Name: pool,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to determine ippool %q: %w", pool, err)
+	} else if !ok {
+		return "", &ResourceNotFound{Resource: "ippool", IPPool: pool}
+	} else {
+		switch family {
+		case ipam.IPv6:
+			if ippool.Spec.IPv6 == nil {
+				return ipamOption.PoolDefault, nil
+			}
+		case ipam.IPv4:
+			if ippool.Spec.IPv4 == nil {
+				return ipamOption.PoolDefault, nil
+			}
+		default:
+			return pool, nil
+		}
+	}
+
+	return pool, nil
 }
