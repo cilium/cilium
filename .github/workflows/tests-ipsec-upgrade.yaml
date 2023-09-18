@@ -79,7 +79,7 @@ jobs:
         include:
           - name: '1'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.4-20230905.214457'
+            kernel: '5.4-20230912.232842'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
@@ -88,7 +88,7 @@ jobs:
 
           - name: '2'
             # renovate: datasource=docker depName=quay.io/lvh-images/kind
-            kernel: '5.10-20230905.214457'
+            kernel: '5.10-20230912.232842'
             kube-proxy: 'iptables'
             kpr: 'disabled'
             tunnel: 'disabled'
