@@ -48,6 +48,19 @@ func TestNewHTTPListener(t *testing.T) {
 
 	})
 
+	t.Run("without TLS with Proxy Protocol", func(t *testing.T) {
+		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", nil, WithProxyProtocol())
+		require.Nil(t, err)
+
+		listener := &envoy_config_listener.Listener{}
+		err = proto.Unmarshal(res.Value, listener)
+		require.Nil(t, err)
+
+		require.Equal(t, "dummy-name", listener.Name)
+		require.Len(t, listener.GetListenerFilters(), 2)
+		require.Len(t, listener.GetFilterChains(), 1)
+	})
+
 	t.Run("TLS", func(t *testing.T) {
 		res, err := NewHTTPListener("dummy-name", "dummy-secret-namespace", map[model.TLSSecret][]string{
 			{Name: "dummy-secret-1", Namespace: "dummy-namespace"}: {"dummy.server.com"},
@@ -110,6 +123,20 @@ func TestNewSNIListener(t *testing.T) {
 
 		require.Equal(t, "dummy-name", listener.Name)
 		require.Len(t, listener.GetListenerFilters(), 1)
+		require.Len(t, listener.GetFilterChains(), 1)
+		require.Len(t, listener.GetFilterChains()[0].FilterChainMatch.ServerNames, 2)
+	})
+
+	t.Run("normal SNI listener with Proxy Protocol", func(t *testing.T) {
+		res, err := NewSNIListener("dummy-name", map[string][]string{"dummy-namespace/dummy-service:443": {"example.org", "example.com"}}, WithProxyProtocol())
+		require.Nil(t, err)
+
+		listener := &envoy_config_listener.Listener{}
+		err = proto.Unmarshal(res.Value, listener)
+		require.Nil(t, err)
+
+		require.Equal(t, "dummy-name", listener.Name)
+		require.Len(t, listener.GetListenerFilters(), 2)
 		require.Len(t, listener.GetFilterChains(), 1)
 		require.Len(t, listener.GetFilterChains()[0].FilterChainMatch.ServerNames, 2)
 	})

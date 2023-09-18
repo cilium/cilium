@@ -9,6 +9,7 @@ import (
 
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
+	envoy_extensions_listener_proxy_protocol_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/proxy_protocol/v3"
 	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_extensions_filters_network_tcp_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_extensions_transport_sockets_tls_v3 "github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3"
@@ -32,6 +33,7 @@ const (
 	httpConnectionManagerType = "envoy.filters.network.http_connection_manager"
 	tcpProxyType              = "envoy.filters.network.tcp_proxy"
 	tlsInspectorType          = "envoy.filters.listener.tls_inspector"
+	proxyProtocolType         = "envoy.filters.listener.proxy_protocol"
 	tlsTransportSocketType    = "envoy.transport_sockets.tls"
 
 	rawBufferTransportProtocol = "raw_buffer"
@@ -39,6 +41,19 @@ const (
 )
 
 type ListenerMutator func(*envoy_config_listener.Listener) *envoy_config_listener.Listener
+
+func WithProxyProtocol() ListenerMutator {
+	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
+		proxyListener := &envoy_config_listener.ListenerFilter{
+			Name: proxyProtocolType,
+			ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
+				TypedConfig: toAny(&envoy_extensions_listener_proxy_protocol_v3.ProxyProtocol{}),
+			},
+		}
+		listener.ListenerFilters = append([]*envoy_config_listener.ListenerFilter{proxyListener}, listener.ListenerFilters...)
+		return listener
+	}
+}
 
 func WithSocketOption(tcpKeepAlive, tcpKeepIdleInSeconds, tcpKeepAliveProbeIntervalInSeconds, tcpKeepAliveMaxFailures int64) ListenerMutator {
 	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
