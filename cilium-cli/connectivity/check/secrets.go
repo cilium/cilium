@@ -56,7 +56,7 @@ func (t *Test) applySecrets(ctx context.Context) error {
 		// context cancellation. This deletion needs to happen event when the
 		// user interrupted the program.
 		if err := t.deleteSecrets(context.TODO()); err != nil {
-			t.ciliumLogs(ctx)
+			t.CiliumLogs(ctx)
 			return err
 		}
 
