@@ -42,7 +42,7 @@ func (p *IPSecSuitePrivileged) SetUpTest(c *C) {
 }
 
 func (p *IPSecSuitePrivileged) TearDownTest(c *C) {
-	DeleteXfrm()
+	_ = DeleteXfrm()
 }
 
 func (p *IPSecSuitePrivileged) TestLoadKeysNoFile(c *C) {
