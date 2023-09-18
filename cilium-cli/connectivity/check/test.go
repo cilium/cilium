@@ -37,15 +37,15 @@ import (
 )
 
 const (
-	// kubernetesSourcedLabelPrefix is the optional prefix used in labels to
+	// KubernetesSourcedLabelPrefix is the optional prefix used in labels to
 	// indicate they are sourced from Kubernetes.
 	// NOTE: For some reason, ':' gets replaced by '.' in keys so we use that instead.
-	kubernetesSourcedLabelPrefix = "k8s."
+	KubernetesSourcedLabelPrefix = "k8s."
 
-	// anySourceLabelPrefix is the optional prefix used in labels to
+	// AnySourceLabelPrefix is the optional prefix used in labels to
 	// indicate they could be from anywhere.
 	// NOTE: For some reason, ':' gets replaced by '.' in keys so we use that instead.
-	anySourceLabelPrefix = "any."
+	AnySourceLabelPrefix = "any."
 )
 
 var (
@@ -351,8 +351,8 @@ func (t *Test) WithCiliumPolicy(policy string) *Test {
 		if pl[i].Spec != nil {
 			for _, k := range []string{
 				k8sConst.PodNamespaceLabel,
-				kubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
-				anySourceLabelPrefix + k8sConst.PodNamespaceLabel,
+				KubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
+				AnySourceLabelPrefix + k8sConst.PodNamespaceLabel,
 			} {
 				for _, e := range pl[i].Spec.Egress {
 					for _, es := range e.ToEndpoints {
@@ -414,8 +414,8 @@ func (t *Test) WithK8SPolicy(policy string) *Test {
 		if pl[i].Spec.Size() != 0 {
 			for _, k := range []string{
 				k8sConst.PodNamespaceLabel,
-				kubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
-				anySourceLabelPrefix + k8sConst.PodNamespaceLabel,
+				KubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
+				AnySourceLabelPrefix + k8sConst.PodNamespaceLabel,
 			} {
 				for _, e := range pl[i].Spec.Egress {
 					for _, es := range e.To {
@@ -486,8 +486,8 @@ func (t *Test) WithCiliumEgressGatewayPolicy(policy string, params CiliumEgressG
 		// Change the default test namespace as required.
 		for _, k := range []string{
 			k8sConst.PodNamespaceLabel,
-			kubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
-			anySourceLabelPrefix + k8sConst.PodNamespaceLabel,
+			KubernetesSourcedLabelPrefix + k8sConst.PodNamespaceLabel,
+			AnySourceLabelPrefix + k8sConst.PodNamespaceLabel,
 		} {
 			for _, e := range pl[i].Spec.Selectors {
 				ps := e.PodSelector
