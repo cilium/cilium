@@ -508,7 +508,7 @@ func (t *Test) applyPolicies(ctx context.Context) error {
 		// context cancellation. This deletion needs to happen event when the
 		// user interrupted the program.
 		if err := t.deletePolicies(context.TODO()); err != nil {
-			t.ciliumLogs(ctx)
+			t.CiliumLogs(ctx)
 			return err
 		}
 
@@ -611,9 +611,9 @@ func (t *Test) deletePolicies(ctx context.Context) error {
 	return nil
 }
 
-// ciliumLogs dumps the logs of all Cilium agents since the start of the Test.
+// CiliumLogs dumps the logs of all Cilium agents since the start of the Test.
 // filter is applied on each line of output.
-func (t *Test) ciliumLogs(ctx context.Context) {
+func (t *Test) CiliumLogs(ctx context.Context) {
 	for _, pod := range t.Context().ciliumPods {
 		log, err := pod.K8sClient.CiliumLogs(ctx, pod.Pod.Namespace, pod.Pod.Name, t.startTime, nil)
 		if err != nil {
