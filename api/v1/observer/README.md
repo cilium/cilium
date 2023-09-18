@@ -302,6 +302,7 @@ Node represents a cluster node.
 | num_unavailable_nodes | [google.protobuf.UInt32Value](#google-protobuf-UInt32Value) |  | number of nodes for which a connection cannot be established |
 | unavailable_nodes | [string](#string) | repeated | list of nodes that are unavailable This list may not be exhaustive. |
 | version | [string](#string) |  | Version is the version of Cilium/Hubble. |
+| flows_rate | [double](#double) |  | Approximate rate of flows seen by Hubble per second over the last minute. In a multi-node context, this is the sum of all flows rates. |
 
 
 

@@ -353,6 +353,7 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 		if resp.UptimeNs < status.UptimeNs {
 			resp.UptimeNs = status.UptimeNs
 		}
+		resp.FlowsRate += status.FlowsRate
 	}
 	return resp, g.Wait()
 }

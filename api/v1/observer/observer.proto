@@ -74,6 +74,10 @@ message ServerStatusResponse {
 
     // Version is the version of Cilium/Hubble.
     string version = 8;
+
+    // Approximate rate of flows seen by Hubble per second over the last minute.
+    // In a multi-node context, this is the sum of all flows rates.
+    double flows_rate = 9;
 }
 
 message GetFlowsRequest {

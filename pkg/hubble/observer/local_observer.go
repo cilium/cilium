@@ -210,12 +210,19 @@ func (s *LocalObserverServer) GetOptions() observeroption.Options {
 func (s *LocalObserverServer) ServerStatus(
 	ctx context.Context, req *observerpb.ServerStatusRequest,
 ) (*observerpb.ServerStatusResponse, error) {
+
+	rate, err := getFlowRate(s.GetRingBuffer(), time.Now())
+	if err != nil {
+		s.log.WithError(err).Warn("Failed to get flow rate")
+	}
+
 	return &observerpb.ServerStatusResponse{
 		Version:   build.ServerVersion.String(),
 		MaxFlows:  s.GetRingBuffer().Cap(),
 		NumFlows:  s.GetRingBuffer().Len(),
 		SeenFlows: s.numObservedFlows.Load(),
 		UptimeNs:  uint64(time.Since(s.startTime).Nanoseconds()),
+		FlowsRate: rate,
 	}, nil
 }
 
@@ -708,4 +715,44 @@ func newRingReader(ring *container.Ring, req genericRequest, whitelist, blacklis
 		}
 	}
 	return container.NewRingReader(ring, idx), nil
+}
+
+func getFlowRate(ring *container.Ring, at time.Time) (float64, error) {
+	reader := container.NewRingReader(ring, ring.LastWriteParallel())
+	count := 0
+	since := at.Add(-1 * time.Minute)
+	var lastSeenEvent *v1.Event
+	for {
+		e, err := reader.Previous()
+		lost := e.GetLostEvent()
+		if lost != nil && lost.Source == flowpb.LostEventSource_HUBBLE_RING_BUFFER {
+			// a lost event means we read the complete ring buffer
+			// if we read at least one flow, update `since` to calculate the rate over the available time range
+			if lastSeenEvent != nil {
+				since = lastSeenEvent.Timestamp.AsTime()
+			}
+			break
+		} else if errors.Is(err, io.EOF) {
+			// an EOF error means the ring buffer is empty, ignore error and continue
+			break
+		} else if err != nil {
+			// unexpected error
+			return 0, err
+		}
+		if _, isFlowEvent := e.Event.(*flowpb.Flow); !isFlowEvent {
+			// ignore non flow events
+			continue
+		}
+		if err := e.Timestamp.CheckValid(); err != nil {
+			return 0, err
+		}
+		ts := e.Timestamp.AsTime()
+		if ts.Before(since) {
+			// scanned the last minute, exit loop
+			break
+		}
+		lastSeenEvent = e
+		count++
+	}
+	return float64(count) / at.Sub(since).Seconds(), nil
 }
