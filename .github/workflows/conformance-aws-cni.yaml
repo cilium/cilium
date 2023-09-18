@@ -60,7 +60,7 @@ env:
   # renovate: datasource=github-releases depName=eksctl-io/eksctl
   eksctl_version: v0.157.0
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
-  kubectl_version: v1.28.1
+  kubectl_version: v1.28.2
 
 jobs:
   commit-status-start:
