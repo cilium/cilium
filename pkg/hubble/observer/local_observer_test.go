@@ -23,6 +23,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
+	hubv1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
@@ -77,6 +78,127 @@ func TestLocalObserverServer_ServerStatus(t *testing.T) {
 	assert.Equal(t, uint64(0), res.SeenFlows)
 	assert.Equal(t, uint64(0), res.NumFlows)
 	assert.Equal(t, uint64(1), res.MaxFlows)
+	assert.Equal(t, float64(0), res.FlowsRate)
+}
+
+func TestGetFlowRate(t *testing.T) {
+	type event struct {
+		offset int
+		event  interface{}
+	}
+
+	tcs := map[string]struct {
+		ringCap container.Capacity
+		events  []event
+		rate    float64
+	}{
+		"0.5 Flow/s": {
+			events: []event{
+				{offset: 2000},
+				{offset: 4000},
+				{offset: 6000},
+				{offset: 8000},
+				{offset: 10000},
+				{offset: 12000},
+				{offset: 14000},
+				{offset: 16000},
+			},
+			rate: 0.5,
+		},
+		"2 Flow/s": {
+			events: []event{
+				{offset: 500},
+				{offset: 1000},
+				{offset: 1500},
+				{offset: 2000},
+				{offset: 2500},
+				{offset: 3000},
+				{offset: 3500},
+				{offset: 4000},
+			},
+			rate: 2,
+		},
+		"1 Flow/s  Full buffer": {
+			ringCap: container.Capacity7,
+			events: []event{
+				{offset: 1000},
+				{offset: 2000},
+				{offset: 3000},
+				{offset: 4000},
+				{offset: 5000},
+				{offset: 6000},
+				{offset: 7000},
+				{offset: 8000},
+				{offset: 9000},
+				{offset: 10000},
+			},
+			rate: 1,
+		},
+		"0.15 Flow/s  with flows older than 1 min": {
+			events: []event{
+				{offset: 1000},
+				{offset: 2000},
+				{offset: 3000},
+				{offset: 4000},
+				{offset: 5000},
+				{offset: 6000},
+				{offset: 7000},
+				{offset: 8000},
+				{offset: 9000},
+				{offset: 61000},
+			},
+			rate: 0.15,
+		},
+		"1 Flow/s  with non flow events": {
+			events: []event{
+				{offset: 1000},
+				{offset: 2000},
+				{
+					offset: 2500,
+					event:  &flowpb.AgentEvent{},
+				},
+				{offset: 3000},
+				{offset: 4000},
+				{
+					offset: 2500,
+					event:  &flowpb.DebugEvent{},
+				},
+				{offset: 5000},
+				{offset: 6000},
+				{offset: 7000},
+			},
+			rate: 1,
+		},
+	}
+	now := time.Now()
+
+	for name, tc := range tcs {
+		t.Run(name, func(t *testing.T) {
+			var c container.Capacity = container.Capacity63
+			if tc.ringCap != nil {
+				c = tc.ringCap
+			}
+			ring := container.NewRing(c)
+			for i := len(tc.events) - 1; i >= 0; i-- {
+				ev := tc.events[i].event
+				if ev == nil {
+					// Default is flow
+					ev = &flowpb.Flow{}
+				}
+				ring.Write(&hubv1.Event{
+					Timestamp: timestamppb.New(now.Add(-1 * time.Duration(tc.events[i].offset) * time.Millisecond)),
+					Event:     ev,
+				})
+			}
+			// Dummy value so that we can actually read all flows
+			ring.Write(&hubv1.Event{
+				Timestamp: timestamppb.New(now.Add(time.Second)),
+			})
+			rate, err := getFlowRate(ring, now)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.rate, rate)
+		})
+	}
 }
 
 func TestLocalObserverServer_GetFlows(t *testing.T) {

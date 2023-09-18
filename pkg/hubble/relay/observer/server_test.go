@@ -1062,6 +1062,7 @@ func TestServerStatus(t *testing.T) {
 					MaxFlows:            0,
 					SeenFlows:           0,
 					UptimeNs:            0,
+					FlowsRate:           0,
 					NumConnectedNodes:   &wrapperspb.UInt32Value{Value: 0},
 					NumUnavailableNodes: &wrapperspb.UInt32Value{Value: 1},
 					UnavailableNodes:    []string{"noip"},
@@ -1115,6 +1116,7 @@ func TestServerStatus(t *testing.T) {
 									NumFlows:  1111,
 									MaxFlows:  1111,
 									SeenFlows: 1111,
+									FlowsRate: 1,
 									UptimeNs:  111111111,
 								}, nil
 							case "two":
@@ -1122,6 +1124,7 @@ func TestServerStatus(t *testing.T) {
 									NumFlows:  2222,
 									MaxFlows:  2222,
 									SeenFlows: 2222,
+									FlowsRate: 2,
 									UptimeNs:  222222222,
 								}, nil
 							default:
@@ -1137,6 +1140,7 @@ func TestServerStatus(t *testing.T) {
 					NumFlows:            3333,
 					MaxFlows:            3333,
 					SeenFlows:           3333,
+					FlowsRate:           3,
 					UptimeNs:            222222222,
 					NumConnectedNodes:   &wrapperspb.UInt32Value{Value: 2},
 					NumUnavailableNodes: &wrapperspb.UInt32Value{Value: 0},
@@ -1188,6 +1192,7 @@ func TestServerStatus(t *testing.T) {
 									NumFlows:  1111,
 									MaxFlows:  1111,
 									SeenFlows: 1111,
+									FlowsRate: 1,
 									UptimeNs:  111111111,
 								}, nil
 							default:
@@ -1203,6 +1208,7 @@ func TestServerStatus(t *testing.T) {
 					NumFlows:            1111,
 					MaxFlows:            1111,
 					SeenFlows:           1111,
+					FlowsRate:           1,
 					UptimeNs:            111111111,
 					NumConnectedNodes:   &wrapperspb.UInt32Value{Value: 1},
 					NumUnavailableNodes: &wrapperspb.UInt32Value{Value: 1},
