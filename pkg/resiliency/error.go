@@ -3,12 +3,12 @@
 
 package resiliency
 
-// RetryableErr tracks errors that could be retried.
-type RetryableErr struct {
+// retryableErr tracks errors that could be retried.
+type retryableErr struct {
 	error
 }
 
-// NewRetryableErr returns a new instance.
-func NewRetryableErr(e error) RetryableErr {
-	return RetryableErr{error: e}
+// Retryable returns a new instance.
+func Retryable(e error) retryableErr {
+	return retryableErr{error: e}
 }
