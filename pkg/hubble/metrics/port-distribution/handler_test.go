@@ -7,10 +7,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
