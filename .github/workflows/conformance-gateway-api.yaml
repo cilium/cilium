@@ -129,7 +129,6 @@ jobs:
             --helm-set=operator.image.tag=${SHA} \
             --helm-set=operator.image.useDigest=false \
             --helm-set kubeProxyReplacement=true \
-            --helm-set=securityContext.privileged=true \
             --helm-set=gatewayAPI.enabled=true"
 
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
