@@ -75,4 +75,4 @@ docs:
 check-docker-images: # Check whether docker images are available for the current version.
 	$(QUIET)$(ROOT_DIR)/contrib/release/check-docker-images.sh "$(CILIUM_VERSION)"
 
-.PHONY: all check-docker-images check-values-yaml clean docs lint update-chart update-versions
+.PHONY: all check-docker-images check-values-yaml cilium/values.yaml clean docs lint update-chart update-versions
