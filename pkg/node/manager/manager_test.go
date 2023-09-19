@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 )
 
 func Test(t *testing.T) {
@@ -43,6 +45,9 @@ type configMock struct {
 	RemoteNodeIdentity bool
 	NodeEncryption     bool
 	Encryption         bool
+
+	LocalRouterIPv4 string
+	LocalRouterIPv6 string
 }
 
 func (c *configMock) TunnelingEnabled() bool {
@@ -59,6 +64,10 @@ func (c *configMock) NodeEncryptionEnabled() bool {
 
 func (c *configMock) EncryptionEnabled() bool {
 	return c.Encryption
+}
+
+func (c *configMock) IsLocalRouterIP(ip string) bool {
+	return ip != "" && (c.LocalRouterIPv4 == ip || c.LocalRouterIPv6 == ip)
 }
 
 type nodeEvent struct {
@@ -894,4 +903,98 @@ func TestNodeManagerEmitStatus(t *testing.T) {
 	// Start the manager
 	assert.NoError(m.Start(context.Background()))
 	<-done
+}
+
+type mockUpdater struct{}
+
+func (m *mockUpdater) UpdateIdentities(_, _ cache.IdentityCache, _ *sync.WaitGroup) {}
+
+type mockTriggerer struct{}
+
+func (m *mockTriggerer) UpdatePolicyMaps(ctx context.Context, wg *sync.WaitGroup) *sync.WaitGroup {
+	return wg
+}
+
+func (s *managerTestSuite) TestNodeWithSameInternalIP(c *check.C) {
+	ctx, cancel := context.WithCancel(context.Background())
+	allocator := testidentity.NewMockIdentityAllocator(nil)
+	ipcache := ipcache.NewIPCache(&ipcache.Configuration{
+		Context:           ctx,
+		IdentityAllocator: allocator,
+		PolicyHandler:     &mockUpdater{},
+		DatapathHandler:   &mockTriggerer{},
+	})
+	defer cancel()
+	dp := newSignalNodeHandler()
+	dp.EnableNodeAddEvent = true
+	dp.EnableNodeUpdateEvent = true
+	dp.EnableNodeDeleteEvent = true
+	mngr, err := New(&configMock{LocalRouterIPv4: "169.254.4.6"}, ipcache, newIPSetMock(), NewNodeMetrics(), cell.TestScope())
+	c.Assert(err, check.IsNil)
+	mngr.Subscribe(dp)
+	defer mngr.Stop(context.TODO())
+
+	n1 := nodeTypes.Node{
+		Name:    "node1",
+		Cluster: "c1",
+		IPAddresses: []nodeTypes.Address{
+			{
+				Type: addressing.NodeInternalIP,
+				IP:   net.ParseIP("10.128.0.40"),
+			},
+			{
+				Type: addressing.NodeExternalIP,
+				IP:   net.ParseIP("34.171.135.203"),
+			},
+			{
+				Type: addressing.NodeCiliumInternalIP,
+				IP:   net.ParseIP("169.254.4.6"),
+			},
+		},
+		Source: source.Local,
+	}
+	mngr.NodeUpdated(n1)
+
+	select {
+	case nodeEvent := <-dp.NodeAddEvent:
+		c.Assert(nodeEvent, checker.DeepEquals, n1)
+	case nodeEvent := <-dp.NodeUpdateEvent:
+		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+	case nodeEvent := <-dp.NodeDeleteEvent:
+		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+	case <-time.After(3 * time.Second):
+		c.Errorf("timeout while waiting for NodeAdd() event for node1")
+	}
+
+	n2 := nodeTypes.Node{
+		Name:    "node2",
+		Cluster: "c1",
+		IPAddresses: []nodeTypes.Address{
+			{
+				Type: addressing.NodeInternalIP,
+				IP:   net.ParseIP("10.128.0.110"),
+			},
+			{
+				Type: addressing.NodeExternalIP,
+				IP:   net.ParseIP("34.170.71.139"),
+			},
+			{
+				Type: addressing.NodeCiliumInternalIP,
+				IP:   net.ParseIP("169.254.4.6"),
+			},
+		},
+		Source: source.CustomResource,
+	}
+	mngr.NodeUpdated(n2)
+
+	select {
+	case nodeEvent := <-dp.NodeAddEvent:
+		c.Assert(nodeEvent, checker.DeepEquals, n2)
+	case nodeEvent := <-dp.NodeUpdateEvent:
+		c.Errorf("Unexpected NodeUpdate() event %#v", nodeEvent)
+	case nodeEvent := <-dp.NodeDeleteEvent:
+		c.Errorf("Unexpected NodeDelete() event %#v", nodeEvent)
+	case <-time.After(3 * time.Second):
+		c.Errorf("timeout while waiting for NodeAdd() event for node1")
+	}
 }
