@@ -1118,6 +1118,9 @@ func bindToAddr(address string, port uint16, handler dns.Handler, ipv4, ipv6 boo
 		}
 		dnsServers = append(dnsServers, &dns.Server{
 			Listener: tcpListener, Handler: handler,
+			// Explicitly set a noop factory to prevent data race detection when InitPool is called
+			// multiple times on the default factory even for TCP (IPv4 & IPv6).
+			SessionUDPFactory: &noopSessionUDPFactory{},
 			// Net & Addr are only set for logging purposes and aren't used if using ActivateAndServe.
 			Net: ipFamily.TCPAddress, Addr: tcpListener.Addr().String(),
 		})
