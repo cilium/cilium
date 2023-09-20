@@ -28,6 +28,7 @@ import (
 	operatorApi "github.com/cilium/cilium/api/v1/operator/server"
 	"github.com/cilium/cilium/operator/api"
 	"github.com/cilium/cilium/operator/auth"
+	"github.com/cilium/cilium/operator/endpointgc"
 	"github.com/cilium/cilium/operator/identitygc"
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
@@ -49,7 +50,6 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis"
-	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
@@ -151,6 +151,16 @@ var (
 			}
 		}),
 
+		cell.Provide(func(
+			operatorCfg *operatorOption.OperatorConfig,
+			daemonCfg *option.DaemonConfig,
+		) endpointgc.SharedConfig {
+			return endpointgc.SharedConfig{
+				Interval:                 operatorCfg.EndpointGCInterval,
+				DisableCiliumEndpointCRD: daemonCfg.DisableCiliumEndpointCRD,
+			}
+		}),
+
 		api.HealthHandlerCell(
 			kvstoreEnabled,
 			isLeader.Load,
@@ -188,6 +198,11 @@ var (
 			// It is disabled if CiliumEndpointSlice is disabled in the cluster -
 			// when --enable-cilium-endpoint-slice is false.
 			ciliumendpointslice.Cell,
+
+			// Cilium Endpoint Garbage Collector. It removes all leaked Cilium
+			// Endpoints. Either once or periodically it validates all the present
+			// Cilium Endpoints and delete the ones that should be deleted.
+			endpointgc.Cell,
 		),
 	)
 
@@ -683,31 +698,6 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 	}
 
 	if legacy.clientset.IsEnabled() {
-		// Conditionally start the CiliumEndpoint garbage collector.
-		// The GC needs to continually run long-term if EndpointGCInterval is non-zero and if CiliumEndpoint CRDs
-		// are enabled. Otherwise, the GC still needs to run once to account for the case in which a user transitions
-		// from CiliumEndpoint CRD mode to kvstore mode, and to check if there are any stale CEPs that need to be
-		// purged.
-		if operatorOption.Config.EndpointGCInterval != 0 && !option.Config.DisableCiliumEndpointCRD {
-			enableCiliumEndpointSyncGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer, false)
-		} else {
-			// Check if CEP CRD is available, as it could be missing if CEPs are not enabled.
-			// If the CRD is not available, then no garbage collection needs to be done.
-			_, err := legacy.clientset.ApiextensionsV1().CustomResourceDefinitions().Get(
-				legacy.ctx, k8sconstv2.CEPName, metav1.GetOptions{ResourceVersion: "0"},
-			)
-
-			if err == nil {
-				enableCiliumEndpointSyncGC(legacy.ctx, &legacy.wg, legacy.clientset, ciliumNodeSynchronizer, true)
-			} else if k8sErrors.IsNotFound(err) {
-				log.WithError(err).Info("CiliumEndpoint CRD cannot be found, skipping garbage collection")
-			} else {
-				log.WithError(err).Error(
-					"Unable to determine if CiliumEndpoint CRD is installed, cannot start garbage collector",
-				)
-			}
-		}
-
 		err = enableCNPWatcher(legacy.ctx, &legacy.wg, legacy.clientset)
 		if err != nil {
 			log.WithError(err).WithField(logfields.LogSubsys, "CNPWatcher").Fatal(
