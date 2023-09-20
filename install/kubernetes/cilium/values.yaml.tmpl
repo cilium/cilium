@@ -1569,6 +1569,9 @@ ipam:
     # @default -- `4.0`
     externalAPILimitQPS: ~
 
+# -- The api-rate-limit option can be used to overwrite individual settings of the default configuration for rate limiting calls to the Cilium Agent API
+apiRateLimit: ~
+
 # -- Configure the eBPF-based ip-masq-agent
 ipMasqAgent:
   enabled: false
