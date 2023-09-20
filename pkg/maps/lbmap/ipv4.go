@@ -34,7 +34,7 @@ const (
 	Backend4MapName = "cilium_lb4_backends"
 	// Backend4MapV2Name is the name of the IPv4 LB backends v2 BPF map.
 	Backend4MapV2Name = "cilium_lb4_backends_v2"
-	// Backend4MapV2Name is the name of the IPv4 LB backends v3 BPF map.
+	// Backend4MapV3Name is the name of the IPv4 LB backends v3 BPF map.
 	Backend4MapV3Name = "cilium_lb4_backends_v3"
 	// RevNat4MapName is the name of the IPv4 LB reverse NAT BPF map.
 	RevNat4MapName = "cilium_lb4_reverse_nat"
