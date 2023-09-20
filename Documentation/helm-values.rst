@@ -40,6 +40,10 @@
      - Annotate k8s node upon initialization with Cilium's metadata.
      - bool
      - ``false``
+   * - :spelling:ignore:`apiRateLimit`
+     - The api-rate-limit option can be used to overwrite individual settings of the default configuration for rate limiting calls to the Cilium Agent API
+     - string
+     - ``nil``
    * - :spelling:ignore:`authentication.enabled`
      - Enable authentication processing and garbage collection. Note that if disabled, policy enforcement will still block requests that require authentication. But the resulting authentication requests for these requests will not be processed, therefore the requests not be allowed.
      - bool
