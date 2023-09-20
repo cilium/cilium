@@ -115,6 +115,7 @@ func putServiceIDHandler(d *Daemon, params PutServiceIDParams) middleware.Respon
 		ExtTrafficPolicy:    svcExtTrafficPolicy,
 		IntTrafficPolicy:    svcIntTrafficPolicy,
 		HealthCheckNodePort: svcHealthCheckNodePort,
+		Source:              loadbalancer.SourceCMD,
 	}
 	created, id, err := d.svc.UpsertService(p)
 	if err == nil && id != frontend.ID {

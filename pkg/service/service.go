@@ -107,6 +107,8 @@ type svcInfo struct {
 	// The hashes of the backends restored from the datapath and
 	// not yet heard about from the service cache.
 	restoredBackendHashes sets.Set[string]
+
+	fromKubeApi bool
 }
 
 func (svc *svcInfo) isL7LBService() bool {
@@ -1315,7 +1317,9 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 			l7LBProxyPort:            p.L7LBProxyPort,
 			l7LBFrontendPorts:        p.L7LBFrontendPorts,
 			LoopbackHostport:         p.LoopbackHostport,
+			fromKubeApi:              p.Source == lb.SourceKubeApi,
 		}
+
 		s.svcByID[p.Frontend.ID] = svc
 		s.svcByHash[hash] = svc
 	} else {
@@ -1364,6 +1368,7 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		// Update L7 load balancer proxy port
 		svc.l7LBProxyPort = p.L7LBProxyPort
 		svc.l7LBFrontendPorts = p.L7LBFrontendPorts
+		svc.fromKubeApi = p.Source == lb.SourceKubeApi
 	}
 
 	return svc, !found, prevSessionAffinity, prevLoadBalancerSourceRanges, nil
@@ -1857,11 +1862,13 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 			backends[i].ID = b.ID
 			// Backend state can either be updated via kubernetes events,
 			// or service API. If the state update is coming via kubernetes events,
-			// then we need to update the internal state. Currently, the only state
-			// update in this case is for the terminating state or when backend
+			// then we need to update the internal state.
+			// The state update happened when state turn from terminating to active, or
+			// terminating state or when backend
 			// weight has changed. All other state updates happen via the API
 			// (UpdateBackendsState) in which case we need to set the backend state
 			// to the saved state.
+			// see https://github.com/cilium/cilium/issues/28094 for why we need to turn terminating to active.
 			switch {
 			case backends[i].State == lb.BackendStateTerminating &&
 				b.State != lb.BackendStateTerminating:
@@ -1877,6 +1884,14 @@ func (s *Service) updateBackendsCacheLocked(svc *svcInfo, backends []*lb.Backend
 				// Update but do not persist the state as backend might be set as active
 				// only temporarily for specific service
 				b.State = backends[i].State
+			case svc.fromKubeApi && backends[i].State == lb.BackendStateActive &&
+				b.State == lb.BackendStateTerminating:
+				b.State = backends[i].State
+				// Update the persisted backend state in BPF maps.
+				if err := s.lbmap.UpdateBackendWithState(backends[i]); err != nil {
+					return nil, nil, nil, fmt.Errorf("failed to update backend %+v %w",
+						backends[i], err)
+				}
 			default:
 				// Set the backend state to the saved state.
 				backends[i].State = b.State

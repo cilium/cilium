@@ -351,6 +351,13 @@ func (n ServiceName) String() string {
 	return n.Namespace + "/" + n.Name
 }
 
+type Source uint8
+
+const (
+	SourceKubeApi Source = iota
+	SourceCMD
+)
+
 // BackendID is the backend's ID.
 type BackendID uint32
 
@@ -401,6 +408,7 @@ type SVC struct {
 	L7LBProxyPort             uint16   // Non-zero for L7 LB services
 	L7LBFrontendPorts         []string // Non-zero for L7 LB frontend service ports
 	LoopbackHostport          bool
+	Source                    Source // the source for update svc
 }
 
 func (s *SVC) GetModel() *models.Service {
