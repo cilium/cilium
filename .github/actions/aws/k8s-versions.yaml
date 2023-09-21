@@ -1,4 +1,4 @@
-# List of k8s version for GKE tests
+# List of k8s version for EKS tests
 ---
 include:
   - version: "1.23"
