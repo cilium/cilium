@@ -4,7 +4,7 @@ kind: RoleBinding
 metadata:
   name: clustermesh-apiserver-generate-certs
   namespace: {{ .Release.Namespace }}
-  {{- with .Values.clustermesh.apiserver.tls.auto.annotations }}
+  {{- with .Values.clustermesh.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}

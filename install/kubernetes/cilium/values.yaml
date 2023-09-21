@@ -1109,8 +1109,6 @@ hubble:
       # false, the certs for Hubble server need to be provided by setting
       # appropriate values below.
       enabled: true
-      # -- Annotations to be added to all auto-generate tls resources
-      annotations: {}
       # -- Set the method to auto-generate certificates. Supported values:
       # - helm:         This method uses Helm to generate all certificates.
       # - cronJob:      This method uses a Kubernetes CronJob the generate any
@@ -3006,8 +3004,6 @@ clustermesh:
         # enable mTLS between clustermesh-apiserver and external workload instances.
         # If set to false, the certs to be provided by setting appropriate values below.
         enabled: true
-        # -- Annotations to be added to all auto-generate tls resources
-        annotations: {}
         # Sets the method to auto-generate certificates. Supported values:
         # - helm:         This method uses Helm to generate all certificates.
         # - cronJob:      This method uses a Kubernetes CronJob the generate any

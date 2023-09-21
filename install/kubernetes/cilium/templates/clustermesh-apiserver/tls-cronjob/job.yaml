@@ -13,7 +13,7 @@ metadata:
     {{- with .Values.certgen.annotations.job }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    {{- with .Values.clustermesh.apiserver.tls.auto.annotations }}
+    {{- with .Values.clustermesh.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
 {{ include "clustermesh-apiserver-generate-certs.job.spec" . }}

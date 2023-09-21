@@ -635,11 +635,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto`
      - Configure automatic TLS certificates generation. A Kubernetes CronJob is used the generate any certificates not provided by the user at installation time.
      - object
-     - ``{"annotations":{},"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm"}``
-   * - :spelling:ignore:`clustermesh.apiserver.tls.auto.annotations`
-     - Annotations to be added to all auto-generate tls resources
-     - object
-     - ``{}``
+     - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm"}``
    * - :spelling:ignore:`clustermesh.apiserver.tls.auto.certManagerIssuerRef`
      - certmanager issuer used when clustermesh.apiserver.tls.auto.method=certmanager.
      - object
@@ -1703,15 +1699,11 @@
    * - :spelling:ignore:`hubble.tls`
      - TLS configuration for Hubble
      - object
-     - ``{"auto":{"annotations":{},"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"},"enabled":true,"server":{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
+     - ``{"auto":{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"},"enabled":true,"server":{"cert":"","extraDnsNames":[],"extraIpAddresses":[],"key":""}}``
    * - :spelling:ignore:`hubble.tls.auto`
      - Configure automatic TLS certificates generation.
      - object
-     - ``{"annotations":{},"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"}``
-   * - :spelling:ignore:`hubble.tls.auto.annotations`
-     - Annotations to be added to all auto-generate tls resources
-     - object
-     - ``{}``
+     - ``{"certManagerIssuerRef":{},"certValidityDuration":1095,"enabled":true,"method":"helm","schedule":"0 0 1 */4 *"}``
    * - :spelling:ignore:`hubble.tls.auto.certManagerIssuerRef`
      - certmanager issuer used when hubble.tls.auto.method=certmanager.
      - object

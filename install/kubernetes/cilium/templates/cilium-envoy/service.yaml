@@ -4,7 +4,6 @@ kind: Service
 metadata:
   name: cilium-envoy
   namespace: {{ .Release.Namespace }}
-  # TODO CONFIRM THIS SYNTAX
   {{- if or (not .Values.envoy.prometheus.serviceMonitor.enabled) .Values.envoy.annotations }}
   annotations:
     {{- if not .Values.envoy.prometheus.serviceMonitor.enabled }}
