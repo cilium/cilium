@@ -1,7 +1,6 @@
 triggers:
   /test-backport-1.12:
     workflows:
-    - conformance-aks.yaml
     - conformance-aws-cni.yaml
     - conformance-clustermesh.yaml
     - conformance-eks.yaml
@@ -9,9 +8,6 @@ triggers:
     - conformance-gke.yaml
     - conformance-ingress.yaml
     - tests-l4lb.yaml
-  /ci-aks:
-    workflows:
-    - conformance-aks.yaml
   /ci-awscni:
     workflows:
     - conformance-aws-cni.yaml
@@ -38,8 +34,6 @@ triggers:
     - tests-l4lb.yaml
 
 workflows:
-  conformance-aks.yaml:
-    paths-ignore-regex: (test|Documentation)/
   conformance-aws-cni.yaml:
     paths-ignore-regex: (test|Documentation)/
   conformance-clustermesh.yaml:
