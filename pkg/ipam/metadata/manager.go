@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -95,9 +96,32 @@ func splitK8sPodName(owner string) (namespace, name string, ok bool) {
 	return namespace, name, true
 }
 
-func (m *Manager) GetIPPoolForPod(owner string) (pool string, err error) {
+func determinePoolByAnnotations(annotations map[string]string, family ipam.Family) (pool string, ok bool) {
+	switch family {
+	case ipam.IPv4:
+		if annotations[annotation.IPAMIPv4PoolKey] != "" {
+			return annotations[annotation.IPAMIPv4PoolKey], true
+		} else if annotations[annotation.IPAMPoolKey] != "" {
+			return annotations[annotation.IPAMPoolKey], true
+		}
+	case ipam.IPv6:
+		if annotations[annotation.IPAMIPv6PoolKey] != "" {
+			return annotations[annotation.IPAMIPv6PoolKey], true
+		} else if annotations[annotation.IPAMPoolKey] != "" {
+			return annotations[annotation.IPAMPoolKey], true
+		}
+	}
+
+	return "", false
+}
+
+func (m *Manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string, err error) {
 	if m.namespaceStore == nil || m.podStore == nil {
 		return "", &ManagerStoppedError{}
+	}
+
+	if family != ipam.IPv6 && family != ipam.IPv4 {
+		return "", fmt.Errorf("invalid IP family: %s", family)
 	}
 
 	namespace, name, ok := splitK8sPodName(owner)
@@ -116,8 +140,8 @@ func (m *Manager) GetIPPoolForPod(owner string) (pool string, err error) {
 		return "", fmt.Errorf("failed to lookup pod %q: %w", namespace+"/"+name, err)
 	} else if !ok {
 		return "", &ResourceNotFound{Resource: "Pod", Namespace: namespace, Name: name}
-	} else if ipPool, hasAnnotation := pod.Annotations[annotation.IPAMPoolKey]; hasAnnotation {
-		return ipPool, nil
+	} else if ippool, ok := determinePoolByAnnotations(pod.Annotations, family); ok {
+		return ippool, nil
 	}
 
 	// Check annotation on namespace
@@ -128,8 +152,8 @@ func (m *Manager) GetIPPoolForPod(owner string) (pool string, err error) {
 		return "", fmt.Errorf("failed to lookup namespace %q: %w", namespace, err)
 	} else if !ok {
 		return "", &ResourceNotFound{Resource: "Namespace", Name: namespace}
-	} else if ipPool, hasAnnotation := podNamespace.Annotations[annotation.IPAMPoolKey]; hasAnnotation {
-		return ipPool, nil
+	} else if ippool, ok := determinePoolByAnnotations(podNamespace.Annotations, family); ok {
+		return ippool, nil
 	}
 
 	// Fallback to default pool

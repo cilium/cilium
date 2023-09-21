@@ -30,12 +30,12 @@ var (
 	ErrIPv6Disabled = errors.New("IPv6 allocation disabled")
 )
 
-func (ipam *IPAM) determineIPAMPool(owner string) (Pool, error) {
+func (ipam *IPAM) determineIPAMPool(owner string, family Family) (Pool, error) {
 	if ipam.metadata == nil {
 		return PoolDefault, nil
 	}
 
-	pool, err := ipam.metadata.GetIPPoolForPod(owner)
+	pool, err := ipam.metadata.GetIPPoolForPod(owner, family)
 	if err != nil {
 		return "", fmt.Errorf("unable to determine IPAM pool for owner %q: %w", owner, err)
 	}
@@ -152,7 +152,7 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, pool Pool, nee
 	}
 
 	if pool == "" {
-		pool, err = ipam.determineIPAMPool(owner)
+		pool, err = ipam.determineIPAMPool(owner, family)
 		if err != nil {
 			return
 		}
