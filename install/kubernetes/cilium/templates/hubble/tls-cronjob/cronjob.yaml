@@ -8,9 +8,9 @@ metadata:
     k8s-app: hubble-generate-certs
     app.kubernetes.io/name: hubble-generate-certs
     app.kubernetes.io/part-of: cilium
-  {{- if or .Values.certgen.annotations.cronJob .Values.hubble.tls.auto.annotations }}
+  {{- if or .Values.certgen.annotations.cronJob .Values.hubble.annotations }}
   annotations:
-    {{- with .Values.hubble.tls.auto.annotations }}
+    {{- with .Values.hubble.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
     {{- with .Values.certgen.annotations.cronJob }}

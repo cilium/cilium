@@ -9,7 +9,7 @@ kind: Secret
 metadata:
   name: hubble-ui-client-certs
   namespace: {{ .Release.Namespace }}
-  {{- with .Values.hubble.tls.auto.annotations }}
+  {{- with .Values.hubble.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
