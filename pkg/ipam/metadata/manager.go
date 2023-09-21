@@ -5,6 +5,7 @@ package metadata
 
 import (
 	"fmt"
+	"github.com/cilium/cilium/pkg/ipam"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -95,7 +96,7 @@ func splitK8sPodName(owner string) (namespace, name string, ok bool) {
 	return namespace, name, true
 }
 
-func (m *Manager) GetIPPoolForPod(owner string) (pool string, err error) {
+func (m *Manager) GetIPPoolForPod(owner string, family ipam.Family) (pool string, err error) {
 	if m.namespaceStore == nil || m.podStore == nil {
 		return "", &ManagerStoppedError{}
 	}
@@ -116,8 +117,25 @@ func (m *Manager) GetIPPoolForPod(owner string) (pool string, err error) {
 		return "", fmt.Errorf("failed to lookup pod %q: %w", namespace+"/"+name, err)
 	} else if !ok {
 		return "", &ResourceNotFound{Resource: "Pod", Namespace: namespace, Name: name}
-	} else if ipPool, hasAnnotation := pod.Annotations[annotation.IPAMPoolKey]; hasAnnotation {
-		return ipPool, nil
+	} else {
+		switch family {
+		case ipam.IPv4:
+			if ipv4Pool, hasIPv4Annotation :=
+				pod.Annotations[annotation.IPAMIPv4PoolKey]; hasIPv4Annotation {
+				return ipv4Pool, nil
+			} else if ipPool, hasAnnotation :=
+				pod.Annotations[annotation.IPAMPoolKey]; hasAnnotation {
+				return ipPool, nil
+			}
+		case ipam.IPv6:
+			if ipv6Pool, hasIPv6Annotation :=
+				pod.Annotations[annotation.IPAMIPv6PoolKey]; hasIPv6Annotation {
+				return ipv6Pool, nil
+			} else if ipPool, hasAnnotation :=
+				pod.Annotations[annotation.IPAMPoolKey]; hasAnnotation {
+				return ipPool, err
+			}
+		}
 	}
 
 	// Check annotation on namespace
@@ -128,8 +146,25 @@ func (m *Manager) GetIPPoolForPod(owner string) (pool string, err error) {
 		return "", fmt.Errorf("failed to lookup namespace %q: %w", namespace, err)
 	} else if !ok {
 		return "", &ResourceNotFound{Resource: "Namespace", Name: namespace}
-	} else if ipPool, hasAnnotation := podNamespace.Annotations[annotation.IPAMPoolKey]; hasAnnotation {
-		return ipPool, nil
+	} else {
+		switch family {
+		case ipam.IPv4:
+			if ipv4Pool, hasIPv4Annotation :=
+				podNamespace.Annotations[annotation.IPAMIPv4PoolKey]; hasIPv4Annotation {
+				return ipv4Pool, nil
+			} else if ipPool, hasAnnotation :=
+				podNamespace.Annotations[annotation.IPAMPoolKey]; hasAnnotation {
+				return ipPool, nil
+			}
+		case ipam.IPv6:
+			if ipv6Pool, hasIPv6Annotation :=
+				podNamespace.Annotations[annotation.IPAMIPv6PoolKey]; hasIPv6Annotation {
+				return ipv6Pool, nil
+			} else if ipPool, hasAnnotation :=
+				podNamespace.Annotations[annotation.IPAMPoolKey]; hasAnnotation {
+				return ipPool, nil
+			}
+		}
 	}
 
 	// Fallback to default pool

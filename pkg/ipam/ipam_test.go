@@ -45,10 +45,10 @@ func (t *testConfiguration) IPAMMode() string                         { return i
 func (t *testConfiguration) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {}
 func (t *testConfiguration) GetIPv4NativeRoutingCIDR() *cidr.CIDR     { return nil }
 
-type fakeMetadataFunc func(owner string) (pool string, err error)
+type fakeMetadataFunc func(owner string, family Family) (pool string, err error)
 
-func (f fakeMetadataFunc) GetIPPoolForPod(owner string) (pool string, err error) {
-	return f(owner)
+func (f fakeMetadataFunc) GetIPPoolForPod(owner string, family Family) (pool string, err error) {
+	return f(owner, family)
 }
 
 type fakePoolAllocator struct {
@@ -202,7 +202,7 @@ func (s *IPAMSuite) TestIPAMMetadata(c *C) {
 	c.Assert(resIPv4.IPPoolName, Equals, PoolDefault)
 	c.Assert(resIPv6.IPPoolName, Equals, PoolDefault)
 
-	ipam.WithMetadata(fakeMetadataFunc(func(owner string) (pool string, err error) {
+	ipam.WithMetadata(fakeMetadataFunc(func(owner string, family Family) (pool string, err error) {
 		// use namespace to determine pool name
 		namespace, _, _ := strings.Cut(owner, "/")
 		switch namespace {
@@ -262,7 +262,7 @@ func (s *IPAMSuite) TestLegacyAllocatorIPAMMetadata(c *C) {
 	// pool
 	fakeAddressing := fake.NewNodeAddressing()
 	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{}, &mtuMock, nil)
-	ipam.WithMetadata(fakeMetadataFunc(func(owner string) (pool string, err error) {
+	ipam.WithMetadata(fakeMetadataFunc(func(owner string, family Family) (pool string, err error) {
 		return "some-pool", nil
 	}))
 
