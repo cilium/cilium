@@ -88,7 +88,6 @@ if not branch or branch == 'latest':
     branch = 'HEAD'
     archive_name = 'main'
     chart_release = './cilium'
-    image_tag = 'latest'
     chart_version = "--chart-directory ./install/kubernetes/cilium"
 elif branch == 'stable':
     branch = release
