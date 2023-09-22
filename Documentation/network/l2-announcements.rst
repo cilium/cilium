@@ -114,7 +114,9 @@ Service Selector
 
 The service selector is a `label selector <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`__ 
 that determines which services are selected by this policy. If no service 
-selector is provided, all services are selected by the policy.
+selector is provided, all services are selected by the policy. A service must have
+`loadBalancerClass <https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class>`__
+unspecified or set to ``io.cilium/l2-announcer`` to be selected by a policy for announcement.
 
 There are a few special purpose selector fields which don't match on labels but
 instead on other metadata like ``.meta.name`` or ``.meta.namespace``.
