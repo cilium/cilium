@@ -51,6 +51,8 @@ const (
 	AfiOpaque  Afi = 16397
 )
 
+// FromString assigns s to a. An error is returned if s is
+// an unknown address family indicator.
 func (a *Afi) FromString(s string) error {
 	switch s {
 	case "ipv4":
@@ -69,6 +71,7 @@ func (a *Afi) FromString(s string) error {
 	return nil
 }
 
+// String returns the stringified form of a.
 func (a Afi) String() string {
 	switch a {
 	case AfiUnknown:
@@ -86,6 +89,27 @@ func (a Afi) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+// ParseAfi parses s as an address family identifier.
+// If s is unknown, AfiUnknown is returned.
+func ParseAfi(s string) Afi {
+	var ret Afi
+	switch s {
+	case "ipv4":
+		ret = AfiIPv4
+	case "ipv6":
+		ret = AfiIPv6
+	case "l2vpn":
+		ret = AfiL2VPN
+	case "ls":
+		ret = AfiLS
+	case "opaque":
+		ret = AfiOpaque
+	default:
+		ret = AfiUnknown
+	}
+	return ret
 }
 
 // Safi is subsequent address family identifier
@@ -110,6 +134,8 @@ const (
 	SafiKeyValue               Safi = 241
 )
 
+// FromString assigns safi to s. An error is returned if safi
+// is an unknown subsequent address family indicator.
 func (s *Safi) FromString(safi string) error {
 	switch safi {
 	case "unicast":
@@ -148,6 +174,7 @@ func (s *Safi) FromString(safi string) error {
 	return nil
 }
 
+// String returns the stringified form of s.
 func (s Safi) String() string {
 	switch s {
 	case SafiUnknown:
@@ -185,4 +212,45 @@ func (s Safi) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+// ParseSafi parses s as a subsequent address family identifier.
+// If s is unknown, SafiUnknown is returned.
+func ParseSafi(s string) Safi {
+	var ret Safi
+	switch s {
+	case "unicast":
+		ret = SafiUnicast
+	case "multicast":
+		ret = SafiMulticast
+	case "mpls_label":
+		ret = SafiMplsLabel
+	case "encapsulation":
+		ret = SafiEncapsulation
+	case "vpls":
+		ret = SafiVpls
+	case "evpn":
+		ret = SafiEvpn
+	case "ls":
+		ret = SafiLs
+	case "sr_policy":
+		ret = SafiSrPolicy
+	case "mup":
+		ret = SafiMup
+	case "mpls_vpn":
+		ret = SafiMplsVpn
+	case "mpls_vpn_multicast":
+		ret = SafiMplsVpnMulticast
+	case "route_target_constraints":
+		ret = SafiRouteTargetConstraints
+	case "flowspec_unicast":
+		ret = SafiFlowSpecUnicast
+	case "flowspec_vpn":
+		ret = SafiFlowSpecVpn
+	case "key_value":
+		ret = SafiKeyValue
+	default:
+		ret = SafiUnknown
+	}
+	return ret
 }

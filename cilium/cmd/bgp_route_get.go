@@ -115,7 +115,7 @@ func parseBGPRoutesMandatoryArgs(args []string) (tableType, afi, safi string, ar
 		err = fmt.Errorf("missing AFI value (e.g. `ipv4`)")
 		return
 	}
-	if api.ToAgentAfi(args[1]) == types.AfiUnknown {
+	if types.ParseAfi(args[1]) == types.AfiUnknown {
 		err = fmt.Errorf("unknown AFI %s", args[1])
 		return
 	}
@@ -125,7 +125,7 @@ func parseBGPRoutesMandatoryArgs(args []string) (tableType, afi, safi string, ar
 		err = fmt.Errorf("missing SAFI value (e.g. `unicast`)")
 		return
 	}
-	if api.ToAgentSafi(args[2]) == types.SafiUnknown {
+	if types.ParseSafi(args[2]) == types.SafiUnknown {
 		err = fmt.Errorf("unknown SAFI %s", args[2])
 		return
 	}
