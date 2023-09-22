@@ -271,6 +271,18 @@ type PodIP struct {
 	IP string `json:"IP,omitempty"`
 }
 
+// WorkloadObjectMeta is metadata associated with workloads that create pods.
+type WorkloadObjectMeta struct {
+	// Name of the object.
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// Namespace of this object.
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+}
+
+// +genclient
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:singular="podinfo",path="podinfo",scope="Namespaced",shortName={}
@@ -282,6 +294,11 @@ type PodInfo struct {
 
 	Spec   PodInfoSpec   `json:"spec,omitempty"`
 	Status PodInfoStatus `json:"status,omitempty"`
+
+	// Workload type (e.g. "Deployment", "Daemonset") that created this pod.
+	WorkloadType metav1.TypeMeta `json:"workloadType,omitempty"`
+	// Workload that created this pod.
+	WorkloadObject WorkloadObjectMeta `json:"workloadObject,omitempty"`
 }
 
 // +kubebuilder:object:root=true
