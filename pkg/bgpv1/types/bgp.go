@@ -211,6 +211,21 @@ const (
 	TableTypeAdjRIBOut
 )
 
+// ParseTableType parses s as a routing table type. If s is unknown,
+// TableTypeUnknown is returned.
+func ParseTableType(s string) TableType {
+	switch s {
+	case "loc-rib":
+		return TableTypeLocRIB
+	case "adj-rib-in":
+		return TableTypeAdjRIBIn
+	case "adj-rib-out":
+		return TableTypeAdjRIBOut
+	default:
+		return TableTypeUnknown
+	}
+}
+
 // GetRoutesRequest contains parameters for retrieving routes from the RIB of underlying router
 type GetRoutesRequest struct {
 	// TableType specifies a table type to retrieve
