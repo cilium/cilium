@@ -347,7 +347,8 @@ Service announcements
 
 By default, virtual routers will not announce services. Virtual routers will announce
 the ingress IPs of any LoadBalancer services that matches the ``.serviceSelector``
-of the virtual router.
+of the virtual router and has `loadBalancerClass <https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-class>`__
+unspecified or set to ``io.cilium/bgp-control-plane``.
 
 If you wish to announce ALL services within the cluster, a ``NotIn`` match expression
 with a dummy key and value can be used like:
