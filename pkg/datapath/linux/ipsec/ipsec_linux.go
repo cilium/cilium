@@ -323,12 +323,12 @@ func ipSecReplaceStateIn(localIP, remoteIP net.IP, zeroMark bool) (uint8, error)
 	if !zeroMark {
 		state.OutputMark = &netlink.XfrmMark{
 			Value: linux_defaults.RouteMarkDecrypt,
-			Mask:  linux_defaults.RouteMarkMask,
+			Mask:  linux_defaults.OutputMarkMask,
 		}
 	} else {
 		state.OutputMark = &netlink.XfrmMark{
 			Value: 0,
-			Mask:  linux_defaults.RouteMarkMask,
+			Mask:  linux_defaults.OutputMarkMask,
 		}
 	}
 
@@ -347,7 +347,7 @@ func ipSecReplaceStateOut(localIP, remoteIP net.IP, nodeID uint16) (uint8, error
 	state.Mark = generateEncryptMark(key.Spi, nodeID)
 	state.OutputMark = &netlink.XfrmMark{
 		Value: linux_defaults.RouteMarkEncrypt,
-		Mask:  linux_defaults.RouteMarkMask,
+		Mask:  linux_defaults.OutputMarkMask,
 	}
 	return key.Spi, xfrmStateReplace(state)
 }
