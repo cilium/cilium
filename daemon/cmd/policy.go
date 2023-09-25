@@ -317,7 +317,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		}
 	}
 
-	addedRules, newRev := d.policy.AddListLocked(sourceRules)
+	addedRules, newRev := d.policy.AddListLocked(sourceRules, opts.Source)
 
 	// The information needed by the caller is available at this point, signal
 	// accordingly.

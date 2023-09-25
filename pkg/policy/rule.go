@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/api/kafka"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 type rule struct {
@@ -25,14 +26,16 @@ type ruleMetadata struct {
 	// mutex protects all fields in this type.
 	Mutex lock.Mutex
 
+	Source source.Source
 	// IdentitySelected is a cache that maps from an identity to whether
 	// this rule selects that identity.
 	IdentitySelected map[identity.NumericIdentity]bool
 }
 
-func newRuleMetadata() *ruleMetadata {
+func newRuleMetadata(source source.Source) *ruleMetadata {
 	return &ruleMetadata{
 		IdentitySelected: make(map[identity.NumericIdentity]bool),
+		Source:           source,
 	}
 }
 
@@ -764,6 +767,7 @@ func (r *rule) resolveEgressPolicy(
 	}()
 	for _, egressRule := range r.EgressDeny {
 		toEndpoints := egressRule.GetDestinationEndpointSelectorsWithRequirements(requirementsDeny)
+		log.WithField("rule", egressRule).Info("[tamilmani] Egress deny rule")
 		cnt, err := mergeEgress(policyCtx, ctx, toEndpoints, nil, egressRule.ToPorts, egressRule.ICMPs, r.Rule.Labels.DeepCopy(), result, nil)
 		if err != nil {
 			return nil, err

@@ -31,8 +31,6 @@ type selectorPolicy struct {
 	// EgressPolicyEnabled specifies whether this policy contains any policy
 	// at egress.
 	EgressPolicyEnabled bool
-
-	DefaultAllow bool
 }
 
 func (p *selectorPolicy) Attach(ctx PolicyContext) {
@@ -120,9 +118,9 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 		PolicyOwner:    policyOwner,
 	}
 
-	if !p.IngressPolicyEnabled || !p.EgressPolicyEnabled || p.DefaultAllow {
-		calculatedPolicy.PolicyMapState.AllowAllIdentities2(
-			!p.IngressPolicyEnabled, !p.EgressPolicyEnabled, p.DefaultAllow)
+	if !p.IngressPolicyEnabled || !p.EgressPolicyEnabled {
+		calculatedPolicy.PolicyMapState.AllowAllIdentities(
+			!p.IngressPolicyEnabled, !p.EgressPolicyEnabled)
 	}
 
 	// Register the new EndpointPolicy as a receiver of delta

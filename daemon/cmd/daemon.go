@@ -1254,42 +1254,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		ipsec.StartStaleKeysReclaimer(ctx)
 	}
 
-	// log.Info("[tamilmani] Adding bpf policy rule da.")
-	// egressDenyRule := &api.Rule{
-	// 	EndpointSelector: api.WildcardEndpointSelector,
-	// 	EgressDeny: []api.EgressDenyRule{
-	// 		{
-	// 			EgressCommonRule: api.EgressCommonRule{
-	// 				ToCIDR:      []api.CIDR{"10.0.0.5/32"},
-	// 				ToEndpoints: make([]policyAPI.EndpointSelector, 0),
-	// 			},
-	// 		},
-	// 	},
-	// }
-
-	// if err := egressDenyRule.Sanitize(); err != nil {
-	// 	log.WithField("error", err).Error("sanitize rule failed da")
-	// }
-
-	// var egressDenyList []*api.Rule
-	// egressDenyList = append(egressDenyList, egressDenyRule)
-
-	// d.policy.Mutex.Lock()
-	// addedRules, newRev := d.policy.AddListLocked(egressDenyList)
-	// d.policy.Mutex.Unlock()
-
-	// log.WithFields(logrus.Fields{
-	// 	"addedRules": addedRules.AsPolicyRules().String(),
-	// 	"revision":   newRev,
-	// }).Info("[tamilmani] Added new rul da")
-
-	// repo := d.GetPolicyRepository()
-	// repo.Iterate(func(rule *policyAPI.Rule) {
-	// 	for _, er := range rule.EgressDeny {
-	// 		log.WithField("egressDenyRule", er).Info("[tamilmani]Rules present in repo")
-	// 	}
-	// })
-
 	rules := cloudproviderpolicy.InitCloudProviderPolicies()
 	_, policyAdderr := d.PolicyAdd(rules, &policy.AddOptions{
 		ReplaceWithLabels: k8sCiliumUtils.GetPolicyLabels("", "cpPolicy", "CloudProviderPolicyUid", ""),

@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 // PolicyContext is an interface policy resolution functions use to access the Repository.
@@ -385,19 +386,19 @@ func (p *Repository) Add(r api.Rule, localRuleConsumers []Endpoint) (uint64, map
 
 	newList := make([]*api.Rule, 1)
 	newList[0] = &r
-	_, rev := p.AddListLocked(newList)
+	_, rev := p.AddListLocked(newList, "")
 	return rev, map[uint16]struct{}{}, nil
 }
 
 // AddListLocked inserts a rule into the policy repository with the repository already locked
 // Expects that the entire rule list has already been sanitized.
-func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
+func (p *Repository) AddListLocked(rules api.Rules, source source.Source) (ruleSlice, uint64) {
 
 	newList := make(ruleSlice, len(rules))
 	for i := range rules {
 		newRule := &rule{
 			Rule:     *rules[i],
-			metadata: newRuleMetadata(),
+			metadata: newRuleMetadata(source),
 		}
 		newList[i] = newRule
 	}
@@ -449,7 +450,7 @@ func (p *Repository) LocalEndpointIdentityRemoved(identity *identity.Identity) {
 func (p *Repository) AddList(rules api.Rules) (ruleSlice, uint64) {
 	p.Mutex.Lock()
 	defer p.Mutex.Unlock()
-	return p.AddListLocked(rules)
+	return p.AddListLocked(rules, "")
 }
 
 // Iterate iterates the policy repository, calling f for each rule. It is safe
@@ -633,11 +634,9 @@ func (p *Repository) getMatchingRules2(securityIdentity *identity.Identity) (
 			if !egressMatch {
 				egressMatch = len(r.Egress) > 0 || len(r.EgressDeny) > 0
 				if egressMatch {
-					for _, lbl := range r.Labels {
-						if lbl.Source == labels.LabelSourceAdmin {
-							egressMatch = false
-							adminEgress = true
-						}
+					if r.metadata.Source == labels.LabelSourceAdmin {
+						egressMatch = false
+						adminEgress = true
 					}
 				}
 			}
@@ -734,36 +733,8 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	ingressEnabled, egressEnabled, adminEgressEnabled,
 		matchingRules := p.computePolicyEnforcementAndRules2(securityIdentity)
 
-	defaultAllow := false
-	if egressEnabled {
-		for _, r := range matchingRules {
-			if len(r.Egress) > 0 || len(r.EgressDeny) > 0 {
-				if !r.DefaultAllow {
-					//log.WithFields(logrus.Fields{"rule": r.Rule, "identity": securityIdentity.ID}).Info("[tm] egress defined with no default allow")
-					defaultAllow = false
-					break
-				} else {
-					//log.WithFields(logrus.Fields{"rule": r.Rule, "identity": securityIdentity.ID}).Info("[tm] egress defined with default Allow")
-					defaultAllow = true
-				}
-			}
-		}
-	}
-
-	// var rootRuleList ruleSlice
-	// for _, egressDenyRule := range cloudproviderpolicy.EgressDenyList {
-	// 	rootRule := rule{
-	// 		Rule:     *egressDenyRule,
-	// 		metadata: newRuleMetadata(),
-	// 	}
-	// 	rootRule.metadata.IdentitySelected[securityIdentity.ID] = true
-	// 	rootRuleList = append(rootRuleList, &rootRule)
-	// }
-
-	// matchingRules = append(rootRuleList, matchingRules...)
-
 	for _, temp := range matchingRules {
-		log.WithFields(logrus.Fields{"Rules": temp.Rule, "metadata": temp.metadata, "egressenabled": egressEnabled}).Info("[tamilmani] egressdeny rules in matchingRules")
+		log.WithFields(logrus.Fields{"Rules": temp.Rule, "metadata": temp.metadata, "egressenabled": egressEnabled, "adminEgress": adminEgressEnabled}).Info("[tamilmani] egressdeny rules in matchingRules")
 	}
 
 	// parse through all matching rules
@@ -774,7 +745,6 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 		L4Policy:             NewL4Policy(p.GetRevision()),
 		IngressPolicyEnabled: ingressEnabled,
 		EgressPolicyEnabled:  egressEnabled,
-		DefaultAllow:         defaultAllow,
 	}
 
 	lbls := securityIdentity.LabelArray

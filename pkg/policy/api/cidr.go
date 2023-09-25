@@ -87,6 +87,7 @@ func (s CIDRSlice) GetAsEndpointSelectors() EndpointSelectorSlice {
 	slice := EndpointSelectorSlice{}
 	for _, cidr := range s {
 		if cidr.MatchesAll() && !hasWorldBeenAdded {
+			log.Info("[tamilmani] World has been added")
 			hasWorldBeenAdded = true
 			slice = append(slice, ReservedEndpointSelectors[labels.IDNameWorld])
 		}

@@ -5,7 +5,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
-	policyAPI "github.com/cilium/cilium/pkg/policy/api"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cloudproviderpolicy")
@@ -24,15 +23,12 @@ func InitCloudProviderPolicies() []*api.Rule {
 		},
 	}
 
-	matchLabels := make(map[string]string)
-	matchLabels["cidr"] = "10.0.0.5/32"
 	egressDenyRule := &api.Rule{
 		EndpointSelector: api.WildcardEndpointSelector,
 		EgressDeny: []api.EgressDenyRule{
 			{
 				EgressCommonRule: api.EgressCommonRule{
-					ToCIDR:      []api.CIDR{"10.0.0.5/32"},
-					ToEndpoints: make([]policyAPI.EndpointSelector, 0),
+					ToCIDR: []api.CIDR{"10.0.0.5/32"},
 				},
 				ToPorts: portDenyRules,
 			},

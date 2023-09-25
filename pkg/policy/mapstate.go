@@ -770,37 +770,6 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 	}
 }
 
-func (keys MapState) AllowAllIdentities2(ingress, egress, defaultAllow bool) {
-	if ingress {
-		keyToAdd := Key{
-			Identity:         0,
-			DestPort:         0,
-			Nexthdr:          0,
-			TrafficDirection: trafficdirection.Ingress.Uint8(),
-		}
-		derivedFrom := labels.LabelArrayList{
-			labels.LabelArray{
-				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
-			},
-		}
-		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false, AuthTypeNone)
-	}
-	if egress || defaultAllow {
-		keyToAdd := Key{
-			Identity:         0,
-			DestPort:         0,
-			Nexthdr:          0,
-			TrafficDirection: trafficdirection.Egress.Uint8(),
-		}
-		derivedFrom := labels.LabelArrayList{
-			labels.LabelArray{
-				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
-			},
-		}
-		keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false, AuthTypeNone)
-	}
-}
-
 func (keys MapState) AllowsL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
