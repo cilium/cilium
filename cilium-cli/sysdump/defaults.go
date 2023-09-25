@@ -41,6 +41,7 @@ const (
 	DefaultTetragonAgentContainerName        = "tetragon"
 	DefaultTetragonBugtoolPrefix             = "tetragon-bugtool"
 	DefaultTetragonCLICommand                = "tetra"
+	DefaultTetragonPodInfo                   = "tetragonpodinfo-<ts>.yaml"
 	DefaultTetragonTracingPolicy             = "tetragontracingpolicy-<ts>.yaml"
 	DefaultTetragonTracingPolicyNamespaced   = "tetragontracingpolicynamespaced-<ts>.yaml"
 	DefaultCiliumHelmReleaseName             = defaults.HelmReleaseName

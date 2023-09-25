@@ -554,3 +554,7 @@ func (c *fakeClient) ListTetragonTracingPoliciesNamespaced(_ context.Context, _ 
 
 	return &ret, nil
 }
+
+func (c *fakeClient) ListTetragonPodInfo(_ context.Context, _ string, _ metav1.ListOptions) (*tetragonv1alpha1.PodInfoList, error) {
+	panic("implement me")
+}
