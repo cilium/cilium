@@ -43,6 +43,10 @@ const (
 	// RouteMarkMask is the mask required for the route mark value
 	RouteMarkMask = 0xF00
 
+	// OutputMarkMask is the mask to use in output-mark of XFRM states. It is
+	// used to clear the node ID and the SPI from the packet mark.
+	OutputMarkMask = 0xFFFFFF00
+
 	// RouteMarkToProxy is the default route mark to use to indicate
 	// datapath needs to send the packet to the proxy.
 	//
