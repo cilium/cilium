@@ -171,7 +171,6 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapSt
 		lookupDone := false
 		proxyport := uint16(0)
 		keysFromFilter := filter.ToMapState(p.PolicyOwner, direction, p.SelectorCache)
-		//log.WithField("keysFromFilter", keysFromFilter).Info("[tamilmani] computeDirectionL4PolicyMapEntries")
 		for keyFromFilter, entry := range keysFromFilter {
 			// Fix up the proxy port for entries that need proxy redirection
 			if entry.IsRedirectEntry() {

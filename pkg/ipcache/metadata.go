@@ -288,7 +288,6 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 
 	// Recalculate policy first before upserting into the ipcache.
 	if len(idsToAdd) > 0 {
-		//log.Info("[tamilmani]: in inject labels")
 		ipc.UpdatePolicyMaps(ctx, idsToAdd, idsToDelete)
 	}
 

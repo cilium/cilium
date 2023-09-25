@@ -354,7 +354,6 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 						handler.OnAdd(idpool.ID(id), c.KeyFunc(identity.SecurityLabels))
 					}
 				}
-				//log.WithField("identity", obj.(*v2.CiliumIdentity).Name).Info("Identity Add function triggered")
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				if oldIdentity, ok := newObj.(*v2.CiliumIdentity); ok {
@@ -367,7 +366,6 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 						}
 					}
 				}
-				//log.WithField("identity", newObj.(*v2.CiliumIdentity).Name).Info("Identity update function triggered")
 			},
 			DeleteFunc: func(obj interface{}) {
 				// The delete event is sometimes for items with unknown state that are
@@ -383,7 +381,6 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 				} else {
 					log.Debugf("Ignoring unknown delete event %#v", obj)
 				}
-				log.WithField("identity", obj.(*v2.CiliumIdentity).Name).Info("Identity delete function triggered")
 			},
 		},
 		nil,

@@ -16,13 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "resource-event")
 )
 
 // Resource provides access to a Kubernetes resource through either
@@ -328,7 +322,6 @@ func (r *resource[T]) Events(ctx context.Context, opts ...EventsOpt) <-chan Even
 		// Append the current set of keys to the queue.
 		keyIter := store.IterKeys()
 		for keyIter.Next() {
-			log.WithField("key", keyIter.Key()).Info("Add upsert action to key")
 			queue.AddUpsert(keyIter.Key())
 		}
 

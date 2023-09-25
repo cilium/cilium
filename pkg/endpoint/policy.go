@@ -414,7 +414,6 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 		return err
 	}
 
-	//	e.getLogger().Info("[tamilmani] Endpoint regenerate function. call updateRealizedState")
 	return e.updateRealizedState(stats, origDir, revision, stateDirComplete)
 }
 
@@ -444,7 +443,6 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 
 	// Keep PolicyMap for this endpoint in sync with desired / realized state.
 	if !option.Config.DryMode {
-		//		e.getLogger().Info("[tamilmani] updateRealizedState function. call syncPolicyMapController")
 		e.syncPolicyMapController()
 	}
 
@@ -569,8 +567,6 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 		ctx   context.Context
 		cFunc context.CancelFunc
 	)
-
-	//	e.getLogger().Info("[tamilmani] endpoint regeneration function triggered")
 
 	if regenMetadata.ParentContext != nil {
 		ctx, cFunc = context.WithCancel(regenMetadata.ParentContext)

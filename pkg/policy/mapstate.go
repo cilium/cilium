@@ -397,7 +397,6 @@ func (keys MapState) denyPreferredInsertWithChanges(newKey Key, newEntry MapStat
 	allCpy.TrafficDirection = newKey.TrafficDirection
 	// If we have a deny "all" we don't accept any kind of map entry.
 	if v, ok := keys[allCpy]; ok && v.IsDeny {
-		//log.WithField("mapentry", v).Info("[tamilmani] surprise. your rule not added")
 		return
 	}
 	if newEntry.IsDeny {

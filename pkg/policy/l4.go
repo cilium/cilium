@@ -523,7 +523,6 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 	// find the L7 rules for the wildcard entry, if any
 	var wildcardRule *PerSelectorPolicy
 	if l4Filter.wildcard != nil {
-		//log.WithField("port", l4Filter.Port).Info("[tamilmani] wildcard rule")
 		wildcardRule = l4Filter.PerSelectorPolicies[l4Filter.wildcard]
 	}
 
@@ -540,23 +539,22 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 			// To understand the logic for the "skip" cases, see the
 			// documentation for the __canSkip function.
 			if currentRuleIsL3L4 && __canSkip(currentRule, wildcardRule) {
-				logger.WithField(logfields.EndpointSelector, cs).Info("ToMapState: Skipping L3/L4 key due to existing L4-only key")
+				logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: Skipping L3/L4 key due to existing L4-only key")
 				continue
 			}
 		}
 
 		entry := NewMapStateEntry(cs, l4Filter.RuleOrigin[cs], currentRule.IsRedirect(), isDenyRule, currentRule.GetAuthType())
 		if cs.IsWildcard() {
-			//log.Info("[tamilmani] Add wildcard rule")
 			keyToAdd.Identity = 0
 			keysToAdd.DenyPreferredInsert(keyToAdd, entry, identities)
 
 			if port == 0 {
 				// Allow-all
-				logger.WithField(logfields.EndpointSelector, cs).Info("ToMapState: allow all")
+				logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: allow all")
 			} else {
 				// L4 allow
-				logger.WithField(logfields.EndpointSelector, cs).Info("ToMapState: L4 allow all")
+				logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: L4 allow all")
 			}
 			continue
 		}
@@ -579,7 +577,7 @@ func (l4Filter *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficd
 		logger.WithFields(logrus.Fields{
 			logfields.EndpointSelector: cs,
 			logfields.PolicyID:         idents,
-		}).Info("ToMapState: Denied remote IDs")
+		}).Info("[tamilmani] ToMapState: Denied remote IDs")
 
 		for _, id := range idents {
 			keyToAdd.Identity = id.Uint32()

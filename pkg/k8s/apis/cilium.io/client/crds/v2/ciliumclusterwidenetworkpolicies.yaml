@@ -139,17 +139,6 @@ spec:
                         pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
                         type: string
                       type: array
-                    blackListRule:
-                      description: "ToCIDR is a list of IP blocks which the endpoint
-                        subject to the rule is allowed to initiate connections. Only
-                        connections destined for outside of the cluster and not targeting
-                        the host will be subject to CIDR rules.  This will match on
-                        the destination IP address of outgoing connections. Adding
-                        a prefix into ToCIDR or into ToCIDRSet with no ExcludeCIDRs
-                        is equivalent. Overlaps are allowed between ToCIDR and ToCIDRSet.
-                        \n Example: Any endpoint with the label \"app=database-proxy\"
-                        is allowed to initiate connections to 10.2.3.0/24"
-                      type: boolean
                     toCIDRSet:
                       description: "ToCIDRSet is a list of IP blocks which the endpoint
                         subject to the rule is allowed to initiate connections to
@@ -5268,4 +5257,4 @@ status:
     kind: ""
     plural: ""
   conditions: []
-  storedVersions: []
+  

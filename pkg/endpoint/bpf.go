@@ -1290,7 +1290,6 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) 
 				// Will change to 0 if on a sidecar
 				entry.ProxyPort = e.realizedRedirects[policy.ProxyIDFromKey(e.ID, keyToAdd)]
 			}
-			e.getLogger().WithFields(logrus.Fields{"entry": entry}).Info("addPolicyKey")
 			if !e.addPolicyKey(keyToAdd, entry, false) {
 				errors++
 			}
