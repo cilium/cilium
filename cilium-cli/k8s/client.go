@@ -1190,3 +1190,7 @@ func (c *Client) ListTetragonTracingPolicies(ctx context.Context, opts metav1.Li
 func (c *Client) ListTetragonTracingPoliciesNamespaced(ctx context.Context, namespace string, opts metav1.ListOptions) (*tetragonv1alpha1.TracingPolicyNamespacedList, error) {
 	return c.TetragonClientset.CiliumV1alpha1().TracingPoliciesNamespaced(namespace).List(ctx, opts)
 }
+
+func (c *Client) ListTetragonPodInfo(ctx context.Context, namespace string, opts metav1.ListOptions) (*tetragonv1alpha1.PodInfoList, error) {
+	return c.TetragonClientset.CiliumV1alpha1().PodInfo(namespace).List(ctx, opts)
+}
