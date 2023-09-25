@@ -60,6 +60,7 @@ type KubernetesClient interface {
 	ListCiliumNodes(ctx context.Context) (*ciliumv2.CiliumNodeList, error)
 	ListCiliumNodeConfigs(ctx context.Context, namespace string, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumNodeConfigList, error)
 	ListCiliumPodIPPools(ctx context.Context, opts metav1.ListOptions) (*ciliumv2alpha1.CiliumPodIPPoolList, error)
+	ListTetragonPodInfo(ctx context.Context, namespace string, opts metav1.ListOptions) (*tetragonv1alpha1.PodInfoList, error)
 	ListTetragonTracingPolicies(ctx context.Context, opts metav1.ListOptions) (*tetragonv1alpha1.TracingPolicyList, error)
 	ListTetragonTracingPoliciesNamespaced(ctx context.Context, namespace string, opts metav1.ListOptions) (*tetragonv1alpha1.TracingPolicyNamespacedList, error)
 	ListDaemonSet(ctx context.Context, namespace string, o metav1.ListOptions) (*appsv1.DaemonSetList, error)

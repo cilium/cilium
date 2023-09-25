@@ -1550,6 +1550,21 @@ func (c *Collector) Run() error {
 		},
 		{
 			CreatesSubtasks: true,
+			Description:     "Collecting Tetragon PodInfo custom resources",
+			Quick:           true,
+			Task: func(ctx context.Context) error {
+				pi, err := c.Client.ListTetragonPodInfo(ctx, corev1.NamespaceAll, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Tetragon PodInfo: %w", err)
+				}
+				if err := c.WriteYAML(DefaultTetragonPodInfo, pi); err != nil {
+					return fmt.Errorf("failed to collect Tetragon PodInfo: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
 			Description:     "Collecting Tetragon tracing policies",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
