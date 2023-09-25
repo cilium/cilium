@@ -66,6 +66,17 @@ have_kind() {
 if ! have_kind; then
     echo "Please install kind first:"
     echo "  https://kind.sigs.k8s.io/docs/user/quick-start/#installation"
+    exit 1
+fi
+
+have_kubectl() {
+    [[ -n "$(command -v kubectl)" ]]
+}
+
+if ! have_kubectl; then
+    echo "Please install kubectl first:"
+    echo "  https://kubernetes.io/docs/tasks/tools/#kubectl"
+    exit 1
 fi
 
 if [ ${#} -gt 6 ]; then
