@@ -2399,7 +2399,7 @@ nodeport_rev_dnat_ingress_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 	 * any reply traffic for a remote pod into the tunnel (to avoid iptables
 	 * potentially dropping the packets).
 	 */
-	if (egress_gw_reply_needs_redirect(ip4, &tunnel_endpoint, &dst_sec_identity)) {
+	if (egress_gw_reply_needs_redirect_hook(ip4, &tunnel_endpoint, &dst_sec_identity)) {
 		trace->reason = TRACE_REASON_CT_REPLY;
 		goto redirect;
 	}
