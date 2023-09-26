@@ -13,6 +13,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+type ModuleId string
+
 // Module creates a scoped set of cells with a given identifier.
 //
 // The id and title will be included in the object dump (hive.PrintObjects).
@@ -60,8 +62,17 @@ func (m *module) moduleScopedStatusReporter(p Health) HealthReporter {
 	return p.forModule(m.id)
 }
 
+func (m *module) moduleId() ModuleId {
+	return ModuleId(m.id)
+}
+
 func (m *module) Apply(c container) error {
 	scope := c.Scope(m.id)
+
+	// Provide the 'ModuleId' privately to the module.
+	if err := scope.Provide(m.moduleId, dig.Export(false)); err != nil {
+		return err
+	}
 
 	// Provide module scoped status reporter, used for reporting module level
 	// health status.
