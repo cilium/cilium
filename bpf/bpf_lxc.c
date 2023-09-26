@@ -1077,7 +1077,7 @@ ct_recreate4:
 		if (identity_is_cluster(*dst_sec_identity))
 			goto skip_egress_gateway;
 
-		if (egress_gw_request_needs_redirect(tuple, ct_status, &tunnel_endpoint)) {
+		if (egress_gw_request_needs_redirect_hook(tuple, ct_status, &tunnel_endpoint)) {
 			if (tunnel_endpoint == EGRESS_GATEWAY_NO_GATEWAY) {
 				/* Special case for no gateway to drop the traffic */
 				return DROP_NO_EGRESS_GATEWAY;
