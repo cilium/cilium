@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -323,29 +324,11 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 	return nil
 }
 
-func (ct *ConnectivityTest) extractFeaturesFromNodes(ctx context.Context, client *k8s.Client, result FeatureSet) error {
-	nodeList, err := client.ListNodes(ctx, metav1.ListOptions{})
-	if err != nil {
-		return err
+func (fs FeatureSet) extractFeaturesFromNodes(nodesWithoutCilium map[string]struct{}) {
+	fs[FeatureNodeWithoutCilium] = FeatureStatus{
+		Enabled: len(nodesWithoutCilium) != 0,
+		Mode:    strings.Join(maps.Keys(nodesWithoutCilium), ","),
 	}
-
-	nodes := []string{}
-	ct.nodesWithoutCiliumMap = make(map[string]struct{})
-	for _, node := range nodeList.Items {
-		node := node
-		if !canNodeRunCilium(&node) {
-			nodes = append(nodes, node.ObjectMeta.Name)
-			ct.nodesWithoutCiliumMap[node.ObjectMeta.Name] = struct{}{}
-		}
-	}
-
-	result[FeatureNodeWithoutCilium] = FeatureStatus{
-		Enabled: len(nodes) != 0,
-		Mode:    strings.Join(nodes, ","),
-	}
-	ct.nodesWithoutCilium = nodes
-
-	return nil
 }
 
 func (ct *ConnectivityTest) extractFeaturesFromClusterRole(ctx context.Context, client *k8s.Client, result FeatureSet) error {
@@ -547,10 +530,7 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		err = ct.extractFeaturesFromNodes(ctx, ciliumPod.K8sClient, features)
-		if err != nil {
-			return err
-		}
+		ct.Features.extractFeaturesFromNodes(ct.nodesWithoutCilium)
 		err = ct.extractFeaturesFromCiliumStatus(ctx, ciliumPod, features)
 		if err != nil {
 			return err
@@ -581,7 +561,11 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 }
 
 func (ct *ConnectivityTest) UpdateFeaturesFromNodes(ctx context.Context) error {
-	return ct.extractFeaturesFromNodes(ctx, ct.client, ct.Features)
+	if err := ct.getNodes(ctx); err != nil {
+		return err
+	}
+	ct.Features.extractFeaturesFromNodes(ct.nodesWithoutCilium)
+	return nil
 }
 
 func (ct *ConnectivityTest) ForceDisableFeature(feature Feature) {
