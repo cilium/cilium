@@ -29,8 +29,6 @@ type Authentication struct {
 	Mode AuthenticationMode `json:"mode"`
 }
 
-// +kubebuilder:validation:Type=object
-
 // Rule is a policy rule which must be applied to all endpoints which match the
 // labels contained in the endpointSelector
 //

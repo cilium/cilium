@@ -204,12 +204,6 @@ func (in *IPAMSpec) DeepEqual(other *IPAMSpec) bool {
 	if in.MaxAboveWatermark != other.MaxAboveWatermark {
 		return false
 	}
-	if in.PodCIDRAllocationThreshold != other.PodCIDRAllocationThreshold {
-		return false
-	}
-	if in.PodCIDRReleaseThreshold != other.PodCIDRReleaseThreshold {
-		return false
-	}
 
 	return true
 }

@@ -4,6 +4,7 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -43,16 +44,24 @@ type CiliumClusterConfigCapabilities struct {
 	Cached bool `json:"cached,omitempty"`
 }
 
-func (c *CiliumClusterConfig) Validate() error {
+// ValidationMode defines if a missing CiliumClusterConfig should be allowed for
+// backward compatibility, or it should be flagged as an error.
+type ValidationMode bool
+
+const (
+	BackwardCompatible ValidationMode = false
+	Strict             ValidationMode = true
+)
+
+// Validate validates the configuration correctness. When the validation mode
+// is BackwardCompatible, a missing configuration or with ID=0 is allowed for
+// backward compatibility, otherwise it is flagged as an error.
+func (c *CiliumClusterConfig) Validate(mode ValidationMode) error {
 	if c == nil || c.ID == 0 {
-		// When remote cluster doesn't have cluster config, we
-		// currently just bypass the validation for compatibility.
-		// Otherwise, we cannot connect with older cluster which
-		// doesn't support cluster config feature.
-		//
-		// When we introduce a new cluster config can't be ignored,
-		// we should properly check it here and return error. Now
-		// we only have ClusterID which used to be ignored.
+		if mode == Strict {
+			return errors.New("remote cluster is missing cluster configuration")
+		}
+
 		return nil
 	}
 
@@ -61,10 +70,4 @@ func (c *CiliumClusterConfig) Validate() error {
 	}
 
 	return nil
-}
-
-// ClusterIDName groups together the ClusterID and the ClusterName
-type ClusterIDName struct {
-	ClusterID   uint32
-	ClusterName string
 }

@@ -100,6 +100,7 @@ func (m *TraceServiceConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return TraceServiceConfigMultiError(errors)
 	}
+
 	return nil
 }
 

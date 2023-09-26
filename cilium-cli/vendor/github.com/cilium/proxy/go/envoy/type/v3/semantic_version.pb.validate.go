@@ -66,6 +66,7 @@ func (m *SemanticVersion) validate(all bool) error {
 	if len(errors) > 0 {
 		return SemanticVersionMultiError(errors)
 	}
+
 	return nil
 }
 

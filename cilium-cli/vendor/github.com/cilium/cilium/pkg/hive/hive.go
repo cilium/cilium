@@ -5,6 +5,7 @@ package hive
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -17,7 +18,6 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/dig"
-	"go.uber.org/multierr"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging"
@@ -187,27 +187,23 @@ func (h *Hive) Run() error {
 	startCtx, cancel := context.WithTimeout(context.Background(), h.startTimeout)
 	defer cancel()
 
-	var errors []error
-
+	var errs error
 	if err := h.Start(startCtx); err != nil {
-		errors = append(errors, fmt.Errorf("failed to start: %w", err))
+		errs = errors.Join(errs, fmt.Errorf("failed to start: %w", err))
 	}
 
 	// If start was successful, wait for Shutdown() or interrupt.
-	if len(errors) == 0 {
-		shutdownErr := h.waitForSignalOrShutdown()
-		if shutdownErr != nil {
-			errors = append(errors, shutdownErr)
-		}
+	if errs == nil {
+		errs = errors.Join(errs, h.waitForSignalOrShutdown())
 	}
 
 	stopCtx, cancel := context.WithTimeout(context.Background(), h.stopTimeout)
 	defer cancel()
 
 	if err := h.Stop(stopCtx); err != nil {
-		errors = append(errors, fmt.Errorf("failed to stop: %w", err))
+		errs = errors.Join(errs, fmt.Errorf("failed to stop: %w", err))
 	}
-	return multierr.Combine(errors...)
+	return errs
 }
 
 func (h *Hive) waitForSignalOrShutdown() error {
@@ -317,11 +313,9 @@ func (h *Hive) fatalOnTimeout(ctx context.Context) chan struct{} {
 
 		// Context was cancelled. Give 5 more seconds and then
 		// go fatal.
-		time.Sleep(5 * time.Second)
-
 		select {
 		case <-terminated:
-		default:
+		case <-time.After(5 * time.Second):
 			log.Fatal("Start or stop failed to finish on time, aborting forcefully.")
 		}
 	}()

@@ -23,6 +23,9 @@ type SelectorIdentityMapping struct {
 	// identities mapping to this selector
 	Identities []int64 `json:"identities"`
 
+	// Labels are the metadata labels associated with the selector
+	Labels interface{} `json:"labels,omitempty"`
+
 	// string form of selector
 	Selector string `json:"selector,omitempty"`
 

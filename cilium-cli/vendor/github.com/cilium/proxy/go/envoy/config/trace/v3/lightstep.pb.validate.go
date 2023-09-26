@@ -118,6 +118,7 @@ func (m *LightstepConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return LightstepConfigMultiError(errors)
 	}
+
 	return nil
 }
 

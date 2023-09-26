@@ -130,7 +130,7 @@ func (r *Registry) Reinitialize() {
 
 	metrics := make(map[string]metricpkg.WithMetadata)
 	for i, autoMetric := range r.params.AutoMetrics {
-		metrics[autoMetric.Opts().ConfigName] = r.params.AutoMetrics[i]
+		metrics[autoMetric.Opts().GetConfigName()] = r.params.AutoMetrics[i]
 	}
 
 	// This is a bodge for a very specific feature, inherited from the old `Daemon.additionalMetrics`.

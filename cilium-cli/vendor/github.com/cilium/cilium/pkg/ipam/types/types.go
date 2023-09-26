@@ -5,6 +5,7 @@ package types
 
 import (
 	"fmt"
+	"net/netip"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/lock"
@@ -55,6 +56,19 @@ type AllocationMap map[string]AllocationIP
 //
 // +kubebuilder:validation:Format=cidr
 type IPAMPodCIDR string
+
+func (c *IPAMPodCIDR) ToPrefix() (*netip.Prefix, error) {
+	if c == nil {
+		return nil, fmt.Errorf("nil ipam cidr")
+	}
+
+	prefix, err := netip.ParsePrefix(string(*c))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ipam cidr %v: %w", c, err)
+	}
+
+	return &prefix, nil
+}
 
 // IPAMPoolAllocation describes an allocation of an IPAM pool from the operator to the
 // node. It contains the assigned PodCIDRs allocated from this pool
@@ -157,25 +171,6 @@ type IPAMSpec struct {
 	//
 	// +kubebuilder:validation:Minimum=0
 	MaxAboveWatermark int `json:"max-above-watermark,omitempty"`
-
-	// PodCIDRAllocationThreshold defines the minimum number of free IPs which
-	// must be available to this node via its pod CIDR pool. If the total number
-	// of IP addresses in the pod CIDR pool is less than this value, the pod
-	// CIDRs currently in-use by this node will be marked as depleted and
-	// cilium-operator will allocate a new pod CIDR to this node.
-	// This value effectively defines the buffer of IP addresses available
-	// immediately without requiring cilium-operator to get involved.
-	//
-	// +kubebuilder:validation:Minimum=0
-	PodCIDRAllocationThreshold int `json:"pod-cidr-allocation-threshold,omitempty"`
-
-	// PodCIDRReleaseThreshold defines the maximum number of free IPs which may
-	// be available to this node via its pod CIDR pool. While the total number
-	// of free IP addresses in the pod CIDR pool is larger than this value,
-	// cilium-agent will attempt to release currently unused pod CIDRs.
-	//
-	// +kubebuilder:validation:Minimum=0
-	PodCIDRReleaseThreshold int `json:"pod-cidr-release-threshold,omitempty"`
 }
 
 // IPReleaseStatus  defines the valid states in IP release handshake
@@ -408,6 +403,13 @@ type InstanceMap struct {
 // NewInstanceMap returns a new InstanceMap
 func NewInstanceMap() *InstanceMap {
 	return &InstanceMap{data: map[string]*Instance{}}
+}
+
+// UpdateInstance updates the interfaces map for a particular instance.
+func (m *InstanceMap) UpdateInstance(instanceID string, instance *Instance) {
+	m.mutex.Lock()
+	m.data[instanceID] = instance
+	m.mutex.Unlock()
 }
 
 // Update updates the definition of an interface for a particular instance. If

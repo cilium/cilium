@@ -72,7 +72,6 @@ func (in *CIDR) DeepCopyInto(out *CIDR) {
 		*out = make(net.IPMask, len(*in))
 		copy(*out, *in)
 	}
-	return
 }
 
 // AvailableIPs returns the number of IPs available in a CIDR
@@ -89,7 +88,7 @@ func (n *CIDR) Equal(o *CIDR) bool {
 	return Equal(n.IPNet, o.IPNet)
 }
 
-// Equal returns true if the n and o net.IPNet CIDRs arr Equal.
+// Equal returns true if the n and o net.IPNet CIDRs are Equal.
 func Equal(n, o *net.IPNet) bool {
 	if n == nil || o == nil {
 		return n == o
@@ -99,6 +98,23 @@ func Equal(n, o *net.IPNet) bool {
 	}
 	return n.IP.Equal(o.IP) &&
 		bytes.Equal(n.Mask, o.Mask)
+}
+
+// ZeroNet generates a zero net.IPNet object for the given address family
+func ZeroNet(family int) *net.IPNet {
+	switch family {
+	case FAMILY_V4:
+		return &net.IPNet{
+			IP:   net.IPv4zero,
+			Mask: net.CIDRMask(0, 8*net.IPv4len),
+		}
+	case FAMILY_V6:
+		return &net.IPNet{
+			IP:   net.IPv6zero,
+			Mask: net.CIDRMask(0, 8*net.IPv6len),
+		}
+	}
+	return nil
 }
 
 // ContainsAll returns true if 'ipNets1' contains all net.IPNet of 'ipNets2'
