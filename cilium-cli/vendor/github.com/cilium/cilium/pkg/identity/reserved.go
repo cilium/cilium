@@ -17,25 +17,30 @@ var (
 )
 
 // AddReservedIdentity adds the reserved numeric identity with the respective
-// label into the map of reserved identity cache.
-func AddReservedIdentity(ni NumericIdentity, lbl string) {
+// label into the map of reserved identity cache, and returns the resulting Identity.
+// This identity must not be mutated!
+func AddReservedIdentity(ni NumericIdentity, lbl string) *Identity {
 	identity := NewIdentity(ni, labels.Labels{lbl: labels.NewLabel(lbl, "", labels.LabelSourceReserved)})
 	cacheMU.Lock()
 	reservedIdentityCache[ni] = identity
 	cacheMU.Unlock()
+	return identity
 }
 
 // AddReservedIdentityWithLabels is the same as AddReservedIdentity but accepts
-// multiple labels.
-func AddReservedIdentityWithLabels(ni NumericIdentity, lbls labels.Labels) {
+// multiple labels. Returns the resulting Identity.
+// This identity must not be mutated!
+func AddReservedIdentityWithLabels(ni NumericIdentity, lbls labels.Labels) *Identity {
 	identity := NewIdentity(ni, lbls)
 	cacheMU.Lock()
 	reservedIdentityCache[ni] = identity
 	cacheMU.Unlock()
+	return identity
 }
 
 // LookupReservedIdentity looks up a reserved identity by its NumericIdentity
 // and returns it if found. Returns nil if not found.
+// This identity must not be mutated!
 func LookupReservedIdentity(ni NumericIdentity) *Identity {
 	cacheMU.RLock()
 	defer cacheMU.RUnlock()
@@ -43,7 +48,9 @@ func LookupReservedIdentity(ni NumericIdentity) *Identity {
 }
 
 func init() {
-	iterateReservedIdentityLabels(AddReservedIdentityWithLabels)
+	iterateReservedIdentityLabels(func(ni NumericIdentity, lbls labels.Labels) {
+		AddReservedIdentityWithLabels(ni, lbls)
+	})
 }
 
 // IterateReservedIdentities iterates over all reserved identities and

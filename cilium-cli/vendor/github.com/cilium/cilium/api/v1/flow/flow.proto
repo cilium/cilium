@@ -3,6 +3,7 @@
 
 syntax = "proto3";
 
+import "google/protobuf/any.proto";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -114,6 +115,16 @@ message Flow {
     // duplicating logic from the old parser. This field will be removed once we
     // fully migrate to the new parser.
     string Summary = 100000 [deprecated=true];
+
+    // extensions can be used to add arbitrary additional metadata to flows.
+    // This can be used to extend functionality for other Hubble compatible
+    // APIs, or experiment with new functionality without needing to change the public API.
+    google.protobuf.Any extensions = 150000;
+
+    // The CiliumNetworkPolicies allowing the egress of the flow.
+    repeated Policy egress_allowed_by = 21001;
+    // The CiliumNetworkPolicies allowing the ingress of the flow.
+    repeated Policy ingress_allowed_by = 21002;
 }
 
 enum FlowType {
@@ -123,7 +134,7 @@ enum FlowType {
     SOCK = 3;
 }
 
-// These types correspond to definitions in pkg/policy/l4.go
+// These types correspond to definitions in pkg/policy/l4.go.
 enum AuthType {
     DISABLED = 0;
     SPIRE = 1;
@@ -183,8 +194,7 @@ message Layer4 {
     }
 }
 
-// This enum corresponds to Cilium's L7 accesslog FlowType:
-//   https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L26
+// This enum corresponds to Cilium's L7 accesslog [FlowType](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L26):
 enum L7FlowType {
     UNKNOWN_L7_TYPE = 0;
     REQUEST = 1;
@@ -192,8 +202,7 @@ enum L7FlowType {
     SAMPLE = 3;
 }
 
-// Message for L7 flow, which roughly corresponds to Cilium's accesslog LogRecord:
-//   https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141
+// Message for L7 flow, which roughly corresponds to Cilium's accesslog [LogRecord](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141):
 message Layer7 {
     L7FlowType type = 1;
     // Latency of the response
@@ -206,10 +215,9 @@ message Layer7 {
     }
 }
 
-// TraceContext contains trace context propagation data, ie information about a
+// TraceContext contains trace context propagation data, i.e. information about a
 // distributed trace.
-// For more information about trace context, check the W3C Trace Context
-// specification: https://www.w3.org/TR/trace-context/
+// For more information about trace context, check the [W3C Trace Context specification](https://www.w3.org/TR/trace-context/).
 message TraceContext {
     // parent identifies the incoming request in a tracing system.
     TraceParent parent = 1;
@@ -391,6 +399,7 @@ enum DropReason {
     INVALID_CLUSTER_ID = 192;
     UNSUPPORTED_PROTOCOL_FOR_DSR_ENCAP = 193;
     NO_EGRESS_GATEWAY = 194;
+    UNENCRYPTED_TRAFFIC = 195;
     TTL_EXCEEDED = 196;
     NO_NODE_ID = 197;
 }
@@ -415,7 +424,14 @@ enum DebugCapturePoint {
     DBG_CAPTURE_SNAT_POST = 11;
 }
 
-// EventTypeFilter is a filter describing a particular event type
+message Policy {
+	string name = 1;
+	string namespace = 2;
+	repeated string labels = 3;
+	uint64 revision = 4;
+}
+
+// EventTypeFilter is a filter describing a particular event type.
 message EventTypeFilter {
 	// type is the primary flow type as defined by:
 	// github.com/cilium/cilium/pkg/monitor/api.MessageType*
@@ -430,7 +446,7 @@ message EventTypeFilter {
 	int32 sub_type = 3;
 }
 
-// CiliumEventType from which the flow originated
+// CiliumEventType from which the flow originated.
 message CiliumEventType {
     // type of event the flow originated from, i.e.
     // github.com/cilium/cilium/pkg/monitor/api.MessageType*
@@ -515,6 +531,8 @@ message FlowFilter {
     repeated string http_method = 21;
     // http_path is a list of regular expressions to filter on the HTTP path.
     repeated string http_path = 22;
+    // http_url is a list of regular expressions to filter on the HTTP URL.
+    repeated string http_url = 31;
 
     // tcp_flags filters flows based on TCP header flags
     repeated TCPFlags tcp_flags = 23;
@@ -539,8 +557,7 @@ enum EventType {
     RecordLost = 2;
 }
 
-// DNS flow. This is basically directly mapped from Cilium's LogRecordDNS:
-//     https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264
+// DNS flow. This is basically directly mapped from Cilium's [LogRecordDNS](https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264):
 message DNS {
     // DNS name that's being looked up: e.g. "isovalent.com."
     string query = 1;
@@ -569,8 +586,7 @@ message HTTPHeader {
     string value = 2;
 }
 
-// L7 information for HTTP flows. It corresponds to Cilium's accesslog.LogRecordHTTP type.
-//   https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206
+// L7 information for HTTP flows. It corresponds to Cilium's [accesslog.LogRecordHTTP](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206) type. 
 message HTTP {
     uint32 code = 1;
     string method = 2;
@@ -579,8 +595,7 @@ message HTTP {
     repeated HTTPHeader headers = 5;
 }
 
-// L7 information for Kafka flows. It corresponds to Cilium's accesslog.LogRecordKafka type.
-//   https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229
+// L7 information for Kafka flows. It corresponds to Cilium's [accesslog.LogRecordKafka](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229) type.
 message Kafka {
     int32 error_code = 1;
     int32 api_version = 2;
@@ -623,7 +638,7 @@ message LostEvent {
 }
 
 // AgentEventType is the type of agent event. These values are shared with type
-// AgentNotification in pkg/monitor/api/types.go
+// AgentNotification in pkg/monitor/api/types.go.
 enum AgentEventType {
     AGENT_EVENT_UNKNOWN = 0;
     // used for AGENT_EVENT_GENERIC in monitor API, but there are currently no
@@ -813,4 +828,6 @@ enum DebugEventType {
     DBG_SK_LOOKUP4 = 62;
     DBG_SK_LOOKUP6 = 63;
     DBG_SK_ASSIGN = 64;
+    DBG_L7_LB = 65;
+    DBG_SKIP_POLICY = 66;
 }

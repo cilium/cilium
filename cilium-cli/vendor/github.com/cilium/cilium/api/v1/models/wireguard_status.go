@@ -17,14 +17,14 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// WireguardStatus Status of the Wireguard agent
+// WireguardStatus Status of the WireGuard agent
 //
 // +k8s:deepcopy-gen=true
 //
 // swagger:model WireguardStatus
 type WireguardStatus struct {
 
-	// Wireguard interfaces managed by this Cilium instance
+	// WireGuard interfaces managed by this Cilium instance
 	Interfaces []*WireguardInterface `json:"interfaces"`
 
 	// Node Encryption status

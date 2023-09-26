@@ -12,21 +12,29 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-func ValidateLabelSelector(ps *slim_metav1.LabelSelector, fldPath *field.Path) field.ErrorList {
+// LabelSelectorValidationOptions is a struct that can be passed to ValidateLabelSelector to record the validate options
+type LabelSelectorValidationOptions struct {
+	// Allow invalid label value in selector
+	AllowInvalidLabelValueInSelector bool
+}
+
+// ValidateLabelSelector validate the LabelSelector according to the opts and returns any validation errors.
+// opts.AllowInvalidLabelValueInSelector is only expected to be set to true when required for backwards compatibility with existing invalid data.
+func ValidateLabelSelector(ps *slim_metav1.LabelSelector, opts LabelSelectorValidationOptions, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	if ps == nil {
 		return allErrs
 	}
 	allErrs = append(allErrs, ValidateLabels(ps.MatchLabels, fldPath.Child("matchLabels"))...)
 	for i, expr := range ps.MatchExpressions {
-		allErrs = append(allErrs, ValidateLabelSelectorRequirement(expr, fldPath.Child("matchExpressions").Index(i))...)
+		allErrs = append(allErrs, ValidateLabelSelectorRequirement(expr, opts, fldPath.Child("matchExpressions").Index(i))...)
 	}
 	return allErrs
 }
 
 // ValidateLabelSelectorRequirement validate the requirement according to the opts and returns any validation errors.
 // opts.AllowInvalidLabelValueInSelector is only expected to be set to true when required for backwards compatibility with existing invalid data.
-func ValidateLabelSelectorRequirement(sr slim_metav1.LabelSelectorRequirement, fldPath *field.Path) field.ErrorList {
+func ValidateLabelSelectorRequirement(sr slim_metav1.LabelSelectorRequirement, opts LabelSelectorValidationOptions, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	switch sr.Operator {
 	case slim_metav1.LabelSelectorOpIn, slim_metav1.LabelSelectorOpNotIn:
@@ -41,6 +49,13 @@ func ValidateLabelSelectorRequirement(sr slim_metav1.LabelSelectorRequirement, f
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("operator"), sr.Operator, "not a valid selector operator"))
 	}
 	allErrs = append(allErrs, ValidateLabelName(sr.Key, fldPath.Child("key"))...)
+	if !opts.AllowInvalidLabelValueInSelector {
+		for valueIndex, value := range sr.Values {
+			for _, msg := range validation.IsValidLabelValue(value) {
+				allErrs = append(allErrs, field.Invalid(fldPath.Child("values").Index(valueIndex), value, msg))
+			}
+		}
+	}
 	return allErrs
 }
 

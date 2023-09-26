@@ -6,13 +6,13 @@ package cell
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync/atomic"
 	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
 
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 )
 
 // Level denotes what kind an update is.
@@ -191,8 +191,8 @@ func (p *healthProvider) All() []Status {
 	p.mu.RLock()
 	all := maps.Values(p.moduleStatuses)
 	p.mu.RUnlock()
-	slices.SortFunc(all, func(a, b Status) bool {
-		return a.ModuleID < b.ModuleID
+	sort.Slice(all, func(i, j int) bool {
+		return all[i].ModuleID < all[j].ModuleID
 	})
 	return all
 }

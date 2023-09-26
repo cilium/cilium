@@ -32,7 +32,7 @@ type EncryptionStatus struct {
 	// Human readable status/error/warning message
 	Msg string `json:"msg,omitempty"`
 
-	// Status of the Wireguard agent
+	// Status of the WireGuard agent
 	Wireguard *WireguardStatus `json:"wireguard,omitempty"`
 }
 
