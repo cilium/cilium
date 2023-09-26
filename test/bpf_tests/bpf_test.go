@@ -43,6 +43,7 @@ var (
 	testCoverageReport     = flag.String("coverage-report", "", "Specify a path for the coverage report")
 	testCoverageFormat     = flag.String("coverage-format", "html", "Specify the format of the coverage report")
 	noTestCoverage         = flag.String("no-test-coverage", "", "Don't collect coverages for the file matches to the given regex")
+	bpfTestRun             = flag.String("bpf-test-run", "", "If set only tests matching the regex will be run")
 	testInstrumentationLog = flag.String("instrumentation-log", "", "Path to a log file containing details about"+
 		" code coverage instrumentation, needed if code coverage breaks the verifier")
 
@@ -85,6 +86,17 @@ func TestBPF(t *testing.T) {
 
 		if !strings.HasSuffix(entry.Name(), ".o") {
 			continue
+		}
+
+		name := strings.TrimSuffix(entry.Name(), ".o")
+		if *bpfTestRun != "" {
+			re, err := regexp.Compile(*bpfTestRun)
+			if err != nil {
+				t.Fatalf("run regex compilation failed (%q): %v", *bpfTestRun, err)
+			}
+			if !re.MatchString(name) {
+				continue
+			}
 		}
 
 		t.Run(entry.Name(), func(t *testing.T) {
