@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -31,6 +32,10 @@ func TestMain(m *testing.M) {
 type testObject struct {
 	ID   uint64
 	Tags []string
+}
+
+func (t testObject) String() string {
+	return fmt.Sprintf("testObject{ID: %d, Tags: %v}", t.ID, t.Tags)
 }
 
 var (
@@ -591,6 +596,90 @@ func TestDB_CommitAbort(t *testing.T) {
 	require.Equal(t, rev, newRev, "expected unchanged revision")
 	require.EqualValues(t, obj.ID, 123, "expected obj.ID to equal 123")
 	require.Nil(t, obj.Tags, "expected no tags")
+}
+
+func TestDB_CompareAndSwap_CompareAndDelete(t *testing.T) {
+	t.Parallel()
+
+	db, table, _ := newTestDB(t, tagsIndex)
+
+	// Updating a non-existing object fails and nothing is inserted.
+	wtxn := db.WriteTxn(table)
+	{
+		_, hadOld, err := table.CompareAndSwap(wtxn, 1, testObject{ID: 1})
+		require.ErrorIs(t, ErrObjectNotFound, err)
+		require.False(t, hadOld)
+
+		objs, _ := table.All(wtxn)
+		require.Len(t, Collect(objs), 0)
+
+		wtxn.Abort()
+	}
+
+	// Insert a test object and retrieve it.
+	wtxn = db.WriteTxn(table)
+	table.Insert(wtxn, testObject{ID: 1})
+	wtxn.Commit()
+
+	obj, rev1, ok := table.First(db.ReadTxn(), idIndex.Query(1))
+	require.True(t, ok)
+
+	// Updating an object with matching revision number works
+	wtxn = db.WriteTxn(table)
+	obj.Tags = []string{"updated"} // NOTE: testObject stored by value so no explicit copy needed.
+	_, hadOld, err := table.CompareAndSwap(wtxn, rev1, obj)
+	require.NoError(t, err)
+	require.True(t, hadOld)
+	wtxn.Commit()
+
+	obj, _, ok = table.First(db.ReadTxn(), idIndex.Query(1))
+	require.True(t, ok)
+	require.Len(t, obj.Tags, 1)
+	require.Equal(t, "updated", obj.Tags[0])
+
+	// Updating an object with mismatching revision number fails
+	wtxn = db.WriteTxn(table)
+	obj.Tags = []string{"mismatch"}
+	_, hadOld, err = table.CompareAndSwap(wtxn, rev1, obj)
+	require.ErrorIs(t, ErrRevisionNotEqual, err)
+	require.True(t, hadOld)
+	wtxn.Commit()
+
+	obj, _, ok = table.First(db.ReadTxn(), idIndex.Query(1))
+	require.True(t, ok)
+	require.Len(t, obj.Tags, 1)
+	require.Equal(t, "updated", obj.Tags[0])
+
+	// Deleting an object with mismatching revision number fails
+	wtxn = db.WriteTxn(table)
+	obj.Tags = []string{"mismatch"}
+	_, hadOld, err = table.CompareAndDelete(wtxn, rev1, obj)
+	require.ErrorIs(t, ErrRevisionNotEqual, err)
+	require.True(t, hadOld)
+	wtxn.Commit()
+
+	obj, rev2, ok := table.First(db.ReadTxn(), idIndex.Query(1))
+	require.True(t, ok)
+	require.Len(t, obj.Tags, 1)
+	require.Equal(t, "updated", obj.Tags[0])
+
+	// Deleting with matching revision number works
+	wtxn = db.WriteTxn(table)
+	obj.Tags = []string{"mismatch"}
+	_, hadOld, err = table.CompareAndDelete(wtxn, rev2, obj)
+	require.NoError(t, err)
+	require.True(t, hadOld)
+	wtxn.Commit()
+
+	_, _, ok = table.First(db.ReadTxn(), idIndex.Query(1))
+	require.False(t, ok)
+
+	// Deleting non-existing object yields not found
+	wtxn = db.WriteTxn(table)
+	_, hadOld, err = table.CompareAndDelete(wtxn, rev2, obj)
+	require.ErrorIs(t, ErrObjectNotFound, err)
+	require.False(t, hadOld)
+	wtxn.Abort()
 }
 
 func TestWriteJSON(t *testing.T) {

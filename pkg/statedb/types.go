@@ -73,18 +73,33 @@ type RWTable[Obj any] interface {
 	Table[Obj]
 
 	// Insert an object into the table. Returns the object that was
-	// replaced if there was one. Error may be returned if the table
-	// is not locked for writing or if the write transaction has already
-	// been committed or aborted.
+	// replaced if there was one.
+	//
+	// Possible errors:
+	// - ErrTableNotLockedForWriting: table was not locked for writing
+	// - ErrTransactionClosed: the write transaction already committed or aborted
 	//
 	// Each inserted or updated object will be assigned a new unique
 	// revision.
 	Insert(WriteTxn, Obj) (oldObj Obj, hadOld bool, err error)
 
+	// CompareAndSwap compares the existing object's revision against the
+	// given revision and if equal it replaces the object.
+	//
+	// Possible errors:
+	// - ErrRevisionNotEqual: the object has mismatching revision
+	// - ErrObjectNotFound: object not found from the table
+	// - ErrTableNotLockedForWriting: table was not locked for writing
+	// - ErrTransactionClosed: the write transaction already committed or aborted
+	CompareAndSwap(WriteTxn, Revision, Obj) (oldObj Obj, hadOld bool, err error)
+
 	// Delete an object from the table. Returns the object that was
-	// deleted if there was one. Error may be returned if the table
-	// is not locked for writing or if the write transaction has already
-	// been committed or aborted.
+	// deleted if there was one.
+	//
+	// Possible errors:
+	// - ErrObjectNotFound: object not found from the table
+	// - ErrTableNotLockedForWriting: table was not locked for writing
+	// - ErrTransactionClosed: the write transaction already committed or aborted
 	//
 	// If the table is being tracked for deletions via DeleteTracker()
 	// the deleted object is inserted into a graveyard index and garbage
@@ -93,7 +108,18 @@ type RWTable[Obj any] interface {
 	// iteration of updates and deletions (see (*DeleteTracker[Obj]).Process).
 	Delete(WriteTxn, Obj) (oldObj Obj, hadOld bool, err error)
 
-	// DeleteAll removes all objects in the table.
+	// CompareAndSwap compares the existing object's revision against the
+	// given revision and if equal it deletes the object.
+	//
+	// Possible errors:
+	// - ErrRevisionNotEqual: the object has mismatching revision
+	// - ErrObjectNotFound: object not found from the table
+	// - ErrTableNotLockedForWriting: table was not locked for writing
+	// - ErrTransactionClosed: the write transaction already committed or aborted
+	CompareAndDelete(WriteTxn, Revision, Obj) (oldObj Obj, hadOld bool, err error)
+
+	// DeleteAll removes all objects in the table. If the table is tracked
+	// for deletions, the objects are moved into the graveyard index.
 	DeleteAll(WriteTxn) error
 }
 
