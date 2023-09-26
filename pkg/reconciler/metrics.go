@@ -40,7 +40,7 @@ func newMetrics() *reconcilerMetrics {
 			Namespace:  metrics.Namespace,
 			Subsystem:  "reconciler",
 			Name:       "incremental_duration_seconds",
-			Help:       "Histogram over incremental reconciliation duration",
+			Help:       "Histogram of per-operation duration during incremental reconciliation",
 		}, []string{LabelModuleId}),
 
 		IncrementalReconciliationTotalErrors: metric.NewCounterVec(metric.CounterOpts{

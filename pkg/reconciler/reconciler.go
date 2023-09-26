@@ -38,7 +38,7 @@ type reconciler[Obj Reconcilable[Obj]] struct {
 	labels prometheus.Labels
 }
 
-func New[Obj Reconcilable[Obj]](p params[Obj]) Reconciler[Obj] {
+func Register[Obj Reconcilable[Obj]](p params[Obj]) {
 	r := &reconciler[Obj]{
 		params: p,
 		labels: prometheus.Labels{
@@ -49,7 +49,6 @@ func New[Obj Reconcilable[Obj]](p params[Obj]) Reconciler[Obj] {
 	g := p.Jobs.NewGroup()
 	g.Add(job.OneShot("reconciler-loop", r.loop))
 	p.Lifecycle.Append(g)
-	return r
 }
 
 func (r *reconciler[Obj]) loop(ctx context.Context) error {
@@ -67,10 +66,11 @@ func (r *reconciler[Obj]) loop(ctx context.Context) error {
 	defer stopRetryTimer()
 	var retryChan <-chan time.Time
 
-	scheduleRetry := func() {
+	scheduleRetry := func() time.Duration {
 		retryAttempt++
 		t := backoff.Duration(retryAttempt)
 		retryChan = retryTimer.After(t)
+		return t
 	}
 
 	tableWatchChan := closedWatchChannel()
@@ -80,9 +80,6 @@ func (r *reconciler[Obj]) loop(ctx context.Context) error {
 	fullReconciliation := false
 
 	for {
-
-		r.Log.Info("Waiting for trigger")
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -98,18 +95,15 @@ func (r *reconciler[Obj]) loop(ctx context.Context) error {
 
 		var err error
 
-		r.Log.Info("Incremental reconciliation")
 		revision, tableWatchChan, err = r.incremental(ctx, txn, revision)
 		if err != nil {
-			r.Log.WithError(err).Warn("Incremental reconcilation failed, retrying")
+			wait := scheduleRetry()
+			r.Log.WithError(err).Warnf("Incremental reconcilation failed, retrying in %s", wait)
 			r.Health.Degraded("Incremental reconciliation failure", err)
-			scheduleRetry()
 			continue
 		}
 
 		if fullReconciliation {
-			r.Log.Info("Full reconciliation")
-
 			// Time to perform a full reconciliation. An incremental reconciliation
 			// has been performed prior to this, so the assumption is that everything
 			// is up to date (provided incremental reconciliation did not fail). We
@@ -118,9 +112,9 @@ func (r *reconciler[Obj]) loop(ctx context.Context) error {
 			var err error
 			revision, err = r.full(ctx, txn, revision)
 			if err != nil {
-				r.Log.WithError(err).Warn("Full reconciliation failed, retrying")
+				wait := scheduleRetry()
+				r.Log.WithError(err).Warnf("Full reconciliation failed, retrying in %s", wait)
 				r.Health.Degraded("Full reconciliation failure", err)
-				scheduleRetry()
 				continue
 			}
 		}
@@ -130,6 +124,8 @@ func (r *reconciler[Obj]) loop(ctx context.Context) error {
 		retryAttempt = 0
 		stopRetryTimer()
 		fullReconciliation = false
+
+		// TODO: stats in health, e.g. number of objects and so on.
 		r.Health.OK("Nominal")
 	}
 }
@@ -139,7 +135,6 @@ func (r *reconciler[Obj]) incremental(
 	txn statedb.ReadTxn,
 	lastRev statedb.Revision,
 ) (statedb.Revision, <-chan struct{}, error) {
-	start := time.Now()
 
 	// In order to not lock the table while doing potentially expensive operations,
 	// we collect the reconciliation statuses for the objects and then commit them
@@ -171,22 +166,28 @@ func (r *reconciler[Obj]) incremental(
 			continue
 		}
 
+		start := time.Now()
+
 		var err error
 		if status.Delete {
-			err = r.Target.Delete(obj)
+			err = r.Target.Delete(ctx, obj)
 			if err == nil {
 				toBeDeleted[obj] = rev
 			} else {
 				updateResults[obj] = result{rev, StatusError(true, err)}
 			}
 		} else {
-			err = r.Target.Update(obj)
+			err = r.Target.Update(ctx, obj)
 			if err == nil {
 				updateResults[obj] = result{rev, StatusDone()}
 			} else {
 				updateResults[obj] = result{rev, StatusError(false, err)}
 			}
 		}
+
+		r.Metrics.IncrementalReconciliationDuration.With(r.labels).Observe(
+			float64(time.Since(start)) / float64(time.Second),
+		)
 
 		if len(errs) == 0 && err == nil {
 			// Keep track of the last successfully processed revision so
@@ -198,31 +199,40 @@ func (r *reconciler[Obj]) incremental(
 		}
 	}
 
-	wtxn := r.DB.WriteTxn(r.Table)
-	defer wtxn.Commit()
+	{
+		wtxn := r.DB.WriteTxn(r.Table)
 
-	// Commit status for updated objects.
-	for obj, result := range updateResults {
-		// Update the object if it is unchanged. It may happen that the object has
-		// been updated in the meanwhile, in which case we ignore the status as the
-		// update will be picked up by next reconciliation round.
-		r.Table.CompareAndSwap(wtxn, result.rev, obj.WithStatus(result.status))
-	}
+		oldRev := r.Table.Revision(txn)
+		newRev := r.Table.Revision(wtxn)
 
-	// Delete the objects that had been successfully deleted from target.
-	// The object is only deleted if it has not been changed.
-	for obj, rev := range toBeDeleted {
-		r.Table.CompareAndDelete(wtxn, rev, obj)
+		// Commit status for updated objects.
+		for obj, result := range updateResults {
+			// Update the object if it is unchanged. It may happen that the object has
+			// been updated in the meanwhile, in which case we ignore the status as the
+			// update will be picked up by next reconciliation round.
+			r.Table.CompareAndSwap(wtxn, result.rev, obj.WithStatus(result.status))
+		}
+
+		// Delete the objects that had been successfully deleted from target.
+		// The object is only deleted if it has not been changed.
+		for obj, rev := range toBeDeleted {
+			r.Table.CompareAndDelete(wtxn, rev, obj)
+		}
+
+		if oldRev == newRev {
+			// No changes happened between the ReadTxn and this WriteTxn. Since
+			// we wrote the table the 'watch' channel has closed. Grab a new
+			// watch channel of the root to only watch for new changes after
+			// this write.
+			_, watch = r.Table.All(wtxn)
+		}
+
+		wtxn.Commit()
 	}
 
 	r.Metrics.IncrementalReconciliationTotalErrors.With(r.labels).Add(float64(len(errs)))
 	r.Metrics.IncrementalReconciliationCurrentErrors.With(r.labels).Set(float64(len(errs)))
 	r.Metrics.IncrementalReconciliationCount.With(r.labels).Add(1)
-	r.Metrics.IncrementalReconciliationDuration.With(r.labels).Observe(
-		float64(time.Since(start)) / float64(time.Second),
-	)
-
-	r.Log.Infof("Incremental done (%d, %s)", lastSuccessRev, errs)
 
 	return lastSuccessRev, watch, errors.Join(errs...)
 }
@@ -234,7 +244,7 @@ func (r *reconciler[Obj]) full(ctx context.Context, txn statedb.ReadTxn, lastRev
 
 	iter, _ := r.Table.All(txn)
 
-	outOfSync, err := r.Target.Sync(iter)
+	outOfSync, err := r.Target.Sync(ctx, iter)
 
 	r.Metrics.FullReconciliationDuration.With(r.labels).Observe(
 		float64(time.Since(start)) / float64(time.Second),

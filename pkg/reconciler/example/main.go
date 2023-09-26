@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
+	"net/netip"
 	"os"
 	"time"
 
@@ -31,17 +33,22 @@ func main() {
 			metrics.Cell,
 		),
 
-		Cell,
+		SysctlCell,
+
+		IPTablesCell,
+
 		cell.Invoke(
 			modify,
+			modifyIPTables,
 			healthReport,
+			printPendingOrErrored,
 		),
 	)
 	h.PrintObjects()
 	h.Run()
 }
 
-func modify(db *statedb.DB, t statedb.RWTable[*SysctlSetting]) {
+func modify(s *Sysctl) {
 	go func() {
 		for {
 			time.Sleep(500 * time.Millisecond)
@@ -51,20 +58,30 @@ func modify(db *statedb.DB, t statedb.RWTable[*SysctlSetting]) {
 			key := fmt.Sprintf("foo%d", n)
 			val := fmt.Sprintf("bar%d", x)
 
-			txn := db.WriteTxn(t)
-			if x == 0 {
-				obj, _, ok := t.First(txn, SysctlKeyIndex.Query(key))
-				if ok {
-					obj = obj.WithStatus(reconciler.StatusPendingDelete())
-					t.Insert(txn, obj)
-				}
-			} else {
-				t.Insert(txn, &SysctlSetting{
-					Key: key, Value: val, status: reconciler.StatusPending(),
-				})
-			}
-			txn.Commit()
+			s.Set(key, val)
+
+			// Wait until the new values are reconciled.
+			s.Wait(context.TODO())
+
 		}
+	}()
+}
+
+func modifyIPTables(db *statedb.DB, t statedb.RWTable[*Rule]) {
+	go func() {
+		txn := db.WriteTxn(t)
+		t.Insert(txn, &Rule{
+			TableChain: TableChainFilterInput,
+			IPv6:       false,
+			Comment:    "testing",
+			Args: []ToArgs{
+				Source{IP: netip.MustParseAddr("1.2.3.4"), Port: nil},
+				OutDevice("eth0"),
+			},
+			Jump:   JumpAccept,
+			Status: reconciler.StatusPending(),
+		})
+		txn.Commit()
 	}()
 }
 
@@ -80,4 +97,23 @@ func healthReport(health cell.Health) {
 
 	}()
 
+}
+
+func printPendingOrErrored(db *statedb.DB, t statedb.Table[*SysctlSetting]) {
+	go func() {
+		for {
+			fmt.Printf("Sysctl:\n")
+			txn := db.ReadTxn()
+			_, watch := t.All(txn)
+			pending, _ := t.Get(txn, SysctlStatusIndex.Query(reconciler.StatusKindPending))
+			errored, _ := t.Get(txn, SysctlStatusIndex.Query(reconciler.StatusKindError))
+			iter := statedb.NewDualIterator(pending, errored)
+
+			for obj, _, _, ok := iter.Next(); ok; obj, _, _, ok = iter.Next() {
+				fmt.Printf("\t%s: %s\n", obj.Key, obj.Status)
+			}
+
+			<-watch
+		}
+	}()
 }

@@ -1,8 +1,8 @@
 package main
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"io"
 	"math/rand"
 	"os"
@@ -14,20 +14,76 @@ import (
 	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
-type SysctlSetting struct {
-	Key   string
-	Value string
+var SysctlCell = cell.Module(
+	"sysctl",
+	"sysctl settings",
 
-	status reconciler.Status
+	statedb.NewProtectedTableCell[*SysctlSetting]("sysctl", SysctlKeyIndex, SysctlStatusIndex),
+
+	cell.Provide(newSysctl),
+
+	// Provide the dependencies to the reconciler.
+	cell.ProvidePrivate(
+		func() reconciler.Target[*SysctlSetting] { return &sysctlTestTarget{} },
+		func() reconciler.Config {
+			return reconciler.Config{
+				FullReconcilationInterval: 10 * time.Second,
+				RetryBackoffMinDuration:   time.Second,
+				RetryBackoffMaxDuration:   10 * time.Second,
+			}
+		},
+		func() statedb.Index[*SysctlSetting, reconciler.StatusKind] { return SysctlStatusIndex },
+	),
+
+	// Create and register the reconciler.
+	cell.Invoke(reconciler.Register[*SysctlSetting]),
+)
+
+//
+// The Sysctl API
+//
+
+type Sysctl struct {
+	db    *statedb.DB
+	table statedb.RWTable[*SysctlSetting]
+}
+
+func newSysctl(db *statedb.DB, table statedb.RWTable[*SysctlSetting]) *Sysctl {
+	return &Sysctl{db, table}
+}
+
+func (s *Sysctl) Set(key, value string) {
+	txn := s.db.WriteTxn(s.table)
+	s.table.Insert(txn, &SysctlSetting{Key: key, Value: value, Status: reconciler.StatusPending()})
+	txn.Commit()
+}
+
+func (s *Sysctl) Wait(ctx context.Context) error {
+	return reconciler.WaitForReconciliation(
+		ctx,
+		s.db,
+		s.table,
+		SysctlStatusIndex,
+	)
+}
+
+//
+// Sysctl setting and indexes
+//
+
+type SysctlSetting struct {
+	Key    string
+	Value  string
+	Status reconciler.Status
 }
 
 func (s *SysctlSetting) GetStatus() reconciler.Status {
-	return s.status
+	return s.Status
 }
 
 func (s *SysctlSetting) WithStatus(newStatus reconciler.Status) *SysctlSetting {
 	s2 := *s
-	s2.status = newStatus
+	s2.Status = newStatus
 	return &s2
 }
 
@@ -43,27 +99,9 @@ var (
 	SysctlStatusIndex = reconciler.NewStatusIndex[*SysctlSetting]()
 )
 
-var Cell = cell.Module(
-	"sysctl",
-	"sysctl settings",
-
-	statedb.NewTableCell[*SysctlSetting]("sysctl", SysctlKeyIndex, SysctlStatusIndex),
-
-	cell.ProvidePrivate(
-		func() reconciler.Target[*SysctlSetting] { return &sysctlTestTarget{} },
-		func() reconciler.Config {
-			return reconciler.Config{
-				FullReconcilationInterval: 10 * time.Second,
-				RetryBackoffMinDuration:   time.Second,
-				RetryBackoffMaxDuration:   10 * time.Second,
-			}
-		},
-		func() statedb.Index[*SysctlSetting, reconciler.StatusKind] { return SysctlStatusIndex },
-
-		reconciler.New[*SysctlSetting],
-	),
-	cell.Invoke(func(reconciler.Reconciler[*SysctlSetting]) {}),
-)
+//
+// Sysctl reconciliation target
+//
 
 type sysctlTestTarget struct {
 }
@@ -72,8 +110,12 @@ func fakeProcFile(s *SysctlSetting) (*os.File, error) {
 	return os.OpenFile(fakeProcPath+"/"+s.Key, os.O_RDWR|os.O_CREATE, 0644)
 }
 
-func (t *sysctlTestTarget) Delete(s *SysctlSetting) error {
-	fmt.Printf("Delete: %s\n", s.Key)
+func (sysctlTestTarget) Init(context.Context) error {
+	return nil
+}
+
+func (t *sysctlTestTarget) Delete(_ context.Context, s *SysctlSetting) error {
+	//fmt.Printf("Delete: %s\n", s.Key)
 	if err := maybeError(); err != nil {
 		return err
 	}
@@ -83,7 +125,7 @@ func (t *sysctlTestTarget) Delete(s *SysctlSetting) error {
 }
 
 // Sync implements reconciler.Target
-func (t *sysctlTestTarget) Sync(iter statedb.Iterator[*SysctlSetting]) (outOfSync bool, err error) {
+func (t *sysctlTestTarget) Sync(_ context.Context, iter statedb.Iterator[*SysctlSetting]) (outOfSync bool, err error) {
 	if err := maybeError(); err != nil {
 		return false, err
 	}
@@ -110,15 +152,15 @@ func (t *sysctlTestTarget) Sync(iter statedb.Iterator[*SysctlSetting]) (outOfSyn
 }
 
 func maybeError() error {
-	if rand.Intn(10) == 0 {
+	if rand.Intn(3) == 0 {
 		return errors.New("some error")
 	}
 	return nil
 }
 
 // Update implements reconciler.Target
-func (t *sysctlTestTarget) Update(s *SysctlSetting) error {
-	fmt.Printf("Update: %s => %s\n", s.Key, s.Value)
+func (t *sysctlTestTarget) Update(_ context.Context, s *SysctlSetting) error {
+	//fmt.Printf("Update: %s => %s\n", s.Key, s.Value)
 	if err := maybeError(); err != nil {
 		return err
 	}

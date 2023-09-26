@@ -1,6 +1,8 @@
 package reconciler
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/cilium/cilium/pkg/statedb"
@@ -34,8 +36,18 @@ type Reconcilable[Obj comparable] interface {
 // Target captures the effectful operations for reconciling
 // an object.
 type Target[Obj Reconcilable[Obj]] interface {
-	Update(Obj) error
-	Delete(Obj) error
+	// Init initializes the reconciliation target. This is invoked before any
+	// reconciliation operations and will be retried until it succeeds.
+	Init(context.Context) error
+
+	// Update the object in the target. If the operation is long-running it should
+	// abort if context is cancelled. Should return an error if the operation fails.
+	// The reconciler will retry the operation again at a later time, potentially
+	// with a new version of the object. The operation should thus be idempotent.
+	Update(context.Context, Obj) error
+
+	// Delete the object in the target. Same semantics as with Update.
+	Delete(context.Context, Obj) error
 
 	// Sync performs full reconciliation.
 	// As full reconciliation is performed after incremental reconciliation,
@@ -43,11 +55,7 @@ type Target[Obj Reconcilable[Obj]] interface {
 	// to be reconciled the 'outOfSync' is returned as true. If these
 	// operations failed, then 'err' is also non-nil and this will be retried
 	// (after backoff).
-	Sync(statedb.Iterator[Obj]) (outOfSync bool, err error)
-}
-
-type Reconciler[Obj Reconcilable[Obj]] interface {
-	// TODO
+	Sync(context.Context, statedb.Iterator[Obj]) (outOfSync bool, err error)
 }
 
 type StatusKind string
@@ -72,6 +80,13 @@ type Status struct {
 
 	UpdatedAt time.Time
 	Error     error
+}
+
+func (s Status) String() string {
+	if s.Kind == StatusKindError {
+		return fmt.Sprintf("%s (delete: %v, updated: %s ago, error: %s)", s.Kind, s.Delete, time.Now().Sub(s.UpdatedAt), s.Error)
+	}
+	return fmt.Sprintf("%s (delete: %v, updated: %s ago)", s.Kind, s.Delete, time.Now().Sub(s.UpdatedAt))
 }
 
 func StatusPending() Status {
