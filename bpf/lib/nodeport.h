@@ -1151,7 +1151,7 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
-		.addr = IPV6_DIRECT_ROUTING,
+		//.addr = IPV6_DIRECT_ROUTING,
 	};
 	struct ipv6_ct_tuple tuple = {};
 	struct trace_ctx trace = {
@@ -1187,6 +1187,20 @@ int tail_nodeport_nat_egress_ipv6(struct __ctx_buff *ctx)
 		BPF_V6(target.addr, ROUTER_IP);
 	}
 #endif
+
+	// TODO(brb)
+	ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_dst,
+		       (union v6addr *)&ip6->daddr);
+	ipv6_addr_copy((union v6addr *)&fib_params.l.ipv6_src,
+		       (union v6addr *)&ip6->saddr);
+
+	ret = fib_lookup(ctx, &fib_params.l, sizeof(fib_params.l), BPF_FIB_LOOKUP_SKIP_NEIGH | BPF_FIB_LOOKUP_SET_SRC);
+	if (ret != BPF_FIB_LKUP_RET_SUCCESS) {
+		ret = DROP_NO_FIB;
+		goto drop_err;
+	}
+
+	ipv6_addr_copy(&target.addr, (union v6addr *)&fib_params.l.ipv6_src);
 
 	ret = lb6_extract_tuple(ctx, ip6, ETH_HLEN, &l4_off, &tuple);
 	if (IS_ERR(ret))
@@ -1627,9 +1641,8 @@ nodeport_has_nat_conflict_ipv4(const struct iphdr *ip4 __maybe_unused,
 	 * preprocessor, as the former is known only during load time (templating).
 	 * This checks whether bpf_host is running on the direct routing device.
 	 */
-	if (dr_ifindex == NATIVE_DEV_IFINDEX &&
-	    ip4->saddr == IPV4_DIRECT_ROUTING) {
-		target->addr = IPV4_DIRECT_ROUTING;
+	if (dr_ifindex == NATIVE_DEV_IFINDEX) {
+		target->addr = ip4->saddr;
 		target->needs_ct = true;
 
 		return true;
@@ -2614,8 +2627,9 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		 * So we need to assume that the direct routing device is going to be
 		 * used to fwd the NodePort request, thus SNAT-ing to its IP addr.
 		 * This will change once we have resolved GH#17158.
+		 * TODO(brb)
 		 */
-		.addr = IPV4_DIRECT_ROUTING,
+		//.addr = IPV4_DIRECT_ROUTING,
 	};
 	struct ipv4_ct_tuple tuple = {};
 	struct trace_ctx trace = {
@@ -2649,6 +2663,17 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		target.addr = IPV4_GATEWAY;
 	}
 #endif
+
+	// TODO(brb)
+	fib_params.l.ipv4_dst = ip4->daddr;
+	fib_params.l.ipv4_src = ip4->saddr;
+
+	ret = fib_lookup(ctx, &fib_params.l, sizeof(fib_params.l), BPF_FIB_LOOKUP_SKIP_NEIGH | BPF_FIB_LOOKUP_SET_SRC);
+	if (ret != BPF_FIB_LKUP_RET_SUCCESS) {
+		ret = DROP_NO_FIB;
+		goto drop_err;
+	}
+	target.addr = fib_params.l.ipv4_src;
 
 	ret = lb4_extract_tuple(ctx, ip4, ETH_HLEN, &l4_off, &tuple);
 	if (IS_ERR(ret))
@@ -2684,7 +2709,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		 * outside.
 		 */
 		ret = nodeport_add_tunnel_encap(ctx,
-						IPV4_DIRECT_ROUTING,
+						target.addr,
 						src_port,
 						tunnel_endpoint,
 						WORLD_IPV4_ID,
