@@ -290,6 +290,7 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n types.NeighborRequest
 		peer.GracefulRestart.Enabled = true
 		peer.GracefulRestart.RestartTime = uint32(*n.Neighbor.GracefulRestart.RestartTimeSeconds)
 		peer.GracefulRestart.NotificationEnabled = true
+		peer.GracefulRestart.LocalRestarting = true
 	}
 
 	for _, afiConf := range peer.AfiSafis {
