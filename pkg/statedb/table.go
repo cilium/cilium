@@ -163,10 +163,18 @@ func (t *genTable[Obj]) Get(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-chan st
 	return &iterator[Obj]{iter}, watchCh
 }
 
-// Insert implements Table
 func (t *genTable[Obj]) Insert(txn WriteTxn, obj Obj) (oldObj Obj, hadOld bool, err error) {
 	var data any
-	data, hadOld, err = txn.getTxn().Insert(t, obj)
+	data, hadOld, err = txn.getTxn().Insert(t, Revision(0), obj)
+	if err == nil && hadOld {
+		oldObj = data.(Obj)
+	}
+	return
+}
+
+func (t *genTable[Obj]) CompareAndSwap(txn WriteTxn, rev Revision, obj Obj) (oldObj Obj, hadOld bool, err error) {
+	var data any
+	data, hadOld, err = txn.getTxn().Insert(t, rev, obj)
 	if err == nil && hadOld {
 		oldObj = data.(Obj)
 	}
@@ -175,7 +183,16 @@ func (t *genTable[Obj]) Insert(txn WriteTxn, obj Obj) (oldObj Obj, hadOld bool, 
 
 func (t *genTable[Obj]) Delete(txn WriteTxn, obj Obj) (oldObj Obj, hadOld bool, err error) {
 	var data any
-	data, hadOld, err = txn.getTxn().Delete(t, obj)
+	data, hadOld, err = txn.getTxn().Delete(t, Revision(0), obj)
+	if err == nil && hadOld {
+		oldObj = data.(Obj)
+	}
+	return
+}
+
+func (t *genTable[Obj]) CompareAndDelete(txn WriteTxn, rev Revision, obj Obj) (oldObj Obj, hadOld bool, err error) {
+	var data any
+	data, hadOld, err = txn.getTxn().Delete(t, rev, obj)
 	if err == nil && hadOld {
 		oldObj = data.(Obj)
 	}
@@ -186,7 +203,7 @@ func (t *genTable[Obj]) DeleteAll(txn WriteTxn) error {
 	iter, _ := t.All(txn)
 	itxn := txn.getTxn()
 	for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
-		_, _, err := itxn.Delete(t, obj)
+		_, _, err := itxn.Delete(t, Revision(0), obj)
 		if err != nil {
 			return err
 		}

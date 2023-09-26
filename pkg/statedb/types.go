@@ -73,13 +73,25 @@ type RWTable[Obj any] interface {
 	Table[Obj]
 
 	// Insert an object into the table. Returns the object that was
-	// replaced if there was one. Error may be returned if the table
-	// is not locked for writing or if the write transaction has already
-	// been committed or aborted.
+	// replaced if there was one.
+	//
+	// Possible errors:
+	// - ErrTableNotLockedForWriting: table was not locked for writing
+	// - ErrTransactionClosed: the write transaction already committed or aborted
 	//
 	// Each inserted or updated object will be assigned a new unique
 	// revision.
 	Insert(WriteTxn, Obj) (oldObj Obj, hadOld bool, err error)
+
+	// CompareAndSwap compares the existing object's revision against the
+	// given revision and if equal it replaces the object.
+	//
+	// Possible errors:
+	// - ErrRevisionNotEqual: the object has mismatching revision
+	// - ErrObjectNotFound: object not found from the table
+	// - ErrTableNotLockedForWriting: table was not locked for writing
+	// - ErrTransactionClosed: the write transaction already committed or aborted
+	CompareAndSwap(WriteTxn, Revision, Obj) (oldObj Obj, hadOld bool, err error)
 
 	// Delete an object from the table. Returns the object that was
 	// deleted if there was one.
@@ -102,6 +114,16 @@ type RWTable[Obj any] interface {
 	// - ErrTableNotLockedForWriting: table was not locked for writing
 	// - ErrTransactionClosed: the write transaction already committed or aborted
 	DeleteAll(WriteTxn) error
+
+	// CompareAndDelete compares the existing object's revision against the
+	// given revision and if equal it deletes the object. If object is not
+	// found 'hadOld' will be false and 'err' nil.
+	//
+	// Possible errors:
+	// - ErrRevisionNotEqual: the object has mismatching revision
+	// - ErrTableNotLockedForWriting: table was not locked for writing
+	// - ErrTransactionClosed: the write transaction already committed or aborted
+	CompareAndDelete(WriteTxn, Revision, Obj) (oldObj Obj, hadOld bool, err error)
 }
 
 // TableMeta provides information about the table that is independent of
