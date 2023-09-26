@@ -338,3 +338,23 @@ func Filter(lbls labels.Labels) (identityLabels, informationLabels labels.Labels
 func FilterNodeLabels(lbls labels.Labels) (identityLabels, informationLabels labels.Labels) {
 	return validNodeLabelPrefixes.filterLabels(lbls)
 }
+
+func FilterLabelsByRegex(excludePatterns []*regexp.Regexp, labels map[string]string) map[string]string {
+	if len(excludePatterns) == 0 && labels != nil {
+		return labels
+	}
+	newLabels := make(map[string]string)
+	for k, v := range labels {
+		labelNeedsExclusion := false
+		for _, pattern := range excludePatterns {
+			if pattern.MatchString(k) {
+				labelNeedsExclusion = true
+				break
+			}
+		}
+		if !labelNeedsExclusion {
+			newLabels[k] = v
+		}
+	}
+	return newLabels
+}
