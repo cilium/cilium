@@ -328,6 +328,11 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, setupAndValida
 			return fmt.Errorf("unable to detect nodes w/o Cilium IPs: %w", err)
 		}
 	}
+	if match, _ := ct.Features.MatchRequirements((RequireFeatureEnabled(FeatureCIDRMatchNodes))); match {
+		if err := ct.detectNodeCIDRs(ctx); err != nil {
+			return fmt.Errorf("unable to detect node CIDRs: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -615,6 +620,69 @@ func (ct *ConnectivityTest) detectPodCIDRs(ctx context.Context) error {
 		}
 	}
 
+	return nil
+}
+
+// detectNodeCIDRs produces one or more CIDRs that cover all nodes in the cluster.
+// ipv4 addresses are collapsed in to one or more /24s, and v6 to one or more /64s
+func (ct *ConnectivityTest) detectNodeCIDRs(ctx context.Context) error {
+	if len(ct.params.NodeCIDRs) > 0 {
+		return nil
+	}
+
+	nodes, err := ct.client.ListNodes(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list nodes: %w", err)
+	}
+
+	nodeIPs := make([]netip.Addr, 0, len(nodes.Items))
+
+	for _, node := range nodes.Items {
+		for _, addr := range node.Status.Addresses {
+			if addr.Type != "InternalIP" {
+				continue
+			}
+
+			ip, err := netip.ParseAddr(addr.Address)
+			if err != nil {
+				continue
+			}
+			nodeIPs = append(nodeIPs, ip)
+		}
+	}
+
+	if len(nodeIPs) == 0 {
+		return fmt.Errorf("detectNodeCIDRs failed: no node IPs disovered")
+	}
+
+	// collapse set of IPs in to CIDRs
+	nodeCIDRs := []netip.Prefix{}
+
+	for _, ip := range nodeIPs {
+		found := false
+		for _, cidr := range nodeCIDRs {
+			if cidr.Addr().Is4() == ip.Is4() && cidr.Contains(ip) {
+				found = true
+				break
+			}
+		}
+		if found {
+			continue
+		}
+
+		// Generate a /24 or /64 accordingly
+		bits := 24
+		if ip.Is6() {
+			bits = 64
+		}
+		nodeCIDRs = append(nodeCIDRs, netip.PrefixFrom(ip, bits).Masked())
+	}
+
+	ct.params.NodeCIDRs = make([]string, 0, len(nodeCIDRs))
+	for _, cidr := range nodeCIDRs {
+		ct.params.NodeCIDRs = append(ct.params.NodeCIDRs, cidr.String())
+	}
+	ct.Debugf("Detected NodeCIDRs: %v", ct.params.NodeCIDRs)
 	return nil
 }
 
