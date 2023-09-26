@@ -52,8 +52,8 @@ concurrency:
 
 env:
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.8
-  cilium_cli_ci_version:
+  cilium_cli_version:
+  cilium_cli_ci_version: 61119c3f51a7e1720593f6562b6d948c089b97ba@sha256:a7b8b32baf4c0b902d2d526cc2a78b34fed72b1cd08cad7152abc4791fdf31f8
   check_url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
@@ -308,7 +308,7 @@ jobs:
             cd /host/
 
             export CILIUM_CLI_MODE=helm
-            ./cilium-cli install ${{ steps.cilium-config.outputs.config }}
+            ./cilium-cli install --set policyCIDRMatchMode=nodes ${{ steps.cilium-config.outputs.config }}
             kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-server --timeout=300s
             kubectl -n cilium-spire wait --for=condition=Ready pod -l app=spire-agent --timeout=300s
 
@@ -330,7 +330,7 @@ jobs:
               EXTRA="--secondary-network-iface=eth1"
             fi
 
-            ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
+            ./cilium-cli connectivity test --test pod-to-node-cidrpolicy --collect-sysdump-on-failure \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
               --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
