@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/status"
+	"github.com/cilium/cilium-cli/utils/wait"
 )
 
 const (
@@ -1167,7 +1168,7 @@ type Status struct {
 }
 
 func (k *K8sClusterMesh) statusAccessInformation(ctx context.Context, log bool, getExternalWorkloadSecret bool) (*accessInformation, error) {
-	w := utils.NewWaitObserver(ctx, utils.WaitParameters{Log: func(err error, wait string) {
+	w := wait.NewObserver(ctx, wait.Parameters{Log: func(err error, wait string) {
 		if log {
 			k.Log("⌛ Waiting (%s) for access information: %s", wait, err)
 		}
@@ -1188,7 +1189,7 @@ func (k *K8sClusterMesh) statusAccessInformation(ctx context.Context, log bool, 
 }
 
 func (k *K8sClusterMesh) statusDeployment(ctx context.Context) (err error) {
-	w := utils.NewWaitObserver(ctx, utils.WaitParameters{Log: func(err error, wait string) {
+	w := wait.NewObserver(ctx, wait.Parameters{Log: func(err error, wait string) {
 		k.Log("⌛ Waiting (%s) for deployment %s to become ready: %s", wait, defaults.ClusterMeshDeploymentName, err)
 	}})
 	defer func() {
@@ -1330,7 +1331,7 @@ func (c *ConnectivityStatus) parseAgentStatus(name string, expected []string, s 
 }
 
 func (k *K8sClusterMesh) statusConnectivity(ctx context.Context) (*ConnectivityStatus, error) {
-	w := utils.NewWaitObserver(ctx, utils.WaitParameters{Log: func(err error, wait string) {
+	w := wait.NewObserver(ctx, wait.Parameters{Log: func(err error, wait string) {
 		k.Log("⌛ Waiting (%s) for clusters to be connected: %s", wait, err)
 	}})
 	defer w.Cancel()
