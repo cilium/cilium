@@ -449,6 +449,11 @@ Users (Alphabetically)
       L: https://planetscale.com/
       Q: @dctrwatson
 
+    * N: plusserver Kubernetes Engine (PSKE)
+      D: With the plusserver Kubernetes Engine (PSKE), you use a unique solution to orchestrate Kubernetes clusters quickly and easily in self-service. Depending on your requirements, you can operate and centrally manage your workloads in the GDPR-compliant pluscloud open or at a hyperscaler. Thanks to integrated day 2 operations and optional professional services, you can relieve the burden on your DevOps teams and free up space for your digital innovations. You also benefit from high resilience and optimized costs through autoscaling and hibernation.
+      U: CNI , Overlay Network, Network Policies
+      L: https://www.plusserver.com/en/product/managed-kubernetes/, https://github.com/gardener/gardener-extension-networking-cilium
+
     * N: Polar Signals
       D: Polar Signals uses Cilium as the CNI on its GKE dataplane v2 based clusters.
       U: Networking
