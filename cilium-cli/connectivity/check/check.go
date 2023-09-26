@@ -60,6 +60,7 @@ type Parameters struct {
 	ExternalIP            string
 	ExternalOtherIP       string
 	PodCIDRs              []podCIDRs
+	NodeCIDRs             []string
 	NodesWithoutCiliumIPs []nodesWithoutCiliumIP
 	JunitFile             string
 	JunitProperties       map[string]string
