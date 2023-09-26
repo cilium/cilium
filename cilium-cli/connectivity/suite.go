@@ -115,6 +115,9 @@ var (
 	//go:embed manifests/client-egress-to-cidr-external-knp.yaml
 	clientEgressToCIDRExternalPolicyKNPYAML string
 
+	//go:embed manifests/client-egress-to-cidr-node-knp.yaml
+	clientEgressToCIDRNodeKNPYAML string
+
 	//go:embed manifests/client-egress-to-cidr-external-deny.yaml
 	clientEgressToCIDRExternalDenyPolicyYAML string
 
@@ -181,6 +184,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 	for key, temp := range map[string]string{
 		"clientEgressToCIDRExternalPolicyYAML":     clientEgressToCIDRExternalPolicyYAML,
 		"clientEgressToCIDRExternalPolicyKNPYAML":  clientEgressToCIDRExternalPolicyKNPYAML,
+		"clientEgressToCIDRNodeKNPYAML":            clientEgressToCIDRNodeKNPYAML,
 		"clientEgressToCIDRExternalDenyPolicyYAML": clientEgressToCIDRExternalDenyPolicyYAML,
 		"clientEgressL7HTTPPolicyYAML":             clientEgressL7HTTPPolicyYAML,
 		"clientEgressL7HTTPNamedPortPolicyYAML":    clientEgressL7HTTPNamedPortPolicyYAML,
@@ -773,6 +777,16 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 				tests.EgressGatewayExcludedCIDRs(),
 			)
 	}
+
+	// Check that pods can access nodes when referencing them by CIDR selectors
+	// (when this feature is enabled).
+	ct.NewTest("pod-to-node-cidrpolicy").
+		WithFeatureRequirements(
+			check.RequireFeatureEnabled(check.FeatureCIDRMatchNodes)).
+		WithK8SPolicy(renderedTemplates["clientEgressToCIDRNodeKNPYAML"]).
+		WithScenarios(
+			tests.PodToHost(),
+		)
 
 	// The following tests have DNS redirect policies. They should be executed last.
 
