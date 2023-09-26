@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -75,9 +76,8 @@ type ConnectivityTest struct {
 
 	lastFlowTimestamps map[string]time.Time
 
-	nodes                 map[string]*corev1.Node
-	nodesWithoutCilium    []string
-	nodesWithoutCiliumMap map[string]struct{}
+	nodes              map[string]*corev1.Node
+	nodesWithoutCilium map[string]struct{}
 
 	manifests      map[string]string
 	helmYAMLValues string
@@ -201,9 +201,11 @@ func NewConnectivityTest(client *k8s.Client, p Parameters, version string) (*Con
 		secondaryNetworkNodeIPv4: make(map[string]string),
 		secondaryNetworkNodeIPv6: make(map[string]string),
 		nodes:                    make(map[string]*corev1.Node),
+		nodesWithoutCilium:       make(map[string]struct{}),
 		tests:                    []*Test{},
 		testNames:                make(map[string]struct{}),
 		lastFlowTimestamps:       make(map[string]time.Time),
+		Features:                 FeatureSet{},
 	}
 
 	return k, nil
@@ -276,6 +278,9 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, setupAndValida
 	if err := ct.initCiliumPods(ctx); err != nil {
 		return err
 	}
+	if err := ct.getNodes(ctx); err != nil {
+		return err
+	}
 	// Detect Cilium version after Cilium pods have been initialized and before feature
 	// detection.
 	if err := ct.detectCiliumVersion(ctx); err != nil {
@@ -286,9 +291,6 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, setupAndValida
 	}
 	// Setup and validate all the extras coming from extended functionalities.
 	if err := setupAndValidateExtras(ctx, ct); err != nil {
-		return err
-	}
-	if err := ct.getNodes(ctx); err != nil {
 		return err
 	}
 
@@ -687,7 +689,7 @@ func (ct *ConnectivityTest) detectNodeCIDRs(ctx context.Context) error {
 }
 
 func (ct *ConnectivityTest) detectNodesWithoutCiliumIPs() error {
-	for _, n := range ct.nodesWithoutCilium {
+	for n := range ct.nodesWithoutCilium {
 		pod := ct.hostNetNSPodsByNode[n]
 		for _, ip := range pod.Pod.Status.PodIPs {
 			hostIP, err := netip.ParseAddr(ip.IP)
@@ -704,7 +706,7 @@ func (ct *ConnectivityTest) detectNodesWithoutCiliumIPs() error {
 
 func (ct *ConnectivityTest) modifyStaticRoutesForNodesWithoutCilium(ctx context.Context, verb string) error {
 	for _, e := range ct.params.PodCIDRs {
-		for _, withoutCilium := range ct.nodesWithoutCilium {
+		for withoutCilium := range ct.nodesWithoutCilium {
 			pod := ct.hostNetNSPodsByNode[withoutCilium]
 			_, err := ct.client.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name, hostNetNSDeploymentNameNonCilium,
 				[]string{"ip", "route", verb, e.CIDR, "via", e.HostIP},
@@ -808,6 +810,8 @@ func (ct *ConnectivityTest) initCiliumPods(ctx context.Context) error {
 }
 
 func (ct *ConnectivityTest) getNodes(ctx context.Context) error {
+	ct.nodes = make(map[string]*corev1.Node)
+	ct.nodesWithoutCilium = make(map[string]struct{})
 	nodeList, err := ct.client.ListNodes(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("unable to list K8s Nodes: %w", err)
@@ -817,6 +821,8 @@ func (ct *ConnectivityTest) getNodes(ctx context.Context) error {
 		node := node
 		if canNodeRunCilium(&node) {
 			ct.nodes[node.ObjectMeta.Name] = node.DeepCopy()
+		} else {
+			ct.nodesWithoutCilium[node.ObjectMeta.Name] = struct{}{}
 		}
 	}
 
@@ -1022,7 +1028,7 @@ func (ct *ConnectivityTest) K8sClient() *k8s.Client {
 }
 
 func (ct *ConnectivityTest) NodesWithoutCilium() []string {
-	return ct.nodesWithoutCilium
+	return maps.Keys(ct.nodesWithoutCilium)
 }
 
 func (ct *ConnectivityTest) Feature(f Feature) (FeatureStatus, bool) {
