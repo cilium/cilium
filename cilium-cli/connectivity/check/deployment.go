@@ -1325,7 +1325,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 	}
 
 	for _, pod := range hostNetNSPods.Items {
-		_, ok := ct.nodesWithoutCiliumMap[pod.Spec.NodeName]
+		_, ok := ct.nodesWithoutCilium[pod.Spec.NodeName]
 		p := Pod{
 			K8sClient: ct.client,
 			Pod:       pod.DeepCopy(),
