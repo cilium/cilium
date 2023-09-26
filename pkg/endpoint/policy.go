@@ -653,6 +653,9 @@ func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegener
 func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
 	done := make(chan bool, 1)
 
+	log.Debug("*Endpoint.Regenerate() started")
+	defer log.Debug("*Endpoint.Regenerate() finished")
+
 	var (
 		ctx   context.Context
 		cFunc context.CancelFunc
@@ -676,7 +679,7 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 	// synchronously enqueued.
 	resChan, err := e.eventQueue.Enqueue(epEvent)
 	if err != nil {
-		e.getLogger().WithError(err).Error("Enqueue of EndpointRegenerationEvent failed")
+		log.WithError(err).Error("Enqueue of EndpointRegenerationEvent failed")
 		done <- false
 		close(done)
 		return done
@@ -700,12 +703,12 @@ func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMe
 			buildSuccess = regenError == nil
 
 			if regenError != nil && !errors.Is(regenError, context.Canceled) {
-				e.getLogger().WithError(regenError).Error("endpoint regeneration failed")
+				log.WithError(regenError).Error("endpoint regeneration failed")
 			}
 		} else {
 			// This may be unnecessary(?) since 'closing' of the results
 			// channel means that event has been cancelled?
-			e.getLogger().Debug("regeneration was cancelled")
+			log.Debug("regeneration was cancelled")
 			canceled = true
 		}
 
