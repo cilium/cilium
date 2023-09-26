@@ -473,6 +473,42 @@ kind-clustermesh-ready: ## Check if both kind clustermesh clusters exist
 	@kind get clusters 2>&1 | grep "clustermesh2" \
 		&& exit 0 || exit 1
 
+.PHONY: kind-bgp-v4
+kind-bgp-v4:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v4 deploy
+
+.PHONY: kind-bgp-v4-down
+kind-bgp-v4-down:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v4 destroy
+
+.PHONY: kind-bgp-v4-apply-policy
+kind-bgp-v4-apply-policy:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v4 apply-policy
+
+.PHONY: kind-bgp-v6
+kind-bgp-v6:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v6 deploy
+
+.PHONY: kind-bgp-v6-down
+kind-bgp-v6-down:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v6 destroy
+
+.PHONY: kind-bgp-v6-apply-policy
+kind-bgp-v6-apply-policy:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-v6 apply-policy
+
+.PHONY: kind-bgp-dual
+kind-bgp-dual:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-dual deploy
+
+.PHONY: kind-bgp-dual-down
+kind-bgp-dual-down:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-dual destroy
+
+.PHONY: kind-bgp-dual-apply-policy
+kind-bgp-dual-apply-policy:
+	$(QUIET) $(MAKE) -C contrib/containerlab/bgp-cplane-dev-dual apply-policy
+
 # Template for kind environment for a target. Parameters are:
 # $(1) Makefile target name
 define KIND_ENV
