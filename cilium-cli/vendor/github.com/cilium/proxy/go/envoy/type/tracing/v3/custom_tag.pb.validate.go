@@ -68,9 +68,20 @@ func (m *CustomTag) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	switch m.Type.(type) {
-
+	oneofTypePresent := false
+	switch v := m.Type.(type) {
 	case *CustomTag_Literal_:
+		if v == nil {
+			err := CustomTagValidationError{
+				field:  "Type",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofTypePresent = true
 
 		if all {
 			switch v := interface{}(m.GetLiteral()).(type) {
@@ -102,6 +113,17 @@ func (m *CustomTag) validate(all bool) error {
 		}
 
 	case *CustomTag_Environment_:
+		if v == nil {
+			err := CustomTagValidationError{
+				field:  "Type",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofTypePresent = true
 
 		if all {
 			switch v := interface{}(m.GetEnvironment()).(type) {
@@ -133,6 +155,17 @@ func (m *CustomTag) validate(all bool) error {
 		}
 
 	case *CustomTag_RequestHeader:
+		if v == nil {
+			err := CustomTagValidationError{
+				field:  "Type",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofTypePresent = true
 
 		if all {
 			switch v := interface{}(m.GetRequestHeader()).(type) {
@@ -164,6 +197,17 @@ func (m *CustomTag) validate(all bool) error {
 		}
 
 	case *CustomTag_Metadata_:
+		if v == nil {
+			err := CustomTagValidationError{
+				field:  "Type",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofTypePresent = true
 
 		if all {
 			switch v := interface{}(m.GetMetadata()).(type) {
@@ -195,6 +239,9 @@ func (m *CustomTag) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofTypePresent {
 		err := CustomTagValidationError{
 			field:  "Type",
 			reason: "value is required",
@@ -203,12 +250,12 @@ func (m *CustomTag) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return CustomTagMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -318,6 +365,7 @@ func (m *CustomTag_Literal) validate(all bool) error {
 	if len(errors) > 0 {
 		return CustomTag_LiteralMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -432,6 +480,7 @@ func (m *CustomTag_Environment) validate(all bool) error {
 	if len(errors) > 0 {
 		return CustomTag_EnvironmentMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -557,6 +606,7 @@ func (m *CustomTag_Header) validate(all bool) error {
 	if len(errors) > 0 {
 		return CustomTag_HeaderMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -718,6 +768,7 @@ func (m *CustomTag_Metadata) validate(all bool) error {
 	if len(errors) > 0 {
 		return CustomTag_MetadataMultiError(errors)
 	}
+
 	return nil
 }
 

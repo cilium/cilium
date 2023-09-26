@@ -67,9 +67,18 @@ func (m *Filter) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	switch m.ConfigType.(type) {
-
+	switch v := m.ConfigType.(type) {
 	case *Filter_TypedConfig:
+		if v == nil {
+			err := FilterValidationError{
+				field:  "ConfigType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetTypedConfig()).(type) {
@@ -101,6 +110,16 @@ func (m *Filter) validate(all bool) error {
 		}
 
 	case *Filter_ConfigDiscovery:
+		if v == nil {
+			err := FilterValidationError{
+				field:  "ConfigType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetConfigDiscovery()).(type) {
@@ -131,11 +150,14 @@ func (m *Filter) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return FilterMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -411,6 +433,7 @@ func (m *FilterChainMatch) validate(all bool) error {
 	if len(errors) > 0 {
 		return FilterChainMatchMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -720,6 +743,7 @@ func (m *FilterChain) validate(all bool) error {
 	if len(errors) > 0 {
 		return FilterChainMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -816,9 +840,20 @@ func (m *ListenerFilterChainMatchPredicate) validate(all bool) error {
 
 	var errors []error
 
-	switch m.Rule.(type) {
-
+	oneofRulePresent := false
+	switch v := m.Rule.(type) {
 	case *ListenerFilterChainMatchPredicate_OrMatch:
+		if v == nil {
+			err := ListenerFilterChainMatchPredicateValidationError{
+				field:  "Rule",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRulePresent = true
 
 		if all {
 			switch v := interface{}(m.GetOrMatch()).(type) {
@@ -850,6 +885,17 @@ func (m *ListenerFilterChainMatchPredicate) validate(all bool) error {
 		}
 
 	case *ListenerFilterChainMatchPredicate_AndMatch:
+		if v == nil {
+			err := ListenerFilterChainMatchPredicateValidationError{
+				field:  "Rule",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRulePresent = true
 
 		if all {
 			switch v := interface{}(m.GetAndMatch()).(type) {
@@ -881,6 +927,17 @@ func (m *ListenerFilterChainMatchPredicate) validate(all bool) error {
 		}
 
 	case *ListenerFilterChainMatchPredicate_NotMatch:
+		if v == nil {
+			err := ListenerFilterChainMatchPredicateValidationError{
+				field:  "Rule",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRulePresent = true
 
 		if all {
 			switch v := interface{}(m.GetNotMatch()).(type) {
@@ -912,6 +969,17 @@ func (m *ListenerFilterChainMatchPredicate) validate(all bool) error {
 		}
 
 	case *ListenerFilterChainMatchPredicate_AnyMatch:
+		if v == nil {
+			err := ListenerFilterChainMatchPredicateValidationError{
+				field:  "Rule",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRulePresent = true
 
 		if m.GetAnyMatch() != true {
 			err := ListenerFilterChainMatchPredicateValidationError{
@@ -925,6 +993,17 @@ func (m *ListenerFilterChainMatchPredicate) validate(all bool) error {
 		}
 
 	case *ListenerFilterChainMatchPredicate_DestinationPortRange:
+		if v == nil {
+			err := ListenerFilterChainMatchPredicateValidationError{
+				field:  "Rule",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRulePresent = true
 
 		if all {
 			switch v := interface{}(m.GetDestinationPortRange()).(type) {
@@ -956,6 +1035,9 @@ func (m *ListenerFilterChainMatchPredicate) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofRulePresent {
 		err := ListenerFilterChainMatchPredicateValidationError{
 			field:  "Rule",
 			reason: "value is required",
@@ -964,12 +1046,12 @@ func (m *ListenerFilterChainMatchPredicate) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return ListenerFilterChainMatchPredicateMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1110,9 +1192,18 @@ func (m *ListenerFilter) validate(all bool) error {
 		}
 	}
 
-	switch m.ConfigType.(type) {
-
+	switch v := m.ConfigType.(type) {
 	case *ListenerFilter_TypedConfig:
+		if v == nil {
+			err := ListenerFilterValidationError{
+				field:  "ConfigType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetTypedConfig()).(type) {
@@ -1144,6 +1235,16 @@ func (m *ListenerFilter) validate(all bool) error {
 		}
 
 	case *ListenerFilter_ConfigDiscovery:
+		if v == nil {
+			err := ListenerFilterValidationError{
+				field:  "ConfigType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetConfigDiscovery()).(type) {
@@ -1174,11 +1275,14 @@ func (m *ListenerFilter) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return ListenerFilterMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1308,6 +1412,7 @@ func (m *FilterChain_OnDemandConfiguration) validate(all bool) error {
 	if len(errors) > 0 {
 		return FilterChain_OnDemandConfigurationMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1458,6 +1563,7 @@ func (m *ListenerFilterChainMatchPredicate_MatchSet) validate(all bool) error {
 	if len(errors) > 0 {
 		return ListenerFilterChainMatchPredicate_MatchSetMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -82,6 +82,7 @@ func (m *TlsParameters) validate(all bool) error {
 	if len(errors) > 0 {
 		return TlsParametersMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -189,9 +190,18 @@ func (m *PrivateKeyProvider) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	switch m.ConfigType.(type) {
-
+	switch v := m.ConfigType.(type) {
 	case *PrivateKeyProvider_TypedConfig:
+		if v == nil {
+			err := PrivateKeyProviderValidationError{
+				field:  "ConfigType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetTypedConfig()).(type) {
@@ -222,11 +232,14 @@ func (m *PrivateKeyProvider) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return PrivateKeyProviderMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -302,6 +315,155 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = PrivateKeyProviderValidationError{}
+
+// Validate checks the field values on PrivateKeyProviderList with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *PrivateKeyProviderList) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on PrivateKeyProviderList with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// PrivateKeyProviderListMultiError, or nil if none found.
+func (m *PrivateKeyProviderList) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *PrivateKeyProviderList) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if len(m.GetPrivateKeyProvider()) < 1 {
+		err := PrivateKeyProviderListValidationError{
+			field:  "PrivateKeyProvider",
+			reason: "value must contain at least 1 item(s)",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	for idx, item := range m.GetPrivateKeyProvider() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, PrivateKeyProviderListValidationError{
+						field:  fmt.Sprintf("PrivateKeyProvider[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, PrivateKeyProviderListValidationError{
+						field:  fmt.Sprintf("PrivateKeyProvider[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return PrivateKeyProviderListValidationError{
+					field:  fmt.Sprintf("PrivateKeyProvider[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	// no validation rules for Fallback
+
+	if len(errors) > 0 {
+		return PrivateKeyProviderListMultiError(errors)
+	}
+
+	return nil
+}
+
+// PrivateKeyProviderListMultiError is an error wrapping multiple validation
+// errors returned by PrivateKeyProviderList.ValidateAll() if the designated
+// constraints aren't met.
+type PrivateKeyProviderListMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m PrivateKeyProviderListMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m PrivateKeyProviderListMultiError) AllErrors() []error { return m }
+
+// PrivateKeyProviderListValidationError is the validation error returned by
+// PrivateKeyProviderList.Validate if the designated constraints aren't met.
+type PrivateKeyProviderListValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e PrivateKeyProviderListValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e PrivateKeyProviderListValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e PrivateKeyProviderListValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e PrivateKeyProviderListValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e PrivateKeyProviderListValidationError) ErrorName() string {
+	return "PrivateKeyProviderListValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e PrivateKeyProviderListValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sPrivateKeyProviderList.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = PrivateKeyProviderListValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = PrivateKeyProviderListValidationError{}
 
 // Validate checks the field values on TlsCertificate with the rules defined in
 // the proto definition for this message. If any rules are violated, the first
@@ -471,6 +633,35 @@ func (m *TlsCertificate) validate(all bool) error {
 	}
 
 	if all {
+		switch v := interface{}(m.GetPrivateKeyProviderList()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "PrivateKeyProviderList",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TlsCertificateValidationError{
+					field:  "PrivateKeyProviderList",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPrivateKeyProviderList()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TlsCertificateValidationError{
+				field:  "PrivateKeyProviderList",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
 		switch v := interface{}(m.GetPassword()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
@@ -565,6 +756,7 @@ func (m *TlsCertificate) validate(all bool) error {
 	if len(errors) > 0 {
 		return TlsCertificateMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -709,6 +901,7 @@ func (m *TlsSessionTicketKeys) validate(all bool) error {
 	if len(errors) > 0 {
 		return TlsSessionTicketKeysMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -815,6 +1008,7 @@ func (m *CertificateProviderPluginInstance) validate(all bool) error {
 	if len(errors) > 0 {
 		return CertificateProviderPluginInstanceMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -918,7 +1112,7 @@ func (m *SubjectAltNameMatcher) validate(all bool) error {
 	if _, ok := _SubjectAltNameMatcher_SanType_NotInLookup[m.GetSanType()]; ok {
 		err := SubjectAltNameMatcherValidationError{
 			field:  "SanType",
-			reason: "value must not be in list [0]",
+			reason: "value must not be in list [SAN_TYPE_UNSPECIFIED]",
 		}
 		if !all {
 			return err
@@ -980,6 +1174,7 @@ func (m *SubjectAltNameMatcher) validate(all bool) error {
 	if len(errors) > 0 {
 		return SubjectAltNameMatcherMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1411,6 +1606,7 @@ func (m *CertificateValidationContext) validate(all bool) error {
 	if len(errors) > 0 {
 		return CertificateValidationContextMultiError(errors)
 	}
+
 	return nil
 }
 

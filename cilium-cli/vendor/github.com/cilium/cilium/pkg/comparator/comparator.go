@@ -102,8 +102,5 @@ func MapStringEqualsIgnoreKeys(m1, m2 map[string]string, ignoreKeys []string) bo
 			ignoredM2++
 		}
 	}
-	if len(m1)-ignoredM1 != len(m2)-ignoredM2 {
-		return false
-	}
-	return true
+	return len(m1)-ignoredM1 == len(m2)-ignoredM2
 }

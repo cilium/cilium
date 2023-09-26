@@ -10,7 +10,6 @@ import (
 )
 
 type invoker struct {
-	cont  container
 	funcs []namedFunc
 }
 
@@ -23,11 +22,11 @@ type InvokerList interface {
 	AppendInvoke(func() error)
 }
 
-func (i *invoker) invoke() error {
+func (i *invoker) invoke(cont container) error {
 	for _, afn := range i.funcs {
 		log.WithField("function", afn.name).Debug("Invoking")
 		t0 := time.Now()
-		if err := i.cont.Invoke(afn.fn); err != nil {
+		if err := cont.Invoke(afn.fn); err != nil {
 			log.WithError(err).WithField("", afn.name).Error("Invoke failed")
 			return err
 		}
@@ -39,7 +38,7 @@ func (i *invoker) invoke() error {
 
 func (i *invoker) Apply(c container) error {
 	// Remember the scope in which we need to invoke.
-	i.cont = c
+	invoker := func() error { return i.invoke(c) }
 
 	// Append the invoker to the list of invoke functions. These are invoked
 	// prior to start to build up the objects. They are not invoked directly
@@ -48,7 +47,7 @@ func (i *invoker) Apply(c container) error {
 	// we don't yet know which command to run, but we still need to register
 	// all the flags.
 	return c.Invoke(func(l InvokerList) {
-		l.AppendInvoke(i.invoke)
+		l.AppendInvoke(invoker)
 	})
 }
 

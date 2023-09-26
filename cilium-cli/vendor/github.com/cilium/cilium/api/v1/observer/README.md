@@ -145,6 +145,7 @@ GetDebugEventsResponse contains a Cilium datapath debug events.
 | since | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Since this time for returned flows. Incompatible with `number`. |
 | until | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Until this time for returned flows. Incompatible with `number`. |
 | experimental | [GetFlowsRequest.Experimental](#observer-GetFlowsRequest-Experimental) |  |  |
+| extensions | [google.protobuf.Any](#google-protobuf-Any) |  | extensions can be used to add arbitrary additional metadata to GetFlowsRequest. This can be used to extend functionality for other Hubble compatible APIs, or experiment with new functionality without needing to change the public API. |
 
 
 
@@ -301,6 +302,7 @@ Node represents a cluster node.
 | num_unavailable_nodes | [google.protobuf.UInt32Value](#google-protobuf-UInt32Value) |  | number of nodes for which a connection cannot be established |
 | unavailable_nodes | [string](#string) | repeated | list of nodes that are unavailable This list may not be exhaustive. |
 | version | [string](#string) |  | Version is the version of Cilium/Hubble. |
+| flows_rate | [double](#double) |  | Approximate rate of flows seen by Hubble per second over the last minute. In a multi-node context, this is the sum of all flows rates. |
 
 
 

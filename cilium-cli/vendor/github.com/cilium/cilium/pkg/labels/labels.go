@@ -26,6 +26,14 @@ const (
 	// IDNameWorld is the label used for the world ID.
 	IDNameWorld = "world"
 
+	// IDNameWorldIPv4 is the label used for the world-ipv4 ID, to distinguish
+	// it from world-ipv6 in dual-stack mode.
+	IDNameWorldIPv4 = "world-ipv4"
+
+	// IDNameWorldIPv6 is the label used for the world-ipv6 ID, to distinguish
+	// it from world-ipv4 in dual-stack mode.
+	IDNameWorldIPv6 = "world-ipv6"
+
 	// IDNameCluster is the label used to identify an unspecified endpoint
 	// inside the cluster
 	IDNameCluster = "cluster"
@@ -68,6 +76,12 @@ var (
 
 	// LabelWorld is the label used for world.
 	LabelWorld = Labels{IDNameWorld: NewLabel(IDNameWorld, "", LabelSourceReserved)}
+
+	// LabelWorldIPv4 is the label used for world-ipv4.
+	LabelWorldIPv4 = Labels{IDNameWorldIPv4: NewLabel(IDNameWorldIPv4, "", LabelSourceReserved)}
+
+	// LabelWorldIPv6 is the label used for world-ipv6.
+	LabelWorldIPv6 = Labels{IDNameWorldIPv6: NewLabel(IDNameWorldIPv6, "", LabelSourceReserved)}
 
 	// LabelRemoteNode is the label used for remote nodes.
 	LabelRemoteNode = Labels{IDNameRemoteNode: NewLabel(IDNameRemoteNode, "", LabelSourceReserved)}
@@ -469,13 +483,24 @@ func (l Label) FormatForKVStore() []byte {
 	// kvstore.prefixMatchesKey())
 	b := make([]byte, 0, len(l.Source)+len(l.Key)+len(l.Value)+3)
 	buf := bytes.NewBuffer(b)
+	l.formatForKVStoreInto(buf)
+	return buf.Bytes()
+}
+
+// formatForKVStoreInto writes the label as a formatted string, ending in
+// a semicolon into buf.
+//
+// DO NOT BREAK THE FORMAT OF THIS. THE RETURNED STRING IS USED AS
+// PART OF THE KEY IN THE KEY-VALUE STORE.
+//
+// Non-pointer receiver allows this to be called on a value in a map.
+func (l Label) formatForKVStoreInto(buf *bytes.Buffer) {
 	buf.WriteString(l.Source)
 	buf.WriteRune(':')
 	buf.WriteString(l.Key)
 	buf.WriteRune('=')
 	buf.WriteString(l.Value)
 	buf.WriteRune(';')
-	return buf.Bytes()
 }
 
 // SortedList returns the labels as a sorted list, separated by semicolon
@@ -489,10 +514,21 @@ func (l Labels) SortedList() []byte {
 	}
 	sort.Strings(keys)
 
-	b := make([]byte, 0, len(keys)*2)
+	// Labels can have arbitrary size. However, when many CIDR identities are in
+	// the system, for example due to a FQDN policy matching S3, CIDR labels
+	// dominate in number. IPv4 CIDR labels in serialized form are max 25 bytes
+	// long. Allocate slightly more to avoid having a realloc if there's some
+	// other labels which may longer, since the cost of allocating a few bytes
+	// more is dominated by a second allocation, especially since these
+	// allocations are short-lived.
+	//
+	// cidr:123.123.123.123/32=;
+	// 0        1         2
+	// 1234567890123456789012345
+	b := make([]byte, 0, len(keys)*30)
 	buf := bytes.NewBuffer(b)
 	for _, k := range keys {
-		buf.Write(l[k].FormatForKVStore())
+		l[k].formatForKVStoreInto(buf)
 	}
 
 	return buf.Bytes()

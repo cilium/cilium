@@ -336,7 +336,7 @@ func (m *DebugInfo) UnmarshalBinary(b []byte) error {
 // swagger:model DebugInfoEncryption
 type DebugInfoEncryption struct {
 
-	// Status of the Wireguard agent
+	// Status of the WireGuard agent
 	Wireguard *WireguardStatus `json:"wireguard,omitempty"`
 }
 

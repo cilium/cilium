@@ -14,7 +14,7 @@ type StoppableWaitGroup struct {
 	noopAdd  chan struct{}
 	// i is the internal counter which can store tolerate negative values
 	// as opposed the golang's library WaitGroup.
-	i                  *int64
+	i                  atomic.Int64
 	doneOnce, stopOnce sync.Once
 }
 
@@ -24,7 +24,6 @@ func NewStoppableWaitGroup() *StoppableWaitGroup {
 	return &StoppableWaitGroup{
 		noopDone: make(chan struct{}),
 		noopAdd:  make(chan struct{}),
-		i:        func() *int64 { i := int64(0); return &i }(),
 		doneOnce: sync.Once{},
 		stopOnce: sync.Once{},
 	}
@@ -65,7 +64,7 @@ func (l *StoppableWaitGroup) Add() {
 	select {
 	case <-l.noopAdd:
 	default:
-		atomic.AddInt64(l.i, 1)
+		l.i.Add(1)
 	}
 }
 
@@ -80,14 +79,14 @@ func (l *StoppableWaitGroup) Done() {
 	default:
 		select {
 		case <-l.noopAdd:
-			a := atomic.AddInt64(l.i, -1)
+			a := l.i.Add(-1)
 			if a <= 0 {
 				l.doneOnce.Do(func() {
 					close(l.noopDone)
 				})
 			}
 		default:
-			a := atomic.AddInt64(l.i, -1)
+			a := l.i.Add(-1)
 			select {
 			// in case the channel was close while we where in this default
 			// case we will need to check if 'a' is less than zero and close
