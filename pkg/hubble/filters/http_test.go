@@ -339,6 +339,116 @@ func TestHTTPFilters(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		// URL filters
+		{
+			name: "url simple",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpUrl:   []string{"cilium.io"},
+						EventType: []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+					},
+				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{Url: "http://example.com/"}),
+					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/docs/"}),
+					httpFlow(&flowpb.HTTP{Url: "https://cilium.io/"}),
+					httpFlow(&flowpb.HTTP{Url: "https://not.cilium.io/"}),
+					httpFlow(&flowpb.HTTP{Url: "https://cilium.example.com/"}),
+				},
+			},
+			want: []bool{
+				false,
+				true,
+				true,
+				true,
+				false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "url complete",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpUrl:   []string{"^http://cilium.io/$"},
+						EventType: []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+					},
+				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{Url: "http://example.com/"}),
+					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/docs/"}),
+					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/"}),
+				},
+			},
+			want: []bool{
+				false,
+				false,
+				true,
+			},
+			wantErr: false,
+		},
+		{
+			name: "url full",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpUrl:   []string{"^http://cilium.io/docs/[a-z]+$", "^http://example.com/post/\\d+"},
+						EventType: []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+					},
+				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{Url: "http://example.com/post/12"}),
+					httpFlow(&flowpb.HTTP{Url: "http://example.com/post/125?key=value"}),
+					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/post/125?key=value"}),
+					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/docs/example"}),
+					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/docs/example/1243"}),
+					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/"}),
+					httpFlow(&flowpb.HTTP{Url: "http://example.com/docs/post"}),
+				},
+			},
+			want: []bool{
+				true,
+				true,
+				false,
+				true,
+				false,
+				false,
+				false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "url/path mix ",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpUrl:   []string{"^http://cilium.io", "^http://example.com/post"},
+						HttpPath:  []string{"^/docs/[a-z]+", "^/post/\\d+"},
+						EventType: []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+					},
+				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{Url: "http://example.com/post/12"}),
+					httpFlow(&flowpb.HTTP{Url: "http://example.com/post/125?key=value"}),
+					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/post/125?key=value"}),
+					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/docs/example"}),
+					httpFlow(&flowpb.HTTP{Url: "http://cilium.io/"}),
+					httpFlow(&flowpb.HTTP{Url: "http://example.com/docs/post"}),
+					httpFlow(&flowpb.HTTP{Url: "http://example.org/post/12"}),
+				},
+			},
+			want: []bool{
+				true,
+				true,
+				true,
+				true,
+				false,
+				false,
+				false,
+			},
+			wantErr: false,
+		},
 		{
 			name: "invalid uri",
 			args: args{
