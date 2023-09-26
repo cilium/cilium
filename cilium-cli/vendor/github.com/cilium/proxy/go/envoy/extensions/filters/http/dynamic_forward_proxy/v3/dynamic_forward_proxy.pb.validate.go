@@ -57,51 +57,99 @@ func (m *FilterConfig) validate(all bool) error {
 
 	var errors []error
 
-	if m.GetDnsCacheConfig() == nil {
-		err := FilterConfigValidationError{
-			field:  "DnsCacheConfig",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
-	if all {
-		switch v := interface{}(m.GetDnsCacheConfig()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, FilterConfigValidationError{
-					field:  "DnsCacheConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, FilterConfigValidationError{
-					field:  "DnsCacheConfig",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetDnsCacheConfig()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return FilterConfigValidationError{
-				field:  "DnsCacheConfig",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
 	// no validation rules for SaveUpstreamAddress
+
+	switch v := m.ImplementationSpecifier.(type) {
+	case *FilterConfig_DnsCacheConfig:
+		if v == nil {
+			err := FilterConfigValidationError{
+				field:  "ImplementationSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetDnsCacheConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, FilterConfigValidationError{
+						field:  "DnsCacheConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, FilterConfigValidationError{
+						field:  "DnsCacheConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetDnsCacheConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return FilterConfigValidationError{
+					field:  "DnsCacheConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *FilterConfig_SubClusterConfig:
+		if v == nil {
+			err := FilterConfigValidationError{
+				field:  "ImplementationSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetSubClusterConfig()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, FilterConfigValidationError{
+						field:  "SubClusterConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, FilterConfigValidationError{
+						field:  "SubClusterConfig",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetSubClusterConfig()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return FilterConfigValidationError{
+					field:  "SubClusterConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		_ = v // ensures v is used
+	}
 
 	if len(errors) > 0 {
 		return FilterConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -197,19 +245,39 @@ func (m *PerRouteConfig) validate(all bool) error {
 
 	var errors []error
 
-	switch m.HostRewriteSpecifier.(type) {
-
+	switch v := m.HostRewriteSpecifier.(type) {
 	case *PerRouteConfig_HostRewriteLiteral:
+		if v == nil {
+			err := PerRouteConfigValidationError{
+				field:  "HostRewriteSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for HostRewriteLiteral
-
 	case *PerRouteConfig_HostRewriteHeader:
+		if v == nil {
+			err := PerRouteConfigValidationError{
+				field:  "HostRewriteSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for HostRewriteHeader
-
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return PerRouteConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -283,3 +351,133 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = PerRouteConfigValidationError{}
+
+// Validate checks the field values on SubClusterConfig with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
+func (m *SubClusterConfig) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on SubClusterConfig with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// SubClusterConfigMultiError, or nil if none found.
+func (m *SubClusterConfig) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *SubClusterConfig) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if d := m.GetClusterInitTimeout(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = SubClusterConfigValidationError{
+				field:  "ClusterInitTimeout",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+			if dur <= gt {
+				err := SubClusterConfigValidationError{
+					field:  "ClusterInitTimeout",
+					reason: "value must be greater than 0s",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+	}
+
+	if len(errors) > 0 {
+		return SubClusterConfigMultiError(errors)
+	}
+
+	return nil
+}
+
+// SubClusterConfigMultiError is an error wrapping multiple validation errors
+// returned by SubClusterConfig.ValidateAll() if the designated constraints
+// aren't met.
+type SubClusterConfigMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m SubClusterConfigMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m SubClusterConfigMultiError) AllErrors() []error { return m }
+
+// SubClusterConfigValidationError is the validation error returned by
+// SubClusterConfig.Validate if the designated constraints aren't met.
+type SubClusterConfigValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e SubClusterConfigValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e SubClusterConfigValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e SubClusterConfigValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e SubClusterConfigValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e SubClusterConfigValidationError) ErrorName() string { return "SubClusterConfigValidationError" }
+
+// Error satisfies the builtin error interface
+func (e SubClusterConfigValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sSubClusterConfig.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = SubClusterConfigValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = SubClusterConfigValidationError{}

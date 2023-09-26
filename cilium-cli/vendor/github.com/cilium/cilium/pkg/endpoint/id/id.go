@@ -33,7 +33,15 @@ const (
 	// container ID. The container ID is specific to the container runtime
 	// in use. Only the primary container that defines the networking scope
 	// can be used to address an endpoint.
+	// This can only be used to look up endpoints which have not opted-out of
+	// legacy identifiers.
+	// Deprecated. Use CNIAttachmentIdPrefix instead
 	ContainerIdPrefix PrefixType = "container-id"
+
+	// CNIAttachmentIdPrefix is used to address an endpoint via its primary
+	// container ID and container interface passed to the CNI plugin.
+	// This attachment ID uniquely identifies a CNI ADD and CNI DEL invocation pair.
+	CNIAttachmentIdPrefix PrefixType = "cni-attachment-id"
 
 	// DockerEndpointPrefix is used to address an endpoint via the Docker
 	// endpoint ID. This method is only possible if the endpoint was
@@ -45,11 +53,22 @@ const (
 	// container's name. This addressing mechanism depends on the container
 	// runtime. Only the primary container that the networking scope can be
 	// used to address an endpoint.
+	// This can only be used to look up endpoints which have not opted-out of
+	// legacy identifiers.
+	// Deprecated. Use CNIAttachmentIdPrefix instead
 	ContainerNamePrefix PrefixType = "container-name"
+
+	// CEPNamePrefix is used to address an endpoint via its Kubernetes
+	// CiliumEndpoint resource name. This addressing only works if the endpoint
+	// is represented as a Kubernetes CiliumEndpoint resource.
+	CEPNamePrefix PrefixType = "cep-name"
 
 	// PodNamePrefix is used to address an endpoint via the Kubernetes pod
 	// name. This addressing only works if the endpoint represents as
 	// Kubernetes pod.
+	// This can only be used to look up endpoints which have not opted-out of
+	// legacy identifiers.
+	// Deprecated. May not be unique. Use CEPNamePrefix instead.
 	PodNamePrefix PrefixType = "pod-name"
 
 	// IPv4Prefix is used to address an endpoint via the endpoint's IPv4
@@ -62,7 +81,7 @@ const (
 
 // NewCiliumID returns a new endpoint identifier of type CiliumLocalIdPrefix
 func NewCiliumID(id int64) string {
-	return fmt.Sprintf("%s:%d", CiliumLocalIdPrefix, id)
+	return NewID(CiliumLocalIdPrefix, strconv.FormatInt(id, 10))
 }
 
 // NewID returns a new endpoint identifier
@@ -82,9 +101,19 @@ func NewIPPrefixID(ip netip.Addr) string {
 	return ""
 }
 
+// NewCNIAttachmentID returns an identifier based on the CNI attachment ID. If
+// the containerIfName is empty, only the containerID will be used.
+func NewCNIAttachmentID(containerID, containerIfName string) string {
+	id := containerID
+	if containerIfName != "" {
+		id = containerID + ":" + containerIfName
+	}
+	return NewID(CNIAttachmentIdPrefix, id)
+}
+
 // splitID splits ID into prefix and id. No validation is performed on prefix.
 func splitID(id string) (PrefixType, string) {
-	if idx := strings.Index(id, ":"); idx > -1 {
+	if idx := strings.IndexByte(id, ':'); idx > -1 {
 		return PrefixType(id[:idx]), id[idx+1:]
 	}
 
@@ -113,7 +142,16 @@ func ParseCiliumID(id string) (int64, error) {
 func Parse(id string) (PrefixType, string, error) {
 	prefix, id := splitID(id)
 	switch prefix {
-	case CiliumLocalIdPrefix, CiliumGlobalIdPrefix, ContainerIdPrefix, DockerEndpointPrefix, ContainerNamePrefix, PodNamePrefix, IPv4Prefix, IPv6Prefix:
+	case CiliumLocalIdPrefix,
+		CiliumGlobalIdPrefix,
+		CNIAttachmentIdPrefix,
+		ContainerIdPrefix,
+		DockerEndpointPrefix,
+		ContainerNamePrefix,
+		CEPNamePrefix,
+		PodNamePrefix,
+		IPv4Prefix,
+		IPv6Prefix:
 		return prefix, id, nil
 	}
 

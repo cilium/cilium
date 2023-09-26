@@ -17,7 +17,7 @@ import (
 	"github.com/go-openapi/validate"
 )
 
-// WireguardPeer Status of a Wireguard peer
+// WireguardPeer Status of a WireGuard peer
 //
 // +k8s:deepcopy-gen=true
 //

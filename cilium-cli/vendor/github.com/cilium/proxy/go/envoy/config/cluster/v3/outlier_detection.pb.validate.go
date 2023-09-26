@@ -548,6 +548,7 @@ func (m *OutlierDetection) validate(all bool) error {
 	if len(errors) > 0 {
 		return OutlierDetectionMultiError(errors)
 	}
+
 	return nil
 }
 

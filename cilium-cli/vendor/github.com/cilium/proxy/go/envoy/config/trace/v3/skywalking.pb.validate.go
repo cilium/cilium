@@ -129,6 +129,7 @@ func (m *SkyWalkingConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return SkyWalkingConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -258,16 +259,27 @@ func (m *ClientConfig) validate(all bool) error {
 		}
 	}
 
-	switch m.BackendTokenSpecifier.(type) {
-
+	switch v := m.BackendTokenSpecifier.(type) {
 	case *ClientConfig_BackendToken:
+		if v == nil {
+			err := ClientConfigValidationError{
+				field:  "BackendTokenSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for BackendToken
-
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return ClientConfigMultiError(errors)
 	}
+
 	return nil
 }
 

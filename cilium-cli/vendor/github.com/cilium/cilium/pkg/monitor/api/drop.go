@@ -90,6 +90,7 @@ var errors = map[uint8]string{
 	192: "Invalid ClusterID",
 	193: "Unsupported packet protocol for DSR encapsulation",
 	194: "No egress gateway found",
+	195: "Traffic is unencrypted",
 	196: "TTL exceeded",
 	197: "No node ID found",
 }

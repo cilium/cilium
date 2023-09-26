@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -739,9 +740,9 @@ func (a *L3n4Addr) String() string {
 		scope = "/i"
 	}
 	if a.IsIPv6() {
-		return fmt.Sprintf("[%s]:%d%s", a.AddrCluster.String(), a.Port, scope)
+		return "[" + a.AddrCluster.String() + "]:" + strconv.FormatUint(uint64(a.Port), 10) + scope
 	}
-	return fmt.Sprintf("%s:%d%s", a.AddrCluster.String(), a.Port, scope)
+	return a.AddrCluster.String() + ":" + strconv.FormatUint(uint64(a.Port), 10) + scope
 }
 
 // StringWithProtocol returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]"
@@ -752,9 +753,9 @@ func (a *L3n4Addr) StringWithProtocol() string {
 		scope = "/i"
 	}
 	if a.IsIPv6() {
-		return fmt.Sprintf("[%s]:%d/%s%s", a.AddrCluster.String(), a.Port, a.Protocol, scope)
+		return "[" + a.AddrCluster.String() + "]:" + strconv.FormatUint(uint64(a.Port), 10) + "/" + a.Protocol + scope
 	}
-	return fmt.Sprintf("%s:%d/%s%s", a.AddrCluster.String(), a.Port, a.Protocol, scope)
+	return a.AddrCluster.String() + ":" + strconv.FormatUint(uint64(a.Port), 10) + "/" + a.Protocol + scope
 }
 
 // StringID returns the L3n4Addr as string to be used for unique identification

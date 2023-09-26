@@ -68,14 +68,12 @@ func (m *RegexMatcher) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	switch m.EngineType.(type) {
-
+	switch v := m.EngineType.(type) {
 	case *RegexMatcher_GoogleRe2:
-
-		if m.GetGoogleRe2() == nil {
+		if v == nil {
 			err := RegexMatcherValidationError{
-				field:  "GoogleRe2",
-				reason: "value is required",
+				field:  "EngineType",
+				reason: "oneof value cannot be a typed-nil",
 			}
 			if !all {
 				return err
@@ -112,11 +110,14 @@ func (m *RegexMatcher) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return RegexMatcherMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -266,6 +267,7 @@ func (m *RegexMatchAndSubstitute) validate(all bool) error {
 	if len(errors) > 0 {
 		return RegexMatchAndSubstituteMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -398,6 +400,7 @@ func (m *RegexMatcher_GoogleRE2) validate(all bool) error {
 	if len(errors) > 0 {
 		return RegexMatcher_GoogleRE2MultiError(errors)
 	}
+
 	return nil
 }
 

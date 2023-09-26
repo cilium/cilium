@@ -164,7 +164,6 @@ func (n EndpointSelector) GetMatch(key string) ([]string, bool) {
 func labelSelectorToRequirements(labelSelector *slim_metav1.LabelSelector) *k8sLbls.Requirements {
 	selector, err := slim_metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
-		metrics.PolicyImportErrorsTotal.Inc() // Deprecated in Cilium 1.14, to be removed in 1.15.
 		metrics.PolicyChangeTotal.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
 		log.WithError(err).WithField(logfields.EndpointLabelSelector,
 			logfields.Repr(labelSelector)).Error("unable to construct selector in label selector")
@@ -234,6 +233,8 @@ var (
 		labels.IDNameHost:       newReservedEndpointSelector(labels.IDNameHost),
 		labels.IDNameRemoteNode: newReservedEndpointSelector(labels.IDNameRemoteNode),
 		labels.IDNameWorld:      newReservedEndpointSelector(labels.IDNameWorld),
+		labels.IDNameWorldIPv4:  newReservedEndpointSelector(labels.IDNameWorldIPv4),
+		labels.IDNameWorldIPv6:  newReservedEndpointSelector(labels.IDNameWorldIPv6),
 	}
 )
 
@@ -342,7 +343,7 @@ func (n *EndpointSelector) ConvertToLabelSelectorRequirementSlice() []slim_metav
 
 // sanitize returns an error if the EndpointSelector's LabelSelector is invalid.
 func (n *EndpointSelector) sanitize() error {
-	errList := validation.ValidateLabelSelector(n.LabelSelector, nil)
+	errList := validation.ValidateLabelSelector(n.LabelSelector, validation.LabelSelectorValidationOptions{AllowInvalidLabelValueInSelector: false}, nil)
 	if len(errList) > 0 {
 		return fmt.Errorf("invalid label selector: %s", errList.ToAggregate().Error())
 	}

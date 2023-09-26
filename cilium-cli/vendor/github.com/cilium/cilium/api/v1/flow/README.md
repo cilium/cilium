@@ -27,6 +27,7 @@
     - [Layer7](#flow-Layer7)
     - [LostEvent](#flow-LostEvent)
     - [NetworkInterface](#flow-NetworkInterface)
+    - [Policy](#flow-Policy)
     - [PolicyUpdateNotification](#flow-PolicyUpdateNotification)
     - [SCTP](#flow-SCTP)
     - [Service](#flow-Service)
@@ -109,7 +110,7 @@
 <a name="flow-CiliumEventType"></a>
 
 ### CiliumEventType
-CiliumEventType from which the flow originated
+CiliumEventType from which the flow originated.
 
 
 | Field | Type | Label | Description |
@@ -125,8 +126,7 @@ CiliumEventType from which the flow originated
 <a name="flow-DNS"></a>
 
 ### DNS
-DNS flow. This is basically directly mapped from Cilium&#39;s LogRecordDNS:
-    https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264
+DNS flow. This is basically directly mapped from Cilium&#39;s [LogRecordDNS](https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264):
 
 
 | Field | Type | Label | Description |
@@ -242,7 +242,7 @@ DNS flow. This is basically directly mapped from Cilium&#39;s LogRecordDNS:
 <a name="flow-EventTypeFilter"></a>
 
 ### EventTypeFilter
-EventTypeFilter is a filter describing a particular event type
+EventTypeFilter is a filter describing a particular event type.
 
 
 | Field | Type | Label | Description |
@@ -296,6 +296,9 @@ EventTypeFilter is a filter describing a particular event type
 | socket_cookie | [uint64](#uint64) |  | socket_cookie is the Linux kernel socket cookie for this flow. Only applicable to TraceSock notifications, zero for other types |
 | cgroup_id | [uint64](#uint64) |  | cgroup_id of the process which emitted this event. Only applicable to TraceSock notifications, zero for other types |
 | Summary | [string](#string) |  | **Deprecated.** This is a temporary workaround to support summary field for pb.Flow without duplicating logic from the old parser. This field will be removed once we fully migrate to the new parser. |
+| extensions | [google.protobuf.Any](#google-protobuf-Any) |  | extensions can be used to add arbitrary additional metadata to flows. This can be used to extend functionality for other Hubble compatible APIs, or experiment with new functionality without needing to change the public API. |
+| egress_allowed_by | [Policy](#flow-Policy) | repeated | The CiliumNetworkPolicies allowing the egress of the flow. |
+| ingress_allowed_by | [Policy](#flow-Policy) | repeated | The CiliumNetworkPolicies allowing the ingress of the flow. |
 
 
 
@@ -337,6 +340,7 @@ multiple fields are set, then all fields must match for the filter to match.
 | destination_identity | [uint32](#uint32) | repeated | destination_identity filters by the security identity of the destination endpoint. |
 | http_method | [string](#string) | repeated | GET, POST, PUT, etc. methods. This type of field is well suited for an enum but every single existing place is using a string already. |
 | http_path | [string](#string) | repeated | http_path is a list of regular expressions to filter on the HTTP path. |
+| http_url | [string](#string) | repeated | http_url is a list of regular expressions to filter on the HTTP URL. |
 | tcp_flags | [TCPFlags](#flow-TCPFlags) | repeated | tcp_flags filters flows based on TCP header flags |
 | node_name | [string](#string) | repeated | node_name is a list of patterns to filter on the node name, e.g. &#34;k8s*&#34;, &#34;test-cluster/*.domain.com&#34;, &#34;cluster-name/&#34; etc. |
 | ip_version | [IPVersion](#flow-IPVersion) | repeated | filter based on IP version (ipv4 or ipv6) |
@@ -350,8 +354,7 @@ multiple fields are set, then all fields must match for the filter to match.
 <a name="flow-HTTP"></a>
 
 ### HTTP
-L7 information for HTTP flows. It corresponds to Cilium&#39;s accesslog.LogRecordHTTP type.
-  https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206
+L7 information for HTTP flows. It corresponds to Cilium&#39;s [accesslog.LogRecordHTTP](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206) type.
 
 
 | Field | Type | Label | Description |
@@ -458,8 +461,7 @@ L7 information for HTTP flows. It corresponds to Cilium&#39;s accesslog.LogRecor
 <a name="flow-Kafka"></a>
 
 ### Kafka
-L7 information for Kafka flows. It corresponds to Cilium&#39;s accesslog.LogRecordKafka type.
-  https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229
+L7 information for Kafka flows. It corresponds to Cilium&#39;s [accesslog.LogRecordKafka](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229) type.
 
 
 | Field | Type | Label | Description |
@@ -497,8 +499,7 @@ L7 information for Kafka flows. It corresponds to Cilium&#39;s accesslog.LogReco
 <a name="flow-Layer7"></a>
 
 ### Layer7
-Message for L7 flow, which roughly corresponds to Cilium&#39;s accesslog LogRecord:
-  https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141
+Message for L7 flow, which roughly corresponds to Cilium&#39;s accesslog [LogRecord](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141):
 
 
 | Field | Type | Label | Description |
@@ -542,6 +543,24 @@ that happened before the events were captured by Hubble.
 | ----- | ---- | ----- | ----------- |
 | index | [uint32](#uint32) |  |  |
 | name | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="flow-Policy"></a>
+
+### Policy
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  |  |
+| namespace | [string](#string) |  |  |
+| labels | [string](#string) | repeated |  |
+| revision | [uint64](#uint64) |  |  |
 
 
 
@@ -709,10 +728,9 @@ that happened before the events were captured by Hubble.
 <a name="flow-TraceContext"></a>
 
 ### TraceContext
-TraceContext contains trace context propagation data, ie information about a
+TraceContext contains trace context propagation data, i.e. information about a
 distributed trace.
-For more information about trace context, check the W3C Trace Context
-specification: https://www.w3.org/TR/trace-context/
+For more information about trace context, check the [W3C Trace Context specification](https://www.w3.org/TR/trace-context/).
 
 
 | Field | Type | Label | Description |
@@ -777,7 +795,7 @@ TraceParent identifies the incoming request in a tracing system.
 
 ### AgentEventType
 AgentEventType is the type of agent event. These values are shared with type
-AgentNotification in pkg/monitor/api/types.go
+AgentNotification in pkg/monitor/api/types.go.
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
@@ -799,7 +817,7 @@ AgentNotification in pkg/monitor/api/types.go
 <a name="flow-AuthType"></a>
 
 ### AuthType
-These types correspond to definitions in pkg/policy/l4.go
+These types correspond to definitions in pkg/policy/l4.go.
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
@@ -900,6 +918,8 @@ These values are shared with pkg/monitor/api/datapath_debug.go and bpf/lib/dbg.h
 | DBG_SK_LOOKUP4 | 62 |  |
 | DBG_SK_LOOKUP6 | 63 |  |
 | DBG_SK_ASSIGN | 64 |  |
+| DBG_L7_LB | 65 |  |
+| DBG_SKIP_POLICY | 66 |  |
 
 
 
@@ -977,6 +997,7 @@ here.
 | INVALID_CLUSTER_ID | 192 |  |
 | UNSUPPORTED_PROTOCOL_FOR_DSR_ENCAP | 193 |  |
 | NO_EGRESS_GATEWAY | 194 |  |
+| UNENCRYPTED_TRAFFIC | 195 |  |
 | TTL_EXCEEDED | 196 |  |
 | NO_NODE_ID | 197 |  |
 
@@ -1025,8 +1046,7 @@ EventType are constants are based on the ones from &lt;linux/perf_event.h&gt;.
 <a name="flow-L7FlowType"></a>
 
 ### L7FlowType
-This enum corresponds to Cilium&#39;s L7 accesslog FlowType:
-  https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L26
+This enum corresponds to Cilium&#39;s L7 accesslog [FlowType](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L26):
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |

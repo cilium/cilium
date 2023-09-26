@@ -862,11 +862,9 @@ func SortIPList(ipList []net.IP) {
 // getSortedIPList returns a new net.IP slice in which the IPs are sorted.
 func getSortedIPList(ipList []net.IP) []net.IP {
 	sortedIPList := make([]net.IP, len(ipList))
-	for i := 0; i < len(ipList); i++ {
-		sortedIPList[i] = ipList[i]
-	}
-
+	copy(sortedIPList, ipList)
 	SortIPList(sortedIPList)
+
 	return sortedIPList
 }
 

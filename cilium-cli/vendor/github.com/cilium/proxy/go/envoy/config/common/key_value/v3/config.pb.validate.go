@@ -100,6 +100,7 @@ func (m *KeyValueStoreConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return KeyValueStoreConfigMultiError(errors)
 	}
+
 	return nil
 }
 
