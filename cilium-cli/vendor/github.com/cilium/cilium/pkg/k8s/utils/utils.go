@@ -62,13 +62,6 @@ func GetObjNamespaceName(obj NamespaceNameGetter) string {
 	return ns + "/" + obj.GetName()
 }
 
-// ServiceConfiguration is the required configuration for GetServiceAndEndpointListOptionsModifier
-type ServiceConfiguration interface {
-	// K8sServiceProxyNameValue must return the value of the proxy name
-	// annotation. If set, only services with this label will be handled.
-	K8sServiceProxyNameValue() string
-}
-
 // IngressConfiguration is the required configuration for GetServiceAndEndpointListOptionsModifier
 type IngressConfiguration interface {
 	// K8sIngressControllerEnabled returns true if ingress controller feature is enabled in Cilium
@@ -117,7 +110,7 @@ func GetEndpointSliceListOptionsModifier() (func(options *v1meta.ListOptions), e
 // handle services that match our service proxy name. If the service proxy name for Cilium
 // is an empty string, we assume that Cilium is the default service handler in which case
 // we select all services that don't have the above mentioned label.
-func GetServiceAndEndpointListOptionsModifier(cfg ServiceConfiguration) (func(options *v1meta.ListOptions), error) {
+func GetServiceAndEndpointListOptionsModifier(k8sServiceProxy string) (func(options *v1meta.ListOptions), error) {
 	var (
 		serviceNameSelector, nonHeadlessServiceSelector *labels.Requirement
 		err                                             error
@@ -128,12 +121,12 @@ func GetServiceAndEndpointListOptionsModifier(cfg ServiceConfiguration) (func(op
 		return nil, err
 	}
 
-	if cfg.K8sServiceProxyNameValue() == "" {
+	if k8sServiceProxy == "" {
 		serviceNameSelector, err = labels.NewRequirement(
 			serviceProxyNameLabel, selection.DoesNotExist, nil)
 	} else {
 		serviceNameSelector, err = labels.NewRequirement(
-			serviceProxyNameLabel, selection.DoubleEquals, []string{cfg.K8sServiceProxyNameValue()})
+			serviceProxyNameLabel, selection.DoubleEquals, []string{k8sServiceProxy})
 	}
 
 	if err != nil {

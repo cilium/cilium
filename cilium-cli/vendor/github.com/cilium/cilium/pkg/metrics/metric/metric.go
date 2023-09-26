@@ -189,3 +189,10 @@ type Opts struct {
 	// If true, the metric has to be explicitly enabled via config or flags
 	Disabled bool
 }
+
+func (b Opts) GetConfigName() string {
+	if b.ConfigName == "" {
+		return prometheus.BuildFQName(b.Namespace, b.Subsystem, b.Name)
+	}
+	return b.ConfigName
+}

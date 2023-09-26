@@ -14,8 +14,8 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium},singular="ciliumloadbalancerippool",path="ciliumloadbalancerippools",scope="Cluster",shortName={ippools,ippool,lbippool,lbippools}
 // +kubebuilder:printcolumn:JSONPath=".spec.disabled",name="Disabled",type=boolean
-// +kubebuilder:printcolumn:name="Conflicting",type=string,JSONPath=`.status.conditions[?(@.type=="io.cilium/conflict")].status`
-// +kubebuilder:printcolumn:name="IPs Available",type=string,JSONPath=`.status.conditions[?(@.type=="io.cilium/ips-available")].message`
+// +kubebuilder:printcolumn:name="Conflicting",type=string,JSONPath=`.status.conditions[?(@.type=="cilium.io/PoolConflict")].status`
+// +kubebuilder:printcolumn:name="IPs Available",type=string,JSONPath=`.status.conditions[?(@.type=="cilium.io/IPsAvailable")].message`
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion

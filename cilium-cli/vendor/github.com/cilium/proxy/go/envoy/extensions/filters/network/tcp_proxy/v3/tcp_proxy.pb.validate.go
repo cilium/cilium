@@ -396,12 +396,64 @@ func (m *TcpProxy) validate(all bool) error {
 		}
 	}
 
-	switch m.ClusterSpecifier.(type) {
+	// no validation rules for FlushAccessLogOnConnected
 
+	if all {
+		switch v := interface{}(m.GetAccessLogOptions()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, TcpProxyValidationError{
+					field:  "AccessLogOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, TcpProxyValidationError{
+					field:  "AccessLogOptions",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAccessLogOptions()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return TcpProxyValidationError{
+				field:  "AccessLogOptions",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	oneofClusterSpecifierPresent := false
+	switch v := m.ClusterSpecifier.(type) {
 	case *TcpProxy_Cluster:
+		if v == nil {
+			err := TcpProxyValidationError{
+				field:  "ClusterSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofClusterSpecifierPresent = true
 		// no validation rules for Cluster
-
 	case *TcpProxy_WeightedClusters:
+		if v == nil {
+			err := TcpProxyValidationError{
+				field:  "ClusterSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofClusterSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetWeightedClusters()).(type) {
@@ -433,6 +485,9 @@ func (m *TcpProxy) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofClusterSpecifierPresent {
 		err := TcpProxyValidationError{
 			field:  "ClusterSpecifier",
 			reason: "value is required",
@@ -441,12 +496,12 @@ func (m *TcpProxy) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return TcpProxyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -590,6 +645,7 @@ func (m *TcpProxy_WeightedCluster) validate(all bool) error {
 	if len(errors) > 0 {
 		return TcpProxy_WeightedClusterMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -750,9 +806,12 @@ func (m *TcpProxy_TunnelingConfig) validate(all bool) error {
 
 	// no validation rules for PostPath
 
+	// no validation rules for PropagateResponseTrailers
+
 	if len(errors) > 0 {
 		return TcpProxy_TunnelingConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -914,6 +973,7 @@ func (m *TcpProxy_OnDemand) validate(all bool) error {
 	if len(errors) > 0 {
 		return TcpProxy_OnDemandMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -989,6 +1049,141 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = TcpProxy_OnDemandValidationError{}
+
+// Validate checks the field values on TcpProxy_TcpAccessLogOptions with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *TcpProxy_TcpAccessLogOptions) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TcpProxy_TcpAccessLogOptions with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// TcpProxy_TcpAccessLogOptionsMultiError, or nil if none found.
+func (m *TcpProxy_TcpAccessLogOptions) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TcpProxy_TcpAccessLogOptions) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if d := m.GetAccessLogFlushInterval(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = TcpProxy_TcpAccessLogOptionsValidationError{
+				field:  "AccessLogFlushInterval",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			gte := time.Duration(0*time.Second + 1000000*time.Nanosecond)
+
+			if dur < gte {
+				err := TcpProxy_TcpAccessLogOptionsValidationError{
+					field:  "AccessLogFlushInterval",
+					reason: "value must be greater than or equal to 1ms",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+	}
+
+	// no validation rules for FlushAccessLogOnConnected
+
+	if len(errors) > 0 {
+		return TcpProxy_TcpAccessLogOptionsMultiError(errors)
+	}
+
+	return nil
+}
+
+// TcpProxy_TcpAccessLogOptionsMultiError is an error wrapping multiple
+// validation errors returned by TcpProxy_TcpAccessLogOptions.ValidateAll() if
+// the designated constraints aren't met.
+type TcpProxy_TcpAccessLogOptionsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TcpProxy_TcpAccessLogOptionsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TcpProxy_TcpAccessLogOptionsMultiError) AllErrors() []error { return m }
+
+// TcpProxy_TcpAccessLogOptionsValidationError is the validation error returned
+// by TcpProxy_TcpAccessLogOptions.Validate if the designated constraints
+// aren't met.
+type TcpProxy_TcpAccessLogOptionsValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e TcpProxy_TcpAccessLogOptionsValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e TcpProxy_TcpAccessLogOptionsValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e TcpProxy_TcpAccessLogOptionsValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e TcpProxy_TcpAccessLogOptionsValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e TcpProxy_TcpAccessLogOptionsValidationError) ErrorName() string {
+	return "TcpProxy_TcpAccessLogOptionsValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e TcpProxy_TcpAccessLogOptionsValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sTcpProxy_TcpAccessLogOptions.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = TcpProxy_TcpAccessLogOptionsValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = TcpProxy_TcpAccessLogOptionsValidationError{}
 
 // Validate checks the field values on TcpProxy_WeightedCluster_ClusterWeight
 // with the rules defined in the proto definition for this message. If any
@@ -1068,6 +1263,7 @@ func (m *TcpProxy_WeightedCluster_ClusterWeight) validate(all bool) error {
 	if len(errors) > 0 {
 		return TcpProxy_WeightedCluster_ClusterWeightMultiError(errors)
 	}
+
 	return nil
 }
 

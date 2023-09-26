@@ -23,9 +23,6 @@ const (
 	// option.IPAM
 	IPAMClusterPool = "cluster-pool"
 
-	// IPAMClusterPoolV2 is the value to select cluster pool version 2
-	IPAMClusterPoolV2 = "cluster-pool-v2beta"
-
 	// IPAMMultiPool is the value to select the multi pool IPAM mode
 	IPAMMultiPool = "multi-pool"
 

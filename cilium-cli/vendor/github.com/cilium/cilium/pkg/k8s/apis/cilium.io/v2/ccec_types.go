@@ -23,7 +23,6 @@ type CiliumClusterwideEnvoyConfig struct {
 	metav1.ObjectMeta `json:"metadata"`
 
 	// +k8s:openapi-gen=false
-	// +kubebuilder:validation:Type=object
 	Spec CiliumEnvoyConfigSpec `json:"spec,omitempty"`
 }
 

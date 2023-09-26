@@ -17,6 +17,7 @@ import (
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
+	"github.com/go-openapi/swag"
 )
 
 // NewPutPolicyParams creates a new PutPolicyParams object,
@@ -69,6 +70,18 @@ type PutPolicyParams struct {
 	   Policy rules
 	*/
 	Policy string
+
+	/* Replace.
+
+	   If true, indicates that existing rules with identical labels should be replaced.
+	*/
+	Replace *bool
+
+	/* ReplaceWithLabels.
+
+	   If present, indicates that existing rules with the given labels should be deleted.
+	*/
+	ReplaceWithLabels []string
 
 	timeout    time.Duration
 	Context    context.Context
@@ -134,6 +147,28 @@ func (o *PutPolicyParams) SetPolicy(policy string) {
 	o.Policy = policy
 }
 
+// WithReplace adds the replace to the put policy params
+func (o *PutPolicyParams) WithReplace(replace *bool) *PutPolicyParams {
+	o.SetReplace(replace)
+	return o
+}
+
+// SetReplace adds the replace to the put policy params
+func (o *PutPolicyParams) SetReplace(replace *bool) {
+	o.Replace = replace
+}
+
+// WithReplaceWithLabels adds the replaceWithLabels to the put policy params
+func (o *PutPolicyParams) WithReplaceWithLabels(replaceWithLabels []string) *PutPolicyParams {
+	o.SetReplaceWithLabels(replaceWithLabels)
+	return o
+}
+
+// SetReplaceWithLabels adds the replaceWithLabels to the put policy params
+func (o *PutPolicyParams) SetReplaceWithLabels(replaceWithLabels []string) {
+	o.ReplaceWithLabels = replaceWithLabels
+}
+
 // WriteToRequest writes these params to a swagger request
 func (o *PutPolicyParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Registry) error {
 
@@ -145,8 +180,53 @@ func (o *PutPolicyParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Reg
 		return err
 	}
 
+	if o.Replace != nil {
+
+		// query param replace
+		var qrReplace bool
+
+		if o.Replace != nil {
+			qrReplace = *o.Replace
+		}
+		qReplace := swag.FormatBool(qrReplace)
+		if qReplace != "" {
+
+			if err := r.SetQueryParam("replace", qReplace); err != nil {
+				return err
+			}
+		}
+	}
+
+	if o.ReplaceWithLabels != nil {
+
+		// binding items for replace-with-labels
+		joinedReplaceWithLabels := o.bindParamReplaceWithLabels(reg)
+
+		// query array param replace-with-labels
+		if err := r.SetQueryParam("replace-with-labels", joinedReplaceWithLabels...); err != nil {
+			return err
+		}
+	}
+
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
 	return nil
+}
+
+// bindParamPutPolicy binds the parameter replace-with-labels
+func (o *PutPolicyParams) bindParamReplaceWithLabels(formats strfmt.Registry) []string {
+	replaceWithLabelsIR := o.ReplaceWithLabels
+
+	var replaceWithLabelsIC []string
+	for _, replaceWithLabelsIIR := range replaceWithLabelsIR { // explode []string
+
+		replaceWithLabelsIIV := replaceWithLabelsIIR // string as string
+		replaceWithLabelsIC = append(replaceWithLabelsIC, replaceWithLabelsIIV)
+	}
+
+	// items.CollectionFormat: ""
+	replaceWithLabelsIS := swag.JoinByFormat(replaceWithLabelsIC, "")
+
+	return replaceWithLabelsIS
 }

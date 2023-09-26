@@ -317,8 +317,15 @@ func formatNodeStatus(w io.Writer, node *models.NodeStatus, printAll, succinct, 
 	}
 	if succinct {
 		if printAll || !nodeIsHealthy(node) {
+			ips := []string{getPrimaryAddressIP(node)}
+			for _, addr := range GetHostSecondaryAddresses(node) {
+				if addr == nil {
+					continue
+				}
+				ips = append(ips, addr.IP)
+			}
 			fmt.Fprintf(w, "  %s%s\t%s\t%s\t%s\n", node.Name,
-				localStr, getPrimaryAddressIP(node),
+				localStr, strings.Join(ips, ","),
 				SummarizePathConnectivityStatusType(GetAllHostAddresses(node)).String(),
 				SummarizePathConnectivityStatusType(GetAllEndpointAddresses(node)).String())
 		}

@@ -47,8 +47,6 @@ type CiliumExternalWorkload struct {
 
 // CiliumExternalWorkloadSpec specifies the configurations for redirecting traffic
 // within a workload.
-//
-// +kubebuilder:validation:Type=object
 type CiliumExternalWorkloadSpec struct {
 	// IPv4AllocCIDR is the range of IPv4 addresses in the CIDR format that the external workload can
 	// use to allocate IP addresses for the tunnel device and the health endpoint.

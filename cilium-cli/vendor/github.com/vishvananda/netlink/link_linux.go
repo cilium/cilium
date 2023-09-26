@@ -956,6 +956,33 @@ func LinkSetXdpFdWithFlags(link Link, fd, flags int) error {
 	return err
 }
 
+// LinkSetGSOMaxSegs sets the GSO maximum segment count of the link device.
+// Equivalent to: `ip link set $link gso_max_segs $maxSegs`
+func LinkSetGSOMaxSegs(link Link, maxSegs int) error {
+       return pkgHandle.LinkSetGSOMaxSegs(link, maxSegs)
+}
+
+// LinkSetGSOMaxSegs sets the GSO maximum segment count of the link device.
+// Equivalent to: `ip link set $link gso_max_segs $maxSegs`
+func (h *Handle) LinkSetGSOMaxSegs(link Link, maxSize int) error {
+       base := link.Attrs()
+       h.ensureIndex(base)
+       req := h.newNetlinkRequest(unix.RTM_SETLINK, unix.NLM_F_ACK)
+
+       msg := nl.NewIfInfomsg(unix.AF_UNSPEC)
+       msg.Index = int32(base.Index)
+       req.AddData(msg)
+
+       b := make([]byte, 4)
+       native.PutUint32(b, uint32(maxSize))
+
+       data := nl.NewRtAttr(unix.IFLA_GSO_MAX_SEGS, b)
+       req.AddData(data)
+
+       _, err := req.Execute(unix.NETLINK_ROUTE, 0)
+       return err
+}
+
 // LinkSetGSOMaxSize sets the IPv6 GSO maximum size of the link device.
 // Equivalent to: `ip link set $link gso_max_size $maxSize`
 func LinkSetGSOMaxSize(link Link, maxSize int) error {
@@ -2357,6 +2384,14 @@ func (h *Handle) LinkSetFlood(link Link, mode bool) error {
 	return h.setProtinfoAttr(link, mode, nl.IFLA_BRPORT_UNICAST_FLOOD)
 }
 
+func LinkSetIsolated(link Link, mode bool) error {
+	return pkgHandle.LinkSetIsolated(link, mode)
+}
+
+func (h *Handle) LinkSetIsolated(link Link, mode bool) error {
+	return h.setProtinfoAttr(link, mode, nl.IFLA_BRPORT_ISOLATED)
+}
+
 func LinkSetBrProxyArp(link Link, mode bool) error {
 	return pkgHandle.LinkSetBrProxyArp(link, mode)
 }
@@ -2743,9 +2778,8 @@ func addGeneveAttrs(geneve *Geneve, linkInfo *nl.RtAttr) {
 	data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
 
 	if geneve.FlowBased {
-		// In flow based mode, no other attributes need to be configured
-		linkInfo.AddRtAttr(nl.IFLA_GENEVE_COLLECT_METADATA, boolAttr(geneve.FlowBased))
-		return
+		geneve.ID = 0
+		data.AddRtAttr(nl.IFLA_GENEVE_COLLECT_METADATA, []byte{})
 	}
 
 	if ip := geneve.Remote; ip != nil {
@@ -2787,6 +2821,8 @@ func parseGeneveData(link Link, data []syscall.NetlinkRouteAttr) {
 			geneve.Ttl = uint8(datum.Value[0])
 		case nl.IFLA_GENEVE_TOS:
 			geneve.Tos = uint8(datum.Value[0])
+		case nl.IFLA_GENEVE_COLLECT_METADATA:
+			geneve.FlowBased = true
 		}
 	}
 }
@@ -2997,13 +3033,13 @@ func parseLinkXdp(data []byte) (*LinkXdp, error) {
 }
 
 func addIptunAttrs(iptun *Iptun, linkInfo *nl.RtAttr) {
+	data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
+
 	if iptun.FlowBased {
 		// In flow based mode, no other attributes need to be configured
-		linkInfo.AddRtAttr(nl.IFLA_IPTUN_COLLECT_METADATA, boolAttr(iptun.FlowBased))
+		data.AddRtAttr(nl.IFLA_IPTUN_COLLECT_METADATA, []byte{})
 		return
 	}
-
-	data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
 
 	ip := iptun.Local.To4()
 	if ip != nil {
@@ -3031,10 +3067,6 @@ func addIptunAttrs(iptun *Iptun, linkInfo *nl.RtAttr) {
 func parseIptunData(link Link, data []syscall.NetlinkRouteAttr) {
 	iptun := link.(*Iptun)
 	for _, datum := range data {
-		// NOTE: same with vxlan, ip tunnel may also has null datum.Value
-		if len(datum.Value) == 0 {
-			continue
-		}
 		switch datum.Attr.Type {
 		case nl.IFLA_IPTUN_LOCAL:
 			iptun.Local = net.IP(datum.Value[0:4])
@@ -3064,6 +3096,12 @@ func parseIptunData(link Link, data []syscall.NetlinkRouteAttr) {
 
 func addIp6tnlAttrs(ip6tnl *Ip6tnl, linkInfo *nl.RtAttr) {
 	data := linkInfo.AddRtAttr(nl.IFLA_INFO_DATA, nil)
+
+	if ip6tnl.FlowBased {
+		// In flow based mode, no other attributes need to be configured
+		data.AddRtAttr(nl.IFLA_IPTUN_COLLECT_METADATA, []byte{})
+		return
+	}
 
 	if ip6tnl.Link != 0 {
 		data.AddRtAttr(nl.IFLA_IPTUN_LINK, nl.Uint32Attr(ip6tnl.Link))
@@ -3119,6 +3157,8 @@ func parseIp6tnlData(link Link, data []syscall.NetlinkRouteAttr) {
 			ip6tnl.EncapSport = ntohs(datum.Value[0:2])
 		case nl.IFLA_IPTUN_ENCAP_DPORT:
 			ip6tnl.EncapDport = ntohs(datum.Value[0:2])
+		case nl.IFLA_IPTUN_COLLECT_METADATA:
+			ip6tnl.FlowBased = true
 		}
 	}
 }

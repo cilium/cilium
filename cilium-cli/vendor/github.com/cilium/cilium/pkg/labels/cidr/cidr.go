@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // maskedIPToLabelString is the base method for serializing an IP + prefix into
@@ -86,7 +87,7 @@ func IPStringToLabel(ip string) (labels.Label, error) {
 // The identity reserved:world is always added as it includes any CIDR.
 func GetCIDRLabels(prefix netip.Prefix) labels.Labels {
 	ones := prefix.Bits()
-	result := make([]string, 0, ones+1)
+	result := make([]string, 0, ones+2)
 
 	// If ones is zero, then it's the default CIDR prefix /0 which should
 	// just be regarded as reserved:world. In all other cases, we need
@@ -101,7 +102,15 @@ func GetCIDRLabels(prefix netip.Prefix) labels.Labels {
 		}
 	}
 
-	result = append(result, labels.LabelSourceReserved+":"+labels.IDNameWorld)
+	if option.Config.IsDualStack() {
+		if prefix.Addr().Is4() {
+			result = append(result, labels.LabelSourceReserved+":"+labels.IDNameWorldIPv4)
+		} else {
+			result = append(result, labels.LabelSourceReserved+":"+labels.IDNameWorldIPv6)
+		}
+	} else {
+		result = append(result, labels.LabelSourceReserved+":"+labels.IDNameWorld)
+	}
 
 	return labels.NewLabelsFromModel(result)
 }

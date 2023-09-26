@@ -127,6 +127,7 @@ func (m *TokenBucket) validate(all bool) error {
 	if len(errors) > 0 {
 		return TokenBucketMultiError(errors)
 	}
+
 	return nil
 }
 

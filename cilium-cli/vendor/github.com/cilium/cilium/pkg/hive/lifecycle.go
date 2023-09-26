@@ -5,10 +5,9 @@ package hive
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
-
-	"go.uber.org/multierr"
 
 	"github.com/cilium/cilium/pkg/hive/internal"
 	"github.com/cilium/cilium/pkg/lock"
@@ -122,7 +121,7 @@ func (lc *DefaultLifecycle) Stop(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	var errs []error
+	var errs error
 	for ; lc.numStarted > 0; lc.numStarted-- {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -138,13 +137,13 @@ func (lc *DefaultLifecycle) Stop(ctx context.Context) error {
 		t0 := time.Now()
 		if err := hook.Stop(ctx); err != nil {
 			l.WithError(err).Error("Stop hook failed")
-			errs = append(errs, err)
+			errs = errors.Join(errs, err)
 		} else {
 			d := time.Since(t0)
 			l.WithField("duration", d).Info("Stop hook executed")
 		}
 	}
-	return multierr.Combine(errs...)
+	return errs
 }
 
 func (lc *DefaultLifecycle) PrintHooks() {
