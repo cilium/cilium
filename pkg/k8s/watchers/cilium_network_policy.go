@@ -346,7 +346,9 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 		k8sCM.UpdateController(ctrlName,
 			controller.ControllerParams{
 				DoFunc: func(ctx context.Context) error {
-					return updateContext.UpdateStatus(ctx, cnp, rev, policyImportErr)
+					// We need to deep-copy the CNP object because UpdateStatus modifies it
+					// to clear the LastAppliedConfiguration key from annotations map.
+					return updateContext.UpdateStatus(ctx, cnp.DeepCopy(), rev, policyImportErr)
 				},
 			},
 		)
@@ -481,7 +483,9 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient c
 	k8sCM.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				return updateContext.UpdateStatus(ctx, cnp, meta.revision, meta.policyImportError)
+				// We need to deep-copy the CNP object because UpdateStatus modifies it
+				// to clear the LastAppliedConfiguration key from annotations map.
+				return updateContext.UpdateStatus(ctx, cnp.DeepCopy(), meta.revision, meta.policyImportError)
 			},
 		})
 
