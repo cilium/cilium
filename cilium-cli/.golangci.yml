@@ -10,6 +10,7 @@ linters:
     - gocheckcompilerdirectives
     - goerr113
     - gofmt
+    - goheader
     - goimports
     - gosec
     - gosimple
@@ -25,6 +26,13 @@ linters:
     - unused
 
 linters-settings:
+  goheader:
+    values:
+      regexp:
+        PROJECT: 'Cilium|Hubble'
+    template: |-
+      SPDX-License-Identifier: Apache-2.0
+      Copyright Authors of {{ PROJECT }}
   goimports:
     local-prefixes: github.com/cilium/cilium-cli
   gosimple:
