@@ -13,7 +13,7 @@ import (
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
-	"github.com/cilium/cilium-cli/internal/utils"
+	"github.com/cilium/cilium-cli/utils/wait"
 
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,7 +42,7 @@ func waitForBpfPolicyEntries(ctx context.Context, t *check.Test,
 	targetEntriesCallback func(ciliumPod check.Pod) []bpfEgressGatewayPolicyEntry) {
 	ct := t.Context()
 
-	w := utils.NewWaitObserver(ctx, utils.WaitParameters{Timeout: 10 * time.Second})
+	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 10 * time.Second})
 	defer w.Cancel()
 
 	ensureBpfPolicyEntries := func() error {
