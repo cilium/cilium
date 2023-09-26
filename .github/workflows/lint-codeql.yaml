@@ -1,4 +1,4 @@
-name: codeql
+name: CodeQL
 
 on:
   pull_request:
@@ -36,19 +36,20 @@ jobs:
   analyze:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.go-changes == 'true' || github.event_name != 'pull_request' }}
+    name: Analyze
     runs-on: ubuntu-latest
     permissions:
       security-events: write
     steps:
     - name: Checkout repo
-      uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
       with:
         persist-credentials: false
         fetch-depth: 1
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@489225d82a57396c6f426a40e66d461b16b3461d # v2.20.4
+      uses: github/codeql-action/init@00e563ead9f72a8461b24876bee2d0c2e8bd2ee8 # v2.21.5
       with:
         languages: go
         debug: true
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@489225d82a57396c6f426a40e66d461b16b3461d # v2.20.4
+      uses: github/codeql-action/analyze@00e563ead9f72a8461b24876bee2d0c2e8bd2ee8 # v2.21.5

@@ -1,4 +1,4 @@
-name: BPF checks
+name: BPF Checks
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Checkout code
         if: ${{ !github.event.pull_request }}
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           persist-credentials: false
       - name: Check code changes
@@ -44,11 +44,11 @@ jobs:
               - 'test/bpf_tests/**'
 
   checkpatch:
-    name: checkpatch
+    name: Check Patch
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -60,13 +60,15 @@ jobs:
   coccicheck:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.coccinelle == 'true' }}
-    name: coccicheck
+    name: Run coccicheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - name: Checkout code
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           persist-credentials: false
-      - uses: docker://cilium/coccicheck:2.3@sha256:56c7445e3d0cc37de49750f5dfd154786082c4be6bc17683c231c0445862233a
+      - name: Run coccicheck
+        uses: docker://cilium/coccicheck:2.4@sha256:24abe3fbb8e829fa41a68a3b76cb4df84fd5a87a7d1d6254c1c1fe5effb5bd1b
         with:
           entrypoint: ./contrib/coccinelle/check-cocci.sh
 
@@ -84,11 +86,11 @@ jobs:
   build_all:
     needs: [check_changes, set_clang_dir]
     if: ${{ needs.check_changes.outputs.bpf-tree == 'true' }}
-    name: build datapath
+    name: Build Datapath
     runs-on: ubuntu-22.04
     steps:
       - name: Install Go
-        uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
+        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
         with:
           go-version: 1.19.4
       - name: Cache LLVM and Clang
@@ -108,7 +110,7 @@ jobs:
           directory: ${{ needs.set_clang_dir.outputs.clang_dir }}
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
       - name: Checkout code
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -125,7 +127,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Install Go
-        uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753 # v4.0.1
+        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
         with:
           go-version: 1.19.4
       - name: Cache LLVM and Clang
@@ -145,7 +147,7 @@ jobs:
           directory: ${{ needs.set_clang_dir.outputs.clang_dir }}
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
       - name: Checkout code
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           persist-credentials: false
           fetch-depth: 0

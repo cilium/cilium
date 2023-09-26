@@ -19,8 +19,9 @@ permissions:
 
 jobs:
   build-and-push:
+    name: Build and Push Images
     environment: release-beta-images
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         include:
@@ -53,7 +54,7 @@ jobs:
 
     steps:
       - name: Checkout master branch to access local actions
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -62,7 +63,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4c0219f9ac95b02789c1075625400b2acbff50b1 # v2.9.1
+        uses: docker/setup-buildx-action@885d1462b80bc1c1c7f0b00334ad271f09369c55 # v2.10.0
 
       - name: Login to quay.io
         uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
@@ -86,7 +87,7 @@ jobs:
           fi
 
       - name: Checkout Source Code
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           persist-credentials: false
 
@@ -106,7 +107,7 @@ jobs:
             OPERATOR_VARIANT=${{ matrix.name }}
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@6e04d228eb30da1757ee4e1dd75a0ec73a653e06 # v3.1.1
+        uses: sigstore/cosign-installer@11086d25041f77fe8fe7b9ea4e48e3b9192b8f19 # v3.1.2
 
       - name: Sign Container Image
         run: |
@@ -157,7 +158,7 @@ jobs:
 
   image-digests:
     name: Display Digests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: build-and-push
     steps:
       - name: Downloading Image Digests

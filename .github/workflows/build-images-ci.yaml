@@ -24,7 +24,8 @@ concurrency:
 
 jobs:
   build-and-push-prs:
-    runs-on: ubuntu-20.04
+    name: Build and Push Images
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         include:
@@ -53,8 +54,8 @@ jobs:
             dockerfile: ./images/cilium-docker-plugin/Dockerfile
 
     steps:
-      - name: Checkout master branch to access local actions
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - name: Checkout default branch (trusted)
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
@@ -63,7 +64,7 @@ jobs:
         uses: ./.github/actions/set-env-variables
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4c0219f9ac95b02789c1075625400b2acbff50b1 # v2.9.1
+        uses: docker/setup-buildx-action@885d1462b80bc1c1c7f0b00334ad271f09369c55 # v2.10.0
 
       - name: Login to quay.io for CI
         uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
@@ -81,14 +82,16 @@ jobs:
             echo ::set-output name=tag::${{ github.sha }}
           fi
 
-      - name: Checkout Source Code
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           persist-credentials: false
           ref: ${{ steps.tag.outputs.tag }}
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@6e04d228eb30da1757ee4e1dd75a0ec73a653e06 # v3.1.1
+        uses: sigstore/cosign-installer@11086d25041f77fe8fe7b9ea4e48e3b9192b8f19 # v3.1.2
 
       # v1.13 branch pushes
       - name: Install Bom
@@ -136,7 +139,7 @@ jobs:
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:5dc9b9a02d487f61754d17f05f3afa75a4345be3@sha256:c433fb2f034e7ab571e94b343398333f9bca3544dbb847a81ad4d804b251fa4e
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:ff4033e2f072d218e589b83dc987d5a624697318@sha256:dbbb7c4f8a2d04315f18f1696e46dceb342dc064108c7da741952ee62fbad7c9
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -257,7 +260,7 @@ jobs:
             quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/${{ matrix.name }}-ci:${{ steps.tag.outputs.tag }}-race
           target: release
           build-args: |
-            BASE_IMAGE=quay.io/cilium/cilium-runtime:5dc9b9a02d487f61754d17f05f3afa75a4345be3@sha256:c433fb2f034e7ab571e94b343398333f9bca3544dbb847a81ad4d804b251fa4e
+            BASE_IMAGE=quay.io/cilium/cilium-runtime:ff4033e2f072d218e589b83dc987d5a624697318@sha256:dbbb7c4f8a2d04315f18f1696e46dceb342dc064108c7da741952ee62fbad7c9
             LOCKDEBUG=1
             RACE=1
             OPERATOR_VARIANT=${{ matrix.name }}
@@ -344,7 +347,7 @@ jobs:
   image-digests:
     if: ${{ always() }}
     name: Display Digests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: build-and-push-prs
     steps:
       - name: Downloading Image Digests

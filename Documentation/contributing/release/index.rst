@@ -23,6 +23,6 @@ upcoming stable releases.
    rc
    feature
 
-The best way to get help if you get stuck is to ask a question on the `Cilium
-Slack channel <https://cilium.herokuapp.com>`_.  With Cilium contributors
-across the globe, there is almost always someone available to help.
+The best way to get help if you get stuck is to ask a question on `Cilium
+Slack`_. With Cilium contributors across the globe, there is almost always
+someone available to help.

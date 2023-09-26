@@ -48,10 +48,10 @@
   {{- end }}
 {{- end }}
 
-{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled }}
+{{- if or .Values.ingressController.enabled .Values.gatewayAPI.enabled (eq .Values.loadBalancer.l7.backend "envoy") }}
   {{- if hasKey .Values "l7Proxy" }}
     {{- if not .Values.l7Proxy }}
-      {{ fail "Ingress or Gateway API controller requires .Values.l7Proxy to be set to 'true'" }}
+      {{ fail "Ingress or Gateway API controller or Envoy L7 Load Balancer  requires .Values.l7Proxy to be set to 'true'" }}
     {{- end }}
   {{- end }}
 {{- end }}

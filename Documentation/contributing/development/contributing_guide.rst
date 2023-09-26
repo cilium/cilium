@@ -270,7 +270,7 @@ Getting a pull request merged
 
 #. Once the PR has been reviewed and the CI tests have passed, the PR will be
    merged by one of the repository owners. In case this does not happen, ping
-   us on Slack in the #development channel.
+   us on `Cilium Slack`_ in the ``#development`` channel.
 
 Handling large pull requests
 ----------------------------

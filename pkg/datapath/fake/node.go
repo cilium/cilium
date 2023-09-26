@@ -44,6 +44,9 @@ func (n *FakeNodeHandler) NodeDelete(node nodeTypes.Node) error {
 	return nil
 }
 
+func (n *FakeNodeHandler) AllNodeValidateImplementation() {
+}
+
 func (n *FakeNodeHandler) NodeValidateImplementation(node nodeTypes.Node) error {
 	return nil
 }

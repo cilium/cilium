@@ -761,7 +761,6 @@ func LoadIPSecKeysFile(path string) (int, uint8, error) {
 func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 	var spi uint8
 	var keyLen int
-	scopedLog := log
 
 	ipSecLock.Lock()
 	defer ipSecLock.Unlock()
@@ -879,11 +878,17 @@ func loadIPSecKeys(r io.Reader) (int, uint8, error) {
 		ipSecKeysRemovalTime[oldSpi] = time.Now()
 		ipSecCurrentKeySPI = spi
 	}
+	return keyLen, spi, nil
+}
+
+func SetIPSecSPI(spi uint8) error {
+	scopedLog := log
+
 	if err := encrypt.MapUpdateContext(0, spi); err != nil {
 		scopedLog.WithError(err).Warn("cilium_encrypt_state map updated failed:")
-		return 0, 0, err
+		return err
 	}
-	return keyLen, spi, nil
+	return nil
 }
 
 // DeleteIPsecEncryptRoute removes nodes in main routing table by walking
@@ -927,15 +932,21 @@ func keyfileWatcher(ctx context.Context, watcher *fswatcher.Watcher, keyfilePath
 			// package
 			node.SetIPsecKeyIdentity(spi)
 
-			// NodeValidateImplementation will eventually call
+			// AllNodeValidateImplementation will eventually call
 			// nodeUpdate(), which is responsible for updating the
 			// IPSec policies and states for all the different EPs
 			// with ipsec.UpsertIPsecEndpoint()
-			nodeHandler.NodeValidateImplementation(*nodediscovery.LocalNode())
+			nodeHandler.AllNodeValidateImplementation()
 
 			// Publish the updated node information to k8s/KVStore
 			nodediscovery.UpdateLocalNode()
 
+			// Push SPI update into BPF datapath now that XFRM state
+			// is configured.
+			if err := SetIPSecSPI(spi); err != nil {
+				log.WithError(err).Errorf("Failed to set IPsec SPI")
+				continue
+			}
 		case err := <-watcher.Errors:
 			log.WithError(err).WithField(logfields.Path, keyfilePath).
 				Warning("Error encountered while watching file with fsnotify")
@@ -1103,4 +1114,21 @@ func StartStaleKeysReclaimer(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+// We need to install xfrm state for the local router (cilium_host) early
+// in daemon init path. This is to ensure that we have the xfrm state in
+// place before we advertise the routerIP where other nodes may potentially
+// pick it up and start sending traffic to us. This was previously racing
+// and creating XfrmInNoState errors because other nodes picked up node
+// update before Xfrm config logic was in place. So special case init the
+// rule we need early in init flow.
+func Init() error {
+	outerLocalIP := node.GetInternalIPv4Router()
+	wildcardIP := net.ParseIP("0.0.0.0")
+	localCIDR := node.GetIPv4AllocRange().IPNet
+	localWildcardIP := &net.IPNet{IP: wildcardIP, Mask: net.IPv4Mask(0, 0, 0, 0)}
+
+	_, err := UpsertIPsecEndpoint(localCIDR, localWildcardIP, outerLocalIP, wildcardIP, 0, IPSecDirIn, false)
+	return err
 }

@@ -1,4 +1,4 @@
-name: ConformanceAKS (ci-aks)
+name: Conformance AKS (ci-aks)
 
 # Any change in triggers needs to be reflected in the concurrency group.
 on:
@@ -62,6 +62,7 @@ env:
 
 jobs:
   commit-status-start:
+    name: Commit Status Start
     runs-on: ubuntu-latest
     steps:
       - name: Set initial commit status
@@ -70,12 +71,13 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   generate-matrix:
+    name: Generate Matrix
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - name: Checkout context ref
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -104,7 +106,7 @@ jobs:
           echo "matrix=$(jq -c . < /tmp/matrix.json)" >> $GITHUB_OUTPUT
 
   installation-and-connectivity:
-    name: "Installation and Connectivity Test"
+    name: Installation and Connectivity Test
     needs: generate-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -115,8 +117,8 @@ jobs:
       matrix: ${{fromJson(needs.generate-matrix.outputs.matrix)}}
 
     steps:
-      - name: Checkout context ref
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -216,16 +218,17 @@ jobs:
             --name ${{ env.name }}
 
       - name: Wait for images to be available
-        timeout-minutes: 10
+        timeout-minutes: 30
         shell: bash
         run: |
           for image in cilium-ci operator-azure-ci hubble-relay-ci ; do
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
-      # Checkout source code to install Cilium using local Helm chart.
-      - name: Checkout code
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           ref: ${{ steps.vars.outputs.sha }}
           persist-credentials: false
@@ -330,6 +333,7 @@ jobs:
 
   commit-status-final:
     if: ${{ always() }}
+    name: Commit Status Final
     needs: installation-and-connectivity
     runs-on: ubuntu-latest
     steps:

@@ -29,13 +29,13 @@ func (e *Endpoint) SetProxy(p EndpointProxy) {
 }
 
 func (e *Endpoint) removeNetworkPolicy() {
-	if e.isProxyDisabled() {
+	if e.IsProxyDisabled() {
 		return
 	}
 	e.proxy.RemoveNetworkPolicy(e)
 }
 
-func (e *Endpoint) isProxyDisabled() bool {
+func (e *Endpoint) IsProxyDisabled() bool {
 	return e.proxy == nil || reflect.ValueOf(e.proxy).IsNil()
 }
 

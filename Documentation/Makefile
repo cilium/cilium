@@ -16,7 +16,7 @@ SPHINX_OPTS := "-j=auto"
 default: html
 
 define build_image
-  $(ECHO_DOCKER)
+  $(ECHO_DOCKER) $(3)
   # Pre-pull FROM docker image due to Buildkit sometimes failing to pull them.
   grep -m 1 "^FROM " $(1) | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
   $(QUIET)tar c $(REQUIREMENTS) Dockerfile \
@@ -94,7 +94,7 @@ $(HELM_VALUES): FORCE
 	$(QUIET)$(HELM_DOCS) -d -c $(HELM_DOCS_CHARTS_DIR) -t $(HELM_DOCS_OUTPUT_DIR)/$(TMP_FILE_1).tmpl > $(TMP_FILE_1)
 	$(QUIET)awk -F'|' '{print "|"$$2"|"$$5"|"$$3"|"$$4"|"}' $(TMP_FILE_1) > $(TMP_FILE_2)
 	$(QUIET)$(M2R) --overwrite $(TMP_FILE_2)
-	$(QUIET)$(SED) 's/^\(   \* - \)\([[:print:]]\+\)$$/\1:spelling:ignore:`\2`/' $@ > $(TMP_FILE_3)
+	$(QUIET)$(SED) 's/^\(   \* - \)\([[:print:]]\{1,\}\)$$/\1:spelling:ignore:`\2`/' $@ > $(TMP_FILE_3)
 	$(QUIET)printf '..\n  %s\n\n%s\n' "AUTO-GENERATED. Please DO NOT edit manually." "$$(cat $(TMP_FILE_3))" > $@
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2) $(TMP_FILE_3)
 
