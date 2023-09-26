@@ -172,6 +172,7 @@ cilium-agent [flags]
       --envoy-log string                                          Path to a separate Envoy log file, if any
       --envoy-secrets-namespace string                            EnvoySecretsNamespace is the namespace having secrets used by CEC
       --exclude-local-address strings                             Exclude CIDR from being recognized as local address
+      --exclude-node-label-patterns strings                       List of k8s node label regex patterns to be excluded from CiliumNode
       --external-envoy-proxy                                      whether the Envoy is deployed externally in form of a DaemonSet or not
       --fixed-identity-mapping map                                Key-value for the fixed identity mapping which allows to use reserved label for fixed identities, e.g. 128=kv-store,129=kube-dns
       --gateway-api-secrets-namespace string                      GatewayAPISecretsNamespace is the namespace having tls secrets used by CEC, originating from Gateway API

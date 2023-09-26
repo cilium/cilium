@@ -187,6 +187,9 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.AutoCreateCiliumNodeResource, defaults.AutoCreateCiliumNodeResource, "Automatically create CiliumNode resource for own node on startup")
 	option.BindEnv(vp, option.AutoCreateCiliumNodeResource)
 
+	flags.StringSlice(option.ExcludeNodeLabelPatterns, []string{}, "List of k8s node label regex patterns to be excluded from CiliumNode")
+	option.BindEnv(vp, option.ExcludeNodeLabelPatterns)
+
 	flags.String(option.BPFRoot, "", "Path to BPF filesystem")
 	option.BindEnv(vp, option.BPFRoot)
 
