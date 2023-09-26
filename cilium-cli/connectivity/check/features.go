@@ -62,6 +62,9 @@ const (
 	FeatureCNP Feature = "cilium-network-policy"
 	FeatureKNP Feature = "k8s-network-policy"
 
+	// Whether or not CIDR selectors can match node IPs
+	FeatureCIDRMatchNodes Feature = "cidr-match-nodes"
+
 	FeatureAuthSpiffe Feature = "mutual-auth-spiffe"
 
 	FeatureIngressController Feature = "ingress-controller"
@@ -264,6 +267,10 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 
 	result[FeatureEgressGateway] = FeatureStatus{
 		Enabled: cm.Data["enable-ipv4-egress-gateway"] == "true",
+	}
+
+	result[FeatureCIDRMatchNodes] = FeatureStatus{
+		Enabled: strings.Contains(cm.Data["policy-cidr-match-mode"], "nodes"),
 	}
 
 	return nil
