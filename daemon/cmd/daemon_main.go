@@ -280,6 +280,7 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	option.BindEnv(vp, option.IPv6MCastDevice)
 
 	flags.Bool(option.EnableRemoteNodeIdentity, defaults.EnableRemoteNodeIdentity, "Enable use of remote node identity")
+	flags.MarkDeprecated(option.EnableRemoteNodeIdentity, "Remote Node Identity is needed for various other features to work or work fully, including EgressGateway and Policies. There is no benefit to having it turned off. It will be removed in v1.16.")
 	option.BindEnv(vp, option.EnableRemoteNodeIdentity)
 
 	flags.String(option.EncryptInterface, "", "Transparent encryption interface")
