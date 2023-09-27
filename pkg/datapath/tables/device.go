@@ -84,8 +84,8 @@ func (d *Device) HasIP(ip net.IP) bool {
 }
 
 type DeviceAddress struct {
-	Addr  netip.Addr
-	Scope uint8 // Routing table scope
+	netip.Addr
+	Scope uint8 // Address scope
 }
 
 func (d *DeviceAddress) AsIP() net.IP {

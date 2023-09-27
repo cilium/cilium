@@ -376,10 +376,19 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	a := dpdef.Map{"A": "1"}
 	var buffer bytes.Buffer
 
-	_, err := NewHeaderfileWriter([]dpdef.Map{a, a}, nil)
+	_, err := NewHeaderfileWriter(configWriterParams{
+		NodeExtraDefines:   []dpdef.Map{a, a},
+		NodeExtraDefineFns: nil,
+		Devicer:            datapath.NopDevicer{},
+	})
+
 	require.Error(t, err, "duplicate keys should be rejected")
 
-	cfg, err := NewHeaderfileWriter([]dpdef.Map{a}, nil)
+	cfg, err := NewHeaderfileWriter(configWriterParams{
+		NodeExtraDefines:   []dpdef.Map{a},
+		NodeExtraDefineFns: nil,
+		Devicer:            datapath.NopDevicer{},
+	})
 	require.NoError(t, err)
 	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
 	require.Contains(t, buffer.String(), "define A 1\n")

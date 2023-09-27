@@ -9,17 +9,17 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
+type configWriterParams struct {
+	cell.In
+
+	NodeExtraDefines   []dpdef.Map `group:"header-node-defines"`
+	NodeExtraDefineFns []dpdef.Fn  `group:"header-node-define-fns"`
+	Devicer            dptypes.Devicer
+}
+
 var Cell = cell.Module(
 	"datapath-config-writer",
 	"Generate and write the configuration for datapath program types",
 
-	cell.Provide(
-		func(in struct {
-			cell.In
-			NodeExtraDefines   []dpdef.Map `group:"header-node-defines"`
-			NodeExtraDefineFns []dpdef.Fn  `group:"header-node-define-fns"`
-		}) (dptypes.ConfigWriter, error) {
-			return NewHeaderfileWriter(in.NodeExtraDefines, in.NodeExtraDefineFns)
-		},
-	),
+	cell.Provide(NewHeaderfileWriter),
 )

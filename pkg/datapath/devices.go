@@ -33,12 +33,12 @@ func (d *DevicesAccessor) Devices() ([]string, <-chan struct{}) {
 	return tables.DeviceNames(devs), watch
 }
 
-func (d *DevicesAccessor) DirectRoutingDevice() (string, error, <-chan struct{}) {
+func (d *DevicesAccessor) DirectRoutingDevice() (*tables.Device, error, <-chan struct{}) {
 	devs, watch := tables.SelectedDevices(d.devices, d.db.ReadTxn())
 
 	var (
 		filter              deviceFilter
-		directRoutingDevice string
+		directRoutingDevice *tables.Device
 	)
 
 	if option.Config.DirectRoutingDevice != "" { // TODO: Move device-related options out from option.Config
@@ -47,13 +47,13 @@ func (d *DevicesAccessor) DirectRoutingDevice() (string, error, <-chan struct{})
 
 	for _, dev := range devs {
 		if filter.match(dev.Name) {
-			directRoutingDevice = dev.Name
+			directRoutingDevice = dev
 			break
 		}
 	}
 
-	if directRoutingDevice == "" {
-		return "", fmt.Errorf("unable to determine direct routing device. Use --%s to specify it",
+	if directRoutingDevice == nil {
+		return nil, fmt.Errorf("unable to determine direct routing device. Use --%s to specify it",
 			option.DirectRoutingDevice), watch
 	}
 	return directRoutingDevice, nil, watch

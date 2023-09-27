@@ -77,20 +77,22 @@ var (
 // HeaderfileWriter is a wrapper type which implements datapath.ConfigWriter.
 // It manages writing of configuration of datapath program headerfiles.
 type HeaderfileWriter struct {
+	devicer            datapath.Devicer
 	nodeExtraDefines   dpdef.Map
 	nodeExtraDefineFns []dpdef.Fn
 }
 
-func NewHeaderfileWriter(nodeExtraDefines []dpdef.Map, nodeExtraDefineFns []dpdef.Fn) (*HeaderfileWriter, error) {
+func NewHeaderfileWriter(p configWriterParams) (datapath.ConfigWriter, error) {
 	merged := make(dpdef.Map)
-	for _, defines := range nodeExtraDefines {
+	for _, defines := range p.NodeExtraDefines {
 		if err := merged.Merge(defines); err != nil {
 			return nil, err
 		}
 	}
 	return &HeaderfileWriter{
+		devicer:            p.Devicer,
 		nodeExtraDefines:   merged,
-		nodeExtraDefineFns: nodeExtraDefineFns,
+		nodeExtraDefineFns: p.NodeExtraDefineFns,
 	}, nil
 }
 
@@ -535,7 +537,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
 	}
 
-	macByIfIndexMacro, isL3DevMacro, err := devMacros()
+	macByIfIndexMacro, isL3DevMacro, err := devMacros(h.devicer)
 	if err != nil {
 		return err
 	}
@@ -563,35 +565,49 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash0)
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash1)
 
-	if option.Config.DirectRoutingDeviceRequired() {
-		directRoutingIface := option.Config.DirectRoutingDevice
-		directRoutingIfIndex, err := link.GetIfIndex(directRoutingIface)
-		if err != nil {
-			return err
-		}
-		cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", directRoutingIfIndex)
+	if dev, _, _ := h.devicer.DirectRoutingDevice(); dev != nil {
+		cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = strconv.Itoa(dev.Index)
 		if option.Config.EnableIPv4 {
-			ip, ok := node.GetNodePortIPv4AddrsWithDevices()[directRoutingIface]
+			var (
+				addr netip.Addr
+				ok   bool
+			)
+			for _, a := range dev.Addrs {
+				if a.Is4() {
+					addr = a.Addr
+					ok = true
+				}
+			}
+
 			if !ok {
 				log.WithFields(logrus.Fields{
-					"directRoutingIface": directRoutingIface,
+					"directRoutingIface": dev.Name,
 				}).Fatal("Direct routing device's IPv4 address not found")
 			}
 
-			ipv4 := byteorder.NetIPv4ToHost32(ip)
+			ipv4 := byteorder.NetIPv4ToHost32(addr.AsSlice())
 			cDefinesMap["IPV4_DIRECT_ROUTING"] = fmt.Sprintf("%d", ipv4)
 		}
 
 		if option.Config.EnableIPv6 {
-			directRoutingIPv6, ok := node.GetNodePortIPv6AddrsWithDevices()[directRoutingIface]
+			var (
+				addr netip.Addr
+				ok   bool
+			)
+			for _, a := range dev.Addrs {
+				if a.Is6() {
+					addr = a.Addr
+					ok = true
+				}
+			}
 			if !ok {
 				log.WithFields(logrus.Fields{
-					"directRoutingIface": directRoutingIface,
+					"directRoutingIface": dev.Name,
 				}).Fatal("Direct routing device's IPv6 address not found")
 			}
 
-			extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
-			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6))
+			extraMacrosMap["IPV6_DIRECT_ROUTING"] = addr.String()
+			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", addr.AsSlice()))
 		}
 	} else {
 		var directRoutingIPv6 net.IP
@@ -914,7 +930,7 @@ return false;`))
 
 // devMacros generates NATIVE_DEV_MAC_BY_IFINDEX and IS_L3_DEV macros which
 // are written to node_config.h.
-func devMacros() (string, string, error) {
+func devMacros(devicer datapath.Devicer) (string, string, error) {
 	var (
 		macByIfIndexMacro, isL3DevMacroBuf bytes.Buffer
 		isL3DevMacro                       string
@@ -922,7 +938,9 @@ func devMacros() (string, string, error) {
 	macByIfIndex := make(map[int]string)
 	l3DevIfIndices := make([]int, 0)
 
-	for _, iface := range option.Config.GetDevices() {
+	devices, _ := devicer.Devices()
+
+	for _, iface := range devices {
 		link, err := netlink.LinkByName(iface)
 		if err != nil {
 			return "", "", fmt.Errorf("failed to retrieve link %s by name: %q", iface, err)
