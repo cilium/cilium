@@ -30,8 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/authmap"
@@ -65,27 +63,25 @@ import (
 	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "datapath-linux-config")
-)
-
 // HeaderfileWriter is a wrapper type which implements datapath.ConfigWriter.
 // It manages writing of configuration of datapath program headerfiles.
 type HeaderfileWriter struct {
+	log                logrus.FieldLogger
 	nodeExtraDefines   dpdef.Map
 	nodeExtraDefineFns []dpdef.Fn
 }
 
-func NewHeaderfileWriter(nodeExtraDefines []dpdef.Map, nodeExtraDefineFns []dpdef.Fn) (*HeaderfileWriter, error) {
+func NewHeaderfileWriter(p configWriterParams) (datapath.ConfigWriter, error) {
 	merged := make(dpdef.Map)
-	for _, defines := range nodeExtraDefines {
+	for _, defines := range p.NodeExtraDefines {
 		if err := merged.Merge(defines); err != nil {
 			return nil, err
 		}
 	}
 	return &HeaderfileWriter{
 		nodeExtraDefines:   merged,
-		nodeExtraDefineFns: nodeExtraDefineFns,
+		nodeExtraDefineFns: p.NodeExtraDefineFns,
+		log:                p.Log,
 	}, nil
 }
 
@@ -548,7 +544,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableIPv4 {
 			ip, ok := node.GetNodePortIPv4AddrsWithDevices()[directRoutingIface]
 			if !ok {
-				log.WithFields(logrus.Fields{
+				h.log.WithFields(logrus.Fields{
 					"directRoutingIface": directRoutingIface,
 				}).Fatal("Direct routing device's IPv4 address not found")
 			}
@@ -560,7 +556,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableIPv6 {
 			directRoutingIPv6, ok := node.GetNodePortIPv6AddrsWithDevices()[directRoutingIface]
 			if !ok {
-				log.WithFields(logrus.Fields{
+				h.log.WithFields(logrus.Fields{
 					"directRoutingIface": directRoutingIface,
 				}).Fatal("Direct routing device's IPv6 address not found")
 			}
