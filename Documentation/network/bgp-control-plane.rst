@@ -46,7 +46,7 @@ instantiated and will begin listening for ``CiliumBGPPeeringPolicy``
 events.
 
 Currently, the ``BGP Control Plane`` will only work when IPAM mode is set to
-"cluster-pool" or "kubernetes".
+"cluster-pool", "kubernetes", or "multi-pool".
 
 CiliumBGPPeeringPolicy CRD
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -105,6 +105,8 @@ Fields
        virtualRouters[*].localASN: The local ASN for this peering configuration
 
        virtualRouters[*].serviceSelector: Services which are selected by this label selector will be announced.
+
+       virtualRouters[*].podIPPoolSelector: Allocated CIDRs from CiliumPodIPPools which are selected by this label selector will be announced.
 
        virtualRouters[*].exportPodCIDR: Whether to export the private pod CIDR block to the listed neighbors
 
@@ -494,6 +496,36 @@ Semantics of the externalTrafficPolicy: Local
 When the service has ``externalTrafficPolicy: Local``, ``BGP Control Plane`` keeps track
 of the endpoints for the service on the local node and stops advertisement when there's
 no local endpoint.
+
+CiliumPodIPPool announcements
+-----------------------------
+
+By default, virtual routers will not announce any CiliumPodIPPool CIDRs. To announce allocated
+CIDRs of a CiliumPodIPPool, specify the ``.podIPPoolSelector`` for the virtual router. The
+``.podIPPoolSelector`` field is a label selector that selects allocated CIDRs of CiliumPodIPPools
+matching the specified ``.matchLabels`` or ``.matchExpressions``.
+
+.. note::
+
+   The CiliumPodIPPool CIDR must be allocated to a CiliumNode that matches the ``.nodeSelector`` for
+   the virtual router to announce the CIDR as a BGP route.
+
+If you wish to announce ALL CiliumPodIPPool CIDRs within the cluster, a ``NotIn`` match expression
+with a dummy key and value can be used like:
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   #[...]
+   virtualRouters: # []CiliumBGPVirtualRouter
+    - localASN: 64512
+      # [...]
+      podIPPoolSelector:
+         matchExpressions:
+            - {key: somekey, operator: NotIn, values: ['never-used-value']}
+
+For additional details regarding CiliumPodIPPools, see the :ref:`ipam_crd_multi_pool` section.
 
 CLI
 ---
