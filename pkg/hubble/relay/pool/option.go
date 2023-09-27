@@ -38,9 +38,10 @@ var defaultOptions = options{
 		Max:    90 * time.Minute,
 		Factor: 2.0,
 	},
-	connCheckInterval: 2 * time.Minute,
-	retryTimeout:      defaults.RetryTimeout,
-	log:               logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay"),
+	connCheckInterval:  2 * time.Minute,
+	connStatusInterval: 5 * time.Second,
+	retryTimeout:       defaults.RetryTimeout,
+	log:                logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay"),
 }
 
 // Option customizes the configuration of the Manager.
@@ -53,6 +54,7 @@ type options struct {
 	clientConnBuilder  poolTypes.ClientConnBuilder
 	backoff            BackoffDuration
 	connCheckInterval  time.Duration
+	connStatusInterval time.Duration
 	retryTimeout       time.Duration
 	log                logrus.FieldLogger
 }
@@ -96,6 +98,15 @@ func WithBackoff(b BackoffDuration) Option {
 func WithConnCheckInterval(i time.Duration) Option {
 	return func(o *options) error {
 		o.connCheckInterval = i
+		return nil
+	}
+}
+
+// WithConnStatusInterval sets the time interval between peer connection status
+// is reported through Prometheus gauge metrics.
+func WithConnStatusInterval(i time.Duration) Option {
+	return func(o *options) error {
+		o.connStatusInterval = i
 		return nil
 	}
 }
