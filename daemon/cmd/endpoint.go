@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/bandwidth"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -435,7 +435,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 				}).Warningf("Endpoint has %s annotation which is unsupported. This annotation is ignored.",
 					bandwidth.IngressBandwidth)
 			}
-			if _, ok := annotations[bandwidth.EgressBandwidth]; ok && !option.Config.EnableBandwidthManager {
+			if _, ok := annotations[bandwidth.EgressBandwidth]; ok && !d.bwManager.Enabled() {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
 					logfields.Annotations: logfields.Repr(annotations),
@@ -489,13 +489,15 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			return value, nil
 		})
 
-		ep.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress string, err error) {
-			_, p, err := d.endpointMetadataFetcher.Fetch(ns, podName)
-			if err != nil {
-				return "", err
-			}
-			return p.Annotations[bandwidth.EgressBandwidth], nil
-		})
+		if d.bwManager.Enabled() {
+			ep.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress string, err error) {
+				_, p, err := d.endpointMetadataFetcher.Fetch(ns, podName)
+				if err != nil {
+					return "", err
+				}
+				return p.Annotations[bandwidth.EgressBandwidth], nil
+			})
+		}
 		ep.UpdateNoTrackRules(func(ns, podName string) (noTrackPort string, err error) {
 			_, p, err := d.endpointMetadataFetcher.Fetch(ns, podName)
 			if err != nil {

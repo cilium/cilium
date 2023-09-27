@@ -324,12 +324,6 @@ const (
 	// considered local ones with HOST_ID in the ipcache
 	AddressScopeMax = "local-max-addr-scope"
 
-	// EnableBandwidthManager enables EDT-based pacing
-	EnableBandwidthManager = "enable-bandwidth-manager"
-
-	// EnableBBR enables BBR TCP congestion control for the node including Pods
-	EnableBBR = "enable-bbr"
-
 	// EnableRecorder enables the datapath pcap recorder
 	EnableRecorder = "enable-recorder"
 
@@ -2069,15 +2063,6 @@ type DaemonConfig struct {
 	// considered local ones with HOST_ID in the ipcache
 	AddressScopeMax int
 
-	// EnableBandwidthManager enables EDT-based pacing
-	EnableBandwidthManager bool
-
-	// EnableBBR enables BBR TCP congestion control for the node including Pods
-	EnableBBR bool
-
-	// ResetQueueMapping resets the Pod's skb queue mapping
-	ResetQueueMapping bool
-
 	// EnableRecorder enables the datapath pcap recorder
 	EnableRecorder bool
 
@@ -2629,8 +2614,8 @@ func (c *DaemonConfig) TunnelExists() bool {
 // AreDevicesRequired returns true if the agent needs to attach to the native
 // devices to implement some features.
 func (c *DaemonConfig) AreDevicesRequired() bool {
-	return c.EnableNodePort || c.EnableHostFirewall || c.EnableBandwidthManager ||
-		c.EnableWireguard || c.EnableHighScaleIPcache || c.EnableL2Announcements
+	return c.EnableNodePort || c.EnableHostFirewall || c.EnableWireguard ||
+		c.EnableHighScaleIPcache || c.EnableL2Announcements
 }
 
 // MasqueradingEnabled returns true if either IPv4 or IPv6 masquerading is enabled.
@@ -3091,8 +3076,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.KubeProxyReplacement = vp.GetString(KubeProxyReplacement)
 	c.EnableSessionAffinity = vp.GetBool(EnableSessionAffinity)
 	c.EnableServiceTopology = vp.GetBool(EnableServiceTopology)
-	c.EnableBandwidthManager = vp.GetBool(EnableBandwidthManager)
-	c.EnableBBR = vp.GetBool(EnableBBR)
 	c.EnableRecorder = vp.GetBool(EnableRecorder)
 	c.EnableMKE = vp.GetBool(EnableMKE)
 	c.CgroupPathMKE = vp.GetString(CgroupPathMKE)

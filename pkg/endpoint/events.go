@@ -9,7 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/bandwidth"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
@@ -282,7 +282,7 @@ func (ev *EndpointPolicyBandwidthEvent) Handle(res chan interface{}) {
 	}()
 
 	bandwidthEgress, err := ev.annoCB(e.K8sNamespace, e.K8sPodName)
-	if err != nil || !option.Config.EnableBandwidthManager {
+	if err != nil {
 		res <- &EndpointRegenerationResult{
 			err: err,
 		}

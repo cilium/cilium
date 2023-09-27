@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/l2responder"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	dpcfg "github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
@@ -77,6 +78,9 @@ var Cell = cell.Module(
 
 	// BIG TCP increases GSO/GRO limits when enabled.
 	bigtcp.Cell,
+
+	// The bandwidth manager provides efficient EDT-based rate-limiting (on Linux).
+	bandwidth.Cell,
 
 	cell.Provide(func(dp types.Datapath) types.NodeIDHandler {
 		return dp.NodeIDs()

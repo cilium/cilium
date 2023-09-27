@@ -32,4 +32,7 @@ type Datapath interface {
 	LBMap() LBMap
 
 	Procfs() string
+
+	// Delete the endpoint entry in the throttle map
+	DeleteEndpointBandwidthLimit(epID uint16) error
 }

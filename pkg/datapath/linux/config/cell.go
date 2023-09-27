@@ -4,6 +4,7 @@
 package config
 
 import (
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	dptypes "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -15,6 +16,7 @@ type configWriterParams struct {
 	NodeExtraDefines   []dpdef.Map `group:"header-node-defines"`
 	NodeExtraDefineFns []dpdef.Fn  `group:"header-node-define-fns"`
 	Devicer            dptypes.Devicer
+	BandwidthManager   *bandwidth.Manager
 }
 
 var Cell = cell.Module(

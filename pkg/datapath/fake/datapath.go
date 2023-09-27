@@ -118,6 +118,10 @@ func (f *FakeDatapath) LBMockMap() *mockmaps.LBMockMap {
 	return f.lbmap
 }
 
+func (f *FakeDatapath) DeleteEndpointBandwidthLimit(epID uint16) error {
+	return nil
+}
+
 // Loader is an interface to abstract out loading of datapath programs.
 type fakeLoader struct {
 }

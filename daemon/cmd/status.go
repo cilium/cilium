@@ -165,15 +165,15 @@ func (d *Daemon) getIPV4BigTCPStatus() *models.IPV4BigTCP {
 
 func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 	s := &models.BandwidthManager{
-		Enabled: option.Config.EnableBandwidthManager,
+		Enabled: d.bwManager.Enabled(),
 	}
 
-	if !option.Config.EnableBandwidthManager {
+	if !d.bwManager.Enabled() {
 		return s
 	}
 
 	s.CongestionControl = models.BandwidthManagerCongestionControlCubic
-	if option.Config.EnableBBR {
+	if d.bwManager.BBREnabled() {
 		s.CongestionControl = models.BandwidthManagerCongestionControlBbr
 	}
 
