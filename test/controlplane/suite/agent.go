@@ -14,6 +14,7 @@ import (
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
@@ -79,6 +80,7 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, dp *fa
 			func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
 			func() egressmap.PolicyMap { return nil },
 			func() gc.Enabler { return gc.NewFake() },
+			func() bigtcp.Configuration { return bigtcp.Configuration{} },
 		),
 		monitorAgent.Cell,
 		tables.Cell,

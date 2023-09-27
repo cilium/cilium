@@ -85,13 +85,12 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 
 	ds.datapath = linuxDatapath.NewDatapath(
 		linuxDatapath.DatapathParams{
-
+			WGAgent:        nil,
 			RuleManager:    nil,
 			NodeAddressing: nil,
 			NodeMap:        nil,
 			Writer:         &config.HeaderfileWriter{},
 		},
-		nil,
 		linuxDatapath.DatapathConfiguration{},
 	)
 
@@ -166,12 +165,12 @@ func (ds *EndpointSuite) TestReadEPsFromDirNamesWithRestoreFailure(c *C) {
 
 	ds.datapath = linuxDatapath.NewDatapath(
 		linuxDatapath.DatapathParams{
+			WGAgent:        nil,
 			RuleManager:    nil,
 			NodeAddressing: nil,
 			NodeMap:        nil,
 			Writer:         &config.HeaderfileWriter{},
 		},
-		nil,
 		linuxDatapath.DatapathConfiguration{},
 	)
 
@@ -242,12 +241,12 @@ func (ds *EndpointSuite) BenchmarkReadEPsFromDirNames(c *C) {
 
 	ds.datapath = linuxDatapath.NewDatapath(
 		linuxDatapath.DatapathParams{
+			WGAgent:        nil,
 			RuleManager:    nil,
 			NodeAddressing: nil,
 			NodeMap:        nil,
 			Writer:         &config.HeaderfileWriter{},
 		},
-		nil,
 		linuxDatapath.DatapathConfiguration{},
 	)
 

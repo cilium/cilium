@@ -536,6 +536,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		settings:             params.Settings,
 		healthProvider:       params.HealthProvider,
 		healthReporter:       params.HealthReporter,
+		bigTCPConfig:         params.BigTCPConfig,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
@@ -987,8 +988,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			return nil, nil, fmt.Errorf("SCTP support needs kernel 5.2 or newer")
 		}
 	}
-
-	bigtcp.InitBIGTCP(&d.bigTCPConfig)
 
 	// Some of the k8s watchers rely on option flags set above (specifically
 	// EnableBPFMasquerade), so we should only start them once the flag values

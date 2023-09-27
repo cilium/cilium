@@ -4,9 +4,15 @@
 package bigtcp
 
 import (
+	"errors"
+
+	"github.com/spf13/pflag"
 	"github.com/vishvananda/netlink"
 
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -19,10 +25,49 @@ const (
 	bigTCPGSOMaxSize = 196608
 
 	probeDevice = "lo"
+
+	EnableIPv4BIGTCPFlag = "enable-ipv4-big-tcp"
+	EnableIPv6BIGTCPFlag = "enable-ipv6-big-tcp"
 )
+
+type UserConfig struct {
+	// EnableIPv6BIGTCP enables IPv6 BIG TCP (larger GSO/GRO limits) for the node including pods.
+	EnableIPv6BIGTCP bool
+
+	// EnableIPv4BIGTCP enables IPv4 BIG TCP (larger GSO/GRO limits) for the node including pods.
+	EnableIPv4BIGTCP bool
+}
+
+func (def UserConfig) Flags(flags *pflag.FlagSet) {
+	flags.Bool(EnableIPv4BIGTCPFlag, def.EnableIPv4BIGTCP, "Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4")
+	flags.Bool(EnableIPv6BIGTCPFlag, def.EnableIPv6BIGTCP, "Enable IPv6 BIG TCP option which increases device's maximum GRO/GSO limits for IPv6")
+}
+
+var Cell = cell.Module(
+	"bigtcp",
+	"TODO",
+
+	cell.Config(UserConfig{false, false}),
+	cell.Provide(
+		newDefaultConfiguration,
+	),
+	cell.Invoke(registerBIGTCP),
+)
+
+func newDefaultConfiguration(userConfig UserConfig) Configuration {
+	return Configuration{
+		UserConfig:     userConfig,
+		groIPv4MaxSize: defaultGROMaxSize,
+		gsoIPv4MaxSize: defaultGSOMaxSize,
+		groIPv6MaxSize: defaultGROMaxSize,
+		gsoIPv6MaxSize: defaultGSOMaxSize,
+	}
+}
 
 // Configuration is a BIG TCP configuration as returned by NewConfiguration
 type Configuration struct {
+	UserConfig
+
 	// gsoIPv{4,6}MaxSize is the GSO maximum size used when configuring
 	// devices.
 	//
@@ -62,7 +107,7 @@ func (c *Configuration) GetGSOIPv4MaxSize() int {
 
 // If an error is returned the caller is responsible for rolling back
 // any partial changes.
-func setGROGSOIPv6MaxSize(device string, GROMaxSize, GSOMaxSize int) error {
+func setGROGSOIPv6MaxSize(userConfig UserConfig, device string, GROMaxSize, GSOMaxSize int) error {
 	link, err := netlink.LinkByName(device)
 	if err != nil {
 		log.WithError(err).WithField("device", device).Warn("Link does not exist")
@@ -74,7 +119,7 @@ func setGROGSOIPv6MaxSize(device string, GROMaxSize, GSOMaxSize int) error {
 	// when that is not necessary (e.g. BIG TCP was never enabled or current
 	// size matches the target size we need).
 	if (int(attrs.GROMaxSize) == GROMaxSize && int(attrs.GSOMaxSize) == GSOMaxSize) ||
-		(!option.Config.EnableIPv6BIGTCP &&
+		(!userConfig.EnableIPv6BIGTCP &&
 			int(attrs.GROMaxSize) <= GROMaxSize &&
 			int(attrs.GSOMaxSize) <= GSOMaxSize) {
 		return nil
@@ -90,7 +135,7 @@ func setGROGSOIPv6MaxSize(device string, GROMaxSize, GSOMaxSize int) error {
 
 // If an error is returned the caller is responsible for rolling back
 // any partial changes.
-func setGROGSOIPv4MaxSize(device string, GROMaxSize, GSOMaxSize int) error {
+func setGROGSOIPv4MaxSize(userConfig UserConfig, device string, GROMaxSize, GSOMaxSize int) error {
 	link, err := netlink.LinkByName(device)
 	if err != nil {
 		log.WithError(err).WithField("device", device).Warn("Link does not exist")
@@ -102,7 +147,7 @@ func setGROGSOIPv4MaxSize(device string, GROMaxSize, GSOMaxSize int) error {
 	// when that is not necessary (e.g. BIG TCP was never enabled or current
 	// size matches the target size we need).
 	if (int(attrs.GROIPv4MaxSize) == GROMaxSize && int(attrs.GSOIPv4MaxSize) == GSOMaxSize) ||
-		(!option.Config.EnableIPv4BIGTCP &&
+		(!userConfig.EnableIPv4BIGTCP &&
 			int(attrs.GROIPv4MaxSize) <= GROMaxSize &&
 			int(attrs.GSOIPv4MaxSize) <= GSOMaxSize) {
 		return nil
@@ -138,9 +183,9 @@ func haveIPv6MaxSize() bool {
 	return false
 }
 
-func probeTSOMaxSize() int {
+func probeTSOMaxSize(devices []string) int {
 	maxSize := math.IntMin(bigTCPGSOMaxSize, bigTCPGROMaxSize)
-	for _, device := range option.Config.GetDevices() {
+	for _, device := range devices {
 		link, err := netlink.LinkByName(device)
 		if err == nil {
 			tso := link.Attrs().TSOMaxSize
@@ -154,85 +199,101 @@ func probeTSOMaxSize() int {
 	return maxSize
 }
 
-func InitBIGTCP(bigTCPConfig *Configuration) {
+type params struct {
+	cell.In
+
+	UserConfig    UserConfig
+	Configuration Configuration
+	Devicer       types.Devicer
+	DaemonConfig  *option.DaemonConfig
+}
+
+func registerBIGTCP(lc hive.Lifecycle, p params) {
+	lc.Append(hive.Hook{
+		OnStart: func(hive.HookContext) error {
+			return startBIGTCP(p)
+		},
+	})
+}
+
+func startBIGTCP(p params) error {
 	var err error
 
-	if option.Config.DryMode {
-		return
-	}
+	// FIXME: BIGTCP should reconcile over device changes
+	devices, _ := p.Devicer.Devices()
 
 	disableMsg := ""
-	if len(option.Config.GetDevices()) == 0 {
-		if option.Config.EnableIPv4BIGTCP || option.Config.EnableIPv6BIGTCP {
+	if len(devices) == 0 {
+		if p.UserConfig.EnableIPv4BIGTCP || p.UserConfig.EnableIPv6BIGTCP {
 			log.Warn("BIG TCP could not detect host devices. Disabling the feature.")
 		}
-		option.Config.EnableIPv4BIGTCP = false
-		option.Config.EnableIPv6BIGTCP = false
-		return
+		p.UserConfig.EnableIPv4BIGTCP = false
+		p.UserConfig.EnableIPv6BIGTCP = false
+		return nil
 	}
 
 	haveIPv4 := haveIPv4MaxSize()
 	haveIPv6 := haveIPv6MaxSize()
 
 	if !haveIPv4 {
-		if option.Config.EnableIPv4BIGTCP {
+		if p.UserConfig.EnableIPv4BIGTCP {
 			log.Warnf("Cannot enable --%s, needs kernel 6.3 or newer",
-				option.EnableIPv4BIGTCP)
+				EnableIPv4BIGTCPFlag)
 		}
-		option.Config.EnableIPv4BIGTCP = false
+		p.UserConfig.EnableIPv4BIGTCP = false
 	}
 	if !haveIPv6 {
-		if option.Config.EnableIPv6BIGTCP {
+		if p.UserConfig.EnableIPv6BIGTCP {
 			log.Warnf("Cannot enable --%s, needs kernel 5.19 or newer",
-				option.EnableIPv6BIGTCP)
+				EnableIPv6BIGTCPFlag)
 		}
-		option.Config.EnableIPv6BIGTCP = false
+		p.UserConfig.EnableIPv6BIGTCP = false
 	}
 	if !haveIPv4 && !haveIPv6 {
-		return
+		return nil
 	}
 
 	if haveIPv4 {
-		bigTCPConfig.groIPv4MaxSize = defaultGROMaxSize
-		bigTCPConfig.gsoIPv4MaxSize = defaultGSOMaxSize
+		p.Configuration.groIPv4MaxSize = defaultGROMaxSize
+		p.Configuration.gsoIPv4MaxSize = defaultGSOMaxSize
 	}
 	if haveIPv6 {
-		bigTCPConfig.groIPv6MaxSize = defaultGROMaxSize
-		bigTCPConfig.gsoIPv6MaxSize = defaultGSOMaxSize
+		p.Configuration.groIPv6MaxSize = defaultGROMaxSize
+		p.Configuration.gsoIPv6MaxSize = defaultGSOMaxSize
 	}
 
-	if option.Config.EnableIPv6BIGTCP || option.Config.EnableIPv4BIGTCP {
-		if option.Config.DatapathMode != datapathOption.DatapathModeVeth {
-			log.Fatal("BIG TCP is supported only in veth datapath mode")
+	if p.UserConfig.EnableIPv6BIGTCP || p.UserConfig.EnableIPv4BIGTCP {
+		if p.DaemonConfig.DatapathMode != datapathOption.DatapathModeVeth {
+			return errors.New("BIG TCP is supported only in veth datapath mode")
 		}
-		if option.Config.TunnelingEnabled() {
-			log.Fatal("BIG TCP is not supported in tunneling mode")
+		if p.DaemonConfig.TunnelingEnabled() {
+			return errors.New("BIG TCP is not supported in tunneling mode")
 		}
-		if option.Config.EncryptionEnabled() {
-			log.Fatal("BIG TCP is not supported with encryption enabled")
+		if p.DaemonConfig.EncryptionEnabled() {
+			return errors.New("BIG TCP is not supported with encryption enabled")
 		}
-		if option.Config.EnableHostLegacyRouting {
-			log.Fatal("BIG TCP is not supported with legacy host routing")
+		if p.DaemonConfig.EnableHostLegacyRouting {
+			return errors.New("BIG TCP is not supported with legacy host routing")
 		}
 
 		log.Infof("Setting up BIG TCP")
-		tsoMax := probeTSOMaxSize()
-		if option.Config.EnableIPv4BIGTCP && haveIPv4 {
-			bigTCPConfig.groIPv4MaxSize = tsoMax
-			bigTCPConfig.gsoIPv4MaxSize = tsoMax
+		tsoMax := probeTSOMaxSize(devices)
+		if p.UserConfig.EnableIPv4BIGTCP && haveIPv4 {
+			p.Configuration.groIPv4MaxSize = tsoMax
+			p.Configuration.gsoIPv4MaxSize = tsoMax
 		}
-		if option.Config.EnableIPv6BIGTCP && haveIPv6 {
-			bigTCPConfig.groIPv6MaxSize = tsoMax
-			bigTCPConfig.gsoIPv6MaxSize = tsoMax
+		if p.UserConfig.EnableIPv6BIGTCP && haveIPv6 {
+			p.Configuration.groIPv6MaxSize = tsoMax
+			p.Configuration.gsoIPv6MaxSize = tsoMax
 		}
 		disableMsg = ", disabling BIG TCP"
 	}
 
-	bigv6 := option.Config.EnableIPv6BIGTCP
-	bigv4 := option.Config.EnableIPv4BIGTCP
+	bigv6 := p.UserConfig.EnableIPv6BIGTCP
+	bigv4 := p.UserConfig.EnableIPv4BIGTCP
 
 	modifiedDevices := []string{}
-	for _, device := range option.Config.GetDevices() {
+	for _, device := range devices {
 		// We always add the device because we might do only a partial
 		// modification and end up with an error, so best to be conservative
 		// and always reset all on error.
@@ -242,45 +303,45 @@ func InitBIGTCP(bigTCPConfig *Configuration) {
 		// isn't greater than 64KB. So it needs to set the IPv6 one first
 		// as otherwise the IPv4 BIG TCP value will be reset.
 		if haveIPv6 {
-			err = setGROGSOIPv6MaxSize(device,
-				bigTCPConfig.groIPv6MaxSize, bigTCPConfig.gsoIPv6MaxSize)
+			err = setGROGSOIPv6MaxSize(p.UserConfig, device,
+				p.Configuration.groIPv6MaxSize, p.Configuration.gsoIPv6MaxSize)
 			if err != nil {
 				log.WithError(err).WithField("device", device).Warnf("Could not modify IPv6 gro_max_size and gso_max_size%s",
 					disableMsg)
-				option.Config.EnableIPv4BIGTCP = false
-				option.Config.EnableIPv6BIGTCP = false
+				p.UserConfig.EnableIPv4BIGTCP = false
+				p.UserConfig.EnableIPv6BIGTCP = false
 				break
 			}
 			log.WithField("device", device).Infof("Setting IPv6 gso_max_size to %d and gro_max_size to %d",
-				bigTCPConfig.gsoIPv6MaxSize, bigTCPConfig.groIPv6MaxSize)
+				p.Configuration.gsoIPv6MaxSize, p.Configuration.groIPv6MaxSize)
 		}
 		if haveIPv4 {
-			err = setGROGSOIPv4MaxSize(device,
-				bigTCPConfig.groIPv4MaxSize, bigTCPConfig.gsoIPv4MaxSize)
+			err = setGROGSOIPv4MaxSize(p.UserConfig, device,
+				p.Configuration.groIPv4MaxSize, p.Configuration.gsoIPv4MaxSize)
 			if err != nil {
 				log.WithError(err).WithField("device", device).Warnf("Could not modify IPv4 gro_max_size and gso_max_size%s",
 					disableMsg)
-				option.Config.EnableIPv4BIGTCP = false
-				option.Config.EnableIPv6BIGTCP = false
+				p.UserConfig.EnableIPv4BIGTCP = false
+				p.UserConfig.EnableIPv6BIGTCP = false
 				break
 			}
 			log.WithField("device", device).Infof("Setting IPv4 gso_max_size to %d and gro_max_size to %d",
-				bigTCPConfig.gsoIPv4MaxSize, bigTCPConfig.groIPv4MaxSize)
+				p.Configuration.gsoIPv4MaxSize, p.Configuration.groIPv4MaxSize)
 		}
 	}
 
 	if err != nil {
 		if haveIPv4 {
-			bigTCPConfig.groIPv4MaxSize = defaultGROMaxSize
-			bigTCPConfig.gsoIPv4MaxSize = defaultGSOMaxSize
+			p.Configuration.groIPv4MaxSize = defaultGROMaxSize
+			p.Configuration.gsoIPv4MaxSize = defaultGSOMaxSize
 		}
 		if haveIPv6 {
-			bigTCPConfig.groIPv6MaxSize = defaultGROMaxSize
-			bigTCPConfig.gsoIPv6MaxSize = defaultGSOMaxSize
+			p.Configuration.groIPv6MaxSize = defaultGROMaxSize
+			p.Configuration.gsoIPv6MaxSize = defaultGSOMaxSize
 		}
 		for _, device := range modifiedDevices {
 			if bigv4 {
-				err = setGROGSOIPv4MaxSize(device,
+				err = setGROGSOIPv4MaxSize(p.UserConfig, device,
 					defaultGROMaxSize, defaultGSOMaxSize)
 				if err != nil {
 					log.WithError(err).WithField("device", device).Warn("Could not reset IPv4 gro_max_size and gso_max_size")
@@ -289,7 +350,7 @@ func InitBIGTCP(bigTCPConfig *Configuration) {
 				log.WithField("device", device).Info("Resetting IPv4 gso_max_size and gro_max_size")
 			}
 			if bigv6 {
-				err = setGROGSOIPv6MaxSize(device,
+				err = setGROGSOIPv6MaxSize(p.UserConfig, device,
 					defaultGROMaxSize, defaultGSOMaxSize)
 				if err != nil {
 					log.WithError(err).WithField("device", device).Warn("Could not reset IPv6 gro_max_size and gso_max_size")
@@ -299,4 +360,6 @@ func InitBIGTCP(bigTCPConfig *Configuration) {
 			}
 		}
 	}
+
+	return nil
 }

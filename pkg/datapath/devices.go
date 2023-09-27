@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
@@ -17,7 +18,7 @@ func newDevicesAccessor(
 	db *statedb.DB,
 	devices statedb.Table[*tables.Device],
 	localNode *node.LocalNodeStore,
-) *DevicesAccessor {
+) types.Devicer {
 	return &DevicesAccessor{db, devices, localNode}
 }
 
