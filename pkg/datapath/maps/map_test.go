@@ -10,6 +10,7 @@ import (
 	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -55,6 +56,10 @@ func newTestEPManager() *testEPManager {
 		removedPaths:    make([]string, 0),
 		removedMappings: make([]int, 0),
 	}
+}
+
+func newTestBWManager() *bandwidth.Manager {
+	return &bandwidth.Manager{}
 }
 
 func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
@@ -187,7 +192,8 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 	for _, tt := range testCases {
 		c.Log(tt.name)
 		testEPManager := newTestEPManager()
-		sweeper := NewMapSweeper(testEPManager)
+		bwManager := newTestBWManager()
+		sweeper := NewMapSweeper(testEPManager, bwManager)
 
 		for _, ep := range tt.endpoints {
 			testEPManager.addEndpoint(ep)

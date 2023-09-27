@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/link"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -76,6 +77,7 @@ type HeaderfileWriter struct {
 	log                logrus.FieldLogger
 	nodeExtraDefines   dpdef.Map
 	nodeExtraDefineFns []dpdef.Fn
+	bwmgr              *bandwidth.Manager
 }
 
 func NewHeaderfileWriter(p configWriterParams) (datapath.ConfigWriter, error) {
@@ -89,6 +91,7 @@ func NewHeaderfileWriter(p configWriterParams) (datapath.ConfigWriter, error) {
 		nodeExtraDefines:   merged,
 		nodeExtraDefineFns: p.NodeExtraDefineFns,
 		log:                p.Log,
+		bwmgr:              p.BandwidthManager,
 	}, nil
 }
 
@@ -603,11 +606,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
-	if option.Config.ResetQueueMapping {
+	if h.bwmgr.ResetQueues() {
 		cDefinesMap["RESET_QUEUES"] = "1"
 	}
 
-	if option.Config.EnableBandwidthManager {
+	if h.bwmgr.Enabled() {
 		cDefinesMap["ENABLE_BANDWIDTH_MANAGER"] = "1"
 		cDefinesMap["THROTTLE_MAP"] = bwmap.MapName
 		cDefinesMap["THROTTLE_MAP_SIZE"] = fmt.Sprintf("%d", bwmap.MapSize)

@@ -30,7 +30,6 @@ import (
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -935,8 +934,8 @@ func (e *Endpoint) deleteMaps() []error {
 	}
 
 	// Remove rate-limit from bandwidth manager map.
-	if e.bps != 0 && option.Config.EnableBandwidthManager {
-		if err := bwmap.Delete(e.ID); err != nil {
+	if e.bps != 0 {
+		if err := e.owner.Datapath().DeleteEndpointBandwidthLimit(e.ID); err != nil {
 			errors = append(errors, fmt.Errorf("unable to remote endpoint from bandwidth manager map: %s", err))
 		}
 	}

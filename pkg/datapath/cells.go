@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/l2responder"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	dpcfg "github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -71,6 +72,9 @@ var Cell = cell.Module(
 
 	// This cell provides the object used to write the headers for datapath program types.
 	dpcfg.Cell,
+
+	// The bandwidth manager provides efficient EDT-based rate-limiting (on Linux).
+	bandwidth.Cell,
 
 	cell.Provide(func(dp types.Datapath) types.NodeIDHandler {
 		return dp.NodeIDs()
