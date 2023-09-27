@@ -38,4 +38,5 @@ var Cell = cell.Module(
 	// This cell defines StateDB tables and their schemas for tables which are used to transfer information
 	// between datapath components and more high-level components.
 	tables.Cell,
+	tables.DeviceTableCell,
 )

@@ -573,7 +573,6 @@ func setBondMaster(iface string, master string) error {
 	defer netlink.LinkSetUp(link)
 	return netlink.LinkSetBondSlave(link, masterLink.(*netlink.Bond))
 }
-
 func addAddr(iface string, cidr string) error {
 	return addAddrScoped(iface, cidr, netlink.SCOPE_SITE)
 }

@@ -106,7 +106,7 @@ type DeviceAddress struct {
 }
 
 func (d *DeviceAddress) AsIP() net.IP {
-	return d.Addr.AsSlice()
+	return d.Addr.Unmap().AsSlice()
 }
 
 // SelectedDevices returns the external facing network devices to use for

@@ -4,160 +4,145 @@
 package linux
 
 import (
+	"context"
 	"net"
 
-	"github.com/vishvananda/netlink"
-
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
+	"golang.org/x/sys/unix"
 )
 
-// FIXME: This currently maps to the code in pkg/node/node_address.go. That
-// code should really move into this package.
-
-func listLocalAddresses(family int) ([]net.IP, error) {
-	var addresses []net.IP
-
-	ipsToExclude := node.GetExcludedIPs()
-	addrs, err := netlink.AddrList(nil, family)
-	if err != nil {
-		return nil, err
+func (a addressFamilyIPv4) Router() net.IP {
+	if n, err := a.localNode.Get(context.Background()); err == nil {
+		return n.GetCiliumInternalIP(false)
 	}
-
-	filteredIPs := filterLocalAddresses(addrs, ipsToExclude, option.Config.AddressScopeMax)
-	addresses = append(addresses, filteredIPs...)
-
-	// If AddressScopeMax is a scope more broad (numerically less than) than SCOPE_LINK then include
-	// all addresses at SCOPE_LINK which are assigned to the Cilium host device.
-	if option.Config.AddressScopeMax < int(netlink.SCOPE_LINK) {
-		if hostDevice, err := netlink.LinkByName(defaults.HostDevice); hostDevice != nil && err == nil {
-			addrs, err = netlink.AddrList(hostDevice, family)
-			if err != nil {
-				return nil, err
-			}
-			for _, addr := range addrs {
-				if addr.Scope == int(netlink.SCOPE_LINK) {
-					addresses = append(addresses, addr.IP)
-				}
-			}
-		}
-	}
-
-	return addresses, nil
+	return nil
 }
 
-func filterLocalAddresses(addrs []netlink.Addr, ipsToExclude []net.IP, addrScopeMax int) []net.IP {
-	var filteredIPs []net.IP
-	for _, addr := range addrs {
-		// This address is at a scope which is more narrow (numerically greater than) the configured
-		// max address scope. For example, if this addr is SCOPE_NOWHERE, and our addrScopeMax is
-		// SCOPE_LINK, then we do NOT treat the address as a local address. Similarly, if this addr
-		// is SCOPE_HOST, and our addrScopeMax is SCOPE_LINK, we do NOT treat the address as a local
-		// address.
-		if addr.Scope > addrScopeMax {
-			continue
-		}
-		if ip.ListContainsIP(ipsToExclude, addr.IP) {
-			continue
-		}
-		if addr.IP.IsLoopback() {
-			continue
-		}
-		filteredIPs = append(filteredIPs, addr.IP)
+func (a addressFamilyIPv4) PrimaryExternal() net.IP {
+	if n, err := a.localNode.Get(context.Background()); err == nil {
+		return n.GetNodeIP(false)
 	}
-	return filteredIPs
+	return nil
 }
 
-type addressFamilyIPv4 struct{}
-
-func (a *addressFamilyIPv4) Router() net.IP {
-	return node.GetInternalIPv4Router()
-}
-
-func (a *addressFamilyIPv4) PrimaryExternal() net.IP {
-	return node.GetIPv4()
-}
-
-func (a *addressFamilyIPv4) AllocationCIDR() *cidr.CIDR {
-	return node.GetIPv4AllocRange()
-}
-
-func (a *addressFamilyIPv4) LocalAddresses() ([]net.IP, error) {
-	addrs, err := listLocalAddresses(netlink.FAMILY_V4)
-
-	if err != nil {
-		return nil, err
+func (a addressFamilyIPv4) AllocationCIDR() *cidr.CIDR {
+	if n, err := a.localNode.Get(context.Background()); err == nil {
+		return n.IPv4AllocCIDR
 	}
+	return nil
+}
 
-	if externalAddress := node.GetK8sExternalIPv4(); externalAddress != nil {
-		addrs = append(addrs, externalAddress)
-	}
-
-	return addrs, nil
+func (a addressFamilyIPv4) LocalAddresses() (addrs []net.IP, err error) {
+	return a.getLocalAddresses(a.db.ReadTxn(), false)
 }
 
 // LoadBalancerNodeAddresses returns all IPv4 node addresses on which the
 // loadbalancer should implement HostPort and NodePort services.
-func (a *addressFamilyIPv4) LoadBalancerNodeAddresses() []net.IP {
-	addrs := node.GetNodePortIPv4Addrs()
+func (a addressFamilyIPv4) LoadBalancerNodeAddresses() []net.IP {
+	addrs := a.getExternalAddresses(a.db.ReadTxn(), false)
 	addrs = append(addrs, net.IPv4zero)
 	return addrs
 }
 
-type addressFamilyIPv6 struct{}
-
-func (a *addressFamilyIPv6) Router() net.IP {
-	return node.GetIPv6Router()
-}
-
-func (a *addressFamilyIPv6) PrimaryExternal() net.IP {
-	return node.GetIPv6()
-}
-
-func (a *addressFamilyIPv6) AllocationCIDR() *cidr.CIDR {
-	return node.GetIPv6AllocRange()
-}
-
-func (a *addressFamilyIPv6) LocalAddresses() ([]net.IP, error) {
-	addrs, err := listLocalAddresses(netlink.FAMILY_V6)
-
-	if err != nil {
-		return nil, err
+func (a addressFamilyIPv6) Router() net.IP {
+	if n, err := a.localNode.Get(context.Background()); err == nil {
+		return n.GetCiliumInternalIP(true)
 	}
+	return nil
+}
 
-	if externalAddress := node.GetK8sExternalIPv6(); externalAddress != nil {
-		addrs = append(addrs, externalAddress)
+func (a addressFamilyIPv6) PrimaryExternal() net.IP {
+	if n, err := a.localNode.Get(context.Background()); err == nil {
+		return n.GetNodeIP(true)
 	}
+	return nil
+}
 
-	return addrs, nil
+func (a addressFamilyIPv6) AllocationCIDR() *cidr.CIDR {
+	if n, err := a.localNode.Get(context.Background()); err == nil {
+		return n.IPv6AllocCIDR
+	}
+	return nil
+}
+
+func (a addressFamilyIPv6) LocalAddresses() ([]net.IP, error) {
+	return a.getLocalAddresses(a.db.ReadTxn(), true)
 }
 
 // LoadBalancerNodeAddresses returns all IPv6 node addresses on which the
 // loadbalancer should implement HostPort and NodePort services.
-func (a *addressFamilyIPv6) LoadBalancerNodeAddresses() []net.IP {
-	addrs := node.GetNodePortIPv6Addrs()
+func (a addressFamilyIPv6) LoadBalancerNodeAddresses() []net.IP {
+	addrs := a.getExternalAddresses(a.db.ReadTxn(), true)
 	addrs = append(addrs, net.IPv6zero)
 	return addrs
 }
 
 type linuxNodeAddressing struct {
-	ipv6 addressFamilyIPv6
-	ipv4 addressFamilyIPv4
+	localNode    *node.LocalNodeStore
+	db           *statedb.DB
+	devicesTable statedb.Table[*tables.Device]
 }
 
+func (na *linuxNodeAddressing) getExternalAddresses(txn statedb.ReadTxn, ipv6 bool) (addrs []net.IP) {
+	nativeDevs, _ := tables.SelectedDevices(na.devicesTable, txn)
+	for _, dev := range nativeDevs {
+		for _, addr := range dev.Addrs {
+			if ipv6 && addr.Addr.Is4() {
+				continue
+			}
+			if !ipv6 && !addr.Addr.Is4() {
+				continue
+			}
+			addrs = append(addrs, addr.AsIP())
+		}
+	}
+	return
+}
+
+func (na *linuxNodeAddressing) getLocalAddresses(txn statedb.ReadTxn, ipv6 bool) (addrs []net.IP, err error) {
+	// Collect the addresses of native external-facing network devices
+	addrs = na.getExternalAddresses(txn, ipv6)
+
+	// If AddressScopeMax is a scope more broad (numerically less than) than SCOPE_LINK then include
+	// all addresses at SCOPE_LINK which are assigned to the Cilium host device.
+	if option.Config.AddressScopeMax < unix.RT_SCOPE_LINK {
+		hostDev, _, ok := na.devicesTable.First(txn, tables.DeviceNameIndex.Query(defaults.HostDevice))
+		if ok {
+			for _, addr := range hostDev.Addrs {
+				if addr.Scope != unix.RT_SCOPE_LINK {
+					continue
+				}
+				if ipv6 && addr.Addr.Is4() {
+					continue
+				}
+				if !ipv6 && !addr.Addr.Is4() {
+					continue
+				}
+				addrs = append(addrs, addr.AsIP())
+			}
+		}
+	}
+	return addrs, nil
+}
+
+type addressFamilyIPv4 struct{ *linuxNodeAddressing }
+type addressFamilyIPv6 struct{ *linuxNodeAddressing }
+
 // NewNodeAddressing returns a new linux node addressing model
-func NewNodeAddressing() types.NodeAddressing {
-	return &linuxNodeAddressing{}
+func NewNodeAddressing(localNode *node.LocalNodeStore, db *statedb.DB, devicesTable statedb.Table[*tables.Device]) types.NodeAddressing {
+	return &linuxNodeAddressing{localNode: localNode, db: db, devicesTable: devicesTable}
 }
 
 func (n *linuxNodeAddressing) IPv6() types.NodeAddressingFamily {
-	return &n.ipv6
+	return addressFamilyIPv6{n}
 }
 
 func (n *linuxNodeAddressing) IPv4() types.NodeAddressingFamily {
-	return &n.ipv4
+	return addressFamilyIPv4{n}
 }

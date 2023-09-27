@@ -1,199 +1,104 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package linux
+package linux_test
 
 import (
+	"context"
 	"net"
-	"reflect"
+	"net/netip"
 	"testing"
 
+	"github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 )
 
-func TestFilterLocalAddresses(t *testing.T) {
+func setupDBAndDevices(t *testing.T) (db *statedb.DB, tbl statedb.RWTable[*tables.Device]) {
+	h := hive.New(
+		statedb.Cell,
+		tables.DeviceTableCell,
+		cell.Invoke(func(db_ *statedb.DB, tbl_ statedb.RWTable[*tables.Device]) {
+			db = db_
+			tbl = tbl_
+		}),
+	)
+	require.NoError(t, h.Start(context.TODO()), "Start")
+	t.Cleanup(func() {
+		h.Stop(context.TODO())
+	})
+	return
+}
+
+func TestLocalAddresses(t *testing.T) {
+	db, devices := setupDBAndDevices(t)
+	nodeAddressing := linux.NewNodeAddressing(nil, db, devices)
+
 	tests := []struct {
-		name         string
-		addrs        []netlink.Addr
-		ipsToExclude []net.IP
-		addrScopeMax int
-		want         []net.IP
+		name  string
+		addrs []tables.DeviceAddress
+		want  []net.IP
 	}{
 		{
 			name: "simple",
-			addrs: []netlink.Addr{
+			addrs: []tables.DeviceAddress{
 				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1")},
-					Scope: int(netlink.SCOPE_HOST),
+					Addr:  netip.MustParseAddr("10.0.0.1"),
+					Scope: uint8(netlink.SCOPE_HOST),
 				},
 			},
-			ipsToExclude: []net.IP{},
-			addrScopeMax: int(netlink.SCOPE_HOST),
 			want: []net.IP{
 				net.ParseIP("10.0.0.1"),
 			},
 		},
 		{
 			name: "multiple",
-			addrs: []netlink.Addr{
+			addrs: []tables.DeviceAddress{
 				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1")},
-					Scope: int(netlink.SCOPE_HOST),
+					Addr:  netip.MustParseAddr("10.0.0.1"),
+					Scope: uint8(netlink.SCOPE_HOST),
 				},
 				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.2")},
-					Scope: int(netlink.SCOPE_HOST),
+					Addr:  netip.MustParseAddr("10.0.0.2"),
+					Scope: uint8(netlink.SCOPE_LINK),
 				},
 			},
-			ipsToExclude: []net.IP{},
-			addrScopeMax: int(netlink.SCOPE_HOST),
+
 			want: []net.IP{
 				net.ParseIP("10.0.0.1"),
 				net.ParseIP("10.0.0.2"),
-			},
-		},
-		{
-			name: "scopeMaxLink",
-			addrs: []netlink.Addr{
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1")},
-					Scope: int(netlink.SCOPE_LINK),
-				},
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.2")},
-					Scope: int(netlink.SCOPE_HOST),
-				},
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.3")},
-					Scope: int(netlink.SCOPE_NOWHERE),
-				},
-			},
-			ipsToExclude: []net.IP{},
-			addrScopeMax: int(netlink.SCOPE_LINK),
-			want: []net.IP{
-				net.ParseIP("10.0.0.1"),
-			},
-		},
-		{
-			name: "scopeMaxHost",
-			addrs: []netlink.Addr{
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1")},
-					Scope: int(netlink.SCOPE_LINK),
-				},
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.2")},
-					Scope: int(netlink.SCOPE_HOST),
-				},
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.3")},
-					Scope: int(netlink.SCOPE_NOWHERE),
-				},
-			},
-			ipsToExclude: []net.IP{},
-			addrScopeMax: int(netlink.SCOPE_HOST),
-			want: []net.IP{
-				net.ParseIP("10.0.0.1"),
-				net.ParseIP("10.0.0.2"),
-			},
-		},
-		{
-			name: "scopeMaxNowhere",
-			addrs: []netlink.Addr{
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1")},
-					Scope: int(netlink.SCOPE_LINK),
-				},
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.2")},
-					Scope: int(netlink.SCOPE_HOST),
-				},
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.3")},
-					Scope: int(netlink.SCOPE_NOWHERE),
-				},
-			},
-			ipsToExclude: []net.IP{},
-			addrScopeMax: int(netlink.SCOPE_NOWHERE),
-			want: []net.IP{
-				net.ParseIP("10.0.0.1"),
-				net.ParseIP("10.0.0.2"),
-				net.ParseIP("10.0.0.3"),
-			},
-		},
-		{
-			name: "exclude",
-			addrs: []netlink.Addr{
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1")},
-					Scope: int(netlink.SCOPE_HOST),
-				},
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.2")},
-					Scope: int(netlink.SCOPE_HOST),
-				},
-			},
-			ipsToExclude: []net.IP{
-				net.ParseIP("10.0.0.2"),
-			},
-			addrScopeMax: int(netlink.SCOPE_HOST),
-			want: []net.IP{
-				net.ParseIP("10.0.0.1"),
-			},
-		},
-		{
-			name: "excludeMultiple",
-			addrs: []netlink.Addr{
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1")},
-					Scope: int(netlink.SCOPE_HOST),
-				},
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.2")},
-					Scope: int(netlink.SCOPE_HOST),
-				},
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.3")},
-					Scope: int(netlink.SCOPE_HOST),
-				},
-			},
-			ipsToExclude: []net.IP{
-				net.ParseIP("10.0.0.2"),
-				net.ParseIP("10.0.0.3"),
-			},
-			addrScopeMax: int(netlink.SCOPE_HOST),
-			want: []net.IP{
-				net.ParseIP("10.0.0.1"),
 			},
 		},
 		{
 			name: "ipv6 simple",
-			addrs: []netlink.Addr{
+			addrs: []tables.DeviceAddress{
 				{
-					IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::")},
-					Scope: int(netlink.SCOPE_HOST),
+					Addr:  netip.MustParseAddr("2001:db8::"),
+					Scope: uint8(netlink.SCOPE_HOST),
 				},
 			},
-			ipsToExclude: []net.IP{},
-			addrScopeMax: int(netlink.SCOPE_HOST),
+
 			want: []net.IP{
 				net.ParseIP("2001:db8::"),
 			},
 		},
 		{
 			name: "ipv6 multiple",
-			addrs: []netlink.Addr{
+			addrs: []tables.DeviceAddress{
 				{
-					IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::")},
-					Scope: int(netlink.SCOPE_HOST),
+					Addr:  netip.MustParseAddr("2001:db8::"),
+					Scope: uint8(netlink.SCOPE_HOST),
 				},
 				{
-					IPNet: &net.IPNet{IP: net.ParseIP("2600:beef::")},
-					Scope: int(netlink.SCOPE_HOST),
+					Addr:  netip.MustParseAddr("2600:beef::"),
+					Scope: uint8(netlink.SCOPE_HOST),
 				},
 			},
-			ipsToExclude: []net.IP{},
-			addrScopeMax: int(netlink.SCOPE_HOST),
+
 			want: []net.IP{
 				net.ParseIP("2001:db8::"),
 				net.ParseIP("2600:beef::"),
@@ -201,61 +106,39 @@ func TestFilterLocalAddresses(t *testing.T) {
 		},
 		{
 			name: "v4/v6 mix",
-			addrs: []netlink.Addr{
+			addrs: []tables.DeviceAddress{
 				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1")},
-					Scope: int(netlink.SCOPE_HOST),
+					Addr:  netip.MustParseAddr("10.0.0.1"),
+					Scope: uint8(netlink.SCOPE_HOST),
 				},
 				{
-					IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::")},
-					Scope: int(netlink.SCOPE_HOST),
+					Addr:  netip.MustParseAddr("2001:db8::"),
+					Scope: uint8(netlink.SCOPE_HOST),
 				},
 			},
-			ipsToExclude: []net.IP{},
-			addrScopeMax: int(netlink.SCOPE_HOST),
+
 			want: []net.IP{
 				net.ParseIP("10.0.0.1"),
 				net.ParseIP("2001:db8::"),
-			},
-		},
-		{
-			name: "v6 exclude",
-			addrs: []netlink.Addr{
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1")},
-					Scope: int(netlink.SCOPE_HOST),
-				},
-				{
-					IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::")},
-					Scope: int(netlink.SCOPE_HOST),
-				},
-			},
-			ipsToExclude: []net.IP{
-				net.ParseIP("2001:db8::"),
-			},
-			addrScopeMax: int(netlink.SCOPE_HOST),
-			want: []net.IP{
-				net.ParseIP("10.0.0.1"),
 			},
 		},
 		{
 			name: "include link-local v4",
-			addrs: []netlink.Addr{
+			addrs: []tables.DeviceAddress{
 				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1")},
-					Scope: int(netlink.SCOPE_HOST),
+					Addr:  netip.MustParseAddr("10.0.0.1"),
+					Scope: uint8(netlink.SCOPE_HOST),
 				},
 				{
-					IPNet: &net.IPNet{IP: net.ParseIP("169.254.20.10")},
-					Scope: int(netlink.SCOPE_HOST),
+					Addr:  netip.MustParseAddr("169.254.20.10"),
+					Scope: uint8(netlink.SCOPE_HOST),
 				},
 				{
-					IPNet: &net.IPNet{IP: net.ParseIP("169.254.169.254")},
-					Scope: int(netlink.SCOPE_HOST),
+					Addr:  netip.MustParseAddr("169.254.169.254"),
+					Scope: uint8(netlink.SCOPE_HOST),
 				},
 			},
-			ipsToExclude: []net.IP{},
-			addrScopeMax: int(netlink.SCOPE_HOST),
+
 			want: []net.IP{
 				net.ParseIP("10.0.0.1"),
 				net.ParseIP("169.254.20.10"),
@@ -264,22 +147,20 @@ func TestFilterLocalAddresses(t *testing.T) {
 		},
 		{
 			name: "include link-local v6",
-			addrs: []netlink.Addr{
+			addrs: []tables.DeviceAddress{
 				{
-					IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1")},
-					Scope: int(netlink.SCOPE_HOST),
+					Addr:  netip.MustParseAddr("10.0.0.1"),
+					Scope: uint8(netlink.SCOPE_HOST),
 				},
 				{
-					IPNet: &net.IPNet{IP: net.ParseIP("fe80::")},
-					Scope: int(netlink.SCOPE_HOST),
+					Addr:  netip.MustParseAddr("fe80::"),
+					Scope: uint8(netlink.SCOPE_HOST),
 				},
 				{
-					IPNet: &net.IPNet{IP: net.ParseIP("fe80::1234")},
-					Scope: int(netlink.SCOPE_HOST),
+					Addr:  netip.MustParseAddr("fe80::1234"),
+					Scope: uint8(netlink.SCOPE_HOST),
 				},
 			},
-			ipsToExclude: []net.IP{},
-			addrScopeMax: int(netlink.SCOPE_HOST),
 			want: []net.IP{
 				net.ParseIP("10.0.0.1"),
 				net.ParseIP("fe80::"),
@@ -290,11 +171,31 @@ func TestFilterLocalAddresses(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := filterLocalAddresses(tt.addrs, tt.ipsToExclude, tt.addrScopeMax)
+			txn := db.WriteTxn(devices)
+			devices.Insert(txn,
+				&tables.Device{
+					Name:     "test",
+					Selected: true,
+					Addrs:    tt.addrs,
+				})
+			txn.Commit()
 
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("filterLocalAddresses(): got = %v, want = %v", got, tt.want)
-			}
+			v4, err := nodeAddressing.IPv4().LocalAddresses()
+			require.NoError(t, err, "IPv4().LocalAddresses()")
+			v6, err := nodeAddressing.IPv6().LocalAddresses()
+			require.NoError(t, err, "IPv6().LocalAddresses()")
+			got := append(v4, v6...)
+
+			require.ElementsMatch(t, ipStrings(got), ipStrings(tt.want), "Addresses do not match")
 		})
 	}
+}
+
+// ipStrings converts net.IP to a string. Used to assert equalence without having to deal
+// with e.g. IPv4-mapped IPv6 presentation etc.
+func ipStrings(ips []net.IP) (ss []string) {
+	for i := range ips {
+		ss = append(ss, ips[i].String())
+	}
+	return
 }

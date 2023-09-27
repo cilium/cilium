@@ -55,6 +55,7 @@ var Cell = cell.Module(
 	cell.Provide(
 		newWireguardAgent,
 		newDatapath,
+		linuxdatapath.NewNodeAddressing,
 	),
 
 	// This cell periodically updates the agent liveness value in configmap.Map to inform
@@ -139,7 +140,16 @@ func newDatapath(params datapathParams) types.Datapath {
 			return nil
 		}})
 
-	datapath := linuxdatapath.NewDatapath(datapathConfig, iptablesManager, params.WgAgent, params.NodeMap, params.ConfigWriter)
+	datapath := linuxdatapath.NewDatapath(
+		linuxdatapath.DatapathParams{
+			WGAgent:        params.WgAgent,
+			RuleManager:    iptablesManager,
+			NodeAddressing: params.NodeAddressing,
+			NodeMap:        params.NodeMap,
+			Writer:         params.ConfigWriter,
+		},
+		datapathConfig,
+	)
 
 	params.LC.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
@@ -162,6 +172,8 @@ type datapathParams struct {
 	BpfMaps []bpf.BpfMap `group:"bpf-maps"`
 
 	NodeMap nodemap.Map
+
+	NodeAddressing types.NodeAddressing
 
 	// Depend on DeviceManager to ensure devices have been resolved.
 	// This is required until option.Config.GetDevices() has been removed and
