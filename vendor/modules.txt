@@ -3,8 +3,8 @@
 github.com/AdaLogics/go-fuzz-headers
 # github.com/Azure/azure-sdk-for-go v66.0.0+incompatible
 ## explicit
-github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute
-github.com/Azure/azure-sdk-for-go/services/network/mgmt/2020-11-01/network
+github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-08-01/compute
+github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-08-01/network
 github.com/Azure/azure-sdk-for-go/version
 # github.com/Azure/go-autorest v14.2.0+incompatible
 ## explicit
