@@ -53,6 +53,7 @@ var Cell = cell.Module(
 		newWireguardAgent,
 		newDatapath,
 		linuxdatapath.NewNodeAddressing,
+		newDevicesAccessor,
 	),
 
 	// This cell periodically updates the agent liveness value in configmap.Map to inform
