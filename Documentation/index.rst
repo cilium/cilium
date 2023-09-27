@@ -4,6 +4,12 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+Test
+====
+
+This is a broken link, on purpose, to test the link checker:
+`broken link <https://hello.cilium/I-am-a-broken-link>`__.
+
 Welcome to Cilium's documentation!
 ==================================
 
