@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/blang/semver/v4"
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -198,15 +199,7 @@ func parseBoolStatus(s string) bool {
 // extractFeaturesFromConfigMap extracts features from the Cilium ConfigMap.
 // Note that there is no rule regarding if the default value is reflected
 // in the ConfigMap or not.
-func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, client *k8s.Client, result FeatureSet) error {
-	cm, err := client.GetConfigMap(ctx, ct.params.CiliumNamespace, defaults.ConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
-	}
-	if cm.Data == nil {
-		return fmt.Errorf("ConfigMap %q does not contain any configuration", defaults.ConfigMapName)
-	}
-
+func (fs FeatureSet) extractFeaturesFromConfigMap(ciliumVersion semver.Version, cm *corev1.ConfigMap) {
 	// CNI chaining.
 	// Note: This value might be overwritten by extractFeaturesFromCiliumStatus
 	// if this information is present in `cilium status`
@@ -214,17 +207,17 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 	if v, ok := cm.Data["cni-chaining-mode"]; ok {
 		mode = v
 	}
-	result[FeatureCNIChaining] = FeatureStatus{
+	fs[FeatureCNIChaining] = FeatureStatus{
 		Enabled: mode != "none",
 		Mode:    mode,
 	}
 
-	if versioncheck.MustCompile("<1.14.0")(ct.CiliumVersion) {
+	if versioncheck.MustCompile("<1.14.0")(ciliumVersion) {
 		mode = "vxlan"
 		if v, ok := cm.Data["tunnel"]; ok {
 			mode = v
 		}
-		result[FeatureTunnel] = FeatureStatus{
+		fs[FeatureTunnel] = FeatureStatus{
 			Enabled: mode != "disabled",
 			Mode:    mode,
 		}
@@ -241,40 +234,38 @@ func (ct *ConnectivityTest) extractFeaturesFromConfigMap(ctx context.Context, cl
 			}
 		}
 
-		result[FeatureTunnel] = FeatureStatus{
+		fs[FeatureTunnel] = FeatureStatus{
 			Enabled: mode != "native",
 			Mode:    tunnelProto,
 		}
 	}
 
-	result[FeatureIPv4] = FeatureStatus{
+	fs[FeatureIPv4] = FeatureStatus{
 		Enabled: cm.Data["enable-ipv4"] == "true",
 	}
-	result[FeatureIPv6] = FeatureStatus{
+	fs[FeatureIPv6] = FeatureStatus{
 		Enabled: cm.Data["enable-ipv6"] == "true",
 	}
 
-	result[FeatureEndpointRoutes] = FeatureStatus{
+	fs[FeatureEndpointRoutes] = FeatureStatus{
 		Enabled: cm.Data["enable-endpoint-routes"] == "true",
 	}
 
-	result[FeatureAuthSpiffe] = FeatureStatus{
+	fs[FeatureAuthSpiffe] = FeatureStatus{
 		Enabled: cm.Data["mesh-auth-mutual-enabled"] == "true",
 	}
 
-	result[FeatureIngressController] = FeatureStatus{
+	fs[FeatureIngressController] = FeatureStatus{
 		Enabled: cm.Data["enable-ingress-controller"] == "true",
 	}
 
-	result[FeatureEgressGateway] = FeatureStatus{
+	fs[FeatureEgressGateway] = FeatureStatus{
 		Enabled: cm.Data["enable-ipv4-egress-gateway"] == "true",
 	}
 
-	result[FeatureCIDRMatchNodes] = FeatureStatus{
+	fs[FeatureCIDRMatchNodes] = FeatureStatus{
 		Enabled: strings.Contains(cm.Data["policy-cidr-match-mode"], "nodes"),
 	}
-
-	return nil
 }
 
 // extractFeaturesFromRuntimeConfig extracts features from the Cilium runtime config.
@@ -516,16 +507,20 @@ func (ct *ConnectivityTest) detectCiliumVersion(ctx context.Context) error {
 
 func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 	initialized := false
+	cm, err := ct.client.GetConfigMap(ctx, ct.params.CiliumNamespace, defaults.ConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to retrieve ConfigMap %q: %w", defaults.ConfigMapName, err)
+	}
+	if cm.Data == nil {
+		return fmt.Errorf("ConfigMap %q does not contain any configuration", defaults.ConfigMapName)
+	}
 	for _, ciliumPod := range ct.ciliumPods {
 		features := FeatureSet{}
 
 		// If unsure from which source to retrieve the information from,
 		// prefer "CiliumStatus" over "ConfigMap" over "RuntimeConfig".
 		// See the corresponding functions for more information.
-		err := ct.extractFeaturesFromConfigMap(ctx, ciliumPod.K8sClient, features)
-		if err != nil {
-			return err
-		}
+		ct.Features.extractFeaturesFromConfigMap(ct.CiliumVersion, cm)
 		err = ct.extractFeaturesFromRuntimeConfig(ctx, ciliumPod, features)
 		if err != nil {
 			return err
