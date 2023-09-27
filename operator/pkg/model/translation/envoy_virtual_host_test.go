@@ -153,11 +153,13 @@ func Test_pathPrefixMutation(t *testing.T) {
 		route := &envoy_config_route_v3.Route_Route{
 			Route: &envoy_config_route_v3.RouteAction{},
 		}
-		res := pathPrefixMutation(nil)(route)
+		res := pathPrefixMutation(nil, nil)(route)
 		require.Equal(t, route, res)
 	})
 
 	t.Run("with prefix rewrite", func(t *testing.T) {
+		httpRoute := model.HTTPRoute{}
+		httpRoute.PathMatch.Prefix = "/strip-prefix"
 		route := &envoy_config_route_v3.Route_Route{
 			Route: &envoy_config_route_v3.RouteAction{},
 		}
@@ -167,10 +169,12 @@ func Test_pathPrefixMutation(t *testing.T) {
 			},
 		}
 
-		res := pathPrefixMutation(rewrite)(route)
+		res := pathPrefixMutation(rewrite, &httpRoute)(route)
 		require.Equal(t, res.Route.PrefixRewrite, "/prefix")
 	})
 	t.Run("with empty prefix rewrite", func(t *testing.T) {
+		httpRoute := model.HTTPRoute{}
+		httpRoute.PathMatch.Prefix = "/strip-prefix"
 		route := &envoy_config_route_v3.Route_Route{
 			Route: &envoy_config_route_v3.RouteAction{},
 		}
@@ -180,8 +184,33 @@ func Test_pathPrefixMutation(t *testing.T) {
 			},
 		}
 
-		res := pathPrefixMutation(rewrite)(route)
-		require.Equal(t, res.Route.PrefixRewrite, "/")
+		res := pathPrefixMutation(rewrite, &httpRoute)(route)
+		require.EqualValues(t, &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+			Pattern: &envoy_type_matcher_v3.RegexMatcher{
+				Regex: "^" + httpRoute.PathMatch.Prefix,
+			},
+			Substitution: "",
+		}, res.Route.RegexRewrite)
+	})
+	t.Run("with slash prefix rewrite", func(t *testing.T) {
+		httpRoute := model.HTTPRoute{}
+		httpRoute.PathMatch.Prefix = "/strip-prefix"
+		route := &envoy_config_route_v3.Route_Route{
+			Route: &envoy_config_route_v3.RouteAction{},
+		}
+		rewrite := &model.HTTPURLRewriteFilter{
+			Path: &model.StringMatch{
+				Prefix: "/",
+			},
+		}
+
+		res := pathPrefixMutation(rewrite, &httpRoute)(route)
+		require.EqualValues(t, &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+			Pattern: &envoy_type_matcher_v3.RegexMatcher{
+				Regex: "^" + httpRoute.PathMatch.Prefix,
+			},
+			Substitution: "",
+		}, res.Route.RegexRewrite)
 	})
 }
 
