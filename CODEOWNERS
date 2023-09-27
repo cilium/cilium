@@ -388,7 +388,7 @@ Makefile* @cilium/build
 /pkg/aws/ @cilium/aws
 /pkg/azure/ @cilium/azure
 /pkg/backoff/ @cilium/sig-agent
-/pkg/bandwidth/ @cilium/sig-datapath
+/pkg/datapath/linux/bandwidth/ @cilium/sig-datapath
 /pkg/bgp/ @cilium/sig-bgp
 /pkg/bgpv1/ @cilium/sig-bgp
 /pkg/bpf/ @cilium/loader

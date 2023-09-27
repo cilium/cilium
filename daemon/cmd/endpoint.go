@@ -20,7 +20,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/bandwidth"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -434,7 +434,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 				}).Warningf("Endpoint has %s annotation which is unsupported. This annotation is ignored.",
 					bandwidth.IngressBandwidth)
 			}
-			if _, ok := annotations[bandwidth.EgressBandwidth]; ok && !option.Config.EnableBandwidthManager {
+			if _, ok := annotations[bandwidth.EgressBandwidth]; ok && !d.bwManager.Enabled() {
 				log.WithFields(logrus.Fields{
 					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
 					logfields.Annotations: logfields.Repr(annotations),
@@ -463,7 +463,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		// If there are labels, but no pod namespace, then it's
 		// likely that there are no k8s labels at all. Resolve.
 		if _, k8sLabelsConfigured := addLabels[k8sConst.PodNamespaceLabel]; !k8sLabelsConfigured {
-			ep.RunMetadataResolver(d.fetchK8sMetadataForEndpoint)
+			ep.RunMetadataResolver(d.bwManager, d.fetchK8sMetadataForEndpoint)
 		}
 	}
 
@@ -483,7 +483,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		// since the pod event handler would not find the endpoint for that pod
 		// in the endpoint manager. Thus, we will fetch the labels again
 		// and update the endpoint with these labels.
-		ep.RunMetadataResolver(d.fetchK8sMetadataForEndpoint)
+		ep.RunMetadataResolver(d.bwManager, d.fetchK8sMetadataForEndpoint)
 	} else {
 		regenTriggered = ep.UpdateLabels(ctx, addLabels, infoLabels, true)
 	}

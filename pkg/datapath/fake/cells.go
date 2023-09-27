@@ -5,6 +5,7 @@ package fake
 
 import (
 	"github.com/cilium/cilium/pkg/datapath/iptables"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -38,6 +39,7 @@ var Cell = cell.Module(
 		func() egressmap.PolicyMap { return nil },
 		func() *bigtcp.Configuration { return &bigtcp.Configuration{} },
 		func() *iptables.Manager { return &iptables.Manager{} },
+		func() bandwidth.Manager { return &BandwidthManager{} },
 
 		tables.NewDeviceTable, statedb.RWTable[*tables.Device].ToTable,
 		tables.NewL2AnnounceTable, statedb.RWTable[*tables.L2AnnounceEntry].ToTable,
