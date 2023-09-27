@@ -116,6 +116,42 @@ type BGPStandardCommunity string
 // +kubebuilder:validation:Pattern=`^([0-9]|[1-9][0-9]{1,8}|[1-3][0-9]{9}|4[01][0-9]{8}|42[0-8][0-9]{7}|429[0-3][0-9]{6}|4294[0-8][0-9]{5}|42949[0-5][0-9]{4}|429496[0-6][0-9]{3}|4294967[01][0-9]{2}|42949672[0-8][0-9]|429496729[0-5]):([0-9]|[1-9][0-9]{1,8}|[1-3][0-9]{9}|4[01][0-9]{8}|42[0-8][0-9]{7}|429[0-3][0-9]{6}|4294[0-8][0-9]{5}|42949[0-5][0-9]{4}|429496[0-6][0-9]{3}|4294967[01][0-9]{2}|42949672[0-8][0-9]|429496729[0-5]):([0-9]|[1-9][0-9]{1,8}|[1-3][0-9]{9}|4[01][0-9]{8}|42[0-8][0-9]{7}|429[0-3][0-9]{6}|4294[0-8][0-9]{5}|42949[0-5][0-9]{4}|429496[0-6][0-9]{3}|4294967[01][0-9]{2}|42949672[0-8][0-9]|429496729[0-5])$`
 type BGPLargeCommunity string
 
+// BGPExtendedCommunitySubType indicates a particular sub-type of BGPExtendedCommunity.
+// +kubebuilder:validation:Enum=RouteTarget;RouteOrigin;LinkBandwidth
+type BGPExtendedCommunitySubType string
+
+const (
+	// BGPExtendedCommunityRouteTarget defines the RouteTarget SubType of the BGPExtendedCommunity.
+	BGPExtendedCommunityRouteTarget BGPExtendedCommunitySubType = "RouteTarget"
+	// BGPExtendedCommunityRouteOrigin defines the RouteOrigin SubType of the BGPExtendedCommunity.
+	BGPExtendedCommunityRouteOrigin BGPExtendedCommunitySubType = "RouteOrigin"
+	// BGPExtendedCommunityLinkBandwidth defines the LinkBandwidth SubType of the BGPExtendedCommunity.
+	BGPExtendedCommunityLinkBandwidth BGPExtendedCommunitySubType = "LinkBandwidth"
+)
+
+// BGPExtendedCommunity type represents a value of the BGP Extended Communities Attribute (RFC 4360).
+type BGPExtendedCommunity struct {
+	// SubType indicates a particular sub-type of extended community.
+	//
+	// +kubebuilder:validation:Required
+	SubType BGPExtendedCommunitySubType `json:"subType"`
+
+	// Value holds the actual value of the extended community of the given sub-type.
+	// It can be represented in one the following formats:
+	//
+	// - Two-Octet AS Specific Extended Community: 2-byte decimal number + 4-byte decimal number separated by a colon.
+	//
+	// - Four-Octet AS-Specific Extended Community: two 2-byte decimal numbers separated by a dot + 2-byte decimal number separated by a colon.
+	//
+	// - IPv4-Address-Specific Extended Community: IPv4 address + 2-byte decimal number separated by a colon.
+	//
+	// - IPv6-Address-Specific Extended Community: IPv6 address + 2-byte decimal number separated by a colon.
+	//
+	// +kubebuilder:validation:Pattern=`^([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]):([0-9]|[1-9][0-9]{1,8}|[1-3][0-9]{9}|4[01][0-9]{8}|42[0-8][0-9]{7}|429[0-3][0-9]{6}|4294[0-8][0-9]{5}|42949[0-5][0-9]{4}|429496[0-6][0-9]{3}|4294967[01][0-9]{2}|42949672[0-8][0-9]|429496729[0-5])$|^([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])\.([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]):([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$|^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}:([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$|^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)):([0-9]|[1-9][0-9]{1,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$`
+	// +kubebuilder:validation:Required
+	Value string `json:"value"`
+}
+
 // BGPCommunities holds community values of the supported BGP community path attributes.
 type BGPCommunities struct {
 	// Standard holds a list of "standard" 32-bit BGP Communities Attribute (RFC 1997) values.
@@ -127,6 +163,11 @@ type BGPCommunities struct {
 	//
 	// +kubebuilder:validation:Optional
 	Large []BGPLargeCommunity `json:"large,omitempty"`
+
+	// Extended holds a list of the BGP Extended Community Attribute (RFC 4360) values.
+	//
+	// +kubebuilder:validation:Optional
+	Extended []BGPExtendedCommunity `json:"extended,omitempty"`
 }
 
 // CiliumBGPPathAttributes can be used to apply additional path attributes

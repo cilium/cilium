@@ -6,6 +6,7 @@ package gobgp
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	gobgp "github.com/osrg/gobgp/v3/api"
@@ -14,6 +15,13 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/logging"
+)
+
+const (
+	routeTargetPrefix   = "rt"
+	routeOriginPrefix   = "soo"
+	linkBandwidthPrefix = "lb"
 )
 
 // ToGoBGPPath converts the Agent Path type to the GoBGP Path type
@@ -169,6 +177,12 @@ func toGoBGPPolicyStatement(apiStatement *types.RoutePolicyStatement, name strin
 			Communities: apiStatement.Actions.AddLargeCommunities,
 		}
 	}
+	if len(apiStatement.Actions.AddExtendedCommunities) > 0 {
+		s.Actions.ExtCommunity = &gobgp.CommunityAction{
+			Type:        gobgp.CommunityAction_ADD,
+			Communities: toGoBGPExtendedCommunities(apiStatement.Actions.AddExtendedCommunities),
+		}
+	}
 
 	// local preference actions
 	if apiStatement.Actions.SetLocalPreference != nil {
@@ -221,4 +235,57 @@ func toGoBGPSoftResetDirection(direction types.SoftResetDirection) gobgp.ResetPe
 		return gobgp.ResetPeerRequest_OUT
 	}
 	return gobgp.ResetPeerRequest_BOTH
+}
+
+func toGoBGPExtendedCommunity(ec types.ExtendedCommunity) string {
+	var prefix string
+	switch ec.SubType {
+	case types.ExtendedCommunityRouteTarget:
+		prefix = routeTargetPrefix
+	case types.ExtendedCommunityRouteOrigin:
+		prefix = routeOriginPrefix
+	case types.ExtendedCommunityLinkBandwidth:
+		prefix = linkBandwidthPrefix
+	}
+	return prefix + ":" + ec.Value
+}
+
+func toAgentExtendedCommunity(ec string) (res types.ExtendedCommunity, err error) {
+	parts := strings.SplitN(ec, ":", 2)
+	if len(parts) < 2 {
+		return res, fmt.Errorf("invalid format of extended commnity (%s)", ec)
+	}
+	switch parts[0] {
+	case routeTargetPrefix:
+		res.SubType = types.ExtendedCommunityRouteTarget
+	case routeOriginPrefix:
+		res.SubType = types.ExtendedCommunityRouteOrigin
+	case linkBandwidthPrefix:
+		res.SubType = types.ExtendedCommunityLinkBandwidth
+	default:
+		return res, fmt.Errorf("unknown extended commnity prefix (%s)", parts[0])
+	}
+	res.Value = parts[1]
+	return res, nil
+}
+
+func toGoBGPExtendedCommunities(ecs []types.ExtendedCommunity) []string {
+	res := make([]string, 0, len(ecs))
+	for _, ec := range ecs {
+		res = append(res, toGoBGPExtendedCommunity(ec))
+	}
+	return res
+}
+
+func toAgentExtendedCommunities(ecs []string) []types.ExtendedCommunity {
+	res := make([]types.ExtendedCommunity, 0, len(ecs))
+	for _, ec := range ecs {
+		community, err := toAgentExtendedCommunity(ec)
+		if err != nil {
+			logging.DefaultLogger.WithError(err).Warn("Skipping invalid/unknown extended community value")
+		} else {
+			res = append(res, community)
+		}
+	}
+	return res
 }

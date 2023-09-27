@@ -51,7 +51,29 @@ func TestAddRemoveRoutePolicy(t *testing.T) {
 							RouteAction:         types.RoutePolicyActionNone,
 							AddCommunities:      []string{"65000:100"},
 							AddLargeCommunities: []string{"4294967295:0:100"},
-							SetLocalPreference:  pointer.Int64(150),
+							AddExtendedCommunities: []types.ExtendedCommunity{
+								{
+									SubType: types.ExtendedCommunityRouteTarget,
+									Value:   "65100:4294967295",
+								},
+								{
+									SubType: types.ExtendedCommunityRouteOrigin,
+									Value:   "65111.65222:999",
+								},
+								{
+									SubType: types.ExtendedCommunityRouteTarget,
+									Value:   "1.2.3.4:999",
+								},
+								{
+									SubType: types.ExtendedCommunityRouteTarget,
+									Value:   "ad92:54a3:c468:f8db:2e34:7f07:255c:8147:999",
+								},
+								{
+									SubType: types.ExtendedCommunityLinkBandwidth,
+									Value:   "65000:5000",
+								},
+							},
+							SetLocalPreference: pointer.Int64(150),
 						},
 					},
 				},
@@ -219,6 +241,10 @@ func TestAddRemoveRoutePolicy(t *testing.T) {
 					if len(expStmt.Actions.AddLargeCommunities) > 0 {
 						require.NotNil(t, stmt.Actions.LargeCommunity)
 						require.Equal(t, expStmt.Actions.AddLargeCommunities, stmt.Actions.LargeCommunity.Communities)
+					}
+					if len(expStmt.Actions.AddExtendedCommunities) > 0 {
+						require.NotNil(t, stmt.Actions.ExtCommunity)
+						require.Equal(t, expStmt.Actions.AddExtendedCommunities, toAgentExtendedCommunities(stmt.Actions.ExtCommunity.Communities))
 					}
 					if expStmt.Actions.SetLocalPreference != nil {
 						require.NotNil(t, stmt.Actions.LocalPref)

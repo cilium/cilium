@@ -115,6 +115,25 @@ const (
 	RoutePolicyActionReject
 )
 
+// ExtendedCommunitySubType defines a particular sub-type of extended community.
+type ExtendedCommunitySubType int
+
+const (
+	ExtendedCommunityRouteTarget ExtendedCommunitySubType = iota
+	ExtendedCommunityRouteOrigin
+	ExtendedCommunityLinkBandwidth
+)
+
+// ExtendedCommunity type represents a value of the BGP Extended Communities Attribute (RFC 4360).
+//
+// +deepequal-gen=true
+type ExtendedCommunity struct {
+	// SubType indicates a particular sub-type of the extended community.
+	SubType ExtendedCommunitySubType
+	// Value holds the actual value of the extended community of the given sub-type.
+	Value string
+}
+
 // RoutePolicyActions define policy actions taken on route matched by a routing policy.
 //
 // +deepequal-gen=true
@@ -125,8 +144,11 @@ type RoutePolicyActions struct {
 	// If empty, no communities will be added.
 	AddCommunities []string
 	// AddCommunities defines a list of BGP large community values to be added to the matched route.
-	// If empty, no communities will be added.
+	// If empty, no large communities will be added.
 	AddLargeCommunities []string
+	// AddExtendedCommunities defines a lost of extended community values to be added to the matched route.
+	// If empty, no extended communities will be added.
+	AddExtendedCommunities []ExtendedCommunity
 	// SetLocalPreference define a BGP local preference value to be set on the matched route.
 	// If nil, no local preference is set.
 	SetLocalPreference *int64

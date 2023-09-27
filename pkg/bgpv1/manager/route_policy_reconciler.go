@@ -231,6 +231,7 @@ func (r *RoutePolicyReconciler) pathAttributesToPolicy(attrs v2alpha1api.CiliumB
 
 	// sort communities to have consistent order for DeepEqual
 	var communities, largeCommunities []string
+	var extCommunities []types.ExtendedCommunity
 	if attrs.Communities != nil {
 		for _, c := range attrs.Communities.Standard {
 			communities = append(communities, string(c))
@@ -240,15 +241,28 @@ func (r *RoutePolicyReconciler) pathAttributesToPolicy(attrs v2alpha1api.CiliumB
 			largeCommunities = append(largeCommunities, string(c))
 		}
 		sort.Strings(largeCommunities)
+		for _, c := range attrs.Communities.Extended {
+			extCommunities = append(extCommunities, apiToAgentExtendedCommunity(c))
+		}
+		sort.Slice(extCommunities, func(i, j int) bool {
+			return extCommunities[i].SubType < extCommunities[j].SubType ||
+				(extCommunities[i].SubType == extCommunities[j].SubType && extCommunities[i].Value < extCommunities[j].Value)
+		})
 	}
 
 	// Due to a GoBGP limitation, we need to generate a separate statement for v4 and v6 prefixes, as families
 	// can not be mixed in a single statement. Nevertheless, they can be both part of the same Policy.
+	actions := policyActions{
+		setLocalPref:        attrs.LocalPreference,
+		setCommunities:      communities,
+		setLargeCommunities: largeCommunities,
+		setExtCommunities:   extCommunities,
+	}
 	if len(v4Prefixes) > 0 {
-		policy.Statements = append(policy.Statements, policyStatement(neighborAddress, v4Prefixes, attrs.LocalPreference, communities, largeCommunities))
+		policy.Statements = append(policy.Statements, policyStatement(neighborAddress, v4Prefixes, actions))
 	}
 	if len(v6Prefixes) > 0 {
-		policy.Statements = append(policy.Statements, policyStatement(neighborAddress, v6Prefixes, attrs.LocalPreference, communities, largeCommunities))
+		policy.Statements = append(policy.Statements, policyStatement(neighborAddress, v6Prefixes, actions))
 	}
 	return policy, nil
 }
@@ -268,17 +282,25 @@ func pathAttributesPolicyName(attrs v2alpha1api.CiliumBGPPathAttributes, neighbo
 	return res
 }
 
-func policyStatement(neighborAddr string, prefixes []*types.RoutePolicyPrefixMatch, localPref *int64, communities, largeCommunities []string) *types.RoutePolicyStatement {
+type policyActions struct {
+	setLocalPref        *int64
+	setCommunities      []string
+	setLargeCommunities []string
+	setExtCommunities   []types.ExtendedCommunity
+}
+
+func policyStatement(neighborAddr string, prefixes []*types.RoutePolicyPrefixMatch, actions policyActions) *types.RoutePolicyStatement {
 	return &types.RoutePolicyStatement{
 		Conditions: types.RoutePolicyConditions{
 			MatchNeighbors: []string{neighborAddr},
 			MatchPrefixes:  prefixes,
 		},
 		Actions: types.RoutePolicyActions{
-			RouteAction:         types.RoutePolicyActionNone, // continue with the processing of the next statements / policies
-			SetLocalPreference:  localPref,
-			AddCommunities:      communities,
-			AddLargeCommunities: largeCommunities,
+			RouteAction:            types.RoutePolicyActionNone, // continue with the processing of the next statements / policies
+			SetLocalPreference:     actions.setLocalPref,
+			AddCommunities:         actions.setCommunities,
+			AddLargeCommunities:    actions.setLargeCommunities,
+			AddExtendedCommunities: actions.setExtCommunities,
 		},
 	}
 }
@@ -294,4 +316,19 @@ func peerAddressFromPolicy(p *types.RoutePolicy) string {
 		}
 	}
 	return ""
+}
+
+func apiToAgentExtendedCommunity(c v2alpha1api.BGPExtendedCommunity) types.ExtendedCommunity {
+	res := types.ExtendedCommunity{
+		Value: c.Value,
+	}
+	switch c.SubType {
+	case "RouteTarget":
+		res.SubType = types.ExtendedCommunityRouteTarget
+	case "RouteOrigin":
+		res.SubType = types.ExtendedCommunityRouteOrigin
+	case "LinkBandwidth":
+		res.SubType = types.ExtendedCommunityLinkBandwidth
+	}
+	return res
 }

@@ -59,6 +59,10 @@ var (
 
 	largeCommunity = "64125:4294967295:100"
 
+	extendedCommunityRT = "1.2.3.4:999"
+	extendedCommunityRO = "65111.65222:999"
+	extendedCommunityLB = "65100:5000"
+
 	attrSelectPool = v2alpha1api.CiliumBGPPathAttributes{
 		SelectorType: v2alpha1api.CiliumLoadBalancerIPPoolSelectorName,
 		Selector: &slimv1.LabelSelector{
@@ -69,6 +73,11 @@ var (
 		Communities: &v2alpha1api.BGPCommunities{
 			Standard: []v2alpha1api.BGPStandardCommunity{v2alpha1api.BGPStandardCommunity(standardCommunity)},
 			Large:    []v2alpha1api.BGPLargeCommunity{v2alpha1api.BGPLargeCommunity(largeCommunity)},
+			Extended: []v2alpha1api.BGPExtendedCommunity{
+				{SubType: v2alpha1api.BGPExtendedCommunityRouteTarget, Value: extendedCommunityRT},
+				{SubType: v2alpha1api.BGPExtendedCommunityRouteOrigin, Value: extendedCommunityRO},
+				{SubType: v2alpha1api.BGPExtendedCommunityLinkBandwidth, Value: extendedCommunityLB},
+			},
 		},
 	}
 
@@ -149,6 +158,11 @@ func TestRoutePolicyReconciler(t *testing.T) {
 									RouteAction:         types.RoutePolicyActionNone,
 									AddCommunities:      []string{standardCommunity},
 									AddLargeCommunities: []string{largeCommunity},
+									AddExtendedCommunities: []types.ExtendedCommunity{
+										{SubType: types.ExtendedCommunityRouteTarget, Value: extendedCommunityRT},
+										{SubType: types.ExtendedCommunityRouteOrigin, Value: extendedCommunityRO},
+										{SubType: types.ExtendedCommunityLinkBandwidth, Value: extendedCommunityLB},
+									},
 								},
 							},
 						},
@@ -213,6 +227,11 @@ func TestRoutePolicyReconciler(t *testing.T) {
 									RouteAction:         types.RoutePolicyActionNone,
 									AddCommunities:      []string{standardCommunity},
 									AddLargeCommunities: []string{largeCommunity},
+									AddExtendedCommunities: []types.ExtendedCommunity{
+										{SubType: types.ExtendedCommunityRouteTarget, Value: extendedCommunityRT},
+										{SubType: types.ExtendedCommunityRouteOrigin, Value: extendedCommunityRO},
+										{SubType: types.ExtendedCommunityLinkBandwidth, Value: extendedCommunityLB},
+									},
 								},
 							},
 						},
@@ -251,6 +270,11 @@ func TestRoutePolicyReconciler(t *testing.T) {
 									RouteAction:         types.RoutePolicyActionNone,
 									AddCommunities:      []string{standardCommunity},
 									AddLargeCommunities: []string{largeCommunity},
+									AddExtendedCommunities: []types.ExtendedCommunity{
+										{SubType: types.ExtendedCommunityRouteTarget, Value: extendedCommunityRT},
+										{SubType: types.ExtendedCommunityRouteOrigin, Value: extendedCommunityRO},
+										{SubType: types.ExtendedCommunityLinkBandwidth, Value: extendedCommunityLB},
+									},
 								},
 							},
 						},
