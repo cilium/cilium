@@ -4,12 +4,20 @@
 package statedb
 
 import (
+	"context"
 	"math/rand"
+	"sort"
 	"testing"
+	"time"
 
 	iradix "github.com/hashicorp/go-immutable-radix/v2"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/statedb/index"
 )
 
@@ -225,4 +233,121 @@ func BenchmarkDB_FullIteration(b *testing.B) {
 		require.Equal(b, obj.ID, i)
 		i++
 	}
+}
+
+type testObject2 testObject
+
+var (
+	id2Index = Index[testObject2, uint64]{
+		Name: "id",
+		FromObject: func(t testObject2) index.KeySet {
+			return index.NewKeySet(index.Uint64(t.ID))
+		},
+		FromKey: func(n uint64) []byte {
+			return index.Uint64(n)
+		},
+		Unique: true,
+	}
+)
+
+func closedWatchChannel() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+
+// BenchmarkDB_PropagationDelay tests the propagation delay when changes from one
+// table are propagated to another.
+func BenchmarkDB_PropagationDelay(b *testing.B) {
+	const batchSize = 10
+
+	var (
+		db     *DB
+		table1 RWTable[testObject]
+		table2 RWTable[testObject2]
+	)
+
+	logging.SetLogLevel(logrus.ErrorLevel)
+
+	h := hive.New(
+		Cell, // DB
+		NewTableCell[testObject](
+			"test",
+			idIndex,
+		),
+		NewTableCell[testObject2](
+			"test2",
+			id2Index,
+		),
+		cell.Invoke(func(db_ *DB, table1_ RWTable[testObject], table2_ RWTable[testObject2]) {
+			db = db_
+			table1 = table1_
+			table2 = table2_
+		}),
+	)
+
+	require.NoError(b, h.Start(context.TODO()))
+	b.Cleanup(func() {
+		assert.NoError(b, h.Stop(context.TODO()))
+		logging.SetLogLevel(logrus.InfoLevel)
+	})
+
+	b.ResetTimer()
+
+	var (
+		revision = Revision(0)
+		watch1   = closedWatchChannel()
+	)
+
+	samples := []time.Duration{}
+
+	// Test the propagation delay for microbatch
+	// Doing b.N/batchSize rounds to get per-object cost versus per
+	// batch cost.
+	for i := 0; i < b.N/batchSize; i++ {
+		start := time.Now()
+
+		// Commit a batch to the first table.
+		wtxn := db.WriteTxn(table1)
+		for i := 0; i < batchSize; i++ {
+			table1.Insert(wtxn, testObject{ID: uint64(i), Tags: nil})
+		}
+		wtxn.Commit()
+
+		// Wait for the trigger
+		<-watch1
+
+		// Grab a watch channel on the second table
+		txn := db.ReadTxn()
+		_, watch2 := table2.All(txn)
+
+		// Propagate the batch from first table to the second table
+		var iter Iterator[testObject]
+		iter, watch1 = table1.LowerBound(txn, ByRevision[testObject](revision))
+		wtxn = db.WriteTxn(table2)
+		for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
+			table2.Insert(wtxn, testObject2(obj))
+		}
+		wtxn.Commit()
+		revision = table1.Revision(txn)
+
+		// Wait for trigger on second table
+		<-watch2
+
+		samples = append(samples, time.Since(start))
+	}
+	b.StopTimer()
+
+	if len(samples) > 100 {
+		sort.Slice(samples,
+			func(i, j int) bool {
+				return samples[i] < samples[j]
+			})
+		b.Logf("Propagation delay (N: %d) 50p: %s, 90p: %s, 99p: %s",
+			b.N,
+			samples[len(samples)/2],
+			samples[len(samples)*9/10],
+			samples[len(samples)*99/100])
+	}
+
 }
