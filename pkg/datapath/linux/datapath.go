@@ -4,6 +4,7 @@
 package linux
 
 import (
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
@@ -31,6 +32,7 @@ type linuxDatapath struct {
 	loader         *loader.Loader
 	wgAgent        datapath.WireguardAgent
 	lbmap          datapath.LBMap
+	bwmgr          bandwidth.Manager
 }
 
 type DatapathParams struct {
@@ -38,6 +40,7 @@ type DatapathParams struct {
 	RuleManager  datapath.IptablesManager
 	WGAgent      datapath.WireguardAgent
 	NodeMap      nodemap.Map
+	BWManager    bandwidth.Manager
 }
 
 // NewDatapath creates a new Linux datapath
@@ -50,6 +53,7 @@ func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath 
 		loader:          loader.NewLoader(),
 		wgAgent:         p.WGAgent,
 		lbmap:           lbmap.New(),
+		bwmgr:           p.BWManager,
 	}
 
 	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap)
@@ -93,4 +97,12 @@ func (l *linuxDatapath) Procfs() string {
 
 func (l *linuxDatapath) LBMap() datapath.LBMap {
 	return l.lbmap
+}
+
+func (l *linuxDatapath) BandwidthManager() bandwidth.Manager {
+	return l.bwmgr
+}
+
+func (l *linuxDatapath) DeleteEndpointBandwidthLimit(epID uint16) error {
+	return l.bwmgr.DeleteEndpointBandwidthLimit(epID)
 }

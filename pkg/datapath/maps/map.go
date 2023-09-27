@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
@@ -44,13 +45,15 @@ type endpointManager interface {
 // exists.
 type MapSweeper struct {
 	endpointManager
+	bwManager bandwidth.Manager
 }
 
 // NewMapSweeper creates an object that walks map paths and garbage-collects
 // them.
-func NewMapSweeper(g endpointManager) *MapSweeper {
+func NewMapSweeper(g endpointManager, bwm bandwidth.Manager) *MapSweeper {
 	return &MapSweeper{
 		endpointManager: g,
+		bwManager:       bwm,
 	}
 }
 
@@ -184,7 +187,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, "cilium_ipv4_frag_datagrams")
 	}
 
-	if !option.Config.EnableBandwidthManager {
+	if !ms.bwManager.Enabled() {
 		maps = append(maps, "cilium_throttle")
 	}
 

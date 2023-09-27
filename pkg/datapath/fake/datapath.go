@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -117,6 +118,10 @@ func (f *FakeDatapath) LBMap() datapath.LBMap {
 
 func (f *FakeDatapath) LBMockMap() *mockmaps.LBMockMap {
 	return f.lbmap
+}
+
+func (f *FakeDatapath) BandwidthManager() bandwidth.Manager {
+	return &BandwidthManager{}
 }
 
 // Loader is an interface to abstract out loading of datapath programs.
