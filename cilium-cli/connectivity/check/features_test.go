@@ -3,7 +3,13 @@
 
 package check
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/blang/semver/v4"
+	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+)
 
 func TestFeatureSetMatchRequirements(t *testing.T) {
 	features := FeatureSet{}
@@ -50,4 +56,26 @@ func TestFeatureSetMatchRequirements(t *testing.T) {
 	if matches {
 		t.Errorf("features %v unexpectedly matched feature %v with mode %v", features, FeatureCNIChaining, cniMode)
 	}
+}
+
+func TestFeatureSet_extractFeaturesFromConfigMap(t *testing.T) {
+	fs := FeatureSet{}
+	ciliumVersion := semver.Version{Major: 1, Minor: 14, Patch: 0}
+	cm := corev1.ConfigMap{}
+	fs.extractFeaturesFromConfigMap(ciliumVersion, &cm)
+	cm.Data = map[string]string{
+		"enable-ipv4":                "true",
+		"enable-ipv6":                "true",
+		"routing-mode":               "tunnel",
+		"tunnel-protocol":            "geneve",
+		"mesh-auth-mutual-enabled":   "true",
+		"enable-ipv4-egress-gateway": "true",
+	}
+	fs.extractFeaturesFromConfigMap(ciliumVersion, &cm)
+	assert.True(t, fs[FeatureIPv4].Enabled)
+	assert.True(t, fs[FeatureIPv6].Enabled)
+	assert.True(t, fs[FeatureAuthSpiffe].Enabled)
+	assert.True(t, fs[FeatureEgressGateway].Enabled)
+	assert.True(t, fs[FeatureTunnel].Enabled)
+	assert.Equal(t, "geneve", fs[FeatureTunnel].Mode)
 }
