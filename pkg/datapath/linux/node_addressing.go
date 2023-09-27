@@ -4,21 +4,19 @@
 package linux
 
 import (
+	"context"
 	"net"
 
-	"github.com/vishvananda/netlink"
-
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/vishvananda/netlink"
 )
 
-// FIXME: This currently maps to the code in pkg/node/node_address.go. That
-// code should really move into this package.
-
+/* FIXME make sure devices table captures the peculiarities here
 func listLocalAddresses(family int) ([]net.IP, error) {
 	var addresses []net.IP
 
@@ -48,7 +46,7 @@ func listLocalAddresses(family int) ([]net.IP, error) {
 	}
 
 	return addresses, nil
-}
+}*/
 
 func filterLocalAddresses(addrs []netlink.Addr, ipsToExclude []net.IP, addrScopeMax int) []net.IP {
 	var filteredIPs []net.IP
@@ -72,92 +70,95 @@ func filterLocalAddresses(addrs []netlink.Addr, ipsToExclude []net.IP, addrScope
 	return filteredIPs
 }
 
-type addressFamilyIPv4 struct{}
-
 func (a *addressFamilyIPv4) Router() net.IP {
-	return node.GetInternalIPv4Router()
+	n, _ := a.localNode.Get(context.TODO())
+	return n.GetCiliumInternalIP(false)
 }
 
 func (a *addressFamilyIPv4) PrimaryExternal() net.IP {
-	return node.GetIPv4()
+	n, _ := a.localNode.Get(context.TODO())
+	return n.GetNodeIP(false)
 }
 
 func (a *addressFamilyIPv4) AllocationCIDR() *cidr.CIDR {
-	return node.GetIPv4AllocRange()
+	n, _ := a.localNode.Get(context.TODO())
+	return n.IPv4AllocCIDR
 }
 
-func (a *addressFamilyIPv4) LocalAddresses() ([]net.IP, error) {
-	addrs, err := listLocalAddresses(netlink.FAMILY_V4)
-
-	if err != nil {
-		return nil, err
+func (a *addressFamilyIPv4) LocalAddresses() (addrs []net.IP, err error) {
+	devs, _ := tables.SelectedDevices(a.devicesTable, a.db.ReadTxn())
+	for _, dev := range devs {
+		for _, addr := range dev.Addrs {
+			// TODO: Filter by scope?
+			if addr.Addr.Is4() {
+				addrs = append(addrs, addr.AsIP())
+			}
+		}
 	}
-
-	if externalAddress := node.GetK8sExternalIPv4(); externalAddress != nil {
-		addrs = append(addrs, externalAddress)
-	}
-
 	return addrs, nil
 }
 
 // LoadBalancerNodeAddresses returns all IPv4 node addresses on which the
 // loadbalancer should implement HostPort and NodePort services.
-func (a *addressFamilyIPv4) LoadBalancerNodeAddresses() []net.IP {
-	addrs := node.GetNodePortIPv4Addrs()
+func (a *addressFamilyIPv4) LoadBalancerNodeAddresses() (addrs []net.IP) {
+	addrs, _ = a.LocalAddresses()
 	addrs = append(addrs, net.IPv4zero)
 	return addrs
 }
 
-type addressFamilyIPv6 struct{}
-
 func (a *addressFamilyIPv6) Router() net.IP {
-	return node.GetIPv6Router()
+	n, _ := a.localNode.Get(context.TODO())
+	return n.GetCiliumInternalIP(true)
 }
 
 func (a *addressFamilyIPv6) PrimaryExternal() net.IP {
-	return node.GetIPv6()
+	n, _ := a.localNode.Get(context.TODO())
+	return n.GetNodeIP(true)
 }
 
 func (a *addressFamilyIPv6) AllocationCIDR() *cidr.CIDR {
-	return node.GetIPv6AllocRange()
+	n, _ := a.localNode.Get(context.TODO())
+	return n.IPv6AllocCIDR
 }
 
-func (a *addressFamilyIPv6) LocalAddresses() ([]net.IP, error) {
-	addrs, err := listLocalAddresses(netlink.FAMILY_V6)
-
-	if err != nil {
-		return nil, err
+func (a *addressFamilyIPv6) LocalAddresses() (addrs []net.IP, err error) {
+	devs, _ := tables.SelectedDevices(a.devicesTable, a.db.ReadTxn())
+	for _, dev := range devs {
+		for _, addr := range dev.Addrs {
+			if addr.Addr.Is6() {
+				addrs = append(addrs, addr.AsIP())
+			}
+		}
 	}
-
-	if externalAddress := node.GetK8sExternalIPv6(); externalAddress != nil {
-		addrs = append(addrs, externalAddress)
-	}
-
 	return addrs, nil
 }
 
 // LoadBalancerNodeAddresses returns all IPv6 node addresses on which the
 // loadbalancer should implement HostPort and NodePort services.
-func (a *addressFamilyIPv6) LoadBalancerNodeAddresses() []net.IP {
-	addrs := node.GetNodePortIPv6Addrs()
+func (a *addressFamilyIPv6) LoadBalancerNodeAddresses() (addrs []net.IP) {
+	addrs, _ = a.LocalAddresses()
 	addrs = append(addrs, net.IPv6zero)
 	return addrs
 }
 
 type linuxNodeAddressing struct {
-	ipv6 addressFamilyIPv6
-	ipv4 addressFamilyIPv4
+	localNode    *node.LocalNodeStore
+	db           *statedb.DB
+	devicesTable statedb.Table[*tables.Device]
 }
 
+type addressFamilyIPv4 linuxNodeAddressing
+type addressFamilyIPv6 linuxNodeAddressing
+
 // NewNodeAddressing returns a new linux node addressing model
-func NewNodeAddressing() types.NodeAddressing {
-	return &linuxNodeAddressing{}
+func NewNodeAddressing(localNode *node.LocalNodeStore, db *statedb.DB, devicesTable statedb.Table[*tables.Device]) types.NodeAddressing {
+	return &linuxNodeAddressing{localNode: localNode, db: db, devicesTable: devicesTable}
 }
 
 func (n *linuxNodeAddressing) IPv6() types.NodeAddressingFamily {
-	return &n.ipv6
+	return (*addressFamilyIPv4)(n)
 }
 
 func (n *linuxNodeAddressing) IPv4() types.NodeAddressingFamily {
-	return &n.ipv4
+	return (*addressFamilyIPv6)(n)
 }
