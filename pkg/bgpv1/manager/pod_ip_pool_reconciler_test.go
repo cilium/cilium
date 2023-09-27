@@ -44,6 +44,13 @@ func TestPodIPPoolReconciler(t *testing.T) {
 		},
 	}
 
+	nsNameSelector := slim_metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			podIPPoolNamespaceLabel: pool1.Namespace,
+			podIPPoolNameLabel:      pool1.Name,
+		},
+	}
+
 	pool2Key := resource.Key{Name: "pool-2", Namespace: "default"}
 	pool2 := &v2alpha1api.CiliumPodIPPool{
 		ObjectMeta: meta_v1.ObjectMeta{
@@ -91,6 +98,18 @@ func TestPodIPPoolReconciler(t *testing.T) {
 			poolSelector:  &blueSelector,
 			upsertedPools: []*v2alpha1api.CiliumPodIPPool{pool1},
 			updated:       map[resource.Key][]string{},
+		},
+		{
+			name: "match one ipv4 cidr from one pool using special purpose selector",
+			nodeAllocs: []ipamtypes.IPAMPoolAllocation{
+				{
+					Pool:  pool1.Name,
+					CIDRs: []ipamtypes.IPAMPodCIDR{"10.0.1.0/24"},
+				},
+			},
+			poolSelector:  &nsNameSelector,
+			upsertedPools: []*v2alpha1api.CiliumPodIPPool{pool1},
+			updated:       map[resource.Key][]string{pool1Key: {"10.0.1.0/24"}},
 		},
 		{
 			name: "match one ipv4 cidr from one pool",
