@@ -246,7 +246,7 @@ func envoyHTTPRoutes(httpRoutes []model.HTTPRoute, hostnames []string, hostNameS
 		if hRoutes[0].RequestRedirect != nil {
 			route.Action = getRouteRedirect(hRoutes[0].RequestRedirect, listenerPort)
 		} else {
-			route.Action = getRouteAction(backends, r.Rewrite, r.RequestMirror)
+			route.Action = getRouteAction(&r, backends, r.Rewrite, r.RequestMirror)
 		}
 		routes = append(routes, &route)
 		delete(matchBackendMap, r.GetMatchKey())
@@ -268,15 +268,23 @@ func hostRewriteMutation(rewrite *model.HTTPURLRewriteFilter) routeActionMutatio
 	}
 }
 
-func pathPrefixMutation(rewrite *model.HTTPURLRewriteFilter) routeActionMutation {
+func pathPrefixMutation(rewrite *model.HTTPURLRewriteFilter, httpRoute *model.HTTPRoute) routeActionMutation {
 	return func(route *envoy_config_route_v3.Route_Route) *envoy_config_route_v3.Route_Route {
-		if rewrite == nil || rewrite.Path == nil || len(rewrite.Path.Exact) != 0 || len(rewrite.Path.Regex) != 0 {
+		if rewrite == nil || rewrite.Path == nil || httpRoute == nil || len(rewrite.Path.Exact) != 0 || len(rewrite.Path.Regex) != 0 {
 			return route
 		}
-		if len(rewrite.Path.Prefix) == 0 {
-			// Refer to: https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io%2fv1beta1.HTTPPathModifier
-			// ReplacePrefix is allowed to be empty.
-			route.Route.PrefixRewrite = "/"
+
+		// Refer to: https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io%2fv1beta1.HTTPPathModifier
+		// ReplacePrefix is allowed to be empty.
+		if len(rewrite.Path.Prefix) == 0 || rewrite.Path.Prefix == "/" {
+
+			route.Route.RegexRewrite = &envoy_type_matcher_v3.RegexMatchAndSubstitute{
+				Pattern: &envoy_type_matcher_v3.RegexMatcher{
+					Regex: "^" + httpRoute.PathMatch.Prefix,
+				},
+				Substitution: "",
+			}
+
 		} else {
 			route.Route.PrefixRewrite = rewrite.Path.Prefix
 		}
@@ -313,12 +321,12 @@ func requestMirrorMutation(mirror *model.HTTPRequestMirror) routeActionMutation 
 	}
 }
 
-func getRouteAction(backends []model.Backend, rewrite *model.HTTPURLRewriteFilter, mirror *model.HTTPRequestMirror) *envoy_config_route_v3.Route_Route {
+func getRouteAction(route *model.HTTPRoute, backends []model.Backend, rewrite *model.HTTPURLRewriteFilter, mirror *model.HTTPRequestMirror) *envoy_config_route_v3.Route_Route {
 	var routeAction *envoy_config_route_v3.Route_Route
 
 	var mutators = []routeActionMutation{
 		hostRewriteMutation(rewrite),
-		pathPrefixMutation(rewrite),
+		pathPrefixMutation(rewrite, route),
 		pathFullReplaceMutation(rewrite),
 		requestMirrorMutation(mirror),
 	}
