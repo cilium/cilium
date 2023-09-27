@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/connectivity"
 
@@ -36,28 +37,31 @@ type PeerManager struct {
 	stop    chan struct{}
 	mu      lock.RWMutex
 	peers   map[string]*peer
+	metrics *PoolMetrics
 }
 
 // NewPeerManager creates a new manager that connects to a peer gRPC service to
 // manage peers and a connection to every peer's gRPC API.
-func NewPeerManager(options ...Option) (*PeerManager, error) {
+func NewPeerManager(registry prometheus.Registerer, options ...Option) (*PeerManager, error) {
 	opts := defaultOptions
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %v", err)
 		}
 	}
+	metrics := NewPoolMetrics(registry)
 	return &PeerManager{
 		peers:   make(map[string]*peer),
 		offline: make(chan string, 100),
 		stop:    make(chan struct{}),
 		opts:    opts,
+		metrics: metrics,
 	}, nil
 }
 
 // Start starts the manager.
 func (m *PeerManager) Start() {
-	m.wg.Add(2)
+	m.wg.Add(3)
 	go func() {
 		defer m.wg.Done()
 		m.watchNotifications()
@@ -65,6 +69,10 @@ func (m *PeerManager) Start() {
 	go func() {
 		defer m.wg.Done()
 		m.manageConnections()
+	}()
+	go func() {
+		defer m.wg.Done()
+		m.reportConnectionStatus()
 	}()
 }
 
@@ -182,6 +190,34 @@ func (m *PeerManager) manageConnections() {
 				}
 			}
 			m.mu.RUnlock()
+		}
+	}
+}
+
+func (m *PeerManager) reportConnectionStatus() {
+	connTimer, connTimerDone := inctimer.New()
+	defer connTimerDone()
+	for {
+		select {
+		case <-m.stop:
+			return
+		case <-connTimer.After(m.opts.connStatusInterval):
+			m.mu.RLock()
+			connStates := make(map[connectivity.State]uint32)
+			var nilConnPeersNum uint32 = 0
+			for _, p := range m.peers {
+				p.mu.Lock()
+				if p.conn == nil {
+					nilConnPeersNum++
+					p.mu.Unlock()
+					continue
+				}
+				state := p.conn.GetState()
+				connStates[state] = connStates[state] + 1
+				p.mu.Unlock()
+			}
+			m.mu.RUnlock()
+			m.metrics.ObservePeerConnectionStatus(connStates, nilConnPeersNum)
 		}
 	}
 }

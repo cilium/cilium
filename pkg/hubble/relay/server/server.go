@@ -86,6 +86,7 @@ func New(options ...Option) (*Server, error) {
 	}
 
 	pm, err := pool.NewPeerManager(
+		registry,
 		pool.WithPeerServiceAddress(opts.peerTarget),
 		pool.WithPeerClientBuilder(peerClientBuilder),
 		pool.WithClientConnBuilder(pool.GRPCClientConnBuilder{
