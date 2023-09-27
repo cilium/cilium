@@ -140,9 +140,9 @@ DOCS_PORT = 9081
 live-preview: builder-image ## Build and serve the documentation locally.
 	@echo "$$(tput setaf 2)Running at http://localhost:$(DOCS_PORT)$$(tput sgr0)"
 	$(QUIET)$(DOCKER_CTR) \
-		--publish $(DOCS_PORT):8000 \
+		--publish $(DOCS_PORT):$(DOCS_PORT) \
 			$(DOCS_BUILDER_IMG) \
-		sphinx-autobuild --open-browser --host 0.0.0.0 $(SPHINX_OPTS) --ignore *.swp -Q . _preview
+		sphinx-autobuild --open-browser --host 0.0.0.0 --port $(DOCS_PORT) $(SPHINX_OPTS) --ignore *.swp -Q . _preview
 
 ##@ Development
 
