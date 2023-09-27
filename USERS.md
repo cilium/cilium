@@ -449,6 +449,11 @@ Users (Alphabetically)
       L: https://planetscale.com/
       Q: @dctrwatson
 
+    * N: plusserver Kubernetes Engine (PSKE)
+      D: PSKE uses Cilium for multiple scenarios, for examples for managed Kubernetes clusters provided with Gardener Project across AWS and OpenStack.
+      U: CNI , Overlay Network, Network Policies
+      L: https://www.plusserver.com/en/product/managed-kubernetes/, https://github.com/gardener/gardener-extension-networking-cilium
+
     * N: Polar Signals
       D: Polar Signals uses Cilium as the CNI on its GKE dataplane v2 based clusters.
       U: Networking
