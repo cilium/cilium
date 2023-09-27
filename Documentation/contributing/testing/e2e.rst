@@ -142,12 +142,13 @@ Next, start a VM:
 
     $ lvh run --image ./images/kind_6.0.qcow2 --host-mount $GOPATH/src/github.com/cilium/ --daemonize -p 2222:22 --cpu=3 --mem=6G
 
+.. _test_cilium_on_lvh:
+
 Finally, you can SSH into the VM to start a K8s cluster, install Cilium, and finally run the connectivity tests:
 
 .. code-block:: shell-session
 
     $ ssh -p 2222 -o "StrictHostKeyChecking=no" root@localhost
-    # echo "nameserver 1.1.1.1" > /etc/resolv.conf
     # cd /host/cilium
     # git config --global --add safe.directory /host/cilium
     # ./contrib/scripts/kind.sh "" 3 "" "" "none" "dual"
@@ -166,3 +167,45 @@ To stop the VM, run from the host:
 .. code-block:: shell-session
 
     $ pkill qemu-system-x86
+
+Running tests in a VM with a custom kernel
+""""""""""""""""""""""""""""""""""""""""""
+
+It is possible to test Cilium on an LVH VM with a custom built Linux kernel (for example,
+for fast testing iterations when doing kernel development work for Cilium features).
+
+First, to configure and to build the kernel:
+
+.. code-block:: shell-session
+
+   $ git clone --depth=1 https://git.kernel.org/pub/scm/linux/kernel/git/bpf/bpf-next.git
+   $ cd bpf-next/
+
+   # configure kernel, so that it can be run in LVH VM:
+   $ git clone https://github.com/cilium/little-vm-helper-images
+   $ cat ../little-vm-helper-images/_data/kernels.json | \
+        jq -r '.common_opts.[] | (.[0])+" "+(.[1])' | \
+        xargs ./scripts/config
+
+   $ make -j$(nproc)
+
+Second, start the LVH VM with the custom kernel:
+
+.. code-block:: shell-session
+
+   $ lvh run --image ./images/kind_bpf-next.qcow2 \
+        --host-mount $(pwd) \
+        --kernel ./bpf-next/arch/x86_64/boot/bzImage \
+        --daemonize -p 2222:22 --cpu=3 --mem=6G \
+
+Third, SSH into the VM, and install the custom kernel modules (this step is no longer
+required once `little-vm-helper#117 <https://github.com/cilium/little-vm-helper/issues/117>`_
+has been resolved):
+
+.. code-block:: shell-session
+
+    $ ssh -p 2222 -o "StrictHostKeyChecking=no" root@localhost
+    # cd /host/bpf-next
+    # make modules_install
+
+Finally, you can use the instructions from :ref:`the previous chapter<test_cilium_on_lvh>` to run and to test Cilium.
