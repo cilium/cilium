@@ -26,6 +26,11 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+const (
+	podIPPoolNameLabel      = "io.cilium.podippool.name"
+	podIPPoolNamespaceLabel = "io.cilium.podippool.namespace"
+)
+
 type ReconcileParams struct {
 	CurrentServer *ServerWithConfig
 	DesiredConfig *v2alpha1api.CiliumBGPVirtualRouter
@@ -788,5 +793,7 @@ func podIPPoolLabelSet(pool *v2alpha1api.CiliumPodIPPool) labels.Labels {
 	if poolLabels == nil {
 		poolLabels = make(map[string]string)
 	}
+	poolLabels[podIPPoolNameLabel] = pool.Name
+	poolLabels[podIPPoolNamespaceLabel] = pool.Namespace
 	return labels.Set(poolLabels)
 }
