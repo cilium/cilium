@@ -13,7 +13,6 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/cilium/cilium/operator/metrics"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -40,6 +39,8 @@ type params struct {
 	Pods            resource.Resource[*slim_corev1.Pod]
 
 	SharedCfg SharedConfig
+
+	Metrics *Metrics
 }
 
 // GC represents the Cilium endpoints periodic and one-off GC.
@@ -55,6 +56,8 @@ type GC struct {
 	pods            resource.Resource[*slim_corev1.Pod]
 
 	mgr *controller.Manager
+
+	metrics *Metrics
 }
 
 func registerGC(p params) {
@@ -72,6 +75,7 @@ func registerGC(p params) {
 		ciliumEndpoints: p.CiliumEndpoints,
 		ciliumNodes:     p.CiliumNodes,
 		pods:            p.Pods,
+		metrics:         p.Metrics,
 	}
 	p.Lifecycle.Append(gc)
 }
@@ -254,12 +258,12 @@ func (g *GC) deleteCEP(cep *cilium_api_v2.CiliumEndpoint, scopedLog *logrus.Entr
 		})
 	switch {
 	case err == nil:
-		metrics.EndpointGCObjects.WithLabelValues(metrics.LabelValueOutcomeSuccess).Inc()
+		g.metrics.EndpointGCObjects.WithLabelValues(LabelValueOutcomeSuccess).Inc()
 	case k8serrors.IsNotFound(err), k8serrors.IsConflict(err):
 		scopedLog.WithError(err).Debug("Unable to delete CEP, will retry again")
 	default:
 		scopedLog.WithError(err).Warning("Unable to delete orphaned CEP")
-		metrics.EndpointGCObjects.WithLabelValues(metrics.LabelValueOutcomeFail).Inc()
+		g.metrics.EndpointGCObjects.WithLabelValues(LabelValueOutcomeFail).Inc()
 		return err
 	}
 	return nil

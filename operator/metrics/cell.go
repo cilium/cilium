@@ -23,9 +23,6 @@ var Cell = cell.Module(
 
 	cell.Config(defaultConfig),
 	cell.Invoke(registerMetricsManager),
-
-	// Operator legacy metrics accessed via global variables
-	cell.Metric(newLegacyMetrics),
 )
 
 // Config contains the configuration for the operator-metrics cell.

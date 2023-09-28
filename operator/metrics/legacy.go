@@ -8,8 +8,6 @@ import (
 	dto "github.com/prometheus/client_model/go"
 
 	"github.com/cilium/cilium/api/v1/operator/models"
-	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/metrics/metric"
 )
 
 // Registry is the global prometheus registry for cilium-operator metrics.
@@ -18,43 +16,6 @@ var Registry RegisterGatherer
 type RegisterGatherer interface {
 	prometheus.Registerer
 	prometheus.Gatherer
-}
-
-const (
-	// LabelOutcome indicates whether the outcome of the operation was successful or not
-	LabelOutcome = "outcome"
-
-	// Label values
-
-	// LabelValueOutcomeSuccess is used as a successful outcome of an operation
-	LabelValueOutcomeSuccess = "success"
-
-	// LabelValueOutcomeFail is used as an unsuccessful outcome of an operation
-	LabelValueOutcomeFail = "fail"
-)
-
-var (
-	// EndpointGCObjects records the number of times endpoint objects have been
-	// garbage-collected.
-	EndpointGCObjects = metrics.NoOpCounterVec
-)
-
-type legacyMetrics struct {
-	EndpointGCObjects metric.Vec[metric.Counter]
-}
-
-func newLegacyMetrics() *legacyMetrics {
-	lm := &legacyMetrics{
-		EndpointGCObjects: metric.NewCounterVec(metric.CounterOpts{
-			Namespace: metrics.CiliumOperatorNamespace,
-			Name:      "endpoint_gc_objects",
-			Help:      "The number of times endpoint objects have been garbage-collected",
-		}, []string{LabelOutcome}),
-	}
-
-	EndpointGCObjects = lm.EndpointGCObjects
-
-	return lm
 }
 
 // DumpMetrics gets the current Cilium operator metrics and dumps all into a
