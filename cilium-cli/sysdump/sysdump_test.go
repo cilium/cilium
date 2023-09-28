@@ -323,7 +323,7 @@ func (c *fakeClient) GetCiliumVersion(_ context.Context, _ *corev1.Pod) (*semver
 }
 
 func (c *fakeClient) GetConfigMap(_ context.Context, _, _ string, _ metav1.GetOptions) (*corev1.ConfigMap, error) {
-	panic("implement me")
+	return &corev1.ConfigMap{}, nil
 }
 
 func (c *fakeClient) GetDaemonSet(_ context.Context, _, _ string, _ metav1.GetOptions) (*appsv1.DaemonSet, error) {
@@ -481,7 +481,7 @@ func (c *fakeClient) ListNodes(_ context.Context, _ metav1.ListOptions) (*corev1
 }
 
 func (c *fakeClient) ListPods(_ context.Context, _ string, _ metav1.ListOptions) (*corev1.PodList, error) {
-	panic("implement me")
+	return &corev1.PodList{}, nil
 }
 
 func (c *fakeClient) ListServices(_ context.Context, _ string, _ metav1.ListOptions) (*corev1.ServiceList, error) {
