@@ -9,6 +9,9 @@ metadata:
     app.kubernetes.io/name: hubble
     app.kubernetes.io/part-of: cilium
   annotations:
+    {{- with .Values.hubble.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
     {{- with .Values.hubble.metrics.serviceAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

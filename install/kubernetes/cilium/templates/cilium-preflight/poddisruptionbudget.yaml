@@ -5,6 +5,10 @@ kind: PodDisruptionBudget
 metadata:
   name: cilium-pre-flight-check
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.preflight.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     k8s-app: cilium-pre-flight-check-deployment
     app.kubernetes.io/part-of: cilium

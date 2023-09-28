@@ -5,6 +5,10 @@ kind: Role
 metadata:
   name: cilium-config-agent
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
 rules:
@@ -26,6 +30,10 @@ kind: Role
 metadata:
   name: cilium-ingress-secrets
   namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
 rules:
@@ -46,6 +54,10 @@ kind: Role
 metadata:
   name: cilium-gateway-secrets
   namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
 rules:
@@ -66,6 +78,10 @@ kind: Role
 metadata:
   name: cilium-envoy-config-secrets
   namespace: {{ .Values.envoyConfig.secretsNamespace.name | quote }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
 rules:

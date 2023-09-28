@@ -4,6 +4,10 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Values.authentication.mutual.spire.install.agent.serviceAccount.name }}
+  {{- with .Values.authentication.mutual.spire.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 roleRef:
   kind: ClusterRole
   name: {{ .Values.authentication.mutual.spire.install.agent.serviceAccount.name }}

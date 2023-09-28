@@ -6,6 +6,10 @@ kind: DaemonSet
 metadata:
   name: cilium-envoy
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.envoy.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     k8s-app: cilium-envoy
     app.kubernetes.io/part-of: cilium

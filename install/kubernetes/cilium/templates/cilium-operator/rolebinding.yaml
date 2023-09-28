@@ -5,6 +5,10 @@ kind: RoleBinding
 metadata:
   name: cilium-operator-ingress-secrets
   namespace: {{ .Values.ingressController.secretsNamespace.name | quote }}
+  {{- with .Values.operator.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
 roleRef:
@@ -24,6 +28,10 @@ kind: RoleBinding
 metadata:
   name: cilium-operator-gateway-secrets
   namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+  {{- with .Values.operator.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
 roleRef:

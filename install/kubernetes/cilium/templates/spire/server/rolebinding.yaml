@@ -4,6 +4,10 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}
   namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+  {{- with .Values.authentication.mutual.spire.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -18,6 +22,10 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}-pod
   namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+  {{- with .Values.authentication.mutual.spire.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

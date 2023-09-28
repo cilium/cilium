@@ -4,6 +4,10 @@ kind: Deployment
 metadata:
   name: cilium-pre-flight-check
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.preflight.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     app.kubernetes.io/part-of: cilium
     app.kubernetes.io/name: cilium-pre-flight-check

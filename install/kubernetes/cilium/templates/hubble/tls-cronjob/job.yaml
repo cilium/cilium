@@ -14,5 +14,8 @@ metadata:
     {{- with .Values.certgen.annotations.job }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
+    {{- with .Values.hubble.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 {{ include "hubble-generate-certs.job.spec" . }}
 {{- end }}
