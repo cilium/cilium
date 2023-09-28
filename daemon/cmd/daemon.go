@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -176,7 +177,7 @@ type Daemon struct {
 	healthEndpointRouting *linuxrouting.RoutingInfo
 
 	linkCache      *link.LinkCache
-	hubbleObserver *observer.LocalObserverServer
+	hubbleObserver atomic.Pointer[observer.LocalObserverServer]
 
 	// endpointCreations is a map of all currently ongoing endpoint
 	// creation events
