@@ -94,7 +94,7 @@ func (k *K8sWatcher) addCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumClust
 		true,
 		k.envoyConfigManager,
 		len(ccec.Spec.Services) > 0,
-		!isIngressKind(&ccec.ObjectMeta),
+		!isCiliumIngress(&ccec.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumClusterwideEnvoyConfig: malformed Envoy config")
@@ -140,7 +140,7 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2.Ciliu
 		false,
 		k.envoyConfigManager,
 		len(oldCCEC.Spec.Services) > 0,
-		!isIngressKind(&oldCCEC.ObjectMeta),
+		!isCiliumIngress(&oldCCEC.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed old Envoy config")
@@ -153,7 +153,7 @@ func (k *K8sWatcher) updateCiliumClusterwideEnvoyConfig(oldCCEC *cilium_v2.Ciliu
 		true,
 		k.envoyConfigManager,
 		len(newCCEC.Spec.Services) > 0,
-		!isIngressKind(&newCCEC.ObjectMeta),
+		!isCiliumIngress(&newCCEC.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumClusterwideEnvoyConfig: malformed new Envoy config")
@@ -199,7 +199,7 @@ func (k *K8sWatcher) deleteCiliumClusterwideEnvoyConfig(ccec *cilium_v2.CiliumCl
 		false,
 		k.envoyConfigManager,
 		len(ccec.Spec.Services) > 0,
-		!isIngressKind(&ccec.ObjectMeta),
+		!isCiliumIngress(&ccec.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumClusterwideEnvoyConfig: parsing rersource names failed")
