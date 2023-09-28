@@ -444,7 +444,6 @@ data:
 {{- if .Values.gke.enabled }}
   routing-mode: "native"
   enable-endpoint-routes: "true"
-  enable-local-node-route: "false"
 {{- else if .Values.aksbyocni.enabled }}
   routing-mode: "tunnel"
   tunnel-protocol: "vxlan"
@@ -512,7 +511,6 @@ data:
 {{- if .Values.azure.enabled }}
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
-  enable-local-node-route: "false"
 {{- if .Values.azure.userAssignedIdentityID }}
   azure-user-assigned-identity-id: {{ .Values.azure.userAssignedIdentityID | quote }}
 {{- end }}

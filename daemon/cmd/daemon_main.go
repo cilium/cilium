@@ -1487,6 +1487,14 @@ func initEnv(vp *viper.Viper) {
 		}
 	}
 
+	if option.Config.EnableEndpointRoutes && option.Config.EnableLocalNodeRoute {
+		option.Config.EnableLocalNodeRoute = false
+		log.Debugf(
+			"Auto-set %q to `false` because it is redundant to per-endpoint routes (%s=true)",
+			option.EnableLocalNodeRoute, option.EnableEndpointRoutes,
+		)
+	}
+
 	if option.Config.IPAM == ipamOption.IPAMAzure {
 		option.Config.EgressMultiHomeIPRuleCompat = true
 		log.WithFields(logrus.Fields{
