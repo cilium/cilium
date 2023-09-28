@@ -135,7 +135,6 @@ jobs:
             --helm-set=autoDirectNodeRoutes=true \
             --helm-set=routingMode=native \
             --helm-set=endpointRoutes.enabled=true \
-            --helm-set-string=extraConfig.enable-local-node-route=false \
             --helm-set=kubeProxyReplacement=strict \
             --helm-set=bpf.masquerade=true \
             --helm-set=bpf.hostLegacyRouting=true\

@@ -326,6 +326,8 @@ Annotations:
   specify them as parameters.
   Generate the installation script using Cilium CLI >=v0.15.8 to automatically
   include these parameters.
+* ``enable-endpoint-routes`` now automatically sets ``enable-local-node-route``
+  to false, as local node routes are redundant when per-endpoint routes are enabled.
 
 .. _upgrade_cilium_cli_helm_mode:
 

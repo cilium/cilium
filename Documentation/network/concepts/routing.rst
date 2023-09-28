@@ -296,8 +296,7 @@ The following configuration options must be set to run the datapath on GKE:
   * ``ipam: kubernetes``: Enable :ref:`k8s_hostscope` IPAM
   * ``routing-mode: native``: Enable native routing mode
   * ``enable-endpoint-routes: true``: Enable per-endpoint routing on the node
-  * ``enable-local-node-route: false``: Disable installation of the local node route
-
+    (automatically disables the local node route).
 * ``ipv4-native-routing-cidr: x.x.x.x/y``: Set the CIDR in which native routing
   is supported.
 

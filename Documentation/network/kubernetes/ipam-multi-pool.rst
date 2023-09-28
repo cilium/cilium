@@ -28,7 +28,6 @@ Enable Multi-pool IPAM mode
    * ``--set autoDirectNodeRoutes=true``
    * ``--set ipv4NativeRoutingCIDR=10.0.0.0/8``
    * ``--set endpointRoutes.enabled=true``
-   * ``--set-string extraConfig.enable-local-node-route=false``
    * ``--set kubeProxyReplacement=true``
    * ``--set bpf.masquerade=true``
 
