@@ -147,6 +147,10 @@ type Collector struct {
 	allNodes *corev1.NodeList
 	// NodeList is a list of nodes to collect sysdump information from.
 	NodeList []string
+	// CiliumPods is a list of Cilium agent pods running on nodes in NodeList.
+	CiliumPods []*corev1.Pod
+	// CiliumConfigMap is a pointer to cilium-config ConfigMap.
+	CiliumConfigMap *corev1.ConfigMap
 	// additionalTasks keeps track of additional tasks added via AddTasks.
 	additionalTasks []Task
 }
@@ -242,6 +246,24 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 		return nil, fmt.Errorf("failed to build node list: %w", err)
 	}
 	c.logDebug("Restricting bugtool and logs collection to pods in %v", c.NodeList)
+
+	if c.Options.CiliumNamespace != "" {
+		ciliumPods, err := c.Client.ListPods(context.Background(), c.Options.CiliumNamespace, metav1.ListOptions{
+			LabelSelector: c.Options.CiliumLabelSelector,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Cilium pods: %w", err)
+		}
+		c.CiliumPods = FilterPods(ciliumPods, c.NodeList)
+
+		c.CiliumConfigMap, err = c.Client.GetConfigMap(context.Background(), c.Options.CiliumNamespace, ciliumConfigMapName, metav1.GetOptions{})
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, fmt.Errorf("failed to get %s ConfigMap: %w", ciliumConfigMapName, err)
+			}
+			c.log("ℹ️  %s ConfigMap not found in %s namespace", ciliumConfigMapName, c.Options.CiliumNamespace)
+		}
+	}
 
 	return &c, nil
 }
@@ -738,11 +760,10 @@ func (c *Collector) Run() error {
 			Description: "Collecting the Cilium configuration",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				v, err := c.Client.GetConfigMap(ctx, c.Options.CiliumNamespace, ciliumConfigMapName, metav1.GetOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect the Cilium configuration: %w", err)
+				if c.CiliumConfigMap == nil {
+					return nil
 				}
-				if err := c.WriteYAML(ciliumConfigMapFileName, v); err != nil {
+				if err := c.WriteYAML(ciliumConfigMapFileName, c.CiliumConfigMap); err != nil {
 					return fmt.Errorf("failed to collect the Cilium configuration: %w", err)
 				}
 				return nil
@@ -963,13 +984,7 @@ func (c *Collector) Run() error {
 			Description:     "Collecting the CNI configuration files from Cilium pods",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
-				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
-					LabelSelector: c.Options.CiliumLabelSelector,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to list Cilium pods: %w", err)
-				}
-				if err := c.SubmitCniConflistSubtask(FilterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
+				if err := c.SubmitCniConflistSubtask(c.CiliumPods, ciliumAgentContainerName); err != nil {
 					return fmt.Errorf("failed to collect CNI configuration files: %w", err)
 				}
 				return nil
@@ -998,13 +1013,7 @@ func (c *Collector) Run() error {
 			Description:     "Collecting gops stats from Cilium pods",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
-				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
-					LabelSelector: c.Options.CiliumLabelSelector,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to get Cilium pods: %w", err)
-				}
-				if err := c.SubmitGopsSubtasks(FilterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
+				if err := c.SubmitGopsSubtasks(c.CiliumPods, ciliumAgentContainerName); err != nil {
 					return fmt.Errorf("failed to collect Cilium gops: %w", err)
 				}
 				return nil
@@ -1049,13 +1058,7 @@ func (c *Collector) Run() error {
 			Description:     "Collecting bugtool output from Cilium pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
-				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
-					LabelSelector: c.Options.CiliumLabelSelector,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to get Cilium pods: %w", err)
-				}
-				if err := c.submitCiliumBugtoolTasks(FilterPods(p, c.NodeList)); err != nil {
+				if err := c.submitCiliumBugtoolTasks(c.CiliumPods); err != nil {
 					return fmt.Errorf("failed to collect 'cilium-bugtool': %w", err)
 				}
 				return nil
@@ -1069,13 +1072,7 @@ func (c *Collector) Run() error {
 				if !c.Options.Profiling {
 					return nil
 				}
-				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
-					LabelSelector: c.Options.CiliumLabelSelector,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to get profiling from Cilium pods: %w", err)
-				}
-				if err := c.SubmitProfilingGopsSubtasks(FilterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
+				if err := c.SubmitProfilingGopsSubtasks(c.CiliumPods, ciliumAgentContainerName); err != nil {
 					return fmt.Errorf("failed to collect profiling data from Cilium pods: %w", err)
 				}
 				return nil
@@ -1086,13 +1083,7 @@ func (c *Collector) Run() error {
 			Description:     "Collecting logs from Cilium pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
-				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
-					LabelSelector: c.Options.CiliumLabelSelector,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to get logs from Cilium pods")
-				}
-				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+				if err := c.SubmitLogsTasks(c.CiliumPods, c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
 					return fmt.Errorf("failed to collect logs from Cilium pods")
 				}
 				return nil
@@ -1341,25 +1332,19 @@ func (c *Collector) Run() error {
 			Description:     "Collecting kvstore data",
 			Quick:           true,
 			Task: func(ctx context.Context) error {
-				cm, err := c.Client.GetConfigMap(ctx, c.Options.CiliumNamespace, ciliumConfigMapName, metav1.GetOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to get cilium-config ConfigMap: %w", err)
+				if c.CiliumConfigMap == nil {
+					c.logDebug("%s ConfigMap not found, skipping kvstore dump", ciliumConfigMapName)
+					return nil
 				}
 				// Check if kvstore is enabled, if not skip this dump.
-				if v, ok := cm.Data["kvstore"]; !ok || v != "etcd" {
+				if v, ok := c.CiliumConfigMap.Data["kvstore"]; !ok || v != "etcd" {
 					c.logDebug("KVStore not enabled, skipping kvstore dump")
 					return nil
 				}
-				ps, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
-					LabelSelector: c.Options.CiliumLabelSelector,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to list Pods for gathering kvstore data: %w", err)
-				}
-				if len(ps.Items) == 0 {
+				if len(c.CiliumPods) == 0 {
 					return fmt.Errorf("could not find Cilium Agent Pod to run kvstore get, Cilium Pod list was empty")
 				}
-				for _, pod := range ps.Items {
+				for _, pod := range c.CiliumPods {
 					if pod.Status.Phase == "Running" {
 						return c.submitKVStoreTasks(ctx, pod.DeepCopy())
 					}
@@ -1510,13 +1495,7 @@ func (c *Collector) Run() error {
 			Description:     "Collecting Hubble flows from Cilium pods",
 			Quick:           false,
 			Task: func(ctx context.Context) error {
-				p, err := c.Client.ListPods(ctx, c.Options.CiliumNamespace, metav1.ListOptions{
-					LabelSelector: c.Options.CiliumLabelSelector,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to get Cilium pods: %w", err)
-				}
-				if err := c.submitHubbleFlowsTasks(ctx, FilterPods(p, c.NodeList), ciliumAgentContainerName); err != nil {
+				if err := c.submitHubbleFlowsTasks(ctx, c.CiliumPods, ciliumAgentContainerName); err != nil {
 					return fmt.Errorf("failed to collect hubble flows: %w", err)
 				}
 				return nil
