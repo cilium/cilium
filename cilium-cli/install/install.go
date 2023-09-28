@@ -62,6 +62,11 @@ const (
 )
 
 const (
+	routingModeNative = "native"
+	routingModeTunnel = "tunnel"
+)
+
+const (
 	encryptionUnspecified = ""
 	encryptionDisabled    = "disabled"
 	encryptionIPsec       = "ipsec"
@@ -523,7 +528,8 @@ func (k *K8sInstaller) generateConfigMap() (*corev1.ConfigMap, error) {
 			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules cannot be enabled on Azure AKS")
 		}
 
-		if cm.Data["tunnel"] != "disabled" {
+		// The check for the legacy "tunnel" flag can be removed once we drop support for Cilium v1.14
+		if cm.Data["tunnel"] != "disabled" || cm.Data["routing-mode"] != "native" {
 			return nil, fmt.Errorf("--install-no-conntrack-iptables-rules requires tunneling to be disabled")
 		}
 
