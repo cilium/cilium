@@ -85,10 +85,10 @@ func (k *K8sWatcher) ciliumEnvoyConfigInit(ctx context.Context, ciliumNPClient c
 	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEnvoyConfigV2)
 }
 
-// isIngressKind returns true if any of the OwnerReferences is Kind "Ingress"
-func isIngressKind(meta *meta_v1.ObjectMeta) bool {
+// isCiliumIngress returns true if the given object metadata indicates that the owner needs the Envoy listener to assume the identity of Cilium Ingress. Currently this is the case when any of the OwnerReferences is Kind "Ingress" or "Gateway".
+func isCiliumIngress(meta *meta_v1.ObjectMeta) bool {
 	for _, owner := range meta.OwnerReferences {
-		if owner.Kind == "Ingress" {
+		if owner.Kind == "Ingress" || owner.Kind == "Gateway" {
 			return true
 		}
 	}
@@ -110,7 +110,7 @@ func (k *K8sWatcher) addCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) erro
 		true,
 		k.envoyConfigManager,
 		len(cec.Spec.Services) > 0,
-		!isIngressKind(&cec.ObjectMeta),
+		!isCiliumIngress(&cec.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to add CiliumEnvoyConfig: malformed Envoy config")
@@ -219,7 +219,7 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig
 		false,
 		k.envoyConfigManager,
 		len(oldCEC.Spec.Services) > 0,
-		!isIngressKind(&oldCEC.ObjectMeta),
+		!isCiliumIngress(&oldCEC.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig: malformed old Envoy config")
@@ -232,7 +232,7 @@ func (k *K8sWatcher) updateCiliumEnvoyConfig(oldCEC *cilium_v2.CiliumEnvoyConfig
 		true,
 		k.envoyConfigManager,
 		len(newCEC.Spec.Services) > 0,
-		!isIngressKind(&newCEC.ObjectMeta),
+		!isCiliumIngress(&newCEC.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to update CiliumEnvoyConfig: malformed new Envoy config")
@@ -338,7 +338,7 @@ func (k *K8sWatcher) deleteCiliumEnvoyConfig(cec *cilium_v2.CiliumEnvoyConfig) e
 		false,
 		k.envoyConfigManager,
 		len(cec.Spec.Services) > 0,
-		!isIngressKind(&cec.ObjectMeta),
+		!isCiliumIngress(&cec.ObjectMeta),
 	)
 	if err != nil {
 		scopedLog.WithError(err).Warn("Failed to delete CiliumEnvoyConfig: parsing rersource names failed")
