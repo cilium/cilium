@@ -20,6 +20,7 @@ import (
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/safeio"
 )
 
@@ -103,6 +104,7 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 				EnableGatewayAPI: false,
 			}
 		}),
+		cell.Metric(newTestMetrics),
 
 		MetricsHandlerCell,
 
@@ -115,12 +117,12 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 			}
 		}),
 
-		cell.Invoke(func(lc hive.Lifecycle, hf http.HandlerFunc) {
+		cell.Invoke(func(lc hive.Lifecycle, metrics *testMetrics, hf http.HandlerFunc) {
 			lc.Append(hive.Hook{
 				OnStart: func(hive.HookContext) error {
-					// set values for some operator metrics
-					operatorMetrics.EndpointGCObjects.
-						WithLabelValues(operatorMetrics.LabelValueOutcomeSuccess).
+					// set values for some metrics
+					metrics.MetricA.
+						WithLabelValues("success").
 						Inc()
 
 					req := httptest.NewRequest(http.MethodGet, "http://localhost/metrics", nil)
@@ -157,10 +159,10 @@ func TestMetricsHandlerWithMetrics(t *testing.T) {
 
 	if err := testMetric(
 		metrics,
-		"cilium_operator_endpoint_gc_objects",
+		"operator_api_metrics_test_metric_a",
 		float64(1),
 		map[string]string{
-			operatorMetrics.LabelOutcome: operatorMetrics.LabelValueOutcomeSuccess,
+			"outcome": "success",
 		},
 	); err != nil {
 		t.Fatalf("error while inspecting metric: %s", err)
@@ -185,4 +187,17 @@ func testMetric(metrics []models.Metric, name string, value float64, labels map[
 		}
 	}
 	return fmt.Errorf("%q not found", name)
+}
+
+type testMetrics struct {
+	MetricA metric.Vec[metric.Counter]
+}
+
+func newTestMetrics() *testMetrics {
+	return &testMetrics{
+		MetricA: metric.NewCounterVec(metric.CounterOpts{
+			Namespace: "operator_api_metrics_test",
+			Name:      "metric_a",
+		}, []string{"outcome"}),
+	}
 }

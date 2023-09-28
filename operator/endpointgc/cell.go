@@ -9,12 +9,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
-const (
-	// Interval is the interval in which cilium endpoints are
-	// attempted to be collected
-	Interval = "cilium-endpoint-gc-interval"
-)
-
 // Cell is a cell that implements a periodic and one-off Cilium endpoints
 // garbage collector.
 // The GC loops through all the Cilium Endpoints in the cluster and validates
@@ -26,6 +20,8 @@ var Cell = cell.Module(
 
 	// Invoke forces the instantiation of the endpoint gc
 	cell.Invoke(registerGC),
+
+	cell.Metric(NewMetrics),
 )
 
 // SharedConfig contains the configuration that is shared between
