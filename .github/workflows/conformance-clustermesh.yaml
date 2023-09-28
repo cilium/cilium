@@ -211,7 +211,7 @@ jobs:
             --helm-set=clustermesh.useAPIServer=true \
             "
 
-          CILIUM_INSTALL_TUNNEL="--helm-set=tunnel=vxlan"
+          CILIUM_INSTALL_TUNNEL="--helm-set=tunnelProtocol=${{ matrix.tunnel }}"
           if [ "${{ matrix.tunnel }}" == "disabled" ]; then
             CILIUM_INSTALL_TUNNEL="--helm-set-string=routingMode=native \
               --helm-set=autoDirectNodeRoutes=true \
