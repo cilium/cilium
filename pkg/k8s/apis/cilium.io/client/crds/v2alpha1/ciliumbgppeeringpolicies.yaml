@@ -253,10 +253,14 @@ spec:
                                     not Multi-Pool IPAM CIDRs. - For "CiliumLoadBalancerIPPool"
                                     the Selector matches CiliumLoadBalancerIPPool
                                     custom resources (path attributes apply to routes
-                                    announced for selected CiliumLoadBalancerIPPools).'
+                                    announced for selected CiliumLoadBalancerIPPools).
+                                    - For "CiliumPodIPPool" the Selector matches CiliumPodIPPool
+                                    custom resources (path attributes apply to routes
+                                    announced for allocated CIDRs of selected CiliumPodIPPools).'
                                   enum:
                                   - PodCIDR
                                   - CiliumLoadBalancerIPPool
+                                  - CiliumPodIPPool
                                   type: string
                               required:
                               - selectorType
