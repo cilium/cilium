@@ -14,6 +14,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/cidr"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2alpha1api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/node"
@@ -53,14 +55,80 @@ var (
 		},
 	}
 
+	podPool = &v2alpha1api.CiliumPodIPPool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+			Labels: map[string]string{
+				"label1": "value1",
+			}},
+		Spec: v2alpha1api.IPPoolSpec{
+			IPv4: &v2alpha1api.IPv4PoolSpec{
+				CIDRs:    []v2alpha1api.PoolCIDR{"100.0.0.0/16"},
+				MaskSize: 24,
+			},
+			IPv6: &v2alpha1api.IPv6PoolSpec{
+				CIDRs:    []v2alpha1api.PoolCIDR{"2001:0:0:1234::/64"},
+				MaskSize: 96,
+			},
+		},
+	}
+
+	podPoolUpdated = &v2alpha1api.CiliumPodIPPool{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"label1": "value1",
+			}},
+		Spec: v2alpha1api.IPPoolSpec{
+			IPv4: &v2alpha1api.IPv4PoolSpec{
+				CIDRs:    []v2alpha1api.PoolCIDR{"100.0.0.0/16", "100.1.0.0/16"},
+				MaskSize: 24,
+			},
+			IPv6: &v2alpha1api.IPv6PoolSpec{
+				CIDRs:    []v2alpha1api.PoolCIDR{"2001:0:0:1234::/64", "2002:0:0:1234::/64"},
+				MaskSize: 96,
+			},
+		},
+	}
+
+	nodePool = ipamTypes.IPAMPoolAllocation{
+		Pool: podPool.Name,
+		CIDRs: []ipamTypes.IPAMPodCIDR{
+			"100.0.0.0/16",
+			"2001:0:0:1234::/64",
+		},
+	}
+
+	nodePoolUpdated = ipamTypes.IPAMPoolAllocation{
+		Pool: podPool.Name,
+		CIDRs: []ipamTypes.IPAMPodCIDR{
+			"100.0.0.0/16",
+			"100.1.0.0/16",
+			"2001:0:0:1234::/64",
+			"2002:0:0:1234::/64",
+		},
+	}
+
 	peerAddress = "172.16.0.1/32"
 
 	standardCommunity = "64125:100"
 
 	largeCommunity = "64125:4294967295:100"
 
-	attrSelectPool = v2alpha1api.CiliumBGPPathAttributes{
+	attrSelectLBPool = v2alpha1api.CiliumBGPPathAttributes{
 		SelectorType: v2alpha1api.CiliumLoadBalancerIPPoolSelectorName,
+		Selector: &slimv1.LabelSelector{
+			MatchLabels: map[string]slimv1.MatchLabelsValue{
+				"label1": "value1",
+			},
+		},
+		Communities: &v2alpha1api.BGPCommunities{
+			Standard: []v2alpha1api.BGPStandardCommunity{v2alpha1api.BGPStandardCommunity(standardCommunity)},
+			Large:    []v2alpha1api.BGPLargeCommunity{v2alpha1api.BGPLargeCommunity(largeCommunity)},
+		},
+	}
+
+	attrSelectPodPool = v2alpha1api.CiliumBGPPathAttributes{
+		SelectorType: v2alpha1api.CiliumPodIPPoolSelectorName,
 		Selector: &slimv1.LabelSelector{
 			MatchLabels: map[string]slimv1.MatchLabelsValue{
 				"label1": "value1",
@@ -100,6 +168,8 @@ var (
 type routePolicyTestInputs struct {
 	podCIDRs         []*cidr.CIDR
 	LBPools          []*v2alpha1api.CiliumLoadBalancerIPPool
+	NodePools        []ipamTypes.IPAMPoolAllocation
+	PodPools         []*v2alpha1api.CiliumPodIPPool
 	neighbors        []v2alpha1api.CiliumBGPNeighbor
 	expectedPolicies []*types.RoutePolicy
 }
@@ -112,7 +182,7 @@ func TestRoutePolicyReconciler(t *testing.T) {
 		expectError bool
 	}{
 		{
-			name: "add complex policy (pod CIDR + LB pool)",
+			name: "add complex policy (pod CIDR + LB pool + Pod pool)",
 			initial: &routePolicyTestInputs{
 				podCIDRs: []*cidr.CIDR{
 					podCIDR,
@@ -120,18 +190,25 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				LBPools: []*v2alpha1api.CiliumLoadBalancerIPPool{
 					lbPool,
 				},
+				PodPools: []*v2alpha1api.CiliumPodIPPool{
+					podPool,
+				},
+				NodePools: []ipamTypes.IPAMPoolAllocation{
+					nodePool,
+				},
 				neighbors: []v2alpha1api.CiliumBGPNeighbor{
 					{
 						PeerAddress: peerAddress,
 						AdvertisedPathAttributes: []v2alpha1api.CiliumBGPPathAttributes{
-							attrSelectPool,
+							attrSelectLBPool,
+							attrSelectPodPool,
 							attrSelectAnyNode,
 						},
 					},
 				},
 				expectedPolicies: []*types.RoutePolicy{
 					{
-						Name: pathAttributesPolicyName(attrSelectPool, peerAddress),
+						Name: pathAttributesPolicyName(attrSelectLBPool, peerAddress),
 						Type: types.RoutePolicyTypeExport,
 						Statements: []*types.RoutePolicyStatement{
 							{
@@ -142,6 +219,46 @@ func TestRoutePolicyReconciler(t *testing.T) {
 											CIDR:         netip.MustParsePrefix(string(lbPool.Spec.Cidrs[0].Cidr)),
 											PrefixLenMin: maxPrefixLenIPv4,
 											PrefixLenMax: maxPrefixLenIPv4,
+										},
+									},
+								},
+								Actions: types.RoutePolicyActions{
+									RouteAction:         types.RoutePolicyActionNone,
+									AddCommunities:      []string{standardCommunity},
+									AddLargeCommunities: []string{largeCommunity},
+								},
+							},
+						},
+					},
+					{
+						Name: pathAttributesPolicyName(attrSelectPodPool, peerAddress),
+						Type: types.RoutePolicyTypeExport,
+						Statements: []*types.RoutePolicyStatement{
+							{
+								Conditions: types.RoutePolicyConditions{
+									MatchNeighbors: []string{peerAddress},
+									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+										{
+											CIDR:         netip.MustParsePrefix(string(podPool.Spec.IPv4.CIDRs[0])),
+											PrefixLenMin: int(podPool.Spec.IPv4.MaskSize),
+											PrefixLenMax: int(podPool.Spec.IPv4.MaskSize),
+										},
+									},
+								},
+								Actions: types.RoutePolicyActions{
+									RouteAction:         types.RoutePolicyActionNone,
+									AddCommunities:      []string{standardCommunity},
+									AddLargeCommunities: []string{largeCommunity},
+								},
+							},
+							{
+								Conditions: types.RoutePolicyConditions{
+									MatchNeighbors: []string{peerAddress},
+									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+										{
+											CIDR:         netip.MustParsePrefix(string(podPool.Spec.IPv6.CIDRs[0])),
+											PrefixLenMin: int(podPool.Spec.IPv6.MaskSize),
+											PrefixLenMax: int(podPool.Spec.IPv6.MaskSize),
 										},
 									},
 								},
@@ -189,13 +306,13 @@ func TestRoutePolicyReconciler(t *testing.T) {
 					{
 						PeerAddress: peerAddress,
 						AdvertisedPathAttributes: []v2alpha1api.CiliumBGPPathAttributes{
-							attrSelectPool,
+							attrSelectLBPool,
 						},
 					},
 				},
 				expectedPolicies: []*types.RoutePolicy{
 					{
-						Name: pathAttributesPolicyName(attrSelectPool, peerAddress),
+						Name: pathAttributesPolicyName(attrSelectLBPool, peerAddress),
 						Type: types.RoutePolicyTypeExport,
 						Statements: []*types.RoutePolicyStatement{
 							{
@@ -227,13 +344,13 @@ func TestRoutePolicyReconciler(t *testing.T) {
 					{
 						PeerAddress: peerAddress,
 						AdvertisedPathAttributes: []v2alpha1api.CiliumBGPPathAttributes{
-							attrSelectPool,
+							attrSelectLBPool,
 						},
 					},
 				},
 				expectedPolicies: []*types.RoutePolicy{
 					{
-						Name: pathAttributesPolicyName(attrSelectPool, peerAddress),
+						Name: pathAttributesPolicyName(attrSelectLBPool, peerAddress),
 						Type: types.RoutePolicyTypeExport,
 						Statements: []*types.RoutePolicyStatement{
 							{
@@ -244,6 +361,136 @@ func TestRoutePolicyReconciler(t *testing.T) {
 											CIDR:         netip.MustParsePrefix(string(lbPoolUpdated.Spec.Cidrs[0].Cidr)),
 											PrefixLenMin: maxPrefixLenIPv4,
 											PrefixLenMax: maxPrefixLenIPv4,
+										},
+									},
+								},
+								Actions: types.RoutePolicyActions{
+									RouteAction:         types.RoutePolicyActionNone,
+									AddCommunities:      []string{standardCommunity},
+									AddLargeCommunities: []string{largeCommunity},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "update policy - pod pool change",
+			initial: &routePolicyTestInputs{
+				PodPools: []*v2alpha1api.CiliumPodIPPool{
+					podPool,
+				},
+				NodePools: []ipamTypes.IPAMPoolAllocation{
+					nodePool,
+				},
+				neighbors: []v2alpha1api.CiliumBGPNeighbor{
+					{
+						PeerAddress: peerAddress,
+						AdvertisedPathAttributes: []v2alpha1api.CiliumBGPPathAttributes{
+							attrSelectPodPool,
+						},
+					},
+				},
+				expectedPolicies: []*types.RoutePolicy{
+					{
+						Name: pathAttributesPolicyName(attrSelectPodPool, peerAddress),
+						Type: types.RoutePolicyTypeExport,
+						Statements: []*types.RoutePolicyStatement{
+							{
+								Conditions: types.RoutePolicyConditions{
+									MatchNeighbors: []string{peerAddress},
+									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+										{
+											CIDR:         netip.MustParsePrefix(string(podPool.Spec.IPv4.CIDRs[0])),
+											PrefixLenMin: int(podPool.Spec.IPv4.MaskSize),
+											PrefixLenMax: int(podPool.Spec.IPv4.MaskSize),
+										},
+									},
+								},
+								Actions: types.RoutePolicyActions{
+									RouteAction:         types.RoutePolicyActionNone,
+									AddCommunities:      []string{standardCommunity},
+									AddLargeCommunities: []string{largeCommunity},
+								},
+							},
+							{
+								Conditions: types.RoutePolicyConditions{
+									MatchNeighbors: []string{peerAddress},
+									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+										{
+											CIDR:         netip.MustParsePrefix(string(podPool.Spec.IPv6.CIDRs[0])),
+											PrefixLenMin: int(podPool.Spec.IPv6.MaskSize),
+											PrefixLenMax: int(podPool.Spec.IPv6.MaskSize),
+										},
+									},
+								},
+								Actions: types.RoutePolicyActions{
+									RouteAction:         types.RoutePolicyActionNone,
+									AddCommunities:      []string{standardCommunity},
+									AddLargeCommunities: []string{largeCommunity},
+								},
+							},
+						},
+					},
+				},
+			},
+			updated: &routePolicyTestInputs{
+				PodPools: []*v2alpha1api.CiliumPodIPPool{
+					podPoolUpdated,
+				},
+				NodePools: []ipamTypes.IPAMPoolAllocation{
+					nodePoolUpdated,
+				},
+				neighbors: []v2alpha1api.CiliumBGPNeighbor{
+					{
+						PeerAddress: peerAddress,
+						AdvertisedPathAttributes: []v2alpha1api.CiliumBGPPathAttributes{
+							attrSelectPodPool,
+						},
+					},
+				},
+				expectedPolicies: []*types.RoutePolicy{
+					{
+						Name: pathAttributesPolicyName(attrSelectPodPool, peerAddress),
+						Type: types.RoutePolicyTypeExport,
+						Statements: []*types.RoutePolicyStatement{
+							{
+								Conditions: types.RoutePolicyConditions{
+									MatchNeighbors: []string{peerAddress},
+									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+										{
+											CIDR:         netip.MustParsePrefix(string(podPoolUpdated.Spec.IPv4.CIDRs[0])),
+											PrefixLenMin: int(podPoolUpdated.Spec.IPv4.MaskSize),
+											PrefixLenMax: int(podPoolUpdated.Spec.IPv4.MaskSize),
+										},
+										{
+											CIDR:         netip.MustParsePrefix(string(podPoolUpdated.Spec.IPv4.CIDRs[1])),
+											PrefixLenMin: int(podPoolUpdated.Spec.IPv4.MaskSize),
+											PrefixLenMax: int(podPoolUpdated.Spec.IPv4.MaskSize),
+										},
+									},
+								},
+								Actions: types.RoutePolicyActions{
+									RouteAction:         types.RoutePolicyActionNone,
+									AddCommunities:      []string{standardCommunity},
+									AddLargeCommunities: []string{largeCommunity},
+								},
+							},
+							{
+								Conditions: types.RoutePolicyConditions{
+									MatchNeighbors: []string{peerAddress},
+									MatchPrefixes: []*types.RoutePolicyPrefixMatch{
+										{
+											CIDR:         netip.MustParsePrefix(string(podPoolUpdated.Spec.IPv6.CIDRs[0])),
+											PrefixLenMin: int(podPoolUpdated.Spec.IPv6.MaskSize),
+											PrefixLenMax: int(podPoolUpdated.Spec.IPv6.MaskSize),
+										},
+										{
+											CIDR:         netip.MustParsePrefix(string(podPoolUpdated.Spec.IPv6.CIDRs[1])),
+											PrefixLenMin: int(podPoolUpdated.Spec.IPv6.MaskSize),
+											PrefixLenMax: int(podPoolUpdated.Spec.IPv6.MaskSize),
 										},
 									},
 								},
@@ -352,18 +599,32 @@ func TestRoutePolicyReconciler(t *testing.T) {
 				Neighbors:     tt.initial.neighbors,
 			}
 
-			store := newMockBGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool]()
+			lbStore := newMockBGPCPResourceStore[*v2alpha1api.CiliumLoadBalancerIPPool]()
 			for _, obj := range tt.initial.LBPools {
-				store.Upsert(obj)
+				lbStore.Upsert(obj)
 			}
 
-			policyReconciler := NewRoutePolicyReconciler(store).Reconciler.(*RoutePolicyReconciler)
+			podStore := newMockBGPCPResourceStore[*v2alpha1api.CiliumPodIPPool]()
+			for _, obj := range tt.initial.PodPools {
+				podStore.Upsert(obj)
+			}
+
+			policyReconciler := NewRoutePolicyReconciler(lbStore, podStore).Reconciler.(*RoutePolicyReconciler)
 			params := ReconcileParams{
 				CurrentServer: testSC,
 				DesiredConfig: testSC.Config,
 				Node: &node.LocalNode{
 					Node: nodeTypes.Node{
 						IPv4SecondaryAllocCIDRs: tt.initial.podCIDRs,
+					},
+				},
+				CiliumNode: &v2.CiliumNode{
+					Spec: v2.NodeSpec{
+						IPAM: ipamTypes.IPAMSpec{
+							Pools: ipamTypes.IPAMPoolSpec{
+								Allocated: tt.initial.NodePools,
+							},
+						},
 					},
 				},
 			}
@@ -386,8 +647,12 @@ func TestRoutePolicyReconciler(t *testing.T) {
 			// follow-up reconcile - update:
 			params.DesiredConfig.Neighbors = tt.updated.neighbors
 			params.Node.Node.IPv4SecondaryAllocCIDRs = tt.updated.podCIDRs
+			params.CiliumNode.Spec.IPAM.Pools.Allocated = tt.updated.NodePools
 			for _, obj := range tt.updated.LBPools {
-				store.Upsert(obj)
+				lbStore.Upsert(obj)
+			}
+			for _, obj := range tt.updated.PodPools {
+				podStore.Upsert(obj)
 			}
 			err = policyReconciler.Reconcile(context.Background(), params)
 			require.NoError(t, err)
