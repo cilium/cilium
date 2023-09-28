@@ -197,12 +197,21 @@ func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
 		// Set Helm options specific to the detected / selected datapath mode
 		switch k.params.DatapathMode {
 		case DatapathTunnel:
-			helmMapOpts["tunnel"] = tunnelVxlan
-
+			if versioncheck.MustCompile(">=1.14.0")(k.chartVersion) {
+				helmMapOpts["routingMode"] = routingModeTunnel
+				helmMapOpts["tunnelProtocol"] = tunnelVxlan
+			} else {
+				helmMapOpts["tunnel"] = tunnelVxlan
+			}
 		case DatapathAwsENI:
 			helmMapOpts["ipam.mode"] = ipamENI
 			helmMapOpts["eni.enabled"] = "true"
-			helmMapOpts["tunnel"] = tunnelDisabled
+			if versioncheck.MustCompile(">=1.14.0")(k.chartVersion) {
+				helmMapOpts["routingMode"] = routingModeNative
+			} else {
+				// Can be removed once we drop support for <1.14.0
+				helmMapOpts["tunnel"] = tunnelDisabled
+			}
 			// TODO(tgraf) Is this really sane?
 			helmMapOpts["egressMasqueradeInterfaces"] = "eth0"
 
@@ -219,7 +228,12 @@ func (k *K8sInstaller) getHelmValues() (map[string]interface{}, error) {
 			helmMapOpts["azure.tenantID"] = k.params.Azure.TenantID
 			helmMapOpts["azure.clientID"] = k.params.Azure.ClientID
 			helmMapOpts["azure.clientSecret"] = k.params.Azure.ClientSecret
-			helmMapOpts["tunnel"] = tunnelDisabled
+			if versioncheck.MustCompile(">=1.14.0")(k.chartVersion) {
+				helmMapOpts["routingMode"] = routingModeNative
+			} else {
+				// Can be removed once we drop support for <1.14.0
+				helmMapOpts["tunnel"] = tunnelDisabled
+			}
 			switch {
 			case versioncheck.MustCompile(">=1.10.0")(k.chartVersion):
 				helmMapOpts["bpf.masquerade"] = "false"
