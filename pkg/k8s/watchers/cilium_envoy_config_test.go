@@ -54,15 +54,16 @@ spec:
 )
 
 func (s *K8sWatcherSuite) TestParseEnvoySpec(c *C) {
-	jsonBytes, err := yaml.YAMLToJSON([]byte(envoySpec))
+	jsonBytes, err := yaml.YAMLToJSON(envoySpec)
 	c.Assert(err, IsNil)
 	cec := &cilium_v2.CiliumEnvoyConfig{}
 	err = json.Unmarshal(jsonBytes, cec)
 	c.Assert(err, IsNil)
 	c.Assert(cec.Spec.Resources, HasLen, 1)
 	c.Assert(cec.Spec.Resources[0].TypeUrl, Equals, "type.googleapis.com/envoy.config.listener.v3.Listener")
+	c.Assert(isCiliumIngress(&cec.ObjectMeta), Equals, false)
 
-	resources, err := envoy.ParseResources("namespace", "name", cec.Spec.Resources, true, nil, len(cec.Spec.Services) > 0, !isIngressKind(&cec.ObjectMeta))
+	resources, err := envoy.ParseResources("namespace", "name", cec.Spec.Resources, true, nil, len(cec.Spec.Services) > 0, !isCiliumIngress(&cec.ObjectMeta))
 	c.Assert(err, IsNil)
 	c.Assert(resources.Listeners, HasLen, 1)
 	c.Assert(resources.Listeners[0].Address.GetSocketAddress().GetPortValue(), Equals, uint32(10000))
@@ -88,4 +89,77 @@ func (s *K8sWatcherSuite) TestParseEnvoySpec(c *C) {
 	c.Assert(vh[0].Routes[0].GetRoute().GetPrefixRewrite(), Equals, "/stats/prometheus")
 	c.Assert(hcm.HttpFilters, HasLen, 1)
 	c.Assert(hcm.HttpFilters[0].Name, Equals, "envoy.filters.http.router")
+}
+
+func (s *K8sWatcherSuite) TestIsCiliumIngress(c *C) {
+	// Non-ingress CEC
+	jsonBytes, err := yaml.YAMLToJSON([]byte(`apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: envoy-prometheus-metrics-listener
+spec:
+  resources:
+`))
+	c.Assert(err, IsNil)
+	cec := &cilium_v2.CiliumEnvoyConfig{}
+	err = json.Unmarshal(jsonBytes, cec)
+	c.Assert(err, IsNil)
+	c.Assert(isCiliumIngress(&cec.ObjectMeta), Equals, false)
+
+	// Gateway API CCEC
+	jsonBytes, err = yaml.YAMLToJSON([]byte(`apiVersion: cilium.io/v2
+kind: CiliumClusterwideEnvoyConfig
+metadata:
+  name: cilium-gateway-all-namespaces
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: all-namespaces
+    uid: bf4481cd-5d34-4880-93ec-76ddb34ab8a0
+spec:
+  resources:
+`))
+	c.Assert(err, IsNil)
+	ccec := &cilium_v2.CiliumEnvoyConfig{}
+	err = json.Unmarshal(jsonBytes, ccec)
+	c.Assert(err, IsNil)
+	c.Assert(isCiliumIngress(&ccec.ObjectMeta), Equals, true)
+
+	// Ingress CEC
+	jsonBytes, err = yaml.YAMLToJSON([]byte(`apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: cilium-ingress
+  namespace: default
+  ownerReferences:
+  - apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    name: basic-ingress
+    namespace: default
+spec:
+  resources:
+`))
+	c.Assert(err, IsNil)
+	cec = &cilium_v2.CiliumEnvoyConfig{}
+	err = json.Unmarshal(jsonBytes, cec)
+	c.Assert(err, IsNil)
+	c.Assert(isCiliumIngress(&cec.ObjectMeta), Equals, true)
+
+	// CCEC with unknown owner kind
+	jsonBytes, err = yaml.YAMLToJSON([]byte(`apiVersion: cilium.io/v2
+kind: CiliumClusterwideEnvoyConfig
+metadata:
+  name: cilium-ingress
+  ownerReferences:
+  - apiVersion: example.io/v1
+    kind: Monitoring
+    name: test-monitor
+spec:
+  resources:
+`))
+	c.Assert(err, IsNil)
+	ccec = &cilium_v2.CiliumEnvoyConfig{}
+	err = json.Unmarshal(jsonBytes, ccec)
+	c.Assert(err, IsNil)
+	c.Assert(isCiliumIngress(&ccec.ObjectMeta), Equals, false)
 }
