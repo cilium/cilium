@@ -93,7 +93,6 @@ int tc_lxc_policy_drop_check(const struct __ctx_buff *ctx)
 	void *data, *data_end;
 	__u32 *status_code;
 
-	struct metrics_value *entry = NULL;
 	struct metrics_key key = {};
 
 	test_init();
@@ -109,10 +108,9 @@ int tc_lxc_policy_drop_check(const struct __ctx_buff *ctx)
 
 	key.reason = (__u8)-DROP_POLICY_DENY;
 	key.dir = METRIC_EGRESS;
-	entry = map_lookup_elem(&METRICS_MAP, &key);
-	if (!entry)
-		test_fatal("metrics entry not found");
-	assert(entry->count == 1);
+
+	__u64 count = 1;
+	assert_metrics_count(key, count);
 
 	test_finish();
 }

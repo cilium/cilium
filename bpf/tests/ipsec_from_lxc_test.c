@@ -107,7 +107,9 @@ int ipv4_from_lxc_no_node_id_check(__maybe_unused const struct __ctx_buff *ctx)
 	entry = map_lookup_elem(&METRICS_MAP, &key);
 	if (!entry)
 		test_fatal("metrics entry not found");
-	assert(entry->count == 1);
+
+	__u64 count = 1;
+	assert_metrics_count(key, count);
 
 	test_finish();
 }

@@ -64,6 +64,9 @@
 #define TEST_FAIL 2
 #define TEST_SKIP 3
 
+/* Max number of cpus to check when doing percpu hash assertions */
+#define NR_CPUS 128
+
 /* Use an array map with 1 key and a large value size as buffer to write results */
 /* into. */
 struct {
@@ -271,5 +274,22 @@ _Pragma("unroll")						\
 								\
 	return 0;						\
 }
+
+/* Asserts that the sum of per-cpu metrics map slots for a key equals count */
+#define assert_metrics_count(key, count) \
+({ \
+	struct metrics_value *__entry = NULL; \
+	__u64 sum = 0; \
+	/* Iterate until lookup encounters null when hitting cpu number */ \
+	/* Assumes at most 128 CPUS */ \
+	for (int i = 0; i < NR_CPUS; i++) { \
+		__entry = map_lookup_percpu_elem(&METRICS_MAP, &key, i); \
+		if (!__entry) { \
+			break; \
+		} \
+		sum += __entry->count; \
+	} \
+	assert(sum == count); \
+})
 
 #endif /* ____BPF_TEST_COMMON____ */
