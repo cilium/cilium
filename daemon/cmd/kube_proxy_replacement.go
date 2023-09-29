@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/mountinfo"
@@ -386,7 +387,7 @@ func probeKubeProxyReplacementOptions() error {
 
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
-func finishKubeProxyReplacementInit() error {
+func finishKubeProxyReplacementInit(devices types.Devicer) error {
 	if !(option.Config.EnableNodePort || option.Config.EnableWireguard) {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
@@ -397,7 +398,9 @@ func finishKubeProxyReplacementInit() error {
 		return nil
 	}
 
-	if err := node.InitNodePortAddrs(option.Config.GetDevices(), option.Config.LBDevInheritIPAddr); err != nil {
+	// TODO: react to device changes
+	devs, _ := devices.Devices()
+	if err := node.InitNodePortAddrs(devs, option.Config.LBDevInheritIPAddr); err != nil {
 		msg := "failed to initialize NodePort addrs."
 		return fmt.Errorf(msg+" : %w", err)
 	}

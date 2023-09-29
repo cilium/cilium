@@ -1651,6 +1651,7 @@ type daemonParams struct {
 	ClusterInfo         cmtypes.ClusterInfo
 	BigTCPConfig        bigtcp.Configuration
 	BandwidthManager    *bandwidth.Manager
+	Devicer             datapath.Devicer
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {
