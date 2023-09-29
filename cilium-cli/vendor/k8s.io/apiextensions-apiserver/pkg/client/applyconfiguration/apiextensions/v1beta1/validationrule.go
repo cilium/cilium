@@ -18,12 +18,18 @@ limitations under the License.
 
 package v1beta1
 
+import (
+	v1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+)
+
 // ValidationRuleApplyConfiguration represents an declarative configuration of the ValidationRule type for use
 // with apply.
 type ValidationRuleApplyConfiguration struct {
-	Rule              *string `json:"rule,omitempty"`
-	Message           *string `json:"message,omitempty"`
-	MessageExpression *string `json:"messageExpression,omitempty"`
+	Rule              *string                        `json:"rule,omitempty"`
+	Message           *string                        `json:"message,omitempty"`
+	MessageExpression *string                        `json:"messageExpression,omitempty"`
+	Reason            *v1beta1.FieldValueErrorReason `json:"reason,omitempty"`
+	FieldPath         *string                        `json:"fieldPath,omitempty"`
 }
 
 // ValidationRuleApplyConfiguration constructs an declarative configuration of the ValidationRule type for use with
@@ -53,5 +59,21 @@ func (b *ValidationRuleApplyConfiguration) WithMessage(value string) *Validation
 // If called multiple times, the MessageExpression field is set to the value of the last call.
 func (b *ValidationRuleApplyConfiguration) WithMessageExpression(value string) *ValidationRuleApplyConfiguration {
 	b.MessageExpression = &value
+	return b
+}
+
+// WithReason sets the Reason field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Reason field is set to the value of the last call.
+func (b *ValidationRuleApplyConfiguration) WithReason(value v1beta1.FieldValueErrorReason) *ValidationRuleApplyConfiguration {
+	b.Reason = &value
+	return b
+}
+
+// WithFieldPath sets the FieldPath field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the FieldPath field is set to the value of the last call.
+func (b *ValidationRuleApplyConfiguration) WithFieldPath(value string) *ValidationRuleApplyConfiguration {
+	b.FieldPath = &value
 	return b
 }

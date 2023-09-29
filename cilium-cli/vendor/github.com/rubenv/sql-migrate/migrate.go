@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -183,25 +184,26 @@ type OracleDialect struct {
 	gorp.OracleDialect
 }
 
-func (d OracleDialect) IfTableNotExists(command, schema, table string) string {
+func (OracleDialect) IfTableNotExists(command, _, _ string) string {
 	return command
 }
 
-func (d OracleDialect) IfSchemaNotExists(command, schema string) string {
+func (OracleDialect) IfSchemaNotExists(command, _ string) string {
 	return command
 }
 
-func (d OracleDialect) IfTableExists(command, schema, table string) string {
+func (OracleDialect) IfTableExists(command, _, _ string) string {
 	return command
 }
 
 var MigrationDialects = map[string]gorp.Dialect{
-	"sqlite3":  gorp.SqliteDialect{},
-	"postgres": gorp.PostgresDialect{},
-	"mysql":    gorp.MySQLDialect{Engine: "InnoDB", Encoding: "UTF8"},
-	"mssql":    gorp.SqlServerDialect{},
-	"oci8":     OracleDialect{},
-	"godror":   OracleDialect{},
+	"sqlite3":   gorp.SqliteDialect{},
+	"postgres":  gorp.PostgresDialect{},
+	"mysql":     gorp.MySQLDialect{Engine: "InnoDB", Encoding: "UTF8"},
+	"mssql":     gorp.SqlServerDialect{},
+	"oci8":      OracleDialect{},
+	"godror":    OracleDialect{},
+	"snowflake": gorp.SnowflakeDialect{},
 }
 
 type MigrationSource interface {
@@ -286,13 +288,13 @@ func migrationFromFile(dir http.FileSystem, root string, info os.FileInfo) (*Mig
 	path := path.Join(root, info.Name())
 	file, err := dir.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("Error while opening %s: %s", info.Name(), err)
+		return nil, fmt.Errorf("Error while opening %s: %w", info.Name(), err)
 	}
 	defer func() { _ = file.Close() }()
 
 	migration, err := ParseMigration(info.Name(), file)
 	if err != nil {
-		return nil, fmt.Errorf("Error while parsing %s: %s", info.Name(), err)
+		return nil, fmt.Errorf("Error while parsing %s: %w", info.Name(), err)
 	}
 	return migration, nil
 }
@@ -406,7 +408,7 @@ func ParseMigration(id string, r io.ReadSeeker) (*Migration, error) {
 
 	parsed, err := sqlparse.ParseMigration(r)
 	if err != nil {
-		return nil, fmt.Errorf("Error parsing migration (%s): %s", id, err)
+		return nil, fmt.Errorf("Error parsing migration (%s): %w", id, err)
 	}
 
 	m.Up = parsed.UpStatements
@@ -428,12 +430,24 @@ type SqlExecutor interface {
 //
 // Returns the number of applied migrations.
 func Exec(db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection) (int, error) {
-	return ExecMax(db, dialect, m, dir, 0)
+	return ExecMaxContext(context.Background(), db, dialect, m, dir, 0)
 }
 
 // Returns the number of applied migrations.
 func (ms MigrationSet) Exec(db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection) (int, error) {
-	return ms.ExecMax(db, dialect, m, dir, 0)
+	return ms.ExecMaxContext(context.Background(), db, dialect, m, dir, 0)
+}
+
+// Execute a set of migrations with an input context.
+//
+// Returns the number of applied migrations.
+func ExecContext(ctx context.Context, db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection) (int, error) {
+	return ExecMaxContext(ctx, db, dialect, m, dir, 0)
+}
+
+// Returns the number of applied migrations.
+func (ms MigrationSet) ExecContext(ctx context.Context, db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection) (int, error) {
+	return ms.ExecMaxContext(ctx, db, dialect, m, dir, 0)
 }
 
 // Execute a set of migrations
@@ -445,50 +459,78 @@ func ExecMax(db *sql.DB, dialect string, m MigrationSource, dir MigrationDirecti
 	return migSet.ExecMax(db, dialect, m, dir, max)
 }
 
+// Execute a set of migrations with an input context.
+//
+// Will apply at most `max` migrations. Pass 0 for no limit (or use Exec).
+//
+// Returns the number of applied migrations.
+func ExecMaxContext(ctx context.Context, db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection, max int) (int, error) {
+	return migSet.ExecMaxContext(ctx, db, dialect, m, dir, max)
+}
+
 // Execute a set of migrations
 //
 // Will apply at the target `version` of migration. Cannot be a negative value.
 //
 // Returns the number of applied migrations.
 func ExecVersion(db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection, version int64) (int, error) {
+	return ExecVersionContext(context.Background(), db, dialect, m, dir, version)
+}
+
+// Execute a set of migrations with an input context.
+//
+// Will apply at the target `version` of migration. Cannot be a negative value.
+//
+// Returns the number of applied migrations.
+func ExecVersionContext(ctx context.Context, db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection, version int64) (int, error) {
 	if version < 0 {
 		return 0, fmt.Errorf("target version %d should not be negative", version)
 	}
-	return migSet.ExecVersion(db, dialect, m, dir, version)
+	return migSet.ExecVersionContext(ctx, db, dialect, m, dir, version)
 }
 
 // Returns the number of applied migrations.
 func (ms MigrationSet) ExecMax(db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection, max int) (int, error) {
+	return ms.ExecMaxContext(context.Background(), db, dialect, m, dir, max)
+}
+
+// Returns the number of applied migrations, but applies with an input context.
+func (ms MigrationSet) ExecMaxContext(ctx context.Context, db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection, max int) (int, error) {
 	migrations, dbMap, err := ms.PlanMigration(db, dialect, m, dir, max)
 	if err != nil {
 		return 0, err
 	}
-	return ms.applyMigrations(dir, migrations, dbMap)
+	return ms.applyMigrations(ctx, dir, migrations, dbMap)
 }
 
 // Returns the number of applied migrations.
 func (ms MigrationSet) ExecVersion(db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection, version int64) (int, error) {
+	return ms.ExecVersionContext(context.Background(), db, dialect, m, dir, version)
+}
+
+func (ms MigrationSet) ExecVersionContext(ctx context.Context, db *sql.DB, dialect string, m MigrationSource, dir MigrationDirection, version int64) (int, error) {
 	migrations, dbMap, err := ms.PlanMigrationToVersion(db, dialect, m, dir, version)
 	if err != nil {
 		return 0, err
 	}
-	return ms.applyMigrations(dir, migrations, dbMap)
+	return ms.applyMigrations(ctx, dir, migrations, dbMap)
 }
 
 // Applies the planned migrations and returns the number of applied migrations.
-func (ms MigrationSet) applyMigrations(dir MigrationDirection, migrations []*PlannedMigration, dbMap *gorp.DbMap) (int, error) {
+func (MigrationSet) applyMigrations(ctx context.Context, dir MigrationDirection, migrations []*PlannedMigration, dbMap *gorp.DbMap) (int, error) {
 	applied := 0
 	for _, migration := range migrations {
 		var executor SqlExecutor
 		var err error
 
 		if migration.DisableTransaction {
-			executor = dbMap
+			executor = dbMap.WithContext(ctx)
 		} else {
-			executor, err = dbMap.Begin()
+			e, err := dbMap.Begin()
 			if err != nil {
 				return applied, newTxError(migration, err)
 			}
+			executor = e.WithContext(ctx)
 		}
 
 		for _, stmt := range migration.Queries {
@@ -644,7 +686,6 @@ func (ms MigrationSet) planMigrationCommon(db *sql.DB, dialect string, m Migrati
 		toApplyCount = max
 	}
 	for _, v := range toApply[0:toApplyCount] {
-
 		if dir == Up {
 			result = append(result, &PlannedMigration{
 				Migration:          v,
@@ -714,7 +755,7 @@ func SkipMax(db *sql.DB, dialect string, m MigrationSource, dir MigrationDirecti
 
 // Filter a slice of migrations into ones that should be applied.
 func ToApply(migrations []*Migration, current string, direction MigrationDirection) []*Migration {
-	var index = -1
+	index := -1
 	if current != "" {
 		for index < len(migrations)-1 {
 			index++
@@ -803,22 +844,20 @@ func (ms MigrationSet) getMigrationDbMap(db *sql.DB, dialect string) (*gorp.DbMa
 
 Make sure that the parseTime option is supplied to your database connection.
 Check https://github.com/go-sql-driver/mysql#parsetime for more info.`)
-			} else {
-				return nil, err
 			}
+			return nil, err
 		}
 	}
 
 	// Create migration database map
 	dbMap := &gorp.DbMap{Db: db, Dialect: d}
 	table := dbMap.AddTableWithNameAndSchema(MigrationRecord{}, ms.SchemaName, ms.getTableName()).SetKeys(false, "Id")
-	//dbMap.TraceOn("", log.New(os.Stdout, "migrate: ", log.Lmicroseconds))
 
 	if dialect == "oci8" || dialect == "godror" {
 		table.ColMap("Id").SetMaxSize(4000)
 	}
 
-	if migSet.DisableCreateTable {
+	if ms.DisableCreateTable {
 		return dbMap, nil
 	}
 

@@ -2,18 +2,19 @@
 
 > SQL Schema migration tool for [Go](https://golang.org/). Based on [gorp](https://github.com/go-gorp/gorp) and [goose](https://bitbucket.org/liamstask/goose).
 
-[![Build Status](https://travis-ci.org/rubenv/sql-migrate.svg?branch=master)](https://travis-ci.org/rubenv/sql-migrate) [![GoDoc](https://godoc.org/github.com/rubenv/sql-migrate?status.svg)](https://godoc.org/github.com/rubenv/sql-migrate)
+[![Test](https://github.com/rubenv/sql-migrate/actions/workflows/test.yml/badge.svg)](https://github.com/rubenv/sql-migrate/actions/workflows/test.yml) [![Go Reference](https://pkg.go.dev/badge/github.com/rubenv/sql-migrate.svg)](https://pkg.go.dev/github.com/rubenv/sql-migrate)
 
 ## Features
 
-* Usable as a CLI tool or as a library
-* Supports SQLite, PostgreSQL, MySQL, MSSQL and Oracle databases (through [gorp](https://github.com/go-gorp/gorp))
-* Can embed migrations into your application
-* Migrations are defined with SQL for full flexibility
-* Atomic migrations
-* Up/down migrations to allow rollback
-* Supports multiple database types in one project
-* Works great with other libraries such as [sqlx](https://jmoiron.github.io/sqlx/)
+- Usable as a CLI tool or as a library
+- Supports SQLite, PostgreSQL, MySQL, MSSQL and Oracle databases (through [gorp](https://github.com/go-gorp/gorp))
+- Can embed migrations into your application
+- Migrations are defined with SQL for full flexibility
+- Atomic migrations
+- Up/down migrations to allow rollback
+- Supports multiple database types in one project
+- Works great with other libraries such as [sqlx](https://jmoiron.github.io/sqlx/)
+- Supported on go1.13+
 
 ## Installation
 
@@ -22,7 +23,9 @@ To install the library and command line program, use the following:
 ```bash
 go get -v github.com/rubenv/sql-migrate/...
 ```
+
 For Go version from 1.18, use:
+
 ```bash
 go install github.com/rubenv/sql-migrate/...@latest
 ```
@@ -47,15 +50,15 @@ Each command requires a configuration file (which defaults to `dbconfig.yml`, bu
 
 ```yml
 development:
-    dialect: sqlite3
-    datasource: test.db
-    dir: migrations/sqlite3
+  dialect: sqlite3
+  datasource: test.db
+  dir: migrations/sqlite3
 
 production:
-    dialect: postgres
-    datasource: dbname=myapp sslmode=disable
-    dir: migrations/postgres
-    table: migrations
+  dialect: postgres
+  datasource: dbname=myapp sslmode=disable
+  dir: migrations/postgres
+  table: migrations
 ```
 
 (See more examples for different set ups [here](test-integration/dbconfig.yml))
@@ -65,10 +68,10 @@ This may be useful if one doesn't want to store credentials in file:
 
 ```yml
 production:
-    dialect: postgres
-    datasource: host=prodhost dbname=proddb user=${DB_USER} password=${DB_PASSWORD} sslmode=required
-    dir: migrations
-    table: migrations
+  dialect: postgres
+  datasource: host=prodhost dbname=proddb user=${DB_USER} password=${DB_PASSWORD} sslmode=require
+  dir: migrations
+  table: migrations
 ```
 
 The `table` setting is optional and will default to `gorp_migrations`.
@@ -111,6 +114,7 @@ $ sql-migrate status
 ```
 
 #### Running Test Integrations
+
 You can see how to run setups for different setups by executing the `.sh` files in [test-integration](test-integration/)
 
 ```bash
@@ -125,15 +129,16 @@ If you are using MySQL, you must append `?parseTime=true` to the `datasource` co
 
 ```yml
 production:
-    dialect: mysql
-    datasource: root@/dbname?parseTime=true
-    dir: migrations/mysql
-    table: migrations
+  dialect: mysql
+  datasource: root@/dbname?parseTime=true
+  dir: migrations/mysql
+  table: migrations
 ```
 
 See [here](https://github.com/go-sql-driver/mysql#parsetime) for more information.
 
 ### Oracle (oci8)
+
 Oracle Driver is [oci8](https://github.com/mattn/go-oci8), it is not pure Go code and relies on Oracle Office Client ([Instant Client](https://www.oracle.com/database/technologies/instant-client/downloads.html)), more detailed information is in the [oci8 repo](https://github.com/mattn/go-oci8).
 
 #### Install with Oracle support
@@ -146,13 +151,14 @@ go get -tags oracle -v github.com/rubenv/sql-migrate/...
 
 ```yml
 development:
-    dialect: oci8
-    datasource: user/password@localhost:1521/sid
-    dir: migrations/oracle
-    table: migrations
+  dialect: oci8
+  datasource: user/password@localhost:1521/sid
+  dir: migrations/oracle
+  table: migrations
 ```
 
 ### Oracle (godror)
+
 Oracle Driver is [godror](https://github.com/godror/godror), it is not pure Go code and relies on Oracle Office Client ([Instant Client](https://www.oracle.com/database/technologies/instant-client/downloads.html)), more detailed information is in the [godror repository](https://github.com/godror/godror).
 
 #### Install with Oracle support
@@ -160,28 +166,30 @@ Oracle Driver is [godror](https://github.com/godror/godror), it is not pure Go c
 To install the library and command line program, use the following:
 
 1. Install sql-migrate
+
 ```bash
 go get -tags godror -v github.com/rubenv/sql-migrate/...
 ```
 
 2. Download Oracle Office Client(e.g. macos, click [Instant Client](https://www.oracle.com/database/technologies/instant-client/downloads.html) if you are other system)
+
 ```bash
 wget https://download.oracle.com/otn_software/mac/instantclient/193000/instantclient-basic-macos.x64-19.3.0.0.0dbru.zip
 ```
 
 3. Configure environment variables `LD_LIBRARY_PATH`
+
 ```
 export LD_LIBRARY_PATH=your_oracle_office_path/instantclient_19_3
 ```
 
 ```yml
 development:
-    dialect: godror
-    datasource: user/password@localhost:1521/sid
-    dir: migrations/oracle
-    table: migrations
+  dialect: godror
+  datasource: user/password@localhost:1521/sid
+  dir: migrations/oracle
+  table: migrations
 ```
-
 
 ### As a library
 
@@ -253,6 +261,7 @@ Note that `n` can be greater than `0` even if there is an error: any migration t
 Check [the GoDoc reference](https://godoc.org/github.com/rubenv/sql-migrate) for the full documentation.
 
 ## Writing migrations
+
 Migrations are defined in SQL files, which contain a set of SQL statements. Special comments are used to distinguish up and down migrations.
 
 ```sql
