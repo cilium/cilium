@@ -47,6 +47,8 @@ var DevicesControllerCell = cell.Module(
 	tables.DeviceTableCell,
 	tables.RouteTableCell,
 
+	cell.Provide(newNetlinkFuncs),
+
 	cell.Provide(
 		newDevicesController,
 		newDeviceManager,
@@ -405,6 +407,8 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 					Table:     u.Table,
 					LinkIndex: index,
 					Scope:     uint8(u.Scope),
+					MTU:       u.MTU,
+					Priority:  u.Priority,
 					Dst:       ipnetToPrefix(u.Family, u.Dst),
 				}
 				r.Src, _ = netip.AddrFromSlice(u.Src)
@@ -593,6 +597,23 @@ type netlinkFuncs struct {
 	LinkList          func() ([]netlink.Link, error)
 	AddrList          func(link netlink.Link, family int) ([]netlink.Addr, error)
 	RouteListFiltered func(family int, filter *netlink.Route, filterMask uint64) ([]netlink.Route, error)
+}
+
+type netnsParams struct {
+	cell.In
+	NetNS *netns.NsHandle `optional:"true"`
+}
+
+type netlinkFuncsOut struct {
+	cell.Out
+	Funcs *netlinkFuncs `optional:"true"`
+}
+
+func newNetlinkFuncs(p netnsParams) (out netlinkFuncsOut, err error) {
+	if p.NetNS != nil {
+		out.Funcs, err = makeNetlinkFuncs(*p.NetNS)
+	}
+	return
 }
 
 func makeNetlinkFuncs(netns netns.NsHandle) (*netlinkFuncs, error) {

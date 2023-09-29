@@ -231,6 +231,14 @@ func WithRetry(times int, backoff workqueue.RateLimiter) jobOneShotOpt {
 	}
 }
 
+// WithAlwaysRetry retries a one shot job forever, even when no error is
+// returned.
+func WithAlwaysRetry() jobOneShotOpt {
+	return func(jos *jobOneShot) {
+		jos.retry = -1
+	}
+}
+
 // WithShutdown option configures a one shot job to shutdown the whole hive if the job returns an error. If the
 // WithRetry option is also configured, all retries must be exhausted before we trigger the shutdown.
 func WithShutdown() jobOneShotOpt {
@@ -282,7 +290,7 @@ func (jos *jobOneShot) start(ctx context.Context, wg *sync.WaitGroup, options op
 	defer cancel()
 
 	var err error
-	for i := 0; i <= jos.retry; i++ {
+	for i := 0; jos.retry < 0 || i <= jos.retry; i++ {
 		var timeout time.Duration
 		if i != 0 {
 			timeout = jos.backoff.When(jos)

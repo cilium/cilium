@@ -19,28 +19,37 @@ import (
 type params[Obj Reconcilable[Obj]] struct {
 	cell.In
 
-	Config      Config
-	Lifecycle   hive.Lifecycle
-	Log         logrus.FieldLogger
-	DB          *statedb.DB
-	Table       statedb.RWTable[Obj]
-	StatusIndex statedb.Index[Obj, StatusKind]
-	Target      Target[Obj]
-	Jobs        job.Registry
-	Metrics     *reconcilerMetrics
-	ModuleId    cell.ModuleId
-	Health      cell.HealthReporter
+	Config    Config
+	Lifecycle hive.Lifecycle
+	Log       logrus.FieldLogger
+	DB        *statedb.DB
+	Table     statedb.RWTable[Obj]
+	Target    Target[Obj]
+	Jobs      job.Registry
+	Metrics   *reconcilerMetrics
+	ModuleId  cell.ModuleId
+	Health    cell.HealthReporter
 }
 
 type reconciler[Obj Reconcilable[Obj]] struct {
 	params[Obj]
 
-	labels prometheus.Labels
+	externalSyncTrigger chan struct{}
+	labels              prometheus.Labels
 }
 
+// Register creates a new reconciler and registers to the application
+// lifecycle. To be used with cell.Invoke when the API of the reconciler
+// is not needed.
 func Register[Obj Reconcilable[Obj]](p params[Obj]) {
+	New(p)
+}
+
+// New creates and registers a new reconciler.
+func New[Obj Reconcilable[Obj]](p params[Obj]) Reconciler[Obj] {
 	r := &reconciler[Obj]{
-		params: p,
+		params:              p,
+		externalSyncTrigger: make(chan struct{}, 1),
 		labels: prometheus.Labels{
 			LabelModuleId: string(p.ModuleId),
 		},
@@ -49,6 +58,15 @@ func Register[Obj Reconcilable[Obj]](p params[Obj]) {
 	g := p.Jobs.NewGroup()
 	g.Add(job.OneShot("reconciler-loop", r.loop))
 	p.Lifecycle.Append(g)
+
+	return r
+}
+
+func (r *reconciler[Obj]) TriggerSync() {
+	select {
+	case r.externalSyncTrigger <- struct{}{}:
+	default:
+	}
 }
 
 func (r *reconciler[Obj]) loop(ctx context.Context) error {
@@ -77,6 +95,7 @@ func (r *reconciler[Obj]) loop(ctx context.Context) error {
 
 	revision := statedb.Revision(0)
 
+	// TODO: rename full to sync?
 	fullReconciliation := false
 
 	for {
@@ -85,6 +104,8 @@ func (r *reconciler[Obj]) loop(ctx context.Context) error {
 			return ctx.Err()
 
 		case <-fullReconTicker.C:
+			fullReconciliation = true
+		case <-r.externalSyncTrigger:
 			fullReconciliation = true
 
 		case <-tableWatchChan:
@@ -170,14 +191,14 @@ func (r *reconciler[Obj]) incremental(
 
 		var err error
 		if status.Delete {
-			err = r.Target.Delete(ctx, obj)
+			err = r.Target.Delete(ctx, txn, obj)
 			if err == nil {
 				toBeDeleted[obj] = rev
 			} else {
 				updateResults[obj] = result{rev, StatusError(true, err)}
 			}
 		} else {
-			err = r.Target.Update(ctx, obj)
+			err = r.Target.Update(ctx, txn, obj)
 			if err == nil {
 				updateResults[obj] = result{rev, StatusDone()}
 			} else {
@@ -244,7 +265,7 @@ func (r *reconciler[Obj]) full(ctx context.Context, txn statedb.ReadTxn, lastRev
 
 	iter, _ := r.Table.All(txn)
 
-	outOfSync, err := r.Target.Sync(ctx, iter)
+	outOfSync, err := r.Target.Sync(ctx, txn, iter)
 
 	r.Metrics.FullReconciliationDuration.With(r.labels).Observe(
 		float64(time.Since(start)) / float64(time.Second),

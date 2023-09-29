@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/cilium/cilium/pkg/datapath/linux"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
@@ -15,6 +17,9 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/reconciler"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
+	"golang.org/x/sys/unix"
 )
 
 var fakeProcPath = "/tmp/fakeproc"
@@ -22,6 +27,13 @@ var fakeProcPath = "/tmp/fakeproc"
 func main() {
 	os.MkdirAll(fakeProcPath, 0755)
 	h := hive.New(
+		cell.Provide(func() (*netns.NsHandle, error) {
+			h, err := netns.New()
+			// Using a pointer here so this works with the optional struct tag.
+			// Likely better to make NsHandle mandatory for devices controller etc.
+			return &h, err
+		}),
+
 		statedb.Cell,
 		job.Cell,
 		reconciler.Cell,
@@ -33,14 +45,25 @@ func main() {
 			metrics.Cell,
 		),
 
-		SysctlCell,
+		cell.Group(
+			cell.Provide(func() linux.DevicesConfig {
+				return linux.DevicesConfig{}
+			}),
+			linux.DevicesControllerCell,
+		),
 
-		IPTablesCell,
+		//SysctlCell,
+
+		//IPTablesCell,
+
+		RoutesCell,
 
 		cell.Invoke(
-			modify,
-			modifyIPTables,
+			//modify,
+			//modifyIPTables,
+			modifyRoutes,
 			healthReport,
+			dumpActualRoutes,
 			printPendingOrErrored,
 		),
 	)
@@ -85,6 +108,45 @@ func modifyIPTables(db *statedb.DB, t statedb.RWTable[*Rule]) {
 	}()
 }
 
+func modifyRoutes(r Routes, ns *netns.NsHandle) {
+	nlHandle, _ := netlink.NewHandleAt(*ns)
+	loIndex := 0
+	if l, err := nlHandle.LinkByName("lo"); err == nil {
+		if err := nlHandle.LinkSetUp(l); err != nil {
+			panic(err)
+		}
+		loIndex = l.Attrs().Index
+	} else {
+		panic(err)
+	}
+
+	h := r.NewHandle("test")
+	dst := netip.PrefixFrom(
+		netip.MustParseAddr("172.16.0.1"),
+		32,
+	)
+	h.Insert(tables.Route{
+		Table:     unix.RT_TABLE_MAIN,
+		LinkIndex: loIndex,
+		Scope:     unix.RT_SCOPE_LINK,
+		Dst:       dst,
+	})
+}
+
+func dumpActualRoutes(db *statedb.DB, routes statedb.Table[*tables.Route]) {
+	go func() {
+		for {
+			iter, watch := routes.All(db.ReadTxn())
+			for r, _, ok := iter.Next(); ok; r, _, ok = iter.Next() {
+				fmt.Printf("ACTUAL ROUTE: %v\n", r)
+			}
+			<-watch
+		}
+
+	}()
+
+}
+
 func healthReport(health cell.Health) {
 	go func() {
 		for {
@@ -99,18 +161,14 @@ func healthReport(health cell.Health) {
 
 }
 
-func printPendingOrErrored(db *statedb.DB, t statedb.Table[*SysctlSetting]) {
+func printPendingOrErrored(db *statedb.DB, t statedb.Table[*DesiredRoute]) {
 	go func() {
 		for {
-			fmt.Printf("Sysctl:\n")
+			fmt.Printf("Desired routes:\n")
 			txn := db.ReadTxn()
-			_, watch := t.All(txn)
-			pending, _ := t.Get(txn, SysctlStatusIndex.Query(reconciler.StatusKindPending))
-			errored, _ := t.Get(txn, SysctlStatusIndex.Query(reconciler.StatusKindError))
-			iter := statedb.NewDualIterator(pending, errored)
-
-			for obj, _, _, ok := iter.Next(); ok; obj, _, _, ok = iter.Next() {
-				fmt.Printf("\t%s: %s\n", obj.Key, obj.Status)
+			iter, watch := t.All(txn)
+			for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
+				fmt.Printf("\t%s: %s\n", obj.Route.Dst, obj.Status)
 			}
 
 			<-watch

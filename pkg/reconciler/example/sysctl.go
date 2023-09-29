@@ -114,7 +114,7 @@ func (sysctlTestTarget) Init(context.Context) error {
 	return nil
 }
 
-func (t *sysctlTestTarget) Delete(_ context.Context, s *SysctlSetting) error {
+func (t *sysctlTestTarget) Delete(_ context.Context, _ statedb.ReadTxn, s *SysctlSetting) error {
 	//fmt.Printf("Delete: %s\n", s.Key)
 	if err := maybeError(); err != nil {
 		return err
@@ -125,7 +125,7 @@ func (t *sysctlTestTarget) Delete(_ context.Context, s *SysctlSetting) error {
 }
 
 // Sync implements reconciler.Target
-func (t *sysctlTestTarget) Sync(_ context.Context, iter statedb.Iterator[*SysctlSetting]) (outOfSync bool, err error) {
+func (t *sysctlTestTarget) Sync(_ context.Context, _ statedb.ReadTxn, iter statedb.Iterator[*SysctlSetting]) (outOfSync bool, err error) {
 	if err := maybeError(); err != nil {
 		return false, err
 	}
@@ -159,7 +159,7 @@ func maybeError() error {
 }
 
 // Update implements reconciler.Target
-func (t *sysctlTestTarget) Update(_ context.Context, s *SysctlSetting) error {
+func (t *sysctlTestTarget) Update(_ context.Context, _ statedb.ReadTxn, s *SysctlSetting) error {
 	//fmt.Printf("Update: %s => %s\n", s.Key, s.Value)
 	if err := maybeError(); err != nil {
 		return err

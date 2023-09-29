@@ -55,13 +55,13 @@ type iptablesTarget struct {
 }
 
 // Delete implements reconciler.Target
-func (*iptablesTarget) Delete(_ context.Context, rule *Rule) error {
+func (*iptablesTarget) Delete(_ context.Context, txn statedb.ReadTxn, rule *Rule) error {
 	fmt.Printf(">>> iptables %s\n", strings.Join(rule.ToArgs("-D"), " "))
 	return nil
 }
 
 // Sync implements reconciler.Target
-func (*iptablesTarget) Sync(_ context.Context, _ statedb.Iterator[*Rule]) (outOfSync bool, err error) {
+func (*iptablesTarget) Sync(_ context.Context, txn statedb.ReadTxn, _ statedb.Iterator[*Rule]) (outOfSync bool, err error) {
 	// TODO:
 	// - "iptables-save" and parse? Or "-C" on each rule?
 	// - Check that cilium chains exist
@@ -70,7 +70,7 @@ func (*iptablesTarget) Sync(_ context.Context, _ statedb.Iterator[*Rule]) (outOf
 }
 
 // Update implements reconciler.Target
-func (*iptablesTarget) Update(_ context.Context, rule *Rule) error {
+func (*iptablesTarget) Update(_ context.Context, txn statedb.ReadTxn, rule *Rule) error {
 	fmt.Printf(">>> iptables %s\n", strings.Join(rule.ToArgs("-A"), " "))
 	return errors.New("oops iptables error")
 }

@@ -20,6 +20,10 @@ var DefaultConfig = Config{
 	RetryBackoffMaxDuration:   time.Minute,
 }
 
+type Reconciler[Obj Reconcilable[Obj]] interface {
+	TriggerSync()
+}
+
 // Reconcilable objects are Go types that carry a reconciliation status.
 // The generic reconciler uses WithStatus() to update the status of each
 // reconciled object. This status can then be used to implement waiting.
@@ -44,10 +48,12 @@ type Target[Obj Reconcilable[Obj]] interface {
 	// abort if context is cancelled. Should return an error if the operation fails.
 	// The reconciler will retry the operation again at a later time, potentially
 	// with a new version of the object. The operation should thus be idempotent.
-	Update(context.Context, Obj) error
+	Update(context.Context, statedb.ReadTxn, Obj) error
+
+	// TODO: UpdateBatch(...) for BPF map batch operations?
 
 	// Delete the object in the target. Same semantics as with Update.
-	Delete(context.Context, Obj) error
+	Delete(context.Context, statedb.ReadTxn, Obj) error
 
 	// Sync performs full reconciliation.
 	// As full reconciliation is performed after incremental reconciliation,
@@ -55,7 +61,7 @@ type Target[Obj Reconcilable[Obj]] interface {
 	// to be reconciled the 'outOfSync' is returned as true. If these
 	// operations failed, then 'err' is also non-nil and this will be retried
 	// (after backoff).
-	Sync(context.Context, statedb.Iterator[Obj]) (outOfSync bool, err error)
+	Sync(context.Context, statedb.ReadTxn, statedb.Iterator[Obj]) (outOfSync bool, err error)
 }
 
 type StatusKind string

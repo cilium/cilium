@@ -56,7 +56,7 @@ type RouteID struct {
 
 func (id RouteID) Key() []byte {
 	key := append(index.Uint64(uint64(id.Table)), '+')
-	key = append(key, index.Uint64(uint64(id.Table))...)
+	key = append(key, index.Uint64(uint64(id.LinkIndex))...)
 	key = append(key, '+')
 	key = append(key, index.NetIPPrefix(id.Dst)...)
 	return key
@@ -65,11 +65,12 @@ func (id RouteID) Key() []byte {
 type Route struct {
 	Table     int
 	LinkIndex int
-
-	Scope uint8
-	Dst   netip.Prefix
-	Src   netip.Addr
-	Gw    netip.Addr
+	MTU       int
+	Scope     uint8
+	Priority  int
+	Dst       netip.Prefix
+	Src       netip.Addr
+	Gw        netip.Addr
 }
 
 func (r *Route) DeepCopy() *Route {
