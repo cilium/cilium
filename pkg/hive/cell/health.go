@@ -47,6 +47,8 @@ type HealthReporter interface {
 
 	// Stopped reports that a module has completed, and will no longer report any
 	// health status.
+	// Implementations should differentiate that a stopped module may also be OK or Degraded.
+	// Stopping a reporting should only affect future updates.
 	Stopped(reason string)
 
 	// Degraded declares that a module has entered a degraded state.
@@ -81,6 +83,7 @@ type Update struct {
 	Level
 	FullModuleID FullModuleID
 	Message      string
+	Timestamp    time.Time
 	Err          error
 }
 
