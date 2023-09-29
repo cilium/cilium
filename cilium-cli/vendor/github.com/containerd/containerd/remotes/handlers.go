@@ -204,8 +204,9 @@ func push(ctx context.Context, provider content.Provider, pusher Pusher, desc oc
 // Base handlers can be provided which will be called before any push specific
 // handlers.
 //
-// If the passed in content.Provider is also a content.Manager then this will
-// also annotate the distribution sources in the manager.
+// If the passed in content.Provider is also a content.InfoProvider (such as
+// content.Manager) then this will also annotate the distribution sources using
+// labels prefixed with "containerd.io/distribution.source".
 func PushContent(ctx context.Context, pusher Pusher, desc ocispec.Descriptor, store content.Provider, limiter *semaphore.Weighted, platform platforms.MatchComparer, wrapper func(h images.Handler) images.Handler) error {
 
 	var m sync.Mutex
@@ -234,7 +235,7 @@ func PushContent(ctx context.Context, pusher Pusher, desc ocispec.Descriptor, st
 	platformFilterhandler := images.FilterPlatforms(images.ChildrenHandler(store), platform)
 
 	var handler images.Handler
-	if m, ok := store.(content.Manager); ok {
+	if m, ok := store.(content.InfoProvider); ok {
 		annotateHandler := annotateDistributionSourceHandler(platformFilterhandler, m)
 		handler = images.Handlers(annotateHandler, filterHandler, pushHandler)
 	} else {
@@ -344,14 +345,15 @@ func FilterManifestByPlatformHandler(f images.HandlerFunc, m platforms.Matcher) 
 
 // annotateDistributionSourceHandler add distribution source label into
 // annotation of config or blob descriptor.
-func annotateDistributionSourceHandler(f images.HandlerFunc, manager content.Manager) images.HandlerFunc {
+func annotateDistributionSourceHandler(f images.HandlerFunc, provider content.InfoProvider) images.HandlerFunc {
 	return func(ctx context.Context, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
 		children, err := f(ctx, desc)
 		if err != nil {
 			return nil, err
 		}
 
-		// only add distribution source for the config or blob data descriptor
+		// Distribution source is only used for config or blob but may be inherited from
+		// a manifest or manifest list
 		switch desc.MediaType {
 		case images.MediaTypeDockerSchema2Manifest, ocispec.MediaTypeImageManifest,
 			images.MediaTypeDockerSchema2ManifestList, ocispec.MediaTypeImageIndex:
@@ -359,12 +361,28 @@ func annotateDistributionSourceHandler(f images.HandlerFunc, manager content.Man
 			return children, nil
 		}
 
+		// parentInfo can be used to inherit info for non-existent blobs
+		var parentInfo *content.Info
+
 		for i := range children {
 			child := children[i]
 
-			info, err := manager.Info(ctx, child.Digest)
+			info, err := provider.Info(ctx, child.Digest)
 			if err != nil {
-				return nil, err
+				if !errdefs.IsNotFound(err) {
+					return nil, err
+				}
+				if parentInfo == nil {
+					pi, err := provider.Info(ctx, desc.Digest)
+					if err != nil {
+						return nil, err
+					}
+					parentInfo = &pi
+				}
+				// Blob may not exist locally, annotate with parent labels for cross repo
+				// mount or fetch. Parent sources may apply to all children since most
+				// registries enforce that children exist before the manifests.
+				info = *parentInfo
 			}
 
 			for k, v := range info.Labels {
