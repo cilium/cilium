@@ -79,12 +79,22 @@ type metadata struct {
 	// generate updates into the ipcache, policy engine and datapath.
 	queuedChangesMU lock.Mutex
 	queuedPrefixes  map[netip.Prefix]struct{}
+
+	// reservedHostLock protects the localHostLabels map. Holders must
+	// always take the metadata read lock first.
+	reservedHostLock lock.Mutex
+
+	// reservedHostLabels collects all labels that apply to the host identity.
+	// see updateLocalHostLabels() for more info.
+	reservedHostLabels map[netip.Prefix]labels.Labels
 }
 
 func newMetadata() *metadata {
 	return &metadata{
 		m:              make(map[netip.Prefix]PrefixInfo),
 		queuedPrefixes: make(map[netip.Prefix]struct{}),
+
+		reservedHostLabels: make(map[netip.Prefix]labels.Labels),
 	}
 }
 
@@ -204,14 +214,13 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 		oldID, entryExists := ipc.LookupByIP(pstr)
 		oldTunnelIP, oldEncryptionKey := ipc.GetHostIPCache(pstr)
 		prefixInfo := ipc.metadata.getLocked(prefix)
+		var newID *identity.Identity
 		if prefixInfo == nil {
 			if !entryExists {
 				// Already deleted, no new metadata to associate
 				continue
 			} // else continue below to remove the old entry
 		} else {
-			var newID *identity.Identity
-
 			// Insert to propagate the updated set of labels after removal.
 			newID, _, err = ipc.resolveIdentity(ctx, prefix, prefixInfo, identity.InvalidIdentity)
 			if err != nil {
@@ -303,6 +312,25 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 				entriesToDelete[prefix] = oldID
 			}
 		}
+
+		// The reserved:host identity is special: the numeric ID is fixed,
+		// and the set of labels is mutable. Thus, whenever it changes,
+		// we must always update the SelectorCache (normally, this is elided
+		// when no changes are present).
+		if newID != nil && newID.ID == identity.ReservedIdentityHost {
+			idsToAdd[newID.ID] = newID.Labels.LabelArray()
+		}
+
+		// Again, more reserved:host bookkeeping: if this prefix is no longer ID 1 (because
+		// it is being deleted or changing IDs), we need to recompute the labels
+		// for reserved:host and push that to the SelectorCache
+		if entryExists && oldID.ID == identity.ReservedIdentityHost &&
+			(newID == nil || newID.ID != identity.ReservedIdentityHost) {
+
+			i := ipc.updateReservedHostLabels(prefix, nil)
+			idsToAdd[i.ID] = i.Labels.LabelArray()
+		}
+
 	}
 	// Don't hold lock while calling UpdateIdentities, as it will otherwise run into a deadlock
 	ipc.metadata.RUnlock()
@@ -452,8 +480,12 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 		// for itself). For all other identities, we avoid modifying
 		// the labels at runtime and instead opt to allocate new
 		// identities below.
-		identity.AddReservedIdentityWithLabels(identity.ReservedIdentityHost, lbls)
-		return identity.LookupReservedIdentity(identity.ReservedIdentityHost), false, nil
+		//
+		// As an extra gotcha, we need need to merge all labels for all IPs
+		// that resolve to the reserved:host identity, otherwise we can
+		// flap identities labels depending on which prefix writes first. See GH-28259.
+		i := ipc.updateReservedHostLabels(prefix, lbls)
+		return i, false, nil
 	}
 
 	// If no other labels are associated with this IP, we assume that it's
@@ -481,6 +513,36 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
 	}
 	return id, isNew, err
+}
+
+// updateReservedHostLabels adds or removes labels that apply to the local host.
+// The `reserved:host` identity is special: the numeric identity is fixed
+// and the set of labels is mutable. (The datapath requires this.) So,
+// we need to determine all prefixes that have the `reserved:host` label and
+// capture their labels. Then, we must aggregate *all* labels from all prefixes and
+// update the labels that correspond to the `reserved:host` identity.
+//
+// This could be termed a meta-ipcache. The ipcache metadata layer aggregates
+// an arbitrary set of resources and labels to a prefix. Here, we are aggregating an arbitrary
+// set of prefixes and labels to an identity.
+func (ipc *IPCache) updateReservedHostLabels(prefix netip.Prefix, lbls labels.Labels) *identity.Identity {
+	ipc.metadata.reservedHostLock.Lock()
+	defer ipc.metadata.reservedHostLock.Unlock()
+	if lbls == nil {
+		delete(ipc.metadata.reservedHostLabels, prefix)
+	} else {
+		ipc.metadata.reservedHostLabels[prefix] = lbls
+	}
+
+	// aggregate all labels and update static identity
+	newLabels := labels.NewFrom(labels.LabelHost)
+	for _, l := range ipc.metadata.reservedHostLabels {
+		newLabels.MergeLabels(l)
+	}
+
+	log.WithField(logfields.Labels, newLabels).Debug("Merged labels for reserved:host identity")
+
+	return identity.AddReservedIdentityWithLabels(identity.ReservedIdentityHost, newLabels)
 }
 
 // RemoveLabelsExcluded removes the given labels from all IPs inside the IDMD

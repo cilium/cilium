@@ -128,6 +128,88 @@ func TestInjectLabels(t *testing.T) {
 	assert.Equal(t, identity.ReservedIdentityWorld, IPIdentityCache.ipToIdentityCache["0.0.0.0/0"].ID)
 }
 
+// Test that when multiple IPs have the `resolved:host` label, we correctly
+// aggregate all labels *and* update the selector cache correctly.
+// This reproduces GH-28259.
+func TestUpdateLocalNode(t *testing.T) {
+	cancel := setupTest(t)
+	defer cancel()
+
+	ctx := context.Background()
+
+	bothLabels := labels.Labels{}
+	bothLabels.MergeLabels(labels.LabelHost)
+	bothLabels.MergeLabels(labels.LabelKubeAPIServer)
+
+	selectorCacheHas := func(lbls labels.Labels) {
+		t.Helper()
+		id := PolicyHandler.identities[identity.ReservedIdentityHost]
+		assert.NotNil(t, id)
+		assert.Equal(t, lbls.LabelArray(), id)
+	}
+
+	injectLabels := func(ip netip.Prefix) {
+		t.Helper()
+		remaining, err := IPIdentityCache.InjectLabels(ctx, []netip.Prefix{ip})
+		assert.NoError(t, err)
+		assert.Len(t, remaining, 0)
+	}
+
+	idIs := func(ip netip.Prefix, id identity.NumericIdentity) {
+		t.Helper()
+		assert.Equal(t, IPIdentityCache.ipToIdentityCache[ip.String()].ID, id)
+	}
+
+	// Mark .4 as local host
+	IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.Local, "node-uid", labels.LabelHost)
+	injectLabels(inClusterPrefix)
+	idIs(inClusterPrefix, identity.ReservedIdentityHost)
+	selectorCacheHas(labels.LabelHost)
+
+	// Mark .4 as kube-apiserver
+	// Note that in the actual code, we use `source.KubeAPIServer`. However,
+	// we use the same source in test case to try and ferret out more bugs.
+	IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.Local, "kube-uid", labels.LabelKubeAPIServer)
+	injectLabels(inClusterPrefix)
+	idIs(inClusterPrefix, identity.ReservedIdentityHost)
+	selectorCacheHas(bothLabels)
+
+	// Mark .5 as local host
+	IPIdentityCache.metadata.upsertLocked(inClusterPrefix2, source.Local, "node-uid", labels.LabelHost)
+	injectLabels(inClusterPrefix2)
+	idIs(inClusterPrefix, identity.ReservedIdentityHost)
+	idIs(inClusterPrefix2, identity.ReservedIdentityHost)
+	selectorCacheHas(bothLabels)
+
+	// remove kube-apiserver from .4
+	IPIdentityCache.metadata.remove(inClusterPrefix, "kube-uid", labels.LabelKubeAPIServer)
+	injectLabels(inClusterPrefix)
+	idIs(inClusterPrefix, identity.ReservedIdentityHost)
+	idIs(inClusterPrefix2, identity.ReservedIdentityHost)
+	selectorCacheHas(labels.LabelHost)
+
+	// add kube-apiserver back to .4
+	IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.Local, "kube-uid", labels.LabelKubeAPIServer)
+	injectLabels(inClusterPrefix)
+	idIs(inClusterPrefix, identity.ReservedIdentityHost)
+	idIs(inClusterPrefix2, identity.ReservedIdentityHost)
+	selectorCacheHas(bothLabels)
+
+	// remove host from .4
+	IPIdentityCache.metadata.remove(inClusterPrefix, "node-uid", labels.LabelHost)
+	injectLabels(inClusterPrefix)
+
+	// Verify that .4 now has just kube-apiserver and CIDRs
+	idIs(inClusterPrefix, identity.LocalIdentityFlag) // the first CIDR identity
+	id := PolicyHandler.identities[identity.LocalIdentityFlag]
+	assert.True(t, id.Has("reserved.kube-apiserver"))
+	assert.True(t, id.Has("cidr."+inClusterPrefix.String()))
+
+	// verify that id 1 is now just reserved:host
+	idIs(inClusterPrefix2, identity.ReservedIdentityHost)
+	selectorCacheHas(labels.LabelHost)
+}
+
 // TestInjectExisting tests "upgrading" an existing identity to the apiserver.
 // This is a common occurrence on startup - and this tests ensures we don't
 // regress the known issue in GH-24502
@@ -353,7 +435,7 @@ func TestOverrideIdentity(t *testing.T) {
 
 	ipc := NewIPCache(&Configuration{
 		IdentityAllocator: allocator,
-		PolicyHandler:     &mockUpdater{},
+		PolicyHandler:     newMockUpdater(),
 		DatapathHandler:   &mockTriggerer{},
 	})
 	ctx := context.Background()
@@ -501,10 +583,11 @@ func setupTest(t *testing.T) (cleanup func()) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	allocator := testidentity.NewMockIdentityAllocator(nil)
+	PolicyHandler = newMockUpdater()
 	IPIdentityCache = NewIPCache(&Configuration{
 		Context:           ctx,
 		IdentityAllocator: allocator,
-		PolicyHandler:     &mockUpdater{},
+		PolicyHandler:     PolicyHandler,
 		DatapathHandler:   &mockTriggerer{},
 		NodeIDHandler:     &fake.FakeNodeIDHandler{},
 	})
@@ -518,9 +601,25 @@ func setupTest(t *testing.T) (cleanup func()) {
 	}
 }
 
-type mockUpdater struct{}
+func newMockUpdater() *mockUpdater {
+	return &mockUpdater{
+		identities: make(map[identity.NumericIdentity]labels.LabelArray),
+	}
+}
 
-func (m *mockUpdater) UpdateIdentities(_, _ cache.IdentityCache, _ *sync.WaitGroup) {}
+type mockUpdater struct {
+	identities map[identity.NumericIdentity]labels.LabelArray
+}
+
+func (m *mockUpdater) UpdateIdentities(added, deleted cache.IdentityCache, _ *sync.WaitGroup) {
+	for nid, lbls := range added {
+		m.identities[nid] = lbls
+	}
+
+	for nid := range deleted {
+		delete(m.identities, nid)
+	}
+}
 
 type mockTriggerer struct{}
 
