@@ -81,12 +81,21 @@ type metadata struct {
 	// generate updates into the ipcache, policy engine and datapath.
 	queuedChangesMU lock.Mutex
 	queuedPrefixes  map[netip.Prefix]struct{}
+
+	// reservedHostLock protects the localHostLabels map
+	reservedHostLock lock.Mutex
+
+	// reservedHostLabels collects all labels that apply to the host identity.
+	// see updateLocalHostLabels() for more info.
+	reservedHostLabels map[netip.Prefix]labels.Labels
 }
 
 func newMetadata() *metadata {
 	return &metadata{
 		m:              make(map[netip.Prefix]PrefixInfo),
 		queuedPrefixes: make(map[netip.Prefix]struct{}),
+
+		reservedHostLabels: make(map[netip.Prefix]labels.Labels),
 	}
 }
 
@@ -211,6 +220,14 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 				// Already deleted, no new metadata to associate
 				continue
 			} // else continue below to remove the old entry
+
+			// Special case: if we are removing an IP from the reserved:host identity,
+			// we need to remove this prefix's labels from the local identity and
+			// force an update to the selector cache.
+			if oldID.ID == identity.ReservedIdentityHost {
+				i := ipc.updateReservedHostLabels(prefix, nil)
+				idsToAdd[i.ID] = i.Labels.LabelArray()
+			}
 		} else {
 			var newID *identity.Identity
 
@@ -237,6 +254,12 @@ func (ipc *IPCache) InjectLabels(ctx context.Context, modifiedPrefixes []netip.P
 				remainingPrefixes = modifiedPrefixes[i:]
 				err = fmt.Errorf("failed to allocate new identity during label injection: %w", err)
 				break
+			}
+
+			// Special case: the host identity is mutable; we need to always update the SelectorCache.
+			// If the labels are unchanged, the SelectorCache will short-circuit.
+			if newID.ID == identity.ReservedIdentityHost {
+				idsToAdd[newID.ID] = newID.Labels.LabelArray()
 			}
 
 			// We can safely skip the ipcache upsert if the entry matches with
@@ -478,8 +501,12 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 		// for itself). For all other identities, we avoid modifying
 		// the labels at runtime and instead opt to allocate new
 		// identities below.
-		identity.AddReservedIdentityWithLabels(identity.ReservedIdentityHost, lbls)
-		return identity.LookupReservedIdentity(identity.ReservedIdentityHost), false, nil
+		//
+		// As an extra gotcha, we need need to merge all labels for all IPs
+		// that resolve to the reserved:host identity, otherwise we can
+		// flap identities labels depending on which prefix writes first. See GH-28259.
+		i := ipc.updateReservedHostLabels(prefix, lbls)
+		return i, false, nil
 	}
 
 	// If no other labels are associated with this IP, we assume that it's
@@ -509,6 +536,33 @@ func (ipc *IPCache) resolveIdentity(ctx context.Context, prefix netip.Prefix, in
 		id.CIDRLabel = labels.NewLabelsFromModel([]string{labels.LabelSourceCIDR + ":" + prefix.String()})
 	}
 	return id, isNew, err
+}
+
+// updateReservedHostLabels adds or removes labels that apply to the local host.
+// The `reserved:host` identity is special: the numeric identity is fixed
+// and the set of labels is mutable. (The datapath requires this.) So,
+// we need to determine all prefixes that have the `reserved:host` label and
+// capture their labels. Then, we must aggregate *all* labels from all IPs and
+// insert them as the `reserved:host` identity labels.
+func (ipc *IPCache) updateReservedHostLabels(prefix netip.Prefix, lbls labels.Labels) *identity.Identity {
+	ipc.metadata.reservedHostLock.Lock()
+	defer ipc.metadata.reservedHostLock.Unlock()
+	if lbls == nil {
+		delete(ipc.metadata.reservedHostLabels, prefix)
+	} else {
+		ipc.metadata.reservedHostLabels[prefix] = lbls
+	}
+
+	// aggregate all labels and update static identity
+	newLabels := labels.Labels{}
+	for _, l := range ipc.metadata.reservedHostLabels {
+		newLabels.MergeLabels(l)
+	}
+
+	log.WithField(logfields.Labels, newLabels).Debug("Merged labels for reserved:host identity")
+
+	identity.AddReservedIdentityWithLabels(identity.ReservedIdentityHost, newLabels)
+	return identity.LookupReservedIdentity(identity.ReservedIdentityHost)
 }
 
 // RemoveLabelsExcluded removes the given labels from all IPs inside the IDMD
