@@ -87,9 +87,6 @@ type IngestManager interface {
 }
 
 // Info holds content specific information
-//
-// TODO(stevvooe): Consider a very different name for this struct. Info is way
-// to general. It also reads very weird in certain context, like pluralization.
 type Info struct {
 	Digest    digest.Digest
 	Size      int64
@@ -111,12 +108,17 @@ type Status struct {
 // WalkFunc defines the callback for a blob walk.
 type WalkFunc func(Info) error
 
-// Manager provides methods for inspecting, listing and removing content.
-type Manager interface {
+// InfoProvider provides info for content inspection.
+type InfoProvider interface {
 	// Info will return metadata about content available in the content store.
 	//
 	// If the content is not present, ErrNotFound will be returned.
 	Info(ctx context.Context, dgst digest.Digest) (Info, error)
+}
+
+// Manager provides methods for inspecting, listing and removing content.
+type Manager interface {
+	InfoProvider
 
 	// Update updates mutable information related to content.
 	// If one or more fieldpaths are provided, only those

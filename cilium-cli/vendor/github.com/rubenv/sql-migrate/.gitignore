@@ -5,3 +5,5 @@
 
 /sql-migrate/test.db
 /test.db
+.vscode/
+bin/

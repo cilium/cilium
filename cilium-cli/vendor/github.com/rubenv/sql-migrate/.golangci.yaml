@@ -1,0 +1,98 @@
+linters-settings:
+  gocritic:
+    disabled-checks:
+      - ifElseChain
+  goimports:
+    local-prefixes: github.com/rubenv/sql-migrate
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+  depguard:
+    list-type: blacklist
+    include-go-root: true
+    include-go-std-lib: true
+  exhaustive:
+    default-signifies-exhaustive: true
+  nolintlint:
+    allow-unused: false
+    allow-leading-space: false
+    allow-no-explanation:
+      - depguard
+    require-explanation: true
+    require-specific: true
+  revive:
+    enable-all-rules: false
+    rules:
+      - name: atomic
+      - name: blank-imports
+      - name: bool-literal-in-expr
+      - name: call-to-gc
+      - name: constant-logical-expr
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: duplicated-imports
+      - name: empty-block
+      - name: empty-lines
+      - name: error-naming
+      - name: error-return
+      - name: error-strings
+      - name: errorf
+      - name: exported
+      - name: identical-branches
+      - name: imports-blacklist
+      - name: increment-decrement
+      - name: indent-error-flow
+      - name: modifies-parameter
+      - name: modifies-value-receiver
+      - name: package-comments
+      - name: range
+      - name: range-val-address
+      - name: range-val-in-closure
+      - name: receiver-naming
+      - name: string-format
+      - name: string-of-int
+      - name: struct-tag
+      - name: time-naming
+      - name: unconditional-recursion
+      - name: unexported-naming
+      - name: unexported-return
+      - name: superfluous-else
+      - name: unreachable-code
+      - name: var-declaration
+      - name: waitgroup-by-value
+      - name: unused-receiver
+      - name: unnecessary-stmt
+      - name: unused-parameter
+run:
+  tests: true
+  timeout: 1m
+linters:
+  disable-all: true
+  enable:
+    - asciicheck
+    - depguard
+    - errcheck
+    - exhaustive
+    - gocritic
+    - gofmt
+    - gofumpt
+    - goimports
+    - govet
+    - ineffassign
+    - nolintlint
+    - revive
+    - staticcheck
+    - typecheck
+    - unused
+    - whitespace
+    - errorlint
+    - gosimple
+    - unparam
+issues:
+  exclude:
+    - 'declaration of "err" shadows declaration at' # Allow shadowing of `err` because it's so common
+    - 'error-strings: error strings should not be capitalized or end with punctuation or a newline'
+  max-same-issues: 10000
+  max-issues-per-linter: 10000
