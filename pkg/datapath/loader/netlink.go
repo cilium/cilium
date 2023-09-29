@@ -435,6 +435,7 @@ func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
 				IP:   ipv6,
 				Mask: net.CIDRMask(64, 128), // corresponds to /64
 			},
+			Flags: unix.IFA_F_NOPREFIXROUTE,
 		}
 
 		if err := netlink.AddrReplace(hostDev, &addr); err != nil {
