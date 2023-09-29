@@ -265,7 +265,7 @@ github.com/docker/distribution/registry/client/auth/challenge
 github.com/docker/distribution/registry/client/transport
 github.com/docker/distribution/registry/storage/cache
 github.com/docker/distribution/registry/storage/cache/memory
-# github.com/docker/docker v24.0.2+incompatible => github.com/docker/docker v23.0.6+incompatible
+# github.com/docker/docker v24.0.2+incompatible => github.com/docker/docker v23.0.7+incompatible
 ## explicit
 github.com/docker/docker/api/types
 github.com/docker/docker/api/types/blkiodev
@@ -1592,4 +1592,4 @@ sigs.k8s.io/yaml
 # github.com/miekg/dns => github.com/cilium/dns v1.1.51-0.20220729113855-5b94b11b46fc
 # go.universe.tf/metallb => github.com/cilium/metallb v0.1.1-0.20220829170633-5d7dfb1129f7
 # sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.6.2
-# github.com/docker/docker => github.com/docker/docker v23.0.6+incompatible
+# github.com/docker/docker => github.com/docker/docker v23.0.7+incompatible
