@@ -110,7 +110,7 @@
 <a name="flow-CiliumEventType"></a>
 
 ### CiliumEventType
-CiliumEventType from which the flow originated
+CiliumEventType from which the flow originated.
 
 
 | Field | Type | Label | Description |
@@ -126,8 +126,7 @@ CiliumEventType from which the flow originated
 <a name="flow-DNS"></a>
 
 ### DNS
-DNS flow. This is basically directly mapped from Cilium&#39;s LogRecordDNS:
-    https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264
+DNS flow. This is basically directly mapped from Cilium&#39;s [LogRecordDNS]( https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264):
 
 
 | Field | Type | Label | Description |
@@ -243,7 +242,7 @@ DNS flow. This is basically directly mapped from Cilium&#39;s LogRecordDNS:
 <a name="flow-EventTypeFilter"></a>
 
 ### EventTypeFilter
-EventTypeFilter is a filter describing a particular event type
+EventTypeFilter is a filter describing a particular event type.
 
 
 | Field | Type | Label | Description |
@@ -355,9 +354,7 @@ multiple fields are set, then all fields must match for the filter to match.
 <a name="flow-HTTP"></a>
 
 ### HTTP
-L7 information for HTTP flows. It corresponds to Cilium&#39;s accesslog.LogRecordHTTP type.
-  https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206
-
+L7 information for HTTP flows. It corresponds to Cilium&#39;s [accesslog.LogRecordHTTP](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206) type.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
@@ -463,8 +460,7 @@ L7 information for HTTP flows. It corresponds to Cilium&#39;s accesslog.LogRecor
 <a name="flow-Kafka"></a>
 
 ### Kafka
-L7 information for Kafka flows. It corresponds to Cilium&#39;s accesslog.LogRecordKafka type.
-  https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229
+L7 information for Kafka flows. It corresponds to Cilium&#39;s [accesslog.LogRecordKafka](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L229) type.
 
 
 | Field | Type | Label | Description |
@@ -502,8 +498,7 @@ L7 information for Kafka flows. It corresponds to Cilium&#39;s accesslog.LogReco
 <a name="flow-Layer7"></a>
 
 ### Layer7
-Message for L7 flow, which roughly corresponds to Cilium&#39;s accesslog LogRecord:
-  https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141
+Message for L7 flow, which roughly corresponds to Cilium&#39;s accesslog [LogRecord](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L141):
 
 
 | Field | Type | Label | Description |
@@ -732,10 +727,10 @@ that happened before the events were captured by Hubble.
 <a name="flow-TraceContext"></a>
 
 ### TraceContext
-TraceContext contains trace context propagation data, ie information about a
+TraceContext contains trace context propagation data, i.e. information about a
 distributed trace.
-For more information about trace context, check the W3C Trace Context
-specification: https://www.w3.org/TR/trace-context/
+For more information about trace context, check the [W3C Trace Context
+specification](https://www.w3.org/TR/trace-context/).
 
 
 | Field | Type | Label | Description |
@@ -800,7 +795,7 @@ TraceParent identifies the incoming request in a tracing system.
 
 ### AgentEventType
 AgentEventType is the type of agent event. These values are shared with type
-AgentNotification in pkg/monitor/api/types.go
+AgentNotification in pkg/monitor/api/types.go.
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
@@ -822,7 +817,7 @@ AgentNotification in pkg/monitor/api/types.go
 <a name="flow-AuthType"></a>
 
 ### AuthType
-These types correspond to definitions in pkg/policy/l4.go
+These types correspond to definitions in pkg/policy/l4.go.
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
@@ -1051,8 +1046,7 @@ EventType are constants are based on the ones from &lt;linux/perf_event.h&gt;.
 <a name="flow-L7FlowType"></a>
 
 ### L7FlowType
-This enum corresponds to Cilium&#39;s L7 accesslog FlowType:
-  https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L26
+This enum corresponds to Cilium&#39;s L7 accesslog [FlowType](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L26):
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
@@ -1172,4 +1166,3 @@ This mirrors enum xlate_point in bpf/lib/trace_sock.h
 | <a name="bool" /> bool |  | bool | boolean | boolean | bool | bool | boolean | TrueClass/FalseClass |
 | <a name="string" /> string | A string must always contain UTF-8 encoded or 7-bit ASCII text. | string | String | str/unicode | string | string | string | String (UTF-8) |
 | <a name="bytes" /> bytes | May contain any arbitrary sequence of bytes. | string | ByteString | str | []byte | ByteString | string | String (ASCII-8BIT) |
-
