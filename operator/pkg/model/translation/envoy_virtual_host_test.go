@@ -198,19 +198,32 @@ func Test_requestMirrorMutation(t *testing.T) {
 		route := &envoy_config_route_v3.Route_Route{
 			Route: &envoy_config_route_v3.RouteAction{},
 		}
-		mirror := &model.HTTPRequestMirror{
-			Backend: &model.Backend{
-				Name:      "dummy-service",
-				Namespace: "default",
-				Port: &model.BackendPort{
-					Port: 8080,
-					Name: "http",
+		mirror := []*model.HTTPRequestMirror{
+			{
+				Backend: &model.Backend{
+					Name:      "dummy-service",
+					Namespace: "default",
+					Port: &model.BackendPort{
+						Port: 8080,
+						Name: "http",
+					},
+				},
+			},
+			{
+				Backend: &model.Backend{
+					Name:      "another-dummy-service",
+					Namespace: "default",
+					Port: &model.BackendPort{
+						Port: 8080,
+						Name: "http",
+					},
 				},
 			},
 		}
 
 		res := requestMirrorMutation(mirror)(route)
-		require.Len(t, res.Route.RequestMirrorPolicies, 1)
+		require.Len(t, res.Route.RequestMirrorPolicies, 2)
 		require.Equal(t, res.Route.RequestMirrorPolicies[0].Cluster, "default/dummy-service:8080")
+		require.Equal(t, res.Route.RequestMirrorPolicies[1].Cluster, "default/another-dummy-service:8080")
 	})
 }
