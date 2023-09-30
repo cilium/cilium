@@ -1563,12 +1563,14 @@ var mirrorHTTPListeners = []model.HTTPListener{
 						},
 					},
 				},
-				RequestMirror: &model.HTTPRequestMirror{
-					Backend: &model.Backend{
-						Name:      "infra-backend-v2",
-						Namespace: "gateway-conformance-infra",
-						Port: &model.BackendPort{
-							Port: 8080,
+				RequestMirrors: []*model.HTTPRequestMirror{
+					{
+						Backend: &model.Backend{
+							Name:      "infra-backend-v2",
+							Namespace: "gateway-conformance-infra",
+							Port: &model.BackendPort{
+								Port: 8080,
+							},
 						},
 					},
 				},
