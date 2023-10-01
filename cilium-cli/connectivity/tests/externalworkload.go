@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 func PodToExternalWorkload() check.Scenario {
@@ -28,8 +29,8 @@ func (s *podToExternalWorkload) Run(ctx context.Context, t *check.Test) {
 		pod := pod // copy to avoid memory aliasing when using reference
 
 		for _, wl := range ct.ExternalWorkloads() {
-			t.NewAction(s, fmt.Sprintf("ping-%d", i), &pod, wl, check.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.PingCommand(wl, check.IPFamilyV4))
+			t.NewAction(s, fmt.Sprintf("ping-%d", i), &pod, wl, features.IPFamilyV4).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.PingCommand(wl, features.IPFamilyV4))
 
 				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 					Protocol: check.ICMP,

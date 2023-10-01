@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 // PodToHost sends an ICMP ping from all client Pods to all nodes
@@ -35,14 +36,14 @@ func (s *podToHost) Run(ctx context.Context, t *check.Test) {
 		for _, node := range ct.Nodes() {
 			node := node
 
-			t.ForEachIPFamily(func(ipFam check.IPFamily) {
+			t.ForEachIPFamily(func(ipFam features.IPFamily) {
 				for _, addr := range node.Status.Addresses {
-					if check.GetIPFamily(addr.Address) != ipFam {
+					if features.GetIPFamily(addr.Address) != ipFam {
 						continue
 					}
 
 					dst := check.ICMPEndpoint("", addr.Address)
-					ipFam := check.GetIPFamily(addr.Address)
+					ipFam := features.GetIPFamily(addr.Address)
 
 					t.NewAction(s, fmt.Sprintf("ping-%s-%d", ipFam, i), &pod, dst, ipFam).Run(func(a *check.Action) {
 						a.ExecInPod(ctx, ct.PingCommand(dst, ipFam))
@@ -92,14 +93,14 @@ func (s *podToHostPort) Run(ctx context.Context, t *check.Test) {
 
 			baseURL := fmt.Sprintf("%s://%s:%d%s", echo.Scheme(), echo.Pod.Status.HostIP, check.EchoServerHostPort, echo.Path())
 			ep := check.HTTPEndpoint(echo.Name(), baseURL)
-			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, ep, check.IPFamilyAny).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(ep, check.IPFamilyAny))
+			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, ep, features.IPFamilyAny).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommand(ep, features.IPFamilyAny))
 
 				a.ValidateFlows(ctx, client, a.GetEgressRequirements(check.FlowParameters{
 					// Because the HostPort request is NATed, we might only
 					// observe flows after DNAT has been applied (e.g. by
 					// HostReachableServices),
-					AltDstIP:   echo.Address(check.IPFamilyAny),
+					AltDstIP:   echo.Address(features.IPFamilyAny),
 					AltDstPort: echo.Port(),
 				}))
 			})

@@ -15,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 func CiliumHealth() check.Scenario {
@@ -30,7 +31,7 @@ func (s *ciliumHealth) Name() string {
 func (s *ciliumHealth) Run(ctx context.Context, t *check.Test) {
 	for name, pod := range t.Context().CiliumPods() {
 		pod := pod
-		t.NewAction(s, name, &pod, nil, check.IPFamilyAny).Run(func(a *check.Action) {
+		t.NewAction(s, name, &pod, nil, features.IPFamilyAny).Run(func(a *check.Action) {
 			runHealthProbe(ctx, t.Context(), &pod)
 		})
 	}

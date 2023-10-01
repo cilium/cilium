@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 // Feature is the name of a Cilium feature (e.g. l7-proxy, cni chaining mode etc)
@@ -118,15 +119,15 @@ func (fs FeatureSet) MatchRequirements(reqs ...FeatureRequirement) (bool, string
 }
 
 // IPFamilies returns the list of enabled IP families.
-func (fs FeatureSet) IPFamilies() []IPFamily {
-	var families []IPFamily
+func (fs FeatureSet) IPFamilies() []features.IPFamily {
+	var families []features.IPFamily
 
 	if match, _ := fs.MatchRequirements(RequireFeatureEnabled(FeatureIPv4)); match {
-		families = append(families, IPFamilyV4)
+		families = append(families, features.IPFamilyV4)
 	}
 
 	if match, _ := fs.MatchRequirements(RequireFeatureEnabled(FeatureIPv6)); match {
-		families = append(families, IPFamilyV6)
+		families = append(families, features.IPFamilyV6)
 	}
 
 	return families

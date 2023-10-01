@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 // PodToPod generates one HTTP request from each client pod
@@ -49,7 +50,7 @@ func (s *podToPod) Run(ctx context.Context, t *check.Test) {
 			if !hasAllLabels(echo, s.destinationLabels) {
 				continue
 			}
-			t.ForEachIPFamily(func(ipFam check.IPFamily) {
+			t.ForEachIPFamily(func(ipFam features.IPFamily) {
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, echo, ipFam).Run(func(a *check.Action) {
 					if s.method == "" {
 						a.ExecInPod(ctx, ct.CurlCommand(echo, ipFam))
@@ -109,7 +110,7 @@ func (s *podToPodWithEndpoints) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 
-			t.ForEachIPFamily(func(ipFam check.IPFamily) {
+			t.ForEachIPFamily(func(ipFam features.IPFamily) {
 				s.curlEndpoints(ctx, t, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, echo, ipFam)
 			})
 
@@ -119,7 +120,7 @@ func (s *podToPodWithEndpoints) Run(ctx context.Context, t *check.Test) {
 }
 
 func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test, name string,
-	client *check.Pod, echo check.TestPeer, ipFam check.IPFamily) {
+	client *check.Pod, echo check.TestPeer, ipFam features.IPFamily) {
 	ct := t.Context()
 	baseURL := fmt.Sprintf("%s://%s:%d", echo.Scheme(), echo.Address(ipFam), echo.Port())
 	var curlOpts []string

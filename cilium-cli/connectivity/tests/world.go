@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 // PodToWorld sends multiple HTTP(S) requests to ExternalTarget
@@ -47,23 +48,23 @@ func (s *podToWorld) Run(ctx context.Context, t *check.Test) {
 		client := client // copy to avoid memory aliasing when using reference
 
 		// With http, over port 80.
-		httpOpts := s.rc.CurlOptions(http, check.IPFamilyAny, client, ct.Params())
-		t.NewAction(s, fmt.Sprintf("http-to-%s-%d", extTarget, i), &client, http, check.IPFamilyAny).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(http, check.IPFamilyAny, httpOpts...))
+		httpOpts := s.rc.CurlOptions(http, features.IPFamilyAny, client, ct.Params())
+		t.NewAction(s, fmt.Sprintf("http-to-%s-%d", extTarget, i), &client, http, features.IPFamilyAny).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, ct.CurlCommand(http, features.IPFamilyAny, httpOpts...))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
 		// With https, over port 443.
-		httpsOpts := s.rc.CurlOptions(https, check.IPFamilyAny, client, ct.Params())
-		t.NewAction(s, fmt.Sprintf("https-to-%s-%d", extTarget, i), &client, https, check.IPFamilyAny).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(https, check.IPFamilyAny, httpsOpts...))
+		httpsOpts := s.rc.CurlOptions(https, features.IPFamilyAny, client, ct.Params())
+		t.NewAction(s, fmt.Sprintf("https-to-%s-%d", extTarget, i), &client, https, features.IPFamilyAny).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, ct.CurlCommand(https, features.IPFamilyAny, httpsOpts...))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
 		// With https, over port 443, index.html.
-		httpsindexOpts := s.rc.CurlOptions(httpsindex, check.IPFamilyAny, client, ct.Params())
-		t.NewAction(s, fmt.Sprintf("https-to-%s-index-%d", extTarget, i), &client, httpsindex, check.IPFamilyAny).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(httpsindex, check.IPFamilyAny, httpsindexOpts...))
+		httpsindexOpts := s.rc.CurlOptions(httpsindex, features.IPFamilyAny, client, ct.Params())
+		t.NewAction(s, fmt.Sprintf("https-to-%s-index-%d", extTarget, i), &client, httpsindex, features.IPFamilyAny).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, ct.CurlCommand(httpsindex, features.IPFamilyAny, httpsindexOpts...))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 
@@ -99,8 +100,8 @@ func (s *podToWorld2) Run(ctx context.Context, t *check.Test) {
 		client := client // copy to avoid memory aliasing when using reference
 
 		// With https, over port 443.
-		t.NewAction(s, fmt.Sprintf("https-cilium-io-%d", i), &client, https, check.IPFamilyAny).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.CurlCommand(https, check.IPFamilyAny))
+		t.NewAction(s, fmt.Sprintf("https-cilium-io-%d", i), &client, https, features.IPFamilyAny).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, ct.CurlCommand(https, features.IPFamilyAny))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 			a.ValidateMetrics(ctx, client, a.GetEgressMetricsRequirements())
 		})
@@ -153,9 +154,9 @@ func (s *podToWorldWithTLSIntercept) Run(ctx context.Context, t *check.Test) {
 		client := client // copy to avoid memory aliasing when using reference
 
 		// With https, over port 443.
-		t.NewAction(s, fmt.Sprintf("https-to-%s-%d", extTarget, i), &client, https, check.IPFamilyAny).Run(func(a *check.Action) {
+		t.NewAction(s, fmt.Sprintf("https-to-%s-%d", extTarget, i), &client, https, features.IPFamilyAny).Run(func(a *check.Action) {
 			a.WriteDataToPod(ctx, "/tmp/test-ca.crt", caBundle)
-			a.ExecInPod(ctx, ct.CurlCommand(https, check.IPFamilyAny, s.curlOpts...))
+			a.ExecInPod(ctx, ct.CurlCommand(https, features.IPFamilyAny, s.curlOpts...))
 			a.ValidateFlows(ctx, client, a.GetEgressRequirements(fp))
 		})
 

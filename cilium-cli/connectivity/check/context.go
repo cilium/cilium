@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/junit"
 	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 // ConnectivityTest is the root context of the connectivity test suite
@@ -610,8 +611,8 @@ func (ct *ConnectivityTest) detectPodCIDRs(ctx context.Context) error {
 
 	for _, n := range nodes.Items {
 		for _, cidr := range n.Spec.PodCIDRs {
-			f := GetIPFamily(ct.hostNetNSPodsByNode[n.Name].Pod.Status.HostIP)
-			if strings.Contains(cidr, ":") && f == IPFamilyV4 {
+			f := features.GetIPFamily(ct.hostNetNSPodsByNode[n.Name].Pod.Status.HostIP)
+			if strings.Contains(cidr, ":") && f == features.IPFamilyV4 {
 				// Skip if the host IP of the pod mismatches with pod CIDR.
 				// Cannot create a route with the gateway IP family
 				// mismatching the subnet.
@@ -872,7 +873,7 @@ func (ct *ConnectivityTest) UninstallResources(ctx context.Context, wait bool) {
 	}
 }
 
-func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam IPFamily, opts ...string) []string {
+func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, opts ...string) []string {
 	cmd := []string{"curl",
 		"-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}",
 		"--silent", "--fail", "--show-error",
@@ -897,7 +898,7 @@ func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam IPFamily, opts ...s
 	return cmd
 }
 
-func (ct *ConnectivityTest) CurlClientIPCommand(peer TestPeer, ipFam IPFamily, opts ...string) []string {
+func (ct *ConnectivityTest) CurlClientIPCommand(peer TestPeer, ipFam features.IPFamily, opts ...string) []string {
 	cmd := []string{"curl", "--silent", "--fail", "--show-error"}
 
 	if connectTimeout := ct.params.ConnectTimeout.Seconds(); connectTimeout > 0.0 {
@@ -915,10 +916,10 @@ func (ct *ConnectivityTest) CurlClientIPCommand(peer TestPeer, ipFam IPFamily, o
 	return cmd
 }
 
-func (ct *ConnectivityTest) PingCommand(peer TestPeer, ipFam IPFamily) []string {
+func (ct *ConnectivityTest) PingCommand(peer TestPeer, ipFam features.IPFamily) []string {
 	cmd := []string{"ping", "-c", "1"}
 
-	if ipFam == IPFamilyV6 {
+	if ipFam == features.IPFamilyV6 {
 		cmd = append(cmd, "-6")
 	}
 
@@ -933,7 +934,7 @@ func (ct *ConnectivityTest) PingCommand(peer TestPeer, ipFam IPFamily) []string 
 	return cmd
 }
 
-func (ct *ConnectivityTest) DigCommand(peer TestPeer, ipFam IPFamily) []string {
+func (ct *ConnectivityTest) DigCommand(peer TestPeer, ipFam features.IPFamily) []string {
 	cmd := []string{"dig", "+time=2", "kubernetes"}
 
 	cmd = append(cmd, fmt.Sprintf("@%s", peer.Address(ipFam)))
