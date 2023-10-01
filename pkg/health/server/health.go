@@ -4,6 +4,9 @@
 package server
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/go-openapi/runtime/middleware"
 
 	healthModels "github.com/cilium/cilium/api/v1/health/models"
@@ -11,6 +14,7 @@ import (
 	ciliumModels "github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/client"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type getHealthz struct {
@@ -33,7 +37,9 @@ func (h *getHealthz) getCiliumStatus() (*ciliumModels.StatusResponse, error) {
 // Handle handles GET requests for /healthz .
 func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 	log.Debug("Handling request for /healthz")
-
+	if _, err := os.Stat(option.Config.SocketPath); os.IsNotExist(err) {
+		return api.Error(GetHealthzFailedCode, fmt.Errorf("missing socket: %s does not exist", option.Config.SocketPath))
+	}
 	ciliumStatus, err := h.getCiliumStatus()
 	if err != nil {
 		return api.Error(GetHealthzFailedCode, err)
