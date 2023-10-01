@@ -87,7 +87,7 @@ func IPStringToLabel(ip string) (labels.Label, error) {
 // The identity reserved:world is always added as it includes any CIDR.
 func GetCIDRLabels(prefix netip.Prefix) labels.Labels {
 	ones := prefix.Bits()
-	result := make([]string, 0, ones+1)
+	result := make([]string, 0, ones+2)
 
 	// If ones is zero, then it's the default CIDR prefix /0 which should
 	// just be regarded as reserved:world. In all other cases, we need
