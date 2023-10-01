@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 const (
@@ -88,7 +89,7 @@ func WaitForPodDNS(ctx context.Context, log Logger, src, dst Pod) error {
 		// See https://coredns.io/plugins/local/ for more info.
 		target := "localhost"
 		stdout, err := src.K8sClient.ExecInPod(ctx, src.Namespace(), src.NameWithoutNamespace(),
-			"", []string{"nslookup", target, dst.Address(IPFamilyAny)})
+			"", []string{"nslookup", target, dst.Address(features.IPFamilyAny)})
 
 		if err == nil {
 			return nil
@@ -173,7 +174,7 @@ func WaitForService(ctx context.Context, log Logger, client Pod, service Service
 
 // WaitForServiceEndpoints waits until the expected number of service backends
 // are reported by the given agent.
-func WaitForServiceEndpoints(ctx context.Context, log Logger, agent Pod, service Service, backends uint, families []IPFamily) error {
+func WaitForServiceEndpoints(ctx context.Context, log Logger, agent Pod, service Service, backends uint, families []features.IPFamily) error {
 	log.Logf("⌛ [%s] Waiting for Service %s to be synchronized by Cilium pod %s",
 		agent.K8sClient.ClusterName(), service.Name(), agent.Name())
 
@@ -198,7 +199,7 @@ func WaitForServiceEndpoints(ctx context.Context, log Logger, agent Pod, service
 	}
 }
 
-func checkServiceEndpoints(ctx context.Context, agent Pod, service Service, backends uint, families []IPFamily) error {
+func checkServiceEndpoints(ctx context.Context, agent Pod, service Service, backends uint, families []features.IPFamily) error {
 	buffer, err := agent.K8sClient.ExecInPod(ctx, agent.Namespace(), agent.NameWithoutNamespace(),
 		defaults.AgentContainerName, []string{"cilium", "service", "list", "--output=json"})
 	if err != nil {
@@ -231,7 +232,7 @@ func checkServiceEndpoints(ctx context.Context, agent Pod, service Service, back
 
 		// Skip the check for a given address if the corresponding IP family is not
 		// enabled in Cilium, as the backends will never be populated.
-		if addr.Is4() && !slices.Contains(families, IPFamilyV4) || addr.Is6() && !slices.Contains(families, IPFamilyV6) {
+		if addr.Is4() && !slices.Contains(families, features.IPFamilyV4) || addr.Is6() && !slices.Contains(families, features.IPFamilyV6) {
 			continue
 		}
 
