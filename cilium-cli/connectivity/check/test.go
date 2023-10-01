@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium-cli/utils/features"
+
 	"github.com/blang/semver/v4"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -709,7 +711,7 @@ func (t *Test) WithFinalizer(f func() error) *Test {
 // NewAction creates a new Action. s must be the Scenario the Action is created
 // for, name should be a visually-distinguishable name, src is the execution
 // Pod of the action, and dst is the network target the Action will connect to.
-func (t *Test) NewAction(s Scenario, name string, src *Pod, dst TestPeer, ipFam IPFamily) *Action {
+func (t *Test) NewAction(s Scenario, name string, src *Pod, dst TestPeer, ipFam features.IPFamily) *Action {
 	a := newAction(t, name, s, src, dst, ipFam)
 
 	// Obtain the expected result for this particular action by calling
@@ -767,8 +769,8 @@ func (t *Test) collectSysdump() {
 	}
 }
 
-func (t *Test) ForEachIPFamily(do func(IPFamily)) {
-	ipFams := []IPFamily{IPFamilyV4, IPFamilyV6}
+func (t *Test) ForEachIPFamily(do func(features.IPFamily)) {
+	ipFams := []features.IPFamily{features.IPFamilyV4, features.IPFamilyV6}
 
 	// The per-endpoint routes feature is broken with IPv6 on < v1.14 when there
 	// are any netpols installed (https://github.com/cilium/cilium/issues/23852
@@ -777,17 +779,17 @@ func (t *Test) ForEachIPFamily(do func(IPFamily)) {
 		f.Enabled && (len(t.cnps) > 0 || len(t.knps) > 0) &&
 		versioncheck.MustCompile("<1.14.0")(t.Context().CiliumVersion) {
 
-		ipFams = []IPFamily{IPFamilyV4}
+		ipFams = []features.IPFamily{features.IPFamilyV4}
 	}
 
 	for _, ipFam := range ipFams {
 		switch ipFam {
-		case IPFamilyV4:
+		case features.IPFamilyV4:
 			if f, ok := t.ctx.Features[FeatureIPv4]; ok && f.Enabled {
 				do(ipFam)
 			}
 
-		case IPFamilyV6:
+		case features.IPFamilyV6:
 			if f, ok := t.ctx.Features[FeatureIPv6]; ok && f.Enabled {
 				do(ipFam)
 			}

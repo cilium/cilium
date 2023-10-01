@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 const (
@@ -52,7 +53,7 @@ func (s *netPerfPodtoPod) Run(ctx context.Context, t *check.Test) {
 			} else {
 				scenarioName = "pod-net"
 			}
-			action := t.NewAction(s, "netperf", &c, server, check.IPFamilyV4)
+			action := t.NewAction(s, "netperf", &c, server, features.IPFamilyV4)
 			action.CollectFlows = false
 			action.Run(func(a *check.Action) {
 				if crr {
