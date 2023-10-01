@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium-cli/utils/wait"
 
 	v1 "k8s.io/api/core/v1"
@@ -204,8 +205,8 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 		for _, dst := range ct.HostNetNSPodsByNode() {
 			dst := dst
 
-			t.NewAction(s, fmt.Sprintf("ping-%d", i), &client, &dst, check.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.PingCommand(dst, check.IPFamilyV4))
+			t.NewAction(s, fmt.Sprintf("ping-%d", i), &client, &dst, features.IPFamilyV4).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.PingCommand(dst, features.IPFamilyV4))
 			})
 			i++
 		}
@@ -222,8 +223,8 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 		}
 		kubeDNSServicePeer := check.Service{Service: kubeDNSService}
 
-		t.NewAction(s, fmt.Sprintf("dig-%d", i), &client, kubeDNSServicePeer, check.IPFamilyV4).Run(func(a *check.Action) {
-			a.ExecInPod(ctx, ct.DigCommand(kubeDNSServicePeer, check.IPFamilyV4))
+		t.NewAction(s, fmt.Sprintf("dig-%d", i), &client, kubeDNSServicePeer, features.IPFamilyV4).Run(func(a *check.Action) {
+			a.ExecInPod(ctx, ct.DigCommand(kubeDNSServicePeer, features.IPFamilyV4))
 		})
 		i++
 	}
@@ -234,8 +235,8 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 		client := client
 
 		for _, externalEcho := range ct.ExternalEchoPods() {
-			t.NewAction(s, fmt.Sprintf("curl-external-echo-pod-%d", i), &client, externalEcho, check.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlClientIPCommand(externalEcho, check.IPFamilyV4))
+			t.NewAction(s, fmt.Sprintf("curl-external-echo-pod-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlClientIPCommand(externalEcho, features.IPFamilyV4))
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(egressGatewayNodeInternalIP) {
@@ -257,8 +258,8 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 				// convert the service to a ServiceExternalIP as we want to access it through its external IP
 				echo := echo.ToNodeportService(node)
 
-				t.NewAction(s, fmt.Sprintf("curl-echo-service-%d", i), &client, echo, check.IPFamilyV4).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, ct.CurlCommand(echo, check.IPFamilyV4))
+				t.NewAction(s, fmt.Sprintf("curl-echo-service-%d", i), &client, echo, features.IPFamilyV4).Run(func(a *check.Action) {
+					a.ExecInPod(ctx, ct.CurlCommand(echo, features.IPFamilyV4))
 				})
 				i++
 			}
@@ -278,8 +279,8 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 			client := client
 
 			for _, echo := range ct.EchoPods() {
-				t.NewAction(s, fmt.Sprintf("curl-echo-pod-%d", i), &client, echo, check.IPFamilyV4).Run(func(a *check.Action) {
-					a.ExecInPod(ctx, ct.CurlCommand(echo, check.IPFamilyV4))
+				t.NewAction(s, fmt.Sprintf("curl-echo-pod-%d", i), &client, echo, features.IPFamilyV4).Run(func(a *check.Action) {
+					a.ExecInPod(ctx, ct.CurlCommand(echo, features.IPFamilyV4))
 				})
 				i++
 			}
@@ -366,8 +367,8 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 		client := client
 
 		for _, externalEcho := range ct.ExternalEchoPods() {
-			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, externalEcho, check.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlClientIPCommand(externalEcho, check.IPFamilyV4))
+			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlClientIPCommand(externalEcho, features.IPFamilyV4))
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(net.ParseIP(client.Pod.Status.HostIP)) {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 // ClientToClient sends an ICMP packet from each client Pod
@@ -39,7 +40,7 @@ func (s *clientToClient) Run(ctx context.Context, t *check.Test) {
 
 			dst := dst // copy to avoid memory aliasing when using reference
 
-			t.ForEachIPFamily(func(ipFam check.IPFamily) {
+			t.ForEachIPFamily(func(ipFam features.IPFamily) {
 				t.NewAction(s, fmt.Sprintf("ping-%s-%d", ipFam, i), &src, &dst, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, ct.PingCommand(dst, ipFam))
 
