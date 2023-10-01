@@ -27,6 +27,7 @@ import (
 
 	"github.com/cilium/cilium-cli/connectivity/filters"
 	"github.com/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 const (
@@ -57,7 +58,7 @@ type Action struct {
 	dst TestPeer
 
 	// IP family used in this Action
-	ipFam IPFamily
+	ipFam features.IPFamily
 
 	// expEgress is the expected test result for egress from the source pod
 	expEgress Result
@@ -88,7 +89,7 @@ type Action struct {
 	metricsPerSource promMetricsPerSource
 }
 
-func newAction(t *Test, name string, s Scenario, src *Pod, dst TestPeer, ipFam IPFamily) *Action {
+func newAction(t *Test, name string, s Scenario, src *Pod, dst TestPeer, ipFam features.IPFamily) *Action {
 	return &Action{
 		name:             name,
 		test:             t,

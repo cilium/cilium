@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 type requestType int
@@ -58,7 +59,7 @@ func getInterNodeIface(ctx context.Context, t *check.Test, clientHost *check.Pod
 // getSourceAddress determines the source IP address we want to use for
 // capturing packet. If direct routing is used, the source IP is the client IP.
 func getSourceAddress(ctx context.Context, t *check.Test, client,
-	clientHost *check.Pod, ipFam check.IPFamily, dstIP string,
+	clientHost *check.Pod, ipFam features.IPFamily, dstIP string,
 ) string {
 	if tunnelStatus, ok := t.Context().Feature(check.FeatureTunnel); ok &&
 		!tunnelStatus.Enabled {
@@ -114,13 +115,13 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 	// the host netns.
 	clientHost := ct.HostNetNSPodsByNode()[client.Pod.Spec.NodeName]
 
-	t.ForEachIPFamily(func(ipFam check.IPFamily) {
+	t.ForEachIPFamily(func(ipFam features.IPFamily) {
 		testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, requestHTTP, ipFam)
 	})
 }
 
 func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
-	client, server, clientHost *check.Pod, reqType requestType, ipFam check.IPFamily,
+	client, server, clientHost *check.Pod, reqType requestType, ipFam features.IPFamily,
 ) {
 	dstAddr := server.Address(ipFam)
 	iface := getInterNodeIface(ctx, t, clientHost, dstAddr)
@@ -138,7 +139,7 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 			protoFilter = "tcp"
 		case requestICMPEcho:
 			protoFilter = "icmp"
-			if ipFam == check.IPFamilyV6 {
+			if ipFam == features.IPFamilyV6 {
 				protoFilter = "icmp6"
 			}
 		}
@@ -285,7 +286,7 @@ func (s *nodeToNodeEncryption) Run(ctx context.Context, t *check.Test) {
 	// serverHost is a pod running in a remote node's host netns.
 	serverHost := t.Context().HostNetNSPodsByNode()[server.Pod.Spec.NodeName]
 
-	t.ForEachIPFamily(func(ipFam check.IPFamily) {
+	t.ForEachIPFamily(func(ipFam features.IPFamily) {
 		// Test pod-to-remote-host (ICMP Echo instead of HTTP because a remote host
 		// does not have a HTTP server running)
 		testNoTrafficLeak(ctx, t, s, client, &serverHost, &clientHost, requestICMPEcho, ipFam)

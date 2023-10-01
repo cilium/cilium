@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 type labelsContainer interface {
@@ -63,7 +64,7 @@ type retryCondition struct {
 }
 
 // CurlOptions returns curl retry option or empty slice depending on retry conditions
-func (rc *retryCondition) CurlOptions(peer check.TestPeer, ipFam check.IPFamily, pod check.Pod, params check.Parameters) []string {
+func (rc *retryCondition) CurlOptions(peer check.TestPeer, ipFam features.IPFamily, pod check.Pod, params check.Parameters) []string {
 	if params.Retry == 0 {
 		return []string{}
 	}

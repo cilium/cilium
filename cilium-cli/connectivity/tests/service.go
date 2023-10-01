@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 // PodToService sends an HTTP request from all client Pods
@@ -52,8 +53,8 @@ func (s *podToService) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 
-			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc, check.IPFamilyAny).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(svc, check.IPFamilyAny))
+			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc, features.IPFamilyAny).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommand(svc, features.IPFamilyAny))
 
 				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 					DNSRequired: true,
@@ -105,8 +106,8 @@ func (s *podToIngress) Run(ctx context.Context, t *check.Test) {
 				continue
 			}
 
-			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc, check.IPFamilyAny).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlCommand(svc, check.IPFamilyAny))
+			t.NewAction(s, fmt.Sprintf("curl-%d", i), &pod, svc, features.IPFamilyAny).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, ct.CurlCommand(svc, features.IPFamilyAny))
 
 				a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
 					DNSRequired: true,
@@ -223,10 +224,10 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 		}
 	}
 
-	t.ForEachIPFamily(func(ipFam check.IPFamily) {
+	t.ForEachIPFamily(func(ipFam features.IPFamily) {
 
 		for _, addr := range addrs {
-			if check.GetIPFamily(addr.Address) != ipFam {
+			if features.GetIPFamily(addr.Address) != ipFam {
 				continue
 			}
 
@@ -238,7 +239,7 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 			}
 
 			//  Skip IPv6 requests when running on <1.14.0 Cilium with CNPs
-			if check.GetIPFamily(addr.Address) == check.IPFamilyV6 &&
+			if features.GetIPFamily(addr.Address) == features.IPFamilyV6 &&
 				versioncheck.MustCompile("<1.14.0")(t.Context().CiliumVersion) &&
 				(len(t.CiliumNetworkPolicies()) > 0 || len(t.KubernetesNetworkPolicies()) > 0) {
 				continue
@@ -250,8 +251,8 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 
 			// Create the Action with the original svc as this will influence what the
 			// flow matcher looks for in the flow logs.
-			t.NewAction(s, name, pod, svc, check.IPFamilyAny).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, t.Context().CurlCommand(ep, check.IPFamilyAny))
+			t.NewAction(s, name, pod, svc, features.IPFamilyAny).Run(func(a *check.Action) {
+				a.ExecInPod(ctx, t.Context().CurlCommand(ep, features.IPFamilyAny))
 
 				if validateFlows {
 					a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{

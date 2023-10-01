@@ -14,6 +14,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 // TestPeer is the abstraction used for all peer types (pods, services, IPs,
@@ -32,7 +33,7 @@ type TestPeer interface {
 
 	// Address must return the network address of the peer. This can be a
 	// DNS name or an IP address.
-	Address(IPFamily) string
+	Address(features.IPFamily) string
 
 	// Port must return the destination port number used by the test traffic to the peer.
 	Port() uint32
@@ -102,13 +103,13 @@ func (p Pod) Path() string {
 }
 
 // Address returns the network address of the Pod.
-func (p Pod) Address(family IPFamily) string {
+func (p Pod) Address(family features.IPFamily) string {
 	for _, addr := range p.Pod.Status.PodIPs {
 		ip := net.ParseIP(addr.IP)
-		if (family == IPFamilyV4 || family == IPFamilyAny) && ip.To4() != nil {
+		if (family == features.IPFamilyV4 || family == features.IPFamilyAny) && ip.To4() != nil {
 			return addr.IP
 		}
-		if (family == IPFamilyV6 || family == IPFamilyAny) && ip.To4() == nil && ip.To16() != nil {
+		if (family == features.IPFamilyV6 || family == features.IPFamilyAny) && ip.To4() == nil && ip.To16() != nil {
 			return addr.IP
 		}
 	}
@@ -186,9 +187,9 @@ func (s Service) Path() string {
 }
 
 // Address returns the network address of the Service.
-func (s Service) Address(family IPFamily) string {
+func (s Service) Address(family features.IPFamily) string {
 	// If the cluster IP is empty (headless service case) or the IP family is set to any, return the service name
-	if s.Service.Spec.ClusterIP == "" || family == IPFamilyAny {
+	if s.Service.Spec.ClusterIP == "" || family == features.IPFamilyAny {
 		return s.Service.Name
 	}
 
@@ -203,9 +204,9 @@ func (s Service) Address(family IPFamily) string {
 	}
 
 	switch family {
-	case IPFamilyV4:
+	case features.IPFamilyV4:
 		return getClusterIPForIPFamily(v1.IPv4Protocol)
-	case IPFamilyV6:
+	case features.IPFamilyV6:
 		return getClusterIPForIPFamily(v1.IPv6Protocol)
 	}
 
@@ -266,8 +267,8 @@ func (s NodeportService) Path() string {
 }
 
 // Address returns the node IP of the wrapped Service.
-func (s NodeportService) Address(family IPFamily) string {
-	if family == IPFamilyAny {
+func (s NodeportService) Address(family features.IPFamily) string {
+	if family == features.IPFamilyAny {
 		return s.Node.Status.Addresses[0].Address
 	}
 
@@ -276,11 +277,11 @@ func (s NodeportService) Address(family IPFamily) string {
 			parsedAddress := net.ParseIP(address.Address)
 
 			switch family {
-			case IPFamilyV4:
+			case features.IPFamilyV4:
 				if parsedAddress.To4() != nil {
 					return address.Address
 				}
-			case IPFamilyV6:
+			case features.IPFamilyV6:
 				if parsedAddress.To16() != nil {
 					return address.Address
 				}
@@ -333,7 +334,7 @@ func (e ExternalWorkload) Path() string {
 }
 
 // Address returns the network address of the ExternalWorkload.
-func (e ExternalWorkload) Address(IPFamily) string {
+func (e ExternalWorkload) Address(features.IPFamily) string {
 	return e.workload.Status.IP
 }
 
@@ -395,7 +396,7 @@ func (ie icmpEndpoint) Scheme() string {
 func (ie icmpEndpoint) Path() string {
 	return ""
 }
-func (ie icmpEndpoint) Address(IPFamily) string {
+func (ie icmpEndpoint) Address(features.IPFamily) string {
 	return ie.host
 }
 
@@ -465,7 +466,7 @@ func (he httpEndpoint) Path() string {
 	return he.url.Path
 }
 
-func (he httpEndpoint) Address(IPFamily) string {
+func (he httpEndpoint) Address(features.IPFamily) string {
 	return he.url.Hostname()
 }
 

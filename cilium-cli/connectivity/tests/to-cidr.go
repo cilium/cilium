@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 // PodToCIDR sends an HTTPS request from each client Pod
@@ -40,9 +41,9 @@ func (s *podToCIDR) Run(ctx context.Context, t *check.Test) {
 		for _, src := range ct.ClientPods() {
 			src := src // copy to avoid memory aliasing when using reference
 
-			t.NewAction(s, fmt.Sprintf("%s-%d", ep.Name(), i), &src, ep, check.IPFamilyAny).Run(func(a *check.Action) {
-				opts := s.rc.CurlOptions(ep, check.IPFamilyAny, src, ct.Params())
-				a.ExecInPod(ctx, ct.CurlCommand(ep, check.IPFamilyAny, opts...))
+			t.NewAction(s, fmt.Sprintf("%s-%d", ep.Name(), i), &src, ep, features.IPFamilyAny).Run(func(a *check.Action) {
+				opts := s.rc.CurlOptions(ep, features.IPFamilyAny, src, ct.Params())
+				a.ExecInPod(ctx, ct.CurlCommand(ep, features.IPFamilyAny, opts...))
 
 				a.ValidateFlows(ctx, src, a.GetEgressRequirements(check.FlowParameters{
 					RSTAllowed: true,
