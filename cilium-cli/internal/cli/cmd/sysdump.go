@@ -83,6 +83,15 @@ func initSysdumpFlags(cmd *cobra.Command, options *sysdump.Options, optionPrefix
 	cmd.Flags().StringVar(&options.ClustermeshApiserverLabelSelector,
 		optionPrefix+"clustermesh-apiserver-label-selector", sysdump.DefaultClustermeshApiserverLabelSelector,
 		"The labels used to target 'clustermesh-apiserver' pods")
+	cmd.Flags().StringVar(&options.CiliumNodeInitLabelSelector,
+		optionPrefix+"cilium-node-init-selector", sysdump.DefaultCiliumNodeInitLabelSelector,
+		"The labels used to target Cilium node init pods")
+	cmd.Flags().StringVar(&options.CiliumSPIREAgentLabelSelector,
+		optionPrefix+"cilium-spire-agent-selector", sysdump.DefaultCiliumSpireAgentLabelSelector,
+		"The labels used to target Cilium spire-agent pods")
+	cmd.Flags().StringVar(&options.CiliumSPIREServerLabelSelector,
+		optionPrefix+"cilium-spire-server-selector", sysdump.DefaultCiliumSpireServerLabelSelector,
+		"The labels used to target Cilium spire-server pods")
 	cmd.Flags().BoolVar(&options.Debug,
 		optionPrefix+"debug", sysdump.DefaultDebug,
 		"Whether to enable debug logging")
