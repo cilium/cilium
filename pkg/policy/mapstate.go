@@ -70,7 +70,8 @@ type MapState interface {
 
 // mapState is a state of a policy map.
 type mapState struct {
-	keys map[Key]MapStateEntry
+	allows map[Key]MapStateEntry
+	denies map[Key]MapStateEntry
 }
 
 type Identities interface {
@@ -226,45 +227,68 @@ func NewMapState(initMap map[Key]MapStateEntry) MapState {
 }
 
 func newMapState(initMap map[Key]MapStateEntry) *mapState {
-	if initMap == nil {
-		initMap = make(map[Key]MapStateEntry)
+	m := &mapState{
+		allows: make(map[Key]MapStateEntry),
+		denies: make(map[Key]MapStateEntry),
 	}
-	return &mapState{
-		keys: initMap,
+	for k, v := range initMap {
+		m.Insert(k, v)
 	}
+	return m
 }
 
 // Get the MapStateEntry that matches the Key.
 func (ms *mapState) Get(k Key) (MapStateEntry, bool) {
-	if ms == nil || ms.keys == nil {
-		return MapStateEntry{}, false
+	v, ok := ms.denies[k]
+	if ok {
+		return v, ok
 	}
-	v, ok := ms.keys[k]
+	v, ok = ms.allows[k]
 	return v, ok
 }
 
 // Insert the Key and matcthing MapStateEntry into the
 // MapState
 func (ms *mapState) Insert(k Key, v MapStateEntry) {
-	if ms != nil && ms.keys != nil {
-		ms.keys[k] = v
+	if v.IsDeny {
+		delete(ms.allows, k)
+		ms.denies[k] = v
+	} else {
+		delete(ms.denies, k)
+		ms.allows[k] = v
 	}
 }
 
 // Delete removes the Key an related MapStateEntry.
 func (ms *mapState) Delete(k Key) {
-	if ms != nil && ms.keys != nil {
-		delete(ms.keys, k)
-	}
+	delete(ms.allows, k)
+	delete(ms.denies, k)
 }
 
 // ForEach iterates over every Key MapStateEntry and stops when the function
 // argument returns false. It returns false iff the iteration was cut short.
 func (ms *mapState) ForEach(f func(Key, MapStateEntry) (cont bool)) (complete bool) {
-	if ms == nil || ms.keys == nil {
-		return true
+	if complete := ms.forEachAllow(f); !complete {
+		return complete
 	}
-	for k, v := range ms.keys {
+	return ms.forEachDeny(f)
+}
+
+// forEachAllow iterates over every Key MapStateEntry that isn't a deny and
+// stops when the function argument returns false
+func (ms *mapState) forEachAllow(f func(Key, MapStateEntry) (cont bool)) (complete bool) {
+	for k, v := range ms.allows {
+		if !f(k, v) {
+			return false
+		}
+	}
+	return true
+}
+
+// forEachDeny iterates over every Key MapStateEntry that is a deny and
+// stops when the function argument returns false
+func (ms *mapState) forEachDeny(f func(Key, MapStateEntry) (cont bool)) (complete bool) {
+	for k, v := range ms.denies {
 		if !f(k, v) {
 			return false
 		}
@@ -274,17 +298,13 @@ func (ms *mapState) ForEach(f func(Key, MapStateEntry) (cont bool)) (complete bo
 
 // Len returns the length of the map
 func (ms *mapState) Len() int {
-	return len(ms.keys)
+	return len(ms.allows) + len(ms.denies)
 }
 
 // Equals determines if this MapState is equal to the
 // argument MapState
 func (msA *mapState) Equals(msB MapState) bool {
-	if (msA == nil) != (msB == nil) {
-		return false
-	} else if msA == nil && msB == nil {
-		return true
-	} else if msA.Len() != msB.Len() {
+	if msA.Len() != msB.Len() {
 		return false
 	}
 
@@ -303,7 +323,9 @@ func (msA *mapState) Equals(msB MapState) bool {
 
 // AddDependent adds 'key' to the set of dependent keys.
 func (ms *mapState) AddDependent(owner Key, dependent Key) {
-	if e, exists := ms.keys[owner]; exists {
+	if e, exists := ms.allows[owner]; exists {
+		ms.addDependentOnEntry(owner, e, dependent)
+	} else if e, exists := ms.denies[owner]; exists {
 		ms.addDependentOnEntry(owner, e, dependent)
 	}
 }
@@ -312,7 +334,13 @@ func (ms *mapState) AddDependent(owner Key, dependent Key) {
 func (ms *mapState) addDependentOnEntry(owner Key, e MapStateEntry, dependent Key) {
 	if _, exists := e.dependents[dependent]; !exists {
 		e.AddDependent(dependent)
-		ms.keys[owner] = e
+		if e.IsDeny {
+			delete(ms.allows, owner)
+			ms.denies[owner] = e
+		} else {
+			delete(ms.denies, owner)
+			ms.allows[owner] = e
+		}
 	}
 }
 
@@ -320,10 +348,19 @@ func (ms *mapState) addDependentOnEntry(owner Key, e MapStateEntry, dependent Ke
 // This is called when a dependent entry is being deleted.
 // If 'old' is not nil, then old value is added there before any modifications.
 func (ms *mapState) RemoveDependent(owner Key, dependent Key, old MapState) {
-	if e, exists := ms.keys[owner]; exists {
+	if e, exists := ms.allows[owner]; exists {
 		old.InsertIfNotExists(owner, e)
 		e.RemoveDependent(dependent)
-		ms.keys[owner] = e
+		delete(ms.denies, owner)
+		ms.allows[owner] = e
+		return
+	}
+
+	if e, exists := ms.denies[owner]; exists {
+		old.InsertIfNotExists(owner, e)
+		e.RemoveDependent(dependent)
+		delete(ms.allows, owner)
+		ms.denies[owner] = e
 	}
 }
 
@@ -416,7 +453,7 @@ func (ms *mapState) DenyPreferredInsert(newKey Key, newEntry MapStateEntry, iden
 func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, deletes Keys, old MapState) {
 	// Keep all owners that need this entry so that it is deleted only if all the owners delete their contribution
 	updatedEntry := entry
-	oldEntry, exists := ms.keys[key]
+	oldEntry, exists := ms.Get(key)
 	if exists {
 		// Save old value before any changes, if desired
 		if old != nil && !entry.DeepEqual(&oldEntry) {
@@ -436,7 +473,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, delete
 	// Merge new owner to the updated entry without modifying 'entry' as it is being reused by the caller
 	updatedEntry.MergeReferences(&entry)
 	// Update (or insert) the entry
-	ms.keys[key] = updatedEntry
+	ms.Insert(key, updatedEntry)
 
 	// Record an incremental Add if desired and entry is new or changed
 	if adds != nil && (!exists || !oldEntry.DatapathEqual(&entry)) {
@@ -451,7 +488,7 @@ func (ms *mapState) addKeyWithChanges(key Key, entry MapStateEntry, adds, delete
 // deleteKeyWithChanges deletes a 'key' from 'keys' keeping track of incremental changes in 'adds' and 'deletes'.
 // The key is unconditionally deleted if 'cs' is nil, otherwise only the contribution of this 'cs' is removed.
 func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, adds, deletes Keys, old MapState) {
-	if entry, exists := ms.keys[key]; exists {
+	if entry, exists := ms.Get(key); exists {
 		// Save old value before any changes, if desired
 		if old == nil {
 			old = newMapState(nil)
@@ -504,7 +541,8 @@ func (ms *mapState) deleteKeyWithChanges(key Key, owner MapStateOwner, adds, del
 			}
 		}
 
-		delete(ms.keys, key)
+		delete(ms.allows, key)
+		delete(ms.denies, key)
 	}
 }
 
@@ -533,11 +571,12 @@ func protocolsMatch(a, b Key) bool {
 // denyPreferredInsertWithChanges().
 func (ms *mapState) RevertChanges(adds Keys, old MapState) {
 	for k := range adds {
-		delete(ms.keys, k)
+		delete(ms.allows, k)
+		delete(ms.denies, k)
 	}
 	// 'old' contains all the original values of both modified and deleted entries
 	old.ForEach(func(k Key, v MapStateEntry) bool {
-		ms.keys[k] = v
+		ms.Insert(k, v)
 		return true
 	})
 }
@@ -550,15 +589,16 @@ func (ms *mapState) DenyPreferredInsertWithChanges(newKey Key, newEntry MapState
 	allCpy := allKey
 	allCpy.TrafficDirection = newKey.TrafficDirection
 	// If we have a deny "all" we don't accept any kind of map entry.
-	if v, ok := ms.keys[allCpy]; ok && v.IsDeny {
+	if _, ok := ms.denies[allCpy]; ok {
 		return
 	}
 	if newEntry.IsDeny {
-		for k, v := range ms.keys {
+		bailed := false
+		ms.ForEach(func(k Key, v MapStateEntry) bool {
 			// Protocols and traffic directions that don't match ensure that the policies
 			// do not interact in anyway.
 			if newKey.TrafficDirection != k.TrafficDirection || !protocolsMatch(newKey, k) {
-				continue
+				return true
 			}
 			if !v.IsDeny {
 				if identityIsSupersetOf(k.Identity, newKey.Identity, identities) {
@@ -597,7 +637,8 @@ func (ms *mapState) DenyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				//
 				// NOTE: This condition could be broader to reject more deny entries,
 				// but there *may* be performance tradeoffs.
-				return
+				bailed = true
+				return false
 			} else if (newKey.Identity == k.Identity ||
 				identityIsSupersetOf(newKey.Identity, k.Identity, identities)) &&
 				newKey.DestPort == 0 && newKey.Nexthdr == 0 &&
@@ -612,14 +653,18 @@ func (ms *mapState) DenyPreferredInsertWithChanges(newKey Key, newEntry MapState
 				// but there *may* be performance tradeoffs.
 				ms.deleteKeyWithChanges(k, nil, adds, deletes, old)
 			}
+			return true
+		})
+		if !bailed {
+			ms.addKeyWithChanges(newKey, newEntry, adds, deletes, old)
 		}
-		ms.addKeyWithChanges(newKey, newEntry, adds, deletes, old)
 	} else {
-		for k, v := range ms.keys {
+		bailed := false
+		ms.ForEach(func(k Key, v MapStateEntry) bool {
 			// Protocols and traffic directions that don't match ensure that the policies
 			// do not interact in anyway.
 			if newKey.TrafficDirection != k.TrafficDirection || !protocolsMatch(newKey, k) {
-				continue
+				return true
 			}
 			// NOTE: We do not delete redundant allow entries.
 			if v.IsDeny {
@@ -647,11 +692,16 @@ func (ms *mapState) DenyPreferredInsertWithChanges(newKey Key, newEntry MapState
 					// If the iterated-deny-entry is a superset (or equal) of the new-entry and has a
 					// broader (or equal) port-protocol than the new-entry then the new
 					// entry should not be inserted.
-					return
+					bailed = true
+					return false
 				}
 			}
+
+			return true
+		})
+		if !bailed {
+			ms.redirectPreferredInsert(newKey, newEntry, adds, deletes, old)
 		}
-		ms.redirectPreferredInsert(newKey, newEntry, adds, deletes, old)
 	}
 }
 
@@ -665,14 +715,14 @@ func (ms *mapState) redirectPreferredInsert(key Key, entry MapStateEntry, adds, 
 	// Merging owners from the new entry to the existing one has no datapath impact so we skip
 	// adding anything to 'adds' here.
 	// Merging owners has the effect of keeping the shared entry alive as long as one of the owners exists.
-	if oldEntry, exists := ms.keys[key]; exists &&
+	if oldEntry, exists := ms.Get(key); exists &&
 		(!entry.IsRedirectEntry() && oldEntry.IsRedirectEntry() || oldEntry.IsDeny) {
 		// Save old value before any changes, if desired
 		if old != nil && !entry.DeepEqual(&oldEntry) {
 			old.InsertIfNotExists(key, oldEntry)
 		}
 		oldEntry.MergeReferences(&entry)
-		ms.keys[key] = oldEntry
+		ms.Insert(key, oldEntry)
 		return
 	}
 
@@ -689,9 +739,14 @@ var visibilityDerivedFrom = labels.LabelArrayList{visibilityDerivedFromLabels}
 // InsertIfNotExists only inserts `key=value` if `key` does not exist in keys already
 // returns 'true' if 'key=entry' was added to 'keys'
 func (ms *mapState) InsertIfNotExists(key Key, entry MapStateEntry) bool {
-	if ms != nil && ms.keys != nil {
-		if _, exists := ms.keys[key]; !exists {
-			ms.keys[key] = entry
+	isDeny := entry.IsDeny
+	if ms != nil && (isDeny && ms.denies != nil || !isDeny && ms.allows != nil) {
+		m := ms.allows
+		if isDeny {
+			m = ms.denies
+		}
+		if _, exists := m[key]; !exists {
+			m[key] = entry
 			return true
 		}
 	}
@@ -760,8 +815,8 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 	entry := NewMapStateEntry(nil, visibilityDerivedFrom, true, false)
 	entry.ProxyPort = redirectPort
 
-	_, haveAllowAllKey := ms.keys[allowAllKey]
-	l4Only, haveL4OnlyKey := ms.keys[key]
+	_, haveAllowAllKey := ms.Get(allowAllKey)
+	l4Only, haveL4OnlyKey := ms.Get(key)
 	addL4OnlyKey := false
 	if haveL4OnlyKey && !l4Only.IsDeny && l4Only.ProxyPort == 0 {
 		// 1. Change existing L4-only ALLOW key on matching port that does not already
@@ -793,9 +848,9 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 	//
 	// Loop through all L3 keys in the traffic direction of the new key
 	//
-	for k, v := range ms.keys {
+	ms.ForEach(func(k Key, v MapStateEntry) bool {
 		if k.TrafficDirection != key.TrafficDirection || k.Identity == 0 {
-			continue
+			return true
 		}
 		if k.DestPort == key.DestPort && k.Nexthdr == key.Nexthdr {
 			//
@@ -828,9 +883,8 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 				// 4. For each L3-only ALLOW key add the corresponding L3/L4
 				//    ALLOW redirect if no L3/L4 key already exists and no
 				//    L4-only key already exists and one is not added.
-				if _, ok := ms.keys[k2]; !ok {
+				if _, ok := ms.Get(k2); !ok {
 					d2 := append(labels.LabelArrayList{visibilityDerivedFromLabels}, v.DerivedFromRules...)
-					d2.Sort()
 					v2 := NewMapStateEntry(k, d2, true, false)
 					v2.ProxyPort = redirectPort
 					e.PolicyDebug(logrus.Fields{
@@ -852,7 +906,7 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 				// 5. If a new L4-only key was added: For each L3-only DENY
 				//    key add the corresponding L3/L4 DENY key if no L3/L4
 				//    key already exists.
-				if _, ok := ms.keys[k2]; !ok {
+				if _, ok := ms.Get(k2); !ok {
 					v2 := NewMapStateEntry(k, v.DerivedFromRules, false, true)
 					e.PolicyDebug(logrus.Fields{
 						logfields.BPFMapKey:   k2,
@@ -871,7 +925,9 @@ func (ms *mapState) AddVisibilityKeys(e PolicyOwner, redirectPort uint16, visMet
 				}
 			}
 		}
-	}
+
+		return true
+	})
 }
 
 // determineAllowLocalhostIngress determines whether communication should be allowed
@@ -889,7 +945,7 @@ func (ms *mapState) determineAllowLocalhostIngress() {
 		ms.DenyPreferredInsert(localHostKey, es, nil)
 		if !option.Config.EnableRemoteNodeIdentity {
 			var isHostDenied bool
-			v, ok := ms.keys[localHostKey]
+			v, ok := ms.Get(localHostKey)
 			isHostDenied = ok && v.IsDeny
 			derivedFrom := labels.LabelArrayList{
 				labels.LabelArray{
@@ -918,7 +974,7 @@ func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyIngress, labels.LabelSourceReserved),
 			},
 		}
-		ms.keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false)
+		ms.allows[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false)
 	}
 	if egress {
 		keyToAdd := Key{
@@ -932,7 +988,7 @@ func (ms *mapState) allowAllIdentities(ingress, egress bool) {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
 			},
 		}
-		ms.keys[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false)
+		ms.allows[keyToAdd] = NewMapStateEntry(nil, derivedFrom, false, false)
 	}
 }
 
@@ -961,7 +1017,7 @@ func (ms *mapState) DeniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 		TrafficDirection: dir,
 	}
 	// Are we explicitly denying all traffic?
-	v, ok := ms.keys[anyKey]
+	v, ok := ms.Get(anyKey)
 	if ok && v.IsDeny {
 		return true
 	}
@@ -969,7 +1025,7 @@ func (ms *mapState) DeniesL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
 	// Are we explicitly denying this L4-only traffic?
 	anyKey.DestPort = port
 	anyKey.Nexthdr = proto
-	v, ok = ms.keys[anyKey]
+	v, ok = ms.Get(anyKey)
 	if ok && v.IsDeny {
 		return true
 	}
@@ -990,9 +1046,9 @@ func (ms *mapState) GetDenyIdentities(log *logrus.Logger) (ingIdentities, egIden
 // GetIdentities returns the ingress and egress identities stored in the
 // MapState.
 func (ms *mapState) getIdentities(log *logrus.Logger, denied bool) (ingIdentities, egIdentities []int64) {
-	for policyMapKey, policyMapValue := range ms.keys {
+	ms.ForEach(func(policyMapKey Key, policyMapValue MapStateEntry) bool {
 		if denied != policyMapValue.IsDeny {
-			continue
+			return true
 		}
 		if policyMapKey.DestPort != 0 {
 			// If the port is non-zero, then the Key no longer only applies
@@ -1000,7 +1056,7 @@ func (ms *mapState) getIdentities(log *logrus.Logger, denied bool) (ingIdentitie
 			// contain sets of which identities (i.e., label-based L3 only)
 			// are allowed, so anything which contains L4-related policy should
 			// not be added to these sets.
-			continue
+			return true
 		}
 		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection) {
 		case trafficdirection.Ingress:
@@ -1012,7 +1068,8 @@ func (ms *mapState) getIdentities(log *logrus.Logger, denied bool) (ingIdentitie
 			log.WithField(logfields.TrafficDirection, td).
 				Errorf("Unexpected traffic direction present in policy map state for endpoint")
 		}
-	}
+		return true
+	})
 	return ingIdentities, egIdentities
 }
 

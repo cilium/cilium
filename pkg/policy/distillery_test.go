@@ -400,7 +400,7 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 	for _, l4 := range l4IngressPolicy {
 		io.WriteString(d.log, fmt.Sprintf("[distill] Processing ingress L4Filter (l4: %d/%s), (l3/7: %+v)\n", l4.Port, l4.Protocol, l4.L7RulesPerSelector))
 		ms := l4.ToMapState(owner, 0, selectorCache)
-		ms.ForEach(func(key Key, entry MapStateEntry) (cont bool) {
+		ms.ForEach(func(key Key, entry MapStateEntry) bool {
 			var policyStr string
 			if entry.IsDeny {
 				policyStr = "deny"
@@ -432,7 +432,7 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 	for _, l4 := range l4EgressPolicy {
 		io.WriteString(d.log, fmt.Sprintf("[distill] Processing egress L4Filter (l4: %d/%s), (l3/7: %+v)\n", l4.Port, l4.Protocol, l4.L7RulesPerSelector))
 		ms := l4.ToMapState(owner, 1, selectorCache)
-		ms.ForEach(func(key Key, entry MapStateEntry) (cont bool) {
+		ms.ForEach(func(key Key, entry MapStateEntry) bool {
 			var policyStr string
 			if entry.IsDeny {
 				policyStr = "deny"
@@ -455,7 +455,7 @@ func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.Labe
 // CachedSelectors as those have not been inserted to the selector
 // cache at the time when the expectations are created.
 func (m *mapState) clearCaches() {
-	m.ForEach(func(k Key, v MapStateEntry) (cont bool) {
+	m.ForEach(func(k Key, v MapStateEntry) bool {
 		v.owners = make(map[MapStateOwner]struct{})
 		m.Insert(k, v)
 		return true
@@ -590,11 +590,11 @@ func testCaseToMapState(t generatedBPFKey) MapState {
 
 	if t.L3Key.L3 != nil {
 		if t.L3Key.Deny != nil && *t.L3Key.Deny {
-			m.keys[mapKeyDeny_Foo__] = mapEntryL7Deny_()
+			m.denies[mapKeyDeny_Foo__] = mapEntryL7Deny_()
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L3Key.L7 == nil || !*t.L3Key.L7 {
-				m.keys[mapKeyAllowFoo__] = mapEntryL7None_()
+				m.allows[mapKeyAllowFoo__] = mapEntryL7None_()
 			}
 			// there's no "else" because we don't support L3L7 policies, i.e.,
 			// a L4 port needs to be specified.
@@ -602,40 +602,40 @@ func testCaseToMapState(t generatedBPFKey) MapState {
 	}
 	if t.L4Key.L3 != nil {
 		if t.L4Key.Deny != nil && *t.L4Key.Deny {
-			m.keys[mapKeyDeny____L4] = mapEntryL7Deny_()
+			m.denies[mapKeyDeny____L4] = mapEntryL7Deny_()
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L4Key.L7 == nil || !*t.L4Key.L7 {
-				m.keys[mapKeyAllow___L4] = mapEntryL7None_()
+				m.allows[mapKeyAllow___L4] = mapEntryL7None_()
 			} else {
 				// L7 is set and it's true then we should expected a mapEntry
 				// with L7 redirection.
-				m.keys[mapKeyAllow___L4] = mapEntryL7Proxy()
+				m.allows[mapKeyAllow___L4] = mapEntryL7Proxy()
 			}
 		}
 	}
 	if t.L3L4Key.L3 != nil {
 		if t.L3L4Key.Deny != nil && *t.L3L4Key.Deny {
-			m.keys[mapKeyDeny_FooL4] = mapEntryL7Deny_()
+			m.denies[mapKeyDeny_FooL4] = mapEntryL7Deny_()
 		} else {
 			// If L7 is not set or if it explicitly set but it's false
 			if t.L3L4Key.L7 == nil || !*t.L3L4Key.L7 {
-				m.keys[mapKeyAllowFooL4] = mapEntryL7None_()
+				m.allows[mapKeyAllowFooL4] = mapEntryL7None_()
 			} else {
 				// L7 is set and it's true then we should expected a mapEntry
 				// with L7 redirection only if we haven't set it already
 				// for an existing L4-only.
 				if t.L4Key.L7 == nil || !*t.L4Key.L7 {
-					m.keys[mapKeyAllowFooL4] = mapEntryL7Proxy()
+					m.allows[mapKeyAllowFooL4] = mapEntryL7Proxy()
 				}
 			}
 		}
 	}
 
 	// Add dependency deny-L3->deny-L3L4 if allow-L4 exists
-	denyL3, denyL3exists := m.keys[mapKeyDeny_Foo__]
-	denyL3L4, denyL3L4exists := m.keys[mapKeyDeny_FooL4]
-	allowL4, allowL4exists := m.keys[mapKeyAllow___L4]
+	denyL3, denyL3exists := m.denies[mapKeyDeny_Foo__]
+	denyL3L4, denyL3L4exists := m.denies[mapKeyDeny_FooL4]
+	allowL4, allowL4exists := m.allows[mapKeyAllow___L4]
 	if allowL4exists && !allowL4.IsDeny && denyL3exists && denyL3.IsDeny && denyL3L4exists && denyL3L4.IsDeny {
 		m.AddDependent(mapKeyDeny_Foo__, mapKeyDeny_FooL4)
 	}
@@ -1039,7 +1039,7 @@ func Test_MergeRules(t *testing.T) {
 			// Since this field is only used for debuggability purposes we can
 			// ignore it and test only for the MapState that we are expecting
 			// to be plumbed into the datapath.
-			mapstate.ForEach(func(k Key, v MapStateEntry) (cont bool) {
+			mapstate.ForEach(func(k Key, v MapStateEntry) bool {
 				if v.DerivedFromRules == nil || len(v.DerivedFromRules) == 0 {
 					return true
 				}
