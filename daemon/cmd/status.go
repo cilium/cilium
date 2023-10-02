@@ -194,9 +194,10 @@ func (d *Daemon) getHostFirewallStatus() *models.HostFirewall {
 	if option.Config.EnableHostFirewall {
 		mode = models.HostFirewallModeEnabled
 	}
+	devices, _ := d.params.Devicer.NativeDeviceNames()
 	return &models.HostFirewall{
 		Mode:    mode,
-		Devices: option.Config.GetDevices(),
+		Devices: devices,
 	}
 }
 
@@ -234,7 +235,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeDisabled
 	}
 
-	devicesLegacy := option.Config.GetDevices()
+	devicesLegacy, _ := d.params.Devicer.NativeDeviceNames()
 	devices := make([]*models.KubeProxyReplacementDeviceListItems0, len(devicesLegacy))
 	v4Addrs := node.GetNodePortIPv4AddrsWithDevices()
 	v6Addrs := node.GetNodePortIPv6AddrsWithDevices()

@@ -283,6 +283,8 @@ type IptablesManager struct {
 	haveBPFSocketAssign  bool
 	ipEarlyDemuxDisabled bool
 	CNIChainingMode      string
+
+	devices datapath.Devicer
 }
 
 // Init initializes the iptables manager and checks for iptables kernel modules
@@ -1232,7 +1234,8 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 	if option.Config.EnableMasqueradeRouteSource {
 		var defaultRoutes []netlink.Route
 
-		devices := option.Config.GetDevices()
+		// FIXME observe changes to devices.
+		devices, _ := m.devices.NativeDeviceNames()
 		if len(option.Config.MasqueradeInterfaces) > 0 {
 			devices = option.Config.MasqueradeInterfaces
 		}
@@ -1241,6 +1244,8 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 			family = netlink.FAMILY_V6
 		}
 		initialPass := true
+
+		// FIXME use Table[Route].
 		if routes, err := netlink.RouteList(nil, family); err == nil {
 		nextPass:
 			for _, r := range routes {

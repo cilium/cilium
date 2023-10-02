@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
 	"github.com/vishvananda/netns"
@@ -41,11 +42,8 @@ var DevicesControllerCell = cell.Module(
 	"devices-controller",
 	"Synchronizes the device and route tables with the kernel",
 
-	cell.Provide(
-		newDevicesController,
-		newDeviceManager,
-	),
-	cell.Invoke(func(*devicesController) {}),
+	cell.Config(defaultDevicesConfig),
+	cell.Invoke(registerDevicesController),
 )
 
 var (
@@ -72,6 +70,14 @@ type DevicesConfig struct {
 	Devices []string
 }
 
+func (def DevicesConfig) Flags(flags *pflag.FlagSet) {
+	flags.StringSlice("devices", []string{}, "List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'")
+}
+
+var defaultDevicesConfig = DevicesConfig{
+	Devices: []string{},
+}
+
 type devicesControllerParams struct {
 	cell.In
 
@@ -96,7 +102,7 @@ type devicesController struct {
 	cancel context.CancelFunc // controller's context is cancelled when stopped.
 }
 
-func newDevicesController(lc hive.Lifecycle, p devicesControllerParams) *devicesController {
+func registerDevicesController(lc hive.Lifecycle, p devicesControllerParams) {
 	dc := &devicesController{
 		params:      p,
 		initialized: make(chan struct{}),
@@ -104,7 +110,6 @@ func newDevicesController(lc hive.Lifecycle, p devicesControllerParams) *devices
 		log:         p.Log,
 	}
 	lc.Append(dc)
-	return dc
 }
 
 func (dc *devicesController) Start(startCtx hive.HookContext) error {

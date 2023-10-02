@@ -218,9 +218,6 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.StringSlice(option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
 	option.BindEnv(vp, option.DebugVerbose)
 
-	flags.StringSlice(option.Devices, []string{}, "List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall); supports '+' as wildcard in device name, e.g. 'eth+'")
-	option.BindEnv(vp, option.Devices)
-
 	flags.String(option.DirectRoutingDevice, "", "Device name used to connect nodes in direct routing mode (used by BPF NodePort, BPF host routing; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)")
 	option.BindEnv(vp, option.DirectRoutingDevice)
 
@@ -1642,7 +1639,6 @@ type daemonParams struct {
 	Settings             cellSettings
 	HealthProvider       cell.Health
 	HealthReporter       cell.HealthReporter
-	DeviceManager        *linuxdatapath.DeviceManager `optional:"true"`
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,
 	// and because it depends on parameters which are not provided through hive.

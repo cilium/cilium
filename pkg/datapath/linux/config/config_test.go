@@ -20,6 +20,7 @@ import (
 
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
@@ -126,7 +127,7 @@ func (s *ConfigSuite) TestWriteEndpointConfig(c *C) {
 		varSub, stringSub := loader.ELFSubstitutions(t)
 
 		var buf bytes.Buffer
-		cfg.writeStaticData(&buf, t)
+		cfg.writeStaticData(nil, &buf, t)
 
 		return buf.Bytes(), varSub, stringSub
 	}
@@ -211,7 +212,7 @@ func (s *ConfigSuite) TestWriteStaticData(c *C) {
 	varSub, stringSub := loader.ELFSubstitutions(ep)
 
 	var buf bytes.Buffer
-	cfg.writeStaticData(&buf, ep)
+	cfg.writeStaticData(nil, &buf, ep)
 	b := buf.Bytes()
 	for k := range varSub {
 		for _, suffix := range []string{"_1", "_2"} {
@@ -270,12 +271,10 @@ func createVlanLink(vlanId int, mainLink *netlink.Dummy, c *C) *netlink.Vlan {
 }
 
 func (s *ConfigSuite) TestVLANBypassConfig(c *C) {
-	oldDevices := option.Config.GetDevices()
-	defer func() {
-		option.Config.SetDevices(oldDevices)
-	}()
+	devs := []*tables.Device{}
 
 	main1 := createMainLink("dummy0", c)
+	devs = append(devs, &tables.Device{Name: main1.Name, Index: main1.Index})
 	defer func() {
 		netlink.LinkDel(main1)
 	}()
@@ -285,23 +284,25 @@ func (s *ConfigSuite) TestVLANBypassConfig(c *C) {
 		defer func() {
 			netlink.LinkDel(vlan)
 		}()
+		devs = append(devs, &tables.Device{Name: vlan.Name, Index: vlan.Index})
 	}
 
 	main2 := createMainLink("dummy1", c)
 	defer func() {
 		netlink.LinkDel(main2)
 	}()
+	devs = append(devs, &tables.Device{Name: main2.Name, Index: main2.Index})
 
 	for i := 4003; i < 4006; i++ {
 		vlan := createVlanLink(i, main2, c)
 		defer func() {
 			netlink.LinkDel(vlan)
 		}()
+		devs = append(devs, &tables.Device{Name: vlan.Name, Index: vlan.Index})
 	}
 
-	option.Config.SetDevices([]string{"dummy0", "dummy0.4000", "dummy0.4001", "dummy1", "dummy1.4003"})
 	option.Config.VLANBPFBypass = []int{4004}
-	m, err := vlanFilterMacros()
+	m, err := vlanFilterMacros(devs)
 	c.Assert(err, Equals, nil)
 	c.Assert(m, Equals, fmt.Sprintf(`switch (ifindex) { \
 case %d: \
@@ -322,11 +323,11 @@ break; \
 return false;`, main1.Index, main2.Index))
 
 	option.Config.VLANBPFBypass = []int{4002, 4004, 4005}
-	_, err = vlanFilterMacros()
+	_, err = vlanFilterMacros(devs)
 	c.Assert(err, NotNil)
 
 	option.Config.VLANBPFBypass = []int{0}
-	m, err = vlanFilterMacros()
+	m, err = vlanFilterMacros(devs)
 	c.Assert(err, IsNil)
 	c.Assert(m, Equals, "return true")
 }
@@ -379,7 +380,7 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	_, err := NewHeaderfileWriter(configWriterParams{
 		NodeExtraDefines:   []dpdef.Map{a, a},
 		NodeExtraDefineFns: nil,
-		Devicer:            datapath.NopDevicer{},
+		Devicer:            &datapath.FakeDevicer{},
 	})
 
 	require.Error(t, err, "duplicate keys should be rejected")
@@ -387,7 +388,7 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	cfg, err := NewHeaderfileWriter(configWriterParams{
 		NodeExtraDefines:   []dpdef.Map{a},
 		NodeExtraDefineFns: nil,
-		Devicer:            datapath.NopDevicer{},
+		Devicer:            &datapath.FakeDevicer{},
 	})
 	require.NoError(t, err)
 	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))

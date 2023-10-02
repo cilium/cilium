@@ -60,6 +60,7 @@ type linuxNodeHandler struct {
 	nodeConfig           datapath.LocalNodeConfiguration
 	nodeAddressing       datapath.NodeAddressing
 	datapathConfig       DatapathConfiguration
+	devices              datapath.Devicer
 	nodes                map[nodeTypes.Identity]*nodeTypes.Node
 	enableNeighDiscovery bool
 	neighLock            lock.Mutex // protects neigh* fields below
@@ -93,10 +94,11 @@ var (
 
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
-func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing, nodeMap nodemap.Map) *linuxNodeHandler {
+func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing, nodeMap nodemap.Map, devices datapath.Devicer) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		nodeAddressing:         nodeAddressing,
 		datapathConfig:         datapathConfig,
+		devices:                devices,
 		nodes:                  map[nodeTypes.Identity]*nodeTypes.Node{},
 		neighNextHopByNode4:    map[nodeTypes.Identity]map[string]string{},
 		neighNextHopByNode6:    map[nodeTypes.Identity]map[string]string{},
@@ -1775,6 +1777,8 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
+	devices, _ := n.devices.NativeDeviceNames()
+
 	prevConfig := n.nodeConfig
 	n.nodeConfig = newConfig
 
@@ -1790,7 +1794,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 
 			var targetDevices []string
 			targetDevices = append(targetDevices, option.Config.DirectRoutingDevice)
-			targetDevices = append(targetDevices, option.Config.GetDevices()...)
+			targetDevices = append(targetDevices, devices...)
 
 			var err error
 			ifaceNames, err = filterL2Devices(targetDevices)

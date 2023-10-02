@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
@@ -105,6 +106,8 @@ func writeIncludes(w io.Writer) (int, error) {
 
 // WriteNodeConfig writes the local node configuration to the specified writer.
 func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
+	nativeDevices, _ := h.devicer.NativeDevices()
+
 	extraMacrosMap := make(dpdef.Map)
 	cDefinesMap := make(dpdef.Map)
 
@@ -741,7 +744,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	}
 
-	vlanFilter, err := vlanFilterMacros()
+	vlanFilter, err := vlanFilterMacros(nativeDevices)
 	if err != nil {
 		return err
 	}
@@ -864,14 +867,10 @@ func getEphemeralPortRangeMin() (int, error) {
 
 // vlanFilterMacros generates VLAN_FILTER macros which
 // are written to node_config.h
-func vlanFilterMacros() (string, error) {
+func vlanFilterMacros(nativeDevices []*tables.Device) (string, error) {
 	devices := make(map[int]bool)
-	for _, device := range option.Config.GetDevices() {
-		ifindex, err := link.GetIfIndex(device)
-		if err != nil {
-			return "", err
-		}
-		devices[int(ifindex)] = true
+	for _, device := range nativeDevices {
+		devices[device.Index] = true
 	}
 
 	allowedVlans := make(map[int]bool)
@@ -885,6 +884,8 @@ func vlanFilterMacros() (string, error) {
 	}
 
 	vlansByIfIndex := make(map[int][]int)
+
+	// TODO: Remove LinkList() and write as pure function against devices table.
 
 	links, err := netlink.LinkList()
 	if err != nil {
@@ -1004,7 +1005,7 @@ func (h *HeaderfileWriter) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceCon
 
 // writeStaticData writes the endpoint-specific static data defines to the
 // specified writer. This must be kept in sync with loader.ELFSubstitutions().
-func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConfiguration) {
+func (h *HeaderfileWriter) writeStaticData(devices []string, fw io.Writer, e datapath.EndpointConfiguration) {
 	if e.IsHost() {
 		if option.Config.EnableNodePort {
 			// Values defined here are for the host datapath attached to the
@@ -1035,7 +1036,7 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 		fmt.Fprint(fw, defineUint32("SECCTX_FROM_IPCACHE", 1))
 
 		// Use templating for ETH_HLEN only if there is any L2-less device
-		if !mac.HaveMACAddrs(option.Config.GetDevices()) {
+		if !mac.HaveMACAddrs(devices) {
 			// L2 hdr len (for L2-less devices it will be replaced with "0")
 			fmt.Fprint(fw, defineUint16("ETH_HLEN", mac.EthHdrLen))
 		}
@@ -1088,13 +1089,15 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
 
-	writeIncludes(w)
-	h.writeStaticData(fw, e)
+	devices, _ := h.devicer.NativeDeviceNames()
 
-	return h.writeTemplateConfig(fw, e)
+	writeIncludes(w)
+	h.writeStaticData(devices, fw, e)
+
+	return h.writeTemplateConfig(devices, fw, e)
 }
 
-func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.EndpointConfiguration) error {
+func (h *HeaderfileWriter) writeTemplateConfig(devices []string, fw *bufio.Writer, e datapath.EndpointConfiguration) error {
 	if e.RequireEgressProg() {
 		fmt.Fprintf(fw, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
 	}
@@ -1110,7 +1113,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 			return err
 		}
 		fmt.Fprintf(fw, "#define DIRECT_ROUTING_DEV_IFINDEX %d\n", directRoutingIfIndex)
-		if len(option.Config.GetDevices()) == 1 {
+		if len(devices) == 1 {
 			fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
 		}
 	}
@@ -1148,5 +1151,6 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 // WriteTemplateConfig writes the BPF configuration for the template to a writer.
 func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
-	return h.writeTemplateConfig(fw, e)
+	devices, _ := h.devicer.NativeDeviceNames()
+	return h.writeTemplateConfig(devices, fw, e)
 }

@@ -127,8 +127,6 @@ type Daemon struct {
 	monitorAgent monitoragent.Agent
 	ciliumHealth *health.CiliumHealth
 
-	deviceManager *linuxdatapath.DeviceManager
-
 	// dnsNameManager tracks which api.FQDNSelector are present in policy which
 	// apply to locally running endpoints.
 	dnsNameManager *fqdn.NameManager
@@ -515,7 +513,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		compilationMutex:  new(lock.RWMutex),
 		mtuConfig:         mtuConfig,
 		datapath:          params.Datapath,
-		deviceManager:     params.DeviceManager,
 		nodeDiscovery:     nd,
 		nodeLocalStore:    params.LocalNodeStore,
 		endpointCreations: newEndpointCreationManager(params.Clientset),
@@ -893,18 +890,16 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	var devices []string
-	if d.deviceManager != nil {
-		if detected, err := d.deviceManager.Detect(params.Clientset.IsEnabled()); err == nil {
-			devices = append(devices, detected...)
-		} else {
-			if option.Config.AreDevicesRequired() {
-				// Fail hard if devices are required to function.
-				return nil, nil, fmt.Errorf("failed to detect devices: %w", err)
-			}
-			log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
-			disableNodePort()
-		}
+	devices, _ := d.params.Devicer.NativeDeviceNames()
+	if len(devices) == 0 {
+		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
+		disableNodePort()
+	}
+	if drr, err, _ := d.params.Devicer.DirectRoutingDevice(); err == nil {
+		option.Config.DirectRoutingDevice = drr.Name
+	}
+	if mcast, err, _ := d.params.Devicer.IPv6MCastDevice(); err == nil {
+		option.Config.IPv6MCastDevice = mcast
 	}
 
 	if d.l2announcer != nil {
@@ -1199,21 +1194,16 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	d.ipcache.InitIPIdentityWatcher(d.ctx, params.StoreFactory)
 	identitymanager.Subscribe(d.policy)
 
-	// Start listening to changed devices if requested.
-	if option.Config.EnableRuntimeDeviceDetection && d.deviceManager != nil {
-		if option.Config.AreDevicesRequired() {
-			devicesChan, err := d.deviceManager.Listen(ctx)
-			if err != nil {
-				log.WithError(err).Warn("Runtime device detection failed to start")
+	// Start listening to changed devices
+	devicesChan, err := d.params.Devicer.Listen(ctx)
+	if err != nil {
+		log.WithError(err).Warn("Runtime device detection failed to start")
+	} else {
+		go func() {
+			for devices := range devicesChan {
+				d.ReloadOnDeviceChange(devices)
 			}
-			go func() {
-				for devices := range devicesChan {
-					d.ReloadOnDeviceChange(devices)
-				}
-			}()
-		} else {
-			log.Info("Runtime device detection requested, but no feature requires it. Disabling detection.")
-		}
+		}()
 	}
 
 	if option.Config.EnableIPSec {
@@ -1230,7 +1220,12 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 // ReloadOnDeviceChange regenerates device related information and reloads the datapath.
 // The devices is the new set of devices that replaces the old set.
 func (d *Daemon) ReloadOnDeviceChange(devices []string) {
-	option.Config.SetDevices(devices)
+	if drr, err, _ := d.params.Devicer.DirectRoutingDevice(); err == nil {
+		option.Config.DirectRoutingDevice = drr.Name
+	}
+	if mcast, err, _ := d.params.Devicer.IPv6MCastDevice(); err == nil {
+		option.Config.IPv6MCastDevice = mcast
+	}
 
 	if option.Config.MasqueradingEnabled() && option.Config.EnableBPFMasquerade {
 		if err := node.InitBPFMasqueradeAddrs(devices); err != nil {

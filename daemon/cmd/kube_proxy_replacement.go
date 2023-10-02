@@ -18,11 +18,11 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
-	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/cilium/cilium/pkg/sysctl"
-	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
 // initKubeProxyReplacementOptions will grok the global config and determine
@@ -399,8 +398,9 @@ func finishKubeProxyReplacementInit(devices types.Devicer) error {
 	}
 
 	// TODO: react to device changes
-	devs, _ := devices.NativeDeviceNames()
-	if err := node.InitNodePortAddrs(devs, option.Config.LBDevInheritIPAddr); err != nil {
+	nativeDevices, _ := devices.NativeDevices()
+	nativeDeviceNames := tables.DeviceNames(nativeDevices)
+	if err := node.InitNodePortAddrs(nativeDeviceNames, option.Config.LBDevInheritIPAddr); err != nil {
 		msg := "failed to initialize NodePort addrs."
 		return fmt.Errorf(msg+" : %w", err)
 	}
@@ -417,7 +417,9 @@ func finishKubeProxyReplacementInit(devices types.Devicer) error {
 	// it to the stack which drops the packet).
 	if option.Config.EnableNodePort &&
 		option.Config.EnableWireguard && option.Config.EncryptNode {
-		option.Config.AppendDevice(wgTypes.IfaceName)
+		// FIXME: the wireguard device should be detected by the devices controller
+		// and not excluded.
+		panic("FIXME Wireguard device should be detected as native device")
 	}
 
 	// For MKE, we only need to change/extend the socket LB behavior in case
@@ -464,13 +466,9 @@ func finishKubeProxyReplacementInit(devices types.Devicer) error {
 	// the datapath needs to store it in our CT map, and the map's field is
 	// limited to 16 bit.
 	if probes.HaveFibIfindex() != nil {
-		for _, iface := range option.Config.GetDevices() {
-			link, err := netlink.LinkByName(iface)
-			if err != nil {
-				return fmt.Errorf("Cannot retrieve %s link: %w", iface, err)
-			}
-			if idx := link.Attrs().Index; idx > math.MaxUint16 {
-				return fmt.Errorf("%s link ifindex %d exceeds max(uint16)", iface, idx)
+		for _, dev := range nativeDevices {
+			if idx := dev.Index; idx > math.MaxUint16 {
+				return fmt.Errorf("%s link ifindex %d exceeds max(uint16)", dev.Name, idx)
 			}
 		}
 	}
@@ -478,7 +476,7 @@ func finishKubeProxyReplacementInit(devices types.Devicer) error {
 	if option.Config.EnableIPv4 &&
 		!option.Config.TunnelingEnabled() &&
 		option.Config.NodePortMode != option.NodePortModeSNAT &&
-		len(option.Config.GetDevices()) > 1 {
+		len(nativeDevices) > 1 {
 
 		// In the case of the multi-dev NodePort DSR, if a request from an
 		// external client was sent to a device which is not used for direct
