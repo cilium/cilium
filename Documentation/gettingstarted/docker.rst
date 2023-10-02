@@ -40,7 +40,7 @@ Then navigate into ``examples/getting-started`` and run ``vagrant up``:
 
 ::
 
-    $ cd examples/getting-started
+    $ cd examples/policies/getting-started
     $ vagrant up
 
 The script usually takes a few minutes depending on the speed of your internet
