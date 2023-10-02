@@ -61,9 +61,12 @@ func (errs errArray) MarshalLogArray(arr zapcore.ArrayEncoder) error {
 		// allocating, pool the wrapper type.
 		elem := _errArrayElemPool.Get()
 		elem.error = errs[i]
-		arr.AppendObject(elem)
+		err := arr.AppendObject(elem)
 		elem.error = nil
 		_errArrayElemPool.Put(elem)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

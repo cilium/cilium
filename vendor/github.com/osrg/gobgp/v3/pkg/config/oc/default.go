@@ -1,4 +1,4 @@
-package config
+package oc
 
 import (
 	"encoding/binary"

@@ -57,6 +57,9 @@ type ModifyVerifiedAccessTrustProviderInput struct {
 	// The options for an OpenID Connect-compatible user-identity trust provider.
 	OidcOptions *types.ModifyVerifiedAccessTrustProviderOidcOptions
 
+	// Options for server side encryption.
+	SseSpecification *types.VerifiedAccessSseSpecificationRequest
+
 	noSmithyDocumentSerde
 }
 

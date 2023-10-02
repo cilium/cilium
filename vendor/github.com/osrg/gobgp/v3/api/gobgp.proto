@@ -128,6 +128,8 @@ message WatchEventRequest {
       enum Type { BEST = 0; ADJIN = 1; POST_POLICY = 2; }
       Type type = 1;
       bool init = 2;
+      string peer_address = 3;
+      string peer_group = 4;
     }
     repeated Filter filters = 1;
   }
@@ -247,6 +249,7 @@ message TableLookupPrefix {
   enum Type { EXACT = 0; LONGER = 1; SHORTER = 2; }
   string prefix = 1;
   Type type = 2;
+  string rd = 3;
 }
 
 message ListPathRequest {

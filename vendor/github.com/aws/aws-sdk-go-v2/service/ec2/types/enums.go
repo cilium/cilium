@@ -2385,6 +2385,40 @@ func (ImageAttributeName) Values() []ImageAttributeName {
 	}
 }
 
+type ImageBlockPublicAccessDisabledState string
+
+// Enum values for ImageBlockPublicAccessDisabledState
+const (
+	ImageBlockPublicAccessDisabledStateUnblocked ImageBlockPublicAccessDisabledState = "unblocked"
+)
+
+// Values returns all known values for ImageBlockPublicAccessDisabledState. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client. The ordering of this slice is not guaranteed to be stable across
+// updates.
+func (ImageBlockPublicAccessDisabledState) Values() []ImageBlockPublicAccessDisabledState {
+	return []ImageBlockPublicAccessDisabledState{
+		"unblocked",
+	}
+}
+
+type ImageBlockPublicAccessEnabledState string
+
+// Enum values for ImageBlockPublicAccessEnabledState
+const (
+	ImageBlockPublicAccessEnabledStateBlockNewSharing ImageBlockPublicAccessEnabledState = "block-new-sharing"
+)
+
+// Values returns all known values for ImageBlockPublicAccessEnabledState. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client. The ordering of this slice is not guaranteed to be stable across
+// updates.
+func (ImageBlockPublicAccessEnabledState) Values() []ImageBlockPublicAccessEnabledState {
+	return []ImageBlockPublicAccessEnabledState{
+		"block-new-sharing",
+	}
+}
+
 type ImageState string
 
 // Enum values for ImageState
@@ -3508,6 +3542,27 @@ const (
 	InstanceTypeR7gd8xlarge     InstanceType = "r7gd.8xlarge"
 	InstanceTypeR7gd12xlarge    InstanceType = "r7gd.12xlarge"
 	InstanceTypeR7gd16xlarge    InstanceType = "r7gd.16xlarge"
+	InstanceTypeR7aMedium       InstanceType = "r7a.medium"
+	InstanceTypeR7aLarge        InstanceType = "r7a.large"
+	InstanceTypeR7aXlarge       InstanceType = "r7a.xlarge"
+	InstanceTypeR7a2xlarge      InstanceType = "r7a.2xlarge"
+	InstanceTypeR7a4xlarge      InstanceType = "r7a.4xlarge"
+	InstanceTypeR7a8xlarge      InstanceType = "r7a.8xlarge"
+	InstanceTypeR7a12xlarge     InstanceType = "r7a.12xlarge"
+	InstanceTypeR7a16xlarge     InstanceType = "r7a.16xlarge"
+	InstanceTypeR7a24xlarge     InstanceType = "r7a.24xlarge"
+	InstanceTypeR7a32xlarge     InstanceType = "r7a.32xlarge"
+	InstanceTypeR7a48xlarge     InstanceType = "r7a.48xlarge"
+	InstanceTypeC7iLarge        InstanceType = "c7i.large"
+	InstanceTypeC7iXlarge       InstanceType = "c7i.xlarge"
+	InstanceTypeC7i2xlarge      InstanceType = "c7i.2xlarge"
+	InstanceTypeC7i4xlarge      InstanceType = "c7i.4xlarge"
+	InstanceTypeC7i8xlarge      InstanceType = "c7i.8xlarge"
+	InstanceTypeC7i12xlarge     InstanceType = "c7i.12xlarge"
+	InstanceTypeC7i16xlarge     InstanceType = "c7i.16xlarge"
+	InstanceTypeC7i24xlarge     InstanceType = "c7i.24xlarge"
+	InstanceTypeC7i48xlarge     InstanceType = "c7i.48xlarge"
+	InstanceTypeMac2M2proMetal  InstanceType = "mac2-m2pro.metal"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -4235,6 +4290,27 @@ func (InstanceType) Values() []InstanceType {
 		"r7gd.8xlarge",
 		"r7gd.12xlarge",
 		"r7gd.16xlarge",
+		"r7a.medium",
+		"r7a.large",
+		"r7a.xlarge",
+		"r7a.2xlarge",
+		"r7a.4xlarge",
+		"r7a.8xlarge",
+		"r7a.12xlarge",
+		"r7a.16xlarge",
+		"r7a.24xlarge",
+		"r7a.32xlarge",
+		"r7a.48xlarge",
+		"c7i.large",
+		"c7i.xlarge",
+		"c7i.2xlarge",
+		"c7i.4xlarge",
+		"c7i.8xlarge",
+		"c7i.12xlarge",
+		"c7i.16xlarge",
+		"c7i.24xlarge",
+		"c7i.48xlarge",
+		"mac2-m2pro.metal",
 	}
 }
 

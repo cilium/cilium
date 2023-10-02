@@ -98,8 +98,11 @@ func (errs errArray) MarshalLogArray(arr ArrayEncoder) error {
 		}
 
 		el := newErrArrayElem(errs[i])
-		arr.AppendObject(el)
+		err := arr.AppendObject(el)
 		el.Free()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
