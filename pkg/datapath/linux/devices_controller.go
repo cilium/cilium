@@ -40,7 +40,7 @@ import (
 // and routes via netlink and populates the devices and routes devices.
 var DevicesControllerCell = cell.Module(
 	"devices-controller",
-	"Synchronizes the device and route tables with the kernel",
+	"Populates the device and route tables by observing over netlink",
 
 	cell.Config(defaultDevicesConfig),
 	cell.Invoke(registerDevicesController),
