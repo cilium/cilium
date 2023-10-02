@@ -1,3 +1,23 @@
+# v1.122.0 (2023-09-28)
+
+* **Feature**: Adds support for Customer Managed Key encryption for Amazon Verified Access resources
+
+# v1.121.0 (2023-09-26)
+
+* **Feature**: The release includes AWS verified access to support FIPs compliance in North America regions
+
+# v1.120.0 (2023-09-22)
+
+* **Feature**: EC2 M2 Pro Mac instances are powered by Apple M2 Pro Mac Mini computers featuring 12 core CPU, 19 core GPU, 32 GiB of memory, and 16 core Apple Neural Engine and uniquely enabled by the AWS Nitro System through high-speed Thunderbolt connections.
+
+# v1.119.0 (2023-09-19)
+
+* **Feature**: This release adds support for C7i, and R7a instance types.
+
+# v1.118.0 (2023-09-12)
+
+* **Feature**: This release adds support for restricting public sharing of AMIs through AMI Block Public Access
+
 # v1.117.0 (2023-09-06)
 
 * **Feature**: This release adds 'outpost' location type to the DescribeInstanceTypeOfferings API, allowing customers that have been allowlisted for outpost to query their offerings in the API.

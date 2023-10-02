@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap/internal/bufferpool"
+	"go.uber.org/zap/internal/stacktrace"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -173,7 +174,8 @@ func (log *Logger) WithOptions(opts ...Option) *Logger {
 }
 
 // With creates a child logger and adds structured context to it. Fields added
-// to the child don't affect the parent, and vice versa.
+// to the child don't affect the parent, and vice versa. Any fields that
+// require evaluation (such as Objects) are evaluated upon invocation of With.
 func (log *Logger) With(fields ...Field) *Logger {
 	if len(fields) == 0 {
 		return log
@@ -181,6 +183,28 @@ func (log *Logger) With(fields ...Field) *Logger {
 	l := log.clone()
 	l.core = l.core.With(fields)
 	return l
+}
+
+// WithLazy creates a child logger and adds structured context to it lazily.
+//
+// The fields are evaluated only if the logger is further chained with [With]
+// or is written to with any of the log level methods.
+// Until that occurs, the logger may retain references to objects inside the fields,
+// and logging will reflect the state of an object at the time of logging,
+// not the time of WithLazy().
+//
+// WithLazy provides a worthwhile performance optimization for contextual loggers
+// when the likelihood of using the child logger is low,
+// such as error paths and rarely taken branches.
+//
+// Similar to [With], fields added to the child don't affect the parent, and vice versa.
+func (log *Logger) WithLazy(fields ...Field) *Logger {
+	if len(fields) == 0 {
+		return log
+	}
+	return log.WithOptions(WrapCore(func(core zapcore.Core) zapcore.Core {
+		return zapcore.NewLazyWith(core, fields)
+	}))
 }
 
 // Level reports the minimum enabled level for this logger.
@@ -199,6 +223,8 @@ func (log *Logger) Check(lvl zapcore.Level, msg string) *zapcore.CheckedEntry {
 
 // Log logs a message at the specified level. The message includes any fields
 // passed at the log site, as well as any fields accumulated on the logger.
+// Any Fields that require  evaluation (such as Objects) are evaluated upon
+// invocation of Log.
 func (log *Logger) Log(lvl zapcore.Level, msg string, fields ...Field) {
 	if ce := log.check(lvl, msg); ce != nil {
 		ce.Write(fields...)
@@ -288,8 +314,8 @@ func (log *Logger) Name() string {
 }
 
 func (log *Logger) clone() *Logger {
-	copy := *log
-	return &copy
+	clone := *log
+	return &clone
 }
 
 func (log *Logger) check(lvl zapcore.Level, msg string) *zapcore.CheckedEntry {
@@ -360,17 +386,17 @@ func (log *Logger) check(lvl zapcore.Level, msg string) *zapcore.CheckedEntry {
 
 	// Adding the caller or stack trace requires capturing the callers of
 	// this function. We'll share information between these two.
-	stackDepth := stacktraceFirst
+	stackDepth := stacktrace.First
 	if addStack {
-		stackDepth = stacktraceFull
+		stackDepth = stacktrace.Full
 	}
-	stack := captureStacktrace(log.callerSkip+callerSkipOffset, stackDepth)
+	stack := stacktrace.Capture(log.callerSkip+callerSkipOffset, stackDepth)
 	defer stack.Free()
 
 	if stack.Count() == 0 {
 		if log.addCaller {
 			fmt.Fprintf(log.errorOutput, "%v Logger.check error: failed to get caller\n", ent.Time.UTC())
-			log.errorOutput.Sync()
+			_ = log.errorOutput.Sync()
 		}
 		return ce
 	}
@@ -391,7 +417,7 @@ func (log *Logger) check(lvl zapcore.Level, msg string) *zapcore.CheckedEntry {
 		buffer := bufferpool.Get()
 		defer buffer.Free()
 
-		stackfmt := newStackFormatter(buffer)
+		stackfmt := stacktrace.NewFormatter(buffer)
 
 		// We've already extracted the first frame, so format that
 		// separately and defer to stackfmt for the rest.

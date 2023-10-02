@@ -24,7 +24,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/osrg/gobgp/v3/internal/pkg/config"
+	"github.com/osrg/gobgp/v3/pkg/config/oc"
 	"github.com/osrg/gobgp/v3/pkg/log"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 )
@@ -121,7 +121,7 @@ var IntToRpkiValidationReasonTypeMap = map[int]RpkiValidationReasonType{
 }
 
 type Validation struct {
-	Status          config.RpkiValidationResultType
+	Status          oc.RpkiValidationResultType
 	Reason          RpkiValidationReasonType
 	Matched         []*ROA
 	UnmatchedAs     []*ROA
@@ -194,7 +194,7 @@ func cloneAsPath(asAttr *bgp.PathAttributeAsPath) *bgp.PathAttributeAsPath {
 	return bgp.NewPathAttributeAsPath(newASparams)
 }
 
-func UpdatePathAttrs(logger log.Logger, global *config.Global, peer *config.Neighbor, info *PeerInfo, original *Path) *Path {
+func UpdatePathAttrs(logger log.Logger, global *oc.Global, peer *oc.Neighbor, info *PeerInfo, original *Path) *Path {
 	if peer.RouteServer.Config.RouteServerClient {
 		return original
 	}
@@ -208,7 +208,7 @@ func UpdatePathAttrs(logger log.Logger, global *config.Global, peer *config.Neig
 		} else {
 			switch a.GetType() {
 			case bgp.BGP_ATTR_TYPE_CLUSTER_LIST, bgp.BGP_ATTR_TYPE_ORIGINATOR_ID:
-				if !(peer.State.PeerType == config.PEER_TYPE_INTERNAL && peer.RouteReflector.Config.RouteReflectorClient) {
+				if !(peer.State.PeerType == oc.PEER_TYPE_INTERNAL && peer.RouteReflector.Config.RouteReflectorClient) {
 					// send these attributes to only rr clients
 					path.delPathAttr(a.GetType())
 				}
@@ -218,7 +218,7 @@ func UpdatePathAttrs(logger log.Logger, global *config.Global, peer *config.Neig
 
 	localAddress := info.LocalAddress
 	nexthop := path.GetNexthop()
-	if peer.State.PeerType == config.PEER_TYPE_EXTERNAL {
+	if peer.State.PeerType == oc.PEER_TYPE_EXTERNAL {
 		// NEXTHOP handling
 		if !path.IsLocal() || nexthop.IsUnspecified() {
 			path.SetNexthop(localAddress)
@@ -239,7 +239,7 @@ func UpdatePathAttrs(logger log.Logger, global *config.Global, peer *config.Neig
 			path.delPathAttr(bgp.BGP_ATTR_TYPE_MULTI_EXIT_DISC)
 		}
 
-	} else if peer.State.PeerType == config.PEER_TYPE_INTERNAL {
+	} else if peer.State.PeerType == oc.PEER_TYPE_INTERNAL {
 		// NEXTHOP handling for iBGP
 		// if the path generated locally set local address as nexthop.
 		// if not, don't modify it.
@@ -713,20 +713,20 @@ func isPrivateAS(as uint32) bool {
 	return (64512 <= as && as <= 65534) || (4200000000 <= as && as <= 4294967294)
 }
 
-func (path *Path) RemovePrivateAS(localAS uint32, option config.RemovePrivateAsOption) {
+func (path *Path) RemovePrivateAS(localAS uint32, option oc.RemovePrivateAsOption) {
 	original := path.GetAsPath()
 	if original == nil {
 		return
 	}
 	switch option {
-	case config.REMOVE_PRIVATE_AS_OPTION_ALL, config.REMOVE_PRIVATE_AS_OPTION_REPLACE:
+	case oc.REMOVE_PRIVATE_AS_OPTION_ALL, oc.REMOVE_PRIVATE_AS_OPTION_REPLACE:
 		newASParams := make([]bgp.AsPathParamInterface, 0, len(original.Value))
 		for _, param := range original.Value {
 			asList := param.GetAS()
 			newASParam := make([]uint32, 0, len(asList))
 			for _, as := range asList {
 				if isPrivateAS(as) {
-					if option == config.REMOVE_PRIVATE_AS_OPTION_REPLACE {
+					if option == oc.REMOVE_PRIVATE_AS_OPTION_REPLACE {
 						newASParam = append(newASParam, localAS)
 					}
 				} else {

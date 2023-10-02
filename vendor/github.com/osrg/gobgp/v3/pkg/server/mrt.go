@@ -21,8 +21,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/osrg/gobgp/v3/internal/pkg/config"
 	"github.com/osrg/gobgp/v3/internal/pkg/table"
+	"github.com/osrg/gobgp/v3/pkg/config/oc"
 	"github.com/osrg/gobgp/v3/pkg/log"
 	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/osrg/gobgp/v3/pkg/packet/mrt"
@@ -36,7 +36,7 @@ const (
 type mrtWriter struct {
 	dead             chan struct{}
 	s                *BgpServer
-	c                *config.MrtConfig
+	c                *oc.MrtConfig
 	file             *os.File
 	rotationInterval uint64
 	dumpInterval     uint64
@@ -49,9 +49,9 @@ func (m *mrtWriter) Stop() {
 func (m *mrtWriter) loop() error {
 	ops := []watchOption{}
 	switch m.c.DumpType {
-	case config.MRT_TYPE_UPDATES:
-		ops = append(ops, watchUpdate(false, ""))
-	case config.MRT_TYPE_TABLE:
+	case oc.MRT_TYPE_UPDATES:
+		ops = append(ops, watchUpdate(false, "", ""))
+	case oc.MRT_TYPE_TABLE:
 		if len(m.c.TableName) > 0 {
 			ops = append(ops, watchTableName(m.c.TableName))
 		}
@@ -119,7 +119,7 @@ func (m *mrtWriter) loop() error {
 				peers := make([]*mrt.Peer, 1, len(e.Neighbor)+1)
 				// Adding dummy Peer record for locally generated routes
 				peers[0] = mrt.NewPeer("0.0.0.0", "0.0.0.0", 0, true)
-				neighborMap := make(map[string]*config.Neighbor)
+				neighborMap := make(map[string]*oc.Neighbor)
 				for _, pconf := range e.Neighbor {
 					peers = append(peers, mrt.NewPeer(pconf.State.RemoteRouterId, pconf.State.NeighborAddress, pconf.Config.PeerAs, true))
 					neighborMap[pconf.State.NeighborAddress] = pconf
@@ -269,11 +269,11 @@ func (m *mrtWriter) loop() error {
 			return nil
 		case e := <-w.Event():
 			drain(e)
-			if m.c.DumpType == config.MRT_TYPE_TABLE && m.rotationInterval != 0 {
+			if m.c.DumpType == oc.MRT_TYPE_TABLE && m.rotationInterval != 0 {
 				rotate()
 			}
 		case <-rotator.C:
-			if m.c.DumpType == config.MRT_TYPE_UPDATES {
+			if m.c.DumpType == oc.MRT_TYPE_UPDATES {
 				rotate()
 			} else {
 				w.Generate(watchEventTypeTable)
@@ -326,7 +326,7 @@ func mrtFileOpen(logger log.Logger, filename string, rInterval uint64) (*os.File
 	return file, err
 }
 
-func newMrtWriter(s *BgpServer, c *config.MrtConfig, rInterval, dInterval uint64) (*mrtWriter, error) {
+func newMrtWriter(s *BgpServer, c *oc.MrtConfig, rInterval, dInterval uint64) (*mrtWriter, error) {
 	file, err := mrtFileOpen(s.logger, c.FileName, rInterval)
 	if err != nil {
 		return nil, err
@@ -347,7 +347,7 @@ type mrtManager struct {
 	writer    map[string]*mrtWriter
 }
 
-func (m *mrtManager) enable(c *config.MrtConfig) error {
+func (m *mrtManager) enable(c *oc.MrtConfig) error {
 	if _, ok := m.writer[c.FileName]; ok {
 		return fmt.Errorf("%s already exists", c.FileName)
 	}
@@ -365,7 +365,7 @@ func (m *mrtManager) enable(c *config.MrtConfig) error {
 		}
 	}
 
-	if c.DumpType == config.MRT_TYPE_TABLE {
+	if c.DumpType == oc.MRT_TYPE_TABLE {
 		if rInterval == 0 {
 			if dInterval < minDumpInterval {
 				m.bgpServer.logger.Info("use minimum mrt dump interval",
@@ -379,7 +379,7 @@ func (m *mrtManager) enable(c *config.MrtConfig) error {
 		} else {
 			return fmt.Errorf("can't specify both intervals in the table dump type")
 		}
-	} else if c.DumpType == config.MRT_TYPE_UPDATES {
+	} else if c.DumpType == oc.MRT_TYPE_UPDATES {
 		// ignore the dump interval
 		dInterval = 0
 		if len(c.TableName) > 0 {
@@ -395,7 +395,7 @@ func (m *mrtManager) enable(c *config.MrtConfig) error {
 	return err
 }
 
-func (m *mrtManager) disable(c *config.MrtConfig) error {
+func (m *mrtManager) disable(c *oc.MrtConfig) error {
 	w, ok := m.writer[c.FileName]
 	if !ok {
 		return fmt.Errorf("%s doesn't exists", c.FileName)

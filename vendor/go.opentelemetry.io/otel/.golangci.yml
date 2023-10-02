@@ -76,11 +76,6 @@ linters-settings:
       otlp-internal:
         files:
           - "!**/exporters/otlp/internal/**/*.go"
-          # TODO: remove the following when otlpmetric/internal is removed.
-          - "!**/exporters/otlp/otlpmetric/internal/oconf/envconfig.go"
-          - "!**/exporters/otlp/otlpmetric/internal/oconf/options.go"
-          - "!**/exporters/otlp/otlpmetric/internal/oconf/options_test.go"
-          - "!**/exporters/otlp/otlpmetric/internal/otest/client_test.go"
         deny:
           - pkg: "go.opentelemetry.io/otel/exporters/otlp/internal"
             desc: Do not use cross-module internal packages.

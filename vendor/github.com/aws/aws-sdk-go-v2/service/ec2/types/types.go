@@ -16437,6 +16437,9 @@ type VerifiedAccessEndpoint struct {
 	// The IDs of the security groups for the endpoint.
 	SecurityGroupIds []string
 
+	// Describes the options in use for server side encryption.
+	SseSpecification *VerifiedAccessSseSpecificationResponse
+
 	// The endpoint status.
 	Status *VerifiedAccessEndpointStatus
 
@@ -16519,6 +16522,9 @@ type VerifiedAccessGroup struct {
 	// The Amazon Web Services account number that owns the group.
 	Owner *string
 
+	// Describes the options in use for server side encryption.
+	SseSpecification *VerifiedAccessSseSpecificationResponse
+
 	// The tags.
 	Tags []Tag
 
@@ -16542,6 +16548,10 @@ type VerifiedAccessInstance struct {
 
 	// A description for the Amazon Web Services Verified Access instance.
 	Description *string
+
+	// Describes whether support for Federal Information Processing Standards (FIPS)
+	// is enabled on the instance.
+	FipsEnabled *bool
 
 	// The last updated time.
 	LastUpdatedTime *string
@@ -16723,6 +16733,34 @@ type VerifiedAccessLogS3DestinationOptions struct {
 	noSmithyDocumentSerde
 }
 
+// Verified Access provides server side encryption by default to data at rest
+// using Amazon Web Services-owned KMS keys. You also have the option of using
+// customer managed KMS keys, which can be specified using the options below.
+type VerifiedAccessSseSpecificationRequest struct {
+
+	// Enable or disable the use of customer managed KMS keys for server side
+	// encryption. Valid values: True | False
+	CustomerManagedKeyEnabled *bool
+
+	// The ARN of the KMS key.
+	KmsKeyArn *string
+
+	noSmithyDocumentSerde
+}
+
+// Describes the options in use for server side encryption.
+type VerifiedAccessSseSpecificationResponse struct {
+
+	// Describes the use of customer managed KMS keys for server side encryption.
+	// Valid values: True | False
+	CustomerManagedKeyEnabled *bool
+
+	// Describes the ARN of the KMS key.
+	KmsKeyArn *string
+
+	noSmithyDocumentSerde
+}
+
 // Describes a Verified Access trust provider.
 type VerifiedAccessTrustProvider struct {
 
@@ -16746,6 +16784,9 @@ type VerifiedAccessTrustProvider struct {
 
 	// The identifier to be used when working with policy rules.
 	PolicyReferenceName *string
+
+	// Describes the options in use for server side encryption.
+	SseSpecification *VerifiedAccessSseSpecificationResponse
 
 	// The tags.
 	Tags []Tag
