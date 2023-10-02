@@ -266,7 +266,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 		}
 	}
 
-	if status, ok := ct.Feature(check.FeatureTunnel); ok && !status.Enabled {
+	if status, ok := ct.Feature(features.Tunnel); ok && !status.Enabled {
 		// When connecting from outside the cluster directly to a pod which is selected by an egress policy, the
 		// reply traffic should not be SNATed with the egress IP (only connections originating from these pods
 		// should go through egress gateway).
