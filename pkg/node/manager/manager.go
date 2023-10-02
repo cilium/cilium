@@ -417,10 +417,14 @@ func (m *manager) nodeIdentityLabels(n nodeTypes.Node) (nodeLabels labels.Labels
 				for _, address := range n.IPAddresses {
 					addr, ok := ip.AddrFromIP(address.IP)
 					if ok {
-						prefix, err := addr.Prefix(addr.BitLen())
-						if err == nil {
-							cidrLabels := labels.GetCIDRLabels(prefix)
-							nodeLabels.MergeLabels(cidrLabels)
+						bitLen := addr.BitLen()
+						if option.Config.EnableIPv4 && bitLen == net.IPv4len*8 ||
+							option.Config.EnableIPv6 && bitLen == net.IPv6len*8 {
+							prefix, err := addr.Prefix(bitLen)
+							if err == nil {
+								cidrLabels := labels.GetCIDRLabels(prefix)
+								nodeLabels.MergeLabels(cidrLabels)
+							}
 						}
 					}
 				}
