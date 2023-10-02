@@ -352,12 +352,10 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		interfaceNames = append(interfaceNames, device.Name)
 		symbols = append(symbols, symbolFromHostNetdevEp)
 		directions = append(directions, dirIngress)
-		if option.Config.AreDevicesRequired() &&
+		if device.Name != wgTypes.IfaceName {
 			// Attaching bpf_host to cilium_wg0 is required for encrypting KPR
 			// traffic. Only ingress prog (aka "from-netdev") is needed to handle
 			// the rev-NAT xlations.
-			device.Name != wgTypes.IfaceName {
-
 			interfaceNames = append(interfaceNames, device.Name)
 			symbols = append(symbols, symbolToHostNetdevEp)
 			directions = append(directions, dirEgress)
