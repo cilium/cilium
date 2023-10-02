@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"sort"
 	"strings"
 	"time"
 
@@ -345,6 +346,8 @@ func deviceAddressFromAddrUpdate(upd netlink.AddrUpdate) tables.DeviceAddress {
 
 		// ifaddrmsg.ifa_scope is uint8, vishvananda/netlink has wrong type
 		Scope: uint8(upd.Scope),
+
+		Flags: upd.Flags,
 	}
 }
 
@@ -388,6 +391,20 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 						d.Addrs = slices.Delete(d.Addrs, i, i+1)
 					}
 				}
+
+				// Sort the addresses so that secondary addresses are at bottom and then
+				// sorted by scope.
+				sort.SliceStable(d.Addrs, func(i, j int) bool {
+					switch {
+					case d.Addrs[i].Flags&unix.IFA_F_SECONDARY < d.Addrs[j].Flags&unix.IFA_F_SECONDARY:
+						return true
+					case d.Addrs[i].Flags&unix.IFA_F_SECONDARY == d.Addrs[j].Flags&unix.IFA_F_SECONDARY:
+						return d.Addrs[i].Scope < d.Addrs[j].Scope
+					default:
+						return false
+					}
+				})
+
 			case netlink.RouteUpdate:
 				r := tables.Route{
 					Table:     u.Table,

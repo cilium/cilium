@@ -85,6 +85,7 @@ func (d *Device) HasIP(ip net.IP) bool {
 
 type DeviceAddress struct {
 	netip.Addr
+	Flags int
 	Scope uint8 // Address scope
 }
 
