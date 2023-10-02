@@ -11,6 +11,7 @@ triggers:
     - conformance-gateway-api.yaml
     - conformance-gke.yaml
     - conformance-ingress.yaml
+    - tests-clustermesh-upgrade.yaml
     - tests-l4lb.yaml
   /ci-aks:
     workflows:
@@ -21,6 +22,7 @@ triggers:
   /ci-clustermesh:
     workflows:
     - conformance-clustermesh.yaml
+    - tests-clustermesh-upgrade.yaml
   /ci-e2e:
     workflows:
     - conformance-e2e.yaml
@@ -69,6 +71,8 @@ workflows:
   conformance-gke.yaml:
     paths-ignore-regex: (test|Documentation)/
   conformance-ingress.yaml:
+    paths-ignore-regex: (test|Documentation)/
+  tests-clustermesh-upgrade.yaml:
     paths-ignore-regex: (test|Documentation)/
   tests-l4lb.yaml:
     paths-regex: (bpf|daemon|images|pkg|test/l4lb|vendor)/
