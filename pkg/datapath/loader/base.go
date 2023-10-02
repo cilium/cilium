@@ -427,11 +427,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		if err := l.reinitializeIPSec(ctx); err != nil {
 			return err
 		}
-
-		if firstInitialization {
-			// Start a background worker to reinitialize IPsec if links change.
-			l.reloadIPSecOnLinkChanges()
-		}
 	}
 
 	if err := l.reinitializeOverlay(ctx, encapProto); err != nil {

@@ -1169,6 +1169,7 @@ const (
 
 	// EnableRuntimeDeviceDetection is the name of the option to enable detection
 	// of new and removed datapath devices during the agent runtime.
+	// Deprecated.
 	EnableRuntimeDeviceDetection = "enable-runtime-device-detection"
 
 	// EnablePMTUDiscovery enables path MTU discovery to send ICMP
@@ -3171,7 +3172,6 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.IPAMCiliumNodeUpdateRate = vp.GetDuration(IPAMCiliumNodeUpdateRate)
 
 	c.populateLoadBalancerSettings(vp)
-	c.EnableRuntimeDeviceDetection = vp.GetBool(EnableRuntimeDeviceDetection)
 	c.EgressMultiHomeIPRuleCompat = vp.GetBool(EgressMultiHomeIPRuleCompat)
 
 	vlanBPFBypassIDs := vp.GetStringSlice(VLANBPFBypass)
