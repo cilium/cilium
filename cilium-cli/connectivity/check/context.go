@@ -46,7 +46,7 @@ type ConnectivityTest struct {
 	CiliumVersion semver.Version
 
 	// Features contains the features enabled on the running Cilium cluster
-	Features FeatureSet
+	Features features.Set
 
 	// Parameters to the test suite, specified by the CLI user.
 	params Parameters
@@ -206,7 +206,7 @@ func NewConnectivityTest(client *k8s.Client, p Parameters, version string) (*Con
 		tests:                    []*Test{},
 		testNames:                make(map[string]struct{}),
 		lastFlowTimestamps:       make(map[string]time.Time),
-		Features:                 FeatureSet{},
+		Features:                 features.Set{},
 	}
 
 	return k, nil
@@ -296,7 +296,7 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, setupAndValida
 	}
 
 	if ct.debug() {
-		fs := make([]Feature, 0, len(ct.Features))
+		fs := make([]features.Feature, 0, len(ct.Features))
 		for f := range ct.Features {
 			fs = append(fs, f)
 		}
@@ -322,7 +322,7 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, setupAndValida
 			return fmt.Errorf("unable to create hubble client: %s", err)
 		}
 	}
-	if match, _ := ct.Features.MatchRequirements(RequireFeatureEnabled(FeatureNodeWithoutCilium)); match {
+	if match, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.NodeWithoutCilium)); match {
 		if err := ct.detectPodCIDRs(ctx); err != nil {
 			return fmt.Errorf("unable to detect pod CIDRs: %w", err)
 		}
@@ -331,7 +331,7 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, setupAndValida
 			return fmt.Errorf("unable to detect nodes w/o Cilium IPs: %w", err)
 		}
 	}
-	if match, _ := ct.Features.MatchRequirements((RequireFeatureEnabled(FeatureCIDRMatchNodes))); match {
+	if match, _ := ct.Features.MatchRequirements((features.RequireEnabled(features.CIDRMatchNodes))); match {
 		if err := ct.detectNodeCIDRs(ctx); err != nil {
 			return fmt.Errorf("unable to detect node CIDRs: %w", err)
 		}
@@ -1017,7 +1017,7 @@ func (ct *ConnectivityTest) AllFlows() bool {
 }
 
 func (ct *ConnectivityTest) FlowAggregation() bool {
-	return ct.Features[FeatureMonitorAggregation].Enabled
+	return ct.Features[features.MonitorAggregation].Enabled
 }
 
 func (ct *ConnectivityTest) PostTestSleepDuration() time.Duration {
@@ -1032,7 +1032,7 @@ func (ct *ConnectivityTest) NodesWithoutCilium() []string {
 	return maps.Keys(ct.nodesWithoutCilium)
 }
 
-func (ct *ConnectivityTest) Feature(f Feature) (FeatureStatus, bool) {
+func (ct *ConnectivityTest) Feature(f features.Feature) (features.Status, bool) {
 	s, ok := ct.Features[f]
 	return s, ok
 }

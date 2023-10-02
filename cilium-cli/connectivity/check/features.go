@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/blang/semver/v4"
-	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,168 +24,6 @@ import (
 	"github.com/cilium/cilium-cli/utils/features"
 )
 
-// Feature is the name of a Cilium feature (e.g. l7-proxy, cni chaining mode etc)
-type Feature string
-
-const (
-	FeatureCNIChaining        Feature = "cni-chaining"
-	FeatureMonitorAggregation Feature = "monitor-aggregation"
-	FeatureL7Proxy            Feature = "l7-proxy"
-	FeatureHostFirewall       Feature = "host-firewall"
-	FeatureICMPPolicy         Feature = "icmp-policy"
-	FeatureTunnel             Feature = "tunnel"
-	FeatureEndpointRoutes     Feature = "endpoint-routes"
-
-	FeatureKPRMode                Feature = "kpr-mode"
-	FeatureKPRExternalIPs         Feature = "kpr-external-ips"
-	FeatureKPRGracefulTermination Feature = "kpr-graceful-termination"
-	FeatureKPRHostPort            Feature = "kpr-hostport"
-	FeatureKPRSocketLB            Feature = "kpr-socket-lb"
-	FeatureKPRNodePort            Feature = "kpr-nodeport"
-	FeatureKPRSessionAffinity     Feature = "kpr-session-affinity"
-
-	FeatureHostPort Feature = "host-port"
-
-	FeatureNodeWithoutCilium Feature = "node-without-cilium"
-
-	FeatureHealthChecking Feature = "health-checking"
-
-	FeatureEncryptionPod  Feature = "encryption-pod"
-	FeatureEncryptionNode Feature = "encryption-node"
-
-	FeatureIPv4 Feature = "ipv4"
-	FeatureIPv6 Feature = "ipv6"
-
-	FeatureFlavor Feature = "flavor"
-
-	FeatureSecretBackendK8s Feature = "secret-backend-k8s"
-
-	FeatureCNP Feature = "cilium-network-policy"
-	FeatureKNP Feature = "k8s-network-policy"
-
-	// Whether or not CIDR selectors can match node IPs
-	FeatureCIDRMatchNodes Feature = "cidr-match-nodes"
-
-	FeatureAuthSpiffe Feature = "mutual-auth-spiffe"
-
-	FeatureIngressController Feature = "ingress-controller"
-
-	FeatureEgressGateway Feature = "enable-ipv4-egress-gateway"
-)
-
-// FeatureStatus describes the status of a feature. Some features are either
-// turned on or off (c.f. Enabled), while others additionally might include a
-// Mode string which provides more information about in what mode a
-// particular feature is running ((e.g. when running with CNI chaining,
-// Enabled will be true, and the Mode string will additionally contain the name
-// of the chained CNI).
-type FeatureStatus struct {
-	Enabled bool
-	Mode    string
-}
-
-func (s FeatureStatus) String() string {
-	str := "Disabled"
-	if s.Enabled {
-		str = "Enabled"
-	}
-
-	if len(s.Mode) == 0 {
-		return str
-	}
-
-	return fmt.Sprintf("%s:%s", str, s.Mode)
-}
-
-// FeatureSet contains the FeatureStatus of a collection of Features.
-type FeatureSet map[Feature]FeatureStatus
-
-// MatchRequirements returns true if the FeatureSet fs satisfies all the
-// requirements in reqs. Returns true for empty requirements list.
-func (fs FeatureSet) MatchRequirements(reqs ...FeatureRequirement) (bool, string) {
-	for _, req := range reqs {
-		status := fs[req.feature]
-		if req.requiresEnabled && (req.enabled != status.Enabled) {
-			return false, fmt.Sprintf("feature %s is disabled", req.feature)
-		}
-		if req.requiresMode && (req.mode != status.Mode) {
-			return false, fmt.Sprintf("requires feature %s mode %s, got %s", req.feature, req.mode, status.Mode)
-		}
-	}
-
-	return true, ""
-}
-
-// IPFamilies returns the list of enabled IP families.
-func (fs FeatureSet) IPFamilies() []features.IPFamily {
-	var families []features.IPFamily
-
-	if match, _ := fs.MatchRequirements(RequireFeatureEnabled(FeatureIPv4)); match {
-		families = append(families, features.IPFamilyV4)
-	}
-
-	if match, _ := fs.MatchRequirements(RequireFeatureEnabled(FeatureIPv6)); match {
-		families = append(families, features.IPFamilyV6)
-	}
-
-	return families
-}
-
-// deriveFeatures derives additional features based on the status of other features
-func (fs FeatureSet) deriveFeatures() error {
-	fs[FeatureHostPort] = FeatureStatus{
-		// HostPort support can either be enabled via KPR, or via CNI chaining with portmap plugin
-		Enabled: (fs[FeatureCNIChaining].Enabled && fs[FeatureCNIChaining].Mode == "portmap" &&
-			// cilium/cilium#12541: Host firewall doesn't work with portmap CNI chaining
-			!fs[FeatureHostFirewall].Enabled) ||
-			fs[FeatureKPRHostPort].Enabled,
-	}
-
-	return nil
-}
-
-// FeatureRequirement defines a test requirement. A given FeatureSet may or
-// may not satisfy this requirement
-type FeatureRequirement struct {
-	feature Feature
-
-	requiresEnabled bool
-	enabled         bool
-
-	requiresMode bool
-	mode         string
-}
-
-// RequireFeatureEnabled constructs a FeatureRequirement which expects the
-// feature to be enabled
-func RequireFeatureEnabled(feature Feature) FeatureRequirement {
-	return FeatureRequirement{
-		feature:         feature,
-		requiresEnabled: true,
-		enabled:         true,
-	}
-}
-
-// RequireFeatureDisabled constructs a FeatureRequirement which expects the
-// feature to be disabled
-func RequireFeatureDisabled(feature Feature) FeatureRequirement {
-	return FeatureRequirement{
-		feature:         feature,
-		requiresEnabled: true,
-		enabled:         false,
-	}
-}
-
-// RequireFeatureMode constructs a FeatureRequirement which expects the feature
-// to be in the given mode
-func RequireFeatureMode(feature Feature, mode string) FeatureRequirement {
-	return FeatureRequirement{
-		feature:      feature,
-		requiresMode: true,
-		mode:         mode,
-	}
-}
-
 func parseBoolStatus(s string) bool {
 	switch s {
 	case "Enabled", "enabled", "True", "true":
@@ -197,83 +33,11 @@ func parseBoolStatus(s string) bool {
 	return false
 }
 
-// extractFeaturesFromConfigMap extracts features from the Cilium ConfigMap.
-// Note that there is no rule regarding if the default value is reflected
-// in the ConfigMap or not.
-func (fs FeatureSet) extractFeaturesFromConfigMap(ciliumVersion semver.Version, cm *corev1.ConfigMap) {
-	// CNI chaining.
-	// Note: This value might be overwritten by extractFeaturesFromCiliumStatus
-	// if this information is present in `cilium status`
-	mode := "none"
-	if v, ok := cm.Data["cni-chaining-mode"]; ok {
-		mode = v
-	}
-	fs[FeatureCNIChaining] = FeatureStatus{
-		Enabled: mode != "none",
-		Mode:    mode,
-	}
-
-	if versioncheck.MustCompile("<1.14.0")(ciliumVersion) {
-		mode = "vxlan"
-		if v, ok := cm.Data["tunnel"]; ok {
-			mode = v
-		}
-		fs[FeatureTunnel] = FeatureStatus{
-			Enabled: mode != "disabled",
-			Mode:    mode,
-		}
-	} else {
-		mode = "tunnel"
-		if v, ok := cm.Data["routing-mode"]; ok {
-			mode = v
-		}
-
-		tunnelProto := "vxlan"
-		if mode != "native" {
-			if v, ok := cm.Data["tunnel-protocol"]; ok {
-				tunnelProto = v
-			}
-		}
-
-		fs[FeatureTunnel] = FeatureStatus{
-			Enabled: mode != "native",
-			Mode:    tunnelProto,
-		}
-	}
-
-	fs[FeatureIPv4] = FeatureStatus{
-		Enabled: cm.Data["enable-ipv4"] == "true",
-	}
-	fs[FeatureIPv6] = FeatureStatus{
-		Enabled: cm.Data["enable-ipv6"] == "true",
-	}
-
-	fs[FeatureEndpointRoutes] = FeatureStatus{
-		Enabled: cm.Data["enable-endpoint-routes"] == "true",
-	}
-
-	fs[FeatureAuthSpiffe] = FeatureStatus{
-		Enabled: cm.Data["mesh-auth-mutual-enabled"] == "true",
-	}
-
-	fs[FeatureIngressController] = FeatureStatus{
-		Enabled: cm.Data["enable-ingress-controller"] == "true",
-	}
-
-	fs[FeatureEgressGateway] = FeatureStatus{
-		Enabled: cm.Data["enable-ipv4-egress-gateway"] == "true",
-	}
-
-	fs[FeatureCIDRMatchNodes] = FeatureStatus{
-		Enabled: strings.Contains(cm.Data["policy-cidr-match-mode"], "nodes"),
-	}
-}
-
 // extractFeaturesFromRuntimeConfig extracts features from the Cilium runtime config.
 // The downside of this approach is that the `DaemonConfig` struct is not stable.
 // If there are changes to it in the future, we will likely have to maintain
 // version-specific copies of the struct in the Cilium-CLI.
-func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context, ciliumPod Pod, result FeatureSet) error {
+func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context, ciliumPod Pod, result features.Set) error {
 	namespace := ciliumPod.Pod.Namespace
 
 	stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, namespace, ciliumPod.Pod.Name,
@@ -287,20 +51,20 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 		return fmt.Errorf("unmarshaling cilium runtime config json: %w", err)
 	}
 
-	result[FeatureMonitorAggregation] = FeatureStatus{
+	result[features.MonitorAggregation] = features.Status{
 		Enabled: cfg.MonitorAggregation != "none",
 		Mode:    cfg.MonitorAggregation,
 	}
 
-	result[FeatureICMPPolicy] = FeatureStatus{
+	result[features.ICMPPolicy] = features.Status{
 		Enabled: cfg.EnableICMPRules,
 	}
 
-	result[FeatureHealthChecking] = FeatureStatus{
+	result[features.HealthChecking] = features.Status{
 		Enabled: cfg.EnableHealthChecking && cfg.EnableEndpointHealthChecking,
 	}
 
-	result[FeatureEncryptionNode] = FeatureStatus{
+	result[features.EncryptionNode] = features.Status{
 		Enabled: cfg.EncryptNode,
 	}
 
@@ -309,27 +73,20 @@ func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context
 		return fmt.Errorf("unable to determine if KNP feature is enabled: %w", err)
 	}
 
-	result[FeatureKNP] = FeatureStatus{
+	result[features.KNP] = features.Status{
 		Enabled: isFeatureKNPEnabled,
 	}
 
 	return nil
 }
 
-func (fs FeatureSet) extractFeaturesFromNodes(nodesWithoutCilium map[string]struct{}) {
-	fs[FeatureNodeWithoutCilium] = FeatureStatus{
-		Enabled: len(nodesWithoutCilium) != 0,
-		Mode:    strings.Join(maps.Keys(nodesWithoutCilium), ","),
-	}
-}
-
-func (ct *ConnectivityTest) extractFeaturesFromClusterRole(ctx context.Context, client *k8s.Client, result FeatureSet) error {
+func (ct *ConnectivityTest) extractFeaturesFromClusterRole(ctx context.Context, client *k8s.Client, result features.Set) error {
 	cr, err := client.GetClusterRole(ctx, defaults.AgentClusterRoleName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
-	result[FeatureSecretBackendK8s] = FeatureStatus{
+	result[features.SecretBackendK8s] = features.Status{
 		Enabled: canAccessK8sResourceSecret(cr),
 	}
 	return nil
@@ -347,7 +104,7 @@ func canAccessK8sResourceSecret(cr *rbacv1.ClusterRole) bool {
 	return false
 }
 
-func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context, ciliumPod Pod, result FeatureSet) error {
+func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context, ciliumPod Pod, result features.Set) error {
 	stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
 		defaults.AgentContainerName, []string{"cilium", "status", "-o", "json"})
 	if err != nil {
@@ -367,16 +124,16 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 		// Cilium versions prior to v1.12 do not expose the CNI chaining mode in
 		// cilium status, it's only available in the ConfigMap, which we
 		// inherit here
-		mode = result[FeatureCNIChaining].Mode
+		mode = result[features.CNIChaining].Mode
 	}
 
-	result[FeatureCNIChaining] = FeatureStatus{
+	result[features.CNIChaining] = features.Status{
 		Enabled: len(mode) > 0 && mode != "none",
 		Mode:    mode,
 	}
 
 	// L7 Proxy
-	result[FeatureL7Proxy] = FeatureStatus{
+	result[features.L7Proxy] = features.Status{
 		Enabled: st.Proxy != nil,
 	}
 
@@ -385,7 +142,7 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	if hf := st.HostFirewall; hf != nil {
 		status = parseBoolStatus(st.HostFirewall.Mode)
 	}
-	result[FeatureHostFirewall] = FeatureStatus{
+	result[features.HostFirewall] = features.Status{
 		Enabled: status,
 	}
 
@@ -395,26 +152,26 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 		mode = kpr.Mode
 		if f := kpr.Features; kpr.Mode != "Disabled" && f != nil {
 			if f.ExternalIPs != nil {
-				result[FeatureKPRExternalIPs] = FeatureStatus{Enabled: f.ExternalIPs.Enabled}
+				result[features.KPRExternalIPs] = features.Status{Enabled: f.ExternalIPs.Enabled}
 			}
 			if f.HostPort != nil {
-				result[FeatureKPRHostPort] = FeatureStatus{Enabled: f.HostPort.Enabled}
+				result[features.KPRHostPort] = features.Status{Enabled: f.HostPort.Enabled}
 			}
 			if f.GracefulTermination != nil {
-				result[FeatureKPRGracefulTermination] = FeatureStatus{Enabled: f.GracefulTermination.Enabled}
+				result[features.KPRGracefulTermination] = features.Status{Enabled: f.GracefulTermination.Enabled}
 			}
 			if f.NodePort != nil {
-				result[FeatureKPRNodePort] = FeatureStatus{Enabled: f.NodePort.Enabled}
+				result[features.KPRNodePort] = features.Status{Enabled: f.NodePort.Enabled}
 			}
 			if f.SessionAffinity != nil {
-				result[FeatureKPRSessionAffinity] = FeatureStatus{Enabled: f.SessionAffinity.Enabled}
+				result[features.KPRSessionAffinity] = features.Status{Enabled: f.SessionAffinity.Enabled}
 			}
 			if f.SocketLB != nil {
-				result[FeatureKPRSocketLB] = FeatureStatus{Enabled: f.SocketLB.Enabled}
+				result[features.KPRSocketLB] = features.Status{Enabled: f.SocketLB.Enabled}
 			}
 		}
 	}
-	result[FeatureKPRMode] = FeatureStatus{
+	result[features.KPRMode] = features.Status{
 		Enabled: mode != "Disabled",
 		Mode:    mode,
 	}
@@ -424,7 +181,7 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	if enc := st.Encryption; enc != nil {
 		mode = strings.ToLower(enc.Mode)
 	}
-	result[FeatureEncryptionPod] = FeatureStatus{
+	result[features.EncryptionPod] = features.Status{
 		Enabled: mode != "disabled",
 		Mode:    mode,
 	}
@@ -432,10 +189,10 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 	return nil
 }
 
-func (ct *ConnectivityTest) extractFeaturesFromK8sCluster(ctx context.Context, result FeatureSet) {
+func (ct *ConnectivityTest) extractFeaturesFromK8sCluster(ctx context.Context, result features.Set) {
 	flavor := ct.client.AutodetectFlavor(ctx)
 
-	result[FeatureFlavor] = FeatureStatus{
+	result[features.Flavor] = features.Status{
 		Enabled: flavor.Kind.String() != "invalid",
 		Mode:    strings.ToLower(flavor.Kind.String()),
 	}
@@ -443,7 +200,7 @@ func (ct *ConnectivityTest) extractFeaturesFromK8sCluster(ctx context.Context, r
 
 const ciliumNetworkPolicyCRDName = "ciliumnetworkpolicies.cilium.io"
 
-func (ct *ConnectivityTest) extractFeaturesFromCRDs(ctx context.Context, result FeatureSet) error {
+func (ct *ConnectivityTest) extractFeaturesFromCRDs(ctx context.Context, result features.Set) error {
 	// CNP are deployed by default.
 	cnpDeployed := true
 
@@ -460,14 +217,14 @@ func (ct *ConnectivityTest) extractFeaturesFromCRDs(ctx context.Context, result 
 		cnpDeployed = false
 	}
 
-	result[FeatureCNP] = FeatureStatus{
+	result[features.CNP] = features.Status{
 		Enabled: cnpDeployed,
 	}
 
 	return nil
 }
 
-func (ct *ConnectivityTest) validateFeatureSet(other FeatureSet, source string) {
+func (ct *ConnectivityTest) validateFeatureSet(other features.Set, source string) {
 	for key, found := range other {
 		expected, ok := ct.Features[key]
 		if !ok {
@@ -516,17 +273,17 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 		return fmt.Errorf("ConfigMap %q does not contain any configuration", defaults.ConfigMapName)
 	}
 	for _, ciliumPod := range ct.ciliumPods {
-		features := FeatureSet{}
+		features := features.Set{}
 
 		// If unsure from which source to retrieve the information from,
 		// prefer "CiliumStatus" over "ConfigMap" over "RuntimeConfig".
 		// See the corresponding functions for more information.
-		ct.Features.extractFeaturesFromConfigMap(ct.CiliumVersion, cm)
+		ct.Features.ExtractFromConfigMap(ct.CiliumVersion, cm)
 		err = ct.extractFeaturesFromRuntimeConfig(ctx, ciliumPod, features)
 		if err != nil {
 			return err
 		}
-		ct.Features.extractFeaturesFromNodes(ct.nodesWithoutCilium)
+		ct.Features.ExtractFromNodes(ct.nodesWithoutCilium)
 		err = ct.extractFeaturesFromCiliumStatus(ctx, ciliumPod, features)
 		if err != nil {
 			return err
@@ -536,7 +293,7 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 			return err
 		}
 		ct.extractFeaturesFromK8sCluster(ctx, features)
-		err = features.deriveFeatures()
+		err = features.DeriveFeatures()
 		if err != nil {
 			return err
 		}
@@ -560,12 +317,12 @@ func (ct *ConnectivityTest) UpdateFeaturesFromNodes(ctx context.Context) error {
 	if err := ct.getNodes(ctx); err != nil {
 		return err
 	}
-	ct.Features.extractFeaturesFromNodes(ct.nodesWithoutCilium)
+	ct.Features.ExtractFromNodes(ct.nodesWithoutCilium)
 	return nil
 }
 
-func (ct *ConnectivityTest) ForceDisableFeature(feature Feature) {
-	ct.Features[feature] = FeatureStatus{Enabled: false}
+func (ct *ConnectivityTest) ForceDisableFeature(feature features.Feature) {
+	ct.Features[feature] = features.Status{Enabled: false}
 }
 
 // isFeatureKNPEnabled checks if the Kubernetes Network Policy feature is enabled from the configuration.
