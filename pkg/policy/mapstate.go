@@ -53,6 +53,10 @@ type MapState interface {
 	// ForEach allows iteration over the MapStateEntries. It returns true iff
 	// the iteration was not stopped early by the callback.
 	ForEach(func(Key, MapStateEntry) (cont bool)) (complete bool)
+	// ForEachAllow behaves like ForEach, but only iterates MapStateEntries which are not denies.
+	ForEachAllow(func(Key, MapStateEntry) (cont bool)) (complete bool)
+	// ForEachDeny behaves like ForEach, but only iterates MapStateEntries which are denies.
+	ForEachDeny(func(Key, MapStateEntry) (cont bool)) (complete bool)
 	GetIdentities(*logrus.Logger) ([]int64, []int64)
 	GetDenyIdentities(*logrus.Logger) ([]int64, []int64)
 	RevertChanges(adds Keys, old MapState)
@@ -268,15 +272,16 @@ func (ms *mapState) Delete(k Key) {
 // ForEach iterates over every Key MapStateEntry and stops when the function
 // argument returns false. It returns false iff the iteration was cut short.
 func (ms *mapState) ForEach(f func(Key, MapStateEntry) (cont bool)) (complete bool) {
-	if complete := ms.forEachAllow(f); !complete {
+	if complete := ms.ForEachAllow(f); !complete {
 		return complete
 	}
-	return ms.forEachDeny(f)
+
+	return ms.ForEachDeny(f)
 }
 
-// forEachAllow iterates over every Key MapStateEntry that isn't a deny and
+// ForEachAllow iterates over every Key MapStateEntry that isn't a deny and
 // stops when the function argument returns false
-func (ms *mapState) forEachAllow(f func(Key, MapStateEntry) (cont bool)) (complete bool) {
+func (ms *mapState) ForEachAllow(f func(Key, MapStateEntry) (cont bool)) (complete bool) {
 	for k, v := range ms.allows {
 		if !f(k, v) {
 			return false
@@ -285,9 +290,9 @@ func (ms *mapState) forEachAllow(f func(Key, MapStateEntry) (cont bool)) (comple
 	return true
 }
 
-// forEachDeny iterates over every Key MapStateEntry that is a deny and
+// ForEachDeny iterates over every Key MapStateEntry that is a deny and
 // stops when the function argument returns false
-func (ms *mapState) forEachDeny(f func(Key, MapStateEntry) (cont bool)) (complete bool) {
+func (ms *mapState) ForEachDeny(f func(Key, MapStateEntry) (cont bool)) (complete bool) {
 	for k, v := range ms.denies {
 		if !f(k, v) {
 			return false
@@ -593,39 +598,48 @@ func (ms *mapState) DenyPreferredInsertWithChanges(newKey Key, newEntry MapState
 		return
 	}
 	if newEntry.IsDeny {
-		bailed := false
-		ms.ForEach(func(k Key, v MapStateEntry) bool {
+		ms.ForEachAllow(func(k Key, v MapStateEntry) bool {
 			// Protocols and traffic directions that don't match ensure that the policies
 			// do not interact in anyway.
 			if newKey.TrafficDirection != k.TrafficDirection || !protocolsMatch(newKey, k) {
 				return true
 			}
-			if !v.IsDeny {
-				if identityIsSupersetOf(k.Identity, newKey.Identity, identities) {
-					if newKey.PortProtoIsBroader(k) {
-						// If this iterated-allow-entry is a superset of the new-entry
-						// and it has a more specific port-protocol than the new-entry
-						// then an additional copy of the new-entry with the more
-						// specific port-protocol of the iterated-allow-entry must be inserted.
-						newKeyCpy := newKey
-						newKeyCpy.DestPort = k.DestPort
-						newKeyCpy.Nexthdr = k.Nexthdr
-						l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, false, true)
-						ms.addKeyWithChanges(newKeyCpy, l3l4DenyEntry, adds, deletes, old)
-						// L3-only entries can be deleted incrementally so we need to track their
-						// effects on other entries so that those effects can be reverted when the
-						// identity is removed.
-						newEntry.AddDependent(newKeyCpy)
-					}
-				} else if (newKey.Identity == k.Identity ||
-					identityIsSupersetOf(newKey.Identity, k.Identity, identities)) &&
-					(newKey.PortProtoIsBroader(k) || newKey.PortProtoIsEqual(k)) {
-					// If the new-entry is a superset (or equal) of the iterated-allow-entry and
-					// the new-entry has a broader (or equal) port-protocol then we
-					// should delete the iterated-allow-entry
-					ms.deleteKeyWithChanges(k, nil, adds, deletes, old)
+			if identityIsSupersetOf(k.Identity, newKey.Identity, identities) {
+				if newKey.PortProtoIsBroader(k) {
+					// If this iterated-allow-entry is a superset of the new-entry
+					// and it has a more specific port-protocol than the new-entry
+					// then an additional copy of the new-entry with the more
+					// specific port-protocol of the iterated-allow-entry must be inserted.
+					newKeyCpy := newKey
+					newKeyCpy.DestPort = k.DestPort
+					newKeyCpy.Nexthdr = k.Nexthdr
+					l3l4DenyEntry := NewMapStateEntry(newKey, newEntry.DerivedFromRules, false, true)
+					ms.addKeyWithChanges(newKeyCpy, l3l4DenyEntry, adds, deletes, old)
+					// L3-only entries can be deleted incrementally so we need to track their
+					// effects on other entries so that those effects can be reverted when the
+					// identity is removed.
+					newEntry.AddDependent(newKeyCpy)
 				}
 			} else if (newKey.Identity == k.Identity ||
+				identityIsSupersetOf(newKey.Identity, k.Identity, identities)) &&
+				(newKey.PortProtoIsBroader(k) || newKey.PortProtoIsEqual(k)) {
+				// If the new-entry is a superset (or equal) of the iterated-allow-entry and
+				// the new-entry has a broader (or equal) port-protocol then we
+				// should delete the iterated-allow-entry
+				ms.deleteKeyWithChanges(k, nil, adds, deletes, old)
+			}
+			return true
+		})
+
+		bailed := false
+		ms.ForEachDeny(func(k Key, v MapStateEntry) bool {
+			// Protocols and traffic directions that don't match ensure that the policies
+			// do not interact in anyway.
+			if newKey.TrafficDirection != k.TrafficDirection || !protocolsMatch(newKey, k) {
+				return true
+			}
+
+			if (newKey.Identity == k.Identity ||
 				identityIsSupersetOf(k.Identity, newKey.Identity, identities)) &&
 				k.DestPort == 0 && k.Nexthdr == 0 &&
 				!v.HasDependent(newKey) {
@@ -655,50 +669,50 @@ func (ms *mapState) DenyPreferredInsertWithChanges(newKey Key, newEntry MapState
 			}
 			return true
 		})
+
 		if !bailed {
 			ms.addKeyWithChanges(newKey, newEntry, adds, deletes, old)
 		}
 	} else {
+		// NOTE: We do not delete redundant allow entries.
 		bailed := false
-		ms.ForEach(func(k Key, v MapStateEntry) bool {
+		ms.ForEachDeny(func(k Key, v MapStateEntry) bool {
 			// Protocols and traffic directions that don't match ensure that the policies
 			// do not interact in anyway.
 			if newKey.TrafficDirection != k.TrafficDirection || !protocolsMatch(newKey, k) {
 				return true
 			}
-			// NOTE: We do not delete redundant allow entries.
-			if v.IsDeny {
-				if identityIsSupersetOf(newKey.Identity, k.Identity, identities) {
-					if k.PortProtoIsBroader(newKey) {
-						// If the new-entry is *only* superset of the iterated-deny-entry
-						// and the new-entry has a more specific port-protocol than the
-						// iterated-deny-entry then an additional copy of the iterated-deny-entry
-						// with the more specific port-porotocol of the new-entry must
-						// be added.
-						denyKeyCpy := k
-						denyKeyCpy.DestPort = newKey.DestPort
-						denyKeyCpy.Nexthdr = newKey.Nexthdr
-						l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, false, true)
-						ms.addKeyWithChanges(denyKeyCpy, l3l4DenyEntry, adds, deletes, old)
-						// L3-only entries can be deleted incrementally so we need to track their
-						// effects on other entries so that those effects can be reverted when the
-						// identity is removed.
-						ms.addDependentOnEntry(k, v, denyKeyCpy)
-					}
-				} else if (k.Identity == newKey.Identity ||
-					identityIsSupersetOf(k.Identity, newKey.Identity, identities)) &&
-					(k.PortProtoIsBroader(newKey) || k.PortProtoIsEqual(newKey)) &&
-					!v.HasDependent(newKey) {
-					// If the iterated-deny-entry is a superset (or equal) of the new-entry and has a
-					// broader (or equal) port-protocol than the new-entry then the new
-					// entry should not be inserted.
-					bailed = true
-					return false
+			if identityIsSupersetOf(newKey.Identity, k.Identity, identities) {
+				if k.PortProtoIsBroader(newKey) {
+					// If the new-entry is *only* superset of the iterated-deny-entry
+					// and the new-entry has a more specific port-protocol than the
+					// iterated-deny-entry then an additional copy of the iterated-deny-entry
+					// with the more specific port-porotocol of the new-entry must
+					// be added.
+					denyKeyCpy := k
+					denyKeyCpy.DestPort = newKey.DestPort
+					denyKeyCpy.Nexthdr = newKey.Nexthdr
+					l3l4DenyEntry := NewMapStateEntry(k, v.DerivedFromRules, false, true)
+					ms.addKeyWithChanges(denyKeyCpy, l3l4DenyEntry, adds, deletes, old)
+					// L3-only entries can be deleted incrementally so we need to track their
+					// effects on other entries so that those effects can be reverted when the
+					// identity is removed.
+					ms.addDependentOnEntry(k, v, denyKeyCpy)
 				}
+			} else if (k.Identity == newKey.Identity ||
+				identityIsSupersetOf(k.Identity, newKey.Identity, identities)) &&
+				(k.PortProtoIsBroader(newKey) || k.PortProtoIsEqual(newKey)) &&
+				!v.HasDependent(newKey) {
+				// If the iterated-deny-entry is a superset (or equal) of the new-entry and has a
+				// broader (or equal) port-protocol than the new-entry then the new
+				// entry should not be inserted.
+				bailed = true
+				return false
 			}
 
 			return true
 		})
+
 		if !bailed {
 			ms.redirectPreferredInsert(newKey, newEntry, adds, deletes, old)
 		}
