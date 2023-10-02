@@ -19,7 +19,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/version"
@@ -1346,18 +1345,10 @@ func NewLegacyMetrics() *LegacyMetrics {
 
 	ifindexOpts := metric.GaugeOpts{
 		ConfigName: Namespace + "_endpoint_max_ifindex",
-		Disabled:   true,
+		Disabled:   !enableIfIndexMetric(),
 		Namespace:  Namespace,
 		Name:       "endpoint_max_ifindex",
 		Help:       "Maximum interface index observed for existing endpoints",
-	}
-	// On kernels which do not provide ifindex via the FIB, Cilium needs
-	// to store it in the CT map, with a field limit of max(uint16).
-	// The EndpointMaxIfindex metric can be used to determine if that
-	// limit is approaching. However, it should only be enabled by
-	// default if we observe that the FIB is not providing the ifindex.
-	if probes.HaveFibIfindex() != nil {
-		ifindexOpts.Disabled = false
 	}
 	lm.EndpointMaxIfindex = metric.NewGauge(ifindexOpts)
 
