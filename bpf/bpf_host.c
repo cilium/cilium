@@ -1142,96 +1142,6 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 	return do_netdev(ctx, proto, from_host);
 }
 
-#ifdef ENABLE_SRV6
-static __always_inline int
-handle_srv6(struct __ctx_buff *ctx)
-{
-	__u32 *vrf_id, dst_sec_identity;
-	struct srv6_ipv6_2tuple *outer_ips;
-	struct iphdr *ip4 __maybe_unused;
-	struct remote_endpoint_info *ep;
-	void *data, *data_end;
-	struct ipv6hdr *ip6;
-	union v6addr *sid;
-	__u16 proto;
-
-	if (!validate_ethertype(ctx, &proto))
-		return DROP_UNSUPPORTED_L2;
-
-	switch (proto) {
-	case bpf_htons(ETH_P_IPV6):
-		if (!revalidate_data(ctx, &data, &data_end, &ip6))
-			return DROP_INVALID;
-
-		outer_ips = srv6_lookup_state_entry6(ip6);
-		if (outer_ips) {
-			ep_tail_call(ctx, CILIUM_CALL_SRV6_REPLY);
-			return DROP_MISSED_TAIL_CALL;
-		}
-
-		ep = lookup_ip6_remote_endpoint((union v6addr *)&ip6->daddr, 0);
-		if (ep) {
-			dst_sec_identity = ep->sec_identity;
-		} else {
-			dst_sec_identity = WORLD_IPV6_ID;
-		}
-
-		if (identity_is_cluster(dst_sec_identity))
-			return CTX_ACT_OK;
-
-		vrf_id = srv6_lookup_vrf6(&ip6->saddr, &ip6->daddr);
-		if (!vrf_id)
-			return CTX_ACT_OK;
-
-		sid = srv6_lookup_policy6(*vrf_id, &ip6->daddr);
-		if (!sid)
-			return CTX_ACT_OK;
-
-		srv6_store_meta_sid(ctx, sid);
-		ctx_store_meta(ctx, CB_SRV6_VRF_ID, *vrf_id);
-		ep_tail_call(ctx, CILIUM_CALL_SRV6_ENCAP);
-		return DROP_MISSED_TAIL_CALL;
-# ifdef ENABLE_IPV4
-	case bpf_htons(ETH_P_IP):
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
-
-		outer_ips = srv6_lookup_state_entry4(ip4);
-		if (outer_ips) {
-			ep_tail_call(ctx, CILIUM_CALL_SRV6_REPLY);
-			return DROP_MISSED_TAIL_CALL;
-		}
-
-		ep = lookup_ip4_remote_endpoint(ip4->daddr, 0);
-		if (ep) {
-			dst_sec_identity = ep->sec_identity;
-		} else {
-			dst_sec_identity = WORLD_IPV6_ID;
-		}
-
-		if (identity_is_cluster(dst_sec_identity))
-			return CTX_ACT_OK;
-
-		vrf_id = srv6_lookup_vrf4(ip4->saddr, ip4->daddr);
-		if (!vrf_id)
-			return CTX_ACT_OK;
-
-		sid = srv6_lookup_policy4(*vrf_id, ip4->daddr);
-		if (!sid)
-			return CTX_ACT_OK;
-
-		srv6_store_meta_sid(ctx, sid);
-		ctx_store_meta(ctx, CB_SRV6_VRF_ID, *vrf_id);
-		ep_tail_call(ctx, CILIUM_CALL_SRV6_ENCAP);
-		return DROP_MISSED_TAIL_CALL;
-		break;
-# endif
-	}
-
-	return CTX_ACT_OK;
-}
-#endif /* ENABLE_SRV6 */
-
 /*
  * from-netdev is attached as a tc ingress filter to one or more physical devices
  * managed by Cilium (e.g., eth0). This program is only attached when:
@@ -1435,13 +1345,6 @@ skip_host_firewall:
 					      CTX_ACT_DROP, METRIC_EGRESS);
 #endif /* !TUNNEL_MODE && ENCRYPTION_STRICT_MODE */
 #endif /* ENABLE_WIREGUARD */
-
-#ifdef ENABLE_SRV6
-	ret = handle_srv6(ctx);
-	if (ret != CTX_ACT_OK)
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
-					      METRIC_EGRESS);
-#endif /* ENABLE_SRV6 */
 
 #ifdef ENABLE_HEALTH_CHECK
 	ret = lb_handle_health(ctx);
