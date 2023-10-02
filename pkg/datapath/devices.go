@@ -28,9 +28,18 @@ type DevicesAccessor struct {
 	localNode *node.LocalNodeStore
 }
 
-func (d *DevicesAccessor) Devices() ([]string, <-chan struct{}) {
-	devs, watch := tables.SelectedDevices(d.devices, d.db.ReadTxn())
+func (d *DevicesAccessor) NativeDeviceNames() ([]string, <-chan struct{}) {
+	devs, watch := d.NativeDevices()
 	return tables.DeviceNames(devs), watch
+}
+
+func (d *DevicesAccessor) NativeDevices() ([]*tables.Device, <-chan struct{}) {
+	return tables.SelectedDevices(d.devices, d.db.ReadTxn())
+}
+
+func (d *DevicesAccessor) GetDevice(name string) *tables.Device {
+	dev, _, _ := d.devices.First(d.db.ReadTxn(), tables.DeviceNameIndex.Query(name))
+	return dev
 }
 
 func (d *DevicesAccessor) DirectRoutingDevice() (*tables.Device, error, <-chan struct{}) {

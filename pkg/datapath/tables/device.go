@@ -62,7 +62,7 @@ type Device struct {
 	Flags        net.Flags        // e.g. net.FlagUp, net.eFlagLoopback, net.FlagMulticast
 
 	Selected    bool            // If true this device can be used by Cilium
-	Addrs       []DeviceAddress // Addresses assigned to the device
+	Addrs       []DeviceAddress // Addresses assigned to the device. Sorted by scope.
 	RawFlags    uint32          // Raw interface flags
 	Type        string          // Device type, e.g. "veth" etc.
 	MasterIndex int             // Index of the master device (e.g. bridge or bonding device)
@@ -81,6 +81,24 @@ func (d *Device) HasIP(ip net.IP) bool {
 		}
 	}
 	return false
+}
+
+func (d *Device) IPv4() *DeviceAddress {
+	for _, addr := range d.Addrs {
+		if addr.Is4() {
+			return &addr
+		}
+	}
+	return nil
+}
+
+func (d *Device) IPv6() *DeviceAddress {
+	for _, addr := range d.Addrs {
+		if addr.Is6() {
+			return &addr
+		}
+	}
+	return nil
 }
 
 type DeviceAddress struct {

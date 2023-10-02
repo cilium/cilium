@@ -7,7 +7,9 @@ import (
 )
 
 type Devicer interface {
-	Devices() ([]string, <-chan struct{})
+	NativeDeviceNames() ([]string, <-chan struct{})
+	NativeDevices() ([]*tables.Device, <-chan struct{})
+	GetDevice(string) *tables.Device
 	DirectRoutingDevice() (*tables.Device, error, <-chan struct{})
 	IPv6MCastDevice() (string, error, <-chan struct{})
 	K8sNodeDevice() (*tables.Device, <-chan struct{})
@@ -17,9 +19,18 @@ type Devicer interface {
 type NopDevicer struct {
 }
 
-// Devices implements Devicer.
-func (NopDevicer) Devices() ([]string, <-chan struct{}) {
+// NativeDeviceNames implements Devicer.
+func (NopDevicer) NativeDeviceNames() ([]string, <-chan struct{}) {
 	return nil, nil
+}
+
+// NativeDevices implements Devicer.
+func (NopDevicer) NativeDevices() ([]*tables.Device, <-chan struct{}) {
+	return nil, nil
+}
+
+func (NopDevicer) GetDevice(string) *tables.Device {
+	return nil
 }
 
 // DirectRoutingDevice implements Devicer.

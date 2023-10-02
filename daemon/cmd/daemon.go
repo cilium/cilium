@@ -957,7 +957,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			return nil, nil, fmt.Errorf("BPF masquerading to route source (--%s=\"true\") currently not supported with BPF-based masquerading (--%s=\"true\")", option.EnableMasqueradeRouteSource, option.EnableBPFMasquerade)
 		}
 		// TODO(brb) nodeport constraints will be lifted once the SNAT BPF code has been refactored
-		if err := node.InitBPFMasqueradeAddrs(option.Config.GetDevices()); err != nil {
+		if err := node.InitBPFMasqueradeAddrs(devices); err != nil {
 			log.WithError(err).Error("failed to determine BPF masquerade addrs")
 			return nil, nil, fmt.Errorf("failed to determine BPF masquerade addrs: %w", err)
 		}
@@ -969,7 +969,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			option.EnableBPFMasquerade)
 		option.Config.EnableBPFMasquerade = false
 	}
-	if len(option.Config.GetDevices()) == 0 {
+	if len(devices) == 0 {
 		if option.Config.EnableHostFirewall {
 			msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
 			log.WithError(err).Errorf(msg, option.Devices)

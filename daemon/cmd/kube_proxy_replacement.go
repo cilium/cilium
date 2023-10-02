@@ -399,7 +399,7 @@ func finishKubeProxyReplacementInit(devices types.Devicer) error {
 	}
 
 	// TODO: react to device changes
-	devs, _ := devices.Devices()
+	devs, _ := devices.NativeDeviceNames()
 	if err := node.InitNodePortAddrs(devs, option.Config.LBDevInheritIPAddr); err != nil {
 		msg := "failed to initialize NodePort addrs."
 		return fmt.Errorf(msg+" : %w", err)

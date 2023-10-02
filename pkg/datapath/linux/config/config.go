@@ -941,7 +941,7 @@ func devMacros(devicer datapath.Devicer) (string, string, error) {
 	macByIfIndex := make(map[int]string)
 	l3DevIfIndices := make([]int, 0)
 
-	devices, _ := devicer.Devices()
+	devices, _ := devicer.NativeDeviceNames()
 
 	for _, iface := range devices {
 		link, err := netlink.LinkByName(iface)

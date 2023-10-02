@@ -17,10 +17,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
@@ -104,6 +104,7 @@ type params struct {
 	ConfigWriter datapath.ConfigWriter
 	NodeConfig   *datapath.LocalNodeConfiguration
 	Devices      datapath.Devicer
+	LocalNode    *node.LocalNodeStore
 }
 
 var Cell = cell.Module(
@@ -169,9 +170,7 @@ func nullifyStringSubstitutions(strings map[string]string) map[string]string {
 // (cilium_host).
 // Since the two object files should only differ by the values of their
 // NODE_MAC symbols, we can avoid a full compilation.
-func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName string,
-	bpfMasqIPv4Addrs, bpfMasqIPv6Addrs map[string]net.IP) error {
-
+func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath string, device *tables.Device) error {
 	hostObj, err := elf.Open(objPath)
 	if err != nil {
 		return err
@@ -180,23 +179,14 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 
 	opts, strings := ELFSubstitutions(ep)
 
-	// The NODE_MAC value is specific to each attachment interface.
-	mac, err := link.GetHardwareAddr(ifName)
-	if err != nil {
-		return err
-	}
-	if mac == nil {
+	mac := device.HardwareAddr
+	if len(mac) == 0 {
 		// L2-less device
 		mac = make([]byte, 6)
 		opts["ETH_HLEN"] = uint64(0)
 	}
 	opts["NODE_MAC_1"] = uint64(sliceToBe32(mac[0:4]))
 	opts["NODE_MAC_2"] = uint64(sliceToBe16(mac[4:6]))
-
-	ifIndex, err := link.GetIfIndex(ifName)
-	if err != nil {
-		return err
-	}
 
 	if !option.Config.EnableHostLegacyRouting {
 		opts["SECCTX_FROM_IPCACHE"] = uint64(SecctxFromIpcacheEnabled)
@@ -205,17 +195,20 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	}
 
 	if option.Config.EnableNodePort {
-		opts["NATIVE_DEV_IFINDEX"] = uint64(ifIndex)
+		opts["NATIVE_DEV_IFINDEX"] = uint64(device.Index)
 	}
 	if option.Config.EnableBPFMasquerade {
-		if option.Config.EnableIPv4Masquerade && bpfMasqIPv4Addrs != nil {
-			ipv4 := bpfMasqIPv4Addrs[ifName]
-			opts["IPV4_MASQUERADE"] = uint64(byteorder.NetIPv4ToHost32(ipv4))
+		if option.Config.EnableIPv4Masquerade {
+			if ipv4 := device.IPv4(); ipv4 != nil {
+				opts["IPV4_MASQUERADE"] = uint64(byteorder.NetIPv4ToHost32(ipv4.Addr.AsSlice()))
+			}
 		}
-		if option.Config.EnableIPv6Masquerade && bpfMasqIPv6Addrs != nil {
-			ipv6 := bpfMasqIPv6Addrs[ifName]
-			opts["IPV6_MASQUERADE_1"] = sliceToBe64(ipv6[0:8])
-			opts["IPV6_MASQUERADE_2"] = sliceToBe64(ipv6[8:16])
+		if option.Config.EnableIPv6Masquerade {
+			if ipv6 := device.IPv6(); ipv6 != nil {
+				bytes := ipv6.AsSlice()
+				opts["IPV6_MASQUERADE_1"] = sliceToBe64(bytes[0:8])
+				opts["IPV6_MASQUERADE_2"] = sliceToBe64(bytes[8:16])
+			}
 		}
 	}
 
@@ -223,12 +216,12 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	// attachment interface.
 	strings = nullifyStringSubstitutions(strings)
 	callsMapHostDevice := bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID()))
-	strings[callsMapHostDevice] = bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifIndex))
+	strings[callsMapHostDevice] = bpf.LocalMapName(callsmap.NetdevMapName, uint16(device.Index))
 
 	return hostObj.Write(dstPath, opts, strings)
 }
 
-func isObsoleteDev(dev string) bool {
+func isObsoleteDev(devices []*tables.Device, dev string) bool {
 	// exclude devices we never attach to/from_netdev to.
 	for _, prefix := range defaults.ExcludedDevicePrefixes {
 		if strings.HasPrefix(dev, prefix) {
@@ -237,8 +230,8 @@ func isObsoleteDev(dev string) bool {
 	}
 
 	// exclude devices that will still be managed going forward.
-	for _, d := range option.Config.GetDevices() {
-		if dev == d {
+	for _, d := range devices {
+		if dev == d.Name {
 			return false
 		}
 	}
@@ -248,7 +241,7 @@ func isObsoleteDev(dev string) bool {
 
 // removeObsoleteNetdevPrograms removes cil_to_netdev and cil_from_netdev from devices
 // that cilium potentially doesn't manage anymore after a restart, e.g. if the set of
-// devices in option.Config.GetDevices() changes between restarts.
+// devices changes between restarts.
 //
 // This code assumes that the agent was upgraded from a prior version while maintaining
 // the same list of managed physical devices. This ensures that all tc bpf filters get
@@ -256,18 +249,18 @@ func isObsoleteDev(dev string) bool {
 // before 1.13, most filters were named e.g. bpf_host.o:[to-host], to be changed to
 // cilium-<device> in 1.13, then to cil_to_host-<device> in 1.14. As a result, this
 // function only cleans up filters following the current naming scheme.
-func removeObsoleteNetdevPrograms() error {
-	links, err := netlink.LinkList()
-	if err != nil {
-		return fmt.Errorf("retrieving all netlink devices: %w", err)
-	}
-
+func removeObsoleteNetdevPrograms(devices []*tables.Device) error {
 	// collect all devices that have netdev programs attached on either ingress or egress.
 	ingressDevs := []netlink.Link{}
 	egressDevs := []netlink.Link{}
-	for _, l := range links {
-		if !isObsoleteDev(l.Attrs().Name) {
+	for _, dev := range devices {
+		if !isObsoleteDev(devices, dev.Name) {
 			continue
+		}
+
+		l, err := netlink.LinkByIndex(dev.Index)
+		if err != nil {
+			return fmt.Errorf("failed to get link by index %d: %w", dev.Index, err)
 		}
 
 		ingressFilters, err := netlink.FilterList(l, directionToParent(dirIngress))
@@ -296,14 +289,14 @@ func removeObsoleteNetdevPrograms() error {
 	}
 
 	for _, dev := range ingressDevs {
-		err = RemoveTCFilters(dev.Attrs().Name, directionToParent(dirIngress))
+		err := RemoveTCFilters(dev.Attrs().Name, directionToParent(dirIngress))
 		if err != nil {
 			log.WithError(err).Errorf("couldn't remove ingress tc filters from %s", dev.Attrs().Name)
 		}
 	}
 
 	for _, dev := range egressDevs {
-		err = RemoveTCFilters(dev.Attrs().Name, directionToParent(dirEgress))
+		err := RemoveTCFilters(dev.Attrs().Name, directionToParent(dirEgress))
 		if err != nil {
 			log.WithError(err).Errorf("couldn't remove egress tc filters from %s", dev.Attrs().Name)
 		}
@@ -325,7 +318,9 @@ func removeObsoleteNetdevPrograms() error {
 // will return with an error. Failing to load or to attach the host device
 // always results in reloadHostDatapath returning with an error.
 func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, objPath string) error {
-	nbInterfaces := len(option.Config.GetDevices()) + 2
+	devices, _ := l.params.Devices.NativeDevices()
+
+	nbInterfaces := len(devices) + 2
 	symbols := make([]string, 2, nbInterfaces)
 	directions := make([]string, 2, nbInterfaces)
 	objPaths := make([]string, 2, nbInterfaces)
@@ -335,52 +330,44 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	objPaths[0], objPaths[1] = objPath, objPath
 	interfaceNames[0], interfaceNames[1] = ep.InterfaceName(), ep.InterfaceName()
 
-	if _, err := netlink.LinkByName(defaults.SecondHostDevice); err != nil {
-		log.WithError(err).WithField("device", defaults.SecondHostDevice).Error("Link does not exist")
-		return err
+	if secondHostDevice := l.params.Devices.GetDevice(defaults.SecondHostDevice); secondHostDevice == nil {
+		log.WithField("device", defaults.SecondHostDevice).Error("Link does not exist")
+		return fmt.Errorf("device %q does not exist", defaults.SecondHostDevice)
 	} else {
 		interfaceNames = append(interfaceNames, defaults.SecondHostDevice)
 		symbols = append(symbols, symbolToHostEp)
 		directions = append(directions, dirIngress)
-		secondDevObjPath := path.Join(ep.StateDir(), hostEndpointPrefix+"_"+defaults.SecondHostDevice+".o")
-		if err := patchHostNetdevDatapath(ep, objPath, secondDevObjPath, defaults.SecondHostDevice, nil, nil); err != nil {
+		secondDevObjPath := path.Join(ep.StateDir(), hostEndpointPrefix+"_"+secondHostDevice.Name+".o")
+		if err := patchHostNetdevDatapath(ep, objPath, secondDevObjPath, secondHostDevice); err != nil {
 			return err
 		}
 		objPaths = append(objPaths, secondDevObjPath)
 	}
 
-	bpfMasqIPv4Addrs := node.GetMasqIPv4AddrsWithDevices()
-	bpfMasqIPv6Addrs := node.GetMasqIPv6AddrsWithDevices()
-
-	for _, device := range option.Config.GetDevices() {
-		if _, err := netlink.LinkByName(device); err != nil {
-			log.WithError(err).WithField("device", device).Warn("Link does not exist")
-			continue
-		}
-
-		netdevObjPath := path.Join(ep.StateDir(), hostEndpointNetdevPrefix+device+".o")
-		if err := patchHostNetdevDatapath(ep, objPath, netdevObjPath, device, bpfMasqIPv4Addrs, bpfMasqIPv6Addrs); err != nil {
+	for _, device := range devices {
+		netdevObjPath := path.Join(ep.StateDir(), hostEndpointNetdevPrefix+device.Name+".o")
+		if err := patchHostNetdevDatapath(ep, objPath, netdevObjPath, device); err != nil {
 			return err
 		}
 		objPaths = append(objPaths, netdevObjPath)
 
-		interfaceNames = append(interfaceNames, device)
+		interfaceNames = append(interfaceNames, device.Name)
 		symbols = append(symbols, symbolFromHostNetdevEp)
 		directions = append(directions, dirIngress)
 		if option.Config.AreDevicesRequired() &&
 			// Attaching bpf_host to cilium_wg0 is required for encrypting KPR
 			// traffic. Only ingress prog (aka "from-netdev") is needed to handle
 			// the rev-NAT xlations.
-			device != wgTypes.IfaceName {
+			device.Name != wgTypes.IfaceName {
 
-			interfaceNames = append(interfaceNames, device)
+			interfaceNames = append(interfaceNames, device.Name)
 			symbols = append(symbols, symbolToHostNetdevEp)
 			directions = append(directions, dirEgress)
 			objPaths = append(objPaths, netdevObjPath)
 		} else {
 			// Remove any previously attached device from egress path if BPF
 			// NodePort and host firewall are disabled.
-			err := RemoveTCFilters(device, netlink.HANDLE_MIN_EGRESS)
+			err := RemoveTCFilters(device.Name, netlink.HANDLE_MIN_EGRESS)
 			if err != nil {
 				log.WithField("device", device).Error(err)
 			}
@@ -410,7 +397,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 	// call at the end of the function so that we can easily detect if this removes necessary
 	// programs that have just been attached.
-	if err := removeObsoleteNetdevPrograms(); err != nil {
+	if err := removeObsoleteNetdevPrograms(devices); err != nil {
 		log.WithError(err).Error("Failed to remove obsolete netdev programs")
 	}
 

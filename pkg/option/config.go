@@ -2526,6 +2526,9 @@ func (c *DaemonConfig) SetDevices(devices []string) {
 	c.devicesMu.Unlock()
 }
 
+// GetDevices returns the native devices to use.
+//
+// Deprecated: To be removed.
 func (c *DaemonConfig) GetDevices() []string {
 	c.devicesMu.RLock()
 	defer c.devicesMu.RUnlock()

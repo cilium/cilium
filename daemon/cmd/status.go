@@ -177,7 +177,7 @@ func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 		s.CongestionControl = models.BandwidthManagerCongestionControlBbr
 	}
 
-	s.Devices = option.Config.GetDevices()
+	s.Devices, _ = d.params.Devicer.NativeDeviceNames()
 	return s
 }
 

@@ -77,7 +77,7 @@ func (l *Loader) writeNodeConfigHeader(o datapath.BaseProgramOwner) error {
 }
 
 // Must be called with option.Config.EnablePolicyMU locked.
-func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
+func writePreFilterHeader(devices []string, preFilter *prefilter.PreFilter, dir string) error {
 	headerPath := filepath.Join(dir, preFilterHeaderFileName)
 	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
 
@@ -89,7 +89,7 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 
 	fw := bufio.NewWriter(f)
 	fmt.Fprint(fw, "/*\n")
-	fmt.Fprintf(fw, " * XDP devices: %s\n", strings.Join(option.Config.GetDevices(), " "))
+	fmt.Fprintf(fw, " * XDP devices: %s\n", strings.Join(devices, " "))
 	fmt.Fprintf(fw, " * XDP mode: %s\n", option.Config.NodePortAcceleration)
 	fmt.Fprint(fw, " */\n\n")
 	preFilter.WriteConfig(fw)
@@ -235,11 +235,13 @@ func (l *Loader) reinitializeOverlay(ctx context.Context, encapProto string) err
 }
 
 func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
-	maybeUnloadObsoleteXDPPrograms(option.Config.GetDevices(), option.Config.XDPMode)
+	devices, _ := l.params.Devices.NativeDeviceNames()
+
+	maybeUnloadObsoleteXDPPrograms(devices, option.Config.XDPMode)
 	if option.Config.XDPMode == option.XDPModeDisabled {
 		return nil
 	}
-	for _, dev := range option.Config.GetDevices() {
+	for _, dev := range devices {
 		// When WG & encrypt-node are on, the devices include cilium_wg0 to attach bpf_host
 		// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
 		// So We need to exclude cilium_wg0 not to attach the XDP program when XDP acceleration
@@ -268,6 +270,13 @@ func (l *Loader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwne
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
 func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
+	// TODO: Remove exported Reinitialize, observe local node and devices.
+	localNode, err := l.params.LocalNode.Get(ctx)
+	if err != nil {
+		return err
+	}
+	devices, _ := l.params.Devices.NativeDeviceNames()
+
 	sysSettings := []sysctl.Setting{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
 		{Name: "net.ipv4.conf.all.rp_filter", Val: "0", IgnoreErr: false},
@@ -290,10 +299,10 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	var nodeIPv4, nodeIPv6 net.IP
 	if option.Config.EnableIPv4 {
-		nodeIPv4 = node.GetInternalIPv4Router()
+		nodeIPv4 = localNode.GetCiliumInternalIP(false)
 	}
 	if option.Config.EnableIPv6 {
-		nodeIPv6 = node.GetIPv6Router()
+		nodeIPv6 = localNode.GetCiliumInternalIP(true)
 		// Docker <17.05 has an issue which causes IPv6 to be disabled in the initns for all
 		// interface (https://github.com/docker/libnetwork/issues/1720)
 		// Enable IPv6 for now
@@ -364,15 +373,14 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	if option.Config.EnableXDPPrefilter {
-		scopedLog := log.WithField(logfields.Devices, option.Config.GetDevices())
-
+		scopedLog := log.WithField(logfields.Devices, devices)
 		preFilter, err := prefilter.NewPreFilter()
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to init prefilter")
 			return err
 		}
 
-		if err := writePreFilterHeader(preFilter, "./"); err != nil {
+		if err := writePreFilterHeader(devices, preFilter, "./"); err != nil {
 			scopedLog.WithError(err).Warn("Unable to write prefilter header")
 			return err
 		}

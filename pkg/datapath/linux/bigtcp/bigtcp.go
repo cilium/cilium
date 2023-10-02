@@ -220,7 +220,7 @@ func startBIGTCP(p params) error {
 	var err error
 
 	// FIXME: BIGTCP should reconcile over device changes
-	devices, _ := p.Devicer.Devices()
+	devices, _ := p.Devicer.NativeDeviceNames()
 
 	disableMsg := ""
 	if len(devices) == 0 {

@@ -109,7 +109,7 @@ func (m *Manager) probe() error {
 func (m *Manager) init() error {
 	// TODO make the bwmanager reactive by using the (currently ignored) watch channel, which is
 	// closed when there's new or changed devices.
-	devs, _ := m.params.Devices.Devices()
+	devs, _ := m.params.Devices.NativeDeviceNames()
 	if len(devs) == 0 {
 		m.params.Log.Warn("BPF bandwidth manager could not detect host devices. Disabling the feature.")
 		m.enabled = false
