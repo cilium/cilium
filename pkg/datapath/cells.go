@@ -17,7 +17,9 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	dpcfg "github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/utime"
+	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -27,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
@@ -56,7 +59,12 @@ var Cell = cell.Module(
 		newDatapath,
 		linuxdatapath.NewNodeAddressing,
 		newDevicesAccessor,
+
+		func() *types.LocalNodeConfiguration { return nil },
 	),
+
+	// Loader compiles and loads BPF programs
+	loader.Cell,
 
 	// This cell periodically updates the agent liveness value in configmap.Map to inform
 	// the datapath of the liveness of the agent.
@@ -73,7 +81,7 @@ var Cell = cell.Module(
 	// Gratuitous ARP event processor emits GARP packets on k8s pod creation events.
 	garp.Cell,
 
-	// This cell provides the object used to write the headers for datapath program types.
+	// Provides ConfigWriter used to write the headers for datapath program types.
 	dpcfg.Cell,
 
 	// BIG TCP increases GSO/GRO limits when enabled.
@@ -81,6 +89,13 @@ var Cell = cell.Module(
 
 	// The bandwidth manager provides efficient EDT-based rate-limiting (on Linux).
 	bandwidth.Cell,
+
+	// MTU detects the maximum transmission unit to use at datapath.
+	// Depends on IPsec to take into account IPsec packet overhead when IPsec is enabled.
+	mtu.Cell,
+
+	// TODO
+	ipsec.Cell,
 
 	cell.Provide(func(dp types.Datapath) types.NodeIDHandler {
 		return dp.NodeIDs()

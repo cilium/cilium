@@ -83,6 +83,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -1650,6 +1651,8 @@ type daemonParams struct {
 	BigTCPConfig        bigtcp.Configuration
 	BandwidthManager    *bandwidth.Manager
 	Devices             datapath.Devices
+	IPSec               datapath.IPSec
+	MTU                 mtu.MTU
 }
 
 func newDaemonPromise(params daemonParams) promise.Promise[*Daemon] {

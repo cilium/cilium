@@ -88,8 +88,6 @@ func (l *Loader) Start(hive.HookContext) error {
 		ignorePrefixes = append(ignorePrefixes, "LXC_IPV4")
 	}
 	elf.IgnoreSymbolPrefixes(ignorePrefixes)
-	l.templateCache.Update(l.params.NodeConfig)
-
 	return nil
 }
 
@@ -115,7 +113,7 @@ var Cell = cell.Module(
 )
 
 // NewLoader returns a new loader.
-func NewLoader(p params) *Loader {
+func NewLoader(p params) datapath.Loader {
 	return &Loader{
 		params:            p,
 		hostDpInitialized: make(chan struct{}),

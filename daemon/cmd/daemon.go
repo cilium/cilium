@@ -145,7 +145,7 @@ type Daemon struct {
 
 	clustermesh *clustermesh.ClusterMesh
 
-	mtuConfig mtu.Configuration
+	mtuConfig mtu.MTU
 
 	datapathRegenTrigger *trigger.Trigger
 
@@ -465,32 +465,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 	lbmap.Init(lbmapInitParams)
 
-	authKeySize, encryptKeyID, err := setupIPSec()
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to setup encryption: %s", err)
-	}
-
-	var mtuConfig mtu.Configuration
-	externalIP := node.GetIPv4()
-	if externalIP == nil {
-		externalIP = node.GetIPv6()
-	}
-	configuredMTU := option.Config.MTU
-	if mtu := params.CNIConfigManager.GetMTU(); mtu > 0 {
-		configuredMTU = mtu
-		log.WithField("mtu", configuredMTU).Info("Overwriting MTU based on CNI configuration")
-	}
-	// ExternalIP could be nil but we are covering that case inside NewConfiguration
-	mtuConfig = mtu.NewConfiguration(
-		authKeySize,
-		option.Config.EnableIPSec,
-		option.Config.TunnelExists(),
-		option.Config.EnableWireguard,
-		option.Config.EnableHighScaleIPcache && option.Config.EnableNodePort,
-		configuredMTU,
-		externalIP,
-	)
-
 	params.NodeManager.Subscribe(params.Datapath.Node())
 
 	identity.IterateReservedIdentities(func(_ identity.NumericIdentity, _ *identity.Identity) {
@@ -502,7 +476,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		metrics.Identity.WithLabelValues(identity.WellKnownIdentityType).Add(float64(num))
 	}
 
-	nd := nodediscovery.NewNodeDiscovery(params.NodeManager, params.Clientset, mtuConfig, params.CNIConfigManager.GetCustomNetConf())
+	nd := nodediscovery.NewNodeDiscovery(params.NodeManager, params.Clientset, params.MTU, params.CNIConfigManager.GetCustomNetConf())
 
 	d := Daemon{
 		params:            *params,
@@ -511,7 +485,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		prefixLengths:     createPrefixLengthCounter(),
 		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
 		compilationMutex:  new(lock.RWMutex),
-		mtuConfig:         mtuConfig,
+		mtuConfig:         params.MTU,
 		datapath:          params.Datapath,
 		nodeDiscovery:     nd,
 		nodeLocalStore:    params.LocalNodeStore,
@@ -1112,7 +1086,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 				params.Clientset,
 				nodeTypes.GetName(),
 				latestLocalNode.Node,
-				encryptKeyID)
+				params.IPSec.SPI())
 		}
 		if err != nil {
 			log.WithError(err).Warning("Cannot annotate k8s node with CIDR range")
@@ -1207,6 +1181,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	}
 
 	if option.Config.EnableIPSec {
+		// FIXME move into ipsec.Cell
 		if err := ipsec.StartKeyfileWatcher(ctx, option.Config.IPSecKeyFile, nd, d.Datapath().Node()); err != nil {
 			log.WithError(err).Error("Unable to start IPSec keyfile watcher")
 		}
