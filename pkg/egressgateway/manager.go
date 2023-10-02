@@ -205,6 +205,11 @@ func NewEgressGatewayManager(p Params) (out struct {
 				"if the same endpoint is selected both by an egress gateway and a L7 policy, endpoint traffic will not go through egress gateway.", option.EnableL7Proxy)
 	}
 
+	if err := deleteStaleIPRulesAndRoutes(); err != nil {
+		err = fmt.Errorf("cannot delete stale IP rules and routes: %w", err)
+		return out, err
+	}
+
 	out.Manager, err = newEgressGatewayManager(p)
 	if err != nil {
 		return out, err
