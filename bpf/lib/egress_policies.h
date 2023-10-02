@@ -4,6 +4,7 @@
 #ifndef __LIB_EGRESS_POLICIES_H_
 #define __LIB_EGRESS_POLICIES_H_
 
+#include "lib/common.h"
 #include "lib/fib.h"
 #include "lib/identity.h"
 
@@ -380,11 +381,13 @@ srv6_handling6(struct __ctx_buff *ctx, union v6addr *src_sid,
 }
 
 static __always_inline int
-srv6_handling(struct __ctx_buff *ctx, __u32 vrf_id, struct in6_addr *dst_sid)
+srv6_handling(struct __ctx_buff *ctx, struct in6_addr *dst_sid)
 {
-	union v6addr *src_sid;
 	void *data, *data_end;
 	__u16 inner_proto;
+	union v6addr router_ip;
+
+	BPF_V6(router_ip, ROUTER_IP);
 
 	if (!validate_ethertype(ctx, &inner_proto))
 		return DROP_UNSUPPORTED_L2;
@@ -397,10 +400,7 @@ srv6_handling(struct __ctx_buff *ctx, __u32 vrf_id, struct in6_addr *dst_sid)
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
-		src_sid = srv6_lookup_policy6(vrf_id, &ip6->saddr);
-		if (!src_sid)
-			return DROP_NO_SID;
-		return srv6_handling6(ctx, src_sid, dst_sid);
+		return srv6_handling6(ctx, &router_ip, dst_sid);
 	}
 #  endif /* ENABLE_IPV6 */
 #  ifdef ENABLE_IPV4
@@ -410,10 +410,7 @@ srv6_handling(struct __ctx_buff *ctx, __u32 vrf_id, struct in6_addr *dst_sid)
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
-		src_sid = srv6_lookup_policy4(vrf_id, ip4->saddr);
-		if (!src_sid)
-			return DROP_NO_SID;
-		return srv6_handling4(ctx, src_sid, dst_sid);
+		return srv6_handling4(ctx, &router_ip, dst_sid);
 	}
 #  endif /* ENABLE_IPV4 */
 	default:
@@ -541,14 +538,11 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SRV6_ENCAP)
 int tail_srv6_encap(struct __ctx_buff *ctx)
 {
 	struct in6_addr dst_sid;
-	__u32 vrf_id;
 	int ret = 0;
 	int __maybe_unused ext_err = 0;
 
 	srv6_load_meta_sid(ctx, &dst_sid);
-	vrf_id = ctx_load_meta(ctx, CB_SRV6_VRF_ID);
-
-	ret = srv6_handling(ctx, vrf_id, &dst_sid);
+	ret = srv6_handling(ctx, &dst_sid);
 	if (ret < 0)
 		return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);

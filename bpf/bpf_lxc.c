@@ -14,10 +14,6 @@
 
 #define IS_BPF_LXC 1
 
-/* Controls the inclusion of the CILIUM_CALL_SRV6 section in the object file.
- */
-#define SKIP_SRV6_HANDLING
-
 #define EVENT_SOURCE LXC_ID
 
 #include "lib/auth.h"
@@ -540,6 +536,29 @@ ct_recreate6:
 		return DROP_UNKNOWN_CT;
 	}
 
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+#ifdef ENABLE_SRV6
+	{
+		__u32 *vrf_id;
+		union v6addr *sid;
+
+		/* Determine if packet belongs to a VRF */
+		vrf_id = srv6_lookup_vrf6(&ip6->saddr, &ip6->daddr);
+		if (vrf_id) {
+			/* Do policy lookup if it belongs to a VRF */
+			sid = srv6_lookup_policy6(*vrf_id, &ip6->daddr);
+			if (sid) {
+				/* If there's a policy, tailcall to the H.Encaps logic */
+				srv6_store_meta_sid(ctx, sid);
+				ep_tail_call(ctx, CILIUM_CALL_SRV6_ENCAP);
+				return DROP_MISSED_TAIL_CALL;
+			}
+		}
+	}
+#endif /* ENABLE_SRV6 */
+
 	/* L7 LB does L7 policy enforcement, so we only redirect packets
 	 * NOT from L7 LB.
 	 */
@@ -550,9 +569,6 @@ ct_recreate6:
 				  trace.reason, trace.monitor);
 		return ctx_redirect_to_proxy6(ctx, tuple, proxy_port, false);
 	}
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
@@ -982,6 +998,30 @@ ct_recreate4:
 		return DROP_UNKNOWN_CT;
 	}
 
+	/* After L4 write in port mapping: revalidate for direct packet access */
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+#ifdef ENABLE_SRV6
+	{
+		__u32 *vrf_id;
+		union v6addr *sid;
+
+		/* Determine if packet belongs to a VRF */
+		vrf_id = srv6_lookup_vrf4(ip4->saddr, ip4->daddr);
+		if (vrf_id) {
+			/* Do policy lookup if it belongs to a VRF */
+			sid = srv6_lookup_policy4(*vrf_id, ip4->daddr);
+			if (sid) {
+				/* If there's a policy, tailcall to the H.Encaps logic */
+				srv6_store_meta_sid(ctx, sid);
+				ep_tail_call(ctx, CILIUM_CALL_SRV6_ENCAP);
+				return DROP_MISSED_TAIL_CALL;
+			}
+		}
+	}
+#endif /* ENABLE_SRV6 */
+
 	hairpin_flow |= ct_state->loopback;
 
 	/* L7 LB does L7 policy enforcement, so we only redirect packets
@@ -994,10 +1034,6 @@ ct_recreate4:
 				  trace.reason, trace.monitor);
 		return ctx_redirect_to_proxy4(ctx, tuple, proxy_port, false);
 	}
-
-	/* After L4 write in port mapping: revalidate for direct packet access */
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
