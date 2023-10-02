@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	tunnelmap "github.com/cilium/cilium/pkg/maps/tunnel"
-	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
@@ -235,22 +234,22 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeDisabled
 	}
 
-	devicesLegacy, _ := d.params.Devices.NativeDeviceNames()
+	devicesLegacy, _ := d.params.Devices.NativeDevices()
 	devices := make([]*models.KubeProxyReplacementDeviceListItems0, len(devicesLegacy))
-	v4Addrs := node.GetNodePortIPv4AddrsWithDevices()
-	v6Addrs := node.GetNodePortIPv6AddrsWithDevices()
-	for i, iface := range devicesLegacy {
+	deviceNames := make([]string, len(devicesLegacy))
+	for i, dev := range devicesLegacy {
 		info := &models.KubeProxyReplacementDeviceListItems0{
-			Name: iface,
+			Name: dev.Name,
 			IP:   make([]string, 0),
 		}
-		if addr, ok := v4Addrs[iface]; ok {
+		if addr := dev.IPv4(); addr != nil {
 			info.IP = append(info.IP, addr.String())
 		}
-		if addr, ok := v6Addrs[iface]; ok {
+		if addr := dev.IPv6(); addr != nil {
 			info.IP = append(info.IP, addr.String())
 		}
 		devices[i] = info
+		deviceNames[i] = dev.Name
 	}
 
 	features := &models.KubeProxyReplacementFeatures{
@@ -318,7 +317,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 
 	return &models.KubeProxyReplacement{
 		Mode:                mode,
-		Devices:             devicesLegacy,
+		Devices:             deviceNames,
 		DeviceList:          devices,
 		DirectRoutingDevice: option.Config.DirectRoutingDevice,
 		Features:            features,

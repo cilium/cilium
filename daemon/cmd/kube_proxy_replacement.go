@@ -22,12 +22,10 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/mountinfo"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/safeio"
 	"github.com/cilium/cilium/pkg/sysctl"
@@ -399,11 +397,6 @@ func finishKubeProxyReplacementInit(devices types.Devices) error {
 
 	// TODO: react to device changes
 	nativeDevices, _ := devices.NativeDevices()
-	nativeDeviceNames := tables.DeviceNames(nativeDevices)
-	if err := node.InitNodePortAddrs(nativeDeviceNames, option.Config.LBDevInheritIPAddr); err != nil {
-		msg := "failed to initialize NodePort addrs."
-		return fmt.Errorf(msg+" : %w", err)
-	}
 
 	// +-------------------------------------------------------+
 	// | After this point, BPF NodePort should not be disabled |

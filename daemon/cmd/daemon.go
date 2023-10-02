@@ -1202,13 +1202,9 @@ func (d *Daemon) ReloadOnDeviceChange(devices []string) {
 	}
 
 	if option.Config.EnableNodePort {
-		if err := node.InitNodePortAddrs(devices, option.Config.LBDevInheritIPAddr); err != nil {
-			log.WithError(err).Warn("Failed to initialize NodePort addresses")
-		} else {
-			// Synchronize services and endpoints to reflect new addresses onto lbmap.
-			d.svc.SyncServicesOnDeviceChange(d.Datapath().LocalNodeAddressing())
-			d.controllers.TriggerController(syncHostIPsController)
-		}
+		// Synchronize services and endpoints to reflect new addresses onto lbmap.
+		d.svc.SyncServicesOnDeviceChange(d.Datapath().LocalNodeAddressing())
+		d.controllers.TriggerController(syncHostIPsController)
 	}
 
 	// Reload the datapath.
