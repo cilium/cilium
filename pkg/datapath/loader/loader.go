@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	iputil "github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
@@ -73,8 +72,6 @@ type Loader struct {
 
 	// templateCache is the cache of pre-compiled datapaths.
 	templateCache *objectCache
-
-	ipsecMu lock.Mutex // guards reinitializeIPSec
 
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
