@@ -483,6 +483,17 @@ filesystem to be automatically mounted when the node boots.
 If you are using systemd to manage the kubelet, see the section
 :ref:`bpffs_systemd`.
 
+Routing Tables
+==============
+
+When running in :ref:`ipam_eni` IPAM mode, Cilium will install per-ENI routing
+tables for each ENI that is used by Cilium for pod IP allocation.
+These routing tables are added to the host network namespace and must not be
+otherwise used by the system.
+The index of those per-ENI routing tables is computed as
+``10 + <eni-interface-index>``. The base offset of 10 is chosen as it is highly
+unlikely to collide with the main routing table which is between 253-255.
+
 Privileges
 ==========
 
