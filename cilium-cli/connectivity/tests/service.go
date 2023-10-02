@@ -210,13 +210,13 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 	addrs := slices.Clone(node.Status.Addresses)
 
 	if secondaryNetwork {
-		if t.Context().Features[check.FeatureIPv4].Enabled {
+		if t.Context().Features[features.IPv4].Enabled {
 			addrs = append(addrs, corev1.NodeAddress{
 				Type:    "SecondaryNetworkIPv4",
 				Address: t.Context().SecondaryNetworkNodeIPv4()[node.Name],
 			})
 		}
-		if t.Context().Features[check.FeatureIPv6].Enabled {
+		if t.Context().Features[features.IPv6].Enabled {
 			addrs = append(addrs, corev1.NodeAddress{
 				Type:    "SecondaryNetworkIPv6",
 				Address: t.Context().SecondaryNetworkNodeIPv6()[node.Name],
@@ -233,7 +233,7 @@ func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 
 			// On GKE ExternalIP is not reachable from inside a cluster
 			if addr.Type == corev1.NodeExternalIP {
-				if f, ok := t.Context().Feature(check.FeatureFlavor); ok && f.Enabled && f.Mode == "gke" {
+				if f, ok := t.Context().Feature(features.Flavor); ok && f.Enabled && f.Mode == "gke" {
 					continue
 				}
 			}
@@ -286,7 +286,7 @@ func (s *outsideToNodePort) Run(ctx context.Context, t *check.Test) {
 	// With kube-proxy doing N/S LB it is not possible to see the original client
 	// IP, as iptables rules do the LB SNAT/DNAT before the packet hits any
 	// of Cilium's datapath BPF progs. So, skip the flow validation in that case.
-	_, validateFlows := t.Context().Feature(check.FeatureKPRNodePort)
+	_, validateFlows := t.Context().Feature(features.KPRNodePort)
 
 	for _, svc := range t.Context().EchoServices() {
 		for _, node := range t.Context().Nodes() {

@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 const (
@@ -716,7 +717,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	}
 
 	hostPort := 0
-	if ct.Features[FeatureHostPort].Enabled {
+	if ct.Features[features.HostPort].Enabled {
 		hostPort = EchoServerHostPort
 	}
 	dnsConfigMap := &corev1.ConfigMap{
@@ -984,7 +985,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	}
 
 	// Create one Ingress service for echo deployment
-	if ct.Features[FeatureIngressController].Enabled {
+	if ct.Features[features.IngressController].Enabled {
 		_, err = ct.clients.src.GetIngress(ctx, ct.params.TestNamespace, IngressServiceName, metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Deploying Ingress resource...", ct.clients.src.ClusterName())
@@ -1047,7 +1048,7 @@ func (ct *ConnectivityTest) deploymentList() (srcList []string, dstList []string
 		dstList = append(dstList, echoOtherNodeDeploymentName)
 	}
 
-	if ct.Features[FeatureNodeWithoutCilium].Enabled {
+	if ct.Features[features.NodeWithoutCilium].Enabled {
 		dstList = append(dstList, echoExternalNodeDeploymentName)
 	}
 
@@ -1200,7 +1201,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
-	if ct.Features[FeatureNodeWithoutCilium].Enabled {
+	if ct.Features[features.NodeWithoutCilium].Enabled {
 		echoExternalNodePods, err := ct.clients.dst.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "name=" + echoExternalNodeDeploymentName})
 		if err != nil {
 			return fmt.Errorf("unable to list other node pods: %w", err)
@@ -1290,7 +1291,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
-	if ct.Features[FeatureIngressController].Enabled {
+	if ct.Features[features.IngressController].Enabled {
 		ingressServices, err := ct.clients.src.ListServices(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "cilium.io/ingress=true"})
 		if err != nil {
 			return fmt.Errorf("unable to list ingress services: %w", err)
@@ -1334,7 +1335,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		ct.hostNetNSPodsByNode[pod.Spec.NodeName] = p
 
 		if iface := ct.params.SecondaryNetworkIface; iface != "" {
-			if ct.Features[FeatureIPv4].Enabled {
+			if ct.Features[features.IPv4].Enabled {
 				cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
 				addr, err := ct.client.ExecInPod(ctx, pod.Namespace, pod.Name, "", cmd)
 				if err != nil {
@@ -1342,7 +1343,7 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 				}
 				ct.secondaryNetworkNodeIPv4[pod.Spec.NodeName] = strings.TrimSuffix(addr.String(), "\n")
 			}
-			if ct.Features[FeatureIPv4].Enabled {
+			if ct.Features[features.IPv4].Enabled {
 				cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet6 -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
 				addr, err := ct.client.ExecInPod(ctx, pod.Namespace, pod.Name, "", cmd)
 				if err != nil {

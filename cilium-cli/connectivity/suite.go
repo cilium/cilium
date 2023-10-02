@@ -218,7 +218,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		)
 
 		ct.NewTest("no-ipsec-xfrm-errors").
-			WithFeatureRequirements(check.RequireFeatureMode(check.FeatureEncryptionPod, "ipsec")).
+			WithFeatureRequirements(features.RequireMode(features.EncryptionPod, "ipsec")).
 			WithScenarios(tests.NoIPsecXfrmErrors())
 
 		if ct.Params().ConnDisruptTestSetup {
@@ -247,16 +247,16 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	if ct.Params().IncludeUnsafeTests {
 		ct.NewTest("no-policies-from-outside").
-			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium)).
 			WithIPRoutesFromOutsideToPodCIDRs().
 			WithScenarios(tests.FromCIDRToPod())
 	}
 
 	// Skip the nodeport-related tests in the multicluster scenario if KPR is not
 	// enabled, since global nodeport services are not supported in that case.
-	var reqs []check.FeatureRequirement
+	var reqs []features.Requirement
 	if ct.Params().MultiCluster != "" {
-		reqs = append(reqs, check.RequireFeatureEnabled(check.FeatureKPRNodePort))
+		reqs = append(reqs, features.RequireEnabled(features.KPRNodePort))
 	}
 
 	ct.NewTest("no-policies-extra").
@@ -335,7 +335,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	if ct.Params().IncludeUnsafeTests {
 		ct.NewTest("all-ingress-deny-from-outside").WithCiliumPolicy(denyAllIngressPolicyYAML).
-			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium)).
 			WithIPRoutesFromOutsideToPodCIDRs().
 			WithScenarios(tests.FromCIDRToPod()).
 			WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
@@ -441,7 +441,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	if ct.Params().IncludeUnsafeTests {
 		ct.NewTest("echo-ingress-from-outside").WithCiliumPolicy(echoIngressFromOtherClientPolicyYAML).
-			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium)).
 			WithIPRoutesFromOutsideToPodCIDRs().
 			WithScenarios(tests.FromCIDRToPod()).
 			WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
@@ -470,7 +470,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	// This policy allowed ICMP traffic from client to another client.
 	ct.NewTest("client-ingress-icmp").WithCiliumPolicy(echoIngressICMPPolicyYAML).
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureICMPPolicy)).
+		WithFeatureRequirements(features.RequireEnabled(features.ICMPPolicy)).
 		WithScenarios(
 			tests.ClientToClient(),
 		).
@@ -569,7 +569,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	if ct.Params().IncludeUnsafeTests {
 		ct.NewTest("from-cidr-host-netns").
-			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium)).
 			WithCiliumPolicy(renderedTemplates["echoIngressFromCIDRYAML"]).
 			WithIPRoutesFromOutsideToPodCIDRs().
 			WithScenarios(
@@ -603,7 +603,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		WithCiliumPolicy(allowAllEgressPolicyYAML).      // Allow all egress traffic
 		WithCiliumPolicy(allowAllIngressPolicyYAML).     // Allow all ingress traffic
 		WithCiliumPolicy(echoIngressICMPDenyPolicyYAML). // Deny ICMP traffic from client to another client
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureICMPPolicy)).
+		WithFeatureRequirements(features.RequireEnabled(features.ICMPPolicy)).
 		WithScenarios(
 			tests.PodToPod(),       // Client to echo traffic should be allowed
 			tests.ClientToClient(), // Client to client traffic should be denied
@@ -736,23 +736,23 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	// Health check tests.
 	ct.NewTest("health").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureHealthChecking)).
+		WithFeatureRequirements(features.RequireEnabled(features.HealthChecking)).
 		WithScenarios(tests.CiliumHealth())
 
 	ct.NewTest("north-south-loadbalancing").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+		WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium)).
 		WithScenarios(
 			tests.OutsideToNodePort(),
 		)
 
 	ct.NewTest("pod-to-pod-encryption").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEncryptionPod)).
+		WithFeatureRequirements(features.RequireEnabled(features.EncryptionPod)).
 		WithScenarios(
 			tests.PodToPodEncryption(),
 		)
 	ct.NewTest("node-to-node-encryption").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEncryptionPod),
-			check.RequireFeatureEnabled(check.FeatureEncryptionNode)).
+		WithFeatureRequirements(features.RequireEnabled(features.EncryptionPod),
+			features.RequireEnabled(features.EncryptionNode)).
 		WithScenarios(
 			tests.NodeToNodeEncryption(),
 		)
@@ -761,8 +761,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		ct.NewTest("egress-gateway").
 			WithCiliumEgressGatewayPolicy(egressGatewayPolicyYAML, check.CiliumEgressGatewayPolicyParams{}).
 			WithIPRoutesFromOutsideToPodCIDRs().
-			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEgressGateway),
-				check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithFeatureRequirements(features.RequireEnabled(features.EgressGateway),
+				features.RequireEnabled(features.NodeWithoutCilium)).
 			WithScenarios(
 				tests.EgressGateway(),
 			)
@@ -772,8 +772,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		ct.NewTest("egress-gateway-excluded-cidrs").
 			WithCiliumEgressGatewayPolicy(egressGatewayPolicyExcludedCIDRsYAML,
 				check.CiliumEgressGatewayPolicyParams{ExcludedCIDRs: check.ExternalNodeExcludedCIDRs}).
-			WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureEgressGateway),
-				check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium)).
+			WithFeatureRequirements(features.RequireEnabled(features.EgressGateway),
+				features.RequireEnabled(features.NodeWithoutCilium)).
 			WithScenarios(
 				tests.EgressGatewayExcludedCIDRs(),
 			)
@@ -783,7 +783,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 	// (when this feature is enabled).
 	ct.NewTest("pod-to-node-cidrpolicy").
 		WithFeatureRequirements(
-			check.RequireFeatureEnabled(check.FeatureCIDRMatchNodes)).
+			features.RequireEnabled(features.CIDRMatchNodes)).
 		WithK8SPolicy(renderedTemplates["clientEgressToCIDRNodeKNPYAML"]).
 		WithScenarios(
 			tests.PodToHost(),
@@ -792,8 +792,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 	// The following tests have DNS redirect policies. They should be executed last.
 
 	ct.NewTest("north-south-loadbalancing-with-l7-policy").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureNodeWithoutCilium),
-			check.RequireFeatureEnabled(check.FeatureL7Proxy)).
+		WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium),
+			features.RequireEnabled(features.L7Proxy)).
 		WithCiliumVersion(">1.13.2").
 		WithCiliumPolicy(echoIngressL7HTTPFromAnywherePolicyYAML).
 		WithScenarios(
@@ -802,7 +802,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	// Test L7 HTTP introspection using an ingress policy on echo pods.
 	ct.NewTest("echo-ingress-l7").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithCiliumPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
 		WithScenarios(
 			tests.PodToPodWithEndpoints(),
@@ -826,7 +826,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	// Test L7 HTTP introspection using an ingress policy on echo pods.
 	ct.NewTest("echo-ingress-l7-named-port").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithCiliumPolicy(echoIngressL7HTTPNamedPortPolicyYAML). // L7 allow policy with HTTP introspection (named port)
 		WithScenarios(
 			tests.PodToPodWithEndpoints(),
@@ -850,7 +850,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	// Test L7 HTTP with different methods introspection using an egress policy on the clients.
 	ct.NewTest("client-egress-l7-method").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).      // DNS resolution only
 		WithCiliumPolicy(clientEgressL7HTTPMethodPolicyYAML). // L7 allow policy with HTTP introspection (POST only)
 		WithScenarios(
@@ -876,7 +876,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	// Test L7 HTTP introspection using an egress policy on the clients.
 	ct.NewTest("client-egress-l7").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).                     // DNS resolution only
 		WithCiliumPolicy(renderedTemplates["clientEgressL7HTTPPolicyYAML"]). // L7 allow policy with HTTP introspection
 		WithScenarios(
@@ -904,7 +904,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	// Test L7 HTTP named port introspection using an egress policy on the clients.
 	ct.NewTest("client-egress-l7-named-port").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).                              // DNS resolution only
 		WithCiliumPolicy(renderedTemplates["clientEgressL7HTTPNamedPortPolicyYAML"]). // L7 allow policy with HTTP introspection (named port)
 		WithScenarios(
@@ -933,8 +933,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 	// Test L7 HTTPS interception using an egress policy on the clients.
 	// Fail to load site due to missing headers.
 	ct.NewTest("client-egress-l7-tls-deny-without-headers").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureSecretBackendK8s)).
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
+		WithFeatureRequirements(features.RequireEnabled(features.SecretBackendK8s)).
 		WithCABundleSecret().
 		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget).
 		WithCiliumPolicy(renderedTemplates["clientEgressL7TLSPolicyYAML"]). // L7 allow policy with TLS interception
@@ -947,8 +947,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	// Test L7 HTTPS interception using an egress policy on the clients.
 	ct.NewTest("client-egress-l7-tls-headers").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureSecretBackendK8s)).
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
+		WithFeatureRequirements(features.RequireEnabled(features.SecretBackendK8s)).
 		WithCABundleSecret().
 		WithCertificate("externaltarget-tls", ct.Params().ExternalTarget).
 		WithCiliumPolicy(renderedTemplates["clientEgressL7TLSPolicyYAML"]). // L7 allow policy with TLS interception
@@ -961,8 +961,8 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	// Test L7 HTTP with a header replace set in the policy
 	ct.NewTest("client-egress-l7-set-header").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureSecretBackendK8s)).
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
+		WithFeatureRequirements(features.RequireEnabled(features.SecretBackendK8s)).
 		WithSecret(&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "header-match",
@@ -988,7 +988,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 	ct.NewTest("echo-ingress-auth-always-fail").WithCiliumPolicy(echoIngressAuthFailPolicyYAML).
 		// this test is only useful when auth is supported in the Cilium version and it is enabled
 		// currently this is tested spiffe as that is the only functional auth method
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureAuthSpiffe)).
+		WithFeatureRequirements(features.RequireEnabled(features.AuthSpiffe)).
 		WithScenarios(
 			tests.PodToPod(),
 		).
@@ -998,20 +998,20 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	// Test mutual auth with SPIFFE
 	ct.NewTest("echo-ingress-mutual-auth-spiffe").WithCiliumPolicy(echoIngressMutualAuthPolicyYAML).
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureAuthSpiffe)).
+		WithFeatureRequirements(features.RequireEnabled(features.AuthSpiffe)).
 		WithScenarios(
 			tests.PodToPod(),
 		)
 
 	// Test Ingress controller
 	ct.NewTest("pod-to-ingress-service").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureIngressController)).
+		WithFeatureRequirements(features.RequireEnabled(features.IngressController)).
 		WithScenarios(
 			tests.PodToIngress(),
 		)
 
 	ct.NewTest("pod-to-ingress-service-deny-all").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureIngressController)).
+		WithFeatureRequirements(features.RequireEnabled(features.IngressController)).
 		WithCiliumPolicy(denyAllIngressPolicyYAML).
 		WithScenarios(
 			tests.PodToIngress(),
@@ -1021,7 +1021,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		})
 
 	ct.NewTest("pod-to-ingress-service-allow-ingress-identity").
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureIngressController)).
+		WithFeatureRequirements(features.RequireEnabled(features.IngressController)).
 		WithCiliumPolicy(denyAllIngressPolicyYAML).
 		WithCiliumPolicy(allowIngressIdentityPolicyYAML).
 		WithScenarios(
@@ -1030,7 +1030,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	// Only allow UDP:53 to kube-dns, no DNS proxy enabled.
 	ct.NewTest("dns-only").WithCiliumPolicy(clientEgressOnlyDNSPolicyYAML).
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithScenarios(
 			tests.PodToPod(),   // connects to other Pods directly, no DNS
 			tests.PodToWorld(), // resolves set domain-name defaults to one.one.one.one
@@ -1041,7 +1041,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	// This policy only allows port 80 to domain-name, default one.one.one.one,. DNS proxy enabled.
 	ct.NewTest("to-fqdns").WithCiliumPolicy(renderedTemplates["clientEgressToFQDNsCiliumIOPolicyYAML"]).
-		WithFeatureRequirements(check.RequireFeatureEnabled(check.FeatureL7Proxy)).
+		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithScenarios(
 			tests.PodToWorld(tests.WithRetryDestPort(80)),
 			tests.PodToWorld2(), // resolves cilium.io
