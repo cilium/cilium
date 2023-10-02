@@ -6,38 +6,40 @@ package check
 import (
 	"reflect"
 	"testing"
+
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 func TestWithFeatureRequirements(t *testing.T) {
 	tests := map[string]struct {
-		requirements []FeatureRequirement
-		in           []FeatureRequirement
-		want         []FeatureRequirement
+		requirements []features.Requirement
+		in           []features.Requirement
+		want         []features.Requirement
 	}{
 		"Adding a feature to an empty list": {
 			requirements: nil,
-			in:           []FeatureRequirement{{feature: FeatureL7Proxy}},
-			want:         []FeatureRequirement{{feature: FeatureL7Proxy}},
+			in:           []features.Requirement{{Feature: features.L7Proxy}},
+			want:         []features.Requirement{{Feature: features.L7Proxy}},
 		},
 		"Adding several features to an existing list with no duplicate": {
-			requirements: []FeatureRequirement{{feature: FeatureCNP}, {feature: FeatureIPv6}},
-			in:           []FeatureRequirement{{feature: FeatureL7Proxy}, {feature: FeatureEncryptionNode}},
-			want:         []FeatureRequirement{{feature: FeatureCNP}, {feature: FeatureIPv6}, {feature: FeatureL7Proxy}, {feature: FeatureEncryptionNode}},
+			requirements: []features.Requirement{{Feature: features.CNP}, {Feature: features.IPv6}},
+			in:           []features.Requirement{{Feature: features.L7Proxy}, {Feature: features.EncryptionNode}},
+			want:         []features.Requirement{{Feature: features.CNP}, {Feature: features.IPv6}, {Feature: features.L7Proxy}, {Feature: features.EncryptionNode}},
 		},
 		"Adding one duplicate": {
-			requirements: []FeatureRequirement{{feature: FeatureCNP}, {feature: FeatureIPv6}},
-			in:           []FeatureRequirement{{feature: FeatureL7Proxy}, {feature: FeatureIPv6}},
-			want:         []FeatureRequirement{{feature: FeatureCNP}, {feature: FeatureIPv6}, {feature: FeatureL7Proxy}},
+			requirements: []features.Requirement{{Feature: features.CNP}, {Feature: features.IPv6}},
+			in:           []features.Requirement{{Feature: features.L7Proxy}, {Feature: features.IPv6}},
+			want:         []features.Requirement{{Feature: features.CNP}, {Feature: features.IPv6}, {Feature: features.L7Proxy}},
 		},
 		"Adding two same features as input": {
-			requirements: []FeatureRequirement{{feature: FeatureCNP}, {feature: FeatureIPv6}},
-			in:           []FeatureRequirement{{feature: FeatureL7Proxy}, {feature: FeatureL7Proxy}},
-			want:         []FeatureRequirement{{feature: FeatureCNP}, {feature: FeatureIPv6}, {feature: FeatureL7Proxy}},
+			requirements: []features.Requirement{{Feature: features.CNP}, {Feature: features.IPv6}},
+			in:           []features.Requirement{{Feature: features.L7Proxy}, {Feature: features.L7Proxy}},
+			want:         []features.Requirement{{Feature: features.CNP}, {Feature: features.IPv6}, {Feature: features.L7Proxy}},
 		},
 		"Adding an empty list": {
-			requirements: []FeatureRequirement{{feature: FeatureCNP}, {feature: FeatureIPv6}},
-			in:           []FeatureRequirement{},
-			want:         []FeatureRequirement{{feature: FeatureCNP}, {feature: FeatureIPv6}},
+			requirements: []features.Requirement{{Feature: features.CNP}, {Feature: features.IPv6}},
+			in:           []features.Requirement{},
+			want:         []features.Requirement{{Feature: features.CNP}, {Feature: features.IPv6}},
 		},
 	}
 

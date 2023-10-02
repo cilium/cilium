@@ -13,8 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium-cli/utils/features"
-
 	"github.com/blang/semver/v4"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -24,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/sysdump"
+	"github.com/cilium/cilium-cli/utils/features"
 
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -70,7 +69,7 @@ type Test struct {
 
 	// requirements is a list of required Cilium features which need to match
 	// for this test to be run
-	requirements []FeatureRequirement
+	requirements []features.Requirement
 
 	// installIPRoutesFromOutsideToPodCIDRs indicates that the test runner needs
 	// to install podCIDR => nodeIP routes before running the test
@@ -148,7 +147,7 @@ func (t *Test) scenarioEnabled(s Scenario) bool {
 // scenarioRequirements returns true if the Cilium deployment meets the
 // requirements of the given Scenario.
 func (t *Test) scenarioRequirements(s Scenario) (bool, string) {
-	var reqs []FeatureRequirement
+	var reqs []features.Requirement
 	if cs, ok := s.(ConditionalScenario); ok {
 		reqs = cs.Requirements()
 	}
@@ -394,7 +393,7 @@ func (t *Test) WithCiliumPolicy(policy string) *Test {
 		t.Fatalf("Adding CNPs to policy context: %s", err)
 	}
 
-	t.WithFeatureRequirements(RequireFeatureEnabled(FeatureCNP))
+	t.WithFeatureRequirements(features.RequireEnabled(features.CNP))
 
 	return t
 }
@@ -456,7 +455,7 @@ func (t *Test) WithK8SPolicy(policy string) *Test {
 	}
 
 	// It is implicit that KNP should be enabled.
-	t.WithFeatureRequirements(RequireFeatureEnabled(FeatureKNP))
+	t.WithFeatureRequirements(features.RequireEnabled(features.KNP))
 
 	return t
 }
@@ -527,7 +526,7 @@ func (t *Test) WithCiliumEgressGatewayPolicy(policy string, params CiliumEgressG
 		t.Fatalf("Adding CEGPs to cilium egress gateway policy context: %s", err)
 	}
 
-	t.WithFeatureRequirements(RequireFeatureEnabled(FeatureEgressGateway))
+	t.WithFeatureRequirements(features.RequireEnabled(features.EgressGateway))
 
 	return t
 }
@@ -549,7 +548,7 @@ func (t *Test) WithScenarios(sl ...Scenario) *Test {
 // WithFeatureRequirements adds FeatureRequirements to Test, all of which
 // must be satisfied in order for the test to be run. It adds only features
 // that are not already present in the requirements.
-func (t *Test) WithFeatureRequirements(reqs ...FeatureRequirement) *Test {
+func (t *Test) WithFeatureRequirements(reqs ...features.Requirement) *Test {
 	if len(reqs) == 0 {
 		return t
 	}
@@ -775,7 +774,7 @@ func (t *Test) ForEachIPFamily(do func(features.IPFamily)) {
 	// The per-endpoint routes feature is broken with IPv6 on < v1.14 when there
 	// are any netpols installed (https://github.com/cilium/cilium/issues/23852
 	// and https://github.com/cilium/cilium/issues/23910).
-	if f, ok := t.Context().Feature(FeatureEndpointRoutes); ok &&
+	if f, ok := t.Context().Feature(features.EndpointRoutes); ok &&
 		f.Enabled && (len(t.cnps) > 0 || len(t.knps) > 0) &&
 		versioncheck.MustCompile("<1.14.0")(t.Context().CiliumVersion) {
 
@@ -785,12 +784,12 @@ func (t *Test) ForEachIPFamily(do func(features.IPFamily)) {
 	for _, ipFam := range ipFams {
 		switch ipFam {
 		case features.IPFamilyV4:
-			if f, ok := t.ctx.Features[FeatureIPv4]; ok && f.Enabled {
+			if f, ok := t.ctx.Features[features.IPv4]; ok && f.Enabled {
 				do(ipFam)
 			}
 
 		case features.IPFamilyV6:
-			if f, ok := t.ctx.Features[FeatureIPv6]; ok && f.Enabled {
+			if f, ok := t.ctx.Features[features.IPv6]; ok && f.Enabled {
 				do(ipFam)
 			}
 		}
