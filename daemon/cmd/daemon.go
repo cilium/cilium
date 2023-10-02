@@ -108,6 +108,8 @@ const (
 // Daemon is the cilium daemon that is in charge of perform all necessary plumbing,
 // monitoring when a LXC starts.
 type Daemon struct {
+	params daemonParams
+
 	ctx              context.Context
 	clientset        k8sClient.Clientset
 	buildEndpointSem *semaphore.Weighted
@@ -286,7 +288,7 @@ func (d *Daemon) init() error {
 	}
 
 	if !option.Config.DryMode {
-		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
+		if err := d.Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
 			return fmt.Errorf("failed while reinitializing datapath: %w", err)
 		}
 
@@ -505,6 +507,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	nd := nodediscovery.NewNodeDiscovery(params.NodeManager, params.Clientset, mtuConfig, params.CNIConfigManager.GetCustomNetConf())
 
 	d := Daemon{
+		params:            *params,
 		ctx:               ctx,
 		clientset:         params.Clientset,
 		prefixLengths:     createPrefixLengthCounter(),
@@ -1280,7 +1283,7 @@ func (d *Daemon) Close() {
 // endpoints may or may not have successfully regenerated.
 func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, error) {
 	log.Debugf("BPF reload triggered from %s", reason)
-	if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
+	if err := d.Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
 		return nil, fmt.Errorf("unable to recompile base programs from %s: %s", reason, err)
 	}
 

@@ -48,7 +48,6 @@ func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath 
 		IptablesManager: p.RuleManager,
 		nodeAddressing:  p.NodeAddressing,
 		config:          cfg,
-		loader:          loader.NewLoader(),
 		wgAgent:         p.WGAgent,
 		lbmap:           lbmap.New(),
 		bwmgr:           p.BWManager,
@@ -79,10 +78,6 @@ func (l *linuxDatapath) NodeNeighbors() datapath.NodeNeighbors {
 // node
 func (l *linuxDatapath) LocalNodeAddressing() datapath.NodeAddressing {
 	return l.nodeAddressing
-}
-
-func (l *linuxDatapath) Loader() datapath.Loader {
-	return l.loader
 }
 
 func (l *linuxDatapath) WireguardAgent() datapath.WireguardAgent {

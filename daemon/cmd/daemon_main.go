@@ -1610,6 +1610,7 @@ type daemonParams struct {
 
 	Lifecycle            hive.Lifecycle
 	Clientset            k8sClient.Clientset
+	Loader               datapath.Loader
 	Datapath             datapath.Datapath
 	WGAgent              *wireguard.Agent `optional:"true"`
 	LocalNodeStore       *node.LocalNodeStore

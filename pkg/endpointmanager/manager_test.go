@@ -96,6 +96,10 @@ func (s *EndpointManagerSuite) Datapath() datapath.Datapath {
 	return nil
 }
 
+func (s *EndpointManagerSuite) Loader() datapath.Loader {
+	return nil
+}
+
 func (s *EndpointManagerSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }

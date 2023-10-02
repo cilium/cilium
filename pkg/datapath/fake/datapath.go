@@ -31,6 +31,11 @@ func NewDatapath() *FakeDatapath {
 	}
 }
 
+func New() (*FakeDatapath, datapath.Datapath, datapath.Loader) {
+	f := NewDatapath()
+	return f, f, f.loader
+}
+
 // Node returns a fake handler for node events
 func (f *FakeDatapath) Node() datapath.NodeHandler {
 	return f.node
@@ -124,6 +129,12 @@ func (f *FakeDatapath) DeleteEndpointBandwidthLimit(epID uint16) error {
 
 // Loader is an interface to abstract out loading of datapath programs.
 type fakeLoader struct {
+}
+
+var _ datapath.Loader = &fakeLoader{}
+
+func (*fakeLoader) ReinitializeXDP(ctx context.Context, o datapath.BaseProgramOwner, extraCArgs []string) error {
+	panic("implement me")
 }
 
 func (f *fakeLoader) CompileAndLoad(ctx context.Context, ep datapath.Endpoint, stats *metrics.SpanStat) error {

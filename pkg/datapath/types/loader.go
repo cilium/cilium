@@ -22,6 +22,7 @@ type Loader interface {
 	EndpointHash(cfg EndpointConfiguration) (string, error)
 	Unload(ep Endpoint)
 	Reinitialize(ctx context.Context, o BaseProgramOwner, deviceMTU int, iptMgr IptablesManager, p Proxy) error
+	ReinitializeXDP(ctx context.Context, o BaseProgramOwner, extraCArgs []string) error
 	HostDatapathInitialized() <-chan struct{}
 }
 
@@ -30,6 +31,7 @@ type BaseProgramOwner interface {
 	DeviceConfiguration
 	GetCompilationLock() *lock.RWMutex
 	Datapath() Datapath
+	Loader() Loader
 	LocalConfig() *LocalNodeConfiguration
 	SetPrefilter(pf PreFilter)
 }

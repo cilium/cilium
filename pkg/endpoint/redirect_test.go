@@ -116,6 +116,10 @@ func (d *DummyOwner) Datapath() datapath.Datapath {
 	return nil
 }
 
+func (d *DummyOwner) Loader() datapath.Loader {
+	return nil
+}
+
 func (s *DummyOwner) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }

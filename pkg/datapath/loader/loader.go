@@ -24,6 +24,8 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/hive/cell"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -65,6 +67,8 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsystem)
 // Loader is a wrapper structure around operations related to compiling,
 // loading, and reloading datapath programs.
 type Loader struct {
+	params params
+
 	once sync.Once
 
 	// templateCache is the cache of pre-compiled datapaths.
@@ -76,24 +80,48 @@ type Loader struct {
 	hostDpInitialized     chan struct{}
 }
 
-// NewLoader returns a new loader.
-func NewLoader() *Loader {
-	return &Loader{hostDpInitialized: make(chan struct{})}
+// Start implements hive.HookInterface.
+func (l *Loader) Start(hive.HookContext) error {
+	l.templateCache = NewObjectCache(l.params.ConfigWriter, l.params.NodeConfig)
+	ignorePrefixes := ignoredELFPrefixes
+	if !option.Config.EnableIPv4 {
+		ignorePrefixes = append(ignorePrefixes, "LXC_IPV4")
+	}
+	elf.IgnoreSymbolPrefixes(ignorePrefixes)
+	l.templateCache.Update(l.params.NodeConfig)
+
+	return nil
 }
 
-// Init initializes the datapath cache with base program hashes derived from
-// the LocalNodeConfiguration.
-func (l *Loader) init(dp datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfiguration) {
-	l.once.Do(func() {
-		l.templateCache = NewObjectCache(dp, nodeCfg)
-		ignorePrefixes := ignoredELFPrefixes
-		if !option.Config.EnableIPv4 {
-			ignorePrefixes = append(ignorePrefixes, "LXC_IPV4")
-		}
-		elf.IgnoreSymbolPrefixes(ignorePrefixes)
-	})
-	l.templateCache.Update(nodeCfg)
+// Stop implements hive.HookInterface.
+func (*Loader) Stop(hive.HookContext) error {
+	return nil
 }
+
+type params struct {
+	cell.In
+
+	ConfigWriter datapath.ConfigWriter
+	NodeConfig   *datapath.LocalNodeConfiguration
+	Devices      datapath.Devicer
+}
+
+var Cell = cell.Module(
+	"loader",
+	"Compiles and loads datapath BPF programs",
+
+	cell.Provide(NewLoader),
+)
+
+// NewLoader returns a new loader.
+func NewLoader(p params) *Loader {
+	return &Loader{
+		params:            p,
+		hostDpInitialized: make(chan struct{}),
+	}
+}
+
+var _ hive.HookInterface = &Loader{}
 
 func upsertEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
 	endpointRoute := route.Route{

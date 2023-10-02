@@ -281,7 +281,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	defer o.GetCompilationLock().Unlock()
 	defer func() { firstInitialization = false }()
 
-	l.init(o.Datapath(), o.LocalConfig())
+	l.templateCache.Update(o.LocalConfig())
 
 	encapProto := option.TunnelDisabled
 	if option.Config.TunnelingEnabled() {

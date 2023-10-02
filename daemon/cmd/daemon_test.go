@@ -158,7 +158,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 				cs.Disable()
 				return cs
 			},
-			func() datapath.Datapath { return fakeDatapath.NewDatapath() },
+			fakeDatapath.New,
 			func(dp datapath.Datapath) datapath.NodeIDHandler { return dp.NodeIDs() },
 			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
@@ -320,6 +320,10 @@ func (ds *DaemonSuite) GetCIDRPrefixLengths() ([]int, []int) {
 
 func (ds *DaemonSuite) Datapath() datapath.Datapath {
 	return ds.d.datapath
+}
+
+func (ds *DaemonSuite) Loader() datapath.Loader {
+	return ds.d.params.Loader
 }
 
 func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {

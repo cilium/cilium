@@ -106,6 +106,10 @@ func (s *DNSProxyTestSuite) Datapath() datapath.Datapath {
 	return nil
 }
 
+func (s *DNSProxyTestSuite) Loader() datapath.Loader {
+	return nil
+}
+
 func (s *DNSProxyTestSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
