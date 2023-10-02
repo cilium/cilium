@@ -126,7 +126,7 @@ CiliumEventType from which the flow originated.
 <a name="flow-DNS"></a>
 
 ### DNS
-DNS flow. This is basically directly mapped from Cilium&#39;s [LogRecordDNS]( https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264):
+DNS flow. This is basically directly mapped from Cilium&#39;s [LogRecordDNS](https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264):
 
 
 | Field | Type | Label | Description |
@@ -355,6 +355,7 @@ multiple fields are set, then all fields must match for the filter to match.
 
 ### HTTP
 L7 information for HTTP flows. It corresponds to Cilium&#39;s [accesslog.LogRecordHTTP](https://github.com/cilium/cilium/blob/728c79e427438ab6f8d9375b62fccd6fed4ace3a/pkg/proxy/accesslog/record.go#L206) type.
+
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
@@ -729,8 +730,7 @@ that happened before the events were captured by Hubble.
 ### TraceContext
 TraceContext contains trace context propagation data, i.e. information about a
 distributed trace.
-For more information about trace context, check the [W3C Trace Context
-specification](https://www.w3.org/TR/trace-context/).
+For more information about trace context, check the [W3C Trace Context specification](https://www.w3.org/TR/trace-context/).
 
 
 | Field | Type | Label | Description |
@@ -1166,3 +1166,4 @@ This mirrors enum xlate_point in bpf/lib/trace_sock.h
 | <a name="bool" /> bool |  | bool | boolean | boolean | bool | bool | boolean | TrueClass/FalseClass |
 | <a name="string" /> string | A string must always contain UTF-8 encoded or 7-bit ASCII text. | string | String | str/unicode | string | string | string | String (UTF-8) |
 | <a name="bytes" /> bytes | May contain any arbitrary sequence of bytes. | string | ByteString | str | []byte | ByteString | string | String (ASCII-8BIT) |
+
