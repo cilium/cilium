@@ -204,7 +204,7 @@ type params struct {
 
 	UserConfig    UserConfig
 	Configuration Configuration
-	Devicer       types.Devicer
+	Devices       types.Devices
 	DaemonConfig  *option.DaemonConfig
 }
 
@@ -220,7 +220,7 @@ func startBIGTCP(p params) error {
 	var err error
 
 	// FIXME: BIGTCP should reconcile over device changes
-	devices, _ := p.Devicer.NativeDeviceNames()
+	devices, _ := p.Devices.NativeDeviceNames()
 
 	disableMsg := ""
 	if len(devices) == 0 {

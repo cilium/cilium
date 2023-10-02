@@ -55,7 +55,7 @@ type bandwidthManagerParams struct {
 	cell.In
 
 	Log          logrus.FieldLogger
-	Devices      types.Devicer
+	Devices      types.Devices
 	Config       Config
 	DaemonConfig *option.DaemonConfig
 }

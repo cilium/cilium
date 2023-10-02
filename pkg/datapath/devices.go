@@ -18,7 +18,7 @@ func newDevicesAccessor(
 	db *statedb.DB,
 	devices statedb.Table[*tables.Device],
 	localNode *node.LocalNodeStore,
-) types.Devicer {
+) types.Devices {
 	return &DevicesAccessor{db, devices, localNode}
 }
 

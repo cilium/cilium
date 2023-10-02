@@ -79,7 +79,7 @@ var (
 // HeaderfileWriter is a wrapper type which implements datapath.ConfigWriter.
 // It manages writing of configuration of datapath program headerfiles.
 type HeaderfileWriter struct {
-	devicer            datapath.Devicer
+	devicer            datapath.Devices
 	nodeExtraDefines   dpdef.Map
 	nodeExtraDefineFns []dpdef.Fn
 	bwmgr              *bandwidth.Manager
@@ -93,7 +93,7 @@ func NewHeaderfileWriter(p configWriterParams) (datapath.ConfigWriter, error) {
 		}
 	}
 	return &HeaderfileWriter{
-		devicer:            p.Devicer,
+		devicer:            p.Devices,
 		nodeExtraDefines:   merged,
 		nodeExtraDefineFns: p.NodeExtraDefineFns,
 		bwmgr:              p.BandwidthManager,
@@ -934,7 +934,7 @@ return false;`))
 
 // devMacros generates NATIVE_DEV_MAC_BY_IFINDEX and IS_L3_DEV macros which
 // are written to node_config.h.
-func devMacros(devicer datapath.Devicer) (string, string, error) {
+func devMacros(devicer datapath.Devices) (string, string, error) {
 	var (
 		macByIfIndexMacro, isL3DevMacroBuf bytes.Buffer
 		isL3DevMacro                       string

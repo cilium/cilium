@@ -103,7 +103,7 @@ type params struct {
 
 	ConfigWriter datapath.ConfigWriter
 	NodeConfig   *datapath.LocalNodeConfiguration
-	Devices      datapath.Devicer
+	Devices      datapath.Devices
 	LocalNode    *node.LocalNodeStore
 }
 

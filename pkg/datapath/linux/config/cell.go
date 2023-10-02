@@ -15,7 +15,7 @@ type configWriterParams struct {
 
 	NodeExtraDefines   []dpdef.Map `group:"header-node-defines"`
 	NodeExtraDefineFns []dpdef.Fn  `group:"header-node-define-fns"`
-	Devicer            dptypes.Devicer
+	Devices            dptypes.Devices
 	BandwidthManager   *bandwidth.Manager
 }
 

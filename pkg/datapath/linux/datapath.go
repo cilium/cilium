@@ -39,7 +39,7 @@ type DatapathParams struct {
 	NodeMap        nodemap.Map
 	Writer         datapath.ConfigWriter
 	BWManager      *bandwidth.Manager
-	Devices        datapath.Devicer
+	Devices        datapath.Devices
 }
 
 // NewDatapath creates a new Linux datapath

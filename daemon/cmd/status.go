@@ -177,7 +177,7 @@ func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 		s.CongestionControl = models.BandwidthManagerCongestionControlBbr
 	}
 
-	s.Devices, _ = d.params.Devicer.NativeDeviceNames()
+	s.Devices, _ = d.params.Devices.NativeDeviceNames()
 	return s
 }
 
@@ -194,7 +194,7 @@ func (d *Daemon) getHostFirewallStatus() *models.HostFirewall {
 	if option.Config.EnableHostFirewall {
 		mode = models.HostFirewallModeEnabled
 	}
-	devices, _ := d.params.Devicer.NativeDeviceNames()
+	devices, _ := d.params.Devices.NativeDeviceNames()
 	return &models.HostFirewall{
 		Mode:    mode,
 		Devices: devices,
@@ -235,7 +235,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeDisabled
 	}
 
-	devicesLegacy, _ := d.params.Devicer.NativeDeviceNames()
+	devicesLegacy, _ := d.params.Devices.NativeDeviceNames()
 	devices := make([]*models.KubeProxyReplacementDeviceListItems0, len(devicesLegacy))
 	v4Addrs := node.GetNodePortIPv4AddrsWithDevices()
 	v6Addrs := node.GetNodePortIPv6AddrsWithDevices()

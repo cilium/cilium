@@ -2272,7 +2272,7 @@ func (s *linuxPrivilegedIPv6OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	defer func() { option.Config.DirectRoutingDevice = prevDRDev }()
 	option.Config.DirectRoutingDevice = "veth0"
 
-	devices := &datapath.FakeDevicer{
+	devices := &datapath.FakeDevices{
 		Devices: []*tables.Device{
 			{Name: "veth0", Index: 2},
 			{Name: "veth2", Index: 3},
@@ -3459,7 +3459,7 @@ func (s *linuxPrivilegedIPv4OnlyTestSuite) TestArpPingHandlingForMultiDevice(c *
 	defer func() { option.Config.DirectRoutingDevice = prevDRDev }()
 	option.Config.DirectRoutingDevice = "veth0"
 
-	devices := &datapath.FakeDevicer{
+	devices := &datapath.FakeDevices{
 		Devices: []*tables.Device{
 			{Name: "veth0", Index: 2},
 			{Name: "veth2", Index: 3},

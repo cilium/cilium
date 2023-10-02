@@ -284,7 +284,7 @@ type IptablesManager struct {
 	ipEarlyDemuxDisabled bool
 	CNIChainingMode      string
 
-	devices datapath.Devicer
+	devices datapath.Devices
 }
 
 // Init initializes the iptables manager and checks for iptables kernel modules

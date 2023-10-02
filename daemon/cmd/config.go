@@ -153,7 +153,7 @@ func getConfigHandler(d *Daemon, params GetConfigParams) middleware.Responder {
 	option.Config.ConfigPatchMutex.RUnlock()
 
 	// Manually add fields that are behind accessors.
-	m["Devices"], _ = d.params.Devicer.NativeDeviceNames()
+	m["Devices"], _ = d.params.Devices.NativeDeviceNames()
 
 	spec := &models.DaemonConfigurationSpec{
 		Options:           *option.Config.Opts.GetMutableModel(),

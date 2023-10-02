@@ -890,15 +890,15 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	devices, _ := d.params.Devicer.NativeDeviceNames()
+	devices, _ := d.params.Devices.NativeDeviceNames()
 	if len(devices) == 0 {
 		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
 		disableNodePort()
 	}
-	if drr, err, _ := d.params.Devicer.DirectRoutingDevice(); err == nil {
+	if drr, err, _ := d.params.Devices.DirectRoutingDevice(); err == nil {
 		option.Config.DirectRoutingDevice = drr.Name
 	}
-	if mcast, err, _ := d.params.Devicer.IPv6MCastDevice(); err == nil {
+	if mcast, err, _ := d.params.Devices.IPv6MCastDevice(); err == nil {
 		option.Config.IPv6MCastDevice = mcast
 	}
 
@@ -906,7 +906,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.l2announcer.DevicesChanged(devices)
 	}
 
-	if err := finishKubeProxyReplacementInit(params.Devicer); err != nil {
+	if err := finishKubeProxyReplacementInit(params.Devices); err != nil {
 		log.WithError(err).Error("failed to finalise LB initialization")
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
@@ -1195,7 +1195,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	identitymanager.Subscribe(d.policy)
 
 	// Start listening to changed devices
-	devicesChan, err := d.params.Devicer.Listen(ctx)
+	devicesChan, err := d.params.Devices.Listen(ctx)
 	if err != nil {
 		log.WithError(err).Warn("Runtime device detection failed to start")
 	} else {
@@ -1220,10 +1220,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 // ReloadOnDeviceChange regenerates device related information and reloads the datapath.
 // The devices is the new set of devices that replaces the old set.
 func (d *Daemon) ReloadOnDeviceChange(devices []string) {
-	if drr, err, _ := d.params.Devicer.DirectRoutingDevice(); err == nil {
+	if drr, err, _ := d.params.Devices.DirectRoutingDevice(); err == nil {
 		option.Config.DirectRoutingDevice = drr.Name
 	}
-	if mcast, err, _ := d.params.Devicer.IPv6MCastDevice(); err == nil {
+	if mcast, err, _ := d.params.Devices.IPv6MCastDevice(); err == nil {
 		option.Config.IPv6MCastDevice = mcast
 	}
 
