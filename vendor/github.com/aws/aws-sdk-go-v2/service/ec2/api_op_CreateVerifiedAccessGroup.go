@@ -61,6 +61,9 @@ type CreateVerifiedAccessGroupInput struct {
 	// The Verified Access policy document.
 	PolicyDocument *string
 
+	// Options for server side encryption.
+	SseSpecification *types.VerifiedAccessSseSpecificationRequest
+
 	// The tags to assign to the Verified Access group.
 	TagSpecifications []types.TagSpecification
 

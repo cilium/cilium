@@ -1777,7 +1777,7 @@ func GetRouteDistinguisher(data []byte) RouteDistinguisherInterface {
 func parseRdAndRt(input string) ([]string, error) {
 	elems := _regexpRouteDistinguisher.FindStringSubmatch(input)
 	if len(elems) != 11 {
-		return nil, errors.New("failed to parse")
+		return nil, fmt.Errorf("failed to parse RD %q", input)
 	}
 	return elems, nil
 }
@@ -1801,6 +1801,29 @@ func ParseRouteDistinguisher(rd string) (RouteDistinguisherInterface, error) {
 		asn := fst<<16 | snd
 		return NewRouteDistinguisherFourOctetAS(uint32(asn), uint16(assigned)), nil
 	}
+}
+
+// ParseVPNPrefix parses VPNv4/VPNv6 prefix.
+func ParseVPNPrefix(prefix string) (RouteDistinguisherInterface, net.IP, *net.IPNet, error) {
+	elems := strings.SplitN(prefix, ":", 3)
+	if len(elems) < 3 {
+		return nil, nil, nil, fmt.Errorf("invalid VPN prefix format: %q", prefix)
+	}
+
+	rd, err := ParseRouteDistinguisher(elems[0] + ":" + elems[1])
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	addr, network, err := net.ParseCIDR(elems[2])
+	return rd, addr, network, err
+}
+
+// ContainsCIDR checks if one IPNet is a subnet of another.
+func ContainsCIDR(n1, n2 *net.IPNet) bool {
+	ones1, _ := n1.Mask.Size()
+	ones2, _ := n2.Mask.Size()
+	return ones1 <= ones2 && n1.Contains(n2.IP)
 }
 
 //
@@ -9581,33 +9604,70 @@ func GetRouteFamily(name string) (RouteFamily, error) {
 func NewPrefixFromRouteFamily(afi uint16, safi uint8, prefixStr ...string) (prefix AddrPrefixInterface, err error) {
 	family := AfiSafiToRouteFamily(afi, safi)
 
-	f := func(s string) AddrPrefixInterface {
-		addr, net, _ := net.ParseCIDR(s)
+	f := func(s string) (AddrPrefixInterface, error) {
+		addr, net, err := net.ParseCIDR(s)
+		if err != nil {
+			return nil, err
+		}
 		len, _ := net.Mask.Size()
 		switch family {
 		case RF_IPv4_UC, RF_IPv4_MC:
-			return NewIPAddrPrefix(uint8(len), addr.String())
+			return NewIPAddrPrefix(uint8(len), addr.String()), nil
 		}
-		return NewIPv6AddrPrefix(uint8(len), addr.String())
+		return NewIPv6AddrPrefix(uint8(len), addr.String()), nil
 	}
 
 	switch family {
 	case RF_IPv4_UC, RF_IPv4_MC:
 		if len(prefixStr) > 0 {
-			prefix = f(prefixStr[0])
+			prefix, err = f(prefixStr[0])
 		} else {
 			prefix = NewIPAddrPrefix(0, "")
 		}
 	case RF_IPv6_UC, RF_IPv6_MC:
 		if len(prefixStr) > 0 {
-			prefix = f(prefixStr[0])
+			prefix, err = f(prefixStr[0])
 		} else {
 			prefix = NewIPv6AddrPrefix(0, "")
 		}
 	case RF_IPv4_VPN:
-		prefix = NewLabeledVPNIPAddrPrefix(0, "", *NewMPLSLabelStack(), nil)
+		if len(prefixStr) == 0 {
+			prefix = NewLabeledVPNIPAddrPrefix(0, "", *NewMPLSLabelStack(), nil)
+			break
+		}
+
+		rd, addr, network, err := ParseVPNPrefix(prefixStr[0])
+		if err != nil {
+			return nil, err
+		}
+
+		length, _ := network.Mask.Size()
+
+		prefix = NewLabeledVPNIPAddrPrefix(
+			uint8(length),
+			addr.String(),
+			*NewMPLSLabelStack(),
+			rd,
+		)
 	case RF_IPv6_VPN:
-		prefix = NewLabeledVPNIPv6AddrPrefix(0, "", *NewMPLSLabelStack(), nil)
+		if len(prefixStr) == 0 {
+			prefix = NewLabeledVPNIPv6AddrPrefix(0, "", *NewMPLSLabelStack(), nil)
+			break
+		}
+
+		rd, addr, network, err := ParseVPNPrefix(prefixStr[0])
+		if err != nil {
+			return nil, err
+		}
+
+		length, _ := network.Mask.Size()
+
+		prefix = NewLabeledVPNIPv6AddrPrefix(
+			uint8(length),
+			addr.String(),
+			*NewMPLSLabelStack(),
+			rd,
+		)
 	case RF_IPv4_MPLS:
 		prefix = NewLabeledIPAddrPrefix(0, "", *NewMPLSLabelStack())
 	case RF_IPv6_MPLS:

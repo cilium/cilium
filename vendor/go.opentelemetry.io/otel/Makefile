@@ -210,7 +210,7 @@ go-mod-tidy/%: DIR=$*
 go-mod-tidy/%: | crosslink
 	@echo "$(GO) mod tidy in $(DIR)" \
 		&& cd $(DIR) \
-		&& $(GO) mod tidy -compat=1.19
+		&& $(GO) mod tidy -compat=1.20
 
 .PHONY: lint-modules
 lint-modules: go-mod-tidy

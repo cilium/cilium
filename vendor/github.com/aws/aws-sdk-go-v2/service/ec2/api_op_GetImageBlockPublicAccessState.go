@@ -10,58 +10,31 @@ import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	internalauth "github.com/aws/aws-sdk-go-v2/internal/auth"
-	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	smithyendpoints "github.com/aws/smithy-go/endpoints"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
-// A trust provider is a third-party entity that creates, maintains, and manages
-// identity information for users and devices. When an application request is made,
-// the identity information sent by the trust provider is evaluated by Verified
-// Access before allowing or denying the application request.
-func (c *Client) CreateVerifiedAccessTrustProvider(ctx context.Context, params *CreateVerifiedAccessTrustProviderInput, optFns ...func(*Options)) (*CreateVerifiedAccessTrustProviderOutput, error) {
+// Gets the current state of block public access for AMIs at the account level in
+// the specified Amazon Web Services Region. For more information, see Block
+// public access to your AMIs (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sharingamis-intro.html#block-public-access-to-amis)
+// in the Amazon EC2 User Guide.
+func (c *Client) GetImageBlockPublicAccessState(ctx context.Context, params *GetImageBlockPublicAccessStateInput, optFns ...func(*Options)) (*GetImageBlockPublicAccessStateOutput, error) {
 	if params == nil {
-		params = &CreateVerifiedAccessTrustProviderInput{}
+		params = &GetImageBlockPublicAccessStateInput{}
 	}
 
-	result, metadata, err := c.invokeOperation(ctx, "CreateVerifiedAccessTrustProvider", params, optFns, c.addOperationCreateVerifiedAccessTrustProviderMiddlewares)
+	result, metadata, err := c.invokeOperation(ctx, "GetImageBlockPublicAccessState", params, optFns, c.addOperationGetImageBlockPublicAccessStateMiddlewares)
 	if err != nil {
 		return nil, err
 	}
 
-	out := result.(*CreateVerifiedAccessTrustProviderOutput)
+	out := result.(*GetImageBlockPublicAccessStateOutput)
 	out.ResultMetadata = metadata
 	return out, nil
 }
 
-type CreateVerifiedAccessTrustProviderInput struct {
-
-	// The identifier to be used when working with policy rules.
-	//
-	// This member is required.
-	PolicyReferenceName *string
-
-	// The type of trust provider.
-	//
-	// This member is required.
-	TrustProviderType types.TrustProviderType
-
-	// A unique, case-sensitive token that you provide to ensure idempotency of your
-	// modification request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html)
-	// .
-	ClientToken *string
-
-	// A description for the Verified Access trust provider.
-	Description *string
-
-	// The options for a device-based trust provider. This parameter is required when
-	// the provider type is device .
-	DeviceOptions *types.CreateVerifiedAccessTrustProviderDeviceOptions
-
-	// The type of device-based trust provider. This parameter is required when the
-	// provider type is device .
-	DeviceTrustProviderType types.DeviceTrustProviderType
+type GetImageBlockPublicAccessStateInput struct {
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have the
@@ -69,27 +42,17 @@ type CreateVerifiedAccessTrustProviderInput struct {
 	// UnauthorizedOperation .
 	DryRun *bool
 
-	// The options for a OpenID Connect-compatible user-identity trust provider. This
-	// parameter is required when the provider type is user .
-	OidcOptions *types.CreateVerifiedAccessTrustProviderOidcOptions
-
-	// Options for server side encryption.
-	SseSpecification *types.VerifiedAccessSseSpecificationRequest
-
-	// The tags to assign to the Verified Access trust provider.
-	TagSpecifications []types.TagSpecification
-
-	// The type of user-based trust provider. This parameter is required when the
-	// provider type is user .
-	UserTrustProviderType types.UserTrustProviderType
-
 	noSmithyDocumentSerde
 }
 
-type CreateVerifiedAccessTrustProviderOutput struct {
+type GetImageBlockPublicAccessStateOutput struct {
 
-	// The ID of the Verified Access trust provider.
-	VerifiedAccessTrustProvider *types.VerifiedAccessTrustProvider
+	// The current state of block public access for AMIs at the account level in the
+	// specified Amazon Web Services Region. Possible values:
+	//   - block-new-sharing - Any attempt to publicly share your AMIs in the specified
+	//   Region is blocked.
+	//   - unblocked - Your AMIs in the specified Region can be publicly shared.
+	ImageBlockPublicAccessState *string
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata
@@ -97,12 +60,12 @@ type CreateVerifiedAccessTrustProviderOutput struct {
 	noSmithyDocumentSerde
 }
 
-func (c *Client) addOperationCreateVerifiedAccessTrustProviderMiddlewares(stack *middleware.Stack, options Options) (err error) {
-	err = stack.Serialize.Add(&awsEc2query_serializeOpCreateVerifiedAccessTrustProvider{}, middleware.After)
+func (c *Client) addOperationGetImageBlockPublicAccessStateMiddlewares(stack *middleware.Stack, options Options) (err error) {
+	err = stack.Serialize.Add(&awsEc2query_serializeOpGetImageBlockPublicAccessState{}, middleware.After)
 	if err != nil {
 		return err
 	}
-	err = stack.Deserialize.Add(&awsEc2query_deserializeOpCreateVerifiedAccessTrustProvider{}, middleware.After)
+	err = stack.Deserialize.Add(&awsEc2query_deserializeOpGetImageBlockPublicAccessState{}, middleware.After)
 	if err != nil {
 		return err
 	}
@@ -145,16 +108,10 @@ func (c *Client) addOperationCreateVerifiedAccessTrustProviderMiddlewares(stack 
 	if err = smithyhttp.AddCloseResponseBodyMiddleware(stack); err != nil {
 		return err
 	}
-	if err = addCreateVerifiedAccessTrustProviderResolveEndpointMiddleware(stack, options); err != nil {
+	if err = addGetImageBlockPublicAccessStateResolveEndpointMiddleware(stack, options); err != nil {
 		return err
 	}
-	if err = addIdempotencyToken_opCreateVerifiedAccessTrustProviderMiddleware(stack, options); err != nil {
-		return err
-	}
-	if err = addOpCreateVerifiedAccessTrustProviderValidationMiddleware(stack); err != nil {
-		return err
-	}
-	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opCreateVerifiedAccessTrustProvider(options.Region), middleware.Before); err != nil {
+	if err = stack.Initialize.Add(newServiceMetadataMiddleware_opGetImageBlockPublicAccessState(options.Region), middleware.Before); err != nil {
 		return err
 	}
 	if err = awsmiddleware.AddRecursionDetection(stack); err != nil {
@@ -175,58 +132,25 @@ func (c *Client) addOperationCreateVerifiedAccessTrustProviderMiddlewares(stack 
 	return nil
 }
 
-type idempotencyToken_initializeOpCreateVerifiedAccessTrustProvider struct {
-	tokenProvider IdempotencyTokenProvider
-}
-
-func (*idempotencyToken_initializeOpCreateVerifiedAccessTrustProvider) ID() string {
-	return "OperationIdempotencyTokenAutoFill"
-}
-
-func (m *idempotencyToken_initializeOpCreateVerifiedAccessTrustProvider) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
-	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
-) {
-	if m.tokenProvider == nil {
-		return next.HandleInitialize(ctx, in)
-	}
-
-	input, ok := in.Parameters.(*CreateVerifiedAccessTrustProviderInput)
-	if !ok {
-		return out, metadata, fmt.Errorf("expected middleware input to be of type *CreateVerifiedAccessTrustProviderInput ")
-	}
-
-	if input.ClientToken == nil {
-		t, err := m.tokenProvider.GetIdempotencyToken()
-		if err != nil {
-			return out, metadata, err
-		}
-		input.ClientToken = &t
-	}
-	return next.HandleInitialize(ctx, in)
-}
-func addIdempotencyToken_opCreateVerifiedAccessTrustProviderMiddleware(stack *middleware.Stack, cfg Options) error {
-	return stack.Initialize.Add(&idempotencyToken_initializeOpCreateVerifiedAccessTrustProvider{tokenProvider: cfg.IdempotencyTokenProvider}, middleware.Before)
-}
-
-func newServiceMetadataMiddleware_opCreateVerifiedAccessTrustProvider(region string) *awsmiddleware.RegisterServiceMetadata {
+func newServiceMetadataMiddleware_opGetImageBlockPublicAccessState(region string) *awsmiddleware.RegisterServiceMetadata {
 	return &awsmiddleware.RegisterServiceMetadata{
 		Region:        region,
 		ServiceID:     ServiceID,
 		SigningName:   "ec2",
-		OperationName: "CreateVerifiedAccessTrustProvider",
+		OperationName: "GetImageBlockPublicAccessState",
 	}
 }
 
-type opCreateVerifiedAccessTrustProviderResolveEndpointMiddleware struct {
+type opGetImageBlockPublicAccessStateResolveEndpointMiddleware struct {
 	EndpointResolver EndpointResolverV2
 	BuiltInResolver  builtInParameterResolver
 }
 
-func (*opCreateVerifiedAccessTrustProviderResolveEndpointMiddleware) ID() string {
+func (*opGetImageBlockPublicAccessStateResolveEndpointMiddleware) ID() string {
 	return "ResolveEndpointV2"
 }
 
-func (m *opCreateVerifiedAccessTrustProviderResolveEndpointMiddleware) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+func (m *opGetImageBlockPublicAccessStateResolveEndpointMiddleware) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
 	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
 ) {
 	if awsmiddleware.GetRequiresLegacyEndpoints(ctx) {
@@ -328,8 +252,8 @@ func (m *opCreateVerifiedAccessTrustProviderResolveEndpointMiddleware) HandleSer
 	return next.HandleSerialize(ctx, in)
 }
 
-func addCreateVerifiedAccessTrustProviderResolveEndpointMiddleware(stack *middleware.Stack, options Options) error {
-	return stack.Serialize.Insert(&opCreateVerifiedAccessTrustProviderResolveEndpointMiddleware{
+func addGetImageBlockPublicAccessStateResolveEndpointMiddleware(stack *middleware.Stack, options Options) error {
+	return stack.Serialize.Insert(&opGetImageBlockPublicAccessStateResolveEndpointMiddleware{
 		EndpointResolver: options.EndpointResolverV2,
 		BuiltInResolver: &builtInResolver{
 			Region:       options.Region,

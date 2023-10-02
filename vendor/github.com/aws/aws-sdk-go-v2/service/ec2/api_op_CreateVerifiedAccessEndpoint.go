@@ -96,6 +96,9 @@ type CreateVerifiedAccessEndpointInput struct {
 	// The IDs of the security groups to associate with the Verified Access endpoint.
 	SecurityGroupIds []string
 
+	// Options for server side encryption.
+	SseSpecification *types.VerifiedAccessSseSpecificationRequest
+
 	// The tags to assign to the Verified Access endpoint.
 	TagSpecifications []types.TagSpecification
 

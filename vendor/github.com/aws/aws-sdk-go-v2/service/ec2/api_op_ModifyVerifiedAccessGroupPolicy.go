@@ -10,6 +10,7 @@ import (
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	internalauth "github.com/aws/aws-sdk-go-v2/internal/auth"
+	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	smithyendpoints "github.com/aws/smithy-go/endpoints"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
@@ -33,11 +34,6 @@ func (c *Client) ModifyVerifiedAccessGroupPolicy(ctx context.Context, params *Mo
 
 type ModifyVerifiedAccessGroupPolicyInput struct {
 
-	// The status of the Verified Access policy.
-	//
-	// This member is required.
-	PolicyEnabled *bool
-
 	// The ID of the Verified Access group.
 	//
 	// This member is required.
@@ -57,6 +53,12 @@ type ModifyVerifiedAccessGroupPolicyInput struct {
 	// The Verified Access policy document.
 	PolicyDocument *string
 
+	// The status of the Verified Access policy.
+	PolicyEnabled *bool
+
+	// Options for server side encryption.
+	SseSpecification *types.VerifiedAccessSseSpecificationRequest
+
 	noSmithyDocumentSerde
 }
 
@@ -67,6 +69,9 @@ type ModifyVerifiedAccessGroupPolicyOutput struct {
 
 	// The status of the Verified Access policy.
 	PolicyEnabled *bool
+
+	// Describes the options in use for server side encryption.
+	SseSpecification *types.VerifiedAccessSseSpecificationResponse
 
 	// Metadata pertaining to the operation's result.
 	ResultMetadata middleware.Metadata

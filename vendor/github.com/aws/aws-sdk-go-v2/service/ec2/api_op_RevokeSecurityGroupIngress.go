@@ -26,10 +26,12 @@ import (
 // group rule has a description, you do not need to specify the description to
 // revoke the rule. For a default VPC, if the values you specify do not match the
 // existing rule's values, no error is returned, and the output describes the
-// security group rules that were not revoked. Amazon Web Services recommends that
-// you describe the security group to verify that the rules were removed. Rule
-// changes are propagated to instances within the security group as quickly as
-// possible. However, a small delay might occur.
+// security group rules that were not revoked. For a non-default VPC, if the values
+// you specify do not match the existing rule's values, an
+// InvalidPermission.NotFound client error is returned, and no rules are revoked.
+// Amazon Web Services recommends that you describe the security group to verify
+// that the rules were removed. Rule changes are propagated to instances within the
+// security group as quickly as possible. However, a small delay might occur.
 func (c *Client) RevokeSecurityGroupIngress(ctx context.Context, params *RevokeSecurityGroupIngressInput, optFns ...func(*Options)) (*RevokeSecurityGroupIngressOutput, error) {
 	if params == nil {
 		params = &RevokeSecurityGroupIngressInput{}

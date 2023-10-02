@@ -1,4 +1,4 @@
-package config
+package oc
 
 import (
 	"github.com/spf13/viper"

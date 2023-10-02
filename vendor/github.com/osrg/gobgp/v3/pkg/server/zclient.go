@@ -364,7 +364,7 @@ func (z *zebraClient) updatePathByNexthopCache(paths []*table.Path) {
 func (z *zebraClient) loop() {
 	w := z.server.watch([]watchOption{
 		watchBestPath(true),
-		watchPostUpdate(true, ""),
+		watchPostUpdate(true, "", ""),
 	}...)
 	defer w.Stop()
 
