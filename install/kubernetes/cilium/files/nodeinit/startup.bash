@@ -29,6 +29,15 @@ KUBELET_DEFAULTS_FILE="/etc/default/kubelet"
 if [[ -f "${GKE_KUBERNETES_BIN_DIR}/gke" ]] && [[ $(grep -cF -- '--container-runtime-endpoint' "${KUBELET_DEFAULTS_FILE}") == "1" ]]; then
   echo "GKE *_containerd flavor detected..."
 
+  # kubelet version string format is "Kubernetes v1.24-gke.900"
+  K8S_VERSION=$(kubelet --version)
+
+  # Helper to check if a version string, passed as first parameter, is greater than or
+  # equal the one passed as second parameter.
+  function version_gte() {
+    [[ "$(printf '%s\n' "${2}" "${1}" | sort -V | head -n1)" = "${2}" ]] && return
+  }
+
   # (GKE *_containerd) Upon node restarts, GKE's containerd images seem to reset
   # the /etc directory and our changes to the kubelet and Cilium's CNI
   # configuration are removed. This leaves room for containerd and its CNI to
@@ -60,6 +69,14 @@ set -euo pipefail
 CNI_CONF_DIR="/etc/cni/net.d"
 CONTAINERD_CONFIG="/etc/containerd/config.toml"
 
+# kubelet version string format is "Kubernetes v1.24-gke.900"
+K8S_VERSION=$(/home/kubernetes/bin/the-kubelet --version)
+# Helper to check if a version string, passed as first parameter, is greater than or
+# equal the one passed as second parameter.
+function version_gte() {
+	[[ "$(printf '%s\n' "${2}" "${1}" | sort -V | head -n1)" = "${2}" ]] && return
+}
+
 # Only stop and start containerd if the Cilium CNI configuration does not exist,
 # or if the 'conf_template' property is present in the containerd config file,
 # in order to avoid unnecessarily restarting containerd.
@@ -84,23 +101,39 @@ then
   echo "Fixing containerd configuration"
   sed -Ei 's/^(\s+conf_template)/\#\1/g' "${CONTAINERD_CONFIG}"
 
+  if version_gte "${K8S_VERSION#"Kubernetes "}" "v1.24"; then
+    # Starting from GKE node version 1.24, containerd version used is 1.6.
+    # Since that version containerd no longer allows missing configuration for the CNI,
+    # not even for pods with hostNetwork set to true. Thus, we add a temporary one.
+    # This will be replaced with the real config by cni-install.sh script from the
+    # agent pod.
+    echo -e "{\n\t"cniVersion": "0.3.1",\n\t"name": "cilium",\n\t"type": "cilium-cni"\n}" > /etc/cni/net.d/05-cilium.conf
+  fi
+
   # Start containerd. It won't create it's CNI configuration file anymore.
   echo "Enabling and starting containerd"
   systemctl enable --now containerd
 fi
 
-# Become the real kubelet, and pass it some additionally required flags (and
-# place these last so they have precedence).
-exec /home/kubernetes/bin/the-kubelet "${@}" --network-plugin=cni --cni-bin-dir={{ .Values.cni.binPath }}
+# Become the real kubelet and, for k8s < 1.24, pass it additional dockershim
+# flags (and place these last so they have precedence).
+if version_gte "${K8S_VERSION#"Kubernetes "}" "v1.24"; then
+  exec /home/kubernetes/bin/the-kubelet "${@}"
+else
+  exec /home/kubernetes/bin/the-kubelet "${@}" --network-plugin=cni --cni-bin-dir={{ .Values.cni.binPath }}
+fi
 EOF
   else
     echo "Kubelet wrapper already exists, skipping..."
   fi
 else
-  # (Generic) Alter the kubelet configuration to run in CNI mode
-  echo "Changing kubelet configuration to --network-plugin=cni --cni-bin-dir={{ .Values.cni.binPath }}"
-  mkdir -p {{ .Values.cni.binPath }}
-  sed -i "s:--network-plugin=kubenet:--network-plugin=cni\ --cni-bin-dir={{ .Values.cni.binPath }}:g" "${KUBELET_DEFAULTS_FILE}"
+  # Dockershim flags have been removed since k8s 1.24.
+  if ! version_gte "${K8S_VERSION#"Kubernetes "}" "v1.24"; then
+    # (Generic) Alter the kubelet configuration to run in CNI mode
+    echo "Changing kubelet configuration to --network-plugin=cni --cni-bin-dir={{ .Values.cni.binPath }}"
+    mkdir -p {{ .Values.cni.binPath }}
+    sed -i "s:--network-plugin=kubenet:--network-plugin=cni\ --cni-bin-dir={{ .Values.cni.binPath }}:g" "${KUBELET_DEFAULTS_FILE}"
+  fi
 fi
 echo "Restarting the kubelet..."
 systemctl restart kubelet
