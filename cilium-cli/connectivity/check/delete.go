@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium-cli/status"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 func (ct *ConnectivityTest) generateAgentDaemonSet() *appsv1.DaemonSet {
@@ -104,7 +105,7 @@ func (ct *ConnectivityTest) deleteCiliumPods(ctx context.Context) error {
 
 	debugLogFeatures := func(header string) {
 		if ct.debug() {
-			fs := make([]Feature, 0, len(ct.Features))
+			fs := make([]features.Feature, 0, len(ct.Features))
 			for f := range ct.Features {
 				fs = append(fs, f)
 			}
@@ -120,10 +121,10 @@ func (ct *ConnectivityTest) deleteCiliumPods(ctx context.Context) error {
 	// Update list node nodes without Cilium
 	ct.UpdateFeaturesFromNodes(ctx)
 	// Disable tests requiring L7 proxy to run, the L7 proxy isn't running anymore.
-	ct.ForceDisableFeature(FeatureL7Proxy)
+	ct.ForceDisableFeature(features.L7Proxy)
 	// Disable tests requiring health checking, agent and thus cilium-health isn't running on
 	// nodes where Cilium pods were deleted.
-	ct.ForceDisableFeature(FeatureHealthChecking)
+	ct.ForceDisableFeature(features.HealthChecking)
 	debugLogFeatures("Features after update:")
 
 	return nil

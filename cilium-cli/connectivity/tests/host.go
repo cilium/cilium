@@ -75,9 +75,9 @@ func (s *podToHostPort) Name() string {
 	return "pod-to-hostport"
 }
 
-func (s *podToHostPort) Requirements() []check.FeatureRequirement {
-	return []check.FeatureRequirement{
-		check.RequireFeatureEnabled(check.FeatureHostPort),
+func (s *podToHostPort) Requirements() []features.Requirement {
+	return []features.Requirement{
+		features.RequireEnabled(features.HostPort),
 	}
 }
 

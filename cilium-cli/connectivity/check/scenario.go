@@ -3,7 +3,11 @@
 
 package check
 
-import "context"
+import (
+	"context"
+
+	"github.com/cilium/cilium-cli/utils/features"
+)
 
 // Scenario is implemented by all test scenarios like pod-to-pod, pod-to-world, etc.
 type Scenario interface {
@@ -19,5 +23,5 @@ type Scenario interface {
 // scenario is skipped
 type ConditionalScenario interface {
 	Scenario
-	Requirements() []FeatureRequirement
+	Requirements() []features.Requirement
 }
