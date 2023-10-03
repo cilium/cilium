@@ -248,8 +248,7 @@ func TestGetAnnotationTopologyAwareHints(t *testing.T) {
 			corev1.AnnotationTopologyMode:                 "deprecated",
 		},
 	}}
-	require.Equal(t, true, getAnnotationTopologyAwareHints(svc))
-
+	require.True(t, getAnnotationTopologyAwareHints(svc))
 }
 
 func TestParseServiceID(t *testing.T) {
@@ -414,6 +413,7 @@ func TestParseService(t *testing.T) {
 		LoadBalancerIPs:          map[string]net.IP{},
 		Type:                     loadbalancer.SVCTypeLoadBalancer,
 		TopologyAware:            true,
+		Annotations:              map[string]string{"service.kubernetes.io/topology-aware-hints": "auto"},
 	}, svc)
 }
 
@@ -453,7 +453,8 @@ func TestServiceUniquePorts(t *testing.T) {
 			expected: map[uint16]bool{
 				1: true,
 				2: true,
-			}},
+			},
+		},
 	}
 
 	for _, m := range matrix {

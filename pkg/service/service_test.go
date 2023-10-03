@@ -4,9 +4,11 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"net"
 	"net/netip"
+	"sync"
 	"syscall"
 	"testing"
 
@@ -218,7 +220,7 @@ func setupManagerTestSuite(tb testing.TB) *ManagerTestSuite {
 }
 
 func (m *ManagerTestSuite) newServiceMock(lbmap datapathTypes.LBMap) {
-	m.svc = newService(&FakeMonitorAgent{}, lbmap, nil)
+	m.svc = newService(&FakeMonitorAgent{}, lbmap, nil, nil)
 	m.svc.backendConnectionHandler = testsockets.NewMockSockets(make([]*testsockets.MockSocket, 0))
 }
 
@@ -728,7 +730,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			lbmap := mockmaps.NewLBMockMap()
-			svc := newService(&FakeMonitorAgent{}, lbmap, nil)
+			svc := newService(&FakeMonitorAgent{}, lbmap, nil, nil)
 
 			_, id1, err := svc.upsertService(service("foo", "bar", "172.16.0.1", backendAddrs...))
 			require.NoError(t, err, "Failed to upsert service")
@@ -738,7 +740,7 @@ func TestRestoreServiceWithStaleBackends(t *testing.T) {
 			require.ElementsMatch(t, backendAddrs, toBackendAddrs(maps.Values(lbmap.BackendByID)), "lbmap not populated correctly")
 
 			// Recreate the Service structure, but keep the lbmap to restore services from
-			svc = newService(&FakeMonitorAgent{}, lbmap, nil)
+			svc = newService(&FakeMonitorAgent{}, lbmap, nil, nil)
 			require.NoError(t, svc.RestoreServices(), "Failed to restore services")
 
 			// Simulate a set of service updates. Until synchronization completes, a given service
@@ -1815,7 +1817,7 @@ func TestUpdateBackendsState(t *testing.T) {
 	updated := []*lb.Backend{backends[0]}
 	updated[0].State = lb.BackendStateQuarantined
 
-	err := m.svc.UpdateBackendsState(updated)
+	svcs, err := m.svc.UpdateBackendsState(updated)
 
 	require.Nil(t, err)
 	// Both the services are updated with the update backend state.
@@ -1828,6 +1830,7 @@ func TestUpdateBackendsState(t *testing.T) {
 	require.Equal(t, 1, m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 	require.Equal(t, 1, m.lbmap.SvcActiveBackendsCount[uint16(id2)])
 	require.Equal(t, len(backends), len(m.lbmap.BackendByID))
+	require.ElementsMatch(t, svcs, []lb.L3n4Addr{p1.Frontend.L3n4Addr, p2.Frontend.L3n4Addr})
 	// Updated backend states are persisted in the map.
 	require.Equal(t, lb.BackendStateQuarantined, m.lbmap.BackendByID[1].State)
 	require.Equal(t, lb.BackendStateActive, m.lbmap.BackendByID[2].State)
@@ -1836,7 +1839,7 @@ func TestUpdateBackendsState(t *testing.T) {
 	updated = []*lb.Backend{backends[0]}
 	updated[0].State = lb.BackendStateActive
 
-	err = m.svc.UpdateBackendsState(updated)
+	svcs, err = m.svc.UpdateBackendsState(updated)
 
 	require.Nil(t, err)
 	// Both the services are updated with the update backend state.
@@ -1849,6 +1852,7 @@ func TestUpdateBackendsState(t *testing.T) {
 	require.Equal(t, len(backends), m.lbmap.SvcActiveBackendsCount[uint16(id1)])
 	require.Equal(t, len(backends), m.lbmap.SvcActiveBackendsCount[uint16(id2)])
 	require.Equal(t, len(backends), len(m.lbmap.BackendByID))
+	require.ElementsMatch(t, svcs, []lb.L3n4Addr{p1.Frontend.L3n4Addr, p2.Frontend.L3n4Addr})
 	// Updated backend states are persisted in the map.
 	require.Equal(t, lb.BackendStateActive, m.lbmap.BackendByID[1].State)
 	require.Equal(t, lb.BackendStateActive, m.lbmap.BackendByID[2].State)
@@ -1890,7 +1894,7 @@ func TestRestoreServiceWithBackendStates(t *testing.T) {
 	backends[0].State = lb.BackendStateQuarantined
 	backends[1].State = lb.BackendStateMaintenance
 	updates = append(updates, backends[0], backends[1])
-	err = m.svc.UpdateBackendsState(updates)
+	_, err = m.svc.UpdateBackendsState(updates)
 
 	require.Nil(t, err)
 
@@ -2038,7 +2042,7 @@ func TestUpdateBackendsStateWithBackendSharedAcrossServices(t *testing.T) {
 	require.Equal(t, lb.BackendStateMaintenance, m.svc.backendByHash[hash2].State)
 
 	backends[1].State = lb.BackendStateMaintenance
-	err = m.svc.UpdateBackendsState(backends)
+	_, err = m.svc.UpdateBackendsState(backends)
 
 	require.Nil(t, err)
 	require.Equal(t, lb.BackendStateMaintenance, m.svc.backendByHash[hash1].State)
@@ -2075,7 +2079,7 @@ func TestSyncNodePortFrontends(t *testing.T) {
 	require.Equal(t, true, ok)
 
 	// With a new frontend addresses services should be re-created.
-	nodeAddrs := sets.New[netip.Addr](
+	nodeAddrs := sets.New(
 		frontend1.AddrCluster.Addr(),
 		frontend2.AddrCluster.Addr(),
 		// IPv6 address should be ignored initially without IPv6 surrogate
@@ -2257,7 +2261,7 @@ func TestRestoreServicesWithLeakedBackends(t *testing.T) {
 	m.svc.lbmap.AddBackend(backend5, backend5.L3n4Addr.IsIPv6())
 	require.Equal(t, len(backends)+4, len(m.lbmap.BackendByID))
 	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
-	m.svc = newService(&FakeMonitorAgent{}, lbmap, nil)
+	m.svc = newService(&FakeMonitorAgent{}, lbmap, nil, nil)
 
 	// Restore services from lbmap
 	err := m.svc.RestoreServices()
@@ -2379,4 +2383,194 @@ func (f *FakeMonitorAgent) SendEvent(typ int, event interface{}) error {
 
 func (f *FakeMonitorAgent) State() *models.MonitorStatus {
 	return nil
+}
+
+func TestHealthCheckCB(t *testing.T) {
+	m := setupManagerTestSuite(t)
+
+	backends := make([]*lb.Backend, len(backends1))
+	backends[0] = backends1[0].DeepCopy()
+	backends[1] = backends1[1].DeepCopy()
+	p1 := &lb.SVC{
+		Frontend: frontend1,
+		Backends: backends,
+		Type:     lb.SVCTypeClusterIP,
+		Name:     lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+	}
+
+	_, id1, err1 := m.svc.UpsertService(p1)
+
+	require.NoError(t, err1)
+	require.Equal(t, id1, lb.ID(1))
+	require.Equal(t, len(m.lbmap.ServiceByID[uint16(id1)].Backends), len(backends))
+	require.Equal(t, len(m.lbmap.BackendByID), len(backends))
+	require.Equal(t, m.svc.svcByID[id1].backends[0].State, lb.BackendStateActive)
+
+	be := backends[0]
+	m.svc.HealthCheckCallback(HealthCheckCBBackendEvent,
+		HealthCheckCBBackendEventData{
+			SvcAddr: frontend1.L3n4Addr,
+			BeAddr:  be.L3n4Addr,
+			BeState: lb.BackendStateQuarantined,
+		})
+
+	require.Equal(t, len(m.lbmap.BackendByID), len(backends))
+	require.Equal(t, m.svc.svcByID[id1].backends[0].State, lb.BackendStateQuarantined)
+	require.Equal(t, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 1)
+}
+
+func TestNotifyHealthCheckUpdatesSubscriber(t *testing.T) {
+	m := setupManagerTestSuite(t)
+
+	backends := make([]*lb.Backend, len(backends1))
+	backends[0] = backends1[0].DeepCopy()
+	backends[1] = backends1[1].DeepCopy()
+	// Add two services with common backend.
+	p1 := &lb.SVC{
+		Frontend: frontend1,
+		Backends: backends,
+		Type:     lb.SVCTypeClusterIP,
+		Name:     lb.ServiceName{Name: "svc1", Namespace: "ns1"},
+	}
+	p2 := &lb.SVC{
+		Frontend: frontend2,
+		Backends: backends,
+		Type:     lb.SVCTypeClusterIP,
+		Name:     lb.ServiceName{Name: "svc2", Namespace: "ns2"},
+	}
+	cbCh1 := make(chan struct{})
+	cbCh2 := make(chan struct{})
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	// Ensure that callbacks are received for all the services.
+	cb := func(svcInfo HealthUpdateSvcInfo) {
+		require.Equal(t, len(svcInfo.ActiveBackends), 1)
+		require.Equal(t, svcInfo.ActiveBackends[0].L3n4Addr, backends[1].L3n4Addr)
+		require.Equal(t, svcInfo.ActiveBackends[0].State, lb.BackendStateActive)
+		if svcInfo.Name == p1.Name {
+			require.Equal(t, svcInfo.Addr, frontend1.L3n4Addr)
+			require.Equal(t, svcInfo.SvcType, lb.SVCTypeClusterIP)
+			// No duplicate updates
+			close(cbCh1)
+		} else if svcInfo.Name == p2.Name {
+			require.Equal(t, svcInfo.Addr, frontend2.L3n4Addr)
+			require.Equal(t, svcInfo.SvcType, lb.SVCTypeClusterIP)
+			// No duplicate updates
+			close(cbCh2)
+		} else {
+			t.Fatalf("Unexpected service info update %v", svcInfo)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	m.svc.Subscribe(ctx, cb)
+
+	_, id1, err1 := m.svc.UpsertService(p1)
+
+	require.NoError(t, err1)
+	require.Equal(t, id1, lb.ID(1))
+	require.Equal(t, len(m.lbmap.ServiceByID[uint16(id1)].Backends), len(backends))
+	require.Equal(t, len(m.lbmap.BackendByID), len(backends))
+	require.Equal(t, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 2)
+
+	_, id2, err2 := m.svc.UpsertService(p2)
+
+	require.NoError(t, err2)
+	require.Equal(t, id2, lb.ID(2))
+	require.Equal(t, len(m.lbmap.ServiceByID[uint16(id2)].Backends), len(backends))
+	require.Equal(t, len(m.lbmap.BackendByID), len(backends))
+	require.Equal(t, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 2)
+
+	go func() {
+		_, ok := <-cbCh1
+		// The channel is closed in the subscriber callback.
+		assert.False(t, ok)
+		wg.Done()
+	}()
+	go func() {
+		_, ok := <-cbCh2
+		// The channel is closed in the subscriber callback.
+		assert.False(t, ok)
+		wg.Done()
+	}()
+
+	// Health check CB with one of the backends quarantined
+	be := backends[0]
+	m.svc.HealthCheckCallback(HealthCheckCBBackendEvent,
+		HealthCheckCBBackendEventData{
+			SvcAddr: frontend1.L3n4Addr,
+			BeAddr:  be.L3n4Addr,
+			BeState: lb.BackendStateQuarantined,
+		})
+	m.svc.HealthCheckCallback(HealthCheckCBBackendEvent,
+		HealthCheckCBBackendEventData{
+			SvcAddr: frontend2.L3n4Addr,
+			BeAddr:  be.L3n4Addr,
+			BeState: lb.BackendStateQuarantined,
+		})
+
+	require.Equal(t, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 1)
+
+	wg.Wait()
+
+	// Subscriber stops callbacks.
+	cancel()
+	ctx.Done()
+
+	be = backends[0]
+	m.svc.HealthCheckCallback(HealthCheckCBBackendEvent,
+		HealthCheckCBBackendEventData{
+			SvcAddr: frontend1.L3n4Addr,
+			BeAddr:  be.L3n4Addr,
+			BeState: lb.BackendStateActive,
+		})
+	require.Equal(t, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 2)
+
+	// Subscriber callback is not executed.
+
+	// Test HealthCheckCBSvcEvent.
+	// Add a service with a quarantined backend.
+	backends = []*lb.Backend{
+		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.20"), 8080),
+		lb.NewBackend(0, lb.TCP, cmtypes.MustParseAddrCluster("10.0.0.21"), 8080),
+	}
+	backends[0].State = lb.BackendStateQuarantined
+	frontendFoo := *lb.NewL3n4AddrID(lb.TCP, cmtypes.MustParseAddrCluster("1.1.1.11"), 80, lb.ScopeExternal, 0)
+	p1 = &lb.SVC{
+		Frontend: frontendFoo,
+		Backends: backends,
+		Type:     lb.SVCTypeClusterIP,
+		Name:     lb.ServiceName{Name: "svc10", Namespace: "ns1"},
+	}
+	cbCh1 = make(chan struct{})
+	cb = func(svcInfo HealthUpdateSvcInfo) {
+		if svcInfo.Name == p1.Name {
+			require.Equal(t, svcInfo.Addr, frontendFoo.L3n4Addr)
+			require.Equal(t, svcInfo.SvcType, lb.SVCTypeClusterIP)
+			require.Equal(t, len(svcInfo.ActiveBackends), 1)
+			require.Equal(t, svcInfo.ActiveBackends[0].L3n4Addr, backends[1].L3n4Addr)
+			require.Equal(t, svcInfo.ActiveBackends[0].State, lb.BackendStateActive)
+			// No duplicate updates
+			close(cbCh1)
+		}
+	}
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+	m.svc.Subscribe(ctx, cb)
+
+	_, id1, err1 = m.svc.UpsertService(p1)
+
+	require.Nil(t, err1)
+	require.Equal(t, id1, lb.ID(3))
+	require.Equal(t, len(m.lbmap.ServiceByID[uint16(id1)].Backends), len(backends))
+	require.Equal(t, m.lbmap.SvcActiveBackendsCount[uint16(id1)], 1)
+
+	// Send a CB service event
+	m.svc.HealthCheckCallback(HealthCheckCBSvcEvent,
+		HealthCheckCBSvcEventData{
+			SvcAddr: p1.Frontend.L3n4Addr,
+		})
+
+	// The subscriber callback function asserts expected callbacks, and also
+	// closes the channel.
+	<-cbCh1
 }
