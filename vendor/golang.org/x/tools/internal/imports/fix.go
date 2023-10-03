@@ -13,6 +13,7 @@ import (
 	"go/build"
 	"go/parser"
 	"go/token"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path"
@@ -26,6 +27,7 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/tools/go/ast/astutil"
+	"golang.org/x/tools/internal/event"
 	"golang.org/x/tools/internal/gocommand"
 	"golang.org/x/tools/internal/gopathwalk"
 )
@@ -106,7 +108,7 @@ func parseOtherFiles(fset *token.FileSet, srcDir, filename string) []*ast.File {
 	considerTests := strings.HasSuffix(filename, "_test.go")
 
 	fileBase := filepath.Base(filename)
-	packageFileInfos, err := ioutil.ReadDir(srcDir)
+	packageFileInfos, err := os.ReadDir(srcDir)
 	if err != nil {
 		return nil
 	}
@@ -414,9 +416,16 @@ func (p *pass) fix() ([]*ImportFix, bool) {
 			})
 		}
 	}
+	// Collecting fixes involved map iteration, so sort for stability. See
+	// golang/go#59976.
+	sortFixes(fixes)
 
+	// collect selected fixes in a separate slice, so that it can be sorted
+	// separately. Note that these fixes must occur after fixes to existing
+	// imports. TODO(rfindley): figure out why.
+	var selectedFixes []*ImportFix
 	for _, imp := range selected {
-		fixes = append(fixes, &ImportFix{
+		selectedFixes = append(selectedFixes, &ImportFix{
 			StmtInfo: ImportInfo{
 				Name:       p.importSpecName(imp),
 				ImportPath: imp.ImportPath,
@@ -425,8 +434,25 @@ func (p *pass) fix() ([]*ImportFix, bool) {
 			FixType:   AddImport,
 		})
 	}
+	sortFixes(selectedFixes)
 
-	return fixes, true
+	return append(fixes, selectedFixes...), true
+}
+
+func sortFixes(fixes []*ImportFix) {
+	sort.Slice(fixes, func(i, j int) bool {
+		fi, fj := fixes[i], fixes[j]
+		if fi.StmtInfo.ImportPath != fj.StmtInfo.ImportPath {
+			return fi.StmtInfo.ImportPath < fj.StmtInfo.ImportPath
+		}
+		if fi.StmtInfo.Name != fj.StmtInfo.Name {
+			return fi.StmtInfo.Name < fj.StmtInfo.Name
+		}
+		if fi.IdentName != fj.IdentName {
+			return fi.IdentName < fj.IdentName
+		}
+		return fi.FixType < fj.FixType
+	})
 }
 
 // importSpecName gets the import name of imp in the import spec.
@@ -519,7 +545,7 @@ func (p *pass) addCandidate(imp *ImportInfo, pkg *packageInfo) {
 var fixImports = fixImportsDefault
 
 func fixImportsDefault(fset *token.FileSet, f *ast.File, filename string, env *ProcessEnv) error {
-	fixes, err := getFixes(fset, f, filename, env)
+	fixes, err := getFixes(context.Background(), fset, f, filename, env)
 	if err != nil {
 		return err
 	}
@@ -529,7 +555,7 @@ func fixImportsDefault(fset *token.FileSet, f *ast.File, filename string, env *P
 
 // getFixes gets the import fixes that need to be made to f in order to fix the imports.
 // It does not modify the ast.
-func getFixes(fset *token.FileSet, f *ast.File, filename string, env *ProcessEnv) ([]*ImportFix, error) {
+func getFixes(ctx context.Context, fset *token.FileSet, f *ast.File, filename string, env *ProcessEnv) ([]*ImportFix, error) {
 	abs, err := filepath.Abs(filename)
 	if err != nil {
 		return nil, err
@@ -583,7 +609,7 @@ func getFixes(fset *token.FileSet, f *ast.File, filename string, env *ProcessEnv
 
 	// Go look for candidates in $GOPATH, etc. We don't necessarily load
 	// the real exports of sibling imports, so keep assuming their contents.
-	if err := addExternalCandidates(p, p.missingRefs, filename); err != nil {
+	if err := addExternalCandidates(ctx, p, p.missingRefs, filename); err != nil {
 		return nil, err
 	}
 
@@ -1031,7 +1057,10 @@ type scanCallback struct {
 	exportsLoaded func(pkg *pkg, exports []string)
 }
 
-func addExternalCandidates(pass *pass, refs references, filename string) error {
+func addExternalCandidates(ctx context.Context, pass *pass, refs references, filename string) error {
+	ctx, done := event.Start(ctx, "imports.addExternalCandidates")
+	defer done()
+
 	var mu sync.Mutex
 	found := make(map[string][]pkgDistance)
 	callback := &scanCallback{
@@ -1441,11 +1470,11 @@ func VendorlessPath(ipath string) string {
 
 func loadExportsFromFiles(ctx context.Context, env *ProcessEnv, dir string, includeTest bool) (string, []string, error) {
 	// Look for non-test, buildable .go files which could provide exports.
-	all, err := ioutil.ReadDir(dir)
+	all, err := os.ReadDir(dir)
 	if err != nil {
 		return "", nil, err
 	}
-	var files []os.FileInfo
+	var files []fs.DirEntry
 	for _, fi := range all {
 		name := fi.Name()
 		if !strings.HasSuffix(name, ".go") || (!includeTest && strings.HasSuffix(name, "_test.go")) {
