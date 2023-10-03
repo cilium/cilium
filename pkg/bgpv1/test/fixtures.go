@@ -141,6 +141,9 @@ func newFixture(conf fixtureConfig) *fixture {
 		// endpoints
 		cell.Provide(k8sPkg.EndpointsResource),
 
+		// CiliumLoadBalancerIPPool
+		cell.Provide(k8sPkg.LBIPPoolsResource),
+
 		// cilium node
 		cell.Provide(func(lc hive.Lifecycle, c k8sClient.Clientset) daemon_k8s.LocalCiliumNodeResource {
 			store := resource.New[*cilium_api_v2.CiliumNode](
@@ -192,14 +195,14 @@ func newFixture(conf fixtureConfig) *fixture {
 	return f
 }
 
-func setupSingleNeighbor(ctx context.Context, f *fixture) error {
+func setupSingleNeighbor(ctx context.Context, f *fixture, peerASN uint32) error {
 	f.config.policy.Spec.VirtualRouters[0] = cilium_api_v2alpha1.CiliumBGPVirtualRouter{
 		LocalASN:      int64(ciliumASN),
 		ExportPodCIDR: pointer.Bool(true),
 		Neighbors: []cilium_api_v2alpha1.CiliumBGPNeighbor{
 			{
 				PeerAddress: dummies[instance1Link].ipv4.String(),
-				PeerASN:     int64(gobgpASN),
+				PeerASN:     int64(peerASN),
 			},
 		},
 	}
