@@ -1025,6 +1025,8 @@ hubble:
       labels: {}
       # -- Annotations to add to ServiceMonitor hubble
       annotations: {}
+      # -- jobLabel to add for ServiceMonitor hubble
+      jobLabel: ""
       # -- Interval for scrape metrics.
       interval: "10s"
       # -- Relabeling configs for the ServiceMonitor hubble
@@ -1849,6 +1851,8 @@ prometheus:
     labels: {}
     # -- Annotations to add to ServiceMonitor cilium-agent
     annotations: {}
+    # -- jobLabel to add for ServiceMonitor cilium-agent
+    jobLabel: ""
     # -- Interval for scrape metrics.
     interval: "10s"
     # -- Specify the Kubernetes namespace where Prometheus expects to find
@@ -2483,6 +2487,8 @@ operator:
       labels: {}
       # -- Annotations to add to ServiceMonitor cilium-operator
       annotations: {}
+      # -- jobLabel to add for ServiceMonitor cilium-operator
+      jobLabel: ""
       # -- Interval for scrape metrics.
       interval: "10s"
       # -- Relabeling configs for the ServiceMonitor cilium-operator

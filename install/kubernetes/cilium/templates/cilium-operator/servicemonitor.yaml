@@ -42,4 +42,7 @@ spec:
     {{- end }}
   targetLabels:
   - io.cilium/app
+{{- if .Values.operator.prometheus.serviceMonitor.jobLabel }}
+  jobLabel: {{ .Values.operator.prometheus.serviceMonitor.jobLabel | quote }}
+{{- end }}
 {{- end }}
