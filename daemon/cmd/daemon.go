@@ -34,7 +34,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
-	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
@@ -296,8 +295,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	bootstrapStats.daemonInit.Start()
 
 	// Validate configuration options that depend on other cells.
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !params.Clientset.IsEnabled() &&
-		option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
+	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !params.Clientset.IsEnabled() {
 		return nil, nil, fmt.Errorf("CRD Identity allocation mode requires k8s to be configured")
 	}
 
@@ -831,15 +829,13 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		d.ipam.IPv4Allocator.RestoreFinished()
 	}
 
-	if option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
-		// This needs to be done after the node addressing has been configured
-		// as the node address is required as suffix.
-		// well known identities have already been initialized above.
-		// Ignore the channel returned by this function, as we want the global
-		// identity allocator to run asynchronously.
-		realIdentityAllocator := d.identityAllocator
-		realIdentityAllocator.InitIdentityAllocator(params.Clientset)
-	}
+	// This needs to be done after the node addressing has been configured
+	// as the node address is required as suffix.
+	// well known identities have already been initialized above.
+	// Ignore the channel returned by this function, as we want the global
+	// identity allocator to run asynchronously.
+	realIdentityAllocator := d.identityAllocator
+	realIdentityAllocator.InitIdentityAllocator(params.Clientset)
 
 	// Must be done at least after initializing BPF LB-related maps
 	// (lbmap.Init()).
