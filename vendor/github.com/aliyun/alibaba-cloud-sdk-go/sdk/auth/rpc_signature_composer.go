@@ -52,7 +52,7 @@ func completeRpcSignParams(request requests.AcsRequest, signer Signer, regionId 
 	queryParams["SignatureMethod"] = signer.GetName()
 	queryParams["SignatureType"] = signer.GetType()
 	queryParams["SignatureVersion"] = signer.GetVersion()
-	queryParams["SignatureNonce"] = hookGetNonce(utils.GetUUID)
+	queryParams["SignatureNonce"] = hookGetNonce(utils.GetNonce)
 	queryParams["AccessKeyId"], err = signer.GetAccessKeyId()
 
 	if err != nil {
