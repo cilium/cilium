@@ -81,7 +81,7 @@ function monitor_start {
   local save=$-
   set +e
   log "starting monitor and dumping contents to $DUMP_FILE"
-  cilium monitor -v $@ > $DUMP_FILE &
+  cilium-dbg monitor -v $@ > $DUMP_FILE &
   MONITOR_PID=$!
   restore_flag $save "e"
 }
@@ -90,7 +90,7 @@ function monitor_resume {
   local save=$-
   set +e
   log "resuming monitor and dumping contents to $DUMP_FILE"
-  cilium monitor -v $@ >> $DUMP_FILE &
+  cilium-dbg monitor -v $@ >> $DUMP_FILE &
   MONITOR_PID=$!
   restore_flag $save "e"
 }
@@ -277,7 +277,7 @@ function wait_for_kubectl_cilium_status {
   namespace=$1
   pod=$2
   local NUM_DESIRED="1"
-  local CMD="kubectl -n ${namespace} exec ${pod} -- cilium status | grep "Cilium:" | grep -c 'OK' || true"
+  local CMD="kubectl -n ${namespace} exec ${pod} -- cilium-dbg status | grep "Cilium:" | grep -c 'OK' || true"
   local INFO_CMD="true"
   local MAX_MINS="2"
   local ERROR_OUTPUT="Timeout while waiting for Cilium to be ready"
@@ -603,25 +603,25 @@ function dump_cli_output_k8s {
   kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg endpoint list > ${DIR}/${POD}_endpoint_list.txt
   local EPS=$(kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg endpoint list | tail -n+3 | grep '^[0-9]' | awk '{print $1}')
   for ep in ${EPS} ; do
-    kubectl exec -n ${NAMESPACE} ${POD} -- cilium endpoint get ${ep} > ${DIR}/${POD}_endpoint_get_${ep}.txt
-    kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf policy get ${ep} > ${DIR}/${POD}_bpf_policy_list_${ep}.txt
+    kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg endpoint get ${ep} > ${DIR}/${POD}_endpoint_get_${ep}.txt
+    kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg bpf policy get ${ep} > ${DIR}/${POD}_bpf_policy_list_${ep}.txt
   done
-  kubectl exec -n ${NAMESPACE} ${POD} -- cilium service list > ${DIR}/${POD}_service_list.txt
-  local SVCS=$(kubectl exec -n ${NAMESPACE} ${POD} -- cilium service list | tail -n+2 | awk '{print $1}')
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg service list > ${DIR}/${POD}_service_list.txt
+  local SVCS=$(kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg service list | tail -n+2 | awk '{print $1}')
   for svc in ${SVCS} ; do
-    kubectl exec -n ${NAMESPACE} ${POD} -- cilium service get ${svc} > ${DIR}/${POD}_service_get_${svc}.txt
+    kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg service get ${svc} > ${DIR}/${POD}_service_get_${svc}.txt
   done
   local IDS=$(kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg endpoint list | tail -n+3 | awk '{print $4}' | grep -o '[0-9]*')
   for id in ${IDS} ; do
-    kubectl exec -n ${NAMESPACE} ${POD} -- cilium identity get ${id} > ${DIR}/${POD}_identity_get_${id}.txt
+    kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg identity get ${id} > ${DIR}/${POD}_identity_get_${id}.txt
   done
-  kubectl exec -n ${NAMESPACE} ${POD} -- cilium config > ${DIR}/${POD}_config.txt
-  kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf lb list > ${DIR}/${POD}_bpf_lb_list.txt
-  kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf ct list global > ${DIR}/${POD}_bpf_ct_list_global.txt
-  kubectl exec -n ${NAMESPACE} ${POD} -- cilium bpf tunnel list > ${DIR}/${POD}_bpf_tunnel_list.txt
-  kubectl exec -n ${NAMESPACE} ${POD} -- cilium policy get > ${DIR}/${POD}_policy_get.txt
-  kubectl exec -n ${NAMESPACE} ${POD} -- cilium status > ${DIR}/${POD}_status.txt
-  kubectl exec -n ${NAMESPACE} ${POD} -- cilium debuginfo > ${DIR}/${POD}_debuginfo.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg config > ${DIR}/${POD}_config.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg bpf lb list > ${DIR}/${POD}_bpf_lb_list.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg bpf ct list global > ${DIR}/${POD}_bpf_ct_list_global.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg bpf tunnel list > ${DIR}/${POD}_bpf_tunnel_list.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg policy get > ${DIR}/${POD}_policy_get.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg status > ${DIR}/${POD}_status.txt
+  kubectl exec -n ${NAMESPACE} ${POD} -- cilium-dbg debuginfo > ${DIR}/${POD}_debuginfo.txt
   local DEBUGTOOL_ARCHIVE=`kubectl exec -n ${NAMESPACE} ${POD} -- cilium-bugtool | grep ARCHIVE | awk '{ print $3}'`
   kubectl cp ${NAMESPACE}/${POD}:${DEBUGTOOL_ARCHIVE} ${DIR}/${POD}_bugtool.tar
 }
@@ -669,7 +669,7 @@ function wait_for_daemon_set_ready {
   until [[ "$found" -eq "$n_ds_expected" ]]; do
     if [[ $iter -gt $((5*60/$sleep_time)) ]]; then
       echo ""
-      log "Timeout while waiting for cilium agent"
+      log "Timeout while waiting for cilium-agent"
       print_k8s_cilium_logs
       exit 1
     else
@@ -746,13 +746,13 @@ function wait_for_service_ready_cilium_pod {
 
   log "Waiting for Cilium pod ${pod} to have services ready with frontend port: ${fe_port} and backend port: ${be_port}"
 
-  wait_specified_time_test "test \"\$(kubectl -n ${namespace} exec ${pod} -- cilium service list | awk '{ print \$2 }' | grep -c \":${fe_port}\")\" -ge \"1\"" "10"
-  wait_specified_time_test "test \"\$(kubectl -n ${namespace} exec ${pod} -- cilium service list | awk '{ print \$5 }' | grep -c \":${be_port}\")\" -ge \"1\"" "10"
+  wait_specified_time_test "test \"\$(kubectl -n ${namespace} exec ${pod} -- cilium-dbg service list | awk '{ print \$2 }' | grep -c \":${fe_port}\")\" -ge \"1\"" "10"
+  wait_specified_time_test "test \"\$(kubectl -n ${namespace} exec ${pod} -- cilium-dbg service list | awk '{ print \$5 }' | grep -c \":${be_port}\")\" -ge \"1\"" "10"
 
   log "Done waiting for Cilium pod ${pod} to have services ready with frontend port: ${fe_port} and backend port: ${be_port}"
 
   log "Listing all services:"
-  kubectl -n ${namespace} exec ${pod} -- cilium service list
+  kubectl -n ${namespace} exec ${pod} -- cilium-dbg service list
 }
 
 function k8s_apply_policy {
@@ -766,7 +766,7 @@ function k8s_apply_policy {
   local pods=$(kubectl -n $namespace get pods -l k8s-app=cilium | grep cilium- | awk '{print $1}')
 
   for pod in $pods; do
-    local rev=$(kubectl -n $namespace exec $pod -- cilium policy get | grep Revision: | awk '{print $2}')
+    local rev=$(kubectl -n $namespace exec $pod -- cilium-dbg policy get | grep Revision: | awk '{print $2}')
     currentRevison[$pod]=$rev
   done
 
@@ -781,7 +781,7 @@ function k8s_apply_policy {
   for pod in $pods; do
     local nextRev=$(expr ${currentRevison[$pod]} + 1)
     log "Waiting for agent $pod endpoints to get to revision $nextRev"
-    timeout 180s kubectl -n $namespace exec $pod -- cilium policy wait $nextRev
+    timeout 180s kubectl -n $namespace exec $pod -- cilium-dbg policy wait $nextRev
   done
 
   # Adding sleep as workaround for l7 stresstests

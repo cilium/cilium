@@ -115,8 +115,7 @@ var _ = Describe("K8sUpdates", func() {
 	})
 
 	AfterFailed(func() {
-		// TODO(joe): Switch to cilium-dbg after v1.16-dev.
-		kubectl.CiliumReport("cilium endpoint list")
+		kubectl.CiliumReport("cilium-dbg endpoint list")
 	})
 
 	JustAfterEach(func() {
