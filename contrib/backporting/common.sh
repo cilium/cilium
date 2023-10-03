@@ -82,3 +82,15 @@ get_branch_from_version() {
     fi
     echo "$branch"
 }
+
+# $1 - VERSION
+version_is_prerelease() {
+    case "$1" in
+        *pre*|*rc*|*snapshot*)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
