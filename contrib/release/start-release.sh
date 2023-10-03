@@ -22,18 +22,6 @@ usage() {
     logecho "--help     Print this help message"
 }
 
-# $1 - VERSION
-version_is_prerelease() {
-    case "$1" in
-        *pre*|*rc*|*snapshot*)
-            return 0
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-}
-
 handle_args() {
     if [ "$#" -gt 3 ]; then
         usage 2>&1
