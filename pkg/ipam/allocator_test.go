@@ -9,7 +9,6 @@ import (
 
 	. "github.com/cilium/checkmate"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/k8s/watchers/subscriber"
 	"github.com/cilium/cilium/pkg/mtu"
@@ -22,8 +21,7 @@ func (o *ownerMock) K8sEventReceived(resourceApiGroup, scope string, action stri
 func (o *ownerMock) K8sEventProcessed(scope string, action string, status bool) {}
 func (o *ownerMock) RegisterCiliumNodeSubscriber(s subscriber.CiliumNode)       {}
 
-func (o *ownerMock) UpdateCiliumNodeResource()                                          {}
-func (o *ownerMock) LocalAllocCIDRsUpdated(ipv4AllocCIDRs, ipv6AllocCIDRs []*cidr.CIDR) {}
+func (o *ownerMock) UpdateCiliumNodeResource() {}
 
 var mtuMock = mtu.NewConfiguration(0, false, false, false, false, 1500, nil)
 
