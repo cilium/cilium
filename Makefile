@@ -594,7 +594,7 @@ kind-image-fast: ## Build cilium, operator, clustermesh-apiserver and mount them
 	$(MAKE) -C clustermesh-apiserver
 
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
-	    for node_name in $(shell kind get nodes -n "${cluster_name}"); do \
+	    for node_name in $$(kind get nodes -n "$$cluster_name"); do \
 			docker exec -ti $${node_name} mkdir -p "${dst}"; \
 			\
 			docker exec -ti $${node_name} rm -rf "${dst}/var/lib/cilium"; \
@@ -610,9 +610,31 @@ kind-image-fast: ## Build cilium, operator, clustermesh-apiserver and mount them
 			docker cp "./daemon/cilium-agent" $${node_name}:"${dst}"; \
 			docker exec -ti $${node_name} chmod +x "${dst}/cilium-agent"; \
 			\
+			kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=cilium --force; \
+		done; \
+	done
+
+.PHONY: kind-image-fast-operator
+kind-image-fast-operator: kind-ready build-operator ## Build cilium operator binary and copy it to all kind nodes.
+	$(eval dst:=/cilium-binaries)
+	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
+		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
+			docker exec -ti $${node_name} mkdir -p "${dst}"; \
+			\
 			docker exec -ti $${node_name} rm -f "${dst}/cilium-operator-generic"; \
 			docker cp "./operator/cilium-operator-generic" $${node_name}:"${dst}"; \
 			docker exec -ti $${node_name} chmod +x "${dst}/cilium-operator-generic"; \
+			\
+			kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l name=cilium-operator --force; \
+		done; \
+	done
+
+.PHONY: kind-image-fast-clustermesh-apiserver
+kind-image-fast-clustermesh-apiserver: kind-ready build-clustermesh-apiserver ## Build clustermesh-apiserver binary and copy it to all kind nodes.
+	$(eval dst:=/cilium-binaries)
+	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
+		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
+			docker exec -ti $${node_name} mkdir -p "${dst}"; \
 			\
 			docker exec -ti $${node_name} rm -f "${dst}/clustermesh-apiserver"; \
 			docker cp "./clustermesh-apiserver/clustermesh-apiserver" $${node_name}:"${dst}"; \
