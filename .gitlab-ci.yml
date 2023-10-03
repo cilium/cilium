@@ -10,6 +10,9 @@ variables:
   rules:
     # Automatically run the pipeline for all pushed tags
     - if: $CI_COMMIT_TAG
+  id_tokens:
+    DDSIGN_ID_TOKEN:
+      aud: image-integrity
   script:
     - set -x
     - builder=$(docker buildx create --use)
@@ -17,7 +20,9 @@ variables:
     # Construct valid --build-args arguments from the DOCKER_BUILD_ARGS variable
     - BUILD_ARGS=""; IFS=$'\n'; for arg in $DOCKER_BUILD_ARGS; do BUILD_ARGS+=" $(echo "--build-arg $arg")"; done; IFS=$' ';
     - IMAGE_TAG="registry.ddbuild.io/$IMAGE_NAME:$CI_COMMIT_TAG"
-    - docker buildx build --platform linux/amd64,linux/arm64 --tag $IMAGE_TAG --file $DOCKERFILE_PATH $BUILD_ARGS --label CILIUM_VERSION=$(cat VERSION) --label target=prod --push --target release $DOCKER_CONTEXT
+    - METADATA_FILE=$(mktemp)
+    - docker buildx build --platform linux/amd64,linux/arm64 --tag $IMAGE_TAG --file $DOCKERFILE_PATH $BUILD_ARGS --label CILIUM_VERSION=$(cat VERSION) --label target=prod --push --metadata-file $METADATA_FILE $DOCKER_CONTEXT
+    - ddsign sign $IMAGE_TAG --docker-metadata-file $METADATA_FILE
 
 build-docker-image-operator:
   <<: *build-docker-image
