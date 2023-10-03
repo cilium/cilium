@@ -27,8 +27,17 @@ type CounterVec interface {
 }
 
 type GaugeVec interface {
+	deletableVec
+
 	WithLabelValues(lvls ...string) prometheus.Gauge
 	prometheus.Collector
+}
+
+type deletableVec interface {
+	Delete(ll prometheus.Labels) bool
+	DeleteLabelValues(lvs ...string) bool
+	DeletePartialMatch(labels prometheus.Labels) int
+	Reset()
 }
 
 var (
@@ -130,6 +139,16 @@ type gaugeVec struct {
 	prometheus.Collector
 }
 
+func (*gaugeVec) Delete(ll prometheus.Labels) bool {
+	return false
+}
+func (*gaugeVec) DeleteLabelValues(lvs ...string) bool {
+	return false
+}
+func (*gaugeVec) DeletePartialMatch(labels prometheus.Labels) int {
+	return 0
+}
+func (*gaugeVec) Reset() {}
 func (gv *gaugeVec) WithLabelValues(lvls ...string) prometheus.Gauge {
 	return NoOpGauge
 }
