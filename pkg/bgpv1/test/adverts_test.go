@@ -5,6 +5,9 @@ package test
 
 import (
 	"context"
+	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,8 +20,10 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/testutils"
 
+	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 var (
@@ -148,7 +153,7 @@ func Test_PodCIDRAdvert(t *testing.T) {
 	defer cleanup()
 
 	// setup neighbor
-	err = setupSingleNeighbor(testCtx, fixture)
+	err = setupSingleNeighbor(testCtx, fixture, gobgpASN)
 	require.NoError(t, err)
 
 	// wait for peering to come up
@@ -355,7 +360,7 @@ func Test_PodIPPoolAdvert(t *testing.T) {
 	defer cleanup()
 
 	// setup neighbor
-	err = setupSingleNeighbor(testCtx, fixture)
+	err = setupSingleNeighbor(testCtx, fixture, gobgpASN)
 	require.NoError(t, err)
 
 	// wait for peering to establish
@@ -576,7 +581,7 @@ func Test_LBEgressAdvertisement(t *testing.T) {
 	defer cleanup()
 
 	// setup neighbor
-	err = setupSingleNeighbor(testCtx, fixture)
+	err = setupSingleNeighbor(testCtx, fixture, gobgpASN)
 	require.NoError(t, err)
 
 	// wait for peering to come up
@@ -621,4 +626,189 @@ func Test_LBEgressAdvertisement(t *testing.T) {
 			require.ElementsMatch(t, step.expectedRouteEvents, receivedEvents, step.description)
 		})
 	}
+}
+
+// Test_AdvertisedPathAttributes validates optional path attributes in advertised paths.
+func Test_AdvertisedPathAttributes(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	node.SetTestLocalNodeStore()
+	defer node.UnsetTestLocalNodeStore()
+
+	var steps = []struct {
+		description         string
+		op                  string // add or update
+		podCIDRs            []string
+		lbService           *lbSrvConfig
+		lbPool              *lbPoolConfig
+		advertiseAttributes []v2alpha1.CiliumBGPPathAttributes
+		expectedRouteEvent  routeEvent
+	}{
+		{
+			description: "advertise pod CIDR with standard community + non-default local pref",
+			op:          "add",
+			podCIDRs:    []string{"10.1.0.0/16"},
+			advertiseAttributes: []v2alpha1.CiliumBGPPathAttributes{
+				{
+					SelectorType: v2alpha1.PodCIDRSelectorName,
+					Communities: &v2alpha1.BGPCommunities{
+						Standard: []v2alpha1.BGPStandardCommunity{v2alpha1.BGPStandardCommunity("64125:100")},
+					},
+					LocalPreference: pointer.Int64(150),
+				},
+			},
+			expectedRouteEvent: routeEvent{
+				sourceASN:   ciliumASN,
+				prefix:      "10.1.0.0",
+				prefixLen:   16,
+				isWithdrawn: false,
+				extraPathAttributes: []bgp.PathAttributeInterface{
+					bgp.NewPathAttributeLocalPref(150),
+					bgp.NewPathAttributeCommunities([]uint32{parseCommunity("64125:100")}),
+				},
+			},
+		},
+		{
+			description: "advertise service IP with large community",
+			op:          "add",
+			lbService: &lbSrvConfig{
+				name:      "service-a",
+				ingressIP: "10.100.1.111",
+			},
+			lbPool: &lbPoolConfig{
+				name:  "pool-a",
+				cidrs: []string{"10.100.1.0/24"},
+			},
+			advertiseAttributes: []v2alpha1.CiliumBGPPathAttributes{
+				{
+					SelectorType: v2alpha1.CiliumLoadBalancerIPPoolSelectorName,
+					Communities: &v2alpha1.BGPCommunities{
+						Large: []v2alpha1.BGPLargeCommunity{v2alpha1.BGPLargeCommunity("64125:100:200")},
+					},
+				},
+			},
+			expectedRouteEvent: routeEvent{
+				sourceASN:   ciliumASN,
+				prefix:      "10.100.1.111",
+				prefixLen:   32,
+				isWithdrawn: false,
+				extraPathAttributes: []bgp.PathAttributeInterface{
+					bgp.NewPathAttributeLocalPref(100),
+					bgp.NewPathAttributeLargeCommunities([]*bgp.LargeCommunity{
+						{
+							ASN:        64125,
+							LocalData1: 100,
+							LocalData2: 200,
+						},
+					}),
+				},
+			},
+		},
+	}
+
+	testCtx, testDone := context.WithTimeout(context.Background(), maxTestDuration)
+	defer testDone()
+
+	// setup topology - iBGP (ASN == ciliumASN)
+	gobgpPeers, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConfIBGP}, newFixtureConf())
+	require.NoError(t, err)
+	require.Len(t, gobgpPeers, 1)
+	defer cleanup()
+
+	// setup neighbor - iBGP (ASN == ciliumASN)
+	err = setupSingleNeighbor(testCtx, fixture, ciliumASN)
+	require.NoError(t, err)
+
+	// wait for peering to come up
+	err = gobgpPeers[0].waitForSessionState(testCtx, []string{"ESTABLISHED"})
+	require.NoError(t, err)
+
+	// setup bgp policy with service selection
+	fixture.config.policy.Spec.VirtualRouters[0].ServiceSelector = &slim_metav1.LabelSelector{
+		MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+			// always true match
+			{
+				Key:      "somekey",
+				Operator: "NotIn",
+				Values:   []string{"not-somekey"},
+			},
+		},
+	}
+	_, err = fixture.policyClient.Update(testCtx, &fixture.config.policy, meta_v1.UpdateOptions{})
+	require.NoError(t, err)
+
+	slimTracker := fixture.fakeClientSet.SlimFakeClientset.Tracker()
+	ciliumTracker := fixture.fakeClientSet.CiliumFakeClientset.Tracker()
+
+	for _, step := range steps {
+		t.Run(step.description, func(t *testing.T) {
+			// setup advertised path attributes
+			fixture.config.policy.Spec.VirtualRouters[0].Neighbors[0].AdvertisedPathAttributes = step.advertiseAttributes
+
+			_, err = fixture.policyClient.Update(testCtx, &fixture.config.policy, meta_v1.UpdateOptions{})
+			require.NoError(t, err)
+
+			if step.podCIDRs != nil {
+				// update node in LocalNodeStore with new PodCIDR
+				fixture.nodeStore.Update(func(n *node.LocalNode) {
+					n.IPv4SecondaryAllocCIDRs = n.IPv4SecondaryAllocCIDRs[0:0]
+					for _, podCIDR := range step.podCIDRs {
+						n.IPv4SecondaryAllocCIDRs = append(n.IPv4SecondaryAllocCIDRs, cidr.MustParseCIDR(podCIDR))
+					}
+				})
+			}
+
+			if step.lbPool != nil {
+				// add / update LB IP pool
+				lbPoolObj := newLBPoolObj(*step.lbPool)
+				if step.op == "add" {
+					err = ciliumTracker.Add(&lbPoolObj)
+				} else {
+					err = ciliumTracker.Update(v2alpha1.SchemeGroupVersion.WithResource("ciliumloadbalancerippool"), &lbPoolObj, "")
+				}
+				require.NoError(t, err, step.description)
+			}
+
+			if step.lbService != nil {
+				// add / update LB service
+				srvObj := newLBServiceObj(*step.lbService)
+				if step.op == "add" {
+					err = slimTracker.Add(&srvObj)
+				} else {
+					err = slimTracker.Update(slim_metav1.Unversioned.WithResource("services"), &srvObj, "")
+				}
+				require.NoError(t, err, step.description)
+			}
+
+			receivedRouteMatch := func() bool {
+				// validate received vs. expected route event
+				receivedEvents, err := gobgpPeers[0].getRouteEvents(testCtx, 1)
+				require.NoError(t, err, step.description)
+				equal := reflect.DeepEqual(step.expectedRouteEvent, receivedEvents[0])
+				if !equal {
+					t.Logf("route events not (yet) equal - expected: %v, actual: %v", step.expectedRouteEvent, receivedEvents[0])
+				}
+				return equal
+			}
+
+			deadline, _ := testCtx.Deadline()
+			outstanding := time.Until(deadline)
+			require.Greater(t, outstanding, 0*time.Second, "test context deadline exceeded")
+
+			// Retry receivedRouteMatch once per second until the test context deadline.
+			// We may need to retry as the received route does not need to match the expected route immediately,
+			// we may receive a route without expected path attributes before the necessary route policy is in place.
+			require.Eventually(t, receivedRouteMatch, outstanding, 100*time.Millisecond)
+		})
+	}
+}
+
+func parseCommunity(c string) uint32 {
+	elems := strings.Split(c, ":")
+	if len(elems) < 2 {
+		return 0
+	}
+	fst, _ := strconv.ParseUint(elems[0], 10, 16)
+	snd, _ := strconv.ParseUint(elems[1], 10, 16)
+	return uint32(fst<<16 | snd)
 }
