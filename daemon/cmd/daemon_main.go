@@ -1364,8 +1364,7 @@ func initEnv(vp *viper.Viper) {
 		}
 		option.Config.KubeProxyReplacement = option.KubeProxyReplacementFalse
 		option.Config.EnableSocketLB = true
-		// Socket-LB tracing relies on metadata that's retrieved from Kubernetes.
-		option.Config.EnableSocketLBTracing = false
+		option.Config.EnableSocketLBTracing = true
 		option.Config.EnableHostPort = false
 		option.Config.EnableNodePort = true
 		option.Config.EnableExternalIPs = true
@@ -1696,12 +1695,6 @@ func newDaemonPromise(params daemonParams) (promise.Promise[*Daemon], promise.Pr
 	// daemonCtx is the daemon-wide context cancelled when stopping.
 	daemonCtx, cancelDaemonCtx := context.WithCancel(context.Background())
 	cleaner := NewDaemonCleanup()
-
-	if option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
-		// In lb-only mode the k8s client is not used, even if its configuration
-		// is available, so disable it here before it starts.
-		params.Clientset.Disable()
-	}
 
 	var daemon *Daemon
 	var wg sync.WaitGroup

@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn/restore"
@@ -547,7 +548,8 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// reverted, and execute it in case of regeneration success.
 	defer func() {
 		// Ignore finalizing of proxy state in dry mode.
-		if !e.isProperty(PropertyFakeEndpoint) {
+		if !e.isProperty(PropertyFakeEndpoint) &&
+			option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
 			e.finalizeProxyState(regenContext, reterr)
 		}
 	}()
@@ -557,7 +559,8 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	}
 
 	// No need to compile BPF in dry mode.
-	if e.isProperty(PropertyFakeEndpoint) {
+	if e.isProperty(PropertyFakeEndpoint) ||
+		(option.Config.DatapathMode == datapathOption.DatapathModeLBOnly && !datapathRegenCtxt.epInfoCache.IsHost()) {
 		return e.nextPolicyRevision, nil
 	}
 
@@ -719,7 +722,8 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 	// pre-existing connections using that IP are now invalid.
 	if !e.ctCleaned {
 		go func() {
-			if !e.isProperty(PropertyFakeEndpoint) {
+			if !e.isProperty(PropertyFakeEndpoint) &&
+				option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
 				ipv4 := option.Config.EnableIPv4
 				ipv6 := option.Config.EnableIPv6
 				exists := ctmap.Exists(nil, ipv4, ipv6)
