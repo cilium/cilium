@@ -572,18 +572,13 @@ kind-image: ## Build cilium and operator images and import them into kind.
 .PHONY: kind-install-cilium-fast
 kind-install-cilium-fast: kind-ready ## Install a local Cilium version into the cluster.
 	@echo "  INSTALL cilium"
-	# cilium-cli doesn't support idempotent installs, so we uninstall and
-	# reinstall here. https://github.com/cilium/cilium-cli/issues/205
-	-$(CILIUM_CLI) uninstall >/dev/null
-	# cilium-cli's --wait flag doesn't work, so we just force it to run
-	# in the background instead and wait for the resources to be available.
-	# https://github.com/cilium/cilium-cli/issues/1070
-	$(CILIUM_CLI) install \
-		--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
-		--helm-values=$(ROOT_DIR)/contrib/testing/kind-common.yaml \
-		--helm-values=$(ROOT_DIR)/contrib/testing/kind-fast.yaml \
-		--version= \
-		>/dev/null 2>&1 &
+	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
+		$(CILIUM_CLI) --context=kind-$$cluster_name uninstall >/dev/null 2>&1 || true; \
+		$(CILIUM_CLI) install --context=kind-$$cluster_name \
+			--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
+			$(KIND_VALUES_FAST_FILES) \
+			--version= >/dev/null 2>&1 & \
+	done
 
 .PHONY: kind-image-fast
 kind-image-fast: ## Build cilium, operator, clustermesh-apiserver and mount them into a volume for all available Kind clusters.
