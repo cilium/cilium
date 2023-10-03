@@ -22,7 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/mountinfo"
@@ -384,7 +384,7 @@ func probeKubeProxyReplacementOptions() error {
 
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
-func finishKubeProxyReplacementInit(devices types.Devices) error {
+func finishKubeProxyReplacementInit(nativeDevices []*tables.Device) error {
 	if !(option.Config.EnableNodePort || option.Config.EnableWireguard) {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
@@ -394,9 +394,6 @@ func finishKubeProxyReplacementInit(devices types.Devices) error {
 	if option.Config.DryMode {
 		return nil
 	}
-
-	// TODO: react to device changes
-	nativeDevices, _ := devices.NativeDevices()
 
 	// +-------------------------------------------------------+
 	// | After this point, BPF NodePort should not be disabled |

@@ -6,8 +6,9 @@ package config
 import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
-	dptypes "github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 type configWriterParams struct {
@@ -15,8 +16,9 @@ type configWriterParams struct {
 
 	NodeExtraDefines   []dpdef.Map `group:"header-node-defines"`
 	NodeExtraDefineFns []dpdef.Fn  `group:"header-node-define-fns"`
-	Devices            dptypes.Devices
 	BandwidthManager   *bandwidth.Manager
+	DB                 *statedb.DB
+	Devices            statedb.Table[*tables.Device]
 }
 
 var Cell = cell.Module(

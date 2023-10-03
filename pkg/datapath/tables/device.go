@@ -4,11 +4,16 @@
 package tables
 
 import (
+	"context"
+	"fmt"
 	"net"
 	"net/netip"
+	"strings"
 
 	"golang.org/x/exp/slices"
 
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
 )
@@ -128,4 +133,83 @@ func DeviceNames(devs []*Device) (names []string) {
 		names[i] = devs[i].Name
 	}
 	return
+}
+
+func DirectRoutingDevice(tbl statedb.Table[*Device], txn statedb.ReadTxn) (*Device, <-chan struct{}, error) {
+	devs, watch := SelectedDevices(tbl, txn)
+	dev, err := PickDirectRoutingDevice(devs)
+	return dev, watch, err
+}
+
+func PickDirectRoutingDevice(devs []*Device) (*Device, error) {
+	var (
+		filter              deviceFilter
+		directRoutingDevice *Device
+	)
+
+	if option.Config.DirectRoutingDevice != "" {
+		filter = deviceFilter(strings.Split(option.Config.DirectRoutingDevice, ","))
+	}
+
+	for _, dev := range devs {
+		if filter.match(dev.Name) {
+			directRoutingDevice = dev
+			break
+		}
+	}
+
+	if directRoutingDevice == nil {
+		return nil, fmt.Errorf("unable to determine direct routing device. Use --%s to specify it",
+			option.DirectRoutingDevice)
+	}
+	return directRoutingDevice, nil
+}
+
+func IPv6MCastDevice(localNode *node.LocalNodeStore, devs []*Device) (*Device, error) {
+	nodeDevice := K8sNodeDevice(localNode, devs)
+
+	if nodeDevice != nil && nodeDevice.Flags&net.FlagMulticast != 0 {
+		return nodeDevice, nil
+	}
+	return nil, fmt.Errorf("unable to determine Multicast device. Use --%s to specify it",
+		option.IPv6MCastDevice)
+}
+
+func K8sNodeDevice(localNode *node.LocalNodeStore, devs []*Device) *Device {
+	node, _ := localNode.Get(context.TODO())
+	nodeIP := node.GetK8sNodeIP()
+	for _, dev := range devs {
+		if dev.HasIP(nodeIP) {
+			return dev
+		}
+	}
+	return nil
+}
+
+// deviceFilter implements filtering device names either by
+// concrete name ("eth0") or by iptables-like wildcard ("eth+").
+type deviceFilter []string
+
+// nonEmpty returns true if the filter has been defined
+// (i.e. user has specified --devices).
+func (lst deviceFilter) nonEmpty() bool {
+	return len(lst) > 0
+}
+
+// match checks whether the given device name passes the filter
+func (lst deviceFilter) match(dev string) bool {
+	if len(lst) == 0 {
+		return true
+	}
+	for _, entry := range lst {
+		if strings.HasSuffix(entry, "+") {
+			prefix := strings.TrimRight(entry, "+")
+			if strings.HasPrefix(dev, prefix) {
+				return true
+			}
+		} else if dev == entry {
+			return true
+		}
+	}
+	return false
 }

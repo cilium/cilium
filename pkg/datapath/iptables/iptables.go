@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/fqdn/proxy/ipfamily"
@@ -36,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/modules"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
@@ -284,7 +286,8 @@ type IptablesManager struct {
 	ipEarlyDemuxDisabled bool
 	CNIChainingMode      string
 
-	devices datapath.Devices
+	DB      *statedb.DB
+	Devices statedb.Table[*tables.Device]
 }
 
 // Init initializes the iptables manager and checks for iptables kernel modules
@@ -1235,7 +1238,8 @@ func (m *IptablesManager) installMasqueradeRules(prog iptablesInterface, ifName,
 		var defaultRoutes []netlink.Route
 
 		// FIXME observe changes to devices.
-		devices, _ := m.devices.NativeDeviceNames()
+		nativeDevices, _ := tables.SelectedDevices(m.Devices, m.DB.ReadTxn())
+		devices := tables.DeviceNames(nativeDevices)
 		if len(option.Config.MasqueradeInterfaces) > 0 {
 			devices = option.Config.MasqueradeInterfaces
 		}

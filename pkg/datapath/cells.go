@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -58,9 +59,8 @@ var Cell = cell.Module(
 		newWireguardAgent,
 		newDatapath,
 		linuxdatapath.NewNodeAddressing,
-		newDevicesAccessor,
 
-		func() *types.LocalNodeConfiguration { return nil },
+		func() *types.LocalNodeConfiguration { return nil }, // FIXME FIXME
 	),
 
 	// Loader compiles and loads BPF programs
@@ -139,7 +139,10 @@ func newDatapath(params datapathParams) types.Datapath {
 		ProcFs:     option.Config.ProcFs,
 	}
 
-	iptablesManager := &iptables.IptablesManager{}
+	iptablesManager := &iptables.IptablesManager{
+		DB:      params.DB,
+		Devices: params.Devices,
+	}
 
 	params.LC.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
@@ -175,6 +178,9 @@ func newDatapath(params datapathParams) types.Datapath {
 
 type datapathParams struct {
 	cell.In
+
+	DB      *statedb.DB
+	Devices statedb.Table[*tables.Device]
 
 	LC      hive.Lifecycle
 	WgAgent *wg.Agent

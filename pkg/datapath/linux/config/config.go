@@ -63,6 +63,7 @@ import (
 	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/sysctl"
 	wgtypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -79,7 +80,8 @@ var (
 // HeaderfileWriter is a wrapper type which implements datapath.ConfigWriter.
 // It manages writing of configuration of datapath program headerfiles.
 type HeaderfileWriter struct {
-	devicer            datapath.Devices
+	db                 *statedb.DB
+	devices            statedb.Table[*tables.Device]
 	nodeExtraDefines   dpdef.Map
 	nodeExtraDefineFns []dpdef.Fn
 	bwmgr              *bandwidth.Manager
@@ -93,7 +95,8 @@ func NewHeaderfileWriter(p configWriterParams) (datapath.ConfigWriter, error) {
 		}
 	}
 	return &HeaderfileWriter{
-		devicer:            p.Devices,
+		db:                 p.DB,
+		devices:            p.Devices,
 		nodeExtraDefines:   merged,
 		nodeExtraDefineFns: p.NodeExtraDefineFns,
 		bwmgr:              p.BandwidthManager,
@@ -106,7 +109,8 @@ func writeIncludes(w io.Writer) (int, error) {
 
 // WriteNodeConfig writes the local node configuration to the specified writer.
 func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeConfiguration) error {
-	nativeDevices, _ := h.devicer.NativeDevices()
+	txn := h.db.ReadTxn()
+	nativeDevices, _ := tables.SelectedDevices(h.devices, txn)
 
 	extraMacrosMap := make(dpdef.Map)
 	cDefinesMap := make(dpdef.Map)
@@ -543,7 +547,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
 	}
 
-	macByIfIndexMacro, isL3DevMacro, err := devMacros(h.devicer)
+	macByIfIndexMacro, isL3DevMacro, err := devMacros(nativeDevices)
 	if err != nil {
 		return err
 	}
@@ -571,7 +575,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash0)
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash1)
 
-	if dev, _, _ := h.devicer.DirectRoutingDevice(); dev != nil {
+	if dev, _, _ := tables.DirectRoutingDevice(h.devices, txn); dev != nil {
 		cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = strconv.Itoa(dev.Index)
 		if option.Config.EnableIPv4 {
 			var (
@@ -934,7 +938,7 @@ return false;`))
 
 // devMacros generates NATIVE_DEV_MAC_BY_IFINDEX and IS_L3_DEV macros which
 // are written to node_config.h.
-func devMacros(devicer datapath.Devices) (string, string, error) {
+func devMacros(nativeDevices []*tables.Device) (string, string, error) {
 	var (
 		macByIfIndexMacro, isL3DevMacroBuf bytes.Buffer
 		isL3DevMacro                       string
@@ -942,19 +946,11 @@ func devMacros(devicer datapath.Devices) (string, string, error) {
 	macByIfIndex := make(map[int]string)
 	l3DevIfIndices := make([]int, 0)
 
-	devices, _ := devicer.NativeDeviceNames()
-
-	for _, iface := range devices {
-		link, err := netlink.LinkByName(iface)
-		if err != nil {
-			return "", "", fmt.Errorf("failed to retrieve link %s by name: %q", iface, err)
+	for _, dev := range nativeDevices {
+		if len(dev.HardwareAddr) != 6 {
+			l3DevIfIndices = append(l3DevIfIndices, dev.Index)
 		}
-		idx := link.Attrs().Index
-		m := link.Attrs().HardwareAddr
-		if m == nil || len(m) != 6 {
-			l3DevIfIndices = append(l3DevIfIndices, idx)
-		}
-		macByIfIndex[idx] = mac.CArrayString(m)
+		macByIfIndex[dev.Index] = mac.CArrayString(dev.HardwareAddr)
 	}
 
 	macByIfindexTmpl := template.Must(template.New("macByIfIndex").Parse(
@@ -1089,15 +1085,16 @@ func (h *HeaderfileWriter) writeStaticData(devices []string, fw io.Writer, e dat
 func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
 
-	devices, _ := h.devicer.NativeDeviceNames()
+	nativeDevices, _ := tables.SelectedDevices(h.devices, h.db.ReadTxn())
+	deviceNames := tables.DeviceNames(nativeDevices)
 
 	writeIncludes(w)
-	h.writeStaticData(devices, fw, e)
+	h.writeStaticData(deviceNames, fw, e)
 
-	return h.writeTemplateConfig(devices, fw, e)
+	return h.writeTemplateConfig(nativeDevices, fw, e)
 }
 
-func (h *HeaderfileWriter) writeTemplateConfig(devices []string, fw *bufio.Writer, e datapath.EndpointConfiguration) error {
+func (h *HeaderfileWriter) writeTemplateConfig(devices []*tables.Device, fw *bufio.Writer, e datapath.EndpointConfiguration) error {
 	if e.RequireEgressProg() {
 		fmt.Fprintf(fw, "#define USE_BPF_PROG_FOR_INGRESS_POLICY 1\n")
 	}
@@ -1106,15 +1103,12 @@ func (h *HeaderfileWriter) writeTemplateConfig(devices []string, fw *bufio.Write
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
 	}
 
-	if !option.Config.EnableHostLegacyRouting && option.Config.DirectRoutingDevice != "" {
-		directRoutingIface := option.Config.DirectRoutingDevice
-		directRoutingIfIndex, err := link.GetIfIndex(directRoutingIface)
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(fw, "#define DIRECT_ROUTING_DEV_IFINDEX %d\n", directRoutingIfIndex)
-		if len(devices) == 1 {
-			fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
+	if directRoutingDevice, err := tables.PickDirectRoutingDevice(devices); err == nil {
+		if !option.Config.EnableHostLegacyRouting {
+			fmt.Fprintf(fw, "#define DIRECT_ROUTING_DEV_IFINDEX %d\n", directRoutingDevice.Index)
+			if len(devices) == 1 {
+				fmt.Fprintf(fw, "#define ENABLE_SKIP_FIB 1\n")
+			}
 		}
 	}
 
@@ -1151,6 +1145,6 @@ func (h *HeaderfileWriter) writeTemplateConfig(devices []string, fw *bufio.Write
 // WriteTemplateConfig writes the BPF configuration for the template to a writer.
 func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
-	devices, _ := h.devicer.NativeDeviceNames()
-	return h.writeTemplateConfig(devices, fw, e)
+	nativeDevices, _ := tables.SelectedDevices(h.devices, h.db.ReadTxn())
+	return h.writeTemplateConfig(nativeDevices, fw, e)
 }

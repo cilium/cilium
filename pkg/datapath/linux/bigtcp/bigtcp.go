@@ -10,11 +10,12 @@ import (
 	"github.com/vishvananda/netlink"
 
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
-	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 const (
@@ -202,10 +203,11 @@ func probeTSOMaxSize(devices []string) int {
 type params struct {
 	cell.In
 
-	UserConfig    UserConfig
 	Configuration Configuration
-	Devices       types.Devices
+	DB            *statedb.DB
+	Devices       statedb.Table[*tables.Device]
 	DaemonConfig  *option.DaemonConfig
+	UserConfig    UserConfig
 }
 
 func registerBIGTCP(lc hive.Lifecycle, p params) {
@@ -220,10 +222,11 @@ func startBIGTCP(p params) error {
 	var err error
 
 	// FIXME: BIGTCP should reconcile over device changes
-	devices, _ := p.Devices.NativeDeviceNames()
+	nativeDevices, _ := tables.SelectedDevices(p.Devices, p.DB.ReadTxn())
+	deviceNames := tables.DeviceNames(nativeDevices)
 
 	disableMsg := ""
-	if len(devices) == 0 {
+	if len(deviceNames) == 0 {
 		if p.UserConfig.EnableIPv4BIGTCP || p.UserConfig.EnableIPv6BIGTCP {
 			log.Warn("BIG TCP could not detect host devices. Disabling the feature.")
 		}
@@ -277,7 +280,7 @@ func startBIGTCP(p params) error {
 		}
 
 		log.Infof("Setting up BIG TCP")
-		tsoMax := probeTSOMaxSize(devices)
+		tsoMax := probeTSOMaxSize(deviceNames)
 		if p.UserConfig.EnableIPv4BIGTCP && haveIPv4 {
 			p.Configuration.groIPv4MaxSize = tsoMax
 			p.Configuration.gsoIPv4MaxSize = tsoMax
@@ -293,7 +296,7 @@ func startBIGTCP(p params) error {
 	bigv4 := p.UserConfig.EnableIPv4BIGTCP
 
 	modifiedDevices := []string{}
-	for _, device := range devices {
+	for _, device := range deviceNames {
 		// We always add the device because we might do only a partial
 		// modification and end up with an error, so best to be conservative
 		// and always reset all on error.

@@ -1,10 +1,11 @@
 package bandwidth
 
 import (
-	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 )
@@ -54,8 +55,9 @@ func (*Manager) Stop(hive.HookContext) error {
 type bandwidthManagerParams struct {
 	cell.In
 
+	DB           *statedb.DB
 	Log          logrus.FieldLogger
-	Devices      types.Devices
+	Devices      statedb.Table[*tables.Device]
 	Config       Config
 	DaemonConfig *option.DaemonConfig
 }

@@ -41,6 +41,7 @@ import (
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -864,23 +865,30 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	devices, _ := d.params.Devices.NativeDeviceNames()
+	//
+	deviceNames, devices, watchDevices := d.getDevices()
 	if len(devices) == 0 {
 		log.WithError(err).Warn("failed to detect devices, disabling BPF NodePort")
 		disableNodePort()
 	}
-	if drr, err, _ := d.params.Devices.DirectRoutingDevice(); err == nil {
+
+	// FIXME: remove these
+	if drr, err := tables.PickDirectRoutingDevice(devices); err != nil {
+		return nil, nil, err
+	} else {
 		option.Config.DirectRoutingDevice = drr.Name
 	}
-	if mcast, err, _ := d.params.Devices.IPv6MCastDevice(); err == nil {
-		option.Config.IPv6MCastDevice = mcast
+	if mcast, err := tables.IPv6MCastDevice(params.LocalNodeStore, devices); err != nil {
+		return nil, nil, err
+	} else {
+		option.Config.IPv6MCastDevice = mcast.Name
 	}
 
 	if d.l2announcer != nil {
-		d.l2announcer.DevicesChanged(devices)
+		d.l2announcer.DevicesChanged(deviceNames)
 	}
 
-	if err := finishKubeProxyReplacementInit(params.Devices); err != nil {
+	if err := finishKubeProxyReplacementInit(devices); err != nil {
 		log.WithError(err).Error("failed to finalise LB initialization")
 		return nil, nil, fmt.Errorf("failed to finalise LB initialization: %w", err)
 	}
@@ -1164,16 +1172,19 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 	identitymanager.Subscribe(d.policy)
 
 	// Start listening to changed devices
-	devicesChan, err := d.params.Devices.Listen(ctx)
-	if err != nil {
-		log.WithError(err).Warn("Runtime device detection failed to start")
-	} else {
-		go func() {
-			for devices := range devicesChan {
+	go func(watchDevices <-chan struct{}) {
+		var devices []*tables.Device
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-watchDevices:
+				_, devices, watchDevices = d.getDevices()
 				d.ReloadOnDeviceChange(devices)
 			}
-		}()
-	}
+
+		}
+	}(watchDevices)
 
 	if option.Config.EnableIPSec {
 		// FIXME move into ipsec.Cell
@@ -1189,16 +1200,22 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 
 // ReloadOnDeviceChange regenerates device related information and reloads the datapath.
 // The devices is the new set of devices that replaces the old set.
-func (d *Daemon) ReloadOnDeviceChange(devices []string) {
-	if drr, err, _ := d.params.Devices.DirectRoutingDevice(); err == nil {
+func (d *Daemon) ReloadOnDeviceChange(devices []*tables.Device) {
+	deviceNames := tables.DeviceNames(devices)
+	// FIXME: remove these
+	if drr, err := tables.PickDirectRoutingDevice(devices); err != nil {
+		log.WithError(err).Error("Unable to update direct routing device")
+	} else {
 		option.Config.DirectRoutingDevice = drr.Name
 	}
-	if mcast, err, _ := d.params.Devices.IPv6MCastDevice(); err == nil {
-		option.Config.IPv6MCastDevice = mcast
+	if mcast, err := tables.IPv6MCastDevice(d.params.LocalNodeStore, devices); err != nil {
+		log.WithError(err).Error("Unable to update IPv6 MCast device")
+	} else {
+		option.Config.IPv6MCastDevice = mcast.Name
 	}
 
 	if d.l2announcer != nil {
-		d.l2announcer.DevicesChanged(devices)
+		d.l2announcer.DevicesChanged(deviceNames)
 	}
 
 	if option.Config.EnableNodePort {

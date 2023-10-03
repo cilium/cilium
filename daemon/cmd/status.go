@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
@@ -176,7 +177,7 @@ func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 		s.CongestionControl = models.BandwidthManagerCongestionControlBbr
 	}
 
-	s.Devices, _ = d.params.Devices.NativeDeviceNames()
+	s.Devices, _, _ = d.getDevices()
 	return s
 }
 
@@ -193,7 +194,7 @@ func (d *Daemon) getHostFirewallStatus() *models.HostFirewall {
 	if option.Config.EnableHostFirewall {
 		mode = models.HostFirewallModeEnabled
 	}
-	devices, _ := d.params.Devices.NativeDeviceNames()
+	devices, _, _ := d.getDevices()
 	return &models.HostFirewall{
 		Mode:    mode,
 		Devices: devices,
@@ -234,10 +235,9 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		mode = models.KubeProxyReplacementModeDisabled
 	}
 
-	devicesLegacy, _ := d.params.Devices.NativeDevices()
-	devices := make([]*models.KubeProxyReplacementDeviceListItems0, len(devicesLegacy))
-	deviceNames := make([]string, len(devicesLegacy))
-	for i, dev := range devicesLegacy {
+	deviceNames, nativeDevices, _ := d.getDevices()
+	devices := make([]*models.KubeProxyReplacementDeviceListItems0, len(nativeDevices))
+	for i, dev := range nativeDevices {
 		info := &models.KubeProxyReplacementDeviceListItems0{
 			Name: dev.Name,
 			IP:   make([]string, 0),
@@ -250,6 +250,10 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		}
 		devices[i] = info
 		deviceNames[i] = dev.Name
+	}
+	directRoutingDeviceName := ""
+	if dev, err := tables.PickDirectRoutingDevice(nativeDevices); err == nil {
+		directRoutingDeviceName = dev.Name
 	}
 
 	features := &models.KubeProxyReplacementFeatures{
@@ -319,7 +323,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		Mode:                mode,
 		Devices:             deviceNames,
 		DeviceList:          devices,
-		DirectRoutingDevice: option.Config.DirectRoutingDevice,
+		DirectRoutingDevice: directRoutingDeviceName,
 		Features:            features,
 	}
 }

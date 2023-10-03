@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/idpool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -40,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 const (
@@ -60,7 +62,8 @@ type linuxNodeHandler struct {
 	nodeConfig           datapath.LocalNodeConfiguration
 	nodeAddressing       datapath.NodeAddressing
 	datapathConfig       DatapathConfiguration
-	devices              datapath.Devices
+	db                   *statedb.DB
+	devices              statedb.Table[*tables.Device]
 	nodes                map[nodeTypes.Identity]*nodeTypes.Node
 	enableNeighDiscovery bool
 	neighLock            lock.Mutex // protects neigh* fields below
@@ -94,10 +97,11 @@ var (
 
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
-func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing, nodeMap nodemap.Map, devices datapath.Devices) *linuxNodeHandler {
+func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing, nodeMap nodemap.Map, db *statedb.DB, devices statedb.Table[*tables.Device]) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		nodeAddressing:         nodeAddressing,
 		datapathConfig:         datapathConfig,
+		db:                     db,
 		devices:                devices,
 		nodes:                  map[nodeTypes.Identity]*nodeTypes.Node{},
 		neighNextHopByNode4:    map[nodeTypes.Identity]map[string]string{},
@@ -1777,7 +1781,8 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
-	devices, _ := n.devices.NativeDeviceNames()
+	nativeDevices, _ := tables.SelectedDevices(n.devices, n.db.ReadTxn())
+	devices := tables.DeviceNames(nativeDevices)
 
 	prevConfig := n.nodeConfig
 	n.nodeConfig = newConfig
@@ -1788,16 +1793,11 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 		case !option.Config.EnableL2NeighDiscovery:
 			n.enableNeighDiscovery = false
 		case option.Config.DirectRoutingDeviceRequired():
-			if option.Config.DirectRoutingDevice == "" {
-				return fmt.Errorf("direct routing device is required, but not defined")
+			_, err := tables.PickDirectRoutingDevice(nativeDevices)
+			if err != nil {
+				return fmt.Errorf("direct routing device is required, but not found: %w", err)
 			}
-
-			var targetDevices []string
-			targetDevices = append(targetDevices, option.Config.DirectRoutingDevice)
-			targetDevices = append(targetDevices, devices...)
-
-			var err error
-			ifaceNames, err = filterL2Devices(targetDevices)
+			ifaceNames, err = filterL2Devices(devices)
 			if err != nil {
 				return err
 			}

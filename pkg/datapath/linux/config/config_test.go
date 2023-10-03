@@ -380,7 +380,6 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	_, err := NewHeaderfileWriter(configWriterParams{
 		NodeExtraDefines:   []dpdef.Map{a, a},
 		NodeExtraDefineFns: nil,
-		Devices:            &datapath.FakeDevices{},
 	})
 
 	require.Error(t, err, "duplicate keys should be rejected")
@@ -388,7 +387,6 @@ func TestNewHeaderfileWriter(t *testing.T) {
 	cfg, err := NewHeaderfileWriter(configWriterParams{
 		NodeExtraDefines:   []dpdef.Map{a},
 		NodeExtraDefineFns: nil,
-		Devices:            &datapath.FakeDevices{},
 	})
 	require.NoError(t, err)
 	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))

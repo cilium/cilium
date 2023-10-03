@@ -46,6 +46,7 @@ import (
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/egressgateway"
@@ -1650,7 +1651,7 @@ type daemonParams struct {
 	ClusterInfo         cmtypes.ClusterInfo
 	BigTCPConfig        bigtcp.Configuration
 	BandwidthManager    *bandwidth.Manager
-	Devices             datapath.Devices
+	Devices             statedb.Table[*tables.Device]
 	IPSec               datapath.IPSec
 	MTU                 mtu.MTU
 }

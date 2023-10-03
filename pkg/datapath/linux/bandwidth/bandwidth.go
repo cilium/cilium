@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/sysctl"
@@ -109,8 +110,8 @@ func (m *Manager) probe() error {
 func (m *Manager) init() error {
 	// TODO make the bwmanager reactive by using the (currently ignored) watch channel, which is
 	// closed when there's new or changed devices.
-	devs, _ := m.params.Devices.NativeDeviceNames()
-	if len(devs) == 0 {
+	nativeDevices, _ := tables.SelectedDevices(m.params.Devices, m.params.DB.ReadTxn())
+	if len(nativeDevices) == 0 {
 		m.params.Log.Warn("BPF bandwidth manager could not detect host devices. Disabling the feature.")
 		m.enabled = false
 		return nil
@@ -126,19 +127,14 @@ func (m *Manager) init() error {
 		return fmt.Errorf("failed to set sysctl needed by BPF bandwidth manager: %w", err)
 	}
 
-	for _, device := range devs {
-		link, err := netlink.LinkByName(device)
-		if err != nil {
-			m.params.Log.WithError(err).WithField("device", device).Warn("Link does not exist")
-			continue
-		}
+	for _, device := range nativeDevices {
 		// We strictly want to avoid a down/up cycle on the device at
 		// runtime, so given we've changed the default qdisc to FQ, we
 		// need to reset the root qdisc, and then set up MQ which will
 		// automatically get FQ leaf qdiscs (given it's been default).
 		qdisc := &netlink.GenericQdisc{
 			QdiscAttrs: netlink.QdiscAttrs{
-				LinkIndex: link.Attrs().Index,
+				LinkIndex: device.Index,
 				Parent:    netlink.HANDLE_ROOT,
 			},
 			QdiscType: "noqueue",
@@ -148,7 +144,7 @@ func (m *Manager) init() error {
 		}
 		qdisc = &netlink.GenericQdisc{
 			QdiscAttrs: netlink.QdiscAttrs{
-				LinkIndex: link.Attrs().Index,
+				LinkIndex: device.Index,
 				Parent:    netlink.HANDLE_ROOT,
 			},
 			QdiscType: "mq",
@@ -158,7 +154,7 @@ func (m *Manager) init() error {
 			// No MQ support, so just replace to FQ directly.
 			fq := &netlink.Fq{
 				QdiscAttrs: netlink.QdiscAttrs{
-					LinkIndex: link.Attrs().Index,
+					LinkIndex: device.Index,
 					Parent:    netlink.HANDLE_ROOT,
 				},
 				Pacing: 1,

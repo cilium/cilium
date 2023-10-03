@@ -19,6 +19,7 @@ import (
 	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -616,4 +617,11 @@ func (d *Daemon) Datapath() datapath.Datapath {
 // Loader returns a reference to the datapath loader.
 func (d *Daemon) Loader() datapath.Loader {
 	return d.params.Loader
+}
+
+// getDevices is a temporary helper to retrieve the device names
+// from the devices table.
+func (d *Daemon) getDevices() ([]string, []*tables.Device, <-chan struct{}) {
+	devices, watch := tables.SelectedDevices(d.params.Devices, d.params.DB.ReadTxn())
+	return tables.DeviceNames(devices), devices, watch
 }

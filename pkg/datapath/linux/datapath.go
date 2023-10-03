@@ -6,9 +6,11 @@ package linux
 import (
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -39,7 +41,8 @@ type DatapathParams struct {
 	NodeMap        nodemap.Map
 	Writer         datapath.ConfigWriter
 	BWManager      *bandwidth.Manager
-	Devices        datapath.Devices
+	Devices        statedb.Table[*tables.Device]
+	DB             *statedb.DB
 }
 
 // NewDatapath creates a new Linux datapath
@@ -54,7 +57,7 @@ func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath 
 		bwmgr:           p.BWManager,
 	}
 
-	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap, p.Devices)
+	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap, p.DB, p.Devices)
 	return dp
 }
 
