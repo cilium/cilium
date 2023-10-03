@@ -52,7 +52,7 @@ var endpointChaosTest = func() {
 		// Go back and add the identity labels back into the output
 		getSortedLabels := "(.status.identity.labels | sort)"
 		jqCmd := fmt.Sprintf("jq 'map(%s) | map(%s, %s)'", filterHealthEP, filterFields, getSortedLabels)
-		endpointListCmd := fmt.Sprintf("cilium endpoint list -o json | %s", jqCmd)
+		endpointListCmd := fmt.Sprintf("cilium-dbg endpoint list -o json | %s", jqCmd)
 		originalEndpointList := vm.Exec(endpointListCmd)
 
 		err := vm.RestartCilium()

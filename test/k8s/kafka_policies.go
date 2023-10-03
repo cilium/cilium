@@ -44,7 +44,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sKafkaPolicyTest", func() {
 	)
 
 	AfterFailed(func() {
-		kubectl.CiliumReport("cilium service list", "cilium endpoint list")
+		kubectl.CiliumReport("cilium-dbg service list", "cilium-dbg endpoint list")
 	})
 
 	AfterAll(func() {

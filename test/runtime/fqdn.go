@@ -278,14 +278,14 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 			`docker ps -q | xargs -n 1 docker inspect --format ` +
 				`'{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}} {{ .Name }}'` +
 				`| sed 's/ \// /'`).Stdout())
-		vm.ReportFailed("cilium policy get")
+		vm.ReportFailed("cilium-dbg policy get")
 	})
 
 	expectFQDNSareApplied := func(domain string, minNumIDs int) {
 		escapedDomain := strings.Replace(domain, `.`, `\\.`, -1)
 		jqfilter := fmt.Sprintf(`jq -c '.[] | select(.identities|length >= %d) | select(.users|length > 0) | .selector | match("^MatchName: (\\w+\\.%s|), MatchPattern: ([\\w*]+\\.%s|)$") | length > 0'`, minNumIDs, escapedDomain, escapedDomain)
 		body := func() bool {
-			res := vm.Exec(fmt.Sprintf(`cilium policy selectors -o json | %s`, jqfilter))
+			res := vm.Exec(fmt.Sprintf(`cilium-dbg policy selectors -o json | %s`, jqfilter))
 			return strings.HasPrefix(res.Stdout(), "true")
 		}
 		err := helpers.WithTimeout(
@@ -355,7 +355,7 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 	It("Validate dns-proxy monitor information", func() {
 
 		ctx, cancel := context.WithCancel(context.Background())
-		monitorCMD := vm.ExecInBackground(ctx, "cilium monitor --type=l7")
+		monitorCMD := vm.ExecInBackground(ctx, "cilium-dbg monitor --type=l7")
 		defer cancel()
 
 		policy := `
@@ -795,7 +795,7 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 		})
 
 		BeforeEach(func() {
-			By("Clearing fqdn cache: %s", vm.Exec("cilium fqdn cache clean -f").CombineOutput().String())
+			By("Clearing fqdn cache: %s", vm.Exec("cilium-dbg fqdn cache clean -f").CombineOutput().String())
 		})
 
 		AfterAll(func() {
@@ -869,7 +869,7 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 		})
 
 		BeforeEach(func() {
-			By("Clearing fqdn cache: %s", vm.Exec("cilium fqdn cache clean -f").CombineOutput().String())
+			By("Clearing fqdn cache: %s", vm.Exec("cilium-dbg fqdn cache clean -f").CombineOutput().String())
 		})
 
 		AfterAll(func() {
@@ -879,7 +879,7 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 
 		It("Policy addition after DNS lookup", func() {
 			ctx, cancel := context.WithCancel(context.Background())
-			monitorCMD := vm.ExecInBackground(ctx, "cilium monitor")
+			monitorCMD := vm.ExecInBackground(ctx, "cilium-dbg monitor")
 			defer cancel()
 
 			policy := `
@@ -939,7 +939,7 @@ var _ = Describe("RuntimeAgentFQDNPolicies", func() {
 
 		It("L3-dependent L7/HTTP with toFQDN updates proxy policy", func() {
 			ctx, cancel := context.WithCancel(context.Background())
-			monitorCMD := vm.ExecInBackground(ctx, "cilium monitor")
+			monitorCMD := vm.ExecInBackground(ctx, "cilium-dbg monitor")
 			defer cancel()
 
 			policy := `

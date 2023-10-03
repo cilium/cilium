@@ -63,7 +63,7 @@ var _ = SkipDescribeIf(func() bool {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport("cilium service list", "cilium endpoint list")
+		kubectl.CiliumReport("cilium-dbg service list", "cilium-dbg endpoint list")
 	})
 
 	AfterAll(func() {
@@ -110,7 +110,7 @@ var _ = SkipDescribeIf(func() bool {
 
 		BeforeEach(func() {
 			kubectl.CiliumExecMustSucceed(context.TODO(),
-				ciliumPod, fmt.Sprintf("cilium config %s=%s",
+				ciliumPod, fmt.Sprintf("cilium-dbg config %s=%s",
 					helpers.PolicyEnforcement, helpers.PolicyEnforcementDefault))
 
 			err := kubectl.CiliumEndpointWaitReady()
@@ -199,7 +199,7 @@ var _ = SkipDescribeIf(func() bool {
 				app1PodIP = app1PodModel.Status.PodIP
 				//var app1Ep *models.Endpoint
 				var endpoints []*models.Endpoint
-				err = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, "cilium endpoint list -o json").Unmarshal(&endpoints)
+				err = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPod, "cilium-dbg endpoint list -o json").Unmarshal(&endpoints)
 				Expect(err).To(BeNil())
 				for _, ep := range endpoints {
 					if ep.Status.Networking.Addressing[0].IPV4 == app1PodIP {
@@ -496,7 +496,7 @@ var _ = SkipDescribeIf(func() bool {
 			})
 
 			It("connectivity is blocked after denying ingress", func() {
-				By("Running cilium monitor in the background")
+				By("Running cilium-dbg monitor in the background")
 				ciliumPod, err := kubectl.GetCiliumPodOnNodeByName(hostNodeName)
 				Expect(ciliumPod).ToNot(BeEmpty())
 				Expect(err).ToNot(HaveOccurred())
@@ -528,7 +528,7 @@ var _ = SkipDescribeIf(func() bool {
 					"cnp-default-deny-ingress.yaml")
 				importPolicy(kubectl, testNamespace, cnpDenyIngress, "default-deny-ingress")
 
-				By("Running cilium monitor in the background")
+				By("Running cilium-dbg monitor in the background")
 				ciliumPod, err := kubectl.GetCiliumPodOnNodeByName(hostNodeName)
 				Expect(ciliumPod).ToNot(BeEmpty())
 				Expect(err).ToNot(HaveOccurred())
@@ -585,7 +585,7 @@ var _ = SkipDescribeIf(func() bool {
 				})
 
 				It("Connectivity to hostns is blocked after denying ingress", func() {
-					By("Running cilium monitor in the background")
+					By("Running cilium-dbg monitor in the background")
 					ciliumPod, err := kubectl.GetCiliumPodOnNodeByName(hostNodeName)
 					Expect(ciliumPod).ToNot(BeEmpty())
 					Expect(err).ToNot(HaveOccurred())
@@ -615,7 +615,7 @@ var _ = SkipDescribeIf(func() bool {
 					ccnpDenyHostIngress := helpers.ManifestGet(kubectl.BasePath(), "ccnp-default-deny-host-ingress.yaml")
 					importPolicy(kubectl, testNamespace, ccnpDenyHostIngress, "default-deny-host-ingress")
 
-					By("Running cilium monitor in the background")
+					By("Running cilium-dbg monitor in the background")
 					ciliumPod, err := kubectl.GetCiliumPodOnNodeByName(hostNodeName)
 					Expect(ciliumPod).ToNot(BeEmpty())
 					Expect(err).ToNot(HaveOccurred())
@@ -1460,7 +1460,7 @@ var _ = SkipDescribeIf(helpers.DoesNotRunOn54OrLaterKernel,
 		})
 
 		AfterFailed(func() {
-			kubectl.CiliumReport("cilium service list", "cilium endpoint list")
+			kubectl.CiliumReport("cilium-dbg service list", "cilium-dbg endpoint list")
 		})
 
 		AfterEach(func() {

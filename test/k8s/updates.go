@@ -102,7 +102,7 @@ var _ = Describe("K8sUpdates", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport("cilium endpoint list")
+		kubectl.CiliumReport("cilium-dbg endpoint list")
 	})
 
 	JustAfterEach(func() {
