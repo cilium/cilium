@@ -411,6 +411,25 @@ func (r *resolver) ResolveEndpoint(
 			}
 			if _UseFIPS == true {
 				if true == _PartitionResult.SupportsFIPS {
+					if "aws-us-gov" == _PartitionResult.Name {
+						uriString := func() string {
+							var out strings.Builder
+							out.WriteString("https://oidc.")
+							out.WriteString(_Region)
+							out.WriteString(".amazonaws.com")
+							return out.String()
+						}()
+
+						uri, err := url.Parse(uriString)
+						if err != nil {
+							return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+						}
+
+						return smithyendpoints.Endpoint{
+							URI:     *uri,
+							Headers: http.Header{},
+						}, nil
+					}
 					uriString := func() string {
 						var out strings.Builder
 						out.WriteString("https://oidc-fips.")
@@ -454,279 +473,6 @@ func (r *resolver) ResolveEndpoint(
 					}, nil
 				}
 				return endpoint, fmt.Errorf("endpoint rule error, %s", "DualStack is enabled but this partition does not support DualStack")
-			}
-			if _Region == "ap-east-1" {
-				uriString := "https://oidc.ap-east-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "ap-northeast-1" {
-				uriString := "https://oidc.ap-northeast-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "ap-northeast-2" {
-				uriString := "https://oidc.ap-northeast-2.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "ap-northeast-3" {
-				uriString := "https://oidc.ap-northeast-3.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "ap-south-1" {
-				uriString := "https://oidc.ap-south-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "ap-southeast-1" {
-				uriString := "https://oidc.ap-southeast-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "ap-southeast-2" {
-				uriString := "https://oidc.ap-southeast-2.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "ca-central-1" {
-				uriString := "https://oidc.ca-central-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "eu-central-1" {
-				uriString := "https://oidc.eu-central-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "eu-north-1" {
-				uriString := "https://oidc.eu-north-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "eu-south-1" {
-				uriString := "https://oidc.eu-south-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "eu-west-1" {
-				uriString := "https://oidc.eu-west-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "eu-west-2" {
-				uriString := "https://oidc.eu-west-2.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "eu-west-3" {
-				uriString := "https://oidc.eu-west-3.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "me-south-1" {
-				uriString := "https://oidc.me-south-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "sa-east-1" {
-				uriString := "https://oidc.sa-east-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "us-east-1" {
-				uriString := "https://oidc.us-east-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "us-east-2" {
-				uriString := "https://oidc.us-east-2.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "us-west-2" {
-				uriString := "https://oidc.us-west-2.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "us-gov-east-1" {
-				uriString := "https://oidc.us-gov-east-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "us-gov-west-1" {
-				uriString := "https://oidc.us-gov-west-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
 			}
 			uriString := func() string {
 				var out strings.Builder

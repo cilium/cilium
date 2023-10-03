@@ -411,6 +411,25 @@ func (r *resolver) ResolveEndpoint(
 			}
 			if _UseFIPS == true {
 				if true == _PartitionResult.SupportsFIPS {
+					if "aws-us-gov" == _PartitionResult.Name {
+						uriString := func() string {
+							var out strings.Builder
+							out.WriteString("https://portal.sso.")
+							out.WriteString(_Region)
+							out.WriteString(".amazonaws.com")
+							return out.String()
+						}()
+
+						uri, err := url.Parse(uriString)
+						if err != nil {
+							return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
+						}
+
+						return smithyendpoints.Endpoint{
+							URI:     *uri,
+							Headers: http.Header{},
+						}, nil
+					}
 					uriString := func() string {
 						var out strings.Builder
 						out.WriteString("https://portal.sso-fips.")
@@ -454,279 +473,6 @@ func (r *resolver) ResolveEndpoint(
 					}, nil
 				}
 				return endpoint, fmt.Errorf("endpoint rule error, %s", "DualStack is enabled but this partition does not support DualStack")
-			}
-			if _Region == "ap-east-1" {
-				uriString := "https://portal.sso.ap-east-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "ap-northeast-1" {
-				uriString := "https://portal.sso.ap-northeast-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "ap-northeast-2" {
-				uriString := "https://portal.sso.ap-northeast-2.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "ap-northeast-3" {
-				uriString := "https://portal.sso.ap-northeast-3.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "ap-south-1" {
-				uriString := "https://portal.sso.ap-south-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "ap-southeast-1" {
-				uriString := "https://portal.sso.ap-southeast-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "ap-southeast-2" {
-				uriString := "https://portal.sso.ap-southeast-2.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "ca-central-1" {
-				uriString := "https://portal.sso.ca-central-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "eu-central-1" {
-				uriString := "https://portal.sso.eu-central-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "eu-north-1" {
-				uriString := "https://portal.sso.eu-north-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "eu-south-1" {
-				uriString := "https://portal.sso.eu-south-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "eu-west-1" {
-				uriString := "https://portal.sso.eu-west-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "eu-west-2" {
-				uriString := "https://portal.sso.eu-west-2.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "eu-west-3" {
-				uriString := "https://portal.sso.eu-west-3.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "me-south-1" {
-				uriString := "https://portal.sso.me-south-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "sa-east-1" {
-				uriString := "https://portal.sso.sa-east-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "us-east-1" {
-				uriString := "https://portal.sso.us-east-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "us-east-2" {
-				uriString := "https://portal.sso.us-east-2.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "us-west-2" {
-				uriString := "https://portal.sso.us-west-2.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "us-gov-east-1" {
-				uriString := "https://portal.sso.us-gov-east-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
-			}
-			if _Region == "us-gov-west-1" {
-				uriString := "https://portal.sso.us-gov-west-1.amazonaws.com"
-
-				uri, err := url.Parse(uriString)
-				if err != nil {
-					return endpoint, fmt.Errorf("Failed to parse uri: %s", uriString)
-				}
-
-				return smithyendpoints.Endpoint{
-					URI:     *uri,
-					Headers: http.Header{},
-				}, nil
 			}
 			uriString := func() string {
 				var out strings.Builder
