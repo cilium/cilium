@@ -183,7 +183,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 
 	svcInfo := NewService(clusterIPs, svc.Spec.ExternalIPs, loadBalancerIPs,
 		lbSrcRanges, headless, extTrafficPolicy, intTrafficPolicy,
-		uint16(svc.Spec.HealthCheckNodePort), svc.Labels, svc.Spec.Selector,
+		uint16(svc.Spec.HealthCheckNodePort), svc.Annotations, svc.Labels, svc.Spec.Selector,
 		svc.GetNamespace(), svcType)
 
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
@@ -237,8 +237,7 @@ func ParseService(svc *slim_corev1.Service, nodePortAddrs []netip.Addr) (Service
 				id := loadbalancer.ID(0) // will be allocated by k8s_watcher
 
 				if _, ok := svcInfo.NodePorts[portName]; !ok {
-					svcInfo.NodePorts[portName] =
-						make(map[string]*loadbalancer.L3n4AddrID)
+					svcInfo.NodePorts[portName] = make(map[string]*loadbalancer.L3n4AddrID)
 				}
 
 				for _, addr := range nodePortAddrs {
@@ -369,6 +368,8 @@ type Service struct {
 	LoadBalancerIPs          map[string]net.IP
 	LoadBalancerSourceRanges map[string]*cidr.CIDR
 
+	Annotations map[string]string
+
 	Labels   map[string]string
 	Selector map[string]string
 
@@ -485,9 +486,8 @@ func parseIPs(externalIPs []string) map[string]net.IP {
 // NewService returns a new Service with the Ports map initialized.
 func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRanges []string,
 	headless bool, extTrafficPolicy, intTrafficPolicy loadbalancer.SVCTrafficPolicy,
-	healthCheckNodePort uint16, labels, selector map[string]string,
+	healthCheckNodePort uint16, annotations, labels, selector map[string]string,
 	namespace string, svcType loadbalancer.SVCType) *Service {
-
 	var (
 		k8sExternalIPs     map[string]net.IP
 		k8sLoadBalancerIPs map[string]net.IP
@@ -532,6 +532,8 @@ func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRa
 		K8sExternalIPs:           k8sExternalIPs,
 		LoadBalancerIPs:          k8sLoadBalancerIPs,
 		LoadBalancerSourceRanges: loadBalancerSourceCIDRs,
+
+		Annotations: annotations,
 
 		Labels:   labels,
 		Selector: selector,

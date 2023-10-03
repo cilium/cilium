@@ -65,6 +65,12 @@ type ServiceValue interface {
 	// Get the number of backends
 	GetCount() int
 
+	// Set the number of quarantined backends
+	SetQCount(int)
+
+	// Get the number of quarantined backends
+	GetQCount() int
+
 	// Set reverse NAT identifier
 	SetRevNat(int)
 
@@ -188,13 +194,16 @@ func svcFrontend(svcKey ServiceKey, svcValue ServiceValue) *loadbalancer.L3n4Add
 	return feL3n4AddrID
 }
 
-func svcBackend(backendID loadbalancer.BackendID, backend BackendValue) *loadbalancer.Backend {
+func svcBackend(backendID loadbalancer.BackendID, backend BackendValue, backendFlags loadbalancer.ServiceFlags) *loadbalancer.Backend {
 	beIP := backend.GetAddress()
 	beAddrCluster := cmtypes.MustAddrClusterFromIP(beIP)
 	bePort := backend.GetPort()
 	beProto := loadbalancer.NONE
 	beState := loadbalancer.GetBackendStateFromFlags(backend.GetFlags())
 	beZone := backend.GetZone()
+	if beState == loadbalancer.BackendStateActive && backendFlags.SVCSlotQuarantined() {
+		beState = loadbalancer.BackendStateQuarantined
+	}
 	beBackend := loadbalancer.NewBackendWithState(backendID, beProto, beAddrCluster, bePort, beZone, beState)
 	return beBackend
 }
