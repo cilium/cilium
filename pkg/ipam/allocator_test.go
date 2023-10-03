@@ -11,7 +11,6 @@ import (
 
 	. "github.com/cilium/checkmate"
 
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -24,8 +23,7 @@ func (o *ownerMock) K8sEventReceived(resourceApiGroup, scope string, action stri
 }
 func (o *ownerMock) K8sEventProcessed(scope string, action string, status bool) {}
 
-func (o *ownerMock) UpdateCiliumNodeResource()                                          {}
-func (o *ownerMock) LocalAllocCIDRsUpdated(ipv4AllocCIDRs, ipv6AllocCIDRs []*cidr.CIDR) {}
+func (o *ownerMock) UpdateCiliumNodeResource() {}
 
 type resourceMock struct{}
 
