@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/statedb"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -96,9 +97,10 @@ func (*Loader) Stop(hive.HookContext) error {
 type params struct {
 	cell.In
 
+	DB           *statedb.DB
+	Devices      statedb.Table[*tables.Device]
 	ConfigWriter datapath.ConfigWriter
 	NodeConfig   *datapath.LocalNodeConfiguration
-	Devices      datapath.Devices
 	LocalNode    *node.LocalNodeStore
 }
 
@@ -313,7 +315,12 @@ func removeObsoleteNetdevPrograms(devices []*tables.Device) error {
 // will return with an error. Failing to load or to attach the host device
 // always results in reloadHostDatapath returning with an error.
 func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, objPath string) error {
-	devices, _ := l.params.Devices.NativeDevices()
+	txn := l.params.DB.ReadTxn()
+	devices, _ := tables.SelectedDevices(l.params.Devices, l.params.DB.ReadTxn())
+	getDevice := func(name string) *tables.Device {
+		dev, _, _ := l.params.Devices.First(txn, tables.DeviceNameIndex.Query(name))
+		return dev
+	}
 
 	nbInterfaces := len(devices) + 2
 	symbols := make([]string, 2, nbInterfaces)
@@ -325,7 +332,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 	objPaths[0], objPaths[1] = objPath, objPath
 	interfaceNames[0], interfaceNames[1] = ep.InterfaceName(), ep.InterfaceName()
 
-	if secondHostDevice := l.params.Devices.GetDevice(defaults.SecondHostDevice); secondHostDevice == nil {
+	if secondHostDevice := getDevice(defaults.SecondHostDevice); secondHostDevice == nil {
 		log.WithField("device", defaults.SecondHostDevice).Error("Link does not exist")
 		return fmt.Errorf("device %q does not exist", defaults.SecondHostDevice)
 	} else {

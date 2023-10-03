@@ -12,6 +12,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
 
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -32,7 +33,7 @@ func xdpModeToFlag(xdpMode string) uint32 {
 }
 
 // maybeUnloadObsoleteXDPPrograms removes bpf_xdp.o from previously used devices.
-func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode string) {
+func maybeUnloadObsoleteXDPPrograms(xdpDevs []*tables.Device, xdpMode string) {
 	links, err := netlink.LinkList()
 	if err != nil {
 		log.WithError(err).Warn("Failed to list links for XDP unload")
@@ -51,7 +52,7 @@ func maybeUnloadObsoleteXDPPrograms(xdpDevs []string, xdpMode string) {
 
 		used := false
 		for _, xdpDev := range xdpDevs {
-			if link.Attrs().Name == xdpDev &&
+			if link.Attrs().Name == xdpDev.Name &&
 				linkxdp.Flags&xdpModeToFlag(xdpMode) != 0 {
 				// XDP mode matches; don't unload, otherwise we might introduce
 				// intermittent connectivity problems

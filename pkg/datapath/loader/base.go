@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
+	"github.com/cilium/cilium/pkg/datapath/tables"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
@@ -232,7 +233,7 @@ func (l *Loader) reinitializeOverlay(ctx context.Context, encapProto string) err
 }
 
 func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string) error {
-	devices, _ := l.params.Devices.NativeDeviceNames()
+	devices, _ := tables.SelectedDevices(l.params.Devices, l.params.DB.ReadTxn())
 
 	maybeUnloadObsoleteXDPPrograms(devices, option.Config.XDPMode)
 	if option.Config.XDPMode == option.XDPModeDisabled {
@@ -243,10 +244,10 @@ func (l *Loader) reinitializeXDPLocked(ctx context.Context, extraCArgs []string)
 		// so that NodePort's rev-{S,D}NAT translations happens for a reply from the remote node.
 		// So We need to exclude cilium_wg0 not to attach the XDP program when XDP acceleration
 		// is enabled, otherwise we will get "operation not supported" error.
-		if dev == wgTypes.IfaceName {
+		if dev.Name == wgTypes.IfaceName {
 			continue
 		}
-		if err := compileAndLoadXDPProg(ctx, dev, option.Config.XDPMode, extraCArgs); err != nil {
+		if err := compileAndLoadXDPProg(ctx, dev.Name, option.Config.XDPMode, extraCArgs); err != nil {
 			return err
 		}
 	}
@@ -272,7 +273,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	if err != nil {
 		return err
 	}
-	devices, _ := l.params.Devices.NativeDeviceNames()
+	devices, _ := tables.SelectedDevices(l.params.Devices, l.params.DB.ReadTxn())
+	deviceNames := tables.DeviceNames(devices)
 
 	sysSettings := []sysctl.Setting{
 		{Name: "net.core.bpf_jit_enable", Val: "1", IgnoreErr: true, Warn: "Unable to ensure that BPF JIT compilation is enabled. This can be ignored when Cilium is running inside non-host network namespace (e.g. with kind or minikube)"},
@@ -377,7 +379,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 			return err
 		}
 
-		if err := writePreFilterHeader(devices, preFilter, "./"); err != nil {
+		if err := writePreFilterHeader(deviceNames, preFilter, "./"); err != nil {
 			scopedLog.WithError(err).Warn("Unable to write prefilter header")
 			return err
 		}
