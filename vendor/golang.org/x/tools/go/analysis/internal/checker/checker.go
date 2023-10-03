@@ -17,7 +17,6 @@ import (
 	"go/format"
 	"go/token"
 	"go/types"
-	"io/ioutil"
 	"log"
 	"os"
 	"reflect"
@@ -75,6 +74,7 @@ func RegisterFlags() {
 // Run loads the packages specified by args using go/packages,
 // then applies the specified analyzers to them.
 // Analysis flags must already have been set.
+// Analyzers must be valid according to [analysis.Validate].
 // It provides most of the logic for the main functions of both the
 // singlechecker and the multi-analysis commands.
 // It returns the appropriate exit code.
@@ -142,9 +142,10 @@ func Run(args []string, analyzers []*analysis.Analyzer) (exitcode int) {
 		// TODO: filter analyzers based on RunDespiteError?
 	}
 
-	// Print the results.
+	// Run the analysis.
 	roots := analyze(initial, analyzers)
 
+	// Apply fixes.
 	if Fix {
 		if err := applyFixes(roots); err != nil {
 			// Fail when applying fixes failed.
@@ -152,6 +153,8 @@ func Run(args []string, analyzers []*analysis.Analyzer) (exitcode int) {
 			return 1
 		}
 	}
+
+	// Print the results.
 	return printDiagnostics(roots)
 }
 
@@ -168,6 +171,7 @@ func load(patterns []string, allSyntax bool) ([]*packages.Package, error) {
 	if allSyntax {
 		mode = packages.LoadAllSyntax
 	}
+	mode |= packages.NeedModule
 	conf := packages.Config{
 		Mode:  mode,
 		Tests: IncludeTests,
@@ -211,8 +215,9 @@ func loadingError(initial []*packages.Package) error {
 	return err
 }
 
-// TestAnalyzer applies an analysis to a set of packages (and their
+// TestAnalyzer applies an analyzer to a set of packages (and their
 // dependencies if necessary) and returns the results.
+// The analyzer must be valid according to [analysis.Validate].
 //
 // Facts about pkg are returned in a map keyed by object; package facts
 // have a nil key.
@@ -419,7 +424,7 @@ func applyFixes(roots []*action) error {
 
 	// Now we've got a set of valid edits for each file. Apply them.
 	for path, edits := range editsByPath {
-		contents, err := ioutil.ReadFile(path)
+		contents, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
@@ -434,7 +439,7 @@ func applyFixes(roots []*action) error {
 			out = formatted
 		}
 
-		if err := ioutil.WriteFile(path, out, 0644); err != nil {
+		if err := os.WriteFile(path, out, 0644); err != nil {
 			return err
 		}
 	}
@@ -474,7 +479,7 @@ func validateEdits(edits []diff.Edit) ([]diff.Edit, int) {
 // diff3Conflict returns an error describing two conflicting sets of
 // edits on a file at path.
 func diff3Conflict(path string, xlabel, ylabel string, xedits, yedits []diff.Edit) error {
-	contents, err := ioutil.ReadFile(path)
+	contents, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
@@ -765,6 +770,15 @@ func (act *action) execOnce() {
 				err = fmt.Errorf(
 					"internal error: on package %s, analyzer %s returned a result of type %v, but declared ResultType %v",
 					pass.Pkg.Path(), pass.Analyzer, got, want)
+			}
+		}
+	}
+	if err == nil { // resolve diagnostic URLs
+		for i := range act.diagnostics {
+			if url, uerr := analysisflags.ResolveURL(act.a, act.diagnostics[i]); uerr == nil {
+				act.diagnostics[i].URL = url
+			} else {
+				err = uerr // keep the last error
 			}
 		}
 	}
