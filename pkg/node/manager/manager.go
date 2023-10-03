@@ -663,6 +663,7 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 	}
 
 	m.metricNumNodes.Dec()
+	processNodeDeletion(n.Cluster, n.Name)
 
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentity)
@@ -671,6 +672,28 @@ func (m *Manager) NodeDeleted(n nodeTypes.Node) {
 		nh.NodeDelete(n)
 	})
 	entry.mutex.Unlock()
+}
+
+func processNodeDeletion(clusterName, nodeName string) {
+	// Removes all connectivity status associated with the deleted node.
+	_ = metrics.NodeConnectivityStatus.DeletePartialMatch(prometheus.Labels{
+		metrics.LabelSourceCluster:  clusterName,
+		metrics.LabelSourceNodeName: nodeName,
+	})
+	_ = metrics.NodeConnectivityStatus.DeletePartialMatch(prometheus.Labels{
+		metrics.LabelTargetCluster:  clusterName,
+		metrics.LabelTargetNodeName: nodeName,
+	})
+
+	// Removes all connectivity latency associated with the deleted node.
+	_ = metrics.NodeConnectivityLatency.DeletePartialMatch(prometheus.Labels{
+		metrics.LabelSourceCluster:  clusterName,
+		metrics.LabelSourceNodeName: nodeName,
+	})
+	_ = metrics.NodeConnectivityLatency.DeletePartialMatch(prometheus.Labels{
+		metrics.LabelTargetCluster:  clusterName,
+		metrics.LabelTargetNodeName: nodeName,
+	})
 }
 
 // GetNodeIdentities returns a list of all node identities store in node
