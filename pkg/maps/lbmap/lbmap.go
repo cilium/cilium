@@ -105,6 +105,13 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 			svcVal.SetBackendID(loadbalancer.BackendID(backendID))
 			svcVal.SetRevNat(int(p.ID))
 			svcKey.SetBackendSlot(slot)
+			svcVal.SetFlags(uint16(0))
+			if slot > len(p.ActiveBackends) {
+				flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
+					Quarantined: true,
+				})
+				svcVal.SetFlags(flag.UInt16())
+			}
 			if err := updateServiceEndpoint(svcKey, svcVal); err != nil {
 				if errors.Is(err, unix.E2BIG) {
 					return fmt.Errorf("Unable to update service entry %+v => %+v: "+
@@ -128,7 +135,7 @@ func (lbmap *LBBPFMap) upsertServiceProto(p *datapathTypes.UpsertServiceParams, 
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %w", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), int(p.ID), p.Type, p.ExtLocal, p.IntLocal, p.NatPolicy,
+	if err := updateMasterService(svcKey, svcVal.New().(ServiceValue), len(backends), len(p.NonActiveBackends), int(p.ID), p.Type, p.ExtLocal, p.IntLocal, p.NatPolicy,
 		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange, p.L7LBProxyPort, p.LoopbackHostport); err != nil {
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %w", svcKey, err)
@@ -469,8 +476,8 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 			errors = append(errors, fmt.Errorf("backend %d not found", backendID))
 			return
 		}
-
-		be := svcBackend(backendID, backendValue)
+		backendFlags := loadbalancer.ServiceFlags(svcValue.GetFlags())
+		be := svcBackend(backendID, backendValue, backendFlags)
 		newSVCMap.addFEnBE(fe, be, svcKey.GetBackendSlot())
 	}
 
@@ -565,7 +572,7 @@ func (*LBBPFMap) IsMaglevLookupTableRecreated(ipv6 bool) bool {
 	return maglevRecreatedIPv4
 }
 
-func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends int, revNATID int, svcType loadbalancer.SVCType,
+func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends, quarantinedBackends int, revNATID int, svcType loadbalancer.SVCType,
 	svcExtLocal, svcIntLocal bool, svcNatPolicy loadbalancer.SVCNatPolicy, sessionAffinity bool,
 	sessionAffinityTimeoutSec uint32, checkSourceRange bool, l7lbProxyPort uint16, loopbackHostport bool) error {
 
@@ -575,6 +582,7 @@ func updateMasterService(fe ServiceKey, v ServiceValue, activeBackends int, revN
 
 	fe.SetBackendSlot(0)
 	v.SetCount(activeBackends)
+	v.SetQCount(quarantinedBackends)
 	v.SetRevNat(revNATID)
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
