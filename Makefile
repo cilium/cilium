@@ -608,7 +608,7 @@ build-clustermesh-apiserver: ## Build cilium clustermesh-apiserver binary
 kind-image-fast-agent: kind-ready build-cli build-agent ## Build cilium cli and daemon binaries. Copy the bins and bpf files to kind nodes.
 	$(eval dst:=/cilium-binaries)
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
-		for node_name in $(shell kind get nodes -n "${cluster_name}"); do \
+		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
 			docker exec -ti $${node_name} mkdir -p "${dst}"; \
 			\
 			docker exec -ti $${node_name} rm -rf "${dst}/var/lib/cilium"; \
@@ -632,7 +632,7 @@ kind-image-fast-agent: kind-ready build-cli build-agent ## Build cilium cli and 
 kind-image-fast-operator: kind-ready build-operator ## Build cilium operator binary and copy it to all kind nodes.
 	$(eval dst:=/cilium-binaries)
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
-		for node_name in $(shell kind get nodes -n "${cluster_name}"); do \
+		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
 			docker exec -ti $${node_name} mkdir -p "${dst}"; \
 			\
 			docker exec -ti $${node_name} rm -f "${dst}/cilium-operator-generic"; \
@@ -647,7 +647,7 @@ kind-image-fast-operator: kind-ready build-operator ## Build cilium operator bin
 kind-image-fast-clustermesh-apiserver: kind-ready build-clustermesh-apiserver ## Build clustermesh-apiserver binary and copy it to all kind nodes.
 	$(eval dst:=/cilium-binaries)
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
-		for node_name in $(shell kind get nodes -n "${cluster_name}"); do \
+		for node_name in $$(kind get nodes -n "$$cluster_name"); do \
 			docker exec -ti $${node_name} mkdir -p "${dst}"; \
 			\
 			docker exec -ti $${node_name} rm -f "${dst}/clustermesh-apiserver"; \
