@@ -344,15 +344,15 @@ var badLogMessages = map[string][]string{
 }
 
 var ciliumCLICommands = map[string]string{
-	"cilium endpoint list -o json":          "endpoint_list.txt",
-	"cilium service list -o json":           "service_list.txt",
-	"cilium config":                         "config.txt",
-	"sudo cilium bpf lb list":               "bpf_lb_list.txt",
-	"sudo cilium bpf ct list global":        "bpf_ct_list.txt",
-	"sudo cilium bpf tunnel list":           "bpf_tunnel_list.txt",
-	"cilium policy get":                     "policy_get.txt",
-	"cilium status --all-controllers":       "status.txt",
-	"cilium kvstore get cilium --recursive": "kvstore_get.txt",
+	"cilium-dbg endpoint list -o json":          "endpoint_list.txt",
+	"cilium-dbg service list -o json":           "service_list.txt",
+	"cilium-dbg config":                         "config.txt",
+	"sudo cilium-dbg bpf lb list":               "bpf_lb_list.txt",
+	"sudo cilium-dbg bpf ct list global":        "bpf_ct_list.txt",
+	"sudo cilium-dbg bpf tunnel list":           "bpf_tunnel_list.txt",
+	"cilium-dbg policy get":                     "policy_get.txt",
+	"cilium-dbg status --all-controllers":       "status.txt",
+	"cilium-dbg kvstore get cilium --recursive": "kvstore_get.txt",
 
 	"hubble observe --since 4h -o jsonpb": "hubble_observe.json",
 }
@@ -360,14 +360,14 @@ var ciliumCLICommands = map[string]string{
 // ciliumKubCLICommands these commands are the same as `ciliumCLICommands` but
 // it'll run inside a container and it does not have sudo support
 var ciliumKubCLICommands = map[string]string{
-	"cilium endpoint list -o json":    "endpoint_list.txt",
-	"cilium service list -o json":     "service_list.txt",
-	"cilium config":                   "config.txt",
-	"cilium bpf lb list":              "bpf_lb_list.txt",
-	"cilium bpf ct list global":       "bpf_ct_list.txt",
-	"cilium bpf tunnel list":          "bpf_tunnel_list.txt",
-	"cilium policy get":               "policy_get.txt",
-	"cilium status --all-controllers": "status.txt",
+	"cilium-dbg endpoint list -o json":    "endpoint_list.txt",
+	"cilium-dbg service list -o json":     "service_list.txt",
+	"cilium-dbg config":                   "config.txt",
+	"cilium-dbg bpf lb list":              "bpf_lb_list.txt",
+	"cilium-dbg bpf ct list global":       "bpf_ct_list.txt",
+	"cilium-dbg bpf tunnel list":          "bpf_tunnel_list.txt",
+	"cilium-dbg policy get":               "policy_get.txt",
+	"cilium-dbg status --all-controllers": "status.txt",
 
 	"hubble observe --since 4h -o jsonpb": "hubble_observe.json",
 }
@@ -377,7 +377,7 @@ var ciliumKubCLICommands = map[string]string{
 // of timing out in our CI, so we want to run it separately. Otherwise, we might
 // lose out on getting other critical debugging output when a test fails.
 var ciliumKubCLICommandsKVStore = map[string]string{
-	"cilium kvstore get cilium --recursive": "kvstore_get.txt",
+	"cilium-dbg kvstore get cilium --recursive": "kvstore_get.txt",
 }
 
 // K8s1VMName is the name of the Kubernetes master node when running K8s tests.
