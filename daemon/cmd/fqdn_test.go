@@ -212,7 +212,7 @@ func (ds *DaemonFQDNSuite) Benchmark_notifyOnDNSMsg(c *C) {
 			ID:   uint16(c.N % 65000),
 			IPv4: netip.MustParseAddr(fmt.Sprintf("10.96.%d.%d", (c.N>>16)%8, c.N%256)),
 			SecurityIdentity: &identity.Identity{
-				ID: identity.NumericIdentity(c.N % int(identity.MaximumAllocationIdentity)),
+				ID: identity.NumericIdentity(c.N % int(identity.GetMaximumAllocationIdentity())),
 			},
 			DNSZombies: &fqdn.DNSZombieMappings{
 				Mutex: lock.Mutex{},
