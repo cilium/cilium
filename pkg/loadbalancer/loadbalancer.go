@@ -67,6 +67,7 @@ const (
 	serviceFlagLoopback        = 1 << 11
 	serviceFlagIntLocalScope   = 1 << 12
 	serviceFlagTwoScopes       = 1 << 13
+	serviceFlagQuarantined     = 1 << 14
 )
 
 type SvcFlagParam struct {
@@ -79,6 +80,7 @@ type SvcFlagParam struct {
 	CheckSourceRange bool
 	L7LoadBalancer   bool
 	LoopbackHostport bool
+	Quarantined      bool
 }
 
 // NewSvcFlag creates service flag
@@ -128,6 +130,9 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 	}
 	if p.SvcExtLocal != p.SvcIntLocal && p.SvcType != SVCTypeClusterIP {
 		flags |= serviceFlagTwoScopes
+	}
+	if p.Quarantined {
+		flags |= serviceFlagQuarantined
 	}
 
 	return flags
@@ -188,6 +193,15 @@ func (s ServiceFlags) SVCNatPolicy(fe L3n4Addr) SVCNatPolicy {
 	}
 }
 
+// SVCSlotQuarantined
+func (s ServiceFlags) SVCSlotQuarantined() bool {
+	if s&serviceFlagQuarantined == 0 {
+		return false
+	} else {
+		return true
+	}
+}
+
 // String returns the string implementation of ServiceFlags.
 func (s ServiceFlags) String() string {
 	var str []string
@@ -220,7 +234,9 @@ func (s ServiceFlags) String() string {
 	if s&serviceFlagLoopback != 0 {
 		str = append(str, "loopback")
 	}
-
+	if s&serviceFlagQuarantined != 0 {
+		str = append(str, "quarantined")
+	}
 	return strings.Join(str, ", ")
 }
 
@@ -325,10 +341,8 @@ func GetBackendStateFromFlags(flags uint8) BackendState {
 // DefaultBackendWeight is used when backend weight is not set in ServiceSpec
 const DefaultBackendWeight = 100
 
-var (
-	// AllProtocols is the list of all supported L4 protocols
-	AllProtocols = []L4Type{TCP, UDP, SCTP}
-)
+// AllProtocols is the list of all supported L4 protocols
+var AllProtocols = []L4Type{TCP, UDP, SCTP}
 
 // L4Type name.
 type L4Type = string
@@ -414,7 +428,8 @@ type Backend struct {
 }
 
 func (b *Backend) String() string {
-	return b.L3n4Addr.String()
+	state, _ := b.State.String()
+	return "[" + b.L3n4Addr.String() + "," + "State:" + state + "]"
 }
 
 // SVC is a structure for storing service details.
@@ -432,6 +447,7 @@ type SVC struct {
 	LoadBalancerSourceRanges  []*cidr.CIDR
 	L7LBProxyPort             uint16 // Non-zero for L7 LB services
 	LoopbackHostport          bool
+	Annotations               map[string]string
 }
 
 func (s *SVC) GetModel() *models.Service {

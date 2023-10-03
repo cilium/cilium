@@ -247,6 +247,27 @@ func (in *Service) deepEqual(other *Service) bool {
 		}
 	}
 
+	if ((in.Annotations != nil) && (other.Annotations != nil)) || ((in.Annotations == nil) != (other.Annotations == nil)) {
+		in, other := &in.Annotations, &other.Annotations
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for key, inValue := range *in {
+				if otherValue, present := (*other)[key]; !present {
+					return false
+				} else {
+					if inValue != otherValue {
+						return false
+					}
+				}
+			}
+		}
+	}
+
 	if ((in.Labels != nil) && (other.Labels != nil)) || ((in.Labels == nil) != (other.Labels == nil)) {
 		in, other := &in.Labels, &other.Labels
 		if other == nil {

@@ -71,8 +71,9 @@ type ServiceManager interface {
 	SyncWithK8sFinished(localOnly bool, localServices sets.Set[k8s.ServiceID]) (stale []k8s.ServiceID, err error)
 
 	// UpdateBackendsState updates all the service(s) with the updated state of
-	// the given backends. It also persists the updated backend states to the BPF maps.
-	UpdateBackendsState(backends []*lb.Backend) error
+	// the given backends, and returns the updated services.
+	// It also persists the updated backend states to the BPF maps.
+	UpdateBackendsState(backends []*lb.Backend) ([]lb.L3n4Addr, error)
 
 	// UpsertService inserts or updates the given service.
 	UpsertService(*lb.SVC) (bool, lb.ID, error)
