@@ -26,6 +26,8 @@ if [ "$1" = "uninstall" ] ; then
     if [ -f /usr/bin/cilium ] ; then
         echo "Removing /usr/bin/cilium"
         ${SUDO} rm /usr/bin/cilium
+        echo "Removing /usr/bin/cilium-dbg"
+        ${SUDO} rm /usr/bin/cilium-dbg
         echo "Removing /usr/bin/cilium-bugtool"
         ${SUDO} rm /usr/bin/cilium-bugtool
     fi
@@ -56,6 +58,7 @@ ${SUDO} docker run --name cilium $DOCKER_OPTS $CILIUM_IMAGE /bin/bash -c "groupa
 
 # Copy Cilium CLI
 ${SUDO} docker cp cilium:/usr/bin/cilium /usr/bin/
+${SUDO} docker cp cilium:/usr/bin/cilium-dbg /usr/bin/
 ${SUDO} docker cp cilium:/usr/bin/cilium-bugtool /usr/bin/
 ${SUDO} docker cp cilium:/usr/bin/hubble /usr/bin/
 # These programs are not statically linked so they might break in the case

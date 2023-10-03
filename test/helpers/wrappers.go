@@ -210,7 +210,7 @@ func OpenSSLShowCerts(host string, port uint16, serverName string) string {
 // GetBPFPacketsCount returns the number of packets for a given drop reason and
 // direction by parsing BPF metrics.
 func GetBPFPacketsCount(kubectl *Kubectl, pod, reason, direction string) (int, error) {
-	cmd := fmt.Sprintf("cilium bpf metrics list -o json | jq '.[] | select(.description == \"%s\").values.%s.packets'", reason, direction)
+	cmd := fmt.Sprintf("cilium-dbg bpf metrics list -o json | jq '.[] | select(.description == \"%s\").values.%s.packets'", reason, direction)
 
 	res := kubectl.CiliumExecMustSucceed(context.TODO(), pod, cmd)
 

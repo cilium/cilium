@@ -120,7 +120,7 @@ var _ = Describe("RuntimeDatapathMonitorTest", func() {
 
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
-				res := vm.ExecInBackground(ctx, fmt.Sprintf("cilium monitor --type %s -vv", k))
+				res := vm.ExecInBackground(ctx, fmt.Sprintf("cilium-dbg monitor --type %s -vv", k))
 
 				vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 				vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
@@ -133,7 +133,7 @@ var _ = Describe("RuntimeDatapathMonitorTest", func() {
 			}
 
 			By("all types together")
-			command := "cilium monitor -vv"
+			command := "cilium-dbg monitor -vv"
 			for k := range eventTypes {
 				command = command + " --type " + k
 			}
@@ -158,7 +158,7 @@ var _ = Describe("RuntimeDatapathMonitorTest", func() {
 			Expect(res.CountLines()).Should(BeNumerically(">", 3))
 		})
 
-		It("cilium monitor check --from", func() {
+		It("cilium-dbg monitor check --from", func() {
 			monitorConfig()
 
 			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
@@ -170,7 +170,7 @@ var _ = Describe("RuntimeDatapathMonitorTest", func() {
 			defer cancel()
 
 			res := vm.ExecInBackground(ctx, fmt.Sprintf(
-				"cilium monitor --type debug --from %s -vv", endpoints[helpers.App1]))
+				"cilium-dbg monitor --type debug --from %s -vv", endpoints[helpers.App1]))
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 
 			filter := fmt.Sprintf("FROM %s DEBUG:", endpoints[helpers.App1])
@@ -183,7 +183,7 @@ var _ = Describe("RuntimeDatapathMonitorTest", func() {
 			Expect(res.Stdout()).ShouldNot(ContainSubstring("DROP"))
 		})
 
-		It("cilium monitor check --to", func() {
+		It("cilium-dbg monitor check --to", func() {
 			monitorConfig()
 
 			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
@@ -194,7 +194,7 @@ var _ = Describe("RuntimeDatapathMonitorTest", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			res := vm.ExecInBackground(ctx, fmt.Sprintf(
-				"cilium monitor -vv --to %s", endpoints[helpers.Httpd1]))
+				"cilium-dbg monitor -vv --to %s", endpoints[helpers.Httpd1]))
 
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 			vm.ContainerExec(helpers.App2, helpers.Ping(helpers.Httpd1))
@@ -206,7 +206,7 @@ var _ = Describe("RuntimeDatapathMonitorTest", func() {
 			Expect(res.Stdout()).Should(ContainSubstring(filter))
 		})
 
-		It("cilium monitor check --related-to", func() {
+		It("cilium-dbg monitor check --related-to", func() {
 			monitorConfig()
 
 			Expect(vm.WaitEndpointsReady()).Should(BeTrue(), "Endpoints are not ready after timeout")
@@ -217,7 +217,7 @@ var _ = Describe("RuntimeDatapathMonitorTest", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			res := vm.ExecInBackground(ctx, fmt.Sprintf(
-				"cilium monitor -vv --related-to %s", endpoints[helpers.Httpd1]))
+				"cilium-dbg monitor -vv --related-to %s", endpoints[helpers.Httpd1]))
 
 			vm.WaitEndpointsReady()
 			vm.ContainerExec(helpers.App1, helpers.CurlFail("http://httpd1/public"))
@@ -238,7 +238,7 @@ var _ = Describe("RuntimeDatapathMonitorTest", func() {
 			ctx, cancelfn := context.WithCancel(context.Background())
 
 			for i := 1; i <= 3; i++ {
-				monitorRes = append(monitorRes, vm.ExecInBackground(ctx, "cilium monitor"))
+				monitorRes = append(monitorRes, vm.ExecInBackground(ctx, "cilium-dbg monitor"))
 			}
 
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
@@ -295,7 +295,7 @@ var _ = Describe("RuntimeDatapathMonitorTest", func() {
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 
 			ctx, cancel := context.WithCancel(context.Background())
-			res := vm.ExecInBackground(ctx, "cilium monitor -vv")
+			res := vm.ExecInBackground(ctx, "cilium-dbg monitor -vv")
 
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 			vm.ContainerExec(helpers.Httpd1, helpers.Ping(helpers.App1))

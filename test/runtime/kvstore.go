@@ -50,7 +50,7 @@ var _ = Describe("RuntimeAgentKVStoreTest", func() {
 	})
 
 	AfterFailed(func() {
-		vm.ReportFailed("cilium status")
+		vm.ReportFailed("cilium-dbg status")
 	})
 
 	AfterAll(func() {
@@ -168,7 +168,7 @@ var kvstoreChaosTests = func() {
 		_, err := vm.PolicyRenderAndImport(policy)
 		Expect(err).To(BeNil(), "Unable to import policy: %s", err)
 
-		CIDRIdentities := vm.Exec(fmt.Sprintf(`cilium identity list -o json| %s`, jqFilter))
+		CIDRIdentities := vm.Exec(fmt.Sprintf(`cilium-dbg identity list -o json| %s`, jqFilter))
 		CIDRIdentities.ExpectSuccess("Cannot get cidr identities")
 
 		for _, identityID := range CIDRIdentities.ByLines() {
@@ -176,7 +176,7 @@ var kvstoreChaosTests = func() {
 			vm.Exec(action).ExpectSuccess("Key %s cannot be deleted correctly", identityID)
 		}
 
-		newCIDRIdentities := vm.Exec(fmt.Sprintf(`cilium identity list -o json| %s`, jqFilter))
+		newCIDRIdentities := vm.Exec(fmt.Sprintf(`cilium-dbg identity list -o json| %s`, jqFilter))
 		newCIDRIdentities.ExpectSuccess("Cannot get cidr identities")
 
 		Expect(CIDRIdentities.ByLines()).To(Equal(newCIDRIdentities.ByLines()),

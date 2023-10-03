@@ -50,7 +50,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport("cilium service list", "cilium endpoint list")
+		kubectl.CiliumReport("cilium-dbg service list", "cilium-dbg endpoint list")
 	})
 
 	JustAfterEach(func() {
@@ -122,7 +122,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 					// Remove CT entries to avoid packet drops which could happen
 					// due to matching stale entries with proxy_redirect = 1
 					kubectl.CiliumExecMustSucceedOnAll(context.TODO(),
-						"cilium bpf ct flush global", "Unable to flush CT maps")
+						"cilium-dbg bpf ct flush global", "Unable to flush CT maps")
 				})
 
 				It("Tests NodePort with L7 Policy", func() {
@@ -292,7 +292,7 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sDatapathServicesTest", func()
 				kubectl.Delete(demoPolicyL7)
 				// Same reason as in other L7 test above
 				kubectl.CiliumExecMustSucceedOnAll(context.TODO(),
-					"cilium bpf ct flush global", "Unable to flush CT maps")
+					"cilium-dbg bpf ct flush global", "Unable to flush CT maps")
 			})
 
 			It("Tests NodePort with L7 Policy", func() {
