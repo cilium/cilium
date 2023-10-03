@@ -406,6 +406,7 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 		if svcs[i].Type == loadbalancer.SVCTypeLoadBalancer {
 			svcs[i].LoadBalancerSourceRanges = lbSrcRanges
 		}
+		svcs[i].Annotations = svc.Annotations
 	}
 
 	return svcs
@@ -466,6 +467,7 @@ func (k *K8sServiceWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Ser
 			SessionAffinity:           dpSvc.SessionAffinity,
 			SessionAffinityTimeoutSec: dpSvc.SessionAffinityTimeoutSec,
 			HealthCheckNodePort:       dpSvc.HealthCheckNodePort,
+			Annotations:               dpSvc.Annotations,
 			LoadBalancerSourceRanges:  dpSvc.LoadBalancerSourceRanges,
 			Name: loadbalancer.ServiceName{
 				Name:      svcID.Name,

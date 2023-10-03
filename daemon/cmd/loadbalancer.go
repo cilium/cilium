@@ -42,7 +42,7 @@ func putServiceIDHandler(d *Daemon, params PutServiceIDParams) middleware.Respon
 			}
 			backends = append(backends, b)
 		}
-		if err := d.svc.UpdateBackendsState(backends); err != nil {
+		if _, err := d.svc.UpdateBackendsState(backends); err != nil {
 			return api.Error(PutServiceIDUpdateBackendFailureCode, err)
 		}
 		return NewPutServiceIDOK()
