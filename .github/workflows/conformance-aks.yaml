@@ -185,9 +185,10 @@ jobs:
 
       - name: Install aks-preview CLI extension
         run: |
+            curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
             az extension add --name aks-preview
             az extension update --name aks-preview
-            az version
+            az --version
 
       - name: Create AKS cluster
         run: |
@@ -195,14 +196,15 @@ jobs:
           az group create \
             --name ${{ env.name }} \
             --location ${{ matrix.location }} \
+            --verbose --debug \
             --tags usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}
 
           # Create AKS cluster
           az aks create \
             --resource-group ${{ env.name }} \
+            --verbose --debug \
             --name ${{ env.name }} \
             --location ${{ matrix.location }} \
-            --kubernetes-version ${{ matrix.version }} \
             --network-plugin none \
             --node-count 2 \
             ${{ env.cost_reduction }} \

@@ -8,6 +8,6 @@ include:
     location: westus
     index: 2
   - version: "1.27"
-    location: eastasia
+    location: westeurope
     index: 3
     default: true
