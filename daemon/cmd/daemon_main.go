@@ -1728,6 +1728,25 @@ func runDaemon(d *Daemon, restoredEndpoints *endpointRestoreState, cleaner *daem
 		}
 	}
 
+	if option.Config.EnableEnvoyConfig {
+		if !d.endpointManager.IngressEndpointExists() {
+			// Creating Ingress Endpoint depends on the Ingress IPs having been
+			// allocated first. This happens earlier in the agent bootstrap.
+			if (option.Config.EnableIPv4 && len(node.GetIngressIPv4()) == 0) ||
+				(option.Config.EnableIPv6 && len(node.GetIngressIPv6()) == 0) {
+				log.Warn("Ingress IPs are not available, skipping creation of the Ingress Endpoint: Policy enforcement on Cilium Ingress will not work as expected.")
+			} else {
+				log.Info("Creating ingress endpoint")
+				if err := d.endpointManager.AddIngressEndpoint(
+					d.ctx, d, d, d.ipcache, d.l7Proxy, d.identityAllocator,
+					"Create ingress endpoint",
+				); err != nil {
+					log.Fatalf("unable to create ingress endpoint: %s", err)
+				}
+			}
+		}
+	}
+
 	if option.Config.EnableIPMasqAgent {
 		ipmasqAgent, err := ipmasq.NewIPMasqAgent(option.Config.IPMasqAgentConfigPath)
 		if err != nil {
