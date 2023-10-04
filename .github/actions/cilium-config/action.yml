@@ -53,6 +53,7 @@ outputs:
 runs:
   using: composite
   steps:
+    - uses: ./.github/actions/set-env-variables
     - shell: bash
       id: derive-config
       run: |
@@ -120,7 +121,7 @@ runs:
 
           EGRESS_GATEWAY=""
           if [ "${{ inputs.egress-gateway }}" == "true" ]; then
-            EGRESS_GATEWAY="--helm-set=egressGateway.enabled=true"
+            EGRESS_GATEWAY="${{ env.EGRESS_GATEWAY_HELM_VALUES }}"
           fi
 
           LB_ACCELERATION=""
