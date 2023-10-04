@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium-cli/internal/utils"
 	"github.com/cilium/cilium-cli/k8s"
+	"github.com/cilium/cilium-cli/utils/features"
 )
 
 const sysdumpLogFile = "cilium-sysdump.log"
@@ -153,14 +154,17 @@ type Collector struct {
 	CiliumConfigMap *corev1.ConfigMap
 	// additionalTasks keeps track of additional tasks added via AddTasks.
 	additionalTasks []Task
+	// FeatureSet is a map of enabled / disabled features based on the contents of cilium-config ConfigMap.
+	FeatureSet features.Set
 }
 
 // NewCollector returns a new sysdump collector.
 func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion string) (*Collector, error) {
 	c := Collector{
-		Client:    k,
-		Options:   o,
-		startTime: startTime,
+		Client:     k,
+		Options:    o,
+		startTime:  startTime,
+		FeatureSet: features.Set{},
 	}
 	tmp, err := os.MkdirTemp("", "*")
 	if err != nil {
@@ -262,6 +266,14 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 				return nil, fmt.Errorf("failed to get %s ConfigMap: %w", ciliumConfigMapName, err)
 			}
 			c.log("ℹ️  %s ConfigMap not found in %s namespace", ciliumConfigMapName, c.Options.CiliumNamespace)
+		}
+		if c.CiliumConfigMap != nil && len(c.CiliumPods) > 0 {
+			ciliumVersion, err := c.Client.GetCiliumVersion(context.Background(), c.CiliumPods[0])
+			if err != nil {
+				return nil, fmt.Errorf("failed to get Cilium version from %s/%s: %w", c.CiliumPods[0].Namespace, c.CiliumPods[0].Name, err)
+			}
+			c.FeatureSet.ExtractFromConfigMap(*ciliumVersion, c.CiliumConfigMap)
+			c.log("🔮 Detected Cilium features: %v", c.FeatureSet)
 		}
 	}
 
@@ -1208,112 +1220,7 @@ func (c *Collector) Run() error {
 				return nil
 			},
 		},
-		{
-			CreatesSubtasks: true,
-			Description:     "Collecting logs from Cilium SPIRE server pods",
-			Quick:           false,
-			Task: func(ctx context.Context) error {
-				p, err := c.Client.ListPods(ctx, c.Options.CiliumSPIRENamespace, metav1.ListOptions{
-					LabelSelector: c.Options.CiliumSPIREServerLabelSelector,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to get logs from Cilium SPIRE server pods")
-				}
-				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
-					return fmt.Errorf("failed to collect logs from Cilium SPIRE server pods")
-				}
-				return nil
-			},
-		},
-		{
-			CreatesSubtasks: true,
-			Description:     "Collecting logs from Cilium SPIRE agent pods",
-			Quick:           false,
-			Task: func(ctx context.Context) error {
-				p, err := c.Client.ListPods(ctx, c.Options.CiliumSPIRENamespace, metav1.ListOptions{
-					LabelSelector: c.Options.CiliumSPIREAgentLabelSelector,
-				})
-				if err != nil {
-					return fmt.Errorf("failed to get logs from Cilium SPIRE agent pods")
-				}
-				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
-					return fmt.Errorf("failed to collect logs from Cilium SPIRE agent pods")
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting the Cilium SPIRE server statefulset",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.GetStatefulSet(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREServerStatefulSetName, metav1.GetOptions{})
-				if err != nil {
-					if errors.IsNotFound(err) {
-						c.logWarn("StatefulSet %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREServerStatefulSetName, c.Options.CiliumSPIRENamespace)
-						return nil
-					}
-					return fmt.Errorf("failed to collect the Cilium SPIRE server statefulset: %w", err)
-				}
-				if err := c.WriteYAML(ciliumSPIREServerStatefulSetFileName, v); err != nil {
-					return fmt.Errorf("failed to collect the Cilium SPIRE server statefulset: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting the Cilium SPIRE agent daemonset",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.GetDaemonSet(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREAgentDaemonSetName, metav1.GetOptions{})
-				if err != nil {
-					if errors.IsNotFound(err) {
-						c.logWarn("Daemonset %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREAgentDaemonSetName, c.Options.CiliumSPIRENamespace)
-						return nil
-					}
-					return fmt.Errorf("failed to collect the Cilium SPIRE agent daemonset: %w", err)
-				}
-				if err := c.WriteYAML(ciliumSPIREAgentDaemonsetFileName, v); err != nil {
-					return fmt.Errorf("failed to collect the Cilium SPIRE agent daemonset: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting the Cilium SPIRE agent configuration",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.GetConfigMap(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREAgentConfigMapName, metav1.GetOptions{})
-				if err != nil {
-					if errors.IsNotFound(err) {
-						c.logWarn("ConfigMap %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREAgentConfigMapName, c.Options.CiliumSPIRENamespace)
-						return nil
-					}
-					return fmt.Errorf("failed to collect the Cilium SPIRE agent configuration: %w", err)
-				}
-				if err := c.WriteYAML(ciliumSPIREAgentConfigMapFileName, v); err != nil {
-					return fmt.Errorf("failed to collect the Cilium SPIRE agent configuration: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting the Cilium SPIRE server configuration",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.GetConfigMap(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREServerConfigMapName, metav1.GetOptions{})
-				if err != nil {
-					if errors.IsNotFound(err) {
-						c.logWarn("ConfigMap %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREServerConfigMapName, c.Options.CiliumSPIRENamespace)
-						return nil
-					}
-					return fmt.Errorf("failed to collect the Cilium SPIRE server configuration: %w", err)
-				}
-				if err := c.WriteYAML(ciliumSPIREServerConfigMapFileName, v); err != nil {
-					return fmt.Errorf("failed to collect the Cilium SPIRE server configuration: %w", err)
-				}
-				return nil
-			},
-		},
+
 		{
 			CreatesSubtasks: true,
 			Description:     "Collecting platform-specific data",
@@ -1610,6 +1517,9 @@ func (c *Collector) Run() error {
 	tasks = append(tasks, helmTasks...)
 	// Append tasks added by AddTasks.
 	tasks = append(tasks, c.additionalTasks...)
+	if c.FeatureSet[features.AuthSpiffe].Enabled {
+		tasks = append(tasks, c.getSPIRETasks()...)
+	}
 
 	// Adjust the worker count to make enough headroom for tasks that submit sub-tasks.
 	// This is necessary because 'Submit' is blocking.
@@ -1691,6 +1601,117 @@ func (c *Collector) Run() error {
 		c.logWarn("failed to remove temporary directory %s: %v", c.sysdumpDir, err)
 	}
 	return nil
+}
+
+func (c *Collector) getSPIRETasks() []Task {
+	return []Task{
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting logs from Cilium SPIRE server pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.CiliumSPIRENamespace, metav1.ListOptions{
+					LabelSelector: c.Options.CiliumSPIREServerLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get logs from Cilium SPIRE server pods")
+				}
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+					return fmt.Errorf("failed to collect logs from Cilium SPIRE server pods")
+				}
+				return nil
+			},
+		},
+		{
+			CreatesSubtasks: true,
+			Description:     "Collecting logs from Cilium SPIRE agent pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				p, err := c.Client.ListPods(ctx, c.Options.CiliumSPIRENamespace, metav1.ListOptions{
+					LabelSelector: c.Options.CiliumSPIREAgentLabelSelector,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to get logs from Cilium SPIRE agent pods")
+				}
+				if err := c.SubmitLogsTasks(FilterPods(p, c.NodeList), c.Options.LogsSinceTime, c.Options.LogsLimitBytes); err != nil {
+					return fmt.Errorf("failed to collect logs from Cilium SPIRE agent pods")
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting the Cilium SPIRE server statefulset",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetStatefulSet(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREServerStatefulSetName, metav1.GetOptions{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						c.logWarn("StatefulSet %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREServerStatefulSetName, c.Options.CiliumSPIRENamespace)
+						return nil
+					}
+					return fmt.Errorf("failed to collect the Cilium SPIRE server statefulset: %w", err)
+				}
+				if err := c.WriteYAML(ciliumSPIREServerStatefulSetFileName, v); err != nil {
+					return fmt.Errorf("failed to collect the Cilium SPIRE server statefulset: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting the Cilium SPIRE agent daemonset",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetDaemonSet(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREAgentDaemonSetName, metav1.GetOptions{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						c.logWarn("Daemonset %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREAgentDaemonSetName, c.Options.CiliumSPIRENamespace)
+						return nil
+					}
+					return fmt.Errorf("failed to collect the Cilium SPIRE agent daemonset: %w", err)
+				}
+				if err := c.WriteYAML(ciliumSPIREAgentDaemonsetFileName, v); err != nil {
+					return fmt.Errorf("failed to collect the Cilium SPIRE agent daemonset: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting the Cilium SPIRE agent configuration",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetConfigMap(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREAgentConfigMapName, metav1.GetOptions{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						c.logWarn("ConfigMap %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREAgentConfigMapName, c.Options.CiliumSPIRENamespace)
+						return nil
+					}
+					return fmt.Errorf("failed to collect the Cilium SPIRE agent configuration: %w", err)
+				}
+				if err := c.WriteYAML(ciliumSPIREAgentConfigMapFileName, v); err != nil {
+					return fmt.Errorf("failed to collect the Cilium SPIRE agent configuration: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting the Cilium SPIRE server configuration",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.GetConfigMap(ctx, c.Options.CiliumSPIRENamespace, ciliumSPIREServerConfigMapName, metav1.GetOptions{})
+				if err != nil {
+					if errors.IsNotFound(err) {
+						c.logWarn("ConfigMap %q not found in namespace %q - this is expected if SPIRE installation is not enabled", ciliumSPIREServerConfigMapName, c.Options.CiliumSPIRENamespace)
+						return nil
+					}
+					return fmt.Errorf("failed to collect the Cilium SPIRE server configuration: %w", err)
+				}
+				if err := c.WriteYAML(ciliumSPIREServerConfigMapFileName, v); err != nil {
+					return fmt.Errorf("failed to collect the Cilium SPIRE server configuration: %w", err)
+				}
+				return nil
+			},
+		},
+	}
 }
 
 func (c *Collector) log(msg string, args ...interface{}) {
