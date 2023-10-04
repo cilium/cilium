@@ -39,6 +39,12 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+// HasBPFPolicyMap returns true if policy map changes should be collected
+func (e *Endpoint) HasBPFPolicyMap() bool {
+	// Ingress Endpoint has no policy maps
+	return !e.isIngress
+}
+
 // GetNamedPort returns the port for the given name.
 // Must be called with e.mutex NOT held
 func (e *Endpoint) GetNamedPort(ingress bool, name string, proto uint8) uint16 {
