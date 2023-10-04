@@ -619,6 +619,29 @@ func (mgr *EndpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 	return nil
 }
 
+func (mgr *EndpointManager) AddIngressEndpoint(
+	ctx context.Context,
+	owner regeneration.Owner,
+	policyGetter policyRepoGetter,
+	ipcache *ipcache.IPCache,
+	proxy endpoint.EndpointProxy,
+	allocator cache.IdentityAllocator,
+	reason string,
+) error {
+	ep, err := endpoint.CreateIngressEndpoint(owner, policyGetter, ipcache, proxy, allocator)
+	if err != nil {
+		return err
+	}
+
+	if err := mgr.AddEndpoint(owner, ep, reason); err != nil {
+		return err
+	}
+
+	ep.InitWithIngressLabels(ctx, launchTime)
+
+	return nil
+}
+
 func (mgr *EndpointManager) AddHostEndpoint(
 	ctx context.Context,
 	owner regeneration.Owner,
