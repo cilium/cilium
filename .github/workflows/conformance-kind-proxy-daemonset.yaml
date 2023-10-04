@@ -25,7 +25,7 @@ env:
   kind_version: v0.20.0
   kind_config: .github/kind-config.yaml
   # renovate: datasource=github-releases depName=cilium/cilium-cli
-  cilium_cli_version: v0.15.8
+  cilium_cli_version: v0.15.9
   cilium_cli_ci_version:
   CILIUM_CLI_MODE: helm
 
@@ -84,7 +84,7 @@ jobs:
           echo sha=${SHA} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@7f33713a0710a1fff76cfe1b7fd7fbaea2ce7977 # v0.15.8
+        uses: cilium/cilium-cli@1e059407dc39c05ba34042e92702e8d9dacf7c77 # v0.15.9
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
