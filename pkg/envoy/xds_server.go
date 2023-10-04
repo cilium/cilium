@@ -1306,6 +1306,11 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser
 		return r, true
 	}
 
+	if l7Rules.IsDeny {
+		r.Deny = true
+		return r, false
+	}
+
 	if l7Rules.TerminatingTLS != nil {
 		r.DownstreamTlsContext = getCiliumTLSContext(l7Rules.TerminatingTLS)
 	}
