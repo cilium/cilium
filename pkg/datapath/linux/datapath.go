@@ -30,20 +30,26 @@ type linuxDatapath struct {
 	lbmap          datapath.LBMap
 }
 
+type DatapathParams struct {
+	ConfigWriter datapath.ConfigWriter
+	RuleManager  datapath.IptablesManager
+	WGAgent      datapath.WireguardAgent
+	NodeMap      nodemap.Map
+}
+
 // NewDatapath creates a new Linux datapath
-func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager, wgAgent datapath.WireguardAgent,
-	nodeMap nodemap.Map, writer datapath.ConfigWriter) datapath.Datapath {
+func NewDatapath(p DatapathParams, cfg DatapathConfiguration) datapath.Datapath {
 	dp := &linuxDatapath{
-		ConfigWriter:    writer,
-		IptablesManager: ruleManager,
+		ConfigWriter:    p.ConfigWriter,
+		IptablesManager: p.RuleManager,
 		nodeAddressing:  NewNodeAddressing(),
 		config:          cfg,
 		loader:          loader.NewLoader(),
-		wgAgent:         wgAgent,
+		wgAgent:         p.WGAgent,
 		lbmap:           lbmap.New(),
 	}
 
-	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, nodeMap)
+	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, p.NodeMap)
 	return dp
 }
 
