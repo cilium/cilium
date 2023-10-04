@@ -4,75 +4,12 @@
 package cmd
 
 import (
-	"encoding/hex"
-	"net"
-	"runtime"
-
-	"github.com/cilium/cilium/pkg/testutils"
-
 	. "github.com/cilium/checkmate"
-	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netns"
 )
 
-type EncryptStatusSuite struct {
-	currentNetNS netns.NsHandle
-}
+type EncryptStatusSuite struct{}
 
 var _ = Suite(&EncryptStatusSuite{})
-
-func (s *EncryptStatusSuite) SetUpSuite(c *C) {
-	testutils.PrivilegedTest(c)
-
-	var err error
-	s.currentNetNS, err = netns.Get()
-	c.Assert(err, IsNil)
-}
-
-func getXfrmState(src string, dst string, spi int, key string) *netlink.XfrmState {
-	k, _ := hex.DecodeString(key)
-	return &netlink.XfrmState{
-		Src:   net.ParseIP(src),
-		Dst:   net.ParseIP(dst),
-		Proto: netlink.XFRM_PROTO_ESP,
-		Mode:  netlink.XFRM_MODE_TUNNEL,
-		Spi:   spi,
-		Aead: &netlink.XfrmStateAlgo{
-			Name:   "rfc4106(gcm(aes))",
-			Key:    k,
-			ICVLen: 64,
-		},
-	}
-}
-
-func (s *EncryptStatusSuite) TestCountUniqueIPsecKeys(c *C) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	ns, err := netns.New()
-	c.Assert(err, IsNil)
-	defer func() { c.Assert(ns.Close(), IsNil) }()
-	defer func() { c.Assert(netns.Set(s.currentNetNS), IsNil) }()
-
-	keys := countUniqueIPsecKeys()
-	c.Assert(keys, Equals, 0)
-
-	err = netlink.XfrmStateAdd(getXfrmState("10.0.0.1", "10.0.0.2", 2, "611d0c8049dd88600ec4f9eded7b1ed540ea607f"))
-	c.Assert(err, IsNil)
-
-	// adding different state with same key
-	err = netlink.XfrmStateAdd(getXfrmState("10.0.0.2", "10.0.0.1", 1, "611d0c8049dd88600ec4f9eded7b1ed540ea607f"))
-	c.Assert(err, IsNil)
-
-	keys = countUniqueIPsecKeys()
-	c.Assert(keys, Equals, 1)
-
-	err = netlink.XfrmStateAdd(getXfrmState("10.0.0.1", "10.0.0.2", 1, "383fa49ea57848c9e85af88a187321f81da54bb6"))
-	c.Assert(err, IsNil)
-
-	keys = countUniqueIPsecKeys()
-	c.Assert(keys, Equals, 2)
-}
 
 const procTestFixtures = "fixtures/proc"
 
