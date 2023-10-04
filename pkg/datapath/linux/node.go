@@ -473,8 +473,7 @@ func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabl
 	if err != nil {
 		return err
 	}
-	n.routes.InsertLegacy(nodeRoute)
-	return nil
+	return n.routes.InsertLegacy(nodeRoute)
 }
 
 func (n *linuxNodeHandler) deleteNodeRoute(prefix *cidr.CIDR, isLocalNode bool) error {
@@ -486,8 +485,7 @@ func (n *linuxNodeHandler) deleteNodeRoute(prefix *cidr.CIDR, isLocalNode bool) 
 	if err != nil {
 		return err
 	}
-	n.routes.DeleteLegacy(nodeRoute)
-	return nil
+	return n.routes.DeleteLegacy(nodeRoute)
 }
 
 func (n *linuxNodeHandler) familyEnabled(c *cidr.CIDR) bool {

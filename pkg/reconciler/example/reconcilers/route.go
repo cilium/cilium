@@ -19,8 +19,10 @@ import (
 	"github.com/cilium/cilium/pkg/reconciler"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
+	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
+	"golang.org/x/sys/unix"
 )
 
 var RoutesCell = cell.Module(
@@ -47,7 +49,7 @@ var RoutesCell = cell.Module(
 		// Construct the route reconciliation target against the target
 		// network namespace. It uses the device and route tables to
 		// efficiently check for existence.
-		func(ns *netns.NsHandle,
+		func(log logrus.FieldLogger, ns *netns.NsHandle,
 			devices statedb.Table[*tables.Device],
 			routes statedb.Table[*tables.Route],
 		) (reconciler.Target[*DesiredRoute], error) {
@@ -55,7 +57,7 @@ var RoutesCell = cell.Module(
 			if err != nil {
 				return nil, err
 			}
-			return &routeTestTarget{h, devices, routes}, nil
+			return &routeTestTarget{log, h, devices, routes}, nil
 		},
 		func() reconciler.Config {
 			return reconciler.Config{
@@ -96,6 +98,9 @@ func syncOnDeviceChanges(
 					devices,
 					db.ReadTxn(),
 				)
+				// FIXME actually check if relevant things changed as
+				// there's no guarantee that the watch channel closed
+				// due to a relevant change.
 				select {
 				case <-ctx.Done():
 					return nil
@@ -112,8 +117,9 @@ func syncOnDeviceChanges(
 //
 
 type Routes struct {
-	db    *statedb.DB
-	table statedb.RWTable[*DesiredRoute]
+	db      *statedb.DB
+	table   statedb.RWTable[*DesiredRoute]
+	devices statedb.Table[*tables.Device]
 }
 
 type RoutesHandle struct {
@@ -121,19 +127,19 @@ type RoutesHandle struct {
 	r     Routes
 }
 
-func newRoutes(db *statedb.DB, table statedb.RWTable[*DesiredRoute]) Routes {
-	return Routes{db, table}
+func newRoutes(db *statedb.DB, table statedb.RWTable[*DesiredRoute], devices statedb.Table[*tables.Device]) Routes {
+	return Routes{db, table, devices}
 }
 
 func (r Routes) NewHandle(name string) RoutesHandle {
 	return RoutesHandle{name, r}
 }
 
-func (h RoutesHandle) InsertLegacy(route route.Route) bool {
+func (h RoutesHandle) InsertLegacy(route route.Route) error {
 	// TODO: Should we deal here with device names or indexes?
-	// Existing code mostly deals with names, so hacking this
-	// by including the name in DesiredRoute for this case.
-	// Definitely need to settle on one or the other.
+	// Existing code mostly deals with names, so this just
+	// resolves the index on the fly here, which of course
+	// can fail.
 
 	// TODO: There are way too many 'Route' types. Need to trim
 	// it down. Unify "route.Route" and "tables.Route". Would not
@@ -141,6 +147,8 @@ func (h RoutesHandle) InsertLegacy(route route.Route) bool {
 	// Linux independent if possible.
 
 	txn := h.r.db.WriteTxn(h.r.table)
+	defer txn.Abort()
+
 	var gw netip.Addr
 	if route.Nexthop != nil {
 		// TODO errs
@@ -153,28 +161,42 @@ func (h RoutesHandle) InsertLegacy(route route.Route) bool {
 		dstBits,
 	)
 
-	_, hadOld, _ := h.r.table.Insert(txn,
+	if route.Table == 0 {
+		// In existing code the routing table seems to be left unset, which then
+		// defaults to the main table when added. In the desired route we need
+		// the proper table as otherwise we cannot look up actual routes.
+		route.Table = unix.RT_TABLE_MAIN
+	}
+
+	dev, _, ok := h.r.devices.First(txn, tables.DeviceNameIndex.Query(route.Device))
+	if !ok {
+		return errors.New("device not found")
+	}
+
+	_, _, err := h.r.table.Insert(txn,
 		&DesiredRoute{
 			Owner: h.owner,
 			Route: tables.Route{
 				Table:     route.Table,
-				LinkIndex: 0,
+				LinkIndex: dev.Index,
 				MTU:       route.MTU,
 				Scope:     uint8(route.Scope),
 				Priority:  route.Priority,
 				Dst:       dst,
 				Gw:        gw,
 			},
-			OptDeviceName: route.Device,
-			Status:        reconciler.StatusPending(),
+			Status: reconciler.StatusPending(),
 		})
-	txn.Commit()
+	if err != nil {
+		return err
+	}
 
-	return hadOld
+	txn.Commit()
+	return nil
 
 }
 
-func (h RoutesHandle) DeleteLegacy(route route.Route) bool {
+func (h RoutesHandle) DeleteLegacy(route route.Route) error {
 	dstAddr, _ := ip.AddrFromIP(route.Prefix.IP)
 	dstBits, _ := route.Prefix.Mask.Size()
 	dst := netip.PrefixFrom(
@@ -182,21 +204,32 @@ func (h RoutesHandle) DeleteLegacy(route route.Route) bool {
 		dstBits,
 	)
 
+	if route.Table == 0 {
+		// In existing code the routing table seems to be left unset, which then
+		// defaults to the main table when added. In the desired route we need
+		// the proper table as otherwise we cannot look up actual routes.
+		route.Table = unix.RT_TABLE_MAIN
+	}
+
 	txn := h.r.db.WriteTxn(h.r.table)
+	defer txn.Abort()
+
+	dev, _, ok := h.r.devices.First(txn, tables.DeviceNameIndex.Query(route.Device))
+	if !ok {
+		return errors.New("device not found")
+	}
+
 	iter, _ := h.r.table.Get(txn, RouteOwnerIndex.Query(h.owner))
-	deleted := false
 	for r, _, ok := iter.Next(); ok; r, _, ok = iter.Next() {
-		// FIXME likely not matching enough fields
-		if r.OptDeviceName == route.Device && r.Route.Dst == dst {
+		if r.Route.Dst == dst && r.Route.LinkIndex == dev.Index {
 			h.r.table.Insert(
 				txn,
 				r.WithStatus(reconciler.StatusPendingDelete()))
-			deleted = true
 		}
 
 	}
 	txn.Commit()
-	return deleted
+	return nil
 }
 
 func (h RoutesHandle) Insert(route tables.Route) bool {
@@ -247,9 +280,8 @@ func (h RoutesHandle) DeleteAll() {
 
 func (h RoutesHandle) Wait(ctx context.Context) error {
 	// TODO: Return error(s) from status if ctx cancelled?
-	txn := h.r.db.ReadTxn()
-
 	for {
+		txn := h.r.db.ReadTxn()
 		iter, watch := h.r.table.Get(txn, RouteOwnerIndex.Query(h.owner))
 		done := true
 		for route, _, ok := iter.Next(); ok; route, _, ok = iter.Next() {
@@ -274,10 +306,9 @@ func (h RoutesHandle) Wait(ctx context.Context) error {
 //
 
 type DesiredRoute struct {
-	Owner         string
-	Route         tables.Route
-	OptDeviceName string // HACK to allow specifying routes with name and not index.
-	Status        reconciler.Status
+	Owner  string
+	Route  tables.Route
+	Status reconciler.Status
 }
 
 func (s *DesiredRoute) PrimaryKey() []byte {
@@ -302,15 +333,16 @@ func (s *DesiredRoute) WithStatus(newStatus reconciler.Status) *DesiredRoute {
 	return &s2
 }
 
-func (d *DesiredRoute) toNetlinkRoute(linkIndex int) *netlink.Route {
+func (d *DesiredRoute) toNetlinkRoute() *netlink.Route {
 	return &netlink.Route{
 		Table:     d.Route.Table,
-		LinkIndex: linkIndex,
+		LinkIndex: d.Route.LinkIndex,
 		Dst:       prefixToIPNet(d.Route.Dst),
 		Src:       d.Route.Src.AsSlice(),
 		Gw:        d.Route.Gw.AsSlice(),
-		Scope:     netlink.Scope(d.Route.Scope),
-		Protocol:  linux_defaults.RTProto,
+		Scope:     netlink.Scope(d.Route.Scope), // TODO validate?
+		Protocol:  linux_defaults.RTProto,       // TODO configurable?
+		MTU:       d.Route.MTU,
 	}
 }
 
@@ -339,6 +371,7 @@ var (
 //
 
 type routeTestTarget struct {
+	log           logrus.FieldLogger
 	netlinkHandle *netlink.Handle
 	devices       statedb.Table[*tables.Device]
 	routes        statedb.Table[*tables.Route]
@@ -349,26 +382,10 @@ func (routeTestTarget) Init(context.Context) error {
 }
 
 func (t *routeTestTarget) Delete(_ context.Context, txn statedb.ReadTxn, desired *DesiredRoute) error {
-	fmt.Printf("Delete: %v\n", desired)
+	t.log.Infof("Delete: %v\n", desired)
 
-	_, _, ok := t.routes.First(txn, tables.RouteIDIndex.Query(desired.RouteID()))
-	if !ok {
-		// Route already gone.
-		return nil
-	}
-
-	linkIndex := desired.Route.LinkIndex
-
-	// TODO
-	if desired.OptDeviceName != "" {
-		dev, _, ok := t.devices.First(txn, tables.DeviceNameIndex.Query(desired.OptDeviceName))
-		if !ok {
-			return fmt.Errorf("device %q not found for route to %q", desired.OptDeviceName, desired.Route.Dst.String())
-		}
-		linkIndex = dev.Index
-	}
-
-	if err := t.netlinkHandle.RouteDel(desired.toNetlinkRoute(linkIndex)); err != nil {
+	if err := t.netlinkHandle.RouteDel(desired.toNetlinkRoute()); err != nil {
+		// FIXME handle ENOEXIST type error as ok (if there's a need)
 		return fmt.Errorf("failed to delete route to %q owned by %q: %w",
 			desired.Route.Dst.String(),
 			desired.Owner,
@@ -379,17 +396,17 @@ func (t *routeTestTarget) Delete(_ context.Context, txn statedb.ReadTxn, desired
 
 // Sync implements reconciler.Target
 func (t *routeTestTarget) Sync(ctx context.Context, txn statedb.ReadTxn, iter statedb.Iterator[*DesiredRoute]) (outOfSync bool, err error) {
-	// TODO: Might want to trigger sync when devices change their state.
-	// (e.g. go UP from DOWN).
-	fmt.Printf("Sync\n")
+	t.log.Infof("Sync\n")
 
 	var errs []error
 
 	for desired, _, ok := iter.Next(); ok; desired, _, ok = iter.Next() {
-		actual, _, ok := t.routes.First(txn, tables.RouteIDIndex.Query(desired.RouteID()))
-		if ok && *actual == desired.Route {
+		if _, _, ok := t.routes.First(txn, tables.RouteIDIndex.Query(desired.RouteID())); ok {
 			continue
 		}
+
+		t.log.Infof("Sync: desired route %v not found", desired)
+
 		outOfSync = true
 
 		if err := t.Update(ctx, txn, desired); err != nil {
@@ -406,35 +423,15 @@ func (t *routeTestTarget) Sync(ctx context.Context, txn statedb.ReadTxn, iter st
 
 // Update implements reconciler.Target
 func (t *routeTestTarget) Update(_ context.Context, txn statedb.ReadTxn, desired *DesiredRoute) error {
-	fmt.Printf("Update: %v\n", desired)
-	actual, _, ok := t.routes.First(txn, tables.RouteIDIndex.Query(desired.RouteID()))
-	if ok {
-		if *actual == desired.Route {
-			// Route already exists.
-			return nil
-		}
+	t.log.Infof("Update: %v\n", desired)
+	if _, _, ok := t.routes.First(txn, tables.RouteIDIndex.Query(desired.RouteID())); ok {
+		// FIXME: Need further checks to see that e.g. MTU matches and so on.
+		t.log.Infof("Update: %v already exists, nothing to do\n", desired)
+		return nil
 	}
+	t.log.Infof("Update: %v does not exist, adding\n", desired)
 
-	linkIndex := desired.Route.LinkIndex
-
-	// TODO
-	if desired.OptDeviceName != "" {
-		dev, _, ok := t.devices.First(txn, tables.DeviceNameIndex.Query(desired.OptDeviceName))
-		if !ok {
-			return fmt.Errorf("device %q not found for route to %q", desired.OptDeviceName, desired.Route.Dst.String())
-		}
-		linkIndex = dev.Index
-	}
-
-	_, _, ok = t.devices.First(txn, tables.DeviceIDIndex.Query(linkIndex))
-	if !ok {
-		// TODO: we likely hit races where the device is removed but the desired
-		// routes aren't yet updated. feels safer to have spurious errors on
-		// device changes versus ignoring this completely.
-		return fmt.Errorf("device with index %d does not exist", desired.Route.LinkIndex)
-	}
-
-	if err := t.netlinkHandle.RouteReplace(desired.toNetlinkRoute(linkIndex)); err != nil {
+	if err := t.netlinkHandle.RouteReplace(desired.toNetlinkRoute()); err != nil {
 		return fmt.Errorf("failed to replace route to %q owned by %q: %w",
 			desired.Route.Dst.String(),
 			desired.Owner,

@@ -105,17 +105,15 @@ func upsertEndpointRoute(routes reconcilers.RoutesHandle, ep datapath.Endpoint, 
 		Scope:  netlink.SCOPE_LINK,
 		Proto:  linux_defaults.RTProto,
 	}
-	routes.InsertLegacy(endpointRoute)
-	return nil
+	return routes.InsertLegacy(endpointRoute)
 }
 
 func removeEndpointRoute(routes reconcilers.RoutesHandle, ep datapath.Endpoint, ip net.IPNet) error {
-	routes.DeleteLegacy(route.Route{
+	return routes.DeleteLegacy(route.Route{
 		Prefix: ip,
 		Device: ep.InterfaceName(),
 		Scope:  netlink.SCOPE_LINK,
 	})
-	return nil
 }
 
 // We need this function when patching an object file for which symbols were
