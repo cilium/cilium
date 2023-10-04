@@ -238,8 +238,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["CT_CLOSE_TIMEOUT"] = fmt.Sprintf("%d", int64(option.Config.CTMapEntriesTimeoutFIN.Seconds()))
 	cDefinesMap["CT_REPORT_INTERVAL"] = fmt.Sprintf("%d", int64(option.Config.MonitorAggregationInterval.Seconds()))
 	cDefinesMap["CT_REPORT_FLAGS"] = fmt.Sprintf("%#04x", int64(option.Config.MonitorAggregationFlags))
-	cDefinesMap["CT_TAIL_CALL_BUFFER4"] = "cilium_tail_call_buffer4"
-	cDefinesMap["CT_TAIL_CALL_BUFFER6"] = "cilium_tail_call_buffer6"
 	cDefinesMap["PER_CLUSTER_CT_TCP4"] = "cilium_per_cluster_ct_tcp4"
 	cDefinesMap["PER_CLUSTER_CT_TCP6"] = "cilium_per_cluster_ct_tcp6"
 	cDefinesMap["PER_CLUSTER_CT_ANY4"] = "cilium_per_cluster_ct_any4"
@@ -1057,6 +1055,10 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 	if e.IsHost() {
 		callsMapName = callsmap.HostMapName
 	}
+
+	fmt.Fprintf(fw, "#define CT_TAIL_CALL_BUFFER4 %s\n", bpf.LocalMapName(ctmap.MapNameCTTailCallBuffer4, epID))
+	fmt.Fprintf(fw, "#define CT_TAIL_CALL_BUFFER6 %s\n", bpf.LocalMapName(ctmap.MapNameCTTailCallBuffer6, epID))
+
 	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", bpf.LocalMapName(callsMapName, epID))
 	if option.Config.EnableCustomCalls && !e.IsHost() {
 		fmt.Fprintf(fw, "#define CUSTOM_CALLS_MAP %s\n", bpf.LocalMapName(callsmap.CustomCallsMapName, epID))

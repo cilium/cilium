@@ -71,6 +71,16 @@ func (e *Endpoint) customCallsMapPath() string {
 	return e.owner.Datapath().Loader().CustomCallsMapPath(e.ID)
 }
 
+// ctTailCallBufferMapPath returns the path to cilium CT buffer map.
+func (e *Endpoint) ctTailCallBufferMapPath(ipv6 bool) string {
+	prefix := ctmap.MapNameCTTailCallBuffer4
+	if ipv6 {
+		prefix = ctmap.MapNameCTTailCallBuffer6
+	}
+
+	return bpf.LocalMapPath(prefix, e.ID)
+}
+
 // writeInformationalComments writes annotations to the specified writer,
 // including a base64 encoding of the endpoint object, and human-readable
 // strings describing the configuration of the datapath.
@@ -904,8 +914,10 @@ func (e *Endpoint) deleteMaps() []error {
 	var errors []error
 
 	maps := map[string]string{
-		"policy": e.policyMapPath(),
-		"calls":  e.callsMapPath(),
+		"policy":     e.policyMapPath(),
+		"calls":      e.callsMapPath(),
+		"ct_buffer4": e.ctTailCallBufferMapPath(false),
+		"ct_buffer6": e.ctTailCallBufferMapPath(true),
 	}
 	if !e.isHost {
 		maps["custom"] = e.customCallsMapPath()

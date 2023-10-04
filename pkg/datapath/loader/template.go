@@ -36,6 +36,8 @@ var (
 		policymap.MapName,
 		callsmap.MapName,
 		callsmap.CustomCallsMapName,
+		ctmap.MapNameCTTailCallBuffer4,
+		ctmap.MapNameCTTailCallBuffer6,
 	}
 	elfCtMapPrefixes = []string{
 		ctmap.MapNameTCP4,
@@ -155,6 +157,14 @@ func elfMapSubstitutions(ep datapath.Endpoint) map[string]string {
 			(!option.Config.EnableCustomCalls || ep.IsHost()) {
 			continue
 		}
+
+		if name == ctmap.MapNameCTTailCallBuffer4 && !option.Config.EnableIPv4 {
+			continue
+		}
+		if name == ctmap.MapNameCTTailCallBuffer6 && !option.Config.EnableIPv6 {
+			continue
+		}
+
 		templateStr := bpf.LocalMapName(name, templateLxcID)
 		desiredStr := bpf.LocalMapName(name, epID)
 		result[templateStr] = desiredStr

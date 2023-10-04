@@ -360,6 +360,7 @@ struct {
 	__type(key, __u32);
 	__type(value, struct ct_buffer6);
 	__uint(max_entries, 1);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
 } CT_TAIL_CALL_BUFFER6 __section_maps_btf;
 
 /* Handle egress IPv6 traffic from a container after service translation has been done
@@ -765,6 +766,7 @@ struct {
 	__type(key, __u32);
 	__type(value, struct ct_buffer4);
 	__uint(max_entries, 1);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
 } CT_TAIL_CALL_BUFFER4 __section_maps_btf;
 
 /* Handle egress IPv4 traffic from a container after service translation has been done

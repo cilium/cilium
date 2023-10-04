@@ -36,6 +36,7 @@ enum ct_entry_type {
 };
 
 #ifdef ENABLE_IPV4
+/* NOTE: Do not modify the struct until #20691. */
 struct ct_buffer4 {
 	struct ipv4_ct_tuple tuple;
 	struct ct_state ct_state;
@@ -46,6 +47,7 @@ struct ct_buffer4 {
 #endif
 
 #ifdef ENABLE_IPV6
+/* NOTE: Do not modify the struct until #20691. */
 struct ct_buffer6 {
 	struct ipv6_ct_tuple tuple;
 	struct ct_state ct_state;

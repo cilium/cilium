@@ -64,10 +64,12 @@ const (
 	MapNameTCP4Global = MapNameTCP4 + "global"
 
 	// Map names for "any" protocols indicate CT for non-TCP protocols.
-	MapNameAny6       = MapNamePrefix + "_any6_"
-	MapNameAny4       = MapNamePrefix + "_any4_"
-	MapNameAny6Global = MapNameAny6 + "global"
-	MapNameAny4Global = MapNameAny4 + "global"
+	MapNameAny6              = MapNamePrefix + "_any6_"
+	MapNameAny4              = MapNamePrefix + "_any4_"
+	MapNameAny6Global        = MapNameAny6 + "global"
+	MapNameAny4Global        = MapNameAny4 + "global"
+	MapNameCTTailCallBuffer4 = "cilium_ct_buffer4_"
+	MapNameCTTailCallBuffer6 = "cilium_ct_buffer6_"
 
 	mapNumEntriesLocal = 64000
 
