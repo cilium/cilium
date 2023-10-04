@@ -19,6 +19,7 @@ import (
 	"github.com/vishvananda/netns"
 	"golang.org/x/exp/slices"
 	"golang.org/x/sys/unix"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
@@ -269,10 +270,6 @@ func (dc *devicesController) initialize() error {
 	// Process the initial batch.
 	dc.processBatch(txn, batch)
 
-	devs, _ := tables.SelectedDevices(dc.params.DeviceTable, txn)
-	names := tables.DeviceNames(devs)
-	dc.log.WithField(logfields.Devices, names).Info("Detected initial devices")
-
 	txn.Commit()
 
 	select {
@@ -282,6 +279,11 @@ func (dc *devicesController) initialize() error {
 	}
 
 	return nil
+}
+
+func (dc *devicesController) deviceNameSet(txn statedb.ReadTxn) sets.Set[string] {
+	devs, _ := tables.SelectedDevices(dc.params.DeviceTable, txn)
+	return sets.New[string](tables.DeviceNames(devs)...)
 }
 
 func (dc *devicesController) processUpdates(
@@ -353,7 +355,7 @@ func populateFromLink(d *tables.Device, link netlink.Link) {
 	d.Index = a.Index
 	d.MTU = a.MTU
 	d.Name = a.Name
-	d.HardwareAddr = a.HardwareAddr
+	d.HardwareAddr = tables.HardwareAddr(a.HardwareAddr)
 	d.Flags = a.Flags
 	d.RawFlags = a.RawFlags
 	d.MasterIndex = a.MasterIndex
@@ -364,6 +366,7 @@ func populateFromLink(d *tables.Device, link netlink.Link) {
 // The address and link updates are merged into a device object and upserted
 // into the device table.
 func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]any) {
+	before := dc.deviceNameSet(txn)
 	for index, updates := range batch {
 		d, _, _ := dc.params.DeviceTable.First(txn, tables.DeviceIDIndex.Query(index))
 		if d == nil {
@@ -427,7 +430,7 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 			dc.params.DeviceTable.Delete(txn, d)
 		} else {
 			// Recheck the viability of the device after the updates have been applied.
-			d.Selected = dc.isSelectedDevice(d, txn) && len(d.Addrs) > 0
+			d.Selected, d.NotSelectedReason = dc.isSelectedDevice(d, txn)
 
 			// Create or update the device.
 			_, _, err := dc.params.DeviceTable.Insert(txn, d)
@@ -435,6 +438,10 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 				dc.log.WithError(err).WithField(logfields.Device, d).Warn("Failed to insert route")
 			}
 		}
+	}
+	after := dc.deviceNameSet(txn)
+	if !before.Equal(after) {
+		dc.log.WithField(logfields.Devices, after.UnsortedList()).Info("Devices changed")
 	}
 }
 
@@ -448,59 +455,54 @@ const (
 
 // isSelectedDevice checks if the device is selected or not. We still maintain its state in
 // case it later becomes selected.
-func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.WriteTxn) bool {
+func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.WriteTxn) (bool, string) {
 	if d.Name == "" {
 		// Looks like we have seen the addresses for this device before the initial link update,
 		// hence it has no name. Definitely not selected yet!
-		return false
+		return false, "link not seen yet"
 	}
 
-	log := dc.log.WithField(logfields.Device, d.Name)
+	if len(d.Addrs) == 0 {
+		return false, "device has no addresses"
+	}
 
 	// Skip devices that have an excluded interface flag set.
 	if d.RawFlags&excludedIfFlagsMask != 0 {
-		log.Debugf("Not selecting device as it has an excluded flag set (mask=0x%x, flags=0x%x)", excludedIfFlagsMask, d.RawFlags)
-		return false
+		return false, fmt.Sprintf("excluded flag set (mask=0x%x, flags=0x%x)", excludedIfFlagsMask, d.RawFlags)
 	}
 
 	// Skip devices that don't have the required flags set.
 	if d.RawFlags&requiredIfFlagsMask == 0 {
-		log.Debugf("Not selecting device as it is missing required flag (mask=0x%x, flags=0x%x)", requiredIfFlagsMask, d.RawFlags)
-		return false
+		return false, fmt.Sprintf("missing required flag (mask=0x%x, flags=0x%x)", requiredIfFlagsMask, d.RawFlags)
 	}
 
 	// Ignore bridge and bonding slave devices
 	if d.MasterIndex != 0 {
-		log.Debugf("Not selecting enslaved device (master %d)", d.MasterIndex)
-		return false
+		return false, fmt.Sprintf("bridged or bonded to ifindex %d", d.MasterIndex)
 	}
 
 	// Ignore L3 devices if we cannot support them.
 	hasMacAddr := len(d.HardwareAddr) != 0
 	if !dc.l3DevSupported && !hasMacAddr {
-		log.Info("Not selecting L3 device; >= 5.8 kernel is required.")
-		return false
+		return false, "L3 device, kernel too old, >= 5.8 required"
 	}
 
 	// If user specified devices or wildcards, then skip the device if it doesn't match.
-	if !dc.filter.match(d.Name) {
-		log.WithField("filter", dc.filter).Info("Not selecting non-matching device")
-		return false
-	}
-
-	// Always choose a device that the user has specified, regardless of its
-	// properties.
+	// If the device does match, then skip further checks.
 	if dc.filter.nonEmpty() {
-		return true
+		if dc.filter.match(d.Name) {
+			return true, ""
+		}
+		return false, fmt.Sprintf("not matching user filter %v", dc.filter)
 	}
 
 	// Never consider devices with any of the excluded devices.
 	for _, p := range defaults.ExcludedDevicePrefixes {
 		if strings.HasPrefix(d.Name, p) {
-			log.Debugf("Not selecting device as it has excluded prefix '%s'", p)
-			return false
+			return false, fmt.Sprintf("excluded prefix %q", p)
 		}
 	}
+
 	switch d.Type {
 	case "veth":
 		// Skip veth devices that don't have a default route (unless user has specified
@@ -508,26 +510,21 @@ func (dc *devicesController) isSelectedDevice(d *tables.Device, txn statedb.Writ
 		// This is a workaround for kubernetes-in-docker. We want to avoid
 		// veth devices in general as they may be leftovers from another CNI.
 		if !dc.filter.nonEmpty() && !tables.HasDefaultRoute(dc.params.RouteTable, txn, d.Index) {
-			log.Debug("Not selecting veth device as it has no default route")
-			return false
+			return false, "veth without default route"
 		}
 
 	case "bridge", "openvswitch":
 		// Skip bridge devices as they're very unlikely to be used for K8s
 		// purposes. In the rare cases where a user wants to load datapath
 		// programs onto them they can override device detection with --devices.
-		log.Debug("Not selecting bridge-like device")
-		return false
+		return false, "bridge-like device, use --devices to override"
 	}
 
 	if !hasGlobalRoute(d.Index, dc.params.RouteTable, txn) {
-		log.Debug("Not selecting device as it has no global unicast routes")
-		return false
+		return false, "no global unicast routes"
 	}
 
-	log.Debug("Selected this device")
-
-	return true
+	return true, ""
 }
 
 func hasGlobalRoute(devIndex int, tbl statedb.Table[*tables.Route], rxn statedb.ReadTxn) bool {
