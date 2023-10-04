@@ -15,6 +15,7 @@ import (
 	. "github.com/cilium/checkmate"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/datapath/linux"
 	linuxDatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/identity"
@@ -82,7 +83,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 	defer func() {
 		ds.datapath = oldDatapath
 	}()
-	ds.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{}, nil, nil, nil, &config.HeaderfileWriter{})
+	ds.datapath = linuxDatapath.NewDatapath(linux.DatapathParams{ConfigWriter: &config.HeaderfileWriter{}}, linuxDatapath.DatapathConfiguration{})
 
 	epsWanted, _ := ds.createEndpoints()
 	tmpDir, err := os.MkdirTemp("", "cilium-tests")
@@ -152,7 +153,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNamesWithRestoreFailure(c *C) {
 	defer func() {
 		ds.datapath = oldDatapath
 	}()
-	ds.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{}, nil, nil, nil, &config.HeaderfileWriter{})
+	ds.datapath = linuxDatapath.NewDatapath(linux.DatapathParams{ConfigWriter: &config.HeaderfileWriter{}}, linuxDatapath.DatapathConfiguration{})
 
 	eps, _ := ds.createEndpoints()
 	ep := eps[0]
@@ -218,7 +219,7 @@ func (ds *EndpointSuite) BenchmarkReadEPsFromDirNames(c *C) {
 	defer func() {
 		ds.datapath = oldDatapath
 	}()
-	ds.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{}, nil, nil, nil, &config.HeaderfileWriter{})
+	ds.datapath = linuxDatapath.NewDatapath(linux.DatapathParams{ConfigWriter: &config.HeaderfileWriter{}}, linuxDatapath.DatapathConfiguration{})
 
 	epsWanted, _ := ds.createEndpoints()
 	tmpDir, err := os.MkdirTemp("", "cilium-tests")
