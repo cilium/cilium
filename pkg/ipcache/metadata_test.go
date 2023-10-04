@@ -616,7 +616,7 @@ func setupTest(t *testing.T) (cleanup func()) {
 		DatapathHandler:   &mockTriggerer{},
 	})
 
-	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "kube-uid", labels.LabelKubeAPIServer)
+	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.KubeAPIServer, "kube-uid", labels.LabelKubeAPIServer)
 	IPIdentityCache.metadata.upsertLocked(worldPrefix, source.Local, "host-uid", labels.LabelHost)
 
 	return func() {
