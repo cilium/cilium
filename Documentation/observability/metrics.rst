@@ -348,6 +348,8 @@ Name                                          Labels                            
 ============================================= ================================================== ========== ===========================================================
 ``ipsec_xfrm_error``                          ``error``, ``type``                                Enabled    Total number of xfrm errors
 ``ipsec_keys``                                                                                   Enabled    Number of keys in use
+``ipsec_xfrm_states``                         ``direction``                                      Enabled    Number of XFRM states
+``ipsec_xfrm_policies``                       ``direction``                                      Enabled    Number of XFRM policies
 ============================================= ================================================== ========== ===========================================================
 
 eBPF
