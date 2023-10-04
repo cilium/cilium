@@ -36,13 +36,19 @@ const (
 	labelErrorAcquire          = "acquire"
 	labelErrorBundleGeneration = "bundle_generation"
 	labelErrorBundleCheck      = "bundle_check"
+
+	labelDir = "direction"
+
+	labelDirIn  = "in"
+	labelDirOut = "out"
+	labelDirFwd = "fwd"
 )
 
 type xfrmCollector struct {
-	// XFRM errors
-	xfrmErrorDesc *prometheus.Desc
-	// Number of keys
-	nbKeysDesc *prometheus.Desc
+	xfrmErrorDesc    *prometheus.Desc
+	nbKeysDesc       *prometheus.Desc
+	nbXFRMStatesDesc *prometheus.Desc
+	nbXFRMPolsDesc   *prometheus.Desc
 }
 
 func NewXFRMCollector() prometheus.Collector {
@@ -57,12 +63,24 @@ func NewXFRMCollector() prometheus.Collector {
 			"Number of IPsec keys in use",
 			[]string{}, nil,
 		),
+		nbXFRMStatesDesc: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.Namespace, subsystem, "xfrm_states"),
+			"Number of XFRM states",
+			[]string{labelDir}, nil,
+		),
+		nbXFRMPolsDesc: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.Namespace, subsystem, "xfrm_policies"),
+			"Number of XFRM policies",
+			[]string{labelDir}, nil,
+		),
 	}
 }
 
 func (x *xfrmCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- x.xfrmErrorDesc
 	ch <- x.nbKeysDesc
+	ch <- x.nbXFRMStatesDesc
+	ch <- x.nbXFRMPolsDesc
 }
 
 func (x *xfrmCollector) collectErrors(ch chan<- prometheus.Metric) {
@@ -111,6 +129,20 @@ func (x *xfrmCollector) collectConfigStats(ch chan<- prometheus.Metric) {
 	}
 	nbKeys := ipsec.CountUniqueIPsecKeys(states)
 	ch <- prometheus.MustNewConstMetric(x.nbKeysDesc, prometheus.GaugeValue, float64(nbKeys))
+
+	nbStatesIn, nbStatesOut := ipsec.CountXfrmStatesByDir(states)
+	ch <- prometheus.MustNewConstMetric(x.nbXFRMStatesDesc, prometheus.GaugeValue, float64(nbStatesIn), labelDirIn)
+	ch <- prometheus.MustNewConstMetric(x.nbXFRMStatesDesc, prometheus.GaugeValue, float64(nbStatesOut), labelDirOut)
+
+	policies, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	if err != nil {
+		log.WithError(err).Error("Failed to retrieve XFRM policies to compute Prometheus metrics")
+		return
+	}
+	nbPolIn, nbPolOut, nbPolFwd := ipsec.CountXfrmPoliciesByDir(policies)
+	ch <- prometheus.MustNewConstMetric(x.nbXFRMPolsDesc, prometheus.GaugeValue, float64(nbPolIn), labelDirIn)
+	ch <- prometheus.MustNewConstMetric(x.nbXFRMPolsDesc, prometheus.GaugeValue, float64(nbPolOut), labelDirOut)
+	ch <- prometheus.MustNewConstMetric(x.nbXFRMPolsDesc, prometheus.GaugeValue, float64(nbPolFwd), labelDirFwd)
 }
 
 func (x *xfrmCollector) Collect(ch chan<- prometheus.Metric) {
