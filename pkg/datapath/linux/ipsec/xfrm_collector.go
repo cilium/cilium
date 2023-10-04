@@ -6,7 +6,9 @@ package ipsec
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
+	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/common/ipsec"
 	"github.com/cilium/cilium/pkg/metrics"
 )
 
@@ -37,8 +39,10 @@ const (
 )
 
 type xfrmCollector struct {
-	// Inbound errors
+	// XFRM errors
 	xfrmErrorDesc *prometheus.Desc
+	// Number of keys
+	nbKeysDesc *prometheus.Desc
 }
 
 func NewXFRMCollector() prometheus.Collector {
@@ -48,14 +52,20 @@ func NewXFRMCollector() prometheus.Collector {
 			"Total number of xfrm errors",
 			[]string{labelErrorType, metrics.LabelError}, nil,
 		),
+		nbKeysDesc: prometheus.NewDesc(
+			prometheus.BuildFQName(metrics.Namespace, subsystem, "keys"),
+			"Number of IPsec keys in use",
+			[]string{}, nil,
+		),
 	}
 }
 
 func (x *xfrmCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- x.xfrmErrorDesc
+	ch <- x.nbKeysDesc
 }
 
-func (x *xfrmCollector) Collect(ch chan<- prometheus.Metric) {
+func (x *xfrmCollector) collectErrors(ch chan<- prometheus.Metric) {
 	stats, err := procfs.NewXfrmStat()
 	if err != nil {
 		log.WithError(err).Error("Error while getting xfrm stats")
@@ -91,5 +101,19 @@ func (x *xfrmCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(x.xfrmErrorDesc, prometheus.GaugeValue, float64(stats.XfrmOutPolDead), labelErrorTypeOutbound, labelErrorPolicyDead)
 	ch <- prometheus.MustNewConstMetric(x.xfrmErrorDesc, prometheus.GaugeValue, float64(stats.XfrmOutPolError), labelErrorTypeOutbound, labelErrorPolicy)
 	ch <- prometheus.MustNewConstMetric(x.xfrmErrorDesc, prometheus.GaugeValue, float64(stats.XfrmOutStateInvalid), labelErrorTypeOutbound, labelErrorStateInvalid)
+}
 
+func (x *xfrmCollector) collectConfigStats(ch chan<- prometheus.Metric) {
+	states, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	if err != nil {
+		log.WithError(err).Error("Failed to retrieve XFRM states to compute Prometheus metrics")
+		return
+	}
+	nbKeys := ipsec.CountUniqueIPsecKeys(states)
+	ch <- prometheus.MustNewConstMetric(x.nbKeysDesc, prometheus.GaugeValue, float64(nbKeys))
+}
+
+func (x *xfrmCollector) Collect(ch chan<- prometheus.Metric) {
+	x.collectErrors(ch)
+	x.collectConfigStats(ch)
 }
