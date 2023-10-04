@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/common/ipsec"
 )
 
 const (
@@ -26,10 +27,7 @@ const (
 	ciliumReqId = "1"
 )
 
-type void struct{}
-
 var (
-	voidType    void
 	countErrors int
 	regex       = regexp.MustCompile("oseq[[:blank:]]0[xX]([[:xdigit:]]+)")
 )
@@ -73,25 +71,6 @@ func getXfrmStats(mountPoint string) (int, map[string]int) {
 		}
 	}
 	return countErrors, errorMap
-}
-
-func countUniqueIPsecKeys() int {
-	// trying to mimic set type data structure
-	// using void data type as struct{} because it does not use any memory
-	keys := make(map[string]void)
-	xfrmStates, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
-	if err != nil {
-		Fatalf("Cannot get xfrm state: %s", err)
-	}
-	for _, v := range xfrmStates {
-		if v.Aead == nil {
-			fmt.Printf("Warning: non-AEAD xfrm state found: %s\n", v.String())
-			continue
-		}
-		keys[string(v.Aead.Key)] = voidType
-	}
-
-	return len(keys)
 }
 
 func extractMaxSequenceNumber(ipOutput string) int64 {
@@ -145,7 +124,11 @@ func getEncryptionMode() {
 }
 
 func dumpIPsecStatus() {
-	keys := countUniqueIPsecKeys()
+	xfrmStates, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	if err != nil {
+		Fatalf("Cannot get xfrm state: %s", err)
+	}
+	keys := ipsec.CountUniqueIPsecKeys(xfrmStates)
 	oseq := maxSequenceNumber()
 	fmt.Printf("Keys in use: %-26d\n", keys)
 	fmt.Printf("Max Seq. Number: %s\n", oseq)
