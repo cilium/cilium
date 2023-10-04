@@ -8,6 +8,7 @@ import (
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nodemap"
+	"github.com/cilium/cilium/pkg/reconciler/example/reconcilers"
 )
 
 // DatapathConfiguration is the static configuration of the datapath. The
@@ -32,18 +33,18 @@ type linuxDatapath struct {
 
 // NewDatapath creates a new Linux datapath
 func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager, wgAgent datapath.WireguardAgent,
-	nodeMap nodemap.Map, writer datapath.ConfigWriter) datapath.Datapath {
+	nodeMap nodemap.Map, writer datapath.ConfigWriter, routes reconcilers.Routes) datapath.Datapath {
 	dp := &linuxDatapath{
 		ConfigWriter:    writer,
 		IptablesManager: ruleManager,
 		nodeAddressing:  NewNodeAddressing(),
 		config:          cfg,
-		loader:          loader.NewLoader(),
+		loader:          loader.NewLoader(routes),
 		wgAgent:         wgAgent,
 		lbmap:           lbmap.New(),
 	}
 
-	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, nodeMap)
+	dp.node = NewNodeHandler(cfg, dp.nodeAddressing, nodeMap, routes)
 	return dp
 }
 

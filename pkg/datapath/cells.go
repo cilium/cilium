@@ -27,6 +27,8 @@ import (
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/reconciler"
+	"github.com/cilium/cilium/pkg/reconciler/example/reconcilers"
 	wg "github.com/cilium/cilium/pkg/wireguard/agent"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -65,6 +67,10 @@ var Cell = cell.Module(
 	// This cell defines StateDB tables and their schemas for tables which are used to transfer information
 	// between datapath components and more high-level components.
 	tables.Cell,
+
+	// HACK HACK HACK route reconcilation.
+	reconciler.Cell, // For reconciler metrics
+	reconcilers.RoutesCell,
 
 	// Gratuitous ARP event processor emits GARP packets on k8s pod creation events.
 	garp.Cell,
@@ -133,7 +139,7 @@ func newDatapath(params datapathParams) types.Datapath {
 			return nil
 		}})
 
-	datapath := linuxdatapath.NewDatapath(datapathConfig, iptablesManager, params.WgAgent, params.NodeMap, params.ConfigWriter)
+	datapath := linuxdatapath.NewDatapath(datapathConfig, iptablesManager, params.WgAgent, params.NodeMap, params.ConfigWriter, params.Routes)
 
 	params.LC.Append(hive.Hook{
 		OnStart: func(hive.HookContext) error {
@@ -163,4 +169,6 @@ type datapathParams struct {
 	DeviceManager *linuxdatapath.DeviceManager
 
 	ConfigWriter types.ConfigWriter
+
+	Routes reconcilers.Routes
 }

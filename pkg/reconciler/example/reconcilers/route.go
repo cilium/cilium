@@ -1,4 +1,4 @@
-package main
+package reconcilers
 
 import (
 	"context"
@@ -35,6 +35,12 @@ var RoutesCell = cell.Module(
 	),
 
 	cell.Provide(newRoutes),
+
+	// FIXME. Should be provided by e.g. datapath cell.
+	cell.Provide(func() *netns.NsHandle {
+		ns := netns.None()
+		return &ns
+	}),
 
 	// Provide the dependencies to the reconciler.
 	cell.ProvidePrivate(
@@ -126,7 +132,13 @@ func (r Routes) NewHandle(name string) RoutesHandle {
 func (h RoutesHandle) InsertLegacy(route route.Route) bool {
 	// TODO: Should we deal here with device names or indexes?
 	// Existing code mostly deals with names, so hacking this
-	// by including the name in DesiredRoute for this case
+	// by including the name in DesiredRoute for this case.
+	// Definitely need to settle on one or the other.
+
+	// TODO: There are way too many 'Route' types. Need to trim
+	// it down. Unify "route.Route" and "tables.Route". Would not
+	// depend on "netlink" library and would try to keep it somewhat
+	// Linux independent if possible.
 
 	txn := h.r.db.WriteTxn(h.r.table)
 	var gw netip.Addr
@@ -160,6 +172,31 @@ func (h RoutesHandle) InsertLegacy(route route.Route) bool {
 
 	return hadOld
 
+}
+
+func (h RoutesHandle) DeleteLegacy(route route.Route) bool {
+	dstAddr, _ := ip.AddrFromIP(route.Prefix.IP)
+	dstBits, _ := route.Prefix.Mask.Size()
+	dst := netip.PrefixFrom(
+		dstAddr,
+		dstBits,
+	)
+
+	txn := h.r.db.WriteTxn(h.r.table)
+	iter, _ := h.r.table.Get(txn, RouteOwnerIndex.Query(h.owner))
+	deleted := false
+	for r, _, ok := iter.Next(); ok; r, _, ok = iter.Next() {
+		// FIXME likely not matching enough fields
+		if r.OptDeviceName == route.Device && r.Route.Dst == dst {
+			h.r.table.Insert(
+				txn,
+				r.WithStatus(reconciler.StatusPendingDelete()))
+			deleted = true
+		}
+
+	}
+	txn.Commit()
+	return deleted
 }
 
 func (h RoutesHandle) Insert(route tables.Route) bool {
@@ -239,7 +276,7 @@ func (h RoutesHandle) Wait(ctx context.Context) error {
 type DesiredRoute struct {
 	Owner         string
 	Route         tables.Route
-	OptDeviceName string
+	OptDeviceName string // HACK to allow specifying routes with name and not index.
 	Status        reconciler.Status
 }
 

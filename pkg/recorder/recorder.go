@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/reconciler/example/reconcilers"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -218,7 +219,7 @@ func (r *Recorder) orderedMaskSets() ([]*RecMask, []*RecMask) {
 
 func (r *Recorder) triggerDatapathRegenerate() error {
 	var masks4, masks6 string
-	l := loader.NewLoader()
+	l := loader.NewLoader(reconcilers.Routes{}) // FIXME this is broken
 	extraCArgs := []string{}
 	if len(r.recMask) == 0 {
 		extraCArgs = append(extraCArgs, "-Dcapture_enabled=0")

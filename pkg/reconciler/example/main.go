@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/reconciler"
+	"github.com/cilium/cilium/pkg/reconciler/example/reconcilers"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
@@ -56,7 +57,7 @@ func main() {
 
 		//IPTablesCell,
 
-		RoutesCell,
+		reconcilers.RoutesCell,
 
 		cell.Invoke(
 			//modify,
@@ -108,7 +109,7 @@ func modifyIPTables(db *statedb.DB, t statedb.RWTable[*Rule]) {
 	}()
 }
 
-func modifyRoutes(r Routes, ns *netns.NsHandle) {
+func modifyRoutes(r reconcilers.Routes, ns *netns.NsHandle) {
 	nlHandle, _ := netlink.NewHandleAt(*ns)
 	loIndex := 0
 	if l, err := nlHandle.LinkByName("lo"); err == nil {
@@ -161,7 +162,7 @@ func healthReport(health cell.Health) {
 
 }
 
-func printPendingOrErrored(db *statedb.DB, t statedb.Table[*DesiredRoute]) {
+func printPendingOrErrored(db *statedb.DB, t statedb.Table[*reconcilers.DesiredRoute]) {
 	go func() {
 		for {
 			fmt.Printf("Desired routes:\n")

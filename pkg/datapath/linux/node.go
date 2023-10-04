@@ -40,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/types"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/reconciler/example/reconcilers"
 )
 
 const (
@@ -83,6 +84,8 @@ type linuxNodeHandler struct {
 	ipsecMetricOnce      sync.Once
 
 	prefixClusterMutatorFn func(node *types.Node) []cmtypes.PrefixClusterOpts
+
+	routes reconcilers.RoutesHandle
 }
 
 var (
@@ -93,7 +96,7 @@ var (
 
 // NewNodeHandler returns a new node handler to handle node events and
 // implement the implications in the Linux datapath
-func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing, nodeMap nodemap.Map) *linuxNodeHandler {
+func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapath.NodeAddressing, nodeMap nodemap.Map, routes reconcilers.Routes) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		nodeAddressing:         nodeAddressing,
 		datapathConfig:         datapathConfig,
@@ -109,6 +112,7 @@ func NewNodeHandler(datapathConfig DatapathConfiguration, nodeAddressing datapat
 		nodeIPsByIDs:           map[uint16]string{},
 		ipsecMetricCollector:   ipsec.NewXFRMCollector(),
 		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
+		routes:                 routes.NewHandle("node-handler"),
 	}
 }
 
@@ -469,11 +473,7 @@ func (n *linuxNodeHandler) updateNodeRoute(prefix *cidr.CIDR, addressFamilyEnabl
 	if err != nil {
 		return err
 	}
-	if err := route.Upsert(nodeRoute); err != nil {
-		log.WithError(err).WithFields(nodeRoute.LogFields()).Warning("Unable to update route")
-		return err
-	}
-
+	n.routes.InsertLegacy(nodeRoute)
 	return nil
 }
 
@@ -486,11 +486,7 @@ func (n *linuxNodeHandler) deleteNodeRoute(prefix *cidr.CIDR, isLocalNode bool) 
 	if err != nil {
 		return err
 	}
-	if err := route.Delete(nodeRoute); err != nil {
-		log.WithError(err).WithFields(nodeRoute.LogFields()).Warning("Unable to delete route")
-		return err
-	}
-
+	n.routes.DeleteLegacy(nodeRoute)
 	return nil
 }
 
@@ -1395,7 +1391,16 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 				}
 			}
 		}
+
+		// FIXME: How would "cleanup" like above fit into the route reconciler? Would we need an "CleanupRoutes" table
+		// to which routes that we don't need can be pushed and from which they would be dropped once they're verified
+		// gone? Or just mark "DesiredRoute.Undesired = true"? :)
 	}
+
+	// Wait for all routes to be reconciled.
+	// FIXME how important it is to block here to wait for routes to land? I don't think
+	// there's anything upstream from here that we need to block.
+	n.routes.Wait(context.TODO())
 
 	return errs
 }

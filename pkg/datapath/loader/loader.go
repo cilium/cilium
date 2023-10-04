@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/reconciler/example/reconcilers"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -74,11 +75,13 @@ type Loader struct {
 
 	hostDpInitializedOnce sync.Once
 	hostDpInitialized     chan struct{}
+
+	routes reconcilers.RoutesHandle
 }
 
 // NewLoader returns a new loader.
-func NewLoader() *Loader {
-	return &Loader{hostDpInitialized: make(chan struct{})}
+func NewLoader(routes reconcilers.Routes) *Loader {
+	return &Loader{hostDpInitialized: make(chan struct{}), routes: routes.NewHandle("loader")}
 }
 
 // Init initializes the datapath cache with base program hashes derived from
@@ -95,23 +98,24 @@ func (l *Loader) init(dp datapath.ConfigWriter, nodeCfg *datapath.LocalNodeConfi
 	l.templateCache.Update(nodeCfg)
 }
 
-func upsertEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
+func upsertEndpointRoute(routes reconcilers.RoutesHandle, ep datapath.Endpoint, ip net.IPNet) error {
 	endpointRoute := route.Route{
 		Prefix: ip,
 		Device: ep.InterfaceName(),
 		Scope:  netlink.SCOPE_LINK,
 		Proto:  linux_defaults.RTProto,
 	}
-
-	return route.Upsert(endpointRoute)
+	routes.InsertLegacy(endpointRoute)
+	return nil
 }
 
-func removeEndpointRoute(ep datapath.Endpoint, ip net.IPNet) error {
-	return route.Delete(route.Route{
+func removeEndpointRoute(routes reconcilers.RoutesHandle, ep datapath.Endpoint, ip net.IPNet) error {
+	routes.DeleteLegacy(route.Route{
 		Prefix: ip,
 		Device: ep.InterfaceName(),
 		Scope:  netlink.SCOPE_LINK,
 	})
+	return nil
 }
 
 // We need this function when patching an object file for which symbols were
@@ -436,14 +440,17 @@ func (l *Loader) reloadDatapath(ctx context.Context, ep datapath.Endpoint, dirs 
 			logfields.Veth: ep.InterfaceName(),
 		})
 		if ip := ep.IPv4Address(); ip.IsValid() {
-			if err := upsertEndpointRoute(ep, *iputil.AddrToIPNet(ip)); err != nil {
+			if err := upsertEndpointRoute(l.routes, ep, *iputil.AddrToIPNet(ip)); err != nil {
 				scopedLog.WithError(err).Warn("Failed to upsert route")
 			}
 		}
 		if ip := ep.IPv6Address(); ip.IsValid() {
-			if err := upsertEndpointRoute(ep, *iputil.AddrToIPNet(ip)); err != nil {
+			if err := upsertEndpointRoute(l.routes, ep, *iputil.AddrToIPNet(ip)); err != nil {
 				scopedLog.WithError(err).Warn("Failed to upsert route")
 			}
+		}
+		if err := l.routes.Wait(ctx); err != nil {
+			scopedLog.WithError(err).Warn("Timed out waiting for routes to be reconciled")
 		}
 	}
 
@@ -601,11 +608,11 @@ func (l *Loader) ReloadDatapath(ctx context.Context, ep datapath.Endpoint, stats
 func (l *Loader) Unload(ep datapath.Endpoint) {
 	if ep.RequireEndpointRoute() {
 		if ip := ep.IPv4Address(); ip.IsValid() {
-			removeEndpointRoute(ep, *iputil.AddrToIPNet(ip))
+			removeEndpointRoute(l.routes, ep, *iputil.AddrToIPNet(ip))
 		}
 
 		if ip := ep.IPv6Address(); ip.IsValid() {
-			removeEndpointRoute(ep, *iputil.AddrToIPNet(ip))
+			removeEndpointRoute(l.routes, ep, *iputil.AddrToIPNet(ip))
 		}
 	}
 }
