@@ -1268,6 +1268,10 @@ func (l4 *L4Policy) AccumulateMapChanges(cs CachedSelector, adds, deletes []iden
 	l4.mutex.RUnlock()
 
 	for epPolicy := range users {
+		// Skip if endpoint has no policy maps
+		if !epPolicy.PolicyOwner.HasBPFPolicyMap() {
+			continue
+		}
 		// resolve named port
 		if port == 0 && l4Filter.PortName != "" {
 			port = epPolicy.PolicyOwner.GetNamedPort(direction == trafficdirection.Ingress, l4Filter.PortName, proto)

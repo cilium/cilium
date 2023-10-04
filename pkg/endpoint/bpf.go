@@ -530,11 +530,28 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	}()
 
 	if err != nil {
-		return 0, compilationExecuted, err
+		return 0, false, err
 	}
 
 	// No need to compile BPF in dry mode.
 	if option.Config.DryMode {
+		return e.nextPolicyRevision, false, nil
+	}
+
+	// Skip BPF if the endpoint has no policy map
+	if !e.HasBPFPolicyMap() {
+		// Allow another builder to start while we wait for the proxy
+		if regenContext.DoneFunc != nil {
+			regenContext.DoneFunc()
+		}
+
+		stats.proxyWaitForAck.Start()
+		err = e.waitForProxyCompletions(datapathRegenCtxt.proxyWaitGroup)
+		stats.proxyWaitForAck.End(err == nil)
+		if err != nil {
+			return 0, false, fmt.Errorf("Error while updating network policy: %s", err)
+		}
+
 		return e.nextPolicyRevision, false, nil
 	}
 
@@ -738,6 +755,30 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 
 		if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
 			log.WithField(logfields.EndpointID, e.ID).Debug("Skipping bpf updates due to dry mode")
+		}
+		return false, nil
+	}
+
+	// Endpoints without policy maps only need Network Policy Updates
+	if !e.HasBPFPolicyMap() {
+		if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
+			log.WithField(logfields.EndpointID, e.ID).Debug("Ingress Endpoint skipping bpf regeneration")
+		}
+
+		if e.SecurityIdentity != nil {
+			_ = e.updateAndOverrideEndpointOptions(nil)
+
+			if logging.CanLogAt(log.Logger, logrus.DebugLevel) {
+				log.WithField(logfields.EndpointID, e.ID).Debug("Ingress Endpoint updating Network policy")
+			}
+
+			stats.proxyPolicyCalculation.Start()
+			err, networkPolicyRevertFunc := e.updateNetworkPolicy(datapathRegenCtxt.proxyWaitGroup)
+			stats.proxyPolicyCalculation.End(err == nil)
+			if err != nil {
+				return false, err
+			}
+			datapathRegenCtxt.revertStack.Push(networkPolicyRevertFunc)
 		}
 		return false, nil
 	}
@@ -1346,6 +1387,11 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 }
 
 func (e *Endpoint) startSyncPolicyMapController() {
+	// Skip the controller if the endpoint has no policy map
+	if !e.HasBPFPolicyMap() {
+		return
+	}
+
 	ctrlName := fmt.Sprintf("sync-policymap-%d", e.ID)
 	e.controllers.CreateController(ctrlName,
 		controller.ControllerParams{

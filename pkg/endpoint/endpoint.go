@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
+	ippkg "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
@@ -376,7 +377,8 @@ type Endpoint struct {
 
 	allocator cache.IdentityAllocator
 
-	isHost bool
+	isIngress bool
+	isHost    bool
 
 	noTrackPort uint16
 
@@ -536,6 +538,22 @@ func (e *Endpoint) initDNSHistoryTrigger() {
 	}
 }
 
+// CreateIngressEndpoint creates the endpoint corresponding to Cilium Ingress.
+func CreateIngressEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator) (*Endpoint, error) {
+	ep := createEndpoint(owner, policyGetter, namedPortsGetter, proxy, allocator, 0, "")
+	ep.DatapathConfiguration = NewDatapathConfiguration()
+
+	ep.isIngress = true
+	// node.GetIngressIPv4 has been parsed with net.ParseIP() and may be in IPv4 mapped IPv6
+	// address format. Use ippkg.AddrFromIP() to make sure we get a plain IPv4 address.
+	ep.IPv4, _ = ippkg.AddrFromIP(node.GetIngressIPv4())
+	ep.IPv6, _ = netip.AddrFromSlice(node.GetIngressIPv6())
+
+	ep.setState(StateWaitingForIdentity, "Ingress Endpoint creation")
+
+	return ep, nil
+}
+
 // CreateHostEndpoint creates the endpoint corresponding to the host.
 func CreateHostEndpoint(owner regeneration.Owner, policyGetter policyRepoGetter, namedPortsGetter namedPortsGetter, proxy EndpointProxy, allocator cache.IdentityAllocator) (*Endpoint, error) {
 	mac, err := link.GetHardwareAddr(defaults.HostDevice)
@@ -609,6 +627,8 @@ func (e *Endpoint) GetIPv4Address() string {
 	if !e.IPv4.IsValid() {
 		return ""
 	}
+	// e.IPv4 is assumed to not be an IPv4 mapped IPv6 address, which would be
+	// formatted like "::ffff:1.2.3.4"
 	return e.IPv4.String()
 }
 
@@ -879,8 +899,10 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, policyGetter p
 
 	// If host label is present, it's the host endpoint.
 	ep.isHost = ep.HasLabels(labels.LabelHost)
+	// If Ingress label is present, it's the Ingress endpoint.
+	ep.isIngress = ep.HasLabels(labels.LabelIngress)
 
-	if ep.isHost {
+	if ep.isHost || ep.isIngress {
 		// Overwrite datapath configuration with the current agent configuration.
 		ep.DatapathConfiguration = NewDatapathConfiguration()
 	}
@@ -1695,6 +1717,25 @@ func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels labels.Labels) erro
 func (e *Endpoint) IsInit() bool {
 	init, found := e.OpLabels.GetIdentityLabel(labels.IDNameInit)
 	return found && init.Source == labels.LabelSourceReserved
+}
+
+// InitWithIngressLabels initializes the endpoint with reserved:ingress.
+// It should only be used for the host endpoint.
+func (e *Endpoint) InitWithIngressLabels(ctx context.Context, launchTime time.Duration) {
+	if !e.isIngress {
+		return
+	}
+
+	epLabels := labels.Labels{}
+	epLabels.MergeLabels(labels.LabelIngress)
+
+	// Give the endpoint a security identity
+	newCtx, cancel := context.WithTimeout(ctx, launchTime)
+	defer cancel()
+	e.UpdateLabels(newCtx, epLabels, epLabels, true)
+	if errors.Is(newCtx.Err(), context.DeadlineExceeded) {
+		log.WithError(newCtx.Err()).Warning("Timed out while updating security identify for host endpoint")
+	}
 }
 
 // InitWithNodeLabels initializes the endpoint with the known node labels as
