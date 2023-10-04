@@ -74,11 +74,30 @@ type EndpointsLookup interface {
 
 	// HostEndpointExists returns true if the host endpoint exists.
 	HostEndpointExists() bool
+
+	// GetIngressEndpoint returns the ingress endpoint.
+	GetIngressEndpoint() *endpoint.Endpoint
+
+	// IngressEndpointExists returns true if the ingress endpoint exists.
+	IngressEndpointExists() bool
 }
 
 type EndpointsModify interface {
 	// AddEndpoint takes the prepared endpoint object and starts managing it.
 	AddEndpoint(owner regeneration.Owner, ep *endpoint.Endpoint, reason string) (err error)
+
+	// AddIngressEndpoint creates an Endpoint representing Cilium Ingress on this node without a
+	// corresponding container necessarily existing. This is needed to be able to ingest and
+	// sync network policies applicable to Cilium Ingress to Envoy.
+	AddIngressEndpoint(
+		ctx context.Context,
+		owner regeneration.Owner,
+		policyGetter policyRepoGetter,
+		ipcache *ipcache.IPCache,
+		proxy endpoint.EndpointProxy,
+		allocator cache.IdentityAllocator,
+		reason string,
+	) error
 
 	AddHostEndpoint(
 		ctx context.Context,
