@@ -139,7 +139,7 @@ func Test_PodCIDRAdvert(t *testing.T) {
 	defer testDone()
 
 	// setup topology
-	gobgpPeers, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf}, fixtureConf)
+	gobgpPeers, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpPeers, 1)
 	defer cleanup()
@@ -316,7 +316,7 @@ func Test_LBEgressAdvertisement(t *testing.T) {
 	defer testDone()
 
 	// setup topology
-	gobgpPeers, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf}, fixtureConf)
+	gobgpPeers, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpPeers, 1)
 	defer cleanup()
