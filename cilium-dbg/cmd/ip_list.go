@@ -72,6 +72,16 @@ func printIPcacheEntries(entries []*models.IPListEntry) {
 	w.Flush()
 }
 
+func getLabels(ni identity.NumericIdentity) []string {
+	params := ipApi.NewGetIdentityIDParams().WithID(ni.StringID()).WithTimeout(api.ClientTimeout)
+	id, err := client.Policy.GetIdentityID(params)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot get identity for ID %s: %s\n", ni.StringID(), err)
+		return []string{ni.String()}
+	}
+	return labels.NewLabelsFromModel(id.Payload.Labels).GetPrintableModel()
+}
+
 func printEntry(w *tabwriter.Writer, entry *models.IPListEntry) {
 	var src string
 	if entry.Metadata != nil {
@@ -84,20 +94,7 @@ func printEntry(w *tabwriter.Writer, entry *models.IPListEntry) {
 	if numeric {
 		identities = append(identities, identityNumeric)
 	} else {
-		identity := ni.String()
-		if identity != identityNumeric {
-			identities = append(identities, identity)
-		} else {
-			params := ipApi.NewGetIdentityIDParams().WithID(identity).WithTimeout(api.ClientTimeout)
-			id, err := client.Policy.GetIdentityID(params)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Cannot get identity for ID %s: %s\n", ni.StringID(), err)
-				identities = append(identities, identity)
-			} else {
-				lbls := labels.NewLabelsFromModel(id.Payload.Labels).GetPrintableModel()
-				identities = append(identities, lbls...)
-			}
-		}
+		identities = append(identities, getLabels(ni)...)
 	}
 	first := true
 	for _, identity := range identities {
