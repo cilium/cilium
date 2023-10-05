@@ -278,12 +278,12 @@ func (ct *ConnectivityTest) detectFeatures(ctx context.Context) error {
 		// If unsure from which source to retrieve the information from,
 		// prefer "CiliumStatus" over "ConfigMap" over "RuntimeConfig".
 		// See the corresponding functions for more information.
-		ct.Features.ExtractFromConfigMap(ct.CiliumVersion, cm)
+		features.ExtractFromConfigMap(ct.CiliumVersion, cm)
 		err = ct.extractFeaturesFromRuntimeConfig(ctx, ciliumPod, features)
 		if err != nil {
 			return err
 		}
-		ct.Features.ExtractFromNodes(ct.nodesWithoutCilium)
+		features.ExtractFromNodes(ct.nodesWithoutCilium)
 		err = ct.extractFeaturesFromCiliumStatus(ctx, ciliumPod, features)
 		if err != nil {
 			return err
