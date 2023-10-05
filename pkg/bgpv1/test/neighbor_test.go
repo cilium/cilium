@@ -127,7 +127,7 @@ func Test_NeighborAddDel(t *testing.T) {
 	defer testDone()
 
 	// test setup, we configure two gobgp instances here.
-	gobgpInstances, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf, gobgpConf2}, fixtureConf)
+	gobgpInstances, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf, gobgpConf2}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpInstances, 2)
 	defer cleanup()
@@ -272,7 +272,7 @@ func Test_NeighborGracefulRestart(t *testing.T) {
 	defer testDone()
 
 	// test setup, we configure single gobgp instance here.
-	gobgpInstances, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf}, fixtureConf)
+	gobgpInstances, fixture, cleanup, err := setup(testCtx, []gobgpConfig{gobgpConf}, newFixtureConf())
 	require.NoError(t, err)
 	require.Len(t, gobgpInstances, 1)
 	defer cleanup()

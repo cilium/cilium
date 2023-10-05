@@ -76,14 +76,6 @@ var (
 			},
 		},
 	}
-
-	// Daemon start config
-	fixtureConf = fixtureConfig{
-		node:      newNodeObj(baseNodeConf),
-		policy:    newPolicyObj(baseBGPPolicy),
-		ipam:      ipamOption.IPAMKubernetes,
-		bgpEnable: true,
-	}
 )
 
 // fixture is test harness
@@ -100,6 +92,22 @@ type fixtureConfig struct {
 	policy    cilium_api_v2alpha1.CiliumBGPPeeringPolicy
 	ipam      string
 	bgpEnable bool
+}
+
+func newFixtureConf() fixtureConfig {
+	policyCfg := policyConfig{
+		nodeSelector: baseBGPPolicy.nodeSelector,
+	}
+	// deepcopy the VirtualRouters as the tests modify them
+	for _, vr := range baseBGPPolicy.virtualRouters {
+		policyCfg.virtualRouters = append(policyCfg.virtualRouters, *vr.DeepCopy())
+	}
+	return fixtureConfig{
+		node:      newNodeObj(baseNodeConf),
+		policy:    newPolicyObj(policyCfg),
+		ipam:      ipamOption.IPAMKubernetes,
+		bgpEnable: true,
+	}
 }
 
 func newFixture(conf fixtureConfig) *fixture {
@@ -169,8 +177,7 @@ func newFixture(conf fixtureConfig) *fixture {
 }
 
 func setupSingleNeighbor(ctx context.Context, f *fixture) error {
-	bgpPolicy := baseBGPPolicy
-	bgpPolicy.virtualRouters[0] = cilium_api_v2alpha1.CiliumBGPVirtualRouter{
+	f.config.policy.Spec.VirtualRouters[0] = cilium_api_v2alpha1.CiliumBGPVirtualRouter{
 		LocalASN:      int64(ciliumASN),
 		ExportPodCIDR: pointer.Bool(true),
 		Neighbors: []cilium_api_v2alpha1.CiliumBGPNeighbor{
@@ -180,9 +187,8 @@ func setupSingleNeighbor(ctx context.Context, f *fixture) error {
 			},
 		},
 	}
-	policyObj := newPolicyObj(bgpPolicy)
 
-	_, err := f.policyClient.Update(ctx, &policyObj, meta_v1.UpdateOptions{})
+	_, err := f.policyClient.Update(ctx, &f.config.policy, meta_v1.UpdateOptions{})
 	return err
 }
 
