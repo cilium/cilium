@@ -448,6 +448,7 @@ will apply to traffic where one side of the connection is:
 * A network endpoint outside the cluster
 * The host network namespace where the pod is running.
 * Within the cluster prefix but the IP's networking is not provided by Cilium.
+* (:ref:`optional <cidr_select_nodes>`) Node IPs within the cluster
 
 Conversely, CIDR rules do not apply to traffic where both sides of the
 connection are either managed by Cilium or use an IP belonging to a node in the
@@ -502,6 +503,30 @@ but not CIDR prefix ``10.96.0.0/12``
 .. only:: epub or latex
 
         .. literalinclude:: ../../../examples/policies/l3/cidr/cidr.json
+
+.. _cidr_select_nodes:
+
+Selecting nodes with CIDR / ipBlock
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../../beta.rst
+
+By default, CIDR-based selectors do not match in-cluster entities (pods or nodes).
+Optionally, you can direct the policy engine to select nodes by CIDR / ipBlock.
+This requires you to configure Cilium with ``--policy-cidr-match-mode=nodes`` or
+the equivalent Helm value ``policyCIDRMatchMode: nodes``. It is safe to toggle this
+option on a running cluster, and toggling the option affects neither upgrades nor downgrades.
+
+When ``--policy-cidr-match-mode=nodes`` is specified, every agent allocates a
+distinct local :ref:`security identity <arch_id_security>` for all other nodes.
+This slightly increases memory usage -- approximately 1MB for every 1000 nodes
+in the cluster.
+
+This is particularly relevant to self-hosted clusters -- that is, clusters where
+the apiserver is hosted on in-cluster nodes. Because CIDR-based selectors ignore
+nodes by default, you must ordinarily use the ``kube-apiserver`` :ref:`entity <Entities based>`
+as part of a CiliumNetworkPolicy. Setting ``--policy-cidr-match-mode=nodes`` permits
+selecting the apiserver via an ``ipBlock`` peer in a KubernetesNetworkPolicy.
 
 .. _DNS based:
 
