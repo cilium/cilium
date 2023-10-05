@@ -1715,7 +1715,7 @@ while [ $cilium_started = false ]; do
 
     # Copy Cilium CLI
     ${SUDO} docker cp -L cilium:/usr/bin/cilium /usr/bin/cilium-dbg
-    ${SUDO} ln -s /usr/bin/cilium-dbg /usr/bin/cilium
+    ${SUDO} ln -fs /usr/bin/cilium-dbg /usr/bin/cilium
 
     # Wait for cilium agent to become available
     for ((i = 0 ; i < 12; i++)); do
