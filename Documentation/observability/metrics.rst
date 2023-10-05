@@ -515,6 +515,7 @@ Name                                     Labels                                 
 ``kvstore_operations_duration_seconds``  ``action``, ``kind``, ``outcome``, ``scope`` Enabled    Duration of kvstore operation
 ``kvstore_events_queue_seconds``         ``action``, ``scope``                        Enabled    Seconds waited before a received event was queued
 ``kvstore_quorum_errors_total``          ``error``                                    Enabled    Number of quorum errors
+``kvstore_sync_errors_total``            ``scope``, ``source_cluster``                Enabled    Number of times synchronization to the kvstore failed
 ``kvstore_sync_queue_size``              ``scope``, ``source_cluster``                Enabled    Number of elements queued for synchronization in the kvstore
 ``kvstore_initial_sync_completed``       ``scope``, ``source_cluster``, ``action``    Enabled    Whether the initial synchronization from/to the kvstore has completed
 ======================================== ============================================ ========== ========================================================
@@ -1029,6 +1030,7 @@ Name                                     Labels                                 
 ``kvstore_operations_duration_seconds``  ``action``, ``kind``, ``outcome``, ``scope`` Duration of kvstore operation
 ``kvstore_events_queue_seconds``         ``action``, ``scope``                        Seconds waited before a received event was queued
 ``kvstore_quorum_errors_total``          ``error``                                    Number of quorum errors
+``kvstore_sync_errors_total``            ``scope``, ``source_cluster``                Number of times synchronization to the kvstore failed
 ``kvstore_sync_queue_size``              ``scope``, ``source_cluster``                Number of elements queued for synchronization in the kvstore
 ``kvstore_initial_sync_completed``       ``scope``, ``source_cluster``, ``action``    Whether the initial synchronization from/to the kvstore has completed
 ======================================== ============================================ ========================================================
@@ -1103,6 +1105,7 @@ Name                                     Labels                                 
 ``kvstore_operations_duration_seconds``  ``action``, ``kind``, ``outcome``, ``scope`` Duration of kvstore operation
 ``kvstore_events_queue_seconds``         ``action``, ``scope``                        Seconds waited before a received event was queued
 ``kvstore_quorum_errors_total``          ``error``                                    Number of quorum errors
+``kvstore_sync_errors_total``            ``scope``, ``source_cluster``                Number of times synchronization to the kvstore failed
 ``kvstore_sync_queue_size``              ``scope``, ``source_cluster``                Number of elements queued for synchronization in the kvstore
 ``kvstore_initial_sync_completed``       ``scope``, ``source_cluster``, ``action``    Whether the initial synchronization from/to the kvstore has completed
 ======================================== ============================================ ========================================================
