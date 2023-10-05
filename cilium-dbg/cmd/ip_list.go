@@ -91,11 +91,13 @@ func printEntry(w *tabwriter.Writer, entry *models.IPListEntry) {
 			params := ipApi.NewGetIdentityIDParams().WithID(identity).WithTimeout(api.ClientTimeout)
 			id, err := client.Policy.GetIdentityID(params)
 			if err != nil {
-				Fatalf("Cannot get identity for given ID %s: %s\n", id, err)
-			}
-			lbls := labels.NewLabelsFromModel(id.Payload.Labels)
-			for _, lbl := range lbls {
-				identities = append(identities, lbl.String())
+				fmt.Fprintf(os.Stderr, "Cannot get identity for ID %s: %s\n", ni.StringID(), err)
+				identities = append(identities, identity)
+			} else {
+				lbls := labels.NewLabelsFromModel(id.Payload.Labels)
+				for _, lbl := range lbls {
+					identities = append(identities, lbl.String())
+				}
 			}
 		}
 	}
