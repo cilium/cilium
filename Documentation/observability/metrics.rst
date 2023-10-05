@@ -390,7 +390,6 @@ Name                                       Labels                               
 ``policy_regeneration_total``                                                                 Enabled    Total number of policies regenerated successfully
 ``policy_regeneration_time_stats_seconds`` ``scope``                                          Enabled    Policy regeneration time stats labeled by the scope
 ``policy_max_revision``                                                                       Enabled    Highest policy revision number in the agent
-``policy_import_errors_total``                                                                Enabled    Number of times a policy import has failed
 ``policy_change_total``                                                                       Enabled    Number of policy changes by outcome
 ``policy_endpoint_enforcement_status``                                                        Enabled    Number of endpoints labeled by policy enforcement status
 ``policy_implementation_delay``            ``source``                                         Enabled    Time in seconds between a policy change and it being fully deployed into the datapath, labeled by the policy's source
