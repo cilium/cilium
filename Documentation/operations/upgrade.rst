@@ -377,7 +377,10 @@ Added Metrics
 Removed Metrics
 ~~~~~~~~~~~~~~~
 
-* Removed formerly deprecated metrics: ``cilium_policy_l7_parse_errors_total``, ``cilium_policy_l7_forwarded_total``, ``cilium_policy_l7_denied_total``, ``cilium_policy_l7_received_total`` (replaced by ``cilium_policy_l7_total``).
+The following deprecated metrics were removed:
+
+* ``cilium_policy_l7_parse_errors_total``, ``cilium_policy_l7_forwarded_total``, ``cilium_policy_l7_denied_total``, ``cilium_policy_l7_received_total`` (replaced by ``cilium_policy_l7_total``)
+* ``cilium_policy_import_errors_total`` (replaced by ``cilium_policy_change_total``).
 
 Changed Metrics
 ~~~~~~~~~~~~~~~
@@ -393,8 +396,7 @@ Changed Metrics
 * ``cilium_policy_l7_total`` now has label ``proxy_type`` to distinguish between fqdn and envoy proxy requests.
 * The ``cilium_cidrgroup_policies`` metric has been renamed to
   ``cilium_cidrgroups_referenced`` for better clarity.
-* The ``cilium_cidrgroup_translation_time_stats_seconds`` has been disabled by
-  default.
+* The ``cilium_cidrgroup_translation_time_stats_seconds`` metric has been disabled by default.
 
 .. _earlier_upgrade_notes:
 
