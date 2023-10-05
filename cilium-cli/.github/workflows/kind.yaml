@@ -328,6 +328,8 @@ jobs:
 
       - name: Run the multicluster connectivity tests
         run: |
+          # Remove unused docker stuff to avoid running out of disk space.
+          docker system prune -fa
           # Setup the connectivity disruption tests. We don't really care about the result
           # here (in the sense that we don't perform any operation which might cause a
           # disruption), but we want to make sure that the command works as expected.
