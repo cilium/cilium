@@ -94,10 +94,8 @@ func printEntry(w *tabwriter.Writer, entry *models.IPListEntry) {
 				fmt.Fprintf(os.Stderr, "Cannot get identity for ID %s: %s\n", ni.StringID(), err)
 				identities = append(identities, identity)
 			} else {
-				lbls := labels.NewLabelsFromModel(id.Payload.Labels)
-				for _, lbl := range lbls {
-					identities = append(identities, lbl.String())
-				}
+				lbls := labels.NewLabelsFromModel(id.Payload.Labels).GetPrintableModel()
+				identities = append(identities, lbls...)
 			}
 		}
 	}
