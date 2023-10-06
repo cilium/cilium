@@ -328,6 +328,9 @@ Annotations:
   include these parameters.
 * ``enable-endpoint-routes`` now automatically sets ``enable-local-node-route``
   to false, as local node routes are redundant when per-endpoint routes are enabled.
+* L7 visibility using Pod annotations (``policy.cilium.io/proxy-visibility``) is
+  no longer supported. 
+  We recommend users to switch to L7 policies instead (see :ref:`proxy_visibility`).
 
 .. _upgrade_cilium_cli_helm_mode:
 

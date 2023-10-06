@@ -12,63 +12,78 @@ Layer 7 Protocol Visibility
 
 .. note::
 
-    This feature requires enabling L7 Proxy support. Without it, the visibility annotation is ignored.
+    This feature requires enabling L7 Proxy support.
 
-While :ref:`monitor` provides introspection into datapath state, by default it
-will only provide visibility into L3/L4 packet events. If :ref:`l7_policy` are
-configured, one can get visibility into L7 protocols, but this requires the full
-policy for each selected endpoint to be written. To get more visibility into the
-application without configuring a full policy, Cilium provides a means of
-prescribing visibility via `annotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`_
-when running in tandem with Kubernetes.
+While :ref:`monitor` provides introspection into datapath state, by default, it
+will only provide visibility into L3/L4 packet events. If you want L7
+protocol visibility, you can use L7 Cilium Network Policies (see :ref:`l7_policy`).
 
-Visibility information is represented by a comma-separated list of tuples in
-the annotation:
 
-``<{Traffic Direction}/{L4 Port}/{L4 Protocol}/{L7 Protocol}>``
+.. note::
 
-For example:
+    Historically, it had been possible to enable L7 visibility using Pod
+    annotations (``policy.cilium.io/proxy-visibility``). This method is
+    no longer supported and we recommend users to switch to L7 policies instead.
+
+To enable visibility for L7 traffic, create a ``CiliumNetworkPolicy`` that specifies
+L7 rules. Traffic flows matching a L7 rule in a ``CiliumNetworkPolicy`` will become
+visible to Cilium and, thus, can be exposed to the end user. It's important to 
+remember that L7 network policies not only enables visibility but also restrict 
+what traffic is allowed to flow in and out of a Pod.
+
+
+The following example enables visibility for DNS (TCP/UDP/53) and HTTP
+(ports TCP/80 and TCP/8080) traffic within the ``default`` namespace by
+specifying two L7 rules -- one for DNS and one for HTTP. It also restricts
+egress communication and drops anything that is not matched. L7 matching
+conditions on the rules have been omitted or wildcarded, which will
+permit all requests that match the L4 section of each rule:
+
+
+.. code-block:: yaml
+
+      apiVersion: "cilium.io/v2"
+      kind: CiliumNetworkPolicy
+      metadata:
+        name: "l7-visibility"
+      spec:
+        endpointSelector:
+          matchLabels:
+            "k8s:io.kubernetes.pod.namespace": default
+        egress:
+        - toPorts:
+          - ports:
+            - port: "53"
+              protocol: ANY
+            rules:
+              dns:
+              - matchPattern: "*"
+        - toEndpoints:
+          - matchLabels:
+              "k8s:io.kubernetes.pod.namespace": default
+          toPorts:
+          - ports:
+            - port: "80"
+              protocol: TCP
+            - port: "8080"
+              protocol: TCP
+            rules:
+              http: [{}]
+
+Based on the above policy, Cilium will pick up all TCP/UDP/53, TCP/80 and TCP/8080 
+egress traffic from Pods in the ``default`` namespace and redirect it to the 
+proxy (see :ref:`proxy_injection`) such that the output of ``cilium monitor`` or 
+``hubble observe`` shows the L7 flow details. 
+Below is the example of running ``hubble observe -f -t l7 -o compact`` command:
 
 ::
 
-  <Egress/53/UDP/DNS>,<Egress/80/TCP/HTTP>
+    default/testapp-5b9cc645cb-4slbs:45240 (ID:26450) -> kube-system/coredns-787d4945fb-bdmdq:53 (ID:9313) dns-request proxy FORWARDED (DNS Query web.default.svc.cluster.local. A)
+    default/testapp-5b9cc645cb-4slbs:45240 (ID:26450) <- kube-system/coredns-787d4945fb-bdmdq:53 (ID:9313) dns-response proxy FORWARDED (DNS Answer "10.96.118.37" TTL: 30 (Proxy web.default.svc.cluster.local. A))
+    default/testapp-5b9cc645cb-4slbs:33044 (ID:26450) -> default/echo-594485b8dc-fp57l:8080 (ID:32531) http-request FORWARDED (HTTP/1.1 GET http://web/)
+    default/testapp-5b9cc645cb-4slbs:33044 (ID:26450) <- default/echo-594485b8dc-fp57l:8080 (ID:32531) http-response FORWARDED (HTTP/1.1 200 4ms (GET http://web/))
 
 
-To do this, you can provide the annotation in your Kubernetes YAMLs, or via the
-command line, e.g.:
-
-.. code-block:: shell-session
-
-    kubectl annotate pod foo -n bar policy.cilium.io/proxy-visibility="<Egress/53/UDP/DNS>,<Egress/80/TCP/HTTP>"
-
-Cilium will pick up that pods have received these annotations, and will
-transparently redirect traffic to the proxy such that the output of
-``cilium-dbg monitor`` shows traffic being redirected to the proxy, e.g.:
-
-::
-
-    -> Request http from 1474 ([k8s:id=app2 k8s:io.kubernetes.pod.namespace=default k8s:appSecond=true k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=app2-account k8s:zgroup=testapp]) to 244 ([k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=app1-account k8s:io.kubernetes.pod.namespace=default k8s:zgroup=testapp k8s:id=app1]), identity 30162->42462, verdict Forwarded GET http://app1-service/ => 0
-    -> Response http to 1474 ([k8s:zgroup=testapp k8s:id=app2 k8s:io.kubernetes.pod.namespace=default k8s:appSecond=true k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=app2-account]) from 244 ([k8s:io.cilium.k8s.policy.serviceaccount=app1-account k8s:io.kubernetes.pod.namespace=default k8s:zgroup=testapp k8s:id=app1 k8s:io.cilium.k8s.policy.cluster=default]), identity 30162->42462, verdict Forwarded GET http://app1-service/ => 200
-
-You can check the status of the visibility policy by checking the Cilium
-endpoint of that pod, for example:
-
-.. code-block:: shell-session
-
-    $ kubectl get cep -n kube-system
-    NAME                       ENDPOINT ID   IDENTITY ID   INGRESS ENFORCEMENT   EGRESS ENFORCEMENT   VISIBILITY POLICY   ENDPOINT STATE   IPV4           IPV6
-    coredns-7d7f5b7685-wvzwb   1959          104           false                 false                                    ready            10.16.75.193   f00d::a10:0:0:2c77
-    $
-    $ kubectl annotate pod -n kube-system coredns-7d7f5b7685-wvzwb policy.cilium.io/proxy-visibility="<Egress/53/UDP/DNS>,<Egress/80/TCP/HTTP>" --overwrite
-    pod/coredns-7d7f5b7685-wvzwb annotated
-    $
-    $ kubectl get cep -n kube-system
-    NAME                       ENDPOINT ID   IDENTITY ID   INGRESS ENFORCEMENT   EGRESS ENFORCEMENT   VISIBILITY POLICY   ENDPOINT STATE   IPV4           IPV6
-    coredns-7d7f5b7685-wvzwb   1959          104           false                 false                OK                  ready            10.16.75.193   f00d::a10:0:0:2c7
-
-In order for Cilium to populate the ``INGRESS ENFORCEMENT``, ``EGRESS ENFORCEMENT``
-and ``VISIBILITY POLICY`` fields, it must run with ``--endpoint-status=policy``
-to make field values visible.
 
 Security Implications
 ---------------------
@@ -92,34 +107,7 @@ More specifically, it offers the following features for supported Layer 7 protoc
 
 For more information on configuring Cilium, see :ref:`Cilium Configuration <configuration>`.
 
-Troubleshooting
----------------
-
-If L7 visibility is not appearing in ``cilium-dbg monitor`` or Hubble components,
-it is worth double-checking that:
-
- * No enforcement policy is applied in the direction specified in the
-   annotation
- * The "Visibility Policy" column in the CiliumEndpoint shows ``OK``. If it
-   is blank, then no annotation is configured; if it shows an error then there
-   is a problem with the visibility annotation.
-
-The following example deliberately misconfigures the annotation to demonstrate
-that the CiliumEndpoint for the pod presents an error when the visibility
-annotation cannot be implemented:
-
-.. code-block:: shell-session
-
-    $ kubectl annotate pod -n kube-system coredns-7d7f5b7685-wvzwb policy.cilium.io/proxy-visibility="<Ingress/53/UDP/DNS>,<Egress/80/TCP/HTTP>"
-    pod/coredns-7d7f5b7685-wvzwb annotated
-    $
-    $ kubectl get cep -n kube-system
-    NAME                       ENDPOINT ID   IDENTITY ID   INGRESS ENFORCEMENT   EGRESS ENFORCEMENT   VISIBILITY POLICY                        ENDPOINT STATE   IPV4           IPV6
-    coredns-7d7f5b7685-wvzwb   1959          104           false                 false                dns not allowed with direction Ingress   ready            10.16.75.193   f00d::a10:0:0:2c77
-
 Limitations
 -----------
 
-* Visibility annotations do not apply if rules are imported which select the pod
-  which is annotated.
 * DNS visibility is available on egress only.
