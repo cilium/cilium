@@ -347,7 +347,6 @@ Makefile* @cilium/build
 /Documentation/update-cmdref.sh @cilium/docs-structure
 /Documentation/update-spelling_wordlist.sh @cilium/docs-structure
 /Documentation/yaml.config @cilium/docs-structure
-/envoy/ @cilium/proxy
 /examples/ @cilium/docs-structure
 /examples/hubble/ @cilium/sig-hubble
 /examples/kubernetes/ @cilium/sig-k8s
