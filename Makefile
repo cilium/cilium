@@ -527,12 +527,13 @@ kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Ciliu
 	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
 	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
 
+KIND_CLUSTER_NAME ?= kind
 
 .PHONY: kind-ready
 kind-ready:
 	@$(ECHO_CHECK) kind is ready...
-	@kind get clusters 2>&1 | grep "No kind clusters found." \
-		&& exit 1 || exit 0
+	@kind get clusters 2>&1 | grep "$(KIND_CLUSTER_NAME)" \
+		&& exit 0 || exit 1
 
 $(eval $(call KIND_ENV,kind-build-image-agent))
 kind-build-image-agent: ## Build cilium-dev docker image
@@ -540,7 +541,7 @@ kind-build-image-agent: ## Build cilium-dev docker image
 
 $(eval $(call KIND_ENV,kind-image-agent))
 kind-image-agent: kind-ready kind-build-image-agent ## Build cilium-dev docker image and import it into kind.
-	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE)
+	$(QUIET)kind load docker-image $(LOCAL_AGENT_IMAGE) -n $(KIND_CLUSTER_NAME)
 
 $(eval $(call KIND_ENV,kind-build-image-operator))
 kind-build-image-operator: ## Build cilium-operator-dev docker image
@@ -548,7 +549,7 @@ kind-build-image-operator: ## Build cilium-operator-dev docker image
 
 $(eval $(call KIND_ENV,kind-image-operator))
 kind-image-operator: kind-ready kind-build-image-operator ## Build cilium-operator-dev docker image and import it into kind.
-	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE)
+	$(QUIET)kind load docker-image $(LOCAL_OPERATOR_IMAGE) -n $(KIND_CLUSTER_NAME)
 
 $(eval $(call KIND_ENV,kind-build-clustermesh-apiserver))
 kind-build-clustermesh-apiserver: ## Build cilium-clustermesh-apiserver docker image
