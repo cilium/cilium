@@ -481,6 +481,7 @@ func getIngressForStatusUpdate(slimIngress *slim_networkingv1.Ingress, lb slim_c
 			UID:             slimIngressCopy.GetUID(),
 			Labels:          slimIngressCopy.GetLabels(),
 			Annotations:     slimIngressCopy.GetAnnotations(),
+			OwnerReferences: slimIngressCopy.GetOwnerReferences(),
 		},
 		Status: networkingv1.IngressStatus{
 			LoadBalancer: networkingv1.IngressLoadBalancerStatus{
