@@ -21,7 +21,7 @@ variables:
     - BUILD_ARGS=""; IFS=$'\n'; for arg in $DOCKER_BUILD_ARGS; do BUILD_ARGS+=" $(echo "--build-arg $arg")"; done; IFS=$' ';
     - IMAGE_TAG="registry.ddbuild.io/$IMAGE_NAME:$CI_COMMIT_TAG"
     - METADATA_FILE=$(mktemp)
-    - docker buildx build --platform linux/amd64,linux/arm64 --tag $IMAGE_TAG --file $DOCKERFILE_PATH $BUILD_ARGS --label CILIUM_VERSION=$(cat VERSION) --label target=prod --push --metadata-file $METADATA_FILE $DOCKER_CONTEXT
+    - docker buildx build --platform linux/amd64,linux/arm64 --tag $IMAGE_TAG --file $DOCKERFILE_PATH $BUILD_ARGS --label CILIUM_VERSION=$(cat VERSION) --label target=prod --target release --push --metadata-file $METADATA_FILE $DOCKER_CONTEXT
     - ddsign sign $IMAGE_TAG --docker-metadata-file $METADATA_FILE
 
 build-docker-image-operator:
@@ -41,7 +41,6 @@ build-docker-image-runtime:
     DOCKER_BUILD_ARGS: |
       UBUNTU_IMAGE=registry.ddbuild.io/images/base/gbi-ubuntu_2204:release
     DOCKER_CONTEXT: "./images/runtime"
-    TARGET: build
 
 build-docker-image-cilium:
   <<: *build-docker-image
