@@ -65,9 +65,7 @@ func iproute2Compat(spec *ebpf.CollectionSpec) error {
 				return fmt.Errorf("reading iproute2 map definition: %w", err)
 			}
 
-			if tail.Pinning > 0 {
-				m.Pinning = ebpf.PinByName
-			}
+			m.Pinning = ebpf.PinType(tail.Pinning)
 
 			// Index maps by their iproute2 .id if any, so X/Y ELF section names can
 			// be matched against them.

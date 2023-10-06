@@ -32,8 +32,8 @@ func StartBPFFSMigration(bpffsPath string, coll *ebpf.CollectionSpec) error {
 
 	for name, spec := range coll.Maps {
 		// Skip map specs without the pinning flag. Also takes care of skipping .data,
-		// .rodata and .bss.
-		if spec.Pinning == 0 {
+		// .rodata and .bss and ignores maps with special pinning flags like cilium_calls.
+		if spec.Pinning != ebpf.PinByName {
 			continue
 		}
 
@@ -63,7 +63,7 @@ func FinalizeBPFFSMigration(bpffsPath string, coll *ebpf.CollectionSpec, revert 
 		// Skip map specs without the pinning flag. Also takes care of skipping .data,
 		// .rodata and .bss.
 		// Don't unpin existing maps if their new versions are missing the pinning flag.
-		if spec.Pinning == 0 {
+		if spec.Pinning != ebpf.PinByName {
 			continue
 		}
 

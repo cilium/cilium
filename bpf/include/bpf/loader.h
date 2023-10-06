@@ -10,10 +10,6 @@
 #define __type(name, val) typeof(val) *(name)
 #define __array(name, val) typeof(val) *(name)[]
 
-#define PIN_NONE		0
-#define PIN_OBJECT_NS		1
-#define PIN_GLOBAL_NS		2
-
 #define LIBBPF_PIN_BY_NAME 1
 
 struct bpf_elf_map {
