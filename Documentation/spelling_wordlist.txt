@@ -726,6 +726,7 @@ webhook
 webhooks
 webservice
 whitespace
+wildcarded
 workqueue
 www
 xDS
