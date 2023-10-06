@@ -23,6 +23,9 @@ const (
 	// ServiceProxyNameLabel is the label for service proxy name in k8s service related
 	// objects.
 	serviceProxyNameLabel = "service.kubernetes.io/service-proxy-name"
+	// EndpointSliceMeshControllerName is a unique value used with LabelManagedBy to indicate
+	// the component managing an EndpointSlice.
+	EndpointSliceMeshControllerName = "endpointslice-mesh-controller.cilium.io"
 )
 
 type NamespaceNameGetter interface {
