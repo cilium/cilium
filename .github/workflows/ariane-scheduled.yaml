@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        branch: 
+        branch:
           - "1.12"
           - "1.13"
           - "1.14"
@@ -33,9 +33,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          REF="v${{ matrix.branch }}"
+          BRANCH="${{ matrix.branch }}"
+          REF="v${BRANCH}"
           SHA=$(git rev-parse ${REF})
-          readarray workflows < <(yq '.triggers["/test-backport-${{ matrix.branch }}"].workflows[]' .github/ariane-config.yaml)
+          readarray workflows < <(TRIGGER="/test-backport-${BRANCH}" yq '.triggers[env(TRIGGER)].workflows[]' .github/ariane-config.yaml)
 
           for workflow in ${workflows[@]}; do
             echo triggering ${workflow}
