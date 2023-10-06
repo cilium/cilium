@@ -16,6 +16,8 @@
 
 #include "high_scale_ipcache.h"
 
+#define ENCAP_MAX_VNI	0x00ffffff
+
 #ifdef HAVE_ENCAP
 static __always_inline int
 __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
@@ -31,6 +33,9 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	 */
 	if (seclabel == HOST_ID)
 		seclabel = LOCAL_NODE_ID;
+
+	if (seclabel > ENCAP_MAX_VNI)
+		return DROP_INVALID_IDENTITY;
 
 	node_id = bpf_ntohl(tunnel_endpoint);
 
@@ -237,6 +242,9 @@ __encap_with_nodeid_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
 	 */
 	if (seclabel == HOST_ID)
 		seclabel = LOCAL_NODE_ID;
+
+	if (seclabel > ENCAP_MAX_VNI)
+		return DROP_INVALID_IDENTITY;
 
 	node_id = bpf_ntohl(tunnel_endpoint);
 
