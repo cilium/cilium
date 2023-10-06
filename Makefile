@@ -822,6 +822,8 @@ ifeq ($(SKIP_CUSTOMVET_CHECK),"false")
 endif
 	@$(ECHO_CHECK) contrib/scripts/rand-check.sh
 	$(QUIET) contrib/scripts/rand-check.sh
+	@$(ECHO_CHECK) contrib/scripts/check-time.sh
+	$(QUIET) contrib/scripts/check-time.sh
 
 check-sources:
 	@$(ECHO_CHECK) pkg/datapath/loader/check-sources.sh
