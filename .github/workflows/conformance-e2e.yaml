@@ -333,8 +333,8 @@ jobs:
             ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
               --sysdump-hubble-flows-count=1000000 --sysdump-hubble-flows-timeout=5m \
               --sysdump-output-filename "cilium-sysdump-${{ matrix.name }}-<ts>" \
-              --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}).xml" \
-              --junit-property github_job_step="Run tests (${{ join(matrix.*, ', ') }})" \
+              --junit-file "cilium-junits/${{ env.job_name }} (${{ matrix.name }}).xml" \
+              --junit-property github_job_step="Run tests (${{ matrix.name }})" \
               \$EXTRA
 
             ./contrib/scripts/kind-down.sh
