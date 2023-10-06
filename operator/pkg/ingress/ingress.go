@@ -481,6 +481,7 @@ func getIngressForStatusUpdate(slimIngress *slim_networkingv1.Ingress, lb slim_c
 			UID:             slimIngressCopy.GetUID(),
 			Labels:          slimIngressCopy.GetLabels(),
 			Annotations:     slimIngressCopy.GetAnnotations(),
+			OwnerReferences: slimIngressCopy.GetOwnerReferences(),
 		},
 		Status: networkingv1.IngressStatus{
 			LoadBalancer: networkingv1.IngressLoadBalancerStatus{
@@ -678,7 +679,6 @@ func (ic *Controller) garbageCollectOwnedResources(ing *slim_networkingv1.Ingres
 	}
 
 	return nil
-
 }
 
 // deleteObjectIfExists checks the caches to see if the object exists and if so, deletes it. It uses caches as to limit API server requests for objects may have never existed.
