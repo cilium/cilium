@@ -209,6 +209,7 @@ jobs:
             --helm-set=hubble.enabled=true \
             --helm-set=hubble.relay.enabled=true \
             --helm-set=clustermesh.useAPIServer=true \
+            --helm-set=clustermesh.apiserver.kvstoremesh.enabled=${{ matrix.kvstoremesh }} \
             "
 
           CILIUM_INSTALL_TUNNEL="--helm-set=tunnel=vxlan"
