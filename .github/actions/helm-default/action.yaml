@@ -4,6 +4,10 @@ inputs:
   image-tag:
     description: "Tag used on all docker images"
     required: true
+  chart-dir:
+    description: 'Path to Cilium charts directory'
+    required: false
+    default: 'install/kubernetes/cilium'
 outputs:
   cilium_install_defaults:
     description: "Generated values to be used with Cilium CLI"
@@ -24,7 +28,7 @@ runs:
         fi
         echo sha=${SHA} >> $GITHUB_OUTPUT
 
-        CILIUM_INSTALL_DEFAULTS="--chart-directory=install/kubernetes/cilium \
+        CILIUM_INSTALL_DEFAULTS="--chart-directory=${{ inputs.chart-dir }} \
           --helm-set=image.repository=quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/cilium-ci \
           --helm-set=image.useDigest=false \
           --helm-set=image.tag=${SHA} \
