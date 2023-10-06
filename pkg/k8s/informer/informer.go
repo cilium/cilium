@@ -36,6 +36,16 @@ func init() {
 	)
 }
 
+type privateRunner struct {
+	cache.Controller
+	cacheMutationDetector cache.MutationDetector
+}
+
+func (p *privateRunner) Run(stopCh <-chan struct{}) {
+	go p.cacheMutationDetector.Run(stopCh)
+	p.Controller.Run(stopCh)
+}
+
 // NewInformer is a copy of k8s.io/client-go/tools/cache/NewInformer includes the default cache MutationDetector.
 func NewInformer(
 	lw cache.ListerWatcher,
@@ -131,5 +141,8 @@ func NewInformerWithStore(
 			return nil
 		},
 	}
-	return cache.New(cfg)
+	return &privateRunner{
+		Controller:            cache.New(cfg),
+		cacheMutationDetector: cacheMutationDetector,
+	}
 }

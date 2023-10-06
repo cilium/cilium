@@ -715,6 +715,16 @@ type keyWorkItem struct {
 
 func (keyWorkItem) isWorkItem() {}
 
+type wrapperController struct {
+	cache.Controller
+	cacheMutationDetector cache.MutationDetector
+}
+
+func (p *wrapperController) Run(stopCh <-chan struct{}) {
+	go p.cacheMutationDetector.Run(stopCh)
+	p.Controller.Run(stopCh)
+}
+
 func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 	clientState := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, r.opts.indexers)
 	opts := cache.DeltaFIFOOptions{KeyFunction: cache.MetaNamespaceKeyFunc, KnownObjects: clientState}
@@ -788,7 +798,10 @@ func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 			return nil
 		},
 	}
-	return clientState, cache.New(cfg)
+	return clientState, &wrapperController{
+		Controller:            cache.New(cfg),
+		cacheMutationDetector: cacheMutationDetector,
+	}
 }
 
 func getUID(obj k8sRuntime.Object) types.UID {
