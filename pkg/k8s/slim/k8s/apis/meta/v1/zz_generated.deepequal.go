@@ -242,10 +242,16 @@ func (in *OwnerReference) DeepEqual(other *OwnerReference) bool {
 		return false
 	}
 
+	if in.APIVersion != other.APIVersion {
+		return false
+	}
 	if in.Kind != other.Kind {
 		return false
 	}
 	if in.Name != other.Name {
+		return false
+	}
+	if in.UID != other.UID {
 		return false
 	}
 	if (in.Controller == nil) != (other.Controller == nil) {
