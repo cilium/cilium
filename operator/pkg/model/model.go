@@ -246,6 +246,9 @@ type HTTPRoute struct {
 	// RequestMirrors defines a schema for a filter that mirrors HTTP requests
 	// Unlike other filter, multiple request mirrors are supported
 	RequestMirrors []*HTTPRequestMirror `json:"request_mirror,omitempty"`
+
+	// IsGRPC is an indicator if this route is related to GRPC
+	IsGRPC bool `json:"is_grpc,omitempty"`
 }
 
 // GetMatchKey returns the key to be used for matching the backend.
