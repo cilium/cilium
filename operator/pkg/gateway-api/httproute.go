@@ -24,11 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-const (
-	backendServiceIndex = "backendServiceIndex"
-	gatewayIndex        = "gatewayIndex"
-)
-
 // httpRouteReconciler reconciles a HTTPRoute object
 type httpRouteReconciler struct {
 	client.Client
