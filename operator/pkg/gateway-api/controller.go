@@ -31,7 +31,9 @@ import (
 
 const (
 	// controllerName is the gateway controller name used in cilium.
-	controllerName = "io.cilium/gateway-controller"
+	controllerName      = "io.cilium/gateway-controller"
+	backendServiceIndex = "backendServiceIndex"
+	gatewayIndex        = "gatewayIndex"
 )
 
 var (
@@ -101,6 +103,15 @@ func NewController(enableSecretSync bool, secretsNamespace string, idleTimeoutSe
 		Model:  m,
 	}
 	if err = hrReconciler.SetupWithManager(mgr); err != nil {
+		return nil, err
+	}
+
+	grReconciler := &grpcRouteReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Model:  m,
+	}
+	if err = grReconciler.SetupWithManager(mgr); err != nil {
 		return nil, err
 	}
 
