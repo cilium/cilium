@@ -5,15 +5,18 @@ package gateway_api
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -51,7 +54,68 @@ func (r *grpcRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}()
 
-	// no-op for now
+	// check if the backend is allowed
+	grants := &gatewayv1beta1.ReferenceGrantList{}
+	if err := r.Client.List(ctx, grants); err != nil {
+		return fail(fmt.Errorf("failed to retrieve reference grants: %w", err))
+	}
+
+	// input for the validators
+	i := &routechecks.GRPCRouteInput{
+		Ctx:       ctx,
+		Logger:    scopedLog.WithField(logfields.Resource, gr),
+		Client:    r.Client,
+		Grants:    grants,
+		GRPCRoute: gr,
+	}
+
+	// gateway validators
+	for _, parent := range gr.Spec.ParentRefs {
+		// set acceptance to okay, this wil be overwritten in checks if needed
+		i.SetParentCondition(parent, metav1.Condition{
+			Type:    conditionStatusAccepted,
+			Status:  metav1.ConditionTrue,
+			Reason:  conditionReasonAccepted,
+			Message: "Accepted GRPCRoute",
+		})
+
+		// set status to okay, this wil be overwritten in checks if needed
+		i.SetAllParentCondition(metav1.Condition{
+			Type:    string(gatewayv1beta1.RouteConditionResolvedRefs),
+			Status:  metav1.ConditionTrue,
+			Reason:  string(gatewayv1beta1.RouteReasonResolvedRefs),
+			Message: "Service reference is valid",
+		})
+
+		// run the actual validators
+		for _, fn := range []routechecks.CheckGatewayFunc{
+			routechecks.CheckGatewayAllowedForNamespace,
+			routechecks.CheckGatewayRouteKindAllowed,
+			routechecks.CheckGatewayMatchingPorts,
+			routechecks.CheckGatewayMatchingHostnames,
+			routechecks.CheckGatewayMatchingSection,
+		} {
+			continueCheck, err := fn(i, parent)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			if !continueCheck {
+				break
+			}
+		}
+	}
+
+	for _, fn := range []routechecks.CheckRuleFunc{
+		routechecks.CheckAgainstCrossNamespaceBackendReferences,
+		routechecks.CheckBackendIsService,
+		routechecks.CheckBackendIsExistingService,
+	} {
+		if continueCheck, err := fn(i); err != nil || !continueCheck {
+			return ctrl.Result{}, err
+		}
+	}
+
 	scopedLog.Info("Successfully reconciled GRPCRoute")
 	return success()
 }
