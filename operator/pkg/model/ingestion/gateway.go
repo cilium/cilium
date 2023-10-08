@@ -22,6 +22,7 @@ type Input struct {
 	Gateway         gatewayv1beta1.Gateway
 	HTTPRoutes      []gatewayv1beta1.HTTPRoute
 	TLSRoutes       []gatewayv1alpha2.TLSRoute
+	GRPCRoutes      []gatewayv1alpha2.GRPCRoute
 	ReferenceGrants []gatewayv1beta1.ReferenceGrant
 	Services        []corev1.Service
 }
@@ -39,6 +40,9 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 			continue
 		}
 
+		var httpRoutes []model.HTTPRoute
+		httpRoutes = append(httpRoutes, toHTTPRoutes(l, input.HTTPRoutes, input.Services, input.ReferenceGrants)...)
+		httpRoutes = append(httpRoutes, toGRPCRoutes(l, input.GRPCRoutes, input.Services, input.ReferenceGrants)...)
 		resHTTP = append(resHTTP, model.HTTPListener{
 			Name: string(l.Name),
 			Sources: []model.FullyQualifiedResource{
@@ -54,7 +58,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 			Port:     uint32(l.Port),
 			Hostname: toHostname(l.Hostname),
 			TLS:      toTLS(l.TLS, input.ReferenceGrants, input.Gateway.GetNamespace()),
-			Routes:   toHTTPRoutes(l, input.HTTPRoutes, input.Services, input.ReferenceGrants),
+			Routes:   httpRoutes,
 		})
 
 		resTLS = append(resTLS, model.TLSListener{
@@ -188,6 +192,106 @@ func toHTTPRoutes(listener gatewayv1beta1.Listener, input []gatewayv1beta1.HTTPR
 		}
 	}
 	return httpRoutes
+}
+
+func toGRPCRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.GRPCRoute, services []corev1.Service, grants []gatewayv1beta1.ReferenceGrant) []model.HTTPRoute {
+	var grpcRoutes []model.HTTPRoute
+	for _, r := range input {
+		isListener := false
+		for _, parent := range r.Spec.ParentRefs {
+			if parent.SectionName == nil || *parent.SectionName == listener.Name {
+				isListener = true
+				break
+			}
+		}
+		if !isListener {
+			continue
+		}
+
+		computedHost := model.ComputeHosts(toStringSlice(r.Spec.Hostnames), (*string)(listener.Hostname))
+		// No matching host, skip this route
+		if len(computedHost) == 0 {
+			continue
+		}
+
+		if len(computedHost) == 1 && computedHost[0] == allHosts {
+			computedHost = nil
+		}
+
+		for _, rule := range r.Spec.Rules {
+			bes := make([]model.Backend, 0, len(rule.BackendRefs))
+			for _, be := range rule.BackendRefs {
+				if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be.BackendRef, gatewayv1beta1.SchemeGroupVersion.WithKind("GRPCRoute"), grants) {
+					continue
+				}
+				if (be.Kind != nil && *be.Kind != "Service") || (be.Group != nil && *be.Group != corev1.GroupName) {
+					continue
+				}
+				if be.BackendRef.Port == nil {
+					// must have port for Service reference
+					continue
+				}
+				if serviceExists(string(be.Name), helpers.NamespaceDerefOr(be.Namespace, r.Namespace), services) {
+					bes = append(bes, backendToModelBackend(be.BackendRef, r.Namespace))
+				}
+			}
+
+			var dr *model.DirectResponse
+			if len(bes) == 0 {
+				dr = &model.DirectResponse{
+					StatusCode: 500,
+				}
+			}
+
+			var requestHeaderFilter *model.HTTPHeaderFilter
+			var responseHeaderFilter *model.HTTPHeaderFilter
+			var requestMirrors []*model.HTTPRequestMirror
+
+			for _, f := range rule.Filters {
+				switch f.Type {
+				case gatewayv1alpha2.GRPCRouteFilterRequestHeaderModifier:
+					requestHeaderFilter = &model.HTTPHeaderFilter{
+						HeadersToAdd:    toHTTPHeaders(f.RequestHeaderModifier.Add),
+						HeadersToSet:    toHTTPHeaders(f.RequestHeaderModifier.Set),
+						HeadersToRemove: f.RequestHeaderModifier.Remove,
+					}
+				case gatewayv1alpha2.GRPCRouteFilterResponseHeaderModifier:
+					responseHeaderFilter = &model.HTTPHeaderFilter{
+						HeadersToAdd:    toHTTPHeaders(f.ResponseHeaderModifier.Add),
+						HeadersToSet:    toHTTPHeaders(f.ResponseHeaderModifier.Set),
+						HeadersToRemove: f.ResponseHeaderModifier.Remove,
+					}
+				case gatewayv1alpha2.GRPCRouteFilterRequestMirror:
+					requestMirrors = append(requestMirrors, toHTTPRequestMirror(f.RequestMirror, r.Namespace))
+				}
+			}
+
+			if len(rule.Matches) == 0 {
+				grpcRoutes = append(grpcRoutes, model.HTTPRoute{
+					Hostnames:              computedHost,
+					Backends:               bes,
+					DirectResponse:         dr,
+					RequestHeaderFilter:    requestHeaderFilter,
+					ResponseHeaderModifier: responseHeaderFilter,
+					RequestMirrors:         requestMirrors,
+				})
+			}
+
+			for _, match := range rule.Matches {
+				grpcRoutes = append(grpcRoutes, model.HTTPRoute{
+					Hostnames:              computedHost,
+					PathMatch:              toGRPCPathMatch(match),
+					HeadersMatch:           toGRPCHeaderMatch(match),
+					Backends:               bes,
+					DirectResponse:         dr,
+					RequestHeaderFilter:    requestHeaderFilter,
+					ResponseHeaderModifier: responseHeaderFilter,
+					RequestMirrors:         requestMirrors,
+				})
+			}
+		}
+	}
+	return grpcRoutes
 }
 
 func toTLSRoutes(listener gatewayv1beta1.Listener, input []gatewayv1alpha2.TLSRoute, services []corev1.Service, grants []gatewayv1beta1.ReferenceGrant) []model.TLSRoute {
@@ -356,7 +460,69 @@ func toPathMatch(match gatewayv1beta1.HTTPRouteMatch) model.StringMatch {
 	return model.StringMatch{}
 }
 
+func toGRPCPathMatch(match gatewayv1alpha2.GRPCRouteMatch) model.StringMatch {
+	if match.Method.Service == nil || match.Method == nil {
+		return model.StringMatch{}
+	}
+
+	var t = gatewayv1alpha2.GRPCMethodMatchExact
+	if match.Method.Type != nil {
+		t = *match.Method.Type
+	}
+
+	path := ""
+	if match.Method.Service != nil {
+		path = path + "/" + *match.Method.Service
+	}
+
+	if match.Method.Method != nil {
+		path = path + "/" + *match.Method.Method
+	}
+
+	switch t {
+	case gatewayv1alpha2.GRPCMethodMatchExact:
+		return model.StringMatch{
+			Exact: path,
+		}
+	case gatewayv1alpha2.GRPCMethodMatchRegularExpression:
+		return model.StringMatch{
+			Regex: path,
+		}
+	}
+	return model.StringMatch{}
+}
+
 func toHeaderMatch(match gatewayv1beta1.HTTPRouteMatch) []model.KeyValueMatch {
+	if len(match.Headers) == 0 {
+		return nil
+	}
+	res := make([]model.KeyValueMatch, 0, len(match.Headers))
+	for _, h := range match.Headers {
+		t := gatewayv1beta1.HeaderMatchExact
+		if h.Type != nil {
+			t = *h.Type
+		}
+		switch t {
+		case gatewayv1beta1.HeaderMatchExact:
+			res = append(res, model.KeyValueMatch{
+				Key: string(h.Name),
+				Match: model.StringMatch{
+					Exact: h.Value,
+				},
+			})
+		case gatewayv1beta1.HeaderMatchRegularExpression:
+			res = append(res, model.KeyValueMatch{
+				Key: string(h.Name),
+				Match: model.StringMatch{
+					Regex: h.Value,
+				},
+			})
+		}
+	}
+	return res
+}
+
+func toGRPCHeaderMatch(match gatewayv1alpha2.GRPCRouteMatch) []model.KeyValueMatch {
 	if len(match.Headers) == 0 {
 		return nil
 	}
