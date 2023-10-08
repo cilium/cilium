@@ -29,6 +29,7 @@ tests are passed.
 - `GatewayClass <https://gateway-api.sigs.k8s.io/api-types/gatewayclass/>`_
 - `Gateway <https://gateway-api.sigs.k8s.io/api-types/gateway/>`_
 - `HTTPRoute <https://gateway-api.sigs.k8s.io/api-types/httproute/>`_
+- `GRPCRoute (experimental) <https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1alpha2.GRPCRoute>`__
 - `TLSRoute (experimental) <https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1alpha2.TLSRoute>`__
 - `ReferenceGrant <https://gateway-api.sigs.k8s.io/api-types/referencegrant/>`_
 
