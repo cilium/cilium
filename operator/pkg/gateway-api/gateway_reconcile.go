@@ -84,6 +84,12 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return fail(err)
 	}
 
+	grpcRouteList := &gatewayv1alpha2.GRPCRouteList{}
+	if err := r.Client.List(ctx, grpcRouteList); err != nil {
+		scopedLog.WithError(err).Error("Unable to list GRPCRoutes")
+		return fail(err)
+	}
+
 	tlsRouteList := &gatewayv1alpha2.TLSRouteList{}
 	if err := r.Client.List(ctx, tlsRouteList); err != nil {
 		scopedLog.WithError(err).Error("Unable to list TLSRoutes")
@@ -108,6 +114,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		Gateway:         *gw,
 		HTTPRoutes:      r.filterHTTPRoutesByGateway(ctx, gw, httpRouteList.Items),
 		TLSRoutes:       r.filterTLSRoutesByGateway(ctx, gw, tlsRouteList.Items),
+		GRPCRoutes:      r.filterGRPCRoutesByGateway(ctx, gw, grpcRouteList.Items),
 		Services:        servicesList.Items,
 		ReferenceGrants: grants.Items,
 	})
@@ -219,6 +226,16 @@ func (r *gatewayReconciler) updateStatus(ctx context.Context, original *gatewayv
 
 func (r *gatewayReconciler) filterHTTPRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1.HTTPRoute) []gatewayv1.HTTPRoute {
 	var filtered []gatewayv1.HTTPRoute
+	for _, route := range routes {
+		if isAccepted(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) && len(computeHosts(gw, route.Spec.Hostnames)) > 0 {
+			filtered = append(filtered, route)
+		}
+	}
+	return filtered
+}
+
+func (r *gatewayReconciler) filterGRPCRoutesByGateway(ctx context.Context, gw *gatewayv1.Gateway, routes []gatewayv1alpha2.GRPCRoute) []gatewayv1alpha2.GRPCRoute {
+	var filtered []gatewayv1alpha2.GRPCRoute
 	for _, route := range routes {
 		if isAccepted(ctx, gw, &route, route.Status.Parents) && isAllowed(ctx, r.Client, gw, &route) && len(computeHosts(gw, route.Spec.Hostnames)) > 0 {
 			filtered = append(filtered, route)
