@@ -58,6 +58,7 @@ const (
 	IngressController Feature = "ingress-controller"
 
 	EgressGateway Feature = "enable-ipv4-egress-gateway"
+	GatewayAPI    Feature = "enable-gateway-api"
 )
 
 // Feature is the name of a Cilium Feature (e.g. l7-proxy, cni chaining mode etc)
@@ -245,6 +246,10 @@ func (fs Set) ExtractFromConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMa
 
 	fs[CIDRMatchNodes] = Status{
 		Enabled: strings.Contains(cm.Data["policy-cidr-match-mode"], "nodes"),
+	}
+
+	fs[GatewayAPI] = Status{
+		Enabled: cm.Data[string(GatewayAPI)] == "true",
 	}
 }
 
