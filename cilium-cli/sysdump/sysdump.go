@@ -1274,126 +1274,6 @@ func (c *Collector) Run() error {
 				return nil
 			},
 		},
-		{
-			Description: "Collecting GatewayClass entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, gatewayClass, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect GatewayClass entries: %w", err)
-				}
-				if err := c.WriteYAML(gatewayClassesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect GatewayClass entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting Gateway entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, gateway, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Gateway entries: %w", err)
-				}
-				if err := c.WriteYAML(gatewaysFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Gateway entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting ReferenceGrant entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, referenceGrant, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect ReferenceGrant entries: %w", err)
-				}
-				if err := c.WriteYAML(referenceGrantsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect ReferenceGrant entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting HTTPRoute entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, httpRoute, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect HTTPRoute entries: %w", err)
-				}
-				if err := c.WriteYAML(httpRoutesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect HTTPRoute entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting TLSRoute entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, tlsRoute, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect TLSRoute entries: %w", err)
-				}
-				if err := c.WriteYAML(tlsRoutesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect TLSRoute entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting GRPCRoute entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, grpcRoute, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect GRPCRoute entries: %w", err)
-				}
-				if err := c.WriteYAML(grpcRoutesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect GRPCRoute entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting TCPRoute entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, tcpRoute, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect TCPRoute entries: %w", err)
-				}
-				if err := c.WriteYAML(tcpRoutesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect TCPRoute entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting UDPRoute entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, udpRoute, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect UDPRoute entries: %w", err)
-				}
-				if err := c.WriteYAML(udpRoutesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect UDPRoute entries: %w", err)
-				}
-				return nil
-			},
-		},
 	}
 
 	if c.Options.HubbleFlowsCount > 0 {
@@ -1519,6 +1399,9 @@ func (c *Collector) Run() error {
 	tasks = append(tasks, c.additionalTasks...)
 	if c.FeatureSet[features.AuthSpiffe].Enabled {
 		tasks = append(tasks, c.getSPIRETasks()...)
+	}
+	if c.FeatureSet[features.GatewayAPI].Enabled {
+		tasks = append(tasks, c.getGatewayAPITasks()...)
 	}
 
 	// Adjust the worker count to make enough headroom for tasks that submit sub-tasks.
@@ -1707,6 +1590,131 @@ func (c *Collector) getSPIRETasks() []Task {
 				}
 				if err := c.WriteYAML(ciliumSPIREServerConfigMapFileName, v); err != nil {
 					return fmt.Errorf("failed to collect the Cilium SPIRE server configuration: %w", err)
+				}
+				return nil
+			},
+		},
+	}
+}
+
+func (c *Collector) getGatewayAPITasks() []Task {
+	return []Task{
+		{
+			Description: "Collecting GatewayClass entries",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				n := corev1.NamespaceAll
+				v, err := c.Client.ListUnstructured(ctx, gatewayClass, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect GatewayClass entries: %w", err)
+				}
+				if err := c.WriteYAML(gatewayClassesFileName, v); err != nil {
+					return fmt.Errorf("failed to collect GatewayClass entries: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting Gateway entries",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				n := corev1.NamespaceAll
+				v, err := c.Client.ListUnstructured(ctx, gateway, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect Gateway entries: %w", err)
+				}
+				if err := c.WriteYAML(gatewaysFileName, v); err != nil {
+					return fmt.Errorf("failed to collect Gateway entries: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting ReferenceGrant entries",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				n := corev1.NamespaceAll
+				v, err := c.Client.ListUnstructured(ctx, referenceGrant, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect ReferenceGrant entries: %w", err)
+				}
+				if err := c.WriteYAML(referenceGrantsFileName, v); err != nil {
+					return fmt.Errorf("failed to collect ReferenceGrant entries: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting HTTPRoute entries",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				n := corev1.NamespaceAll
+				v, err := c.Client.ListUnstructured(ctx, httpRoute, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect HTTPRoute entries: %w", err)
+				}
+				if err := c.WriteYAML(httpRoutesFileName, v); err != nil {
+					return fmt.Errorf("failed to collect HTTPRoute entries: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting TLSRoute entries",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				n := corev1.NamespaceAll
+				v, err := c.Client.ListUnstructured(ctx, tlsRoute, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect TLSRoute entries: %w", err)
+				}
+				if err := c.WriteYAML(tlsRoutesFileName, v); err != nil {
+					return fmt.Errorf("failed to collect TLSRoute entries: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting GRPCRoute entries",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				n := corev1.NamespaceAll
+				v, err := c.Client.ListUnstructured(ctx, grpcRoute, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect GRPCRoute entries: %w", err)
+				}
+				if err := c.WriteYAML(grpcRoutesFileName, v); err != nil {
+					return fmt.Errorf("failed to collect GRPCRoute entries: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting TCPRoute entries",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				n := corev1.NamespaceAll
+				v, err := c.Client.ListUnstructured(ctx, tcpRoute, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect TCPRoute entries: %w", err)
+				}
+				if err := c.WriteYAML(tcpRoutesFileName, v); err != nil {
+					return fmt.Errorf("failed to collect TCPRoute entries: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting UDPRoute entries",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				n := corev1.NamespaceAll
+				v, err := c.Client.ListUnstructured(ctx, udpRoute, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect UDPRoute entries: %w", err)
+				}
+				if err := c.WriteYAML(udpRoutesFileName, v); err != nil {
+					return fmt.Errorf("failed to collect UDPRoute entries: %w", err)
 				}
 				return nil
 			},
