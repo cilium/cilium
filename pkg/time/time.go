@@ -41,16 +41,12 @@ const (
 )
 
 var (
-	After                  = time.After
-	Sleep                  = time.Sleep
-	Tick                   = time.Tick
 	ParseDuration          = time.ParseDuration
 	Since                  = time.Since
 	Until                  = time.Until
 	FixedZone              = time.FixedZone
 	LoadLocation           = time.LoadLocation
 	LoadLocationFromTZData = time.LoadLocationFromTZData
-	NewTicker              = time.NewTicker
 	Date                   = time.Date
 	Now                    = time.Now
 	Parse                  = time.Parse
@@ -58,8 +54,6 @@ var (
 	Unix                   = time.Unix
 	UnixMicro              = time.UnixMicro
 	UnixMilli              = time.UnixMilli
-	AfterFunc              = time.AfterFunc
-	NewTimer               = time.NewTimer
 )
 
 type (
@@ -72,3 +66,58 @@ type (
 	Timer      = time.Timer
 	Weekday    = time.Weekday
 )
+
+var (
+	MaxInternalTimerDelay time.Duration
+)
+
+// After overrides the stdlib time.After to enforce maximum sleepiness via
+// option.MaxInternalTimerDelay.
+func After(d Duration) <-chan Time {
+	if MaxInternalTimerDelay > 0 && d > MaxInternalTimerDelay {
+		d = MaxInternalTimerDelay
+	}
+	return time.After(d)
+}
+
+// Sleep overrides the stdlib time.Sleep to enforce maximum sleepiness via
+// option.MaxInternalTimerDelay.
+func Sleep(d time.Duration) {
+	if MaxInternalTimerDelay > 0 && d > MaxInternalTimerDelay {
+		d = MaxInternalTimerDelay
+	}
+	time.Sleep(d)
+}
+
+// Tick overrides the stdlib time.Tick to enforce maximum sleepiness via
+// option.MaxInternalTimerDelay.
+func Tick(d Duration) <-chan time.Time {
+	return NewTicker(d).C
+}
+
+// NewTicker overrides the stdlib time.NewTicker to enforce maximum sleepiness
+// via option.MaxInternalTimerDelay.
+func NewTicker(d Duration) *time.Ticker {
+	if MaxInternalTimerDelay > 0 && d > MaxInternalTimerDelay {
+		d = MaxInternalTimerDelay
+	}
+	return time.NewTicker(d)
+}
+
+// NewTimer overrides the stdlib time.NewTimer to enforce maximum sleepiness
+// va option.MaxInternalTimerDelay.
+func NewTimer(d Duration) *time.Timer {
+	if MaxInternalTimerDelay > 0 && d > MaxInternalTimerDelay {
+		d = MaxInternalTimerDelay
+	}
+	return time.NewTimer(d)
+}
+
+// AfterFunc overrides the stdlib time.AfterFunc to enforce maximum sleepiness
+// via option.MaxInternalTimerDelay.
+func AfterFunc(d Duration, f func()) *time.Timer {
+	if MaxInternalTimerDelay > 0 && d > MaxInternalTimerDelay {
+		d = MaxInternalTimerDelay
+	}
+	return time.AfterFunc(d, f)
+}
