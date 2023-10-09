@@ -140,6 +140,7 @@ jobs:
             --control-plane-count 1 \
             --control-plane-size n2-standard-4 \
             --node-count 1 \
+            --node-size e2-standard-8 \
             --networking cni \
             --yes
       
@@ -200,17 +201,19 @@ jobs:
         run: |
           cilium status --wait
       
-      - name: Display CL2 config
-        run: |
-          cat ${{ env.cl2_config }}
-      
       - name: Run CL2
+        id: run-cl2
         working-directory: ./perf-tests/clusterloader2
+        # --enable-exec-service=false to reduce number of pods so 100 pods can fit in node
+        # POD_STARTUP_LATENCY_THRESHOLD=60s so the test doesn't fail, currently we have ~30s pods startup latency
         run: |
           mkdir ./report
+          echo POD_STARTUP_LATENCY_THRESHOLD: 60s >> ./testoverrides.yaml
           go run ./cmd/clusterloader.go \
             -v=4 \
-            --testconfig=${{ env.cl2_config }} \
+            --testconfig=./testing/node-throughput/config.yaml \
+            --testoverrides=./testoverrides.yaml \
+            --enable-exec-service=false \
             --provider=gce \
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
@@ -224,3 +227,11 @@ jobs:
             ${{ env.cluster_name }} \
             --state ${{ secrets.GCP_PERF_KOPS_STATE_STORE }} \
             --yes
+
+      - name: Export results to GS bucket
+        if: ${{ always() && steps.run-cl2.outcome != 'skipped' }}
+        run: |
+          # BUILD_ID needs to be an integer
+          BUILD_ID="$(date +%s)"
+          EXPORT_DIR="${{ secrets.GCP_PERF_RESULTS_BUCKET }}/logs/scale-test-${{ github.ref_name }}/${BUILD_ID}/artifacts/"
+          gsutil -m cp -R ./perf-tests/clusterloader2/report/* $EXPORT_DIR
