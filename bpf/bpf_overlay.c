@@ -79,22 +79,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 			   ((__u32 *)&ip6->saddr)[3], *identity);
 	} else {
-		__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
-		struct bpf_tunnel_key key = {};
-
-		if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
-			return DROP_NO_TUNNEL_KEY;
-		*identity = get_id_from_tunnel_id(key.tunnel_id, ctx_get_protocol(ctx));
-
-		cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
-
-		/* Any node encapsulating will map any HOST_ID source to be
-		 * presented as REMOTE_NODE_ID, therefore any attempt to signal
-		 * HOST_ID as source from a remote node can be dropped.
-		 */
-		if (*identity == HOST_ID)
-			return DROP_INVALID_IDENTITY;
-
 		/* Maybe overwrite the REMOTE_NODE_ID with
 		 * KUBE_APISERVER_NODE_ID to support upgrade. After v1.12,
 		 * this should be removed.
@@ -164,9 +148,13 @@ not_esp:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_OVERLAY)
 int tail_handle_ipv6(struct __ctx_buff *ctx)
 {
-	__u32 src_sec_identity = 0;
+	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__s8 ext_err = 0;
-	int ret = handle_ipv6(ctx, &src_sec_identity, &ext_err);
+	int ret;
+
+	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
+
+	ret = handle_ipv6(ctx, &src_sec_identity, &ext_err);
 
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
@@ -317,22 +305,6 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
 			   ip4->saddr, *identity);
 	} else {
-		struct bpf_tunnel_key key = {};
-
-#ifdef ENABLE_HIGH_SCALE_IPCACHE
-		key.tunnel_id = get_tunnel_id(*identity);
-#else
-		__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
-
-		if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
-			return DROP_NO_TUNNEL_KEY;
-		*identity = get_id_from_tunnel_id(key.tunnel_id, ctx_get_protocol(ctx));
-#endif /* ENABLE_HIGH_SCALE_IPCACHE */
-
-		cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
-
-		if (*identity == HOST_ID)
-			return DROP_INVALID_IDENTITY;
 #ifdef ENABLE_VTEP
 		{
 			struct vtep_key vkey = {};
@@ -421,14 +393,11 @@ not_esp:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_OVERLAY)
 int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
-	__u32 src_sec_identity = 0;
+	__u32 src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	__s8 ext_err = 0;
 	int ret;
 
-#ifdef ENABLE_HIGH_SCALE_IPCACHE
-	src_sec_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
-#endif
 
 	ret = handle_ipv4(ctx, &src_sec_identity, &ext_err);
 	if (IS_ERR(ret))
@@ -534,6 +503,8 @@ static __always_inline bool is_esp(struct __ctx_buff *ctx, __u16 proto)
 __section_entry
 int cil_from_overlay(struct __ctx_buff *ctx)
 {
+	__u32 src_sec_identity = 0;
+	bool decrypted;
 	__u16 proto;
 	int ret;
 
@@ -564,6 +535,8 @@ int cil_from_overlay(struct __ctx_buff *ctx)
  * if the packets are ESP, because it doesn't matter for the
  * non-IPSec mode.
  */
+	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
+
 #ifdef ENABLE_IPSEC
 	if (is_esp(ctx, proto))
 		send_trace_notify(ctx, TRACE_FROM_OVERLAY, 0, 0, 0,
@@ -576,12 +549,56 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 		/* Non-ESP packet marked with MARK_MAGIC_DECRYPT is a packet
 		 * re-inserted from the stack.
 		 */
-		if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT)
+		if (decrypted)
 			obs_point = TRACE_FROM_STACK;
 
 		send_trace_notify(ctx, obs_point, 0, 0, 0,
 				  ctx->ingress_ifindex,
 				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
+	}
+
+	switch (proto) {
+#if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
+ #ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+ #endif
+ #ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+ #endif
+		/* If packets are decrypted the key has already been pushed into metadata. */
+		if (!decrypted) {
+			struct bpf_tunnel_key key = {};
+
+ #ifdef ENABLE_HIGH_SCALE_IPCACHE
+			/* already set by decapsulate_overlay(): */
+			key.tunnel_id = ctx_load_meta(ctx, CB_SRC_LABEL);
+ #else
+			__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
+
+			if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0)) {
+				ret = DROP_NO_TUNNEL_KEY;
+				goto out;
+			}
+ #endif /* ENABLE_HIGH_SCALE_IPCACHE */
+			cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
+
+			src_sec_identity = get_id_from_tunnel_id(key.tunnel_id, proto);
+
+			/* Any node encapsulating will map any HOST_ID source to be
+			 * presented as REMOTE_NODE_ID, therefore any attempt to signal
+			 * HOST_ID as source from a remote node can be dropped.
+			 */
+			if (src_sec_identity == HOST_ID) {
+				ret = DROP_INVALID_IDENTITY;
+				goto out;
+			}
+
+			ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
+		}
+		break;
+#endif /* ENABLE_IPV4 || ENABLE_IPV6 */
+	default:
+		break;
 	}
 
 	switch (proto) {
@@ -640,7 +657,8 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	}
 out:
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error(ctx, src_sec_identity, ret,
+					      CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
 

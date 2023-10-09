@@ -125,7 +125,6 @@ decapsulate_overlay(struct __ctx_buff *ctx, __u32 *src_id)
 	}
 
 	*src_id = tunnel_vni_to_sec_identity(*src_id);
-	*src_id = get_id_from_tunnel_id(*src_id, proto);
 	ctx_store_meta(ctx, CB_SRC_LABEL, *src_id);
 
 	if (ctx_adjust_hroom(ctx, -shrink, BPF_ADJ_ROOM_MAC, ctx_adjust_hroom_flags()))
