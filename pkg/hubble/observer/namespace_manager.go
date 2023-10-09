@@ -5,9 +5,8 @@ package observer
 
 import (
 	"context"
+	"sort"
 	"time"
-
-	"golang.org/x/exp/slices"
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -76,7 +75,9 @@ func (m *namespaceManager) GetNamespaces() []*observerpb.Namespace {
 	}
 	m.mu.RUnlock()
 
-	slices.SortFunc(namespaces, func(a, b *observerpb.Namespace) bool {
+	sort.Slice(namespaces, func(i, j int) bool {
+		a := namespaces[i]
+		b := namespaces[j]
 		if a.Cluster != b.Cluster {
 			return a.Cluster < b.Cluster
 		}
