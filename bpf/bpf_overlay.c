@@ -76,11 +76,15 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	if (decrypted) {
 		if (info)
 			*identity = key.tunnel_id = info->sec_identity;
+
+		cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, 0);
 	} else {
 		key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
 		if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
 		*identity = key.tunnel_id;
+
+		cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
 
 		/* Any node encapsulating will map any HOST_ID source to be
 		 * presented as REMOTE_NODE_ID, therefore any attempt to signal
@@ -96,8 +100,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		if (info && identity_is_remote_node(*identity))
 			*identity = info->sec_identity;
 	}
-
-	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
 
 #ifdef ENABLE_IPSEC
 	if (!decrypted) {
@@ -328,6 +330,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	if (decrypted) {
 		if (info)
 			*identity = key.tunnel_id = info->sec_identity;
+
+		cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, 0);
 	} else {
 #ifdef ENABLE_HIGH_SCALE_IPCACHE
 		key.tunnel_id = *identity;
@@ -337,6 +341,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 			return DROP_NO_TUNNEL_KEY;
 		*identity = key.tunnel_id;
 #endif /* ENABLE_HIGH_SCALE_IPCACHE */
+
+		cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
 
 		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
@@ -381,8 +387,6 @@ skip_vtep:
 		if (info && identity_is_remote_node(*identity))
 			*identity = info->sec_identity;
 	}
-
-	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
 
 #ifdef ENABLE_IPSEC
 	if (!decrypted) {
