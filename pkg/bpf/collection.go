@@ -125,6 +125,26 @@ func LoadCollection(spec *ebpf.CollectionSpec, opts ebpf.CollectionOptions) (*eb
 		return nil, fmt.Errorf("inlining global data: %w", err)
 	}
 
+	// Remove custom pinning flags during Collection loading.
+	pins := make(map[string]ebpf.PinType)
+	for name, m := range spec.Maps {
+		if m.Pinning <= ebpf.PinByName {
+			continue
+		}
+
+		// Save and clear any custom pinning flags.
+		pins[name] = m.Pinning
+		m.Pinning = ebpf.PinNone
+	}
+	// Restore custom pinning flags before returning.
+	defer func() {
+		for name, m := range spec.Maps {
+			if pin, ok := pins[name]; ok {
+				m.Pinning = pin
+			}
+		}
+	}()
+
 	// Set initial size of verifier log buffer.
 	//
 	// Up until kernel 5.1, the maximum log size is (2^24)-1. In 5.2, this was

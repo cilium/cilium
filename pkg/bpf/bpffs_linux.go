@@ -8,6 +8,7 @@ package bpf
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"sync"
 
@@ -16,6 +17,10 @@ import (
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/mountinfo"
+)
+
+const (
+	dirPerms = 0600
 )
 
 var (
@@ -56,6 +61,12 @@ func TCGlobalsPath() string {
 func CiliumPath() string {
 	once.Do(lockDown)
 	return filepath.Join(bpffsRoot, "cilium")
+}
+
+// EndpointDir returns the bpffs directory name reserved for the endpoint given
+// its network interface name.
+func EndpointDir(ifName string) string {
+	return path.Join(CiliumPath(), "endpoints", ifName)
 }
 
 func tcPathFromMountInfo(name string) string {

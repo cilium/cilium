@@ -984,6 +984,16 @@ func (e *Endpoint) deleteMaps() []error {
 	return errors
 }
 
+// deleteBPFDir removes the endpoint's bpffs directory.
+func (e *Endpoint) deleteBPFDir() error {
+	epDir := bpf.EndpointDir(e.ifName)
+	if err := os.RemoveAll(epDir); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("removing endpoint bpffs directory %s: %w", epDir, err)
+	}
+
+	return nil
+}
+
 // garbageCollectConntrack will run the ctmap.GC() on either the endpoint's
 // local conntrack table or the global conntrack table.
 //

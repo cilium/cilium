@@ -2219,6 +2219,11 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 		if errs2 := e.deleteMaps(); errs2 != nil {
 			errs = append(errs, errs2...)
 		}
+
+		// Remove the endpoint's bpffs directory.
+		if errs2 := e.deleteBPFDir(); errs2 != nil {
+			errs = append(errs, errs2)
+		}
 	}
 
 	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {

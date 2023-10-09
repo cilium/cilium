@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -26,7 +27,12 @@ import (
 	"github.com/cilium/cilium/pkg/sysctl"
 )
 
-const qdiscClsact = "clsact"
+const (
+	qdiscClsact = "clsact"
+
+	// PinPerEndpoint matches CILIUM_PIN_PER_ENDPOINT.
+	PinPerEndpoint = 1 << 4
+)
 
 func directionToParent(dir string) uint32 {
 	switch dir {
@@ -156,7 +162,53 @@ func replaceDatapath(ctx context.Context, ifName, objPath string, progs []progDe
 		scopedLog.Debug("Successfully attached program to interface")
 	}
 
+	// Requested programs have been attached/replaced, commit their prog arrays to
+	// bpffs.
+	if err := pinPerEndpointMaps(ifName, spec, coll); err != nil {
+		return nil, err
+	}
+
 	return finalize, nil
+}
+
+// pinPerEndpointMaps handles pinning per-endpoint maps marked with
+// `CILIUM_PIN_PER_ENDPOINT` after an endpoint's programs have been attached and
+// are handling traffic.
+//
+// This is needed for PROG_ARRAY maps in particular, as letting the loader
+// repopulate an existing map will make it transition through invalid states, as
+// code can be moved around from one version of a program to the next.
+func pinPerEndpointMaps(ifName string, spec *ebpf.CollectionSpec, coll *ebpf.Collection) error {
+	epDir := bpf.EndpointDir(ifName)
+	if err := os.MkdirAll(epDir, 0755); err != nil && !errors.Is(err, os.ErrExist) {
+		return fmt.Errorf("creating bpffs endpoint directory: %w", err)
+	}
+
+	for name, m := range coll.Maps {
+		ms := spec.Maps[name]
+		if ms == nil {
+			return fmt.Errorf("no MapSpec %s found in CollectionSpec", name)
+		}
+
+		if ms.Pinning != PinPerEndpoint {
+			continue
+		}
+
+		if m.IsPinned() {
+			return fmt.Errorf("Map %s already pinned after loading Collection, not re-pinning", name)
+		}
+
+		pinPath := path.Join(epDir, ms.Name)
+		if err := os.Remove(pinPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("removing map pin for %s at %s: %w", ms.Name, pinPath, err)
+		}
+		if err := m.Pin(pinPath); err != nil {
+			return fmt.Errorf("pinning map %s to %s: %w", ms.Name, pinPath, err)
+		}
+		log.Debugf("Pinned per-endpoint map %s", pinPath)
+	}
+
+	return nil
 }
 
 // attachProgram attaches prog to link.

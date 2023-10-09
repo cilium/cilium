@@ -11,6 +11,10 @@
 #define __array(name, val) typeof(val) *(name)[]
 
 #define LIBBPF_PIN_BY_NAME 1
+/* Pin per-endpoint map to `/sys/fs/bpf/cilium/endpoints/<endpoint>/<map>` and
+	 replace the pin after endpoint has successfully attached. Never repopulates
+	 existing map, always removes existing pin before pinning. */
+#define CILIUM_PIN_PER_EP_REPLACE 1<<4
 
 struct bpf_elf_map {
 	__u32 type;

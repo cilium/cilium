@@ -110,7 +110,7 @@ struct bpf_elf_map __section_maps CALLS_MAP = {
 	.id		= CILIUM_MAP_CALLS,
 	.size_key	= sizeof(__u32),
 	.size_value	= sizeof(__u32),
-	.pinning	= LIBBPF_PIN_BY_NAME,
+	.pinning	= CILIUM_PIN_PER_EP_REPLACE,
 	.max_elem	= CILIUM_CALL_SIZE,
 };
 #endif /* SKIP_CALLS_MAP */
