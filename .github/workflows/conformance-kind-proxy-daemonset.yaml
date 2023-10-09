@@ -70,7 +70,7 @@ jobs:
           echo sha=${{ steps.default_vars.outputs.sha }} >> $GITHUB_OUTPUT
 
       - name: Install Cilium CLI
-        uses: cilium/cilium-cli@1e059407dc39c05ba34042e92702e8d9dacf7c77 # v0.15.9
+        uses: cilium/cilium-cli@b649f968acb438124abd426a5d5eac7b10e29992 # v0.15.9
         with:
           release-version: ${{ env.cilium_cli_version }}
           ci-version: ${{ env.cilium_cli_ci_version }}
