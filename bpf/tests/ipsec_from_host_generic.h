@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
 #include "common.h"
@@ -13,11 +13,9 @@
 #define ENABLE_IPV4
 #define ENABLE_IPV6
 #define ENABLE_IPSEC
-#define TUNNEL_MODE
-#define HAVE_ENCAP
-#define ENCAP_IFINDEX 4
 #define SECCTX_FROM_IPCACHE 1
 
+#define ENCAP_IFINDEX 4
 #define skb_set_tunnel_key mock_skb_set_tunnel_key
 #define ctx_redirect mock_ctx_redirect
 
@@ -135,10 +133,13 @@ int ipv4_ipsec_from_host_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	assert(*status_code == EXPECTED_STATUS_CODE);
 
 	assert(ctx->mark == 0);
+
+#ifdef CHECK_CB_ENCRYPT_IDENTITY
 	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == 0);
+#endif
 
 	l2 = data + sizeof(*status_code);
 
@@ -253,10 +254,13 @@ int ipv6_ipsec_from_host_check(__maybe_unused const struct __ctx_buff *ctx)
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	assert(*status_code == EXPECTED_STATUS_CODE);
+
+#ifdef CHECK_CB_ENCRYPT_IDENTITY
+	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == 0);
+#endif
 
 	assert(ctx->mark == 0);
-	assert(ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY) == 0);
 
 	l2 = data + sizeof(*status_code);
 
