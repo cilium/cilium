@@ -168,7 +168,7 @@ int ipv4_from_lxc_encrypt_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (memcmp(l2->h_source, (__u8 *)mac_one, ETH_ALEN) != 0)
 		test_fatal("src mac hasn't been set to source ep's mac");
 
-	if (memcmp(l2->h_dest, (__u8 *)mac_two, ETH_ALEN) != 0)
+	if (memcmp(l2->h_dest, (__u8 *)EXPECTED_DEST_MAC, ETH_ALEN) != 0)
 		test_fatal("dest mac hasn't been set to dest ep's mac");
 
 	l3 = (void *)l2 + sizeof(struct ethhdr);
@@ -373,7 +373,7 @@ int ipv6_from_lxc_encrypt_check(__maybe_unused const struct __ctx_buff *ctx)
 	if (memcmp(l2->h_source, (__u8 *)mac_one, ETH_ALEN) != 0)
 		test_fatal("src mac hasn't been set to source ep's mac");
 
-	if (memcmp(l2->h_dest, (__u8 *)mac_two, ETH_ALEN) != 0)
+	if (memcmp(l2->h_dest, (__u8 *)EXPECTED_DEST_MAC, ETH_ALEN) != 0)
 		test_fatal("dest mac hasn't been set to dest ep's mac");
 
 	l3 = (void *)l2 + sizeof(struct ethhdr);
