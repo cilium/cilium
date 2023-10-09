@@ -102,6 +102,10 @@ func (d *Daemon) checkEndpointBPFPrograms(ctx context.Context, p epBPFProgWatchd
 		if ep.GetState() != endpoint.StateReady {
 			continue
 		}
+		if !ep.HasBPFPolicyMap() {
+			// Skip Endpoints without BPF datapath
+			continue
+		}
 		loaded, err = loader.DeviceHasTCProgramLoaded(ep.HostInterface(), ep.RequireEgressProg())
 		if err != nil {
 			log.WithField(logfields.Endpoint, ep.HostInterface()).
