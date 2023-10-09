@@ -202,6 +202,10 @@ func convertBGPNeighborSAFI(fams []v2alpha1.CiliumBGPFamily) ([]*gobgp.AfiSafi, 
 
 // getPeerConfig returns GoBGP Peer configuration for the provided CiliumBGPNeighbor.
 func (g *GoBGPServer) getPeerConfig(ctx context.Context, n types.NeighborRequest, isUpdate bool) (peer *gobgp.Peer, needsReset bool, err error) {
+	if n.Neighbor == nil {
+		return peer, needsReset, fmt.Errorf("nil neighbor in NeighborRequest: %w", err)
+	}
+
 	// cilium neighbor uses prefix string, gobgp neighbor uses IP string, convert.
 	prefix, err := netip.ParsePrefix(n.Neighbor.PeerAddress)
 	if err != nil {
@@ -265,7 +269,7 @@ func (g *GoBGPServer) getPeerConfig(ctx context.Context, n types.NeighborRequest
 	}
 
 	// Enable multi-hop for eBGP if non-zero TTL is provided
-	if g.asn != uint32(n.Neighbor.PeerASN) && *n.Neighbor.EBGPMultihopTTL > 1 {
+	if g.asn != uint32(n.Neighbor.PeerASN) && n.Neighbor.EBGPMultihopTTL != nil && *n.Neighbor.EBGPMultihopTTL > 1 {
 		peer.EbgpMultihop = &gobgp.EbgpMultihop{
 			Enabled:     true,
 			MultihopTtl: uint32(*n.Neighbor.EBGPMultihopTTL),
