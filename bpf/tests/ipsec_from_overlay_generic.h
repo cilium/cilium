@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
 #include "common.h"
@@ -48,7 +48,12 @@ int mock_skb_get_tunnel_key(__maybe_unused struct __sk_buff *skb,
 __section("mock-handle-policy")
 int mock_handle_policy(struct __ctx_buff *ctx __maybe_unused)
 {
+	/* https://github.com/cilium/cilium/blob/b825f4e47e7eea9908ec8324591d7cc95238e1b8/bpf/bpf_lxc.c#L1927 */
+#if !defined(ENABLE_ROUTING) && defined(TUNNEL_MODE) && !defined(ENABLE_NODEPORT)
+	return TC_ACT_OK;
+#else
 	return TC_ACT_REDIRECT;
+#endif
 }
 
 struct {
@@ -91,8 +96,8 @@ struct {
 	},
 };
 
-PKTGEN("tc", "ipv4_with_encrypt_ipsec_from_overlay")
-int ipv4_with_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "ipv4_not_decrypted_ipsec_from_overlay")
+int ipv4_not_decrypted_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct ethhdr *l2;
@@ -127,15 +132,15 @@ int ipv4_with_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipv4_with_encrypt_ipsec_from_overlay")
-int ipv4_with_encrypt_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
+SETUP("tc", "ipv4_not_decrypted_ipsec_from_overlay")
+int ipv4_not_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 {
 	tail_call_static(ctx, &entry_call_map, FROM_OVERLAY);
 	return TEST_ERROR;
 }
 
-CHECK("tc", "ipv4_with_encrypt_ipsec_from_overlay")
-int ipv4_with_encrypt_ipsec_from_overlay_check(__maybe_unused const struct __ctx_buff *ctx)
+CHECK("tc", "ipv4_not_decrypted_ipsec_from_overlay")
+int ipv4_not_decrypted_ipsec_from_overlay_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -203,8 +208,8 @@ int ipv4_with_encrypt_ipsec_from_overlay_check(__maybe_unused const struct __ctx
 	test_finish();
 }
 
-PKTGEN("tc", "ipv6_with_encrypt_ipsec_from_overlay")
-int ipv6_with_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "ipv6_not_decrypted_ipsec_from_overlay")
+int ipv6_not_decrypted_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct ethhdr *l2;
@@ -238,15 +243,15 @@ int ipv6_with_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipv6_with_encrypt_ipsec_from_overlay")
-int ipv6_with_encrypt_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
+SETUP("tc", "ipv6_not_decrypted_ipsec_from_overlay")
+int ipv6_not_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 {
 	tail_call_static(ctx, &entry_call_map, FROM_OVERLAY);
 	return TEST_ERROR;
 }
 
-CHECK("tc", "ipv6_with_encrypt_ipsec_from_overlay")
-int ipv6_with_encrypt_ipsec_from_overlay_check(__maybe_unused const struct __ctx_buff *ctx)
+CHECK("tc", "ipv6_not_decrypted_ipsec_from_overlay")
+int ipv6_not_decrypted_ipsec_from_overlay_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -314,8 +319,8 @@ int ipv6_with_encrypt_ipsec_from_overlay_check(__maybe_unused const struct __ctx
 	test_finish();
 }
 
-PKTGEN("tc", "ipv4_without_encrypt_ipsec_from_overlay")
-int ipv4_without_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "ipv4_decrypted_ipsec_from_overlay")
+int ipv4_decrypted_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
@@ -338,8 +343,8 @@ int ipv4_without_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipv4_without_encrypt_ipsec_from_overlay")
-int ipv4_without_encrypt_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
+SETUP("tc", "ipv4_decrypted_ipsec_from_overlay")
+int ipv4_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v4_add_entry(v4_pod_two, DEST_IFINDEX, DEST_LXC_ID, 0,
 			      (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
@@ -349,8 +354,8 @@ int ipv4_without_encrypt_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "ipv4_without_encrypt_ipsec_from_overlay")
-int ipv4_without_encrypt_ipsec_from_overlay_check(__maybe_unused const struct __ctx_buff *ctx)
+CHECK("tc", "ipv4_decrypted_ipsec_from_overlay")
+int ipv4_decrypted_ipsec_from_overlay_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -369,7 +374,7 @@ int ipv4_without_encrypt_ipsec_from_overlay_check(__maybe_unused const struct __
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	assert(*status_code == EXPECTED_STATUS_CODE_FOR_DECRYPTED);
 	assert(ctx->mark == 0);
 
 	l2 = data + sizeof(*status_code);
@@ -418,8 +423,8 @@ int ipv4_without_encrypt_ipsec_from_overlay_check(__maybe_unused const struct __
 	test_finish();
 }
 
-PKTGEN("tc", "ipv6_without_encrypt_ipsec_from_overlay")
-int ipv6_without_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
+PKTGEN("tc", "ipv6_decrypted_ipsec_from_overlay")
+int ipv6_decrypted_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;
 	struct tcphdr *l4;
@@ -442,8 +447,8 @@ int ipv6_without_encrypt_ipsec_from_overlay_pktgen(struct __ctx_buff *ctx)
 	return 0;
 }
 
-SETUP("tc", "ipv6_without_encrypt_ipsec_from_overlay")
-int ipv6_without_encrypt_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
+SETUP("tc", "ipv6_decrypted_ipsec_from_overlay")
+int ipv6_decrypted_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 {
 	endpoint_v6_add_entry((union v6addr *)v6_pod_two, DEST_IFINDEX, DEST_LXC_ID,
 			      0, (__u8 *)DEST_EP_MAC, (__u8 *)DEST_NODE_MAC);
@@ -453,8 +458,8 @@ int ipv6_without_encrypt_ipsec_from_overlay_setup(struct __ctx_buff *ctx)
 	return TEST_ERROR;
 }
 
-CHECK("tc", "ipv6_without_encrypt_ipsec_from_overlay")
-int ipv6_without_encrypt_ipsec_from_overlay_check(__maybe_unused const struct __ctx_buff *ctx)
+CHECK("tc", "ipv6_decrypted_ipsec_from_overlay")
+int ipv6_decrypted_ipsec_from_overlay_check(__maybe_unused const struct __ctx_buff *ctx)
 {
 	void *data;
 	void *data_end;
@@ -473,7 +478,7 @@ int ipv6_without_encrypt_ipsec_from_overlay_check(__maybe_unused const struct __
 		test_fatal("status code out of bounds");
 
 	status_code = data;
-	assert(*status_code == CTX_ACT_REDIRECT);
+	assert(*status_code == EXPECTED_STATUS_CODE_FOR_DECRYPTED);
 	assert(ctx->mark == 0);
 
 	l2 = data + sizeof(*status_code);
