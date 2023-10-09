@@ -429,8 +429,7 @@ func (ipc *IPCache) UpdatePolicyMaps(ctx context.Context, addedIdentities, delet
 	if addedIdentities != nil {
 		ipc.PolicyHandler.UpdateIdentities(addedIdentities, nil, &wg)
 	}
-	policyImplementedWG := ipc.DatapathHandler.UpdatePolicyMaps(ctx, &wg)
-	policyImplementedWG.Wait()
+	<-ipc.DatapathHandler.UpdatePolicyMaps(ctx, &wg)
 }
 
 // resolveIdentity will either return a previously-allocated identity for the

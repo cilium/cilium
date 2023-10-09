@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/channels"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/hive"
@@ -136,11 +137,11 @@ type EndpointManager interface {
 	// Unsubscribe from endpoint events.
 	Unsubscribe(s Subscriber)
 
-	// UpdatePolicyMaps returns a WaitGroup which is signaled upon once all endpoints
+	// UpdatePolicyMaps returns a channel which is closed once all endpoints
 	// have had their PolicyMaps updated against the Endpoint's desired policy state.
 	//
-	// Endpoints will wait on the 'notifyWg' parameter before updating policy maps.
-	UpdatePolicyMaps(ctx context.Context, notifyWg *sync.WaitGroup) *sync.WaitGroup
+	// Will wait on the 'notifyWg' parameter before updating policy maps.
+	UpdatePolicyMaps(ctx context.Context, notifyWg *sync.WaitGroup) channels.DoneChan
 
 	// RegenerateAllEndpoints calls a setState for each endpoint and
 	// regenerates if state transaction is valid. During this process, the endpoint

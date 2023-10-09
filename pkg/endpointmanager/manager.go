@@ -13,7 +13,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/channels"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -133,62 +133,36 @@ func (mgr *endpointManager) WithPeriodicEndpointGC(ctx context.Context, checkHea
 	return mgr
 }
 
-// waitForProxyCompletions blocks until all proxy changes have been completed.
-func waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
-	err := proxyWaitGroup.Context().Err()
-	if err != nil {
-		return fmt.Errorf("context cancelled before waiting for proxy updates: %s", err)
-	}
-
-	start := time.Now()
-	log.Debug("Waiting for proxy updates to complete...")
-	err = proxyWaitGroup.Wait()
-	if err != nil {
-		return fmt.Errorf("proxy updates failed: %s", err)
-	}
-	log.Debug("Wait time for proxy updates: ", time.Since(start))
-
-	return nil
-}
-
-// UpdatePolicyMaps returns a WaitGroup which is signaled upon once all endpoints
+// UpdatePolicyMaps returns a channel which is signaled upon once all endpoints
 // have had their PolicyMaps updated against the Endpoint's desired policy state.
 //
 // Endpoints will wait on the 'notifyWg' parameter before updating policy maps.
-func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync.WaitGroup) *sync.WaitGroup {
-	var epWG sync.WaitGroup
-	var wg sync.WaitGroup
+func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context, notifyWg *sync.WaitGroup) channels.DoneChan {
+	done := make(chan struct{})
 
-	proxyWaitGroup := completion.NewWaitGroup(ctx)
-
-	eps := mgr.GetEndpoints()
-	epWG.Add(len(eps))
-	wg.Add(1)
-
-	// This is in a goroutine to allow the caller to proceed with other tasks before waiting for the ACKs to complete
 	go func() {
-		// Wait for all the eps to have applied policy map
-		// changes before waiting for the changes to be ACKed
-		epWG.Wait()
-		if err := waitForProxyCompletions(proxyWaitGroup); err != nil {
-			log.WithError(err).Warning("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.")
+		defer close(done)
+
+		// Wait until caller has updated the desired policy state.
+		notifyWg.Wait()
+
+		eps := mgr.GetEndpoints()
+		doneChannels := make([]<-chan struct{}, len(eps))
+		// Trigger applying of the policy map changes.
+		for i, ep := range eps {
+			doneChannels[i] = ep.ApplyPolicyMapChanges()
 		}
-		wg.Done()
+		// Wait for completion.
+		for _, done := range doneChannels {
+			select {
+			case <-ctx.Done():
+				return
+			case <-done:
+			}
+		}
 	}()
 
-	// TODO: bound by number of CPUs?
-	for _, ep := range eps {
-		go func(ep *endpoint.Endpoint) {
-			// Proceed only after all notifications have been delivered to endpoints
-			notifyWg.Wait()
-			if err := ep.ApplyPolicyMapChanges(proxyWaitGroup); err != nil {
-				ep.Logger("endpointmanager").WithError(err).Warning("Failed to apply policy map changes. These will be re-applied in future updates.")
-			}
-			epWG.Done()
-		}(ep)
-	}
-
-	return &wg
+	return done
 }
 
 // InitMetrics hooks the endpointManager into the metrics subsystem. This can

@@ -7,11 +7,11 @@ import (
 	"context"
 	"net"
 	"net/netip"
-	"sync"
 	"time"
 
 	. "github.com/cilium/checkmate"
 
+	"github.com/cilium/cilium/pkg/channels"
 	"github.com/cilium/cilium/pkg/fqdn/dns"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -30,11 +30,11 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
 
-			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, []*identity.Identity, map[netip.Prefix]*identity.Identity, error) {
+			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (channels.DoneChan, []*identity.Identity, map[netip.Prefix]*identity.Identity, error) {
 				for k, v := range selectorIPMapping {
 					selIPMap[k] = v
 				}
-				return &sync.WaitGroup{}, nil, nil, nil
+				return channels.ClosedDoneChan, nil, nil, nil
 			},
 		})
 	)
@@ -76,11 +76,11 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
 
-			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, []*identity.Identity, map[netip.Prefix]*identity.Identity, error) {
+			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (<-chan struct{}, []*identity.Identity, map[netip.Prefix]*identity.Identity, error) {
 				for k, v := range selectorIPMapping {
 					selIPMap[k] = v
 				}
-				return &sync.WaitGroup{}, nil, nil, nil
+				return channels.ClosedDoneChan, nil, nil, nil
 			},
 		})
 	)

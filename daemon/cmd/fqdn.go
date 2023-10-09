@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/channels"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -124,11 +125,11 @@ func identitiesForFQDNSelectorIPs(selectorsWithIPsToUpdate map[policyApi.FQDNSel
 	return selectorIdentitySliceMapping, usedIdentities, newlyAllocatedIdentities, nil
 }
 
-func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) *sync.WaitGroup {
+func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[policyApi.FQDNSelector][]*identity.Identity, selectorsWithoutIPs []policyApi.FQDNSelector) channels.DoneChan {
 	// There may be nothing to update - in this case, we exit and do not need
 	// to trigger policy updates for all endpoints.
 	if len(selectors) == 0 && len(selectorsWithoutIPs) == 0 {
-		return &sync.WaitGroup{}
+		return channels.ClosedDoneChan
 	}
 
 	notifyWg := &sync.WaitGroup{}
@@ -412,12 +413,12 @@ func (d *Daemon) updateDNSDatapathRules(ctx context.Context) error {
 // updateSelectors propagates the mapping of FQDNSelector to identity, as well
 // as the set of FQDNSelectors which have no IPs which correspond to them
 // (usually due to TTL expiry), down to policy layer managed by this daemon.
-func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) (wg *sync.WaitGroup, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, err error) {
+func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate map[policyApi.FQDNSelector][]net.IP, selectorsWithoutIPs []policyApi.FQDNSelector) (done channels.DoneChan, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, err error) {
 	// Convert set of selectors with IPs to update to set of selectors
 	// with identities corresponding to said IPs.
 	selectorsIdentities, usedIdentities, newlyAllocatedIdentities, err := identitiesForFQDNSelectorIPs(selectorWithIPsToUpdate, d.identityAllocator)
 	if err != nil {
-		return &sync.WaitGroup{}, nil, nil, err
+		return channels.ClosedDoneChan, nil, nil, err
 	}
 
 	// Update mapping in selector cache with new identities.
@@ -626,7 +627,7 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 		defer updateCancel()
 		updateStart := time.Now()
 
-		wg, usedIdentities, newlyAllocatedIdentities, err := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
+		doneChan, usedIdentities, newlyAllocatedIdentities, err := d.dnsNameManager.UpdateGenerateDNS(updateCtx, lookupTime, map[string]*fqdn.DNSIPRecords{
 			qname: {
 				IPs: responseIPs,
 				TTL: int(TTL),
@@ -637,17 +638,12 @@ func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epI
 
 		stat.PolicyGenerationTime.End(true)
 		stat.DataplaneTime.Start()
-		updateComplete := make(chan struct{})
-		go func(wg *sync.WaitGroup, done chan struct{}) {
-			wg.Wait()
-			close(updateComplete)
-		}(wg, updateComplete)
 
 		select {
 		case <-updateCtx.Done():
 			log.Error("Timed out waiting for datapath updates of FQDN IP information; returning response")
 			metrics.ProxyDatapathUpdateTimeout.Inc()
-		case <-updateComplete:
+		case <-doneChan:
 		}
 
 		log.WithFields(logrus.Fields{

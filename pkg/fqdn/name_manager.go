@@ -8,12 +8,12 @@ import (
 	"net"
 	"net/netip"
 	"regexp"
-	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/channels"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/lock"
@@ -117,8 +117,8 @@ func NewNameManager(config Config) *NameManager {
 	}
 
 	if config.UpdateSelectors == nil {
-		config.UpdateSelectors = func(ctx context.Context, selectorsWithIPs map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, []*identity.Identity, map[netip.Prefix]*identity.Identity, error) {
-			return &sync.WaitGroup{}, nil, nil, nil
+		config.UpdateSelectors = func(ctx context.Context, selectorsWithIPs map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (channels.DoneChan, []*identity.Identity, map[netip.Prefix]*identity.Identity, error) {
+			return channels.ClosedDoneChan, nil, nil, nil
 		}
 	}
 
@@ -137,7 +137,7 @@ func (n *NameManager) GetDNSCache() *DNSCache {
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
 // have changed for a name they will be reflected in updatedDNSIPs.
-func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (wg *sync.WaitGroup, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, err error) {
+func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Time, updatedDNSIPs map[string]*DNSIPRecords) (done channels.DoneChan, usedIdentities []*identity.Identity, newlyAllocatedIdentities map[netip.Prefix]*identity.Identity, err error) {
 	n.RWMutex.Lock()
 	defer n.RWMutex.Unlock()
 
@@ -165,7 +165,7 @@ func (n *NameManager) UpdateGenerateDNS(ctx context.Context, lookupTime time.Tim
 // matchNames that match them will cause these rules to regenerate.
 // Note: This is used only when DNS entries are cleaned up, not when new results
 // are ingested.
-func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) (wg *sync.WaitGroup, err error) {
+func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []string) (done <-chan struct{}, err error) {
 	n.RWMutex.Lock()
 	defer n.RWMutex.Unlock()
 
@@ -186,8 +186,8 @@ func (n *NameManager) ForceGenerateDNS(ctx context.Context, namesToRegen []strin
 
 	// Emit the new rules.
 	// Ignore newly allocated IDs (3rd result) as this is only used for deletes.
-	wg, _, _, err = n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
-	return wg, err
+	done, _, _, err = n.config.UpdateSelectors(ctx, selectorIPMapping, namesMissingIPs)
+	return done, err
 }
 
 func (n *NameManager) CompleteBootstrap() {

@@ -227,6 +227,11 @@ type Endpoint struct {
 	// PolicyMapPressureUpdater updates the policymap pressure metric.
 	PolicyMapPressureUpdater policyMapPressureUpdater
 
+	// policyMapLastFullReconciliation is the timestamp of the last full
+	// policy map reconciliation, e.g. full comparison of the desired
+	// policy map state against the BPF map state.
+	policyMapLastFullReconciliation time.Time
+
 	// Options determine the datapath configuration of the endpoint.
 	Options *option.IntOptions
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/cilium/cilium/pkg/channels"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache/types"
@@ -729,6 +730,6 @@ func (m *mockUpdater) UpdateIdentities(added, deleted cache.IdentityCache, _ *sy
 
 type mockTriggerer struct{}
 
-func (m *mockTriggerer) UpdatePolicyMaps(ctx context.Context, wg *sync.WaitGroup) *sync.WaitGroup {
-	return wg
+func (m *mockTriggerer) UpdatePolicyMaps(ctx context.Context, wg *sync.WaitGroup) channels.DoneChan {
+	return channels.ClosedDoneChan
 }

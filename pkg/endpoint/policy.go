@@ -531,10 +531,9 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 		return fmt.Errorf("error synchronizing endpoint BPF program directories: %s", err)
 	}
 
-	// Start periodic background full reconciliation of the policy map.
-	// Does nothing if it has already been started.
+	// Trigger reconciliation of the policy map.
 	if !option.Config.DryMode {
-		e.startSyncPolicyMapController()
+		e.updateSyncPolicyMapController()
 	}
 
 	if e.desiredPolicy != e.realizedPolicy {

@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/channels"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
@@ -1099,10 +1100,16 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 		err = e.policyMap.AllowKey(policymapKey, entry.AuthType.Uint8(), entry.ProxyPort)
 	}
 	if err != nil {
-		e.getLogger().WithError(err).WithFields(logrus.Fields{
-			logfields.BPFMapKey: policymapKey,
-			logfields.Port:      entry.ProxyPort,
-		}).Error("Failed to add PolicyMap key")
+		if e.logLimiter.Allow() {
+			// Rate-limiting logging of the error as errors may
+			// occur at very high rates when the policy map is
+			// full. Since these operations are retried indefinitely
+			// we don't need to worry about this going unnoticed.
+			e.getLogger().WithError(err).WithFields(logrus.Fields{
+				logfields.BPFMapKey: policymapKey,
+				logfields.Port:      entry.ProxyPort,
+			}).Error("Failed to add PolicyMap key")
+		}
 		return false
 	}
 
@@ -1120,25 +1127,19 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 
 // ApplyPolicyMapChanges updates the Endpoint's PolicyMap with the changes
 // that have accumulated for the PolicyMap via various outside events (e.g.,
-// identities added / deleted).
-// 'proxyWaitGroup' may not be nil.
-func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) error {
+// identities added / deleted) by triggering the sync-policy-map controller.
+// Returns a channel that is closed when the changes are applied. The channel
+// is closed even if errors occurred. The controller will retry the changes.
+func (e *Endpoint) ApplyPolicyMapChanges() channels.DoneChan {
 	if err := e.lockAlive(); err != nil {
-		return err
+		return channels.ClosedDoneChan
 	}
 	defer e.unlock()
 
-	e.PolicyDebug(nil, "ApplyPolicyMapChanges")
-
-	err := e.applyPolicyMapChanges()
-	if err != nil {
-		return err
-	}
-
-	// Ignoring the revertFunc; keep all successful changes even if some fail.
-	err, _ = e.updateNetworkPolicy(proxyWaitGroup)
-
-	return err
+	// Trigger the sync-policy-map controller to apply the changes.
+	// Returns a channel that is closed when the controller has been
+	// executed after this call.
+	return e.updateSyncPolicyMapController()
 }
 
 // applyPolicyMapChanges applies any incremental policy map changes
@@ -1320,24 +1321,18 @@ func (e *Endpoint) dumpPolicyMapToMapState() (policy.MapState, error) {
 	return currentMap, err
 }
 
-// syncPolicyMapWithDump is invoked periodically to perform a full reconciliation
-// of the endpoint's PolicyMap against the BPF maps to catch cases where either
-// due to kernel issue or user intervention the agent's view of the PolicyMap
-// state has diverged from the kernel. A warning is logged if this method finds
-// such an discrepancy.
+// syncPolicyMapWithDump is invoked by the sync-policy-map controller to perform
+// incremental and full reconciliation of the policy map. The full reconciliation
+// is performed at an interval set by 'option.Config.PolicyMapFullReconciliationInterval'.
 //
 // Returns an error if the endpoint's BPF PolicyMap is unable to be dumped,
-// or any update operation to the map fails.
+// or any update operation to the map fails. Such errors will by retried by the sync-policy-map
+// controller.
+//
 // Must be called with e.mutex Lock()ed.
-func (e *Endpoint) syncPolicyMapWithDump() error {
+func (e *Endpoint) syncPolicyMapWithDump(ctx context.Context) error {
 	if e.policyMap == nil {
 		return fmt.Errorf("not syncing PolicyMap state for endpoint because PolicyMap is nil")
-	}
-
-	// Endpoint not yet fully initialized or currently regenerating. Skip the check
-	// this round.
-	if e.getState() != StateReady {
-		return nil
 	}
 
 	// Apply pending policy map changes first so that desired map is up-to-date before
@@ -1345,6 +1340,11 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 	err := e.applyPolicyMapChanges()
 	if err != nil {
 		return err
+	}
+
+	// Skip full reconciliation if it has been performed recently.
+	if time.Since(e.policyMapLastFullReconciliation) < option.Config.PolicyMapFullReconciliationInterval {
+		return nil
 	}
 
 	currentMap, err := e.dumpPolicyMapToMapState()
@@ -1385,31 +1385,62 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 		e.PolicyDebug(logrus.Fields{"dumpedDiffs": diffs}, "syncPolicyMapWithDump")
 	}
 
+	if err == nil {
+		e.policyMapLastFullReconciliation = time.Now()
+	}
+
 	return err
 }
 
-func (e *Endpoint) startSyncPolicyMapController() {
-	// Skip the controller if the endpoint has no policy map
-	if !e.HasBPFPolicyMap() {
-		return
+func (e *Endpoint) syncPolicyMapControllerName() string {
+	return fmt.Sprintf("sync-policymap-%d", e.ID)
+}
+
+// updateSyncPolicyMapController creates or triggers a controller to  reconcile
+// pending policy map changes. Every PolicyMapFullReconciliationInterval the
+// controller also does full reconciliation by dumping the policy map.
+func (e *Endpoint) updateSyncPolicyMapController() channels.DoneChan {
+	// Skip the controller if the endpoint has no policy map or is
+	// being disconnected.
+	if !e.HasBPFPolicyMap() || e.IsDisconnecting() {
+		return channels.ClosedDoneChan
 	}
 
-	ctrlName := fmt.Sprintf("sync-policymap-%d", e.ID)
-	e.controllers.CreateController(ctrlName,
+	return e.controllers.UpdateController(
+		e.syncPolicyMapControllerName(),
 		controller.ControllerParams{
 			Group:          syncPolicymapControllerGroup,
 			HealthReporter: e.GetReporter("policy map sync"),
 			DoFunc: func(ctx context.Context) error {
-				// that the endpoint was disconnected and we
-				// should exit gracefully.
-				if err := e.lockAlive(); err != nil {
+				e.unconditionalLock()
+				defer e.unlock()
+				if e.IsDisconnecting() {
 					return controller.NewExitReason("Endpoint disappeared")
 				}
-				defer e.unlock()
-				return e.syncPolicyMapWithDump()
+
+				err := e.syncPolicyMapWithDump(ctx)
+				if err != nil {
+					return err
+				}
+
+				// Apply policy changes to L7 proxy
+				proxyWaitGroup := completion.NewWaitGroup(ctx)
+
+				// Ignoring the revertFunc; keep all successful changes even if some fail.
+				if err, _ = e.updateNetworkPolicy(proxyWaitGroup); err != nil {
+					e.getLogger().WithError(err).Warn("failed to publish policy update to L7 proxy")
+				}
+				proxyWaitGroup.Wait()
+
+				return nil
 			},
-			RunInterval: option.Config.PolicyMapFullReconciliationInterval,
-			Context:     e.aliveCtx,
+			StopFunc: func(ctx context.Context) error {
+				return nil
+			},
+			RunInterval:            option.Config.PolicyMapFullReconciliationInterval,
+			MaxRetryInterval:       time.Minute,
+			ErrorRetryBaseDuration: 100 * time.Millisecond,
+			Context:                e.aliveCtx,
 		},
 	)
 }
