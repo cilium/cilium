@@ -48,10 +48,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	struct remote_endpoint_info *info;
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
-	struct bpf_tunnel_key key = {};
 	struct endpoint_info *ep;
 	bool decrypted;
-	__u32 key_size;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
@@ -75,14 +73,15 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	if (decrypted) {
-		if (info) {
+		if (info)
 			*identity = info->sec_identity;
-			key.tunnel_id = get_tunnel_id(info->sec_identity);
-		}
 
-		cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, 0);
+		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+			   ((__u32 *)&ip6->saddr)[3], *identity);
 	} else {
-		key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
+		__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
+		struct bpf_tunnel_key key = {};
+
 		if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
 		*identity = get_id_from_tunnel_id(key.tunnel_id, ctx_get_protocol(ctx));
@@ -275,11 +274,9 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 				       __s8 *ext_err __maybe_unused)
 {
 	struct remote_endpoint_info *info;
-	__u32 key_size __maybe_unused;
 	void *data_end, *data;
 	struct iphdr *ip4;
 	struct endpoint_info *ep;
-	struct bpf_tunnel_key key = {};
 	bool decrypted;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
@@ -314,17 +311,19 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 	/* If packets are decrypted the key has already been pushed into metadata. */
 	if (decrypted) {
-		if (info) {
+		if (info)
 			*identity = info->sec_identity;
-			key.tunnel_id = get_tunnel_id(info->sec_identity);
-		}
 
-		cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, 0);
+		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+			   ip4->saddr, *identity);
 	} else {
+		struct bpf_tunnel_key key = {};
+
 #ifdef ENABLE_HIGH_SCALE_IPCACHE
 		key.tunnel_id = get_tunnel_id(*identity);
 #else
-		key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
+		__u32 key_size = TUNNEL_KEY_WITHOUT_SRC_IP;
+
 		if (unlikely(ctx_get_tunnel_key(ctx, &key, key_size, 0) < 0))
 			return DROP_NO_TUNNEL_KEY;
 		*identity = get_id_from_tunnel_id(key.tunnel_id, ctx_get_protocol(ctx));
