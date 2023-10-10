@@ -12,16 +12,7 @@ cilium-dbg completion [shell] [flags]
 
 ```
 
-# Installing bash completion on macOS using homebrew
-## If running Bash 3.2 included with macOS
-	brew install bash-completion
-## or, if running Bash 4.1+
-	brew install bash-completion@2
-## afterwards you only need to run
-	cilium-dbg completion bash > $(brew --prefix)/etc/bash_completion.d/cilium
-
-
-# Installing bash completion on Linux
+# Installing bash completion
 ## Load the cilium completion code for bash into the current shell
 	source <(cilium-dbg completion bash)
 ## Write bash completion code to a file and source if from .bash_profile
@@ -33,7 +24,7 @@ cilium-dbg completion [shell] [flags]
 	source $HOME/.bash_profile
 
 
-# Installing zsh completion on Linux/macOS
+# Installing zsh completion
 ## Load the cilium completion code for zsh into the current shell
 	source <(cilium-dbg completion zsh)
 ## Write zsh completion code to a file and source if from .zshrc
@@ -44,7 +35,7 @@ cilium-dbg completion [shell] [flags]
 	  " >> $HOME/.zshrc
 	source $HOME/.zshrc
 
-# Installing fish completion on Linux/macOS
+# Installing fish completion
 ## Write fish completion code to fish specific location
 	cilium-dbg completion fish > ~/.config/fish/completions/cilium.fish
 
