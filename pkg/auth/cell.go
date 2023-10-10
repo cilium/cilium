@@ -6,7 +6,6 @@ package auth
 import (
 	"fmt"
 	"runtime/pprof"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -23,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/signal"
 	"github.com/cilium/cilium/pkg/stream"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Cell provides AuthManager which is responsible for request authentication.

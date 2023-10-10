@@ -5,10 +5,10 @@ package sink
 
 import (
 	"context"
-	"time"
 
 	"github.com/cilium/cilium/pkg/hubble/recorder/pcap"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // sink wraps a pcap.RecordWriter by adding a queue and managing its statistics

@@ -6,7 +6,7 @@
 package bpf
 
 import (
-	"time"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // DumpStats tracks statistics over the dump of a map.

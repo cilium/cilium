@@ -5,10 +5,10 @@ package auth
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // authMap provides an abstraction for the BPF map "auth"

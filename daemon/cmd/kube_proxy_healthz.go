@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // DaemonInterface to help with testing.

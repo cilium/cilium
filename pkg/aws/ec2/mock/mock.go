@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"time"
 
 	"github.com/cilium/cilium/pkg/api/helpers"
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
@@ -18,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"

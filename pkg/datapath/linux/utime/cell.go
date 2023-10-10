@@ -6,12 +6,12 @@ package utime
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/maps/configmap"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (

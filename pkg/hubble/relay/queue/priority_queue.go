@@ -5,9 +5,9 @@ package queue
 
 import (
 	"container/heap"
-	"time"
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // PriorityQueue is a priority queue of observerpb.GetFlowsResponse. It

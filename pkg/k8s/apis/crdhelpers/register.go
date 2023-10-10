@@ -7,7 +7,6 @@ import (
 	"context"
 	goerrors "errors"
 	"fmt"
-	"time"
 
 	"github.com/blang/semver/v4"
 	"github.com/sirupsen/logrus"
@@ -20,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 

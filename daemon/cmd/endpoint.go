@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"runtime"
 	"sync"
-	"time"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/sirupsen/logrus"
@@ -40,6 +39,7 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var errEndpointNotFound = errors.New("endpoint not found")

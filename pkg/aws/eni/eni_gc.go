@@ -6,10 +6,10 @@ package eni
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const gcENIControllerName = "ipam-eni-gc"

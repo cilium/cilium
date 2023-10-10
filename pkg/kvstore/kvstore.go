@@ -5,7 +5,8 @@ package kvstore
 
 import (
 	"strings"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Value is an abstraction of the data stored in the kvstore as well as the

@@ -10,7 +10,6 @@ import (
 	"net/netip"
 	"strconv"
 	"sync/atomic"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -36,6 +35,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const anyPort = "*"

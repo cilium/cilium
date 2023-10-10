@@ -7,10 +7,10 @@ package allocator
 import (
 	"errors"
 	"math/big"
-	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/rand"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // AllocationBitmap is a contiguous block of resources that can be allocated atomically.

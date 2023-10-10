@@ -4,11 +4,10 @@
 package endpointmanager
 
 import (
-	"time"
-
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type EndpointManagerConfig struct {

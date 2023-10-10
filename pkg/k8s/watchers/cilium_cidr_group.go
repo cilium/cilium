@@ -6,7 +6,6 @@ package watchers
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func (k *K8sWatcher) onUpsertCIDRGroup(

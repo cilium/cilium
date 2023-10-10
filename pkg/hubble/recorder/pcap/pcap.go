@@ -6,9 +6,9 @@ package pcap
 import (
 	"io"
 	"net"
-	"time"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Datalink defines the type of the first layer of the captured packet

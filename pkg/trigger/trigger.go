@@ -5,10 +5,10 @@ package trigger
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // MetricsObserver is the interface a metrics collector has to implement in

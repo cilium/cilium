@@ -9,13 +9,13 @@ import (
 	"runtime"
 	"strings"
 	"sync/atomic"
-	"time"
 
 	iradix "github.com/hashicorp/go-immutable-radix/v2"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // DB provides an in-memory transaction database built on top of immutable radix

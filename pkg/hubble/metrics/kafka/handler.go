@@ -5,12 +5,12 @@ package kafka
 
 import (
 	"context"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type kafkaHandler struct {

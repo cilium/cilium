@@ -4,14 +4,13 @@
 package cmd
 
 import (
-	"time"
-
 	"github.com/go-openapi/runtime/middleware"
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/daemon"
 	"github.com/cilium/cilium/pkg/hive/cell"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type getHealth struct {

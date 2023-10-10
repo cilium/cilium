@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"net"
 	"sort"
-	"time"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (

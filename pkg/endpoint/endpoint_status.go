@@ -7,7 +7,6 @@ import (
 	"context"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
@@ -18,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // StatusNA is value of fields in the output of 'kubectl get cep' in case of disabled "--endpoint-status"

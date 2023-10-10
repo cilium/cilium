@@ -9,7 +9,6 @@ import (
 	"net/netip"
 	"regexp"
 	"sort"
-	"time"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
@@ -18,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/slices"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // cacheEntry objects hold data passed in via DNSCache.Update, nominally

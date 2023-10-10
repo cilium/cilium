@@ -4,12 +4,11 @@
 package spanstat
 
 import (
-	"time"
-
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/safetime"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (

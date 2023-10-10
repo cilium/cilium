@@ -6,7 +6,6 @@ package allocator
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/stream"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // backendOpTimeout is the time allowed for operations sent to backends in
