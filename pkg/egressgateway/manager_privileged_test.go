@@ -6,12 +6,11 @@ package egressgateway
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 	"testing"
 	"time"
 
 	. "github.com/cilium/checkmate"
-
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/vishvananda/netlink"
 
@@ -81,10 +80,10 @@ type egressRule struct {
 }
 
 type parsedEgressRule struct {
-	sourceIP  net.IP
-	destCIDR  net.IPNet
-	egressIP  net.IP
-	gatewayIP net.IP
+	sourceIP  netip.Addr
+	destCIDR  netip.Prefix
+	egressIP  netip.Addr
+	gatewayIP netip.Addr
 }
 
 // Hook up gocheck into the "go test" runner.
@@ -456,7 +455,7 @@ func newCiliumNode(name, nodeIP string, nodeLabels map[string]string) nodeTypes.
 		IPAddresses: []nodeTypes.Address{
 			{
 				Type: addressing.NodeInternalIP,
-				IP:   net.ParseIP(nodeIP),
+				IP:   netip.MustParseAddr(nodeIP).AsSlice(),
 			},
 		},
 	}
@@ -494,29 +493,14 @@ func updateEndpointAndIdentity(endpoint *k8sTypes.CiliumEndpoint, oldID *identit
 }
 
 func parseEgressRule(sourceIP, destCIDR, egressIP, gatewayIP string) parsedEgressRule {
-	sip := net.ParseIP(sourceIP)
-	if sip == nil {
-		panic("Invalid source IP")
-	}
-
-	_, dc, err := net.ParseCIDR(destCIDR)
-	if err != nil {
-		panic("Invalid destination CIDR")
-	}
-
-	eip := net.ParseIP(egressIP)
-	if eip == nil {
-		panic("Invalid egress IP")
-	}
-
-	gip := net.ParseIP(gatewayIP)
-	if gip == nil {
-		panic("Invalid gateway IP")
-	}
+	sip := netip.MustParseAddr(sourceIP)
+	dc := netip.MustParsePrefix(destCIDR)
+	eip := netip.MustParseAddr(egressIP)
+	gip := netip.MustParseAddr(gatewayIP)
 
 	return parsedEgressRule{
 		sourceIP:  sip,
-		destCIDR:  *dc,
+		destCIDR:  dc,
 		egressIP:  eip,
 		gatewayIP: gip,
 	}
@@ -541,11 +525,11 @@ func tryAssertEgressRules(policyMap egressmap.PolicyMap, rules []egressRule) err
 			return fmt.Errorf("cannot lookup policy entry: %w", err)
 		}
 
-		if !policyVal.GetEgressIP().Equal(r.egressIP) {
+		if policyVal.GetEgressAddr() != r.egressIP {
 			return fmt.Errorf("mismatched egress IP")
 		}
 
-		if !policyVal.GetGatewayIP().Equal(r.gatewayIP) {
+		if policyVal.GetGatewayAddr() != r.gatewayIP {
 			return fmt.Errorf("mismatched gateway IP")
 		}
 	}
@@ -554,7 +538,7 @@ func tryAssertEgressRules(policyMap egressmap.PolicyMap, rules []egressRule) err
 	policyMap.IterateWithCallback(
 		func(key *egressmap.EgressPolicyKey4, val *egressmap.EgressPolicyVal4) {
 			for _, r := range parsedRules {
-				if key.Match(r.sourceIP, &r.destCIDR) && val.Match(r.egressIP, r.gatewayIP) {
+				if key.Match(r.sourceIP, r.destCIDR) && val.Match(r.egressIP, r.gatewayIP) {
 					return
 				}
 			}
