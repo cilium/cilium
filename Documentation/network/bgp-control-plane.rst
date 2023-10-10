@@ -374,6 +374,87 @@ Default value of ``RestartTime`` is 120 seconds. More details on graceful restar
 .. _RFC-4724 : https://www.rfc-editor.org/rfc/rfc4724.html
 .. _RFC-8538 : https://www.rfc-editor.org/rfc/rfc8538.html
 
+Advertised Path Attributes
+''''''''''''''''''''''''''
+
+BGP advertisements can be extended with additional BGP Path Attributes - BGP Communities (`RFC-1997`_) or Local Preference.
+These Path Attributes can be configured selectively for each BGP peer and advertisement type.
+
+The following code block shows an example configuration of ``AdvertisedPathAttributes`` for a BGP neighbor,
+which adds a BGP community attribute with the value ``65001:100`` to all Service announcements from the
+matching ``CiliumLoadBalancerIPPool`` and sets the Local Preference value for all Pod CIDR announcements
+to the value ``150``:
+
+.. code-block:: yaml
+
+   apiVersion: "cilium.io/v2alpha1"
+   kind: CiliumBGPPeeringPolicy
+   #[...]
+   virtualRouters: # []CiliumBGPVirtualRouter
+    - localASN: 64512
+      # [...]
+      neighbors: # []CiliumBGPNeighbor
+       - peerASN: 64512
+         peerAddress: 172.0.0.1/32
+         # [...]
+         advertisedPathAttributes:
+         - selectorType: CiliumLoadBalancerIPPool
+           selector:
+             matchLabels:
+               environment: production
+           communities:
+             standard:
+             - 65001:100
+         - selectorType: PodCIDR
+           localPreference: 150
+           communities:
+             standard:
+             - 65001:150
+
+.. note::
+  Note that Local Preference Path Attribute is sent only to ``iBGP`` peers (not to ``eBGP`` peers).
+
+Each ``AdvertisedPathAttributes`` configuration item consists of two parts:
+
+ - ``SelectorType`` with ``Selector`` define which BGP advertisements will be extended with additional Path Attributes.
+ - ``Communities`` and / or ``LocalPreference`` define the additional Path Attributes applied on the selected routes.
+
+There are two possible values of the ``SelectorType`` which define the object type on which the ``Selector`` applies:
+
+ - ``PodCIDR``: matches ``CiliumNode`` custom resources
+   (Path Attributes apply to routes announced for PodCIDRs of selected ``CiliumNode`` objects).
+ - ``CiliumLoadBalancerIPPool``: matches ``CiliumLoadBalancerIPPool`` custom resources
+   (Path Attributes apply to routes announced for selected ``CiliumLoadBalancerIPPool`` objects).
+
+There are two types of additional Path Attributes that can be advertised with the routes: ``Communities`` and ``LocalPreference``.
+
+``Communities`` defines a set of community values advertised in the supported BGP Communities Path Attributes.
+The values can be of two types:
+
+ - ``Standard``: represents a value of the "standard" 32-bit BGP Communities Attribute (`RFC-1997`_)
+   as a 4-byte decimal number or two 2-byte decimal numbers separated by a colon (e.g. ``65100:100``).
+ - ``Large``: represents a value of the BGP Large Communities Attribute (`RFC-8092`_),
+   as three 4-byte decimal numbers separated by colons (e.g. ``65100:100:50``).
+
+.. _RFC-1997 : https://www.rfc-editor.org/rfc/rfc1997.html
+.. _RFC-8092 : https://www.rfc-editor.org/rfc/rfc8092.html
+
+``LocalPreference`` defines the preference value advertised in the BGP Local Preference Path Attribute.
+As Local Preference is only valid for ``iBGP`` peers, this value will be ignored for ``eBGP`` peers
+(no Local Preference Path Attribute will be advertised).
+
+Once configured, the additional Path Attributes advertised with the routes for a peer can be verified using the
+``cilium-dbg bgp routes`` CLI command, for example:
+
+.. code-block:: shell-session
+
+   $ cilium-dbg bgp routes advertised ipv4 unicast peer 172.0.0.1
+
+   VRouter   Prefix               NextHop     Age     Attrs
+   65000     10.244.0.0/24        172.0.0.2   3m31s   [{Origin: i} {LocalPref: 150} {Nexthop: 172.0.0.2}
+   65000     192.168.100.190/32   172.0.0.2   3m32s   [{Origin: i} {LocalPref: 100} {Communities: 64512:100}] {Nexthop: 172.0.0.2}
+
+
 Service announcements
 ---------------------
 
@@ -446,6 +527,34 @@ The following command shows peering status:
      -D, --debug           Enable debug messages
      -H, --host string     URI to server-side API
 
+The following command shows BGP routes available in the RIB / advertised to the peers:
+
+.. code-block:: shell-session
+
+   cilium# cilium-dbg bgp routes -h
+   List routes in the BGP Control Plane's Routing Information Bases (RIBs)
+
+   Usage:
+     cilium-dbg bgp routes <available | advertised> <afi> <safi> [vrouter <asn>] [peer|neighbor <address>] [flags]
+
+   Examples:
+     Get all IPv4 unicast routes available:
+       cilium bgp routes available ipv4 unicast
+
+     Get all IPv6 unicast routes available for a specific vrouter:
+       cilium bgp routes available ipv6 unicast vrouter 65001
+
+     Get IPv4 unicast routes advertised to a specific peer:
+       cilium bgp routes advertised ipv4 unicast peer 10.0.0.1
+
+   Flags:
+     -h, --help            help for routes
+     -o, --output string   json| yaml| jsonpath='{}'
+
+   Global Flags:
+         --config string   Config file (default is $HOME/.cilium.yaml)
+     -D, --debug           Enable debug messages
+     -H, --host string     URI to server-side API
 
 Cilium-CLI
 ~~~~~~~~~~
