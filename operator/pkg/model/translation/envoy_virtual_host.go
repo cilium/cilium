@@ -12,6 +12,7 @@ import (
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
+	envoy_type_v3 "github.com/cilium/proxy/go/envoy/type/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -319,6 +320,11 @@ func requestMirrorMutation(mirrors []*model.HTTPRequestMirror) routeActionMutati
 			}
 			action = append(action, &envoy_config_route_v3.RouteAction_RequestMirrorPolicy{
 				Cluster: fmt.Sprintf("%s/%s:%s", m.Backend.Namespace, m.Backend.Name, m.Backend.Port.GetPort()),
+				RuntimeFraction: &envoy_config_core_v3.RuntimeFractionalPercent{
+					DefaultValue: &envoy_type_v3.FractionalPercent{
+						Numerator: 100,
+					},
+				},
 			})
 		}
 		route.Route.RequestMirrorPolicies = action

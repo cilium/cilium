@@ -17,6 +17,7 @@ import (
 	envoy_extensions_filters_network_tcp_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_upstreams_http_v3 "github.com/cilium/proxy/go/envoy/extensions/upstreams/http/v3"
 	envoy_type_matcher_v3 "github.com/cilium/proxy/go/envoy/type/matcher/v3"
+	envoy_type_v3 "github.com/cilium/proxy/go/envoy/type/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -3416,6 +3417,11 @@ var mirrorHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 											RequestMirrorPolicies: []*envoy_config_route_v3.RouteAction_RequestMirrorPolicy{
 												{
 													Cluster: fmt.Sprintf("%s/%s:%s", "gateway-conformance-infra", "infra-backend-v2", "8080"),
+													RuntimeFraction: &envoy_config_core_v3.RuntimeFractionalPercent{
+														DefaultValue: &envoy_type_v3.FractionalPercent{
+															Numerator: 100,
+														},
+													},
 												},
 											},
 										},
