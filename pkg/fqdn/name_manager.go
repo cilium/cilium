@@ -9,7 +9,6 @@ import (
 	"net/netip"
 	"regexp"
 	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // NameManager maintains state DNS names, via FQDNSelector or exact match for

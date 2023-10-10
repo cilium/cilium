@@ -5,13 +5,13 @@ package synced
 
 import (
 	"fmt"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Resources maps resource names to channels that are closed upon initial

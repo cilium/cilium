@@ -8,7 +8,6 @@ import (
 	"errors"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	v3rpcErrors "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/spanstat"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // etcdLeaseClient represents the subset of the etcd client methods used to handle the leases lifecycle.

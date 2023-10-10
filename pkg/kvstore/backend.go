@@ -5,9 +5,10 @@ package kvstore
 
 import (
 	"context"
-	"time"
 
 	"google.golang.org/grpc"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type backendOption struct {

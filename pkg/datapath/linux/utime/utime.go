@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"time"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/maps/configmap"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (

@@ -5,9 +5,9 @@ package bpf
 
 import (
 	"regexp"
-	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (

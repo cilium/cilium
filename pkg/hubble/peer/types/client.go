@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/tls"
 	"io"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -16,6 +15,7 @@ import (
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	"github.com/cilium/cilium/pkg/crypto/certloader"
 	hubbleopts "github.com/cilium/cilium/pkg/hubble/server/serveroption"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Client defines an interface that Peer service client should implement.

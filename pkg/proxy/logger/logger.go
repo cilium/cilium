@@ -6,7 +6,6 @@ package logger
 import (
 	"net"
 	"strconv"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (

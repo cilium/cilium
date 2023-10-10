@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/netip"
 	"runtime/pprof"
-	"time"
 
 	"github.com/cilium/cilium/pkg/datapath/garp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -19,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/types"
 
 	"github.com/sirupsen/logrus"

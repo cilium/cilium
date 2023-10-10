@@ -4,9 +4,8 @@
 package endpoint
 
 import (
-	"time"
-
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // WaitForIdentity waits for up to timeoutDuration amount of time for the

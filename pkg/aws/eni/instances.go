@@ -7,7 +7,6 @@ package eni
 
 import (
 	"context"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -17,6 +16,7 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // EC2API is the API surface used of the EC2 API

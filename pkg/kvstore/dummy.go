@@ -6,9 +6,9 @@ package kvstore
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/cilium/cilium/pkg/inctimer"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // SetupDummy sets up kvstore for tests. A lock mechanism it used to prevent

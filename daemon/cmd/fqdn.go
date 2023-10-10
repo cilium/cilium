@@ -16,7 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/cilium/dns"
 	"github.com/go-openapi/runtime/middleware"
@@ -43,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 

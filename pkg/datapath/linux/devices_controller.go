@@ -12,7 +12,6 @@ import (
 	"net/netip"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
@@ -33,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // DevicesControllerCell registers a controller that subscribes to network devices

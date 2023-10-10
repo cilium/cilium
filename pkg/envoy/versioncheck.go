@@ -7,7 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // requiredEnvoyVersionSHA is set during build

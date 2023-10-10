@@ -6,7 +6,6 @@ package observer
 import (
 	"context"
 	"io"
-	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
@@ -19,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/relay/queue"
 	"github.com/cilium/cilium/pkg/inctimer"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func isAvailable(conn poolTypes.ClientConn) bool {

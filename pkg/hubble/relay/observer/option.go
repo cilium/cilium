@@ -5,7 +5,6 @@ package observer
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -15,6 +14,7 @@ import (
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type observerClientBuilder interface {

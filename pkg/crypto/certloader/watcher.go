@@ -5,13 +5,13 @@ package certloader
 
 import (
 	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/fswatcher"
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const watcherEventCoalesceWindow = 100 * time.Millisecond

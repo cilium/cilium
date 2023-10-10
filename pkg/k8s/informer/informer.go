@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
 	utilRuntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8s")

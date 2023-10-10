@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"sync/atomic"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -30,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/spanstat"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var syncCNPStatusControllerGroup = controller.NewGroup("sync-cnp-policy-status")

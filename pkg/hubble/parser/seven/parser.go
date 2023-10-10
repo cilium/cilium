@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/netip"
 	"sort"
-	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/sirupsen/logrus"
@@ -21,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 

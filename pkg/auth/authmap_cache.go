@@ -6,7 +6,6 @@ package auth
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
@@ -15,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type authMapCache struct {

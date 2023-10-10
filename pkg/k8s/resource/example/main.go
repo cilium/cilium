@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"time"
 
 	"github.com/cilium/workerpool"
 	"github.com/spf13/pflag"
@@ -22,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // PrintServices for the pkg/k8s/resource which observers pods and services and once a second prints the list of

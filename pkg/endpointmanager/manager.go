@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/netip"
 	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -32,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (

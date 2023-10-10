@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/go-openapi/runtime/middleware"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func getMetricsHandler(_ *Daemon, params restapi.GetMetricsParams) middleware.Responder {

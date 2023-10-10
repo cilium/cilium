@@ -9,7 +9,6 @@ import (
 	"io"
 	"strings"
 	"sync/atomic"
-	"time"
 	"unsafe"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -19,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/math"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Capacity is the interface that wraps Cap.

@@ -6,9 +6,9 @@ package kvstore
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (

@@ -10,7 +10,6 @@ import (
 	"io"
 	"strings"
 	"sync/atomic"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
@@ -29,6 +28,7 @@ import (
 	parserErrors "github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/fieldmask"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // DefaultOptions to include in the server. Other packages may extend this

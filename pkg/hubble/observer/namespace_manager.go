@@ -6,10 +6,10 @@ package observer
 import (
 	"context"
 	"sort"
-	"time"
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var _ NamespaceManager = &namespaceManager{}

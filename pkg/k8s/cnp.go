@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -27,6 +26,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // CNPStatusUpdateContext is the context required to update the status of a

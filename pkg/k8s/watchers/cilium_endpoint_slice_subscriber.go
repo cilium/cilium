@@ -4,8 +4,6 @@
 package watchers
 
 import (
-	"time"
-
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -15,6 +13,7 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type endpointWatcher interface {

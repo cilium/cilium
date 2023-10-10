@@ -4,12 +4,11 @@
 package service
 
 import (
-	"time"
-
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // ServiceManager provides an interface for service related operations.

@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/blang/semver/v4"
 	"github.com/sirupsen/logrus"
@@ -41,6 +40,7 @@ import (
 	ciliumrate "github.com/cilium/cilium/pkg/rate"
 	ciliumratemetrics "github.com/cilium/cilium/pkg/rate/metrics"
 	"github.com/cilium/cilium/pkg/spanstat"
+	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/versioncheck"
 )
 

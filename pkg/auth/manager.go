@@ -6,7 +6,6 @@ package auth
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // signalAuthKey used in the signalmap. Must reflect struct auth_key in the datapath

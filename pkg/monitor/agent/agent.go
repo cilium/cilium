@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
@@ -26,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/payload"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // isCtxDone is a utility function that returns true when the context's Done()

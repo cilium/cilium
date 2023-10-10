@@ -6,9 +6,9 @@ package kvstore
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (

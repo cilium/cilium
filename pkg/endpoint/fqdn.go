@@ -5,7 +5,8 @@ package endpoint
 
 import (
 	"net/netip"
-	"time"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const logSubsys = "fqdn"

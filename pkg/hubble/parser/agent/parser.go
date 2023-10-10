@@ -6,13 +6,13 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func notifyTimeNotificationToProto(typ flowpb.AgentEventType, n monitorAPI.TimeNotification) *flowpb.AgentEvent {

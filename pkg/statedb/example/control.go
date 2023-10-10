@@ -7,7 +7,6 @@ import (
 	"context"
 	"math/rand"
 	"net/netip"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -16,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var controlCell = cell.Module(

@@ -8,10 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type bpfCollector struct {

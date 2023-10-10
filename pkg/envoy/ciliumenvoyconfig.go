@@ -6,7 +6,6 @@ package envoy
 import (
 	"context"
 	"fmt"
-	"time"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
@@ -27,6 +26,7 @@ import (
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const anyPort = "*"

@@ -7,7 +7,6 @@ import (
 	"context"
 	"net/netip"
 	"sync"
-	"time"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -20,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Cell provides the EndpointManager which maintains the collection of locally

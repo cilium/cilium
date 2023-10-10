@@ -7,7 +7,6 @@ import (
 	"context"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
@@ -21,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // CNPStatusEventHandler handles status updates events for all CNPs in the

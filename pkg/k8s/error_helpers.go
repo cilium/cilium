@@ -5,9 +5,9 @@ package k8s
 
 import (
 	"strings"
-	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (

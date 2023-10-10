@@ -5,7 +5,6 @@ package server
 
 import (
 	"crypto/tls"
-	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
@@ -16,6 +15,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/relay/observer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // MinTLSVersion defines the minimum TLS version clients are expected to

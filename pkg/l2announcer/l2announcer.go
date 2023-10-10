@@ -14,7 +14,6 @@ import (
 	"runtime/pprof"
 	"slices"
 	"strings"
-	"time"
 
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -33,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"

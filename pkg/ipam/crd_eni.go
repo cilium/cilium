@@ -7,13 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"time"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/defaults"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"

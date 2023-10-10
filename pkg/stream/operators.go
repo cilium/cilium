@@ -5,9 +5,10 @@ package stream
 
 import (
 	"context"
-	"time"
 
 	"golang.org/x/time/rate"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 //

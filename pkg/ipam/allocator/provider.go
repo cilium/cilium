@@ -5,10 +5,10 @@ package allocator
 
 import (
 	"context"
-	"time"
 
 	"github.com/cilium/cilium/pkg/ipam"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // AllocatorProvider defines the functions of IPAM provider front-end

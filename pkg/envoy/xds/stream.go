@@ -7,9 +7,10 @@ import (
 	"context"
 	"errors"
 	"io"
-	"time"
 
 	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
+
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // Stream is the subset of the gRPC bi-directional stream types which is used

@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"time"
 
 	healthApi "github.com/cilium/cilium/api/v1/health/server"
 	health "github.com/cilium/cilium/cilium-health/launch"
@@ -18,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var healthControllerGroup = controller.NewGroup("cilium-health")

@@ -4,13 +4,12 @@
 package restapi
 
 import (
-	"time"
-
 	"github.com/spf13/pflag"
 
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/rate"
 	ratemetrics "github.com/cilium/cilium/pkg/rate/metrics"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var rateLimiterCell = cell.Module(

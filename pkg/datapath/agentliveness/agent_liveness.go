@@ -7,13 +7,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/maps/configmap"
+	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"

@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"time"
 
 	consulAPI "github.com/hashicorp/consul/api"
 	"github.com/sirupsen/logrus"
@@ -23,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/spanstat"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const (

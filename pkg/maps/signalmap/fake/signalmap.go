@@ -5,12 +5,12 @@ package fake
 
 import (
 	"os"
-	"time"
 
 	"github.com/cilium/ebpf/perf"
 
 	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type fakeSignalMap struct {

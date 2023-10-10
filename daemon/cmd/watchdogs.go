@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"context"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -17,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const epBPFProgWatchdog = "ep-bpf-prog-watchdog"

@@ -4,14 +4,13 @@
 package endpoint
 
 import (
-	"time"
-
 	"github.com/cilium/cilium/api/v1/models"
 	loaderMetrics "github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/spanstat"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var endpointPolicyStatus endpointPolicyStatusMap

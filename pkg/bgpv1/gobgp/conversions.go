@@ -6,7 +6,6 @@ package gobgp
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	gobgp "github.com/osrg/gobgp/v3/api"
 	"github.com/osrg/gobgp/v3/pkg/apiutil"
@@ -14,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // ToGoBGPPath converts the Agent Path type to the GoBGP Path type
