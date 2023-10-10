@@ -21,13 +21,10 @@ import (
 )
 
 const (
-	minimalPodRestartInterval = 5 * time.Minute
-	unmanagedPodMinimalAge    = 30 * time.Second
+	unmanagedPodMinimalAge = 30 * time.Second
 )
 
 var (
-	lastPodRestart = map[string]time.Time{}
-
 	restartUnmanagedPodsControllerGroup = controller.NewGroup("restart-unmanaged-pods")
 )
 
@@ -50,11 +47,6 @@ func enableUnmanagedController(ctx context.Context, wg *sync.WaitGroup, clientse
 			Group:       restartUnmanagedPodsControllerGroup,
 			RunInterval: time.Duration(operatorOption.Config.UnmanagedPodWatcherInterval) * time.Second,
 			DoFunc: func(ctx context.Context) error {
-				for podName, lastRestart := range lastPodRestart {
-					if time.Since(lastRestart) > 2*minimalPodRestartInterval {
-						delete(lastPodRestart, podName)
-					}
-				}
 				for _, podItem := range watchers.UnmanagedPodStore.List() {
 					pod, ok := podItem.(*slim_corev1.Pod)
 					if !ok {
@@ -80,20 +72,10 @@ func enableUnmanagedController(ctx context.Context, wg *sync.WaitGroup, clientse
 						log.WithField(logfields.K8sPodName, podID).Debugf("Found unmanaged pod")
 						if startTime := pod.Status.StartTime; startTime != nil {
 							if age := time.Since((*startTime).Time); age > unmanagedPodMinimalAge {
-								if lastRestart, ok := lastPodRestart[podID]; ok {
-									if timeSinceRestart := time.Since(lastRestart); timeSinceRestart < minimalPodRestartInterval {
-										log.WithField(logfields.K8sPodName, podID).
-											Debugf("Not restarting unmanaged pod, only %s since last restart", timeSinceRestart)
-										continue
-									}
-								}
-
 								log.WithField(logfields.K8sPodName, podID).Infof("Restarting unmanaged pod, started %s ago", age)
 								if err := clientset.CoreV1().Pods(pod.Namespace).Delete(ctx, pod.Name, metav1.DeleteOptions{}); err != nil {
 									log.WithError(err).WithField(logfields.K8sPodName, podID).Warning("Unable to restart pod")
 								} else {
-									lastPodRestart[podID] = time.Now()
-
 									// Delete a single pod per iteration to avoid killing all replicas at once
 									return nil
 								}
