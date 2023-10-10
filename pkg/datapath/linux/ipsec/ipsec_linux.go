@@ -199,7 +199,13 @@ func xfrmStateReplace(new *netlink.XfrmState) error {
 	for _, s := range states {
 		if xfrmIPEqual(s.Src, new.Src) && xfrmIPEqual(s.Dst, new.Dst) &&
 			xfrmMarkEqual(s.Mark, new.Mark) && s.Spi == new.Spi {
-			return nil
+			if xfrmMarkEqual(s.OutputMark, new.OutputMark) {
+				return nil
+			} else {
+				// If only the output-marks differ, then we should be able
+				// to simply update the XFRM state atomically.
+				return netlink.XfrmStateUpdate(new)
+			}
 		}
 	}
 
