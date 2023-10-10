@@ -5,7 +5,7 @@ package egressgateway
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -21,14 +21,14 @@ type endpointMetadata struct {
 	// Endpoint ID
 	id endpointID
 	// ips are endpoint's unique IPs
-	ips []net.IP
+	ips []netip.Addr
 }
 
 // endpointID includes endpoint name and namespace
 type endpointID = types.NamespacedName
 
 func getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint, identityLabels labels.Labels) (*endpointMetadata, error) {
-	var ipv4s []net.IP
+	var addrs []netip.Addr
 	id := types.NamespacedName{
 		Name:      endpoint.GetName(),
 		Namespace: endpoint.GetNamespace(),
@@ -44,7 +44,11 @@ func getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint, identityLabels label
 
 	for _, pair := range endpoint.Networking.Addressing {
 		if pair.IPV4 != "" {
-			ipv4s = append(ipv4s, net.ParseIP(pair.IPV4).To4())
+			addr, err := netip.ParseAddr(pair.IPV4)
+			if err != nil || !addr.Is4() {
+				continue
+			}
+			addrs = append(addrs, addr)
 		}
 	}
 
@@ -53,7 +57,7 @@ func getEndpointMetadata(endpoint *k8sTypes.CiliumEndpoint, identityLabels label
 	}
 
 	data := &endpointMetadata{
-		ips:    ipv4s,
+		ips:    addrs,
 		labels: identityLabels.K8sStringMap(),
 		id:     id,
 	}

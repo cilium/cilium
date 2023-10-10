@@ -5,49 +5,58 @@ package egressgateway
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 )
 
-func getIfaceFirstIPv4Address(ifaceName string) (net.IPNet, error) {
+func getIfaceFirstIPv4Address(ifaceName string) (netip.Addr, error) {
 	dev, err := netlink.LinkByName(ifaceName)
 	if err != nil {
-		return net.IPNet{}, err
+		return netip.Addr{}, err
 	}
 
 	addrs, err := netlink.AddrList(dev, netlink.FAMILY_V4)
 	if err != nil {
-		return net.IPNet{}, err
+		return netip.Addr{}, err
 	}
 
 	for _, addr := range addrs {
 		if addr.IP.To4() != nil {
-			return *addr.IPNet, nil
+			a, ok := netipx.FromStdIP(addr.IP)
+			if !ok {
+				continue
+			}
+			return a, nil
 		}
 	}
 
-	return net.IPNet{}, fmt.Errorf("no IPv4 address assigned to interface")
+	return netip.Addr{}, fmt.Errorf("no IPv4 address assigned to interface")
 }
 
-func getIfaceWithIPv4Address(ip net.IP) (string, net.IPMask, error) {
+func getIfaceWithIPv4Address(ip netip.Addr) (string, error) {
 	links, err := netlink.LinkList()
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 
 	for _, l := range links {
 		addrs, err := netlink.AddrList(l, netlink.FAMILY_V4)
 		if err != nil {
-			return "", nil, err
+			return "", err
 		}
 
 		for _, addr := range addrs {
-			if addr.IP.Equal(ip) {
-				return l.Attrs().Name, addr.Mask, nil
+			a, ok := netipx.FromStdIP(addr.IP)
+			if !ok {
+				continue
+			}
+			if a == ip {
+				return l.Attrs().Name, nil
 			}
 		}
 	}
 
-	return "", nil, fmt.Errorf("no interface with %s IPv4 assigned to", ip)
+	return "", fmt.Errorf("no interface with %s IPv4 assigned to", ip)
 }

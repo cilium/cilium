@@ -5,8 +5,11 @@ package egressmap
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"unsafe"
+
+	"github.com/spf13/pflag"
+	"go4.org/netipx"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
@@ -15,8 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
-
-	"github.com/spf13/pflag"
 )
 
 const (
@@ -57,9 +58,9 @@ func (def PolicyConfig) Flags(flags *pflag.FlagSet) {
 
 // PolicyMap is used to communicate EGW policies to the datapath.
 type PolicyMap interface {
-	Lookup(sourceIP net.IP, destCIDR net.IPNet) (*EgressPolicyVal4, error)
-	Update(sourceIP net.IP, destCIDR net.IPNet, egressIP, gatewayIP net.IP) error
-	Delete(sourceIP net.IP, destCIDR net.IPNet) error
+	Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyVal4, error)
+	Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP, gatewayIP netip.Addr) error
+	Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error
 	IterateWithCallback(EgressPolicyIterateCallback) error
 }
 
@@ -133,12 +134,12 @@ func OpenPinnedPolicyMap() (PolicyMap, error) {
 
 // NewEgressPolicyKey4 returns a new EgressPolicyKey4 object representing the
 // (source IP, destination CIDR) tuple.
-func NewEgressPolicyKey4(sourceIP, destIP net.IP, destinationMask net.IPMask) EgressPolicyKey4 {
+func NewEgressPolicyKey4(sourceIP netip.Addr, destPrefix netip.Prefix) EgressPolicyKey4 {
 	key := EgressPolicyKey4{}
 
-	ones, _ := destinationMask.Size()
-	copy(key.SourceIP[:], sourceIP.To4())
-	copy(key.DestCIDR[:], destIP.To4())
+	ones := destPrefix.Bits()
+	key.SourceIP.FromAddr(sourceIP)
+	key.DestCIDR.FromAddr(destPrefix.Addr())
 	key.PrefixLen = PolicyStaticPrefixBits + uint32(ones)
 
 	return key
@@ -146,61 +147,60 @@ func NewEgressPolicyKey4(sourceIP, destIP net.IP, destinationMask net.IPMask) Eg
 
 // NewEgressPolicyVal4 returns a new EgressPolicyVal4 object representing for
 // the given egress IP and gateway IPs
-func NewEgressPolicyVal4(egressIP, gatewayIP net.IP) EgressPolicyVal4 {
+func NewEgressPolicyVal4(egressIP, gatewayIP netip.Addr) EgressPolicyVal4 {
 	val := EgressPolicyVal4{}
 
-	copy(val.EgressIP[:], egressIP.To4())
-	copy(val.GatewayIP[:], gatewayIP.To4())
+	val.EgressIP.FromAddr(egressIP)
+	val.GatewayIP.FromAddr(gatewayIP)
 
 	return val
 }
 
 // Match returns true if the sourceIP and destCIDR parameters match the egress
 // policy key.
-func (k *EgressPolicyKey4) Match(sourceIP net.IP, destCIDR *net.IPNet) bool {
-	return k.GetSourceIP().Equal(sourceIP) &&
-		k.GetDestCIDR().String() == destCIDR.String()
+func (k *EgressPolicyKey4) Match(sourceIP netip.Addr, destCIDR netip.Prefix) bool {
+	return k.GetSourceIP() == sourceIP &&
+		k.GetDestCIDR() == destCIDR
 }
 
 // GetSourceIP returns the egress policy key's source IP.
-func (k *EgressPolicyKey4) GetSourceIP() net.IP {
-	return k.SourceIP.IP()
+func (k *EgressPolicyKey4) GetSourceIP() netip.Addr {
+	addr, _ := netipx.FromStdIP(k.SourceIP.IP())
+	return addr
 }
 
 // GetDestCIDR returns the egress policy key's destination CIDR.
-func (k *EgressPolicyKey4) GetDestCIDR() *net.IPNet {
-	return &net.IPNet{
-		IP:   k.DestCIDR.IP(),
-		Mask: net.CIDRMask(int(k.PrefixLen-PolicyStaticPrefixBits), 32),
-	}
+func (k *EgressPolicyKey4) GetDestCIDR() netip.Prefix {
+	addr, _ := netipx.FromStdIP(k.DestCIDR.IP())
+	return netip.PrefixFrom(addr, int(k.PrefixLen-PolicyStaticPrefixBits))
 }
 
 // Match returns true if the egressIP and gatewayIP parameters match the egress
 // policy value.
-func (v *EgressPolicyVal4) Match(egressIP, gatewayIP net.IP) bool {
-	return v.GetEgressIP().Equal(egressIP) &&
-		v.GetGatewayIP().Equal(gatewayIP)
+func (v *EgressPolicyVal4) Match(egressIP, gatewayIP netip.Addr) bool {
+	return v.GetEgressAddr() == egressIP &&
+		v.GetGatewayAddr() == gatewayIP
 }
 
 // GetEgressIP returns the egress policy value's egress IP.
-func (v *EgressPolicyVal4) GetEgressIP() net.IP {
-	return v.EgressIP.IP()
+func (v *EgressPolicyVal4) GetEgressAddr() netip.Addr {
+	return v.EgressIP.Addr()
 }
 
 // GetGatewayIP returns the egress policy value's gateway IP.
-func (v *EgressPolicyVal4) GetGatewayIP() net.IP {
-	return v.GatewayIP.IP()
+func (v *EgressPolicyVal4) GetGatewayAddr() netip.Addr {
+	return v.GatewayIP.Addr()
 }
 
 // String returns the string representation of an egress policy value.
 func (v *EgressPolicyVal4) String() string {
-	return fmt.Sprintf("%s %s", v.GetGatewayIP(), v.GetEgressIP())
+	return fmt.Sprintf("%s %s", v.GetGatewayAddr(), v.GetEgressAddr())
 }
 
 // Lookup returns the egress policy object associated with the provided (source
 // IP, destination CIDR) tuple.
-func (m *policyMap) Lookup(sourceIP net.IP, destCIDR net.IPNet) (*EgressPolicyVal4, error) {
-	key := NewEgressPolicyKey4(sourceIP, destCIDR.IP, destCIDR.Mask)
+func (m *policyMap) Lookup(sourceIP netip.Addr, destCIDR netip.Prefix) (*EgressPolicyVal4, error) {
+	key := NewEgressPolicyKey4(sourceIP, destCIDR)
 	val := EgressPolicyVal4{}
 
 	err := m.m.Lookup(&key, &val)
@@ -210,16 +210,16 @@ func (m *policyMap) Lookup(sourceIP net.IP, destCIDR net.IPNet) (*EgressPolicyVa
 
 // Update updates the (sourceIP, destCIDR) egress policy entry with the provided
 // egress and gateway IPs.
-func (m *policyMap) Update(sourceIP net.IP, destCIDR net.IPNet, egressIP, gatewayIP net.IP) error {
-	key := NewEgressPolicyKey4(sourceIP, destCIDR.IP, destCIDR.Mask)
+func (m *policyMap) Update(sourceIP netip.Addr, destCIDR netip.Prefix, egressIP, gatewayIP netip.Addr) error {
+	key := NewEgressPolicyKey4(sourceIP, destCIDR)
 	val := NewEgressPolicyVal4(egressIP, gatewayIP)
 
 	return m.m.Update(key, val, 0)
 }
 
 // Delete deletes the (sourceIP, destCIDR) egress policy entry.
-func (m *policyMap) Delete(sourceIP net.IP, destCIDR net.IPNet) error {
-	key := NewEgressPolicyKey4(sourceIP, destCIDR.IP, destCIDR.Mask)
+func (m *policyMap) Delete(sourceIP netip.Addr, destCIDR netip.Prefix) error {
+	key := NewEgressPolicyKey4(sourceIP, destCIDR)
 
 	return m.m.Delete(key)
 }

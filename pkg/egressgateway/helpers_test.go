@@ -6,7 +6,7 @@ package egressgateway
 import (
 	"context"
 	"errors"
-	"net"
+	"net/netip"
 	"testing"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -82,19 +82,20 @@ type policyParams struct {
 }
 
 func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig) {
-	_, parsedDestinationCIDR, _ := net.ParseCIDR(params.destinationCIDR)
+	parsedDestinationCIDR, _ := netip.ParsePrefix(params.destinationCIDR)
 
-	parsedExcludedCIDRs := []*net.IPNet{}
+	parsedExcludedCIDRs := make([]netip.Prefix, 0, len(params.excludedCIDRs))
 	for _, excludedCIDR := range params.excludedCIDRs {
-		_, parsedExcludedCIDR, _ := net.ParseCIDR(excludedCIDR)
+		parsedExcludedCIDR, _ := netip.ParsePrefix(excludedCIDR)
 		parsedExcludedCIDRs = append(parsedExcludedCIDRs, parsedExcludedCIDR)
 	}
 
+	addr, _ := netip.ParseAddr(params.egressIP)
 	policy := &PolicyConfig{
 		id: types.NamespacedName{
 			Name: params.name,
 		},
-		dstCIDRs:      []*net.IPNet{parsedDestinationCIDR},
+		dstCIDRs:      []netip.Prefix{parsedDestinationCIDR},
 		excludedCIDRs: parsedExcludedCIDRs,
 		endpointSelectors: []api.EndpointSelector{
 			{
@@ -105,7 +106,7 @@ func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig
 		},
 		policyGwConfig: &policyGatewayConfig{
 			iface:    params.iface,
-			egressIP: net.ParseIP(params.egressIP),
+			egressIP: addr,
 		},
 	}
 

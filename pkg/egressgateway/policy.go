@@ -5,9 +5,10 @@ package egressgateway
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 
 	"github.com/sirupsen/logrus"
+	"go4.org/netipx"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -26,7 +27,7 @@ import (
 type policyGatewayConfig struct {
 	nodeSelector api.EndpointSelector
 	iface        string
-	egressIP     net.IP
+	egressIP     netip.Addr
 }
 
 // gatewayConfig is the gateway configuration derived at runtime from a policy.
@@ -39,9 +40,9 @@ type gatewayConfig struct {
 	// ifaceName is the name of the interface used to SNAT traffic
 	ifaceName string
 	// egressIP is the IP used to SNAT traffic
-	egressIP net.IPNet
+	egressIP netip.Addr
 	// gatewayIP is the node internal IP of the gateway
-	gatewayIP net.IP
+	gatewayIP netip.Addr
 }
 
 // PolicyConfig is the internal representation of CiliumEgressGatewayPolicy.
@@ -50,8 +51,8 @@ type PolicyConfig struct {
 	id types.NamespacedName
 
 	endpointSelectors []api.EndpointSelector
-	dstCIDRs          []*net.IPNet
-	excludedCIDRs     []*net.IPNet
+	dstCIDRs          []netip.Prefix
+	excludedCIDRs     []netip.Prefix
 
 	policyGwConfig *policyGatewayConfig
 
@@ -91,7 +92,7 @@ func (config *policyGatewayConfig) selectsNodeAsGateway(node nodeTypes.Node) boo
 
 func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 	gwc := gatewayConfig{
-		egressIP:  net.IPNet{IP: net.IPv4zero, Mask: net.CIDRMask(0, 0)},
+		egressIP:  netip.IPv4Unspecified(),
 		gatewayIP: GatewayNotFoundIPv4,
 	}
 
@@ -102,7 +103,11 @@ func (config *PolicyConfig) regenerateGatewayConfig(manager *Manager) {
 			continue
 		}
 
-		gwc.gatewayIP = node.GetK8sNodeIP()
+		addr, ok := netipx.FromStdIP(node.GetK8sNodeIP())
+		if !ok {
+			continue
+		}
+		gwc.gatewayIP = addr
 
 		if node.IsLocal() {
 			err := gwc.deriveFromPolicyGatewayConfig(policyGwc)
@@ -136,11 +141,11 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve IPv4 address for egress interface: %w", err)
 		}
-	case gc.egressIP != nil && !gc.egressIP.Equal(net.IPv4zero):
+	case gc.egressIP.IsValid():
 		// If the gateway config specifies an egress IP, use the interface with that IP as egress
 		// interface
-		gwc.egressIP.IP = gc.egressIP
-		gwc.ifaceName, gwc.egressIP.Mask, err = getIfaceWithIPv4Address(gc.egressIP)
+		gwc.egressIP = gc.egressIP
+		gwc.ifaceName, err = getIfaceWithIPv4Address(gc.egressIP)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve interface with egress IP: %w", err)
 		}
@@ -167,7 +172,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 // calls the f callback function passing the given endpoint and CIDR, together
 // with a boolean value indicating if the CIDR belongs to the excluded ones and
 // the gatewayConfig of the receiver policy
-func (config *PolicyConfig) forEachEndpointAndCIDR(f func(net.IP, *net.IPNet, bool, *gatewayConfig)) {
+func (config *PolicyConfig) forEachEndpointAndCIDR(f func(netip.Addr, netip.Prefix, bool, *gatewayConfig)) {
 
 	for _, endpoint := range config.matchedEndpoints {
 		for _, endpointIP := range endpoint.ips {
@@ -188,8 +193,8 @@ func (config *PolicyConfig) forEachEndpointAndCIDR(f func(net.IP, *net.IPNet, bo
 // the internal representation of the egress gateway policy
 func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	var endpointSelectorList []api.EndpointSelector
-	var dstCidrList []*net.IPNet
-	var excludedCIDRs []*net.IPNet
+	var dstCidrList []netip.Prefix
+	var excludedCIDRs []netip.Prefix
 
 	allowAllNamespacesRequirement := slim_metav1.LabelSelectorRequirement{
 		Key:      k8sConst.PodNamespaceLabel,
@@ -215,14 +220,16 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		return nil, fmt.Errorf("gateway configuration can't specify both an interface and an egress IP")
 	}
 
+	// EgressIP is not a required field, ignore the error if unable to parse.
+	addr, _ := netip.ParseAddr(egressGateway.EgressIP)
 	policyGwc := &policyGatewayConfig{
 		nodeSelector: api.NewESFromK8sLabelSelector("", egressGateway.NodeSelector),
 		iface:        egressGateway.Interface,
-		egressIP:     net.ParseIP(egressGateway.EgressIP),
+		egressIP:     addr,
 	}
 
 	for _, cidrString := range destinationCIDRs {
-		_, cidr, err := net.ParseCIDR(string(cidrString))
+		cidr, err := netip.ParsePrefix(string(cidrString))
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse destination CIDR %s: %s", cidrString, err)
 		}
@@ -230,7 +237,7 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 	}
 
 	for _, cidrString := range cegp.Spec.ExcludedCIDRs {
-		_, cidr, err := net.ParseCIDR(string(cidrString))
+		cidr, err := netip.ParsePrefix(string(cidrString))
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse excluded CIDR %s: %s", cidr, err)
 		}
