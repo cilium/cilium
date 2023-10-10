@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/maps"
 	"k8s.io/klog/v2"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -274,4 +275,29 @@ func CanLogAt(logger *logrus.Logger, level logrus.Level) bool {
 // GetLevel returns the log level of the given logger.
 func GetLevel(logger *logrus.Logger) logrus.Level {
 	return logrus.Level(atomic.LoadUint32((*uint32)(&logger.Level)))
+}
+
+// SampleMap takes a limited sample of the entries in the specified map in
+// order to avoid spamming the logs with too much data. In general the goal
+// should be to avoid logging unbounded data into logs, however there may be
+// scenarios where a map is sufficient to provide some datapoints for
+// debugging. For a more comprehensive approach, users should consider exposing
+// the data separately, for instance via local agent APIs.
+func SampleMapKeys[K comparable, V any](m map[K]V) []K {
+	keys := maps.Keys(m)
+	return SampleSlice(keys)
+}
+
+// SampleSlice takes a limited sample of the entries in the specified slice
+// in order to avoid spamming the logs with too much data. In general the goal
+// should be to avoid logging unbounded data into logs, however there may be
+// scenarios where a slice is sufficient to provide some datapoints for
+// debugging. For a more comprehensive approach, users should consider exposing
+// the data separately, for instance via local agent APIs.
+func SampleSlice[C comparable](slice []C) []C {
+	n := len(slice)
+	if n < 10 {
+		return slice
+	}
+	return slice[:10]
 }
