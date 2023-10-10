@@ -277,7 +277,7 @@ func GetLevel(logger *logrus.Logger) logrus.Level {
 	return logrus.Level(atomic.LoadUint32((*uint32)(&logger.Level)))
 }
 
-// SampleMap takes a limited sample of the entries in the specified map in
+// SampleMapKeys takes a limited sample of the entries in the specified map in
 // order to avoid spamming the logs with too much data. In general the goal
 // should be to avoid logging unbounded data into logs, however there may be
 // scenarios where a map is sufficient to provide some datapoints for
