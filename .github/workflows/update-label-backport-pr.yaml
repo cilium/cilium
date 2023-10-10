@@ -22,12 +22,26 @@
         runs-on: ubuntu-latest
         permissions:
           pull-requests: write # Adding and removing labels
+        env:
+          body: ${{ inputs.pr-body }}
         steps:
-          - name: Update labels in backported PRs
+          - name: Pre-process PR body
+            id: pre-process
+            uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 #v6.4.1
+            with:
+              script: |
+                const { body } = process.env
+                return body.replace(/\'/g, '')
+                  .replace(/"/g, '')
+                  .replace(/`/g, '')
+                  .replace(/$/g, '')
+              result-encoding: string
+
+          - name: Update labels
             env:
               GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             run: |
-              echo '${{ inputs.pr-body }}' | sed -En "/upstream-prs/ { n; p }" | cut -d ';' -f 1 | grep -Eo '[0-9]+' | while read -r pr; do
+              echo "${{steps.pre-process.outputs.result}}" | sed -En "/upstream-prs/ { n; p }" | cut -d ';' -f 1 | grep -Eo '[0-9]+' | while read -r pr; do
                 echo "Removing label backport-pending/${{ inputs.branch }} from pr #${pr}."
                 gh pr edit ${pr} --repo "${GITHUB_REPOSITORY}" --remove-label backport-pending/"${{ inputs.branch }}"
                 echo "Adding label backport-done/${{ inputs.branch }} to pr #${pr}."
