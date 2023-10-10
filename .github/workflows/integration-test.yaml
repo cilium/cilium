@@ -116,7 +116,7 @@ jobs:
 
   commit-status-final:
     if: ${{ always() }}
-    name: Cimmit Status Final
+    name: Commit Status Final
     needs: integration-test
     runs-on: ubuntu-latest
     steps:
