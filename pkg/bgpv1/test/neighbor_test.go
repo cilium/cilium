@@ -5,6 +5,8 @@ package test
 
 import (
 	"context"
+	"reflect"
+	"sort"
 	"testing"
 	"time"
 
@@ -14,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/testutils"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
@@ -119,7 +120,7 @@ func Test_NeighborAddDel(t *testing.T) {
 			description:        "delete both neighbors",
 			neighbors:          []cilium_api_v2alpha1.CiliumBGPNeighbor{},
 			waitState:          []string{"IDLE", "ACTIVE"},
-			expectedPeerStates: []peeringState{},
+			expectedPeerStates: nil,
 		},
 	}
 
@@ -173,7 +174,7 @@ func Test_NeighborAddDel(t *testing.T) {
 						holdTimeSeconds: peer.AppliedHoldTimeSeconds,
 					})
 				}
-				return assert.ElementsMatch(t, step.expectedPeerStates, runningState, step.description)
+				return peeringStatesEqual(t, step.expectedPeerStates, runningState)
 			}
 
 			// Retry peerStatesMatch once per second until the test context deadline.
@@ -315,7 +316,7 @@ func Test_NeighborGracefulRestart(t *testing.T) {
 					gracefulRestartEnabled: peers[0].GracefulRestart.Enabled,
 					gracefulRestartTime:    peers[0].GracefulRestart.RestartTimeSeconds,
 				}
-				return assert.Equal(t, step.expectedPeerState, runningPeerState)
+				return peeringStatesEqual(t, []peeringState{step.expectedPeerState}, []peeringState{runningPeerState})
 			}
 
 			// Retry peerStatesMatch once per second until the test context deadline.
@@ -325,4 +326,18 @@ func Test_NeighborGracefulRestart(t *testing.T) {
 			require.Eventually(t, peerStatesMatch, outstanding, 1*time.Second)
 		})
 	}
+}
+
+func peeringStatesEqual(t *testing.T, expected, actual []peeringState) bool {
+	sort.Slice(expected, func(i, j int) bool {
+		return expected[i].peerASN < expected[j].peerASN
+	})
+	sort.Slice(actual, func(i, j int) bool {
+		return actual[i].peerASN < actual[j].peerASN
+	})
+	equal := reflect.DeepEqual(expected, actual)
+	if !equal {
+		t.Logf("peering states not (yet) equal - expected: %v, actual: %v", expected, actual)
+	}
+	return equal
 }
