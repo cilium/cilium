@@ -58,24 +58,33 @@ func TestFeatureSetMatchRequirements(t *testing.T) {
 	}
 }
 
-func TestFeatureSet_extractFeaturesFromConfigMap(t *testing.T) {
+func TestFeatureSet_extractFromVersionedConfigMap(t *testing.T) {
 	fs := Set{}
 	ciliumVersion := semver.Version{Major: 1, Minor: 14, Patch: 0}
 	cm := corev1.ConfigMap{}
-	fs.ExtractFromConfigMap(ciliumVersion, &cm)
+	fs.ExtractFromVersionedConfigMap(ciliumVersion, &cm)
+	cm.Data = map[string]string{
+		"routing-mode":    "tunnel",
+		"tunnel-protocol": "geneve",
+	}
+	fs.ExtractFromVersionedConfigMap(ciliumVersion, &cm)
+	assert.True(t, fs[Tunnel].Enabled)
+	assert.Equal(t, "geneve", fs[Tunnel].Mode)
+}
+
+func TestFeatureSet_extractFromConfigMap(t *testing.T) {
+	fs := Set{}
+	cm := corev1.ConfigMap{}
+	fs.ExtractFromConfigMap(&cm)
 	cm.Data = map[string]string{
 		"enable-ipv4":                "true",
 		"enable-ipv6":                "true",
-		"routing-mode":               "tunnel",
-		"tunnel-protocol":            "geneve",
 		"mesh-auth-mutual-enabled":   "true",
 		"enable-ipv4-egress-gateway": "true",
 	}
-	fs.ExtractFromConfigMap(ciliumVersion, &cm)
+	fs.ExtractFromConfigMap(&cm)
 	assert.True(t, fs[IPv4].Enabled)
 	assert.True(t, fs[IPv6].Enabled)
 	assert.True(t, fs[AuthSpiffe].Enabled)
 	assert.True(t, fs[EgressGateway].Enabled)
-	assert.True(t, fs[Tunnel].Enabled)
-	assert.Equal(t, "geneve", fs[Tunnel].Mode)
 }
