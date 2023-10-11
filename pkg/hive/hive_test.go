@@ -224,6 +224,39 @@ func TestProvideInvoke(t *testing.T) {
 	assert.True(t, invoked, "expected invoke to be called, but it was not")
 }
 
+func TestModuleID(t *testing.T) {
+	invoked := false
+	inner := cell.Module(
+		"inner",
+		"inner module",
+		cell.Invoke(func(id cell.ModuleID, fid cell.FullModuleID) error {
+			invoked = true
+			if id != "inner" {
+				return fmt.Errorf("inner id mismatch, expected 'inner', got %q", id)
+			}
+			if fid.String() != "outer.inner" {
+				return fmt.Errorf("outer id mismatch, expected 'outer.inner', got %q", fid)
+			}
+			return nil
+		}),
+	)
+
+	outer := cell.Module(
+		"outer",
+		"outer module",
+		inner,
+	)
+
+	err := hive.New(
+		outer,
+		shutdownOnStartCell,
+	).Run()
+	assert.NoError(t, err, "expected Run to succeed")
+
+	assert.True(t, invoked, "expected invoke to be called, but it was not")
+
+}
+
 func TestProvideHealthReporter(t *testing.T) {
 	// Module provided health reporter should be injected and be scoped to the
 	// module ID.
