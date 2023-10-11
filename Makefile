@@ -621,19 +621,19 @@ kind-install-cilium-fast: kind-ready ## Install a local Cilium version into the 
 
 .PHONY: build-cli
 build-cli: ## Build cilium cli binary
-	$(QUIET)$(MAKE) -C cilium-dbg
+	$(QUIET)$(MAKE) -C cilium-dbg GOOS=linux
 
 .PHONY: build-agent
 build-agent: ## Build cilium daemon binary
-	$(QUIET)$(MAKE) -C daemon
+	$(QUIET)$(MAKE) -C daemon GOOS=linux
 
 .PHONY: build-operator
 build-operator: ## Build cilium operator binary
-	$(QUIET)$(MAKE) -C operator cilium-operator-generic
+	$(QUIET)$(MAKE) -C operator cilium-operator-generic GOOS=linux
 
 .PHONY: build-clustermesh-apiserver
 build-clustermesh-apiserver: ## Build cilium clustermesh-apiserver binary
-	$(QUIET)$(MAKE) -C clustermesh-apiserver
+	$(QUIET)$(MAKE) -C clustermesh-apiserver  GOOS=linux
 
 .PHONY: kind-image-fast-agent
 kind-image-fast-agent: kind-ready build-cli build-agent ## Build cilium cli and daemon binaries. Copy the bins and bpf files to kind nodes.
