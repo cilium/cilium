@@ -1705,9 +1705,9 @@ enableIPv4BIGTCP: false
 # -- Enables IPv6 BIG TCP support which increases maximum IPv6 GSO/GRO limits for nodes and pods
 enableIPv6BIGTCP: false
 
-# -- Enables egress gateway to redirect and SNAT the traffic that leaves the
-# cluster.
 egressGateway:
+  # -- Enables egress gateway to redirect and SNAT the traffic that leaves the
+  # cluster.
   enabled: false
   # -- Deprecated without a replacement necessary.
   installRoutes: false
