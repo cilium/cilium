@@ -1665,7 +1665,6 @@ type daemonParams struct {
 	AuthManager          *auth.AuthManager
 	Settings             cellSettings
 	HealthProvider       cell.Health
-	HealthReporter       cell.HealthReporter
 	DeviceManager        *linuxdatapath.DeviceManager `optional:"true"`
 	// Grab the GC object so that we can start the CT/NAT map garbage collection.
 	// This is currently necessary because these maps have not yet been modularized,

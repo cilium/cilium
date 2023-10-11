@@ -223,7 +223,6 @@ type Daemon struct {
 	settings cellSettings
 	// enable modules health support
 	healthProvider cell.Health
-	healthReporter cell.HealthReporter
 }
 
 func (d *Daemon) initDNSProxyContext(size int) {
@@ -529,7 +528,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		authManager:          params.AuthManager,
 		settings:             params.Settings,
 		healthProvider:       params.HealthProvider,
-		healthReporter:       params.HealthReporter,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
