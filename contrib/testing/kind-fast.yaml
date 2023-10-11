@@ -1,7 +1,7 @@
 extraVolumes:
-  - name: cilium-cli-binary
+  - name: cilium-dbg-binary
     hostPath:
-      path: /cilium-binaries/cilium
+      path: /cilium-binaries/cilium-dbg
       type: File
   - name: cilium-agent-binary
     hostPath:
