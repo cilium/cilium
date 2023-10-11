@@ -60,11 +60,6 @@ func (e *Endpoint) policyMapPath() string {
 	return bpf.LocalMapPath(policymap.MapName, e.ID)
 }
 
-// callsMapPath returns the path to cilium tail calls map of an endpoint.
-func (e *Endpoint) callsMapPath() string {
-	return e.owner.Datapath().Loader().CallsMapPath(e.ID)
-}
-
 // callsCustomMapPath returns the path to cilium custom tail calls map of an
 // endpoint.
 func (e *Endpoint) customCallsMapPath() string {
@@ -945,7 +940,6 @@ func (e *Endpoint) deleteMaps() []error {
 
 	maps := map[string]string{
 		"policy": e.policyMapPath(),
-		"calls":  e.callsMapPath(),
 	}
 	if !e.isHost {
 		maps["custom"] = e.customCallsMapPath()

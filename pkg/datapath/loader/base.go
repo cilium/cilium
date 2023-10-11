@@ -214,7 +214,6 @@ func (l *Loader) reinitializeOverlay(ctx context.Context, encapProto string) err
 	opts := []string{
 		fmt.Sprintf("-DSECLABEL=%d", identity.ReservedIdentityWorld),
 		fmt.Sprintf("-DNODE_MAC={.addr=%s}", mac.CArrayString(link.Attrs().HardwareAddr)),
-		fmt.Sprintf("-DCALLS_MAP=cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
 	}
 	if option.Config.EnableNodePort {
 		opts = append(opts, "-DDISABLE_LOOPBACK_LB")
@@ -385,7 +384,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	if option.Config.EnableSocketLB {
 		// compile bpf_sock.c and attach/detach progs for socketLB
-		if err := CompileWithOptions(ctx, "bpf_sock.c", "bpf_sock.o", []string{"-DCALLS_MAP=cilium_calls_lb"}); err != nil {
+		if err := CompileWithOptions(ctx, "bpf_sock.c", "bpf_sock.o", nil); err != nil {
 			log.WithError(err).Fatal("failed to compile bpf_sock.c")
 		}
 		if err := socketlb.Enable(); err != nil {

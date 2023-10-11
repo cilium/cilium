@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/elf"
@@ -28,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -194,8 +194,6 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	// Among string substitutions, only the calls map name is specific to each
 	// attachment interface.
 	strings = nullifyStringSubstitutions(strings)
-	callsMapHostDevice := bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID()))
-	strings[callsMapHostDevice] = bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifIndex))
 
 	return hostObj.Write(dstPath, opts, strings)
 }
@@ -616,15 +614,10 @@ func (l *Loader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error
 	return l.templateCache.baseHash.sumEndpoint(l.templateCache, cfg, true)
 }
 
-// CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.
-func (l *Loader) CallsMapPath(id uint16) string {
-	return bpf.LocalMapPath(callsmap.MapName, id)
-}
-
 // CustomCallsMapPath gets the BPF Custom Calls Map for the endpoint with the
 // specified ID.
 func (l *Loader) CustomCallsMapPath(id uint16) string {
-	return bpf.LocalMapPath(callsmap.CustomCallsMapName, id)
+	return bpf.LocalMapPath(maps.CustomCallsMapPrefix, id)
 }
 
 // HostDatapathInitialized returns a channel which is closed when the

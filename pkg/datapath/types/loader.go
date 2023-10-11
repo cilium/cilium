@@ -14,7 +14,6 @@ import (
 
 // Loader is an interface to abstract out loading of datapath programs.
 type Loader interface {
-	CallsMapPath(id uint16) string
 	CustomCallsMapPath(id uint16) string
 	CompileAndLoad(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) error
 	CompileOrLoad(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) error

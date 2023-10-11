@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/elf"
-	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -165,11 +164,7 @@ func (s *LoaderTestSuite) TestCompileAndLoadDefaultEndpoint(c *C) {
 func (s *LoaderTestSuite) TestCompileAndLoadHostEndpoint(c *C) {
 	elfMapPrefixes = []string{
 		fmt.Sprintf("test_%s", policymap.MapName),
-		fmt.Sprintf("test_%s", callsmap.MapName),
 	}
-
-	callsmap.HostMapName = fmt.Sprintf("test_%s", callsmap.MapName)
-	callsmap.NetdevMapName = fmt.Sprintf("test_%s", callsmap.MapName)
 
 	epDir := ep.StateDir()
 	err := os.MkdirAll(epDir, 0755)
@@ -308,7 +303,6 @@ func BenchmarkCompileOrLoad(b *testing.B) {
 
 	elfMapPrefixes = []string{
 		fmt.Sprintf("test_%s", policymap.MapName),
-		fmt.Sprintf("test_%s", callsmap.MapName),
 	}
 
 	sourceFile := filepath.Join(bpfDir, endpointProg)

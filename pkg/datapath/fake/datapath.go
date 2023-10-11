@@ -141,10 +141,6 @@ func (f *fakeLoader) EndpointHash(cfg datapath.EndpointConfiguration) (string, e
 func (f *fakeLoader) Unload(ep datapath.Endpoint) {
 }
 
-func (f *fakeLoader) CallsMapPath(id uint16) string {
-	return ""
-}
-
 func (f *fakeLoader) CustomCallsMapPath(id uint16) string {
 	return ""
 }

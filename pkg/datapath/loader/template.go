@@ -11,10 +11,10 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
@@ -34,8 +34,7 @@ var (
 
 	elfMapPrefixes = []string{
 		policymap.MapName,
-		callsmap.MapName,
-		callsmap.CustomCallsMapName,
+		maps.CustomCallsMapPrefix,
 	}
 	elfCtMapPrefixes = []string{
 		ctmap.MapNameTCP4,
@@ -147,11 +146,8 @@ func elfMapSubstitutions(ep datapath.Endpoint) map[string]string {
 	epID := uint16(ep.GetID())
 
 	for _, name := range elfMapPrefixes {
-		if ep.IsHost() && name == callsmap.MapName {
-			name = callsmap.HostMapName
-		}
 		// Custom calls for hosts are not supported yet.
-		if name == callsmap.CustomCallsMapName &&
+		if name == maps.CustomCallsMapPrefix &&
 			(!option.Config.EnableCustomCalls || ep.IsHost()) {
 			continue
 		}

@@ -105,7 +105,7 @@ struct {
 
 #ifndef SKIP_CALLS_MAP
 /* Private per EP map for internal tail calls */
-struct bpf_elf_map __section_maps CALLS_MAP = {
+struct bpf_elf_map __section_maps cilium_calls = {
 	.type		= BPF_MAP_TYPE_PROG_ARRAY,
 	.id		= CILIUM_MAP_CALLS,
 	.size_key	= sizeof(__u32),
@@ -317,7 +317,7 @@ struct {
 static __always_inline void ep_tail_call(struct __ctx_buff *ctx __maybe_unused,
 					 const __u32 index __maybe_unused)
 {
-	tail_call_static(ctx, &CALLS_MAP, index);
+	tail_call_static(ctx, &cilium_calls, index);
 }
 #endif /* SKIP_CALLS_MAP */
 #endif

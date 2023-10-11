@@ -14,7 +14,6 @@ DEFINE_IPV6(GLOBAL_IPV6, 0x1, 0, 0x1, 0, 0, 0x1, 0, 0x1, 0x1, 0, 0x1, 0, 0, 0x1,
 DEFINE_MAC(LOCAL_MAC, 0, 0x1, 0, 0, 0, 0x1);
 
 #define CALLS_MAP_ID 0
-#undef CALLS_MAP
 #define CALLS_MAP test_cilium_calls_4278124286 // 0xFEFEFEFE
 
 // Note: This program is meant to exercise ELF substitution logic and eBPF

@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/datapath/maps"
 	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
@@ -36,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/authmap"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
-	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/configmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
@@ -1053,13 +1053,9 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 
 	epID := uint16(e.GetID())
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", bpf.LocalMapName(policymap.MapName, epID))
-	callsMapName := callsmap.MapName
-	if e.IsHost() {
-		callsMapName = callsmap.HostMapName
-	}
-	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", bpf.LocalMapName(callsMapName, epID))
+
 	if option.Config.EnableCustomCalls && !e.IsHost() {
-		fmt.Fprintf(fw, "#define CUSTOM_CALLS_MAP %s\n", bpf.LocalMapName(callsmap.CustomCallsMapName, epID))
+		fmt.Fprintf(fw, "#define CUSTOM_CALLS_MAP %s\n", bpf.LocalMapName(maps.CustomCallsMapPrefix, epID))
 	}
 }
 

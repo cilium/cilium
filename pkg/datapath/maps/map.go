@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/cidrmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
@@ -21,6 +20,10 @@ import (
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/option"
+)
+
+const (
+	CustomCallsMapPrefix = "cilium_calls_custom_"
 )
 
 var (
@@ -92,8 +95,7 @@ func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 		ctmap.MapNameTCP4,
 		ctmap.MapNameAny6,
 		ctmap.MapNameAny4,
-		callsmap.MapName,
-		callsmap.CustomCallsMapName,
+		CustomCallsMapPrefix,
 	}
 
 	ms.checkStaleGlobalMap(path, filename)
