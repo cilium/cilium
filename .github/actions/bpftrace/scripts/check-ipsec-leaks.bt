@@ -1,0 +1,223 @@
+// Six parameters expected:
+// $1: IPv4 CiliumInternalIP - Node1
+// $2: IPv6 CiliumInternalIP - Node1
+// $3: IPv4 CiliumInternalIP - Node2
+// $4: IPv6 CiliumInternalIP - Node2
+// $5: IPv4 CiliumInternalIP - Node3
+// $6: IPv6 CiliumInternalIP - Node3
+
+#define CIDR4 (uint32)0x0A000000 // 10.0.0.0/8
+#define MASK4 (uint32)0xFF000000
+#define CIDR6 (uint32)0xfd00
+
+#define PROTO_IPV4 0x0800
+#define PROTO_IPV6 0x86DD
+#define PROTO_TCP 6
+#define PROTO_UDP 17
+#define PROTO_ESP 50
+
+#define AF_INET	2
+#define AF_INET6 10
+
+#define PORT_DNS 53
+
+#define TYPE_PROXY_L7_IP4 1
+#define TYPE_PROXY_L7_IP6 2
+#define TYPE_PROXY_DNS_IP4 3
+#define TYPE_PROXY_DNS_IP6 4
+
+kprobe:br_forward
+{
+  $skb = ((struct sk_buff *) arg1);
+
+  $proto = bswap($skb->protocol);
+  $ip4h = ((struct iphdr *) ($skb->head + $skb->network_header));
+  $ip6h = ((struct ipv6hdr *) ($skb->head + $skb->network_header));
+  $udph = ((struct udphdr*) ($skb->head + $skb->transport_header));
+
+  if ($skb->encapsulation) {
+    // $skb->inner_protocol does not appear to be correctly initialized
+    $proto = bswap(*((uint16*) ($skb->head + $skb->inner_mac_header + 12)));
+    $ip4h = ((struct iphdr*) ($skb->head + $skb->inner_network_header));
+    $ip6h = ((struct ipv6hdr*) ($skb->head + $skb->inner_network_header));
+    $udph = ((struct udphdr*) ($skb->head + $skb->inner_transport_header));
+
+    if ($proto == PROTO_IPV4) {
+      $trace_override =
+        @trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] ||
+        @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol];
+
+      // Skip CiliumInternalIP addresses, as they belong to the PodCIDR,
+      // unless the given flow is explicitly marked as traced (i.e., from proxy).
+      if (!$trace_override &&
+           ($ip4h->saddr == (uint32)pton(str($1)) || $ip4h->daddr == (uint32)pton(str($1)) ||
+            $ip4h->saddr == (uint32)pton(str($3)) || $ip4h->daddr == (uint32)pton(str($3)) ||
+            $ip4h->saddr == (uint32)pton(str($5)) || $ip4h->daddr == (uint32)pton(str($5)))) {
+        return;
+      }
+    }
+
+    if ($proto == PROTO_IPV6) {
+      $trace_override =
+        @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] ||
+        @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr];
+
+      // Skip CiliumInternalIP addresses, as they belong to the PodCIDR
+      // unless the given flow is explicitly marked as traced (i.e., from proxy).
+      if (!$trace_override &&
+           ($ip6h->saddr.in6_u.u6_addr8 == pton(str($2)) || $ip6h->daddr.in6_u.u6_addr8 == pton(str($2)) ||
+            $ip6h->saddr.in6_u.u6_addr8 == pton(str($4)) || $ip6h->daddr.in6_u.u6_addr8 == pton(str($4)) ||
+            $ip6h->saddr.in6_u.u6_addr8 == pton(str($6)) || $ip6h->daddr.in6_u.u6_addr8 == pton(str($6)))) {
+        return;
+      }
+    }
+  }
+
+  if ($proto == PROTO_IPV4 && $ip4h->protocol != PROTO_ESP) {
+    $src_is_pod = (bswap($ip4h->saddr) & MASK4) == CIDR4;
+    $dst_is_pod = (bswap($ip4h->daddr) & MASK4) == CIDR4;
+
+    $trace_override =
+        @trace_ip4[$ip4h->saddr, $udph->source, $ip4h->protocol] ||
+        @trace_ip4[$ip4h->daddr, $udph->dest, $ip4h->protocol];
+
+    if (($src_is_pod && $dst_is_pod) || ($trace_override && ($src_is_pod || $dst_is_pod))) {
+      printf("[%s] %s:%d -> %s:%d (proto: %d, ifindex: %d, netns: %x)\n",
+        strftime("%H:%M:%S:%f", nsecs),
+        ntop($ip4h->saddr), bswap($udph->source),
+        ntop($ip4h->daddr), bswap($udph->dest),
+        $ip4h->protocol,
+        $skb->dev->ifindex,
+        $skb->dev->nd_net.net->ns.inum);
+    }
+  }
+
+  if ($proto == PROTO_IPV6 && $ip6h->nexthdr != PROTO_ESP) {
+    $src_is_pod = bswap($ip6h->saddr.in6_u.u6_addr16[0]) == CIDR6;
+    $dst_is_pod = bswap($ip6h->daddr.in6_u.u6_addr16[0]) == CIDR6;
+
+    $trace_override =
+        @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $ip6h->nexthdr] ||
+        @trace_ip6[$ip6h->daddr.in6_u.u6_addr8, $udph->dest, $ip6h->nexthdr];
+
+    if (($src_is_pod && $dst_is_pod) || ($trace_override && ($src_is_pod || $dst_is_pod))) {
+      printf("[%s] %s:%d -> %s:%d (proto: %d, ifindex: %d, netns: %x)\n",
+        strftime("%H:%M:%S:%f", nsecs),
+        ntop($ip6h->saddr.in6_u.u6_addr8), bswap($udph->source),
+        ntop($ip6h->daddr.in6_u.u6_addr8), bswap($udph->dest),
+        $ip6h->nexthdr,
+        $skb->dev->ifindex,
+        $skb->dev->nd_net.net->ns.inum);
+    }
+  }
+}
+
+// Trace TCP connections established by the L7 proxy, even if the source address belongs to the host.
+kprobe:tcp_connect
+{
+  if (strncmp(comm, "wrk:", 4) != 0) {
+    return;
+  }
+
+  $sk = ((struct sock *) arg0);
+  $inet_family = $sk->__sk_common.skc_family;
+
+  if ($inet_family == AF_INET) {
+    @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_TCP] = true;
+    @trace_sk[$sk] = true;
+    @sanity[TYPE_PROXY_L7_IP4] = true;
+  }
+
+  if ($inet_family == AF_INET6) {
+    @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_TCP] = true;
+    @trace_sk[$sk] = true;
+    @sanity[TYPE_PROXY_L7_IP6] = true;
+  }
+}
+
+kprobe:tcp_close
+{
+  $sk = ((struct sock *) arg0);
+  $inet_family = $sk->__sk_common.skc_family;
+
+  if ($inet_family == AF_INET) {
+    delete(@trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_TCP]);
+  }
+
+  if ($inet_family == AF_INET6) {
+    delete(@trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_TCP]);
+  }
+}
+
+// Trace UDP messages sent by the DNS proxy, even if the source address belongs to the host.
+kprobe:udp_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
+{
+  $sk = ((struct sock *) arg0);
+  if (bswap($sk->__sk_common.skc_dport) == PORT_DNS) {
+    @trace_ip4[$sk->__sk_common.skc_rcv_saddr, bswap($sk->__sk_common.skc_num), PROTO_UDP] = true;
+    @trace_sk[$sk] = true;
+    @sanity[TYPE_PROXY_DNS_IP4] = true;
+  }
+}
+
+// Trace UDP6 messages sent by the DNS proxy, even if the source address belongs to the host.
+kprobe:udpv6_sendmsg /comm == "cilium-agent" || comm == "dnsproxy"/
+{
+  $sk = ((struct sock *) arg0);
+  if ($sk->__sk_common.skc_num == PORT_DNS) {
+    @trace_ip6[$sk->__sk_common.skc_v6_rcv_saddr.in6_u.u6_addr8, bswap($sk->__sk_common.skc_num), PROTO_UDP] = true;
+    @trace_sk[$sk] = true;
+    @sanity[TYPE_PROXY_DNS_IP6] = true;
+  }
+}
+
+// Additionally trace traffic flows in which the source got masquerated.
+kprobe:__dev_queue_xmit
+{
+  $skb = ((struct sk_buff *) arg0);
+  $sk = $skb->sk;
+
+  if ($sk == 0 || !@trace_sk[$sk]) {
+    return;
+  }
+
+  $proto = bswap($skb->protocol);
+  $ip4h = ((struct iphdr *) ($skb->head + $skb->network_header));
+  $ip6h = ((struct ipv6hdr *) ($skb->head + $skb->network_header));
+  $udph = ((struct udphdr*) ($skb->head + $skb->transport_header));
+  $l4proto = $proto == PROTO_IPV4 ? $ip4h->protocol : $ip6h->nexthdr;
+
+  if ($l4proto == PROTO_TCP) {
+    @sanity[$proto == PROTO_IPV4 ? TYPE_PROXY_L7_IP4 : TYPE_PROXY_L7_IP6] = true;
+  } else {
+    @sanity[$proto == PROTO_IPV4 ? TYPE_PROXY_DNS_IP4 : TYPE_PROXY_DNS_IP6] = true;
+  }
+
+  if ($proto == PROTO_IPV4) {
+    @trace_ip4[$ip4h->saddr, $udph->source, $l4proto] = true;
+  } else {
+    @trace_ip6[$ip6h->saddr.in6_u.u6_addr8, $udph->source, $l4proto] = true;
+  }
+
+  delete(@trace_sk[$sk])
+}
+
+END
+{
+  if (!@sanity[TYPE_PROXY_L7_IP4]) {
+    printf("Sanity check failed: detected no IPv4 connections from the L7 proxy. Is the filter correct?\n")
+  }
+
+  if (!@sanity[TYPE_PROXY_L7_IP6] && str($2) != "::1") {
+    printf("Sanity check failed: detected no IPv6 connections from the L7 proxy. Is the filter correct?\n")
+  }
+
+  if (!(@sanity[TYPE_PROXY_DNS_IP4] || @sanity[TYPE_PROXY_DNS_IP6])) {
+    printf("Sanity check failed: detected no messages sent by the DNS proxy. Is the filter correct?\n")
+  }
+
+  clear(@trace_ip4);
+  clear(@trace_ip6);
+  clear(@trace_sk);
+  clear(@sanity);
+}
