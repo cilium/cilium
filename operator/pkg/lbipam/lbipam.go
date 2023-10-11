@@ -540,6 +540,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 			}
 		}
 	}
+
 	return errs
 }
 
@@ -1080,21 +1081,20 @@ func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2alpha1
 	}
 
 	ipam.pools[pool.GetName()] = pool
-	for _, cidrBlock := range pool.Spec.Cidrs {
-		prefix, err := netip.ParsePrefix(string(cidrBlock.Cidr))
+	blocks := append(pool.Spec.Cidrs, pool.Spec.Blocks...)
+	for _, ipBlock := range blocks {
+		from, to, fromCidr, err := ipRangeFromBlock(ipBlock)
 		if err != nil {
-			return fmt.Errorf("Error parsing cidr '%s': %w", cidrBlock.Cidr, err)
+			return fmt.Errorf("Error parsing ip block: %w", err)
 		}
-
-		from, to := rangeFromPrefix(prefix)
 
 		lbRange, err := NewLBRange(from, to, pool)
 		if err != nil {
-			return fmt.Errorf("Error making LB Range for '%s': %w", cidrBlock.Cidr, err)
+			return fmt.Errorf("Error making LB Range for '%s': %w", ipBlock.Cidr, err)
 		}
 
 		// If AllowFirstLastIPs is no or unspecified, mark the first and last IP as allocated upon range creation.
-		if pool.Spec.AllowFirstLastIPs != cilium_api_v2alpha1.AllowFirstLastIPYes {
+		if fromCidr && pool.Spec.AllowFirstLastIPs != cilium_api_v2alpha1.AllowFirstLastIPYes {
 			// TODO: in 1.16 switch from default no to default yes.
 			// https://github.com/cilium/cilium/issues/28591
 			from, to := lbRange.alloc.Range()
@@ -1111,6 +1111,33 @@ func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2alpha1
 	return nil
 }
 
+func ipRangeFromBlock(block cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock) (to, from netip.Addr, fromCidr bool, err error) {
+	if string(block.Cidr) != "" {
+		prefix, err := netip.ParsePrefix(string(block.Cidr))
+		if err != nil {
+			return netip.Addr{}, netip.Addr{}, false, fmt.Errorf("Error parsing cidr '%s': %w", block.Cidr, err)
+		}
+
+		to, from = rangeFromPrefix(prefix)
+		return to, from, true, nil
+	}
+
+	from, err = netip.ParseAddr(block.Start)
+	if err != nil {
+		return netip.Addr{}, netip.Addr{}, false, fmt.Errorf("error parsing start ip '%s': %w", block.Start, err)
+	}
+	if block.Stop == "" {
+		return from, from, false, nil
+	}
+
+	to, err = netip.ParseAddr(block.Stop)
+	if err != nil {
+		return netip.Addr{}, netip.Addr{}, false, fmt.Errorf("error parsing stop ip '%s': %w", block.Stop, err)
+	}
+
+	return from, to, false, nil
+}
+
 func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {
 	changedAllowFirstLastIPs := false
 	if existingPool, ok := ipam.pools[pool.GetName()]; ok {
@@ -1120,13 +1147,23 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 
 	ipam.pools[pool.GetName()] = pool
 
-	var newCIDRs []netip.Prefix
-	for _, newBlock := range pool.Spec.Cidrs {
-		cidr, err := netip.ParsePrefix(string(newBlock.Cidr))
+	type rng struct {
+		from, to netip.Addr
+		fromCidr bool
+	}
+	var newRanges []rng
+	blocks := append(pool.Spec.Cidrs, pool.Spec.Blocks...)
+	for _, newBlock := range blocks {
+		from, to, fromCidr, err := ipRangeFromBlock(newBlock)
 		if err != nil {
-			return fmt.Errorf("Error parsing cidr '%s': %w", newBlock.Cidr, err)
+			return fmt.Errorf("Error parsing ip block: %w", err)
 		}
-		newCIDRs = append(newCIDRs, cidr)
+
+		newRanges = append(newRanges, rng{
+			from:     from,
+			to:       to,
+			fromCidr: fromCidr,
+		})
 	}
 
 	existingRanges, _ := ipam.rangesStore.GetRangesForPool(pool.GetName())
@@ -1134,18 +1171,19 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 	// Remove existing ranges that no longer exist
 	for _, extRange := range existingRanges {
 		found := false
-		for _, newCIDR := range newCIDRs {
-			from, to := rangeFromPrefix(newCIDR)
-			if extRange.EqualCIDR(from, to) {
+		fromCidr := false
+		for _, newRange := range newRanges {
+			if extRange.EqualCIDR(newRange.from, newRange.to) {
 				found = true
+				fromCidr = newRange.fromCidr
 				break
 			}
 		}
 
 		if found {
 			// If the AllowFirstLastIPs state changed
-			if changedAllowFirstLastIPs {
-				// TODO: in 1.16 switch from default no to default yes.
+			if fromCidr && changedAllowFirstLastIPs {
+				// TODO in 1.16 switch from default no to default yes.
 				// https://github.com/cilium/cilium/issues/28591
 				if pool.Spec.AllowFirstLastIPs == cilium_api_v2alpha1.AllowFirstLastIPYes {
 					// If we are allowing first and last IPs again, free them for allocation
@@ -1173,12 +1211,10 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 	}
 
 	// Add new ranges that were added
-	for _, newCIDR := range newCIDRs {
-		from, to := rangeFromPrefix(newCIDR)
-
+	for _, newRange := range newRanges {
 		found := false
 		for _, extRange := range existingRanges {
-			if extRange.EqualCIDR(from, to) {
+			if extRange.EqualCIDR(newRange.from, newRange.to) {
 				found = true
 				break
 			}
@@ -1188,21 +1224,21 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 			continue
 		}
 
-		newRange, err := NewLBRange(from, to, pool)
+		newLBRange, err := NewLBRange(newRange.from, newRange.to, pool)
 		if err != nil {
-			return fmt.Errorf("Error while making new LB range for CIDR '%s': %w", newCIDR.String(), err)
+			return fmt.Errorf("Error while making new LB range for range '%s - %s': %w", newRange.from, newRange.to, err)
 		}
 
 		// If AllowFirstLastIPs is no or default, mark the first and last IP as allocated upon range creation.
-		if pool.Spec.AllowFirstLastIPs != cilium_api_v2alpha1.AllowFirstLastIPYes {
+		if newRange.fromCidr && pool.Spec.AllowFirstLastIPs != cilium_api_v2alpha1.AllowFirstLastIPYes {
 			// TODO: in 1.16 switch from default no to default yes.
 			// https://github.com/cilium/cilium/issues/28591
-			from, to := newRange.alloc.Range()
-			newRange.alloc.Alloc(from, true)
-			newRange.alloc.Alloc(to, true)
+			from, to := newLBRange.alloc.Range()
+			newLBRange.alloc.Alloc(from, true)
+			newLBRange.alloc.Alloc(to, true)
 		}
 
-		ipam.rangesStore.Add(newRange)
+		ipam.rangesStore.Add(newLBRange)
 	}
 
 	existingRanges, _ = ipam.rangesStore.GetRangesForPool(pool.GetName())

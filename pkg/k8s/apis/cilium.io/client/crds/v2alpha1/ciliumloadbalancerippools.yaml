@@ -26,10 +26,10 @@ spec:
     - jsonPath: .spec.disabled
       name: Disabled
       type: boolean
-    - jsonPath: .status.conditions[?(@.type=="io.cilium/conflict")].status
+    - jsonPath: .status.conditions[?(@.type=="cilium.io/PoolConflict")].status
       name: Conflicting
       type: string
-    - jsonPath: .status.conditions[?(@.type=="io.cilium/ips-available")].message
+    - jsonPath: .status.conditions[?(@.type=="cilium.io/IPsAvailable")].message
       name: IPs Available
       type: string
     - jsonPath: .metadata.creationTimestamp
@@ -68,20 +68,37 @@ spec:
                 - "Yes"
                 - "No"
                 type: string
-              cidrs:
-                description: CiliumLoadBalancerIPPoolCIDRBlock is a list of CIDRs
-                  comprising this IP Pool
+              blocks:
+                description: Blocks is a list of CIDRs comprising this IP Pool
                 items:
-                  description: CiliumLoadBalancerIPPoolCIDRBlock describes a single
-                    CIDR block.
+                  description: CiliumLoadBalancerIPPoolIPBlock describes a single
+                    IP block.
                   properties:
                     cidr:
                       format: cidr
                       type: string
-                  required:
-                  - cidr
+                    start:
+                      type: string
+                    stop:
+                      type: string
                   type: object
-                minItems: 1
+                type: array
+              cidrs:
+                description: 'Cidrs is a list of CIDRs comprising this IP Pool Deprecated:
+                  please use the `blocks` field instead. This field will be removed
+                  in a future release. https://github.com/cilium/cilium/issues/28590'
+                items:
+                  description: CiliumLoadBalancerIPPoolIPBlock describes a single
+                    IP block.
+                  properties:
+                    cidr:
+                      format: cidr
+                      type: string
+                    start:
+                      type: string
+                    stop:
+                      type: string
+                  type: object
                 type: array
               disabled:
                 default: false
@@ -143,8 +160,6 @@ spec:
                       are ANDed.
                     type: object
                 type: object
-            required:
-            - cidrs
             type: object
           status:
             description: "Status is the status of the IP Pool. \n It might be possible

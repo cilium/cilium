@@ -38,9 +38,12 @@ A basic IP Pools with both an IPv4 and IPv6 range looks like this:
     metadata:
       name: "blue-pool"
     spec:
-      cidrs:
+      blocks:
       - cidr: "10.0.10.0/24"
       - cidr: "2004::0/64"
+      - start: "20.0.20.100"
+        stop: "20.0.20.200"
+      - start: "1.2.3.4"
 
 After adding the pool to the cluster, it appears like so.
 
@@ -49,12 +52,6 @@ After adding the pool to the cluster, it appears like so.
     $ kubectl get ippools                           
     NAME        DISABLED   CONFLICTING   IPS AVAILABLE   AGE
     blue-pool   false      False         65788           2s
-
-.. note::
-    The amount of available IPs in the pool is lower than the actual sum of all
-    usable IPs in the CIDRs because the allocation logic is limited to 65536 IPs
-    per CIDR. CIDRs containing more than 65536 IPs can be broken down into multiple
-    smaller CIDRs to achieve full utilization.
 
 Service Selectors
 -----------------
@@ -70,7 +67,7 @@ The pool will allocate to any service if no service selector is specified.
     metadata:
       name: "blue-pool"
     spec:
-      cidrs:
+      blocks:
       - cidr: "20.0.10.0/24"
       serviceSelector:
         matchExpressions:
@@ -81,7 +78,7 @@ The pool will allocate to any service if no service selector is specified.
     metadata:
       name: "red-pool"
     spec:
-      cidrs:
+      blocks:
       - cidr: "20.0.10.0/24"
       serviceSelector:
         matchLabels:
@@ -106,7 +103,7 @@ For example:
     metadata:
       name: "blue-pool"
     spec:
-      cidrs:
+      blocks:
       - cidr: "20.0.10.0/24"
       serviceSelector:
         matchLabels:
@@ -170,7 +167,7 @@ an administrator to slowly drain pool or reserve a pool for future use.
     metadata:
       name: "blue-pool"
     spec:
-      cidrs:
+      blocks:
       - cidr: "20.0.10.0/24"
       disabled: true
 

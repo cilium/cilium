@@ -14,8 +14,8 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:categories={cilium},singular="ciliumloadbalancerippool",path="ciliumloadbalancerippools",scope="Cluster",shortName={ippools,ippool,lbippool,lbippools}
 // +kubebuilder:printcolumn:JSONPath=".spec.disabled",name="Disabled",type=boolean
-// +kubebuilder:printcolumn:name="Conflicting",type=string,JSONPath=`.status.conditions[?(@.type=="io.cilium/conflict")].status`
-// +kubebuilder:printcolumn:name="IPs Available",type=string,JSONPath=`.status.conditions[?(@.type=="io.cilium/ips-available")].message`
+// +kubebuilder:printcolumn:name="Conflicting",type=string,JSONPath=`.status.conditions[?(@.type=="cilium.io/PoolConflict")].status`
+// +kubebuilder:printcolumn:name="IPs Available",type=string,JSONPath=`.status.conditions[?(@.type=="cilium.io/IPsAvailable")].message`
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
@@ -75,11 +75,16 @@ type CiliumLoadBalancerIPPoolSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	AllowFirstLastIPs AllowFirstLastIPType `json:"allowFirstLastIPs,omitempty"`
-	// CiliumLoadBalancerIPPoolCIDRBlock is a list of CIDRs comprising this IP Pool
+	// Cidrs is a list of CIDRs comprising this IP Pool
+	// Deprecated: please use the `blocks` field instead. This field will be removed in a future release.
+	// https://github.com/cilium/cilium/issues/28590
 	//
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinItems=1
-	Cidrs []CiliumLoadBalancerIPPoolCIDRBlock `json:"cidrs"`
+	// +kubebuilder:validation:Optional
+	Cidrs []CiliumLoadBalancerIPPoolIPBlock `json:"cidrs,omitempty"`
+	// Blocks is a list of CIDRs comprising this IP Pool
+	//
+	// +kubebuilder:validation:Optional
+	Blocks []CiliumLoadBalancerIPPoolIPBlock `json:"blocks,omitempty"`
 	// Disabled, if set to true means that no new IPs will be allocated from this pool.
 	// Existing allocations will not be removed from services.
 	//
@@ -96,11 +101,15 @@ const (
 	AllowFirstLastIPYes AllowFirstLastIPType = "Yes"
 )
 
-// CiliumLoadBalancerIPPoolCIDRBlock describes a single CIDR block.
-type CiliumLoadBalancerIPPoolCIDRBlock struct {
+// CiliumLoadBalancerIPPoolIPBlock describes a single IP block.
+type CiliumLoadBalancerIPPoolIPBlock struct {
 	// +kubebuilder:validation:Format=cidr
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	Cidr IPv4orIPv6CIDR `json:"cidr"`
+	// +kubebuilder:validation:Optional
+	Start string `json:"start,omitempty"`
+	// +kubebuilder:validation:Optional
+	Stop string `json:"stop,omitempty"`
 }
 
 // +deepequal-gen=false
