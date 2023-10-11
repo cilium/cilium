@@ -28,9 +28,9 @@ func TestVitalsToModuleHealth(t *testing.T) {
 		"happy": {
 			s: cell.Status{
 				Update: cell.Update{
-					ModuleID: "fred",
-					Message:  "blee",
-					Err:      fmt.Errorf("zorg"),
+					FullModuleID: []string{"fred"},
+					Message:      "blee",
+					Err:          fmt.Errorf("zorg"),
 				},
 				Stopped: true,
 				Final:   "fred",
