@@ -568,7 +568,7 @@ kind-install-cilium-clustermesh: kind-clustermesh-ready ## Install a local Ciliu
 	$(CILIUM_CLI) clustermesh status --context kind-clustermesh1 --wait
 	$(CILIUM_CLI) clustermesh status --context kind-clustermesh2 --wait
 
-KIND_CLUSTER_NAME ?= kind
+KIND_CLUSTER_NAME ?= $(shell kind get clusters -q | head -n1)
 
 .PHONY: kind-ready
 kind-ready:
