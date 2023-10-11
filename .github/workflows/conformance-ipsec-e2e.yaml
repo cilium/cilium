@@ -224,7 +224,7 @@ jobs:
             until docker manifest inspect quay.io/${{ env.QUAY_ORGANIZATION_DEV }}/$image:${{ steps.vars.outputs.sha }} &> /dev/null; do sleep 45s; done
           done
 
-      - name: Run tests (${{ join(matrix.*, ', ') }})
+      - name: Install Cilium
         shell: bash
         run: |
           kubectl patch node kind-worker3 --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
@@ -248,6 +248,25 @@ jobs:
           kubectl get pods --all-namespaces -o wide
           kubectl -n kube-system exec daemonset/cilium -c cilium-agent -- cilium status
 
+      - name: Prepare the bpftrace parameters
+        id: bpftrace-params
+        run: |
+          CILIUM_INTERNAL_IPS=$(kubectl get ciliumnode -o jsonpath='{.items[*].spec.addresses[?(@.type=="CiliumInternalIP")].ip}')
+          if [[ "${{ matrix.ipv6 }}" == "false" ]]; then
+            CILIUM_INTERNAL_IPS="${CILIUM_INTERNAL_IPS// / ::1 } ::1"
+          fi
+
+          echo "params=$CILIUM_INTERNAL_IPS" >> $GITHUB_OUTPUT
+
+      - name: Start unencrypted packets check
+        uses: ./.github/actions/bpftrace/start
+        with:
+          script: ./.github/actions/bpftrace/scripts/check-ipsec-leaks.bt
+          args: ${{ steps.bpftrace-params.outputs.params }}
+
+      - name: Run tests (${{ join(matrix.*, ', ') }})
+        shell: bash
+        run: |
           mkdir -p cilium-junits
 
           ./cilium-cli connectivity test --include-unsafe-tests --collect-sysdump-on-failure \
@@ -271,6 +290,9 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           full-test: 'true'
+
+      - name: Assert that no unencrypted packets are leaked
+        uses: ./.github/actions/bpftrace/check
 
       - name: Fetch artifacts
         if: ${{ !success() }}
