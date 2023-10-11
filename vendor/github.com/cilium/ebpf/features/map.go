@@ -248,7 +248,7 @@ func HaveMapFlag(flag MapFlags) (err error) {
 
 func probeMapFlag(attr *sys.MapCreateAttr) error {
 	// For now, we do not check if the map type is supported because we only support
-	// probing for flags defined on arrays and hashs that are always supported.
+	// probing for flags defined on arrays and hashes that are always supported.
 	// In the future, if we allow probing on flags defined on newer types, checking for map type
 	// support will be required.
 	if attr.MapType == sys.BPF_MAP_TYPE_UNSPEC {

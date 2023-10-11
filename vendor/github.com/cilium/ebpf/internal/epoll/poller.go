@@ -100,7 +100,7 @@ func (p *Poller) Add(fd int, id int) error {
 	}
 
 	// The representation of EpollEvent isn't entirely accurate.
-	// Pad is fully useable, not just padding. Hence we stuff the
+	// Pad is fully usable, not just padding. Hence we stuff the
 	// id in there, which allows us to identify the event later (e.g.,
 	// in case of perf events, which CPU sent it).
 	event := unix.EpollEvent{
