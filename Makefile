@@ -622,7 +622,7 @@ kind-install-cilium-fast: kind-ready ## Install a local Cilium version into the 
 
 .PHONY: build-cli
 build-cli: ## Build cilium cli binary
-	$(QUIET)$(MAKE) -C cilium
+	$(QUIET)$(MAKE) -C cilium-dbg
 
 .PHONY: build-agent
 build-agent: ## Build cilium daemon binary
@@ -648,9 +648,9 @@ kind-image-fast-agent: kind-ready build-cli build-agent ## Build cilium cli and 
 			docker cp "./bpf/" $${node_name}:"${dst}/var/lib/cilium/bpf"; \
 			docker exec -ti $${node_name} find "${dst}/var/lib/cilium/bpf" -type f -exec chmod 0644 {} + ;\
 			\
-			docker exec -ti $${node_name} rm -f "${dst}/cilium"; \
-			docker cp "./cilium/cilium" $${node_name}:"${dst}"; \
-			docker exec -ti $${node_name} chmod +x "${dst}/cilium"; \
+			docker exec -ti $${node_name} rm -f "${dst}/cilium-dbg"; \
+			docker cp "./cilium-dbg/cilium-dbg" $${node_name}:"${dst}"; \
+			docker exec -ti $${node_name} chmod +x "${dst}/cilium-dbg"; \
 			\
 			docker exec -ti $${node_name} rm -f "${dst}/cilium-agent"; \
 			docker cp "./daemon/cilium-agent" $${node_name}:"${dst}"; \
