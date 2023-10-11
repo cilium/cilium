@@ -353,6 +353,10 @@ Removed Options
   The functionality to dynamically allocate Pod CIDRs is now provided by the more
   flexible ``multi-pool`` IPAM mode.
 
+* The ``install-egress-gateway-routes`` flag has been deprecated because the
+  datapath has been improved to not require any additional routes in
+  ENI environments.
+
 Helm Options
 ~~~~~~~~~~~~
 
@@ -367,6 +371,9 @@ Helm Options
 * Prometheus metrics for cilium-operator and clustermesh's kvstore are now enabled by default.
   If you want to disable these prometheus metrics, set ``operator.prometheus.enabled=false``
   and ``clustermesh.apiserver.metrics.etcd.enabled=false`` respectively.
+
+* ``egressGateway.installRoutes`` has been deprecated because the setting is no
+  longer necessary.
 
 Added Metrics
 ~~~~~~~~~~~~~

@@ -118,35 +118,6 @@ Rollout both the agent pods and the operator pods to make the changes effective:
     $ kubectl rollout restart ds cilium -n kube-system
     $ kubectl rollout restart deploy cilium-operator -n kube-system
 
-Compatibility with cloud environments
--------------------------------------
-
-EKS's ENI mode
-~~~~~~~~~~~~~~
-
-Based on the specific configuration of the cloud provider and network interfaces
-it is possible that traffic leaves a node from the wrong interface. This happens in
-particular on EKS in ENI mode.
-
-To work around this issue, Cilium can be instructed to install the necessary IP
-rules and routes to route traffic through the appropriate network-facing
-interface as follows:
-
-.. tabs::
-    .. group-tab:: Helm
-
-        .. parsed-literal::
-
-            $ helm upgrade cilium |CHART_RELEASE| \\
-            [..] \\
-            --set egressGateway.installRoutes=true
-
-    .. group-tab:: ConfigMap
-
-        .. code-block:: yaml
-
-            install-egress-gateway-routes: true
-
 Writing egress gateway policies
 ===============================
 
