@@ -4,12 +4,11 @@
 package lbipam
 
 import (
-	"bytes"
 	"fmt"
-	"net"
+	"net/netip"
 	"slices"
 
-	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
+	"github.com/cilium/cilium/pkg/ipalloc"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
@@ -58,7 +57,7 @@ func (rs *rangesStore) GetRangesForPool(name string) ([]*LBRange, bool) {
 
 type LBRange struct {
 	// the actual data of which ips have been allocated or not
-	allocRange *ipallocator.Range
+	alloc ipalloc.Allocator[bool]
 	// If true, the LB range has been disabled via the CRD and thus no IPs should be allocated from this range
 	externallyDisabled bool
 	// If true, the LB range has been disabled by us, because it conflicts with other ranges for example.
@@ -68,13 +67,18 @@ type LBRange struct {
 	originPool string
 }
 
-func newLBRange(cidr *net.IPNet, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) *LBRange {
+func NewLBRange(from, to netip.Addr, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) (*LBRange, error) {
+	alloc, err := ipalloc.NewHashAllocator[bool](from, to, 0)
+	if err != nil {
+		return nil, fmt.Errorf("new cidr range: %w", err)
+	}
+
 	return &LBRange{
-		allocRange:         ipallocator.NewCIDRRange(cidr),
+		alloc:              alloc,
 		internallyDisabled: false,
 		externallyDisabled: pool.Spec.Disabled,
 		originPool:         pool.GetName(),
-	}
+	}, err
 }
 
 func (lr *LBRange) Disabled() bool {
@@ -82,12 +86,14 @@ func (lr *LBRange) Disabled() bool {
 }
 
 func (lr *LBRange) String() string {
-	cidr := lr.allocRange.CIDR()
+	from, to := lr.alloc.Range()
+	used, available := lr.alloc.Stats()
 	return fmt.Sprintf(
-		"%s (free: %d, used: %d, intDis: %v, extDis: %v) - origin %s",
-		cidr.String(),
-		lr.allocRange.Free(),
-		lr.allocRange.Used(),
+		"%s - %s (free: %s, used: %d, intDis: %v, extDis: %v) - origin %s",
+		from,
+		to,
+		available,
+		used,
 		lr.internallyDisabled,
 		lr.externallyDisabled,
 		lr.originPool,
@@ -95,19 +101,19 @@ func (lr *LBRange) String() string {
 }
 
 func (lr *LBRange) Equal(other *LBRange) bool {
-	lrCidr := lr.allocRange.CIDR()
-	otherCidr := other.allocRange.CIDR()
-	return lrCidr.IP.Equal(otherCidr.IP) && bytes.Equal(lrCidr.Mask, otherCidr.Mask)
+	lrFrom, lrTo := lr.alloc.Range()
+	otherFrom, otherTo := other.alloc.Range()
+	return lrFrom == otherFrom && lrTo == otherTo
 }
 
-func (lr *LBRange) EqualCIDR(cidr *net.IPNet) bool {
-	lrCidr := lr.allocRange.CIDR()
-	return lrCidr.IP.Equal(cidr.IP) && bytes.Equal(lrCidr.Mask, cidr.Mask)
+func (lr *LBRange) EqualCIDR(from, to netip.Addr) bool {
+	lrFrom, lrTo := lr.alloc.Range()
+	return lrFrom == from && lrTo == to
 }
 
-func ipNetStr(net net.IPNet) string {
-	ptr := &net
-	return ptr.String()
+func ipNetStr(rng *LBRange) string {
+	from, to := rng.alloc.Range()
+	return fmt.Sprintf("%s - %s", from, to)
 }
 
 // areRangesInternallyConflicting checks if any of the ranges within the same list conflict with each other.
@@ -118,7 +124,7 @@ func areRangesInternallyConflicting(ranges []*LBRange) (conflicting bool, rangeA
 				continue
 			}
 
-			if !intersect(outer.allocRange.CIDR(), inner.allocRange.CIDR()) {
+			if !rangesIntersect(outer, inner) {
 				continue
 			}
 
@@ -132,15 +138,8 @@ func areRangesInternallyConflicting(ranges []*LBRange) (conflicting bool, rangeA
 func areRangesConflicting(outerRanges, innerRanges []*LBRange) (conflicting bool, targetRange, conflictingRange *LBRange) {
 	for _, outerRange := range outerRanges {
 		for _, innerRange := range innerRanges {
-			// IPs of dissimilar IP families can't overlap
-			outerIsIpv4 := outerRange.allocRange.CIDR().IP.To4() != nil
-			innerIsIpv4 := innerRange.allocRange.CIDR().IP.To4() != nil
-			if innerIsIpv4 != outerIsIpv4 {
-				continue
-			}
-
 			// no intersection, no conflict
-			if !intersect(outerRange.allocRange.CIDR(), innerRange.allocRange.CIDR()) {
+			if !rangesIntersect(outerRange, innerRange) {
 				continue
 			}
 
@@ -151,6 +150,12 @@ func areRangesConflicting(outerRanges, innerRanges []*LBRange) (conflicting bool
 	return false, nil, nil
 }
 
-func intersect(n1, n2 net.IPNet) bool {
-	return n2.Contains(n1.IP) || n1.Contains(n2.IP)
+func rangesIntersect(one, two *LBRange) bool {
+	oneFrom, oneTo := one.alloc.Range()
+	twoFrom, twoTo := two.alloc.Range()
+	return intersect(oneFrom, oneTo, twoFrom, twoTo)
+}
+
+func intersect(from1, to1, from2, to2 netip.Addr) bool {
+	return from1.Compare(to2) <= 0 && from2.Compare(to1) <= 0
 }

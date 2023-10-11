@@ -5,6 +5,7 @@ package lbipam
 
 import (
 	"net"
+	"net/netip"
 	"slices"
 
 	"golang.org/x/exp/maps"
@@ -66,7 +67,7 @@ type ServiceView struct {
 	Status     *slim_core_v1.ServiceStatus
 
 	// The specific IPs requested by the service
-	RequestedIPs []net.IP
+	RequestedIPs []netip.Addr
 	// The IP families requested by the service
 	RequestedFamilies struct {
 		IPv4 bool
@@ -82,7 +83,11 @@ func (sv *ServiceView) isSatisfied() bool {
 		for _, reqIP := range sv.RequestedIPs {
 			// If reqIP doesn't exist in the list of assigned IPs
 			if slices.IndexFunc(sv.Status.LoadBalancer.Ingress, func(in slim_core_v1.LoadBalancerIngress) bool {
-				return net.ParseIP(in.IP).Equal(reqIP)
+				addr, err := netip.ParseAddr(in.IP)
+				if err != nil {
+					return false
+				}
+				return addr.Compare(reqIP) == 0
 			}) == -1 {
 				return false
 			}
@@ -109,7 +114,7 @@ func (sv *ServiceView) isSatisfied() bool {
 
 // ServiceViewIP is the IP and from which range it was allocated
 type ServiceViewIP struct {
-	IP     net.IP
+	IP     netip.Addr
 	Origin *LBRange
 }
 
