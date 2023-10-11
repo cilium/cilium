@@ -50,14 +50,15 @@ import (
 // always references the source object.
 //
 // For example:
+//
 //	// Append a 0 to a "repeated int32" field.
 //	// Since the Value returned by Mutable is guaranteed to alias
 //	// the source message, modifying the Value modifies the message.
-//	message.Mutable(fieldDesc).(List).Append(protoreflect.ValueOfInt32(0))
+//	message.Mutable(fieldDesc).List().Append(protoreflect.ValueOfInt32(0))
 //
 //	// Assign [0] to a "repeated int32" field by creating a new Value,
 //	// modifying it, and assigning it.
-//	list := message.NewField(fieldDesc).(List)
+//	list := message.NewField(fieldDesc).List()
 //	list.Append(protoreflect.ValueOfInt32(0))
 //	message.Set(fieldDesc, list)
 //	// ERROR: Since it is not defined whether Set aliases the source,
@@ -392,6 +393,7 @@ func (v Value) MapKey() MapKey {
 //	╚═════════╧═════════════════════════════════════╝
 //
 // A MapKey is constructed and accessed through a Value:
+//
 //	k := ValueOf("hash").MapKey() // convert string to MapKey
 //	s := k.String()               // convert MapKey to string
 //
