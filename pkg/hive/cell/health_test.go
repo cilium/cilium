@@ -17,7 +17,7 @@ import (
 func TestStatusProvider(t *testing.T) {
 	assert := assert.New(t)
 	sp := NewHealthProvider()
-	reporter := sp.forModule("module000")
+	reporter := sp.forModule([]string{"module000"})
 	reporter.OK("OK")
 	reporter.Degraded("bad", fmt.Errorf("zzz"))
 	reporter.Stopped("meh")
@@ -25,7 +25,7 @@ func TestStatusProvider(t *testing.T) {
 	defer cancel()
 	assert.NoError(sp.Stop(ctx))
 	assert.Equal(sp.processed(), uint64(3))
-	assert.Equal(StatusDegraded, sp.Get("module000").Level)
+	assert.Equal(StatusDegraded, sp.Get([]string{"module000"}).Level)
 	reporter.OK("")
 }
 
@@ -37,7 +37,7 @@ func TestHealthReporter(t *testing.T) {
 	s := NewHealthProvider()
 	wg := &sync.WaitGroup{}
 	for i := 0; i < m; i++ {
-		reporter := s.forModule(fmt.Sprintf("module-%d", i))
+		reporter := s.forModule([]string{fmt.Sprintf("module-%d", i)})
 		wg.Add(1)
 		go func(hr HealthReporter) {
 			for j := 1; j <= u; j++ {
@@ -68,10 +68,10 @@ func TestStatusString(t *testing.T) {
 	assert := assert.New(t)
 	s := Status{
 		Update: Update{
-			Level:    StatusUnknown,
-			ModuleID: "m-000",
-			Err:      nil,
-			Message:  "something happened",
+			Level:        StatusUnknown,
+			FullModuleID: []string{"m-000"},
+			Err:          nil,
+			Message:      "something happened",
 		},
 	}
 	assert.Equal("Status{ModuleID: m-000, Level: Unknown, Since: never, Message: something happened, Err: <nil>}",
