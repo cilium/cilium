@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium-cli/utils/features"
 )
@@ -28,7 +30,7 @@ func (s *podToHost) Run(ctx context.Context, t *check.Test) {
 	ct := t.Context()
 	// Construct a unique list of all nodes in the cluster running workloads.
 
-	var i int
+	var addrType string
 
 	for _, pod := range ct.ClientPods() {
 		pod := pod // copy to avoid memory aliasing when using reference
@@ -42,10 +44,19 @@ func (s *podToHost) Run(ctx context.Context, t *check.Test) {
 						continue
 					}
 
+					switch {
+					case addr.Type == corev1.NodeInternalIP:
+						addrType = "internal-ip"
+					case addr.Type == corev1.NodeExternalIP:
+						addrType = "external-ip"
+					case addr.Type == corev1.NodeHostName:
+						addrType = "hostname"
+					}
+
 					dst := check.ICMPEndpoint("", addr.Address)
 					ipFam := features.GetIPFamily(addr.Address)
 
-					t.NewAction(s, fmt.Sprintf("ping-%s-%d", ipFam, i), &pod, dst, ipFam).Run(func(a *check.Action) {
+					t.NewAction(s, fmt.Sprintf("ping-%s-%s", ipFam, addrType), &pod, dst, ipFam).Run(func(a *check.Action) {
 						a.ExecInPod(ctx, ct.PingCommand(dst, ipFam))
 
 						a.ValidateFlows(ctx, pod, a.GetEgressRequirements(check.FlowParameters{
@@ -54,8 +65,6 @@ func (s *podToHost) Run(ctx context.Context, t *check.Test) {
 
 						a.ValidateMetrics(ctx, pod, a.GetEgressMetricsRequirements())
 					})
-
-					i++
 				}
 			})
 		}
