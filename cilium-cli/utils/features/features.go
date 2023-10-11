@@ -177,24 +177,11 @@ func RequireMode(feature Feature, mode string) Requirement {
 	}
 }
 
-// extractFeaturesFromConfigMap extracts features from the Cilium ConfigMap.
-// Note that there is no rule regarding if the default value is reflected
-// in the ConfigMap or not.
-func (fs Set) ExtractFromConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) {
-	// CNI chaining.
-	// Note: This value might be overwritten by extractFeaturesFromCiliumStatus
-	// if this information is present in `cilium status`
-	mode := "none"
-	if v, ok := cm.Data["cni-chaining-mode"]; ok {
-		mode = v
-	}
-	fs[CNIChaining] = Status{
-		Enabled: mode != "none",
-		Mode:    mode,
-	}
-
+// ExtractFromVersionedConfigMap extracts features based on Cilium version and cilium-config
+// ConfigMap.
+func (fs Set) ExtractFromVersionedConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMap) {
 	if versioncheck.MustCompile("<1.14.0")(ciliumVersion) {
-		mode = "vxlan"
+		mode := "vxlan"
 		if v, ok := cm.Data["tunnel"]; ok {
 			mode = v
 		}
@@ -203,7 +190,7 @@ func (fs Set) ExtractFromConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMa
 			Mode:    mode,
 		}
 	} else {
-		mode = "tunnel"
+		mode := "tunnel"
 		if v, ok := cm.Data["routing-mode"]; ok {
 			mode = v
 		}
@@ -219,6 +206,23 @@ func (fs Set) ExtractFromConfigMap(ciliumVersion semver.Version, cm *v1.ConfigMa
 			Enabled: mode != "native",
 			Mode:    tunnelProto,
 		}
+	}
+}
+
+// ExtractFromConfigMap extracts features from the Cilium ConfigMap.
+// Note that there is no rule regarding if the default value is reflected
+// in the ConfigMap or not.
+func (fs Set) ExtractFromConfigMap(cm *v1.ConfigMap) {
+	// CNI chaining.
+	// Note: This value might be overwritten by extractFeaturesFromCiliumStatus
+	// if this information is present in `cilium status`
+	mode := "none"
+	if v, ok := cm.Data["cni-chaining-mode"]; ok {
+		mode = v
+	}
+	fs[CNIChaining] = Status{
+		Enabled: mode != "none",
+		Mode:    mode,
 	}
 
 	fs[IPv4] = Status{
