@@ -1,3 +1,7 @@
+# v1.15.1 (2023-10-06)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.15.0 (2023-10-02)
 
 * **Feature**: Fix FIPS Endpoints in aws-us-gov.
