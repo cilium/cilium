@@ -6,6 +6,7 @@ package lbipam
 import (
 	"context"
 	"net"
+	"net/netip"
 	"strings"
 	"testing"
 	"time"
@@ -71,7 +72,7 @@ func TestConflictResolution(t *testing.T) {
 	poolBRanges, _ := fixture.lbIPAM.rangesStore.GetRangesForPool("pool-b")
 	for _, r := range poolBRanges {
 		if !r.internallyDisabled {
-			t.Fatalf("Range '%s' from pool B hasn't been disabled", ipNetStr(r.allocRange.CIDR()))
+			t.Fatalf("Range '%s' from pool B hasn't been disabled", ipNetStr(r))
 		}
 	}
 
@@ -396,7 +397,7 @@ func TestServiceDelete(t *testing.T) {
 		return
 	}
 
-	if !fixture.lbIPAM.rangesStore.ranges[0].allocRange.Has(net.ParseIP(svcIP)) {
+	if _, has := fixture.lbIPAM.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); !has {
 		t.Fatal("Service IP hasn't been allocated")
 	}
 
@@ -407,7 +408,7 @@ func TestServiceDelete(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	if fixture.lbIPAM.rangesStore.ranges[0].allocRange.Has(net.ParseIP(svcIP)) {
+	if _, has := fixture.lbIPAM.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(svcIP)); has {
 		t.Fatal("Service IP hasn't been released")
 	}
 }
@@ -572,11 +573,11 @@ func TestAllocOnInit(t *testing.T) {
 
 	await.Block()
 
-	if !fixture.lbIPAM.rangesStore.ranges[0].allocRange.Has(net.ParseIP("10.0.10.123")) {
+	if _, has := fixture.lbIPAM.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.123")); !has {
 		t.Fatal("Expected the imported IP to be allocated")
 	}
 
-	if !fixture.lbIPAM.rangesStore.ranges[0].allocRange.Has(net.ParseIP("10.0.10.124")) {
+	if _, has := fixture.lbIPAM.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.124")); !has {
 		t.Fatal("Expected the imported IP to be allocated")
 	}
 }
@@ -1017,21 +1018,18 @@ func TestChangeServiceType(t *testing.T) {
 		t.Fatal("Expected service status update")
 	}
 
-	if fixture.lbIPAM.rangesStore.ranges[0].allocRange.Has(net.ParseIP(assignedIP)) {
+	if _, has := fixture.lbIPAM.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr(assignedIP)); has {
 		t.Fatal("Expected assigned IP to be released")
 	}
 }
 
-// TestRangesFull tests the behavior when all eligible ranges are full.
-func TestRangesFull(t *testing.T) {
-	initDone := make(chan struct{})
-	// A single /32 can't be used to allocate since we always reserve 2 IPs,
-	// the network and broadcast address, which in the case of a /32 means it is always full.
+// TestAllowFirstLastIPs tests that first and last IPs are assigned when we set .spec.allowFirstLastIPs to yes.
+func TestAllowFirstLastIPs(t *testing.T) {
+	pool := mkPool(poolAUID, "pool-a", []string{"10.0.10.123/32"})
+	pool.Spec.AllowFirstLastIPs = cilium_api_v2alpha1.AllowFirstLastIPYes
 	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
-		mkPool(poolAUID, "pool-a", []string{"10.0.10.123/32", "FF::123/128"}),
-	}, true, true, func() {
-		close(initDone)
-	})
+		pool,
+	}, true, true, nil)
 
 	policy := slim_core_v1.IPFamilyPolicySingleStack
 	fixture.coreCS.Tracker().Add(
@@ -1050,22 +1048,12 @@ func TestRangesFull(t *testing.T) {
 			},
 		},
 	)
-	fixture.coreCS.Tracker().Add(
-		&slim_core_v1.Service{
-			ObjectMeta: slim_meta_v1.ObjectMeta{
-				Name:      "service-b",
-				Namespace: "default",
-				UID:       serviceBUID,
-			},
-			Spec: slim_core_v1.ServiceSpec{
-				Type:           slim_core_v1.ServiceTypeLoadBalancer,
-				IPFamilyPolicy: &policy,
-				IPFamilies: []slim_core_v1.IPFamily{
-					slim_core_v1.IPv6Protocol,
-				},
-			},
-		},
-	)
+
+	err := fixture.hive.Start(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fixture.hive.Stop(context.Background())
 
 	await := fixture.AwaitService(func(action k8s_testing.Action) bool {
 		if action.GetResource() != servicesResource || action.GetVerb() != "patch" {
@@ -1074,9 +1062,9 @@ func TestRangesFull(t *testing.T) {
 
 		svc := fixture.PatchedSvc(action)
 
-		if svc.Name != "service-a" {
-			if len(svc.Status.LoadBalancer.Ingress) != 0 {
-				t.Error("Expected service to have no ingress IPs")
+		if svc.Name == "service-a" {
+			if len(svc.Status.LoadBalancer.Ingress) != 1 {
+				t.Error("Expected service to have one ingress IPs")
 				return true
 			}
 
@@ -1086,47 +1074,12 @@ func TestRangesFull(t *testing.T) {
 			}
 
 			if svc.Status.Conditions[0].Type != ciliumSvcRequestSatisfiedCondition {
-				t.Error("Expected condition to be svc-satisfied:false")
+				t.Error("Expected condition to be svc-satisfied:true")
 				return true
 			}
 
-			if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionFalse {
-				t.Error("Expected condition to be svc-satisfied:false")
-				return true
-			}
-
-			if svc.Status.Conditions[0].Reason != "out_of_ips" {
-				t.Error("Expected condition reason to be out of IPs")
-				return true
-			}
-
-			return false
-		}
-
-		if svc.Name != "service-b" {
-
-			if len(svc.Status.LoadBalancer.Ingress) != 0 {
-				t.Error("Expected service to have no ingress IPs")
-				return true
-			}
-
-			if len(svc.Status.Conditions) != 1 {
-				t.Error("Expected service to have one conditions")
-				return true
-			}
-
-			if svc.Status.Conditions[0].Type != ciliumSvcRequestSatisfiedCondition {
-				t.Error("Expected condition to be svc-satisfied:false")
-				return true
-			}
-
-			if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionFalse {
-				t.Error("Expected condition to be svc-satisfied:false")
-				return true
-			}
-
-			if svc.Status.Conditions[0].Reason != "out_of_ips" {
-				t.Error("Expected condition reason to be out of IPs")
+			if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionTrue {
+				t.Error("Expected condition to be svc-satisfied:true")
 				return true
 			}
 		}
@@ -1134,13 +1087,131 @@ func TestRangesFull(t *testing.T) {
 		return true
 	}, time.Second)
 
-	go fixture.hive.Start(context.Background())
+	if await.Block() {
+		t.Fatal("Expected service update")
+	}
+}
+
+// TestUpdateAllowFirstAndLastIPs tests that first and last IPs are assigned when we update the
+// .spec.allowFirstLastIPs field.
+func TestUpdateAllowFirstAndLastIPs(t *testing.T) {
+	// Add pool which does not allow first and last IPs
+	fixture := mkTestFixture([]*cilium_api_v2alpha1.CiliumLoadBalancerIPPool{
+		mkPool(poolAUID, "pool-a", []string{"10.0.10.123/32"}),
+	}, true, true, nil)
+
+	policy := slim_core_v1.IPFamilyPolicySingleStack
+	fixture.coreCS.Tracker().Add(
+		&slim_core_v1.Service{
+			ObjectMeta: slim_meta_v1.ObjectMeta{
+				Name:      "service-a",
+				Namespace: "default",
+				UID:       serviceAUID,
+			},
+			Spec: slim_core_v1.ServiceSpec{
+				Type:           slim_core_v1.ServiceTypeLoadBalancer,
+				IPFamilyPolicy: &policy,
+				IPFamilies: []slim_core_v1.IPFamily{
+					slim_core_v1.IPv4Protocol,
+				},
+			},
+		},
+	)
+
+	err := fixture.hive.Start(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer fixture.hive.Stop(context.Background())
 
-	<-initDone
+	// First confirm that by default, first and last IPs are not allowed and thus the first and last IPs of the CIDR
+	// are reserved.
+
+	await := fixture.AwaitService(func(action k8s_testing.Action) bool {
+		if action.GetResource() != servicesResource || action.GetVerb() != "patch" {
+			return false
+		}
+
+		svc := fixture.PatchedSvc(action)
+
+		if svc.Name == "service-a" {
+			if len(svc.Status.LoadBalancer.Ingress) != 0 {
+				t.Error("Expected service to have zero ingress IPs")
+				return true
+			}
+
+			if len(svc.Status.Conditions) != 1 {
+				t.Error("Expected service to have one conditions")
+				return true
+			}
+
+			if svc.Status.Conditions[0].Type != ciliumSvcRequestSatisfiedCondition {
+				t.Error("Expected condition to be svc-satisfied:false")
+				return true
+			}
+
+			if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionFalse {
+				t.Error("Expected condition to be svc-satisfied:false")
+				return true
+			}
+		}
+
+		return true
+	}, time.Second)
 
 	if await.Block() {
-		t.Fatal("Expected two service updates")
+		t.Fatal("Expected service update")
+	}
+
+	poolClient := fixture.ciliumCS.CiliumV2alpha1().CiliumLoadBalancerIPPools()
+	pool, err := poolClient.Get(context.Background(), "pool-a", meta_v1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pool.Spec.AllowFirstLastIPs = cilium_api_v2alpha1.AllowFirstLastIPYes
+
+	// Then update the pool and confirm that the service got the first IP.
+
+	await = fixture.AwaitService(func(action k8s_testing.Action) bool {
+		if action.GetResource() != servicesResource || action.GetVerb() != "patch" {
+			return false
+		}
+
+		svc := fixture.PatchedSvc(action)
+
+		if svc.Name == "service-a" {
+			if len(svc.Status.LoadBalancer.Ingress) != 1 {
+				t.Error("Expected service to have one ingress IPs")
+				return true
+			}
+
+			if len(svc.Status.Conditions) != 1 {
+				t.Error("Expected service to have one conditions")
+				return true
+			}
+
+			if svc.Status.Conditions[0].Type != ciliumSvcRequestSatisfiedCondition {
+				t.Error("Expected condition 0 to be svc-satisfied:true")
+				return true
+			}
+
+			if svc.Status.Conditions[0].Status != slim_meta_v1.ConditionTrue {
+				t.Error("Expected condition 0 to be svc-satisfied:true")
+				return true
+			}
+		}
+
+		return true
+	}, time.Second)
+
+	_, err = poolClient.Update(context.Background(), pool, meta_v1.UpdateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if await.Block() {
+		t.Fatal("Expected service update")
 	}
 }
 
@@ -2236,15 +2307,15 @@ func TestRemoveRequestedIP(t *testing.T) {
 		return
 	}
 
-	if !fixture.lbIPAM.rangesStore.ranges[0].allocRange.Has(net.ParseIP("10.0.10.123")) {
+	if _, has := fixture.lbIPAM.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.123")); !has {
 		t.Fatal("Expected IP '10.0.10.123' to be allocated")
 	}
 
-	if !fixture.lbIPAM.rangesStore.ranges[0].allocRange.Has(net.ParseIP("10.0.10.124")) {
+	if _, has := fixture.lbIPAM.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.124")); !has {
 		t.Fatal("Expected IP '10.0.10.124' to be allocated")
 	}
 
-	if fixture.lbIPAM.rangesStore.ranges[0].allocRange.Has(net.ParseIP("10.0.10.125")) {
+	if _, has := fixture.lbIPAM.rangesStore.ranges[0].alloc.Get(netip.MustParseAddr("10.0.10.125")); has {
 		t.Fatal("Expected IP '10.0.10.125' to be released")
 	}
 }

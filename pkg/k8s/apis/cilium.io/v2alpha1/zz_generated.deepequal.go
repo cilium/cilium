@@ -1285,6 +1285,9 @@ func (in *CiliumLoadBalancerIPPoolSpec) DeepEqual(other *CiliumLoadBalancerIPPoo
 		}
 	}
 
+	if in.AllowFirstLastIPs != other.AllowFirstLastIPs {
+		return false
+	}
 	if ((in.Cidrs != nil) && (other.Cidrs != nil)) || ((in.Cidrs == nil) != (other.Cidrs == nil)) {
 		in, other := &in.Cidrs, &other.Cidrs
 		if other == nil {

@@ -8,7 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
+	"math/big"
+	"net/netip"
 	"runtime/pprof"
 	"slices"
 	"strconv"
@@ -24,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
-	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
+	"github.com/cilium/cilium/pkg/ipalloc"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	cilium_client_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
@@ -410,7 +411,7 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 
 		// Release allocations
 		for _, alloc := range sv.AllocatedIPs {
-			alloc.Origin.allocRange.Release(alloc.IP)
+			alloc.Origin.alloc.Free(alloc.IP)
 		}
 		ipam.serviceStore.Delete(sv.Key)
 
@@ -432,7 +433,7 @@ func (ipam *LBIPAM) handleUpsertService(ctx context.Context, svc *slim_core_v1.S
 	sv.Generation = svc.Generation
 	sv.Labels = svcLabels(svc)
 	sv.RequestedFamilies.IPv4, sv.RequestedFamilies.IPv6 = ipam.serviceIPFamilyRequest(svc)
-	sv.RequestedIPs = getSVCRequestedIPs(svc)
+	sv.RequestedIPs = getSVCRequestedIPs(ipam.logger, svc)
 	sv.Status = svc.Status.DeepCopy()
 
 	// Remove any allocation that are no longer valid due to a change in the service spec
@@ -481,7 +482,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 
 		releaseAllocIP := func() error {
 			ipam.logger.Debugf("removing allocation '%s' from '%s'", alloc.IP.String(), sv.Key.String())
-			alloc.Origin.allocRange.Release(alloc.IP)
+			alloc.Origin.alloc.Free(alloc.IP)
 
 			sv.AllocatedIPs = slices.Delete(sv.AllocatedIPs, allocIdx, allocIdx+1)
 			return nil
@@ -512,7 +513,7 @@ func (ipam *LBIPAM) stripInvalidAllocations(sv *ServiceView) error {
 		if len(sv.RequestedIPs) > 0 {
 			found := false
 			for _, reqIP := range sv.RequestedIPs {
-				if reqIP.Equal(alloc.IP) {
+				if reqIP.Compare(alloc.IP) == 0 {
 					found = true
 					break
 				}
@@ -553,15 +554,15 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 			continue
 		}
 
-		ip := net.ParseIP(ingress.IP)
-		if ip == nil {
+		ip, err := netip.ParseAddr(ingress.IP)
+		if err != nil {
 			continue
 		}
 
 		// Remove any ingress which is no longer allocated
 		var viewIP *ServiceViewIP
 		for i, vip := range sv.AllocatedIPs {
-			if vip.IP.Equal(ip) {
+			if vip.IP.Compare(ip) == 0 {
 				viewIP = &sv.AllocatedIPs[i]
 				break
 			}
@@ -573,7 +574,7 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 			if len(sv.RequestedIPs) > 0 {
 				found := false
 				for _, reqIP := range sv.RequestedIPs {
-					if reqIP.Equal(ip) {
+					if reqIP.Compare(ip) == 0 {
 						found = true
 						break
 					}
@@ -602,9 +603,9 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 				continue
 			}
 
-			err = lbRange.allocRange.Allocate(ip)
+			err = lbRange.alloc.Alloc(ip, true)
 			if err != nil {
-				if errors.Is(err, ipallocator.ErrAllocated) {
+				if errors.Is(err, ipalloc.ErrInUse) {
 					ipam.logger.WithFields(logrus.Fields{
 						"ingress-ip": ingress.IP,
 						"svc":        sv.Key,
@@ -644,26 +645,30 @@ func (ipam *LBIPAM) stripOrImportIngresses(sv *ServiceView) (statusModified bool
 	return statusModified, nil
 }
 
-func getSVCRequestedIPs(svc *slim_core_v1.Service) []net.IP {
-	var ips []net.IP
+func getSVCRequestedIPs(log logrus.FieldLogger, svc *slim_core_v1.Service) []netip.Addr {
+	var ips []netip.Addr
 	if svc.Spec.LoadBalancerIP != "" {
-		ip := net.ParseIP(svc.Spec.LoadBalancerIP)
-		if ip != nil {
+		ip, err := netip.ParseAddr(svc.Spec.LoadBalancerIP)
+		if err == nil {
 			ips = append(ips, ip)
+		} else {
+			log.WithError(err).Error("Unable to parse service.spec.LoadBalancerIP")
 		}
 	}
 
 	if annotation := svc.Annotations[ciliumSvcLBIPSAnnotation]; annotation != "" {
 		for _, ipStr := range strings.Split(annotation, ",") {
-			ip := net.ParseIP(strings.TrimSpace(ipStr))
-			if ip != nil {
+			ip, err := netip.ParseAddr(strings.TrimSpace(ipStr))
+			if err == nil {
 				ips = append(ips, ip)
+			} else {
+				log.WithError(err).Error("Unable to parse service.spec.LoadBalancerIP")
 			}
 		}
 	}
 
-	return slices.CompactFunc(ips, func(a, b net.IP) bool {
-		return a.Equal(b)
+	return slices.CompactFunc(ips, func(a, b netip.Addr) bool {
+		return a.Compare(b) == 0
 	})
 }
 
@@ -675,7 +680,7 @@ func (ipam *LBIPAM) handleDeletedService(svc *slim_core_v1.Service) {
 	}
 
 	for _, alloc := range sv.AllocatedIPs {
-		alloc.Origin.allocRange.Release(alloc.IP)
+		alloc.Origin.alloc.Free(alloc.IP)
 	}
 
 	ipam.serviceStore.Delete(key)
@@ -709,7 +714,7 @@ func (ipam *LBIPAM) satisfyService(sv *ServiceView) (statusModified bool, err er
 		for _, reqIP := range sv.RequestedIPs {
 			// if we are able to find the requested IP in the list of allocated IPs
 			if slices.IndexFunc(sv.AllocatedIPs, func(sv ServiceViewIP) bool {
-				return reqIP.Equal(sv.IP)
+				return reqIP.Compare(sv.IP) == 0
 			}) != -1 {
 				continue
 			}
@@ -732,7 +737,7 @@ func (ipam *LBIPAM) satisfyService(sv *ServiceView) (statusModified bool, err er
 				continue
 			}
 
-			if lbRange.allocRange.Has(reqIP) {
+			if _, exists := lbRange.alloc.Get(reqIP); exists {
 				msg := fmt.Sprintf("IP '%s' has already been allocated to another service", reqIP)
 				if ipam.setSVCSatisfiedCondition(sv, false, "already_allocated", msg) {
 					statusModified = true
@@ -741,10 +746,10 @@ func (ipam *LBIPAM) satisfyService(sv *ServiceView) (statusModified bool, err er
 			}
 
 			ipam.logger.Debugf("Allocate '%s' for '%s'", reqIP.String(), sv.Key.String())
-			err = lbRange.allocRange.Allocate(reqIP)
+			err = lbRange.alloc.Alloc(reqIP, true)
 			if err != nil {
-				if errors.Is(err, ipallocator.ErrAllocated) {
-					return statusModified, fmt.Errorf("ipallocator.Allocate: %w", err)
+				if errors.Is(err, ipalloc.ErrInUse) {
+					return statusModified, fmt.Errorf("ipalloc.Alloc: %w", err)
 				}
 
 				ipam.logger.WithError(err).Error("Unable to allocate IP")
@@ -772,18 +777,18 @@ func (ipam *LBIPAM) satisfyService(sv *ServiceView) (statusModified bool, err er
 		// Missing an IPv4 address, lets attempt to allocate an address
 		if sv.RequestedFamilies.IPv4 && !hasIPv4 {
 			newIP, lbRange, err := ipam.allocateIPAddress(sv, IPv4Family)
-			if err != nil && !errors.Is(err, ipallocator.ErrFull) {
+			if err != nil && !errors.Is(err, ipalloc.ErrFull) {
 				return statusModified, fmt.Errorf("allocateIPAddress: %w", err)
 			}
-			if newIP != nil {
+			if newIP.Compare(netip.Addr{}) != 0 {
 				sv.AllocatedIPs = append(sv.AllocatedIPs, ServiceViewIP{
-					IP:     *newIP,
+					IP:     newIP,
 					Origin: lbRange,
 				})
 			} else {
 				reason := "no_pool"
 				message := "There are no enabled CiliumLoadBalancerIPPools that match this service"
-				if errors.Is(err, ipallocator.ErrFull) {
+				if errors.Is(err, ipalloc.ErrFull) {
 					reason = "out_of_ips"
 					message = "All enabled CiliumLoadBalancerIPPools that match this service ran out of allocatable IPs"
 				}
@@ -797,18 +802,18 @@ func (ipam *LBIPAM) satisfyService(sv *ServiceView) (statusModified bool, err er
 		// Missing an IPv6 address, lets attempt to allocate an address
 		if sv.RequestedFamilies.IPv6 && !hasIPv6 {
 			newIP, lbRange, err := ipam.allocateIPAddress(sv, IPv6Family)
-			if err != nil && !errors.Is(err, ipallocator.ErrFull) {
+			if err != nil && !errors.Is(err, ipalloc.ErrFull) {
 				return statusModified, fmt.Errorf("allocateIPAddress: %w", err)
 			}
-			if newIP != nil {
+			if newIP.Compare(netip.Addr{}) != 0 {
 				sv.AllocatedIPs = append(sv.AllocatedIPs, ServiceViewIP{
-					IP:     *newIP,
+					IP:     newIP,
 					Origin: lbRange,
 				})
 			} else {
 				reason := "no_pool"
 				message := "There are no enabled CiliumLoadBalancerIPPools that match this service"
-				if errors.Is(err, ipallocator.ErrFull) {
+				if errors.Is(err, ipalloc.ErrFull) {
 					reason = "out_of_ips"
 					message = "All enabled CiliumLoadBalancerIPPools that match this service ran out of allocatable IPs"
 				}
@@ -824,7 +829,12 @@ func (ipam *LBIPAM) satisfyService(sv *ServiceView) (statusModified bool, err er
 	for _, alloc := range sv.AllocatedIPs {
 		// If the allocated IP isn't found in the assigned list, assign it
 		if slices.IndexFunc(sv.Status.LoadBalancer.Ingress, func(in slim_core_v1.LoadBalancerIngress) bool {
-			return net.ParseIP(in.IP).Equal(alloc.IP)
+			addr, err := netip.ParseAddr(in.IP)
+			if err != nil {
+				return false
+			}
+
+			return addr.Compare(alloc.IP) == 0
 		}) == -1 {
 			sv.Status.LoadBalancer.Ingress = append(sv.Status.LoadBalancer.Ingress, slim_core_v1.LoadBalancerIngress{
 				IP: alloc.IP.String(),
@@ -873,14 +883,14 @@ func (ipam *LBIPAM) setSVCSatisfiedCondition(
 	return true
 }
 
-func (ipam *LBIPAM) findRangeOfIP(sv *ServiceView, ip net.IP) (lbRange *LBRange, foundPool bool, err error) {
+func (ipam *LBIPAM) findRangeOfIP(sv *ServiceView, ip netip.Addr) (lbRange *LBRange, foundPool bool, err error) {
 	for _, r := range ipam.rangesStore.ranges {
 		if r.Disabled() {
 			continue
 		}
 
-		cidr := r.allocRange.CIDR()
-		if !cidr.Contains(ip) {
+		from, to := r.alloc.Range()
+		if ip.Compare(from) < 0 || ip.Compare(to) > 0 {
 			continue
 		}
 
@@ -939,7 +949,7 @@ func (ipam *LBIPAM) allocateIPAddress(
 	sv *ServiceView,
 	family AddressFamily,
 ) (
-	newIP *net.IP,
+	newIP netip.Addr,
 	chosenRange *LBRange,
 	err error,
 ) {
@@ -951,7 +961,7 @@ func (ipam *LBIPAM) allocateIPAddress(
 		}
 
 		// Skip this range if it doesn't match the requested address family
-		if isIPv6(lbRange.allocRange.CIDR().IP) {
+		if _, to := lbRange.alloc.Range(); isIPv6(to) {
 			if family == IPv4Family {
 				continue
 			}
@@ -972,7 +982,7 @@ func (ipam *LBIPAM) allocateIPAddress(
 		if pool.Spec.ServiceSelector != nil {
 			selector, err := slim_meta_v1.LabelSelectorAsSelector(pool.Spec.ServiceSelector)
 			if err != nil {
-				return nil, nil, fmt.Errorf("Making selector from pool '%s' label selector: %w", pool.Name, err)
+				return netip.Addr{}, nil, fmt.Errorf("Making selector from pool '%s' label selector: %w", pool.Name, err)
 			}
 
 			if !selector.Matches(sv.Labels) {
@@ -981,10 +991,10 @@ func (ipam *LBIPAM) allocateIPAddress(
 		}
 
 		// Attempt to allocate the next IP from this range.
-		newIp, err := lbRange.allocRange.AllocateNext()
+		newIp, err := lbRange.alloc.AllocAny(true)
 		if err != nil {
 			// If the range is full, mark it.
-			if errors.Is(err, ipallocator.ErrFull) {
+			if errors.Is(err, ipalloc.ErrFull) {
 				full = true
 				continue
 			}
@@ -993,14 +1003,14 @@ func (ipam *LBIPAM) allocateIPAddress(
 			continue
 		}
 
-		return &newIp, lbRange, nil
+		return newIp, lbRange, nil
 	}
 
 	if full {
-		return nil, nil, ipallocator.ErrFull
+		return netip.Addr{}, nil, ipalloc.ErrFull
 	}
 
-	return nil, nil, nil
+	return netip.Addr{}, nil, nil
 }
 
 // serviceIPFamilyRequest checks which families of IP addresses are requested
@@ -1073,12 +1083,28 @@ func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2alpha1
 
 	ipam.pools[pool.GetName()] = pool
 	for _, cidrBlock := range pool.Spec.Cidrs {
-		_, cidr, err := net.ParseCIDR(string(cidrBlock.Cidr))
+		prefix, err := netip.ParsePrefix(string(cidrBlock.Cidr))
 		if err != nil {
 			return fmt.Errorf("Error parsing cidr '%s': %w", cidrBlock.Cidr, err)
 		}
 
-		ipam.rangesStore.Add(newLBRange(cidr, pool))
+		from, to := rangeFromPrefix(prefix)
+
+		lbRange, err := NewLBRange(from, to, pool)
+		if err != nil {
+			return fmt.Errorf("Error making LB Range for '%s': %w", cidrBlock.Cidr, err)
+		}
+
+		// If AllowFirstLastIPs is no or unspecified, mark the first and last IP as allocated upon range creation.
+		if pool.Spec.AllowFirstLastIPs != cilium_api_v2alpha1.AllowFirstLastIPYes {
+			// TODO: in 1.16 switch from default no to default yes.
+			// https://github.com/cilium/cilium/issues/28591
+			from, to := lbRange.alloc.Range()
+			lbRange.alloc.Alloc(from, true)
+			lbRange.alloc.Alloc(to, true)
+		}
+
+		ipam.rangesStore.Add(lbRange)
 	}
 
 	// Unmark new pools so they get a conflict: False condition set, otherwise kubectl will report a blank field.
@@ -1088,15 +1114,21 @@ func (ipam *LBIPAM) handleNewPool(ctx context.Context, pool *cilium_api_v2alpha1
 }
 
 func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2alpha1.CiliumLoadBalancerIPPool) error {
+	changedAllowFirstLastIPs := false
+	if existingPool, ok := ipam.pools[pool.GetName()]; ok {
+		changedAllowFirstLastIPs = (existingPool.Spec.AllowFirstLastIPs == cilium_api_v2alpha1.AllowFirstLastIPYes) !=
+			(pool.Spec.AllowFirstLastIPs == cilium_api_v2alpha1.AllowFirstLastIPYes)
+	}
+
 	ipam.pools[pool.GetName()] = pool
 
-	var newCIDRs []net.IPNet
+	var newCIDRs []netip.Prefix
 	for _, newBlock := range pool.Spec.Cidrs {
-		_, cidr, err := net.ParseCIDR(string(newBlock.Cidr))
+		cidr, err := netip.ParsePrefix(string(newBlock.Cidr))
 		if err != nil {
 			return fmt.Errorf("Error parsing cidr '%s': %w", newBlock.Cidr, err)
 		}
-		newCIDRs = append(newCIDRs, *cidr)
+		newCIDRs = append(newCIDRs, cidr)
 	}
 
 	existingRanges, _ := ipam.rangesStore.GetRangesForPool(pool.GetName())
@@ -1105,13 +1137,32 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 	for _, extRange := range existingRanges {
 		found := false
 		for _, newCIDR := range newCIDRs {
-			if extRange.EqualCIDR(&newCIDR) {
+			from, to := rangeFromPrefix(newCIDR)
+			if extRange.EqualCIDR(from, to) {
 				found = true
 				break
 			}
 		}
 
 		if found {
+			// If the AllowFirstLastIPs state changed
+			if changedAllowFirstLastIPs {
+				// TODO: in 1.16 switch from default no to default yes.
+				// https://github.com/cilium/cilium/issues/28591
+				if pool.Spec.AllowFirstLastIPs == cilium_api_v2alpha1.AllowFirstLastIPYes {
+					// If we are allowing first and last IPs again, free them for allocation
+					from, to := extRange.alloc.Range()
+					extRange.alloc.Free(from)
+					extRange.alloc.Free(to)
+				} else {
+					// If we are disallowing first and last IPs, alloc the first and last IP if they are not already allocated.
+					// Note: This will not revoke IPs that are already allocated to services.
+					from, to := extRange.alloc.Range()
+					extRange.alloc.Alloc(from, true)
+					extRange.alloc.Alloc(to, true)
+				}
+			}
+
 			continue
 		}
 
@@ -1125,9 +1176,11 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 
 	// Add new ranges that were added
 	for _, newCIDR := range newCIDRs {
+		from, to := rangeFromPrefix(newCIDR)
+
 		found := false
 		for _, extRange := range existingRanges {
-			if extRange.EqualCIDR(&newCIDR) {
+			if extRange.EqualCIDR(from, to) {
 				found = true
 				break
 			}
@@ -1137,7 +1190,21 @@ func (ipam *LBIPAM) handlePoolModified(ctx context.Context, pool *cilium_api_v2a
 			continue
 		}
 
-		ipam.rangesStore.Add(newLBRange(&newCIDR, pool))
+		newRange, err := NewLBRange(from, to, pool)
+		if err != nil {
+			return fmt.Errorf("Error while making new LB range for CIDR '%s': %w", newCIDR.String(), err)
+		}
+
+		// If AllowFirstLastIPs is no or default, mark the first and last IP as allocated upon range creation.
+		if pool.Spec.AllowFirstLastIPs != cilium_api_v2alpha1.AllowFirstLastIPYes {
+			// TODO: in 1.16 switch from default no to default yes.
+			// https://github.com/cilium/cilium/issues/28591
+			from, to := newRange.alloc.Range()
+			newRange.alloc.Alloc(from, true)
+			newRange.alloc.Alloc(to, true)
+		}
+
+		ipam.rangesStore.Add(newRange)
 	}
 
 	existingRanges, _ = ipam.rangesStore.GetRangesForPool(pool.GetName())
@@ -1230,30 +1297,45 @@ func (ipam *LBIPAM) updatePoolCounts(pool *cilium_api_v2alpha1.CiliumLoadBalance
 
 	type IPCounts struct {
 		// Total is the total amount of allocatable IPs
-		Total int
+		Total *big.Int
 		// Available is the amount of IPs which can still be allocated
-		Available int
+		Available *big.Int
 		// Used is the amount of IPs that are currently allocated
-		Used int
+		Used uint64
 	}
 
-	var totalCounts IPCounts
+	totalCounts := IPCounts{
+		Total:     big.NewInt(0),
+		Available: big.NewInt(0),
+	}
 	for _, lbRange := range ranges {
-		free := lbRange.allocRange.Free()
-		used := lbRange.allocRange.Used()
+		used, available := lbRange.alloc.Stats()
 
-		totalCounts.Total += free + used
-		totalCounts.Available += free
+		totalCounts.Total = totalCounts.Total.Add(totalCounts.Total, available)
+
+		// big.NewInt wants a int64, we have a uint64, converting like int64(used) could cause overflow
+		// to negative numbers. So shift down by 1 bit so the sign bit is always 0, then convert to bigint.
+		// Multiply by two once a bigint to reverse the bitshift and possibly add 1 if the last bit is 1.
+		// This should give a loss-less conversion.
+		half := int64(used >> 1)
+		bigUsed := big.NewInt(0).Mul(big.NewInt(half), big.NewInt(2))
+		if used%2 == 1 {
+			bigUsed.Add(bigUsed, big.NewInt(1))
+		}
+		totalCounts.Total = totalCounts.Total.Add(totalCounts.Total, bigUsed)
+
+		totalCounts.Available = totalCounts.Available.Add(totalCounts.Available, available)
 		totalCounts.Used += used
 	}
 
-	if ipam.setPoolCondition(pool, ciliumPoolIPsTotalCondition, meta_v1.ConditionUnknown, "noreason", strconv.Itoa(totalCounts.Total)) ||
-		ipam.setPoolCondition(pool, ciliumPoolIPsAvailableCondition, meta_v1.ConditionUnknown, "noreason", strconv.Itoa(totalCounts.Available)) ||
-		ipam.setPoolCondition(pool, ciliumPoolIPsUsedCondition, meta_v1.ConditionUnknown, "noreason", strconv.Itoa(totalCounts.Used)) {
+	if ipam.setPoolCondition(pool, ciliumPoolIPsTotalCondition, meta_v1.ConditionUnknown, "noreason", totalCounts.Total.String()) ||
+		ipam.setPoolCondition(pool, ciliumPoolIPsAvailableCondition, meta_v1.ConditionUnknown, "noreason", totalCounts.Available.String()) ||
+		ipam.setPoolCondition(pool, ciliumPoolIPsUsedCondition, meta_v1.ConditionUnknown, "noreason", strconv.FormatUint(totalCounts.Used, 10)) {
 		modifiedPoolStatus = true
 	}
 
-	ipam.metrics.AvailableIPs.WithLabelValues(pool.Name).Set(float64(totalCounts.Available))
+	available, _ := new(big.Float).SetInt(totalCounts.Available).Float64()
+	ipam.metrics.AvailableIPs.WithLabelValues(pool.Name).Set(available)
 	ipam.metrics.UsedIPs.WithLabelValues(pool.Name).Set(float64(totalCounts.Used))
 
 	return modifiedPoolStatus
@@ -1475,21 +1557,21 @@ func (ipam *LBIPAM) markPoolConflicting(
 	ipam.metrics.ConflictingPools.Inc()
 
 	ipam.logger.WithFields(logrus.Fields{
-		"pool1-name": targetPool.Name,
-		"pool1-cidr": ipNetStr(targetRange.allocRange.CIDR()),
-		"pool2-name": ipNetStr(collisionRange.allocRange.CIDR()),
-		"pool2-cidr": collisionPool.Name,
-	}).Warnf("Pool '%s' conflicts since CIDR '%s' overlaps CIDR '%s' from IP Pool '%s'",
+		"pool1-name":  targetPool.Name,
+		"pool1-range": ipNetStr(targetRange),
+		"pool2-name":  ipNetStr(collisionRange),
+		"pool2-range": collisionPool.Name,
+	}).Warnf("Pool '%s' conflicts since range '%s' overlaps range '%s' from IP Pool '%s'",
 		targetPool.Name,
-		ipNetStr(targetRange.allocRange.CIDR()),
-		ipNetStr(collisionRange.allocRange.CIDR()),
+		ipNetStr(targetRange),
+		ipNetStr(collisionRange),
 		collisionPool.Name,
 	)
 
 	conflictMessage := fmt.Sprintf(
-		"Pool conflicts since CIDR '%s' overlaps CIDR '%s' from IP Pool '%s'",
-		ipNetStr(targetRange.allocRange.CIDR()),
-		ipNetStr(collisionRange.allocRange.CIDR()),
+		"Pool conflicts since range '%s' overlaps range '%s' from IP Pool '%s'",
+		ipNetStr(targetRange),
+		ipNetStr(collisionRange),
 		collisionPool.Name,
 	)
 
@@ -1573,6 +1655,31 @@ func (ipam *LBIPAM) patchPoolStatus(ctx context.Context, pool *cilium_api_v2alph
 	return err
 }
 
-func isIPv6(ip net.IP) bool {
-	return ip.To4() == nil
+func isIPv6(ip netip.Addr) bool {
+	return ip.BitLen() == 128
+}
+
+func rangeFromPrefix(prefix netip.Prefix) (netip.Addr, netip.Addr) {
+	prefix = prefix.Masked()
+	from := prefix.Addr()
+	bitLen := from.BitLen()
+	varBits := bitLen - prefix.Bits()
+	toSlice := from.AsSlice()
+
+	i := len(toSlice) - 1
+	for varBits > 0 {
+		if varBits >= 8 {
+			toSlice[i] = 0xFF
+			varBits -= 8
+			i--
+			continue
+		}
+
+		mask := byte(1) << varBits
+		toSlice[i] |= mask
+		break
+	}
+
+	to, _ := netip.AddrFromSlice(toSlice)
+	return from, to
 }

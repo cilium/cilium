@@ -26,10 +26,10 @@ spec:
     - jsonPath: .spec.disabled
       name: Disabled
       type: boolean
-    - jsonPath: .status.conditions[?(@.type=="cilium.io/PoolConflict")].status
+    - jsonPath: .status.conditions[?(@.type=="io.cilium/conflict")].status
       name: Conflicting
       type: string
-    - jsonPath: .status.conditions[?(@.type=="cilium.io/IPsAvailable")].message
+    - jsonPath: .status.conditions[?(@.type=="io.cilium/ips-available")].message
       name: IPs Available
       type: string
     - jsonPath: .metadata.creationTimestamp
@@ -58,6 +58,16 @@ spec:
             description: Spec is a human readable description for a BGP load balancer
               ip pool.
             properties:
+              allowFirstLastIPs:
+                description: AllowFirstLastIPs, if set to `yes` means that the first
+                  and last IPs of each CIDR will be allocatable. If `no` or undefined,
+                  these IPs will be reserved. This field is ignored for /{31,32} and
+                  /{127,128} CIDRs since reserving the first and last IPs would make
+                  the CIDRs unusable.
+                enum:
+                - "Yes"
+                - "No"
+                type: string
               cidrs:
                 description: CiliumLoadBalancerIPPoolCIDRBlock is a list of CIDRs
                   comprising this IP Pool
