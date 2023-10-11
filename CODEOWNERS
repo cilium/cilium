@@ -393,6 +393,7 @@ Makefile* @cilium/build
 /pkg/bpf/ @cilium/loader
 /pkg/byteorder/ @cilium/sig-datapath @cilium/api
 /pkg/cgroups/ @cilium/sig-datapath
+/pkg/channels/ @cilium/sig-foundations
 /pkg/checker/ @cilium/ci-structure
 /pkg/cleanup/ @cilium/sig-agent
 /pkg/client @cilium/api
