@@ -4,6 +4,7 @@
     "outputs" : {
       "dnsSuffix" : "amazonaws.com",
       "dualStackDnsSuffix" : "api.aws",
+      "implicitGlobalRegion" : "us-east-1",
       "name" : "aws",
       "supportsDualStack" : true,
       "supportsFIPS" : true
@@ -103,6 +104,7 @@
     "outputs" : {
       "dnsSuffix" : "amazonaws.com.cn",
       "dualStackDnsSuffix" : "api.amazonwebservices.com.cn",
+      "implicitGlobalRegion" : "cn-northwest-1",
       "name" : "aws-cn",
       "supportsDualStack" : true,
       "supportsFIPS" : true
@@ -124,6 +126,7 @@
     "outputs" : {
       "dnsSuffix" : "amazonaws.com",
       "dualStackDnsSuffix" : "api.aws",
+      "implicitGlobalRegion" : "us-gov-west-1",
       "name" : "aws-us-gov",
       "supportsDualStack" : true,
       "supportsFIPS" : true
@@ -145,6 +148,7 @@
     "outputs" : {
       "dnsSuffix" : "c2s.ic.gov",
       "dualStackDnsSuffix" : "c2s.ic.gov",
+      "implicitGlobalRegion" : "us-iso-east-1",
       "name" : "aws-iso",
       "supportsDualStack" : false,
       "supportsFIPS" : true
@@ -166,6 +170,7 @@
     "outputs" : {
       "dnsSuffix" : "sc2s.sgov.gov",
       "dualStackDnsSuffix" : "sc2s.sgov.gov",
+      "implicitGlobalRegion" : "us-isob-east-1",
       "name" : "aws-iso-b",
       "supportsDualStack" : false,
       "supportsFIPS" : true
@@ -184,6 +189,7 @@
     "outputs" : {
       "dnsSuffix" : "cloud.adc-e.uk",
       "dualStackDnsSuffix" : "cloud.adc-e.uk",
+      "implicitGlobalRegion" : "eu-isoe-west-1",
       "name" : "aws-iso-e",
       "supportsDualStack" : false,
       "supportsFIPS" : true
@@ -195,6 +201,7 @@
     "outputs" : {
       "dnsSuffix" : "csp.hci.ic.gov",
       "dualStackDnsSuffix" : "csp.hci.ic.gov",
+      "implicitGlobalRegion" : "us-isof-south-1",
       "name" : "aws-iso-f",
       "supportsDualStack" : false,
       "supportsFIPS" : true

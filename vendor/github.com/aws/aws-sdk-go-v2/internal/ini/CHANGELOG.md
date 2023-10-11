@@ -1,3 +1,7 @@
+# v1.3.44 (2023-10-06)
+
+* **Dependency Update**: Updated to the latest SDK module versions
+
 # v1.3.43 (2023-09-22)
 
 * **Bug Fix**: Fixed a bug where merging `max_attempts` or `duration_seconds` fields across shared config files with invalid values would silently default them to 0.

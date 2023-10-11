@@ -18,7 +18,7 @@ if [ -z "$RUNNER_TMPDIR" ]; then
     exit 1
 fi
 
-branch=`git branch --show-current`
+branch=$(git branch --show-current)
 if [ "$branch" == main ]; then
     echo aws-sdk-go-v2 is on branch main, stop
     exit 0
@@ -38,10 +38,10 @@ fi
 
 echo on branch \"$branch\"
 while [ -n "$branch" ] && [[ "$branch" == *-* ]]; do
-    echo looking for $branch...
-    git ls-remote --exit-code --heads $repository refs/heads/$branch
+    echo looking for "$branch"...
+    git ls-remote --exit-code --heads "$repository" refs/heads/"$branch"
     if [ "$?" == 0 ]; then
-        echo found $branch
+        echo found "$branch"
         matched_branch=$branch
         break
     fi
@@ -54,5 +54,5 @@ if [ -z "$matched_branch" ]; then
     exit 0
 fi
 
-git clone -b $matched_branch $repository $RUNNER_TMPDIR/smithy-go
+git clone -b "$matched_branch" "$repository" "$RUNNER_TMPDIR"/smithy-go
 SMITHY_GO_SRC=$RUNNER_TMPDIR/smithy-go make gen-mod-replace-smithy-.

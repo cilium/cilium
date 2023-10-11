@@ -3005,6 +3005,30 @@ const endpointsJson = `{
 				{
 					"region": "cn-zhangjiakou",
 					"endpoint": "slb.cn-zhangjiakou.aliyuncs.com"
+				},
+				{
+					"region": "cn-wulanchabu",
+					"endpoint": "slb.cn-wulanchabu.aliyuncs.com"
+				},
+				{
+					"region": "cn-heyuan",
+					"endpoint": "slb.cn-heyuan.aliyuncs.com"
+				},
+				{
+					"region": "cn-guangzhou",
+					"endpoint": "slb.cn-guangzhou.aliyuncs.com"
+				},
+				{
+					"region": "cn-chengdu",
+					"endpoint": "slb.cn-chengdu.aliyuncs.com"
+				},
+				{
+					"region": "ap-southeast-6",
+					"endpoint": "slb.ap-southeast-6.aliyuncs.com"
+				},
+				{
+					"region": "eu-west-1",
+					"endpoint": "slb.eu-west-1.aliyuncs.com"
 				}
 			],
 			"global_endpoint": "slb.aliyuncs.com",
