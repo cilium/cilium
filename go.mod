@@ -22,7 +22,7 @@ require (
 	github.com/cilium/coverbee v0.3.2
 	github.com/cilium/deepequal-gen v0.0.0-20230330134849-754271daeec2
 	github.com/cilium/dns v1.1.51-0.20230303133941-d3bcb3008ed2
-	github.com/cilium/ebpf v0.11.0
+	github.com/cilium/ebpf v0.12.0
 	github.com/cilium/fake v0.5.0
 	github.com/cilium/linters v0.0.0-20230926084020-bbc4dd6ace8a
 	github.com/cilium/lumberjack/v2 v2.3.0
