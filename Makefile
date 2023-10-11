@@ -572,9 +572,8 @@ KIND_CLUSTER_NAME ?= kind
 
 .PHONY: kind-ready
 kind-ready:
-	@$(ECHO_CHECK) kind is ready...
-	@kind get clusters 2>&1 | grep "$(KIND_CLUSTER_NAME)" \
-		&& exit 0 || exit 1
+	@$(ECHO_CHECK) kind-ready
+	@if [ -n "$(shell kind get clusters -q)" ]; then echo "kind is ready"; else echo "kind not ready"; exit 1; fi
 
 $(eval $(call KIND_ENV,kind-build-image-agent))
 kind-build-image-agent: ## Build cilium-dev docker image
