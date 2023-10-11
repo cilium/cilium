@@ -267,12 +267,8 @@ func NewCollector(k KubernetesClient, o Options, startTime time.Time, cliVersion
 			}
 			c.log("ℹ️  %s ConfigMap not found in %s namespace", ciliumConfigMapName, c.Options.CiliumNamespace)
 		}
-		if c.CiliumConfigMap != nil && len(c.CiliumPods) > 0 {
-			ciliumVersion, err := c.Client.GetCiliumVersion(context.Background(), c.CiliumPods[0])
-			if err != nil {
-				return nil, fmt.Errorf("failed to get Cilium version from %s/%s: %w", c.CiliumPods[0].Namespace, c.CiliumPods[0].Name, err)
-			}
-			c.FeatureSet.ExtractFromConfigMap(*ciliumVersion, c.CiliumConfigMap)
+		if c.CiliumConfigMap != nil {
+			c.FeatureSet.ExtractFromConfigMap(c.CiliumConfigMap)
 			c.log("🔮 Detected Cilium features: %v", c.FeatureSet)
 		}
 	}
