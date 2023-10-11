@@ -865,7 +865,7 @@
      - object
      - ``{"enabled":false,"installRoutes":false,"reconciliationTriggerInterval":"1s"}``
    * - :spelling:ignore:`egressGateway.installRoutes`
-     - Install egress gateway IP rules and routes in order to properly steer egress gateway traffic to the correct ENI interface
+     - Deprecated without a replacement necessary.
      - bool
      - ``false``
    * - :spelling:ignore:`egressGateway.reconciliationTriggerInterval`
