@@ -15,12 +15,12 @@ metadata:
     {{- if $.Values.dashboards.label }}
     {{ $.Values.dashboards.label }}: {{ ternary $.Values.dashboards.labelValue "1" (not (empty $.Values.dashboards.labelValue)) | quote }}
     {{- end }}
-  {{- if or .Values.dashboards.annotations .Values.annotations }}
+  {{- if or $.Values.dashboards.annotations $.Values.annotations }}
   annotations:
     {{- with $.Values.dashboards.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
-    {{- with .Values.annotations }}
+    {{- with $.Values.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- end }}
