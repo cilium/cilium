@@ -1,0 +1,35 @@
+name: Assert bpftrace script output
+description: Stops the background bpftrace process, asserts that it completed successfully and did not write anything to stdout
+
+inputs:
+  output-path:
+    description: "Directory where the output files are stored to"
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    - name: Assert that bpftrace completed successfully
+      uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
+      with:
+        provision: 'false'
+        cmd: |
+          cd /host/
+
+          if [[ "\$(wc -l < ${{ inputs.output-path }}/bpftrace.err)" -ne 0 ]];
+          then
+            echo "Unexpected error reported by bpftrace"
+            cat ${{ inputs.output-path }}/bpftrace.err
+            exit 1
+          fi
+
+          pkill -F ${{ inputs.output-path }}/bpftrace.pid || { echo "Failed to stop bpftrace"; exit 1; }
+          # Wait until bpftrace terminates, so that the output is complete
+          while pgrep -F ${{ inputs.output-path }}/bpftrace.pid > /dev/null; do sleep 1; done
+
+          if [[ "\$(grep -cvE '(^\s*$)' ${{ inputs.output-path }}/bpftrace.out)" -ne 0 ]];
+          then
+            echo "Error: bpftrace output is not empty"
+            cat ${{ inputs.output-path }}/bpftrace.out
+            exit 1
+          fi

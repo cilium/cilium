@@ -1,0 +1,49 @@
+name: Start bpftrace script in background
+description: Starts the given bpftrace script in background
+
+inputs:
+  script:
+    description: "The path of the bpftrace program to execute"
+    required: true
+  args:
+    description: "The arguments propagated to the bpftrace script"
+    default: ""
+  output-path:
+    description: "Directory where the output files are stored to"
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    - name: Install bpftrace if not already present
+      uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
+      with:
+        provision: 'false'
+        cmd: |
+          if ! command -v bpftrace &> /dev/null; then
+            # bpftrace v0.20.1 doesn't seem to play well with Linux 4.19
+            # https://github.com/bpftrace/bpftrace/issues/3011
+            # Let's buy us some time, and keep installing v0.19.1 for the moment.
+            echo 'deb http://deb.debian.org/debian trixie main' >> /etc/apt/sources.list
+            apt update && apt install -y bpftrace -t trixie
+          fi
+
+    - name: Start bpftrace in background
+      id: run
+      uses: cilium/little-vm-helper@8410a93e544b7e180a2365e5fdab0724a39bc02a # v0.0.13
+      with:
+        provision: 'false'
+        cmd: |
+          cd /host/
+
+          if [[ -f "/boot/btf-\$(uname -r)" ]]; then
+            export BPFTRACE_BTF="/boot/btf-\$(uname -r)"
+          fi
+
+          bpftrace ${{ inputs.script }} -q \
+            ${{ inputs.args }} \
+            > ${{ inputs.output-path }}/bpftrace.out \
+            2> ${{ inputs.output-path }}/bpftrace.err \
+            < /dev/null &
+
+          echo \$! > ${{ inputs.output-path }}/bpftrace.pid
