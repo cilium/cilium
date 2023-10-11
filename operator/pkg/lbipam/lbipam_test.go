@@ -102,7 +102,7 @@ func TestConflictResolution(t *testing.T) {
 	}
 
 	// Remove the conflicting range
-	poolB.Spec.Cidrs = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolCIDRBlock{
+	poolB.Spec.Cidrs = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
 		{
 			Cidr: cilium_api_v2alpha1.IPv4orIPv6CIDR("FF::0/48"),
 		},
@@ -159,7 +159,7 @@ func TestPoolInternalConflict(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pool.Spec.Cidrs = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolCIDRBlock{
+	pool.Spec.Cidrs = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
 		{
 			Cidr: "10.0.10.0/24",
 		},
@@ -1534,7 +1534,7 @@ func TestAddRange(t *testing.T) {
 		return
 	}
 
-	poolA.Spec.Cidrs = append(poolA.Spec.Cidrs, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolCIDRBlock{
+	poolA.Spec.Cidrs = append(poolA.Spec.Cidrs, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
 		Cidr: "10.0.20.0/24",
 	})
 
@@ -1857,7 +1857,7 @@ func TestRangeDelete(t *testing.T) {
 	}, 500*time.Millisecond)
 
 	// Add a new CIDR, this should not have any effect on the existing service.
-	poolA.Spec.Cidrs = append(poolA.Spec.Cidrs, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolCIDRBlock{
+	poolA.Spec.Cidrs = append(poolA.Spec.Cidrs, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
 		Cidr: "10.0.20.0/24",
 	})
 	_, err := fixture.poolClient.Update(context.Background(), poolA, meta_v1.UpdateOptions{})
@@ -1894,7 +1894,7 @@ func TestRangeDelete(t *testing.T) {
 	}, time.Second)
 
 	// Remove the existing range, this should trigger the re-allocation of the existing service
-	poolA.Spec.Cidrs = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolCIDRBlock{
+	poolA.Spec.Cidrs = []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
 		{
 			Cidr: "10.0.20.0/24",
 		},
@@ -2438,5 +2438,68 @@ func TestChangePoolSelector(t *testing.T) {
 
 	if await.Block() {
 		t.Fatal("Expected service status update")
+	}
+}
+
+func TestRangeFromPrefix(t *testing.T) {
+	type test struct {
+		name   string
+		prefix string
+		from   string
+		to     string
+	}
+
+	tests := []test{
+		{
+			name:   "/24",
+			prefix: "10.0.0.0/24",
+			from:   "10.0.0.0",
+			to:     "10.0.0.255",
+		},
+		{
+			name:   "/25",
+			prefix: "10.0.0.0/25",
+			from:   "10.0.0.0",
+			to:     "10.0.0.128",
+		},
+		{
+			name:   "offset prefix",
+			prefix: "10.0.0.12/24",
+			from:   "10.0.0.0",
+			to:     "10.0.0.255",
+		},
+		{
+			name:   "ipv6",
+			prefix: "::0000/112",
+			from:   "::0000",
+			to:     "::FFFF",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(tt *testing.T) {
+			prefix, err := netip.ParsePrefix(test.prefix)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			expectedTo, err := netip.ParseAddr(test.to)
+			if err != nil {
+				tt.Fatal(err)
+			}
+
+			expectedFrom, err := netip.ParseAddr(test.from)
+			if err != nil {
+				tt.Fatal(err)
+			}
+
+			from, to := rangeFromPrefix(prefix)
+			if to.Compare(expectedTo) != 0 {
+				tt.Fatalf("expected '%s', got '%s'", expectedTo, to)
+			}
+			if from.Compare(expectedFrom) != 0 {
+				tt.Fatalf("expected '%s', got '%s'", expectedFrom, from)
+			}
+		})
 	}
 }

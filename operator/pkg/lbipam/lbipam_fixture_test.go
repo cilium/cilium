@@ -319,9 +319,9 @@ func (fix *LBIPAMTestFixture) patchedObj(tracker k8s_testing.ObjectTracker, acti
 
 // mkPool is a constructor function to assist in the creation of new pool objects.
 func mkPool(uid types.UID, name string, cidrs []string) *cilium_api_v2alpha1.CiliumLoadBalancerIPPool {
-	var blocks []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolCIDRBlock
+	var blocks []cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock
 	for _, cidr := range cidrs {
-		blocks = append(blocks, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolCIDRBlock{
+		blocks = append(blocks, cilium_api_v2alpha1.CiliumLoadBalancerIPPoolIPBlock{
 			Cidr: cilium_api_v2alpha1.IPv4orIPv6CIDR(cidr),
 		})
 	}

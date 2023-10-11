@@ -97,7 +97,7 @@ func newLBPoolObj(conf lbPoolConfig) v2alpha1.CiliumLoadBalancerIPPool {
 		obj.Labels = conf.labels
 	}
 	for _, cidr := range conf.cidrs {
-		obj.Spec.Cidrs = append(obj.Spec.Cidrs, v2alpha1.CiliumLoadBalancerIPPoolCIDRBlock{Cidr: v2alpha1.IPv4orIPv6CIDR(cidr)})
+		obj.Spec.Cidrs = append(obj.Spec.Cidrs, v2alpha1.CiliumLoadBalancerIPPoolIPBlock{Cidr: v2alpha1.IPv4orIPv6CIDR(cidr)})
 	}
 	return obj
 }

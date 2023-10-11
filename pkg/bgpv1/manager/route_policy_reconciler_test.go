@@ -31,7 +31,7 @@ var (
 			},
 		},
 		Spec: v2alpha1api.CiliumLoadBalancerIPPoolSpec{
-			Cidrs: []v2alpha1api.CiliumLoadBalancerIPPoolCIDRBlock{
+			Cidrs: []v2alpha1api.CiliumLoadBalancerIPPoolIPBlock{
 				{
 					Cidr: "192.168.0.0/24",
 				},
@@ -45,7 +45,7 @@ var (
 			},
 		},
 		Spec: v2alpha1api.CiliumLoadBalancerIPPoolSpec{
-			Cidrs: []v2alpha1api.CiliumLoadBalancerIPPoolCIDRBlock{
+			Cidrs: []v2alpha1api.CiliumLoadBalancerIPPoolIPBlock{
 				{
 					Cidr: "10.100.99.0/24", // UPDATED
 				},
