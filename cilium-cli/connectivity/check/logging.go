@@ -281,14 +281,18 @@ func (t *Test) Infof(format string, a ...interface{}) {
 	t.logf(info+" "+format, a...)
 }
 
+func (t *Test) failCommon() {
+	t.failed = true
+	t.flush()
+}
+
 // Fail marks the Test as failed and logs a failure message.
 //
 // Flushes the Test's internal log buffer. Any further logs against the Test
 // will go directly to the user-specified writer.
 func (t *Test) Fail(a ...interface{}) {
-	t.failed = true
-	t.flush()
 	t.log(fail, a...)
+	t.failCommon()
 }
 
 // Failf marks the Test as failed and logs a formatted failure message.
@@ -296,26 +300,23 @@ func (t *Test) Fail(a ...interface{}) {
 // Flushes the Test's internal log buffer. Any further logs against the Test
 // will go directly to the user-specified writer.
 func (t *Test) Failf(format string, a ...interface{}) {
-	t.failed = true
-	t.flush()
 	t.logf(fail+" "+format, a...)
+	t.failCommon()
 }
 
 // Fatal marks the test as failed, logs an error and exits the
 // calling goroutine.
 func (t *Test) Fatal(a ...interface{}) {
-	t.failed = true
-	t.flush()
 	t.log(fatal, a...)
+	t.failCommon()
 	runtime.Goexit()
 }
 
 // Fatalf marks the test as failed, logs a formatted error and exits the
 // calling goroutine.
 func (t *Test) Fatalf(format string, a ...interface{}) {
-	t.failed = true
-	t.flush()
 	t.logf(fatal+" "+format, a...)
+	t.failCommon()
 	runtime.Goexit()
 }
 
