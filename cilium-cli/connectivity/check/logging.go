@@ -284,6 +284,13 @@ func (t *Test) Infof(format string, a ...interface{}) {
 func (t *Test) failCommon() {
 	t.failed = true
 	t.flush()
+	if t.ctx.params.PauseOnFail {
+		t.log("Pausing after action failure, press the Enter key to continue:")
+		fmt.Scanln()
+	}
+	if t.ctx.params.CollectSysdumpOnFailure {
+		t.collectSysdump()
+	}
 }
 
 // Fail marks the Test as failed and logs a failure message.
