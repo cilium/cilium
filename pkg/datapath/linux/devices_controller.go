@@ -438,9 +438,12 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 		}
 
 		if deviceDeleted {
-			// Remove the deleted device. The routes table will be cleaned up from the
-			// route updates.
+			// Remove the deleted device and routes
 			dc.params.DeviceTable.Delete(txn, d)
+			iter, _ := dc.params.RouteTable.Get(txn, tables.RouteLinkIndex.Query(d.Index))
+			for r, _, ok := iter.Next(); ok; r, _, ok = iter.Next() {
+				dc.params.RouteTable.Delete(txn, r)
+			}
 		} else {
 			// Recheck the viability of the device after the updates have been applied.
 			d.Selected = dc.isSelectedDevice(d, txn) && len(d.Addrs) > 0

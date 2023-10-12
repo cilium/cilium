@@ -396,7 +396,7 @@ func (t *routeTestTarget) Delete(_ context.Context, txn statedb.ReadTxn, desired
 
 // Sync implements reconciler.Target
 func (t *routeTestTarget) Sync(ctx context.Context, txn statedb.ReadTxn, iter statedb.Iterator[*DesiredRoute]) (outOfSync bool, err error) {
-	t.log.Infof("Sync\n")
+	t.log.Infof("Sync")
 
 	var errs []error
 
