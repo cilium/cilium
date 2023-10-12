@@ -28,8 +28,8 @@ Installation
         .. code-block:: shell-session
 
             $ cilium install \
-                --helm-set authentication.mutual.spire.enabled=true \
-                --helm-set authentication.mutual.spire.install.enabled=true
+                --set authentication.mutual.spire.enabled=true \
+                --set authentication.mutual.spire.install.enabled=true
 
         Next, you can check the status of the Cilium agent and operator:
 
