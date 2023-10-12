@@ -15,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -33,6 +34,7 @@ const (
 
 	clientDeploymentName  = "client"
 	client2DeploymentName = "client2"
+	clientCPDeployment    = "client-cp"
 
 	DNSTestServerContainerName = "dns-test-server"
 
@@ -852,6 +854,36 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 		}
 	}
 
+	// 3rd client scheduled on the control plane
+	if ct.params.K8sLocalHostTest {
+		ct.Logf("✨ [%s] Deploying %s deployment...", ct.clients.src.ClusterName(), clientCPDeployment)
+		clientDeployment := newDeployment(deploymentParameters{
+			Name:        clientCPDeployment,
+			Kind:        kindClientName,
+			NamedPort:   "http-8080",
+			Port:        8080,
+			Image:       ct.params.CurlImage,
+			Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
+			Labels:      map[string]string{"other": "client"},
+			Annotations: ct.params.DeploymentAnnotations.Match(client2DeploymentName),
+			NodeSelector: map[string]string{
+				"node-role.kubernetes.io/control-plane": "",
+			},
+			Replicas: len(ct.ControlPlaneNodes()),
+			Tolerations: []corev1.Toleration{
+				{Key: "node-role.kubernetes.io/control-plane"},
+			},
+		})
+		_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(clientCPDeployment), metav1.CreateOptions{})
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("unable to create service account %s: %s", clientCPDeployment, err)
+		}
+		_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, clientDeployment, metav1.CreateOptions{})
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("unable to create deployment %s: %s", clientCPDeployment, err)
+		}
+	}
+
 	if !ct.params.SingleNode || ct.params.MultiCluster != "" {
 		_, err = ct.clients.dst.GetService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.GetOptions{})
 		if err != nil {
@@ -1164,9 +1196,17 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			return err
 		}
 
-		ct.clientPods[pod.Name] = Pod{
-			K8sClient: ct.client,
-			Pod:       pod.DeepCopy(),
+		if strings.Contains(pod.Name, clientCPDeployment) {
+			ct.clientCPPods[pod.Name] = Pod{
+				K8sClient: ct.client,
+				Pod:       pod.DeepCopy(),
+			}
+		} else {
+			ct.clientPods[pod.Name] = Pod{
+				K8sClient: ct.client,
+				Pod:       pod.DeepCopy(),
+			}
+
 		}
 	}
 
@@ -1228,7 +1268,11 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			return err
 		}
 	}
-
+	for _, cpp := range ct.clientCPPods {
+		if err := WaitForCoreDNS(ctx, ct, cpp); err != nil {
+			return err
+		}
+	}
 	for _, client := range ct.clients.clients() {
 		echoPods, err := client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindEchoName})
 		if err != nil {

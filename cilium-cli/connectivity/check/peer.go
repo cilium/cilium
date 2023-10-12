@@ -4,6 +4,7 @@
 package check
 
 import (
+	"fmt"
 	"net"
 	"net/url"
 	"strconv"
@@ -167,6 +168,8 @@ func (p Pod) ToEchoIPPod() EchoIPPod {
 type Service struct {
 	// Service  is the Kubernetes service resource
 	Service *corev1.Service
+
+	URLPath string
 }
 
 // Name returns the absolute name of the service.
@@ -179,23 +182,28 @@ func (s Service) NameWithoutNamespace() string {
 	return s.Service.Name
 }
 
-// Scheme returns the string 'http'.
+// Scheme returns the string 'https' if the port is 443 or 6443, otherwise
+// it returns 'http'.
 func (s Service) Scheme() string {
-	// We only have http services for now.
+	switch s.Port() {
+	case 443, 6443:
+		return "https"
+	}
 	return "http"
+
 }
 
 // Path returns the string '/'.
 func (s Service) Path() string {
 	// No support for paths yet.
-	return ""
+	return s.URLPath
 }
 
 // Address returns the network address of the Service.
 func (s Service) Address(family features.IPFamily) string {
 	// If the cluster IP is empty (headless service case) or the IP family is set to any, return the service name
 	if s.Service.Spec.ClusterIP == "" || family == features.IPFamilyAny {
-		return s.Service.Name
+		return fmt.Sprintf("%s.%s", s.Service.Name, s.Service.Namespace)
 	}
 
 	getClusterIPForIPFamily := func(family v1.IPFamily) string {

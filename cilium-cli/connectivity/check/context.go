@@ -61,11 +61,13 @@ type ConnectivityTest struct {
 	echoPods          map[string]Pod
 	echoExternalPods  map[string]Pod
 	clientPods        map[string]Pod
+	clientCPPods      map[string]Pod
 	perfClientPods    map[string]Pod
 	perfServerPod     map[string]Pod
 	PerfResults       map[PerfTests]PerfResult
 	echoServices      map[string]Service
 	ingressService    map[string]Service
+	k8sService        Service
 	externalWorkloads map[string]ExternalWorkload
 
 	hostNetNSPodsByNode      map[string]Pod
@@ -78,6 +80,7 @@ type ConnectivityTest struct {
 	lastFlowTimestamps map[string]time.Time
 
 	nodes              map[string]*corev1.Node
+	controlPlaneNodes  map[string]*corev1.Node
 	nodesWithoutCilium map[string]struct{}
 
 	manifests      map[string]string
@@ -96,6 +99,29 @@ type PerfResult struct {
 	Samples  int
 	Values   []float64
 	Avg      float64
+}
+
+func netIPToCIDRs(netIPs []netip.Addr) (netCIDRs []netip.Prefix) {
+	for _, ip := range netIPs {
+		found := false
+		for _, cidr := range netCIDRs {
+			if cidr.Addr().Is4() == ip.Is4() && cidr.Contains(ip) {
+				found = true
+				break
+			}
+		}
+		if found {
+			continue
+		}
+
+		// Generate a /24 or /64 accordingly
+		bits := 24
+		if ip.Is6() {
+			bits = 64
+		}
+		netCIDRs = append(netCIDRs, netip.PrefixFrom(ip, bits).Masked())
+	}
+	return
 }
 
 // verbose returns the value of the user-provided verbosity flag.
@@ -192,6 +218,7 @@ func NewConnectivityTest(client *k8s.Client, p Parameters, version string) (*Con
 		echoPods:                 make(map[string]Pod),
 		echoExternalPods:         make(map[string]Pod),
 		clientPods:               make(map[string]Pod),
+		clientCPPods:             make(map[string]Pod),
 		perfClientPods:           make(map[string]Pod),
 		perfServerPod:            make(map[string]Pod),
 		PerfResults:              make(map[PerfTests]PerfResult),
@@ -334,6 +361,11 @@ func (ct *ConnectivityTest) SetupAndValidate(ctx context.Context, setupAndValida
 	if match, _ := ct.Features.MatchRequirements((features.RequireEnabled(features.CIDRMatchNodes))); match {
 		if err := ct.detectNodeCIDRs(ctx); err != nil {
 			return fmt.Errorf("unable to detect node CIDRs: %w", err)
+		}
+	}
+	if ct.params.K8sLocalHostTest {
+		if err := ct.detectK8sCIDR(ctx); err != nil {
+			return fmt.Errorf("unable to detect K8s CIDR: %w", err)
 		}
 	}
 	return nil
@@ -636,8 +668,9 @@ func (ct *ConnectivityTest) detectNodeCIDRs(ctx context.Context) error {
 	}
 
 	nodeIPs := make([]netip.Addr, 0, len(nodes.Items))
+	cPIPs := make([]netip.Addr, 0, 1)
 
-	for _, node := range nodes.Items {
+	for i, node := range nodes.Items {
 		for _, addr := range node.Status.Addresses {
 			if addr.Type != "InternalIP" {
 				continue
@@ -648,6 +681,9 @@ func (ct *ConnectivityTest) detectNodeCIDRs(ctx context.Context) error {
 				continue
 			}
 			nodeIPs = append(nodeIPs, ip)
+			if isControlPlane(&nodes.Items[i]) {
+				cPIPs = append(cPIPs, ip)
+			}
 		}
 	}
 
@@ -656,33 +692,41 @@ func (ct *ConnectivityTest) detectNodeCIDRs(ctx context.Context) error {
 	}
 
 	// collapse set of IPs in to CIDRs
-	nodeCIDRs := []netip.Prefix{}
-
-	for _, ip := range nodeIPs {
-		found := false
-		for _, cidr := range nodeCIDRs {
-			if cidr.Addr().Is4() == ip.Is4() && cidr.Contains(ip) {
-				found = true
-				break
-			}
-		}
-		if found {
-			continue
-		}
-
-		// Generate a /24 or /64 accordingly
-		bits := 24
-		if ip.Is6() {
-			bits = 64
-		}
-		nodeCIDRs = append(nodeCIDRs, netip.PrefixFrom(ip, bits).Masked())
-	}
+	nodeCIDRs := netIPToCIDRs(nodeIPs)
+	cPCIDRs := netIPToCIDRs(cPIPs)
 
 	ct.params.NodeCIDRs = make([]string, 0, len(nodeCIDRs))
 	for _, cidr := range nodeCIDRs {
 		ct.params.NodeCIDRs = append(ct.params.NodeCIDRs, cidr.String())
 	}
+	ct.params.ControlPlaneCIDRs = make([]string, 0, len(cPCIDRs))
+	for _, cidr := range cPCIDRs {
+		ct.params.ControlPlaneCIDRs = append(ct.params.ControlPlaneCIDRs, cidr.String())
+	}
 	ct.Debugf("Detected NodeCIDRs: %v", ct.params.NodeCIDRs)
+	return nil
+}
+
+// detectK8sCIDR produces one CIDR that covers the kube-apiserver address.
+// ipv4 addresses are collapsed in to one or more /24s, and v6 to one or more /64s
+func (ct *ConnectivityTest) detectK8sCIDR(ctx context.Context) error {
+	service, err := ct.client.GetService(ctx, "default", "kubernetes", metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get \"kubernetes.default\" service: %w", err)
+	}
+	addr, err := netip.ParseAddr(service.Spec.ClusterIP)
+	if err != nil {
+		return fmt.Errorf("failed to parse \"kubernetes.default\" service Cluster IP: %w", err)
+	}
+
+	// Generate a /24 or /64 accordingly
+	bits := 24
+	if addr.Is6() {
+		bits = 64
+	}
+	ct.params.K8sCIDR = netip.PrefixFrom(addr, bits).Masked().String()
+	ct.k8sService = Service{Service: service, URLPath: "/healthz"}
+	ct.Debugf("Detected K8sCIDR: %q", ct.params.K8sCIDR)
 	return nil
 }
 
@@ -809,6 +853,7 @@ func (ct *ConnectivityTest) initCiliumPods(ctx context.Context) error {
 
 func (ct *ConnectivityTest) getNodes(ctx context.Context) error {
 	ct.nodes = make(map[string]*corev1.Node)
+	ct.controlPlaneNodes = make(map[string]*corev1.Node)
 	ct.nodesWithoutCilium = make(map[string]struct{})
 	nodeList, err := ct.client.ListNodes(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -818,6 +863,9 @@ func (ct *ConnectivityTest) getNodes(ctx context.Context) error {
 	for _, node := range nodeList.Items {
 		node := node
 		if canNodeRunCilium(&node) {
+			if isControlPlane(&node) {
+				ct.controlPlaneNodes[node.ObjectMeta.Name] = node.DeepCopy()
+			}
 			ct.nodes[node.ObjectMeta.Name] = node.DeepCopy()
 		} else {
 			ct.nodesWithoutCilium[node.ObjectMeta.Name] = struct{}{}
@@ -984,8 +1032,16 @@ func (ct *ConnectivityTest) Nodes() map[string]*corev1.Node {
 	return ct.nodes
 }
 
+func (ct *ConnectivityTest) ControlPlaneNodes() map[string]*corev1.Node {
+	return ct.controlPlaneNodes
+}
+
 func (ct *ConnectivityTest) ClientPods() map[string]Pod {
 	return ct.clientPods
+}
+
+func (ct *ConnectivityTest) ControlPlaneClientPods() map[string]Pod {
+	return ct.clientCPPods
 }
 
 func (ct *ConnectivityTest) HostNetNSPodsByNode() map[string]Pod {
@@ -1022,6 +1078,10 @@ func (ct *ConnectivityTest) ExternalEchoPods() map[string]Pod {
 
 func (ct *ConnectivityTest) IngressService() map[string]Service {
 	return ct.ingressService
+}
+
+func (ct *ConnectivityTest) K8sService() Service {
+	return ct.k8sService
 }
 
 func (ct *ConnectivityTest) ExternalWorkloads() map[string]ExternalWorkload {
