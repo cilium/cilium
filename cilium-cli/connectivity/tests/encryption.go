@@ -107,15 +107,17 @@ func getSourceAddressFilter(ctx context.Context, t *check.Test, client,
 // PodToPodEncryption is a test case which checks the following:
 //   - There is a connectivity between pods on different nodes when any
 //     encryption mode is on (either WireGuard or IPsec).
-//   - No unencrypted packet is leaked.
+//   - No unencrypted packet is leaked. As a sanity check, we additionally
+//     run the same test also when encryption is disabled, asserting that
+//     we effectively observe unencrypted packets.
 //
 // The checks are implemented by curl'ing a server pod from a client pod, and
 // then inspecting tcpdump captures from the client pod's node.
-func PodToPodEncryption() check.Scenario {
-	return &podToPodEncryption{}
+func PodToPodEncryption(reqs ...features.Requirement) check.Scenario {
+	return &podToPodEncryption{reqs}
 }
 
-type podToPodEncryption struct{}
+type podToPodEncryption struct{ reqs []features.Requirement }
 
 func (s *podToPodEncryption) Name() string {
 	return "pod-to-pod-encryption"
@@ -137,14 +139,20 @@ func (s *podToPodEncryption) Run(ctx context.Context, t *check.Test) {
 	// clientHost is a pod running on the same node as the client pod, just in
 	// the host netns.
 	clientHost := ct.HostNetNSPodsByNode()[client.Pod.Spec.NodeName]
+	assertNoLeaks, _ := ct.Features.MatchRequirements(s.reqs...)
+
+	if !assertNoLeaks {
+		t.Debugf("%s test running in sanity mode, expecting unencrypted packets", s.Name())
+	}
 
 	t.ForEachIPFamily(func(ipFam features.IPFamily) {
-		testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, requestHTTP, ipFam)
+		testNoTrafficLeak(ctx, t, s, client, &server, &clientHost, requestHTTP, ipFam, assertNoLeaks)
 	})
 }
 
 func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	client, server, clientHost *check.Pod, reqType requestType, ipFam features.IPFamily,
+	assertNoLeaks bool,
 ) {
 	dstAddr := server.Address(ipFam)
 	iface := getInterNodeIface(ctx, t, clientHost, ipFam, client.Address(ipFam), dstAddr)
@@ -233,7 +241,7 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	if err != nil {
 		t.Fatalf("Failed to retrieve tcpdump pkt count: %s", err)
 	}
-	if !strings.HasPrefix(count.String(), "0 packets") {
+	if !strings.HasPrefix(count.String(), "0 packets") && assertNoLeaks {
 		t.Failf("Captured unencrypted pkt (count=%s)", strings.TrimRight(count.String(), "\n\r"))
 
 		// If debug mode is enabled, dump the captured pkts
@@ -245,6 +253,10 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 			}
 			t.Debugf("Captured pkts:\n%s", out.String())
 		}
+	}
+
+	if strings.HasPrefix(count.String(), "0 packets") && !assertNoLeaks {
+		t.Failf("Expected to see unencrypted packets, but none found. This check might be broken")
 	}
 }
 
@@ -281,11 +293,11 @@ func (b *safeBuffer) ReadString(d byte) (string, error) {
 	return b.b.ReadString(d)
 }
 
-func NodeToNodeEncryption() check.Scenario {
-	return &nodeToNodeEncryption{}
+func NodeToNodeEncryption(reqs ...features.Requirement) check.Scenario {
+	return &nodeToNodeEncryption{reqs}
 }
 
-type nodeToNodeEncryption struct{}
+type nodeToNodeEncryption struct{ reqs []features.Requirement }
 
 func (s *nodeToNodeEncryption) Name() string {
 	return "node-to-node-encryption"
@@ -308,14 +320,19 @@ func (s *nodeToNodeEncryption) Run(ctx context.Context, t *check.Test) {
 	clientHost := t.Context().HostNetNSPodsByNode()[client.Pod.Spec.NodeName]
 	// serverHost is a pod running in a remote node's host netns.
 	serverHost := t.Context().HostNetNSPodsByNode()[server.Pod.Spec.NodeName]
+	assertNoLeaks, _ := t.Context().Features.MatchRequirements(s.reqs...)
+
+	if !assertNoLeaks {
+		t.Debugf("%s test running in sanity mode, expecting unencrypted packets", s.Name())
+	}
 
 	t.ForEachIPFamily(func(ipFam features.IPFamily) {
 		// Test pod-to-remote-host (ICMP Echo instead of HTTP because a remote host
 		// does not have a HTTP server running)
-		testNoTrafficLeak(ctx, t, s, client, &serverHost, &clientHost, requestICMPEcho, ipFam)
+		testNoTrafficLeak(ctx, t, s, client, &serverHost, &clientHost, requestICMPEcho, ipFam, assertNoLeaks)
 		// Test host-to-remote-host
-		testNoTrafficLeak(ctx, t, s, &clientHost, &serverHost, &clientHost, requestICMPEcho, ipFam)
+		testNoTrafficLeak(ctx, t, s, &clientHost, &serverHost, &clientHost, requestICMPEcho, ipFam, assertNoLeaks)
 		// Test host-to-remote-pod
-		testNoTrafficLeak(ctx, t, s, &clientHost, &server, &clientHost, requestHTTP, ipFam)
+		testNoTrafficLeak(ctx, t, s, &clientHost, &server, &clientHost, requestHTTP, ipFam, assertNoLeaks)
 	})
 }
