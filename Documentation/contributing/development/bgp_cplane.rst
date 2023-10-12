@@ -57,7 +57,7 @@ Install Cilium on the lab with your favorite way. The following example assumes 
 .. code-block:: shell-session
 
    $ KIND_CLUSTER_NAME=bgp-cplane-dev-v4 make kind-image
-   $ cilium install --chart-directory install/kubernetes/cilium -f contrib/containerlab/bgp-cplane-dev-v4/values.yaml --helm-set image.override="localhost:5000/cilium/cilium-dev:local" --helm-set image.pullPolicy=Never --helm-set operator.image.override="localhost:5000/cilium/operator-generic:local" --helm-set operator.image.pullPolicy=Never
+   $ cilium install --chart-directory install/kubernetes/cilium -f contrib/containerlab/bgp-cplane-dev-v4/values.yaml --set image.override="localhost:5000/cilium/cilium-dev:local" --set image.pullPolicy=Never --set operator.image.override="localhost:5000/cilium/operator-generic:local" --set operator.image.pullPolicy=Never
 
 Peering with Router
 -------------------

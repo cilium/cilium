@@ -30,7 +30,7 @@ Installation
             $ helm upgrade cilium |CHART_RELEASE| \\
                 --namespace kube-system \\
                 --reuse-values \\
-                --set-string extraConfig.enable-envoy-config=true
+                --set envoyConfig.enabled=true
             $ kubectl -n kube-system rollout restart deployment/cilium-operator
             $ kubectl -n kube-system rollout restart ds/cilium
 
@@ -76,7 +76,7 @@ Installation
 
             $ cilium install |CHART_VERSION| \
                 --set kubeProxyReplacement=true \
-                --set-string extraConfig.enable-envoy-config=true
+                --set envoyConfig.enabled=true
 
         Additionally, the proxy load-balancing feature can be configured with the ``loadBalancer.l7.backend=envoy`` flag.
 
@@ -84,7 +84,7 @@ Installation
 
             $ cilium install |CHART_VERSION| \
                 --set kubeProxyReplacement=true \
-                --set-string extraConfig.enable-envoy-config=true \
+                --set envoyConfig.enabled=true \
                 --set loadBalancer.l7.backend=envoy
 
         Next you can check the status of the Cilium agent and operator:
