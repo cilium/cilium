@@ -83,9 +83,16 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 src_ip __maybe_un
  */
 static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __be32 tunnel_endpoint,
+			       __u8 encrypt_key __maybe_unused,
 			       __u32 seclabel, __u32 dstid,
 			       const struct trace_ctx *trace)
 {
+#ifdef ENABLE_IPSEC
+	if (encrypt_key)
+		return set_ipsec_encrypt(ctx, encrypt_key, tunnel_endpoint,
+					 seclabel);
+#endif
+
 	return __encap_and_redirect_with_nodeid(ctx, 0, tunnel_endpoint,
 						seclabel, dstid, NOT_VTEP_DST,
 						trace);

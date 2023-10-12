@@ -231,6 +231,8 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	int l3_off = ETH_HLEN;
 	struct remote_endpoint_info *info = NULL;
 	struct endpoint_info *ep;
+	__u8 __maybe_unused encrypt_key;
+	bool __maybe_unused from_proxy;
 	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -335,11 +337,21 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	dst = (union v6addr *) &ip6->daddr;
 	info = ipcache_lookup6(&IPCACHE_MAP, dst, V6_CACHE_KEY_LEN, 0);
 
+	encrypt_key = 0;
+	/* See IPv4 comment. */
+        from_proxy = ctx->tc_index & TC_INDEX_F_FROM_INGRESS_PROXY;
+#if defined(ENABLE_IPSEC)
+	/* See IPv4 comment. */
+	if (from_host && from_proxy && info)
+		encrypt_key = get_min_encrypt_key(info->key);
+#endif
+
+	/* The following code block handles IPsec encryption for tunnel mode. */
 #ifdef TUNNEL_MODE
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      secctx, info->sec_identity,
-						      &trace);
+						      encrypt_key, secctx,
+						      info->sec_identity, &trace);
 	} else {
 		struct tunnel_key key = {};
 
@@ -360,6 +372,14 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		/* See IPv4 comment. */
 		return DROP_UNROUTABLE;
 	}
+
+	/* The following code block handles IPsec encryption for non-tunnel mode. */
+#ifdef ENABLE_IPSEC
+	if (info && info->tunnel_endpoint)
+		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
+					 info->sec_identity);
+#endif
+
 	return CTX_ACT_OK;
 }
 
@@ -618,6 +638,8 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	struct iphdr *ip4;
 	struct remote_endpoint_info *info;
 	struct endpoint_info *ep;
+	__u8 __maybe_unused encrypt_key;
+	bool __maybe_unused from_proxy;
 	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -743,11 +765,25 @@ skip_vtep:
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
 
+	encrypt_key = 0;
+        /* If the packet is from proxy with mark 0xa00, it must have been
+         * handled by identity.h:inherit_identity_from_host(), where
+         * ctx->tc_index is OR-ed with TC_INDEX_F_FROM_INGRESS_PROXY:
+         * https://github.com/cilium/cilium/blob/d1c056842b94c137c42159abcbad841e1794cf3a/bpf/lib/identity.h#L160C39-L160C39
+         */
+        from_proxy = ctx->tc_index & TC_INDEX_F_FROM_INGRESS_PROXY;
+#if defined(ENABLE_IPSEC)
+        /* We encrypt host to remote pod packets only if they are from proxy. */
+	if (from_host && from_proxy && info)
+		encrypt_key = get_min_encrypt_key(info->key);
+#endif
+
+	/* The following code block handles IPsec encryption for tunnel mode. */
 #ifdef TUNNEL_MODE
 	if (info != NULL && info->tunnel_endpoint != 0) {
 		return encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-						      secctx, info->sec_identity,
-						      &trace);
+						      encrypt_key, secctx,
+						      info->sec_identity, &trace);
 	} else {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
 		struct tunnel_key key = {};
@@ -774,6 +810,14 @@ skip_vtep:
 		 */
 		return DROP_UNROUTABLE;
 	}
+
+	/* The following code block handles IPsec encryption for non-tunnel mode. */
+#ifdef ENABLE_IPSEC
+	if (from_host && from_proxy && info && info->tunnel_endpoint && encrypt_key)
+		return set_ipsec_encrypt(ctx, encrypt_key, info->tunnel_endpoint,
+					 info->sec_identity);
+#endif
+
 	return CTX_ACT_OK;
 }
 

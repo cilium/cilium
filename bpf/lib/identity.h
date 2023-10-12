@@ -94,20 +94,23 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 {
 	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 
-	/* Packets from the ingress proxy must skip the proxy when the
-	 * destination endpoint evaluates the policy. As the packet would loop
-	 * and/or the connection be reset otherwise.
+	/* Mark packets from the ingress proxy for two purposes:
+	 * 1. To skip the proxy when the dest endpoint evaluates the policy,
+	 *    otherwise the packet would loop and/or the connection be reset.
+	 * 2. To let bpf prog know that the packet is from the ingress proxy,
+	 *    even if skb->mark and skb->cb are cleared under some circumstances.
+	 *    IPsec with L7 policy requires this information.
 	 */
 	if (magic == MARK_MAGIC_PROXY_INGRESS) {
 		*identity = get_identity(ctx);
-		ctx->tc_index |= TC_INDEX_F_SKIP_INGRESS_PROXY;
+		ctx->tc_index |= TC_INDEX_F_FROM_INGRESS_PROXY;
 	/* (Return) packets from the egress proxy must skip the redirection to
 	 * the proxy, as the packet would loop and/or the connection be reset
 	 * otherwise.
 	 */
 	} else if (magic == MARK_MAGIC_PROXY_EGRESS) {
 		*identity = get_identity(ctx);
-		ctx->tc_index |= TC_INDEX_F_SKIP_EGRESS_PROXY;
+		ctx->tc_index |= TC_INDEX_F_FROM_EGRESS_PROXY;
 	} else if (magic == MARK_MAGIC_IDENTITY) {
 		*identity = get_identity(ctx);
 	} else if (magic == MARK_MAGIC_HOST) {
