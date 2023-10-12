@@ -745,16 +745,18 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 			tests.OutsideToNodePort(),
 		)
 
+	// Encryption checks are always executed as a sanity check, asserting whether
+	// unencrypted packets shall, or shall not, be observed based on the feature set.
 	ct.NewTest("pod-to-pod-encryption").
-		WithFeatureRequirements(features.RequireEnabled(features.EncryptionPod)).
 		WithScenarios(
-			tests.PodToPodEncryption(),
+			tests.PodToPodEncryption(features.RequireEnabled(features.EncryptionPod)),
 		)
 	ct.NewTest("node-to-node-encryption").
-		WithFeatureRequirements(features.RequireEnabled(features.EncryptionPod),
-			features.RequireEnabled(features.EncryptionNode)).
 		WithScenarios(
-			tests.NodeToNodeEncryption(),
+			tests.NodeToNodeEncryption(
+				features.RequireEnabled(features.EncryptionPod),
+				features.RequireEnabled(features.EncryptionNode),
+			),
 		)
 
 	if ct.Params().IncludeUnsafeTests {
