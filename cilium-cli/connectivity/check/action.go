@@ -213,16 +213,6 @@ func (a *Action) Run(f func(*Action)) {
 		a.printFlows(a.Source())
 		a.printFlows(a.Destination())
 	}
-	if a.failed {
-		if a.test.ctx.params.PauseOnFail {
-			a.Log("Pausing after action failure, press the Enter key to continue:")
-			fmt.Scanln()
-		}
-
-		if a.test.ctx.params.CollectSysdumpOnFailure {
-			a.test.collectSysdump()
-		}
-	}
 }
 
 // collectMetricsPerSource retrieves metrics for the given source.
