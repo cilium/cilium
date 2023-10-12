@@ -20,7 +20,15 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m)
+	goleak.VerifyTestMain(
+		m,
+		// To ignore goroutine started from sigs.k8s.io/controller-runtime/pkg/log.go
+		// init function
+		goleak.IgnoreTopFunction("time.Sleep"),
+		// Delaying workqueues used by resource.Resource[T].Events leaks this waitingLoop goroutine.
+		// It does stop when shutting down but is not guaranteed to before we actually exit.
+		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop"),
+	)
 }
 
 // TestConflictResolution tests that, upon initialization, LB IPAM will detect conflicts between pools,
