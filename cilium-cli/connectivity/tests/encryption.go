@@ -56,14 +56,16 @@ func getInterNodeIface(ctx context.Context, t *check.Test, clientHost *check.Pod
 	return device
 }
 
-// getSourceAddress determines the source IP address we want to use for
-// capturing packet. If direct routing is used, the source IP is the client IP.
-func getSourceAddress(ctx context.Context, t *check.Test, client,
+// getSourceAddressFilter constructs the source IP address filter we want to use for
+// capturing packet. If direct routing is used, the source IP is the client IP,
+// otherwise, either the client IP or the one associated with the egressing interface.
+func getSourceAddressFilter(ctx context.Context, t *check.Test, client,
 	clientHost *check.Pod, ipFam features.IPFamily, dstIP string,
 ) string {
+	filter := fmt.Sprintf("src host %s", client.Address(ipFam))
 	if tunnelStatus, ok := t.Context().Feature(features.Tunnel); ok &&
 		!tunnelStatus.Enabled {
-		return client.Address(ipFam)
+		return filter
 	}
 
 	cmd := []string{
@@ -78,7 +80,11 @@ func getSourceAddress(ctx context.Context, t *check.Test, client,
 		t.Fatalf("Failed to get IP route: %s", err)
 	}
 
-	return strings.TrimRight(srcIP.String(), "\n\r")
+	srcIPStr := strings.TrimRight(srcIP.String(), "\n\r")
+	if srcIPStr != client.Address(ipFam) {
+		filter = fmt.Sprintf("( %s or src host %s )", filter, srcIPStr)
+	}
+	return filter
 }
 
 // PodToPodEncryption is a test case which checks the following:
@@ -125,7 +131,7 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 ) {
 	dstAddr := server.Address(ipFam)
 	iface := getInterNodeIface(ctx, t, clientHost, dstAddr)
-	srcAddr := getSourceAddress(ctx, t, client, clientHost, ipFam, dstAddr)
+	srcFilter := getSourceAddressFilter(ctx, t, client, clientHost, ipFam, dstAddr)
 
 	bgStdout := &safeBuffer{}
 	bgStderr := &safeBuffer{}
@@ -153,7 +159,7 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 			// Unfortunately, we cannot use "host %s and host %s" filter here,
 			// as IPsec recirculates replies to the iface netdev, which would
 			// make tcpdump to capture the pkts (false positive).
-			fmt.Sprintf("src host %s and dst host %s and %s", srcAddr, dstAddr, protoFilter),
+			fmt.Sprintf("%s and dst host %s and %s", srcFilter, dstAddr, protoFilter),
 		}
 		t.Debugf("Running in bg: %s", strings.Join(cmd, " "))
 		err := clientHost.K8sClient.ExecInPodWithWriters(ctx, killCmdCtx,
