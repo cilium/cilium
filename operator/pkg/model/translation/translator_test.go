@@ -4,6 +4,7 @@
 package translation
 
 import (
+	"slices"
 	"testing"
 
 	envoy_config_cluster_v3 "github.com/cilium/proxy/go/envoy/config/cluster/v3"
@@ -212,7 +213,12 @@ func TestSharedIngressTranslator_getHTTPRouteListenerProxy(t *testing.T) {
 	err := proto.Unmarshal(res[0].GetValue(), listener)
 	require.NoError(t, err)
 
-	require.Len(t, listener.ListenerFilters, 2)
+	listenerNames := []string{}
+	for _, l := range listener.ListenerFilters {
+		listenerNames = append(listenerNames, l.Name)
+	}
+	slices.Sort(listenerNames)
+	require.Equal(t, []string{tlsInspectorType, proxyProtocolType}, listenerNames)
 }
 
 func TestSharedIngressTranslator_getHTTPRouteListener(t *testing.T) {

@@ -249,7 +249,7 @@ const (
 	// Incoming traffic to http listener will return 308 http error code with respective location in header.
 	EnforceIngressHttps = "enforce-ingress-https"
 
-	// EnableIngressProxyProtocol enable proxy protocol for the listeners.
+	// EnableIngressProxyProtocol enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
 	EnableIngressProxyProtocol = "enable-ingress-proxy-protocol"
 
 	// EnableIngressSecretsSync enables fan-in TLS secrets from multiple namespaces to singular namespace (specified

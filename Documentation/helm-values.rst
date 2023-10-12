@@ -1945,7 +1945,7 @@
      - string
      - ``nil``
    * - :spelling:ignore:`ingressController.enableProxyProtocol`
-     - Enable proxy protocol for the listeners.
+     - Enable proxy protocol for all Ingress listeners. Note that *only* Proxy protocol traffic will be accepted once this is enabled.
      - bool
      - ``false``
    * - :spelling:ignore:`ingressController.enabled`
