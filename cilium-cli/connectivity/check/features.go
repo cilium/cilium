@@ -348,3 +348,11 @@ func canNodeRunCilium(node *corev1.Node) bool {
 	val, ok := node.ObjectMeta.Labels["cilium.io/no-schedule"]
 	return !ok || val == "false"
 }
+
+func isControlPlane(node *corev1.Node) bool {
+	if node != nil {
+		_, ok := node.Labels["node-role.kubernetes.io/control-plane"]
+		return ok
+	}
+	return false
+}

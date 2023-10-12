@@ -1,0 +1,19 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-to-entities-k8s
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toEntities:
+    - kube-apiserver
+  - toEndpoints:
+    - matchExpressions:
+      - { key: 'k8s-app', operator: In, values: [ "kube-dns", "coredns", "node-local-dns", "nodelocaldns" ] }
+      - { key: 'io.kubernetes.pod.namespace', operator: In, values: [ "kube-system" ] }
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
