@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/internal"
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -204,3 +205,10 @@ func getHookFuncName(hook HookInterface, start bool) (name string, hasHook bool)
 }
 
 var _ Lifecycle = &DefaultLifecycle{}
+
+// FIXME useful? or an obfuscation?
+func AppendHooks[Hookable HookInterface]() cell.Cell {
+	return cell.Invoke(func(lc Lifecycle, target Hookable) {
+		lc.Append(target)
+	})
+}

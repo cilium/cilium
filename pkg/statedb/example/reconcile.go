@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/example/tables"
 )
 
 var reconcilerCell = cell.Module(
@@ -29,7 +30,7 @@ var reconcilerCell = cell.Module(
 type reconcilerParams struct {
 	cell.In
 
-	Backends  statedb.RWTable[Backend]
+	Backends  statedb.RWTable[tables.Backend]
 	DB        *statedb.DB
 	Lifecycle hive.Lifecycle
 	Log       logrus.FieldLogger
@@ -41,7 +42,7 @@ func registerReconciler(p reconcilerParams) {
 	g := p.Registry.NewGroup()
 	r := &reconciler{
 		reconcilerParams: p,
-		handle:           &backendsHandle{backends: sets.New[BackendID]()},
+		handle:           &backendsHandle{backends: sets.New[tables.BackendID]()},
 	}
 	g.Add(job.OneShot("reconcile-loop", r.reconcileLoop))
 	p.Lifecycle.Append(g)
@@ -86,7 +87,7 @@ func (r *reconciler) reconcileLoop(ctx context.Context) error {
 		newRevision, watch, processErr := deleteTracker.Process(
 			txn,
 			minRevision,
-			func(be Backend, deleted bool, rev statedb.Revision) error {
+			func(be tables.Backend, deleted bool, rev statedb.Revision) error {
 				if err := limiter.Wait(ctx); err != nil {
 					return err
 				}
@@ -137,7 +138,7 @@ func (r *reconciler) validate(txn statedb.ReadTxn) {
 
 	iter, _ := r.Backends.All(txn)
 	n := 0
-	objs := []Backend{}
+	objs := []tables.Backend{}
 	for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
 		n++
 		objs = append(objs, obj)
@@ -150,10 +151,10 @@ func (r *reconciler) validate(txn statedb.ReadTxn) {
 // backendsHandle implements a fake "BPF map" implementation
 // that fails often.
 type backendsHandle struct {
-	backends sets.Set[BackendID]
+	backends sets.Set[tables.BackendID]
 }
 
-func maybeFail(op string, id BackendID) error {
+func maybeFail(op string, id tables.BackendID) error {
 	// Fails 10% of the time
 	if rand.Intn(10) == 0 {
 		return fmt.Errorf("failure to %s %s", op, id)
@@ -161,7 +162,7 @@ func maybeFail(op string, id BackendID) error {
 	return nil
 }
 
-func (h *backendsHandle) Insert(b Backend) error {
+func (h *backendsHandle) Insert(b tables.Backend) error {
 	if err := maybeFail("Insert", b.ID); err != nil {
 		return err
 	}
@@ -170,7 +171,7 @@ func (h *backendsHandle) Insert(b Backend) error {
 	return nil
 }
 
-func (h *backendsHandle) Delete(b Backend) error {
+func (h *backendsHandle) Delete(b tables.Backend) error {
 	if err := maybeFail("Delete", b.ID); err != nil {
 		return err
 	}

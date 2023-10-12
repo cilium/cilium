@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"net/http"
@@ -8,18 +8,16 @@ import (
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 
-	"github.com/go-openapi/loads"
+	"github.com/sirupsen/logrus"
 
-	"github.com/cilium/cilium/api/v1/server"
-	"github.com/cilium/cilium/api/v1/server/restapi"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
 )
 
 var apiServerCell = cell.Module(
-	"cilium-api-server",
-	"Serves the Cilium API",
+	"api-server",
+	"Serves the API",
 
 	cell.Provide(newAPIServer),
 
@@ -29,17 +27,14 @@ var apiServerCell = cell.Module(
 type APIServer struct {
 	server http.Server
 
-	mux            *http.ServeMux
-	grpcServer     *grpc.Server
-	swaggerHandler http.Handler
+	mux        *http.ServeMux
+	grpcServer *grpc.Server
 }
 
 func (s *APIServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.ProtoMajor == 2 && strings.HasPrefix(
 		req.Header.Get("Content-Type"), "application/grpc") {
 		s.grpcServer.ServeHTTP(w, req)
-	} else {
-		s.swaggerHandler.ServeHTTP(w, req)
 	}
 }
 
@@ -55,6 +50,7 @@ func (s *APIServer) Stop(ctx hive.HookContext) error {
 type apiServerParams struct {
 	cell.In
 
+	Log      logrus.FieldLogger
 	Services []api.GRPCService `group:"grpc-services"`
 }
 
@@ -65,17 +61,11 @@ func newAPIServer(p apiServerParams) (*APIServer, error) {
 	}
 
 	for _, svc := range p.Services {
+		p.Log.Infof("Registering service %q", svc.Service.ServiceName)
 		s.grpcServer.RegisterService(svc.Service, svc.Impl)
 	}
 
 	s.mux.Handle("/", s.grpcServer)
-
-	spec, err := loads.Analyzed(server.SwaggerJSON, "")
-	if err != nil {
-		return nil, err
-	}
-	api := restapi.NewCiliumAPIAPI(spec)
-	s.swaggerHandler = api.Serve(nil)
 
 	s.server.Addr = ":8456"
 	s.server.Handler = h2c.NewHandler(s, &http2.Server{})

@@ -14,6 +14,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/example/tables"
 )
 
 var Hive = hive.New(
@@ -24,7 +25,7 @@ var Hive = hive.New(
 	statedb.Cell,
 
 	// The backends table stores the desired state of the backends.
-	BackendTableCell,
+	tables.BackendTableCell,
 
 	// Control-plane simulation for the backends table to provide the
 	// desired state.
@@ -32,6 +33,8 @@ var Hive = hive.New(
 
 	// Datapath simulation to reconcile the desired state to the datapath.
 	reconcilerCell,
+
+	apiServerCell,
 
 	// Report the health status to stdout once a second.
 	cell.Invoke(reportHealth),

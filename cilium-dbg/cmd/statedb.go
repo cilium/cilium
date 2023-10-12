@@ -4,10 +4,14 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/statedb"
 )
 
 var StatedbCmd = &cobra.Command{
@@ -27,7 +31,30 @@ var statedbDumpCmd = &cobra.Command{
 	},
 }
 
+var statedbGetCmd = &cobra.Command{
+	Use:   "get",
+	Short: "Get",
+	Run: func(cmd *cobra.Command, args []string) {
+		table, err := statedb.NewRemoteTable[*tables.Device]("devices", "localhost:8456")
+		if err != nil {
+			panic(err)
+		}
+
+		iter, err := table.Get(context.TODO(), tables.DeviceNameIndex.Query("lo"))
+		if err != nil {
+			panic(err)
+		}
+
+		for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
+			fmt.Printf("%+v\n", obj)
+		}
+	},
+}
+
 func init() {
-	StatedbCmd.AddCommand(statedbDumpCmd)
+	StatedbCmd.AddCommand(
+		statedbDumpCmd,
+		statedbGetCmd,
+	)
 	RootCmd.AddCommand(StatedbCmd)
 }

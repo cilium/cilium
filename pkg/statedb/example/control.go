@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/hive/cell"
 	"github.com/cilium/cilium/pkg/hive/job"
 	"github.com/cilium/cilium/pkg/statedb"
+	"github.com/cilium/cilium/pkg/statedb/example/tables"
 )
 
 var controlCell = cell.Module(
@@ -28,7 +29,7 @@ var controlCell = cell.Module(
 type controlParams struct {
 	cell.In
 
-	Backends  statedb.RWTable[Backend]
+	Backends  statedb.RWTable[tables.Backend]
 	DB        *statedb.DB
 	Lifecycle hive.Lifecycle
 	Log       logrus.FieldLogger
@@ -72,8 +73,8 @@ func (c *control) controlLoop(ctx context.Context) error {
 }
 
 func (c *control) createBackend(txn statedb.WriteTxn) {
-	b := Backend{
-		ID:   BackendID(uuid.NewString()),
+	b := tables.Backend{
+		ID:   tables.BackendID(uuid.NewString()),
 		IP:   randomIP(),
 		Port: uint16(rand.Uint32()),
 	}
