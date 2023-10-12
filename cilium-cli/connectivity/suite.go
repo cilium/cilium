@@ -107,14 +107,26 @@ var (
 	//go:embed manifests/echo-ingress-from-other-client-deny.yaml
 	echoIngressFromOtherClientDenyPolicyYAML string
 
+	//go:embed manifests/client-egress-to-entities-host.yaml
+	clientEgressToEntitiesHostPolicyYAML string
+
+	//go:embed manifests/client-egress-to-entities-k8s.yaml
+	clientEgressToEntitiesK8sPolicyYAML string
+
 	//go:embed manifests/client-egress-to-entities-world.yaml
 	clientEgressToEntitiesWorldPolicyYAML string
+
+	//go:embed manifests/client-egress-to-cidr-cp-host-knp.yaml
+	clientEgressToCIDRCPHostPolicyYAML string
 
 	//go:embed manifests/client-egress-to-cidr-external.yaml
 	clientEgressToCIDRExternalPolicyYAML string
 
 	//go:embed manifests/client-egress-to-cidr-external-knp.yaml
 	clientEgressToCIDRExternalPolicyKNPYAML string
+
+	//go:embed manifests/client-egress-to-cidr-k8s.yaml
+	clientEgressToCIDRK8sPolicyYAML string
 
 	//go:embed manifests/client-egress-to-cidr-node-knp.yaml
 	clientEgressToCIDRNodeKNPYAML string
@@ -181,8 +193,7 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 
 	renderedTemplates := map[string]string{}
 
-	// render templates, if any problems fail early
-	for key, temp := range map[string]string{
+	templates := map[string]string{
 		"clientEgressToCIDRExternalPolicyYAML":     clientEgressToCIDRExternalPolicyYAML,
 		"clientEgressToCIDRExternalPolicyKNPYAML":  clientEgressToCIDRExternalPolicyKNPYAML,
 		"clientEgressToCIDRNodeKNPYAML":            clientEgressToCIDRNodeKNPYAML,
@@ -193,7 +204,15 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 		"clientEgressL7TLSPolicyYAML":              clientEgressL7TLSPolicyYAML,
 		"clientEgressL7HTTPMatchheaderSecretYAML":  clientEgressL7HTTPMatchheaderSecretYAML,
 		"echoIngressFromCIDRYAML":                  echoIngressFromCIDRYAML,
-	} {
+	}
+
+	if ct.Params().K8sLocalHostTest {
+		templates["clientEgressToCIDRCPHostPolicyYAML"] = clientEgressToCIDRCPHostPolicyYAML
+		templates["clientEgressToCIDRK8sPolicyKNPYAML"] = clientEgressToCIDRK8sPolicyYAML
+	}
+
+	// render templates, if any problems fail early
+	for key, temp := range templates {
 		val, err := template.Render(temp, ct.Params())
 		if err != nil {
 			return err
@@ -1081,6 +1100,37 @@ func Run(ctx context.Context, ct *check.ConnectivityTest, addExtraTests func(*ch
 			// No HTTP proxy on other ports
 			return check.ResultDNSOKDropCurlTimeout, check.ResultNone
 		})
+
+	if ct.Params().K8sLocalHostTest {
+		ct.NewTest("pod-to-controlplane-host").
+			WithCiliumPolicy(clientEgressToEntitiesHostPolicyYAML).
+			WithScenarios(
+				tests.PodToControlPlaneHost(),
+			)
+
+		ct.NewTest("pod-to-k8s-on-controlplane").
+			WithCiliumPolicy(clientEgressToEntitiesK8sPolicyYAML).
+			WithScenarios(
+				tests.PodToK8sLocal(),
+			)
+		// Check that pods can access  when referencing them by CIDR selectors
+		// (when this feature is enabled).
+		ct.NewTest("pod-to-controlplane-host-cidr").
+			WithFeatureRequirements(
+				features.RequireEnabled(features.CIDRMatchNodes)).
+			WithK8SPolicy(renderedTemplates["clientEgressToCIDRCPHostPolicyYAML"]).
+			WithScenarios(
+				tests.PodToControlPlaneHost(),
+			)
+
+		ct.NewTest("pod-to-k8s-on-controlplane-cidr").
+			WithFeatureRequirements(
+				features.RequireEnabled(features.CIDRMatchNodes)).
+			WithCiliumPolicy(renderedTemplates["clientEgressToCIDRK8sPolicyKNPYAML"]).
+			WithScenarios(
+				tests.PodToK8sLocal(),
+			)
+	}
 
 	// Tests with DNS redirects to the proxy (e.g., client-egress-l7, dns-only,
 	// and to-fqdns) should always be executed last. See #367 for details.
