@@ -28,6 +28,7 @@ type Parameters struct {
 	ForceDeploy           bool
 	Hubble                bool
 	HubbleServer          string
+	K8sLocalHostTest      bool
 	MultiCluster          string
 	RunTests              []*regexp.Regexp
 	SkipTests             []*regexp.Regexp
@@ -61,6 +62,8 @@ type Parameters struct {
 	ExternalOtherIP       string
 	PodCIDRs              []podCIDRs
 	NodeCIDRs             []string
+	ControlPlaneCIDRs     []string
+	K8sCIDR               string
 	NodesWithoutCiliumIPs []nodesWithoutCiliumIP
 	JunitFile             string
 	JunitProperties       map[string]string

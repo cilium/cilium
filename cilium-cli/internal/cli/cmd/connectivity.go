@@ -146,6 +146,8 @@ func newCmdConnectivityTest(hooks Hooks) *cobra.Command {
 	cmd.Flags().MarkHidden("skip-ip-cache-check")
 	cmd.Flags().BoolVar(&params.IncludeUnsafeTests, "include-unsafe-tests", false, "Include tests which can modify cluster nodes state")
 	cmd.Flags().MarkHidden("include-unsafe-tests")
+	cmd.Flags().BoolVar(&params.K8sLocalHostTest, "k8s-localhost-test", false, "Include tests which test for policy enforcement for the k8s entity on its own host")
+	cmd.Flags().MarkHidden("k8s-localhost-test")
 
 	cmd.Flags().StringVar(&params.K8sVersion, "k8s-version", "", "Kubernetes server version in case auto-detection fails")
 	cmd.Flags().StringVar(&params.HelmChartDirectory, "chart-directory", "", "Helm chart directory")
