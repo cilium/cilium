@@ -4,9 +4,13 @@
 package check
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"os"
+	"os/signal"
 	"runtime"
+	"syscall"
 	"time"
 )
 
@@ -286,7 +290,16 @@ func (t *Test) failCommon() {
 	t.flush()
 	if t.ctx.params.PauseOnFail {
 		t.log("Pausing after action failure, press the Enter key to continue:")
-		fmt.Scanln()
+		cont := make(chan struct{})
+		go func() {
+			fmt.Scanln()
+			close(cont)
+		}()
+		ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		select {
+		case <-cont:
+		case <-ctx.Done():
+		}
 	}
 	if t.ctx.params.CollectSysdumpOnFailure {
 		t.collectSysdump()
