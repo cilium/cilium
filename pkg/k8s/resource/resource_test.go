@@ -41,7 +41,12 @@ func TestMain(m *testing.M) {
 		// missing Event.Done() calls.
 		runtime.GC()
 	}
-	goleak.VerifyTestMain(m, goleak.Cleanup(cleanup))
+	goleak.VerifyTestMain(m,
+		goleak.Cleanup(cleanup),
+		// Delaying workqueues used by resource.Resource[T].Events leaks this waitingLoop goroutine.
+		// It does stop when shutting down but is not guaranteed to before we actually exit.
+		goleak.IgnoreTopFunction("k8s.io/client-go/util/workqueue.(*delayingType).waitingLoop"),
+	)
 }
 
 func testStore(t *testing.T, node *corev1.Node, store resource.Store[*corev1.Node]) {
