@@ -4,6 +4,7 @@
 package translation
 
 import (
+	"slices"
 	"sort"
 	"testing"
 
@@ -57,7 +58,13 @@ func TestNewHTTPListener(t *testing.T) {
 		require.Nil(t, err)
 
 		require.Equal(t, "dummy-name", listener.Name)
-		require.Len(t, listener.GetListenerFilters(), 2)
+
+		listenerNames := []string{}
+		for _, l := range listener.GetListenerFilters() {
+			listenerNames = append(listenerNames, l.Name)
+		}
+		slices.Sort(listenerNames)
+		require.Equal(t, []string{tlsInspectorType, proxyProtocolType}, listenerNames)
 		require.Len(t, listener.GetFilterChains(), 1)
 	})
 
@@ -136,7 +143,12 @@ func TestNewSNIListener(t *testing.T) {
 		require.Nil(t, err)
 
 		require.Equal(t, "dummy-name", listener.Name)
-		require.Len(t, listener.GetListenerFilters(), 2)
+		listenerNames := []string{}
+		for _, l := range listener.GetListenerFilters() {
+			listenerNames = append(listenerNames, l.Name)
+		}
+		slices.Sort(listenerNames)
+		require.Equal(t, []string{tlsInspectorType, proxyProtocolType}, listenerNames)
 		require.Len(t, listener.GetFilterChains(), 1)
 		require.Len(t, listener.GetFilterChains()[0].FilterChainMatch.ServerNames, 2)
 	})

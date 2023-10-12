@@ -718,7 +718,7 @@ ingressController:
   # Incoming traffic to http listener will return 308 http error code with respective location in header.
   enforceHttps: true
 
-  # -- Enable proxy protocol for the listeners.
+  # -- Enable proxy protocol for all Ingress listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
   enableProxyProtocol: false
 
   # -- IngressLBAnnotations are the annotation prefixes, which are used to filter annotations to propagate
