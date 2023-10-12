@@ -910,21 +910,23 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 		}
 
-		_, err = ct.clients.src.GetDaemonSet(ctx, ct.params.TestNamespace, hostNetNSDeploymentName, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Deploying %s daemonset...", hostNetNSDeploymentName, ct.clients.src.ClusterName())
-			ds := newDaemonSet(daemonSetParameters{
-				Name:        hostNetNSDeploymentName,
-				Kind:        kindHostNetNS,
-				Image:       ct.params.CurlImage,
-				Port:        8080,
-				Labels:      map[string]string{"other": "host-netns"},
-				Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
-				HostNetwork: true,
-			})
-			_, err = ct.clients.src.CreateDaemonSet(ctx, ct.params.TestNamespace, ds, metav1.CreateOptions{})
+		for _, client := range ct.clients.clients() {
+			_, err = client.GetDaemonSet(ctx, ct.params.TestNamespace, hostNetNSDeploymentName, metav1.GetOptions{})
 			if err != nil {
-				return fmt.Errorf("unable to create daemonset %s: %w", hostNetNSDeploymentName, err)
+				ct.Logf("✨ [%s] Deploying %s daemonset...", hostNetNSDeploymentName, client.ClusterName())
+				ds := newDaemonSet(daemonSetParameters{
+					Name:        hostNetNSDeploymentName,
+					Kind:        kindHostNetNS,
+					Image:       ct.params.CurlImage,
+					Port:        8080,
+					Labels:      map[string]string{"other": "host-netns"},
+					Command:     []string{"/bin/ash", "-c", "sleep 10000000"},
+					HostNetwork: true,
+				})
+				_, err = client.CreateDaemonSet(ctx, ct.params.TestNamespace, ds, metav1.CreateOptions{})
+				if err != nil {
+					return fmt.Errorf("unable to create daemonset %s: %w", hostNetNSDeploymentName, err)
+				}
 			}
 		}
 
@@ -1324,36 +1326,38 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
-	hostNetNSPods, err := ct.client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindHostNetNS})
-	if err != nil {
-		return fmt.Errorf("unable to list host netns pods: %w", err)
-	}
-
-	for _, pod := range hostNetNSPods.Items {
-		_, ok := ct.nodesWithoutCilium[pod.Spec.NodeName]
-		p := Pod{
-			K8sClient: ct.client,
-			Pod:       pod.DeepCopy(),
-			Outside:   ok,
+	for _, client := range ct.clients.clients() {
+		hostNetNSPods, err := client.ListPods(ctx, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindHostNetNS})
+		if err != nil {
+			return fmt.Errorf("unable to list host netns pods: %w", err)
 		}
-		ct.hostNetNSPodsByNode[pod.Spec.NodeName] = p
 
-		if iface := ct.params.SecondaryNetworkIface; iface != "" {
-			if ct.Features[features.IPv4].Enabled {
-				cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
-				addr, err := ct.client.ExecInPod(ctx, pod.Namespace, pod.Name, "", cmd)
-				if err != nil {
-					return fmt.Errorf("failed to fetch secondary network ip addr: %w", err)
-				}
-				ct.secondaryNetworkNodeIPv4[pod.Spec.NodeName] = strings.TrimSuffix(addr.String(), "\n")
+		for _, pod := range hostNetNSPods.Items {
+			_, ok := ct.nodesWithoutCilium[pod.Spec.NodeName]
+			p := Pod{
+				K8sClient: client,
+				Pod:       pod.DeepCopy(),
+				Outside:   ok,
 			}
-			if ct.Features[features.IPv4].Enabled {
-				cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet6 -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
-				addr, err := ct.client.ExecInPod(ctx, pod.Namespace, pod.Name, "", cmd)
-				if err != nil {
-					return fmt.Errorf("failed to fetch secondary network ip addr: %w", err)
+			ct.hostNetNSPodsByNode[pod.Spec.NodeName] = p
+
+			if iface := ct.params.SecondaryNetworkIface; iface != "" {
+				if ct.Features[features.IPv4].Enabled {
+					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
+					addr, err := client.ExecInPod(ctx, pod.Namespace, pod.Name, "", cmd)
+					if err != nil {
+						return fmt.Errorf("failed to fetch secondary network ip addr: %w", err)
+					}
+					ct.secondaryNetworkNodeIPv4[pod.Spec.NodeName] = strings.TrimSuffix(addr.String(), "\n")
 				}
-				ct.secondaryNetworkNodeIPv6[pod.Spec.NodeName] = strings.TrimSuffix(addr.String(), "\n")
+				if ct.Features[features.IPv4].Enabled {
+					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet6 -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
+					addr, err := client.ExecInPod(ctx, pod.Namespace, pod.Name, "", cmd)
+					if err != nil {
+						return fmt.Errorf("failed to fetch secondary network ip addr: %w", err)
+					}
+					ct.secondaryNetworkNodeIPv6[pod.Spec.NodeName] = strings.TrimSuffix(addr.String(), "\n")
+				}
 			}
 		}
 	}
