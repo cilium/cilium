@@ -487,7 +487,7 @@ type ChangeState struct {
 // AuthType, and L7 redirection (e.g., for visibility purposes), the mapstate entries are added to
 // 'p.PolicyMapState' using denyPreferredInsertWithChanges().
 // Keys and old values of any added or deleted entries are added to 'changes'.
-// The implementation of 'identities' is also in a locked state.
+// SelectorCache is also in read-locked state during this call.
 func (l4Filter *L4Filter) toMapState(p *EndpointPolicy, features policyFeatures, entryCb entryCallback, changes ChangeState) {
 	port := uint16(l4Filter.Port)
 	proto := uint8(l4Filter.U8Proto)

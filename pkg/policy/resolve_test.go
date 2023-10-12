@@ -175,7 +175,7 @@ func GenerateCIDRRules(numRules int) api.Rules {
 
 type DummyOwner struct{}
 
-func (d DummyOwner) LookupRedirectPortLocked(bool, string, uint16) uint16 {
+func (d DummyOwner) LookupRedirectPortBuildLocked(bool, string, uint16) uint16 {
 	return 4242
 }
 
