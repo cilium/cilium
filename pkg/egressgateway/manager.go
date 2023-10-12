@@ -16,19 +16,16 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
-	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
-	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -116,15 +113,15 @@ type Manager struct {
 	// endpoints allows reading endpoint CRD from k8s.
 	endpoints resource.Resource[*k8sTypes.CiliumEndpoint]
 
+	// endpointStore is a read-only store of CiliumEndpoint resources
+	endpointStore resource.Store[*k8sTypes.CiliumEndpoint]
+
 	// policyConfigs stores policy configs indexed by policyID
 	policyConfigs map[policyID]*PolicyConfig
 
 	// policyConfigsBySourceIP stores slices of policy configs indexed by
 	// the policies' source/endpoint IPs
 	policyConfigsBySourceIP map[string][]*PolicyConfig
-
-	// epDataStore stores endpointId to endpoint metadata mapping
-	epDataStore map[endpointID]*endpointMetadata
 
 	// identityAllocator is used to fetch identity labels for endpoint updates
 	identityAllocator identityCache.IdentityAllocator
@@ -227,7 +224,6 @@ func newEgressGatewayManager(p Params) (*Manager, error) {
 		nodeDataStore:                 make(map[string]nodeTypes.Node),
 		policyConfigs:                 make(map[policyID]*PolicyConfig),
 		policyConfigsBySourceIP:       make(map[string][]*PolicyConfig),
-		epDataStore:                   make(map[endpointID]*endpointMetadata),
 		identityAllocator:             p.IdentityAllocator,
 		reconciliationTriggerInterval: p.Config.EgressGatewayReconciliationTriggerInterval,
 		policyMap:                     p.PolicyMap,
@@ -295,25 +291,16 @@ func (manager *Manager) eventBitmapIsSet(events ...eventType) bool {
 	return false
 }
 
-// getIdentityLabels waits for the global identities to be populated to the cache,
-// then looks up identity by ID from the cached identity allocator and return its labels.
-func (manager *Manager) getIdentityLabels(securityIdentity uint32) (labels.Labels, error) {
-	identityCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
-	defer cancel()
-	if err := manager.identityAllocator.WaitForInitialGlobalIdentities(identityCtx); err != nil {
-		return nil, fmt.Errorf("failed to wait for initial global identities: %v", err)
-	}
-
-	identity := manager.identityAllocator.LookupIdentityByID(identityCtx, identity.NumericIdentity(securityIdentity))
-	if identity == nil {
-		return nil, fmt.Errorf("identity %d not found", securityIdentity)
-	}
-	return identity.Labels, nil
-}
-
 // processEvents spawns a goroutine that waits for the agent to
 // sync with k8s and then runs the first reconciliation.
 func (manager *Manager) processEvents(ctx context.Context) {
+	var err error
+	manager.endpointStore, err = manager.endpoints.Store(ctx)
+	if err != nil {
+		log.WithError(err).Error("Failed creating endpoint resource store")
+		return
+	}
+
 	var policySync, nodeSync, endpointSync bool
 	maybeTriggerReconcile := func() {
 		if !policySync || !nodeSync || !endpointSync {
@@ -410,7 +397,7 @@ func (manager *Manager) onAddEgressPolicy(policy *Policy) error {
 		logger.Debug("Updated CiliumEgressGatewayPolicy")
 	}
 
-	config.updateMatchedEndpointIDs(manager.epDataStore)
+	config.updateMatchedEndpoints(manager.endpointStore, manager.identityAllocator)
 
 	manager.policyConfigs[config.id] = config
 
@@ -441,75 +428,27 @@ func (manager *Manager) onDeleteEgressPolicy(policy *Policy) {
 	manager.reconciliationTrigger.TriggerWithReason("policy deleted")
 }
 
-func (manager *Manager) addEndpoint(endpoint *k8sTypes.CiliumEndpoint) error {
-	var epData *endpointMetadata
-	var err error
-	var identityLabels labels.Labels
-
-	manager.Lock()
-	defer manager.Unlock()
+func (manager *Manager) handleEndpointEvent(event resource.Event[*k8sTypes.CiliumEndpoint]) {
+	endpoint := event.Object
 
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sEndpointName: endpoint.Name,
 		logfields.K8sNamespace:    endpoint.Namespace,
 	})
 
-	if identityLabels, err = manager.getIdentityLabels(uint32(endpoint.Identity.ID)); err != nil {
-		logger.WithError(err).
-			Warning("Failed to get identity labels for endpoint")
-		return err
-	}
-
-	if epData, err = getEndpointMetadata(endpoint, identityLabels); err != nil {
-		logger.WithError(err).
-			Error("Failed to get valid endpoint metadata, skipping update to egress policy.")
-		return nil
-	}
-
-	if _, ok := manager.epDataStore[epData.id]; ok {
-		logger.Debug("Updated CiliumEndpoint")
-	} else {
-		logger.Debug("Added CiliumEndpoint")
-	}
-
-	manager.epDataStore[epData.id] = epData
-
-	manager.setEventBitmap(eventUpdateEndpoint)
-	manager.reconciliationTrigger.TriggerWithReason("endpoint updated")
-
-	return nil
-}
-
-func (manager *Manager) deleteEndpoint(id types.NamespacedName) {
 	manager.Lock()
 	defer manager.Unlock()
 
-	logger := log.WithFields(logrus.Fields{
-		logfields.K8sEndpointName: id.Name,
-		logfields.K8sNamespace:    id.Namespace,
-	})
-
-	logger.Debug("Deleted CiliumEndpoint")
-	delete(manager.epDataStore, id)
-
-	manager.setEventBitmap(eventDeleteEndpoint)
-	manager.reconciliationTrigger.TriggerWithReason("endpoint deleted")
-}
-
-func (manager *Manager) handleEndpointEvent(event resource.Event[*k8sTypes.CiliumEndpoint]) {
-	endpoint := event.Object
-
-	id := types.NamespacedName{
-		Name:      endpoint.GetName(),
-		Namespace: endpoint.GetNamespace(),
-	}
-
 	if event.Kind == resource.Upsert {
-		event.Done(manager.addEndpoint(endpoint))
+		logger.Debug("Updated CiliumEndpoint")
+		manager.setEventBitmap(eventUpdateEndpoint)
+		manager.reconciliationTrigger.TriggerWithReason("endpoint updated")
 	} else {
-		manager.deleteEndpoint(id)
-		event.Done(nil)
+		logger.Debug("Deleted CiliumEndpoint")
+		manager.setEventBitmap(eventDeleteEndpoint)
+		manager.reconciliationTrigger.TriggerWithReason("endpoint deleted")
 	}
+	event.Done(nil)
 }
 
 // handleNodeEvent takes care of node upserts and removals.
@@ -552,7 +491,7 @@ func (manager *Manager) onChangeNodeLocked(e eventType) {
 
 func (manager *Manager) updatePoliciesMatchedEndpointIDs() {
 	for _, policy := range manager.policyConfigs {
-		policy.updateMatchedEndpointIDs(manager.epDataStore)
+		policy.updateMatchedEndpoints(manager.endpointStore, manager.identityAllocator)
 	}
 }
 
@@ -561,7 +500,7 @@ func (manager *Manager) updatePoliciesBySourceIP() {
 
 	for _, policy := range manager.policyConfigs {
 		for _, ep := range policy.matchedEndpoints {
-			for _, epIP := range ep.ips {
+			for _, epIP := range getEndpointIPv4IPs(ep) {
 				ip := epIP.String()
 				manager.policyConfigsBySourceIP[ip] = append(manager.policyConfigsBySourceIP[ip], policy)
 			}
@@ -589,7 +528,7 @@ func (manager *Manager) updatePoliciesBySourceIP() {
 func (manager *Manager) policyMatches(sourceIP netip.Addr, f func(netip.Addr, netip.Prefix, bool, *gatewayConfig) bool) bool {
 	for _, policy := range manager.policyConfigsBySourceIP[sourceIP.String()] {
 		for _, ep := range policy.matchedEndpoints {
-			for _, endpointIP := range ep.ips {
+			for _, endpointIP := range getEndpointIPv4IPs(ep) {
 				if endpointIP != sourceIP {
 					continue
 				}
@@ -730,4 +669,15 @@ func (manager *Manager) reconcileLocked() {
 	manager.eventsBitmap = 0
 
 	manager.reconciliationEventsCount.Add(1)
+}
+
+func getEndpointIPv4IPs(ep *k8sTypes.CiliumEndpoint) []netip.Addr {
+	var addrs []netip.Addr
+	for _, addrPair := range ep.Networking.Addressing {
+		addr, err := netip.ParseAddr(addrPair.IPV4)
+		if err == nil && addr.Is4() {
+			addrs = append(addrs, addr)
+		}
+	}
+	return addrs
 }

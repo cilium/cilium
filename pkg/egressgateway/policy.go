@@ -4,6 +4,7 @@
 package egressgateway
 
 import (
+	"context"
 	"fmt"
 	"net/netip"
 
@@ -12,12 +13,18 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	"github.com/cilium/cilium/pkg/identity"
+	identityCache "github.com/cilium/cilium/pkg/identity/cache"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	k8sTypes "github.com/cilium/cilium/pkg/k8s/types"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 )
@@ -56,32 +63,37 @@ type PolicyConfig struct {
 
 	policyGwConfig *policyGatewayConfig
 
-	matchedEndpoints map[endpointID]*endpointMetadata
+	matchedEndpoints []*k8sTypes.CiliumEndpoint
 	gatewayConfig    gatewayConfig
 }
 
 // PolicyID includes policy name and namespace
 type policyID = types.NamespacedName
 
-// matchesEndpointLabels determines if the given endpoint is a match for the
+// matchesEndpointLabels determines if the given endpoint labels match for the
 // policy config based on matching labels.
-func (config *PolicyConfig) matchesEndpointLabels(endpointInfo *endpointMetadata) bool {
-	labelsToMatch := k8sLabels.Set(endpointInfo.labels)
+func (config *PolicyConfig) matchesEndpointLabels(epLabels k8sLabels.Labels) bool {
 	for _, selector := range config.endpointSelectors {
-		if selector.Matches(labelsToMatch) {
+		if selector.Matches(epLabels) {
 			return true
 		}
 	}
 	return false
 }
 
-// updateMatchedEndpointIDs update the policy's cache of matched endpoint IDs
-func (config *PolicyConfig) updateMatchedEndpointIDs(epDataStore map[endpointID]*endpointMetadata) {
-	config.matchedEndpoints = make(map[endpointID]*endpointMetadata)
+// updateMatchedEndpoints update the policy's cache of matched endpoint IDs
+func (config *PolicyConfig) updateMatchedEndpoints(epStore resource.Store[*k8sTypes.CiliumEndpoint], idAllocator identityCache.IdentityAllocator) {
+	config.matchedEndpoints = nil
 
-	for _, endpoint := range epDataStore {
-		if config.matchesEndpointLabels(endpoint) {
-			config.matchedEndpoints[endpoint.id] = endpoint
+	for _, endpoint := range epStore.List() {
+		epLabels, err := getEndpointLabels(idAllocator, endpoint)
+		if err != nil {
+			log.WithFields(logrus.Fields{logfields.K8sEndpointName: endpoint.Name, logfields.K8sNamespace: endpoint.Namespace}).
+				WithError(err).Error("Skipping endpoint from policy matching")
+			continue
+		}
+		if config.matchesEndpointLabels(epLabels) {
+			config.matchedEndpoints = append(config.matchedEndpoints, endpoint)
 		}
 	}
 }
@@ -175,7 +187,7 @@ func (gwc *gatewayConfig) deriveFromPolicyGatewayConfig(gc *policyGatewayConfig)
 func (config *PolicyConfig) forEachEndpointAndCIDR(f func(netip.Addr, netip.Prefix, bool, *gatewayConfig)) {
 
 	for _, endpoint := range config.matchedEndpoints {
-		for _, endpointIP := range endpoint.ips {
+		for _, endpointIP := range getEndpointIPv4IPs(endpoint) {
 			isExcludedCIDR := false
 			for _, dstCIDR := range config.dstCIDRs {
 				f(endpointIP, dstCIDR, isExcludedCIDR, &config.gatewayConfig)
@@ -285,7 +297,6 @@ func ParseCEGP(cegp *v2.CiliumEgressGatewayPolicy) (*PolicyConfig, error) {
 		endpointSelectors: endpointSelectorList,
 		dstCIDRs:          dstCidrList,
 		excludedCIDRs:     excludedCIDRs,
-		matchedEndpoints:  make(map[endpointID]*endpointMetadata),
 		policyGwConfig:    policyGwc,
 		id: types.NamespacedName{
 			Name: name,
@@ -298,4 +309,32 @@ func ParseCEGPConfigID(cegp *v2.CiliumEgressGatewayPolicy) types.NamespacedName 
 	return policyID{
 		Name: cegp.Name,
 	}
+}
+
+// getEndpointLabels returns CiliumEndpoint labels by retrieving them from the identityCache.
+// This is necessary because endpoint.Labels is always nil, as labels are not stored in the slim CiliumEndpoint.
+func getEndpointLabels(idAllocator identityCache.IdentityAllocator, endpoint *k8sTypes.CiliumEndpoint) (k8sLabels.Labels, error) {
+	if endpoint.Identity == nil {
+		return nil, fmt.Errorf("endpoint has no identity metadata")
+	}
+	labels, err := getIdentityLabels(idAllocator, uint32(endpoint.Identity.ID))
+	if err != nil {
+		return nil, err
+	}
+	return k8sLabels.Set(labels.K8sStringMap()), nil
+}
+
+// getIdentityLabels waits for the global identities to be populated to the cache,
+// then looks up identity by ID from the cached identity allocator and return its labels.
+func getIdentityLabels(idAllocator identityCache.IdentityAllocator, securityIdentity uint32) (labels.Labels, error) {
+	identityCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
+	defer cancel()
+	if err := idAllocator.WaitForInitialGlobalIdentities(identityCtx); err != nil {
+		return nil, fmt.Errorf("failed to wait for initial global identities: %v", err)
+	}
+	identity := idAllocator.LookupIdentityByID(identityCtx, identity.NumericIdentity(securityIdentity))
+	if identity == nil {
+		return nil, fmt.Errorf("identity %d not found", securityIdentity)
+	}
+	return identity.Labels, nil
 }

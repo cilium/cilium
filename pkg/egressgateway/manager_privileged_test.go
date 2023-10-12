@@ -111,9 +111,10 @@ func (k *EgressGatewayTestSuite) SetUpSuite(c *C) {
 }
 
 func (k *EgressGatewayTestSuite) SetUpTest(c *C) {
-	k.policies = make(fakeResource[*Policy])
-	k.nodes = make(fakeResource[*cilium_api_v2.CiliumNode])
-	k.endpoints = make(fakeResource[*k8sTypes.CiliumEndpoint])
+	k.policies.ch = make(chan resource.Event[*Policy])
+	k.nodes.ch = make(chan resource.Event[*cilium_api_v2.CiliumNode])
+	k.endpoints.ch = make(chan resource.Event[*k8sTypes.CiliumEndpoint])
+	k.endpoints.store = &fakeStore[*k8sTypes.CiliumEndpoint]{}
 
 	lc := hivetest.Lifecycle(c)
 	policyMap := egressmap.CreatePrivatePolicyMap(lc, egressmap.DefaultPolicyConfig)

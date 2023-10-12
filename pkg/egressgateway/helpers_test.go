@@ -18,9 +18,37 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 )
 
-type fakeResource[T runtime.Object] chan resource.Event[T]
+type fakeStore[T runtime.Object] struct {
+	slice []T
+}
+
+func (fs *fakeStore[T]) List() []T {
+	return fs.slice
+}
+func (fs *fakeStore[T]) IterKeys() resource.KeyIter { return nil }
+func (fs *fakeStore[T]) Get(obj T) (item T, exists bool, err error) {
+	var def T
+	return def, false, nil
+}
+func (fs *fakeStore[T]) GetByKey(key resource.Key) (item T, exists bool, err error) {
+	var def T
+	return def, false, nil
+}
+func (fs *fakeStore[T]) IndexKeys(indexName, indexedValue string) ([]string, error) {
+	return nil, nil
+}
+func (fs *fakeStore[T]) ByIndex(indexName, indexedValue string) ([]T, error) {
+	return nil, nil
+}
+func (fs *fakeStore[T]) CacheStore() cache.Store { return nil }
+
+type fakeResource[T runtime.Object] struct {
+	ch    chan resource.Event[T]
+	store *fakeStore[T]
+}
 
 func (fr fakeResource[T]) sync(tb testing.TB) {
 	var sync resource.Event[T]
@@ -40,7 +68,7 @@ func (fr fakeResource[T]) processWithError(ev resource.Event[T]) error {
 	ev.Done = func(err error) {
 		errs <- err
 	}
-	fr <- ev
+	fr.ch <- ev
 	return <-errs
 }
 
@@ -54,11 +82,14 @@ func (fr fakeResource[T]) Events(ctx context.Context, opts ...resource.EventsOpt
 		// isn't possible.
 		panic("more than one option is not supported")
 	}
-	return fr
+	return fr.ch
 }
 
 func (fr fakeResource[T]) Store(context.Context) (resource.Store[T], error) {
-	return nil, errors.New("not implemented")
+	if fr.store != nil {
+		return fr.store, nil
+	}
+	return &fakeStore[T]{}, nil
 }
 
 func addPolicy(tb testing.TB, policies fakeResource[*Policy], params *policyParams) {
@@ -163,6 +194,7 @@ func newCEGP(params *policyParams) (*v2.CiliumEgressGatewayPolicy, *PolicyConfig
 }
 
 func addEndpoint(tb testing.TB, endpoints fakeResource[*k8sTypes.CiliumEndpoint], ep *k8sTypes.CiliumEndpoint) {
+	endpoints.store.slice = append(endpoints.store.slice, ep)
 	endpoints.process(tb, resource.Event[*k8sTypes.CiliumEndpoint]{
 		Kind:   resource.Upsert,
 		Object: ep,
