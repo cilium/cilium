@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/build"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
+	"github.com/cilium/cilium/pkg/inctimer"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -65,7 +66,6 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 		ctx = metadata.NewOutgoingContext(ctx, md)
 	}
 	ctx, cancel := context.WithCancel(ctx)
-
 	defer cancel()
 
 	peers := s.peers.List()
@@ -78,35 +78,24 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 
 	g, gctx := errgroup.WithContext(ctx)
 	flows := make(chan *observerpb.GetFlowsResponse, qlen)
-	var connectedNodes, unavailableNodes []string
 
-	for _, p := range peers {
-		if !isAvailable(p.Conn) {
-			s.opts.log.WithField("address", p.Address).Infof(
-				"No connection to peer %s, skipping", p.Name,
-			)
-			unavailableNodes = append(unavailableNodes, p.Name)
-			continue
-		}
-		connectedNodes = append(connectedNodes, p.Name)
-		p := p
-		g.Go(func() error {
-			// retrieveFlowsFromPeer returns blocks until the peer finishes
-			// the request by closing the connection, an error occurs,
-			// or gctx expires.
-			err := retrieveFlowsFromPeer(gctx, s.opts.ocb.observerClient(&p), req, flows)
-			if err != nil {
-				s.opts.log.WithFields(logrus.Fields{
-					"error": err,
-					"peer":  p,
-				}).Warning("Failed to retrieve flows from peer")
+	fc := newFlowCollector(req, s.opts)
+	connectedNodes, unavailableNodes := fc.collect(gctx, g, peers, flows)
+
+	if req.GetFollow() {
+		go func() {
+			updateTimer, updateTimerDone := inctimer.New()
+			defer updateTimerDone()
+			for {
 				select {
-				case flows <- nodeStatusError(err, p.Name):
+				case <-updateTimer.After(s.opts.peerUpdateInterval):
+					peers := s.peers.List()
+					_, _ = fc.collect(gctx, g, peers, flows)
 				case <-gctx.Done():
+					return
 				}
 			}
-			return nil
-		})
+		}()
 	}
 	go func() {
 		g.Wait()
@@ -130,19 +119,9 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 		}
 	}
 
-sortedFlowsLoop:
-	for {
-		select {
-		case flow, ok := <-sortedFlows:
-			if !ok {
-				break sortedFlowsLoop
-			}
-			if err := stream.Send(flow); err != nil {
-				return err
-			}
-		case <-ctx.Done():
-			break sortedFlowsLoop
-		}
+	err := sendFlowsResponse(ctx, stream, sortedFlows)
+	if err != nil {
+		return err
 	}
 	return g.Wait()
 }

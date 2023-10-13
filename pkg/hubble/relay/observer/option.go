@@ -38,6 +38,7 @@ var defaultOptions = options{
 	sortBufferMaxLen:       defaults.SortBufferMaxLen,
 	sortBufferDrainTimeout: defaults.SortBufferDrainTimeout,
 	errorAggregationWindow: defaults.ErrorAggregationWindow,
+	peerUpdateInterval:     defaults.PeerUpdateInterval,
 	log:                    logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay"),
 	ocb:                    defaultObserverClientBuilder{},
 }
@@ -50,6 +51,7 @@ type options struct {
 	sortBufferMaxLen       int
 	sortBufferDrainTimeout time.Duration
 	errorAggregationWindow time.Duration
+	peerUpdateInterval     time.Duration
 	log                    logrus.FieldLogger
 
 	// this is not meant to be user configurable as it's only useful to
