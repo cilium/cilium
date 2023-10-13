@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	"github.com/distribution/distribution/reference"
+	"github.com/distribution/reference"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli/output"
