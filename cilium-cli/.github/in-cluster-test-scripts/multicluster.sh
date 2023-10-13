@@ -12,12 +12,12 @@ CONTEXT2=$(kubectl config view | grep "${CLUSTER_NAME_2}" | head -1 | awk '{prin
 cilium install \
   --version "${CILIUM_VERSION}" \
   --context "${CONTEXT1}" \
-  --helm-set loadBalancer.l7.backend=envoy \
-  --helm-set tls.secretsBackend=k8s \
+  --set loadBalancer.l7.backend=envoy \
+  --set tls.secretsBackend=k8s \
   --cluster-name "${CLUSTER_NAME_1}" \
-  --helm-set cluster.id=1 \
-  --helm-set bpf.monitorAggregation=none \
-  --helm-set ipv4NativeRoutingCIDR=10.0.0.0/9
+  --set cluster.id=1 \
+  --set bpf.monitorAggregation=none \
+  --set ipv4NativeRoutingCIDR=10.0.0.0/9
 
 # Copy the CA cert from cluster1 to cluster2
 kubectl --context ${CONTEXT1} get secrets -n kube-system cilium-ca -oyaml \
@@ -30,12 +30,12 @@ kubectl --context ${CONTEXT1} get secrets -n kube-system cilium-ca -oyaml \
 cilium install \
   --version "${CILIUM_VERSION}" \
   --context "${CONTEXT2}" \
-  --helm-set loadBalancer.l7.backend=envoy \
-  --helm-set tls.secretsBackend=k8s \
+  --set loadBalancer.l7.backend=envoy \
+  --set tls.secretsBackend=k8s \
   --cluster-name "${CLUSTER_NAME_2}" \
-  --helm-set cluster.id=2 \
-  --helm-set bpf.monitorAggregation=none \
-  --helm-set ipv4NativeRoutingCIDR=10.0.0.0/9
+  --set cluster.id=2 \
+  --set bpf.monitorAggregation=none \
+  --set ipv4NativeRoutingCIDR=10.0.0.0/9
 
 # Enable Relay
 cilium --context "${CONTEXT1}" hubble enable
