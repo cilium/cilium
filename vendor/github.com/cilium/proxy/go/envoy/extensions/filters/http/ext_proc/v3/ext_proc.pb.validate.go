@@ -57,6 +57,17 @@ func (m *ExternalProcessor) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetGrpcService() == nil {
+		err := ExternalProcessorValidationError{
+			field:  "GrpcService",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetGrpcService()).(type) {
 		case interface{ ValidateAll() error }:
@@ -173,6 +184,35 @@ func (m *ExternalProcessor) validate(all bool) error {
 		if err := v.Validate(); err != nil {
 			return ExternalProcessorValidationError{
 				field:  "MutationRules",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetMaxMessageTimeout()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ExternalProcessorValidationError{
+					field:  "MaxMessageTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ExternalProcessorValidationError{
+					field:  "MaxMessageTimeout",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxMessageTimeout()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ExternalProcessorValidationError{
+				field:  "MaxMessageTimeout",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}

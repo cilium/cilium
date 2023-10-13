@@ -68,11 +68,21 @@ Only the extensions that have not been commented out with ``#`` are
 built in to the Cilium Envoy image. Currently this contains the
 following extensions:
 
+- ``envoy.access_loggers.file``
+- ``envoy.access_loggers.extension_filters.cel``
+- ``envoy.access_loggers.http_grpc``
+- ``envoy.access_loggers.tcp_grpc``
+- ``envoy.access_loggers.open_telemetry``
+- ``envoy.access_loggers.stdout``
+- ``envoy.access_loggers.stderr``
+- ``envoy.access_loggers.wasm``
 - ``envoy.clusters.dynamic_forward_proxy``
 - ``envoy.filters.http.dynamic_forward_proxy``
 - ``envoy.filters.http.ext_authz``
 - ``envoy.filters.http.jwt_authn``
 - ``envoy.filters.http.local_ratelimit``
+- ``envoy.filters.http.grpc_stats``
+- ``envoy.filters.http.grpc_web``
 - ``envoy.filters.http.oauth2``
 - ``envoy.filters.http.ratelimit``
 - ``envoy.filters.http.router``
