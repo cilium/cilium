@@ -221,7 +221,7 @@ jobs:
             --kubeconfig=$HOME/.kube/config
 
       - name: Cleanup cluster
-        if: ${{ always() && steps.deploy.outcome != 'skipped' }}
+        if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
         run: |
           ./kops delete cluster \
             ${{ env.cluster_name }} \
