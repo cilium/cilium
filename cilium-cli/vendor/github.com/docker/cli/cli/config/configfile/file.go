@@ -37,7 +37,6 @@ type ConfigFile struct {
 	PruneFilters         []string                     `json:"pruneFilters,omitempty"`
 	Proxies              map[string]ProxyConfig       `json:"proxies,omitempty"`
 	Experimental         string                       `json:"experimental,omitempty"`
-	StackOrchestrator    string                       `json:"stackOrchestrator,omitempty"` // Deprecated: swarm is now the default orchestrator, and this option is ignored.
 	CurrentContext       string                       `json:"currentContext,omitempty"`
 	CLIPluginsExtraDirs  []string                     `json:"cliPluginsExtraDirs,omitempty"`
 	Plugins              map[string]map[string]string `json:"plugins,omitempty"`
@@ -95,6 +94,9 @@ func (configFile *ConfigFile) ContainsAuth() bool {
 
 // GetAuthConfigs returns the mapping of repo to auth configuration
 func (configFile *ConfigFile) GetAuthConfigs() map[string]types.AuthConfig {
+	if configFile.AuthConfigs == nil {
+		configFile.AuthConfigs = make(map[string]types.AuthConfig)
+	}
 	return configFile.AuthConfigs
 }
 
