@@ -123,6 +123,42 @@ func getEncryptionMode() {
 	}
 }
 
+func isDecryptionInterface(link netlink.Link) (bool, error) {
+	filters, err := netlink.FilterList(link, tcFilterParentIngress)
+	if err != nil {
+		return false, err
+	}
+	for _, f := range filters {
+		if bpfFilter, ok := f.(*netlink.BpfFilter); ok {
+			// We consider the interface a decryption interface if it has the
+			// BPF program we use to mark ESP packets for decryption, that is
+			// the cil_from_network BPF program.
+			if strings.Contains(bpfFilter.Name, "cil_from_network") {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func getDecryptionInterfaces() []string {
+	decryptionIfaces := []string{}
+	links, err := netlink.LinkList()
+	if err != nil {
+		Fatalf("Failed to list interfaces: %s", err)
+	}
+	for _, link := range links {
+		itIs, err := isDecryptionInterface(link)
+		if err != nil {
+			Fatalf("Failed to list BPF programs for %s: %s", link.Attrs().Name, err)
+		}
+		if itIs {
+			decryptionIfaces = append(decryptionIfaces, link.Attrs().Name)
+		}
+	}
+	return decryptionIfaces
+}
+
 func dumpIPsecStatus() {
 	xfrmStates, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
 	if err != nil {
@@ -130,6 +166,8 @@ func dumpIPsecStatus() {
 	}
 	keys := ipsec.CountUniqueIPsecKeys(xfrmStates)
 	oseq := maxSequenceNumber()
+	interfaces := getDecryptionInterfaces()
+	fmt.Printf("Decryption interface(s): %s\n", strings.Join(interfaces, ", "))
 	fmt.Printf("Keys in use: %-26d\n", keys)
 	fmt.Printf("Max Seq. Number: %s\n", oseq)
 	errCount, errMap := getXfrmStats("")
