@@ -7,9 +7,12 @@
 package cidr
 
 import (
+	"math/rand"
 	"net"
 	"net/netip"
 	"runtime"
+	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/hashicorp/golang-lru/v2/simplelru"
@@ -213,6 +216,44 @@ func BenchmarkGetCIDRLabels(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				_ = GetCIDRLabels(cidr)
+			}
+		})
+	}
+}
+
+func BenchmarkGetCIDRLabelsConcurrent(b *testing.B) {
+	prefixes := make([]*net.IPNet, 0, 16)
+	octets := [4]byte{0, 0, 1, 1}
+	for i := 0; i < 16; i++ {
+		octets[0], octets[1] = byte(rand.Intn(256)), byte(rand.Intn(256))
+		prefix := netip.PrefixFrom(netip.AddrFrom4(octets), 32)
+		prefixes = append(prefixes, mustCIDR(prefix.String()))
+	}
+
+	for _, goroutines := range []int{1, 2, 4, 16, 32, 48} {
+		b.Run(strconv.Itoa(goroutines), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				start := make(chan struct{})
+				var wg sync.WaitGroup
+
+				wg.Add(goroutines)
+				for j := 0; j < goroutines; j++ {
+					go func() {
+						defer wg.Done()
+
+						<-start
+
+						for k := 0; k < 64; k++ {
+							_ = GetCIDRLabels(prefixes[rand.Intn(len(prefixes))])
+						}
+					}()
+				}
+
+				b.StartTimer()
+				close(start)
+				wg.Wait()
 			}
 		})
 	}
