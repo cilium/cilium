@@ -158,6 +158,7 @@ func (m *XRayConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return XRayConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -287,6 +288,7 @@ func (m *XRayConfig_SegmentFields) validate(all bool) error {
 	if len(errors) > 0 {
 		return XRayConfig_SegmentFieldsMultiError(errors)
 	}
+
 	return nil
 }
 

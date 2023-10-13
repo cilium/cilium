@@ -71,6 +71,7 @@ func (m *DownstreamConnectionsConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return DownstreamConnectionsConfigMultiError(errors)
 	}
+
 	return nil
 }
 

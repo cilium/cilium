@@ -163,9 +163,20 @@ func (m *OutlierDetectionEvent) validate(all bool) error {
 
 	// no validation rules for Enforced
 
-	switch m.Event.(type) {
-
+	oneofEventPresent := false
+	switch v := m.Event.(type) {
 	case *OutlierDetectionEvent_EjectSuccessRateEvent:
+		if v == nil {
+			err := OutlierDetectionEventValidationError{
+				field:  "Event",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofEventPresent = true
 
 		if all {
 			switch v := interface{}(m.GetEjectSuccessRateEvent()).(type) {
@@ -197,6 +208,17 @@ func (m *OutlierDetectionEvent) validate(all bool) error {
 		}
 
 	case *OutlierDetectionEvent_EjectConsecutiveEvent:
+		if v == nil {
+			err := OutlierDetectionEventValidationError{
+				field:  "Event",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofEventPresent = true
 
 		if all {
 			switch v := interface{}(m.GetEjectConsecutiveEvent()).(type) {
@@ -228,6 +250,17 @@ func (m *OutlierDetectionEvent) validate(all bool) error {
 		}
 
 	case *OutlierDetectionEvent_EjectFailurePercentageEvent:
+		if v == nil {
+			err := OutlierDetectionEventValidationError{
+				field:  "Event",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofEventPresent = true
 
 		if all {
 			switch v := interface{}(m.GetEjectFailurePercentageEvent()).(type) {
@@ -259,6 +292,9 @@ func (m *OutlierDetectionEvent) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofEventPresent {
 		err := OutlierDetectionEventValidationError{
 			field:  "Event",
 			reason: "value is required",
@@ -267,12 +303,12 @@ func (m *OutlierDetectionEvent) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return OutlierDetectionEventMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -407,6 +443,7 @@ func (m *OutlierEjectSuccessRate) validate(all bool) error {
 	if len(errors) > 0 {
 		return OutlierEjectSuccessRateMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -508,6 +545,7 @@ func (m *OutlierEjectConsecutive) validate(all bool) error {
 	if len(errors) > 0 {
 		return OutlierEjectConsecutiveMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -620,6 +658,7 @@ func (m *OutlierEjectFailurePercentage) validate(all bool) error {
 	if len(errors) > 0 {
 		return OutlierEjectFailurePercentageMultiError(errors)
 	}
+
 	return nil
 }
 

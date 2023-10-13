@@ -209,7 +209,7 @@ github.com/cilium/linters/timeafter
 # github.com/cilium/lumberjack/v2 v2.3.0
 ## explicit; go 1.13
 github.com/cilium/lumberjack/v2
-# github.com/cilium/proxy v0.0.0-20230623092907-8fddead4e52c
+# github.com/cilium/proxy v0.0.0-20231011135435-dee528976b93
 ## explicit; go 1.20
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/contrib/envoy/extensions/filters/network/mysql_proxy/v3
@@ -245,7 +245,6 @@ github.com/cilium/proxy/go/envoy/extensions/access_loggers/grpc/v3
 github.com/cilium/proxy/go/envoy/extensions/access_loggers/stream/v3
 github.com/cilium/proxy/go/envoy/extensions/access_loggers/wasm/v3
 github.com/cilium/proxy/go/envoy/extensions/bootstrap/internal_listener/v3
-github.com/cilium/proxy/go/envoy/extensions/cache/simple_http_cache/v3
 github.com/cilium/proxy/go/envoy/extensions/clusters/aggregate/v3
 github.com/cilium/proxy/go/envoy/extensions/clusters/dynamic_forward_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/clusters/redis/v3
@@ -546,7 +545,7 @@ github.com/eapache/queue
 ## explicit; go 1.13
 github.com/emicklei/go-restful/v3
 github.com/emicklei/go-restful/v3/log
-# github.com/envoyproxy/protoc-gen-validate v0.10.1
+# github.com/envoyproxy/protoc-gen-validate v1.0.1
 ## explicit; go 1.19
 github.com/envoyproxy/protoc-gen-validate/validate
 # github.com/evanphx/json-patch v5.6.0+incompatible
@@ -1369,18 +1368,18 @@ google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20230530153820-e85fd2cbaebc
+# google.golang.org/genproto v0.0.0-20230803162519-f966b187b2e5
 ## explicit; go 1.19
 google.golang.org/genproto/internal
-# google.golang.org/genproto/googleapis/api v0.0.0-20230526203410-71b5a4ffd15e
+# google.golang.org/genproto/googleapis/api v0.0.0-20230803162519-f966b187b2e5
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20230530153820-e85fd2cbaebc
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20230803162519-f966b187b2e5
 ## explicit; go 1.19
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.56.3
+# google.golang.org/grpc v1.57.0
 ## explicit; go 1.17
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -1428,6 +1427,7 @@ google.golang.org/grpc/keepalive
 google.golang.org/grpc/metadata
 google.golang.org/grpc/peer
 google.golang.org/grpc/reflection
+google.golang.org/grpc/reflection/grpc_reflection_v1
 google.golang.org/grpc/reflection/grpc_reflection_v1alpha
 google.golang.org/grpc/resolver
 google.golang.org/grpc/resolver/manual

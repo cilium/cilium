@@ -145,6 +145,7 @@ func (m *Zstd) validate(all bool) error {
 	if len(errors) > 0 {
 		return ZstdMultiError(errors)
 	}
+
 	return nil
 }
 

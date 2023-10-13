@@ -100,6 +100,7 @@ func (m *Http11ProxyUpstreamTransport) validate(all bool) error {
 	if len(errors) > 0 {
 		return Http11ProxyUpstreamTransportMultiError(errors)
 	}
+
 	return nil
 }
 

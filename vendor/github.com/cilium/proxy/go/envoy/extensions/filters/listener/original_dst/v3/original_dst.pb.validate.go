@@ -60,6 +60,7 @@ func (m *OriginalDst) validate(all bool) error {
 	if len(errors) > 0 {
 		return OriginalDstMultiError(errors)
 	}
+
 	return nil
 }
 

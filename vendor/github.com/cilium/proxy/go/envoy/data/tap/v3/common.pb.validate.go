@@ -58,19 +58,39 @@ func (m *Body) validate(all bool) error {
 
 	// no validation rules for Truncated
 
-	switch m.BodyType.(type) {
-
+	switch v := m.BodyType.(type) {
 	case *Body_AsBytes:
+		if v == nil {
+			err := BodyValidationError{
+				field:  "BodyType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for AsBytes
-
 	case *Body_AsString:
+		if v == nil {
+			err := BodyValidationError{
+				field:  "BodyType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for AsString
-
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return BodyMultiError(errors)
 	}
+
 	return nil
 }
 

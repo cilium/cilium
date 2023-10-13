@@ -125,6 +125,7 @@ func (m *RouteConfiguration) validate(all bool) error {
 	if len(errors) > 0 {
 		return RouteConfigurationMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -305,6 +306,7 @@ func (m *Route) validate(all bool) error {
 	if len(errors) > 0 {
 		return RouteMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -436,15 +438,38 @@ func (m *RouteMatch) validate(all bool) error {
 
 	}
 
-	switch m.MatchSpecifier.(type) {
-
+	oneofMatchSpecifierPresent := false
+	switch v := m.MatchSpecifier.(type) {
 	case *RouteMatch_MethodName:
+		if v == nil {
+			err := RouteMatchValidationError{
+				field:  "MatchSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofMatchSpecifierPresent = true
 		// no validation rules for MethodName
-
 	case *RouteMatch_ServiceName:
+		if v == nil {
+			err := RouteMatchValidationError{
+				field:  "MatchSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofMatchSpecifierPresent = true
 		// no validation rules for ServiceName
-
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofMatchSpecifierPresent {
 		err := RouteMatchValidationError{
 			field:  "MatchSpecifier",
 			reason: "value is required",
@@ -453,12 +478,12 @@ func (m *RouteMatch) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return RouteMatchMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -653,9 +678,20 @@ func (m *RouteAction) validate(all bool) error {
 
 	}
 
-	switch m.ClusterSpecifier.(type) {
-
+	oneofClusterSpecifierPresent := false
+	switch v := m.ClusterSpecifier.(type) {
 	case *RouteAction_Cluster:
+		if v == nil {
+			err := RouteActionValidationError{
+				field:  "ClusterSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofClusterSpecifierPresent = true
 
 		if utf8.RuneCountInString(m.GetCluster()) < 1 {
 			err := RouteActionValidationError{
@@ -669,6 +705,17 @@ func (m *RouteAction) validate(all bool) error {
 		}
 
 	case *RouteAction_WeightedClusters:
+		if v == nil {
+			err := RouteActionValidationError{
+				field:  "ClusterSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofClusterSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetWeightedClusters()).(type) {
@@ -700,6 +747,17 @@ func (m *RouteAction) validate(all bool) error {
 		}
 
 	case *RouteAction_ClusterHeader:
+		if v == nil {
+			err := RouteActionValidationError{
+				field:  "ClusterSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofClusterSpecifierPresent = true
 
 		if utf8.RuneCountInString(m.GetClusterHeader()) < 1 {
 			err := RouteActionValidationError{
@@ -724,6 +782,9 @@ func (m *RouteAction) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofClusterSpecifierPresent {
 		err := RouteActionValidationError{
 			field:  "ClusterSpecifier",
 			reason: "value is required",
@@ -732,12 +793,12 @@ func (m *RouteAction) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return RouteActionMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -883,6 +944,7 @@ func (m *WeightedCluster) validate(all bool) error {
 	if len(errors) > 0 {
 		return WeightedClusterMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1022,6 +1084,7 @@ func (m *RouteAction_RequestMirrorPolicy) validate(all bool) error {
 	if len(errors) > 0 {
 		return RouteAction_RequestMirrorPolicyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1179,6 +1242,7 @@ func (m *WeightedCluster_ClusterWeight) validate(all bool) error {
 	if len(errors) > 0 {
 		return WeightedCluster_ClusterWeightMultiError(errors)
 	}
+
 	return nil
 }
 

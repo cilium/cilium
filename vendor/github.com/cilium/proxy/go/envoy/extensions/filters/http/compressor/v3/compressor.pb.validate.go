@@ -222,6 +222,7 @@ func (m *Compressor) validate(all bool) error {
 	if len(errors) > 0 {
 		return CompressorMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -320,6 +321,7 @@ func (m *ResponseDirectionOverrides) validate(all bool) error {
 	if len(errors) > 0 {
 		return ResponseDirectionOverridesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -450,6 +452,7 @@ func (m *CompressorOverrides) validate(all bool) error {
 	if len(errors) > 0 {
 		return CompressorOverridesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -548,9 +551,20 @@ func (m *CompressorPerRoute) validate(all bool) error {
 
 	var errors []error
 
-	switch m.Override.(type) {
-
+	oneofOverridePresent := false
+	switch v := m.Override.(type) {
 	case *CompressorPerRoute_Disabled:
+		if v == nil {
+			err := CompressorPerRouteValidationError{
+				field:  "Override",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofOverridePresent = true
 
 		if m.GetDisabled() != true {
 			err := CompressorPerRouteValidationError{
@@ -564,6 +578,17 @@ func (m *CompressorPerRoute) validate(all bool) error {
 		}
 
 	case *CompressorPerRoute_Overrides:
+		if v == nil {
+			err := CompressorPerRouteValidationError{
+				field:  "Override",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofOverridePresent = true
 
 		if all {
 			switch v := interface{}(m.GetOverrides()).(type) {
@@ -595,6 +620,9 @@ func (m *CompressorPerRoute) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofOverridePresent {
 		err := CompressorPerRouteValidationError{
 			field:  "Override",
 			reason: "value is required",
@@ -603,12 +631,12 @@ func (m *CompressorPerRoute) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return CompressorPerRouteMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -769,6 +797,7 @@ func (m *Compressor_CommonDirectionConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return Compressor_CommonDirectionConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -902,6 +931,7 @@ func (m *Compressor_RequestDirectionConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return Compressor_RequestDirectionConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1039,6 +1069,7 @@ func (m *Compressor_ResponseDirectionConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return Compressor_ResponseDirectionConfigMultiError(errors)
 	}
+
 	return nil
 }
 

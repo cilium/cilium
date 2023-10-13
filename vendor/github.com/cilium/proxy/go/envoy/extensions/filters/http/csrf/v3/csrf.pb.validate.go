@@ -163,6 +163,7 @@ func (m *CsrfPolicy) validate(all bool) error {
 	if len(errors) > 0 {
 		return CsrfPolicyMultiError(errors)
 	}
+
 	return nil
 }
 

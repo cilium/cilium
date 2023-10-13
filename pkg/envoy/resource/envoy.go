@@ -39,7 +39,6 @@ import (
 	_ "github.com/cilium/proxy/go/envoy/extensions/access_loggers/stream/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/access_loggers/wasm/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/bootstrap/internal_listener/v3"
-	_ "github.com/cilium/proxy/go/envoy/extensions/cache/simple_http_cache/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/clusters/aggregate/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/clusters/dynamic_forward_proxy/v3"
 	_ "github.com/cilium/proxy/go/envoy/extensions/clusters/redis/v3"

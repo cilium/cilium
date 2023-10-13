@@ -99,9 +99,76 @@ func (m *ZooKeeperProxy) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for EnableLatencyThresholdMetrics
+
+	if d := m.GetDefaultLatencyThreshold(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = ZooKeeperProxyValidationError{
+				field:  "DefaultLatencyThreshold",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			gte := time.Duration(0*time.Second + 1000000*time.Nanosecond)
+
+			if dur < gte {
+				err := ZooKeeperProxyValidationError{
+					field:  "DefaultLatencyThreshold",
+					reason: "value must be greater than or equal to 1ms",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+	}
+
+	for idx, item := range m.GetLatencyThresholdOverrides() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ZooKeeperProxyValidationError{
+						field:  fmt.Sprintf("LatencyThresholdOverrides[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ZooKeeperProxyValidationError{
+						field:  fmt.Sprintf("LatencyThresholdOverrides[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ZooKeeperProxyValidationError{
+					field:  fmt.Sprintf("LatencyThresholdOverrides[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return ZooKeeperProxyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -175,3 +242,157 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = ZooKeeperProxyValidationError{}
+
+// Validate checks the field values on LatencyThresholdOverride with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *LatencyThresholdOverride) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on LatencyThresholdOverride with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// LatencyThresholdOverrideMultiError, or nil if none found.
+func (m *LatencyThresholdOverride) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *LatencyThresholdOverride) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if _, ok := LatencyThresholdOverride_Opcode_name[int32(m.GetOpcode())]; !ok {
+		err := LatencyThresholdOverrideValidationError{
+			field:  "Opcode",
+			reason: "value must be one of the defined enum values",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if m.GetThreshold() == nil {
+		err := LatencyThresholdOverrideValidationError{
+			field:  "Threshold",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if d := m.GetThreshold(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = LatencyThresholdOverrideValidationError{
+				field:  "Threshold",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			gte := time.Duration(0*time.Second + 1000000*time.Nanosecond)
+
+			if dur < gte {
+				err := LatencyThresholdOverrideValidationError{
+					field:  "Threshold",
+					reason: "value must be greater than or equal to 1ms",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+	}
+
+	if len(errors) > 0 {
+		return LatencyThresholdOverrideMultiError(errors)
+	}
+
+	return nil
+}
+
+// LatencyThresholdOverrideMultiError is an error wrapping multiple validation
+// errors returned by LatencyThresholdOverride.ValidateAll() if the designated
+// constraints aren't met.
+type LatencyThresholdOverrideMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m LatencyThresholdOverrideMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m LatencyThresholdOverrideMultiError) AllErrors() []error { return m }
+
+// LatencyThresholdOverrideValidationError is the validation error returned by
+// LatencyThresholdOverride.Validate if the designated constraints aren't met.
+type LatencyThresholdOverrideValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e LatencyThresholdOverrideValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e LatencyThresholdOverrideValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e LatencyThresholdOverrideValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e LatencyThresholdOverrideValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e LatencyThresholdOverrideValidationError) ErrorName() string {
+	return "LatencyThresholdOverrideValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e LatencyThresholdOverrideValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sLatencyThresholdOverride.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = LatencyThresholdOverrideValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = LatencyThresholdOverrideValidationError{}

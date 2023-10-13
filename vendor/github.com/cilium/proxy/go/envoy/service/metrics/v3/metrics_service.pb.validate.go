@@ -60,6 +60,7 @@ func (m *StreamMetricsResponse) validate(all bool) error {
 	if len(errors) > 0 {
 		return StreamMetricsResponseMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -224,6 +225,7 @@ func (m *StreamMetricsMessage) validate(all bool) error {
 	if len(errors) > 0 {
 		return StreamMetricsMessageMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -365,6 +367,7 @@ func (m *StreamMetricsMessage_Identifier) validate(all bool) error {
 	if len(errors) > 0 {
 		return StreamMetricsMessage_IdentifierMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -66,6 +66,7 @@ func (m *NetworkFilter) validate(all bool) error {
 	if len(errors) > 0 {
 		return NetworkFilterMultiError(errors)
 	}
+
 	return nil
 }
 

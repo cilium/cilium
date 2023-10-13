@@ -86,9 +86,20 @@ func (m *FaultAbort) validate(all bool) error {
 		}
 	}
 
-	switch m.ErrorType.(type) {
-
+	oneofErrorTypePresent := false
+	switch v := m.ErrorType.(type) {
 	case *FaultAbort_HttpStatus:
+		if v == nil {
+			err := FaultAbortValidationError{
+				field:  "ErrorType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofErrorTypePresent = true
 
 		if val := m.GetHttpStatus(); val < 200 || val >= 600 {
 			err := FaultAbortValidationError{
@@ -102,9 +113,30 @@ func (m *FaultAbort) validate(all bool) error {
 		}
 
 	case *FaultAbort_GrpcStatus:
+		if v == nil {
+			err := FaultAbortValidationError{
+				field:  "ErrorType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofErrorTypePresent = true
 		// no validation rules for GrpcStatus
-
 	case *FaultAbort_HeaderAbort_:
+		if v == nil {
+			err := FaultAbortValidationError{
+				field:  "ErrorType",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofErrorTypePresent = true
 
 		if all {
 			switch v := interface{}(m.GetHeaderAbort()).(type) {
@@ -136,6 +168,9 @@ func (m *FaultAbort) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofErrorTypePresent {
 		err := FaultAbortValidationError{
 			field:  "ErrorType",
 			reason: "value is required",
@@ -144,12 +179,12 @@ func (m *FaultAbort) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return FaultAbortMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -413,9 +448,39 @@ func (m *HTTPFault) validate(all bool) error {
 
 	// no validation rules for DisableDownstreamClusterStats
 
+	if all {
+		switch v := interface{}(m.GetFilterMetadata()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, HTTPFaultValidationError{
+					field:  "FilterMetadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, HTTPFaultValidationError{
+					field:  "FilterMetadata",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetFilterMetadata()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return HTTPFaultValidationError{
+				field:  "FilterMetadata",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return HTTPFaultMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -514,6 +579,7 @@ func (m *FaultAbort_HeaderAbort) validate(all bool) error {
 	if len(errors) > 0 {
 		return FaultAbort_HeaderAbortMultiError(errors)
 	}
+
 	return nil
 }
 

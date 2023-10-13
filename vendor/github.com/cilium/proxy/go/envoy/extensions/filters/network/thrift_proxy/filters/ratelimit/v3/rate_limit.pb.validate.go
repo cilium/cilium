@@ -153,6 +153,7 @@ func (m *RateLimit) validate(all bool) error {
 	if len(errors) > 0 {
 		return RateLimitMultiError(errors)
 	}
+
 	return nil
 }
 

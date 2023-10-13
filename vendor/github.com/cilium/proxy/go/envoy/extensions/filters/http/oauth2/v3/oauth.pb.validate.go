@@ -137,9 +137,20 @@ func (m *OAuth2Credentials) validate(all bool) error {
 		}
 	}
 
-	switch m.TokenFormation.(type) {
-
+	oneofTokenFormationPresent := false
+	switch v := m.TokenFormation.(type) {
 	case *OAuth2Credentials_HmacSecret:
+		if v == nil {
+			err := OAuth2CredentialsValidationError{
+				field:  "TokenFormation",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofTokenFormationPresent = true
 
 		if m.GetHmacSecret() == nil {
 			err := OAuth2CredentialsValidationError{
@@ -182,6 +193,9 @@ func (m *OAuth2Credentials) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofTokenFormationPresent {
 		err := OAuth2CredentialsValidationError{
 			field:  "TokenFormation",
 			reason: "value is required",
@@ -190,12 +204,12 @@ func (m *OAuth2Credentials) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return OAuth2CredentialsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -515,6 +529,7 @@ func (m *OAuth2Config) validate(all bool) error {
 	if len(errors) > 0 {
 		return OAuth2ConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -641,6 +656,7 @@ func (m *OAuth2) validate(all bool) error {
 	if len(errors) > 0 {
 		return OAuth2MultiError(errors)
 	}
+
 	return nil
 }
 
@@ -781,9 +797,40 @@ func (m *OAuth2Credentials_CookieNames) validate(all bool) error {
 
 	}
 
+	if m.GetIdToken() != "" {
+
+		if !_OAuth2Credentials_CookieNames_IdToken_Pattern.MatchString(m.GetIdToken()) {
+			err := OAuth2Credentials_CookieNamesValidationError{
+				field:  "IdToken",
+				reason: "value does not match regex pattern \"^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
+	if m.GetRefreshToken() != "" {
+
+		if !_OAuth2Credentials_CookieNames_RefreshToken_Pattern.MatchString(m.GetRefreshToken()) {
+			err := OAuth2Credentials_CookieNamesValidationError{
+				field:  "RefreshToken",
+				reason: "value does not match regex pattern \"^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return OAuth2Credentials_CookieNamesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -866,3 +913,7 @@ var _OAuth2Credentials_CookieNames_BearerToken_Pattern = regexp.MustCompile("^:?
 var _OAuth2Credentials_CookieNames_OauthHmac_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
 
 var _OAuth2Credentials_CookieNames_OauthExpires_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
+
+var _OAuth2Credentials_CookieNames_IdToken_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")
+
+var _OAuth2Credentials_CookieNames_RefreshToken_Pattern = regexp.MustCompile("^:?[0-9a-zA-Z!#$%&'*+-.^_|~`]+$")

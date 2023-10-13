@@ -263,6 +263,7 @@ func (m *HeaderMutationRules) validate(all bool) error {
 	if len(errors) > 0 {
 		return HeaderMutationRulesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -361,9 +362,20 @@ func (m *HeaderMutation) validate(all bool) error {
 
 	var errors []error
 
-	switch m.Action.(type) {
-
+	oneofActionPresent := false
+	switch v := m.Action.(type) {
 	case *HeaderMutation_Remove:
+		if v == nil {
+			err := HeaderMutationValidationError{
+				field:  "Action",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofActionPresent = true
 
 		if !_HeaderMutation_Remove_Pattern.MatchString(m.GetRemove()) {
 			err := HeaderMutationValidationError{
@@ -377,6 +389,17 @@ func (m *HeaderMutation) validate(all bool) error {
 		}
 
 	case *HeaderMutation_Append:
+		if v == nil {
+			err := HeaderMutationValidationError{
+				field:  "Action",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofActionPresent = true
 
 		if all {
 			switch v := interface{}(m.GetAppend()).(type) {
@@ -408,6 +431,9 @@ func (m *HeaderMutation) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofActionPresent {
 		err := HeaderMutationValidationError{
 			field:  "Action",
 			reason: "value is required",
@@ -416,12 +442,12 @@ func (m *HeaderMutation) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return HeaderMutationMultiError(errors)
 	}
+
 	return nil
 }
 

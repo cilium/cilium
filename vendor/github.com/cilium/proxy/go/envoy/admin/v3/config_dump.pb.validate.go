@@ -94,6 +94,7 @@ func (m *ConfigDump) validate(all bool) error {
 	if len(errors) > 0 {
 		return ConfigDumpMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -250,6 +251,7 @@ func (m *BootstrapConfigDump) validate(all bool) error {
 	if len(errors) > 0 {
 		return BootstrapConfigDumpMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -453,6 +455,7 @@ func (m *SecretsConfigDump) validate(all bool) error {
 	if len(errors) > 0 {
 		return SecretsConfigDumpMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -647,6 +650,7 @@ func (m *SecretsConfigDump_DynamicSecret) validate(all bool) error {
 	if len(errors) > 0 {
 		return SecretsConfigDump_DynamicSecretMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -809,6 +813,7 @@ func (m *SecretsConfigDump_StaticSecret) validate(all bool) error {
 	if len(errors) > 0 {
 		return SecretsConfigDump_StaticSecretMultiError(errors)
 	}
+
 	return nil
 }
 

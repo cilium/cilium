@@ -102,6 +102,7 @@ func (m *ProfileActionConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return ProfileActionConfigMultiError(errors)
 	}
+
 	return nil
 }
 

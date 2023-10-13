@@ -158,6 +158,7 @@ func (m *Decompressor) validate(all bool) error {
 	if len(errors) > 0 {
 		return DecompressorMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -288,6 +289,7 @@ func (m *Decompressor_CommonDirectionConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return Decompressor_CommonDirectionConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -450,6 +452,7 @@ func (m *Decompressor_RequestDirectionConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return Decompressor_RequestDirectionConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -583,6 +586,7 @@ func (m *Decompressor_ResponseDirectionConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return Decompressor_ResponseDirectionConfigMultiError(errors)
 	}
+
 	return nil
 }
 

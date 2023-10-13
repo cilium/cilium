@@ -70,9 +70,18 @@ func (m *Descriptor) validate(all bool) error {
 
 	// no validation rules for SkipIfError
 
-	switch m.ExprSpecifier.(type) {
-
+	switch v := m.ExprSpecifier.(type) {
 	case *Descriptor_Text:
+		if v == nil {
+			err := DescriptorValidationError{
+				field:  "ExprSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if utf8.RuneCountInString(m.GetText()) < 1 {
 			err := DescriptorValidationError{
@@ -86,6 +95,16 @@ func (m *Descriptor) validate(all bool) error {
 		}
 
 	case *Descriptor_Parsed:
+		if v == nil {
+			err := DescriptorValidationError{
+				field:  "ExprSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 
 		if all {
 			switch v := interface{}(m.GetParsed()).(type) {
@@ -116,11 +135,14 @@ func (m *Descriptor) validate(all bool) error {
 			}
 		}
 
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return DescriptorMultiError(errors)
 	}
+
 	return nil
 }
 

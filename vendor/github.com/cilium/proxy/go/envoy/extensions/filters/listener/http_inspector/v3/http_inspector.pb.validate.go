@@ -60,6 +60,7 @@ func (m *HttpInspector) validate(all bool) error {
 	if len(errors) > 0 {
 		return HttpInspectorMultiError(errors)
 	}
+
 	return nil
 }
 

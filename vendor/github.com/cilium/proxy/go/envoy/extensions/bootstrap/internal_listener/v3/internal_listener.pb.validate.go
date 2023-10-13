@@ -75,6 +75,7 @@ func (m *InternalListener) validate(all bool) error {
 	if len(errors) > 0 {
 		return InternalListenerMultiError(errors)
 	}
+
 	return nil
 }
 

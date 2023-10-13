@@ -60,6 +60,7 @@ func (m *SimpleHttpCacheConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return SimpleHttpCacheConfigMultiError(errors)
 	}
+
 	return nil
 }
 

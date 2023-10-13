@@ -89,6 +89,7 @@ func (m *CustomResponse) validate(all bool) error {
 	if len(errors) > 0 {
 		return CustomResponseMultiError(errors)
 	}
+
 	return nil
 }
 

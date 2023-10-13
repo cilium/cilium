@@ -105,6 +105,7 @@ func (m *HeaderMutation) validate(all bool) error {
 	if len(errors) > 0 {
 		return HeaderMutationMultiError(errors)
 	}
+
 	return nil
 }
 

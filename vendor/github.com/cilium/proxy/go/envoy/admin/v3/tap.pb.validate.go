@@ -111,6 +111,7 @@ func (m *TapRequest) validate(all bool) error {
 	if len(errors) > 0 {
 		return TapRequestMultiError(errors)
 	}
+
 	return nil
 }
 

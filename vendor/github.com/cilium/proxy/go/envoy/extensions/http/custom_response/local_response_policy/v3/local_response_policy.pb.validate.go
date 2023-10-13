@@ -178,6 +178,7 @@ func (m *LocalResponsePolicy) validate(all bool) error {
 	if len(errors) > 0 {
 		return LocalResponsePolicyMultiError(errors)
 	}
+
 	return nil
 }
 

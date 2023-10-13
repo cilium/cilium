@@ -57,9 +57,20 @@ func (m *LocalityLbConfig) validate(all bool) error {
 
 	var errors []error
 
-	switch m.LocalityConfigSpecifier.(type) {
-
+	oneofLocalityConfigSpecifierPresent := false
+	switch v := m.LocalityConfigSpecifier.(type) {
 	case *LocalityLbConfig_ZoneAwareLbConfig_:
+		if v == nil {
+			err := LocalityLbConfigValidationError{
+				field:  "LocalityConfigSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofLocalityConfigSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetZoneAwareLbConfig()).(type) {
@@ -91,6 +102,17 @@ func (m *LocalityLbConfig) validate(all bool) error {
 		}
 
 	case *LocalityLbConfig_LocalityWeightedLbConfig_:
+		if v == nil {
+			err := LocalityLbConfigValidationError{
+				field:  "LocalityConfigSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofLocalityConfigSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetLocalityWeightedLbConfig()).(type) {
@@ -122,6 +144,9 @@ func (m *LocalityLbConfig) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofLocalityConfigSpecifierPresent {
 		err := LocalityLbConfigValidationError{
 			field:  "LocalityConfigSpecifier",
 			reason: "value is required",
@@ -130,12 +155,12 @@ func (m *LocalityLbConfig) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return LocalityLbConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -322,6 +347,7 @@ func (m *SlowStartConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return SlowStartConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -438,6 +464,7 @@ func (m *ConsistentHashingLbConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return ConsistentHashingLbConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -600,6 +627,7 @@ func (m *LocalityLbConfig_ZoneAwareLbConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return LocalityLbConfig_ZoneAwareLbConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -705,6 +733,7 @@ func (m *LocalityLbConfig_LocalityWeightedLbConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return LocalityLbConfig_LocalityWeightedLbConfigMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -268,6 +268,7 @@ func (m *RedisProxy) validate(all bool) error {
 	if len(errors) > 0 {
 		return RedisProxyMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -424,6 +425,7 @@ func (m *RedisProtocolOptions) validate(all bool) error {
 	if len(errors) > 0 {
 		return RedisProtocolOptionsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -639,9 +641,39 @@ func (m *RedisProxy_ConnPoolSettings) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	if all {
+		switch v := interface{}(m.GetConnectionRateLimit()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RedisProxy_ConnPoolSettingsValidationError{
+					field:  "ConnectionRateLimit",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RedisProxy_ConnPoolSettingsValidationError{
+					field:  "ConnectionRateLimit",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConnectionRateLimit()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RedisProxy_ConnPoolSettingsValidationError{
+				field:  "ConnectionRateLimit",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return RedisProxy_ConnPoolSettingsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -809,6 +841,7 @@ func (m *RedisProxy_PrefixRoutes) validate(all bool) error {
 	if len(errors) > 0 {
 		return RedisProxy_PrefixRoutesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -990,6 +1023,7 @@ func (m *RedisProxy_RedisFault) validate(all bool) error {
 	if len(errors) > 0 {
 		return RedisProxy_RedisFaultMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1065,6 +1099,111 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RedisProxy_RedisFaultValidationError{}
+
+// Validate checks the field values on RedisProxy_ConnectionRateLimit with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *RedisProxy_ConnectionRateLimit) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RedisProxy_ConnectionRateLimit with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the result is a list of violation errors wrapped in
+// RedisProxy_ConnectionRateLimitMultiError, or nil if none found.
+func (m *RedisProxy_ConnectionRateLimit) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RedisProxy_ConnectionRateLimit) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for ConnectionRateLimitPerSec
+
+	if len(errors) > 0 {
+		return RedisProxy_ConnectionRateLimitMultiError(errors)
+	}
+
+	return nil
+}
+
+// RedisProxy_ConnectionRateLimitMultiError is an error wrapping multiple
+// validation errors returned by RedisProxy_ConnectionRateLimit.ValidateAll()
+// if the designated constraints aren't met.
+type RedisProxy_ConnectionRateLimitMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RedisProxy_ConnectionRateLimitMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RedisProxy_ConnectionRateLimitMultiError) AllErrors() []error { return m }
+
+// RedisProxy_ConnectionRateLimitValidationError is the validation error
+// returned by RedisProxy_ConnectionRateLimit.Validate if the designated
+// constraints aren't met.
+type RedisProxy_ConnectionRateLimitValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RedisProxy_ConnectionRateLimitValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RedisProxy_ConnectionRateLimitValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RedisProxy_ConnectionRateLimitValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RedisProxy_ConnectionRateLimitValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RedisProxy_ConnectionRateLimitValidationError) ErrorName() string {
+	return "RedisProxy_ConnectionRateLimitValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e RedisProxy_ConnectionRateLimitValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRedisProxy_ConnectionRateLimit.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RedisProxy_ConnectionRateLimitValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RedisProxy_ConnectionRateLimitValidationError{}
 
 // Validate checks the field values on RedisProxy_PrefixRoutes_Route with the
 // rules defined in the proto definition for this message. If any rules are
@@ -1146,9 +1285,12 @@ func (m *RedisProxy_PrefixRoutes_Route) validate(all bool) error {
 
 	}
 
+	// no validation rules for KeyFormatter
+
 	if len(errors) > 0 {
 		return RedisProxy_PrefixRoutes_RouteMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1295,6 +1437,7 @@ func (m *RedisProxy_PrefixRoutes_Route_RequestMirrorPolicy) validate(all bool) e
 	if len(errors) > 0 {
 		return RedisProxy_PrefixRoutes_Route_RequestMirrorPolicyMultiError(errors)
 	}
+
 	return nil
 }
 

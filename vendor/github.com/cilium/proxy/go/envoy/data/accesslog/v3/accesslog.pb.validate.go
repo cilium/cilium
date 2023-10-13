@@ -122,6 +122,7 @@ func (m *TCPAccessLogEntry) validate(all bool) error {
 	if len(errors) > 0 {
 		return TCPAccessLogEntryMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -312,6 +313,7 @@ func (m *HTTPAccessLogEntry) validate(all bool) error {
 	if len(errors) > 0 {
 		return HTTPAccessLogEntryMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -417,6 +419,7 @@ func (m *ConnectionProperties) validate(all bool) error {
 	if len(errors) > 0 {
 		return ConnectionPropertiesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1081,9 +1084,22 @@ func (m *AccessLogCommon) validate(all bool) error {
 
 	// no validation rules for IntermediateLogEntry
 
+	// no validation rules for DownstreamTransportFailureReason
+
+	// no validation rules for DownstreamWireBytesSent
+
+	// no validation rules for DownstreamWireBytesReceived
+
+	// no validation rules for UpstreamWireBytesSent
+
+	// no validation rules for UpstreamWireBytesReceived
+
+	// no validation rules for AccessLogType
+
 	if len(errors) > 0 {
 		return AccessLogCommonMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1264,6 +1280,7 @@ func (m *ResponseFlags) validate(all bool) error {
 	if len(errors) > 0 {
 		return ResponseFlagsMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1458,6 +1475,7 @@ func (m *TLSProperties) validate(all bool) error {
 	if len(errors) > 0 {
 		return TLSPropertiesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1616,9 +1634,14 @@ func (m *HTTPRequestProperties) validate(all bool) error {
 
 	// no validation rules for RequestHeaders
 
+	// no validation rules for UpstreamHeaderBytesSent
+
+	// no validation rules for DownstreamHeaderBytesReceived
+
 	if len(errors) > 0 {
 		return HTTPRequestPropertiesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1756,9 +1779,14 @@ func (m *HTTPResponseProperties) validate(all bool) error {
 
 	// no validation rules for ResponseCodeDetails
 
+	// no validation rules for UpstreamHeaderBytesReceived
+
+	// no validation rules for DownstreamHeaderBytesSent
+
 	if len(errors) > 0 {
 		return HTTPResponsePropertiesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -1862,6 +1890,7 @@ func (m *ResponseFlags_Unauthorized) validate(all bool) error {
 	if len(errors) > 0 {
 		return ResponseFlags_UnauthorizedMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2000,6 +2029,7 @@ func (m *TLSProperties_CertificateProperties) validate(all bool) error {
 	if len(errors) > 0 {
 		return TLSProperties_CertificatePropertiesMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -2103,19 +2133,39 @@ func (m *TLSProperties_CertificateProperties_SubjectAltName) validate(all bool) 
 
 	var errors []error
 
-	switch m.San.(type) {
-
+	switch v := m.San.(type) {
 	case *TLSProperties_CertificateProperties_SubjectAltName_Uri:
+		if v == nil {
+			err := TLSProperties_CertificateProperties_SubjectAltNameValidationError{
+				field:  "San",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for Uri
-
 	case *TLSProperties_CertificateProperties_SubjectAltName_Dns:
+		if v == nil {
+			err := TLSProperties_CertificateProperties_SubjectAltNameValidationError{
+				field:  "San",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
 		// no validation rules for Dns
-
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {
 		return TLSProperties_CertificateProperties_SubjectAltNameMultiError(errors)
 	}
+
 	return nil
 }
 

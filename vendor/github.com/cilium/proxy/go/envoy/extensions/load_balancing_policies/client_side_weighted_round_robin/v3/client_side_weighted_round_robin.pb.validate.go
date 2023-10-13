@@ -202,9 +202,25 @@ func (m *ClientSideWeightedRoundRobin) validate(all bool) error {
 		}
 	}
 
+	if wrapper := m.GetErrorUtilizationPenalty(); wrapper != nil {
+
+		if wrapper.GetValue() < 0 {
+			err := ClientSideWeightedRoundRobinValidationError{
+				field:  "ErrorUtilizationPenalty",
+				reason: "value must be greater than or equal to 0",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return ClientSideWeightedRoundRobinMultiError(errors)
 	}
+
 	return nil
 }
 

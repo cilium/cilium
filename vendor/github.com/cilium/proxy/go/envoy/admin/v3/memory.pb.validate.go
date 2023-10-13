@@ -71,6 +71,7 @@ func (m *Memory) validate(all bool) error {
 	if len(errors) > 0 {
 		return MemoryMultiError(errors)
 	}
+
 	return nil
 }
 

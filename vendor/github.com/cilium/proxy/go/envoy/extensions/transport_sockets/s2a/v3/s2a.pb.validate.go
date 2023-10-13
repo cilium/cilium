@@ -71,6 +71,7 @@ func (m *S2AConfiguration) validate(all bool) error {
 	if len(errors) > 0 {
 		return S2AConfigurationMultiError(errors)
 	}
+
 	return nil
 }
 

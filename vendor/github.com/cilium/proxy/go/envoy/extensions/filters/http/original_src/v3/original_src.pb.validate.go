@@ -62,6 +62,7 @@ func (m *OriginalSrc) validate(all bool) error {
 	if len(errors) > 0 {
 		return OriginalSrcMultiError(errors)
 	}
+
 	return nil
 }
 

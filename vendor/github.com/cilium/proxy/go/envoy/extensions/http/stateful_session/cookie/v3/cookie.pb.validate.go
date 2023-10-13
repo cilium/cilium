@@ -100,6 +100,7 @@ func (m *CookieBasedSessionState) validate(all bool) error {
 	if len(errors) > 0 {
 		return CookieBasedSessionStateMultiError(errors)
 	}
+
 	return nil
 }
 

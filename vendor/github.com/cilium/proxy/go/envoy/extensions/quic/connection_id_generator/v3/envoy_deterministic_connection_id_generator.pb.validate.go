@@ -62,6 +62,7 @@ func (m *DeterministicConnectionIdGeneratorConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return DeterministicConnectionIdGeneratorConfigMultiError(errors)
 	}
+
 	return nil
 }
 

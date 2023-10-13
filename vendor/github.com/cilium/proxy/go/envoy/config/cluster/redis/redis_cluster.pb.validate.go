@@ -182,6 +182,7 @@ func (m *RedisClusterConfig) validate(all bool) error {
 	if len(errors) > 0 {
 		return RedisClusterConfigMultiError(errors)
 	}
+
 	return nil
 }
 

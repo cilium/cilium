@@ -94,6 +94,7 @@ func (m *Listeners) validate(all bool) error {
 	if len(errors) > 0 {
 		return ListenersMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -257,6 +258,7 @@ func (m *ListenerStatus) validate(all bool) error {
 	if len(errors) > 0 {
 		return ListenerStatusMultiError(errors)
 	}
+
 	return nil
 }
 

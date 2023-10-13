@@ -243,9 +243,20 @@ func (m *UdpProxyConfig) validate(all bool) error {
 
 	}
 
-	switch m.RouteSpecifier.(type) {
-
+	oneofRouteSpecifierPresent := false
+	switch v := m.RouteSpecifier.(type) {
 	case *UdpProxyConfig_Cluster:
+		if v == nil {
+			err := UdpProxyConfigValidationError{
+				field:  "RouteSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRouteSpecifierPresent = true
 
 		if utf8.RuneCountInString(m.GetCluster()) < 1 {
 			err := UdpProxyConfigValidationError{
@@ -259,6 +270,17 @@ func (m *UdpProxyConfig) validate(all bool) error {
 		}
 
 	case *UdpProxyConfig_Matcher:
+		if v == nil {
+			err := UdpProxyConfigValidationError{
+				field:  "RouteSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofRouteSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetMatcher()).(type) {
@@ -290,6 +312,9 @@ func (m *UdpProxyConfig) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofRouteSpecifierPresent {
 		err := UdpProxyConfigValidationError{
 			field:  "RouteSpecifier",
 			reason: "value is required",
@@ -298,12 +323,12 @@ func (m *UdpProxyConfig) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return UdpProxyConfigMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -400,9 +425,20 @@ func (m *UdpProxyConfig_HashPolicy) validate(all bool) error {
 
 	var errors []error
 
-	switch m.PolicySpecifier.(type) {
-
+	oneofPolicySpecifierPresent := false
+	switch v := m.PolicySpecifier.(type) {
 	case *UdpProxyConfig_HashPolicy_SourceIp:
+		if v == nil {
+			err := UdpProxyConfig_HashPolicyValidationError{
+				field:  "PolicySpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofPolicySpecifierPresent = true
 
 		if m.GetSourceIp() != true {
 			err := UdpProxyConfig_HashPolicyValidationError{
@@ -416,6 +452,17 @@ func (m *UdpProxyConfig_HashPolicy) validate(all bool) error {
 		}
 
 	case *UdpProxyConfig_HashPolicy_Key:
+		if v == nil {
+			err := UdpProxyConfig_HashPolicyValidationError{
+				field:  "PolicySpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofPolicySpecifierPresent = true
 
 		if utf8.RuneCountInString(m.GetKey()) < 1 {
 			err := UdpProxyConfig_HashPolicyValidationError{
@@ -429,6 +476,9 @@ func (m *UdpProxyConfig_HashPolicy) validate(all bool) error {
 		}
 
 	default:
+		_ = v // ensures v is used
+	}
+	if !oneofPolicySpecifierPresent {
 		err := UdpProxyConfig_HashPolicyValidationError{
 			field:  "PolicySpecifier",
 			reason: "value is required",
@@ -437,12 +487,12 @@ func (m *UdpProxyConfig_HashPolicy) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
-
 	}
 
 	if len(errors) > 0 {
 		return UdpProxyConfig_HashPolicyMultiError(errors)
 	}
+
 	return nil
 }
 

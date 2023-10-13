@@ -36,8 +36,6 @@ var (
 	_ = anypb.Any{}
 	_ = sort.Sort
 
-	_ = v3.TransportType(0)
-
 	_ = v3.ProtocolType(0)
 )
 
@@ -98,6 +96,7 @@ func (m *Thrift) validate(all bool) error {
 	if len(errors) > 0 {
 		return ThriftMultiError(errors)
 	}
+
 	return nil
 }
 

@@ -60,6 +60,7 @@ func (m *StreamTracesResponse) validate(all bool) error {
 	if len(errors) > 0 {
 		return StreamTracesResponseMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -224,6 +225,7 @@ func (m *StreamTracesMessage) validate(all bool) error {
 	if len(errors) > 0 {
 		return StreamTracesMessageMultiError(errors)
 	}
+
 	return nil
 }
 
@@ -365,6 +367,7 @@ func (m *StreamTracesMessage_Identifier) validate(all bool) error {
 	if len(errors) > 0 {
 		return StreamTracesMessage_IdentifierMultiError(errors)
 	}
+
 	return nil
 }
 
