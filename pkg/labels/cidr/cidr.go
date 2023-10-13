@@ -10,7 +10,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/hashicorp/golang-lru/v2/simplelru"
+
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -82,6 +85,11 @@ func IPStringToLabel(ip string) (labels.Label, error) {
 //
 // The identity reserved:world is always added as it includes any CIDR.
 func GetCIDRLabels(prefix netip.Prefix) labels.Labels {
+	once.Do(func() {
+		// simplelru.NewLRU fails only when given a negative size, so we can skip the error check
+		cidrLabelsCache, _ = simplelru.NewLRU[netip.Prefix, []labels.Label](cidrLabelsCacheMaxSize, nil)
+	})
+
 	addr := prefix.Addr()
 	ones := prefix.Bits()
 	lbls := make(labels.Labels, 1 /* this CIDR */ +ones /* the prefixes */ +1 /*world label*/)
@@ -95,31 +103,33 @@ func GetCIDRLabels(prefix netip.Prefix) labels.Labels {
 		return lbls
 	}
 
-	cache := cidrLabelsCache.Get().(map[netip.Prefix][]labels.Label)
 	computeCIDRLabels(
-		cache,
+		cidrLabelsCache,
 		lbls,
 		nil, // avoid allocating space for the intermediate results until we need it
 		addr,
 		ones,
 		0,
 	)
-	cidrLabelsCache.Put(cache)
 	addWorldLabel(addr, lbls)
 
 	return lbls
 }
 
-// cidrLabelsCache stores the partial computations for CIDR labels.
-// This both avoids repeatedly computing the prefixes and makes sure the
-// CIDR strings are reused to reduce memory usage.
-// Stored in a sync.Pool to allow GC to garbage collect the cache if needed.
-// With lots of contention, multiple cache maps might exist.
-//
-// Stores e.g. for prefix "10.0.0.0/8" the labels ["10.0.0.0/8", ..., "0.0.0.0/0"].
-var cidrLabelsCache = sync.Pool{
-	New: func() any { return make(map[netip.Prefix][]labels.Label) },
-}
+var (
+	// cidrLabelsCache stores the partial computations for CIDR labels.
+	// This both avoids repeatedly computing the prefixes and makes sure the
+	// CIDR strings are reused to reduce memory usage.
+	// Stored in a lru map to limit memory usage.
+	//
+	// Stores e.g. for prefix "10.0.0.0/8" the labels ["10.0.0.0/8", ..., "0.0.0.0/0"].
+	cidrLabelsCache *simplelru.LRU[netip.Prefix, []labels.Label]
+
+	// mutex to serialize concurrent accesses to the cidrLabelsCache.
+	mu lock.Mutex
+)
+
+const cidrLabelsCacheMaxSize = 16384
 
 func addWorldLabel(addr netip.Addr, lbls labels.Labels) {
 	switch {
@@ -133,19 +143,24 @@ func addWorldLabel(addr netip.Addr, lbls labels.Labels) {
 }
 
 var (
+	once sync.Once
+
 	worldLabelNonDualStack = labels.Label{Key: labels.IDNameWorld, Source: labels.LabelSourceReserved}
 	worldLabelV4           = labels.Label{Source: labels.LabelSourceReserved, Key: labels.IDNameWorldIPv4}
 	worldLabelV6           = labels.Label{Source: labels.LabelSourceReserved, Key: labels.IDNameWorldIPv6}
 )
 
-func computeCIDRLabels(cache map[netip.Prefix][]labels.Label, lbls labels.Labels, results []labels.Label, addr netip.Addr, ones, i int) []labels.Label {
+func computeCIDRLabels(cache *simplelru.LRU[netip.Prefix, []labels.Label], lbls labels.Labels, results []labels.Label, addr netip.Addr, ones, i int) []labels.Label {
 	if i > ones {
 		return results
 	}
 
 	prefix := netip.PrefixFrom(addr, i)
 
-	if cachedLbls, ok := cache[prefix]; ok {
+	mu.Lock()
+	cachedLbls, ok := cache.Get(prefix)
+	mu.Unlock()
+	if ok {
 		for _, lbl := range cachedLbls {
 			lbls[lbl.Key] = lbl
 		}
@@ -167,8 +182,11 @@ func computeCIDRLabels(cache map[netip.Prefix][]labels.Label, lbls labels.Labels
 		append(results, prefixLabel),
 		addr, ones, i+1,
 	)
+
 	// Cache the resulting labels derived from this prefix, e.g. /8, /7, ...
-	cache[prefix] = results[i:]
+	mu.Lock()
+	cache.Add(prefix, results[i:])
+	mu.Unlock()
 
 	return results
 }
