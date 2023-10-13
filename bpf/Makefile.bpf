@@ -57,7 +57,19 @@ force:
 # TODO: revert addition of ignore MACRO_ARG_REUSE below once cilium-checkpatch
 # image is updated to ignore it.
 #
-CHECKPATCH_IMAGE := quay.io/cilium/cilium-checkpatch:a8f73eced11c29d8c5003ba75071fb9ff91251e4@sha256:9fba31c924b0e675ee45dada3788ded045cd63c979fae3cddcb08636ed2e00da
+CHECKPATCH_IMAGE = quay.io/cilium/cilium-checkpatch:a8f73eced11c29d8c5003ba75071fb9ff91251e4@sha256:9fba31c924b0e675ee45dada3788ded045cd63c979fae3cddcb08636ed2e00da
+#
+# Docker on macOS handles file permissions differently, do not map uid:gid on Darwin
+#	
+# Use the new multiarch image only on macOS, as it introduces a checkpatch.pl permissions
+# issue if run as non-root user.
+#
+CONTAINER_USER=
+ifeq ("$(shell uname -o)","Darwin")
+	CHECKPATCH_IMAGE = quay.io/cilium/cilium-checkpatch:d434038978e00477b48d696c02e3ba75c7753a4c@sha256:6f3d127c608d138e4725315508b88b1126f60e5d88f9cb0d570ed4e2edb10b77
+else
+	CONTAINER_USER=--user "$(shell id -u):$(shell id -g)"
+endif
 ifneq ($(CHECKPATCH_DEBUG),)
   # Run script with "bash -x"
   CHECKPATCH_IMAGE_AND_ENTRY := \
@@ -72,7 +84,7 @@ checkpatch:
 	$(QUIET) $(CONTAINER_ENGINE) container run --rm \
 		--workdir /workspace \
 		--volume $(CURDIR)/..:/workspace \
-		--user "$(shell id -u):$(shell id -g)" \
+		$(CONTAINER_USER) \
 		-e GITHUB_REF=$(GITHUB_REF) -e GITHUB_REPOSITORY=$(GITHUB_REPOSITORY) \
 		$(CHECKPATCH_IMAGE_AND_ENTRY) $(CHECKPATCH_ARGS)
 
