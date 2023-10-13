@@ -59,7 +59,7 @@ func (lcs loginCredentialStore) SetRefreshToken(u *url.URL, service, token strin
 // loginWithTLS tries to login to the v2 registry server.
 // A custom tls.Config is used to override the default TLS configuration of the different registry endpoints.
 // The tls.Config is created using the provided certificate, certificate key and certificate authority.
-func (c *Client) loginWithTLS(ctx context.Context, service registry.Service, certFile, keyFile, caFile string, authConfig *types.AuthConfig, userAgent string) (string, string, error) {
+func (c *Client) loginWithTLS(ctx context.Context, service *registry.Service, certFile, keyFile, caFile string, authConfig *types.AuthConfig, userAgent string) (string, string, error) {
 	tlsConfig, err := tlsconfig.Client(tlsconfig.Options{CAFile: caFile, CertFile: certFile, KeyFile: keyFile})
 	if err != nil {
 		return "", "", err
@@ -91,7 +91,7 @@ func (c *Client) loginWithTLS(ctx context.Context, service registry.Service, cer
 }
 
 // getEndpoints returns the endpoints for the given hostname.
-func (c *Client) getEndpoints(address string, service registry.Service) ([]registry.APIEndpoint, error) {
+func (c *Client) getEndpoints(address string, service *registry.Service) ([]registry.APIEndpoint, error) {
 	var registryHostName = IndexHostname
 
 	if address != "" {
