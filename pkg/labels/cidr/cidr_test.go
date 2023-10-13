@@ -7,6 +7,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/hashicorp/golang-lru/v2/simplelru"
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -175,6 +176,9 @@ func (s *CIDRLabelsSuite) TestIPStringToLabel(c *C) {
 }
 
 func BenchmarkGetCIDRLabels(b *testing.B) {
+	// clear the cache
+	cidrLabelsCache, _ = simplelru.NewLRU[netip.Prefix, []labels.Label](cidrLabelsCacheMaxSize, nil)
+
 	for _, cidr := range []netip.Prefix{
 		netip.MustParsePrefix("0.0.0.0/0"),
 		netip.MustParsePrefix("10.16.0.0/16"),
