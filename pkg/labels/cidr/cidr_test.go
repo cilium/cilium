@@ -8,8 +8,10 @@ package cidr
 
 import (
 	"net"
+	"net/netip"
 	"testing"
 
+	"github.com/hashicorp/golang-lru/v2/simplelru"
 	. "gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -192,6 +194,9 @@ func mustCIDR(cidr string) *net.IPNet {
 }
 
 func BenchmarkGetCIDRLabels(b *testing.B) {
+	// clear the cache
+	cidrLabelsCache, _ = simplelru.NewLRU[netip.Prefix, []labels.Label](cidrLabelsCacheMaxSize, nil)
+
 	for _, cidr := range []*net.IPNet{
 		mustCIDR("0.0.0.0/0"),
 		mustCIDR("10.16.0.0/16"),
