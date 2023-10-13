@@ -259,7 +259,7 @@ var ExpectedHttpRule122HeaderMatch = &cilium.PortNetworkPolicyRule_HttpRules{
 }
 
 var ExpectedPortNetworkPolicyRule12 = &cilium.PortNetworkPolicyRule{
-	RemotePolicies: []uint64{1001, 1002},
+	RemotePolicies: []uint32{1001, 1002},
 	L7:             ExpectedHttpRule12,
 }
 
@@ -268,7 +268,7 @@ var ExpectedPortNetworkPolicyRule12Wildcard = &cilium.PortNetworkPolicyRule{
 }
 
 var ExpectedPortNetworkPolicyRule122HeaderMatch = &cilium.PortNetworkPolicyRule{
-	RemotePolicies: []uint64{1001, 1002},
+	RemotePolicies: []uint32{1001, 1002},
 	L7:             ExpectedHttpRule122HeaderMatch,
 }
 
@@ -277,7 +277,7 @@ var ExpectedPortNetworkPolicyRule122HeaderMatchWildcard = &cilium.PortNetworkPol
 }
 
 var ExpectedPortNetworkPolicyRule1 = &cilium.PortNetworkPolicyRule{
-	RemotePolicies: []uint64{1001, 1003},
+	RemotePolicies: []uint32{1001, 1003},
 	L7:             ExpectedHttpRule1,
 }
 
@@ -426,10 +426,10 @@ var ExpectedPerPortPolicies12RequiresV2 = []*cilium.PortNetworkPolicy{
 		Port:     80,
 		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
-			RemotePolicies: []uint64{1001, 1002},
+			RemotePolicies: []uint32{1001, 1002},
 			L7:             ExpectedHttpRule1,
 		}, {
-			RemotePolicies: []uint64{1002},
+			RemotePolicies: []uint32{1002},
 			L7:             ExpectedHttpRule12,
 		}},
 	},

@@ -138,11 +138,11 @@ func (m *FileSystemHttpCacheConfig) validate(all bool) error {
 	}
 
 	if all {
-		switch v := interface{}(m.GetMaxCacheEntrySizeBytes()).(type) {
+		switch v := interface{}(m.GetMaxIndividualCacheEntrySizeBytes()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
 				errors = append(errors, FileSystemHttpCacheConfigValidationError{
-					field:  "MaxCacheEntrySizeBytes",
+					field:  "MaxIndividualCacheEntrySizeBytes",
 					reason: "embedded message failed validation",
 					cause:  err,
 				})
@@ -150,16 +150,16 @@ func (m *FileSystemHttpCacheConfig) validate(all bool) error {
 		case interface{ Validate() error }:
 			if err := v.Validate(); err != nil {
 				errors = append(errors, FileSystemHttpCacheConfigValidationError{
-					field:  "MaxCacheEntrySizeBytes",
+					field:  "MaxIndividualCacheEntrySizeBytes",
 					reason: "embedded message failed validation",
 					cause:  err,
 				})
 			}
 		}
-	} else if v, ok := interface{}(m.GetMaxCacheEntrySizeBytes()).(interface{ Validate() error }); ok {
+	} else if v, ok := interface{}(m.GetMaxIndividualCacheEntrySizeBytes()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
 			return FileSystemHttpCacheConfigValidationError{
-				field:  "MaxCacheEntrySizeBytes",
+				field:  "MaxIndividualCacheEntrySizeBytes",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}
@@ -196,6 +196,68 @@ func (m *FileSystemHttpCacheConfig) validate(all bool) error {
 	}
 
 	// no validation rules for CacheSubdivisions
+
+	// no validation rules for EvictFraction
+
+	if all {
+		switch v := interface{}(m.GetMaxEvictionPeriod()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FileSystemHttpCacheConfigValidationError{
+					field:  "MaxEvictionPeriod",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FileSystemHttpCacheConfigValidationError{
+					field:  "MaxEvictionPeriod",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxEvictionPeriod()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FileSystemHttpCacheConfigValidationError{
+				field:  "MaxEvictionPeriod",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetMinEvictionPeriod()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, FileSystemHttpCacheConfigValidationError{
+					field:  "MinEvictionPeriod",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, FileSystemHttpCacheConfigValidationError{
+					field:  "MinEvictionPeriod",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMinEvictionPeriod()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FileSystemHttpCacheConfigValidationError{
+				field:  "MinEvictionPeriod",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for CreateCachePath
 
 	if len(errors) > 0 {
 		return FileSystemHttpCacheConfigMultiError(errors)

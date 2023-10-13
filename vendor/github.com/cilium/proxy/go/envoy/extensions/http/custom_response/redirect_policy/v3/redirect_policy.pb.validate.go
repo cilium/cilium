@@ -57,28 +57,6 @@ func (m *RedirectPolicy) validate(all bool) error {
 
 	var errors []error
 
-	if utf8.RuneCountInString(m.GetHost()) < 1 {
-		err := RedirectPolicyValidationError{
-			field:  "Host",
-			reason: "value length must be at least 1 runes",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
-	if utf8.RuneCountInString(m.GetPath()) < 1 {
-		err := RedirectPolicyValidationError{
-			field:  "Path",
-			reason: "value length must be at least 1 runes",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
 	if wrapper := m.GetStatusCode(); wrapper != nil {
 
 		if val := wrapper.GetValue(); val < 100 || val > 999 {
@@ -211,6 +189,64 @@ func (m *RedirectPolicy) validate(all bool) error {
 				cause:  err,
 			}
 		}
+	}
+
+	switch m.RedirectActionSpecifier.(type) {
+
+	case *RedirectPolicy_Uri:
+
+		if utf8.RuneCountInString(m.GetUri()) < 1 {
+			err := RedirectPolicyValidationError{
+				field:  "Uri",
+				reason: "value length must be at least 1 runes",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	case *RedirectPolicy_RedirectAction:
+
+		if all {
+			switch v := interface{}(m.GetRedirectAction()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RedirectPolicyValidationError{
+						field:  "RedirectAction",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RedirectPolicyValidationError{
+						field:  "RedirectAction",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetRedirectAction()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RedirectPolicyValidationError{
+					field:  "RedirectAction",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		err := RedirectPolicyValidationError{
+			field:  "RedirectActionSpecifier",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+
 	}
 
 	if len(errors) > 0 {
