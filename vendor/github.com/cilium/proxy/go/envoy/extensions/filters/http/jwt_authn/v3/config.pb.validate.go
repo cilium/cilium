@@ -112,6 +112,8 @@ func (m *JwtProvider) validate(all bool) error {
 
 	// no validation rules for HeaderInMetadata
 
+	// no validation rules for FailedStatusInMetadata
+
 	// no validation rules for ClockSkewSeconds
 
 	if all {
