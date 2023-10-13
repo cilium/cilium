@@ -364,7 +364,7 @@ func MergeVals(
 	userVals = mergeMaps(helmValues, userVals)
 
 	// Merge the user-defined helm options into the `--config` map. This
-	// effectively means that any --helm-set=extraConfig.<key> will overwrite
+	// effectively means that any --set=extraConfig.<key> will overwrite
 	// the values of --config <key>
 	extraConfig := map[string]interface{}{}
 	if len(extraConfigMapOpts) != 0 {

@@ -74,11 +74,11 @@ jobs:
             --version=${{ env.cilium_version }} \
             --nodes-without-cilium="${NODES_WITHOUT_CILIUM}" \
             --wait=false \
-            --helm-set bpf.monitorAggregation=none \
-            --helm-set cni.chainingMode=portmap \
-            --helm-set loadBalancer.l7.backend=envoy \
-            --helm-set tls.secretsBackend=k8s \
-            --helm-set prometheus.enabled=true
+            --set bpf.monitorAggregation=none \
+            --set cni.chainingMode=portmap \
+            --set loadBalancer.l7.backend=envoy \
+            --set tls.secretsBackend=k8s \
+            --set prometheus.enabled=true
 
       - name: Enable Relay
         run: |
@@ -140,7 +140,7 @@ jobs:
           --version=${{ env.cilium_version}} \
           --encryption=ipsec \
           --nodes-without-cilium="${NODES_WITHOUT_CILIUM}" \
-          --helm-set kubeProxyReplacement=disabled
+          --set kubeProxyReplacement=disabled
 
       - name: Install Cilium with IPsec Encryption
         if: ${{ matrix.mode == 'helm' }}
@@ -150,9 +150,9 @@ jobs:
           cilium install \
           --version=${{ env.cilium_version}} \
           --nodes-without-cilium="${NODES_WITHOUT_CILIUM}" \
-          --helm-set encryption.enabled=true \
-          --helm-set encryption.type=ipsec \
-          --helm-set kubeProxyReplacement=disabled
+          --set encryption.enabled=true \
+          --set encryption.type=ipsec \
+          --set kubeProxyReplacement=disabled
 
       - name: Enable Relay
         run: |
@@ -264,10 +264,10 @@ jobs:
           cilium install --context $CLUSTER1 \
             --version=${{ env.cilium_version }} \
             --wait=true \
-            --helm-set bpf.monitorAggregation=none \
-            --helm-set cni.chainingMode=portmap \
-            --helm-set cluster.id=1 \
-            --helm-set cluster.name=$CLUSTER1
+            --set bpf.monitorAggregation=none \
+            --set cni.chainingMode=portmap \
+            --set cluster.id=1 \
+            --set cluster.name=$CLUSTER1
 
       - name: Create kind cluster 2
         uses: helm/kind-action@dda0770415bac9fc20092cacbc54aa298604d140 # v1.8.0
@@ -281,18 +281,18 @@ jobs:
           cilium install --context $CLUSTER2 \
             --version=${{ env.cilium_version }} \
             --wait=true \
-            --helm-set bpf.monitorAggregation=none \
-            --helm-set cni.chainingMode=portmap \
-            --helm-set cluster.id=2 \
-            --helm-set cluster.name=$CLUSTER2
+            --set bpf.monitorAggregation=none \
+            --set cni.chainingMode=portmap \
+            --set cluster.id=2 \
+            --set cluster.name=$CLUSTER2
 
       - name: Enable ClusterMesh on cluster 1 using helm-based upgrade
         run: |
           cilium upgrade --reuse-values --context $CLUSTER1 \
             --wait=true \
-            --helm-set clustermesh.useAPIServer=true \
-            --helm-set clustermesh.apiserver.service.type=NodePort \
-            --helm-set clustermesh.apiserver.tls.server.extraDnsNames={"$CLUSTER1.mesh.cilium.io,$CLUSTER2.mesh.cilium.io"}
+            --set clustermesh.useAPIServer=true \
+            --set clustermesh.apiserver.service.type=NodePort \
+            --set clustermesh.apiserver.tls.server.extraDnsNames={"$CLUSTER1.mesh.cilium.io,$CLUSTER2.mesh.cilium.io"}
 
       - name: Copy CA cert from cluster 1 to cluster 2
         run: |
@@ -306,9 +306,9 @@ jobs:
         run: |
           cilium upgrade --reuse-values --context $CLUSTER2 \
             --wait=true \
-            --helm-set clustermesh.useAPIServer=true \
-            --helm-set clustermesh.apiserver.service.type=NodePort \
-            --helm-set clustermesh.apiserver.tls.server.extraDnsNames={"$CLUSTER1.mesh.cilium.io,$CLUSTER2.mesh.cilium.io"}
+            --set clustermesh.useAPIServer=true \
+            --set clustermesh.apiserver.service.type=NodePort \
+            --set clustermesh.apiserver.tls.server.extraDnsNames={"$CLUSTER1.mesh.cilium.io,$CLUSTER2.mesh.cilium.io"}
 
       - name: Rename the secrets expected by the clustermesh connect command
         run: |

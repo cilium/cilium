@@ -1801,7 +1801,7 @@ func (k *K8sClusterMesh) WriteExternalWorkloadInstallScript(ctx context.Context,
 		return err
 	}
 	if ai.Tunnel != "" && ai.Tunnel != "vxlan" {
-		return fmt.Errorf("datapath not using vxlan, please install Cilium with '--helm-set tunnelMode=vxlan'")
+		return fmt.Errorf("datapath not using vxlan, please install Cilium with '--set tunnelMode=vxlan'")
 	}
 
 	clusterAddr := fmt.Sprintf("%s:%d", ai.ServiceIPs[0], ai.ServicePort)
