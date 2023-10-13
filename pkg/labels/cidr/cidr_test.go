@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	. "github.com/cilium/checkmate"
+	"github.com/hashicorp/golang-lru/v2/simplelru"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
@@ -276,6 +277,9 @@ func (s *CIDRLabelsSuite) TestIPStringToLabel(c *C) {
 }
 
 func BenchmarkGetCIDRLabels(b *testing.B) {
+	// clear the cache
+	cidrLabelsCache, _ = simplelru.NewLRU[netip.Prefix, []labels.Label](cidrLabelsCacheMaxSize, nil)
+
 	for _, cidr := range []netip.Prefix{
 		netip.MustParsePrefix("0.0.0.0/0"),
 		netip.MustParsePrefix("10.16.0.0/16"),
@@ -300,6 +304,9 @@ func BenchmarkGetCIDRLabels(b *testing.B) {
 // without causing an import cycle. We want to benchmark this specific case, as
 // it is excercised by toFQDN policies.
 func BenchmarkLabels_SortedListCIDRIDs(b *testing.B) {
+	// clear the cache
+	cidrLabelsCache, _ = simplelru.NewLRU[netip.Prefix, []labels.Label](cidrLabelsCacheMaxSize, nil)
+
 	lbls := GetCIDRLabels(netip.MustParsePrefix("123.123.123.123/32"))
 
 	b.ReportAllocs()
