@@ -23,6 +23,9 @@
     "install/kubernetes/cilium/templates/spire/**",
     "install/kubernetes/cilium/values.yaml.tmpl",
   ],
+  "schedule": [
+    "on monday"
+  ],
   postUpdateOptions: [
     "gomodTidy"
   ],
@@ -91,7 +94,7 @@
       matchPackageNames: [
         "ubuntu"
       ],
-      "allowedVersions": "20.04",
+      "allowedVersions": "20.04"
     },
     {
       "groupName": "all go dependencies main",
@@ -102,7 +105,7 @@
       ],
       "postUpdateOptions": [
         // update source import paths on major updates
-        "gomodUpdateImportPaths",
+        "gomodUpdateImportPaths"
       ],
       "matchUpdateTypes": [
         "major",
@@ -111,9 +114,6 @@
         "patch",
         "pin",
         "pinDigest"
-      ],
-      "schedule": [
-        "on monday"
       ],
       matchBaseBranches: [
         "main"
@@ -149,7 +149,7 @@
         "github.com/cilium/controller-tools",
         "github.com/cilium/client-go",
         // We update this dependency manually together with envoy proxy updates
-        "github.com/cilium/proxy",
+        "github.com/cilium/proxy"
       ],
       "matchPackagePatterns": [
         // We can't update these libraries until github.com/shoenig/go-m1cpu
@@ -176,9 +176,6 @@
       "matchPackageNames": [
         "docker.io/library/golang"
       ],
-      "schedule": [
-        "on monday"
-      ]
     },
     {
       // Images that directly use docker.io/library/golang for building.
@@ -191,9 +188,6 @@
         "images/operator/Dockerfile",
         "images/kvstoremesh/Dockerfile"
       ],
-      "schedule": [
-        "on monday"
-      ]
     },
     {
       // Images that directly use docker.io/library/alpine for building.
@@ -206,9 +200,6 @@
         "images/operator/Dockerfile",
         "images/kvstoremesh/Dockerfile"
       ],
-      "schedule": [
-        "on monday"
-      ]
     },
     {
       "groupName": "spire-images",
@@ -220,9 +211,9 @@
         "ghcr.io/spiffe/spire-server"
       ],
       "matchBaseBranches": [
-        "main",
+        "main"
       ],
-      "allowedVersions": ">1.6",
+      "allowedVersions": ">1.6"
     },
     {
       "groupName": "spire-images",
@@ -234,9 +225,9 @@
         "ghcr.io/spiffe/spire-server"
       ],
       "matchBaseBranches": [
-        "v1.14",
+        "v1.14"
       ],
-      "allowedVersions": "<1.7",
+      "allowedVersions": "<1.7"
     },
     {
       "matchPackageNames": [
@@ -247,7 +238,7 @@
         "main",
         "v1.14",
         "v1.13"
-      ]
+      ],
     },
     {
       "matchPackageNames": [
@@ -256,7 +247,7 @@
       "allowedVersions": "20.04",
       "matchBaseBranches": [
         "v1.12"
-      ]
+      ],
     },
     {
       "matchPackageNames": [
@@ -265,7 +256,7 @@
       "allowedVersions": ">=1.35",
       "matchPaths": [
         "install/kubernetes/cilium/templates/spire/**"
-      ],
+      ]
     },
     {
       "matchPackageNames": [
@@ -303,7 +294,7 @@
       ],
       "allowedVersions": "<3.19",
       "matchBaseBranches": [
-        "v1.14",
+        "v1.14"
       ]
     },
     {
@@ -312,7 +303,7 @@
       ],
       "allowedVersions": "<3.18",
       "matchBaseBranches": [
-        "v1.13",
+        "v1.13"
       ]
     },
     {
@@ -326,9 +317,9 @@
     },
     {
       "matchDepNames": [
-        "golang.zx2c4.com/wireguard",
+        "golang.zx2c4.com/wireguard"
       ],
-      "versioning": "regex:^v0.0.0-(<patch>\\d+)-.*$",
+      "versioning": "regex:^v0.0.0-(<patch>\\d+)-.*$"
     },
     // Ref: https://github.com/cilium/cilium-cli#releases
     {
@@ -339,7 +330,7 @@
       ],
       "matchBaseBranches": [
         "main",
-        "v1.14",
+        "v1.14"
       ]
     },
     {
@@ -352,7 +343,7 @@
       "matchBaseBranches": [
         "v1.13",
         "v1.12",
-        "v1.11",
+        "v1.11"
       ]
     },
     {
@@ -361,7 +352,7 @@
       "matchDepNames": [
         "cilium/hubble",
         "quay.io/cilium/hubble"
-      ],
+      ]
     },
     {
       "groupName": "Go",
@@ -369,9 +360,6 @@
         "go",
         "docker.io/library/golang"
       ],
-      "schedule": [
-        "on monday"
-      ]
     },
     {
       // Group golangci-lint updates to overrule grouping of version updates in the GHA files.
@@ -411,9 +399,6 @@
         "pin",
         "pinDigest"
       ],
-      "schedule": [
-        "on monday"
-      ],
     },
     {
       "groupName": "all kind-images main",
@@ -428,9 +413,6 @@
         "pin",
         "pinDigest"
       ],
-      "schedule": [
-        "on monday"
-      ],
     },
     {
       // Do not allow any updates for major.minor, they will be done by maintainers
@@ -443,13 +425,13 @@
       "matchUpdateTypes": [
         "major",
         "minor"
-      ],
+      ]
     },
     {
       "matchPackageNames": [
         "quay.io/cilium/kindest-node"
       ],
-      "ignoreUnstable": false,
+      "ignoreUnstable": false
     }
   ],
   "kubernetes": {
@@ -522,7 +504,7 @@
     },
     {
       "fileMatch": [
-        "^go\\.mod$",
+        "^go\\.mod$"
       ],
       "matchStrings": [
         "// renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)\\s+go (?<currentValue>.*)"
