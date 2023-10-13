@@ -16,7 +16,7 @@ require (
 	github.com/cilium/charts v0.0.0-20230929223035-2315d5f72a74
 	github.com/cilium/cilium v1.15.0-pre.1.0.20231006175630-73afc5fac2ad
 	github.com/cilium/hubble v0.12.0
-	github.com/cilium/tetragon/pkg/k8s v0.0.0-20231006135026-b3c6e53c5bc6
+	github.com/cilium/tetragon/pkg/k8s v0.0.0-20231013170855-2ebcd9a562a0
 	github.com/cilium/workerpool v1.2.0
 	github.com/cloudflare/cfssl v1.6.4
 	github.com/go-openapi/strfmt v0.21.7
@@ -201,7 +201,7 @@ require (
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
-	golang.org/x/sync v0.3.0 // indirect
+	golang.org/x/sync v0.4.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
