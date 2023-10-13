@@ -9,11 +9,11 @@ cilium install \
   --version "${CILIUM_VERSION}" \
   --cluster-name "${CLUSTER_NAME}" \
   --wait=false \
-  --helm-set bpf.monitorAggregation=none \
+  --set bpf.monitorAggregation=none \
   --datapath-mode=tunnel \
-  --helm-set loadBalancer.l7.backend=envoy \
-  --helm-set tls.secretsBackend=k8s \
-  --helm-set ipam.mode=cluster-pool
+  --set loadBalancer.l7.backend=envoy \
+  --set tls.secretsBackend=k8s \
+  --set ipam.mode=cluster-pool
 
 # Enable Relay
 cilium hubble enable
