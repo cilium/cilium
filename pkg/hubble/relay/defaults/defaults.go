@@ -41,6 +41,9 @@ const (
 	// ErrorAggregationWindow is the time window during which errors with the
 	// same message are coalesced.
 	ErrorAggregationWindow = 10 * time.Second
+	// PeerUpdateInterval is the time interval in which relay is checking for
+	// newly joined peers for long running requests
+	PeerUpdateInterval = 2 * time.Second
 )
 
 var (

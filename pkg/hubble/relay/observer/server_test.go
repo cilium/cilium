@@ -9,12 +9,15 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
@@ -337,6 +340,147 @@ func TestGetFlows(t *testing.T) {
 			}
 		})
 	}
+}
+
+// test that Relay pick up a joining Hubble peer.
+func TestGetFlows_follow(t *testing.T) {
+	plChan := make(chan []poolTypes.Peer, 1)
+	pl := &testutils.FakePeerLister{
+		OnList: func() []poolTypes.Peer {
+			return <-plChan
+		},
+	}
+	type resp struct {
+		resp *observerpb.GetFlowsResponse
+		err  error
+	}
+	oneChan := make(chan resp, 1)
+	one := poolTypes.Peer{
+		Peer: peerTypes.Peer{
+			Name: "one",
+			Address: &net.TCPAddr{
+				IP:   net.ParseIP("192.0.2.1"),
+				Port: defaults.ServerPort,
+			},
+		},
+		Conn: &testutils.FakeClientConn{
+			OnGetState: func() connectivity.State {
+				return connectivity.Ready
+			},
+		},
+	}
+	twoChan := make(chan resp, 1)
+	two := poolTypes.Peer{
+		Peer: peerTypes.Peer{
+			Name: "two",
+			Address: &net.TCPAddr{
+				IP:   net.ParseIP("192.0.2.2"),
+				Port: defaults.ServerPort,
+			},
+		},
+		Conn: &testutils.FakeClientConn{
+			OnGetState: func() connectivity.State {
+				return connectivity.Ready
+			},
+		},
+	}
+
+	ocb := fakeObserverClientBuilder{
+		onObserverClient: func(peer *poolTypes.Peer) observerpb.ObserverClient {
+			return &testutils.FakeObserverClient{
+				OnGetFlows: func(_ context.Context, in *observerpb.GetFlowsRequest, _ ...grpc.CallOption) (observerpb.Observer_GetFlowsClient, error) {
+					return &testutils.FakeGetFlowsClient{
+						OnRecv: func() (*observerpb.GetFlowsResponse, error) {
+							switch peer.Name {
+							case "one":
+								r := <-oneChan
+								return r.resp, r.err
+							case "two":
+								r := <-twoChan
+								return r.resp, r.err
+							}
+							return nil, fmt.Errorf("unexpected peer %q", peer.Name)
+						},
+					}, nil
+				},
+			}
+		},
+	}
+	fss := &testutils.FakeGRPCServerStream{
+		OnContext: context.TODO,
+	}
+	seenOneFlows := atomic.Int64{}
+	seenTwoFlows := atomic.Int64{}
+	stream := &testutils.FakeGetFlowsServer{
+		FakeGRPCServerStream: fss,
+		OnSend: func(resp *observerpb.GetFlowsResponse) error {
+			if resp == nil {
+				return nil
+			}
+			switch resp.GetResponseTypes().(type) {
+			case *observerpb.GetFlowsResponse_Flow:
+				switch resp.NodeName {
+				case "one":
+					seenOneFlows.Add(1)
+				case "two":
+					seenTwoFlows.Add(1)
+				}
+			case *observerpb.GetFlowsResponse_NodeStatus:
+			}
+			return nil
+		},
+	}
+	srv, err := NewServer(
+		pl,
+		withObserverClientBuilder(ocb),
+	)
+	srv.opts.peerUpdateInterval = 10 * time.Millisecond
+	require.NoError(t, err)
+
+	plChan <- []poolTypes.Peer{one}
+	oneChan <- resp{
+		resp: &observerpb.GetFlowsResponse{
+			NodeName: "one",
+			ResponseTypes: &observerpb.GetFlowsResponse_Flow{
+				Flow: &flowpb.Flow{
+					NodeName: "one",
+				},
+			},
+		},
+	}
+	go func() {
+		err = srv.GetFlows(&observerpb.GetFlowsRequest{Follow: true}, stream)
+		assert.NoError(t, err)
+	}()
+	assert.Eventually(t, func() bool {
+		return seenOneFlows.Load() == 1
+	}, 10*time.Second, 10*time.Millisecond)
+
+	plChan <- []poolTypes.Peer{one, two}
+	oneChan <- resp{
+		resp: &observerpb.GetFlowsResponse{
+			NodeName: "one",
+			ResponseTypes: &observerpb.GetFlowsResponse_Flow{
+				Flow: &flowpb.Flow{
+					NodeName: "one",
+				},
+			},
+		},
+	}
+	twoChan <- resp{
+		resp: &observerpb.GetFlowsResponse{
+			NodeName: "two",
+			ResponseTypes: &observerpb.GetFlowsResponse_Flow{
+				Flow: &flowpb.Flow{
+					NodeName: "two",
+				},
+			},
+		},
+	}
+	assert.Eventually(t, func() bool {
+		return seenOneFlows.Load() == 2 && seenTwoFlows.Load() == 1
+	}, 10*time.Second, 10*time.Millisecond)
+
 }
 
 func TestGetNodes(t *testing.T) {
