@@ -205,6 +205,7 @@ Troubleshooting
 
        $ cilium encrypt status
        Encryption: IPsec
+       Decryption interface(s): eth0, eth1, eth2
        Keys in use: 1
        Max Seq. Number: 0x1e3/0xffffffff
        Errors: 0
@@ -212,7 +213,9 @@ Troubleshooting
    If the error counter is non-zero, additional information will be displayed
    with the specific errors the kernel encountered. If the sequence number
    reaches its maximum value, it will also result in errors. The number of
-   keys in use should be 2 during a key rotation and always 1 otherwise.
+   keys in use should be 2 during a key rotation and always 1 otherwise. The
+   list of decryption interfaces should have all native devices that may
+   receive pod traffic (for example, ENI interfaces).
 
  * All XFRM errors correspond to a packet drop in the kernel. Except for
    ``XfrmFwdHdrError`` and ``XfrmInError``, all XFRM errors indicate a bug in
