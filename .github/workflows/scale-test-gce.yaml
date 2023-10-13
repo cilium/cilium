@@ -220,6 +220,12 @@ jobs:
             --report-dir=./report \
             --kubeconfig=$HOME/.kube/config
 
+      - name: Get sysdump
+        if: ${{ always() && steps.run-cl2.outcome != 'skipped' }}
+        run: |
+          cilium status
+          cilium sysdump --output-filename cilium-sysdump-final
+
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
         run: |
@@ -228,10 +234,10 @@ jobs:
             --state ${{ secrets.GCP_PERF_KOPS_STATE_STORE }} \
             --yes
 
-      - name: Export results to GS bucket
+      - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' }}
         run: |
           # BUILD_ID needs to be an integer
           BUILD_ID="$(date +%s)"
           EXPORT_DIR="${{ secrets.GCP_PERF_RESULTS_BUCKET }}/logs/scale-test-${{ github.ref_name }}/${BUILD_ID}/artifacts/"
-          gsutil -m cp -R ./perf-tests/clusterloader2/report/* $EXPORT_DIR
+          gsutil -m cp -R cilium-sysdump-final.zip ./perf-tests/clusterloader2/report/* $EXPORT_DIR
