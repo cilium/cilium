@@ -129,6 +129,13 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
           curl -LO \ |SCM_WEB|\/Documentation/installation/kind-config.yaml
           kind create cluster --config=kind-config.yaml
 
+       .. note::
+
+         Cilium may fail to deploy due to too many open files in one or more
+         of the agent pods. If you notice this error, you can increase the
+         ``inotify`` resource limits on your host machine (see
+         `Pod errors due to "too many open files" <https://kind.sigs.k8s.io/docs/user/known-issues/#pod-errors-due-to-too-many-open-files>`__).
+
     .. group-tab:: minikube
 
        Install minikube ≥ v1.28.0 as per minikube documentation:
