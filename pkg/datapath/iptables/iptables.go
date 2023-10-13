@@ -598,7 +598,7 @@ func (m *IptablesManager) installStaticProxyRules() error {
 			return err
 		}
 
-		if m.haveSocketMatch {
+		if false {
 			// Direct inbound TPROXYed traffic towards the socket
 			if err := ip4tables.runProg(m.inboundProxyRedirectRule("-A")); err != nil {
 				return err
@@ -661,7 +661,7 @@ func (m *IptablesManager) installStaticProxyRules() error {
 			return err
 		}
 
-		if m.haveSocketMatch {
+		if false {
 			// Direct inbound TPROXYed traffic towards the socket
 			if err := ip6tables.runProg(m.inboundProxyRedirectRule("-A")); err != nil {
 				return err
