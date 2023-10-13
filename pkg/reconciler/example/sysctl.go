@@ -124,6 +124,7 @@ func (t *sysctlTestTarget) Delete(_ context.Context, _ statedb.ReadTxn, s *Sysct
 	return os.Remove(fakeProcPath + "/" + s.Key)
 }
 
+/*
 // Sync implements reconciler.Target
 func (t *sysctlTestTarget) Sync(_ context.Context, _ statedb.ReadTxn, iter statedb.Iterator[*SysctlSetting]) (outOfSync bool, err error) {
 	if err := maybeError(); err != nil {
@@ -149,7 +150,7 @@ func (t *sysctlTestTarget) Sync(_ context.Context, _ statedb.ReadTxn, iter state
 		}
 	}
 	return
-}
+}*/
 
 func maybeError() error {
 	if rand.Intn(3) == 0 {
@@ -159,26 +160,33 @@ func maybeError() error {
 }
 
 // Update implements reconciler.Target
-func (t *sysctlTestTarget) Update(_ context.Context, _ statedb.ReadTxn, s *SysctlSetting) error {
+func (t *sysctlTestTarget) Update(_ context.Context, _ statedb.ReadTxn, s *SysctlSetting) (bool, error) {
 	//fmt.Printf("Update: %s => %s\n", s.Key, s.Value)
 	if err := maybeError(); err != nil {
-		return err
+		return true, err
 	}
 
 	var f *os.File
 	f, err := fakeProcFile(s)
 	if err != nil {
-		return err
+		return true, err
+	}
+	defer f.Close()
+
+	if oldValue, err := io.ReadAll(f); err == nil && string(oldValue) == s.Value {
+		return false, nil
+	}
+
+	_, err = f.Seek(0, 0)
+	if err != nil {
+		return true, err
 	}
 	err = f.Truncate(int64(len(s.Value)))
 	if err != nil {
-		return err
+		return true, err
 	}
 	_, err = f.WriteString(s.Value)
-	if err != nil {
-		return err
-	}
-	return f.Close()
+	return true, err
 }
 
 var _ reconciler.Target[*SysctlSetting] = &sysctlTestTarget{}

@@ -48,20 +48,27 @@ type Target[Obj Reconcilable[Obj]] interface {
 	// abort if context is cancelled. Should return an error if the operation fails.
 	// The reconciler will retry the operation again at a later time, potentially
 	// with a new version of the object. The operation should thus be idempotent.
-	Update(context.Context, statedb.ReadTxn, Obj) error
+	//
+	// Update is used both for incremental and full reconciliation. Incremental
+	// reconciliation is performed when the desired state is updated. A full
+	// reconciliation is done periodically by calling 'Update' on all objects.
+	//
+	// 'changed' is returned as true if an update was performed. This allows
+	// tracking whether full reconciliation catched an out-of-sync target state.
+	Update(context.Context, statedb.ReadTxn, Obj) (changed bool, err error)
 
 	// TODO: UpdateBatch(...) for BPF map batch operations?
 
 	// Delete the object in the target. Same semantics as with Update.
 	Delete(context.Context, statedb.ReadTxn, Obj) error
 
-	// Sync performs full reconciliation.
-	// As full reconciliation is performed after incremental reconciliation,
-	// we do not expect this to actually do anything. If there is something
-	// to be reconciled the 'outOfSync' is returned as true. If these
-	// operations failed, then 'err' is also non-nil and this will be retried
-	// (after backoff).
-	Sync(context.Context, statedb.ReadTxn, statedb.Iterator[Obj]) (outOfSync bool, err error)
+	// Prune is called during full reconcilation after all desired objects
+	// have been validated with a call to Update().
+	// Prune finds objects in the target that are not in the set of desired
+	// objects and removes them. A no-op for some targets.
+	//
+	// If an error is returned, the full reconciliation is retried.
+	Prune(context.Context, statedb.ReadTxn, statedb.Iterator[Obj]) error
 }
 
 type StatusKind string
@@ -85,7 +92,7 @@ type Status struct {
 	Delete bool
 
 	UpdatedAt time.Time
-	Error     error
+	Error     string
 }
 
 func (s Status) String() string {
@@ -100,7 +107,7 @@ func StatusPending() Status {
 		Kind:      StatusKindPending,
 		UpdatedAt: time.Now(),
 		Delete:    false,
-		Error:     nil,
+		Error:     "",
 	}
 }
 
@@ -109,7 +116,7 @@ func StatusPendingDelete() Status {
 		Kind:      StatusKindPending,
 		UpdatedAt: time.Now(),
 		Delete:    true,
-		Error:     nil,
+		Error:     "",
 	}
 }
 
@@ -117,7 +124,7 @@ func StatusDone() Status {
 	return Status{
 		Kind:      StatusKindDone,
 		UpdatedAt: time.Now(),
-		Error:     nil,
+		Error:     "",
 	}
 }
 
@@ -126,6 +133,6 @@ func StatusError(delete bool, err error) Status {
 		Kind:      StatusKindError,
 		UpdatedAt: time.Now(),
 		Delete:    delete,
-		Error:     err,
+		Error:     err.Error(),
 	}
 }

@@ -60,19 +60,14 @@ func (*iptablesTarget) Delete(_ context.Context, txn statedb.ReadTxn, rule *Rule
 	return nil
 }
 
-// Sync implements reconciler.Target
-func (*iptablesTarget) Sync(_ context.Context, txn statedb.ReadTxn, _ statedb.Iterator[*Rule]) (outOfSync bool, err error) {
-	// TODO:
-	// - "iptables-save" and parse? Or "-C" on each rule?
-	// - Check that cilium chains exist
-	// - Find unexpected rules in cilium chains?
-	return false, nil
+// Update implements reconciler.Target
+func (*iptablesTarget) Update(_ context.Context, txn statedb.ReadTxn, rule *Rule) (bool, error) {
+	fmt.Printf(">>> iptables %s\n", strings.Join(rule.ToArgs("-A"), " "))
+	return true, errors.New("oops iptables error")
 }
 
-// Update implements reconciler.Target
-func (*iptablesTarget) Update(_ context.Context, txn statedb.ReadTxn, rule *Rule) error {
-	fmt.Printf(">>> iptables %s\n", strings.Join(rule.ToArgs("-A"), " "))
-	return errors.New("oops iptables error")
+func (*iptablesTarget) Prune(context.Context, statedb.ReadTxn, statedb.Iterator[*Rule]) error {
+	return nil
 }
 
 func (*iptablesTarget) Init(context.Context) error {

@@ -3,6 +3,7 @@ package reconciler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -92,10 +93,7 @@ func (r *reconciler[Obj]) loop(ctx context.Context) error {
 	}
 
 	tableWatchChan := closedWatchChannel()
-
 	revision := statedb.Revision(0)
-
-	// TODO: rename full to sync?
 	fullReconciliation := false
 
 	for {
@@ -120,6 +118,8 @@ func (r *reconciler[Obj]) loop(ctx context.Context) error {
 		if err != nil {
 			wait := scheduleRetry()
 			r.Log.WithError(err).Warnf("Incremental reconcilation failed, retrying in %s", wait)
+
+			// TODO: Stats on how many objects failing?
 			r.Health.Degraded("Incremental reconciliation failure", err)
 			continue
 		}
@@ -135,6 +135,7 @@ func (r *reconciler[Obj]) loop(ctx context.Context) error {
 			if err != nil {
 				wait := scheduleRetry()
 				r.Log.WithError(err).Warnf("Full reconciliation failed, retrying in %s", wait)
+				// TODO: Stats on how many objects failing?
 				r.Health.Degraded("Full reconciliation failure", err)
 				continue
 			}
@@ -147,8 +148,13 @@ func (r *reconciler[Obj]) loop(ctx context.Context) error {
 		fullReconciliation = false
 
 		// TODO: stats in health, e.g. number of objects and so on.
-		r.Health.OK("Nominal")
+		r.Health.OK("OK")
 	}
+}
+
+type result struct {
+	rev    statedb.Revision
+	status Status
 }
 
 func (r *reconciler[Obj]) incremental(
@@ -156,15 +162,10 @@ func (r *reconciler[Obj]) incremental(
 	txn statedb.ReadTxn,
 	lastRev statedb.Revision,
 ) (statedb.Revision, <-chan struct{}, error) {
-
 	// In order to not lock the table while doing potentially expensive operations,
 	// we collect the reconciliation statuses for the objects and then commit them
 	// afterwards. If the object has changed in the meanwhile the status update for
 	// the old object is skipped.
-	type result struct {
-		rev    statedb.Revision
-		status Status
-	}
 	updateResults := make(map[Obj]result)
 	toBeDeleted := make(map[Obj]statedb.Revision)
 
@@ -198,7 +199,7 @@ func (r *reconciler[Obj]) incremental(
 				updateResults[obj] = result{rev, StatusError(true, err)}
 			}
 		} else {
-			err = r.Target.Update(ctx, txn, obj)
+			_, err = r.Target.Update(ctx, txn, obj)
 			if err == nil {
 				updateResults[obj] = result{rev, StatusDone()}
 			} else {
@@ -259,26 +260,66 @@ func (r *reconciler[Obj]) incremental(
 }
 
 func (r *reconciler[Obj]) full(ctx context.Context, txn statedb.ReadTxn, lastRev statedb.Revision) (statedb.Revision, error) {
-	start := time.Now()
-
 	defer r.Metrics.FullReconciliationCount.With(r.labels).Add(1)
 
+	start := time.Now()
+
+	var errs []error
+	outOfSync := false
+
+	// First perform pruning to make room in the target.
+	// TODO: Some use-cases might want this other way around? Configurable?
 	iter, _ := r.Table.All(txn)
+	if err := r.Target.Prune(ctx, txn, iter); err != nil {
+		outOfSync = true
+		errs = append(errs, fmt.Errorf("pruning failed: %w", err))
+	}
 
-	outOfSync, err := r.Target.Sync(ctx, txn, iter)
+	// Call Update() for each desired object to validate that it is up-to-date.
+	updateResults := make(map[Obj]result)
+	updateErrors := []error{}  // TODO slight waste of space
+	iter, _ = r.Table.All(txn) // Grab a new iterator as Prune() may have consumed it.
+	for obj, rev, ok := iter.Next(); ok; obj, rev, ok = iter.Next() {
+		changed, err := r.Target.Update(ctx, txn, obj)
+		outOfSync = outOfSync || changed
+		if err == nil {
+			updateResults[obj] = result{rev, StatusDone()}
+		} else {
+			updateResults[obj] = result{rev, StatusError(false, err)}
+			updateErrors = append(updateErrors, err)
+		}
+	}
 
+	// Mark the duration spent on target operations.
 	r.Metrics.FullReconciliationDuration.With(r.labels).Observe(
 		float64(time.Since(start)) / float64(time.Second),
 	)
-
-	if err != nil {
-		r.Metrics.FullReconciliationTotalErrors.With(r.labels).Add(1)
-		// Sync failed, assume no changes and keep at the last revision.
-		return lastRev, err
-	}
-
 	if outOfSync {
 		r.Metrics.FullReconciliationOutOfSyncCount.With(r.labels).Add(1)
+	}
+
+	// Take a sample of the update errors if any. Only taking first one as there
+	// maybe thousands of errors. The per-object errors will be stored in the desired
+	// state.
+	if len(updateErrors) > 0 {
+		errs = append(errs, fmt.Errorf("%d update errors, first error: %w", len(updateErrors), updateErrors[0]))
+	}
+
+	// Commit the new desired object status. This is performed separately in order
+	// to not lock the table when performing long-running target operations.
+	// If the desired object has been updated in the meanwhile the status update is dropped.
+	if len(updateResults) > 0 {
+		wtxn := r.DB.WriteTxn(r.Table)
+		for obj, result := range updateResults {
+			r.Table.CompareAndSwap(wtxn, result.rev, obj.WithStatus(result.status))
+		}
+		wtxn.Commit()
+	}
+
+	if len(errs) > 0 {
+		r.Metrics.FullReconciliationTotalErrors.With(r.labels).Add(1)
+		// Sync failed, assume no changes and keep at the last revision.
+		return lastRev, errors.Join(errs...)
 	}
 
 	// Sync succeeded up to latest revision. Continue incremental reconciliation from

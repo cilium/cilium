@@ -394,8 +394,9 @@ func (t *routeTestTarget) Delete(_ context.Context, txn statedb.ReadTxn, desired
 	return nil
 }
 
+/*
 // Sync implements reconciler.Target
-func (t *routeTestTarget) Sync(ctx context.Context, txn statedb.ReadTxn, iter statedb.Iterator[*DesiredRoute]) (outOfSync bool, err error) {
+func (t *routeTestTarget) Sync(ctx context.Context, txn statedb.ReadTxn, iter statedb.Iterator[*DesiredRoute], updateStatus func(*DesiredRoute, statedb.Revision, error)) error {
 	t.log.Infof("Sync")
 
 	var errs []error
@@ -419,24 +420,31 @@ func (t *routeTestTarget) Sync(ctx context.Context, txn statedb.ReadTxn, iter st
 	}
 
 	return
-}
+}*/
 
 // Update implements reconciler.Target
-func (t *routeTestTarget) Update(_ context.Context, txn statedb.ReadTxn, desired *DesiredRoute) error {
+func (t *routeTestTarget) Update(_ context.Context, txn statedb.ReadTxn, desired *DesiredRoute) (bool, error) {
 	t.log.Infof("Update: %v\n", desired)
 	if _, _, ok := t.routes.First(txn, tables.RouteIDIndex.Query(desired.RouteID())); ok {
 		// FIXME: Need further checks to see that e.g. MTU matches and so on.
 		t.log.Infof("Update: %v already exists, nothing to do\n", desired)
-		return nil
+		return false, nil
 	}
 	t.log.Infof("Update: %v does not exist, adding\n", desired)
 
 	if err := t.netlinkHandle.RouteReplace(desired.toNetlinkRoute()); err != nil {
-		return fmt.Errorf("failed to replace route to %q owned by %q: %w",
+		return true, fmt.Errorf("failed to replace route to %q owned by %q: %w",
 			desired.Route.Dst.String(),
 			desired.Owner,
 			err)
 	}
+	return true, nil
+}
+
+func (t *routeTestTarget) Prune(context.Context, statedb.ReadTxn, statedb.Iterator[*DesiredRoute]) error {
+	// Not touching routes that are not managed by Cilium.
+	// TODO: Here we could consider checking for things that were left over by older versions
+	// of Cilium. Currently not easy to figure out what they are though.
 	return nil
 }
 
