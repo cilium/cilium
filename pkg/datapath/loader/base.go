@@ -64,6 +64,7 @@ const (
 	initTCFilterPriority
 	initDefaultRTProto
 	initLocalRulePriority
+	initEncryption
 	initArgMax
 )
 
@@ -466,6 +467,12 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	args[initTCFilterPriority] = "<nil>"
 	args[initDefaultRTProto] = strconv.Itoa(linux_defaults.RTProto)
 	args[initLocalRulePriority] = strconv.Itoa(linux_defaults.RulePriorityLocalLookup)
+
+	if option.Config.EnableIPSec || option.Config.EnableWireguard {
+		args[initEncryption] = "true"
+	} else {
+		args[initEncryption] = "false"
+	}
 
 	// "Legacy" datapath inizialization with the init.sh script
 	// TODO(mrostecki): Rewrite the whole init.sh in Go, step by step.

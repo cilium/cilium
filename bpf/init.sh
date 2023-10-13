@@ -30,6 +30,7 @@ PROXY_RULE=${23}
 FILTER_PRIO=${24}
 DEFAULT_RTPROTO=${25}
 LOCAL_RULE_PRIO=${26}
+ENCRYPTION=${27}
 
 # If the value below is changed, be sure to update bugtool/cmd/configuration.go
 # as well when dumping the routing table in bugtool. See GH-5828.
@@ -120,7 +121,7 @@ function setup_proxy_rules()
 			if [ -z "$(ip -4 rule list $to_proxy_rulespec)" ]; then
 				ip -4 rule add $to_proxy_rulespec
 			fi
-			if [ "$ENDPOINT_ROUTES" = "true" ]; then
+			if [ "$ENDPOINT_ROUTES" = "true" ] && [ "$ENCRYPTION" != "true" ]; then
 				if [ ! -z "$(ip -4 rule list $from_ingress_rulespec)" ]; then
 					ip -4 rule delete $from_ingress_rulespec
 				fi
@@ -134,7 +135,7 @@ function setup_proxy_rules()
 		# Traffic to the host proxy is local
 		ip route replace table $TO_PROXY_RT_TABLE local 0.0.0.0/0 dev lo proto $DEFAULT_RTPROTO
 		# Traffic from ingress proxy goes to Cilium address space via the cilium host device
-		if [ "$ENDPOINT_ROUTES" = "true" ]; then
+                if [ "$ENDPOINT_ROUTES" = "true" ] && [ "$ENCRYPTION" != "true" ]; then
 			ip route delete table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1 2>/dev/null || true
 			ip route delete table $PROXY_RT_TABLE default via $IP4_HOST 2>/dev/null || true
 		else
@@ -151,7 +152,7 @@ function setup_proxy_rules()
 			if [ -z "$(ip -6 rule list $to_proxy_rulespec)" ]; then
 				ip -6 rule add $to_proxy_rulespec
 			fi
-			if [ "$ENDPOINT_ROUTES" = "true" ]; then
+                        if [ "$ENDPOINT_ROUTES" = "true" ] && [ "$ENCRYPTION" != "true" ]; then
 				if [ ! -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
 					ip -6 rule delete $from_ingress_rulespec
 				fi
@@ -167,7 +168,7 @@ function setup_proxy_rules()
 			# Traffic to the host proxy is local
 			ip -6 route replace table $TO_PROXY_RT_TABLE local ::/0 dev lo proto $DEFAULT_RTPROTO
 			# Traffic from ingress proxy goes to Cilium address space via the cilium host device
-			if [ "$ENDPOINT_ROUTES" = "true" ]; then
+                        if [ "$ENDPOINT_ROUTES" = "true" ] && [ "$ENCRYPTION" != "true" ]; then
 				ip -6 route delete table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1 2>/dev/null || true
 				ip -6 route delete table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1 2>/dev/null || true
 			else
