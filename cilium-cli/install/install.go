@@ -665,7 +665,7 @@ func (k *K8sInstaller) preinstall(ctx context.Context) error {
 			cidr, err := k.gkeNativeRoutingCIDR(k.client.ContextName())
 			if err != nil {
 				k.Log("❌ Unable to auto-detect GKE native routing CIDR. Is \"gcloud\" installed?")
-				k.Log("ℹ️  You can set the native routing CIDR manually with --helm-set ipv4NativeRoutingCIDR=x.x.x.x/x")
+				k.Log("ℹ️  You can set the native routing CIDR manually with --set ipv4NativeRoutingCIDR=x.x.x.x/x")
 				return err
 			}
 			k.params.IPv4NativeRoutingCIDR = cidr
