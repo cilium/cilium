@@ -867,7 +867,8 @@ type Cluster struct {
 	TypedDnsResolverConfig *v32.TypedExtensionConfig `protobuf:"bytes,55,opt,name=typed_dns_resolver_config,json=typedDnsResolverConfig,proto3" json:"typed_dns_resolver_config,omitempty"`
 	// Optional configuration for having cluster readiness block on warm-up. Currently, only applicable for
 	// :ref:`STRICT_DNS<envoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.STRICT_DNS>`,
-	// or :ref:`LOGICAL_DNS<envoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.LOGICAL_DNS>`.
+	// or :ref:`LOGICAL_DNS<envoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.LOGICAL_DNS>`,
+	// or :ref:`Redis Cluster<arch_overview_redis>`.
 	// If true, cluster readiness blocks on warm-up. If false, the cluster will complete
 	// initialization whether or not warm-up has completed. Defaults to true.
 	WaitForWarmOnInit *wrapperspb.BoolValue `protobuf:"bytes,54,opt,name=wait_for_warm_on_init,json=waitForWarmOnInit,proto3" json:"wait_for_warm_on_init,omitempty"`

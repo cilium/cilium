@@ -29,7 +29,12 @@ const (
 // of the legacy proto package is being used.
 const _ = proto.ProtoPackageIsVersion4
 
-// Cors filter config.
+// Cors filter config. Set this in
+// ref:`http_filters <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.http_filters>`
+// to enable the CORS filter.
+//
+// Please note that the :ref:`CorsPolicy <envoy_v3_api_msg_extensions.filters.http.cors.v3.CorsPolicy>`
+// must be configured in the “RouteConfiguration“ as “typed_per_filter_config“ at some level to make the filter work.
 type Cors struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -68,6 +73,8 @@ func (*Cors) Descriptor() ([]byte, []int) {
 	return file_envoy_extensions_filters_http_cors_v3_cors_proto_rawDescGZIP(), []int{0}
 }
 
+// Per route configuration for the CORS filter. This configuration should be configured in the “RouteConfiguration“ as “typed_per_filter_config“ at some level to
+// make the filter work.
 // [#next-free-field: 10]
 type CorsPolicy struct {
 	state         protoimpl.MessageState

@@ -1081,6 +1081,16 @@ func (m *AccessLogCommon) validate(all bool) error {
 
 	// no validation rules for IntermediateLogEntry
 
+	// no validation rules for DownstreamTransportFailureReason
+
+	// no validation rules for DownstreamWireBytesSent
+
+	// no validation rules for DownstreamWireBytesReceived
+
+	// no validation rules for UpstreamWireBytesSent
+
+	// no validation rules for UpstreamWireBytesReceived
+
 	if len(errors) > 0 {
 		return AccessLogCommonMultiError(errors)
 	}
@@ -1616,6 +1626,10 @@ func (m *HTTPRequestProperties) validate(all bool) error {
 
 	// no validation rules for RequestHeaders
 
+	// no validation rules for UpstreamHeaderBytesSent
+
+	// no validation rules for DownstreamHeaderBytesReceived
+
 	if len(errors) > 0 {
 		return HTTPRequestPropertiesMultiError(errors)
 	}
@@ -1755,6 +1769,10 @@ func (m *HTTPResponseProperties) validate(all bool) error {
 	// no validation rules for ResponseTrailers
 
 	// no validation rules for ResponseCodeDetails
+
+	// no validation rules for UpstreamHeaderBytesReceived
+
+	// no validation rules for DownstreamHeaderBytesSent
 
 	if len(errors) > 0 {
 		return HTTPResponsePropertiesMultiError(errors)

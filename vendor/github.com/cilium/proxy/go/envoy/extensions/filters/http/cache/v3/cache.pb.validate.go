@@ -57,19 +57,62 @@ func (m *CacheConfig) validate(all bool) error {
 
 	var errors []error
 
-	if m.GetTypedConfig() == nil {
-		err := CacheConfigValidationError{
-			field:  "TypedConfig",
-			reason: "value is required",
+	if all {
+		switch v := interface{}(m.GetTypedConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CacheConfigValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CacheConfigValidationError{
+					field:  "TypedConfig",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
 		}
-		if !all {
-			return err
+	} else if v, ok := interface{}(m.GetTypedConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CacheConfigValidationError{
+				field:  "TypedConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
 		}
-		errors = append(errors, err)
 	}
 
-	if a := m.GetTypedConfig(); a != nil {
-
+	if all {
+		switch v := interface{}(m.GetDisabled()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CacheConfigValidationError{
+					field:  "Disabled",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CacheConfigValidationError{
+					field:  "Disabled",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDisabled()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CacheConfigValidationError{
+				field:  "Disabled",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
 	}
 
 	for idx, item := range m.GetAllowedVaryHeaders() {
