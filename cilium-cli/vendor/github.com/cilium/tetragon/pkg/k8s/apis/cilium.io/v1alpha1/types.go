@@ -184,7 +184,7 @@ type ArgSelector struct {
 }
 
 type ActionSelector struct {
-	// +kubebuilder:validation:Enum=Post;FollowFD;UnfollowFD;Sigkill;CopyFD;Override;GetUrl;DnsLookup;NoPost;Signal;TrackSock;UntrackSock
+	// +kubebuilder:validation:Enum=Post;FollowFD;UnfollowFD;Sigkill;CopyFD;Override;GetUrl;DnsLookup;NoPost;Signal;TrackSock;UntrackSock;NotifyKiller
 	// Action to execute.
 	Action string `json:"action"`
 	// +kubebuilder:validation:Optional
@@ -209,9 +209,13 @@ type ActionSelector struct {
 	// An arg index for the sock for trackSock and untrackSock actions
 	ArgSock uint32 `json:"argSock"`
 	// +kubebuilder:validation:Optional
-	// A time period within which repeated messages will not be posted. Can be specified in seconds (default or with
-	// 's' suffix), minutes ('m' suffix) or hours ('h' suffix).
+	// A time period within which repeated messages will not be posted. Can be
+	// specified in seconds (default or with 's' suffix), minutes ('m' suffix)
+	// or hours ('h' suffix). Only valid with the post action.
 	RateLimit string `json:"rateLimit"`
+	// +kubebuilder:validation:Optional
+	// Enable stack trace export. Only valid with the post action.
+	StackTrace bool `json:"stackTrace"`
 }
 
 type TracepointSpec struct {
@@ -250,6 +254,9 @@ type ListSpec struct {
 	// +kubebuilder:validation:Optional
 	// Pattern for 'generated' lists.
 	Pattern *string `json:"pattern,omitempty"`
+	// +kubebuilder:validation:Optional
+	// List was validated
+	Validated bool `json:"validated"`
 }
 
 type PodInfoSpec struct {
@@ -311,4 +318,9 @@ type PodInfoList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []PodInfo `json:"items"`
+}
+
+type KillerSpec struct {
+	// syscalls where killer is executed in
+	Syscalls []string `json:"syscalls"`
 }
