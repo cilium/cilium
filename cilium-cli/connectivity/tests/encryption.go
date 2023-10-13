@@ -31,11 +31,19 @@ const (
 // which interface the traffic is routed to. Additionally, we translate
 // the interface name to the tunneling interface name, if the route goes
 // through "cilium_host" and tunneling is enabled.
-func getInterNodeIface(ctx context.Context, t *check.Test, clientHost *check.Pod, dstIP string) string {
+func getInterNodeIface(ctx context.Context, t *check.Test, clientHost *check.Pod, ipFam features.IPFamily, srcIP, dstIP string) string {
+	ipRouteGetCmd := fmt.Sprintf("ip -o route get %s from %s", dstIP, srcIP)
+	if srcIP != clientHost.Address(ipFam) {
+		// The "iif lo" part is required when the source address is not one
+		// of the addresses of the host. If an interface is not specified
+		// "ip route" returns "RTNETLINK answers: Network is unreachable" in
+		// case the "from" address is not assigned to any local interface.
+		ipRouteGetCmd = fmt.Sprintf("%s iif lo", ipRouteGetCmd)
+	}
+
 	cmd := []string{
 		"/bin/sh", "-c",
-		fmt.Sprintf("ip -o route get %s | grep -oE 'dev [^ ]*' | cut -d' ' -f2",
-			dstIP),
+		fmt.Sprintf("%s | grep -oE 'dev [^ ]*' | cut -d' ' -f2", ipRouteGetCmd),
 	}
 	t.Debugf("Running %s", strings.Join(cmd, " "))
 	dev, err := clientHost.K8sClient.ExecInPod(ctx, clientHost.Pod.Namespace,
@@ -130,7 +138,7 @@ func testNoTrafficLeak(ctx context.Context, t *check.Test, s check.Scenario,
 	client, server, clientHost *check.Pod, reqType requestType, ipFam features.IPFamily,
 ) {
 	dstAddr := server.Address(ipFam)
-	iface := getInterNodeIface(ctx, t, clientHost, dstAddr)
+	iface := getInterNodeIface(ctx, t, clientHost, ipFam, client.Address(ipFam), dstAddr)
 	srcFilter := getSourceAddressFilter(ctx, t, client, clientHost, ipFam, dstAddr)
 
 	bgStdout := &safeBuffer{}
