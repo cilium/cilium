@@ -65,13 +65,13 @@ cilium install --context kind-cluster1 --cluster-id 1 --cluster-name cluster1
 	cmd.Flags().StringSliceVar(&params.DisableChecks, "disable-check", []string{}, "Disable a particular validation check")
 	// It can be deprecated since we have a helm option for it
 	cmd.Flags().StringVar(&params.IPAM, "ipam", "", "IP Address Management (IPAM) mode")
-	cmd.Flags().MarkDeprecated("ipam", "IPAM mode is autodetected depending on `datapath-mode`. If needed, this can now be overridden via `helm-set` (Helm value: `ipam.mode`).")
+	cmd.Flags().MarkDeprecated("ipam", "IPAM mode is autodetected depending on `datapath-mode`. If needed, this can now be overridden via `--set` (Helm value: `ipam.mode`).")
 	// It can be deprecated since we have a helm option for it
 	cmd.Flags().StringVar(&params.IPv4NativeRoutingCIDR, "ipv4-native-routing-cidr", "", "IPv4 CIDR within which native routing is possible")
-	cmd.Flags().MarkDeprecated("ipv4-native-routing-cidr", "This can now be overridden via `helm-set` (Helm value: `ipv4NativeRoutingCIDR`).")
+	cmd.Flags().MarkDeprecated("ipv4-native-routing-cidr", "This can now be overridden via `--set` (Helm value: `ipv4NativeRoutingCIDR`).")
 	// It can be deprecated since we have a helm option for it
 	cmd.Flags().IntVar(&params.ClusterID, "cluster-id", 0, "Unique cluster identifier for multi-cluster")
-	cmd.Flags().MarkDeprecated("cluster-id", "This can now be overridden via `helm-set` (Helm value: `cluster.id`).")
+	cmd.Flags().MarkDeprecated("cluster-id", "This can now be overridden via `--set` (Helm value: `cluster.id`).")
 	cmd.Flags().StringVar(&params.InheritCA, "inherit-ca", "", "Inherit/import CA from another cluster")
 	cmd.Flags().BoolVar(&params.RestartUnmanagedPods, "restart-unmanaged-pods", true, "Restart pods which are not being managed by Cilium")
 	cmd.Flags().StringVar(&params.Encryption, "encryption", "disabled", "Enable encryption of all workloads traffic { disabled | ipsec | wireguard }")
@@ -221,7 +221,7 @@ cilium upgrade --version %s
 func addCommonInstallFlags(cmd *cobra.Command, params *install.Parameters) {
 	// We can't get rid of --cluster-name until we fix https://github.com/cilium/cilium-cli/issues/1347.
 	cmd.Flags().StringVar(&params.ClusterName, "cluster-name", "", "Name of the cluster")
-	cmd.Flags().MarkDeprecated("cluster-name", "This can now be overridden via `helm-set` (Helm value: `cluster.name`).")
+	cmd.Flags().MarkDeprecated("cluster-name", "This can now be overridden via `--set` (Helm value: `cluster.name`).")
 	cmd.Flags().StringVar(&params.Version, "version", defaults.Version, "Cilium version to install")
 	cmd.Flags().StringVar(&params.DatapathMode, "datapath-mode", "", "Datapath mode to use { tunnel | native | aws-eni | gke | azure | aks-byocni } (default: autodetected).")
 	cmd.Flags().BoolVar(&params.ListVersions, "list-versions", false, "List all the available versions without actually installing")
@@ -341,7 +341,7 @@ cilium upgrade
 
 # Upgrade Cilium to the latest version and also set cluster name and ID
 # to prepare for multi-cluster capabilities.
-cilium upgrade --helm-set cluster.id=1 --helm-set cluster.name=cluster1
+cilium upgrade --set cluster.id=1 --set cluster.name=cluster1
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			params.Namespace = namespace
