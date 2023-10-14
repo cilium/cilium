@@ -1170,10 +1170,10 @@ func initAndDereferencePointer(v reflect.Value) reflect.Value {
 
 // Same as reflect.Value.FieldByIndex, but creates pointers if needed.
 func fieldByIndex(v reflect.Value, path []int) reflect.Value {
-	for i, x := range path {
+	for _, x := range path {
 		v = v.Field(x)
 
-		if i < len(path)-1 && v.Kind() == reflect.Ptr {
+		if v.Kind() == reflect.Ptr {
 			if v.IsNil() {
 				v.Set(reflect.New(v.Type().Elem()))
 			}
