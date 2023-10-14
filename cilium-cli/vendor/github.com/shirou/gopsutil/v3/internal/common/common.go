@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"os/exec"
@@ -87,7 +86,7 @@ func (i FakeInvoke) Command(name string, arg ...string) ([]byte, error) {
 		fpath += "_" + i.Suffix
 	}
 	if PathExists(fpath) {
-		return ioutil.ReadFile(fpath)
+		return os.ReadFile(fpath)
 	}
 	return []byte{}, fmt.Errorf("could not find testdata: %s", fpath)
 }
@@ -100,7 +99,7 @@ var ErrNotImplementedError = errors.New("not implemented yet")
 
 // ReadFile reads contents from a file
 func ReadFile(filename string) (string, error) {
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		return "", err
 	}
@@ -112,6 +111,30 @@ func ReadFile(filename string) (string, error) {
 // A convenience wrapper to ReadLinesOffsetN(filename, 0, -1).
 func ReadLines(filename string) ([]string, error) {
 	return ReadLinesOffsetN(filename, 0, -1)
+}
+
+// ReadLine reads a file and returns the first occurrence of a line that is prefixed with prefix.
+func ReadLine(filename string, prefix string) (string, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	r := bufio.NewReader(f)
+	for {
+		line, err := r.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return "", err
+		}
+		if strings.HasPrefix(line, prefix) {
+			return line, nil
+		}
+	}
+
+	return "", nil
 }
 
 // ReadLinesOffsetN reads contents from file and splits them by new line.

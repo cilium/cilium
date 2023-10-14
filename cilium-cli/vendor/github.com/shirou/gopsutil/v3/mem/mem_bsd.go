@@ -1,5 +1,5 @@
-//go:build freebsd || openbsd
-// +build freebsd openbsd
+//go:build freebsd || openbsd || netbsd
+// +build freebsd openbsd netbsd
 
 package mem
 

@@ -50,6 +50,7 @@ type VirtualMemoryStat struct {
 	// https://www.centos.org/docs/5/html/5.1/Deployment_Guide/s2-proc-meminfo.html
 	// https://www.kernel.org/doc/Documentation/filesystems/proc.txt
 	// https://www.kernel.org/doc/Documentation/vm/overcommit-accounting
+	// https://www.kernel.org/doc/Documentation/vm/transhuge.txt
 	Buffers        uint64 `json:"buffers"`
 	Cached         uint64 `json:"cached"`
 	WriteBack      uint64 `json:"writeBack"`
@@ -78,6 +79,7 @@ type VirtualMemoryStat struct {
 	HugePagesRsvd  uint64 `json:"hugePagesRsvd"`
 	HugePagesSurp  uint64 `json:"hugePagesSurp"`
 	HugePageSize   uint64 `json:"hugePageSize"`
+	AnonHugePages  uint64 `json:"anonHugePages"`
 }
 
 type SwapMemoryStat struct {

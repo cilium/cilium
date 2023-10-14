@@ -103,14 +103,9 @@ func NewClient(options ...ClientOption) (*Client, error) {
 		if ok {
 			username, password, err := dockerClient.Credential(ref.Registry)
 			if err != nil {
-				return nil, errors.New("unable to retrieve credentials")
+				return nil, fmt.Errorf("unable to retrieve credentials: %w", err)
 			}
-			// A blank returned username and password value is a bearer token
-			if username == "" && password != "" {
-				headers.Set("Authorization", fmt.Sprintf("Bearer %s", password))
-			} else {
-				headers.Set("Authorization", fmt.Sprintf("Basic %s", basicAuth(username, password)))
-			}
+			authHeader(username, password, &headers)
 		}
 
 		opts := []auth.ResolverOption{auth.WithResolverHeaders(headers)}
