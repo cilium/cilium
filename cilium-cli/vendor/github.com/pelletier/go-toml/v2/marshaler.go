@@ -273,7 +273,7 @@ func (enc *Encoder) encode(b []byte, ctx encoderCtx, v reflect.Value) ([]byte, e
 		return enc.encodeMap(b, ctx, v)
 	case reflect.Struct:
 		return enc.encodeStruct(b, ctx, v)
-	case reflect.Slice:
+	case reflect.Slice, reflect.Array:
 		return enc.encodeSlice(b, ctx, v)
 	case reflect.Interface:
 		if v.IsNil() {
@@ -930,7 +930,7 @@ func willConvertToTableOrArrayTable(ctx encoderCtx, v reflect.Value) bool {
 		return willConvertToTableOrArrayTable(ctx, v.Elem())
 	}
 
-	if t.Kind() == reflect.Slice {
+	if t.Kind() == reflect.Slice || t.Kind() == reflect.Array {
 		if v.Len() == 0 {
 			// An empty slice should be a kv = [].
 			return false
