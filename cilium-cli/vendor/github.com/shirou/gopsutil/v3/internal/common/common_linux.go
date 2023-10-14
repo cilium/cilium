@@ -62,17 +62,38 @@ func BootTimeWithContext(ctx context.Context) (uint64, error) {
 		return 0, err
 	}
 
-	statFile := "stat"
+	useStatFile := true
 	if system == "lxc" && role == "guest" {
 		// if lxc, /proc/uptime is used.
-		statFile = "uptime"
+		useStatFile = false
 	} else if system == "docker" && role == "guest" {
 		// also docker, guest
-		statFile = "uptime"
+		useStatFile = false
 	}
 
-	filename := HostProcWithContext(ctx, statFile)
+	if useStatFile {
+		return readBootTimeStat(ctx)
+	}
+
+	filename := HostProcWithContext(ctx, "uptime")
 	lines, err := ReadLines(filename)
+	if err != nil {
+		return handleBootTimeFileReadErr(err)
+	}
+	if len(lines) != 1 {
+		return 0, fmt.Errorf("wrong uptime format")
+	}
+	f := strings.Fields(lines[0])
+	b, err := strconv.ParseFloat(f[0], 64)
+	if err != nil {
+		return 0, err
+	}
+	currentTime := float64(time.Now().UnixNano()) / float64(time.Second)
+	t := currentTime - b
+	return uint64(t), nil
+}
+
+func handleBootTimeFileReadErr(err error) (uint64, error) {
 	if os.IsPermission(err) {
 		var info syscall.Sysinfo_t
 		err := syscall.Sysinfo(&info)
@@ -84,39 +105,27 @@ func BootTimeWithContext(ctx context.Context) (uint64, error) {
 		t := currentTime - int64(info.Uptime)
 		return uint64(t), nil
 	}
-	if err != nil {
-		return 0, err
-	}
+	return 0, err
+}
 
-	if statFile == "stat" {
-		for _, line := range lines {
-			if strings.HasPrefix(line, "btime") {
-				f := strings.Fields(line)
-				if len(f) != 2 {
-					return 0, fmt.Errorf("wrong btime format")
-				}
-				b, err := strconv.ParseInt(f[1], 10, 64)
-				if err != nil {
-					return 0, err
-				}
-				t := uint64(b)
-				return t, nil
-			}
+func readBootTimeStat(ctx context.Context) (uint64, error) {
+	filename := HostProcWithContext(ctx, "stat")
+	line, err := ReadLine(filename, "btime")
+	if err != nil {
+		return handleBootTimeFileReadErr(err)
+	}
+	if strings.HasPrefix(line, "btime") {
+		f := strings.Fields(line)
+		if len(f) != 2 {
+			return 0, fmt.Errorf("wrong btime format")
 		}
-	} else if statFile == "uptime" {
-		if len(lines) != 1 {
-			return 0, fmt.Errorf("wrong uptime format")
-		}
-		f := strings.Fields(lines[0])
-		b, err := strconv.ParseFloat(f[0], 64)
+		b, err := strconv.ParseInt(f[1], 10, 64)
 		if err != nil {
 			return 0, err
 		}
-		currentTime := float64(time.Now().UnixNano()) / float64(time.Second)
-		t := currentTime - b
-		return uint64(t), nil
+		t := uint64(b)
+		return t, nil
 	}
-
 	return 0, fmt.Errorf("could not find btime")
 }
 
