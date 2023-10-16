@@ -64,7 +64,7 @@ func TestNewHTTPListener(t *testing.T) {
 			listenerNames = append(listenerNames, l.Name)
 		}
 		slices.Sort(listenerNames)
-		require.Equal(t, []string{tlsInspectorType, proxyProtocolType}, listenerNames)
+		require.Equal(t, []string{proxyProtocolType, tlsInspectorType}, listenerNames)
 		require.Len(t, listener.GetFilterChains(), 1)
 	})
 
@@ -148,7 +148,7 @@ func TestNewSNIListener(t *testing.T) {
 			listenerNames = append(listenerNames, l.Name)
 		}
 		slices.Sort(listenerNames)
-		require.Equal(t, []string{tlsInspectorType, proxyProtocolType}, listenerNames)
+		require.Equal(t, []string{proxyProtocolType, tlsInspectorType}, listenerNames)
 		require.Len(t, listener.GetFilterChains(), 1)
 		require.Len(t, listener.GetFilterChains()[0].FilterChainMatch.ServerNames, 2)
 	})
