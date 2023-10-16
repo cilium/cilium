@@ -210,7 +210,7 @@ func (a *AgentSuite) TestAgent_PeerConfig_WithEncryptNode(c *C) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	wgAgent, ipCache := newTestAgent(ctx)
-	wgAgent.nodeToNodeEncryption = true
+	wgAgent.requireNodesInPeerList = true
 	defer ipCache.Shutdown()
 
 	ipCache.Upsert(pod1IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
