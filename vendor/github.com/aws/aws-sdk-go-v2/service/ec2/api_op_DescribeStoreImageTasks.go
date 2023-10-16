@@ -59,6 +59,8 @@ type DescribeStoreImageTasksInput struct {
 	//   Failed )
 	//   - bucket - Returns task information for tasks that targeted a specific bucket.
 	//   For the filter value, specify the bucket name.
+	// When you specify the ImageIds parameter, any filters that you specify are
+	// ignored. To use the filters, you must remove the ImageIds parameter.
 	Filters []types.Filter
 
 	// The AMI IDs for which to show progress. Up to 20 AMI IDs can be included in a
@@ -68,7 +70,7 @@ type DescribeStoreImageTasksInput struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
 	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// . You cannot specify this parameter and the ImageIDs parameter in the same call.
+	// . You cannot specify this parameter and the ImageIds parameter in the same call.
 	MaxResults *int32
 
 	// The token returned from a previous paginated request. Pagination continues from
@@ -179,7 +181,7 @@ type DescribeStoreImageTasksPaginatorOptions struct {
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more
 	// information, see Pagination (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Query-Requests.html#api-pagination)
-	// . You cannot specify this parameter and the ImageIDs parameter in the same call.
+	// . You cannot specify this parameter and the ImageIds parameter in the same call.
 	Limit int32
 
 	// Set to true if pagination should stop if the service returns a pagination token

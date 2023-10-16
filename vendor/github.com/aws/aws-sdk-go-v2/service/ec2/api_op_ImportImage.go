@@ -47,7 +47,9 @@ type ImportImageInput struct {
 	// The architecture of the virtual machine. Valid values: i386 | x86_64
 	Architecture *string
 
-	// The boot mode of the virtual machine.
+	// The boot mode of the virtual machine. The uefi-preferred boot mode isn't
+	// supported for importing images. For more information, see Boot modes (https://docs.aws.amazon.com/vm-import/latest/userguide/prerequisites.html#vmimport-boot-modes)
+	// in the VM Import/Export User Guide.
 	BootMode types.BootModeValues
 
 	// The client-specific data.

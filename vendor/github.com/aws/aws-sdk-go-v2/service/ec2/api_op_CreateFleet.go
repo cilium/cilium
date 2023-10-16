@@ -82,7 +82,7 @@ type CreateFleetInput struct {
 	SpotOptions *types.SpotOptionsRequest
 
 	// The key-value pair for tagging the EC2 Fleet request on creation. For more
-	// information, see Tagging your resources (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#tag-resources)
+	// information, see Tag your resources (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#tag-resources)
 	// . If the fleet type is instant , specify a resource type of fleet to tag the
 	// fleet or instance to tag the instances at launch. If the fleet type is maintain
 	// or request , specify a resource type of fleet to tag the fleet. You cannot
