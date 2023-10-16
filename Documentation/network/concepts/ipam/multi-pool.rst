@@ -160,4 +160,3 @@ Multi-Pool IPAM mode:
      ``ip-masq-agent`` feature.
    - Announcing PodCIDRs by way of the built-in :ref:`bgp` mode is not yet
      supported.  Use ``auto-direct-node-routes`` instead.
-   - KVstore-based identity allocation mode is currently not supported (:gh-issue:`26621`)

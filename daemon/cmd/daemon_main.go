@@ -1514,9 +1514,6 @@ func initEnv(vp *viper.Viper) {
 		if option.Config.EnableIPSec {
 			log.Fatalf("Cannot specify IPAM mode %s with %s.", option.Config.IPAM, option.EnableIPSecName)
 		}
-		if option.Config.IdentityAllocationMode != option.IdentityAllocationModeCRD {
-			log.Fatalf("IPAM mode %s does not support %s=%s", option.Config.IPAM, option.IdentityAllocationMode, option.Config.IdentityAllocationMode)
-		}
 	}
 
 	if option.Config.InstallNoConntrackIptRules {
