@@ -6,6 +6,7 @@ package translation
 import (
 	"fmt"
 	"net"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -281,9 +282,10 @@ func pathPrefixMutation(rewrite *model.HTTPURLRewriteFilter, httpRoute *model.HT
 
 			route.Route.RegexRewrite = &envoy_type_matcher_v3.RegexMatchAndSubstitute{
 				Pattern: &envoy_type_matcher_v3.RegexMatcher{
-					Regex: "^" + httpRoute.PathMatch.Prefix,
+					Regex: fmt.Sprintf(`^%s(/?)(.*)`, regexp.QuoteMeta(httpRoute.PathMatch.Prefix)),
 				},
-				Substitution: "",
+				// hold `/` in case the entire path is removed
+				Substitution: `/\2`,
 			}
 
 		} else {

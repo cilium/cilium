@@ -4,6 +4,8 @@
 package ingestion
 
 import (
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -273,7 +275,8 @@ func toHTTPRewriteFilter(rewrite *gatewayv1beta1.HTTPURLRewriteFilter) *model.HT
 		case gatewayv1beta1.PrefixMatchHTTPPathModifier:
 			if rewrite.Path.ReplacePrefixMatch != nil {
 				path = &model.StringMatch{
-					Prefix: *rewrite.Path.ReplacePrefixMatch,
+					// a trailing `/` is ignored
+					Prefix: strings.TrimSuffix(*rewrite.Path.ReplacePrefixMatch, "/"),
 				}
 			}
 		}
