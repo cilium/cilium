@@ -30,6 +30,8 @@ operator:
       path: /cilium-binaries/cilium-operator-generic
       type: File
     name: cilium-operator-binary
+  image:
+    pullPolicy: IfNotPresent
 clustermesh:
   apiserver:
     extraVolumeMounts:
@@ -41,3 +43,7 @@ clustermesh:
           path: /cilium-binaries/clustermesh-apiserver
           type: File
         name: clustermesh-apiserver-binary
+    image:
+      pullPolicy: IfNotPresent
+image:
+  pullPolicy: IfNotPresent

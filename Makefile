@@ -611,7 +611,9 @@ endif
 .PHONY: kind-install-cilium-fast
 kind-install-cilium-fast: kind-ready ## Install a local Cilium version into the cluster.
 	@echo "  INSTALL cilium"
+	docker pull quay.io/cilium/cilium-ci:latest
 	for cluster_name in $${KIND_CLUSTERS:-$(shell kind get clusters)}; do \
+		kind load docker-image --name $$cluster_name quay.io/cilium/cilium-ci:latest; \
 		$(CILIUM_CLI) --context=kind-$$cluster_name uninstall >/dev/null 2>&1 || true; \
 		$(CILIUM_CLI) install --context=kind-$$cluster_name \
 			--chart-directory=$(ROOT_DIR)/install/kubernetes/cilium \
