@@ -5006,7 +5006,7 @@ type Image struct {
 	// Specifies whether enhanced networking with ENA is enabled.
 	EnaSupport *bool
 
-	// The hypervisor type of the image.
+	// The hypervisor type of the image. Only xen is supported. ovm is not supported.
 	Hypervisor HypervisorType
 
 	// The ID of the AMI.
@@ -5066,6 +5066,11 @@ type Image struct {
 	// The type of root device used by the AMI. The AMI can use an Amazon EBS volume
 	// or an instance store volume.
 	RootDeviceType DeviceType
+
+	// The ID of the instance that the AMI was created from if the AMI was created
+	// using CreateImage (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateImage.html)
+	// . This field only appears if the AMI was created using CreateImage.
+	SourceInstanceId *string
 
 	// Specifies whether enhanced networking with the Intel 82599 Virtual Function
 	// interface is enabled.
@@ -8979,10 +8984,12 @@ type LaunchTemplateTagSpecification struct {
 // launch.
 type LaunchTemplateTagSpecificationRequest struct {
 
-	// The type of resource to tag. The Valid Values are all the resource types that
-	// can be tagged. However, when creating a launch template, you can specify tags
+	// The type of resource to tag. Valid Values lists all resource types for Amazon
+	// EC2 that can be tagged. When you create a launch template, you can specify tags
 	// for the following resource types only: instance | volume | elastic-gpu |
-	// network-interface | spot-instances-request To tag a resource after it has been
+	// network-interface | spot-instances-request . If the instance does include the
+	// resource type that you specify, the instance launch fails. For example, not all
+	// instance types include an Elastic GPU. To tag a resource after it has been
 	// created, see CreateTags (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html)
 	// .
 	ResourceType ResourceType
@@ -10498,6 +10505,13 @@ type OnDemandOptions struct {
 	CapacityReservationOptions *CapacityReservationOptions
 
 	// The maximum amount per hour for On-Demand Instances that you're willing to pay.
+	// If your fleet includes T instances that are configured as unlimited , and if
+	// their average CPU usage exceeds the baseline utilization, you will incur a
+	// charge for surplus credits. The maxTotalPrice does not account for surplus
+	// credits, and, if you use surplus credits, your final cost might be higher than
+	// what you specified for maxTotalPrice . For more information, see Surplus
+	// credits can incur charges (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-unlimited-mode-concepts.html#unlimited-mode-surplus-credits)
+	// in the EC2 User Guide.
 	MaxTotalPrice *string
 
 	// The minimum target capacity for On-Demand Instances in the fleet. If the
@@ -10532,6 +10546,13 @@ type OnDemandOptionsRequest struct {
 	CapacityReservationOptions *CapacityReservationOptionsRequest
 
 	// The maximum amount per hour for On-Demand Instances that you're willing to pay.
+	// If your fleet includes T instances that are configured as unlimited , and if
+	// their average CPU usage exceeds the baseline utilization, you will incur a
+	// charge for surplus credits. The MaxTotalPrice does not account for surplus
+	// credits, and, if you use surplus credits, your final cost might be higher than
+	// what you specified for MaxTotalPrice . For more information, see Surplus
+	// credits can incur charges (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-unlimited-mode-concepts.html#unlimited-mode-surplus-credits)
+	// in the EC2 User Guide.
 	MaxTotalPrice *string
 
 	// The minimum target capacity for On-Demand Instances in the fleet. If the
@@ -11657,7 +11678,17 @@ type RequestLaunchTemplateData struct {
 	// An elastic GPU to associate with the instance.
 	ElasticGpuSpecifications []ElasticGpuSpecification
 
-	// The elastic inference accelerator for the instance.
+	// An elastic inference accelerator to associate with the instance. Elastic
+	// inference accelerators are a resource you can attach to your Amazon EC2
+	// instances to accelerate your Deep Learning (DL) inference workloads. You cannot
+	// specify accelerators from different generations in the same request. Starting
+	// April 15, 2023, Amazon Web Services will not onboard new customers to Amazon
+	// Elastic Inference (EI), and will help current customers migrate their workloads
+	// to options that offer better price and performance. After April 15, 2023, new
+	// customers will not be able to launch instances with Amazon EI accelerators in
+	// Amazon SageMaker, Amazon ECS, or Amazon EC2. However, customers who have used
+	// Amazon EI at least once during the past 30-day period are considered current
+	// customers and will be able to continue using the service.
 	ElasticInferenceAccelerators []LaunchTemplateElasticInferenceAccelerator
 
 	// Indicates whether the instance is enabled for Amazon Web Services Nitro
@@ -12294,7 +12325,17 @@ type ResponseLaunchTemplateData struct {
 	// The elastic GPU specification.
 	ElasticGpuSpecifications []ElasticGpuSpecificationResponse
 
-	// The elastic inference accelerator for the instance.
+	// An elastic inference accelerator to associate with the instance. Elastic
+	// inference accelerators are a resource you can attach to your Amazon EC2
+	// instances to accelerate your Deep Learning (DL) inference workloads. You cannot
+	// specify accelerators from different generations in the same request. Starting
+	// April 15, 2023, Amazon Web Services will not onboard new customers to Amazon
+	// Elastic Inference (EI), and will help current customers migrate their workloads
+	// to options that offer better price and performance. After April 15, 2023, new
+	// customers will not be able to launch instances with Amazon EI accelerators in
+	// Amazon SageMaker, Amazon ECS, or Amazon EC2. However, customers who have used
+	// Amazon EI at least once during the past 30-day period are considered current
+	// customers and will be able to continue using the service.
 	ElasticInferenceAccelerators []LaunchTemplateElasticInferenceAcceleratorResponse
 
 	// Indicates whether the instance is enabled for Amazon Web Services Nitro
@@ -13899,7 +13940,13 @@ type SpotFleetRequestConfigData struct {
 	// Spot Instances in your request, Spot Fleet will launch instances until it
 	// reaches the maximum amount you're willing to pay. When the maximum amount you're
 	// willing to pay is reached, the fleet stops launching instances even if it hasn’t
-	// met the target capacity.
+	// met the target capacity. If your fleet includes T instances that are configured
+	// as unlimited , and if their average CPU usage exceeds the baseline utilization,
+	// you will incur a charge for surplus credits. The onDemandMaxTotalPrice does not
+	// account for surplus credits, and, if you use surplus credits, your final cost
+	// might be higher than what you specified for onDemandMaxTotalPrice . For more
+	// information, see Surplus credits can incur charges (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-unlimited-mode-concepts.html#unlimited-mode-surplus-credits)
+	// in the EC2 User Guide.
 	OnDemandMaxTotalPrice *string
 
 	// The number of On-Demand units to request. You can choose to set the target
@@ -13916,13 +13963,19 @@ type SpotFleetRequestConfigData struct {
 	SpotMaintenanceStrategies *SpotMaintenanceStrategies
 
 	// The maximum amount per hour for Spot Instances that you're willing to pay. You
-	// can use the spotdMaxTotalPrice parameter, the onDemandMaxTotalPrice parameter,
+	// can use the spotMaxTotalPrice parameter, the onDemandMaxTotalPrice parameter,
 	// or both parameters to ensure that your fleet cost does not exceed your budget.
 	// If you set a maximum price per hour for the On-Demand Instances and Spot
 	// Instances in your request, Spot Fleet will launch instances until it reaches the
 	// maximum amount you're willing to pay. When the maximum amount you're willing to
 	// pay is reached, the fleet stops launching instances even if it hasn’t met the
-	// target capacity.
+	// target capacity. If your fleet includes T instances that are configured as
+	// unlimited , and if their average CPU usage exceeds the baseline utilization, you
+	// will incur a charge for surplus credits. The spotMaxTotalPrice does not account
+	// for surplus credits, and, if you use surplus credits, your final cost might be
+	// higher than what you specified for spotMaxTotalPrice . For more information, see
+	// Surplus credits can incur charges (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-unlimited-mode-concepts.html#unlimited-mode-surplus-credits)
+	// in the EC2 User Guide.
 	SpotMaxTotalPrice *string
 
 	// The maximum price per unit hour that you are willing to pay for a Spot
@@ -13938,7 +13991,7 @@ type SpotFleetRequestConfigData struct {
 	// (valid only if you use LaunchTemplateConfigs ) or in the
 	// SpotFleetTagSpecification (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SpotFleetTagSpecification.html)
 	// (valid only if you use LaunchSpecifications ). For information about tagging
-	// after launch, see Tagging Your Resources (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#tag-resources)
+	// after launch, see Tag your resources (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#tag-resources)
 	// .
 	TagSpecifications []TagSpecification
 
@@ -14205,7 +14258,14 @@ type SpotOptions struct {
 	// do not recommend using this parameter because it can lead to increased
 	// interruptions. If you do not specify this parameter, you will pay the current
 	// Spot price. If you specify a maximum price, your Spot Instances will be
-	// interrupted more frequently than if you do not specify this parameter.
+	// interrupted more frequently than if you do not specify this parameter. If your
+	// fleet includes T instances that are configured as unlimited , and if their
+	// average CPU usage exceeds the baseline utilization, you will incur a charge for
+	// surplus credits. The maxTotalPrice does not account for surplus credits, and,
+	// if you use surplus credits, your final cost might be higher than what you
+	// specified for maxTotalPrice . For more information, see Surplus credits can
+	// incur charges (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-unlimited-mode-concepts.html#unlimited-mode-surplus-credits)
+	// in the EC2 User Guide.
 	MaxTotalPrice *string
 
 	// The minimum target capacity for Spot Instances in the fleet. If the minimum
@@ -14284,7 +14344,14 @@ type SpotOptionsRequest struct {
 	// do not recommend using this parameter because it can lead to increased
 	// interruptions. If you do not specify this parameter, you will pay the current
 	// Spot price. If you specify a maximum price, your Spot Instances will be
-	// interrupted more frequently than if you do not specify this parameter.
+	// interrupted more frequently than if you do not specify this parameter. If your
+	// fleet includes T instances that are configured as unlimited , and if their
+	// average CPU usage exceeds the baseline utilization, you will incur a charge for
+	// surplus credits. The MaxTotalPrice does not account for surplus credits, and,
+	// if you use surplus credits, your final cost might be higher than what you
+	// specified for MaxTotalPrice . For more information, see Surplus credits can
+	// incur charges (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-unlimited-mode-concepts.html#unlimited-mode-surplus-credits)
+	// in the EC2 User Guide.
 	MaxTotalPrice *string
 
 	// The minimum target capacity for Spot Instances in the fleet. If the minimum

@@ -27,6 +27,14 @@ import (
 // pool of allowlisted IPv4 addresses, preserving private IPv4 addresses, and
 // communicating between overlapping networks. For more information, see NAT
 // gateways (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html)
+// in the Amazon VPC User Guide. When you create a public NAT gateway and assign it
+// an EIP or secondary EIPs, the network border group of the EIPs must match the
+// network border group of the Availability Zone (AZ) that the public NAT gateway
+// is in. If it's not the same, the NAT gateway will fail to launch. You can see
+// the network border group for the subnet's AZ by viewing the details of the
+// subnet. Similarly, you can view the network border group of an EIP by viewing
+// the details of the EIP address. For more information about network border groups
+// and EIPs, see Allocate an Elastic IP address (https://docs.aws.amazon.com/vpc/latest/userguide/vpc-eips.html#allocate-eip)
 // in the Amazon VPC User Guide.
 func (c *Client) CreateNatGateway(ctx context.Context, params *CreateNatGatewayInput, optFns ...func(*Options)) (*CreateNatGatewayOutput, error) {
 	if params == nil {

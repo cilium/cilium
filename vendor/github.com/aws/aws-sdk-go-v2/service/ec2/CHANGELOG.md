@@ -1,3 +1,17 @@
+# v1.125.0 (2023-10-12)
+
+* **Feature**: This release adds Ubuntu Pro as a supported platform for On-Demand Capacity Reservations and adds support for setting an Amazon Machine Image (AMI) to disabled state. Disabling the AMI makes it private if it was previously shared, and prevents new EC2 instance launches from it.
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.124.0 (2023-10-06)
+
+* **Feature**: Documentation updates for Elastic Compute Cloud (EC2).
+* **Dependency Update**: Updated to the latest SDK module versions
+
+# v1.123.0 (2023-10-02)
+
+* **Feature**: Introducing Amazon EC2 R7iz instances with 3.9 GHz sustained all-core turbo frequency and deliver up to 20% better performance than previous generation z1d instances.
+
 # v1.122.0 (2023-09-28)
 
 * **Feature**: Adds support for Customer Managed Key encryption for Amazon Verified Access resources

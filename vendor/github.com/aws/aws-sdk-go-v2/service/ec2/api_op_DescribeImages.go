@@ -109,6 +109,10 @@ type DescribeImagesInput struct {
 	//   /dev/sda1 ).
 	//   - root-device-type - The type of the root device volume ( ebs | instance-store
 	//   ).
+	//   - source-instance-id - The ID of the instance that the AMI was created from if
+	//   the AMI was created using CreateImage. This filter is applicable only if the AMI
+	//   was created using CreateImage (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateImage.html)
+	//   .
 	//   - state - The state of the image ( available | pending | failed ).
 	//   - state-reason-code - The reason code for the state change.
 	//   - state-reason-message - The message for the state change.
@@ -130,6 +134,10 @@ type DescribeImagesInput struct {
 	// included in the response. If you are the AMI owner, all deprecated AMIs appear
 	// in the response regardless of what you specify for this parameter.
 	IncludeDeprecated *bool
+
+	// Specifies whether to include disabled AMIs. Default: No disabled AMIs are
+	// included in the response.
+	IncludeDisabled *bool
 
 	// The maximum number of items to return for this request. To get the next page of
 	// items, make another request with the token returned in the output. For more

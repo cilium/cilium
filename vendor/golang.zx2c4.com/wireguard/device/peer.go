@@ -45,9 +45,9 @@ type Peer struct {
 	}
 
 	queue struct {
-		staged   chan *[]*QueueOutboundElement // staged packets before a handshake is available
-		outbound *autodrainingOutboundQueue    // sequential ordering of udp transmission
-		inbound  *autodrainingInboundQueue     // sequential ordering of tun writing
+		staged   chan *QueueOutboundElementsContainer // staged packets before a handshake is available
+		outbound *autodrainingOutboundQueue           // sequential ordering of udp transmission
+		inbound  *autodrainingInboundQueue            // sequential ordering of tun writing
 	}
 
 	cookieGenerator             CookieGenerator
@@ -81,7 +81,7 @@ func (device *Device) NewPeer(pk NoisePublicKey) (*Peer, error) {
 	peer.device = device
 	peer.queue.outbound = newAutodrainingOutboundQueue(device)
 	peer.queue.inbound = newAutodrainingInboundQueue(device)
-	peer.queue.staged = make(chan *[]*QueueOutboundElement, QueueStagedSize)
+	peer.queue.staged = make(chan *QueueOutboundElementsContainer, QueueStagedSize)
 
 	// map public key
 	_, ok := device.peers.keyMap[pk]

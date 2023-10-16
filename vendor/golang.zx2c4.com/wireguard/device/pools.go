@@ -46,13 +46,13 @@ func (p *WaitPool) Put(x any) {
 }
 
 func (device *Device) PopulatePools() {
-	device.pool.outboundElementsSlice = NewWaitPool(PreallocatedBuffersPerPool, func() any {
-		s := make([]*QueueOutboundElement, 0, device.BatchSize())
-		return &s
-	})
-	device.pool.inboundElementsSlice = NewWaitPool(PreallocatedBuffersPerPool, func() any {
+	device.pool.inboundElementsContainer = NewWaitPool(PreallocatedBuffersPerPool, func() any {
 		s := make([]*QueueInboundElement, 0, device.BatchSize())
-		return &s
+		return &QueueInboundElementsContainer{elems: s}
+	})
+	device.pool.outboundElementsContainer = NewWaitPool(PreallocatedBuffersPerPool, func() any {
+		s := make([]*QueueOutboundElement, 0, device.BatchSize())
+		return &QueueOutboundElementsContainer{elems: s}
 	})
 	device.pool.messageBuffers = NewWaitPool(PreallocatedBuffersPerPool, func() any {
 		return new([MaxMessageSize]byte)
@@ -65,28 +65,32 @@ func (device *Device) PopulatePools() {
 	})
 }
 
-func (device *Device) GetOutboundElementsSlice() *[]*QueueOutboundElement {
-	return device.pool.outboundElementsSlice.Get().(*[]*QueueOutboundElement)
+func (device *Device) GetInboundElementsContainer() *QueueInboundElementsContainer {
+	c := device.pool.inboundElementsContainer.Get().(*QueueInboundElementsContainer)
+	c.Mutex = sync.Mutex{}
+	return c
 }
 
-func (device *Device) PutOutboundElementsSlice(s *[]*QueueOutboundElement) {
-	for i := range *s {
-		(*s)[i] = nil
+func (device *Device) PutInboundElementsContainer(c *QueueInboundElementsContainer) {
+	for i := range c.elems {
+		c.elems[i] = nil
 	}
-	*s = (*s)[:0]
-	device.pool.outboundElementsSlice.Put(s)
+	c.elems = c.elems[:0]
+	device.pool.inboundElementsContainer.Put(c)
 }
 
-func (device *Device) GetInboundElementsSlice() *[]*QueueInboundElement {
-	return device.pool.inboundElementsSlice.Get().(*[]*QueueInboundElement)
+func (device *Device) GetOutboundElementsContainer() *QueueOutboundElementsContainer {
+	c := device.pool.outboundElementsContainer.Get().(*QueueOutboundElementsContainer)
+	c.Mutex = sync.Mutex{}
+	return c
 }
 
-func (device *Device) PutInboundElementsSlice(s *[]*QueueInboundElement) {
-	for i := range *s {
-		(*s)[i] = nil
+func (device *Device) PutOutboundElementsContainer(c *QueueOutboundElementsContainer) {
+	for i := range c.elems {
+		c.elems[i] = nil
 	}
-	*s = (*s)[:0]
-	device.pool.inboundElementsSlice.Put(s)
+	c.elems = c.elems[:0]
+	device.pool.outboundElementsContainer.Put(c)
 }
 
 func (device *Device) GetMessageBuffer() *[MaxMessageSize]byte {
