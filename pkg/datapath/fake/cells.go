@@ -6,6 +6,7 @@ package fake
 import (
 	"time"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -33,6 +34,7 @@ var Cell = cell.Module(
 		func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
 		func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
 		func() egressmap.PolicyMap { return nil },
+		func() *bigtcp.Configuration { return &bigtcp.Configuration{} },
 	),
 
 	// This cell defines StateDB tables and their schemas for tables which are used to transfer information
