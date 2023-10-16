@@ -766,6 +766,9 @@ const (
 	// EnableWireguard is the name of the option to enable wireguard
 	EnableWireguard = "enable-wireguard"
 
+	// WireguardEncapsulate enables encapsulation before encryption
+	WireguardEncapsulate = "wireguard-encapsulate"
+
 	// EnableL2Announcements is the name of the option to enable l2 announcements
 	EnableL2Announcements = "enable-l2-announcements"
 
@@ -1710,6 +1713,9 @@ type DaemonConfig struct {
 
 	// EnableWireguardUserspaceFallback enables the fallback to the userspace implementation
 	EnableWireguardUserspaceFallback bool
+
+	// WireguardEncapsulate encapsulates a packet (VXLAN/Geneve) before encrypting it
+	WireguardEncapsulate bool
 
 	// EnableL2Announcements enables L2 announcement of service IPs
 	EnableL2Announcements bool
@@ -2993,6 +2999,7 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 	c.IPv6MCastDevice = vp.GetString(IPv6MCastDevice)
 	c.EnableIPSec = vp.GetBool(EnableIPSecName)
 	c.EnableWireguard = vp.GetBool(EnableWireguard)
+	c.WireguardEncapsulate = vp.GetBool(WireguardEncapsulate)
 	c.EnableL2Announcements = vp.GetBool(EnableL2Announcements)
 	c.L2AnnouncerLeaseDuration = vp.GetDuration(L2AnnouncerLeaseDuration)
 	c.L2AnnouncerRenewDeadline = vp.GetDuration(L2AnnouncerRenewDeadline)

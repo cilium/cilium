@@ -370,6 +370,9 @@ func initializeFlags() {
 	flags.Bool(option.EnableWireguard, false, "Enable wireguard")
 	option.BindEnv(Vp, option.EnableWireguard)
 
+	flags.Bool(option.WireguardEncapsulate, false, "Encapsulate via Cilium tunnel (VXLAN/Geneve) before encrypting with WireGuard")
+	option.BindEnv(Vp, option.WireguardEncapsulate)
+
 	flags.Bool(option.EnableL2Announcements, false, "Enable L2 announcements")
 	option.BindEnv(Vp, option.EnableL2Announcements)
 

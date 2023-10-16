@@ -583,6 +583,9 @@ data:
     {{- if .Values.encryption.wireguard.userspaceFallback }}
   enable-wireguard-userspace-fallback: {{ .Values.encryption.wireguard.userspaceFallback | quote }}
     {{- end }}
+    {{- if .Values.encryption.wireguard.encapsulate }}
+  wireguard-encapsulate: {{ .Values.encryption.wireguard.encapsulate | quote }}
+    {{- end }}
   {{- end }}
   {{- if .Values.encryption.nodeEncryption }}
   encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
