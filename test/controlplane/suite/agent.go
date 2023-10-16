@@ -8,14 +8,11 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/cilium/cilium/daemon/cmd"
 	cnicell "github.com/cilium/cilium/daemon/cmd/cni"
 	fakecni "github.com/cilium/cilium/daemon/cmd/cni/fake"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/datapath/tables"
-	datapath "github.com/cilium/cilium/pkg/datapath/types"
 	fqdnproxy "github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -23,12 +20,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/maps/authmap"
-	fakeauthmap "github.com/cilium/cilium/pkg/maps/authmap/fake"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
-	"github.com/cilium/cilium/pkg/maps/egressmap"
-	"github.com/cilium/cilium/pkg/maps/signalmap"
-	fakesignalmap "github.com/cilium/cilium/pkg/maps/signalmap/fake"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
 	"github.com/cilium/cilium/pkg/option"
@@ -38,9 +30,10 @@ import (
 )
 
 type agentHandle struct {
-	t *testing.T
-	d *cmd.Daemon
-	p promise.Promise[*cmd.Daemon]
+	t  *testing.T
+	d  *cmd.Daemon
+	p  promise.Promise[*cmd.Daemon]
+	dp *fakeDatapath.FakeDatapath
 
 	hive *hive.Hive
 }
@@ -62,7 +55,7 @@ func (h *agentHandle) tearDown() {
 	}
 }
 
-func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, dp *fakeDatapath.FakeDatapath, extraCell cell.Cell) {
+func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraCell cell.Cell) {
 	h.hive = hive.New(
 		// Extra cell from the test case. Here as the first cell so it can
 		// insert lifecycle hooks before anything else.
@@ -71,24 +64,20 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, dp *fa
 		// Provide the mocked infrastructure and datapath components
 		cell.Provide(
 			func() k8sClient.Clientset { return clientset },
-			func() datapath.Datapath { return dp },
-			func() datapath.NodeIDHandler { return dp.NodeIDs() },
 			func() *option.DaemonConfig { return option.Config },
 			func() cnicell.CNIConfigManager { return &fakecni.FakeCNIConfigManager{} },
-			func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
-			func() authmap.Map { return fakeauthmap.NewFakeAuthMap() },
-			func() egressmap.PolicyMap { return nil },
 			func() gc.Enabler { return gc.NewFake() },
 		),
+		fakeDatapath.Cell,
 		monitorAgent.Cell,
-		tables.Cell,
 		statedb.Cell,
 		job.Cell,
 		metrics.Cell,
 		store.Cell,
 		cmd.ControlPlane,
-		cell.Invoke(func(p promise.Promise[*cmd.Daemon]) {
+		cell.Invoke(func(p promise.Promise[*cmd.Daemon], dp *fakeDatapath.FakeDatapath) {
 			h.p = p
+			h.dp = dp
 		}),
 	)
 }
