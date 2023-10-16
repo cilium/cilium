@@ -28,14 +28,20 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
-var backendV1XDSResource = toAny(toEnvoyCluster("gateway-conformance-infra", "infra-backend-v1", "8080"))
-var routeActionBackendV1 = toRouteAction("gateway-conformance-infra", "infra-backend-v1", "8080")
+var (
+	backendV1XDSResource = toAny(toEnvoyCluster("gateway-conformance-infra", "infra-backend-v1", "8080"))
+	routeActionBackendV1 = toRouteAction("gateway-conformance-infra", "infra-backend-v1", "8080")
+)
 
-var backendV2XDSResource = toAny(toEnvoyCluster("gateway-conformance-infra", "infra-backend-v2", "8080"))
-var routeActionBackendV2 = toRouteAction("gateway-conformance-infra", "infra-backend-v2", "8080")
+var (
+	backendV2XDSResource = toAny(toEnvoyCluster("gateway-conformance-infra", "infra-backend-v2", "8080"))
+	routeActionBackendV2 = toRouteAction("gateway-conformance-infra", "infra-backend-v2", "8080")
+)
 
-var backendV3XDSResource = toAny(toEnvoyCluster("gateway-conformance-infra", "infra-backend-v3", "8080"))
-var routeActionBackendV3 = toRouteAction("gateway-conformance-infra", "infra-backend-v3", "8080")
+var (
+	backendV3XDSResource = toAny(toEnvoyCluster("gateway-conformance-infra", "infra-backend-v3", "8080"))
+	routeActionBackendV3 = toRouteAction("gateway-conformance-infra", "infra-backend-v3", "8080")
+)
 
 var httpInsecureListenerXDSResource = toAny(&envoy_config_listener.Listener{
 	Name: "listener",
@@ -163,6 +169,7 @@ var basicHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "my-gateway",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -250,6 +257,7 @@ var basicTLSListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "my-gateway",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -383,6 +391,7 @@ var simpleSameNamespaceHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var simpleSameNamespaceHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-gateway-same-namespace",
@@ -392,6 +401,7 @@ var simpleSameNamespaceHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyCon
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -465,6 +475,7 @@ var crossNamespaceHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var crossNamespaceHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-gateway-backend-namespaces",
@@ -474,6 +485,7 @@ var crossNamespaceHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "backend-namespaces",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -560,6 +572,7 @@ var exactPathMatchingHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var exactPathMatchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-gateway-same-namespace",
@@ -569,6 +582,7 @@ var exactPathMatchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfi
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -776,6 +790,7 @@ var headerMatchingHTTPCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 			{
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Name:       "same-namespace",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -1066,6 +1081,7 @@ var hostnameIntersectionHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var hostnameIntersectionHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-gateway-httproute-hostname-intersection",
@@ -1075,6 +1091,7 @@ var hostnameIntersectionHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyCo
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "httproute-hostname-intersection",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -1253,7 +1270,8 @@ var listenerHostnameMatchingHTTPListeners = []model.HTTPListener{
 		Sources: []model.FullyQualifiedResource{
 			{
 				Name:      "httproute-listener-hostname-matching",
-				Namespace: "gateway-conformance-infra"},
+				Namespace: "gateway-conformance-infra",
+			},
 		},
 		Port:     80,
 		Hostname: "*.bar.com",
@@ -1308,6 +1326,7 @@ var listenerHostNameMatchingCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 			{
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Name:       "httproute-listener-hostname-matching",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -1457,6 +1476,7 @@ var matchingAcrossHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var matchingAcrossHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-gateway-same-namespace",
@@ -1466,6 +1486,7 @@ var matchingAcrossHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -1628,6 +1649,7 @@ var matchingHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var matchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-gateway-same-namespace",
@@ -1637,6 +1659,7 @@ var matchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -1809,6 +1832,7 @@ var queryParamMatchingHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var queryParamMatchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-gateway-same-namespace",
@@ -1818,6 +1842,7 @@ var queryParamMatchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConf
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -1998,6 +2023,7 @@ var methodMatchingHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var methodMatchingHTTPListenersHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-gateway-same-namespace",
@@ -2007,6 +2033,7 @@ var methodMatchingHTTPListenersHTTPListenersCiliumEnvoyConfig = &ciliumv2.Cilium
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -2232,6 +2259,7 @@ var requestHeaderModifierHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var requestHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-gateway-same-namespace",
@@ -2241,6 +2269,7 @@ var requestHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyC
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -2450,6 +2479,7 @@ var requestRedirectHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var requestRedirectHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-gateway-same-namespace",
@@ -2459,6 +2489,7 @@ var requestRedirectHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -2692,6 +2723,7 @@ var responseHeaderModifierHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var responseHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-gateway-same-namespace",
@@ -2701,6 +2733,7 @@ var responseHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoy
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -2928,6 +2961,7 @@ var rewriteHostHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var rewriteHostHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-gateway-same-namespace",
@@ -2937,6 +2971,7 @@ var rewriteHostHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -3143,6 +3178,7 @@ var rewritePathHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-gateway-same-namespace",
@@ -3152,6 +3188,7 @@ var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
@@ -3359,6 +3396,7 @@ var mirrorHTTPListeners = []model.HTTPListener{
 		},
 	},
 }
+
 var mirrorHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "cilium-gateway-same-namespace",
@@ -3368,6 +3406,7 @@ var mirrorHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 				APIVersion: "gateway.networking.k8s.io/v1beta1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
+				Controller: model.AddressOf(true),
 			},
 		},
 	},
