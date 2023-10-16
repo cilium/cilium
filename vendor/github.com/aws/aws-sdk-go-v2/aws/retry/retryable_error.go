@@ -97,11 +97,21 @@ func (r RetryableConnectionError) IsErrorRetryable(err error) aws.Ternary {
 	var netOpErr *net.OpError
 	var dnsError *net.DNSError
 
-	switch {
-	case errors.As(err, &dnsError):
+	if errors.As(err, &dnsError) {
 		// NXDOMAIN errors should not be retried
-		retryable = !dnsError.IsNotFound && dnsError.IsTemporary
+		if dnsError.IsNotFound {
+			return aws.BoolTernary(false)
+		}
 
+		// if !dnsError.Temporary(), error may or may not be temporary,
+		// (i.e. !Temporary() =/=> !retryable) so we should fall through to
+		// remaining checks
+		if dnsError.Temporary() {
+			return aws.BoolTernary(true)
+		}
+	}
+
+	switch {
 	case errors.As(err, &conErr) && conErr.ConnectionError():
 		retryable = true
 
