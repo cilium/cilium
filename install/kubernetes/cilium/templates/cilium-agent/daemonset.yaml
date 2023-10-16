@@ -412,7 +412,7 @@ spec:
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command:
-        - cilium
+        - cilium-dbg
         - build-config
         {{- if (not (kindIs "invalid" .Values.daemon.configSources)) }}
         - "--source={{.Values.daemon.configSources}}"
