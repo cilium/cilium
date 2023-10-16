@@ -1,3 +1,54 @@
+# Release (2023-10-12)
+
+## General Highlights
+* **Dependency Update**: Updated to the latest SDK module versions
+
+## Module Highlights
+* `github.com/aws/aws-sdk-go-v2`: v1.21.2
+  * **Bug Fix**: Improve recognition of retryable DNS errors.
+* `github.com/aws/aws-sdk-go-v2/config`: [v1.18.45](config/CHANGELOG.md#v11845-2023-10-12)
+  * **Bug Fix**: Fail to load config if an explicitly provided profile doesn't exist.
+* `github.com/aws/aws-sdk-go-v2/service/auditmanager`: [v1.27.0](service/auditmanager/CHANGELOG.md#v1270-2023-10-12)
+  * **Feature**: This release introduces a new limit to the awsAccounts parameter. When you create or update an assessment, there is now a limit of 200 AWS accounts that can be specified in the assessment scope.
+* `github.com/aws/aws-sdk-go-v2/service/autoscaling`: [v1.31.0](service/autoscaling/CHANGELOG.md#v1310-2023-10-12)
+  * **Feature**: Update the NotificationMetadata field to only allow visible ascii characters. Add paginators to DescribeInstanceRefreshes, DescribeLoadBalancers, and DescribeLoadBalancerTargetGroups
+* `github.com/aws/aws-sdk-go-v2/service/configservice`: [v1.37.0](service/configservice/CHANGELOG.md#v1370-2023-10-12)
+  * **Feature**: Add enums for resource types supported by Config
+* `github.com/aws/aws-sdk-go-v2/service/controltower`: [v1.4.0](service/controltower/CHANGELOG.md#v140-2023-10-12)
+  * **Feature**: Added new EnabledControl resource details to ListEnabledControls API and added new GetEnabledControl API.
+* `github.com/aws/aws-sdk-go-v2/service/customerprofiles`: [v1.29.0](service/customerprofiles/CHANGELOG.md#v1290-2023-10-12)
+  * **Feature**: Adds sensitive trait to various shapes in Customer Profiles Calculated Attribute API model.
+* `github.com/aws/aws-sdk-go-v2/service/ec2`: [v1.125.0](service/ec2/CHANGELOG.md#v11250-2023-10-12)
+  * **Feature**: This release adds Ubuntu Pro as a supported platform for On-Demand Capacity Reservations and adds support for setting an Amazon Machine Image (AMI) to disabled state. Disabling the AMI makes it private if it was previously shared, and prevents new EC2 instance launches from it.
+* `github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2`: [v1.21.6](service/elasticloadbalancingv2/CHANGELOG.md#v1216-2023-10-12)
+  * **Documentation**: This release enables routing policies with Availability Zone affinity for Network Load Balancers.
+* `github.com/aws/aws-sdk-go-v2/service/glue`: [v1.63.0](service/glue/CHANGELOG.md#v1630-2023-10-12)
+  * **Feature**: Extending version control support to GitLab and Bitbucket from AWSGlue
+* `github.com/aws/aws-sdk-go-v2/service/inspector2`: [v1.17.0](service/inspector2/CHANGELOG.md#v1170-2023-10-12)
+  * **Feature**: Add MacOs ec2 platform support
+* `github.com/aws/aws-sdk-go-v2/service/ivsrealtime`: [v1.5.0](service/ivsrealtime/CHANGELOG.md#v150-2023-10-12)
+  * **Feature**: Update GetParticipant to return additional metadata.
+* `github.com/aws/aws-sdk-go-v2/service/lambda`: [v1.40.0](service/lambda/CHANGELOG.md#v1400-2023-10-12)
+  * **Feature**: Adds support for Lambda functions to access Dual-Stack subnets over IPv6, via an opt-in flag in CreateFunction and UpdateFunctionConfiguration APIs
+* `github.com/aws/aws-sdk-go-v2/service/location`: [v1.28.0](service/location/CHANGELOG.md#v1280-2023-10-12)
+  * **Feature**: This release adds endpoint updates for all AWS Location resource operations.
+* `github.com/aws/aws-sdk-go-v2/service/machinelearning`: [v1.18.0](service/machinelearning/CHANGELOG.md#v1180-2023-10-12)
+  * **Feature**: This release marks Password field as sensitive
+* `github.com/aws/aws-sdk-go-v2/service/pricing`: [v1.21.9](service/pricing/CHANGELOG.md#v1219-2023-10-12)
+  * **Documentation**: Documentation updates for Price List
+* `github.com/aws/aws-sdk-go-v2/service/rds`: [v1.56.0](service/rds/CHANGELOG.md#v1560-2023-10-12)
+  * **Feature**: This release adds support for adding a dedicated log volume to open-source RDS instances.
+* `github.com/aws/aws-sdk-go-v2/service/rekognition`: [v1.31.0](service/rekognition/CHANGELOG.md#v1310-2023-10-12)
+  * **Feature**: Amazon Rekognition introduces support for Custom Moderation. This allows the enhancement of accuracy for detect moderation labels operations by creating custom adapters tuned on customer data.
+* `github.com/aws/aws-sdk-go-v2/service/sagemaker`: [v1.111.0](service/sagemaker/CHANGELOG.md#v11110-2023-10-12)
+  * **Feature**: Amazon SageMaker Canvas adds KendraSettings and DirectDeploySettings support for CanvasAppSettings
+* `github.com/aws/aws-sdk-go-v2/service/textract`: [v1.25.0](service/textract/CHANGELOG.md#v1250-2023-10-12)
+  * **Feature**: This release adds 9 new APIs for adapter and adapter version management, 3 new APIs for tagging, and updates AnalyzeDocument and StartDocumentAnalysis API parameters for using adapters.
+* `github.com/aws/aws-sdk-go-v2/service/transcribe`: [v1.29.0](service/transcribe/CHANGELOG.md#v1290-2023-10-12)
+  * **Feature**: This release is to enable m4a format to customers
+* `github.com/aws/aws-sdk-go-v2/service/workspaces`: [v1.31.2](service/workspaces/CHANGELOG.md#v1312-2023-10-12)
+  * **Documentation**: Updated the CreateWorkspaces action documentation to clarify that the PCoIP protocol is only available for Windows bundles.
+
 # Release (2023-10-06)
 
 ## General Highlights
