@@ -3127,9 +3127,9 @@ authentication:
             create: true
             name: spire-agent
           # -- SPIRE agent annotations
-          annotations: { }
+          annotations: {}
           # -- SPIRE agent labels
-          labels: { }
+          labels: {}
           # -- SPIRE Workload Attestor kubelet verification.
           skipKubeletVerification: true
           # -- SPIRE agent tolerations configuration
