@@ -85,7 +85,7 @@ jobs:
           - kernel: '5.15-20230928.053816'
             ci-kernel: '510'
           # renovate: datasource=docker depName=quay.io/lvh-images/kind
-          - kernel: 'bpf-next-20230929.012600'
+          - kernel: 'bpf-next-20231010.012608'
             ci-kernel: 'netnext'
     timeout-minutes: 60
     steps:
