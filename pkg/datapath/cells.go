@@ -33,6 +33,9 @@ import (
 
 // Datapath provides the privileged operations to apply control-plane
 // decision to the kernel.
+//
+// For integration testing a fake counterpart of this module is defined
+// in pkg/datapath/fake/cells.go.
 var Cell = cell.Module(
 	"datapath",
 	"Datapath",
