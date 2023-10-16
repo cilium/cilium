@@ -5,12 +5,12 @@ package lock
 
 import (
 	"math/rand"
+	"slices"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 )
 
 func TestSortableMutex(t *testing.T) {

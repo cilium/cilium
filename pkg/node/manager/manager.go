@@ -11,10 +11,11 @@ import (
 	"net/netip"
 	"time"
 
+	"slices"
+
 	"github.com/cilium/workerpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"

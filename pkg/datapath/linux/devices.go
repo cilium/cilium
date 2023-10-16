@@ -7,9 +7,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"slices"
 	"strings"
-
-	"golang.org/x/exp/slices"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"

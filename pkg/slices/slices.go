@@ -4,10 +4,10 @@
 package slices
 
 import (
+	"slices"
 	"sort"
 
 	"golang.org/x/exp/constraints"
-	"golang.org/x/exp/slices"
 )
 
 // Unique deduplicates the elements in the input slice, preserving their ordering and

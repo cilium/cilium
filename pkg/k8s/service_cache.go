@@ -5,10 +5,10 @@ package k8s
 
 import (
 	"net"
+	"slices"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 	core_v1 "k8s.io/api/core/v1"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"

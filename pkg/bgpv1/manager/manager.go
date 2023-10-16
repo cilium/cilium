@@ -6,6 +6,7 @@ package manager
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -22,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 )
 
 var (

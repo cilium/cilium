@@ -6,8 +6,7 @@ package tables
 import (
 	"net"
 	"net/netip"
-
-	"golang.org/x/exp/slices"
+	"slices"
 
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"

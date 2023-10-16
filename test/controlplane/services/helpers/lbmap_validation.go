@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"github.com/pmezard/go-difflib/difflib"
 	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"

@@ -10,12 +10,12 @@ import (
 	"fmt"
 	"net"
 	"runtime/pprof"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
