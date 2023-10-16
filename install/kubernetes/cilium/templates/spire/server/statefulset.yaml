@@ -11,7 +11,7 @@ metadata:
   labels:
     app: spire-server
   {{- with .Values.authentication.mutual.spire.install.server.labels }}
-    {{- toYaml . | nindent 8 }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
   replicas: 1
@@ -23,6 +23,9 @@ spec:
     metadata:
       labels:
         app: spire-server
+        {{- with .Values.authentication.mutual.spire.install.server.labels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}
       shareProcessNamespace: true

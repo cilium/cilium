@@ -10,8 +10,8 @@ metadata:
   {{- end }}
   labels:
     app: spire-agent
-  {{- with .Values.authentication.mutual.spire.install.server.labels }}
-    {{- toYaml . | nindent 8 }}
+  {{- with .Values.authentication.mutual.spire.install.agent.labels }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
   selector:
@@ -22,6 +22,9 @@ spec:
       namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
       labels:
         app: spire-agent
+        {{- with .Values.authentication.mutual.spire.install.agent.labels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       hostPID: true
       hostNetwork: true
