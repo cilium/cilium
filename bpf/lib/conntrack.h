@@ -302,6 +302,7 @@ __ct_lookup(const void *map, struct __ctx_buff *ctx, const void *tuple,
 			if (unlikely(ct_entry_closing(entry))) {
 				ct_reset_closing(entry);
 				ct_reset_seen_flags(entry);
+				entry->seen_non_syn = false;
 
 				*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 				return CT_REOPENED;
