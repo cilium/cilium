@@ -9,13 +9,13 @@ import (
 	"context"
 	"net"
 	"runtime"
+	"slices"
 	"sort"
 	"time"
 
 	. "github.com/cilium/checkmate"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
-	"golang.org/x/exp/slices"
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/checker"

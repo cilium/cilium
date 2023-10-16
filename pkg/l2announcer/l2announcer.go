@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"regexp"
 	"runtime/pprof"
+	"slices"
 	"strings"
 	"time"
 
@@ -35,7 +36,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

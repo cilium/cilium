@@ -6,6 +6,7 @@ package l2announcer
 import (
 	"context"
 	"net/netip"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -27,7 +28,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/goleak"
-	"golang.org/x/exp/slices"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"

@@ -8,11 +8,11 @@ import (
 	"errors"
 	"os"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 )
 
 // clusterLifecycle is the interface to implement in order to receive cluster

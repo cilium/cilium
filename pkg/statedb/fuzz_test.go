@@ -11,11 +11,11 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
+	"slices"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/lock"

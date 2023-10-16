@@ -5,12 +5,11 @@ package tables
 
 import (
 	"net/netip"
+	"slices"
 
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/index"
-
-	"golang.org/x/exp/slices"
 )
 
 type L2AnnounceKey struct {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"slices"
 
 	"github.com/cilium/cilium/pkg/bgpv1/types"
 	"github.com/cilium/cilium/pkg/hive/cell"
@@ -16,7 +17,6 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 )
 
 type PodIPPoolReconcilerOut struct {
