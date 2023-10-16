@@ -4,6 +4,8 @@
 package translation
 
 import (
+	"fmt"
+	"regexp"
 	"sort"
 	"testing"
 
@@ -187,9 +189,9 @@ func Test_pathPrefixMutation(t *testing.T) {
 		res := pathPrefixMutation(rewrite, &httpRoute)(route)
 		require.EqualValues(t, &envoy_type_matcher_v3.RegexMatchAndSubstitute{
 			Pattern: &envoy_type_matcher_v3.RegexMatcher{
-				Regex: "^" + httpRoute.PathMatch.Prefix,
+				Regex: fmt.Sprintf(`^%s(/?)(.*)`, regexp.QuoteMeta(httpRoute.PathMatch.Prefix)),
 			},
-			Substitution: "",
+			Substitution: `/\2`,
 		}, res.Route.RegexRewrite)
 	})
 	t.Run("with slash prefix rewrite", func(t *testing.T) {
@@ -207,9 +209,9 @@ func Test_pathPrefixMutation(t *testing.T) {
 		res := pathPrefixMutation(rewrite, &httpRoute)(route)
 		require.EqualValues(t, &envoy_type_matcher_v3.RegexMatchAndSubstitute{
 			Pattern: &envoy_type_matcher_v3.RegexMatcher{
-				Regex: "^" + httpRoute.PathMatch.Prefix,
+				Regex: fmt.Sprintf(`^%s(/?)(.*)`, regexp.QuoteMeta(httpRoute.PathMatch.Prefix)),
 			},
-			Substitution: "",
+			Substitution: `/\2`,
 		}, res.Route.RegexRewrite)
 	})
 }
