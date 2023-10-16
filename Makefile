@@ -654,9 +654,8 @@ kind-image-fast-agent: kind-ready build-cli build-agent ## Build cilium cli and 
 			docker exec -ti $${node_name} rm -f "${dst}/cilium-agent"; \
 			docker cp "./daemon/cilium-agent" $${node_name}:"${dst}"; \
 			docker exec -ti $${node_name} chmod +x "${dst}/cilium-agent"; \
-			\
-			kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=cilium --force; \
 		done; \
+		kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=cilium --force; \
 	done
 
 .PHONY: kind-image-fast-operator
@@ -669,9 +668,8 @@ kind-image-fast-operator: kind-ready build-operator ## Build cilium operator bin
 			docker exec -ti $${node_name} rm -f "${dst}/cilium-operator-generic"; \
 			docker cp "./operator/cilium-operator-generic" $${node_name}:"${dst}"; \
 			docker exec -ti $${node_name} chmod +x "${dst}/cilium-operator-generic"; \
-			\
-			kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l name=cilium-operator --force; \
 		done; \
+	kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l name=cilium-operator --force; \
 	done
 
 .PHONY: kind-image-fast-clustermesh-apiserver
@@ -684,9 +682,8 @@ kind-image-fast-clustermesh-apiserver: kind-ready build-clustermesh-apiserver ##
 			docker exec -ti $${node_name} rm -f "${dst}/clustermesh-apiserver"; \
 			docker cp "./clustermesh-apiserver/clustermesh-apiserver" $${node_name}:"${dst}"; \
 			docker exec -ti $${node_name} chmod +x "${dst}/clustermesh-apiserver"; \
-			\
-			kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=clustermesh-apiserver --force; \
 		done; \
+	kubectl --context=kind-$${cluster_name} delete pods -n kube-system -l k8s-app=clustermesh-apiserver --force; \
 	done
 
 .PHONY: kind-image-fast
