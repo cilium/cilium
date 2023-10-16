@@ -218,7 +218,7 @@ func TestSharedIngressTranslator_getHTTPRouteListenerProxy(t *testing.T) {
 		listenerNames = append(listenerNames, l.Name)
 	}
 	slices.Sort(listenerNames)
-	require.Equal(t, []string{tlsInspectorType, proxyProtocolType}, listenerNames)
+	require.Equal(t, []string{proxyProtocolType, tlsInspectorType}, listenerNames)
 }
 
 func TestSharedIngressTranslator_getHTTPRouteListener(t *testing.T) {
