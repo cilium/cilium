@@ -210,7 +210,7 @@ type Daemon struct {
 	controllers *controller.Manager
 
 	// BIG-TCP config values
-	bigTCPConfig bigtcp.Configuration
+	bigTCPConfig *bigtcp.Configuration
 
 	// just used to tie together some status reporting
 	cniConfigManager cni.CNIConfigManager
@@ -529,6 +529,7 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		authManager:          params.AuthManager,
 		settings:             params.Settings,
 		healthProvider:       params.HealthProvider,
+		bigTCPConfig:         params.BigTCPConfig,
 	}
 
 	d.configModifyQueue = eventqueue.NewEventQueueBuffered("config-modify-queue", ConfigModifyQueueSize)
@@ -980,8 +981,6 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 			return nil, nil, fmt.Errorf("SCTP support needs kernel 5.2 or newer")
 		}
 	}
-
-	bigtcp.InitBIGTCP(&d.bigTCPConfig)
 
 	// Some of the k8s watchers rely on option flags set above (specifically
 	// EnableBPFMasquerade), so we should only start them once the flag values
