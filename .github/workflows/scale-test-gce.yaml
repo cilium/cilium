@@ -130,6 +130,8 @@ jobs:
           echo "--- gcloud ---"
           gcloud version
       
+      # Control plane node size corresponds to related test in k8s OSS:
+      # https://github.com/kubernetes/test-infra/blob/275098e2666698d7e78b39c3716f202ea62f4b80/config/jobs/kubernetes/sig-scalability/sig-scalability-presets.yaml#L269
       - name: Create cluster
         run: |
           ./kops create cluster \
@@ -218,7 +220,8 @@ jobs:
             --enable-prometheus-server \
             --tear-down-prometheus-server=false \
             --report-dir=./report \
-            --kubeconfig=$HOME/.kube/config
+            --kubeconfig=$HOME/.kube/config \
+            2>&1 | tee cl2-output.txt
 
       - name: Get sysdump
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' }}
@@ -237,7 +240,10 @@ jobs:
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-cl2.outcome != 'skipped' }}
         run: |
+          echo ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} >> ./run-url.txt
+          echo ${{ github.sha }} >> sha.txt
           # BUILD_ID needs to be an integer
           BUILD_ID="$(date +%s)"
-          EXPORT_DIR="${{ secrets.GCP_PERF_RESULTS_BUCKET }}/logs/scale-test-${{ github.ref_name }}/${BUILD_ID}/artifacts/"
-          gsutil -m cp -R cilium-sysdump-final.zip ./perf-tests/clusterloader2/report/* $EXPORT_DIR
+          EXPORT_DIR="${{ secrets.GCP_PERF_RESULTS_BUCKET }}/logs/scale-test-${{ github.ref_name }}/${BUILD_ID}"
+          gsutil -m cp -R cilium-sysdump-final.zip ./perf-tests/clusterloader2/report/* $EXPORT_DIR/artifacts/
+          gsutil -m cp sha.txt run-url.txt ./perf-tests/clusterloader2/cl2-output.txt  $EXPORT_DIR/
