@@ -22,6 +22,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	__u16 proto = 0;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
+	bool from_tunnel __maybe_unused = false;
 
 	if (!validate_ethertype(ctx, &proto))
 		return DROP_UNSUPPORTED_L2;
@@ -60,6 +61,31 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	case bpf_htons(ETH_P_IP):
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
+# if defined(TUNNEL_MODE)
+		/* A rudimentary check (inspired by is_enap()) whether a pkt
+		 * is coming from tunnel device. In tunneling mode WG needs to
+		 * encrypt such pkts, so that src sec ID can be transferred.
+		 *
+		 * This also handles IPv6, as IPv6 pkts are encapsulated w/
+		 * IPv4 tunneling.
+		 */
+		if (ip4->protocol == IPPROTO_UDP) {
+			int l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+			__be16 dport;
+
+			if (l4_load_port(ctx, l4_off + UDP_DPORT_OFF, &dport) < 0) {
+				/* IP fragmentation is not expected after the
+				 * encap. So this is non-Cilium's pkt.
+				 */
+				break;
+			}
+
+			if (dport == bpf_htons(TUNNEL_PORT)) {
+				from_tunnel = true;
+				break;
+			}
+		}
+# endif /* TUNNEL_MODE */
 		dst = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 		src = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 		break;
@@ -80,6 +106,11 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	 */
 	if ((ctx->mark & MARK_MAGIC_WG_ENCRYPTED) == MARK_MAGIC_WG_ENCRYPTED)
 		goto out;
+
+#if defined(TUNNEL_MODE)
+	if (from_tunnel)
+		goto encrypt;
+#endif /* TUNNEL_MODE */
 
 	/* Unless node encryption is enabled, we don't want to encrypt
 	 * traffic from the hostns.
@@ -105,8 +136,10 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
 	/* Redirect to the WireGuard tunnel device if the encryption is
 	 * required.
 	 */
-	if (dst && dst->key)
+	if (dst && dst->key) {
+encrypt: __maybe_unused
 		return ctx_redirect(ctx, WG_IFINDEX, 0);
+	}
 
 out:
 	return CTX_ACT_OK;
