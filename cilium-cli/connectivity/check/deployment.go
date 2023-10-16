@@ -953,34 +953,38 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 		}
 
-		_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, echoExternalNodeDeploymentName, metav1.GetOptions{})
-		if err != nil {
-			ct.Logf("✨ [%s] Deploying echo-external-node deployment...", ct.clients.src.ClusterName())
-			containerPort := 8080
-			echoExternalDeployment := newDeployment(deploymentParameters{
-				Name:           echoExternalNodeDeploymentName,
-				Kind:           kindEchoExternalNodeName,
-				Port:           containerPort,
-				NamedPort:      "http-8080",
-				HostPort:       8080,
-				Image:          ct.params.JSONMockImage,
-				Labels:         map[string]string{"external": "echo"},
-				Annotations:    ct.params.DeploymentAnnotations.Match(echoExternalNodeDeploymentName),
-				NodeSelector:   map[string]string{"cilium.io/no-schedule": "true"},
-				ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
-				HostNetwork:    true,
-				Tolerations: []corev1.Toleration{
-					{Operator: corev1.TolerationOpExists},
-				},
-			})
-			_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoExternalNodeDeploymentName), metav1.CreateOptions{})
+		if ct.Features[features.NodeWithoutCilium].Enabled {
+			_, err = ct.clients.src.GetDeployment(ctx, ct.params.TestNamespace, echoExternalNodeDeploymentName, metav1.GetOptions{})
 			if err != nil {
-				return fmt.Errorf("unable to create service account %s: %s", echoExternalNodeDeploymentName, err)
+				ct.Logf("✨ [%s] Deploying echo-external-node deployment...", ct.clients.src.ClusterName())
+				containerPort := 8080
+				echoExternalDeployment := newDeployment(deploymentParameters{
+					Name:           echoExternalNodeDeploymentName,
+					Kind:           kindEchoExternalNodeName,
+					Port:           containerPort,
+					NamedPort:      "http-8080",
+					HostPort:       8080,
+					Image:          ct.params.JSONMockImage,
+					Labels:         map[string]string{"external": "echo"},
+					Annotations:    ct.params.DeploymentAnnotations.Match(echoExternalNodeDeploymentName),
+					NodeSelector:   map[string]string{"cilium.io/no-schedule": "true"},
+					ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
+					HostNetwork:    true,
+					Tolerations: []corev1.Toleration{
+						{Operator: corev1.TolerationOpExists},
+					},
+				})
+				_, err = ct.clients.src.CreateServiceAccount(ctx, ct.params.TestNamespace, k8s.NewServiceAccount(echoExternalNodeDeploymentName), metav1.CreateOptions{})
+				if err != nil {
+					return fmt.Errorf("unable to create service account %s: %s", echoExternalNodeDeploymentName, err)
+				}
+				_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, echoExternalDeployment, metav1.CreateOptions{})
+				if err != nil {
+					return fmt.Errorf("unable to create deployment %s: %s", echoExternalNodeDeploymentName, err)
+				}
 			}
-			_, err = ct.clients.src.CreateDeployment(ctx, ct.params.TestNamespace, echoExternalDeployment, metav1.CreateOptions{})
-			if err != nil {
-				return fmt.Errorf("unable to create deployment %s: %s", echoExternalNodeDeploymentName, err)
-			}
+		} else {
+			ct.Infof("Skipping tests that require a node Without Cilium")
 		}
 	}
 
