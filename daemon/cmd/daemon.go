@@ -464,6 +464,10 @@ func newDaemon(ctx context.Context, cleaner *daemonCleanup, params *daemonParams
 		return nil, nil, fmt.Errorf("unable to setup encryption: %s", err)
 	}
 
+	if err := setupStrictModeMap(); err != nil {
+		return nil, nil, fmt.Errorf("unable to setup strict map: %s", err)
+	}
+
 	var mtuConfig mtu.Configuration
 	externalIP := node.GetIPv4()
 	if externalIP == nil {

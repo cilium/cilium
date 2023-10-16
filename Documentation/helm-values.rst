@@ -969,21 +969,25 @@
      - string
      - ``"cilium-ipsec-keys"``
    * - :spelling:ignore:`encryption.strictMode`
-     - Configure the WireGuard Pod2Pod strict mode.
+     - Configure the WireGuard strict mode.
      - object
-     - ``{"allowRemoteNodeIdentities":false,"cidr":"","enabled":false}``
+     - ``{"allowRemoteNodeIdentities":true,"enabled":false,"nodeCIDRList":[],"podCIDRList":[]}``
    * - :spelling:ignore:`encryption.strictMode.allowRemoteNodeIdentities`
-     - Allow dynamic lookup of remote node identities. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
+     - Allow dynamic lookup of remote node identities. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap. This is also required when control-plane nodes are exempted from node-to-node encryption.
      - bool
-     - ``false``
-   * - :spelling:ignore:`encryption.strictMode.cidr`
-     - CIDR for the WireGuard Pod2Pod strict mode.
-     - string
-     - ``""``
+     - ``true``
    * - :spelling:ignore:`encryption.strictMode.enabled`
-     - Enable WireGuard Pod2Pod strict mode.
+     - Enable WireGuard strict mode.
      - bool
      - ``false``
+   * - :spelling:ignore:`encryption.strictMode.nodeCIDRList`
+     - nodeCIDRList for the WireGuard strict mode.
+     - list
+     - ``[]``
+   * - :spelling:ignore:`encryption.strictMode.podCIDRList`
+     - podCIDRList for the WireGuard strict mode.
+     - list
+     - ``[]``
    * - :spelling:ignore:`encryption.type`
      - Encryption method. Can be either ipsec or wireguard.
      - string

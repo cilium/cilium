@@ -778,8 +778,11 @@ const (
 	// EnableEncryptionStrictMode is the name of the option to enable strict encryption mode.
 	EnableEncryptionStrictMode = "enable-encryption-strict-mode"
 
-	// EncryptionStrictModeCIDR is the CIDR in which the strict ecryption mode should be enforced.
-	EncryptionStrictModeCIDR = "encryption-strict-mode-cidr"
+	// EncryptionStrictModeNodeCIDRs are CIDRs in which the strict ecryption mode should be enforced.
+	EncryptionStrictModeNodeCIDRs = "encryption-strict-mode-node-cidrs"
+
+	// EncryptionStrictModePodCIDRs are CIDRs in which the strict ecryption mode should be enforced.
+	EncryptionStrictModePodCIDRs = "encryption-strict-mode-pod-cidrs"
 
 	// EncryptionStrictModeAllowRemoteNodeIdentities allows dynamic lookup of remote node identities.
 	// This is required when tunneling is used
@@ -1742,8 +1745,11 @@ type DaemonConfig struct {
 	// EnableEncryptionStrictMode enables strict mode for encryption
 	EnableEncryptionStrictMode bool
 
-	// EncryptionStrictModeCIDR is the CIDR to use for strict mode
-	EncryptionStrictModeCIDR netip.Prefix
+	// EncryptionStrictModeNodeCIDRs are the CIDRs to use for strict mode
+	EncryptionStrictModeNodeCIDRs []netip.Prefix
+
+	// EncryptionStrictModePodCIDRs are the CIDRs to use for strict mode
+	EncryptionStrictModePodCIDRs []netip.Prefix
 
 	// EncryptionStrictModeAllowRemoteNodeIdentities allows dynamic lookup of node identities.
 	// This is required when tunneling is used
@@ -3307,14 +3313,30 @@ func (c *DaemonConfig) Populate(vp *viper.Viper) {
 			log.Warnf("WireGuard encryption strict mode only support IPv4. IPv6 traffic is not protected and can be leaked.")
 		}
 
-		strictCIDR := vp.GetString(EncryptionStrictModeCIDR)
-		c.EncryptionStrictModeCIDR, err = netip.ParsePrefix(strictCIDR)
-		if err != nil {
-			log.WithError(err).Fatalf("Cannot parse CIDR %s from --%s option", strictCIDR, EncryptionStrictModeCIDR)
+		strictCIDRs := vp.GetStringSlice(EncryptionStrictModeNodeCIDRs)
+		for _, strictCIDR := range strictCIDRs {
+			cdir, err := netip.ParsePrefix(strictCIDR)
+			if err != nil {
+				log.WithError(err).Fatalf("Cannot parse CIDR %s from --%s option", strictCIDR, EncryptionStrictModeNodeCIDRs)
+			}
+			if !cdir.Addr().Is4() {
+				log.Fatalf("%s must be an IPv4 CIDR", cdir)
+			}
+
+			c.EncryptionStrictModeNodeCIDRs = append(c.EncryptionStrictModeNodeCIDRs, cdir)
 		}
 
-		if !c.EncryptionStrictModeCIDR.Addr().Is4() {
-			log.Fatalf("%s must be an IPv4 CIDR", EncryptionStrictModeCIDR)
+		strictCIDRs = vp.GetStringSlice(EncryptionStrictModePodCIDRs)
+		for _, strictCIDR := range strictCIDRs {
+			cdir, err := netip.ParsePrefix(strictCIDR)
+			if err != nil {
+				log.WithError(err).Fatalf("Cannot parse CIDR %s from --%s option", strictCIDR, EncryptionStrictModeNodeCIDRs)
+			}
+			if !cdir.Addr().Is4() {
+				log.Fatalf("%s must be an IPv4 CIDR", cdir)
+			}
+
+			c.EncryptionStrictModePodCIDRs = append(c.EncryptionStrictModePodCIDRs, cdir)
 		}
 
 		c.EncryptionStrictModeAllowRemoteNodeIdentities = vp.GetBool(EncryptionStrictModeAllowRemoteNodeIdentities)

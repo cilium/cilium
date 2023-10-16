@@ -183,6 +183,22 @@ struct {
 	__uint(max_entries, 1);
 } ENCRYPT_MAP __section_maps_btf;
 
+struct strict_mode_policy {
+	__u8	allow;
+	__u8	pad1;
+	__be16	port1;
+	__be16	port2;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct ipcache_key);
+	__type(value, struct strict_mode_policy);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, STRICT_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} STRICT_MODE_MAP __section_maps_btf;
+
 struct node_key {
 	__u16 pad1;
 	__u8 pad2;

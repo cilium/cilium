@@ -161,7 +161,8 @@ cilium-agent [flags]
       --encrypt-interface string                                  Transparent encryption interface
       --encrypt-node                                              Enables encrypting traffic from non-Cilium pods and host networking (only supported with WireGuard, beta)
       --encryption-strict-mode-allow-remote-node-identities       Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
-      --encryption-strict-mode-cidr string                        In strict-mode encryption, all unencrypted traffic coming from this CIDR and going to this same CIDR will be dropped
+      --encryption-strict-mode-node-cidrs strings                 In strict-mode encryption, all unencrypted traffic coming from one of those CIDRs and going one of those CIDRs will be dropped
+      --encryption-strict-mode-pod-cidrs strings                  In strict-mode encryption, all unencrypted traffic coming from one of those CIDRs and going one of those CIDRs will be dropped
       --endpoint-bpf-prog-watchdog-interval duration              Interval to trigger endpoint BPF programs load check watchdog (default 30s)
       --endpoint-queue-size int                                   Size of EventQueue per-endpoint (default 25)
       --endpoint-status strings                                   Enable additional CiliumEndpoint status features (controllers,health,log,policy,state)
@@ -326,6 +327,5 @@ cilium-agent [flags]
 
 ### SEE ALSO
 
-* [cilium-agent completion](cilium-agent_completion.md)	 - Generate the autocompletion script for the specified shell
-* [cilium-agent hive](cilium-agent_hive.md)	 - Inspect the hive
-
+* [cilium-agent completion](cilium-agent_completion.md)  - Generate the autocompletion script for the specified shell
+* [cilium-agent hive](cilium-agent_hive.md)  - Inspect the hive

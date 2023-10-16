@@ -13,6 +13,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
+	k8sLabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
@@ -40,6 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
+	"github.com/cilium/cilium/pkg/maps/strictmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/maps/worldcidrsmap"
@@ -524,6 +526,54 @@ func setupIPSec() (int, uint8, error) {
 	}
 	node.SetIPsecKeyIdentity(spi)
 	return authKeySize, spi, nil
+}
+
+func setupStrictModeMap() error {
+	if err := strictmap.Create(); err != nil {
+		return fmt.Errorf("initializing strict mode map: %w", err)
+	}
+
+	strictCIDRs := append(option.Config.EncryptionStrictModeNodeCIDRs, option.Config.EncryptionStrictModePodCIDRs...)
+	for _, cidr := range strictCIDRs {
+
+		ipv4Interface, ok := netip.AddrFromSlice(node.GetIPv4().To4())
+		if !ok {
+			return fmt.Errorf("unable to parse node IPv4 address %s", node.GetIPv4())
+		}
+		if cidr.Contains(ipv4Interface) && !option.Config.NodeEncryptionEnabled() {
+			if !option.Config.EncryptionStrictModeAllowRemoteNodeIdentities {
+				return fmt.Errorf(`encryption strict mode is enabled but the node's IPv4 address is within the strict CIDR range.
+				This will cause the node to drop all traffic.
+				Please either disable encryption or set --encryption-strict-mode-allow-dynamic-lookup=true`)
+			}
+		}
+
+		if err := strictmap.UpdateContext(cidr, 0, 0, 0, 0); err != nil {
+			return fmt.Errorf("updating strict mode map: %w", err)
+		}
+	}
+
+	// Add the default match to the trie map.
+	// If this prefix is matched, then the packet is allowed to pass unencrypted as indicated by the "1" as a value.
+	if err := strictmap.UpdateContext(netip.MustParsePrefix("0.0.0.0/0"), 0, 1, 0, 0); err != nil {
+		return fmt.Errorf("updating strict mode map: %w", err)
+	}
+
+	// Allow etcd ports only on control plane nodes
+	sel, err := k8sLabels.Parse("node-role.kubernetes.io/control-plane")
+	if err != nil {
+		return fmt.Errorf("unable to parse control plane label selector: %w", err)
+	}
+
+	if sel.Matches(k8sLabels.Set(node.GetLabels())) {
+		for _, nodeCIDR := range option.Config.EncryptionStrictModeNodeCIDRs {
+			if err := strictmap.UpdateContext(nodeCIDR, 0, 0, 2379, 2380); err != nil {
+				return fmt.Errorf("updating strict mode map: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
 
 func setupVTEPMapping() error {

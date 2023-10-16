@@ -391,8 +391,11 @@ func InitGlobalFlags(cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableEncryptionStrictMode, false, "Enable encryption strict mode")
 	option.BindEnv(vp, option.EnableEncryptionStrictMode)
 
-	flags.String(option.EncryptionStrictModeCIDR, "", "In strict-mode encryption, all unencrypted traffic coming from this CIDR and going to this same CIDR will be dropped")
-	option.BindEnv(vp, option.EncryptionStrictModeCIDR)
+	flags.StringSlice(option.EncryptionStrictModeNodeCIDRs, []string{}, "In strict-mode encryption, all unencrypted traffic coming from one of those CIDRs and going one of those CIDRs will be dropped")
+	option.BindEnv(vp, option.EncryptionStrictModeNodeCIDRs)
+
+	flags.StringSlice(option.EncryptionStrictModePodCIDRs, []string{}, "In strict-mode encryption, all unencrypted traffic coming from one of those CIDRs and going one of those CIDRs will be dropped")
+	option.BindEnv(vp, option.EncryptionStrictModePodCIDRs)
 
 	flags.Bool(option.EncryptionStrictModeAllowRemoteNodeIdentities, false, "Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.")
 	option.BindEnv(vp, option.EncryptionStrictModeAllowRemoteNodeIdentities)

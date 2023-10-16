@@ -662,11 +662,11 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 	 * packets against the CIDRs before encapsulation. If the packet is not
 	 * encrypted, we drop it.
 	 */
-	#if defined(TUNNEL_MODE) && defined(ENCRYPTION_STRICT_MODE)
+#if !defined(ENABLE_NODE_ENCRYPTION) && defined(TUNNEL_MODE) && defined(ENCRYPTION_STRICT_MODE)
 	if (!strict_allow(ctx))
 		return send_drop_notify_error(ctx, 0, DROP_UNENCRYPTED_TRAFFIC,
 					      CTX_ACT_DROP, METRIC_EGRESS);
-	#endif
+#endif
 
 #ifdef ENABLE_BANDWIDTH_MANAGER
 	/* In tunneling mode, we should do this as close as possible to the

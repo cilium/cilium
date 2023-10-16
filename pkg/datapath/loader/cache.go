@@ -51,6 +51,7 @@ var ignoredELFPrefixes = []string{
 	"cilium_runtime_config",      // Global
 	"cilium_signals",             // Global
 	"cilium_snat",                // All SNAT maps
+	"cilium_strict",              // Global
 	"cilium_tail_call_buffer",    // Global
 	"cilium_tunnel",              // Global
 	"cilium_ipv4_frag_datagrams", // Global

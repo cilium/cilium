@@ -1433,11 +1433,11 @@ skip_host_firewall:
 	 * packet to check if the packet's original destination is allowed to
 	 * be sent unencrypted.
 	 */
-#if !defined(TUNNEL_MODE) && defined(ENCRYPTION_STRICT_MODE)
+#if defined(ENCRYPTION_STRICT_MODE) && (!defined(TUNNEL_MODE) || defined(ENABLE_NODE_ENCRYPTION))
 	if (!strict_allow(ctx))
 		return send_drop_notify_error(ctx, 0, DROP_UNENCRYPTED_TRAFFIC,
 					      CTX_ACT_DROP, METRIC_EGRESS);
-#endif /* !TUNNEL_MODE && ENCRYPTION_STRICT_MODE */
+#endif /* ENCRYPTION_STRICT_MODE && (!TUNNEL_MODE || ENABLE_NODE_ENCRYPTION) */
 #endif /* ENABLE_WIREGUARD */
 
 #ifdef ENABLE_SRV6

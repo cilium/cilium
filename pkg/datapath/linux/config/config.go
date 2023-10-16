@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -55,6 +54,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/recorder"
 	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/srv6map"
+	"github.com/cilium/cilium/pkg/maps/strictmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 	"github.com/cilium/cilium/pkg/maps/worldcidrsmap"
@@ -210,6 +210,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["CONFIG_MAP_SIZE"] = fmt.Sprintf("%d", configmap.MaxEntries)
 	cDefinesMap["IPCACHE_MAP"] = ipcachemap.Name
 	cDefinesMap["IPCACHE_MAP_SIZE"] = fmt.Sprintf("%d", ipcachemap.MaxEntries)
+	cDefinesMap["STRICT_MODE_MAP"] = strictmap.Name
+	cDefinesMap["STRICT_MAP_SIZE"] = fmt.Sprintf("%d", strictmap.MaxEntries)
 	cDefinesMap["NODE_MAP"] = nodemap.MapName
 	cDefinesMap["NODE_MAP_SIZE"] = fmt.Sprintf("%d", nodemap.MaxEntries)
 	cDefinesMap["SRV6_VRF_MAP4"] = srv6map.VRFMapName4
@@ -327,24 +329,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	if option.Config.EnableEncryptionStrictMode {
 		cDefinesMap["ENCRYPTION_STRICT_MODE"] = "1"
 
-		// when parsing the user input we only accept ipv4 addresses
-		cDefinesMap["STRICT_IPV4_NET"] = fmt.Sprintf("%#x", byteorder.NetIPAddrToHost32(option.Config.EncryptionStrictModeCIDR.Addr()))
-		cDefinesMap["STRICT_IPV4_NET_SIZE"] = fmt.Sprintf("%d", option.Config.EncryptionStrictModeCIDR.Bits())
-
 		cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%#x", byteorder.NetIPv4ToHost32(node.GetIPv4()))
 
-		ipv4Interface, ok := netip.AddrFromSlice(node.GetIPv4().To4())
-		if !ok {
-			return fmt.Errorf("unable to parse node IPv4 address %s", node.GetIPv4())
-		}
-
-		if option.Config.EncryptionStrictModeCIDR.Contains(ipv4Interface) {
-			if !option.Config.EncryptionStrictModeAllowRemoteNodeIdentities {
-				return fmt.Errorf(`encryption strict mode is enabled but the node's IPv4 address is within the strict CIDR range.
-				This will cause the node to drop all traffic.
-				Please either disable encryption or set --encryption-strict-mode-allow-dynamic-lookup=true`)
-			}
-			cDefinesMap["STRICT_IPV4_OVERLAPPING_CIDR"] = "1"
+		if option.Config.EncryptionStrictModeAllowRemoteNodeIdentities {
+			cDefinesMap["ALLOW_REMOTE_NODE_IDENTITIES"] = "1"
 		}
 	}
 

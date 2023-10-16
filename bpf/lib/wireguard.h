@@ -12,6 +12,8 @@
 #include "tailcall.h"
 #include "common.h"
 #include "overloadable.h"
+#include "maps.h"
+#include "eps.h"
 
 static __always_inline int
 wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx)
@@ -114,19 +116,42 @@ out:
 
 #ifdef ENCRYPTION_STRICT_MODE
 
+static __always_inline __maybe_unused struct strict_mode_policy *
+strict_lookup4(const void *map, __be32 addr, __u32 prefix, __u8 cluster_id)
+{
+	struct ipcache_key key = {
+		.lpm_key = { IPCACHE_PREFIX_LEN(prefix), {} },
+		.cluster_id = cluster_id,
+		.family = ENDPOINT_KEY_IPV4,
+		.ip4 = addr,
+	};
+
+	key.ip4 &= GET_PREFIX(prefix);
+	return map_lookup_elem(map, &key);
+}
+
 /* strict_allow checks whether the packet is allowed to pass through the strict mode. */
 static __always_inline bool
 strict_allow(struct __ctx_buff *ctx) {
 	struct remote_endpoint_info __maybe_unused *dest_info, __maybe_unused *src_info;
-	bool __maybe_unused in_strict_cidr = false;
+	bool __maybe_unused src_in_cidr = false;
+	bool __maybe_unused dst_in_cidr = false;
+	struct strict_mode_policy __maybe_unused *entry = NULL;
 	void *data, *data_end;
 #ifdef ENABLE_IPV4
 	struct iphdr *ip4;
+	struct tcphdr *tcph = NULL;
+	__u16 offset;
 #endif
 	__u16 proto = 0;
 
 	if (!validate_ethertype(ctx, &proto))
 		return true;
+
+#ifdef ENABLE_NODE_ENCRYPTION
+	if ((ctx->mark & MARK_MAGIC_WG_ENCRYPTED) == MARK_MAGIC_WG_ENCRYPTED)
+		return true;
+#endif /* ENABLE_NODE_ENCRYPTION */
 
 	switch (proto) {
 #ifdef ENABLE_IPV4
@@ -138,24 +163,39 @@ strict_allow(struct __ctx_buff *ctx) {
 		 * (1) When encapsulation is used and the destination is a remote pod.
 		 * (2) When the destination is a remote-node.
 		 */
+#ifndef ENABLE_NODE_ENCRYPTION
 		if (ip4->saddr == IPV4_GATEWAY || ip4->saddr == IPV4_ENCRYPT_IFACE)
 			return true;
+#endif /* ENABLE_NODE_ENCRYPTION */
 
-		in_strict_cidr = ipv4_is_in_subnet(ip4->daddr,
-						   STRICT_IPV4_NET,
-						   STRICT_IPV4_NET_SIZE);
-		in_strict_cidr &= ipv4_is_in_subnet(ip4->saddr,
-						    STRICT_IPV4_NET,
-						    STRICT_IPV4_NET_SIZE);
+		if (ip4->protocol == IPPROTO_TCP) {
+			offset = sizeof(struct ethhdr) + sizeof(struct iphdr);
+			if ((data + offset + sizeof(struct tcphdr)) > data_end)
+				return true;
+			tcph = (struct tcphdr *)(data + offset);
+		}
 
-#if defined(TUNNEL_MODE) || defined(STRICT_IPV4_OVERLAPPING_CIDR)
-		/* Allow pod to remote-node communication */
+		entry = strict_lookup4(&STRICT_MODE_MAP, ip4->daddr, V4_CACHE_KEY_LEN, 0);
+		if (entry && entry->allow == 0)
+			dst_in_cidr = true;
+		if (entry && tcph && (tcph->dest == entry->port1 || tcph->dest == entry->port2))
+			return true;
+
+		entry = strict_lookup4(&STRICT_MODE_MAP, ip4->saddr, V4_CACHE_KEY_LEN, 0);
+		if (entry && entry->allow == 0)
+			src_in_cidr = true;
+		if (entry && tcph && (tcph->source == entry->port1 || tcph->source == entry->port2))
+			return true;
+
+
+#ifdef ALLOW_REMOTE_NODE_IDENTITIES
+		/* Allow X to remote-node communication */
 		dest_info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 		if (dest_info && dest_info->sec_identity &&
 		    identity_is_node(dest_info->sec_identity))
 			return true;
-#endif /* TUNNEL_MODE || STRICT_IPV4_OVERLAPPING_CIDR */
-		return !in_strict_cidr;
+#endif /* ALLOW_REMOTE_NODE_IDENTITIES */
+		return !(src_in_cidr && dst_in_cidr);
 #endif /* ENABLE_IPV4 */
 	default:
 		return true;
