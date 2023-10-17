@@ -10,6 +10,8 @@ import (
 	"net"
 	"sort"
 	"strings"
+
+	"golang.org/x/exp/slices"
 )
 
 const (
@@ -496,7 +498,7 @@ func (l Labels) SortedList() []byte {
 	for k := range l {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 
 	b := make([]byte, 0, len(keys)*2)
 	buf := bytes.NewBuffer(b)
