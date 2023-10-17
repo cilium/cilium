@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/build"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 // numUnavailableNodesReportMax represents the maximum number of unavailable
@@ -276,21 +277,23 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 	g, ctx = errgroup.WithContext(ctx)
 
 	peers := s.peers.List()
-	var numConnectedNodes, numUnavailableNodes uint32
+	mu := lock.Mutex{}
+	numUnavailableNodes := 0
 	var unavailableNodes []string
 	statuses := make(chan *observerpb.ServerStatusResponse, len(peers))
 	for _, p := range peers {
 		if !isAvailable(p.Conn) {
-			numUnavailableNodes++
 			s.opts.log.WithField("address", p.Address).Infof(
 				"No connection to peer %s, skipping", p.Name,
 			)
+			mu.Lock()
+			numUnavailableNodes++
 			if len(unavailableNodes) < numUnavailableNodesReportMax {
 				unavailableNodes = append(unavailableNodes, p.Name)
 			}
+			mu.Unlock()
 			continue
 		}
-		numConnectedNodes++
 		p := p
 		g.Go(func() error {
 			client := s.opts.ocb.observerClient(&p)
@@ -300,6 +303,12 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 					"error": err,
 					"peer":  p,
 				}).Warning("Failed to retrieve server status")
+				mu.Lock()
+				numUnavailableNodes++
+				if len(unavailableNodes) < numUnavailableNodesReportMax {
+					unavailableNodes = append(unavailableNodes, p.Name)
+				}
+				mu.Unlock()
 				return nil
 			}
 			select {
@@ -315,13 +324,6 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 	}()
 	resp := &observerpb.ServerStatusResponse{
 		Version: build.RelayVersion.String(),
-		NumConnectedNodes: &wrapperspb.UInt32Value{
-			Value: numConnectedNodes,
-		},
-		NumUnavailableNodes: &wrapperspb.UInt32Value{
-			Value: numUnavailableNodes,
-		},
-		UnavailableNodes: unavailableNodes,
 	}
 	for status := range statuses {
 		if status == nil {
@@ -337,5 +339,14 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 		}
 		resp.FlowsRate += status.FlowsRate
 	}
+
+	resp.NumConnectedNodes = &wrapperspb.UInt32Value{
+		Value: uint32(len(peers) - numUnavailableNodes),
+	}
+	resp.NumUnavailableNodes = &wrapperspb.UInt32Value{
+		Value: uint32(numUnavailableNodes),
+	}
+	resp.UnavailableNodes = unavailableNodes
+
 	return resp, g.Wait()
 }

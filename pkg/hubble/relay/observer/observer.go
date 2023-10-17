@@ -25,11 +25,9 @@ func isAvailable(conn poolTypes.ClientConn) bool {
 	if conn == nil {
 		return false
 	}
-	switch conn.GetState() {
-	case connectivity.Ready, connectivity.Idle:
-		return true
-	}
-	return false
+	state := conn.GetState()
+	return state != connectivity.TransientFailure &&
+		state != connectivity.Shutdown
 }
 
 func retrieveFlowsFromPeer(
