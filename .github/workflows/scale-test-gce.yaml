@@ -47,7 +47,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Checkout context ref (trusted)
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
@@ -111,7 +111,7 @@ jobs:
           version: "405.0.0"
       
       - name: Clone ClusterLoader2
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: learnitall/perf-tests
           ref: d7a97a6b7b9efc29ccb496f3ff54f42588006e96 # tinker/learnitall/100-node-scale-test
