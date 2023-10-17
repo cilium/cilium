@@ -1617,6 +1617,16 @@ Limitations
     * The neighbor discovery in a multi-device environment doesn't work with the runtime device
       detection which means that the target devices for the neighbor discovery doesn't follow the
       device changes.
+    * When socket-LB feature is enabled, pods sending (connected) UDP traffic to services
+      can continue to send traffic to a service backend even after it's deleted. Cilium agent
+      handles such scenarios by forcefully terminating pod sockets in the host network
+      namespace that are connected to deleted backends, so that the pods can be
+      load-balanced to active backends. This functionality requires these
+      kernel configs to be enabled: ``CONFIG_INET_DIAG``, ``CONFIG_INET_UDP_DIAG``
+      and ``CONFIG_INET_DIAG_DESTROY``. If you have application pods (not deployed in the
+      host network namespace) making long-lived connections using (connected) UDP,
+      you can enable ``bpf-lb-sock-hostns-only`` in order to enable the socket-LB
+      feature only in the host network namespace.
 
 Further Readings
 ################
