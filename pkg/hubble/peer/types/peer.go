@@ -98,3 +98,13 @@ func FromChangeNotification(cn *peerpb.ChangeNotification) *Peer {
 func (p Peer) String() string {
 	return p.Name
 }
+
+// Equal reports whether the Peer is equal to the provided Peer
+func (p Peer) Equal(o Peer) bool {
+	addrEq := (p.Address == nil && o.Address == nil) ||
+		(p.Address.String() == o.Address.String() && p.Address.Network() == o.Address.Network())
+	return p.Name == o.Name &&
+		p.TLSEnabled == o.TLSEnabled &&
+		p.TLSServerName == o.TLSServerName &&
+		addrEq
+}
