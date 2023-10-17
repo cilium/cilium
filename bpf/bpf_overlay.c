@@ -537,26 +537,6 @@ int cil_from_overlay(struct __ctx_buff *ctx)
  */
 	decrypted = ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
 
-#ifdef ENABLE_IPSEC
-	if (is_esp(ctx, proto))
-		send_trace_notify(ctx, TRACE_FROM_OVERLAY, 0, 0, 0,
-				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
-	else
-#endif
-	{
-		enum trace_point obs_point = TRACE_FROM_OVERLAY;
-
-		/* Non-ESP packet marked with MARK_MAGIC_DECRYPT is a packet
-		 * re-inserted from the stack.
-		 */
-		if (decrypted)
-			obs_point = TRACE_FROM_STACK;
-
-		send_trace_notify(ctx, obs_point, 0, 0, 0,
-				  ctx->ingress_ifindex,
-				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
-	}
-
 	switch (proto) {
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
  #ifdef ENABLE_IPV6
@@ -599,6 +579,26 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV4 || ENABLE_IPV6 */
 	default:
 		break;
+	}
+
+#ifdef ENABLE_IPSEC
+	if (is_esp(ctx, proto))
+		send_trace_notify(ctx, TRACE_FROM_OVERLAY, src_sec_identity, 0, 0,
+				  ctx->ingress_ifindex, TRACE_REASON_ENCRYPTED, 0);
+	else
+#endif
+	{
+		enum trace_point obs_point = TRACE_FROM_OVERLAY;
+
+		/* Non-ESP packet marked with MARK_MAGIC_DECRYPT is a packet
+		 * re-inserted from the stack.
+		 */
+		if (decrypted)
+			obs_point = TRACE_FROM_STACK;
+
+		send_trace_notify(ctx, obs_point, src_sec_identity, 0, 0,
+				  ctx->ingress_ifindex,
+				  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 	}
 
 	switch (proto) {
