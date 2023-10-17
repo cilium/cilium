@@ -654,6 +654,10 @@ func (ic *Controller) isEffectiveLoadbalancerModeDedicated(ing *slim_networkingv
 }
 
 func (ic *Controller) garbageCollectOwnedResources(ing *slim_networkingv1.Ingress) error {
+	// When the Ingress is in shared mode, shared resources cannot be deleted.
+	if !ic.isEffectiveLoadbalancerModeDedicated(ing) {
+		return nil
+	}
 	cec, svc, ep, err := ic.regenerate(ing, false)
 	if err != nil {
 		return err
