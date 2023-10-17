@@ -63,6 +63,7 @@ type datapathRegenerationContext struct {
 	currentDir         string
 	nextDir            string
 	regenerationLevel  regeneration.DatapathRegenerationLevel
+	initialState       State
 
 	finalizeList revert.FinalizeList
 	revertStack  revert.RevertStack

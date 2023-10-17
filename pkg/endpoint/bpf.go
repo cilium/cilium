@@ -611,7 +611,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// This must be done after allocating the new redirects, to update the
 	// policy map with the new proxy ports.
 	stats.mapSync.Start()
-	err = e.syncPolicyMap()
+	err = e.syncPolicyMap(true)
 	stats.mapSync.End(err == nil)
 	if err != nil {
 		return 0, compilationExecuted, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
@@ -847,7 +847,14 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext, rul
 		// GH-3897 would fix this by creating a new map to do an atomic swap
 		// with the old one.
 		stats.mapSync.Start()
-		err = e.syncPolicyMap()
+		// If we're doing out first regeneration after a restore, the endpoint is still
+		// referencing the old ipcache at this point in time. Thus, we should only add
+		// new entries in to the policy map without removing stale entries. We will
+		// clean up the stale entries at the end of regeneration.
+		// Once the endpoint is referencing the new ipcache, this is no longer necessary.
+		// See: GH-28645
+		deleteStaleEntries := datapathRegenCtxt.initialState != StateRestoring
+		err = e.syncPolicyMap(deleteStaleEntries)
 		stats.mapSync.End(err == nil)
 		if err != nil {
 			return false, fmt.Errorf("unable to regenerate policy because PolicyMap synchronization failed: %s", err)
@@ -1224,7 +1231,7 @@ func (e *Endpoint) applyPolicyMapChanges() error {
 // syncPolicyMap updates the bpf policy map state based on the
 // difference between the realized and desired policy state without
 // dumping the bpf policy map.
-func (e *Endpoint) syncPolicyMap() error {
+func (e *Endpoint) syncPolicyMap(deleteStale bool) error {
 	// Apply pending policy map changes first so that desired map is up-to-date before
 	// we diff the maps below.
 	err := e.applyPolicyMapChanges()
@@ -1239,7 +1246,7 @@ func (e *Endpoint) syncPolicyMap() error {
 	}
 
 	// Diffs between the maps are expected here, so do not bother collecting them
-	_, _, err = e.syncPolicyMapsWith(e.realizedPolicy.GetPolicyMap(), false)
+	_, _, err = e.syncPolicyMapsWith(e.realizedPolicy.GetPolicyMap(), false, deleteStale)
 	return err
 }
 
@@ -1248,7 +1255,11 @@ func (e *Endpoint) syncPolicyMap() error {
 // dumping the bpf policy map.
 // Changes are synced to endpoint's realized policy mapstate, 'realized' is
 // not modified.
-func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) (diffCount int, diffs []policy.MapChange, err error) {
+//
+// if deleteStale is false, then stale entries will not be removed. This should
+// only be used while the endpoint is undergoing its first regeneration after
+// being restored -- and it will have a second synchronization with stale entries removed.
+func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs, deleteStale bool) (diffCount int, diffs []policy.MapChange, err error) {
 	errors := 0
 
 	// Add policy map entries before deleting to avoid transient drops
@@ -1273,20 +1284,22 @@ func (e *Endpoint) syncPolicyMapsWith(realized policy.MapState, withDiffs bool) 
 		return true
 	})
 
-	// Delete policy keys present in the realized state, but not present in the desired state
-	realized.ForEach(func(keyToDelete policy.Key, _ policy.MapStateEntry) bool {
-		// If key that is in realized state is not in desired state, just remove it.
-		if entry, ok := e.desiredPolicy.GetPolicyMap().Get(keyToDelete); !ok {
-			if !e.deletePolicyKey(keyToDelete, false) {
-				errors++
+	if deleteStale {
+		// Delete policy keys present in the realized state, but not present in the desired state
+		realized.ForEach(func(keyToDelete policy.Key, _ policy.MapStateEntry) bool {
+			// If key that is in realized state is not in desired state, just remove it.
+			if entry, ok := e.desiredPolicy.GetPolicyMap().Get(keyToDelete); !ok {
+				if !e.deletePolicyKey(keyToDelete, false) {
+					errors++
+				}
+				diffCount++
+				if withDiffs {
+					diffs = append(diffs, policy.MapChange{Add: false, Key: keyToDelete, Value: entry})
+				}
 			}
-			diffCount++
-			if withDiffs {
-				diffs = append(diffs, policy.MapChange{Add: false, Key: keyToDelete, Value: entry})
-			}
-		}
-		return true
-	})
+			return true
+		})
+	}
 
 	if errors > 0 {
 		err = fmt.Errorf("syncPolicyMap failed")
@@ -1378,7 +1391,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 	e.PolicyDebug(logrus.Fields{"dumpedPolicyMap": currentMap}, "syncPolicyMapWithDump")
 	// Diffs between the maps indicate an error in the policy map update logic.
 	// Collect and log diffs if policy logging is enabled.
-	diffCount, diffs, err := e.syncPolicyMapsWith(currentMap, e.getPolicyLogger() != nil)
+	diffCount, diffs, err := e.syncPolicyMapsWith(currentMap, e.getPolicyLogger() != nil, true)
 
 	if diffCount > 0 {
 		e.getLogger().WithField(logfields.Count, diffCount).Warning("Policy map sync fixed errors, consider running with debug verbose = policy to get detailed dumps")

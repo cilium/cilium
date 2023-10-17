@@ -405,6 +405,7 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	// the state remains unchanged
 	//
 	// GH-5350: Remove this special case to require checking for StateWaitingForIdentity
+	ctx.datapathRegenerationContext.initialState = e.getState()
 	if e.getState() != StateWaitingForIdentity &&
 		!e.BuilderSetStateLocked(StateRegenerating, "Regenerating endpoint: "+ctx.Reason) {
 		if debugLogsEnabled {
