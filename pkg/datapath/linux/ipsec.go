@@ -28,7 +28,7 @@ func upsertIPsecLog(err error, spec string, loc, rem *net.IPNet, spi uint8, node
 		logfields.SPI:      spi,
 		logfields.LocalIP:  loc,
 		logfields.RemoteIP: rem,
-		logfields.NodeID:   nodeID,
+		logfields.NodeID:   fmt.Sprintf("0x%x", nodeID),
 	})
 	if err != nil {
 		scopedLog.WithError(err).Error("IPsec enable failed")
