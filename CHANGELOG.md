@@ -1,5 +1,76 @@
 # Changelog
 
+## v1.12.15
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* bump grpc dependency to 1.56.3 to fix security vulnerability https://github.com/advisories/GHSA-qppj-fm5r-hxr3 (#28529, @aanm)
+* vendor, azure: Bump Azure SDK to Aug 2021 (Backport PR #28317, Upstream PR #28311, @christarazi)
+
+**Bugfixes:**
+* Add drop notifications for various error paths in the datapath. (Backport PR #28437, Upstream PR #25183, @julianwiedmann)
+* Add drop notifications from various error paths in the BPF datapath. (Backport PR #28444, Upstream PR #26956, @julianwiedmann)
+* bpf: fix error handling for invoke_tailcall_if() (Backport PR #28414, Upstream PR #26118, @julianwiedmann)
+* bpf: lxc: fix one missing drop notification in CT lookup tail calls (Backport PR #28351, Upstream PR #26115, @julianwiedmann)
+* envoy: Sync supported resources to fix not found issue (Backport PR #28351, Upstream PR #28272, @sayboras)
+* Fix a bug that causes pod-to-pod traffic between nodes to be dropped when IPsec is enabled and kube-proxy installed rules in both iptables-nft and iptables-legacy. (Backport PR #28444, Upstream PR #28258, @pchaigno)
+* Fix missing drop notifications on conntrack lookup failures when IPv4 and IPv6 are both enabled or socket-level load balancing is disabled. (Backport PR #28295, Upstream PR #25426, @bleggett)
+* Fix the trace notification for hairpinned reply traffic, to indicate the correct security identity for the client. (Backport PR #28295, Upstream PR #28133, @julianwiedmann)
+* Fixes a bug causing panic when counting IPsec keys number via "cilium encrypt status". (Backport PR #28295, Upstream PR #27996, @jschwinger233)
+* pkg/node: Updates GetIPv6AllocCIDRs() to Properly Return Secondary CIDRs (Backport PR #28104, Upstream PR #27855, @danehans)
+
+**CI Changes:**
+* [v1.12] ci: Add a call to the update label backport action (#27879, @pippolo84)
+* [v1.14] GHA: Add clustermesh upgrade and downgrade tests (Backport PR #28564, Upstream PR #28355, @giorio94)
+* CI: Add conn-disrupt-test action for reuse (Backport PR #28152, Upstream PR #27567, @jschwinger233)
+* CI: Add conn-disrupt-test action for reuse (Backport PR #28295, Upstream PR #27567, @jschwinger233)
+* CI: Add IPsec key rotation test (Backport PR #28152, Upstream PR #27203, @jschwinger233)
+* CI: Move IPsec CI jobs into separate pipelines (Backport PR #28152, Upstream PR #26730, @jschwinger233)
+* ci: Run BPF lints on workflow definition changes (Backport PR #28295, Upstream PR #28122, @qmonnet)
+* ci: update k8s versions support for v1.12 (#28246, @nbusseneau)
+* Do not hardcode the AWS VPC CNI plugin version in the conformance-aws-cni GHA workflow (Backport PR #28444, Upstream PR #28392, @giorio94)
+* Refactor CiliumExecContext() Retry Logic (Backport PR #28295, Upstream PR #28131, @carnerito)
+* Update image registry to quay.io (Backport PR #28295, Upstream PR #23093, @oxxenix)
+* v1.12: manual backport of #27193 (#28227, @nbusseneau)
+* workflows/ipsec: Add missing `--flush-ct` for key rotation (Backport PR #28152, Upstream PR #27883, @pchaigno)
+
+**Misc Changes:**
+* chore(deps): update all github action dependencies (v1.12) (patch) (#28114, @renovate[bot])
+* chore(deps): update all github action dependencies to v3 (v1.12) (major) (#28116, @renovate[bot])
+* chore(deps): update all lvh-images main (v1.12) (patch) (#27948, @renovate[bot])
+* chore(deps): update all lvh-images main (v1.12) (patch) (#28215, @renovate[bot])
+* chore(deps): update aws-actions/configure-aws-credentials action to v4 (v1.12) (#28117, @renovate[bot])
+* chore(deps): update dependency cilium/hubble to v0.12.1 (v1.12) (#28526, @renovate[bot])
+* chore(deps): update dependency cilium/hubble to v0.12.2 (v1.12) (#28568, @renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.20.10 (v1.12) (#28517, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.20.8 docker digest to 700d726 (v1.12) (#28113, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:20.04 docker digest to 0b5642e (v1.12) (#28582, @renovate[bot])
+* chore(deps): update docker/build-push-action action to v4.2.1 (v1.12) (#28115, @renovate[bot])
+* chore(deps): update docker/build-push-action action to v5 (v1.12) (#28118, @renovate[bot])
+* chore(deps): update myrotvorets/set-commit-status-action action to v2 (v1.12) (#28119, @renovate[bot])
+* chore(deps): update quay.io/cilium/hubble docker tag to v0.12.1 (v1.12) (#28544, @renovate[bot])
+* chore(deps): update quay.io/cilium/hubble docker tag to v0.12.2 (v1.12) (#28573, @renovate[bot])
+* ci: fix AWS EKS K8s versions comment (Backport PR #28295, Upstream PR #28249, @nbusseneau)
+* docs: Add more details for the Cluster Mesh key rotation (Backport PR #28295, Upstream PR #28145, @margamanterola)
+* docs: egressgw: document incompatibility with Clustermesh (Backport PR #28104, Upstream PR #27918, @julianwiedmann)
+* docs: Makefile, check-build.sh clean-ups and perf improvements (Backport PR #28295, Upstream PR #28161, @qmonnet)
+* docs: Mention `RouteTableInterfacesOffset` in system requirements (Backport PR #28444, Upstream PR #28358, @gandro)
+* docs: Update Sphinx and its dependencies, Cilium theme (Backport PR #28295, Upstream PR #28172, @qmonnet)
+* Fix potential nil pointer dereference in SelectorManager implementation (Backport PR #28104, Upstream PR #27805, @learnitall)
+* fix(deps): update module golang.org/x/net to v0.17.0 [security] (#28552, @aanm)
+* install/kubernetes: add the `cilium/values.yaml` target to `.PHONY` (Backport PR #28295, Upstream PR #28225, @nbusseneau)
+* ipsec: Atomically upgrade XFRM states with new output-mark (Backport PR #28564, Upstream PR #28485, @pchaigno)
+* Update docs theme (Backport PR #28444, Upstream PR #28403, @raphink)
+* Update Hubble UI from v0.11.0 to v0.12.1 (#28536, @rolinh)
+
+**Other Changes:**
+* Backport v1.12: FQDN fixes (#28138, @joamaki)
+* cocci: backport fix about incorrect warnings and resolve warning related to a const qualifier (#28287, @giorio94)
+* envoy: Bump envoy version to v1.24.11 (#28501, @sayboras)
+* install: Update image digests for v1.12.14 (#28130, @michi-covalent)
+
 ## v1.12.14
 
 Summary of Changes
