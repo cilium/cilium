@@ -10,6 +10,8 @@ import (
 	"net"
 	"sort"
 	"strings"
+
+	"golang.org/x/exp/slices"
 )
 
 const (
@@ -502,7 +504,7 @@ func (l Labels) SortedList() []byte {
 	for k := range l {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 
 	// Labels can have arbitrary size. However, when many CIDR identities are in
 	// the system, for example due to a FQDN policy matching S3, CIDR labels
