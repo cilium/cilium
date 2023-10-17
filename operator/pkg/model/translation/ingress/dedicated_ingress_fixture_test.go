@@ -76,9 +76,9 @@ func toEnvoyCluster(namespace, name, port string) *envoy_config_cluster_v3.Clust
 				CommonHttpProtocolOptions: &envoy_config_core_v3.HttpProtocolOptions{
 					IdleTimeout: &durationpb.Duration{Seconds: int64(60)},
 				},
-				UpstreamProtocolOptions: &envoy_upstreams_http_v3.HttpProtocolOptions_UseDownstreamProtocolConfig{
-					UseDownstreamProtocolConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_UseDownstreamHttpConfig{
-						Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{},
+				UpstreamProtocolOptions: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
+					ExplicitHttpConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig{
+						ProtocolConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{},
 					},
 				},
 			}),

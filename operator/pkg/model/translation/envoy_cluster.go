@@ -93,9 +93,9 @@ func NewHTTPCluster(name string, mutationFunc ...ClusterMutator) (ciliumv2.XDSRe
 		Name: name,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			httpProtocolOptionsType: toAny(&envoy_upstreams_http_v3.HttpProtocolOptions{
-				UpstreamProtocolOptions: &envoy_upstreams_http_v3.HttpProtocolOptions_UseDownstreamProtocolConfig{
-					UseDownstreamProtocolConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_UseDownstreamHttpConfig{
-						Http2ProtocolOptions: &envoy_config_core_v3.Http2ProtocolOptions{},
+				UpstreamProtocolOptions: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_{
+					ExplicitHttpConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig{
+						ProtocolConfig: &envoy_upstreams_http_v3.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{},
 					},
 				},
 			}),
