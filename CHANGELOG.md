@@ -1,5 +1,83 @@
 # Changelog
 
+## v1.13.8
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* bump grpc dependency to 1.56.3 to fix security vulnerability https://github.com/advisories/GHSA-qppj-fm5r-hxr3 (#28528, @aanm)
+* vendor, azure: Bump Azure SDK to Aug 2021 (Backport PR #28316, Upstream PR #28311, @christarazi)
+
+**Bugfixes:**
+* Add drop notifications from various error paths in the BPF datapath. (Backport PR #28443, Upstream PR #26956, @julianwiedmann)
+* envoy: Sync supported resources to fix not found issue (Backport PR #28350, Upstream PR #28272, @sayboras)
+* Fix a bug that causes pod-to-pod traffic between nodes to be dropped when IPsec is enabled and kube-proxy installed rules in both iptables-nft and iptables-legacy. (Backport PR #28443, Upstream PR #28258, @pchaigno)
+* Fix the trace notification for hairpinned reply traffic, to indicate the correct security identity for the client. (Backport PR #28251, Upstream PR #28133, @julianwiedmann)
+* Fixes a bug causing panic when counting IPsec keys number via "cilium encrypt status". (Backport PR #28251, Upstream PR #27996, @jschwinger233)
+* ipcache: fix flapping labels in SelectorCache when reserved:host identity has multiple IPs (Backport PR #28416, Upstream PR #28332, @squeed)
+* pkg/k8s: use a deep copy of CNP in UpdateStatus to avoid race condition (Backport PR #28519, Upstream PR #28364, @aanm)
+* pkg/node: Updates GetIPv6AllocCIDRs() to Properly Return Secondary CIDRs (Backport PR #28103, Upstream PR #27855, @danehans)
+
+**CI Changes:**
+* [v1.13] ci: Add a call to the update label backport action (#27877, @pippolo84)
+* [v1.14] GHA: Add clustermesh upgrade and downgrade tests (Backport PR #28519, Upstream PR #28355, @giorio94)
+* Add missing ariane trigger phrases (Backport PR #28087, Upstream PR #27822, @tklauser)
+* ci-ipsec-upgrade: Enable IPv6 (Backport PR #28103, Upstream PR #27220, @brb)
+* CI: Add conn-disrupt-test action for reuse (Backport PR #28120, Upstream PR #27567, @jschwinger233)
+* CI: Add IPsec key rotation test (Backport PR #28120, Upstream PR #27203, @jschwinger233)
+* CI: Move IPsec CI jobs into separate pipelines (Backport PR #28120, Upstream PR #26730, @jschwinger233)
+* ci: Run BPF lints on workflow definition changes (Backport PR #28251, Upstream PR #28122, @qmonnet)
+* ci: update k8s versions support for v1.13 (#28247, @nbusseneau)
+* Do not hardcode the AWS VPC CNI plugin version in the conformance-aws-cni GHA workflow (Backport PR #28443, Upstream PR #28392, @giorio94)
+* gha: Remove priviledged helm option in {Ingress, Gateway} (Backport PR #28251, Upstream PR #28200, @sayboras)
+* ingress: Add conformance test for KPR=false (Backport PR #28087, Upstream PR #27304, @sayboras)
+* Refactor CiliumExecContext() Retry Logic (Backport PR #28251, Upstream PR #28131, @carnerito)
+* Update image registry to quay.io (Backport PR #28251, Upstream PR #23093, @oxxenix)
+* workflows/ipsec: Add missing `--flush-ct` for key rotation (Backport PR #28120, Upstream PR #27883, @pchaigno)
+
+**Misc Changes:**
+* Add option conntrackGCMaxInterval to allow limiting the maximum connection tracking GC interval. By default the automatic interval calculation may increase the interval up to 12 hours, which may incur an unreasonable delay to releasing of CIDR identities created from ToFQDN policies. Setting this option will limit the interval and ensure such identities are marked unused earlier and removed. (Backport PR #28251, Upstream PR #27870, @joamaki)
+* bump k8s dependencies to 1.26.9 (#28559, @aanm)
+* chore(deps): update all github action dependencies (v1.13) (patch) (#28106, @renovate[bot])
+* chore(deps): update all github action dependencies to v3 (v1.13) (major) (#28109, @renovate[bot])
+* chore(deps): update all lvh-images main (v1.13) (patch) (#28107, @renovate[bot])
+* chore(deps): update all lvh-images main (v1.13) (patch) (#28213, @renovate[bot])
+* chore(deps): update aws-actions/configure-aws-credentials action to v4 (v1.13) (#28110, @renovate[bot])
+* chore(deps): update dependency cilium/hubble to v0.12.1 (v1.13) (#28525, @renovate[bot])
+* chore(deps): update dependency cilium/hubble to v0.12.2 (v1.13) (#28567, @renovate[bot])
+* chore(deps): update docker.io/library/golang docker tag to v1.20.10 (v1.13) (#28516, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.20.8 docker digest to 6b29720 (v1.13) (#28212, @renovate[bot])
+* chore(deps): update docker.io/library/golang:1.20.8 docker digest to 700d726 (v1.13) (#28083, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to 9b8dec3 (v1.13) (#28385, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to a903800 (v1.13) (#28581, @renovate[bot])
+* chore(deps): update docker.io/library/ubuntu:22.04 docker digest to aabed32 (v1.13) (#27897, @renovate[bot])
+* chore(deps): update docker/build-push-action action to v5 (v1.13) (#28111, @renovate[bot])
+* chore(deps): update github/codeql-action action to v2.21.7 (v1.13) (#28214, @renovate[bot])
+* chore(deps): update myrotvorets/set-commit-status-action action to v2 (v1.13) (#28112, @renovate[bot])
+* chore(deps): update quay.io/cilium/hubble docker tag to v0.12.1 (v1.13) (#28543, @renovate[bot])
+* chore(deps): update quay.io/cilium/hubble docker tag to v0.12.2 (v1.13) (#28572, @renovate[bot])
+* ci: fix AWS EKS K8s versions comment (Backport PR #28350, Upstream PR #28249, @nbusseneau)
+* docs: Add more details for the Cluster Mesh key rotation (Backport PR #28251, Upstream PR #28145, @margamanterola)
+* docs: egressgw: document incompatibility with Clustermesh (Backport PR #28103, Upstream PR #27918, @julianwiedmann)
+* docs: Makefile, check-build.sh clean-ups and perf improvements (Backport PR #28251, Upstream PR #28161, @qmonnet)
+* docs: Mention `RouteTableInterfacesOffset` in system requirements (Backport PR #28443, Upstream PR #28358, @gandro)
+* docs: rephrasing the hubble intro doc (Backport PR #28103, Upstream PR #27712, @vipul-21)
+* docs: Update Sphinx and its dependencies, Cilium theme (Backport PR #28251, Upstream PR #28172, @qmonnet)
+* Fix potential nil pointer dereference in SelectorManager implementation (Backport PR #28103, Upstream PR #27805, @learnitall)
+* fix(deps): update module golang.org/x/net to v0.17.0 [security] (#28551, @aanm)
+* hubble: Remove spammy debug log message on lost events (Backport PR #28103, Upstream PR #25321, @pchaigno)
+* install/kubernetes: add the `cilium/values.yaml` target to `.PHONY` (Backport PR #28350, Upstream PR #28225, @nbusseneau)
+* ipsec: Atomically upgrade XFRM states with new output-mark (Backport PR #28519, Upstream PR #28485, @pchaigno)
+* Update docs theme (Backport PR #28443, Upstream PR #28403, @raphink)
+* Update Hubble UI from v0.11.0 to v0.12.1 (#28534, @rolinh)
+
+**Other Changes:**
+* Backport v1.13: FQDN fixes (#28401, @joamaki)
+* cocci: fix warnings related to const qualifiers and DROP_MISSED_TAIL_CALL (#28279, @giorio94)
+* envoy: Bump envoy version to v1.24.11 (#28502, @sayboras)
+* install: Update image digests for v1.13.7 (#28129, @michi-covalent)
+
 ## v1.13.7
 
 Summary of Changes
