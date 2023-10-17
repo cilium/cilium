@@ -2109,7 +2109,7 @@ func (n *linuxNodeHandler) NodeCleanNeighbors(migrateOnly bool) {
 	// up all neighbors.
 	successClean := true
 	defer func() {
-		if successClean {
+		if successClean && !migrateOnly {
 			os.Remove(filepath.Join(option.Config.StateDir, neighFileName))
 		}
 	}()
