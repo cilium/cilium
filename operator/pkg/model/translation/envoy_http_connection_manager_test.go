@@ -27,8 +27,10 @@ func TestNewHTTPConnectionManager(t *testing.T) {
 		Rds: &httpConnectionManagerv3.Rds{RouteConfigName: "dummy-route-name"},
 	}, httpConnectionManager.GetRouteSpecifier())
 
-	require.Len(t, httpConnectionManager.GetHttpFilters(), 1)
-	require.Equal(t, "envoy.filters.http.router", httpConnectionManager.GetHttpFilters()[0].Name)
+	require.Len(t, httpConnectionManager.GetHttpFilters(), 3)
+	require.Equal(t, "envoy.filters.http.grpc_web", httpConnectionManager.GetHttpFilters()[0].Name)
+	require.Equal(t, "envoy.filters.http.grpc_stats", httpConnectionManager.GetHttpFilters()[1].Name)
+	require.Equal(t, "envoy.filters.http.router", httpConnectionManager.GetHttpFilters()[2].Name)
 
 	require.Len(t, httpConnectionManager.GetUpgradeConfigs(), 1)
 	require.Equal(t, "websocket", httpConnectionManager.GetUpgradeConfigs()[0].UpgradeType)
