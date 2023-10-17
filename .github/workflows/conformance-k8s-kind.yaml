@@ -16,9 +16,9 @@ on:
 
 permissions: read-all
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
-  cancel-in-progress: true
+#concurrency:
+  #group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  #cancel-in-progress: true
 
 env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
@@ -42,7 +42,7 @@ jobs:
         # TODO add "dual" and "ipv6", "ipv6" fails to install cilium
         ipFamily: ["ipv4"]
     env:
-      IP_FAMILY: ${{ matrix.ipFamily }}
+      IP_FAMILY: "ipv4"
 
     steps:
       - name: Checkout main branch to access local actions
@@ -155,6 +155,11 @@ jobs:
             --helm-set=bpf.monitorAggregation=none"
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo sha=${SHA} >> $GITHUB_OUTPUT
+
+      #- name: Install Prometheus
+      #  run: |
+      #    kubectl create namespace monitoring
+      #    helm upgrade --install kube-prometheus prometheus-community/kube-prometheus-stack -n monitoring --values=.github/prometheus.yaml
 
       - name: Install Cilium CLI
         uses: cilium/cilium-cli@7f33713a0710a1fff76cfe1b7fd7fbaea2ce7977 # v0.15.8
