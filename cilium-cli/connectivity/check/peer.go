@@ -154,7 +154,12 @@ func (p Pod) FlowFilters() []*flow.FlowFilter {
 		{SourcePod: []string{p.Name()}},
 		{DestinationPod: []string{p.Name()}},
 	}
+}
 
+func (p Pod) ToEchoIPPod() EchoIPPod {
+	return EchoIPPod{
+		Pod: p,
+	}
 }
 
 // Service is a service acting as a peer in a connectivity test.
@@ -396,6 +401,7 @@ func (ie icmpEndpoint) Scheme() string {
 func (ie icmpEndpoint) Path() string {
 	return ""
 }
+
 func (ie icmpEndpoint) Address(features.IPFamily) string {
 	return ie.host
 }
@@ -505,4 +511,13 @@ func (he httpEndpoint) Labels() map[string]string {
 
 func (he httpEndpoint) FlowFilters() []*flow.FlowFilter {
 	return nil
+}
+
+// EchoIPPod is a Kubernetes Pod that prints back the client IP, acting as a peer in a connectivity test.
+type EchoIPPod struct {
+	Pod
+}
+
+func (p EchoIPPod) Path() string {
+	return p.path + "/client-ip"
 }
