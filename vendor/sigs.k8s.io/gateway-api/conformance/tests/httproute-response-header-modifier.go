@@ -36,7 +36,7 @@ var HTTPRouteResponseHeaderModifier = suite.ConformanceTest{
 	Features: []suite.SupportedFeature{
 		suite.SupportGateway,
 		suite.SupportHTTPRoute,
-		suite.SupportHTTPResponseHeaderModification,
+		suite.SupportHTTPRouteResponseHeaderModification,
 	},
 	Manifests: []string{"tests/httproute-response-header-modifier.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {

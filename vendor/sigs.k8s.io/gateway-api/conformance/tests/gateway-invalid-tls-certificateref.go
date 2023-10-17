@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
@@ -39,16 +39,16 @@ var GatewayInvalidTLSConfiguration = suite.ConformanceTest{
 	},
 	Manifests: []string{"tests/gateway-invalid-tls-certificateref.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
-		listeners := []v1beta1.ListenerStatus{{
-			Name: v1beta1.SectionName("https"),
-			SupportedKinds: []v1beta1.RouteGroupKind{{
-				Group: (*v1beta1.Group)(&v1beta1.GroupVersion.Group),
-				Kind:  v1beta1.Kind("HTTPRoute"),
+		listeners := []v1.ListenerStatus{{
+			Name: v1.SectionName("https"),
+			SupportedKinds: []v1.RouteGroupKind{{
+				Group: (*v1.Group)(&v1.GroupVersion.Group),
+				Kind:  v1.Kind("HTTPRoute"),
 			}},
 			Conditions: []metav1.Condition{{
-				Type:   string(v1beta1.ListenerConditionResolvedRefs),
+				Type:   string(v1.ListenerConditionResolvedRefs),
 				Status: metav1.ConditionFalse,
-				Reason: string(v1beta1.ListenerReasonInvalidCertificateRef),
+				Reason: string(v1.ListenerReasonInvalidCertificateRef),
 			}},
 			AttachedRoutes: 0,
 		}}

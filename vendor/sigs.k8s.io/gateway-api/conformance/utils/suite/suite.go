@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/gateway-api/conformance"
 	"sigs.k8s.io/gateway-api/conformance/utils/config"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
@@ -35,22 +36,25 @@ import (
 // ConformanceTestSuite defines the test suite used to run Gateway API
 // conformance tests.
 type ConformanceTestSuite struct {
-	Client            client.Client
-	Clientset         clientset.Interface
-	RESTClient        *rest.RESTClient
-	RestConfig        *rest.Config
-	RoundTripper      roundtripper.RoundTripper
-	GatewayClassName  string
-	ControllerName    string
-	Debug             bool
-	Cleanup           bool
-	BaseManifests     string
-	MeshManifests     string
-	Applier           kubernetes.Applier
-	SupportedFeatures sets.Set[SupportedFeature]
-	TimeoutConfig     config.TimeoutConfig
-	SkipTests         sets.Set[string]
-	FS                embed.FS
+	Client                   client.Client
+	Clientset                clientset.Interface
+	RESTClient               *rest.RESTClient
+	RestConfig               *rest.Config
+	RoundTripper             roundtripper.RoundTripper
+	GatewayClassName         string
+	ControllerName           string
+	Debug                    bool
+	Cleanup                  bool
+	BaseManifests            string
+	MeshManifests            string
+	Applier                  kubernetes.Applier
+	SupportedFeatures        sets.Set[SupportedFeature]
+	TimeoutConfig            config.TimeoutConfig
+	SkipTests                sets.Set[string]
+	RunTest                  string
+	FS                       embed.FS
+	UsableNetworkAddresses   []v1beta1.GatewayAddress
+	UnusableNetworkAddresses []v1beta1.GatewayAddress
 }
 
 // Options can be used to initialize a ConformanceTestSuite.
@@ -76,8 +80,19 @@ type Options struct {
 	// SkipTests contains all the tests not to be run and can be used to opt out
 	// of specific tests
 	SkipTests []string
+	// RunTest is a single test to run, mostly for development/debugging convenience.
+	RunTest string
 
 	FS *embed.FS
+
+	// UsableNetworkAddresses is an optional pool of usable addresses for
+	// Gateways for tests which need to test manual address assignments.
+	UsableNetworkAddresses []v1beta1.GatewayAddress
+
+	// UnusableNetworkAddresses is an optional pool of unusable addresses for
+	// Gateways for tests which need to test failures with manual Gateway
+	// address assignment.
+	UnusableNetworkAddresses []v1beta1.GatewayAddress
 }
 
 // New returns a new ConformanceTestSuite.
@@ -122,10 +137,13 @@ func New(s Options) *ConformanceTestSuite {
 			NamespaceLabels:      s.NamespaceLabels,
 			NamespaceAnnotations: s.NamespaceAnnotations,
 		},
-		SupportedFeatures: s.SupportedFeatures,
-		TimeoutConfig:     s.TimeoutConfig,
-		SkipTests:         sets.New(s.SkipTests...),
-		FS:                *s.FS,
+		SupportedFeatures:        s.SupportedFeatures,
+		TimeoutConfig:            s.TimeoutConfig,
+		SkipTests:                sets.New(s.SkipTests...),
+		RunTest:                  s.RunTest,
+		FS:                       *s.FS,
+		UsableNetworkAddresses:   s.UsableNetworkAddresses,
+		UnusableNetworkAddresses: s.UnusableNetworkAddresses,
 	}
 
 	// apply defaults
@@ -143,6 +161,8 @@ func New(s Options) *ConformanceTestSuite {
 // in the cluster. It also ensures that all relevant resources are ready.
 func (suite *ConformanceTestSuite) Setup(t *testing.T) {
 	suite.Applier.FS = suite.FS
+	suite.Applier.UsableNetworkAddresses = suite.UsableNetworkAddresses
+	suite.Applier.UnusableNetworkAddresses = suite.UnusableNetworkAddresses
 
 	if suite.SupportedFeatures.Has(SupportGateway) {
 		t.Logf("Test Setup: Ensuring GatewayClass has been accepted")
@@ -222,7 +242,7 @@ func (test *ConformanceTest) Run(t *testing.T, suite *ConformanceTestSuite) {
 	}
 
 	// check that the test should not be skipped
-	if suite.SkipTests.Has(test.ShortName) {
+	if suite.SkipTests.Has(test.ShortName) || suite.RunTest != "" && suite.RunTest != test.ShortName {
 		t.Skipf("Skipping %s: test explicitly skipped", test.ShortName)
 	}
 

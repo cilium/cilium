@@ -1,4 +1,4 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway-certificate-nonexistent-secret
@@ -18,7 +18,7 @@ spec:
             kind: Secret
             name: nonexistent-certificate
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway-certificate-unsupported-group
@@ -38,7 +38,7 @@ spec:
             kind: Secret
             name: tls-validity-checks-certificate
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway-certificate-unsupported-kind
@@ -58,7 +58,7 @@ spec:
             kind: WrongKind
             name: tls-validity-checks-certificate
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway-certificate-malformed-secret
@@ -85,7 +85,7 @@ metadata:
   namespace: gateway-conformance-infra
 data:
   # this certificate is invalid because contains an invalid pem (base64 of "Hello world"),
-  # and the certificate and the key are identical 
+  # and the certificate and the key are identical
   tls.crt: SGVsbG8gd29ybGQK
   tls.key: SGVsbG8gd29ybGQK
 type: kubernetes.io/tls

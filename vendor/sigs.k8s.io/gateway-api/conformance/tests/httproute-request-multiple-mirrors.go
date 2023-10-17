@@ -49,11 +49,11 @@ var HTTPRouteRequestMultipleMirrors = suite.ConformanceTest{
 		testCases := []http.ExpectedResponse{
 			{
 				Request: http.Request{
-					Path: "/mirror",
+					Path: "/multi-mirror",
 				},
 				ExpectedRequest: &http.ExpectedRequest{
 					Request: http.Request{
-						Path: "/mirror",
+						Path: "/multi-mirror",
 					},
 				},
 				Backend: "infra-backend-v1",
@@ -70,7 +70,7 @@ var HTTPRouteRequestMultipleMirrors = suite.ConformanceTest{
 				Namespace: ns,
 			}, {
 				Request: http.Request{
-					Path: "/mirror-and-modify-request-headers",
+					Path: "/multi-mirror-and-modify-request-headers",
 					Headers: map[string]string{
 						"X-Header-Remove":     "remove-val",
 						"X-Header-Add-Append": "append-val-1",
@@ -78,7 +78,7 @@ var HTTPRouteRequestMultipleMirrors = suite.ConformanceTest{
 				},
 				ExpectedRequest: &http.ExpectedRequest{
 					Request: http.Request{
-						Path: "/mirror-and-modify-request-headers",
+						Path: "/multi-mirror-and-modify-request-headers",
 						Headers: map[string]string{
 							"X-Header-Add":        "header-val-1",
 							"X-Header-Add-Append": "append-val-1,header-val-2",

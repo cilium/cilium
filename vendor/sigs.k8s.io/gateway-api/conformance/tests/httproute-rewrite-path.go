@@ -61,6 +61,30 @@ var HTTPRouteRewritePath = suite.ConformanceTest{
 			},
 			{
 				Request: http.Request{
+					Path: "/strip-prefix/three",
+				},
+				ExpectedRequest: &http.ExpectedRequest{
+					Request: http.Request{
+						Path: "/three",
+					},
+				},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
+			},
+			{
+				Request: http.Request{
+					Path: "/strip-prefix",
+				},
+				ExpectedRequest: &http.ExpectedRequest{
+					Request: http.Request{
+						Path: "/",
+					},
+				},
+				Backend:   "infra-backend-v1",
+				Namespace: ns,
+			},
+			{
+				Request: http.Request{
 					Path: "/full/one/two",
 				},
 				ExpectedRequest: &http.ExpectedRequest{

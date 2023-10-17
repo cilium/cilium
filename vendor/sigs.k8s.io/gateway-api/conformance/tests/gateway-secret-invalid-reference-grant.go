@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
@@ -43,16 +43,16 @@ var GatewaySecretInvalidReferenceGrant = suite.ConformanceTest{
 		gwNN := types.NamespacedName{Name: "gateway-secret-invalid-reference-grant", Namespace: "gateway-conformance-infra"}
 
 		t.Run("Gateway listener should have a false ResolvedRefs condition with reason RefNotPermitted", func(t *testing.T) {
-			listeners := []v1beta1.ListenerStatus{{
-				Name: v1beta1.SectionName("https"),
-				SupportedKinds: []v1beta1.RouteGroupKind{{
-					Group: (*v1beta1.Group)(&v1beta1.GroupVersion.Group),
-					Kind:  v1beta1.Kind("HTTPRoute"),
+			listeners := []v1.ListenerStatus{{
+				Name: v1.SectionName("https"),
+				SupportedKinds: []v1.RouteGroupKind{{
+					Group: (*v1.Group)(&v1.GroupVersion.Group),
+					Kind:  v1.Kind("HTTPRoute"),
 				}},
 				Conditions: []metav1.Condition{{
-					Type:   string(v1beta1.ListenerConditionResolvedRefs),
+					Type:   string(v1.ListenerConditionResolvedRefs),
 					Status: metav1.ConditionFalse,
-					Reason: string(v1beta1.ListenerReasonRefNotPermitted),
+					Reason: string(v1.ListenerReasonRefNotPermitted),
 				}},
 				AttachedRoutes: 0,
 			}}

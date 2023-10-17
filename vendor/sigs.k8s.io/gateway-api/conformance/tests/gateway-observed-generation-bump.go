@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
@@ -55,21 +55,21 @@ var GatewayObservedGenerationBump = suite.ConformanceTest{
 			// Sanity check
 			kubernetes.GatewayMustHaveLatestConditions(t, s.Client, s.TimeoutConfig, gwNN)
 
-			original := &v1beta1.Gateway{}
+			original := &v1.Gateway{}
 			err := s.Client.Get(ctx, gwNN, original)
 			require.NoErrorf(t, err, "error getting Gateway: %v", err)
 
-			all := v1beta1.NamespacesFromAll
+			all := v1.NamespacesFromAll
 
 			mutate := original.DeepCopy()
 
 			// mutate the Gateway Spec
-			mutate.Spec.Listeners = append(mutate.Spec.Listeners, v1beta1.Listener{
+			mutate.Spec.Listeners = append(mutate.Spec.Listeners, v1.Listener{
 				Name:     "alternate",
 				Port:     8080,
-				Protocol: v1beta1.HTTPProtocolType,
-				AllowedRoutes: &v1beta1.AllowedRoutes{
-					Namespaces: &v1beta1.RouteNamespaces{From: &all},
+				Protocol: v1.HTTPProtocolType,
+				AllowedRoutes: &v1.AllowedRoutes{
+					Namespaces: &v1.RouteNamespaces{From: &all},
 				},
 			})
 
@@ -82,7 +82,7 @@ var GatewayObservedGenerationBump = suite.ConformanceTest{
 			// Sanity check
 			kubernetes.GatewayMustHaveLatestConditions(t, s.Client, s.TimeoutConfig, gwNN)
 
-			updated := &v1beta1.Gateway{}
+			updated := &v1.Gateway{}
 			err = s.Client.Get(ctx, gwNN, updated)
 			require.NoErrorf(t, err, "error getting Gateway: %v", err)
 

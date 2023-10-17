@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
@@ -27,12 +28,12 @@ type HTTPRouteInput struct {
 	Logger    *logrus.Entry
 	Client    client.Client
 	Grants    *gatewayv1beta1.ReferenceGrantList
-	HTTPRoute *gatewayv1beta1.HTTPRoute
+	HTTPRoute *gatewayv1.HTTPRoute
 
-	gateways map[gatewayv1beta1.ParentReference]*gatewayv1beta1.Gateway
+	gateways map[gatewayv1.ParentReference]*gatewayv1.Gateway
 }
 
-func (h *HTTPRouteInput) SetParentCondition(ref gatewayv1beta1.ParentReference, condition metav1.Condition) {
+func (h *HTTPRouteInput) SetParentCondition(ref gatewayv1.ParentReference, condition metav1.Condition) {
 	// fill in the condition
 	condition.LastTransitionTime = metav1.NewTime(time.Now())
 	condition.ObservedGeneration = h.HTTPRoute.GetGeneration()
@@ -84,7 +85,7 @@ func (h *HTTPRouteInput) GetNamespace() string {
 }
 
 func (h *HTTPRouteInput) GetGVK() schema.GroupVersionKind {
-	return gatewayv1beta1.SchemeGroupVersion.WithKind("HTTPRoute")
+	return gatewayv1.SchemeGroupVersion.WithKind("HTTPRoute")
 }
 
 func (h *HTTPRouteInput) GetRules() []GenericRule {
@@ -103,13 +104,13 @@ func (h *HTTPRouteInput) GetContext() context.Context {
 	return h.Ctx
 }
 
-func (h *HTTPRouteInput) GetHostnames() []gatewayv1beta1.Hostname {
+func (h *HTTPRouteInput) GetHostnames() []gatewayv1.Hostname {
 	return h.HTTPRoute.Spec.Hostnames
 }
 
-func (h *HTTPRouteInput) GetGateway(parent gatewayv1beta1.ParentReference) (*gatewayv1beta1.Gateway, error) {
+func (h *HTTPRouteInput) GetGateway(parent gatewayv1.ParentReference) (*gatewayv1.Gateway, error) {
 	if h.gateways == nil {
-		h.gateways = make(map[gatewayv1beta1.ParentReference]*gatewayv1beta1.Gateway)
+		h.gateways = make(map[gatewayv1.ParentReference]*gatewayv1.Gateway)
 	}
 
 	if gw, exists := h.gateways[parent]; exists {
@@ -117,7 +118,7 @@ func (h *HTTPRouteInput) GetGateway(parent gatewayv1beta1.ParentReference) (*gat
 	}
 
 	ns := helpers.NamespaceDerefOr(parent.Namespace, h.GetNamespace())
-	gw := &gatewayv1beta1.Gateway{}
+	gw := &gatewayv1.Gateway{}
 
 	if err := h.Client.Get(h.Ctx, client.ObjectKey{Namespace: ns, Name: string(parent.Name)}, gw); err != nil {
 		if !k8serrors.IsNotFound(err) {
@@ -140,20 +141,20 @@ func (h *HTTPRouteInput) Log() *logrus.Entry {
 
 // HTTPRouteRule is used to implement the GenericRule interface for TLSRoute
 type HTTPRouteRule struct {
-	Rule gatewayv1beta1.HTTPRouteRule
+	Rule gatewayv1.HTTPRouteRule
 }
 
-func (t *HTTPRouteRule) GetBackendRefs() []gatewayv1beta1.BackendRef {
-	var refs []gatewayv1beta1.BackendRef
+func (t *HTTPRouteRule) GetBackendRefs() []gatewayv1.BackendRef {
+	var refs []gatewayv1.BackendRef
 	for _, backend := range t.Rule.BackendRefs {
 		refs = append(refs, backend.BackendRef)
 	}
 	for _, f := range t.Rule.Filters {
-		if f.Type == gatewayv1beta1.HTTPRouteFilterRequestMirror {
+		if f.Type == gatewayv1.HTTPRouteFilterRequestMirror {
 			if f.RequestMirror == nil {
 				continue
 			}
-			refs = append(refs, gatewayv1beta1.BackendRef{
+			refs = append(refs, gatewayv1.BackendRef{
 				BackendObjectReference: f.RequestMirror.BackendRef,
 			})
 		}

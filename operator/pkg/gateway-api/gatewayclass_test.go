@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 )
@@ -21,8 +21,8 @@ func Test_matchesControllerName(t *testing.T) {
 	}{
 		{
 			name: "matches",
-			object: &gatewayv1beta1.GatewayClass{
-				Spec: gatewayv1beta1.GatewayClassSpec{
+			object: &gatewayv1.GatewayClass{
+				Spec: gatewayv1.GatewayClassSpec{
 					ControllerName: "foo",
 				},
 			},
@@ -30,8 +30,8 @@ func Test_matchesControllerName(t *testing.T) {
 		},
 		{
 			name: "does not match",
-			object: &gatewayv1beta1.GatewayClass{
-				Spec: gatewayv1beta1.GatewayClassSpec{
+			object: &gatewayv1.GatewayClass{
+				Spec: gatewayv1.GatewayClassSpec{
 					ControllerName: "bar",
 				},
 			},

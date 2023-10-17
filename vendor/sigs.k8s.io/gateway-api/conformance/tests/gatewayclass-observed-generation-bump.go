@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
@@ -50,7 +50,7 @@ var GatewayClassObservedGenerationBump = suite.ConformanceTest{
 
 			kubernetes.GWCMustHaveAcceptedConditionAny(t, s.Client, s.TimeoutConfig, gwc.Name)
 
-			original := &v1beta1.GatewayClass{}
+			original := &v1.GatewayClass{}
 			err := s.Client.Get(ctx, gwc, original)
 			require.NoErrorf(t, err, "error getting GatewayClass: %v", err)
 
@@ -67,7 +67,7 @@ var GatewayClassObservedGenerationBump = suite.ConformanceTest{
 			// Ensure the generation and observedGeneration sync up
 			kubernetes.GWCMustHaveAcceptedConditionAny(t, s.Client, s.TimeoutConfig, gwc.Name)
 
-			updated := &v1beta1.GatewayClass{}
+			updated := &v1.GatewayClass{}
 			err = s.Client.Get(ctx, gwc, updated)
 			require.NoErrorf(t, err, "error getting GatewayClass: %v", err)
 

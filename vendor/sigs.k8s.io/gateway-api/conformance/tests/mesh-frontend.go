@@ -34,7 +34,7 @@ var MeshFrontend = suite.ConformanceTest{
 	Features: []suite.SupportedFeature{
 		suite.SupportMesh,
 		suite.SupportHTTPRoute,
-		suite.SupportHTTPResponseHeaderModification,
+		suite.SupportHTTPRouteResponseHeaderModification,
 	},
 	Manifests: []string{"tests/mesh-frontend.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {

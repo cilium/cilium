@@ -10,12 +10,12 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func Test_gatewayClassAcceptedCondition(t *testing.T) {
 	type args struct {
-		gwc      *gatewayv1beta1.GatewayClass
+		gwc      *gatewayv1.GatewayClass
 		accepted bool
 	}
 	tests := []struct {
@@ -26,7 +26,7 @@ func Test_gatewayClassAcceptedCondition(t *testing.T) {
 		{
 			name: "accepted gateway class",
 			args: args{
-				gwc: &gatewayv1beta1.GatewayClass{
+				gwc: &gatewayv1.GatewayClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Generation: 100,
 					},
@@ -44,7 +44,7 @@ func Test_gatewayClassAcceptedCondition(t *testing.T) {
 		{
 			name: "non-accepted gateway class",
 			args: args{
-				gwc: &gatewayv1beta1.GatewayClass{
+				gwc: &gatewayv1.GatewayClass{
 					ObjectMeta: metav1.ObjectMeta{
 						Generation: 100,
 					},
