@@ -24,6 +24,7 @@ const (
 	DefaultCiliumSpireServerLabelSelector    = "app=spire-server"
 	DefaultDebug                             = false
 	DefaultProfiling                         = true
+	DefaultTracing                           = false
 	DefaultHubbleLabelSelector               = labelPrefix + "hubble"
 	DefaultHubbleFlowsCount                  = 10000
 	DefaultHubbleFlowsTimeout                = 5 * time.Second

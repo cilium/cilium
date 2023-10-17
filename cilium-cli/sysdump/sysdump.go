@@ -66,6 +66,8 @@ type Options struct {
 	Debug bool
 	// Whether to enable scraping profiling data.
 	Profiling bool
+	// Whether to enable scraping tracing data.
+	Tracing bool
 	// The labels used to target additional pods
 	ExtraLabelSelectors []string
 	// The labels used to target Hubble pods.
@@ -1263,6 +1265,21 @@ func (c *Collector) Run() error {
 
 	if c.Options.CiliumNamespace != "" && c.Options.CiliumOperatorNamespace != "" {
 		tasks = append(tasks, ciliumTasks...)
+
+		serialTasks = append(serialTasks, Task{
+			CreatesSubtasks: true,
+			Description:     "Collecting tracing data from Cilium pods",
+			Quick:           false,
+			Task: func(ctx context.Context) error {
+				if !c.Options.Tracing {
+					return nil
+				}
+				if err := c.SubmitTracingGopsSubtask(c.CiliumPods, ciliumAgentContainerName); err != nil {
+					return fmt.Errorf("failed to collect tracing data from Cilium pods: %w", err)
+				}
+				return nil
+			},
+		})
 	}
 
 	tetragonTasks := []Task{
@@ -2120,6 +2137,44 @@ func (c *Collector) SubmitProfilingGopsSubtasks(pods []*corev1.Pod, containerNam
 			}); err != nil {
 				return fmt.Errorf("failed to submit %s gops task for %q: %w", g, p.Name, err)
 			}
+		}
+	}
+	return nil
+}
+
+// SubmitTracingGopsSubtask submits task to collect tracing data from pods.
+func (c *Collector) SubmitTracingGopsSubtask(pods []*corev1.Pod, containerName string) error {
+	for _, p := range pods {
+		p := p
+		if err := c.Pool.Submit(fmt.Sprintf("gops-%s-%s", p.Name, gopsTrace), func(ctx context.Context) error {
+			agentPID, err := c.getGopsPID(ctx, p, containerName)
+			if err != nil {
+				return err
+			}
+			o, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{
+				gopsCommand,
+				gopsTrace,
+				agentPID,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to collect gops trace for %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
+			}
+			filePath, err := extractGopsProfileData(o.String())
+			if err != nil {
+				return fmt.Errorf("failed to collect gops trace for %q (%q) in namespace %q: %w", p.Name, containerName, p.Namespace, err)
+			}
+			f := c.AbsoluteTempPath(fmt.Sprintf("%s-%s-<ts>.trace", p.Name, gopsTrace))
+			err = c.Client.CopyFromPod(ctx, p.Namespace, p.Name, containerName, filePath, f, c.Options.CopyRetryLimit)
+			if err != nil {
+				return fmt.Errorf("failed to collect gops trace output for %q: %w", p.Name, err)
+			}
+			if _, err = c.Client.ExecInPod(ctx, p.Namespace, p.Name, containerName, []string{rmCommand, filePath}); err != nil {
+				c.logWarn("failed to delete trace output from pod %q in namespace %q: %w", p.Name, p.Namespace, err)
+				return nil
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("failed to submit %s gops task for %q: %w", gopsTrace, p.Name, err)
 		}
 	}
 	return nil
