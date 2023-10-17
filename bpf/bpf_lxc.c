@@ -2403,7 +2403,7 @@ int cil_to_container(struct __ctx_buff *ctx)
 	}
 #endif
 
-	send_trace_notify(ctx, trace, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
+	send_trace_notify(ctx, trace, identity, sec_label, LXC_ID,
 			  ctx->ingress_ifindex, TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN);
 
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
