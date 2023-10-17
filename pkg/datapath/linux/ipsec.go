@@ -21,12 +21,13 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-func upsertIPsecLog(err error, spec string, loc, rem *net.IPNet, spi uint8) {
+func upsertIPsecLog(err error, spec string, loc, rem *net.IPNet, spi uint8, nodeID uint16) {
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.Reason: spec,
-		"local-ip":       loc,
-		"remote-ip":      rem,
-		"spi":            spi,
+		logfields.Reason:   spec,
+		logfields.SPI:      spi,
+		logfields.LocalIP:  loc,
+		logfields.RemoteIP: rem,
+		logfields.NodeID:   nodeID,
 	})
 	if err != nil {
 		scopedLog.WithError(err).Error("IPsec enable failed")
@@ -78,7 +79,7 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 	wildcardCIDR := &net.IPNet{IP: wildcardIP, Mask: net.IPv4Mask(0, 0, 0, 0)}
 
 	err := ipsec.IPsecDefaultDropPolicy(false)
-	upsertIPsecLog(err, "default-drop IPv4", wildcardCIDR, wildcardCIDR, spi)
+	upsertIPsecLog(err, "default-drop IPv4", wildcardCIDR, wildcardCIDR, spi, 0)
 
 	if newNode.IsLocal() {
 		n.replaceNodeIPSecInRoute(new4Net)
@@ -101,10 +102,10 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 				}
 
 				spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, wildcardIP, 0, ipsec.IPSecDirIn, zeroMark)
-				upsertIPsecLog(err, "in CiliumInternalIPv4", wildcardCIDR, cidr, spi)
+				upsertIPsecLog(err, "in CiliumInternalIPv4", wildcardCIDR, cidr, spi, 0)
 
 				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localNodeInternalIP, wildcardIP, 0, ipsec.IPSecDirIn, zeroMark)
-				upsertIPsecLog(err, "in NodeInternalIPv4", wildcardCIDR, cidr, spi)
+				upsertIPsecLog(err, "in NodeInternalIPv4", wildcardCIDR, cidr, spi, 0)
 			}
 		} else {
 			/* Insert wildcard policy rules for traffic skipping back through host */
@@ -114,7 +115,7 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 
 			localCIDR := n.nodeAddressing.IPv4().AllocationCIDR().IPNet
 			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, wildcardIP, 0, ipsec.IPSecDirIn, false)
-			upsertIPsecLog(err, "in IPv4", localCIDR, wildcardCIDR, spi)
+			upsertIPsecLog(err, "in IPv4", localCIDR, wildcardCIDR, spi, 0)
 		}
 	} else {
 		remoteIP := newNode.GetCiliumInternalIP(false)
@@ -137,13 +138,13 @@ func (n *linuxNodeHandler) enableIPsecIPv4(newNode *nodeTypes.Node, nodeID uint1
 
 			for _, cidr := range n.nodeConfig.IPv4PodSubnets {
 				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, zeroMark)
-				upsertIPsecLog(err, "out IPv4", wildcardCIDR, cidr, spi)
+				upsertIPsecLog(err, "out IPv4", wildcardCIDR, cidr, spi, nodeID)
 			}
 		} else {
 			remoteCIDR := newNode.IPv4AllocCIDR.IPNet
 			n.replaceNodeIPSecOutRoute(new4Net)
 			spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, false)
-			upsertIPsecLog(err, "out IPv4", wildcardCIDR, remoteCIDR, spi)
+			upsertIPsecLog(err, "out IPv4", wildcardCIDR, remoteCIDR, spi, nodeID)
 		}
 	}
 }
@@ -160,7 +161,7 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 	wildcardCIDR := &net.IPNet{IP: wildcardIP, Mask: net.CIDRMask(0, 128)}
 
 	err := ipsec.IPsecDefaultDropPolicy(true)
-	upsertIPsecLog(err, "default-drop IPv6", wildcardCIDR, wildcardCIDR, spi)
+	upsertIPsecLog(err, "default-drop IPv6", wildcardCIDR, wildcardCIDR, spi, 0)
 
 	if newNode.IsLocal() {
 		n.replaceNodeIPSecInRoute(new6Net)
@@ -178,15 +179,15 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 
 			for _, cidr := range n.nodeConfig.IPv6PodSubnets {
 				spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, wildcardIP, 0, ipsec.IPSecDirIn, zeroMark)
-				upsertIPsecLog(err, "in CiliumInternalIPv6", wildcardCIDR, cidr, spi)
+				upsertIPsecLog(err, "in CiliumInternalIPv6", wildcardCIDR, cidr, spi, 0)
 
 				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localNodeInternalIP, wildcardIP, 0, ipsec.IPSecDirIn, zeroMark)
-				upsertIPsecLog(err, "in NodeInternalIPv6", wildcardCIDR, cidr, spi)
+				upsertIPsecLog(err, "in NodeInternalIPv6", wildcardCIDR, cidr, spi, 0)
 			}
 		} else {
 			localCIDR := n.nodeAddressing.IPv6().AllocationCIDR().IPNet
 			spi, err = ipsec.UpsertIPsecEndpoint(localCIDR, wildcardCIDR, localIP, wildcardIP, 0, ipsec.IPSecDirIn, false)
-			upsertIPsecLog(err, "in IPv6", localCIDR, wildcardCIDR, spi)
+			upsertIPsecLog(err, "in IPv6", localCIDR, wildcardCIDR, spi, 0)
 		}
 	} else {
 		remoteIP := newNode.GetCiliumInternalIP(true)
@@ -209,13 +210,13 @@ func (n *linuxNodeHandler) enableIPsecIPv6(newNode *nodeTypes.Node, nodeID uint1
 
 			for _, cidr := range n.nodeConfig.IPv6PodSubnets {
 				spi, err = ipsec.UpsertIPsecEndpoint(wildcardCIDR, cidr, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, zeroMark)
-				upsertIPsecLog(err, "out IPv6", wildcardCIDR, cidr, spi)
+				upsertIPsecLog(err, "out IPv6", wildcardCIDR, cidr, spi, nodeID)
 			}
 		} else {
 			remoteCIDR := newNode.IPv6AllocCIDR.IPNet
 			n.replaceNodeIPSecOutRoute(new6Net)
 			spi, err := ipsec.UpsertIPsecEndpoint(wildcardCIDR, remoteCIDR, localIP, remoteIP, nodeID, ipsec.IPSecDirOut, false)
-			upsertIPsecLog(err, "out IPv6", wildcardCIDR, remoteCIDR, spi)
+			upsertIPsecLog(err, "out IPv6", wildcardCIDR, remoteCIDR, spi, nodeID)
 		}
 	}
 }
