@@ -65,6 +65,14 @@ const (
 	oldXFRMOutPolicyPriority = 50
 )
 
+type dir string
+
+const (
+	dirUnspec  dir = "unspecified"
+	dirIngress dir = "ingress"
+	dirEgress  dir = "egress"
+)
+
 type ipSecKey struct {
 	Spi   uint8
 	ReqID int
@@ -501,6 +509,18 @@ func getNodeIDFromXfrmMark(mark *netlink.XfrmMark) uint16 {
 		return 0
 	}
 	return uint16(mark.Value >> 16)
+}
+
+func getDirFromXfrmMark(mark *netlink.XfrmMark) dir {
+	switch {
+	case mark == nil:
+		return dirUnspec
+	case mark.Value&linux_defaults.RouteMarkDecrypt != 0:
+		return dirIngress
+	case mark.Value&linux_defaults.RouteMarkEncrypt != 0:
+		return dirEgress
+	}
+	return dirUnspec
 }
 
 func generateEncryptMark(spi uint8, nodeID uint16) *netlink.XfrmMark {
