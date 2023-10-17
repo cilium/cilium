@@ -136,7 +136,7 @@ func (t *genTable[Obj]) LowerBound(txn ReadTxn, q Query[Obj]) (Iterator[Obj], <-
 	// Since LowerBound query may be invalidated by changes in another branch
 	// of the tree, we cannot just simply watch the node we seeked to. Instead
 	// we watch the whole table for changes.
-	watch, _, _ := root.GetWatch([]byte(t.table))
+	watch, _, _ := root.GetWatch(nil)
 	iter := root.Iterator()
 	iter.SeekLowerBound(q.key)
 	return &iterator[Obj]{iter}, watch
