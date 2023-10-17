@@ -52,7 +52,7 @@ runs:
         exit 42
 
     - name: Install Released Cilium CLI
-      if: ${{ steps.build-cli.outputs.path == '' && inputs.release-version != '' }}
+      if: ${{ steps.build-cli.outputs.path == '' && inputs.release-version != '' && inputs.ci-version == '' }}
       shell: bash
       run: |
         curl -sSL --remote-name-all https://github.com/cilium/cilium-cli/releases/download/${{ inputs.release-version }}/cilium-linux-amd64.tar.gz{,.sha256sum}
