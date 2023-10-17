@@ -23,30 +23,36 @@ import (
 // support colons inside the name section of a label.
 func maskedIPToLabel(ip netip.Addr, prefix int) labels.Label {
 	ipStr := ip.String()
-	ipNoColons := strings.Replace(ipStr, ":", "-", -1)
 
-	// EndpointSelector keys can't start or end with a "-", so insert a
-	// zero at the start or end if it would otherwise have a "-" at that
-	// position.
-	preZero := ""
-	postZero := ""
-	if ipNoColons[0] == '-' {
-		preZero = "0"
-	}
-	if ipNoColons[len(ipNoColons)-1] == '-' {
-		postZero = "0"
-	}
 	var str strings.Builder
 	str.Grow(
-		len(preZero) +
-			len(ipNoColons) +
-			len(postZero) +
+		1 /* preZero */ +
+			len(ipStr) +
+			1 /* postZero */ +
 			2 /*len of prefix*/ +
 			1, /* '/' */
 	)
-	str.WriteString(preZero)
-	str.WriteString(ipNoColons)
-	str.WriteString(postZero)
+
+	for i := 0; i < len(ipStr); i++ {
+		if ipStr[i] == ':' {
+			// EndpointSelector keys can't start or end with a "-", so insert a
+			// zero at the start or end if it would otherwise have a "-" at that
+			// position.
+			if i == 0 {
+				str.WriteByte('0')
+				str.WriteByte('-')
+				continue
+			}
+			if i == len(ipStr)-1 {
+				str.WriteByte('-')
+				str.WriteByte('0')
+				continue
+			}
+			str.WriteByte('-')
+		} else {
+			str.WriteByte(ipStr[i])
+		}
+	}
 	str.WriteRune('/')
 	str.WriteString(strconv.Itoa(prefix))
 	return labels.Label{Key: str.String(), Source: labels.LabelSourceCIDR}
