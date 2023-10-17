@@ -8,8 +8,8 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
@@ -24,9 +24,9 @@ func CheckAgainstCrossNamespaceBackendReferences(input Input) (bool, error) {
 			if ns != input.GetNamespace() && !helpers.IsBackendReferenceAllowed(input.GetNamespace(), be, input.GetGVK(), input.GetGrants()) {
 				// no reference grants, update the status for all the parents
 				input.SetAllParentCondition(metav1.Condition{
-					Type:    string(gatewayv1beta1.RouteConditionResolvedRefs),
+					Type:    string(gatewayv1.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
-					Reason:  string(gatewayv1beta1.RouteReasonRefNotPermitted),
+					Reason:  string(gatewayv1.RouteReasonRefNotPermitted),
 					Message: "Cross namespace references are not allowed",
 				})
 
@@ -46,7 +46,7 @@ func CheckBackendIsService(input Input) (bool, error) {
 				input.SetAllParentCondition(metav1.Condition{
 					Type:    string(gatewayv1alpha2.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
-					Reason:  string(gatewayv1beta1.RouteReasonInvalidKind),
+					Reason:  string(gatewayv1.RouteReasonInvalidKind),
 					Message: "Unsupported backend kind " + string(*be.Kind),
 				})
 
@@ -57,7 +57,7 @@ func CheckBackendIsService(input Input) (bool, error) {
 				input.SetAllParentCondition(metav1.Condition{
 					Type:    string(gatewayv1alpha2.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
-					Reason:  string(gatewayv1beta1.RouteReasonInvalidKind),
+					Reason:  string(gatewayv1.RouteReasonInvalidKind),
 					Message: "Must have port for Service reference",
 				})
 
@@ -88,9 +88,9 @@ func CheckBackendIsExistingService(input Input) (bool, error) {
 				// the route attached successfully to its parent, so no error
 				// is returned here, so that the next validation can be run.
 				input.SetAllParentCondition(metav1.Condition{
-					Type:    string(gatewayv1beta1.RouteConditionResolvedRefs),
+					Type:    string(gatewayv1.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
-					Reason:  string(gatewayv1beta1.RouteReasonBackendNotFound),
+					Reason:  string(gatewayv1.RouteReasonBackendNotFound),
 					Message: err.Error(),
 				})
 			}

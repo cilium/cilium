@@ -16,9 +16,7 @@ limitations under the License.
 
 package v1alpha2
 
-import (
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
-)
+import v1 "sigs.k8s.io/gateway-api/apis/v1"
 
 // ParentReference identifies an API object (usually a Gateway) that can be considered
 // a parent of this resource (usually a route). The only kind of parent resource
@@ -34,18 +32,18 @@ import (
 // The API object must be valid in the cluster; the Group and Kind must
 // be registered in the cluster for this reference to be valid.
 // +k8s:deepcopy-gen=false
-type ParentReference = v1beta1.ParentReference
+type ParentReference = v1.ParentReference
 
 // CommonRouteSpec defines the common attributes that all Routes MUST include
 // within their spec.
 // +k8s:deepcopy-gen=false
-type CommonRouteSpec = v1beta1.CommonRouteSpec
+type CommonRouteSpec = v1.CommonRouteSpec
 
 // PortNumber defines a network port.
 //
 // +kubebuilder:validation:Minimum=1
 // +kubebuilder:validation:Maximum=65535
-type PortNumber = v1beta1.PortNumber
+type PortNumber = v1.PortNumber
 
 // BackendRef defines how a Route should forward a request to a Kubernetes
 // resource.
@@ -55,13 +53,13 @@ type PortNumber = v1beta1.PortNumber
 // namespace's owner to accept the reference. See the ReferenceGrant
 // documentation for details.
 // +k8s:deepcopy-gen=false
-type BackendRef = v1beta1.BackendRef
+type BackendRef = v1.BackendRef
 
 // RouteConditionType is a type of condition for a route.
-type RouteConditionType = v1beta1.RouteConditionType
+type RouteConditionType = v1.RouteConditionType
 
 // RouteConditionReason is a reason for a route condition.
-type RouteConditionReason = v1beta1.RouteConditionReason
+type RouteConditionReason = v1.RouteConditionReason
 
 const (
 	// This condition indicates whether the route has been accepted or rejected
@@ -148,12 +146,12 @@ const (
 // RouteParentStatus describes the status of a route with respect to an
 // associated Parent.
 // +k8s:deepcopy-gen=false
-type RouteParentStatus = v1beta1.RouteParentStatus
+type RouteParentStatus = v1.RouteParentStatus
 
 // RouteStatus defines the common attributes that all Routes MUST include within
 // their status.
 // +k8s:deepcopy-gen=false
-type RouteStatus = v1beta1.RouteStatus
+type RouteStatus = v1.RouteStatus
 
 // Hostname is the fully qualified domain name of a network host. This matches
 // the RFC 1123 definition of a hostname with 2 notable exceptions:
@@ -173,7 +171,7 @@ type RouteStatus = v1beta1.RouteStatus
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern=`^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
-type Hostname = v1beta1.Hostname
+type Hostname = v1.Hostname
 
 // PreciseHostname is the fully qualified domain name of a network host. This
 // matches the RFC 1123 definition of a hostname with 1 notable exception that
@@ -186,7 +184,7 @@ type Hostname = v1beta1.Hostname
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
-type PreciseHostname = v1beta1.PreciseHostname
+type PreciseHostname = v1.PreciseHostname
 
 // Group refers to a Kubernetes Group. It must either be an empty string or a
 // RFC 1123 subdomain.
@@ -206,7 +204,7 @@ type PreciseHostname = v1beta1.PreciseHostname
 //
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern=`^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
-type Group = v1beta1.Group
+type Group = v1.Group
 
 // Kind refers to a Kubernetes Kind.
 //
@@ -222,7 +220,7 @@ type Group = v1beta1.Group
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=63
 // +kubebuilder:validation:Pattern=`^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$`
-type Kind = v1beta1.Kind
+type Kind = v1.Kind
 
 // ObjectName refers to the name of a Kubernetes object.
 // Object names can have a variety of forms, including RFC1123 subdomains,
@@ -230,7 +228,7 @@ type Kind = v1beta1.Kind
 //
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=253
-type ObjectName = v1beta1.ObjectName
+type ObjectName = v1.ObjectName
 
 // Namespace refers to a Kubernetes namespace. It must be a RFC 1123 label.
 //
@@ -251,7 +249,7 @@ type ObjectName = v1beta1.ObjectName
 // +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=63
-type Namespace = v1beta1.Namespace
+type Namespace = v1.Namespace
 
 // SectionName is the name of a section in a Kubernetes resource.
 //
@@ -270,7 +268,7 @@ type Namespace = v1beta1.Namespace
 // +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=253
-type SectionName = v1beta1.SectionName
+type SectionName = v1.SectionName
 
 // GatewayController is the name of a Gateway API controller. It must be a
 // domain prefixed path.
@@ -287,7 +285,7 @@ type SectionName = v1beta1.SectionName
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$`
-type GatewayController = v1beta1.GatewayController
+type GatewayController = v1.GatewayController
 
 // AnnotationKey is the key of an annotation in Gateway API. This is used for
 // validation of maps such as TLS options. This matches the Kubernetes
@@ -309,7 +307,7 @@ type GatewayController = v1beta1.GatewayController
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern=`^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]/?)*$`
-type AnnotationKey = v1beta1.AnnotationKey
+type AnnotationKey = v1.AnnotationKey
 
 // AnnotationValue is the value of an annotation in Gateway API. This is used
 // for validation of maps such as TLS options. This roughly matches Kubernetes
@@ -318,7 +316,7 @@ type AnnotationKey = v1beta1.AnnotationKey
 //
 // +kubebuilder:validation:MinLength=0
 // +kubebuilder:validation:MaxLength=4096
-type AnnotationValue = v1beta1.AnnotationValue
+type AnnotationValue = v1.AnnotationValue
 
 // AddressType defines how a network address is represented as a text string.
 // This may take two possible forms:
@@ -338,11 +336,11 @@ type AnnotationValue = v1beta1.AnnotationValue
 // +kubebuilder:validation:MinLength=1
 // +kubebuilder:validation:MaxLength=253
 // +kubebuilder:validation:Pattern=`^Hostname|IPAddress|NamedAddress|[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$`
-type AddressType = v1beta1.AddressType
+type AddressType = v1.AddressType
 
 // Duration is a string value representing a duration in time. The format is as specified
 // in GEP-2257, a strict subset of the syntax parsed by Golang time.ParseDuration.
-type Duration = v1beta1.Duration
+type Duration = v1.Duration
 
 const (
 	// A textual representation of a numeric IP address. IPv4

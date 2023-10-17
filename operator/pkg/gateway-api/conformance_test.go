@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/gateway-api/conformance/tests"
@@ -55,6 +56,7 @@ func TestConformance(t *testing.T) {
 
 	_ = v1alpha2.AddToScheme(c.Scheme())
 	_ = v1beta1.AddToScheme(c.Scheme())
+	_ = v1.AddToScheme(c.Scheme())
 
 	supportedFeatures := suite.ParseSupportedFeatures(*flags.SupportedFeatures)
 	exemptFeatures := suite.ParseSupportedFeatures(*flags.ExemptFeatures)

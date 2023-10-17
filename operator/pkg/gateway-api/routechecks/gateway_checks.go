@@ -9,10 +9,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1beta1.ParentReference) (bool, error) {
+func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
 	gw, err := input.GetGateway(parentRef)
 	if err != nil {
 		input.SetParentCondition(parentRef, metav1.Condition{
@@ -36,11 +36,11 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1beta1.Paren
 		}
 
 		// if gateway allows all namespaces, we do not need to check anything here
-		if *listener.AllowedRoutes.Namespaces.From == gatewayv1beta1.NamespacesFromAll {
+		if *listener.AllowedRoutes.Namespaces.From == gatewayv1.NamespacesFromAll {
 			continue
 		}
 
-		if *listener.AllowedRoutes.Namespaces.From == gatewayv1beta1.NamespacesFromSelector {
+		if *listener.AllowedRoutes.Namespaces.From == gatewayv1.NamespacesFromSelector {
 			nsList := &corev1.NamespaceList{}
 			selector, _ := metav1.LabelSelectorAsSelector(listener.AllowedRoutes.Namespaces.Selector)
 			if err := input.GetClient().List(input.GetContext(), nsList, client.MatchingLabelsSelector{Selector: selector}); err != nil {
@@ -57,7 +57,7 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1beta1.Paren
 				input.SetParentCondition(parentRef, metav1.Condition{
 					Type:    "Accepted",
 					Status:  metav1.ConditionFalse,
-					Reason:  string(gatewayv1beta1.RouteReasonNotAllowedByListeners),
+					Reason:  string(gatewayv1.RouteReasonNotAllowedByListeners),
 					Message: input.GetGVK().Kind + " is not allowed to attach to this Gateway due to namespace selector restrictions",
 				})
 
@@ -66,12 +66,12 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1beta1.Paren
 		}
 
 		// check if the gateway allows the same namespace as the route
-		if *listener.AllowedRoutes.Namespaces.From == gatewayv1beta1.NamespacesFromSame &&
+		if *listener.AllowedRoutes.Namespaces.From == gatewayv1.NamespacesFromSame &&
 			input.GetNamespace() != gw.GetNamespace() {
 			input.SetParentCondition(parentRef, metav1.Condition{
 				Type:    "Accepted",
 				Status:  metav1.ConditionFalse,
-				Reason:  string(gatewayv1beta1.RouteReasonNotAllowedByListeners),
+				Reason:  string(gatewayv1.RouteReasonNotAllowedByListeners),
 				Message: input.GetGVK().Kind + " is not allowed to attach to this Gateway due to namespace restrictions",
 			})
 
@@ -82,7 +82,7 @@ func CheckGatewayAllowedForNamespace(input Input, parentRef gatewayv1beta1.Paren
 	return true, nil
 }
 
-func CheckGatewayRouteKindAllowed(input Input, parentRef gatewayv1beta1.ParentReference) (bool, error) {
+func CheckGatewayRouteKindAllowed(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
 	gw, err := input.GetGateway(parentRef)
 	if err != nil {
 		input.SetParentCondition(parentRef, metav1.Condition{
@@ -103,8 +103,8 @@ func CheckGatewayRouteKindAllowed(input Input, parentRef gatewayv1beta1.ParentRe
 		allowed := false
 		routeGVK := input.GetGVK()
 		for _, kind := range listener.AllowedRoutes.Kinds {
-			if (kind.Group == nil || (kind.Group != nil && *kind.Group == gatewayv1beta1.Group(routeGVK.Group))) &&
-				kind.Kind == gatewayv1beta1.Kind(routeGVK.Kind) {
+			if (kind.Group == nil || (kind.Group != nil && *kind.Group == gatewayv1.Group(routeGVK.Group))) &&
+				kind.Kind == gatewayv1.Kind(routeGVK.Kind) {
 				allowed = true
 				break
 			}
@@ -112,9 +112,9 @@ func CheckGatewayRouteKindAllowed(input Input, parentRef gatewayv1beta1.ParentRe
 
 		if !allowed {
 			input.SetParentCondition(parentRef, metav1.Condition{
-				Type:    string(gatewayv1beta1.RouteConditionAccepted),
+				Type:    string(gatewayv1.RouteConditionAccepted),
 				Status:  metav1.ConditionFalse,
-				Reason:  string(gatewayv1beta1.RouteReasonNotAllowedByListeners),
+				Reason:  string(gatewayv1.RouteReasonNotAllowedByListeners),
 				Message: routeGVK.Kind + " is not allowed to attach to this Gateway due to route kind restrictions",
 			})
 
@@ -125,7 +125,7 @@ func CheckGatewayRouteKindAllowed(input Input, parentRef gatewayv1beta1.ParentRe
 	return true, nil
 }
 
-func CheckGatewayMatchingHostnames(input Input, parentRef gatewayv1beta1.ParentReference) (bool, error) {
+func CheckGatewayMatchingHostnames(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
 	gw, err := input.GetGateway(parentRef)
 	if err != nil {
 		input.SetParentCondition(parentRef, metav1.Condition{
@@ -141,9 +141,9 @@ func CheckGatewayMatchingHostnames(input Input, parentRef gatewayv1beta1.ParentR
 	if len(computeHosts(gw, input.GetHostnames())) == 0 {
 
 		input.SetParentCondition(parentRef, metav1.Condition{
-			Type:    string(gatewayv1beta1.RouteConditionAccepted),
+			Type:    string(gatewayv1.RouteConditionAccepted),
 			Status:  metav1.ConditionFalse,
-			Reason:  string(gatewayv1beta1.RouteReasonNoMatchingListenerHostname),
+			Reason:  string(gatewayv1.RouteReasonNoMatchingListenerHostname),
 			Message: "No matching listener hostname",
 		})
 
@@ -153,7 +153,7 @@ func CheckGatewayMatchingHostnames(input Input, parentRef gatewayv1beta1.ParentR
 	return true, nil
 }
 
-func CheckGatewayMatchingPorts(input Input, parentRef gatewayv1beta1.ParentReference) (bool, error) {
+func CheckGatewayMatchingPorts(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
 	gw, err := input.GetGateway(parentRef)
 	if err != nil {
 		input.SetParentCondition(parentRef, metav1.Condition{
@@ -173,7 +173,7 @@ func CheckGatewayMatchingPorts(input Input, parentRef gatewayv1beta1.ParentRefer
 			}
 		}
 		input.SetParentCondition(parentRef, metav1.Condition{
-			Type:    string(gatewayv1beta1.RouteConditionAccepted),
+			Type:    string(gatewayv1.RouteConditionAccepted),
 			Status:  metav1.ConditionFalse,
 			Reason:  "NoMatchingParent",
 			Message: fmt.Sprintf("No matching listener with port %d", *parentRef.Port),
@@ -185,7 +185,7 @@ func CheckGatewayMatchingPorts(input Input, parentRef gatewayv1beta1.ParentRefer
 	return true, nil
 }
 
-func CheckGatewayMatchingSection(input Input, parentRef gatewayv1beta1.ParentReference) (bool, error) {
+func CheckGatewayMatchingSection(input Input, parentRef gatewayv1.ParentReference) (bool, error) {
 	gw, err := input.GetGateway(parentRef)
 	if err != nil {
 		input.SetParentCondition(parentRef, metav1.Condition{
@@ -208,7 +208,7 @@ func CheckGatewayMatchingSection(input Input, parentRef gatewayv1beta1.ParentRef
 		}
 		if !found {
 			input.SetParentCondition(parentRef, metav1.Condition{
-				Type:    string(gatewayv1beta1.RouteConditionAccepted),
+				Type:    string(gatewayv1.RouteConditionAccepted),
 				Status:  metav1.ConditionFalse,
 				Reason:  "NoMatchingParent",
 				Message: fmt.Sprintf("No matching listener with sectionName %s", *parentRef.SectionName),

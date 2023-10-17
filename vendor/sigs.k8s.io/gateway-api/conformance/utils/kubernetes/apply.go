@@ -30,10 +30,12 @@ import (
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/gateway-api/conformance/utils/config"
 )
 
@@ -51,12 +53,87 @@ type Applier struct {
 
 	// FS is the filesystem to use when reading manifests.
 	FS embed.FS
+
+	// UsableNetworkAddresses is a list of addresses that are expected to be
+	// supported AND usable for Gateways in the underlying implementation.
+	UsableNetworkAddresses []v1beta1.GatewayAddress
+
+	// UnusableNetworkAddresses is a list of addresses that are expected to be
+	// supported, but not usable for Gateways in the underlying implementation.
+	UnusableNetworkAddresses []v1beta1.GatewayAddress
 }
 
 // prepareGateway adjusts the gatewayClassName.
 func (a Applier) prepareGateway(t *testing.T, uObj *unstructured.Unstructured) {
+	ns := uObj.GetNamespace()
+	name := uObj.GetName()
+
 	err := unstructured.SetNestedField(uObj.Object, a.GatewayClass, "spec", "gatewayClassName")
-	require.NoErrorf(t, err, "error setting `spec.gatewayClassName` on %s Gateway resource", uObj.GetName())
+	require.NoErrorf(t, err, "error setting `spec.gatewayClassName` on Gateway %s/%s", ns, name)
+
+	rawSpec, hasSpec, err := unstructured.NestedFieldCopy(uObj.Object, "spec")
+	require.NoError(t, err, "error retrieving spec.addresses to verify if any static addresses were present on Gateway resource %s/%s", ns, name)
+	require.True(t, hasSpec)
+
+	rawSpecMap, ok := rawSpec.(map[string]interface{})
+	require.True(t, ok, "expected gw spec received %T", rawSpec)
+
+	gwspec := &v1beta1.GatewaySpec{}
+	require.NoError(t, runtime.DefaultUnstructuredConverter.FromUnstructured(rawSpecMap, gwspec))
+
+	// for tests which have placeholders for static gateway addresses we will
+	// inject real addresses from the address pools the caller provided.
+	if len(gwspec.Addresses) > 0 {
+		// this is a hack because we don't have any other great way to inject custom
+		// values into the test YAML at the time of writing: Gateways that include
+		// addresses with the following values:
+		//
+		//   * PLACEHOLDER_USABLE_ADDRS
+		//   * PLACEHOLDER_UNUSABLE_ADDRS
+		//
+		// indicate that they expect the caller of the test suite to have provided
+		// relevant addresses (usable, or unusable ones) in the test suite, and those
+		// addresses will be injected into the Gateway and the placeholders removed.
+		//
+		// A special "test/fake-invalid-type" can be provided as well in the test to
+		// explicitly trigger a failure to support a type. If an implementation ever
+		// comes along actually trying to support that type, I'm going to be very
+		// cranky.
+		//
+		// Note: I would really love to find a better way to do this kind of
+		// thing in the future.
+		var overlayUsable, overlayUnusuable bool
+		var specialAddrs []v1beta1.GatewayAddress
+		for _, addr := range gwspec.Addresses {
+			switch addr.Value {
+			case "PLACEHOLDER_USABLE_ADDRS":
+				overlayUsable = true
+			case "PLACEHOLDER_UNUSABLE_ADDRS":
+				overlayUnusuable = true
+			}
+
+			if addr.Type != nil && *addr.Type == "test/fake-invalid-type" {
+				specialAddrs = append(specialAddrs, addr)
+			}
+		}
+
+		var primOverlayAddrs []interface{}
+		if len(specialAddrs) > 0 {
+			t.Logf("the test provides %d special addresses that will be kept", len(specialAddrs))
+			primOverlayAddrs = append(primOverlayAddrs, convertGatewayAddrsToPrimitives(specialAddrs)...)
+		}
+		if overlayUnusuable {
+			t.Logf("address pool of %d unusable addresses will be overlayed", len(a.UnusableNetworkAddresses))
+			primOverlayAddrs = append(primOverlayAddrs, convertGatewayAddrsToPrimitives(a.UnusableNetworkAddresses)...)
+		}
+		if overlayUsable {
+			t.Logf("address pool of %d usable addresses will be overlayed", len(a.UsableNetworkAddresses))
+			primOverlayAddrs = append(primOverlayAddrs, convertGatewayAddrsToPrimitives(a.UsableNetworkAddresses)...)
+		}
+
+		err = unstructured.SetNestedSlice(uObj.Object, primOverlayAddrs, "spec", "addresses")
+		require.NoError(t, err, "could not overlay static addresses on Gateway %s/%s", ns, name)
+	}
 }
 
 // prepareGatewayClass adjust the spec.controllerName on the resource
@@ -265,4 +342,21 @@ func getContentsFromPathOrURL(fs embed.FS, location string, timeoutConfig config
 		return nil, err
 	}
 	return bytes.NewBuffer(b), nil
+}
+
+// convertGatewayAddrsToPrimitives converts a slice of Gateway addresses
+// to a slice of primitive types and then returns them as a []interface{} so that
+// they can be applied back to an unstructured Gateway.
+func convertGatewayAddrsToPrimitives(gwaddrs []v1beta1.GatewayAddress) (raw []interface{}) {
+	for _, addr := range gwaddrs {
+		addrType := string(v1beta1.IPAddressType)
+		if addr.Type != nil {
+			addrType = string(*addr.Type)
+		}
+		raw = append(raw, map[string]interface{}{
+			"type":  addrType,
+			"value": addr.Value,
+		})
+	}
+	return
 }

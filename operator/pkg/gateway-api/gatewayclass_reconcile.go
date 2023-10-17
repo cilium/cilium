@@ -10,7 +10,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -27,7 +27,7 @@ func (r *gatewayClassReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	})
 
 	scopedLog.Info("Reconciling GatewayClass")
-	gwc := &gatewayv1beta1.GatewayClass{}
+	gwc := &gatewayv1.GatewayClass{}
 	if err := r.Client.Get(ctx, req.NamespacedName, gwc); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return success()

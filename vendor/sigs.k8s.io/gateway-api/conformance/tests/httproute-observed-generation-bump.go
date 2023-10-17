@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
@@ -54,7 +54,7 @@ var HTTPRouteObservedGenerationBump = suite.ConformanceTest{
 			namespaces := []string{"gateway-conformance-infra"}
 			kubernetes.NamespacesMustBeReady(t, suite.Client, suite.TimeoutConfig, namespaces)
 
-			original := &v1beta1.HTTPRoute{}
+			original := &v1.HTTPRoute{}
 			err := suite.Client.Get(ctx, routeNN, original)
 			require.NoErrorf(t, err, "error getting HTTPRoute: %v", err)
 
@@ -67,13 +67,13 @@ var HTTPRouteObservedGenerationBump = suite.ConformanceTest{
 			require.NoErrorf(t, err, "error patching the HTTPRoute: %v", err)
 
 			kubernetes.HTTPRouteMustHaveCondition(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN, metav1.Condition{
-				Type:   string(v1beta1.RouteConditionAccepted),
+				Type:   string(v1.RouteConditionAccepted),
 				Status: metav1.ConditionTrue,
 				Reason: "", // any reason
 			})
 			kubernetes.HTTPRouteMustHaveResolvedRefsConditionsTrue(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN)
 
-			updated := &v1beta1.HTTPRoute{}
+			updated := &v1.HTTPRoute{}
 			err = suite.Client.Get(ctx, routeNN, updated)
 			require.NoErrorf(t, err, "error getting Gateway: %v", err)
 

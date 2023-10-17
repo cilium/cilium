@@ -13,6 +13,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/routechecks"
@@ -32,7 +33,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	scopedLog.Info("Reconciling HTTPRoute")
 
 	// Fetch the HTTPRoute instance
-	original := &gatewayv1beta1.HTTPRoute{}
+	original := &gatewayv1.HTTPRoute{}
 	if err := r.Client.Get(ctx, req.NamespacedName, original); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return success()
@@ -81,9 +82,9 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		// set status to okay, this wil be overwritten in checks if needed
 		i.SetAllParentCondition(metav1.Condition{
-			Type:    string(gatewayv1beta1.RouteConditionResolvedRefs),
+			Type:    string(gatewayv1.RouteConditionResolvedRefs),
 			Status:  metav1.ConditionTrue,
-			Reason:  string(gatewayv1beta1.RouteReasonResolvedRefs),
+			Reason:  string(gatewayv1.RouteReasonResolvedRefs),
 			Message: "Service reference is valid",
 		})
 
@@ -120,7 +121,7 @@ func (r *httpRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return success()
 }
 
-func (r *httpRouteReconciler) updateStatus(ctx context.Context, original *gatewayv1beta1.HTTPRoute, new *gatewayv1beta1.HTTPRoute) error {
+func (r *httpRouteReconciler) updateStatus(ctx context.Context, original *gatewayv1.HTTPRoute, new *gatewayv1.HTTPRoute) error {
 	oldStatus := original.Status.DeepCopy()
 	newStatus := new.Status.DeepCopy()
 

@@ -197,6 +197,8 @@ func (d *DefaultRoundTripper) CaptureRoundTrip(request Request) (*CapturedReques
 		if err != nil {
 			return nil, nil, fmt.Errorf("unexpected error reading response: %w", err)
 		}
+	} else {
+		cReq.Method = method // assume it made the right request if the service being called isn't echoing
 	}
 
 	cRes := &CapturedResponse{
@@ -260,6 +262,16 @@ func IsRedirect(statusCode int) bool {
 		http.StatusUseProxy,
 		http.StatusTemporaryRedirect,
 		http.StatusPermanentRedirect:
+		return true
+	}
+	return false
+}
+
+// IsTimeoutError returns true if a given status code is a timeout error code.
+func IsTimeoutError(statusCode int) bool {
+	switch statusCode {
+	case http.StatusRequestTimeout,
+		http.StatusGatewayTimeout:
 		return true
 	}
 	return false

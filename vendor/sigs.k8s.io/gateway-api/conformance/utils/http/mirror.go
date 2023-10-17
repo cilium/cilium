@@ -45,7 +45,6 @@ func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clients
 			defer wg.Done()
 
 			require.Eventually(t, func() bool {
-				var mirrored bool
 				mirrorLogRegexp := regexp.MustCompile(fmt.Sprintf("Echoing back request made to \\%s to client", path))
 
 				t.Log("Searching for the mirrored request log")
@@ -58,12 +57,11 @@ func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clients
 
 				for _, log := range logs {
 					if mirrorLogRegexp.MatchString(string(log)) {
-						mirrored = true
-						break
+						return true
 					}
 				}
-				return mirrored
-			}, 60*time.Second, time.Second, fmt.Sprintf(`Couldn't find mirrored request in "%s/%s" logs`, mirrorPod.Namespace, mirrorPod.Name))
+				return false
+			}, 60*time.Second, time.Millisecond*100, fmt.Sprintf(`Couldn't find mirrored request in "%s/%s" logs`, mirrorPod.Namespace, mirrorPod.Name))
 		}(mirrorPod)
 	}
 

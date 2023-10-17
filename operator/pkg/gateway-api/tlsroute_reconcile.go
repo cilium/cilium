@@ -13,6 +13,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -82,9 +83,9 @@ func (r *tlsRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 		// set status to okay, this wil be overwritten in checks if needed
 		i.SetAllParentCondition(metav1.Condition{
-			Type:    string(gatewayv1beta1.RouteConditionResolvedRefs),
+			Type:    string(gatewayv1.RouteConditionResolvedRefs),
 			Status:  metav1.ConditionTrue,
-			Reason:  string(gatewayv1beta1.RouteReasonResolvedRefs),
+			Reason:  string(gatewayv1.RouteReasonResolvedRefs),
 			Message: "Service reference is valid",
 		})
 

@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
@@ -51,9 +51,9 @@ var HTTPRouteDisallowedKind = suite.ConformanceTest{
 
 		t.Run("Route should not have been accepted with reason NotAllowedByListeners", func(t *testing.T) {
 			kubernetes.HTTPRouteMustHaveCondition(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN, metav1.Condition{
-				Type:   string(v1beta1.RouteConditionAccepted),
+				Type:   string(v1.RouteConditionAccepted),
 				Status: metav1.ConditionFalse,
-				Reason: string(v1beta1.RouteReasonNotAllowedByListeners),
+				Reason: string(v1.RouteReasonNotAllowedByListeners),
 			})
 		})
 		t.Run("Route should not have Parents set in status", func(t *testing.T) {

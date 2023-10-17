@@ -1,4 +1,4 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: rewrite-path
@@ -17,6 +17,19 @@ spec:
         path:
           type: ReplacePrefixMatch
           replacePrefixMatch: /one
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /strip-prefix
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
     backendRefs:
     - name: infra-backend-v1
       port: 8080

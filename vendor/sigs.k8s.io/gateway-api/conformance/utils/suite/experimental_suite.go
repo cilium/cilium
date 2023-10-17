@@ -160,10 +160,12 @@ func NewExperimentalConformanceTestSuite(s ExperimentalConformanceOptions) (*Exp
 			NamespaceLabels:      s.NamespaceLabels,
 			NamespaceAnnotations: s.NamespaceAnnotations,
 		},
-		SupportedFeatures: s.SupportedFeatures,
-		TimeoutConfig:     s.TimeoutConfig,
-		SkipTests:         sets.New(s.SkipTests...),
-		FS:                *s.FS,
+		SupportedFeatures:        s.SupportedFeatures,
+		TimeoutConfig:            s.TimeoutConfig,
+		SkipTests:                sets.New(s.SkipTests...),
+		FS:                       *s.FS,
+		UsableNetworkAddresses:   s.UsableNetworkAddresses,
+		UnusableNetworkAddresses: s.UnusableNetworkAddresses,
 	}
 
 	// apply defaults

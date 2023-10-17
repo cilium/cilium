@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
@@ -41,17 +41,24 @@ var GatewayWithAttachedRoutes = suite.ConformanceTest{
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		t.Run("Gateway listener should have one valid http routes attached", func(t *testing.T) {
 			gwNN := types.NamespacedName{Name: "gateway-with-one-attached-route", Namespace: "gateway-conformance-infra"}
-			listeners := []v1beta1.ListenerStatus{{
-				Name: v1beta1.SectionName("http"),
-				SupportedKinds: []v1beta1.RouteGroupKind{{
-					Group: (*v1beta1.Group)(&v1beta1.GroupVersion.Group),
-					Kind:  v1beta1.Kind("HTTPRoute"),
+			listeners := []v1.ListenerStatus{{
+				Name: v1.SectionName("http"),
+				SupportedKinds: []v1.RouteGroupKind{{
+					Group: (*v1.Group)(&v1.GroupVersion.Group),
+					Kind:  v1.Kind("HTTPRoute"),
 				}},
-				Conditions: []metav1.Condition{{
-					Type:   string(v1beta1.ListenerConditionAccepted),
-					Status: metav1.ConditionTrue,
-					Reason: "", // any reason
-				}},
+				Conditions: []metav1.Condition{
+					{
+						Type:   string(v1.ListenerConditionAccepted),
+						Status: metav1.ConditionTrue,
+						Reason: "", // any reason
+					},
+					{
+						Type:   string(v1.ListenerConditionResolvedRefs),
+						Status: metav1.ConditionTrue,
+						Reason: "", // any reason
+					},
+				},
 				AttachedRoutes: 1,
 			}}
 
@@ -60,17 +67,24 @@ var GatewayWithAttachedRoutes = suite.ConformanceTest{
 
 		t.Run("Gateway listener should have two valid http routes attached", func(t *testing.T) {
 			gwNN := types.NamespacedName{Name: "gateway-with-two-attached-routes", Namespace: "gateway-conformance-infra"}
-			listeners := []v1beta1.ListenerStatus{{
-				Name: v1beta1.SectionName("http"),
-				SupportedKinds: []v1beta1.RouteGroupKind{{
-					Group: (*v1beta1.Group)(&v1beta1.GroupVersion.Group),
-					Kind:  v1beta1.Kind("HTTPRoute"),
+			listeners := []v1.ListenerStatus{{
+				Name: v1.SectionName("http"),
+				SupportedKinds: []v1.RouteGroupKind{{
+					Group: (*v1.Group)(&v1.GroupVersion.Group),
+					Kind:  v1.Kind("HTTPRoute"),
 				}},
-				Conditions: []metav1.Condition{{
-					Type:   string(v1beta1.ListenerConditionAccepted),
-					Status: metav1.ConditionTrue,
-					Reason: "", // any reason
-				}},
+				Conditions: []metav1.Condition{
+					{
+						Type:   string(v1.ListenerConditionAccepted),
+						Status: metav1.ConditionTrue,
+						Reason: "", // any reason
+					},
+					{
+						Type:   string(v1.ListenerConditionResolvedRefs),
+						Status: metav1.ConditionTrue,
+						Reason: "", // any reason
+					},
+				},
 				AttachedRoutes: 2,
 			}}
 
@@ -90,31 +104,45 @@ var GatewayWithAttachedRoutesWithPort8080 = suite.ConformanceTest{
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
 		t.Run("Gateway listener should have attached route by specifying the sectionName", func(t *testing.T) {
 			gwNN := types.NamespacedName{Name: "gateway-with-two-listeners-and-one-attached-route", Namespace: "gateway-conformance-infra"}
-			listeners := []v1beta1.ListenerStatus{
+			listeners := []v1.ListenerStatus{
 				{
-					Name: v1beta1.SectionName("http-unattached"),
-					SupportedKinds: []v1beta1.RouteGroupKind{{
-						Group: (*v1beta1.Group)(&v1beta1.GroupVersion.Group),
-						Kind:  v1beta1.Kind("HTTPRoute"),
+					Name: v1.SectionName("http-unattached"),
+					SupportedKinds: []v1.RouteGroupKind{{
+						Group: (*v1.Group)(&v1.GroupVersion.Group),
+						Kind:  v1.Kind("HTTPRoute"),
 					}},
-					Conditions: []metav1.Condition{{
-						Type:   string(v1beta1.ListenerConditionAccepted),
-						Status: metav1.ConditionTrue,
-						Reason: "", // any reason
-					}},
+					Conditions: []metav1.Condition{
+						{
+							Type:   string(v1.ListenerConditionAccepted),
+							Status: metav1.ConditionTrue,
+							Reason: "", // any reason
+						},
+						{
+							Type:   string(v1.ListenerConditionResolvedRefs),
+							Status: metav1.ConditionTrue,
+							Reason: "", // any reason
+						},
+					},
 					AttachedRoutes: 0,
 				},
 				{
-					Name: v1beta1.SectionName("http"),
-					SupportedKinds: []v1beta1.RouteGroupKind{{
-						Group: (*v1beta1.Group)(&v1beta1.GroupVersion.Group),
-						Kind:  v1beta1.Kind("HTTPRoute"),
+					Name: v1.SectionName("http"),
+					SupportedKinds: []v1.RouteGroupKind{{
+						Group: (*v1.Group)(&v1.GroupVersion.Group),
+						Kind:  v1.Kind("HTTPRoute"),
 					}},
-					Conditions: []metav1.Condition{{
-						Type:   string(v1beta1.ListenerConditionAccepted),
-						Status: metav1.ConditionTrue,
-						Reason: "", // any reason
-					}},
+					Conditions: []metav1.Condition{
+						{
+							Type:   string(v1.ListenerConditionAccepted),
+							Status: metav1.ConditionTrue,
+							Reason: "", // any reason
+						},
+						{
+							Type:   string(v1.ListenerConditionResolvedRefs),
+							Status: metav1.ConditionTrue,
+							Reason: "", // any reason
+						},
+					},
 					AttachedRoutes: 1,
 				},
 			}

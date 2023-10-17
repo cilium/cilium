@@ -19,7 +19,7 @@ package v1alpha2
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // +genclient
@@ -27,8 +27,8 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:categories=gateway-api,scope=Cluster,shortName=gc
 // +kubebuilder:subresource:status
-// +kubebuilder:unservedversion
-// +kubebuilder:deprecatedversion:warning="The v1alpha2 version of GatewayClass has been deprecated and will be removed in a future release of the API. Please upgrade to v1beta1."
+// +kubebuilder:skipversion
+// +kubebuilder:deprecatedversion:warning="The v1alpha2 version of GatewayClass has been deprecated and will be removed in a future release of the API. Please upgrade to v1."
 // +kubebuilder:printcolumn:name="Controller",type=string,JSONPath=`.spec.controllerName`
 // +kubebuilder:printcolumn:name="Accepted",type=string,JSONPath=`.status.conditions[?(@.type=="Accepted")].status`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
@@ -51,7 +51,7 @@ import (
 // Gateway is not deleted while in use.
 //
 // GatewayClass is a Cluster level resource.
-type GatewayClass v1beta1.GatewayClass
+type GatewayClass v1.GatewayClass
 
 // +kubebuilder:object:root=true
 
@@ -64,24 +64,24 @@ type GatewayClassList struct {
 
 // GatewayClassSpec reflects the configuration of a class of Gateways.
 // +k8s:deepcopy-gen=false
-type GatewayClassSpec = v1beta1.GatewayClassSpec
+type GatewayClassSpec = v1.GatewayClassSpec
 
 // ParametersReference identifies an API object containing controller-specific
 // configuration resource within the cluster.
 // +k8s:deepcopy-gen=false
-type ParametersReference = v1beta1.ParametersReference
+type ParametersReference = v1.ParametersReference
 
 // GatewayClassConditionType is the type for status conditions on
 // Gateway resources. This type should be used with the
 // GatewayClassStatus.Conditions field.
 // +k8s:deepcopy-gen=false
-type GatewayClassConditionType = v1beta1.GatewayClassConditionType
+type GatewayClassConditionType = v1.GatewayClassConditionType
 
 // GatewayClassConditionReason defines the set of reasons that explain why a
 // particular GatewayClass condition type has been raised.
 // +k8s:deepcopy-gen=false
-type GatewayClassConditionReason = v1beta1.GatewayClassConditionReason
+type GatewayClassConditionReason = v1.GatewayClassConditionReason
 
 // GatewayClassStatus is the current status for the GatewayClass.
 // +k8s:deepcopy-gen=false
-type GatewayClassStatus = v1beta1.GatewayClassStatus
+type GatewayClassStatus = v1.GatewayClassStatus

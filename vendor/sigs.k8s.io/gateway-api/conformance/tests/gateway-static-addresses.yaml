@@ -1,0 +1,27 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-static-addresses
+  namespace: gateway-conformance-infra
+  annotations:
+    gateway-api/skip-this-for-readiness: "true"
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  addresses:
+  # this address type is intentionally unsupported to test that implementations
+  # are indicating Gateways with unsupported addresses are not accepted.
+  # the test will remove this address once it confirms it triggers a status of
+  # Accepted==False.
+  - type: "test/fake-invalid-type"
+    value: "fake address teehee!"
+  # This indicates an address that is known to not be usable by the
+  # implementation and will be substituted with user provided types and values.
+  - value: "PLACEHOLDER_UNUSABLE_ADDRS"
+  # This indicates an address that is known to be usable by the implementation
+  # and will be substituted with user provided types and values.
+  - value: "PLACEHOLDER_USABLE_ADDRS"
+  listeners:
+  - name: http
+    port: 8080
+    protocol: HTTP

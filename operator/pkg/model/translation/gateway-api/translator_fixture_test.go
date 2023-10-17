@@ -166,7 +166,7 @@ var basicHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Namespace: "default",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "my-gateway",
 				Controller: model.AddressOf(true),
@@ -254,7 +254,7 @@ var basicTLSListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Namespace: "default",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "my-gateway",
 				Controller: model.AddressOf(true),
@@ -398,7 +398,7 @@ var simpleSameNamespaceHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyCon
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
 				Controller: model.AddressOf(true),
@@ -482,7 +482,7 @@ var crossNamespaceHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "backend-namespaces",
 				Controller: model.AddressOf(true),
@@ -579,7 +579,7 @@ var exactPathMatchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfi
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
 				Controller: model.AddressOf(true),
@@ -788,7 +788,7 @@ var headerMatchingHTTPCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Name:       "same-namespace",
 				Controller: model.AddressOf(true),
 			},
@@ -1088,7 +1088,7 @@ var hostnameIntersectionHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyCo
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "httproute-hostname-intersection",
 				Controller: model.AddressOf(true),
@@ -1324,7 +1324,7 @@ var listenerHostNameMatchingCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Name:       "httproute-listener-hostname-matching",
 				Controller: model.AddressOf(true),
 			},
@@ -1483,7 +1483,7 @@ var matchingAcrossHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
 				Controller: model.AddressOf(true),
@@ -1656,7 +1656,7 @@ var matchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
 				Controller: model.AddressOf(true),
@@ -1839,7 +1839,7 @@ var queryParamMatchingHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConf
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
 				Controller: model.AddressOf(true),
@@ -2030,7 +2030,7 @@ var methodMatchingHTTPListenersHTTPListenersCiliumEnvoyConfig = &ciliumv2.Cilium
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
 				Controller: model.AddressOf(true),
@@ -2266,7 +2266,7 @@ var requestHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyC
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
 				Controller: model.AddressOf(true),
@@ -2486,7 +2486,7 @@ var requestRedirectHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
 				Controller: model.AddressOf(true),
@@ -2730,7 +2730,7 @@ var responseHeaderModifierHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoy
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
 				Controller: model.AddressOf(true),
@@ -2968,7 +2968,7 @@ var rewriteHostHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
 				Controller: model.AddressOf(true),
@@ -3185,7 +3185,7 @@ var rewritePathHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
 				Controller: model.AddressOf(true),
@@ -3403,7 +3403,7 @@ var mirrorHTTPListenersCiliumEnvoyConfig = &ciliumv2.CiliumEnvoyConfig{
 		Namespace: "gateway-conformance-infra",
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: "gateway.networking.k8s.io/v1beta1",
+				APIVersion: "gateway.networking.k8s.io/v1",
 				Kind:       "Gateway",
 				Name:       "same-namespace",
 				Controller: model.AddressOf(true),

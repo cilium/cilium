@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -39,6 +40,7 @@ var (
 )
 
 func init() {
+	utilruntime.Must(gatewayv1.AddToScheme(scheme))
 	utilruntime.Must(gatewayv1beta1.AddToScheme(scheme))
 	utilruntime.Must(gatewayv1alpha2.AddToScheme(scheme))
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -152,12 +154,12 @@ func hasMatchingController(ctx context.Context, c client.Client, controllerName 
 			logfields.Controller: gateway,
 			logfields.Resource:   obj.GetName(),
 		})
-		gw, ok := obj.(*gatewayv1beta1.Gateway)
+		gw, ok := obj.(*gatewayv1.Gateway)
 		if !ok {
 			return false
 		}
 
-		gwc := &gatewayv1beta1.GatewayClass{}
+		gwc := &gatewayv1.GatewayClass{}
 		key := types.NamespacedName{Name: string(gw.Spec.GatewayClassName)}
 		if err := c.Get(ctx, key, gwc); err != nil {
 			scopedLog.WithError(err).Error("Unable to get GatewayClass")
@@ -174,7 +176,7 @@ func getGatewaysForSecret(ctx context.Context, c client.Client, obj client.Objec
 		logfields.Resource:   obj.GetName(),
 	})
 
-	gwList := &gatewayv1beta1.GatewayList{}
+	gwList := &gatewayv1.GatewayList{}
 	if err := c.List(ctx, gwList); err != nil {
 		scopedLog.WithError(err).Warn("Unable to list Gateways")
 		return nil
@@ -211,7 +213,7 @@ func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Obj
 		logfields.K8sNamespace: ns.GetName(),
 	})
 
-	gwList := &gatewayv1beta1.GatewayList{}
+	gwList := &gatewayv1.GatewayList{}
 	if err := c.List(ctx, gwList); err != nil {
 		scopedLog.WithError(err).Warn("Unable to list Gateways")
 		return nil
@@ -225,19 +227,19 @@ func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Obj
 			}
 
 			switch *l.AllowedRoutes.Namespaces.From {
-			case gatewayv1beta1.NamespacesFromAll:
+			case gatewayv1.NamespacesFromAll:
 				gateways = append(gateways, client.ObjectKey{
 					Namespace: gw.GetNamespace(),
 					Name:      gw.GetName(),
 				})
-			case gatewayv1beta1.NamespacesFromSame:
+			case gatewayv1.NamespacesFromSame:
 				if ns.GetName() == gw.GetNamespace() {
 					gateways = append(gateways, client.ObjectKey{
 						Namespace: gw.GetNamespace(),
 						Name:      gw.GetName(),
 					})
 				}
-			case gatewayv1beta1.NamespacesFromSelector:
+			case gatewayv1.NamespacesFromSelector:
 				nsList := &corev1.NamespaceList{}
 				err := c.List(ctx, nsList, client.MatchingLabels(l.AllowedRoutes.Namespaces.Selector.MatchLabels))
 				if err != nil {
@@ -265,23 +267,23 @@ func onlyStatusChanged() predicate.Predicate {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			switch e.ObjectOld.(type) {
-			case *gatewayv1beta1.GatewayClass:
-				o, _ := e.ObjectOld.(*gatewayv1beta1.GatewayClass)
-				n, ok := e.ObjectNew.(*gatewayv1beta1.GatewayClass)
+			case *gatewayv1.GatewayClass:
+				o, _ := e.ObjectOld.(*gatewayv1.GatewayClass)
+				n, ok := e.ObjectNew.(*gatewayv1.GatewayClass)
 				if !ok {
 					return false
 				}
 				return !cmp.Equal(o.Status, n.Status, option)
-			case *gatewayv1beta1.Gateway:
-				o, _ := e.ObjectOld.(*gatewayv1beta1.Gateway)
-				n, ok := e.ObjectNew.(*gatewayv1beta1.Gateway)
+			case *gatewayv1.Gateway:
+				o, _ := e.ObjectOld.(*gatewayv1.Gateway)
+				n, ok := e.ObjectNew.(*gatewayv1.Gateway)
 				if !ok {
 					return false
 				}
 				return !cmp.Equal(o.Status, n.Status, option)
-			case *gatewayv1beta1.HTTPRoute:
-				o, _ := e.ObjectOld.(*gatewayv1beta1.HTTPRoute)
-				n, ok := e.ObjectNew.(*gatewayv1beta1.HTTPRoute)
+			case *gatewayv1.HTTPRoute:
+				o, _ := e.ObjectOld.(*gatewayv1.HTTPRoute)
+				n, ok := e.ObjectNew.(*gatewayv1.HTTPRoute)
 				if !ok {
 					return false
 				}

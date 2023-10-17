@@ -19,15 +19,15 @@ package v1alpha2
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:categories=gateway-api
 // +kubebuilder:subresource:status
-// +kubebuilder:unservedversion
-// +kubebuilder:deprecatedversion:warning="The v1alpha2 version of HTTPRoute has been deprecated and will be removed in a future release of the API. Please upgrade to v1beta1."
+// +kubebuilder:skipversion
+// +kubebuilder:deprecatedversion:warning="The v1alpha2 version of HTTPRoute has been deprecated and will be removed in a future release of the API. Please upgrade to v1."
 // +kubebuilder:printcolumn:name="Hostnames",type=string,JSONPath=`.spec.hostnames`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
@@ -35,7 +35,7 @@ import (
 // to match requests by hostname, path, header, or query param. Filters can be
 // used to specify additional processing steps. Backends specify where matching
 // requests should be routed.
-type HTTPRoute v1beta1.HTTPRoute
+type HTTPRoute v1.HTTPRoute
 
 // +kubebuilder:object:root=true
 
@@ -48,13 +48,13 @@ type HTTPRouteList struct {
 
 // HTTPRouteSpec defines the desired state of HTTPRoute
 // +k8s:deepcopy-gen=false
-type HTTPRouteSpec = v1beta1.HTTPRouteSpec
+type HTTPRouteSpec = v1.HTTPRouteSpec
 
 // HTTPRouteRule defines semantics for matching an HTTP request based on
 // conditions (matches), processing it (filters), and forwarding the request to
 // an API object (backendRefs).
 // +k8s:deepcopy-gen=false
-type HTTPRouteRule = v1beta1.HTTPRouteRule
+type HTTPRouteRule = v1.HTTPRouteRule
 
 // PathMatchType specifies the semantics of how HTTP paths should be compared.
 // Valid PathMatchType values, along with their conformance level, are:
@@ -77,11 +77,11 @@ type HTTPRouteRule = v1beta1.HTTPRouteRule
 //
 // +kubebuilder:validation:Enum=Exact;PathPrefix;RegularExpression
 // +k8s:deepcopy-gen=false
-type PathMatchType = v1beta1.PathMatchType
+type PathMatchType = v1.PathMatchType
 
 // HTTPPathMatch describes how to select a HTTP route by matching the HTTP request path.
 // +k8s:deepcopy-gen=false
-type HTTPPathMatch = v1beta1.HTTPPathMatch
+type HTTPPathMatch = v1.HTTPPathMatch
 
 // HeaderMatchType specifies the semantics of how HTTP header values should be
 // compared. Valid HeaderMatchType values, along with their conformance levels, are:
@@ -98,7 +98,7 @@ type HTTPPathMatch = v1beta1.HTTPPathMatch
 //
 // +kubebuilder:validation:Enum=Exact;RegularExpression
 // +k8s:deepcopy-gen=false
-type HeaderMatchType = v1beta1.HeaderMatchType
+type HeaderMatchType = v1.HeaderMatchType
 
 // HTTPHeaderName is the name of an HTTP header.
 //
@@ -113,12 +113,12 @@ type HeaderMatchType = v1beta1.HeaderMatchType
 //
 // * "/invalid" - "/" is an invalid character
 // +k8s:deepcopy-gen=false
-type HTTPHeaderName = v1beta1.HeaderName
+type HTTPHeaderName = v1.HeaderName
 
 // HTTPHeaderMatch describes how to select a HTTP route by matching HTTP request
 // headers.
 // +k8s:deepcopy-gen=false
-type HTTPHeaderMatch = v1beta1.HTTPHeaderMatch
+type HTTPHeaderMatch = v1.HTTPHeaderMatch
 
 // QueryParamMatchType specifies the semantics of how HTTP query parameter
 // values should be compared. Valid QueryParamMatchType values, along with their
@@ -136,12 +136,12 @@ type HTTPHeaderMatch = v1beta1.HTTPHeaderMatch
 //
 // +kubebuilder:validation:Enum=Exact;RegularExpression
 // +k8s:deepcopy-gen=false
-type QueryParamMatchType = v1beta1.QueryParamMatchType
+type QueryParamMatchType = v1.QueryParamMatchType
 
 // HTTPQueryParamMatch describes how to select a HTTP route by matching HTTP
 // query parameters.
 // +k8s:deepcopy-gen=false
-type HTTPQueryParamMatch = v1beta1.HTTPQueryParamMatch
+type HTTPQueryParamMatch = v1.HTTPQueryParamMatch
 
 // HTTPMethod describes how to select a HTTP route by matching the HTTP
 // method as defined by
@@ -158,7 +158,7 @@ type HTTPQueryParamMatch = v1beta1.HTTPQueryParamMatch
 //
 // +kubebuilder:validation:Enum=GET;HEAD;POST;PUT;DELETE;CONNECT;OPTIONS;TRACE;PATCH
 // +k8s:deepcopy-gen=false
-type HTTPMethod = v1beta1.HTTPMethod
+type HTTPMethod = v1.HTTPMethod
 
 // HTTPRouteMatch defines the predicate used to match requests to a given
 // action. Multiple match types are ANDed together, i.e. the match will
@@ -178,7 +178,7 @@ type HTTPMethod = v1beta1.HTTPMethod
 //
 // ```
 // +k8s:deepcopy-gen=false
-type HTTPRouteMatch = v1beta1.HTTPRouteMatch
+type HTTPRouteMatch = v1.HTTPRouteMatch
 
 // HTTPRouteFilter defines processing steps that must be completed during the
 // request or response lifecycle. HTTPRouteFilters are meant as an extension
@@ -187,34 +187,38 @@ type HTTPRouteMatch = v1beta1.HTTPRouteMatch
 // authentication strategies, rate-limiting, and traffic shaping. API
 // guarantee/conformance is defined based on the type of the filter.
 // +k8s:deepcopy-gen=false
-type HTTPRouteFilter = v1beta1.HTTPRouteFilter
+type HTTPRouteFilter = v1.HTTPRouteFilter
 
 // HTTPRouteFilterType identifies a type of HTTPRoute filter.
 // +k8s:deepcopy-gen=false
-type HTTPRouteFilterType = v1beta1.HTTPRouteFilterType
+type HTTPRouteFilterType = v1.HTTPRouteFilterType
+
+// HTTPRouteTimeouts defines timeouts that can be configured for an HTTPRoute.
+// +k8s:deepcopy-gen=false
+type HTTPRouteTimeouts = v1.HTTPRouteTimeouts
 
 // HTTPHeader represents an HTTP Header name and value as defined by RFC 7230.
 // +k8s:deepcopy-gen=false
-type HTTPHeader = v1beta1.HTTPHeader
+type HTTPHeader = v1.HTTPHeader
 
 // HTTPHeaderFilter defines a filter that modifies the headers of an HTTP request
 // or response.
 // +k8s:deepcopy-gen=false
-type HTTPHeaderFilter = v1beta1.HTTPHeaderFilter
+type HTTPHeaderFilter = v1.HTTPHeaderFilter
 
 // HTTPPathModifierType defines the type of path redirect or rewrite.
 // +k8s:deepcopy-gen=false
-type HTTPPathModifierType = v1beta1.HTTPPathModifierType
+type HTTPPathModifierType = v1.HTTPPathModifierType
 
 // HTTPPathModifier defines configuration for path modifiers.
 // <gateway:experimental>
 // +k8s:deepcopy-gen=false
-type HTTPPathModifier = v1beta1.HTTPPathModifier
+type HTTPPathModifier = v1.HTTPPathModifier
 
 // HTTPRequestRedirect defines a filter that redirects a request. This filter
 // MUST NOT be used on the same Route rule as a HTTPURLRewrite filter.
 // +k8s:deepcopy-gen=false
-type HTTPRequestRedirectFilter = v1beta1.HTTPRequestRedirectFilter
+type HTTPRequestRedirectFilter = v1.HTTPRequestRedirectFilter
 
 // HTTPURLRewriteFilter defines a filter that modifies a request during
 // forwarding. At most one of these filters may be used on a Route rule. This
@@ -224,16 +228,16 @@ type HTTPRequestRedirectFilter = v1beta1.HTTPRequestRedirectFilter
 //
 // <gateway:experimental>
 // +k8s:deepcopy-gen=false
-type HTTPURLRewriteFilter = v1beta1.HTTPURLRewriteFilter
+type HTTPURLRewriteFilter = v1.HTTPURLRewriteFilter
 
 // HTTPRequestMirrorFilter defines configuration for the RequestMirror filter.
 // +k8s:deepcopy-gen=false
-type HTTPRequestMirrorFilter = v1beta1.HTTPRequestMirrorFilter
+type HTTPRequestMirrorFilter = v1.HTTPRequestMirrorFilter
 
 // HTTPBackendRef defines how a HTTPRoute should forward an HTTP request.
 // +k8s:deepcopy-gen=false
-type HTTPBackendRef = v1beta1.HTTPBackendRef
+type HTTPBackendRef = v1.HTTPBackendRef
 
 // HTTPRouteStatus defines the observed state of HTTPRoute.
 // +k8s:deepcopy-gen=false
-type HTTPRouteStatus = v1beta1.HTTPRouteStatus
+type HTTPRouteStatus = v1.HTTPRouteStatus

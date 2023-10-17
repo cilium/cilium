@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func Test_merge(t *testing.T) {
@@ -104,12 +104,12 @@ func Test_conditionChanged(t *testing.T) {
 			name:     "condition LastTransitionTime should be ignored",
 			expected: false,
 			a: metav1.Condition{
-				Type:               string(gatewayv1beta1.GatewayClassConditionStatusAccepted),
+				Type:               string(gatewayv1.GatewayClassConditionStatusAccepted),
 				Status:             metav1.ConditionTrue,
 				LastTransitionTime: metav1.Unix(0, 0),
 			},
 			b: metav1.Condition{
-				Type:               string(gatewayv1beta1.GatewayClassConditionStatusAccepted),
+				Type:               string(gatewayv1.GatewayClassConditionStatusAccepted),
 				Status:             metav1.ConditionTrue,
 				LastTransitionTime: metav1.Unix(1, 0),
 			},
@@ -118,12 +118,12 @@ func Test_conditionChanged(t *testing.T) {
 			name:     "check condition reason differs",
 			expected: true,
 			a: metav1.Condition{
-				Type:   string(gatewayv1beta1.GatewayConditionReady),
+				Type:   string(gatewayv1.GatewayConditionReady),
 				Status: metav1.ConditionFalse,
 				Reason: "foo",
 			},
 			b: metav1.Condition{
-				Type:   string(gatewayv1beta1.GatewayConditionReady),
+				Type:   string(gatewayv1.GatewayConditionReady),
 				Status: metav1.ConditionFalse,
 				Reason: "bar",
 			},
@@ -132,11 +132,11 @@ func Test_conditionChanged(t *testing.T) {
 			name:     "condition status differs",
 			expected: true,
 			a: metav1.Condition{
-				Type:   string(gatewayv1beta1.GatewayClassConditionStatusAccepted),
+				Type:   string(gatewayv1.GatewayClassConditionStatusAccepted),
 				Status: metav1.ConditionTrue,
 			},
 			b: metav1.Condition{
-				Type:   string(gatewayv1beta1.GatewayClassConditionStatusAccepted),
+				Type:   string(gatewayv1.GatewayClassConditionStatusAccepted),
 				Status: metav1.ConditionFalse,
 			},
 		},
@@ -144,11 +144,11 @@ func Test_conditionChanged(t *testing.T) {
 			name:     "observed generation differs",
 			expected: true,
 			a: metav1.Condition{
-				Type:               string(gatewayv1beta1.GatewayClassConditionStatusAccepted),
+				Type:               string(gatewayv1.GatewayClassConditionStatusAccepted),
 				ObservedGeneration: 1,
 			},
 			b: metav1.Condition{
-				Type:               string(gatewayv1beta1.GatewayClassConditionStatusAccepted),
+				Type:               string(gatewayv1.GatewayClassConditionStatusAccepted),
 				ObservedGeneration: 2,
 			},
 		},

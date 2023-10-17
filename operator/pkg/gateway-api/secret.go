@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -41,7 +41,7 @@ func (r *secretSyncer) SetupWithManager(mgr ctrl.Manager) error {
 	hasMatchingControllerFn := hasMatchingController(context.Background(), r.Client, r.controllerName)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}, builder.WithPredicates(predicate.NewPredicateFuncs(r.usedInGateway))).
-		Watches(&gatewayv1beta1.Gateway{},
+		Watches(&gatewayv1.Gateway{},
 			r.enqueueRequestForGatewayTLS(),
 			builder.WithPredicates(predicate.NewPredicateFuncs(hasMatchingControllerFn))).
 		Complete(r)
@@ -58,7 +58,7 @@ func (r *secretSyncer) enqueueRequestForGatewayTLS() handler.EventHandler {
 			logfields.Resource:   obj.GetName(),
 		})
 
-		gw, ok := obj.(*gatewayv1beta1.Gateway)
+		gw, ok := obj.(*gatewayv1.Gateway)
 		if !ok {
 			return nil
 		}
