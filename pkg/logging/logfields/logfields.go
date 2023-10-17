@@ -610,6 +610,10 @@ const (
 
 	DestinationIP = "destinationIP"
 
+	LocalIP = "localIP"
+
+	RemoteIP = "remoteIP"
+
 	SourceCIDR = "sourceCIDR"
 
 	// DestinationCIDR is a destination CIDR
