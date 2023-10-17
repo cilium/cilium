@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
@@ -50,9 +50,9 @@ var HTTPRouteInvalidCrossNamespaceParentRef = suite.ConformanceTest{
 		// namespaces, in which case they are not obligated to populate this condition on routes they cannot access.
 		t.Run("HTTPRoute should have an Accepted: false condition with reason NotAllowedByListeners", func(t *testing.T) {
 			acceptedCond := metav1.Condition{
-				Type:   string(v1beta1.RouteConditionAccepted),
+				Type:   string(v1.RouteConditionAccepted),
 				Status: metav1.ConditionFalse,
-				Reason: string(v1beta1.RouteReasonNotAllowedByListeners),
+				Reason: string(v1.RouteReasonNotAllowedByListeners),
 			}
 
 			kubernetes.HTTPRouteMustHaveCondition(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN, acceptedCond)

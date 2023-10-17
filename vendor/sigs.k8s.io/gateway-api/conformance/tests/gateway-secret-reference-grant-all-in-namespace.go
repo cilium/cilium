@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
@@ -43,17 +43,22 @@ var GatewaySecretReferenceGrantAllInNamespace = suite.ConformanceTest{
 		gwNN := types.NamespacedName{Name: "gateway-secret-reference-grant-all-in-namespace", Namespace: "gateway-conformance-infra"}
 
 		t.Run("Gateway listener should have a true ResolvedRefs condition and a true Programmed condition", func(t *testing.T) {
-			listeners := []v1beta1.ListenerStatus{{
-				Name: v1beta1.SectionName("https"),
-				SupportedKinds: []v1beta1.RouteGroupKind{{
-					Group: (*v1beta1.Group)(&v1beta1.GroupVersion.Group),
-					Kind:  v1beta1.Kind("HTTPRoute"),
+			listeners := []v1.ListenerStatus{{
+				Name: v1.SectionName("https"),
+				SupportedKinds: []v1.RouteGroupKind{{
+					Group: (*v1.Group)(&v1.GroupVersion.Group),
+					Kind:  v1.Kind("HTTPRoute"),
 				}},
 				Conditions: []metav1.Condition{
 					{
-						Type:   string(v1beta1.ListenerConditionProgrammed),
+						Type:   string(v1.ListenerConditionProgrammed),
 						Status: metav1.ConditionTrue,
-						Reason: string(v1beta1.ListenerReasonProgrammed),
+						Reason: string(v1.ListenerReasonProgrammed),
+					},
+					{
+						Type:   string(v1.ListenerConditionResolvedRefs),
+						Status: metav1.ConditionTrue,
+						Reason: "", // any reason
 					},
 				},
 				AttachedRoutes: 0,

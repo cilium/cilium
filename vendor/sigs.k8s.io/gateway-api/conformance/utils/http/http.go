@@ -241,6 +241,11 @@ func WaitForConsistentResponse(t *testing.T, r roundtripper.RoundTripper, req ro
 }
 
 func CompareRequest(t *testing.T, req *roundtripper.Request, cReq *roundtripper.CapturedRequest, cRes *roundtripper.CapturedResponse, expected ExpectedResponse) error {
+	if roundtripper.IsTimeoutError(cRes.StatusCode) {
+		if roundtripper.IsTimeoutError(expected.Response.StatusCode) {
+			return nil
+		}
+	}
 	if expected.Response.StatusCode != cRes.StatusCode {
 		return fmt.Errorf("expected status code to be %d, got %d", expected.Response.StatusCode, cRes.StatusCode)
 	}

@@ -63,7 +63,7 @@ env:
   # renovate: datasource=github-releases depName=kubernetes-sigs/kind
   kind_version: v0.20.0
   kind_config: .github/kind-config.yaml
-  gateway_api_version: v0.8.1
+  gateway_api_version: v1.0.0-rc1
   metallb_version: 0.12.1
   timeout: 5m
 
@@ -217,7 +217,7 @@ jobs:
         timeout-minutes: 30
         run: |
           cat << EOF | kubectl apply -f -
-          apiVersion: gateway.networking.k8s.io/v1beta1
+          apiVersion: gateway.networking.k8s.io/v1
           kind: GatewayClass
           metadata:
             name: cilium

@@ -427,7 +427,7 @@ func defaultOpts(config *rest.Config, opts Options) (Options, error) {
 		byObject.Transform = defaultedConfig.Transform
 		byObject.UnsafeDisableDeepCopy = defaultedConfig.UnsafeDisableDeepCopy
 
-		if byObject.Namespaces == nil {
+		if isNamespaced && byObject.Namespaces == nil {
 			byObject.Namespaces = opts.DefaultNamespaces
 		}
 

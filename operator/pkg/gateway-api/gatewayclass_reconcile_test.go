@@ -14,7 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwconformanceconfig "sigs.k8s.io/gateway-api/conformance/utils/config"
 	gwconformance "sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 )
@@ -22,31 +22,31 @@ import (
 var (
 	gwcFinalizer = "batch.gateway.io/finalizer"
 	gwcFixture   = []client.Object{
-		&gatewayv1beta1.GatewayClass{
+		&gatewayv1.GatewayClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "dummy-gw-class",
 			},
-			Spec: gatewayv1beta1.GatewayClassSpec{
+			Spec: gatewayv1.GatewayClassSpec{
 				ControllerName: "io.cilium/gateway-controller",
 			},
 		},
-		&gatewayv1beta1.GatewayClass{
+		&gatewayv1.GatewayClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "deleting-gw-class",
 				DeletionTimestamp: &metav1.Time{Time: time.Now()},
 				Finalizers:        []string{gwcFinalizer},
 			},
-			Spec: gatewayv1beta1.GatewayClassSpec{
+			Spec: gatewayv1.GatewayClassSpec{
 				ControllerName: "io.cilium/gateway-controller",
 			},
 		},
-		&gatewayv1beta1.GatewayClass{
+		&gatewayv1.GatewayClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "non-matching-gw-class",
 				DeletionTimestamp: &metav1.Time{Time: time.Now()},
 				Finalizers:        []string{gwcFinalizer},
 			},
-			Spec: gatewayv1beta1.GatewayClassSpec{
+			Spec: gatewayv1.GatewayClassSpec{
 				ControllerName: "not-cilium-controller-name",
 			},
 		},
@@ -57,7 +57,7 @@ func Test_gatewayClassReconciler_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(gwcFixture...).
-		WithStatusSubresource(&gatewayv1beta1.GatewayClass{}).
+		WithStatusSubresource(&gatewayv1.GatewayClass{}).
 		Build()
 	r := &gatewayClassReconciler{Client: c}
 
@@ -104,7 +104,7 @@ func Test_gatewayClassReconciler_Reconcile(t *testing.T) {
 		require.NoError(t, err, "Error reconciling gateway class")
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
-		gwc := &gatewayv1beta1.GatewayClass{}
+		gwc := &gatewayv1.GatewayClass{}
 		err = c.Get(context.Background(), types.NamespacedName{Name: "non-matching-gw-class"}, gwc)
 
 		require.NoError(t, err, "Error getting gateway class")

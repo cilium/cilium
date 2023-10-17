@@ -142,6 +142,7 @@ type SubResourceWriter interface {
 	// Create saves the subResource object in the Kubernetes cluster. obj must be a
 	// struct pointer so that obj can be updated with the content returned by the Server.
 	Create(ctx context.Context, obj Object, subResource Object, opts ...SubResourceCreateOption) error
+
 	// Update updates the fields corresponding to the status subresource for the
 	// given obj. obj must be a struct pointer so that obj can be updated
 	// with the content returned by the Server.

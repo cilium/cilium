@@ -11,6 +11,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
@@ -20,7 +21,7 @@ const (
 )
 
 type GenericRule interface {
-	GetBackendRefs() []gatewayv1beta1.BackendRef
+	GetBackendRefs() []gatewayv1.BackendRef
 }
 
 type Input interface {
@@ -30,13 +31,13 @@ type Input interface {
 	GetContext() context.Context
 	GetGVK() schema.GroupVersionKind
 	GetGrants() []gatewayv1beta1.ReferenceGrant
-	GetGateway(parent gatewayv1beta1.ParentReference) (*gatewayv1beta1.Gateway, error)
-	GetHostnames() []gatewayv1beta1.Hostname
+	GetGateway(parent gatewayv1.ParentReference) (*gatewayv1.Gateway, error)
+	GetHostnames() []gatewayv1.Hostname
 
-	SetParentCondition(ref gatewayv1beta1.ParentReference, condition metav1.Condition)
+	SetParentCondition(ref gatewayv1.ParentReference, condition metav1.Condition)
 	SetAllParentCondition(condition metav1.Condition)
 	Log() *logrus.Entry
 }
 
 type CheckRuleFunc func(input Input) (bool, error)
-type CheckGatewayFunc func(input Input, ref gatewayv1beta1.ParentReference) (bool, error)
+type CheckGatewayFunc func(input Input, ref gatewayv1.ParentReference) (bool, error)

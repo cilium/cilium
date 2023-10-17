@@ -400,9 +400,12 @@ func (t versionedTracker) update(gvr schema.GroupVersionResource, obj runtime.Ob
 
 	if t.withStatusSubresource.Has(gvk) {
 		if isStatus { // copy everything but status and metadata.ResourceVersion from original object
-			if err := copyNonStatusFrom(oldObject, obj); err != nil {
+			if err := copyStatusFrom(obj, oldObject); err != nil {
 				return fmt.Errorf("failed to copy non-status field for object with status subresouce: %w", err)
 			}
+			passedRV := accessor.GetResourceVersion()
+			reflect.ValueOf(obj).Elem().Set(reflect.ValueOf(oldObject.DeepCopyObject()).Elem())
+			accessor.SetResourceVersion(passedRV)
 		} else { // copy status from original object
 			if err := copyStatusFrom(oldObject, obj); err != nil {
 				return fmt.Errorf("failed to copy the status for object with status subresource: %w", err)
@@ -949,45 +952,6 @@ func dryPatch(action testing.PatchActionImpl, tracker testing.ObjectTracker) (ru
 	return obj, nil
 }
 
-func copyNonStatusFrom(old, new runtime.Object) error {
-	newClientObject, ok := new.(client.Object)
-	if !ok {
-		return fmt.Errorf("%T is not a client.Object", new)
-	}
-	// The only thing other than status we have to retain
-	rv := newClientObject.GetResourceVersion()
-
-	oldMapStringAny, err := toMapStringAny(old)
-	if err != nil {
-		return fmt.Errorf("failed to convert old to *unstructured.Unstructured: %w", err)
-	}
-	newMapStringAny, err := toMapStringAny(new)
-	if err != nil {
-		return fmt.Errorf("failed to convert new to *unststructured.Unstructured: %w", err)
-	}
-
-	// delete everything other than status in case it has fields that were not present in
-	// the old object
-	for k := range newMapStringAny {
-		if k != "status" {
-			delete(newMapStringAny, k)
-		}
-	}
-	// copy everything other than status from the old object
-	for k := range oldMapStringAny {
-		if k != "status" {
-			newMapStringAny[k] = oldMapStringAny[k]
-		}
-	}
-
-	if err := fromMapStringAny(newMapStringAny, new); err != nil {
-		return fmt.Errorf("failed to convert back from map[string]any: %w", err)
-	}
-	newClientObject.SetResourceVersion(rv)
-
-	return nil
-}
-
 // copyStatusFrom copies the status from old into new
 func copyStatusFrom(old, new runtime.Object) error {
 	oldMapStringAny, err := toMapStringAny(old)
@@ -1033,6 +997,7 @@ func fromMapStringAny(u map[string]any, target runtime.Object) error {
 		return fmt.Errorf("failed to serialize: %w", err)
 	}
 
+	zero(target)
 	if err := json.Unmarshal(serialized, &target); err != nil {
 		return fmt.Errorf("failed to deserialize: %w", err)
 	}

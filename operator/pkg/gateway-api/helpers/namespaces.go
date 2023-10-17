@@ -4,10 +4,10 @@
 package helpers
 
 import (
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func NamespaceDerefOr(namespace *gatewayv1beta1.Namespace, defaultNamespace string) string {
+func NamespaceDerefOr(namespace *gatewayv1.Namespace, defaultNamespace string) string {
 	if namespace != nil && *namespace != "" {
 		return string(*namespace)
 	}

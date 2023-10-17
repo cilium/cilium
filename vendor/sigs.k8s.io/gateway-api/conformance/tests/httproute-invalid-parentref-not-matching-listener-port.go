@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 )
@@ -37,7 +37,7 @@ var HTTPRouteInvalidParentRefNotMatchingListenerPort = suite.ConformanceTest{
 	Features: []suite.SupportedFeature{
 		suite.SupportGateway,
 		suite.SupportHTTPRoute,
-		suite.SupportRouteDestinationPortMatching,
+		suite.SupportHTTPRouteDestinationPortMatching,
 	},
 	Manifests: []string{"tests/httproute-invalid-parentref-not-matching-listener-port.yaml"},
 	Test: func(t *testing.T, suite *suite.ConformanceTestSuite) {
@@ -48,9 +48,9 @@ var HTTPRouteInvalidParentRefNotMatchingListenerPort = suite.ConformanceTest{
 		// The Route must have an Accepted Condition with a NoMatchingParent Reason.
 		t.Run("HTTPRoute with no matching port in ParentRef has an Accepted Condition with status False and Reason NoMatchingParent", func(t *testing.T) {
 			acceptedCond := metav1.Condition{
-				Type:   string(v1beta1.RouteConditionAccepted),
+				Type:   string(v1.RouteConditionAccepted),
 				Status: metav1.ConditionFalse,
-				Reason: string(v1beta1.RouteReasonNoMatchingParent),
+				Reason: string(v1.RouteReasonNoMatchingParent),
 			}
 
 			kubernetes.HTTPRouteMustHaveCondition(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN, acceptedCond)

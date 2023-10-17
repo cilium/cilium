@@ -15,6 +15,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
@@ -25,55 +26,55 @@ var (
 
 	httpRouteFixture = []client.Object{
 		// GatewayClass
-		&gatewayv1beta1.GatewayClass{
+		&gatewayv1.GatewayClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "cilium",
 			},
-			Spec: gatewayv1beta1.GatewayClassSpec{
+			Spec: gatewayv1.GatewayClassSpec{
 				ControllerName: "io.cilium/gateway-controller",
 			},
 		},
 
 		// Gateway for valid HTTPRoute
-		&gatewayv1beta1.Gateway{
+		&gatewayv1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "dummy-gateway",
 				Namespace: "default",
 			},
-			Spec: gatewayv1beta1.GatewaySpec{
+			Spec: gatewayv1.GatewaySpec{
 				GatewayClassName: "cilium",
-				Listeners: []gatewayv1beta1.Listener{
+				Listeners: []gatewayv1.Listener{
 					{
 						Name:     "http",
 						Port:     80,
-						Hostname: model.AddressOf[gatewayv1beta1.Hostname]("*.cilium.io"),
+						Hostname: model.AddressOf[gatewayv1.Hostname]("*.cilium.io"),
 					},
 				},
 			},
-			Status: gatewayv1beta1.GatewayStatus{},
+			Status: gatewayv1.GatewayStatus{},
 		},
 
 		// Gateway in another namespace
-		&gatewayv1beta1.Gateway{
+		&gatewayv1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "dummy-gateway",
 				Namespace: "another-namespace",
 			},
-			Spec: gatewayv1beta1.GatewaySpec{
+			Spec: gatewayv1.GatewaySpec{
 				GatewayClassName: "cilium",
-				Listeners: []gatewayv1beta1.Listener{
+				Listeners: []gatewayv1.Listener{
 					{
 						Name: "http",
 						Port: 80,
-						AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
-							Namespaces: &gatewayv1beta1.RouteNamespaces{
-								From: model.AddressOf(gatewayv1beta1.NamespacesFromSame),
+						AllowedRoutes: &gatewayv1.AllowedRoutes{
+							Namespaces: &gatewayv1.RouteNamespaces{
+								From: model.AddressOf(gatewayv1.NamespacesFromSame),
 							},
 						},
 					},
 				},
 			},
-			Status: gatewayv1beta1.GatewayStatus{},
+			Status: gatewayv1.GatewayStatus{},
 		},
 
 		// Service for valid HTTPRoute
@@ -101,38 +102,38 @@ var (
 		},
 
 		// Deleting HTTPRoute
-		&gatewayv1beta1.HTTPRoute{
+		&gatewayv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "deleting-http-route",
 				Namespace:         "default",
 				Finalizers:        []string{httpRFFinalizer},
 				DeletionTimestamp: &metav1.Time{Time: time.Now()},
 			},
-			Spec: gatewayv1beta1.HTTPRouteSpec{},
+			Spec: gatewayv1.HTTPRouteSpec{},
 		},
 
 		// Valid HTTPRoute
-		&gatewayv1beta1.HTTPRoute{
+		&gatewayv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "valid-http-route",
 				Namespace: "default",
 			},
-			Spec: gatewayv1beta1.HTTPRouteSpec{
-				CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
-					ParentRefs: []gatewayv1beta1.ParentReference{
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
 						{
 							Name: "dummy-gateway",
 						},
 					},
 				},
-				Rules: []gatewayv1beta1.HTTPRouteRule{
+				Rules: []gatewayv1.HTTPRouteRule{
 					{
-						BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						BackendRefs: []gatewayv1.HTTPBackendRef{
 							{
-								BackendRef: gatewayv1beta1.BackendRef{
-									BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
 										Name: "dummy-backend",
-										Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+										Port: model.AddressOf[gatewayv1.PortNumber](8080),
 									},
 								},
 							},
@@ -143,27 +144,27 @@ var (
 		},
 
 		// HTTPRoute with nonexistent backend
-		&gatewayv1beta1.HTTPRoute{
+		&gatewayv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "http-route-with-nonexistent-backend",
 				Namespace: "default",
 			},
-			Spec: gatewayv1beta1.HTTPRouteSpec{
-				CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
-					ParentRefs: []gatewayv1beta1.ParentReference{
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
 						{
 							Name: "dummy-gateway",
 						},
 					},
 				},
-				Rules: []gatewayv1beta1.HTTPRouteRule{
+				Rules: []gatewayv1.HTTPRouteRule{
 					{
-						BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						BackendRefs: []gatewayv1.HTTPBackendRef{
 							{
-								BackendRef: gatewayv1beta1.BackendRef{
-									BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
 										Name: "nonexistent-backend",
-										Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+										Port: model.AddressOf[gatewayv1.PortNumber](8080),
 									},
 								},
 							},
@@ -174,27 +175,27 @@ var (
 		},
 
 		// HTTPRoute with cross namespace backend
-		&gatewayv1beta1.HTTPRoute{
+		&gatewayv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "http-route-with-cross-namespace-backend",
 				Namespace: "default",
 			},
-			Spec: gatewayv1beta1.HTTPRouteSpec{
-				CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
-					ParentRefs: []gatewayv1beta1.ParentReference{
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
 						{
 							Name: "dummy-gateway",
 						},
 					},
 				},
-				Rules: []gatewayv1beta1.HTTPRouteRule{
+				Rules: []gatewayv1.HTTPRouteRule{
 					{
-						BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						BackendRefs: []gatewayv1.HTTPBackendRef{
 							{
-								BackendRef: gatewayv1beta1.BackendRef{
-									BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
 										Name:      "dummy-backend",
-										Namespace: model.AddressOf[gatewayv1beta1.Namespace]("another-namespace"),
+										Namespace: model.AddressOf[gatewayv1.Namespace]("another-namespace"),
 									},
 								},
 							},
@@ -205,28 +206,28 @@ var (
 		},
 
 		// HTTPRoute with cross namespace backend
-		&gatewayv1beta1.HTTPRoute{
+		&gatewayv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "http-route-with-cross-namespace-backend-with-grant",
 				Namespace: "default",
 			},
-			Spec: gatewayv1beta1.HTTPRouteSpec{
-				CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
-					ParentRefs: []gatewayv1beta1.ParentReference{
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
 						{
 							Name: "dummy-gateway",
 						},
 					},
 				},
-				Rules: []gatewayv1beta1.HTTPRouteRule{
+				Rules: []gatewayv1.HTTPRouteRule{
 					{
-						BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						BackendRefs: []gatewayv1.HTTPBackendRef{
 							{
-								BackendRef: gatewayv1beta1.BackendRef{
-									BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
 										Name:      "dummy-backend-grant",
-										Namespace: model.AddressOf[gatewayv1beta1.Namespace]("another-namespace"),
-										Port:      model.AddressOf[gatewayv1beta1.PortNumber](8080),
+										Namespace: model.AddressOf[gatewayv1.Namespace]("another-namespace"),
+										Port:      model.AddressOf[gatewayv1.PortNumber](8080),
 									},
 								},
 							},
@@ -261,25 +262,25 @@ var (
 		},
 
 		// HTTPRoute with unsupported backend
-		&gatewayv1beta1.HTTPRoute{
+		&gatewayv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "http-route-with-unsupported-backend",
 				Namespace: "default",
 			},
-			Spec: gatewayv1beta1.HTTPRouteSpec{
-				CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
-					ParentRefs: []gatewayv1beta1.ParentReference{
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
 						{
 							Name: "dummy-gateway",
 						},
 					},
 				},
-				Rules: []gatewayv1beta1.HTTPRouteRule{
+				Rules: []gatewayv1.HTTPRouteRule{
 					{
-						BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						BackendRefs: []gatewayv1.HTTPBackendRef{
 							{
-								BackendRef: gatewayv1beta1.BackendRef{
-									BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
 										Name:  "unsupported-backend",
 										Group: GroupPtr("unsupported-group"),
 										Kind:  KindPtr("UnsupportedKind"),
@@ -292,25 +293,25 @@ var (
 			},
 		},
 		// HTTPRoute missing port for backend Service
-		&gatewayv1beta1.HTTPRoute{
+		&gatewayv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "http-route-missing-port-for-backend-Service",
 				Namespace: "default",
 			},
-			Spec: gatewayv1beta1.HTTPRouteSpec{
-				CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
-					ParentRefs: []gatewayv1beta1.ParentReference{
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
 						{
 							Name: "dummy-gateway",
 						},
 					},
 				},
-				Rules: []gatewayv1beta1.HTTPRouteRule{
+				Rules: []gatewayv1.HTTPRouteRule{
 					{
-						BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						BackendRefs: []gatewayv1.HTTPBackendRef{
 							{
-								BackendRef: gatewayv1beta1.BackendRef{
-									BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
 										Name:  "missing-port-service-backend",
 										Group: GroupPtr(""),
 										Kind:  KindPtr("Service"),
@@ -324,27 +325,27 @@ var (
 		},
 
 		// HTTPRoute with non-existent gateway
-		&gatewayv1beta1.HTTPRoute{
+		&gatewayv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "http-route-with-nonexistent-gateway",
 				Namespace: "default",
 			},
-			Spec: gatewayv1beta1.HTTPRouteSpec{
-				CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
-					ParentRefs: []gatewayv1beta1.ParentReference{
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
 						{
 							Name: "non-existent-gateway",
 						},
 					},
 				},
-				Rules: []gatewayv1beta1.HTTPRouteRule{
+				Rules: []gatewayv1.HTTPRouteRule{
 					{
-						BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						BackendRefs: []gatewayv1.HTTPBackendRef{
 							{
-								BackendRef: gatewayv1beta1.BackendRef{
-									BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
 										Name: "dummy-backend",
-										Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+										Port: model.AddressOf[gatewayv1.PortNumber](8080),
 									},
 								},
 							},
@@ -355,28 +356,28 @@ var (
 		},
 
 		// HTTPRoute with valid but not allowed gateway
-		&gatewayv1beta1.HTTPRoute{
+		&gatewayv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "http-route-with-not-allowed-gateway",
 				Namespace: "default",
 			},
-			Spec: gatewayv1beta1.HTTPRouteSpec{
-				CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
-					ParentRefs: []gatewayv1beta1.ParentReference{
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
 						{
 							Name:      "dummy-gateway",
-							Namespace: model.AddressOf[gatewayv1beta1.Namespace]("another-namespace"),
+							Namespace: model.AddressOf[gatewayv1.Namespace]("another-namespace"),
 						},
 					},
 				},
-				Rules: []gatewayv1beta1.HTTPRouteRule{
+				Rules: []gatewayv1.HTTPRouteRule{
 					{
-						BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						BackendRefs: []gatewayv1.HTTPBackendRef{
 							{
-								BackendRef: gatewayv1beta1.BackendRef{
-									BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
 										Name: "dummy-backend",
-										Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+										Port: model.AddressOf[gatewayv1.PortNumber](8080),
 									},
 								},
 							},
@@ -387,30 +388,30 @@ var (
 		},
 
 		// HTTPRoute with non-matching hostname with gateway listener
-		&gatewayv1beta1.HTTPRoute{
+		&gatewayv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "http-route-with-non-matching-hostname",
 				Namespace: "default",
 			},
-			Spec: gatewayv1beta1.HTTPRouteSpec{
-				CommonRouteSpec: gatewayv1beta1.CommonRouteSpec{
-					ParentRefs: []gatewayv1beta1.ParentReference{
+			Spec: gatewayv1.HTTPRouteSpec{
+				CommonRouteSpec: gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{
 						{
 							Name: "dummy-gateway",
 						},
 					},
 				},
-				Hostnames: []gatewayv1beta1.Hostname{
+				Hostnames: []gatewayv1.Hostname{
 					"non-matching-hostname",
 				},
-				Rules: []gatewayv1beta1.HTTPRouteRule{
+				Rules: []gatewayv1.HTTPRouteRule{
 					{
-						BackendRefs: []gatewayv1beta1.HTTPBackendRef{
+						BackendRefs: []gatewayv1.HTTPBackendRef{
 							{
-								BackendRef: gatewayv1beta1.BackendRef{
-									BackendObjectReference: gatewayv1beta1.BackendObjectReference{
+								BackendRef: gatewayv1.BackendRef{
+									BackendObjectReference: gatewayv1.BackendObjectReference{
 										Name: "dummy-backend",
-										Port: model.AddressOf[gatewayv1beta1.PortNumber](8080),
+										Port: model.AddressOf[gatewayv1.PortNumber](8080),
 									},
 								},
 							},
@@ -426,7 +427,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 	c := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(httpRouteFixture...).
-		WithStatusSubresource(&gatewayv1beta1.HTTPRoute{}).
+		WithStatusSubresource(&gatewayv1.HTTPRoute{}).
 		Build()
 	r := &httpRouteReconciler{Client: c}
 
@@ -465,7 +466,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.NoError(t, err, "Error reconciling httpRoute")
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
-		route := &gatewayv1beta1.HTTPRoute{}
+		route := &gatewayv1.HTTPRoute{}
 		err = c.Get(context.Background(), key, route)
 
 		require.NoError(t, err)
@@ -492,7 +493,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.NoError(t, err, "Error reconciling httpRoute")
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
-		route := &gatewayv1beta1.HTTPRoute{}
+		route := &gatewayv1.HTTPRoute{}
 		err = c.Get(context.Background(), key, route)
 
 		require.NoError(t, err)
@@ -519,7 +520,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.NoError(t, err, "Error reconciling httpRoute")
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
-		route := &gatewayv1beta1.HTTPRoute{}
+		route := &gatewayv1.HTTPRoute{}
 		err = c.Get(context.Background(), key, route)
 
 		require.NoError(t, err)
@@ -546,7 +547,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.NoError(t, err, "Error reconciling httpRoute")
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
-		route := &gatewayv1beta1.HTTPRoute{}
+		route := &gatewayv1.HTTPRoute{}
 		err = c.Get(context.Background(), key, route)
 
 		require.NoError(t, err)
@@ -574,7 +575,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.NoError(t, err, "Error reconciling httpRoute")
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
-		route := &gatewayv1beta1.HTTPRoute{}
+		route := &gatewayv1.HTTPRoute{}
 		err = c.Get(context.Background(), key, route)
 
 		require.NoError(t, err)
@@ -602,7 +603,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.NoError(t, err, "Error reconciling httpRoute")
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
-		route := &gatewayv1beta1.HTTPRoute{}
+		route := &gatewayv1.HTTPRoute{}
 		err = c.Get(context.Background(), key, route)
 
 		require.NoError(t, err)
@@ -630,7 +631,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.NoError(t, err, "Error reconciling httpRoute")
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
-		route := &gatewayv1beta1.HTTPRoute{}
+		route := &gatewayv1.HTTPRoute{}
 		err = c.Get(context.Background(), key, route)
 
 		require.NoError(t, err)
@@ -656,7 +657,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.NoError(t, err, "Error reconciling httpRoute")
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
-		route := &gatewayv1beta1.HTTPRoute{}
+		route := &gatewayv1.HTTPRoute{}
 		err = c.Get(context.Background(), key, route)
 
 		require.NoError(t, err)
@@ -684,7 +685,7 @@ func Test_httpRouteReconciler_Reconcile(t *testing.T) {
 		require.NoError(t, err, "Error reconciling httpRoute")
 		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
 
-		route := &gatewayv1beta1.HTTPRoute{}
+		route := &gatewayv1.HTTPRoute{}
 		err = c.Get(context.Background(), key, route)
 
 		require.NoError(t, err)

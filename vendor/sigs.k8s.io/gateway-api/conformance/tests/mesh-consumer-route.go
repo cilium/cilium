@@ -34,7 +34,7 @@ var MeshConsumerRoute = suite.ConformanceTest{
 	Features: []suite.SupportedFeature{
 		suite.SupportMesh,
 		suite.SupportHTTPRoute,
-		suite.SupportHTTPResponseHeaderModification,
+		suite.SupportHTTPRouteResponseHeaderModification,
 	},
 	Manifests: []string{"tests/mesh-consumer-route.yaml"},
 	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {

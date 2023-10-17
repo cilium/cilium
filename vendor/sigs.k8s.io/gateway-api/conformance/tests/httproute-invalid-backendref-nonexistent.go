@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/utils/http"
 	"sigs.k8s.io/gateway-api/conformance/utils/kubernetes"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
@@ -49,9 +49,9 @@ var HTTPRouteInvalidNonExistentBackendRef = suite.ConformanceTest{
 
 		t.Run("HTTPRoute with only a nonexistent BackendRef has a ResolvedRefs Condition with status False and Reason BackendNotFound", func(t *testing.T) {
 			resolvedRefsCond := metav1.Condition{
-				Type:   string(v1beta1.RouteConditionResolvedRefs),
+				Type:   string(v1.RouteConditionResolvedRefs),
 				Status: metav1.ConditionFalse,
-				Reason: string(v1beta1.RouteReasonBackendNotFound),
+				Reason: string(v1.RouteReasonBackendNotFound),
 			}
 
 			kubernetes.HTTPRouteMustHaveCondition(t, suite.Client, suite.TimeoutConfig, routeNN, gwNN, resolvedRefsCond)

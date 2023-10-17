@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -20,9 +21,9 @@ const (
 
 // Input is the input for GatewayAPI.
 type Input struct {
-	GatewayClass    gatewayv1beta1.GatewayClass
-	Gateway         gatewayv1beta1.Gateway
-	HTTPRoutes      []gatewayv1beta1.HTTPRoute
+	GatewayClass    gatewayv1.GatewayClass
+	Gateway         gatewayv1.Gateway
+	HTTPRoutes      []gatewayv1.HTTPRoute
 	TLSRoutes       []gatewayv1alpha2.TLSRoute
 	ReferenceGrants []gatewayv1beta1.ReferenceGrant
 	Services        []corev1.Service
@@ -35,9 +36,9 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 	var resTLS []model.TLSListener
 
 	for _, l := range input.Gateway.Spec.Listeners {
-		if l.Protocol != gatewayv1beta1.HTTPProtocolType &&
-			l.Protocol != gatewayv1beta1.HTTPSProtocolType &&
-			l.Protocol != gatewayv1beta1.TLSProtocolType {
+		if l.Protocol != gatewayv1.HTTPProtocolType &&
+			l.Protocol != gatewayv1.HTTPSProtocolType &&
+			l.Protocol != gatewayv1.TLSProtocolType {
 			continue
 		}
 
@@ -69,7 +70,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 			for _, rule := range r.Spec.Rules {
 				bes := make([]model.Backend, 0, len(rule.BackendRefs))
 				for _, be := range rule.BackendRefs {
-					if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be.BackendRef, gatewayv1beta1.SchemeGroupVersion.WithKind("HTTPRoute"), input.ReferenceGrants) {
+					if !helpers.IsBackendReferenceAllowed(r.GetNamespace(), be.BackendRef, gatewayv1.SchemeGroupVersion.WithKind("HTTPRoute"), input.ReferenceGrants) {
 						continue
 					}
 					if (be.Kind != nil && *be.Kind != "Service") || (be.Group != nil && *be.Group != corev1.GroupName) {
@@ -99,23 +100,23 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 
 				for _, f := range rule.Filters {
 					switch f.Type {
-					case gatewayv1beta1.HTTPRouteFilterRequestHeaderModifier:
+					case gatewayv1.HTTPRouteFilterRequestHeaderModifier:
 						requestHeaderFilter = &model.HTTPHeaderFilter{
 							HeadersToAdd:    toHTTPHeaders(f.RequestHeaderModifier.Add),
 							HeadersToSet:    toHTTPHeaders(f.RequestHeaderModifier.Set),
 							HeadersToRemove: f.RequestHeaderModifier.Remove,
 						}
-					case gatewayv1beta1.HTTPRouteFilterResponseHeaderModifier:
+					case gatewayv1.HTTPRouteFilterResponseHeaderModifier:
 						responseHeaderFilter = &model.HTTPHeaderFilter{
 							HeadersToAdd:    toHTTPHeaders(f.ResponseHeaderModifier.Add),
 							HeadersToSet:    toHTTPHeaders(f.ResponseHeaderModifier.Set),
 							HeadersToRemove: f.ResponseHeaderModifier.Remove,
 						}
-					case gatewayv1beta1.HTTPRouteFilterRequestRedirect:
+					case gatewayv1.HTTPRouteFilterRequestRedirect:
 						requestRedirectFilter = toHTTPRequestRedirectFilter(f.RequestRedirect)
-					case gatewayv1beta1.HTTPRouteFilterURLRewrite:
+					case gatewayv1.HTTPRouteFilterURLRewrite:
 						rewriteFilter = toHTTPRewriteFilter(f.URLRewrite)
-					case gatewayv1beta1.HTTPRouteFilterRequestMirror:
+					case gatewayv1.HTTPRouteFilterRequestMirror:
 						requestMirrors = append(requestMirrors, toHTTPRequestMirror(f.RequestMirror, r.Namespace))
 					}
 				}
@@ -235,7 +236,7 @@ func GatewayAPI(input Input) ([]model.HTTPListener, []model.TLSListener) {
 	return resHTTP, resTLS
 }
 
-func toHTTPRequestRedirectFilter(redirect *gatewayv1beta1.HTTPRequestRedirectFilter) *model.HTTPRequestRedirectFilter {
+func toHTTPRequestRedirectFilter(redirect *gatewayv1.HTTPRequestRedirectFilter) *model.HTTPRequestRedirectFilter {
 	if redirect == nil {
 		return nil
 	}
@@ -244,9 +245,9 @@ func toHTTPRequestRedirectFilter(redirect *gatewayv1beta1.HTTPRequestRedirectFil
 		pathModifier = &model.StringMatch{}
 
 		switch redirect.Path.Type {
-		case gatewayv1beta1.FullPathHTTPPathModifier:
+		case gatewayv1.FullPathHTTPPathModifier:
 			pathModifier.Exact = *redirect.Path.ReplaceFullPath
-		case gatewayv1beta1.PrefixMatchHTTPPathModifier:
+		case gatewayv1.PrefixMatchHTTPPathModifier:
 			pathModifier.Prefix = *redirect.Path.ReplacePrefixMatch
 		}
 	}
@@ -259,20 +260,20 @@ func toHTTPRequestRedirectFilter(redirect *gatewayv1beta1.HTTPRequestRedirectFil
 	}
 }
 
-func toHTTPRewriteFilter(rewrite *gatewayv1beta1.HTTPURLRewriteFilter) *model.HTTPURLRewriteFilter {
+func toHTTPRewriteFilter(rewrite *gatewayv1.HTTPURLRewriteFilter) *model.HTTPURLRewriteFilter {
 	if rewrite == nil {
 		return nil
 	}
 	var path *model.StringMatch
 	if rewrite.Path != nil {
 		switch rewrite.Path.Type {
-		case gatewayv1beta1.FullPathHTTPPathModifier:
+		case gatewayv1.FullPathHTTPPathModifier:
 			if rewrite.Path.ReplaceFullPath != nil {
 				path = &model.StringMatch{
 					Exact: *rewrite.Path.ReplaceFullPath,
 				}
 			}
-		case gatewayv1beta1.PrefixMatchHTTPPathModifier:
+		case gatewayv1.PrefixMatchHTTPPathModifier:
 			if rewrite.Path.ReplacePrefixMatch != nil {
 				path = &model.StringMatch{
 					// a trailing `/` is ignored
@@ -287,13 +288,13 @@ func toHTTPRewriteFilter(rewrite *gatewayv1beta1.HTTPURLRewriteFilter) *model.HT
 	}
 }
 
-func toHTTPRequestMirror(mirror *gatewayv1beta1.HTTPRequestMirrorFilter, ns string) *model.HTTPRequestMirror {
+func toHTTPRequestMirror(mirror *gatewayv1.HTTPRequestMirrorFilter, ns string) *model.HTTPRequestMirror {
 	return &model.HTTPRequestMirror{
 		Backend: model.AddressOf(backendRefToModelBackend(mirror.BackendRef, ns)),
 	}
 }
 
-func toHostname(hostname *gatewayv1beta1.Hostname) string {
+func toHostname(hostname *gatewayv1.Hostname) string {
 	if hostname != nil {
 		return (string)(*hostname)
 	}
@@ -309,13 +310,13 @@ func serviceExists(svcName, svcNamespace string, services []corev1.Service) bool
 	return false
 }
 
-func backendToModelBackend(be gatewayv1beta1.BackendRef, defaultNamespace string) model.Backend {
+func backendToModelBackend(be gatewayv1.BackendRef, defaultNamespace string) model.Backend {
 	res := backendRefToModelBackend(be.BackendObjectReference, defaultNamespace)
 	res.Weight = be.Weight
 	return res
 }
 
-func backendRefToModelBackend(be gatewayv1beta1.BackendObjectReference, defaultNamespace string) model.Backend {
+func backendRefToModelBackend(be gatewayv1.BackendObjectReference, defaultNamespace string) model.Backend {
 	ns := helpers.NamespaceDerefOr(be.Namespace, defaultNamespace)
 	var port *model.BackendPort
 
@@ -332,21 +333,21 @@ func backendRefToModelBackend(be gatewayv1beta1.BackendObjectReference, defaultN
 	}
 }
 
-func toPathMatch(match gatewayv1beta1.HTTPRouteMatch) model.StringMatch {
+func toPathMatch(match gatewayv1.HTTPRouteMatch) model.StringMatch {
 	if match.Path == nil {
 		return model.StringMatch{}
 	}
 
 	switch *match.Path.Type {
-	case gatewayv1beta1.PathMatchExact:
+	case gatewayv1.PathMatchExact:
 		return model.StringMatch{
 			Exact: *match.Path.Value,
 		}
-	case gatewayv1beta1.PathMatchPathPrefix:
+	case gatewayv1.PathMatchPathPrefix:
 		return model.StringMatch{
 			Prefix: *match.Path.Value,
 		}
-	case gatewayv1beta1.PathMatchRegularExpression:
+	case gatewayv1.PathMatchRegularExpression:
 		return model.StringMatch{
 			Regex: *match.Path.Value,
 		}
@@ -354,25 +355,25 @@ func toPathMatch(match gatewayv1beta1.HTTPRouteMatch) model.StringMatch {
 	return model.StringMatch{}
 }
 
-func toHeaderMatch(match gatewayv1beta1.HTTPRouteMatch) []model.KeyValueMatch {
+func toHeaderMatch(match gatewayv1.HTTPRouteMatch) []model.KeyValueMatch {
 	if len(match.Headers) == 0 {
 		return nil
 	}
 	res := make([]model.KeyValueMatch, 0, len(match.Headers))
 	for _, h := range match.Headers {
-		t := gatewayv1beta1.HeaderMatchExact
+		t := gatewayv1.HeaderMatchExact
 		if h.Type != nil {
 			t = *h.Type
 		}
 		switch t {
-		case gatewayv1beta1.HeaderMatchExact:
+		case gatewayv1.HeaderMatchExact:
 			res = append(res, model.KeyValueMatch{
 				Key: string(h.Name),
 				Match: model.StringMatch{
 					Exact: h.Value,
 				},
 			})
-		case gatewayv1beta1.HeaderMatchRegularExpression:
+		case gatewayv1.HeaderMatchRegularExpression:
 			res = append(res, model.KeyValueMatch{
 				Key: string(h.Name),
 				Match: model.StringMatch{
@@ -384,25 +385,25 @@ func toHeaderMatch(match gatewayv1beta1.HTTPRouteMatch) []model.KeyValueMatch {
 	return res
 }
 
-func toQueryMatch(match gatewayv1beta1.HTTPRouteMatch) []model.KeyValueMatch {
+func toQueryMatch(match gatewayv1.HTTPRouteMatch) []model.KeyValueMatch {
 	if len(match.QueryParams) == 0 {
 		return nil
 	}
 	res := make([]model.KeyValueMatch, 0, len(match.QueryParams))
 	for _, h := range match.QueryParams {
-		t := gatewayv1beta1.QueryParamMatchExact
+		t := gatewayv1.QueryParamMatchExact
 		if h.Type != nil {
 			t = *h.Type
 		}
 		switch t {
-		case gatewayv1beta1.QueryParamMatchExact:
+		case gatewayv1.QueryParamMatchExact:
 			res = append(res, model.KeyValueMatch{
 				Key: string(h.Name),
 				Match: model.StringMatch{
 					Exact: h.Value,
 				},
 			})
-		case gatewayv1beta1.QueryParamMatchRegularExpression:
+		case gatewayv1.QueryParamMatchRegularExpression:
 			res = append(res, model.KeyValueMatch{
 				Key: string(h.Name),
 				Match: model.StringMatch{
@@ -414,14 +415,14 @@ func toQueryMatch(match gatewayv1beta1.HTTPRouteMatch) []model.KeyValueMatch {
 	return res
 }
 
-func toTLS(tls *gatewayv1beta1.GatewayTLSConfig, grants []gatewayv1beta1.ReferenceGrant, defaultNamespace string) []model.TLSSecret {
+func toTLS(tls *gatewayv1.GatewayTLSConfig, grants []gatewayv1beta1.ReferenceGrant, defaultNamespace string) []model.TLSSecret {
 	if tls == nil {
 		return nil
 	}
 
 	res := make([]model.TLSSecret, 0, len(tls.CertificateRefs))
 	for _, cert := range tls.CertificateRefs {
-		if !helpers.IsSecretReferenceAllowed(defaultNamespace, cert, gatewayv1beta1.SchemeGroupVersion.WithKind("Gateway"), grants) {
+		if !helpers.IsSecretReferenceAllowed(defaultNamespace, cert, gatewayv1.SchemeGroupVersion.WithKind("Gateway"), grants) {
 			// not allowed to be referred to, skipping
 			continue
 		}
@@ -433,7 +434,7 @@ func toTLS(tls *gatewayv1beta1.GatewayTLSConfig, grants []gatewayv1beta1.Referen
 	return res
 }
 
-func toHTTPHeaders(headers []gatewayv1beta1.HTTPHeader) []model.Header {
+func toHTTPHeaders(headers []gatewayv1.HTTPHeader) []model.Header {
 	if len(headers) == 0 {
 		return nil
 	}
@@ -447,7 +448,7 @@ func toHTTPHeaders(headers []gatewayv1beta1.HTTPHeader) []model.Header {
 	return res
 }
 
-func toStringSlice(s []gatewayv1beta1.Hostname) []string {
+func toStringSlice(s []gatewayv1.Hostname) []string {
 	res := make([]string, 0, len(s))
 	for _, h := range s {
 		res = append(res, string(h))

@@ -10,7 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/translation"

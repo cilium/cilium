@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
@@ -29,10 +30,10 @@ type TLSRouteInput struct {
 	Grants   *gatewayv1beta1.ReferenceGrantList
 	TLSRoute *gatewayv1alpha2.TLSRoute
 
-	gateways map[gatewayv1beta1.ParentReference]*gatewayv1beta1.Gateway
+	gateways map[gatewayv1.ParentReference]*gatewayv1.Gateway
 }
 
-func (t *TLSRouteInput) SetParentCondition(ref gatewayv1beta1.ParentReference, condition metav1.Condition) {
+func (t *TLSRouteInput) SetParentCondition(ref gatewayv1.ParentReference, condition metav1.Condition) {
 	// fill in the condition
 	condition.LastTransitionTime = metav1.NewTime(time.Now())
 	condition.ObservedGeneration = t.TLSRoute.GetGeneration()
@@ -108,17 +109,17 @@ type TLSRouteRule struct {
 	Rule gatewayv1alpha2.TLSRouteRule
 }
 
-func (t *TLSRouteRule) GetBackendRefs() []gatewayv1beta1.BackendRef {
+func (t *TLSRouteRule) GetBackendRefs() []gatewayv1.BackendRef {
 	return t.Rule.BackendRefs
 }
 
-func (t *TLSRouteInput) GetHostnames() []gatewayv1beta1.Hostname {
+func (t *TLSRouteInput) GetHostnames() []gatewayv1.Hostname {
 	return t.TLSRoute.Spec.Hostnames
 }
 
-func (t *TLSRouteInput) GetGateway(parent gatewayv1beta1.ParentReference) (*gatewayv1beta1.Gateway, error) {
+func (t *TLSRouteInput) GetGateway(parent gatewayv1.ParentReference) (*gatewayv1.Gateway, error) {
 	if t.gateways == nil {
-		t.gateways = make(map[gatewayv1beta1.ParentReference]*gatewayv1beta1.Gateway)
+		t.gateways = make(map[gatewayv1.ParentReference]*gatewayv1.Gateway)
 	}
 
 	if gw, exists := t.gateways[parent]; exists {
@@ -126,7 +127,7 @@ func (t *TLSRouteInput) GetGateway(parent gatewayv1beta1.ParentReference) (*gate
 	}
 
 	ns := helpers.NamespaceDerefOr(parent.Namespace, t.GetNamespace())
-	gw := &gatewayv1beta1.Gateway{}
+	gw := &gatewayv1.Gateway{}
 
 	if err := t.Client.Get(t.Ctx, client.ObjectKey{Namespace: ns, Name: string(parent.Name)}, gw); err != nil {
 		if !k8serrors.IsNotFound(err) {

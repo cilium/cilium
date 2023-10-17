@@ -7,8 +7,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"github.com/cilium/cilium/operator/pkg/model"
 )
@@ -46,7 +46,7 @@ var sameNamespaceGateway = gatewayv1beta1.Gateway{
 var sameNamespaceTLSGateway = gatewayv1beta1.Gateway{
 	TypeMeta: metav1.TypeMeta{
 		Kind:       "Gateway",
-		APIVersion: "gateway.networking.k8s.io/v1beta1",
+		APIVersion: "gateway.networking.k8s.io/v1",
 	},
 	ObjectMeta: metav1.ObjectMeta{
 		Name:      "gateway-tlsroute",

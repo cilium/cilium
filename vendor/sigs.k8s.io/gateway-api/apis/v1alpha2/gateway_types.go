@@ -19,15 +19,15 @@ package v1alpha2
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:categories=gateway-api,shortName=gtw
 // +kubebuilder:subresource:status
-// +kubebuilder:unservedversion
-// +kubebuilder:deprecatedversion:warning="The v1alpha2 version of Gateway has been deprecated and will be removed in a future release of the API. Please upgrade to v1beta1."
+// +kubebuilder:skipversion
+// +kubebuilder:deprecatedversion:warning="The v1alpha2 version of Gateway has been deprecated and will be removed in a future release of the API. Please upgrade to v1."
 // +kubebuilder:printcolumn:name="Class",type=string,JSONPath=`.spec.gatewayClassName`
 // +kubebuilder:printcolumn:name="Address",type=string,JSONPath=`.status.addresses[*].value`
 // +kubebuilder:printcolumn:name="Programmed",type=string,JSONPath=`.status.conditions[?(@.type=="Programmed")].status`
@@ -35,7 +35,7 @@ import (
 
 // Gateway represents an instance of a service-traffic handling infrastructure
 // by binding Listeners to a set of IP addresses.
-type Gateway v1beta1.Gateway
+type Gateway v1.Gateway
 
 // +kubebuilder:object:root=true
 
@@ -53,12 +53,12 @@ type GatewayList struct {
 // webhook, but there are many cases that will require asynchronous
 // signaling via the GatewayStatus block.
 // +k8s:deepcopy-gen=false
-type GatewaySpec = v1beta1.GatewaySpec
+type GatewaySpec = v1.GatewaySpec
 
 // Listener embodies the concept of a logical endpoint where a Gateway accepts
 // network connections.
 // +k8s:deepcopy-gen=false
-type Listener = v1beta1.Listener
+type Listener = v1.Listener
 
 // ProtocolType defines the application protocol accepted by a Listener.
 // Implementations are not required to accept all the defined protocols. If an
@@ -88,11 +88,11 @@ type Listener = v1beta1.Listener
 // +kubebuilder:validation:MaxLength=255
 // +kubebuilder:validation:Pattern=`^[a-zA-Z0-9]([-a-zSA-Z0-9]*[a-zA-Z0-9])?$|[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9]+$`
 // +k8s:deepcopy-gen=false
-type ProtocolType = v1beta1.ProtocolType
+type ProtocolType = v1.ProtocolType
 
 // GatewayTLSConfig describes a TLS configuration.
 // +k8s:deepcopy-gen=false
-type GatewayTLSConfig = v1beta1.GatewayTLSConfig
+type GatewayTLSConfig = v1.GatewayTLSConfig
 
 // TLSModeType type defines how a Gateway handles TLS sessions.
 //
@@ -105,11 +105,11 @@ type GatewayTLSConfig = v1beta1.GatewayTLSConfig
 //
 // +kubebuilder:validation:Enum=Terminate;Passthrough
 // +k8s:deepcopy-gen=false
-type TLSModeType = v1beta1.TLSModeType
+type TLSModeType = v1.TLSModeType
 
 // AllowedRoutes defines which Routes may be attached to this Listener.
 // +k8s:deepcopy-gen=false
-type AllowedRoutes = v1beta1.AllowedRoutes
+type AllowedRoutes = v1.AllowedRoutes
 
 // FromNamespaces specifies namespace from which Routes may be attached to a
 // Gateway.
@@ -123,46 +123,46 @@ type AllowedRoutes = v1beta1.AllowedRoutes
 //
 // +kubebuilder:validation:Enum=All;Selector;Same
 // +k8s:deepcopy-gen=false
-type FromNamespaces = v1beta1.FromNamespaces
+type FromNamespaces = v1.FromNamespaces
 
 // RouteNamespaces indicate which namespaces Routes should be selected from.
 // +k8s:deepcopy-gen=false
-type RouteNamespaces = v1beta1.RouteNamespaces
+type RouteNamespaces = v1.RouteNamespaces
 
 // RouteGroupKind indicates the group and kind of a Route resource.
 // +k8s:deepcopy-gen=false
-type RouteGroupKind = v1beta1.RouteGroupKind
+type RouteGroupKind = v1.RouteGroupKind
 
 // GatewayAddress describes an address that can be bound to a Gateway.
 // +k8s:deepcopy-gen=false
-type GatewayAddress = v1beta1.GatewayAddress
+type GatewayAddress = v1.GatewayAddress
 
 // GatewayStatus defines the observed state of Gateway.
 // +k8s:deepcopy-gen=false
-type GatewayStatus = v1beta1.GatewayStatus
+type GatewayStatus = v1.GatewayStatus
 
 // GatewayConditionType is a type of condition associated with a
 // Gateway. This type should be used with the GatewayStatus.Conditions
 // field.
 // +k8s:deepcopy-gen=false
-type GatewayConditionType = v1beta1.GatewayConditionType
+type GatewayConditionType = v1.GatewayConditionType
 
 // GatewayConditionReason defines the set of reasons that explain why a
 // particular Gateway condition type has been raised.
 // +k8s:deepcopy-gen=false
-type GatewayConditionReason = v1beta1.GatewayConditionReason
+type GatewayConditionReason = v1.GatewayConditionReason
 
 // ListenerStatus is the status associated with a Listener.
 // +k8s:deepcopy-gen=false
-type ListenerStatus = v1beta1.ListenerStatus
+type ListenerStatus = v1.ListenerStatus
 
 // ListenerConditionType is a type of condition associated with the
 // listener. This type should be used with the ListenerStatus.Conditions
 // field.
 // +k8s:deepcopy-gen=false
-type ListenerConditionType = v1beta1.ListenerConditionType
+type ListenerConditionType = v1.ListenerConditionType
 
 // ListenerConditionReason defines the set of reasons that explain
 // why a particular Listener condition type has been raised.
 // +k8s:deepcopy-gen=false
-type ListenerConditionReason = v1beta1.ListenerConditionReason
+type ListenerConditionReason = v1.ListenerConditionReason
