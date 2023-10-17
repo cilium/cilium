@@ -232,16 +232,17 @@ func (txn *txn) hasDeleteTrackers(name TableName) bool {
 	return table.deleteTrackers.Len() > 0
 }
 
-func (txn *txn) addDeleteTracker(meta TableMeta, trackerName string, dt deleteTracker) error {
+func (txn *txn) addDeleteTracker(dt *baseDeleteTracker) error {
 	if txn.rootReadTxn == nil {
 		return ErrTransactionClosed
 	}
+	meta := dt.tableMeta
 	table, ok := txn.modifiedTables[meta.Name()]
 	if !ok {
 		return tableError(meta.Name(), ErrTableNotLockedForWriting)
 	}
 	dt.setRevision(table.revision)
-	table.deleteTrackers, _, _ = table.deleteTrackers.Insert([]byte(trackerName), dt)
+	table.deleteTrackers, _, _ = table.deleteTrackers.Insert([]byte(dt.trackerName), dt)
 	txn.db.metrics.TableDeleteTrackerCount.With(prometheus.Labels{
 		"table": meta.Name(),
 	}).Inc()

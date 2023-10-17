@@ -212,12 +212,8 @@ func (t *genTable[Obj]) DeleteAll(txn WriteTxn) error {
 }
 
 func (t *genTable[Obj]) DeleteTracker(txn WriteTxn, trackerName string) (*DeleteTracker[Obj], error) {
-	dt := &DeleteTracker[Obj]{
-		db:          txn.getTxn().db,
-		trackerName: trackerName,
-		table:       t,
-	}
-	err := txn.getTxn().addDeleteTracker(t, trackerName, dt)
+	dt := newDeleteTracker[Obj](txn.getTxn().db, t, trackerName)
+	err := txn.getTxn().addDeleteTracker(&dt.baseDeleteTracker)
 	if err != nil {
 		return nil, err
 	}

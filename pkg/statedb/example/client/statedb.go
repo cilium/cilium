@@ -9,10 +9,26 @@ import (
 
 	"github.com/cilium/cilium/pkg/statedb"
 	"github.com/cilium/cilium/pkg/statedb/example/tables"
+	"github.com/cilium/cilium/pkg/statedb/grpc"
 )
 
 func main() {
-	table, err := statedb.NewRemoteTable[tables.Backend]("backends", "localhost:8456")
+	client, err := statedb.NewClient("localhost:8456")
+	if err != nil {
+		panic(err)
+	}
+
+	resp, err := client.Meta(context.TODO(), &grpc.MetaRequest{})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Tables:\n")
+	for _, table := range resp.Table {
+		fmt.Printf("\t%s with indexes %v\n", table.Name, table.Index)
+	}
+
+	table := statedb.NewRemoteTable[tables.Backend](client, "backends")
 	if err != nil {
 		panic(err)
 	}
@@ -22,7 +38,11 @@ func main() {
 		panic(err)
 	}
 
-	for obj, _, ok := iter.Next(); ok; obj, _, ok = iter.Next() {
-		fmt.Printf("%+v\n", obj)
+	for obj, deleted, _, ok := iter.Next(); ok; obj, deleted, _, ok = iter.Next() {
+		if !deleted {
+			fmt.Printf("Update: %+v\n", obj)
+		} else {
+			fmt.Printf("Delete: %+v\n", obj)
+		}
 	}
 }

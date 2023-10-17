@@ -8,10 +8,24 @@ package statedb;
 option go_package = "github.com/cilium/cilium/pkg/statedb/grpc";
 
 service StateDB {
+    rpc Meta (MetaRequest) returns (MetaResponse);
     rpc Get (QueryRequest) returns (stream Object);
     rpc LowerBound (QueryRequest) returns (stream Object);
-    rpc Watch (WatchRequest) returns (stream Object);
+    rpc Watch (WatchRequest) returns (stream WatchResponse);
 }
+
+message MetaRequest {
+}
+
+message MetaResponse {
+	repeated Table table = 1;
+}
+
+message Table {
+	string name = 1;
+	repeated string index = 2;
+}
+
 
 message QueryRequest {
 	string table = 1;
@@ -30,11 +44,10 @@ message WatchRequest {
 	string table = 1;
 }
 
-/* TODO 
 message WatchResponse {
 	Object object = 1;
 	bool deleted = 2;
-} */
+}
 
 message Object {
 	uint64 revision = 1;

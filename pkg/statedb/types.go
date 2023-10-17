@@ -263,17 +263,12 @@ type anyIndexer struct {
 	unique bool
 }
 
-type deleteTracker interface {
-	setRevision(uint64)
-	getRevision() uint64
-}
-
 type indexTree = *iradix.Tree[object]
 
 type tableEntry struct {
 	meta           TableMeta
 	indexes        *iradix.Tree[indexTree]
-	deleteTrackers *iradix.Tree[deleteTracker]
+	deleteTrackers *iradix.Tree[*baseDeleteTracker]
 	revision       uint64
 }
 

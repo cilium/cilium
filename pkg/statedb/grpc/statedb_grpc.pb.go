@@ -22,6 +22,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
+	StateDB_Meta_FullMethodName       = "/statedb.StateDB/Meta"
 	StateDB_Get_FullMethodName        = "/statedb.StateDB/Get"
 	StateDB_LowerBound_FullMethodName = "/statedb.StateDB/LowerBound"
 	StateDB_Watch_FullMethodName      = "/statedb.StateDB/Watch"
@@ -31,6 +32,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StateDBClient interface {
+	Meta(ctx context.Context, in *MetaRequest, opts ...grpc.CallOption) (*MetaResponse, error)
 	Get(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (StateDB_GetClient, error)
 	LowerBound(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (StateDB_LowerBoundClient, error)
 	Watch(ctx context.Context, in *WatchRequest, opts ...grpc.CallOption) (StateDB_WatchClient, error)
@@ -42,6 +44,15 @@ type stateDBClient struct {
 
 func NewStateDBClient(cc grpc.ClientConnInterface) StateDBClient {
 	return &stateDBClient{cc}
+}
+
+func (c *stateDBClient) Meta(ctx context.Context, in *MetaRequest, opts ...grpc.CallOption) (*MetaResponse, error) {
+	out := new(MetaResponse)
+	err := c.cc.Invoke(ctx, StateDB_Meta_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *stateDBClient) Get(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (StateDB_GetClient, error) {
@@ -124,7 +135,7 @@ func (c *stateDBClient) Watch(ctx context.Context, in *WatchRequest, opts ...grp
 }
 
 type StateDB_WatchClient interface {
-	Recv() (*Object, error)
+	Recv() (*WatchResponse, error)
 	grpc.ClientStream
 }
 
@@ -132,8 +143,8 @@ type stateDBWatchClient struct {
 	grpc.ClientStream
 }
 
-func (x *stateDBWatchClient) Recv() (*Object, error) {
-	m := new(Object)
+func (x *stateDBWatchClient) Recv() (*WatchResponse, error) {
+	m := new(WatchResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -144,6 +155,7 @@ func (x *stateDBWatchClient) Recv() (*Object, error) {
 // All implementations should embed UnimplementedStateDBServer
 // for forward compatibility
 type StateDBServer interface {
+	Meta(context.Context, *MetaRequest) (*MetaResponse, error)
 	Get(*QueryRequest, StateDB_GetServer) error
 	LowerBound(*QueryRequest, StateDB_LowerBoundServer) error
 	Watch(*WatchRequest, StateDB_WatchServer) error
@@ -153,6 +165,9 @@ type StateDBServer interface {
 type UnimplementedStateDBServer struct {
 }
 
+func (UnimplementedStateDBServer) Meta(context.Context, *MetaRequest) (*MetaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Meta not implemented")
+}
 func (UnimplementedStateDBServer) Get(*QueryRequest, StateDB_GetServer) error {
 	return status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
@@ -172,6 +187,24 @@ type UnsafeStateDBServer interface {
 
 func RegisterStateDBServer(s grpc.ServiceRegistrar, srv StateDBServer) {
 	s.RegisterService(&StateDB_ServiceDesc, srv)
+}
+
+func _StateDB_Meta_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MetaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StateDBServer).Meta(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: StateDB_Meta_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StateDBServer).Meta(ctx, req.(*MetaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _StateDB_Get_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -225,7 +258,7 @@ func _StateDB_Watch_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type StateDB_WatchServer interface {
-	Send(*Object) error
+	Send(*WatchResponse) error
 	grpc.ServerStream
 }
 
@@ -233,7 +266,7 @@ type stateDBWatchServer struct {
 	grpc.ServerStream
 }
 
-func (x *stateDBWatchServer) Send(m *Object) error {
+func (x *stateDBWatchServer) Send(m *WatchResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -243,7 +276,12 @@ func (x *stateDBWatchServer) Send(m *Object) error {
 var StateDB_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "statedb.StateDB",
 	HandlerType: (*StateDBServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Meta",
+			Handler:    _StateDB_Meta_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Get",

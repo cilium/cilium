@@ -108,7 +108,7 @@ func NewDB(tables []TableMeta, metrics Metrics) (*DB, error) {
 		db.tables[name] = t
 		var table tableEntry
 		table.meta = t
-		table.deleteTrackers = iradix.New[deleteTracker]()
+		table.deleteTrackers = iradix.New[*baseDeleteTracker]()
 		indexTxn := iradix.New[indexTree]().Txn()
 		indexTxn.Insert([]byte(t.primaryIndexer().name), iradix.New[object]())
 		indexTxn.Insert([]byte(RevisionIndex), iradix.New[object]())

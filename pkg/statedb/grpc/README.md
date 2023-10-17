@@ -4,9 +4,13 @@
 ## Table of Contents
 
 - [statedb.proto](#statedb-proto)
+    - [MetaRequest](#statedb-MetaRequest)
+    - [MetaResponse](#statedb-MetaResponse)
     - [Object](#statedb-Object)
     - [QueryRequest](#statedb-QueryRequest)
+    - [Table](#statedb-Table)
     - [WatchRequest](#statedb-WatchRequest)
+    - [WatchResponse](#statedb-WatchResponse)
   
     - [StateDB](#statedb-StateDB)
   
@@ -18,6 +22,31 @@
 <p align="right"><a href="#top">Top</a></p>
 
 ## statedb.proto
+
+
+
+<a name="statedb-MetaRequest"></a>
+
+### MetaRequest
+
+
+
+
+
+
+
+<a name="statedb-MetaResponse"></a>
+
+### MetaResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| table | [Table](#statedb-Table) | repeated |  |
+
+
+
 
 
 
@@ -55,6 +84,22 @@
 
 
 
+<a name="statedb-Table"></a>
+
+### Table
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  |  |
+| index | [string](#string) | repeated |  |
+
+
+
+
+
+
 <a name="statedb-WatchRequest"></a>
 
 ### WatchRequest
@@ -64,6 +109,22 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | table | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="statedb-WatchResponse"></a>
+
+### WatchResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| object | [Object](#statedb-Object) |  |  |
+| deleted | [bool](#bool) |  |  |
 
 
 
@@ -83,9 +144,10 @@
 
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
+| Meta | [MetaRequest](#statedb-MetaRequest) | [MetaResponse](#statedb-MetaResponse) |  |
 | Get | [QueryRequest](#statedb-QueryRequest) | [Object](#statedb-Object) stream |  |
 | LowerBound | [QueryRequest](#statedb-QueryRequest) | [Object](#statedb-Object) stream |  |
-| Watch | [WatchRequest](#statedb-WatchRequest) | [Object](#statedb-Object) stream |  |
+| Watch | [WatchRequest](#statedb-WatchRequest) | [WatchResponse](#statedb-WatchResponse) stream |  |
 
  
 
