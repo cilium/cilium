@@ -35,28 +35,14 @@ type PeerLister interface {
 	List() []poolTypes.Peer
 }
 
-// PeerReporter is the interface that wraps the ReportOffline method.
-type PeerReporter interface {
-	// ReportOffline allows the caller to report a peer as being offline. The
-	// peer is identified by its name.
-	ReportOffline(name string)
-}
-
-// PeerListReporter is the interface that groups the List and ReportOffline
-// methods.
-type PeerListReporter interface {
-	PeerLister
-	PeerReporter
-}
-
 // Server implements the observerpb.ObserverServer interface.
 type Server struct {
 	opts  options
-	peers PeerListReporter
+	peers PeerLister
 }
 
 // NewServer creates a new Server.
-func NewServer(peers PeerListReporter, options ...Option) (*Server, error) {
+func NewServer(peers PeerLister, options ...Option) (*Server, error) {
 	opts := defaultOptions
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
@@ -98,7 +84,6 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 			s.opts.log.WithField("address", p.Address).Infof(
 				"No connection to peer %s, skipping", p.Name,
 			)
-			s.peers.ReportOffline(p.Name)
 			unavailableNodes = append(unavailableNodes, p.Name)
 			continue
 		}
@@ -201,7 +186,6 @@ func (s *Server) GetNodes(ctx context.Context, req *observerpb.GetNodesRequest) 
 			s.opts.log.WithField("address", p.Address).Infof(
 				"No connection to peer %s, skipping", p.Name,
 			)
-			s.peers.ReportOffline(p.Name)
 			continue
 		}
 		n.State = relaypb.NodeState_NODE_CONNECTED
@@ -248,7 +232,6 @@ func (s *Server) GetNamespaces(ctx context.Context, req *observerpb.GetNamespace
 			s.opts.log.WithField("address", p.Address).Infof(
 				"No connection to peer %s, skipping", p.Name,
 			)
-			s.peers.ReportOffline(p.Name)
 			continue
 		}
 
@@ -302,7 +285,6 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 			s.opts.log.WithField("address", p.Address).Infof(
 				"No connection to peer %s, skipping", p.Name,
 			)
-			s.peers.ReportOffline(p.Name)
 			if len(unavailableNodes) < numUnavailableNodesReportMax {
 				unavailableNodes = append(unavailableNodes, p.Name)
 			}

@@ -32,7 +32,7 @@ type peer struct {
 // Peers and peer change notifications are obtained from a peer gRPC service.
 type PeerManager struct {
 	opts    options
-	offline chan string
+	updated chan string
 	wg      sync.WaitGroup
 	stop    chan struct{}
 	mu      lock.RWMutex
@@ -52,7 +52,7 @@ func NewPeerManager(registry prometheus.Registerer, options ...Option) (*PeerMan
 	metrics := NewPoolMetrics(registry)
 	return &PeerManager{
 		peers:   make(map[string]*peer),
-		offline: make(chan string, 100),
+		updated: make(chan string, 100),
 		stop:    make(chan struct{}),
 		opts:    opts,
 		metrics: metrics,
@@ -155,7 +155,7 @@ func (m *PeerManager) manageConnections() {
 		select {
 		case <-m.stop:
 			return
-		case name := <-m.offline:
+		case name := <-m.updated:
 			m.mu.RLock()
 			p := m.peers[name]
 			m.mu.RUnlock()
@@ -167,27 +167,12 @@ func (m *PeerManager) manageConnections() {
 			}(p)
 		case <-connTimer.After(m.opts.connCheckInterval):
 			m.mu.RLock()
-			now := time.Now()
 			for _, p := range m.peers {
-				p.mu.Lock()
-				if p.conn != nil {
-					switch p.conn.GetState() {
-					case connectivity.Connecting, connectivity.Idle, connectivity.Ready, connectivity.Shutdown:
-						p.mu.Unlock()
-						continue
-					}
-				}
-				switch {
-				case p.nextConnAttempt.IsZero(), p.nextConnAttempt.Before(now):
-					p.mu.Unlock()
-					m.wg.Add(1)
-					go func(p *peer) {
-						defer m.wg.Done()
-						m.connect(p, false)
-					}(p)
-				default:
-					p.mu.Unlock()
-				}
+				m.wg.Add(1)
+				go func(p *peer) {
+					defer m.wg.Done()
+					m.connect(p, false)
+				}(p)
 			}
 			m.mu.RUnlock()
 		}
@@ -251,34 +236,6 @@ func (m *PeerManager) List() []poolTypes.Peer {
 	return peers
 }
 
-// ReportOffline implements observer.PeerReporter.ReportOffline.
-func (m *PeerManager) ReportOffline(name string) {
-	m.wg.Add(1)
-	go func() {
-		defer m.wg.Done()
-		m.mu.RLock()
-		p, ok := m.peers[name]
-		m.mu.RUnlock()
-		if !ok {
-			return
-		}
-		p.mu.Lock()
-		if p.conn != nil {
-			switch p.conn.GetState() {
-			case connectivity.Connecting, connectivity.Idle, connectivity.Ready:
-				// it looks like it's actually online or being brought online
-				p.mu.Unlock()
-				return
-			}
-		}
-		p.mu.Unlock()
-		select {
-		case <-m.stop:
-		case m.offline <- name:
-		}
-	}()
-}
-
 func (m *PeerManager) add(hp *peerTypes.Peer) {
 	if hp == nil {
 		return
@@ -289,7 +246,7 @@ func (m *PeerManager) add(hp *peerTypes.Peer) {
 	m.mu.Unlock()
 	select {
 	case <-m.stop:
-	case m.offline <- p.Name:
+	case m.updated <- hp.Name:
 	}
 }
 
@@ -318,7 +275,7 @@ func (m *PeerManager) update(hp *peerTypes.Peer) {
 	m.mu.Unlock()
 	select {
 	case <-m.stop:
-	case m.offline <- p.Name:
+	case m.updated <- p.Name:
 	}
 }
 
@@ -328,23 +285,13 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.conn != nil && p.conn.GetState() != connectivity.Shutdown {
+		return // no need to attempt to connect
+	}
+
 	now := time.Now()
 	if p.Address == nil || (p.nextConnAttempt.After(now) && !ignoreBackoff) {
 		return
-	}
-	if p.conn != nil {
-		switch p.conn.GetState() {
-		case connectivity.Connecting, connectivity.Idle, connectivity.Ready:
-			return // no need to attempt to connect
-		default:
-			if err := p.conn.Close(); err != nil {
-				m.opts.log.WithFields(logrus.Fields{
-					"error": err,
-					"peer":  p.Name,
-				}).Warning("Failed to properly close gRPC client connection")
-			}
-			p.conn = nil
-		}
 	}
 
 	scopedLog := m.opts.log.WithFields(logrus.Fields{
@@ -363,12 +310,12 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 			"error":       err,
 			"next-try-in": duration,
 		}).Warning("Failed to create gRPC client")
-	} else {
-		p.nextConnAttempt = time.Time{}
-		p.connAttempts = 0
-		p.conn = conn
-		scopedLog.Info("Connected")
+		return
 	}
+	p.nextConnAttempt = time.Time{}
+	p.connAttempts = 0
+	p.conn = conn
+	scopedLog.Info("Connected")
 }
 
 func (m *PeerManager) disconnect(p *peer) {

@@ -49,7 +49,7 @@ func TestGetFlows(t *testing.T) {
 	done := make(chan struct{})
 	tests := []struct {
 		name   string
-		plr    PeerListReporter
+		plr    PeerLister
 		ocb    observerClientBuilder
 		req    *observerpb.GetFlowsRequest
 		stream observerpb.Observer_GetFlowsServer
@@ -57,7 +57,7 @@ func TestGetFlows(t *testing.T) {
 	}{
 		{
 			name: "Observe 0 flows from 1 peer without address",
-			plr: &testutils.FakePeerListReporter{
+			plr: &testutils.FakePeerLister{
 				OnList: func() []poolTypes.Peer {
 					return []poolTypes.Peer{
 						{
@@ -69,7 +69,6 @@ func TestGetFlows(t *testing.T) {
 						},
 					}
 				},
-				OnReportOffline: func(name string) {},
 			},
 			ocb: fakeObserverClientBuilder{},
 			req: &observerpb.GetFlowsRequest{Number: 0},
@@ -105,7 +104,7 @@ func TestGetFlows(t *testing.T) {
 			},
 		}, {
 			name: "Observe 4 flows from 2 online peers",
-			plr: &testutils.FakePeerListReporter{
+			plr: &testutils.FakePeerLister{
 				OnList: func() []poolTypes.Peer {
 					return []poolTypes.Peer{
 						{
@@ -199,7 +198,7 @@ func TestGetFlows(t *testing.T) {
 			},
 		}, {
 			name: "Observe 2 flows from 1 online peer and none from 1 unavailable peer",
-			plr: &testutils.FakePeerListReporter{
+			plr: &testutils.FakePeerLister{
 				OnList: func() []poolTypes.Peer {
 					return []poolTypes.Peer{
 						{
@@ -231,7 +230,6 @@ func TestGetFlows(t *testing.T) {
 						},
 					}
 				},
-				OnReportOffline: func(name string) {},
 			},
 			ocb: fakeObserverClientBuilder{
 				onObserverClient: func(p *poolTypes.Peer) observerpb.ObserverClient {
@@ -349,14 +347,14 @@ func TestGetNodes(t *testing.T) {
 	}
 	tests := []struct {
 		name string
-		plr  PeerListReporter
+		plr  PeerLister
 		ocb  observerClientBuilder
 		req  *observerpb.GetNodesRequest
 		want want
 	}{
 		{
 			name: "1 peer without address",
-			plr: &testutils.FakePeerListReporter{
+			plr: &testutils.FakePeerLister{
 				OnList: func() []poolTypes.Peer {
 					return []poolTypes.Peer{
 						{
@@ -368,7 +366,6 @@ func TestGetNodes(t *testing.T) {
 						},
 					}
 				},
-				OnReportOffline: func(_ string) {},
 			},
 			ocb: fakeObserverClientBuilder{},
 			want: want{
@@ -392,7 +389,7 @@ func TestGetNodes(t *testing.T) {
 			},
 		}, {
 			name: "2 connected peers",
-			plr: &testutils.FakePeerListReporter{
+			plr: &testutils.FakePeerLister{
 				OnList: func() []poolTypes.Peer {
 					return []poolTypes.Peer{
 						{
@@ -488,7 +485,7 @@ func TestGetNodes(t *testing.T) {
 			},
 		}, {
 			name: "2 connected peers with TLS",
-			plr: &testutils.FakePeerListReporter{
+			plr: &testutils.FakePeerLister{
 				OnList: func() []poolTypes.Peer {
 					return []poolTypes.Peer{
 						{
@@ -588,7 +585,7 @@ func TestGetNodes(t *testing.T) {
 			},
 		}, {
 			name: "1 connected peer, 1 unreachable peer",
-			plr: &testutils.FakePeerListReporter{
+			plr: &testutils.FakePeerLister{
 				OnList: func() []poolTypes.Peer {
 					return []poolTypes.Peer{
 						{
@@ -620,7 +617,6 @@ func TestGetNodes(t *testing.T) {
 						},
 					}
 				},
-				OnReportOffline: func(_ string) {},
 			},
 			ocb: fakeObserverClientBuilder{
 				onObserverClient: func(p *poolTypes.Peer) observerpb.ObserverClient {
@@ -677,7 +673,7 @@ func TestGetNodes(t *testing.T) {
 			},
 		}, {
 			name: "1 connected peer, 1 unreachable peer, 1 peer with error",
-			plr: &testutils.FakePeerListReporter{
+			plr: &testutils.FakePeerLister{
 				OnList: func() []poolTypes.Peer {
 					return []poolTypes.Peer{
 						{
@@ -722,7 +718,6 @@ func TestGetNodes(t *testing.T) {
 						},
 					}
 				},
-				OnReportOffline: func(_ string) {},
 			},
 			ocb: fakeObserverClientBuilder{
 				onObserverClient: func(p *poolTypes.Peer) observerpb.ObserverClient {
@@ -828,14 +823,14 @@ func TestGetNamespaces(t *testing.T) {
 	}
 	tests := []struct {
 		name string
-		plr  PeerListReporter
+		plr  PeerLister
 		ocb  observerClientBuilder
 		req  *observerpb.GetNamespacesRequest
 		want want
 	}{
 		{
 			name: "get no namespaces from 1 peer without address",
-			plr: &testutils.FakePeerListReporter{
+			plr: &testutils.FakePeerLister{
 				OnList: func() []poolTypes.Peer {
 					return []poolTypes.Peer{
 						{
@@ -847,7 +842,6 @@ func TestGetNamespaces(t *testing.T) {
 						},
 					}
 				},
-				OnReportOffline: func(name string) {},
 			},
 			ocb: fakeObserverClientBuilder{
 				onObserverClient: func(p *poolTypes.Peer) observerpb.ObserverClient {
@@ -869,7 +863,7 @@ func TestGetNamespaces(t *testing.T) {
 		},
 		{
 			name: "2 connected peer, 1 unreachable peer",
-			plr: &testutils.FakePeerListReporter{
+			plr: &testutils.FakePeerLister{
 				OnList: func() []poolTypes.Peer {
 					return []poolTypes.Peer{
 						{
@@ -916,7 +910,6 @@ func TestGetNamespaces(t *testing.T) {
 						},
 					}
 				},
-				OnReportOffline: func(_ string) {},
 			},
 			ocb: fakeObserverClientBuilder{
 				onObserverClient: func(p *poolTypes.Peer) observerpb.ObserverClient {
@@ -1033,14 +1026,14 @@ func TestServerStatus(t *testing.T) {
 	}
 	tests := []struct {
 		name string
-		plr  PeerListReporter
+		plr  PeerLister
 		ocb  observerClientBuilder
 		req  *observerpb.ServerStatusRequest
 		want want
 	}{
 		{
 			name: "1 peer without address",
-			plr: &testutils.FakePeerListReporter{
+			plr: &testutils.FakePeerLister{
 				OnList: func() []poolTypes.Peer {
 					return []poolTypes.Peer{
 						{
@@ -1052,7 +1045,6 @@ func TestServerStatus(t *testing.T) {
 						},
 					}
 				},
-				OnReportOffline: func(_ string) {},
 			},
 			ocb: fakeObserverClientBuilder{},
 			want: want{
@@ -1073,7 +1065,7 @@ func TestServerStatus(t *testing.T) {
 			},
 		}, {
 			name: "2 connected peers",
-			plr: &testutils.FakePeerListReporter{
+			plr: &testutils.FakePeerLister{
 				OnList: func() []poolTypes.Peer {
 					return []poolTypes.Peer{
 						{
@@ -1148,7 +1140,7 @@ func TestServerStatus(t *testing.T) {
 			},
 		}, {
 			name: "1 connected peer, 1 unreachable peer",
-			plr: &testutils.FakePeerListReporter{
+			plr: &testutils.FakePeerLister{
 				OnList: func() []poolTypes.Peer {
 					return []poolTypes.Peer{
 						{
@@ -1180,7 +1172,6 @@ func TestServerStatus(t *testing.T) {
 						},
 					}
 				},
-				OnReportOffline: func(_ string) {},
 			},
 			ocb: fakeObserverClientBuilder{
 				onObserverClient: func(p *poolTypes.Peer) observerpb.ObserverClient {
@@ -1220,7 +1211,7 @@ func TestServerStatus(t *testing.T) {
 			},
 		}, {
 			name: "2 unreachable peers",
-			plr: &testutils.FakePeerListReporter{
+			plr: &testutils.FakePeerLister{
 				OnList: func() []poolTypes.Peer {
 					return []poolTypes.Peer{
 						{
@@ -1252,7 +1243,6 @@ func TestServerStatus(t *testing.T) {
 						},
 					}
 				},
-				OnReportOffline: func(_ string) {},
 			},
 			ocb: fakeObserverClientBuilder{
 				onObserverClient: func(p *poolTypes.Peer) observerpb.ObserverClient {
