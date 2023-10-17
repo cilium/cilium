@@ -551,12 +551,11 @@ int cil_from_overlay(struct __ctx_buff *ctx)
  * 1. ESP packets coming from overlay (encrypted and not marked)
  * 2. Non-ESP packets coming from overlay (plain and not marked)
  * 3. Non-ESP packets coming from stack re-inserted by xfrm (plain
- *    and marked with MARK_MAGIC_DECRYPT and has an identity as
- *    well, IPSec mode only)
+ *    and marked with MARK_MAGIC_DECRYPT. Only in IPSec mode.)
  *
  * 1. will be traced with TRACE_REASON_ENCRYPTED
  * 2. will be traced without TRACE_REASON_ENCRYPTED
- * 3. will be traced without TRACE_REASON_ENCRYPTED, and with identity
+ * 3. will be traced without TRACE_REASON_ENCRYPTED
  *
  * Note that 1. contains the ESP packets someone else generated.
  * In that case, we trace it as "encrypted", but it doesn't mean
