@@ -9,5 +9,6 @@ import (
 )
 
 const Subsys = "ingress-controller"
+const CiliumIngressClassIsDefault = "cilium-is-default"
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsys)

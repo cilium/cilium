@@ -16,6 +16,7 @@ import (
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 )
 
@@ -56,4 +57,14 @@ func CiliumEndpointSliceResource(lc hive.Lifecycle, cs client.Clientset, opts ..
 		opts...,
 	)
 	return resource.New[*cilium_api_v2alpha1.CiliumEndpointSlice](lc, lw, resource.WithMetric("CiliumEndpointSlice")), nil
+}
+
+func IngressClassResource(lc hive.Lifecycle, cs client.Clientset, opts ...func(*metav1.ListOptions)) (resource.Resource[*slim_networkingv1.IngressClass], error) {
+	if !cs.IsEnabled() {
+		return nil, nil
+	}
+	lw := utils.ListerWatcherWithModifiers(
+		utils.ListerWatcherFromTyped[*slim_networkingv1.IngressClassList](cs.Slim().NetworkingV1().IngressClasses()), opts...,
+	)
+	return resource.New[*slim_networkingv1.IngressClass](lc, lw, resource.WithMetric("IngressClass")), nil
 }

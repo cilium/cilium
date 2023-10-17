@@ -6,7 +6,6 @@ package ingress
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -26,6 +25,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
@@ -92,15 +92,20 @@ type Controller struct {
 	sharedLBServiceName     string
 	ciliumNamespace         string
 	defaultLoadbalancerMode string
-	isDefaultIngressClass   bool
-	defaultSecretNamespace  string
-	defaultSecretName       string
+
+	defaultSecretNamespace string
+	defaultSecretName      string
 
 	sharedLBStatus *slim_corev1.LoadBalancerStatus
 }
 
 // NewController returns a controller for ingress objects having ingressClassName as cilium
-func NewController(clientset k8sClient.Clientset, options ...Option) (*Controller, error) {
+func NewController(
+	ctx context.Context,
+	clientset k8sClient.Clientset,
+	ingressClasses resource.Resource[*slim_networkingv1.IngressClass],
+	options ...Option,
+) (*Controller, error) {
 	opts := DefaultIngressOptions
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
@@ -157,10 +162,7 @@ func NewController(clientset k8sClient.Clientset, options ...Option) (*Controlle
 		nil,
 	)
 
-	ingressClassManager, err := newIngressClassManager(clientset, ic.queue, opts.MaxRetries)
-	if err != nil {
-		return nil, err
-	}
+	ingressClassManager := newIngressClassManager(ctx, ic.queue, ingressClasses)
 	ic.ingressClassManager = ingressClassManager
 
 	serviceManager, err := newServiceManager(clientset, ic.queue, opts.MaxRetries)
@@ -195,19 +197,28 @@ func NewController(clientset k8sClient.Clientset, options ...Option) (*Controlle
 }
 
 // Run kicks off the controlled loop
-func (ic *Controller) Run() {
+func (ic *Controller) Run(ctx context.Context) error {
 	defer ic.queue.ShutDown()
-	go ic.ingressInformer.Run(wait.NeverStop)
-	if !cache.WaitForCacheSync(wait.NeverStop, ic.ingressInformer.HasSynced) {
-		return
+
+	go ic.ingressClassManager.Run(ctx)
+
+	// This should only return an error if the context is canceled.
+	if err := ic.ingressClassManager.WaitForSync(ctx); err != nil {
+		return err
 	}
 
-	go ic.ingressClassManager.Run()
+	go ic.ingressInformer.Run(wait.NeverStop)
+	if !cache.WaitForCacheSync(wait.NeverStop, ic.ingressInformer.HasSynced) {
+		return fmt.Errorf("unable to wait for Ingress cache sync")
+	}
+
 	go ic.serviceManager.Run()
 	go ic.secretManager.Run()
 
 	for ic.processEvent() {
 	}
+
+	return nil
 }
 
 func (ic *Controller) processEvent() bool {
@@ -246,7 +257,7 @@ func hasEmptyIngressClass(ingress *slim_networkingv1.Ingress) bool {
 func (ic *Controller) isCiliumIngressEntry(ingress *slim_networkingv1.Ingress) bool {
 	className := getIngressClassName(ingress)
 
-	if (className == nil || *className == "") && ic.isDefaultIngressClass {
+	if (className == nil || *className == "") && ic.ingressClassManager.IsDefault() {
 		return true
 	}
 
@@ -354,40 +365,30 @@ func (ic *Controller) handleIngressServiceUpdatedEvent(ingressServiceUpdated ing
 }
 
 func (ic *Controller) handleCiliumIngressClassUpdatedEvent(event ciliumIngressClassUpdatedEvent) error {
-	log.Debugf("Cilium IngressClass updated")
-	previousValue := ic.isDefaultIngressClass
-	if val, ok := event.ingressClass.GetAnnotations()[slim_networkingv1.AnnotationIsDefaultIngressClass]; ok {
-		isDefault, err := strconv.ParseBool(val)
-		if err != nil {
-			log.WithError(err).Warnf("Failed to parse annotation value for %q", slim_networkingv1.AnnotationIsDefaultIngressClass)
-			return err
-		}
-		ic.isDefaultIngressClass = isDefault
-	} else {
-		// if the annotation is not set we are not the default ingress class
-		ic.isDefaultIngressClass = false
+	if !event.changed {
+		return nil
 	}
 
-	if previousValue != ic.isDefaultIngressClass {
-		log.Debugf("Cilium IngressClass default value changed, re-syncing ingresses")
-		// ensure that all ingresses are in the correct state
-		for _, k := range ic.ingressStore.ListKeys() {
-			ing, err := ic.getByKey(k)
-			if err != nil {
+	log.WithField(CiliumIngressClassIsDefault, event.isDefault).Info(
+		"Cilium IngressClass default value changed, re-syncing ingresses",
+	)
+	// ensure that all ingresses are in the correct state
+	for _, k := range ic.ingressStore.ListKeys() {
+		ing, err := ic.getByKey(k)
+		if err != nil {
+			return err
+		}
+
+		if ic.isCiliumIngressEntry(ing) {
+			// make sure that the ingress is in the correct state
+			if err := ic.ensureResources(ing, false); err != nil {
 				return err
 			}
-
-			if ic.isCiliumIngressEntry(ing) {
-				// make sure that the ingress is in the correct state
-				if err := ic.ensureResources(ing, false); err != nil {
-					return err
-				}
-			} else if hasEmptyIngressClass(ing) && !ic.isDefaultIngressClass {
-				// if we are no longer the default ingress class, we need to clean up
-				// the resources that we created for the ingress
-				if err := ic.deleteResources(ing); err != nil {
-					return err
-				}
+		} else if hasEmptyIngressClass(ing) && !event.isDefault {
+			// if we are no longer the default ingress class, we need to clean up
+			// the resources that we created for the ingress
+			if err := ic.deleteResources(ing); err != nil {
+				return err
 			}
 		}
 	}
@@ -396,28 +397,27 @@ func (ic *Controller) handleCiliumIngressClassUpdatedEvent(event ciliumIngressCl
 }
 
 func (ic *Controller) handleCiliumIngressClassDeletedEvent(event ciliumIngressClassDeletedEvent) error {
-	log.Debug("Cilium IngressClass deleted")
+	if !event.wasDefault {
+		return nil
+	}
 
-	if ic.isDefaultIngressClass {
-		// if we were the default ingress class, we need to clean up all ingresses
-		for _, k := range ic.ingressStore.ListKeys() {
-			ing, err := ic.getByKey(k)
-			if err != nil {
-				return err
-			}
-
-			if hasEmptyIngressClass(ing) {
-				// if we are no longer the default ingress class, we need to clean up
-				// the resources that we created for the ingress
-				if err := ic.deleteResources(ing); err != nil {
-					return err
-				}
-			}
+	log.Debug("Cilium IngressClass deleted, performing cleanup")
+	// if we were the default ingress class, we need to clean up all ingresses
+	for _, k := range ic.ingressStore.ListKeys() {
+		ing, err := ic.getByKey(k)
+		if err != nil {
+			return err
 		}
 
-		// disable the default ingress class behavior
-		ic.isDefaultIngressClass = false
+		if hasEmptyIngressClass(ing) {
+			// if we are no longer the default ingress class, we need to clean up
+			// the resources that we created for the ingress
+			if err := ic.deleteResources(ing); err != nil {
+				return err
+			}
+		}
 	}
+
 	return nil
 }
 
@@ -506,10 +506,10 @@ func (ic *Controller) handleEvent(event interface{}) error {
 		log.WithField(logfields.ServiceKey, ev.ingressService.Name).WithField(logfields.K8sNamespace, ev.ingressService.Namespace).Debug("Handling ingress service updated event")
 		err = ic.handleIngressServiceUpdatedEvent(ev)
 	case ciliumIngressClassUpdatedEvent:
-		log.WithField(logfields.IngressClass, ev.ingressClass.Name).Debug("Handling cilium ingress class updated event")
+		log.Debug("Handling cilium ingress class updated event")
 		err = ic.handleCiliumIngressClassUpdatedEvent(ev)
 	case ciliumIngressClassDeletedEvent:
-		log.WithField(logfields.IngressClass, ev.ingressClass.Name).Debug("Handling cilium ingress class deleted event")
+		log.Debug("Handling cilium ingress class deleted event")
 		err = ic.handleCiliumIngressClassDeletedEvent(ev)
 	default:
 		err = fmt.Errorf("received an unknown event: %t", ev)
