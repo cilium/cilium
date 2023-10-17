@@ -223,6 +223,7 @@ func (m *PeerManager) List() []poolTypes.Peer {
 	peers := make([]poolTypes.Peer, 0, len(m.peers))
 	for _, v := range m.peers {
 		// note: there shouldn't be null entries in the map
+		v.mu.Lock()
 		peers = append(peers, poolTypes.Peer{
 			Peer: peerTypes.Peer{
 				Name:          v.Name,
@@ -232,6 +233,7 @@ func (m *PeerManager) List() []poolTypes.Peer {
 			},
 			Conn: v.conn,
 		})
+		v.mu.Unlock()
 	}
 	return peers
 }
