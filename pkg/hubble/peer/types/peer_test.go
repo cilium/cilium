@@ -179,3 +179,237 @@ func TestFromChangeNotification(t *testing.T) {
 		})
 	}
 }
+func TestEqual(t *testing.T) {
+	tests := []struct {
+		name  string
+		a     Peer
+		b     Peer
+		equal bool
+	}{
+		{
+			name:  "empty",
+			a:     Peer{},
+			b:     Peer{},
+			equal: true,
+		},
+		{
+			name: "without address",
+			a: Peer{
+				Name:    "name",
+				Address: nil,
+			},
+			b: Peer{
+				Name:    "name",
+				Address: nil,
+			},
+			equal: true,
+		},
+		{
+			name: "without address different name",
+			a: Peer{
+				Name:    "foo",
+				Address: nil,
+			},
+			b: Peer{
+				Name:    "bar",
+				Address: nil,
+			},
+			equal: false,
+		},
+		{
+			name: "IPv4 no port",
+			a: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP: net.ParseIP("192.0.2.1"),
+				},
+			},
+			b: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP: net.ParseIP("192.0.2.1"),
+				},
+			},
+			equal: true,
+		},
+		{
+			name: "different IPv4 no port",
+			a: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP: net.ParseIP("192.0.2.1"),
+				},
+			},
+			b: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP: net.ParseIP("192.0.2.2"),
+				},
+			},
+			equal: false,
+		},
+		{
+			name: "IPv4 same port",
+			a: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("192.0.2.1"),
+					Port: 2222,
+				},
+			},
+			b: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("192.0.2.1"),
+					Port: 2222,
+				},
+			},
+			equal: true,
+		},
+		{
+			name: "IPv4 different port",
+			a: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("192.0.2.1"),
+					Port: 2222,
+				},
+			},
+			b: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("192.0.2.1"),
+					Port: 1111,
+				},
+			},
+			equal: false,
+		},
+		{
+			name: "IPv6",
+			a: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("2001:db8::68"),
+					Port: 4000,
+				},
+			},
+			b: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("2001:db8::68"),
+					Port: 4000,
+				},
+			},
+			equal: true,
+		},
+		{
+			name: "different IPv6",
+			a: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("2001:db8::68"),
+					Port: 4000,
+				},
+			},
+			b: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("2001:db7::68"),
+					Port: 4000,
+				},
+			},
+		},
+		{
+			name: "unix domain socket",
+			a: Peer{
+				Name: "name",
+				Address: &net.UnixAddr{
+					Name: "unix:///var/run/hubble.sock",
+					Net:  "unix",
+				},
+			},
+			b: Peer{
+				Name: "name",
+				Address: &net.UnixAddr{
+					Name: "unix:///var/run/hubble.sock",
+					Net:  "unix",
+				},
+			},
+			equal: true,
+		},
+		{
+			name: "TLS enabled",
+			a: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("192.0.2.1"),
+					Port: 4000,
+				},
+				TLSEnabled:    true,
+				TLSServerName: "name.default.hubble-grpc.cilium.io",
+			},
+			b: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("192.0.2.1"),
+					Port: 4000,
+				},
+				TLSEnabled:    true,
+				TLSServerName: "name.default.hubble-grpc.cilium.io",
+			},
+			equal: true,
+		},
+		{
+			name: "TLS enabled different server name",
+			a: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("192.0.2.1"),
+					Port: 4000,
+				},
+				TLSEnabled:    true,
+				TLSServerName: "name.default.hubble-grpc.cilium.io",
+			},
+			b: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("192.0.2.1"),
+					Port: 4000,
+				},
+				TLSEnabled:    true,
+				TLSServerName: "name.other.hubble-grpc.cilium.io",
+			},
+			equal: false,
+		},
+		{
+			name: "TLS enabled and not enabled",
+			a: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("192.0.2.1"),
+					Port: 4000,
+				},
+				TLSEnabled:    true,
+				TLSServerName: "name.default.hubble-grpc.cilium.io",
+			},
+			b: Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("192.0.2.1"),
+					Port: 4000,
+				},
+			},
+			equal: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			aeqb := tt.a.Equal(tt.b)
+			beqa := tt.b.Equal(tt.a)
+
+			assert.Equalf(t, aeqb, beqa, "equal isn't commutative (a.Equal(b) is %t, but b.Equal(a) is %t)", aeqb, beqa)
+			assert.Equalf(t, tt.equal, aeqb, "exepectd a.Equal(b) to be %t", tt.equal)
+		})
+	}
+}

@@ -138,11 +138,11 @@ connect:
 			p := peerTypes.FromChangeNotification(cn)
 			switch cn.GetType() {
 			case peerpb.ChangeNotificationType_PEER_ADDED:
-				m.add(p)
+				m.upsert(p)
 			case peerpb.ChangeNotificationType_PEER_DELETED:
 				m.remove(p)
 			case peerpb.ChangeNotificationType_PEER_UPDATED:
-				m.update(p)
+				m.upsert(p)
 			}
 		}
 	}
@@ -236,13 +236,25 @@ func (m *PeerManager) List() []poolTypes.Peer {
 	return peers
 }
 
-func (m *PeerManager) add(hp *peerTypes.Peer) {
+func (m *PeerManager) upsert(hp *peerTypes.Peer) {
 	if hp == nil {
 		return
 	}
-	p := &peer{Peer: *hp}
 	m.mu.Lock()
-	m.peers[p.Name] = p
+
+	p := m.peers[hp.Name]
+
+	if p != nil && p.Peer.Equal(*hp) {
+		// Nothing changed, we don't need to reconnect
+		m.mu.Unlock()
+		return
+	}
+
+	if p != nil {
+		// Close old connection
+		m.disconnect(p)
+	}
+	m.peers[hp.Name] = &peer{Peer: *hp}
 	m.mu.Unlock()
 	select {
 	case <-m.stop:
@@ -260,23 +272,6 @@ func (m *PeerManager) remove(hp *peerTypes.Peer) {
 		delete(m.peers, hp.Name)
 	}
 	m.mu.Unlock()
-}
-
-func (m *PeerManager) update(hp *peerTypes.Peer) {
-	if hp == nil {
-		return
-	}
-	p := &peer{Peer: *hp}
-	m.mu.Lock()
-	if old, ok := m.peers[p.Name]; ok {
-		m.disconnect(old)
-	}
-	m.peers[p.Name] = p
-	m.mu.Unlock()
-	select {
-	case <-m.stop:
-	case m.updated <- p.Name:
-	}
 }
 
 func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {

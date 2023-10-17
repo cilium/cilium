@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -707,6 +708,115 @@ func TestPeerManager(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPeerManager_PeerClientReconnect(t *testing.T) {
+	type pcNot struct {
+		not *peerpb.ChangeNotification
+		err error
+	}
+	pcChan := make(chan pcNot)
+	pcCloseCount := atomic.Int32{}
+	pcDialCount := atomic.Int32{}
+	pc := testutils.FakePeerClientBuilder{
+		OnClient: func(_ string) (peerTypes.Client, error) {
+			pcDialCount.Add(1)
+			return &testutils.FakePeerClient{
+				OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+					return &testutils.FakePeerNotifyClient{
+						OnRecv: func() (*peerpb.ChangeNotification, error) {
+							n := <-pcChan
+							return n.not, n.err
+						},
+					}, nil
+				},
+				OnClose: func() error {
+					pcCloseCount.Add(1)
+					return nil
+				},
+			}, nil
+		},
+	}
+	ccCloseCount := atomic.Int32{}
+	ccDialCount := atomic.Int32{}
+	cc := FakeClientConnBuilder{
+		OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
+			ccDialCount.Add(1)
+			return testutils.FakeClientConn{
+				OnGetState: func() connectivity.State {
+					return connectivity.Ready
+				},
+				OnClose: func() error {
+					ccCloseCount.Add(1)
+					return nil
+				},
+			}, nil
+		},
+	}
+	mgr, err := NewPeerManager(
+		prometheus.NewPedanticRegistry(),
+		WithPeerClientBuilder(pc),
+		WithClientConnBuilder(cc),
+		WithConnCheckInterval(100*time.Second),
+		WithRetryTimeout(500*time.Millisecond),
+	)
+	assert.NoError(t, err)
+	mgr.Start()
+	pcChan <- pcNot{
+		not: &peerpb.ChangeNotification{
+			Name:    "foo",
+			Address: "192.0.1.1",
+			Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+		},
+	}
+
+	assert.Eventually(t, func() bool {
+		peers := mgr.List()
+		if len(peers) != 1 {
+			return false
+		}
+		if peers[0].Conn == nil {
+			return false
+		}
+		return true
+	}, 20*time.Second, 10*time.Millisecond)
+	peers := mgr.List()
+	assert.Equal(t, "192.0.1.1:4244", peers[0].Address.String())
+
+	assert.EqualValues(t, 1, pcDialCount.Load())
+	pcChan <- pcNot{
+		err: errors.New("connection failed"),
+	}
+	assert.Eventually(t, func() bool {
+		return pcCloseCount.Load() == 1
+	}, 20*time.Second, 10*time.Millisecond)
+	assert.Eventually(t, func() bool {
+		return pcDialCount.Load() == 2
+	}, 20*time.Second, 10*time.Millisecond)
+
+	pcChan <- pcNot{
+		not: &peerpb.ChangeNotification{
+			Name:    "foo",
+			Address: "192.0.1.2",
+			Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+		},
+	}
+
+	assert.Eventually(t, func() bool {
+		peers := mgr.List()
+		return len(peers) == 1 && peers[0].Address.String() == "192.0.1.2:4244"
+	}, time.Second, 10*time.Millisecond)
+
+	assert.Eventually(t, func() bool {
+		return ccDialCount.Load() == 2
+	}, time.Minute, 10*time.Millisecond, "reconnect to  new address")
+	assert.Eventually(t, func() bool {
+		return ccCloseCount.Load() == 1
+	}, 20*time.Second, 10*time.Millisecond, "close old connection")
+
+	close(pcChan)
+	mgr.Stop()
+
 }
 
 func TestPeerManager_CheckMetrics(t *testing.T) {
