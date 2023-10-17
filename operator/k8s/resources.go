@@ -10,6 +10,7 @@ import (
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 )
 
 const (
@@ -37,6 +38,7 @@ var (
 			CiliumEndpointSliceResource,
 			k8s.CiliumNodeResource,
 			k8s.PodResource,
+			IngressClassResource,
 		),
 	)
 )
@@ -54,4 +56,5 @@ type Resources struct {
 	CiliumEndpointSlices resource.Resource[*cilium_api_v2alpha1.CiliumEndpointSlice]
 	CiliumNodes          resource.Resource[*cilium_api_v2.CiliumNode]
 	Pods                 resource.Resource[*slim_corev1.Pod]
+	IngressClasses       resource.Resource[*slim_networkingv1.IngressClass]
 }

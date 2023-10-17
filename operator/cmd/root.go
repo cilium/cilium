@@ -713,7 +713,9 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 
 	if operatorOption.Config.EnableIngressController {
 		ingressController, err := ingress.NewController(
+			legacy.ctx,
 			legacy.clientset,
+			legacy.resources.IngressClasses,
 			ingress.WithHTTPSEnforced(operatorOption.Config.EnforceIngressHTTPS),
 			ingress.WithProxyProtocol(operatorOption.Config.EnableIngressProxyProtocol),
 			ingress.WithSecretsSyncEnabled(operatorOption.Config.EnableIngressSecretsSync),
@@ -730,7 +732,7 @@ func (legacy *legacyOnLeader) onStart(_ hive.HookContext) error {
 			log.WithError(err).WithField(logfields.LogSubsys, ingress.Subsys).Fatal(
 				"Failed to start ingress controller")
 		}
-		go ingressController.Run()
+		go ingressController.Run(legacy.ctx)
 	}
 
 	if operatorOption.Config.EnableGatewayAPI {
