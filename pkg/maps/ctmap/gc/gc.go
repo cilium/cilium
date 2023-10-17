@@ -101,6 +101,7 @@ func (gc *GC) Enable(restoredEndpoints []*endpoint.Endpoint) {
 		ipv6 := gc.ipv6
 		triggeredBySignal := false
 		ctTimer, ctTimerDone := inctimer.New()
+		var gcPrev time.Time
 		defer ctTimerDone()
 		for {
 			var (
@@ -137,6 +138,12 @@ func (gc *GC) Enable(restoredEndpoints []*endpoint.Endpoint) {
 					}
 				}
 			)
+
+			gcInterval := gcStart.Sub(gcPrev)
+			if gcPrev.IsZero() {
+				gcInterval = time.Duration(0)
+			}
+			gcPrev = gcStart
 
 			eps := gc.endpointsManager.GetEndpoints()
 			for _, e := range eps {
@@ -190,7 +197,7 @@ func (gc *GC) Enable(restoredEndpoints []*endpoint.Endpoint) {
 						ipv6 = true
 					}
 				}
-			case <-ctTimer.After(ctmap.GetInterval(maxDeleteRatio)):
+			case <-ctTimer.After(ctmap.GetInterval(gcInterval, maxDeleteRatio)):
 				gc.signalHandler.MuteSignals()
 				ipv4 = gc.ipv4
 				ipv6 = gc.ipv6

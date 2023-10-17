@@ -864,25 +864,31 @@ var cachedGCInterval time.Duration
 
 // GetInterval returns the interval adjusted based on the deletion ratio of the
 // last run
-func GetInterval(maxDeleteRatio float64) time.Duration {
+func GetInterval(actualPrevInterval time.Duration, maxDeleteRatio float64) time.Duration {
 	if val := option.Config.ConntrackGCInterval; val != time.Duration(0) {
 		return val
 	}
 
-	prevInterval := cachedGCInterval
-	if prevInterval == time.Duration(0) {
-		prevInterval = defaults.ConntrackGCStartingInterval
+	expectedPrevInterval := cachedGCInterval
+	adjustedDeleteRatio := maxDeleteRatio
+	if expectedPrevInterval == time.Duration(0) {
+		expectedPrevInterval = defaults.ConntrackGCStartingInterval
+	} else if actualPrevInterval < expectedPrevInterval && actualPrevInterval > 0 {
+		adjustedDeleteRatio *= float64(expectedPrevInterval) / float64(actualPrevInterval)
 	}
 
-	newInterval := calculateInterval(prevInterval, maxDeleteRatio)
+	newInterval := calculateInterval(expectedPrevInterval, adjustedDeleteRatio)
 	if val := option.Config.ConntrackGCMaxInterval; val != time.Duration(0) && newInterval > val {
 		newInterval = val
 	}
 
-	if newInterval != prevInterval {
+	if newInterval != expectedPrevInterval {
 		log.WithFields(logrus.Fields{
-			"newInterval": newInterval,
-			"deleteRatio": maxDeleteRatio,
+			"expectedPrevInterval": expectedPrevInterval,
+			"actualPrevInterval":   actualPrevInterval,
+			"newInterval":          newInterval,
+			"deleteRatio":          maxDeleteRatio,
+			"adjustedDeleteRatio":  adjustedDeleteRatio,
 		}).Info("Conntrack garbage collector interval recalculated")
 	}
 

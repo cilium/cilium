@@ -46,21 +46,21 @@ func (t *CTMapTestSuite) TestCalculateInterval(c *C) {
 
 func (t *CTMapTestSuite) TestGetInterval(c *C) {
 	cachedGCInterval = time.Minute
-	c.Assert(GetInterval(0.1), Equals, time.Minute)
+	c.Assert(GetInterval(cachedGCInterval, 0.1), Equals, time.Minute)
 
 	// Setting ConntrackGCInterval overrides the calculation
 	oldInterval := option.Config.ConntrackGCInterval
 	option.Config.ConntrackGCInterval = 10 * time.Second
-	c.Assert(GetInterval(0.1), Equals, 10*time.Second)
+	c.Assert(GetInterval(cachedGCInterval, 0.1), Equals, 10*time.Second)
 	option.Config.ConntrackGCInterval = oldInterval
-	c.Assert(GetInterval(0.1), Equals, time.Minute)
+	c.Assert(GetInterval(cachedGCInterval, 0.1), Equals, time.Minute)
 
 	// Setting ConntrackGCMaxInterval limits the maximum interval
 	oldMaxInterval := option.Config.ConntrackGCMaxInterval
 	option.Config.ConntrackGCMaxInterval = 20 * time.Second
-	c.Assert(GetInterval(0.1), Equals, 20*time.Second)
+	c.Assert(GetInterval(cachedGCInterval, 0.1), Equals, 20*time.Second)
 	option.Config.ConntrackGCMaxInterval = oldMaxInterval
-	c.Assert(GetInterval(0.1), Equals, time.Minute)
+	c.Assert(GetInterval(cachedGCInterval, 0.1), Equals, time.Minute)
 
 	cachedGCInterval = time.Duration(0)
 }
