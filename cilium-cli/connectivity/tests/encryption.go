@@ -54,11 +54,20 @@ func getInterNodeIface(ctx context.Context, t *check.Test, clientHost *check.Pod
 
 	device := strings.TrimRight(dev.String(), "\n\r")
 
-	// When tunneling is enabled, and the traffic is routed to the cilium IP space
-	// we want to capture on the tunnel interface.
-	if tunnelFeat, ok := t.Context().Feature(features.Tunnel); ok &&
-		tunnelFeat.Enabled && device == defaults.HostDevice {
-		return "cilium_" + tunnelFeat.Mode // E.g. cilium_vxlan
+	if tunnelFeat, ok := t.Context().Feature(features.Tunnel); ok && tunnelFeat.Enabled {
+		// When tunneling is enabled, and the traffic is routed to the cilium IP space
+		// we want to capture on the tunnel interface.
+		if device == defaults.HostDevice {
+			return "cilium_" + tunnelFeat.Mode // E.g. cilium_vxlan
+		}
+
+		// When both tunneling and host firewall is enabled, traffic from a pod
+		// to a remote nodes gets forwarded through the tunnel to preserve the
+		// source identity.
+		if hf, ok := t.Context().Feature(features.HostFirewall); ok && hf.Enabled &&
+			clientHost.Address(ipFam) != srcIP {
+			return "cilium_" + tunnelFeat.Mode // E.g. cilium_vxlan
+		}
 	}
 
 	return device
