@@ -11,6 +11,8 @@ import (
 	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
+	grpc_stats_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_stats/v3"
+	grpc_web_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_web/v3"
 	envoy_extensions_filters_http_router_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
 	envoy_extensions_listener_tls_inspector_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/listener/tls_inspector/v3"
 	http_connection_manager_v3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -57,6 +59,21 @@ var httpInsecureListenerXDSResource = toAny(&envoy_config_listener.Listener{
 							UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
 							SkipXffAppend:    false,
 							HttpFilters: []*http_connection_manager_v3.HttpFilter{
+								{
+									Name: "envoy.filters.http.grpc_web",
+									ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
+										TypedConfig: toAny(&grpc_web_v3.GrpcWeb{}),
+									},
+								},
+								{
+									Name: "envoy.filters.http.grpc_stats",
+									ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{
+										TypedConfig: toAny(&grpc_stats_v3.FilterConfig{
+											EmitFilterState:     true,
+											EnableUpstreamStats: true,
+										}),
+									},
+								},
 								{
 									Name: "envoy.filters.http.router",
 									ConfigType: &http_connection_manager_v3.HttpFilter_TypedConfig{

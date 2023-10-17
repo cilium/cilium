@@ -4,6 +4,8 @@
 package translation
 
 import (
+	grpcStatsv3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_stats/v3"
+	grpcWebv3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/grpc_web/v3"
 	httpRouterv3 "github.com/cilium/proxy/go/envoy/extensions/filters/http/router/v3"
 	httpConnectionManagerv3 "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
@@ -28,6 +30,21 @@ func NewHTTPConnectionManager(name, routeName string, mutationFunc ...HttpConnec
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: true},
 		SkipXffAppend:    false,
 		HttpFilters: []*httpConnectionManagerv3.HttpFilter{
+			{
+				Name: "envoy.filters.http.grpc_web",
+				ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+					TypedConfig: toAny(&grpcWebv3.GrpcWeb{}),
+				},
+			},
+			{
+				Name: "envoy.filters.http.grpc_stats",
+				ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
+					TypedConfig: toAny(&grpcStatsv3.FilterConfig{
+						EmitFilterState:     true,
+						EnableUpstreamStats: true,
+					}),
+				},
+			},
 			{
 				Name: "envoy.filters.http.router",
 				ConfigType: &httpConnectionManagerv3.HttpFilter_TypedConfig{
