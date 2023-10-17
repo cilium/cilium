@@ -679,34 +679,6 @@ func (c *Collector) Run() error {
 			},
 		},
 		{
-			Description: "Collecting CiliumClusterwideEnvoyConfigs",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumClusterwideEnvoyConfigs(ctx, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect CiliumClusterwideEnvoyConfigs: %w", err)
-				}
-				if err := c.WriteYAML(ciliumClusterwideEnvoyConfigsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect CiliumClusterwideEnvoyConfigs: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting CiliumEnvoyConfigs",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				v, err := c.Client.ListCiliumEnvoyConfigs(ctx, corev1.NamespaceAll, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect CiliumEnvoyConfigs: %w", err)
-				}
-				if err := c.WriteYAML(ciliumEnvoyConfigsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect CiliumEnvoyConfigs: %w", err)
-				}
-				return nil
-			},
-		},
-		{
 			Description: "Collecting Cilium BGP Peering Policies",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
@@ -1399,6 +1371,9 @@ func (c *Collector) Run() error {
 	if c.FeatureSet[features.GatewayAPI].Enabled {
 		tasks = append(tasks, c.getGatewayAPITasks()...)
 	}
+	if c.FeatureSet[features.EnableEnvoyConfig].Enabled {
+		tasks = append(tasks, c.getEnvoyConfigTasks()...)
+	}
 
 	// Adjust the worker count to make enough headroom for tasks that submit sub-tasks.
 	// This is necessary because 'Submit' is blocking.
@@ -1711,6 +1686,39 @@ func (c *Collector) getGatewayAPITasks() []Task {
 				}
 				if err := c.WriteYAML(udpRoutesFileName, v); err != nil {
 					return fmt.Errorf("failed to collect UDPRoute entries: %w", err)
+				}
+				return nil
+			},
+		},
+	}
+}
+
+func (c *Collector) getEnvoyConfigTasks() []Task {
+	return []Task{
+		{
+			Description: "Collecting CiliumClusterwideEnvoyConfigs",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumClusterwideEnvoyConfigs(ctx, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect CiliumClusterwideEnvoyConfigs: %w", err)
+				}
+				if err := c.WriteYAML(ciliumClusterwideEnvoyConfigsFileName, v); err != nil {
+					return fmt.Errorf("failed to collect CiliumClusterwideEnvoyConfigs: %w", err)
+				}
+				return nil
+			},
+		},
+		{
+			Description: "Collecting CiliumEnvoyConfigs",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				v, err := c.Client.ListCiliumEnvoyConfigs(ctx, corev1.NamespaceAll, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect CiliumEnvoyConfigs: %w", err)
+				}
+				if err := c.WriteYAML(ciliumEnvoyConfigsFileName, v); err != nil {
+					return fmt.Errorf("failed to collect CiliumEnvoyConfigs: %w", err)
 				}
 				return nil
 			},
