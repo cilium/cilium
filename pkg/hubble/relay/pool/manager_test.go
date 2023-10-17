@@ -317,10 +317,10 @@ func TestPeerManager(t *testing.T) {
 				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
 					return testutils.FakeClientConn{
 						OnGetState: func() connectivity.State {
+							once.Do(func() { close(done) })
 							return connectivity.TransientFailure
 						},
 						OnClose: func() error {
-							once.Do(func() { close(done) })
 							return nil
 						},
 					}, nil

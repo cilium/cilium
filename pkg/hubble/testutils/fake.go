@@ -201,28 +201,18 @@ func (b FakePeerClientBuilder) Client(target string) (peerTypes.Client, error) {
 	panic("OnClient not set")
 }
 
-// FakePeerListReporter is used for unit tests and implements the
+// FakePeerLister is used for unit tests and implements the
 // relay/observer.PeerListReporter interface.
-type FakePeerListReporter struct {
-	OnList          func() []poolTypes.Peer
-	OnReportOffline func(name string)
+type FakePeerLister struct {
+	OnList func() []poolTypes.Peer
 }
 
 // List implements relay/observer.PeerListReporter.List.
-func (r *FakePeerListReporter) List() []poolTypes.Peer {
+func (r *FakePeerLister) List() []poolTypes.Peer {
 	if r.OnList != nil {
 		return r.OnList()
 	}
 	panic("OnList not set")
-}
-
-// ReportOffline implements relay/observer.PeerListReporter.ReportOffline.
-func (r *FakePeerListReporter) ReportOffline(name string) {
-	if r.OnReportOffline != nil {
-		r.OnReportOffline(name)
-		return
-	}
-	panic("OnReportOffline not set")
 }
 
 // FakeClientConn is used for unit tests and implements the
