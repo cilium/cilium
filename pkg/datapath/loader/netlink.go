@@ -433,7 +433,7 @@ func addHostDeviceAddr(hostDev netlink.Link, ipv4, ipv6 net.IP) error {
 		addr := netlink.Addr{
 			IPNet: &net.IPNet{
 				IP:   ipv6,
-				Mask: net.CIDRMask(64, 128), // corresponds to /64
+				Mask: net.CIDRMask(128, 128), // corresponds to /128
 			},
 		}
 
