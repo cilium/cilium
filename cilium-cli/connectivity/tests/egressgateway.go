@@ -235,8 +235,10 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 		client := client
 
 		for _, externalEcho := range ct.ExternalEchoPods() {
+			externalEcho := externalEcho.ToEchoIPPod()
+
 			t.NewAction(s, fmt.Sprintf("curl-external-echo-pod-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlClientIPCommand(externalEcho, features.IPFamilyV4))
+				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4))
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(egressGatewayNodeInternalIP) {
@@ -367,8 +369,10 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 		client := client
 
 		for _, externalEcho := range ct.ExternalEchoPods() {
+			externalEcho := externalEcho.ToEchoIPPod()
+
 			t.NewAction(s, fmt.Sprintf("curl-%d", i), &client, externalEcho, features.IPFamilyV4).Run(func(a *check.Action) {
-				a.ExecInPod(ctx, ct.CurlClientIPCommand(externalEcho, features.IPFamilyV4))
+				a.ExecInPod(ctx, ct.CurlCommandWithOutput(externalEcho, features.IPFamilyV4))
 				clientIP := extractClientIPFromResponse(a.CmdOutput())
 
 				if !clientIP.Equal(net.ParseIP(client.Pod.Status.HostIP)) {
