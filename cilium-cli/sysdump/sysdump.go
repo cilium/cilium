@@ -489,6 +489,9 @@ func (c *Collector) Run() error {
 		},
 	}
 
+	// task that needs to be executed "serially" (i.e: not concurrently with other tasks).
+	var serialTasks []Task
+
 	ciliumTasks := []Task{
 		{
 			Description: "Collecting Cilium network policies",
@@ -1375,6 +1378,54 @@ func (c *Collector) Run() error {
 		tasks = append(tasks, c.getEnvoyConfigTasks()...)
 	}
 
+	// First, run each serial task in its own workerpool.
+	var r []workerpool.Task
+	for i, t := range serialTasks {
+		t := t
+		if c.shouldSkipTask(t) {
+			c.logDebug("Skipping %q", t.Description)
+			continue
+		}
+
+		var wg sync.WaitGroup
+		if t.CreatesSubtasks {
+			wg.Add(1)
+		}
+
+		// Adjust the worker count to make enough headroom for tasks that submit sub-tasks.
+		// This is necessary because 'Submit' is blocking.
+		wc := 1
+		if t.CreatesSubtasks {
+			wc++
+		}
+		c.Pool = workerpool.New(wc)
+
+		// Add the serial task to the worker pool.
+		if err := c.Pool.Submit(fmt.Sprintf("[%d] %s", len(tasks)+i, t.Description), func(ctx context.Context) error {
+			if t.CreatesSubtasks {
+				defer wg.Done()
+			}
+			c.logTask(t.Description)
+			defer c.logDebug("Finished %q", t.Description)
+			return t.Task(ctx)
+		}); err != nil {
+			return fmt.Errorf("failed to submit task to the worker pool: %w", err)
+		}
+
+		// Wait for the subtasks to be submitted and then call 'Drain' to wait for them to finish.
+		wg.Wait()
+		results, err := c.Pool.Drain()
+		if err != nil {
+			return fmt.Errorf("failed to drain the serial tasks worker pool: %w", err)
+		}
+		// Close the worker Pool.
+		if err := c.Pool.Close(); err != nil {
+			return fmt.Errorf("failed to close the serial tasks worker pool: %w", err)
+		}
+
+		r = append(r, results...)
+	}
+
 	// Adjust the worker count to make enough headroom for tasks that submit sub-tasks.
 	// This is necessary because 'Submit' is blocking.
 	wc := 1
@@ -1414,10 +1465,11 @@ func (c *Collector) Run() error {
 
 	// Wait for the all subtasks to be submitted and then call 'Drain' to wait for everything to finish.
 	c.subtasksWg.Wait()
-	r, err := c.Pool.Drain()
+	results, err := c.Pool.Drain()
 	if err != nil {
 		return fmt.Errorf("failed to drain the worker pool: %w", err)
 	}
+	r = append(r, results...)
 	// Close the worker Pool.
 	if err := c.Pool.Close(); err != nil {
 		return fmt.Errorf("failed to close the worker pool: %w", err)
