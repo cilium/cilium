@@ -14,6 +14,8 @@ import (
 
 const allowedDNSCharsREGroup = "[-a-zA-Z0-9_]"
 
+const enhancedDNSCharsREGroup = "[-a-zA-Z0-9_.]"
+
 // MatchAllAnchoredPattern is the simplest pattern that match all inputs. This resulting
 // parsed regular expression is the same as an empty string regex (""), but this
 // value is easier to reason about when serializing to and from json.
@@ -100,8 +102,14 @@ func escapeRegexpCharacters(pattern string) string {
 	// base case. "." becomes a literal .
 	pattern = strings.Replace(pattern, ".", "[.]", -1)
 
+        // ** becomes [-a-zA-Z0-9_.]#, # to bypass the next line
+	pattern = strings.Replace(pattern, "**", enhancedDNSCharsREGroup+"#", -1)
+	
 	// base case. * becomes .*, but only for DNS valid characters
 	// NOTE: this only works because the case above does not leave the *
 	pattern = strings.Replace(pattern, "*", allowedDNSCharsREGroup+"*", -1)
+
+        // # becomes *
+	pattern = strings.Replace(pattern, "#", "*", -1)
 	return pattern
 }
